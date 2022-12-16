@@ -21,7 +21,7 @@ import com.daml.lf.engine.{
 }
 import com.daml.lf.transaction.{Node, SubmittedTransaction, Transaction}
 import com.daml.logging.LoggingContext
-import com.daml.metrics.{Metrics, Timed}
+import com.daml.metrics.{Metrics, Timed, Tracked}
 import com.daml.platform.apiserver.services.ErrorCause
 import com.daml.platform.packages.DeduplicatingPackageLoader
 import scalaz.syntax.tag._
@@ -126,7 +126,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
   )(implicit
       loggingContext: LoggingContext
   ): Future[Result[(SubmittedTransaction, Transaction.Metadata)]] =
-    Timed.trackedFuture(
+    Tracked.future(
       metrics.daml.execution.engineRunning,
       Future(trackSyncExecution(interpretationTimeNanos) {
         // The actAs and readAs parties are used for two kinds of checks by the ledger API server:
@@ -180,7 +180,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
               lookupActiveContractTime.addAndGet(System.nanoTime() - start)
               lookupActiveContractCount.incrementAndGet()
               resolveStep(
-                Timed.trackedValue(
+                Tracked.value(
                   metrics.daml.execution.engineRunning,
                   trackSyncExecution(interpretationTimeNanos)(resume(instance)),
                 )
@@ -198,7 +198,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
               lookupContractKeyTime.addAndGet(System.nanoTime() - start)
               lookupContractKeyCount.incrementAndGet()
               resolveStep(
-                Timed.trackedValue(
+                Tracked.value(
                   metrics.daml.execution.engineRunning,
                   trackSyncExecution(interpretationTimeNanos)(resume(contractId)),
                 )
@@ -214,7 +214,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
             )
             .flatMap { maybePackage =>
               resolveStep(
-                Timed.trackedValue(
+                Tracked.value(
                   metrics.daml.execution.engineRunning,
                   trackSyncExecution(interpretationTimeNanos)(resume(maybePackage)),
                 )
