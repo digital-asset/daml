@@ -723,6 +723,22 @@ private[lf] class Runner private (
     (initialStateFree, evaluatedUpdate)
   }
 
+  private[this] def conflateMsgValue: TriggerContextualFlow[SValue, SValue, NotUsed] = {
+    val noop = Flow.fromFunction[TriggerContext[SValue], TriggerContext[SValue]](identity)
+
+    if (trigger.defn.version < Trigger.Version.`2.6`) {
+      noop
+    } else {
+      noop
+        .conflateWithSeed { case ctx @ Ctx(_, value, _) =>
+          ctx.copy(value = BackStack.empty :+ value)
+        } { case (ctx @ Ctx(_, stack, _), Ctx(_, value, _)) =>
+          ctx.copy(value = stack :+ value)
+        }
+        .map(_.map(stack => SList(stack.toImmArray.toFrontStack)))
+    }
+  }
+
   private[this] def encodeMsgs: TriggerContextualFlow[TriggerMsg, SValue, NotUsed] =
     Flow fromFunction {
       case ctx @ Ctx(_, TriggerMsg.Transaction(transaction), _) =>
