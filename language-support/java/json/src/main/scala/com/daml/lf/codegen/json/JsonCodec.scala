@@ -11,9 +11,7 @@ import spray.json.JsValue
 final class JsonCodec(encodeDecimalAsString: Boolean, encodeInt64AsString: Boolean) {
   val apiCodec = new ApiCodecCompressed(encodeDecimalAsString, encodeInt64AsString)
 
-  /** Invoke `toValue()` method of generated java classes to get the `javaapi.data.Value`.
-    *  Then use this method to get Json value.
-    */
+  /** Converts `javaapi.data.Value` to `JsValue`. */
   def toJsValue(value: Value): JsValue =
     apiCodec.apiValueToJsValue(ValueConversion.toLfValue(value))
 }
