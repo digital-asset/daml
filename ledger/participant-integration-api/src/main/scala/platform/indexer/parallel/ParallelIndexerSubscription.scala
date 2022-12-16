@@ -46,7 +46,9 @@ private[platform] case class ParallelIndexerSubscription[DB_BATCH](
     stringInterningView: StringInterning with InternizingStringInterningView,
 ) {
   import ParallelIndexerSubscription._
-
+  private implicit val metricsContext: MetricsContext = MetricsContext(
+    "participant_id" -> participantId
+  )
   def apply(
       inputMapperExecutor: Executor,
       batcherExecutor: Executor,
@@ -65,7 +67,7 @@ private[platform] case class ParallelIndexerSubscription[DB_BATCH](
               translation = translation,
               compressionStrategy = compressionStrategy,
             ),
-            UpdateToMeteringDbDto(),
+            UpdateToMeteringDbDto(metrics = metrics.daml.indexerEvents),
           )
         ),
         seqMapperZero =
