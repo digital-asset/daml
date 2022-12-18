@@ -63,7 +63,7 @@ service PartyManagementService {
   rpc AllocateParty (AllocatePartyRequest) returns (AllocatePartyResponse);
 
   // Update selected modifiable participant-local attributes of a party details resource.
-  // Can only update the participant's local information for local parties.
+  // Can update the participant's local information for local parties.
   rpc UpdatePartyDetails (UpdatePartyDetailsRequest) returns (UpdatePartyDetailsResponse);
 }
 
