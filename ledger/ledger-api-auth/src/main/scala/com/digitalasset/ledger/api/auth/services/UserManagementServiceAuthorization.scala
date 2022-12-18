@@ -31,7 +31,7 @@ private[daml] final class UserManagementServiceAuthorization(
   override def createUser(request: CreateUserRequest): Future[CreateUserResponse] =
     request.user match {
       case Some(user) =>
-        authorizer.requireIDPContext(user.identityProviderId, service.createUser)(request)
+        authorizer.requireAdminIDPContext(user.identityProviderId, service.createUser)(request)
       case None =>
         authorizer.requireAdminOrIDPAdminClaims(service.createUser)(request)
     }
@@ -44,22 +44,22 @@ private[daml] final class UserManagementServiceAuthorization(
           request.copy(userId = userId)
         )
       case Success(None) =>
-        authorizer.requireIDPContext(request.identityProviderId, service.getUser)(request)
+        authorizer.requireAdminIDPContext(request.identityProviderId, service.getUser)(request)
     }
 
   override def deleteUser(request: DeleteUserRequest): Future[DeleteUserResponse] =
-    authorizer.requireIDPContext(request.identityProviderId, service.deleteUser)(request)
+    authorizer.requireAdminIDPContext(request.identityProviderId, service.deleteUser)(request)
 
   override def listUsers(request: ListUsersRequest): Future[ListUsersResponse] =
-    authorizer.requireIDPContext(request.identityProviderId, service.listUsers)(request)
+    authorizer.requireAdminIDPContext(request.identityProviderId, service.listUsers)(request)
 
   override def grantUserRights(request: GrantUserRightsRequest): Future[GrantUserRightsResponse] =
-    authorizer.requireIDPContext(request.identityProviderId, service.grantUserRights)(request)
+    authorizer.requireAdminIDPContext(request.identityProviderId, service.grantUserRights)(request)
 
   override def revokeUserRights(
       request: RevokeUserRightsRequest
   ): Future[RevokeUserRightsResponse] =
-    authorizer.requireIDPContext(request.identityProviderId, service.revokeUserRights)(request)
+    authorizer.requireAdminIDPContext(request.identityProviderId, service.revokeUserRights)(request)
 
   override def listUserRights(request: ListUserRightsRequest): Future[ListUserRightsResponse] =
     defaultToAuthenticatedUser(request.userId) match {
@@ -69,13 +69,15 @@ private[daml] final class UserManagementServiceAuthorization(
           request.copy(userId = userId)
         )
       case Success(None) =>
-        authorizer.requireIDPContext(request.identityProviderId, service.listUserRights)(request)
+        authorizer.requireAdminIDPContext(request.identityProviderId, service.listUserRights)(
+          request
+        )
     }
 
   override def updateUser(request: UpdateUserRequest): Future[UpdateUserResponse] =
     request.user match {
       case Some(user) =>
-        authorizer.requireIDPContext(user.identityProviderId, service.updateUser)(
+        authorizer.requireAdminIDPContext(user.identityProviderId, service.updateUser)(
           request
         )
       case None =>

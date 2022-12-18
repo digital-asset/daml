@@ -82,7 +82,7 @@ final class Authorizer(
       }
     }
 
-  def requireIDPContext[Req, Res](
+  def requireAdminIDPContext[Req, Res](
       identityProviderId: String,
       call: Req => Future[Res],
   ): Req => Future[Res] =
@@ -90,6 +90,18 @@ final class Authorizer(
       for {
         _ <- valid(claims)
         _ <- claims.isAdminOrIDPAdmin
+        requestIdentityProviderId = IdentityProviderId.fromString(identityProviderId).toOption
+        _ <- validateRequestIdentityProviderId(requestIdentityProviderId, claims)
+      } yield ()
+    }
+
+  def requireIDPContext[Req, Res](
+      identityProviderId: String,
+      call: Req => Future[Res],
+  ): Req => Future[Res] =
+    authorize(call) { claims =>
+      for {
+        _ <- valid(claims)
         requestIdentityProviderId = IdentityProviderId.fromString(identityProviderId).toOption
         _ <- validateRequestIdentityProviderId(requestIdentityProviderId, claims)
       } yield ()
