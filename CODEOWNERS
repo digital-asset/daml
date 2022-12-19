@@ -21,7 +21,6 @@ azure-cron.yml      @garyverhaegen-da
 NOTICES     @garyverhaegen-da @dasormeter
 
 # Language
-/daml-assistant/    @remyhaemmerle-da @ray-roestenburg-da
 /daml-script/       @remyhaemmerle-da
 /triggers/          @remyhaemmerle-da
 /compatibility/     @garyverhaegen-da
@@ -70,7 +69,8 @@ NOTICES     @garyverhaegen-da @dasormeter
 /language-support/scala/    @S11001001 @ray-roestenburg-da
 /language-support/ts/       @garyverhaegen-da @ray-roestenburg-da
 
-# Application Runtime
+# Ledger Client
+/daml-assistant/       @ray-roestenburg-da
 /ledger-service/       @ray-roestenburg-da
 /navigator/            @ray-roestenburg-da
 /runtime-components/   @ray-roestenburg-da
