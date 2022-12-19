@@ -6,6 +6,7 @@ package com.daml.ledger.rxjava;
 import com.daml.ledger.javaapi.data.CommandsSubmission;
 import com.daml.ledger.javaapi.data.Transaction;
 import com.daml.ledger.javaapi.data.TransactionTree;
+import com.daml.ledger.javaapi.data.UpdateSubmission;
 import com.daml.ledger.javaapi.data.codegen.HasCommands;
 import com.daml.ledger.javaapi.data.codegen.Update;
 import com.google.protobuf.Empty;
@@ -466,7 +467,14 @@ public interface CommandClient {
       @NonNull List<@NonNull ? extends HasCommands> commands,
       @NonNull String accessToken);
 
+  /**
+   * @deprecated since 2.5. Please use {@link #submitAndWaitForResult(UpdateSubmission)}
+   *     instead
+   */
+  @Deprecated
   <U> Single<U> submitAndWaitForResult(CommandsSubmission submission, @NonNull Update<U> update);
+
+  <U> Single<U> submitAndWaitForResult(@NonNull UpdateSubmission<U> submission);
 
   /**
    * @deprecated since 2.5. Please use {@link #submitAndWaitForResult(CommandsSubmission, Update)}

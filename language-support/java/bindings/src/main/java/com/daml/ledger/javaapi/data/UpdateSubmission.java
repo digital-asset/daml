@@ -12,25 +12,27 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
+
+import com.daml.ledger.javaapi.data.codegen.Update;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
 /**
- * This class can be used to build a valid submission. It provides {@link #create(String, String, List)}
+ * This class can be used to build a valid submission for an Update. It provides {@link #create(String, String, Update)}
  * for initial creation and methods to set optional parameters
  * e.g {@link #withActAs(List)}, {@link #withWorkflowId(String)} etc.
  *
  * Usage:
  * <pre>
- *   var submission = CommandsSubmission.create(applicationId, commandId, commands)
+ *   var submission = UpdateSubmission.create(applicationId, commandId, update)
  *                                   .withAccessToken(token)
  *                                   .withParty(party)
  *                                   .with...
  * <pre/>
  */
-public final class CommandsSubmission {
+public final class UpdateSubmission<U> {
   private String applicationId;
   private String commandId;
-  private List<@NonNull ? extends HasCommands> commands;
+  private Update<U> update;
 
   private Optional<String> workflowId;
   private List<@NonNull String> actAs;
@@ -40,10 +42,10 @@ public final class CommandsSubmission {
   private Optional<Duration> deduplicationTime;
   private Optional<String> accessToken;
 
-  protected CommandsSubmission(
+  private UpdateSubmission(
       String applicationId,
       String commandId,
-      List<@NonNull ? extends HasCommands> commands,
+      Update<U> update,
       List<@NonNull String> actAs,
       List<@NonNull String> readAs,
       Optional<String> workflowId,
@@ -59,16 +61,16 @@ public final class CommandsSubmission {
     this.minLedgerTimeAbs = minLedgerTimeAbs;
     this.minLedgerTimeRel = minLedgerTimeRel;
     this.deduplicationTime = deduplicationTime;
-    this.commands = commands;
+    this.update = update;
     this.accessToken = accessToken;
   }
 
-  public static CommandsSubmission create(
-      String applicationId, String commandId, List<@NonNull ? extends HasCommands> commands) {
-    return new CommandsSubmission(
+  public static <U> UpdateSubmission<U> create(
+      String applicationId, String commandId, Update<U> update) {
+    return new UpdateSubmission<U>(
         applicationId,
         commandId,
-        commands,
+        update,
         emptyList(),
         emptyList(),
         empty(),
@@ -110,19 +112,19 @@ public final class CommandsSubmission {
     return deduplicationTime;
   }
 
-  public List<? extends HasCommands> getCommands() {
-    return unmodifiableList(commands);
+  public Update<U> getUpdate() {
+    return update;
   }
 
   public Optional<String> getAccessToken() {
     return accessToken;
   }
 
-  public CommandsSubmission withWorkflowId(String workflowId) {
-    return new CommandsSubmission(
+  public UpdateSubmission<U> withWorkflowId(String workflowId) {
+    return new UpdateSubmission<U>(
         applicationId,
         commandId,
-        commands,
+        update,
         actAs,
         readAs,
         Optional.of(workflowId),
@@ -132,11 +134,11 @@ public final class CommandsSubmission {
         accessToken);
   }
 
-  public CommandsSubmission withActAs(String actAs) {
-    return new CommandsSubmission(
+  public UpdateSubmission<U> withActAs(String actAs) {
+    return new UpdateSubmission<U>(
         applicationId,
         commandId,
-        commands,
+        update,
         List.of(actAs),
         readAs,
         workflowId,
@@ -146,11 +148,11 @@ public final class CommandsSubmission {
         accessToken);
   }
 
-  public CommandsSubmission withActAs(List<@NonNull String> actAs) {
-    return new CommandsSubmission(
+  public UpdateSubmission<U> withActAs(List<@NonNull String> actAs) {
+    return new UpdateSubmission<U>(
         applicationId,
         commandId,
-        commands,
+        update,
         actAs,
         readAs,
         workflowId,
@@ -160,11 +162,11 @@ public final class CommandsSubmission {
         accessToken);
   }
 
-  public CommandsSubmission withReadAs(List<@NonNull String> readAs) {
-    return new CommandsSubmission(
+  public UpdateSubmission<U> withReadAs(List<@NonNull String> readAs) {
+    return new UpdateSubmission<U>(
         applicationId,
         commandId,
-        commands,
+        update,
         actAs,
         readAs,
         workflowId,
@@ -174,11 +176,11 @@ public final class CommandsSubmission {
         accessToken);
   }
 
-  public CommandsSubmission withMinLedgerTimeAbs(Optional<Instant> minLedgerTimeAbs) {
-    return new CommandsSubmission(
+  public UpdateSubmission<U> withMinLedgerTimeAbs(Optional<Instant> minLedgerTimeAbs) {
+    return new UpdateSubmission<U>(
         applicationId,
         commandId,
-        commands,
+        update,
         actAs,
         readAs,
         workflowId,
@@ -188,11 +190,11 @@ public final class CommandsSubmission {
         accessToken);
   }
 
-  public CommandsSubmission withMinLedgerTimeRel(Optional<Duration> minLedgerTimeRel) {
-    return new CommandsSubmission(
+  public UpdateSubmission<U> withMinLedgerTimeRel(Optional<Duration> minLedgerTimeRel) {
+    return new UpdateSubmission<U>(
         applicationId,
         commandId,
-        commands,
+        update,
         actAs,
         readAs,
         workflowId,
@@ -202,11 +204,11 @@ public final class CommandsSubmission {
         accessToken);
   }
 
-  public CommandsSubmission withDeduplicationTime(Optional<Duration> deduplicationTime) {
-    return new CommandsSubmission(
+  public UpdateSubmission<U> withDeduplicationTime(Optional<Duration> deduplicationTime) {
+    return new UpdateSubmission<U>(
         applicationId,
         commandId,
-        commands,
+        update,
         actAs,
         readAs,
         workflowId,
@@ -216,11 +218,11 @@ public final class CommandsSubmission {
         accessToken);
   }
 
-  public CommandsSubmission withCommands(List<@NonNull ? extends HasCommands> commands) {
-    return new CommandsSubmission(
+  public UpdateSubmission<U> withAccessToken(Optional<String> accessToken) {
+    return new UpdateSubmission<U>(
         applicationId,
         commandId,
-        commands,
+        update,
         actAs,
         readAs,
         workflowId,
@@ -229,18 +231,18 @@ public final class CommandsSubmission {
         deduplicationTime,
         accessToken);
   }
-
-  public CommandsSubmission withAccessToken(Optional<String> accessToken) {
+  public CommandsSubmission toCommandsSubmission() {
     return new CommandsSubmission(
-        applicationId,
-        commandId,
-        commands,
-        actAs,
-        readAs,
-        workflowId,
-        minLedgerTimeAbs,
-        minLedgerTimeRel,
-        deduplicationTime,
-        accessToken);
+      applicationId,
+      commandId,
+      update.commands(),
+      actAs,
+      readAs,
+      workflowId,
+      minLedgerTimeAbs,
+      minLedgerTimeRel,
+      deduplicationTime,
+      accessToken
+    );
   }
 }

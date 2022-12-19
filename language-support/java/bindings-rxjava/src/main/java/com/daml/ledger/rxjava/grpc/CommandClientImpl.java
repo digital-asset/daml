@@ -956,6 +956,34 @@ public class CommandClientImpl implements CommandClient {
 
   @Override
   public <U> Single<U> submitAndWaitForResult(
+      @NonNull UpdateSubmission<U> submission) {
+    return submission.getUpdate().foldUpdate(
+        new Update.FoldUpdate<>() {
+          @Override
+          public <CtId> Single<U> created(Update.CreateUpdate<CtId, U> create) {
+            var transaction = submitAndWaitForTransaction(submission.toCommandsSubmission());
+            return transaction.map(
+                tx -> {
+                  var createdEvent = singleCreatedEvent(tx.getEvents());
+                  return create.k.apply(Created.fromEvent(create.createdContractId, createdEvent));
+                });
+          }
+
+          @Override
+          public <R> Single<U> exercised(Update.ExerciseUpdate<R, U> exercise) {
+            var transactionTree = submitAndWaitForTransactionTree(submission.toCommandsSubmission());
+            return transactionTree.map(
+                txTree -> {
+                  var exercisedEvent = firstExercisedEvent(txTree);
+                  return exercise.k.apply(
+                      Exercised.fromEvent(exercise.returnTypeDecoder, exercisedEvent));
+                });
+          }
+        });
+  }
+  @Deprecated
+  @Override
+  public <U> Single<U> submitAndWaitForResult(
       CommandsSubmission submission, @NonNull Update<U> update) {
     return update.foldUpdate(
         new Update.FoldUpdate<>() {
