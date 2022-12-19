@@ -323,9 +323,18 @@ private[trigger] object Cli {
       .action {
         case ("json", cli) => cli.copy(logEncoder = LogEncoder.Json)
         case ("plain", cli) => cli.copy(logEncoder = LogEncoder.Plain)
-        case (other, _) =>
-          throw new IllegalArgumentException(s"Unsupported logging encoder $other")
+        case (other, _) => throw new IllegalArgumentException(s"Unsupported logging encoder $other")
       }
+
+    opt[Long]("max-batch-size")
+      .optional()
+      .text(
+        s"maximal number of message processed between two high-level rule triggers. Defaults to ${DefaultTriggerRunnerConfig.maximumBatchSize}"
+      )
+      .action((size, cli) =>
+        if (size > 0) cli.copy(triggerConfig = cli.triggerConfig.copy(maximumBatchSize = 1))
+        else throw new IllegalArgumentException(s"batch size must be strictlty positive")
+      )
 
     opt[Unit]("dev-mode-unsafe")
       .action((_, c) => c.copy(compilerConfig = Compiler.Config.Dev))
