@@ -615,16 +615,17 @@ object WebSocketService {
           val (resolvedWithKey, unresolved) = resolveTries
             .toSet[Either[(domain.ContractTypeId.Resolved, LfV), OptionalPkg]]
             .partitionMap(identity)
-          val q = getQ(resolvedWithKey)
-          domain
-            .ResolvedQuery(q.keySet)
-            .leftMap(unsupported => InvalidUserInput(unsupported.errorMsg))
-            .map { rq =>
-              ResolvedQueryRequest(
-                ResolvedContractKeyStreamRequest(rq, request, q, unresolved),
-                this,
-              )
-            }
+          for {
+            resolvedWithKey <- (NonEmpty from resolvedWithKey
+              toRightDisjunction InvalidUserInput(ResolvedQuery.CannotBeEmpty.errorMsg))
+            q = getQ(resolvedWithKey)
+            rq <- domain
+              .ResolvedQuery(q.keySet)
+              .leftMap(unsupported => InvalidUserInput(unsupported.errorMsg))
+          } yield ResolvedQueryRequest(
+            ResolvedContractKeyStreamRequest(rq, request, q, unresolved),
+            this,
+          )
         }
     }
 
