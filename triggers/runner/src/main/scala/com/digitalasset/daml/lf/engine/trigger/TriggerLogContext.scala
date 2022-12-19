@@ -66,6 +66,10 @@ final class TriggerLogContext private (
     f(new TriggerLogContext(loggingContext, entries ++ additionalEntries, span.childSpan(name)))
   }
 
+  def groupWith(context: TriggerLogContext): TriggerLogContext = {
+    new TriggerLogContext(loggingContext, entries, span.groupWith(context.span))
+  }
+
   def logError(message: String, additionalEntries: (String, LoggingValue)*)(implicit
       logger: ContextualizedLogger
   ): Unit = {
@@ -132,6 +136,10 @@ object TriggerLogContext {
 
     def childSpan(name: String): TriggerLogSpan = {
       TriggerLogSpan(path :+ name, parent = Some(id))
+    }
+
+    def groupWith(span: TriggerLogSpan): TriggerLogSpan = {
+      copy(parent = Some(span.id))
     }
   }
 }
