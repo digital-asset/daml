@@ -798,6 +798,7 @@ class EngineTest
               ),
             )
           ),
+          agreementText = "",
         ),
       )
 
@@ -1693,6 +1694,7 @@ class EngineTest
               ),
             )
           ),
+          agreementText = "",
         ),
       )
 
@@ -1746,6 +1748,7 @@ class EngineTest
           signatories = Set(alice),
           stakeholders = Set(alice),
           maybeKeyWithMaintainers = None,
+          agreementText = s"'$alice'", // agreement show party
         ),
       )
 
