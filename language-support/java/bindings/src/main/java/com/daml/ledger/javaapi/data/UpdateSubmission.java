@@ -7,13 +7,11 @@ import static java.util.Collections.emptyList;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Optional.empty;
 
-import com.daml.ledger.javaapi.data.codegen.HasCommands;
+import com.daml.ledger.javaapi.data.codegen.Update;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
-
-import com.daml.ledger.javaapi.data.codegen.Update;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
 /**
@@ -231,18 +229,18 @@ public final class UpdateSubmission<U> {
         deduplicationTime,
         accessToken);
   }
+
   public CommandsSubmission toCommandsSubmission() {
     return new CommandsSubmission(
-      applicationId,
-      commandId,
-      update.commands(),
-      actAs,
-      readAs,
-      workflowId,
-      minLedgerTimeAbs,
-      minLedgerTimeRel,
-      deduplicationTime,
-      accessToken
-    );
+        applicationId,
+        commandId,
+        update.commands(),
+        actAs,
+        readAs,
+        workflowId,
+        minLedgerTimeAbs,
+        minLedgerTimeRel,
+        deduplicationTime,
+        accessToken);
   }
 }

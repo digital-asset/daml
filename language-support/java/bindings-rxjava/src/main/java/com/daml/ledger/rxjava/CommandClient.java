@@ -467,10 +467,7 @@ public interface CommandClient {
       @NonNull List<@NonNull ? extends HasCommands> commands,
       @NonNull String accessToken);
 
-  /**
-   * @deprecated since 2.5. Please use {@link #submitAndWaitForResult(UpdateSubmission)}
-   *     instead
-   */
+  /** @deprecated since 2.5. Please use {@link #submitAndWaitForResult(UpdateSubmission)} instead */
   @Deprecated
   <U> Single<U> submitAndWaitForResult(CommandsSubmission submission, @NonNull Update<U> update);
 
