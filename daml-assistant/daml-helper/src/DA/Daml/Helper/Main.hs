@@ -535,6 +535,7 @@ runCommand = \case
         (if shutdownStdinClose then withCloseOnStdin else id) $
         withCantonPortFile cantonOptions $ \cantonOptions cantonPortFile ->
             withCantonSandbox cantonOptions remainingArguments $ \ph -> do
+                forM_ [stdout, stderr] $ \h -> hSetBuffering h LineBuffering
                 putStrLn "Starting Canton sandbox."
                 sandboxPort <- readPortFileWith decodeCantonSandboxPort (unsafeProcessHandle ph) maxRetries cantonPortFile
                 putStrLn ("Listening at port " <> show sandboxPort)
