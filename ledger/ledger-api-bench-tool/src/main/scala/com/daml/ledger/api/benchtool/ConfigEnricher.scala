@@ -97,20 +97,18 @@ class ConfigEnricher(
     )
   }
 
-  private def convertPartySet(partySetName: String): List[String] =
-    allocatedParties.observerPartySetO match {
-      case None =>
+  private def convertPartySet(partySetName: String): List[String] = {
+    allocatedParties.observerPartySets
+      .collectFirst {
+        case partySet if partySet.partyNamePrefix == partySetName => partySet.parties.map(_.unwrap)
+      }
+      .getOrElse {
+        val partySetNames = allocatedParties.observerPartySets.map(_.partyNamePrefix).mkString(", ")
         sys.error(
-          "Cannot desugar party-set-template-filter as observer party set allocation is missing"
+          s"Expected party set: '${partySetName}' does not match any of the known party set: $partySetNames"
         )
-      case Some(observerPartySet) =>
-        if (observerPartySet.partyNamePrefix == partySetName)
-          observerPartySet.parties.map(_.unwrap)
-        else
-          sys.error(
-            s"Expected party set: '${partySetName}' does not match actual party set: ${observerPartySet.partyNamePrefix}"
-          )
-    }
+      }
+  }
 
   private def enrichFilters(
       filters: List[StreamConfig.PartyFilter]

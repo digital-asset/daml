@@ -193,7 +193,7 @@ object WorkflowConfigParser {
         "consuming_exercises",
         "application_ids",
         "wait_for_submission",
-        "observers_party_set",
+        "observers_party_sets",
       )(FooSubmissionConfig.apply)
 
     implicit val fibonacciSubmissionConfigDecoder: Decoder[FibonacciSubmissionConfig] =

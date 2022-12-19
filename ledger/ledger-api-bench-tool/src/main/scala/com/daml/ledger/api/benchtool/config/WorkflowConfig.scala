@@ -25,7 +25,7 @@ object WorkflowConfig {
     def numberOfExtraSubmitters: Int
     def uniqueParties: Boolean
     def waitForSubmission: Boolean
-    def observerPartySetO: Option[FooSubmissionConfig.PartySet]
+    def observerPartySets: List[FooSubmissionConfig.PartySet]
   }
 
   final case class FibonacciSubmissionConfig(
@@ -37,7 +37,7 @@ object WorkflowConfig {
     override val numberOfObservers = 0
     override val numberOfDivulgees = 0
     override val numberOfExtraSubmitters = 0
-    override val observerPartySetO: Option[FooSubmissionConfig.PartySet] = None
+    override val observerPartySets: List[FooSubmissionConfig.PartySet] = List.empty
   }
 
   final case class FooSubmissionConfig(
@@ -51,7 +51,7 @@ object WorkflowConfig {
       consumingExercises: Option[ConsumingExercises] = None,
       applicationIds: List[FooSubmissionConfig.ApplicationId] = List.empty,
       maybeWaitForSubmission: Option[Boolean] = None,
-      observerPartySetO: Option[FooSubmissionConfig.PartySet] = None,
+      observerPartySets: List[FooSubmissionConfig.PartySet] = List.empty,
   ) extends SubmissionConfig {
     def waitForSubmission: Boolean = maybeWaitForSubmission.getOrElse(true)
   }

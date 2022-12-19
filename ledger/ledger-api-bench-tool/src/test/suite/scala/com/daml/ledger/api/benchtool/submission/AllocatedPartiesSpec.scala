@@ -17,10 +17,12 @@ class AllocatedPartiesSpec extends AnyFlatSpec with Matchers {
         "Obs-1",
         "Div-0",
         "Sub-0",
-        "MyParty-0",
+        "FooParty-0",
+        "FooParty-1",
+        "BarParty-100",
         "MyOtherParty-0",
       ),
-      partySetPrefixO = Some("MyParty"),
+      partySetPrefixes = List("FooParty", "BarParty"),
     ) shouldBe AllocatedParties(
       signatoryO = Some(Primitive.Party("signatory-123")),
       observers = List(
@@ -29,11 +31,15 @@ class AllocatedPartiesSpec extends AnyFlatSpec with Matchers {
       ),
       divulgees = List(Primitive.Party("Div-0")),
       extraSubmitters = List(Primitive.Party("Sub-0")),
-      observerPartySetO = Some(
+      observerPartySets = List(
         AllocatedPartySet(
-          partyNamePrefix = "MyParty",
-          parties = List(Primitive.Party("MyParty-0")),
-        )
+          partyNamePrefix = "FooParty",
+          parties = List(Primitive.Party("FooParty-0"), Primitive.Party("FooParty-1")),
+        ),
+        AllocatedPartySet(
+          partyNamePrefix = "BarParty",
+          parties = List(Primitive.Party("BarParty-100")),
+        ),
       ),
     )
   }
@@ -43,13 +49,13 @@ class AllocatedPartiesSpec extends AnyFlatSpec with Matchers {
       parties = List(
         "signatory-123"
       ),
-      partySetPrefixO = None,
+      partySetPrefixes = List.empty,
     ) shouldBe AllocatedParties(
       signatoryO = Some(Primitive.Party("signatory-123")),
       observers = List.empty,
       divulgees = List.empty,
       extraSubmitters = List.empty,
-      observerPartySetO = None,
+      observerPartySets = List.empty,
     )
   }
 

@@ -5,6 +5,7 @@ package com.daml.ledger.api.benchtool.submission
 
 import com.daml.ledger.api.benchtool.config.WorkflowConfig.SubmissionConfig
 import com.daml.ledger.api.benchtool.services.LedgerApiServices
+import com.daml.ledger.client
 import com.daml.ledger.client.binding.Primitive
 import org.slf4j.LoggerFactory
 
@@ -26,18 +27,17 @@ class PartyAllocating(
       names.divulgeePartyNames(config.numberOfDivulgees, config.uniqueParties)
     val extraSubmittersPartyNames =
       names.extraSubmitterPartyNames(config.numberOfExtraSubmitters, config.uniqueParties)
-    val observersPartySetParties = {
-      config.observerPartySetO.fold(
-        List.empty[String]
-      )(partySet =>
-        names
+    val observersPartySetParties: Map[String, List[String]] = {
+      config.observerPartySets.map { partySet =>
+        val parties = names
           .partyNames(
             prefix = partySet.partyNamePrefix,
             numberOfParties = partySet.count,
             uniqueParties = config.uniqueParties,
           )
           .toList
-      )
+        partySet.partyNamePrefix -> parties
+      }.toMap
     }
     logger.info("Allocating parties...")
     for {
@@ -46,7 +46,12 @@ class PartyAllocating(
       observers <- allocateParties(observerPartyNames, known)
       divulgees <- allocateParties(divulgeePartyNames, known)
       extraSubmitters <- allocateParties(extraSubmittersPartyNames, known)
-      partySetParties <- allocateParties(observersPartySetParties, known)
+      partySetNames = observersPartySetParties.keys
+      partySetParties: Map[String, List[client.binding.Primitive.Party]] <- Future
+        .sequence(partySetNames.map { partySetName =>
+          allocateParties(observersPartySetParties(partySetName), known).map(partySetName -> _)
+        })
+        .map(_.toMap)
     } yield {
       logger.info("Allocating parties completed")
       AllocatedParties(
@@ -54,12 +59,12 @@ class PartyAllocating(
         observers = observers,
         divulgees = divulgees,
         extraSubmitters = extraSubmitters,
-        observerPartySetO = config.observerPartySetO.map(partySetConfig =>
+        observerPartySets = partySetParties.view.map { case (partyName, parties) =>
           AllocatedPartySet(
-            partyNamePrefix = partySetConfig.partyNamePrefix,
-            parties = partySetParties,
+            partyNamePrefix = partyName,
+            parties = parties,
           )
-        ),
+        }.toList,
       )
     }
   }

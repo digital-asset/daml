@@ -40,15 +40,7 @@ object SubmittedDataAnalyzing {
     } yield {
       AllocatedParties.forExistingParties(
         parties = existingParties.toList,
-        partySetPrefixO = {
-          val partySetPrefixes =
-            workflowConfig.streams.flatMap(_.partySetPrefix.iterator).distinct
-          require(
-            partySetPrefixes.size <= 1,
-            s"Found more than one observer party set! ${partySetPrefixes}",
-          )
-          partySetPrefixes.headOption
-        },
+        partySetPrefixes = workflowConfig.streams.flatMap(_.partySetPrefix.iterator).distinct,
       )
     }
   }

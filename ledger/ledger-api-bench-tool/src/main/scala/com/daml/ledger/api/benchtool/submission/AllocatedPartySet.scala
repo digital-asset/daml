@@ -11,7 +11,7 @@ case class AllocatedPartySet(
     parties: List[Primitive.Party],
 ) {
   {
-    val offenders = parties.iterator.filterNot(_.unwrap.startsWith(partyNamePrefix))
+    val offenders = parties.iterator.filterNot(_.unwrap.startsWith(partyNamePrefix)).toList
     require(
       offenders.isEmpty,
       s"All party names in party-set '$partyNamePrefix' must start with prefix $partyNamePrefix. Found offenders: $offenders",
