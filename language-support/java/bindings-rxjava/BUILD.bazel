@@ -47,7 +47,7 @@ da_java_library(
         "@maven//:io_grpc_grpc_stub",
         "@maven//:io_netty_netty_handler",
         "@maven//:io_reactivex_rxjava2_rxjava",
-        "@maven//:org_checkerframework_checker",
+        "@maven//:org_checkerframework_checker_qual",
         "@maven//:org_pcollections_pcollections",
         "@maven//:org_slf4j_slf4j_api",
     ],

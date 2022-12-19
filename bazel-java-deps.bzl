@@ -173,7 +173,7 @@ def install_java_deps():
             "org.apache.commons:commons-lang3:3.9",
             "org.apache.commons:commons-text:1.4",
             "org.awaitility:awaitility:4.2.0",
-            "org.checkerframework:checker:2.5.4",
+            "org.checkerframework:checker:3.28.0",
             "org.flywaydb:flyway-core:8.4.1",
             "org.freemarker:freemarker-gae:2.3.28",
             "org.jline:jline:3.7.1",
