@@ -430,7 +430,8 @@ object WebSocketService {
             sjd: dbbackend.SupportedJdbcDriver.TC
         ): (NonEmpty[Seq[(CtId, doobie.Fragment)]], Map[Int, Int]) = {
           val annotated = q.toSeq.flatMap { case (tpid, nel) =>
-            nel.toVector.map { case ((vp, _), (_, pos)) => (tpid, vp.toSqlWhereClause, pos) }
+            val NonEmpty(nelv) = nel.toVector // XXX use NonEmpty upstream instead
+            nelv.map { case ((vp, _), (_, pos)) => (tpid, vp.toSqlWhereClause, pos) }
           }
           val posMap = annotated.iterator.zipWithIndex.map { case ((_, _, pos), ix) =>
             (ix, pos)
