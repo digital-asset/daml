@@ -8,8 +8,8 @@ import com.daml.lf.value.json.ApiCodecCompressed
 import com.daml.lf.value.json.ApiCodecCompressed.JsonImplicits._
 import spray.json.JsValue
 
-final class JsonCodec(encodeDecimalAsString: Boolean, encodeInt64AsString: Boolean) {
-  val apiCodec = new ApiCodecCompressed(encodeDecimalAsString, encodeInt64AsString)
+final class JsonCodec private(encodeDecimalAsString: Boolean, encodeInt64AsString: Boolean) {
+  private val apiCodec = new ApiCodecCompressed(encodeDecimalAsString, encodeInt64AsString)
 
   /** Converts `javaapi.data.Value` to `JsValue`. */
   def toJsValue(value: Value): JsValue =
@@ -17,7 +17,7 @@ final class JsonCodec(encodeDecimalAsString: Boolean, encodeInt64AsString: Boole
 }
 
 object JsonCodec {
-  def apply() = new JsonCodec(false, false)
+  val encodeAsNumbers = new JsonCodec(false, false)
   def apply(encodeDecimalAsString: Boolean, encodeInt64AsString: Boolean) =
     new JsonCodec(encodeDecimalAsString, encodeInt64AsString)
 }
