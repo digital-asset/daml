@@ -80,7 +80,7 @@ def install_java_deps():
             "com.h2database:h2:2.1.210",
             "com.github.pathikrit:better-files_{}:3.8.0".format(scala_major_version),
             "com.github.tototoshi:scala-csv_{}:1.3.10".format(scala_major_version),
-            "com.lihaoyi:sourcecode_{}:0.2.7".format(scala_major_version),
+            "com.lihaoyi:sourcecode_{}:0.3.0".format(scala_major_version),
             "com.lihaoyi:pprint_{}:0.7.1".format(scala_major_version),
             "com.lihaoyi:sjsonnet_{}:0.3.0".format(scala_major_version),
             "commons-io:commons-io:2.5",
