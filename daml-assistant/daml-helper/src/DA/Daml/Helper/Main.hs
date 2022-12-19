@@ -34,6 +34,7 @@ main :: IO ()
 main = do
     -- Save the runfiles environment to work around
     -- https://gitlab.haskell.org/ghc/ghc/-/issues/18418.
+    forM_ [stdout, stderr] $ \h -> hSetBuffering h LineBuffering
     setRunfilesEnv
     withProgName "daml" $ go `catch` \(e :: DamlHelperError) -> do
         hPutStrLn stderr (displayException e)
@@ -535,7 +536,6 @@ runCommand = \case
         (if shutdownStdinClose then withCloseOnStdin else id) $
         withCantonPortFile cantonOptions $ \cantonOptions cantonPortFile ->
             withCantonSandbox cantonOptions remainingArguments $ \ph -> do
-                forM_ [stdout, stderr] $ \h -> hSetBuffering h LineBuffering
                 putStrLn "Starting Canton sandbox."
                 sandboxPort <- readPortFileWith decodeCantonSandboxPort (unsafeProcessHandle ph) maxRetries cantonPortFile
                 putStrLn ("Listening at port " <> show sandboxPort)
