@@ -83,7 +83,7 @@ def install_java_deps():
             "com.lihaoyi:sourcecode_{}:0.3.0".format(scala_major_version),
             "com.lihaoyi:pprint_{}:0.7.1".format(scala_major_version),
             "com.lihaoyi:sjsonnet_{}:0.3.0".format(scala_major_version),
-            "commons-io:commons-io:2.5",
+            "commons-io:commons-io:2.11.0",
             "com.oracle.database.jdbc:ojdbc8:19.14.0.0",
             "com.sparkjava:spark-core:2.9.1",
             "com.oracle.database.jdbc.debug:ojdbc8_g:19.14.0.0",
