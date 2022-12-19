@@ -16,7 +16,6 @@ import com.daml.platform.store.interning.StringInterning
 class H2EventStorageBackend(ledgerEndCache: LedgerEndCache, stringInterning: StringInterning)
     extends EventStorageBackendTemplate(
       queryStrategy = H2QueryStrategy,
-      eventStrategy = H2EventStrategy,
       ledgerEndCache = ledgerEndCache,
       stringInterning = stringInterning,
       participantAllDivulgedContractsPrunedUpToInclusive =

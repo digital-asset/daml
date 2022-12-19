@@ -98,6 +98,7 @@ sh_test(
         "$(location //ledger/test-common:model-tests-default.dar)",
         "$(location :hidden.dar)",
         "$(location @grpcurl_nix//:bin)",
+        "$(POSIX_DIFF)",
     ],
     data = [
         "//:java",
@@ -122,6 +123,7 @@ sh_test(
     # We get some timeouts during startup with 2 cpus so we set it to 4 to reduce
     # system load.
     tags = ["cpu:4"],
+    toolchains = ["@rules_sh//sh/posix:make_variables"],
     deps = [
         "@bazel_tools//tools/bash/runfiles",
     ],

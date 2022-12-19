@@ -15,7 +15,6 @@ import com.daml.platform.store.interning.StringInterning
 
 class OracleEventStorageBackend(ledgerEndCache: LedgerEndCache, stringInterning: StringInterning)
     extends EventStorageBackendTemplate(
-      eventStrategy = OracleEventStrategy,
       queryStrategy = OracleQueryStrategy,
       ledgerEndCache = ledgerEndCache,
       stringInterning = stringInterning,

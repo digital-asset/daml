@@ -5,7 +5,7 @@ package com.daml.lf.kv.contracts
 
 import com.daml.lf.data.Ref
 import com.daml.lf.kv.ConversionError
-import com.daml.lf.transaction.{TransactionOuterClass, TransactionVersion}
+import com.daml.lf.transaction.{TransactionOuterClass, TransactionVersion, Versioned}
 import com.daml.lf.value.{Value, ValueOuterClass}
 import com.google.protobuf
 import com.google.protobuf.ByteString
@@ -42,15 +42,20 @@ object ContractConversionsSpec {
   private val aDummyName = "dummyName"
   private val aModuleName = "DummyModule"
   private val aPackageId = "-dummyPkg-"
+  private val aAgreement = "agreement"
 
-  private val aContractInstance = Value.VersionedContractInstance(
+  private val aContractInstance = Versioned(
     version = TransactionVersion.VDev,
-    template = Ref.Identifier(
-      Ref.PackageId.assertFromString(aPackageId),
-      Ref.QualifiedName.assertFromString(s"$aModuleName:$aDummyName"),
+    Value.ContractInstanceWithAgreement(
+      Value.ContractInstance(
+        template = Ref.Identifier(
+          Ref.PackageId.assertFromString(aPackageId),
+          Ref.QualifiedName.assertFromString(s"$aModuleName:$aDummyName"),
+        ),
+        arg = Value.ValueUnit,
+      ),
+      agreementText = aAgreement,
     ),
-    arg = Value.ValueUnit,
-    agreementText = "",
   )
 
   private val aRawContractInstance = RawContractInstance(
@@ -63,7 +68,7 @@ object ContractConversionsSpec {
           .addModuleName(aModuleName)
           .addName(aDummyName)
       )
-      .setAgreement("")
+      .setAgreement(aAgreement)
       .setArgVersioned(
         ValueOuterClass.VersionedValue
           .newBuilder()

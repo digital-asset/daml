@@ -157,11 +157,7 @@ class ContractStateCachesSpec extends AnyFlatSpec with Matchers with MockitoSuga
       Some(templateId),
       ImmArray(None -> ValueInt64(id.toLong)),
     )
-    val contractInstance = ContractInstance(
-      templateId,
-      contractArgument,
-      "some agreement",
-    )
+    val contractInstance = ContractInstance(templateId, contractArgument)
     TransactionBuilder().versionContract(contractInstance)
   }
 

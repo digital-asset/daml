@@ -390,6 +390,8 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
           T"ContractId Mod:T → (( Update Mod:T ))",
         E"λ (e: ContractId Mod:I) → (( fetch_interface @Mod:I e ))" ->
           T"ContractId Mod:I → (( Update Mod:I ))",
+        E"λ (ms: List Party) (c: Party) → (( acting_as_consortium ms c ))" ->
+          T"List Party → Party → (( Update Unit ))",
         E"λ (e: Party) → (( fetch_by_key @Mod:T e ))" ->
           T"Party → (( Update (⟨ contract: Mod:T, contractId: ContractId Mod:T ⟩) ))",
         E"λ (e: Party) →  (( lookup_by_key @Mod:T e ))" ->

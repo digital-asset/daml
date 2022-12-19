@@ -10,6 +10,7 @@ import com.daml.metrics.api.opentelemetry.OpenTelemetryFactory
 import com.daml.metrics.grpc.DamlGrpcServerMetrics
 import io.opentelemetry.api.GlobalOpenTelemetry
 import io.opentelemetry.api.metrics.{Meter => OtelMeter}
+import com.daml.metrics.ExecutorServiceMetrics
 
 object Metrics {
   lazy val ForTesting = new Metrics(new MetricRegistry, GlobalOpenTelemetry.getMeter("test"))
@@ -19,6 +20,7 @@ final class Metrics(override val registry: MetricRegistry, val otelMeter: OtelMe
     extends DropwizardFactory {
 
   val openTelemetryFactory: OpenTelemetryFactory = new OpenTelemetryFactory(otelMeter)
+  val executorServiceMetrics = new ExecutorServiceMetrics(openTelemetryFactory)
 
   object test {
     private val prefix: MetricName = MetricName("test")
@@ -50,6 +52,8 @@ final class Metrics(override val registry: MetricRegistry, val otelMeter: OtelMe
     object index extends IndexMetrics(prefix :+ "index", registry)
 
     object indexer extends IndexerMetrics(prefix :+ "indexer", registry)
+
+    object indexerEvents extends IndexedUpdatesMetrics(prefix :+ "indexer", openTelemetryFactory)
 
     object parallelIndexer extends ParallelIndexerMetrics(prefix :+ "parallel_indexer", registry)
 

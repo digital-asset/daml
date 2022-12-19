@@ -81,7 +81,7 @@ class IdeLedgerClient(
     val filtered = acs.collect {
       case ScenarioLedger.LookupOk(
             cid,
-            Versioned(_, Value.ContractInstance(tpl, arg, _)),
+            Versioned(_, Value.ContractInstance(tpl, arg)),
             stakeholders,
           ) if tpl == templateId && parties.any(stakeholders.contains(_)) =>
         (cid, arg)
@@ -126,7 +126,7 @@ class IdeLedgerClient(
       mat: Materializer,
   ): Future[Option[ScriptLedgerClient.ActiveContract]] = {
     Future.successful(
-      lookupContractInstance(parties, cid).map { case Value.ContractInstance(_, arg, _) =>
+      lookupContractInstance(parties, cid).map { case Value.ContractInstance(_, arg) =>
         ScriptLedgerClient.ActiveContract(templateId, cid, arg)
       }
     )
@@ -162,8 +162,8 @@ class IdeLedgerClient(
             None
 
           case res @ (_: SResultNeedPackage | _: SResultNeedContract | _: SResultNeedKey |
-              _: SResultNeedTime | _: SResultScenarioGetParty | _: SResultScenarioPassTime |
-              _: SResultScenarioSubmit) =>
+              _: SResultNeedTime | _: SResultScenarioGetParty | _: SResultScenarioGetTime |
+              _: SResultScenarioPassTime | _: SResultScenarioSubmit) =>
             sys.error(s"computeView: expected SResultFinal, got: $res")
         }
     }
@@ -186,7 +186,7 @@ class IdeLedgerClient(
     val filtered: Seq[(ContractId, Value.ContractInstance)] = acs.collect {
       case ScenarioLedger.LookupOk(
             cid,
-            Versioned(_, contractInstance @ Value.ContractInstance(templateId, _, _)),
+            Versioned(_, contractInstance @ Value.ContractInstance(templateId, _)),
             stakeholders,
           ) if implements(templateId, interfaceId) && parties.any(stakeholders.contains(_)) =>
         (cid, contractInstance)
@@ -194,7 +194,7 @@ class IdeLedgerClient(
     val res: Seq[(ContractId, Option[Value])] = {
       filtered.map { case (cid, contractInstance) =>
         contractInstance match {
-          case Value.ContractInstance(templateId, arg, _) =>
+          case Value.ContractInstance(templateId, arg) =>
             val viewOpt = computeView(templateId, interfaceId, arg)
             (cid, viewOpt)
         }
@@ -215,7 +215,7 @@ class IdeLedgerClient(
 
     lookupContractInstance(parties, cid) match {
       case None => Future.successful(None)
-      case Some(Value.ContractInstance(templateId, arg, _)) =>
+      case Some(Value.ContractInstance(templateId, arg)) =>
         val viewOpt = computeView(templateId, interfaceId, arg)
         Future.successful(viewOpt)
     }

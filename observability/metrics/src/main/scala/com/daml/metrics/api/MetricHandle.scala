@@ -42,7 +42,7 @@ object MetricHandle {
         gaugeSupplier: () => T,
         description: String = "",
     )(implicit
-        context: MetricsContext = MetricsContext.Empty
+        context: MetricsContext
     ): Unit
 
     /** A meter represents a monotonically increasing value.

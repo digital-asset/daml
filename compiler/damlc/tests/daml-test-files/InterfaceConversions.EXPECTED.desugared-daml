@@ -76,7 +76,7 @@ instance DA.Internal.Desugar.HasExercise Iface MyChoice (()) where
 data MyChoice
   = MyChoice {}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
-_choice_IfaceArchive :
+_choice$_IfaceArchive :
   (Iface
    -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.ContractId Iface
@@ -85,19 +85,19 @@ _choice_IfaceArchive :
    DA.Internal.Desugar.Consuming Iface,
    DA.Internal.Desugar.Optional (Iface
                                  -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]))
-_choice_IfaceArchive
+_choice$_IfaceArchive
   = (\ this arg@DA.Internal.Desugar.Archive
        -> DA.Internal.Desugar.signatory this, 
      \ _ _ _ -> pure (), DA.Internal.Desugar.Consuming, 
      DA.Internal.Desugar.None)
-_choice_IfaceMyChoice :
+_choice$_IfaceMyChoice :
   (Iface -> MyChoice -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.ContractId Iface
    -> Iface -> MyChoice -> DA.Internal.Desugar.Update (()),
    DA.Internal.Desugar.Consuming Iface,
    DA.Internal.Desugar.Optional (Iface
                                  -> MyChoice -> [DA.Internal.Desugar.Party]))
-_choice_IfaceMyChoice
+_choice$_IfaceMyChoice
   = (\ this arg@MyChoice
        -> let _ = this in
           let _ = arg in DA.Internal.Desugar.toParties (getOwner this), 
@@ -178,7 +178,7 @@ instance DA.Internal.Desugar.HasExercise Iface2 MyChoice2 (()) where
 data MyChoice2
   = MyChoice2 {}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
-_choice_Iface2Archive :
+_choice$_Iface2Archive :
   (Iface2
    -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.ContractId Iface2
@@ -187,19 +187,19 @@ _choice_Iface2Archive :
    DA.Internal.Desugar.Consuming Iface2,
    DA.Internal.Desugar.Optional (Iface2
                                  -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]))
-_choice_Iface2Archive
+_choice$_Iface2Archive
   = (\ this arg@DA.Internal.Desugar.Archive
        -> DA.Internal.Desugar.signatory this, 
      \ _ _ _ -> pure (), DA.Internal.Desugar.Consuming, 
      DA.Internal.Desugar.None)
-_choice_Iface2MyChoice2 :
+_choice$_Iface2MyChoice2 :
   (Iface2 -> MyChoice2 -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.ContractId Iface2
    -> Iface2 -> MyChoice2 -> DA.Internal.Desugar.Update (()),
    DA.Internal.Desugar.Consuming Iface2,
    DA.Internal.Desugar.Optional (Iface2
                                  -> MyChoice2 -> [DA.Internal.Desugar.Party]))
-_choice_Iface2MyChoice2
+_choice$_Iface2MyChoice2
   = (\ this arg@MyChoice2
        -> let _ = this in
           let _ = arg in DA.Internal.Desugar.toParties (getOwner2 this), 
@@ -266,7 +266,7 @@ instance DA.Internal.Desugar.HasToAnyChoice Template1 DA.Internal.Desugar.Archiv
   _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
 instance DA.Internal.Desugar.HasFromAnyChoice Template1 DA.Internal.Desugar.Archive (()) where
   _fromAnyChoice = GHC.Types.primitive @"EFromAnyChoice"
-_choice_Template1Archive :
+_choice$_Template1Archive :
   (Template1
    -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.ContractId Template1
@@ -275,18 +275,18 @@ _choice_Template1Archive :
    DA.Internal.Desugar.Consuming Template1,
    DA.Internal.Desugar.Optional (Template1
                                  -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]))
-_choice_Template1Archive
+_choice$_Template1Archive
   = (\ this _ -> DA.Internal.Desugar.signatory this, 
      \ _ _ _ -> pure (), DA.Internal.Desugar.Consuming, 
      DA.Internal.Desugar.None)
-_interface_instance_Template1_Iface_Template1 :
+_interface_instance$_Template1_Iface_Template1 :
   DA.Internal.Desugar.InterfaceInstance Template1 Iface Template1
-_interface_instance_Template1_Iface_Template1
+_interface_instance$_Template1_Iface_Template1
   = DA.Internal.Desugar.mkInterfaceInstance
       @Template1 @Iface @Template1
-_method_Template1_Iface_Template1_getOwner :
+_method$_Template1_Iface_Template1_getOwner :
   DA.Internal.Desugar.Method Template1 Iface Template1 "getOwner"
-_method_Template1_Iface_Template1_getOwner
+_method$_Template1_Iface_Template1_getOwner
   = DA.Internal.Desugar.mkMethod
       @Template1
       @Iface
@@ -294,9 +294,9 @@ _method_Template1_Iface_Template1_getOwner
       @"getOwner"
       \ this@Template1 {..}
         -> let _ = this in let $getOwner = owner1 in $getOwner
-_view_Template1_Iface_Template1 :
+_view$_Template1_Iface_Template1 :
   DA.Internal.Desugar.InterfaceView Template1 Iface Template1
-_view_Template1_Iface_Template1
+_view$_Template1_Iface_Template1
   = DA.Internal.Desugar.mkInterfaceView
       @Template1
       @Iface
@@ -364,7 +364,7 @@ instance DA.Internal.Desugar.HasToAnyChoice Template2 DA.Internal.Desugar.Archiv
   _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
 instance DA.Internal.Desugar.HasFromAnyChoice Template2 DA.Internal.Desugar.Archive (()) where
   _fromAnyChoice = GHC.Types.primitive @"EFromAnyChoice"
-_choice_Template2Archive :
+_choice$_Template2Archive :
   (Template2
    -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.ContractId Template2
@@ -373,18 +373,18 @@ _choice_Template2Archive :
    DA.Internal.Desugar.Consuming Template2,
    DA.Internal.Desugar.Optional (Template2
                                  -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]))
-_choice_Template2Archive
+_choice$_Template2Archive
   = (\ this _ -> DA.Internal.Desugar.signatory this, 
      \ _ _ _ -> pure (), DA.Internal.Desugar.Consuming, 
      DA.Internal.Desugar.None)
-_interface_instance_Template2_Iface_Template2 :
+_interface_instance$_Template2_Iface_Template2 :
   DA.Internal.Desugar.InterfaceInstance Template2 Iface Template2
-_interface_instance_Template2_Iface_Template2
+_interface_instance$_Template2_Iface_Template2
   = DA.Internal.Desugar.mkInterfaceInstance
       @Template2 @Iface @Template2
-_method_Template2_Iface_Template2_getOwner :
+_method$_Template2_Iface_Template2_getOwner :
   DA.Internal.Desugar.Method Template2 Iface Template2 "getOwner"
-_method_Template2_Iface_Template2_getOwner
+_method$_Template2_Iface_Template2_getOwner
   = DA.Internal.Desugar.mkMethod
       @Template2
       @Iface
@@ -392,9 +392,9 @@ _method_Template2_Iface_Template2_getOwner
       @"getOwner"
       \ this@Template2 {..}
         -> let _ = this in let $getOwner = owner2 in $getOwner
-_view_Template2_Iface_Template2 :
+_view$_Template2_Iface_Template2 :
   DA.Internal.Desugar.InterfaceView Template2 Iface Template2
-_view_Template2_Iface_Template2
+_view$_Template2_Iface_Template2
   = DA.Internal.Desugar.mkInterfaceView
       @Template2
       @Iface

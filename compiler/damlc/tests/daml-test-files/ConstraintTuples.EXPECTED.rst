@@ -1,7 +1,7 @@
 .. _module-constrainttuples-79635:
 
-Module ConstraintTuples
------------------------
+ConstraintTuples
+----------------
 
 Data Types
 ^^^^^^^^^^

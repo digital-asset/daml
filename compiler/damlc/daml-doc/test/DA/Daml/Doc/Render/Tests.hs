@@ -214,7 +214,7 @@ mkExpectRst ::
 mkExpectRst asFolder anchor name descr templates classes adts fcts = T.unlines . concat $
     [ [ ".. _" <> anchor <> ":"
       , ""
-      , h1 ("Module " <> name)
+      , h1 name
       , ""
       ]
     , if T.null descr then [] else [descr, ""]
@@ -327,7 +327,7 @@ mkExpectMD :: T.Text -> T.Text -> T.Text -> [T.Text] -> [T.Text] -> [T.Text] -> 
 mkExpectMD anchor name descr templates classes adts fcts
   | null templates && null classes && null adts && null fcts && T.null descr = T.empty
   | otherwise = T.unlines $
-  ["# <a name=\"" <> anchor <> "\"></a>Module " <> name]
+  ["# <a name=\"" <> anchor <> "\"></a>" <> name]
   <> concat
   [ if T.null descr
         then [""]

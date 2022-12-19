@@ -120,12 +120,12 @@ separate top-level identifier. Specifically, this is a tuple containing the cont
 the choice body and information on whether the choice is pre-, post- or nonconsuming:
 
 ```
-_choice_IouTransfer :
+_choice$_IouTransfer :
   (Iou -> Transfer -> [Party],
    ContractId Iou
    -> Iou -> Transfer -> Update (ContractId Iou),
    PreConsuming Iou)
-_choice_IouTransfer
+_choice$_IouTransfer
   = (\ this@Iou {..} arg@Transfer {..}
        -> let
           in

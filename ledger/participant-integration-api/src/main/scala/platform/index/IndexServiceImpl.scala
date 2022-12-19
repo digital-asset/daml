@@ -48,7 +48,10 @@ import com.daml.platform.akkastreams.dispatcher.SubSource.RangeSource
 import com.daml.platform.index.IndexServiceImpl.{
   memoizedTransactionFilterProjection,
   transactionFilterProjection,
+  validatedAcsActiveAtOffset,
   withValidatedFilter,
+  validateTransactionFilter,
+  foldToSource,
 }
 import com.daml.platform.store.dao.{
   EventProjectionProperties,
@@ -233,33 +236,38 @@ private[index] class IndexServiceImpl(
   override def getActiveContracts(
       transactionFilter: TransactionFilter,
       verbose: Boolean,
+      activeAtO: Option[Offset],
   )(implicit loggingContext: LoggingContext): Source[GetActiveContractsResponse, NotUsed] =
-    withValidatedFilter(transactionFilter, packageMetadataView.current()) {
-      val currentLedgerEnd = ledgerEnd()
-
-      val activeContractsSource =
-        Source(
-          transactionFilterProjection(
-            transactionFilter,
-            verbose,
-            packageMetadataView.current(),
-          ).toList
-        ).flatMapConcat { case (templateFilter, eventProjectionProperties) =>
-          ledgerDao.transactionsReader
-            .getActiveContracts(
-              currentLedgerEnd,
-              templateFilter,
-              eventProjectionProperties,
+    foldToSource {
+      for {
+        _ <- validateTransactionFilter(transactionFilter, packageMetadataView.current())
+        endOffset = ledgerEnd()
+        activeAt = activeAtO.getOrElse(endOffset)
+        _ <- validatedAcsActiveAtOffset(activeAt = activeAt, ledgerEnd = endOffset)
+      } yield {
+        val activeContractsSource =
+          Source(
+            transactionFilterProjection(
+              transactionFilter,
+              verbose,
+              packageMetadataView.current(),
+            ).toList
+          ).flatMapConcat { case (templateFilter, eventProjectionProperties) =>
+            ledgerDao.transactionsReader
+              .getActiveContracts(
+                activeAt = activeAt,
+                filter = templateFilter,
+                eventProjectionProperties = eventProjectionProperties,
+              )
+          }
+        activeContractsSource
+          .concat(
+            Source.single(
+              GetActiveContractsResponse(offset = ApiOffset.toApiString(activeAt))
             )
-        }
-
-      activeContractsSource
-        .concat(
-          Source.single(
-            GetActiveContractsResponse(offset = ApiOffset.toApiString(currentLedgerEnd))
           )
-        )
-        .buffered(metrics.daml.index.activeContractsBufferSize, LedgerApiStreamsBufferSize)
+          .buffered(metrics.daml.index.activeContractsBufferSize, LedgerApiStreamsBufferSize)
+      }
     }
 
   override def lookupActiveContract(
@@ -412,7 +420,7 @@ private[index] class IndexServiceImpl(
     case LedgerOffset.LedgerBegin => Source.single(Offset.beforeBegin)
     case LedgerOffset.LedgerEnd => Source.single(ledgerEnd())
     case LedgerOffset.Absolute(offset) =>
-      ApiOffset.fromString(offset).fold(Source.failed, off => Source.single(off))
+      ApiOffset.tryFromString(offset).fold(Source.failed, off => Source.single(off))
   }
 
   private def between[A](
@@ -445,7 +453,7 @@ private[index] class IndexServiceImpl(
 
   private def concreteOffset(startExclusive: Option[LedgerOffset.Absolute]): Future[Offset] =
     startExclusive
-      .map(off => Future.fromTry(ApiOffset.fromString(off.value)))
+      .map(off => Future.fromTry(ApiOffset.tryFromString(off.value)))
       .getOrElse(Future.successful(Offset.beforeBegin))
 
   private def toAbsolute(offset: Offset): LedgerOffset.Absolute =
@@ -492,26 +500,63 @@ object IndexServiceImpl {
       unknownTemplateOrInterface <- unknownInterfaces ++ unknownTemplates
     } yield unknownTemplateOrInterface).toList
 
+  private[index] def foldToSource[A, B](
+      either: Either[StatusRuntimeException, Source[A, NotUsed]]
+  ): Source[A, NotUsed] =
+    either match {
+      case Left(e: StatusRuntimeException) => Source.failed[A](e)
+      case Right(result) => result
+    }
+
   private[index] def withValidatedFilter[T](
       domainTransactionFilter: domain.TransactionFilter,
       metadata: PackageMetadata,
   )(
       source: => Source[T, NotUsed]
-  )(implicit loggingContext: LoggingContext): Source[T, NotUsed] = {
-    implicit val errorLogger: DamlContextualizedErrorLogger =
-      new DamlContextualizedErrorLogger(logger, loggingContext, None)
+  )(implicit loggingContext: LoggingContext): Source[T, NotUsed] =
+    foldToSource(
+      for {
+        _ <- validateTransactionFilter(domainTransactionFilter, metadata)
+      } yield source
+    )
 
+  private[index] def validateTransactionFilter[T](
+      domainTransactionFilter: domain.TransactionFilter,
+      metadata: PackageMetadata,
+  )(implicit loggingContext: LoggingContext): Either[StatusRuntimeException, Unit] = {
     val unknownTemplatesOrInterfaces: Seq[Either[Identifier, Identifier]] =
       checkUnknownTemplatesOrInterfaces(domainTransactionFilter, metadata)
-
     if (unknownTemplatesOrInterfaces.nonEmpty) {
-      Source.failed(
+      Left(
         LedgerApiErrors.RequestValidation.NotFound.TemplateOrInterfaceIdsNotFound
-          .Reject(unknownTemplatesOrInterfaces)
+          .Reject(unknownTemplatesOrInterfaces)(
+            new DamlContextualizedErrorLogger(logger, loggingContext, None)
+          )
           .asGrpcError
       )
     } else
-      source
+      Right(())
+  }
+
+  private[index] def validatedAcsActiveAtOffset[T](
+      activeAt: Offset,
+      ledgerEnd: Offset,
+  )(implicit loggingContext: LoggingContext): Either[StatusRuntimeException, Unit] = {
+    if (activeAt > ledgerEnd) {
+      Left(
+        LedgerApiErrors.RequestValidation.OffsetAfterLedgerEnd
+          .Reject(
+            offsetType = "active_at_offset",
+            requestedOffset = activeAt.toApiString,
+            ledgerEnd = ledgerEnd.toApiString,
+          )(
+            new DamlContextualizedErrorLogger(logger, loggingContext, None)
+          )
+          .asGrpcError
+      )
+    } else {
+      Right(())
+    }
   }
 
   private[index] def memoizedTransactionFilterProjection(

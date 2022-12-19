@@ -14,7 +14,6 @@ import com.daml.lf.value.Value.{ContractId, VersionedContractInstance}
 import com.daml.lf.speedy._
 import com.daml.lf.speedy.SExpr.{SExpr, SEValue, SEApp}
 import com.daml.lf.speedy.SResult._
-import com.daml.lf.speedy.Speedy.OnLedgerMachine
 import com.daml.lf.transaction.IncompleteTransaction
 import com.daml.lf.value.Value
 import com.daml.logging.LoggingContext
@@ -28,7 +27,7 @@ import scala.util.{Failure, Success, Try}
   * @constructor Creates a runner using an instance of [[Speedy.Machine]].
   */
 final class ScenarioRunner private (
-    machine: Speedy.OffLedgerMachine,
+    machine: Speedy.ScenarioMachine,
     initialSeed: crypto.Hash,
 ) {
   import ScenarioRunner._
@@ -55,7 +54,7 @@ final class ScenarioRunner private (
         case SResultError(err) =>
           throw scenario.Error.RunnerException(err)
 
-        case SResultNeedTime(callback) =>
+        case SResultScenarioGetTime(callback) =>
           callback(ledger.currentTime)
 
         case SResultScenarioPassTime(delta, callback) =>
@@ -97,14 +96,9 @@ final class ScenarioRunner private (
             }
           }
 
-        case SResultNeedPackage(pkgId, context, _) =>
-          crash(LookupError.MissingPackage.pretty(pkgId, context))
-
-        case _: SResultNeedContract =>
-          crash("SResultNeedContract outside of submission")
-
-        case _: SResultNeedKey =>
-          crash("SResultNeedKey outside of submission")
+        case _: SResultNeedPackage | _: SResultNeedContract | _: SResultNeedKey |
+            _: SResultNeedTime =>
+          crash(s"unexpected $res")
       }
     }
     val endTime = System.nanoTime()
@@ -127,7 +121,7 @@ final class ScenarioRunner private (
 private[lf] object ScenarioRunner {
 
   def run(
-      buildMachine: () => Speedy.OffLedgerMachine,
+      buildMachine: () => Speedy.ScenarioMachine,
       initialSeed: crypto.Hash,
   )(implicit loggingContext: LoggingContext): ScenarioResult = {
     val machine = buildMachine()
@@ -183,7 +177,6 @@ private[lf] object ScenarioRunner {
         cbPresent: VersionedContractInstance => Unit,
     ): Either[Error, Unit]
     def lookupKey(
-        machine: Speedy.Machine,
         gk: GlobalKey,
         actAs: Set[Party],
         readAs: Set[Party],
@@ -244,7 +237,6 @@ private[lf] object ScenarioRunner {
     }
 
     override def lookupKey(
-        machine: Speedy.Machine,
         gk: GlobalKey,
         actAs: Set[Party],
         readAs: Set[Party],
@@ -389,7 +381,7 @@ private[lf] object ScenarioRunner {
       warningLog: WarningLog = Speedy.Machine.newWarningLog,
       doEnrichment: Boolean = true,
   )(implicit loggingContext: LoggingContext): SubmissionResult[R] = {
-    val ledgerMachine = Speedy.OnLedgerMachine(
+    val ledgerMachine = Speedy.UpdateMachine(
       compiledPackages = compiledPackages,
       submissionTime = Time.Timestamp.MinValue,
       initialSeeding = InitialSeeding.TransactionSeed(seed),
@@ -412,7 +404,7 @@ private[lf] object ScenarioRunner {
       ledgerMachine.run() match {
         case SResult.SResultFinal(resultValue) =>
           ledgerMachine.finish match {
-            case Right(OnLedgerMachine.Result(tx, locationInfo, _, _, _)) =>
+            case Right(Speedy.UpdateMachine.Result(tx, locationInfo, _, _, _)) =>
               ledger.commit(committers, readAs, location, enrich(tx), locationInfo) match {
                 case Left(err) =>
                   SubmissionError(err, enrich(ledgerMachine.incompleteTransaction))
@@ -436,7 +428,6 @@ private[lf] object ScenarioRunner {
           }
         case SResultNeedKey(keyWithMaintainers, committers, callback) =>
           ledger.lookupKey(
-            ledgerMachine,
             keyWithMaintainers.globalKey,
             committers,
             readAs,
@@ -448,14 +439,9 @@ private[lf] object ScenarioRunner {
         case SResultNeedTime(callback) =>
           callback(ledger.currentTime)
           go()
-        case SResultNeedPackage(pkgId, context, _) =>
-          throw Error.Internal(LookupError.MissingPackage.pretty(pkgId, context))
-        case _: SResultScenarioGetParty =>
-          throw Error.Internal("SResultScenarioGetParty in submission")
-        case _: SResultScenarioPassTime =>
-          throw Error.Internal("SResultScenarioPassTime in submission")
-        case _: SResultScenarioSubmit =>
-          throw Error.Internal("SResultScenarioSubmit in submission")
+        case res @ (_: SResultNeedPackage | _: SResultScenarioGetParty |
+            _: SResultScenarioPassTime | _: SResultScenarioSubmit | _: SResultScenarioGetTime) =>
+          throw Error.Internal(s"unexpected $res")
       }
     }
     go()

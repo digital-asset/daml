@@ -16,12 +16,11 @@ import com.daml.lf.transaction.{GlobalKey, NodeId, SubmittedTransaction}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 import com.daml.lf.scenario.{ScenarioLedger, ScenarioRunner}
-import com.daml.lf.speedy.Speedy.{Machine, Control}
+import com.daml.lf.speedy.Speedy.{Control, Machine, ScenarioMachine}
 import com.daml.logging.LoggingContext
 
 import java.io.File
 import java.util.concurrent.TimeUnit
-
 import org.openjdk.jmh.annotations._
 
 private[lf] class CollectAuthority {
@@ -41,7 +40,7 @@ private[lf] class CollectAuthorityState {
 
   private[this] implicit def logContext: LoggingContext = LoggingContext.ForTesting
 
-  var machine: Machine = null
+  var machine: ScenarioMachine = null
   var the_sexpr: SExpr = null
 
   @Setup(Level.Trial)
@@ -198,7 +197,6 @@ private[lf] class CannedLedgerApi(
     Right(callback(coinst))
   }
   override def lookupKey(
-      machine: Machine,
       gk: GlobalKey,
       actAs: Set[Party],
       readAs: Set[Party],

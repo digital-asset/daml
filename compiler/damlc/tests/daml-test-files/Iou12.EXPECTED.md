@@ -1,4 +1,4 @@
-# <a name="module-iou12-76192"></a>Module Iou12
+# <a name="module-iou12-76192"></a>Iou12
 
 ## Templates
 

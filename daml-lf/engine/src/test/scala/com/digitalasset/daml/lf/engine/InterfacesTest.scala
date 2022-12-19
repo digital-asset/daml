@@ -72,18 +72,10 @@ class InterfacesTest
     val cid2 = toContractId("2")
     val contracts = Map(
       cid1 -> assertAsVersionedContract(
-        ContractInstance(
-          idT1,
-          ValueRecord(None, ImmArray((None, ValueParty(party)))),
-          "",
-        )
+        ContractInstance(idT1, ValueRecord(None, ImmArray((None, ValueParty(party)))))
       ),
       cid2 -> assertAsVersionedContract(
-        ContractInstance(
-          idT2,
-          ValueRecord(None, ImmArray((None, ValueParty(party)))),
-          "",
-        )
+        ContractInstance(idT2, ValueRecord(None, ImmArray((None, ValueParty(party)))))
       ),
     )
     val lookupContract = contracts.get(_)

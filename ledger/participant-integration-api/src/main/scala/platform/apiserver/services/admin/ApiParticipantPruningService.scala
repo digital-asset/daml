@@ -145,7 +145,7 @@ final class ApiParticipantPruningService private (
       pruneUpToString: String
   )(implicit errorLogger: ContextualizedErrorLogger): Either[StatusRuntimeException, Offset] =
     ApiOffset
-      .fromString(pruneUpToString)
+      .tryFromString(pruneUpToString)
       .toEither
       .left
       .map(t =>

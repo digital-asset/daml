@@ -380,6 +380,7 @@ private[lf] final class Compiler(
       addDef(compileCreate(tmplId, tmpl))
       addDef(compileFetchTemplate(tmplId, tmpl))
       addDef(compileTemplatePreCondition(tmplId, tmpl))
+      addDef(compileAgreementText(tmplId, tmpl))
       addDef(compileSignatories(tmplId, tmpl))
       addDef(compileObservers(tmplId, tmpl))
       addDef(compileToCachedContract(tmplId, tmpl))
@@ -712,6 +713,14 @@ private[lf] final class Compiler(
       }
     }
 
+  private[this] def compileAgreementText(
+      tmplId: Identifier,
+      tmpl: Template,
+  ): (t.SDefinitionRef, SDefinition) =
+    topLevelFunction1(t.AgreementTextDefRef(tmplId)) { (tmplArgPos, env) =>
+      translateExp(env.bindExprVar(tmpl.param, tmplArgPos), tmpl.agreementText)
+    }
+
   private[this] def compileSignatories(
       tmplId: Identifier,
       tmpl: Template,
@@ -736,6 +745,7 @@ private[lf] final class Compiler(
       SBuildCachedContract(
         s.SEValue(STypeRep(TTyCon(tmplId))),
         env.toSEVar(tmplArgPos),
+        t.AgreementTextDefRef(tmplId)(env.toSEVar(tmplArgPos)),
         t.SignatoriesDefRef(tmplId)(env.toSEVar(tmplArgPos)),
         t.ObserversDefRef(tmplId)(env.toSEVar(tmplArgPos)),
         tmpl.key match {
@@ -823,10 +833,7 @@ private[lf] final class Compiler(
       templateId,
       env2.toSEVar(contractPos),
     ) { (env: Env) =>
-      SBUCreate(
-        translateExp(env, template.agreementText),
-        t.ToCachedContractDefRef(templateId)(env.toSEVar(contractPos), s.SEValue.None),
-      )
+      SBUCreate(t.ToCachedContractDefRef(templateId)(env.toSEVar(contractPos), s.SEValue.None))
     }
   }
 

@@ -181,7 +181,6 @@ private[dao] object ContractsReader {
     Contract(
       template = Identifier.assertFromString(templateId),
       arg = deserialized,
-      agreementText = "",
     )
   }
 
@@ -192,7 +191,6 @@ private[dao] object ContractsReader {
     Contract(
       template = Identifier.assertFromString(templateId),
       arg = createArgument,
-      agreementText = "",
     )
 
   private def assertPresent[T](in: Option[T])(err: String)(implicit

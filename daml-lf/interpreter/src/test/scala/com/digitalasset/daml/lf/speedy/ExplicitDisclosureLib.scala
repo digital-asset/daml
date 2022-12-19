@@ -200,7 +200,6 @@ object ExplicitDisclosureLib {
           None -> Value.ValueParty(maintainer),
         ),
       ),
-      "test",
     ),
   )
 
@@ -225,6 +224,7 @@ object ExplicitDisclosureLib {
     CachedContract(
       templateId,
       contract,
+      agreementText = "",
       signatories = Set(signatory),
       observers = Set.empty,
       key = mbKey,
@@ -264,7 +264,7 @@ object ExplicitDisclosureLib {
       getContract: PartialFunction[Value.ContractId, Value.VersionedContractInstance] =
         PartialFunction.empty,
       getKey: PartialFunction[GlobalKeyWithMaintainers, Value.ContractId] = PartialFunction.empty,
-  ): (Either[SError.SError, SValue], Speedy.OnLedgerMachine) = {
+  ): (Either[SError.SError, SValue], Speedy.UpdateMachine) = {
     import SpeedyTestLib.loggingContext
 
     // A token function closure is added as part of compiling the Expr
@@ -305,7 +305,7 @@ object ExplicitDisclosureLib {
       getContract: PartialFunction[Value.ContractId, Value.VersionedContractInstance] =
         PartialFunction.empty,
       getKey: PartialFunction[GlobalKeyWithMaintainers, Value.ContractId] = PartialFunction.empty,
-  ): (Either[SError.SError, SValue], Speedy.OnLedgerMachine) = {
+  ): (Either[SError.SError, SValue], Speedy.UpdateMachine) = {
     import SpeedyTestLib.loggingContext
 
     val machine =
@@ -325,7 +325,7 @@ object ExplicitDisclosureLib {
     (result, machine)
   }
 
-  def haveInactiveContractIds(contractIds: ContractId*): Matcher[Speedy.OnLedgerMachine] = Matcher {
+  def haveInactiveContractIds(contractIds: ContractId*): Matcher[Speedy.UpdateMachine] = Matcher {
     machine =>
       val expectedResult = contractIds.toSet
       val actualResult = machine.ptx.contractState.activeState.consumedBy.keySet
@@ -343,7 +343,7 @@ object ExplicitDisclosureLib {
 
   def haveDisclosedContracts(
       disclosedContracts: DisclosedContract*
-  ): Matcher[Speedy.OnLedgerMachine] =
+  ): Matcher[Speedy.UpdateMachine] =
     Matcher { machine =>
       val expectedResult = ImmArray(disclosedContracts: _*)
       val actualResult = machine.ptx.disclosedContracts

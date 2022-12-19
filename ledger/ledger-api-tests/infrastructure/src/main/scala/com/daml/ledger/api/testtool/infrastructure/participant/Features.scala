@@ -20,6 +20,7 @@ final case class Features(
     committerEventLog: ExperimentalCommitterEventLog,
     explicitDisclosure: Boolean = false,
     userAndPartyLocalMetadataExtensions: Boolean = false,
+    acsActiveAtOffsetFeature: Boolean = false,
 )
 
 object Features {
@@ -45,6 +46,7 @@ object Features {
       explicitDisclosure = experimental.getExplicitDisclosure.supported,
       userAndPartyLocalMetadataExtensions =
         experimental.getUserAndPartyLocalMetadataExtensions.supported,
+      acsActiveAtOffsetFeature = experimental.getAcsActiveAtOffset.supported,
     )
   }
 }

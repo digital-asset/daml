@@ -10,11 +10,14 @@ import com.daml.lf.speedy.SValue._
 import com.daml.lf.value.Value.ContractId
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.daml.ledger.api.v1.commands.CreateCommand
+import com.daml.ledger.api.v1.event.{Event => ApiEvent}
+import com.daml.ledger.api.v1.event.Event.Event.Created
+import com.daml.ledger.api.v1.transaction.{Transaction => ApiTransaction}
 import com.daml.ledger.api.v1.{value => LedgerApi}
 import com.daml.ledger.sandbox.SandboxOnXForTest.ParticipantId
 import com.daml.lf.engine.trigger.Runner.TriggerContext
 import com.daml.platform.services.time.TimeProviderType
-import io.grpc.{Status, StatusRuntimeException}
+import io.grpc.{Status => grpcStatus, StatusRuntimeException}
 import org.scalatest._
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
@@ -22,8 +25,10 @@ import scalaz.syntax.traverse._
 
 import scala.jdk.CollectionConverters._
 import com.daml.lf.engine.trigger.TriggerMsg
+import com.daml.util.Ctx
 
 import java.util.UUID
+import scala.concurrent.Future
 
 abstract class AbstractFuncTests
     extends AsyncWordSpec
@@ -35,6 +40,114 @@ abstract class AbstractFuncTests
   self: Suite =>
 
   this.getClass.getSimpleName can {
+    "Failure testing" should {
+      val contractPairings = 500
+
+      s"with $contractPairings contract pairings and always failing submissions" should {
+        def command(template: String, owner: String, i: Int): CreateCommand =
+          CreateCommand(
+            templateId = Some(LedgerApi.Identifier(packageId, "Cats", template)),
+            createArguments = Some(
+              LedgerApi.Record(fields =
+                Seq(
+                  LedgerApi.RecordField("owner", Some(LedgerApi.Value().withParty(owner))),
+                  template match {
+                    case "TestControl" =>
+                      LedgerApi.RecordField("size", Some(LedgerApi.Value().withInt64(i.toLong)))
+                    case _ =>
+                      LedgerApi.RecordField("isin", Some(LedgerApi.Value().withInt64(i.toLong)))
+                  },
+                )
+              )
+            ),
+          )
+
+        def cat(owner: String, i: Int): CreateCommand = command("Cat", owner, i)
+
+        def food(owner: String, i: Int): CreateCommand = command("Food", owner, i)
+
+        def notObserving(
+            templateId: LedgerApi.Identifier
+        ): TriggerContext[TriggerMsg] => Boolean = {
+          case Ctx(
+                _,
+                TriggerMsg.Transaction(
+                  ApiTransaction(_, _, _, _, Seq(ApiEvent(Created(created))), _)
+                ),
+                _,
+              ) if created.getTemplateId == templateId =>
+            false
+
+          case _ =>
+            true
+        }
+
+        "Process all contract pairings successfully" in {
+          for {
+            client <- ledgerClient()
+            party <- allocateParty(client)
+            _ <- Future.sequence(
+              (0 until contractPairings).map { i =>
+                create(client, party, cat(party, i))
+              }
+            )
+            _ <- Future.sequence(
+              (0 until contractPairings).map { i =>
+                create(client, party, food(party, i))
+              }
+            )
+            runner = getRunner(
+              client,
+              QualifiedName.assertFromString("Cats:trigger"),
+              party,
+            )
+            (acs, offset) <- runner.queryACS()
+            _ <- runner
+              .runWithACS(
+                acs,
+                offset,
+                msgFlow = Flow[TriggerContext[TriggerMsg]]
+                  // Allow flow to proceed until we observe a CatExample:TestComplete contract being created
+                  .takeWhile(
+                    notObserving(LedgerApi.Identifier(packageId, "Cats", "TestComplete"))
+                  ),
+              )
+              ._2
+          } yield {
+            succeed
+          }
+        }
+      }
+    }
+
+    "Batch trigger" should {
+      val triggerId = QualifiedName.assertFromString("BatchTrigger:test")
+
+      "process and track contract creation, exercise and archive" in {
+        for {
+          client <- ledgerClient()
+          party <- allocateParty(client)
+          runner = getRunner(client, triggerId, party)
+          (acs, offset) <- runner.queryACS()
+          // 1 for create of T
+          // 1 for completion
+          // 1 for archive on T
+          // 1 for completion
+          finalState <- runner
+            .runWithACS(acs, offset, msgFlow = Flow[TriggerContext[TriggerMsg]].take(4))
+            ._2
+        } yield {
+          inside(finalState) { case SList(commandIds) =>
+            commandIds.toSet should have size 2
+            // ensure all are UUIDs
+            commandIds.map(inside(_) { case SText(s) =>
+              SText(UUID.fromString(s).toString)
+            }) should ===(commandIds)
+          }
+        }
+      }
+    }
+
     "AcsTests" should {
       val assetId = LedgerApi.Identifier(packageId, "ACS", "Asset")
       val assetMirrorId = LedgerApi.Identifier(packageId, "ACS", "AssetMirror")
@@ -188,6 +301,7 @@ abstract class AbstractFuncTests
             )
           ),
         )
+
       "1 original, 0 subscriber" in {
         for {
           client <- ledgerClient()
@@ -208,6 +322,7 @@ abstract class AbstractFuncTests
           acs shouldNot contain key copyId
         }
       }
+
       "1 original, 1 subscriber" in {
         for {
           client <- ledgerClient()
@@ -232,6 +347,7 @@ abstract class AbstractFuncTests
           acs(copyId) should have length 1
         }
       }
+
       "2 original, 1 subscriber" in {
         for {
           client <- ledgerClient()
@@ -262,6 +378,7 @@ abstract class AbstractFuncTests
       val triggerId = QualifiedName.assertFromString("Retry:retryTrigger")
       val tId = LedgerApi.Identifier(packageId, "Retry", "T")
       val doneId = LedgerApi.Identifier(packageId, "Retry", "Done")
+
       "3 retries" in {
         for {
           client <- ledgerClient()
@@ -286,6 +403,7 @@ abstract class AbstractFuncTests
       val triggerId = QualifiedName.assertFromString("ExerciseByKey:exerciseByKeyTrigger")
       val tId = LedgerApi.Identifier(packageId, "ExerciseByKey", "T")
       val tPrimeId = LedgerApi.Identifier(packageId, "ExerciseByKey", "T_")
+
       "1 exerciseByKey" in {
         for {
           client <- ledgerClient()
@@ -309,6 +427,7 @@ abstract class AbstractFuncTests
       val triggerId = QualifiedName.assertFromString("CreateAndExercise:createAndExerciseTrigger")
       val tId = LedgerApi.Identifier(packageId, "CreateAndExercise", "T")
       val uId = LedgerApi.Identifier(packageId, "CreateAndExercise", "U")
+
       "createAndExercise" in {
         for {
           client <- ledgerClient()
@@ -329,6 +448,7 @@ abstract class AbstractFuncTests
     "MaxMessageSizeTests" should {
       val triggerId =
         QualifiedName.assertFromString("MaxInboundMessageTest:maxInboundMessageSizeTrigger")
+
       "fail" in {
         for {
           client <- ledgerClient(
@@ -345,7 +465,7 @@ abstract class AbstractFuncTests
             runner.runWithACS(acs, offset, msgFlow = Flow[TriggerContext[TriggerMsg]].take(3))._2
           )
         } yield {
-          ex.getStatus.getCode shouldBe Status.Code.RESOURCE_EXHAUSTED
+          ex.getStatus.getCode shouldBe grpcStatus.Code.RESOURCE_EXHAUSTED
         }
       }
     }
@@ -353,6 +473,7 @@ abstract class AbstractFuncTests
     "NumericTests" should {
       val triggerId = QualifiedName.assertFromString("Numeric:test")
       val tId = LedgerApi.Identifier(packageId, "Numeric", "T")
+
       "numeric" in {
         for {
           client <- ledgerClient()
@@ -374,6 +495,7 @@ abstract class AbstractFuncTests
 
     "CommandIdTests" should {
       val triggerId = QualifiedName.assertFromString("CommandId:test")
+
       "command-id" in {
         for {
           client <- ledgerClient()
@@ -404,6 +526,7 @@ abstract class AbstractFuncTests
       val fooId = LedgerApi.Identifier(packageId, "PendingSet", "Foo")
       val booId = LedgerApi.Identifier(packageId, "PendingSet", "Boo")
       val doneId = LedgerApi.Identifier(packageId, "PendingSet", "Done")
+
       "pending set" in {
         for {
           client <- ledgerClient()
@@ -471,6 +594,7 @@ abstract class AbstractFuncTests
           acs shouldNot contain key doneTwoId
         }
       }
+
       "filter to Two" in {
         for {
           client <- ledgerClient()
@@ -496,6 +620,7 @@ abstract class AbstractFuncTests
 
     "HeartbeatTests" should {
       val triggerId = QualifiedName.assertFromString("Heartbeat:test")
+
       "test" in {
         for {
           client <- ledgerClient()

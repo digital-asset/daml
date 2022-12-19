@@ -324,7 +324,7 @@ object Hash {
       .addTypedValue(arg)
       .build
 
-  def hashContractInstnce(
+  def hashContractInstance(
       templateId: Ref.Identifier,
       arg: Value,
   ): Either[String, Hash] =

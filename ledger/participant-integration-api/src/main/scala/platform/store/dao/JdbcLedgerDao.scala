@@ -515,6 +515,20 @@ private class JdbcLedgerDao(
     metrics = metrics,
   )(servicesExecutionContext)
 
+  private val flatTransactionPointwiseReader = new TransactionFlatPointwiseReader(
+    dbDispatcher = dbDispatcher,
+    eventStorageBackend = readStorageBackend.eventStorageBackend,
+    metrics = metrics,
+    lfValueTranslation = translation,
+  )(servicesExecutionContext)
+
+  private val treeTransactionPointwiseReader = new TransactionTreePointwiseReader(
+    dbDispatcher = dbDispatcher,
+    eventStorageBackend = readStorageBackend.eventStorageBackend,
+    metrics = metrics,
+    lfValueTranslation = translation,
+  )(servicesExecutionContext)
+
   override val transactionsReader: TransactionsReader =
     new TransactionsReader(
       dispatcher = dbDispatcher,
@@ -525,6 +539,8 @@ private class JdbcLedgerDao(
       lfValueTranslation = translation,
       flatTransactionsStreamReader = flatTransactionsStreamReader,
       treeTransactionsStreamReader = treeTransactionsStreamReader,
+      flatTransactionPointwiseReader = flatTransactionPointwiseReader,
+      treeTransactionPointwiseReader = treeTransactionPointwiseReader,
       acsReader = acsReader,
     )(
       servicesExecutionContext

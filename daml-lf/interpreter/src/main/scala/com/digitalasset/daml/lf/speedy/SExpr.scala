@@ -328,10 +328,11 @@ private[lf] object SExpr {
 
   /** Exception handler */
   final case class SETryCatch(body: SExpr, handler: SExpr) extends SExpr {
-    override def execute(machine: Machine): Control = machine.asOnLedger(productPrefix) { machine =>
-      machine.pushKont(KTryCatchHandler(machine, handler))
-      machine.ptx = machine.ptx.beginTry
-      Control.Expression(body)
+    override def execute(machine: Machine): Control = machine.asUpdateMachine(productPrefix) {
+      machine =>
+        machine.pushKont(KTryCatchHandler(machine, handler))
+        machine.ptx = machine.ptx.beginTry
+        Control.Expression(body)
     }
   }
 
@@ -413,6 +414,7 @@ private[lf] object SExpr {
   final case class FetchByKeyDefRef(ref: DefinitionRef) extends SDefinitionRef
   final case class LookupByKeyDefRef(ref: DefinitionRef) extends SDefinitionRef
   final case class ExceptionMessageDefRef(ref: DefinitionRef) extends SDefinitionRef
+  final case class AgreementTextDefRef(ref: DefinitionRef) extends SDefinitionRef
   final case class SignatoriesDefRef(ref: DefinitionRef) extends SDefinitionRef
   final case class ObserversDefRef(ref: DefinitionRef) extends SDefinitionRef
   final case class ContractKeyWithMaintainersDefRef(ref: DefinitionRef) extends SDefinitionRef

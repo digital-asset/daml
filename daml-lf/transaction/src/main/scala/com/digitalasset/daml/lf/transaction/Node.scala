@@ -91,7 +91,7 @@ object Node {
     def versionedArg: Value.VersionedValue = versioned(arg)
 
     def coinst: Value.ContractInstance =
-      Value.ContractInstance(templateId, arg, agreementText)
+      Value.ContractInstance(templateId, arg)
 
     def versionedCoinst: Value.VersionedContractInstance = versioned(coinst)
 
@@ -154,7 +154,7 @@ object Node {
   ) extends Action
       with ActionNodeInfo.Exercise {
 
-    def qualifiedChoideName = QualifiedChoiceName(interfaceId, choiceId)
+    def qualifiedChoiceName = QualifiedChoiceName(interfaceId, choiceId)
 
     override def keyOpt: Option[KeyWithMaintainers] = key
 

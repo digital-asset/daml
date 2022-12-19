@@ -17,7 +17,6 @@ import com.daml.platform.store.interning.StringInterning
 
 class PostgresEventStorageBackend(ledgerEndCache: LedgerEndCache, stringInterning: StringInterning)
     extends EventStorageBackendTemplate(
-      eventStrategy = PostgresEventStrategy,
       queryStrategy = PostgresQueryStrategy,
       ledgerEndCache = ledgerEndCache,
       stringInterning = stringInterning,

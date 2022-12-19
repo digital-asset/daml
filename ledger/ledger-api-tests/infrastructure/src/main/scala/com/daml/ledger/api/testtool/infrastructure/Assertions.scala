@@ -17,7 +17,7 @@ import scala.annotation.tailrec
 import scala.concurrent.Future
 import scala.jdk.CollectionConverters._
 import scala.language.implicitConversions
-import scala.util.{Success, Try}
+import scala.util.Try
 
 object Assertions {
   def fail(message: String): Nothing =
@@ -69,41 +69,11 @@ object Assertions {
     assertSameElements(actual, Seq.empty)
   }
 
-  case class ExtendedAsserts(
-      exceptionMessageSubstring: Option[String] = None,
-      checkDefiniteAnswerMetadata: Boolean = false,
-      additionalErrorAssertions: Throwable => Unit = _ => (),
-  )
-
-  def assertGrpcErrorOneOf(
-      t: Throwable,
-      extendedChecks: Option[ExtendedAsserts],
-      errors: ErrorCode*
-  ): Unit = {
-    errors.map(errorCode => (errorCode, Try(assertGrpcError(t, errorCode, None)))).collectFirst {
-      case (errorCode, Success(_)) => errorCode
-    } match {
-      case Some(matchedErrorCode) =>
-        // In order to catch errors related to the "extended checks" rerun the check on the matching error code.
-        // This results in a more specific error message if one of the error codes matches, but the other checks fail.
-        extendedChecks.foreach {
-          case ExtendedAsserts(
-                exceptionMessageSubstring,
-                checkDefiniteAnswerMetadata,
-                additionalErrorAssertions,
-              ) =>
-            assertGrpcError(
-              t,
-              matchedErrorCode,
-              exceptionMessageSubstring,
-              checkDefiniteAnswerMetadata,
-              additionalErrorAssertions,
-            )
-        }
-
-      case None =>
-        fail(s"gRPC failure did not contain one of the expected error codes $errors.", t)
-    }
+  def assertGrpcErrorOneOf(t: Throwable, errors: ErrorCode*): Unit = {
+    val hasErrorCode =
+      errors.map(errorCode => Try(assertGrpcError(t, errorCode, None))).exists(_.isSuccess)
+    if (!hasErrorCode)
+      fail(s"gRPC failure did not contain one of the expected error codes $errors.", t)
   }
 
   def assertGrpcError(

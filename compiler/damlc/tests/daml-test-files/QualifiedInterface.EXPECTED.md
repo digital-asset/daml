@@ -1,4 +1,4 @@
-# <a name="module-qualifiedinterface-53968"></a>Module QualifiedInterface
+# <a name="module-qualifiedinterface-53968"></a>QualifiedInterface
 
 ## Templates
 

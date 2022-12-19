@@ -10,7 +10,7 @@ import com.daml.lf.data.Ref.{Identifier, PackageId, ParticipantId, Party}
 import com.daml.lf.language.Ast._
 import com.daml.lf.speedy.{InitialSeeding, Pretty, SError, SValue}
 import com.daml.lf.speedy.SExpr.{SEApp, SExpr}
-import com.daml.lf.speedy.Speedy.{Machine, OffLedgerMachine, OnLedgerMachine}
+import com.daml.lf.speedy.Speedy.{Machine, PureMachine, UpdateMachine}
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.transaction.{
   Node,
@@ -318,7 +318,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
       submissionTime: Time.Timestamp,
       seeding: speedy.InitialSeeding,
   )(implicit loggingContext: LoggingContext): Result[(SubmittedTransaction, Tx.Metadata)] = {
-    val machine = OnLedgerMachine(
+    val machine = UpdateMachine(
       compiledPackages = compiledPackages,
       submissionTime = submissionTime,
       initialSeeding = seeding,
@@ -366,7 +366,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
   // TODO SC remove 'return', notwithstanding a love of unhandled exceptions
   @SuppressWarnings(Array("org.wartremover.warts.Return"))
   private[engine] def interpretLoop(
-      machine: OnLedgerMachine,
+      machine: UpdateMachine,
       time: Time.Timestamp,
   ): Result[(SubmittedTransaction, Tx.Metadata)] = {
     def detailMsg = Some(
@@ -418,7 +418,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
           )
 
         case err @ (_: SResultScenarioSubmit | _: SResultScenarioPassTime |
-            _: SResultScenarioGetParty) =>
+            _: SResultScenarioGetParty | _: SResultScenarioGetTime) =>
           return ResultError(
             Error.Interpretation.Internal(
               NameOf.qualifiedNameOfCurrentFunc,
@@ -430,7 +430,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
     }
 
     machine.finish match {
-      case Right(OnLedgerMachine.Result(tx, _, nodeSeeds, globalKeyMapping, disclosedContracts)) =>
+      case Right(UpdateMachine.Result(tx, _, nodeSeeds, globalKeyMapping, disclosedContracts)) =>
         deps(tx).flatMap { deps =>
           val meta = Tx.Metadata(
             submissionSeed = None,
@@ -522,13 +522,13 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
       argument: Value,
       interfaceId: Identifier,
   )(implicit loggingContext: LoggingContext): Result[Versioned[Value]] = {
-    def interpret(machine: OffLedgerMachine): Result[SValue] = {
+    def interpret(machine: PureMachine): Result[SValue] = {
       machine.run() match {
         case SResultFinal(v) => ResultDone(v)
         case SResultError(err) => handleError(err, None)
         case err @ (_: SResultNeedPackage | _: SResultNeedContract | _: SResultNeedKey |
             _: SResultNeedTime | _: SResultScenarioGetParty | _: SResultScenarioPassTime |
-            _: SResultScenarioSubmit) =>
+            _: SResultScenarioSubmit | _: SResultScenarioGetTime) =>
           ResultError(
             Error.Interpretation.Internal(
               NameOf.qualifiedNameOfCurrentFunc,

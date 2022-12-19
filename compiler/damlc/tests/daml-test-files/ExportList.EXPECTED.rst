@@ -1,7 +1,7 @@
 .. _module-exportlist-67331:
 
-Module ExportList
------------------
+ExportList
+----------
 
 Templates
 ^^^^^^^^^

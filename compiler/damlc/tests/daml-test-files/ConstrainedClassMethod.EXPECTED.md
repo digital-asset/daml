@@ -1,4 +1,4 @@
-# <a name="module-constrainedclassmethod-88436"></a>Module ConstrainedClassMethod
+# <a name="module-constrainedclassmethod-88436"></a>ConstrainedClassMethod
 
 This module tests the case where a class method contains a constraint
 not present in the class itself.

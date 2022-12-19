@@ -1,4 +1,4 @@
-# <a name="module-qualifiedretroactiveinterfaceinstance-76052"></a>Module QualifiedRetroactiveInterfaceInstance
+# <a name="module-qualifiedretroactiveinterfaceinstance-76052"></a>QualifiedRetroactiveInterfaceInstance
 
 ## Interfaces
 

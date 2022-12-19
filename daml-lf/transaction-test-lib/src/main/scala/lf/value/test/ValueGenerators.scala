@@ -118,7 +118,7 @@ object ValueGenerators {
           if (withoutLabels) (_: Identifier) => None
           else (variantId: Identifier) => Some(variantId)
         )
-      value <- valueGen
+      value <- valueGen()
     } yield ValueVariant(toOption(id), variantName, value)
 
   def recordGen: Gen[ValueRecord] =
@@ -132,30 +132,30 @@ object ValueGenerators {
         )
       labelledValues <- Gen.listOf(
         nameGen.flatMap(label =>
-          valueGen.map(x => if (label.isEmpty) (None, x) else (Some(label), x))
+          valueGen().map(x => if (label.isEmpty) (None, x) else (Some(label), x))
         )
       )
     } yield ValueRecord(toOption(id), labelledValues.to(ImmArray))
 
   def valueOptionalGen: Gen[ValueOptional] =
-    Gen.option(valueGen).map(v => ValueOptional(v))
+    Gen.option(valueGen()).map(v => ValueOptional(v))
 
   def valueListGen: Gen[ValueList] =
     for {
-      values <- Gen.listOf(valueGen)
+      values <- Gen.listOf(valueGen())
     } yield ValueList(values.to(FrontStack))
 
   def valueMapGen: Gen[ValueTextMap] =
     for {
       list <- Gen.listOf(for {
-        k <- Gen.asciiPrintableStr; v <- valueGen
+        k <- Gen.asciiPrintableStr; v <- valueGen()
       } yield k -> v)
     } yield ValueTextMap(SortedLookupList(Map(list: _*)))
 
   def valueGenMapGen: Gen[ValueGenMap] =
     Gen
-      .listOf(Gen.zip(valueGen, valueGen))
-      .map(list => ValueGenMap(list.to(ImmArray)))
+      .listOf(Gen.zip(valueGen(), valueGen()))
+      .map(list => ValueGenMap(list.distinctBy(_._1).to(ImmArray)))
 
   private val genHash: Gen[crypto.Hash] =
     Gen
@@ -211,9 +211,10 @@ object ValueGenerators {
     coidValueGen,
     party.map(ValueParty),
     Gen.oneOf(ValueTrue, ValueFalse),
+    Gen.const(ValueUnit),
   )
 
-  def valueGen: Gen[Value] = Gen.lzy {
+  def valueGen(nested: => Gen[Value] = nestedGen): Gen[Value] = Gen.lzy {
     Gen.sized { size =>
       for {
         s <- Gen.choose(0, size)
@@ -222,7 +223,7 @@ object ValueGenerators {
           else
             Gen.frequency(
               5 -> flatGen,
-              1 -> Gen.resize(size / (s + 1), nestedGen),
+              1 -> Gen.resize(size / (s + 1), nested),
             )
       } yield value
     }
@@ -245,7 +246,7 @@ object ValueGenerators {
 
   def versionedValueGen: Gen[VersionedValue] =
     for {
-      value <- valueGen
+      value <- valueGen()
       minVersion = TransactionBuilder.assertAssignVersion(value)
       version <- transactionVersionGen(minVersion)
     } yield Versioned(version, value)
@@ -257,24 +258,28 @@ object ValueGenerators {
   val contractInstanceGen: Gen[ContractInstance] = {
     for {
       template <- idGen
-      arg <- valueGen
-      agreement <- Arbitrary.arbitrary[String]
-    } yield ContractInstance(template, arg, agreement)
+      arg <- valueGen()
+    } yield ContractInstance(template, arg)
   }
 
   val versionedContractInstanceGen: Gen[Value.VersionedContractInstance] =
     for {
       template <- idGen
       arg <- versionedValueGen
-      agreement <- Arbitrary.arbitrary[String]
-    } yield arg.map(Value.ContractInstance(template, _, agreement))
+    } yield arg.map(Value.ContractInstance(template, _))
 
   val keyWithMaintainersGen: Gen[Node.KeyWithMaintainers] = {
     for {
-      key <- valueGen
+      key <- valueGen()
       maintainers <- genNonEmptyParties
     } yield Node.KeyWithMaintainers(key, maintainers)
   }
+
+  val versionedContraactInstanceWithAgreement: Gen[Versioned[Value.ContractInstanceWithAgreement]] =
+    for {
+      coinst <- versionedContractInstanceGen
+      agrement <- Arbitrary.arbitrary[String]
+    } yield coinst.map(Value.ContractInstanceWithAgreement(_, agrement))
 
   /** Makes create nodes that violate the rules:
     *
@@ -299,7 +304,7 @@ object ValueGenerators {
     for {
       coid <- coidGen
       templateId <- idGen
-      arg <- valueGen
+      arg <- valueGen()
       agreement <- Arbitrary.arbitrary[String]
       signatories <- genNonEmptyParties
       stakeholders <- genNonEmptyParties
@@ -369,7 +374,7 @@ object ValueGenerators {
       choiceId <- nameGen
       consume <- Gen.oneOf(true, false)
       actingParties <- genNonEmptyParties
-      chosenValue <- valueGen
+      chosenValue <- valueGen()
       stakeholders <- genNonEmptyParties
       signatories <- genNonEmptyParties
       choiceObservers <- genMaybeEmptyParties
@@ -377,7 +382,8 @@ object ValueGenerators {
         .listOf(Arbitrary.arbInt.arbitrary)
         .map(_.map(NodeId(_)))
         .map(_.to(ImmArray))
-      exerciseResult <- if (version < minExceptions) valueGen.map(Some(_)) else Gen.option(valueGen)
+      exerciseResult <-
+        if (version < minExceptions) valueGen().map(Some(_)) else Gen.option(valueGen())
       key <- Gen.option(keyWithMaintainersGen)
       byKey <- Gen.oneOf(true, false)
     } yield Node.Exercise(

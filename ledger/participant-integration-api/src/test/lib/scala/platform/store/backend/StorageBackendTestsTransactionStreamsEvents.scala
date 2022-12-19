@@ -6,7 +6,6 @@ package com.daml.platform.store.backend
 import com.daml.ledger.api.v1.contract_metadata.ContractMetadata
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.{Bytes, Ref}
-import com.daml.platform.store.backend.EventStorageBackend.FilterParams
 import com.daml.platform.store.backend.common.{
   EventPayloadSourceForFlatTx,
   EventPayloadSourceForTreeTx,
@@ -82,13 +81,9 @@ private[backend] trait StorageBackendTestsTransactionStreamsEvents
   ): Assertion = {
     val someParty = Ref.Party.assertFromString(signatory)
 
-    val createTransactionId = dtoTransactionId(create)
-
     executeSql(backend.parameter.initializeParameters(someIdentityParams))
     executeSql(ingest(Vector(create), _))
     executeSql(updateLedgerEnd(offset(1), 1L))
-
-    val filter = FilterParams(Set(someParty), Set.empty)
 
     val flatTransactionEvents = executeSql(
       backend.event.transactionStreamingQueries.fetchEventPayloadsFlat(
@@ -100,8 +95,12 @@ private[backend] trait StorageBackendTestsTransactionStreamsEvents
         EventPayloadSourceForTreeTx.Create
       )(eventSequentialIds = Seq(1L), Set(someParty))
     )
-    val flatTransaction = executeSql(backend.event.flatTransaction(createTransactionId, filter))
-    val transactionTree = executeSql(backend.event.transactionTree(createTransactionId, filter))
+    val flatTransaction = executeSql(
+      backend.event.transactionPointwiseQueries.fetchFlatTransactionEvents(1L, 1L, Set(someParty))
+    )
+    val transactionTree = executeSql(
+      backend.event.transactionPointwiseQueries.fetchTreeTransactionEvents(1L, 1L, Set(someParty))
+    )
     val acs = executeSql(backend.event.activeContractEventBatch(Seq(1L), Set(someParty), 1L))
 
     extractContractMetadataFrom[FlatEvent.Created, FlatEvent](

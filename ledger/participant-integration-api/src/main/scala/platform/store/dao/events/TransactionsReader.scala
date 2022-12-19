@@ -26,7 +26,6 @@ import com.daml.platform.store.dao.{
   LedgerDaoTransactionsReader,
 }
 import com.daml.platform.store.backend.EventStorageBackend
-import com.daml.platform.store.backend.EventStorageBackend.FilterParams
 import com.daml.platform.store.dao.events.EventsTable.TransactionConversions
 import com.daml.platform.store.utils.Telemetry
 import com.daml.telemetry
@@ -38,6 +37,8 @@ import scala.util.{Failure, Success}
 
 /** @param flatTransactionsStreamReader Knows how to stream flat transactions
   * @param treeTransactionsStreamReader Knows how to stream tree transactions
+  * @param flatTransactionPointwiseReader Knows how to fetch a flat transaction by its id
+  * @param treeTransactionPointwiseReader Knows how to fetch a tree transaction by its id
   * @param dispatcher Executes the queries prepared by this object
   * @param queryNonPruned
   * @param eventStorageBackend
@@ -50,6 +51,8 @@ import scala.util.{Failure, Success}
 private[dao] final class TransactionsReader(
     flatTransactionsStreamReader: TransactionsFlatStreamReader,
     treeTransactionsStreamReader: TransactionsTreeStreamReader,
+    flatTransactionPointwiseReader: TransactionFlatPointwiseReader,
+    treeTransactionPointwiseReader: TransactionTreePointwiseReader,
     dispatcher: DbDispatcher,
     queryNonPruned: QueryNonPruned,
     eventStorageBackend: EventStorageBackend,
@@ -90,33 +93,30 @@ private[dao] final class TransactionsReader(
   override def lookupFlatTransactionById(
       transactionId: Ref.TransactionId,
       requestingParties: Set[Party],
-  )(implicit loggingContext: LoggingContext): Future[Option[GetFlatTransactionResponse]] =
-    dispatcher
-      .executeSql(dbMetrics.lookupFlatTransactionById)(
-        eventStorageBackend.flatTransaction(
-          transactionId,
-          FilterParams(
-            wildCardParties = requestingParties,
-            partiesAndTemplates = Set.empty,
-          ),
-        )
-      )
-      .flatMap(rawEvents =>
-        Timed.value(
-          timer = dbMetrics.lookupFlatTransactionById.translationTimer,
-          value = Future.traverse(rawEvents)(
-            deserializeEntry(
-              EventProjectionProperties(
-                verbose = true,
-                witnessTemplateIdFilter =
-                  requestingParties.map(_.toString -> Set.empty[Identifier]).toMap,
-              ),
-              lfValueTranslation,
-            )
-          ),
-        )
-      )
-      .map(TransactionConversions.toGetFlatTransactionResponse)
+  )(implicit loggingContext: LoggingContext): Future[Option[GetFlatTransactionResponse]] = {
+    flatTransactionPointwiseReader.lookupTransactionById(
+      transactionId = transactionId,
+      requestingParties = requestingParties,
+      eventProjectionProperties = EventProjectionProperties(
+        verbose = true,
+        witnessTemplateIdFilter = requestingParties.map(_.toString -> Set.empty[Identifier]).toMap,
+      ),
+    )
+  }
+
+  override def lookupTransactionTreeById(
+      transactionId: Ref.TransactionId,
+      requestingParties: Set[Party],
+  )(implicit loggingContext: LoggingContext): Future[Option[GetTransactionResponse]] = {
+    treeTransactionPointwiseReader.lookupTransactionById(
+      transactionId = transactionId,
+      requestingParties = requestingParties,
+      eventProjectionProperties = EventProjectionProperties(
+        verbose = true,
+        witnessTemplateIdFilter = requestingParties.map(_.toString -> Set.empty[Identifier]).toMap,
+      ),
+    )
+  }
 
   override def getTransactionTrees(
       startExclusive: Offset,
@@ -139,37 +139,6 @@ private[dao] final class TransactionsReader(
       .futureSource(futureSource)
       .mapMaterializedValue((_: Future[NotUsed]) => NotUsed)
   }
-
-  override def lookupTransactionTreeById(
-      transactionId: Ref.TransactionId,
-      requestingParties: Set[Party],
-  )(implicit loggingContext: LoggingContext): Future[Option[GetTransactionResponse]] =
-    dispatcher
-      .executeSql(dbMetrics.lookupTransactionTreeById)(
-        eventStorageBackend.transactionTree(
-          transactionId,
-          FilterParams(
-            wildCardParties = requestingParties,
-            partiesAndTemplates = Set.empty,
-          ),
-        )
-      )
-      .flatMap(rawEvents =>
-        Timed.value(
-          timer = dbMetrics.lookupTransactionTreeById.translationTimer,
-          value = Future.traverse(rawEvents)(
-            deserializeEntry(
-              EventProjectionProperties(
-                verbose = true,
-                witnessTemplateIdFilter =
-                  requestingParties.map(_.toString -> Set.empty[Identifier]).toMap,
-              ),
-              lfValueTranslation,
-            )
-          ),
-        )
-      )
-      .map(TransactionConversions.toGetTransactionResponse)
 
   override def getActiveContracts(
       activeAt: Offset,
@@ -219,7 +188,10 @@ private[dao] final class TransactionsReader(
           eventSeqIdReader.readEventSeqIdRange(activeAt)(connection),
           activeAt,
           pruned =>
-            s"Active contracts request after ${activeAt.toHexString} precedes pruned offset ${pruned.toHexString}",
+            ACSReader.acsBeforePruningErrorReason(
+              acsOffset = activeAt.toHexString,
+              prunedUpToOffset = pruned.toHexString,
+            ),
         )
       )
       .map { x =>

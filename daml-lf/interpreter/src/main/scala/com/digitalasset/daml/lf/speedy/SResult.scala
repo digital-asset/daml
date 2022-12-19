@@ -25,8 +25,7 @@ object SResult {
     */
   final case class SResultFinal(v: SValue) extends SResult
 
-  /** Update or scenario interpretation requires the current
-    * ledger time.
+  /** Update interpretation requires the current ledger time.
     */
   final case class SResultNeedTime(callback: Time.Timestamp => Unit) extends SResult
 
@@ -58,7 +57,10 @@ object SResult {
       callback: SValue => Unit,
   ) extends SResult
 
-  /** Pass the ledger time and return back the new ledger time. */
+  /** Update interpretation requires the current time. */
+  final case class SResultScenarioGetTime(callback: Time.Timestamp => Unit) extends SResult
+
+  /** Pass the ledger time and return back the new time. */
   final case class SResultScenarioPassTime(
       relTime: Long,
       callback: Time.Timestamp => Unit,
