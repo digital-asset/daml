@@ -191,7 +191,7 @@ The code below shows an example of a ``Project`` function that handles `CreatedE
               projectionTable.getName() +
               " where contract_id = ?"
             )
-            .bind(1, event.getContractId());
+            .bind(1, event.getContractId(), Bind.String());
           return List.of(action);
         }
       };
