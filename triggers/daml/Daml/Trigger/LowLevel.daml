@@ -19,6 +19,7 @@ module Daml.Trigger.LowLevel
   , Archived(..)
   , fromArchived
   , Trigger(..)
+  , BatchTrigger(..)
   , ActiveContracts(..)
   , Commands(..)
   , Command(..)
@@ -168,11 +169,19 @@ data CompletionStatus
 
 data ActiveContracts = ActiveContracts { activeContracts : [Created] }
 
--- | Trigger is (approximately) a left-fold over `Message` with
--- an accumulator of type `s`.
+-- @WARN use 'BatchTrigger s' instead of 'Trigger s'
 data Trigger s = Trigger
   { initialState : Party -> [Party] -> ActiveContracts -> TriggerSetup s
   , update : Message -> TriggerRule s ()
+  , registeredTemplates : RegisteredTemplates
+  , heartbeat : Optional RelTime
+  }
+
+-- | Batching trigger is (approximately) a left-fold over `Message` with
+-- an accumulator of type `s`.
+data BatchTrigger s = BatchTrigger
+  { initialState : Party -> [Party] -> ActiveContracts -> TriggerSetup s
+  , update : [Message] -> TriggerRule s ()
   , registeredTemplates : RegisteredTemplates
   , heartbeat : Optional RelTime
   }
