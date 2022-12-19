@@ -159,7 +159,7 @@ def install_java_deps():
             "io.gatling.highcharts:gatling-charts-highcharts:{}".format(gatling_version),
             "io.gatling:gatling-http:{}".format(gatling_version),
             "io.gatling:gatling-http-client:{}".format(gatling_version),
-            "io.reactivex.rxjava2:rxjava:2.2.1",
+            "io.reactivex.rxjava2:rxjava:2.2.21",
             "io.spray:spray-json_{}:1.3.5".format(scala_major_version),
             "io.github.paoloboni:spray-json-derived-codecs_{}:2.3.4".format(scala_major_version),
             "javax.annotation:javax.annotation-api:1.2",
