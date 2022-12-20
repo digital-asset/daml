@@ -737,18 +737,6 @@ object WebSocketService {
   private abstract sealed class TickTriggerOrStep[+A] extends Product with Serializable
   private final case object TickTrigger extends TickTriggerOrStep[Nothing]
   private final case class Step[A](payload: StepAndErrors[A, JsValue]) extends TickTriggerOrStep[A]
-
-  private implicit final class `foldMapA1 syntax`[F[_], A](private val self: F[A]) extends AnyVal {
-    import scalaz.{Apply, Foldable1, Semigroup}
-    import scalaz.syntax.foldable1._
-
-    def foldMapA1[G[_]: Apply, B: Semigroup](
-        f: A => G[B]
-    )(implicit F: Foldable1[F]): G[B] = {
-      implicit val GB: Semigroup[G[B]] = Semigroup.liftSemigroup
-      self foldMap1 f
-    }
-  }
 }
 
 class WebSocketService(
