@@ -16,7 +16,6 @@ import com.daml.platform.localstore.api.{
 }
 import org.scalatest.freespec.AsyncFreeSpec
 
-import scala.concurrent.Future
 import scala.language.implicitConversions
 
 trait PartyRecordStoreTests extends PartyRecordStoreSpecBase { self: AsyncFreeSpec =>
@@ -135,7 +134,7 @@ trait PartyRecordStoreTests extends PartyRecordStoreSpecBase { self: AsyncFreeSp
                   annotationsUpdateO = Some(Map("k1" -> "v1")),
                 ),
               ),
-              ledgerPartyExists = _ => Future.successful(true),
+              ledgerPartyIsLocal = true,
             )
             _ = resetResourceVersion(update1.value) shouldBe newPartyRecord(
               "party1",
@@ -161,7 +160,7 @@ trait PartyRecordStoreTests extends PartyRecordStoreSpecBase { self: AsyncFreeSp
                   ),
                 ),
               ),
-              ledgerPartyExists = _ => Future.successful(true),
+              ledgerPartyIsLocal = true,
             )
             _ = update1.value shouldBe createdPartyRecord(
               "party1",
@@ -200,7 +199,7 @@ trait PartyRecordStoreTests extends PartyRecordStoreSpecBase { self: AsyncFreeSp
                   ),
                 ),
               ),
-              ledgerPartyExists = _ => Future.successful(true),
+              ledgerPartyIsLocal = true,
             )
             _ = update1.value shouldBe createdPartyRecord(
               "party1",
@@ -225,7 +224,7 @@ trait PartyRecordStoreTests extends PartyRecordStoreSpecBase { self: AsyncFreeSp
                   annotationsUpdateO = Some(Map("k1" -> "v1")),
                 ),
               ),
-              ledgerPartyExists = _ => Future.successful(false),
+              ledgerPartyIsLocal = false,
             )
             _ = res1.left.value shouldBe PartyRecordStore.PartyNotFound(party)
           } yield succeed
@@ -245,7 +244,7 @@ trait PartyRecordStoreTests extends PartyRecordStoreSpecBase { self: AsyncFreeSp
                   annotationsUpdateO = Some(Map("k1" -> "v1")),
                 ),
               ),
-              ledgerPartyExists = _ => Future.successful(true),
+              ledgerPartyIsLocal = true,
             )
             _ = res1.left.value shouldBe PartyRecordStore.ConcurrentPartyUpdate(pr.party)
           } yield succeed
@@ -274,7 +273,7 @@ trait PartyRecordStoreTests extends PartyRecordStoreSpecBase { self: AsyncFreeSp
             _ <- tested.createPartyRecord(pr)
             res1 <- tested.updatePartyRecord(
               makePartRecordUpdate(annotationsUpdateO = Some(Map("k2" -> bigValue))),
-              ledgerPartyExists = (_ => Future.successful(true)),
+              ledgerPartyIsLocal = true,
             )
             _ = res1.left.value shouldBe PartyRecordStore.MaxAnnotationsSizeExceeded(pr.party)
           } yield succeed
@@ -289,7 +288,7 @@ trait PartyRecordStoreTests extends PartyRecordStoreSpecBase { self: AsyncFreeSp
               makePartRecordUpdate(annotationsUpdateO =
                 Some(Map("k1" -> bigValue, "k2" -> bigValue))
               ),
-              ledgerPartyExists = (_ => Future.successful(true)),
+              ledgerPartyIsLocal = true,
             )
             _ = res1.left.value shouldBe PartyRecordStore.MaxAnnotationsSizeExceeded(party)
           } yield succeed

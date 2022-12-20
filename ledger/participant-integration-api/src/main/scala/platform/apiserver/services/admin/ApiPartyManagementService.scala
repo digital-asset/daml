@@ -305,9 +305,7 @@ private[apiserver] final class ApiPartyManagementService private (
           }
           updatedPartyRecordResult <- partyRecordStore.updatePartyRecord(
             partyRecordUpdate = partyRecordUpdate,
-            ledgerPartyExists = (_: Ref.Party) => {
-              Future.successful(fetchedPartyDetailsO.isDefined)
-            },
+            ledgerPartyIsLocal = fetchedPartyDetailsO.exists(_.isLocal),
           )
           updatedPartyRecord: PartyRecord <- handlePartyRecordStoreResult(
             "updating a participant party record"
