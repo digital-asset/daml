@@ -78,6 +78,8 @@ conformance_test_tool_args = [
         "TLSOnePointThreeIT",
         "TLSAtLeastOnePointTwoIT",
         "CommandDeduplicationPeriodValidationIT:OffsetPruned",  # requires pruning not available in canton community
+        "ActiveContractsServiceIT:AcsBeforePruningOffsetIsDisallowed",  # requires pruning not available in canton community
+        "ActiveContractsServiceIT:AcsAtPruningOffsetIsAllowed",  # requires pruning not available in canton community
     ]),
 ]
 
