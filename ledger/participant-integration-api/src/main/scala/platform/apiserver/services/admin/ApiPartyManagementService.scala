@@ -122,7 +122,9 @@ private[apiserver] final class ApiPartyManagementService private (
           partyRecordOptions <- fetchPartyRecords(partyDetailsSeq)
         } yield {
           val protoDetails =
-            partyDetailsSeq.zip(partyRecordOptions).collect(relevantParties(identityProviderId))
+            partyDetailsSeq
+              .zip(partyRecordOptions)
+              .map(disclosedPartyInformation(identityProviderId))
           GetPartiesResponse(partyDetails = protoDetails)
         }
       }
@@ -146,26 +148,25 @@ private[apiserver] final class ApiPartyManagementService private (
       } yield {
         val protoDetails = partyDetailsSeq
           .zip(partyRecords)
-          .collect(relevantParties(identityProviderId))
+          .map(disclosedPartyInformation(identityProviderId))
         ListKnownPartiesResponse(protoDetails)
       }
     }
   }
 
-  private def relevantParties(
+  private def disclosedPartyInformation(
       identityProviderId: IdentityProviderId
-  ): PartialFunction[(IndexerPartyDetails, Option[PartyRecord]), ProtoPartyDetails] = {
+  ): ((IndexerPartyDetails, Option[PartyRecord])) => ProtoPartyDetails = {
     case (details, recordO) if recordO.map(_.identityProviderId).contains(identityProviderId) =>
       toProtoPartyDetails(
         partyDetails = details,
         metadataO = recordO.map(_.metadata),
         recordO.map(_.identityProviderId),
       )
-    case (details, _) if identityProviderId == IdentityProviderId.Default =>
-      // Expose party if it is non-local to the participant and Identity Provider is Default.
-      // Required for the backward compatibility with the usages before IDP management has been introduced.
+    case (details, _) =>
+      // Expose the party, but blind the identity provider and report it as non-local.
       toProtoPartyDetails(
-        partyDetails = details,
+        partyDetails = details.copy(isLocal = false),
         metadataO = None,
         None,
       )
@@ -342,6 +343,10 @@ private[apiserver] final class ApiPartyManagementService private (
               )
             }
           }
+          _ <- partyBelongsToIDPOrError(
+            partyRecordUpdate.identityProviderId,
+            partyRecordUpdate.party,
+          )
           updatedPartyRecordResult <- partyRecordStore.updatePartyRecord(
             partyRecordUpdate = partyRecordUpdate,
             ledgerPartyIsLocal = fetchedPartyDetailsO.exists(_.isLocal),
@@ -359,6 +364,22 @@ private[apiserver] final class ApiPartyManagementService private (
           )
         )
       }
+    }
+  }
+
+  // Here we check if party exists and actually belongs to the requested Identity Provider
+  private def partyBelongsToIDPOrError(
+      identityProviderId: IdentityProviderId,
+      party: Ref.Party,
+  )(implicit errorLogger: DamlContextualizedErrorLogger): Future[Unit] = {
+    partyRecordStore.getPartyRecordO(party).flatMap {
+      case Right(Some(party)) if party.identityProviderId != identityProviderId =>
+        Future.failed(
+          LedgerApiErrors.AuthorizationChecks.PermissionDenied
+            .Reject(s"Party ${party} belongs to another Identity Provider")
+            .asGrpcError
+        )
+      case _ => Future.unit
     }
   }
 
