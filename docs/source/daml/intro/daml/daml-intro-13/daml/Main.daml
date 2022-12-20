@@ -4,6 +4,8 @@
 module Main where
 
 import DA.Assert
+import DA.List.BuiltinOrder (sort)
+import DA.Optional (mapOptional)
 import Daml.Script
 
 import Cash
@@ -317,3 +319,68 @@ nftArchiveAssetTest = mkArchiveAssetTest mkNft
 
 nftArchiveAssetTransferProposalTest : Script ()
 nftArchiveAssetTransferProposalTest = mkArchiveAssetTransferProposalTest mkNft
+
+cashAndNftTest : Script ()
+cashAndNftTest = do
+  Parties {..} <- allocateParties
+
+  aliceCash <- alice `submit`
+    createCmd Cash with
+      issuer = alice
+      owner = alice
+      currency = "USD"
+      amount = 30.0
+
+  aliceNft <- alice `submit`
+    createCmd NFT with
+      issuer = alice
+      owner = alice
+      url = "https://nyan.feline/"
+
+  bobAssetProposals <- alice `submit` do
+    mapA
+      (`exerciseCmd` ProposeIAssetTransfer bob)
+      [ toInterfaceContractId @IAsset aliceCash
+      , toInterfaceContractId aliceNft
+      ]
+
+  bobAssets <- bob `submit` do
+    mapA
+      (`exerciseCmd` AcceptIAssetTransferProposal)
+      bobAssetProposals
+
+  bobQueriedAssets <- queryInterface @IAsset bob
+
+  assertMsg
+    "At this point Bob should have exactly two assets"
+    (length bobQueriedAssets == 2)
+
+  let bobQueriedAssetsViews = mapOptional snd bobQueriedAssets
+  assertMsg
+    "All of Bob's assets have well-defined views"
+    (length bobQueriedAssetsViews == 2)
+
+  assertMsg
+    "Bob's assets' contract ids should match"
+    (sort (map fst bobQueriedAssets) == sort bobAssets)
+
+  let
+    bobCashView = view $
+      toInterface @IAsset Cash with
+        issuer = alice
+        owner = bob
+        currency = "USD"
+        amount = 30.0
+    bobNftView = view $
+      toInterface @IAsset NFT with
+        issuer = alice
+        owner = bob
+        url = "https://nyan.feline/"
+  assertMsg
+    "One of Bob's assets is the Cash issued by Alice"
+    (bobCashView `elem` bobQueriedAssetsViews)
+  assertMsg
+    "Bob's other asset is the NFT issued by Alice"
+    (bobNftView `elem` bobQueriedAssetsViews)
+
+  pure ()
