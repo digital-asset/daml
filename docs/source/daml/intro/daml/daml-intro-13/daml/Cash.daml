@@ -5,6 +5,7 @@ module Cash where
 
 import IAsset
 
+-- TEMPLATE_CASH_DEF_BEGIN
 template Cash
   with
     issuer : Party
@@ -22,6 +23,7 @@ template Cash
         create CashTransferProposal with
           cash = this
           newOwner = newOwner
+-- TEMPLATE_CASH_DEF_END
 
     interface instance IAsset for Cash where
       view = VAsset with
@@ -40,6 +42,7 @@ template Cash
             cash = this
             newOwner
 
+-- TEMPLATE_CASH_TF_DEF_BEGIN
 template CashTransferProposal
   with
     cash : Cash
@@ -70,6 +73,7 @@ template CashTransferProposal
       controller cash.owner
       do
         create cash
+-- TEMPLATE_CASH_TF_DEF_END
 
     interface instance IAssetTransferProposal for CashTransferProposal where
       view = VAssetTransferProposal with

@@ -3,12 +3,15 @@
 
 module IAsset where
 
+-- DATA_VASSET_DEF_BEGIN
 data VAsset = VAsset with
     issuer : Party
     owner : Party
     description : Text
   deriving (Eq, Ord, Show)
+-- DATA_VASSET_DEF_END
 
+-- INTERFACE_IASSET_DEF_BEGIN
 interface IAsset
   where
     viewtype VAsset
@@ -21,12 +24,16 @@ interface IAsset
       controller (view this).owner
       do
         create (toTransferProposal this newOwner)
+-- INTERFACE_IASSET_DEF_END
 
+-- DATA_VASSET_TF_DEF_BEGIN
 data VAssetTransferProposal = VAssetTransferProposal with
     assetView : VAsset
     newOwner : Party
   deriving (Eq, Ord, Show)
+-- DATA_VASSET_TF_DEF_END
 
+-- INTERFACE_IASSET_TF_DEF_BEGIN
 interface IAssetTransferProposal
   where
     viewtype VAssetTransferProposal
@@ -47,3 +54,4 @@ interface IAssetTransferProposal
       controller (view (asset this)).owner
       do
         create (asset this)
+-- INTERFACE_IASSET_TF_DEF_END
