@@ -74,51 +74,56 @@ class IndexDBMetrics(override val prefix: MetricName, override val registry: Met
     "lookup_contract_by_key"
   )
 
-  // TODO etq: Tune metric names
-  // TODO etq: Document new metrics and changes to the existing metrics
-  val flatTxIdsCreate: DatabaseMetrics = createDbMetrics(
-    "get_create_event_ids_for_flat_transactions"
-  )
-  val flatTxIdsConsuming: DatabaseMetrics = createDbMetrics(
-    "get_consuming_event_ids_for_flat_transactions"
-  )
-  val flatTxPayloadCreate: DatabaseMetrics = createDbMetrics(
-    "get_create_event_payloads_for_flat_transactions"
-  )
-  val flatTxPayloadConsuming: DatabaseMetrics = createDbMetrics(
-    "get_consuming_event_payloads_for_flat_transactions"
-  )
-  val treeTxIdsCreateStakeholder: DatabaseMetrics = createDbMetrics(
-    "get_create_event_ids_for_stakeholder_for_tree_transactions"
-  )
-  val treeTxIdsCreateNonStakeholderInformee: DatabaseMetrics = createDbMetrics(
-    "get_create_event_ids_for_nonstakeholderinformee_for_tree_transactions"
-  )
-  val treeTxIdsConsumingStakeholder: DatabaseMetrics = createDbMetrics(
-    "get_consuming_event_ids_for_stakeholder_for_tree_transactions"
-  )
-  val treeTxIdsConsumingNonStakeholderInformee: DatabaseMetrics = createDbMetrics(
-    "get_consuming_event_ids_for_nonstakeholderinformee_for_tree_transactions"
-  )
-  val treeTxIdsNonConsumingInformee: DatabaseMetrics = createDbMetrics(
-    "get_nonconsuming_event_ids_for_informee_for_tree_transactions"
-  )
-  val treeTxPayloadCreate: DatabaseMetrics = createDbMetrics(
-    "get_create_event_payloads_for_tree_transactions"
-  )
-  val treeTxPayloadConsuming: DatabaseMetrics = createDbMetrics(
-    "get_consuming_event_payloads_for_tree_transactions"
-  )
-  val treeTxPayloadNonConsuming: DatabaseMetrics = createDbMetrics(
-    "get_nonconsuming_event_payloads_for_tree_transactions"
-  )
-  // TODO etq: Document new metrics and changes to the existing metrics
-  val getFlatTransactions: DatabaseMetrics = createDbMetrics("get_flat_transactions")
+  object flatTxStream {
+    private val prefix: MetricName = IndexDBMetrics.this.prefix :+ "flat_transactions"
+
+    val fetchEventCreateIdsStakeholder: DatabaseMetrics = createDbMetrics(
+      prefix :+ "fetch_event_create_ids_stakeholder"
+    )
+    val fetchEventConsumingIdsStakeholder: DatabaseMetrics = createDbMetrics(
+      prefix :+ "fetch_event_consuming_ids_stakeholder"
+    )
+    val fetchEventCreatePayloads: DatabaseMetrics = createDbMetrics(
+      prefix :+ "fetch_event_create_payloads"
+    )
+    val fetchEventConsumingPayloads: DatabaseMetrics = createDbMetrics(
+      prefix :+ "fetch_event_consuming_payloads"
+    )
+    val translationTimer: Timer = createDbMetrics(prefix :+ "flat_transactions").translationTimer
+  }
+
+  object treeTxStream {
+    private val prefix: MetricName = IndexDBMetrics.this.prefix :+ "tree_transactions"
+
+    val fetchEventCreateIdsStakeholder: DatabaseMetrics = createDbMetrics(
+      prefix :+ "fetch_event_create_ids_stakeholder"
+    )
+    val fetchEventCreateIdsNonStakeholder: DatabaseMetrics = createDbMetrics(
+      prefix :+ "fetch_event_create_ids_non_stakeholder"
+    )
+    val fetchEventConsumingIdsStakeholder: DatabaseMetrics = createDbMetrics(
+      prefix :+ "fetch_event_consuming_ids_stakeholder"
+    )
+    val fetchEventConsumingIdsNonStakeholder: DatabaseMetrics = createDbMetrics(
+      prefix :+ "fetch_event_consuming_ids_non_stakeholder"
+    )
+    val fetchEventNonConsumingIds: DatabaseMetrics = createDbMetrics(
+      prefix :+ "fetch_event_non_consuming_ids_informee"
+    )
+    val fetchEventCreatePayloads: DatabaseMetrics = createDbMetrics(
+      prefix :+ "fetch_event_create_payloads"
+    )
+    val fetchEventConsumingPayloads: DatabaseMetrics = createDbMetrics(
+      prefix :+ "fetch_event_consuming_payloads"
+    )
+    val fetchEventNonConsumingPayloads: DatabaseMetrics = createDbMetrics(
+      prefix :+ "fetch_event_non_consuming_payloads"
+    )
+    val translationTimer: Timer = createDbMetrics(prefix :+ "tree_transactions").translationTimer
+  }
   val lookupFlatTransactionById: DatabaseMetrics = createDbMetrics(
     "lookup_flat_transaction_by_id"
   )
-  // TODO etq: Document new metrics and changes to the existing metrics
-  val getTransactionTrees: DatabaseMetrics = createDbMetrics("get_transaction_trees")
   val lookupTransactionTreeById: DatabaseMetrics = createDbMetrics(
     "lookup_transaction_tree_by_id"
   )

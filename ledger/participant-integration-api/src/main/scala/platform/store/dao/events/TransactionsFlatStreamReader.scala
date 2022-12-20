@@ -191,28 +191,28 @@ class TransactionsFlatStreamReader(
         target = EventIdSourceForStakeholders.Create,
         maxParallelIdQueriesLimiter = createEventIdQueriesLimiter,
         maxOutputBatchCount = maxParallelPayloadCreateQueries + 1,
-        metric = dbMetrics.flatTxIdsCreate,
+        metric = dbMetrics.flatTxStream.fetchEventCreateIdsStakeholder,
       )
     val idsConsuming =
       fetchIds(
         target = EventIdSourceForStakeholders.Consuming,
         maxParallelIdQueriesLimiter = consumingEventIdQueriesLimiter,
         maxOutputBatchCount = maxParallelPayloadConsumingQueries + 1,
-        metric = dbMetrics.flatTxIdsConsuming,
+        metric = dbMetrics.flatTxStream.fetchEventConsumingIdsStakeholder,
       )
     val payloadsCreate =
       fetchPayloads(
         ids = idsCreate,
         target = EventPayloadSourceForFlatTx.Create,
         maxParallelPayloadQueries = maxParallelPayloadCreateQueries,
-        dbMetric = dbMetrics.flatTxPayloadCreate,
+        dbMetric = dbMetrics.flatTxStream.fetchEventCreatePayloads,
       )
     val payloadsConsuming =
       fetchPayloads(
         ids = idsConsuming,
         target = EventPayloadSourceForFlatTx.Consuming,
         maxParallelPayloadQueries = maxParallelPayloadConsumingQueries,
-        dbMetric = dbMetrics.flatTxPayloadConsuming,
+        dbMetric = dbMetrics.flatTxStream.fetchEventConsumingPayloads,
       )
     val allSortedPayloads = payloadsConsuming.mergeSorted(payloadsCreate)(orderBySequentialEventId)
     TransactionsReader
@@ -231,7 +231,7 @@ class TransactionsFlatStreamReader(
     Timed.future(
       future =
         Future.traverse(rawEvents)(deserializeEntry(eventProjectionProperties, lfValueTranslation)),
-      timer = dbMetrics.getFlatTransactions.translationTimer,
+      timer = dbMetrics.flatTxStream.translationTimer,
     )
   }
 
