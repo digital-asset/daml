@@ -352,6 +352,7 @@ private[lf] object Speedy {
                 signatories = cachedContract.signatories,
                 stakeholders = cachedContract.stakeholders,
                 maybeKeyWithMaintainers = maybeKeyWithMaintainers,
+                agreementText = cachedContract.agreementText,
               )
               val engineEnrichedDisclosedContract =
                 ProcessedDisclosedContract(

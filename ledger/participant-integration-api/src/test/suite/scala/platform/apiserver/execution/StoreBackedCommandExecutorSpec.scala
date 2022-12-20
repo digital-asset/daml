@@ -46,6 +46,7 @@ class StoreBackedCommandExecutorSpec
           signatories = Set.empty,
           stakeholders = Set.empty,
           maybeKeyWithMaintainers = None,
+          agreementText = "some agreement text",
         ),
       ),
     )

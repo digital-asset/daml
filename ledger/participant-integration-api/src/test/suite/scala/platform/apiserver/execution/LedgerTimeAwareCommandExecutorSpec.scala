@@ -81,6 +81,7 @@ class LedgerTimeAwareCommandExecutorSpec
           signatories = Set.empty,
           stakeholders = Set.empty,
           maybeKeyWithMaintainers = None,
+          agreementText = "",
         ),
       ),
     )
