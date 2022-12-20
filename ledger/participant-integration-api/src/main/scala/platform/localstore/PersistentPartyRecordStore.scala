@@ -20,12 +20,7 @@ import com.daml.platform.localstore.PersistentPartyRecordStore.{
   ConcurrentPartyRecordUpdateDetectedRuntimeException,
   MaxAnnotationsSizeExceededException,
 }
-import com.daml.platform.localstore.api.{
-  LedgerPartyExists,
-  PartyRecord,
-  PartyRecordStore,
-  PartyRecordUpdate,
-}
+import com.daml.platform.localstore.api.{PartyRecord, PartyRecordStore, PartyRecordUpdate}
 import com.daml.platform.localstore.utils.LocalAnnotationsUtils
 import com.daml.platform.server.api.validation.ResourceAnnotationValidation
 import com.daml.platform.store.DbSupport
@@ -75,13 +70,12 @@ class PersistentPartyRecordStore(
 
   override def updatePartyRecord(
       partyRecordUpdate: PartyRecordUpdate,
-      ledgerPartyExists: LedgerPartyExists,
+      ledgerPartyIsLocal: Boolean,
   )(implicit
       loggingContext: LoggingContext
   ): Future[Result[PartyRecord]] = {
     val party = partyRecordUpdate.party
     for {
-      partyExistsOnLedger <- ledgerPartyExists.exists(party)
       updatedPartyRecord <- inTransaction(_.updatePartyRecord) { implicit connection =>
         backend.getPartyRecord(party = party)(connection) match {
           // Update an existing party record
@@ -91,9 +85,9 @@ class PersistentPartyRecordStore(
               partyRecordUpdate = partyRecordUpdate,
             )(connection)
             doFetchDomainPartyRecord(party)(connection)
-          // Party record does not exist
+          // Party record does not exist, but party is local to participant
           case None =>
-            if (partyExistsOnLedger) {
+            if (ledgerPartyIsLocal) {
               for {
                 _ <- withoutPartyRecord(party) {
                   val newPartyRecord = PartyRecord(

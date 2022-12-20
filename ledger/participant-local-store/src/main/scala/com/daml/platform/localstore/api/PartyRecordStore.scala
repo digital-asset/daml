@@ -10,13 +10,6 @@ import com.daml.platform.server.api.validation.ResourceAnnotationValidation
 
 import scala.concurrent.Future
 
-trait LedgerPartyExists {
-
-  /** @return Whether a party is known to this participant
-    */
-  def exists(party: Ref.Party): Future[Boolean]
-}
-
 case class PartyDetailsUpdate(
     party: Ref.Party,
     identityProviderId: IdentityProviderId,
@@ -38,8 +31,8 @@ trait PartyRecordStore {
       loggingContext: LoggingContext
   ): Future[Result[PartyRecord]]
 
-  def updatePartyRecord(partyRecordUpdate: PartyRecordUpdate, ledgerPartyExists: LedgerPartyExists)(
-      implicit loggingContext: LoggingContext
+  def updatePartyRecord(partyRecordUpdate: PartyRecordUpdate, ledgerPartyIsLocal: Boolean)(implicit
+      loggingContext: LoggingContext
   ): Future[Result[PartyRecord]]
 
   def getPartyRecordO(party: Ref.Party)(implicit
