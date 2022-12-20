@@ -22,6 +22,56 @@ data Parties = Parties with
       : Party
   deriving (Eq, Ord, Show)
 
+-- Tests
+cashTest : Script ()
+cashTest = allocateParties >>= mkCashTest
+
+archiveCashTest : Script ()
+archiveCashTest = allocateParties >>= mkArchiveCashTest
+
+archiveCashTransferProposalTest : Script ()
+archiveCashTransferProposalTest = allocateParties >>= mkArchiveCashTransferProposalTest
+
+nftTest : Script ()
+nftTest = allocateParties >>= mkNftTest
+
+archiveNftTest : Script ()
+archiveNftTest = allocateParties >>= mkArchiveNftTest
+
+archiveNftTransferProposalTest : Script ()
+archiveNftTransferProposalTest = allocateParties >>= mkArchiveNftTransferProposalTest
+
+cashAssetTest : Script ()
+cashAssetTest = do
+  parties <- allocateParties
+  mkAssetTest parties mkCash
+
+cashArchiveAssetTest : Script ()
+cashArchiveAssetTest = do
+  parties <- allocateParties
+  mkArchiveAssetTest parties mkCash
+
+cashArchiveAssetTransferProposalTest : Script ()
+cashArchiveAssetTransferProposalTest = do
+  parties <- allocateParties
+  mkArchiveAssetTransferProposalTest parties mkCash
+
+nftAssetTest : Script ()
+nftAssetTest = do
+  parties <- allocateParties
+  mkAssetTest parties mkNft
+
+nftArchiveAssetTest : Script ()
+nftArchiveAssetTest = do
+  parties <- allocateParties
+  mkArchiveAssetTest parties mkNft
+
+nftArchiveAssetTransferProposalTest : Script ()
+nftArchiveAssetTransferProposalTest = do
+  parties <- allocateParties
+  mkArchiveAssetTransferProposalTest parties mkNft
+
+-- Test helpers
 allocateParties : Script Parties
 allocateParties = do
   alice <- allocateParty "alice"
@@ -31,10 +81,8 @@ allocateParties = do
   emily <- allocateParty "emily"
   pure Parties with ..
 
-cashTest : Script ()
-cashTest = do
-  Parties {..} <- allocateParties
-
+mkCashTest : Parties -> Script ()
+mkCashTest Parties {..} = do
   aliceUsd <-
     alice `submit` do
       createCmd Cash with
@@ -81,10 +129,8 @@ cashTest = do
 
   pure ()
 
-archiveCashTest : Script ()
-archiveCashTest = do
-  Parties {..} <- allocateParties
-
+mkArchiveCashTest : Parties -> Script ()
+mkArchiveCashTest Parties {..} = do
   aliceUsd <-
     alice `submit` do
       createCmd Cash with
@@ -96,10 +142,8 @@ archiveCashTest = do
   alice `submit` do
     archiveCmd aliceUsd
 
-archiveCashTransferProposalTest : Script ()
-archiveCashTransferProposalTest = do
-  Parties {..} <- allocateParties
-
+mkArchiveCashTransferProposalTest : Parties -> Script ()
+mkArchiveCashTransferProposalTest Parties {..} = do
   aliceUsd <-
     alice `submit` do
       createCmd Cash with
@@ -116,10 +160,8 @@ archiveCashTransferProposalTest = do
   alice `submit` do
     archiveCmd bobUsdTransferProposal
 
-nftTest : Script ()
-nftTest = do
-  Parties {..} <- allocateParties
-
+mkNftTest : Parties -> Script ()
+mkNftTest Parties {..} = do
   aliceMeme <-
     alice `submit` do
       createCmd NFT with
@@ -165,10 +207,8 @@ nftTest = do
 
   pure ()
 
-archiveNftTest : Script ()
-archiveNftTest = do
-  Parties {..} <- allocateParties
-
+mkArchiveNftTest : Parties -> Script ()
+mkArchiveNftTest Parties {..} = do
   aliceMeme <-
     alice `submit` do
       createCmd NFT with
@@ -179,10 +219,8 @@ archiveNftTest = do
   alice `submit` do
     archiveCmd aliceMeme
 
-archiveNftTransferProposalTest : Script ()
-archiveNftTransferProposalTest = do
-  Parties {..} <- allocateParties
-
+mkArchiveNftTransferProposalTest : Parties -> Script ()
+mkArchiveNftTransferProposalTest Parties {..} = do
   aliceMeme <-
     alice `submit` do
       createCmd NFT with
@@ -198,10 +236,8 @@ archiveNftTransferProposalTest = do
   alice `submit` do
     archiveCmd bobMemeTransferProposal
 
-mkAssetTest : (Template t, Implements t IAsset) => (Party -> Party -> t) -> Script ()
-mkAssetTest mkAsset = do
-  Parties {..} <- allocateParties
-
+mkAssetTest : (Template t, Implements t IAsset) => Parties -> (Party -> Party -> t) -> Script ()
+mkAssetTest Parties {..} mkAsset = do
   aliceAsset <-
     alice `submit` do
       toInterfaceContractId @IAsset <$>
@@ -260,10 +296,8 @@ mkAssetTest mkAsset = do
 
   pure ()
 
-mkArchiveAssetTest : (Template t, Implements t IAsset) => (Party -> Party -> t) -> Script ()
-mkArchiveAssetTest mkAsset = do
-  Parties {..} <- allocateParties
-
+mkArchiveAssetTest : (Template t, Implements t IAsset) => Parties -> (Party -> Party -> t) -> Script ()
+mkArchiveAssetTest Parties {..} mkAsset = do
   aliceAsset <-
     alice `submit` do
       toInterfaceContractId @IAsset <$>
@@ -272,10 +306,8 @@ mkArchiveAssetTest mkAsset = do
   alice `submit` do
     archiveCmd aliceAsset
 
-mkArchiveAssetTransferProposalTest : (Template t, Implements t IAsset) => (Party -> Party -> t) -> Script ()
-mkArchiveAssetTransferProposalTest mkAsset = do
-  Parties {..} <- allocateParties
-
+mkArchiveAssetTransferProposalTest : (Template t, Implements t IAsset) => Parties -> (Party -> Party -> t) -> Script ()
+mkArchiveAssetTransferProposalTest Parties {..} mkAsset = do
   aliceAsset <-
     alice `submit` do
       toInterfaceContractId @IAsset <$>
@@ -296,29 +328,11 @@ mkCash issuer owner = Cash with
   currency = "USD"
   amount = 42.0
 
-cashAssetTest : Script ()
-cashAssetTest = mkAssetTest mkCash
-
-cashArchiveAssetTest : Script ()
-cashArchiveAssetTest = mkArchiveAssetTest mkCash
-
-cashArchiveAssetTransferProposalTest : Script ()
-cashArchiveAssetTransferProposalTest = mkArchiveAssetTransferProposalTest mkCash
-
 mkNft : Party -> Party -> NFT
 mkNft issuer owner = NFT with
   issuer
   owner
   url = "https://nyan.feline/"
-
-nftAssetTest : Script ()
-nftAssetTest = mkAssetTest mkNft
-
-nftArchiveAssetTest : Script ()
-nftArchiveAssetTest = mkArchiveAssetTest mkNft
-
-nftArchiveAssetTransferProposalTest : Script ()
-nftArchiveAssetTransferProposalTest = mkArchiveAssetTransferProposalTest mkNft
 
 cashAndNftTest : Script ()
 cashAndNftTest = do
