@@ -14,8 +14,8 @@ import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.configuration.{
   ServerRole,
-  TransactionsFlatStreamReaderConfig,
-  TransactionsTreeStreamReaderConfig,
+  TransactionsFlatStreamsConfig,
+  TransactionsTreeStreamsConfig,
 }
 import com.daml.platform.store.DbSupport.{ConnectionPoolConfig, DbConfig}
 import com.daml.platform.store.backend.StorageBackendFactory
@@ -102,8 +102,8 @@ private[dao] trait JdbcLedgerDaoBackend extends AkkaBeforeAndAfterAll {
           ledgerEndCache = ledgerEndCache,
           stringInterning = stringInterningView,
           completionsMaxPayloadsPerPayloadsPage = 1000,
-          transactionsFlatStreamReaderConfig = TransactionsFlatStreamReaderConfig.default,
-          transactionsTreeStreamReaderConfig = TransactionsTreeStreamReaderConfig.default,
+          transactionsFlatStreamsConfig = TransactionsFlatStreamsConfig.default,
+          transactionsTreeStreamsConfig = TransactionsTreeStreamsConfig.default,
           globalMaxEventIdQueries = 20,
           globalMaxEventPayloadQueries = 10,
         )

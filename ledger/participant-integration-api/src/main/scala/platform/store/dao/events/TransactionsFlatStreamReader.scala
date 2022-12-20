@@ -14,7 +14,7 @@ import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{DatabaseMetrics, Metrics, Timed}
 import com.daml.nameof.NameOf.qualifiedNameOfCurrentFunc
 import com.daml.platform.TemplatePartiesFilter
-import com.daml.platform.configuration.TransactionsFlatStreamReaderConfig
+import com.daml.platform.configuration.TransactionsFlatStreamsConfig
 import com.daml.platform.indexer.parallel.BatchN
 import com.daml.platform.store.backend.EventStorageBackend
 import com.daml.platform.store.backend.common.{
@@ -37,7 +37,7 @@ import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.{ExecutionContext, Future}
 
 class TransactionsFlatStreamReader(
-    config: TransactionsFlatStreamReaderConfig,
+    config: TransactionsFlatStreamsConfig,
     globalIdQueriesLimiter: ConcurrencyLimiter,
     globalPayloadQueriesLimiter: ConcurrencyLimiter,
     dbDispatcher: DbDispatcher,
