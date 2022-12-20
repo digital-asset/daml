@@ -4,8 +4,7 @@
 module Main where
 
 import DA.Assert
-import DA.List.BuiltinOrder (sort)
-import DA.Optional (mapOptional)
+import DA.List.BuiltinOrder (sortOn)
 import Daml.Script
 
 import Cash
@@ -41,7 +40,7 @@ archiveNftTest = allocateParties >>= mkArchiveNftTest
 archiveNftTransferProposalTest : Script ()
 archiveNftTransferProposalTest = allocateParties >>= mkArchiveNftTransferProposalTest
 
-cashAssetTest : Script ()
+cashAssetTest : Script (ContractId IAsset)
 cashAssetTest = do
   parties <- allocateParties
   mkAssetTest parties mkCash
@@ -56,7 +55,7 @@ cashArchiveAssetTransferProposalTest = do
   parties <- allocateParties
   mkArchiveAssetTransferProposalTest parties mkCash
 
-nftAssetTest : Script ()
+nftAssetTest : Script (ContractId IAsset)
 nftAssetTest = do
   parties <- allocateParties
   mkAssetTest parties mkNft
@@ -239,7 +238,7 @@ mkArchiveNftTransferProposalTest Parties {..} = do
   alice `submit` do
     archiveCmd bobMemeTransferProposal
 
-mkAssetTest : (Template t, Implements t IAsset) => Parties -> (Party -> Party -> t) -> Script ()
+mkAssetTest : (Template t, Implements t IAsset) => Parties -> (Party -> Party -> t) -> Script (ContractId IAsset)
 mkAssetTest Parties {..} mkAsset = do
   aliceAsset <-
     alice `submit` do
@@ -288,7 +287,7 @@ mkAssetTest Parties {..} mkAsset = do
   charlieAssetView ===
     Some (view (toInterface @IAsset (mkAsset alice charlie)))
 
-  pure ()
+  pure charlieAsset''
 
 mkArchiveAssetTest : (Template t, Implements t IAsset) => Parties -> (Party -> Party -> t) -> Script ()
 mkArchiveAssetTest Parties {..} mkAsset = do
@@ -330,30 +329,15 @@ mkNft issuer owner = NFT with
 
 mkCashAndNftTest : Parties -> Script ()
 mkCashAndNftTest parties@Parties {..} = do
-  mkAssetTest parties mkCash
-  mkAssetTest parties mkNft
+  charlieAssetCash <- mkAssetTest parties mkCash
+  charlieAssetNft <- mkAssetTest parties mkNft
 
   charlieQueriedAssets <- queryInterface @IAsset charlie
 
   assertMsg
-    "At this point Charlie should have exactly two assets"
-    (length charlieQueriedAssets == 2)
-
-  let charlieQueriedAssetsViews = mapOptional snd charlieQueriedAssets
-  assertMsg
-    "All of Charlie's assets have well-defined views"
-    (length charlieQueriedAssetsViews == 2)
-
-  -- assertMsg
-  --   "Charlie's assets' contract ids should match"
-  --   (sort (map fst charlieQueriedAssets) == sort charlieAssets)
-
-  let
-    charlieCashView = view $ toInterface @IAsset $ mkCash alice charlie
-    charlieNftView = view $ toInterface @IAsset $ mkNft alice charlie
-  assertMsg
-    "One of Charlie's assets is the Cash issued by Alice"
-    (charlieCashView `elem` charlieQueriedAssetsViews)
-  assertMsg
-    "Charlie's other asset is the NFT issued by Alice"
-    (charlieNftView `elem` charlieQueriedAssetsViews)
+    "The result of Charlie's query for assets should return the two assets of which we know"
+    (sortOn fst charlieQueriedAssets == sortOn fst
+      [ (charlieAssetCash, Some $ view $ toInterface @IAsset $ mkCash alice charlie)
+      , (charlieAssetNft, Some $ view $ toInterface @IAsset $ mkNft alice charlie)
+      ]
+    )
