@@ -22,10 +22,6 @@ interface IAsset
       do
         create (toTransferProposal this newOwner)
 
-    choice ArchiveAsset : ()
-      controller (signatory this)
-      do pure ()
-
 data VAssetTransferProposal = VAssetTransferProposal with
     assetView : VAsset
     newOwner : Party
