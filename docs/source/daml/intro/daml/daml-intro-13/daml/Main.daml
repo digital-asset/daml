@@ -71,6 +71,9 @@ nftArchiveAssetTransferProposalTest = do
   parties <- allocateParties
   mkArchiveAssetTransferProposalTest parties mkNft
 
+cashAndNftTest : Script ()
+cashAndNftTest = allocateParties >>= mkCashAndNftTest
+
 -- Test helpers
 allocateParties : Script Parties
 allocateParties = do
@@ -279,15 +282,6 @@ mkAssetTest Parties {..} mkAsset = do
     charlie `submit` do
       exerciseCmd emilyAssetTransferProposal WithdrawIAssetTransferProposal
 
-  charlieAssets <-
-    queryInterface @IAsset charlie
-
-  charlieAssets ===
-    [ ( charlieAsset''
-      , Some (view (toInterface @IAsset (mkAsset alice charlie)))
-      )
-    ]
-
   charlieAssetView <-
     queryInterfaceContractId @IAsset charlie charlieAsset''
 
@@ -334,67 +328,32 @@ mkNft issuer owner = NFT with
   owner
   url = "https://nyan.feline/"
 
-cashAndNftTest : Script ()
-cashAndNftTest = do
-  Parties {..} <- allocateParties
+mkCashAndNftTest : Parties -> Script ()
+mkCashAndNftTest parties@Parties {..} = do
+  mkAssetTest parties mkCash
+  mkAssetTest parties mkNft
 
-  aliceCash <- alice `submit`
-    createCmd Cash with
-      issuer = alice
-      owner = alice
-      currency = "USD"
-      amount = 30.0
-
-  aliceNft <- alice `submit`
-    createCmd NFT with
-      issuer = alice
-      owner = alice
-      url = "https://nyan.feline/"
-
-  bobAssetProposals <- alice `submit` do
-    mapA
-      (`exerciseCmd` ProposeIAssetTransfer bob)
-      [ toInterfaceContractId @IAsset aliceCash
-      , toInterfaceContractId aliceNft
-      ]
-
-  bobAssets <- bob `submit` do
-    mapA
-      (`exerciseCmd` AcceptIAssetTransferProposal)
-      bobAssetProposals
-
-  bobQueriedAssets <- queryInterface @IAsset bob
+  charlieQueriedAssets <- queryInterface @IAsset charlie
 
   assertMsg
-    "At this point Bob should have exactly two assets"
-    (length bobQueriedAssets == 2)
+    "At this point Charlie should have exactly two assets"
+    (length charlieQueriedAssets == 2)
 
-  let bobQueriedAssetsViews = mapOptional snd bobQueriedAssets
+  let charlieQueriedAssetsViews = mapOptional snd charlieQueriedAssets
   assertMsg
-    "All of Bob's assets have well-defined views"
-    (length bobQueriedAssetsViews == 2)
+    "All of Charlie's assets have well-defined views"
+    (length charlieQueriedAssetsViews == 2)
 
-  assertMsg
-    "Bob's assets' contract ids should match"
-    (sort (map fst bobQueriedAssets) == sort bobAssets)
+  -- assertMsg
+  --   "Charlie's assets' contract ids should match"
+  --   (sort (map fst charlieQueriedAssets) == sort charlieAssets)
 
   let
-    bobCashView = view $
-      toInterface @IAsset Cash with
-        issuer = alice
-        owner = bob
-        currency = "USD"
-        amount = 30.0
-    bobNftView = view $
-      toInterface @IAsset NFT with
-        issuer = alice
-        owner = bob
-        url = "https://nyan.feline/"
+    charlieCashView = view $ toInterface @IAsset $ mkCash alice charlie
+    charlieNftView = view $ toInterface @IAsset $ mkNft alice charlie
   assertMsg
-    "One of Bob's assets is the Cash issued by Alice"
-    (bobCashView `elem` bobQueriedAssetsViews)
+    "One of Charlie's assets is the Cash issued by Alice"
+    (charlieCashView `elem` charlieQueriedAssetsViews)
   assertMsg
-    "Bob's other asset is the NFT issued by Alice"
-    (bobNftView `elem` bobQueriedAssetsViews)
-
-  pure ()
+    "Charlie's other asset is the NFT issued by Alice"
+    (charlieNftView `elem` charlieQueriedAssetsViews)
