@@ -52,7 +52,7 @@ protobuf_version = "3.19.6"
 akka_version = "2.6.18"
 akka_http_version = "10.2.8"
 gatling_version = "3.5.1"
-guava_version = "31.0.1-jre"
+guava_version = "31.1-jre"
 
 # observability libs
 # cannot update to 4.2.x because of https://github.com/dropwizard/metrics/issues/2920
@@ -65,10 +65,10 @@ def install_java_deps():
         artifacts = version_specific.get(scala_major_version, []) + [
             "ch.qos.logback:logback-classic:1.2.8",
             "ch.qos.logback:logback-core:1.2.8",
-            "com.auth0:java-jwt:3.10.3",
-            "com.auth0:jwks-rsa:0.11.0",
+            "com.auth0:java-jwt:4.2.1",
+            "com.auth0:jwks-rsa:0.21.2",
             "com.chuusai:shapeless_{}:2.3.3".format(scala_major_version),
-            "com.github.ben-manes.caffeine:caffeine:3.0.5",
+            "com.github.ben-manes.caffeine:caffeine:3.1.2",
             "com.github.pureconfig:pureconfig_{}:0.14.0".format(scala_major_version),
             "com.github.pureconfig:pureconfig-core_{}:0.14.0".format(scala_major_version),
             "com.github.pureconfig:pureconfig-generic_{}:0.14.0".format(scala_major_version),
@@ -172,16 +172,16 @@ def install_java_deps():
             "org.codehaus.janino:janino:3.1.4",
             "org.apache.commons:commons-lang3:3.9",
             "org.apache.commons:commons-text:1.4",
-            "org.awaitility:awaitility:3.1.6",
+            "org.awaitility:awaitility:4.2.0",
             "org.checkerframework:checker:2.5.4",
             "org.flywaydb:flyway-core:8.4.1",
             "org.freemarker:freemarker-gae:2.3.28",
             "org.jline:jline:3.7.1",
             "org.jline:jline-reader:3.7.1",
-            "org.junit.jupiter:junit-jupiter-api:5.0.0",
-            "org.junit.jupiter:junit-jupiter-engine:5.0.0",
-            "org.junit.platform:junit-platform-engine:1.0.0",
-            "org.junit.platform:junit-platform-runner:1.0.0",
+            "org.junit.jupiter:junit-jupiter-api:5.9.1",
+            "org.junit.jupiter:junit-jupiter-engine:5.9.1",
+            "org.junit.platform:junit-platform-engine:1.9.1",
+            "org.junit.platform:junit-platform-runner:1.9.1",
             "org.mockito:mockito-core:3.6.28",
             "org.mockito:mockito-inline:3.6.28",
             "org.mockito:mockito-scala_{}:1.16.3".format(scala_major_version),
