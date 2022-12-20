@@ -68,7 +68,7 @@ case class TransactionsFlatStreamsConfig(
     transactionsProcessingParallelism: Int = 8,
 )
 object TransactionsFlatStreamsConfig {
-  def default: TransactionsFlatStreamsConfig = TransactionsFlatStreamsConfig()
+  val default: TransactionsFlatStreamsConfig = TransactionsFlatStreamsConfig()
 }
 
 case class TransactionsTreeStreamsConfig(
@@ -89,5 +89,5 @@ case class TransactionsTreeStreamsConfig(
     transactionsProcessingParallelism: Int = 8,
 )
 object TransactionsTreeStreamsConfig {
-  def default: TransactionsTreeStreamsConfig = TransactionsTreeStreamsConfig()
+  val default: TransactionsTreeStreamsConfig = TransactionsTreeStreamsConfig()
 }

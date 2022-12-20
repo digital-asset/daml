@@ -343,12 +343,10 @@ class PureConfigReaderWriter(secure: Boolean = true) {
   implicit val indexServiceConfigHint =
     ProductHint[IndexServiceConfig](allowUnknownKeys = false)
 
-  implicit val transactionsTreeStreamsConfigConfigConvert
-      : ConfigConvert[TransactionsTreeStreamsConfig] =
+  implicit val transactionsTreeStreamsConfigConvert: ConfigConvert[TransactionsTreeStreamsConfig] =
     deriveConvert[TransactionsTreeStreamsConfig]
 
-  implicit val transactionsFlatStreamsConfigConfigConvert
-      : ConfigConvert[TransactionsFlatStreamsConfig] =
+  implicit val transactionsFlatStreamsConfigConvert: ConfigConvert[TransactionsFlatStreamsConfig] =
     deriveConvert[TransactionsFlatStreamsConfig]
 
   implicit val indexServiceConfigConvert: ConfigConvert[IndexServiceConfig] =
