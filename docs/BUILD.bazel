@@ -734,6 +734,15 @@ daml_test(
 )
 
 daml_test(
+    name = "daml-intro-daml-13-test",
+    srcs = glob(
+        ["source/daml/intro/daml/daml-intro-13/**/*.daml"],
+    ),
+    target = "1.15",
+    deps = ["//daml-script/daml:daml-script-1.15.dar"],
+)
+
+daml_test(
     name = "daml-intro-daml-10-test",
     srcs = glob(
         ["source/daml/intro/daml/daml-intro-10/**/*.daml"],
@@ -895,17 +904,3 @@ da_scala_test(
         "@maven//:commons_io_commons_io",
     ],
 ) if not is_windows else None
-
-daml_test(
-    name = "intro-to-interfaces-daml-test",
-    srcs = glob(["source/daml/intro-to-interfaces/daml/**/*.daml"]),
-    target = "1.15",
-    deps = ["//daml-script/daml:daml-script-1.15.dar"],
-)
-
-pkg_tar(
-    name = "daml-intro-to-interfaces",
-    srcs = glob(["source/daml/intro-to-interfaces/daml/**/*.daml"]) + ["source/daml/intro-to-interfaces/daml.yaml.template"],
-    strip_prefix = "/docs/source/daml/intro-to-interfaces",
-    visibility = ["//visibility:public"],
-)
