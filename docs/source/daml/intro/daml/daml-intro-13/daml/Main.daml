@@ -6,6 +6,7 @@ module Main where
 import DA.Assert
 import DA.List.BuiltinOrder (sortOn)
 import Daml.Script
+import DA.Text
 
 import Cash
 import NFT
@@ -43,7 +44,7 @@ archiveNftTransferProposalTest = allocateParties >>= mkArchiveNftTransferProposa
 cashAssetTest : Script (ContractId IAsset)
 cashAssetTest = do
   parties <- allocateParties
-  mkAssetTest parties mkCash
+  mkAssetTest "Cash" parties mkCash
 
 cashArchiveAssetTest : Script ()
 cashArchiveAssetTest = do
@@ -58,7 +59,7 @@ cashArchiveAssetTransferProposalTest = do
 nftAssetTest : Script (ContractId IAsset)
 nftAssetTest = do
   parties <- allocateParties
-  mkAssetTest parties mkNft
+  mkAssetTest "NFT" parties mkNft
 
 nftArchiveAssetTest : Script ()
 nftArchiveAssetTest = do
@@ -238,12 +239,21 @@ mkArchiveNftTransferProposalTest Parties {..} = do
   alice `submit` do
     archiveCmd bobMemeTransferProposal
 
-mkAssetTest : (Template t, Implements t IAsset) => Parties -> (Party -> Party -> t) -> Script (ContractId IAsset)
-mkAssetTest Parties {..} mkAsset = do
+mkAssetTest : (Template t, Implements t IAsset) => Text -> Parties -> (Party -> Party -> t) -> Script (ContractId IAsset)
+mkAssetTest assetTxt Parties {..} mkAsset = do
   aliceAsset <-
     alice `submit` do
       toInterfaceContractId @IAsset <$>
         createCmd (mkAsset alice alice)
+
+  aliceAssetView <-
+    queryInterfaceContractId @IAsset alice aliceAsset
+
+  debugRaw $ unlines
+    [ "Alice's Asset (" <> assetTxt <> "):"
+    , "\tContractId: " <> show aliceAsset
+    , "\tValue: " <> show aliceAssetView
+    ]
 
   bobAssetTransferProposal <-
     alice `submit` do
@@ -283,6 +293,12 @@ mkAssetTest Parties {..} mkAsset = do
 
   charlieAssetView <-
     queryInterfaceContractId @IAsset charlie charlieAsset''
+
+  debugRaw $ unlines
+    [ "Charlie's Asset (" <> assetTxt <> "):"
+    , "\tContractId: " <> show charlieAsset''
+    , "\tView: " <> show charlieAssetView
+    ]
 
   charlieAssetView ===
     Some (view (toInterface @IAsset (mkAsset alice charlie)))
@@ -329,10 +345,18 @@ mkNft issuer owner = NFT with
 
 mkCashAndNftTest : Parties -> Script ()
 mkCashAndNftTest parties@Parties {..} = do
-  charlieAssetCash <- mkAssetTest parties mkCash
-  charlieAssetNft <- mkAssetTest parties mkNft
+  charlieAssetCash <- mkAssetTest "Cash" parties mkCash
+  charlieAssetNft <- mkAssetTest "NFT" parties mkNft
 
   charlieQueriedAssets <- queryInterface @IAsset charlie
+
+  debugRaw $ unlines $
+    "Charlie's Assets:" :: concat
+    [ [ "\tContractId: " <> show cid
+      , "\tView: " <> show mview
+      ]
+    | (cid, mview) <- charlieQueriedAssets
+    ]
 
   assertMsg
     "The result of Charlie's query for assets should return the two assets of which we know"
