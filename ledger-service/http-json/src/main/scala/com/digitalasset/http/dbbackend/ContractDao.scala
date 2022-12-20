@@ -332,14 +332,14 @@ object ContractDao {
       sjd: SupportedJdbcDriver.TC,
       lc: LoggingContextOf[InstanceUUID],
   ): ConnectionIO[Vector[(domain.ActiveContract.ResolvedCtTyId[JsValue], Pos)]] = {
-    import sjd.q.{queries => sjdQueries}, cats.syntax.traverse._, cats.instances.vector._
-    predicates.zipWithIndex.toVector.forgetNE
+    import sjd.q.{queries => sjdQueries}, cats.syntax.traverse._, cats.instances.vector._,
+    com.daml.nonempty.catsinstances._
+    predicates.zipWithIndex.toVector.toNEF
       .traverse { case ((tid, pred), ix) =>
         surrogateTemplateId(tid) map (stid => (ix, stid, tid, pred))
       }
       .flatMap { stIdSeq =>
-        // TODO SC propagate by removing forgetNE above
-        val NonEmpty(queries) = stIdSeq map { case (_, stid, _, pred) => (stid, pred) }
+        val queries = stIdSeq map { case (_, stid, _, pred) => (stid, pred) }
 
         trackMatchIndices match {
           case MatchedQueryMarker.ByNelInt =>
