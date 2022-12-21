@@ -3,8 +3,7 @@
 
 package com.daml.metrics
 
-import com.codahale.metrics.MetricRegistry
-import com.daml.metrics.api.dropwizard.FactoryWithDBMetrics
+import com.daml.metrics.api.dropwizard.DropwizardMetricsFactory
 import com.daml.metrics.api.{MetricDoc, MetricName}
 
 @MetricDoc.GroupTag(
@@ -12,14 +11,18 @@ import com.daml.metrics.api.{MetricDoc, MetricName}
   groupableClass = classOf[DatabaseMetrics],
 )
 class IdentityProviderConfigStoreMetrics(
-    override val prefix: MetricName,
-    override val registry: MetricRegistry,
-) extends FactoryWithDBMetrics {
+    prefix: MetricName,
+    factory: DropwizardMetricsFactory,
+) {
 
-  val cacheByIssuer = new CacheMetrics(prefix :+ "cache_by_issuer", registry)
+  val cacheByIssuer = new CacheMetrics(prefix :+ "cache_by_issuer", factory)
   val createIdpConfig: DatabaseMetrics = createDbMetrics("create_identity_provider_config")
   val getIdpConfig: DatabaseMetrics = createDbMetrics("get_identity_provider_config")
   val deleteIdpConfig: DatabaseMetrics = createDbMetrics("delete_identity_provider_config")
   val updateIdpConfig: DatabaseMetrics = createDbMetrics("update_identity_provider_config")
   val listIdpConfigs: DatabaseMetrics = createDbMetrics("list_identity_provider_configs")
+
+  private def createDbMetrics(name: String) = {
+    new DatabaseMetrics(prefix, name, factory)
+  }
 }

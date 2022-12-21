@@ -3,14 +3,12 @@
 
 package com.daml.metrics
 
-import com.codahale.metrics.MetricRegistry
 import com.daml.metrics.api.MetricDoc.MetricQualification.{Debug, Saturation, Traffic}
-import com.daml.metrics.api.MetricHandle.{Counter, Histogram, Timer}
-import com.daml.metrics.api.dropwizard.{DropwizardFactory, DropwizardTimer}
+import com.daml.metrics.api.MetricHandle.{Counter, Factory, Histogram, Timer}
+import com.daml.metrics.api.dropwizard.DropwizardTimer
 import com.daml.metrics.api.{MetricDoc, MetricName}
 
-class ServicesMetrics(val prefix: MetricName, override val registry: MetricRegistry)
-    extends DropwizardFactory {
+class ServicesMetrics(prefix: MetricName, factory: Factory) {
 
   @MetricDoc.FanTag(
     representative = "daml.services.index.<operation>",
@@ -21,64 +19,62 @@ class ServicesMetrics(val prefix: MetricName, override val registry: MetricRegis
                     |time statistics of such operations.""",
     qualification = Debug,
   )
-  object index extends DropwizardFactory {
+  object index {
     val prefix: MetricName = ServicesMetrics.this.prefix :+ "index"
-    override val registry: MetricRegistry = ServicesMetrics.this.registry
 
     @MetricDoc.FanInstanceTag
-    val listLfPackages: Timer = timer(prefix :+ "list_lf_packages")
+    val listLfPackages: Timer = factory.timer(prefix :+ "list_lf_packages")
     @MetricDoc.FanInstanceTag
-    val getLfArchive: Timer = timer(prefix :+ "get_lf_archive")
+    val getLfArchive: Timer = factory.timer(prefix :+ "get_lf_archive")
     @MetricDoc.FanInstanceTag
-    val packageEntries: Timer = timer(prefix :+ "package_entries")
+    val packageEntries: Timer = factory.timer(prefix :+ "package_entries")
     @MetricDoc.FanInstanceTag
-    val getLedgerConfiguration: Timer = timer(prefix :+ "get_ledger_configuration")
+    val getLedgerConfiguration: Timer = factory.timer(prefix :+ "get_ledger_configuration")
     @MetricDoc.FanInstanceTag
-    val currentLedgerEnd: Timer = timer(prefix :+ "current_ledger_end")
+    val currentLedgerEnd: Timer = factory.timer(prefix :+ "current_ledger_end")
     @MetricDoc.FanInstanceTag
-    val getCompletions: Timer = timer(prefix :+ "get_completions")
+    val getCompletions: Timer = factory.timer(prefix :+ "get_completions")
     @MetricDoc.FanInstanceTag
-    val getCompletionsLimited: Timer = timer(prefix :+ "get_completions_limited")
+    val getCompletionsLimited: Timer = factory.timer(prefix :+ "get_completions_limited")
     @MetricDoc.FanInstanceTag
-    val transactions: Timer = timer(prefix :+ "transactions")
+    val transactions: Timer = factory.timer(prefix :+ "transactions")
     @MetricDoc.FanInstanceTag
-    val transactionTrees: Timer = timer(prefix :+ "transaction_trees")
+    val transactionTrees: Timer = factory.timer(prefix :+ "transaction_trees")
     @MetricDoc.FanInstanceTag
-    val getTransactionById: Timer = timer(prefix :+ "get_transaction_by_id")
+    val getTransactionById: Timer = factory.timer(prefix :+ "get_transaction_by_id")
     @MetricDoc.FanInstanceTag
-    val getTransactionTreeById: Timer = timer(prefix :+ "get_transaction_tree_by_id")
+    val getTransactionTreeById: Timer = factory.timer(prefix :+ "get_transaction_tree_by_id")
     @MetricDoc.FanInstanceTag
-    val getActiveContracts: Timer = timer(prefix :+ "get_active_contracts")
+    val getActiveContracts: Timer = factory.timer(prefix :+ "get_active_contracts")
     @MetricDoc.FanInstanceTag
-    val lookupActiveContract: Timer = timer(prefix :+ "lookup_active_contract")
+    val lookupActiveContract: Timer = factory.timer(prefix :+ "lookup_active_contract")
     @MetricDoc.FanInstanceTag
-    val lookupContractStateWithoutDivulgence: Timer = timer(
+    val lookupContractStateWithoutDivulgence: Timer = factory.timer(
       prefix :+ "lookup_contract_state_without_divulgence"
     )
     @MetricDoc.FanInstanceTag
-    val lookupContractKey: Timer = timer(prefix :+ "lookup_contract_key")
+    val lookupContractKey: Timer = factory.timer(prefix :+ "lookup_contract_key")
     @MetricDoc.FanInstanceTag
-    val lookupMaximumLedgerTime: Timer = timer(prefix :+ "lookup_maximum_ledger_time")
+    val lookupMaximumLedgerTime: Timer = factory.timer(prefix :+ "lookup_maximum_ledger_time")
     @MetricDoc.FanInstanceTag
-    val getParticipantId: Timer = timer(prefix :+ "get_participant_id")
+    val getParticipantId: Timer = factory.timer(prefix :+ "get_participant_id")
     @MetricDoc.FanInstanceTag
-    val getParties: Timer = timer(prefix :+ "get_parties")
+    val getParties: Timer = factory.timer(prefix :+ "get_parties")
     @MetricDoc.FanInstanceTag
-    val listKnownParties: Timer = timer(prefix :+ "list_known_parties")
+    val listKnownParties: Timer = factory.timer(prefix :+ "list_known_parties")
     @MetricDoc.FanInstanceTag
-    val partyEntries: Timer = timer(prefix :+ "party_entries")
+    val partyEntries: Timer = factory.timer(prefix :+ "party_entries")
     @MetricDoc.FanInstanceTag
-    val lookupConfiguration: Timer = timer(prefix :+ "lookup_configuration")
+    val lookupConfiguration: Timer = factory.timer(prefix :+ "lookup_configuration")
     @MetricDoc.FanInstanceTag
-    val configurationEntries: Timer = timer(prefix :+ "configuration_entries")
+    val configurationEntries: Timer = factory.timer(prefix :+ "configuration_entries")
     @MetricDoc.FanInstanceTag
-    val prune: Timer = timer(prefix :+ "prune")
+    val prune: Timer = factory.timer(prefix :+ "prune")
     @MetricDoc.FanInstanceTag
-    val getTransactionMetering: Timer = timer(prefix :+ "get_transaction_metering")
+    val getTransactionMetering: Timer = factory.timer(prefix :+ "get_transaction_metering")
 
-    object InMemoryFanoutBuffer extends DropwizardFactory {
+    object InMemoryFanoutBuffer {
       val prefix: MetricName = index.prefix :+ "in_memory_fan_out_buffer"
-      override val registry: MetricRegistry = index.registry
 
       @MetricDoc.Tag(
         summary = "The time to add a new event into the buffer.",
@@ -91,7 +87,7 @@ class ServicesMetrics(val prefix: MetricName, override val registry: MetricRegis
                         |buffer.""",
         qualification = Debug,
       )
-      val push: Timer = timer(prefix :+ "push")
+      val push: Timer = factory.timer(prefix :+ "push")
 
       @MetricDoc.Tag(
         summary = "The time to remove all elements from the in-memory fan-out buffer.",
@@ -99,7 +95,7 @@ class ServicesMetrics(val prefix: MetricName, override val registry: MetricRegis
                         |buffer. This metric exposes the time needed to prune the buffer.""",
         qualification = Debug,
       )
-      val prune: Timer = timer(prefix :+ "prune")
+      val prune: Timer = factory.timer(prefix :+ "prune")
 
       @MetricDoc.Tag(
         summary = "The size of the in-memory fan-out buffer.",
@@ -107,12 +103,11 @@ class ServicesMetrics(val prefix: MetricName, override val registry: MetricRegis
                         |targeted for debugging purposes.""",
         qualification = Saturation,
       )
-      val bufferSize: Histogram = histogram(prefix :+ "size")
+      val bufferSize: Histogram = factory.histogram(prefix :+ "size")
     }
 
-    case class BufferedReader(streamName: String) extends DropwizardFactory {
+    case class BufferedReader(streamName: String) {
       val prefix: MetricName = index.prefix :+ s"${streamName}_buffer_reader"
-      override val registry: MetricRegistry = index.registry
 
       @MetricDoc.Tag(
         summary =
@@ -123,7 +118,7 @@ class ServicesMetrics(val prefix: MetricName, override val registry: MetricRegis
                         |events.""",
         qualification = Debug,
       )
-      val fetchedTotal: Counter = counter(prefix :+ "fetched_total")
+      val fetchedTotal: Counter = factory.counter(prefix :+ "fetched_total")
 
       @MetricDoc.Tag(
         summary = "The total number of the events fetched from the buffer.",
@@ -133,7 +128,7 @@ class ServicesMetrics(val prefix: MetricName, override val registry: MetricRegis
                         |exclusively from the buffer.""",
         qualification = Debug,
       )
-      val fetchedBuffered: Counter = counter(prefix :+ "fetched_buffered")
+      val fetchedBuffered: Counter = factory.counter(prefix :+ "fetched_buffered")
 
       @MetricDoc.Tag(
         summary = "The time needed to fetch an event (either from the buffer or the persistence).",
@@ -143,7 +138,7 @@ class ServicesMetrics(val prefix: MetricName, override val registry: MetricRegis
                         |in mind.""",
         qualification = Debug,
       )
-      val fetchTimer: Timer = timer(prefix :+ "fetch")
+      val fetchTimer: Timer = factory.timer(prefix :+ "fetch")
 
       @MetricDoc.Tag(
         summary = "The time to convert a buffered fetched event to a ledger api stream response.",
@@ -152,7 +147,7 @@ class ServicesMetrics(val prefix: MetricName, override val registry: MetricRegis
                         |This metric times this operation.""",
         qualification = Debug,
       )
-      val conversion: Timer = timer(prefix :+ "conversion")
+      val conversion: Timer = factory.timer(prefix :+ "conversion")
 
       @MetricDoc.Tag(
         summary = "The time to fetch a chunk of events from the buffer",
@@ -160,7 +155,7 @@ class ServicesMetrics(val prefix: MetricName, override val registry: MetricRegis
                         |bounds and a predicate filter. This metric times this operation.""",
         qualification = Debug,
       )
-      val slice: Timer = timer(prefix :+ "slice")
+      val slice: Timer = factory.timer(prefix :+ "slice")
 
       @MetricDoc.Tag(
         summary = "The size of the slice requested.",
@@ -168,7 +163,7 @@ class ServicesMetrics(val prefix: MetricName, override val registry: MetricRegis
                         |chunk size delivered downstream.""",
         qualification = Debug,
       )
-      val sliceSize: Histogram = histogram(prefix :+ "slice_size")
+      val sliceSize: Histogram = factory.histogram(prefix :+ "slice_size")
     }
   }
 
@@ -180,14 +175,13 @@ class ServicesMetrics(val prefix: MetricName, override val registry: MetricRegis
                     |each operation.""",
     qualification = Debug,
   )
-  object read extends DropwizardFactory {
+  object read {
     val prefix: MetricName = ServicesMetrics.this.prefix :+ "read"
-    override val registry: MetricRegistry = index.registry
 
     @MetricDoc.FanInstanceTag
-    val getLedgerInitialConditions: Timer = timer(prefix :+ "get_ledger_initial_conditions")
+    val getLedgerInitialConditions: Timer = factory.timer(prefix :+ "get_ledger_initial_conditions")
     @MetricDoc.FanInstanceTag
-    val stateUpdates: Timer = timer(prefix :+ "state_updates")
+    val stateUpdates: Timer = factory.timer(prefix :+ "state_updates")
   }
 
   @MetricDoc.FanTag(
@@ -199,9 +193,8 @@ class ServicesMetrics(val prefix: MetricName, override val registry: MetricRegis
                     |exposes the time needed to execute each operation.""",
     qualification = Debug,
   )
-  object write extends DropwizardFactory {
+  object write {
     val prefix: MetricName = ServicesMetrics.this.prefix :+ "write"
-    override val registry: MetricRegistry = index.registry
 
     @MetricDoc.Tag(
       summary = "The number of submitted transactions by the write service.",
@@ -215,16 +208,16 @@ class ServicesMetrics(val prefix: MetricName, override val registry: MetricRegis
       DropwizardTimer(prefix :+ "submit_transaction" :+ "count", null)
 
     @MetricDoc.FanInstanceTag
-    val submitTransaction: Timer = timer(prefix :+ "submit_transaction")
+    val submitTransaction: Timer = factory.timer(prefix :+ "submit_transaction")
     @MetricDoc.FanInstanceTag
-    val submitTransactionRunning: Counter = counter(prefix :+ "submit_transaction_running")
+    val submitTransactionRunning: Counter = factory.counter(prefix :+ "submit_transaction_running")
     @MetricDoc.FanInstanceTag
-    val uploadPackages: Timer = timer(prefix :+ "upload_packages")
+    val uploadPackages: Timer = factory.timer(prefix :+ "upload_packages")
     @MetricDoc.FanInstanceTag
-    val allocateParty: Timer = timer(prefix :+ "allocate_party")
+    val allocateParty: Timer = factory.timer(prefix :+ "allocate_party")
     @MetricDoc.FanInstanceTag
-    val submitConfiguration: Timer = timer(prefix :+ "submit_configuration")
+    val submitConfiguration: Timer = factory.timer(prefix :+ "submit_configuration")
     @MetricDoc.FanInstanceTag
-    val prune: Timer = timer(prefix :+ "prune")
+    val prune: Timer = factory.timer(prefix :+ "prune")
   }
 }

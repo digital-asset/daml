@@ -21,9 +21,12 @@ object ThreadpoolCheck {
 
   /** Match naming in [[com.codahale.metrics.InstrumentedExecutorService]] */
   final class ThreadpoolCount(metrics: Metrics)(val name: String, val prefix: MetricName) {
-    private val submitted = metrics.registry.meter(MetricRegistry.name(prefix, "submitted"))
-    private val running = metrics.registry.counter(MetricRegistry.name(prefix, "running"))
-    private val completed = metrics.registry.meter(MetricRegistry.name(prefix, "completed"))
+    private val submitted =
+      metrics.dropwizardFactory.registry.meter(MetricRegistry.name(prefix, "submitted"))
+    private val running =
+      metrics.dropwizardFactory.registry.counter(MetricRegistry.name(prefix, "running"))
+    private val completed =
+      metrics.dropwizardFactory.registry.meter(MetricRegistry.name(prefix, "completed"))
 
     def queueSize: Long = submitted.getCount - running.getCount - completed.getCount
   }

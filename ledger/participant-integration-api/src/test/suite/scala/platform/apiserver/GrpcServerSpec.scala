@@ -96,7 +96,7 @@ final class GrpcServerSpec extends AsyncWordSpec with Matchers with TestResource
           metrics.daml.index.db.threadpool.connection,
           ServerRole.ApiServer.threadPoolSuffix,
         )
-        metrics.registry
+        metrics.dropwizardFactory.registry
           .meter(MetricRegistry.name(metricName, "submitted"))
           .mark(rateLimitingConfig.maxApiServicesIndexDbQueueSize.toLong + 1) // Over limit
         val helloService = HelloServiceGrpc.stub(channel)

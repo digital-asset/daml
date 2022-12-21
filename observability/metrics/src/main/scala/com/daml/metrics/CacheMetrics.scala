@@ -3,14 +3,11 @@
 
 package com.daml.metrics
 
-import com.codahale.metrics.MetricRegistry
 import com.daml.metrics.api.MetricDoc.MetricQualification.Debug
-import com.daml.metrics.api.MetricHandle.Counter
-import com.daml.metrics.api.dropwizard.DropwizardFactory
-import com.daml.metrics.api.{MetricDoc, MetricName}
+import com.daml.metrics.api.MetricHandle.{Counter, Factory}
+import com.daml.metrics.api.{MetricDoc, MetricName, MetricsContext}
 
-final class CacheMetrics(val prefix: MetricName, override val registry: MetricRegistry)
-    extends DropwizardFactory {
+final class CacheMetrics(val prefix: MetricName, val factory: Factory) {
 
   @MetricDoc.Tag(
     summary = "The number of cache hits.",
@@ -18,7 +15,7 @@ final class CacheMetrics(val prefix: MetricName, override val registry: MetricRe
                     |incremented.""",
     qualification = Debug,
   )
-  val hitCount: Counter = counter(prefix :+ "hits")
+  val hitCount: Counter = factory.counter(prefix :+ "hits")
 
   @MetricDoc.Tag(
     summary = "The number of cache misses.",
@@ -26,25 +23,25 @@ final class CacheMetrics(val prefix: MetricName, override val registry: MetricRe
                     |incremented.""",
     qualification = Debug,
   )
-  val missCount: Counter = counter(prefix :+ "misses")
+  val missCount: Counter = factory.counter(prefix :+ "misses")
 
   @MetricDoc.Tag(
     summary = "The number of the evicted cache entries.",
     description = "When an entry is evicted from the cache, the counter is incremented.",
     qualification = Debug,
   )
-  val evictionCount: Counter = counter(prefix :+ "evictions")
+  val evictionCount: Counter = factory.counter(prefix :+ "evictions")
 
   @MetricDoc.Tag(
     summary = "The sum of weights of cache entries evicted.",
     description = "The total weight of the entries evicted from the cache.",
     qualification = Debug,
   )
-  val evictionWeight: Counter = counter(prefix :+ "evicted_weight")
+  val evictionWeight: Counter = factory.counter(prefix :+ "evicted_weight")
 
   def registerSizeGauge(sizeSupplier: () => Long): Unit =
-    gaugeWithSupplier(prefix :+ "size", sizeSupplier)
+    factory.gaugeWithSupplier(prefix :+ "size", sizeSupplier)(MetricsContext.Empty)
   def registerWeightGauge(weightSupplier: () => Long): Unit =
-    gaugeWithSupplier(prefix :+ "weight", weightSupplier)
+    factory.gaugeWithSupplier(prefix :+ "weight", weightSupplier)(MetricsContext.Empty)
 
 }

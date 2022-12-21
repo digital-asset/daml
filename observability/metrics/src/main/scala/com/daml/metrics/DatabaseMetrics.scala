@@ -5,15 +5,15 @@ package com.daml.metrics
 
 import com.codahale.metrics.MetricRegistry
 import com.daml.metrics.api.MetricDoc.MetricQualification.Debug
-import com.daml.metrics.api.MetricHandle.Timer
-import com.daml.metrics.api.dropwizard.DropwizardFactory
+import com.daml.metrics.api.MetricHandle.{Factory, Timer}
+import com.daml.metrics.api.dropwizard.DropwizardMetricsFactory
 import com.daml.metrics.api.{MetricDoc, MetricName}
 
 class DatabaseMetrics private[metrics] (
     val prefix: MetricName,
     val name: String,
-    override val registry: MetricRegistry,
-) extends DropwizardFactory {
+    val factory: Factory,
+) {
   protected val dbPrefix: MetricName = prefix :+ name
 
   @MetricDoc.Tag(
@@ -23,7 +23,7 @@ class DatabaseMetrics private[metrics] (
                     |and the point when it starts running on the dedicated executor.""",
     qualification = Debug,
   )
-  val waitTimer: Timer = timer(dbPrefix :+ "wait")
+  val waitTimer: Timer = factory.timer(dbPrefix :+ "wait")
 
   @MetricDoc.Tag(
     summary = "The time needed to run the SQL query and read the result.",
@@ -32,7 +32,7 @@ class DatabaseMetrics private[metrics] (
                     |optionally roll it back and close the connection at the end.""",
     qualification = Debug,
   )
-  val executionTimer: Timer = timer(dbPrefix :+ "exec")
+  val executionTimer: Timer = factory.timer(dbPrefix :+ "exec")
 
   @MetricDoc.Tag(
     summary = "The time needed to turn serialized Daml-LF values into in-memory objects.",
@@ -41,7 +41,7 @@ class DatabaseMetrics private[metrics] (
                     |takes to turn the serialized Daml-LF values into in-memory representation.""",
     qualification = Debug,
   )
-  val translationTimer: Timer = timer(dbPrefix :+ "translation")
+  val translationTimer: Timer = factory.timer(dbPrefix :+ "translation")
 
   @MetricDoc.Tag(
     summary = "The time needed to decompress the SQL query result.",
@@ -50,7 +50,7 @@ class DatabaseMetrics private[metrics] (
                     |contract arguments retrieved from the database.""",
     qualification = Debug,
   )
-  val compressionTimer: Timer = timer(dbPrefix :+ "compression")
+  val compressionTimer: Timer = factory.timer(dbPrefix :+ "compression")
 
   @MetricDoc.Tag(
     summary = "The time needed to perform the SQL query commit.",
@@ -59,7 +59,7 @@ class DatabaseMetrics private[metrics] (
                     |connection.""",
     qualification = Debug,
   )
-  val commitTimer: Timer = timer(dbPrefix :+ "commit")
+  val commitTimer: Timer = factory.timer(dbPrefix :+ "commit")
 
   @MetricDoc.Tag(
     summary = "The time needed to run the SQL query.",
@@ -69,15 +69,15 @@ class DatabaseMetrics private[metrics] (
                     |aborted).""",
     qualification = Debug,
   )
-  val queryTimer: Timer = timer(dbPrefix :+ "query")
+  val queryTimer: Timer = factory.timer(dbPrefix :+ "query")
 }
 
 object DatabaseMetrics {
 
   def ForTesting(metricsName: String): DatabaseMetrics =
     new DatabaseMetrics(
-      registry = new MetricRegistry(),
       prefix = MetricName("ForTesting"),
       name = metricsName,
+      new DropwizardMetricsFactory(new MetricRegistry),
     )
 }

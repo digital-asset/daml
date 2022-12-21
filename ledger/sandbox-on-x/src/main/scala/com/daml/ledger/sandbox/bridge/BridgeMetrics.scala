@@ -3,15 +3,10 @@
 
 package com.daml.ledger.sandbox.bridge
 
-import com.codahale.metrics.MetricRegistry
-import com.daml.metrics.Metrics
-import com.daml.metrics.api.MetricHandle.{Counter, Histogram, Timer}
+import com.daml.metrics.api.MetricHandle.{Counter, Factory, Histogram, Timer}
 import com.daml.metrics.api.MetricName
-import com.daml.metrics.api.dropwizard.DropwizardFactory
 
-class BridgeMetrics(metrics: Metrics) extends DropwizardFactory {
-
-  override val registry: MetricRegistry = metrics.registry
+class BridgeMetrics(factory: Factory) {
 
   val prefix: MetricName = MetricName.Daml :+ "sandbox_ledger_bridge"
 
@@ -22,8 +17,8 @@ class BridgeMetrics(metrics: Metrics) extends DropwizardFactory {
 
     case class StageMetrics(stageName: String) {
       protected val prefix: MetricName = Stages.this.prefix :+ stageName
-      val timer: Timer = BridgeMetrics.this.timer(prefix :+ "timer")
-      val bufferBefore: Counter = counter(prefix :+ "buffer")
+      val timer: Timer = factory.timer(prefix :+ "timer")
+      val bufferBefore: Counter = factory.counter(prefix :+ "buffer")
     }
 
     object PrepareSubmission extends StageMetrics("prepare_submission")
@@ -31,20 +26,20 @@ class BridgeMetrics(metrics: Metrics) extends DropwizardFactory {
     object ConflictCheckWithCommitted extends StageMetrics("conflict_check_with_committed")
     object Sequence extends StageMetrics("sequence") {
       val statePrefix: MetricName = prefix :+ "state"
-      val keyStateSize: Histogram = histogram(statePrefix :+ "keys")
+      val keyStateSize: Histogram = factory.histogram(statePrefix :+ "keys")
       val consumedContractsStateSize: Histogram =
-        histogram(statePrefix :+ "consumed_contracts")
-      val sequencerQueueLength: Histogram = histogram(statePrefix :+ "queue")
+        factory.histogram(statePrefix :+ "consumed_contracts")
+      val sequencerQueueLength: Histogram = factory.histogram(statePrefix :+ "queue")
       val deduplicationQueueLength: Histogram =
-        histogram(statePrefix :+ "deduplication_queue")
+        factory.histogram(statePrefix :+ "deduplication_queue")
     }
   }
 
   object BridgeInputQueue {
     val prefix: MetricName = BridgeMetrics.this.prefix :+ "input_queue"
 
-    val conflictQueueCapacity: Counter = counter(prefix :+ "capacity")
-    val conflictQueueLength: Counter = counter(prefix :+ "length")
-    val conflictQueueDelay: Timer = timer(prefix :+ "delay")
+    val conflictQueueCapacity: Counter = factory.counter(prefix :+ "capacity")
+    val conflictQueueLength: Counter = factory.counter(prefix :+ "length")
+    val conflictQueueDelay: Timer = factory.timer(prefix :+ "delay")
   }
 }

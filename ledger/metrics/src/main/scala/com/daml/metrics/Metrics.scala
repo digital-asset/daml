@@ -5,59 +5,67 @@ package com.daml.metrics
 
 import com.codahale.metrics.MetricRegistry
 import com.daml.metrics.api.MetricName
-import com.daml.metrics.api.dropwizard.DropwizardFactory
+import com.daml.metrics.api.dropwizard.DropwizardMetricsFactory
 import com.daml.metrics.api.opentelemetry.OpenTelemetryFactory
 import com.daml.metrics.grpc.DamlGrpcServerMetrics
 import io.opentelemetry.api.GlobalOpenTelemetry
-import io.opentelemetry.api.metrics.{Meter => OtelMeter}
-import com.daml.metrics.ExecutorServiceMetrics
+import io.opentelemetry.api.metrics.Meter
 
 object Metrics {
-  lazy val ForTesting = new Metrics(new MetricRegistry, GlobalOpenTelemetry.getMeter("test"))
+
+  def apply(registry: MetricRegistry, otelMeter: Meter) =
+    new Metrics(new DropwizardMetricsFactory(registry), new OpenTelemetryFactory(otelMeter))
+
+  lazy val ForTesting = new Metrics(
+    new DropwizardMetricsFactory(new MetricRegistry),
+    new OpenTelemetryFactory(GlobalOpenTelemetry.getMeter("test")),
+  )
 }
 
-final class Metrics(override val registry: MetricRegistry, val otelMeter: OtelMeter)
-    extends DropwizardFactory {
+final class Metrics(
+    val dropwizardFactory: DropwizardMetricsFactory,
+    val openTelemetryFactory: OpenTelemetryFactory,
+) {
 
-  val openTelemetryFactory: OpenTelemetryFactory = new OpenTelemetryFactory(otelMeter)
   val executorServiceMetrics = new ExecutorServiceMetrics(openTelemetryFactory)
 
   object test {
     private val prefix: MetricName = MetricName("test")
 
-    val db: DatabaseMetrics = new DatabaseMetrics(prefix, "db", registry)
+    val db: DatabaseMetrics = new DatabaseMetrics(prefix, "db", dropwizardFactory)
   }
 
-  object daml extends DropwizardFactory {
+  object daml {
     val prefix: MetricName = MetricName.Daml
-    override val registry = Metrics.this.registry
 
-    object commands extends CommandMetrics(prefix :+ "commands", registry)
+    object commands extends CommandMetrics(prefix :+ "commands", dropwizardFactory)
 
-    object execution extends ExecutionMetrics(prefix :+ "execution", registry)
+    object execution extends ExecutionMetrics(prefix :+ "execution", dropwizardFactory)
 
-    object lapi extends LAPIMetrics(prefix :+ "lapi", registry)
+    object lapi extends LAPIMetrics(prefix :+ "lapi", dropwizardFactory)
 
-    object userManagement extends UserManagementMetrics(prefix :+ "user_management", registry)
+    object userManagement
+        extends UserManagementMetrics(prefix :+ "user_management", dropwizardFactory)
 
     object partyRecordStore
-        extends PartyRecordStoreMetrics(prefix :+ "party_record_store", registry)
+        extends PartyRecordStoreMetrics(prefix :+ "party_record_store", dropwizardFactory)
 
     object identityProviderConfigStore
         extends IdentityProviderConfigStoreMetrics(
           prefix :+ "identity_provider_config_store",
-          registry,
+          dropwizardFactory,
         )
 
-    object index extends IndexMetrics(prefix :+ "index", registry)
+    object index extends IndexMetrics(prefix :+ "index", dropwizardFactory)
 
-    object indexer extends IndexerMetrics(prefix :+ "indexer", registry)
+    object indexer extends IndexerMetrics(prefix :+ "indexer", dropwizardFactory)
 
     object indexerEvents extends IndexedUpdatesMetrics(prefix :+ "indexer", openTelemetryFactory)
 
-    object parallelIndexer extends ParallelIndexerMetrics(prefix :+ "parallel_indexer", registry)
+    object parallelIndexer
+        extends ParallelIndexerMetrics(prefix :+ "parallel_indexer", dropwizardFactory)
 
-    object services extends ServicesMetrics(prefix :+ "services", registry)
+    object services extends ServicesMetrics(prefix :+ "services", dropwizardFactory)
 
     object grpc extends DamlGrpcServerMetrics(openTelemetryFactory, "participant")
 

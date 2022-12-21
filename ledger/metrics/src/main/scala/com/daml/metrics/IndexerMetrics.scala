@@ -5,14 +5,12 @@ package com.daml.metrics
 
 import java.time.Instant
 
-import com.codahale.metrics.MetricRegistry
 import com.daml.metrics.api.MetricDoc.MetricQualification.Debug
-import com.daml.metrics.api.MetricHandle.Gauge
-import com.daml.metrics.api.dropwizard.{DropwizardFactory, DropwizardGauge}
-import com.daml.metrics.api.{MetricDoc, MetricName}
+import com.daml.metrics.api.MetricHandle.{Factory, Gauge}
+import com.daml.metrics.api.dropwizard.DropwizardGauge
+import com.daml.metrics.api.{MetricDoc, MetricName, MetricsContext}
 
-class IndexerMetrics(val prefix: MetricName, override val registry: MetricRegistry)
-    extends DropwizardFactory {
+class IndexerMetrics(prefix: MetricName, factory: Factory) {
 
   @MetricDoc.Tag(
     summary = "The time of the last event ingested by the index db (in milliseconds since EPOCH).",
@@ -22,7 +20,7 @@ class IndexerMetrics(val prefix: MetricName, override val registry: MetricRegist
     qualification = Debug,
   )
   val lastReceivedRecordTime: Gauge[Long] =
-    gauge(prefix :+ "last_received_record_time", 0)
+    factory.gauge(prefix :+ "last_received_record_time", 0L)(MetricsContext.Empty)
 
   @MetricDoc.Tag(
     summary = "A string value representing the last ledger offset ingested by the index db.",
@@ -31,7 +29,7 @@ class IndexerMetrics(val prefix: MetricName, override val registry: MetricRegist
     qualification = Debug,
   )
   val lastReceivedOffset: Gauge[String] =
-    gauge(prefix :+ "last_received_offset", "<none>")
+    factory.gauge(prefix :+ "last_received_offset", "<none>")(MetricsContext.Empty)
 
   @MetricDoc.Tag(
     summary = "The sequential id of the current ledger end kept in the database.",
@@ -46,7 +44,7 @@ class IndexerMetrics(val prefix: MetricName, override val registry: MetricRegist
     qualification = Debug,
   )
   val ledgerEndSequentialId: Gauge[Long] =
-    gauge(prefix :+ "ledger_end_sequential_id", 0)
+    factory.gauge(prefix :+ "ledger_end_sequential_id", 0L)(MetricsContext.Empty)
 
   @MetricDoc.Tag(
     summary =
@@ -57,8 +55,8 @@ class IndexerMetrics(val prefix: MetricName, override val registry: MetricRegist
   )
   val currentRecordTimeLag: Gauge[Long] = DropwizardGauge(prefix :+ "current_record_time_lag", null)
 
-  gaugeWithSupplier(
+  factory.gaugeWithSupplier(
     prefix :+ "current_record_time_lag",
     () => () => Instant.now().toEpochMilli - lastReceivedRecordTime.getValue,
-  )
+  )(MetricsContext.Empty)
 }

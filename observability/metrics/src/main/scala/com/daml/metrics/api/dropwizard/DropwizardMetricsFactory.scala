@@ -4,7 +4,6 @@
 package com.daml.metrics.api.dropwizard
 
 import com.codahale.{metrics => codahale}
-import com.daml.metrics.DatabaseMetrics
 import com.daml.metrics.api.Gauges.VarGauge
 import com.daml.metrics.api.MetricHandle.{Counter, Factory, Gauge, Histogram, Meter, Timer}
 import com.daml.metrics.api.{Gauges, MetricName, MetricsContext}
@@ -12,9 +11,7 @@ import com.daml.scalautil.Statement.discard
 
 import scala.concurrent.blocking
 
-trait DropwizardFactory extends Factory {
-
-  def registry: codahale.MetricRegistry
+class DropwizardMetricsFactory(val registry: codahale.MetricRegistry) extends Factory {
 
   override def timer(name: MetricName, description: String = "")(implicit
       context: MetricsContext = MetricsContext.Empty
@@ -69,12 +66,4 @@ trait DropwizardFactory extends Factory {
       registry.register(name, gauge)
     }
   }
-}
-
-trait FactoryWithDBMetrics extends DropwizardFactory {
-
-  def prefix: MetricName
-
-  def createDbMetrics(name: String): DatabaseMetrics =
-    new DatabaseMetrics(prefix, name, registry)
 }

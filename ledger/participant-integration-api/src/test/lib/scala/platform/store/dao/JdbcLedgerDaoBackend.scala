@@ -60,7 +60,7 @@ private[dao] trait JdbcLedgerDaoBackend extends AkkaBeforeAndAfterAll {
   )(implicit
       loggingContext: LoggingContext
   ): ResourceOwner[LedgerDao] = {
-    val metrics = new Metrics(new MetricRegistry, GlobalOpenTelemetry.getMeter("test"))
+    val metrics = Metrics(new MetricRegistry, GlobalOpenTelemetry.getMeter("test"))
     val dbType = DbType.jdbcType(jdbcUrl)
     val storageBackendFactory = StorageBackendFactory.of(dbType)
     DbSupport

@@ -4,6 +4,7 @@
 package com.daml.http
 
 import java.nio.file.Path
+
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http.ServerBinding
 import akka.stream.Materializer
@@ -22,6 +23,8 @@ import com.daml.http.metrics.HttpJsonApiMetrics
 import com.daml.http.util.Logging.{InstanceUUID, instanceUUIDLogCtx}
 import com.daml.ledger.resources.ResourceContext
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
+import com.daml.metrics.api.dropwizard.DropwizardMetricsFactory
+import com.daml.metrics.api.opentelemetry.OpenTelemetryFactory
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future}
@@ -98,7 +101,12 @@ object Main {
       getClass.getName,
       config.metricsReporter,
       config.metricsReportingInterval,
-    )(new HttpJsonApiMetrics(_, _))
+    )((registry, otelMeter) =>
+      new HttpJsonApiMetrics(
+        new DropwizardMetricsFactory(registry),
+        new OpenTelemetryFactory(otelMeter),
+      )
+    )
     val metricsResource = metricsReporting.acquire()
 
     def terminate(): Unit = discard {

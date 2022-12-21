@@ -34,7 +34,7 @@ class IndexerBenchmark() {
   ): Future[Unit] = {
     newLoggingContext { implicit loggingContext =>
       val metrics = Metrics.ForTesting
-      metrics.registry.registerAll(new JvmMetricSet)
+      metrics.dropwizardFactory.registry.registerAll(new JvmMetricSet)
 
       val system = ActorSystem("IndexerBenchmark")
       implicit val materializer: Materializer = Materializer(system)
@@ -123,7 +123,7 @@ class IndexerBenchmark() {
   private def metricsResource(config: Config, metrics: Metrics)(implicit rc: ResourceContext) =
     config.metricsReporter.fold(Resource.unit)(reporter =>
       ResourceOwner
-        .forCloseable(() => reporter.register(metrics.registry))
+        .forCloseable(() => reporter.register(metrics.dropwizardFactory.registry))
         .map(_.start(config.metricsReportingInterval.getSeconds, TimeUnit.SECONDS))
         .acquire()
     )

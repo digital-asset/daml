@@ -35,7 +35,7 @@ case class MetricsOwner(meter: Meter, config: MetricsConfig, name: String)
     metricRegistry.registerAll(new JvmMetricSet)
     Resource(
       Future(
-        new Metrics(
+        Metrics(
           metricRegistry,
           meter,
         )

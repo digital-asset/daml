@@ -3,14 +3,11 @@
 
 package com.daml.metrics
 
-import com.codahale.metrics.MetricRegistry
 import com.daml.metrics.api.MetricDoc.MetricQualification.{Debug, Saturation}
-import com.daml.metrics.api.MetricHandle.{Counter, Gauge, Timer}
-import com.daml.metrics.api.dropwizard.DropwizardFactory
-import com.daml.metrics.api.{MetricDoc, MetricName}
+import com.daml.metrics.api.MetricHandle.{Counter, Factory, Gauge, Timer}
+import com.daml.metrics.api.{MetricDoc, MetricName, MetricsContext}
 
-class IndexMetrics(val prefix: MetricName, override val registry: MetricRegistry)
-    extends DropwizardFactory {
+class IndexMetrics(prefix: MetricName, factory: Factory) {
 
   @MetricDoc.Tag(
     summary = "The buffer size for transaction trees requests.",
@@ -21,7 +18,7 @@ class IndexMetrics(val prefix: MetricName, override val registry: MetricRegistry
     qualification = Saturation,
   )
   val transactionTreesBufferSize: Counter =
-    counter(prefix :+ "transaction_trees_buffer_size")
+    factory.counter(prefix :+ "transaction_trees_buffer_size")
 
   @MetricDoc.Tag(
     summary = "The buffer size for flat transactions requests.",
@@ -33,7 +30,7 @@ class IndexMetrics(val prefix: MetricName, override val registry: MetricRegistry
     qualification = Saturation,
   )
   val flatTransactionsBufferSize: Counter =
-    counter(prefix :+ "flat_transactions_buffer_size")
+    factory.counter(prefix :+ "flat_transactions_buffer_size")
 
   @MetricDoc.Tag(
     summary = "The buffer size for active contracts requests.",
@@ -45,7 +42,7 @@ class IndexMetrics(val prefix: MetricName, override val registry: MetricRegistry
     qualification = Saturation,
   )
   val activeContractsBufferSize: Counter =
-    counter(prefix :+ "active_contracts_buffer_size")
+    factory.counter(prefix :+ "active_contracts_buffer_size")
 
   @MetricDoc.Tag(
     summary = "The buffer size for completions requests.",
@@ -57,9 +54,9 @@ class IndexMetrics(val prefix: MetricName, override val registry: MetricRegistry
     qualification = Saturation,
   )
   val completionsBufferSize: Counter =
-    counter(prefix :+ "completions_buffer_size")
+    factory.counter(prefix :+ "completions_buffer_size")
 
-  object db extends IndexDBMetrics(prefix :+ "db", registry)
+  object db extends IndexDBMetrics(prefix :+ "db", factory)
 
   @MetricDoc.Tag(
     summary = "The sequential id of the current ledger end kept in memory.",
@@ -74,7 +71,7 @@ class IndexMetrics(val prefix: MetricName, override val registry: MetricRegistry
     qualification = Debug,
   )
   val ledgerEndSequentialId: Gauge[Long] =
-    gauge(prefix :+ "ledger_end_sequential_id", 0)
+    factory.gauge(prefix :+ "ledger_end_sequential_id", 0L)(MetricsContext.Empty)
 
   object lfValue {
     private val prefix = IndexMetrics.this.prefix :+ "lf_value"
@@ -86,7 +83,7 @@ class IndexMetrics(val prefix: MetricName, override val registry: MetricRegistry
                       |the latency. This metric represents the time for each such computation.""",
       qualification = Debug,
     )
-    val computeInterfaceView: Timer = timer(prefix :+ "compute_interface_view")
+    val computeInterfaceView: Timer = factory.timer(prefix :+ "compute_interface_view")
   }
 
   object packageMetadata {
@@ -98,7 +95,7 @@ class IndexMetrics(val prefix: MetricName, override val registry: MetricRegistry
                       |interfaces and corresponding templates.""",
       qualification = Debug,
     )
-    val decodeArchive: Timer = timer(prefix :+ "decode_archive")
+    val decodeArchive: Timer = factory.timer(prefix :+ "decode_archive")
 
     @MetricDoc.Tag(
       summary = "The time to initialize package metadata view.",
@@ -107,6 +104,6 @@ class IndexMetrics(val prefix: MetricName, override val registry: MetricRegistry
                       |uploaded and scanning them to extract metadata information.""",
       qualification = Debug,
     )
-    val viewInitialisation: Timer = timer(prefix :+ "view_init")
+    val viewInitialisation: Timer = factory.timer(prefix :+ "view_init")
   }
 }

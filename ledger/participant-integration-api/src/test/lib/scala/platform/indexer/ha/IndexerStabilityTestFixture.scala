@@ -98,7 +98,7 @@ object IndexerStabilityTestFixture {
                   // create a new MetricRegistry for each indexer, so they don't step on each other toes:
                   // Gauges can only be registered once. A subsequent attempt results in an exception for the
                   // call MetricRegistry#register or MetricRegistry#registerGauge
-                  metrics = new Metrics(new MetricRegistry, GlobalOpenTelemetry.getMeter("test"))
+                  metrics = Metrics(new MetricRegistry, GlobalOpenTelemetry.getMeter("test"))
                   (inMemoryState, inMemoryStateUpdaterFlow) <-
                     LedgerApiServer
                       .createInMemoryStateAndUpdater(
