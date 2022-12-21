@@ -3,14 +3,11 @@
 
 package com.daml.metrics
 
-import com.codahale.metrics.MetricRegistry
 import com.daml.metrics.api.MetricDoc.MetricQualification.{Debug, Latency}
-import com.daml.metrics.api.MetricHandle.{Counter, Meter, Timer}
-import com.daml.metrics.api.dropwizard.DropwizardFactory
+import com.daml.metrics.api.MetricHandle.{Counter, Factory, Meter, Timer}
 import com.daml.metrics.api.{MetricDoc, MetricName}
 
-class CommandMetrics(val prefix: MetricName, override val registry: MetricRegistry)
-    extends DropwizardFactory {
+class CommandMetrics(val prefix: MetricName, val factory: Factory) {
 
   @MetricDoc.Tag(
     summary = "The time to validate a Daml command.",
@@ -18,7 +15,7 @@ class CommandMetrics(val prefix: MetricName, override val registry: MetricRegist
                     |interpreter.""",
     qualification = Debug,
   )
-  val validation: Timer = timer(prefix :+ "validation")
+  val validation: Timer = factory.timer(prefix :+ "validation")
 
   @MetricDoc.Tag(
     summary = "The time to fully process a Daml command.",
@@ -26,7 +23,7 @@ class CommandMetrics(val prefix: MetricName, override val registry: MetricRegist
                     |synchronization services to be finalized (either committed or rejected).""",
     qualification = Latency,
   )
-  val submissions: Timer = timer(prefix :+ "submissions")
+  val submissions: Timer = factory.timer(prefix :+ "submissions")
 
   @MetricDoc.Tag(
     summary =
@@ -36,7 +33,7 @@ class CommandMetrics(val prefix: MetricName, override val registry: MetricRegist
                     |over to the synchronization services).""",
     qualification = Debug,
   )
-  val submissionsRunning: Counter = counter(prefix :+ "submissions_running")
+  val submissionsRunning: Counter = factory.counter(prefix :+ "submissions_running")
 
   @MetricDoc.Tag(
     summary = "The number of Daml commands that failed in interpretation.",
@@ -44,7 +41,8 @@ class CommandMetrics(val prefix: MetricName, override val registry: MetricRegist
                     |(e.g. badly authorized action).""",
     qualification = Debug,
   )
-  val failedCommandInterpretations: Meter = meter(prefix :+ "failed_command_interpretations")
+  val failedCommandInterpretations: Meter =
+    factory.meter(prefix :+ "failed_command_interpretations")
 
   @MetricDoc.Tag(
     summary = "The number of the delayed Daml commands.",
@@ -53,7 +51,7 @@ class CommandMetrics(val prefix: MetricName, override val registry: MetricRegist
                     |expected latency.""",
     qualification = Debug,
   )
-  val delayedSubmissions: Meter = meter(prefix :+ "delayed_submissions")
+  val delayedSubmissions: Meter = factory.meter(prefix :+ "delayed_submissions")
 
   @MetricDoc.Tag(
     summary = "The total number of the valid Daml commands.",
@@ -61,14 +59,14 @@ class CommandMetrics(val prefix: MetricName, override val registry: MetricRegist
                     |sent to interpretation in this ledger api server process.""",
     qualification = Debug,
   )
-  val validSubmissions: Meter = meter(prefix :+ "valid_submissions")
+  val validSubmissions: Meter = factory.meter(prefix :+ "valid_submissions")
 
   @MetricDoc.Tag(
     summary = "The number of the currently pending Daml commands.",
     description = "The number of the currently pending Daml Commands in the Command Service.",
     qualification = Debug,
   )
-  val inputBufferLength: Counter = counter(prefix :+ "input_buffer_length")
+  val inputBufferLength: Counter = factory.counter(prefix :+ "input_buffer_length")
 
   @MetricDoc.Tag(
     summary = "The capacity of the Daml commands queue.",
@@ -76,14 +74,14 @@ class CommandMetrics(val prefix: MetricName, override val registry: MetricRegist
                     |in the Command Service.""",
     qualification = Debug,
   )
-  val inputBufferCapacity: Counter = counter(prefix :+ "input_buffer_capacity")
+  val inputBufferCapacity: Counter = factory.counter(prefix :+ "input_buffer_capacity")
 
   @MetricDoc.Tag(
     summary = "The queuing delay for the Daml command queue.",
     description = "The queuing delay for the pending Daml commands in the Command Service.",
     qualification = Debug,
   )
-  val inputBufferDelay: Timer = timer(prefix :+ "input_buffer_delay")
+  val inputBufferDelay: Timer = factory.timer(prefix :+ "input_buffer_delay")
 
   @MetricDoc.Tag(
     summary = "The number of the Daml commands awaiting completion.",
@@ -91,7 +89,7 @@ class CommandMetrics(val prefix: MetricName, override val registry: MetricRegist
       "The number of the currently Daml commands awaiting completion in the Command Service.",
     qualification = Debug,
   )
-  val maxInFlightLength: Counter = counter(prefix :+ "max_in_flight_length")
+  val maxInFlightLength: Counter = factory.counter(prefix :+ "max_in_flight_length")
 
   @MetricDoc.Tag(
     summary = "The maximum number of Daml commands that can await completion.",
@@ -99,5 +97,5 @@ class CommandMetrics(val prefix: MetricName, override val registry: MetricRegist
       "The maximum number of Daml commands that can await completion in the Command Service.",
     qualification = Debug,
   )
-  val maxInFlightCapacity: Counter = counter(prefix :+ "max_in_flight_capacity")
+  val maxInFlightCapacity: Counter = factory.counter(prefix :+ "max_in_flight_capacity")
 }
