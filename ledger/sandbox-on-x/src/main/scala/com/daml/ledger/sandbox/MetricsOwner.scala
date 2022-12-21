@@ -7,6 +7,7 @@ import java.util.concurrent.TimeUnit
 
 import com.codahale.metrics.{MetricRegistry, SharedMetricRegistries}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
+import com.daml.metrics.api.opentelemetry.OpenTelemetryFactory
 import com.daml.metrics.{JvmMetricSet, Metrics}
 import com.daml.platform.config.MetricsConfig
 import com.daml.platform.config.MetricsConfig.MetricRegistryType
@@ -37,7 +38,7 @@ case class MetricsOwner(meter: Meter, config: MetricsConfig, name: String)
       Future(
         new Metrics(
           metricRegistry,
-          meter,
+          new OpenTelemetryFactory(meter),
         )
       )
     ) { _ =>

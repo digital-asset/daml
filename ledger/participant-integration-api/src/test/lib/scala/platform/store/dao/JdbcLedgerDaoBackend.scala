@@ -12,6 +12,7 @@ import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.metrics.Metrics
+import com.daml.metrics.api.opentelemetry.OpenTelemetryFactory
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.store.DbSupport.{ConnectionPoolConfig, DbConfig}
 import com.daml.platform.store.backend.StorageBackendFactory
@@ -56,7 +57,10 @@ private[dao] trait JdbcLedgerDaoBackend extends AkkaBeforeAndAfterAll {
   )(implicit
       loggingContext: LoggingContext
   ): ResourceOwner[LedgerDao] = {
-    val metrics = new Metrics(new MetricRegistry, GlobalOpenTelemetry.getMeter("test"))
+    val metrics = new Metrics(
+      new MetricRegistry,
+      new OpenTelemetryFactory(GlobalOpenTelemetry.getMeter("test")),
+    )
     val dbType = DbType.jdbcType(jdbcUrl)
     val storageBackendFactory = StorageBackendFactory.of(dbType)
     DbSupport
