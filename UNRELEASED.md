@@ -42,6 +42,6 @@ The following index db metrics were added:
 - daml_index_db_tree_transactions_stream_fetch_event_non_consuming_payloads
 
 The following index db metrics were removed:
-- daml_index_db_get_flat_transactions
-- daml_index_db_get_transaction_trees
+- daml_index_db_get_flat_transactions*
+- daml_index_db_get_transaction_trees*
 
