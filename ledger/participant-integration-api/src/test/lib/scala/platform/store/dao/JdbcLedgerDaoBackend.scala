@@ -101,7 +101,7 @@ private[dao] trait JdbcLedgerDaoBackend extends AkkaBeforeAndAfterAll {
           participantId = JdbcLedgerDaoBackend.TestParticipantIdRef,
           ledgerEndCache = ledgerEndCache,
           stringInterning = stringInterningView,
-          completionsMaxPayloadsPerPayloadsPage = 1000,
+          completionsPageSize = 1000,
           transactionsFlatStreamsConfig = TransactionsFlatStreamsConfig.default,
           transactionsTreeStreamsConfig = TransactionsTreeStreamsConfig.default,
           globalMaxEventIdQueries = 20,

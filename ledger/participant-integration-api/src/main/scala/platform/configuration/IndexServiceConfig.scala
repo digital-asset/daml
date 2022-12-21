@@ -26,7 +26,7 @@ final case class IndexServiceConfig(
     inMemoryFanOutThreadPoolSize: Int = IndexServiceConfig.DefaultInMemoryFanOutThreadPoolSize,
     preparePackageMetadataTimeOutWarning: FiniteDuration =
       IndexServiceConfig.PreparePackageMetadataTimeOutWarning,
-    completionsMaxPayloadsPerPayloadsPage: Int = 1000,
+    completionsPageSize: Int = 1000,
     transactionsFlatStreams: TransactionsFlatStreamsConfig = TransactionsFlatStreamsConfig.default,
     transactionsTreeStreams: TransactionsTreeStreamsConfig = TransactionsTreeStreamsConfig.default,
     globalMaxEventIdQueries: Int = 20,
