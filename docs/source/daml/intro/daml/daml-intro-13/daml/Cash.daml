@@ -25,6 +25,7 @@ template Cash
           newOwner = newOwner
 -- TEMPLATE_CASH_DEF_END
 
+-- INTERFACE_INSTANCE_IASSET_FOR_CASH_BEGIN
     interface instance IAsset for Cash where
       view = VAsset with
         issuer
@@ -41,6 +42,7 @@ template Cash
           CashTransferProposal with
             cash = this
             newOwner
+-- INTERFACE_INSTANCE_IASSET_FOR_CASH_END
 
 -- TEMPLATE_CASH_TF_DEF_BEGIN
 template CashTransferProposal
@@ -75,9 +77,11 @@ template CashTransferProposal
         create cash
 -- TEMPLATE_CASH_TF_DEF_END
 
+-- INTERFACE_INSTANCE_IASSET_TF_FOR_CASH_TF_BEGIN
     interface instance IAssetTransferProposal for CashTransferProposal where
       view = VAssetTransferProposal with
         assetView = view (toInterface @IAsset cash)
         newOwner
 
       asset = toInterface @IAsset cash
+-- INTERFACE_INSTANCE_IASSET_TF_FOR_CASH_TF_END

@@ -80,7 +80,15 @@ There are a few things happening here:
 
 1. For each interface, we have defined a ``viewtype``. This is mandatory for all
    interfaces. All viewtypes must be serializable records, since <insert
-   justification here>.
+   justification here>. This declaration means that the special ``view`` method,
+   when applied to a value of this interface, will return the specified type, in
+   this case ``VAsset``. This is the definition of ``VAsset``:
+
+   .. literalinclude:: daml/daml-intro-13/daml/IAsset.daml
+     :language: daml
+     :start-after: -- DATA_VASSET_DEF_BEGIN
+     :end-before: -- DATA_VASSET_DEF_END
+
 
 2. We have defined the methods ``setOwner`` and ``toTransferProposal`` as part
    of the ``IAsset`` interface, and method ``asset`` as part of the
@@ -95,7 +103,65 @@ There are a few things happening here:
    with the choices of ``Cash`` / ``CashTransferProposal`` and ``NFT`` /
    ``NFTTransferProposal``.
 
-.. * toInterface
+   You should notice that the choice controller and the choice body are defined
+   in terms of the methods that we bundled with the interfaces, including the
+   special ``view`` method. For example, the controller of
+   ``choice ProposeIAssetTransfer`` is ``(view this).owner``, that is, it's the
+   ``owner`` field of the ``view`` for the implicit current contract ``this``,
+   in other words, the owner of the current contract. The body of this choice is
+   ``create (toTransferProposal this newOwner)``, so it creates a new contract
+   whose contents are the result of applying the ``toTransferProposal`` method
+   to the current contract and the ``newOwner`` field of the choice argument.
+
+.. hint::
+  For a detailed explanation of the syntax used here, check out :ref:`daml-ref-interfaces`
+
+
+Interface instances
+-------------------
+
+On its own, an interface isn't very useful, since all contracts on the ledger
+must belong to some template type. In order to make the link between an
+interface and a template, we define an interface instance on either the
+template or the interface. In this example, we add
+``interface instance IAsset for Cash`` and
+``interface instance IAssetTransferProposal for CashTransferProposal``:
+
+.. literalinclude:: daml/daml-intro-13/daml/Cash.daml
+  :language: daml
+  :start-after: -- INTERFACE_INSTANCE_IASSET_FOR_CASH_BEGIN
+  :end-before: -- INTERFACE_INSTANCE_IASSET_FOR_CASH_END
+
+.. literalinclude:: daml/daml-intro-13/daml/Cash.daml
+  :language: daml
+  :start-after: -- INTERFACE_INSTANCE_IASSET_TF_FOR_CASH_TF_BEGIN
+  :end-before: -- INTERFACE_INSTANCE_IASSET_TF_FOR_CASH_TF_END
+
+The corresponding interface instances for ``NFT`` and ``NFTTransferProposal``
+are very similar so we omit them here.
+
+Inside the interface instances, we must implement every method defined for the
+corresponding interface, including the special ``view`` method.  Within each
+method implementation the variable ``this`` is in scope, corresponding to the
+implict current contract, which will have the type of the template (in this case
+``Cash`` / ``CashTransferProposal``), as well as each of the fields of the
+template type. For example, the ``view`` definition in ``interface instance
+IAsset for Cash`` mentions ``issuer`` and ``owner``, which refer to the issuer
+and owner of the current ``Cash`` contract, as well as ``this``, which refers to
+the entire ``Cash`` contract payload.
+
+The implementations given for each method must match the types given in the
+interface definition. In particular, we see that the ``view`` definition
+discussed above returns a ``VAsset``, corresponding to ``IAsset``'s
+``viewtype``. Similarly, ``setOwner`` returns an ``IAsset``, and
+``toTransferProposal`` returns an ``IAssetTransferProposal``. In these last two,
+we have used the function ``toInterface`` to convert values from a template type
+into an interface type. In ``setOwner``, ``toInterface`` is applied to a
+``Cash`` value (``this with owner = newOwner``), producing an ``IAsset`` value;
+in ``toTransferProposal``, it's applied to a ``CashTransferProposal`` value
+(``CashTransferProposal with {...}``), producing an ``IAssetTransferProposal``
+value.
+
 .. * toInterfaceContractId
 .. * queryInterface
 .. * queryInterfaceContractId
