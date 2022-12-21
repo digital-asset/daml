@@ -43,7 +43,9 @@ abstract class AbstractFuncTests
     "Failure testing" should {
       val contractPairings = 500
 
-      s"with $contractPairings contract pairings and always failing submissions" should {
+      // TODO https://github.com/digital-asset/daml/pull/15929
+      //  enable the test
+      s"with $contractPairings contract pairings and always failing submissions" ignore {
         def command(template: String, owner: String, i: Int): CreateCommand =
           CreateCommand(
             templateId = Some(LedgerApi.Identifier(packageId, "Cats", template)),
@@ -82,7 +84,9 @@ abstract class AbstractFuncTests
             true
         }
 
-        "Process all contract pairings successfully" in {
+        // TODO https://github.com/digital-asset/daml/pull/15929
+        //  enable the test
+        "Process all contract pairings successfully" ignore {
           for {
             client <- ledgerClient()
             party <- allocateParty(client)
