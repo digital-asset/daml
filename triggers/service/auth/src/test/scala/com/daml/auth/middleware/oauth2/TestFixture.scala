@@ -5,14 +5,12 @@ package com.daml.auth.middleware.oauth2
 
 import java.io.File
 import java.time.{Instant, ZoneId}
-import java.util.Date
 
 import akka.http.scaladsl.Http.ServerBinding
 import akka.http.scaladsl.model.Uri
 import com.auth0.jwt.JWTVerifier.BaseVerification
 import com.auth0.jwt.JWT
 import com.auth0.jwt.algorithms.Algorithm
-import com.auth0.jwt.interfaces.{Clock => Auth0Clock}
 import com.daml.auth.middleware.api.Client
 import com.daml.clock.AdjustableClock
 import com.daml.jwt.JwtVerifier
@@ -114,9 +112,7 @@ trait TestFixture
               JWT
                 .require(Algorithm.HMAC256(jwtSecret))
                 .asInstanceOf[BaseVerification]
-                .build(new Auth0Clock {
-                  override def getToday: Date = Date.from(clock.instant())
-                })
+                .build(clock)
             ),
           )
         )

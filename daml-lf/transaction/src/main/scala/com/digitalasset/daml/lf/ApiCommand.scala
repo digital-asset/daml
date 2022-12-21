@@ -137,6 +137,7 @@ final case class ContractMetadata(
   * @param signatories the contract's stakeholders, as derived by the Engine from the provided contract instance.
   * @param stakeholders the contract's signatories, as derived by the Engine from the provided contract instance.
   * @param maybeKeyWithMaintainers the versioned contract key with maintainers, if available,
+  * @param agreementText the contract agreement text
   */
 final case class EngineEnrichedContractMetadata(
     createdAt: Time.Timestamp,
@@ -144,4 +145,5 @@ final case class EngineEnrichedContractMetadata(
     signatories: Set[Party],
     stakeholders: Set[Party],
     maybeKeyWithMaintainers: Option[Versioned[GlobalKeyWithMaintainers]],
+    agreementText: String,
 )

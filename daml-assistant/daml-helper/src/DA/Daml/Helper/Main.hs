@@ -33,6 +33,7 @@ import Data.Time.Calendar (Day(..))
 main :: IO ()
 main = do
     -- Save the runfiles environment to work around
+    forM_ [stdout, stderr] $ \h -> hSetBuffering h LineBuffering
     -- https://gitlab.haskell.org/ghc/ghc/-/issues/18418.
     setRunfilesEnv
     withProgName "daml" $ go `catch` \(e :: DamlHelperError) -> do

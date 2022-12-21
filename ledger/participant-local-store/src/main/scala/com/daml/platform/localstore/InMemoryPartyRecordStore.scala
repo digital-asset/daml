@@ -13,12 +13,7 @@ import com.daml.platform.localstore.api.PartyRecordStore.{
   PartyRecordExistsFatal,
   Result,
 }
-import com.daml.platform.localstore.api.{
-  LedgerPartyExists,
-  PartyRecord,
-  PartyRecordStore,
-  PartyRecordUpdate,
-}
+import com.daml.platform.localstore.api.{PartyRecord, PartyRecordStore, PartyRecordUpdate}
 import com.daml.platform.localstore.utils.LocalAnnotationsUtils
 import com.daml.platform.server.api.validation.ResourceAnnotationValidation
 
@@ -78,11 +73,10 @@ class InMemoryPartyRecordStore(executionContext: ExecutionContext) extends Party
 
   override def updatePartyRecord(
       partyRecordUpdate: PartyRecordUpdate,
-      ledgerPartyExists: LedgerPartyExists,
+      ledgerPartyIsLocal: Boolean,
   )(implicit loggingContext: LoggingContext): Future[Result[PartyRecord]] = {
     val party = partyRecordUpdate.party
     for {
-      partyExistsOnLedger <- ledgerPartyExists.exists(party)
       updatedPartyRecord <- withState(
         state.get(party) match {
           case Some(info) =>
@@ -94,7 +88,7 @@ class InMemoryPartyRecordStore(executionContext: ExecutionContext) extends Party
               )
             } yield toPartyRecord(updatedInfo)
           case None =>
-            if (partyExistsOnLedger) {
+            if (ledgerPartyIsLocal) {
               val newPartyRecord = PartyRecord(
                 party = party,
                 metadata = domain.ObjectMeta(

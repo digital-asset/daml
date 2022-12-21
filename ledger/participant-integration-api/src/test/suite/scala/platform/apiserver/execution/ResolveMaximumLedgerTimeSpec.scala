@@ -81,6 +81,7 @@ class ResolveMaximumLedgerTimeSpec
         signatories = Set.empty,
         stakeholders = Set.empty,
         maybeKeyWithMaintainers = None,
+        agreementText = "",
       ),
     )
 

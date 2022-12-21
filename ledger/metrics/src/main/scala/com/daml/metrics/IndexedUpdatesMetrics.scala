@@ -12,7 +12,7 @@ class IndexedUpdatesMetrics(prefix: MetricName, metricFactory: Factory) {
   @MetricDoc.Tag(
     summary = "Number of events that will be metered",
     description = """Represents the number of events that will be included in the metering report.
-        |This is an estimate of the total number and not a substitute for the metering report.""".stripMargin,
+        |This is an estimate of the total number and not a substitute for the metering report.""",
     qualification = Debug,
   )
   val meteredEventsMeter: MetricHandle.Meter = metricFactory.meter(

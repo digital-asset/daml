@@ -45,7 +45,7 @@ Daml is a platform and framework for building real-time multi-party systems, ena
 What Is a Multi-Party Application?
 **********************************
 
-A multi-party application is one in which data, and the rules and workflows that govern the data, are shared between two or more parties without any party having to give up sovereignty or any single party (including the application provider) being able to control or override the agreed rules of the system. A party could be a company, a department within a company, an organization, an individual or a person. The specific definition of a party will be unique to the application and the domain of that application, much like the objects within an object-oriented application are unique to that application.
+A multi-party application is one in which data, and the rules and workflows that govern the data, are shared between two or more parties without any party having to give up sovereignty or any single party (including the application provider) being able to control or override the agreed rules of the system. A party could be a company, a department within a company, an organization, an individual or a person. The specific definition of a party will be unique to the application and the domain of that application.
 
 A well-designed multi-party application provides several benefits:
  - a clean, consistent view of all data managed by the application across all parties
