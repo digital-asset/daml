@@ -14,7 +14,7 @@ import com.daml.metrics.api.{MetricDoc, MetricName}
   groupableClass = classOf[DatabaseMetrics],
 )
 class IndexDBMetrics(override val prefix: MetricName, override val registry: MetricRegistry)
-    extends FactoryWithDBMetrics {
+    extends FactoryWithDBMetrics { self =>
 
   @MetricDoc.Tag(
     summary = "The time spent looking up a contract using its key.",
@@ -74,50 +74,50 @@ class IndexDBMetrics(override val prefix: MetricName, override val registry: Met
     "lookup_contract_by_key"
   )
 
-  object flatTxStream {
-    private val prefix = "flat_transactions_stream"
+  object flatTxStream extends FactoryWithDBMetrics {
+    override val prefix: MetricName = self.prefix :+ "flat_transactions_stream"
+    override val registry: MetricRegistry = self.registry
+
     val fetchEventCreateIdsStakeholder: DatabaseMetrics = createDbMetrics(
-      prefix + "_fetch_event_create_ids_stakeholder"
+      "fetch_event_create_ids_stakeholder"
     )
     val fetchEventConsumingIdsStakeholder: DatabaseMetrics = createDbMetrics(
-      prefix + "_fetch_event_consuming_ids_stakeholder"
+      "fetch_event_consuming_ids_stakeholder"
     )
-    val fetchEventCreatePayloads: DatabaseMetrics = createDbMetrics(
-      prefix + "_fetch_event_create_payloads"
-    )
+    val fetchEventCreatePayloads: DatabaseMetrics = createDbMetrics("fetch_event_create_payloads")
     val fetchEventConsumingPayloads: DatabaseMetrics = createDbMetrics(
-      prefix + "_fetch_event_consuming_payloads"
+      "fetch_event_consuming_payloads"
     )
-    val translationTimer: Timer = createDbMetrics(prefix).translationTimer
+    val translationTimer: Timer = createDbMetrics("translation").translationTimer
   }
 
-  object treeTxStream {
-    private val prefix = "tree_transactions_stream"
+  object treeTxStream extends FactoryWithDBMetrics {
+    override val prefix: MetricName = self.prefix :+ "tree_transactions_stream"
+    override val registry: MetricRegistry = self.registry
+
     val fetchEventCreateIdsStakeholder: DatabaseMetrics = createDbMetrics(
-      prefix + "_fetch_event_create_ids_stakeholder"
+      "fetch_event_create_ids_stakeholder"
     )
     val fetchEventCreateIdsNonStakeholder: DatabaseMetrics = createDbMetrics(
-      prefix + "_fetch_event_create_ids_non_stakeholder"
+      "fetch_event_create_ids_non_stakeholder"
     )
     val fetchEventConsumingIdsStakeholder: DatabaseMetrics = createDbMetrics(
-      prefix + "_fetch_event_consuming_ids_stakeholder"
+      "fetch_event_consuming_ids_stakeholder"
     )
     val fetchEventConsumingIdsNonStakeholder: DatabaseMetrics = createDbMetrics(
-      prefix + "_fetch_event_consuming_ids_non_stakeholder"
+      "fetch_event_consuming_ids_non_stakeholder"
     )
     val fetchEventNonConsumingIds: DatabaseMetrics = createDbMetrics(
-      prefix + "_fetch_event_non_consuming_ids_informee"
+      "fetch_event_non_consuming_ids_informee"
     )
-    val fetchEventCreatePayloads: DatabaseMetrics = createDbMetrics(
-      prefix + "_fetch_event_create_payloads"
-    )
+    val fetchEventCreatePayloads: DatabaseMetrics = createDbMetrics("fetch_event_create_payloads")
     val fetchEventConsumingPayloads: DatabaseMetrics = createDbMetrics(
-      prefix + "_fetch_event_consuming_payloads"
+      "fetch_event_consuming_payloads"
     )
     val fetchEventNonConsumingPayloads: DatabaseMetrics = createDbMetrics(
-      prefix + "_fetch_event_non_consuming_payloads"
+      "fetch_event_non_consuming_payloads"
     )
-    val translationTimer: Timer = createDbMetrics(prefix).translationTimer
+    val translationTimer: Timer = createDbMetrics("translation").translationTimer
   }
 
   val lookupFlatTransactionById: DatabaseMetrics = createDbMetrics(
