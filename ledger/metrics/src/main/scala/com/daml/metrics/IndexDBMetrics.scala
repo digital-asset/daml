@@ -280,4 +280,7 @@ class MainIndexDBMetrics(prefix: MetricName, factory: Factory)
       connection :+ "<server_role>"
     )
   }
+
+  private def createDbMetrics(name: String) = new DatabaseMetrics(prefix, name, factory)
+
 }
