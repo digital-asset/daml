@@ -1049,7 +1049,7 @@ main = do
     -- args from daml.yaml.
     Command cmd mbProjectOpts _ <- handleParseResult tempParseResult
     damlYamlArgs <- cliArgsFromDamlYaml mbProjectOpts
-    let args = if cmd `elem` [Build, Compile, Desugar, Ide, DebugIdeSpanInfo, Test, DamlDoc]
+    let args = if cmd `elem` [Build, Compile, Desugar, Ide, DebugIdeSpanInfo, Test, DamlDoc, Repl]
                then cliArgs ++ damlYamlArgs
                else cliArgs
         (errMsgs, parseResult) = parse args
