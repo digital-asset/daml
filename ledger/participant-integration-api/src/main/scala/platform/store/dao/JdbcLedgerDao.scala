@@ -23,10 +23,7 @@ import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.entries.LoggingEntry
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
-import com.daml.platform.configuration.{
-  TransactionsFlatStreamsConfig,
-  TransactionsTreeStreamsConfig,
-}
+import com.daml.platform.configuration.{TransactionFlatStreamsConfig, TransactionTreeStreamsConfig}
 import com.daml.platform.{ApplicationId, PackageId, Party, SubmissionId, TransactionId, WorkflowId}
 import com.daml.platform.store._
 import com.daml.platform.store.dao.events.{TransactionsFlatStreamReader, _}
@@ -58,8 +55,8 @@ private class JdbcLedgerDao(
     readStorageBackend: ReadStorageBackend,
     parameterStorageBackend: ParameterStorageBackend,
     completionsPageSize: Int,
-    transactionsFlatStreamsConfig: TransactionsFlatStreamsConfig,
-    transactionsTreeStreamsConfig: TransactionsTreeStreamsConfig,
+    transactionFlatStreamsConfig: TransactionFlatStreamsConfig,
+    transactionTreeStreamsConfig: TransactionTreeStreamsConfig,
     globalMaxEventIdQueries: Int,
     globalMaxEventPayloadQueries: Int,
 ) extends LedgerDao {
@@ -494,7 +491,7 @@ private class JdbcLedgerDao(
   )
 
   private val flatTransactionsStreamReader = new TransactionsFlatStreamReader(
-    config = transactionsFlatStreamsConfig,
+    config = transactionFlatStreamsConfig,
     globalIdQueriesLimiter = globalIdQueriesLimiter,
     globalPayloadQueriesLimiter = globalPayloadQueriesLimiter,
     dbDispatcher = dbDispatcher,
@@ -505,7 +502,7 @@ private class JdbcLedgerDao(
   )(servicesExecutionContext)
 
   private val treeTransactionsStreamReader = new TransactionsTreeStreamReader(
-    config = transactionsTreeStreamsConfig,
+    config = transactionTreeStreamsConfig,
     globalIdQueriesLimiter = globalIdQueriesLimiter,
     globalPayloadQueriesLimiter = globalPayloadQueriesLimiter,
     dbDispatcher = dbDispatcher,
@@ -644,8 +641,8 @@ private[platform] object JdbcLedgerDao {
       ledgerEndCache: LedgerEndCache,
       stringInterning: StringInterning,
       completionsPageSize: Int,
-      transactionsFlatStreamsConfig: TransactionsFlatStreamsConfig,
-      transactionsTreeStreamsConfig: TransactionsTreeStreamsConfig,
+      transactionFlatStreamsConfig: TransactionFlatStreamsConfig,
+      transactionTreeStreamsConfig: TransactionTreeStreamsConfig,
       globalMaxEventIdQueries: Int,
       globalMaxEventPayloadQueries: Int,
   ): LedgerReadDao =
@@ -667,8 +664,8 @@ private[platform] object JdbcLedgerDao {
       dbSupport.storageBackendFactory.readStorageBackend(ledgerEndCache, stringInterning),
       dbSupport.storageBackendFactory.createParameterStorageBackend,
       completionsPageSize = completionsPageSize,
-      transactionsFlatStreamsConfig,
-      transactionsTreeStreamsConfig,
+      transactionFlatStreamsConfig,
+      transactionTreeStreamsConfig,
       globalMaxEventIdQueries = globalMaxEventIdQueries,
       globalMaxEventPayloadQueries = globalMaxEventPayloadQueries,
     )
@@ -691,8 +688,8 @@ private[platform] object JdbcLedgerDao {
       ledgerEndCache: LedgerEndCache,
       stringInterning: StringInterning,
       completionsPageSize: Int,
-      transactionsFlatStreamsConfig: TransactionsFlatStreamsConfig,
-      transactionsTreeStreamsConfig: TransactionsTreeStreamsConfig,
+      transactionFlatStreamsConfig: TransactionFlatStreamsConfig,
+      transactionTreeStreamsConfig: TransactionTreeStreamsConfig,
       globalMaxEventIdQueries: Int,
       globalMaxEventPayloadQueries: Int,
   ): LedgerDao =
@@ -714,8 +711,8 @@ private[platform] object JdbcLedgerDao {
       dbSupport.storageBackendFactory.readStorageBackend(ledgerEndCache, stringInterning),
       dbSupport.storageBackendFactory.createParameterStorageBackend,
       completionsPageSize = completionsPageSize,
-      transactionsFlatStreamsConfig,
-      transactionsTreeStreamsConfig,
+      transactionFlatStreamsConfig,
+      transactionTreeStreamsConfig,
       globalMaxEventIdQueries = globalMaxEventIdQueries,
       globalMaxEventPayloadQueries = globalMaxEventPayloadQueries,
     )

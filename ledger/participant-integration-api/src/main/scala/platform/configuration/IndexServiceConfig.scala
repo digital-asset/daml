@@ -27,8 +27,8 @@ final case class IndexServiceConfig(
     preparePackageMetadataTimeOutWarning: FiniteDuration =
       IndexServiceConfig.PreparePackageMetadataTimeOutWarning,
     completionsPageSize: Int = 1000,
-    transactionsFlatStreams: TransactionsFlatStreamsConfig = TransactionsFlatStreamsConfig.default,
-    transactionsTreeStreams: TransactionsTreeStreamsConfig = TransactionsTreeStreamsConfig.default,
+    transactionFlatStreams: TransactionFlatStreamsConfig = TransactionFlatStreamsConfig.default,
+    transactionTreeStreams: TransactionTreeStreamsConfig = TransactionTreeStreamsConfig.default,
     globalMaxEventIdQueries: Int = 20,
     globalMaxEventPayloadQueries: Int = 10,
 )
@@ -53,7 +53,7 @@ object IndexServiceConfig {
   val PreparePackageMetadataTimeOutWarning: FiniteDuration = FiniteDuration(1, "second")
 }
 
-case class TransactionsFlatStreamsConfig(
+case class TransactionFlatStreamsConfig(
     maxIdsPerIdPage: Int = 20000,
     maxPagesPerIdPagesBuffer: Int = 1,
     maxWorkingMemoryInBytesForIdPages: Int = 100 * 1024 * 1024,
@@ -67,11 +67,11 @@ case class TransactionsFlatStreamsConfig(
     maxParallelPayloadQueries: Int = 2,
     transactionsProcessingParallelism: Int = 8,
 )
-object TransactionsFlatStreamsConfig {
-  val default: TransactionsFlatStreamsConfig = TransactionsFlatStreamsConfig()
+object TransactionFlatStreamsConfig {
+  val default: TransactionFlatStreamsConfig = TransactionFlatStreamsConfig()
 }
 
-case class TransactionsTreeStreamsConfig(
+case class TransactionTreeStreamsConfig(
     maxIdsPerIdPage: Int = 20000,
     maxPagesPerIdPagesBuffer: Int = 1,
     maxWorkingMemoryInBytesForIdPages: Int = 100 * 1024 * 1024,
@@ -88,6 +88,6 @@ case class TransactionsTreeStreamsConfig(
     maxParallelPayloadQueries: Int = 2,
     transactionsProcessingParallelism: Int = 8,
 )
-object TransactionsTreeStreamsConfig {
-  val default: TransactionsTreeStreamsConfig = TransactionsTreeStreamsConfig()
+object TransactionTreeStreamsConfig {
+  val default: TransactionTreeStreamsConfig = TransactionTreeStreamsConfig()
 }

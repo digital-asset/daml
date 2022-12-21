@@ -179,8 +179,8 @@ final class IndexServiceOwner(
       ledgerEndCache = ledgerEndCache,
       stringInterning = stringInterning,
       completionsPageSize = config.completionsPageSize,
-      transactionsFlatStreamsConfig = config.transactionsFlatStreams,
-      transactionsTreeStreamsConfig = config.transactionsTreeStreams,
+      transactionFlatStreamsConfig = config.transactionFlatStreams,
+      transactionTreeStreamsConfig = config.transactionTreeStreams,
       globalMaxEventIdQueries = config.globalMaxEventIdQueries,
       globalMaxEventPayloadQueries = config.globalMaxEventPayloadQueries,
     )

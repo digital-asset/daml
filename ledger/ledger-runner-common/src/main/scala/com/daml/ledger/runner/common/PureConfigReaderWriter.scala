@@ -21,8 +21,8 @@ import com.daml.platform.configuration.{
   CommandConfiguration,
   IndexServiceConfig,
   InitialLedgerConfiguration,
-  TransactionsFlatStreamsConfig,
-  TransactionsTreeStreamsConfig,
+  TransactionFlatStreamsConfig,
+  TransactionTreeStreamsConfig,
 }
 import com.daml.platform.indexer.ha.HaConfig
 import com.daml.platform.indexer.{IndexerConfig, IndexerStartupMode, PackageMetadataViewConfig}
@@ -343,11 +343,11 @@ class PureConfigReaderWriter(secure: Boolean = true) {
   implicit val indexServiceConfigHint =
     ProductHint[IndexServiceConfig](allowUnknownKeys = false)
 
-  implicit val transactionsTreeStreamsConfigConvert: ConfigConvert[TransactionsTreeStreamsConfig] =
-    deriveConvert[TransactionsTreeStreamsConfig]
+  implicit val transactionTreeStreamsConfigConvert: ConfigConvert[TransactionTreeStreamsConfig] =
+    deriveConvert[TransactionTreeStreamsConfig]
 
-  implicit val transactionsFlatStreamsConfigConvert: ConfigConvert[TransactionsFlatStreamsConfig] =
-    deriveConvert[TransactionsFlatStreamsConfig]
+  implicit val transactionFlatStreamsConfigConvert: ConfigConvert[TransactionFlatStreamsConfig] =
+    deriveConvert[TransactionFlatStreamsConfig]
 
   implicit val indexServiceConfigConvert: ConfigConvert[IndexServiceConfig] =
     deriveConvert[IndexServiceConfig]
