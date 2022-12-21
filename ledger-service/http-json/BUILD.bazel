@@ -73,6 +73,7 @@ load("//ledger-service/utils:scalaopts.bzl", "hj_scalacopts")
             "//libs-scala/jwt",
             "//libs-scala/logging-entries",
             "//libs-scala/nonempty",
+            "//libs-scala/nonempty-cats",
             "//libs-scala/ports",
             "//libs-scala/resources",
             "//libs-scala/scala-utils",

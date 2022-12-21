@@ -270,14 +270,15 @@ sealed abstract class Queries(tablePrefix: String, tpIdCacheMaxEntries: Long)(im
     // fewer rows and throw a StaleOffsetException in the caller.
     val update = existingParties match {
       case hdP +: tlP =>
+        // implied non-empty by existingParties being non-empty
+        val NonEmpty(priorOffsets) = lastOffsets.filter { case (k, _) =>
+          existingParties contains k
+        }
         Some(
           sql"""UPDATE $ledgerOffsetTableName SET last_offset = $newOffset
             WHERE ${Fragments.in(fr"party", cats.data.OneAnd(hdP, tlP))}
                   AND tpid = $tpid
-                  AND last_offset = """ ++ caseLookup(
-            lastOffsets.filter { case (k, _) => existingParties contains k },
-            fr"party",
-          )
+                  AND last_offset = ${caseLookup(priorOffsets, fr"party")}"""
         )
       case _ => None
     }
@@ -343,7 +344,11 @@ sealed abstract class Queries(tablePrefix: String, tpIdCacheMaxEntries: Long)(im
   )(implicit
       log: LogHandler
   ): Query0[DBContract[Unit, JsValue, JsValue, Vector[String]]] =
-    selectContractsMultiTemplate(parties, ISeq((tpid, predicate)), MatchedQueryMarker.Unused)
+    selectContractsMultiTemplate(
+      parties,
+      NonEmpty(ISeq, (tpid, predicate)),
+      MatchedQueryMarker.Unused,
+    )
       .map(_ copy (templateId = ()))
 
   /** Make a query that may indicate
@@ -351,7 +356,7 @@ sealed abstract class Queries(tablePrefix: String, tpIdCacheMaxEntries: Long)(im
     */
   private[http] def selectContractsMultiTemplate[Mark](
       parties: PartySet,
-      queries: ISeq[(SurrogateTpId, Fragment)],
+      queries: NonEmpty[ISeq[(SurrogateTpId, Fragment)]],
       trackMatchIndices: MatchedQueryMarker[Mark],
   )(implicit
       log: LogHandler
@@ -360,7 +365,7 @@ sealed abstract class Queries(tablePrefix: String, tpIdCacheMaxEntries: Long)(im
   // implementation aid for selectContractsMultiTemplate
   @nowarn("msg=parameter value evidence.* is never used")
   protected[this] final def queryByCondition[Mark, Key: Read, SigsObs: Read, Agreement: Read](
-      queries: ISeq[(SurrogateTpId, Fragment)],
+      queries: NonEmpty[ISeq[(SurrogateTpId, Fragment)]],
       trackMatchIndices: MatchedQueryMarker[Mark],
       tpidSelector: Fragment,
       query: (Fragment, Fragment) => Fragment,
@@ -370,7 +375,7 @@ sealed abstract class Queries(tablePrefix: String, tpIdCacheMaxEntries: Long)(im
   )(implicit
       log: LogHandler
   ): Query0[DBContract[Mark, JsValue, JsValue, Vector[String]]] = {
-    val NonEmpty(queryConditions) = queries.toVector
+    val queryConditions = queries.toVector
     val queriesCondition =
       joinFragment(
         queryConditions map { case (tpid, predicate) =>
@@ -542,11 +547,10 @@ object Queries {
     OneAnd(oaa.head, oaa.tail.flatMap(Vector(a, _)))
 
   private[this] def caseLookupFragment[SelEq: Put](
-      m: Map[SelEq, Fragment],
+      m: NonEmpty[Map[SelEq, Fragment]],
       selector: Fragment,
   ): Fragment =
     fr"CASE" ++ {
-      require(m.nonEmpty, "existing offsets must be non-empty")
       val when +: whens = m.iterator.map { case (k, v) =>
         fr"WHEN ($selector = $k) THEN $v"
       }.toVector
@@ -554,7 +558,7 @@ object Queries {
     } ++ fr"ELSE NULL END"
 
   private[dbbackend] def caseLookup[SelEq: Put, Then: Put](
-      m: Map[SelEq, Then],
+      m: NonEmpty[Map[SelEq, Then]],
       selector: Fragment,
   ): Fragment =
     caseLookupFragment(m transform { (_, e) => fr"$e" }, selector)
@@ -562,25 +566,28 @@ object Queries {
   // an expression that yields a comma-terminated/separated list of SQL-side
   // string conversions of `Ix`es indicating which tpid/query pairs matched
   private[dbbackend] def projectedIndex[Ix: Put](
-      queries: ISeq[((SurrogateTpId, Fragment), Ix)],
+      queries: NonEmpty[ISeq[((SurrogateTpId, Fragment), Ix)]],
       tpidSelector: Fragment,
   ): Fragment = {
     import Implicits._
     caseLookupFragment(
       // SortedMap is only used so the tests are consistent; the SQL semantics
       // don't care what order this map is in
-      SortedMap.from(queries.groupBy1(_._1._1)).transform {
-        case (_, (_, ix) +-: ISeq()) => fr"${ix: Ix}||''"
-        case (_, tqixes) =>
-          concatFragment(
-            intersperse(
-              tqixes.toVector.toOneAnd.map { case ((_, q), ix) =>
-                fr"(CASE WHEN ($q) THEN ${ix: Ix}||',' ELSE '' END)"
-              },
-              fr"||",
+      queries
+        .groupBy(_._1._1)
+        .to(SortedMap)
+        .transform {
+          case (_, (_, ix) +-: ISeq()) => fr"${ix: Ix}||''"
+          case (_, tqixes) =>
+            concatFragment(
+              intersperse(
+                tqixes.toVector.toOneAnd.map { case ((_, q), ix) =>
+                  fr"(CASE WHEN ($q) THEN ${ix: Ix}||',' ELSE '' END)"
+                },
+                fr"||",
+              )
             )
-          )
-      },
+        },
       selector = tpidSelector,
     )
   }
@@ -757,7 +764,7 @@ private final class PostgresQueries(tablePrefix: String, tpIdCacheMaxEntries: Lo
 
   private[http] override def selectContractsMultiTemplate[Mark](
       parties: PartySet,
-      queries: ISeq[(SurrogateTpId, Fragment)],
+      queries: NonEmpty[ISeq[(SurrogateTpId, Fragment)]],
       trackMatchIndices: MatchedQueryMarker[Mark],
   )(implicit
       log: LogHandler
@@ -926,7 +933,7 @@ private final class OracleQueries(
 
   private[http] override def selectContractsMultiTemplate[Mark](
       parties: PartySet,
-      queries: ISeq[(SurrogateTpId, Fragment)],
+      queries: NonEmpty[ISeq[(SurrogateTpId, Fragment)]],
       trackMatchIndices: MatchedQueryMarker[Mark],
   )(implicit
       log: LogHandler

@@ -325,15 +325,16 @@ object ContractDao {
 
   private[http] def selectContractsMultiTemplate[Pos](
       parties: domain.PartySet,
-      predicates: Seq[(domain.ContractTypeId.Resolved, doobie.Fragment)],
+      predicates: NonEmpty[Seq[(domain.ContractTypeId.Resolved, doobie.Fragment)]],
       trackMatchIndices: MatchedQueryMarker[Pos],
   )(implicit
       log: LogHandler,
       sjd: SupportedJdbcDriver.TC,
       lc: LoggingContextOf[InstanceUUID],
   ): ConnectionIO[Vector[(domain.ActiveContract.ResolvedCtTyId[JsValue], Pos)]] = {
-    import sjd.q.{queries => sjdQueries}, cats.syntax.traverse._, cats.instances.vector._
-    predicates.zipWithIndex.toVector
+    import sjd.q.{queries => sjdQueries}, cats.syntax.traverse._, cats.instances.vector._,
+    com.daml.nonempty.catsinstances._
+    predicates.zipWithIndex.toVector.toNEF
       .traverse { case ((tid, pred), ix) =>
         surrogateTemplateId(tid) map (stid => (ix, stid, tid, pred))
       }

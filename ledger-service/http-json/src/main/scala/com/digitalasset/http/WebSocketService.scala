@@ -55,7 +55,6 @@ import com.daml.lf.crypto.Hash
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 import spray.json.{JsArray, JsObject, JsValue, JsonReader, JsonWriter, enrichAny => `sj enrichAny`}
 
-import scala.collection.mutable.HashSet
 import scala.concurrent.{ExecutionContext, Future}
 import scalaz.EitherT.{either, eitherT, rightT}
 import com.daml.ledger.api.{domain => LedgerApiDomain}
@@ -67,7 +66,7 @@ object WebSocketService {
   private val logger = ContextualizedLogger.get(getClass)
 
   private type CompiledQueries =
-    Map[domain.ContractTypeId.Resolved, (ValuePredicate, LfV => Boolean)]
+    NonEmpty[Map[domain.ContractTypeId.Resolved, (ValuePredicate, LfV => Boolean)]]
 
   final case class StreamPredicate[+Positive](
       resolvedQuery: domain.ResolvedQuery,
@@ -426,12 +425,13 @@ object WebSocketService {
         }
 
         def dbQueriesPlan[CtId <: domain.ContractTypeId.RequiredPkg](
-            q: Map[CtId, NonEmptyList[((ValuePredicate, LfV => Boolean), (Int, Int))]]
+            q: NonEmpty[Map[CtId, NonEmptyList[((ValuePredicate, LfV => Boolean), (Int, Int))]]]
         )(implicit
             sjd: dbbackend.SupportedJdbcDriver.TC
-        ): (Seq[(CtId, doobie.Fragment)], Map[Int, Int]) = {
+        ): (NonEmpty[Seq[(CtId, doobie.Fragment)]], Map[Int, Int]) = {
           val annotated = q.toSeq.flatMap { case (tpid, nel) =>
-            nel.toVector.map { case ((vp, _), (_, pos)) => (tpid, vp.toSqlWhereClause, pos) }
+            val NonEmpty(nelv) = nel.toVector // XXX use NonEmpty upstream instead
+            nelv.map { case ((vp, _), (_, pos)) => (tpid, vp.toSqlWhereClause, pos) }
           }
           val posMap = annotated.iterator.zipWithIndex.map { case ((_, _, pos), ix) =>
             (ix, pos)
@@ -443,18 +443,20 @@ object WebSocketService {
             rsfq: ResolvedSearchForeverQuery,
             pos: Int,
             ix: Int,
-        ): Map[domain.ContractTypeId.Resolved, NonEmptyList[
+        ): NonEmpty[Map[domain.ContractTypeId.Resolved, NonEmptyList[
           ((ValuePredicate, ValuePredicate.LfV => Boolean), (Int, Int))
-        ]] = {
+        ]]] = {
           val compiledQueries = prepareFilters(rsfq.resolvedQuery.resolved, rsfq.query, lookupType)
           compiledQueries.transform((_, p) => NonEmptyList((p, (ix, pos))))
         }
 
-        val q =
+        val q = {
+          import scalaz.syntax.foldable1._
           request.queriesWithPos.zipWithIndex // index is used to ensure matchesOffset works properly
             .map { case ((q, pos), ix) => (q, pos, ix) }
             .toNEF
-            .foldMap((query _).tupled)
+            .foldMap1((query _).tupled)
+        }
 
         Future.successful(
           StreamPredicate(
@@ -473,11 +475,11 @@ object WebSocketService {
       }
 
       private def prepareFilters(
-          resolved: Set[domain.ContractTypeId.Resolved],
+          resolved: NonEmpty[Set[domain.ContractTypeId.Resolved]],
           queryExpr: Map[String, JsValue],
           lookupType: ValuePredicate.TypeLookup,
       ): CompiledQueries =
-        resolved.iterator.map { tid =>
+        resolved.toSeq.map { tid =>
           val vp = ValuePredicate.fromTemplateJsObject(queryExpr, tid, lookupType)
           (tid, (vp, vp.toFunPredicate))
         }.toMap
@@ -532,7 +534,7 @@ object WebSocketService {
   case class ResolvedContractKeyStreamRequest[C, V](
       resolvedQuery: ResolvedQuery,
       list: NonEmptyList[domain.ContractKeyStreamRequest[C, V]],
-      q: Map[domain.ContractTypeId.Resolved, HashSet[V]],
+      q: NonEmpty[Map[domain.ContractTypeId.Resolved, NonEmpty[Set[V]]]],
       unresolved: Set[domain.ContractTypeId.OptionalPkg],
   )
 
@@ -601,8 +603,8 @@ object WebSocketService {
     )(implicit
         lc: LoggingContextOf[InstanceUUID]
     ): Future[Error \/ ResolvedQueryRequest[_]] = {
-      def getQ[K, V](resolvedWithKey: Set[(K, V)]): Map[K, HashSet[V]] =
-        resolvedWithKey.to(HashSet).groupMap(_._1)(_._2)
+      def getQ[K, V](resolvedWithKey: NonEmpty[Set[(K, V)]]): NonEmpty[Map[K, NonEmpty[Set[V]]]] =
+        resolvedWithKey.groupMap(_._1)(_._2)
 
       request.toList
         .traverse { x: CKR[LfV] =>
@@ -613,16 +615,17 @@ object WebSocketService {
           val (resolvedWithKey, unresolved) = resolveTries
             .toSet[Either[(domain.ContractTypeId.Resolved, LfV), OptionalPkg]]
             .partitionMap(identity)
-          val q = getQ(resolvedWithKey)
-          domain
-            .ResolvedQuery(q.keySet)
-            .leftMap(unsupported => InvalidUserInput(unsupported.errorMsg))
-            .map { rq =>
-              ResolvedQueryRequest(
-                ResolvedContractKeyStreamRequest(rq, request, q, unresolved),
-                this,
-              )
-            }
+          for {
+            resolvedWithKey <- (NonEmpty from resolvedWithKey
+              toRightDisjunction InvalidUserInput(ResolvedQuery.CannotBeEmpty.errorMsg))
+            q = getQ(resolvedWithKey)
+            rq <- domain
+              .ResolvedQuery(q.keySet)
+              .leftMap(unsupported => InvalidUserInput(unsupported.errorMsg))
+          } yield ResolvedQueryRequest(
+            ResolvedContractKeyStreamRequest(rq, request, q, unresolved),
+            this,
+          )
         }
     }
 
@@ -636,22 +639,22 @@ object WebSocketService {
         lc: LoggingContextOf[InstanceUUID]
     ): Future[StreamPredicate[Positive]] = {
       def fn(
-          q: Map[domain.ContractTypeId.Resolved, HashSet[LfV]]
+          q: Map[domain.ContractTypeId.Resolved, NonEmpty[Set[LfV]]]
       ): (domain.ActiveContract.ResolvedCtTyId[LfV], Option[domain.Offset]) => Option[Positive] = {
         (a, _) =>
           a.key match {
             case None => None
             case Some(k) =>
-              if (q.getOrElse(a.templateId, HashSet()).contains(k)) Some(()) else None
+              if (q.get(a.templateId).exists(_ contains k)) Some(()) else None
           }
       }
       def dbQueries[CtId <: domain.ContractTypeId.RequiredPkg](
-          q: Map[CtId, HashSet[LfV]]
+          q: NonEmpty[Map[CtId, NonEmpty[Set[LfV]]]]
       )(implicit
           sjd: dbbackend.SupportedJdbcDriver.TC
-      ): Seq[(CtId, doobie.Fragment)] =
+      ): NonEmpty[Seq[(CtId, doobie.Fragment)]] =
         q.toSeq map { case (t, lfvKeys) =>
-          val NonEmpty(keys) = lfvKeys.toVector
+          val keys = lfvKeys.toVector
           import dbbackend.Queries.joinFragment, com.daml.lf.crypto.Hash
           (
             t,
