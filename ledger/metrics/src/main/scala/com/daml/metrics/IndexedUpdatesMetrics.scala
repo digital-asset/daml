@@ -21,7 +21,7 @@ class IndexedUpdatesMetrics(prefix: MetricName, metricFactory: Factory) {
   )
 
   @MetricDoc.Tag(
-    summary = "Updated processed by the indexer",
+    summary = "Updates processed by the indexer",
     description = "Represents the total number of updates processed and indexed by the indexer.",
     qualification = Debug,
   )
