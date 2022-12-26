@@ -1012,7 +1012,7 @@ react-autosuggest 10.1.0 : MIT License
 react-lifecycles-compat 3.0.4 : MIT License
 react-markdown 5.0.3 : MIT License
 react-overlays 4.1.1 : MIT License
-React-Redux v7.2.4 : MIT License
+React-Redux 7.2.4 : MIT License
 react-themeable 1.1.0 : MIT License
 react-virtualized 9.22.3 : MIT License
 reactive-streams 1.0.2 : Creative Commons Zero v1.0 Universal
@@ -14129,7 +14129,7 @@ SOFTWARE
 ---
 
 MIT License
-(React-Redux v7.2.4)
+(React-Redux 7.2.4)
 
 The MIT License (MIT)
 
