@@ -82,9 +82,7 @@ abstract class AbstractFuncTests
             true
         }
 
-        // TODO https://github.com/digital-asset/daml/pull/15929
-        //  enable the test
-        "Process all contract pairings successfully" ignore {
+        "Process all contract pairings successfully" in {
           for {
             client <- ledgerClient()
             party <- allocateParty(client)
