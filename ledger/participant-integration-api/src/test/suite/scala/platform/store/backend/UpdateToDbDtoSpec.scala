@@ -3,11 +3,14 @@
 
 package com.daml.platform.store.backend
 
+import java.time.Duration
+
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.api.DeduplicationPeriod.{DeduplicationDuration, DeduplicationOffset}
 import com.daml.ledger.api.v1.event.{CreatedEvent, ExercisedEvent}
 import com.daml.ledger.configuration.{Configuration, LedgerTimeModel}
 import com.daml.ledger.offset.Offset
+import com.daml.ledger.participant.state.v2.Update
 import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.lf.crypto
 import com.daml.lf.data.{Bytes, Ref, Time}
@@ -16,16 +19,18 @@ import com.daml.lf.transaction.BlindingInfo
 import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.value.Value
 import com.daml.logging.LoggingContext
-import com.daml.platform.{ContractId, Create, Exercise}
+import com.daml.metrics.Metrics
+import com.daml.metrics.api.MetricsContext
 import com.daml.platform.index.index.StatusDetails
 import com.daml.platform.store.dao.events.Raw.TreeEvent
-import com.daml.platform.store.dao.{EventProjectionProperties, JdbcLedgerDao}
 import com.daml.platform.store.dao.events.{
   CompressionStrategy,
   FieldCompressionStrategy,
   LfValueSerialization,
   Raw,
 }
+import com.daml.platform.store.dao.{EventProjectionProperties, JdbcLedgerDao}
+import com.daml.platform.{ContractId, Create, Exercise}
 import com.google.protobuf.ByteString
 import com.google.rpc.status.{Status => StatusProto}
 import io.grpc.Status
@@ -33,7 +38,6 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks._
 import org.scalatest.wordspec.AnyWordSpec
 
-import java.time.Duration
 import scala.concurrent.{ExecutionContext, Future}
 
 // Note: this suite contains hand-crafted updates that are impossible to produce on some ledgers
@@ -53,9 +57,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         someParticipantId,
         someConfiguration,
       )
-      val dtos = UpdateToDbDto(someParticipantId, valueSerialization, compressionStrategy)(
-        someOffset
-      )(update).toList
+      val dtos = updateToDtos(update)
 
       dtos should contain theSameElementsInOrderAs List(
         DbDto.ConfigurationEntry(
@@ -78,9 +80,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         someConfiguration,
         rejectionReason,
       )
-      val dtos = UpdateToDbDto(someParticipantId, valueSerialization, compressionStrategy)(
-        someOffset
-      )(update).toList
+      val dtos = updateToDtos(update)
 
       dtos should contain theSameElementsInOrderAs List(
         DbDto.ConfigurationEntry(
@@ -103,9 +103,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         someRecordTime,
         Some(someSubmissionId),
       )
-      val dtos = UpdateToDbDto(someParticipantId, valueSerialization, compressionStrategy)(
-        someOffset
-      )(update).toList
+      val dtos = updateToDtos(update)
 
       dtos should contain theSameElementsInOrderAs List(
         DbDto.PartyEntry(
@@ -130,9 +128,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         someRecordTime,
         None,
       )
-      val dtos = UpdateToDbDto(someParticipantId, valueSerialization, compressionStrategy)(
-        someOffset
-      )(update).toList
+      val dtos = updateToDtos(update)
 
       dtos should contain theSameElementsInOrderAs List(
         DbDto.PartyEntry(
@@ -156,9 +152,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         someRecordTime,
         rejectionReason,
       )
-      val dtos = UpdateToDbDto(someParticipantId, valueSerialization, compressionStrategy)(
-        someOffset
-      )(update).toList
+      val dtos = updateToDtos(update)
 
       dtos should contain theSameElementsInOrderAs List(
         DbDto.PartyEntry(
@@ -182,9 +176,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         someRecordTime,
         Some(someSubmissionId),
       )
-      val dtos = UpdateToDbDto(someParticipantId, valueSerialization, compressionStrategy)(
-        someOffset
-      )(update).toList
+      val dtos = updateToDtos(update)
 
       dtos should contain theSameElementsInOrderAs List(
         DbDto.Package(
@@ -222,9 +214,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         someRecordTime,
         rejectionReason,
       )
-      val dtos = UpdateToDbDto(someParticipantId, valueSerialization, compressionStrategy)(
-        someOffset
-      )(update).toList
+      val dtos = updateToDtos(update)
 
       dtos should contain theSameElementsInOrderAs List(
         DbDto.PackageEntry(
@@ -245,9 +235,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         completionInfo,
         state.Update.CommandRejected.FinalReason(status),
       )
-      val dtos = UpdateToDbDto(someParticipantId, valueSerialization, compressionStrategy)(
-        someOffset
-      )(update).toList
+      val dtos = updateToDtos(update)
 
       dtos should contain theSameElementsInOrderAs List(
         DbDto.CommandCompletion(
@@ -298,9 +286,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         blindingInfo = None,
         contractMetadata = Map(contractId -> someContractDriverMetadata),
       )
-      val dtos = UpdateToDbDto(someParticipantId, valueSerialization, compressionStrategy)(
-        someOffset
-      )(update).toList
+      val dtos = updateToDtos(update)
 
       dtos.head shouldEqual DbDto.EventCreate(
         event_offset = Some(someOffset.toHexString),
@@ -392,9 +378,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         blindingInfo = None,
         contractMetadata = Map.empty,
       )
-      val dtos = UpdateToDbDto(someParticipantId, valueSerialization, compressionStrategy)(
-        someOffset
-      )(update).toList
+      val dtos = updateToDtos(update)
 
       dtos should contain theSameElementsInOrderAs List(
         DbDto.EventExercise(
@@ -494,9 +478,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         blindingInfo = None,
         contractMetadata = Map.empty,
       )
-      val dtos = UpdateToDbDto(someParticipantId, valueSerialization, compressionStrategy)(
-        someOffset
-      )(update).toList
+      val dtos = updateToDtos(update)
 
       dtos should contain theSameElementsInOrderAs List(
         DbDto.EventExercise(
@@ -616,9 +598,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         blindingInfo = None,
         contractMetadata = Map.empty,
       )
-      val dtos = UpdateToDbDto(someParticipantId, valueSerialization, compressionStrategy)(
-        someOffset
-      )(update).toList
+      val dtos = updateToDtos(update)
 
       dtos should contain theSameElementsInOrderAs List(
         DbDto.EventExercise(
@@ -785,9 +765,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         blindingInfo = None,
         contractMetadata = Map.empty,
       )
-      val dtos = UpdateToDbDto(someParticipantId, valueSerialization, compressionStrategy)(
-        someOffset
-      )(update).toList
+      val dtos = updateToDtos(update)
 
       // Note: fetch and lookup nodes are not indexed
       dtos should contain theSameElementsInOrderAs List(
@@ -854,9 +832,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         blindingInfo = None,
         contractMetadata = Map.empty,
       )
-      val dtos = UpdateToDbDto(someParticipantId, valueSerialization, compressionStrategy)(
-        someOffset
-      )(update).toList
+      val dtos = updateToDtos(update)
 
       dtos should contain theSameElementsInOrderAs List(
         DbDto.EventExercise(
@@ -978,9 +954,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         blindingInfo = None,
         contractMetadata = Map(contractId -> someContractDriverMetadata),
       )
-      val dtos = UpdateToDbDto(someParticipantId, valueSerialization, compressionStrategy)(
-        someOffset
-      )(update).toList
+      val dtos = updateToDtos(update)
 
       dtos.head shouldEqual DbDto.EventCreate(
         event_offset = Some(someOffset.toHexString),
@@ -1131,9 +1105,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         ),
         contractMetadata = Map.empty,
       )
-      val dtos = UpdateToDbDto(someParticipantId, valueSerialization, compressionStrategy)(
-        someOffset
-      )(update).toList
+      val dtos = updateToDtos(update)
 
       dtos(0) shouldEqual DbDto.EventExercise(
         consuming = true,
@@ -1256,9 +1228,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         blindingInfo = None,
         contractMetadata = Map.empty,
       )
-      val dtos = UpdateToDbDto(someParticipantId, valueSerialization, compressionStrategy)(
-        someOffset
-      )(update).toList
+      val dtos = updateToDtos(update)
 
       dtos should contain theSameElementsInOrderAs List(
         // Note: this divulgence event references a contract that was never created. This is correct:
@@ -1328,9 +1298,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         blindingInfo = None,
         contractMetadata = Map(contractId -> someContractDriverMetadata),
       )
-      val dtos = UpdateToDbDto(someParticipantId, valueSerialization, compressionStrategy)(
-        someOffset
-      )(update).toList
+      val dtos = updateToDtos(update)
 
       dtos.head shouldEqual DbDto.EventCreate(
         event_offset = Some(someOffset.toHexString),
@@ -1391,9 +1359,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         blindingInfo = None,
         contractMetadata = Map.empty,
       )
-      val dtos = UpdateToDbDto(someParticipantId, valueSerialization, compressionStrategy)(
-        someOffset
-      )(update).toList
+      val dtos = updateToDtos(update)
 
       dtos.head shouldEqual DbDto.EventCreate(
         event_offset = Some(someOffset.toHexString),
@@ -1470,9 +1436,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
             completionInfo,
             state.Update.CommandRejected.FinalReason(status),
           )
-          val dtos = UpdateToDbDto(someParticipantId, valueSerialization, compressionStrategy)(
-            someOffset
-          )(update).toList
+          val dtos = updateToDtos(update)
 
           dtos should contain theSameElementsInOrderAs List(
             DbDto.CommandCompletion(
@@ -1528,9 +1492,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
             blindingInfo = None,
             contractMetadata = Map(contractId -> someContractDriverMetadata),
           )
-          val dtos = UpdateToDbDto(someParticipantId, valueSerialization, compressionStrategy)(
-            someOffset
-          )(update).toList
+          val dtos = updateToDtos(update)
 
           dtos.head shouldEqual DbDto.EventCreate(
             event_offset = Some(someOffset.toHexString),
@@ -1586,6 +1548,15 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           dtos.size shouldEqual 5
       }
     }
+  }
+  private def updateToDtos(
+      update: Update
+  ) = {
+    UpdateToDbDto(someParticipantId, valueSerialization, compressionStrategy, Metrics.ForTesting)(
+      MetricsContext.Empty
+    )(
+      someOffset
+    )(update).toList
   }
 }
 

@@ -66,6 +66,7 @@ private[platform] case class ParallelIndexerSubscription[DB_BATCH](
               participantId = participantId,
               translation = translation,
               compressionStrategy = compressionStrategy,
+              metrics,
             ),
             UpdateToMeteringDbDto(metrics = metrics.daml.indexerEvents),
           )
