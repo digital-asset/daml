@@ -234,7 +234,7 @@ object Trigger {
       }
     }
 
-    def fromV26ExtractTriggerDefinition(
+    def fromV251ExtractTriggerDefinition(
         ty: TTyCon,
         tyArg: Type,
         triggerIds: TriggerIds,
@@ -275,10 +275,10 @@ object Trigger {
         val triggerIds = TriggerIds(tyCon.packageId)
         // Ensure version related trigger definition updates take into account the conflateMsgValue code
         detectVersion(pkgInterface, triggerIds).flatMap { version =>
-          if (version < Trigger.Version.`2.6`) {
+          if (version < Trigger.Version.`2.5.1`) {
             fromV20ExtractTriggerDefinition(ty, tyArg, triggerIds, version)
           } else {
-            fromV26ExtractTriggerDefinition(ty, tyArg, triggerIds, version)
+            fromV251ExtractTriggerDefinition(ty, tyArg, triggerIds, version)
           }
         }
 
@@ -404,15 +404,15 @@ object Trigger {
     override def compare(that: Version): Int = this.rank compare that.rank
   }
   object Version {
-    val `2.0` = new Version(0)
-    val `2.5` = new Version(5)
-    val `2.6` = new Version(6)
+    val `2.0.0` = new Version(0)
+    val `2.5.0` = new Version(50)
+    val `2.5.1` = new Version(51)
 
     def fromString(s: Option[String]): Either[String, Version] =
       s match {
-        case None => Right(`2.0`)
-        case Some("Version_2_5") => Right(`2.5`)
-        case Some("Version_2_6") => Right(`2.6`)
+        case None => Right(`2.0.0`)
+        case Some("Version_2_5") => Right(`2.5.0`)
+        case Some("Version_2_5_1") => Right(`2.5.1`)
         case Some(s) => Left(s"""cannot parse trigger version "$s".""")
       }
   }
@@ -780,7 +780,7 @@ private[lf] class Runner private (
     val noop = Flow.fromFunction[TriggerContext[SValue], TriggerContext[SValue]](identity)
 
     // Ensure version related trigger definition updates take into account the detectTriggerDefinition code
-    if (trigger.defn.version < Trigger.Version.`2.6`) {
+    if (trigger.defn.version < Trigger.Version.`2.5.1`) {
       noop
     } else {
       noop
