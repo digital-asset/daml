@@ -249,6 +249,16 @@ object RunnerConfig {
           throw new IllegalArgumentException(s"Unsupported logging encoder $other")
       }
 
+    opt[Long]("max-batch-size")
+      .optional()
+      .text(
+        s"maximum number of messages processed between two high-level rule triggers. Defaults to ${DefaultTriggerRunnerConfig.maximumBatchSize}"
+      )
+      .action((size, cli) =>
+        if (size > 0) cli.copy(triggerConfig = cli.triggerConfig.copy(maximumBatchSize = size))
+        else throw new IllegalArgumentException(s"batch size must be strictly positive")
+      )
+
     opt[Unit]("dev-mode-unsafe")
       .action((_, c) => c.copy(compilerConfig = Compiler.Config.Dev))
       .optional()
