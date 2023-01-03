@@ -6,8 +6,8 @@ package com.daml.metrics.api.noop
 import java.time.Duration
 import java.util.concurrent.TimeUnit
 
-import com.daml.metrics.api.MetricHandle.Timer
 import com.daml.metrics.api.MetricHandle.Timer.TimerHandle
+import com.daml.metrics.api.MetricHandle.{Counter, Gauge, Histogram, Meter, Timer}
 import com.daml.metrics.api.MetricsContext
 
 sealed case class NoOpTimer(name: String) extends Timer {
@@ -27,4 +27,40 @@ sealed case class NoOpTimer(name: String) extends Timer {
 
 case object NoOpTimerHandle extends TimerHandle {
   override def stop()(implicit context: MetricsContext): Unit = ()
+}
+
+case class NoOpGauge[T](name: String, value: T) extends Gauge[T] {
+
+  override def updateValue(newValue: T): Unit = ()
+
+  override def getValue: T = value
+
+}
+
+case class NoOpMeter(name: String) extends Meter {
+  override def mark(value: Long)(implicit
+      context: MetricsContext
+  ): Unit = ()
+}
+
+case class NoOpCounter(name: String) extends Counter {
+
+  override def inc(n: Long)(implicit context: MetricsContext): Unit =
+    ()
+
+  override def dec(n: Long)(implicit context: _root_.com.daml.metrics.api.MetricsContext): Unit =
+    ()
+
+  override def getCount: Long = 0
+}
+
+case class NoOpHistogram(name: String) extends Histogram {
+
+  override def update(value: Long)(implicit
+      context: MetricsContext
+  ): Unit = ()
+
+  override def update(value: Int)(implicit
+      context: _root_.com.daml.metrics.api.MetricsContext
+  ): Unit = ()
 }
