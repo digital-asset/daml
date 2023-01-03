@@ -7,7 +7,7 @@ import akka.stream.Materializer
 import com.daml.api.util.TimeProvider
 import com.daml.bazeltools.BazelRunfiles._
 import com.daml.grpc.adapter.ExecutionSequencerFactory
-import com.daml.ledger.api.auth.AuthService
+import com.daml.ledger.api.auth.{AuthService, JwtVerifierLoader}
 import com.daml.ledger.api.auth.client.LedgerCallCredentials
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
@@ -83,6 +83,8 @@ trait AbstractSandboxFixture extends AkkaBeforeAndAfterAll {
   protected def packageFiles: List[File] = List(darFile)
 
   protected def authService: Option[AuthService] = None
+
+  protected def idpJwtVerifierLoader: Option[JwtVerifierLoader] = None
 
   protected def scenario: Option[String] = None
 
