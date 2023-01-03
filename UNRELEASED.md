@@ -16,22 +16,23 @@ and ensure that the release notes and documentation has been included as part of
 
 We changed the internal implementation used when serving flat and tree transaction streams from the index database.
 We expect a general improvement in throughput for these streams, especially for streams that fetch subsets of events
-that are sparse relative to the set of all the events stored in the index db.
+that are sparse in the set of all the events stored in the index db.
 For transactions streams that use very large filters (with hundreds of parties and/or templates) we expect 
-an increased latency of streaming the first element.
+an increased latency for streaming the first element.
 
-There is no change in the streaming Ledger API. 
-However, the set of the exposed index db related metrics was changed.
+There is no change in the streaming Ledger API, i.e. no RPCs and protobuf messages have been changed. 
+However, the set of the exposed metrics (related to the Index DB) was changed.
 
 #### Impact
+Each of the following metrics is a family of database related metrics that start with that prefix.
 
 The following index db metrics were added:
-- daml_index_db_flat_transactions_stream_translation_translation*
+- daml_index_db_flat_transactions_stream_translation*
 - daml_index_db_flat_transactions_stream_fetch_event_consuming_ids_stakeholder*
 - daml_index_db_flat_transactions_stream_fetch_event_consuming_payloads*
 - daml_index_db_flat_transactions_stream_fetch_event_create_ids_stakeholder*
 - daml_index_db_flat_transactions_stream_fetch_event_create_payloads*
-- daml_index_db_tree_transactions_stream_translation_translation*
+- daml_index_db_tree_transactions_stream_translation*
 - daml_index_db_tree_transactions_stream_fetch_event_consuming_ids_non_stakeholder*
 - daml_index_db_tree_transactions_stream_fetch_event_consuming_ids_stakeholder*
 - daml_index_db_tree_transactions_stream_fetch_event_consuming_payloads*
@@ -44,4 +45,3 @@ The following index db metrics were added:
 The following index db metrics were removed:
 - daml_index_db_get_flat_transactions*
 - daml_index_db_get_transaction_trees*
-
