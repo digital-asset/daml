@@ -88,7 +88,7 @@ class IndexDBMetrics(override val prefix: MetricName, override val registry: Met
     val fetchEventConsumingPayloads: DatabaseMetrics = createDbMetrics(
       "fetch_event_consuming_payloads"
     )
-    val translationTimer: Timer = createDbMetrics("translation").translationTimer
+    val translationTimer: Timer = timer(prefix :+ "translation")
   }
 
   object treeTxStream extends FactoryWithDBMetrics {
@@ -117,7 +117,7 @@ class IndexDBMetrics(override val prefix: MetricName, override val registry: Met
     val fetchEventNonConsumingPayloads: DatabaseMetrics = createDbMetrics(
       "fetch_event_non_consuming_payloads"
     )
-    val translationTimer: Timer = createDbMetrics("translation").translationTimer
+    val translationTimer: Timer = timer(prefix :+ "translation")
   }
 
   val lookupFlatTransactionById: DatabaseMetrics = createDbMetrics(

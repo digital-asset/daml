@@ -24,7 +24,7 @@ There is no change in the streaming Ledger API, i.e. no RPCs and protobuf messag
 However, the set of the exposed metrics (related to the Index DB) was changed.
 
 #### Impact
-Each of the following metrics is a family of database related metrics that start with that prefix.
+Each of the following metrics is a family of metrics that start with that prefix.
 
 The following index db metrics were added:
 - daml_index_db_flat_transactions_stream_translation*
