@@ -7,7 +7,7 @@ import com.daml.ledger.api.v1.admin.user_management_service.DeleteUserRequest
 
 import scala.concurrent.Future
 
-final class DeleteUserAuthIT extends AdminServiceCallAuthTests with UserManagementAuth {
+final class DeleteUserAuthIT extends AdminOrIDPAdminServiceCallAuthTests with UserManagementAuth {
 
   override def serviceCallName: String = "UserManagementService#DeleteUser"
 

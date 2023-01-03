@@ -5,7 +5,7 @@ package com.daml.platform.sandbox.auth
 
 import scala.concurrent.Future
 
-final class CreateUserAuthIT extends AdminServiceCallAuthTests with UserManagementAuth {
+final class CreateUserAuthIT extends AdminOrIDPAdminServiceCallAuthTests with UserManagementAuth {
 
   override def serviceCallName: String = "UserManagementService#CreateUser"
 

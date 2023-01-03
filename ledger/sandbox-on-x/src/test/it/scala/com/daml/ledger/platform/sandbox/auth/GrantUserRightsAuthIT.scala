@@ -8,7 +8,9 @@ import com.daml.ledger.api.v1.admin.user_management_service.GrantUserRightsReque
 
 import scala.concurrent.Future
 
-final class GrantUserRightsAuthIT extends AdminServiceCallAuthTests with UserManagementAuth {
+final class GrantUserRightsAuthIT
+    extends AdminOrIDPAdminServiceCallAuthTests
+    with UserManagementAuth {
 
   override def serviceCallName: String = "UserManagementService#GrantUserRights"
 

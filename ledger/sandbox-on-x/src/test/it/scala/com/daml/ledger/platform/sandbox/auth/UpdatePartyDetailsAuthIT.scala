@@ -9,7 +9,7 @@ import com.google.protobuf.field_mask.FieldMask
 import java.util.UUID
 import scala.concurrent.Future
 
-final class UpdatePartyDetailsAuthIT extends AdminServiceCallAuthTests {
+final class UpdatePartyDetailsAuthIT extends AdminOrIDPAdminServiceCallAuthTests {
 
   override def serviceCallName: String = "PartyManagementService#GetParties"
 

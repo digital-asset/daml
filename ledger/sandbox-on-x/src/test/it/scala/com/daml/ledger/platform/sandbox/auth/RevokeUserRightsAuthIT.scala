@@ -11,7 +11,9 @@ import com.daml.ledger.api.v1.admin.{user_management_service => ums}
 
 import scala.concurrent.Future
 
-final class RevokeUserRightsAuthIT extends AdminServiceCallAuthTests with UserManagementAuth {
+final class RevokeUserRightsAuthIT
+    extends AdminOrIDPAdminServiceCallAuthTests
+    with UserManagementAuth {
 
   override def serviceCallName: String = "UserManagementService#RevokeUserRights"
 
