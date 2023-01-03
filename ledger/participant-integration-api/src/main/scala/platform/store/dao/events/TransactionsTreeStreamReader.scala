@@ -14,7 +14,7 @@ import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{DatabaseMetrics, Metrics, Timed}
 import com.daml.nameof.NameOf.qualifiedNameOfCurrentFunc
 import com.daml.platform.Party
-import com.daml.platform.configuration.TransactionsTreeStreamReaderConfig
+import com.daml.platform.configuration.TransactionTreeStreamsConfig
 import com.daml.platform.indexer.parallel.BatchN
 import com.daml.platform.store.backend.EventStorageBackend
 import com.daml.platform.store.backend.common.{
@@ -38,7 +38,7 @@ import scala.util.chaining._
 import scala.concurrent.{ExecutionContext, Future}
 
 class TransactionsTreeStreamReader(
-    config: TransactionsTreeStreamReaderConfig,
+    config: TransactionTreeStreamsConfig,
     globalIdQueriesLimiter: ConcurrencyLimiter,
     globalPayloadQueriesLimiter: ConcurrencyLimiter,
     dbDispatcher: DbDispatcher,
@@ -264,7 +264,9 @@ class TransactionsTreeStreamReader(
       .mergeSorted(payloadsNonConsuming)(orderBySequentialEventId)
     val sourceOfTreeTransactions = TransactionsReader
       .groupContiguous(allSortedPayloads)(by = _.transactionId)
-      .mapAsync(payloadProcessingParallelism)(deserializeLfValues(_, eventProjectionProperties))
+      .mapAsync(transactionsProcessingParallelism)(
+        deserializeLfValues(_, eventProjectionProperties)
+      )
       .mapConcat { events =>
         val response = TransactionConversions.toGetTransactionTreesResponse(events)
         response.map(r => offsetFor(r) -> r)

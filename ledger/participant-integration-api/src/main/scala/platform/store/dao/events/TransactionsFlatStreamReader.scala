@@ -14,7 +14,7 @@ import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{DatabaseMetrics, Metrics, Timed}
 import com.daml.nameof.NameOf.qualifiedNameOfCurrentFunc
 import com.daml.platform.TemplatePartiesFilter
-import com.daml.platform.configuration.TransactionsFlatStreamReaderConfig
+import com.daml.platform.configuration.TransactionFlatStreamsConfig
 import com.daml.platform.indexer.parallel.BatchN
 import com.daml.platform.store.backend.EventStorageBackend
 import com.daml.platform.store.backend.common.{
@@ -37,7 +37,7 @@ import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.{ExecutionContext, Future}
 
 class TransactionsFlatStreamReader(
-    config: TransactionsFlatStreamReaderConfig,
+    config: TransactionFlatStreamsConfig,
     globalIdQueriesLimiter: ConcurrencyLimiter,
     globalPayloadQueriesLimiter: ConcurrencyLimiter,
     dbDispatcher: DbDispatcher,
@@ -161,6 +161,8 @@ class TransactionsFlatStreamReader(
       ids.async
         .addAttributes(
           Attributes.inputBuffer(
+            // TODO etq: Consider use the nearest greater or equal power of two instead to prevent stream creation failures
+            // TODO etq: Consider removing this buffer completely
             initial = maxParallelPayloadQueries,
             max = maxParallelPayloadQueries,
           )
@@ -217,7 +219,9 @@ class TransactionsFlatStreamReader(
     val allSortedPayloads = payloadsConsuming.mergeSorted(payloadsCreate)(orderBySequentialEventId)
     TransactionsReader
       .groupContiguous(allSortedPayloads)(by = _.transactionId)
-      .mapAsync(payloadProcessingParallelism)(deserializeLfValues(_, eventProjectionProperties))
+      .mapAsync(transactionsProcessingParallelism)(
+        deserializeLfValues(_, eventProjectionProperties)
+      )
       .mapConcat { groupOfPayloads: Vector[EventStorageBackend.Entry[Event]] =>
         val response = TransactionConversions.toGetTransactionsResponse(groupOfPayloads)
         response.map(r => offsetFor(r) -> r)

@@ -14,8 +14,8 @@ import com.daml.metrics.Metrics
 import com.daml.platform.ApiOffset
 import com.daml.platform.configuration.{
   ServerRole,
-  TransactionsFlatStreamReaderConfig,
-  TransactionsTreeStreamReaderConfig,
+  TransactionFlatStreamsConfig,
+  TransactionTreeStreamsConfig,
 }
 import com.daml.platform.store.DbSupport.{ConnectionPoolConfig, DbConfig}
 import com.daml.platform.store.cache.MutableLedgerEndCache
@@ -85,15 +85,15 @@ object IndexMetadata {
           acsIdFetchingParallelism = 2,
           acsContractFetchingParallelism = 2,
           acsGlobalParallelism = 10,
-          completionsMaxPayloadsPerPayloadsPage = 1000,
+          completionsPageSize = 1000,
           servicesExecutionContext = executionContext,
           metrics = metrics,
           engine = None,
           participantId = Ref.ParticipantId.assertFromString("1"),
           ledgerEndCache = MutableLedgerEndCache(), // not used
           stringInterning = new StringInterningView(), // not used
-          transactionsFlatStreamReaderConfig = TransactionsFlatStreamReaderConfig.default,
-          transactionsTreeStreamReaderConfig = TransactionsTreeStreamReaderConfig.default,
+          transactionFlatStreamsConfig = TransactionFlatStreamsConfig.default,
+          transactionTreeStreamsConfig = TransactionTreeStreamsConfig.default,
           globalMaxEventIdQueries = 20,
           globalMaxEventPayloadQueries = 10,
         )
