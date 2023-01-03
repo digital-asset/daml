@@ -252,11 +252,11 @@ object RunnerConfig {
     opt[Long]("max-batch-size")
       .optional()
       .text(
-        s"maximal number of message processed between two high-level rule triggers. Defaults to ${DefaultTriggerRunnerConfig.maximumBatchSize}"
+        s"maximum number of messages processed between two high-level rule triggers. Defaults to ${DefaultTriggerRunnerConfig.maximumBatchSize}"
       )
       .action((size, cli) =>
-        if (size > 0) cli.copy(triggerConfig = cli.triggerConfig.copy(maximumBatchSize = 1))
-        else throw new IllegalArgumentException(s"batch size must be strictlty positive")
+        if (size > 0) cli.copy(triggerConfig = cli.triggerConfig.copy(maximumBatchSize = size))
+        else throw new IllegalArgumentException(s"batch size must be strictly positive")
       )
 
     opt[Unit]("dev-mode-unsafe")
