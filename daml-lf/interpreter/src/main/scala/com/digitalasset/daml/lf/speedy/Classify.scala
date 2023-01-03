@@ -38,7 +38,7 @@ private[speedy] object Classify { // classify the machine state w.r.t what step 
     }
   }
 
-  def classifyMachine(machine: Machine, counts: Counts): Unit = {
+  def classifyMachine(machine: Machine[_], counts: Counts): Unit = {
     machine.currentControl match {
       case Control.Value(_) =>
         // classify a value by the continuation it is about to return to
