@@ -22,7 +22,7 @@ class IndexedUpdatesMetrics(prefix: MetricName, metricFactory: Factory) {
 
   @MetricDoc.Tag(
     summary = "Updates processed by the indexer",
-    description = "Represents the total number of updates processed and indexed by the indexer.",
+    description = "Represents the total number of updates processed, that are sent for indexing.",
     qualification = Debug,
   )
   val eventsMeter: MetricHandle.Meter =
