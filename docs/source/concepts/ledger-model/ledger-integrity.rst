@@ -490,11 +490,11 @@ on this exercise, so this complies with the authorization requirement.
 Since the painter is the signatory of the paint offer, and Alice
 the actor of the exercise, they jointly authorize all consequences
 of the exercise. The first consequence is an exercise on the IOU, with
-Alice as the actor; so this is permissible. 
+Alice as the actor, so this is permissible. 
 The second consequence is the creation of the new IOU (for P) by exercising the old IOU (for A).
 As the IOU was formerly signed by the bank, with Alice as the actor of the exercise, they jointly authorize this creation.
 This action is permissible as the bank is the sole signatory.
-The final consequence is creating the paint agreement, with Alice and the painter as signatories.
+The final consequence is creating the paint agreement with Alice and the painter as signatories.
 Since they both authorize the action, this is also permissible.
 Thus, the entire third commit is also well-authorized, and so is the ledger.
 
