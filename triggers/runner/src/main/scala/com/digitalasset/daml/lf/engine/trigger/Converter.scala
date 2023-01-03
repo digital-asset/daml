@@ -173,7 +173,7 @@ final class Converter(
       viewValue <- view.viewValue.traverseU(fromRecord(viewType, _))
     } yield SOptional(viewValue.map(fromAnyView(viewType, _)))
 
-  private[this] def fromV25CreatedEvent(
+  private[this] def fromV250CreatedEvent(
       created: CreatedEvent
   ): Either[String, SValue] =
     for {
@@ -192,10 +192,10 @@ final class Converter(
     }
 
   private[this] val fromCreatedEvent: CreatedEvent => Either[String, SValue] =
-    if (triggerDef.version < Trigger.Version.`2.6`) {
+    if (triggerDef.version < Trigger.Version.`2.5.0`) {
       fromV20CreatedEvent
     } else {
-      fromV25CreatedEvent
+      fromV250CreatedEvent
     }
 
   private def fromEvent(ev: Event): Either[String, SValue] =
