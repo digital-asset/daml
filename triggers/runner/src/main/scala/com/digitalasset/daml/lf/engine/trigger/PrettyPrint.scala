@@ -15,7 +15,7 @@ object PrettyPrint {
   def prettyApiIdentifier(id: api.Identifier): Doc =
     text(id.moduleName) + char(':') + text(id.entityName) + char('@') + text(id.packageId)
 
-  def prettyApiValue(verbose: Boolean)(v: api.Value): Doc =
+  def prettyApiValue(verbose: Boolean, maxListWidth: Option[Int] = None)(v: api.Value): Doc =
     v.sum match {
       case api.Value.Sum.Empty => Doc.empty
 
@@ -62,8 +62,14 @@ object PrettyPrint {
 
       case api.Value.Sum.Bool(b) => str(b)
 
-      case api.Value.Sum.List(api.List(lst)) =>
+      case api.Value.Sum.List(api.List(lst)) if maxListWidth.isEmpty =>
         char('[') + intercalate(text(", "), lst.map(prettyApiValue(verbose = true)(_))) + char(']')
+
+      case api.Value.Sum.List(api.List(lst)) if lst.size > maxListWidth.get =>
+        char('[') + intercalate(
+          text(", "),
+          lst.take(maxListWidth.get).map(prettyApiValue(verbose = true)(_)),
+        ) + text(", ...") + char(']')
 
       case api.Value.Sum.Timestamp(t) => str(t)
 
