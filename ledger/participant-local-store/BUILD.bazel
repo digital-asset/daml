@@ -86,7 +86,6 @@ da_scala_test_suite(
         "//ledger/metrics",
         "//libs-scala/contextualized-logging",
         "//observability/metrics",
-        "@maven//:io_dropwizard_metrics_metrics_core",
         "@maven//:org_mockito_mockito_core",
     ],
 )

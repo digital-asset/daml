@@ -94,7 +94,6 @@ da_scala_library(
         "//observability/akka-http-metrics",
         "//observability/metrics",
         "@maven//:com_typesafe_config",
-        "@maven//:io_dropwizard_metrics_metrics_core",
         "@maven//:io_opentelemetry_opentelemetry_api",
         "@maven//:org_slf4j_slf4j_api",
     ],

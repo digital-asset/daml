@@ -55,8 +55,6 @@ gatling_version = "3.5.1"
 guava_version = "31.1-jre"
 
 # observability libs
-# cannot update to 4.2.x because of https://github.com/dropwizard/metrics/issues/2920
-dropwizard_version = "4.1.33"
 opentelemetry_version = "1.12.0"
 prometheus_version = "0.14.1"
 
@@ -110,10 +108,6 @@ def install_java_deps():
             "io.circe:circe-generic-extras_{}:0.13.0".format(scala_major_version),
             "io.circe:circe-parser_{}:0.13.0".format(scala_major_version),
             "io.circe:circe-yaml_{}:0.13.0".format(scala_major_version),
-            "io.dropwizard.metrics:metrics-core:{}".format(dropwizard_version),
-            maven.artifact("io.dropwizard.metrics", "metrics-graphite", dropwizard_version, exclusions = ["com.rabbitmq:amqp-client"]),
-            "io.dropwizard.metrics:metrics-jmx:{}".format(dropwizard_version),
-            "io.dropwizard.metrics:metrics-jvm:{}".format(dropwizard_version),
             "io.opentelemetry:opentelemetry-api:{}".format(opentelemetry_version),
             "io.opentelemetry:opentelemetry-context:{}".format(opentelemetry_version),
             "io.opentelemetry:opentelemetry-exporter-prometheus:{}-alpha".format(opentelemetry_version),
@@ -124,7 +118,6 @@ def install_java_deps():
             "io.opentelemetry:opentelemetry-sdk-trace:{}".format(opentelemetry_version),
             "io.opentelemetry:opentelemetry-semconv:1.12.0-alpha",
             "io.prometheus:simpleclient:{}".format(prometheus_version),
-            "io.prometheus:simpleclient_dropwizard:{}".format(prometheus_version),
             "io.prometheus:simpleclient_httpserver:{}".format(prometheus_version),
             "io.prometheus:simpleclient_servlet:{}".format(prometheus_version),
             "io.grpc:grpc-api:{}".format(grpc_version),

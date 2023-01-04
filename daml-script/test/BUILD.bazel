@@ -239,7 +239,6 @@ da_scala_test_suite(
         "//libs-scala/resources-grpc",
         "//observability/metrics",
         "@maven//:com_auth0_java_jwt",
-        "@maven//:io_dropwizard_metrics_metrics_core",
     ],
 )
 
