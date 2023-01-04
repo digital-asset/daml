@@ -23,7 +23,7 @@ trait TransactionStreamsDbMetrics extends FactoryWithDBMetrics {
 
   @MetricDoc.GroupTag(
     representative = "daml.index.db.flat_transactions_stream.<operation>",
-    groupableClass = classOf[TransactionStreamsDbMetrics],
+    groupableClass = classOf[DatabaseMetrics],
   )
   object flatTxStream extends FactoryWithDBMetrics {
     override val prefix: MetricName = self.prefix :+ "flat_transactions_stream"
@@ -51,7 +51,7 @@ trait TransactionStreamsDbMetrics extends FactoryWithDBMetrics {
 
   @MetricDoc.GroupTag(
     representative = "daml.index.db.tree_transactions_stream.<operation>",
-    groupableClass = classOf[TransactionStreamsDbMetrics],
+    groupableClass = classOf[DatabaseMetrics],
   )
   object treeTxStream extends FactoryWithDBMetrics {
     override val prefix: MetricName = self.prefix :+ "tree_transactions_stream"
@@ -93,7 +93,7 @@ trait TransactionStreamsDbMetrics extends FactoryWithDBMetrics {
 
 @MetricDoc.GroupTag(
   representative = "daml.index.db.<operation>",
-  groupableClass = classOf[MainIndexDBMetrics],
+  groupableClass = classOf[DatabaseMetrics],
 )
 trait MainIndexDBMetrics extends FactoryWithDBMetrics { self =>
 
