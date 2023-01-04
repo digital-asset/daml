@@ -18,7 +18,7 @@ final class UploadDarAuthIT extends AdminServiceCallAuthTests {
     ByteString.readFrom(new FileInputStream(darFile))
   )
 
-  override def serviceCallWithToken(token: Option[String]): Future[Any] =
-    stub(PackageManagementServiceGrpc.stub(channel), token).uploadDarFile(request)
+  override def serviceCall(context: ServiceCallContext): Future[Any] =
+    stub(PackageManagementServiceGrpc.stub(channel), context.token).uploadDarFile(request)
 
 }

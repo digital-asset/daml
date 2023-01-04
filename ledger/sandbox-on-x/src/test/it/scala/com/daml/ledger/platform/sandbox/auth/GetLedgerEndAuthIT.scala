@@ -13,7 +13,7 @@ final class GetLedgerEndAuthIT extends PublicServiceCallAuthTests {
 
   private lazy val request = new GetLedgerEndRequest(unwrappedLedgerId)
 
-  override def serviceCallWithToken(token: Option[String]): Future[Any] =
-    stub(TransactionServiceGrpc.stub(channel), token).getLedgerEnd(request)
+  override def serviceCall(context: ServiceCallContext): Future[Any] =
+    stub(TransactionServiceGrpc.stub(channel), context.token).getLedgerEnd(request)
 
 }

@@ -13,10 +13,14 @@ final class UpdatePartyDetailsAuthIT extends AdminServiceCallAuthTests {
 
   override def serviceCallName: String = "PartyManagementService#GetParties"
 
-  private def allocateParty(token: Option[String], partyId: String) =
+  private def allocateParty(token: Option[String], partyId: String, identityProviderId: String) =
     stub(PartyManagementServiceGrpc.stub(channel), token)
       .allocateParty(
-        AllocatePartyRequest(partyIdHint = s"some-party-$partyId", displayName = "display-name")
+        AllocatePartyRequest(
+          partyIdHint = s"some-party-$partyId",
+          displayName = "display-name",
+          identityProviderId = identityProviderId,
+        )
       )
 
   private def updatePartyDetailsRequest(partyDetails: PartyDetails) =
@@ -29,10 +33,11 @@ final class UpdatePartyDetailsAuthIT extends AdminServiceCallAuthTests {
     stub(PartyManagementServiceGrpc.stub(channel), token)
       .updatePartyDetails(updatePartyDetailsRequest(partyDetails))
 
-  override def serviceCallWithToken(token: Option[String]): Future[Any] = {
+  override def serviceCall(context: ServiceCallContext): Future[Any] = {
+    import context._
     val partyId = UUID.randomUUID().toString
     for {
-      response <- allocateParty(token, partyId)
+      response <- allocateParty(token, partyId, identityProviderId)
       _ <- updatePartyDetails(token, response.partyDetails.get)
     } yield ()
   }

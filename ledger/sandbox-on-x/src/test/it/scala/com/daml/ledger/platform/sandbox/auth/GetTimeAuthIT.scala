@@ -9,7 +9,7 @@ final class GetTimeAuthIT extends PublicServiceCallAuthTests with TimeAuth {
 
   override def serviceCallName: String = "TimeService#GetTime"
 
-  override def serviceCallWithToken(token: Option[String]): Future[Any] =
-    loadTimeNow(token)
+  override def serviceCall(context: ServiceCallContext): Future[Any] =
+    loadTimeNow(context.token)
 
 }

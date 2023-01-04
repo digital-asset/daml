@@ -11,7 +11,8 @@ final class AllocatePartyAuthIT extends AdminServiceCallAuthTests {
 
   override def serviceCallName: String = "PartyManagementService#AllocateParty"
 
-  override def serviceCallWithToken(token: Option[String]): Future[Any] =
-    stub(PartyManagementServiceGrpc.stub(channel), token).allocateParty(AllocatePartyRequest())
+  override def serviceCall(context: ServiceCallContext): Future[Any] =
+    stub(PartyManagementServiceGrpc.stub(channel), context.token)
+      .allocateParty(AllocatePartyRequest(identityProviderId = context.identityProviderId))
 
 }

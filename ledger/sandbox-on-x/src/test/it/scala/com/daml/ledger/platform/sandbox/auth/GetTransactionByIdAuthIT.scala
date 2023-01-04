@@ -24,7 +24,7 @@ final class GetTransactionByIdAuthIT extends ReadOnlyServiceCallAuthTests {
   private lazy val request =
     new GetTransactionByIdRequest(unwrappedLedgerId, UUID.randomUUID.toString, List(mainActor))
 
-  override def serviceCallWithToken(token: Option[String]): Future[Any] =
-    stub(TransactionServiceGrpc.stub(channel), token).getTransactionById(request)
+  override def serviceCall(context: ServiceCallContext): Future[Any] =
+    stub(TransactionServiceGrpc.stub(channel), context.token).getTransactionById(request)
 
 }

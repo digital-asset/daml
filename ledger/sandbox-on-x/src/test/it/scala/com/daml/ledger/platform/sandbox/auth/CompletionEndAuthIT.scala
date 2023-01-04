@@ -16,7 +16,7 @@ final class CompletionEndAuthIT extends PublicServiceCallAuthTests {
 
   private lazy val request = new CompletionEndRequest(unwrappedLedgerId)
 
-  override def serviceCallWithToken(token: Option[String]): Future[Any] =
-    stub(CommandCompletionServiceGrpc.stub(channel), token).completionEnd(request)
+  override def serviceCall(context: ServiceCallContext): Future[Any] =
+    stub(CommandCompletionServiceGrpc.stub(channel), context.token).completionEnd(request)
 
 }

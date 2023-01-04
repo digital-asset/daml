@@ -14,8 +14,8 @@ final class CheckHealthAuthIT extends UnsecuredServiceCallAuthTests {
 
   private lazy val request = HealthCheckRequest.newBuilder().build()
 
-  override def serviceCallWithToken(token: Option[String]): Future[Any] =
+  override def serviceCall(context: ServiceCallContext): Future[Any] =
     new StreamConsumer[HealthCheckResponse](
-      stub(HealthGrpc.newStub(channel), token).check(request, _)
+      stub(HealthGrpc.newStub(channel), context.token).check(request, _)
     ).first()
 }

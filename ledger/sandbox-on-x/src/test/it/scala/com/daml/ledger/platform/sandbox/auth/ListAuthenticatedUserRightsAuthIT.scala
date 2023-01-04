@@ -16,14 +16,15 @@ class ListAuthenticatedUserRightsAuthIT extends ServiceCallAuthTests {
   override def serviceCallName: String =
     "UserManagementService#ListUserRights(<authenticated-user>)"
 
-  override def serviceCallWithToken(token: Option[String]): Future[Any] =
-    stub(UserManagementServiceGrpc.stub(channel), token).listUserRights(ListUserRightsRequest())
+  protected def serviceCall(context: ServiceCallContext): Future[Any] =
+    stub(UserManagementServiceGrpc.stub(channel), context.token)
+      .listUserRights(ListUserRightsRequest())
 
   protected def expectRights(
-      token: Option[String],
+      context: ServiceCallContext,
       expectedRights: Vector[Right],
   ): Future[Assertion] =
-    serviceCallWithToken(token).map(assertResult(ListUserRightsResponse(expectedRights))(_))
+    serviceCall(context).map(assertResult(ListUserRightsResponse(expectedRights))(_))
 
   private def getRights(token: Option[String], userId: String) =
     stub(UserManagementServiceGrpc.stub(channel), token)
@@ -34,14 +35,14 @@ class ListAuthenticatedUserRightsAuthIT extends ServiceCallAuthTests {
   it should "deny unauthenticated access" taggedAs securityAsset.setAttack(
     attackUnauthenticated(threat = "Do not present a JWT")
   ) in {
-    expectUnauthenticated(serviceCallWithToken(None))
+    expectUnauthenticated(serviceCall(noToken))
   }
 
   it should "deny access for a standard token referring to an unknown user" taggedAs securityAsset
     .setAttack(
       attackPermissionDenied(threat = "Present a JWT with an unknown user")
     ) in {
-    expectPermissionDenied(serviceCallWithToken(canReadAsUnknownUserStandardJWT))
+    expectPermissionDenied(serviceCall(canReadAsUnknownUserStandardJWT))
   }
 
   it should "return rights of the 'participant_admin' when using its standard token" in {
@@ -54,7 +55,7 @@ class ListAuthenticatedUserRightsAuthIT extends ServiceCallAuthTests {
   it should "return invalid argument for custom token" taggedAs securityAsset.setAttack(
     attackInvalidArgument(threat = "Present a custom admin JWT")
   ) in {
-    expectInvalidArgument(serviceCallWithToken(canReadAsAdmin))
+    expectInvalidArgument(serviceCall(canReadAsAdmin))
   }
 
   it should "allow access to a non-admin user's own rights" taggedAs securityAsset.setHappyCase(

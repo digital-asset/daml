@@ -7,6 +7,6 @@ trait UnsecuredServiceCallAuthTests extends ServiceCallAuthTests {
   behavior of serviceCallName
 
   it should "allow unauthenticated calls" in {
-    expectSuccess(serviceCallWithToken(None))
+    expectSuccess(serviceCall(noToken))
   }
 }

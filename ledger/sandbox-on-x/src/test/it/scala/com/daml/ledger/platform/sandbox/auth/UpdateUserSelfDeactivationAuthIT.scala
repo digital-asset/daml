@@ -36,7 +36,7 @@ final class UpdateUserSelfDeactivationAuthIT
 
   override def serviceCallName: String = ""
 
-  override protected def serviceCallWithToken(token: Option[String]): Future[Any] = ???
+  override protected def serviceCall(context: ServiceCallContext): Future[Any] = ???
 
   private val testId = UUID.randomUUID().toString
 
@@ -47,6 +47,7 @@ final class UpdateUserSelfDeactivationAuthIT
     for {
       (_, tokenAliceO) <- createUserByAdmin(
         userId = userIdAlice,
+        identityProviderId = "",
         rights = Vector(Right(Right.Kind.ParticipantAdmin(Right.ParticipantAdmin()))),
       )
       err <- updateUser(

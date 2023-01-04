@@ -16,9 +16,9 @@ final class GetActiveContractsAuthIT extends ReadOnlyServiceCallAuthTests {
 
   override def serviceCallName: String = "ActiveContractsService#GetActiveContracts"
 
-  override def serviceCallWithToken(token: Option[String]): Future[Any] =
+  override def serviceCall(context: ServiceCallContext): Future[Any] =
     new StreamConsumer[GetActiveContractsResponse](
-      stub(ActiveContractsServiceGrpc.stub(channel), token)
+      stub(ActiveContractsServiceGrpc.stub(channel), context.token)
         .getActiveContracts(
           new GetActiveContractsRequest(unwrappedLedgerId, txFilterFor(mainActor)),
           _,

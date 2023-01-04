@@ -23,11 +23,11 @@ class GetAuthenticatedUserAuthIT extends ServiceCallAuthTests {
 
   override def serviceCallName: String = "UserManagementService#GetUser(<authenticated-user>)"
 
-  override def serviceCallWithToken(token: Option[String]): Future[Any] =
-    stub(UserManagementServiceGrpc.stub(channel), token).getUser(GetUserRequest())
+  override def serviceCall(context: ServiceCallContext): Future[Any] =
+    stub(UserManagementServiceGrpc.stub(channel), context.token).getUser(GetUserRequest())
 
-  private def expectUser(token: Option[String], expectedUser: User): Future[Assertion] =
-    serviceCallWithToken(token).map(assertResult(GetUserResponse(Some(expectedUser)))(_))
+  private def expectUser(context: ServiceCallContext, expectedUser: User): Future[Assertion] =
+    serviceCall(context).map(assertResult(GetUserResponse(Some(expectedUser)))(_))
 
   private def getUser(token: Option[String], userId: String) =
     stub(UserManagementServiceGrpc.stub(channel), token).getUser(GetUserRequest(userId))
@@ -37,14 +37,14 @@ class GetAuthenticatedUserAuthIT extends ServiceCallAuthTests {
   it should "deny unauthenticated access" taggedAs securityAsset.setAttack(
     attackUnauthenticated(threat = "Do not present JWT")
   ) in {
-    expectUnauthenticated(serviceCallWithToken(None))
+    expectUnauthenticated(serviceCall(noToken))
   }
 
   it should "deny access for a standard token referring to an unknown user" taggedAs securityAsset
     .setAttack(
       attackPermissionDenied(threat = "Present JWT with an unknown user")
     ) in {
-    expectPermissionDenied(serviceCallWithToken(canReadAsUnknownUserStandardJWT))
+    expectPermissionDenied(serviceCall(canReadAsUnknownUserStandardJWT))
   }
 
   it should "return the 'participant_admin' user when using its standard token" taggedAs securityAsset
@@ -65,7 +65,7 @@ class GetAuthenticatedUserAuthIT extends ServiceCallAuthTests {
   it should "return invalid argument for custom token" taggedAs securityAsset.setAttack(
     attackInvalidArgument(threat = "Present a custom JWT")
   ) in {
-    expectInvalidArgument(serviceCallWithToken(canReadAsAdmin))
+    expectInvalidArgument(serviceCall(canReadAsAdmin))
   }
 
   it should "allow access to a non-admin user's own user record" taggedAs securityAsset

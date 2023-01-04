@@ -49,7 +49,7 @@ final class OngoingStreamAuthIT
 
   override def serviceCallName: String = ""
 
-  override protected def serviceCallWithToken(token: Option[String]): Future[Any] = ???
+  override protected def serviceCall(context: ServiceCallContext): Future[Any] = ???
 
   private val testId = UUID.randomUUID().toString
   val partyAlice = "alice-party"
@@ -232,7 +232,7 @@ final class OngoingStreamAuthIT
   private def deactivateUserByAdmin(userId: String): Future[Unit] = {
     stub(
       user_management_service_proto.UserManagementServiceGrpc.stub(channel),
-      canReadAsAdminStandardJWT,
+      canReadAsAdminStandardJWT.token,
     )
       .updateUser(
         UpdateUserRequest(
@@ -260,7 +260,7 @@ final class OngoingStreamAuthIT
     val req = user_management_service_proto.GrantUserRightsRequest(userId, Seq(right))
     stub(
       user_management_service_proto.UserManagementServiceGrpc.stub(channel),
-      canReadAsAdminStandardJWT,
+      canReadAsAdminStandardJWT.token,
     )
       .grantUserRights(req)
       .map(_ => ())
