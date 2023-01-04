@@ -68,7 +68,7 @@ object PrettyPrint {
             char('[') + intercalate(
               text(", "),
               lst.take(maxWidth).map(prettyApiValue(verbose = true, maxListWidth)(_)),
-            ) + text(", ...") + char(']')
+            ) + text(s", ...${lst.size - maxWidth} elements truncated...") + char(']')
 
           case _ =>
             char('[') + intercalate(
