@@ -1,4 +1,4 @@
-# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 # Taken from https://github.com/bazelbuild/rules_scala/blob/2676400bed17b03fdd0fe13a8794eb0ff0129284/scala/scala.bzl#L413

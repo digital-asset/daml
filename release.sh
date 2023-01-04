@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 # The usage of this script is documented in /release/RELEASE.md
