@@ -97,17 +97,16 @@ class ConfigEnricher(
     )
   }
 
-  private def convertPartySet(partySetName: String): List[String] = {
-    allocatedParties.observerPartySets
-      .collectFirst {
-        case partySet if partySet.partyNamePrefix == partySetName => partySet.parties.map(_.unwrap)
-      }
-      .getOrElse {
-        val partySetNames = allocatedParties.observerPartySets.map(_.partyNamePrefix).mkString(", ")
-        sys.error(
-          s"Expected party set: '${partySetName}' does not match any of the known party set: $partySetNames"
-        )
-      }
+  private def convertPartySet(partyNamePrefix: String): List[String] = {
+    val knownParties = allocatedParties.allAllocatedParties.map(_.unwrap)
+    val matchedParties = knownParties.filter(_.startsWith(partyNamePrefix))
+    if (matchedParties.isEmpty) {
+      val partySetNames = knownParties.mkString(", ")
+      sys.error(
+        s"Expected party name prefix: '${partyNamePrefix}' does not match any of the known parties: $partySetNames"
+      )
+    } else
+      matchedParties
   }
 
   private def enrichFilters(

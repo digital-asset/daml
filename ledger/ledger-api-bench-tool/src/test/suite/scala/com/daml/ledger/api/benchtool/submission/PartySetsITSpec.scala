@@ -103,9 +103,22 @@ class PartySetsITSpec
         apiServices = apiServices,
         expectedTemplateNames = Set("Foo1"),
       )
+      treeResults_fooPartyNamePrefix <- observeStreams(
+        configDesugaring = configDesugaring,
+        // matches FooParty-30, FooParty-31, .., FooParty-39
+        filterByPartyNamePrefixO = Some("FooParty-3"),
+        apiServices = apiServices,
+        expectedTemplateNames = Set("Foo1"),
+      )
       treeResults_barPartySet <- observeStreams(
         configDesugaring = configDesugaring,
         filterByPartyNamePrefixO = Some("BarParty"),
+        apiServices = apiServices,
+        expectedTemplateNames = Set("Foo1"),
+      )
+      treeResults_barPartyNamePrefix <- observeStreams(
+        configDesugaring = configDesugaring,
+        filterByPartyNamePrefixO = Some("BarParty-1"),
         apiServices = apiServices,
         expectedTemplateNames = Set("Foo1"),
       )
@@ -121,10 +134,24 @@ class PartySetsITSpec
         treeResults_fooPartySet.numberOfNonConsumingExercisesPerTemplateName("Foo1") shouldBe 20
         treeResults_fooPartySet.numberOfConsumingExercisesPerTemplateName("Foo1") shouldBe 1
       }
+      { // Foo party set subset
+        treeResults_fooPartyNamePrefix.numberOfCreatesPerTemplateName("Foo1") shouldBe 10
+        treeResults_fooPartyNamePrefix.numberOfNonConsumingExercisesPerTemplateName(
+          "Foo1"
+        ) shouldBe 20
+        treeResults_fooPartyNamePrefix.numberOfConsumingExercisesPerTemplateName("Foo1") shouldBe 1
+      }
       { // Bar party set
         treeResults_barPartySet.numberOfCreatesPerTemplateName("Foo1") shouldBe 7
         treeResults_barPartySet.numberOfNonConsumingExercisesPerTemplateName("Foo1") shouldBe 14
         treeResults_barPartySet.numberOfConsumingExercisesPerTemplateName("Foo1") shouldBe 1
+      }
+      { // Bar party set subset
+        treeResults_barPartyNamePrefix.numberOfCreatesPerTemplateName("Foo1") shouldBe 7
+        treeResults_barPartyNamePrefix.numberOfNonConsumingExercisesPerTemplateName(
+          "Foo1"
+        ) shouldBe 14
+        treeResults_barPartyNamePrefix.numberOfConsumingExercisesPerTemplateName("Foo1") shouldBe 1
       }
       succeed
     }

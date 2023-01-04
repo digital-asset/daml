@@ -28,7 +28,12 @@ class Names {
     partyNames(DivulgeePrefix, numberOfDivulgees, uniqueParties)
 
   def extraSubmitterPartyNames(numberOfExtraSubmitters: Int, uniqueParties: Boolean): Seq[String] =
-    partyNames(ExtraSubmitterPrefix, numberOfExtraSubmitters, uniqueParties)
+    partyNames(
+      ExtraSubmitterPrefix,
+      numberOfExtraSubmitters,
+      uniqueParties,
+      padPartyIndexWithZeroes = true,
+    )
 
   def commandId(index: Int): String = s"command-$index-$identifierSuffix"
 
@@ -38,8 +43,11 @@ class Names {
       prefix: String,
       numberOfParties: Int,
       uniqueParties: Boolean,
-  ): Seq[String] =
+      padPartyIndexWithZeroes: Boolean = false,
+  ): Seq[String] = {
+    numberOfParties.toString.length
     (0 until numberOfParties).map(i => partyName(prefix, i, uniqueParties))
+  }
 
   private def partyName(baseName: String, index: Int, uniqueParties: Boolean): String =
     s"$baseName$PartyPrefixSeparatorChar$index" + (if (uniqueParties) identifierSuffix else "")
