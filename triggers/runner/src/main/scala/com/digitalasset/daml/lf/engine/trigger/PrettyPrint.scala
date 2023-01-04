@@ -33,7 +33,7 @@ object PrettyPrint {
             text(", "),
             fs.toList.map {
               case api.RecordField(k, Some(v)) =>
-                text(k) & char('=') & prettyApiValue(verbose = true)(v)
+                text(k) & char('=') & prettyApiValue(verbose = true, maxListWidth)(v)
               case _ => Doc.empty
             },
           ) &
@@ -45,7 +45,7 @@ object PrettyPrint {
           case _ => Doc.empty
         }) +
           text(variant) + char('(') + value.fold(Doc.empty)(v =>
-            prettyApiValue(verbose = true)(v)
+            prettyApiValue(verbose = true, maxListWidth)(v)
           ) + char(')')
 
       case api.Value.Sum.Enum(api.Enum(mbId, constructor)) =>
@@ -62,14 +62,20 @@ object PrettyPrint {
 
       case api.Value.Sum.Bool(b) => str(b)
 
-      case api.Value.Sum.List(api.List(lst)) if maxListWidth.isEmpty =>
-        char('[') + intercalate(text(", "), lst.map(prettyApiValue(verbose = true)(_))) + char(']')
+      case api.Value.Sum.List(api.List(lst)) =>
+        maxListWidth match {
+          case Some(maxWidth) if lst.size > maxWidth =>
+            char('[') + intercalate(
+              text(", "),
+              lst.take(maxWidth).map(prettyApiValue(verbose = true, maxListWidth)(_)),
+            ) + text(", ...") + char(']')
 
-      case api.Value.Sum.List(api.List(lst)) if lst.size > maxListWidth.get =>
-        char('[') + intercalate(
-          text(", "),
-          lst.take(maxListWidth.get).map(prettyApiValue(verbose = true)(_)),
-        ) + text(", ...") + char(']')
+          case _ =>
+            char('[') + intercalate(
+              text(", "),
+              lst.map(prettyApiValue(verbose = true, maxListWidth)(_)),
+            ) + char(']')
+        }
 
       case api.Value.Sum.Timestamp(t) => str(t)
 
@@ -78,14 +84,14 @@ object PrettyPrint {
       case api.Value.Sum.Party(p) => char('\'') + str(p) + char('\'')
 
       case api.Value.Sum.Optional(api.Optional(Some(v1))) =>
-        text("Option(") + prettyApiValue(verbose)(v1) + char(')')
+        text("Option(") + prettyApiValue(verbose, maxListWidth)(v1) + char(')')
 
       case api.Value.Sum.Optional(api.Optional(None)) => text("None")
 
       case api.Value.Sum.Map(api.Map(entries)) =>
         val list = entries.map {
           case api.Map.Entry(k, Some(v)) =>
-            text(k) + text(" -> ") + prettyApiValue(verbose)(v)
+            text(k) + text(" -> ") + prettyApiValue(verbose, maxListWidth)(v)
           case _ => Doc.empty
         }
         text("TextMap(") + intercalate(text(", "), list) + text(")")
@@ -93,7 +99,10 @@ object PrettyPrint {
       case api.Value.Sum.GenMap(api.GenMap(entries)) =>
         val list = entries.map {
           case api.GenMap.Entry(Some(k), Some(v)) =>
-            prettyApiValue(verbose)(k) + text(" -> ") + prettyApiValue(verbose)(v)
+            prettyApiValue(verbose, maxListWidth)(k) + text(" -> ") + prettyApiValue(
+              verbose,
+              maxListWidth,
+            )(v)
           case _ => Doc.empty
         }
         text("GenMap(") + intercalate(text(", "), list) + text(")")
