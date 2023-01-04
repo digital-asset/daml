@@ -38,8 +38,8 @@ private[dao] sealed class ContractsReader(
       loggingContext: LoggingContext
   ): Future[KeyState] =
     Timed.future(
-      metrics.daml.index.db.lookupKey,
-      dispatcher.executeSql(metrics.daml.index.db.lookupContractByKeyDbMetrics)(
+      metrics.daml.index.db.main.lookupKey,
+      dispatcher.executeSql(metrics.daml.index.db.main.lookupContractByKeyDbMetrics)(
         storageBackend.keyState(key, validAt)
       ),
     )
@@ -50,9 +50,9 @@ private[dao] sealed class ContractsReader(
     implicit val errorLogger: ContextualizedErrorLogger =
       new DamlContextualizedErrorLogger(logger, loggingContext, None)
     Timed.future(
-      metrics.daml.index.db.lookupActiveContract,
+      metrics.daml.index.db.main.lookupActiveContract,
       dispatcher
-        .executeSql(metrics.daml.index.db.lookupActiveContractDbMetrics)(
+        .executeSql(metrics.daml.index.db.main.lookupActiveContractDbMetrics)(
           storageBackend.contractState(contractId, before)
         )
         .map(_.map {
@@ -67,9 +67,9 @@ private[dao] sealed class ContractsReader(
               createArgumentCompression =
                 Compression.Algorithm.assertLookup(raw.createArgumentCompression),
               decompressionTimer =
-                metrics.daml.index.db.lookupActiveContractDbMetrics.compressionTimer,
+                metrics.daml.index.db.main.lookupActiveContractDbMetrics.compressionTimer,
               deserializationTimer =
-                metrics.daml.index.db.lookupActiveContractDbMetrics.translationTimer,
+                metrics.daml.index.db.main.lookupActiveContractDbMetrics.translationTimer,
             )
             ActiveContract(
               contract,
@@ -94,9 +94,9 @@ private[dao] sealed class ContractsReader(
   )(implicit loggingContext: LoggingContext): Future[Option[Contract]] = {
 
     Timed.future(
-      metrics.daml.index.db.lookupActiveContract,
+      metrics.daml.index.db.main.lookupActiveContract,
       dispatcher
-        .executeSql(metrics.daml.index.db.lookupActiveContractDbMetrics)(
+        .executeSql(metrics.daml.index.db.main.lookupActiveContractDbMetrics)(
           storageBackend.activeContractWithArgument(readers, contractId)
         )
         .map(_.map { raw =>
@@ -107,9 +107,9 @@ private[dao] sealed class ContractsReader(
             createArgumentCompression =
               Compression.Algorithm.assertLookup(raw.createArgumentCompression),
             decompressionTimer =
-              metrics.daml.index.db.lookupActiveContractDbMetrics.compressionTimer,
+              metrics.daml.index.db.main.lookupActiveContractDbMetrics.compressionTimer,
             deserializationTimer =
-              metrics.daml.index.db.lookupActiveContractDbMetrics.translationTimer,
+              metrics.daml.index.db.main.lookupActiveContractDbMetrics.translationTimer,
           )
         }),
     )
@@ -123,9 +123,9 @@ private[dao] sealed class ContractsReader(
   )(implicit loggingContext: LoggingContext): Future[Option[Contract]] = {
 
     Timed.future(
-      metrics.daml.index.db.lookupActiveContract,
+      metrics.daml.index.db.main.lookupActiveContract,
       dispatcher
-        .executeSql(metrics.daml.index.db.lookupActiveContractDbMetrics)(
+        .executeSql(metrics.daml.index.db.main.lookupActiveContractDbMetrics)(
           storageBackend.activeContractWithoutArgument(readers, contractId)
         )
         .map(

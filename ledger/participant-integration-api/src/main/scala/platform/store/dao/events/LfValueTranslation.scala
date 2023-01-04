@@ -184,7 +184,7 @@ final class LfValueTranslation(
           .loadPackage(
             packageId = packageId,
             delegate = packageId => loadPackage(packageId, loggingContext),
-            metric = metrics.daml.index.db.translation.getLfPackage,
+            metric = metrics.daml.index.db.main.translation.getLfPackage,
           )
           .flatMap(pkgO => consumeEnricherResult(resume(pkgO)))
       case result =>
@@ -465,7 +465,7 @@ final class LfValueTranslation(
               .loadPackage(
                 packageId = packageId,
                 delegate = packageId => loadPackage(packageId, loggingContext),
-                metric = metrics.daml.index.db.translation.getLfPackage,
+                metric = metrics.daml.index.db.main.translation.getLfPackage,
               )
               .map(resume)
               .flatMap(goAsync)

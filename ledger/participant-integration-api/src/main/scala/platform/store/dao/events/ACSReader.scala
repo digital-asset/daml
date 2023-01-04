@@ -78,7 +78,7 @@ class FilterTableACSReader(
         pageBufferSize = idPageBufferSize,
       )(idQuery =>
         idQueryLimiter.execute {
-          dispatcher.executeSql(metrics.daml.index.db.getActiveContractIds) { connection =>
+          dispatcher.executeSql(metrics.daml.index.db.main.getActiveContractIds) { connection =>
             val result =
               eventStorageBackend.transactionStreamingQueries.fetchIdsOfCreateEventsForStakeholder(
                 stakeholder = filter.party,
@@ -99,7 +99,7 @@ class FilterTableACSReader(
 
     def fetchAcs(ids: Iterable[Long]): Future[Vector[EventStorageBackend.Entry[Raw.FlatEvent]]] =
       querylimiter.execute(
-        dispatcher.executeSql(metrics.daml.index.db.getActiveContractBatch) { connection =>
+        dispatcher.executeSql(metrics.daml.index.db.main.getActiveContractBatch) { connection =>
           val result = queryNonPruned.executeSql(
             eventStorageBackend.activeContractEventBatch(
               eventSequentialIds = ids,

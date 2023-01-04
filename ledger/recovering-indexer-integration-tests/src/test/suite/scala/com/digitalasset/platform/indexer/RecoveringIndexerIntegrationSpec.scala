@@ -255,10 +255,14 @@ class RecoveringIndexerIntegrationSpec
         eventually { (_, _) =>
           for {
             ledgerEnd <- dbDispatcher
-              .executeSql(metrics.daml.index.db.getLedgerEnd)(parameterStorageBackend.ledgerEnd)
+              .executeSql(metrics.daml.index.db.main.getLedgerEnd)(
+                parameterStorageBackend.ledgerEnd
+              )
             _ = ledgerEndCache.set(ledgerEnd.lastOffset -> ledgerEnd.lastEventSeqId)
             knownParties <- dbDispatcher
-              .executeSql(metrics.daml.index.db.loadAllParties)(partyStorageBacked.knownParties)
+              .executeSql(metrics.daml.index.db.main.loadAllParties)(
+                partyStorageBacked.knownParties
+              )
           } yield {
             knownParties.map(_.displayName) shouldBe partyNames.map(Some(_))
             ()
