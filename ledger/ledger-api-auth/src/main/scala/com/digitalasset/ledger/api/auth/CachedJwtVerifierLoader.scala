@@ -18,8 +18,30 @@ import java.security.interfaces.RSAPublicKey
 import java.util.concurrent.TimeUnit
 import scala.concurrent.{ExecutionContext, Future}
 
+/** A JWK verifier loader, where the public keys are automatically fetched from the given JWKS URL.
+  * The keys are then transformed into JWK Verifier
+  *
+  * The verifiers are kept in cache, in order to prevent having to do a remote network access for each token validation.
+  *
+  * The cache is limited both in size and time.
+  * A size limit protects against infinitely growing memory consumption.
+  * A time limit is a safety catch for the case where a public key is used to sign a token without an expiration time
+  * and then is revoked.
+  *
+  * @param cacheMaxSize Maximum number of public keys to keep in the cache.
+  * @param cacheExpirationTime Maximum time to keep public keys in the cache.
+  * @param connectionTimeout Timeout for connecting to the JWKS URL.
+  * @param readTimeout Timeout for reading from the JWKS URL.
+  */
 class CachedJwtVerifierLoader(
-    config: CachedJwtVerifierLoader.Config,
+    cacheMaxSize: Long = 1000,
+    cacheExpirationTime: Long = 10,
+    cacheExpirationUnit: TimeUnit = TimeUnit.HOURS,
+    connectionTimeout: Long = 10,
+    connectionTimeoutUnit: TimeUnit = TimeUnit.SECONDS,
+    readTimeout: Long = 10,
+    readTimeoutUnit: TimeUnit = TimeUnit.SECONDS,
+    jwtTimestampLeeway: Option[JwtTimestampLeeway] = None,
     metrics: Metrics,
 )(implicit
     executionContext: ExecutionContext
@@ -32,8 +54,8 @@ class CachedJwtVerifierLoader(
     new CaffeineCache.AsyncLoadingCaffeineCache(
       caffeine.Caffeine
         .newBuilder()
-        .expireAfterWrite(config.cache.expirationTime, config.cache.expirationUnit)
-        .maximumSize(config.cache.maxSize)
+        .expireAfterWrite(cacheExpirationTime, cacheExpirationUnit)
+        .maximumSize(cacheMaxSize)
         .buildAsync(
           new FutureAsyncCacheLoader[CacheKey, JwtVerifier](key => getVerifier(key))
         ),
@@ -47,9 +69,9 @@ class CachedJwtVerifierLoader(
     new UrlJwkProvider(
       jwksUrl.toURL,
       Integer.valueOf(
-        config.http.connectionTimeoutUnit.toMillis(config.http.connectionTimeout).toInt
+        connectionTimeoutUnit.toMillis(connectionTimeout).toInt
       ),
-      Integer.valueOf(config.http.readTimeoutUnit.toMillis(config.http.readTimeout).toInt),
+      Integer.valueOf(readTimeoutUnit.toMillis(readTimeout).toInt),
     )
 
   private def getVerifier(
@@ -58,7 +80,7 @@ class CachedJwtVerifierLoader(
     for {
       jwk <- Future(jwkProvider(key.jwksUrl).get(key.keyId.orNull))
       publicKey = jwk.getPublicKey.asInstanceOf[RSAPublicKey]
-      verifier <- fromDisjunction(RSA256Verifier(publicKey, config.jwtTimestampLeeway))
+      verifier <- fromDisjunction(RSA256Verifier(publicKey, jwtTimestampLeeway))
     } yield verifier
 
   private def fromDisjunction[T](e: \/[JwtError, T]): Future[T] =
@@ -71,26 +93,5 @@ object CachedJwtVerifierLoader {
   case class CacheKey(
       jwksUrl: JwksUrl,
       keyId: Option[String],
-  )
-
-  case class CacheConfig(
-      // Large enough such that malicious users can't cycle through all keys from reasonably sized JWKS,
-      // forcing cache eviction and thus introducing additional latency.
-      maxSize: Long = 1000,
-      expirationTime: Long = 10,
-      expirationUnit: TimeUnit = TimeUnit.HOURS,
-  )
-
-  case class HttpConfig(
-      connectionTimeout: Long = 10,
-      connectionTimeoutUnit: TimeUnit = TimeUnit.SECONDS,
-      readTimeout: Long = 10,
-      readTimeoutUnit: TimeUnit = TimeUnit.SECONDS,
-  )
-
-  case class Config(
-      cache: CacheConfig = CacheConfig(),
-      http: HttpConfig = HttpConfig(),
-      jwtTimestampLeeway: Option[JwtTimestampLeeway] = None,
   )
 }
