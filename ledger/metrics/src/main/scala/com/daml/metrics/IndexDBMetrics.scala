@@ -88,6 +88,13 @@ class IndexDBMetrics(override val prefix: MetricName, override val registry: Met
     val fetchEventConsumingPayloads: DatabaseMetrics = createDbMetrics(
       "fetch_event_consuming_payloads"
     )
+    @MetricDoc.Tag(
+      summary = "The time needed to turn serialized Daml-LF values into in-memory objects.",
+      description = """Some index database queries that target contracts and transactions involve a
+                      |Daml-LF translation step. For such queries this metric stands for the time it
+                      |takes to turn the serialized Daml-LF values into in-memory representation.""",
+      qualification = Debug,
+    )
     val translationTimer: Timer = timer(prefix :+ "translation")
   }
 
@@ -116,6 +123,13 @@ class IndexDBMetrics(override val prefix: MetricName, override val registry: Met
     )
     val fetchEventNonConsumingPayloads: DatabaseMetrics = createDbMetrics(
       "fetch_event_non_consuming_payloads"
+    )
+    @MetricDoc.Tag(
+      summary = "The time needed to turn serialized Daml-LF values into in-memory objects.",
+      description = """Some index database queries that target contracts and transactions involve a
+                      |Daml-LF translation step. For such queries this metric stands for the time it
+                      |takes to turn the serialized Daml-LF values into in-memory representation.""",
+      qualification = Debug,
     )
     val translationTimer: Timer = timer(prefix :+ "translation")
   }
