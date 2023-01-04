@@ -124,7 +124,7 @@ private[apiserver] final class ApiPartyManagementService private (
           val protoDetails =
             partyDetailsSeq
               .zip(partyRecordOptions)
-              .map(disclosedPartyInformation(identityProviderId))
+              .map(blindAndConvertToProto(identityProviderId))
           GetPartiesResponse(partyDetails = protoDetails)
         }
       }
@@ -148,13 +148,13 @@ private[apiserver] final class ApiPartyManagementService private (
       } yield {
         val protoDetails = partyDetailsSeq
           .zip(partyRecords)
-          .map(disclosedPartyInformation(identityProviderId))
+          .map(blindAndConvertToProto(identityProviderId))
         ListKnownPartiesResponse(protoDetails)
       }
     }
   }
 
-  private def disclosedPartyInformation(
+  private def blindAndConvertToProto(
       identityProviderId: IdentityProviderId
   ): ((IndexerPartyDetails, Option[PartyRecord])) => ProtoPartyDetails = {
     case (details, recordO) if recordO.map(_.identityProviderId).contains(identityProviderId) =>
@@ -343,7 +343,7 @@ private[apiserver] final class ApiPartyManagementService private (
               )
             }
           }
-          _ <- partyBelongsToIDPOrError(
+          _ <- verifyPartyIsNonExistentOrInIdp(
             partyRecordUpdate.identityProviderId,
             partyRecordUpdate.party,
           )
@@ -368,20 +368,21 @@ private[apiserver] final class ApiPartyManagementService private (
   }
 
   // Here we check if party exists and actually belongs to the requested Identity Provider
-  private def partyBelongsToIDPOrError(
+  private def verifyPartyIsNonExistentOrInIdp(
       identityProviderId: IdentityProviderId,
       party: Ref.Party,
-  )(implicit errorLogger: DamlContextualizedErrorLogger): Future[Unit] = {
+  )(implicit errorLogger: DamlContextualizedErrorLogger): Future[Unit] =
     partyRecordStore.getPartyRecordO(party).flatMap {
       case Right(Some(party)) if party.identityProviderId != identityProviderId =>
         Future.failed(
           LedgerApiErrors.AuthorizationChecks.PermissionDenied
-            .Reject(s"Party ${party} belongs to another Identity Provider")
+            .Reject(
+              s"Party $party belongs to an identity provider that differs from the one specified in the request"
+            )
             .asGrpcError
         )
       case _ => Future.unit
     }
-  }
 
   private def fetchPartyRecords(
       partyDetails: List[IndexerPartyDetails]

@@ -24,7 +24,7 @@ class IdentityProviderAwareAuthService(
     loggingContext: LoggingContext,
 ) extends AuthService {
 
-  private implicit val logger: ContextualizedLogger = ContextualizedLogger.get(this.getClass)
+  private implicit val logger: ContextualizedLogger = ContextualizedLogger.get(getClass)
 
   override def decodeMetadata(headers: Metadata): CompletionStage[ClaimSet] = {
     (getAuthorizationHeader(headers) match {
