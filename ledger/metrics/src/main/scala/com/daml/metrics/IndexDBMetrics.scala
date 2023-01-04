@@ -74,6 +74,10 @@ class IndexDBMetrics(override val prefix: MetricName, override val registry: Met
     "lookup_contract_by_key"
   )
 
+  @MetricDoc.GroupTag(
+    representative = "daml.index.db.flat_transactions_stream.<operation>",
+    groupableClass = classOf[DatabaseMetrics],
+  )
   object flatTxStream extends FactoryWithDBMetrics {
     override val prefix: MetricName = self.prefix :+ "flat_transactions_stream"
     override val registry: MetricRegistry = self.registry
@@ -98,6 +102,10 @@ class IndexDBMetrics(override val prefix: MetricName, override val registry: Met
     val translationTimer: Timer = timer(prefix :+ "translation")
   }
 
+  @MetricDoc.GroupTag(
+    representative = "daml.index.db.tree_transactions_stream.<operation>",
+    groupableClass = classOf[DatabaseMetrics],
+  )
   object treeTxStream extends FactoryWithDBMetrics {
     override val prefix: MetricName = self.prefix :+ "tree_transactions_stream"
     override val registry: MetricRegistry = self.registry
