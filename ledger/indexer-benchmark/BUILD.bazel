@@ -40,6 +40,5 @@ da_scala_library(
         "//libs-scala/resources-akka",
         "//libs-scala/resources-grpc",
         "//observability/metrics",
-        "@maven//:io_dropwizard_metrics_metrics_core",
     ],
 )

@@ -57,7 +57,6 @@ da_scala_test_suite(
         "//observability/metrics",
         "//observability/telemetry",
         "@maven//:ch_qos_logback_logback_classic",
-        "@maven//:io_dropwizard_metrics_metrics_core",
         "@maven//:org_mockito_mockito_core",
         "@maven//:org_scalatest_scalatest_compatible",
     ],

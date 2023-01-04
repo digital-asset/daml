@@ -20,7 +20,6 @@ da_scala_library(
     runtime_deps = [],
     deps = [
         "//observability/metrics",
-        "@maven//:io_dropwizard_metrics_metrics_core",
         "@maven//:io_opentelemetry_opentelemetry_api",
     ],
 )

@@ -30,16 +30,12 @@ da_scala_library(
         "//libs-scala/resources",
         "//libs-scala/scala-utils",
         "@maven//:com_google_protobuf_protobuf_java",
-        "@maven//:io_dropwizard_metrics_metrics_core",
-        "@maven//:io_dropwizard_metrics_metrics_graphite",
-        "@maven//:io_dropwizard_metrics_metrics_jvm",
         "@maven//:io_grpc_grpc_api",
         "@maven//:io_opentelemetry_opentelemetry_api",
         "@maven//:io_opentelemetry_opentelemetry_context",
         "@maven//:io_opentelemetry_opentelemetry_exporter_prometheus",
         "@maven//:io_opentelemetry_opentelemetry_sdk_metrics",
         "@maven//:io_prometheus_simpleclient",
-        "@maven//:io_prometheus_simpleclient_dropwizard",
         "@maven//:io_prometheus_simpleclient_httpserver",
         "@maven//:org_slf4j_slf4j_api",
     ],
@@ -58,7 +54,6 @@ da_scala_library(
     deps = [
         ":metrics",
         "//libs-scala/scala-utils",
-        "@maven//:io_dropwizard_metrics_metrics_core",
     ],
 )
 
@@ -92,7 +87,6 @@ da_scala_test_suite(
         "//libs-scala/concurrent",
         "//libs-scala/resources",
         "@maven//:com_google_protobuf_protobuf_java",
-        "@maven//:io_dropwizard_metrics_metrics_core",
         "@maven//:io_grpc_grpc_api",
         "@maven//:io_grpc_grpc_protobuf",
         "@maven//:io_grpc_grpc_stub",
