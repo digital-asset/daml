@@ -191,9 +191,7 @@ class LedgerApiServer(
         defaultAuthService = authService,
         configLoader = identityProviderConfigLoader,
         jwtVerifierLoader = new CachedJwtVerifierLoader(
-          config = CachedJwtVerifierLoader.Config(
-            jwtTimestampLeeway = participantConfig.jwtTimestampLeeway
-          ),
+          jwtTimestampLeeway = participantConfig.jwtTimestampLeeway,
           metrics = metrics,
         )(servicesExecutionContext),
       )(servicesExecutionContext, loggingContext),
