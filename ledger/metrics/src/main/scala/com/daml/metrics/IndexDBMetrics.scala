@@ -10,7 +10,7 @@ import com.daml.metrics.api.dropwizard.FactoryWithDBMetrics
 import com.daml.metrics.api.{MetricDoc, MetricName}
 
 class IndexDBMetrics(override val prefix: MetricName, override val registry: MetricRegistry)
-    extends MainIndexDBMetrics
+    extends MainIndexDBMetrics(prefix, registry)
     with TransactionStreamsDbMetrics {
   self =>
 }
@@ -95,11 +95,8 @@ trait TransactionStreamsDbMetrics extends FactoryWithDBMetrics {
   representative = "daml.index.db.<operation>",
   groupableClass = classOf[DatabaseMetrics],
 )
-trait MainIndexDBMetrics extends FactoryWithDBMetrics { self =>
-
-  def prefix: MetricName
-
-  def registry: MetricRegistry
+class MainIndexDBMetrics(override val prefix: MetricName, override val registry: MetricRegistry)
+    extends FactoryWithDBMetrics { self =>
 
   @MetricDoc.Tag(
     summary = "The time spent looking up a contract using its key.",
