@@ -99,10 +99,7 @@ object RateLimitingInterceptor {
 
     val indexDbThreadpool: ThreadpoolCount = new ThreadpoolCount(metrics)(
       "Index Database Connection Threadpool",
-      MetricName(
-        metrics.daml.index.db.main.threadpool.connection,
-        ServerRole.ApiServer.threadPoolSuffix,
-      ),
+      MetricName(metrics.daml.index.db.threadpool.connection, ServerRole.ApiServer.threadPoolSuffix),
     )
 
     val activeStreamsName = metrics.daml.lapi.streams.activeName

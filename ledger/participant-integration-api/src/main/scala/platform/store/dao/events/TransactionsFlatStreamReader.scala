@@ -50,7 +50,7 @@ class TransactionsFlatStreamReader(
   import config._
 
   private val logger = ContextualizedLogger.get(getClass)
-  private val dbMetrics = metrics.daml.index.db.txStreams
+  private val dbMetrics = metrics.daml.index.db
 
   private val orderBySequentialEventId =
     Ordering.by[EventStorageBackend.Entry[Raw.FlatEvent], Long](_.eventSequentialId)

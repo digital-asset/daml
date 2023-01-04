@@ -93,7 +93,7 @@ final class GrpcServerSpec extends AsyncWordSpec with Matchers with TestResource
       val rateLimitingInterceptor = RateLimitingInterceptor(metrics, rateLimitingConfig)
       resources(metrics, List(rateLimitingInterceptor)).use { channel =>
         val metricName = MetricName(
-          metrics.daml.index.db.main.threadpool.connection,
+          metrics.daml.index.db.threadpool.connection,
           ServerRole.ApiServer.threadPoolSuffix,
         )
         metrics.registry

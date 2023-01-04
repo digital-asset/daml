@@ -72,7 +72,7 @@ private class JdbcLedgerDao(
 
   override def lookupLedgerId()(implicit loggingContext: LoggingContext): Future[Option[LedgerId]] =
     dbDispatcher
-      .executeSql(metrics.daml.index.db.main.getLedgerId)(
+      .executeSql(metrics.daml.index.db.getLedgerId)(
         parameterStorageBackend.ledgerIdentity(_).map(_.ledgerId)
       )
 
@@ -80,7 +80,7 @@ private class JdbcLedgerDao(
       loggingContext: LoggingContext
   ): Future[Option[ParticipantId]] =
     dbDispatcher
-      .executeSql(metrics.daml.index.db.main.getParticipantId)(
+      .executeSql(metrics.daml.index.db.getParticipantId)(
         parameterStorageBackend.ledgerIdentity(_).map(_.participantId)
       )
 
@@ -88,7 +88,7 @@ private class JdbcLedgerDao(
     */
   override def lookupLedgerEnd()(implicit loggingContext: LoggingContext): Future[LedgerEnd] =
     dbDispatcher
-      .executeSql(metrics.daml.index.db.main.getLedgerEnd)(
+      .executeSql(metrics.daml.index.db.getLedgerEnd)(
         parameterStorageBackend.ledgerEnd
       )
 
@@ -99,7 +99,7 @@ private class JdbcLedgerDao(
       participantId: ParticipantId,
   )(implicit loggingContext: LoggingContext): Future[Unit] =
     dbDispatcher
-      .executeSql(metrics.daml.index.db.main.initializeLedgerParameters)(
+      .executeSql(metrics.daml.index.db.initializeLedgerParameters)(
         parameterStorageBackend.initializeParameters(
           ParameterStorageBackend.IdentityParams(
             ledgerId = ledgerId,
@@ -111,7 +111,7 @@ private class JdbcLedgerDao(
   override def lookupLedgerConfiguration()(implicit
       loggingContext: LoggingContext
   ): Future[Option[(Offset, Configuration)]] =
-    dbDispatcher.executeSql(metrics.daml.index.db.main.lookupConfiguration)(
+    dbDispatcher.executeSql(metrics.daml.index.db.lookupConfiguration)(
       readStorageBackend.configurationStorageBackend.ledgerConfiguration
     )
 
@@ -121,7 +121,7 @@ private class JdbcLedgerDao(
   )(implicit loggingContext: LoggingContext): Source[(Offset, ConfigurationEntry), NotUsed] =
     PaginatingAsyncStream(PageSize) { queryOffset =>
       withEnrichedLoggingContext("queryOffset" -> queryOffset) { implicit loggingContext =>
-        dbDispatcher.executeSql(metrics.daml.index.db.main.loadConfigurationEntries) {
+        dbDispatcher.executeSql(metrics.daml.index.db.loadConfigurationEntries) {
           readStorageBackend.configurationStorageBackend.configurationEntries(
             startExclusive = startExclusive,
             endInclusive = endInclusive,
@@ -142,7 +142,7 @@ private class JdbcLedgerDao(
     withEnrichedLoggingContext(Logging.submissionId(submissionId)) { implicit loggingContext =>
       logger.info("Storing configuration entry")
       dbDispatcher.executeSql(
-        metrics.daml.index.db.main.storeConfigurationEntryDbMetrics
+        metrics.daml.index.db.storeConfigurationEntryDbMetrics
       ) { implicit conn =>
         val update = state.Update.ConfigurationChanged(
           recordTime = recordedAt,
@@ -164,7 +164,7 @@ private class JdbcLedgerDao(
       partyEntry: PartyLedgerEntry,
   )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] = {
     logger.info("Storing party entry")
-    dbDispatcher.executeSql(metrics.daml.index.db.main.storePartyEntryDbMetrics) { implicit conn =>
+    dbDispatcher.executeSql(metrics.daml.index.db.storePartyEntryDbMetrics) { implicit conn =>
       partyEntry match {
         case PartyLedgerEntry.AllocationAccepted(submissionIdOpt, recordTime, partyDetails) =>
           sequentialIndexer.store(
@@ -211,7 +211,7 @@ private class JdbcLedgerDao(
   )(implicit loggingContext: LoggingContext): Source[(Offset, PartyLedgerEntry), NotUsed] = {
     PaginatingAsyncStream(PageSize) { queryOffset =>
       withEnrichedLoggingContext("queryOffset" -> queryOffset) { implicit loggingContext =>
-        dbDispatcher.executeSql(metrics.daml.index.db.main.loadPartyEntries)(
+        dbDispatcher.executeSql(metrics.daml.index.db.loadPartyEntries)(
           readStorageBackend.partyStorageBackend.partyEntries(
             startExclusive = startExclusive,
             endInclusive = endInclusive,
@@ -230,7 +230,7 @@ private class JdbcLedgerDao(
       reason: state.Update.CommandRejected.RejectionReasonTemplate,
   )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] =
     dbDispatcher
-      .executeSql(metrics.daml.index.db.main.storeRejectionDbMetrics) { implicit conn =>
+      .executeSql(metrics.daml.index.db.storeRejectionDbMetrics) { implicit conn =>
         sequentialIndexer.store(
           conn,
           offset,
@@ -254,7 +254,7 @@ private class JdbcLedgerDao(
       Future.successful(List.empty)
     else
       dbDispatcher
-        .executeSql(metrics.daml.index.db.main.loadParties)(
+        .executeSql(metrics.daml.index.db.loadParties)(
           readStorageBackend.partyStorageBackend.parties(parties)
         )
 
@@ -262,7 +262,7 @@ private class JdbcLedgerDao(
       loggingContext: LoggingContext
   ): Future[List[IndexerPartyDetails]] =
     dbDispatcher
-      .executeSql(metrics.daml.index.db.main.loadAllParties)(
+      .executeSql(metrics.daml.index.db.loadAllParties)(
         readStorageBackend.partyStorageBackend.knownParties
       )
 
@@ -270,7 +270,7 @@ private class JdbcLedgerDao(
       loggingContext: LoggingContext
   ): Future[Map[PackageId, PackageDetails]] =
     dbDispatcher
-      .executeSql(metrics.daml.index.db.main.loadPackages)(
+      .executeSql(metrics.daml.index.db.loadPackages)(
         readStorageBackend.packageStorageBackend.lfPackages
       )
 
@@ -278,7 +278,7 @@ private class JdbcLedgerDao(
       packageId: PackageId
   )(implicit loggingContext: LoggingContext): Future[Option[Archive]] =
     dbDispatcher
-      .executeSql(metrics.daml.index.db.main.loadArchive)(
+      .executeSql(metrics.daml.index.db.loadArchive)(
         readStorageBackend.packageStorageBackend.lfArchive(packageId)
       )
       .map(_.map(data => ArchiveParser.assertFromByteArray(data)))(
@@ -291,7 +291,7 @@ private class JdbcLedgerDao(
       optEntry: Option[PackageLedgerEntry],
   )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] = {
     logger.info("Storing package entry")
-    dbDispatcher.executeSql(metrics.daml.index.db.main.storePackageEntryDbMetrics) {
+    dbDispatcher.executeSql(metrics.daml.index.db.storePackageEntryDbMetrics) {
       implicit connection =>
         // Note on knownSince and recordTime:
         // - There are two different time values in the input: PackageDetails.knownSince and PackageUploadAccepted.recordTime
@@ -350,7 +350,7 @@ private class JdbcLedgerDao(
   )(implicit loggingContext: LoggingContext): Source[(Offset, PackageLedgerEntry), NotUsed] =
     PaginatingAsyncStream(PageSize) { queryOffset =>
       withEnrichedLoggingContext("queryOffset" -> queryOffset) { implicit loggingContext =>
-        dbDispatcher.executeSql(metrics.daml.index.db.main.loadPackageEntries)(
+        dbDispatcher.executeSql(metrics.daml.index.db.loadPackageEntries)(
           readStorageBackend.packageStorageBackend.packageEntries(
             startExclusive = startExclusive,
             endInclusive = endInclusive,
@@ -409,7 +409,7 @@ private class JdbcLedgerDao(
     )
 
     dbDispatcher
-      .executeSql(metrics.daml.index.db.main.pruneDbMetrics) { conn =>
+      .executeSql(metrics.daml.index.db.pruneDbMetrics) { conn =>
         if (
           !readStorageBackend.eventStorageBackend.isPruningOffsetValidAgainstMigration(
             pruneUpToInclusive,
@@ -576,7 +576,7 @@ private class JdbcLedgerDao(
   )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] = {
     logger.info("Storing transaction")
     dbDispatcher
-      .executeSql(metrics.daml.index.db.main.storeTransactionDbMetrics) { implicit conn =>
+      .executeSql(metrics.daml.index.db.storeTransactionDbMetrics) { implicit conn =>
         sequentialIndexer.store(
           conn,
           offset,
@@ -611,7 +611,7 @@ private class JdbcLedgerDao(
       to: Option[Timestamp],
       applicationId: Option[ApplicationId],
   )(implicit loggingContext: LoggingContext): Future[ReportData] = {
-    dbDispatcher.executeSql(metrics.daml.index.db.main.lookupConfiguration)(
+    dbDispatcher.executeSql(metrics.daml.index.db.lookupConfiguration)(
       readStorageBackend.meteringStorageBackend.reportData(from, to, applicationId)
     )
   }

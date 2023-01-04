@@ -9,18 +9,17 @@ import com.daml.metrics.api.MetricHandle.{Histogram, Timer}
 import com.daml.metrics.api.dropwizard.FactoryWithDBMetrics
 import com.daml.metrics.api.{MetricDoc, MetricName}
 
-class IndexDBMetrics(val prefix: MetricName, val registry: MetricRegistry) {
+class IndexDBMetrics(override val prefix: MetricName, override val registry: MetricRegistry)
+    extends MainIndexDBMetrics
+    with TransactionStreamsDbMetrics {
   self =>
-
-  val main = new MainIndexDBMetrics(prefix, registry)
-  val txStreams = new TransactionStreamsDbMetrics(prefix, registry)
 }
 
-class TransactionStreamsDbMetrics(
-    override val prefix: MetricName,
-    override val registry: MetricRegistry,
-) extends FactoryWithDBMetrics {
+trait TransactionStreamsDbMetrics extends FactoryWithDBMetrics {
   self =>
+
+  def prefix: MetricName
+  def registry: MetricRegistry
 
   @MetricDoc.GroupTag(
     representative = "daml.index.db.flat_transactions_stream.<operation>",
@@ -96,8 +95,11 @@ class TransactionStreamsDbMetrics(
   representative = "daml.index.db.<operation>",
   groupableClass = classOf[MainIndexDBMetrics],
 )
-class MainIndexDBMetrics(override val prefix: MetricName, override val registry: MetricRegistry)
-    extends FactoryWithDBMetrics { self =>
+trait MainIndexDBMetrics extends FactoryWithDBMetrics { self =>
+
+  def prefix: MetricName
+
+  def registry: MetricRegistry
 
   @MetricDoc.Tag(
     summary = "The time spent looking up a contract using its key.",

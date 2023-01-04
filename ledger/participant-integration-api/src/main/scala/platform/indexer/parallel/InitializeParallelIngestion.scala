@@ -46,7 +46,7 @@ private[platform] case class InitializeParallelIngestion(
       _ = logger.info(
         s"Attempting to initialize with ledger ID $providedLedgerId and participant ID $providedParticipantId"
       )
-      _ <- dbDispatcher.executeSql(metrics.daml.index.db.main.initializeLedgerParameters)(
+      _ <- dbDispatcher.executeSql(metrics.daml.index.db.initializeLedgerParameters)(
         parameterStorageBackend.initializeParameters(
           ParameterStorageBackend.IdentityParams(
             ledgerId = providedLedgerId,
@@ -54,7 +54,7 @@ private[platform] case class InitializeParallelIngestion(
           )
         )
       )
-      ledgerEnd <- dbDispatcher.executeSql(metrics.daml.index.db.main.getLedgerEnd)(
+      ledgerEnd <- dbDispatcher.executeSql(metrics.daml.index.db.getLedgerEnd)(
         parameterStorageBackend.ledgerEnd
       )
       _ <- dbDispatcher.executeSql(metrics.daml.parallelIndexer.initialization)(

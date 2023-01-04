@@ -70,7 +70,7 @@ final class RateLimitingInterceptorSpec
       val helloService = HelloServiceGrpc.stub(channel)
       val submitted = metrics.registry.meter(
         MetricRegistry.name(
-          metrics.daml.index.db.main.threadpool.connection,
+          metrics.daml.index.db.threadpool.connection,
           ServerRole.ApiServer.threadPoolSuffix,
           "submitted",
         )
@@ -82,7 +82,7 @@ final class RateLimitingInterceptorSpec
         _ = submitted.mark(-config.maxApiServicesIndexDbQueueSize.toLong - 1)
         _ <- helloService.single(HelloRequest(3))
       } yield {
-        exception.getMessage should include(metrics.daml.index.db.main.threadpool.connection)
+        exception.getMessage should include(metrics.daml.index.db.threadpool.connection)
       }
     }
   }

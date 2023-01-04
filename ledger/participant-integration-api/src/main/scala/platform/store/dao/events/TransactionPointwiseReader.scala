@@ -106,7 +106,7 @@ final class TransactionTreePointwiseReader(
   override type RawEventT = Raw.TreeEvent
   override type RespT = GetTransactionResponse
 
-  override val dbMetric: DatabaseMetrics = dbMetrics.main.lookupTransactionTreeById
+  override val dbMetric: DatabaseMetrics = dbMetrics.lookupTransactionTreeById
 
   override protected def fetchTransaction(
       firstEventSequentialId: Long,
@@ -138,7 +138,7 @@ final class TransactionFlatPointwiseReader(
   override type RawEventT = Raw.FlatEvent
   override type RespT = GetFlatTransactionResponse
 
-  override val dbMetric: DatabaseMetrics = dbMetrics.main.lookupFlatTransactionById
+  override val dbMetric: DatabaseMetrics = dbMetrics.lookupFlatTransactionById
 
   override protected def fetchTransaction(
       firstEventSequentialId: Long,

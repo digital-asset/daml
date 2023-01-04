@@ -65,7 +65,7 @@ private[dao] final class TransactionsReader(
 
   import TransactionsReader._
 
-  private val dbMetrics = metrics.daml.index.db.main
+  private val dbMetrics = metrics.daml.index.db
   private val eventSeqIdReader =
     new EventsRange.EventSeqIdReader(eventStorageBackend.maxEventSequentialIdOfAnObservableEvent)
 

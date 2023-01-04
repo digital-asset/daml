@@ -125,7 +125,7 @@ object DbDispatcher {
       )
       connectionProvider <- DataSourceConnectionProvider.owner(hikariDataSource)
       threadPoolName = MetricName(
-        metrics.daml.index.db.main.threadpool.connection,
+        metrics.daml.index.db.threadpool.connection,
         serverRole.threadPoolSuffix,
       )
       executor <- ResourceOwner.forExecutorService(() =>
@@ -145,7 +145,7 @@ object DbDispatcher {
     } yield new DbDispatcherImpl(
       connectionProvider = connectionProvider,
       executor = executor,
-      overallWaitTimer = metrics.daml.index.db.main.waitAll,
-      overallExecutionTimer = metrics.daml.index.db.main.execAll,
+      overallWaitTimer = metrics.daml.index.db.waitAll,
+      overallExecutionTimer = metrics.daml.index.db.execAll,
     )
 }

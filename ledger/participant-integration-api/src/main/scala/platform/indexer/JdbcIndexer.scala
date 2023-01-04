@@ -147,7 +147,7 @@ object JdbcIndexer {
     updatingStringInterningView.update(ledgerEnd.lastStringInterningId)(
       (fromExclusive, toInclusive) =>
         implicit loggingContext =>
-          dbDispatcher.executeSql(metrics.daml.index.db.main.loadStringInterningEntries) {
+          dbDispatcher.executeSql(metrics.daml.index.db.loadStringInterningEntries) {
             stringInterningStorageBackend.loadStringInterningEntries(
               fromExclusive,
               toInclusive,
@@ -169,7 +169,7 @@ object JdbcIndexer {
 
     def loadLfArchive(packageId: PackageId): Future[(PackageId, Array[Byte])] =
       dbDispatcher
-        .executeSql(metrics.daml.index.db.main.loadArchive)(connection =>
+        .executeSql(metrics.daml.index.db.loadArchive)(connection =>
           packageStorageBackend
             .lfArchive(packageId)(connection)
             .getOrElse(
@@ -180,7 +180,7 @@ object JdbcIndexer {
         .map(bytes => (packageId, bytes))
 
     def lfPackagesSource(): Future[Source[PackageId, NotUsed]] =
-      dbDispatcher.executeSql(metrics.daml.index.db.main.loadPackages)(connection =>
+      dbDispatcher.executeSql(metrics.daml.index.db.loadPackages)(connection =>
         Source(packageStorageBackend.lfPackages(connection).keySet)
       )
 

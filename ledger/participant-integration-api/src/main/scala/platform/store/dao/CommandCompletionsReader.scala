@@ -66,7 +66,7 @@ private[dao] final class CommandCompletionsReader(
           initialRange.copy(startExclusive = lastOffset)
         },
       ) { subRange: QueryRange[Offset] =>
-        dispatcher.executeSql(metrics.daml.index.db.main.getCompletions)(pruneSafeQuery(subRange))
+        dispatcher.executeSql(metrics.daml.index.db.getCompletions)(pruneSafeQuery(subRange))
       }
     source.map(response => offsetFor(response) -> response)
   }
