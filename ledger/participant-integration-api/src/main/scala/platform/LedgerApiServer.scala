@@ -9,7 +9,7 @@ import com.daml.api.util.TimeProvider
 import com.daml.ledger.api.auth.{
   AuthService,
   CachedJwtVerifierLoader,
-  ConfigLoader,
+  IdentityProviderConfigLoader,
   IdentityProviderAwareAuthService,
 }
 import com.daml.ledger.api.domain
@@ -152,7 +152,7 @@ class LedgerApiServer(
         cacheExpiryAfterWrite = apiServerConfig.identityProviderManagement.cacheExpiryAfterWrite,
         maxIdentityProviders = IdentityProviderManagementConfig.MaxIdentityProviders,
       )(servicesExecutionContext, loggingContext)
-    val identityProviderConfigLoader = new ConfigLoader {
+    val identityProviderConfigLoader = new IdentityProviderConfigLoader {
       override def getIdentityProviderConfig(issuer: LedgerId)(implicit
           loggingContext: LoggingContext
       ): Future[domain.IdentityProviderConfig] =
@@ -189,7 +189,7 @@ class LedgerApiServer(
       participantId = participantId,
       authService = new IdentityProviderAwareAuthService(
         defaultAuthService = authService,
-        configLoader = identityProviderConfigLoader,
+        identityProviderConfigLoader = identityProviderConfigLoader,
         jwtVerifierLoader = new CachedJwtVerifierLoader(
           jwtTimestampLeeway = participantConfig.jwtTimestampLeeway,
           metrics = metrics,
