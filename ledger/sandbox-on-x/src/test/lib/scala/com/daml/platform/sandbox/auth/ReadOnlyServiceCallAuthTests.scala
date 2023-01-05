@@ -25,25 +25,25 @@ trait ReadOnlyServiceCallAuthTests extends ServiceCallWithMainActorAuthTests {
       userPrefix: String,
       rights: Vector[proto.Right.Kind],
   ): Future[Any] =
-    createUserByAdmin(userPrefix + mainActor, rights.map(proto.Right(_)))
-      .flatMap { case (_, token) => serviceCallWithoutApplicationId(token) }
+    createUserByAdmin(userPrefix + mainActor, rights = rights.map(proto.Right(_)))
+      .flatMap { case (_, context) => serviceCall(context) }
 
   it should "deny calls with an expired read-only token" taggedAs securityAsset.setAttack(
     attackUnauthenticated(threat = "Present an expired read-only JWT")
   ) in {
-    expectUnauthenticated(serviceCallWithToken(canReadAsMainActorExpired))
+    expectUnauthenticated(serviceCall(canReadAsMainActorExpired))
   }
   it should "allow calls with explicitly non-expired read-only token" taggedAs securityAsset
     .setHappyCase(
       "Ledger API client can make a call with explicitly non-expired read-only token"
     ) in {
-    successfulBehavior(serviceCallWithToken(canReadAsMainActorExpiresTomorrow))
+    successfulBehavior(serviceCall(canReadAsMainActorExpiresTomorrow))
   }
   it should "allow calls with read-only token without expiration" taggedAs securityAsset
     .setHappyCase(
       "Ledger API client can make a call with read-only token without expiration"
     ) in {
-    successfulBehavior(serviceCallWithToken(canReadAsMainActor))
+    successfulBehavior(serviceCall(canReadAsMainActor))
   }
   it should "allow calls with user token that can-read-as main actor" taggedAs securityAsset
     .setHappyCase(
@@ -63,7 +63,9 @@ trait ReadOnlyServiceCallAuthTests extends ServiceCallWithMainActorAuthTests {
   it should "deny calls with 'participant_admin' user token" taggedAs securityAsset.setAttack(
     attackPermissionDenied(threat = "Present a 'participant_admin' user JWT")
   ) in {
-    expectPermissionDenied(serviceCallWithoutApplicationId(canReadAsAdminStandardJWT))
+    expectPermissionDenied(
+      serviceCall(canReadAsAdminStandardJWT.copy(includeApplicationId = false))
+    )
   }
   it should "deny calls with user token that cannot read as main actor" taggedAs securityAsset
     .setAttack(
@@ -77,25 +79,27 @@ trait ReadOnlyServiceCallAuthTests extends ServiceCallWithMainActorAuthTests {
     .setAttack(
       attackPermissionDenied(threat = "Present a non-expired 'unknown_user' user JWT")
     ) in {
-    expectPermissionDenied(serviceCallWithoutApplicationId(canReadAsUnknownUserStandardJWT))
+    expectPermissionDenied(
+      serviceCall(canReadAsUnknownUserStandardJWT.copy(includeApplicationId = false))
+    )
   }
 
   it should "deny calls with an expired read/write token" taggedAs securityAsset.setAttack(
     attackUnauthenticated(threat = "Present an expired read/write JWT")
   ) in {
-    expectUnauthenticated(serviceCallWithToken(canActAsMainActorExpired))
+    expectUnauthenticated(serviceCall(canActAsMainActorExpired))
   }
   it should "allow calls with explicitly non-expired read/write token" taggedAs securityAsset
     .setHappyCase(
       "Ledger API client can make a call with non-expired read/write token"
     ) in {
-    successfulBehavior(serviceCallWithToken(canActAsMainActorExpiresTomorrow))
+    successfulBehavior(serviceCall(canActAsMainActorExpiresTomorrow))
   }
   it should "allow calls with read/write token without expiration" taggedAs securityAsset
     .setHappyCase(
       "Ledger API client can make a call with read/write token without expiration"
     ) in {
-    successfulBehavior(serviceCallWithToken(canActAsMainActor))
+    successfulBehavior(serviceCall(canActAsMainActor))
   }
   it should "allow calls with user token that can-act-as main actor" taggedAs securityAsset
     .setHappyCase(
@@ -112,21 +116,21 @@ trait ReadOnlyServiceCallAuthTests extends ServiceCallWithMainActorAuthTests {
   it should "allow calls with the correct ledger ID" taggedAs securityAsset.setHappyCase(
     "Ledger API client can make a call with the correct ledger ID"
   ) in {
-    successfulBehavior(serviceCallWithToken(canReadAsMainActorActualLedgerId))
+    successfulBehavior(serviceCall(canReadAsMainActorActualLedgerId))
   }
   it should "deny calls with a random ledger ID" taggedAs securityAsset.setAttack(
     attackPermissionDenied(threat = "Present a JWT with an unknown ledger ID")
   ) in {
-    expectPermissionDenied(serviceCallWithToken(canReadAsMainActorRandomLedgerId))
+    expectPermissionDenied(serviceCall(canReadAsMainActorRandomLedgerId))
   }
   it should "allow calls with the correct participant ID" taggedAs securityAsset.setHappyCase(
     "Ledger API client can makes a call with the correct participant ID"
   ) in {
-    successfulBehavior(serviceCallWithToken(canReadAsMainActorActualParticipantId))
+    successfulBehavior(serviceCall(canReadAsMainActorActualParticipantId))
   }
   it should "deny calls with a random participant ID" taggedAs securityAsset.setAttack(
     attackPermissionDenied(threat = "Present a JWT with an unknown participant ID")
   ) in {
-    expectPermissionDenied(serviceCallWithToken(canReadAsMainActorRandomParticipantId))
+    expectPermissionDenied(serviceCall(canReadAsMainActorRandomParticipantId))
   }
 }

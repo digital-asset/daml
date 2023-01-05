@@ -15,8 +15,8 @@ final class GetLedgerIdentityAuthIT extends PublicServiceCallAuthTests {
 
   override def serviceCallName: String = "LedgerIdentityService#GetLedgerIdentity"
 
-  override def serviceCallWithToken(token: Option[String]): Future[Any] =
-    stub(LedgerIdentityServiceGrpc.stub(channel), token)
+  override def serviceCall(context: ServiceCallContext): Future[Any] =
+    stub(LedgerIdentityServiceGrpc.stub(channel), context.token)
       .getLedgerIdentity(GetLedgerIdentityRequest()): @nowarn(
       "cat=deprecation&origin=com\\.daml\\.ledger\\.api\\.v1\\.ledger_identity_service\\..*"
     )

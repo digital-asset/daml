@@ -13,10 +13,15 @@ final class SubmitMultiPartyAuthIT
 
   override def serviceCallName: String = "CommandSubmissionService#Submit"
 
-  override def serviceCallWithToken(
-      token: Option[String],
+  override def serviceCall(
+      context: ServiceCallContext,
       requestSubmitters: RequestSubmitters,
   ): Future[Any] =
-    submit(token, requestSubmitters.party, requestSubmitters.actAs, requestSubmitters.readAs)
+    submit(
+      context.token,
+      requestSubmitters.party,
+      requestSubmitters.actAs,
+      requestSubmitters.readAs,
+    )
 
 }

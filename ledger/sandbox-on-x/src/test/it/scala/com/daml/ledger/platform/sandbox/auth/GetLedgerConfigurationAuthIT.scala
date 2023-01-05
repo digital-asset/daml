@@ -16,9 +16,9 @@ final class GetLedgerConfigurationAuthIT extends PublicServiceCallAuthTests {
 
   override def serviceCallName: String = "LedgerConfigurationService#GetLedgerConfiguration"
 
-  override def serviceCallWithToken(token: Option[String]): Future[Any] =
+  override def serviceCall(context: ServiceCallContext): Future[Any] =
     new StreamConsumer[GetLedgerConfigurationResponse](
-      stub(LedgerConfigurationServiceGrpc.stub(channel), token)
+      stub(LedgerConfigurationServiceGrpc.stub(channel), context.token)
         .getLedgerConfiguration(new GetLedgerConfigurationRequest(unwrappedLedgerId), _)
     ).first()
 

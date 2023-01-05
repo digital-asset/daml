@@ -16,8 +16,8 @@ final class MeteringReportAuthIT extends AdminServiceCallAuthTests {
 
   override def serviceCallName: String = "MeteringReportService#GetMeteringReport"
 
-  override def serviceCallWithToken(token: Option[String]): Future[Any] =
-    stub(MeteringReportServiceGrpc.stub(channel), token)
+  override def serviceCall(context: ServiceCallContext): Future[Any] =
+    stub(MeteringReportServiceGrpc.stub(channel), context.token)
       .getMeteringReport(
         GetMeteringReportRequest.defaultInstance.withFrom(Timestamp.defaultInstance)
       )

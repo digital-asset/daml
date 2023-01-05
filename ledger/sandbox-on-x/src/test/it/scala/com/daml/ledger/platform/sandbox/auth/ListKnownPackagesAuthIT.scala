@@ -11,8 +11,8 @@ final class ListKnownPackagesAuthIT extends AdminServiceCallAuthTests {
 
   override def serviceCallName: String = "PackageManagementService#ListKnownPackages"
 
-  override def serviceCallWithToken(token: Option[String]): Future[Any] =
-    stub(PackageManagementServiceGrpc.stub(channel), token)
+  override def serviceCall(context: ServiceCallContext): Future[Any] =
+    stub(PackageManagementServiceGrpc.stub(channel), context.token)
       .listKnownPackages(ListKnownPackagesRequest())
 
 }

@@ -11,10 +11,10 @@ final class SetTimeAuthIT extends AdminServiceCallAuthTests with TimeAuth {
 
   override def serviceCallName: String = "TimeService#SetTime"
 
-  override def serviceCallWithToken(token: Option[String]): Future[Any] = {
+  override def serviceCall(context: ServiceCallContext): Future[Any] = {
     for {
-      response <- loadTimeNow(token)
-      _ <- stub(TimeServiceGrpc.stub(channel), token)
+      response <- loadTimeNow(context.token)
+      _ <- stub(TimeServiceGrpc.stub(channel), context.token)
         .setTime(
           new SetTimeRequest(
             currentTime = response.get.currentTime,

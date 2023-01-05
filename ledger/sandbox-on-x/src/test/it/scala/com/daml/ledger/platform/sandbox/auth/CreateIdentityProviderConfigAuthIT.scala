@@ -5,10 +5,14 @@ package com.daml.platform.sandbox.auth
 
 import scala.concurrent.Future
 
-final class CreateUserAuthIT extends AdminServiceCallAuthTests with UserManagementAuth {
+final class CreateIdentityProviderConfigAuthIT
+    extends AdminServiceCallAuthTests
+    with IdentityProviderConfigAuth {
 
-  override def serviceCallName: String = "UserManagementService#CreateUser"
+  override def serviceCallName: String =
+    "IdentityProviderConfigService#CreateIdentityProviderConfig"
 
   override def serviceCall(context: ServiceCallContext): Future[Any] =
-    createFreshUser(context.token, context.identityProviderId)
+    createConfig(context)
+
 }

@@ -12,16 +12,15 @@ final class UpdateUserAuthIT extends AdminServiceCallAuthTests with UserManageme
 
   override def serviceCallName: String = "UserManagementService#UpdateUser"
 
-  override def serviceCallWithToken(token: Option[String]): Future[Any] = {
+  override def serviceCall(context: ServiceCallContext): Future[Any] =
     for {
-      response <- createFreshUser(token)
-      _ <- stub(token).updateUser(
+      response <- createFreshUser(context.token, context.identityProviderId)
+      _ <- stub(context.token).updateUser(
         UpdateUserRequest(
           user = response.user,
           updateMask = Some(FieldMask(scala.Seq("is_deactivated"))),
         )
       )
     } yield ()
-  }
 
 }

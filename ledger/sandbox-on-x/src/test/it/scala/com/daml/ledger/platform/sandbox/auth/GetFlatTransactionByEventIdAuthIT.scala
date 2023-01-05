@@ -24,7 +24,7 @@ final class GetFlatTransactionByEventIdAuthIT extends ReadOnlyServiceCallAuthTes
   private lazy val request =
     new GetTransactionByEventIdRequest(unwrappedLedgerId, UUID.randomUUID.toString, List(mainActor))
 
-  override def serviceCallWithToken(token: Option[String]): Future[Any] =
-    stub(TransactionServiceGrpc.stub(channel), token).getFlatTransactionByEventId(request)
+  override def serviceCall(context: ServiceCallContext): Future[Any] =
+    stub(TransactionServiceGrpc.stub(channel), context.token).getFlatTransactionByEventId(request)
 
 }

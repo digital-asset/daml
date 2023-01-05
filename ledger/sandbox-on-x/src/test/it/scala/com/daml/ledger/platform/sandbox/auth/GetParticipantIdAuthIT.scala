@@ -11,8 +11,8 @@ final class GetParticipantIdAuthIT extends AdminServiceCallAuthTests {
 
   override def serviceCallName: String = "PartyManagementService#GetParticipantId"
 
-  override def serviceCallWithToken(token: Option[String]): Future[Any] =
-    stub(PartyManagementServiceGrpc.stub(channel), token)
+  override def serviceCall(context: ServiceCallContext): Future[Any] =
+    stub(PartyManagementServiceGrpc.stub(channel), context.token)
       .getParticipantId(GetParticipantIdRequest())
 
 }

@@ -16,24 +16,32 @@ class ListUserRightsWithGivenUserIdAuthIT
 
   override def serviceCallName: String = "UserManagementService#ListUserRights(given-user-id)"
 
-  // only admin users are allowed to specify a user-id other than their own for which to retrieve a user
-  override def serviceCallWithToken(token: Option[String]): Future[Any] = {
+  // admin and idp admin users are allowed to specify a user-id other than their own for which to retrieve a user
+  override def serviceCall(context: ServiceCallContext): Future[Any] = {
+    import context._
     val testId = UUID.randomUUID().toString
 
     def getRights(userId: String): Future[ListUserRightsResponse] =
-      stub(token).listUserRights(ListUserRightsRequest(userId))
+      stub(token).listUserRights(
+        ListUserRightsRequest(userId, identityProviderId = identityProviderId)
+      )
 
     for {
-      // create a normal users
-      (alice, _) <- createUserByAdmin(testId + "-alice")
+      // create a normal user
+      (alice, _) <- createUserByAdmin(testId + "-alice", identityProviderId)
 
       // test that only admins can retrieve his own user and the newly created alice user
       _ <- getRights("participant_admin")
       _ <- getRights(alice.id)
 
       // test for a non-existent user
-      _ <- stub(UserManagementServiceGrpc.stub(channel), token)
-        .listUserRights(ListUserRightsRequest("non-existent-user-" + UUID.randomUUID().toString))
+      _ <- stub(UserManagementServiceGrpc.stub(channel), context.token)
+        .listUserRights(
+          ListUserRightsRequest(
+            "non-existent-user-" + UUID.randomUUID().toString,
+            identityProviderId = identityProviderId,
+          )
+        )
         .transform({
           case scala.util.Success(u) =>
             scala.util.Failure(new RuntimeException(s"User $u unexpectedly exists."))

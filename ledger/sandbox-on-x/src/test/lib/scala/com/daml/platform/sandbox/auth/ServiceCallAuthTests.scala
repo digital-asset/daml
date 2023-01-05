@@ -19,9 +19,9 @@ import io.grpc.stub.AbstractStub
 import org.scalatest.Assertion
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
+
 import java.time.Duration
 import java.util.UUID
-
 import scala.concurrent.Future
 import scala.util.control.NonFatal
 
@@ -69,16 +69,10 @@ trait ServiceCallAuthTests
 
   override def beforeAll(): Unit = {
     super.beforeAll()
-    createPrerequisiteParties(canReadAsAdminStandardJWT, prerequisiteParties)
+    createPrerequisiteParties(canReadAsAdminStandardJWT.token, prerequisiteParties)
   }
 
-  protected def serviceCallWithToken(token: Option[String]): Future[Any]
-
-  /** Override this method in requests that require an application-id. Tests that use a user token
-    * will call this method to avoid application_id checks from failing.
-    */
-  protected def serviceCallWithoutApplicationId(token: Option[String]): Future[Any] =
-    serviceCallWithToken(token)
+  protected def serviceCall(context: ServiceCallContext): Future[Any]
 
   protected def stub[A <: AbstractStub[A]](stub: A, token: Option[String]): A =
     token.fold(stub)(LedgerCallCredentials.authenticatingStub(stub, _))
@@ -109,99 +103,125 @@ trait ServiceCallAuthTests
     LedgerOffset(LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_BEGIN))
 
   protected val randomParty: String = UUID.randomUUID.toString
-  protected val canActAsRandomParty: Option[String] =
+  protected val noToken: ServiceCallContext = ServiceCallContext(None)
+  protected val canActAsRandomParty: ServiceCallContext = ServiceCallContext(
     Option(toHeader(readWriteToken(randomParty)))
-  protected val canActAsRandomPartyExpired: Option[String] =
+  )
+  protected val canActAsRandomPartyExpired: ServiceCallContext = ServiceCallContext(
     Option(
       toHeader(expiringIn(Duration.ofDays(-1), readWriteToken(UUID.randomUUID.toString)))
     )
-  protected val canActAsRandomPartyExpiresTomorrow: Option[String] =
+  )
+  protected val canActAsRandomPartyExpiresTomorrow: ServiceCallContext = ServiceCallContext(
     Option(
       toHeader(expiringIn(Duration.ofDays(1), readWriteToken(UUID.randomUUID.toString)))
     )
+  )
 
-  protected val canReadAsRandomParty: Option[String] =
+  protected val canReadAsRandomParty: ServiceCallContext = ServiceCallContext(
     Option(toHeader(readOnlyToken(randomParty)))
-  protected val canReadAsRandomPartyExpired: Option[String] =
+  )
+  protected val canReadAsRandomPartyExpired: ServiceCallContext = ServiceCallContext(
     Option(
       toHeader(expiringIn(Duration.ofDays(-1), readOnlyToken(UUID.randomUUID.toString)))
     )
-  protected val canReadAsRandomPartyExpiresTomorrow: Option[String] =
+  )
+  protected val canReadAsRandomPartyExpiresTomorrow: ServiceCallContext = ServiceCallContext(
     Option(
       toHeader(expiringIn(Duration.ofDays(1), readOnlyToken(UUID.randomUUID.toString)))
     )
+  )
 
-  protected val canReadAsAdmin: Option[String] =
+  protected val canReadAsAdmin: ServiceCallContext = ServiceCallContext(
     Option(toHeader(adminToken))
+  )
 
-  protected val canReadAsAdminExpired: Option[String] =
+  protected val canReadAsAdminExpired: ServiceCallContext = ServiceCallContext(
     Option(toHeader(expiringIn(Duration.ofDays(-1), adminToken)))
-  protected val canReadAsAdminExpiresTomorrow: Option[String] =
+  )
+  protected val canReadAsAdminExpiresTomorrow: ServiceCallContext = ServiceCallContext(
     Option(toHeader(expiringIn(Duration.ofDays(1), adminToken)))
+  )
 
   // Standard tokens for user authentication
-  protected val canReadAsAdminStandardJWT: Option[String] =
+  protected val canReadAsAdminStandardJWT: ServiceCallContext = ServiceCallContext(
     Option(toHeader(adminTokenStandardJWT))
-  protected val canReadAsUnknownUserStandardJWT: Option[String] =
+  )
+  protected val canReadAsUnknownUserStandardJWT: ServiceCallContext = ServiceCallContext(
     Option(toHeader(unknownUserTokenStandardJWT))
-  protected val canReadAsInvalidUserStandardJWT: Option[String] =
+  )
+  protected val canReadAsInvalidUserStandardJWT: ServiceCallContext = ServiceCallContext(
     Option(toHeader(invalidUserTokenStandardJWT))
+  )
 
   // Special tokens to test decoding users and rights from custom tokens
-  protected val randomUserCanReadAsRandomParty: Option[String] =
+  protected val randomUserCanReadAsRandomParty: ServiceCallContext = ServiceCallContext(
     Option(toHeader(readOnlyToken(randomParty).copy(applicationId = Some(randomUserId()))))
-  protected val randomUserCanActAsRandomParty: Option[String] =
+  )
+  protected val randomUserCanActAsRandomParty: ServiceCallContext = ServiceCallContext(
     Option(
       toHeader(readWriteToken(randomParty).copy(applicationId = Some(randomUserId())))
     )
+  )
 
   // Note: lazy val, because the ledger ID is only known after the sandbox start
-  protected lazy val canReadAsRandomPartyActualLedgerId: Option[String] =
+  protected lazy val canReadAsRandomPartyActualLedgerId: ServiceCallContext = ServiceCallContext(
     Option(
       toHeader(forLedgerId(unwrappedLedgerId, readOnlyToken(UUID.randomUUID.toString)))
     )
-  protected val canReadAsRandomPartyRandomLedgerId: Option[String] =
+  )
+  protected val canReadAsRandomPartyRandomLedgerId: ServiceCallContext = ServiceCallContext(
     Option(
       toHeader(
         forLedgerId(UUID.randomUUID.toString, readOnlyToken(UUID.randomUUID.toString))
       )
     )
-  protected val canReadAsRandomPartyActualParticipantId: Option[String] =
+  )
+  protected val canReadAsRandomPartyActualParticipantId: ServiceCallContext = ServiceCallContext(
     Option(
       toHeader(
         forParticipantId("sandbox-participant", readOnlyToken(UUID.randomUUID.toString))
       )
     )
-  protected val canReadAsRandomPartyRandomParticipantId: Option[String] =
+  )
+  protected val canReadAsRandomPartyRandomParticipantId: ServiceCallContext = ServiceCallContext(
     Option(
       toHeader(
         forParticipantId(UUID.randomUUID.toString, readOnlyToken(UUID.randomUUID.toString))
       )
     )
+  )
 
   // Note: lazy val, because the ledger ID is only known after the sandbox start
-  protected lazy val canReadAsAdminActualLedgerId: Option[String] =
+  protected lazy val canReadAsAdminActualLedgerId: ServiceCallContext = ServiceCallContext(
     Option(toHeader(forLedgerId(unwrappedLedgerId, adminToken)))
-  protected val canReadAsAdminRandomLedgerId: Option[String] =
+  )
+  protected val canReadAsAdminRandomLedgerId: ServiceCallContext = ServiceCallContext(
     Option(toHeader(forLedgerId(UUID.randomUUID.toString, adminToken)))
-  protected val canReadAsAdminActualParticipantId: Option[String] =
+  )
+  protected val canReadAsAdminActualParticipantId: ServiceCallContext = ServiceCallContext(
     Option(toHeader(forParticipantId("sandbox-participant", adminToken)))
-  protected val canReadAsAdminRandomParticipantId: Option[String] =
+  )
+  protected val canReadAsAdminRandomParticipantId: ServiceCallContext = ServiceCallContext(
     Option(toHeader(forParticipantId(UUID.randomUUID.toString, adminToken)))
+  )
 
   protected def createUserByAdmin(
       userId: String,
+      identityProviderId: String = "",
       rights: Vector[proto.Right] = Vector.empty,
-  ): Future[(proto.User, Option[String])] = {
-    val userToken = Option(toHeader(standardToken(userId)))
+      tokenIssuer: Option[String] = None,
+  ): Future[(proto.User, ServiceCallContext)] = {
+    val userToken = Option(toHeader(standardToken(userId, issuer = tokenIssuer)))
     val user = proto.User(
       id = userId,
       metadata = Some(ObjectMeta()),
+      identityProviderId = identityProviderId,
     )
     val req = proto.CreateUserRequest(Some(user), rights)
-    stub(proto.UserManagementServiceGrpc.stub(channel), canReadAsAdminStandardJWT)
+    stub(proto.UserManagementServiceGrpc.stub(channel), canReadAsAdminStandardJWT.token)
       .createUser(req)
-      .map(res => (res.user.get, userToken))
+      .map(res => (res.user.get, ServiceCallContext(userToken, true, identityProviderId)))
   }
 
   protected def updateUser(

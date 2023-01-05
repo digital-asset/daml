@@ -14,28 +14,28 @@ trait PublicServiceCallAuthTests extends SecuredServiceCallAuthTests {
   protected override def prerequisiteParties: List[String] = List(randomParty)
 
   protected def serviceCallWithPayload(payload: AuthServiceJWTPayload): Future[Any] =
-    serviceCallWithToken(Some(toHeader(payload)))
+    serviceCall(ServiceCallContext(Some(toHeader(payload))))
 
   it should "deny calls with an expired read-only token" taggedAs securityAsset.setAttack(
     attackUnauthenticated(threat = "Present an expired read-only JWT")
   ) in {
-    expectUnauthenticated(serviceCallWithToken(canReadAsRandomPartyExpired))
+    expectUnauthenticated(serviceCall(canReadAsRandomPartyExpired))
   }
 
   it should "allow calls with explicitly non-expired read-only token" taggedAs securityAsset
     .setHappyCase("Ledger API client can make a call with token expiring tomorrow") in {
-    expectSuccess(serviceCallWithToken(canReadAsRandomPartyExpiresTomorrow))
+    expectSuccess(serviceCall(canReadAsRandomPartyExpiresTomorrow))
   }
 
   it should "allow calls with read-only token without expiration" taggedAs securityAsset
     .setHappyCase("Ledger API client can make a call with token without expiration") in {
-    expectSuccess(serviceCallWithToken(canReadAsRandomParty))
+    expectSuccess(serviceCall(canReadAsRandomParty))
   }
 
   it should "allow calls with 'participant_admin' user token" taggedAs securityAsset.setHappyCase(
     "Connect with `participant_admin` token"
   ) in {
-    expectSuccess(serviceCallWithToken(canReadAsAdminStandardJWT))
+    expectSuccess(serviceCall(canReadAsAdminStandardJWT))
   }
 
   it should "allow calls with non-expired 'participant_admin' user token" taggedAs securityAsset
@@ -80,73 +80,73 @@ trait PublicServiceCallAuthTests extends SecuredServiceCallAuthTests {
   ) in {
     expectSuccess(
       createUserByAdmin(UUID.randomUUID().toString)
-        .flatMap { case (_, token) => serviceCallWithToken(token) }
+        .flatMap { case (_, context) => serviceCall(context) }
     )
   }
   it should "deny calls with non-expired 'unknown_user' user token" taggedAs securityAsset
     .setAttack(
       attackPermissionDenied(threat = "Present a non-expired 'unknown_user' user JWT")
     ) in {
-    expectPermissionDenied(serviceCallWithToken(canReadAsUnknownUserStandardJWT))
+    expectPermissionDenied(serviceCall(canReadAsUnknownUserStandardJWT))
   }
 
   it should "deny calls with an expired read/write token" taggedAs securityAsset.setAttack(
     attackPermissionDenied(threat = "Present an expired read/write JWT")
   ) in {
-    expectUnauthenticated(serviceCallWithToken(canActAsRandomPartyExpired))
+    expectUnauthenticated(serviceCall(canActAsRandomPartyExpired))
   }
   it should "allow calls with explicitly non-expired read/write token" taggedAs securityAsset
     .setHappyCase(
       "Ledger API client can make a call with explicitly non-expired read/write token"
     ) in {
-    expectSuccess(serviceCallWithToken(canActAsRandomPartyExpiresTomorrow))
+    expectSuccess(serviceCall(canActAsRandomPartyExpiresTomorrow))
   }
   it should "allow calls with read/write token without expiration" taggedAs securityAsset
     .setHappyCase(
       "Ledger API client can make a call with read/write token without expiration"
     ) in {
-    expectSuccess(serviceCallWithToken(canActAsRandomParty))
+    expectSuccess(serviceCall(canActAsRandomParty))
   }
 
   it should "deny calls with an expired admin token" taggedAs securityAsset.setAttack(
     attackUnauthenticated(threat = "Present an expired admin JWT")
   ) in {
-    expectUnauthenticated(serviceCallWithToken(canReadAsAdminExpired))
+    expectUnauthenticated(serviceCall(canReadAsAdminExpired))
   }
   it should "allow calls with explicitly non-expired admin token" taggedAs securityAsset
     .setHappyCase(
       "Ledger API client can make a call with explicitly non-expired admin token"
     ) in {
-    expectSuccess(serviceCallWithToken(canReadAsAdminExpiresTomorrow))
+    expectSuccess(serviceCall(canReadAsAdminExpiresTomorrow))
   }
 
   it should "allow calls with admin token without expiration" taggedAs securityAsset.setHappyCase(
     "Ledger API client can make a call with admin token without expiration"
   ) in {
-    expectSuccess(serviceCallWithToken(canReadAsAdmin))
+    expectSuccess(serviceCall(canReadAsAdmin))
   }
 
   it should "allow calls with the correct ledger ID" taggedAs securityAsset.setHappyCase(
     "Ledger API client can make a call with the correct ledger ID"
   ) in {
-    expectSuccess(serviceCallWithToken(canReadAsRandomPartyActualLedgerId))
+    expectSuccess(serviceCall(canReadAsRandomPartyActualLedgerId))
   }
 
   it should "deny calls with a random ledger ID" taggedAs securityAsset.setAttack(
     attackPermissionDenied(threat = "Present a JWT with an unknown ledger ID")
   ) in {
-    expectPermissionDenied(serviceCallWithToken(canReadAsRandomPartyRandomLedgerId))
+    expectPermissionDenied(serviceCall(canReadAsRandomPartyRandomLedgerId))
   }
 
   it should "allow calls with the correct participant ID" taggedAs securityAsset.setHappyCase(
     "Ledger API client can make a call with the correct participant ID"
   ) in {
-    expectSuccess(serviceCallWithToken(canReadAsRandomPartyActualParticipantId))
+    expectSuccess(serviceCall(canReadAsRandomPartyActualParticipantId))
   }
 
   it should "deny calls with a random participant ID" taggedAs securityAsset.setAttack(
     attackPermissionDenied(threat = "Present a JWT with an unknown participant ID")
   ) in {
-    expectPermissionDenied(serviceCallWithToken(canReadAsRandomPartyRandomParticipantId))
+    expectPermissionDenied(serviceCall(canReadAsRandomPartyRandomParticipantId))
   }
 }
