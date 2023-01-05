@@ -8,7 +8,7 @@ import com.daml.logging.LoggingContext
 
 import scala.concurrent.Future
 
-trait ConfigLoader {
+trait IdentityProviderConfigLoader {
 
   def getIdentityProviderConfig(issuer: String)(implicit
       loggingContext: LoggingContext

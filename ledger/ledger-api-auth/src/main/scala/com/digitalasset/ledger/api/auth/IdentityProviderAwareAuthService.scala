@@ -17,7 +17,7 @@ import scala.jdk.FutureConverters.FutureOps
 
 class IdentityProviderAwareAuthService(
     defaultAuthService: AuthService,
-    configLoader: ConfigLoader,
+    identityProviderConfigLoader: IdentityProviderConfigLoader,
     jwtVerifierLoader: JwtVerifierLoader,
 )(implicit
     executionContext: ExecutionContext,
@@ -74,7 +74,7 @@ class IdentityProviderAwareAuthService(
       case None => Future.successful(ClaimSet.Unauthenticated)
       case Some(issuer) =>
         for {
-          identityProviderConfig <- configLoader
+          identityProviderConfig <- identityProviderConfigLoader
             .getIdentityProviderConfig(issuer)
           verifier <- jwtVerifierLoader.loadJwtVerifier(
             jwksUrl = identityProviderConfig.jwksUrl,
