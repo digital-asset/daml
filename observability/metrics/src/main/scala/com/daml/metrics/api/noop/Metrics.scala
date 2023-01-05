@@ -10,7 +10,7 @@ import com.daml.metrics.api.MetricHandle.Timer.TimerHandle
 import com.daml.metrics.api.MetricHandle.{Counter, Gauge, Histogram, Meter, Timer}
 import com.daml.metrics.api.MetricsContext
 
-sealed case class NoOpTimer(name: String) extends Timer {
+case class NoOpTimer(name: String) extends Timer {
   override def update(duration: Long, unit: TimeUnit)(implicit
       context: MetricsContext = MetricsContext.Empty
   ): Unit = ()
