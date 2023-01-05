@@ -47,10 +47,11 @@ final class CompletionStreamAuthIT
       rights: Vector[proto.Right.Kind],
   ): Future[Any] =
     for {
-      (_, token) <- createUserByAdmin(userPrefix + mainActor, rights = rights.map(proto.Right(_)))
-      _ <- submitAndWait(token, "", party = mainActor)
-      context = ServiceCallContext(token, false)
-      _ <- new StreamConsumer[CompletionStreamResponse](streamFor("", context)).first()
+      (_, context) <- createUserByAdmin(userPrefix + mainActor, rights = rights.map(proto.Right(_)))
+      _ <- submitAndWait(context.token, "", party = mainActor)
+      _ <- new StreamConsumer[CompletionStreamResponse](
+        streamFor("", context.copy(includeApplicationId = false))
+      ).first()
     } yield ()
 
   // The completion stream is the one read-only endpoint where the application

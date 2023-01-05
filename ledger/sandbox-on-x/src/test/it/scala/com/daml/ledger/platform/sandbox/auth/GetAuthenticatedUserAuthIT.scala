@@ -24,13 +24,15 @@ class GetAuthenticatedUserAuthIT extends ServiceCallAuthTests {
   override def serviceCallName: String = "UserManagementService#GetUser(<authenticated-user>)"
 
   override def serviceCall(context: ServiceCallContext): Future[Any] =
-    stub(UserManagementServiceGrpc.stub(channel), context.token).getUser(GetUserRequest())
+    stub(UserManagementServiceGrpc.stub(channel), context.token)
+      .getUser(GetUserRequest(identityProviderId = context.identityProviderId))
 
   private def expectUser(context: ServiceCallContext, expectedUser: User): Future[Assertion] =
     serviceCall(context).map(assertResult(GetUserResponse(Some(expectedUser)))(_))
 
-  private def getUser(token: Option[String], userId: String) =
-    stub(UserManagementServiceGrpc.stub(channel), token).getUser(GetUserRequest(userId))
+  private def getUser(context: ServiceCallContext, userId: String) =
+    stub(UserManagementServiceGrpc.stub(channel), context.token)
+      .getUser(GetUserRequest(userId, identityProviderId = context.identityProviderId))
 
   behavior of serviceCallName
 
@@ -74,11 +76,11 @@ class GetAuthenticatedUserAuthIT extends ServiceCallAuthTests {
     ) in {
     for {
       // admin creates user
-      (alice, aliceToken) <- createUserByAdmin(testId + "-alice")
+      (alice, aliceTokenContext) <- createUserByAdmin(testId + "-alice")
       // user accesses its own user record without specifying the id
-      aliceRetrieved1 <- getUser(aliceToken, "")
+      aliceRetrieved1 <- getUser(aliceTokenContext, "")
       // user accesses its own user record with specifying the id
-      aliceRetrieved2 <- getUser(aliceToken, alice.id)
+      aliceRetrieved2 <- getUser(aliceTokenContext, alice.id)
       expected = GetUserResponse(Some(alice))
     } yield assertResult((expected, expected))((aliceRetrieved1, aliceRetrieved2))
   }

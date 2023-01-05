@@ -27,6 +27,8 @@ class GetUserWithGivenUserIdAuthIT extends AdminServiceCallAuthTests {
       // create a normal users
       (alice, _) <- createUserByAdmin(testId + "-alice", identityProviderId = identityProviderId)
 
+      // test that only admins can retrieve his own user and the newly created alice user
+      _ <- getUser("participant_admin")
       _ <- getUser(alice.id)
 
       // test for a non-existent user

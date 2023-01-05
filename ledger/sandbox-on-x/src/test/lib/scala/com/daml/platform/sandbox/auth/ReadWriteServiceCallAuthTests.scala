@@ -15,8 +15,8 @@ trait ReadWriteServiceCallAuthTests extends ServiceCallWithMainActorAuthTests {
       right: proto.Right.Kind,
   ): Future[Any] =
     createUserByAdmin(userPrefix + mainActor, rights = Vector(proto.Right(right)))
-      .flatMap { case (_, token) =>
-        serviceCall(ServiceCallContext(token, includeApplicationId = false))
+      .flatMap { case (_, context) =>
+        serviceCall(context.copy(includeApplicationId = false))
       }
 
   protected override def prerequisiteParties: List[String] = List(mainActor)

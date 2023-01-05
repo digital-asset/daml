@@ -17,7 +17,7 @@ trait AdminServiceCallAuthTests extends SecuredServiceCallAuthTests {
 
   protected def serviceCallWithFreshUser(rights: Vector[proto.Right.Kind]): Future[Any] =
     createUserByAdmin(UUID.randomUUID().toString, rights = rights.map(proto.Right(_)))
-      .flatMap { case (_, token) => serviceCall(ServiceCallContext(token)) }
+      .flatMap { case (_, context) => serviceCall(context) }
 
   it should "deny calls with an invalid signature" taggedAs adminSecurityAsset.setAttack(
     attackUnauthenticated(threat = "Present an admin JWT signed by unknown key")

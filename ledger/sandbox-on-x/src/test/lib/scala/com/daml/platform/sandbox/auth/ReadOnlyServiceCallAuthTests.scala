@@ -26,7 +26,7 @@ trait ReadOnlyServiceCallAuthTests extends ServiceCallWithMainActorAuthTests {
       rights: Vector[proto.Right.Kind],
   ): Future[Any] =
     createUserByAdmin(userPrefix + mainActor, rights = rights.map(proto.Right(_)))
-      .flatMap { case (_, token) => serviceCall(ServiceCallContext(token)) }
+      .flatMap { case (_, context) => serviceCall(context) }
 
   it should "deny calls with an expired read-only token" taggedAs securityAsset.setAttack(
     attackUnauthenticated(threat = "Present an expired read-only JWT")

@@ -30,6 +30,8 @@ class ListUserRightsWithGivenUserIdAuthIT
       // create a normal users
       (alice, _) <- createUserByAdmin(testId + "-alice", identityProviderId)
 
+      // test that only admins can retrieve his own user and the newly created alice user
+      _ <- getRights("participant_admin")
       _ <- getRights(alice.id)
 
       // test for a non-existent user

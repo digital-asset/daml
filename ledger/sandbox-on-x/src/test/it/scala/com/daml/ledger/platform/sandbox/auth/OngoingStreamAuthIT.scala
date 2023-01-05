@@ -94,15 +94,15 @@ final class OngoingStreamAuthIT
 
     val canActAsAlice = Right(Right.Kind.CanActAs(Right.CanActAs(partyAlice)))
     for {
-      (userAlice, tokenAlice) <- createUserByAdmin(
+      (userAlice, aliceContext) <- createUserByAdmin(
         userId = userIdAlice,
         rights = Vector(canActAsAlice),
       )
       applicationId = userAlice.id
       submitAndWaitF = () =>
-        submitAndWait(token = tokenAlice, party = partyAlice, applicationId = applicationId)
+        submitAndWait(token = aliceContext.token, party = partyAlice, applicationId = applicationId)
       _ <- submitAndWaitF()
-      _ = observeTransactionsStream(tokenAlice, partyAlice)
+      _ = observeTransactionsStream(aliceContext.token, partyAlice)
       _ <- submitAndWaitF()
       // Making a change to the user Alice
       _ <- grantUserRightsByAdmin(
@@ -182,15 +182,19 @@ final class OngoingStreamAuthIT
 
     val canActAsAlice = Right(Right.Kind.CanActAs(Right.CanActAs(partyAlice2)))
     for {
-      (userAlice, tokenAlice) <- createUserByAdmin(
+      (userAlice, aliceContext) <- createUserByAdmin(
         userId = userIdAlice,
         rights = Vector(canActAsAlice),
       )
       applicationId = userAlice.id
       submitAndWaitF = () =>
-        submitAndWait(token = tokenAlice, party = partyAlice2, applicationId = applicationId)
+        submitAndWait(
+          token = aliceContext.token,
+          party = partyAlice2,
+          applicationId = applicationId,
+        )
       _ <- submitAndWaitF()
-      _ = observeTransactionsStream(tokenAlice, partyAlice2)
+      _ = observeTransactionsStream(aliceContext.token, partyAlice2)
       _ <- submitAndWaitF()
       // Deactivating Alice user:
       _ <- deactivateUserByAdmin(userId = userIdAlice)

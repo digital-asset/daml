@@ -211,7 +211,7 @@ trait ServiceCallAuthTests
       identityProviderId: String = "",
       rights: Vector[proto.Right] = Vector.empty,
       tokenIssuer: Option[String] = None,
-  ): Future[(proto.User, Option[String])] = {
+  ): Future[(proto.User, ServiceCallContext)] = {
     val userToken = Option(toHeader(standardToken(userId, issuer = tokenIssuer)))
     val user = proto.User(
       id = userId,
@@ -221,7 +221,7 @@ trait ServiceCallAuthTests
     val req = proto.CreateUserRequest(Some(user), rights)
     stub(proto.UserManagementServiceGrpc.stub(channel), canReadAsAdminStandardJWT.token)
       .createUser(req)
-      .map(res => (res.user.get, userToken))
+      .map(res => (res.user.get, ServiceCallContext(userToken, true, identityProviderId)))
   }
 
   protected def updateUser(

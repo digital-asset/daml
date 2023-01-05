@@ -80,7 +80,7 @@ trait PublicServiceCallAuthTests extends SecuredServiceCallAuthTests {
   ) in {
     expectSuccess(
       createUserByAdmin(UUID.randomUUID().toString)
-        .flatMap { case (_, token) => serviceCall(ServiceCallContext(token)) }
+        .flatMap { case (_, context) => serviceCall(context) }
     )
   }
   it should "deny calls with non-expired 'unknown_user' user token" taggedAs securityAsset

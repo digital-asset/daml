@@ -18,7 +18,7 @@ class ListAuthenticatedUserRightsAuthIT extends ServiceCallAuthTests {
 
   protected def serviceCall(context: ServiceCallContext): Future[Any] =
     stub(UserManagementServiceGrpc.stub(channel), context.token)
-      .listUserRights(ListUserRightsRequest())
+      .listUserRights(ListUserRightsRequest(identityProviderId = context.identityProviderId))
 
   protected def expectRights(
       context: ServiceCallContext,
@@ -26,9 +26,11 @@ class ListAuthenticatedUserRightsAuthIT extends ServiceCallAuthTests {
   ): Future[Assertion] =
     serviceCall(context).map(assertResult(ListUserRightsResponse(expectedRights))(_))
 
-  private def getRights(token: Option[String], userId: String) =
-    stub(UserManagementServiceGrpc.stub(channel), token)
-      .listUserRights(ListUserRightsRequest(userId))
+  private def getRights(context: ServiceCallContext, userId: String) =
+    stub(UserManagementServiceGrpc.stub(channel), context.token)
+      .listUserRights(
+        ListUserRightsRequest(userId, identityProviderId = context.identityProviderId)
+      )
 
   behavior of serviceCallName
 
@@ -64,11 +66,11 @@ class ListAuthenticatedUserRightsAuthIT extends ServiceCallAuthTests {
     val expectedRights = ListUserRightsResponse(Vector.empty)
     for {
       // admin creates user
-      (alice, aliceToken) <- createUserByAdmin(testId + "-alice")
+      (alice, aliceContext) <- createUserByAdmin(testId + "-alice")
       // user accesses its own user record without specifying the id
-      aliceRetrieved1 <- getRights(aliceToken, "")
+      aliceRetrieved1 <- getRights(aliceContext, "")
       // user accesses its own user record with specifying the id
-      aliceRetrieved2 <- getRights(aliceToken, alice.id)
+      aliceRetrieved2 <- getRights(aliceContext, alice.id)
 
     } yield assertResult((expectedRights, expectedRights))((aliceRetrieved1, aliceRetrieved2))
   }
