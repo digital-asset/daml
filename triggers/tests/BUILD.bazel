@@ -117,7 +117,6 @@ da_scala_library(
         "//ledger/test-common",
         "//libs-scala/ports",
         "//libs-scala/resources",
-        "//observability/telemetry",
         "//triggers/runner:trigger-runner-lib",
         "@maven//:org_scalatest_scalatest_compatible",
     ],
