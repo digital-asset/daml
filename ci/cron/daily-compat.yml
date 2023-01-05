@@ -359,9 +359,8 @@ jobs:
         bad_file=daml-script/test/src/test-utils/com/daml/lf/engine/script/test/MultiParticipantFixture.scala
 
         sed -i 's|"external/canton/lib/.*|"'$canton_local_path'"|' $bad_file
-        cat <<EOF > canton_dep.bzl
-        # Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
-        # SPDX-License-Identifier: Apache-2.0
+        cp COPY canton_dep.bzl
+        cat <<EOF >> canton_dep.bzl
 
         canton = {
             "sha": "$canton_sha",
