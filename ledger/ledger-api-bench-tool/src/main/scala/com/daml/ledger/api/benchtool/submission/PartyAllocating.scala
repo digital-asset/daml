@@ -30,7 +30,7 @@ class PartyAllocating(
     val observersPartySetParties: Map[String, List[String]] = {
       config.observerPartySets.map { partySet =>
         val parties = names
-          .partyNames(
+          .partySetPartyName(
             prefix = partySet.partyNamePrefix,
             numberOfParties = partySet.count,
             uniqueParties = config.uniqueParties,

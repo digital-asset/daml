@@ -38,7 +38,8 @@ class ConfigEnricherSpec extends AnyFlatSpec with Matchers {
         observerPartySets = List(
           AllocatedPartySet(
             partyNamePrefix = "MyParty",
-            List("MyParty-0", "MyParty-1").map(makeParty),
+            List("MyParty-0", "MyParty-1", "MyParty-11", "MyParty-12")
+              .map(makeParty),
           )
         ),
       ),
@@ -71,7 +72,7 @@ class ConfigEnricherSpec extends AnyFlatSpec with Matchers {
         ),
         partyNamePrefixFilterO = Some(
           PartyNamePrefixFilter(
-            partyNamePrefix = "MyParty",
+            partyNamePrefix = "MyParty-1",
             templates = templates,
           )
         ),
@@ -96,12 +97,17 @@ class ConfigEnricherSpec extends AnyFlatSpec with Matchers {
           interfaces = List.empty,
         ),
         PartyFilter(
-          party = "MyParty-0-foo-123",
+          party = "MyParty-1-foo-123",
           templates = enrichedTemplates,
           interfaces = List.empty,
         ),
         PartyFilter(
-          party = "MyParty-1-foo-123",
+          party = "MyParty-11-foo-123",
+          templates = enrichedTemplates,
+          interfaces = List.empty,
+        ),
+        PartyFilter(
+          party = "MyParty-12-foo-123",
           templates = enrichedTemplates,
           interfaces = List.empty,
         ),
