@@ -4,6 +4,7 @@
 package com.daml.lf.engine.trigger.test
 
 import akka.stream.scaladsl.Flow
+import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.daml.ledger.api.v1.commands.CreateCommand
 import com.daml.ledger.api.v1.event.Event.Event.Created
 import com.daml.ledger.api.v1.event.{Event => ApiEvent}
@@ -15,10 +16,19 @@ import com.daml.lf.engine.trigger.Runner.TriggerContext
 import com.daml.lf.engine.trigger.TriggerMsg
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.util.Ctx
+import org.scalatest.{Inside, TryValues}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.concurrent.Future
 
-final class FailureTesting extends AbstractFuncTests {
+final class FailureTesting
+    extends AsyncWordSpec
+    with AbstractTriggerTest
+    with Matchers
+    with Inside
+    with SuiteResourceManagementAroundAll
+    with TryValues {
 
   override def config = super.config.copy(
     participants = singleParticipant(
