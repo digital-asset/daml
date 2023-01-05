@@ -95,6 +95,7 @@ da_scala_test_suite(
         "@maven//:io_opentelemetry_opentelemetry_sdk_testing",
         "@maven//:io_opentelemetry_opentelemetry_sdk_trace",
         "@maven//:io_opentelemetry_opentelemetry_semconv",
+        "@maven//:io_opentelemetry_instrumentation_opentelemetry_runtime_metrics",
         "@maven//:org_scalatest_scalatest_compatible",
     ],
 )

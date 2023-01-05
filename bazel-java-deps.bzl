@@ -55,7 +55,7 @@ gatling_version = "3.5.1"
 guava_version = "31.1-jre"
 
 # observability libs
-opentelemetry_version = "1.12.0"
+opentelemetry_version = "1.21.0"
 prometheus_version = "0.14.1"
 
 def install_java_deps():
@@ -116,7 +116,8 @@ def install_java_deps():
             "io.opentelemetry:opentelemetry-sdk-metrics-testing:{}-alpha".format(opentelemetry_version),
             "io.opentelemetry:opentelemetry-sdk-testing:{}".format(opentelemetry_version),
             "io.opentelemetry:opentelemetry-sdk-trace:{}".format(opentelemetry_version),
-            "io.opentelemetry:opentelemetry-semconv:1.12.0-alpha",
+            "io.opentelemetry:opentelemetry-semconv:{}".format(opentelemetry_version),
+            "io.opentelemetry.instrumentation:opentelemetry-runtime-metrics:{}".format(opentelemetry_version),
             "io.prometheus:simpleclient:{}".format(prometheus_version),
             "io.prometheus:simpleclient_httpserver:{}".format(prometheus_version),
             "io.prometheus:simpleclient_servlet:{}".format(prometheus_version),

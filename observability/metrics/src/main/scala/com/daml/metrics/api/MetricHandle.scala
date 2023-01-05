@@ -119,7 +119,6 @@ object MetricHandle {
 
     def updateValue(f: T => T): Unit
 
-    def getValue: T
   }
 
   trait Meter extends MetricHandle {

@@ -203,7 +203,7 @@ case class OpenTelemetryGauge[T](name: String, varGauge: VarGauge[T]) extends Ga
 
   override def updateValue(newValue: T): Unit = varGauge.updateValue(newValue)
 
-  override def getValue: T = varGauge.getValue
+  override def updateValue(f: T => T): Unit = varGauge.updateValue(f)
 
   override def updateValue(f: T => T): Unit = varGauge.updateValue(f)
 }
