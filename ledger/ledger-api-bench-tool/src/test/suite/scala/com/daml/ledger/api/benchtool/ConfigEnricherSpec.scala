@@ -24,9 +24,7 @@ import scala.concurrent.duration.Duration
 class ConfigEnricherSpec extends AnyFlatSpec with Matchers {
 
   it should "expand party-set filter into a sequence of party filters" in {
-    val partySuffix = "-foo-123"
-
-    def makePartyName(shortName: String): String = s"$shortName$partySuffix"
+    def makePartyName(shortName: String): String = s"$shortName"
     def makeParty(shortName: String): Primitive.Party = Primitive.Party(makePartyName(shortName))
 
     val desugaring = new ConfigEnricher(
@@ -38,7 +36,7 @@ class ConfigEnricherSpec extends AnyFlatSpec with Matchers {
         observerPartySets = List(
           AllocatedPartySet(
             partyNamePrefix = "MyParty",
-            List("MyParty-0", "MyParty-1", "MyParty-11", "MyParty-12")
+            List("MyParty-0", "MyParty-1", "MyParty-11", "MyParty-12", "MyParty-21", "MyParty-22")
               .map(makeParty),
           )
         ),
@@ -70,10 +68,16 @@ class ConfigEnricherSpec extends AnyFlatSpec with Matchers {
             interfaces = List.empty,
           ),
         ),
-        partyNamePrefixFilterO = Some(
-          PartyNamePrefixFilter(
-            partyNamePrefix = "MyParty-1",
-            templates = templates,
+        partyNamePrefixFiltersO = Some(
+          List(
+            PartyNamePrefixFilter(
+              partyNamePrefix = "MyParty-1",
+              templates = templates,
+            ),
+            PartyNamePrefixFilter(
+              partyNamePrefix = "MyParty-2",
+              templates = templates,
+            ),
           )
         ),
         subscriptionDelay = Some(Duration(1337, TimeUnit.SECONDS)),
@@ -82,12 +86,12 @@ class ConfigEnricherSpec extends AnyFlatSpec with Matchers {
       name = "flat",
       filters = List(
         PartyFilter(
-          party = "Obs-0-foo-123",
+          party = "Obs-0",
           templates = enrichedTemplates,
           interfaces = List.empty,
         ),
         PartyFilter(
-          party = "Sig-0-foo-123",
+          party = "Sig-0",
           templates = enrichedTemplates,
           interfaces = List.empty,
         ),
@@ -97,22 +101,32 @@ class ConfigEnricherSpec extends AnyFlatSpec with Matchers {
           interfaces = List.empty,
         ),
         PartyFilter(
-          party = "MyParty-1-foo-123",
+          party = "MyParty-1",
           templates = enrichedTemplates,
           interfaces = List.empty,
         ),
         PartyFilter(
-          party = "MyParty-11-foo-123",
+          party = "MyParty-11",
           templates = enrichedTemplates,
           interfaces = List.empty,
         ),
         PartyFilter(
-          party = "MyParty-12-foo-123",
+          party = "MyParty-12",
+          templates = enrichedTemplates,
+          interfaces = List.empty,
+        ),
+        PartyFilter(
+          party = "MyParty-21",
+          templates = enrichedTemplates,
+          interfaces = List.empty,
+        ),
+        PartyFilter(
+          party = "MyParty-22",
           templates = enrichedTemplates,
           interfaces = List.empty,
         ),
       ),
-      partyNamePrefixFilterO = None,
+      partyNamePrefixFiltersO = None,
       subscriptionDelay = Some(Duration(1337, TimeUnit.SECONDS)),
     )
   }

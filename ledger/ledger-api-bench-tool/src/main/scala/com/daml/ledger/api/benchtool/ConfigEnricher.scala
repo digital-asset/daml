@@ -47,26 +47,26 @@ class ConfigEnricher(
       case config: TransactionsStreamConfig =>
         config
           .copy(
-            filters = enrichFilters(config.filters) ++ convertFilterByPartySet(
-              config.partyNamePrefixFilterO
+            filters = enrichFilters(config.filters) ++ config.partyNamePrefixFilters.flatMap(
+              convertFilterByPartySet
             ),
-            partyNamePrefixFilterO = None,
+            partyNamePrefixFiltersO = None,
           )
       case config: TransactionTreesStreamConfig =>
         config
           .copy(
-            filters = enrichFilters(config.filters) ++ convertFilterByPartySet(
-              config.partyNamePrefixFilterO
+            filters = enrichFilters(config.filters) ++ config.partyNamePrefixFilters.flatMap(
+              convertFilterByPartySet
             ),
-            partyNamePrefixFilterO = None,
+            partyNamePrefixFiltersO = None,
           )
       case config: ActiveContractsStreamConfig =>
         config
           .copy(
-            filters = enrichFilters(config.filters) ++ convertFilterByPartySet(
-              config.partyNamePrefixFilterO
+            filters = enrichFilters(config.filters) ++ config.partyNamePrefixFilters.flatMap(
+              convertFilterByPartySet
             ),
-            partyNamePrefixFilterO = None,
+            partyNamePrefixFiltersO = None,
           )
       case config: CompletionsStreamConfig =>
         config.copy(parties = config.parties.map(party => convertParty(party)))
@@ -80,11 +80,6 @@ class ConfigEnricher(
       .map(_.unwrap)
       .find(_.contains(partyShortName))
       .getOrElse(partyShortName)
-
-  private def convertFilterByPartySet(
-      filter: Option[PartyNamePrefixFilter]
-  ): List[PartyFilter] =
-    filter.fold(List.empty[PartyFilter])(convertFilterByPartySet)
 
   private def convertFilterByPartySet(
       filter: PartyNamePrefixFilter

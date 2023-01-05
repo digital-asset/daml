@@ -248,8 +248,10 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
           |         - Foo1
           |         - Foo3
           |    filter_by_party_set:
-          |      party_name_prefix: My-Party
-          |      templates: [Foo1, Foo2]
+          |      - party_name_prefix: MyParty
+          |        templates: [Foo1, Foo2]
+          |      - party_name_prefix: MyOtherParty
+          |        templates: [Foo1]
           |    begin_offset: foo
           |    end_offset: bar
           |    subscription_delay: 7min    
@@ -272,10 +274,16 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
                   templates = List("Foo1", "Foo3"),
                 )
               ),
-              partyNamePrefixFilterO = Some(
-                PartyNamePrefixFilter(
-                  partyNamePrefix = "My-Party",
-                  templates = List("Foo1", "Foo2"),
+              partyNamePrefixFiltersO = Some(
+                List(
+                  PartyNamePrefixFilter(
+                    partyNamePrefix = "MyParty",
+                    templates = List("Foo1", "Foo2"),
+                  ),
+                  PartyNamePrefixFilter(
+                    partyNamePrefix = "MyOtherParty",
+                    templates = List("Foo1"),
+                  ),
                 )
               ),
               beginOffset = Some(offset("foo")),
@@ -605,8 +613,8 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
         |         - Foo1
         |         - Foo3
         |    filter_by_party_set:
-        |      party_name_prefix: My-Party
-        |      interfaces: [FooInterface]
+        |      - party_name_prefix: My-Party
+        |        interfaces: [FooInterface]
         |    begin_offset: foo
         |    end_offset: bar
         |    subscription_delay: 7min    
@@ -629,10 +637,12 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
                 templates = List("Foo1", "Foo3"),
               )
             ),
-            partyNamePrefixFilterO = Some(
-              PartyNamePrefixFilter(
-                partyNamePrefix = "My-Party",
-                interfaces = List("FooInterface"),
+            partyNamePrefixFiltersO = Some(
+              List(
+                PartyNamePrefixFilter(
+                  partyNamePrefix = "My-Party",
+                  interfaces = List("FooInterface"),
+                )
               )
             ),
             beginOffset = Some(offset("foo")),

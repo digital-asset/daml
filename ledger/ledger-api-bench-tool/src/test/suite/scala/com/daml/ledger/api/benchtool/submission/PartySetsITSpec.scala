@@ -99,27 +99,27 @@ class PartySetsITSpec
       )
       treeResults_fooPartySet <- observeStreams(
         configDesugaring = configDesugaring,
-        filterByPartyNamePrefixO = Some("FooParty"),
+        filterByPartyNamePrefixes = List("FooParty"),
         apiServices = apiServices,
         expectedTemplateNames = Set("Foo1"),
       )
       treeResults_fooPartyNamePrefix <- observeStreams(
         configDesugaring = configDesugaring,
         // matches 10 parties: {FooParty-30, FooParty-31, .., FooParty-39}
-        filterByPartyNamePrefixO = Some("FooParty-3"),
+        filterByPartyNamePrefixes = List("FooParty-3"),
         apiServices = apiServices,
         expectedTemplateNames = Set("Foo1"),
       )
       treeResults_barPartySet <- observeStreams(
         configDesugaring = configDesugaring,
-        filterByPartyNamePrefixO = Some("BarParty"),
+        filterByPartyNamePrefixes = List("BarParty"),
         apiServices = apiServices,
         expectedTemplateNames = Set("Foo1"),
       )
       treeResults_barPartyNamePrefix <- observeStreams(
         configDesugaring = configDesugaring,
         // Matches 10 parties: {BarParty-10, BarParty-11, .., BarParty-19}
-        filterByPartyNamePrefixO = Some("BarParty-1"),
+        filterByPartyNamePrefixes = List("BarParty-1"),
         apiServices = apiServices,
         expectedTemplateNames = Set("Foo1"),
       )
@@ -160,7 +160,7 @@ class PartySetsITSpec
 
   private def observeStreams(
       configDesugaring: ConfigEnricher,
-      filterByPartyNamePrefixO: Option[String] = None,
+      filterByPartyNamePrefixes: List[String] = List.empty,
       filterByParties: List[String] = List.empty,
       filterByTemplates: List[String] = List.empty,
       apiServices: LedgerApiServices,
@@ -176,7 +176,7 @@ class PartySetsITSpec
           interfaces = List.empty,
         )
       ),
-      partyNamePrefixFilterO = filterByPartyNamePrefixO.map(partyNamePrefix =>
+      partyNamePrefixFiltersO = filterByPartyNamePrefixes.map(partyNamePrefix =>
         PartyNamePrefixFilter(
           partyNamePrefix = partyNamePrefix,
           templates = filterByTemplates,
