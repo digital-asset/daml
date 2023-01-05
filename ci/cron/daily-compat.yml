@@ -359,7 +359,7 @@ jobs:
         bad_file=daml-script/test/src/test-utils/com/daml/lf/engine/script/test/MultiParticipantFixture.scala
 
         sed -i 's|"external/canton/lib/.*|"'$canton_local_path'"|' $bad_file
-        cp COPY canton_dep.bzl
+        sed -e 's/^/# /' COPY > canton_dep.bzl
         cat <<EOF >> canton_dep.bzl
 
         canton = {
