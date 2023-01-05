@@ -39,6 +39,7 @@ final class FailureTesting
   )
 
   "Failure testing" should {
+    // The following value should be kept in sync with the value of contractPairings in Cats.daml
     val contractPairings = 400
 
     s"with $contractPairings contract pairings and always failing submissions" should {

@@ -187,7 +187,6 @@ da_scala_library(
 [
     da_scala_test_suite(
         name = "trigger-failure-integration-tests" + suffix,
-        size = "large",
         srcs = [
             "src/test/scala/com/digitalasset/daml/lf/engine/trigger/test/FailureTesting.scala",
         ],
@@ -202,7 +201,6 @@ da_scala_library(
             "@maven//:org_scalatestplus_scalacheck_1_15",
             "@maven//:org_scalaz_scalaz_core",
         ],
-        tags = ["exclusive"],
         deps = [
             ":test-utils",
             "//bazel_tools/runfiles:scala_runfiles",

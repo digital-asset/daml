@@ -46,9 +46,13 @@ template TestComplete
   where
     signatory owner
 
+contractPairings : Int
+-- The following value should be kept in sync with the value of contractPairings in FailureTesting.scala
+contractPairings = 400
+
 trigger : Trigger Int
 trigger = Trigger
-  { initialize = pure 500
+  { initialize = pure contractPairings
   , updateState = \msg -> case msg of
       MTransaction (Transaction _ _ [ArchivedEvent (fromArchived @Cat -> Some (_, catId)), ArchivedEvent (fromArchived @Food -> Some (_, foodId))]) -> do
         modify (subtract 1)
