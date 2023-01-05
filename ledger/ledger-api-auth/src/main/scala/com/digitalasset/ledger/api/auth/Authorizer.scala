@@ -82,7 +82,7 @@ final class Authorizer(
       }
     }
 
-  def requireIdentityProviderScope[Req, Res](
+  def requireIdpAdminClaimsAndMatchingRequestIdpId[Req, Res](
       identityProviderId: String,
       call: Req => Future[Res],
   ): Req => Future[Res] =
@@ -95,7 +95,7 @@ final class Authorizer(
       } yield ()
     }
 
-  def requireAuthorizedIdentityProviderId[Req, Res](
+  def requireMatchingRequestIdpId[Req, Res](
       identityProviderId: String,
       call: Req => Future[Res],
   ): Req => Future[Res] =
@@ -107,7 +107,7 @@ final class Authorizer(
       } yield ()
     }
 
-  def requireAdminOrIdentityProviderAdminClaims[Req, Res](
+  def requireIdpAdminClaims[Req, Res](
       call: Req => Future[Res]
   ): Req => Future[Res] =
     authorize(call) { claims =>
