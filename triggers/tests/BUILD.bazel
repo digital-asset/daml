@@ -201,6 +201,7 @@ da_scala_library(
             "@maven//:org_scalatestplus_scalacheck_1_15",
             "@maven//:org_scalaz_scalaz_core",
         ],
+        tags = ["exclusive"],
         deps = [
             ":test-utils",
             "//bazel_tools/runfiles:scala_runfiles",
