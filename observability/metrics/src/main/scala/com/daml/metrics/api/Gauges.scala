@@ -5,24 +5,25 @@ package com.daml.metrics.api
 
 import java.util.concurrent.atomic.AtomicReference
 
-import com.codahale.metrics.Gauge
-
 object Gauges {
 
-  trait GaugeWithUpdate[T] extends Gauge[T] {
+  trait GaugeWithUpdate[T] {
 
     def updateValue(x: T): Unit
   }
 
   case class VarGauge[T](initial: T) extends GaugeWithUpdate[T] {
     private val ref = new AtomicReference[T](initial)
+
     def updateValue(x: T): Unit = ref.set(x)
+
     def updateValue(up: T => T): Unit = {
       val _ = ref.updateAndGet { value =>
         up(value)
       }
     }
-    override def getValue: T = ref.get()
+
+    def getValue: T = ref.get()
 
   }
 }

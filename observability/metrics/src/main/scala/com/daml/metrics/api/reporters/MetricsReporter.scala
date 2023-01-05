@@ -3,55 +3,23 @@
 
 package com.daml.metrics.api.reporters
 
-import java.net.{InetSocketAddress, URI}
-import java.nio.file.{Files, Path, Paths}
-
-import com.codahale.metrics
-import com.codahale.metrics.{MetricRegistry, ScheduledReporter}
 import scopt.Read
 
+import java.net.{InetSocketAddress, URI}
 import scala.util.control.NonFatal
 
 sealed abstract class MetricsReporter {
-  def register(registry: MetricRegistry): ScheduledReporter
+  def register(): Unit
 }
 
 object MetricsReporter {
-
-  case object Console extends MetricsReporter {
-    override def register(registry: MetricRegistry): ScheduledReporter =
-      metrics.ConsoleReporter
-        .forRegistry(registry)
-        .build()
-  }
-
-  final case class Csv(directory: Path) extends MetricsReporter {
-    override def register(registry: MetricRegistry): ScheduledReporter = {
-      Files.createDirectories(directory)
-      metrics.CsvReporter
-        .forRegistry(registry)
-        .build(directory.toFile)
-    }
-  }
-
-  final case class Graphite(address: InetSocketAddress, prefix: Option[String] = None)
-      extends MetricsReporter {
-    override def register(registry: MetricRegistry): ScheduledReporter =
-      metrics.graphite.GraphiteReporter
-        .forRegistry(registry)
-        .prefixedWith(prefix.orNull)
-        .build(new metrics.graphite.Graphite(address))
-  }
 
   object Graphite {
     val defaultPort: Int = 2003
   }
 
   final case class Prometheus(address: InetSocketAddress) extends MetricsReporter {
-    override def register(registry: MetricRegistry): ScheduledReporter =
-      PrometheusReporter
-        .forRegistry(registry)
-        .build(address)
+    override def register(): Unit = ()
   }
 
   object Prometheus {
@@ -67,20 +35,6 @@ object MetricsReporter {
       new InetSocketAddress(uri.getHost, port)
     }
     s match {
-      case "console" =>
-        Console
-      case value if value.startsWith("csv://") =>
-        try {
-          Csv(Paths.get(value.substring("csv://".length)))
-        } catch {
-          case NonFatal(exception) =>
-            throw new RuntimeException(cliHint, exception)
-        }
-      case value if value.startsWith("graphite://") =>
-        val uri = parseUri(value)
-        val address = getAddress(uri, Graphite.defaultPort)
-        val metricPrefix = Some(uri.getPath.stripPrefix("/")).filter(_.nonEmpty)
-        Graphite(address, metricPrefix)
       case value if value.startsWith("prometheus://") =>
         val uri = parseUri(value)
         val address = getAddress(uri, Prometheus.defaultPort)
@@ -95,7 +49,7 @@ object MetricsReporter {
   }
 
   val cliHint: String =
-    """Must be one of "console", "csv:///PATH", "graphite://HOST[:PORT][/METRIC_PREFIX]", or "prometheus://HOST[:PORT]"."""
+    """Must be in the format "prometheus://HOST[:PORT]"."""
 
   def parseUri(value: String): URI =
     try {

@@ -20,7 +20,7 @@ import scala.jdk.CollectionConverters._
 
 class JvmMetricSet extends MetricSet {
   private val metricSets = Map(
-    "class_loader" -> new ClassLoadingGaugeSet,
+    "class_loader" -> Classes,
     "garbage_collector" -> new GarbageCollectorMetricSet,
     "attributes" -> new JvmAttributeGaugeSet,
     "memory_usage" -> new MemoryUsageGaugeSet,
