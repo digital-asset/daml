@@ -41,7 +41,7 @@ abstract class AbstractFuncTests
 
   this.getClass.getSimpleName can {
     "Failure testing" should {
-      val contractPairings = 200
+      val contractPairings = 400
 
       s"with $contractPairings contract pairings and always failing submissions" should {
         def command(template: String, owner: String, i: Int): CreateCommand =

@@ -126,6 +126,7 @@ da_scala_library(
 [
     da_scala_test_suite(
         name = "trigger-integration-tests" + suffix,
+        size = "large",
         srcs = [
             "src/test/scala/com/digitalasset/daml/lf/engine/trigger/test/%s.scala" % f
             for f in [
