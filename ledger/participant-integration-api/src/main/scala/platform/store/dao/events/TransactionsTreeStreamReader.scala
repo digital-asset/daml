@@ -190,14 +190,14 @@ class TransactionsTreeStreamReader(
           filter,
           EventIdSourceForInformees.CreateStakeholder,
           createEventIdQueriesLimiter,
-          dbMetrics.treeTxIdsCreateStakeholder,
+          dbMetrics.treeTxStream.fetchEventCreateIdsStakeholder,
         )
       ) ++ decomposedFilters.map(filter =>
         fetchIds(
           filter,
           EventIdSourceForInformees.CreateNonStakeholder,
           createEventIdQueriesLimiter,
-          dbMetrics.treeTxIdsCreateNonStakeholderInformee,
+          dbMetrics.treeTxStream.fetchEventCreateIdsNonStakeholder,
         )
       )).pipe(
         mergeSortAndBatch(
@@ -211,14 +211,14 @@ class TransactionsTreeStreamReader(
           filter,
           EventIdSourceForInformees.ConsumingStakeholder,
           consumingEventIdQueriesLimiter,
-          dbMetrics.treeTxIdsConsumingStakeholder,
+          dbMetrics.treeTxStream.fetchEventConsumingIdsStakeholder,
         )
       ) ++ decomposedFilters.map(filter =>
         fetchIds(
           filter,
           EventIdSourceForInformees.ConsumingNonStakeholder,
           consumingEventIdQueriesLimiter,
-          dbMetrics.treeTxIdsConsumingNonStakeholderInformee,
+          dbMetrics.treeTxStream.fetchEventConsumingIdsNonStakeholder,
         )
       )).pipe(
         mergeSortAndBatch(
@@ -232,7 +232,7 @@ class TransactionsTreeStreamReader(
           filter,
           EventIdSourceForInformees.NonConsumingInformee,
           nonConsumingEventIdQueriesLimiter,
-          dbMetrics.treeTxIdsNonConsumingInformee,
+          dbMetrics.treeTxStream.fetchEventNonConsumingIds,
         )
       )
       .pipe(
@@ -245,19 +245,19 @@ class TransactionsTreeStreamReader(
       idsCreate,
       EventPayloadSourceForTreeTx.Create,
       maxParallelPayloadCreateQueries,
-      dbMetrics.treeTxPayloadCreate,
+      dbMetrics.treeTxStream.fetchEventCreatePayloads,
     )
     val payloadsConsuming = fetchPayloads(
       idsConsuming,
       EventPayloadSourceForTreeTx.Consuming,
       maxParallelPayloadConsumingQueries,
-      dbMetrics.treeTxPayloadConsuming,
+      dbMetrics.treeTxStream.fetchEventConsumingPayloads,
     )
     val payloadsNonConsuming = fetchPayloads(
       idsNonConsuming,
       EventPayloadSourceForTreeTx.NonConsuming,
       maxParallelPayloadNonConsumingQueries,
-      dbMetrics.treeTxPayloadNonConsuming,
+      dbMetrics.treeTxStream.fetchEventNonConsumingPayloads,
     )
     val allSortedPayloads = payloadsConsuming
       .mergeSorted(payloadsCreate)(orderBySequentialEventId)
@@ -296,7 +296,7 @@ class TransactionsTreeStreamReader(
     Timed.future(
       future =
         Future.traverse(rawEvents)(deserializeEntry(eventProjectionProperties, lfValueTranslation)),
-      timer = dbMetrics.getTransactionTrees.translationTimer,
+      timer = dbMetrics.treeTxStream.translationTimer,
     )
   }
 
