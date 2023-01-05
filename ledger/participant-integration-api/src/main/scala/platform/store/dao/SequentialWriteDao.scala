@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.store.dao
@@ -10,6 +10,7 @@ import com.daml.ledger.participant.state.v2.Update
 import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.lf.data.Ref
 import com.daml.metrics.Metrics
+import com.daml.metrics.api.MetricsContext
 import com.daml.platform.store.dao.events.{CompressionStrategy, LfValueTranslation}
 import com.daml.platform.store.backend.{
   DbDto,
@@ -41,23 +42,27 @@ object SequentialWriteDao {
       stringInterningView: StringInterning with InternizingStringInterningView,
       ingestionStorageBackend: IngestionStorageBackend[_],
       parameterStorageBackend: ParameterStorageBackend,
-  ): SequentialWriteDao =
-    SequentialWriteDaoImpl(
-      ingestionStorageBackend = ingestionStorageBackend,
-      parameterStorageBackend = parameterStorageBackend,
-      updateToDbDtos = UpdateToDbDto(
-        participantId = participantId,
-        translation = new LfValueTranslation(
-          metrics = metrics,
-          engineO = None,
-          loadPackage = (_, _) => Future.successful(None),
+  ): SequentialWriteDao = {
+    MetricsContext.withMetricLabels("participant_id" -> participantId) { implicit mc =>
+      SequentialWriteDaoImpl(
+        ingestionStorageBackend = ingestionStorageBackend,
+        parameterStorageBackend = parameterStorageBackend,
+        updateToDbDtos = UpdateToDbDto(
+          participantId = participantId,
+          translation = new LfValueTranslation(
+            metrics = metrics,
+            engineO = None,
+            loadPackage = (_, _) => Future.successful(None),
+          ),
+          compressionStrategy = compressionStrategy,
+          metrics,
         ),
-        compressionStrategy = compressionStrategy,
-      ),
-      ledgerEndCache = ledgerEndCache,
-      stringInterningView = stringInterningView,
-      dbDtosToStringsForInterning = DbDtoToStringsForInterning(_),
-    )
+        ledgerEndCache = ledgerEndCache,
+        stringInterningView = stringInterningView,
+        dbDtosToStringsForInterning = DbDtoToStringsForInterning(_),
+      )
+    }
+  }
 
   val noop: SequentialWriteDao = NoopSequentialWriteDao
 }

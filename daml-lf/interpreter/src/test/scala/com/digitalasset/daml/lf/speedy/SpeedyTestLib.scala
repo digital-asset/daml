@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml
@@ -38,7 +38,7 @@ private[speedy] object SpeedyTestLib {
 
   @throws[SError.SErrorCrash]
   def run(
-      machine: Speedy.Machine,
+      machine: Speedy.Machine[Question.Update],
       getPkg: PartialFunction[PackageId, CompiledPackages] = PartialFunction.empty,
       getContract: PartialFunction[Value.ContractId, Value.VersionedContractInstance] =
         PartialFunction.empty,
@@ -53,7 +53,7 @@ private[speedy] object SpeedyTestLib {
 
   @throws[SError.SErrorCrash]
   def runTx(
-      machine: Speedy.Machine,
+      machine: Speedy.Machine[Question.Update],
       getPkg: PartialFunction[PackageId, CompiledPackages] = PartialFunction.empty,
       getContract: PartialFunction[Value.ContractId, Value.VersionedContractInstance] =
         PartialFunction.empty,
@@ -63,40 +63,40 @@ private[speedy] object SpeedyTestLib {
     @tailrec
     def loop: Either[SError.SError, SResultFinal] = {
       machine.run() match {
-        case SResultNeedTime(callback) =>
-          getTime.lift(()) match {
-            case Some(value) =>
-              callback(value)
+        case SResultQuestion(question) =>
+          question match {
+            case Question.Update.NeedTime(callback) =>
+              getTime.lift(()) match {
+                case Some(value) =>
+                  callback(value)
+                  loop
+                case None =>
+                  throw UnexpectedSResultNeedTime
+              }
+            case Question.Update.NeedContract(contractId, _, callback) =>
+              getContract.lift(contractId) match {
+                case Some(value) =>
+                  callback(value.unversioned)
+                  loop
+                case None =>
+                  throw UnknownContract(contractId)
+              }
+            case Question.Update.NeedPackage(pkg, _, callback) =>
+              getPkg.lift(pkg) match {
+                case Some(value) =>
+                  callback(value)
+                  loop
+                case None =>
+                  throw UnknownPackage(pkg)
+              }
+            case Question.Update.NeedKey(key, _, callback) =>
+              discard(callback(getKey.lift(key)))
               loop
-            case None =>
-              throw UnexpectedSResultNeedTime
           }
-        case SResultNeedContract(contractId, _, callback) =>
-          getContract.lift(contractId) match {
-            case Some(value) =>
-              callback(value.unversioned)
-              loop
-            case None =>
-              throw UnknownContract(contractId)
-          }
-        case SResultNeedPackage(pkg, _, callback) =>
-          getPkg.lift(pkg) match {
-            case Some(value) =>
-              callback(value)
-              loop
-            case None =>
-              throw UnknownPackage(pkg)
-          }
-        case SResultNeedKey(key, _, callback) =>
-          discard(callback(getKey.lift(key)))
-          loop
         case fv: SResultFinal =>
           Right(fv)
         case SResultError(err) =>
           Left(err)
-        case _: SResultFinal | _: SResultScenarioGetParty | _: SResultScenarioPassTime |
-            _: SResultScenarioSubmit | _: SResultScenarioGetTime =>
-          throw UnexpectedSResultScenarioX
       }
     }
 

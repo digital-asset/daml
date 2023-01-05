@@ -1,7 +1,9 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.store.backend
+
+import java.util.UUID
 
 import com.daml.ledger.api.DeduplicationPeriod.{DeduplicationDuration, DeduplicationOffset}
 import com.daml.ledger.configuration.Configuration
@@ -12,11 +14,14 @@ import com.daml.lf.data.{Ref, Time}
 import com.daml.lf.engine.Blinding
 import com.daml.lf.ledger.EventId
 import com.daml.lf.transaction.Transaction.ChildrenRecursion
+import com.daml.metrics.api.MetricsContext
+import com.daml.metrics.api.MetricsContext.withExtraMetricLabels
+import com.daml.metrics.{IndexedUpdatesMetrics, Metrics}
+import com.daml.platform._
 import com.daml.platform.index.index.StatusDetails
 import com.daml.platform.store.dao.JdbcLedgerDao
 import com.daml.platform.store.dao.events._
-import com.daml.platform._
-import java.util.UUID
+import io.grpc.Status
 
 object UpdateToDbDto {
 
@@ -24,10 +29,23 @@ object UpdateToDbDto {
       participantId: Ref.ParticipantId,
       translation: LfValueSerialization,
       compressionStrategy: CompressionStrategy,
-  ): Offset => state.Update => Iterator[DbDto] = { offset =>
+      metrics: Metrics,
+  )(implicit mc: MetricsContext): Offset => state.Update => Iterator[DbDto] = { offset =>
     import state.Update._
     {
       case u: CommandRejected =>
+        withExtraMetricLabels(
+          IndexedUpdatesMetrics.Labels.grpcCode -> Status
+            .fromCodeValue(u.reasonTemplate.code)
+            .getCode
+            .name()
+        ) { implicit mc: MetricsContext =>
+          incrementCounterForEvent(
+            metrics.daml.indexerEvents,
+            IndexedUpdatesMetrics.Labels.eventType.transaction,
+            IndexedUpdatesMetrics.Labels.status.rejected,
+          )
+        }
         Iterator(
           commandCompletion(offset, u.recordTime, transactionId = None, u.completionInfo).copy(
             rejection_status_code = Some(u.reasonTemplate.code),
@@ -38,6 +56,11 @@ object UpdateToDbDto {
         )
 
       case u: ConfigurationChanged =>
+        incrementCounterForEvent(
+          metrics.daml.indexerEvents,
+          IndexedUpdatesMetrics.Labels.eventType.configurationChange,
+          IndexedUpdatesMetrics.Labels.status.accepted,
+        )
         Iterator(
           DbDto.ConfigurationEntry(
             ledger_offset = offset.toHexString,
@@ -50,6 +73,11 @@ object UpdateToDbDto {
         )
 
       case u: ConfigurationChangeRejected =>
+        incrementCounterForEvent(
+          metrics.daml.indexerEvents,
+          IndexedUpdatesMetrics.Labels.eventType.configurationChange,
+          IndexedUpdatesMetrics.Labels.status.rejected,
+        )
         Iterator(
           DbDto.ConfigurationEntry(
             ledger_offset = offset.toHexString,
@@ -62,6 +90,11 @@ object UpdateToDbDto {
         )
 
       case u: PartyAddedToParticipant =>
+        incrementCounterForEvent(
+          metrics.daml.indexerEvents,
+          IndexedUpdatesMetrics.Labels.eventType.partyAllocation,
+          IndexedUpdatesMetrics.Labels.status.accepted,
+        )
         Iterator(
           DbDto.PartyEntry(
             ledger_offset = offset.toHexString,
@@ -76,6 +109,11 @@ object UpdateToDbDto {
         )
 
       case u: PartyAllocationRejected =>
+        incrementCounterForEvent(
+          metrics.daml.indexerEvents,
+          IndexedUpdatesMetrics.Labels.eventType.partyAllocation,
+          IndexedUpdatesMetrics.Labels.status.rejected,
+        )
         Iterator(
           DbDto.PartyEntry(
             ledger_offset = offset.toHexString,
@@ -90,6 +128,11 @@ object UpdateToDbDto {
         )
 
       case u: PublicPackageUpload =>
+        incrementCounterForEvent(
+          metrics.daml.indexerEvents,
+          IndexedUpdatesMetrics.Labels.eventType.packageUpload,
+          IndexedUpdatesMetrics.Labels.status.accepted,
+        )
         val uploadId = u.submissionId.getOrElse(UUID.randomUUID().toString)
         val packages = u.archives.iterator.map { archive =>
           DbDto.Package(
@@ -114,6 +157,11 @@ object UpdateToDbDto {
         packages ++ packageEntries
 
       case u: PublicPackageUploadRejected =>
+        incrementCounterForEvent(
+          metrics.daml.indexerEvents,
+          IndexedUpdatesMetrics.Labels.eventType.packageUpload,
+          IndexedUpdatesMetrics.Labels.status.rejected,
+        )
         Iterator(
           DbDto.PackageEntry(
             ledger_offset = offset.toHexString,
@@ -125,6 +173,11 @@ object UpdateToDbDto {
         )
 
       case u: TransactionAccepted =>
+        incrementCounterForEvent(
+          metrics.daml.indexerEvents,
+          IndexedUpdatesMetrics.Labels.eventType.transaction,
+          IndexedUpdatesMetrics.Labels.status.accepted,
+        )
         val blinding = u.blindingInfo.getOrElse(Blinding.blind(u.transaction))
         // TODO LLP: Extract in common functionality together with duplicated code in [[InMemoryStateUpdater]]
         val preorderTraversal = u.transaction
@@ -311,6 +364,20 @@ object UpdateToDbDto {
     }
   }
 
+  private def incrementCounterForEvent(
+      metrics: IndexedUpdatesMetrics,
+      eventType: String,
+      status: String,
+  )(implicit
+      mc: MetricsContext
+  ): Unit = {
+    withExtraMetricLabels(
+      IndexedUpdatesMetrics.Labels.eventType.key -> eventType,
+      IndexedUpdatesMetrics.Labels.status.key -> status,
+    ) { implicit mc =>
+      metrics.eventsMeter.mark()
+    }
+  }
   private def commandCompletion(
       offset: Offset,
       recordTime: Time.Timestamp,

@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.metrics
@@ -20,13 +20,37 @@ class IndexedUpdatesMetrics(prefix: MetricName, metricFactory: Factory) {
     "Number of events that will be metered.",
   )
 
+  @MetricDoc.Tag(
+    summary = "Updates processed by the indexer",
+    description = "Represents the total number of updates processed, that are sent for indexing.",
+    qualification = Debug,
+  )
+  val eventsMeter: MetricHandle.Meter =
+    metricFactory.meter(prefix :+ "events", "Number of events ingested by the indexer.")
+
 }
 
 object IndexedUpdatesMetrics {
 
   object Labels {
-
     val applicationId = "application_id"
+    val grpcCode = "grpc_code"
+    object eventType {
+
+      val key = "event_type"
+
+      val configurationChange = "configuration_change"
+      val partyAllocation = "party_allocation"
+      val packageUpload = "package_upload"
+      val transaction = "transaction"
+    }
+
+    object status {
+      val key = "status"
+
+      val accepted = "accepted"
+      val rejected = "rejected"
+    }
 
   }
 }

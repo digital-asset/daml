@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 package com.daml.platform.store.dao
 
@@ -23,10 +23,7 @@ import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.entries.LoggingEntry
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
-import com.daml.platform.configuration.{
-  TransactionsFlatStreamReaderConfig,
-  TransactionsTreeStreamReaderConfig,
-}
+import com.daml.platform.configuration.{TransactionFlatStreamsConfig, TransactionTreeStreamsConfig}
 import com.daml.platform.{ApplicationId, PackageId, Party, SubmissionId, TransactionId, WorkflowId}
 import com.daml.platform.store._
 import com.daml.platform.store.dao.events.{TransactionsFlatStreamReader, _}
@@ -57,9 +54,9 @@ private class JdbcLedgerDao(
     participantId: Ref.ParticipantId,
     readStorageBackend: ReadStorageBackend,
     parameterStorageBackend: ParameterStorageBackend,
-    completionsMaxPayloadsPerPayloadsPage: Int,
-    transactionsFlatStreamReaderConfig: TransactionsFlatStreamReaderConfig,
-    transactionsTreeStreamReaderConfig: TransactionsTreeStreamReaderConfig,
+    completionsPageSize: Int,
+    transactionFlatStreamsConfig: TransactionFlatStreamsConfig,
+    transactionTreeStreamsConfig: TransactionTreeStreamsConfig,
     globalMaxEventIdQueries: Int,
     globalMaxEventPayloadQueries: Int,
 ) extends LedgerDao {
@@ -494,7 +491,7 @@ private class JdbcLedgerDao(
   )
 
   private val flatTransactionsStreamReader = new TransactionsFlatStreamReader(
-    config = transactionsFlatStreamReaderConfig,
+    config = transactionFlatStreamsConfig,
     globalIdQueriesLimiter = globalIdQueriesLimiter,
     globalPayloadQueriesLimiter = globalPayloadQueriesLimiter,
     dbDispatcher = dbDispatcher,
@@ -505,7 +502,7 @@ private class JdbcLedgerDao(
   )(servicesExecutionContext)
 
   private val treeTransactionsStreamReader = new TransactionsTreeStreamReader(
-    config = transactionsTreeStreamReaderConfig,
+    config = transactionTreeStreamsConfig,
     globalIdQueriesLimiter = globalIdQueriesLimiter,
     globalPayloadQueriesLimiter = globalPayloadQueriesLimiter,
     dbDispatcher = dbDispatcher,
@@ -557,7 +554,7 @@ private class JdbcLedgerDao(
       readStorageBackend.completionStorageBackend,
       queryNonPruned,
       metrics,
-      pageSize = completionsMaxPayloadsPerPayloadsPage,
+      pageSize = completionsPageSize,
     )
 
   /** This is a combined store transaction method to support sandbox-classic and tests
@@ -643,9 +640,9 @@ private[platform] object JdbcLedgerDao {
       participantId: Ref.ParticipantId,
       ledgerEndCache: LedgerEndCache,
       stringInterning: StringInterning,
-      completionsMaxPayloadsPerPayloadsPage: Int,
-      transactionsFlatStreamReaderConfig: TransactionsFlatStreamReaderConfig,
-      transactionsTreeStreamReaderConfig: TransactionsTreeStreamReaderConfig,
+      completionsPageSize: Int,
+      transactionFlatStreamsConfig: TransactionFlatStreamsConfig,
+      transactionTreeStreamsConfig: TransactionTreeStreamsConfig,
       globalMaxEventIdQueries: Int,
       globalMaxEventPayloadQueries: Int,
   ): LedgerReadDao =
@@ -666,9 +663,9 @@ private[platform] object JdbcLedgerDao {
       participantId,
       dbSupport.storageBackendFactory.readStorageBackend(ledgerEndCache, stringInterning),
       dbSupport.storageBackendFactory.createParameterStorageBackend,
-      completionsMaxPayloadsPerPayloadsPage = completionsMaxPayloadsPerPayloadsPage,
-      transactionsFlatStreamReaderConfig,
-      transactionsTreeStreamReaderConfig,
+      completionsPageSize = completionsPageSize,
+      transactionFlatStreamsConfig,
+      transactionTreeStreamsConfig,
       globalMaxEventIdQueries = globalMaxEventIdQueries,
       globalMaxEventPayloadQueries = globalMaxEventPayloadQueries,
     )
@@ -690,9 +687,9 @@ private[platform] object JdbcLedgerDao {
       participantId: Ref.ParticipantId,
       ledgerEndCache: LedgerEndCache,
       stringInterning: StringInterning,
-      completionsMaxPayloadsPerPayloadsPage: Int,
-      transactionsFlatStreamReaderConfig: TransactionsFlatStreamReaderConfig,
-      transactionsTreeStreamReaderConfig: TransactionsTreeStreamReaderConfig,
+      completionsPageSize: Int,
+      transactionFlatStreamsConfig: TransactionFlatStreamsConfig,
+      transactionTreeStreamsConfig: TransactionTreeStreamsConfig,
       globalMaxEventIdQueries: Int,
       globalMaxEventPayloadQueries: Int,
   ): LedgerDao =
@@ -713,9 +710,9 @@ private[platform] object JdbcLedgerDao {
       participantId,
       dbSupport.storageBackendFactory.readStorageBackend(ledgerEndCache, stringInterning),
       dbSupport.storageBackendFactory.createParameterStorageBackend,
-      completionsMaxPayloadsPerPayloadsPage = completionsMaxPayloadsPerPayloadsPage,
-      transactionsFlatStreamReaderConfig,
-      transactionsTreeStreamReaderConfig,
+      completionsPageSize = completionsPageSize,
+      transactionFlatStreamsConfig,
+      transactionTreeStreamsConfig,
       globalMaxEventIdQueries = globalMaxEventIdQueries,
       globalMaxEventPayloadQueries = globalMaxEventPayloadQueries,
     )
