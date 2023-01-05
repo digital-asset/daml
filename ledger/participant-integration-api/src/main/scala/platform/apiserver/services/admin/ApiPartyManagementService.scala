@@ -212,6 +212,10 @@ private[apiserver] final class ApiPartyManagementService private (
             submissionId,
             (partyIdHintO, displayNameO),
           )
+          _ <- verifyPartyIsNonExistentOrInIdp(
+            identityProviderId,
+            allocated.partyDetails.party,
+          )
           partyRecord <- partyRecordStore
             .createPartyRecord(
               PartyRecord(
@@ -292,7 +296,6 @@ private[apiserver] final class ApiPartyManagementService private (
               updateMask = updateMask,
             ),
           )
-          // TODO IDP: Check if party belongs to the same `identityProviderId` or is ParticipantAdmin
           fetchedPartyDetailsO <- partyManagementService
             .getParties(parties = Seq(partyRecord.party))
             .map(_.headOption)

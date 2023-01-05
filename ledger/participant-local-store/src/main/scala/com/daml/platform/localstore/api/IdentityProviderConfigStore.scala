@@ -46,6 +46,9 @@ trait IdentityProviderConfigStore {
       .flatMap {
         case Right(value) if !value.isDeactivated => Future.successful(value)
         case Right(value) =>
+          // We do not throw here an error code, as this code path is
+          // handled by IdentityProviderAwareAuthService by transforming the
+          // exception into a warning in the logs.
           Future.failed(
             new Exception(s"Identity Provider ${value.identityProviderId.value} is deactivated.")
           )

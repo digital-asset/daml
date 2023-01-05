@@ -31,7 +31,9 @@ class IdentityProviderAwareAuthService(
       case None => Future.successful(ClaimSet.Unauthenticated)
       case Some(header) =>
         parseJWTPayload(header).recover { case error =>
-          logger.warn("Authorization error: " + error.getMessage)
+          // While we failed to authorize the token using IDP, it could still be possible
+          // to be valid by other means of authorizations, i.e. using default auth service
+          logger.warn("Failed to authorize the token: " + error.getMessage)
           ClaimSet.Unauthenticated
         }
     }).asJava
@@ -96,7 +98,7 @@ class IdentityProviderAwareAuthService(
   ): Future[StandardJWTPayload] =
     jwtPayload match {
       case _: CustomDamlJWTPayload =>
-        Future.failed(new Exception("Unexpected token format"))
+        Future.failed(new Exception("Unexpected token payload format"))
       case payload: StandardJWTPayload =>
         Future.successful(payload)
     }
