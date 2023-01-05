@@ -61,4 +61,6 @@ object AuthorizationError {
     override val reason =
       s"Claims are only valid for identityProviderId '${identityProviderId.value}'."
   }
+
+  final case class InvalidField(fieldName: String, reason: String) extends AuthorizationError
 }

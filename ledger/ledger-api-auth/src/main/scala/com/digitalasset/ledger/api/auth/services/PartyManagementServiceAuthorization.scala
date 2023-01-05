@@ -26,28 +26,32 @@ private[daml] final class PartyManagementServiceAuthorization(
     authorizer.requireAdminClaims(service.getParticipantId)(request)
 
   override def getParties(request: GetPartiesRequest): Future[GetPartiesResponse] =
-    authorizer.requireAdminIDPContext(request.identityProviderId, service.getParties)(request)
+    authorizer.requireIdentityProviderScope(request.identityProviderId, service.getParties)(request)
 
   override def listKnownParties(
       request: ListKnownPartiesRequest
   ): Future[ListKnownPartiesResponse] =
-    authorizer.requireAdminIDPContext(request.identityProviderId, service.listKnownParties)(request)
+    authorizer.requireIdentityProviderScope(request.identityProviderId, service.listKnownParties)(
+      request
+    )
 
   override def allocateParty(request: AllocatePartyRequest): Future[AllocatePartyResponse] =
-    authorizer.requireAdminIDPContext(request.identityProviderId, service.allocateParty)(request)
+    authorizer.requireIdentityProviderScope(request.identityProviderId, service.allocateParty)(
+      request
+    )
 
   override def updatePartyDetails(
       request: UpdatePartyDetailsRequest
   ): Future[UpdatePartyDetailsResponse] = request.partyDetails match {
     case Some(partyDetails) =>
-      authorizer.requireAdminIDPContext(
+      authorizer.requireIdentityProviderScope(
         partyDetails.identityProviderId,
         service.updatePartyDetails,
       )(
         request
       )
     case None =>
-      authorizer.requireAdminOrIDPAdminClaims(service.updatePartyDetails)(request)
+      authorizer.requireAdminOrIdentityProviderAdminClaims(service.updatePartyDetails)(request)
   }
 
   override def bindService(): ServerServiceDefinition =

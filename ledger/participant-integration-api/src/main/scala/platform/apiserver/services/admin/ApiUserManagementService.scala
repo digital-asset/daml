@@ -100,7 +100,7 @@ private[apiserver] final class ApiUserManagementService(
       } { case (user, pRights) =>
         for {
           _ <- identityProviderExistsOrError(user.identityProviderId)
-          _ <- userBelongsToIDPOrError(user.identityProviderId, user.id)
+          _ <- verifyUserBelongsToIDPOrError(user.identityProviderId, user.id)
           result <- userManagementStore
             .createUser(
               user = user,
@@ -153,7 +153,7 @@ private[apiserver] final class ApiUserManagementService(
         for {
           userUpdate <- handleUpdatePathResult(user.id, UserUpdateMapper.toUpdate(user, fieldMask))
           _ <- identityProviderExistsOrError(user.identityProviderId)
-          _ <- userBelongsToIDPOrError(user.identityProviderId, user.id)
+          _ <- verifyUserBelongsToIDPOrError(user.identityProviderId, user.id)
           authorizedUserIdO <- authorizedUserIdFO
           _ <-
             if (
@@ -217,7 +217,7 @@ private[apiserver] final class ApiUserManagementService(
         )
       } yield (userId, identityProviderId)
     } { case (userId, identityProviderId) =>
-      userBelongsToIDPOrError(identityProviderId, userId)
+      verifyUserBelongsToIDPOrError(identityProviderId, userId)
         .flatMap { _ => userManagementStore.getUser(userId) }
         .flatMap(handleResult("getting user"))
         .map(u => GetUserResponse(Some(toProtoUser(u))))
@@ -234,7 +234,7 @@ private[apiserver] final class ApiUserManagementService(
           )
         } yield (userId, identityProviderId)
       } { case (userId, identityProviderId) =>
-        userBelongsToIDPOrError(identityProviderId, userId)
+        verifyUserBelongsToIDPOrError(identityProviderId, userId)
           .flatMap { _ => userManagementStore.deleteUser(userId) }
           .flatMap(handleResult("deleting user"))
           .map(_ => proto.DeleteUserResponse())
@@ -289,7 +289,7 @@ private[apiserver] final class ApiUserManagementService(
         )
       } yield (userId, rights, identityProviderId)
     ) { case (userId, rights, identityProviderId) =>
-      userBelongsToIDPOrError(identityProviderId, userId)
+      verifyUserBelongsToIDPOrError(identityProviderId, userId)
         .flatMap { _ => userManagementStore.grantRights(id = userId, rights = rights) }
         .flatMap(handleResult("grant user rights"))
         .map(_.view.map(toProtoRight).toList)
@@ -310,7 +310,7 @@ private[apiserver] final class ApiUserManagementService(
         )
       } yield (userId, rights, identityProviderId)
     ) { case (userId, rights, identityProviderId) =>
-      userBelongsToIDPOrError(identityProviderId, userId)
+      verifyUserBelongsToIDPOrError(identityProviderId, userId)
         .flatMap { _ => userManagementStore.revokeRights(id = userId, rights = rights) }
         .flatMap(handleResult("revoke user rights"))
         .map(_.view.map(toProtoRight).toList)
@@ -330,7 +330,7 @@ private[apiserver] final class ApiUserManagementService(
         )
       } yield (userId, identityProviderId)
     } { case (userId, identityProviderId) =>
-      userBelongsToIDPOrError(identityProviderId, userId)
+      verifyUserBelongsToIDPOrError(identityProviderId, userId)
         .flatMap { _ => userManagementStore.listUserRights(userId) }
         .flatMap(handleResult("list user rights"))
         .map(_.view.map(toProtoRight).toList)
@@ -365,7 +365,7 @@ private[apiserver] final class ApiUserManagementService(
   // Here we check if user exists and actually belongs to the requested Identity Provider
   // Alternatively, identity_provider_id could be part of the compound unique key within user database.
   // It was considered as complication for the implementation and for now is simplified.
-  private def userBelongsToIDPOrError(
+  private def verifyUserBelongsToIDPOrError(
       identityProviderId: IdentityProviderId,
       userId: Ref.UserId,
   ): Future[Unit] = {

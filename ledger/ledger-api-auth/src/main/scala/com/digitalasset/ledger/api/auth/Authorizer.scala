@@ -82,7 +82,7 @@ final class Authorizer(
       }
     }
 
-  def requireAdminIDPContext[Req, Res](
+  def requireIdentityProviderScope[Req, Res](
       identityProviderId: String,
       call: Req => Future[Res],
   ): Req => Future[Res] =
@@ -90,24 +90,24 @@ final class Authorizer(
       for {
         _ <- valid(claims)
         _ <- claims.isAdminOrIDPAdmin
-        requestIdentityProviderId = IdentityProviderId.fromString(identityProviderId).toOption
+        requestIdentityProviderId <- requireIdentityProviderId(identityProviderId)
         _ <- validateRequestIdentityProviderId(requestIdentityProviderId, claims)
       } yield ()
     }
 
-  def requireIDPContext[Req, Res](
+  def requireAuthorizedIdentityProviderId[Req, Res](
       identityProviderId: String,
       call: Req => Future[Res],
   ): Req => Future[Res] =
     authorize(call) { claims =>
       for {
         _ <- valid(claims)
-        requestIdentityProviderId = IdentityProviderId.fromString(identityProviderId).toOption
+        requestIdentityProviderId <- requireIdentityProviderId(identityProviderId)
         _ <- validateRequestIdentityProviderId(requestIdentityProviderId, claims)
       } yield ()
     }
 
-  def requireAdminOrIDPAdminClaims[Req, Res](
+  def requireAdminOrIdentityProviderAdminClaims[Req, Res](
       call: Req => Future[Res]
   ): Req => Future[Res] =
     authorize(call) { claims =>
@@ -119,11 +119,18 @@ final class Authorizer(
       }
     }
 
+  private def requireIdentityProviderId(
+      identityProviderId: String
+  ): Either[AuthorizationError, IdentityProviderId] =
+    IdentityProviderId.fromString(identityProviderId).left.map { reason =>
+      AuthorizationError.InvalidField("identity_provider_id", reason)
+    }
+
   private def validateRequestIdentityProviderId(
-      requestIdentityProviderId: Option[IdentityProviderId],
+      requestIdentityProviderId: IdentityProviderId,
       claims: ClaimSet.Claims,
   ): Either[AuthorizationError, Unit] = claims.identityProviderId match {
-    case id: IdentityProviderId.Id if !requestIdentityProviderId.contains(id) =>
+    case id: IdentityProviderId.Id if requestIdentityProviderId != id =>
       // Claim is valid only for the specific Identity Provider,
       // and identity_provider_id in the request matches the one provided in the claim.
       Left(AuthorizationError.InvalidIdentityProviderId(id))
@@ -265,8 +272,18 @@ final class Authorizer(
       errOrV: Either[AuthorizationError, T]
   ): Either[StatusRuntimeException, T] =
     errOrV.fold(
-      err =>
-        Left(LedgerApiErrors.AuthorizationChecks.PermissionDenied.Reject(err.reason).asGrpcError),
+      {
+        case AuthorizationError.InvalidField(fieldName, reason) =>
+          Left(
+            LedgerApiErrors.RequestValidation.InvalidField
+              .Reject(fieldName = fieldName, message = reason)
+              .asGrpcError
+          )
+        case err =>
+          Left(
+            LedgerApiErrors.AuthorizationChecks.PermissionDenied.Reject(err.reason).asGrpcError
+          )
+      },
       Right(_),
     )
 
