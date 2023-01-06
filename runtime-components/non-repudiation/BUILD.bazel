@@ -18,6 +18,7 @@ da_scala_library(
         "//libs-scala/grpc-reverse-proxy",
         "//libs-scala/grpc-utils",
         "//libs-scala/resources",
+        "//observability/metrics",
         "//runtime-components/non-repudiation-core",
         "@maven//:com_google_guava_guava",
         "@maven//:org_slf4j_slf4j_api",

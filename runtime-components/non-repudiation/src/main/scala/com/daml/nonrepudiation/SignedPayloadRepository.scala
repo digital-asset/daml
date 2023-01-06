@@ -3,7 +3,7 @@
 
 package com.daml.nonrepudiation
 
-import com.codahale.metrics.Timer
+import com.daml.metrics.api.MetricHandle.Timer
 import com.daml.nonrepudiation.SignedPayloadRepository.KeyEncoder
 
 object SignedPayloadRepository {

@@ -7,7 +7,6 @@ import java.io.ByteArrayInputStream
 import java.security.PublicKey
 import java.time.Clock
 
-import com.codahale.metrics.Timer
 import com.daml.grpc.interceptors.ForwardingServerCallListener
 import io.grpc.Metadata.Key
 import io.grpc._
