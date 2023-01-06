@@ -23,28 +23,32 @@ case class AllocatedParties(
 }
 
 object AllocatedParties {
+
+  /** @param partyPrefixesForPartySets - get converted to main party prefixes and then used to find party sets
+    */
   def forExistingParties(
       parties: List[String],
-      partySetPrefixes: List[String],
+      partyPrefixesForPartySets: List[String],
   ): AllocatedParties = {
-    val partiesPrefixMap: Map[String, List[Primitive.Party]] = parties
-      .groupBy(Names.parsePartyNamePrefix)
+    val partiesByMainPrefixMap: Map[String, List[Primitive.Party]] = parties
+      .groupBy(Names.parsePartyNameMainPrefix)
       .view
       .mapValues(_.map(Primitive.Party(_)))
       .toMap
     val observerPartySets = for {
-      partySetPrefix <- partySetPrefixes
-      parties <- partiesPrefixMap.get(partySetPrefix)
+      partySetPrefix <- partyPrefixesForPartySets.map(Names.parsePartyNameMainPrefix)
+      parties <- partiesByMainPrefixMap.get(partySetPrefix)
     } yield AllocatedPartySet(
-      partyNamePrefix = partySetPrefix,
+      mainPartyNamePrefix = partySetPrefix,
       parties = parties,
     )
+    val signatories = partiesByMainPrefixMap.getOrElse(Names.SignatoryPrefix, List.empty)
     AllocatedParties(
       // NOTE: For synthetic streams signatory is always present
-      signatoryO = partiesPrefixMap.getOrElse(Names.SignatoryPrefix, List.empty).headOption,
-      observers = partiesPrefixMap.getOrElse(Names.ObserverPrefix, List.empty),
-      divulgees = partiesPrefixMap.getOrElse(Names.DivulgeePrefix, List.empty),
-      extraSubmitters = partiesPrefixMap.getOrElse(Names.ExtraSubmitterPrefix, List.empty),
+      signatoryO = signatories.headOption,
+      observers = partiesByMainPrefixMap.getOrElse(Names.ObserverPrefix, List.empty),
+      divulgees = partiesByMainPrefixMap.getOrElse(Names.DivulgeePrefix, List.empty),
+      extraSubmitters = partiesByMainPrefixMap.getOrElse(Names.ExtraSubmitterPrefix, List.empty),
       observerPartySets = observerPartySets,
     )
   }

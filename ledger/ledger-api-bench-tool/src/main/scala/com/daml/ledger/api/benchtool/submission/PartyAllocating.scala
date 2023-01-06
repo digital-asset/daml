@@ -61,7 +61,7 @@ class PartyAllocating(
         extraSubmitters = extraSubmitters,
         observerPartySets = partySetParties.view.map { case (partyName, parties) =>
           AllocatedPartySet(
-            partyNamePrefix = partyName,
+            mainPartyNamePrefix = partyName,
             parties = parties,
           )
         }.toList,

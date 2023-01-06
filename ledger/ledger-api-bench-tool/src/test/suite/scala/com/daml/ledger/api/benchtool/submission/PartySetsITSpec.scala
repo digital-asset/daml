@@ -87,7 +87,7 @@ class PartySetsITSpec
       )
       _ <- tested.performSubmission()
       _ = allocatedParties.observerPartySets
-        .find(_.partyNamePrefix == "FooParty")
+        .find(_.mainPartyNamePrefix == "FooParty")
         .value
         .parties(87)
         .toString shouldBe "FooParty-87"

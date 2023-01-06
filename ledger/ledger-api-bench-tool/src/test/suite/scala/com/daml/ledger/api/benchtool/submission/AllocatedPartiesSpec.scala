@@ -22,7 +22,7 @@ class AllocatedPartiesSpec extends AnyFlatSpec with Matchers {
         "BarParty-100",
         "MyOtherParty-0",
       ),
-      partySetPrefixes = List("FooParty", "BarParty"),
+      partyPrefixesForPartySets = List("FooParty", "BarParty"),
     ) shouldBe AllocatedParties(
       signatoryO = Some(Primitive.Party("signatory-123")),
       observers = List(
@@ -33,11 +33,11 @@ class AllocatedPartiesSpec extends AnyFlatSpec with Matchers {
       extraSubmitters = List(Primitive.Party("Sub-0")),
       observerPartySets = List(
         AllocatedPartySet(
-          partyNamePrefix = "FooParty",
+          mainPartyNamePrefix = "FooParty",
           parties = List(Primitive.Party("FooParty-0"), Primitive.Party("FooParty-1")),
         ),
         AllocatedPartySet(
-          partyNamePrefix = "BarParty",
+          mainPartyNamePrefix = "BarParty",
           parties = List(Primitive.Party("BarParty-100")),
         ),
       ),
@@ -49,13 +49,50 @@ class AllocatedPartiesSpec extends AnyFlatSpec with Matchers {
       parties = List(
         "signatory-123"
       ),
-      partySetPrefixes = List.empty,
+      partyPrefixesForPartySets = List.empty,
     ) shouldBe AllocatedParties(
       signatoryO = Some(Primitive.Party("signatory-123")),
       observers = List.empty,
       divulgees = List.empty,
       extraSubmitters = List.empty,
       observerPartySets = List.empty,
+    )
+  }
+
+  it should "find party sets for any party prefix" in {
+    AllocatedParties.forExistingParties(
+      parties = List(
+        "Party-01",
+        "Party-02",
+        "Party-10",
+        "Foo-01",
+        "Bar-02",
+        "Baz-03",
+      ),
+      partyPrefixesForPartySets = List("Party-0", "Foo-", "Bar"),
+    ) shouldBe AllocatedParties(
+      signatoryO = None,
+      observers = List.empty,
+      divulgees = List.empty,
+      extraSubmitters = List.empty,
+      observerPartySets = List(
+        AllocatedPartySet(
+          "Party",
+          parties = List(
+            Primitive.Party("Party-01"),
+            Primitive.Party("Party-02"),
+            Primitive.Party("Party-10"),
+          ),
+        ),
+        AllocatedPartySet(
+          "Foo",
+          parties = List(Primitive.Party("Foo-01")),
+        ),
+        AllocatedPartySet(
+          "Bar",
+          parties = List(Primitive.Party("Bar-02")),
+        ),
+      ),
     )
   }
 

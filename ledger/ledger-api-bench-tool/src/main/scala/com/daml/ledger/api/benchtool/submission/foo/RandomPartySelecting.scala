@@ -22,10 +22,10 @@ class RandomPartySelecting(
   private val observerPartySetPartiesProbability: List[(client.binding.Primitive.Party, Double)] =
     allocatedParties.observerPartySets.flatMap { partySet =>
       val visibility = config.observerPartySets
-        .find(_.partyNamePrefix == partySet.partyNamePrefix)
+        .find(_.partyNamePrefix == partySet.mainPartyNamePrefix)
         .fold(
           sys.error(
-            s"Could not find visibility for party set ${partySet.partyNamePrefix} in the submission config"
+            s"Could not find visibility for party set ${partySet.mainPartyNamePrefix} in the submission config"
           )
         )(_.visibility)
       partySet.parties.map(party => party -> visibility)

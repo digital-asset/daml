@@ -86,19 +86,19 @@ class ConfigEnricher(
   ): List[PartyFilter] = {
     val convertedTemplates = filter.templates.map(convertTemplate)
     val convertedInterfaces = filter.interfaces.map(convertInterface)
-    val convertedParties = convertPartySet(filter.partyNamePrefix)
+    val convertedParties = matchingParties(filter.partyNamePrefix)
     convertedParties.map(party =>
       PartyFilter(party = party, templates = convertedTemplates, interfaces = convertedInterfaces)
     )
   }
 
-  private def convertPartySet(partyNamePrefix: String): List[String] = {
+  private def matchingParties(partyNamePrefix: String): List[String] = {
     val knownParties = allocatedParties.allAllocatedParties.map(_.unwrap)
     val matchedParties = knownParties.filter(_.startsWith(partyNamePrefix))
     if (matchedParties.isEmpty) {
-      val partySetNames = knownParties.mkString(", ")
+      val knownPartiesText = knownParties.mkString(", ")
       sys.error(
-        s"Expected party name prefix: '${partyNamePrefix}' does not match any of the known parties: $partySetNames"
+        s"Expected party name prefix: '${partyNamePrefix}' does not match any of the known parties: $knownPartiesText"
       )
     } else
       matchedParties

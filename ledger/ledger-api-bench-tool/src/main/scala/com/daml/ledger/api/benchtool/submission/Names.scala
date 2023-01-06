@@ -83,7 +83,9 @@ object Names {
   val DivulgeePrefix = "Div"
   val ExtraSubmitterPrefix = "Sub"
 
-  def parsePartyNamePrefix(partyName: String): String = {
+  /** @return main prefix of a party which is the prefix up to the first '-' character
+    */
+  def parsePartyNameMainPrefix(partyName: String): String = {
     partyName.split(Names.PartyPrefixSeparatorChar)(0)
   }
 

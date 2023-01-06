@@ -35,7 +35,7 @@ class ConfigEnricherSpec extends AnyFlatSpec with Matchers {
         extraSubmitters = List(makeParty("Sub-0")),
         observerPartySets = List(
           AllocatedPartySet(
-            partyNamePrefix = "MyParty",
+            mainPartyNamePrefix = "MyParty",
             List("MyParty-0", "MyParty-1", "MyParty-11", "MyParty-12", "MyParty-21", "MyParty-22")
               .map(makeParty),
           )

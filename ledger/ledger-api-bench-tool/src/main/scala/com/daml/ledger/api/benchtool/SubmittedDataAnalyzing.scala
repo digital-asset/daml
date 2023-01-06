@@ -40,7 +40,8 @@ object SubmittedDataAnalyzing {
     } yield {
       AllocatedParties.forExistingParties(
         parties = existingParties.toList,
-        partySetPrefixes = workflowConfig.streams.flatMap(_.partySetPrefixes.iterator).distinct,
+        partyPrefixesForPartySets =
+          workflowConfig.streams.flatMap(_.partySetPrefixes.iterator).distinct,
       )
     }
   }
