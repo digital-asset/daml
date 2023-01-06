@@ -10,7 +10,7 @@ import akka.actor.Scheduler
 import com.daml.ledger.api.auth.interceptor.AuthorizationInterceptor
 import com.daml.ledger.api.domain
 import com.daml.lf.data.Ref
-import com.daml.logging.LoggingContext
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.localstore.api.UserManagementStore
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -25,6 +25,8 @@ private[auth] final class UserRightsChangeAsyncChecker(
     userRightsCheckIntervalInSeconds: Int,
     akkaScheduler: Scheduler,
 )(implicit ec: ExecutionContext) {
+
+  private val logger = ContextualizedLogger.get(getClass)
 
   /** Schedules an asynchronous and periodic task to check for user rights' state changes
     * @param userClaimsMismatchCallback - called when user rights' state change has been detected.
@@ -47,6 +49,10 @@ private[auth] final class UserRightsChangeAsyncChecker(
     // "All scheduled task will be executed when the ActorSystem is terminated, i.e. the task may execute before its timeout."
     val cancellable =
       akkaScheduler.scheduleWithFixedDelay(initialDelay = delay, delay = delay)(() => {
+        val t1 = System.currentTimeMillis()
+        logger.info(
+          s"Checking for stream staleness for userId: $userId. About to fetch user state from user management store"
+        )
         val userState
             : Future[Either[UserManagementStore.Error, (domain.User, Set[domain.UserRight])]] =
           for {
@@ -59,15 +65,30 @@ private[auth] final class UserRightsChangeAsyncChecker(
             } yield (user, userRights)
           }
         userState
-          .onComplete {
-            case Failure(_) | Success(Left(_)) =>
-              userClaimsMismatchCallback()
-            case Success(Right((user, userRights))) =>
-              val updatedClaims = AuthorizationInterceptor.convertUserRightsToClaims(userRights)
-              if (updatedClaims.toSet != originalClaims.claims.toSet || user.isDeactivated) {
-                userClaimsMismatchCallback()
+          .onComplete { v =>
+            {
+              logger.info(
+                s"Checking for stream staleness for userId: $userId. About to inspect user state fetch from user management store. Elapsed: ${System
+                    .currentTimeMillis() - t1} [ms]"
+              )
+              v match {
+                case Failure(e) =>
+                  logger.info(s"Could not retrieve user or user rights for userId: '$userId'", e)
+                  userClaimsMismatchCallback()
+                case Success(Left(e)) =>
+                  logger.info(
+                    s"Could not retrieve user or user rights for userId: '$userId'. Cause: $e"
+                  )
+                  userClaimsMismatchCallback()
+                case Success(Right((user, userRights))) =>
+                  val updatedClaims = AuthorizationInterceptor.convertUserRightsToClaims(userRights)
+                  if (updatedClaims.toSet != originalClaims.claims.toSet || user.isDeactivated) {
+                    logger.info(s"User or user rights mismatch detected for userId: '$userId'")
+                    userClaimsMismatchCallback()
+                  }
+                  lastUserRightsCheckTime.set(nowF())
               }
-              lastUserRightsCheckTime.set(nowF())
+            }
           }
       })
     () => (cancellable.cancel(): Unit)
