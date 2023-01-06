@@ -11,6 +11,7 @@ import com.daml.metrics.ExecutorServiceMetrics.{
   NameLabelKey,
   ThreadPoolMetricsName,
 }
+import com.daml.metrics.InstrumentedExecutorServiceMetrics.InstrumentedExecutorService
 import com.daml.metrics.api.MetricHandle.Factory
 import com.daml.metrics.api.{MetricName, MetricsContext}
 import org.slf4j.LoggerFactory
@@ -18,22 +19,27 @@ import org.slf4j.LoggerFactory
 class ExecutorServiceMetrics(factory: Factory) {
 
   private val logger = LoggerFactory.getLogger(getClass)
+  private val instrumentedExecutorServiceMetrics = new InstrumentedExecutorServiceMetrics(factory)
 
   def monitorExecutorService(name: String, executor: ExecutorService): ExecutorService = {
     executor match {
       case forkJoinPool: ForkJoinPool =>
         monitorForkJoin(name, forkJoinPool)
-        forkJoinPool
+        new InstrumentedExecutorService(forkJoinPool, instrumentedExecutorServiceMetrics, name)
       case threadPoolExecutor: ThreadPoolExecutor =>
         monitorThreadPool(name, threadPoolExecutor)
-        threadPoolExecutor
+        new InstrumentedExecutorService(
+          threadPoolExecutor,
+          instrumentedExecutorServiceMetrics,
+          name,
+        )
       case other =>
         logger.info(s"Cannot monitor executor of type ${other.getClass}")
         other
     }
   }
 
-  def monitorForkJoin(name: String, executor: ForkJoinPool): Unit = {
+  private def monitorForkJoin(name: String, executor: ForkJoinPool): Unit = {
     MetricsContext.withMetricLabels(NameLabelKey -> name, "type" -> "fork_join") { implicit mc =>
       poolSizeGauge(() => executor.getPoolSize)
       activeThreadsGauge(() => executor.getActiveThreadCount)
@@ -59,7 +65,7 @@ class ExecutorServiceMetrics(factory: Factory) {
     }
   }
 
-  def monitorThreadPool(name: String, executor: ThreadPoolExecutor): Unit = {
+  private def monitorThreadPool(name: String, executor: ThreadPoolExecutor): Unit = {
     MetricsContext.withMetricLabels("name" -> name, "type" -> "thread_pool") { implicit mc =>
       poolSizeGauge(() => executor.getPoolSize)
       factory.gaugeWithSupplier(
@@ -126,10 +132,10 @@ object ExecutorServiceMetrics {
 
   val NameLabelKey = "name"
 
-  private val prefix = MetricName("daml", "executor")
-  private val PoolMetricsPrefix: MetricName = prefix :+ "pool"
-  private val TasksMetricsPrefix: MetricName = prefix :+ "tasks"
-  private val ThreadsMetricsPrefix: MetricName = prefix :+ "threads"
+  val Prefix: MetricName = MetricName("daml", "executor")
+  private val PoolMetricsPrefix: MetricName = Prefix :+ "pool"
+  private val TasksMetricsPrefix: MetricName = Prefix :+ "tasks"
+  private val ThreadsMetricsPrefix: MetricName = Prefix :+ "threads"
 
   object ThreadPoolMetricsName {
 
