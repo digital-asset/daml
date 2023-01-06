@@ -56,10 +56,11 @@ object AuthorizationError {
     override val reason = s"Claims do not authorize to act as party '$party'"
   }
 
-  final case class InvalidIdentityProviderId(identityProviderId: IdentityProviderId.Id)
+  final case class InvalidIdentityProviderId(identityProviderId: IdentityProviderId)
       extends AuthorizationError {
+    private val id = identityProviderId.toRequestString
     override val reason =
-      s"Claims are only valid for identityProviderId '${identityProviderId.value}'."
+      s"identity_provider_id from the request `$id` does not match the one provided in the authorization claims'."
   }
 
   final case class InvalidField(fieldName: String, reason: String) extends AuthorizationError

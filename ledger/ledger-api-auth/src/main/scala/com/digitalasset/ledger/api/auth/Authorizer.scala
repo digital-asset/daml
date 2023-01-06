@@ -133,7 +133,7 @@ final class Authorizer(
     case id: IdentityProviderId.Id if requestIdentityProviderId != id =>
       // Claim is valid only for the specific Identity Provider,
       // and identity_provider_id in the request matches the one provided in the claim.
-      Left(AuthorizationError.InvalidIdentityProviderId(id))
+      Left(AuthorizationError.InvalidIdentityProviderId(requestIdentityProviderId))
     case _ =>
       Right(())
   }

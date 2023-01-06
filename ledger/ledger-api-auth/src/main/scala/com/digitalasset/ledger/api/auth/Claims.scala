@@ -121,7 +121,9 @@ object ClaimSet {
     def isAdmin: Either[AuthorizationError, Unit] =
       Either.cond(claims.contains(ClaimAdmin), (), AuthorizationError.MissingAdminClaim)
 
-    /** Returns true if the set of claims authorizes the user to use admin services or Identity Provider admin services, unless the claims expired */
+    /** Returns true if the set of claims authorizes the user as an administrator or
+      * an identity provider administrator, unless the claims expired
+      */
     def isAdminOrIDPAdmin: Either[AuthorizationError, Unit] =
       Either.cond(
         claims.contains(ClaimIdentityProviderAdmin) || claims.contains(ClaimAdmin),
