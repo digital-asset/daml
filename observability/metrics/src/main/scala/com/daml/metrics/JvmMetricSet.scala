@@ -3,39 +3,23 @@
 
 package com.daml.metrics
 
-import java.util
-
-import com.codahale.metrics.jvm.{
-  ClassLoadingGaugeSet,
-  GarbageCollectorMetricSet,
-  JvmAttributeGaugeSet,
-  MemoryUsageGaugeSet,
-  ThreadStatesGaugeSet,
-}
-import com.codahale.metrics.{Metric, MetricSet}
-import com.daml.metrics.JvmMetricSet._
-import com.daml.metrics.api.MetricName
-
-import scala.jdk.CollectionConverters._
-
-class JvmMetricSet extends MetricSet {
-  private val metricSets = Map(
-    "class_loader" -> Classes,
-    "garbage_collector" -> new GarbageCollectorMetricSet,
-    "attributes" -> new JvmAttributeGaugeSet,
-    "memory_usage" -> new MemoryUsageGaugeSet,
-    "thread_states" -> new ThreadStatesGaugeSet,
-  )
-
-  override def getMetrics: util.Map[String, Metric] =
-    metricSets.flatMap { case (metricSetName, metricSet) =>
-      val metricSetPrefix = Prefix :+ metricSetName
-      metricSet.getMetrics.asScala.map { case (metricName, metric) =>
-        (metricSetPrefix :+ metricName).toString -> metric
-      }
-    }.asJava
+import io.opentelemetry.api.OpenTelemetry
+import io.opentelemetry.instrumentation.runtimemetrics.{
+  BufferPools,
+  Classes,
+  Cpu,
+  GarbageCollector,
+  MemoryPools,
+  Threads,
 }
 
 object JvmMetricSet {
-  private val Prefix = MetricName("jvm")
+  def registerObservers(openTelemetry: OpenTelemetry): Unit = {
+    BufferPools.registerObservers(openTelemetry)
+    Classes.registerObservers(openTelemetry)
+    Cpu.registerObservers(openTelemetry)
+    MemoryPools.registerObservers(openTelemetry)
+    Threads.registerObservers(openTelemetry)
+    GarbageCollector.registerObservers(openTelemetry)
+  }
 }
