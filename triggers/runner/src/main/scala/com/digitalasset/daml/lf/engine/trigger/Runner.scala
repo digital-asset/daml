@@ -1314,7 +1314,7 @@ object Runner {
         )
 
     implicit def `api.Value to LoggingValue`: ToLoggingValue[api.Value] = value =>
-      PrettyPrint.prettyApiValue(verbose = true)(value).render(80)
+      PrettyPrint.prettyApiValue(verbose = true, maxListWidth = Some(20))(value).render(80)
 
     implicit def `SValue to LoggingValue`: ToLoggingValue[SValue] = value =>
       PrettyPrint.prettySValue(value).render(80)
