@@ -20,6 +20,7 @@ import com.daml.metrics.ExecutorServiceMetrics.{
   NameLabelKey,
   ThreadPoolMetricsName,
 }
+import com.daml.metrics.InstrumentedExecutorServiceMetrics.InstrumentedExecutorService
 import com.daml.metrics.api.MetricHandle.LabeledMetricsFactory
 import com.daml.metrics.api.{MetricName, MetricsContext}
 import org.slf4j.LoggerFactory
@@ -27,6 +28,7 @@ import org.slf4j.LoggerFactory
 class ExecutorServiceMetrics(factory: LabeledMetricsFactory) {
 
   private val logger = LoggerFactory.getLogger(getClass)
+  private val instrumentedExecutorServiceMetrics = new InstrumentedExecutorServiceMetrics(factory)
 
   def monitorExecutorService(
       name: String,
@@ -40,10 +42,16 @@ class ExecutorServiceMetrics(factory: LabeledMetricsFactory) {
     executor match {
       case forkJoinPool: ForkJoinPool =>
         val monitoringHandle = monitorForkJoin(name, forkJoinPool)
-        new ExecutorServiceWithCleanup(forkJoinPool, monitoringHandle)
+        val instrumentedExecutor = new InstrumentedExecutorService(forkJoinPool, instrumentedExecutorServiceMetrics, name)
+        new ExecutorServiceWithCleanup(instrumentedExecutor, monitoringHandle)
       case threadPoolExecutor: ThreadPoolExecutor =>
         val monitoringHandle = monitorThreadPool(name, threadPoolExecutor)
-        new ExecutorServiceWithCleanup(threadPoolExecutor, monitoringHandle)
+        val instrumentedExecutor = new InstrumentedExecutorService(
+          threadPoolExecutor,
+          instrumentedExecutorServiceMetrics,
+          name,
+        )
+        new ExecutorServiceWithCleanup(instrumentedExecutor, monitoringHandle)
       case other =>
         logger.warn(
           s"Cannot monitor executor of type ${other.getClass}. Proceeding without metrics."
@@ -52,7 +60,7 @@ class ExecutorServiceMetrics(factory: LabeledMetricsFactory) {
     }
   }
 
-  def monitorForkJoin(name: String, executor: ForkJoinPool): AutoCloseable = {
+  private def monitorForkJoin(name: String, executor: ForkJoinPool): AutoCloseable = {
     MetricsContext.withMetricLabels(NameLabelKey -> name, "type" -> "fork_join") { implicit mc =>
       val poolSizeCloseableGauge = poolSizeGauge(() => executor.getPoolSize)
       val activeThreadsCloseableGauge = activeThreadsGauge(() => executor.getActiveThreadCount)
@@ -89,7 +97,7 @@ class ExecutorServiceMetrics(factory: LabeledMetricsFactory) {
     }
   }
 
-  def monitorThreadPool(name: String, executor: ThreadPoolExecutor): AutoCloseable = {
+  private def monitorThreadPool(name: String, executor: ThreadPoolExecutor): AutoCloseable = {
     MetricsContext.withMetricLabels("name" -> name, "type" -> "thread_pool") { implicit mc =>
       val poolSizeCloseableGauge = poolSizeGauge(() => executor.getPoolSize)
       val corePoolSizeCloseableGauge = factory.gaugeWithSupplier(
@@ -165,10 +173,10 @@ object ExecutorServiceMetrics {
 
   val NameLabelKey = "name"
 
-  private val prefix = MetricName("daml", "executor")
-  private val PoolMetricsPrefix: MetricName = prefix :+ "pool"
-  private val TasksMetricsPrefix: MetricName = prefix :+ "tasks"
-  private val ThreadsMetricsPrefix: MetricName = prefix :+ "threads"
+  val Prefix: MetricName = MetricName("daml", "executor")
+  private val PoolMetricsPrefix: MetricName = Prefix :+ "pool"
+  private val TasksMetricsPrefix: MetricName = Prefix :+ "tasks"
+  private val ThreadsMetricsPrefix: MetricName = Prefix :+ "threads"
 
   object ThreadPoolMetricsName {
 
