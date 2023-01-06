@@ -176,10 +176,12 @@ class PartySetsITSpec
           interfaces = List.empty,
         )
       ),
-      partyNamePrefixFiltersO = filterByPartyNamePrefixes.map(partyNamePrefix =>
-        PartyNamePrefixFilter(
-          partyNamePrefix = partyNamePrefix,
-          templates = filterByTemplates,
+      partyNamePrefixFiltersO = Some(
+        filterByPartyNamePrefixes.map(partyNamePrefix =>
+          PartyNamePrefixFilter(
+            partyNamePrefix = partyNamePrefix,
+            templates = filterByTemplates,
+          )
         )
       ),
       beginOffset = None,
