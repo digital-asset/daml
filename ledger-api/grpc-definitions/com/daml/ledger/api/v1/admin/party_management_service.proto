@@ -188,7 +188,7 @@ message PartyDetails {
   // Optional
   string display_name = 2;
 
-  // true if party is hosted by the participant and party is within the user's identity provider.
+  // true if party is hosted by the participant and the party shares the same identity provider as the user issuing the request.
   // Optional
   bool is_local = 3;
 
