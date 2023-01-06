@@ -86,8 +86,8 @@ class ConfigEnricher(
   ): List[PartyFilter] = {
     val convertedTemplates = filter.templates.map(convertTemplate)
     val convertedInterfaces = filter.interfaces.map(convertInterface)
-    val convertedParties = matchingParties(filter.partyNamePrefix)
-    convertedParties.map(party =>
+    val matchedParties = matchingParties(filter.partyNamePrefix)
+    matchedParties.map(party =>
       PartyFilter(party = party, templates = convertedTemplates, interfaces = convertedInterfaces)
     )
   }

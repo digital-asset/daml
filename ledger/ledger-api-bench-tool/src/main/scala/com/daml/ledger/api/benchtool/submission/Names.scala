@@ -57,13 +57,13 @@ class Names {
   ): Seq[String] = {
     val largestIndex = numberOfParties - 1
     val paddingTargetLength = largestIndex.toString.length
-    def indexTextFn(i: Int): String =
+    def indexToString(i: Int): String =
       if (padPartyIndexWithLeadingZeroes) {
         padLeftWithZeroes(i, paddingTargetLength)
       } else {
         i.toString
       }
-    (0 until numberOfParties).map(i => partyName(prefix, indexTextFn(i), uniqueParties))
+    (0 until numberOfParties).map(i => partyName(prefix, indexToString(i), uniqueParties))
   }
 
   private def padLeftWithZeroes(i: Int, len: Int): String = {
