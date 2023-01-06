@@ -3,7 +3,8 @@
 
 package com.daml.nonrepudiation
 
-import com.codahale.metrics.{Meter, MetricRegistry, Timer}
+import com.daml.metrics.api.MetricHandle.{Factory, Meter, Timer}
+import com.daml.metrics.api.MetricName
 
 object Metrics extends Metrics {
 
@@ -11,15 +12,16 @@ object Metrics extends Metrics {
   // Having multiple registries is useful
   // "if you want to organize your metrics in particular reporting groups"
   // See: https://metrics.dropwizard.io/4.1.2/manual/core.html
-  object Registry extends MetricRegistry
-
+  override val metricsFactory: Factory = null
 }
 
 sealed abstract class Metrics {
 
-  private val Prefix = "daml.nonrepudiation"
+  val metricsFactory: Factory
 
-  private def name(suffix: String): String = s"$Prefix.$suffix"
+  private val Prefix = MetricName("daml", "nonrepudiation")
+
+  private def name(suffix: String): MetricName = Prefix :+ suffix
 
   // For further details on the metrics below, see: https://metrics.dropwizard.io/4.1.2/manual/core.html
   // Quick reference:
@@ -30,26 +32,26 @@ sealed abstract class Metrics {
 
   // daml.nonrepudiation.processing
   // Overall time taken from interception to forwarding to the participant (or rejecting)
-  val processingTimer: Timer = Metrics.Registry.timer(name("processing"))
+  val processingTimer: Timer = metricsFactory.timer(name("processing"))
 
   // daml.nonrepudiation.get_key
   // Time taken to retrieve the key from the certificate store
   // Part of the time tracked in daml.nonrepudiation.processing
-  val getKeyTimer: Timer = Metrics.Registry.timer(name("get_key"))
+  val getKeyTimer: Timer = metricsFactory.timer(name("get_key"))
 
   // daml.nonrepudiation.verify_signature
   // Time taken to verify the signature of a command
   // Part of the time tracked in daml.nonrepudiation.processing
-  val verifySignatureTimer: Timer = Metrics.Registry.timer(name("verify_signature"))
+  val verifySignatureTimer: Timer = metricsFactory.timer(name("verify_signature"))
 
   // daml.nonrepudiation.add_signed_payload
   // Time taken to add the signed payload before ultimately forwarding the command
   // Part of the time tracked in daml.nonrepudiation.processing
-  val addSignedPayloadTimer: Timer = Metrics.Registry.timer(name("add_signed_payload"))
+  val addSignedPayloadTimer: Timer = metricsFactory.timer(name("add_signed_payload"))
 
   // daml.nonrepudiation.rejections
   // Rate of calls that are being rejected before they can be forwarded to the participant
   // Historical and exponentially-weighted moving average rate over the latest 1, 5 and 15 minutes
-  val rejectionsMeter: Meter = Metrics.Registry.meter(name("rejections"))
+  val rejectionsMeter: Meter = metricsFactory.meter(name("rejections"))
 
 }
