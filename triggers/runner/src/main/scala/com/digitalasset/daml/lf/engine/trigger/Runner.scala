@@ -43,7 +43,6 @@ import com.daml.lf.language.Ast._
 import com.daml.lf.language.PackageInterface
 import com.daml.lf.language.Util._
 import com.daml.lf.speedy.SExpr._
-import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.speedy.{Compiler, Pretty, SValue, Speedy}
 import com.daml.lf.{CompiledPackages, PureCompiledPackages}
@@ -107,19 +106,14 @@ private[lf] object Machine {
 
   // Run speedy until we arrive at a value.
   def stepToValue(
-      machine: Speedy.PureMachine
+      compiledPackages: CompiledPackages,
+      expr: SExpr,
   )(implicit triggerContext: TriggerLogContext): SValue = {
-    machine.run() match {
-      case SResultFinal(v) => v
-      case SResultError(err) => {
+    Speedy.Machine.runPureSExpr(compiledPackages, expr) match {
+      case Right(v) => v
+      case Left(err) =>
         triggerContext.logError(Pretty.prettyError(err).render(80))
         throw err
-      }
-      case res => {
-        val errMsg = s"Unexpected speedy result: $res"
-        triggerContext.logError(errMsg)
-        throw new RuntimeException(errMsg)
-      }
     }
   }
 }
@@ -315,8 +309,7 @@ object Trigger {
     val heartbeat = compiler.unsafeCompile(
       ERecProj(triggerDef.ty, Name.assertFromString("heartbeat"), triggerDef.expr)
     )
-    val machine = Speedy.Machine.fromPureSExpr(compiledPackages, heartbeat)
-    Machine.stepToValue(machine) match {
+    Machine.stepToValue(compiledPackages, heartbeat) match {
       case SOptional(None) => Right(None)
       case SOptional(Some(relTime)) => converter.toFiniteDuration(relTime).map(Some(_))
       case value => Left(s"Expected Optional but got $value.")
@@ -333,7 +326,6 @@ object Trigger {
     val registeredTemplates = compiler.unsafeCompile(
       ERecProj(triggerDef.ty, Name.assertFromString("registeredTemplates"), triggerDef.expr)
     )
-    val machine = Speedy.Machine.fromPureSExpr(compiledPackages, registeredTemplates)
     val packages = compiledPackages.packageIds
       .map(pkgId => (pkgId, compiledPackages.pkgInterface.lookupPackage(pkgId).toOption.get))
       .toSeq
@@ -363,7 +355,7 @@ object Trigger {
         })
       })
 
-    Machine.stepToValue(machine) match {
+    Machine.stepToValue(compiledPackages, registeredTemplates) match {
       case SVariant(_, "AllInDar", _, _) =>
         Right(
           Filters(
@@ -555,12 +547,6 @@ private[lf] class Runner private (
   )(implicit
       triggerContext: TriggerLogContext
   ): UnfoldState[SValue, TriggerContext[SubmitRequest]] = {
-    def evaluate(se: SExpr): SValue = {
-      val machine = Speedy.Machine.fromPureSExpr(compiledPackages, se)
-      // Evaluate it.
-      machine.setExpressionToEvaluate(se)
-      Machine.stepToValue(machine)
-    }
     type Termination = SValue \/ (TriggerContext[SubmitRequest], SValue)
     @tailrec def go(v: SValue): Termination = {
       val resumed: Termination Either SValue = unrollFree(v) match {
@@ -568,7 +554,7 @@ private[lf] class Runner private (
           // Must be kept in-sync with the DAML code LowLevel#TriggerF
           vvv.match2 {
             case "GetTime" /*(Time -> a)*/ => { case DamlFun(timeA) =>
-              Right(evaluate(makeAppD(timeA, STimestamp(clientTime))))
+              Right(Machine.stepToValue(compiledPackages, makeAppD(timeA, STimestamp(clientTime))))
             }
             case "Submit" /*([Command], Text -> a)*/ => {
               case DamlTuple2(sCommands, DamlFun(textA)) =>
@@ -578,7 +564,10 @@ private[lf] class Runner private (
                   \/-(
                     (
                       Ctx(triggerContext, submitRequest),
-                      evaluate(makeAppD(textA, SText((commandUUID: UUID).toString))),
+                      Machine.stepToValue(
+                        compiledPackages,
+                        makeAppD(textA, SText((commandUUID: UUID).toString)),
+                      ),
                     )
                   ): Termination
                 )
@@ -745,13 +734,8 @@ private[lf] class Runner private (
         getInitialState,
         initialStateArgs,
       )
-    // Prepare a speedy machine for evaluating expressions.
-    val machine: Speedy.PureMachine =
-      Speedy.Machine.fromPureSExpr(compiledPackages, initialState)
-    // Evaluate it.
-    machine.setExpressionToEvaluate(initialState)
     val initialStateFree = Machine
-      .stepToValue(machine)
+      .stepToValue(compiledPackages, initialState)
       .expect(
         "TriggerSetup",
         { case DamlAnyModuleRecord("TriggerSetup", fts) => fts }: @nowarn(
@@ -759,8 +743,7 @@ private[lf] class Runner private (
         ),
       )
       .orConverterException
-    machine.setExpressionToEvaluate(update)
-    val evaluatedUpdate: SValue = Machine.stepToValue(machine)
+    val evaluatedUpdate: SValue = Machine.stepToValue(compiledPackages, update)
     (initialStateFree, evaluatedUpdate)
   }
 
@@ -820,9 +803,6 @@ private[lf] class Runner private (
     val clientTime: Timestamp =
       Timestamp.assertFromInstant(Runner.getTimeProvider(timeProviderType).getCurrentTime)
     val (initialStateFree, evaluatedUpdate) = getInitialStateFreeAndUpdate(acs)
-    // Prepare another speedy machine for evaluating expressions.
-    val machine: Speedy.PureMachine =
-      Speedy.Machine.fromPureSExpr(compiledPackages, SEValue(SUnit))
 
     import UnfoldState.{flatMapConcatNode, flatMapConcatNodeOps, toSource, toSourceOps}
 
@@ -850,9 +830,8 @@ private[lf] class Runner private (
 
         val clientTime: Timestamp =
           Timestamp.assertFromInstant(Runner.getTimeProvider(timeProviderType).getCurrentTime)
-        machine.setExpressionToEvaluate(makeAppD(evaluatedUpdate, messageVal.value))
         val stateFun = Machine
-          .stepToValue(machine)
+          .stepToValue(compiledPackages, makeAppD(evaluatedUpdate, messageVal.value))
           .expect(
             "TriggerRule",
             { case DamlAnyModuleRecord("TriggerRule", DamlAnyModuleRecord("StateT", fun)) =>
@@ -860,8 +839,7 @@ private[lf] class Runner private (
             }: @nowarn("msg=A repeated case parameter .* is not matched by a sequence wildcard"),
           )
           .orConverterException
-        machine.setExpressionToEvaluate(makeAppD(stateFun, state))
-        val updateWithNewState = Machine.stepToValue(machine)
+        val updateWithNewState = Machine.stepToValue(compiledPackages, makeAppD(stateFun, state))
 
         freeTriggerSubmits(clientTime, v = updateWithNewState)
           .leftMap(

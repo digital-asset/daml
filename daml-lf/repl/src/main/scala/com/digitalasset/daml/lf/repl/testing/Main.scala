@@ -12,7 +12,6 @@ import com.daml.lf.archive.UniversalArchiveDecoder
 import com.daml.lf.language.Util._
 import com.daml.lf.speedy.Pretty._
 import com.daml.lf.scenario.{ScenarioRunner, Pretty => PrettyScenario}
-import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.SExpr.LfDefRef
 import com.daml.lf.validation.Validation
 import com.daml.lf.testing.parser
@@ -473,14 +472,12 @@ object Repl {
             val compiledPackages = PureCompiledPackages.assertBuild(state.packages)
             val machine = Speedy.Machine.fromPureExpr(compiledPackages, expr)
             val startTime = System.nanoTime()
-            val valueOpt = machine.run() match {
-              case SResultError(err) =>
+            val valueOpt = machine.runPure() match {
+              case Right(v) =>
+                Some(v)
+              case Left(err) =>
                 println(prettyError(err).render(128))
                 None
-              case SResultFinal(v) =>
-                Some(v)
-              case other =>
-                sys.error("unimplemented callback: " + other.toString)
             }
             val endTime = System.nanoTime()
             val diff = (endTime - startTime) / 1000 / 1000

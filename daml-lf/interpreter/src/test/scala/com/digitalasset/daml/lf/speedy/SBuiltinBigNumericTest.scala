@@ -378,5 +378,5 @@ object SBuiltinBigNumericTest {
     PureCompiledPackages.assertBuild(Map(defaultParserParameters.defaultPackageId -> pkg))
 
   private def eval(e: Expr): Either[SError.SError, SValue] =
-    Speedy.Machine.runPureExpr(e, compiledPackages)
+    Speedy.Machine.runPureExpr(compiledPackages, e)
 }

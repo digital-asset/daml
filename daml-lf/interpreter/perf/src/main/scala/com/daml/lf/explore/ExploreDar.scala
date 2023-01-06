@@ -84,23 +84,18 @@ object PlaySpeedy {
           throw new MachineProblem(s"Unexpecteded result when compiling $x")
       }
 
-    val machine: PureMachine = {
-      println(s"Setup machine for: ${config.funcName}(${config.argValue})")
-      val expr = {
-        val ref: DefinitionRef =
-          Identifier(
-            packages.main._1,
-            QualifiedName.assertFromString(s"${base}:${config.funcName}"),
-          )
-        val func = SEVal(LfDefRef(ref))
-        val arg = SInt64(config.argValue)
-        SEApp(func, Array(arg))
-      }
-      Machine.fromPureSExpr(compiledPackages, expr)
+    val expr = {
+      val ref: DefinitionRef =
+        Identifier(
+          packages.main._1,
+          QualifiedName.assertFromString(s"${base}:${config.funcName}"),
+        )
+      val func = SEVal(LfDefRef(ref))
+      val arg = SInt64(config.argValue)
+      SEApp(func, Array(arg))
     }
-
     println("Run...")
-    val result = machine.runPure().toTry.get
+    val result = Machine.runPureSExpr(compiledPackages, expr).toTry.get
     println(s"Final-value: $result")
   }
 

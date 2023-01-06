@@ -272,7 +272,6 @@ class ReplService(
       new Runner(compiledPackages, Script.Action(scriptExpr, ScriptIds(scriptPackageId)), timeMode)
     runner
       .runWithClients(clients)
-      ._2
       .map { v =>
         (
           v,

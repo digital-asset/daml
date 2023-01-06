@@ -8,7 +8,6 @@ import java.util.concurrent.atomic.AtomicLong
 
 import akka.stream.Materializer
 import com.daml.grpc.adapter.ExecutionSequencerFactory
-import com.daml.lf.archive
 import com.daml.lf.data.{assertRight, ImmArray}
 import com.daml.lf.data.Ref.{Identifier, ModuleName, PackageId, QualifiedName}
 import com.daml.lf.engine.script.ledgerinteraction.{IdeLedgerClient, ScriptTimeMode}
@@ -170,7 +169,7 @@ class Context(val contextId: Context.ContextId, languageVersion: LanguageVersion
     val warningLog = Speedy.Machine.newWarningLog
     val ledgerClient: IdeLedgerClient = new IdeLedgerClient(compiledPackages, traceLog, warningLog)
     val participants = Participants(Some(ledgerClient), Map.empty, Map.empty)
-    val (clientMachine, resultF) = Runner.run(
+    val resultF = Runner.run(
       compiledPackages = compiledPackages,
       scriptId = scriptId,
       convertInputValue = None,
@@ -188,8 +187,8 @@ class Context(val contextId: Context.ContextId, languageVersion: LanguageVersion
         Some(
           ScenarioRunner.ScenarioError(
             ledgerClient.ledger,
-            clientMachine.traceLog,
-            clientMachine.warningLog,
+            traceLog,
+            warningLog,
             ledgerClient.currentSubmission,
             // TODO (MK) https://github.com/digital-asset/daml/issues/7276
             ImmArray.Empty,
@@ -207,8 +206,8 @@ class Context(val contextId: Context.ContextId, languageVersion: LanguageVersion
           Some(
             ScenarioRunner.ScenarioSuccess(
               ledgerClient.ledger,
-              clientMachine.traceLog,
-              clientMachine.warningLog,
+              traceLog,
+              warningLog,
               dummyDuration,
               dummySteps,
               v,

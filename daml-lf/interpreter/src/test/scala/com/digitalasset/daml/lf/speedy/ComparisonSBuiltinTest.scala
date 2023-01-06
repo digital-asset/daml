@@ -682,12 +682,10 @@ class ComparisonSBuiltinTest extends AnyWordSpec with Matchers with TableDrivenP
         None,
       )
     )
-    val machine =
-      Speedy.Machine.fromPureSExpr(
-        compiledPackages,
-        SEApp(sexpr, (parties ++ contractIds).toArray),
-      )
-    SpeedyTestLib.run(machine)
+    Speedy.Machine.runPureSExpr(
+      compiledPackages,
+      SEApp(sexpr, (parties ++ contractIds).toArray),
+    )
   }
 
 }

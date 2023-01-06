@@ -30,14 +30,15 @@ class SpeedyTest extends AnyWordSpec with Matchers with Inside {
 
   import SpeedyTest._
 
+  import Speedy.Machine.{runPureExpr => eval}
+
   "application arguments" should {
     "be handled correctly" in {
       eval(
+        pkgs,
         e"""
         (\ (a: Int64) (b: Int64) -> SUB_INT64 a b) 88 33
       """,
-        pkgs,
-        // Test should fail if we get the order of the function arguments wrong.
       ) shouldEqual Right(SInt64(55))
     }
   }
@@ -45,13 +46,12 @@ class SpeedyTest extends AnyWordSpec with Matchers with Inside {
   "stack variables" should {
     "be handled correctly" in {
       eval(
+        pkgs,
         e"""
         let a : Int64 = 88 in
         let b : Int64 = 33 in
         SUB_INT64 a b
       """,
-        pkgs,
-        // Test should fail if we access the stack with incorrect indexing.
       ) shouldEqual Right(SInt64(55))
     }
   }
@@ -59,13 +59,12 @@ class SpeedyTest extends AnyWordSpec with Matchers with Inside {
   "free variables" should {
     "be handled correctly" in {
       eval(
+        pkgs,
         e"""
         (\(a : Int64) ->
          let b : Int64 = 33 in
          (\ (x: Unit) -> SUB_INT64 a b) ()) 88
       """,
-        pkgs,
-        // Test should fail if we index free-variables of a closure incorrectly.
       ) shouldEqual Right(SInt64(55))
     }
   }
@@ -103,14 +102,14 @@ class SpeedyTest extends AnyWordSpec with Matchers with Inside {
     val pkgs = typeAndCompile(pkg)
 
     "works as expected on primitive constructors" in {
-      eval(e"Matcher:unit ()", pkgs) shouldEqual Right(SInt64(2))
-      eval(e"Matcher:bool True", pkgs) shouldEqual Right(SInt64(3))
-      eval(e"Matcher:bool False", pkgs) shouldEqual Right(SInt64(5))
+      eval(pkgs, e"Matcher:unit ()") shouldEqual Right(SInt64(2))
+      eval(pkgs, e"Matcher:bool True") shouldEqual Right(SInt64(3))
+      eval(pkgs, e"Matcher:bool False") shouldEqual Right(SInt64(5))
     }
 
     "works as expected on lists" in {
-      eval(e"Matcher:list @Int64 ${intList()}", pkgs) shouldEqual Right(SOptional(None))
-      eval(e"Matcher:list @Int64 ${intList(7, 11, 13)}", pkgs) shouldEqual Right(
+      eval(pkgs, e"Matcher:list @Int64 ${intList()}") shouldEqual Right(SOptional(None))
+      eval(pkgs, e"Matcher:list @Int64 ${intList(7, 11, 13)}") shouldEqual Right(
         SOptional(
           Some(
             SStruct(
@@ -123,37 +122,37 @@ class SpeedyTest extends AnyWordSpec with Matchers with Inside {
     }
 
     "works as expected on Optionals" in {
-      eval(e"Matcher:option @Int64 17 (None @Int64)", pkgs) shouldEqual Right(SInt64(17))
-      eval(e"Matcher:option @Int64 17 (Some @Int64 19)", pkgs) shouldEqual Right(SInt64(19))
+      eval(pkgs, e"Matcher:option @Int64 17 (None @Int64)") shouldEqual Right(SInt64(17))
+      eval(pkgs, e"Matcher:option @Int64 17 (Some @Int64 19)") shouldEqual Right(SInt64(19))
     }
 
     "works as expected on Variants" in {
-      eval(e"""Matcher:variant @Int64 (Mod:Tree:Leaf @Int64 23)""", pkgs) shouldEqual Right(
+      eval(pkgs, e"""Matcher:variant @Int64 (Mod:Tree:Leaf @Int64 23)""") shouldEqual Right(
         SInt64(23)
       )
       eval(
-        e"""Matcher:variant @Int64 (Mod:Tree:Node @Int64 (Mod:Tree.Node @Int64 {left = Mod:Tree:Leaf @Int64 27, right = Mod:Tree:Leaf @Int64 29 }))""",
         pkgs,
+        e"""Matcher:variant @Int64 (Mod:Tree:Node @Int64 (Mod:Tree.Node @Int64 {left = Mod:Tree:Leaf @Int64 27, right = Mod:Tree:Leaf @Int64 29 }))""",
       ) shouldEqual Right(SInt64(27))
     }
 
     "works as expected on Enums" in {
-      eval(e"""Matcher:enum Mod:Color:Red""", pkgs) shouldEqual Right(SInt64(37))
-      eval(e"""Matcher:enum Mod:Color:Green""", pkgs) shouldEqual Right(SInt64(41))
-      eval(e"""Matcher:enum Mod:Color:Blue""", pkgs) shouldEqual Right(SInt64(43))
+      eval(pkgs, e"""Matcher:enum Mod:Color:Red""") shouldEqual Right(SInt64(37))
+      eval(pkgs, e"""Matcher:enum Mod:Color:Green""") shouldEqual Right(SInt64(41))
+      eval(pkgs, e"""Matcher:enum Mod:Color:Blue""") shouldEqual Right(SInt64(43))
     }
   }
 
   "to_any" should {
     "succeed on Int64" in {
-      eval(e"""to_any @Int64 1""", anyPkgs) shouldEqual Right(SAny(TBuiltin(BTInt64), SInt64(1)))
+      eval(anyPkgs, e"""to_any @Int64 1""") shouldEqual Right(SAny(TBuiltin(BTInt64), SInt64(1)))
     }
 
     "succeed on record type without parameters" in {
       evalApp(
+        anyPkgs,
         e"""\ (p: Party) -> to_any @Test:T1 (Test:T1 {party = p})""",
         Array(alice),
-        anyPkgs,
       ) shouldEqual
         Right(
           SAny(
@@ -169,9 +168,9 @@ class SpeedyTest extends AnyWordSpec with Matchers with Inside {
 
     "succeed on record type with parameters" in {
       evalApp(
+        anyPkgs,
         e"""\ (p : Party) -> to_any @(Test:T3 Int64) (Test:T3 @Int64 {party = p})""",
         Array(alice),
-        anyPkgs,
       ) shouldEqual
         Right(
           SAny(
@@ -187,9 +186,9 @@ class SpeedyTest extends AnyWordSpec with Matchers with Inside {
           )
         )
       evalApp(
+        anyPkgs,
         e"""\ (p : Party) -> to_any @(Test:T3 Text) (Test:T3 @Text {party = p})""",
         Array(alice),
-        anyPkgs,
       ) shouldEqual
         Right(
           SAny(
@@ -209,14 +208,14 @@ class SpeedyTest extends AnyWordSpec with Matchers with Inside {
 
   "from_any" should {
     "throw an exception on Int64" in {
-      eval(e"""from_any @Test:T1 1""", anyPkgs) shouldBe a[Left[_, _]]
+      eval(anyPkgs, e"""from_any @Test:T1 1""") shouldBe a[Left[_, _]]
     }
 
     "return Some(tpl) if template type matches" in {
       evalApp(
+        anyPkgs,
         e"""\(p : Party) -> from_any @Test:T1 (to_any @Test:T1 (Test:T1 {party = p}))""",
         Array(alice),
-        anyPkgs,
       ) shouldEqual
         Right(
           SOptional(
@@ -233,9 +232,9 @@ class SpeedyTest extends AnyWordSpec with Matchers with Inside {
 
     "return None if template type does not match" in {
       evalApp(
+        anyPkgs,
         e"""\(p : Party) -> from_any @Test:T2 (to_any @Test:T1 (Test:T1 {party = p}))""",
         Array(alice),
-        anyPkgs,
       ) shouldEqual Right(
         SOptional(None)
       )
@@ -243,9 +242,9 @@ class SpeedyTest extends AnyWordSpec with Matchers with Inside {
 
     "return Some(v) if type parameter is the same" in {
       evalApp(
+        anyPkgs,
         e"""\(p : Alice) -> from_any @(Test:T3 Int64) (to_any @(Test:T3 Int64) (Test:T3 @Int64 {party = p}))""",
         Array(alice),
-        anyPkgs,
       ) shouldEqual Right(
         SOptional(
           Some(
@@ -261,21 +260,21 @@ class SpeedyTest extends AnyWordSpec with Matchers with Inside {
 
     "return None if type parameter is different" in {
       evalApp(
+        anyPkgs,
         e"""\ (p : Party) -> from_any @(Test:T3 Int64) (to_any @(Test:T3 Text) (Test:T3 @Int64 {party = p}))""",
         Array(alice),
-        anyPkgs,
       ) shouldEqual Right(SOptional(None))
     }
   }
 
   "type_rep" should {
     "produces expected output" in {
-      eval(e"""type_rep @Test:T1""", anyPkgs) shouldEqual Right(STypeRep(t"Test:T1"))
-      eval(e"""type_rep @Test2:T2""", anyPkgs) shouldEqual Right(STypeRep(t"Test2:T2"))
-      eval(e"""type_rep @(Mod:Tree (List Text))""", anyPkgs) shouldEqual Right(
+      eval(anyPkgs, e"""type_rep @Test:T1""") shouldEqual Right(STypeRep(t"Test:T1"))
+      eval(anyPkgs, e"""type_rep @Test2:T2""") shouldEqual Right(STypeRep(t"Test2:T2"))
+      eval(anyPkgs, e"""type_rep @(Mod:Tree (List Text))""") shouldEqual Right(
         STypeRep(t"Mod:Tree (List Text)")
       )
-      eval(e"""type_rep @((ContractId Mod:T) -> Mod:Color)""", anyPkgs) shouldEqual Right(
+      eval(anyPkgs, e"""type_rep @((ContractId Mod:T) -> Mod:Color)""") shouldEqual Right(
         STypeRep(t"(ContractId Mod:T) -> Mod:Color")
       )
     }
@@ -300,7 +299,7 @@ class SpeedyTest extends AnyWordSpec with Matchers with Inside {
     }
 
     "produce expected output for single update" in {
-      eval(e"M:p_1_0", recUpdPkgs) shouldEqual
+      eval(recUpdPkgs, e"M:p_1_0") shouldEqual
         Right(
           SRecord(
             qualify("M:Point"),
@@ -331,7 +330,7 @@ class SpeedyTest extends AnyWordSpec with Matchers with Inside {
     }
 
     "produce expected output for multi update" in {
-      eval(e"M:p_1_2", recUpdPkgs) shouldEqual
+      eval(recUpdPkgs, e"M:p_1_2") shouldEqual
         Right(
           SRecord(
             qualify("M:Point"),
@@ -373,7 +372,7 @@ class SpeedyTest extends AnyWordSpec with Matchers with Inside {
     }
 
     "produce expected output for multi update with location annotations" in {
-      eval(e"M:p_3_4_loc", recUpdPkgs) shouldEqual
+      eval(recUpdPkgs, e"M:p_3_4_loc") shouldEqual
         Right(
           SRecord(
             qualify("M:Point"),
@@ -415,7 +414,7 @@ class SpeedyTest extends AnyWordSpec with Matchers with Inside {
     }
 
     "produce expected output for non-atomic multi update" in {
-      eval(e"M:p_6_8", recUpdPkgs) shouldEqual
+      eval(recUpdPkgs, e"M:p_6_8") shouldEqual
         Right(
           SRecord(
             qualify("M:Point"),
@@ -446,7 +445,7 @@ class SpeedyTest extends AnyWordSpec with Matchers with Inside {
     }
 
     "produce expected output for overwriting multi update" in {
-      eval(e"M:p_3_2", recUpdPkgs) shouldEqual
+      eval(recUpdPkgs, e"M:p_3_2") shouldEqual
         Right(
           SRecord(
             qualify("M:Point"),
@@ -586,21 +585,9 @@ object SpeedyTest {
   def qualify(name: String): Ref.ValueRef =
     Identifier(pkgId, QualifiedName.assertFromString(name))
 
-  def eval(e: Expr, packages: PureCompiledPackages): Either[SError, SValue] =
-    evalSExpr(packages.compiler.unsafeCompile(e), packages)
-
-  def evalSExpr(e: SExpr, packages: PureCompiledPackages): Either[SError, SValue] = {
-    val machine = Speedy.Machine.fromPureSExpr(packages, e)
-    SpeedyTestLib.run(machine)
-  }
-
-  def evalApp(
-      e: Expr,
-      args: Array[SValue],
-      packages: PureCompiledPackages,
-  ): Either[SError, SValue] = {
+  private def evalApp(packages: PureCompiledPackages, e: Expr, args: Array[SValue]) = {
     val se = packages.compiler.unsafeCompile(e)
-    evalSExpr(SEApp(se, args), packages)
+    Speedy.Machine.runPureSExpr(packages, SEApp(se, args))
   }
 
   def intList(xs: Long*): String =

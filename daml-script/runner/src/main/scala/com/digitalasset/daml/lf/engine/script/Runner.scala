@@ -35,7 +35,6 @@ import com.daml.lf.language.{LanguageVersion, PackageInterface}
 import com.daml.lf.interpretation.{Error => IE}
 import com.daml.lf.speedy.SBuiltin.SBToAny
 import com.daml.lf.speedy.SExpr._
-import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.speedy.{
   ArrayList,
@@ -337,7 +336,7 @@ object Runner {
       inputValue,
       initialClients,
       timeMode,
-    )._2
+    )
   }
 
   // Executes a Daml script
@@ -358,7 +357,7 @@ object Runner {
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
-  ): (Speedy.PureMachine, Future[SValue]) = {
+  ): Future[SValue] = {
     val script = data.assertRight(Script.fromIdentifier(compiledPackages, scriptId))
     val scriptAction: Script.Action = (script, inputValue) match {
       case (script: Script.Action, None) => script
@@ -425,35 +424,13 @@ private[lf] class Runner(
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
-  ): (Speedy.PureMachine, Future[SValue]) = {
-    val machine =
-      Speedy.Machine.fromPureSExpr(
-        extendedCompiledPackages,
-        script.expr,
-        traceLog = traceLog,
-        warningLog = warningLog,
-      )(Script.DummyLoggingContext)
-
-    def stepToValue(): Either[RuntimeException, SValue] =
-      machine.run() match {
-        case SResultFinal(v) =>
-          Right(v)
-        case SResultError(err) =>
-          Left(Runner.InterpretationError(err))
-        case res =>
-          Left(new IllegalStateException(s"Internal error: Unexpected speedy result $res"))
-      }
-
-    val env = new ScriptF.Env(
-      script.scriptIds,
-      timeMode,
-      initialClients,
-      machine,
-    )
-
+  ): Future[SValue] = {
+    val env = new ScriptF.Env(script.scriptIds, timeMode, initialClients, extendedCompiledPackages)
     def run(expr: SExpr): Future[SValue] = {
-      machine.setExpressionToEvaluate(expr)
-      stepToValue()
+      Speedy.Machine
+        .runPureSExpr(extendedCompiledPackages, expr, traceLog, warningLog)(
+          Script.DummyLoggingContext
+        )
         .fold(Future.failed, Future.successful)
         .flatMap(fsu => Converter toFuture unrollFree(fsu))
         .flatMap {
@@ -484,8 +461,10 @@ private[lf] class Runner(
                               SEAppAtomic(SEValue(handle), Array(SELocS(1))),
                             ),
                           )
-                        machine.setExpressionToEvaluate(e)
-                        stepToValue()
+                        Speedy.Machine
+                          .runPureSExpr(extendedCompiledPackages, e, traceLog, warningLog)(
+                            Script.DummyLoggingContext
+                          )
                           .fold(Future.failed, Future.successful)
                           .flatMap {
                             case SOptional(None) =>
@@ -526,9 +505,14 @@ private[lf] class Runner(
         }
     }
 
-    val resultF = for {
+    for {
       _ <- Future.unit // We want the evaluation of following stepValue() to happen in a future.
-      result <- stepToValue().fold(Future.failed, Future.successful)
+      result <-
+        Speedy.Machine
+          .runPureSExpr(extendedCompiledPackages, script.expr, traceLog, warningLog)(
+            Script.DummyLoggingContext
+          )
+          .fold(Future.failed, Future.successful)
       expr <- result match {
         // Unwrap Script type and apply to ()
         // For backwards-compatibility we support the 1 and the 2-field versions.
@@ -550,6 +534,5 @@ private[lf] class Runner(
       }
       v <- run(expr)
     } yield v
-    (machine, resultF)
   }
 }

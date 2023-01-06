@@ -788,7 +788,7 @@ private[lf] object Speedy {
       *      Do not use if the machine is partway though an existing evaluation.
       *      i.e. run() has returned an `SResult` requiring a callback.
       */
-    final def setExpressionToEvaluate(expr: SExpr): Unit = {
+    private[speedy] final def setExpressionToEvaluate(expr: SExpr): Unit = {
       setControl(Control.Expression(expr))
       kontStack = initialKontStack()
       env = emptyEnv
@@ -797,7 +797,7 @@ private[lf] object Speedy {
       track.reset()
     }
 
-    final def setControl(x: Control[Nothing]): Unit = {
+    private[speedy] final def setControl(x: Control[Nothing]): Unit = {
       control = x
     }
 
@@ -1251,27 +1251,35 @@ private[lf] object Speedy {
     def fromPureExpr(
         compiledPackages: CompiledPackages,
         expr: Expr,
+        traceLog: TraceLog = newTraceLog,
+        warningLog: WarningLog = newWarningLog,
     )(implicit loggingContext: LoggingContext): PureMachine =
       fromPureSExpr(
         compiledPackages,
         compiledPackages.compiler.unsafeCompile(expr),
+        traceLog,
+        warningLog,
       )
 
     @throws[PackageNotFound]
     @throws[CompilationError]
     def runPureExpr(
-        expr: Expr,
         compiledPackages: CompiledPackages = PureCompiledPackages.Empty,
+        expr: Expr,
+        traceLog: TraceLog = newTraceLog,
+        warningLog: WarningLog = newWarningLog,
     )(implicit loggingContext: LoggingContext): Either[SError, SValue] =
-      fromPureExpr(compiledPackages, expr).runPure()
+      fromPureExpr(compiledPackages, expr, traceLog, warningLog).runPure()
 
     @throws[PackageNotFound]
     @throws[CompilationError]
     def runPureSExpr(
-        expr: SExpr,
         compiledPackages: CompiledPackages = PureCompiledPackages.Empty,
+        expr: SExpr,
+        traceLog: TraceLog = newTraceLog,
+        warningLog: WarningLog = newWarningLog,
     )(implicit loggingContext: LoggingContext): Either[SError, SValue] =
-      fromPureSExpr(compiledPackages, expr).runPure()
+      fromPureSExpr(compiledPackages, expr, traceLog, warningLog).runPure()
 
   }
 

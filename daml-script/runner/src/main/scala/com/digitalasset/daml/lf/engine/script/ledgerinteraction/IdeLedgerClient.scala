@@ -23,6 +23,7 @@ import com.daml.lf.transaction.{
   Node,
   NodeId,
   Transaction,
+  TransactionVersion,
   Versioned,
 }
 import com.daml.lf.value.Value
@@ -150,11 +151,12 @@ class IdeLedgerClient(
         val compiler: speedy.Compiler = compiledPackages.compiler
         val iview = speedy.InterfaceView(templateId, argument, interfaceId)
         val sexpr = compiler.unsafeCompileInterfaceView(iview)
-        val machine = Machine.fromPureSExpr(compiledPackages, sexpr)(Script.DummyLoggingContext)
 
-        machine.runPure() match {
+        Machine.runPureSExpr(compiledPackages, sexpr)(Script.DummyLoggingContext) match {
           case Right(svalue) =>
-            val version = machine.tmplId2TxVersion(templateId)
+            val version = TransactionVersion.assignNodeVersion(
+              compiledPackages.pkgInterface.packageLanguageVersion(templateId.packageId)
+            )
             Some(svalue.toNormalizedValue(version))
 
           case Left(_) =>

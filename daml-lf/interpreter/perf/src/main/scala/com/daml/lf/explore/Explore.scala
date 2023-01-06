@@ -37,8 +37,7 @@ object PlaySpeedy {
     names.foreach { name =>
       val (expected, expr) = examples(name)
       val converted = compiler.unsafeClosureConvert(expr)
-      val machine = Machine.fromPureSExpr(PureCompiledPackages.Empty, converted)
-      runMachine(machine, expected)
+      checkResult(Machine.runPureSExpr(PureCompiledPackages.Empty, converted), expected)
     }
   }
 
@@ -67,14 +66,14 @@ object PlaySpeedy {
     Config(names)
   }
 
-  def runMachine(machine: PureMachine, expected: Int): Unit = {
-    machine.runPure().toTry.get match {
-      case SInt64(got) =>
+  def checkResult(result: Either[_, SValue], expected: Int): Unit = {
+    result match {
+      case Right(SInt64(got)) =>
         if (got != expected) {
           throw MachineProblem(s"Expected final integer to be $expected, but got $got")
         }
       case _ =>
-        throw MachineProblem(s"Expected final-value to be an integer")
+        throw MachineProblem(s"Expected interger final-value")
     }
   }
 

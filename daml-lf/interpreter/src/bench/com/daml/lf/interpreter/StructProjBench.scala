@@ -61,14 +61,6 @@ class StructProjBench {
   }
 
   @Benchmark
-  def bench(): SValue = {
-    val machine = Speedy.Machine.fromPureSExpr(compiledPackages, sexpr)
-    machine.run() match {
-      case SResult.SResultFinal(v) =>
-        v
-      case otherwise =>
-        throw new UnknownError(otherwise.toString)
-    }
-  }
+  def bench(): SValue = Speedy.Machine.runPureSExpr(compiledPackages, sexpr).toTry.get
 
 }

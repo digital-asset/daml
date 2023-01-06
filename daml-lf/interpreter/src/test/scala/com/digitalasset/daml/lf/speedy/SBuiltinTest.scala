@@ -1815,7 +1815,7 @@ object SBuiltinTest {
     PureCompiledPackages.assertBuild(Map(defaultParserParameters.defaultPackageId -> pkg))
 
   private def eval(e: Expr): Either[SError, SValue] =
-    Machine.runPureExpr(e, compiledPackages)
+    Machine.runPureExpr(compiledPackages, e)
 
   private def evalApp(
       e: Expr,
@@ -1827,7 +1827,7 @@ object SBuiltinTest {
   val committers: Set[Party] = Set(alice)
 
   private def eval(sexpr: SExpr): Either[SError, SValue] =
-    Machine.runPureSExpr(sexpr, compiledPackages)
+    Machine.runPureSExpr(compiledPackages, sexpr)
 
   private def evalAppOnLedger(
       e: Expr,

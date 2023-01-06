@@ -16,7 +16,6 @@ import com.daml.lf.language.Ast._
 import com.daml.lf.language.StablePackage.DA
 import com.daml.lf.speedy.SBuiltin._
 import com.daml.lf.speedy.SExpr._
-import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.speedy.{ArrayList, Pretty, SValue, Speedy}
 import com.daml.lf.speedy.SExpr.SExpr
@@ -315,19 +314,16 @@ object Converter {
       fun: SValue,
   ): Either[String, (SValue, SValue)] = {
     val e = SELet1(extractToTuple, SEAppAtomic(SEValue(fun), Array(SELocS(1))))
-    val machine =
-      Speedy.Machine.fromPureSExpr(compiledPackages, e)(
-        Script.DummyLoggingContext
-      )
-    machine.run() match {
-      case SResultFinal(v) =>
+    Speedy.Machine.runPureSExpr(compiledPackages, e)(
+      Script.DummyLoggingContext
+    ) match {
+      case Right(v) =>
         v match {
           case SStruct(_, values) if values.size == 2 =>
             Right((values.get(fstOutputIdx), values.get(sndOutputIdx)))
           case v => Left(s"Expected binary SStruct but got $v")
         }
-      case SResultError(err) => Left(Pretty.prettyError(err).render(80))
-      case res => Left(res.toString)
+      case Left(err) => Left(Pretty.prettyError(err).render(80))
     }
   }
 
