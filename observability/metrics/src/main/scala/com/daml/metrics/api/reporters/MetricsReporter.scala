@@ -3,25 +3,17 @@
 
 package com.daml.metrics.api.reporters
 
+import java.net.URI
+
 import scopt.Read
 
-import java.net.{InetSocketAddress, URI}
 import scala.util.control.NonFatal
 
-sealed abstract class MetricsReporter {
-  def register(): Unit
-}
+sealed abstract class MetricsReporter {}
 
 object MetricsReporter {
 
-  object Graphite {
-    val defaultPort: Int = 2003
-  }
-
-  final case class Prometheus(address: InetSocketAddress) extends MetricsReporter {
-    override def register(): Unit = ()
-  }
-
+  final case class Prometheus(host: String, port: Int) extends MetricsReporter
   object Prometheus {
     val defaultPort: Int = 55001
   }
@@ -32,13 +24,13 @@ object MetricsReporter {
         throw invalidRead
       }
       val port = if (uri.getPort > 0) uri.getPort else defaultPort
-      new InetSocketAddress(uri.getHost, port)
+      uri.getHost -> port
     }
     s match {
       case value if value.startsWith("prometheus://") =>
         val uri = parseUri(value)
-        val address = getAddress(uri, Prometheus.defaultPort)
-        Prometheus(address)
+        val (host, port) = getAddress(uri, Prometheus.defaultPort)
+        Prometheus(host, port)
       case _ =>
         throw invalidRead
     }
