@@ -176,7 +176,7 @@ const newUiPage = async (): Promise<Page> => {
 // output the contention errors as well so look through the log).
 const waitForFollowers = async (page: Page, n: number) => {
   await page.waitForFunction(
-    n => document.querySelectorAll(".test-select-following").length == n,
+    (n: number) => document.querySelectorAll(".test-select-following").length == n,
     {},
     n,
   );
