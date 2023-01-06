@@ -108,6 +108,8 @@ object InMemoryMetricsFactory extends InMemoryMetricsFactory {
       value.set(newValue)
 
     override def getValue: T = value.get()
+
+    override def updateValue(f: T => T): Unit = discard(value.updateAndGet((t: T) => f(t)))
   }
 
   case class InMemoryMeter(initialContext: MetricsContext) extends Meter {

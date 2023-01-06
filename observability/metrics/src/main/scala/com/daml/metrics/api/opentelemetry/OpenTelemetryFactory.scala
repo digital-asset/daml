@@ -205,6 +205,7 @@ case class OpenTelemetryGauge[T](name: String, varGauge: VarGauge[T]) extends Ga
 
   override def getValue: T = varGauge.getValue
 
+  override def updateValue(f: T => T): Unit = varGauge.updateValue(f)
 }
 
 case class OpenTelemetryMeter(name: String, counter: LongCounter, meterContext: MetricsContext)
