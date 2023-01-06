@@ -370,7 +370,7 @@ private[apiserver] final class ApiPartyManagementService private (
     }
   }
 
-  // Here we check if party exists and actually belongs to the requested Identity Provider
+  // Check if party either doesn't exist or exists and belongs to the requested Identity Provider
   private def verifyPartyIsNonExistentOrInIdp(
       identityProviderId: IdentityProviderId,
       party: Ref.Party,
