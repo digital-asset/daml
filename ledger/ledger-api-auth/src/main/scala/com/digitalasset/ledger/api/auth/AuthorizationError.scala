@@ -60,7 +60,7 @@ object AuthorizationError {
       extends AuthorizationError {
     private val id = identityProviderId.toRequestString
     override val reason =
-      s"identity_provider_id from the request `$id` does not match the one provided in the authorization claims'."
+      s"identity_provider_id from the request `$id` does not match the one provided in the authorization claims"
   }
 
   final case class InvalidField(fieldName: String, reason: String) extends AuthorizationError
