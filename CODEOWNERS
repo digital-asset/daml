@@ -20,11 +20,13 @@ azure-cron.yml      @garyverhaegen-da
 # Blackduck
 NOTICES     @garyverhaegen-da @dasormeter
 
+# Compatibility test
+/compatibility/     @basvangijzel-DA @garyverhaegen-da @gerolf-da @remyhaemmerle-da
+
 # Language
 /daml-assistant/    @remyhaemmerle-da @ray-roestenburg-da
 /daml-script/       @remyhaemmerle-da
 /triggers/          @remyhaemmerle-da
-/compatibility/     @garyverhaegen-da
 /compiler/          @basvangijzel-DA @remyhaemmerle-da @akrmn @dylant-da
 /libs-haskell/      @basvangijzel-DA @remyhaemmerle-da @akrmn @dylant-da
 /ghc-lib/           @basvangijzel-DA @remyhaemmerle-da @akrmn @dylant-da

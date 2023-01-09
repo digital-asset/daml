@@ -35,6 +35,7 @@ case class NoOpGauge[T](name: String, value: T) extends Gauge[T] {
 
   override def getValue: T = value
 
+  override def updateValue(f: T => T): Unit = ()
 }
 
 case class NoOpMeter(name: String) extends Meter {
