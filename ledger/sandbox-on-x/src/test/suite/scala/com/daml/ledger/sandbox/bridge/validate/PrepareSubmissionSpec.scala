@@ -23,7 +23,7 @@ import com.daml.lf.transaction.{GlobalKey, SubmittedTransaction}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.{ContractId, ValueNil}
 import com.daml.logging.LoggingContext
-import com.daml.metrics.Metrics
+import com.daml.metrics.api.noop.NoOpMetricsFactory
 import org.mockito.MockitoSugar.mock
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -34,7 +34,7 @@ class PrepareSubmissionSpec extends AsyncFlatSpec with Matchers {
     DamlContextualizedErrorLogger.forTesting(getClass)
 
   private val prepareSubmission = new PrepareSubmissionImpl(
-    new BridgeMetrics(Metrics.ForTesting.dropwizardFactory)
+    new BridgeMetrics(NoOpMetricsFactory)
   )
 
   private def cid(key: String): ContractId = ContractId.V1(Hash.hashPrivateKey(key))

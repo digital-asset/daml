@@ -51,7 +51,7 @@ class SharedConfigReadersTest extends AsyncWordSpec with Matchers {
     val expectedConf = SampleServiceConfig(
       HttpServerConfig("127.0.0.1", 8890, Some(Paths.get("port-file"))),
       LedgerApiConfig("127.0.0.1", 8098),
-      MetricsConfig(MetricsReporter.Console, 10.seconds),
+      MetricsConfig(MetricsReporter.None, 10.seconds),
     )
 
     ConfigSource.string(conf).load[SampleServiceConfig] shouldBe Right(expectedConf)

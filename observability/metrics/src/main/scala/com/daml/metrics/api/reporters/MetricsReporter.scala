@@ -14,6 +14,7 @@ sealed abstract class MetricsReporter {}
 object MetricsReporter {
 
   final case class Prometheus(host: String, port: Int) extends MetricsReporter
+  case object None extends MetricsReporter
   object Prometheus {
     val defaultPort: Int = 55001
   }
@@ -31,6 +32,7 @@ object MetricsReporter {
         val uri = parseUri(value)
         val (host, port) = getAddress(uri, Prometheus.defaultPort)
         Prometheus(host, port)
+      case "none" => None
       case _ =>
         throw invalidRead
     }

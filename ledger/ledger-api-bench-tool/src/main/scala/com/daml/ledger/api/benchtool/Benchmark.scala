@@ -3,8 +3,9 @@
 
 package com.daml.ledger.api.benchtool
 
+import java.util.concurrent.TimeUnit
+
 import akka.actor.typed.{ActorSystem, SpawnProtocol}
-import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.api.benchtool.config.WorkflowConfig.StreamConfig
 import com.daml.ledger.api.benchtool.metrics.{BenchmarkResult, MetricsSet, StreamMetrics}
 import com.daml.ledger.api.benchtool.services.LedgerApiServices
@@ -15,10 +16,10 @@ import com.daml.ledger.api.v1.transaction_service.{
   GetTransactionTreesResponse,
   GetTransactionsResponse,
 }
+import com.daml.metrics.api.MetricHandle.Factory
 import com.daml.timer.Delayed
 import org.slf4j.LoggerFactory
 
-import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.{Duration, FiniteDuration}
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -29,7 +30,7 @@ object Benchmark {
       streamConfigs: List[StreamConfig],
       reportingPeriod: FiniteDuration,
       apiServices: LedgerApiServices,
-      metricRegistry: MetricRegistry,
+      metricsFactory: Factory,
       system: ActorSystem[SpawnProtocol.Command],
   )(implicit ec: ExecutionContext): Future[Either[String, Unit]] =
     Future
@@ -45,7 +46,7 @@ object Benchmark {
                 logger = logger,
                 exposedMetrics = Some(
                   MetricsSet
-                    .transactionExposedMetrics(streamConfig.name, metricRegistry, reportingPeriod)
+                    .transactionExposedMetrics(streamConfig.name, metricsFactory)
                 ),
                 itemCountingFunction = MetricsSet.countFlatTransactionsEvents,
                 maxItemCount = streamConfig.maxItemCount,
@@ -66,8 +67,7 @@ object Benchmark {
                 exposedMetrics = Some(
                   MetricsSet.transactionTreesExposedMetrics(
                     streamConfig.name,
-                    metricRegistry,
-                    reportingPeriod,
+                    metricsFactory,
                   )
                 ),
                 itemCountingFunction = MetricsSet.countTreeTransactionsEvents,
@@ -89,8 +89,7 @@ object Benchmark {
                 exposedMetrics = Some(
                   MetricsSet.activeContractsExposedMetrics(
                     streamConfig.name,
-                    metricRegistry,
-                    reportingPeriod,
+                    metricsFactory,
                   )
                 ),
                 itemCountingFunction =
@@ -112,7 +111,7 @@ object Benchmark {
                 logger = logger,
                 exposedMetrics = Some(
                   MetricsSet
-                    .completionsExposedMetrics(streamConfig.name, metricRegistry, reportingPeriod)
+                    .completionsExposedMetrics(streamConfig.name, metricsFactory)
                 ),
                 itemCountingFunction = (response) => MetricsSet.countCompletions(response).toLong,
                 maxItemCount = streamConfig.maxItemCount,

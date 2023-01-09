@@ -3,27 +3,32 @@
 
 package com.daml.ledger.runner.common
 
+import java.io.File
+import java.net.InetSocketAddress
+import java.nio.file.Paths
+import java.time.Duration
+import java.time.temporal.ChronoUnit
+
 import com.daml.jwt.JwtTimestampLeeway
+import com.daml.ledger.api.tls.{TlsConfiguration, TlsVersion}
+import com.daml.lf.VersionRange
+import com.daml.lf.data.Ref
 import com.daml.lf.engine.EngineConfig
 import com.daml.lf.interpretation.Limits
 import com.daml.lf.language.LanguageVersion
 import com.daml.lf.transaction.ContractKeyUniquenessMode
-import com.daml.lf.VersionRange
-import org.scalacheck.Gen
-import com.daml.ledger.api.tls.{TlsConfiguration, TlsVersion}
-import com.daml.lf.data.Ref
-import com.daml.platform.apiserver.{ApiServerConfig, AuthServiceConfig}
+import com.daml.metrics.api.reporters.MetricsReporter
 import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.apiserver.configuration.RateLimitingConfig
+import com.daml.platform.apiserver.{ApiServerConfig, AuthServiceConfig}
 import com.daml.platform.config.{MetricsConfig, ParticipantConfig}
-import com.daml.platform.config.MetricsConfig.MetricRegistryType
 import com.daml.platform.configuration.{
   CommandConfiguration,
   IndexServiceConfig,
   InitialLedgerConfiguration,
 }
-import com.daml.platform.indexer.{IndexerConfig, IndexerStartupMode, PackageMetadataViewConfig}
 import com.daml.platform.indexer.ha.HaConfig
+import com.daml.platform.indexer.{IndexerConfig, IndexerStartupMode, PackageMetadataViewConfig}
 import com.daml.platform.localstore.{IdentityProviderManagementConfig, UserManagementConfig}
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.platform.store.DbSupport
@@ -32,13 +37,7 @@ import com.daml.platform.store.backend.postgresql.PostgresDataSourceConfig
 import com.daml.platform.store.backend.postgresql.PostgresDataSourceConfig.SynchronousCommitValue
 import com.daml.ports.Port
 import io.netty.handler.ssl.ClientAuth
-
-import java.io.File
-import java.net.InetSocketAddress
-import java.nio.file.Paths
-import java.time.Duration
-import java.time.temporal.ChronoUnit
-import com.daml.metrics.api.reporters.MetricsReporter
+import org.scalacheck.Gen
 
 object ArbitraryConfig {
   val duration: Gen[Duration] = for {
@@ -100,32 +99,16 @@ object ArbitraryConfig {
     port <- Gen.chooseNum(1, 65535)
   } yield new InetSocketAddress(host, port)
 
-  val graphiteReporter: Gen[MetricsReporter] = for {
-    address <- inetSocketAddress
-    prefixStr <- Gen.alphaStr if prefixStr.nonEmpty
-    prefix <- Gen.option(prefixStr)
-  } yield MetricsReporter.Graphite(address, prefix)
-
   val prometheusReporter: Gen[MetricsReporter] = for {
     address <- inetSocketAddress
-  } yield MetricsReporter.Prometheus(address)
-
-  val csvReporter: Gen[MetricsReporter] = for {
-    path <- Gen.alphaStr
-  } yield MetricsReporter.Csv(Paths.get(path).toAbsolutePath)
+  } yield MetricsReporter.Prometheus(address.getHostString, address.getPort)
 
   val metricsReporter: Gen[MetricsReporter] =
-    Gen.oneOf(graphiteReporter, prometheusReporter, csvReporter, Gen.const(MetricsReporter.Console))
-
-  val metricRegistryType: Gen[MetricRegistryType] =
-    Gen.oneOf[MetricRegistryType](MetricRegistryType.JvmShared, MetricRegistryType.New)
+    Gen.oneOf(prometheusReporter, Gen.const(MetricsReporter.None))
 
   val metricConfig = for {
-    enabled <- Gen.oneOf(true, false)
     reporter <- metricsReporter
-    reportingInterval <- Gen.finiteDuration
-    registryType <- metricRegistryType
-  } yield MetricsConfig(enabled, reporter, reportingInterval, registryType)
+  } yield MetricsConfig(reporter)
 
   val clientAuth = Gen.oneOf(ClientAuth.values().toList)
 

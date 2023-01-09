@@ -7,36 +7,35 @@ import com.daml.metrics.api.MetricDoc.MetricQualification.Debug
 import com.daml.metrics.api.MetricHandle.{Factory, Histogram, Timer}
 import com.daml.metrics.api.{MetricDoc, MetricName}
 
-class IndexDBMetrics(override val prefix: MetricName, override val registry: MetricRegistry)
-    extends MainIndexDBMetrics(prefix, registry)
+class IndexDBMetrics(override val prefix: MetricName, override val metricsFactory: Factory)
+    extends MainIndexDBMetrics(prefix, metricsFactory)
     with TransactionStreamsDbMetrics {
   self =>
 }
 
-trait TransactionStreamsDbMetrics extends FactoryWithDBMetrics {
+trait TransactionStreamsDbMetrics {
   self =>
 
   def prefix: MetricName
-  def registry: MetricRegistry
+  def metricsFactory: Factory
 
   @MetricDoc.GroupTag(
     representative = "daml.index.db.flat_transactions_stream.<operation>",
     groupableClass = classOf[DatabaseMetrics],
   )
-  object flatTxStream extends FactoryWithDBMetrics {
-    override val prefix: MetricName = self.prefix :+ "flat_transactions_stream"
-    override val registry: MetricRegistry = self.registry
+  object flatTxStream {
+    val prefix: MetricName = self.prefix :+ "flat_transactions_stream"
 
-    val fetchEventCreateIdsStakeholder: DatabaseMetrics = createDbMetrics(
-      "fetch_event_create_ids_stakeholder"
-    )
+    val fetchEventCreateIdsStakeholder: DatabaseMetrics =
+      createDbMetrics(prefix, "fetch_event_create_ids_stakeholder")
     val fetchEventConsumingIdsStakeholder: DatabaseMetrics = createDbMetrics(
-      "fetch_event_consuming_ids_stakeholder"
+      prefix,
+      "fetch_event_consuming_ids_stakeholder",
     )
-    val fetchEventCreatePayloads: DatabaseMetrics = createDbMetrics("fetch_event_create_payloads")
-    val fetchEventConsumingPayloads: DatabaseMetrics = createDbMetrics(
-      "fetch_event_consuming_payloads"
-    )
+    val fetchEventCreatePayloads: DatabaseMetrics =
+      createDbMetrics(prefix, "fetch_event_create_payloads")
+    val fetchEventConsumingPayloads: DatabaseMetrics =
+      createDbMetrics(prefix, "fetch_event_consuming_payloads")
     @MetricDoc.Tag(
       summary = "The time needed to turn serialized Daml-LF values into in-memory objects.",
       description = """Some index database queries that target contracts and transactions involve a
@@ -44,38 +43,45 @@ trait TransactionStreamsDbMetrics extends FactoryWithDBMetrics {
                       |takes to turn the serialized Daml-LF values into in-memory representation.""",
       qualification = Debug,
     )
-    val translationTimer: Timer = timer(prefix :+ "translation")
+    val translationTimer: Timer = metricsFactory.timer(prefix :+ "translation")
   }
 
   @MetricDoc.GroupTag(
     representative = "daml.index.db.tree_transactions_stream.<operation>",
     groupableClass = classOf[DatabaseMetrics],
   )
-  object treeTxStream extends FactoryWithDBMetrics {
-    override val prefix: MetricName = self.prefix :+ "tree_transactions_stream"
-    override val registry: MetricRegistry = self.registry
+  object treeTxStream {
+    val prefix: MetricName = self.prefix :+ "tree_transactions_stream"
 
     val fetchEventCreateIdsStakeholder: DatabaseMetrics = createDbMetrics(
-      "fetch_event_create_ids_stakeholder"
+      prefix,
+      "fetch_event_create_ids_stakeholder",
     )
     val fetchEventCreateIdsNonStakeholder: DatabaseMetrics = createDbMetrics(
-      "fetch_event_create_ids_non_stakeholder"
+      prefix,
+      "fetch_event_create_ids_non_stakeholder",
     )
     val fetchEventConsumingIdsStakeholder: DatabaseMetrics = createDbMetrics(
-      "fetch_event_consuming_ids_stakeholder"
+      prefix,
+      "fetch_event_consuming_ids_stakeholder",
     )
     val fetchEventConsumingIdsNonStakeholder: DatabaseMetrics = createDbMetrics(
-      "fetch_event_consuming_ids_non_stakeholder"
+      prefix,
+      "fetch_event_consuming_ids_non_stakeholder",
     )
     val fetchEventNonConsumingIds: DatabaseMetrics = createDbMetrics(
-      "fetch_event_non_consuming_ids_informee"
+      prefix,
+      "fetch_event_non_consuming_ids_informee",
     )
-    val fetchEventCreatePayloads: DatabaseMetrics = createDbMetrics("fetch_event_create_payloads")
+    val fetchEventCreatePayloads: DatabaseMetrics =
+      createDbMetrics(prefix, "fetch_event_create_payloads")
     val fetchEventConsumingPayloads: DatabaseMetrics = createDbMetrics(
-      "fetch_event_consuming_payloads"
+      prefix,
+      "fetch_event_consuming_payloads",
     )
     val fetchEventNonConsumingPayloads: DatabaseMetrics = createDbMetrics(
-      "fetch_event_non_consuming_payloads"
+      prefix,
+      "fetch_event_non_consuming_payloads",
     )
     @MetricDoc.Tag(
       summary = "The time needed to turn serialized Daml-LF values into in-memory objects.",
@@ -84,7 +90,11 @@ trait TransactionStreamsDbMetrics extends FactoryWithDBMetrics {
                       |takes to turn the serialized Daml-LF values into in-memory representation.""",
       qualification = Debug,
     )
-    val translationTimer: Timer = timer(prefix :+ "translation")
+    val translationTimer: Timer = metricsFactory.timer(prefix :+ "translation")
+  }
+
+  private def createDbMetrics(prefix: MetricName, name: String) = {
+    new DatabaseMetrics(prefix, name, metricsFactory)
   }
 
 }
@@ -278,9 +288,6 @@ class MainIndexDBMetrics(prefix: MetricName, factory: Factory) { self =>
 
     val connection: MetricName = prefix :+ "connection"
 
-    val instrumentedExecutorServiceForDocs = new InstrumentedExecutorServiceForDocs(
-      connection :+ "<server_role>"
-    )
   }
 
   private def createDbMetrics(name: String) = new DatabaseMetrics(prefix, name, factory)

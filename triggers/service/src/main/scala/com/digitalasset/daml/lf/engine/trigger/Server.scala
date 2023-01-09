@@ -47,8 +47,9 @@ import com.daml.auth.middleware.api.{
   Response => AuthResponse,
 }
 import com.daml.lf.speedy.Compiler
+import com.daml.metrics.OpenTelemetryMetricsFactoryOwner
 import com.daml.metrics.akkahttp.HttpMetricsInterceptor
-import com.daml.metrics.api.reporters.{MetricsReporter, MetricsReporting}
+import com.daml.metrics.api.reporters.MetricsReporter
 import com.daml.scalautil.Statement.discard
 import com.daml.scalautil.ExceptionOps._
 import com.typesafe.scalalogging.StrictLogging
@@ -542,7 +543,6 @@ object Server {
       compilerConfig: speedy.Compiler.Config,
       triggerConfig: TriggerRunnerConfig,
       metricsReporter: Option[MetricsReporter],
-      metricsReportingInterval: FiniteDuration,
       logTriggerStatus: (UUID, String) => Unit = (_, _) => (),
   ): Behavior[Message] = Behaviors.setup { implicit ctx =>
     // Implicit boilerplate.
@@ -557,14 +557,12 @@ object Server {
 
     implicit val rc: ResourceContext = ResourceContext(ec)
 
-    val metricsReporting = new MetricsReporting(
-      getClass.getName,
-      metricsReporter,
-      metricsReportingInterval,
-    )((_, otelMeter) => TriggerServiceMetrics(otelMeter))
-    val metricsResource = metricsReporting.acquire()
+    val metricsFactory = OpenTelemetryMetricsFactoryOwner(
+      metricsReporter.getOrElse(MetricsReporter.None)
+    ).acquire()
+    val metricsResource = metricsFactory.map(TriggerServiceMetrics).asFuture
 
-    val rateDurationSizeMetrics = metricsResource.asFuture.map { implicit metrics =>
+    val rateDurationSizeMetrics = metricsResource.map { implicit metrics =>
       HttpMetricsInterceptor.rateDurationSizeMetrics(
         metrics.http
       )

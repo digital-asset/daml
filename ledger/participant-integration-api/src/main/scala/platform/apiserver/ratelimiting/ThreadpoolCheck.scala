@@ -3,10 +3,8 @@
 
 package com.daml.platform.apiserver.ratelimiting
 
-import com.codahale.metrics.MetricRegistry
 import com.daml.error.definitions.LedgerApiErrors.ThreadpoolOverloaded
 import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
-import com.daml.metrics.Metrics
 import com.daml.metrics.api.MetricName
 import com.daml.platform.apiserver.ratelimiting.LimitResult.{
   LimitResultCheck,
@@ -20,15 +18,8 @@ object ThreadpoolCheck {
     DamlContextualizedErrorLogger.forClass(getClass)
 
   /** Match naming in [[com.codahale.metrics.InstrumentedExecutorService]] */
-  final class ThreadpoolCount(metrics: Metrics)(val name: String, val prefix: MetricName) {
-    private val submitted =
-      metrics.dropwizardFactory.registry.meter(MetricRegistry.name(prefix, "submitted"))
-    private val running =
-      metrics.dropwizardFactory.registry.counter(MetricRegistry.name(prefix, "running"))
-    private val completed =
-      metrics.dropwizardFactory.registry.meter(MetricRegistry.name(prefix, "completed"))
-
-    def queueSize: Long = submitted.getCount - running.getCount - completed.getCount
+  final class ThreadpoolCount(val name: String, val prefix: MetricName) {
+    def queueSize: Long = 0L // TODO replace with actual queue
   }
 
   def apply(count: ThreadpoolCount, limit: Int): LimitResultCheck = {

@@ -5,13 +5,9 @@ package com.daml.metrics
 
 import com.daml.metrics.api.MetricDoc.MetricQualification.{Debug, Latency, Saturation, Traffic}
 import com.daml.metrics.api.MetricHandle.{Counter, Factory, Histogram, Timer}
-import com.daml.metrics.api.dropwizard.DropwizardTimer
+import com.daml.metrics.api.noop.NoOpTimer
 import com.daml.metrics.api.{MetricDoc, MetricName}
 
-@MetricDoc.GroupTag(
-  representative = "daml.parallel_indexer.<stage>.executor",
-  groupableClass = classOf[InstrumentedExecutorServiceForDocs],
-)
 @MetricDoc.GroupTag(
   representative = "daml.parallel_indexer.<stage>",
   groupableClass = classOf[DatabaseMetrics],
@@ -53,9 +49,7 @@ class ParallelIndexerMetrics(prefix: MetricName, factory: Factory) {
   object inputMapping {
     private val prefix: MetricName = ParallelIndexerMetrics.this.prefix :+ "inputmapping"
 
-    // Bundle of metrics coming from instrumentation of the underlying thread-pool
     val executor: MetricName = prefix :+ "executor"
-    val instrumentedExecutorServiceForDocs = new InstrumentedExecutorServiceForDocs(executor)
 
     @MetricDoc.Tag(
       summary = "The batch sizes in the indexer.",
@@ -73,7 +67,6 @@ class ParallelIndexerMetrics(prefix: MetricName, factory: Factory) {
 
     // Bundle of metrics coming from instrumentation of the underlying thread-pool
     val executor: MetricName = prefix :+ "executor"
-    val instrumentedExecutorServiceForDocs = new InstrumentedExecutorServiceForDocs(executor)
   }
 
   // Sequence Mapping stage
@@ -96,7 +89,7 @@ class ParallelIndexerMetrics(prefix: MetricName, factory: Factory) {
                     |optionally roll it back and close the connection at the end.""",
     qualification = Latency,
   )
-  val ingestionExecForDocs: Timer = DropwizardTimer(prefix :+ "ingestion" :+ "exec", null)
+  val ingestionExecForDocs: Timer = NoOpTimer(prefix :+ "ingestion" :+ "exec")
 
   // Ingestion stage
   // Parallel ingestion of prepared data into the database

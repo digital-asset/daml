@@ -3,7 +3,7 @@
 
 package com.daml.ledger.indexerbenchmark
 
-import java.util.concurrent.{Executors, TimeUnit}
+import java.util.concurrent.Executors
 
 import akka.NotUsed
 import akka.actor.ActorSystem
@@ -17,10 +17,11 @@ import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.data.Time
 import com.daml.logging.LoggingContext
 import com.daml.logging.LoggingContext.newLoggingContext
-import com.daml.metrics.{JvmMetricSet, Metrics}
+import com.daml.metrics.{DatabaseTrackerFactory, Metrics}
 import com.daml.platform.LedgerApiServer
 import com.daml.platform.indexer.{Indexer, IndexerServiceOwner, JdbcIndexer}
 import com.daml.resources
+import io.opentelemetry.api.GlobalOpenTelemetry
 
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext, ExecutionContextExecutor, Future}
@@ -34,7 +35,6 @@ class IndexerBenchmark() {
   ): Future[Unit] = {
     newLoggingContext { implicit loggingContext =>
       val metrics = Metrics.ForTesting
-      metrics.dropwizardFactory.registry.registerAll(new JvmMetricSet)
 
       val system = ActorSystem("IndexerBenchmark")
       implicit val materializer: Materializer = Materializer(system)
@@ -54,6 +54,7 @@ class IndexerBenchmark() {
           .forExecutorService(() => Executors.newWorkStealingPool())
           .map(ExecutionContext.fromExecutorService)
           .acquire()
+
         (inMemoryState, inMemoryStateUpdaterFlow) <-
           LedgerApiServer
             .createInMemoryStateAndUpdater(
@@ -68,11 +69,11 @@ class IndexerBenchmark() {
           config.indexerConfig,
           readService,
           metrics,
+          DatabaseTrackerFactory.metricsTrackerFactory(GlobalOpenTelemetry.get()),
           inMemoryState,
           inMemoryStateUpdaterFlow,
           servicesExecutionContext,
         )
-        _ <- metricsResource(config, metrics)
         _ = println("Setting up the index database...")
         indexer <- indexer(config, indexerExecutionContext, indexerFactory)
         _ = println("Starting the indexing...")
@@ -119,14 +120,6 @@ class IndexerBenchmark() {
         Duration(5, "minute"),
       )
       .acquire()
-
-  private def metricsResource(config: Config, metrics: Metrics)(implicit rc: ResourceContext) =
-    config.metricsReporter.fold(Resource.unit)(reporter =>
-      ResourceOwner
-        .forCloseable(() => reporter.register(metrics.dropwizardFactory.registry))
-        .map(_.start(config.metricsReportingInterval.getSeconds, TimeUnit.SECONDS))
-        .acquire()
-    )
 
   private[this] def createReadService(
       updates: Source[(Offset, Update), NotUsed]

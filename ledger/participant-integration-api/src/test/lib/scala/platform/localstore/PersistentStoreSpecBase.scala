@@ -8,7 +8,7 @@ import java.util.concurrent.atomic.AtomicInteger
 
 import com.daml.ledger.resources.ResourceContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.metrics.{DatabaseMetrics, Metrics}
+import com.daml.metrics.{DatabaseMetrics, DatabaseTrackerFactory, Metrics}
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.store.DbSupport.{ConnectionPoolConfig, DbConfig}
 import com.daml.platform.store.backend.StorageBackendProvider
@@ -88,6 +88,7 @@ trait PersistentStoreSpecBase extends BeforeAndAfterEach with BeforeAndAfterAll 
         ),
         serverRole = ServerRole.Testing(getClass),
         metrics = Metrics.ForTesting,
+        poolMetrics = DatabaseTrackerFactory.ForTesting,
       )
       .acquire()
     val initializeDbAndGetDbSupportFuture: Future[DbSupport] = for {

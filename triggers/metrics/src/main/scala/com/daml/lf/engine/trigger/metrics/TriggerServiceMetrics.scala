@@ -3,14 +3,11 @@
 
 package com.daml.lf.engine.trigger.metrics
 
-import com.daml.metrics.api.opentelemetry.OpenTelemetryFactory
+import com.daml.metrics.api.MetricHandle.Factory
 import com.daml.metrics.http.DamlHttpMetrics
-import io.opentelemetry.api.metrics.{Meter => OtelMeter}
 
-case class TriggerServiceMetrics(otelMeter: OtelMeter) {
+case class TriggerServiceMetrics(metricsFactory: Factory) {
 
-  val openTelemetryFactory = new OpenTelemetryFactory(otelMeter)
-
-  val http = new DamlHttpMetrics(openTelemetryFactory, "trigger-service")
+  val http = new DamlHttpMetrics(metricsFactory, "trigger-service")
 
 }

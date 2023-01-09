@@ -93,7 +93,6 @@ private[platform] object InMemoryStateUpdater {
       InstrumentedExecutors.newWorkStealingExecutor(
         metrics.daml.lapi.threadpool.indexBypass.prepareUpdates,
         prepareUpdatesParallelism,
-        metrics.dropwizardFactory.registry,
         metrics.executorServiceMetrics,
       )
     )
@@ -101,7 +100,6 @@ private[platform] object InMemoryStateUpdater {
       InstrumentedExecutors.newFixedThreadPool(
         metrics.daml.lapi.threadpool.indexBypass.updateInMemoryState,
         1,
-        metrics.dropwizardFactory.registry,
         metrics.executorServiceMetrics,
       )
     )

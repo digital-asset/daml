@@ -10,7 +10,7 @@ import com.daml.ledger.sandbox.bridge.BridgeMetrics
 import com.daml.ledger.sandbox.domain.{Rejection, Submission}
 import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext
-import com.daml.metrics.Metrics
+import com.daml.metrics.api.noop.NoOpMetricsFactory
 import org.mockito.MockitoSugar
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -27,7 +27,7 @@ class TagWithLedgerEndSpec extends AnyFlatSpec with Matchers with MockitoSugar {
   private val indexServiceMock = mock[IndexService]
   private val tagWithLedgerEnd = new TagWithLedgerEndImpl(
     indexService = indexServiceMock,
-    bridgeMetrics = new BridgeMetrics(Metrics.ForTesting.dropwizardFactory),
+    bridgeMetrics = new BridgeMetrics(NoOpMetricsFactory),
   )
 
   "tagWithLedgerEnd" should "tag the incoming submissions with the index service ledger end" in {

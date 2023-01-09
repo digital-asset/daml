@@ -27,7 +27,6 @@ import scalaz.syntax.traverse._
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future}
-import scala.language.postfixOps
 import scala.sys.ShutdownHookThread
 import scala.util.{Failure, Success, Try}
 
@@ -77,7 +76,6 @@ object ServiceMain {
           compilerConfig,
           triggerConfig,
           None,
-          10 seconds,
           logTriggerStatus,
         ),
         "TriggerService",
@@ -181,7 +179,6 @@ object ServiceMain {
               config.compilerConfig,
               config.triggerConfig,
               config.metricsReporter,
-              config.metricsReportingInterval,
             ),
             "TriggerService",
           )

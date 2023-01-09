@@ -107,6 +107,8 @@ object InMemoryMetricsFactory extends InMemoryMetricsFactory {
     override def updateValue(newValue: T): Unit =
       value.set(newValue)
 
+    override def updateValue(f: T => T): Unit = discard(value.updateAndGet(value => f(value)))
+
     override def getValue: T = value.get()
   }
 
@@ -132,8 +134,6 @@ object InMemoryMetricsFactory extends InMemoryMetricsFactory {
 
     override def dec(value: Long)(implicit context: MetricsContext): Unit =
       addToContext(markers, initialContext.merge(context), -value)
-
-    override def getCount: Long = 0
 
   }
 

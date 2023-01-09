@@ -102,6 +102,7 @@ da_scala_library(
         "//ledger/participant-integration-api",
         "//ledger/sandbox-on-x",
         "//ledger/sandbox-on-x:sandbox-on-x-test-lib",
+        "//observability/metrics",
         "@maven//:org_slf4j_slf4j_api",
     ],
 )

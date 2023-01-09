@@ -17,6 +17,7 @@ import com.daml.metrics.api.MetricName
 import com.daml.metrics.{DatabaseMetrics, Metrics}
 import com.daml.platform.configuration.ServerRole
 import com.google.common.util.concurrent.ThreadFactoryBuilder
+import com.zaxxer.hikari.metrics.MetricsTrackerFactory
 import javax.sql.DataSource
 
 import scala.concurrent.duration.FiniteDuration
@@ -113,6 +114,7 @@ object DbDispatcher {
       connectionPoolSize: Int,
       connectionTimeout: FiniteDuration,
       metrics: Metrics,
+      poolMetrics: MetricsTrackerFactory,
   )(implicit loggingContext: LoggingContext): ResourceOwner[DbDispatcher with ReportsHealth] =
     for {
       hikariDataSource <- HikariDataSourceOwner(
@@ -121,7 +123,7 @@ object DbDispatcher {
         minimumIdle = connectionPoolSize,
         maxPoolSize = connectionPoolSize,
         connectionTimeout = connectionTimeout,
-        metrics = Some(metrics.dropwizardFactory.registry),
+        metrics = Some(poolMetrics),
       )
       connectionProvider <- DataSourceConnectionProvider.owner(hikariDataSource)
       threadPoolName = MetricName(
@@ -138,7 +140,6 @@ object DbDispatcher {
               logger.error("Uncaught exception in the SQL executor.", e)
             )
             .build(),
-          metrics.dropwizardFactory.registry,
           metrics.executorServiceMetrics,
         )
       )

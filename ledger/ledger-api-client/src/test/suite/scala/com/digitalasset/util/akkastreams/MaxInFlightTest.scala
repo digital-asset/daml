@@ -6,9 +6,8 @@ package com.daml.util.akkastreams
 import akka.stream.scaladsl.{Flow, Source}
 import akka.stream.stage._
 import akka.stream.{Attributes, FlowShape, Inlet, Outlet}
-import com.codahale.{metrics => codahale}
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
-import com.daml.metrics.api.dropwizard.{DropwizardCounter => Counter}
+import com.daml.metrics.api.noop.NoOpCounter
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.time.{Minute, Span}
 import org.scalatest.matchers.should.Matchers
@@ -28,8 +27,8 @@ class MaxInFlightTest
       val elemCount = 1000L
       val bidi = MaxInFlight[Long, Long](
         1,
-        Counter("capacity", new codahale.Counter),
-        Counter("length", new codahale.Counter),
+        NoOpCounter("capacity"),
+        NoOpCounter("length"),
       )
 
       val result = Source.repeat(1L).take(elemCount).via(bidi.join(Flow[Long])).runFold(0L)(_ + _)
@@ -42,8 +41,8 @@ class MaxInFlightTest
       val maxElementsInFlight = 10
       val bidi = MaxInFlight[Long, Long](
         maxElementsInFlight,
-        Counter("capacity", new codahale.Counter),
-        Counter("length", new codahale.Counter),
+        NoOpCounter("capacity"),
+        NoOpCounter("length"),
       )
 
       val flow = bidi.join(new DiesOnTooManyInFlights(maxElementsInFlight, 1.second))

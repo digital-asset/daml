@@ -9,6 +9,7 @@ import com.daml.http.domain.ContractTypeId
 import com.daml.http.metrics.HttpJsonApiMetrics
 import com.daml.http.util.Logging.{InstanceUUID, instanceUUIDLogCtx}
 import com.daml.logging.LoggingContextOf
+import com.daml.metrics.api.testing.{InMemoryMetricsFactory, MetricValues}
 import doobie.util.log.LogHandler
 import doobie.free.{connection => fconn}
 import org.scalatest.freespec.AsyncFreeSpecLike
@@ -18,11 +19,16 @@ import scalaz.std.list._
 
 import scala.concurrent.Future
 
-abstract class AbstractDatabaseIntegrationTest extends AsyncFreeSpecLike with BeforeAndAfterAll {
+abstract class AbstractDatabaseIntegrationTest
+    extends AsyncFreeSpecLike
+    with BeforeAndAfterAll
+    with MetricValues {
   this: AsyncTestSuite with Matchers with Inside =>
 
   protected def jdbcConfig: JdbcConfig
-  protected implicit val metrics: HttpJsonApiMetrics = HttpJsonApiMetrics.ForTesting
+  protected implicit val metrics: HttpJsonApiMetrics = new HttpJsonApiMetrics(
+    InMemoryMetricsFactory
+  )
 
   // has to be lazy because jdbcConfig is NOT initialized yet
   protected lazy val dao = dbbackend.ContractDao(
@@ -198,8 +204,8 @@ abstract class AbstractDatabaseIntegrationTest extends AsyncFreeSpecLike with Be
         cachedStpId <- getOrElseInsertTemplate(tpId) // should trigger a read from cache
       } yield {
         storedStpId shouldEqual cachedStpId
-        queries.surrogateTpIdCache.getHitCount shouldBe 1
-        queries.surrogateTpIdCache.getMissCount shouldBe 1
+        queries.surrogateTpIdCache.getHitCount.value shouldBe 1
+        queries.surrogateTpIdCache.getMissCount.value shouldBe 1
       }
     }.unsafeToFuture()
 

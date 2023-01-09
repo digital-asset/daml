@@ -33,8 +33,9 @@ case class NoOpGauge[T](name: String, value: T) extends Gauge[T] {
 
   override def updateValue(newValue: T): Unit = ()
 
-  override def getValue: T = value
+  override def updateValue(f: T => T): Unit = ()
 
+  override def getValue: T = value
 }
 
 case class NoOpMeter(name: String) extends Meter {
@@ -51,7 +52,6 @@ case class NoOpCounter(name: String) extends Counter {
   override def dec(n: Long)(implicit context: _root_.com.daml.metrics.api.MetricsContext): Unit =
     ()
 
-  override def getCount: Long = 0
 }
 
 case class NoOpHistogram(name: String) extends Histogram {

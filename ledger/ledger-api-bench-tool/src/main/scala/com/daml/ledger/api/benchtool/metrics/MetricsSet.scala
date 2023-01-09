@@ -3,21 +3,19 @@
 
 package com.daml.ledger.api.benchtool.metrics
 
-import com.codahale.metrics.MetricRegistry
+import java.time.{Clock, Duration}
+
 import com.daml.ledger.api.benchtool.config.WorkflowConfig.StreamConfig._
+import com.daml.ledger.api.benchtool.metrics.metrics.TotalStreamRuntimeMetric
+import com.daml.ledger.api.benchtool.metrics.metrics.TotalStreamRuntimeMetric.MaxDurationObjective
 import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
 import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
 import com.daml.ledger.api.v1.transaction_service.{
   GetTransactionTreesResponse,
   GetTransactionsResponse,
 }
+import com.daml.metrics.api.MetricHandle.Factory
 import com.google.protobuf.timestamp.Timestamp
-import java.time.{Clock, Duration}
-
-import com.daml.ledger.api.benchtool.metrics.metrics.TotalStreamRuntimeMetric
-import com.daml.ledger.api.benchtool.metrics.metrics.TotalStreamRuntimeMetric.MaxDurationObjective
-
-import scala.concurrent.duration.FiniteDuration
 
 object MetricsSet {
 
@@ -25,7 +23,7 @@ object MetricsSet {
       configO: Option[TransactionObjectives]
   ): List[Metric[GetTransactionsResponse]] =
     transactionMetrics[GetTransactionsResponse](
-      countingFunction = (response => countFlatTransactionsEvents(response).toInt),
+      countingFunction = response => countFlatTransactionsEvents(response).toInt,
       sizingFunction = _.serializedSize.toLong,
       recordTimeFunction = _.transactions.collect {
         case t if t.effectiveAt.isDefined => t.getEffectiveAt
@@ -35,13 +33,11 @@ object MetricsSet {
 
   def transactionExposedMetrics(
       streamName: String,
-      registry: MetricRegistry,
-      slidingTimeWindow: FiniteDuration,
+      metricsFactory: Factory,
   ): ExposedMetrics[GetTransactionsResponse] =
     ExposedMetrics[GetTransactionsResponse](
       streamName = streamName,
-      registry = registry,
-      slidingTimeWindow = Duration.ofNanos(slidingTimeWindow.toNanos),
+      factory = metricsFactory,
       countingFunction = countFlatTransactionsEvents,
       sizingFunction = _.serializedSize.toLong,
       recordTimeFunction = Some(_.transactions.collect {
@@ -53,7 +49,7 @@ object MetricsSet {
       configO: Option[TransactionObjectives]
   ): List[Metric[GetTransactionTreesResponse]] =
     transactionMetrics[GetTransactionTreesResponse](
-      countingFunction = (response => countTreeTransactionsEvents(response).toInt),
+      countingFunction = response => countTreeTransactionsEvents(response).toInt,
       sizingFunction = _.serializedSize.toLong,
       recordTimeFunction = _.transactions.collect {
         case t if t.effectiveAt.isDefined => t.getEffectiveAt
@@ -63,13 +59,11 @@ object MetricsSet {
 
   def transactionTreesExposedMetrics(
       streamName: String,
-      registry: MetricRegistry,
-      slidingTimeWindow: FiniteDuration,
+      metricsFactory: Factory,
   ): ExposedMetrics[GetTransactionTreesResponse] =
     ExposedMetrics[GetTransactionTreesResponse](
       streamName = streamName,
-      registry = registry,
-      slidingTimeWindow = Duration.ofNanos(slidingTimeWindow.toNanos),
+      factory = metricsFactory,
       countingFunction = countTreeTransactionsEvents,
       sizingFunction = _.serializedSize.toLong,
       recordTimeFunction = Some(_.transactions.collect {
@@ -99,13 +93,11 @@ object MetricsSet {
 
   def activeContractsExposedMetrics(
       streamName: String,
-      registry: MetricRegistry,
-      slidingTimeWindow: FiniteDuration,
+      metricsFactory: Factory,
   ): ExposedMetrics[GetActiveContractsResponse] =
     ExposedMetrics[GetActiveContractsResponse](
       streamName = streamName,
-      registry = registry,
-      slidingTimeWindow = Duration.ofNanos(slidingTimeWindow.toNanos),
+      factory = metricsFactory,
       countingFunction = (response) => countActiveContracts(response).toLong,
       sizingFunction = _.serializedSize.toLong,
       recordTimeFunction = None,
@@ -133,14 +125,12 @@ object MetricsSet {
 
   def completionsExposedMetrics(
       streamName: String,
-      registry: MetricRegistry,
-      slidingTimeWindow: FiniteDuration,
+      metricsFactory: Factory,
   ): ExposedMetrics[CompletionStreamResponse] =
     ExposedMetrics[CompletionStreamResponse](
       streamName = streamName,
-      registry = registry,
-      slidingTimeWindow = Duration.ofNanos(slidingTimeWindow.toNanos),
-      countingFunction = (response) => countCompletions(response).toLong,
+      factory = metricsFactory,
+      countingFunction = response => countCompletions(response).toLong,
       sizingFunction = _.serializedSize.toLong,
       recordTimeFunction = None,
     )

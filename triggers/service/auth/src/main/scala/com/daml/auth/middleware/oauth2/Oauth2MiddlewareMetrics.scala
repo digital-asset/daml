@@ -3,14 +3,11 @@
 
 package com.daml.auth.middleware.oauth2
 
-import com.daml.metrics.api.opentelemetry.OpenTelemetryFactory
+import com.daml.metrics.api.MetricHandle.Factory
 import com.daml.metrics.http.DamlHttpMetrics
-import io.opentelemetry.api.metrics.{Meter => OtelMeter}
 
-case class Oauth2MiddlewareMetrics(otelMeter: OtelMeter) {
+case class Oauth2MiddlewareMetrics(factory: Factory) {
 
-  val openTelemetryFactory = new OpenTelemetryFactory(otelMeter)
-
-  val http = new DamlHttpMetrics(openTelemetryFactory, "oauth2-middleware")
+  val http = new DamlHttpMetrics(factory, "oauth2-middleware")
 
 }

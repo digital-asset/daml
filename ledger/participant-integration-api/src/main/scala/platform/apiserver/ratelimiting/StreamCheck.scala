@@ -5,8 +5,6 @@ package com.daml.platform.apiserver.ratelimiting
 
 import com.daml.error.definitions.LedgerApiErrors.MaximumNumberOfStreams
 import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
-import com.daml.metrics.api.MetricHandle.Counter
-import com.daml.metrics.api.MetricName
 import com.daml.platform.apiserver.ratelimiting.LimitResult.{
   LimitResultCheck,
   OverLimit,
@@ -19,15 +17,16 @@ object StreamCheck {
     DamlContextualizedErrorLogger.forClass(getClass)
 
   def apply(
-      activeStreamsCounter: Counter,
-      activeStreamsName: MetricName,
+      activeStreamNumber: () => Long,
+      activeStreamsName: String,
       maxStreams: Int,
   ): LimitResultCheck = (fullMethodName, isStream) => {
     if (isStream) {
-      if (activeStreamsCounter.getCount >= maxStreams) {
+      val activeStreams = activeStreamNumber()
+      if (activeStreams >= maxStreams) {
         OverLimit(
           MaximumNumberOfStreams.Rejection(
-            value = activeStreamsCounter.getCount,
+            value = activeStreams,
             limit = maxStreams,
             metricPrefix = activeStreamsName,
             fullMethodName = fullMethodName,

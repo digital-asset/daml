@@ -5,7 +5,7 @@ package com.daml.metrics
 
 import com.daml.metrics.api.MetricDoc.MetricQualification.{Debug, Saturation, Traffic}
 import com.daml.metrics.api.MetricHandle.{Counter, Factory, Histogram, Timer}
-import com.daml.metrics.api.dropwizard.DropwizardTimer
+import com.daml.metrics.api.noop.NoOpTimer
 import com.daml.metrics.api.{MetricDoc, MetricName}
 
 class ServicesMetrics(prefix: MetricName, factory: Factory) {
@@ -205,7 +205,7 @@ class ServicesMetrics(prefix: MetricName, factory: Factory) {
       qualification = Traffic,
     )
     val submitOperationForDocs: Timer =
-      DropwizardTimer(prefix :+ "submit_transaction" :+ "count", null)
+      NoOpTimer(prefix :+ "submit_transaction" :+ "count")
 
     @MetricDoc.FanInstanceTag
     val submitTransaction: Timer = factory.timer(prefix :+ "submit_transaction")

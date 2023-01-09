@@ -7,12 +7,12 @@ import java.sql.{Connection, SQLTransientConnectionException}
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.{Timer, TimerTask}
 
-import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.api.health.{HealthStatus, Healthy, Unhealthy}
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{DatabaseMetrics, Timed}
 import com.daml.platform.configuration.ServerRole
+import com.zaxxer.hikari.metrics.MetricsTrackerFactory
 import com.zaxxer.hikari.{HikariConfig, HikariDataSource}
 import javax.sql.DataSource
 
@@ -27,7 +27,7 @@ private[platform] object HikariDataSourceOwner {
       minimumIdle: Int,
       maxPoolSize: Int,
       connectionTimeout: FiniteDuration,
-      metrics: Option[MetricRegistry],
+      metrics: Option[MetricsTrackerFactory],
       connectionPoolPrefix: String = "daml.index.db.connection",
   ): ResourceOwner[DataSource] =
     ResourceOwner.forCloseable { () =>
@@ -38,7 +38,7 @@ private[platform] object HikariDataSourceOwner {
       config.setMinimumIdle(minimumIdle)
       config.setConnectionTimeout(connectionTimeout.toMillis)
       config.setPoolName(s"$connectionPoolPrefix.${serverRole.threadPoolSuffix}")
-      metrics.foreach(config.setMetricRegistry)
+      metrics.foreach(config.setMetricsTrackerFactory)
       new HikariDataSource(config)
     }
 }

@@ -28,6 +28,7 @@ import com.daml.platform.indexer.IndexerServiceOwner
 import com.daml.platform.localstore._
 import com.daml.platform.store.DbSupport
 import com.daml.platform.store.DbSupport.ParticipantDataSourceConfig
+import com.zaxxer.hikari.metrics.MetricsTrackerFactory
 
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutorService}
 
@@ -44,6 +45,7 @@ class LedgerApiServer(
     timeServiceBackendO: Option[TimeServiceBackend],
     servicesExecutionContext: ExecutionContextExecutorService,
     metrics: Metrics,
+    poolMetrics: MetricsTrackerFactory,
     // TODO ED: Remove flag once explicit disclosure is deemed stable and all
     //          backing ledgers implement proper validation against malicious clients.
     //          Currently, we provide this flag outside the HOCON configuration objects
@@ -71,6 +73,7 @@ class LedgerApiServer(
               readService = timedReadService,
               config = participantConfig.indexer,
               metrics = metrics,
+              poolMetrics = poolMetrics,
               inMemoryState = inMemoryState,
               inMemoryStateUpdaterFlow = inMemoryStateUpdaterFlow,
               executionContext = servicesExecutionContext,
@@ -84,6 +87,7 @@ class LedgerApiServer(
           .owner(
             serverRole = ServerRole.ApiServer,
             metrics = metrics,
+            poolMetrics = poolMetrics,
             dbConfig = participantConfig.dataSourceProperties.createDbConfig(
               participantDataSourceConfig
             ),

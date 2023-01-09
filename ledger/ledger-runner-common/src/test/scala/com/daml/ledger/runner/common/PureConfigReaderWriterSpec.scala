@@ -35,8 +35,6 @@ import com.daml.platform.store.DbSupport.ParticipantDataSourceConfig
 import com.daml.platform.store.backend.postgresql.PostgresDataSourceConfig.SynchronousCommitValue
 import com.typesafe.config.ConfigFactory
 import pureconfig.error.ConfigReaderFailures
-import java.net.InetSocketAddress
-import java.nio.file.Path
 import java.time.Duration
 import com.daml.metrics.api.reporters.MetricsReporter
 
@@ -82,7 +80,6 @@ class PureConfigReaderWriterSpec
     testReaderWriterIsomorphism(secure, ArbitraryConfig.contractKeyUniquenessMode)
     testReaderWriterIsomorphism(secure, ArbitraryConfig.engineConfig)
     testReaderWriterIsomorphism(secure, ArbitraryConfig.metricsReporter)
-    testReaderWriterIsomorphism(secure, ArbitraryConfig.metricRegistryType)
     testReaderWriterIsomorphism(secure, ArbitraryConfig.metricConfig)
     testReaderWriterIsomorphism(secure, Gen.oneOf(TlsVersion.allVersions))
     testReaderWriterIsomorphism(secure, ArbitraryConfig.tlsConfiguration)
@@ -347,23 +344,10 @@ class PureConfigReaderWriterSpec
       metricReporterReader.from(fromAnyRef(expectedString)).value shouldBe reporter
     }
     compare(
-      MetricsReporter.Prometheus(new InetSocketAddress("localhost", 1234)),
+      MetricsReporter.Prometheus("localhost", 1234),
       "prometheus://localhost:1234",
     )
-    compare(
-      MetricsReporter.Graphite(new InetSocketAddress("localhost", 1234)),
-      "graphite://localhost:1234/",
-    )
-    compare(
-      MetricsReporter.Graphite(new InetSocketAddress("localhost", 1234), Some("test")),
-      "graphite://localhost:1234/test",
-    )
-    val path = Path.of("test").toAbsolutePath
-    compare(
-      MetricsReporter.Csv(path),
-      "csv://" + path.toString,
-    )
-    compare(MetricsReporter.Console, "console")
+    compare(MetricsReporter.None, "none")
   }
 
   behavior of "MetricsConfig"

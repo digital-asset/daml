@@ -115,16 +115,10 @@ class PureConfigReaderWriter(secure: Boolean = true) {
   }
   implicit val metricReporterWriter: ConfigWriter[MetricsReporter] =
     ConfigWriter.toString {
-      case MetricsReporter.Console => "console"
-      case MetricsReporter.Csv(directory) => s"csv://${directory.toAbsolutePath.toString}"
-      case MetricsReporter.Graphite(address, prefix) =>
-        s"graphite://${address.getHostName}:${address.getPort}/${prefix.getOrElse("")}"
-      case MetricsReporter.Prometheus(address) =>
-        s"prometheus://${address.getHostName}:${address.getPort}"
+      case MetricsReporter.None => "none"
+      case MetricsReporter.Prometheus(host, port) =>
+        s"prometheus://$host:$port"
     }
-
-  implicit val metricsRegistryTypeConvert: ConfigConvert[MetricsConfig.MetricRegistryType] =
-    deriveEnumerationConvert[MetricsConfig.MetricRegistryType]
 
   implicit val metricsHint = ProductHint[MetricsConfig](allowUnknownKeys = false)
 

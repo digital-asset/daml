@@ -4,13 +4,14 @@
 package com.daml.ledger.api.benchtool
 
 import java.io.File
-import com.codahale.metrics.MetricRegistry
+
 import com.daml.bazeltools.BazelRunfiles.rlocation
 import com.daml.ledger.api.benchtool.metrics.MetricsManager.NoOpMetricsManager
 import com.daml.ledger.api.benchtool.services.LedgerApiServices
 import com.daml.ledger.api.benchtool.submission.{CommandSubmitter, Names, PartyAllocating}
 import com.daml.ledger.test.BenchtoolTestDar
 import com.daml.lf.language.LanguageVersion
+import com.daml.metrics.api.noop.NoOpMetricsFactory
 import com.daml.platform.sandbox.fixture.SandboxFixture
 import org.scalatest.Suite
 
@@ -41,13 +42,13 @@ trait BenchtoolSandboxFixture extends SandboxFixture {
         names = names,
         benchtoolUserServices = apiServices,
         adminServices = apiServices,
-        metricRegistry = new MetricRegistry,
         metricsManager = NoOpMetricsManager(),
         waitForSubmission = true,
         partyAllocating = new PartyAllocating(
           names = names,
           adminServices = apiServices,
         ),
+        metricsFactory = NoOpMetricsFactory,
       )
     } yield (
       apiServices,

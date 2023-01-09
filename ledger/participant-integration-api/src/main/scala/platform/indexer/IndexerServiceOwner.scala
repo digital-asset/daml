@@ -14,6 +14,7 @@ import com.daml.platform.InMemoryState
 import com.daml.platform.index.InMemoryStateUpdater
 import com.daml.platform.store.DbSupport.ParticipantDataSourceConfig
 import com.daml.platform.store.FlywayMigrations
+import com.zaxxer.hikari.metrics.MetricsTrackerFactory
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -23,6 +24,7 @@ final class IndexerServiceOwner(
     readService: state.ReadService,
     config: IndexerConfig,
     metrics: Metrics,
+    poolMetrics: MetricsTrackerFactory,
     inMemoryState: InMemoryState,
     inMemoryStateUpdaterFlow: InMemoryStateUpdater.UpdaterFlow,
     additionalMigrationPaths: Seq[String] = Seq.empty,
@@ -44,6 +46,7 @@ final class IndexerServiceOwner(
       config,
       readService,
       metrics,
+      poolMetrics,
       inMemoryState,
       inMemoryStateUpdaterFlow,
       executionContext,

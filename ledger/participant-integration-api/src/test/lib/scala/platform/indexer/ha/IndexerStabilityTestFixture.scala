@@ -6,12 +6,11 @@ package com.daml.platform.indexer.ha
 import java.util.concurrent.Executors
 
 import akka.stream.Materializer
-import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.api.health.ReportsHealth
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.logging.ContextualizedLogger
 import com.daml.logging.LoggingContext.{newLoggingContext, withEnrichedLoggingContext}
-import com.daml.metrics.Metrics
+import com.daml.metrics.{DatabaseTrackerFactory, Metrics}
 import com.daml.platform.LedgerApiServer
 import com.daml.platform.configuration.IndexServiceConfig
 import com.daml.platform.indexer.{IndexerConfig, IndexerServiceOwner, IndexerStartupMode}
@@ -98,7 +97,7 @@ object IndexerStabilityTestFixture {
                   // create a new MetricRegistry for each indexer, so they don't step on each other toes:
                   // Gauges can only be registered once. A subsequent attempt results in an exception for the
                   // call MetricRegistry#register or MetricRegistry#registerGauge
-                  metrics = Metrics(new MetricRegistry, GlobalOpenTelemetry.getMeter("test"))
+                  metrics = Metrics(GlobalOpenTelemetry.getMeter("test"))
                   (inMemoryState, inMemoryStateUpdaterFlow) <-
                     LedgerApiServer
                       .createInMemoryStateAndUpdater(
@@ -118,6 +117,7 @@ object IndexerStabilityTestFixture {
                     inMemoryState = inMemoryState,
                     inMemoryStateUpdaterFlow = inMemoryStateUpdaterFlow,
                     executionContext = servicesExecutionContext,
+                    poolMetrics = DatabaseTrackerFactory.ForTesting,
                   ).acquire()
                 } yield ReadServiceAndIndexer(readService, indexing)
               )
