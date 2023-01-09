@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # This script builds the dev-env nix closures and pushes them into the cache

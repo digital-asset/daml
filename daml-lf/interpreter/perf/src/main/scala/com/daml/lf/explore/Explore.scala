@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -38,7 +38,7 @@ object PlaySpeedy {
       val (expected, expr) = examples(name)
       val converted = compiler.unsafeClosureConvert(expr)
       val machine = Machine.fromPureSExpr(PureCompiledPackages.Empty, converted)
-      runMachine(name, machine, expected)
+      runMachine(machine, expected)
     }
   }
 
@@ -67,10 +67,7 @@ object PlaySpeedy {
     Config(names)
   }
 
-  def runMachine(name: String, machine: PureMachine, expected: Int): Unit = {
-
-    println(s"example name: $name")
-
+  def runMachine(machine: PureMachine, expected: Int): Unit = {
     machine.runPure().toTry.get match {
       case SInt64(got) =>
         if (got != expected) {

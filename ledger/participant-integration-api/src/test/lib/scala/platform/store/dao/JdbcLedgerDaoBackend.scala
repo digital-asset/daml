@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.store.dao
@@ -14,8 +14,8 @@ import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.configuration.{
   ServerRole,
-  TransactionsFlatStreamReaderConfig,
-  TransactionsTreeStreamReaderConfig,
+  TransactionFlatStreamsConfig,
+  TransactionTreeStreamsConfig,
 }
 import com.daml.platform.store.DbSupport.{ConnectionPoolConfig, DbConfig}
 import com.daml.platform.store.backend.StorageBackendFactory
@@ -101,9 +101,9 @@ private[dao] trait JdbcLedgerDaoBackend extends AkkaBeforeAndAfterAll {
           participantId = JdbcLedgerDaoBackend.TestParticipantIdRef,
           ledgerEndCache = ledgerEndCache,
           stringInterning = stringInterningView,
-          completionsMaxPayloadsPerPayloadsPage = 1000,
-          transactionsFlatStreamReaderConfig = TransactionsFlatStreamReaderConfig.default,
-          transactionsTreeStreamReaderConfig = TransactionsTreeStreamReaderConfig.default,
+          completionsPageSize = 1000,
+          transactionFlatStreamsConfig = TransactionFlatStreamsConfig.default,
+          transactionTreeStreamsConfig = TransactionTreeStreamsConfig.default,
           globalMaxEventIdQueries = 20,
           globalMaxEventPayloadQueries = 10,
         )

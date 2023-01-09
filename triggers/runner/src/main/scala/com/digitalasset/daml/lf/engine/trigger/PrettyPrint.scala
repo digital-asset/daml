@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.engine.trigger
@@ -15,7 +15,7 @@ object PrettyPrint {
   def prettyApiIdentifier(id: api.Identifier): Doc =
     text(id.moduleName) + char(':') + text(id.entityName) + char('@') + text(id.packageId)
 
-  def prettyApiValue(verbose: Boolean)(v: api.Value): Doc =
+  def prettyApiValue(verbose: Boolean, maxListWidth: Option[Int] = None)(v: api.Value): Doc =
     v.sum match {
       case api.Value.Sum.Empty => Doc.empty
 
@@ -33,7 +33,7 @@ object PrettyPrint {
             text(", "),
             fs.toList.map {
               case api.RecordField(k, Some(v)) =>
-                text(k) & char('=') & prettyApiValue(verbose = true)(v)
+                text(k) & char('=') & prettyApiValue(verbose = true, maxListWidth)(v)
               case _ => Doc.empty
             },
           ) &
@@ -45,7 +45,7 @@ object PrettyPrint {
           case _ => Doc.empty
         }) +
           text(variant) + char('(') + value.fold(Doc.empty)(v =>
-            prettyApiValue(verbose = true)(v)
+            prettyApiValue(verbose = true, maxListWidth)(v)
           ) + char(')')
 
       case api.Value.Sum.Enum(api.Enum(mbId, constructor)) =>
@@ -63,7 +63,19 @@ object PrettyPrint {
       case api.Value.Sum.Bool(b) => str(b)
 
       case api.Value.Sum.List(api.List(lst)) =>
-        char('[') + intercalate(text(", "), lst.map(prettyApiValue(verbose = true)(_))) + char(']')
+        maxListWidth match {
+          case Some(maxWidth) if lst.size > maxWidth =>
+            char('[') + intercalate(
+              text(", "),
+              lst.take(maxWidth).map(prettyApiValue(verbose = true, maxListWidth)(_)),
+            ) + text(s", ...${lst.size - maxWidth} elements truncated...") + char(']')
+
+          case _ =>
+            char('[') + intercalate(
+              text(", "),
+              lst.map(prettyApiValue(verbose = true, maxListWidth)(_)),
+            ) + char(']')
+        }
 
       case api.Value.Sum.Timestamp(t) => str(t)
 
@@ -72,14 +84,14 @@ object PrettyPrint {
       case api.Value.Sum.Party(p) => char('\'') + str(p) + char('\'')
 
       case api.Value.Sum.Optional(api.Optional(Some(v1))) =>
-        text("Option(") + prettyApiValue(verbose)(v1) + char(')')
+        text("Option(") + prettyApiValue(verbose, maxListWidth)(v1) + char(')')
 
       case api.Value.Sum.Optional(api.Optional(None)) => text("None")
 
       case api.Value.Sum.Map(api.Map(entries)) =>
         val list = entries.map {
           case api.Map.Entry(k, Some(v)) =>
-            text(k) + text(" -> ") + prettyApiValue(verbose)(v)
+            text(k) + text(" -> ") + prettyApiValue(verbose, maxListWidth)(v)
           case _ => Doc.empty
         }
         text("TextMap(") + intercalate(text(", "), list) + text(")")
@@ -87,7 +99,10 @@ object PrettyPrint {
       case api.Value.Sum.GenMap(api.GenMap(entries)) =>
         val list = entries.map {
           case api.GenMap.Entry(Some(k), Some(v)) =>
-            prettyApiValue(verbose)(k) + text(" -> ") + prettyApiValue(verbose)(v)
+            prettyApiValue(verbose, maxListWidth)(k) + text(" -> ") + prettyApiValue(
+              verbose,
+              maxListWidth,
+            )(v)
           case _ => Doc.empty
         }
         text("GenMap(") + intercalate(text(", "), list) + text(")")

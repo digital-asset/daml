@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.testtool.infrastructure
@@ -7,6 +7,8 @@ import com.daml.ledger.api.v1.active_contracts_service.ActiveContractsServiceGrp
 import com.daml.ledger.api.v1.active_contracts_service.ActiveContractsServiceGrpc.ActiveContractsService
 import com.daml.ledger.api.v1.admin.config_management_service.ConfigManagementServiceGrpc
 import com.daml.ledger.api.v1.admin.config_management_service.ConfigManagementServiceGrpc.ConfigManagementService
+import com.daml.ledger.api.v1.admin.identity_provider_config_service.IdentityProviderConfigServiceGrpc
+import com.daml.ledger.api.v1.admin.identity_provider_config_service.IdentityProviderConfigServiceGrpc.IdentityProviderConfigService
 import com.daml.ledger.api.v1.admin.metering_report_service.MeteringReportServiceGrpc
 import com.daml.ledger.api.v1.admin.metering_report_service.MeteringReportServiceGrpc.MeteringReportService
 import com.daml.ledger.api.v1.admin.package_management_service.PackageManagementServiceGrpc
@@ -98,4 +100,7 @@ private[infrastructure] final class LedgerServices(
 
   val userManagement: UserManagementService =
     UserManagementServiceGrpc.stub(channel)
+
+  val identityProviderConfig: IdentityProviderConfigService =
+    IdentityProviderConfigServiceGrpc.stub(channel)
 }

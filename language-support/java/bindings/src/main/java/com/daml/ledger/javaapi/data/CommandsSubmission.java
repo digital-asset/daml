@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.javaapi.data;
@@ -40,7 +40,7 @@ public final class CommandsSubmission {
   private Optional<Duration> deduplicationTime;
   private Optional<String> accessToken;
 
-  private CommandsSubmission(
+  protected CommandsSubmission(
       String applicationId,
       String commandId,
       List<@NonNull ? extends HasCommands> commands,

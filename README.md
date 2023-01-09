@@ -125,13 +125,21 @@ Then start `dev-env` from PowerShell with:
 
 In all new PowerShell processes started, you need to repeat the `enable` step.
 
-### 3. First build and test
+### 3. Lint, build, and test
 
 We have a single script to build most targets and run the tests. On Linux and Mac run `./build.sh`. On Windows run `.\build.ps1`. Note that these scripts may take over an hour the first time.
 
 To just build do `bazel build //...`, and to just test do `bazel test //...`. To read more about Bazel and how to use it, see [the Bazel site](https://bazel.build).
 
 On Mac if building is causing trouble complaining about missing nix packages, you can try first running `nix-build -A tools -A cached nix` repeatedly until it completes without error.
+
+CI will run a few checks with regards to formatting, linting, presence of copyright headers, and so on. In order to make sure your PR can smoothly go through those checks, we use
+a tool called [`pre-commit`](https://pre-commit.com/). The tool is managed by Nix and you don't have to install it. If you use `direnv`, the tool will automatically install a `pre-push`
+hook that will run the relevant checks right before you push. This will give you a chance to apply necessary amendments before your contribution reaches CI. If you don't use `direnv` you
+can still use the tool by activating it manually (have a look at how it's done in `.envrc`). If you use `direnv` but prefer to not use the tool at all, you can add the line
+`export DADE_NO_PRE_COMMIT=anything_really` to `.envrc.private`. You can also customize the phase at which the hooks will run by exporting the environment variable `DADE_PRE_COMMIT_HOOK_TYPE`
+and setting it to one of the supported stages (`pre-commit` is a common choice, but the default when installed via `direnv` will be `pre-push` to reduce the times the hooks will run while
+still making sure that you can have a tight feedback loop to fix linting errors).
 
 ### 4. Installing a local copy
 

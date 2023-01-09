@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.sandbox.auth
@@ -11,12 +11,13 @@ final class DeleteUserAuthIT extends AdminServiceCallAuthTests with UserManageme
 
   override def serviceCallName: String = "UserManagementService#DeleteUser"
 
-  override def serviceCallWithToken(token: Option[String]): Future[Any] = {
+  override def serviceCall(context: ServiceCallContext): Future[Any] =
     for {
-      response <- createFreshUser(token)
+      response <- createFreshUser(context.token, context.identityProviderId)
       userId = response.user.getOrElse(sys.error("Could not load create a fresh user")).id
-      _ <- stub(token).deleteUser(DeleteUserRequest(userId = userId))
+      _ <- stub(context.token).deleteUser(
+        DeleteUserRequest(userId = userId, identityProviderId = context.identityProviderId)
+      )
     } yield ()
-  }
 
 }

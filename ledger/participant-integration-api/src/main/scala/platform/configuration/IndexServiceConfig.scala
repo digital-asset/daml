@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.configuration
@@ -13,10 +13,7 @@ final case class IndexServiceConfig(
     acsIdPageBufferSize: Int = IndexServiceConfig.DefaultAcsIdPageBufferSize,
     acsIdPageWorkingMemoryBytes: Int = IndexServiceConfig.DefaultAcsIdPageWorkingMemoryBytes,
     acsIdFetchingParallelism: Int = IndexServiceConfig.DefaultAcsIdFetchingParallelism,
-    // TODO etq: Document that it must be a power of two because Akka buffer sizing requires it
-    //           java.lang.IllegalArgumentException: buffer size must be a power of two
-    //	         at akka.stream.impl.fusing.ActorGraphInterpreter$BatchingActorInputBoundary.<init>(ActorGraphInterpreter.scala:128)
-    // TODO etq: Same for other config values used to size an akka streaming buffer
+    // Must be a power of 2
     acsContractFetchingParallelism: Int = IndexServiceConfig.DefaultAcsContractFetchingParallelism,
     acsGlobalParallelism: Int = IndexServiceConfig.DefaultAcsGlobalParallelism,
     maxContractStateCacheSize: Long = IndexServiceConfig.DefaultMaxContractStateCacheSize,
@@ -29,12 +26,9 @@ final case class IndexServiceConfig(
     inMemoryFanOutThreadPoolSize: Int = IndexServiceConfig.DefaultInMemoryFanOutThreadPoolSize,
     preparePackageMetadataTimeOutWarning: FiniteDuration =
       IndexServiceConfig.PreparePackageMetadataTimeOutWarning,
-    completionsMaxPayloadsPerPayloadsPage: Int = 1000,
-    transactionsFlatStreamReaderConfig: TransactionsFlatStreamReaderConfig =
-      TransactionsFlatStreamReaderConfig.default,
-    transactionsTreeStreamReaderConfig: TransactionsTreeStreamReaderConfig =
-      TransactionsTreeStreamReaderConfig.default,
-    // TODO etq: Take care what config key names will get exposed in the user-facing participant config
+    completionsPageSize: Int = 1000,
+    transactionFlatStreams: TransactionFlatStreamsConfig = TransactionFlatStreamsConfig.default,
+    transactionTreeStreams: TransactionTreeStreamsConfig = TransactionTreeStreamsConfig.default,
     globalMaxEventIdQueries: Int = 20,
     globalMaxEventPayloadQueries: Int = 10,
 )
@@ -47,7 +41,7 @@ object IndexServiceConfig {
   val DefaultAcsIdPageBufferSize: Int = 1
   val DefaultAcsIdPageWorkingMemoryBytes: Int = 100 * 1024 * 1024
   val DefaultAcsIdFetchingParallelism: Int = 2
-  // TODO etq: This must be a power of 2
+  // Must be a power of 2
   val DefaultAcsContractFetchingParallelism: Int = 2
   val DefaultAcsGlobalParallelism: Int = 10
   val DefaultMaxContractStateCacheSize: Long = 100000L
@@ -59,27 +53,25 @@ object IndexServiceConfig {
   val PreparePackageMetadataTimeOutWarning: FiniteDuration = FiniteDuration(1, "second")
 }
 
-// TODO etq: Take care what config key names will get exposed in the user-facing participant config
-case class TransactionsFlatStreamReaderConfig(
+case class TransactionFlatStreamsConfig(
     maxIdsPerIdPage: Int = 20000,
     maxPagesPerIdPagesBuffer: Int = 1,
     maxWorkingMemoryInBytesForIdPages: Int = 100 * 1024 * 1024,
-    maxPayloadsPerPayloadsPage: Int = 1000, // eventsPageSize
+    maxPayloadsPerPayloadsPage: Int = 1000,
     maxParallelIdCreateQueries: Int = 4,
     maxParallelIdConsumingQueries: Int = 4,
-    // TODO etq: This must be a power of 2
+    // Must be a power of 2
     maxParallelPayloadCreateQueries: Int = 2,
-    // TODO etq: This must be a power of 2
+    // Must be a power of 2
     maxParallelPayloadConsumingQueries: Int = 2,
     maxParallelPayloadQueries: Int = 2,
-    payloadProcessingParallelism: Int = 8,
+    transactionsProcessingParallelism: Int = 8,
 )
-object TransactionsFlatStreamReaderConfig {
-  def default: TransactionsFlatStreamReaderConfig = TransactionsFlatStreamReaderConfig()
+object TransactionFlatStreamsConfig {
+  val default: TransactionFlatStreamsConfig = TransactionFlatStreamsConfig()
 }
 
-// TODO etq: Take care what config key names will get exposed in the user-facing participant config
-case class TransactionsTreeStreamReaderConfig(
+case class TransactionTreeStreamsConfig(
     maxIdsPerIdPage: Int = 20000,
     maxPagesPerIdPagesBuffer: Int = 1,
     maxWorkingMemoryInBytesForIdPages: Int = 100 * 1024 * 1024,
@@ -87,12 +79,15 @@ case class TransactionsTreeStreamReaderConfig(
     maxParallelIdCreateQueries: Int = 8,
     maxParallelIdConsumingQueries: Int = 8,
     maxParallelIdNonConsumingQueries: Int = 4,
+    // Must be a power of 2
     maxParallelPayloadCreateQueries: Int = 2,
+    // Must be a power of 2
     maxParallelPayloadConsumingQueries: Int = 2,
+    // Must be a power of 2
     maxParallelPayloadNonConsumingQueries: Int = 2,
     maxParallelPayloadQueries: Int = 2,
-    payloadProcessingParallelism: Int = 8,
+    transactionsProcessingParallelism: Int = 8,
 )
-object TransactionsTreeStreamReaderConfig {
-  def default: TransactionsTreeStreamReaderConfig = TransactionsTreeStreamReaderConfig()
+object TransactionTreeStreamsConfig {
+  val default: TransactionTreeStreamsConfig = TransactionTreeStreamsConfig()
 }
