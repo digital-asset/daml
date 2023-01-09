@@ -41,10 +41,12 @@ archiveNftTest = allocateParties >>= mkArchiveNftTest
 archiveNftTransferProposalTest : Script ()
 archiveNftTransferProposalTest = allocateParties >>= mkArchiveNftTransferProposalTest
 
+-- CASH_ASSET_TEST_BEGIN
 cashAssetTest : Script (ContractId IAsset)
 cashAssetTest = do
   parties <- allocateParties
   mkAssetTest "Cash" parties mkCash
+-- CASH_ASSET_TEST_END
 
 cashArchiveAssetTest : Script ()
 cashArchiveAssetTest = do
@@ -56,10 +58,12 @@ cashArchiveAssetTransferProposalTest = do
   parties <- allocateParties
   mkArchiveAssetTransferProposalTest parties mkCash
 
+-- NFT_ASSET_TEST_BEGIN
 nftAssetTest : Script (ContractId IAsset)
 nftAssetTest = do
   parties <- allocateParties
   mkAssetTest "NFT" parties mkNft
+-- NFT_ASSET_TEST_END
 
 nftArchiveAssetTest : Script ()
 nftArchiveAssetTest = do
@@ -239,6 +243,7 @@ mkArchiveNftTransferProposalTest Parties {..} = do
   alice `submit` do
     archiveCmd bobMemeTransferProposal
 
+-- MK_ASSET_TEST_BEGIN
 mkAssetTest : (Template t, Implements t IAsset) => Text -> Parties -> (Party -> Party -> t) -> Script (ContractId IAsset)
 mkAssetTest assetTxt Parties {..} mkAsset = do
   aliceAsset <-
@@ -304,6 +309,7 @@ mkAssetTest assetTxt Parties {..} mkAsset = do
     Some (view (toInterface @IAsset (mkAsset alice charlie)))
 
   pure charlieAsset''
+-- MK_ASSET_TEST_END
 
 mkArchiveAssetTest : (Template t, Implements t IAsset) => Parties -> (Party -> Party -> t) -> Script ()
 mkArchiveAssetTest Parties {..} mkAsset = do
@@ -330,18 +336,22 @@ mkArchiveAssetTransferProposalTest Parties {..} mkAsset = do
   alice `submit` do
     archiveCmd bobAssetTransferProposal
 
+-- MK_CASH_BEGIN
 mkCash : Party -> Party -> Cash
 mkCash issuer owner = Cash with
   issuer
   owner
   currency = "USD"
   amount = 42.0
+-- MK_CASH_END
 
+-- MK_NFT_BEGIN
 mkNft : Party -> Party -> NFT
 mkNft issuer owner = NFT with
   issuer
   owner
   url = "https://nyan.feline/"
+-- MK_NFT_END
 
 mkCashAndNftTest : Parties -> Script ()
 mkCashAndNftTest parties@Parties {..} = do
