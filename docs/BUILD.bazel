@@ -721,13 +721,14 @@ daml_test(
 )
 
 daml_test(
-    name = "daml-intro-daml-test-excl-8-9-10",
+    name = "daml-intro-daml-test-excl-8-9-10-12",
     srcs = glob(
         ["source/daml/intro/daml/**/*.daml"],
         exclude = [
             "source/daml/intro/daml/daml-intro-8/**",
             "source/daml/intro/daml/daml-intro-9/**",
             "source/daml/intro/daml/daml-intro-10/**",
+            "source/daml/intro/daml/daml-intro-12/**",
         ],
     ),
     deps = ["//daml-script/daml:daml-script.dar"],
