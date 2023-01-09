@@ -70,6 +70,8 @@ sealed case class DropwizardCounter(name: String, metric: codahale.Counter) exte
 sealed case class DropwizardGauge[T](name: String, metric: Gauges.VarGauge[T]) extends Gauge[T] {
   def updateValue(newValue: T): Unit = metric.updateValue(newValue)
   override def getValue: T = metric.getValue
+
+  override def updateValue(f: T => T): Unit = metric.updateValue(f)
 }
 
 sealed case class DropwizardHistogram(name: String, metric: codahale.Histogram)

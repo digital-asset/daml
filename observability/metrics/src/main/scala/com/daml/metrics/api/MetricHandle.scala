@@ -117,7 +117,7 @@ object MetricHandle {
 
     def updateValue(newValue: T): Unit
 
-    def updateValue(f: T => T): Unit = updateValue(f(getValue))
+    def updateValue(f: T => T): Unit
 
     def getValue: T
   }
