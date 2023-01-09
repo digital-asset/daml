@@ -62,9 +62,9 @@ We also define an interface ``I`` with instances for ``T1`` and ``T2``:
 Start Testing
 ~~~~~~~~~~~~~
 
-By writing a test which selectively creating and exercising only some of these templates and choices, we will see how the coverage report shows us choices we have and haven't exercised.
+By writing a test which selectively creates and exercises only some of these templates and choices, we will see how the coverage report shows us templates and choices we haven't created and exercised respectively.
 
-We allocate a single party, ``alice``, which we will use for the whole test:
+To start, the test allocates a single party, ``alice``, which we will use for the whole test:
 
 .. literalinclude:: daml/daml-intro-12/daml/Token_Coverage.daml
   :language: daml
@@ -74,7 +74,7 @@ We allocate a single party, ``alice``, which we will use for the whole test:
 Template Creation Coverage
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The coverage report mentions which templates were defined but never created. For example, in the following test we only create contracts out of ``T1`` and ``T2``, never creating instances of template ``T3``:
+The coverage report mentions which templates were defined but never created. For example, the following test creates contracts out of only ``T1`` and ``T2``, never creating instances of template ``T3``:
 
 .. literalinclude:: daml/daml-intro-12/daml/Token_Coverage.daml
   :language: daml
@@ -98,16 +98,16 @@ Running ``daml test --show-coverage`` reports how many templates were defined (3
 Template Choice Exercise Coverage
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The coverage report also tracks which choices were exercised. For example, we exercise the first and second choices of ``T1`` and the second choice of ``T2``. We also archive ``T1``, but not ``T2``.
+The coverage report also tracks which choices were exercised. For example, the following test exercises the first and second choices of ``T1`` and the second choice of ``T2``. It also archives ``T1``, but not ``T2``.
 
 .. literalinclude:: daml/daml-intro-12/daml/Token_Coverage.daml
   :language: daml
   :start-after: -- EXERCISE_TEMPLATES_START
   :end-before: -- EXERCISE_TEMPLATES_END
 
-``daml test --show-coverage`` reports that we exercised 4 out of 9 choices, and lists the choices that weren't exercised, including the second choice of ``T2`` and all of the choices on ``T3``.
+``daml test --show-coverage`` reports that the test exercised 4 out of 9 choices, and lists the choices that weren't exercised, including the second choice of ``T2`` and all of the choices on ``T3``.
 
-Note that ``Token_Coverage:T2:Archive`` is included in the list of unexercised choices - because we never archived ``t2``, its ``Archive`` choice was never run.
+Note that ``Token_Coverage:T2:Archive`` is included in the list of unexercised choices - because ``t2`` was not archived, its ``Archive`` choice was not run.
 
 .. code-block::
 
