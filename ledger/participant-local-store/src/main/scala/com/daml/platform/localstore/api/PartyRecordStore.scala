@@ -39,6 +39,10 @@ trait PartyRecordStore {
       loggingContext: LoggingContext
   ): Future[Result[Option[PartyRecord]]]
 
+  def partiesExist(parties: Set[Ref.Party], identityProviderId: IdentityProviderId)(implicit
+      loggingContext: LoggingContext
+  ): Future[Set[Ref.Party]]
+
 }
 
 object PartyRecordStore {

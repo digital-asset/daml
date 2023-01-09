@@ -209,6 +209,7 @@ private[daml] object ApiServices {
               maxUsersPageSize = userManagementConfig.maxUsersPageSize,
               submissionIdGenerator = SubmissionIdGenerator.Random,
               identityProviderExists = new IdentityProviderExists(identityProviderConfigStore),
+              partyRecordExist = new PartyRecordsExist(partyRecordStore),
             )
           val identityProvider =
             new ApiIdentityProviderConfigService(identityProviderConfigStore)

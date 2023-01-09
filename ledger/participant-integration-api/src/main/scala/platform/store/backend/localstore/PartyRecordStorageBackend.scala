@@ -26,10 +26,10 @@ trait PartyRecordStorageBackend extends ResourceVersionOps {
 
   def deletePartyAnnotations(internalId: Int)(connection: Connection): Unit
 
-  def updateIdentityProviderId(
-      internalId: Int,
+  def fetchPartiesExist(
+      parties: Set[Ref.Party],
       identityProviderId: Option[IdentityProviderId.Id],
-  )(connection: Connection): Boolean
+  )(connection: Connection): Set[Ref.Party]
 
 }
 

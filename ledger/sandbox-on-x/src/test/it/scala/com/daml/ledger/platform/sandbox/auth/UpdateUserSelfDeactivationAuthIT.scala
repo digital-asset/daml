@@ -8,7 +8,6 @@ import com.daml.error.utils.ErrorDetails
 import com.daml.ledger.api.v1.admin.user_management_service.Right
 import com.daml.ledger.runner.common.Config
 import com.daml.ledger.sandbox.SandboxOnXForTest.{ApiServerConfig, singleParticipant}
-import com.daml.platform.sandbox.services.SubmitAndWaitDummyCommandHelpers
 import com.google.protobuf.field_mask.FieldMask
 import io.grpc.{Status, StatusRuntimeException}
 
@@ -16,10 +15,7 @@ import java.util.UUID
 import scala.concurrent.Future
 import scala.util.{Failure, Success}
 
-final class UpdateUserSelfDeactivationAuthIT
-    extends ServiceCallAuthTests
-    with SubmitAndWaitDummyCommandHelpers
-    with ErrorsAssertions {
+final class UpdateUserSelfDeactivationAuthIT extends ServiceCallAuthTests with ErrorsAssertions {
 
   private val UserManagementCacheExpiryInSeconds = 1
 

@@ -7,15 +7,15 @@ import anorm.SqlParser.{int, long, str}
 import anorm.{RowParser, SqlParser, SqlStringInterpolation, ~}
 import com.daml.ledger.api.domain.IdentityProviderId
 import com.daml.lf.data.Ref
-
+import com.daml.platform.store.backend.Conversions.party
 import java.sql.Connection
 import scala.util.Try
 
 object PartyRecordStorageBackendImpl extends PartyRecordStorageBackend {
 
-  private val PartyRecordParser: RowParser[(Int, String, Option[String], Long, Long)] =
+  private val PartyRecordParser: RowParser[(Int, Ref.Party, Option[String], Long, Long)] =
     int("internal_id") ~
-      str("party") ~
+      party("party") ~
       str("identity_provider_id").? ~
       long("resource_version") ~
       long("created_at") map {
@@ -42,7 +42,7 @@ object PartyRecordStorageBackendImpl extends PartyRecordStorageBackend {
         PartyRecordStorageBackend.DbPartyRecord(
           internalId = internalId,
           payload = PartyRecordStorageBackend.DbPartyRecordPayload(
-            party = com.daml.platform.Party.assertFromString(party),
+            party = party,
             identityProviderId = identityProviderId.map(IdentityProviderId.Id.assertFromString),
             resourceVersion = resourceVersion,
             createdAt = createdAt,
@@ -105,14 +105,30 @@ object PartyRecordStorageBackendImpl extends PartyRecordStorageBackend {
     )
   }
 
-  override def updateIdentityProviderId(
-      internalId: Int,
+  override def fetchPartiesExist(
+      parties: Set[Ref.Party],
       identityProviderId: Option[IdentityProviderId.Id],
-  )(connection: Connection): Boolean =
-    IdentityProviderAwareBackend.updateIdentityProviderId("participant_party_records")(
-      internalId,
-      identityProviderId,
-    )(
-      connection
-    )
+  )(connection: Connection): Set[Ref.Party] = {
+    import com.daml.platform.store.backend.common.SimpleSqlAsVectorOf._
+    import com.daml.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
+    val filteredParties = if (parties.nonEmpty) {
+      cSQL"party in (${parties.map(_.toString)})"
+    } else {
+      cSQL"1 != 1"
+    }
+    val filteredIdentityProviderId = identityProviderId match {
+      case Some(id) => cSQL"identity_provider_id = ${id.value: String}"
+      case None => cSQL"identity_provider_id is NULL"
+    }
+    SQL"""
+         SELECT
+             party
+         FROM participant_party_records
+         WHERE
+             $filteredIdentityProviderId AND $filteredParties
+         ORDER BY party
+       """
+      .asVectorOf(party("party"))(connection)
+      .toSet
+  }
 }
