@@ -7,12 +7,13 @@ Test Daml Contracts
 This chapter is all about testing and debugging the Daml contracts you've built using the tools from earlier chapters. You've already met Daml Script as a way of testing your code inside the IDE. In this chapter you'll learn about more ways to test with Daml Script and its other uses, as well as other tools you can use for testing and debugging. You'll also learn about a few error cases that are most likely to crop up only in actual distributed testing, and which need some care to avoid. Specifically we will cover:
 
 - Daml Test tooling - Script, REPL, and Navigator
+- Checking coverage of choices
 - The ``trace`` and ``debug`` functions
 - Contention
 
 Note that this section only covers testing your Daml contracts. For more holistic application testing, please refer to :doc:`/getting-started/testing`.
 
-If you no longer have your projects set up, please follow the setup instructions in :doc:`9_Dependencies` to get hold of the code for this chapter. There is no code specific to this chapter.
+If you no longer have your projects set up, you can load all the code for this section into a folder called ``intro12`` by running ``daml new intro12 --template daml-intro-12``.
 
 Daml Test Tooling
 -----------------
@@ -35,6 +36,120 @@ There are three primary tools available in the SDK to test and interact with Dam
 :doc:`Daml REPL </daml-repl/index>`
 
   If you want to do things interactively, Daml REPL is the tool to use. The best way to think of Daml REPL is as an interactive version of Daml Script, but it doubles up as a language REPL (Read-Evaluate-Print Loop), allowing you to evaluate pure expressions and inspect the results.
+
+Checking Coverage
+-----------------
+
+When ``daml test`` runs, it analyzes the ledger record to produce a report on what percentage of templates were created and which interface and template choices were exercised during our tests.
+
+Define Templates, Choices, and Interfaces
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+To demonstrate how the coverage report works, we start by defining three dummy templates, ``T1``, ``T2``, and ``T3``. Each template has two dummy choices each:
+
+.. literalinclude:: daml/daml-intro-12/daml/Token_Coverage.daml
+  :language: daml
+  :start-after: -- TEMPLATE_DEFINITIONS_START
+  :end-before: -- TEMPLATE_DEFINITIONS_END
+
+We also define an interface ``I`` with instances for ``T1`` and ``T2``:
+
+.. literalinclude:: daml/daml-intro-12/daml/Token_Coverage.daml
+  :language: daml
+  :start-after: -- INTERFACE_DEFINITIONS_START
+  :end-before: -- INTERFACE_DEFINITIONS_END
+
+Start Testing
+~~~~~~~~~~~~~
+
+By writing a test which selectively creating and exercising only some of these templates and choices, we will see how the coverage report shows us choices we have and haven't exercised.
+
+We allocate a single party, ``alice``, which we will use for the whole test:
+
+.. literalinclude:: daml/daml-intro-12/daml/Token_Coverage.daml
+  :language: daml
+  :start-after: -- ALLOCATE_PARTY_START
+  :end-before: -- ALLOCATE_PARTY_END
+
+Template Creation Coverage
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The coverage report mentions which templates were defined but never created. For example, in the following test we only create contracts out of ``T1`` and ``T2``, never creating instances of template ``T3``:
+
+.. literalinclude:: daml/daml-intro-12/daml/Token_Coverage.daml
+  :language: daml
+  :start-after: -- CREATE_TEMPLATES_START
+  :end-before: -- CREATE_TEMPLATES_END
+
+Running ``daml test --show-coverage`` reports how many templates were defined (3), how many were created (2, 66.7%), and the names of those that weren't created (``T3``):
+
+.. code-block::
+
+  > daml test --show-coverage
+  ...
+  Modules internal to this package:
+  - Internal templates
+    3 defined
+    2 ( 66.7%) created
+    internal templates never created: 1
+      Token_Coverage:T3
+  ...
+
+Template Choice Exercise Coverage
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The coverage report also tracks which choices were exercised. For example, we exercise the first and second choices of ``T1`` and the second choice of ``T2``. We also archive ``T1``, but not ``T2``.
+
+.. literalinclude:: daml/daml-intro-12/daml/Token_Coverage.daml
+  :language: daml
+  :start-after: -- EXERCISE_TEMPLATES_START
+  :end-before: -- EXERCISE_TEMPLATES_END
+
+``daml test --show-coverage`` reports that we exercised 4 out of 9 choices, and lists the choices that weren't exercised, including the second choice of ``T2`` and all of the choices on ``T3``.
+
+Note that ``Token_Coverage:T2:Archive`` is included in the list of unexercised choices - because we never archived ``t2``, its ``Archive`` choice was never run.
+
+.. code-block::
+
+  > daml test --show-coverage
+  ...
+  - Internal template choices
+  9 defined
+  4 ( 44.4%) exercised
+  internal template choices never exercised: 5
+    Token_Coverage:T2:Archive
+    Token_Coverage:T2:C_T2_2
+    Token_Coverage:T3:Archive
+    Token_Coverage:T3:C_T3_1
+    Token_Coverage:T3:C_T3_2
+  ...
+
+Interface Choice Exercise Coverage
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The coverage report also tracks interfaces, with two differences:
+* Because interfaces are not created directly but rather cast from templates which implement them, the coverage report cannot not track their creation nor their archival.
+* Because interfaces can be cast from many possible implementing templates, the report tracks interface choices by what interface they are exercised on and which template they were cast from. In the report, these interface choices are formatted as ``<module>:<template>:<choice_name>`` - the ``<choice_name>`` tells us the interface, the ``<template>`` tells us the template type an interface contract was cast from.
+
+The following test creates ``t1`` and ``t2`` as before, but casts them immediately to ``I`` to get two contracts of ``I``: ``t1_i`` via ``T1``, and ``t2_i`` via ``T2``. It exercises both choices on the ``t1_i``, but only the first choice on ``t2_i``.
+
+.. literalinclude:: daml/daml-intro-12/daml/Token_Coverage.daml
+  :language: daml
+  :start-after: -- EXERCISE_INTERFACES_START
+  :end-before: -- EXERCISE_INTERFACES_END
+
+In the coverage report, there are four detected choices, as expected: two choices for the implementation of ``I`` for ``T1``, and two choices for the implementation of ``I`` for ``T2``. Three were exercised, so the only choice that wasn't exercised was ``C_I_1`` for ``T2``, which is reported as ``Token_Coverage:T2:C_I_1``.
+
+.. code-block::
+
+  > daml test --show-coverage
+  ...
+  - Internal interface choices
+    4 defined
+    3 ( 75.0%) exercised
+    internal interface choices never exercised: 1
+      Token_Coverage:T2:C_I_2
+  ...
 
 Debug, Trace, and Stacktraces
 -----------------------------
