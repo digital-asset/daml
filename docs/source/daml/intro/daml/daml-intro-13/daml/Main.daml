@@ -77,11 +77,11 @@ cashAndNftTest = allocateParties >>= mkCashAndNftTest
 -- Test helpers
 allocateParties : Script Parties
 allocateParties = do
-  alice <- allocateParty "alice"
-  bob <- allocateParty "bob"
-  charlie <- allocateParty "charlie"
-  dominic <- allocateParty "dominic"
-  emily <- allocateParty "emily"
+  alice <- allocateParty "Alice"
+  bob <- allocateParty "Bob"
+  charlie <- allocateParty "Charlie"
+  dominic <- allocateParty "Dominic"
+  emily <- allocateParty "Emily"
   pure Parties with ..
 
 mkCashTest : Parties -> Script ()
