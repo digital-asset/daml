@@ -125,7 +125,7 @@ Note that ``Token_Coverage:T2:Archive`` is included in the list of unexercised c
   ...
 
 Interface Choice Exercise Coverage
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The coverage report also tracks interfaces, with two differences:
 * Because interfaces are not created directly but rather cast from templates which implement them, the coverage report cannot not track their creation nor their archival.
