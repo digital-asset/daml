@@ -5,13 +5,12 @@ package com.daml.platform.store.cache
 
 import java.util.concurrent.TimeUnit
 
-import com.codahale.metrics.MetricRegistry
 import com.daml.caching.{CaffeineCache, ConcurrentCache, SizedCache}
 import com.daml.ledger.offset.Offset
 import com.daml.logging.LoggingContext
+import com.daml.metrics.CacheMetrics
 import com.daml.metrics.api.MetricName
-import com.daml.metrics.api.dropwizard.DropwizardMetricsFactory
-import com.daml.metrics.{CacheMetrics, Metrics}
+import com.daml.metrics.api.noop.{NoOpMetricsFactory, NoOpTimer}
 import com.github.benmanes.caffeine.cache.Caffeine
 import org.mockito.MockitoSugar
 import org.scalatest.Assertion
@@ -32,7 +31,7 @@ class StateCacheSpec extends AsyncFlatSpec with Matchers with MockitoSugar with 
     scala.concurrent.ExecutionContext.global
 
   private val cacheUpdateTimer =
-    Metrics.ForTesting.dropwizardFactory.timer(MetricName("cache-update"))
+    NoOpTimer(MetricName("cache-update"))
 
   behavior of s"$className.putAsync"
 
@@ -165,10 +164,7 @@ class StateCacheSpec extends AsyncFlatSpec with Matchers with MockitoSugar with 
         initialCacheIndex = offset(1L),
         cache = SizedCache.from(
           SizedCache.Configuration(2),
-          new CacheMetrics(
-            new MetricName(Vector("test")),
-            new DropwizardMetricsFactory(new MetricRegistry),
-          ),
+          new CacheMetrics(new MetricName(Vector("test")), NoOpMetricsFactory),
         ),
         registerUpdateTimer = cacheUpdateTimer,
       )

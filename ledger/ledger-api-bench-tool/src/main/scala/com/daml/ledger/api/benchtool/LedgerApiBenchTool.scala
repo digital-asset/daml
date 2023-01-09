@@ -6,25 +6,21 @@ package com.daml.ledger.api.benchtool
 import java.util.concurrent._
 
 import akka.actor.typed.{ActorSystem, SpawnProtocol}
-import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.api.benchtool.config.WorkflowConfig.{
   FibonacciSubmissionConfig,
   FooSubmissionConfig,
 }
 import com.daml.ledger.api.benchtool.config.{Config, ConfigMaker, WorkflowConfig}
 import com.daml.ledger.api.benchtool.metrics.MetricsManager.NoOpMetricsManager
-import com.daml.ledger.api.benchtool.metrics.{
-  BenchmarkResult,
-  LatencyMetric,
-  MetricRegistryOwner,
-  MetricsManager,
-}
+import com.daml.ledger.api.benchtool.metrics.{BenchmarkResult, LatencyMetric, MetricsManager}
 import com.daml.ledger.api.benchtool.services.LedgerApiServices
 import com.daml.ledger.api.benchtool.submission._
 import com.daml.ledger.api.benchtool.submission.foo.RandomPartySelecting
 import com.daml.ledger.api.benchtool.util.TypedActorSystemResourceOwner
 import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
+import com.daml.metrics.OpenTelemetryMetricsFactoryOwner
+import com.daml.metrics.api.MetricHandle.Factory
 import com.daml.platform.localstore.api.UserManagementStore
 import io.grpc.Channel
 import io.grpc.netty.{NegotiationType, NettyChannelBuilder}
@@ -95,19 +91,15 @@ class LedgerApiBenchTool(
       (
           String => LedgerApiServices,
           ActorSystem[SpawnProtocol.Command],
-          MetricRegistry,
+          Factory,
       )
     ] = for {
       servicesForUserId <- apiServicesOwner(config, authorizationHelper)
       system <- TypedActorSystemResourceOwner.owner()
-      metricRegistry <- new MetricRegistryOwner(
-        reporter = config.metricsReporter,
-        reportingInterval = config.reportingPeriod,
-        logger = logger,
-      )
-    } yield (servicesForUserId, system, metricRegistry)
+      factory <- OpenTelemetryMetricsFactoryOwner(config.metricsReporter)
+    } yield (servicesForUserId, system, factory)
 
-    resources.use { case (servicesForUserId, actorSystem, metricRegistry) =>
+    resources.use { case (servicesForUserId, actorSystem, metricsFactory) =>
       val adminServices = servicesForUserId(UserManagementStore.DefaultParticipantAdminUserId)
       val regularUserServices = servicesForUserId(names.benchtoolUserId)
 
@@ -138,8 +130,8 @@ class LedgerApiBenchTool(
                 regularUserServices = regularUserServices,
                 adminServices = adminServices,
                 submissionConfig = submissionConfig,
-                metricRegistry = metricRegistry,
                 partyAllocating = partyAllocating,
+                metricsFactory = metricsFactory,
               )
                 .map(_ -> BenchtoolTestsPackageInfo.StaticDefault)
                 .map { v =>
@@ -169,7 +161,7 @@ class LedgerApiBenchTool(
               regularUserServices = regularUserServices,
               adminServices = adminServices,
               submissionConfigO = config.workflow.submission,
-              metricRegistry = metricRegistry,
+              metricsFactory = metricsFactory,
               allocatedParties = allocatedParties,
               actorSystem = actorSystem,
               maxLatencyObjectiveMillis = config.maxLatencyObjectiveMillis,
@@ -178,7 +170,7 @@ class LedgerApiBenchTool(
             benchmarkStreams(
               regularUserServices = regularUserServices,
               streamConfigs = updatedStreamConfigs,
-              metricRegistry = metricRegistry,
+              metricsFactory = metricsFactory,
               actorSystem = actorSystem,
             )
           }
@@ -215,7 +207,7 @@ class LedgerApiBenchTool(
   private def benchmarkStreams(
       regularUserServices: LedgerApiServices,
       streamConfigs: List[WorkflowConfig.StreamConfig],
-      metricRegistry: MetricRegistry,
+      metricsFactory: Factory,
       actorSystem: ActorSystem[SpawnProtocol.Command],
   )(implicit ec: ExecutionContext): Future[Either[String, Unit]] =
     if (streamConfigs.isEmpty) {
@@ -227,7 +219,7 @@ class LedgerApiBenchTool(
           streamConfigs = streamConfigs,
           reportingPeriod = config.reportingPeriod,
           apiServices = regularUserServices,
-          metricRegistry = metricRegistry,
+          metricsFactory = metricsFactory,
           system = actorSystem,
         )
 
@@ -235,7 +227,7 @@ class LedgerApiBenchTool(
       regularUserServices: LedgerApiServices,
       adminServices: LedgerApiServices,
       submissionConfigO: Option[WorkflowConfig.SubmissionConfig],
-      metricRegistry: MetricRegistry,
+      metricsFactory: Factory,
       allocatedParties: AllocatedParties,
       actorSystem: ActorSystem[SpawnProtocol.Command],
       maxLatencyObjectiveMillis: Long,
@@ -263,7 +255,7 @@ class LedgerApiBenchTool(
             names = names,
             benchtoolUserServices = regularUserServices,
             adminServices = adminServices,
-            metricRegistry = metricRegistry,
+            metricsFactory = metricsFactory,
             metricsManager = metricsManager,
             waitForSubmission = true,
             partyAllocating = new PartyAllocating(
@@ -304,8 +296,8 @@ class LedgerApiBenchTool(
       regularUserServices: LedgerApiServices,
       adminServices: LedgerApiServices,
       submissionConfig: WorkflowConfig.SubmissionConfig,
-      metricRegistry: MetricRegistry,
       partyAllocating: PartyAllocating,
+      metricsFactory: Factory,
   )(implicit
       ec: ExecutionContext
   ): Future[AllocatedParties] = {
@@ -314,10 +306,10 @@ class LedgerApiBenchTool(
       names = names,
       benchtoolUserServices = regularUserServices,
       adminServices = adminServices,
-      metricRegistry = metricRegistry,
       metricsManager = NoOpMetricsManager(),
       waitForSubmission = submissionConfig.waitForSubmission,
       partyAllocating = partyAllocating,
+      metricsFactory = metricsFactory,
     )
     for {
       allocatedParties <- submitter.prepare(

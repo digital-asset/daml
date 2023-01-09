@@ -5,6 +5,7 @@ package com.daml.metrics
 
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.metrics.OpenTelemetryMeterOwner.buildProviderWithViews
+import com.daml.metrics.api.opentelemetry.OpenTelemetryFactory
 import com.daml.metrics.api.reporters.MetricsReporter
 import com.daml.metrics.api.reporters.MetricsReporter.Prometheus
 import io.opentelemetry.api.metrics.Meter
@@ -18,34 +19,41 @@ import io.opentelemetry.sdk.metrics.{
   View,
 }
 
-import scala.annotation.nowarn
 import scala.concurrent.Future
 
-@nowarn("msg=deprecated")
-case class OpenTelemetryMeterOwner(enabled: Boolean, reporter: Option[MetricsReporter])
-    extends ResourceOwner[Meter] {
+case class OpenTelemetryMetricsFactoryOwner(reporter: MetricsReporter)
+    extends ResourceOwner[OpenTelemetryFactory] {
+  override def acquire()(implicit
+      context: ResourceContext
+  ): Resource[
+    OpenTelemetryFactory,
+  ] = {
+    for {
+      meter <- OpenTelemetryMeterOwner(reporter).acquire()
+    } yield new OpenTelemetryFactory(meter)
+  }
+}
+
+case class OpenTelemetryMeterOwner(reporter: MetricsReporter) extends ResourceOwner[Meter] {
 
   override def acquire()(implicit
       context: ResourceContext
   ): Resource[Meter] = {
     val meterProviderBuilder = buildProviderWithViews
-
-    val meterProvider = reporter
-      .collect {
-        case prometheus: Prometheus if enabled => prometheus
-      }
-      .map { prometheusReporter =>
+    val meterProvider = reporter match {
+      case Prometheus(host, port) =>
         meterProviderBuilder
           .registerMetricReader(
             PrometheusHttpServer
               .builder()
-              .setHost(prometheusReporter.host)
-              .setPort(prometheusReporter.port)
+              .setHost(host)
+              .setPort(port)
               .build()
           )
           .build()
-      }
-      .getOrElse(meterProviderBuilder.build())
+      case MetricsReporter.None =>
+        meterProviderBuilder.build()
+    }
     Resource(
       Future(
         meterProvider.meterBuilder("daml").build()

@@ -17,15 +17,16 @@ import com.daml.auth.oauth2.api.{JsonProtocol => OAuthJsonProtocol, Response => 
 import com.daml.ledger.api.{auth => lapiauth}
 import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId, Party}
 import com.daml.ledger.resources.ResourceContext
-import com.daml.metrics.api.reporters.MetricsReporting
 import com.daml.metrics.akkahttp.HttpMetricsInterceptor
 import com.typesafe.scalalogging.StrictLogging
-
 import java.util.UUID
+
 import com.daml.auth.middleware.api.{Request, RequestStore, Response}
 import com.daml.jwt.{JwtDecoder, JwtVerifierBase}
 import com.daml.jwt.domain.Jwt
 import com.daml.auth.middleware.api.Tagged.{AccessToken, RefreshToken}
+import com.daml.metrics.OpenTelemetryMetricsFactoryOwner
+import com.daml.metrics.api.reporters.MetricsReporter
 import com.daml.ports.{Port, PortFiles}
 import scalaz.{-\/, \/-}
 import spray.json._
@@ -324,14 +325,12 @@ object Server extends StrictLogging {
 
     implicit val rc: ResourceContext = ResourceContext(ec)
 
-    val metricsReporting = new MetricsReporting(
-      getClass.getName,
-      config.metricsReporter,
-      config.metricsReportingInterval,
-    )((_, otelMeter) => Oauth2MiddlewareMetrics(otelMeter))
-    val metricsResource = metricsReporting.acquire()
+    val metricsFactory = OpenTelemetryMetricsFactoryOwner(
+      config.metricsReporter.getOrElse(MetricsReporter.None)
+    ).acquire()
+    val metricsResource = metricsFactory.map(Oauth2MiddlewareMetrics).asFuture
 
-    val rateDurationSizeMetrics = metricsResource.asFuture.map { implicit metrics =>
+    val rateDurationSizeMetrics = metricsResource.map { implicit metrics =>
       HttpMetricsInterceptor.rateDurationSizeMetrics(
         metrics.http
       )

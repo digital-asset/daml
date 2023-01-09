@@ -5,7 +5,7 @@ package com.daml.metrics
 
 import com.daml.metrics.api.MetricDoc.MetricQualification.{Debug, Errors, Traffic}
 import com.daml.metrics.api.MetricHandle.{Counter, Factory, Timer}
-import com.daml.metrics.api.dropwizard.{DropwizardCounter, DropwizardTimer}
+import com.daml.metrics.api.noop.{NoOpCounter, NoOpTimer}
 import com.daml.metrics.api.{MetricDoc, MetricName}
 
 class LAPIMetrics(val prefix: MetricName, val factory: Factory) {
@@ -17,7 +17,7 @@ class LAPIMetrics(val prefix: MetricName, val factory: Factory) {
                     |time to return the first response.""",
     qualification = Traffic,
   )
-  val forMethodForDocs: Timer = DropwizardTimer(prefix :+ "<service_method>", null)
+  val forMethodForDocs: Timer = NoOpTimer(prefix :+ "<service_method>")
   def forMethod(name: String): Timer = factory.timer(prefix :+ name)
 
   object return_status {
@@ -29,17 +29,13 @@ class LAPIMetrics(val prefix: MetricName, val factory: Factory) {
                       |the ledger api.""",
       qualification = Errors,
     )
-    val forCodeForDocs = DropwizardCounter(prefix :+ "<gRPC_status_code>", null)
+    val forCodeForDocs = NoOpCounter(prefix :+ "<gRPC_status_code>")
 
     def forCode(code: String): Counter = factory.counter(prefix :+ code)
   }
 
   object threadpool {
     private val prefix: MetricName = LAPIMetrics.this.prefix :+ "threadpool"
-
-    val instrumentedExecutorServiceForDocs = new InstrumentedExecutorServiceForDocs(
-      prefix :+ "<threadpool>"
-    )
 
     val apiServices: MetricName = prefix :+ "api-services"
 

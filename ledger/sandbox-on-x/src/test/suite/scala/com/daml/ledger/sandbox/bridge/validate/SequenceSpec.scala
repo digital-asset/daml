@@ -4,6 +4,7 @@
 package com.daml.ledger.sandbox.bridge.validate
 
 import java.time.Duration
+
 import com.daml.api.util.TimeProvider
 import com.daml.error.ErrorCode
 import com.daml.error.definitions.LedgerApiErrors
@@ -28,7 +29,7 @@ import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 import com.daml.logging.LoggingContext
-import com.daml.metrics.Metrics
+import com.daml.metrics.api.noop.NoOpMetricsFactory
 import com.google.rpc.status.Status.toJavaProto
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.flatspec.AnyFlatSpec
@@ -315,7 +316,7 @@ class SequenceSpec
   }
 
   private trait TestContext extends FixtureContext {
-    private val bridgeMetrics = new BridgeMetrics(Metrics.ForTesting.dropwizardFactory)
+    private val bridgeMetrics = new BridgeMetrics(NoOpMetricsFactory)
     val timeProviderMock: TimeProvider = mock[TimeProvider]
     val submissionId: IdString.LedgerString =
       Ref.SubmissionId.assertFromString("some-submission-id")

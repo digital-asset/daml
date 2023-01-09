@@ -119,6 +119,8 @@ object MetricHandle {
 
     def updateValue(f: T => T): Unit
 
+    def getValue: T
+
   }
 
   trait Meter extends MetricHandle {
@@ -148,7 +150,7 @@ object MetricHandle {
     def dec(n: Long)(implicit
         context: MetricsContext
     ): Unit
-    def getCount: Long
+
   }
 
   trait Histogram extends MetricHandle {

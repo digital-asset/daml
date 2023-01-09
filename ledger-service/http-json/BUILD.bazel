@@ -80,7 +80,6 @@ load("//ledger-service/utils:scalaopts.bzl", "hj_scalacopts")
             "//libs-scala/struct-json/struct-spray-json",
             "//observability/akka-http-metrics",
             "//observability/metrics",
-            "@maven//:io_opentelemetry_opentelemetry_api",
         ],
     )
     for edition in [
@@ -360,6 +359,8 @@ alias(
             "//libs-scala/resources",
             "//libs-scala/resources-grpc",
             "//libs-scala/scala-utils",
+            "//observability/metrics",
+            "//observability/metrics:metrics-test-lib",
             "//runtime-components/non-repudiation",
             "//runtime-components/non-repudiation-postgresql",
             "//runtime-components/non-repudiation-testing",
@@ -514,6 +515,8 @@ alias(
             "//libs-scala/scala-utils",
             "//libs-scala/test-evidence/scalatest:test-evidence-scalatest",
             "//libs-scala/test-evidence/tag:test-evidence-tag",
+            "//observability/metrics",
+            "//observability/metrics:metrics-test-lib",
             "//runtime-components/non-repudiation",
             "//runtime-components/non-repudiation-postgresql",
             "@maven//:org_scalatest_scalatest_compatible",

@@ -208,6 +208,7 @@ da_scala_library(
         "//libs-scala/scala-utils",
         "//libs-scala/timer-utils",
         "//observability/metrics",
+        "@maven//:com_zaxxer_HikariCP",
         "@maven//:io_grpc_grpc_netty",
         "@maven//:io_netty_netty_common",
         "@maven//:io_netty_netty_handler",

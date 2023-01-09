@@ -3,15 +3,13 @@
 
 package com.daml.platform.store
 
-import com.codahale.metrics.MetricRegistry
 import com.daml.buildinfo.BuildInfo
 import com.daml.ledger.api.domain.{LedgerId, ParticipantId}
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext
-import com.daml.metrics.Metrics
-import com.daml.metrics.api.dropwizard.DropwizardMetricsFactory
+import com.daml.metrics.{DatabaseTrackerFactory, Metrics}
 import com.daml.metrics.api.opentelemetry.OpenTelemetryFactory
 import com.daml.platform.ApiOffset
 import com.daml.platform.configuration.{
@@ -64,8 +62,7 @@ object IndexMetadata {
       loggingContext: LoggingContext,
   ) = {
     val metrics = new Metrics(
-      new DropwizardMetricsFactory(new MetricRegistry),
-      new OpenTelemetryFactory(GlobalOpenTelemetry.getMeter("daml")),
+      new OpenTelemetryFactory(GlobalOpenTelemetry.getMeter("daml"))
     )
     DbSupport
       .owner(
@@ -78,6 +75,7 @@ object IndexMetadata {
             connectionTimeout = 250.millis,
           ),
         ),
+        poolMetrics = DatabaseTrackerFactory.metricsTrackerFactory(GlobalOpenTelemetry.get()),
       )
       .map(dbSupport =>
         JdbcLedgerDao.read(

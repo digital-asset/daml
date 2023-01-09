@@ -3,7 +3,6 @@
 
 package com.daml.platform.store.dao
 
-import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.api.domain.{LedgerId, ParticipantId}
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
@@ -11,7 +10,7 @@ import com.daml.lf.data.Ref
 import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext
 import com.daml.logging.LoggingContext.newLoggingContext
-import com.daml.metrics.Metrics
+import com.daml.metrics.{DatabaseTrackerFactory, Metrics}
 import com.daml.platform.configuration.{
   ServerRole,
   TransactionFlatStreamsConfig,
@@ -60,7 +59,8 @@ private[dao] trait JdbcLedgerDaoBackend extends AkkaBeforeAndAfterAll {
   )(implicit
       loggingContext: LoggingContext
   ): ResourceOwner[LedgerDao] = {
-    val metrics = Metrics(new MetricRegistry, GlobalOpenTelemetry.getMeter("test"))
+    val poolMetrics = DatabaseTrackerFactory.metricsTrackerFactory(GlobalOpenTelemetry.get())
+    val metrics = Metrics(GlobalOpenTelemetry.getMeter("test"))
     val dbType = DbType.jdbcType(jdbcUrl)
     val storageBackendFactory = StorageBackendFactory.of(dbType)
     DbSupport
@@ -74,6 +74,7 @@ private[dao] trait JdbcLedgerDaoBackend extends AkkaBeforeAndAfterAll {
             connectionTimeout = 250.millis,
           ),
         ),
+        poolMetrics = poolMetrics,
       )
       .map { dbSupport =>
         JdbcLedgerDao.write(

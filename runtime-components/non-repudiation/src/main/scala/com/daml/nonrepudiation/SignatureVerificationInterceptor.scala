@@ -8,6 +8,7 @@ import java.security.PublicKey
 import java.time.Clock
 
 import com.daml.grpc.interceptors.ForwardingServerCallListener
+import com.daml.metrics.api.MetricHandle.Timer.TimerHandle
 import io.grpc.Metadata.Key
 import io.grpc._
 import org.slf4j.{Logger, LoggerFactory}
@@ -37,7 +38,7 @@ final class SignatureVerificationInterceptor(
       next: ServerCallHandler[ReqT, RespT],
   ): ServerCall.Listener[ReqT] = {
 
-    val runningTimer = Metrics.processingTimer.time()
+    val runningTimer = Metrics.processingTimer.startAsync()
 
     val signatureData =
       for {
@@ -97,7 +98,7 @@ object SignatureVerificationInterceptor {
   }
 
   private trait Rejection {
-    def report(timer: Timer.Context): Unit = {
+    def report(timer: TimerHandle): Unit = {
       Metrics.rejectionsMeter.mark()
       timer.stop()
       this match {
@@ -142,7 +143,7 @@ object SignatureVerificationInterceptor {
       signatureVerification: SignatureVerification,
       signedPayloads: SignedPayloadRepository.Write,
       timestampProvider: Clock,
-      runningTimer: Timer.Context,
+      runningTimer: TimerHandle,
   ) extends ForwardingServerCallListener(call, metadata, next) {
 
     private def castToByteArray(request: ReqT): Either[Rejection, Array[Byte]] = {

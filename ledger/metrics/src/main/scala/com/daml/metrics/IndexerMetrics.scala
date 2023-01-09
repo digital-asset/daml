@@ -7,7 +7,7 @@ import java.time.Instant
 
 import com.daml.metrics.api.MetricDoc.MetricQualification.Debug
 import com.daml.metrics.api.MetricHandle.{Factory, Gauge}
-import com.daml.metrics.api.dropwizard.DropwizardGauge
+import com.daml.metrics.api.noop.NoOpGauge
 import com.daml.metrics.api.{MetricDoc, MetricName, MetricsContext}
 
 class IndexerMetrics(prefix: MetricName, factory: Factory) {
@@ -53,7 +53,7 @@ class IndexerMetrics(prefix: MetricName, factory: Factory) {
                     |can be negative.""",
     qualification = Debug,
   )
-  val currentRecordTimeLag: Gauge[Long] = DropwizardGauge(prefix :+ "current_record_time_lag", null)
+  val currentRecordTimeLag: Gauge[Long] = NoOpGauge(prefix :+ "current_record_time_lag", 0)
 
   factory.gaugeWithSupplier(
     prefix :+ "current_record_time_lag",

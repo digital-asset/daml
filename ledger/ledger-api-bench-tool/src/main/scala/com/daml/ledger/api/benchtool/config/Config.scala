@@ -57,7 +57,7 @@ object Config {
       workflowConfigFile = None,
       maxInFlightCommands = 100,
       submissionBatchSize = 100,
-      metricsReporter = MetricsReporter.Console,
+      metricsReporter = MetricsReporter.None,
       authorizationTokenSecret = None,
       latencyTest = false,
       maxLatencyObjectiveMillis = 1000L,

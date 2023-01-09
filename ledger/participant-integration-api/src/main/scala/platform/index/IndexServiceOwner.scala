@@ -194,7 +194,6 @@ final class IndexServiceOwner(
         InstrumentedExecutors.newWorkStealingExecutor(
           metrics.daml.lapi.threadpool.inMemoryFanOut.toString,
           threadPoolSize,
-          metrics.dropwizardFactory.registry,
           metrics.executorServiceMetrics,
         )
       )

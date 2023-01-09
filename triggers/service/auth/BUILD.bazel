@@ -82,7 +82,6 @@ da_scala_library(
         "//daml-lf/data",
         "//language-support/scala/bindings",
         "//ledger-service/cli-opts",
-        "//ledger-service/metrics",
         "//ledger-service/pureconfig-utils",
         "//ledger/cli-opts",
         "//ledger/ledger-api-auth",
@@ -94,7 +93,6 @@ da_scala_library(
         "//observability/akka-http-metrics",
         "//observability/metrics",
         "@maven//:com_typesafe_config",
-        "@maven//:io_opentelemetry_opentelemetry_api",
         "@maven//:org_slf4j_slf4j_api",
     ],
 )

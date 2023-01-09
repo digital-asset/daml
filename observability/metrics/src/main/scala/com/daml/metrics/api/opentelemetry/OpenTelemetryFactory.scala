@@ -205,7 +205,7 @@ case class OpenTelemetryGauge[T](name: String, varGauge: VarGauge[T]) extends Ga
 
   override def updateValue(f: T => T): Unit = varGauge.updateValue(f)
 
-  override def updateValue(f: T => T): Unit = varGauge.updateValue(f)
+  override def getValue: T = varGauge.getValue
 }
 
 case class OpenTelemetryMeter(name: String, counter: LongCounter, meterContext: MetricsContext)
@@ -237,7 +237,6 @@ case class OpenTelemetryCounter(
   override def dec(n: Long)(implicit
       context: MetricsContext
   ): Unit = counter.add(-n, AttributesHelper.multiContextAsAttributes(counterContext, context))
-  override def getCount: Long = 0 // Not supported by OpenTelemetry
 
 }
 

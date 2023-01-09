@@ -3,10 +3,9 @@
 
 package com.daml.metrics
 
-import com.codahale.metrics.MetricRegistry
 import com.daml.metrics.api.MetricDoc.MetricQualification.Debug
 import com.daml.metrics.api.MetricHandle.{Factory, Timer}
-import com.daml.metrics.api.dropwizard.DropwizardMetricsFactory
+import com.daml.metrics.api.noop.NoOpMetricsFactory
 import com.daml.metrics.api.{MetricDoc, MetricName}
 
 class DatabaseMetrics private[metrics] (
@@ -78,6 +77,6 @@ object DatabaseMetrics {
     new DatabaseMetrics(
       prefix = MetricName("ForTesting"),
       name = metricsName,
-      new DropwizardMetricsFactory(new MetricRegistry),
+      NoOpMetricsFactory,
     )
 }

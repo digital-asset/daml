@@ -46,7 +46,7 @@ class SurrogateTemplateIdCache(metrics: HttpJsonApiMetrics, maxEntries: Long) {
 
   // for testing purposes.
   import metrics.{surrogateTemplateIdCache => cacheStats}
-  private[http] final def getHitCount = cacheStats.hitCount.getCount
-  private[http] final def getMissCount = cacheStats.missCount.getCount
+  private[http] final def getHitCount = cacheStats.hitCount
+  private[http] final def getMissCount = cacheStats.missCount
 
 }

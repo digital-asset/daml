@@ -18,13 +18,12 @@ import scalaz.std.anyVal._
 import scalaz.std.option._
 import scalaz.syntax.show._
 import com.daml.cliopts.{GlobalLogLevel, Logging}
-import com.daml.metrics.api.reporters.MetricsReporting
+import com.daml.metrics.api.reporters.MetricsReporter
 import com.daml.http.metrics.HttpJsonApiMetrics
 import com.daml.http.util.Logging.{InstanceUUID, instanceUUIDLogCtx}
 import com.daml.ledger.resources.ResourceContext
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
-import com.daml.metrics.api.dropwizard.DropwizardMetricsFactory
-import com.daml.metrics.api.opentelemetry.OpenTelemetryFactory
+import com.daml.metrics.OpenTelemetryMetricsFactoryOwner
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future}
@@ -97,16 +96,10 @@ object Main {
       new AkkaExecutionSequencerPool("clientPool")(asys)
     implicit val ec: ExecutionContext = asys.dispatcher
     implicit val rc: ResourceContext = ResourceContext(ec)
-    val metricsReporting = new MetricsReporting(
-      getClass.getName,
-      config.metricsReporter,
-      config.metricsReportingInterval,
-    )((registry, otelMeter) =>
-      new HttpJsonApiMetrics(
-        new DropwizardMetricsFactory(registry),
-        new OpenTelemetryFactory(otelMeter),
-      )
+    val metricsFactory = OpenTelemetryMetricsFactoryOwner(
+      config.metricsReporter.getOrElse(MetricsReporter.None)
     )
+    val metricsReporting = metricsFactory.map(new HttpJsonApiMetrics(_))
     val metricsResource = metricsReporting.acquire()
 
     def terminate(): Unit = discard {

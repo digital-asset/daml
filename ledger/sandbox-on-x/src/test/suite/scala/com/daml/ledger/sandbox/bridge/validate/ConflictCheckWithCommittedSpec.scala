@@ -4,6 +4,7 @@
 package com.daml.ledger.sandbox.bridge.validate
 
 import java.time.Duration
+
 import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
 import com.daml.ledger.api.DeduplicationPeriod
 import com.daml.ledger.configuration.{Configuration, LedgerTimeModel}
@@ -23,7 +24,7 @@ import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.{ContractId, ValueTrue, VersionedContractInstance}
 import com.daml.logging.LoggingContext
-import com.daml.metrics.Metrics
+import com.daml.metrics.api.noop.NoOpMetricsFactory
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.FixtureContext
 import org.scalatest.concurrent.{IntegrationPatience, ScalaFutures}
@@ -265,7 +266,7 @@ class ConflictCheckWithCommittedSpec
     val conflictCheckWithCommitted: ConflictCheckWithCommittedImpl =
       new ConflictCheckWithCommittedImpl(
         indexService = indexServiceMock,
-        bridgeMetrics = new BridgeMetrics(Metrics.ForTesting.dropwizardFactory),
+        bridgeMetrics = new BridgeMetrics(NoOpMetricsFactory),
       )(scala.concurrent.ExecutionContext.global)
 
     val inputContract: ContractId = cid(1)

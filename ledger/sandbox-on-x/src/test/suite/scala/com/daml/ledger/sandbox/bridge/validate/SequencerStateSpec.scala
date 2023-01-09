@@ -11,7 +11,7 @@ import com.daml.lf.data.Ref
 import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
-import com.daml.metrics.Metrics
+import com.daml.metrics.api.noop.NoOpMetricsFactory
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
@@ -19,7 +19,7 @@ import scala.util.chaining._
 
 class SequencerStateSpec extends AnyFlatSpec with Matchers {
   private implicit val bridgeMetrics: BridgeMetrics = new BridgeMetrics(
-    Metrics.ForTesting.dropwizardFactory
+    NoOpMetricsFactory
   )
 
   "enqueue" should "update the sequencer state" in {

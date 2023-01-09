@@ -34,8 +34,10 @@ import com.daml.platform.store.packagemeta.PackageMetadataView.PackageMetadata
 import com.daml.platform.store.packagemeta.PackageMetadataView
 import com.daml.platform.store.DbType
 import com.daml.timer.FutureCheck._
-
 import java.util.concurrent.TimeUnit
+
+import com.zaxxer.hikari.metrics.MetricsTrackerFactory
+
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal
 
@@ -48,6 +50,7 @@ object JdbcIndexer {
       config: IndexerConfig,
       readService: state.ReadService,
       metrics: Metrics,
+      poolMetrics: MetricsTrackerFactory,
       inMemoryState: InMemoryState,
       apiUpdaterFlow: InMemoryStateUpdater.UpdaterFlow,
       executionContext: ExecutionContext,
@@ -69,6 +72,7 @@ object JdbcIndexer {
         dbConfig = dbConfig.createDbConfig(participantDataSourceConfig),
         haConfig = config.highAvailability,
         metrics = metrics,
+        poolMetrics = poolMetrics,
         dbLockStorageBackend = DBLockStorageBackend,
         dataSourceStorageBackend = dataSourceStorageBackend,
         initializeParallelIngestion = InitializeParallelIngestion(

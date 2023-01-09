@@ -12,6 +12,7 @@ import com.daml.platform.store.dao.DbDispatcher
 import com.daml.platform.store.backend.postgresql.PostgresDataSourceConfig
 import com.daml.platform.store.backend.{DataSourceStorageBackend, StorageBackendFactory}
 import com.daml.resources.{PureResource, Resource}
+import com.zaxxer.hikari.metrics.MetricsTrackerFactory
 
 import scala.concurrent.duration.FiniteDuration
 
@@ -56,6 +57,7 @@ object DbSupport {
       dbConfig: DbConfig,
       serverRole: ServerRole,
       metrics: Metrics,
+      poolMetrics: MetricsTrackerFactory,
   )(implicit loggingContext: LoggingContext): ResourceOwner[DbSupport] = {
     val dbType = DbType.jdbcType(dbConfig.jdbcUrl)
     val storageBackendFactory = StorageBackendFactory.of(dbType)
@@ -67,6 +69,7 @@ object DbSupport {
         connectionPoolSize = dbConfig.connectionPool.connectionPoolSize,
         connectionTimeout = dbConfig.connectionPool.connectionTimeout,
         metrics = metrics,
+        poolMetrics = poolMetrics,
       )
       .map(dbDispatcher =>
         DbSupport(
@@ -80,6 +83,7 @@ object DbSupport {
       serverRole: ServerRole,
       dbConfig: DbConfig,
       metrics: Metrics,
+      poolMetrics: MetricsTrackerFactory,
   )(implicit loggingContext: LoggingContext): ResourceOwner[DbSupport] = {
     val migrationOwner = new ResourceOwner[Unit] {
       override def acquire()(implicit context: ResourceContext): Resource[ResourceContext, Unit] =
@@ -92,6 +96,7 @@ object DbSupport {
         serverRole = serverRole,
         metrics = metrics,
         dbConfig = dbConfig,
+        poolMetrics = poolMetrics,
       )
     } yield dbSupport
   }

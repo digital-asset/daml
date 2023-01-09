@@ -6,7 +6,6 @@ package com.daml.ledger.client.services.commands.withoutledgerid
 import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Flow, Keep, Sink, Source}
-import com.codahale.{metrics => codahale}
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.SubmissionIdGenerator
 import com.daml.ledger.api.domain.LedgerId
@@ -29,7 +28,7 @@ import com.daml.ledger.client.services.commands.tracker.CompletionResponse.{
   CompletionSuccess,
 }
 import com.daml.ledger.client.services.commands.tracker.TrackedCommandKey
-import com.daml.metrics.api.dropwizard.DropwizardCounter
+import com.daml.metrics.api.noop.NoOpCounter
 import com.daml.util.Ctx
 import com.daml.util.akkastreams.MaxInFlight
 import com.google.protobuf.empty.Empty
@@ -129,8 +128,8 @@ private[daml] final class CommandClient(
       // The counters are ignored on the client
       MaxInFlight(
         config.maxCommandsInFlight,
-        DropwizardCounter("capacity", new codahale.Counter),
-        DropwizardCounter("name", new codahale.Counter),
+        NoOpCounter("capacity"),
+        NoOpCounter("name"),
       )
         .joinMat(tracker)(Keep.right)
     }

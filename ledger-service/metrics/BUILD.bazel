@@ -16,13 +16,7 @@ da_scala_library(
     ],
     runtime_deps = [],
     deps = [
-        "//ledger/ledger-resources",
-        "//libs-scala/resources",
-        "//libs-scala/resources-akka",
-        "//libs-scala/resources-grpc",
         "//observability/akka-http-metrics",
         "//observability/metrics",
-        "@maven//:io_netty_netty_transport",
-        "@maven//:io_opentelemetry_opentelemetry_api",
     ],
 )

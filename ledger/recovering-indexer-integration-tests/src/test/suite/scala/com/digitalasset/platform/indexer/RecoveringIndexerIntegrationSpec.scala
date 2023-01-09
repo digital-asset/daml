@@ -22,7 +22,7 @@ import com.daml.lf.data.Ref.{Party, SubmissionId}
 import com.daml.lf.data.{Ref, Time}
 import com.daml.logging.LoggingContext
 import com.daml.logging.LoggingContext.newLoggingContext
-import com.daml.metrics.Metrics
+import com.daml.metrics.{DatabaseTrackerFactory, Metrics}
 import com.daml.platform.LedgerApiServer
 import com.daml.platform.configuration.{IndexServiceConfig, ServerRole}
 import com.daml.platform.indexer.RecoveringIndexerIntegrationSpec._
@@ -41,12 +41,12 @@ import org.mockito.{ArgumentMatchers, MockitoSugar}
 import org.scalatest.BeforeAndAfterEach
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
-
 import java.time.Instant
 import java.time.temporal.ChronoUnit.SECONDS
 import java.util.UUID
 import java.util.concurrent.{CompletionStage, Executors}
 import java.util.concurrent.atomic.AtomicLong
+
 import scala.collection.mutable
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{ExecutionContext, Future}
@@ -223,6 +223,7 @@ class RecoveringIndexerIntegrationSpec
         inMemoryState = inMemoryState,
         inMemoryStateUpdaterFlow = inMemoryStateUpdaterFlow,
         executionContext = servicesExecutionContext,
+        poolMetrics = DatabaseTrackerFactory.ForTesting,
       )(materializer, loggingContext)
     } yield participantState._2
   }
@@ -244,6 +245,7 @@ class RecoveringIndexerIntegrationSpec
             connectionTimeout = 250.millis,
           ),
         ),
+        poolMetrics = DatabaseTrackerFactory.ForTesting,
       )
       .use { dbSupport =>
         val ledgerEndCache = MutableLedgerEndCache()

@@ -8,14 +8,13 @@ import java.util.UUID
 import java.util.concurrent.atomic.AtomicLong
 
 import akka.actor.{ActorSystem, Scheduler}
-import com.codahale.metrics.MetricRegistry
 import com.daml.bazeltools.BazelRunfiles.rlocation
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.resources.TestResourceContext
 import com.daml.ledger.test.ModelTestDar
 import com.daml.lf.archive.DarParser
 import com.daml.lf.data.Ref.PackageId
-import com.daml.metrics.api.dropwizard.DropwizardTimer
+import com.daml.metrics.api.noop.NoOpTimer
 import com.daml.platform.testing.LogCollector
 import org.scalatest.BeforeAndAfterEach
 import org.scalatest.matchers.should.Matchers
@@ -32,8 +31,7 @@ class DeduplicatingPackageLoaderSpec
 
   private[this] var actorSystem: ActorSystem = _
   private[this] val loadCount = new AtomicLong()
-  private[this] val metricRegistry = new MetricRegistry
-  private[this] val metric = DropwizardTimer("test-metric", metricRegistry.timer("test-metric"))
+  private[this] val metric = NoOpTimer("test-metric")
 
   private[this] val dar = {
     val fileName = new File(rlocation(ModelTestDar.path))

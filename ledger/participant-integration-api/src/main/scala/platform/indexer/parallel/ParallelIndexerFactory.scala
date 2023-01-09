@@ -20,6 +20,7 @@ import com.daml.platform.store.backend.ParameterStorageBackend.LedgerEnd
 import com.daml.platform.store.backend.{DBLockStorageBackend, DataSourceStorageBackend}
 import com.daml.platform.store.dao.DbDispatcher
 import com.google.common.util.concurrent.ThreadFactoryBuilder
+import com.zaxxer.hikari.metrics.MetricsTrackerFactory
 
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.util.control.NonFatal
@@ -33,6 +34,7 @@ object ParallelIndexerFactory {
       dbConfig: DbConfig,
       haConfig: HaConfig,
       metrics: Metrics,
+      poolMetrics: MetricsTrackerFactory,
       dbLockStorageBackend: DBLockStorageBackend,
       dataSourceStorageBackend: DataSourceStorageBackend,
       initializeParallelIngestion: InitializeParallelIngestion,
@@ -48,7 +50,6 @@ object ParallelIndexerFactory {
         "input-mapping-pool",
         (
           metrics.daml.parallelIndexer.inputMapping.executor,
-          metrics.dropwizardFactory.registry,
           metrics.executorServiceMetrics,
         ),
       )
@@ -57,7 +58,6 @@ object ParallelIndexerFactory {
         "batching-pool",
         (
           metrics.daml.parallelIndexer.batching.executor,
-          metrics.dropwizardFactory.registry,
           metrics.executorServiceMetrics,
         ),
       )
@@ -71,7 +71,6 @@ object ParallelIndexerFactory {
                     "ha-coordinator",
                     1,
                     new ThreadFactoryBuilder().setNameFormat("ha-coordinator-%d").build,
-                    metrics.dropwizardFactory.registry,
                     metrics.executorServiceMetrics,
                     throwable =>
                       ContextualizedLogger
@@ -130,6 +129,7 @@ object ParallelIndexerFactory {
                 connectionPoolSize = dbConfig.connectionPool.connectionPoolSize,
                 connectionTimeout = dbConfig.connectionPool.connectionTimeout,
                 metrics = metrics,
+                poolMetrics = poolMetrics,
               )
             _ <- meteringAggregator(dbDispatcher)
           } yield dbDispatcher

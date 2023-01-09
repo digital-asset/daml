@@ -9,7 +9,7 @@ import com.daml.ledger.participant.state.v2.ChangeId
 import com.daml.ledger.sandbox.bridge.BridgeMetrics
 import com.daml.ledger.sandbox.bridge.validate.DeduplicationState.DeduplicationStateQueueMap
 import com.daml.lf.data.{Ref, Time}
-import com.daml.metrics.Metrics
+import com.daml.metrics.api.noop.NoOpMetricsFactory
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
@@ -25,7 +25,7 @@ class DeduplicationStateSpec extends AnyFlatSpec with Matchers {
   private val t2 = t0.add(Duration.ofMinutes(2L))
   private val t3 = t0.add(Duration.ofMinutes(3L))
 
-  private val bridgeMetrics = new BridgeMetrics(Metrics.ForTesting.dropwizardFactory)
+  private val bridgeMetrics = new BridgeMetrics(NoOpMetricsFactory)
 
   it should "deduplicate commands within the requested deduplication window" in {
     val deduplicationState = DeduplicationState.empty(

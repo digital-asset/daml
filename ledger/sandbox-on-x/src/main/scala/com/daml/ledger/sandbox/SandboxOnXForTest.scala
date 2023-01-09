@@ -13,7 +13,6 @@ import com.daml.lf.language.LanguageVersion
 import com.daml.metrics.Metrics
 import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.apiserver.{AuthServiceConfig, ApiServerConfig => _ApiServerConfig}
-import com.daml.platform.config.MetricsConfig.MetricRegistryType
 import com.daml.platform.config.{MetricsConfig, ParticipantConfig => _ParticipantConfig}
 import com.daml.platform.configuration.InitialLedgerConfiguration
 import com.daml.platform.indexer.{IndexerConfig => _IndexerConfig}
@@ -87,7 +86,7 @@ object SandboxOnXForTest {
     engine = EngineConfig,
     dataSource = Config.Default.dataSource.map { case _ -> value => (ParticipantId, value) },
     participants = singleParticipant(),
-    metrics = MetricsConfig.DefaultMetricsConfig.copy(registryType = MetricRegistryType.New),
+    metrics = MetricsConfig.DefaultMetricsConfig,
   )
 
   class ConfigAdaptor(

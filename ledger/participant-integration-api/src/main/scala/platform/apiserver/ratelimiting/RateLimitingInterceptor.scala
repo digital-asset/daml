@@ -97,20 +97,19 @@ object RateLimitingInterceptor {
       additionalChecks: List[LimitResultCheck],
   ): RateLimitingInterceptor = {
 
-    val indexDbThreadpool: ThreadpoolCount = new ThreadpoolCount(metrics)(
+    val indexDbThreadpool: ThreadpoolCount = new ThreadpoolCount(
       "Index Database Connection Threadpool",
       MetricName(metrics.daml.index.db.threadpool.connection, ServerRole.ApiServer.threadPoolSuffix),
     )
 
     val activeStreamsName = metrics.daml.lapi.streams.activeName
-    val activeStreamsCounter = metrics.daml.lapi.streams.active
 
     new RateLimitingInterceptor(
       metrics = metrics,
       checks = List[LimitResultCheck](
         MemoryCheck(tenuredMemoryPools, memoryMxBean, config),
         ThreadpoolCheck(indexDbThreadpool, config.maxApiServicesIndexDbQueueSize),
-        StreamCheck(activeStreamsCounter, activeStreamsName, config.maxStreams),
+        StreamCheck(() => 0, activeStreamsName, config.maxStreams), // TODO fix active stream number
       ) ::: additionalChecks,
     )
   }

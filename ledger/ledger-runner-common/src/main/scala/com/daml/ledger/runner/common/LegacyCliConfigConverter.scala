@@ -14,7 +14,6 @@ import com.daml.platform.store.DbSupport.{
 
 import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.FiniteDuration
-import scala.jdk.DurationConverters.JavaDurationOps
 
 object LegacyCliConfigConverter {
 
@@ -75,9 +74,7 @@ object LegacyCliConfigConverter {
       engine = config.engineConfig,
       ledgerId = config.ledgerId,
       metrics = MetricsConfig(
-        enabled = config.metricsReporter.isDefined,
-        reporter = config.metricsReporter.getOrElse(MetricsConfig.DefaultMetricsConfig.reporter),
-        reportingInterval = config.metricsReportingInterval.toScala,
+        reporter = config.metricsReporter.getOrElse(MetricsConfig.DefaultMetricsConfig.reporter)
       ),
       dataSource = config.participants.map { participantConfig =>
         participantConfig.participantId -> ParticipantDataSourceConfig(

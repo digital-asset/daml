@@ -34,7 +34,7 @@ import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.api.MetricHandle.Factory
-import com.daml.metrics.{Metrics, OpenTelemetryMeterOwner}
+import com.daml.metrics.{DatabaseTrackerFactory, Metrics, OpenTelemetryMetricsFactoryOwner}
 import com.daml.platform.LedgerApiServer
 import com.daml.platform.apiserver.configuration.RateLimitingConfig
 import com.daml.platform.apiserver.ratelimiting.ThreadpoolCheck.ThreadpoolCount
@@ -44,6 +44,7 @@ import com.daml.platform.config.ParticipantConfig
 import com.daml.platform.store.DbSupport.ParticipantDataSourceConfig
 import com.daml.platform.store.DbType
 import com.daml.ports.Port
+import io.opentelemetry.api.GlobalOpenTelemetry
 
 import scala.concurrent.ExecutionContextExecutorService
 import scala.util.Try
@@ -79,13 +80,13 @@ object SandboxOnXRunner {
       // This is necessary because we can't declare them as implicits in a `for` comprehension.
       _ <- ResourceOwner.forActorSystem(() => actorSystem)
       _ <- ResourceOwner.forMaterializer(() => materializer)
-      openTelemetryMeter <- OpenTelemetryMeterOwner(
-        config.metrics.enabled,
-        Some(config.metrics.reporter),
+      openTelemetry = GlobalOpenTelemetry.get() // TODO properly build it using the sdk API
+      openTelemetryFactory <- OpenTelemetryMetricsFactoryOwner(
+        config.metrics.reporter
       )
 
       (participantId, dataSource, participantConfig) <- assertSingleParticipant(config)
-      metrics <- MetricsOwner(openTelemetryMeter, config.metrics, participantId)
+      metrics = new Metrics(openTelemetryFactory)
       timeServiceBackendO = configAdaptor.timeServiceBackend(participantConfig.apiServer)
       (stateUpdatesFeedSink, stateUpdatesSource) <- AkkaSubmissionsBridge()
 
@@ -98,7 +99,7 @@ object SandboxOnXRunner {
         bridgeConfig = bridgeConfig,
         materializer = materializer,
         loggingContext = loggingContext,
-        metricsFactory = metrics.dropwizardFactory,
+        metricsFactory = openTelemetryFactory,
         servicesThreadPoolSize = servicesThreadPoolSize,
         servicesExecutionContext = servicesExecutionContext,
         timeServiceBackendO = timeServiceBackendO,
@@ -143,6 +144,7 @@ object SandboxOnXRunner {
         explicitDisclosureUnsafeEnabled = explicitDisclosureUnsafeEnabled,
         rateLimitingInterceptor =
           participantConfig.apiServer.rateLimit.map(buildRateLimitingInterceptor(metrics)),
+        poolMetrics = DatabaseTrackerFactory.metricsTrackerFactory(openTelemetry),
       )(actorSystem, materializer).owner
     } yield {
       logInitializationHeader(
@@ -241,7 +243,6 @@ object SandboxOnXRunner {
         InstrumentedExecutors.newWorkStealingExecutor(
           metrics.daml.lapi.threadpool.apiServices,
           servicesThreadPoolSize,
-          metrics.dropwizardFactory.registry,
           metrics.executorServiceMetrics,
         )
       )
@@ -293,7 +294,7 @@ object SandboxOnXRunner {
       metrics: Metrics
   )(config: RateLimitingConfig): RateLimitingInterceptor = {
 
-    val apiServices: ThreadpoolCount = new ThreadpoolCount(metrics)(
+    val apiServices: ThreadpoolCount = new ThreadpoolCount(
       "Api Services Threadpool",
       metrics.daml.lapi.threadpool.apiServices,
     )
