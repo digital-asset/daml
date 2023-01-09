@@ -4,19 +4,19 @@
 Managing Latency and Throughput
 ###############################
 
-Problem definition
+Problem Definition
 ******************
 
-Latency is a measure of how long a business transaction takes to complete whilst throughput measures, on average, the minimum and maximum range of business transactions possible per second.
+Latency is a measure of how long a business transaction takes to complete while throughput measures, on average, the minimum and maximum range of business transactions possible per second. Defense against latency and throughput issues can be written into the Daml application during design. 
 
-Defense against latency and throughput issues can be written into the Daml application at design time. First, we need to identify the potential bottlenecks in a Daml application and we can do this by analyzing the domain-specific transactions.
+First we need to identify the potential bottlenecks in a Daml application. We can do this by analyzing the domain-specific transactions.
 
 Each Daml business transaction kicks off when a Ledger API client sends the commands ``create`` or ``exercise`` to a participant. 
 
 .. important::
 
     * Ledger transactions are not synonymous with business transactions. 
-    * Often a complete business transaction spans multiple workflow steps; thus multiple ledger transactions.
+    * Often a complete business transaction spans multiple workflow steps and thus multiple ledger transactions.
     * Multiple business transactions can be processed in a single ledger transaction through batching.
     * Expected ledger transaction latencies are on the order of 0.5-1 seconds on database sequencers, and multiple seconds on blockchain sequencers.
 
@@ -89,22 +89,22 @@ Refer to the `Daml execution model <../intro/7_Composing.html#daml-s-execution-m
      -   * Number of confirming parties
 
 
-Possible throughput bottlenecks in order of likelihood
+Possible Throughput Bottlenecks in Order of Likelihood
 ------------------------------------------------------
 
 #. Transaction size causing high serialization/deserialization and encryption/decryption costs on participant nodes. 
 #. Transaction size causing sequencer backend overload, especially on blockchains.
-#. Interpretation and validation cost due to calculation complexity or memory use.
-#. Number of involved nodes and associated network bandwidth on sequencer.
+#. High interpretation and validation cost due to calculation complexity or memory use.
+#. Large number of involved nodes and associated network bandwidth on sequencer.
 
-Generally, latency is also affected by the above. However, baseline latency is usually more to do with system set up issues (DB or blockchain latency) rather than a Daml modeling problem.
+Latency can also be affected by the above factors. However, baseline latency usually has more to do with system set-up issues (DB or blockchain latency) rather than Daml modeling problems.
 
 Solutions
 ---------
 
 #. **Minimize transaction size.** 
 
-Each of the following actions in Daml adds a node to the transaction containing the contract payload of the contract being acted on. A large number of such operations, and/or operations of this kind on large contracts, are the most common cause of performance bottlenecks. 
+Each of the following actions in Daml adds a node to the transaction containing the payload of the contract being acted on. A large number of such operations, and/or operations of this kind on large contracts, are the most common cause of performance bottlenecks. 
 
     * ``create``
     * ``fetch``
@@ -114,7 +114,7 @@ Each of the following actions in Daml adds a node to the transaction containing 
     * ``exerciseByKey``
     * ``archive``
 
-Use the above actions sparingly. For example, if contracts have intermediary states within a transaction, you can often skip them by writing only the end-state. For example:
+Use the above actions sparingly. For example, if contracts have intermediary states within a transaction, you can often skip them by writing only the end state. For example:
 
 .. code-block:: daml
 
@@ -200,9 +200,9 @@ When you need to read a contract, or act on a single contract in multiple ways, 
        create this with quantity = quantity + sum quantities
  
 
-Use separate templates for large payloads that change rarely and require minimum access, and for fields that change with almost every action, to optimize resource consumption for multiple business transactions. 
+Separate templates for large payloads that change rarely and require minimum access from those for fields that change with almost every action. This optimizes resource consumption for multiple business transactions. 
 
-This batching approach makes updates in one transaction submission rather than having separate transactions for each update. Note: this option can increase latency a little bit and may increase the possibility of command failure but this can be avoided. For example:
+This batching approach makes updates in one transaction submission rather than requiring separate transactions for each update. Note: this option can increase latency a little bit and may increase the possibility of command failure but this can be avoided. For example:
 
 .. code-block:: daml
 
@@ -253,7 +253,7 @@ This batching approach makes updates in one transaction submission rather than h
 Managing Active Contract Set (ACS) Size
 #######################################
 
-Problem definition
+Problem Definition
 ******************
 
 The Active Contract Set (ACS) size makes up the load related to the number of active contracts in the system at any one time. It means the totality of all the contracts that have been created but not yet archived. ACS size may come from a deliberate Daml workflow design, but the size may also be unexpected when insufficient care is given to supporting and auxiliary contract lifetimes.
@@ -265,16 +265,16 @@ The Active Contract Set (ACS) size makes up the load related to the number of ac
 In Daml systems, ACS size can reach orders of magnitude higher than synonymous loads in common database or blockchain systems. When the ACS size is in the high 100s GBs or TBs, local database access performance may deteriorate. We will look at potential issues around large ACS size and possible solutions.
 
 
-Relational databases
+Relational Databases
 ********************
 
 Large ACS can have a negative impact on many aspects of system performance in relational databases. The following points focus on PostgreSQL as the underlying database; the details differ in the case of Oracle but the results are similar.
 
 * Large ACS size directly affects the resource consumption and performance of a Ledger API client application dealing with a large data set that may not fit into the memory or the application database.
-* The size directly affects the speed at which the ACS can be transmitted from the Ledger API server using the ActiveContractService. In extreme cases, it could take hours to transfer the complete set requested by the application due to the limits imposed by the gRPC channel capacity and the speed of storage queries.
-* Increased latency is a less direct impact which shows up wherever a query is issued to the database index to make progress. Large ACS size means that the corresponding indices are also rather big, and at a certain point they will no longer fit into the shared-buffer space. It then takes increasingly longer for the database engine to produce query results. This affects activities such as contract lookups during the command submission, transaction tree streaming, or pointwise transaction lookups.
-* Large ACS may affect the speed at which the database underpinning the participant ingests new transactions. Normally, as new updates pour in, the write-ahead log commits the table and index changes immediately. Those updates come in two shapes; full-page writes or differential writes. With large volumes, many are full-page writes. 
-* Finally, many dirty pages also translate into prolonged and expensive flush to the disk as part of the checkpointing process.
+* ACS size directly affects the speed at which the ACS can be transmitted from the Ledger API server using the ActiveContractService. In extreme cases, it could take hours to transfer the complete set requested by the application due to the limits imposed by the gRPC channel capacity and the speed of storage queries.
+* Increased latency is a less direct impact which shows up wherever a query is issued to the database index to make progress. Large ACS size means that the corresponding indices are also large, and at a certain point they will no longer fit into the shared-buffer space. It then takes increasingly longer for the database engine to produce query results. This affects activities such as contract lookups during the command submission, transaction tree streaming, or pointwise transaction lookups.
+* Large ACS size may affect the speed at which the database underpinning the participant ingests new transactions. Normally, as new updates pour in the write-ahead log commits the table and index changes immediately. Those updates come in two shapes; full-page writes or differential writes. With large volumes, many are full-page writes. 
+* Finally, many dirty pages also translate into prolonged and expensive flushes to the disk as part of the checkpointing process.
 
 
 Solutions
@@ -282,9 +282,9 @@ Solutions
 
 * Pay attention to the lifetime of the contracts. Make sure that the supporting and auxiliary contracts don’t clutter the ACS and archive them as soon as it is practical to do so.
 * Set up a frequent pruning schedule. Be aware that pruning is only effective if there are archived contracts available for pruning. If all contracts are still active, pruning has limited success. Refer to our `pruning documentation <../../canton/usermanual/pruning.html>`__ for more information.
-* Implement an ODS in your ledger client application to limit the reliance on read access to the ACS. Do this whenever you notice that the time to initialize the application from the ACS exceeds your pain level.
+* Implement an ODS in your ledger client application to limit reliance on read access to the ACS. Do this whenever you notice that the time to initialize the application from the ACS exceeds your pain level.
 * Monitor database performance. 
-    * Monitor the disk read and disk write activity. Look for sudden changes in the operation patterns. For instance, a sudden uplift in the disk’s read activity may be a sign of indices no longer fitting into the shared buffers.
+    * Monitor the disk read and write activity. Look for sudden changes in the operation patterns. For instance, a sudden increase in the disk’s read activity may be a sign of indices no longer fitting into the shared buffers.
     * Observe the performance of the database queries. Check our monitoring documentation for `query metrics <../../canton/usermanual/monitoring.html#daml-index-db-operation-query>`__ that can assist. You may also consider setting up a `log_min_duration_statement parameter <https://www.postgresql.org/docs/current/runtime-config-logging.html>`__ in the PostgreSQL configuration.
 * Set up `autovacuum <https://www.postgresql.org/docs/13/routine-vacuuming.html>`__ on the PostgreSQL database. Note that, after pruning, a lot of dead tuples will need removing.
 
