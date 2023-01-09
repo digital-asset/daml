@@ -48,7 +48,7 @@ version_specific = {
 netty_tcnative_version = "2.0.46.Final"
 netty_version = "4.1.72.Final"
 grpc_version = "1.44.0"
-protobuf_version = "3.19.3"
+protobuf_version = "3.19.6"
 akka_version = "2.6.18"
 akka_http_version = "10.2.8"
 gatling_version = "3.5.1"
@@ -215,8 +215,8 @@ def install_java_deps():
             "org.typelevel:paiges-core_{}:0.3.2".format(scala_major_version),
             "org.wartremover:wartremover_{}:2.4.16".format(scala_version),
             "org.xerial:sqlite-jdbc:3.36.0.1",
-            "com.fasterxml.jackson.core:jackson-core:2.12.0",
-            "com.fasterxml.jackson.core:jackson-databind:2.12.0",
+            "com.fasterxml.jackson.core:jackson-core:2.14.1",
+            "com.fasterxml.jackson.core:jackson-databind:2.14.1",
             "org.scala-lang:scala-library:{}".format(scala_version),
         ],
         fetch_sources = True,
