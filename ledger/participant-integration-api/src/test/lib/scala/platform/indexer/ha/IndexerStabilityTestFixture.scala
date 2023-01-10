@@ -1,7 +1,9 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.indexer.ha
+
+import java.util.concurrent.Executors
 
 import akka.stream.Materializer
 import com.codahale.metrics.MetricRegistry
@@ -14,8 +16,8 @@ import com.daml.platform.LedgerApiServer
 import com.daml.platform.configuration.IndexServiceConfig
 import com.daml.platform.indexer.{IndexerConfig, IndexerServiceOwner, IndexerStartupMode}
 import com.daml.platform.store.DbSupport.ParticipantDataSourceConfig
+import io.opentelemetry.api.GlobalOpenTelemetry
 
-import java.util.concurrent.Executors
 import scala.concurrent.ExecutionContext
 
 /** Stores a running indexer and the read service the indexer is reading from.
@@ -79,8 +81,6 @@ object IndexerStabilityTestFixture {
 
         // Start N indexers that all compete for the same database
         _ = logger.info(s"Starting $indexerCount indexers for database $jdbcUrl")
-        metricRegistry = new MetricRegistry
-        metrics = new Metrics(metricRegistry)
         indexers <- Resource
           .sequence(
             (1 to indexerCount).toList
@@ -95,6 +95,10 @@ object IndexerStabilityTestFixture {
                       }
                     )
                     .acquire()
+                  // create a new MetricRegistry for each indexer, so they don't step on each other toes:
+                  // Gauges can only be registered once. A subsequent attempt results in an exception for the
+                  // call MetricRegistry#register or MetricRegistry#registerGauge
+                  metrics = Metrics(new MetricRegistry, GlobalOpenTelemetry.getMeter("test"))
                   (inMemoryState, inMemoryStateUpdaterFlow) <-
                     LedgerApiServer
                       .createInMemoryStateAndUpdater(

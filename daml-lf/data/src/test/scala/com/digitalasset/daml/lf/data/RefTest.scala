@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.data
@@ -7,8 +7,9 @@ import com.daml.lf.data.Ref._
 import org.scalatest.EitherValues
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
+import org.scalatest.prop.TableDrivenPropertyChecks
 
-class RefTest extends AnyFreeSpec with Matchers with EitherValues {
+class RefTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChecks with EitherValues {
 
   "Name.fromString" - {
     "reject" - {
@@ -17,9 +18,17 @@ class RefTest extends AnyFreeSpec with Matchers with EitherValues {
       }
 
       "bad symbols" in {
-        Name.fromString("test%") shouldBe a[Left[_, _]]
-        Name.fromString("test-") shouldBe a[Left[_, _]]
-        Name.fromString("test@") shouldBe a[Left[_, _]]
+        val testCases =
+          Table(
+            "non valid Name",
+            "test%",
+            "test-",
+            "test@",
+            "test:", // used for QualifiedName string encoding
+            "test.", // used for DottedName string encoding
+            "test#", // used for QualifiedChoiceName string encoding
+          )
+        forEvery(testCases)(Name.fromString(_) shouldBe a[Left[_, _]])
       }
 
       "unicode" in {
@@ -293,14 +302,62 @@ class RefTest extends AnyFreeSpec with Matchers with EitherValues {
     }
   }
 
+  "QualifiedChoiceName.fromString" - {
+
+    val errorMessageBeginning =
+      "Separator ':' between package identifier and qualified name not found in "
+
+    "rejects strings without any colon" in {
+      Identifier.fromString("foo").left.value should startWith(errorMessageBeginning)
+    }
+
+    "rejects strings with empty segments but the error is caught further down the stack" in {
+      val testCases = Table(
+        "invalid qualified choice Name",
+        "#",
+        "##",
+        "###",
+        "##ChName",
+        "-pkgId-:Mod:Name#ChName",
+        "-pkgId-:Mod:Name#ChName#",
+        "#-pkgId-:Mod:Name",
+        "#-pkgId-:Mod:Name#",
+        "#-pkgId-:Mod:Name#ChName#",
+      )
+
+      forEvery(testCases)(s =>
+        if (QualifiedChoiceName.fromString(s).isRight)
+          QualifiedChoiceName.fromString(s) shouldBe Left(s)
+        else
+          QualifiedChoiceName.fromString(s) shouldBe a[Left[_, _]]
+      )
+    }
+
+    "accepts valid identifiers" in {
+      QualifiedChoiceName.fromString("ChName") shouldBe
+        Right(QualifiedChoiceName(None, ChoiceName.assertFromString("ChName")))
+
+      QualifiedChoiceName.fromString("#-pkgId-:Mod:Name#ChName") shouldBe
+        Right(
+          QualifiedChoiceName(
+            Some(Identifier.assertFromString("-pkgId-:Mod:Name")),
+            ChoiceName.assertFromString("ChName"),
+          )
+        )
+    }
+  }
+
   "UserId" - {
-    val validCharacters = "abcdefghijklmnopqrstuvwxyz0123456789._-#!|@^$`+'~:"
+    val validCharacters = ('a' to 'z') ++ ('A' to 'Z') ++ ('0' to '9') ++ "._-#!|@^$`+'~:"
     val validUserIds =
       validCharacters.flatMap(c => Vector(c.toString, s"$c$c")) ++
         Vector(
           "a",
           "jo1hn.d200oe",
-          validCharacters,
+          "ALL_UPPER_CASE",
+          "JOHn_doe",
+          "office365|10030000838D23AF@MicrosoftOnline.com",
+          validCharacters.mkString,
           // The below are examples from https://auth0.com/docs/users/user-profiles/sample-user-profiles
           // with the exception of requiring only lowercase characters to be used
           "google-oauth2|103547991597142817347",
@@ -317,17 +374,14 @@ class RefTest extends AnyFreeSpec with Matchers with EitherValues {
       validUserIds.foreach(userId => ApplicationId.fromString(userId) shouldBe a[Right[_, _]])
     }
 
-    "reject invalid user ids" in {
-      val invalidCharacters = "àáABCDEFGHIJKLMNOPQRSTUVWXYZ \\%&*()=[]{};<>,?\""
-      val invalidUserIds =
-        invalidCharacters.map(c => c.toString) ++
-          Vector(
-            "john/doe",
-            "JOHn_doe",
-            "",
-            "office365|10030000838D23AF@MicrosoftOnline.com",
-          )
+    "reject user ids containing invalid characters" in {
+      val invalidCharacters = "àá \\%&*()=[]{};<>,?\""
+      val invalidUserIds = invalidCharacters.map(_.toString) :+ "john/doe"
       invalidUserIds.foreach(userId => UserId.fromString(userId) shouldBe a[Left[_, _]])
+    }
+
+    "reject the empty string" in {
+      UserId.fromString("") shouldBe a[Left[_, _]]
     }
 
     "reject too long strings" in {

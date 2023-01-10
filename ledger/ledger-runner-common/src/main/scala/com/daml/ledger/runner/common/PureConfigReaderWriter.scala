@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.runner.common
@@ -12,7 +12,7 @@ import com.daml.lf.engine.EngineConfig
 import com.daml.lf.language.LanguageVersion
 import com.daml.lf.transaction.ContractKeyUniquenessMode
 import com.daml.lf.{VersionRange, interpretation, language}
-import com.daml.metrics.MetricsReporter
+import com.daml.metrics.api.reporters.MetricsReporter
 import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.apiserver.configuration.RateLimitingConfig
 import com.daml.platform.apiserver.{ApiServerConfig, AuthServiceConfig}
@@ -21,9 +21,12 @@ import com.daml.platform.configuration.{
   CommandConfiguration,
   IndexServiceConfig,
   InitialLedgerConfiguration,
+  TransactionFlatStreamsConfig,
+  TransactionTreeStreamsConfig,
 }
 import com.daml.platform.indexer.ha.HaConfig
 import com.daml.platform.indexer.{IndexerConfig, IndexerStartupMode, PackageMetadataViewConfig}
+import com.daml.platform.localstore.{IdentityProviderManagementConfig, UserManagementConfig}
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.platform.store.DbSupport.{
   ConnectionPoolConfig,
@@ -32,7 +35,6 @@ import com.daml.platform.store.DbSupport.{
 }
 import com.daml.platform.store.backend.postgresql.PostgresDataSourceConfig
 import com.daml.platform.store.backend.postgresql.PostgresDataSourceConfig.SynchronousCommitValue
-import com.daml.platform.usermanagement.UserManagementConfig
 import com.daml.ports.Port
 import io.netty.handler.ssl.ClientAuth
 import pureconfig.configurable.{genericMapReader, genericMapWriter}
@@ -198,6 +200,13 @@ class PureConfigReaderWriter(secure: Boolean = true) {
   implicit val userManagementConfigConvert: ConfigConvert[UserManagementConfig] =
     deriveConvert[UserManagementConfig]
 
+  implicit val identityProviderManagementConfigHint =
+    ProductHint[IdentityProviderManagementConfig](allowUnknownKeys = false)
+
+  implicit val identityProviderManagementConfigConvert
+      : ConfigConvert[IdentityProviderManagementConfig] =
+    deriveConvert[IdentityProviderManagementConfig]
+
   implicit val jwtTimestampLeewayConfigHint: OptConfigValue.OptProductHint[JwtTimestampLeeway] =
     optProductHint[JwtTimestampLeeway](allowUnknownKeys = false)
 
@@ -333,6 +342,12 @@ class PureConfigReaderWriter(secure: Boolean = true) {
 
   implicit val indexServiceConfigHint =
     ProductHint[IndexServiceConfig](allowUnknownKeys = false)
+
+  implicit val transactionTreeStreamsConfigConvert: ConfigConvert[TransactionTreeStreamsConfig] =
+    deriveConvert[TransactionTreeStreamsConfig]
+
+  implicit val transactionFlatStreamsConfigConvert: ConfigConvert[TransactionFlatStreamsConfig] =
+    deriveConvert[TransactionFlatStreamsConfig]
 
   implicit val indexServiceConfigConvert: ConfigConvert[IndexServiceConfig] =
     deriveConvert[IndexServiceConfig]

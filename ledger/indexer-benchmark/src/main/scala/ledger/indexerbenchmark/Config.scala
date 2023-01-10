@@ -1,10 +1,9 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.indexerbenchmark
 
 import com.daml.lf.data.Ref
-import com.daml.metrics.MetricsReporter
 import com.daml.platform.configuration.IndexServiceConfig
 import com.daml.platform.configuration.Readers._
 import com.daml.platform.indexer.{IndexerConfig, IndexerStartupMode}
@@ -12,6 +11,7 @@ import com.daml.platform.store.DbSupport.ParticipantDataSourceConfig
 import scopt.OptionParser
 
 import java.time.Duration
+import com.daml.metrics.api.reporters.MetricsReporter
 
 /** @param updateCount The number of updates to process.
   * @param updateSource The name of the source of state updates.

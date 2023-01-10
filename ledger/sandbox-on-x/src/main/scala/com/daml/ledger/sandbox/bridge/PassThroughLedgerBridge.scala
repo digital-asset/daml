@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml
@@ -42,6 +42,13 @@ private[bridge] class PassThroughLedgerBridge(
       case s: Submission.AllocateParty => partyAllocationSuccess(s, participantId, currentTimestamp)
       case s: Submission.Config => configChangedSuccess(s, participantId, currentTimestamp)
       case s: Submission.UploadPackages => packageUploadSuccess(s, currentTimestamp)
-      case s: Submission.Transaction => transactionAccepted(s, index, currentTimestamp)
+      case s: Submission.Transaction =>
+        transactionAccepted(
+          transactionSubmission = s,
+          index = index,
+          currentTimestamp = currentTimestamp,
+          // Explicit disclosure not enabled for pass-through ledger bridge
+          populateContractMetadata = false,
+        )
     }
 }

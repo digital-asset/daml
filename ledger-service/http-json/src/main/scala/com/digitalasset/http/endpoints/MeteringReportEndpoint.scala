@@ -1,10 +1,9 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.http
 package endpoints
 
-import akka.http.scaladsl.model.HttpRequest
 import com.daml.http.Endpoints.ET
 import com.daml.http.EndpointsCompanion.{Error, ServerError}
 import com.daml.http.endpoints.MeteringReportEndpoint.{MeteringReportDateRequest, toPbRequest}
@@ -16,12 +15,13 @@ import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.LoggingContextOf
 import com.google.protobuf
 import com.google.protobuf.struct.Struct
+import scalaz.EitherT.eitherT
 import scalaz.\/
 import scalaz.std.scalaFuture._
 import spray.json._
 
 import java.time.{Instant, LocalDate, LocalTime, ZoneOffset}
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 import scala.util.Try
 
 private[http] object MeteringReportEndpoint {
@@ -83,25 +83,18 @@ private[http] object MeteringReportEndpoint {
 
 }
 
-class MeteringReportEndpoint(routeSetup: RouteSetup, service: MeteringReportService)(implicit
+class MeteringReportEndpoint(service: MeteringReportService)(implicit
     ec: ExecutionContext
 ) {
 
-  import routeSetup._
-
-  def generateReportResponse(req: HttpRequest)(implicit
-      lc: LoggingContextOf[InstanceUUID with RequestID]
-  ): ET[domain.SyncResponse[Struct]] = {
-    proxyWithCommand(generateReport)(req)
-      .map[domain.SyncResponse[Struct]](domain.OkResponse(_))
-  }
-
   def generateReport(jwt: Jwt, dateRequest: MeteringReportDateRequest)(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
-  ): Future[Error \/ Struct] = {
-    service
-      .getMeteringReport(jwt, toPbRequest(dateRequest))
-      .map(MeteringReportEndpoint.toJsonMeteringReport)
-  }
+  ): ET[domain.SyncResponse[Struct]] = for {
+    s <- eitherT(
+      service
+        .getMeteringReport(jwt, toPbRequest(dateRequest))
+        .map(MeteringReportEndpoint.toJsonMeteringReport)
+    )
+  } yield (domain.OkResponse(s))
 
 }

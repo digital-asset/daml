@@ -1,10 +1,10 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.apiserver.execution
 
 import com.daml.ledger.participant.state.{v2 => state}
-import com.daml.lf.command.DisclosedContract
+import com.daml.lf.command.ProcessedDisclosedContract
 import com.daml.lf.data.ImmArray
 import com.daml.lf.transaction.{GlobalKey, SubmittedTransaction, Versioned}
 import com.daml.lf.value.Value
@@ -16,7 +16,7 @@ import com.daml.lf.value.Value
   * @param transaction              The transaction
   * @param dependsOnLedgerTime      True if the output of command execution depends in any way
   *                                 on the ledger time, as specified through
-  *                                 [[com.daml.lf.command.Commands.ledgerEffectiveTime]].
+  *                                 [[com.daml.lf.command.ApiCommands.ledgerEffectiveTime]].
   *                                 If this value is false, then the ledger time of the resulting
   *                                 transaction ([[state.TransactionMeta.ledgerEffectiveTime]])
   *                                 can safely be changed after command interpretation.
@@ -36,5 +36,5 @@ private[apiserver] final case class CommandExecutionResult(
     dependsOnLedgerTime: Boolean,
     interpretationTimeNanos: Long,
     globalKeyMapping: Map[GlobalKey, Option[Value.ContractId]],
-    usedDisclosedContracts: ImmArray[Versioned[DisclosedContract]],
+    usedDisclosedContracts: ImmArray[Versioned[ProcessedDisclosedContract]],
 )

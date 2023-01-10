@@ -1,4 +1,4 @@
-# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 # Keep the Scala versions in sync with /nix/nixpkgs.nix and /release/src/Options.hs.

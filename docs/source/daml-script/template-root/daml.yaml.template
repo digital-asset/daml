@@ -2,6 +2,10 @@ sdk-version: __VERSION__
 name: script-example
 source: src
 version: 0.0.1
+# script-build-options-begin
+build-options:
+  - --target=1.15
+# script-build-options-end
 # script-dependencies-begin
 dependencies:
   - daml-prim

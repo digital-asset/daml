@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml
@@ -42,17 +42,19 @@ class Interfaces
           sendCmd(
             client,
             alice,
-            child.id.toInterface(interfaces.TIf.INTERFACE).exerciseHam(new interfaces.Ham()),
+            child.id
+              .toInterface(interfaces.TIf.INTERFACE)
+              .exerciseHam(new interfaces.Ham()),
           )
         }
         readActiveContractsSafe(safeChildCloneFromCreatedEvent)(client, alice)
           .foreach { child =>
-            val cmd = interfaces.Child.ContractId
+            val update = interfaces.Child.ContractId
               .unsafeFromInterface(
                 child.id.toInterface(interfaces.TIf.INTERFACE): interfaces.TIf.ContractId
               )
               .exerciseBar()
-            val ex = the[io.grpc.StatusRuntimeException] thrownBy sendCmd(client, alice, cmd)
+            val ex = the[io.grpc.StatusRuntimeException] thrownBy sendCmd(client, alice, update)
             ex.getMessage should include regex "Expected contract of type .*Child@.* but got .*ChildClone"
           }
         succeed

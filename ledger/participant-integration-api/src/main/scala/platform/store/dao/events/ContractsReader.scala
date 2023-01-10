@@ -1,9 +1,9 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.store.dao.events
 
-import com.codahale.metrics.Timer
+import com.daml.metrics.api.MetricHandle.Timer
 import com.daml.error.definitions.IndexErrors
 import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
 import com.daml.ledger.offset.Offset
@@ -181,7 +181,6 @@ private[dao] object ContractsReader {
     Contract(
       template = Identifier.assertFromString(templateId),
       arg = deserialized,
-      agreementText = "",
     )
   }
 
@@ -192,7 +191,6 @@ private[dao] object ContractsReader {
     Contract(
       template = Identifier.assertFromString(templateId),
       arg = createArgument,
-      agreementText = "",
     )
 
   private def assertPresent[T](in: Option[T])(err: String)(implicit

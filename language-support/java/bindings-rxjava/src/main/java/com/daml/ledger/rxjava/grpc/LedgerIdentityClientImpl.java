@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.rxjava.grpc;
@@ -15,6 +15,8 @@ import java.time.Duration;
 import java.util.Optional;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
+/** @deprecated ledger identity string is optional for all Ledger API requests since Daml 2.0.0 */
+@Deprecated
 public class LedgerIdentityClientImpl implements LedgerIdentityClient {
 
   private LedgerIdentityServiceGrpc.LedgerIdentityServiceFutureStub serviceStub;

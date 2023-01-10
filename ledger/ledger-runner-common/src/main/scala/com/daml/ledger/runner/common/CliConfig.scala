@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.runner.common
@@ -8,22 +8,23 @@ import com.daml.ledger.api.tls.{SecretsUrl, TlsConfiguration}
 import com.daml.lf.data.Ref
 import com.daml.lf.engine.EngineConfig
 import com.daml.lf.language.LanguageVersion
-import com.daml.metrics.MetricsReporter
 import com.daml.platform.apiserver.{AuthServiceConfig, AuthServiceConfigCli}
 import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.config.ParticipantConfig
 import com.daml.platform.configuration.Readers._
 import com.daml.platform.configuration.{CommandConfiguration, IndexServiceConfig}
 import com.daml.platform.indexer.{IndexerConfig, IndexerStartupMode}
+import com.daml.platform.localstore.UserManagementConfig
 import com.daml.platform.services.time.TimeProviderType
-import com.daml.platform.usermanagement.UserManagementConfig
 import com.daml.ports.Port
 import io.netty.handler.ssl.ClientAuth
 import scopt.OParser
-
 import java.io.File
+import java.nio.file.Paths
 import java.time.Duration
 import java.util.UUID
+import com.daml.metrics.api.reporters.MetricsReporter
+
 import scala.jdk.DurationConverters.JavaDurationOps
 
 final case class CliConfig[Extra](
@@ -133,6 +134,7 @@ object CliConfig {
       commandDumpIndexMetadata,
       commandRunHocon(name),
       commandConvertConfig(getEnvVar, extraOptions),
+      commandPrintDefaultConfig(),
       builder.checkConfig(checkNoEmptyParticipant),
     )
 
@@ -212,6 +214,26 @@ object CliConfig {
       )
       .action((_, config) => config.copy(mode = Mode.ConvertConfig))
       .children(legacyCommand(getEnvVar, extraOptions))
+
+  private def commandPrintDefaultConfig[Extra](): OParser[_, CliConfig[Extra]] = {
+    val builder = OParser.builder[CliConfig[Extra]]
+    builder
+      .cmd("print-default-config")
+      .text(
+        "Prints default config to stdout or to a file"
+      )
+      .action((_, config) => config.copy(mode = Mode.PrintDefaultConfig(None)))
+      .children(
+        builder
+          .arg[String]("<output-file-path>")
+          .minOccurs(0)
+          .text("An optional output file")
+          .action((outputFilePath, config) =>
+            config.copy(mode = Mode.PrintDefaultConfig(Some(Paths.get(outputFilePath))))
+          ),
+        configKeyValueOption,
+      )
+  }
 
   def legacyCommand[Extra](
       getEnvVar: String => Option[String],

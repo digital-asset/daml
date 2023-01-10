@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.store.dao
@@ -10,6 +10,7 @@ import com.daml.ledger.participant.state.v2.Update
 import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.lf.data.Ref
 import com.daml.metrics.Metrics
+import com.daml.metrics.api.MetricsContext
 import com.daml.platform.store.dao.events.{CompressionStrategy, LfValueTranslation}
 import com.daml.platform.store.backend.{
   DbDto,
@@ -41,23 +42,27 @@ object SequentialWriteDao {
       stringInterningView: StringInterning with InternizingStringInterningView,
       ingestionStorageBackend: IngestionStorageBackend[_],
       parameterStorageBackend: ParameterStorageBackend,
-  ): SequentialWriteDao =
-    SequentialWriteDaoImpl(
-      ingestionStorageBackend = ingestionStorageBackend,
-      parameterStorageBackend = parameterStorageBackend,
-      updateToDbDtos = UpdateToDbDto(
-        participantId = participantId,
-        translation = new LfValueTranslation(
-          metrics = metrics,
-          engineO = None,
-          loadPackage = (_, _) => Future.successful(None),
+  ): SequentialWriteDao = {
+    MetricsContext.withMetricLabels("participant_id" -> participantId) { implicit mc =>
+      SequentialWriteDaoImpl(
+        ingestionStorageBackend = ingestionStorageBackend,
+        parameterStorageBackend = parameterStorageBackend,
+        updateToDbDtos = UpdateToDbDto(
+          participantId = participantId,
+          translation = new LfValueTranslation(
+            metrics = metrics,
+            engineO = None,
+            loadPackage = (_, _) => Future.successful(None),
+          ),
+          compressionStrategy = compressionStrategy,
+          metrics,
         ),
-        compressionStrategy = compressionStrategy,
-      ),
-      ledgerEndCache = ledgerEndCache,
-      stringInterningView = stringInterningView,
-      dbDtosToStringsForInterning = DbDtoToStringsForInterning(_),
-    )
+        ledgerEndCache = ledgerEndCache,
+        stringInterningView = stringInterningView,
+        dbDtosToStringsForInterning = DbDtoToStringsForInterning(_),
+      )
+    }
+  }
 
   val noop: SequentialWriteDao = NoopSequentialWriteDao
 }
@@ -79,11 +84,13 @@ private[dao] case class SequentialWriteDaoImpl[DB_BATCH](
   private var lastEventSeqId: Long = _
   private var lastStringInterningId: Int = _
   private var lastEventSeqIdInitialized = false
+  private var previousTransactionMetaToEventSeqId: Long = _
 
   private def lazyInit(connection: Connection): Unit =
     if (!lastEventSeqIdInitialized) {
       val ledgerEnd = parameterStorageBackend.ledgerEnd(connection)
       lastEventSeqId = ledgerEnd.lastEventSeqId
+      previousTransactionMetaToEventSeqId = ledgerEnd.lastEventSeqId
       lastStringInterningId = ledgerEnd.lastStringInterningId
       lastEventSeqIdInitialized = true
     }
@@ -98,7 +105,23 @@ private[dao] case class SequentialWriteDaoImpl[DB_BATCH](
       case e: DbDto.EventCreate => e.copy(event_sequential_id = nextEventSeqId)
       case e: DbDto.EventDivulgence => e.copy(event_sequential_id = nextEventSeqId)
       case e: DbDto.EventExercise => e.copy(event_sequential_id = nextEventSeqId)
-      case e: DbDto.CreateFilter => e.copy(event_sequential_id = lastEventSeqId)
+      case e: DbDto.IdFilterCreateStakeholder =>
+        e.copy(event_sequential_id = lastEventSeqId)
+      case e: DbDto.IdFilterCreateNonStakeholderInformee =>
+        e.copy(event_sequential_id = lastEventSeqId)
+      case e: DbDto.IdFilterConsumingStakeholder =>
+        e.copy(event_sequential_id = lastEventSeqId)
+      case e: DbDto.IdFilterConsumingNonStakeholderInformee =>
+        e.copy(event_sequential_id = lastEventSeqId)
+      case e: DbDto.IdFilterNonConsumingInformee =>
+        e.copy(event_sequential_id = lastEventSeqId)
+      case e: DbDto.TransactionMeta =>
+        val dto = e.copy(
+          event_sequential_id_first = (previousTransactionMetaToEventSeqId + 1),
+          event_sequential_id_last = lastEventSeqId,
+        )
+        previousTransactionMetaToEventSeqId = lastEventSeqId
+        dto
       case notEvent => notEvent
     }.toVector
 

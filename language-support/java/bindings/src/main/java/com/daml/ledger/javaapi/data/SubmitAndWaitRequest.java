@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.javaapi.data;
@@ -10,8 +10,26 @@ import java.util.List;
 import java.util.Optional;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
-public class SubmitAndWaitRequest {
+public final class SubmitAndWaitRequest {
 
+  public static CommandServiceOuterClass.SubmitAndWaitRequest toProto(
+      @NonNull String ledgerId, @NonNull CommandsSubmission submission) {
+    return CommandServiceOuterClass.SubmitAndWaitRequest.newBuilder()
+        .setCommands(SubmitCommandsRequest.toProto(ledgerId, submission))
+        .build();
+  }
+
+  public static CommandServiceOuterClass.SubmitAndWaitRequest toProto(
+      @NonNull String ledgerId,
+      @NonNull String submissionId,
+      @NonNull CommandsSubmission submission) {
+    return CommandServiceOuterClass.SubmitAndWaitRequest.newBuilder()
+        .setCommands(SubmitCommandsRequest.toProto(ledgerId, submissionId, submission))
+        .build();
+  }
+
+  /** @deprecated since 2.5. Please use {@link #toProto(String, CommandsSubmission)} */
+  @Deprecated
   public static CommandServiceOuterClass.SubmitAndWaitRequest toProto(
       @NonNull String ledgerId,
       @NonNull String workflowId,
@@ -37,6 +55,8 @@ public class SubmitAndWaitRequest {
         .build();
   }
 
+  /** @deprecated since 2.5. Please use {@link #toProto(String, String, CommandsSubmission)} */
+  @Deprecated
   public static CommandServiceOuterClass.SubmitAndWaitRequest toProto(
       @NonNull String ledgerId,
       @NonNull String workflowId,
@@ -64,6 +84,8 @@ public class SubmitAndWaitRequest {
         .build();
   }
 
+  /** @deprecated since 2.5. Please use {@link #toProto(String, CommandsSubmission)} */
+  @Deprecated
   public static CommandServiceOuterClass.SubmitAndWaitRequest toProto(
       @NonNull String ledgerId,
       @NonNull String workflowId,
@@ -91,6 +113,8 @@ public class SubmitAndWaitRequest {
         .build();
   }
 
+  /** @deprecated since 2.5. Please use {@link #toProto(String, String, CommandsSubmission)} */
+  @Deprecated
   public static CommandServiceOuterClass.SubmitAndWaitRequest toProto(
       @NonNull String ledgerId,
       @NonNull String workflowId,

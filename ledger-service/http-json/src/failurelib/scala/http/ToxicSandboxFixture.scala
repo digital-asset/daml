@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.http
@@ -42,7 +42,8 @@ trait ToxicSandboxFixture
       ): Resource[(Port, ToxiproxyClient, Proxy)] = {
         def start(): Future[(Port, ToxiproxyClient, Proxy, Process)] = {
           val toxiproxyExe =
-            if (!isWindows) BazelRunfiles.rlocation("external/toxiproxy_dev_env/bin/toxiproxy-cmd")
+            if (!isWindows)
+              BazelRunfiles.rlocation("external/toxiproxy_dev_env/bin/toxiproxy-server")
             else
               BazelRunfiles.rlocation(
                 "external/toxiproxy_dev_env/toxiproxy-server-windows-amd64.exe"

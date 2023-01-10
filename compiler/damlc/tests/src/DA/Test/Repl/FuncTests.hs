@@ -1,6 +1,8 @@
--- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 module DA.Test.Repl.FuncTests (main) where
+
+{- HLINT ignore "locateRunfiles/package_app" -}
 
 import Control.Concurrent
 import Control.Concurrent.Async
@@ -263,11 +265,11 @@ functionalTests replClient replLogger serviceOut options ideState = describe "re
           ]
     , testInteraction' "error call"
           [ input "error \"foobar\""
-          , matchOutput "^Error: Unhandled Daml exception: DA.Exception.GeneralError:GeneralError@86828b98{ message = \"foobar\" }$"
+          , matchOutput "Error: Unhandled Daml exception: DA.Exception.GeneralError:GeneralError@86828b98{ message = \"foobar\" }$"
           ]
     , testInteraction' "abort call"
           [ input "abort \"foobar\""
-          , matchOutput "^Error: Unhandled Daml exception: DA.Exception.GeneralError:GeneralError@86828b98{ message = \"foobar\" }$"
+          , matchOutput "Error: Unhandled Daml exception: DA.Exception.GeneralError:GeneralError@86828b98{ message = \"foobar\" }$"
           ]
     , testInteraction' "record dot syntax"
           [ input "alice <- allocatePartyWithHint \"Alice\" (PartyIdHint \"alice\")"

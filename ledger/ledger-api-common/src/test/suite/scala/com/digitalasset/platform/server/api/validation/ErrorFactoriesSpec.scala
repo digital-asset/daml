@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.server.api.validation
@@ -6,9 +6,8 @@ package com.daml.platform.server.api.validation
 import java.sql.{SQLNonTransientException, SQLTransientException}
 import java.time.Duration
 import java.util.regex.Pattern
-
 import ch.qos.logback.classic.Level
-import com.daml.error.definitions.{DamlError, IndexErrors, LedgerApiErrors}
+import com.daml.error.definitions.{CommonErrors, DamlError, IndexErrors, LedgerApiErrors}
 import com.daml.error.definitions.LedgerApiErrors.RequestValidation.InvalidDeduplicationPeriodField.ValidMaxDeduplicationFieldKey
 import com.daml.error.utils.ErrorDetails
 import com.daml.error.{
@@ -162,7 +161,7 @@ class ErrorFactoriesSpec
         val msg =
           s"SERVICE_NOT_RUNNING(1,$truncatedCorrelationId): Some service has been shut down."
         assertStatus(
-          LedgerApiErrors.ServiceNotRunning
+          CommonErrors.ServiceNotRunning
             .Reject("Some service")(
               contextualizedErrorLogger
             )
@@ -194,7 +193,7 @@ class ErrorFactoriesSpec
         val msg =
           s"REQUEST_TIME_OUT(3,$truncatedCorrelationId): Timed out while awaiting for a completion corresponding to a command submission."
         assertStatus(
-          LedgerApiErrors.RequestTimeOut
+          CommonErrors.RequestTimeOut
             .Reject(
               "Timed out while awaiting for a completion corresponding to a command submission.",
               definiteAnswer = false,
@@ -365,7 +364,7 @@ class ErrorFactoriesSpec
     "return a isTimeoutUnknown_wasAborted error" in {
       val msg = s"REQUEST_TIME_OUT(3,$truncatedCorrelationId): message123"
       assertError(
-        LedgerApiErrors.RequestTimeOut
+        CommonErrors.RequestTimeOut
           .Reject("message123", definiteAnswer = false)
       )(
         code = Code.DEADLINE_EXCEEDED,
@@ -648,7 +647,7 @@ class ErrorFactoriesSpec
 
       val msg =
         s"SERVICE_NOT_RUNNING(1,$truncatedCorrelationId): $serviceName has been shut down."
-      assertError(LedgerApiErrors.ServiceNotRunning.Reject(serviceName))(
+      assertError(CommonErrors.ServiceNotRunning.Reject(serviceName))(
         code = Code.UNAVAILABLE,
         message = msg,
         details = Seq[ErrorDetails.ErrorDetail](

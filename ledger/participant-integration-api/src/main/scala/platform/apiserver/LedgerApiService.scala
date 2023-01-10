@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.apiserver
@@ -8,7 +8,6 @@ import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
-import com.daml.platform.apiserver.configuration.RateLimitingConfig
 import com.daml.ports.Port
 import io.grpc.ServerInterceptor
 
@@ -24,7 +23,6 @@ private[daml] final class LedgerApiService(
     interceptors: List[ServerInterceptor] = List.empty,
     servicesExecutor: Executor,
     metrics: Metrics,
-    rateLimitingConfig: Option[RateLimitingConfig],
 )(implicit loggingContext: LoggingContext)
     extends ResourceOwner[ApiService] {
 
@@ -48,7 +46,6 @@ private[daml] final class LedgerApiService(
           metrics,
           servicesExecutor,
           apiServices.services,
-          rateLimitingConfig,
         )
         .acquire()
       // Notify the caller that the services have been closed, so a reset request can complete

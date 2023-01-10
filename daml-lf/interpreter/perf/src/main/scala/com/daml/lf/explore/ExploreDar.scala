@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -9,7 +9,6 @@ import com.daml.bazeltools.BazelRunfiles.{rlocation}
 import com.daml.lf.archive.UniversalArchiveDecoder
 import com.daml.lf.data.Ref.{DefinitionRef, Identifier, QualifiedName}
 import com.daml.lf.speedy.SExpr._
-import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.speedy.Speedy._
 import com.daml.logging.LoggingContext
@@ -85,7 +84,7 @@ object PlaySpeedy {
           throw new MachineProblem(s"Unexpecteded result when compiling $x")
       }
 
-    val machine: Machine = {
+    val machine: PureMachine = {
       println(s"Setup machine for: ${config.funcName}(${config.argValue})")
       val expr = {
         val ref: DefinitionRef =
@@ -100,14 +99,8 @@ object PlaySpeedy {
       Machine.fromPureSExpr(compiledPackages, expr)
     }
 
-    val result: SValue = {
-      println("Run...")
-      machine.run() match {
-        case SResultFinal(value, _) => value
-        case res => throw new MachineProblem(s"Unexpected result from machine $res")
-      }
-    }
-
+    println("Run...")
+    val result = machine.runPure().toTry.get
     println(s"Final-value: $result")
   }
 

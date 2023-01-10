@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.apiserver
@@ -21,13 +21,18 @@ import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2
 import com.daml.ledger.participant.state.index.v2.MeteringStore.ReportData
-import com.daml.ledger.participant.state.index.v2.{IndexService, MaximumLedgerTime}
+import com.daml.ledger.participant.state.index.v2.{
+  ContractState,
+  IndexService,
+  IndexerPartyDetails,
+  MaximumLedgerTime,
+  PartyEntry,
+}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.{ApplicationId, Party}
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value
-import com.daml.lf.value.Value.VersionedContractInstance
 import com.daml.logging.LoggingContext
 import com.daml.metrics.{Metrics, Timed}
 
@@ -122,10 +127,11 @@ private[daml] final class TimedIndexService(delegate: IndexService, metrics: Met
   override def getActiveContracts(
       filter: domain.TransactionFilter,
       verbose: Boolean,
+      activeAtO: Option[Offset],
   )(implicit loggingContext: LoggingContext): Source[GetActiveContractsResponse, NotUsed] =
     Timed.source(
       metrics.daml.services.index.getActiveContracts,
-      delegate.getActiveContracts(filter, verbose),
+      delegate.getActiveContracts(filter, verbose, activeAtO),
     )
 
   override def lookupActiveContract(
@@ -163,17 +169,17 @@ private[daml] final class TimedIndexService(delegate: IndexService, metrics: Met
 
   override def getParties(parties: Seq[Ref.Party])(implicit
       loggingContext: LoggingContext
-  ): Future[List[domain.PartyDetails]] =
+  ): Future[List[IndexerPartyDetails]] =
     Timed.future(metrics.daml.services.index.getParties, delegate.getParties(parties))
 
   override def listKnownParties()(implicit
       loggingContext: LoggingContext
-  ): Future[List[domain.PartyDetails]] =
+  ): Future[List[IndexerPartyDetails]] =
     Timed.future(metrics.daml.services.index.listKnownParties, delegate.listKnownParties())
 
   override def partyEntries(
       startExclusive: Option[LedgerOffset.Absolute]
-  )(implicit loggingContext: LoggingContext): Source[domain.PartyEntry, NotUsed] =
+  )(implicit loggingContext: LoggingContext): Source[PartyEntry, NotUsed] =
     Timed.source(metrics.daml.services.index.partyEntries, delegate.partyEntries(startExclusive))
 
   override def lookupConfiguration()(implicit
@@ -225,11 +231,11 @@ private[daml] final class TimedIndexService(delegate: IndexService, metrics: Met
     )
   }
 
-  override def lookupContractForValidation(contractId: Value.ContractId)(implicit
+  override def lookupContractStateWithoutDivulgence(contractId: Value.ContractId)(implicit
       loggingContext: LoggingContext
-  ): Future[Option[(VersionedContractInstance, Timestamp)]] =
+  ): Future[ContractState] =
     Timed.future(
-      metrics.daml.services.index.lookupContractAfterInterpretation,
-      delegate.lookupContractForValidation(contractId),
+      metrics.daml.services.index.lookupContractStateWithoutDivulgence,
+      delegate.lookupContractStateWithoutDivulgence(contractId),
     )
 }

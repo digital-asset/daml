@@ -1,9 +1,8 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.sandbox.bridge.validate
 
-import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.sandbox.bridge.BridgeMetrics
 import com.daml.ledger.sandbox.bridge.LedgerBridge.toOffset
 import com.daml.ledger.sandbox.bridge.validate.SequencerState.SequencerQueue
@@ -20,7 +19,7 @@ import scala.util.chaining._
 
 class SequencerStateSpec extends AnyFlatSpec with Matchers {
   private implicit val bridgeMetrics: BridgeMetrics = new BridgeMetrics(
-    new Metrics(new MetricRegistry)
+    Metrics.ForTesting.dropwizardFactory
   )
 
   "enqueue" should "update the sequencer state" in {

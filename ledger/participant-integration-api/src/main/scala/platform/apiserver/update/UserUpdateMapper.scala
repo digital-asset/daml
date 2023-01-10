@@ -1,12 +1,12 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.apiserver.update
 
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.User
-import com.daml.ledger.participant.state.index.v2._
 import com.daml.lf.data.Ref
+import com.daml.platform.localstore.api.{ObjectMetaUpdate, UserUpdate}
 
 object UserUpdateMapper extends UpdateMapperBase {
 
@@ -25,6 +25,7 @@ object UserUpdateMapper extends UpdateMapperBase {
     } yield {
       UserUpdate(
         id = user.id,
+        identityProviderId = user.identityProviderId,
         primaryPartyUpdateO = primaryPartyUpdate,
         isDeactivatedUpdateO = isDeactivatedUpdate,
         metadataUpdate = ObjectMetaUpdate(

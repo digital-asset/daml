@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.javaapi.data;
@@ -14,7 +14,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
  *
  * @see com.daml.ledger.api.v1.ValueOuterClass.Value#getTimestamp()
  */
-public class Timestamp extends Value {
+public final class Timestamp extends Value {
 
   /**
    * Constructs a {@link Timestamp} from milliseconds since UNIX epoch.

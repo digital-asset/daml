@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.runner.common
@@ -12,7 +12,6 @@ import com.daml.lf.VersionRange
 import org.scalacheck.Gen
 import com.daml.ledger.api.tls.{TlsConfiguration, TlsVersion}
 import com.daml.lf.data.Ref
-import com.daml.metrics.MetricsReporter
 import com.daml.platform.apiserver.{ApiServerConfig, AuthServiceConfig}
 import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.apiserver.configuration.RateLimitingConfig
@@ -25,12 +24,12 @@ import com.daml.platform.configuration.{
 }
 import com.daml.platform.indexer.{IndexerConfig, IndexerStartupMode, PackageMetadataViewConfig}
 import com.daml.platform.indexer.ha.HaConfig
+import com.daml.platform.localstore.{IdentityProviderManagementConfig, UserManagementConfig}
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.platform.store.DbSupport
 import com.daml.platform.store.DbSupport.DataSourceProperties
 import com.daml.platform.store.backend.postgresql.PostgresDataSourceConfig
 import com.daml.platform.store.backend.postgresql.PostgresDataSourceConfig.SynchronousCommitValue
-import com.daml.platform.usermanagement.UserManagementConfig
 import com.daml.ports.Port
 import io.netty.handler.ssl.ClientAuth
 
@@ -39,6 +38,7 @@ import java.net.InetSocketAddress
 import java.nio.file.Paths
 import java.time.Duration
 import java.time.temporal.ChronoUnit
+import com.daml.metrics.api.reporters.MetricsReporter
 
 object ArbitraryConfig {
   val duration: Gen[Duration] = for {
@@ -180,6 +180,12 @@ object ArbitraryConfig {
     maxCacheSize = maxCacheSize,
     cacheExpiryAfterWriteInSeconds = cacheExpiryAfterWriteInSeconds,
     maxUsersPageSize = maxUsersPageSize,
+  )
+
+  val identityProviderManagementConfig = for {
+    cacheExpiryAfterWrite <- Gen.finiteDuration
+  } yield IdentityProviderManagementConfig(
+    cacheExpiryAfterWrite = cacheExpiryAfterWrite
   )
 
   def jwtTimestampLeewayGen: Gen[JwtTimestampLeeway] = {

@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -379,7 +379,7 @@ class ExplicitDisclosureTest extends ExplicitDisclosureTestMethods {
   }
 }
 
-trait ExplicitDisclosureTestMethods extends AnyFreeSpec with Inside with Matchers {
+private[lf] trait ExplicitDisclosureTestMethods extends AnyFreeSpec with Inside with Matchers {
 
   import ExplicitDisclosureLib._
 

@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.apiserver.services.admin
@@ -16,9 +16,9 @@ import com.daml.platform.apiserver.services.admin.ApiMeteringReportService.toPro
 import org.mockito.MockitoSugar
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
-
 import java.time.temporal.ChronoUnit
 import java.time.{OffsetDateTime, ZoneOffset}
+
 import scala.concurrent.Future
 
 class ApiMeteringReportServiceSpec extends AsyncWordSpec with Matchers with MockitoSugar {
@@ -49,7 +49,7 @@ class ApiMeteringReportServiceSpec extends AsyncWordSpec with Matchers with Mock
 
       val request = GetMeteringReportRequest.defaultInstance.withFrom(toProtoTimestamp(from))
 
-      val Right(expected) =
+      val expected =
         new MeteringReportGenerator(someParticipantId, CommunityKey.key).generate(
           request,
           from,
@@ -63,7 +63,7 @@ class ApiMeteringReportServiceSpec extends AsyncWordSpec with Matchers with Mock
         .thenReturn(Future.successful(reportData))
 
       underTest.getMeteringReport(request).map { actual =>
-        actual shouldBe expected
+        expected.fold(_ => fail(), actual shouldBe _)
       }
 
     }
@@ -84,7 +84,7 @@ class ApiMeteringReportServiceSpec extends AsyncWordSpec with Matchers with Mock
         .withTo(toProtoTimestamp(to))
         .withApplicationId(appId)
 
-      val Right(expected) =
+      val expected =
         new MeteringReportGenerator(someParticipantId, CommunityKey.key).generate(
           request,
           from,
@@ -98,7 +98,7 @@ class ApiMeteringReportServiceSpec extends AsyncWordSpec with Matchers with Mock
         .thenReturn(Future.successful(reportData))
 
       underTest.getMeteringReport(request).map { actual =>
-        actual shouldBe expected
+        expected.fold(_ => fail(), actual shouldBe _)
       }
     }
 

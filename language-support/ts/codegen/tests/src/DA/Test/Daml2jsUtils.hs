@@ -1,4 +1,4 @@
--- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 module DA.Test.Daml2jsUtils (
     TsLibrary (..),
@@ -7,6 +7,8 @@ module DA.Test.Daml2jsUtils (
     tsLibraryName,
     setupYarnEnv,
     ) where
+
+{- HLINT ignore "locateRunfiles/package_app" -}
 
 import qualified Data.Text.Extended as T
 import qualified Data.ByteString.Lazy as BSL

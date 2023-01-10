@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.javaapi.data.codegen;
@@ -48,13 +48,29 @@ public class ContractId<T> implements Exercises<ExerciseCommand> {
   }
 
   @Override
-  public final ExerciseCommand makeExerciseCmd(String choice, Value choiceArgument) {
-    return new ExerciseCommand(getCompanion().TEMPLATE_ID, contractId, choice, choiceArgument);
+  public <A, R> Update<Exercised<R>> makeExerciseCmd(
+      Choice<?, ? super A, R> choice, A choiceArgument) {
+    var command =
+        new ExerciseCommand(
+            getCompanion().TEMPLATE_ID,
+            contractId,
+            choice.name,
+            choice.encodeArg.apply(choiceArgument));
+    return new Update.ExerciseUpdate<>(command, x -> x, choice.returnTypeDecoder);
   }
 
   // overridden by every code generator, but decoding abstractly can e.g.
   // produce a ContractId<Foo> that is not a Foo.ContractId
-  protected ContractTypeCompanion getCompanion() {
+  /**
+   * <strong>INTERNAL API</strong>: this is meant for use by {@link ContractId} and <em>should not
+   * be referenced directly</em>. Applications should refer to generated {@code exercise} methods
+   * instead.
+   *
+   * @hidden
+   */
+  protected ContractTypeCompanion<
+          ? extends Contract<? extends ContractId<T>, ?>, ? extends ContractId<T>, T, ?>
+      getCompanion() {
     throw new UnsupportedOperationException(
         "Cannot exercise on a contract ID type without code-generated exercise methods");
   }

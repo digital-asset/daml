@@ -1,4 +1,4 @@
--- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 -- | This module extracts docs from Daml modules. It does so by reading
@@ -41,6 +41,8 @@ import "ghc-lib-parser" DataCon
 import "ghc-lib-parser" Class
 import "ghc-lib-parser" BasicTypes
 import "ghc-lib-parser" Bag (bagToList)
+import "ghc-lib-parser" RdrHsSyn (isDamlGenerated)
+import "ghc-lib-parser" RdrName (rdrNameOcc)
 
 import Control.Monad
 import Control.Monad.IO.Class
@@ -205,7 +207,7 @@ getInterfaceInstanceMap ctx@DocCtx{..} decls =
         , name <- case unLoc decl of
             SigD _ (TypeSig _ (L _ n :_) _) -> [packRdrName n]
             _ -> []
-        , Just _ <- [T.stripPrefix "_interface_instance_" name]
+        , Just _ <- [T.stripPrefix "_interface_instance$_" name]
         , Just id <- [MS.lookup (Fieldname name) dc_ids]
         , TypeApp _ (Typename "InterfaceInstance")
             [ TypeApp _ parent []
@@ -239,11 +241,7 @@ getFctDocs ctx@DocCtx{..} (DeclData decl docs) = do
         fct_descr = docs
 
     guard (exportsFunction dc_exports fct_name)
-    guard (not $ "_choice_" `T.isPrefixOf` packRdrName name)
-    guard (not $ "_interface_instance_" `T.isPrefixOf` packRdrName name)
-    guard (not $ "_requires_" `T.isPrefixOf` packRdrName name)
-    guard (not $ "_method_" `T.isPrefixOf` packRdrName name)
-    guard (not $ "_view_" `T.isPrefixOf` packRdrName name)
+    guard (not $ isDamlGenerated $ rdrNameOcc name)
     Just FunctionDoc {..}
 
 getClsDocs :: DocCtx -> DeclData -> Maybe ClassDoc

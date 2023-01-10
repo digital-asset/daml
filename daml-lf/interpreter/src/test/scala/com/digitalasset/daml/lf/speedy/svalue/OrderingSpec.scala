@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.speedy
@@ -195,7 +195,7 @@ class OrderingSpec
     )
 
     machine.run() match {
-      case SResultFinal(value, _) => value
+      case SResultFinal(value) => value
       case _ => throw new Error(s"error while translating value $v")
     }
   }

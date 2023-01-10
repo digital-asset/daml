@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.http
@@ -22,7 +22,6 @@ import scala.concurrent.ExecutionContext
 import scala.concurrent.duration._
 import scalaz.\/
 import scalaz.std.option._
-import scalaz.syntax.apply._
 import scalaz.syntax.tag._
 import scalaz.syntax.traverse._
 import scalaz.syntax.std.option._
@@ -70,7 +69,8 @@ private[http] object WebsocketTestFixture extends StrictLogging with Assertions 
 
   private[http] object ContractDelta {
     private val tagKeys = Set("created", "archived", "error")
-    type T = (Vector[(String, JsValue)], Vector[domain.ArchivedContract], Option[domain.Offset])
+    type T =
+      (Vector[(domain.ContractId, JsValue)], Vector[domain.ArchivedContract], Option[domain.Offset])
 
     def unapply(
         jsv: JsValue
@@ -81,13 +81,15 @@ private[http] object WebsocketTestFixture extends StrictLogging with Assertions 
         pairs = sums collect { case JsObject(fields) => fields.view.filterKeys(tagKeys).toMap.head }
         if pairs.length == sums.length
         sets = pairs groupBy (_._1)
-        creates = sets.getOrElse("created", Vector()) collect { case (_, JsObject(fields)) =>
+        creates = sets.getOrElse("created", Vector()) collect { case (_, fields) =>
           fields
         }
 
-        createPairs = creates collect (Function unlift { add =>
-          (add get "contractId" collect { case JsString(v) => v }) tuple (add get "payload")
-        }): Vector[(String, JsValue)]
+        createPairs = creates map { add =>
+          import json.JsonProtocol.ActiveContractFormat
+          val ac = add.convertTo[domain.ActiveContract[domain.ContractTypeId.Resolved, JsValue]]
+          (ac.contractId, ac.payload)
+        }: Vector[(domain.ContractId, JsValue)]
 
         archives = sets.getOrElse("archived", Vector()) collect { case (_, adata) =>
           import json.JsonProtocol.ArchivedContractFormat

@@ -1,4 +1,4 @@
-.. Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 Extending Daml Applications
@@ -6,12 +6,6 @@ Extending Daml Applications
 
 .. toctree::
    :hidden:
-
-
-**Note:** Cross-SDK extensions require Daml-LF 1.8 or newer.
-This is the default starting from SDK 1.0. For older releases add
-``build-options: ["--target=1.8"]`` to your ``daml.yaml`` to select
-Daml-LF 1.8.
 
 Consider the following simple Daml model for carbon certificates:
 

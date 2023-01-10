@@ -1,9 +1,13 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.testtool.suites
 
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
+import com.daml.ledger.api.testtool.suites.v1_8.objectmeta.{
+  PartyManagementServiceObjectMetaIT,
+  UserManagementServiceObjectMetaIT,
+}
 import com.daml.ledger.api.tls.TlsConfiguration
 
 package object v1_8 {
@@ -31,6 +35,8 @@ package object v1_8 {
       new PackageServiceIT,
       new ParticipantPruningIT,
       new PartyManagementServiceIT,
+      new PartyManagementServiceObjectMetaIT,
+      new PartyManagementServiceUpdateRpcIT,
       new RaceConditionIT,
       new SemanticTests,
       new TimeServiceIT,
@@ -45,6 +51,8 @@ package object v1_8 {
       new TransactionServiceValidationIT,
       new TransactionServiceVisibilityIT,
       new UserManagementServiceIT,
+      new UserManagementServiceObjectMetaIT,
+      new UserManagementServiceUpdateRpcIT,
       new ValueLimitsIT,
       new WitnessesIT,
       new WronglyTypedContractIdIT,

@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 syntax = "proto3";
@@ -110,6 +110,7 @@ message CreatedEvent {
 
   // Metadata of the contract. Required for contracts created
   // after the introduction of explicit disclosure.
+  // Optional
   ContractMetadata metadata = 10;
 }
 

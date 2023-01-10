@@ -1,9 +1,10 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.perf.util
 
 import com.daml.ledger.api.perf.util.reporter.JMeterReporter
+import org.scalameter.KeyValue
 import org.scalameter.api._
 import org.scalameter.execution.{LocalExecutor, SeparateJvmsExecutor}
 import org.scalameter.picklers.Implicits._
@@ -51,11 +52,11 @@ abstract class PerformanceTest extends Bench[Double] {
 
   protected def daConfig: Seq[org.scalameter.KeyValue] =
     Seq[org.scalameter.KeyValue](
-      exec.independentSamples -> 1,
-      exec.minWarmupRuns -> 5,
-      exec.benchRuns -> 20,
-      exec.jvmflags -> List("-Xmx4096m", "-Xms4096m"),
-      verbose -> true,
+      KeyValue(exec.independentSamples -> 1),
+      KeyValue(exec.minWarmupRuns -> 5),
+      KeyValue(exec.benchRuns -> 20),
+      KeyValue(exec.jvmflags -> List("-Xmx4096m", "-Xms4096m")),
+      KeyValue(verbose -> true),
     )
 
   protected def await[T](f: => Future[T]): T = {

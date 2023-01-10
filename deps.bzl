@@ -1,4 +1,4 @@
-# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 #
@@ -54,8 +54,8 @@ zlib_version = "1.2.11"
 zlib_sha256 = "629380c90a77b964d896ed37163f5c3a34f6e6d897311f1df2a7016355c45eff"
 rules_nodejs_version = "4.6.1"
 rules_nodejs_sha256 = "d63ecec7192394f5cc4ad95a115f8a6c9de55c60d56c1f08da79c306355e4654"
-rules_jvm_external_version = "3.3"
-rules_jvm_external_sha256 = "d85951a92c0908c80bd8551002d66cb23c3434409c814179c0ff026b53544dab"
+rules_jvm_external_version = "4.4.2"
+rules_jvm_external_sha256 = "735602f50813eb2ea93ca3f5e43b1959bd80b213b836a07a62a29d757670b77b"
 rules_go_version = "0.29.0"
 rules_go_sha256 = "2b1641428dff9018f9e85c0384f03ec6c10660d935b750e3fa1492a281a53b0f"
 bazel_gazelle_version = "67a3e22af6547f43bb9b8e4dd0bad5f354ad4e60"
@@ -72,8 +72,8 @@ davl_v3_version = "51d3977be2ab22f7f4434fd4692ca2e17a7cce23"
 davl_v3_sha256 = "e8e76e21b50fb3adab36df26045b1e8c3ee12814abc60f137d39b864d2eae166"
 
 # daml cheat sheet
-daml_cheat_sheet_version = "d41ef10405635f092c10a6237df2763a7b011afa"  # 2022-06-13
-daml_cheat_sheet_sha256 = "726bfa931c6a39f2bd37a1bf3c3228e7a4ddc65bba0e6c8183fb7eccc1c314fa"
+daml_cheat_sheet_version = "e65f725ef3b19c9ffdee0baa3eee623cbb115024"  # 2022-11-28
+daml_cheat_sheet_sha256 = "e7ef4def3b7c6bada4235603b314ab0b1874bb949cd3c8d974d5443337e89a8b"
 
 platforms_version = "0.0.4"
 platforms_sha256 = "2697e95e085c6e1f970637d178e9dfa1231dca3a099d584ff85a7cb9c0af3826"
@@ -255,10 +255,10 @@ def daml_deps():
     if "com_google_protobuf" not in native.existing_rules():
         http_archive(
             name = "com_google_protobuf",
-            sha256 = "4dd35e788944b7686aac898f77df4e9a54da0ca694b8801bd6b2a9ffc1b3085e",
-            strip_prefix = "protobuf-3.19.2",
+            sha256 = "9a301cf94a8ddcb380b901e7aac852780b826595075577bb967004050c835056",
+            strip_prefix = "protobuf-3.19.6",
             urls = [
-                "https://github.com/protocolbuffers/protobuf/archive/refs/tags/v3.19.2.tar.gz",
+                "https://github.com/protocolbuffers/protobuf/archive/refs/tags/v3.19.6.tar.gz",
             ],
         )
 

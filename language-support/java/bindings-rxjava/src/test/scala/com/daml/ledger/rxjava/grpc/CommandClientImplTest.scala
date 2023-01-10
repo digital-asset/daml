@@ -1,27 +1,32 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.rxjava.grpc
 
-import java.time.{Duration, Instant}
-import java.util.{Optional, UUID}
-import java.util.concurrent.TimeUnit
-
-import com.daml.ledger.javaapi.data.{Command, CreateCommand, DamlRecord, Identifier}
-import com.daml.ledger.rxjava._
-import com.daml.ledger.rxjava.grpc.helpers.{DataLayerHelpers, LedgerServices, TestConfiguration}
 import com.daml.ledger.api.auth.{AuthService, AuthServiceWildcard}
 import com.daml.ledger.api.v1.command_service.{
   SubmitAndWaitForTransactionIdResponse,
   SubmitAndWaitForTransactionResponse,
   SubmitAndWaitForTransactionTreeResponse,
 }
+import com.daml.ledger.javaapi.data.{
+  Command,
+  CommandsSubmission,
+  CreateCommand,
+  DamlRecord,
+  Identifier,
+}
+import com.daml.ledger.rxjava._
+import com.daml.ledger.rxjava.grpc.helpers.{DataLayerHelpers, LedgerServices, TestConfiguration}
 import com.google.protobuf.empty.Empty
 import io.reactivex.Single
 import org.scalatest.OptionValues
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
+import java.util.UUID.randomUUID
+import java.util.concurrent.TimeUnit
+import java.util.Optional
 import scala.concurrent.Future
 import scala.jdk.CollectionConverters._
 
@@ -53,19 +58,18 @@ class CommandClientImplTest
   it should "send the given command to the Ledger" in {
     withCommandClient() { (client, service) =>
       val commands = genCommands(List.empty)
+      val params = CommandsSubmission
+        .create(commands.getApplicationId, commands.getCommandId, commands.getCommands)
+        .withActAs(commands.getParty)
+        .withMinLedgerTimeAbs(commands.getMinLedgerTimeAbsolute)
+        .withMinLedgerTimeRel(commands.getMinLedgerTimeRelative)
+        .withDeduplicationTime(commands.getDeduplicationTime)
+
       client
-        .submitAndWait(
-          commands.getWorkflowId,
-          commands.getApplicationId,
-          commands.getCommandId,
-          commands.getParty,
-          commands.getMinLedgerTimeAbsolute,
-          commands.getMinLedgerTimeRelative,
-          commands.getDeduplicationTime,
-          commands.getCommands,
-        )
+        .submitAndWait(params)
         .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
         .blockingGet()
+
       service.getLastRequest.value.getCommands.commands shouldBe empty
     }
   }
@@ -78,19 +82,20 @@ class CommandClientImplTest
       val record = new DamlRecord(recordId, List.empty[DamlRecord.Field].asJava)
       val command = new CreateCommand(new Identifier("a", "a", "b"), record)
       val commands = genCommands(List(command))
+
+      val params = CommandsSubmission
+        .create(commands.getApplicationId, commands.getCommandId, commands.getCommands)
+        .withWorkflowId(commands.getWorkflowId)
+        .withActAs(commands.getParty)
+        .withMinLedgerTimeAbs(commands.getMinLedgerTimeAbsolute)
+        .withMinLedgerTimeRel(commands.getMinLedgerTimeRelative)
+        .withDeduplicationTime(commands.getDeduplicationTime)
+
       client
-        .submitAndWait(
-          commands.getWorkflowId,
-          commands.getApplicationId,
-          commands.getCommandId,
-          commands.getParty,
-          commands.getMinLedgerTimeAbsolute,
-          commands.getMinLedgerTimeRelative,
-          commands.getDeduplicationTime,
-          commands.getCommands,
-        )
+        .submitAndWait(params)
         .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
         .blockingGet()
+
       service.getLastRequest.value.getCommands.applicationId shouldBe commands.getApplicationId
       service.getLastRequest.value.getCommands.commandId shouldBe commands.getCommandId
       service.getLastRequest.value.getCommands.party shouldBe commands.getParty
@@ -128,76 +133,34 @@ class CommandClientImplTest
     List(command).asJava
   }
 
-  private type SubmitAndWait[A] =
-    (
-        String,
-        String,
-        String,
-        String,
-        Optional[Instant],
-        Optional[Duration],
-        Optional[Duration],
-        java.util.List[Command],
-    ) => Single[A]
-  private type SubmitAndWaitWithToken[A] =
-    (
-        String,
-        String,
-        String,
-        String,
-        Optional[Instant],
-        Optional[Duration],
-        Optional[Duration],
-        java.util.List[Command],
-        String,
-    ) => Single[A]
+  private type SubmitAndWait[A] = CommandsSubmission => Single[A]
 
   private def submitAndWaitFor[A](
-      noToken: SubmitAndWait[A],
-      withToken: SubmitAndWaitWithToken[A],
-  )(commands: java.util.List[Command], party: String, token: Option[String]): A =
-    token
-      .fold(
-        noToken(
-          UUID.randomUUID.toString,
-          UUID.randomUUID.toString,
-          UUID.randomUUID.toString,
-          party,
-          Optional.empty(),
-          Optional.empty(),
-          Optional.empty(),
-          dummyCommands,
-        )
-      )(
-        withToken(
-          UUID.randomUUID.toString,
-          UUID.randomUUID.toString,
-          UUID.randomUUID.toString,
-          party,
-          Optional.empty(),
-          Optional.empty(),
-          Optional.empty(),
-          commands,
-          _,
-        )
+      submit: SubmitAndWait[A]
+  )(commands: java.util.List[Command], party: String, token: Option[String]) = {
+    val params = CommandsSubmission
+      .create(
+        randomUUID().toString,
+        randomUUID().toString,
+        token.fold(dummyCommands)(_ => commands),
       )
-      .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
-      .blockingGet()
+      .withActAs(party)
+      .withAccessToken(Optional.ofNullable(token.orNull))
+
+    submit(params).timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS).blockingGet()
+  }
 
   private def submitAndWait(client: CommandClient) =
-    submitAndWaitFor(client.submitAndWait, client.submitAndWait) _
+    submitAndWaitFor(client.submitAndWait) _
 
   private def submitAndWaitForTransaction(client: CommandClient) =
-    submitAndWaitFor(client.submitAndWaitForTransaction, client.submitAndWaitForTransaction) _
+    submitAndWaitFor(client.submitAndWaitForTransaction) _
 
   private def submitAndWaitForTransactionId(client: CommandClient) =
-    submitAndWaitFor(client.submitAndWaitForTransactionId, client.submitAndWaitForTransactionId) _
+    submitAndWaitFor(client.submitAndWaitForTransactionId) _
 
   private def submitAndWaitForTransactionTree(client: CommandClient) =
-    submitAndWaitFor(
-      client.submitAndWaitForTransactionTree,
-      client.submitAndWaitForTransactionTree,
-    ) _
+    submitAndWaitFor(client.submitAndWaitForTransactionTree) _
 
   behavior of "Authorization"
 

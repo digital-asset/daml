@@ -1,11 +1,11 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.v2
 
 import java.util.concurrent.CompletionStage
 import com.daml.ledger.api.health.ReportsHealth
-import com.daml.lf.command.DisclosedContract
+import com.daml.lf.command.ProcessedDisclosedContract
 import com.daml.lf.data.ImmArray
 import com.daml.lf.transaction.{GlobalKey, SubmittedTransaction, Versioned}
 import com.daml.lf.value.Value
@@ -100,7 +100,7 @@ trait WriteService
     * @param globalKeyMapping            Input key mapping inferred by interpretation.
     *                                    The map should contain all contract keys that were used during interpretation.
     *                                    A value of None means no contract was found with this contract key.
-    * @param explicitlyDisclosedContracts  Explicitly disclosed contracts used during interpretation.
+    * @param explicitlyDisclosedContracts      Explicitly disclosed contracts used during interpretation.
     */
   def submitTransaction(
       submitterInfo: SubmitterInfo,
@@ -108,7 +108,7 @@ trait WriteService
       transaction: SubmittedTransaction,
       estimatedInterpretationCost: Long,
       globalKeyMapping: Map[GlobalKey, Option[Value.ContractId]],
-      explicitlyDisclosedContracts: ImmArray[Versioned[DisclosedContract]],
+      explicitlyDisclosedContracts: ImmArray[Versioned[ProcessedDisclosedContract]],
   )(implicit
       loggingContext: LoggingContext,
       telemetryContext: TelemetryContext,

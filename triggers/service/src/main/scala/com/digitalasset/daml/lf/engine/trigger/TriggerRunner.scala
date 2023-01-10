@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.engine.trigger
@@ -8,6 +8,7 @@ import akka.actor.typed.scaladsl.Behaviors
 import akka.actor.typed.{ActorRef, Behavior, ChildFailed, PostStop}
 import akka.stream.Materializer
 import com.daml.grpc.adapter.ExecutionSequencerFactory
+import com.daml.lf.engine.trigger.ToLoggingContext._
 import com.daml.logging.ContextualizedLogger
 import spray.json._
 
@@ -47,7 +48,7 @@ object TriggerRunner {
       esf: ExecutionSequencerFactory,
       mat: Materializer,
   ): Behavior[TriggerRunner.Message] =
-    config.withLoggingContext { implicit loggingContext =>
+    config.withTriggerLogContext { implicit triggerContext =>
       Behaviors.setup { ctx =>
         // Spawn a trigger runner impl. Supervise it. Stop immediately on
         // initialization halted exceptions, retry any initialization or

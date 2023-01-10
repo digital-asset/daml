@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -137,7 +137,7 @@ private[engine] final class Preprocessor(
   private[engine] def preprocessApiCommand(
       cmd: command.ApiCommand
   ): Result[speedy.Command] =
-    safelyRun(pullTemplatePackage(List(cmd.typeId.merge))) {
+    safelyRun(pullTemplatePackage(List(cmd.typeId))) {
       commandPreprocessor.unsafePreprocessApiCommand(cmd)
     }
 
@@ -146,7 +146,7 @@ private[engine] final class Preprocessor(
   def preprocessApiCommands(
       cmds: data.ImmArray[command.ApiCommand]
   ): Result[ImmArray[speedy.Command]] =
-    safelyRun(pullTemplatePackage(cmds.toSeq.view.map(_.typeId.merge))) {
+    safelyRun(pullTemplatePackage(cmds.toSeq.view.map(_.typeId))) {
       commandPreprocessor.unsafePreprocessApiCommands(cmds)
     }
 

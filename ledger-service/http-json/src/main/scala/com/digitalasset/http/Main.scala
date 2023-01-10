@@ -1,9 +1,10 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.http
 
 import java.nio.file.Path
+
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http.ServerBinding
 import akka.stream.Materializer
@@ -17,11 +18,13 @@ import scalaz.std.anyVal._
 import scalaz.std.option._
 import scalaz.syntax.show._
 import com.daml.cliopts.{GlobalLogLevel, Logging}
+import com.daml.metrics.api.reporters.MetricsReporting
+import com.daml.http.metrics.HttpJsonApiMetrics
 import com.daml.http.util.Logging.{InstanceUUID, instanceUUIDLogCtx}
 import com.daml.ledger.resources.ResourceContext
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
-
-import com.daml.metrics.MetricsReporting
+import com.daml.metrics.api.dropwizard.DropwizardMetricsFactory
+import com.daml.metrics.api.opentelemetry.OpenTelemetryFactory
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future}
@@ -98,6 +101,11 @@ object Main {
       getClass.getName,
       config.metricsReporter,
       config.metricsReportingInterval,
+    )((registry, otelMeter) =>
+      new HttpJsonApiMetrics(
+        new DropwizardMetricsFactory(registry),
+        new OpenTelemetryFactory(otelMeter),
+      )
     )
     val metricsResource = metricsReporting.acquire()
 

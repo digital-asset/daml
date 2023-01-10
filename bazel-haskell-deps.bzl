@@ -1,4 +1,4 @@
-# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 # Defines external Haskell dependencies.
@@ -18,8 +18,8 @@ load("@dadew//:dadew.bzl", "dadew_tool_home")
 load("@rules_haskell//haskell:cabal.bzl", "stack_snapshot")
 load("//bazel_tools/ghc-lib:repositories.bzl", "ghc_lib_and_dependencies")
 
-GHCIDE_REV = "d54267ac4ee420e31de7e387822a67df5ec58d99"
-GHCIDE_SHA256 = "be236e684c3799951074bde26381a763e50752ff5b0362feede25a52c38ab60e"
+GHCIDE_REV = "4e3629a9ae4244e60f5a69288d2b9dd7c966acb9"
+GHCIDE_SHA256 = "c51b34790c08dcde124ba6328a21ca0bde81e6ed3a8f8b84ff1dca2e5fe76df6"
 JS_JQUERY_VERSION = "3.3.1"
 JS_DGTABLE_VERSION = "0.5.2"
 JS_FLOT_VERSION = "0.8.3"

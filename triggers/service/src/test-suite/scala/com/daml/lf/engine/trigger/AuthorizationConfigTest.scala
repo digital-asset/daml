@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.engine.trigger
@@ -21,7 +21,7 @@ class AuthorizationConfigTest extends AsyncWordSpec with Matchers {
     }
   }
 
-  // TEST_EVIDENCE: Input Validation: error on specifying both authCommonUri and authInternalUri/authExternalUri for the trigger service
+  // TEST_EVIDENCE: Authorization: error on specifying both authCommonUri and authInternalUri/authExternalUri for the trigger service
   "should error on specifying both authCommonUri and authInternalUri/authExternalUri" in {
     val invalidConfigs = List(
       """
@@ -49,7 +49,7 @@ class AuthorizationConfigTest extends AsyncWordSpec with Matchers {
     Succeeded
   }
 
-  // TEST_EVIDENCE: Input Validation: error on specifying only authInternalUri and no authExternalUri for the trigger service
+  // TEST_EVIDENCE: Authorization: error on specifying only authInternalUri and no authExternalUri for the trigger service
   "should error on specifying only authInternalUri and no authExternalUri" in {
     ConfigSource
       .string("""

@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.engine.trigger
@@ -37,7 +37,7 @@ class CliConfigTest extends AnyWordSpec with Matchers with OptionValues {
       ) should ===(None)
     }
 
-    // TEST_EVIDENCE: Input Validation: auth and auth-* should not be set together for the trigger service
+    // TEST_EVIDENCE: Authorization: auth and auth-* should not be set together for the trigger service
     "auth and auth-* should not be set together" in {
       parse(baseOpts ++ Seq("--auth", "http://example.com"), Set()) should !==(None)
       parse(

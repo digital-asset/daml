@@ -1,25 +1,26 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.server.api.validation
 
+import com.daml.api.util.TimestampConversion
 import com.daml.error.ContextualizedErrorLogger
 import com.daml.error.definitions.LedgerApiErrors
 import com.daml.ledger.api.domain
-import com.daml.ledger.api.domain.LedgerId
+import com.daml.ledger.api.domain.{IdentityProviderId, JwksUrl, LedgerId}
 import com.daml.ledger.api.v1.value.Identifier
 import com.daml.ledger.api.validation.ValidationErrors._
-import com.daml.ledger.participant.state.index.ResourceAnnotationValidation
-import com.daml.ledger.participant.state.index.ResourceAnnotationValidation.{
+import com.daml.lf.crypto.Hash
+import com.daml.lf.data.{Bytes, Ref, Time}
+import com.daml.lf.data.Ref.Party
+import com.daml.lf.value.Value.ContractId
+import com.daml.platform.server.api.validation.ResourceAnnotationValidation.{
   AnnotationsSizeExceededError,
   EmptyAnnotationsValueError,
   InvalidAnnotationsKeyError,
 }
-import com.daml.lf.crypto.Hash
-import com.daml.lf.data.{Bytes, Ref}
-import com.daml.lf.data.Ref.Party
-import com.daml.lf.value.Value.ContractId
 import com.google.protobuf.ByteString
+import com.google.protobuf.timestamp.Timestamp
 import io.grpc.StatusRuntimeException
 
 import scala.util.{Failure, Success, Try}
@@ -98,6 +99,13 @@ object FieldValidations {
     }
   }
 
+  def requireJwksUrl(raw: String, fieldName: String)(implicit
+      errorLogger: ContextualizedErrorLogger
+  ): Either[StatusRuntimeException, JwksUrl] =
+    JwksUrl.fromString(raw).left.map { error =>
+      invalidField(fieldName = fieldName, message = s"Malformed URL: $error")
+    }
+
   def requireParties(parties: Set[String])(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, Set[Party]] =
@@ -132,6 +140,25 @@ object FieldValidations {
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, Ref.LedgerString] =
     requireNonEmptyParsedId(Ref.LedgerString.fromString)(s, fieldName)
+
+  def requireIdentityProviderId(
+      s: String,
+      fieldName: String,
+  )(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): Either[StatusRuntimeException, IdentityProviderId.Id] =
+    IdentityProviderId.Id.fromString(s).left.map(invalidField(fieldName, _))
+
+  def optionalIdentityProviderId(
+      s: String,
+      fieldName: String,
+  )(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): Either[StatusRuntimeException, IdentityProviderId] = {
+    if (s.isEmpty) Right(IdentityProviderId.Default)
+    else
+      IdentityProviderId.Id.fromString(s).left.map(invalidField(fieldName, _))
+  }
 
   def requireLedgerString(s: String)(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
@@ -241,4 +268,20 @@ object FieldValidations {
       case Right(_) => Right(annotations)
     }
   }
+
+  def validateTimestamp(timestamp: Timestamp, fieldName: String)(implicit
+      errorLogger: ContextualizedErrorLogger
+  ): Either[StatusRuntimeException, Time.Timestamp] =
+    Try(
+      TimestampConversion
+        .toLf(
+          protoTimestamp = timestamp,
+          mode = TimestampConversion.ConversionMode.Exact,
+        )
+    ).toEither.left
+      .map(errMsg =>
+        invalidArgument(
+          s"Can not represent $fieldName ($timestamp) as a Daml timestamp: ${errMsg.getMessage}"
+        )
+      )
 }

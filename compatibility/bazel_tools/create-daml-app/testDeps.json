@@ -5,6 +5,8 @@
     "@types/puppeteer": "^3.0.1",
     "@types/wait-on": "^4.0.0",
     "puppeteer": "^4.0.1",
-    "wait-on": "^4.0.2"
+    "wait-on": "^4.0.2",
+    "@types/babel__traverse": "7.18.1"
+
   }
 }

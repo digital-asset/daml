@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.packages
@@ -15,10 +15,11 @@ import com.daml.ledger.resources.TestResourceContext
 import com.daml.ledger.test.ModelTestDar
 import com.daml.lf.archive.DarParser
 import com.daml.lf.data.Ref.PackageId
+import com.daml.metrics.api.dropwizard.DropwizardTimer
 import com.daml.platform.testing.LogCollector
 import org.scalatest.BeforeAndAfterEach
-import org.scalatest.wordspec.AsyncWordSpec
 import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{Await, Future}
@@ -32,7 +33,7 @@ class DeduplicatingPackageLoaderSpec
   private[this] var actorSystem: ActorSystem = _
   private[this] val loadCount = new AtomicLong()
   private[this] val metricRegistry = new MetricRegistry
-  private[this] val metric = metricRegistry.timer("test-metric")
+  private[this] val metric = DropwizardTimer("test-metric", metricRegistry.timer("test-metric"))
 
   private[this] val dar = {
     val fileName = new File(rlocation(ModelTestDar.path))

@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -7,7 +7,8 @@ package value
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref.{Identifier, Name}
 import com.daml.lf.data._
-import com.daml.lf.language.{Ast, StablePackage}
+import com.daml.lf.language.Ast
+import com.daml.lf.language.StablePackage.DA
 import data.ScalazEqual._
 
 import scalaz.{@@, Equal, Order, Tag}
@@ -101,8 +102,7 @@ object Value {
   ) extends Value
 
   object ValueArithmeticError {
-    val tyCon: Ref.TypeConName =
-      StablePackage.DA.Exception.ArithmeticError.assertIdentifier("ArithmeticError")
+    val tyCon = DA.Exception.ArithmeticError.ArithmeticError
     val typ: Ast.Type = Ast.TTyCon(tyCon)
     private val someTyCon = Some(tyCon)
     val fieldName: Ref.Name = Ref.Name.assertFromString("message")
@@ -166,11 +166,8 @@ object Value {
     new `Value Equal instance`
 
   /** A contract instance is a value plus the template that originated it. */
-  final case class ContractInstance(
-      template: Identifier,
-      arg: Value,
-      agreementText: String,
-  ) extends CidContainer[ContractInstance] {
+  final case class ContractInstance(template: Identifier, arg: Key)
+      extends CidContainer[ContractInstance] {
 
     override protected def self: this.type = this
 
@@ -181,23 +178,32 @@ object Value {
       copy(arg = arg.mapCid(f))
   }
 
+  final case class ContractInstanceWithAgreement(
+      contractInstance: ContractInstance,
+      agreementText: String,
+  ) extends CidContainer[ContractInstanceWithAgreement] {
+
+    override protected def self: this.type = this
+
+    def map(f: Value => Value): ContractInstanceWithAgreement =
+      copy(contractInstance = contractInstance.map(f))
+
+    def mapCid(f: ContractId => ContractId): ContractInstanceWithAgreement =
+      copy(contractInstance = contractInstance.mapCid(f))
+  }
+
   type VersionedContractInstance = transaction.Versioned[ContractInstance]
 
   object VersionedContractInstance {
-    def apply(
-        template: Identifier,
-        arg: VersionedValue,
-        agreementText: String,
-    ): VersionedContractInstance =
-      arg.map(ContractInstance(template, _, agreementText))
+    def apply(template: Identifier, arg: VersionedValue): VersionedContractInstance =
+      arg.map((arg: Key) => ContractInstance(template, arg))
 
     def apply(
         version: transaction.TransactionVersion,
         template: Identifier,
-        arg: Value,
-        agreementText: String,
+        arg: Key,
     ): VersionedContractInstance =
-      transaction.Versioned(version, ContractInstance(template, arg, agreementText))
+      transaction.Versioned(version, ContractInstance(template, arg))
   }
 
   type NodeIdx = Int

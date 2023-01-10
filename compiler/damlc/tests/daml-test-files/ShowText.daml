@@ -1,0 +1,199 @@
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- @ENABLE-SCENARIOS
+
+module ShowText where
+
+import DA.Foldable (forA_)
+import DA.Text (explode, fromCodePoints, implode, toCodePoints, unlines)
+
+-- # Setup
+
+testCase : Text -> Text -> Scenario ()
+testCase input expectedOutput = do
+  let actualOutput = show input
+  if expectedOutput == actualOutput
+    then pure ()
+    else assertFail $ unlines
+      [ "ShowText.testCase failed:"
+      , "|              input          = " <> show input
+      , "| toCodePoints input          = " <> show (toCodePoints input)
+      , "|              expectedOutput = " <> show expectedOutput
+      , "| toCodePoints expectedOutput = " <> show (toCodePoints expectedOutput)
+      , "|              actualOutput   = " <> show actualOutput
+      , "| toCodePoints actualOutput   = " <> show (toCodePoints actualOutput)
+      ]
+
+infix 2 ==>
+(==>) : Text -> Text -> Scenario ()
+(==>) = testCase
+
+longStringSize : Int
+longStringSize = 10000
+
+longStringOf : Text -> Text
+longStringOf = implode . replicate longStringSize
+
+-- # Test cases
+
+empty_string =
+  "" ==> "\"\""
+
+double_quote =
+  "\"" ==> "\"\\\"\""
+
+beyond_ascii = do
+  "é" ==> "\"\\233\""
+  "éx" ==> "\"\\233x\""
+  "é" <> "x" ==> "\"\\233x\""
+  "é0" ==> "\"\\233\\&0\""
+  "é" <> "0" ==> "\"\\233\\&0\""
+  "\233" ==> "\"\\233\""
+  "\233x" ==> "\"\\233x\""
+  "\233" <> "x" ==> "\"\\233x\""
+  "\2330" ==> "\"\\2330\""
+  "\233\&0" ==> "\"\\233\\&0\""
+  "\233" <> "0" ==> "\"\\233\\&0\""
+  "é" <> exes ==> "\"\\233" <> exes <> "\""
+  "\233" <> exes ==> "\"\\233" <> exes <> "\""
+  "é" <> zeros ==> "\"\\233\\&" <> zeros <> "\""
+  "\233" <> zeros ==> "\"\\233\\&" <> zeros <> "\""
+  where
+    exes = longStringOf "x"
+    zeros = longStringOf "0"
+
+backslash =
+  "\\" ==> "\"\\\\\""
+
+printables =
+  forA_ (explode printableChars) \c ->
+    c ==> "\"" <> c <> "\""
+  where
+    printableChars =
+      " !#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[]^_`abcdefghijklmnopqrstuvwxyz{|}~"
+
+control_NUL =
+  "\NUL" ==> "\"\\NUL\""
+
+control_SOH =
+  "\SOH" ==> "\"\\SOH\""
+
+control_STX =
+  "\STX" ==> "\"\\STX\""
+
+control_ETX =
+  "\ETX" ==> "\"\\ETX\""
+
+control_EOT =
+  "\EOT" ==> "\"\\EOT\""
+
+control_ENQ =
+  "\ENQ" ==> "\"\\ENQ\""
+
+control_ACK =
+  "\ACK" ==> "\"\\ACK\""
+
+control_BEL = do
+  -- Note portable representation!
+  "\a" ==> "\"\\a\""
+  "\BEL" ==> "\"\\a\""
+
+control_BS = do
+  -- Note portable representation!
+  "\b" ==> "\"\\b\""
+  "\BS" ==> "\"\\b\""
+
+control_HT = do
+  -- Note portable representation!
+  "\t" ==> "\"\\t\""
+  "\HT" ==> "\"\\t\""
+
+control_LF = do
+  -- Note portable representation!
+  "\n" ==> "\"\\n\""
+  "\LF" ==> "\"\\n\""
+
+control_VT = do
+  -- Note portable representation!
+  "\v" ==> "\"\\v\""
+  "\VT" ==> "\"\\v\""
+
+control_FF = do
+  -- Note portable representation!
+  "\f" ==> "\"\\f\""
+  "\FF" ==> "\"\\f\""
+
+control_CR = do
+  -- Note portable representation!
+  "\r" ==> "\"\\r\""
+  "\CR" ==> "\"\\r\""
+
+control_SO = do
+  "\SO" ==> "\"\\SO\""
+  "\SOh" ==> "\"\\SOh\""
+  "\SO\&h" ==> "\"\\SOh\""
+  "\SO" <> "h" ==> "\"\\SOh\""
+  "\SO\&H" ==> "\"\\SO\\&H\""
+  "\SO" <> "H" ==> "\"\\SO\\&H\""
+  "\SO" <> lowercaseHs ==> "\"\\SO" <> lowercaseHs <> "\""
+  "\SO" <> uppercaseHs ==> "\"\\SO\\&" <> uppercaseHs <> "\""
+  where
+    lowercaseHs = longStringOf "h"
+    uppercaseHs = longStringOf "H"
+
+control_SI =
+  "\SI" ==> "\"\\SI\""
+
+control_DLE =
+  "\DLE" ==> "\"\\DLE\""
+
+control_DC1 =
+  "\DC1" ==> "\"\\DC1\""
+
+control_DC2 =
+  "\DC2" ==> "\"\\DC2\""
+
+control_DC3 =
+  "\DC3" ==> "\"\\DC3\""
+
+control_DC4 =
+  "\DC4" ==> "\"\\DC4\""
+
+control_NAK =
+  "\NAK" ==> "\"\\NAK\""
+
+control_SYN =
+  "\SYN" ==> "\"\\SYN\""
+
+control_ETB =
+  "\ETB" ==> "\"\\ETB\""
+
+control_CAN =
+  "\CAN" ==> "\"\\CAN\""
+
+control_EM =
+  "\EM" ==> "\"\\EM\""
+
+control_SUB =
+  "\SUB" ==> "\"\\SUB\""
+
+control_ESC =
+  "\ESC" ==> "\"\\ESC\""
+
+control_FS =
+  "\FS" ==> "\"\\FS\""
+
+control_GS =
+  "\GS" ==> "\"\\GS\""
+
+control_RS =
+  "\RS" ==> "\"\\RS\""
+
+control_US =
+  "\US" ==> "\"\\US\""
+
+exhaustive = scenario do
+  forA_ [0..255] \i -> do
+    debugRaw ("exhaustive [" <> show i <> "/255]")
+    debugRaw (show (fromCodePoints [i]))

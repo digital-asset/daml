@@ -1,4 +1,4 @@
-# <a name="module-damlhasversion-92471"></a>Module DamlHasVersion
+# <a name="module-damlhasversion-92471"></a>DamlHasVersion
 
 Testing the daml version header.
 

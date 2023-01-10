@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -246,9 +246,12 @@ class ReplService(
     val mod = archive.moduleDecoder(lfVer, homePackageId).assertFromByteString(req.getDamlLf1)
     val pkg = Package(mainModules.updated(mod.name, mod), Set.empty, lfVer, None)
     // TODO[AH] Provide daml-script package id from REPL client.
-    val Some(scriptPackageId) = this.signatures.collectFirst {
-      case (pkgId, pkg) if pkg.modules.contains(DottedName.assertFromString("Daml.Script")) => pkgId
-    }
+    val scriptPackageId = this.signatures
+      .collectFirst {
+        case (pkgId, pkg) if pkg.modules.contains(DottedName.assertFromString("Daml.Script")) =>
+          pkgId
+      }
+      .getOrElse(sys.error("Cannot find Daml.Script module"))
 
     var scriptExpr: SExpr = SEVal(
       LfDefRef(

@@ -1,4 +1,4 @@
-# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -57,7 +57,7 @@ da_scala_library(
         "//ledger/ledger-api-client",
         "//ledger/ledger-api-common",
         "//ledger/ledger-api-domain",
-        "//ledger/metrics",
+        "//observability/telemetry",
         "@maven//:ch_qos_logback_logback_classic",
         "@maven//:ch_qos_logback_logback_core",
         "@maven//:com_google_api_grpc_proto_google_common_protos",
@@ -99,6 +99,7 @@ da_scala_test_suite(
         "//ledger-api/rs-grpc-bridge",
         "//ledger/ledger-api-client",
         "//ledger/metrics",
+        "//observability/telemetry",
         "@maven//:com_google_api_grpc_proto_google_common_protos",
         "@maven//:com_typesafe_config",
         "@maven//:org_scalatest_scalatest_compatible",

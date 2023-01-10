@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.engine.trigger.test
@@ -12,8 +12,9 @@ import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.daml.ledger.api.v1.commands.CreateCommand
 import com.daml.ledger.api.v1.{value => LedgerApi}
 import com.daml.ledger.sandbox.SandboxOnXForTest.ParticipantId
+import com.daml.lf.engine.trigger.Runner.TriggerContext
 import com.daml.platform.services.time.TimeProviderType
-import io.grpc.{Status, StatusRuntimeException}
+import io.grpc.{Status => grpcStatus, StatusRuntimeException}
 import org.scalatest._
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
@@ -34,6 +35,34 @@ abstract class AbstractFuncTests
   self: Suite =>
 
   this.getClass.getSimpleName can {
+    "Batch trigger" should {
+      val triggerId = QualifiedName.assertFromString("BatchTrigger:test")
+
+      "process and track contract creation, exercise and archive" in {
+        for {
+          client <- ledgerClient()
+          party <- allocateParty(client)
+          runner = getRunner(client, triggerId, party)
+          (acs, offset) <- runner.queryACS()
+          // 1 for create of T
+          // 1 for completion
+          // 1 for archive on T
+          // 1 for completion
+          finalState <- runner
+            .runWithACS(acs, offset, msgFlow = Flow[TriggerContext[TriggerMsg]].take(4))
+            ._2
+        } yield {
+          inside(finalState) { case SList(commandIds) =>
+            commandIds.toSet should have size 2
+            // ensure all are UUIDs
+            commandIds.map(inside(_) { case SText(s) =>
+              SText(UUID.fromString(s).toString)
+            }) should ===(commandIds)
+          }
+        }
+      }
+    }
+
     "AcsTests" should {
       val assetId = LedgerApi.Identifier(packageId, "ACS", "Asset")
       val assetMirrorId = LedgerApi.Identifier(packageId, "ACS", "AssetMirror")
@@ -78,7 +107,9 @@ abstract class AbstractFuncTests
           // 1 for the create in the trigger
           // 1 for the exercise in the trigger
           // 2 completions for the trigger
-          finalStateF = runner.runWithACS(acs, offset, msgFlow = Flow[TriggerMsg].take(6))._2
+          finalStateF = runner
+            .runWithACS(acs, offset, msgFlow = Flow[TriggerContext[TriggerMsg]].take(6))
+            ._2
           contractId <- create(client, party, asset(party))
           result <- finalStateF.map(toResult)
           acs <- queryACS(client, party)
@@ -102,7 +133,9 @@ abstract class AbstractFuncTests
           // 2 for the creates in the trigger
           // 2 for the exercises in the trigger
           // 4 completions for the trigger
-          finalStateF = runner.runWithACS(acs, offset, msgFlow = Flow[TriggerMsg].take(12))._2
+          finalStateF = runner
+            .runWithACS(acs, offset, msgFlow = Flow[TriggerContext[TriggerMsg]].take(12))
+            ._2
 
           contractId1 <- create(client, party, asset(party))
           contractId2 <- create(client, party, asset(party))
@@ -130,7 +163,9 @@ abstract class AbstractFuncTests
           // 2 for the creates in the trigger
           // 2 for the exercises in the trigger
           // 4 for the completions in the trigger
-          finalStateF = runner.runWithACS(acs, offset, msgFlow = Flow[TriggerMsg].take(16))._2
+          finalStateF = runner
+            .runWithACS(acs, offset, msgFlow = Flow[TriggerContext[TriggerMsg]].take(16))
+            ._2
 
           contractId1 <- create(client, party, asset(party))
           contractId2 <- create(client, party, asset(party))
@@ -181,6 +216,7 @@ abstract class AbstractFuncTests
             )
           ),
         )
+
       "1 original, 0 subscriber" in {
         for {
           client <- ledgerClient()
@@ -189,7 +225,9 @@ abstract class AbstractFuncTests
           (acs, offset) <- runner.queryACS()
           // 1 for create of original
           // 1 for corresponding completion
-          finalStateF = runner.runWithACS(acs, offset, msgFlow = Flow[TriggerMsg].take(2))._2
+          finalStateF = runner
+            .runWithACS(acs, offset, msgFlow = Flow[TriggerContext[TriggerMsg]].take(2))
+            ._2
           _ <- create(client, party, original(party, "original0"))
           _ <- finalStateF
           acs <- queryACS(client, party)
@@ -199,6 +237,7 @@ abstract class AbstractFuncTests
           acs shouldNot contain key copyId
         }
       }
+
       "1 original, 1 subscriber" in {
         for {
           client <- ledgerClient()
@@ -210,7 +249,9 @@ abstract class AbstractFuncTests
           // 2 for corresponding completions
           // 1 for create of copy
           // 1 for corresponding completion
-          finalStateF = runner.runWithACS(acs, offset, msgFlow = Flow[TriggerMsg].take(6))._2
+          finalStateF = runner
+            .runWithACS(acs, offset, msgFlow = Flow[TriggerContext[TriggerMsg]].take(6))
+            ._2
           _ <- create(client, party, original(party, "original0"))
           _ <- create(client, party, subscriber(party, party))
           _ <- finalStateF
@@ -221,6 +262,7 @@ abstract class AbstractFuncTests
           acs(copyId) should have length 1
         }
       }
+
       "2 original, 1 subscriber" in {
         for {
           client <- ledgerClient()
@@ -231,7 +273,9 @@ abstract class AbstractFuncTests
           // 1 for create of subscriber
           // 3 for corresponding completions
           // 2 for create of copy
-          finalStateF = runner.runWithACS(acs, offset, msgFlow = Flow[TriggerMsg].take(10))._2
+          finalStateF = runner
+            .runWithACS(acs, offset, msgFlow = Flow[TriggerContext[TriggerMsg]].take(10))
+            ._2
           _ <- create(client, party, original(party, "original0"))
           _ <- create(client, party, original(party, "original1"))
           _ <- create(client, party, subscriber(party, party))
@@ -249,6 +293,7 @@ abstract class AbstractFuncTests
       val triggerId = QualifiedName.assertFromString("Retry:retryTrigger")
       val tId = LedgerApi.Identifier(packageId, "Retry", "T")
       val doneId = LedgerApi.Identifier(packageId, "Retry", "Done")
+
       "3 retries" in {
         for {
           client <- ledgerClient()
@@ -260,7 +305,7 @@ abstract class AbstractFuncTests
           // 3 failed completion for exercises
           // 1 for create of Done
           // 1 for corresponding completion
-          _ <- runner.runWithACS(acs, offset, msgFlow = Flow[TriggerMsg].take(7))._2
+          _ <- runner.runWithACS(acs, offset, msgFlow = Flow[TriggerContext[TriggerMsg]].take(7))._2
           acs <- queryACS(client, party)
         } yield {
           acs(tId) should have length 1
@@ -273,6 +318,7 @@ abstract class AbstractFuncTests
       val triggerId = QualifiedName.assertFromString("ExerciseByKey:exerciseByKeyTrigger")
       val tId = LedgerApi.Identifier(packageId, "ExerciseByKey", "T")
       val tPrimeId = LedgerApi.Identifier(packageId, "ExerciseByKey", "T_")
+
       "1 exerciseByKey" in {
         for {
           client <- ledgerClient()
@@ -283,7 +329,7 @@ abstract class AbstractFuncTests
           // 1 for completion
           // 1 for exerciseByKey
           // 1 for corresponding completion
-          _ <- runner.runWithACS(acs, offset, msgFlow = Flow[TriggerMsg].take(4))._2
+          _ <- runner.runWithACS(acs, offset, msgFlow = Flow[TriggerContext[TriggerMsg]].take(4))._2
           acs <- queryACS(client, party)
         } yield {
           acs(tId) should have length 1
@@ -296,6 +342,7 @@ abstract class AbstractFuncTests
       val triggerId = QualifiedName.assertFromString("CreateAndExercise:createAndExerciseTrigger")
       val tId = LedgerApi.Identifier(packageId, "CreateAndExercise", "T")
       val uId = LedgerApi.Identifier(packageId, "CreateAndExercise", "U")
+
       "createAndExercise" in {
         for {
           client <- ledgerClient()
@@ -304,7 +351,7 @@ abstract class AbstractFuncTests
           (acs, offset) <- runner.queryACS()
           // 1 for create and exercise
           // 1 for completion
-          _ <- runner.runWithACS(acs, offset, msgFlow = Flow[TriggerMsg].take(2))._2
+          _ <- runner.runWithACS(acs, offset, msgFlow = Flow[TriggerContext[TriggerMsg]].take(2))._2
           acs <- queryACS(client, party)
         } yield {
           acs(tId) should have length 1
@@ -316,6 +363,7 @@ abstract class AbstractFuncTests
     "MaxMessageSizeTests" should {
       val triggerId =
         QualifiedName.assertFromString("MaxInboundMessageTest:maxInboundMessageSizeTrigger")
+
       "fail" in {
         for {
           client <- ledgerClient(
@@ -329,10 +377,10 @@ abstract class AbstractFuncTests
           // 1 for completion
           // 1 for the transaction
           ex <- recoverToExceptionIf[StatusRuntimeException](
-            runner.runWithACS(acs, offset, msgFlow = Flow[TriggerMsg].take(3))._2
+            runner.runWithACS(acs, offset, msgFlow = Flow[TriggerContext[TriggerMsg]].take(3))._2
           )
         } yield {
-          ex.getStatus.getCode() shouldBe Status.Code.RESOURCE_EXHAUSTED
+          ex.getStatus.getCode shouldBe grpcStatus.Code.RESOURCE_EXHAUSTED
         }
       }
     }
@@ -340,6 +388,7 @@ abstract class AbstractFuncTests
     "NumericTests" should {
       val triggerId = QualifiedName.assertFromString("Numeric:test")
       val tId = LedgerApi.Identifier(packageId, "Numeric", "T")
+
       "numeric" in {
         for {
           client <- ledgerClient()
@@ -350,7 +399,7 @@ abstract class AbstractFuncTests
           // 1 for completion
           // 1 for exercise on T
           // 1 for completion
-          _ <- runner.runWithACS(acs, offset, msgFlow = Flow[TriggerMsg].take(4))._2
+          _ <- runner.runWithACS(acs, offset, msgFlow = Flow[TriggerContext[TriggerMsg]].take(4))._2
           acs <- queryACS(client, party)
         } yield {
           val vals = acs(tId).map(_.fields(1).getValue.getNumeric).toSet
@@ -361,6 +410,7 @@ abstract class AbstractFuncTests
 
     "CommandIdTests" should {
       val triggerId = QualifiedName.assertFromString("CommandId:test")
+
       "command-id" in {
         for {
           client <- ledgerClient()
@@ -371,7 +421,9 @@ abstract class AbstractFuncTests
           // 1 for completion
           // 1 for archive on T
           // 1 for completion
-          finalState <- runner.runWithACS(acs, offset, msgFlow = Flow[TriggerMsg].take(4))._2
+          finalState <- runner
+            .runWithACS(acs, offset, msgFlow = Flow[TriggerContext[TriggerMsg]].take(4))
+            ._2
         } yield {
           inside(finalState) { case SList(commandIds) =>
             commandIds.toSet should have size 2
@@ -389,6 +441,7 @@ abstract class AbstractFuncTests
       val fooId = LedgerApi.Identifier(packageId, "PendingSet", "Foo")
       val booId = LedgerApi.Identifier(packageId, "PendingSet", "Boo")
       val doneId = LedgerApi.Identifier(packageId, "PendingSet", "Done")
+
       "pending set" in {
         for {
           client <- ledgerClient()
@@ -399,7 +452,7 @@ abstract class AbstractFuncTests
           // 1 for the completion from startup
           // 1 for the exercise in the trigger
           // 1 for the completion in the trigger
-          _ <- runner.runWithACS(acs, offset, msgFlow = Flow[TriggerMsg].take(4))._2
+          _ <- runner.runWithACS(acs, offset, msgFlow = Flow[TriggerContext[TriggerMsg]].take(4))._2
           acs <- queryACS(client, party)
         } yield {
           acs(doneId) should have length 1
@@ -449,13 +502,14 @@ abstract class AbstractFuncTests
           (acs, offset) <- runner.queryACS()
           // 1 for the create in the trigger
           // 1 for the completion from the trigger
-          _ <- runner.runWithACS(acs, offset, msgFlow = Flow[TriggerMsg].take(2))._2
+          _ <- runner.runWithACS(acs, offset, msgFlow = Flow[TriggerContext[TriggerMsg]].take(2))._2
           acs <- queryACS(client, party)
         } yield {
           acs(doneOneId) should have length 1
           acs shouldNot contain key doneTwoId
         }
       }
+
       "filter to Two" in {
         for {
           client <- ledgerClient()
@@ -470,7 +524,7 @@ abstract class AbstractFuncTests
           (acs, offset) <- runner.queryACS()
           // 1 for the create in the trigger
           // 1 for the completion from the trigger
-          _ <- runner.runWithACS(acs, offset, msgFlow = Flow[TriggerMsg].take(2))._2
+          _ <- runner.runWithACS(acs, offset, msgFlow = Flow[TriggerContext[TriggerMsg]].take(2))._2
           acs <- queryACS(client, party)
         } yield {
           acs shouldNot contain key doneOneId
@@ -481,6 +535,7 @@ abstract class AbstractFuncTests
 
     "HeartbeatTests" should {
       val triggerId = QualifiedName.assertFromString("Heartbeat:test")
+
       "test" in {
         for {
           client <- ledgerClient()
@@ -488,7 +543,9 @@ abstract class AbstractFuncTests
           runner = getRunner(client, triggerId, party)
           (acs, offset) <- runner.queryACS()
           // 2 heartbeats
-          finalState <- runner.runWithACS(acs, offset, msgFlow = Flow[TriggerMsg].take(2))._2
+          finalState <- runner
+            .runWithACS(acs, offset, msgFlow = Flow[TriggerContext[TriggerMsg]].take(2))
+            ._2
         } yield {
           finalState shouldBe SInt64(2)
         }
@@ -502,7 +559,9 @@ abstract class AbstractFuncTests
           party <- allocateParty(client)
           runner = getRunner(client, QualifiedName.assertFromString("Time:test"), party)
           (acs, offset) <- runner.queryACS()
-          finalState <- runner.runWithACS(acs, offset, msgFlow = Flow[TriggerMsg].take(4))._2
+          finalState <- runner
+            .runWithACS(acs, offset, msgFlow = Flow[TriggerContext[TriggerMsg]].take(4))
+            ._2
         } yield {
           finalState match {
             case SRecord(_, _, values) if values.size == 2 =>
@@ -554,7 +613,9 @@ abstract class AbstractFuncTests
           )
           (acs, offset) <- runner.queryACS()
           // 1 for the completion & 1 for the transaction.
-          result <- runner.runWithACS(acs, offset, msgFlow = Flow[TriggerMsg].take(2))._2
+          result <- runner
+            .runWithACS(acs, offset, msgFlow = Flow[TriggerContext[TriggerMsg]].take(2))
+            ._2
         } yield {
           inside(toHighLevelResult(result).state) { case SInt64(i) =>
             i shouldBe 3
@@ -574,7 +635,9 @@ abstract class AbstractFuncTests
           )
           (acs, offset) <- runner.queryACS()
           // 1 for the completion & 1 for the transaction.
-          result <- runner.runWithACS(acs, offset, msgFlow = Flow[TriggerMsg].take(2))._2
+          result <- runner
+            .runWithACS(acs, offset, msgFlow = Flow[TriggerContext[TriggerMsg]].take(2))
+            ._2
         } yield {
           inside(toHighLevelResult(result).state) { case SRecord(_, _, values) =>
             // Check that both updateState and rule were executed.
@@ -600,7 +663,9 @@ abstract class AbstractFuncTests
           )
           (acs, offset) <- runner.queryACS()
           // 1 for the completion & 1 for the transaction.
-          result <- runner.runWithACS(acs, offset, msgFlow = Flow[TriggerMsg].take(2))._2
+          result <- runner
+            .runWithACS(acs, offset, msgFlow = Flow[TriggerContext[TriggerMsg]].take(2))
+            ._2
         } yield {
           inside(toHighLevelResult(result).state) { case SRecord(_, _, values) =>
             values.asScala shouldBe Seq[SValue](

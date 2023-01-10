@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.engine
@@ -56,9 +56,9 @@ object Blinding {
         filteredRoots: BackStack[NodeId],
         remainingRoots: FrontStack[NodeId],
     ): ImmArray[NodeId] = {
-      remainingRoots match {
-        case FrontStack() => filteredRoots.toImmArray
-        case FrontStackCons(root, remainingRoots) =>
+      remainingRoots.pop match {
+        case None => filteredRoots.toImmArray
+        case Some((root, remainingRoots)) =>
           if (partyDivulgences.contains(root)) {
             go(filteredRoots :+ root, remainingRoots)
           } else {

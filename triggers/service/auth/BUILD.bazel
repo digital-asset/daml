@@ -1,4 +1,4 @@
-# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -6,11 +6,10 @@ load(
     "da_scala_binary",
     "da_scala_library",
     "da_scala_test",
+    "lf_scalacopts_stricter",
 )
 
 exports_files(["release/oauth2-middleware-logback.xml"])
-
-scalacopts = []
 
 test_scalacopts = ["-P:wartremover:traverser:org.wartremover.warts.OptionPartial"]
 
@@ -25,7 +24,7 @@ da_scala_library(
         "@maven//:com_typesafe_akka_akka_stream",
         "@maven//:io_spray_spray_json",
     ],
-    scalacopts = scalacopts,
+    scalacopts = lf_scalacopts_stricter,
     visibility = ["//visibility:public"],
 )
 
@@ -42,7 +41,7 @@ da_scala_library(
         "@maven//:io_spray_spray_json",
         "@maven//:org_scalaz_scalaz_core",
     ],
-    scalacopts = scalacopts,
+    scalacopts = lf_scalacopts_stricter,
     visibility = ["//visibility:public"],
     deps = [
         "//daml-lf/data",
@@ -75,7 +74,7 @@ da_scala_library(
         "@maven//:io_spray_spray_json",
         "@maven//:org_scalaz_scalaz_core",
     ],
-    scalacopts = scalacopts,
+    scalacopts = lf_scalacopts_stricter,
     visibility = ["//visibility:public"],
     deps = [
         ":middleware-api",
@@ -83,12 +82,20 @@ da_scala_library(
         "//daml-lf/data",
         "//language-support/scala/bindings",
         "//ledger-service/cli-opts",
-        "//ledger-service/jwt",
+        "//ledger-service/metrics",
         "//ledger-service/pureconfig-utils",
         "//ledger/cli-opts",
         "//ledger/ledger-api-auth",
+        "//ledger/ledger-resources",
+        "//libs-scala/jwt",
         "//libs-scala/ports",
+        "//libs-scala/resources",
+        "//libs-scala/scala-utils",
+        "//observability/akka-http-metrics",
+        "//observability/metrics",
         "@maven//:com_typesafe_config",
+        "@maven//:io_dropwizard_metrics_metrics_core",
+        "@maven//:io_opentelemetry_opentelemetry_api",
         "@maven//:org_slf4j_slf4j_api",
     ],
 )
@@ -96,6 +103,7 @@ da_scala_library(
 da_scala_binary(
     name = "oauth2-middleware-binary",
     main_class = "com.daml.auth.middleware.oauth2.Main",
+    scalacopts = lf_scalacopts_stricter,
     visibility = ["//visibility:public"],
     runtime_deps = [
         "@maven//:ch_qos_logback_logback_classic",
@@ -120,13 +128,12 @@ da_scala_library(
         "@maven//:io_spray_spray_json",
         "@maven//:org_scalaz_scalaz_core",
     ],
-    scalacopts = scalacopts,
     visibility = ["//triggers/service:__subpackages__"],
     deps = [
         ":oauth2-api",
         "//language-support/scala/bindings",
-        "//ledger-service/jwt",
         "//ledger/ledger-api-auth",
+        "//libs-scala/jwt",
         "//libs-scala/ports",
         "@maven//:org_slf4j_slf4j_api",
     ],
@@ -135,6 +142,7 @@ da_scala_library(
 da_scala_binary(
     name = "oauth2-test-server-binary",
     main_class = "com.daml.auth.oauth2.test.server.Main",
+    scalacopts = lf_scalacopts_stricter,
     runtime_deps = [
         "@maven//:ch_qos_logback_logback_classic",
     ],
@@ -156,17 +164,17 @@ da_scala_test(
         "@maven//:io_spray_spray_json",
         "@maven//:org_scalaz_scalaz_core",
     ],
-    scalacopts = scalacopts + test_scalacopts,
+    scalacopts = test_scalacopts,
     deps = [
         ":oauth2-api",
         ":oauth2-test-server",
         "//language-support/scala/bindings",
         "//ledger-api/rs-grpc-bridge",
         "//ledger-api/testing-utils",
-        "//ledger-service/jwt",
         "//ledger/ledger-api-auth",
         "//ledger/ledger-resources",
         "//libs-scala/adjustable-clock",
+        "//libs-scala/jwt",
         "//libs-scala/ports",
         "//libs-scala/resources",
     ],
@@ -180,6 +188,7 @@ da_scala_test(
         ":src/test/resources/oauth2-middleware-minimal.conf",
     ],
     scala_deps = [
+        "@maven//:com_lihaoyi_sourcecode",
         "@maven//:com_typesafe_akka_akka_actor",
         "@maven//:com_typesafe_akka_akka_http",
         "@maven//:com_typesafe_akka_akka_http_core",
@@ -195,7 +204,7 @@ da_scala_test(
     scala_runtime_deps = [
         "@maven//:com_typesafe_akka_akka_stream_testkit",
     ],
-    scalacopts = scalacopts + test_scalacopts,
+    visibility = ["//test-evidence:__pkg__"],
     deps = [
         ":middleware-api",
         ":oauth2-api",
@@ -206,13 +215,15 @@ da_scala_test(
         "//language-support/scala/bindings",
         "//ledger-api/rs-grpc-bridge",
         "//ledger-api/testing-utils",
-        "//ledger-service/jwt",
         "//ledger/ledger-api-auth",
         "//ledger/ledger-resources",
         "//libs-scala/adjustable-clock",
+        "//libs-scala/jwt",
         "//libs-scala/ports",
         "//libs-scala/resources",
         "//libs-scala/scala-utils",
+        "//libs-scala/test-evidence/scalatest:test-evidence-scalatest",
+        "//libs-scala/test-evidence/tag:test-evidence-tag",
         "@maven//:com_auth0_java_jwt",
         "@maven//:com_typesafe_config",
     ],

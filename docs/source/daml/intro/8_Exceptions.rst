@@ -1,4 +1,4 @@
-.. Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 Exception Handling
@@ -43,7 +43,7 @@ template. Users can order items by calling a choice and transfer money
 (in the form of an Iou issued by their bank) from their account to the
 owner in return.
 
-First, we need to setup a template to represent the account of a user.
+First, we need to setup a template to represent the account of a user:
 
 .. literalinclude:: daml/daml-intro-8/daml/Intro/Exceptions.daml
   :language: daml
@@ -55,17 +55,21 @@ amount is always positive so ``Transfer`` cannot transfer more money
 than is available.
 
 The shop is represented as a template signed by the owner. It has a
-field to represent the bank accepted by the owner as well as a list of
-observers that can order items.
+field to represent the bank accepted by the owner, a list of
+observers that can order items, and a fixed price for the items that can be
+ordered:
 
 .. literalinclude:: daml/daml-intro-8/daml/Intro/Exceptions.daml
   :language: daml
   :start-after: -- SHOP_BEGIN
   :end-before: -- SHOP_END
 
+.. note:: In a real setting the price of each item for sale might be
+  defined in a separate contract.
+
 The ordering process is then represented by a non-consuming choice on
 this template which calls ``Transfer`` and creates an ``Order``
-contract in return.
+contract in return:
 
 .. literalinclude:: daml/daml-intro-8/daml/Intro/Exceptions.daml
   :language: daml
@@ -100,7 +104,7 @@ trusted users looks as follows:
 
 Let's walk through this code. First, as mentioned, the shop owner is
 the trusting kind, so he wants to start by creating the ``Order``
-matter what. Next, we try to charge the customer for the order. We
+no matter what. Next, he tries to charge the customer for the order. We
 could, at this point, check their balance against the cost of the
 order, but that would amount to duplicating the logic already present
 in ``Account``. This logic is pretty simple in this case, but

@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.sandbox.auth
@@ -49,7 +49,7 @@ final class OngoingStreamAuthIT
 
   override def serviceCallName: String = ""
 
-  override protected def serviceCallWithToken(token: Option[String]): Future[Any] = ???
+  override protected def serviceCall(context: ServiceCallContext): Future[Any] = ???
 
   private val testId = UUID.randomUUID().toString
   val partyAlice = "alice-party"
@@ -94,15 +94,15 @@ final class OngoingStreamAuthIT
 
     val canActAsAlice = Right(Right.Kind.CanActAs(Right.CanActAs(partyAlice)))
     for {
-      (userAlice, tokenAlice) <- createUserByAdmin(
+      (userAlice, aliceContext) <- createUserByAdmin(
         userId = userIdAlice,
         rights = Vector(canActAsAlice),
       )
       applicationId = userAlice.id
       submitAndWaitF = () =>
-        submitAndWait(token = tokenAlice, party = partyAlice, applicationId = applicationId)
+        submitAndWait(token = aliceContext.token, party = partyAlice, applicationId = applicationId)
       _ <- submitAndWaitF()
-      _ = observeTransactionsStream(tokenAlice, partyAlice)
+      _ = observeTransactionsStream(aliceContext.token, partyAlice)
       _ <- submitAndWaitF()
       // Making a change to the user Alice
       _ <- grantUserRightsByAdmin(
@@ -182,15 +182,19 @@ final class OngoingStreamAuthIT
 
     val canActAsAlice = Right(Right.Kind.CanActAs(Right.CanActAs(partyAlice2)))
     for {
-      (userAlice, tokenAlice) <- createUserByAdmin(
+      (userAlice, aliceContext) <- createUserByAdmin(
         userId = userIdAlice,
         rights = Vector(canActAsAlice),
       )
       applicationId = userAlice.id
       submitAndWaitF = () =>
-        submitAndWait(token = tokenAlice, party = partyAlice2, applicationId = applicationId)
+        submitAndWait(
+          token = aliceContext.token,
+          party = partyAlice2,
+          applicationId = applicationId,
+        )
       _ <- submitAndWaitF()
-      _ = observeTransactionsStream(tokenAlice, partyAlice2)
+      _ = observeTransactionsStream(aliceContext.token, partyAlice2)
       _ <- submitAndWaitF()
       // Deactivating Alice user:
       _ <- deactivateUserByAdmin(userId = userIdAlice)
@@ -232,7 +236,7 @@ final class OngoingStreamAuthIT
   private def deactivateUserByAdmin(userId: String): Future[Unit] = {
     stub(
       user_management_service_proto.UserManagementServiceGrpc.stub(channel),
-      canReadAsAdminStandardJWT,
+      canReadAsAdminStandardJWT.token,
     )
       .updateUser(
         UpdateUserRequest(
@@ -260,7 +264,7 @@ final class OngoingStreamAuthIT
     val req = user_management_service_proto.GrantUserRightsRequest(userId, Seq(right))
     stub(
       user_management_service_proto.UserManagementServiceGrpc.stub(channel),
-      canReadAsAdminStandardJWT,
+      canReadAsAdminStandardJWT.token,
     )
       .grantUserRights(req)
       .map(_ => ())

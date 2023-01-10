@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.rxjava.grpc.helpers
@@ -31,8 +31,8 @@ import com.daml.ledger.api.v1.package_service.{
   ListPackagesResponse,
 }
 import com.daml.ledger.api.v1.testing.time_service.GetTimeResponse
-import com.daml.ledger.participant.state.index.impl.inmemory.InMemoryUserManagementStore
 import com.daml.logging.LoggingContext
+import com.daml.platform.localstore.InMemoryUserManagementStore
 import com.google.protobuf.empty.Empty
 import io.grpc._
 import io.grpc.netty.NettyServerBuilder
@@ -215,6 +215,7 @@ final class LedgerServices(val ledgerId: String) {
     }
   }
 
+  @deprecated("ledger identity service", since = "2.0.0")
   def withLedgerIdentityClient(
       getResponse: () => Future[String],
       authService: AuthService = AuthServiceWildcard,

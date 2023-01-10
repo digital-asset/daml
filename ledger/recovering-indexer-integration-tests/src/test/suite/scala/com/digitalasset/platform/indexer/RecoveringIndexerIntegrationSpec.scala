@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.indexer
@@ -8,7 +8,6 @@ import akka.actor.ActorSystem
 import akka.stream.scaladsl.{BroadcastHub, Keep, Source}
 import akka.stream.{BoundedSourceQueue, Materializer, QueueCompletionResult, QueueOfferResult}
 import ch.qos.logback.classic.Level
-import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.api.health.HealthStatus
 import com.daml.ledger.configuration.{Configuration, LedgerId, LedgerInitialConditions}
 import com.daml.ledger.offset.Offset
@@ -196,7 +195,7 @@ class RecoveringIndexerIntegrationSpec
     val participantId = Ref.ParticipantId.assertFromString(s"participant-$testId")
     val jdbcUrl =
       s"jdbc:h2:mem:${getClass.getSimpleName.toLowerCase()}-$testId;db_close_delay=-1;db_close_on_exit=false"
-    val metrics = new Metrics(new MetricRegistry)
+    val metrics = Metrics.ForTesting
     val participantDataSourceConfig = ParticipantDataSourceConfig(jdbcUrl)
     for {
       actorSystem <- ResourceOwner.forActorSystem(() => ActorSystem())
@@ -233,7 +232,7 @@ class RecoveringIndexerIntegrationSpec
   ): Future[Unit] = {
     val jdbcUrl =
       s"jdbc:h2:mem:${getClass.getSimpleName.toLowerCase}-$testId;db_close_delay=-1;db_close_on_exit=false"
-    val metrics = new Metrics(new MetricRegistry)
+    val metrics = Metrics.ForTesting
     DbSupport
       .owner(
         serverRole = ServerRole.Testing(getClass),

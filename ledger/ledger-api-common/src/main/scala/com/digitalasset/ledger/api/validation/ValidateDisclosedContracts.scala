@@ -1,35 +1,26 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.validation
 
-import com.daml.api.util.TimestampConversion
 import com.daml.error.ContextualizedErrorLogger
 import com.daml.error.definitions.LedgerApiErrors
-import com.daml.lf.command.{ContractMetadata, DisclosedContract}
-import com.daml.lf.data.ImmArray
 import com.daml.ledger.api.v1.commands.{
   Commands => ProtoCommands,
   DisclosedContract => ProtoDisclosedContract,
 }
-import com.daml.ledger.api.validation.ValidationErrors.invalidArgument
 import com.daml.ledger.api.validation.ValueValidator.{
   validateOptionalIdentifier,
   validateRecordFields,
 }
+import com.daml.lf.command.{ContractMetadata, DisclosedContract}
+import com.daml.lf.data.ImmArray
 import com.daml.lf.value.Value.ValueRecord
-import com.daml.platform.server.api.validation.FieldValidations.{
-  requireContractId,
-  requirePresence,
-  validateHash,
-  validateIdentifier,
-}
-import com.google.protobuf.timestamp.Timestamp
-import io.grpc.StatusRuntimeException
-import com.daml.lf.data.Time
 import com.daml.lf.value.ValueOuterClass.VersionedValue
 import com.daml.lf.value.{Value, ValueCoder}
+import com.daml.platform.server.api.validation.FieldValidations._
 import com.google.protobuf.any.Any.toJavaProto
+import io.grpc.StatusRuntimeException
 
 import scala.collection.mutable
 import scala.util.Try
@@ -73,8 +64,8 @@ class ValidateDisclosedContracts(explicitDisclosureFeatureEnabled: Boolean) {
       .map(_.result())
   }
 
-  def validateDisclosedContractArguments(arguments: ProtoDisclosedContract.Arguments)(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
+  private def validateDisclosedContractArguments(arguments: ProtoDisclosedContract.Arguments)(
+      implicit contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, Value] =
     arguments match {
       case ProtoDisclosedContract.Arguments.CreateArguments(value) =>
@@ -88,7 +79,7 @@ class ValidateDisclosedContracts(explicitDisclosureFeatureEnabled: Boolean) {
           versionedValue <- validateVersionedValue(protoAny)
         } yield versionedValue.unversioned
       case ProtoDisclosedContract.Arguments.Empty =>
-        Left(ValidationErrors.missingField("arguments"))
+        Left(ValidationErrors.missingField("DisclosedContract.arguments"))
     }
 
   private def validateProtoAny(value: com.google.protobuf.any.Any)(implicit
@@ -115,14 +106,26 @@ class ValidateDisclosedContracts(explicitDisclosureFeatureEnabled: Boolean) {
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, DisclosedContract] =
     for {
-      templateId <- requirePresence(disclosedContract.templateId, "template_id")
+      templateId <- requirePresence(disclosedContract.templateId, "DisclosedContract.template_id")
       validatedTemplateId <- validateIdentifier(templateId)
-      contractId <- requireContractId(disclosedContract.contractId, "contract_id")
+      contractId <- requireContractId(
+        disclosedContract.contractId,
+        "DisclosedContract.contract_id",
+      )
       argument <- validateDisclosedContractArguments(disclosedContract.arguments)
-      metadata <- requirePresence(disclosedContract.metadata, "metadata")
-      createdAt <- requirePresence(metadata.createdAt, "created_at")
-      validatedCreatedAt <- validateCreatedAt(createdAt)
-      keyHash <- validateHash(metadata.contractKeyHash, "contract_key_hash")
+      metadata <- requirePresence(disclosedContract.metadata, "DisclosedContract.metadata")
+      createdAt <- requirePresence(
+        metadata.createdAt,
+        "DisclosedContract.metadata.created_at",
+      )
+      validatedCreatedAt <- validateTimestamp(
+        createdAt,
+        "DisclosedContract.metadata.created_at",
+      )
+      keyHash <- validateHash(
+        metadata.contractKeyHash,
+        "DisclosedContract.metadata.contract_key_hash",
+      )
     } yield DisclosedContract(
       contractId = contractId,
       templateId = validatedTemplateId,
@@ -133,21 +136,4 @@ class ValidateDisclosedContracts(explicitDisclosureFeatureEnabled: Boolean) {
         driverMetadata = ImmArray.from(metadata.driverMetadata.toByteArray),
       ),
     )
-
-  // TODO ED: Extract in utility library
-  private def validateCreatedAt(createdAt: Timestamp)(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
-  ): Either[StatusRuntimeException, Time.Timestamp] =
-    Try(
-      TimestampConversion
-        .toLf(
-          protoTimestamp = createdAt,
-          mode = TimestampConversion.ConversionMode.Exact,
-        )
-    ).toEither.left
-      .map(errMsg =>
-        invalidArgument(
-          s"Can not represent disclosed contract createdAt ($createdAt) as a Daml timestamp: ${errMsg.getMessage}"
-        )
-      )
 }

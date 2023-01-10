@@ -1,4 +1,4 @@
-# <a name="module-interface-72439"></a>Module Interface
+# <a name="module-interface-72439"></a>Interface
 
 ## Templates
 
@@ -75,6 +75,8 @@
 > <a name="constr-interface-emptyinterfaceview-1101"></a>[EmptyInterfaceView](#constr-interface-emptyinterfaceview-1101)
 >
 > > (no fields)
+>
+> **instance** [HasFromAnyView](https://docs.daml.com/daml/stdlib/DA-Internal-Interface-AnyView.html#class-da-internal-interface-anyview-hasfromanyview-30108) [Token](#type-interface-token-10651) [EmptyInterfaceView](#type-interface-emptyinterfaceview-28816)
 >
 > **instance** [HasInterfaceView](https://docs.daml.com/daml/stdlib/Prelude.html#class-da-internal-interface-hasinterfaceview-4492) [Token](#type-interface-token-10651) [EmptyInterfaceView](#type-interface-emptyinterfaceview-28816)
 

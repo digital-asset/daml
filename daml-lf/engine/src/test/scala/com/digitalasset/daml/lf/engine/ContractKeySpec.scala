@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -76,7 +76,6 @@ class ContractKeySpec
             (Some[Ref.Name]("k"), ValueInt64(42)),
           ),
         ),
-        "",
       )
     )
 
@@ -90,7 +89,6 @@ class ContractKeySpec
               Some(Identifier(basicTestsPkgId, "BasicTests:Simple")),
               ImmArray((Some[Name]("p"), ValueParty(party))),
             ),
-            "",
           )
         ),
       toContractId("BasicTests:CallablePayout:1") ->
@@ -104,7 +102,6 @@ class ContractKeySpec
                 (Some[Ref.Name]("receiver"), ValueParty(bob)),
               ),
             ),
-            "",
           )
         ),
       toContractId("BasicTests:WithKey:1") ->
@@ -146,7 +143,7 @@ class ContractKeySpec
     val submissionSeed = crypto.Hash.hashPrivateKey("contract key")
     val txSeed = crypto.Hash.deriveTransactionSeed(submissionSeed, participant, now)
 
-    // TEST_EVIDENCE: Semantics: contract keys should be evaluated only when executing create
+    // TEST_EVIDENCE: Integrity: contract keys should be evaluated only when executing create
     "be evaluated only when executing create" in {
       val templateId =
         Identifier(basicTestsPkgId, "BasicTests:ComputeContractKeyWhenExecutingCreate")
@@ -185,7 +182,7 @@ class ContractKeySpec
       result shouldBe a[Right[_, _]]
     }
 
-    // TEST_EVIDENCE: Semantics: contract keys should be evaluated after ensure clause
+    // TEST_EVIDENCE: Integrity: contract keys should be evaluated after ensure clause
     "be evaluated after ensure clause" in {
       val templateId =
         Identifier(basicTestsPkgId, "BasicTests:ComputeContractKeyAfterEnsureClause")
@@ -218,7 +215,7 @@ class ContractKeySpec
       err.message should include("Template precondition violated")
     }
 
-    // TEST_EVIDENCE: Semantics: contract keys must have a non-empty set of maintainers
+    // TEST_EVIDENCE: Integrity: contract keys must have a non-empty set of maintainers
     "not be create if has an empty set of maintainer" in {
       val templateId =
         Identifier(basicTestsPkgId, "BasicTests:NoMaintainer")
@@ -287,7 +284,6 @@ class ContractKeySpec
         ContractInstance(
           TypeConName(multiKeysPkgId, "MultiKeys:Keyed"),
           ValueRecord(None, ImmArray((None, ValueParty(party)))),
-          "",
         )
       )
       val contracts = Map(cid1 -> keyedInst, cid2 -> keyedInst)
@@ -411,7 +407,7 @@ class ContractKeySpec
         "RollbackGlobalArchiveUpdates",
       )
 
-      // TEST_EVIDENCE: Semantics: contract key behaviour (non-unique mode)
+      // TEST_EVIDENCE: Integrity: contract key behaviour (non-unique mode)
       "non-uck mode" in {
         forEvery(allCases) { case (name, arg) =>
           if (nonUckFailures.contains(name)) {
@@ -421,7 +417,7 @@ class ContractKeySpec
           }
         }
       }
-      // TEST_EVIDENCE: Semantics: contract key behaviour (unique mode)
+      // TEST_EVIDENCE: Integrity: contract key behaviour (unique mode)
       "uck mode" in {
         forEvery(allCases) { case (name, arg) =>
           if (uckFailures.contains(name)) {

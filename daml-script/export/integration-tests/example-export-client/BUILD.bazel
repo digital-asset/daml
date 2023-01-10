@@ -1,0 +1,31 @@
+# Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load(
+    "//bazel_tools:scala.bzl",
+    "da_scala_binary",
+    "lf_scalacopts_stricter",
+)
+
+da_scala_binary(
+    name = "example-export-client",
+    srcs = ["scala/com/daml/script/export/ExampleExportClient.scala"],
+    main_class = "com.daml.script.export.ExampleExportClient",
+    scala_deps = [
+        "@maven//:com_github_scopt_scopt",
+    ],
+    scalacopts = lf_scalacopts_stricter,
+    visibility = ["//visibility:public"],
+    deps = [
+        "//:sdk-version-scala-lib",
+        "//daml-lf/data",
+        "//daml-script/export",
+        "//daml-script/runner:script-runner-lib",
+        "//language-support/scala/bindings",
+        "//language-support/scala/bindings-akka",
+        "//ledger-api/rs-grpc-bridge",
+        "//ledger/ledger-api-common",
+        "//libs-scala/auth-utils",
+        "//libs-scala/fs-utils",
+    ],
+)

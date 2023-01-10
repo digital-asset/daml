@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.sandbox
@@ -16,12 +16,12 @@ import com.daml.platform.config.MetricsConfig.MetricRegistryType
 import com.daml.platform.config.{MetricsConfig, ParticipantConfig => _ParticipantConfig}
 import com.daml.platform.configuration.InitialLedgerConfiguration
 import com.daml.platform.indexer.{IndexerConfig => _IndexerConfig}
+import com.daml.platform.localstore.UserManagementConfig
 import com.daml.platform.store.DbSupport.ParticipantDataSourceConfig
-import com.daml.platform.usermanagement.UserManagementConfig
 import com.daml.ports.Port
-
 import java.time.Duration
 import java.util.UUID
+
 import scala.concurrent.duration._
 
 object SandboxOnXForTest {

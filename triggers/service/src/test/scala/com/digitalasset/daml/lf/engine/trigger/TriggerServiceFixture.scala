@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.engine.trigger
@@ -11,7 +11,6 @@ import akka.http.scaladsl.model._
 import com.auth0.jwt.JWT
 import com.auth0.jwt.JWTVerifier.BaseVerification
 import com.auth0.jwt.algorithms.Algorithm
-import com.auth0.jwt.interfaces.{Clock => Auth0Clock}
 import com.daml.auth.middleware.api.{Client => AuthClient}
 import com.daml.auth.middleware.oauth2.{
   SecretString,
@@ -47,6 +46,7 @@ import com.daml.ledger.sandbox.SandboxOnXForTest._
 import com.daml.ledger.sandbox.{BridgeConfig, SandboxOnXRunner}
 import com.daml.lf.archive.Dar
 import com.daml.lf.data.Ref._
+import com.daml.lf.engine.trigger.TriggerRunnerConfig.DefaultTriggerRunnerConfig
 import com.daml.lf.engine.trigger.dao.DbTriggerDao
 import com.daml.lf.speedy.Compiler
 import com.daml.platform.apiserver.SeedService.Seeding
@@ -68,7 +68,7 @@ import scalaz.syntax.show._
 import java.net.InetAddress
 import java.time.{Clock, Instant, LocalDateTime, ZoneId, Duration => JDuration}
 import java.util.concurrent.{ConcurrentHashMap, ConcurrentMap}
-import java.util.{Date, UUID}
+import java.util.UUID
 import scala.collection.concurrent.TrieMap
 import scala.concurrent._
 import scala.concurrent.duration._
@@ -92,12 +92,11 @@ trait HttpCookies extends BeforeAndAfterEach { this: Suite =>
   )(implicit system: ActorSystem, ec: ExecutionContext): Future[HttpResponse] = {
     Http()
       .singleRequest {
-        if (cookieJar.nonEmpty) {
-          val hd +: tl = cookieJar.view.map(headers.HttpCookiePair(_)).toSeq
-          val cookies = headers.Cookie(hd, tl: _*)
-          request.addHeader(cookies)
-        } else {
-          request
+        cookieJar.view.map(headers.HttpCookiePair(_)).toList match {
+          case head :: tail =>
+            request.addHeader(headers.Cookie(head, tail: _*))
+          case Nil =>
+            request
         }
       }
       .andThen { case Success(resp) =>
@@ -175,6 +174,7 @@ trait AuthMiddlewareFixture
     val payload =
       if (sandboxClientTakesUserToken)
         StandardJWTPayload(
+          issuer = None,
           userId = "",
           participantId = None,
           exp = None,
@@ -205,9 +205,10 @@ trait AuthMiddlewareFixture
     JWT
       .require(Algorithm.HMAC256(authSecret))
       .asInstanceOf[BaseVerification]
-      .build(new Auth0Clock {
-        override def getToday: Date = Date.from(authClock.instant())
-      })
+      // We use DeferringClock so that authClock doesn't yet get evaluated.
+      // This is needed, because authVerifier is called before `resource` is
+      // actually fully initialized.
+      .build(new DeferringClock(authClock))
   )
   private def authMiddleware: ServerBinding = resource.value._3
   private def authMiddlewareUri: Uri =
@@ -288,6 +289,16 @@ trait AuthMiddlewareFixture
 
     super.afterEach()
   }
+}
+
+// This wrapper uses the passed clock by-name to avoid initialization
+// circles above.
+private class DeferringClock(baseClock: => Clock) extends Clock {
+  override def getZone: ZoneId = baseClock.getZone
+
+  override def instant(): Instant = baseClock.instant()
+
+  override def withZone(zone: ZoneId): Clock = new DeferringClock(baseClock.withZone(zone))
 }
 
 trait SandboxFixture extends BeforeAndAfterAll with AbstractAuthFixture with AkkaBeforeAndAfterAll {
@@ -375,7 +386,7 @@ trait ToxiproxyFixture extends BeforeAndAfterAll with AkkaBeforeAndAfterAll {
     val host = InetAddress.getLoopbackAddress
     val isWindows: Boolean = sys.props("os.name").toLowerCase.contains("windows")
     val exe =
-      if (!isWindows) BazelRunfiles.rlocation("external/toxiproxy_dev_env/bin/toxiproxy-cmd")
+      if (!isWindows) BazelRunfiles.rlocation("external/toxiproxy_dev_env/bin/toxiproxy-server")
       else BazelRunfiles.rlocation("external/toxiproxy_dev_env/toxiproxy-server-windows-amd64.exe")
     val port = LockedFreePort.find()
     val proc = Process(Seq(exe, "--port", port.port.value.toString)).run()
@@ -558,7 +569,7 @@ trait TriggerServiceFixture
               Cli.DefaultMaxRestartInterval,
             )
             for {
-              r <- ServiceMain.startServer(
+              r <- ServiceMain.startServerForTest(
                 host.getHostName,
                 Port.Dynamic.value,
                 Cli.DefaultMaxAuthCallbacks,
@@ -574,6 +585,7 @@ trait TriggerServiceFixture
                 jdbcConfig,
                 false,
                 Compiler.Config.Dev,
+                DefaultTriggerRunnerConfig,
                 logTriggerStatus,
               )
             } yield r

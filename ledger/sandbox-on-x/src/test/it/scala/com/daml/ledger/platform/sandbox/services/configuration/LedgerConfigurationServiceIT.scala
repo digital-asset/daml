@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.sandbox.services.configuration
@@ -23,16 +23,17 @@ sealed trait LedgerConfigurationServiceITBase extends AnyWordSpec with Matchers 
   "LedgerConfigurationService" when {
     "asked for ledger configuration" should {
       "return expected configuration" in {
-        val LedgerConfiguration(Some(maxDeduplicationDuration)) =
-          LedgerConfigurationServiceGrpc
-            .blockingStub(channel)
-            .getLedgerConfiguration(GetLedgerConfigurationRequest(ledgerId().unwrap))
-            .next()
-            .getLedgerConfiguration
-
-        maxDeduplicationDuration shouldEqual toProto(
-          BridgeConfig.DefaultMaximumDeduplicationDuration
-        )
+        LedgerConfigurationServiceGrpc
+          .blockingStub(channel)
+          .getLedgerConfiguration(GetLedgerConfigurationRequest(ledgerId().unwrap))
+          .next()
+          .getLedgerConfiguration match {
+          case LedgerConfiguration(Some(maxDeduplicationDuration)) =>
+            maxDeduplicationDuration shouldEqual toProto(
+              BridgeConfig.DefaultMaximumDeduplicationDuration
+            )
+          case _ => fail()
+        }
       }
     }
   }

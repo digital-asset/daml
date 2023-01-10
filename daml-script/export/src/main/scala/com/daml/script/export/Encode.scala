@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.script.export
@@ -6,10 +6,10 @@ package com.daml.script.export
 import java.time.format.DateTimeFormatter
 import java.time.{LocalDate, ZoneId, ZonedDateTime}
 
-import com.daml.ledger.api.refinements.ApiTypes.{Choice, ContractId, Party, TemplateId}
-import com.daml.ledger.api.v1.event.CreatedEvent
+import com.daml.ledger.api.refinements.ApiTypes.{Choice, ContractId, InterfaceId, Party, TemplateId}
+import com.daml.ledger.api.v1.event.{CreatedEvent, ExercisedEvent}
 import com.daml.ledger.api.v1.value.Value.Sum
-import com.daml.ledger.api.v1.value.{Identifier, Record, RecordField, Value}
+import com.daml.ledger.api.v1.value.{Identifier, Record, RecordField, Value, Variant}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.{Date, Timestamp}
 import com.daml.lf.language.Ast
@@ -23,12 +23,12 @@ private[export] object Encode {
 
   def encodeArgs(scriptExport: Export): JsObject = {
     JsObject(
-      "parties" -> JsObject(scriptExport.partyMap.keys.map { case Party(party) =>
-        party -> JsString(party)
-      }.toMap),
-      "contracts" -> JsObject(scriptExport.unknownCids.map { case ContractId(c) =>
-        c -> JsString(c)
-      }.toMap),
+      "parties" -> JsObject(
+        scriptExport.partyMap.keys.map(Party.unwrap).map(party => party -> JsString(party)).toMap
+      ),
+      "contracts" -> JsObject(
+        scriptExport.unknownCids.view.map(ContractId.unwrap).map(c => c -> JsString(c)).toMap
+      ),
     )
   }
 
@@ -149,8 +149,8 @@ private[export] object Encode {
       Doc.text("allocateParties = DA.Traversable.mapA allocateParty (DA.TextMap.fromList") /
       ("[" &: Doc.intercalate(
         Doc.hardLine :+ ", ",
-        partyMap.keys.map { case Party(p) =>
-          val party = quotes(p)
+        partyMap.keys.map { p =>
+          val party = quotes(Party.unwrap(p))
           tuple(Seq(party, party))
         },
       ) :& "])").indent(2)
@@ -164,7 +164,7 @@ private[export] object Encode {
           Doc.text("Some new -> new")).nested(2)).nested(2)
 
   private def encodePartyType(): Doc =
-    Doc.text("-- | Mapping from party names in the original ledger state ") /
+    Doc.text("-- | Mapping from party names in the original ledger state") /
       Doc.text("-- to parties to be used in 'export'.") /
       Doc.text("type Parties = DA.TextMap.TextMap Party")
 
@@ -172,7 +172,10 @@ private[export] object Encode {
     Doc.text("{-# LANGUAGE ApplicativeDo #-}") /
       Doc.text("module Export where") /
       Doc.text("import Daml.Script") /
-      Doc.stack(moduleRefs.map(encodeImport(_)))
+      encodeImports(moduleRefs)
+
+  private def encodeImports(moduleRefs: Set[String]): Doc =
+    Doc.stack(moduleRefs.toList.sorted.map(encodeImport(_)))
 
   private def encodeLocalDate(d: LocalDate): Doc = {
     val formatter = DateTimeFormatter.ofPattern("uuuu 'DA.Date.'MMM d")
@@ -190,13 +193,8 @@ private[export] object Encode {
         case Sum.Record(value) if isTupleId(value.getRecordId) =>
           tuple(value.fields.map(f => go(f.getValue.sum)))
         case Sum.Record(value) => encodeRecord(partyMap, cidMap, value)
-        // TODO Handle sums of products properly
-        case Sum.Variant(value) =>
-          parens(
-            qualifyId(value.getVariantId.copy(entityName = value.constructor)) +
-              Doc.text(" ") + go(value.getValue.sum)
-          )
-        case Sum.ContractId(c) => encodeCid(cidMap, ContractId(c))
+        case Sum.Variant(value) => encodeVariant(partyMap, cidMap, value)
+        case Sum.ContractId(c) => encodeCidExpr(cidMap, ContractId(c))
         case Sum.List(value) =>
           list(value.elements.map(v => go(v.sum)))
         case Sum.Int64(i) => Doc.str(i)
@@ -298,13 +296,13 @@ private[export] object Encode {
       case app: Ast.TApp =>
         unfoldApp(app) match {
           case (Ast.TTyCon(tycon), args) if isTupleRefId(tycon) =>
-            tuple(args.map(ty => encodeType(ty)))
+            tuple(args.map(ty => encodeType(ty, 0)))
           case (Ast.TBuiltin(Ast.BTList), Seq(arg)) =>
-            brackets(encodeType(arg))
+            brackets(encodeType(arg, 0))
           case (Ast.TBuiltin(Ast.BTArrow), Seq(a, b)) =>
             precParens(
               1,
-              encodeType(a, 2) & Doc.text("->") & encodeType(b),
+              encodeType(a, 2) & Doc.text("->") & encodeType(b, 0),
             )
           case (f, args) =>
             val argsDoc = Doc.spread(args.map(ty => encodeType(ty, 11)))
@@ -360,6 +358,32 @@ private[export] object Encode {
 
   }
 
+  private def variantFieldsRecordId(
+      variant: Variant
+  ): Identifier =
+    variant.getVariantId.withEntityName(
+      variant.getVariantId.entityName + "." + variant.constructor
+    )
+
+  private def encodeVariant(
+      partyMap: Map[Party, String],
+      cidMap: Map[ContractId, String],
+      v: Variant,
+  ): Doc = {
+    val constrId = v.getVariantId.copy(entityName = v.constructor)
+    v.getValue.sum match {
+      case Sum.Record(rec) if rec.getRecordId == variantFieldsRecordId(v) =>
+        // The record carries the fields of a variant constructor
+        // declared with record syntax, so we encode directly as a record.
+        encodeRecord(partyMap, cidMap, rec.withRecordId(constrId))
+      case _ =>
+        parens(
+          qualifyId(constrId) +
+            Doc.text(" ") + encodeValue(partyMap, cidMap, v.getValue.sum)
+        )
+    }
+  }
+
   private def encodeField(
       partyMap: Map[Party, String],
       cidMap: Map[ContractId, String],
@@ -374,13 +398,31 @@ private[export] object Encode {
       Doc.intercalate(Doc.text(", "), ps.map(encodeParty(partyMap, _))) +
       Doc.text("]")
 
-  private def encodeCid(cidMap: Map[ContractId, String], cid: ContractId): Doc = {
+  private def encodeCidExpr(cidMap: Map[ContractId, String], cid: ContractId): Doc = {
     // LedgerStrings are strings that match the regexp ``[A-Za-z0-9#:\-_/ ]+
     cidMap.get(cid) match {
       case Some(value) => Doc.text(value)
       case None => parens("lookupContract" &: quotes(cid.toString) :& "contracts")
     }
   }
+
+  private def encodeCidPat(cidMap: Map[ContractId, String], c: CreatedContract): Doc =
+    cidMap.get(c.cid) match {
+      case Some(value) =>
+        parens(
+          "coerceContractId @_ @" +: encodeTemplateId(c.tplId) :& "->" :& value
+        )
+      case None => Doc.text("_")
+    }
+
+  private def encodeInterfaceCidExpr(
+      interfaceId: InterfaceId,
+      cidMap: Map[ContractId, String],
+      cid: ContractId,
+  ): Doc =
+    parens(
+      "toInterfaceContractId @" +: encodeInterfaceId(interfaceId) & encodeCidExpr(cidMap, cid)
+    )
 
   private def qualifyId(id: Identifier): Doc =
     Doc.text(id.moduleName) + Doc.text(".") + Doc.text(id.entityName)
@@ -396,6 +438,9 @@ private[export] object Encode {
   private def encodeTemplateId(id: TemplateId): Doc =
     qualifyId(TemplateId.unwrap(id))
 
+  private def encodeInterfaceId(id: InterfaceId): Doc =
+    qualifyId(InterfaceId.unwrap(id))
+
   private def encodeChoice(choice: Choice): Doc =
     quotes(Choice.unwrap(choice))
 
@@ -408,19 +453,7 @@ private[export] object Encode {
     case CreateCommand(createdEvent) =>
       encodeCreatedEvent(partyMap, cidMap, missingInstances, createdEvent)
     case ExerciseCommand(exercisedEvent) =>
-      val cid = encodeCid(cidMap, ContractId(exercisedEvent.contractId))
-      val choice = encodeValue(partyMap, cidMap, exercisedEvent.getChoiceArgument.sum)
-      if (missingInstances.contains(TemplateId(exercisedEvent.getTemplateId))) {
-        val command = Doc.text("internalExerciseCmd")
-        val tplIdArg = "@" +: encodeTemplateId(TemplateId(exercisedEvent.getTemplateId))
-        val typeRepArg = parens("templateTypeRep" &: tplIdArg)
-        val cidArg = parens("coerceContractId" &: cid)
-        val choiceArg = parens(Doc.text("toAnyChoice") & tplIdArg & choice)
-        Doc.stack(Seq(command, typeRepArg, cidArg, choiceArg)).nested(2)
-      } else {
-        val command = Doc.text("exerciseCmd")
-        command & cid & choice
-      }
+      encodeExercisedEvent(partyMap, cidMap, missingInstances, exercisedEvent)
     case ExerciseByKeyCommand(exercisedEvent, templateId, contractKey) =>
       val key = encodeValue(partyMap, cidMap, contractKey.sum)
       val choice = encodeValue(partyMap, cidMap, exercisedEvent.getChoiceArgument.sum)
@@ -471,8 +504,37 @@ private[export] object Encode {
     }
   }
 
-  private def bindCid(cidMap: Map[ContractId, String], c: CreatedContract): Doc = {
-    (Doc.text("let") & encodeCid(cidMap, c.cid) & Doc.text("=") & encodePath(
+  private def encodeExercisedEvent(
+      partyMap: Map[Party, String],
+      cidMap: Map[ContractId, String],
+      missingInstances: Set[TemplateId],
+      exercisedEvent: ExercisedEvent,
+  ): Doc = {
+    val cid = exercisedEvent.interfaceId match {
+      case None => encodeCidExpr(cidMap, ContractId(exercisedEvent.contractId))
+      case Some(interfaceId) =>
+        encodeInterfaceCidExpr(
+          InterfaceId(interfaceId),
+          cidMap,
+          ContractId(exercisedEvent.contractId),
+        )
+    }
+    val choice = encodeValue(partyMap, cidMap, exercisedEvent.getChoiceArgument.sum)
+    if (missingInstances.contains(TemplateId(exercisedEvent.getTemplateId))) {
+      val command = Doc.text("internalExerciseCmd")
+      val tplIdArg = "@" +: encodeTemplateId(TemplateId(exercisedEvent.getTemplateId))
+      val typeRepArg = parens("templateTypeRep" &: tplIdArg)
+      val cidArg = parens("coerceContractId" &: cid)
+      val choiceArg = parens(Doc.text("toAnyChoice") & tplIdArg & choice)
+      Doc.stack(Seq(command, typeRepArg, cidArg, choiceArg)).nested(2)
+    } else {
+      val command = Doc.text("exerciseCmd")
+      command & cid & choice
+    }
+  }
+
+  private def bindCid(cidMap: Map[ContractId, String], c: CreatedContractWithPath): Doc = {
+    (Doc.text("let") & encodeCidPat(cidMap, c) & Doc.text("=") & encodePath(
       Doc.text("tree"),
       c.path,
     )).nested(4)
@@ -486,26 +548,26 @@ private[export] object Encode {
       submit: SubmitSimple,
   ): Doc = {
     val cids = submit.simpleCommands.map(_.contractId)
-    val referencedCids = cids.filter(cid => cidRefs.contains(cid))
+    val referencedCids = cids.filter(c => cidRefs.contains(c.cid))
     val (bind, returnStmt) = referencedCids match {
       case Seq() if cids.length == 1 =>
         (Doc.text("_ <- "), Doc.empty)
       case Seq() =>
         (Doc.empty, Doc.text("pure ()"))
       case Seq(cid) if cids.length == 1 =>
-        val encodedCid = encodeCid(cidMap, cid)
-        (encodedCid :+ " <- ", Doc.empty)
+        (encodeCidPat(cidMap, cid) :+ " <- ", Doc.empty)
       case Seq(cid) =>
-        val encodedCid = encodeCid(cidMap, cid)
-        (encodedCid :+ " <- ", "pure " +: encodedCid)
+        (encodeCidPat(cidMap, cid) :+ " <- ", "pure " +: encodeCidExpr(cidMap, cid.cid))
       case _ =>
-        val encodedCids = referencedCids.map(encodeCid(cidMap, _))
-        (tuple(encodedCids) :+ " <- ", "pure " +: tuple(encodedCids))
+        (
+          tuple(referencedCids.map(encodeCidPat(cidMap, _))) :+ " <- ",
+          "pure " +: tuple(referencedCids.map(c => encodeCidExpr(cidMap, c.cid))),
+        )
     }
-    val actions = Doc.stack(submit.simpleCommands.map { case SimpleCommand(cmd, cid) =>
+    val actions = Doc.stack(submit.simpleCommands.map { case SimpleCommand(cmd, c) =>
       val bind = if (returnStmt.nonEmpty) {
-        if (cidRefs.contains(cid)) {
-          encodeCid(cidMap, cid) :+ " <- "
+        if (cidRefs.contains(c.cid)) {
+          encodeCidPat(cidMap, c) :+ " <- "
         } else {
           Doc.text("_ <- ")
         }
@@ -583,10 +645,14 @@ private[export] object Encode {
         "created @" +: encodeTemplateId(templateId)
       case CreatedSelector(templateId, index) =>
         "createdN @" +: encodeTemplateId(templateId) & Doc.str(index)
-      case ExercisedSelector(templateId, choice, 0) =>
+      case ExercisedSelector(templateId, None, choice, 0) =>
         "exercised @" +: encodeTemplateId(templateId) & encodeChoice(choice)
-      case ExercisedSelector(templateId, choice, index) =>
+      case ExercisedSelector(templateId, None, choice, index) =>
         "exercisedN @" +: encodeTemplateId(templateId) & encodeChoice(choice) & Doc.str(index)
+      case ExercisedSelector(templateId @ _, Some(interfaceId), choice, 0) =>
+        "exercised @" +: encodeInterfaceId(interfaceId) & encodeChoice(choice)
+      case ExercisedSelector(templateId @ _, Some(interfaceId), choice, index) =>
+        "exercisedN @" +: encodeInterfaceId(interfaceId) & encodeChoice(choice) & Doc.str(index)
     }
   }
 

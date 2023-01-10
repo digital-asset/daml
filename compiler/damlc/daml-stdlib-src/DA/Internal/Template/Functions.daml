@@ -1,4 +1,4 @@
--- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE AllowAmbiguousTypes #-}
@@ -20,21 +20,8 @@ import DA.Internal.Template
 
 import GHC.Types (primitive)
 
-type TemplateOrInterface t =
-  ( HasTemplateTypeRep t
-  , HasToAnyTemplate t
-  , HasFromAnyTemplate t
-  )
--- | Constraint satisfied by templates.
 type Template t =
-  ( HasSignatory t
-  , HasObserver t
-  , HasEnsure t
-  , HasAgreement t
-  , HasCreate t
-  , HasFetch t
-  , HasArchive t
-  , HasTemplateTypeRep t
+  ( HasTemplateTypeRep t
   , HasToAnyTemplate t
   , HasFromAnyTemplate t
   )
@@ -100,7 +87,7 @@ stakeholder t = signatory t ++ observer t
 
 -- | Constraint satisfied by choices.
 type Choice t c r =
-  ( TemplateOrInterface t
+  ( Template t
   , HasExercise t c r
   , HasToAnyChoice t c r
   , HasFromAnyChoice t c r

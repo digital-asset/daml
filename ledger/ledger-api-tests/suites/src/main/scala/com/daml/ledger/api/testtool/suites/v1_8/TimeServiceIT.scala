@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.testtool.suites.v1_8
@@ -50,6 +50,27 @@ final class TimeServiceIT extends LedgerTestSuite {
     } yield {
       assertEquals("ledger time should be advanced", laterTime, thirtySecLater)
     }
+  })
+
+  test(
+    "TSTimeAdvancementCanFail",
+    "Time advancement can fail when current time is not accurate",
+    allocate(NoParties),
+    runConcurrently = false,
+    enabled = _.staticTime,
+    disabledReason = "requires ledger static time feature",
+  )(implicit ec => { case Participants(Participant(ledger)) =>
+    for {
+      initialTime <- ledger.time()
+      invalidInitialTime = initialTime.plusSeconds(1)
+      thirtySecLater = initialTime.plusSeconds(30)
+      _ <- ledger
+        .setTime(invalidInitialTime, thirtySecLater)
+        .mustFailWith(
+          "current_time mismatch",
+          LedgerApiErrors.RequestValidation.InvalidArgument,
+        )
+    } yield ()
   })
 
   test(

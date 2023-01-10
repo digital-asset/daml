@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.javaapi.data.codegen;
@@ -15,13 +15,19 @@ public abstract class ByKey implements Exercises<ExerciseByKeyCommand> {
   }
 
   @Override
-  public ExerciseByKeyCommand makeExerciseCmd(String choice, Value choiceArgument) {
-    return new ExerciseByKeyCommand(
-        getCompanion().TEMPLATE_ID, contractKey, choice, choiceArgument);
+  public <A, R> Update<Exercised<R>> makeExerciseCmd(
+      Choice<?, ? super A, R> choice, A choiceArgument) {
+    var command =
+        new ExerciseByKeyCommand(
+            getCompanion().TEMPLATE_ID,
+            contractKey,
+            choice.name,
+            choice.encodeArg.apply(choiceArgument));
+    return new Update.ExerciseUpdate<>(command, x -> x, choice.returnTypeDecoder);
   }
 
   /** The origin of the choice, not the template relevant to contractKey. */
-  protected abstract ContractTypeCompanion getCompanion();
+  protected abstract ContractTypeCompanion<?, ?, ?, ?> getCompanion();
 
   /**
    * Parent of all generated {@code ByKey} classes within interfaces. These need to pass both the
@@ -36,9 +42,16 @@ public abstract class ByKey implements Exercises<ExerciseByKeyCommand> {
     }
 
     @Override
-    public ExerciseByKeyCommand makeExerciseCmd(String choice, Value choiceArgument) {
+    public <A, R> Update<Exercised<R>> makeExerciseCmd(
+        Choice<?, ? super A, R> choice, A choiceArgument) {
       // TODO #14056 use getCompanion().TEMPLATE_ID as the interface ID
-      return new ExerciseByKeyCommand(keySource.TEMPLATE_ID, contractKey, choice, choiceArgument);
+      var command =
+          new ExerciseByKeyCommand(
+              keySource.TEMPLATE_ID,
+              contractKey,
+              choice.name,
+              choice.encodeArg.apply(choiceArgument));
+      return new Update.ExerciseUpdate<>(command, x -> x, choice.returnTypeDecoder);
     }
   }
 }

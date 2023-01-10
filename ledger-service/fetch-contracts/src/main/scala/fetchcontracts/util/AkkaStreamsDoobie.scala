@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.fetchcontracts.util
@@ -39,7 +39,7 @@ private[daml] object AkkaStreamsDoobie {
   private[fetchcontracts] def project2[A, B]: Graph[FanOutShape2[(A, B), A, B], NotUsed] =
     GraphDSL.create() { implicit b =>
       import GraphDSL.Implicits._
-      val split = b add Broadcast[(A, B)](2)
+      val split = b add Broadcast[(A, B)](2, eagerCancel = true)
       val left = b add Flow.fromFunction((_: (A, B))._1)
       val right = b add Flow.fromFunction((_: (A, B))._2)
       discard { split ~> left }

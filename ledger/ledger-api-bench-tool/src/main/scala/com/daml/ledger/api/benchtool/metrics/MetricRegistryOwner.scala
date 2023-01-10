@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.benchtool.metrics
@@ -9,7 +9,7 @@ import scala.concurrent.duration.Duration
 import java.util.concurrent.TimeUnit
 import com.codahale.metrics.{MetricRegistry, ScheduledReporter, Slf4jReporter}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
-import com.daml.metrics.MetricsReporter
+import com.daml.metrics.api.reporters.MetricsReporter
 
 import scala.concurrent.Future
 

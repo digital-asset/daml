@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.http
@@ -26,8 +26,8 @@ import scalaz.{-\/, EitherT, \/, \/-}
 import spray.json._
 
 import scala.concurrent.{ExecutionContext, Future}
+import com.daml.http.metrics.HttpJsonApiMetrics
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
-import com.daml.metrics.Metrics
 
 private[http] final class ContractList(
     routeSetup: RouteSetup,
@@ -42,10 +42,10 @@ private[http] final class ContractList(
   def fetch(req: HttpRequest)(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID],
       ec: ExecutionContext,
-      metrics: Metrics,
+      metrics: HttpJsonApiMetrics,
   ): ET[domain.SyncResponse[JsValue]] =
     for {
-      parseAndDecodeTimerCtx <- getParseAndDecodeTimerCtx()
+      parseAndDecodeTimer <- getParseAndDecodeTimerCtx()
       input <- inputJsValAndJwtPayload(req): ET[(Jwt, JwtPayload, JsValue)]
 
       (jwt, jwtPayload, reqBody) = input
@@ -66,13 +66,13 @@ private[http] final class ContractList(
                     .liftErr(InvalidUserInput)
                 )
               ): ET[domain.FetchRequest[LfValue]]
-          _ <- EitherT.pure(parseAndDecodeTimerCtx.close())
+          _ <- EitherT.pure(parseAndDecodeTimer.stop())
           _ = logger.debug(s"/v1/fetch fr: $fr")
 
           _ <- either(ensureReadAsAllowedByJwt(fr.readAs, jwtPayload))
           ac <- eitherT(
             handleFutureFailure(contractsService.lookup(jwt, jwtPayload, fr))
-          ): ET[Option[domain.ActiveContract[JsValue]]]
+          ): ET[Option[domain.ActiveContract.ResolvedCtTyId[JsValue]]]
 
           jsVal <- either(
             ac.cata(x => toJsValue(x), \/-(JsNull))
@@ -84,16 +84,18 @@ private[http] final class ContractList(
 
   def retrieveAll(req: HttpRequest)(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID],
-      metrics: Metrics,
+      metrics: HttpJsonApiMetrics,
   ): Future[Error \/ SearchResult[Error \/ JsValue]] = for {
-    parseAndDecodeTimerCtx <- Future(
-      metrics.daml.HttpJsonApi.incomingJsonParsingAndValidationTimer.time()
+    parseAndDecodeTimer <- Future(
+      metrics.incomingJsonParsingAndValidationTimer.startAsync()
     )
     res <- inputAndJwtPayload[JwtPayload](req).run.map {
       _.map { case (jwt, jwtPayload, _) =>
-        parseAndDecodeTimerCtx.close()
+        parseAndDecodeTimer.stop()
         withJwtPayloadLoggingContext(jwtPayload) { implicit lc =>
-          val result: SearchResult[ContractsService.Error \/ domain.ActiveContract[LfValue]] =
+          val result: SearchResult[
+            ContractsService.Error \/ domain.ActiveContract.ResolvedCtTyId[LfValue]
+          ] =
             contractsService.retrieveAll(jwt, jwtPayload)
 
           domain.SyncResponse.covariant.map(result) { source =>
@@ -108,7 +110,7 @@ private[http] final class ContractList(
 
   def query(req: HttpRequest)(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID],
-      metrics: Metrics,
+      metrics: HttpJsonApiMetrics,
   ): Future[Error \/ SearchResult[Error \/ JsValue]] = {
     for {
       it <- inputAndJwtPayload[JwtPayload](req).leftMap(identity[Error])
@@ -129,7 +131,7 @@ private[http] final class ContractList(
             .map(
               domain.SyncResponse.covariant.map(_)(
                 _.via(handleSourceFailure)
-                  .map(_.flatMap(toJsValue[domain.ActiveContract[JsValue]](_)))
+                  .map(_.flatMap(toJsValue[domain.ActiveContract.ResolvedCtTyId[JsValue]](_)))
               )
             )
         }
@@ -156,9 +158,9 @@ private[endpoints] object ContractList {
   private def lfValueToJsValue(a: LfValue): Error \/ JsValue =
     \/.attempt(LfValueCodec.apiValueToJsValue(a))(identity).liftErr(ServerError.fromMsg)
 
-  private def lfAcToJsValue(a: domain.ActiveContract[LfValue]): Error \/ JsValue = {
+  private def lfAcToJsValue(a: domain.ActiveContract.ResolvedCtTyId[LfValue]): Error \/ JsValue = {
     for {
-      b <- a.traverse(lfValueToJsValue): Error \/ domain.ActiveContract[JsValue]
+      b <- a.traverse(lfValueToJsValue): Error \/ domain.ActiveContract.ResolvedCtTyId[JsValue]
       c <- toJsValue(b)
     } yield c
   }

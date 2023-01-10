@@ -48,11 +48,9 @@ instance DA.Internal.Desugar.HasArchive Token where
   archive cid
     = DA.Internal.Desugar.exercise cid DA.Internal.Desugar.Archive
 instance DA.Internal.Desugar.HasToAnyChoice Token DA.Internal.Desugar.Archive (()) where
-  _toAnyChoice _
-    = GHC.Types.primitive @"EToAnyInterfaceChoice" ([] : [Token])
+  _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
 instance DA.Internal.Desugar.HasFromAnyChoice Token DA.Internal.Desugar.Archive (()) where
-  _fromAnyChoice _
-    = GHC.Types.primitive @"EFromAnyInterfaceChoice" ([] : [Token])
+  _fromAnyChoice = GHC.Types.primitive @"EFromAnyChoice"
 instance DA.Internal.Desugar.HasExerciseGuarded Token DA.Internal.Desugar.Archive (()) where
   exerciseGuarded pred cid arg
     = GHC.Types.primitive
@@ -67,11 +65,9 @@ instance DA.Internal.Desugar.HasExercise Token DA.Internal.Desugar.Archive (()) 
         (DA.Internal.Desugar.toInterfaceContractId @Token cid)
         arg
 instance DA.Internal.Desugar.HasToAnyChoice Token Transfer (ContractId Token) where
-  _toAnyChoice _
-    = GHC.Types.primitive @"EToAnyInterfaceChoice" ([] : [Token])
+  _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
 instance DA.Internal.Desugar.HasFromAnyChoice Token Transfer (ContractId Token) where
-  _fromAnyChoice _
-    = GHC.Types.primitive @"EFromAnyInterfaceChoice" ([] : [Token])
+  _fromAnyChoice = GHC.Types.primitive @"EFromAnyChoice"
 instance DA.Internal.Desugar.HasExerciseGuarded Token Transfer (ContractId Token) where
   exerciseGuarded pred cid arg
     = GHC.Types.primitive
@@ -93,7 +89,7 @@ instance DA.Internal.Record.HasField "newOwner" Transfer Party where
     = DA.Internal.Record.getFieldPrim @"newOwner" @Transfer @Party
   setField
     = DA.Internal.Record.setFieldPrim @"newOwner" @Transfer @Party
-_choice_TokenArchive :
+_choice$_TokenArchive :
   (Token
    -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.ContractId Token
@@ -102,12 +98,12 @@ _choice_TokenArchive :
    DA.Internal.Desugar.Consuming Token,
    DA.Internal.Desugar.Optional (Token
                                  -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]))
-_choice_TokenArchive
+_choice$_TokenArchive
   = (\ this arg@DA.Internal.Desugar.Archive
        -> DA.Internal.Desugar.signatory this, 
      \ _ _ _ -> pure (), DA.Internal.Desugar.Consuming, 
      DA.Internal.Desugar.None)
-_choice_TokenTransfer :
+_choice$_TokenTransfer :
   (Token -> Transfer -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.ContractId Token
    -> Token
@@ -115,7 +111,7 @@ _choice_TokenTransfer :
    DA.Internal.Desugar.Consuming Token,
    DA.Internal.Desugar.Optional (Token
                                  -> Transfer -> [DA.Internal.Desugar.Party]))
-_choice_TokenTransfer
+_choice$_TokenTransfer
   = (\ this arg@Transfer {..}
        -> let _ = this in
           let _ = arg in DA.Internal.Desugar.toParties (getIssuer this), 
@@ -125,6 +121,8 @@ _choice_TokenTransfer
      DA.Internal.Desugar.Consuming, DA.Internal.Desugar.None)
 instance DA.Internal.Desugar.HasInterfaceView Token EmptyInterfaceView where
   _view = GHC.Types.primitive @"EViewInterface"
+instance DA.Internal.Desugar.HasFromAnyView Token EmptyInterfaceView where
+  _fromAnyView = GHC.Types.primitive @"EFromAnyView"
 data GHC.Types.DamlTemplate => Asset
   = Asset {issuer : Party, owner : Party, amount : Int}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
@@ -177,10 +175,10 @@ instance DA.Internal.Desugar.HasIsInterfaceType Asset where
 instance DA.Internal.Desugar.HasExercise Asset DA.Internal.Desugar.Archive (()) where
   exercise = GHC.Types.primitive @"UExercise"
 instance DA.Internal.Desugar.HasToAnyChoice Asset DA.Internal.Desugar.Archive (()) where
-  _toAnyChoice = GHC.Types.primitive @"EToAnyTemplateChoice"
+  _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
 instance DA.Internal.Desugar.HasFromAnyChoice Asset DA.Internal.Desugar.Archive (()) where
-  _fromAnyChoice = GHC.Types.primitive @"EFromAnyTemplateChoice"
-_choice_AssetArchive :
+  _fromAnyChoice = GHC.Types.primitive @"EFromAnyChoice"
+_choice$_AssetArchive :
   (Asset
    -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.ContractId Asset
@@ -189,47 +187,47 @@ _choice_AssetArchive :
    DA.Internal.Desugar.Consuming Asset,
    DA.Internal.Desugar.Optional (Asset
                                  -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]))
-_choice_AssetArchive
+_choice$_AssetArchive
   = (\ this _ -> DA.Internal.Desugar.signatory this, 
      \ _ _ _ -> pure (), DA.Internal.Desugar.Consuming, 
      DA.Internal.Desugar.None)
-_interface_instance_Asset_Token_Asset :
+_interface_instance$_Asset_Token_Asset :
   DA.Internal.Desugar.InterfaceInstance Asset Token Asset
-_interface_instance_Asset_Token_Asset
+_interface_instance$_Asset_Token_Asset
   = DA.Internal.Desugar.mkInterfaceInstance @Asset @Token @Asset
-_method_Asset_Token_Asset_getOwner :
+_method$_Asset_Token_Asset_getOwner :
   DA.Internal.Desugar.Method Asset Token Asset "getOwner"
-_method_Asset_Token_Asset_getOwner
+_method$_Asset_Token_Asset_getOwner
   = DA.Internal.Desugar.mkMethod
       @Asset
       @Token
       @Asset
       @"getOwner"
       \ this@Asset {..}
-        -> let _ = this in let getOwner = owner in getOwner
-_method_Asset_Token_Asset_getIssuer :
+        -> let _ = this in let $getOwner = owner in $getOwner
+_method$_Asset_Token_Asset_getIssuer :
   DA.Internal.Desugar.Method Asset Token Asset "getIssuer"
-_method_Asset_Token_Asset_getIssuer
+_method$_Asset_Token_Asset_getIssuer
   = DA.Internal.Desugar.mkMethod
       @Asset
       @Token
       @Asset
       @"getIssuer"
       \ this@Asset {..}
-        -> let _ = this in let getIssuer = issuer in getIssuer
-_method_Asset_Token_Asset_getAmount :
+        -> let _ = this in let $getIssuer = issuer in $getIssuer
+_method$_Asset_Token_Asset_getAmount :
   DA.Internal.Desugar.Method Asset Token Asset "getAmount"
-_method_Asset_Token_Asset_getAmount
+_method$_Asset_Token_Asset_getAmount
   = DA.Internal.Desugar.mkMethod
       @Asset
       @Token
       @Asset
       @"getAmount"
       \ this@Asset {..}
-        -> let _ = this in let getAmount = amount in getAmount
-_method_Asset_Token_Asset_transferImpl :
+        -> let _ = this in let $getAmount = amount in $getAmount
+_method$_Asset_Token_Asset_transferImpl :
   DA.Internal.Desugar.Method Asset Token Asset "transferImpl"
-_method_Asset_Token_Asset_transferImpl
+_method$_Asset_Token_Asset_transferImpl
   = DA.Internal.Desugar.mkMethod
       @Asset
       @Token
@@ -238,19 +236,19 @@ _method_Asset_Token_Asset_transferImpl
       \ this@Asset {..}
         -> let _ = this in
            let
-             transferImpl newOwner
+             $transferImpl newOwner
                = do cid <- create this {owner = newOwner}
                     pure (toInterfaceContractId @Token cid)
-           in transferImpl
-_view_Asset_Token_Asset :
+           in $transferImpl
+_view$_Asset_Token_Asset :
   DA.Internal.Desugar.InterfaceView Asset Token Asset
-_view_Asset_Token_Asset
+_view$_Asset_Token_Asset
   = DA.Internal.Desugar.mkInterfaceView
       @Asset
       @Token
       @Asset
       \ this@Asset {..}
-        -> let _ = this in let view = EmptyInterfaceView in view
+        -> let _ = this in let $view = EmptyInterfaceView in $view
 instance DA.Internal.Desugar.HasToInterface Asset Token where
   _toInterface = GHC.Types.primitive @"EToInterface"
 instance DA.Internal.Desugar.HasFromInterface Asset Token where

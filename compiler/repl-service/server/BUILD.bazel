@@ -1,9 +1,10 @@
-# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
     "//bazel_tools:scala.bzl",
     "da_scala_binary",
+    "lf_scalacopts_stricter",
 )
 
 genrule(
@@ -13,10 +14,6 @@ genrule(
     cmd = "cp $< $@",
     visibility = ["//visibility:public"],
 )
-
-repl_scalacopts = ["-P:wartremover:traverser:org.wartremover.warts.%s" % wart for wart in [
-    "NonUnitStatements",
-]]
 
 da_scala_binary(
     name = "repl-service-raw",
@@ -28,7 +25,7 @@ da_scala_binary(
         "@maven//:io_spray_spray_json",
         "@maven//:org_scalaz_scalaz_core",
     ],
-    scalacopts = repl_scalacopts,
+    scalacopts = lf_scalacopts_stricter,
     runtime_deps = [
         "@maven//:ch_qos_logback_logback_classic",
     ],

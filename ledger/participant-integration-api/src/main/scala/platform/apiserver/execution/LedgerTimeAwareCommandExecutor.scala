@@ -1,9 +1,8 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.apiserver.execution
 
-import com.daml.error.definitions.ErrorCause
 import com.daml.ledger.api.domain.Commands
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.participant.state.index.v2.MaximumLedgerTime
@@ -12,6 +11,7 @@ import com.daml.lf.data.Time
 import com.daml.lf.value.Value.ContractId
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
+import com.daml.platform.apiserver.services.ErrorCause
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}

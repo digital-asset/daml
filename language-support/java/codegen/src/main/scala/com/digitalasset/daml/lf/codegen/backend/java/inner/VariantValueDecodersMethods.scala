@@ -1,10 +1,9 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.codegen.backend.java.inner
 
 import com.daml.lf.typesig.{Type, Variant}
-import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.codegen.backend.java.JavaEscaper
 import com.daml.lf.codegen.TypeWithContext
 import com.daml.lf.typesig._
@@ -20,11 +19,10 @@ object VariantValueDecodersMethods {
       typeArgs: IndexedSeq[String],
       variant: Variant.FWT,
       typeWithContext: TypeWithContext,
-      packagePrefixes: Map[PackageId, String],
       subPackage: String,
-  ): Vector[MethodSpec] = {
+  )(implicit packagePrefixes: PackagePrefixes): Vector[MethodSpec] = {
     val (variantRecords, methodSpecs) =
-      getFieldsWithTypes(variant.fields, packagePrefixes).partitionMap { fieldInfo =>
+      getFieldsWithTypes(variant.fields).partitionMap { fieldInfo =>
         val FieldInfo(damlName, damlType, javaName, _) = fieldInfo
         damlType match {
           case TypeCon(TypeConName(id), _) if isVariantRecord(typeWithContext, damlName, id) =>
@@ -34,7 +32,7 @@ object VariantValueDecodersMethods {
             val className =
               ClassName.bestGuess(s"$subPackage.$javaName").parameterized(typeArgs)
             Right(
-              variantConDecoderMethod(damlName, typeArgs, className, damlType, packagePrefixes)
+              variantConDecoderMethod(damlName, typeArgs, className, damlType)
             )
         }
       }
@@ -53,12 +51,11 @@ object VariantValueDecodersMethods {
             ClassName.bestGuess(s"$subPackage.${child.name}").parameterized(typeParameters)
 
           FromValueGenerator.generateValueDecoderForRecordLike(
-            getFieldsWithTypes(record.fields, packagePrefixes),
+            getFieldsWithTypes(record.fields),
             className,
             typeArgs,
             s"valueDecoder${child.name}",
             FromValueGenerator.variantCheck(child.name, _, _),
-            packagePrefixes,
           )
         case t =>
           val c = s"${typeWithContext.name}.${child.name}"
@@ -75,7 +72,8 @@ object VariantValueDecodersMethods {
       typeParameters: IndexedSeq[String],
       className: TypeName,
       fieldType: Type,
-      packagePrefixes: Map[PackageId, String],
+  )(implicit
+      packagePrefixes: PackagePrefixes
   ) = {
     val converterParams =
       FromValueExtractorParameters.generate(typeParameters).valueDecoderParameterSpecs
@@ -89,7 +87,6 @@ object VariantValueDecodersMethods {
             fieldType,
             "body",
             CodeBlock.of("variantValue$$"),
-            packagePrefixes,
           )
       )
       .addStatement("return new $T(body)", className)

@@ -1,4 +1,4 @@
-# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -60,17 +60,33 @@ common_scalacopts = version_specific.get(scala_major_version, []) + [
     # better error reporting for pureconfig
     "-Xmacro-settings:materialize-derivations",
     "-Xfatal-warnings",
-    # catch missing string interpolators
-    "-Xlint:missing-interpolator",
+    "-Xlint:missing-interpolator",  # catch missing string interpolators
+    # "-Xlint:adapted-args",
+    # "-Xlint:byname-implicit",
     "-Xlint:constant",  # / 0
+    "-Xlint:delayedinit-select",  # uses deprecated DelayedInit
+    "-Xlint:deprecation",  # deprecated annotations without 'message' or 'since' fields
     "-Xlint:doc-detached",  # floating Scaladoc comment
+    "-Xlint:eta-sam",  # missing @FunctionalInterface for lambda
+    "-Xlint:eta-zero",  # ambiguous nullary method delay
+    "-Xlint:implicit-not-found",  # messages well-formed
+    # "-Xlint:implicit-recursion",
     "-Xlint:inaccessible",  # method uses invisible types
     "-Xlint:infer-any",  # less thorough but less buggy version of the Any wart
+    # "-Xlint:multiarg-infix",
+    "-Xlint:nonlocal-return",  # uses throwy return
+    "-Xlint:nullary-unit",  # must put () if returning Unit
     "-Xlint:option-implicit",  # implicit conversion arg might be null
     "-Xlint:package-object-classes",  # put them directly in the package
     "-Xlint:poly-implicit-overload",  # implicit conversions don't mix with overloads
     "-Xlint:private-shadow",  # name shadowing
+    "-Xlint:recurse-with-default",  # optional settings not passed through
+    "-Xlint:serial",  # spurious @SerialVersionUID
+    # "-Xlint:stars-align",
+    # "-Xlint:strict-unsealed-patmat",
     "-Xlint:type-parameter-shadow",  # name shadowing
+    "-Xlint:unit-special",  # specializing for Unit is silly anyway
+    # "-Xlint:valpattern"
     "-Ywarn-dead-code",
     # Warn about implicit conversion between numerical types
     "-Ywarn-numeric-widen",
@@ -147,6 +163,7 @@ lf_scalacopts = [
 
 lf_scalacopts_stricter = lf_scalacopts + [
     "-P:wartremover:traverser:org.wartremover.warts.NonUnitStatements",
+    "-Xlint:_",
 ]
 
 default_compile_arguments = {

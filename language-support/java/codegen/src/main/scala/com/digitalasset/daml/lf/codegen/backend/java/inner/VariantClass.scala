@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.codegen.backend.java.inner
@@ -6,7 +6,6 @@ package com.daml.lf.codegen.backend.java.inner
 import com.daml.ledger.javaapi
 import com.daml.lf.codegen.TypeWithContext
 import com.daml.lf.codegen.backend.java.JavaEscaper
-import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.typesig._
 import PackageSignature.TypeDecl.Normal
 import com.daml.ledger.javaapi.data.codegen.ValueDecoder
@@ -25,11 +24,10 @@ private[inner] object VariantClass extends StrictLogging {
       typeArguments: IndexedSeq[String],
       variant: Variant.FWT,
       typeWithContext: TypeWithContext,
-      packagePrefixes: Map[PackageId, String],
-  ): (TypeSpec, List[TypeSpec]) =
+  )(implicit packagePrefixes: PackagePrefixes): (TypeSpec, List[TypeSpec]) =
     TrackLineage.of("variant", typeWithContext.name) {
       logger.info("Start")
-      val constructorInfo = getFieldsWithTypes(variant.fields, packagePrefixes)
+      val constructorInfo = getFieldsWithTypes(variant.fields)
       val variantType = TypeSpec
         .classBuilder(variantClassName)
         .addModifiers(Modifier.PUBLIC, Modifier.ABSTRACT)
@@ -53,7 +51,6 @@ private[inner] object VariantClass extends StrictLogging {
             typeArguments,
             variant,
             typeWithContext,
-            packagePrefixes,
             subPackage,
           ).asJava
         )
@@ -63,7 +60,6 @@ private[inner] object VariantClass extends StrictLogging {
         typeArguments,
         variant,
         typeWithContext,
-        packagePrefixes,
         variantClassName,
       )
       logger.debug("End")
@@ -140,7 +136,7 @@ private[inner] object VariantClass extends StrictLogging {
     val extractors =
       CodeBlock.join(
         variant.typeArguments.asScala.map(t => CodeBlock.of("$L", s"fromValue$t")).asJava,
-        ", ",
+        ",$W",
       )
     switchOnConstructor(
       decodeValueCodeBuilder,
@@ -244,7 +240,7 @@ private[inner] object VariantClass extends StrictLogging {
       typeVariablesExtractorParameters.functionParameterSpecs.map { param =>
         CodeBlock.of("$T.fromFunction($N)", classOf[ValueDecoder[_]], param)
       }.asJava,
-      ", ",
+      ",$W",
     )
 
     val classStaticAccessor = {
@@ -252,7 +248,7 @@ private[inner] object VariantClass extends StrictLogging {
         variant.typeArguments.asScala.map { param =>
           CodeBlock.of("$T", param)
         }.asJava,
-        ", ",
+        ",$W",
       )
       CodeBlock.of("$T.<$L>", variant.rawType, typeParameterList)
     }
@@ -283,15 +279,14 @@ private[inner] object VariantClass extends StrictLogging {
       typeArgs: IndexedSeq[String],
       variant: Variant.FWT,
       typeWithContext: TypeWithContext,
-      packagePrefixes: Map[PackageId, String],
       variantClassName: ClassName,
-  ): List[TypeSpec] = {
+  )(implicit packagePrefixes: PackagePrefixes): List[TypeSpec] = {
     logger.debug("Generating inner classes")
     val innerClasses = new collection.mutable.ArrayBuffer[TypeSpec]
     val variantRecords = new collection.mutable.HashSet[String]()
     val fullVariantClassName = variantClassName.parameterized(typeArgs)
 
-    for (fieldInfo <- getFieldsWithTypes(variant.fields, packagePrefixes)) {
+    for (fieldInfo <- getFieldsWithTypes(variant.fields)) {
       val FieldInfo(damlName, damlType, javaName, _) = fieldInfo
       damlType match {
         case TypeCon(TypeConName(id), _) if isVariantRecord(typeWithContext, damlName, id) =>
@@ -306,7 +301,6 @@ private[inner] object VariantClass extends StrictLogging {
             damlName,
             javaName,
             damlType,
-            packagePrefixes,
           )
       }
     }
@@ -323,10 +317,9 @@ private[inner] object VariantClass extends StrictLogging {
               .generate(
                 typeWithContext.interface.packageId,
                 typeVars.map(JavaEscaper.escapeString),
-                getFieldsWithTypes(record.fields, packagePrefixes),
+                getFieldsWithTypes(record.fields),
                 child.name,
                 fullVariantClassName,
-                packagePrefixes,
               )
           case t =>
             val c = s"${typeWithContext.name}.${child.name}"

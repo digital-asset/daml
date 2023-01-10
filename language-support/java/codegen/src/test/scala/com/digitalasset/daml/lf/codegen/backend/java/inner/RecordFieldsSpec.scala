@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.codegen.backend.java.inner
@@ -18,16 +18,17 @@ final class RecordFieldsSpec extends AnyFlatSpec with Matchers {
 
   behavior of "RecordFields"
 
+  private[this] implicit val packagePrefixes: PackagePrefixes = PackagePrefixes(Map.empty)
+
   it should "not generate any parameter from an empty record" in {
-    RecordFields(getFieldsWithTypes(ImmArraySeq(), Map())) shouldBe empty
+    RecordFields(getFieldsWithTypes(ImmArraySeq())) shouldBe empty
   }
 
   it should "throw exception when the parameter name is empty" in {
     an[IllegalArgumentException] shouldBe thrownBy(
       RecordFields(
         getFieldsWithTypes(
-          ImmArraySeq(Ref.Name.assertFromString("") -> TypePrim(PrimTypeBool, ImmArraySeq.empty)),
-          Map(),
+          ImmArraySeq(Ref.Name.assertFromString("") -> TypePrim(PrimTypeBool, ImmArraySeq.empty))
         )
       )
     )
@@ -39,8 +40,7 @@ final class RecordFieldsSpec extends AnyFlatSpec with Matchers {
         getFieldsWithTypes(
           ImmArraySeq(
             Ref.Name.assertFromString("bool") -> TypePrim(PrimTypeBool, ImmArraySeq.empty)
-          ),
-          Map(),
+          )
         )
       )
 
@@ -67,8 +67,7 @@ final class RecordFieldsSpec extends AnyFlatSpec with Matchers {
         getFieldsWithTypes(
           ImmArraySeq(
             Ref.Name.assertFromString("field") -> TypeCon(TypeConName(ident), ImmArraySeq.empty)
-          ),
-          Map(),
+          )
         )
       )
 

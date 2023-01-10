@@ -1,9 +1,9 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.sandbox.bridge.validate
 
-import com.codahale.metrics.MetricRegistry
+import java.time.Duration
 import com.daml.api.util.TimeProvider
 import com.daml.error.ErrorCode
 import com.daml.error.definitions.LedgerApiErrors
@@ -21,7 +21,7 @@ import com.daml.ledger.sandbox.domain.{Rejection, Submission}
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref.IdString
 import com.daml.lf.data.Time.Timestamp
-import com.daml.lf.data.{ImmArray, Ref, Time}
+import com.daml.lf.data.{Bytes, ImmArray, Ref, Time}
 import com.daml.lf.transaction.Transaction.{KeyActive, KeyCreate}
 import com.daml.lf.transaction._
 import com.daml.lf.transaction.test.TransactionBuilder
@@ -35,7 +35,6 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.{Assertion, FixtureContext, OptionValues}
 
-import java.time.Duration
 import scala.jdk.CollectionConverters.CollectionHasAsScala
 
 class SequenceSpec
@@ -316,7 +315,7 @@ class SequenceSpec
   }
 
   private trait TestContext extends FixtureContext {
-    private val bridgeMetrics = new BridgeMetrics(new Metrics(new MetricRegistry))
+    private val bridgeMetrics = new BridgeMetrics(Metrics.ForTesting.dropwizardFactory)
     val timeProviderMock: TimeProvider = mock[TimeProvider]
     val submissionId: IdString.LedgerString =
       Ref.SubmissionId.assertFromString("some-submission-id")
@@ -481,7 +480,8 @@ class SequenceSpec
     }
 
     def buildSequence(
-        initialLedgerConfiguration: Option[Configuration] = initialLedgerConfiguration
+        initialLedgerConfiguration: Option[Configuration] = initialLedgerConfiguration,
+        explicitDisclosureEnabled: Boolean = false,
     ) = new SequenceImpl(
       participantId = Ref.ParticipantId.assertFromString(participantName),
       bridgeMetrics = bridgeMetrics,
@@ -490,6 +490,7 @@ class SequenceSpec
       initialAllocatedParties = allocatedInformees,
       initialLedgerConfiguration = initialLedgerConfiguration,
       maxDeduplicationDuration = maxDeduplicationDuration,
+      explicitDisclosureEnabled = explicitDisclosureEnabled,
     )
 
     def exerciseNonConsuming(
@@ -520,16 +521,18 @@ class SequenceSpec
         completionInfo: CompletionInfo = completionInfo,
         recordTime: Time.Timestamp = currentRecordTime,
         cmdId: Ref.CommandId = commandId(1),
+        contractMetadata: Map[ContractId, Bytes] = Map.empty,
+        tx: SubmittedTransaction = txMock,
     ): Update.TransactionAccepted =
       Update.TransactionAccepted(
         optCompletionInfo = Some(completionInfo.copy(commandId = cmdId)),
         transactionMeta = transactionMeta,
-        transaction = CommittedTransaction(txMock),
+        transaction = CommittedTransaction(tx),
         transactionId = Ref.TransactionId.assertFromString(txId.toString),
         recordTime = recordTime,
         divulgedContracts = List.empty,
         blindingInfo = None,
-        contractMetadata = Map.empty,
+        contractMetadata = contractMetadata,
       )
 
     def assertCommandRejected(

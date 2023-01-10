@@ -1,29 +1,27 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.http.dbbackend
 
 import cats.instances.list._
-import com.codahale.metrics.MetricRegistry
-import doobie.util.log.LogHandler
 import com.daml.dbutils
 import com.daml.dbutils.ConnectionPool
 import com.daml.doobie.logging.Slf4jLogHandler
 import com.daml.http.dbbackend.OracleQueries.DisableContractPayloadIndexing
 import com.daml.http.dbbackend.Queries.{DBContract, SurrogateTpId}
 import com.daml.http.domain.ContractTypeId
+import com.daml.http.metrics.HttpJsonApiMetrics
 import com.daml.http.util.Logging.instanceUUIDLogCtx
-import com.daml.metrics.Metrics
-import com.daml.testing.oracle
+import com.daml.testing.oracle.OracleAround
 import com.daml.testing.oracle.OracleAround.RichOracleUser
 import com.daml.testing.postgresql.{PostgresAround, PostgresDatabase}
-import oracle.OracleAround
+import doobie.util.log.LogHandler
 import org.openjdk.jmh.annotations._
+import scalaz.std.list._
+import spray.json.DefaultJsonProtocol._
+import spray.json._
 
 import scala.concurrent.ExecutionContext
-import scalaz.std.list._
-import spray.json._
-import spray.json.DefaultJsonProtocol._
 
 @State(Scope.Benchmark)
 abstract class ContractDaoBenchmark {
@@ -34,7 +32,7 @@ abstract class ContractDaoBenchmark {
 
   protected implicit val ec: ExecutionContext = ExecutionContext.global
   protected implicit val logger: LogHandler = Slf4jLogHandler(getClass)
-  protected implicit val metrics: Metrics = new Metrics(new MetricRegistry())
+  protected implicit val metrics: HttpJsonApiMetrics = HttpJsonApiMetrics.ForTesting
 
   @Param(Array("1000"))
   var batchSize: Int = _

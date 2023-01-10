@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -14,6 +14,7 @@ import com.daml.lf.value.{Value => V}
 
 import scala.jdk.CollectionConverters._
 
+@SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
 final class Conversions(
     homePackageId: Ref.PackageId,
     ledger: ScenarioLedger,

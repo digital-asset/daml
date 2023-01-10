@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.archive
@@ -28,6 +28,11 @@ class DarReaderTest
     val f = new File(path).getAbsoluteFile
     require(f.exists, s"File does not exist: $f")
     f
+  }
+
+  "should reject a zip bomb with the proper error" in {
+    DarReader
+      .readArchiveFromFile(darFile, entrySizeThreshold = 1024) shouldBe Left(Error.ZipBomb)
   }
 
   s"should read dar file: $darFile, main archive: DarReaderTest returned first" in {
@@ -77,6 +82,7 @@ class DarReaderTest
       archiveModuleNames shouldBe Set(
         "GHC.Enum",
         "GHC.Show",
+        "GHC.Show.Text",
         "GHC.Num",
         "GHC.Stack.Types",
         "GHC.Classes",
@@ -84,6 +90,7 @@ class DarReaderTest
         "GHC.Err",
         "GHC.Base",
         "LibraryModules",
+        "GHC.Tuple.Check",
       )
     }
   }

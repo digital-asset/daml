@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -8,7 +8,6 @@ package explore
 import com.daml.lf.language.PackageInterface
 import com.daml.lf.speedy.SExpr0._
 import com.daml.lf.speedy.SValue._
-import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.SBuiltin._
 import com.daml.lf.speedy.Speedy._
 import com.daml.logging.LoggingContext
@@ -39,7 +38,7 @@ object PlaySpeedy {
       val (expected, expr) = examples(name)
       val converted = compiler.unsafeClosureConvert(expr)
       val machine = Machine.fromPureSExpr(PureCompiledPackages.Empty, converted)
-      runMachine(name, machine, expected)
+      runMachine(machine, expected)
     }
   }
 
@@ -68,23 +67,14 @@ object PlaySpeedy {
     Config(names)
   }
 
-  def runMachine(name: String, machine: Machine, expected: Int): Unit = {
-
-    println(s"example name: $name")
-
-    machine.run() match {
-      case SResultFinal(value, _) =>
-        println(s"final-value: $value")
-        value match {
-          case SInt64(got) =>
-            if (got != expected) {
-              throw new MachineProblem(s"Expected final integer to be $expected, but got $got")
-            }
-          case _ =>
-            throw new MachineProblem(s"Expected final-value to be an integer")
+  def runMachine(machine: PureMachine, expected: Int): Unit = {
+    machine.runPure().toTry.get match {
+      case SInt64(got) =>
+        if (got != expected) {
+          throw MachineProblem(s"Expected final integer to be $expected, but got $got")
         }
-      case res =>
-        throw new MachineProblem(s"Unexpected result from machine $res")
+      case _ =>
+        throw MachineProblem(s"Expected final-value to be an integer")
     }
   }
 

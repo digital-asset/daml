@@ -1,9 +1,11 @@
--- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TypeOperators #-}
 module Main (main) where
+
+{- HLINT ignore "locateRunfiles/package_app" -}
 
 import Control.Concurrent
 import Control.Applicative.Combinators
@@ -816,7 +818,6 @@ completionTests run _runScenarios = testGroup "completion"
               map (set documentation Nothing) completions @?=
               [ mkTypeCompletion "Party"
               , mkTypeCompletion "IsParties"
-              , mkTypeCompletion "TemplateOrInterface"
               ]
     , testCase "with keyword" $ run $ do
           foo <- openDoc' "Foo.daml" damlId $ T.unlines

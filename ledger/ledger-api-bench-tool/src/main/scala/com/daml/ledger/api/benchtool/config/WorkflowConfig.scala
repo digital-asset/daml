@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.benchtool.config
@@ -8,6 +8,8 @@ import com.daml.ledger.api.benchtool.config.WorkflowConfig.FooSubmissionConfig.{
   NonconsumingExercises,
 }
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
+
+import scala.concurrent.duration.FiniteDuration
 
 case class WorkflowConfig(
     submission: Option[WorkflowConfig.SubmissionConfig] = None,
@@ -101,6 +103,8 @@ object WorkflowConfig {
     def timeoutInSecondsO: Option[Long] = None
 
     def partySetPrefix: Option[String]
+
+    def subscriptionDelay: Option[FiniteDuration]
   }
 
   object StreamConfig {
@@ -124,6 +128,7 @@ object WorkflowConfig {
         beginOffset: Option[LedgerOffset] = None,
         endOffset: Option[LedgerOffset] = None,
         objectives: Option[StreamConfig.TransactionObjectives] = None,
+        subscriptionDelay: Option[FiniteDuration] = None,
         override val maxItemCount: Option[Long] = None,
         override val timeoutInSecondsO: Option[Long] = None,
     ) extends StreamConfig {
@@ -137,6 +142,7 @@ object WorkflowConfig {
         beginOffset: Option[LedgerOffset] = None,
         endOffset: Option[LedgerOffset] = None,
         objectives: Option[StreamConfig.TransactionObjectives] = None,
+        subscriptionDelay: Option[FiniteDuration] = None,
         override val maxItemCount: Option[Long] = None,
         override val timeoutInSecondsO: Option[Long] = None,
     ) extends StreamConfig {
@@ -148,6 +154,7 @@ object WorkflowConfig {
         filters: List[PartyFilter],
         partyNamePrefixFilterO: Option[PartyNamePrefixFilter] = None,
         objectives: Option[StreamConfig.AcsAndCompletionsObjectives] = None,
+        subscriptionDelay: Option[FiniteDuration] = None,
         override val maxItemCount: Option[Long] = None,
         override val timeoutInSecondsO: Option[Long] = None,
     ) extends StreamConfig {
@@ -160,6 +167,7 @@ object WorkflowConfig {
         applicationId: String,
         beginOffset: Option[LedgerOffset],
         objectives: Option[StreamConfig.AcsAndCompletionsObjectives],
+        subscriptionDelay: Option[FiniteDuration] = None,
         override val maxItemCount: Option[Long],
         override val timeoutInSecondsO: Option[Long],
     ) extends StreamConfig {

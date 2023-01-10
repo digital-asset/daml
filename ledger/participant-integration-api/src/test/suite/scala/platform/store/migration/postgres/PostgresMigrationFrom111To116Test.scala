@@ -1,15 +1,17 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.store.migration.postgres
 
+import com.daml.platform.store.DbType
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
+import com.daml.platform.store.migration.DbDataTypes
 
 class PostgresMigrationFrom111To116Test
     extends AnyFlatSpec
     with Matchers
-    with PostgresConnectionSupport {
+    with PostgresAroundEachForMigrations {
   import com.daml.platform.store.migration.MigrationTestSupport._
 
   behavior of "Data migrations from version 111 to version 116 (String Interning and Filter Table features)"
@@ -434,7 +436,8 @@ class PostgresMigrationFrom111To116Test
 }
 
 object Schema111 {
-  import PostgresDbDataType._
+  private val dataTypes = new DbDataTypes(DbType.Postgres)
+  import dataTypes._
   import com.daml.platform.store.migration.MigrationTestSupport._
 
   val parameters: TableSchema = TableSchema("parameters", "ledger_id")(
@@ -544,7 +547,8 @@ object Schema111 {
 }
 
 object Schema116 {
-  import PostgresDbDataType._
+  private val dataTypes = new DbDataTypes(DbType.Postgres)
+  import dataTypes._
   import com.daml.platform.store.migration.MigrationTestSupport._
 
   val parameters: TableSchema = Schema111.parameters

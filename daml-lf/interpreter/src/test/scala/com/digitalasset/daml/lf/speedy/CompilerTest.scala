@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -12,7 +12,7 @@ import com.daml.lf.language.Ast._
 import com.daml.lf.speedy.SError.{SError, SErrorCrash, SErrorDamlException}
 import com.daml.lf.speedy.SExpr.SExpr
 import com.daml.lf.speedy.SValue.SContractId
-import com.daml.lf.speedy.Speedy.{CachedContract, OnLedger}
+import com.daml.lf.speedy.Speedy.CachedContract
 import com.daml.lf.testing.parser.Implicits._
 import com.daml.lf.transaction.{GlobalKey, GlobalKeyWithMaintainers, TransactionVersion}
 import com.daml.lf.value.Value
@@ -66,7 +66,6 @@ class CompilerTest extends AnyWordSpec with Matchers with Inside {
         version,
         invalidTemplateId,
         invalidDisclosedContract.argument.toUnnormalizedValue,
-        "Agreement",
       )
       val sexpr = compiledPackages.compiler.unsafeCompileWithContractDisclosures(
         tokenApp(compiledPackages.compiler.unsafeCompile(ImmArray.Empty)),
@@ -87,7 +86,6 @@ class CompilerTest extends AnyWordSpec with Matchers with Inside {
         version,
         templateId,
         disclosedContract1.argument.toUnnormalizedValue,
-        "Agreement",
       )
       val disclosedContract2 =
         buildDisclosedContractWithPreCond(contractId2, templateId, precondition = false)
@@ -95,7 +93,6 @@ class CompilerTest extends AnyWordSpec with Matchers with Inside {
         version,
         templateId,
         disclosedContract2.argument.toUnnormalizedValue,
-        "Agreement",
       )
 
       "accept disclosed contracts with a valid precondition" in {
@@ -133,14 +130,12 @@ class CompilerTest extends AnyWordSpec with Matchers with Inside {
         version,
         templateId,
         disclosedContract1.argument.toUnnormalizedValue,
-        "Agreement",
       )
       val disclosedContract2 = buildDisclosedContract(contractId2, alice, templateId)
       val versionedContract2 = VersionedContractInstance(
         version,
         templateId,
         disclosedContract2.argument.toUnnormalizedValue,
-        "Agreement",
       )
 
       "with no commands" should {
@@ -314,7 +309,6 @@ class CompilerTest extends AnyWordSpec with Matchers with Inside {
         version,
         templateId,
         disclosedContract1.argument.toUnnormalizedValue,
-        "Agreement",
       )
       val disclosedContract2 =
         buildDisclosedContract(contractId2, alice, templateId, keyLabel = "test-label-2")
@@ -322,7 +316,6 @@ class CompilerTest extends AnyWordSpec with Matchers with Inside {
         version,
         templateId,
         disclosedContract2.argument.toUnnormalizedValue,
-        "Agreement",
       )
 
       "with no commands" should {
@@ -573,7 +566,7 @@ object CompilerTest {
     (SValue, Map[ContractId, CachedContract], Map[crypto.Hash, SValue.SContractId]),
   ] = {
     val machine =
-      Speedy.Machine(
+      Speedy.UpdateMachine(
         compiledPackages = compiledPackages,
         submissionTime = Time.Timestamp.MinValue,
         initialSeeding = InitialSeeding.TransactionSeed(crypto.Hash.hashPrivateKey("CompilerTest")),
@@ -583,15 +576,11 @@ object CompilerTest {
         readAs = Set.empty,
       )
 
-    SpeedyTestLib.run(machine, getContract = getContract).map { value =>
-      machine.ledgerMode match {
-        case onLedger: OnLedger =>
-          (value, onLedger.getCachedContracts, onLedger.disclosureKeyTable.toMap)
-
-        case _ =>
-          (value, Map.empty, Map.empty)
-      }
-    }
+    SpeedyTestLib
+      .run(machine, getContract = getContract)
+      .map(
+        (_, machine.getCachedContracts, machine.disclosureKeyTable.toMap)
+      )
   }
 
   def buildDisclosedContract(

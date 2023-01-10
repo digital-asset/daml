@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.language
@@ -14,8 +14,8 @@ object Ast {
 
   /** Fully applied type constructor. */
   final case class TypeConApp(tycon: TypeConName, args: ImmArray[Type]) {
-    def pretty: String =
-      args.foldLeft(TTyCon(tycon): Type) { case (arg, acc) => TApp(acc, arg) }.pretty
+    def pretty: String = this.toType.pretty
+    def toType: Type = args.foldLeft[Type](TTyCon(tycon))(TApp)
   }
 
   /* Expression variable name. */
@@ -554,6 +554,11 @@ object Ast {
   final case class UpdateCreateInterface(interfaceId: TypeConName, arg: Expr) extends Update
   final case class UpdateFetchTemplate(templateId: TypeConName, contractId: Expr) extends Update
   final case class UpdateFetchInterface(interfaceId: TypeConName, contractId: Expr) extends Update
+
+  final case class UpdateActingAsConsortium(membersE: Expr, consortium: Expr) extends Update
+  // TODO: https://github.com/digital-asset/daml/issues/15882
+  // final case class UpdateCanActAsConsortium(membersE: Expr, consortium: Expr) extends Update
+
   final case class UpdateExercise(
       templateId: TypeConName,
       choice: ChoiceName,

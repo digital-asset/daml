@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.speedy.iterable
@@ -35,7 +35,7 @@ private[speedy] object SExprIterable {
     case SExpr.SEValue(v) => iterator(v)
     case SExpr.SELocF(_) => Iterator.empty
   }
-  private def iterator(v: SValue): Iterator[SExpr] = v match {
+  private[this] def iterator(v: SValue): Iterator[SExpr] = v match {
     case SValue.SPAP(prim, actuals, _) =>
       iterator(prim) ++ actuals.asScala.iterator.flatMap(iterator(_))
     case SValue.STNat(_) | _: SValue.SPrimLit | SValue.STypeRep(_) | SValue.SToken |
@@ -44,7 +44,7 @@ private[speedy] object SExprIterable {
         SValue.SVariant(_, _, _, _) =>
       SValueIterable.iterator(v).flatMap(iterator(_))
   }
-  private def iterator(v: SValue.Prim): Iterator[SExpr] = v match {
+  private[this] def iterator(v: SValue.Prim): Iterator[SExpr] = v match {
     case SValue.PBuiltin(_) => Iterator.empty
     case SValue.PClosure(_, expr, frame) => Iterator(expr) ++ frame.iterator.flatMap(iterator(_))
   }

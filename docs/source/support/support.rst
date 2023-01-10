@@ -1,4 +1,4 @@
-.. Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 Getting Help
@@ -30,4 +30,4 @@ For Daml Open Source users:
   We can't answer questions in private messages or over email, so please only ask questions in public forums.
 - **Level of support**: We're happy to answer questions about error messages you're encountering, or discuss Daml design questions. However, we can't provide more extensive consultation on how to build your Daml application or the languages, frameworks, libraries and tools you may use to build it.
 
-If you need private support, or want consultation from Digital Asset about how to build your Daml application, they offer paid support. Please contact Digital Asset to ask about pricing.
+Digital Asset offers paid private support, which can be accessed `here <https://www.digitalasset.com/contact-support>`_. Digital Asset further offers consultation on how to build your Daml application; please contact us for pricing.

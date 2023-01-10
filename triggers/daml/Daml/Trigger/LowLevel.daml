@@ -1,4 +1,4 @@
--- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 {-# LANGUAGE AllowAmbiguousTypes #-}
 
@@ -19,6 +19,7 @@ module Daml.Trigger.LowLevel
   , Archived(..)
   , fromArchived
   , Trigger(..)
+  , BatchTrigger(..)
   , ActiveContracts(..)
   , Commands(..)
   , Command(..)
@@ -46,6 +47,7 @@ module Daml.Trigger.LowLevel
 import DA.Action.State
 import DA.Action.State.Class
 import DA.Functor ((<&>))
+import DA.Internal.Interface.AnyView.Types
 import DA.Time (RelTime(..))
 import Daml.Script.Free (Free(..), lift, foldFree)
 
@@ -67,7 +69,7 @@ instance Show AnyContractId where
 
 
 -- | Wrap a `ContractId t` in `AnyContractId`.
-toAnyContractId : forall t. TemplateOrInterface t => ContractId t -> AnyContractId
+toAnyContractId : forall t. Template t => ContractId t -> AnyContractId
 toAnyContractId cid = AnyContractId
   { templateId = templateTypeRep @t
   , contractId = coerceContractId cid
@@ -75,7 +77,7 @@ toAnyContractId cid = AnyContractId
 
 -- | Check if a `AnyContractId` corresponds to the given template or return
 -- `None` otherwise.
-fromAnyContractId : forall t. TemplateOrInterface t => AnyContractId -> Optional (ContractId t)
+fromAnyContractId : forall t. Template t => AnyContractId -> Optional (ContractId t)
 fromAnyContractId cid
   | cid.templateId == templateTypeRep @t = Some (coerceContractId cid.contractId)
   | otherwise = None
@@ -95,6 +97,11 @@ data Transaction = Transaction
  , events : [Event]
  }
 
+data InterfaceView = InterfaceView {
+  interfaceTypeRep : TemplateTypeRep,
+  anyView: Optional AnyView
+}
+
 -- | An event in a transaction.
 -- This definition should be kept consistent with the object `EventVariant` defined in
 -- triggers/runner/src/main/scala/com/digitalasset/daml/lf/engine/trigger/Converter.scala
@@ -106,15 +113,17 @@ data Event
 data Created = Created
   { eventId : EventId
   , contractId : AnyContractId
-  , argument : AnyTemplate
+  , argument : Optional AnyTemplate
+  , views : [InterfaceView]
   }
 
 -- | Check if a `Created` event corresponds to the given template.
 fromCreated : Template t => Created -> Optional (EventId, ContractId t, t)
 fromCreated Created {eventId, contractId, argument}
   | Some contractId' <- fromAnyContractId contractId
-  , Some argument' <- fromAnyTemplate argument
-  = Some (eventId, contractId', argument')
+  , Some argument' <- argument
+  , Some argument'' <- fromAnyTemplate argument'
+  = Some (eventId, contractId', argument'')
   | otherwise
   = None
 
@@ -160,11 +169,19 @@ data CompletionStatus
 
 data ActiveContracts = ActiveContracts { activeContracts : [Created] }
 
--- | Trigger is (approximately) a left-fold over `Message` with
--- an accumulator of type `s`.
+-- @WARN use 'BatchTrigger s' instead of 'Trigger s'
 data Trigger s = Trigger
   { initialState : Party -> [Party] -> ActiveContracts -> TriggerSetup s
   , update : Message -> TriggerRule s ()
+  , registeredTemplates : RegisteredTemplates
+  , heartbeat : Optional RelTime
+  }
+
+-- | Batching trigger is (approximately) a left-fold over `Message` with
+-- an accumulator of type `s`.
+data BatchTrigger s = BatchTrigger
+  { initialState : Party -> [Party] -> ActiveContracts -> TriggerSetup s
+  , update : [Message] -> TriggerRule s ()
   , registeredTemplates : RegisteredTemplates
   , heartbeat : Optional RelTime
   }
@@ -280,7 +297,7 @@ zoom : Functor m => (t -> s) -> (t -> s -> t) -> StateT s m a -> StateT t m a
 zoom r w (StateT smas) = StateT $ \t ->
   smas (r t) <&> \(a, s) -> (a, w t s)
 
--- Must be kept in sync with Runner#handleStepFreeResult
+-- Must be kept in sync with Runner#freeTriggerSubmits
 data TriggerF a =
   GetTime (Time -> a)
   | Submit ([Command], Text -> a)

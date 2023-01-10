@@ -1,12 +1,12 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.index
 
 import akka.NotUsed
 import akka.stream.scaladsl.Flow
-import com.codahale.metrics.InstrumentedExecutorService
 import com.daml.daml_lf_dev.DamlLf
+import com.daml.executors.InstrumentedExecutors
 import com.daml.ledger.api.DeduplicationPeriod.{DeduplicationDuration, DeduplicationOffset}
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.v2.{CompletionInfo, Update}
@@ -29,7 +29,6 @@ import com.daml.platform.store.packagemeta.PackageMetadataView.PackageMetadata
 import com.daml.platform.{Contract, InMemoryState, Key, Party}
 import com.daml.timer.FutureCheck._
 
-import java.util.concurrent.Executors
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -91,17 +90,19 @@ private[platform] object InMemoryStateUpdater {
       metrics: Metrics,
   )(implicit loggingContext: LoggingContext): ResourceOwner[UpdaterFlow] = for {
     prepareUpdatesExecutor <- ResourceOwner.forExecutorService(() =>
-      new InstrumentedExecutorService(
-        Executors.newWorkStealingPool(prepareUpdatesParallelism),
-        metrics.registry,
+      InstrumentedExecutors.newWorkStealingExecutor(
         metrics.daml.lapi.threadpool.indexBypass.prepareUpdates,
+        prepareUpdatesParallelism,
+        metrics.dropwizardFactory.registry,
+        metrics.executorServiceMetrics,
       )
     )
     updateCachesExecutor <- ResourceOwner.forExecutorService(() =>
-      new InstrumentedExecutorService(
-        Executors.newFixedThreadPool(1),
-        metrics.registry,
+      InstrumentedExecutors.newFixedThreadPool(
         metrics.daml.lapi.threadpool.indexBypass.updateInMemoryState,
+        1,
+        metrics.dropwizardFactory.registry,
+        metrics.executorServiceMetrics,
       )
     )
   } yield InMemoryStateUpdaterFlow(
@@ -193,7 +194,6 @@ private[platform] object InMemoryStateUpdater {
               contract = Contract(
                 template = createdEvent.templateId,
                 arg = createdEvent.createArgument,
-                agreementText = createdEvent.createAgreementText.getOrElse(""),
               ),
               globalKey = createdEvent.contractKey.map(k =>
                 Key.assertBuild(createdEvent.templateId, k.unversioned)
@@ -261,6 +261,7 @@ private[platform] object InMemoryStateUpdater {
           createObservers = create.stakeholders.diff(create.signatories),
           createAgreementText = Some(create.agreementText).filter(_.nonEmpty),
           createKeyHash = create.key.map(_.key).map(Hash.safeHashContractKey(create.templateId, _)),
+          driverMetadata = txAccepted.contractMetadata.get(create.coid),
         )
       case (nodeId, exercise: Exercise) =>
         TransactionLogUpdate.ExercisedEvent(

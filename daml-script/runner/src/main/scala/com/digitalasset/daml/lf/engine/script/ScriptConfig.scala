@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.engine.script
@@ -96,7 +96,7 @@ object ScriptConfig {
   val DefaultTimeMode: ScriptTimeMode = ScriptTimeMode.WallClock
   val DefaultMaxInboundMessageSize: Int = 4194304
 
-  @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements")) // scopt builders
+  @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
   private val parser = new scopt.OptionParser[ScriptConfig]("script-runner") {
     head("script-runner")
 

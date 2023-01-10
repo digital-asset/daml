@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.language
@@ -18,7 +18,7 @@ import scala.collection.immutable.VectorMap
 
 class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
 
-  private def defaultVersion = LanguageVersion.defaultV1
+  private def defaultVersion = LanguageVersion.default
 
   "Package.build" should {
 

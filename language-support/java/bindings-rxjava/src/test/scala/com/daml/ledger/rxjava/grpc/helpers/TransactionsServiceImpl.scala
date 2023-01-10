@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.rxjava.grpc.helpers
@@ -116,7 +116,7 @@ final class TransactionsServiceImpl(ledgerContent: Observable[LedgerItem])
           GetLedgerEndResponse(Option(LedgerOffset(Absolute(t.offset))))
         )
         .last(GetLedgerEndResponse(Option(LedgerOffset(Boundary(LEDGER_BEGIN)))))
-    result.subscribe(promise.success, promise.failure)
+    result.subscribe(promise.success _, promise.failure _)
     promise.future
   }
 

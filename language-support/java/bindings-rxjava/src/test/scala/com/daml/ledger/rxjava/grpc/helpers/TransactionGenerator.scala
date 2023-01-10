@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.rxjava.grpc.helpers
@@ -175,7 +175,7 @@ object TransactionGenerator {
   }
 
   val boolValueGen: Gen[(Sum.Bool, data.Bool)] = Arbitrary.arbBool.arbitrary.map { bool =>
-    (Sum.Bool(bool), new data.Bool(bool))
+    (Sum.Bool(bool), data.Bool of bool)
   }
 
   val dateValueGen: Gen[(Sum.Date, data.Date)] = Arbitrary.arbInt.arbitrary.map { date =>

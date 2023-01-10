@@ -1,8 +1,10 @@
--- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE MultiWayIf #-}
 module DA.Test.UnstableTypes (main) where
+
+{- HLINT ignore "locateRunfiles/package_app" -}
 
 import Data.Bifunctor
 import Control.Monad.Extra
@@ -48,14 +50,15 @@ main = do
         | dalf <- dalfs
         ]
 
+-- | This tests that daml-prim only introduces these serializable datatypes
+-- (any other serializable datatypes exposed by it are actually from stable packages)
 damlPrimTypes :: [(LF.ModuleName, LF.TypeConName)]
 damlPrimTypes = map (bimap LF.ModuleName LF.TypeConName)
     [ (["GHC", "Stack", "Types"], ["CallStack"])
     , (["GHC", "Stack", "Types"], ["SrcLoc"])
     ]
 
+-- | This tests that daml-stdlib introduces no serializable datatypes
+-- (any serializable datatypes exposed by it are actually from stable packages)
 damlStdlibTypes :: [(LF.ModuleName, LF.TypeConName)]
-damlStdlibTypes = map (bimap LF.ModuleName LF.TypeConName)
-    [ (["DA", "Random"], ["Minstd"])
-    , (["DA", "Stack"], ["SrcLoc"])
-    ]
+damlStdlibTypes = []

@@ -17,9 +17,9 @@ instance DA.Internal.Desugar.HasToInterface Interface Interface where
 instance DA.Internal.Desugar.HasFromInterface Interface Interface where
   fromInterface this = DA.Internal.Desugar.Some this
   unsafeFromInterface _ this = this
-_requires_Interface_InterfaceChoiceCollision1:Interface :
+_requires$_Interface_InterfaceChoiceCollision1:Interface :
   DA.Internal.Desugar.RequiresT Interface InterfaceChoiceCollision1.Interface
-_requires_Interface_InterfaceChoiceCollision1:Interface
+_requires$_Interface_InterfaceChoiceCollision1:Interface
   = DA.Internal.Desugar.RequiresT
 instance DA.Internal.Desugar.HasToInterface Interface InterfaceChoiceCollision1.Interface where
   _toInterface = GHC.Types.primitive @"EToRequiredInterface"
@@ -50,11 +50,9 @@ instance DA.Internal.Desugar.HasArchive Interface where
   archive cid
     = DA.Internal.Desugar.exercise cid DA.Internal.Desugar.Archive
 instance DA.Internal.Desugar.HasToAnyChoice Interface DA.Internal.Desugar.Archive (()) where
-  _toAnyChoice _
-    = GHC.Types.primitive @"EToAnyInterfaceChoice" ([] : [Interface])
+  _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
 instance DA.Internal.Desugar.HasFromAnyChoice Interface DA.Internal.Desugar.Archive (()) where
-  _fromAnyChoice _
-    = GHC.Types.primitive @"EFromAnyInterfaceChoice" ([] : [Interface])
+  _fromAnyChoice = GHC.Types.primitive @"EFromAnyChoice"
 instance DA.Internal.Desugar.HasExerciseGuarded Interface DA.Internal.Desugar.Archive (()) where
   exerciseGuarded pred cid arg
     = GHC.Types.primitive
@@ -69,11 +67,9 @@ instance DA.Internal.Desugar.HasExercise Interface DA.Internal.Desugar.Archive (
         (DA.Internal.Desugar.toInterfaceContractId @Interface cid)
         arg
 instance DA.Internal.Desugar.HasToAnyChoice Interface MyArchive (()) where
-  _toAnyChoice _
-    = GHC.Types.primitive @"EToAnyInterfaceChoice" ([] : [Interface])
+  _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
 instance DA.Internal.Desugar.HasFromAnyChoice Interface MyArchive (()) where
-  _fromAnyChoice _
-    = GHC.Types.primitive @"EFromAnyInterfaceChoice" ([] : [Interface])
+  _fromAnyChoice = GHC.Types.primitive @"EFromAnyChoice"
 instance DA.Internal.Desugar.HasExerciseGuarded Interface MyArchive (()) where
   exerciseGuarded pred cid arg
     = GHC.Types.primitive
@@ -90,7 +86,7 @@ instance DA.Internal.Desugar.HasExercise Interface MyArchive (()) where
 data MyArchive
   = MyArchive {}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
-_choice_InterfaceArchive :
+_choice$_InterfaceArchive :
   (Interface
    -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.ContractId Interface
@@ -99,19 +95,19 @@ _choice_InterfaceArchive :
    DA.Internal.Desugar.Consuming Interface,
    DA.Internal.Desugar.Optional (Interface
                                  -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]))
-_choice_InterfaceArchive
+_choice$_InterfaceArchive
   = (\ this arg@DA.Internal.Desugar.Archive
        -> DA.Internal.Desugar.signatory this, 
      \ _ _ _ -> pure (), DA.Internal.Desugar.Consuming, 
      DA.Internal.Desugar.None)
-_choice_InterfaceMyArchive :
+_choice$_InterfaceMyArchive :
   (Interface -> MyArchive -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.ContractId Interface
    -> Interface -> MyArchive -> DA.Internal.Desugar.Update (()),
    DA.Internal.Desugar.Consuming Interface,
    DA.Internal.Desugar.Optional (Interface
                                  -> MyArchive -> [DA.Internal.Desugar.Party]))
-_choice_InterfaceMyArchive
+_choice$_InterfaceMyArchive
   = (\ this arg@MyArchive
        -> let _ = this in
           let _ = arg in DA.Internal.Desugar.toParties (getOwner this), 
@@ -120,3 +116,5 @@ _choice_InterfaceMyArchive
      DA.Internal.Desugar.Consuming, DA.Internal.Desugar.None)
 instance DA.Internal.Desugar.HasInterfaceView Interface EmptyInterfaceView where
   _view = GHC.Types.primitive @"EViewInterface"
+instance DA.Internal.Desugar.HasFromAnyView Interface EmptyInterfaceView where
+  _fromAnyView = GHC.Types.primitive @"EFromAnyView"

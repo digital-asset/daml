@@ -1,4 +1,4 @@
-# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -36,10 +36,10 @@ da_scala_library(
         "//ledger/ledger-configuration/protobuf:ledger_configuration_proto_java",
         "//ledger/ledger-grpc",
         "//ledger/ledger-offset",
-        "//ledger/metrics",
         "//libs-scala/contextualized-logging",
         "//libs-scala/grpc-utils",
         "//libs-scala/logging-entries",
+        "//observability/telemetry",
         "@maven//:com_google_api_grpc_proto_google_common_protos",
         "@maven//:com_google_protobuf_protobuf_java",
     ],

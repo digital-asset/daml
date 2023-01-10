@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml
@@ -14,6 +14,7 @@ import com.daml.ledger.client.configuration.{
   LedgerIdRequirement,
 }
 import com.daml.ledger.javaapi.data
+import com.daml.ledger.javaapi.data.codegen.HasCommands
 import com.daml.ledger.javaapi.data.{codegen => jcg, _}
 import com.daml.ledger.sandbox.SandboxOnXForTest.{
   ApiServerConfig,
@@ -29,7 +30,6 @@ import io.grpc.Channel
 import org.scalatest.{Assertion, Suite}
 
 import java.io.File
-import java.time.{Duration, Instant}
 import java.util.concurrent.TimeUnit
 import java.util.stream.{Collectors, StreamSupport}
 import java.util.{Optional, UUID}
@@ -90,7 +90,12 @@ object TestUtil {
     Map[String, Filter](partyName -> NoFilter.instance).asJava
   )
 
-  def sendCmd(channel: Channel, partyName: String, cmds: Command*): Empty = {
+  def sendCmd(channel: Channel, partyName: String, hasCmds: HasCommands*): Empty = {
+    val submission = CommandsSubmission
+      .create(randomId, randomId, HasCommands.toCommands(hasCmds.asJava))
+      .withWorkflowId(randomId)
+      .withActAs(partyName)
+
     CommandServiceGrpc
       .newBlockingStub(channel)
       .withDeadlineAfter(40, TimeUnit.SECONDS)
@@ -100,14 +105,7 @@ object TestUtil {
           .setCommands(
             SubmitCommandsRequest.toProto(
               LedgerID,
-              randomId,
-              randomId,
-              randomId,
-              partyName,
-              Optional.empty[Instant],
-              Optional.empty[Duration],
-              Optional.empty[Duration],
-              cmds.asJava,
+              submission,
             )
           )
           .build
@@ -118,8 +116,14 @@ object TestUtil {
       channel: Channel,
       actAs: java.util.List[String],
       readAs: java.util.List[String],
-      cmds: Command*
+      hasCmds: HasCommands*
   ): Empty = {
+    val submission = CommandsSubmission
+      .create(randomId, randomId, HasCommands.toCommands(hasCmds.asJava))
+      .withWorkflowId(randomId)
+      .withActAs(actAs)
+      .withReadAs(readAs)
+
     CommandServiceGrpc
       .newBlockingStub(channel)
       .withDeadlineAfter(40, TimeUnit.SECONDS)
@@ -129,15 +133,7 @@ object TestUtil {
           .setCommands(
             SubmitCommandsRequest.toProto(
               LedgerID,
-              randomId,
-              randomId,
-              randomId,
-              actAs,
-              readAs,
-              Optional.empty[Instant],
-              Optional.empty[Duration],
-              Optional.empty[Duration],
-              cmds.asJava,
+              submission,
             )
           )
           .build

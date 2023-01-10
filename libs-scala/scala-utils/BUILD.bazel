@@ -1,4 +1,4 @@
-# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -6,13 +6,11 @@ load(
     "da_scala_library",
     "da_scala_test",
     "kind_projector_plugin",
-    "lf_scalacopts",
+    "lf_scalacopts_stricter",
 )
 load("@scala_version//:index.bzl", "scala_major_version")
 
-scalacopts = lf_scalacopts + [
-    "-P:wartremover:traverser:org.wartremover.warts.NonUnitStatements",
-]
+scalacopts = lf_scalacopts_stricter
 
 da_scala_library(
     name = "scala-utils",

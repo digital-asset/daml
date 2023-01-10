@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.store.backend.h2
@@ -16,7 +16,6 @@ import com.daml.platform.store.interning.StringInterning
 class H2EventStorageBackend(ledgerEndCache: LedgerEndCache, stringInterning: StringInterning)
     extends EventStorageBackendTemplate(
       queryStrategy = H2QueryStrategy,
-      eventStrategy = H2EventStrategy,
       ledgerEndCache = ledgerEndCache,
       stringInterning = stringInterning,
       participantAllDivulgedContractsPrunedUpToInclusive =

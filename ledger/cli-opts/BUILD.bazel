@@ -1,4 +1,4 @@
-# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -20,7 +20,7 @@ da_scala_library(
     tags = ["maven_coordinates=com.daml:ledger-jwt-cli-opts:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [
-        "//ledger-service/jwt",
+        "//libs-scala/jwt",
         "@maven//:com_auth0_java_jwt",
     ],
 )
@@ -40,10 +40,10 @@ da_scala_test_suite(
     scalacopts = lf_scalacopts,
     deps = [
         ":cli-opts",
-        "//ledger-service/jwt",
         "//ledger/ledger-api-auth",
         "//ledger/test-common",
         "//libs-scala/fs-utils",
+        "//libs-scala/jwt",
         "//libs-scala/resources",
         "@maven//:com_auth0_java_jwt",
         "@maven//:io_grpc_grpc_api",

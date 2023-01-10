@@ -1,4 +1,4 @@
-# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -6,6 +6,7 @@ load(
     "da_scala_library",
     "da_scala_test",
     "da_scala_test_suite",
+    "lf_scalacopts_stricter",
 )
 load("//bazel_tools:haskell.bzl", "da_haskell_test")
 load("@build_environment//:configuration.bzl", "sdk_version")
@@ -15,7 +16,7 @@ genrule(
     name = "script-test",
     srcs =
         glob(["**/*.daml"]) + [
-            "//daml-script/daml:daml-script.dar",
+            "//daml-script/daml:daml-script-1.15.dar",
             "//docs:source/daml-script/template-root/src/ScriptExample.daml",
         ],
     outs = ["script-test.dar"],
@@ -35,7 +36,7 @@ initializeFixed = do
   let parties = LedgerParties{{..}}
   initialize parties
 EOF
-      cp -L $(location //daml-script/daml:daml-script.dar) $$TMP_DIR/
+      cp -L $(location //daml-script/daml:daml-script-1.15.dar) $$TMP_DIR/
       cat << EOF > $$TMP_DIR/daml.yaml
 sdk-version: {sdk}
 name: script-test
@@ -44,7 +45,9 @@ version: 0.0.1
 dependencies:
   - daml-stdlib
   - daml-prim
-  - daml-script.dar
+  - daml-script-1.15.dar
+build-options:
+  - --target=1.15
 EOF
       $(location //compiler/damlc) build --project-root=$$TMP_DIR --ghc-option=-Werror -o $$PWD/$(location script-test.dar)
       rm -rf $$TMP_DIR
@@ -132,6 +135,7 @@ da_scala_library(
         "@maven//:org_scalatest_scalatest_wordspec",
         "@maven//:org_scalaz_scalaz_core",
     ],
+    scalacopts = lf_scalacopts_stricter,
     visibility = ["//visibility:public"],
     deps = [
         "//bazel_tools/runfiles:scala_runfiles",
@@ -148,7 +152,6 @@ da_scala_library(
         "//language-support/scala/bindings-akka",
         "//ledger-api/rs-grpc-bridge",
         "//ledger-api/testing-utils",
-        "//ledger-service/jwt",
         "//ledger/ledger-api-auth",
         "//ledger/ledger-api-common",
         "//ledger/ledger-resources",
@@ -156,11 +159,13 @@ da_scala_library(
         "//ledger/participant-integration-api",
         "//ledger/sandbox-on-x",
         "//ledger/sandbox-on-x:sandbox-on-x-test-lib",
+        "//libs-scala/jwt",
         "//libs-scala/ports",
         "//libs-scala/ports:ports-testing",
         "//libs-scala/resources",
         "//libs-scala/resources-akka",
         "//libs-scala/resources-grpc",
+        "//libs-scala/scala-utils",
         "//libs-scala/timer-utils",
         "@maven//:org_scalatest_scalatest_compatible",
     ],
@@ -208,8 +213,8 @@ da_scala_test_suite(
         "//ledger-service/cli-opts",
         "//ledger-service/http-json:http-json-ce",
         "//ledger-service/http-json-cli:ce",
-        "//ledger-service/jwt",
         "//ledger-service/lf-value-json",
+        "//ledger-service/metrics",
         "//ledger-service/utils",
         "//ledger/caching",
         "//ledger/ledger-api-auth",
@@ -225,12 +230,14 @@ da_scala_test_suite(
         "//ledger/sandbox-on-x:sandbox-on-x-test-lib",
         "//ledger/test-common",
         "//libs-scala/contextualized-logging",
+        "//libs-scala/jwt",
         "//libs-scala/logging-entries",
         "//libs-scala/ports",
         "//libs-scala/postgresql-testing",
         "//libs-scala/resources",
         "//libs-scala/resources-akka",
         "//libs-scala/resources-grpc",
+        "//observability/metrics",
         "@maven//:com_auth0_java_jwt",
         "@maven//:io_dropwizard_metrics_metrics_core",
     ],

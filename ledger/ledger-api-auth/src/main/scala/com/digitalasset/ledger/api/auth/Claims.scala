@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.auth
@@ -20,6 +20,11 @@ sealed abstract class Claim
   * Does not authorize to use non-admin services.
   */
 case object ClaimAdmin extends Claim
+
+/** Authorized to use admin services for the configured identity provider.
+  * Does not authorize to use non-admin services.
+  */
+case object ClaimIdentityProviderAdmin extends Claim
 
 /** Authorized to use all "public" services, i.e.,
   * those that do not require admin rights and do not depend on any Daml party.

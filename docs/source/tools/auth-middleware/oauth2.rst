@@ -1,4 +1,4 @@
-.. Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 .. _oauth2-middleware:
@@ -260,6 +260,21 @@ The oauth2-middleware can also be started using cli-args.
 
 Some browsers reject ``Secure`` cookies on unencrypted connections even on localhost.
 You can pass the command-line flag ``--cookie-secure no`` for testing and development on localhost to avoid this.
+
+Metrics
+*******
+
+You may configure the oauth2-middleware to expose the :doc:`common HTTP metrics </ops/common-metrics>` via a Prometheus
+reporter by adding the below section to the application config:
+
+.. code-block:: none
+
+    metrics {
+      // Start a metrics reporter. Must be one of "console", "csv:///PATH", "graphite://HOST[:PORT][/METRIC_PREFIX]", or "prometheus://HOST[:PORT]".
+      reporter = "prometheus://localhost:9000"
+      // Set metric reporting interval , examples : 1s, 30s, 1m, 1h
+      reporting-interval = 30s
+    }
 
 Liveness and Readiness Endpoints
 ********************************

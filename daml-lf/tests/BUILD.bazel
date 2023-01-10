@@ -1,4 +1,4 @@
-# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -31,6 +31,14 @@ TEST_FILES = \
     )
     for name in TEST_FILES
 ]
+
+daml_compile(
+    name = "BasicTests-dev",
+    srcs = ["BasicTests.daml"],
+    enable_scenarios = True,
+    target = "1.dev",
+    visibility = ["//daml-lf:__subpackages__"],
+)
 
 daml_compile(
     name = "Optional",

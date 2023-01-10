@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.rxjava.grpc
@@ -16,6 +16,7 @@ import org.scalatest.matchers.should.Matchers
 
 import scala.concurrent.Future
 
+@deprecated("Ledger identity string is optional for all ledger API requests", since = "2.0.0")
 final class LedgerIdentityClientTest extends AnyFlatSpec with Matchers with AuthMatchers {
 
   import LedgerIdentityClientTest._

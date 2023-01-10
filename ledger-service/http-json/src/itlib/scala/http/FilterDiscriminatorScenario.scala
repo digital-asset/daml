@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.http
@@ -10,7 +10,7 @@ import spray.json.JsValue
   */
 class FilterDiscriminatorScenario[Inj](
     val label: String,
-    val ctId: domain.ContractTypeId.OptionalPkg,
+    val ctId: domain.ContractTypeId.Template.OptionalPkg,
     val va: VA.Aux[Inj],
     val query: Map[String, JsValue],
     val matches: domain.Party => Inj,
@@ -20,7 +20,7 @@ class FilterDiscriminatorScenario[Inj](
 object FilterDiscriminatorScenario {
   def Scenario(
       label: String,
-      ctId: domain.ContractTypeId.OptionalPkg,
+      ctId: domain.ContractTypeId.Template.OptionalPkg,
       va: VA,
       query: Map[String, JsValue],
   )(

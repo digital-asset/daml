@@ -1,11 +1,10 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.http
 
 import akka.http.scaladsl.model.headers.Authorization
 import akka.http.scaladsl.model.{StatusCodes, Uri}
-import com.daml.fetchcontracts.domain.ContractTypeId.OptionalPkg
 import com.daml.http.HttpServiceTestFixture.{UseTls, authorizationHeader, postRequest}
 import com.daml.ledger.client.withoutledgerid.{LedgerClient => DamlLedgerClient}
 import com.daml.http.dbbackend.JdbcConfig
@@ -14,9 +13,10 @@ import com.daml.http.json.JsonProtocol._
 import com.daml.jwt.domain.Jwt
 import com.daml.ledger.api.domain.{User, UserRight}
 import com.daml.ledger.api.domain.UserRight.{CanActAs, ParticipantAdmin}
-import com.daml.ledger.api.v1.{value => v}
 import com.daml.lf.data.Ref
 import com.daml.platform.sandbox.{SandboxRequiringAuthorization, SandboxRequiringAuthorizationFuns}
+import com.daml.test.evidence.scalatest.ScalaTestSupport.Implicits._
+import com.daml.test.evidence.tag.Security.Attack
 import com.typesafe.scalalogging.StrictLogging
 import org.scalatest.{Assertion, AsyncTestSuite, Inside}
 import org.scalatest.matchers.should.Matchers
@@ -29,7 +29,7 @@ import scalaz.syntax.tag._
 
 @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
 class HttpServiceIntegrationTestUserManagementNoAuth
-    extends AbstractHttpServiceIntegrationTestTokenIndependent
+    extends AbstractHttpServiceIntegrationTestQueryStoreIndependent
     with AbstractHttpServiceIntegrationTestFuns
     with HttpServiceUserFixture.UserToken
     with SandboxRequiringAuthorizationFuns
@@ -38,7 +38,7 @@ class HttpServiceIntegrationTestUserManagementNoAuth
   this: AsyncTestSuite with Matchers with Inside =>
 
   override def jwt(uri: Uri)(implicit ec: ExecutionContext): Future[Jwt] =
-    jwtForParties(uri)(List("Alice"), List())
+    jwtForParties(uri)(domain.Party subst List("Alice"), List())
 
   def createUser(ledgerClient: DamlLedgerClient)(
       userId: Ref.UserId,
@@ -70,21 +70,24 @@ class HttpServiceIntegrationTestUserManagementNoAuth
       domain.CanActAs(ham),
       domain.CanReadAs(spam),
       domain.ParticipantAdmin,
+      domain.IdentityProviderAdmin,
     ).toJson shouldBe
       List(
         Map("type" -> "CanActAs", "party" -> ham.unwrap),
         Map("type" -> "CanReadAs", "party" -> spam.unwrap),
         Map("type" -> "ParticipantAdmin"),
+        Map("type" -> "IdentityProviderAdmin"),
       ).toJson
   }
 
   "create IOU" - {
-    // TEST_EVIDENCE: Authorization: create IOU should work with correct user rights
-    "should work with correct user rights" in withHttpService { fixture =>
+    "should work with correct user rights" taggedAs authorizationSecurity.setHappyCase(
+      "A ledger client can create an IOU with correct user rights"
+    ) in withHttpService { fixture =>
       import fixture.{encoder, client => ledgerClient}
       for {
         (alice, _) <- fixture.getUniquePartyAndAuthHeaders("Alice")
-        command: domain.CreateCommand[v.Record, OptionalPkg] = iouCreateCommand(alice)
+        command = iouCreateCommand(alice)
         input: JsValue = encoder.encodeCreateCommand(command).valueOr(e => fail(e.shows))
         user <- createUser(ledgerClient)(
           Ref.UserId.assertFromString(getUniqueUserName("nice.user")),
@@ -98,18 +101,23 @@ class HttpServiceIntegrationTestUserManagementNoAuth
             input,
             headers = headersWithUserAuth(user.id),
           )
-          .parseResponse[domain.ActiveContract[JsValue]]
+          .parseResponse[domain.ActiveContract.ResolvedCtTyId[JsValue]]
       } yield inside(response) { case domain.OkResponse(activeContract, _, StatusCodes.OK) =>
         assertActiveContract(activeContract)(command, encoder)
       }
     }
 
-    // TEST_EVIDENCE: Authorization: create IOU should fail if user has no permission
-    "should fail if user has no permission" in withHttpService { fixture =>
+    "should fail if user has no permission" taggedAs authorizationSecurity.setAttack(
+      Attack(
+        "Ledger client",
+        "tries to create an IOU without permission",
+        "refuse request with BAD_REQUEST",
+      )
+    ) in withHttpService { fixture =>
       import fixture.{encoder, client => ledgerClient}
       val alice = getUniqueParty("Alice")
       val bob = getUniqueParty("Bob")
-      val command: domain.CreateCommand[v.Record, OptionalPkg] = iouCreateCommand(alice)
+      val command = iouCreateCommand(alice)
       val input: JsValue = encoder.encodeCreateCommand(command).valueOr(e => fail(e.shows))
       for {
         user <- createUser(ledgerClient)(
@@ -130,40 +138,44 @@ class HttpServiceIntegrationTestUserManagementNoAuth
       }
     }
 
-    // TEST_EVIDENCE: Authorization: create IOU should fail if overwritten actAs & readAs result in missing permission even if the user would have the rights
-    "should fail if overwritten actAs & readAs result in missing permission even if the user would have the rights" in withHttpService {
-      fixture =>
-        import fixture.{encoder, client => ledgerClient}
-        val alice = getUniqueParty("Alice")
-        val bob = getUniqueParty("Bob")
-        val meta = domain.CommandMeta(
-          None,
-          Some(NonEmptyList(bob)),
-          None,
-          submissionId = None,
-          deduplicationPeriod = None,
+    "should fail if overwritten actAs & readAs result in missing permission even if the user would have the rights" taggedAs authorizationSecurity
+      .setAttack(
+        Attack(
+          "Ledger client",
+          "tries to create an IOU but overwritten actAs & readAs result in missing permission",
+          "refuse request with BAD_REQUEST",
         )
-        val command: domain.CreateCommand[v.Record, OptionalPkg] =
-          iouCreateCommand(alice, meta = Some(meta))
-        val input: JsValue = encoder.encodeCreateCommand(command).valueOr(e => fail(e.shows))
-        for {
-          user <- createUser(ledgerClient)(
-            Ref.UserId.assertFromString(getUniqueUserName("nice.user")),
-            initialRights = List(
-              CanActAs(Ref.Party.assertFromString(alice.unwrap)),
-              CanActAs(Ref.Party.assertFromString(bob.unwrap)),
-            ),
+      ) in withHttpService { fixture =>
+      import fixture.{encoder, client => ledgerClient}
+      val alice = getUniqueParty("Alice")
+      val bob = getUniqueParty("Bob")
+      val meta = domain.CommandMeta(
+        None,
+        Some(NonEmptyList(bob)),
+        None,
+        submissionId = None,
+        deduplicationPeriod = None,
+      )
+      val command = iouCreateCommand(alice, meta = Some(meta))
+      val input: JsValue = encoder.encodeCreateCommand(command).valueOr(e => fail(e.shows))
+      for {
+        user <- createUser(ledgerClient)(
+          Ref.UserId.assertFromString(getUniqueUserName("nice.user")),
+          initialRights = List(
+            CanActAs(Ref.Party.assertFromString(alice.unwrap)),
+            CanActAs(Ref.Party.assertFromString(bob.unwrap)),
+          ),
+        )
+        response <- fixture
+          .postJsonRequest(
+            Uri.Path("/v1/create"),
+            input,
+            headers = headersWithUserAuth(user.id),
           )
-          response <- fixture
-            .postJsonRequest(
-              Uri.Path("/v1/create"),
-              input,
-              headers = headersWithUserAuth(user.id),
-            )
-            .parseResponse[JsValue]
-        } yield inside(response) { case domain.ErrorResponse(_, _, StatusCodes.BadRequest, _) =>
-          succeed
-        }
+          .parseResponse[JsValue]
+      } yield inside(response) { case domain.ErrorResponse(_, _, StatusCodes.BadRequest, _) =>
+        succeed
+      }
     }
   }
 
@@ -555,8 +567,9 @@ class HttpServiceIntegrationTestUserManagementNoAuth
       }
   }
 
-  // TEST_EVIDENCE: Performance: creating and listing 20K users should be possible
-  "creating and listing 20K users should be possible" in withHttpService { fixture =>
+  "creating and listing 20K users should be possible" taggedAs availabilitySecurity.setHappyCase(
+    "A ledger client can create and list 20K users"
+  ) in withHttpService { fixture =>
     import fixture.uri
     import spray.json._
     import spray.json.DefaultJsonProtocol._
@@ -601,7 +614,7 @@ class HttpServiceIntegrationTestUserManagementNoAuth
             }
             .flatMap { statusCodes =>
               all(statusCodes) shouldBe StatusCodes.OK
-              createUsers(remainingRequests)
+              createUsers(remainingRequests, chunkSize)
             }
       }
     }

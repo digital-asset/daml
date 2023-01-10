@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.script.export
@@ -13,16 +13,30 @@ import com.google.protobuf
 
 object TestData {
   val defaultTemplateId = Identifier("package", "Module", "Template")
+  val defaultInterfaceId = Identifier("package", "Module", "Interface")
   val defaultParties = Party.subst(Seq("Alice"))
-  val defaultChoiceArgument = Value().withVariant(
-    Variant(
-      Some(Identifier("package", "Module", "Choice")),
-      "Choice",
-      Some(Value().withUnit(protobuf.empty.Empty())),
-    )
-  )
+
+  val defaultChoice = Choice()
   val defaultExerciseResult = Value().withUnit(protobuf.empty.Empty())
   val defaultTimestamp = Timestamp.Epoch
+
+  sealed case class Choice(
+      templateId: Identifier = defaultTemplateId,
+      interfaceId: Option[Identifier] = None,
+      choiceName: String = "Choice",
+      choiceArgument: Option[Value] = None,
+  ) {
+    val getChoiceArgument: Value =
+      choiceArgument.getOrElse(
+        Value().withVariant(
+          Variant(
+            Some(interfaceId.getOrElse(templateId).withEntityName(choiceName)),
+            choiceName,
+            Some(Value().withUnit(protobuf.empty.Empty())),
+          )
+        )
+      )
+  }
 
   sealed trait Event
   sealed case class Created(
@@ -46,7 +60,7 @@ object TestData {
   sealed case class Exercised(
       contractId: ContractId,
       childEvents: Seq[Event],
-      choiceArgument: Value = defaultChoiceArgument,
+      choice: Choice = defaultChoice,
       actingParties: Seq[Party] = defaultParties,
       exerciseResult: Option[ContractId] = None,
       consuming: Boolean = true,
@@ -83,7 +97,7 @@ object TestData {
           case Exercised(
                 contractId,
                 childEvents,
-                choiceArgument,
+                choice,
                 actingParties,
                 exerciseResult,
                 consuming,
@@ -94,12 +108,12 @@ object TestData {
               TreeEvent.Kind.Exercised(
                 ExercisedEvent(
                   eventId = eventId,
-                  templateId = Some(defaultTemplateId),
-                  interfaceId = None,
+                  templateId = Some(choice.templateId),
+                  interfaceId = choice.interfaceId,
                   contractId = ContractId.unwrap(contractId),
                   actingParties = Party.unsubst(actingParties),
-                  choice = "Choice",
-                  choiceArgument = Some(choiceArgument),
+                  choice = choice.choiceName,
+                  choiceArgument = Some(choice.getChoiceArgument),
                   childEventIds = childEventIds,
                   exerciseResult = Some(
                     exerciseResult

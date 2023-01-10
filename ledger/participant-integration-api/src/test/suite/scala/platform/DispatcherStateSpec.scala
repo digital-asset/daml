@@ -1,10 +1,10 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform
 
 import akka.stream.scaladsl.Source
-import com.daml.error.definitions.LedgerApiErrors
+import com.daml.error.definitions.CommonErrors
 import com.daml.error.utils.ErrorDetails
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.offset.Offset
@@ -125,7 +125,7 @@ class DispatcherStateSpec
   private def assertNotRunning(dispatcherState: DispatcherState) =
     ErrorDetails.matches(
       e = intercept[StatusRuntimeException] { dispatcherState.getDispatcher },
-      errorCode = LedgerApiErrors.ServiceNotRunning,
+      errorCode = CommonErrors.ServiceNotRunning,
     )
 
   private def assertDispatcherDoesntAcceptNewSubscriptions(
@@ -157,11 +157,11 @@ class DispatcherStateSpec
       // Assert subscription correctly terminated with failure
       _ <- runF.transform {
         case Failure(e: StatusRuntimeException)
-            if ErrorDetails.matches(e, LedgerApiErrors.ServiceNotRunning) =>
+            if ErrorDetails.matches(e, CommonErrors.ServiceNotRunning) =>
           Success(())
         case Failure(other) =>
           fail(
-            s"Expected a self-service error exception of ${LedgerApiErrors.ServiceNotRunning.code} but got $other"
+            s"Expected a self-service error exception of ${CommonErrors.ServiceNotRunning.code} but got $other"
           )
         case Success(_) => fail("Expected a failure but got a Success instead")
       }

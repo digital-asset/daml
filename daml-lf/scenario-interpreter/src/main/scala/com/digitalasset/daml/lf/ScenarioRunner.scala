@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -17,7 +17,6 @@ import com.daml.lf.speedy.SResult._
 import com.daml.lf.transaction.IncompleteTransaction
 import com.daml.lf.value.Value
 import com.daml.logging.LoggingContext
-import com.daml.nameof.NameOf
 import com.daml.scalautil.Statement.discard
 
 import scala.annotation.tailrec
@@ -28,7 +27,7 @@ import scala.util.{Failure, Success, Try}
   * @constructor Creates a runner using an instance of [[Speedy.Machine]].
   */
 final class ScenarioRunner private (
-    machine: Speedy.Machine,
+    machine: Speedy.ScenarioMachine,
     initialSeed: crypto.Hash,
 ) {
   import ScenarioRunner._
@@ -47,64 +46,58 @@ final class ScenarioRunner private (
     while (finalValue == null) {
       // machine.print(steps)
       steps += 1 // this counts the number of external `Need` interactions
-      val res: SResult = machine.run()
-      res match {
-        case SResultFinal(v, _) =>
+      machine.run() match {
+        case SResultFinal(v) =>
           finalValue = v
 
         case SResultError(err) =>
           throw scenario.Error.RunnerException(err)
 
-        case SResultNeedTime(callback) =>
-          callback(ledger.currentTime)
+        case SResultQuestion(question) =>
+          question match {
 
-        case SResultScenarioPassTime(delta, callback) =>
-          passTime(delta, callback)
+            case Question.Scenario.GetTime(callback) =>
+              callback(ledger.currentTime)
 
-        case SResultScenarioGetParty(partyText, callback) =>
-          getParty(partyText, callback)
+            case Question.Scenario.PassTime(delta, callback) =>
+              passTime(delta, callback)
 
-        case SResultScenarioSubmit(committers, commands, location, mustFail, callback) =>
-          val submitResult = submit(
-            machine.compiledPackages,
-            ScenarioLedgerApi(ledger),
-            committers,
-            Set.empty,
-            SEValue(commands),
-            location,
-            nextSeed(),
-            machine.traceLog,
-            machine.warningLog,
-          )
-          if (mustFail) {
-            submitResult match {
-              case Commit(result, _, tx) =>
-                currentSubmission = Some(CurrentSubmission(location, tx))
-                throw scenario.Error.MustFailSucceeded(result.richTransaction.transaction)
-              case _: SubmissionError =>
-                ledger = ledger.insertAssertMustFail(committers, Set.empty, location)
-                callback(SValue.SUnit)
-            }
-          } else {
-            submitResult match {
-              case Commit(result, value, _) =>
-                currentSubmission = None
-                ledger = result.newLedger
-                callback(value)
-              case SubmissionError(err, tx) =>
-                currentSubmission = Some(CurrentSubmission(location, tx))
-                throw err
-            }
+            case Question.Scenario.GetParty(partyText, callback) =>
+              getParty(partyText, callback)
+
+            case Question.Scenario.Submit(committers, commands, location, mustFail, callback) =>
+              val submitResult = submit(
+                machine.compiledPackages,
+                ScenarioLedgerApi(ledger),
+                committers,
+                Set.empty,
+                SEValue(commands),
+                location,
+                nextSeed(),
+                machine.traceLog,
+                machine.warningLog,
+              )
+              if (mustFail) {
+                submitResult match {
+                  case Commit(result, _, tx) =>
+                    currentSubmission = Some(CurrentSubmission(location, tx))
+                    throw scenario.Error.MustFailSucceeded(result.richTransaction.transaction)
+                  case _: SubmissionError =>
+                    ledger = ledger.insertAssertMustFail(committers, Set.empty, location)
+                    callback(SValue.SUnit)
+                }
+              } else {
+                submitResult match {
+                  case Commit(result, value, _) =>
+                    currentSubmission = None
+                    ledger = result.newLedger
+                    callback(value)
+                  case SubmissionError(err, tx) =>
+                    currentSubmission = Some(CurrentSubmission(location, tx))
+                    throw err
+                }
+              }
           }
-
-        case SResultNeedPackage(pkgId, context, _) =>
-          crash(LookupError.MissingPackage.pretty(pkgId, context))
-
-        case _: SResultNeedContract =>
-          crash("SResultNeedContract outside of submission")
-
-        case _: SResultNeedKey =>
-          crash("SResultNeedKey outside of submission")
       }
     }
     val endTime = System.nanoTime()
@@ -124,10 +117,10 @@ final class ScenarioRunner private (
   }
 }
 
-object ScenarioRunner {
+private[lf] object ScenarioRunner {
 
   def run(
-      buildMachine: () => Speedy.Machine,
+      buildMachine: () => Speedy.ScenarioMachine,
       initialSeed: crypto.Hash,
   )(implicit loggingContext: LoggingContext): ScenarioResult = {
     val machine = buildMachine()
@@ -175,7 +168,7 @@ object ScenarioRunner {
 
   // The interface we need from a ledger during submission. We allow abstracting over this so we can play
   // tricks like caching all responses in some benchmarks.
-  abstract class LedgerApi[R] {
+  private[lf] abstract class LedgerApi[R] {
     def lookupContract(
         coid: ContractId,
         actAs: Set[Party],
@@ -183,7 +176,6 @@ object ScenarioRunner {
         cbPresent: VersionedContractInstance => Unit,
     ): Either[Error, Unit]
     def lookupKey(
-        machine: Speedy.Machine,
         gk: GlobalKey,
         actAs: Set[Party],
         readAs: Set[Party],
@@ -199,7 +191,7 @@ object ScenarioRunner {
     ): Either[Error, R]
   }
 
-  case class ScenarioLedgerApi(ledger: ScenarioLedger)
+  private[lf] case class ScenarioLedgerApi(ledger: ScenarioLedger)
       extends LedgerApi[ScenarioLedger.CommitResult] {
 
     override def lookupContract(
@@ -244,7 +236,6 @@ object ScenarioRunner {
     }
 
     override def lookupKey(
-        machine: Speedy.Machine,
         gk: GlobalKey,
         actAs: Set[Party],
         readAs: Set[Party],
@@ -389,7 +380,7 @@ object ScenarioRunner {
       warningLog: WarningLog = Speedy.Machine.newWarningLog,
       doEnrichment: Boolean = true,
   )(implicit loggingContext: LoggingContext): SubmissionResult[R] = {
-    val ledgerMachine = Speedy.Machine(
+    val ledgerMachine = Speedy.UpdateMachine(
       compiledPackages = compiledPackages,
       submissionTime = Time.Timestamp.MinValue,
       initialSeeding = InitialSeeding.TransactionSeed(seed),
@@ -404,59 +395,54 @@ object ScenarioRunner {
     )
     // TODO (drsk) validate and propagate errors back to submitter
     // https://github.com/digital-asset/daml/issues/14108
-    val onLedger = ledgerMachine.withOnLedger(NameOf.qualifiedNameOfCurrentFunc)(identity)
     val enricher = if (doEnrichment) new EnricherImpl(compiledPackages) else NoEnricher
     import enricher._
 
     @tailrec
     def go(): SubmissionResult[R] = {
       ledgerMachine.run() match {
-        case SResult.SResultFinal(resultValue, Some(ctx)) =>
-          ctx match {
-            case PartialTransaction.Result(tx, locationInfo, _, _, _) =>
+        case SResult.SResultFinal(resultValue) =>
+          ledgerMachine.finish match {
+            case Right(Speedy.UpdateMachine.Result(tx, locationInfo, _, _, _)) =>
               ledger.commit(committers, readAs, location, enrich(tx), locationInfo) match {
                 case Left(err) =>
-                  SubmissionError(err, enrich(onLedger.incompleteTransaction))
+                  SubmissionError(err, enrich(ledgerMachine.incompleteTransaction))
                 case Right(r) =>
-                  Commit(r, resultValue, enrich(onLedger.incompleteTransaction))
+                  Commit(r, resultValue, enrich(ledgerMachine.incompleteTransaction))
               }
+            case Left(err) =>
+              throw err
           }
-        case SResult.SResultFinal(_, None) =>
-          throw new RuntimeException(s"Unexpected missing transaction")
         case SResultError(err) =>
-          SubmissionError(Error.RunnerException(err), enrich(onLedger.incompleteTransaction))
-        case SResultNeedContract(coid, committers, callback) =>
-          ledger.lookupContract(
-            coid,
-            committers,
-            readAs,
-            (vcoinst: VersionedContractInstance) => callback(vcoinst.unversioned),
-          ) match {
-            case Left(err) => SubmissionError(err, enrich(onLedger.incompleteTransaction))
-            case Right(_) => go()
+          SubmissionError(Error.RunnerException(err), enrich(ledgerMachine.incompleteTransaction))
+        case SResultQuestion(question) =>
+          question match {
+            case Question.Update.NeedContract(coid, committers, callback) =>
+              ledger.lookupContract(
+                coid,
+                committers,
+                readAs,
+                (vcoinst: VersionedContractInstance) => callback(vcoinst.unversioned),
+              ) match {
+                case Left(err) => SubmissionError(err, enrich(ledgerMachine.incompleteTransaction))
+                case Right(_) => go()
+              }
+            case Question.Update.NeedKey(keyWithMaintainers, committers, callback) =>
+              ledger.lookupKey(
+                keyWithMaintainers.globalKey,
+                committers,
+                readAs,
+                callback,
+              ) match {
+                case Left(err) => SubmissionError(err, enrich(ledgerMachine.incompleteTransaction))
+                case Right(_) => go()
+              }
+            case Question.Update.NeedTime(callback) =>
+              callback(ledger.currentTime)
+              go()
+            case res: Question.Update.NeedPackage =>
+              throw Error.Internal(s"unexpected $res")
           }
-        case SResultNeedKey(keyWithMaintainers, committers, callback) =>
-          ledger.lookupKey(
-            ledgerMachine,
-            keyWithMaintainers.globalKey,
-            committers,
-            readAs,
-            callback,
-          ) match {
-            case Left(err) => SubmissionError(err, enrich(onLedger.incompleteTransaction))
-            case Right(_) => go()
-          }
-        case SResultNeedTime(callback) =>
-          callback(ledger.currentTime)
-          go()
-        case SResultNeedPackage(pkgId, context, _) =>
-          throw Error.Internal(LookupError.MissingPackage.pretty(pkgId, context))
-        case _: SResultScenarioGetParty =>
-          throw Error.Internal("SResultScenarioGetParty in submission")
-        case _: SResultScenarioPassTime =>
-          throw Error.Internal("SResultScenarioPassTime in submission")
-        case _: SResultScenarioSubmit =>
-          throw Error.Internal("SResultScenarioSubmit in submission")
       }
     }
     go()

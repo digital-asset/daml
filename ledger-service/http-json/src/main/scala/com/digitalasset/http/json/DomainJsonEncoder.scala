@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.http.json
@@ -46,14 +46,15 @@ class DomainJsonEncoder(
 
     } yield y
 
-  def encodeCreateAndExerciseCommand[CtId](
+  def encodeCreateAndExerciseCommand[CtId, IfceId](
       cmd: domain.CreateAndExerciseCommand[
         lav1.value.Record,
         lav1.value.Value,
         CtId,
+        IfceId,
       ]
   )(implicit
-      ev: JsonWriter[domain.CreateAndExerciseCommand[JsValue, JsValue, CtId]]
+      ev: JsonWriter[domain.CreateAndExerciseCommand[JsValue, JsValue, CtId, IfceId]]
   ): JsonError \/ JsValue =
     for {
       payload <- apiRecordToJsObject(cmd.payload): JsonError \/ JsValue

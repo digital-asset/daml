@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.store.dao.events
@@ -46,6 +46,8 @@ sealed trait Raw[+E] {
       loggingContext: LoggingContext,
   ): Future[E]
 
+  def witnesses: Seq[String]
+
 }
 
 // TODO append-only: FIXME move
@@ -85,6 +87,7 @@ object Raw {
         eventWitnesses: ArraySeq[String],
         createKeyHash: Option[Hash],
         ledgerEffectiveTime: Timestamp,
+        driverMetadata: Option[Array[Byte]],
     ): PbCreatedEvent =
       PbCreatedEvent(
         eventId = eventId,
@@ -100,8 +103,7 @@ object Raw {
           PbContractMetadata(
             createdAt = Some(TimestampConversion.fromLf(ledgerEffectiveTime)),
             contractKeyHash = createKeyHash.fold(ByteString.EMPTY)(_.bytes.toByteString),
-            // TODO ED: Store driver metadata in the database
-            driverMetadata = ByteString.EMPTY,
+            driverMetadata = ByteString.copyFrom(driverMetadata.getOrElse(Array.empty)),
           )
         ),
       )
@@ -127,6 +129,8 @@ object Raw {
         with FlatEvent {
       override protected def wrapInEvent(event: PbCreatedEvent): PbFlatEvent =
         PbFlatEvent(PbFlatEvent.Event.Created(event))
+
+      override def witnesses: Seq[String] = raw.witnessParties
     }
 
     object Created {
@@ -144,6 +148,7 @@ object Raw {
           createKeyValueCompression: Option[Int],
           ledgerEffectiveTime: Timestamp,
           eventWitnesses: ArraySeq[String],
+          driverMetadata: Option[Array[Byte]],
       ): Raw.FlatEvent.Created =
         new Raw.FlatEvent.Created(
           raw = Raw.Created(
@@ -156,6 +161,7 @@ object Raw {
             eventWitnesses = eventWitnesses,
             createKeyHash = createKeyHash,
             ledgerEffectiveTime = ledgerEffectiveTime,
+            driverMetadata = driverMetadata,
           ),
           createArgument = createArgument,
           createArgumentCompression = Compression.Algorithm.assertLookup(createArgumentCompression),
@@ -177,6 +183,8 @@ object Raw {
           loggingContext: LoggingContext,
       ): Future[PbFlatEvent] =
         Future.successful(PbFlatEvent(PbFlatEvent.Event.Archived(raw)))
+
+      override def witnesses: Seq[String] = raw.witnessParties
     }
 
     object Archived {
@@ -219,6 +227,8 @@ object Raw {
         with TreeEvent {
       override protected def wrapInEvent(event: PbCreatedEvent): PbTreeEvent =
         PbTreeEvent(PbTreeEvent.Kind.Created(event))
+
+      override def witnesses: Seq[String] = raw.witnessParties
     }
 
     object Created {
@@ -236,6 +246,7 @@ object Raw {
           createKeyValueCompression: Option[Int],
           ledgerEffectiveTime: Timestamp,
           eventWitnesses: ArraySeq[String],
+          driverMetadata: Option[Array[Byte]],
       ): Raw.TreeEvent.Created =
         new Raw.TreeEvent.Created(
           raw = Raw.Created(
@@ -248,6 +259,7 @@ object Raw {
             eventWitnesses = eventWitnesses,
             createKeyHash = createKeyHash,
             ledgerEffectiveTime = ledgerEffectiveTime,
+            driverMetadata = driverMetadata,
           ),
           createArgument = createArgument,
           createArgumentCompression = Compression.Algorithm.assertLookup(createArgumentCompression),
@@ -274,6 +286,7 @@ object Raw {
           .deserialize(this, eventProjectionProperties.verbose)
           .map(event => PbTreeEvent(PbTreeEvent.Kind.Exercised(event)))
 
+      override def witnesses: Seq[String] = partial.witnessParties
     }
 
     object Exercised {

@@ -1,4 +1,4 @@
-# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 GHC_LIB_REPO_URL = "https://github.com/digital-asset/ghc-lib"
@@ -9,7 +9,7 @@ GHC_LIB_PATCHES = [
 ]
 
 GHC_REPO_URL = "https://github.com/digital-asset/ghc"
-GHC_REV = "b9bee381c53136b7469a5fc96850025a2365af92"
+GHC_REV = "dc88c062d0b0f6a88b8f8dfd1a4749ca22dd9aff"
 GHC_PATCHES = [
 ]
 

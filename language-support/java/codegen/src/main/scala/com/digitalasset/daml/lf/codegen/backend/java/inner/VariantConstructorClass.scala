@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.codegen.backend.java.inner
@@ -24,13 +24,14 @@ object VariantConstructorClass extends StrictLogging {
       constructorName: String,
       javaName: String,
       body: Type,
-      packagePrefixes: Map[PackageId, String],
+  )(implicit
+      packagePrefixes: PackagePrefixes
   ): TypeSpec = {
     TrackLineage.of("variant constructor", constructorName) {
       logger.info("Start")
 
       val className = ClassName.bestGuess(javaName).parameterized(typeArgs)
-      val javaType = toJavaTypeName(body, packagePrefixes)
+      val javaType = toJavaTypeName(body)
       val variantFieldName = lowerCaseFieldName(body match {
         case TypeVar(typeArg) =>
           JavaEscaper.escapeString(typeArg)
@@ -45,15 +46,15 @@ object VariantConstructorClass extends StrictLogging {
       val conversionMethods = distinctTypeVars(body, typeArgs) match {
         case IndexedSeq(params) =>
           List(
-            toValue(constructorName, params, body, variantFieldName, packagePrefixes),
+            toValue(constructorName, params, body, variantFieldName),
             deprecatedFromValue(params, params, variant, className),
           )
         case IndexedSeq(usedParams, allParams) =>
           // usedParams is always subset of allParams
           List(
-            toValue(constructorName, usedParams, body, variantFieldName, packagePrefixes),
+            toValue(constructorName, usedParams, body, variantFieldName),
             deprecatedFromValue(usedParams, allParams, variant, className),
-            toValue(constructorName, allParams, body, variantFieldName, packagePrefixes),
+            toValue(constructorName, allParams, body, variantFieldName),
             deprecatedFromValue(allParams, allParams, variant, className),
           )
       }
@@ -81,7 +82,8 @@ object VariantConstructorClass extends StrictLogging {
       typeArgs: IndexedSeq[String],
       body: Type,
       fieldName: String,
-      packagePrefixes: Map[PackageId, String],
+  )(implicit
+      packagePrefixes: PackagePrefixes
   ) = {
     val extractorParameters = ToValueExtractorParameters.generate(typeArgs)
 
@@ -99,7 +101,6 @@ object VariantConstructorClass extends StrictLogging {
             body,
             CodeBlock.of("this.$L", fieldName),
             newNameGenerator,
-            packagePrefixes,
           ),
       )
       .build()
@@ -147,7 +148,7 @@ object VariantConstructorClass extends StrictLogging {
         else
           CodeBlock.of("$T.impossible()", classOf[PrimitiveValueDecoders])
       }.asJava,
-      ", ",
+      ",$W",
     )
 
     val classStaticAccessor = if (className.typeParameters.size > 0) {
@@ -155,7 +156,7 @@ object VariantConstructorClass extends StrictLogging {
         className.typeParameters.asScala.map { param =>
           CodeBlock.of("$T", param)
         }.asJava,
-        ", ",
+        ",$W",
       )
       CodeBlock.of("$T.<$L>", variantClass.rawType, typeParameterList)
     } else CodeBlock.of("")

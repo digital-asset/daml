@@ -1,4 +1,4 @@
-.. Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 Installing the SDK
@@ -42,7 +42,7 @@ applications in production, but they differ in terms of enterprise and non-funct
    * - `Horizontal scalability <https://docs.daml.com/canton/usermanual/ha.html#sequencer>`_
      - Yes
      - No
-   * - `Ledger Pruning <https://docs.daml.com/canton/usermanual/operational_processes.html#ledger-pruning>`_
+   * - `Ledger Pruning <https://docs.daml.com/canton/usermanual/pruning.html>`_
      - Yes
      - No
    * - Local contract store in PostgreSQL

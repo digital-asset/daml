@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -203,7 +203,7 @@ object Repl {
 
     def run(
         expr: Expr
-    ): (Speedy.Machine, ScenarioRunner.ScenarioResult) = {
+    ): (Speedy.ScenarioMachine, ScenarioRunner.ScenarioResult) = {
       val machine =
         Speedy.Machine.fromScenarioExpr(
           compiledPackages,
@@ -448,7 +448,7 @@ object Repl {
   implicit val parserParameters: parser.ParserParameters[Repl.this.type] =
     parser.ParserParameters(
       defaultPackageId = Ref.PackageId.assertFromString("-dummy-"),
-      languageVersion = LV.defaultV1,
+      languageVersion = LV.default,
     )
 
   // Invoke the given top-level function with given arguments.
@@ -477,7 +477,7 @@ object Repl {
               case SResultError(err) =>
                 println(prettyError(err).render(128))
                 None
-              case SResultFinal(v, _) =>
+              case SResultFinal(v) =>
                 Some(v)
               case other =>
                 sys.error("unimplemented callback: " + other.toString)
@@ -520,8 +520,7 @@ object Repl {
   def invokeTest(state: State, idAndArgs: Seq[String]): (Boolean, State) = {
     buildExprFromTest(state, idAndArgs)
       .map { expr =>
-        val (_, errOrLedger) =
-          state.scenarioRunner.run(expr)
+        val (_, errOrLedger) = state.scenarioRunner.run(expr)
         errOrLedger match {
           case error: ScenarioRunner.ScenarioError =>
             println(PrettyScenario.prettyError(error.error).render(128))

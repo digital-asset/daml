@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.http
@@ -6,7 +6,7 @@ package com.daml.http
 import com.daml.lf.data.ImmArray.ImmArraySeq
 import com.daml.lf.data.Ref
 import com.daml.lf.typesig
-import domain.{Choice, ContractTypeId, TemplateId}
+import domain.{Choice, ContractTypeId}
 import ContractTypeId.ResolvedOf
 import com.daml.http.util.IdentifierConverters
 import com.daml.http.util.Logging.InstanceUUID
@@ -40,7 +40,7 @@ private class PackageService(
 
   private case class State(
       packageIds: Set[String],
-      contractTypeIdMap: ContractTypeIdMap[ContractTypeId],
+      interfaceIdMap: InterfaceIdMap,
       templateIdMap: TemplateIdMap,
       choiceTypeMap: ChoiceTypeMap,
       keyTypeMap: KeyTypeMap,
@@ -52,7 +52,7 @@ private class PackageService(
       val (tpIdMap, ifaceIdMap) = getTemplateIdInterfaceMaps(newPackageStore)
       State(
         packageIds = newPackageStore.keySet,
-        contractTypeIdMap = tpIdMap.widen[ContractTypeId] ++ ifaceIdMap.widen,
+        interfaceIdMap = ifaceIdMap,
         templateIdMap = tpIdMap,
         choiceTypeMap = getChoiceTypeMap(newPackageStore),
         keyTypeMap = getKeyTypeMap(newPackageStore),
@@ -147,68 +147,87 @@ private class PackageService(
 
   def packageStore: PackageStore = state.packageStore
 
-  def resolveContractTypeId(implicit
-      ec: ExecutionContext
-  ): ResolveContractTypeId.AnyKind =
-    resolveContractTypeIdFromState(() => state.contractTypeIdMap)
+  def resolveContractTypeId(implicit ec: ExecutionContext): ResolveContractTypeId =
+    resolveContractTypeIdFromState { () =>
+      val st = state
+      (st.templateIdMap, st.interfaceIdMap)
+    }
 
-  // Do not reduce it to something like `PackageService.resolveTemplateId(state.templateIdMap)`
-  // `state.templateIdMap` will be cached in this case.
-  def resolveTemplateId(implicit ec: ExecutionContext): ResolveTemplateId =
-    resolveContractTypeIdFromState(() => state.templateIdMap)
-
-  private[this] def resolveContractTypeIdFromState[
-      CtId[T] <: ContractTypeId[T] with ContractTypeId.Ops[CtId, T]
-  ](
-      latestMap: () => ContractTypeIdMap[CtId]
-  )(implicit ec: ExecutionContext): ResolveContractTypeId[CtId] = new ResolveContractTypeId[CtId] {
-    private type ResultType = Option[ResolvedOf[CtId]]
-    def apply(jwt: Jwt, ledgerId: LedgerApiDomain.LedgerId)(
-        x: CtId[Option[String]]
-    )(implicit lc: LoggingContextOf[InstanceUUID]): Future[Error \/ ResultType] = {
-      def doSearch() = PackageService.resolveTemplateId(latestMap())(x)
+  private[this] def resolveContractTypeIdFromState(
+      latestMaps: () => (TemplateIdMap, InterfaceIdMap)
+  )(implicit ec: ExecutionContext): ResolveContractTypeId = new ResolveContractTypeId {
+    import ResolveContractTypeId.{Overload => O}, domain.{ContractTypeId => C}
+    override def apply[U, R](jwt: Jwt, ledgerId: LedgerApiDomain.LedgerId)(
+        x: U with ContractTypeId.OptionalPkg
+    )(implicit
+        lc: LoggingContextOf[InstanceUUID],
+        overload: O[U, R],
+    ): Future[Error \/ Option[R]] = {
+      type ResultType = Option[R]
+      // we use a different resolution strategy depending on the static type
+      // determined by 'overload', as well as the class of 'x'.  We figure the
+      // strategy exactly once so the reload is cheaper
+      val doSearch: () => ResultType = overload match {
+        case O.Template => () => latestMaps()._1 resolve x
+        case O.Top =>
+          (x: C.OptionalPkg) match {
+            // only search the template or interface map, if that is the origin
+            // class, since searching the other map would convert template IDs
+            // to interface IDs and vice versa
+            case x: C.Template.OptionalPkg => () => latestMaps()._1 resolve x
+            case x: C.Interface.OptionalPkg => () => latestMaps()._2 resolve x
+            case x: C.Unknown.OptionalPkg => { () =>
+              val (tids, iids) = latestMaps()
+              (tids resolve x, iids resolve x) match {
+                case (tid @ Some(_), None) => tid
+                case (None, iid @ Some(_)) => iid
+                // presence in both means the ID is ambiguous
+                case (None, None) | (Some(_), Some(_)) => None
+              }
+            }
+          }
+      }
       def doReloadAndSearchAgain() = EitherT(reload(jwt, ledgerId)).map(_ => doSearch())
       def keep(it: ResultType) = EitherT.pure(it): ET[ResultType]
       for {
         result <- EitherT.pure(doSearch()): ET[ResultType]
         _ = logger.trace(s"Result: $result")
-        finalResult <-
-          x.packageId.fold {
-            if (result.isDefined)
-              // no package id and we do have the package, refresh if timeout
-              if (cache.packagesShouldBeFetchedAgain) {
-                logger.trace(
-                  "no package id and we do have the package, refresh because of timeout"
-                )
-                doReloadAndSearchAgain()
-              } else {
-                logger.trace(
-                  "no package id and we do have the package, -no timeout- no refresh"
-                )
-                keep(result)
-              }
-            // no package id and we don’t have the package, always refresh
+        finalResult <- (x: C.OptionalPkg).packageId.fold {
+          if (result.isDefined)
+            // no package id and we do have the package, refresh if timeout
+            if (cache.packagesShouldBeFetchedAgain) {
+              logger.trace(
+                "no package id and we do have the package, refresh because of timeout"
+              )
+              doReloadAndSearchAgain()
+            } else {
+              logger.trace(
+                "no package id and we do have the package, -no timeout- no refresh"
+              )
+              keep(result)
+            }
+          // no package id and we don’t have the package, always refresh
+          else {
+            logger.trace("no package id and we don’t have the package, always refresh")
+            doReloadAndSearchAgain()
+          }
+        } { packageId =>
+          if (result.isDefined) {
+            logger.trace("package id defined & template id found, no refresh necessary")
+            keep(result)
+          } else {
+            // package id and we have the package, never refresh
+            if (state.packageIds.contains(packageId)) {
+              logger.trace("package id and we have the package, never refresh")
+              keep(result)
+            }
+            // package id and we don’t have the package, always refresh
             else {
-              logger.trace("no package id and we don’t have the package, always refresh")
+              logger.trace("package id and we don’t have the package, always refresh")
               doReloadAndSearchAgain()
             }
-          } { packageId =>
-            if (result.isDefined) {
-              logger.trace("package id defined & template id found, no refresh necessary")
-              keep(result)
-            } else {
-              // package id and we have the package, never refresh
-              if (state.packageIds.contains(packageId)) {
-                logger.trace("package id and we have the package, never refresh")
-                keep(result)
-              }
-              // package id and we don’t have the package, always refresh
-              else {
-                logger.trace("package id and we don’t have the package, always refresh")
-                doReloadAndSearchAgain()
-              }
-            }
-          }: ET[ResultType]
+          }
+        }: ET[ResultType]
         _ = logger.trace(s"Final result: $finalResult")
       } yield finalResult
     }.run
@@ -260,23 +279,39 @@ object PackageService {
   type ReloadPackageStore =
     Set[String] => Future[PackageService.Error \/ Option[LedgerReader.PackageStore]]
 
-  type ResolveTemplateId = ResolveContractTypeId[ContractTypeId.Template]
-
-  // Like ResolveTemplateId but includes interfaces
-  sealed abstract class ResolveContractTypeId[CtId[_]] {
-    def apply(jwt: Jwt, ledgerId: LedgerApiDomain.LedgerId)(
-        x: CtId[Option[String]]
-    )(implicit lc: LoggingContextOf[InstanceUUID]): Future[
-      PackageService.Error \/ Option[ResolvedOf[CtId]]
+  sealed abstract class ResolveContractTypeId {
+    import ResolveContractTypeId.Overload
+    def apply[U, R](jwt: Jwt, ledgerId: LedgerApiDomain.LedgerId)(
+        x: U with ContractTypeId.OptionalPkg
+    )(implicit lc: LoggingContextOf[InstanceUUID], overload: Overload[U, R]): Future[
+      PackageService.Error \/ Option[R]
     ]
   }
 
   object ResolveContractTypeId {
-    type AnyKind = ResolveContractTypeId[domain.ContractTypeId]
+    sealed abstract class Overload[-Unresolved, +Resolved]
+
+    import domain.{ContractTypeId => C}
+
+    object Overload extends LowPriority {
+      /* TODO #15293 see below note about Top
+      implicit case object Unknown
+          extends Overload[C.Unknown.OptionalPkg, C.ResolvedId[C.Definite[String]]]
+       */
+      implicit case object Template extends Overload[C.Template.OptionalPkg, C.Template.Resolved]
+      case object Top extends Overload[C.OptionalPkg, C.ResolvedId[C.Definite[String]]]
+    }
+
+    // TODO #15293 if the request model has .Unknown included, then LowPriority and Top are
+    // no longer needed and can be replaced with Overload.Unknown above
+    sealed abstract class LowPriority { this: Overload.type =>
+      // needs to be low priority so it doesn't win against Template
+      implicit def `fallback Top`: Overload[C.OptionalPkg, C.ResolvedId[C.Definite[String]]] = Top
+    }
   }
 
   type ResolveTemplateRecordType =
-    TemplateId.RequiredPkg => Error \/ typesig.Type
+    ContractTypeId.Template.RequiredPkg => Error \/ typesig.Type
 
   type AllTemplateIds =
     LoggingContextOf[
@@ -290,45 +325,43 @@ object PackageService {
     ) => Error \/ (Option[ContractTypeId.Interface.Resolved], typesig.Type)
 
   type ResolveKeyType =
-    TemplateId.RequiredPkg => Error \/ typesig.Type
+    ContractTypeId.Template.RequiredPkg => Error \/ typesig.Type
 
-  final case class ContractTypeIdMap[CtId[_]](
+  final case class ContractTypeIdMap[CtId[T] <: ContractTypeId[T]](
       all: Map[RequiredPkg[CtId], ResolvedOf[CtId]],
       unique: Map[NoPkg[CtId], ResolvedOf[CtId]],
   ) {
-    // forms a monoid with Empty
-    private[PackageService] def ++(o: ContractTypeIdMap[CtId]): ContractTypeIdMap[CtId] = {
-      ContractTypeIdMap(
-        all ++ o.all,
-        (unique -- o.unique.keySet) ++ (o.unique -- unique.keySet),
-      )
-    }
-
-    private[PackageService] def widen[O[T] >: CtId[T]]: ContractTypeIdMap[O] =
-      ContractTypeIdMap(all.toMap, unique.toMap)
+    private[http] def resolve(
+        a: ContractTypeId[Option[String]]
+    )(implicit makeKey: ContractTypeId.Like[CtId]): Option[ResolvedOf[CtId]] =
+      a.packageId match {
+        case Some(p) => all get makeKey(p, a.moduleName, a.entityName)
+        case None => unique get makeKey((), a.moduleName, a.entityName)
+      }
   }
 
   type TemplateIdMap = ContractTypeIdMap[ContractTypeId.Template]
-  type InterfaceIdMap = ContractTypeIdMap[ContractTypeId.Interface]
+  private type InterfaceIdMap = ContractTypeIdMap[ContractTypeId.Interface]
 
   object TemplateIdMap {
-    def Empty[CtId[_]]: ContractTypeIdMap[CtId] = ContractTypeIdMap(Map.empty, Map.empty)
+    def Empty[CtId[T] <: ContractTypeId[T]]: ContractTypeIdMap[CtId] =
+      ContractTypeIdMap(Map.empty, Map.empty)
   }
 
   private type ChoiceTypeMap = Map[ContractTypeId.Resolved, NonEmpty[
     Map[Choice, NonEmpty[Map[Option[ContractTypeId.Interface.Resolved], typesig.Type]]]
   ]]
 
-  type KeyTypeMap = Map[TemplateId.RequiredPkg, typesig.Type]
+  type KeyTypeMap = Map[ContractTypeId.Template.Resolved, typesig.Type]
 
-  def getTemplateIdInterfaceMaps(
+  private def getTemplateIdInterfaceMaps(
       packageStore: PackageStore
-  ): (TemplateIdMap, ContractTypeIdMap[ContractTypeId.Interface]) = {
+  ): (TemplateIdMap, InterfaceIdMap) = {
     import TemplateIds.{getTemplateIds, getInterfaceIds}
-    val interfaces = packageStore.values.toSet
+    val packageSigs = packageStore.values.toSet
     (
-      buildTemplateIdMap(getTemplateIds(interfaces) map ContractTypeId.Template.fromLedgerApi),
-      buildTemplateIdMap(getInterfaceIds(interfaces) map ContractTypeId.Interface.fromLedgerApi),
+      buildTemplateIdMap(getTemplateIds(packageSigs) map ContractTypeId.Template.fromLedgerApi),
+      buildTemplateIdMap(getInterfaceIds(packageSigs) map ContractTypeId.Interface.fromLedgerApi),
     )
   }
 
@@ -355,17 +388,6 @@ object PackageService {
       .groupBy(key2)
       .collect { case (k, v) if v.sizeIs == 1 => (k, v.head) }
 
-  // TODO SC #14727 make sensitive to whether `a` is Unknown, Template, or Interface
-  // this will entail restructuring `ContractTypeIdMap`, possibly unifying
-  // the two in how we expose ResolveContractTypeId and ResolveTemplateId
-  def resolveTemplateId[CtId[T] <: ContractTypeId[T] with ContractTypeId.Ops[CtId, T]](
-      m: ContractTypeIdMap[CtId]
-  )(a: CtId[Option[String]]): Option[ResolvedOf[CtId]] =
-    a.packageId match {
-      case Some(p) => m.all get a.copy(packageId = p)
-      case None => m.unique get a.copy(packageId = ())
-    }
-
   private def resolveChoiceArgType(
       choiceIdMap: ChoiceTypeMap
   )(
@@ -385,7 +407,7 @@ object PackageService {
 
   def resolveKey(
       keyTypeMap: KeyTypeMap
-  )(templateId: TemplateId.RequiredPkg): Error \/ typesig.Type =
+  )(templateId: ContractTypeId.Template.RequiredPkg): Error \/ typesig.Type =
     keyTypeMap
       .get(templateId)
       .toRightDisjunction(
@@ -473,7 +495,7 @@ object PackageService {
 
   private def getKeys(
       interface: typesig.PackageSignature
-  ): Map[ContractTypeId.RequiredPkg, typesig.Type] =
+  ): Map[ContractTypeId.Template.Resolved, typesig.Type] =
     interface.typeDecls.collect {
       case (
             qn,

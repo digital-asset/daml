@@ -1,14 +1,10 @@
-.. Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 .. _daml-ref-interfaces:
 
 Reference: Interfaces
 #####################
-
-.. warning::
-  This feature is under active development and not officially supported in
-  production environments.
 
 In Daml, an interface defines an abstract type together with a behavior
 specified by its view type, method signatures, and choices. For a template to
@@ -21,16 +17,18 @@ interface instead of the concrete template.
 Configuration
 *************
 
-In order to test this experimental feature, your Daml project needs to target
-Daml-LF version ``1.15`` or higher, which is specificed by adding the following
-line to the project's ``daml.yaml`` file:
+In order to use this new feature, your Daml project needs to
+explicitly target Daml-LF version ``1.15`` or higher which is
+specificed by adding the following line to the project's ``daml.yaml``
+file:
 
 .. code-block:: yaml
 
   build-options: [--target=1.15]
 
-If using Canton, it needs to run in dev mode, see
-:ref:`Canton: How do I enable unsupported features <how-do-i-enable-unsupported-features>` for instructions.
+If using Canton, the protocol version of the domain should be `4` or
+higher, see :ref:`Canton protocol version <protocol_version>` for more
+details.
 
 Interface Declaration
 *********************
@@ -167,6 +165,8 @@ Empty Interfaces
 - It is possible (though not necessarily useful) to define an interface without
   methods, precondition or choices. However, a view type must always be defined,
   though it can be set to unit.
+
+.. _interface-instances:
 
 Interface Instances
 *******************
@@ -317,6 +317,27 @@ Interface Functions
        ``fetch``, ``exercise`` or ``archive`` action and a transaction failure
        is the desired behavior in case of mismatch.
        In all other cases, consider using ``fetchFromInterface`` instead.
+
+``coerceInterfaceContractId``
+-----------------------------
+
+.. list-table::
+
+   * - Type
+     - | ``forall j i.``
+       | ``(HasInterfaceTypeRep i, HasInterfaceTypeRep j) =>``
+       | ``ContractId i -> ContractId j``
+   * - Instantiated Type
+     - ``ContractId SourceInterface -> ContractId TargetInterface``
+   * - Notes
+     - Converts an interface contract id into a contract id of a different interface.
+       This function does not verify that the given contract id actually points
+       to a contract of the resulting type; if that is not the case, a
+       subsequent ``fetch``, ``exercise`` or ``archive`` will fail.
+       Therefore, this should only be used when the underlying contract is known
+       to be of the resulting type, or when the result is immediately used by a
+       ``fetch``, ``exercise`` or ``archive`` action and a transaction failure
+       is the desired behavior in case of mismatch.
 
 ``fetchFromInterface``
 ----------------------

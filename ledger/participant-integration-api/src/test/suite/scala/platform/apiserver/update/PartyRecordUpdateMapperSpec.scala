@@ -1,12 +1,11 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.apiserver.update
 
-import com.daml.ledger.api.domain.ParticipantParty.PartyDetails
-import com.daml.ledger.api.domain.ObjectMeta
-import com.daml.ledger.participant.state.index.v2.{ObjectMetaUpdate, PartyDetailsUpdate}
+import com.daml.ledger.api.domain.{IdentityProviderId, ObjectMeta, PartyDetails}
 import com.daml.lf.data.Ref
+import com.daml.platform.localstore.api.{ObjectMetaUpdate, PartyDetailsUpdate}
 import com.google.protobuf.field_mask.FieldMask
 import org.scalatest.EitherValues
 import org.scalatest.freespec.AnyFreeSpec
@@ -21,6 +20,7 @@ class PartyRecordUpdateMapperSpec extends AnyFreeSpec with Matchers with EitherV
       isLocal: Boolean = false,
       displayNameO: Option[String] = None,
       annotations: Map[String, String] = Map.empty,
+      identityProviderId: IdentityProviderId = IdentityProviderId.Default,
   ): PartyDetails = PartyDetails(
     party = party,
     displayName = displayNameO,
@@ -29,15 +29,18 @@ class PartyRecordUpdateMapperSpec extends AnyFreeSpec with Matchers with EitherV
       resourceVersionO = None,
       annotations = annotations,
     ),
+    identityProviderId = identityProviderId,
   )
 
   def makePartyDetailsUpdate(
       party: Ref.Party = party1,
+      identityProviderId: IdentityProviderId = IdentityProviderId.Default,
       isLocalUpdate: Option[Boolean] = None,
       displayNameUpdate: Option[Option[String]] = None,
       annotationsUpdateO: Option[Map[String, String]] = None,
   ): PartyDetailsUpdate = PartyDetailsUpdate(
     party = party,
+    identityProviderId = identityProviderId,
     isLocalUpdate = isLocalUpdate,
     displayNameUpdate = displayNameUpdate,
     metadataUpdate = ObjectMetaUpdate(

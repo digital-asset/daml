@@ -1,4 +1,4 @@
-.. Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 The Ledger API
@@ -55,9 +55,9 @@ You may also want to read the :doc:`protobuf documentation </app-dev/grpc/proto-
 How to Access the Ledger API
 ****************************
 
-You can access the Ledger API via the :doc:`Java Bindings <bindings-java/index>`.
+You can access the Ledger API via the :doc:`Java Bindings <bindings-java/index>` or the :doc:`Python Bindings </app-dev/bindings-python>` (formerly known as DAZL).
 
-If you don't use a language that targets the JVM, you can use gRPC to generate the code to access the Ledger API in
+If you don't use a language that targets the JVM or Python, you can use gRPC to generate the code to access the Ledger API in
 several supported programming languages. :doc:`Further documentation <bindings-x-lang/index>` provides a few
 pointers on how you may want to approach this.
 

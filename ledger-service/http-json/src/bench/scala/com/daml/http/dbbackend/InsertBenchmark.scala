@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.http.dbbackend
@@ -29,7 +29,7 @@ trait InsertBenchmark extends ContractDaoBenchmark {
   @Setup(Level.Trial)
   override def setup(): Unit = {
     super.setup()
-    tpid = insertTemplate(ContractTypeId("-pkg-", "M", "T"))
+    tpid = insertTemplate(ContractTypeId.Template("-pkg-", "M", "T"))
     contracts = (1 until numContracts + 1).map { i =>
       // Use negative cids to avoid collisions with other contracts
       contract(-i, "Alice", tpid)
@@ -44,9 +44,8 @@ trait InsertBenchmark extends ContractDaoBenchmark {
   }
 
   @TearDown(Level.Invocation)
-  def dropContracts: Unit = {
-    val deleted =
-      dao.transact(queries.deleteContracts(contractCids)).unsafeRunSync()
+  def dropContracts(): Unit = {
+    val deleted = dao.transact(queries.deleteContracts(Map(tpid -> contractCids))).unsafeRunSync()
     assert(deleted == numContracts)
   }
 

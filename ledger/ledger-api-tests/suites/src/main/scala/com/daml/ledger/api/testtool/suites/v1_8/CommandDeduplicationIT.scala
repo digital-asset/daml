@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.testtool.suites.v1_8
@@ -691,15 +691,18 @@ final class CommandDeduplicationIT(
       acceptedOffset: LedgerOffset,
   )(implicit ec: ExecutionContext): Future[Unit] =
     ledger
-      .submitAndWaitForTransaction(request)
+      .submitRequestAndTolerateGrpcError(
+        LedgerApiErrors.ConsistencyErrors.SubmissionAlreadyInFlight,
+        _.submitAndWaitForTransaction(request),
+      )
       .mustFail("Request was accepted but we were expecting it to fail with a duplicate error")
       .map(
         assertGrpcError(
           _,
-          errorCode = LedgerApiErrors.ConsistencyErrors.DuplicateCommand,
-          exceptionMessageSubstring = None,
+          LedgerApiErrors.ConsistencyErrors.DuplicateCommand,
+          None,
           checkDefiniteAnswerMetadata = true,
-          assertDeduplicatedSubmissionIdAndOffsetOnError(
+          additionalErrorAssertions = assertDeduplicatedSubmissionIdAndOffsetOnError(
             acceptedSubmissionId,
             acceptedOffset,
             _,
@@ -719,7 +722,11 @@ final class CommandDeduplicationIT(
       request,
       parties: _*
     ) { completion =>
-      assertCompletionStatus(request.toString, completion, Code.ALREADY_EXISTS)
+      assertCompletionStatus(
+        request.toString,
+        completion,
+        Code.ALREADY_EXISTS, // Deduplication error
+      )
       assertDeduplicatedSubmissionIdAndOffsetOnCompletion(
         acceptedSubmissionId,
         acceptedOffset,
@@ -730,11 +737,13 @@ final class CommandDeduplicationIT(
   private def assertCompletionStatus(
       requestString: String,
       response: CompletionResponse,
-      statusCode: Code,
+      statusCodes: Code*
   ): Unit =
     assert(
-      response.completion.getStatus.code == statusCode.value(),
-      s"""Expecting completion with status code $statusCode but completion has status ${response.completion.status}.
+      statusCodes.exists(response.completion.getStatus.code == _.value()),
+      s"""Expecting completion with status code(s) ${statusCodes.mkString(
+          ","
+        )} but completion has status ${response.completion.status}.
          |Request: $requestString
          |Response: $response
          |Metadata: ${extractErrorInfoMetadata(
@@ -799,10 +808,15 @@ final class CommandDeduplicationIT(
   )(implicit
       ec: ExecutionContext
   ): Future[CompletionResponse] =
-    submitRequestAndFindCompletion(ledger, request, parties: _*).map { response =>
-      additionalCompletionAssertion(response)
-      response
-    }
+    ledger
+      .submitRequestAndTolerateGrpcError(
+        LedgerApiErrors.ConsistencyErrors.SubmissionAlreadyInFlight,
+        submitRequestAndFindCompletion(_, request, parties: _*),
+      )
+      .map { response =>
+        additionalCompletionAssertion(response)
+        response
+      }
 
   private def submitAndWaitRequestAndAssertCompletion(
       ledger: ParticipantTestContext,

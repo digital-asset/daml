@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.validation
@@ -103,6 +103,9 @@ private[validation] object ExprIterable {
         Iterator(contractId)
       case UpdateFetchInterface(interface @ _, contractId) =>
         Iterator(contractId)
+      case UpdateActingAsConsortium(members, consortium) =>
+        val _ = (members, consortium)
+        ??? // TODO: https://github.com/digital-asset/daml/issues/15882
       case UpdateExercise(templateId @ _, choice @ _, cid, arg) =>
         Iterator(cid, arg)
       case UpdateExerciseInterface(interface @ _, choice @ _, cid, arg, guard) =>

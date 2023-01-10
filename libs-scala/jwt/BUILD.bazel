@@ -1,0 +1,95 @@
+# Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load(
+    "//bazel_tools:scala.bzl",
+    "da_scala_binary",
+    "da_scala_library",
+    "da_scala_test",
+    "lf_scalacopts",
+)
+
+da_scala_library(
+    name = "jwt",
+    srcs = glob(["src/main/scala/**/*.scala"]),
+    scala_deps = [
+        "@maven//:com_github_scopt_scopt",
+        "@maven//:com_typesafe_scala_logging_scala_logging",
+        "@maven//:org_scalaz_scalaz_core",
+    ],
+    scalacopts = lf_scalacopts,
+    tags = ["maven_coordinates=com.daml:jwt:__VERSION__"],
+    visibility = ["//visibility:public"],
+    runtime_deps = [
+        "@maven//:ch_qos_logback_logback_classic",
+    ],
+    deps = [
+        "@maven//:com_auth0_java_jwt",
+        "@maven//:com_auth0_jwks_rsa",
+        "@maven//:com_google_guava_guava",
+        "@maven//:org_slf4j_slf4j_api",
+    ],
+)
+
+da_scala_binary(
+    name = "jwt-bin",
+    main_class = "com.daml.jwt.Main",
+    scalacopts = lf_scalacopts,
+    runtime_deps = [
+        "@maven//:ch_qos_logback_logback_classic",
+    ],
+    deps = [
+        ":jwt",
+    ],
+)
+
+da_scala_library(
+    name = "tests-lib",
+    srcs = glob(["src/test/scala/**/*.scala"]),
+    resources = glob(["src/test/resources/**/*"]),
+    scala_deps = [
+        "@maven//:com_typesafe_scala_logging_scala_logging",
+        "@maven//:org_scalatest_scalatest_core",
+        "@maven//:org_scalatest_scalatest_matchers_core",
+        "@maven//:org_scalatest_scalatest_shouldmatchers",
+        "@maven//:org_scalatest_scalatest_wordspec",
+        "@maven//:org_scalatest_scalatest_flatspec",
+        "@maven//:org_scalactic_scalactic",
+        "@maven//:org_scalaz_scalaz_core",
+        "@maven//:com_lihaoyi_sourcecode",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":jwt",
+        "//ledger/test-common",
+        "//libs-scala/test-evidence/scalatest:test-evidence-scalatest",
+        "//libs-scala/test-evidence/tag:test-evidence-tag",
+        "@maven//:com_auth0_java_jwt",
+        "@maven//:org_scalatest_scalatest_compatible",
+    ],
+)
+
+da_scala_test(
+    name = "tests",
+    size = "medium",
+    srcs = glob(["src/test/scala/**/*.scala"]),
+    resources = glob(["src/test/resources/**/*"]),
+    scala_deps = [
+        "@maven//:com_typesafe_scala_logging_scala_logging",
+        "@maven//:org_scalatest_scalatest_core",
+        "@maven//:org_scalatest_scalatest_matchers_core",
+        "@maven//:org_scalatest_scalatest_shouldmatchers",
+        "@maven//:org_scalatest_scalatest_wordspec",
+        "@maven//:org_scalaz_scalaz_core",
+        "@maven//:com_lihaoyi_sourcecode",
+    ],
+    scalacopts = lf_scalacopts,
+    deps = [
+        ":jwt",
+        "//ledger/test-common",
+        "//libs-scala/test-evidence/scalatest:test-evidence-scalatest",
+        "//libs-scala/test-evidence/tag:test-evidence-tag",
+        "@maven//:com_auth0_java_jwt",
+        "@maven//:org_scalatest_scalatest_compatible",
+    ],
+)

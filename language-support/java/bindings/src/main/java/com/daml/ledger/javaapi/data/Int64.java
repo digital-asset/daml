@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.javaapi.data;
@@ -6,7 +6,7 @@ package com.daml.ledger.javaapi.data;
 import com.daml.ledger.api.v1.ValueOuterClass;
 import java.util.Objects;
 
-public class Int64 extends Value {
+public final class Int64 extends Value {
 
   private long value;
 

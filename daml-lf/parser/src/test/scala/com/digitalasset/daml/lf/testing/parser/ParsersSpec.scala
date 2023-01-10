@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.testing.parser
@@ -461,6 +461,8 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
           UpdateFetchTemplate(T.tycon, e"e"),
         "fetch_interface @Mod:I e" ->
           UpdateFetchInterface(I.tycon, e"e"),
+        "acting_as_consortium members consortium" ->
+          UpdateActingAsConsortium(e"members", e"consortium"),
         "exercise @Mod:T Choice cid arg" ->
           UpdateExercise(T.tycon, n"Choice", e"cid", e"arg"),
         "exercise_interface @Mod:I Choice cid arg" ->

@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.store.backend
@@ -14,11 +14,16 @@ import com.daml.lf.transaction.{
   TransactionVersion,
   VersionedTransaction,
 }
+import com.daml.metrics.IndexedUpdatesMetrics
+import com.daml.metrics.api.testing.{InMemoryMetricsFactory, MetricValues}
+import com.daml.metrics.api.{MetricName, MetricsContext}
 import org.scalatest.wordspec.AnyWordSpec
 
-class UpdateToMeteringDbDtoSpec extends AnyWordSpec {
+class UpdateToMeteringDbDtoSpec extends AnyWordSpec with MetricValues {
 
   import DbDtoEq._
+
+  private val IndexedUpdatesMetrics = newUpdateMetrics
 
   "UpdateMeteringToDbDto" should {
 
@@ -69,9 +74,10 @@ class UpdateToMeteringDbDtoSpec extends AnyWordSpec {
 
     "extract transaction metering" in {
 
-      val actual = UpdateToMeteringDbDto(clock = () => timestamp)(
-        List((Offset.fromHexString(offset), someTransactionAccepted))
-      )
+      val actual =
+        UpdateToMeteringDbDto(clock = () => timestamp, IndexedUpdatesMetrics)(MetricsContext.Empty)(
+          List((Offset.fromHexString(offset), someTransactionAccepted))
+        )
 
       val expected: Vector[DbDto.TransactionMetering] = Vector(
         DbDto.TransactionMetering(
@@ -97,18 +103,19 @@ class UpdateToMeteringDbDtoSpec extends AnyWordSpec {
 
       val expected: Vector[DbDto.TransactionMetering] = Vector(metering)
 
-      val actual = UpdateToMeteringDbDto(clock = () => timestamp)(
-        List(
-          (
-            Offset.fromHexString(Ref.HexString.assertFromString("01")),
-            someTransactionAccepted,
-          ),
-          (
-            Offset.fromHexString(Ref.HexString.assertFromString(metering.ledger_offset)),
-            someTransactionAccepted,
-          ),
+      val actual =
+        UpdateToMeteringDbDto(clock = () => timestamp, IndexedUpdatesMetrics)(MetricsContext.Empty)(
+          List(
+            (
+              Offset.fromHexString(Ref.HexString.assertFromString("01")),
+              someTransactionAccepted,
+            ),
+            (
+              Offset.fromHexString(Ref.HexString.assertFromString(metering.ledger_offset)),
+              someTransactionAccepted,
+            ),
+          )
         )
-      )
 
       actual should equal(expected)(decided by DbDtoSeqEq)
 
@@ -116,10 +123,38 @@ class UpdateToMeteringDbDtoSpec extends AnyWordSpec {
 
     "return empty vector if input iterable is empty" in {
       val expected: Vector[DbDto.TransactionMetering] = Vector.empty
-      val actual = UpdateToMeteringDbDto(clock = () => timestamp)(List.empty)
+      val actual = UpdateToMeteringDbDto(clock = () => timestamp, IndexedUpdatesMetrics)(
+        MetricsContext.Empty
+      )(List.empty)
       actual should equal(expected)(decided by DbDtoSeqEq)
     }
 
+    // This is so infrastructure transactions, with a zero action count, are not included
+    "filter zero action counts" in {
+
+      val txWithNoActionCount = someTransactionAccepted.copy(optCompletionInfo =
+        Some(someCompletionInfo.copy(statistics = Some(TransactionNodeStatistics.Empty)))
+      )
+
+      val actual =
+        UpdateToMeteringDbDto(clock = () => timestamp, IndexedUpdatesMetrics)(MetricsContext.Empty)(
+          List((Offset.fromHexString(offset), txWithNoActionCount))
+        )
+
+      actual.isEmpty shouldBe true
+    }
+
+    "increment metered events counter" in {
+      val IndexedUpdatesMetrics = newUpdateMetrics
+      UpdateToMeteringDbDto(clock = () => timestamp, IndexedUpdatesMetrics)(MetricsContext.Empty)(
+        List((Offset.fromHexString(offset), someTransactionAccepted))
+      )
+      IndexedUpdatesMetrics.meteredEventsMeter.value shouldBe (statistics.committed.actions + statistics.rolledBack.actions)
+    }
+  }
+
+  private def newUpdateMetrics = {
+    new IndexedUpdatesMetrics(MetricName("test"), InMemoryMetricsFactory)
   }
 
 }

@@ -1,4 +1,4 @@
--- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 {-# LANGUAGE BlockArguments #-}
 {-# LANGUAGE MultiWayIf #-}
@@ -146,6 +146,7 @@ data Env = Env
     ,envLfVersion :: LF.Version
     ,envEnableScenarios :: EnableScenarios
     ,envAllowLargeTuples :: AllowLargeTuples
+    ,envUserWrittenTuple :: Bool
     ,envTypeVars :: !(MS.Map Var TypeVarName)
         -- ^ Maps GHC type variables in scope to their LF type variable names
     ,envTypeVarNames :: !(S.Set TypeVarName)
@@ -169,6 +170,7 @@ mkEnv envLfVersion envEnableScenarios envAllowLargeTuples envPkgMap envStablePac
     envAliases = MS.empty
     envTypeVars = MS.empty
     envTypeVarNames = S.empty
+    envUserWrittenTuple = False
   Env {..}
 
 -- v is an alias for x
@@ -254,7 +256,7 @@ extractModuleContents env@Env{..} coreModule modIface details = do
     mcChoiceData = MS.fromListWith (++)
         [ (mkTypeCon [getOccText tplTy], [ChoiceData ty v])
         | (name, v) <- mcBinds
-        , "_choice_" `T.isPrefixOf` getOccText name
+        , "_choice$_" `T.isPrefixOf` getOccText name
         , ty@(TypeCon _ [_, _, TypeCon _ [TypeCon tplTy _], _]) <- [varType name]
         ]
     mcTemplateBinds = scrapeTemplateBinds mcBinds
@@ -488,7 +490,7 @@ scrapeInterfaceBinds lfVersion tyThings binds =
           HasMethodDFunId interface methodName retTy ->
             Just (interface, insertInterfaceMethod methodName retTy (convNameLoc name))
           name
-            | "_requires_" `T.isPrefixOf` getOccText name
+            | "_requires$_" `T.isPrefixOf` getOccText name
             , TypeCon requiresT [TypeCon iface1 [], TypeCon iface2 []] <- varType name
             , NameIn DA_Internal_Desugar "RequiresT" <- requiresT
             -> Just (iface1, insertInterfaceRequires iface2 (convNameLoc name))
@@ -503,7 +505,7 @@ data InterfaceInstanceBinds = InterfaceInstanceBinds
   { iibInterface :: GHC.TyCon
   , iibTemplate :: GHC.TyCon
   , iibLoc :: Maybe SourceLoc
-      -- ^ Location associated to the @_interface_instance_@ marker, which should
+      -- ^ Location associated to the @_interface_instance$_@ marker, which should
       -- point to the @interface instance@ line in the daml file.
   , iibMethods :: MS.Map MethodName (GHC.Expr GHC.CoreBndr)
       -- ^ Method implementations.
@@ -595,7 +597,7 @@ scrapeInterfaceInstanceBinds env binds =
         , singletonInterfaceInstanceGroup interface template (convNameLoc name)
         )
       | (name, _val) <- binds
-      , "_interface_instance_" `T.isPrefixOf` getOccText name
+      , "_interface_instance$_" `T.isPrefixOf` getOccText name
       , TypeCon (NameIn DA_Internal_Desugar "InterfaceInstance")
           [ TypeCon parent []
           , TypeCon interface []
@@ -699,8 +701,6 @@ convertInterface env mc intName ib =
     convertRequires requires = S.fromList <$>
       forM requires \(iface, mloc) ->
         withRange mloc do
-          unless (envLfVersion env `supports` featureExtendedInterfaces) do
-            unsupported "Requires in Daml interfaces are only available with --target=1.dev" ()
           convertInterfaceTyCon env handleIsNotInterface iface
       where
         handleIsNotInterface tyCon =
@@ -1279,20 +1279,20 @@ convertBinds env mc =
 convertBind :: Env -> ModuleContents -> (Var, GHC.Expr Var) -> ConvertM [Definition]
 convertBind env mc (name, x)
     -- This is inlined in the choice in the template so we can just drop this.
-    | "_choice_" `T.isPrefixOf` getOccText name
+    | "_choice$_" `T.isPrefixOf` getOccText name
     = pure []
     -- We only need this to get additional info for interface choices.
-    | "_interface_choice_" `T.isPrefixOf` getOccText name
+    | "_interface_choice$_" `T.isPrefixOf` getOccText name
     = pure []
     -- These are only used as markers for the LF conversion.
-    | "_interface_instance_" `T.isPrefixOf` getOccText name
+    | "_interface_instance$_" `T.isPrefixOf` getOccText name
     = pure []
-    | "_requires_" `T.isPrefixOf` getOccText name
+    | "_requires$_" `T.isPrefixOf` getOccText name
     = pure []
     -- These are moved into interface implementations so we can drop them
-    | "_method_" `T.isPrefixOf` getOccText name
+    | "_method$_" `T.isPrefixOf` getOccText name
     = pure []
-    | "_view_" `T.isPrefixOf` getOccText name
+    | "_view$_" `T.isPrefixOf` getOccText name
     = pure []
 
     -- Remove guarded exercise when Extended Interfaces are unsupported
@@ -1441,7 +1441,9 @@ internalFunctions = listToUFM $ map (bimap mkModuleNameFS mkUniqSet)
         [ "mkInterfaceInstance"
         , "mkMethod"
         , "mkInterfaceView"
-        , "codeGenAllowLargeTuples"
+        ])
+    , ("GHC.Tuple.Check",
+        [ "userWrittenTuple"
         ])
     ]
 
@@ -1720,9 +1722,10 @@ convertExpr env0 e = do
     go env (VarIn GHC_Types "I#") args = pure (mkIdentity TInt64, args)
         -- we pretend Int and Int# are the same thing
 
-    go env (VarIn DA_Internal_Desugar "codeGenAllowLargeTuples") (LType _ : LExpr head : rest)
-        = let env' = env { envAllowLargeTuples = AllowLargeTuples True }
-           in go env' head rest
+    go env (VarIn GHC_Tuple_Check "userWrittenTuple") (_ : LExpr head : rest)
+        = let env' = env { envUserWrittenTuple = True }
+          in
+          go env' head rest
 
     go env (Var x) args
         | Just internals <- lookupUFM internalFunctions modName
@@ -1976,10 +1979,12 @@ splitConArgs_maybe con args = do
 convertDataCon :: Env -> GHC.Module -> DataCon -> [LArg Var] -> ConvertM (LF.Expr, [LArg Var])
 convertDataCon env m con args
     | AllowLargeTuples False <- envAllowLargeTuples env
-    , IsTuple arity <- con, arity > 5
+    , envUserWrittenTuple env
+    , IsTuple arity <- con
     = do
-        conversionWarning "Used tuple of size > 5! Daml only has Show, Eq, Ord instances for tuples of size <= 5."
-        let env' = env { envAllowLargeTuples = AllowLargeTuples True }
+        when (arity > 5) $
+          conversionWarning "Used tuple of size > 5! Daml only has Show, Eq, Ord instances for tuples of size <= 5."
+        let env' = env { envUserWrittenTuple = False }
         convertDataCon env' m con args
     -- Fully applied
     | Just (tyArgs, tmArgs) <- splitConArgs_maybe con args = do

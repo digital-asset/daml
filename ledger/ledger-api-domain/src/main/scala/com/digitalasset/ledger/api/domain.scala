@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api
@@ -10,15 +10,16 @@ import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.data.Ref.LedgerString.ordering
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.data.logging._
-import com.daml.lf.transaction.GlobalKey
-import com.daml.lf.value.Value.{ContractId => LfContractId}
 import com.daml.lf.value.{Value => Lf}
 import com.daml.logging.entries.LoggingValue.OfString
 import com.daml.logging.entries.{LoggingValue, ToLoggingValue}
 import scalaz.syntax.tag._
 import scalaz.{@@, Tag}
 
+import java.net.URL
 import scala.collection.immutable
+import scala.util.Try
+import scala.util.control.NonFatal
 
 object domain {
 
@@ -167,85 +168,6 @@ object domain {
       offset: LedgerOffset.Absolute,
   ) extends TransactionBase
 
-  sealed trait CompletionEvent extends Product with Serializable {
-    def offset: LedgerOffset.Absolute
-    def recordTime: Timestamp
-  }
-
-  object CompletionEvent {
-
-    final case class Checkpoint(offset: LedgerOffset.Absolute, recordTime: Timestamp)
-        extends CompletionEvent
-
-    final case class CommandAccepted(
-        offset: LedgerOffset.Absolute,
-        recordTime: Timestamp,
-        commandId: CommandId,
-        transactionId: TransactionId,
-    ) extends CompletionEvent
-
-    final case class CommandRejected(
-        offset: LedgerOffset.Absolute,
-        recordTime: Timestamp,
-        commandId: CommandId,
-        reason: RejectionReason,
-    ) extends CompletionEvent
-  }
-
-  sealed trait RejectionReason {
-    val description: String
-  }
-
-  object RejectionReason {
-    final case class ContractsNotFound(missingContractIds: Set[String]) extends RejectionReason {
-      override val description =
-        s"Unknown contracts: ${missingContractIds.mkString("[", ", ", "]")}"
-    }
-
-    final case class InconsistentContractKeys(
-        lookupResult: Option[LfContractId],
-        currentResult: Option[LfContractId],
-    ) extends RejectionReason {
-      override val description: String =
-        s"Contract key lookup with different results: expected [$lookupResult], actual [$currentResult]"
-    }
-
-    final case class DuplicateContractKey(key: GlobalKey) extends RejectionReason {
-      override val description: String = "DuplicateKey: contract key is not unique"
-    }
-
-    /** The ledger time of the submission violated some constraint on the ledger time. */
-    final case class InvalidLedgerTime(description: String) extends RejectionReason
-
-    /** The transaction relied on contracts being active that were no longer
-      * active at the point where it was sequenced.
-      */
-    final case class Inconsistent(description: String) extends RejectionReason
-
-    /** The Participant node did not have sufficient resource quota with the
-      * to submit the transaction.
-      *
-      * NOTE: Only used in Scala flyway migration scripts
-      */
-    final case class OutOfQuota(description: String) extends RejectionReason
-
-    /** The transaction submission was disputed.
-      *
-      * This means that the underlying ledger and its validation logic
-      * considered the transaction potentially invalid. This can be due to a bug
-      * in the submission or validation logic, or due to malicious behaviour.
-      *
-      * NOTE: Only used in Scala flyway migration scripts
-      */
-    final case class Disputed(description: String) extends RejectionReason
-
-    @deprecated
-    final case class SubmitterCannotActViaParticipant(description: String) extends RejectionReason
-
-    @deprecated
-    final case class PartyNotKnownOnLedger(description: String) extends RejectionReason
-  }
-
   type Value = Lf
 
   final case class RecordField(label: Option[Label], value: Value)
@@ -254,11 +176,6 @@ object domain {
 
   type Label = String @@ LabelTag
   val Label: Tag.TagOf[LabelTag] = Tag.of[LabelTag]
-
-  sealed trait VariantConstructorTag
-
-  type VariantConstructor = String @@ VariantConstructorTag
-  val VariantConstructor: Tag.TagOf[VariantConstructorTag] = Tag.of[VariantConstructorTag]
 
   sealed trait WorkflowIdTag
 
@@ -342,28 +259,6 @@ object domain {
     }
   }
 
-  /** Represents a party with additional known information.
-    *
-    * @param party       The stable unique identifier of a Daml party.
-    * @param displayName Human readable name associated with the party. Might not be unique.
-    * @param isLocal     True if party is hosted by the backing participant.
-    */
-  case class PartyDetails(party: Ref.Party, displayName: Option[String], isLocal: Boolean)
-
-  sealed abstract class PartyEntry() extends Product with Serializable
-
-  object PartyEntry {
-    final case class AllocationAccepted(
-        submissionId: Option[String],
-        partyDetails: PartyDetails,
-    ) extends PartyEntry
-
-    final case class AllocationRejected(
-        submissionId: String,
-        reason: String,
-    ) extends PartyEntry
-  }
-
   /** Configuration entry describes a change to the current configuration. */
   sealed abstract class ConfigurationEntry extends Product with Serializable
 
@@ -406,7 +301,6 @@ object domain {
   )
 
   object ObjectMeta {
-    // TODO um-for-hub: Review usage
     def empty: ObjectMeta = ObjectMeta(
       resourceVersionO = None,
       annotations = Map.empty,
@@ -416,32 +310,23 @@ object domain {
   final case class User(
       id: Ref.UserId,
       primaryParty: Option[Ref.Party],
-      // TODO um-for-hub: Remove default values
-      // NOTE: Do not set 'isDeactivated' and 'metadata'. These are work-in-progress features.
       isDeactivated: Boolean = false,
       metadata: ObjectMeta = ObjectMeta.empty,
+      identityProviderId: IdentityProviderId = IdentityProviderId.Default,
   )
 
-  // TODO um-for-hub: Drop redundant ParticipantParty object
-  object ParticipantParty {
-
-    case class PartyDetails(
-        party: Ref.Party,
-        displayName: Option[String],
-        isLocal: Boolean,
-        metadata: ObjectMeta,
-    )
-
-    final case class PartyRecord(
-        party: Ref.Party,
-        metadata: ObjectMeta,
-    )
-
-  }
+  case class PartyDetails(
+      party: Ref.Party,
+      displayName: Option[String],
+      isLocal: Boolean,
+      metadata: ObjectMeta,
+      identityProviderId: IdentityProviderId,
+  )
 
   sealed abstract class UserRight extends Product with Serializable
   object UserRight {
     final case object ParticipantAdmin extends UserRight
+    final case object IdentityProviderAdmin extends UserRight
     final case class CanActAs(party: Ref.Party) extends UserRight
     final case class CanReadAs(party: Ref.Party) extends UserRight
   }
@@ -450,4 +335,75 @@ object domain {
   object Feature {
     case object UserManagement extends Feature
   }
+
+  final case class JwksUrl(value: String) extends AnyVal {
+    def toURL = new URL(value)
+  }
+  object JwksUrl {
+    def fromString(value: String): Either[String, JwksUrl] =
+      Try(new URL(value)).toEither.left
+        .map { case NonFatal(e) =>
+          e.getMessage
+        }
+        .map(_ => JwksUrl(value))
+
+    def assertFromString(str: String): JwksUrl = fromString(str) match {
+      case Right(value) => value
+      case Left(err) => throw new IllegalArgumentException(err)
+    }
+  }
+
+  sealed trait IdentityProviderId {
+    def toRequestString: String
+
+    def toDb: Option[IdentityProviderId.Id]
+  }
+
+  object IdentityProviderId {
+    final case object Default extends IdentityProviderId {
+      override def toRequestString: String = ""
+      override def toDb: Option[Id] = None
+    }
+
+    final case class Id(value: Ref.LedgerString) extends IdentityProviderId {
+      override def toRequestString: String = value
+
+      override def toDb: Option[Id] = Some(this)
+    }
+
+    object Id {
+      def fromString(id: String): Either[String, IdentityProviderId.Id] = {
+        Ref.LedgerString.fromString(id).map(Id.apply)
+      }
+
+      def assertFromString(id: String): Id = {
+        Id(Ref.LedgerString.assertFromString(id))
+      }
+    }
+
+    def apply(identityProviderId: String): IdentityProviderId =
+      Some(identityProviderId).filter(_.nonEmpty) match {
+        case Some(id) => Id(Ref.LedgerString.assertFromString(id))
+        case None => Default
+      }
+
+    def fromString(identityProviderId: String): Either[String, IdentityProviderId] =
+      Some(identityProviderId).filter(_.nonEmpty) match {
+        case Some(id) => Ref.LedgerString.fromString(id).map(Id.apply)
+        case None => Right(Default)
+      }
+
+    def fromDb(identityProviderId: Option[IdentityProviderId.Id]): IdentityProviderId =
+      identityProviderId match {
+        case None => IdentityProviderId.Default
+        case Some(id) => id
+      }
+  }
+
+  final case class IdentityProviderConfig(
+      identityProviderId: IdentityProviderId.Id,
+      isDeactivated: Boolean = false,
+      jwksUrl: JwksUrl,
+      issuer: String,
+  )
 }

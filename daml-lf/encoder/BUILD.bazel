@@ -1,4 +1,4 @@
-# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -7,6 +7,7 @@ load(
     "da_scala_library",
     "da_scala_test_suite",
     "lf_scalacopts",
+    "lf_scalacopts_stricter",
 )
 load(
     "//daml-lf/language:daml-lf.bzl",
@@ -24,7 +25,7 @@ da_scala_library(
     scala_deps = [
         "@maven//:org_scalaz_scalaz_core",
     ],
-    scalacopts = lf_scalacopts,
+    scalacopts = lf_scalacopts_stricter,
     tags = ["maven_coordinates=com.daml:daml-lf-encoder:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [
@@ -70,7 +71,7 @@ da_scala_binary(
     name = "encoder_binary",
     srcs = glob(["src/main/scala/com/digitalasset/daml/lf/archive/testing/DamlLfEncoder.scala"]),
     main_class = "com.daml.lf.archive.testing.DamlLfEncoder",
-    scalacopts = lf_scalacopts,
+    scalacopts = lf_scalacopts_stricter,
     visibility = ["//visibility:public"],
     runtime_deps = [
         "@maven//:ch_qos_logback_logback_classic",
@@ -116,9 +117,7 @@ da_scala_binary(
             args = [
                 "$(location //daml-lf/repl:repl)",
                 "$(location :testing-dar-%s)" % target,
-                # TODO https://github.com/digital-asset/daml/issues/12051
-                #    remove 1.15 once preview is set to 1.15
-                "--dev" if (lf_version_configuration.get("dev") or target == lf_version_configuration.get("preview") or target == "1.15") else "",
+                "--dev" if (lf_version_configuration.get("dev") or target == lf_version_configuration.get("preview")) else "",
             ],
             data = [
                 "//daml-lf/repl",

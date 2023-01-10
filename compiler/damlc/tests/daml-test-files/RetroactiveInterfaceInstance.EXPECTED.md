@@ -1,4 +1,4 @@
-# <a name="module-retroactiveinterfaceinstance-60009"></a>Module RetroactiveInterfaceInstance
+# <a name="module-retroactiveinterfaceinstance-60009"></a>RetroactiveInterfaceInstance
 
 ## Interfaces
 
@@ -56,6 +56,8 @@
 > > | :-------------------------------------------------------------------------------------- | :-------------------------------------------------------------------------------------- | :---------- |
 > > | owner                                                                                   | [Party](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932) |  |
 > > | amount                                                                                  | [Int](https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-37261)          |  |
+>
+> **instance** [HasFromAnyView](https://docs.daml.com/daml/stdlib/DA-Internal-Interface-AnyView.html#class-da-internal-interface-anyview-hasfromanyview-30108) [Token](#type-retroactiveinterfaceinstance-token-49693) [TokenView](#type-retroactiveinterfaceinstance-tokenview-57374)
 >
 > **instance** [HasInterfaceView](https://docs.daml.com/daml/stdlib/Prelude.html#class-da-internal-interface-hasinterfaceview-4492) [Token](#type-retroactiveinterfaceinstance-token-49693) [TokenView](#type-retroactiveinterfaceinstance-tokenview-57374)
 >

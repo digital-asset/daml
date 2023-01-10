@@ -1,11 +1,12 @@
 module Workflow.Transfer where
 
 import DA.Assert ((===))
+import DA.Set (fromList)
 import Daml.Finance.Interface.Holding.Base qualified as Holding (I)
 import Daml.Finance.Interface.Holding.Transferable qualified as Transferable (I, Transfer(..))
 import Daml.Finance.Interface.Holding.Util (getAmount, getInstrument)
 import Daml.Finance.Interface.Instrument.Base.Instrument qualified as Instrument (K)
-import Daml.Finance.Interface.Types.Common (AccountKey(..))
+import Daml.Finance.Interface.Types.Common.Types (AccountKey(..))
 
 -- | Initiate / Accept template to transfer a holding to a new owner.
 template Request
@@ -35,11 +36,11 @@ template Request
         getInstrument holding === instrument
 
         -- DO_TRANSFER_BEGIN
-        let transferableCid : ContractId Transferable.I = coerceContractId holdingCid
+        let transferableCid = coerceInterfaceContractId @Transferable.I holdingCid
 
-        newTransferableCid <- exercise transferableCid Transferable.Transfer
-          with
-            newOwnerAccount = receiverAccount
+        newTransferableCid <- exercise transferableCid Transferable.Transfer with
+          actors = fromList [currentOwner, receiverAccount.owner]
+          newOwnerAccount = receiverAccount
 
         pure $ toInterfaceContractId @Holding.I newTransferableCid
         -- DO_TRANSFER_END

@@ -1,41 +1,34 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.store.backend
 
-import com.daml.ledger.api.domain.{LedgerId, ParticipantId, PartyDetails, UserRight}
+import com.daml.ledger.api.domain.{LedgerId, ParticipantId}
 import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.MeteringStore.{ParticipantMetering, ReportData}
-import com.daml.ledger.participant.state.index.v2.PackageDetails
+import com.daml.ledger.participant.state.index.v2.{IndexerPartyDetails, PackageDetails}
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.ledger.EventId
 import com.daml.logging.LoggingContext
-import com.daml.platform.{
-  ApplicationId,
-  ContractId,
-  Identifier,
-  Key,
-  PackageId,
-  Party,
-  TransactionId,
-  UserId,
-}
+import com.daml.platform.{ApplicationId, ContractId, Identifier, Key, PackageId, Party}
 import com.daml.platform.store.EventSequentialId
 import com.daml.platform.store.dao.events.Raw
-import com.daml.platform.store.backend.EventStorageBackend.{FilterParams, RangeParams}
 import com.daml.platform.store.backend.MeteringParameterStorageBackend.LedgerMeteringEnd
 import com.daml.platform.store.backend.postgresql.PostgresDataSourceConfig
 import com.daml.platform.store.entries.{ConfigurationEntry, PackageLedgerEntry, PartyLedgerEntry}
 import com.daml.platform.store.interfaces.LedgerDaoContractsReader.KeyState
 import com.daml.platform.store.interning.StringInterning
 import com.daml.scalautil.NeverEqualsOverride
-
 import java.sql.Connection
 import javax.sql.DataSource
-import com.daml.lf.data.Ref
+
+import com.daml.platform.store.backend.common.{
+  TransactionPointwiseQueries,
+  TransactionStreamingQueries,
+}
 
 import scala.annotation.unused
 
@@ -183,52 +176,8 @@ trait PartyStorageBackend {
       pageSize: Int,
       queryOffset: Long,
   )(connection: Connection): Vector[(Offset, PartyLedgerEntry)]
-  def parties(parties: Seq[Party])(connection: Connection): List[PartyDetails]
-  def knownParties(connection: Connection): List[PartyDetails]
-}
-
-// TODO um-for-hub: Consider extracting from StorageBackend hierarchy
-trait PartyRecordStorageBackend {
-
-  def getPartyRecord(party: Ref.Party)(
-      connection: Connection
-  ): Option[PartyRecordStorageBackend.DbPartyRecord]
-
-  def createPartyRecord(partyRecord: PartyRecordStorageBackend.DbPartyRecordPayload)(
-      connection: Connection
-  ): Int
-
-  def getPartyAnnotations(internalId: Int)(connection: Connection): Map[String, String]
-
-  // TODO um-for-hub: Consider using validated string types (like Ref.Party) for annotation keys and values
-  def addPartyAnnotation(internalId: Int, key: String, value: String, updatedAt: Long)(
-      connection: Connection
-  ): Unit
-
-  def deletePartyAnnotations(internalId: Int)(connection: Connection): Unit
-
-  def compareAndIncreaseResourceVersion(
-      internalId: Int,
-      expectedResourceVersion: Long,
-  )(connection: Connection): Boolean
-
-  def increaseResourceVersion(
-      internalId: Int
-  )(connection: Connection): Boolean
-
-}
-
-object PartyRecordStorageBackend {
-  case class DbPartyRecordPayload(
-      party: Ref.Party,
-      resourceVersion: Long,
-      createdAt: Long,
-  )
-
-  case class DbPartyRecord(
-      internalId: Int,
-      payload: DbPartyRecordPayload,
-  )
+  def parties(parties: Seq[Party])(connection: Connection): List[IndexerPartyDetails]
+  def knownParties(connection: Connection): List[IndexerPartyDetails]
 }
 
 trait PackageStorageBackend {
@@ -250,7 +199,8 @@ trait CompletionStorageBackend {
       endInclusive: Offset,
       applicationId: ApplicationId,
       parties: Set[Party],
-  )(connection: Connection): List[CompletionStreamResponse]
+      limit: Int,
+  )(connection: Connection): Vector[CompletionStreamResponse]
 
   /** Part of pruning process, this needs to be in the same transaction as the other pruning related database operations
     */
@@ -308,6 +258,9 @@ object ContractStorageBackend {
 
 trait EventStorageBackend {
 
+  def transactionPointwiseQueries: TransactionPointwiseQueries
+  def transactionStreamingQueries: TransactionStreamingQueries
+
   /** Part of pruning process, this needs to be in the same transaction as the other pruning related database operations
     */
   def pruneEvents(pruneUpToInclusive: Offset, pruneAllDivulgedContracts: Boolean)(
@@ -319,37 +272,16 @@ trait EventStorageBackend {
       pruneAllDivulgedContracts: Boolean,
       connection: Connection,
   ): Boolean
-  def transactionEvents(
-      rangeParams: RangeParams,
-      filterParams: FilterParams,
-  )(connection: Connection): Vector[EventStorageBackend.Entry[Raw.FlatEvent]]
-  def activeContractEventIds(
-      partyFilter: Party,
-      templateIdFilter: Option[Identifier],
-      startExclusive: Long,
-      endInclusive: Long,
-      limit: Int,
-  )(connection: Connection): Vector[Long]
+
   def activeContractEventBatch(
       eventSequentialIds: Iterable[Long],
       allFilterParties: Set[Party],
       endInclusive: Long,
   )(connection: Connection): Vector[EventStorageBackend.Entry[Raw.FlatEvent]]
-  def flatTransaction(
-      transactionId: TransactionId,
-      filterParams: FilterParams,
-  )(connection: Connection): Vector[EventStorageBackend.Entry[Raw.FlatEvent]]
-  def transactionTreeEvents(
-      rangeParams: RangeParams,
-      filterParams: FilterParams,
-  )(connection: Connection): Vector[EventStorageBackend.Entry[Raw.TreeEvent]]
-  def transactionTree(
-      transactionId: TransactionId,
-      filterParams: FilterParams,
-  )(connection: Connection): Vector[EventStorageBackend.Entry[Raw.TreeEvent]]
 
   /** Max event sequential id of observable (create, consuming and nonconsuming exercise) events. */
   def maxEventSequentialIdOfAnObservableEvent(offset: Offset)(connection: Connection): Option[Long]
+
   def rawEvents(startExclusive: Long, endInclusive: Long)(
       connection: Connection
   ): Vector[EventStorageBackend.RawTransactionEvent]
@@ -377,7 +309,6 @@ object EventStorageBackend {
       eventId: EventId,
       contractId: ContractId,
       templateId: Option[Identifier],
-      interfaceId: Option[Identifier],
       ledgerEffectiveTime: Option[Timestamp],
       createSignatories: Option[Array[String]],
       createObservers: Option[Array[String]],
@@ -390,7 +321,7 @@ object EventStorageBackend {
       treeEventWitnesses: Set[String],
       flatEventWitnesses: Set[String],
       submitters: Set[String],
-      exerciseChoice: Option[String],
+      qualifiedChoiceName: Option[String],
       exerciseArgument: Option[Array[Byte]],
       exerciseArgumentCompression: Option[Int],
       exerciseResult: Option[Array[Byte]],
@@ -475,78 +406,6 @@ trait StringInterningStorageBackend {
   def loadStringInterningEntries(fromIdExclusive: Int, untilIdInclusive: Int)(
       connection: Connection
   ): Iterable[(Int, String)]
-}
-
-trait UserManagementStorageBackend {
-
-  def createUser(user: UserManagementStorageBackend.DbUserPayload)(connection: Connection): Int
-
-  def addUserAnnotation(internalId: Int, key: String, value: String, updatedAt: Long)(
-      connection: Connection
-  ): Unit
-
-  def deleteUserAnnotations(internalId: Int)(connection: Connection): Unit
-
-  def getUserAnnotations(internalId: Int)(connection: Connection): Map[String, String]
-
-  def deleteUser(id: UserId)(connection: Connection): Boolean
-
-  def getUser(id: UserId)(connection: Connection): Option[UserManagementStorageBackend.DbUserWithId]
-
-  def getUsersOrderedById(fromExcl: Option[UserId] = None, maxResults: Int)(
-      connection: Connection
-  ): Vector[UserManagementStorageBackend.DbUserWithId]
-
-  def addUserRight(internalId: Int, right: UserRight, grantedAt: Long)(
-      connection: Connection
-  ): Unit
-
-  /** @return true if the right existed and we have just deleted it.
-    */
-  def deleteUserRight(internalId: Int, right: UserRight)(connection: Connection): Boolean
-
-  def userRightExists(internalId: Int, right: UserRight)(connection: Connection): Boolean
-
-  def getUserRights(internalId: Int)(
-      connection: Connection
-  ): Set[UserManagementStorageBackend.DbUserRight]
-
-  def countUserRights(internalId: Int)(connection: Connection): Int
-
-  def updateUserPrimaryParty(internalId: Int, primaryPartyO: Option[Ref.Party])(
-      connection: Connection
-  ): Boolean
-
-  def compareAndIncreaseResourceVersion(
-      internalId: Int,
-      expectedResourceVersion: Long,
-  )(connection: Connection): Boolean
-
-  def increaseResourceVersion(
-      internalId: Int
-  )(connection: Connection): Boolean
-
-  def updateUserIsDeactivated(
-      internalId: Int,
-      isDeactivated: Boolean,
-  )(connection: Connection): Boolean
-
-}
-
-object UserManagementStorageBackend {
-  case class DbUserPayload(
-      id: Ref.UserId,
-      primaryPartyO: Option[Ref.Party],
-      isDeactivated: Boolean,
-      resourceVersion: Long,
-      createdAt: Long,
-  )
-
-  case class DbUserWithId(
-      internalId: Int,
-      payload: DbUserPayload,
-  )
-  case class DbUserRight(domainRight: UserRight, grantedAt: Long)
 }
 
 trait MeteringStorageReadBackend {

@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.javaapi.data;
@@ -8,7 +8,7 @@ import java.util.Objects;
 import java.util.Optional;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
-public class User {
+public final class User {
 
   private final String id;
   private final Optional<String> primaryParty;
@@ -51,7 +51,12 @@ public class User {
 
   @Override
   public String toString() {
-    return "User{" + "id='" + id + '\'' + "primaryParty='" + primaryParty.orElse(null) + '\'' + '}';
+    return "User{"
+        + "id='"
+        + id
+        + '\''
+        + primaryParty.map(p -> ", primaryParty='" + p + '\'').orElse("")
+        + '}';
   }
 
   @Override
@@ -85,10 +90,29 @@ public class User {
           // since this is a singleton so far we simply ignore the actual object
           right = ParticipantAdmin.INSTANCE;
           break;
+        case IDENTITY_PROVIDER_ADMIN:
+          // since this is a singleton so far we simply ignore the actual object
+          right = IdentityProviderAdmin.INSTANCE;
+          break;
         default:
           throw new IllegalArgumentException("Unrecognized user right case: " + kindCase.name());
       }
       return right;
+    }
+
+    public static final class IdentityProviderAdmin extends Right {
+      // empty private constructor, singleton object
+      private IdentityProviderAdmin() {}
+      // not built lazily on purpose, close to no overhead here
+      public static final IdentityProviderAdmin INSTANCE = new IdentityProviderAdmin();
+
+      @Override
+      UserManagementServiceOuterClass.Right toProto() {
+        return UserManagementServiceOuterClass.Right.newBuilder()
+            .setIdentityProviderAdmin(
+                UserManagementServiceOuterClass.Right.IdentityProviderAdmin.getDefaultInstance())
+            .build();
+      }
     }
 
     public static final class ParticipantAdmin extends Right {

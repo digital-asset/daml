@@ -1,10 +1,11 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.testtool.infrastructure.participant
 
-import java.time.Instant
+import com.daml.error.ErrorCode
 
+import java.time.Instant
 import com.daml.ledger.api.refinements.ApiTypes.TemplateId
 import com.daml.ledger.api.testtool.infrastructure.Endpoint
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext.{
@@ -158,10 +159,19 @@ trait ParticipantTestContext extends UserManagementTestContext {
   def activeContracts(
       request: GetActiveContractsRequest
   ): Future[(Option[LedgerOffset], Vector[CreatedEvent])]
+  def activeContractsIds(
+      request: GetActiveContractsRequest
+  ): Future[(Option[LedgerOffset], Vector[Primitive.ContractId[Any]])] = {
+    activeContracts(request).map { case (offset, createEvents: Seq[CreatedEvent]) =>
+      (offset, createEvents.map(c => Primitive.ContractId[Any](c.contractId)))
+    }
+  }
+
   def activeContractsRequest(
       parties: Seq[Primitive.Party],
       templateIds: Seq[TemplateId] = Seq.empty,
       interfaceFilters: Seq[(TemplateId, IncludeInterfaceView)] = Seq.empty,
+      activeAtOffset: String = "",
   ): GetActiveContractsRequest
   def activeContracts(parties: Primitive.Party*): Future[Vector[CreatedEvent]]
   def activeContractsByTemplateId(
@@ -349,6 +359,10 @@ trait ParticipantTestContext extends UserManagementTestContext {
   def submitAndWaitForTransactionTree(
       request: SubmitAndWaitRequest
   ): Future[SubmitAndWaitForTransactionTreeResponse]
+  def submitRequestAndTolerateGrpcError[T](
+      errorCode: ErrorCode,
+      submitAndWaitGeneric: ParticipantTestContext => Future[T],
+  ): Future[T]
   def completionStreamRequest(from: LedgerOffset = referenceOffset)(
       parties: Primitive.Party*
   ): CompletionStreamRequest

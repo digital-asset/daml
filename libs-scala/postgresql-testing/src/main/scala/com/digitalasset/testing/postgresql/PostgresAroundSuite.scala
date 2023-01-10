@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.testing.postgresql
@@ -10,6 +10,8 @@ trait PostgresAroundSuite extends PostgresAround {
 
   @volatile
   private var database: Option[PostgresDatabase] = None
+
+  protected def jdbcUrl: String = postgresDatabase.url
 
   protected def postgresDatabase: PostgresDatabase = database.get
 

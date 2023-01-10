@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -73,7 +73,7 @@ class ProfilerTest extends AnyWordSpec with Matchers with ScalaCheckDrivenProper
       Speedy.Machine.fromUpdateSExpr(compiledPackages, transactionSeed, example, Set(party))
     val res = machine.run()
     res match {
-      case SResultFinal(_, Some(_)) =>
+      case SResultFinal(_) =>
         machine.profile.events.asScala.toList.map(ev => (ev.open, ev.rawLabel))
       case _ =>
         sys.error(s"Unexpected res: $res")
@@ -93,6 +93,8 @@ class ProfilerTest extends AnyWordSpec with Matchers with ScalaCheckDrivenProper
           (true, CreateDefRef(id("T"))),
           (true, TemplatePreConditionDefRef(id("T"))),
           (false, TemplatePreConditionDefRef(id("T"))),
+          (true, AgreementTextDefRef(id("T"))),
+          (false, AgreementTextDefRef(id("T"))),
           (true, SignatoriesDefRef(id("T"))),
           (false, SignatoriesDefRef(id("T"))),
           (true, ObserversDefRef(id("T"))),
@@ -102,6 +104,8 @@ class ProfilerTest extends AnyWordSpec with Matchers with ScalaCheckDrivenProper
           (true, CreateDefRef(id("T"))),
           (true, TemplatePreConditionDefRef(id("T"))),
           (false, TemplatePreConditionDefRef(id("T"))),
+          (true, AgreementTextDefRef(id("T"))),
+          (false, AgreementTextDefRef(id("T"))),
           (true, SignatoriesDefRef(id("T"))),
           (false, SignatoriesDefRef(id("T"))),
           (true, ObserversDefRef(id("T"))),
@@ -110,6 +114,8 @@ class ProfilerTest extends AnyWordSpec with Matchers with ScalaCheckDrivenProper
           (true, CreateDefRef(id("T"))),
           (true, TemplatePreConditionDefRef(id("T"))),
           (false, TemplatePreConditionDefRef(id("T"))),
+          (true, AgreementTextDefRef(id("T"))),
+          (false, AgreementTextDefRef(id("T"))),
           (true, SignatoriesDefRef(id("T"))),
           (false, SignatoriesDefRef(id("T"))),
           (true, ObserversDefRef(id("T"))),

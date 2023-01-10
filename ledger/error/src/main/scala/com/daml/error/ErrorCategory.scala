@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.error
@@ -43,7 +43,6 @@ object ErrorCategory {
       ContentionOnSharedResources,
       DeadlineExceededRequestStateUnknown,
       SystemInternalAssumptionViolated,
-      MaliciousOrFaultyBehaviour,
       AuthInterceptorInvalidAuthenticationCredentials,
       InsufficientPermission,
       SecurityAlert,
@@ -154,20 +153,19 @@ object ErrorCategory {
       )
       with ErrorCategory
 
-  /** Malicious or faulty behaviour detected
-    */
   @Description(
-    """Request processing failed due to unrecoverable data loss or corruption
-                 |(e.g. detected via checksums). This error is exposed on the API with grpc-status UNKNOWN without any details for security reasons"""
+    """A potential attack or a faulty peer component has been detected. 
+      |This error is exposed on the API with grpc-status INVALID_ARGUMENT without any details for security reasons."""
   )
-  @RetryStrategy("Retry after operator intervention.")
+  @RetryStrategy("Errors in this category are non-retryable.")
   @Resolution(
     """Expectation: this can be a severe issue that requires operator attention or intervention, and
-                |potentially vendor support."""
+      |potentially vendor support. It means that the system has detected invalid information that can be attributed
+      |to either faulty or malicious manipulation of data coming from a peer source."""
   )
-  object MaliciousOrFaultyBehaviour
+  object SecurityAlert
       extends ErrorCategoryImpl(
-        grpcCode = Some(Code.UNKNOWN),
+        grpcCode = Some(Code.INVALID_ARGUMENT),
         logLevel = Level.WARN,
         retryable = None,
         securitySensitive = true,
@@ -215,26 +213,6 @@ object ErrorCategory {
         securitySensitive = true,
         asInt = 7,
         rank = 2,
-      )
-      with ErrorCategory
-
-  @Description(
-    """A potential attack has been detected. 
-      |This error is exposed on the API with grpc-status INVALID_ARGUMENT without any details for security reasons."""
-  )
-  @RetryStrategy("Errors in this category are non-retryable.")
-  @Resolution(
-    """Expectation: this can be a severe issue that requires operator attention or intervention, and
-      |potentially vendor support."""
-  )
-  object SecurityAlert
-      extends ErrorCategoryImpl(
-        grpcCode = Some(Code.INVALID_ARGUMENT),
-        logLevel = Level.WARN,
-        retryable = None,
-        securitySensitive = true,
-        asInt = 15,
-        rank = 1,
       )
       with ErrorCategory
 
@@ -363,7 +341,7 @@ object ErrorCategory {
       with ErrorCategory
 
   @Description(
-    """This error category is used to signal that an unimplemented code-path has been triggered by a client or participant operator request. This error is exposed on the API with grpc-status INTERNAL without any details for security reasons"""
+    """This error category is used to signal that an unimplemented code-path has been triggered by a client or participant operator request. This error is exposed on the API with grpc-status UNIMPLEMENTED without any details for security reasons"""
   )
   @RetryStrategy("""Errors in this category are non-retryable.""")
   @Resolution(

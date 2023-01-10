@@ -1,10 +1,9 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.pureconfigutils
 
 import com.daml.jwt.JwtVerifierBase
-import com.daml.metrics.MetricsReporter
 import org.scalatest.Inside.inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
@@ -13,6 +12,7 @@ import pureconfig.generic.semiauto.deriveReader
 import pureconfig.{ConfigReader, ConfigSource}
 
 import java.nio.file.Paths
+import com.daml.metrics.api.reporters.MetricsReporter
 import scala.concurrent.duration._
 
 class SharedConfigReadersTest extends AsyncWordSpec with Matchers {

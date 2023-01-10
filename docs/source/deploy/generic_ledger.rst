@@ -1,4 +1,4 @@
-.. Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 .. _deploy-generic-ledger:
@@ -55,7 +55,7 @@ ledger --help`` to get a list of available ledger commands:
 
    Available commands:
      list-parties             List parties known to ledger
-     allocate-parties         Allocate parties on ledger
+     allocate-parties         Allocate parties on ledger if they don't exist
      upload-dar               Upload DAR file to ledger
      fetch-dar                Fetch DAR from ledger into file
      metering-report          Report on Ledger Use

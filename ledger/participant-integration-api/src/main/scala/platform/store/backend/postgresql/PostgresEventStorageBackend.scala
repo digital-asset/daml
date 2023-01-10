@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.store.backend.postgresql
@@ -17,7 +17,6 @@ import com.daml.platform.store.interning.StringInterning
 
 class PostgresEventStorageBackend(ledgerEndCache: LedgerEndCache, stringInterning: StringInterning)
     extends EventStorageBackendTemplate(
-      eventStrategy = PostgresEventStrategy,
       queryStrategy = PostgresQueryStrategy,
       ledgerEndCache = ledgerEndCache,
       stringInterning = stringInterning,

@@ -1,4 +1,4 @@
-# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -29,7 +29,8 @@ da_scala_library(
         "//ledger/metrics",
         "//ledger/participant-state",
         "//libs-scala/contextualized-logging",
+        "//observability/metrics",
+        "//observability/telemetry",
         "@maven//:com_google_protobuf_protobuf_java",
-        "@maven//:io_dropwizard_metrics_metrics_core",
     ],
 )

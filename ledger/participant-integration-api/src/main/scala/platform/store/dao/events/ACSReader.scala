@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.store.dao.events
@@ -28,6 +28,12 @@ trait ACSReader {
   ): Source[Vector[EventStorageBackend.Entry[Raw.FlatEvent]], NotUsed]
 }
 
+object ACSReader {
+  def acsBeforePruningErrorReason(acsOffset: String, prunedUpToOffset: String): String =
+    s"Active contracts request at offset ${acsOffset} precedes pruned offset ${prunedUpToOffset}"
+
+}
+
 class FilterTableACSReader(
     dispatcher: DbDispatcher,
     queryNonPruned: QueryNonPruned,
@@ -54,12 +60,7 @@ class FilterTableACSReader(
   ): Source[Vector[EventStorageBackend.Entry[Raw.FlatEvent]], NotUsed] = {
     val allFilterParties = filter.allFilterParties
 
-    val wildcardFilters = filter.wildcardParties.map { party =>
-      Filter(party, None)
-    }
-    val filters = filter.relation.iterator.flatMap { case (templateId, parties) =>
-      parties.iterator.map(party => Filter(party, Some(templateId)))
-    }.toVector ++ wildcardFilters
+    val filters = makeSimpleFilters(filter).toVector
 
     val idQueryLimiter =
       new QueueBasedConcurrencyLimiter(idFetchingParallelism, executionContext)
@@ -78,13 +79,14 @@ class FilterTableACSReader(
       )(idQuery =>
         idQueryLimiter.execute {
           dispatcher.executeSql(metrics.daml.index.db.getActiveContractIds) { connection =>
-            val result = eventStorageBackend.activeContractEventIds(
-              partyFilter = filter.party,
-              templateIdFilter = filter.templateId,
-              startExclusive = idQuery.fromExclusiveEventSeqId,
-              endInclusive = activeAt._2,
-              limit = idQuery.pageSize,
-            )(connection)
+            val result =
+              eventStorageBackend.transactionStreamingQueries.fetchIdsOfCreateEventsForStakeholder(
+                stakeholder = filter.party,
+                templateIdO = filter.templateId,
+                startExclusive = idQuery.fromExclusiveEventSeqId,
+                endInclusive = activeAt._2,
+                limit = idQuery.pageSize,
+              )(connection)
             logger.debug(
               s"getActiveContractIds $filter returned #${result.size} ${result.lastOption
                   .map(last => s"until $last")
@@ -106,7 +108,10 @@ class FilterTableACSReader(
             )(connection),
             activeAt._1,
             pruned =>
-              s"Active contracts request after ${activeAt._1.toHexString} precedes pruned offset ${pruned.toHexString}",
+              ACSReader.acsBeforePruningErrorReason(
+                acsOffset = activeAt._1.toHexString,
+                prunedUpToOffset = pruned.toHexString,
+              ),
           )(connection, implicitly)
           logger.debug(
             s"getActiveContractBatch returned ${ids.size}/${result.size} ${ids.lastOption
@@ -135,10 +140,21 @@ class FilterTableACSReader(
   }
 }
 
-private[events] object FilterTableACSReader {
+// TODO etq: Extract utilities common for tx processing to a separate object
+object FilterTableACSReader {
   private val logger = ContextualizedLogger.get(this.getClass)
 
   case class Filter(party: Party, templateId: Option[Identifier])
+
+  def makeSimpleFilters(filter: TemplatePartiesFilter): Seq[Filter] = {
+    val wildcardFilters = filter.wildcardParties.map { party =>
+      Filter(party, None)
+    }
+    val filters = filter.relation.iterator.flatMap { case (templateId, parties) =>
+      parties.iterator.map(party => Filter(party, Some(templateId)))
+    }.toVector ++ wildcardFilters
+    filters
+  }
 
   case class IdQuery(fromExclusiveEventSeqId: Long, pageSize: Int)
 

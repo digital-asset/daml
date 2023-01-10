@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.store.backend
@@ -80,16 +80,20 @@ private[backend] object StorageBackendTestValues {
       offset: Offset,
       party: String = someParty,
       isLocal: Boolean = true,
-  ): DbDto.PartyEntry = DbDto.PartyEntry(
-    ledger_offset = offset.toHexString,
-    recorded_at = someTime.micros,
-    submission_id = Some("submission_id"),
-    party = Some(party),
-    display_name = Some(party),
-    typ = JdbcLedgerDao.acceptType,
-    rejection_reason = None,
-    is_local = Some(isLocal),
-  )
+      displayNameOverride: Option[Option[String]] = None,
+  ): DbDto.PartyEntry = {
+    val displayName = displayNameOverride.getOrElse(Some(party))
+    DbDto.PartyEntry(
+      ledger_offset = offset.toHexString,
+      recorded_at = someTime.micros,
+      submission_id = Some("submission_id"),
+      party = Some(party),
+      display_name = displayName,
+      typ = JdbcLedgerDao.acceptType,
+      rejection_reason = None,
+      is_local = Some(isLocal),
+    )
+  }
 
   def dtoPackage(offset: Offset): DbDto.Package = DbDto.Package(
     package_id = someArchive.getHash,
@@ -118,10 +122,15 @@ private[backend] object StorageBackendTestValues {
       contractId: ContractId,
       signatory: String = "signatory",
       observer: String = "observer",
+      nonStakeholderInformees: Set[String] = Set.empty,
       commandId: String = UUID.randomUUID().toString,
       ledgerEffectiveTime: Option[Timestamp] = Some(someTime),
+      driverMetadata: Option[Array[Byte]] = None,
+      keyHash: Option[String] = None,
   ): DbDto.EventCreate = {
     val transactionId = transactionIdFromOffset(offset)
+    val stakeholders = Set(signatory, observer)
+    val informees = stakeholders ++ nonStakeholderInformees
     DbDto.EventCreate(
       event_offset = Some(offset.toHexString),
       transaction_id = Some(transactionId),
@@ -134,17 +143,18 @@ private[backend] object StorageBackendTestValues {
       event_id = Some(EventId(transactionId, NodeId(0)).toLedgerString),
       contract_id = contractId.coid,
       template_id = Some(someTemplateId.toString),
-      flat_event_witnesses = Set(signatory, observer),
-      tree_event_witnesses = Set(signatory, observer),
+      flat_event_witnesses = stakeholders,
+      tree_event_witnesses = informees,
       create_argument = Some(someSerializedDamlLfValue),
       create_signatories = Some(Set(signatory)),
       create_observers = Some(Set(observer)),
       create_agreement_text = None,
       create_key_value = None,
-      create_key_hash = None,
+      create_key_hash = keyHash,
       create_argument_compression = None,
       create_key_value_compression = None,
       event_sequential_id = eventSequentialId,
+      driver_metadata = driverMetadata,
     )
   }
 
@@ -245,6 +255,17 @@ private[backend] object StorageBackendTestValues {
       deduplication_start = deduplicationStart.map(_.micros),
     )
 
+  def dtoTransactionMeta(
+      offset: Offset,
+      event_sequential_id_first: Long,
+      event_sequential_id_last: Long,
+  ): DbDto.TransactionMeta = DbDto.TransactionMeta(
+    transactionIdFromOffset(offset),
+    event_offset = offset.toHexString,
+    event_sequential_id_first = event_sequential_id_first,
+    event_sequential_id_last = event_sequential_id_last,
+  )
+
   def dtoTransactionMetering(
       metering: TransactionMetering
   ): DbDto.TransactionMetering = {
@@ -261,7 +282,8 @@ private[backend] object StorageBackendTestValues {
       event_sequential_id: Long,
       template_id: Ref.Identifier,
       party_id: String,
-  ): DbDto.CreateFilter = DbDto.CreateFilter(event_sequential_id, template_id.toString, party_id)
+  ): DbDto.IdFilterCreateStakeholder =
+    DbDto.IdFilterCreateStakeholder(event_sequential_id, template_id.toString, party_id)
 
   def dtoInterning(
       internal: Int,

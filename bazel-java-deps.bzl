@@ -1,4 +1,4 @@
-# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 # When adding, removing or changing a dependency in this file, update the pinned dependencies by executing
@@ -48,47 +48,48 @@ version_specific = {
 netty_tcnative_version = "2.0.46.Final"
 netty_version = "4.1.72.Final"
 grpc_version = "1.44.0"
-protobuf_version = "3.19.3"
+protobuf_version = "3.19.6"
 akka_version = "2.6.18"
 akka_http_version = "10.2.8"
 gatling_version = "3.5.1"
-guava_version = "31.0.1-jre"
+guava_version = "31.1-jre"
 
 # observability libs
-dropwizard_version = "4.1.2"
+# cannot update to 4.2.x because of https://github.com/dropwizard/metrics/issues/2920
+dropwizard_version = "4.1.33"
 opentelemetry_version = "1.12.0"
-prometheus_version = "0.8.1"
+prometheus_version = "0.14.1"
 
 def install_java_deps():
     maven_install(
         artifacts = version_specific.get(scala_major_version, []) + [
             "ch.qos.logback:logback-classic:1.2.8",
             "ch.qos.logback:logback-core:1.2.8",
-            "com.auth0:java-jwt:3.10.3",
-            "com.auth0:jwks-rsa:0.11.0",
+            "com.auth0:java-jwt:4.2.1",
+            "com.auth0:jwks-rsa:0.21.2",
             "com.chuusai:shapeless_{}:2.3.3".format(scala_major_version),
-            "com.github.ben-manes.caffeine:caffeine:2.8.0",
+            "com.github.ben-manes.caffeine:caffeine:3.1.2",
             "com.github.pureconfig:pureconfig_{}:0.14.0".format(scala_major_version),
             "com.github.pureconfig:pureconfig-core_{}:0.14.0".format(scala_major_version),
             "com.github.pureconfig:pureconfig-generic_{}:0.14.0".format(scala_major_version),
             maven.artifact("com.github.pureconfig", "pureconfig-macros_2.12", "0.14.0", neverlink = True),
             "com.github.scopt:scopt_{}:4.0.0".format(scala_major_version),
             "com.google.code.findbugs:jsr305:3.0.2",
-            "com.google.code.gson:gson:2.9.0",
+            "com.google.code.gson:gson:2.10",
             "com.google.guava:guava:{}".format(guava_version),
             "com.h2database:h2:2.1.210",
             "com.github.pathikrit:better-files_{}:3.8.0".format(scala_major_version),
             "com.github.tototoshi:scala-csv_{}:1.3.10".format(scala_major_version),
-            "com.lihaoyi:sourcecode_{}:0.2.7".format(scala_major_version),
+            "com.lihaoyi:sourcecode_{}:0.3.0".format(scala_major_version),
             "com.lihaoyi:pprint_{}:0.7.1".format(scala_major_version),
             "com.lihaoyi:sjsonnet_{}:0.3.0".format(scala_major_version),
-            "commons-io:commons-io:2.5",
+            "commons-io:commons-io:2.11.0",
             "com.oracle.database.jdbc:ojdbc8:19.14.0.0",
             "com.sparkjava:spark-core:2.9.1",
             "com.oracle.database.jdbc.debug:ojdbc8_g:19.14.0.0",
-            "com.squareup:javapoet:1.11.1",
-            "com.storm-enroute:scalameter_{}:0.19".format(scala_major_version),
-            "com.storm-enroute:scalameter-core_{}:0.19".format(scala_major_version),
+            "com.squareup:javapoet:1.13.0",
+            "com.storm-enroute:scalameter_{}:0.21".format(scala_major_version),
+            "com.storm-enroute:scalameter-core_{}:0.21".format(scala_major_version),
             "com.typesafe.akka:akka-actor_{}:{}".format(scala_major_version, akka_version),
             "com.typesafe.akka:akka-actor-testkit-typed_{}:{}".format(scala_major_version, akka_version),
             "com.typesafe.akka:akka-actor-typed_{}:{}".format(scala_major_version, akka_version),
@@ -110,11 +111,15 @@ def install_java_deps():
             "io.circe:circe-parser_{}:0.13.0".format(scala_major_version),
             "io.circe:circe-yaml_{}:0.13.0".format(scala_major_version),
             "io.dropwizard.metrics:metrics-core:{}".format(dropwizard_version),
-            "io.dropwizard.metrics:metrics-graphite:{}".format(dropwizard_version),
+            maven.artifact("io.dropwizard.metrics", "metrics-graphite", dropwizard_version, exclusions = ["com.rabbitmq:amqp-client"]),
             "io.dropwizard.metrics:metrics-jmx:{}".format(dropwizard_version),
             "io.dropwizard.metrics:metrics-jvm:{}".format(dropwizard_version),
             "io.opentelemetry:opentelemetry-api:{}".format(opentelemetry_version),
             "io.opentelemetry:opentelemetry-context:{}".format(opentelemetry_version),
+            "io.opentelemetry:opentelemetry-exporter-prometheus:{}-alpha".format(opentelemetry_version),
+            "io.opentelemetry:opentelemetry-sdk-common:{}".format(opentelemetry_version),
+            "io.opentelemetry:opentelemetry-sdk-metrics:{}-alpha".format(opentelemetry_version),
+            "io.opentelemetry:opentelemetry-sdk-metrics-testing:{}-alpha".format(opentelemetry_version),
             "io.opentelemetry:opentelemetry-sdk-testing:{}".format(opentelemetry_version),
             "io.opentelemetry:opentelemetry-sdk-trace:{}".format(opentelemetry_version),
             "io.opentelemetry:opentelemetry-semconv:1.12.0-alpha",
@@ -154,7 +159,7 @@ def install_java_deps():
             "io.gatling.highcharts:gatling-charts-highcharts:{}".format(gatling_version),
             "io.gatling:gatling-http:{}".format(gatling_version),
             "io.gatling:gatling-http-client:{}".format(gatling_version),
-            "io.reactivex.rxjava2:rxjava:2.2.1",
+            "io.reactivex.rxjava2:rxjava:2.2.21",
             "io.spray:spray-json_{}:1.3.5".format(scala_major_version),
             "io.github.paoloboni:spray-json-derived-codecs_{}:2.3.4".format(scala_major_version),
             "javax.annotation:javax.annotation-api:1.2",
@@ -167,16 +172,16 @@ def install_java_deps():
             "org.codehaus.janino:janino:3.1.4",
             "org.apache.commons:commons-lang3:3.9",
             "org.apache.commons:commons-text:1.4",
-            "org.awaitility:awaitility:3.1.6",
-            "org.checkerframework:checker:2.5.4",
+            "org.awaitility:awaitility:4.2.0",
+            "org.checkerframework:checker:3.28.0",
             "org.flywaydb:flyway-core:8.4.1",
             "org.freemarker:freemarker-gae:2.3.28",
             "org.jline:jline:3.7.1",
             "org.jline:jline-reader:3.7.1",
-            "org.junit.jupiter:junit-jupiter-api:5.0.0",
-            "org.junit.jupiter:junit-jupiter-engine:5.0.0",
-            "org.junit.platform:junit-platform-engine:1.0.0",
-            "org.junit.platform:junit-platform-runner:1.0.0",
+            "org.junit.jupiter:junit-jupiter-api:5.9.1",
+            "org.junit.jupiter:junit-jupiter-engine:5.9.1",
+            "org.junit.platform:junit-platform-engine:1.9.1",
+            "org.junit.platform:junit-platform-runner:1.9.1",
             "org.mockito:mockito-core:3.6.28",
             "org.mockito:mockito-inline:3.6.28",
             "org.mockito:mockito-scala_{}:1.16.3".format(scala_major_version),
@@ -210,8 +215,8 @@ def install_java_deps():
             "org.typelevel:paiges-core_{}:0.3.2".format(scala_major_version),
             "org.wartremover:wartremover_{}:2.4.16".format(scala_version),
             "org.xerial:sqlite-jdbc:3.36.0.1",
-            "com.fasterxml.jackson.core:jackson-core:2.12.0",
-            "com.fasterxml.jackson.core:jackson-databind:2.12.0",
+            "com.fasterxml.jackson.core:jackson-core:2.14.1",
+            "com.fasterxml.jackson.core:jackson-databind:2.14.1",
             "org.scala-lang:scala-library:{}".format(scala_version),
         ],
         fetch_sources = True,

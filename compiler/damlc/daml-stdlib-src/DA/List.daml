@@ -1,4 +1,4 @@
--- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 -- | List
@@ -89,6 +89,7 @@ module DA.List
   , singleton
 
   , repeatedly
+  , chunksOf
 
   , elemIndex
   , findIndex
@@ -473,6 +474,14 @@ repeatedly : ([a] -> (b, [a])) -> [a] -> [b]
 repeatedly _ [] = []
 repeatedly f as = b :: repeatedly f as'
     where (b, as') = f as
+
+-- | Splits a list into chunks of length @n@.
+-- @n@ must be strictly greater than zero.
+-- The last chunk will be shorter than @n@ in case the length of the input is
+-- not divisible by @n@.
+chunksOf : Int -> [a] -> [[a]]
+chunksOf n | n <= 0 = error $ "chunksOf: chunk size must be greater than zero, got " <> show n
+chunksOf n = repeatedly (splitAt n)
 
 -- | `delete x` removes the first occurrence of `x` from its list argument.
 -- For example,

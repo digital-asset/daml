@@ -1,23 +1,23 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.apiserver
 
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.metrics.Metrics
-import com.daml.platform.apiserver.configuration.RateLimitingConfig
 import com.daml.platform.apiserver.error.ErrorInterceptor
-import com.daml.platform.apiserver.ratelimiting.RateLimitingInterceptor
 import com.daml.ports.Port
 import com.google.protobuf.Message
 import io.grpc._
 import io.grpc.netty.NettyServerBuilder
 import io.netty.handler.ssl.SslContext
-
 import java.io.IOException
 import java.net.{BindException, InetAddress, InetSocketAddress}
 import java.util.concurrent.Executor
 import java.util.concurrent.TimeUnit.SECONDS
+
+import com.daml.metrics.grpc.GrpcMetricsServerInterceptor
+
 import scala.concurrent.duration.DurationInt
 import scala.util.Failure
 import scala.util.control.NoStackTrace
@@ -40,7 +40,6 @@ private[apiserver] object GrpcServer {
       metrics: Metrics,
       servicesExecutor: Executor,
       services: Iterable[BindableService],
-      rateLimitingConfig: Option[RateLimitingConfig],
   ): ResourceOwner[Server] = {
     val host = address.map(InetAddress.getByName).getOrElse(InetAddress.getLoopbackAddress)
     val builder = NettyServerBuilder.forAddress(new InetSocketAddress(host, desiredPort.value))
@@ -51,7 +50,7 @@ private[apiserver] object GrpcServer {
     builder.maxInboundMessageSize(maxInboundMessageSize)
     // NOTE: Interceptors run in the reverse order in which they were added.
     interceptors.foreach(builder.intercept)
-    rateLimitingConfig.foreach(c => builder.intercept(RateLimitingInterceptor(metrics, config = c)))
+    builder.intercept(new GrpcMetricsServerInterceptor(metrics.daml.grpc))
     builder.intercept(new MetricsInterceptor(metrics))
     builder.intercept(new TruncatedStatusInterceptor(MaximumStatusDescriptionLength))
     builder.intercept(new ErrorInterceptor)

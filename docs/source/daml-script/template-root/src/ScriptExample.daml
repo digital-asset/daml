@@ -1,4 +1,4 @@
--- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 -- DAML_SCRIPT_HEADER_BEGIN
@@ -33,6 +33,18 @@ template CoinProposal
       controller coin.owner
       do create coin
 -- COIN_PROPOSAL_TEMPLATE_END
+
+-- ASSET_INTERFACE_BEGIN
+
+data AssetInfo = AssetInfo { info : Text } deriving (Eq,Show)
+
+interface Asset where
+  viewtype AssetInfo
+
+  interface instance Asset for Coin where
+    view = AssetInfo { info = "A Coin" }
+
+-- ASSET_INTERFACE_END
 
 -- LEDGER_PARTIES_BEGIN
 data LedgerParties = LedgerParties with
@@ -90,6 +102,11 @@ test = do
   bobCoins <- query @Coin bob
   assertEq [Coin bank bob] (map snd bobCoins)
 -- TEST_QUERIES_END
+
+-- TEST_INTERFACE_BEGIN
+  aliceAssets <- queryInterface @Asset alice
+  assertEq [Some $ AssetInfo "A Coin"] (map snd aliceAssets)
+-- TEST_INTERFACE_END
 
 
 -- INITIALIZE_USER_BEGIN

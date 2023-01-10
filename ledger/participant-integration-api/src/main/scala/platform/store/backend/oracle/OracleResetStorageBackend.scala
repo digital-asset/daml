@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.store.backend.oracle
@@ -25,10 +25,16 @@ object OracleResetStorageBackend extends ResetStorageBackend {
       "participant_party_records",
       "participant_party_record_annotations",
       "string_interning",
-      "participant_events_create_filter",
+      "pe_create_id_filter_stakeholder",
+      "pe_create_id_filter_non_stakeholder_informee",
+      "pe_consuming_id_filter_stakeholder",
+      "pe_consuming_id_filter_non_stakeholder_informee",
+      "pe_non_consuming_id_filter_informee",
+      "participant_transaction_meta",
       "participant_users",
       "participant_user_rights",
       "participant_user_annotations",
+      "participant_identity_provider_config",
       "transaction_metering",
       "participant_metering",
       "metering_parameters",

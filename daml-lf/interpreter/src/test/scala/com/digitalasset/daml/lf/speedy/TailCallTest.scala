@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -13,7 +13,7 @@ import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
-// TEST_EVIDENCE: Performance: Tail call optimization: Tail recursion does not blow the scala JVM stack.
+// TEST_EVIDENCE: Availability: Tail call optimization: Tail recursion does not blow the scala JVM stack.
 class TailCallTest extends AnyWordSpec with Matchers with TableDrivenPropertyChecks {
 
   import SpeedyTestLib.loggingContext
@@ -128,7 +128,7 @@ class TailCallTest extends AnyWordSpec with Matchers with TableDrivenPropertyChe
     }
     // run the machine
     machine.run() match {
-      case SResultFinal(v, _) => v
+      case SResultFinal(v) => v
       case res => crash(s"runExpr, unexpected result $res")
     }
   }

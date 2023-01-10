@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 set -euo pipefail
@@ -24,4 +24,5 @@ mkdir $BUILD_DIR
 bazel build //docs:docs-no-pdf
 tar -zxf ../../bazel-bin/docs/html-only.tar.gz -C $BUILD_DIR
 cd $BUILD_DIR/html
+find . -exec touch '{}' \;
 python -m http.server 8000 --bind 127.0.0.1

@@ -1,13 +1,13 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.store.cache
 
-import com.codahale.metrics.Timer
 import com.daml.caching.Cache
 import com.daml.ledger.offset.Offset
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Timed
+import com.daml.metrics.api.MetricHandle.Timer
 import com.daml.platform.store.cache.MutableCacheBackedContractStore.ContractReadThroughNotFound
 import com.daml.platform.store.cache.StateCache.PendingUpdatesState
 import com.daml.scalautil.Statement.discard
@@ -127,26 +127,29 @@ private[platform] case class StateCache[K, V](
   )(implicit loggingContext: LoggingContext): Future[Unit] =
     eventualUpdate
       .map { (value: V) =>
-        pendingUpdates.synchronized {
-          pendingUpdates.get(key) match {
-            case Some(pendingForKey) =>
-              // Only update the cache if the current update is targeting the cacheIndex
-              // sampled when initially dispatched in `putAsync`.
-              // Otherwise we can assume that a more recent `putAsync` has an update in-flight
-              // or that the entry has been updated synchronously with `put` with a recent Index DB entry.
-              if (pendingForKey.latestValidAt == validAt) {
-                cache.put(key, value)
-                logger.debug(
-                  s"Updated cache for $key with ${truncateValueForLogging(value)} at $validAt"
+        Timed.value(
+          registerUpdateTimer,
+          pendingUpdates.synchronized {
+            pendingUpdates.get(key) match {
+              case Some(pendingForKey) =>
+                // Only update the cache if the current update is targeting the cacheIndex
+                // sampled when initially dispatched in `putAsync`.
+                // Otherwise we can assume that a more recent `putAsync` has an update in-flight
+                // or that the entry has been updated synchronously with `put` with a recent Index DB entry.
+                if (pendingForKey.latestValidAt == validAt) {
+                  cache.put(key, value)
+                  logger.debug(
+                    s"Updated cache for $key with ${truncateValueForLogging(value)} at $validAt"
+                  )
+                }
+                removeFromPending(key)
+              case None =>
+                logger.warn(
+                  s"Pending updates tracker for $key not registered. This could be due to a transient error causing a restart in the index service."
                 )
-              }
-              removeFromPending(key)
-            case None =>
-              logger.warn(
-                s"Pending updates tracker for $key not registered. This could be due to a transient error causing a restart in the index service."
-              )
-          }
-        }
+            }
+          },
+        )
       }
       .recover {
         // Negative contract lookups are forwarded to `putAsync` as failed futures as they should not be cached

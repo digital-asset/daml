@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.http
@@ -83,8 +83,8 @@ object CommandServiceTest {
     readAs = domain.Party subst List("baz", "quux"),
   )
   private lazy val multiPartyJwt = jwtForParties(
-    actAs = domain.Party unsubst multiPartyJwp.submitter.toList,
-    readAs = domain.Party unsubst multiPartyJwp.readAs,
+    actAs = multiPartyJwp.submitter.toList,
+    readAs = multiPartyJwp.readAs,
     ledgerId = Some(multiPartyJwp.ledgerId.unwrap),
   )
   private val tplId = domain.ContractTypeId.Template("Foo", "Bar", "Baz")

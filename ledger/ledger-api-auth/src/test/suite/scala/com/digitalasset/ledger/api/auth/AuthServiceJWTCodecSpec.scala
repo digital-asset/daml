@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.auth
@@ -178,6 +178,7 @@ class AuthServiceJWTCodecSpec
       "support standard JWT claims with just the one scope" in {
         val serialized =
           """{
+            |  "iss": "issuer",
             |  "aud": "someParticipantId",
             |  "sub": "someUserId",
             |  "exp": 100,
@@ -185,6 +186,7 @@ class AuthServiceJWTCodecSpec
             |}
           """.stripMargin
         val expected = StandardJWTPayload(
+          issuer = Some("issuer"),
           participantId = Some("someParticipantId"),
           userId = "someUserId",
           exp = Some(Instant.ofEpochSecond(100)),
@@ -203,9 +205,45 @@ class AuthServiceJWTCodecSpec
             |}
           """.stripMargin
         val expected = StandardJWTPayload(
+          issuer = None,
           participantId = Some("someParticipantId"),
           userId = "someUserId",
           exp = Some(Instant.ofEpochSecond(100)),
+          format = StandardJWTTokenFormat.Scope,
+        )
+        parse(serialized) shouldBe Success(expected)
+      }
+
+      "support standard JWT claims with iss claim as string" in {
+        val serialized =
+          """{
+            |  "iss": "issuer1",
+            |  "sub": "someUserId",
+            |  "scope": "daml_ledger_api"
+            |}
+          """.stripMargin
+        val expected = StandardJWTPayload(
+          issuer = Some("issuer1"),
+          participantId = None,
+          userId = "someUserId",
+          exp = None,
+          format = StandardJWTTokenFormat.Scope,
+        )
+        parse(serialized) shouldBe Success(expected)
+      }
+
+      "support standard JWT claims with iss claim as URL" in {
+        val serialized =
+          """{
+            |  "iss": "http://daml.com/",
+            |  "sub": "someUserId",
+            |  "scope": "daml_ledger_api"
+            |}""".stripMargin
+        val expected = StandardJWTPayload(
+          issuer = Some("http://daml.com/"),
+          participantId = None,
+          userId = "someUserId",
+          exp = None,
           format = StandardJWTTokenFormat.Scope,
         )
         parse(serialized) shouldBe Success(expected)
@@ -235,6 +273,7 @@ class AuthServiceJWTCodecSpec
             |}
           """.stripMargin
         val expected = StandardJWTPayload(
+          issuer = None,
           participantId = Some("someParticipantId"),
           userId = "someUserId",
           exp = Some(Instant.ofEpochSecond(100)),
@@ -253,6 +292,7 @@ class AuthServiceJWTCodecSpec
           """.stripMargin
         parse(prefixed) shouldBe Success(
           StandardJWTPayload(
+            issuer = None,
             participantId = Some("someParticipantId"),
             userId = "someUserId",
             exp = Some(Instant.ofEpochSecond(100)),
@@ -270,6 +310,7 @@ class AuthServiceJWTCodecSpec
           """.stripMargin
         parse(standard) shouldBe Success(
           StandardJWTPayload(
+            issuer = None,
             participantId = Some("someParticipantId"),
             userId = "someUserId",
             exp = Some(Instant.ofEpochSecond(100)),
@@ -288,6 +329,7 @@ class AuthServiceJWTCodecSpec
             |}
           """.stripMargin
         val expected = StandardJWTPayload(
+          issuer = None,
           participantId = Some("someParticipantId"),
           userId = "someUserId",
           exp = Some(Instant.ofEpochSecond(100)),

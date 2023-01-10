@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 syntax = "proto3";
@@ -15,15 +15,10 @@ option csharp_namespace = "Com.Daml.Ledger.Api.V1";
 // Allows clients to initialize themselves according to a fairly recent state of the ledger without reading through all transactions that were committed since the ledger's creation.
 service ActiveContractsService {
 
-  // Returns a stream of the latest snapshot of active contracts.
-  // If there are no active contracts, the stream returns a single GetActiveContractsResponse message with the offset at which the snapshot has been taken.
+  // Returns a stream of the snapshot of the active contracts at a ledger offset.
+  // If there are no active contracts, the stream returns a single response message with the offset at which the snapshot has been taken.
   // Clients SHOULD use the offset in the last GetActiveContractsResponse message to continue streaming transactions with the transaction service.
   // Clients SHOULD NOT assume that the set of active contracts they receive reflects the state at the ledger end.
-  // Errors:
-  // - ``UNAUTHENTICATED``: if the request does not include a valid access token
-  // - ``PERMISSION_DENIED``: if the claims in the token are insufficient to perform a given operation
-  // - ``NOT_FOUND``: if the request does not include a valid ledger id
-  // - ``INVALID_ARGUMENT``: if the payload is malformed or is missing required fields (filters by party cannot be empty)
   rpc GetActiveContracts (GetActiveContractsRequest) returns (stream GetActiveContractsResponse);
 
 }
@@ -43,23 +38,27 @@ message GetActiveContractsRequest {
   // In particular, setting the verbose flag to true triggers the ledger to include labels for record fields.
   // Optional
   bool verbose = 3;
+
+  // The offset at which the snapshot of the active contracts will be computed.
+  // Must be no greater than the current ledger end offset.
+  // Must be greater than or equal to the last pruning offset.
+  // If not set the current ledger end offset will be used.
+  // Optional
+  string active_at_offset = 4;
 }
 
 message GetActiveContractsResponse {
 
-  // Included in the last message.
+  // Included only in the last message.
   // The client should start consuming the transactions endpoint with this offset.
   // The format of this field is described in ``ledger_offset.proto``.
-  // Required
   string offset = 1;
 
   // The workflow that created the contracts.
   // Must be a valid LedgerString (as described in ``value.proto``).
-  // Optional
   string workflow_id = 2;
 
   // The list of contracts that were introduced by the workflow with ``workflow_id`` at the offset.
   // Must be a valid LedgerString (as described in ``value.proto``).
-  // Optional
   repeated CreatedEvent active_contracts = 3;
 }

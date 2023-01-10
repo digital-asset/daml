@@ -1,7 +1,7 @@
-# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 load("//bazel_tools:haskell.bzl", "da_haskell_library", "da_haskell_test")
-load("@os_info//:os_info.bzl", "is_darwin_arm64", "is_windows")
+load("@os_info//:os_info.bzl", "is_windows")
 load("@build_environment//:configuration.bzl", "mvn_version")
 
 genrule(
@@ -229,7 +229,7 @@ genrule(
     ],
     # Broken on M1 due to puppeteer failing to install Chromium.
     # See https://github.com/digital-asset/daml/pull/13250.
-) if not (is_darwin_arm64 or is_windows) else None
+) if not is_windows else None
 
 da_haskell_library(
     name = "create-daml-app-tests-lib",
@@ -264,7 +264,7 @@ da_haskell_library(
         "//libs-haskell/da-hs-base",
         "//libs-haskell/test-utils",
     ],
-) if not (is_darwin_arm64 or is_windows) else None
+) if not is_windows else None
 
 da_haskell_test(
     name = "create-daml-app-tests-proj-name",
@@ -282,11 +282,10 @@ da_haskell_test(
         "@nodejs//:node_bin",
         "@nodejs//:npm_bin",
     ],
-    flaky = True,  # npm/jest/puppeteer can be flaky
     hackage_deps = ["base"],
     main_function = "DA.Daml.Assistant.CreateDamlAppTestsMain.main",
     tags =
         # Exclusive until we stop hardcoding port numbers in index.test.ts
         ["exclusive"],
     deps = [":create-daml-app-tests-lib"],
-) if not (is_darwin_arm64 or is_windows) else None
+) if not is_windows else None

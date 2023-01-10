@@ -1,10 +1,12 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
 package transaction
 
 import com.daml.lf.data.Ref.PackageId
+
+import scala.annotation.nowarn
 
 object TransactionNodeStatistics {
 
@@ -70,7 +72,7 @@ object TransactionNodeStatistics {
     fetchesByKeyIdx,
     lookupsByKeyIdx,
   ) =
-    (0 until numberOfFields)
+    (0 until numberOfFields): @nowarn("msg=match may not be exhaustive")
 
   private[this] def emptyFields = Array.fill(numberOfFields)(0)
 

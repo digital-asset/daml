@@ -1,4 +1,4 @@
--- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE DataKinds #-}
@@ -54,7 +54,6 @@ import Development.IDE.Core.Shake (ShakeLspEnv(..), NotificationHandler(..))
 import qualified Development.IDE.Core.Rules.Daml  as API
 import qualified Development.IDE.Types.Diagnostics as D
 import qualified Development.IDE.Types.Location as D
-import DA.Bazel.Runfiles
 import DA.Daml.LF.ScenarioServiceClient as SS
 import Development.IDE.Core.API.Testing.Visualize
 import Development.IDE.Core.Rules.Daml
@@ -152,9 +151,11 @@ runShakeTest = runShakeTestOpts id
 -- | Run shake test on freshly initialised shake service, with custom options.
 runShakeTestOpts :: (Daml.Options -> Daml.Options) -> Maybe SS.Handle -> ShakeTest () -> IO (Either ShakeTestError ShakeTestResults)
 runShakeTestOpts fOpts mbScenarioService (ShakeTest m) = do
-    dlintDataDir <-locateRunfiles $ mainWorkspace </> "compiler/damlc/daml-ide-core"
     let options = fOpts (defaultOptions Nothing)
-            { optDlintUsage = DlintEnabled dlintDataDir False
+            { optDlintUsage = DlintEnabled DlintOptions
+                { dlintRulesFile = DefaultDlintRulesFile
+                , dlintHintFiles = NoDlintHintFiles
+                }
             , optEnableOfInterestRule = True
             , optEnableScenarios = EnableScenarios True
             }

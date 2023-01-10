@@ -1,4 +1,4 @@
-# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load("@build_environment//:configuration.bzl", "ghc_version")
@@ -14,6 +14,7 @@ load(
     "//bazel_tools:scala.bzl",
     "da_scala_binary",
     "da_scala_test",
+    "lf_scalacopts_stricter",
 )
 
 exports_files(["src/main/resources/logback.xml"])
@@ -32,6 +33,7 @@ da_scala_binary(
         "@maven//:io_circe_circe_core",
         "@maven//:io_circe_circe_yaml",
     ],
+    scalacopts = lf_scalacopts_stricter,
     visibility = ["//visibility:public"],
     deps = [
         "//daml-lf/archive:daml_lf_1.dev_archive_proto_java",
@@ -45,6 +47,7 @@ da_scala_binary(
         "//ledger/ledger-api-client",
         "//ledger/ledger-api-common",
         "//libs-scala/auth-utils",
+        "//libs-scala/scala-utils",
         "@maven//:org_apache_commons_commons_text",
     ],
 )

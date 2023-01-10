@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.store.migration.postgres
@@ -15,7 +15,7 @@ class PostgresRemovalOfJavaMigrations
     extends AsyncFlatSpec
     with Matchers
     with TestResourceContext
-    with PostgresConnectionSupport {
+    with PostgresAroundEachForMigrations {
   import com.daml.platform.store.migration.MigrationTestSupport._
 
   implicit val loggingContext: LoggingContext = LoggingContext.ForTesting

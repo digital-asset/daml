@@ -1,10 +1,10 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.client.services.commands.tracker
 
 import com.daml.error.ContextualizedErrorLogger
-import com.daml.error.definitions.LedgerApiErrors
+import com.daml.error.definitions.CommonErrors
 import com.daml.grpc.GrpcStatus
 import com.daml.ledger.api.v1.command_completion_service.Checkpoint
 import com.daml.ledger.api.v1.completion.Completion
@@ -117,14 +117,14 @@ object CompletionResponse {
         val statusBuilder = GrpcStatus.toJavaBuilder(notOkResponse.grpcStatus)
         GrpcStatus.buildStatus(metadata, statusBuilder)
       case CompletionResponse.TimeoutResponse(_) =>
-        LedgerApiErrors.RequestTimeOut
+        CommonErrors.RequestTimeOut
           .Reject(
             "Timed out while awaiting for a completion corresponding to a command submission.",
             definiteAnswer = false,
           )
           .asGrpcStatus
       case CompletionResponse.NoStatusInResponse(_, _) =>
-        LedgerApiErrors.InternalError
+        CommonErrors.ServiceInternalError
           .Generic(
             "Missing status in completion response.",
             throwableO = None,

@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.http.util
@@ -19,7 +19,7 @@ object TestUtil extends LazyLogging {
     val file = new File(fileName).getAbsoluteFile
     if (file.exists()) Success(file)
     else
-      Failure(new IllegalStateException(s"File doest not exist: $fileName"))
+      Failure(new IllegalStateException(s"File does not exist: $fileName"))
   }
 
   def writeToFile(file: File, text: String): Try[File] =

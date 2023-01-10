@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.codegen.backend.java.inner
@@ -18,7 +18,8 @@ private[inner] object VariantRecordClass extends StrictLogging {
       fields: Fields,
       name: String,
       superclass: TypeName,
-      packagePrefixes: Map[PackageId, String],
+  )(implicit
+      packagePrefixes: PackagePrefixes
   ): TypeSpec =
     TrackLineage.of("variant-record", name) {
       logger.info("Start")
@@ -36,7 +37,6 @@ private[inner] object VariantRecordClass extends StrictLogging {
             superclass,
             className.parameterized(typeParameters),
             typeParameters,
-            packagePrefixes,
           ).asJava
         )
         .build()

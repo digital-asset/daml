@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -8,7 +8,6 @@ package preprocessing
 import com.daml.lf.data._
 import com.daml.lf.engine.Error.Preprocessing.DuplicateDisclosedContractId
 import com.daml.lf.language.Ast
-import com.daml.lf.transaction.TransactionVersion
 import com.daml.lf.value.Value
 import com.daml.scalautil.Statement.discard
 
@@ -53,24 +52,17 @@ private[lf] final class CommandPreprocessor(
   }
 
   def unsafePreprocessExercise(
-      typeId: data.TemplateOrInterface[Ref.Identifier, Ref.Identifier],
+      typeId: Ref.Identifier,
       contractId: Value.ContractId,
       choiceId: Ref.ChoiceName,
       argument: Value,
-  ): speedy.Command = typeId match {
-    // TODO: https://github.com/digital-asset/daml/issues/14747
-    //  In order to split the issue in several PRs, we allow abusing the templateId case as an interface.
-    //  We will change once we have added the interface_id field to the legder API Exercise command
-    case TemplateOrInterface.Template(templateId) =>
-      handleLookup(pkgInterface.lookupTemplateOrInterface(templateId)) match {
-        case TemplateOrInterface.Template(_) =>
-          unsafePreprocessExerciseTemplate(templateId, contractId, choiceId, argument)
-        case TemplateOrInterface.Interface(_) =>
-          unsafePreprocessExerciseInterface(templateId, contractId, choiceId, argument)
-      }
-    case TemplateOrInterface.Interface(ifaceId) =>
-      unsafePreprocessExerciseInterface(ifaceId, contractId, choiceId, argument)
-  }
+  ): speedy.Command =
+    handleLookup(pkgInterface.lookupTemplateOrInterface(typeId)) match {
+      case TemplateOrInterface.Template(_) =>
+        unsafePreprocessExerciseTemplate(typeId, contractId, choiceId, argument)
+      case TemplateOrInterface.Interface(_) =>
+        unsafePreprocessExerciseInterface(typeId, contractId, choiceId, argument)
+    }
 
   def unsafePreprocessExerciseTemplate(
       templateId: Ref.Identifier,
@@ -250,12 +242,8 @@ private[lf] final class CommandPreprocessor(
     discard(handleLookup(pkgInterface.lookupInterface(interfaceId)))
     discard(handleLookup(pkgInterface.lookupInterfaceInstance(interfaceId, templateId)))
 
-    val version =
-      TransactionVersion.assignNodeVersion(
-        pkgInterface.packageLanguageVersion(interfaceId.packageId)
-      )
     val arg = valueTranslator.unsafeTranslateValue(Ast.TTyCon(templateId), argument)
 
-    speedy.InterfaceView(templateId, arg, interfaceId, version)
+    speedy.InterfaceView(templateId, arg, interfaceId)
   }
 }

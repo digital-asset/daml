@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -27,18 +27,18 @@ private[lf] final class ValueTranslator(
   ): Option[Map[String, Value]] = {
     @tailrec
     def go(
-        fields: ImmArray[(Option[String], Value)],
+        fields: FrontStack[(Option[String], Value)],
         map: Map[String, Value],
     ): Option[Map[String, Value]] = {
-      fields match {
-        case ImmArray() => Some(map)
-        case ImmArrayCons((None, _), _) => None
-        case ImmArrayCons((Some(label), value), tail) =>
+      fields.pop match {
+        case None => Some(map)
+        case Some(((None, _), _)) => None
+        case Some(((Some(label), value), tail)) =>
           go(tail, map + (label -> value))
       }
     }
 
-    go(fields, Map.empty)
+    go(fields.toFrontStack, Map.empty)
   }
 
   private[this] val unsafeTranslateV1Cid: ContractId.V1 => SValue.SContractId =

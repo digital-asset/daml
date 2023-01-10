@@ -1,9 +1,8 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.indexer
 
-import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.MeteringStore.{
   ParticipantMetering,
@@ -36,7 +35,7 @@ import scala.concurrent.Future
 final class MeteringAggregatorSpec extends AnyWordSpecLike with MockitoSugar with Matchers {
 
   private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
-  private val metrics = new Metrics(new MetricRegistry)
+  private val metrics = Metrics.ForTesting
   private def toTS(t: OffsetDateTime): Timestamp = Timestamp.assertFromInstant(t.toInstant)
 
   "MeteringAggregator" should {

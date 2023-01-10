@@ -1,4 +1,4 @@
-# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load("//bazel_tools:scala.bzl", "da_scala_library")
@@ -25,6 +25,7 @@ load(
             "//ledger-api/grpc-definitions:ledger_api_proto_scala",
             "//ledger/error",
             "//ledger/ledger-api-common",
+            "//ledger/ledger-api-errors",
             "//libs-scala/test-evidence/tag:test-evidence-tag",
             "//ledger/test-common:dar-files-%s-lib" % lf_version,
             "//ledger/test-common:test-common-%s" % lf_version,

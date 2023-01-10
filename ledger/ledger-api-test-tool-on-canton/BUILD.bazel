@@ -1,4 +1,4 @@
-# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load("//ledger/ledger-api-tests:conformance.bzl", "conformance_test")
@@ -78,15 +78,8 @@ conformance_test_tool_args = [
         "TLSOnePointThreeIT",
         "TLSAtLeastOnePointTwoIT",
         "CommandDeduplicationPeriodValidationIT:OffsetPruned",  # requires pruning not available in canton community
-        "DeeplyNestedValueIT",  # FIXME: Too deeply nested values flake with a time out (half of the time)
-        # TODO um-for-hub: Enable these tests once Canton runs updated user and party management
-        "UserManagementServiceIT:TestAdminExists",
-        "UserManagementServiceIT:TestCreateUser",
-        "UserManagementServiceIT:TestGrantUserRights",
-        "UserManagementServiceIT:TestRevokeUserRights",
-        "UserManagementServiceIT:TestFailCreatingUserWhenAnnotationsValueIsEmpty",
-        "PartyManagementServiceIT:PMGetPartiesDetails",
-        "PartyManagementServiceIT:PMListKnownParties",
+        "ActiveContractsServiceIT:AcsBeforePruningOffsetIsDisallowed",  # requires pruning not available in canton community
+        "ActiveContractsServiceIT:AcsAtPruningOffsetIsAllowed",  # requires pruning not available in canton community
     ]),
 ]
 
@@ -100,7 +93,9 @@ conformance_test(
     extra_runner_args = ["7000"],
     lf_versions = [
         "default",
-        "latest",
+        # TODO https://github.com/digital-asset/daml/issues/12051
+        #  uncomment as soon as canton has a up-to-date engine
+        #"latest",
     ],
     ports = conformance_test_ports,
     runner = "@//bazel_tools/client_server/runner_with_health_check",

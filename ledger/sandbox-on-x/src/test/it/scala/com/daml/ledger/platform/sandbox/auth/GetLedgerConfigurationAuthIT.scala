@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.sandbox.auth
@@ -16,9 +16,9 @@ final class GetLedgerConfigurationAuthIT extends PublicServiceCallAuthTests {
 
   override def serviceCallName: String = "LedgerConfigurationService#GetLedgerConfiguration"
 
-  override def serviceCallWithToken(token: Option[String]): Future[Any] =
+  override def serviceCall(context: ServiceCallContext): Future[Any] =
     new StreamConsumer[GetLedgerConfigurationResponse](
-      stub(LedgerConfigurationServiceGrpc.stub(channel), token)
+      stub(LedgerConfigurationServiceGrpc.stub(channel), context.token)
         .getLedgerConfiguration(new GetLedgerConfigurationRequest(unwrappedLedgerId), _)
     ).first()
 

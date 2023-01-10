@@ -1,4 +1,4 @@
--- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE DuplicateRecordFields #-}
@@ -51,7 +51,8 @@ listKnownParties =
     withGRPCClient config $ \client -> do
         service <- LL.partyManagementServiceClient client
         let LL.PartyManagementService{partyManagementServiceListKnownParties=rpc} = service
-        let request = LL.ListKnownPartiesRequest{}
+        let listKnownPartiesRequestIdentityProviderId = ""
+        let request = LL.ListKnownPartiesRequest{..}
         rpc (ClientNormalRequest request timeout mdm)
             >>= unwrap
             >>= \(LL.ListKnownPartiesResponse xs) ->
@@ -89,4 +90,5 @@ allocateParty request =
             let allocatePartyRequestPartyIdHint = partyIdHint
             let allocatePartyRequestDisplayName = displayName
             let allocatePartyRequestLocalMetadata = Nothing
+            let allocatePartyRequestIdentityProviderId = ""
             LL.AllocatePartyRequest {..}

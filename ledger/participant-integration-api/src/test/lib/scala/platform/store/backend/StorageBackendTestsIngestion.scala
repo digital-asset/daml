@@ -1,11 +1,12 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.store.backend
 
 import java.sql.Connection
 
-import org.scalatest.Inside
+import com.daml.lf.data.Ref
+import org.scalatest.{Inside, OptionValues}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
@@ -16,6 +17,7 @@ import scala.util.Random
 private[backend] trait StorageBackendTestsIngestion
     extends Matchers
     with Inside
+    with OptionValues
     with StorageBackendSpec {
   this: AnyFlatSpec =>
 
@@ -94,50 +96,96 @@ private[backend] trait StorageBackendTestsIngestion
     partiesAfterLedgerEndUpdate should not be empty
   }
 
+  it should "empty display name represent lack of display name" in {
+    val dtos = Vector(
+      dtoPartyEntry(offset(1), party = "party1", displayNameOverride = Some(Some(""))),
+      dtoPartyEntry(
+        offset(2),
+        party = "party2",
+        displayNameOverride = Some(Some("nonEmptyDisplayName")),
+      ),
+      dtoPartyEntry(offset(3), party = "party3", displayNameOverride = Some(None)),
+    )
+    executeSql(backend.parameter.initializeParameters(someIdentityParams))
+    executeSql(ingest(dtos, _))
+    executeSql(
+      updateLedgerEnd(offset(3), 0)
+    )
+
+    {
+      val knownParties = executeSql(backend.party.knownParties)
+      val party1 = knownParties.find(_.party.toString == "party1").value
+      val party2 = knownParties.find(_.party.toString == "party2").value
+      val party3 = knownParties.find(_.party.toString == "party3").value
+      party1.displayName shouldBe None
+      party2.displayName shouldBe Some("nonEmptyDisplayName")
+      party3.displayName shouldBe None
+    }
+    {
+      val party1 = executeSql(
+        backend.party.parties(parties = Seq(Ref.Party.assertFromString("party1")))
+      ).headOption.value
+      val party2 = executeSql(
+        backend.party.parties(parties = Seq(Ref.Party.assertFromString("party2")))
+      ).headOption.value
+      val party3 = executeSql(
+        backend.party.parties(parties = Seq(Ref.Party.assertFromString("party3")))
+      ).headOption.value
+      party1.displayName shouldBe None
+      party2.displayName shouldBe Some("nonEmptyDisplayName")
+      party3.displayName shouldBe None
+    }
+  }
+
   private val NumberOfUpsertPackagesTests = 30
   it should s"safely upsert packages concurrently ($NumberOfUpsertPackagesTests)" in withConnections(
     2
   ) { connections =>
     import scala.concurrent.ExecutionContext.Implicits.global
 
-    val List(connection1, connection2) = connections
-    def packageFor(n: Int): DbDto.Package =
-      dtoPackage(offset(n.toLong))
-        .copy(
-          package_id = s"abc123$n",
-          _package = Random.nextString(Random.nextInt(200000) + 200).getBytes,
-        )
-    val conflictingPackageDtos = 11 to 20 map packageFor
-    val packages1 = 21 to 30 map packageFor
-    val packages2 = 31 to 40 map packageFor
+    inside(connections) { case List(connection1, connection2) =>
+      def packageFor(n: Int): DbDto.Package =
+        dtoPackage(offset(n.toLong))
+          .copy(
+            package_id = s"abc123$n",
+            _package = Random.nextString(Random.nextInt(200000) + 200).getBytes,
+          )
 
-    def test() = {
+      val conflictingPackageDtos = 11 to 20 map packageFor
+      val packages1 = 21 to 30 map packageFor
+      val packages2 = 31 to 40 map packageFor
 
-      executeSql(backend.parameter.initializeParameters(someIdentityParams))
+      def test() = {
 
-      def ingestPackagesF(connection: Connection, packages: Iterable[DbDto.Package]): Future[Unit] =
-        Future {
-          connection.setAutoCommit(false)
-          ingest(packages.toVector, connection)
-          connection.commit()
-        }
+        executeSql(backend.parameter.initializeParameters(someIdentityParams))
 
-      val ingestF1 = ingestPackagesF(connection1, packages1 ++ conflictingPackageDtos)
-      val ingestF2 = ingestPackagesF(connection2, packages2 ++ conflictingPackageDtos)
+        def ingestPackagesF(
+            connection: Connection,
+            packages: Iterable[DbDto.Package],
+        ): Future[Unit] =
+          Future {
+            connection.setAutoCommit(false)
+            ingest(packages.toVector, connection)
+            connection.commit()
+          }
 
-      Await.result(ingestF1, Duration(10, "seconds"))
-      Await.result(ingestF2, Duration(10, "seconds"))
+        val ingestF1 = ingestPackagesF(connection1, packages1 ++ conflictingPackageDtos)
+        val ingestF2 = ingestPackagesF(connection2, packages2 ++ conflictingPackageDtos)
 
-      executeSql(updateLedgerEnd(offset(50), 0))
+        Await.result(ingestF1, Duration(10, "seconds"))
+        Await.result(ingestF2, Duration(10, "seconds"))
 
-      executeSql(backend.packageBackend.lfPackages).keySet.map(_.toString) shouldBe (
-        conflictingPackageDtos ++ packages1 ++ packages2
-      ).map(_.package_id).toSet
-    }
+        executeSql(updateLedgerEnd(offset(50), 0))
 
-    1 to NumberOfUpsertPackagesTests foreach { _ =>
-      test()
-      executeSql(backend.reset.resetAll)
+        executeSql(backend.packageBackend.lfPackages).keySet.map(_.toString) shouldBe (
+          conflictingPackageDtos ++ packages1 ++ packages2
+        ).map(_.package_id).toSet
+      }
+
+      1 to NumberOfUpsertPackagesTests foreach { _ =>
+        test()
+        executeSql(backend.reset.resetAll)
+      }
     }
   }
 }

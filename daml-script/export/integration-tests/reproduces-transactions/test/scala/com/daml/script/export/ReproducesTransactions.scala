@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.script.export
@@ -221,6 +221,7 @@ trait ReproducesTransactions
       TransactionEq.equivalent(beforeCmp, afterCmp).fold(fail(_), _ => succeed)
     }
 
+  @scala.annotation.nowarn("msg=match may not be exhaustive")
   private def testIou: (LedgerClient, Seq[Ref.Party]) => Future[Unit] = {
     case (client, Seq(p1, p2)) =>
       for {

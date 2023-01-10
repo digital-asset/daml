@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml
@@ -7,12 +7,13 @@ package ledger.sandbox.domain
 import com.daml.ledger.participant.state.v2.{ChangeId, CompletionInfo, Update}
 import com.daml.ledger.participant.state.v2.Update.CommandRejected.FinalReason
 import error.ContextualizedErrorLogger
-import error.definitions.LedgerApiErrors
+import error.definitions.{CommonErrors, LedgerApiErrors}
 import ledger.configuration.LedgerTimeModel
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value.ContractId
 import com.google.rpc.status.Status
+
 import java.time.Duration
 
 private[sandbox] sealed trait Rejection extends Product with Serializable {
@@ -64,7 +65,7 @@ private[sandbox] object Rejection {
   final case class OffsetDeduplicationPeriodUnsupported(completionInfo: CompletionInfo)(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ) extends Rejection {
-    override def toStatus: Status = LedgerApiErrors.UnsupportedOperation
+    override def toStatus: Status = CommonErrors.UnsupportedOperation
       .Reject("command deduplication with periods specified using offsets")
       .rpcStatus()
   }

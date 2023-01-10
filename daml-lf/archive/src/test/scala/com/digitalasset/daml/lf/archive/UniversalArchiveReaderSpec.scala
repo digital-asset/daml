@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.archive
@@ -32,6 +32,11 @@ class UniversalArchiveReaderSpec extends AnyFlatSpec with Matchers with TryValue
 
   it should "parse a DALF file and return language version" in {
     UniversalArchiveReader.readFile(dalfFile) shouldBe a[Right[_, _]]
+  }
+
+  it should "reject a zip bomb with the proper error" in {
+    UniversalArchiveReader
+      .readFile(darFile, entrySizeThreshold = 1024) shouldBe Left(Error.ZipBomb)
   }
 
 }

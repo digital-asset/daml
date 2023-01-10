@@ -18,14 +18,12 @@ data Revoke
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
 _templateLet_T this@T {..}
   = let revokeRetVal = () in
-    let (sig, obs) = (p, q) in
+    let (sig, obs) = userWrittenTuple (p, q) in
     let assertion = True in
     let plainEnglish = "Chop wood, carry water." in
     let ident = "123" in
     let _ = this
-    in
-      DA.Internal.Desugar.codeGenAllowLargeTuples
-        (revokeRetVal, sig, obs, assertion, plainEnglish, ident)
+    in (revokeRetVal, sig, obs, assertion, plainEnglish, ident)
 instance DA.Internal.Desugar.HasSignatory T where
   signatory this@T {..}
     = DA.Internal.Desugar.toParties (sig)
@@ -98,16 +96,16 @@ instance DA.Internal.Desugar.HasIsInterfaceType T where
 instance DA.Internal.Desugar.HasExercise T DA.Internal.Desugar.Archive (()) where
   exercise = GHC.Types.primitive @"UExercise"
 instance DA.Internal.Desugar.HasToAnyChoice T DA.Internal.Desugar.Archive (()) where
-  _toAnyChoice = GHC.Types.primitive @"EToAnyTemplateChoice"
+  _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
 instance DA.Internal.Desugar.HasFromAnyChoice T DA.Internal.Desugar.Archive (()) where
-  _fromAnyChoice = GHC.Types.primitive @"EFromAnyTemplateChoice"
+  _fromAnyChoice = GHC.Types.primitive @"EFromAnyChoice"
 instance DA.Internal.Desugar.HasExercise T Revoke (()) where
   exercise = GHC.Types.primitive @"UExercise"
 instance DA.Internal.Desugar.HasToAnyChoice T Revoke (()) where
-  _toAnyChoice = GHC.Types.primitive @"EToAnyTemplateChoice"
+  _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
 instance DA.Internal.Desugar.HasFromAnyChoice T Revoke (()) where
-  _fromAnyChoice = GHC.Types.primitive @"EFromAnyTemplateChoice"
-_choice_TArchive :
+  _fromAnyChoice = GHC.Types.primitive @"EFromAnyChoice"
+_choice$_TArchive :
   (T -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.ContractId T
    -> T
@@ -115,18 +113,18 @@ _choice_TArchive :
    DA.Internal.Desugar.Consuming T,
    DA.Internal.Desugar.Optional (T
                                  -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]))
-_choice_TArchive
+_choice$_TArchive
   = (\ this _ -> DA.Internal.Desugar.signatory this, 
      \ _ _ _ -> pure (), DA.Internal.Desugar.Consuming, 
      DA.Internal.Desugar.None)
-_choice_TRevoke :
+_choice$_TRevoke :
   (T -> Revoke -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.ContractId T
    -> T -> Revoke -> DA.Internal.Desugar.Update (()),
    DA.Internal.Desugar.Consuming T,
    DA.Internal.Desugar.Optional (T
                                  -> Revoke -> [DA.Internal.Desugar.Party]))
-_choice_TRevoke
+_choice$_TRevoke
   = (\ this@T {..} arg@Revoke
        -> let
             (revokeRetVal, sig, obs, assertion, plainEnglish, ident)
@@ -159,7 +157,7 @@ instance DA.Internal.Desugar.HasExerciseByKey T (Party,
   _exerciseByKey = GHC.Types.primitive @"UExerciseByKey"
 instance DA.Internal.Desugar.HasKey T (Party, Text) where
   key this@T {..}
-    = (sig, ident)
+    = userWrittenTuple (sig, ident)
     where
         (revokeRetVal, sig, obs, assertion, plainEnglish, ident)
           = _templateLet_T this

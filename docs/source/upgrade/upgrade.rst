@@ -1,4 +1,4 @@
-.. Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 .. _upgrade-overview:
@@ -8,11 +8,6 @@ Upgrading Daml Applications
 
 .. toctree::
    :hidden:
-
-**Note:** Cross-SDK upgrades require Daml-LF 1.8 or newer.
-This is the default starting from SDK 1.0. For older releases add
-``build-options: ["--target=1.8"]`` to your ``daml.yaml`` to select
-Daml-LF 1.8.
 
 In applications backed by a centralized database controlled by a
 single operator, it is possible to upgrade an application in a single

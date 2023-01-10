@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.resources
@@ -630,7 +630,9 @@ final class ResourceOwnerSpec extends AsyncWordSpec with Matchers {
       )
 
       val resource = for {
-        releasable <- Factories.forReleasable(newReleasable.apply)(r => Future(r.close())).acquire()
+        releasable <- Factories
+          .forReleasable(newReleasable.apply _)(r => Future(r.close()))
+          .acquire()
       } yield {
         withClue("after acquiring,") {
           newReleasable.hasBeenAcquired should be(true)

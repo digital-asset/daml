@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.store.backend.common
@@ -7,8 +7,8 @@ import java.sql.Connection
 
 import anorm.{RowParser, ~}
 import anorm.SqlParser.{bool, flatten, str}
-import com.daml.ledger.api.domain.PartyDetails
 import com.daml.ledger.offset.Offset
+import com.daml.ledger.participant.state.index.v2.IndexerPartyDetails
 import com.daml.platform.Party
 import com.daml.platform.store.backend.Conversions.{
   ledgerString,
@@ -54,7 +54,7 @@ class PartyStorageBackendTemplate(
             PartyLedgerEntry.AllocationAccepted(
               submissionIdOpt,
               recordTime,
-              PartyDetails(party, displayNameOpt, isLocal),
+              IndexerPartyDetails(party, displayNameOpt, isLocal),
             )
         case (
               offset,
@@ -95,14 +95,14 @@ class PartyStorageBackendTemplate(
       .asVectorOf(partyEntryParser)(connection)
   }
 
-  private val partyDetailsParser: RowParser[PartyDetails] = {
+  private val partyDetailsParser: RowParser[IndexerPartyDetails] = {
     import com.daml.platform.store.backend.Conversions.bigDecimalColumnToBoolean
     str("party") ~
       str("display_name").? ~
       bool("is_local") map { case party ~ displayName ~ isLocal =>
-        PartyDetails(
+        IndexerPartyDetails(
           party = Party.assertFromString(party),
-          displayName = displayName,
+          displayName = displayName.filter(_.nonEmpty),
           isLocal = isLocal,
         )
       }
@@ -111,7 +111,7 @@ class PartyStorageBackendTemplate(
   private def queryParties(
       parties: Option[Set[String]],
       connection: Connection,
-  ): Vector[PartyDetails] = {
+  ): Vector[IndexerPartyDetails] = {
     import com.daml.platform.store.backend.Conversions.OffsetToStatement
     val partyFilter = parties match {
       case Some(requestedParties) => cSQL"party_entries.party in ($requestedParties) AND"
@@ -141,10 +141,10 @@ class PartyStorageBackendTemplate(
        """.asVectorOf(partyDetailsParser)(connection)
   }
 
-  override def parties(parties: Seq[Party])(connection: Connection): List[PartyDetails] =
+  override def parties(parties: Seq[Party])(connection: Connection): List[IndexerPartyDetails] =
     queryParties(Some(parties.view.map(_.toString).toSet), connection).toList
 
-  override def knownParties(connection: Connection): List[PartyDetails] =
+  override def knownParties(connection: Connection): List[IndexerPartyDetails] =
     queryParties(None, connection).toList
 
 }

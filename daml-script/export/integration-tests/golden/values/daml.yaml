@@ -1,0 +1,48 @@
+# Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+sdk-version: 0.0.0
+name: export
+version: 1.0.0
+source: .
+init-script: Export:export
+script-options:
+- --input-file
+- args.json
+parties:
+- Bank
+dependencies:
+- daml-stdlib
+- daml-prim
+- daml-script
+data-dependencies:
+- deps/HASH.dalf
+- deps/HASH.dalf
+- deps/HASH.dalf
+- deps/HASH.dalf
+- deps/HASH.dalf
+- deps/HASH.dalf
+- deps/HASH.dalf
+- deps/HASH.dalf
+- deps/HASH.dalf
+- deps/HASH.dalf
+- deps/HASH.dalf
+- deps/HASH.dalf
+- deps/HASH.dalf
+- deps/HASH.dalf
+- deps/HASH.dalf
+- deps/daml-prim-0.0.0-HASH.dalf
+- deps/daml-prim-DA-Exception-ArithmeticError-1.0.0-HASH.dalf
+- deps/daml-prim-DA-Exception-AssertionFailed-1.0.0-HASH.dalf
+- deps/daml-prim-DA-Exception-GeneralError-1.0.0-HASH.dalf
+- deps/daml-prim-DA-Exception-PreconditionFailed-1.0.0-HASH.dalf
+- deps/daml-script-0.0.0-HASH.dalf
+- deps/daml-stdlib-0.0.0-HASH.dalf
+- deps/daml-stdlib-DA-Action-State-Type-1.0.0-HASH.dalf
+- deps/daml-stdlib-DA-Random-Types-1.0.0-HASH.dalf
+- deps/daml-stdlib-DA-Set-Types-1.0.0-HASH.dalf
+- deps/daml-stdlib-DA-Stack-Types-1.0.0-HASH.dalf
+- deps/values-1.0.0-HASH.dalf
+build-options:
+- --target=1.14
+- --package=values-1.0.0

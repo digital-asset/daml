@@ -1,4 +1,4 @@
-# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -18,7 +18,7 @@ load(
 )
 
 # TODO(#13296) change to "latest" when interfaces released
-tested_lf_config = "dev"
+tested_lf_config = "latest"
 
 daml_compile(
     name = "MyMain",
@@ -149,11 +149,11 @@ da_scala_test(
         "//ledger/ledger-api-common",
         "//ledger/ledger-resources",
         "//ledger/ledger-runner-common",
-        "//ledger/metrics",
         "//ledger/participant-integration-api",
         "//ledger/sandbox-on-x",
         "//ledger/sandbox-on-x:sandbox-on-x-test-lib",
         "//libs-scala/ports",
         "//libs-scala/resources",
+        "//observability/telemetry",
     ],
 )

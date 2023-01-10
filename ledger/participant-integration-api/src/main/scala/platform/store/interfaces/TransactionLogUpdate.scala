@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.store.interfaces
@@ -12,6 +12,7 @@ import com.daml.platform.{ContractId, Identifier}
 import com.daml.platform.store.cache.MutableCacheBackedContractStore.EventSequentialId
 import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
 import com.daml.lf.crypto.Hash
+import com.daml.lf.data.Bytes
 
 /** Generic ledger update event.
   *
@@ -98,6 +99,7 @@ object TransactionLogUpdate {
       createObservers: Set[Party],
       createAgreementText: Option[String],
       createKeyHash: Option[Hash],
+      driverMetadata: Option[Bytes],
   ) extends Event
 
   final case class ExercisedEvent(

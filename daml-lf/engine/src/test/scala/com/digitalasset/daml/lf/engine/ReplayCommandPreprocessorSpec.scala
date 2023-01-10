@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -77,12 +77,12 @@ class ReplayCommandPreprocessorSpec
 
     "reject improperly typed ApiCommands" in {
 
-      // TEST_EVIDENCE: Input Validation: well formed create replay command is accepted
+      // TEST_EVIDENCE: Integrity: well formed create replay command is accepted
       val validCreate = ReplayCommand.Create(
         "Mod:Record",
         ValueRecord("", ImmArray("owners" -> valueParties, "data" -> ValueInt64(42))),
       )
-      // TEST_EVIDENCE: Input Validation: well formed exercise replay command is accepted
+      // TEST_EVIDENCE: Integrity: well formed exercise replay command is accepted
       val validExe = ReplayCommand.Exercise(
         "Mod:Record",
         "",
@@ -90,7 +90,7 @@ class ReplayCommandPreprocessorSpec
         "Transfer",
         ValueRecord("", ImmArray("content" -> ValueList(FrontStack(ValueParty("Clara"))))),
       )
-      // TEST_EVIDENCE: Input Validation: well formed exercise-by-key command is accepted
+      // TEST_EVIDENCE: Integrity: well formed exercise-by-key command is accepted
       val validExeByKey = ReplayCommand.ExerciseByKey(
         "Mod:Record",
         valueParties,
@@ -106,19 +106,19 @@ class ReplayCommandPreprocessorSpec
 
       val errorTestCases = Table[ReplayCommand, ResultOfATypeInvocation[_]](
         ("command", "error"),
-        // TEST_EVIDENCE: Input Validation: ill-formed create replay command is rejected
+        // TEST_EVIDENCE: Integrity: ill-formed create replay command is rejected
         validCreate.copy(templateId = "Mod:Undefined") ->
           a[Error.Preprocessing.Lookup],
         validCreate.copy(argument = ValueRecord("", ImmArray("content" -> ValueInt64(42)))) ->
           a[Error.Preprocessing.TypeMismatch],
-        // TEST_EVIDENCE: Input Validation: ill-formed exercise replay command is rejected
+        // TEST_EVIDENCE: Integrity: ill-formed exercise replay command is rejected
         validExe.copy(templateId = "Mod:Undefined") ->
           a[Error.Preprocessing.Lookup],
         validExe.copy(choiceId = "Undefined") ->
           a[Error.Preprocessing.Lookup],
         validExe.copy(argument = ValueRecord("", ImmArray("content" -> ValueInt64(42)))) ->
           a[Error.Preprocessing.TypeMismatch],
-        // TEST_EVIDENCE: Input Validation: ill-formed exercise-by-key replay command is rejected
+        // TEST_EVIDENCE: Integrity: ill-formed exercise-by-key replay command is rejected
         validExeByKey.copy(templateId = "Mod:Undefined") ->
           a[Error.Preprocessing.Lookup],
         validExeByKey.copy(contractKey = ValueList(FrontStack(ValueInt64(42)))) ->
@@ -142,17 +142,17 @@ class ReplayCommandPreprocessorSpec
     }
 
     "reject improperly typed ReplayCommands" in {
-      // TEST_EVIDENCE: Input Validation: well formed fetch replay command is accepted
+      // TEST_EVIDENCE: Integrity: well formed fetch replay command is accepted
       val validFetch = ReplayCommand.Fetch(
         "Mod:Record",
         newCid,
       )
-      // TEST_EVIDENCE: Input Validation: well formed fetch-by-key replay command is accepted
+      // TEST_EVIDENCE: Integrity: well formed fetch-by-key replay command is accepted
       val validFetchByKey = ReplayCommand.FetchByKey(
         "Mod:Record",
         valueParties,
       )
-      // TEST_EVIDENCE: Input Validation: well formed lookup replay command is accepted
+      // TEST_EVIDENCE: Integrity: well formed lookup replay command is accepted
       val validLookup = ReplayCommand.LookupByKey(
         "Mod:Record",
         valueParties,
@@ -165,15 +165,15 @@ class ReplayCommandPreprocessorSpec
       )
       val errorTestCases = Table[ReplayCommand, ResultOfATypeInvocation[_]](
         ("command", "error"),
-        // TEST_EVIDENCE: Input Validation: ill-formed fetch command is rejected
+        // TEST_EVIDENCE: Integrity: ill-formed fetch command is rejected
         validFetch.copy(templateId = "Mod:Undefined") ->
           a[Error.Preprocessing.Lookup],
-        // TEST_EVIDENCE: Input Validation: ill-formed fetch-by-key command is rejected
+        // TEST_EVIDENCE: Integrity: ill-formed fetch-by-key command is rejected
         validFetchByKey.copy(templateId = "Mod:Undefined") ->
           a[Error.Preprocessing.Lookup],
         validFetchByKey.copy(key = ValueList(FrontStack(ValueInt64(42)))) ->
           a[Error.Preprocessing.TypeMismatch],
-        // TEST_EVIDENCE: Input Validation: ill-formed lookup command is rejected
+        // TEST_EVIDENCE: Integrity: ill-formed lookup command is rejected
         validLookup.copy(templateId = "Mod:Undefined") ->
           a[Error.Preprocessing.Lookup],
         validLookup.copy(contractKey = ValueList(FrontStack(ValueInt64(42)))) ->

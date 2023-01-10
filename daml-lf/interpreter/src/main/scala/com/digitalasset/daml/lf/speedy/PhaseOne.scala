@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -19,12 +19,14 @@ import scala.annotation.tailrec
 
 private[speedy] object PhaseOne {
 
-  case class Config(
+  final case class Config(
       profiling: ProfilingMode,
       stacktracing: StackTraceMode,
   )
 
-  private val SEGetTime = SEBuiltin(SBGetTime)
+  private val SUGetTime = SEBuiltin(SBUGetTime)
+
+  private val SSGetTime = SEBuiltin(SBSGetTime)
 
   private val SBEToTextNumeric = SEAbs(1, SEBuiltin(SBToText))
 
@@ -37,7 +39,7 @@ private[speedy] object PhaseOne {
   // corresponds to Daml-LF type variable.
   private[this] case class TVarRef(name: TypeVarName) extends VarRef
 
-  case class Position(idx: Int)
+  final case class Position(idx: Int)
 
   private[speedy] object Env {
     val Empty = Env(0, Map.empty)
@@ -92,7 +94,7 @@ private[speedy] object PhaseOne {
   }
 
   // A type to represent a step of compilation Work
-  sealed abstract class Work
+  sealed abstract class Work extends Product with Serializable
   object Work {
     final case class Return(result: SExpr) extends Work
     final case class CompileExp(env: Env, exp: Expr, cont: SExpr => Work) extends Work
@@ -551,7 +553,7 @@ private[lf] final class PhaseOne(
     go(exp, List.empty, List.empty)
   }
 
-  private def noArgs = ArrayList.empty[SValue]
+  private[this] def noArgs = ArrayList.empty[SValue]
 
   private[this] def compileERecCon(
       env: Env,
@@ -706,6 +708,12 @@ private[lf] final class PhaseOne(
         compileExp(env, coid) { coid =>
           Return(t.FetchInterfaceDefRef(ifaceId)(coid))
         }
+      case UpdateActingAsConsortium(members, consortium) =>
+        compileExp(env, members) { members =>
+          compileExp(env, consortium) { consortium =>
+            Return(SBActingAsConsortium(members, consortium))
+          }
+        }
       case UpdateEmbedExpr(_, exp) =>
         compileEmbedExpr(env, exp)
       case UpdateCreate(tmplId, arg) =>
@@ -751,7 +759,7 @@ private[lf] final class PhaseOne(
           }
         }
       case UpdateGetTime =>
-        Return(SEGetTime)
+        Return(SUGetTime)
       case UpdateLookupByKey(RetrieveByKey(templateId, key)) =>
         compileExp(env, key) { key =>
           Return(t.LookupByKeyDefRef(templateId)(key))
@@ -839,7 +847,7 @@ private[lf] final class PhaseOne(
       case ScenarioMustFailAt(partyE, updateE, _retType @ _) =>
         compileCommit(env, partyE, updateE, optLoc, mustFail = true)
       case ScenarioGetTime =>
-        Return(SEGetTime)
+        Return(SSGetTime)
       case ScenarioGetParty(e) =>
         compileGetParty(env, e)
       case ScenarioPass(relTime) =>
@@ -905,7 +913,7 @@ private[lf] final class PhaseOne(
     compileExp(env, body) { body =>
       let(env, body) { (bodyPos, env) =>
         unaryFunction(env) { (tokenPos, env) =>
-          Return(SBSPure(env.toSEVar(bodyPos), env.toSEVar(tokenPos)))
+          Return(SBPure(env.toSEVar(bodyPos), env.toSEVar(tokenPos)))
         }
       }
     }

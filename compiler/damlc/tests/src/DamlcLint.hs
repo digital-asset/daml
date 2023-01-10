@@ -1,8 +1,10 @@
--- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 module DamlcLint
    ( main
    ) where
+
+{- HLINT ignore "locateRunfiles/package_app" -}
 
 import Data.List.Extra (isSuffixOf)
 import System.Environment.Blank

@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.sandbox.services.command
@@ -40,7 +40,7 @@ sealed trait CommandServiceBackPressureITBase
     with TestCommands
     with SuiteResourceManagementAroundAll {
 
-  private val commands = 50
+  private val commands = 100
 
   private def command(party: String) =
     CreateCommand(
@@ -111,7 +111,11 @@ sealed trait CommandServiceBackPressureITBase
     }
   }
 
-  override def bridgeConfig: BridgeConfig = BridgeConfig.Default.copy(submissionBufferSize = 2)
+  override def bridgeConfig: BridgeConfig =
+    BridgeConfig.Default.copy(
+      submissionBufferSize = 1,
+      stageBufferSize = 1,
+    )
 
   override def config = super.config.copy(
     participants = singleParticipant(

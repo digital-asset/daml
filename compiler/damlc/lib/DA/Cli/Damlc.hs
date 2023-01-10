@@ -1,4 +1,4 @@
--- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE TemplateHaskell     #-}
@@ -139,7 +139,11 @@ cmdIde numProcessors =
         <$> telemetryOpt
         <*> debugOpt
         <*> enableScenarioServiceOpt
-        <*> optionsParser numProcessors (EnableScenarioService True) (pure Nothing)
+        <*> optionsParser
+              numProcessors
+              (EnableScenarioService True)
+              (pure Nothing)
+              (optionalDlintUsageParser True)
 
 cmdLicense :: Mod CommandFields Command
 cmdLicense =
@@ -157,7 +161,11 @@ cmdCompile numProcessors =
     cmd = execCompile
         <$> inputFileOpt
         <*> outputFileOpt
-        <*> optionsParser numProcessors (EnableScenarioService False) optPackageName
+        <*> optionsParser
+              numProcessors
+              (EnableScenarioService False)
+              optPackageName
+              disabledDlintUsageParser
         <*> optWriteIface
         <*> optional (strOptionOnce $ long "iface-dir" <> metavar "IFACE_DIR" <> help "Directory for interface files")
 
@@ -176,7 +184,11 @@ cmdDesugar numProcessors =
     cmd = execDesugar
       <$> inputFileOpt
       <*> outputFileOpt
-      <*> optionsParser numProcessors (EnableScenarioService False) optPackageName
+      <*> optionsParser
+            numProcessors
+            (EnableScenarioService False)
+            optPackageName
+            disabledDlintUsageParser
 
 cmdDebugIdeSpanInfo :: Int -> Mod CommandFields Command
 cmdDebugIdeSpanInfo numProcessors =
@@ -187,7 +199,11 @@ cmdDebugIdeSpanInfo numProcessors =
     cmd = execDebugIdeSpanInfo
       <$> inputFileOpt
       <*> outputFileOpt
-      <*> optionsParser numProcessors (EnableScenarioService False) optPackageName
+      <*> optionsParser
+            numProcessors
+            (EnableScenarioService False)
+            optPackageName
+            disabledDlintUsageParser
 
 cmdLint :: Int -> Mod CommandFields Command
 cmdLint numProcessors =
@@ -197,7 +213,11 @@ cmdLint numProcessors =
   where
     cmd = execLint
         <$> many inputFileOpt
-        <*> optionsParser numProcessors (EnableScenarioService False) optPackageName
+        <*> optionsParser
+              numProcessors
+              (EnableScenarioService False)
+              optPackageName
+              enabledDlintUsageParser
 
 cmdTest :: Int -> Mod CommandFields Command
 cmdTest numProcessors =
@@ -216,7 +236,11 @@ cmdTest numProcessors =
       <*> fmap ShowCoverage showCoverageOpt
       <*> fmap UseColor colorOutput
       <*> junitOutput
-      <*> optionsParser numProcessors (EnableScenarioService True) optPackageName
+      <*> optionsParser
+            numProcessors
+            (EnableScenarioService True)
+            optPackageName
+            disabledDlintUsageParser
       <*> initPkgDbOpt
     filesOpt = optional (flag' () (long "files" <> help filesDoc) *> many inputFileOpt)
     filesDoc = "Only run test declarations in the specified files."
@@ -288,7 +312,11 @@ cmdBuild numProcessors =
     cmd =
         execBuild
             <$> projectOpts "daml build"
-            <*> optionsParser numProcessors (EnableScenarioService False) (pure Nothing)
+            <*> optionsParser
+                  numProcessors
+                  (EnableScenarioService False)
+                  (pure Nothing)
+                  disabledDlintUsageParser
             <*> optionalOutputFileOpt
             <*> incrementalBuildOpt
             <*> initPkgDbOpt
@@ -323,7 +351,11 @@ cmdRepl numProcessors =
                     )
             <*> timeModeFlag
             <*> projectOpts "daml repl"
-            <*> optionsParser numProcessors (EnableScenarioService False) (pure Nothing)
+            <*> optionsParser
+                  numProcessors
+                  (EnableScenarioService False)
+                  (pure Nothing)
+                  disabledDlintUsageParser
             <*> strOptionOnce (long "script-lib" <> value "daml-script" <> internal)
             -- This is useful for tests and `bazel run`.
 
@@ -400,7 +432,13 @@ cmdInit numProcessors =
     command "init" $
     info (helper <*> cmd) $ progDesc "Initialize a Daml project" <> fullDesc
   where
-    cmd = execInit <$> optionsParser numProcessors (EnableScenarioService False) (pure Nothing) <*> projectOpts "daml damlc init"
+    cmd = execInit
+            <$> optionsParser
+                  numProcessors
+                  (EnableScenarioService False)
+                  (pure Nothing)
+                  disabledDlintUsageParser
+            <*> projectOpts "daml damlc init"
 
 cmdPackage :: Int -> Mod CommandFields Command
 cmdPackage numProcessors =
@@ -411,7 +449,11 @@ cmdPackage numProcessors =
     cmd = execPackage
         <$> projectOpts "daml damlc package"
         <*> inputFileOpt
-        <*> optionsParser numProcessors (EnableScenarioService False) (Just <$> packageNameOpt)
+        <*> optionsParser
+              numProcessors
+              (EnableScenarioService False)
+              (Just <$> packageNameOpt)
+              disabledDlintUsageParser
         <*> optionalOutputFileOpt
         <*> optFromDalf
 
@@ -455,7 +497,11 @@ cmdDocTest numProcessors =
     progDesc "Early Access (Labs). doc tests" <> fullDesc
   where
     cmd = execDocTest
-        <$> optionsParser numProcessors (EnableScenarioService True) optPackageName
+        <$> optionsParser
+              numProcessors
+              (EnableScenarioService True)
+              optPackageName
+              disabledDlintUsageParser
         <*> many inputFileOpt
 
 --------------------------------------------------------------------------------
@@ -511,16 +557,14 @@ execIde telemetry (Debug debug) enableScenarioService options =
                       whenJust gcpStateM $ \gcpState -> Logger.GCP.logIgnored gcpState
                       f loggerH
                   TelemetryDisabled -> f loggerH
-          dlintDataDir <- locateRunfiles $ mainWorkspace </> "compiler/damlc/daml-ide-core"
           options <- pure options
               { optScenarioService = enableScenarioService
               , optEnableOfInterestRule = True
               , optSkipScenarioValidation = SkipScenarioValidation True
               -- TODO(MH): The `optionsParser` does not provide a way to skip
               -- individual options. As a stopgap we ignore the argument to
-              -- --jobs and the dlint config.
+              -- --jobs.
               , optThreads = 0
-              , optDlintUsage = DlintEnabled dlintDataDir True
               }
           installDepsAndInitPackageDb options (InitPkgDb True)
           scenarioServiceConfig <- readScenarioServiceConfig
@@ -612,14 +656,13 @@ execLint inputFiles opts =
        withProjectRoot' projectOpts $ \relativize ->
        do
          loggerH <- getLogger opts "lint"
-         opts <- setDlintDataDir opts
          withDamlIdeState opts loggerH diagnosticsLogger $ \ide -> do
              inputFiles <- getInputFiles relativize inputFiles
              setFilesOfInterest ide (HashSet.fromList inputFiles)
              diags <- forM inputFiles $ \inputFile -> do
                void $ runActionSync ide $ getDlintIdeas inputFile
                getDiagnostics ide
-             if null $ concat diags then
+             if all null diags then
                hPutStrLn stderr "No hints"
              else
                exitFailure
@@ -628,13 +671,6 @@ execLint inputFiles opts =
            withPackageConfig defaultProjectPath $ \PackageConfigFields {pSrc} -> do
            getDamlRootFiles pSrc
        fs -> forM fs $ fmap toNormalizedFilePath' . relativize
-     setDlintDataDir :: Options -> IO Options
-     setDlintDataDir opts = do
-       defaultDir <-locateRunfiles $
-         mainWorkspace </> "compiler/damlc/daml-ide-core"
-       return $ case optDlintUsage opts of
-         DlintEnabled _ _ -> opts
-         DlintDisabled  -> opts{optDlintUsage=DlintEnabled defaultDir True}
 
 defaultProjectPath :: ProjectPath
 defaultProjectPath = ProjectPath "."
@@ -726,13 +762,18 @@ execRepl dars importPkgs mbLedgerConfig mbAuthToken mbAppId mbSslConf mbMaxInbou
             -- We change directory so make this absolute
             dars <- mapM makeAbsolute dars
             opts <- pure opts
-                { optDlintUsage = DlintDisabled
-                , optScenarioService = EnableScenarioService False
+                { optScenarioService = EnableScenarioService False
                 , optPackageImports = optPackageImports opts ++ pkgFlags
                 }
             logger <- getLogger opts "repl"
-            runfilesDir <- locateRunfiles (mainWorkspace </> "compiler/repl-service/server")
-            let jar = runfilesDir </> "repl-service.jar"
+            jar <- locateResource Resource
+                -- //compiler/repl-service/server:repl_service_jar
+                { resourcesPath = "repl-service.jar"
+                  -- In a packaged application, this is stored directly underneath
+                  -- the resources directory because it's the target's only output.
+                  -- See @bazel_tools/packaging/packaging.bzl@.
+                , runfilesPathPrefix = mainWorkspace </> "compiler" </> "repl-service" </> "server"
+                }
             ReplClient.withReplClient (ReplClient.Options jar mbLedgerConfig mbAuthToken mbAppId mbSslConf mbMaxInboundMessageSize timeMode Inherit) $ \replHandle ->
                 withTempDir $ \dir ->
                 withCurrentDirectory dir $ do
@@ -1008,7 +1049,7 @@ main = do
     -- args from daml.yaml.
     Command cmd mbProjectOpts _ <- handleParseResult tempParseResult
     damlYamlArgs <- cliArgsFromDamlYaml mbProjectOpts
-    let args = if cmd `elem` [Build, Compile, Desugar, Ide, DebugIdeSpanInfo, Test, DamlDoc]
+    let args = if cmd `elem` [Build, Compile, Desugar, Ide, DebugIdeSpanInfo, Test, DamlDoc, Repl]
                then cliArgs ++ damlYamlArgs
                else cliArgs
         (errMsgs, parseResult) = parse args

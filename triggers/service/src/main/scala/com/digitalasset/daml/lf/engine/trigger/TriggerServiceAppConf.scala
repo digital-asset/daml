@@ -1,14 +1,16 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.engine.trigger
 
 import akka.http.scaladsl.model.Uri
+import ch.qos.logback.classic.Level
 import com.daml.dbutils.JdbcConfig
 import com.daml.lf.speedy.Compiler
 import com.daml.platform.services.time.TimeProviderType
 import pureconfig.{ConfigReader, ConvertHelpers}
 import com.daml.auth.middleware.api.{Client => AuthClient}
+import com.daml.lf.engine.trigger.TriggerRunnerConfig.DefaultTriggerRunnerConfig
 import com.daml.pureconfigutils.LedgerApiConfig
 import com.daml.pureconfigutils.SharedConfigReaders._
 import pureconfig.error.FailureReason
@@ -18,6 +20,7 @@ import java.nio.file.Path
 import java.time.Duration
 import scala.concurrent.duration.FiniteDuration
 
+@scala.annotation.nowarn("msg=Block result was adapted via implicit conversion")
 private[trigger] object AuthorizationConfig {
   final case object AuthConfigFailure extends FailureReason {
     val description =
@@ -49,6 +52,7 @@ private[trigger] final case class AuthorizationConfig(
     authCallbackTimeout: FiniteDuration = Cli.DefaultAuthCallbackTimeout,
 )
 
+@scala.annotation.nowarn("msg=Block result was adapted via implicit conversion")
 private[trigger] object TriggerServiceAppConf {
   implicit val compilerCfgReader: ConfigReader[Compiler.Config] =
     ConfigReader.fromString[Compiler.Config](ConvertHelpers.catchReadError { s =>
@@ -62,8 +66,24 @@ private[trigger] object TriggerServiceAppConf {
       }
     })
 
+  implicit val levelReader: ConfigReader[Level] =
+    ConfigReader.fromString[Level](level => Right(Level.valueOf(level)))
+
+  implicit val logEncoderReader: ConfigReader[LogEncoder] =
+    ConfigReader.fromString[LogEncoder](ConvertHelpers.catchReadError {
+      case "plain" => LogEncoder.Plain
+      case "json" => LogEncoder.Json
+      case s =>
+        throw new IllegalArgumentException(
+          s"Value '$s' for log-encoder is not one of 'plain' or 'json'"
+        )
+    })
+
   implicit val serviceCfgReader: ConfigReader[TriggerServiceAppConf] =
     deriveReader[TriggerServiceAppConf]
+
+  implicit val triggerConfigReader: ConfigReader[TriggerRunnerConfig] =
+    deriveReader[TriggerRunnerConfig]
 }
 
 /* An intermediate config representation allowing us to define our HOCON config in a more modular fashion,
@@ -87,6 +107,9 @@ private[trigger] final case class TriggerServiceAppConf(
     triggerStore: Option[JdbcConfig] = None,
     allowExistingSchema: Boolean = false,
     compilerConfig: Compiler.Config = Compiler.Config.Default,
+    triggerConfig: TriggerRunnerConfig = DefaultTriggerRunnerConfig,
+    rootLoggingLevel: Option[Level] = None,
+    logEncoder: LogEncoder = LogEncoder.Plain,
 ) {
   def toServiceConfig: ServiceConfig = {
     ServiceConfig(
@@ -115,6 +138,9 @@ private[trigger] final case class TriggerServiceAppConf(
       portFile = portFile,
       allowExistingSchema = allowExistingSchema,
       compilerConfig = compilerConfig,
+      triggerConfig = triggerConfig,
+      rootLoggingLevel = rootLoggingLevel,
+      logEncoder = logEncoder,
     )
   }
 }

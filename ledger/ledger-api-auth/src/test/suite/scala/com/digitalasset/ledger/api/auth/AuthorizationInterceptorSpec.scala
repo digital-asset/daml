@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.auth
@@ -13,7 +13,7 @@ import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 import java.util.concurrent.CompletableFuture
 
-import com.daml.ledger.participant.state.index.v2.UserManagementStore
+import com.daml.platform.localstore.api.UserManagementStore
 
 import scala.concurrent.ExecutionContext.global
 import scala.concurrent.Promise

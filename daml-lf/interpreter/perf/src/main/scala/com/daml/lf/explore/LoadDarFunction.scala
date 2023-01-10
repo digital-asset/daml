@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -42,7 +42,7 @@ object LoadDarFunction extends App {
       val machine = Machine.fromPureSExpr(compiledPackages, expr)
 
       machine.run() match {
-        case SResultFinal(SInt64(result), _) => result
+        case SResultFinal(SInt64(result)) => result
         case res => throw new RuntimeException(s"Unexpected result from machine $res")
       }
     }

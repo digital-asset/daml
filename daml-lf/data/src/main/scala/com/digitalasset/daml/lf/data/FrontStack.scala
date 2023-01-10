@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.data
@@ -98,10 +98,12 @@ final class FrontStack[+A] private (fq: FrontStack.FQ[A], val length: Int) {
     new Iterator[A] {
       var queue: FrontStack[A] = that
 
-      override def next(): A = {
-        val Some((head, tail)) = queue.pop
-        queue = tail
-        head
+      override def next(): A = queue.pop match {
+        case Some((head, tail)) =>
+          queue = tail
+          head
+        case None =>
+          throw new NoSuchElementException("head of empty list")
       }
 
       override def hasNext: Boolean = queue.nonEmpty

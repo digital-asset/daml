@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -29,14 +29,13 @@ class PartialTransactionSpec extends AnyWordSpec with Matchers with Inside {
     ImmArray.Empty,
   )
 
-  private[this] def contractIdsInOrder(ptx: PartialTransaction): Seq[Value.ContractId] = {
-    ptx.finish match {
-      case PartialTransaction.Result(tx, _, _, _, _) =>
-        tx.fold(Vector.empty[Value.ContractId]) {
-          case (acc, (_, create: Node.Create)) => acc :+ create.coid
-          case (acc, _) => acc
-        }
-    }
+  private[this] def contractIdsInOrder(ptx: PartialTransaction): List[Value.ContractId] = {
+    ptx.finish.toOption.get._1
+      .fold(List.empty[Value.ContractId]) {
+        case (acc, (_, create: Node.Create)) => acc :+ create.coid
+        case (acc, _) => acc
+      }
+      .reverse
   }
 
   private[this] implicit class PartialTransactionExtra(val ptx: PartialTransaction) {

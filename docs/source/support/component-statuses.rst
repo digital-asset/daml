@@ -1,4 +1,4 @@
-.. Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 Feature and Component Statuses
@@ -124,17 +124,23 @@ Libraries
    * - ``bindings-rxjava`` :doc:`library and its public API </app-dev/bindings-java/index>`.
      - Stable
      -
-   * - Maven artifact ``daml-lf-1.6-archive-java-proto``
+   * -  ``daml-lf-1.6-archive-java-proto``
      - Stable
      -
-   * - Maven artifact ``daml-lf-1.7-archive-java-proto``
+   * -  ``daml-lf-1.7-archive-java-proto``
      - Stable
      -
-   * - Maven artifact ``daml-lf-1.8-archive-java-proto``
+   * -  ``daml-lf-1.8-archive-java-proto``
      - Stable
      -
-   * - Maven artifact ``daml-lf-dev-archive-java-proto``
+   * -  ``daml-lf-dev-archive-java-proto``
      - Alpha
+     -
+   * - **Python Ledger API Bindings (formerly known as DAZL)**
+     -
+     -
+   * - ``dazl`` `library and its public API <https://digital-asset.github.io/dazl-client/>`_
+     - Stable
      -
    * - **JavaScript Client Libraries**
      -

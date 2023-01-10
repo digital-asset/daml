@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -19,7 +19,7 @@ import com.daml.lf.speedy.SExpr.{SEAppAtomic, SEValue}
 import com.daml.lf.speedy.{ArrayList, SError, SValue}
 import com.daml.lf.speedy.SExpr.SExpr
 import com.daml.lf.speedy.SValue._
-import com.daml.lf.speedy.Speedy.Machine
+import com.daml.lf.speedy.Speedy.PureMachine
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 import scalaz.{Foldable, OneAnd}
@@ -60,7 +60,7 @@ object ScriptF {
       val scriptIds: ScriptIds,
       val timeMode: ScriptTimeMode,
       private var _clients: Participants[ScriptLedgerClient],
-      machine: Machine,
+      machine: PureMachine,
   ) {
     def clients = _clients
     def compiledPackages = machine.compiledPackages
@@ -83,6 +83,12 @@ object ScriptF {
     def lookupKeyTy(id: Identifier): Either[String, Ast.Type] =
       compiledPackages.pkgInterface.lookupTemplateKey(id) match {
         case Right(key) => Right(key.typ)
+        case Left(err) => Left(err.pretty)
+      }
+
+    def lookupInterfaceViewTy(id: Identifier): Either[String, Ast.Type] =
+      compiledPackages.pkgInterface.lookupInterface(id) match {
+        case Right(key) => Right(key.view)
         case Left(err) => Left(err.pretty)
       }
 
@@ -247,13 +253,85 @@ object ScriptF {
         esf: ExecutionSequencerFactory,
     ): Future[SExpr] =
       for {
-        client <- Converter.toFuture(env.clients.getPartyParticipant(parties.head))
+        client <- Converter.toFuture(env.clients.getPartiesParticipant(parties))
         optR <- client.queryContractId(parties, tplId, cid)
-        optR <- Converter.toFuture(
-          optR.traverse(Converter.fromContract(env.valueTranslator, _))
-        )
+        optR <- Converter.toFuture(optR.traverse(Converter.fromContract(env.valueTranslator, _)))
       } yield SEAppAtomic(SEValue(continue), Array(SEValue(SOptional(optR))))
   }
+
+  final case class QueryInterface(
+      parties: OneAnd[Set, Party],
+      interfaceId: Identifier,
+      stackTrace: StackTrace,
+      continue: SValue,
+  ) extends Cmd {
+    override def description = "queryInterface"
+
+    override def execute(env: Env)(implicit
+        ec: ExecutionContext,
+        mat: Materializer,
+        esf: ExecutionSequencerFactory,
+    ): Future[SExpr] = {
+
+      def makePair(v1: SValue, v2: SValue): SValue = {
+        import com.daml.lf.language.StablePackage.DA
+        import com.daml.script.converter.Converter.record
+        record(DA.Types.assertIdentifier("Tuple2"), ("_1", v1), ("_2", v2))
+      }
+
+      for {
+        viewType <- Converter.toFuture(env.lookupInterfaceViewTy(interfaceId))
+        client <- Converter.toFuture(env.clients.getPartiesParticipant(parties))
+        list <- client.queryInterface(parties, interfaceId, viewType)
+        list <- Converter.toFuture(
+          list
+            .to(FrontStack)
+            .traverse { case (cid, optView) =>
+              optView match {
+                case None =>
+                  Right(makePair(SContractId(cid), SOptional(None)))
+                case Some(view) =>
+                  for {
+                    view <- Converter.fromInterfaceView(
+                      env.valueTranslator,
+                      viewType,
+                      view,
+                    )
+                  } yield {
+                    makePair(SContractId(cid), SOptional(Some(view)))
+                  }
+              }
+            }
+        )
+      } yield SEAppAtomic(SEValue(continue), Array(SEValue(SList(list))))
+    }
+  }
+
+  final case class QueryInterfaceContractId(
+      parties: OneAnd[Set, Party],
+      interfaceId: Identifier,
+      cid: ContractId,
+      stackTrace: StackTrace,
+      continue: SValue,
+  ) extends Cmd {
+    override def description = "queryInterfaceContractId"
+
+    override def execute(env: Env)(implicit
+        ec: ExecutionContext,
+        mat: Materializer,
+        esf: ExecutionSequencerFactory,
+    ): Future[SExpr] = {
+      for {
+        viewType <- Converter.toFuture(env.lookupInterfaceViewTy(interfaceId))
+        client <- Converter.toFuture(env.clients.getPartiesParticipant(parties))
+        optR <- client.queryInterfaceContractId(parties, interfaceId, viewType, cid)
+        optR <- Converter.toFuture(
+          optR.traverse(Converter.fromInterfaceView(env.valueTranslator, viewType, _))
+        )
+      } yield SEAppAtomic(SEValue(continue), Array(SEValue(SOptional(optR))))
+    }
+  }
+
   final case class QueryContractKey(
       parties: OneAnd[Set, Party],
       tplId: Identifier,
@@ -696,6 +774,52 @@ object ScriptF {
     }
   }
 
+  private def parseQueryInterface(
+      ctx: Ctx,
+      v: SValue,
+  ): Either[String, QueryInterface] = {
+    def convert(
+        actAs: SValue,
+        interfaceId: SValue,
+        stackTrace: Option[SValue],
+        continue: SValue,
+    ) =
+      for {
+        actAs <- Converter.toParties(actAs)
+        interfaceId <- Converter.typeRepToIdentifier(interfaceId)
+        stackTrace <- toStackTrace(ctx, stackTrace)
+      } yield QueryInterface(actAs, interfaceId, stackTrace, continue)
+    v match {
+      case SRecord(_, _, ArrayList(actAs, interfaceId, continue, stackTrace)) =>
+        convert(actAs, interfaceId, Some(stackTrace), continue)
+      case _ => Left(s"Expected QueryInterface payload but got $v")
+    }
+  }
+
+  private def parseQueryInterfaceContractId(
+      ctx: Ctx,
+      v: SValue,
+  ): Either[String, QueryInterfaceContractId] = {
+    def convert(
+        actAs: SValue,
+        interfaceId: SValue,
+        cid: SValue,
+        stackTrace: Option[SValue],
+        continue: SValue,
+    ) =
+      for {
+        actAs <- Converter.toParties(actAs)
+        interfaceId <- Converter.typeRepToIdentifier(interfaceId)
+        cid <- toContractId(cid)
+        stackTrace <- toStackTrace(ctx, stackTrace)
+      } yield QueryInterfaceContractId(actAs, interfaceId, cid, stackTrace, continue)
+    v match {
+      case SRecord(_, _, ArrayList(actAs, interfaceId, cid, continue, stackTrace)) =>
+        convert(actAs, interfaceId, cid, Some(stackTrace), continue)
+      case _ => Left(s"Expected QueryInterfaceContractId payload but got $v")
+    }
+  }
+
   private def parseQueryContractKey(ctx: Ctx, v: SValue): Either[String, QueryContractKey] = {
     def convert(
         actAs: SValue,
@@ -934,6 +1058,8 @@ object ScriptF {
       case "SubmitTree" => parseSubmit(ctx, v).map(SubmitTree(_))
       case "Query" => parseQuery(ctx, v)
       case "QueryContractId" => parseQueryContractId(ctx, v)
+      case "QueryInterface" => parseQueryInterface(ctx, v)
+      case "QueryInterfaceContractId" => parseQueryInterfaceContractId(ctx, v)
       case "QueryContractKey" => parseQueryContractKey(ctx, v)
       case "AllocParty" => parseAllocParty(ctx, v)
       case "ListKnownParties" => parseListKnownParties(ctx, v)

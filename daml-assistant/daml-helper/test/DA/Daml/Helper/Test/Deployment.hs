@@ -1,7 +1,9 @@
--- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 module DA.Daml.Helper.Test.Deployment (main) where
+
+{- HLINT ignore "locateRunfiles/package_app" -}
 
 import Control.Exception
 import qualified Data.UUID.V4 as UUID

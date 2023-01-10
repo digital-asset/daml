@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -81,7 +81,7 @@ case class Participants[+T](
     participants: Map[Participant, T],
     party_participants: Map[Party, Participant],
 ) {
-  def getPartyParticipant(party: Party): Either[String, T] =
+  private def getPartyParticipant(party: Party): Either[String, T] =
     party_participants.get(party) match {
       case None =>
         default_participant.toRight(s"No participant for party $party and no default participant")
@@ -213,9 +213,8 @@ object Script {
 
 object Runner {
 
-  final case class InterpretationError(error: SError.SError) extends RuntimeException {
-    override def toString: String = Pretty.prettyError(error).render(80)
-  }
+  final case class InterpretationError(error: SError.SError)
+      extends RuntimeException(s"${Pretty.prettyError(error).render(80)}")
 
   private[script] val compilerConfig = {
     import Compiler._
@@ -359,7 +358,7 @@ object Runner {
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
-  ): (Speedy.Machine, Future[SValue]) = {
+  ): (Speedy.PureMachine, Future[SValue]) = {
     val script = data.assertRight(Script.fromIdentifier(compiledPackages, scriptId))
     val scriptAction: Script.Action = (script, inputValue) match {
       case (script: Script.Action, None) => script
@@ -426,7 +425,7 @@ private[lf] class Runner(
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
-  ): (Speedy.Machine, Future[SValue]) = {
+  ): (Speedy.PureMachine, Future[SValue]) = {
     val machine =
       Speedy.Machine.fromPureSExpr(
         extendedCompiledPackages,
@@ -437,7 +436,7 @@ private[lf] class Runner(
 
     def stepToValue(): Either[RuntimeException, SValue] =
       machine.run() match {
-        case SResultFinal(v, _) =>
+        case SResultFinal(v) =>
           Right(v)
         case SResultError(err) =>
           Left(Runner.InterpretationError(err))

@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.error.generator
@@ -16,6 +16,7 @@ import org.scalatest.matchers.should.Matchers
 import scala.annotation.nowarn
 import scala.reflect.ClassTag
 
+@nowarn("msg=Specify both message and version")
 class ErrorCodeDocumentationGeneratorSpec extends AnyFlatSpec with Matchers {
 
   it should "return the correct doc items from the error classes" in {

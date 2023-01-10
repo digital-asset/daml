@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.store.dao
@@ -6,7 +6,7 @@ package com.daml.platform.store.dao
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.daml_lf_dev.DamlLf.Archive
-import com.daml.ledger.api.domain.{LedgerId, ParticipantId, PartyDetails}
+import com.daml.ledger.api.domain.{LedgerId, ParticipantId}
 import com.daml.ledger.api.health.ReportsHealth
 import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
 import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
@@ -19,7 +19,7 @@ import com.daml.ledger.api.v1.transaction_service.{
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.MeteringStore.ReportData
-import com.daml.ledger.participant.state.index.v2.PackageDetails
+import com.daml.ledger.participant.state.index.v2.{IndexerPartyDetails, PackageDetails}
 import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.transaction.{BlindingInfo, CommittedTransaction}
@@ -106,10 +106,10 @@ private[platform] trait LedgerReadDao extends ReportsHealth {
   /** Returns a list of party details for the parties specified. */
   def getParties(parties: Seq[Party])(implicit
       loggingContext: LoggingContext
-  ): Future[List[PartyDetails]]
+  ): Future[List[IndexerPartyDetails]]
 
   /** Returns a list of all known parties. */
-  def listKnownParties()(implicit loggingContext: LoggingContext): Future[List[PartyDetails]]
+  def listKnownParties()(implicit loggingContext: LoggingContext): Future[List[IndexerPartyDetails]]
 
   def getPartyEntries(
       startExclusive: Offset,

@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.apiserver.meteringreport
@@ -13,7 +13,7 @@ import com.google.protobuf.struct.Struct
 import com.google.protobuf.timestamp.{Timestamp => ProtoTimestamp}
 import spray.json.enrichAny
 import HmacSha256.Key
-import com.daml.struct.json.StructJsonFormat
+import com.daml.struct.spray.StructJsonFormat
 
 class MeteringReportGenerator(participantId: Ref.ParticipantId, key: Key) {
 

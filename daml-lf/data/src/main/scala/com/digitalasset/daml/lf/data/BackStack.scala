@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.data
@@ -96,10 +96,12 @@ final class BackStack[+A] private (fq: BQ[A], val length: Int) {
     new Iterator[A] {
       var queue: BackStack[A] = that
 
-      override def next(): A = {
-        val Some((init, last)) = queue.pop
-        queue = init
-        last
+      override def next(): A = queue.pop match {
+        case Some((init, last)) =>
+          queue = init
+          last
+        case None =>
+          throw new NoSuchElementException("head of empty list")
       }
 
       override def hasNext: Boolean = queue.nonEmpty

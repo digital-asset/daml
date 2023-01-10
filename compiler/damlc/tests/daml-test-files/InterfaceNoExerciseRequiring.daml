@@ -1,7 +1,7 @@
 -- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
--- @SINCE-LF-FEATURE DAML_INTERFACE_EXTENDED
+-- @SINCE-LF-FEATURE DAML_INTERFACE
 
 module InterfaceNoExerciseRequiring where
 
@@ -25,9 +25,7 @@ interface Token where
 interface SubToken requires Token where
   viewtype EmptyInterfaceView
 
--- @ERROR range=33:3-34:26; Tried to exercise a choice GetRich which doesn't exist on SubToken
--- An interface I choice cannot be exercised on a different interface J,
--- even if J requires I
+-- @ERROR range=31:3-32:26; The choice ‘GetRich’ belongs to interface ‘Token’ which ‘SubToken’ implements.
 cannotExercise : ContractId SubToken -> Update (ContractId Token)
 cannotExercise sub = do
   exercise sub GetRich with

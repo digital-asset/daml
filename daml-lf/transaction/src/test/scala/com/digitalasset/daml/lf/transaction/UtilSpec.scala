@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -15,7 +15,7 @@ class UtilSpec extends AnyWordSpec with Matchers with ScalaCheckPropertyChecks {
   "normalize" should {
 
     "be equivalent to serialization followed by unserialization" in {
-      forAll(valueGen, transactionVersionGen()) { (v, version) =>
+      forAll(valueGen(), transactionVersionGen()) { (v, version) =>
         val reference = for {
           encoded <-
             ValueCoder.encodeValue(ValueCoder.CidEncoder, version, v).left.map(_ => ())

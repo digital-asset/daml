@@ -1,11 +1,12 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.testtool.infrastructure.participant
 
+import com.daml.error.ErrorCode
+
 import java.time.Instant
 import java.util.concurrent.TimeoutException
-
 import com.daml.ledger.api.refinements.ApiTypes.TemplateId
 import com.daml.ledger.api.testtool.infrastructure.Endpoint
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext.IncludeInterfaceView
@@ -186,8 +187,9 @@ class TimeoutParticipantTestContext(timeoutScaleFactor: Double, delegate: Partic
       parties: Seq[Primitive.Party],
       templateIds: Seq[TemplateId],
       interfaceFilters: Seq[(TemplateId, IncludeInterfaceView)] = Seq.empty,
+      activeAtOffset: String = "",
   ): GetActiveContractsRequest =
-    delegate.activeContractsRequest(parties, templateIds, interfaceFilters)
+    delegate.activeContractsRequest(parties, templateIds, interfaceFilters, activeAtOffset)
   override def activeContracts(parties: Primitive.Party*): Future[Vector[CreatedEvent]] =
     withTimeout(s"Active contracts for parties $parties", delegate.activeContracts(parties: _*))
   override def activeContractsByTemplateId(
@@ -416,6 +418,11 @@ class TimeoutParticipantTestContext(timeoutScaleFactor: Double, delegate: Partic
     s"Submit and wait for transaction tree for request $request",
     delegate.submitAndWaitForTransactionTree(request),
   )
+  override def submitRequestAndTolerateGrpcError[T](
+      errorToTolerate: ErrorCode,
+      submitAndWaitGeneric: ParticipantTestContext => Future[T],
+  ): Future[T] = // timeout enforced by submitAndWaitGeneric
+    delegate.submitRequestAndTolerateGrpcError(errorToTolerate, submitAndWaitGeneric)
   override def completionStreamRequest(from: LedgerOffset)(
       parties: Primitive.Party*
   ): CompletionStreamRequest = delegate.completionStreamRequest(from)(parties: _*)

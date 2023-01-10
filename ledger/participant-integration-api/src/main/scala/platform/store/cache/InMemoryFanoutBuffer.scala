@@ -1,10 +1,11 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.store.cache
 
 import com.daml.ledger.offset.Offset
 import com.daml.logging.ContextualizedLogger
+import com.daml.metrics.api.MetricsContext
 import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.store.cache.InMemoryFanoutBuffer._
 import com.daml.platform.store.interfaces.TransactionLogUpdate
@@ -142,7 +143,7 @@ class InMemoryFanoutBuffer(
     val currentLookupMapSize = _lookupMap.size
 
     if (currentLookupMapSize <= currentBufferLogSize) {
-      bufferSizeHistogram.update(currentBufferLogSize)
+      bufferSizeHistogram.update(currentBufferLogSize)(MetricsContext.Empty)
 
       if (currentBufferLogSize > targetSize) {
         dropOldest(dropCount = currentBufferLogSize - targetSize)

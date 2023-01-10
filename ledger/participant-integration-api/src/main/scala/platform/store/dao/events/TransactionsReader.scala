@@ -1,16 +1,12 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.store.dao.events
 
-import java.sql.Connection
 import akka.stream.scaladsl.Source
 import akka.{Done, NotUsed}
 import com.daml.error.DamlContextualizedErrorLogger
-import com.daml.ledger.api.TraceIdentifiers
 import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
-import com.daml.ledger.api.v1.event.Event
-import com.daml.ledger.api.v1.transaction.TreeEvent
 import com.daml.ledger.api.v1.transaction_service.{
   GetFlatTransactionResponse,
   GetTransactionResponse,
@@ -28,9 +24,7 @@ import com.daml.platform.store.dao.{
   DbDispatcher,
   EventProjectionProperties,
   LedgerDaoTransactionsReader,
-  PaginatingAsyncStream,
 }
-import com.daml.platform.store.backend.EventStorageBackend.{FilterParams, RangeParams}
 import com.daml.platform.store.backend.EventStorageBackend
 import com.daml.platform.store.dao.events.EventsTable.TransactionConversions
 import com.daml.platform.store.utils.Telemetry
@@ -41,50 +35,41 @@ import io.opentelemetry.api.trace.Span
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
-/** @param dispatcher Executes the queries prepared by this object
-  * @param executionContext Runs transformations on data fetched from the database, including Daml-LF value deserialization
-  * @param pageSize The number of events to fetch at a time the database when serving streaming calls
-  * @param eventProcessingParallelism The parallelism for loading and decoding state events
+/** @param flatTransactionsStreamReader Knows how to stream flat transactions
+  * @param treeTransactionsStreamReader Knows how to stream tree transactions
+  * @param flatTransactionPointwiseReader Knows how to fetch a flat transaction by its id
+  * @param treeTransactionPointwiseReader Knows how to fetch a tree transaction by its id
+  * @param dispatcher Executes the queries prepared by this object
+  * @param queryNonPruned
+  * @param eventStorageBackend
+  * @param payloadProcessingParallelism The parallelism for loading and decoding event payloads
+  * @param metrics
   * @param lfValueTranslation The delegate in charge of translating serialized Daml-LF values
-  * @see [[PaginatingAsyncStream]]
+  * @param acsReader Knows how to streams ACS
+  * @param executionContext Runs transformations on data fetched from the database, including Daml-LF value deserialization
   */
 private[dao] final class TransactionsReader(
+    flatTransactionsStreamReader: TransactionsFlatStreamReader,
+    treeTransactionsStreamReader: TransactionsTreeStreamReader,
+    flatTransactionPointwiseReader: TransactionFlatPointwiseReader,
+    treeTransactionPointwiseReader: TransactionTreePointwiseReader,
     dispatcher: DbDispatcher,
     queryNonPruned: QueryNonPruned,
     eventStorageBackend: EventStorageBackend,
-    pageSize: Int,
-    eventProcessingParallelism: Int,
+    payloadProcessingParallelism: Int,
     metrics: Metrics,
     lfValueTranslation: LfValueTranslation,
     acsReader: ACSReader,
 )(implicit executionContext: ExecutionContext)
     extends LedgerDaoTransactionsReader {
 
+  import TransactionsReader._
+
   private val dbMetrics = metrics.daml.index.db
   private val eventSeqIdReader =
     new EventsRange.EventSeqIdReader(eventStorageBackend.maxEventSequentialIdOfAnObservableEvent)
-  private val getTransactions =
-    new EventsTableFlatEventsRangeQueries.GetTransactions(eventStorageBackend)
 
   private val logger = ContextualizedLogger.get(this.getClass)
-
-  private def offsetFor(response: GetTransactionsResponse): Offset =
-    ApiOffset.assertFromString(response.transactions.head.offset)
-
-  private def offsetFor(response: GetTransactionTreesResponse): Offset =
-    ApiOffset.assertFromString(response.transactions.head.offset)
-
-  private def deserializeEvent[E](
-      eventProjectionProperties: EventProjectionProperties
-  )(entry: EventStorageBackend.Entry[Raw[E]])(implicit
-      loggingContext: LoggingContext
-  ): Future[E] =
-    entry.event.applyDeserialization(lfValueTranslation, eventProjectionProperties)
-
-  private def deserializeEntry[E](eventProjectionProperties: EventProjectionProperties)(
-      entry: EventStorageBackend.Entry[Raw[E]]
-  )(implicit loggingContext: LoggingContext): Future[EventStorageBackend.Entry[E]] =
-    deserializeEvent(eventProjectionProperties)(entry).map(event => entry.copy(event = event))
 
   override def getFlatTransactions(
       startExclusive: Offset,
@@ -92,87 +77,46 @@ private[dao] final class TransactionsReader(
       filter: TemplatePartiesFilter,
       eventProjectionProperties: EventProjectionProperties,
   )(implicit loggingContext: LoggingContext): Source[(Offset, GetTransactionsResponse), NotUsed] = {
-    val span =
-      Telemetry.Transactions.createSpan(startExclusive, endInclusive)(qualifiedNameOfCurrentFunc)
-    logger.debug(
-      s"getFlatTransactions($startExclusive, $endInclusive, $filter, $eventProjectionProperties)"
-    )
-
-    val requestedRangeF = getEventSeqIdRange(startExclusive, endInclusive)
-
-    val query = (range: EventsRange[(Offset, Long)]) => { implicit connection: Connection =>
-      logger.debug(s"getFlatTransactions query($range)")
-      queryNonPruned.executeSql(
-        getTransactions(
-          EventsRange(range.startExclusive._2, range.endInclusive._2),
+    val futureSource = getEventSeqIdRange(startExclusive, endInclusive)
+      .map(queryRange =>
+        flatTransactionsStreamReader.streamFlatTransactions(
+          queryRange,
           filter,
-          pageSize,
-        )(connection),
-        range.startExclusive._1,
-        pruned =>
-          s"Transactions request from ${range.startExclusive._1.toHexString} to ${range.endInclusive._1.toHexString} precedes pruned offset ${pruned.toHexString}",
+          eventProjectionProperties,
+        )
       )
-    }
-
-    val events: Source[EventStorageBackend.Entry[Event], NotUsed] =
-      Source
-        .futureSource(requestedRangeF.map { requestedRange =>
-          streamEvents(
-            eventProjectionProperties,
-            dbMetrics.getFlatTransactions,
-            query,
-            nextPageRange[Event](requestedRange.endInclusive),
-          )(requestedRange)
-        })
-        .mapMaterializedValue(_ => NotUsed)
-
-    TransactionsReader
-      .groupContiguous(events)(by = _.transactionId)
-      .mapConcat { events =>
-        val response = TransactionConversions.toGetTransactionsResponse(events)
-        response.map(r => offsetFor(r) -> r)
-      }
-      .wireTap(_ match {
-        case (_, response) =>
-          response.transactions.foreach(txn =>
-            Spans.addEventToSpan(
-              telemetry.Event("transaction", TraceIdentifiers.fromTransaction(txn)),
-              span,
-            )
-          )
-      })
-      .watchTermination()(endSpanOnTermination(span))
+    Source
+      .futureSource(futureSource)
+      .mapMaterializedValue((_: Future[NotUsed]) => NotUsed)
   }
 
   override def lookupFlatTransactionById(
       transactionId: Ref.TransactionId,
       requestingParties: Set[Party],
-  )(implicit loggingContext: LoggingContext): Future[Option[GetFlatTransactionResponse]] =
-    dispatcher
-      .executeSql(dbMetrics.lookupFlatTransactionById)(
-        eventStorageBackend.flatTransaction(
-          transactionId,
-          FilterParams(
-            wildCardParties = requestingParties,
-            partiesAndTemplates = Set.empty,
-          ),
-        )
-      )
-      .flatMap(rawEvents =>
-        Timed.value(
-          timer = dbMetrics.lookupFlatTransactionById.translationTimer,
-          value = Future.traverse(rawEvents)(
-            deserializeEntry(
-              EventProjectionProperties(
-                verbose = true,
-                witnessTemplateIdFilter =
-                  requestingParties.map(_.toString -> Set.empty[Identifier]).toMap,
-              )
-            )
-          ),
-        )
-      )
-      .map(TransactionConversions.toGetFlatTransactionResponse)
+  )(implicit loggingContext: LoggingContext): Future[Option[GetFlatTransactionResponse]] = {
+    flatTransactionPointwiseReader.lookupTransactionById(
+      transactionId = transactionId,
+      requestingParties = requestingParties,
+      eventProjectionProperties = EventProjectionProperties(
+        verbose = true,
+        witnessTemplateIdFilter = requestingParties.map(_.toString -> Set.empty[Identifier]).toMap,
+      ),
+    )
+  }
+
+  override def lookupTransactionTreeById(
+      transactionId: Ref.TransactionId,
+      requestingParties: Set[Party],
+  )(implicit loggingContext: LoggingContext): Future[Option[GetTransactionResponse]] = {
+    treeTransactionPointwiseReader.lookupTransactionById(
+      transactionId = transactionId,
+      requestingParties = requestingParties,
+      eventProjectionProperties = EventProjectionProperties(
+        verbose = true,
+        witnessTemplateIdFilter = requestingParties.map(_.toString -> Set.empty[Identifier]).toMap,
+      ),
+    )
+  }
 
   override def getTransactionTrees(
       startExclusive: Offset,
@@ -182,99 +126,19 @@ private[dao] final class TransactionsReader(
   )(implicit
       loggingContext: LoggingContext
   ): Source[(Offset, GetTransactionTreesResponse), NotUsed] = {
-    val span =
-      Telemetry.Transactions.createSpan(startExclusive, endInclusive)(qualifiedNameOfCurrentFunc)
-    logger.debug(
-      s"getTransactionTrees($startExclusive, $endInclusive, $requestingParties, $eventProjectionProperties)"
+    val requestedRangeF: Future[EventsRange[(Offset, Long)]] =
+      getEventSeqIdRange(startExclusive, endInclusive)
+    val futureSource = requestedRangeF.map(queryRange =>
+      treeTransactionsStreamReader.streamTreeTransaction(
+        queryRange = queryRange,
+        requestingParties = requestingParties,
+        eventProjectionProperties = eventProjectionProperties,
+      )
     )
-
-    val requestedRangeF = getEventSeqIdRange(startExclusive, endInclusive)
-
-    val query = (range: EventsRange[(Offset, Long)]) => { implicit connection: Connection =>
-      logger.debug(s"getTransactionTrees query($range)")
-      queryNonPruned.executeSql(
-        EventsRange.readPage(
-          read = (range, limit, fetchSizeHint) =>
-            eventStorageBackend.transactionTreeEvents(
-              rangeParams = RangeParams(
-                startExclusive = range.startExclusive,
-                endInclusive = range.endInclusive,
-                limit = limit,
-                fetchSizeHint = fetchSizeHint,
-              ),
-              filterParams = FilterParams(
-                wildCardParties = requestingParties,
-                partiesAndTemplates = Set.empty,
-              ),
-            ),
-          range = EventsRange(range.startExclusive._2, range.endInclusive._2),
-          pageSize = pageSize,
-        )(connection),
-        range.startExclusive._1,
-        pruned =>
-          s"Transactions request from ${range.startExclusive._1.toHexString} to ${range.endInclusive._1.toHexString} precedes pruned offset ${pruned.toHexString}",
-      )
-    }
-
-    val events: Source[EventStorageBackend.Entry[TreeEvent], NotUsed] =
-      Source
-        .futureSource(requestedRangeF.map { requestedRange =>
-          streamEvents(
-            eventProjectionProperties,
-            dbMetrics.getTransactionTrees,
-            query,
-            nextPageRange[TreeEvent](requestedRange.endInclusive),
-          )(requestedRange)
-        })
-        .mapMaterializedValue(_ => NotUsed)
-
-    TransactionsReader
-      .groupContiguous(events)(by = _.transactionId)
-      .mapConcat { events =>
-        val response = TransactionConversions.toGetTransactionTreesResponse(events)
-        response.map(r => offsetFor(r) -> r)
-      }
-      .wireTap(_ match {
-        case (_, response) =>
-          response.transactions.foreach(txn =>
-            Spans.addEventToSpan(
-              telemetry.Event("transaction", TraceIdentifiers.fromTransactionTree(txn)),
-              span,
-            )
-          )
-      })
-      .watchTermination()(endSpanOnTermination(span))
+    Source
+      .futureSource(futureSource)
+      .mapMaterializedValue((_: Future[NotUsed]) => NotUsed)
   }
-
-  override def lookupTransactionTreeById(
-      transactionId: Ref.TransactionId,
-      requestingParties: Set[Party],
-  )(implicit loggingContext: LoggingContext): Future[Option[GetTransactionResponse]] =
-    dispatcher
-      .executeSql(dbMetrics.lookupTransactionTreeById)(
-        eventStorageBackend.transactionTree(
-          transactionId,
-          FilterParams(
-            wildCardParties = requestingParties,
-            partiesAndTemplates = Set.empty,
-          ),
-        )
-      )
-      .flatMap(rawEvents =>
-        Timed.value(
-          timer = dbMetrics.lookupTransactionTreeById.translationTimer,
-          value = Future.traverse(rawEvents)(
-            deserializeEntry(
-              EventProjectionProperties(
-                verbose = true,
-                witnessTemplateIdFilter =
-                  requestingParties.map(_.toString -> Set.empty[Identifier]).toMap,
-              )
-            )
-          ),
-        )
-      )
-      .map(TransactionConversions.toGetTransactionResponse)
 
   override def getActiveContracts(
       activeAt: Offset,
@@ -294,11 +158,11 @@ private[dao] final class TransactionsReader(
         getAcsEventSeqIdRange(activeAt)
           .map(requestedRange => acsReader.acsStream(filter, requestedRange.endInclusive))
       )
-      .mapAsync(eventProcessingParallelism) { rawResult =>
+      .mapAsync(payloadProcessingParallelism) { rawResult =>
         Timed.future(
           future = Future(
             Future.traverse(rawResult)(
-              deserializeEntry(eventProjectionProperties)
+              deserializeEntry(eventProjectionProperties, lfValueTranslation)
             )
           ).flatMap(identity),
           timer = dbMetrics.getActiveContracts.translationTimer,
@@ -315,11 +179,6 @@ private[dao] final class TransactionsReader(
       .watchTermination()(endSpanOnTermination(span))
   }
 
-  private def nextPageRange[E](endEventSeqId: (Offset, Long))(
-      a: EventStorageBackend.Entry[E]
-  ): EventsRange[(Offset, Long)] =
-    EventsRange(startExclusive = (a.eventOffset, a.eventSequentialId), endInclusive = endEventSeqId)
-
   private def getAcsEventSeqIdRange(activeAt: Offset)(implicit
       loggingContext: LoggingContext
   ): Future[EventsRange[(Offset, Long)]] =
@@ -329,7 +188,10 @@ private[dao] final class TransactionsReader(
           eventSeqIdReader.readEventSeqIdRange(activeAt)(connection),
           activeAt,
           pruned =>
-            s"Active contracts request after ${activeAt.toHexString} precedes pruned offset ${pruned.toHexString}",
+            ACSReader.acsBeforePruningErrorReason(
+              acsOffset = activeAt.toHexString,
+              prunedUpToOffset = pruned.toHexString,
+            ),
         )
       )
       .map { x =>
@@ -361,30 +223,19 @@ private[dao] final class TransactionsReader(
         )
       )
 
-  private def streamEvents[A: Ordering, E](
-      eventProjectionProperties: EventProjectionProperties,
-      queryMetric: DatabaseMetrics,
-      query: EventsRange[A] => Connection => Vector[EventStorageBackend.Entry[Raw[E]]],
-      getNextPageRange: EventStorageBackend.Entry[E] => EventsRange[A],
-  )(range: EventsRange[A])(implicit
-      loggingContext: LoggingContext
-  ): Source[EventStorageBackend.Entry[E], NotUsed] =
-    PaginatingAsyncStream.streamFrom(range, getNextPageRange) { range1 =>
-      if (EventsRange.isEmpty(range1))
-        Future.successful(Vector.empty)
-      else {
-        val rawEvents: Future[Vector[EventStorageBackend.Entry[Raw[E]]]] =
-          dispatcher.executeSql(queryMetric)(query(range1))
-        rawEvents.flatMap(es =>
-          Timed.future(
-            future = Future.traverse(es)(deserializeEntry(eventProjectionProperties)),
-            timer = queryMetric.translationTimer,
-          )
-        )
-      }
-    }
+}
 
-  private def endSpanOnTermination[Mat, Out](span: Span)(mat: Mat, done: Future[Done]): Mat = {
+private[dao] object TransactionsReader {
+
+  def offsetFor(response: GetTransactionsResponse): Offset =
+    ApiOffset.assertFromString(response.transactions.head.offset)
+
+  def offsetFor(response: GetTransactionTreesResponse): Offset =
+    ApiOffset.assertFromString(response.transactions.head.offset)
+
+  def endSpanOnTermination[Mat, Out](
+      span: Span
+  )(mat: Mat, done: Future[Done])(implicit ec: ExecutionContext): Mat = {
     done.onComplete {
       case Failure(exception) =>
         span.recordException(exception)
@@ -394,9 +245,28 @@ private[dao] final class TransactionsReader(
     }
     mat
   }
-}
 
-private[dao] object TransactionsReader {
+  def deserializeEntry[E](
+      eventProjectionProperties: EventProjectionProperties,
+      lfValueTranslation: LfValueTranslation,
+  )(
+      entry: EventStorageBackend.Entry[Raw[E]]
+  )(implicit
+      loggingContext: LoggingContext,
+      ec: ExecutionContext,
+  ): Future[EventStorageBackend.Entry[E]] =
+    deserializeEvent(eventProjectionProperties, lfValueTranslation)(entry).map(event =>
+      entry.copy(event = event)
+    )
+
+  private def deserializeEvent[E](
+      eventProjectionProperties: EventProjectionProperties,
+      lfValueTranslation: LfValueTranslation,
+  )(entry: EventStorageBackend.Entry[Raw[E]])(implicit
+      loggingContext: LoggingContext,
+      ec: ExecutionContext,
+  ): Future[E] =
+    entry.event.applyDeserialization(lfValueTranslation, eventProjectionProperties)
 
   /** Groups together items of type [[A]] that share an attribute [[K]] over a
     * contiguous stretch of the input [[Source]]. Well suited to perform group-by

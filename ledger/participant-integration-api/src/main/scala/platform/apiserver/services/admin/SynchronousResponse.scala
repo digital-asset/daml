@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.apiserver.services.admin
@@ -6,7 +6,7 @@ package com.daml.platform.apiserver.services.admin
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Sink, Source}
 import com.daml.error.DamlContextualizedErrorLogger
-import com.daml.error.definitions.LedgerApiErrors
+import com.daml.error.definitions.CommonErrors
 import com.daml.ledger.api.domain.LedgerOffset
 import com.daml.ledger.participant.state.v2.SubmissionResult
 import com.daml.ledger.participant.state.{v2 => state}
@@ -80,7 +80,7 @@ class SynchronousResponse[Input, Entry, AcceptedEntry](
   ): PartialFunction[Throwable, Future[Nothing]] = {
     case _: TimeoutException =>
       Future.failed(
-        LedgerApiErrors.RequestTimeOut
+        CommonErrors.RequestTimeOut
           .Reject("Request timed out", definiteAnswer = false)(
             errorLogger(loggingContext, submissionId)
           )
@@ -88,7 +88,7 @@ class SynchronousResponse[Input, Entry, AcceptedEntry](
       )
     case _: NoSuchElementException =>
       Future.failed(
-        LedgerApiErrors.ServiceNotRunning
+        CommonErrors.ServiceNotRunning
           .Reject("Party submission")(errorLogger(loggingContext, submissionId))
           .asGrpcError
       )

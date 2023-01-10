@@ -1,15 +1,16 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.indexer.parallel
 
-import com.codahale.metrics.{InstrumentedExecutorService, MetricRegistry}
+import com.codahale.metrics.MetricRegistry
+import com.daml.executors.InstrumentedExecutors
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.metrics.MetricName
+import com.daml.metrics.ExecutorServiceMetrics
+import com.daml.metrics.api.MetricName
 import com.google.common.util.concurrent.ThreadFactoryBuilder
 
-import java.util.concurrent.Executors
 import scala.concurrent.{ExecutionContext, Future}
 
 object AsyncSupport {
@@ -29,34 +30,24 @@ object AsyncSupport {
   def asyncPool(
       size: Int,
       namePrefix: String,
-      withMetric: Option[(MetricName, MetricRegistry)] = None,
+      withMetric: (MetricName, MetricRegistry, ExecutorServiceMetrics),
   )(implicit loggingContext: LoggingContext): ResourceOwner[Executor] =
     ResourceOwner
-      .forExecutorService(() =>
-        ExecutionContext.fromExecutorService(
-          {
-            val executor = Executors.newFixedThreadPool(
-              size,
-              new ThreadFactoryBuilder()
-                .setNameFormat(s"$namePrefix-%d")
-                .build,
-            )
-            withMetric match {
-              case Some((metricName, metricRegistry)) =>
-                new InstrumentedExecutorService(
-                  executor,
-                  metricRegistry,
-                  metricName,
-                )
-
-              case None => executor
-            }
-          },
+      .forExecutorService { () =>
+        val (executorName, metricRegistry, executorServiceMetrics) = withMetric
+        InstrumentedExecutors.newFixedThreadPoolWithFactory(
+          executorName,
+          size,
+          new ThreadFactoryBuilder()
+            .setNameFormat(s"$namePrefix-%d")
+            .build,
+          metricRegistry,
+          executorServiceMetrics,
           throwable =>
             ContextualizedLogger
               .get(this.getClass)
               .error(s"ExecutionContext $namePrefix has failed with an exception", throwable),
         )
-      )
+      }
       .map(Executor.forExecutionContext)
 }

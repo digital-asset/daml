@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.store.backend
@@ -107,6 +107,7 @@ class DbDtoToStringsForInterningSpec extends AnyFlatSpec with Matchers {
       create_argument_compression = Some(1),
       create_key_value_compression = Some(1),
       event_sequential_id = 1,
+      driver_metadata = None,
     ),
     DbDto.EventExercise(
       consuming = true,

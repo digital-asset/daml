@@ -1,10 +1,12 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.auth.middleware.oauth2
 
 import akka.actor.ActorSystem
+import com.daml.scalautil.Statement.discard
 import com.typesafe.scalalogging.StrictLogging
+
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext}
 import scala.util.{Failure, Success}
@@ -25,13 +27,11 @@ object Main extends StrictLogging {
 
     val bindingFuture = Server.start(config)
 
-    sys.addShutdownHook {
-      Server
-        .stop(bindingFuture)
-        .onComplete { _ =>
-          terminate()
-        }
-    }
+    discard(
+      sys.addShutdownHook(
+        Server.stop(bindingFuture).onComplete(_ => terminate())
+      )
+    )
 
     logger.debug(s"Configuration $config")
 

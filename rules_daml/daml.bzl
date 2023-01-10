@@ -1,4 +1,4 @@
-# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load("@build_environment//:configuration.bzl", "ghc_version", "sdk_version")
@@ -23,6 +23,7 @@ _zipper = attr.label(
 def _daml_configure_impl(ctx):
     project_name = ctx.attr.project_name
     project_version = ctx.attr.project_version
+    dependencies = ctx.attr.dependencies
     data_dependencies = ctx.attr.data_dependencies
     daml_yaml = ctx.outputs.daml_yaml
     target = ctx.attr.target
@@ -34,14 +35,15 @@ def _daml_configure_impl(ctx):
             name: {name}
             version: {version}
             source: .
-            data-dependencies: [{data_dependencies} ]
-            dependencies: []
-            build-options: [{opts} ]
+            data-dependencies: [{data_dependencies}]
+            dependencies: [{dependencies}]
+            build-options: [{opts}]
         """.format(
             sdk = sdk_version,
             name = project_name,
             version = project_version,
             opts = ", ".join(opts),
+            dependencies = ", ".join(dependencies),
             data_dependencies = ", ".join(data_dependencies),
         ),
     )
@@ -63,6 +65,9 @@ _daml_configure = rule(
         ),
         "target": attr.string(
             doc = "Daml-LF version to output.",
+        ),
+        "dependencies": attr.string_list(
+            doc = "Dependencies.",
         ),
         "data_dependencies": attr.string_list(
             doc = "Data dependencies.",
@@ -283,6 +288,7 @@ def daml_compile(
         project_name = None,
         ghc_options = default_damlc_opts,
         enable_scenarios = False,
+        dependencies = [],
         data_dependencies = [],
         **kwargs):
     "Build a Daml project, with a generated daml.yaml."
@@ -290,6 +296,7 @@ def daml_compile(
         fail("daml_compile: Expected `srcs' to be non-empty.")
     daml_yaml = name + ".yaml"
     _daml_configure(
+        dependencies = [path_to_dar(dep) for dep in dependencies],
         data_dependencies = [path_to_dar(data) for data in data_dependencies],
         name = name + ".configure",
         project_name = project_name or name,
@@ -302,7 +309,8 @@ def daml_compile(
         name = name + ".build",
         daml_yaml = daml_yaml,
         srcs = srcs,
-        dar_dict = {data: path_to_dar(data) for data in data_dependencies},
+        dar_dict =
+            {dar: path_to_dar(dar) for dar in (dependencies + data_dependencies)},
         dar = name + ".dar",
         ghc_options =
             ghc_options +
@@ -368,6 +376,7 @@ def daml_test(
         deps = [],
         data_deps = [],
         damlc = "//compiler/damlc:damlc",
+        additional_compiler_flags = [],
         target = None,
         **kwargs):
     sh_inline_test(
@@ -402,7 +411,7 @@ $$DAMLC test {damlc_opts} --files {files}
             sdk_version = sdk_version,
             deps = " ".join(["$(rootpaths %s)" % dep for dep in deps]),
             data_deps = " ".join(["$(rootpaths %s)" % dep for dep in data_deps]),
-            damlc_opts = " ".join(default_damlc_opts),
+            damlc_opts = " ".join(default_damlc_opts + additional_compiler_flags),
             cp_srcs = "\n".join([
                 "mkdir -p $$(dirname {dest}); cp -f {src} {dest}".format(
                     src = "$$(canonicalize_rlocation $(rootpath {}))".format(src),

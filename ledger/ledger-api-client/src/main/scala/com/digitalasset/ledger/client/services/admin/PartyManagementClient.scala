@@ -1,11 +1,11 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.client.services.admin
 
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.Party
-import com.daml.ledger.api.domain.{ParticipantId, PartyDetails}
+import com.daml.ledger.api.domain.{IdentityProviderId, ObjectMeta, ParticipantId, PartyDetails}
 import com.daml.ledger.api.v1.admin.party_management_service.PartyManagementServiceGrpc.PartyManagementServiceStub
 import com.daml.ledger.api.v1.admin.party_management_service.{
   AllocatePartyRequest,
@@ -26,6 +26,8 @@ object PartyManagementClient {
       Party.assertFromString(d.party),
       if (d.displayName.isEmpty) None else Some(d.displayName),
       d.isLocal,
+      ObjectMeta.empty,
+      IdentityProviderId(d.identityProviderId),
     )
 
   private val getParticipantIdRequest = GetParticipantIdRequest()

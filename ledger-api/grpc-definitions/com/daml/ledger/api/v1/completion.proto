@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 syntax = "proto3";
@@ -20,8 +20,7 @@ message Completion {
   string command_id = 1;
 
   // Identifies the exact type of the error.
-  // For example, malformed or double spend transactions will result in a ``INVALID_ARGUMENT`` status.
-  // Transactions with invalid time time windows (which may be valid at a later date) will result in an ``ABORTED`` error.
+  // It uses the same format of conveying error details as it is used for the RPC responses of the APIs.
   // Optional
   google.rpc.Status status = 2;
 

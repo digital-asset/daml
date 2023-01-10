@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.store.dao.events
@@ -22,6 +22,8 @@ import com.daml.ledger.api.v1.transaction_service.{
 import com.daml.platform.ApiOffset
 import com.daml.platform.api.v1.event.EventOps.{EventOps, TreeEventOps}
 import com.daml.platform.store.backend.EventStorageBackend.Entry
+
+import com.daml.platform.store.ScalaPbStreamingOptimizations._
 
 // TODO append-only: FIXME: move to the right place
 object EventsTable {
@@ -52,7 +54,9 @@ object EventsTable {
     def toGetTransactionsResponse(
         events: Vector[Entry[Event]]
     ): List[GetTransactionsResponse] =
-      flatTransaction(events).toList.map(tx => GetTransactionsResponse(Seq(tx)))
+      flatTransaction(events).toList.map(tx =>
+        GetTransactionsResponse(Seq(tx)).withPrecomputedSerializedSize()
+      )
 
     def toGetFlatTransactionResponse(
         events: Vector[Entry[Event]]
@@ -70,7 +74,7 @@ object EventsTable {
             offset = "", // only the last response will have an offset.
             workflowId = entry.workflowId,
             activeContracts = Seq(entry.event.getCreated),
-          )
+          ).withPrecomputedSerializedSize()
         case entry =>
           throw IndexErrors.DatabaseErrors.ResultSetError
             .Reject(
@@ -134,7 +138,9 @@ object EventsTable {
     def toGetTransactionTreesResponse(
         events: Vector[Entry[TreeEvent]]
     ): List[GetTransactionTreesResponse] =
-      transactionTree(events).toList.map(tx => GetTransactionTreesResponse(Seq(tx)))
+      transactionTree(events).toList.map(tx =>
+        GetTransactionTreesResponse(Seq(tx)).withPrecomputedSerializedSize()
+      )
 
     def toGetTransactionResponse(
         events: Vector[Entry[TreeEvent]]

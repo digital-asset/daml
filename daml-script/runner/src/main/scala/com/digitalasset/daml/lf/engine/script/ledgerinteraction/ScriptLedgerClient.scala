@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.engine.script.ledgerinteraction
@@ -9,6 +9,7 @@ import com.daml.ledger.api.domain.{PartyDetails, User, UserRight}
 import com.daml.lf.command
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{Ref, Time}
+import com.daml.lf.language.Ast
 import com.daml.lf.speedy.SValue
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
@@ -83,6 +84,25 @@ trait ScriptLedgerClient {
       ec: ExecutionContext,
       mat: Materializer,
   ): Future[Option[ScriptLedgerClient.ActiveContract]]
+
+  def queryInterface(
+      parties: OneAnd[Set, Ref.Party],
+      interfaceId: Identifier,
+      viewType: Ast.Type,
+  )(implicit
+      ec: ExecutionContext,
+      mat: Materializer,
+  ): Future[Seq[(ContractId, Option[Value])]]
+
+  def queryInterfaceContractId(
+      parties: OneAnd[Set, Ref.Party],
+      interfaceId: Identifier,
+      viewType: Ast.Type,
+      cid: ContractId,
+  )(implicit
+      ec: ExecutionContext,
+      mat: Materializer,
+  ): Future[Option[Value]]
 
   def queryContractKey(
       parties: OneAnd[Set, Ref.Party],

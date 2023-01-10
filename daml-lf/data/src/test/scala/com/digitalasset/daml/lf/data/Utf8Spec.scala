@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.data
@@ -80,7 +80,7 @@ class Utf8Spec extends AnyWordSpec with Matchers with ScalaCheckDrivenPropertyCh
 
     "consistent when flipping its arguments" in {
       forAll(strings, strings) { (x, y) =>
-        Utf8.Ordering.compare(x, y).signum shouldBe -Utf8.Ordering.compare(y, x).signum
+        Utf8.Ordering.compare(x, y).sign shouldBe -Utf8.Ordering.compare(y, x).sign
       }
     }
 

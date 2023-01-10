@@ -1,9 +1,10 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.store.backend
 
 import java.util.UUID
+
 import com.daml.ledger.api.DeduplicationPeriod.{DeduplicationDuration, DeduplicationOffset}
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
@@ -13,13 +14,14 @@ import com.daml.lf.data.{Ref, Time}
 import com.daml.lf.engine.Blinding
 import com.daml.lf.ledger.EventId
 import com.daml.lf.transaction.Transaction.ChildrenRecursion
-import com.daml.platform.{Create, Exercise, Key, Node, NodeId}
+import com.daml.metrics.api.MetricsContext
+import com.daml.metrics.api.MetricsContext.withExtraMetricLabels
+import com.daml.metrics.{IndexedUpdatesMetrics, Metrics}
+import com.daml.platform._
 import com.daml.platform.index.index.StatusDetails
-import com.daml.platform.store.ChoiceCoder
 import com.daml.platform.store.dao.JdbcLedgerDao
 import com.daml.platform.store.dao.events._
-
-import scala.annotation.nowarn
+import io.grpc.Status
 
 object UpdateToDbDto {
 
@@ -27,10 +29,23 @@ object UpdateToDbDto {
       participantId: Ref.ParticipantId,
       translation: LfValueSerialization,
       compressionStrategy: CompressionStrategy,
-  ): Offset => state.Update => Iterator[DbDto] = { offset =>
+      metrics: Metrics,
+  )(implicit mc: MetricsContext): Offset => state.Update => Iterator[DbDto] = { offset =>
     import state.Update._
     {
       case u: CommandRejected =>
+        withExtraMetricLabels(
+          IndexedUpdatesMetrics.Labels.grpcCode -> Status
+            .fromCodeValue(u.reasonTemplate.code)
+            .getCode
+            .name()
+        ) { implicit mc: MetricsContext =>
+          incrementCounterForEvent(
+            metrics.daml.indexerEvents,
+            IndexedUpdatesMetrics.Labels.eventType.transaction,
+            IndexedUpdatesMetrics.Labels.status.rejected,
+          )
+        }
         Iterator(
           commandCompletion(offset, u.recordTime, transactionId = None, u.completionInfo).copy(
             rejection_status_code = Some(u.reasonTemplate.code),
@@ -41,6 +56,11 @@ object UpdateToDbDto {
         )
 
       case u: ConfigurationChanged =>
+        incrementCounterForEvent(
+          metrics.daml.indexerEvents,
+          IndexedUpdatesMetrics.Labels.eventType.configurationChange,
+          IndexedUpdatesMetrics.Labels.status.accepted,
+        )
         Iterator(
           DbDto.ConfigurationEntry(
             ledger_offset = offset.toHexString,
@@ -53,6 +73,11 @@ object UpdateToDbDto {
         )
 
       case u: ConfigurationChangeRejected =>
+        incrementCounterForEvent(
+          metrics.daml.indexerEvents,
+          IndexedUpdatesMetrics.Labels.eventType.configurationChange,
+          IndexedUpdatesMetrics.Labels.status.rejected,
+        )
         Iterator(
           DbDto.ConfigurationEntry(
             ledger_offset = offset.toHexString,
@@ -65,6 +90,11 @@ object UpdateToDbDto {
         )
 
       case u: PartyAddedToParticipant =>
+        incrementCounterForEvent(
+          metrics.daml.indexerEvents,
+          IndexedUpdatesMetrics.Labels.eventType.partyAllocation,
+          IndexedUpdatesMetrics.Labels.status.accepted,
+        )
         Iterator(
           DbDto.PartyEntry(
             ledger_offset = offset.toHexString,
@@ -79,6 +109,11 @@ object UpdateToDbDto {
         )
 
       case u: PartyAllocationRejected =>
+        incrementCounterForEvent(
+          metrics.daml.indexerEvents,
+          IndexedUpdatesMetrics.Labels.eventType.partyAllocation,
+          IndexedUpdatesMetrics.Labels.status.rejected,
+        )
         Iterator(
           DbDto.PartyEntry(
             ledger_offset = offset.toHexString,
@@ -93,6 +128,11 @@ object UpdateToDbDto {
         )
 
       case u: PublicPackageUpload =>
+        incrementCounterForEvent(
+          metrics.daml.indexerEvents,
+          IndexedUpdatesMetrics.Labels.eventType.packageUpload,
+          IndexedUpdatesMetrics.Labels.status.accepted,
+        )
         val uploadId = u.submissionId.getOrElse(UUID.randomUUID().toString)
         val packages = u.archives.iterator.map { archive =>
           DbDto.Package(
@@ -117,6 +157,11 @@ object UpdateToDbDto {
         packages ++ packageEntries
 
       case u: PublicPackageUploadRejected =>
+        incrementCounterForEvent(
+          metrics.daml.indexerEvents,
+          IndexedUpdatesMetrics.Labels.eventType.packageUpload,
+          IndexedUpdatesMetrics.Labels.status.rejected,
+        )
         Iterator(
           DbDto.PackageEntry(
             ledger_offset = offset.toHexString,
@@ -128,6 +173,11 @@ object UpdateToDbDto {
         )
 
       case u: TransactionAccepted =>
+        incrementCounterForEvent(
+          metrics.daml.indexerEvents,
+          IndexedUpdatesMetrics.Labels.eventType.transaction,
+          IndexedUpdatesMetrics.Labels.status.accepted,
+        )
         val blinding = u.blindingInfo.getOrElse(Blinding.blind(u.transaction))
         // TODO LLP: Extract in common functionality together with duplicated code in [[InMemoryStateUpdater]]
         val preorderTraversal = u.transaction
@@ -141,6 +191,12 @@ object UpdateToDbDto {
           )
           .reverse
 
+        val transactionMeta = DbDto.TransactionMeta(
+          transaction_id = u.transactionId,
+          event_offset = offset.toHexString,
+          event_sequential_id_first = 0, // this is filled later
+          event_sequential_id_last = 0, // this is filled later
+        )
         val events: Iterator[DbDto] = preorderTraversal.iterator
           .flatMap {
             case (nodeId, create: Create) =>
@@ -148,6 +204,8 @@ object UpdateToDbDto {
               val templateId = create.templateId.toString
               val stakeholders = create.stakeholders.map(_.toString)
               val (createArgument, createKeyValue) = translation.serialize(eventId, create)
+              val informees = blinding.disclosure.getOrElse(nodeId, Set.empty).map(_.toString)
+              val nonStakeholderInformees = informees.diff(stakeholders)
               Iterator(
                 DbDto.EventCreate(
                   event_offset = Some(offset.toHexString),
@@ -162,8 +220,7 @@ object UpdateToDbDto {
                   contract_id = create.coid.coid,
                   template_id = Some(templateId),
                   flat_event_witnesses = stakeholders,
-                  tree_event_witnesses =
-                    blinding.disclosure.getOrElse(nodeId, Set.empty).map(_.toString),
+                  tree_event_witnesses = informees,
                   create_argument = Some(createArgument)
                     .map(compressionStrategy.createArgumentCompression.compress),
                   create_signatories = Some(create.signatories.map(_.toString)),
@@ -180,11 +237,20 @@ object UpdateToDbDto {
                       createKeyValue.isDefined
                     ),
                   event_sequential_id = 0, // this is filled later
+                  driver_metadata =
+                    // Allow None as the original participant might be running
+                    // with a version predating the introduction of contract driver metadata
+                    u.contractMetadata.get(create.coid).map(_.toByteArray),
                 )
               ) ++ stakeholders.iterator.map(
-                DbDto.CreateFilter(
+                DbDto.IdFilterCreateStakeholder(
                   event_sequential_id = 0, // this is filled later
                   template_id = templateId,
+                  _,
+                )
+              ) ++ nonStakeholderInformees.iterator.map(
+                DbDto.IdFilterCreateNonStakeholderInformee(
+                  event_sequential_id = 0, // this is filled later
                   _,
                 )
               )
@@ -193,6 +259,11 @@ object UpdateToDbDto {
               val eventId = EventId(u.transactionId, nodeId)
               val (exerciseArgument, exerciseResult, createKeyValue) =
                 translation.serialize(eventId, exercise)
+              val stakeholders = exercise.stakeholders.map(_.toString)
+              val informees = blinding.disclosure.getOrElse(nodeId, Set.empty).map(_.toString)
+              val flatWitnesses = if (exercise.consuming) stakeholders else Set.empty[String]
+              val nonStakeholderInformees = informees.diff(stakeholders)
+              val templateId = exercise.templateId.toString
               Iterator(
                 DbDto.EventExercise(
                   consuming = exercise.consuming,
@@ -206,16 +277,12 @@ object UpdateToDbDto {
                   node_index = Some(nodeId.index),
                   event_id = Some(EventId(u.transactionId, nodeId).toLedgerString),
                   contract_id = exercise.targetCoid.coid,
-                  template_id = Some(exercise.templateId.toString),
-                  flat_event_witnesses =
-                    if (exercise.consuming) exercise.stakeholders.map(_.toString) else Set.empty,
-                  tree_event_witnesses =
-                    blinding.disclosure.getOrElse(nodeId, Set.empty).map(_.toString),
+                  template_id = Some(templateId),
+                  flat_event_witnesses = flatWitnesses,
+                  tree_event_witnesses = informees,
                   create_key_value = createKeyValue
                     .map(compressionStrategy.createKeyValueCompression.compress),
-                  exercise_choice = Some(
-                    ChoiceCoder.encode(exercise.interfaceId, exercise.choiceId)
-                  ): @nowarn("msg=deprecated"),
+                  exercise_choice = Some(exercise.qualifiedChoiceName.toString),
                   exercise_argument = Some(exerciseArgument)
                     .map(compressionStrategy.exerciseArgumentCompression.compress),
                   exercise_result = exerciseResult
@@ -232,8 +299,29 @@ object UpdateToDbDto {
                   exercise_result_compression = compressionStrategy.exerciseResultCompression.id,
                   event_sequential_id = 0, // this is filled later
                 )
-              )
-
+              ) ++ {
+                if (exercise.consuming) {
+                  stakeholders.iterator.map(stakeholder =>
+                    DbDto.IdFilterConsumingStakeholder(
+                      event_sequential_id = 0, // this is filled later
+                      template_id = templateId,
+                      party_id = stakeholder,
+                    )
+                  ) ++ nonStakeholderInformees.iterator.map(stakeholder =>
+                    DbDto.IdFilterConsumingNonStakeholderInformee(
+                      event_sequential_id = 0, // this is filled later
+                      party_id = stakeholder,
+                    )
+                  )
+                } else {
+                  informees.iterator.map(informee =>
+                    DbDto.IdFilterNonConsumingInformee(
+                      event_sequential_id = 0, // this is filled later
+                      party_id = informee,
+                    )
+                  )
+                }
+              }
             case _ =>
               Iterator.empty // It is okay to collect: blinding info is already there, we are free at hand to filter out the fetch and lookup nodes here already
           }
@@ -268,10 +356,28 @@ object UpdateToDbDto {
             commandCompletion(offset, u.recordTime, Some(u.transactionId), _)
           )
 
-        events ++ divulgences ++ completions
+        // TransactionMeta DTO must come last in this sequence
+        // because in a later stage the preceding events
+        // will be assigned consecutive event sequential ids
+        // and transaction meta is assigned sequential ids of its first and last event
+        events ++ divulgences ++ completions ++ Seq(transactionMeta)
     }
   }
 
+  private def incrementCounterForEvent(
+      metrics: IndexedUpdatesMetrics,
+      eventType: String,
+      status: String,
+  )(implicit
+      mc: MetricsContext
+  ): Unit = {
+    withExtraMetricLabels(
+      IndexedUpdatesMetrics.Labels.eventType.key -> eventType,
+      IndexedUpdatesMetrics.Labels.status.key -> status,
+    ) { implicit mc =>
+      metrics.eventsMeter.mark()
+    }
+  }
   private def commandCompletion(
       offset: Offset,
       recordTime: Time.Timestamp,

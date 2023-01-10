@@ -1,15 +1,15 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.grpc.adapter.server.akka
 
 import akka.stream.scaladsl.Sink
 import com.daml.error.DamlContextualizedErrorLogger
-import com.daml.error.definitions.LedgerApiErrors
+import com.daml.error.definitions.CommonErrors
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.grpc.adapter.server.rs.ServerSubscriber
-import io.grpc.{StatusException, StatusRuntimeException}
 import io.grpc.stub.{ServerCallStreamObserver, StreamObserver}
+import io.grpc.{StatusException, StatusRuntimeException}
 
 import scala.concurrent.{Future, Promise}
 
@@ -33,18 +33,18 @@ object ServerAdapter {
             case t: StatusException => t
             case t: StatusRuntimeException => t
             case _ =>
-              LedgerApiErrors.InternalError
+              CommonErrors.ServiceInternalError
                 .UnexpectedOrUnknownException(throwable)(errorLogger)
                 .asGrpcError
           }
         }
-
       }
 
     Sink
       .fromSubscriber(subscriber)
       .mapMaterializedValue(_ => {
         val promise = Promise[Unit]()
+
         subscriber.completionFuture.handle[Unit]((_, throwable) => {
           if (throwable == null) promise.success(()) else promise.failure(throwable)
           ()
@@ -52,11 +52,4 @@ object ServerAdapter {
         promise.future
       })
   }
-
-  /** Used in [[com.daml.protoc.plugins.akka.AkkaGrpcServicePrinter]]
-    */
-  def closingError(): StatusRuntimeException = {
-    LedgerApiErrors.ServerIsShuttingDown.Reject()(errorLogger).asGrpcError
-  }
-
 }

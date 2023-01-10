@@ -1,4 +1,4 @@
-.. Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 .. _authorization:
@@ -47,6 +47,7 @@ and generates a signed access token describing those privileges.
 
 Once the access token is issued, the Daml application sends it along with every Ledger API request.
 The Daml ledger verifies:
+
 - that the token was issued by one of its trusted token issuers
 - that the token has not been tampered with
 - that the token had not expired
@@ -204,6 +205,10 @@ To interpret the above notation:
 - ``scope`` is a space-separated list of `OAuth 2.0 scopes <https://datatracker.ietf.org/doc/html/rfc6749#section-3.3>`_
   that must contain the ``"daml_ledger_api"`` scope
 
+Requirements for User IDs
+-------------------------
+
+User IDs must be non-empty strings of at most 128 characters that are either alphanumeric ASCII characters or one of the symbols "@^$.!`-#+'~_|:".
 
 Custom Daml Claims Access Tokens
 ================================

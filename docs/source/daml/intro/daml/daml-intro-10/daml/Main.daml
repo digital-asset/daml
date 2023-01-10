@@ -1,6 +1,5 @@
--- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
-{-# OPTIONS -Wwarn=incomplete-patterns #-}
 module Main where
 
 import DA.Action
@@ -35,7 +34,7 @@ increment2 = add 1
 
 -- INFIX2_BEGIN
 increment3 = (1 +)
-decrement = (- 1)
+double = (* 2)
 -- INFIX2_END
 
 -- UNCURRY_SIG_BEGIN
@@ -104,13 +103,13 @@ intOrText b = if b
 template T
   with
     p : Party
-  where 
+  where
     signatory p
 
 template S
   with
     p : Party
-  where 
+  where
     signatory p
 -- S_T_END
 
@@ -205,7 +204,7 @@ mapA f xs = sequence (map f xs)
 
 -- IMPLEMENTATIONS_BEGIN
 foldlA2 fn init xs =
-  let 
+  let
     work accA x = do
       acc <- accA
       fn acc x

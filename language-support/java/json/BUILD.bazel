@@ -1,0 +1,59 @@
+# Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load(
+    "//bazel_tools:scala.bzl",
+    "da_scala_binary",
+    "da_scala_library",
+    "da_scala_test",
+    "lf_scalacopts_stricter",
+    "scala_source_jar",
+    "scaladoc_jar",
+)
+load(
+    "//rules_daml:daml.bzl",
+    "daml_build_test",
+    "daml_compile",
+)
+
+da_scala_library(
+    name = "json",
+    srcs = glob(["src/main/**/*.scala"]),
+    resources = [],
+    scala_deps = [
+        "@maven//:io_spray_spray_json",
+        "@maven//:org_scalaz_scalaz_core",
+    ],
+    scalacopts = lf_scalacopts_stricter,
+    tags = ["maven_coordinates=com.daml:codegen-json-java:__VERSION__"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//daml-lf/data",
+        "//daml-lf/transaction",
+        "//language-support/java/bindings:bindings-java",
+        "//ledger-service/lf-value-json",
+    ],
+)
+
+da_scala_test(
+    name = "test",
+    srcs = glob(["src/test/**/*.scala"]),
+    data = [],
+    resource_strip_prefix = "language-support/java/json/src/test/resources/",
+    resources = glob(["src/test/resources/**/*"]),
+    scala_deps = [
+        "@maven//:org_scalatest_scalatest_core",
+        "@maven//:org_scalatest_scalatest_matchers_core",
+        "@maven//:org_scalatest_scalatest_shouldmatchers",
+        "@maven//:org_scalacheck_scalacheck",
+        "@maven//:org_scalatestplus_scalacheck_1_15",
+        "@maven//:org_scalaz_scalaz_core",
+    ],
+    deps = [
+        ":json",
+        "//daml-lf/transaction",
+        "//daml-lf/transaction-test-lib",
+        "//language-support/java/bindings:bindings-java",
+        "@maven//:org_scalatest_scalatest_compatible",
+    ],
+)

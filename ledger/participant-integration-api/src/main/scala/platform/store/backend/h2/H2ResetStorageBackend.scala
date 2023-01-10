@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.store.backend.h2
@@ -26,10 +26,16 @@ object H2ResetStorageBackend extends ResetStorageBackend {
       truncate table participant_party_records;
       truncate table participant_party_record_annotations;
       truncate table string_interning;
-      truncate table participant_events_create_filter;
+      truncate table pe_create_id_filter_stakeholder;
+      truncate table pe_create_id_filter_non_stakeholder_informee;
+      truncate table pe_consuming_id_filter_stakeholder;
+      truncate table pe_consuming_id_filter_non_stakeholder_informee;
+      truncate table pe_non_consuming_id_filter_informee;
+      truncate table participant_transaction_meta;
       truncate table participant_users;
       truncate table participant_user_rights;
       truncate table participant_user_annotations;
+      truncate table participant_identity_provider_config;
       truncate table transaction_metering;
       truncate table participant_metering;
       truncate table metering_parameters;

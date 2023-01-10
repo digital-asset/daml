@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 package com.daml.platform.store.dao
 
@@ -7,12 +7,12 @@ import akka.stream.scaladsl.Source
 import com.daml.daml_lf_dev.DamlLf.Archive
 import com.daml.error.DamlContextualizedErrorLogger
 import com.daml.error.definitions.LedgerApiErrors
-import com.daml.ledger.api.domain.{LedgerId, ParticipantId, PartyDetails}
+import com.daml.ledger.api.domain.{LedgerId, ParticipantId}
 import com.daml.ledger.api.health.{HealthStatus, ReportsHealth}
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.MeteringStore.ReportData
-import com.daml.ledger.participant.state.index.v2.PackageDetails
+import com.daml.ledger.participant.state.index.v2.{IndexerPartyDetails, PackageDetails}
 import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.lf.archive.ArchiveParser
 import com.daml.lf.data.Ref
@@ -23,9 +23,10 @@ import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.entries.LoggingEntry
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
+import com.daml.platform.configuration.{TransactionFlatStreamsConfig, TransactionTreeStreamsConfig}
 import com.daml.platform.{ApplicationId, PackageId, Party, SubmissionId, TransactionId, WorkflowId}
 import com.daml.platform.store._
-import com.daml.platform.store.dao.events._
+import com.daml.platform.store.dao.events.{TransactionsFlatStreamReader, _}
 import com.daml.platform.store.backend.ParameterStorageBackend.LedgerEnd
 import com.daml.platform.store.backend.{ParameterStorageBackend, ReadStorageBackend}
 import com.daml.platform.store.cache.LedgerEndCache
@@ -39,8 +40,8 @@ import scala.util.{Failure, Success}
 private class JdbcLedgerDao(
     dbDispatcher: DbDispatcher with ReportsHealth,
     servicesExecutionContext: ExecutionContext,
-    eventsPageSize: Int,
-    eventsProcessingParallelism: Int,
+    txMaxPayloadsPerPayloadsPage: Int,
+    payloadProcessingParallelism: Int,
     acsIdPageSize: Int,
     acsIdPageBufferSize: Int,
     acsIdPageWorkingMemoryBytes: Int,
@@ -53,6 +54,11 @@ private class JdbcLedgerDao(
     participantId: Ref.ParticipantId,
     readStorageBackend: ReadStorageBackend,
     parameterStorageBackend: ParameterStorageBackend,
+    completionsPageSize: Int,
+    transactionFlatStreamsConfig: TransactionFlatStreamsConfig,
+    transactionTreeStreamsConfig: TransactionTreeStreamsConfig,
+    globalMaxEventIdQueries: Int,
+    globalMaxEventPayloadQueries: Int,
 ) extends LedgerDao {
 
   import JdbcLedgerDao._
@@ -240,7 +246,7 @@ private class JdbcLedgerDao(
 
   override def getParties(
       parties: Seq[Party]
-  )(implicit loggingContext: LoggingContext): Future[List[PartyDetails]] =
+  )(implicit loggingContext: LoggingContext): Future[List[IndexerPartyDetails]] =
     if (parties.isEmpty)
       Future.successful(List.empty)
     else
@@ -251,7 +257,7 @@ private class JdbcLedgerDao(
 
   override def listKnownParties()(implicit
       loggingContext: LoggingContext
-  ): Future[List[PartyDetails]] =
+  ): Future[List[IndexerPartyDetails]] =
     dbDispatcher
       .executeSql(metrics.daml.index.db.loadAllParties)(
         readStorageBackend.partyStorageBackend.knownParties
@@ -454,30 +460,85 @@ private class JdbcLedgerDao(
 
   private val queryNonPruned = QueryNonPrunedImpl(parameterStorageBackend)
 
+  // TODO etq: Apply to ACSReader
+  private val globalIdQueriesLimiter = new QueueBasedConcurrencyLimiter(
+    parallelism = globalMaxEventIdQueries,
+    executionContext = servicesExecutionContext,
+  )
+
+  // TODO etq: Apply to ACSReader
+  private val globalPayloadQueriesLimiter = new QueueBasedConcurrencyLimiter(
+    parallelism = globalMaxEventPayloadQueries,
+    executionContext = servicesExecutionContext,
+  )
+
+  private val acsEventFetchingQueryLimiter =
+    new QueueBasedConcurrencyLimiter(acsGlobalParallelism, servicesExecutionContext)
+
+  private val acsReader = new FilterTableACSReader(
+    dispatcher = dbDispatcher,
+    queryNonPruned = queryNonPruned,
+    eventStorageBackend = readStorageBackend.eventStorageBackend,
+    pageSize = txMaxPayloadsPerPayloadsPage,
+    idPageSize = acsIdPageSize,
+    idPageBufferSize = acsIdPageBufferSize,
+    idPageWorkingMemoryBytes = acsIdPageWorkingMemoryBytes,
+    idFetchingParallelism = acsIdFetchingParallelism,
+    acsFetchingparallelism = acsContractFetchingParallelism,
+    metrics = metrics,
+    querylimiter = acsEventFetchingQueryLimiter,
+    executionContext = servicesExecutionContext,
+  )
+
+  private val flatTransactionsStreamReader = new TransactionsFlatStreamReader(
+    config = transactionFlatStreamsConfig,
+    globalIdQueriesLimiter = globalIdQueriesLimiter,
+    globalPayloadQueriesLimiter = globalPayloadQueriesLimiter,
+    dbDispatcher = dbDispatcher,
+    queryNonPruned = queryNonPruned,
+    eventStorageBackend = readStorageBackend.eventStorageBackend,
+    lfValueTranslation = translation,
+    metrics = metrics,
+  )(servicesExecutionContext)
+
+  private val treeTransactionsStreamReader = new TransactionsTreeStreamReader(
+    config = transactionTreeStreamsConfig,
+    globalIdQueriesLimiter = globalIdQueriesLimiter,
+    globalPayloadQueriesLimiter = globalPayloadQueriesLimiter,
+    dbDispatcher = dbDispatcher,
+    queryNonPruned = queryNonPruned,
+    eventStorageBackend = readStorageBackend.eventStorageBackend,
+    lfValueTranslation = translation,
+    metrics = metrics,
+  )(servicesExecutionContext)
+
+  private val flatTransactionPointwiseReader = new TransactionFlatPointwiseReader(
+    dbDispatcher = dbDispatcher,
+    eventStorageBackend = readStorageBackend.eventStorageBackend,
+    metrics = metrics,
+    lfValueTranslation = translation,
+  )(servicesExecutionContext)
+
+  private val treeTransactionPointwiseReader = new TransactionTreePointwiseReader(
+    dbDispatcher = dbDispatcher,
+    eventStorageBackend = readStorageBackend.eventStorageBackend,
+    metrics = metrics,
+    lfValueTranslation = translation,
+  )(servicesExecutionContext)
+
   override val transactionsReader: TransactionsReader =
     new TransactionsReader(
       dispatcher = dbDispatcher,
       queryNonPruned = queryNonPruned,
       eventStorageBackend = readStorageBackend.eventStorageBackend,
-      pageSize = eventsPageSize,
-      eventProcessingParallelism = eventsProcessingParallelism,
+      payloadProcessingParallelism = payloadProcessingParallelism,
       metrics = metrics,
       lfValueTranslation = translation,
-      acsReader = new FilterTableACSReader(
-        dispatcher = dbDispatcher,
-        queryNonPruned = queryNonPruned,
-        eventStorageBackend = readStorageBackend.eventStorageBackend,
-        pageSize = eventsPageSize,
-        idPageSize = acsIdPageSize,
-        idPageBufferSize = acsIdPageBufferSize,
-        idPageWorkingMemoryBytes = acsIdPageWorkingMemoryBytes,
-        idFetchingParallelism = acsIdFetchingParallelism,
-        acsFetchingparallelism = acsContractFetchingParallelism,
-        metrics = metrics,
-        querylimiter =
-          new QueueBasedConcurrencyLimiter(acsGlobalParallelism, servicesExecutionContext),
-        executionContext = servicesExecutionContext,
-      ),
+      flatTransactionsStreamReader = flatTransactionsStreamReader,
+      treeTransactionsStreamReader = treeTransactionsStreamReader,
+      flatTransactionPointwiseReader = flatTransactionPointwiseReader,
+      treeTransactionPointwiseReader = treeTransactionPointwiseReader,
+      acsReader = acsReader,
     )(
       servicesExecutionContext
     )
@@ -493,6 +554,7 @@ private class JdbcLedgerDao(
       readStorageBackend.completionStorageBackend,
       queryNonPruned,
       metrics,
+      pageSize = completionsPageSize,
     )
 
   /** This is a combined store transaction method to support sandbox-classic and tests
@@ -578,27 +640,34 @@ private[platform] object JdbcLedgerDao {
       participantId: Ref.ParticipantId,
       ledgerEndCache: LedgerEndCache,
       stringInterning: StringInterning,
+      completionsPageSize: Int,
+      transactionFlatStreamsConfig: TransactionFlatStreamsConfig,
+      transactionTreeStreamsConfig: TransactionTreeStreamsConfig,
+      globalMaxEventIdQueries: Int,
+      globalMaxEventPayloadQueries: Int,
   ): LedgerReadDao =
-    new MeteredLedgerReadDao(
-      new JdbcLedgerDao(
-        dbSupport.dbDispatcher,
-        servicesExecutionContext,
-        eventsPageSize,
-        eventsProcessingParallelism,
-        acsIdPageSize,
-        acsIdPageBufferSize,
-        acsIdPageWorkingMemoryBytes,
-        acsIdFetchingParallelism,
-        acsContractFetchingParallelism,
-        acsGlobalParallelism,
-        metrics,
-        engine,
-        SequentialWriteDao.noop,
-        participantId,
-        dbSupport.storageBackendFactory.readStorageBackend(ledgerEndCache, stringInterning),
-        dbSupport.storageBackendFactory.createParameterStorageBackend,
-      ),
+    new JdbcLedgerDao(
+      dbSupport.dbDispatcher,
+      servicesExecutionContext,
+      eventsPageSize,
+      eventsProcessingParallelism,
+      acsIdPageSize,
+      acsIdPageBufferSize,
+      acsIdPageWorkingMemoryBytes,
+      acsIdFetchingParallelism,
+      acsContractFetchingParallelism,
+      acsGlobalParallelism,
       metrics,
+      engine,
+      SequentialWriteDao.noop,
+      participantId,
+      dbSupport.storageBackendFactory.readStorageBackend(ledgerEndCache, stringInterning),
+      dbSupport.storageBackendFactory.createParameterStorageBackend,
+      completionsPageSize = completionsPageSize,
+      transactionFlatStreamsConfig,
+      transactionTreeStreamsConfig,
+      globalMaxEventIdQueries = globalMaxEventIdQueries,
+      globalMaxEventPayloadQueries = globalMaxEventPayloadQueries,
     )
 
   def write(
@@ -618,27 +687,34 @@ private[platform] object JdbcLedgerDao {
       participantId: Ref.ParticipantId,
       ledgerEndCache: LedgerEndCache,
       stringInterning: StringInterning,
+      completionsPageSize: Int,
+      transactionFlatStreamsConfig: TransactionFlatStreamsConfig,
+      transactionTreeStreamsConfig: TransactionTreeStreamsConfig,
+      globalMaxEventIdQueries: Int,
+      globalMaxEventPayloadQueries: Int,
   ): LedgerDao =
-    new MeteredLedgerDao(
-      new JdbcLedgerDao(
-        dbSupport.dbDispatcher,
-        servicesExecutionContext,
-        eventsPageSize,
-        eventsProcessingParallelism,
-        acsIdPageSize,
-        acsIdPageBufferSize,
-        acsIdPageWorkingMemoryBytes,
-        acsIdFetchingParallelism,
-        acsContractFetchingParallelism,
-        acsGlobalParallelism,
-        metrics,
-        engine,
-        sequentialWriteDao,
-        participantId,
-        dbSupport.storageBackendFactory.readStorageBackend(ledgerEndCache, stringInterning),
-        dbSupport.storageBackendFactory.createParameterStorageBackend,
-      ),
+    new JdbcLedgerDao(
+      dbSupport.dbDispatcher,
+      servicesExecutionContext,
+      eventsPageSize,
+      eventsProcessingParallelism,
+      acsIdPageSize,
+      acsIdPageBufferSize,
+      acsIdPageWorkingMemoryBytes,
+      acsIdFetchingParallelism,
+      acsContractFetchingParallelism,
+      acsGlobalParallelism,
       metrics,
+      engine,
+      sequentialWriteDao,
+      participantId,
+      dbSupport.storageBackendFactory.readStorageBackend(ledgerEndCache, stringInterning),
+      dbSupport.storageBackendFactory.createParameterStorageBackend,
+      completionsPageSize = completionsPageSize,
+      transactionFlatStreamsConfig,
+      transactionTreeStreamsConfig,
+      globalMaxEventIdQueries = globalMaxEventIdQueries,
+      globalMaxEventPayloadQueries = globalMaxEventPayloadQueries,
     )
 
   val acceptType = "accept"

@@ -2,17 +2,16 @@ module Workflow.CreateAccount where
 
 import DA.Map qualified as M (fromList)
 import DA.Set qualified as S (fromList, singleton)
-import Daml.Finance.Interface.Holding.Factory.Account qualified as Account (Create(..), F)
-import Daml.Finance.Interface.Holding.Factory.Holding qualified as Holding (F)
-import Daml.Finance.Interface.Types.Common (AccountKey(..), Id(..))
+import Daml.Finance.Interface.Account.Account qualified as Account (Controllers(..))
+import Daml.Finance.Interface.Account.Factory qualified as Account (Create(..), F)
+import Daml.Finance.Interface.Holding.Factory qualified as Holding (F)
+import Daml.Finance.Interface.Types.Common.Types (AccountKey(..), Id(..))
 
 -- | Initiate / Accept template to open an account.
--- The account is created using an `Account.Factory` template.
--- By doing so, our workflow is generic and does not depend on the specific
--- account implementation.
--- For the same reason, we need to provide a `Holding.Factory` that will be
--- used by the account to create holdings without depending on the specific
--- implementation.
+-- The account is created using an `Account.Factory` template. By doing so, our workflow is generic
+-- and does not depend on the specific account implementation. For the same reason, we need to
+-- provide a `Holding.Factory` that will be used by the account to create holdings without depending
+-- on the specific implementation.
 template Request
   with
     custodian : Party
@@ -36,17 +35,19 @@ template Request
           -- ^ The holding factory. This is used within an account to create holdings.
         observers : [Party]
           -- ^ Observers of the account to be created.
-
       controller custodian
       do
         let
-          observersSet = S.fromList $ map S.singleton observers
+          observersSet = S.fromList observers
           accountKey = AccountKey with custodian = custodian, owner = owner, id = Id label
 
         accountCid <- exercise accountFactoryCid Account.Create with
           account = accountKey
           description = description
           holdingFactoryCid = holdingFactoryCid
+          controllers = Account.Controllers with
+            outgoing = S.singleton owner
+            incoming = S.singleton owner
           observers = M.fromList [("AccountObservers", observersSet)]
 
         pure accountKey

@@ -1,7 +1,7 @@
 .. _module-constrainedclassmethod-88436:
 
-Module ConstrainedClassMethod
------------------------------
+ConstrainedClassMethod
+----------------------
 
 This module tests the case where a class method contains a constraint
 not present in the class itself\.

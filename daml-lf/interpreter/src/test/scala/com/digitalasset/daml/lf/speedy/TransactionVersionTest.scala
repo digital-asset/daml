@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -264,7 +264,6 @@ object TransactionVersionTest {
           None -> Value.ValueText("test"),
         ),
       ),
-      "test",
     ),
   )
   val coimplementsContract: Versioned[Value.ContractInstance] = Versioned(
@@ -278,7 +277,6 @@ object TransactionVersionTest {
           None -> Value.ValueText("test"),
         ),
       ),
-      "test",
     ),
   )
   val testData = Seq(

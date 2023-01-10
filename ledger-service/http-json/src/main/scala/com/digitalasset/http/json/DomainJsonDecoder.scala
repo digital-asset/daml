@@ -1,10 +1,10 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.http.json
 
 import com.daml.http.ErrorMessages.cannotResolveTemplateId
-import com.daml.http.domain.{ContractTypeId, HasTemplateId, TemplateId}
+import com.daml.http.domain.{ContractTypeId, HasTemplateId}
 import com.daml.http.json.JsValueToApiValueConverter.mustBeApiRecord
 import com.daml.http.util.FutureUtil.either
 import com.daml.http.util.Logging.InstanceUUID
@@ -18,7 +18,7 @@ import scalaz.syntax.show._
 import scalaz.syntax.applicative.{ToFunctorOps => _, _}
 import scalaz.syntax.std.option._
 import scalaz.syntax.traverse._
-import scalaz.{EitherT, Traverse, \/}
+import scalaz.{-\/, \/, EitherT, Traverse}
 import scalaz.EitherT.eitherT
 import spray.json.{JsValue, JsonReader}
 
@@ -27,7 +27,7 @@ import scalaz.std.scalaFuture._
 import com.daml.ledger.api.{domain => LedgerApiDomain}
 
 class DomainJsonDecoder(
-    resolveContractTypeId: PackageService.ResolveContractTypeId.AnyKind,
+    resolveContractTypeId: PackageService.ResolveContractTypeId,
     resolveTemplateRecordType: PackageService.ResolveTemplateRecordType,
     resolveChoiceArgType: PackageService.ResolveChoiceArgType,
     resolveKeyType: PackageService.ResolveKeyType,
@@ -39,20 +39,21 @@ class DomainJsonDecoder(
   type ET[A] = EitherT[Future, JsonError, A]
 
   def decodeCreateCommand(a: JsValue, jwt: Jwt, ledgerId: LedgerApiDomain.LedgerId)(implicit
-      ev1: JsonReader[domain.CreateCommand[JsValue, TemplateId.OptionalPkg]],
+      ev1: JsonReader[
+        domain.CreateCommand[JsValue, ContractTypeId.Template.OptionalPkg]
+      ],
       ec: ExecutionContext,
       lc: LoggingContextOf[InstanceUUID],
-  ): ET[domain.CreateCommand[lav1.value.Record, TemplateId.RequiredPkg]] = {
+  ): ET[domain.CreateCommand[lav1.value.Record, ContractTypeId.Template.RequiredPkg]] = {
     val err = "DomainJsonDecoder_decodeCreateCommand"
     for {
       fj <- either(
         SprayJson
-          .decode[domain.CreateCommand[JsValue, TemplateId.OptionalPkg]](a)
+          .decode[domain.CreateCommand[JsValue, ContractTypeId.Template.OptionalPkg]](a)
           .liftErrS(err)(JsonError)
       )
 
       tmplId <- templateId_(fj.templateId, jwt, ledgerId)
-
       payloadT <- either(templateRecordType(tmplId))
 
       fv <- either(
@@ -160,22 +161,28 @@ class DomainJsonDecoder(
   def decodeCreateAndExerciseCommand(a: JsValue, jwt: Jwt, ledgerId: LedgerApiDomain.LedgerId)(
       implicit
       ev1: JsonReader[
-        domain.CreateAndExerciseCommand[JsValue, JsValue, ContractTypeId.OptionalPkg]
+        domain.CreateAndExerciseCommand[
+          JsValue,
+          JsValue,
+          ContractTypeId.Template.OptionalPkg,
+          ContractTypeId.OptionalPkg,
+        ]
       ],
       ec: ExecutionContext,
       lc: LoggingContextOf[InstanceUUID],
-  ): EitherT[Future, JsonError, domain.CreateAndExerciseCommand[
-    lav1.value.Record,
-    lav1.value.Value,
-    ContractTypeId.RequiredPkg,
-  ]] = {
+  ): EitherT[Future, JsonError, domain.CreateAndExerciseCommand.LAVResolved] = {
     val err = "DomainJsonDecoder_decodeCreateAndExerciseCommand"
     for {
       fjj <- either(
         SprayJson
-          .decode[domain.CreateAndExerciseCommand[JsValue, JsValue, ContractTypeId.OptionalPkg]](a)
+          .decode[domain.CreateAndExerciseCommand[
+            JsValue,
+            JsValue,
+            ContractTypeId.Template.OptionalPkg,
+            ContractTypeId.OptionalPkg,
+          ]](a)
           .liftErrS(err)(JsonError)
-      ).flatMap(_ traverse (templateId_(_, jwt, ledgerId)))
+      ).flatMap(_.bitraverse(templateId_(_, jwt, ledgerId), templateId_(_, jwt, ledgerId)))
 
       tId = fjj.templateId
       ciId = fjj.choiceInterfaceId
@@ -194,14 +201,15 @@ class DomainJsonDecoder(
     )
   }
 
-  private def templateId_(
-      id: domain.ContractTypeId.OptionalPkg,
+  private def templateId_[U, R](
+      id: U with domain.ContractTypeId.OptionalPkg,
       jwt: Jwt,
       ledgerId: LedgerApiDomain.LedgerId,
   )(implicit
       ec: ExecutionContext,
       lc: LoggingContextOf[InstanceUUID],
-  ): ET[domain.ContractTypeId.Resolved] =
+      resolveOverload: PackageService.ResolveContractTypeId.Overload[U, R],
+  ): ET[R] =
     eitherT(
       resolveContractTypeId(jwt, ledgerId)(id)
         .map(_.toOption.flatten.toRightDisjunction(JsonError(cannotResolveTemplateId(id))))
@@ -220,14 +228,21 @@ class DomainJsonDecoder(
         .flatMap(jsObj => jsValueToApiValue(lfType, jsObj).flatMap(mustBeApiRecord))
         .valueOr(e => spray.json.deserializationError(e.shows))
 
-  def templateRecordType(id: domain.TemplateId.RequiredPkg): JsonError \/ domain.LfType =
+  def templateRecordType(
+      id: domain.ContractTypeId.Template.RequiredPkg
+  ): JsonError \/ domain.LfType =
     resolveTemplateRecordType(id).liftErr(JsonError)
 
-  def keyType(id: domain.TemplateId.OptionalPkg)(implicit
+  def keyType(id: domain.ContractTypeId.Template.OptionalPkg)(implicit
       ec: ExecutionContext,
       lc: LoggingContextOf[InstanceUUID],
       jwt: Jwt,
       ledgerId: LedgerApiDomain.LedgerId,
   ): ET[domain.LfType] =
-    templateId_(id, jwt, ledgerId).flatMap(it => either(resolveKeyType(it).liftErr(JsonError)))
+    templateId_(id, jwt, ledgerId).flatMap {
+      case it: domain.ContractTypeId.Template.Resolved =>
+        either(resolveKeyType(it: ContractTypeId.Template.Resolved).liftErr(JsonError))
+      case other =>
+        either(-\/(JsonError(s"Expect contract type Id to be template Id, got otherwise: $other")))
+    }
 }

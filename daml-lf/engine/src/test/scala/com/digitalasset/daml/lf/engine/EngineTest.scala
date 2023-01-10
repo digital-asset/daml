@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -19,6 +19,7 @@ import com.daml.lf.transaction.{
   ReplayMismatch,
   SubmittedTransaction,
   Validation,
+  Versioned,
   VersionedTransaction,
   Transaction => Tx,
   TransactionVersion => TxVersions,
@@ -33,9 +34,17 @@ import com.daml.lf.command._
 import com.daml.lf.crypto.Hash
 import com.daml.lf.engine.Error.Interpretation
 import com.daml.lf.engine.Error.Interpretation.DamlException
-import com.daml.lf.language.PackageInterface
+import com.daml.lf.language.{LanguageVersion, PackageInterface, StablePackage}
 import com.daml.lf.transaction.test.TransactionBuilder.assertAsVersionedContract
 import com.daml.logging.LoggingContext
+import com.daml.test.evidence.scalatest.ScalaTestSupport.Implicits.tagToContainer
+import com.daml.test.evidence.tag.Security.SecurityTest.Property.Authorization
+import com.daml.test.evidence.tag.Security.{
+  Attack,
+  SecurityTest,
+  SecurityTestLayer,
+  SecurityTestSuite,
+}
 import org.scalactic.Equality
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.{Assertion, EitherValues}
@@ -58,9 +67,12 @@ class EngineTest
     extends AnyWordSpec
     with Matchers
     with TableDrivenPropertyChecks
-    with EitherValues {
+    with EitherValues
+    with SecurityTestSuite {
 
   import EngineTest._
+
+  override def securityTestLayer = SecurityTestLayer.LedgerModel
 
   "minimal create command" should {
     val id = Identifier(basicTestsPkgId, "BasicTests:Simple")
@@ -144,6 +156,7 @@ class EngineTest
     )
 
     def id(templateId: String) = Identifier(basicTestsPkgId, templateId)
+
     def command(templateId: String, signatories: Set[(String, Party)]) = {
       val templateArgs: Set[(Some[Name], ValueParty)] = signatories.map { case (label, party) =>
         Some[Name](label) -> ValueParty(party)
@@ -267,7 +280,7 @@ class EngineTest
     val cid = toContractId("BasicTests:Simple:1")
     val command =
       ApiCommand.Exercise(
-        TemplateOrInterface.Template(templateId),
+        templateId,
         cid,
         "Hello",
         ValueRecord(Some(hello), ImmArray.Empty),
@@ -762,10 +775,38 @@ class EngineTest
         key = usedContractSKey,
       )
 
+      val transactionVersion = {
+        // TODO https://github.com/digital-asset/daml/issues/15745
+        //      Do not hard code the transaction version
+        TxVersions.V14
+      }
+      val expectedProcessedDisclosedContract = ProcessedDisclosedContract(
+        templateId = usedDisclosedContract.templateId,
+        contractId = usedDisclosedContract.contractId.value,
+        argument = usedDisclosedContract.argument.toNormalizedValue(transactionVersion),
+        metadata = EngineEnrichedContractMetadata(
+          createdAt = usedDisclosedContract.metadata.createdAt,
+          driverMetadata = usedDisclosedContract.metadata.driverMetadata,
+          signatories = Set(alice),
+          stakeholders = Set(alice),
+          maybeKeyWithMaintainers = Some(
+            Versioned(
+              transactionVersion,
+              GlobalKeyWithMaintainers(
+                GlobalKey.assertBuild(usedDisclosedContract.templateId, usedContractKey),
+                Set(alice),
+              ),
+            )
+          ),
+          agreementText = "",
+        ),
+      )
+
       ExplicitDisclosureTesting.unusedDisclosedContractsNotSavedToLedger(
         fetchByKeyCommand,
         unusedDisclosedContract,
         usedDisclosedContract,
+        expectedProcessedDisclosedContract,
       )
     }
   }
@@ -1048,7 +1089,7 @@ class EngineTest
     // we need to fix time as cid are depending on it
     val let = Time.Timestamp.assertFromString("1969-07-20T20:17:00Z")
     val command = ApiCommand.Exercise(
-      TemplateOrInterface.Template(templateId),
+      templateId,
       originalCoid,
       "Transfer",
       ValueRecord(None, ImmArray((Some[Name]("newReceiver"), ValueParty(clara)))),
@@ -1193,6 +1234,13 @@ class EngineTest
       (Some[Name]("fetcher"), ValueParty(clara)),
     )
 
+    val fetcher3Cid = toContractId("4")
+    val fetcher3TArgs = ImmArray(
+      (Some[Name]("sig"), ValueParty(clara)),
+      (Some[Name]("obs"), ValueParty(alice)),
+      (Some[Name]("fetcher"), ValueParty(party)),
+    )
+
     def makeContract(
         tid: Ref.QualifiedName,
         targs: ImmArray[(Option[Name], Value)],
@@ -1201,7 +1249,6 @@ class EngineTest
         ContractInstance(
           TypeConName(basicTestsPkgId, tid),
           ValueRecord(Some(Identifier(basicTestsPkgId, tid)), targs),
-          "",
         )
       )
 
@@ -1210,6 +1257,7 @@ class EngineTest
         case `fetchedCid` => Some(makeContract(fetchedStrTid, fetchedTArgs))
         case `fetcher1Cid` => Some(makeContract(fetcherStrTid, fetcher1TArgs))
         case `fetcher2Cid` => Some(makeContract(fetcherStrTid, fetcher2TArgs))
+        case `fetcher3Cid` => Some(makeContract(fetcherStrTid, fetcher3TArgs))
         case _ => None
       }
     }
@@ -1231,7 +1279,7 @@ class EngineTest
 
     def runExample(cid: ContractId, exerciseActor: Party) = {
       val command = ApiCommand.Exercise(
-        TemplateOrInterface.Template(fetcherTid),
+        fetcherTid,
         cid,
         "DoFetch",
         ValueRecord(None, ImmArray((Some[Name]("cid"), ValueContractId(fetchedCid)))),
@@ -1264,16 +1312,49 @@ class EngineTest
 
     }
 
-    "propagate the parent's signatories and actors (but not observers) when stakeholders" in {
+    "propagate the parent's signatories and actors (but not observers) when stakeholders" taggedAs SecurityTest(
+      Authorization,
+      "ledger",
+      Attack(
+        "ledger api user",
+        "try to authorize an action through exercise observers", // i.e. bob
+        "only record signatories and actors as fetch actors",
+      ),
+    ) in {
+
+      // fetch stakeholders: alice, bob, clara
+
+      // alice: parent signatory
+      // bob: parent observer
+      // clara: parent actor
 
       val Right((tx, _)) = runExample(fetcher1Cid, clara)
       txFetchActors(tx.transaction) shouldBe Set(alice, clara)
     }
 
-    "not propagate the parent's signatories nor actors when not stakeholders" in {
+    "not propagate the parent's signatories nor actors when not stakeholders" taggedAs SecurityTest(
+      Authorization,
+      "ledger",
+      Attack(
+        "ledger api user",
+        "try to fetch a contract without authorization from a stakeholder of the fetched contract",
+        "only record stakeholders of the fetched contract as fetch actors", // i.e., clara
+      ),
+    ) in {
 
-      val Right((tx, _)) = runExample(fetcher2Cid, clara)
-      txFetchActors(tx.transaction) shouldBe Set(clara)
+      // fetch stakeholders: alice, bob, clara
+
+      // party: parent signatory
+      // alice: parent observer
+      // clara: parent actor
+      val Right((tx1, _)) = runExample(fetcher2Cid, clara)
+      txFetchActors(tx1.transaction) shouldBe Set(clara)
+
+      // clara: parent signatory
+      // alice: parent observer
+      // party: parent actor
+      val Right((tx2, _)) = runExample(fetcher3Cid, party)
+      txFetchActors(tx2.transaction) shouldBe Set(clara)
     }
 
     "be retained when reinterpreting single fetch nodes" in {
@@ -1322,7 +1403,6 @@ class EngineTest
               (Some[Name]("obs"), ValueParty(clara)),
             ),
           ),
-          "",
         )
       )
 
@@ -1365,7 +1445,6 @@ class EngineTest
         ContractInstance(
           TypeConName(basicTestsPkgId, lookerUpTemplate),
           ValueRecord(Some(lookerUpTemplateId), ImmArray((Some[Name]("p"), ValueParty(alice)))),
-          "",
         )
       )
 
@@ -1395,7 +1474,7 @@ class EngineTest
 
     "mark all lookupByKey nodes as byKey" in {
       val exerciseCmd = ApiCommand.Exercise(
-        TemplateOrInterface.Template(lookerUpTemplateId),
+        lookerUpTemplateId,
         lookerUpCid,
         "Lookup",
         ValueRecord(None, ImmArray((Some[Name]("n"), ValueInt64(42)))),
@@ -1427,7 +1506,7 @@ class EngineTest
 
     "be reinterpreted to the same node when lookup finds a contract" in {
       val exerciseCmd = ApiCommand.Exercise(
-        TemplateOrInterface.Template(lookerUpTemplateId),
+        lookerUpTemplateId,
         lookerUpCid,
         "Lookup",
         ValueRecord(None, ImmArray((Some[Name]("n"), ValueInt64(42)))),
@@ -1470,7 +1549,7 @@ class EngineTest
 
     "be reinterpreted to the same node when lookup doesn't find a contract" in {
       val exerciseCmd = ApiCommand.Exercise(
-        TemplateOrInterface.Template(lookerUpTemplateId),
+        lookerUpTemplateId,
         lookerUpCid,
         "Lookup",
         ValueRecord(None, ImmArray((Some[Name]("n"), ValueInt64(57)))),
@@ -1595,10 +1674,35 @@ class EngineTest
         contractKey = usedContractSKey,
       )
 
+      val transactionVersion =
+        TxVersions.V14 // TODO(#15745) Do not hard code the transaction version
+      val expectedProcessedDisclosedContract = ProcessedDisclosedContract(
+        templateId = usedDisclosedContract.templateId,
+        contractId = usedDisclosedContract.contractId.value,
+        argument = usedDisclosedContract.argument.toNormalizedValue(transactionVersion),
+        metadata = EngineEnrichedContractMetadata(
+          createdAt = usedDisclosedContract.metadata.createdAt,
+          driverMetadata = usedDisclosedContract.metadata.driverMetadata,
+          signatories = Set(alice),
+          stakeholders = Set(alice),
+          maybeKeyWithMaintainers = Some(
+            Versioned(
+              transactionVersion,
+              GlobalKeyWithMaintainers(
+                GlobalKey.assertBuild(templateId, usedContractKey),
+                Set(alice),
+              ),
+            )
+          ),
+          agreementText = "",
+        ),
+      )
+
       ExplicitDisclosureTesting.unusedDisclosedContractsNotSavedToLedger(
         lookupByKeyCommand,
         unusedDisclosedContract,
         usedDisclosedContract,
+        expectedProcessedDisclosedContract,
       )
     }
   }
@@ -1632,16 +1736,34 @@ class EngineTest
         coid = usedDisclosedContract.contractId,
       )
 
+      val transactionVersion =
+        TxVersions.V14 // TODO(#15745) Do not hard code the transaction version
+      val expectedProcessedDisclosedContract = ProcessedDisclosedContract(
+        templateId = usedDisclosedContract.templateId,
+        contractId = usedDisclosedContract.contractId.value,
+        argument = usedDisclosedContract.argument.toNormalizedValue(transactionVersion),
+        metadata = EngineEnrichedContractMetadata(
+          createdAt = usedDisclosedContract.metadata.createdAt,
+          driverMetadata = usedDisclosedContract.metadata.driverMetadata,
+          signatories = Set(alice),
+          stakeholders = Set(alice),
+          maybeKeyWithMaintainers = None,
+          agreementText = s"'$alice'", // agreement show party
+        ),
+      )
+
       ExplicitDisclosureTesting.unusedDisclosedContractsNotSavedToLedger(
         fetchTemplateCommand,
         unusedDisclosedContract,
         usedDisclosedContract,
+        expectedProcessedDisclosedContract,
       )
     }
   }
 
   "getTime set dependsOnTime flag" in {
     val templateId = Identifier(basicTestsPkgId, "BasicTests:TimeGetter")
+
     def run(choiceName: ChoiceName) = {
       val submissionSeed = hash(s"getTime set dependsOnTime flag: ($choiceName)")
       val command =
@@ -1723,7 +1845,6 @@ class EngineTest
         ContractInstance(
           TypeConName(basicTestsPkgId, fetcherTemplate),
           ValueRecord(Some(fetcherTemplateId), ImmArray((Some[Name]("p"), ValueParty(alice)))),
-          "",
         )
       )
 
@@ -1747,7 +1868,7 @@ class EngineTest
         .preprocessApiCommands(
           ImmArray(
             ApiCommand.Exercise(
-              TemplateOrInterface.Template(fetcherTemplateId),
+              fetcherTemplateId,
               fetcherCid,
               "Fetch",
               ValueRecord(None, ImmArray((Some[Name]("n"), ValueInt64(42)))),
@@ -1807,28 +1928,27 @@ class EngineTest
             (None, ValueParty(alice)),
           ),
         ),
-        "",
       )
     )
     val contracts = defaultContracts + (fetcherCid -> fetcherInst)
     val lookupContract = contracts.get _
     val correctCommand =
       ApiCommand.Exercise(
-        TemplateOrInterface.Template(withKeyId),
+        withKeyId,
         cid,
         "SumToK",
         ValueRecord(None, ImmArray((None, ValueInt64(42)))),
       )
     val incorrectCommand =
       ApiCommand.Exercise(
-        TemplateOrInterface.Template(simpleId),
+        simpleId,
         cid,
         "Hello",
         ValueRecord(None, ImmArray.Empty),
       )
     val incorrectFetch =
       ApiCommand.Exercise(
-        TemplateOrInterface.Template(fetcherId),
+        fetcherId,
         fetcherCid,
         "DoFetch",
         ValueRecord(None, ImmArray((None, ValueContractId(cid)))),
@@ -1838,6 +1958,7 @@ class EngineTest
     val submissionSeed = hash("wrongly-typed cid")
     val submitters = Set(alice)
     val readAs = (Set.empty: Set[Party])
+
     def run(cmds: ImmArray[ApiCommand]) =
       suffixLenientEngine
         .submit(
@@ -1977,11 +2098,11 @@ class EngineTest
         ContractInstance(
           TypeConName(exceptionsPkgId, "Exceptions:K"),
           ValueRecord(None, ImmArray((None, ValueParty(party)), (None, ValueInt64(0)))),
-          "",
         )
       )
     )
     val lookupContract = contracts.get _
+
     def lookupKey(key: GlobalKeyWithMaintainers): Option[ContractId] =
       (key.globalKey.templateId, key.globalKey.key) match {
         case (
@@ -1992,6 +2113,7 @@ class EngineTest
         case _ =>
           None
       }
+
     def run(cmd: ApiCommand) = {
       val submitters = Set(party)
       val Right(cmds) = preprocessor
@@ -2017,6 +2139,7 @@ class EngineTest
           lookupKey,
         )
     }
+
     "rolled-back archive of transient contract does not prevent consuming choice after rollback" in {
       val command = ApiCommand.CreateAndExercise(
         tId,
@@ -2071,7 +2194,7 @@ class EngineTest
       )
       run(command) shouldBe a[Right[_, _]]
     }
-    // TEST_EVIDENCE: Semantics: Rollback creates cannot be exercise
+    // TEST_EVIDENCE: Integrity: Rollback creates cannot be exercise
     "creates in rollback are rolled back" in {
       val command = ApiCommand.CreateAndExercise(
         tId,
@@ -2126,11 +2249,11 @@ class EngineTest
         ContractInstance(
           TypeConName(exceptionsPkgId, "Exceptions:K"),
           ValueRecord(None, ImmArray((None, ValueParty(party)), (None, ValueInt64(0)))),
-          "",
         )
       )
     )
     val lookupContract = contracts.get _
+
     def lookupKey(key: GlobalKeyWithMaintainers): Option[ContractId] =
       (key.globalKey.templateId, key.globalKey.key) match {
         case (
@@ -2141,6 +2264,7 @@ class EngineTest
         case _ =>
           None
       }
+
     def run(cmd: ApiCommand) = {
       val submitters = Set(party)
       val Right(cmds) = preprocessor
@@ -2204,11 +2328,11 @@ class EngineTest
         ContractInstance(
           TypeConName(exceptionsPkgId, "Exceptions:K"),
           ValueRecord(None, ImmArray((None, ValueParty(party)), (None, ValueInt64(0)))),
-          "",
         )
       )
     )
     val lookupContract = contracts.get _
+
     def lookupKey(key: GlobalKeyWithMaintainers): Option[ContractId] =
       (key.globalKey.templateId, key.globalKey.key) match {
         case (
@@ -2219,13 +2343,16 @@ class EngineTest
         case _ =>
           None
       }
+
     def run(cmd: ApiCommand): Int = {
       val submitters = Set(party)
       var keyLookups = 0
+
       def mockedKeyLookup(key: GlobalKeyWithMaintainers) = {
         keyLookups += 1
         lookupKey(key)
       }
+
       val Right(cmds) = preprocessor
         .preprocessApiCommands(ImmArray(cmd))
         .consume(
@@ -2252,6 +2379,7 @@ class EngineTest
         keyLookups
       }
     }
+
     val cidArg = ValueRecord(None, ImmArray((None, ValueContractId(cid))))
     val emptyArg = ValueRecord(None, ImmArray.empty)
     "Lookup a global key at most once" in {
@@ -2322,6 +2450,28 @@ class EngineTest
 
     }
 
+    "accept stable packages even if version is smaller than min version" in {
+      for {
+        lv <- LanguageVersion.All
+        eng = engine(min = lv, LanguageVersion.v1_dev)
+        pkg <- StablePackage.values
+        pkgId = pkg.packageId
+        pkg <- allPackagesDev.get(pkgId).toList
+      } yield eng.preloadPackage(pkgId, pkg) shouldBe a[ResultDone[_]]
+    }
+
+    "reject stable packages if version is greater than max version" in {
+      for {
+        lv <- LanguageVersion.All
+        eng = engine(LanguageVersion.v1_6, max = lv)
+        pkg <- StablePackage.values
+        pkgId = pkg.packageId
+        pkg <- allPackagesDev.get(pkgId).toList
+      } yield inside(eng.preloadPackage(pkgId, pkg)) {
+        case ResultDone(_) => pkg.languageVersion shouldBe <=(lv)
+        case ResultError(_) => pkg.languageVersion shouldBe >(lv)
+      }
+    }
   }
 }
 
@@ -2348,6 +2498,10 @@ object EngineTest {
     "daml-lf/tests/BasicTests.dar"
   )
 
+  val (_, _, allPackagesDev) = loadPackage(
+    "daml-lf/tests/BasicTests-dev.dar"
+  )
+
   val basicTestsSignatures: PackageInterface =
     language.PackageInterface(Map(basicTestsPkgId -> basicTestsPkg))
 
@@ -2371,7 +2525,6 @@ object EngineTest {
             (Some[Ref.Name]("k"), ValueInt64(42)),
           ),
         ),
-        "",
       )
     )
 
@@ -2385,7 +2538,6 @@ object EngineTest {
               Some(Identifier(basicTestsPkgId, "BasicTests:Simple")),
               ImmArray((Some[Name]("p"), ValueParty(party))),
             ),
-            "",
           )
         ),
       toContractId("BasicTests:CallablePayout:1") ->
@@ -2399,7 +2551,6 @@ object EngineTest {
                 (Some[Ref.Name]("receiver"), ValueParty(bob)),
               ),
             ),
-            "",
           )
         ),
       toContractId("BasicTests:WithKey:1") ->
@@ -2573,6 +2724,7 @@ object EngineTest {
         cmd: speedy.Command,
         unusedDisclosedContract: DisclosedContract,
         usedDisclosedContract: DisclosedContract,
+        expectedDisclosedContractMetadata: ProcessedDisclosedContract,
     ): Assertion = {
       val result = suffixLenientEngine
         .interpretCommands(
@@ -2589,7 +2741,7 @@ object EngineTest {
 
       inside(result) { case Right((transaction, metadata)) =>
         transaction should haveDisclosedInputContracts(usedDisclosedContract)
-        metadata should haveDisclosedContracts(usedDisclosedContract)(preprocessor)
+        metadata should haveDisclosedContracts(expectedDisclosedContractMetadata)
       }
     }
 
@@ -2601,15 +2753,14 @@ object EngineTest {
       )
     )
     def haveDisclosedContracts(
-        disclosedContracts: DisclosedContract*
-    )(preprocessor: preprocessing.Preprocessor): Matcher[Tx.Metadata] =
+        expectedProcessedDisclosedContracts: ProcessedDisclosedContract*
+    ): Matcher[Tx.Metadata] =
       Matcher { metadata =>
-        val expectedResult = ImmArray(disclosedContracts: _*)
-        val actualResult = metadata.disclosures
-          .map(_.unversioned)
-          .map(preprocessor.commandPreprocessor.unsafePreprocessDisclosedContract)
+        val expectedResult = ImmArray(expectedProcessedDisclosedContracts: _*)
+        val actualResult = metadata.disclosures.map(_.unversioned)
+
         val debugMessage = Seq(
-          s"expected but missing contract IDs: ${expectedResult.filter(!actualResult.toSeq.contains(_)).map(_.contractId.value)}",
+          s"expected but missing contract IDs: ${expectedResult.filter(!actualResult.toSeq.contains(_)).map(_.contractId)}",
           s"unexpected but found contract IDs: ${actualResult.filter(!expectedResult.toSeq.contains(_)).map(_.contractId)}",
         ).mkString("\n  ", "\n  ", "")
 

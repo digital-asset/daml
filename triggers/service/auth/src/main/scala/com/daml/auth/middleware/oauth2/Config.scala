@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.auth.middleware.oauth2
@@ -8,6 +8,7 @@ import akka.http.scaladsl.model.Uri
 import com.daml.auth.middleware.oauth2.Config._
 import com.daml.cliopts
 import com.daml.jwt.JwtVerifierBase
+import com.daml.metrics.api.reporters.MetricsReporter
 import com.daml.pureconfigutils.SharedConfigReaders._
 import pureconfig.{ConfigReader, ConvertHelpers}
 import pureconfig.generic.semiauto.deriveReader
@@ -37,8 +38,10 @@ final case class Config(
     clientSecret: SecretString,
     // Token verification
     tokenVerifier: JwtVerifierBase,
+    metricsReporter: Option[MetricsReporter] = None,
+    metricsReportingInterval: FiniteDuration = 10 seconds,
 ) {
-  def validate: Unit = {
+  def validate(): Unit = {
     require(oauthToken != null, "Oauth token value on config cannot be null")
     require(oauthAuth != null, "Oauth auth value on config cannot be null")
     require(clientId.nonEmpty, "DAML_CLIENT_ID cannot be empty")
@@ -51,6 +54,7 @@ final case class SecretString(value: String) {
   override def toString: String = "###"
 }
 
+@scala.annotation.nowarn("msg=Block result was adapted via implicit conversion")
 object Config {
   val DefaultHttpPort: Int = 3000
   val DefaultCookieSecure: Boolean = true

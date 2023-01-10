@@ -1,4 +1,4 @@
--- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 {-# LANGUAGE PatternSynonyms #-}
 -- | Main entry-point of the Daml compiler
@@ -394,9 +394,20 @@ execVisualHtml darFilePath webFilePath oBrowser = do
     darBytes <- B.readFile darFilePath
     dalfs <- either fail pure $
                 readDalfs $ ZIPArchive.toArchive (BSL.fromStrict darBytes)
-    staticDir <- locateRunfiles $ "static_asset_d3plus" </> "js"
-    d3js <-   readFile $ staticDir </> "d3.min.js"
-    d3plusjs <- readFile $ staticDir </> "d3plus.min.js"
+    d3js <- readFile =<< locateResource Resource
+      -- @static_asset_d3plus//:js/d3.min.js
+      { resourcesPath = "d3.min.js"
+        -- In a packaged application, this is stored directly underneath the
+        -- resources directory because it's a single file.
+        -- See @bazel_tools/packaging/packaging.bzl@.
+      , runfilesPathPrefix = "static_asset_d3plus" </> "js"
+      }
+    d3plusjs <- readFile =<< locateResource Resource
+      -- @static_asset_d3plus//:js/d3plus.min.js
+      { resourcesPath = "d3plus.min.js"
+        -- as above
+      , runfilesPathPrefix = "static_asset_d3plus" </> "js"
+      }
     let world = darToWorld dalfs
         graph = graphFromWorld world
         d3G = graphToD3Graph graph

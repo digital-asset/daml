@@ -45,11 +45,9 @@ instance DA.Internal.Desugar.HasArchive Token where
   archive cid
     = DA.Internal.Desugar.exercise cid DA.Internal.Desugar.Archive
 instance DA.Internal.Desugar.HasToAnyChoice Token DA.Internal.Desugar.Archive (()) where
-  _toAnyChoice _
-    = GHC.Types.primitive @"EToAnyInterfaceChoice" ([] : [Token])
+  _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
 instance DA.Internal.Desugar.HasFromAnyChoice Token DA.Internal.Desugar.Archive (()) where
-  _fromAnyChoice _
-    = GHC.Types.primitive @"EFromAnyInterfaceChoice" ([] : [Token])
+  _fromAnyChoice = GHC.Types.primitive @"EFromAnyChoice"
 instance DA.Internal.Desugar.HasExerciseGuarded Token DA.Internal.Desugar.Archive (()) where
   exerciseGuarded pred cid arg
     = GHC.Types.primitive
@@ -64,11 +62,9 @@ instance DA.Internal.Desugar.HasExercise Token DA.Internal.Desugar.Archive (()) 
         (DA.Internal.Desugar.toInterfaceContractId @Token cid)
         arg
 instance DA.Internal.Desugar.HasToAnyChoice Token GetRich (ContractId Token) where
-  _toAnyChoice _
-    = GHC.Types.primitive @"EToAnyInterfaceChoice" ([] : [Token])
+  _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
 instance DA.Internal.Desugar.HasFromAnyChoice Token GetRich (ContractId Token) where
-  _fromAnyChoice _
-    = GHC.Types.primitive @"EFromAnyInterfaceChoice" ([] : [Token])
+  _fromAnyChoice = GHC.Types.primitive @"EFromAnyChoice"
 instance DA.Internal.Desugar.HasExerciseGuarded Token GetRich (ContractId Token) where
   exerciseGuarded pred cid arg
     = GHC.Types.primitive
@@ -90,7 +86,7 @@ instance DA.Internal.Record.HasField "byHowMuch" GetRich Int where
     = DA.Internal.Record.getFieldPrim @"byHowMuch" @GetRich @Int
   setField
     = DA.Internal.Record.setFieldPrim @"byHowMuch" @GetRich @Int
-_choice_TokenArchive :
+_choice$_TokenArchive :
   (Token
    -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.ContractId Token
@@ -99,12 +95,12 @@ _choice_TokenArchive :
    DA.Internal.Desugar.Consuming Token,
    DA.Internal.Desugar.Optional (Token
                                  -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]))
-_choice_TokenArchive
+_choice$_TokenArchive
   = (\ this arg@DA.Internal.Desugar.Archive
        -> DA.Internal.Desugar.signatory this, 
      \ _ _ _ -> pure (), DA.Internal.Desugar.Consuming, 
      DA.Internal.Desugar.None)
-_choice_TokenGetRich :
+_choice$_TokenGetRich :
   (Token -> GetRich -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.ContractId Token
    -> Token
@@ -112,7 +108,7 @@ _choice_TokenGetRich :
    DA.Internal.Desugar.Consuming Token,
    DA.Internal.Desugar.Optional (Token
                                  -> GetRich -> [DA.Internal.Desugar.Party]))
-_choice_TokenGetRich
+_choice$_TokenGetRich
   = (\ this arg@GetRich {..}
        -> let _ = this in
           let _ = arg in DA.Internal.Desugar.toParties (getOwner this), 
@@ -126,6 +122,8 @@ _choice_TokenGetRich
      DA.Internal.Desugar.Consuming, DA.Internal.Desugar.None)
 instance DA.Internal.Desugar.HasInterfaceView Token EmptyInterfaceView where
   _view = GHC.Types.primitive @"EViewInterface"
+instance DA.Internal.Desugar.HasFromAnyView Token EmptyInterfaceView where
+  _fromAnyView = GHC.Types.primitive @"EFromAnyView"
 data GHC.Types.DamlInterface => SubToken
   = SubToken GHC.Types.Opaque
 instance DA.Internal.Desugar.HasInterfaceTypeRep SubToken where
@@ -138,9 +136,9 @@ instance DA.Internal.Desugar.HasToInterface SubToken SubToken where
 instance DA.Internal.Desugar.HasFromInterface SubToken SubToken where
   fromInterface this = DA.Internal.Desugar.Some this
   unsafeFromInterface _ this = this
-_requires_SubToken_Token :
+_requires$_SubToken_Token :
   DA.Internal.Desugar.RequiresT SubToken Token
-_requires_SubToken_Token = DA.Internal.Desugar.RequiresT
+_requires$_SubToken_Token = DA.Internal.Desugar.RequiresT
 instance DA.Internal.Desugar.HasToInterface SubToken Token where
   _toInterface = GHC.Types.primitive @"EToRequiredInterface"
 instance DA.Internal.Desugar.HasFromInterface SubToken Token where
@@ -167,11 +165,9 @@ instance DA.Internal.Desugar.HasArchive SubToken where
   archive cid
     = DA.Internal.Desugar.exercise cid DA.Internal.Desugar.Archive
 instance DA.Internal.Desugar.HasToAnyChoice SubToken DA.Internal.Desugar.Archive (()) where
-  _toAnyChoice _
-    = GHC.Types.primitive @"EToAnyInterfaceChoice" ([] : [SubToken])
+  _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
 instance DA.Internal.Desugar.HasFromAnyChoice SubToken DA.Internal.Desugar.Archive (()) where
-  _fromAnyChoice _
-    = GHC.Types.primitive @"EFromAnyInterfaceChoice" ([] : [SubToken])
+  _fromAnyChoice = GHC.Types.primitive @"EFromAnyChoice"
 instance DA.Internal.Desugar.HasExerciseGuarded SubToken DA.Internal.Desugar.Archive (()) where
   exerciseGuarded pred cid arg
     = GHC.Types.primitive
@@ -185,7 +181,7 @@ instance DA.Internal.Desugar.HasExercise SubToken DA.Internal.Desugar.Archive ((
         @"UExerciseInterface"
         (DA.Internal.Desugar.toInterfaceContractId @SubToken cid)
         arg
-_choice_SubTokenArchive :
+_choice$_SubTokenArchive :
   (SubToken
    -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.ContractId SubToken
@@ -194,13 +190,15 @@ _choice_SubTokenArchive :
    DA.Internal.Desugar.Consuming SubToken,
    DA.Internal.Desugar.Optional (SubToken
                                  -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]))
-_choice_SubTokenArchive
+_choice$_SubTokenArchive
   = (\ this arg@DA.Internal.Desugar.Archive
        -> DA.Internal.Desugar.signatory this, 
      \ _ _ _ -> pure (), DA.Internal.Desugar.Consuming, 
      DA.Internal.Desugar.None)
 instance DA.Internal.Desugar.HasInterfaceView SubToken EmptyInterfaceView where
   _view = GHC.Types.primitive @"EViewInterface"
+instance DA.Internal.Desugar.HasFromAnyView SubToken EmptyInterfaceView where
+  _fromAnyView = GHC.Types.primitive @"EFromAnyView"
 cannotExercise : ContractId SubToken -> Update (ContractId Token)
 cannotExercise sub
   = do exercise sub GetRich {byHowMuch = 1_000_000}

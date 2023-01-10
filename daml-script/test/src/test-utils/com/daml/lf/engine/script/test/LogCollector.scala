@@ -1,10 +1,11 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.engine.script.test
 
 import ch.qos.logback.classic.spi.ILoggingEvent
 import ch.qos.logback.core.AppenderBase
+import com.daml.scalautil.Statement.discard
 
 import scala.collection.mutable.ArrayBuffer
 
@@ -16,6 +17,6 @@ object LogCollector {
 
 final class LogCollector extends AppenderBase[ILoggingEvent] {
   override def append(e: ILoggingEvent): Unit = {
-    LogCollector.events += e
+    discard(LogCollector.events += e)
   }
 }

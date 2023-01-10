@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.store.dao
@@ -52,8 +52,14 @@ class SequentialWriteDaoSpec extends AnyFlatSpec with Matchers {
     storageBackendCaptor.captured(0) shouldBe someParty
     storageBackendCaptor.captured(1) shouldBe LedgerEnd(offset("01"), 5, 1)
     storageBackendCaptor.captured(2).asInstanceOf[DbDto.EventCreate].event_sequential_id shouldBe 6
-    storageBackendCaptor.captured(3).asInstanceOf[DbDto.CreateFilter].event_sequential_id shouldBe 6
-    storageBackendCaptor.captured(4).asInstanceOf[DbDto.CreateFilter].event_sequential_id shouldBe 6
+    storageBackendCaptor
+      .captured(3)
+      .asInstanceOf[DbDto.IdFilterCreateStakeholder]
+      .event_sequential_id shouldBe 6
+    storageBackendCaptor
+      .captured(4)
+      .asInstanceOf[DbDto.IdFilterCreateStakeholder]
+      .event_sequential_id shouldBe 6
     storageBackendCaptor
       .captured(5)
       .asInstanceOf[DbDto.EventExercise]
@@ -215,6 +221,7 @@ object SequentialWriteDaoSpec {
     create_argument_compression = None,
     create_key_value_compression = None,
     event_sequential_id = 0,
+    driver_metadata = None,
   )
 
   private val someEventExercise = DbDto.EventExercise(
@@ -270,8 +277,8 @@ object SequentialWriteDaoSpec {
     partyAndCreateFixture.get.rejectionReason -> List(someParty, someEventCreated),
     allEventsFixture.get.rejectionReason -> List(
       someEventCreated,
-      DbDto.CreateFilter(0L, "", ""),
-      DbDto.CreateFilter(0L, "", ""),
+      DbDto.IdFilterCreateStakeholder(0L, "", ""),
+      DbDto.IdFilterCreateStakeholder(0L, "", ""),
       someEventExercise,
       someEventDivulgence,
     ),

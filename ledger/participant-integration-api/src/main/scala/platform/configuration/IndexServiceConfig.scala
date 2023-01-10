@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.configuration
@@ -13,6 +13,7 @@ final case class IndexServiceConfig(
     acsIdPageBufferSize: Int = IndexServiceConfig.DefaultAcsIdPageBufferSize,
     acsIdPageWorkingMemoryBytes: Int = IndexServiceConfig.DefaultAcsIdPageWorkingMemoryBytes,
     acsIdFetchingParallelism: Int = IndexServiceConfig.DefaultAcsIdFetchingParallelism,
+    // Must be a power of 2
     acsContractFetchingParallelism: Int = IndexServiceConfig.DefaultAcsContractFetchingParallelism,
     acsGlobalParallelism: Int = IndexServiceConfig.DefaultAcsGlobalParallelism,
     maxContractStateCacheSize: Long = IndexServiceConfig.DefaultMaxContractStateCacheSize,
@@ -25,6 +26,11 @@ final case class IndexServiceConfig(
     inMemoryFanOutThreadPoolSize: Int = IndexServiceConfig.DefaultInMemoryFanOutThreadPoolSize,
     preparePackageMetadataTimeOutWarning: FiniteDuration =
       IndexServiceConfig.PreparePackageMetadataTimeOutWarning,
+    completionsPageSize: Int = 1000,
+    transactionFlatStreams: TransactionFlatStreamsConfig = TransactionFlatStreamsConfig.default,
+    transactionTreeStreams: TransactionTreeStreamsConfig = TransactionTreeStreamsConfig.default,
+    globalMaxEventIdQueries: Int = 20,
+    globalMaxEventPayloadQueries: Int = 10,
 )
 
 object IndexServiceConfig {
@@ -35,6 +41,7 @@ object IndexServiceConfig {
   val DefaultAcsIdPageBufferSize: Int = 1
   val DefaultAcsIdPageWorkingMemoryBytes: Int = 100 * 1024 * 1024
   val DefaultAcsIdFetchingParallelism: Int = 2
+  // Must be a power of 2
   val DefaultAcsContractFetchingParallelism: Int = 2
   val DefaultAcsGlobalParallelism: Int = 10
   val DefaultMaxContractStateCacheSize: Long = 100000L
@@ -44,4 +51,43 @@ object IndexServiceConfig {
   val DefaultInMemoryStateUpdaterParallelism: Int = 2
   val DefaultInMemoryFanOutThreadPoolSize: Int = 16
   val PreparePackageMetadataTimeOutWarning: FiniteDuration = FiniteDuration(1, "second")
+}
+
+case class TransactionFlatStreamsConfig(
+    maxIdsPerIdPage: Int = 20000,
+    maxPagesPerIdPagesBuffer: Int = 1,
+    maxWorkingMemoryInBytesForIdPages: Int = 100 * 1024 * 1024,
+    maxPayloadsPerPayloadsPage: Int = 1000,
+    maxParallelIdCreateQueries: Int = 4,
+    maxParallelIdConsumingQueries: Int = 4,
+    // Must be a power of 2
+    maxParallelPayloadCreateQueries: Int = 2,
+    // Must be a power of 2
+    maxParallelPayloadConsumingQueries: Int = 2,
+    maxParallelPayloadQueries: Int = 2,
+    transactionsProcessingParallelism: Int = 8,
+)
+object TransactionFlatStreamsConfig {
+  val default: TransactionFlatStreamsConfig = TransactionFlatStreamsConfig()
+}
+
+case class TransactionTreeStreamsConfig(
+    maxIdsPerIdPage: Int = 20000,
+    maxPagesPerIdPagesBuffer: Int = 1,
+    maxWorkingMemoryInBytesForIdPages: Int = 100 * 1024 * 1024,
+    maxPayloadsPerPayloadsPage: Int = 1000,
+    maxParallelIdCreateQueries: Int = 8,
+    maxParallelIdConsumingQueries: Int = 8,
+    maxParallelIdNonConsumingQueries: Int = 4,
+    // Must be a power of 2
+    maxParallelPayloadCreateQueries: Int = 2,
+    // Must be a power of 2
+    maxParallelPayloadConsumingQueries: Int = 2,
+    // Must be a power of 2
+    maxParallelPayloadNonConsumingQueries: Int = 2,
+    maxParallelPayloadQueries: Int = 2,
+    transactionsProcessingParallelism: Int = 8,
+)
+object TransactionTreeStreamsConfig {
+  val default: TransactionTreeStreamsConfig = TransactionTreeStreamsConfig()
 }

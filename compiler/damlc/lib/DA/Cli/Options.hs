@@ -1,4 +1,4 @@
--- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 {-# LANGUAGE ApplicativeDo #-}
 module DA.Cli.Options
@@ -9,7 +9,6 @@ import Data.List.Extra     (lower, splitOn, trim)
 import Options.Applicative hiding (option, strOption)
 import qualified Options.Applicative (option, strOption)
 import Options.Applicative.Extended
-import Safe (lastMay)
 import Data.List
 import Data.Maybe
 import qualified DA.Pretty           as Pretty
@@ -231,34 +230,104 @@ allowLargeTuplesOpt = AllowLargeTuples <$>
     where
         desc = "Do not warn when tuples of size > 5 are used."
 
--- The implementation of dlintUsageOpt allows multiple uses of dlintEnabledOpt
--- and dlintDisabledOpt, with only the last one winning. As a result,
--- dlintEnabledOpt uses strOption instead of strOptionOnce
-dlintEnabledOpt :: Parser DlintUsage
-dlintEnabledOpt = DlintEnabled
-  <$> Options.Applicative.strOption
-  ( long "with-dlint"
-    <> metavar "DIR"
-    <> internal
-    <> help "Enable linting with 'dlint.yaml' directory"
-  )
-  <*> switch
-  ( long "allow-overrides"
-    <> internal
-    <> help "Allow '.dlint.yaml' configuration overrides"
-  )
+dlintRulesFileParser :: Parser DlintRulesFile
+dlintRulesFileParser =
+  lastOr DefaultDlintRulesFile $
+    defaultDlintRulesFile <|> explicitDlintRulesFile
+  where
+    defaultDlintRulesFile =
+      flag' DefaultDlintRulesFile
+        ( long "lint-default-rules"
+          <> internal
+          <> help "Use the default rules file for linting"
+        )
+    explicitDlintRulesFile =
+      ExplicitDlintRulesFile <$> strOptionOnce
+        ( long "lint-rules-file"
+          <> metavar "FILE"
+          <> internal
+          <> help "Use FILE as the rules file for linting"
+        )
 
-dlintDisabledOpt :: Parser DlintUsage
-dlintDisabledOpt = flag' DlintDisabled
-  ( long "without-dlint"
-    <> internal
-    <> help "Disable dlint"
-  )
+dlintHintFilesParser :: Parser DlintHintFiles
+dlintHintFilesParser =
+  lastOr ImplicitDlintHintFile $
+    implicitDlintHintFile <|> explicitDlintHintFiles <|> clearDlintHintFiles
+  where
+    implicitDlintHintFile =
+      flag' ImplicitDlintHintFile
+        ( long "lint-implicit-hint-file"
+          <> internal
+          <> help "Use the first '.dlint.yaml' file found in the \
+                  \project directory or any parent thereof, or, failing that, \
+                  \in the home directory of the current user."
+        )
+    explicitDlintHintFiles =
+      fmap ExplicitDlintHintFiles $
+        some $ Options.Applicative.strOption
+          ( long "lint-hint-file"
+            <> metavar "FILE"
+            <> internal
+            <> help "Add FILE as a hint file for linting. Any implicit \
+                    \'.dlint.yaml' files will be ignored."
+          )
+    clearDlintHintFiles =
+      flag' NoDlintHintFiles
+        ( long "lint-no-hint-files"
+          <> internal
+          <> help "Use no hint files for linting. This also ignores any \
+                  \implicit '.dlint.yaml' files"
+        )
 
-dlintUsageOpt :: Parser DlintUsage
-dlintUsageOpt = fmap (fromMaybe DlintDisabled . lastMay) $
-  many (dlintEnabledOpt <|> dlintDisabledOpt)
+dlintOptionsParser :: Parser DlintOptions
+dlintOptionsParser = DlintOptions
+  <$> dlintRulesFileParser
+  <*> dlintHintFilesParser
 
+-- | Use @'disabledDlintUsageParser'@ as the @Parser DlintUsage@ argument of
+-- @optionsParser@ for commands that never perform any linting.
+--
+-- No lint related options will appear for the user.
+disabledDlintUsageParser :: Parser DlintUsage
+disabledDlintUsageParser = pure DlintDisabled
+
+-- | Use @'enabledDlintUsageParser'@ as the @Parser DlintUsage@ argument of
+-- @optionsParser@ for commands that always perform linting.
+--
+-- The options that modify linting settings will be available, but not the ones
+-- for enabling/disabling linting itself.
+enabledDlintUsageParser :: Parser DlintUsage
+enabledDlintUsageParser = DlintEnabled <$> dlintOptionsParser
+
+-- | Use @'optionalDlintUsageParser' enabled@ as the @Parser DlintUsage@
+-- argument of @optionsParser@ for commands where the user can decide whether
+-- or not to perform linting.
+--
+-- @enabled@ sets the default behavior if the user doesn't explicitly enable or
+-- disable linting.
+--
+-- The options that modify linting settings will be available, as well as
+-- two options for enabling/disabling linting.
+optionalDlintUsageParser :: Bool -> Parser DlintUsage
+optionalDlintUsageParser def =
+  fromParsed
+    <$> lastOr def (enableDlint <|> disableDlint)
+    <*> dlintOptionsParser
+  where
+    fromParsed enabled options
+      | enabled = DlintEnabled options
+      | otherwise = DlintDisabled
+
+    enableDlint = flag' True
+      ( long "with-dlint"
+        <> internal
+        <> help "Enable dlint"
+      )
+    disableDlint = flag' False
+      ( long "without-dlint"
+        <> internal
+        <> help "Disable dlint"
+      )
 
 cliOptLogLevel :: Parser Logger.Priority
 cliOptLogLevel =
@@ -283,8 +352,8 @@ optPackageName = optional $ fmap GHC.stringToUnitId $ strOptionOnce $
 
 -- | Parametrized by the type of pkgname parser since we want that to be different for
 -- "package".
-optionsParser :: Int -> EnableScenarioService -> Parser (Maybe GHC.UnitId) -> Parser Options
-optionsParser numProcessors enableScenarioService parsePkgName = do
+optionsParser :: Int -> EnableScenarioService -> Parser (Maybe GHC.UnitId) -> Parser DlintUsage -> Parser Options
+optionsParser numProcessors enableScenarioService parsePkgName parseDlintUsage = do
     let parseUnitId Nothing = (Nothing, Nothing)
         parseUnitId (Just unitId) = case splitUnitId unitId of
             (name, mbVersion) -> (Just name, mbVersion)
@@ -304,7 +373,7 @@ optionsParser numProcessors enableScenarioService parsePkgName = do
     optGhcCustomOpts <- optGhcCustomOptions
     let optScenarioService = enableScenarioService
     let optSkipScenarioValidation = SkipScenarioValidation False
-    optDlintUsage <- dlintUsageOpt
+    optDlintUsage <- parseDlintUsage
     optIsGenerated <- optIsGenerated
     optDflagCheck <- optNoDflagCheck
     let optCoreLinting = False

@@ -1,0 +1,19 @@
+-- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- Support for the "query POST with empty query multi-view" tests.
+module RIou where
+
+import Iou
+
+data AmountAndCurrency = AmountAndCurrency with
+    -- pointlessly different field names to ensure that template
+    -- payloads aren't being returned
+    icurrency : Text
+    iamount : Decimal
+
+interface RIou where
+  viewtype AmountAndCurrency
+
+  interface instance RIou for Iou where
+    view = AmountAndCurrency currency amount

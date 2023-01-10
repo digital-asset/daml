@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.error.definitions
@@ -9,6 +9,7 @@ object ErrorGroups {
   val rootErrorClass: ErrorClass = ErrorClass.root()
 
   object ParticipantErrorGroup extends ErrorGroup()(rootErrorClass) {
+    abstract class CommonErrorGroup extends ErrorGroup()
     abstract class IndexErrorGroup extends ErrorGroup() {
       abstract class DatabaseErrorGroup extends ErrorGroup()
     }
@@ -16,6 +17,7 @@ object ErrorGroups {
       abstract class AdminServicesErrorGroup extends ErrorGroup() {
         abstract class UserManagementServiceErrorGroup extends ErrorGroup()
         abstract class PartyManagementServiceErrorGroup extends ErrorGroup()
+        abstract class IdentityProviderConfigServiceErrorGroup extends ErrorGroup()
       }
       abstract class AuthorizationChecks extends ErrorGroup()
       abstract class CommandExecutionErrorGroup extends ErrorGroup()

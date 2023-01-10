@@ -1,7 +1,10 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.sandbox
+
+import java.nio.charset.StandardCharsets
+import java.nio.file.{Files, StandardOpenOption}
 
 import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
 import com.daml.ledger.runner.common._
@@ -40,13 +43,13 @@ object CliSandboxOnXRunner {
   }
 
   private def runProgram(
-      config: CliConfig[BridgeConfig],
+      cliConfig: CliConfig[BridgeConfig],
       explicitDisclosureUnsafeEnabled: Boolean,
   ): Unit =
-    config.mode match {
+    cliConfig.mode match {
       case Mode.Run =>
         SandboxOnXConfig
-          .loadFromConfig(config.configFiles, config.configMap)
+          .loadFromConfig(cliConfig.configFiles, cliConfig.configMap)
           .fold(
             System.err.println,
             { sandboxOnXConfig =>
@@ -59,13 +62,34 @@ object CliSandboxOnXRunner {
         program(DumpIndexMetadata(jdbcUrls))
       case Mode.ConvertConfig =>
         Console.out.println(
-          ConfigRenderer.render(SandboxOnXConfig.fromLegacy(new BridgeConfigAdaptor, config))
+          ConfigRenderer.render(SandboxOnXConfig.fromLegacy(new BridgeConfigAdaptor, cliConfig))
         )
       case Mode.RunLegacyCliConfig =>
         val configAdaptor: BridgeConfigAdaptor = new BridgeConfigAdaptor
-        val sandboxOnXConfig: SandboxOnXConfig = SandboxOnXConfig.fromLegacy(configAdaptor, config)
+        val sandboxOnXConfig: SandboxOnXConfig =
+          SandboxOnXConfig.fromLegacy(configAdaptor, cliConfig)
         program(sox(configAdaptor, sandboxOnXConfig, explicitDisclosureUnsafeEnabled))
+      case Mode.PrintDefaultConfig(outputFilePathO) =>
+        val text = genDefaultConfigText(cliConfig.configMap)
+        outputFilePathO match {
+          case Some(outputFilePath) =>
+            val _ = Files.write(
+              outputFilePath,
+              text.getBytes(StandardCharsets.UTF_8),
+              StandardOpenOption.CREATE_NEW,
+            )
+          case None => println(text)
+        }
     }
+
+  def genDefaultConfigText(overrides: Map[String, String] = Map()): String = {
+    val soxConfig = SandboxOnXConfig.loadFromConfig(configMap = overrides) match {
+      case Left(msg) => sys.error(msg)
+      case Right(soxConfig) => soxConfig
+    }
+    val text = ConfigRenderer.render(soxConfig)
+    text
+  }
 
   private def sox(
       configAdaptor: BridgeConfigAdaptor,

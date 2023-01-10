@@ -1,4 +1,4 @@
--- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 
@@ -87,8 +87,8 @@ instance Traversable (Validation err) where
     mapA _ (Errors x) = pure $ Errors x
     mapA f (Success x) = Success <$> f x
 
--- | Convert an `Optional t` into a `Validation Text t`, or
+-- | Convert an `Optional t` into a `Validation err t`, or
 -- more generally into an `m t` for any `ActionFail` type `m`.
-(<?>) : Optional b -> Text -> Validation Text b
+(<?>) : Optional b -> err -> Validation err b
 None <?> s = invalid s
 Some v <?> _ = pure v

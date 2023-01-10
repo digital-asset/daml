@@ -1,4 +1,4 @@
--- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 module DA.Daml.StablePackages
@@ -43,6 +43,10 @@ allStablePackages =
     , daExceptionArithmeticError
     , daExceptionAssertionFailed
     , daExceptionPreconditionFailed
+    , daInternalInterfaceAnyViewTypes
+    , daActionStateType (encodePackageHash daTypes)
+    , daRandomTypes
+    , daStackTypes
     ]
 
 allStablePackagesForVersion :: Version -> MS.Map PackageId Package
@@ -187,6 +191,156 @@ daInternalAny = package version1_7 $ NM.singleton (emptyModule modName)
       , DefDataType Nothing (mkTypeCon ["AnyContractKey"]) (IsSerializable False) [] $
           DataRecord [(mkField "getAnyContractKey", TAny), (mkField "getAnyContractKeyTemplateTypeRep", TCon (Qualified PRSelf modName (mkTypeCon ["TemplateTypeRep"])))]
       ]
+
+daInternalInterfaceAnyViewTypes :: Package
+daInternalInterfaceAnyViewTypes = Package
+  { packageLfVersion = version1_15
+  , packageModules = NM.singleton (emptyModule modName)
+      { moduleDataTypes = datatypes
+      , moduleValues = values
+      }
+  , packageMetadata = Just PackageMetadata
+      { packageName = PackageName "daml-stdlib-DA-Internal-Interface-AnyView-Types"
+      , packageVersion = PackageVersion "1.0.0"
+      }
+  }
+  where
+    modName = mkModName ["DA", "Internal", "Interface", "AnyView", "Types"]
+
+    anyViewTyCon = mkTypeCon ["AnyView"]
+    getAnyViewField = mkField "getAnyView"
+    getAnyViewInterfaceTypeRepField = mkField "getAnyViewInterfaceTypeRep"
+    interfaceTypeRepType = TCon (Qualified PRSelf modName (mkTypeCon ["InterfaceTypeRep"]))
+
+    interfaceTypeRepTyCon = mkTypeCon ["InterfaceTypeRep"]
+    getInterfaceTypeRepField = mkField "getInterfaceTypeRep"
+
+    datatypes = NM.fromList
+      [ DefDataType Nothing anyViewTyCon (IsSerializable False) [] $
+          DataRecord
+            [ (getAnyViewField, TAny)
+            , (getAnyViewInterfaceTypeRepField, interfaceTypeRepType)
+            ]
+      , DefDataType Nothing interfaceTypeRepTyCon (IsSerializable False) [] $
+          DataRecord [(getInterfaceTypeRepField, TTypeRep)]
+      ]
+    values = NM.fromList
+      [ mkSelectorDef modName anyViewTyCon [] getAnyViewField TAny
+      , mkSelectorDef modName anyViewTyCon [] getAnyViewInterfaceTypeRepField interfaceTypeRepType
+      , mkWorkerDef modName anyViewTyCon [] [(getAnyViewField, TAny), (getAnyViewInterfaceTypeRepField, interfaceTypeRepType)]
+      , mkSelectorDef modName interfaceTypeRepTyCon [] getInterfaceTypeRepField TTypeRep
+      , mkWorkerDef modName interfaceTypeRepTyCon [] [(getInterfaceTypeRepField, TTypeRep)]
+      ]
+
+daActionStateType :: PackageId -> Package
+daActionStateType daTypesPackageId = Package
+  { packageLfVersion = version1_14
+  , packageModules = NM.singleton (emptyModule modName)
+      { moduleDataTypes = types
+      , moduleValues = values
+      }
+  , packageMetadata = Just PackageMetadata
+      { packageName = PackageName "daml-stdlib-DA-Action-State-Type"
+      , packageVersion = PackageVersion "1.0.0"
+      }
+  }
+  where
+    modName = mkModName ["DA", "Action", "State", "Type"]
+
+    tuple2QualTyCon = Qualified
+      { qualPackage = PRImport daTypesPackageId
+      , qualModule = mkModName ["DA", "Types"]
+      , qualObject = mkTypeCon ["Tuple2"]
+      }
+
+    stateTyCon = mkTypeCon ["State"]
+    sTyVar = mkTypeVar "s"
+    aTyVar = mkTypeVar "a"
+    tyVars = [(sTyVar, KStar), (aTyVar, KStar)]
+    runStateField = mkField "runState"
+    runStateFieldType =
+      TVar sTyVar :->
+        TCon tuple2QualTyCon `TApp` TVar aTyVar `TApp` TVar sTyVar
+
+    types = NM.fromList
+      [ DefDataType
+          { dataLocation = Nothing
+          , dataTypeCon = stateTyCon
+          , dataSerializable = IsSerializable False
+          , dataParams = tyVars
+          , dataCons = DataRecord [(runStateField, runStateFieldType)]
+          }
+      ]
+    values = NM.fromList
+      [ mkSelectorDef modName stateTyCon tyVars runStateField runStateFieldType
+      , mkWorkerDef modName stateTyCon tyVars [(runStateField, runStateFieldType)]
+      ]
+
+daRandomTypes :: Package
+daRandomTypes = Package
+  { packageLfVersion = version1_14
+  , packageModules = NM.singleton (emptyModule modName)
+      { moduleDataTypes = types
+      , moduleValues = values
+      }
+  , packageMetadata = Just PackageMetadata
+      { packageName = PackageName "daml-stdlib-DA-Random-Types"
+      , packageVersion = PackageVersion "1.0.0"
+      }
+  }
+  where
+    modName = mkModName ["DA", "Random", "Types"]
+    minstdTyCon = mkTypeCon ["Minstd"]
+    minstdDataCon = mkVariantCon "Minstd"
+    types = NM.fromList
+      [ DefDataType
+          { dataLocation = Nothing
+          , dataTypeCon = minstdTyCon
+          , dataSerializable = IsSerializable True
+          , dataParams = []
+          , dataCons = DataVariant [(minstdDataCon, TInt64)]
+          }
+      ]
+    values = NM.fromList
+      [ mkVariantWorkerDef modName minstdTyCon minstdDataCon [] TInt64
+      ]
+
+daStackTypes :: Package
+daStackTypes = Package
+  { packageLfVersion = version1_14
+  , packageModules = NM.singleton (emptyModule modName)
+      { moduleDataTypes = types
+      , moduleValues = values
+      }
+  , packageMetadata = Just PackageMetadata
+      { packageName = PackageName "daml-stdlib-DA-Stack-Types"
+      , packageVersion = PackageVersion "1.0.0"
+      }
+  }
+  where
+    modName = mkModName ["DA", "Stack", "Types"]
+    srcLocTyCon = mkTypeCon ["SrcLoc"]
+    fields =
+      [ (mkField "srcLocPackage", TText)
+      , (mkField "srcLocModule", TText)
+      , (mkField "srcLocFile", TText)
+      , (mkField "srcLocStartLine", TInt64)
+      , (mkField "srcLocStartCol", TInt64)
+      , (mkField "srcLocEndLine", TInt64)
+      , (mkField "srcLocEndCol", TInt64)
+      ]
+    types = NM.fromList
+      [ DefDataType
+          { dataLocation = Nothing
+          , dataTypeCon = srcLocTyCon
+          , dataSerializable = IsSerializable True
+          , dataParams = []
+          , dataCons = DataRecord fields
+          }
+      ]
+    values = NM.fromList
+      $ mkWorkerDef modName srcLocTyCon [] fields
+      : fmap (uncurry (mkSelectorDef modName srcLocTyCon [])) fields
 
 daTimeTypes :: Package
 daTimeTypes = package version1_6 $ NM.singleton (emptyModule modName)

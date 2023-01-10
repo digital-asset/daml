@@ -1,11 +1,11 @@
-.. Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 Daml Profiler
 #############
 
 The Daml Profiler is only available in
-`Daml Enterprise <https://www.digitalasset.com/products/daml-connect>`_.
+`Daml Enterprise <https://www.digitalasset.com/products/daml-enterprise>`_.
 
 The Daml Profiler allows you to to profile execution of your Daml code
 which can help spot bottlenecks and opportunities for optimization.

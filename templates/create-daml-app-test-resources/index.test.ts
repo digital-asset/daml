@@ -164,7 +164,7 @@ const newUiPage = async (): Promise<Page> => {
       `${message.type().substr(0, 3).toUpperCase()} ${message.text()}`,
     ),
   );
-  await page.goto(`http://localhost:${UI_PORT}`); // ignore the Response
+  await page.goto(`http://127.0.0.1:${UI_PORT}`); // ignore the Response
   return page;
 };
 
@@ -176,7 +176,8 @@ const newUiPage = async (): Promise<Page> => {
 // output the contention errors as well so look through the log).
 const waitForFollowers = async (page: Page, n: number) => {
   await page.waitForFunction(
-    n => document.querySelectorAll(".test-select-following").length == n,
+    (n: number) =>
+      document.querySelectorAll(".test-select-following").length == n,
     {},
     n,
   );
@@ -425,11 +426,11 @@ const failedLogin = async (page: Page, partyName: string) => {
 };
 
 test("error on user id with invalid format", async () => {
-  // user ids must be lowercase
-  const invalidUser = "Alice";
+  // user ids should not contains `%`
+  const invalidUser = "Alice%";
   const page = await newUiPage();
   const error = await failedLogin(page, invalidUser);
-  expect(error).toMatch(/User ID \\"Alice\\" does not match regex/);
+  expect(error).toMatch(/User ID \\"Alice%\\" does not match regex/);
   await page.close();
 }, 40_000);
 

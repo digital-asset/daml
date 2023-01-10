@@ -1,8 +1,10 @@
--- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 module DamlcPkgManager
     ( main
     ) where
+
+{- HLINT ignore "locateRunfiles/package_app" -}
 
 import DA.Bazel.Runfiles
 import DA.Cli.Damlc.InspectDar
@@ -140,12 +142,11 @@ testsForRemoteDataDependencies damlc dar =
                     exitCode @?= ExitSuccess
               , testCase "Caching" $ do
                     InspectInfo {mainPackageId, packages} <- getDarInfo dar
-                    let downloadPkg =
-                            \pkgId -> do
-                                let DalfInfo {dalfPackage} =
-                                        fromMaybe (error "DamlcPkgManager: can't find package id") $
-                                        HMS.lookup pkgId packages
-                                pure dalfPackage
+                    let downloadPkg pkgId
+                          = do let DalfInfo {dalfPackage}
+                                     = fromMaybe (error "DamlcPkgManager: can't find package id")
+                                         $ HMS.lookup pkgId packages
+                               pure dalfPackage
                     pkgs <- downloadAllReachablePackages downloadPkg [mainPackageId] []
                     (all isJust $ M.elems pkgs) @?= True
                   -- all packages need to be downloaded

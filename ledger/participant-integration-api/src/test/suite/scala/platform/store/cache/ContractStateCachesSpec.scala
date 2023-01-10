@@ -1,9 +1,8 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.store.cache
 
-import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.offset.Offset
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.{ImmArray, Ref, Time}
@@ -29,7 +28,7 @@ class ContractStateCachesSpec extends AnyFlatSpec with Matchers with MockitoSuga
       cacheInitializationOffset,
       1L,
       1L,
-      metrics = new Metrics(new MetricRegistry),
+      metrics = Metrics.ForTesting,
     )(scala.concurrent.ExecutionContext.global, loggingContext)
 
     contractStateCaches.keyState.cacheIndex shouldBe cacheInitializationOffset
@@ -158,11 +157,7 @@ class ContractStateCachesSpec extends AnyFlatSpec with Matchers with MockitoSuga
       Some(templateId),
       ImmArray(None -> ValueInt64(id.toLong)),
     )
-    val contractInstance = ContractInstance(
-      templateId,
-      contractArgument,
-      "some agreement",
-    )
+    val contractInstance = ContractInstance(templateId, contractArgument)
     TransactionBuilder().versionContract(contractInstance)
   }
 

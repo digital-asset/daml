@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.sandbox.auth
@@ -20,11 +20,11 @@ trait ExpiringStreamServiceCallAuthTests[T]
     extends ReadOnlyServiceCallAuthTests
     with SubmitAndWaitDummyCommand {
 
-  protected def stream: Option[String] => StreamObserver[T] => Unit
+  protected def stream(context: ServiceCallContext): StreamObserver[T] => Unit
 
-  private def expectExpiration(token: String): Future[Unit] = {
+  private def expectExpiration(context: ServiceCallContext): Future[Unit] = {
     val promise = Promise[Unit]()
-    stream(Option(token))(new StreamObserver[T] {
+    stream(context)(new StreamObserver[T] {
       @volatile private[this] var gotSomething = false
       def onNext(value: T): Unit = {
         gotSomething = true
@@ -44,11 +44,11 @@ trait ExpiringStreamServiceCallAuthTests[T]
     promise.future
   }
 
-  private def canActAsMainActorExpiresInFiveSeconds =
-    toHeader(expiringIn(Duration.ofSeconds(5), readWriteToken(mainActor)))
+  private def canActAsMainActorExpiresInFiveSeconds: ServiceCallContext =
+    ServiceCallContext(Some(toHeader(expiringIn(Duration.ofSeconds(5), readWriteToken(mainActor)))))
 
-  private def canReadAsMainActorExpiresInFiveSeconds =
-    toHeader(expiringIn(Duration.ofSeconds(5), readOnlyToken(mainActor)))
+  private def canReadAsMainActorExpiresInFiveSeconds: ServiceCallContext =
+    ServiceCallContext(Some(toHeader(expiringIn(Duration.ofSeconds(5), readOnlyToken(mainActor)))))
 
   it should "break a stream in flight upon read-only token expiration" taggedAs securityAsset
     .setAttack(
@@ -66,7 +66,7 @@ trait ExpiringStreamServiceCallAuthTests[T]
     expectExpiration(canActAsMainActorExpiresInFiveSeconds).map(_ => succeed)
   }
 
-  override def serviceCallWithToken(token: Option[String]): Future[Any] =
-    submitAndWaitAsMainActor().flatMap(_ => new StreamConsumer[T](stream(token)).first())
+  override def serviceCall(context: ServiceCallContext): Future[Any] =
+    submitAndWaitAsMainActor().flatMap(_ => new StreamConsumer[T](stream(context)).first())
 
 }

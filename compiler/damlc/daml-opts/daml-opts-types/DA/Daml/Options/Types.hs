@@ -1,7 +1,8 @@
--- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# OPTIONS_GHC -Wno-orphans #-}
+{-# LANGUAGE PatternSynonyms #-}
 
 module DA.Daml.Options.Types
     ( Options(..)
@@ -9,6 +10,9 @@ module DA.Daml.Options.Types
     , EnableScenarios(..)
     , AllowLargeTuples(..)
     , SkipScenarioValidation(..)
+    , DlintRulesFile(..)
+    , DlintHintFiles(.., NoDlintHintFiles)
+    , DlintOptions(..)
     , DlintUsage(..)
     , Haddock(..)
     , IncrementalBuild(..)
@@ -17,7 +21,6 @@ module DA.Daml.Options.Types
     , ModRenaming(..)
     , PackageArg(..)
     , defaultOptions
-    , getBaseDir
     , damlArtifactDir
     , projectPackageDatabase
     , projectDependenciesDatabase
@@ -90,7 +93,7 @@ data Options = Options
     -- ^ Controls whether the scenario service server run package validations.
     -- This is mostly used to run additional checks on CI while keeping the IDE fast.
   , optDlintUsage :: DlintUsage
-  -- ^ Information about dlint usage.
+    -- ^ dlint configuration.
   , optIsGenerated :: Bool
     -- ^ Whether we're compiling generated code. Then we allow internal imports.
   , optDflagCheck :: Bool
@@ -129,8 +132,40 @@ newtype IgnorePackageMetadata = IgnorePackageMetadata { getIgnorePackageMetadata
 newtype Haddock = Haddock Bool
   deriving Show
 
+-- | The dlint rules file is a dlint yaml file that's used as the base for
+-- the rules used during linting. Really there is no difference between the
+-- rules file and the other hint files, but it is useful to specify them
+-- separately since this one can act as the base, allowing the other hint files
+-- to selectively ignore individual rules.
+data DlintRulesFile
+  = DefaultDlintRulesFile
+    -- ^ "WORKSPACE/compiler/damlc/daml-ide-core/dlint.yaml"
+  | ExplicitDlintRulesFile FilePath
+    -- ^ User-provided rules file
+  deriving Show
+
+data DlintHintFiles
+  = ImplicitDlintHintFile
+    -- ^ First existing file of
+    --    *       ".dlint.yaml"
+    --    *    "../.dlint.yaml"
+    --    * "../../.dlint.yaml"
+    --    * ...
+    --    * "~/.dlint.yaml"
+  | ExplicitDlintHintFiles [FilePath]
+  deriving Show
+
+pattern NoDlintHintFiles :: DlintHintFiles
+pattern NoDlintHintFiles = ExplicitDlintHintFiles []
+
+data DlintOptions = DlintOptions
+  { dlintRulesFile :: DlintRulesFile
+  , dlintHintFiles :: DlintHintFiles
+  }
+  deriving Show
+
 data DlintUsage
-  = DlintEnabled { dlintUseDataDir :: FilePath, dlintAllowOverrides :: Bool }
+  = DlintEnabled DlintOptions
   | DlintDisabled
   deriving Show
 
@@ -173,7 +208,15 @@ basePackages = ["daml-prim", "daml-stdlib"]
 locateBuiltinPackageDbs :: Maybe NormalizedFilePath -> IO [FilePath]
 locateBuiltinPackageDbs mbProjRoot = do
     -- package db for daml-stdlib and daml-prim
-    internalPackageDb <- fmap (</> "pkg-db_dir") $ locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> "pkg-db")
+    internalPackageDb <- locateResource Resource
+      -- //compiler/damlc/pkg-db
+      { resourcesPath = "pkg-db_dir"
+        -- In a packaged application, the directory "pkg-db_dir" is preserved
+        -- underneath the resources directory because it is the target's
+        -- only output (even if it's a directory).
+        -- See @bazel_tools/packaging/packaging.bzl@.
+      , runfilesPathPrefix = mainWorkspace </> "compiler" </> "damlc" </> "pkg-db"
+      }
     -- If these directories do not exist, we just discard them.
     filterM Dir.doesDirectoryExist (internalPackageDb : [fromNormalizedFilePath projRoot </> projectPackageDatabase | Just projRoot <- [mbProjRoot]])
 
@@ -215,9 +258,6 @@ defaultOptions mbVersion =
         , optAccessTokenPath = Nothing
         , optAllowLargeTuples = AllowLargeTuples False
         }
-
-getBaseDir :: IO FilePath
-getBaseDir = locateRunfiles (mainWorkspace </> "compiler/damlc")
 
 pkgNameVersion :: LF.PackageName -> Maybe LF.PackageVersion -> UnitId
 pkgNameVersion (LF.PackageName n) mbV =

@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.sandbox.bridge.validate
@@ -19,7 +19,6 @@ import com.daml.lf.transaction.{GlobalKey => LfGlobalKey, Transaction => LfTrans
 import com.daml.lf.value.Value.ContractId
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.InstrumentedGraph._
-
 import java.time.Duration
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -30,18 +29,18 @@ private[validate] class ConflictCheckingLedgerBridge(
     conflictCheckWithCommitted: ConflictCheckWithCommitted,
     sequence: Sequence,
     servicesThreadPoolSize: Int,
+    stageBufferSize: Int,
 ) extends LedgerBridge {
-  private val StageBufferSize = 128
 
   def flow: Flow[Submission, (Offset, Update), NotUsed] =
     Flow[Submission]
-      .buffered(bridgeMetrics.Stages.PrepareSubmission.bufferBefore, StageBufferSize)
+      .buffered(bridgeMetrics.Stages.PrepareSubmission.bufferBefore, stageBufferSize)
       .mapAsyncUnordered(servicesThreadPoolSize)(prepareSubmission)
-      .buffered(bridgeMetrics.Stages.TagWithLedgerEnd.bufferBefore, StageBufferSize)
+      .buffered(bridgeMetrics.Stages.TagWithLedgerEnd.bufferBefore, stageBufferSize)
       .mapAsync(parallelism = 1)(tagWithLedgerEnd)
-      .buffered(bridgeMetrics.Stages.ConflictCheckWithCommitted.bufferBefore, StageBufferSize)
+      .buffered(bridgeMetrics.Stages.ConflictCheckWithCommitted.bufferBefore, stageBufferSize)
       .mapAsync(servicesThreadPoolSize)(conflictCheckWithCommitted)
-      .buffered(bridgeMetrics.Stages.Sequence.bufferBefore, StageBufferSize)
+      .buffered(bridgeMetrics.Stages.Sequence.bufferBefore, stageBufferSize)
       .statefulMapConcat(sequence)
 }
 
@@ -70,6 +69,8 @@ private[bridge] object ConflictCheckingLedgerBridge {
       bridgeMetrics: BridgeMetrics,
       servicesThreadPoolSize: Int,
       maxDeduplicationDuration: Duration,
+      stageBufferSize: Int,
+      explicitDisclosureEnabled: Boolean,
   )(implicit
       servicesExecutionContext: ExecutionContext
   ): ConflictCheckingLedgerBridge =
@@ -86,8 +87,10 @@ private[bridge] object ConflictCheckingLedgerBridge {
         initialLedgerConfiguration = initialLedgerConfiguration,
         bridgeMetrics = bridgeMetrics,
         maxDeduplicationDuration = maxDeduplicationDuration,
+        explicitDisclosureEnabled = explicitDisclosureEnabled,
       ),
       servicesThreadPoolSize = servicesThreadPoolSize,
+      stageBufferSize = stageBufferSize,
     )
 
   private[validate] def withErrorLogger[T](submissionId: Option[String])(

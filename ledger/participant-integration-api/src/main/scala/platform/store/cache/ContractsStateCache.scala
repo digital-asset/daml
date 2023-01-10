@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.store.cache
@@ -18,9 +18,9 @@ object ContractsStateCache {
       initialCacheIndex = initialCacheIndex,
       cache = SizedCache.from[ContractId, ContractStateValue](
         SizedCache.Configuration(cacheSize),
-        metrics.daml.execution.cache.contractState,
+        metrics.daml.execution.cache.contractState.stateCache,
       ),
-      registerUpdateTimer = metrics.daml.execution.cache.registerCacheUpdate,
+      registerUpdateTimer = metrics.daml.execution.cache.contractState.registerCacheUpdate,
     )
 }
 

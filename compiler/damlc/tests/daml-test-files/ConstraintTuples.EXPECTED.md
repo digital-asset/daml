@@ -1,4 +1,4 @@
-# <a name="module-constrainttuples-79635"></a>Module ConstraintTuples
+# <a name="module-constrainttuples-79635"></a>ConstraintTuples
 
 ## Data Types
 

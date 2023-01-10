@@ -1,4 +1,4 @@
-.. Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 Building Applications
@@ -17,6 +17,7 @@ To run the examples, you will first need to `install the Daml SDK <https://docs.
   app-dev/bindings-ts/index
   json-api/index
   app-dev/bindings-java/index
+  app-dev/bindings-python
   daml-script/index
   daml-repl/index
   upgrade/index

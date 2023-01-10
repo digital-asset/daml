@@ -1,23 +1,22 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.apiserver.update
 
-import com.daml.ledger.api.domain
-import com.daml.ledger.api.domain.ParticipantParty
-import com.daml.ledger.participant.state.index.v2.{ObjectMetaUpdate, PartyDetailsUpdate}
+import com.daml.ledger.api.domain.PartyDetails
+import com.daml.platform.localstore.api.{ObjectMetaUpdate, PartyDetailsUpdate}
 
 object PartyRecordUpdateMapper extends UpdateMapperBase {
 
   import UpdateRequestsPaths.PartyDetailsPaths
 
-  type Resource = domain.ParticipantParty.PartyDetails
+  type Resource = PartyDetails
   type Update = PartyDetailsUpdate
 
   override val fullResourceTrie: UpdatePathsTrie = PartyDetailsPaths.fullUpdateTrie
 
   override def makeUpdateObject(
-      partyRecord: ParticipantParty.PartyDetails,
+      partyRecord: PartyDetails,
       updateTrie: UpdatePathsTrie,
   ): Result[PartyDetailsUpdate] = {
     for {
@@ -27,6 +26,7 @@ object PartyRecordUpdateMapper extends UpdateMapperBase {
     } yield {
       PartyDetailsUpdate(
         party = partyRecord.party,
+        identityProviderId = partyRecord.identityProviderId,
         displayNameUpdate = displayNameUpdate,
         isLocalUpdate = isLocalUpdate,
         metadataUpdate = ObjectMetaUpdate(

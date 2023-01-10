@@ -1,4 +1,4 @@
--- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 module Main (main) where
@@ -104,7 +104,11 @@ theParser = some line <* eof
     notColonOrNewline = noneOf [':','\n']
 
 
-data Category = Authorization | Privacy | Semantics | Performance | InputValidation | Authentication
+data Category
+  = Authorization
+  | Availability
+  | Confidentiality
+  | Integrity
   deriving (Eq,Ord,Bounded,Enum,Show)
 
 data Description = Description
@@ -141,8 +145,6 @@ ppDescription Description{filename,lineno,freeText} =
 ppCategory :: Category -> String
 ppCategory = \case
   Authorization -> "Authorization"
-  Privacy -> "Privacy"
-  Semantics -> "Semantics"
-  Performance -> "Performance"
-  InputValidation -> "Input Validation"
-  Authentication -> "Authentication"
+  Availability -> "Availability"
+  Confidentiality -> "Confidentiality"
+  Integrity -> "Integrity"

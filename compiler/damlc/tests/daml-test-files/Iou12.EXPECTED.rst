@@ -1,7 +1,7 @@
 .. _module-iou12-76192:
 
-Module Iou12
-------------
+Iou12
+-----
 
 Templates
 ^^^^^^^^^

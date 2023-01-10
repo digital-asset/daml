@@ -1,4 +1,4 @@
-# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load("//daml-lf/language:daml-lf.bzl", "versions")
@@ -16,6 +16,7 @@ def deps(lf_version):
         "//daml-lf/transaction",
         "//language-support/scala/bindings",
         "//ledger/error",
+        "//ledger/ledger-api-errors",
         "//ledger/ledger-api-common",
         "//ledger/ledger-api-tests/infrastructure:infrastructure-%s" % lf_version,
         "//ledger/ledger-resources",

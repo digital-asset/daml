@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.javaapi.data;
@@ -8,7 +8,7 @@ import java.time.LocalDate;
 import java.util.Objects;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
-public class Date extends Value {
+public final class Date extends Value {
 
   private final LocalDate value;
 

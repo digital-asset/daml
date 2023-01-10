@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -8,9 +8,9 @@ import com.daml.lf.command._
 import com.daml.lf.data._
 import com.daml.lf.data.Ref.{Identifier, PackageId, ParticipantId, Party}
 import com.daml.lf.language.Ast._
-import com.daml.lf.speedy.{InitialSeeding, PartialTransaction, Pretty, SError, SValue}
+import com.daml.lf.speedy.{InitialSeeding, Pretty, Question, SError, SValue}
 import com.daml.lf.speedy.SExpr.{SEApp, SExpr}
-import com.daml.lf.speedy.Speedy.Machine
+import com.daml.lf.speedy.Speedy.{Machine, PureMachine, UpdateMachine}
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.transaction.{
   Node,
@@ -58,6 +58,7 @@ import com.daml.scalautil.Statement.discard
   *
   * This class is thread safe as long `nextRandomInt` is.
   */
+@scala.annotation.nowarn("msg=return statement uses an exception to pass control to the caller")
 class Engine(val config: EngineConfig = Engine.StableConfig) {
 
   config.profileDir.foreach(Files.createDirectories(_))
@@ -317,13 +318,14 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
       submissionTime: Time.Timestamp,
       seeding: speedy.InitialSeeding,
   )(implicit loggingContext: LoggingContext): Result[(SubmittedTransaction, Tx.Metadata)] = {
-    val machine = Machine(
+    val machine = UpdateMachine(
       compiledPackages = compiledPackages,
       submissionTime = submissionTime,
       initialSeeding = seeding,
       expr = SEApp(sexpr, Array(SValue.SToken)),
       committers = submitters,
       readAs = readAs,
+      authorizationChecker = config.authorizationChecker,
       validating = validating,
       contractKeyUniqueness = config.contractKeyUniqueness,
       limits = config.limits,
@@ -352,7 +354,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
     ResultDone(deps)
   }
 
-  private def handleError(err: SError.SError, detailMsg: Option[String]): ResultError = {
+  private def handleError(err: SError.SError, detailMsg: Option[String] = None): ResultError = {
     err match {
       case SError.SErrorDamlException(error) =>
         ResultError(Error.Interpretation.DamlException(error), detailMsg)
@@ -364,19 +366,12 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
   // TODO SC remove 'return', notwithstanding a love of unhandled exceptions
   @SuppressWarnings(Array("org.wartremover.warts.Return"))
   private[engine] def interpretLoop(
-      machine: Machine,
+      machine: UpdateMachine,
       time: Time.Timestamp,
-  ): Result[(SubmittedTransaction, Tx.Metadata)] = machine.withOnLedger("Daml Engine") { onLedger =>
+  ): Result[(SubmittedTransaction, Tx.Metadata)] = {
     def detailMsg = Some(
-      s"Last location: ${Pretty.prettyLoc(machine.getLastLocation).render(80)}, partial transaction: ${onLedger.nodesToString}"
+      s"Last location: ${Pretty.prettyLoc(machine.getLastLocation).render(80)}, partial transaction: ${machine.nodesToString}"
     )
-    def versionDisclosedContract(d: speedy.DisclosedContract): Versioned[DisclosedContract] = {
-      val version = machine.tmplId2TxVersion(d.templateId)
-      val arg = machine.normValue(d.templateId, d.argument)
-      val coid = d.contractId.value
-
-      Versioned(version, DisclosedContract(d.templateId, coid, arg, d.metadata))
-    }
 
     var finished: Boolean = false
     var finalValue: SResultFinal = null
@@ -387,93 +382,70 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
           finished = true
           finalValue = fv
 
-        case SResultNeedTime(callback) =>
-          callback(time)
+        case SResultQuestion(question) =>
+          question match {
+            case Question.Update.NeedTime(callback) =>
+              callback(time)
+
+            case Question.Update.NeedPackage(pkgId, context, callback) =>
+              return Result.needPackage(
+                pkgId,
+                context,
+                pkg => {
+                  compiledPackages.addPackage(pkgId, pkg).flatMap { _ =>
+                    callback(compiledPackages)
+                    interpretLoop(machine, time)
+                  }
+                },
+              )
+
+            case Question.Update.NeedContract(contractId, _, callback) =>
+              def continueWithContract = (coinst: VersionedContractInstance) => {
+                callback(coinst.unversioned)
+                interpretLoop(machine, time)
+              }
+
+              return Result.needContract(contractId, continueWithContract)
+
+            case Question.Update.NeedKey(gk, _, cb) =>
+              def continueWithCoid = (result: Option[ContractId]) => {
+                discard[Boolean](cb(result))
+                interpretLoop(machine, time)
+              }
+
+              return ResultNeedKey(
+                gk,
+                continueWithCoid,
+              )
+          }
 
         case SResultError(err) =>
           return handleError(err, detailMsg)
-
-        case SResultNeedPackage(pkgId, context, callback) =>
-          return Result.needPackage(
-            pkgId,
-            context,
-            pkg => {
-              compiledPackages.addPackage(pkgId, pkg).flatMap { _ =>
-                callback(compiledPackages)
-                interpretLoop(machine, time)
-              }
-            },
-          )
-
-        case SResultNeedContract(contractId, _, callback) =>
-          def continueWithContract = (coinst: VersionedContractInstance) => {
-            callback(coinst.unversioned)
-            interpretLoop(machine, time)
-          }
-          return Result.needContract(contractId, continueWithContract)
-
-        case SResultNeedKey(gk, _, cb) =>
-          def continueWithCoid = (result: Option[ContractId]) => {
-            discard[Boolean](cb(result))
-            interpretLoop(machine, time)
-          }
-          return ResultNeedKey(
-            gk,
-            continueWithCoid,
-          )
-
-        case err @ (_: SResultScenarioSubmit | _: SResultScenarioPassTime |
-            _: SResultScenarioGetParty) =>
-          return ResultError(
-            Error.Interpretation.Internal(
-              NameOf.qualifiedNameOfCurrentFunc,
-              s"unexpected ${err.getClass.getSimpleName}",
-              None,
-            )
-          )
       }
     }
 
-    finalValue match {
-      case SResultFinal(
-            _,
-            Some(
-              PartialTransaction.Result(
-                tx,
-                _,
-                nodeSeeds,
-                globalKeyMapping,
-                disclosedContracts,
-              )
-            ),
-          ) =>
+    machine.finish match {
+      case Right(UpdateMachine.Result(tx, _, nodeSeeds, globalKeyMapping, disclosedContracts)) =>
         deps(tx).flatMap { deps =>
           val meta = Tx.Metadata(
             submissionSeed = None,
             submissionTime = machine.submissionTime,
             usedPackages = deps,
-            dependsOnTime = onLedger.getDependsOnTime,
+            dependsOnTime = machine.getDependsOnTime,
             nodeSeeds = nodeSeeds,
             globalKeyMapping = globalKeyMapping,
-            disclosures = disclosedContracts.map(versionDisclosedContract),
+            disclosures = disclosedContracts,
           )
           config.profileDir.foreach { dir =>
             val desc = Engine.profileDesc(tx)
-            machine.profile.name = s"${meta.submissionTime}-$desc"
             val profileFile = dir.resolve(s"${meta.submissionTime}-$desc.json")
+            machine.profile.name = s"${meta.submissionTime}-$desc"
             machine.profile.writeSpeedscopeJson(profileFile)
           }
           ResultDone((tx, meta))
         }
-
-      case SResultFinal(_, None) =>
-        ResultError(
-          Error.Interpretation.Internal(
-            NameOf.qualifiedNameOfCurrentFunc,
-            "Interpretation error: completed transaction expected",
-            None,
-          )
-        )
+      case Left(err) =>
+        handleError(err)
     }
   }
 
@@ -545,22 +517,11 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
       argument: Value,
       interfaceId: Identifier,
   )(implicit loggingContext: LoggingContext): Result[Versioned[Value]] = {
-    def interpret(machine: Machine): Result[SValue] = {
-      machine.run() match {
-        case SResultFinal(v, _) => ResultDone(v)
-        case SResultError(err) => handleError(err, None)
-        case err @ (_: SResultNeedPackage | _: SResultNeedContract | _: SResultNeedKey |
-            _: SResultNeedTime | _: SResultScenarioGetParty | _: SResultScenarioPassTime |
-            _: SResultScenarioSubmit) =>
-          ResultError(
-            Error.Interpretation.Internal(
-              NameOf.qualifiedNameOfCurrentFunc,
-              s"unexpected ${err.getClass.getSimpleName}",
-              None,
-            )
-          )
+    def interpret(machine: PureMachine): Result[SValue] =
+      machine.runPure() match {
+        case Right(v) => ResultDone(v)
+        case Left(err) => handleError(err, None)
       }
-    }
     for {
       view <- preprocessor.preprocessInterfaceView(templateId, argument, interfaceId)
       sexpr <- runCompilerSafely(
@@ -569,10 +530,8 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
       )
       machine = Machine.fromPureSExpr(compiledPackages, sexpr)
       r <- interpret(machine)
-    } yield
-    // TODO https://github.com/digital-asset/daml/issues/14114
-    // Double check that the interface version is the right thing to use here.
-    Versioned(view.interfaceVersion, r.toNormalizedValue(view.interfaceVersion))
+      version = machine.tmplId2TxVersion(interfaceId)
+    } yield Versioned(version, r.toNormalizedValue(version))
   }
 
 }

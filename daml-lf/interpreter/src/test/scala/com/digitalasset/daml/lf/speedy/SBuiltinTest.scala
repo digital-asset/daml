@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -20,9 +20,8 @@ import com.daml.lf.speedy.SBuiltin.{
 import com.daml.lf.speedy.SError.{SError, SErrorCrash}
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SValue.{SValue => _, _}
-import com.daml.lf.speedy.Speedy.{CachedContract, OnLedger}
+import com.daml.lf.speedy.Speedy.{CachedContract, Machine, SKeyWithMaintainers}
 import com.daml.lf.testing.parser.Implicits._
-import com.daml.lf.transaction.Node.KeyWithMaintainers
 import com.daml.lf.transaction.{GlobalKey, GlobalKeyWithMaintainers, TransactionVersion}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.{ContractId, ValueArithmeticError, VersionedContractInstance}
@@ -1312,20 +1311,12 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
         "returns None on-ledger" in {
           val f = """(\(c:(ContractId Mod:T)) -> CONTRACT_ID_TO_TEXT @Mod:T c)"""
           val cid = Value.ContractId.V1(Hash.hashPrivateKey("abc"))
-          evalApp(
-            e"$f",
-            Array(SContractId(cid)),
-            onLedger = true,
-          ) shouldBe Right(SOptional(None))
+          evalAppOnLedger(e"$f", Array(SContractId(cid))) shouldBe Right(SOptional(None))
         }
         "returns Some(abc) off-ledger" in {
           val f = """(\(c:(ContractId Mod:T)) -> CONTRACT_ID_TO_TEXT @Mod:T c)"""
           val cid = Value.ContractId.V1(Hash.hashPrivateKey("abc"))
-          evalApp(
-            e"$f",
-            Array(SContractId(cid)),
-            onLedger = false,
-          ) shouldBe Right(SOptional(Some(SText(cid.coid))))
+          evalApp(e"$f", Array(SContractId(cid))) shouldBe Right(SOptional(Some(SText(cid.coid))))
         }
       }
 
@@ -1518,9 +1509,7 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
       )
 
       forAll(cases) { (builtin, args, name) =>
-        inside(
-          evalSExpr(SEAppAtomicSaturatedBuiltin(builtin, args.map(SEValue(_)).toArray), false)
-        ) {
+        inside(eval(SEAppAtomicSaturatedBuiltin(builtin, args.map(SEValue(_)).toArray))) {
           case Left(
                 SError.SErrorDamlException(
                   IE.UnhandledException(ValueArithmeticError.typ, ValueArithmeticError(msg))
@@ -1543,28 +1532,24 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
 
   "SBCrash" - {
     "throws an exception" in {
-      val result = evalSExpr(
-        SEApp(SEBuiltin(SBCrash("test message")), Array(SUnit)),
-        onLedger = false,
-      )
-
-      inside(result) { case Left(SErrorCrash(_, message)) =>
-        message should endWith("test message")
+      inside(eval(SEApp(SEBuiltin(SBCrash("test message")), Array(SUnit)))) {
+        case Left(SErrorCrash(_, message)) =>
+          message should endWith("test message")
       }
     }
   }
 
   "AnyExceptionMessage" - {
     "request unknown packageId" in {
-      eval(
+      evalOnLedger(
         e"""ANY_EXCEPTION_MESSAGE (to_any_exception @Mod:Exception (Mod:Exception {}))"""
       ) shouldBe Right(SText("some nice error message"))
-      eval(
+      evalOnLedger(
         e"""ANY_EXCEPTION_MESSAGE (to_any_exception @Mod:ExceptionAppend (Mod:ExceptionAppend { front = "Hello", back = "world"}))"""
       ) shouldBe Right(SText("Helloworld"))
       inside(
         Try(
-          eval(
+          evalOnLedger(
             e"""ANY_EXCEPTION_MESSAGE (to_any_exception @'-unknown-package-':Mod:Exception ('-unknown-package-':Mod:Exception {}))"""
           )
         )
@@ -1627,19 +1612,15 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
   "SBCheckTemplate" - {
     "detects templates that exist" in {
       val templateId = Ref.Identifier.assertFromString("-pkgId-:Mod:Iou")
-
-      evalSExpr(
-        SEApp(SEBuiltin(SBCheckTemplate(templateId)), Array(SUnit)),
-        onLedger = false,
+      eval(
+        SEApp(SEBuiltin(SBCheckTemplate(templateId)), Array(SUnit))
       ) shouldBe Right(SBool(true))
     }
 
     "detects non-existent templates" in {
       val templateId = Ref.Identifier.assertFromString("-pkgId-:Mod:NonExistent")
-
-      evalSExpr(
-        SEApp(SEBuiltin(SBCheckTemplate(templateId)), Array(SUnit)),
-        onLedger = false,
+      eval(
+        SEApp(SEBuiltin(SBCheckTemplate(templateId)), Array(SUnit))
       ) shouldBe Right(SBool(false))
     }
   }
@@ -1647,19 +1628,15 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
   "SBCheckTemplateKey" - {
     "detects keys that exist for the template" in {
       val templateId = Ref.Identifier.assertFromString("-pkgId-:Mod:IouWithKey")
-
-      evalSExpr(
-        SEApp(SEBuiltin(SBCheckTemplateKey(templateId)), Array(SUnit)),
-        onLedger = false,
+      eval(
+        SEApp(SEBuiltin(SBCheckTemplateKey(templateId)), Array(SUnit))
       ) shouldBe Right(SBool(true))
     }
 
     "detects non-existent template keys" in {
       val templateId = Ref.Identifier.assertFromString("-pkgId-:Mod:Iou")
-
-      evalSExpr(
-        SEApp(SEBuiltin(SBCheckTemplateKey(templateId)), Array(SUnit)),
-        onLedger = false,
+      eval(
+        SEApp(SEBuiltin(SBCheckTemplateKey(templateId)), Array(SUnit))
       ) shouldBe Right(SBool(false))
     }
   }
@@ -1676,6 +1653,7 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
         val cachedContract = CachedContract(
           templateId,
           disclosedContract.argument,
+          "",
           Set(alice),
           Set.empty,
           None,
@@ -1683,13 +1661,14 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
         val cachedContractSExpr = SBuildCachedContract(
           SEValue(STypeRep(TTyCon(templateId))),
           SEValue(disclosedContract.argument),
+          SEValue(SText("")),
           SEValue(SList(FrontStack(SParty(alice)))),
           SEValue(SList(FrontStack.Empty)),
           SEValue(SOptional(None)),
         )
 
         inside(
-          evalSExpr(
+          evalOnLedger(
             SELet1(
               cachedContractSExpr,
               SEAppAtomic(SEBuiltin(SBCacheDisclosedContract(contractId)), Array(SELocS(1))),
@@ -1699,10 +1678,8 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
                 version,
                 templateId,
                 disclosedContract.argument.toUnnormalizedValue,
-                "Agreement",
               )
             ),
-            onLedger = true,
           )
         ) { case Right((SUnit, contractCache, disclosedContractKeys)) =>
           contractCache shouldBe Map(
@@ -1716,10 +1693,11 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
         val templateId = Ref.Identifier.assertFromString("-pkgId-:Mod:IouWithKey")
         val (disclosedContract, Some((key, keyWithMaintainers, keyHash))) =
           buildDisclosedContract(contractId, alice, alice, templateId, withKey = true)
-        val optionalKey = Some(KeyWithMaintainers(key.toNormalizedValue(version), Set(alice)))
+        val optionalKey = Some(SKeyWithMaintainers(key, Set(alice)))
         val cachedContract = CachedContract(
           templateId,
           disclosedContract.argument,
+          "agreement",
           Set(alice),
           Set.empty,
           optionalKey,
@@ -1727,13 +1705,14 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
         val cachedContractSExpr = SBuildCachedContract(
           SEValue(STypeRep(TTyCon(templateId))),
           SEValue(disclosedContract.argument),
+          SEValue(SText("agreement")),
           SEValue(SList(FrontStack(SParty(alice)))),
           SEValue(SList(FrontStack.Empty)),
           SEValue(SOptional(Some(keyWithMaintainers))),
         )
 
         inside(
-          evalSExpr(
+          evalOnLedger(
             SELet1(
               cachedContractSExpr,
               SEAppAtomic(SEBuiltin(SBCacheDisclosedContract(contractId)), Array(SELocS(1))),
@@ -1743,10 +1722,8 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
                 version,
                 templateId,
                 disclosedContract.argument.toUnnormalizedValue,
-                "Agreement",
               )
             ),
-            onLedger = true,
           )
         ) { case Right((SUnit, contractCache, disclosedContractKeys)) =>
           contractCache shouldBe Map(
@@ -1837,52 +1814,52 @@ object SBuiltinTest {
   val compiledPackages: PureCompiledPackages =
     PureCompiledPackages.assertBuild(Map(defaultParserParameters.defaultPackageId -> pkg))
 
-  private def eval(e: Expr, onLedger: Boolean = true): Either[SError, SValue] =
-    evalSExpr(compiledPackages.compiler.unsafeCompile(e), onLedger)
+  private def eval(e: Expr): Either[SError, SValue] =
+    Machine.runPureExpr(e, compiledPackages)
 
   private def evalApp(
       e: Expr,
       args: Array[SValue],
-      onLedger: Boolean = true,
   ): Either[SError, SValue] =
-    evalSExpr(SEApp(compiledPackages.compiler.unsafeCompile(e), args), onLedger)
+    eval(SEApp(compiledPackages.compiler.unsafeCompile(e), args))
 
   val alice: Party = Ref.Party.assertFromString("Alice")
   val committers: Set[Party] = Set(alice)
 
-  private def evalSExpr(sexpr: SExpr, onLedger: Boolean): Either[SError, SValue] = {
-    evalSExpr(sexpr, PartialFunction.empty, onLedger).map(_._1)
-  }
+  private def eval(sexpr: SExpr): Either[SError, SValue] =
+    Machine.runPureSExpr(sexpr, compiledPackages)
 
-  private def evalSExpr(
+  private def evalAppOnLedger(
+      e: Expr,
+      args: Array[SValue],
+      getContract: PartialFunction[Value.ContractId, Value.VersionedContractInstance] = Map.empty,
+  ): Either[SError, SValue] =
+    evalOnLedger(SEApp(compiledPackages.compiler.unsafeCompile(e), args), getContract).map(_._1)
+
+  private def evalOnLedger(
+      e: Expr,
+      getContract: PartialFunction[Value.ContractId, Value.VersionedContractInstance] = Map.empty,
+  ): Either[SError, SValue] =
+    evalOnLedger(compiledPackages.compiler.unsafeCompile(e), getContract).map(_._1)
+
+  private def evalOnLedger(
       sexpr: SExpr,
       getContract: PartialFunction[Value.ContractId, Value.VersionedContractInstance],
-      onLedger: Boolean,
   ): Either[
     SError,
     (SValue, Map[ContractId, CachedContract], Map[crypto.Hash, SValue.SContractId]),
   ] = {
     val machine =
-      if (onLedger) {
-        Speedy.Machine.fromUpdateSExpr(
-          compiledPackages,
-          transactionSeed = crypto.Hash.hashPrivateKey("SBuiltinTest"),
-          updateSE = SELet1(sexpr, SEMakeClo(Array(SELocS(1)), 1, SELocF(0))),
-          committers = committers,
-        )
-      } else {
-        Speedy.Machine.fromPureSExpr(compiledPackages, sexpr)
-      }
+      Speedy.Machine.fromUpdateSExpr(
+        compiledPackages,
+        transactionSeed = crypto.Hash.hashPrivateKey("SBuiltinTest"),
+        updateSE = SELet1(sexpr, SEMakeClo(Array(SELocS(1)), 1, SELocF(0))),
+        committers = committers,
+      )
 
-    SpeedyTestLib.run(machine, getContract = getContract).map { value =>
-      machine.ledgerMode match {
-        case onLedger: OnLedger =>
-          (value, onLedger.getCachedContracts, onLedger.disclosureKeyTable.toMap)
-
-        case _ =>
-          (value, Map.empty, Map.empty)
-      }
-    }
+    SpeedyTestLib
+      .run(machine, getContract = getContract)
+      .map((_, machine.getCachedContracts, machine.disclosureKeyTable.toMap))
   }
 
   def intList(xs: Long*): String =

@@ -1,9 +1,12 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.indexer.parallel
 
+import java.util.{Timer, concurrent}
+
 import akka.stream.{KillSwitch, Materializer}
+import com.daml.executors.InstrumentedExecutors
 import com.daml.ledger.participant.state.v2.ReadService
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
@@ -17,8 +20,6 @@ import com.daml.platform.store.backend.ParameterStorageBackend.LedgerEnd
 import com.daml.platform.store.backend.{DBLockStorageBackend, DataSourceStorageBackend}
 import com.daml.platform.store.dao.DbDispatcher
 import com.google.common.util.concurrent.ThreadFactoryBuilder
-import java.util.{Timer, concurrent}
-import java.util.concurrent.Executors
 
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.util.control.NonFatal
@@ -45,12 +46,20 @@ object ParallelIndexerFactory {
       inputMapperExecutor <- asyncPool(
         inputMappingParallelism,
         "input-mapping-pool",
-        Some(metrics.daml.parallelIndexer.inputMapping.executor -> metrics.registry),
+        (
+          metrics.daml.parallelIndexer.inputMapping.executor,
+          metrics.dropwizardFactory.registry,
+          metrics.executorServiceMetrics,
+        ),
       )
       batcherExecutor <- asyncPool(
         batchingParallelism,
         "batching-pool",
-        Some(metrics.daml.parallelIndexer.batching.executor -> metrics.registry),
+        (
+          metrics.daml.parallelIndexer.batching.executor,
+          metrics.dropwizardFactory.registry,
+          metrics.executorServiceMetrics,
+        ),
       )
       haCoordinator <-
         if (dbLockStorageBackend.dbLockSupported) {
@@ -58,17 +67,20 @@ object ParallelIndexerFactory {
             executionContext <- ResourceOwner
               .forExecutorService(() =>
                 ExecutionContext.fromExecutorService(
-                  Executors.newFixedThreadPool(
+                  InstrumentedExecutors.newFixedThreadPoolWithFactory(
+                    "ha-coordinator",
                     1,
-                    new ThreadFactoryBuilder().setNameFormat(s"ha-coordinator-%d").build,
-                  ),
-                  throwable =>
-                    ContextualizedLogger
-                      .get(getClass)
-                      .error(
-                        "ExecutionContext has failed with an exception",
-                        throwable,
-                      ),
+                    new ThreadFactoryBuilder().setNameFormat("ha-coordinator-%d").build,
+                    metrics.dropwizardFactory.registry,
+                    metrics.executorServiceMetrics,
+                    throwable =>
+                      ContextualizedLogger
+                        .get(getClass)
+                        .error(
+                          "ExecutionContext has failed with an exception",
+                          throwable,
+                        ),
+                  )
                 )
               )
             timer <- ResourceOwner.forTimer(() => new Timer)

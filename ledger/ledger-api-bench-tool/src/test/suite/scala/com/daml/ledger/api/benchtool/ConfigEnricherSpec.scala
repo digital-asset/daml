@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.benchtool
@@ -8,11 +8,18 @@ import com.daml.ledger.api.benchtool.config.WorkflowConfig.StreamConfig.{
   PartyNamePrefixFilter,
   TransactionsStreamConfig,
 }
-import com.daml.ledger.api.benchtool.submission.{AllocatedParties, AllocatedPartySet}
+import com.daml.ledger.api.benchtool.submission.{
+  AllocatedParties,
+  AllocatedPartySet,
+  BenchtoolTestsPackageInfo,
+}
 import com.daml.ledger.client.binding.Primitive
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import scalaz.syntax.tag._
+
+import java.util.concurrent.TimeUnit
+import scala.concurrent.duration.Duration
 
 class ConfigEnricherSpec extends AnyFlatSpec with Matchers {
 
@@ -34,7 +41,8 @@ class ConfigEnricherSpec extends AnyFlatSpec with Matchers {
             List("MyParty-0", "MyParty-1").map(makeParty),
           )
         ),
-      )
+      ),
+      BenchtoolTestsPackageInfo.StaticDefault,
     )
     val templates: List[String] = List("otherTemplate", "Foo1")
     val foo1Id = com.daml.ledger.test.benchtool.Foo.Foo1.id.unwrap
@@ -67,6 +75,7 @@ class ConfigEnricherSpec extends AnyFlatSpec with Matchers {
             templates = templates,
           )
         ),
+        subscriptionDelay = Some(Duration(1337, TimeUnit.SECONDS)),
       )
     ) shouldBe TransactionsStreamConfig(
       name = "flat",
@@ -98,6 +107,7 @@ class ConfigEnricherSpec extends AnyFlatSpec with Matchers {
         ),
       ),
       partyNamePrefixFilterO = None,
+      subscriptionDelay = Some(Duration(1337, TimeUnit.SECONDS)),
     )
   }
 }

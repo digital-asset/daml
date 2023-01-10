@@ -1,4 +1,4 @@
-.. Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 Your First Feature
@@ -16,7 +16,7 @@ This means:
 
 Daml lets us implement these guarantees in a direct and intuitive way.
 
-Creating a feature involves four steps:
+Creating a feature involves three steps:
 
     1. Adding the necessary changes to the Daml model
     2. Making the corresponding changes in the UI
@@ -199,7 +199,7 @@ Notice that each new message appears in the UI as soon as it is sent (due to the
       :scale: 50 %
       :alt: The sent message is now visible below the Send button.
 
-.. tip:: You completed the second part of the Getting Started Guide! `Join our forum <https://discuss.daml.com>`_ and share a screenshot of your accomplishment to `get your second of 3 badges <https://discuss.daml.com/badges/126/hey-look-what-i-can-do>`_! Get the third badge by `deploying to Daml Hub <https://digitalasset.com/developers/interactive-tutorials/getting-started/deploy-to-dabl/>`_
+.. tip:: You completed the second part of the Getting Started Guide! `Join our forum <https://discuss.daml.com>`_ and share a screenshot of your accomplishment to `get your second of 3 badges <https://discuss.daml.com/badges/126/hey-look-what-i-can-do>`_! Get the third badge by `deploying to Daml Hub <https://hub.daml.com/docs/quickstart/#deploy-your-own-daml-hub-sample-app>`_.
 
 Next Steps
 ==========

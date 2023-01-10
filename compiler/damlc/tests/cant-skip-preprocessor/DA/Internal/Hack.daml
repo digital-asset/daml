@@ -1,0 +1,16 @@
+-- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- Tests that the daml preprocessor can't be skipped even if the module name
+-- appears in DA.Daml.Preprocessor.shouldSkipPreprocessor
+
+module DA.Internal.Hack where
+
+-- @ERROR range=10:1-10:28; Import of internal module DA.Internal.LF is not allowed
+import DA.Internal.LF (Any)
+
+-- @ERROR range=13:1-13:28; Newtype MyAny has constructor MkMyAny with different name
+newtype MyAny = MkMyAny Any
+
+-- @ERROR range=16:18-16:36; Constructors with multiple fields must give explicit field names
+data MyProduct = MyProduct Int Bool

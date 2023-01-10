@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.metering
@@ -12,6 +12,26 @@ import java.nio.file.{Files, Path}
 import scala.jdk.StreamConverters._
 import scala.util.Try
 
+/** The metering report validation app can be used to verify that a provided metering report is consistent with
+  * a `check` section within the report. When the report is created the check section is populated with a digest
+  * and a scheme that was used in the creation of that digest.  Different schemes may be used by different
+  * release variants (e.g. community verses enterprise) and for different points in time.
+  *
+  * The app takes as parameters a directory that contains one file for each supported scheme and the report
+  * file to be verified. The scheme files need to contain JSON with fields for the scheme name digest algorithm
+  * and encoded key. For example:
+  *
+  *   {
+  *    "scheme": "community-2021",
+  *    "algorithm": "HmacSHA256",
+  *    "encoded": "ifKEd83-fAvOBTXnGjIVfesNzmWFKpo_35zpUnXEsg="
+  *   }
+  *
+  * Verification works by inspecting the scheme referenced in the report file and then checking that the
+  * recalculated digest matches that provided in the file.
+  *
+  * Usage: metering-verification-app <directory> <report>
+  */
 object Main {
 
   trait ExitCode {

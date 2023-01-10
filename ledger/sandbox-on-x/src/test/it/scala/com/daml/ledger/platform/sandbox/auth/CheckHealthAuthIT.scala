@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.sandbox.auth
@@ -14,8 +14,8 @@ final class CheckHealthAuthIT extends UnsecuredServiceCallAuthTests {
 
   private lazy val request = HealthCheckRequest.newBuilder().build()
 
-  override def serviceCallWithToken(token: Option[String]): Future[Any] =
+  override def serviceCall(context: ServiceCallContext): Future[Any] =
     new StreamConsumer[HealthCheckResponse](
-      stub(HealthGrpc.newStub(channel), token).check(request, _)
+      stub(HealthGrpc.newStub(channel), context.token).check(request, _)
     ).first()
 }

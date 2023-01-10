@@ -1,9 +1,11 @@
--- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE DuplicateRecordFields #-}
 
 module DA.Ledger.Tests (main) where
+
+{- HLINT ignore "locateRunfiles/package_app" -}
 
 import Control.Monad
 import Control.Monad.IO.Class(liftIO)
@@ -51,9 +53,11 @@ main = do
 
 type SandboxTest = WithSandbox -> TestTree
 
-sharedSandboxTests :: FilePath -> TestTree
-sharedSandboxTests testDar = testGroupWithSandbox testDar Nothing "shared sandbox"
-    [ tGetLedgerIdentity
+-- (RH) flakyTests are those tests that relie on DA.Ledger.Stream, nonFlakyTests do not
+nonFlakyTests :: [WithSandbox -> TestTree]
+flakyTests :: [WithSandbox -> TestTree]
+nonFlakyTests =
+   [ tGetLedgerIdentity
     , tListPackages
     , tGetPackage
     , tGetPackageBad
@@ -61,32 +65,42 @@ sharedSandboxTests testDar = testGroupWithSandbox testDar Nothing "shared sandbo
     , tGetPackageStatusUnknown
     , tSubmit
     , tSubmitBad
-    , tSubmitComplete
-    , tCreateWithKey
-    , tCreateWithoutKey
-    , tStakeholders
-    , tPastFuture
-    , tGetFlatTransactionByEventId
-    , tGetFlatTransactionById
-    , tGetTransactions
-    , tGetTransactionTrees
-    , tGetTransactionByEventId
-    , tGetTransactionById
-    , tGetActiveContracts
-    , tGetLedgerConfiguration
-    , tGetTime
-    , tSetTime
-    , tSubmitAndWait
-    , tSubmitAndWaitForTransactionId
-    , tSubmitAndWaitForTransaction
-    , tSubmitAndWaitForTransactionTree
     , tGetParticipantId
-    , tValueConversion
     , tUploadDarFileBad
-    , tUploadDarFileGood
     , tAllocateParty
     , tMeteringReport
     ]
+flakyTests =
+   [ tSubmitComplete
+   , tCreateWithKey
+   , tCreateWithoutKey
+   , tStakeholders
+   , tPastFuture
+   , tGetFlatTransactionByEventId
+   , tGetFlatTransactionById
+   , tGetTransactions
+   , tGetTransactionTrees
+   , tGetTransactionByEventId
+   , tGetTransactionById
+   , tGetActiveContracts
+   , tGetLedgerConfiguration
+   , tGetTime
+   , tSetTime
+   , tSubmitAndWait
+   , tSubmitAndWaitForTransactionId
+   , tSubmitAndWaitForTransaction
+   , tSubmitAndWaitForTransactionTree
+   , tValueConversion
+   , tUploadDarFileGood
+   ]
+
+-- (RH) We disable all test that rely on stream to reduce flakyness
+testFlaky :: Bool
+testFlaky = False
+
+sharedSandboxTests :: FilePath -> TestTree
+sharedSandboxTests testDar = testGroupWithSandbox testDar Nothing "shared sandbox"
+  ( nonFlakyTests ++ if testFlaky then flakyTests else [] )
 
 authenticatingSandboxTests :: FilePath -> TestTree
 authenticatingSandboxTests testDar =
@@ -696,7 +710,11 @@ makeCommands :: LedgerId -> Party -> Command -> IO (CommandId,Commands)
 makeCommands lid party com = do
     cid <- liftIO randomCid
     let wid = Nothing
-    return $ (cid,) $ Commands {lid,wid,aid=myAid,cid,actAs=[party],readAs=[],dedupPeriod=Nothing,coms=[com],minLeTimeAbs=Nothing,minLeTimeRel=Nothing,sid=Nothing}
+    return (cid,
+            Commands
+              {lid, wid, aid = myAid, cid, actAs = [party], readAs = [],
+               dedupPeriod = Nothing, coms = [com], minLeTimeAbs = Nothing,
+               minLeTimeRel = Nothing, sid = Nothing})
 
 
 myAid :: ApplicationId

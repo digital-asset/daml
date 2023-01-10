@@ -1,4 +1,4 @@
-# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -7,10 +7,7 @@ load(
     "kind_projector_plugin",
     "lf_scalacopts",
 )
-
-hj_scalacopts = lf_scalacopts + [
-    "-P:wartremover:traverser:org.wartremover.warts.NonUnitStatements",
-]
+load("//ledger-service/utils:scalaopts.bzl", "hj_scalacopts")
 
 [
     da_scala_library(
@@ -48,21 +45,20 @@ hj_scalacopts = lf_scalacopts + [
             "//ledger-service/http-json:http-json-{}".format(edition),
             "//ledger-service/http-json-cli:{}".format(edition),
             "//ledger-service/cli-opts",
-            "//ledger-service/jwt",
+            "//ledger-service/metrics",
             "//ledger-service/utils",
             "//ledger/ledger-api-auth",
             "//ledger/ledger-api-common",
             "//ledger/ledger-resources",
             "//ledger/ledger-runner-common",
-            "//ledger/metrics",
             "//ledger/participant-integration-api",
             "//ledger/sandbox-on-x",
             "//ledger/sandbox-on-x:sandbox-on-x-test-lib",
             "//libs-scala/contextualized-logging",
+            "//libs-scala/jwt",
             "//libs-scala/ports",
             "//libs-scala/resources",
             "//libs-scala/scala-utils",
-            "@maven//:io_dropwizard_metrics_metrics_core",
         ],
     )
     for edition in [

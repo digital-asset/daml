@@ -1,4 +1,4 @@
--- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE DataKinds #-}
@@ -121,9 +121,14 @@ instance NFData Error where
     rnf = rwhnf
 
 findServerJar :: IO FilePath
-findServerJar = do
-  runfilesDir <- locateRunfiles (mainWorkspace </> "compiler/scenario-service/server")
-  pure (runfilesDir </> "scenario-service.jar")
+findServerJar = locateResource Resource
+  -- //compiler/scenario-service/server:scenario_service_jar
+  { resourcesPath = "scenario-service.jar"
+    -- In a packaged application, this is stored directly underneath the
+    -- resources directory because it's the target's only output.
+    -- See @bazel_tools/packaging/packaging.bzl@.
+  , runfilesPathPrefix = mainWorkspace </> "compiler" </> "scenario-service" </> "server"
+  }
 
 -- | Return the 'CreateProcess' for running java.
 -- Uses 'java' from JAVA_HOME if set, otherwise calls java via

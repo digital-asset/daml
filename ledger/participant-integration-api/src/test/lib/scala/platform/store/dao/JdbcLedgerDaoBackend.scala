@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.store.dao
@@ -12,7 +12,11 @@ import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.metrics.Metrics
-import com.daml.platform.configuration.ServerRole
+import com.daml.platform.configuration.{
+  ServerRole,
+  TransactionFlatStreamsConfig,
+  TransactionTreeStreamsConfig,
+}
 import com.daml.platform.store.DbSupport.{ConnectionPoolConfig, DbConfig}
 import com.daml.platform.store.backend.StorageBackendFactory
 import com.daml.platform.store.cache.MutableLedgerEndCache
@@ -20,6 +24,7 @@ import com.daml.platform.store.dao.JdbcLedgerDaoBackend.{TestLedgerId, TestParti
 import com.daml.platform.store.dao.events.CompressionStrategy
 import com.daml.platform.store.interning.StringInterningView
 import com.daml.platform.store.{DbSupport, DbType}
+import io.opentelemetry.api.GlobalOpenTelemetry
 import org.scalatest.AsyncTestSuite
 
 import scala.concurrent.Await
@@ -55,7 +60,7 @@ private[dao] trait JdbcLedgerDaoBackend extends AkkaBeforeAndAfterAll {
   )(implicit
       loggingContext: LoggingContext
   ): ResourceOwner[LedgerDao] = {
-    val metrics = new Metrics(new MetricRegistry)
+    val metrics = Metrics(new MetricRegistry, GlobalOpenTelemetry.getMeter("test"))
     val dbType = DbType.jdbcType(jdbcUrl)
     val storageBackendFactory = StorageBackendFactory.of(dbType)
     DbSupport
@@ -96,6 +101,11 @@ private[dao] trait JdbcLedgerDaoBackend extends AkkaBeforeAndAfterAll {
           participantId = JdbcLedgerDaoBackend.TestParticipantIdRef,
           ledgerEndCache = ledgerEndCache,
           stringInterning = stringInterningView,
+          completionsPageSize = 1000,
+          transactionFlatStreamsConfig = TransactionFlatStreamsConfig.default,
+          transactionTreeStreamsConfig = TransactionTreeStreamsConfig.default,
+          globalMaxEventIdQueries = 20,
+          globalMaxEventPayloadQueries = 10,
         )
       }
   }

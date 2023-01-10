@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -16,15 +16,15 @@ import com.daml.lf.transaction.{GlobalKey, NodeId, SubmittedTransaction}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 import com.daml.lf.scenario.{ScenarioLedger, ScenarioRunner}
-import com.daml.lf.speedy.Speedy.{Machine, Control}
+import com.daml.lf.speedy.Speedy.{Control, Machine, ScenarioMachine}
+import com.daml.lf.speedy.Question.Scenario
 import com.daml.logging.LoggingContext
 
 import java.io.File
 import java.util.concurrent.TimeUnit
-
 import org.openjdk.jmh.annotations._
 
-class CollectAuthority {
+private[lf] class CollectAuthority {
   @Benchmark @BenchmarkMode(Array(Mode.AverageTime)) @OutputTimeUnit(TimeUnit.MILLISECONDS)
   def bench(state: CollectAuthorityState): Unit = {
     state.run()
@@ -32,7 +32,7 @@ class CollectAuthority {
 }
 
 @State(Scope.Benchmark)
-class CollectAuthorityState {
+private[lf] class CollectAuthorityState {
 
   @Param(Array("//daml-lf/scenario-interpreter/CollectAuthority.dar"))
   private[perf] var dar: String = _
@@ -41,7 +41,7 @@ class CollectAuthorityState {
 
   private[this] implicit def logContext: LoggingContext = LoggingContext.ForTesting
 
-  var machine: Machine = null
+  var machine: ScenarioMachine = null
   var the_sexpr: SExpr = null
 
   @Setup(Level.Trial)
@@ -84,8 +84,9 @@ class CollectAuthorityState {
     while (finalValue == null) {
       step += 1
       machine.run() match {
-        case SResultScenarioGetParty(_, callback) => callback(cachedParty(step))
-        case SResultScenarioSubmit(committers, commands, location, mustFail, callback) =>
+        case SResultQuestion(Scenario.GetParty(_, callback)) =>
+          callback(cachedParty(step))
+        case SResultQuestion(Scenario.Submit(committers, commands, location, mustFail, callback)) =>
           assert(!mustFail)
           val api = new CannedLedgerApi(step, cachedContract)
           ScenarioRunner.submit(
@@ -102,9 +103,7 @@ class CollectAuthorityState {
               callback(value)
             case ScenarioRunner.SubmissionError(err, _) => crash(s"Submission failed $err")
           }
-        case SResultNeedContract(_, _, _) =>
-          crash("Off-ledger need contract callback")
-        case SResultFinal(v, _) => finalValue = v
+        case SResultFinal(v) => finalValue = v
         case r => crash(s"bench run: unexpected result from speedy: ${r}")
       }
     }
@@ -120,7 +119,7 @@ class CollectAuthorityState {
     while (finalValue == null) {
       step += 1
       machine.run() match {
-        case SResultScenarioGetParty(partyText, callback) =>
+        case SResultQuestion(Scenario.GetParty(partyText, callback)) =>
           Party.fromString(partyText) match {
             case Right(res) =>
               cachedParty = cachedParty + (step -> res)
@@ -128,7 +127,7 @@ class CollectAuthorityState {
             case Left(msg) =>
               crash(s"Party.fromString failed: $msg")
           }
-        case SResultScenarioSubmit(committers, commands, location, mustFail, callback) =>
+        case SResultQuestion(Scenario.Submit(committers, commands, location, mustFail, callback)) =>
           assert(!mustFail)
           val api = new CachedLedgerApi(step, ledger)
           ScenarioRunner.submit(
@@ -148,7 +147,7 @@ class CollectAuthorityState {
               cachedContract ++= api.cachedContract
               step = api.step
           }
-        case SResultFinal(v, _) =>
+        case SResultFinal(v) =>
           finalValue = v
         case r =>
           crash(s"setup run: unexpected result from speedy: ${r}")
@@ -162,7 +161,7 @@ class CollectAuthorityState {
 
 }
 
-class CachedLedgerApi(initStep: Int, ledger: ScenarioLedger)
+private[lf] class CachedLedgerApi(initStep: Int, ledger: ScenarioLedger)
     extends ScenarioRunner.ScenarioLedgerApi(ledger) {
   var step = initStep
   var cachedContract: Map[Int, Value.VersionedContractInstance] = Map()
@@ -182,7 +181,7 @@ class CachedLedgerApi(initStep: Int, ledger: ScenarioLedger)
   }
 }
 
-class CannedLedgerApi(
+private[lf] class CannedLedgerApi(
     initStep: Int,
     cachedContract: Map[Int, Value.VersionedContractInstance],
 ) extends ScenarioRunner.LedgerApi[Unit] {
@@ -198,7 +197,6 @@ class CannedLedgerApi(
     Right(callback(coinst))
   }
   override def lookupKey(
-      machine: Machine,
       gk: GlobalKey,
       actAs: Set[Party],
       readAs: Set[Party],

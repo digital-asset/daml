@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.client.services.admin
@@ -116,7 +116,7 @@ object UserManagementClient {
       metadata: com.daml.ledger.api.v1.admin.object_meta.ObjectMeta
   ): domain.ObjectMeta = {
     domain.ObjectMeta(
-      // TODO um-for-hub: Ledger-api-client shouldn't need to know how to parse resourceVersion. (ledger-api-domain probably shouldn't be used here)
+      // It's unfortunate that a client is using the server-side domain ObjectMeta and has to know how to parse the resource version
       resourceVersionO =
         Option.when(metadata.resourceVersion.nonEmpty)(metadata.resourceVersion).map(_.toLong),
       annotations = metadata.annotations,
@@ -133,7 +133,7 @@ object UserManagementClient {
 
   private def toProtoObjectMeta(meta: ObjectMeta): admin_proto.object_meta.ObjectMeta =
     admin_proto.object_meta.ObjectMeta(
-      // TODO um-for-hub: Ledger-api-client shouldn't need to know how to serialize resourceVersion. (ledger-api-domain probably shouldn't be used here)
+      // It's unfortunate that a client is using the server-side domain ObjectMeta and has to know how to parse the resource version
       resourceVersion = meta.resourceVersionO.map(_.toString).getOrElse(""),
       annotations = meta.annotations,
     )
@@ -141,6 +141,8 @@ object UserManagementClient {
   private val toProtoRight: domain.UserRight => proto.Right = {
     case domain.UserRight.ParticipantAdmin =>
       proto.Right(proto.Right.Kind.ParticipantAdmin(proto.Right.ParticipantAdmin()))
+    case domain.UserRight.IdentityProviderAdmin =>
+      proto.Right(proto.Right.Kind.IdentityProviderAdmin(proto.Right.IdentityProviderAdmin()))
     case domain.UserRight.CanActAs(party) =>
       proto.Right(proto.Right.Kind.CanActAs(proto.Right.CanActAs(party)))
     case domain.UserRight.CanReadAs(party) =>
@@ -150,6 +152,8 @@ object UserManagementClient {
   private val fromProtoRight: proto.Right => Option[domain.UserRight] = {
     case proto.Right(_: proto.Right.Kind.ParticipantAdmin) =>
       Some(domain.UserRight.ParticipantAdmin)
+    case proto.Right(_: proto.Right.Kind.IdentityProviderAdmin) =>
+      Some(domain.UserRight.IdentityProviderAdmin)
     case proto.Right(proto.Right.Kind.CanActAs(x)) =>
       // Note: assertFromString is OK here, as the server should deliver valid party identifiers.
       Some(domain.UserRight.CanActAs(Ref.Party.assertFromString(x.party)))

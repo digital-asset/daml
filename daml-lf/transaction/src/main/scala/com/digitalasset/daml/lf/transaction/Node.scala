@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -91,7 +91,7 @@ object Node {
     def versionedArg: Value.VersionedValue = versioned(arg)
 
     def coinst: Value.ContractInstance =
-      Value.ContractInstance(templateId, arg, agreementText)
+      Value.ContractInstance(templateId, arg)
 
     def versionedCoinst: Value.VersionedContractInstance = versioned(coinst)
 
@@ -153,6 +153,8 @@ object Node {
       override val version: TransactionVersion,
   ) extends Action
       with ActionNodeInfo.Exercise {
+
+    def qualifiedChoiceName = QualifiedChoiceName(interfaceId, choiceId)
 
     override def keyOpt: Option[KeyWithMaintainers] = key
 

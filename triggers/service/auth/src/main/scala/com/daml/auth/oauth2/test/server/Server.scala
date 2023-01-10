@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.auth.oauth2.test.server
@@ -102,6 +102,7 @@ class Server(config: Config) {
     })
     if (config.yieldUserTokens) // ignore everything but the applicationId
       StandardJWTPayload(
+        issuer = None,
         userId = applicationId getOrElse "",
         participantId = None,
         exp = None,
@@ -171,7 +172,7 @@ class Server(config: Config) {
                   Response
                     .Authorize(code = authorizationCode.toString, state = request.state)
                     .toQuery
-                requests += (authorizationCode -> payload)
+                requests.update(authorizationCode, payload)
                 // We skip any actual consent screen since this is only intended for testing and
                 // this is outside of the scope of the trigger service anyway.
                 redirect(request.redirectUri.withQuery(params), StatusCodes.Found)
@@ -190,7 +191,7 @@ class Server(config: Config) {
                 case Some(payload) =>
                   // Generate refresh token
                   val refreshCode = UUID.randomUUID()
-                  requests += (refreshCode -> payload)
+                  requests.update(refreshCode, payload)
                   // Construct access token with expiry
                   val accessToken = JwtSigner.HMAC256
                     .sign(

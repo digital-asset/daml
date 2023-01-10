@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.codegen.backend.java.inner
@@ -6,7 +6,6 @@ package com.daml.lf.codegen.backend.java.inner
 import com.daml.ledger.javaapi
 import com.daml.ledger.javaapi.data.codegen.{PrimitiveValueDecoders, ValueDecoder}
 import com.daml.lf.codegen.backend.java.ObjectMethods
-import com.daml.lf.data.Ref.PackageId
 import com.squareup.javapoet._
 import com.typesafe.scalalogging.StrictLogging
 
@@ -21,22 +20,23 @@ private[inner] object VariantRecordMethods extends StrictLogging {
       variantClassName: TypeName,
       className: TypeName,
       typeParameters: IndexedSeq[String],
-      packagePrefixes: Map[PackageId, String],
+  )(implicit
+      packagePrefixes: PackagePrefixes
   ): Vector[MethodSpec] = {
     val constructor = ConstructorGenerator.generateConstructor(fields)
 
     val conversionMethods = distinctTypeVars(fields, typeParameters) match {
       case IndexedSeq(params) =>
         List(
-          toValue(constructorName, params, fields, packagePrefixes),
+          toValue(constructorName, params, fields),
           generateDeprecatedFromValue(params, params, variantClassName, className),
         )
       case IndexedSeq(usedParams, allParams) =>
         // usedParams is always subset of allParams
         List(
-          toValue(constructorName, usedParams, fields, packagePrefixes),
+          toValue(constructorName, usedParams, fields),
           generateDeprecatedFromValue(usedParams, allParams, variantClassName, className),
-          toValue(constructorName, allParams, fields, packagePrefixes),
+          toValue(constructorName, allParams, fields),
           generateDeprecatedFromValue(allParams, allParams, variantClassName, className),
         )
     }
@@ -45,15 +45,11 @@ private[inner] object VariantRecordMethods extends StrictLogging {
       ObjectMethods(className.rawType, typeParameters, fields.map(_.javaName))
   }
 
-  private def toValue(
-      constructorName: String,
-      params: IndexedSeq[String],
-      fields: Fields,
-      packagePrefixes: Map[PackageId, String],
+  private def toValue(constructorName: String, params: IndexedSeq[String], fields: Fields)(implicit
+      packagePrefixes: PackagePrefixes
   ) = ToValueGenerator.generateToValueForRecordLike(
     params,
     fields,
-    packagePrefixes,
     TypeName.get(classOf[javaapi.data.Variant]),
     name =>
       CodeBlock.of(
@@ -105,7 +101,7 @@ private[inner] object VariantRecordMethods extends StrictLogging {
         else
           CodeBlock.of("$T.impossible()", classOf[PrimitiveValueDecoders])
       }.asJava,
-      ", ",
+      ",$W",
     )
 
     val classStaticAccessor = if (className.typeParameters.size > 0) {
@@ -113,7 +109,7 @@ private[inner] object VariantRecordMethods extends StrictLogging {
         className.typeParameters.asScala.map { param =>
           CodeBlock.of("$T", param)
         }.asJava,
-        ", ",
+        ",$W",
       )
       CodeBlock.of("$T.<$L>", variantClassName.rawType, typeParameterList)
     } else CodeBlock.of("")

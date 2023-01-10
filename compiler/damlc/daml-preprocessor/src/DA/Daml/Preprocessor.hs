@@ -1,4 +1,4 @@
--- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 
@@ -9,6 +9,7 @@ module DA.Daml.Preprocessor
   , isInternal
   ) where
 
+import qualified DA.Daml.LF.Ast as LF (PackageName (..))
 import           DA.Daml.Preprocessor.Records
 import           DA.Daml.Preprocessor.EnumType
 import           DA.Daml.StablePackages (stablePackageByModuleName)
@@ -87,16 +88,18 @@ isExperimental (GHC.moduleNameString -> x)
   -- Experimental modules need to import internal modules.
   = "DA.Experimental." `isPrefixOf` x
 
-shouldSkipPreprocessor :: GHC.ModuleName -> Bool
-shouldSkipPreprocessor name =
-    isInternal name
-    || Set.member name preprocessorExceptions
-    || isExperimental name
+shouldSkipPreprocessor :: (LF.PackageName, GHC.ModuleName) -> Bool
+shouldSkipPreprocessor (pkgName, modName) =
+    pkgName `elem` fmap LF.PackageName ["daml-prim", "daml-stdlib"]
+      &&
+        (isInternal modName
+        || Set.member modName preprocessorExceptions
+        || isExperimental modName)
 
 -- | Apply all necessary preprocessors
-damlPreprocessor :: ES.EnumSet GHC.Extension -> GHC.DynFlags -> GHC.ParsedSource -> IdePreprocessedSource
-damlPreprocessor dataDependableExtensions dflags x
-    | maybe False shouldSkipPreprocessor name = noPreprocessor dflags x
+damlPreprocessor :: ES.EnumSet GHC.Extension -> Maybe LF.PackageName -> GHC.DynFlags -> GHC.ParsedSource -> IdePreprocessedSource
+damlPreprocessor dataDependableExtensions mPkgName dflags x
+    | maybe False shouldSkipPreprocessor mod = noPreprocessor dflags x
     | otherwise = IdePreprocessedSource
         { preprocWarnings = concat
             [ checkDamlHeader x
@@ -118,7 +121,10 @@ damlPreprocessor dataDependableExtensions dflags x
             $ enumTypePreprocessor "GHC.Types" x
         }
     where
-      name = fmap GHC.unLoc $ GHC.hsmodName $ GHC.unLoc x
+      mod =
+        (,)
+          <$> mPkgName
+          <*> fmap GHC.unLoc (GHC.hsmodName $ GHC.unLoc x)
 
 -- | Preprocessor for generated code.
 generatedPreprocessor :: GHC.DynFlags -> GHC.ParsedSource -> IdePreprocessedSource

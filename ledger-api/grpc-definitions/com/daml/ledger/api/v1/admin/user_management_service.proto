@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 syntax = "proto3";
@@ -17,9 +17,13 @@ option csharp_namespace = "Com.Daml.Ledger.Api.V1.Admin";
 // served by a participant node.
 //
 // The authorization rules for its RPCs are specified on the ``<RpcName>Request``
-// messages as boolean expressions over these two facts:
+// messages as boolean expressions over these facts:
 // (1) ``HasRight(r)`` denoting whether the authenticated user has right ``r`` and
 // (2) ``IsAuthenticatedUser(uid)`` denoting whether ``uid`` is the empty string or equal to the id of the authenticated user.
+// (3) ``IsAuthenticatedIdentityProviderAdmin(idp)`` denoting whether ``idp`` is equal to the ``identity_provider_id``
+// of the authenticated user and the user has an IdentityProviderAdmin right.
+// If `user_id` is set to the empty string (the default), then the data for the authenticated user will be retrieved.
+// If `identity_provider_id` is set to the empty string, the default identity provider will be assumed.
 //
 // The fields of request messages (and sub-messages) are marked either as ``Optional`` or ``Required``:
 // (1) ``Optional`` denoting the client may leave the field unset when sending a request.
@@ -35,63 +39,29 @@ option csharp_namespace = "Com.Daml.Ledger.Api.V1.Admin";
 service UserManagementService {
 
     // Create a new user.
-    // Errors:
-    // - ``ALREADY_EXISTS``: if the user already exists
-    // - ``UNAUTHENTICATED``: if the request does not include a valid access token
-    // - ``PERMISSION_DENIED``: if the claims in the token are insufficient to perform a given operation
-    // - ``INVALID_ARGUMENT``: if the payload is malformed or is missing required fields
     rpc CreateUser (CreateUserRequest) returns (CreateUserResponse);
 
     // Get the user data of a specific user or the authenticated user.
-    // Errors:
-    // - ``NOT_FOUND``: if the user doesn't exist
-    // - ``UNAUTHENTICATED``: if the request does not include a valid access token
-    // - ``PERMISSION_DENIED``: if the claims in the token are insufficient to perform a given operation
-    // - ``INVALID_ARGUMENT``: if the payload is malformed or is missing required fields
     rpc GetUser (GetUserRequest) returns (GetUserResponse);
 
     // Update selected modifiable attribute of a user resource described by the ``User`` message.
     rpc UpdateUser (UpdateUserRequest) returns (UpdateUserResponse);
 
     // Delete an existing user and all its rights.
-    // Errors:
-    // - ``NOT_FOUND``: if the user doesn't exist
-    // - ``UNAUTHENTICATED``: if the request does not include a valid access token
-    // - ``PERMISSION_DENIED``: if the claims in the token are insufficient to perform a given operation
-    // - ``INVALID_ARGUMENT``: if the payload is malformed or is missing required fields
     rpc DeleteUser (DeleteUserRequest) returns (DeleteUserResponse);
 
     // List all existing users.
-    // Errors:
-    // - ``UNAUTHENTICATED``: if the request does not include a valid access token
-    // - ``PERMISSION_DENIED``: if the claims in the token are insufficient to perform a given operation
-    // - ``INVALID_ARGUMENT``: if the payload is malformed or is missing required fields
     rpc ListUsers (ListUsersRequest) returns (ListUsersResponse);
 
     // Grant rights to a user.
     // Granting rights does not affect the resource version of the corresponding user.
-    // Errors:
-    // - ``NOT_FOUND``: if the user doesn't exist
-    // - ``UNAUTHENTICATED``: if the request does not include a valid access token
-    // - ``PERMISSION_DENIED``: if the claims in the token are insufficient to perform a given operation
-    // - ``INVALID_ARGUMENT``: if the payload is malformed or is missing required fields
     rpc GrantUserRights (GrantUserRightsRequest) returns (GrantUserRightsResponse);
 
     // Revoke rights from a user.
     // Revoking rights does not affect the resource version of the corresponding user.
-    // Errors:
-    // - ``NOT_FOUND``: if the user doesn't exist
-    // - ``UNAUTHENTICATED``: if the request does not include a valid access token
-    // - ``PERMISSION_DENIED``: if the claims in the token are insufficient to perform a given operation
-    // - ``INVALID_ARGUMENT``: if the payload is malformed or is missing required fields
     rpc RevokeUserRights (RevokeUserRightsRequest) returns (RevokeUserRightsResponse);
 
     // List the set of all rights granted to a user.
-    // Errors:
-    // - ``NOT_FOUND``: if the user doesn't exist
-    // - ``UNAUTHENTICATED``: if the request does not include a valid access token
-    // - ``PERMISSION_DENIED``: if the claims in the token are insufficient to perform a given operation
-    // - ``INVALID_ARGUMENT``: if the payload is malformed or is missing required fields
     rpc ListUserRights (ListUserRightsRequest) returns (ListUserRightsResponse);
 }
 
@@ -105,7 +75,7 @@ service UserManagementService {
 // Read the :doc:`Authorization documentation </app-dev/authorization>` to learn more.
 message User {
     // The user identifier, which must be a non-empty string of at most 128
-    // characters that are either lowercase alphanumeric ASCII characters or one of the symbols "@^$.!`-#+'~_|:".
+    // characters that are either alphanumeric ASCII characters or one of the symbols "@^$.!`-#+'~_|:".
     // Required
     string id = 1;
 
@@ -130,12 +100,16 @@ message User {
     // Optional,
     // Modifiable
     ObjectMeta metadata = 4;
+
+    // The id of the identity provider configured by ``Identity Provider Config``
+    // Optional, if not set, assume the user is managed by the default identity provider.
+    string identity_provider_id = 5;
 }
 
 
 // A right granted to a user.
 message Right {
-    // The right to administrate the participant node.
+    // The right to administer the participant node.
     message ParticipantAdmin {}
 
     message CanActAs {
@@ -148,14 +122,21 @@ message Right {
         string party = 1;
     }
 
+    // The right to administer the identity provider that the user is assigned to.
+    // It means, being able to manage users and parties that are also assigned
+    // to the same identity provider.
+    message IdentityProviderAdmin {}
+
     // Required
     oneof kind {
-        // The user can administrate the participant node.
+        // The user can administer the participant node.
         ParticipantAdmin participant_admin = 1;
         // The user can act as a specific party.
         CanActAs can_act_as = 2;
         // The user can read ledger data visible to a specific party.
         CanReadAs can_read_as = 3;
+        // The user can administer users and parties assigned to the same identity provider as the one of the user.
+        IdentityProviderAdmin identity_provider_admin = 4;
     }
 }
 
@@ -163,7 +144,7 @@ message Right {
 // RPC requests and responses
 /////////////////////////////
 
-// Required authorization: ``HasRight(ParticipantAdmin)``
+// Required authorization: ``HasRight(ParticipantAdmin) OR IsAuthenticatedIdentityProviderAdmin(user.identity_provider_id)``
 message CreateUserRequest {
     // The user to create.
     // Required
@@ -180,12 +161,16 @@ message CreateUserResponse {
     User user = 1;
 }
 
-// Required authorization: ``HasRight(ParticipantAdmin) OR IsAuthenticatedUser(user_id)``
+// Required authorization: ``HasRight(ParticipantAdmin) OR IsAuthenticatedIdentityProviderAdmin(identity_provider_id) OR IsAuthenticatedUser(user_id)``
 message GetUserRequest {
     // The user whose data to retrieve.
     // If set to empty string (the default), then the data for the authenticated user will be retrieved.
-    // Required
+    // Optional
     string user_id = 1;
+
+    // The id of the ``Identity Provider``
+    // Optional, if not set, assume the user is managed by the default identity provider.
+    string identity_provider_id = 2;
 }
 
 message GetUserResponse {
@@ -193,7 +178,7 @@ message GetUserResponse {
     User user = 1;
 }
 
-// Required authorization: ``HasRight(ParticipantAdmin)``
+// Required authorization: ``HasRight(ParticipantAdmin) OR IsAuthenticatedIdentityProviderAdmin(user.identity_provider_id)``
 message UpdateUserRequest {
     // The user to update.
     // Required,
@@ -209,7 +194,7 @@ message UpdateUserRequest {
     // Fields that can be updated are marked as ``Modifiable``.
     // An update path can also point to a non-``Modifiable`` fields such as 'id' and 'metadata.resource_version'
     // because they are used:
-    // (1) to identify the user resource subject to the update, 
+    // (1) to identify the user resource subject to the update,
     // (2) for concurrent change control.
     // Examples of valid update paths: 'primary_party', 'metadata', 'metadata.annotations'.
     // For additional information see the documentation for standard protobuf3's ``google.protobuf.FieldMask``.
@@ -223,18 +208,22 @@ message UpdateUserResponse {
     User user = 1;
 }
 
-// Required authorization: ``HasRight(ParticipantAdmin)``
+// Required authorization: ``HasRight(ParticipantAdmin) OR IsAuthenticatedIdentityProviderAdmin(identity_provider_id)``
 message DeleteUserRequest {
     // The user to delete.
     // Required
     string user_id = 1;
+
+    // The id of the ``Identity Provider``
+    // Optional, if not set, assume the user is managed by the default identity provider.
+    string identity_provider_id = 2;
 }
 
 // Does not (yet) contain any data.
 message DeleteUserResponse {
 }
 
-// Required authorization: ``HasRight(ParticipantAdmin)``
+// Required authorization: ``HasRight(ParticipantAdmin) OR IsAuthenticatedIdentityProviderAdmin(identity_provider_id)``
 message ListUsersRequest {
 
     // Pagination token to determine the specific page to fetch.
@@ -246,6 +235,10 @@ message ListUsersRequest {
     // If 0, the server will decide the number of results to be returned.
     // Optional
     int32 page_size = 3;
+
+    // The id of the ``Identity Provider``
+    // Optional, if not set, assume the user is managed by the default identity provider.
+    string identity_provider_id = 4;
 
 }
 
@@ -260,15 +253,19 @@ message ListUsersResponse {
 
 // Add the rights to the set of rights granted to the user.
 //
-// Required authorization: ``HasRight(ParticipantAdmin)``
+// Required authorization: ``HasRight(ParticipantAdmin) OR IsAuthenticatedIdentityProviderAdmin(identity_provider_id)``
 message GrantUserRightsRequest {
     // The user to whom to grant rights.
     // Required
     string user_id = 1;
 
     // The rights to grant.
-    // Required
+    // Optional
     repeated Right rights = 2;
+
+    // The id of the ``Identity Provider``
+    // Optional, if not set, assume the user is managed by the default identity provider.
+    string identity_provider_id = 3;
 }
 
 message GrantUserRightsResponse {
@@ -278,15 +275,19 @@ message GrantUserRightsResponse {
 
 // Remove the rights from the set of rights granted to the user.
 //
-// Required authorization: ``HasRight(ParticipantAdmin)``
+// Required authorization: ``HasRight(ParticipantAdmin) OR IsAuthenticatedIdentityProviderAdmin(identity_provider_id)``
 message RevokeUserRightsRequest {
     // The user from whom to revoke rights.
     // Required
     string user_id = 1;
 
     // The rights to revoke.
-    // Required
+    // Optional
     repeated Right rights = 2;
+
+    // The id of the ``Identity Provider``
+    // Optional, if not set, assume the user is managed by the default identity provider.
+    string identity_provider_id = 3;
 }
 
 message RevokeUserRightsResponse {
@@ -294,7 +295,7 @@ message RevokeUserRightsResponse {
     repeated Right newly_revoked_rights = 1;
 }
 
-// Required authorization: ``HasRight(ParticipantAdmin) OR IsAuthenticatedUser(user_id)``
+// Required authorization: ``HasRight(ParticipantAdmin) OR IsAuthenticatedIdentityProviderAdmin(identity_provider_id) OR IsAuthenticatedUser(user_id)``
 message ListUserRightsRequest {
     // The user for which to list the rights.
     // If set to empty string (the default), then the rights for the authenticated user will be listed.
@@ -302,6 +303,10 @@ message ListUserRightsRequest {
     string user_id = 1;
 
     // TODO (i12052): add pagination following https://cloud.google.com/apis/design/design_patterns#list_pagination
+
+    // The id of the ``Identity Provider``
+    // Optional, if not set, assume the user is managed by the default identity provider.
+    string identity_provider_id = 2;
 }
 
 message ListUserRightsResponse {

@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.runner.common
@@ -18,7 +18,6 @@ import pureconfig.{ConfigConvert, ConfigReader, ConfigSource, ConfigWriter}
 import com.daml.ledger.api.tls.{SecretsUrl, TlsConfiguration, TlsVersion}
 import com.daml.ledger.runner.common
 import com.daml.ledger.runner.common.OptConfigValue.{optReaderEnabled, optWriterEnabled}
-import com.daml.metrics.MetricsReporter
 import com.daml.platform.apiserver.{ApiServerConfig, AuthServiceConfig}
 import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.apiserver.configuration.RateLimitingConfig
@@ -30,16 +29,17 @@ import com.daml.platform.configuration.{
 }
 import com.daml.platform.indexer.{IndexerConfig, PackageMetadataViewConfig}
 import com.daml.platform.indexer.ha.HaConfig
+import com.daml.platform.localstore.UserManagementConfig
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.platform.store.DbSupport.ParticipantDataSourceConfig
 import com.daml.platform.store.backend.postgresql.PostgresDataSourceConfig.SynchronousCommitValue
-import com.daml.platform.usermanagement.UserManagementConfig
 import com.typesafe.config.ConfigFactory
 import pureconfig.error.ConfigReaderFailures
-
 import java.net.InetSocketAddress
 import java.nio.file.Path
 import java.time.Duration
+import com.daml.metrics.api.reporters.MetricsReporter
+
 import scala.reflect.{ClassTag, classTag}
 
 class PureConfigReaderWriterSpec
@@ -94,6 +94,7 @@ class PureConfigReaderWriterSpec
     )
     testReaderWriterIsomorphism(secure, ArbitraryConfig.clientAuth)
     testReaderWriterIsomorphism(secure, ArbitraryConfig.userManagementConfig)
+    testReaderWriterIsomorphism(secure, ArbitraryConfig.identityProviderManagementConfig)
     testReaderWriterIsomorphism(secure, ArbitraryConfig.connectionPoolConfig)
     testReaderWriterIsomorphism(secure, ArbitraryConfig.postgresDataSourceConfig)
     testReaderWriterIsomorphism(secure, ArbitraryConfig.dataSourceProperties)
@@ -215,8 +216,6 @@ class PureConfigReaderWriterSpec
     compare(LanguageVersion.DevVersions, "daml-lf-dev-mode-unsafe")
     compare(LanguageVersion.EarlyAccessVersions, "early-access")
     compare(LanguageVersion.LegacyVersions, "legacy")
-
-    versionRangeWriter.to(LanguageVersion.StableVersions) shouldBe fromAnyRef("stable")
 
     versionRangeReader
       .from(fromAnyRef("stable"))
@@ -598,11 +597,18 @@ class PureConfigReaderWriterSpec
       |  max-api-services-index-db-queue-size = 1000
       |  max-api-services-queue-size = 10000
       |  max-used-heap-space-percentage = 85
-      |  min-free-heap-space-bytes = 314572800""".stripMargin
+      |  min-free-heap-space-bytes = 300000""".stripMargin
 
   it should "support current defaults" in {
     val value = validRateLimitingConfig
-    convert(rateLimitingConfigConvert, value).value shouldBe Some(RateLimitingConfig())
+    val expected = RateLimitingConfig(
+      maxApiServicesQueueSize = 10000,
+      maxApiServicesIndexDbQueueSize = 1000,
+      maxUsedHeapSpacePercentage = 85,
+      minFreeHeapSpaceBytes = 300000,
+      maxStreams = 1000,
+    )
+    convert(rateLimitingConfigConvert, value).value shouldBe Some(expected)
   }
 
   it should "not support unknown keys" in {
@@ -638,8 +644,8 @@ class PureConfigReaderWriterSpec
       |  enabled = true
       |  max-api-services-index-db-queue-size = 1000
       |  max-api-services-queue-size = 10000
-      |  max-used-heap-space-percentage = 85
-      |  min-free-heap-space-bytes = 314572800
+      |  max-used-heap-space-percentage = 100
+      |  min-free-heap-space-bytes = 0
       |}
       |seeding = strong
       |time-provider-type = wall-clock

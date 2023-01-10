@@ -1,0 +1,106 @@
+# Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load(
+    "//bazel_tools:scala.bzl",
+    "da_scala_library",
+    "da_scala_test_suite",
+)
+
+da_scala_library(
+    name = "metrics",
+    srcs = glob(["src/main/scala/**/*.scala"]),
+    resources = glob(["src/main/resources/**/*"]),
+    scala_deps = [
+        "@maven//:com_thesamet_scalapb_scalapb_runtime",
+        "@maven//:com_typesafe_akka_akka_actor",
+        "@maven//:com_typesafe_akka_akka_stream",
+        "@maven//:org_scalaz_scalaz_core",
+        "@maven//:com_github_scopt_scopt",
+    ],
+    tags = ["maven_coordinates=com.daml:metrics:__VERSION__"],
+    visibility = [
+        "//visibility:public",
+    ],
+    runtime_deps = [],
+    deps = [
+        "//ledger/ledger-resources",
+        "//libs-scala/build-info",
+        "//libs-scala/concurrent",
+        "//libs-scala/resources",
+        "//libs-scala/scala-utils",
+        "@maven//:com_google_protobuf_protobuf_java",
+        "@maven//:io_dropwizard_metrics_metrics_core",
+        "@maven//:io_dropwizard_metrics_metrics_graphite",
+        "@maven//:io_dropwizard_metrics_metrics_jvm",
+        "@maven//:io_grpc_grpc_api",
+        "@maven//:io_opentelemetry_opentelemetry_api",
+        "@maven//:io_opentelemetry_opentelemetry_context",
+        "@maven//:io_opentelemetry_opentelemetry_exporter_prometheus",
+        "@maven//:io_opentelemetry_opentelemetry_sdk_metrics",
+        "@maven//:io_prometheus_simpleclient",
+        "@maven//:io_prometheus_simpleclient_dropwizard",
+        "@maven//:io_prometheus_simpleclient_httpserver",
+        "@maven//:org_slf4j_slf4j_api",
+    ],
+)
+
+da_scala_library(
+    name = "metrics-test-lib",
+    srcs = glob(["src/test/lib/scala/**/*.scala"]),
+    scala_deps = [
+    ],
+    tags = ["maven_coordinates=com.daml:metrics-test-lib:__VERSION__"],
+    visibility = [
+        "//visibility:public",
+    ],
+    runtime_deps = [],
+    deps = [
+        ":metrics",
+        "//libs-scala/scala-utils",
+        "@maven//:io_dropwizard_metrics_metrics_core",
+    ],
+)
+
+da_scala_test_suite(
+    name = "metrics-tests",
+    size = "small",
+    srcs = glob(["src/test/suite/scala/**/*.scala"]),
+    scala_deps = [
+        "@maven//:com_thesamet_scalapb_lenses",
+        "@maven//:com_thesamet_scalapb_scalapb_runtime",
+        "@maven//:com_thesamet_scalapb_scalapb_runtime_grpc",
+        "@maven//:com_typesafe_akka_akka_actor",
+        "@maven//:com_typesafe_akka_akka_stream",
+        "@maven//:org_scalactic_scalactic",
+        "@maven//:org_scalatest_scalatest_core",
+        "@maven//:org_scalatest_scalatest_matchers_core",
+        "@maven//:org_scalatest_scalatest_shouldmatchers",
+        "@maven//:org_scalatest_scalatest_wordspec",
+    ],
+    deps = [
+        ":metrics",
+        ":metrics-test-lib",
+        "//ledger-api/rs-grpc-akka",
+        "//ledger-api/rs-grpc-akka:rs-grpc-akka-tests-lib",
+        "//ledger-api/rs-grpc-bridge",
+        "//ledger-api/sample-service",
+        "//ledger-api/testing-utils",
+        "//ledger/ledger-resources",
+        "//ledger/ledger-resources:ledger-resources-test-lib",
+        "//ledger/test-common",
+        "//libs-scala/concurrent",
+        "//libs-scala/resources",
+        "@maven//:com_google_protobuf_protobuf_java",
+        "@maven//:io_dropwizard_metrics_metrics_core",
+        "@maven//:io_grpc_grpc_api",
+        "@maven//:io_grpc_grpc_protobuf",
+        "@maven//:io_grpc_grpc_stub",
+        "@maven//:io_opentelemetry_opentelemetry_api",
+        "@maven//:io_opentelemetry_opentelemetry_context",
+        "@maven//:io_opentelemetry_opentelemetry_sdk_testing",
+        "@maven//:io_opentelemetry_opentelemetry_sdk_trace",
+        "@maven//:io_opentelemetry_opentelemetry_semconv",
+        "@maven//:org_scalatest_scalatest_compatible",
+    ],
+)

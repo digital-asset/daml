@@ -1,4 +1,4 @@
-# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -13,6 +13,7 @@ load(
     "//rules_daml:daml.bzl",
     "daml_compile",
 )
+load("//language-support/java:javaopts.bzl", "da_java_bindings_javacopts")
 load(
     "//language-support/java/codegen:codegen.bzl",
     "dar_to_java",
@@ -25,6 +26,7 @@ load(
 da_java_library(
     name = "bindings-rxjava",
     srcs = glob(["src/main/java/**/*.java"]),
+    javacopts = da_java_bindings_javacopts,
     tags = [
         "javadoc_root_packages=com.daml.ledger.rxjava",
         "maven_coordinates=com.daml:bindings-rxjava:__VERSION__",
@@ -45,7 +47,7 @@ da_java_library(
         "@maven//:io_grpc_grpc_stub",
         "@maven//:io_netty_netty_handler",
         "@maven//:io_reactivex_rxjava2_rxjava",
-        "@maven//:org_checkerframework_checker",
+        "@maven//:org_checkerframework_checker_qual",
         "@maven//:org_pcollections_pcollections",
         "@maven//:org_slf4j_slf4j_api",
     ],
@@ -76,7 +78,7 @@ da_scala_library(
         "//ledger-api/rs-grpc-bridge",
         "//ledger/ledger-api-auth",
         "//ledger/ledger-api-common",
-        "//ledger/participant-state-index",
+        "//ledger/participant-local-store",
         "//libs-scala/contextualized-logging",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:io_grpc_grpc_core",

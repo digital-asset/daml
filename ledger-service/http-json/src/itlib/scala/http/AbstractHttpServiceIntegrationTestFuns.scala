@@ -1,10 +1,9 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.http
 
 import java.security.DigestInputStream
-
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.model.headers.Authorization
@@ -16,7 +15,6 @@ import com.daml.crypto.MessageDigestPrototype
 import com.daml.lf.data.Ref
 import com.daml.http.dbbackend.JdbcConfig
 import com.daml.http.domain.ContractId
-import com.daml.http.domain.ContractTypeId.OptionalPkg
 import com.daml.http.json.SprayJson.decode1
 import com.daml.http.json._
 import com.daml.http.util.ClientUtil.boxedRecord
@@ -62,6 +60,8 @@ object AbstractHttpServiceIntegrationTestFuns {
   private[http] val userDar = requiredResource("ledger-service/http-json/User.dar")
 
   private[http] val ciouDar = requiredResource("ledger-service/http-json/CIou.dar")
+
+  private[http] val riouDar = requiredResource("ledger-service/http-json/RIou.dar")
 
   def sha256(source: Source[ByteString, Any])(implicit mat: Materializer): Try[String] = Try {
     import com.google.common.io.BaseEncoding
@@ -140,10 +140,10 @@ trait AbstractHttpServiceIntegrationTestFuns
 
   protected def testId: String = this.getClass.getSimpleName
 
-  protected val metadata2: MetadataReader.LfMetadata =
+  lazy protected val metadata2: MetadataReader.LfMetadata =
     MetadataReader.readFromDar(dar2).valueOr(e => fail(s"Cannot read dar2 metadata: $e"))
 
-  protected val metadataUser: MetadataReader.LfMetadata =
+  lazy protected val metadataUser: MetadataReader.LfMetadata =
     MetadataReader.readFromDar(userDar).valueOr(e => fail(s"Cannot read userDar metadata: $e"))
 
   protected def jwt(uri: Uri)(implicit ec: ExecutionContext): Future[Jwt]
@@ -220,9 +220,9 @@ trait AbstractHttpServiceIntegrationTestFuns
     def getUniquePartyAndAuthHeaders(
         name: String
     ): Future[(domain.Party, List[HttpHeader])] = {
-      val party @ domain.Party(partyName) = getUniqueParty(name)
+      val party = getUniqueParty(name)
       for {
-        headers <- headersWithPartyAuth(List(partyName), List.empty, "")
+        headers <- headersWithPartyAuth(List(party), List.empty, "")
         request = domain.AllocatePartyRequest(
           Some(party),
           None,
@@ -240,8 +240,8 @@ trait AbstractHttpServiceIntegrationTestFuns
       jwt(uri)(ec).map(authorizationHeader)
 
     def headersWithPartyAuth(
-        actAs: List[String],
-        readAs: List[String] = List.empty,
+        actAs: List[domain.Party],
+        readAs: List[domain.Party] = List.empty,
         ledgerId: String = "",
         withoutNamespace: Boolean = false,
         admin: Boolean = false,
@@ -303,29 +303,29 @@ trait AbstractHttpServiceIntegrationTestFuns
   }
 
   protected def postCreateCommand(
-      cmd: domain.CreateCommand[v.Record, OptionalPkg],
+      cmd: domain.CreateCommand[v.Record, domain.ContractTypeId.Template.OptionalPkg],
       fixture: UriFixture with EncoderFixture,
       headers: List[HttpHeader],
-  ): Future[domain.SyncResponse[domain.ActiveContract[JsValue]]] =
+  ): Future[domain.SyncResponse[domain.ActiveContract.ResolvedCtTyId[JsValue]]] =
     HttpServiceTestFixture
       .postCreateCommand(cmd, fixture.encoder, fixture.uri, headers)
-      .parseResponse[domain.ActiveContract[JsValue]]
+      .parseResponse[domain.ActiveContract.ResolvedCtTyId[JsValue]]
 
   protected def postCreateCommand(
-      cmd: domain.CreateCommand[v.Record, OptionalPkg],
+      cmd: domain.CreateCommand[v.Record, domain.ContractTypeId.Template.OptionalPkg],
       fixture: UriFixture with EncoderFixture,
-  ): Future[domain.SyncResponse[domain.ActiveContract[JsValue]]] =
+  ): Future[domain.SyncResponse[domain.ActiveContract.ResolvedCtTyId[JsValue]]] =
     fixture.headersWithAuth.flatMap(postCreateCommand(cmd, fixture, _))
 
   protected def resultContractId(
-      r: domain.SyncResponse[domain.ActiveContract[_]]
+      r: domain.SyncResponse[domain.ActiveContract[_, _]]
   ) =
     inside(r) { case domain.OkResponse(result, _, _: StatusCodes.Success) =>
       result.contractId
     }
 
   protected def postArchiveCommand(
-      templateId: OptionalPkg,
+      templateId: domain.ContractTypeId.OptionalPkg,
       contractId: domain.ContractId,
       fixture: UriFixture with EncoderFixture,
       headers: List[HttpHeader],
@@ -339,7 +339,7 @@ trait AbstractHttpServiceIntegrationTestFuns
     )
 
   protected def postArchiveCommand(
-      templateId: OptionalPkg,
+      templateId: domain.ContractTypeId.OptionalPkg,
       contractId: domain.ContractId,
       fixture: UriFixture with EncoderFixture,
   ): Future[(StatusCode, JsValue)] =
@@ -350,7 +350,7 @@ trait AbstractHttpServiceIntegrationTestFuns
   protected def lookupContractAndAssert(
       contractLocator: domain.ContractLocator[JsValue],
       contractId: ContractId,
-      create: domain.CreateCommand[v.Record, OptionalPkg],
+      create: domain.CreateCommand[v.Record, domain.ContractTypeId.Template.OptionalPkg],
       fixture: UriFixture with EncoderFixture,
       headers: List[HttpHeader],
   ): Future[Assertion] =
@@ -369,7 +369,9 @@ trait AbstractHttpServiceIntegrationTestFuns
 
   protected def removeRecordId(a: v.Record): v.Record = a.copy(recordId = None)
 
-  protected def removePackageId(tmplId: domain.ContractTypeId.RequiredPkg): OptionalPkg =
+  protected def removePackageId(
+      tmplId: domain.ContractTypeId.RequiredPkg
+  ): domain.ContractTypeId.OptionalPkg =
     tmplId.copy(packageId = None)
 
   import com.daml.lf.data.{Numeric => LfNumeric}
@@ -401,11 +403,11 @@ trait AbstractHttpServiceIntegrationTestFuns
   private[this] val (_, iouVA) = {
     import com.daml.lf.data.Numeric.Scale
     val iouT = ShRecord(
-      issuer = VA.party,
-      owner = VA.party,
+      issuer = VAx.partyDomain,
+      owner = VAx.partyDomain,
       currency = VA.text,
       amount = VA.numeric(Scale assertFromInt 10),
-      observers = VA.list(VA.party),
+      observers = VA.list(VAx.partyDomain),
     )
     VA.record(Ref.Identifier assertFromString "none:Iou:Iou", iouT)
   }
@@ -435,6 +437,9 @@ trait AbstractHttpServiceIntegrationTestFuns
     object IIou {
       val IIou: IId = CtId.Interface(None, "IIou", "IIou")
     }
+    object RIou {
+      val RIou: IId = CtId.Interface(None, "RIou", "RIou")
+    }
     object RIIou {
       val RIIou: IId = CtId.Interface(None, "RIIou", "RIIou")
     }
@@ -446,19 +451,19 @@ trait AbstractHttpServiceIntegrationTestFuns
   }
 
   protected def iouCreateCommand(
-      partyName: domain.Party,
+      party: domain.Party,
       amount: String = "999.9900000000",
       currency: String = "USD",
+      observers: Vector[domain.Party] = Vector.empty,
       meta: Option[domain.CommandMeta] = None,
-  ): domain.CreateCommand[v.Record, OptionalPkg] = {
-    val party = Ref.Party assertFromString partyName.unwrap
+  ): domain.CreateCommand[v.Record, domain.ContractTypeId.Template.OptionalPkg] = {
     val arg = argToApi(iouVA)(
       ShRecord(
         issuer = party,
         owner = party,
         currency = currency,
         amount = LfNumeric assertFromString amount,
-        observers = Vector.empty,
+        observers = observers,
       )
     )
 
@@ -466,12 +471,14 @@ trait AbstractHttpServiceIntegrationTestFuns
   }
 
   private[this] val (_, ciouVA) = {
-    val iouT = ShRecord(issuer = VA.party, owner = VA.party, amount = VA.text)
+    val iouT = ShRecord(issuer = VAx.partyDomain, owner = VAx.partyDomain, amount = VA.text)
     VA.record(Ref.Identifier assertFromString "none:Iou:Iou", iouT)
   }
 
-  protected def iouCommand(party: domain.Party, templateId: domain.ContractTypeId.OptionalPkg) = {
-    val issuer = Ref.Party assertFromString domain.Party.unwrap(party)
+  protected def iouCommand(
+      issuer: domain.Party,
+      templateId: domain.ContractTypeId.Template.OptionalPkg,
+  ) = {
     val iouT = argToApi(ciouVA)(
       ShRecord(
         issuer = issuer,
@@ -501,13 +508,17 @@ trait AbstractHttpServiceIntegrationTestFuns
       amount: String = "999.9900000000",
       currency: String = "USD",
       meta: Option[domain.CommandMeta] = None,
-  ): domain.CreateAndExerciseCommand[v.Record, v.Value, OptionalPkg] = {
-    val originatorParty = Ref.Party assertFromString originator.unwrap
+  ): domain.CreateAndExerciseCommand[
+    v.Record,
+    v.Value,
+    domain.ContractTypeId.Template.OptionalPkg,
+    domain.ContractTypeId.OptionalPkg,
+  ] = {
     val targetParty = Ref.Party assertFromString target.unwrap
     val payload = argToApi(iouVA)(
       ShRecord(
-        issuer = originatorParty,
-        owner = originatorParty,
+        issuer = originator,
+        owner = originator,
         currency = currency,
         amount = LfNumeric assertFromString amount,
         observers = Vector.empty,
@@ -528,8 +539,8 @@ trait AbstractHttpServiceIntegrationTestFuns
     )
   }
 
-  protected def multiPartyCreateCommand(ps: List[String], value: String) = {
-    val psv = lfToApi(VAx.seq(VAx.partyStr).inj(ps)).sum
+  protected def multiPartyCreateCommand(ps: List[domain.Party], value: String) = {
+    val psv = lfToApi(VAx.seq(VAx.partyDomain).inj(ps)).sum
     val payload = recordFromFields(
       ShRecord(
         parties = psv,
@@ -543,8 +554,8 @@ trait AbstractHttpServiceIntegrationTestFuns
     )
   }
 
-  protected def multiPartyAddSignatories(cid: lar.ContractId, ps: List[String]) = {
-    val psv = lfToApi(VAx.seq(VAx.partyStr).inj(ps)).sum
+  protected def multiPartyAddSignatories(cid: lar.ContractId, ps: List[domain.Party]) = {
+    val psv = lfToApi(VAx.seq(VAx.partyDomain).inj(ps)).sum
     val argument = boxedRecord(recordFromFields(ShRecord(newParties = psv)))
     domain.ExerciseCommand(
       reference = domain.EnrichedContractId(Some(TpId.Test.MultiPartyContract), cid),
@@ -558,14 +569,14 @@ trait AbstractHttpServiceIntegrationTestFuns
   protected def multiPartyFetchOther(
       cid: lar.ContractId,
       fetchedCid: lar.ContractId,
-      actors: List[String],
+      actors: List[domain.Party],
   ) = {
     val argument = v.Value(
       v.Value.Sum.Record(
         recordFromFields(
           ShRecord(
             cid = v.Value.Sum.ContractId(fetchedCid.unwrap),
-            actors = lfToApi(VAx.seq(VAx.partyStr).inj(actors)).sum,
+            actors = lfToApi(VAx.seq(VAx.partyDomain).inj(actors)).sum,
           )
         )
       )
@@ -584,7 +595,7 @@ trait AbstractHttpServiceIntegrationTestFuns
       uri: Uri,
       headers: List[HttpHeader],
       readAs: Option[List[domain.Party]],
-  ): Future[domain.SyncResponse[Option[domain.ActiveContract[JsValue]]]] =
+  ): Future[domain.SyncResponse[Option[domain.ActiveContract.ResolvedCtTyId[JsValue]]]] =
     for {
       locjson <- toFuture(SprayJson.encode(cmd)): Future[JsValue]
       json <- toFuture(
@@ -597,14 +608,14 @@ trait AbstractHttpServiceIntegrationTestFuns
         )
       )
       result <- postJsonRequest(uri.withPath(Uri.Path("/v1/fetch")), json, headers)
-        .parseResponse[Option[domain.ActiveContract[JsValue]]]
+        .parseResponse[Option[domain.ActiveContract.ResolvedCtTyId[JsValue]]]
     } yield result
 
   protected def postContractsLookup(
       cmd: domain.ContractLocator[JsValue],
       uri: Uri,
       headers: List[HttpHeader],
-  ): Future[domain.SyncResponse[Option[domain.ActiveContract[JsValue]]]] =
+  ): Future[domain.SyncResponse[Option[domain.ActiveContract.ResolvedCtTyId[JsValue]]]] =
     postContractsLookup(cmd, uri, headers, None)
 
   protected def asContractId(a: JsValue): domain.ContractId = inside(a) { case JsString(x) =>
@@ -645,8 +656,8 @@ trait AbstractHttpServiceIntegrationTestFuns
 
   protected def assertActiveContract(uri: Uri)(
       decoder: DomainJsonDecoder,
-      actual: domain.ActiveContract[JsValue],
-      create: domain.CreateCommand[v.Record, OptionalPkg],
+      actual: domain.ActiveContract.ResolvedCtTyId[JsValue],
+      create: domain.CreateCommand[v.Record, domain.ContractTypeId.Template.OptionalPkg],
       exercise: domain.ExerciseCommand[v.Value, _],
       ledgerId: LedgerId,
   ): Future[Assertion] = {
@@ -680,15 +691,15 @@ trait AbstractHttpServiceIntegrationTestFuns
   }
 
   protected def assertActiveContract(
-      activeContract: domain.ActiveContract[JsValue]
+      activeContract: domain.ActiveContract.ResolvedCtTyId[JsValue]
   )(
-      command: domain.CreateCommand[v.Record, OptionalPkg],
+      command: domain.CreateCommand[v.Record, domain.ContractTypeId.Template.OptionalPkg],
       encoder: DomainJsonEncoder,
   ): Assertion = {
 
     import encoder.implicits._
 
-    val expected: domain.CreateCommand[JsValue, OptionalPkg] =
+    val expected: domain.CreateCommand[JsValue, domain.ContractTypeId.Template.OptionalPkg] =
       command
         .traversePayload(SprayJson.encode[v.Record](_))
         .getOrElse(fail(s"Failed to encode command: $command"))
@@ -697,7 +708,7 @@ trait AbstractHttpServiceIntegrationTestFuns
   }
 
   protected def assertJsPayload(
-      activeContract: domain.ActiveContract[JsValue]
+      activeContract: domain.ActiveContract.ResolvedCtTyId[JsValue]
   )(
       jsPayload: JsValue
   ): Assertion = {
@@ -706,7 +717,7 @@ trait AbstractHttpServiceIntegrationTestFuns
 
   protected def assertTemplateId(
       actual: domain.ContractTypeId.RequiredPkg,
-      expected: OptionalPkg,
+      expected: domain.ContractTypeId.OptionalPkg,
   ): Future[Assertion] = Future {
     expected.packageId.foreach(x => actual.packageId shouldBe x)
     actual.moduleName shouldBe expected.moduleName
@@ -739,7 +750,7 @@ trait AbstractHttpServiceIntegrationTestFuns
       serviceUri: Uri,
       party: domain.Party,
       headers: List[HttpHeader],
-  ): Future[domain.SyncResponse[domain.ActiveContract[JsValue]]] = {
+  ): Future[domain.SyncResponse[domain.ActiveContract.ResolvedCtTyId[JsValue]]] = {
     val partyJson = party.toJson.compactPrint
     val payload =
       s"""
@@ -760,14 +771,14 @@ trait AbstractHttpServiceIntegrationTestFuns
         payload,
         headers,
       )
-      .parseResponse[domain.ActiveContract[JsValue]]
+      .parseResponse[domain.ActiveContract.ResolvedCtTyId[JsValue]]
   }
 
   protected def initialAccountCreate(
       fixture: UriFixture with EncoderFixture,
       owner: domain.Party,
       headers: List[HttpHeader],
-  ): Future[domain.SyncResponse[domain.ActiveContract[JsValue]]] = {
+  ): Future[domain.SyncResponse[domain.ActiveContract.ResolvedCtTyId[JsValue]]] = {
     val command = accountCreateCommand(owner, "abc123")
     postCreateCommand(command, fixture, headers)
   }
@@ -781,34 +792,38 @@ trait AbstractHttpServiceIntegrationTestFuns
   }
 
   protected def searchExpectOk(
-      commands: List[domain.CreateCommand[v.Record, OptionalPkg]],
+      commands: List[domain.CreateCommand[v.Record, domain.ContractTypeId.Template.OptionalPkg]],
       query: JsObject,
       fixture: UriFixture with EncoderFixture,
       headers: List[HttpHeader],
-  ): Future[List[domain.ActiveContract[JsValue]]] = {
+  ): Future[List[domain.ActiveContract.ResolvedCtTyId[JsValue]]] = {
     search(commands, query, fixture, headers).map(expectOk(_))
   }
 
   protected def searchExpectOk(
-      commands: List[domain.CreateCommand[v.Record, OptionalPkg]],
+      commands: List[domain.CreateCommand[v.Record, domain.ContractTypeId.Template.OptionalPkg]],
       query: JsObject,
       fixture: UriFixture with EncoderFixture,
-  ): Future[List[domain.ActiveContract[JsValue]]] =
+  ): Future[List[domain.ActiveContract.ResolvedCtTyId[JsValue]]] =
     fixture.headersWithAuth.flatMap(searchExpectOk(commands, query, fixture, _))
 
   protected def search(
-      commands: List[domain.CreateCommand[v.Record, OptionalPkg]],
+      commands: List[domain.CreateCommand[v.Record, domain.ContractTypeId.Template.OptionalPkg]],
       query: JsObject,
       fixture: UriFixture with EncoderFixture,
       headers: List[HttpHeader],
   ): Future[
-    domain.SyncResponse[List[domain.ActiveContract[JsValue]]]
+    domain.SyncResponse[List[domain.ActiveContract.ResolvedCtTyId[JsValue]]]
   ] = {
     commands.traverse(c => postCreateCommand(c, fixture, headers)).flatMap { rs =>
       rs.map(_.status) shouldBe List.fill(commands.size)(StatusCodes.OK)
       fixture.postJsonRequest(Uri.Path("/v1/query"), query, headers).flatMap { case (_, output) =>
         FutureUtil
-          .toFuture(decode1[domain.SyncResponse, List[domain.ActiveContract[JsValue]]](output))
+          .toFuture(
+            decode1[domain.SyncResponse, List[domain.ActiveContract.ResolvedCtTyId[JsValue]]](
+              output
+            )
+          )
       }
     }
   }

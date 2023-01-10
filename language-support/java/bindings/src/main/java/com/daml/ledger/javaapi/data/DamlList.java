@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.javaapi.data;
@@ -23,13 +23,10 @@ public final class DamlList extends Value {
     return damlList;
   }
 
-  private static DamlList EMPTY = fromPrivateList(Collections.EMPTY_LIST);
-
   public static DamlList of(@NonNull List<@NonNull Value> values) {
     return fromPrivateList(new ArrayList<>(values));
   }
 
-  @SafeVarargs
   public static DamlList of(@NonNull Value... values) {
     return fromPrivateList(Arrays.asList(values));
   }
@@ -40,7 +37,6 @@ public final class DamlList extends Value {
   }
 
   @Deprecated // use DamlMap:of
-  @SafeVarargs
   public DamlList(@NonNull Value... values) {
     this(Arrays.asList(values));
   }

@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 syntax = "proto3";
@@ -30,20 +30,9 @@ option csharp_namespace = "Com.Daml.Ledger.Api.V1";
 service CommandCompletionService {
 
   // Subscribe to command completion events.
-  // Errors:
-  // - ``UNAUTHENTICATED``: if the request does not include a valid access token
-  // - ``PERMISSION_DENIED``: if the claims in the token are insufficient to perform a given operation
-  // - ``NOT_FOUND``: if the request does not include a valid ledger id
-  // - ``FAILED_PRECONDITION``: if the ledger has been pruned after the subscription start offset
-  // - ``INVALID_ARGUMENT``: if the payload is malformed or is missing required fields
-  // - ``OUT_OF_RANGE``: if the absolute offset is after the end of the ledger
   rpc CompletionStream (CompletionStreamRequest) returns (stream CompletionStreamResponse);
 
   // Returns the offset after the latest completion.
-  // Errors:
-  // - ``UNAUTHENTICATED``: if the request does not include a valid access token
-  // - ``PERMISSION_DENIED``: if the claims in the token are insufficient to perform a given operation
-  // - ``NOT_FOUND``: if the request does not include a valid ledger id
   rpc CompletionEnd (CompletionEndRequest) returns (CompletionEndResponse);
 
 }

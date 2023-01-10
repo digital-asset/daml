@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.server.api.services.grpc
@@ -7,12 +7,14 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.daml.error.DamlContextualizedErrorLogger
 import com.daml.grpc.adapter.ExecutionSequencerFactory
+import com.daml.grpc.adapter.server.akka.StreamingServiceLifecycleManagement
 import com.daml.ledger.api.v1.command_completion_service._
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.validation.CompletionServiceRequestValidator
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.server.api.ValidationLogger
 import com.daml.platform.server.api.services.domain.CommandCompletionService
+import io.grpc.stub.StreamObserver
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -20,19 +22,21 @@ class GrpcCommandCompletionService(
     service: CommandCompletionService,
     validator: CompletionServiceRequestValidator,
 )(implicit
-    protected val mat: Materializer,
-    protected val esf: ExecutionSequencerFactory,
+    mat: Materializer,
+    esf: ExecutionSequencerFactory,
     executionContext: ExecutionContext,
     loggingContext: LoggingContext,
-) extends CommandCompletionServiceAkkaGrpc {
+) extends CommandCompletionServiceGrpc.CommandCompletionService
+    with StreamingServiceLifecycleManagement {
 
   protected implicit val logger: ContextualizedLogger = ContextualizedLogger.get(getClass)
-  private implicit val contextualizedErrorLogger: DamlContextualizedErrorLogger =
+  protected implicit val contextualizedErrorLogger: DamlContextualizedErrorLogger =
     new DamlContextualizedErrorLogger(logger, loggingContext, None)
 
-  override def completionStreamSource(
-      request: CompletionStreamRequest
-  ): Source[CompletionStreamResponse, akka.NotUsed] = {
+  def completionStream(
+      request: CompletionStreamRequest,
+      responseObserver: StreamObserver[CompletionStreamResponse],
+  ): Unit = registerStream(responseObserver) {
     validator
       .validateGrpcCompletionStreamRequest(request)
       .fold(

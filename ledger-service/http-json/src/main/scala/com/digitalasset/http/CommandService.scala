@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.http
@@ -66,7 +66,7 @@ class CommandService(
   def create(
       jwt: Jwt,
       jwtPayload: JwtWritePayload,
-      input: CreateCommand[lav1.value.Record, ContractTypeId.RequiredPkg], // TODO #15098 .Template
+      input: CreateCommand[lav1.value.Record, ContractTypeId.Template.RequiredPkg],
   )(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
   ): Future[Error \/ domain.CreateCommandResponse[lav1.value.Value]] =
@@ -125,11 +125,7 @@ class CommandService(
   def createAndExercise(
       jwt: Jwt,
       jwtPayload: JwtWritePayload,
-      input: CreateAndExerciseCommand[
-        lav1.value.Record,
-        lav1.value.Value,
-        ContractTypeId.RequiredPkg,
-      ],
+      input: CreateAndExerciseCommand.LAVResolved,
   )(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
   ): Future[Error \/ ExerciseResponse[lav1.value.Value]] =
@@ -181,7 +177,7 @@ class CommandService(
   }
 
   private def createCommand(
-      input: CreateCommand[lav1.value.Record, ContractTypeId.RequiredPkg] // TODO #15098 .Template
+      input: CreateCommand[lav1.value.Record, ContractTypeId.Template.RequiredPkg]
   ): lav1.commands.Command.Command.Create = {
     Commands.create(refApiIdentifier(input.templateId), input.payload)
   }
@@ -215,11 +211,7 @@ class CommandService(
 
   // TODO #14549 somehow use the choiceInterfaceId
   private def createAndExerciseCommand(
-      input: CreateAndExerciseCommand[
-        lav1.value.Record,
-        lav1.value.Value,
-        ContractTypeId.RequiredPkg,
-      ]
+      input: CreateAndExerciseCommand.LAVResolved
   ): lav1.commands.Command.Command.CreateAndExercise =
     Commands
       .createAndExercise(
@@ -266,7 +258,7 @@ class CommandService(
 
   private def exactlyOneActiveContract(
       response: lav1.command_service.SubmitAndWaitForTransactionResponse
-  ): Error \/ ActiveContract[lav1.value.Value] =
+  ): Error \/ ActiveContract[ContractTypeId.Template.Resolved, lav1.value.Value] =
     activeContracts(response).flatMap {
       case Seq(x) => \/-(x)
       case xs @ _ =>
@@ -280,7 +272,7 @@ class CommandService(
 
   private def activeContracts(
       response: lav1.command_service.SubmitAndWaitForTransactionResponse
-  ): Error \/ ImmArraySeq[ActiveContract[lav1.value.Value]] =
+  ): Error \/ ImmArraySeq[ActiveContract[ContractTypeId.Template.Resolved, lav1.value.Value]] =
     response.transaction
       .toRightDisjunction(
         InternalError(
@@ -292,11 +284,10 @@ class CommandService(
 
   private def activeContracts(
       tx: lav1.transaction.Transaction
-  ): Error \/ ImmArraySeq[ActiveContract[lav1.value.Value]] = {
+  ): Error \/ ImmArraySeq[ActiveContract[ContractTypeId.Template.Resolved, lav1.value.Value]] = {
     Transactions
       .allCreatedEvents(tx)
-      // TODO RR #14871 verify that `ResolvedQuery.Empty` is ok in this scenario
-      .traverse(ActiveContract.fromLedgerApi(domain.ResolvedQuery.Empty, _))
+      .traverse(ActiveContract.fromLedgerApi(domain.ActiveContract.IgnoreInterface, _))
       .leftMap(e => InternalError(Some(Symbol("activeContracts")), e.shows))
   }
 

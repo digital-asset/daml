@@ -1,26 +1,26 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.http.dbbackend
 
 import com.daml.caching.SizedCache
 import com.daml.http.dbbackend.Queries.SurrogateTpId
+import com.daml.http.metrics.HttpJsonApiMetrics
 import com.daml.http.util.Logging.InstanceUUID
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
-import com.daml.metrics.Metrics
 
 object SurrogateTemplateIdCache {
   private val logger = ContextualizedLogger.get(getClass)
   final val MaxEntries = 10L
 }
 
-class SurrogateTemplateIdCache(metrics: Metrics, maxEntries: Long) {
+class SurrogateTemplateIdCache(metrics: HttpJsonApiMetrics, maxEntries: Long) {
   import SurrogateTemplateIdCache.logger
 
   private val underlying = {
     SizedCache.from[String, java.lang.Long](
       SizedCache.Configuration(maxEntries),
-      metrics.daml.HttpJsonApi.surrogateTemplateIdCache,
+      metrics.surrogateTemplateIdCache,
     )
   }
 
@@ -45,7 +45,7 @@ class SurrogateTemplateIdCache(metrics: Metrics, maxEntries: Long) {
   }
 
   // for testing purposes.
-  import metrics.daml.HttpJsonApi.{surrogateTemplateIdCache => cacheStats}
+  import metrics.{surrogateTemplateIdCache => cacheStats}
   private[http] final def getHitCount = cacheStats.hitCount.getCount
   private[http] final def getMissCount = cacheStats.missCount.getCount
 

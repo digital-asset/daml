@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 syntax = "proto3";
@@ -15,10 +15,6 @@ option csharp_namespace = "Com.Daml.Ledger.Api.V1";
 service LedgerConfigurationService {
 
   // Returns the latest configuration as the first response, and publishes configuration updates in the same stream.
-  // Errors:
-  // - ``UNAUTHENTICATED``: if the request does not include a valid access token
-  // - ``PERMISSION_DENIED``: if the claims in the token are insufficient to perform a given operation
-  // - ``NOT_FOUND``: if the request does not include a valid ledger id
   rpc GetLedgerConfiguration (GetLedgerConfigurationRequest) returns (stream GetLedgerConfigurationResponse);
 
 }

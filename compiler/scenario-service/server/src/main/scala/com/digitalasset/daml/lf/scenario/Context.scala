@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -140,7 +140,7 @@ class Context(val contextId: Context.ContextId, languageVersion: LanguageVersion
   private val txSeeding =
     crypto.Hash.hashPrivateKey(s"scenario-service")
 
-  private[this] def buildMachine(defn: SDefinition): Speedy.Machine =
+  private[this] def buildMachine(defn: SDefinition): Speedy.ScenarioMachine =
     Speedy.Machine.fromScenarioSExpr(
       PureCompiledPackages(allSignatures, defns, compilerConfig),
       defn.body,

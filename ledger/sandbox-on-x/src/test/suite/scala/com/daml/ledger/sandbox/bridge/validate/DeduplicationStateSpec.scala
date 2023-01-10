@@ -1,9 +1,10 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.sandbox.bridge.validate
 
-import com.codahale.metrics.MetricRegistry
+import java.time.Duration
+
 import com.daml.ledger.participant.state.v2.ChangeId
 import com.daml.ledger.sandbox.bridge.BridgeMetrics
 import com.daml.ledger.sandbox.bridge.validate.DeduplicationState.DeduplicationStateQueueMap
@@ -12,10 +13,9 @@ import com.daml.metrics.Metrics
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
-import java.time.Duration
 import scala.collection.immutable.VectorMap
-import scala.util.{Failure, Success, Try}
 import scala.util.chaining._
+import scala.util.{Failure, Success, Try}
 
 class DeduplicationStateSpec extends AnyFlatSpec with Matchers {
   behavior of classOf[DeduplicationState].getSimpleName
@@ -25,7 +25,7 @@ class DeduplicationStateSpec extends AnyFlatSpec with Matchers {
   private val t2 = t0.add(Duration.ofMinutes(2L))
   private val t3 = t0.add(Duration.ofMinutes(3L))
 
-  private val bridgeMetrics = new BridgeMetrics(new Metrics(new MetricRegistry))
+  private val bridgeMetrics = new BridgeMetrics(Metrics.ForTesting.dropwizardFactory)
 
   it should "deduplicate commands within the requested deduplication window" in {
     val deduplicationState = DeduplicationState.empty(

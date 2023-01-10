@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 syntax = "proto3";
@@ -51,7 +51,8 @@ message GetMeteringReportResponse {
     // The time at which the report was computed.
     google.protobuf.Timestamp report_generation_time = 3;
 
-    // The metering report json
+    // The metering report json.  For a JSON Schema definition of the JSon see:
+    // https://github.com/digital-asset/daml/blob/main/ledger-api/grpc-definitions/metering-report-schema.json
     google.protobuf.Struct metering_report_json = 4;
 }
 

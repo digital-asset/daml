@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -11,14 +11,8 @@ import com.daml.lf.data.{FrontStack, ImmArray, Ref, Struct, Time}
 import com.daml.lf.language.Ast
 import com.daml.lf.speedy.SExpr.SEMakeClo
 import com.daml.lf.speedy.SValue.{SContractId, SToken}
-import com.daml.lf.speedy.Speedy.CachedContract
-import com.daml.lf.transaction.{
-  GlobalKey,
-  GlobalKeyWithMaintainers,
-  Node,
-  TransactionVersion,
-  Versioned,
-}
+import com.daml.lf.speedy.Speedy.{CachedContract, SKeyWithMaintainers}
+import com.daml.lf.transaction.{GlobalKey, GlobalKeyWithMaintainers, TransactionVersion, Versioned}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.{ContractId, ContractInstance}
 import org.scalatest.matchers.{MatchResult, Matcher}
@@ -206,7 +200,6 @@ object ExplicitDisclosureLib {
           None -> Value.ValueParty(maintainer),
         ),
       ),
-      "test",
     ),
   )
 
@@ -217,15 +210,6 @@ object ExplicitDisclosureLib {
       withKey: Boolean = true,
       label: String = testKeyName,
   ): CachedContract = {
-    val key = Value.ValueRecord(
-      None,
-      ImmArray(
-        None -> Value.ValueText(label),
-        None -> Value.ValueList(FrontStack.from(ImmArray(Value.ValueParty(maintainer)))),
-      ),
-    )
-    val keyNode: Option[Node.KeyWithMaintainers] =
-      if (withKey) Some(Node.KeyWithMaintainers(key, Set(maintainer))) else None
     val contract = SValue.SRecord(
       templateId,
       ImmArray("label", "maintainers").map(Ref.Name.assertFromString),
@@ -234,13 +218,16 @@ object ExplicitDisclosureLib {
         SValue.SList(FrontStack.from(ImmArray(SValue.SParty(maintainer)))),
       ),
     )
+    val mbKey =
+      if (withKey) Some(SKeyWithMaintainers(contract, Set(maintainer))) else None
 
     CachedContract(
       templateId,
       contract,
+      agreementText = "",
       signatories = Set(signatory),
       observers = Set.empty,
-      key = keyNode,
+      key = mbKey,
     )
   }
 
@@ -277,7 +264,7 @@ object ExplicitDisclosureLib {
       getContract: PartialFunction[Value.ContractId, Value.VersionedContractInstance] =
         PartialFunction.empty,
       getKey: PartialFunction[GlobalKeyWithMaintainers, Value.ContractId] = PartialFunction.empty,
-  ): (Either[SError.SError, SValue], Speedy.OnLedger) = {
+  ): (Either[SError.SError, SValue], Speedy.UpdateMachine) = {
     import SpeedyTestLib.loggingContext
 
     // A token function closure is added as part of compiling the Expr
@@ -308,7 +295,7 @@ object ExplicitDisclosureLib {
       getKey = getKey,
     )
 
-    (result, machine.ledgerMode.asInstanceOf[Speedy.OnLedger])
+    (result, machine)
   }
 
   def evaluateSExpr(
@@ -318,7 +305,7 @@ object ExplicitDisclosureLib {
       getContract: PartialFunction[Value.ContractId, Value.VersionedContractInstance] =
         PartialFunction.empty,
       getKey: PartialFunction[GlobalKeyWithMaintainers, Value.ContractId] = PartialFunction.empty,
-  ): (Either[SError.SError, SValue], Speedy.OnLedger) = {
+  ): (Either[SError.SError, SValue], Speedy.UpdateMachine) = {
     import SpeedyTestLib.loggingContext
 
     val machine =
@@ -335,13 +322,13 @@ object ExplicitDisclosureLib {
       getKey = getKey,
     )
 
-    (result, machine.ledgerMode.asInstanceOf[Speedy.OnLedger])
+    (result, machine)
   }
 
-  def haveInactiveContractIds(contractIds: ContractId*): Matcher[Speedy.OnLedger] = Matcher {
-    ledger =>
+  def haveInactiveContractIds(contractIds: ContractId*): Matcher[Speedy.UpdateMachine] = Matcher {
+    machine =>
       val expectedResult = contractIds.toSet
-      val actualResult = ledger.ptx.contractState.activeState.consumedBy.keySet
+      val actualResult = machine.ptx.contractState.activeState.consumedBy.keySet
       val debugMessage = Seq(
         s"expected but missing contract IDs: ${expectedResult.filter(!actualResult.toSeq.contains(_))}",
         s"unexpected but found contract IDs: ${actualResult.filter(!expectedResult.toSeq.contains(_))}",
@@ -354,10 +341,12 @@ object ExplicitDisclosureLib {
       )
   }
 
-  def haveDisclosedContracts(disclosedContracts: DisclosedContract*): Matcher[Speedy.OnLedger] =
-    Matcher { ledger =>
+  def haveDisclosedContracts(
+      disclosedContracts: DisclosedContract*
+  ): Matcher[Speedy.UpdateMachine] =
+    Matcher { machine =>
       val expectedResult = ImmArray(disclosedContracts: _*)
-      val actualResult = ledger.ptx.disclosedContracts
+      val actualResult = machine.ptx.disclosedContracts
       val debugMessage = Seq(
         s"expected but missing contract IDs: ${expectedResult.filter(!actualResult.toSeq.contains(_)).map(_.contractId)}",
         s"unexpected but found contract IDs: ${actualResult.filter(!expectedResult.toSeq.contains(_)).map(_.contractId)}",

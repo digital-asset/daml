@@ -1,11 +1,9 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.apiserver.services
 
-import com.codahale.metrics.MetricRegistry
 import com.daml.api.util.TimeProvider
-import com.daml.error.definitions.ErrorCause
 import com.daml.ledger.api.DeduplicationPeriod
 import com.daml.ledger.api.DeduplicationPeriod.DeduplicationDuration
 import com.daml.ledger.api.domain.{CommandId, Commands}
@@ -15,7 +13,13 @@ import com.daml.ledger.participant.state.index.v2.IndexPartyManagementService
 import com.daml.ledger.participant.state.v2.{SubmissionResult, SubmitterInfo, TransactionMeta}
 import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.lf
-import com.daml.lf.command.{ContractMetadata, DisclosedContract, ApiCommands => LfCommands}
+import com.daml.lf.command.{
+  ContractMetadata,
+  DisclosedContract,
+  EngineEnrichedContractMetadata,
+  ProcessedDisclosedContract,
+  ApiCommands => LfCommands,
+}
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref.Identifier
 import com.daml.lf.data.Time.Timestamp
@@ -193,7 +197,7 @@ class ApiSubmissionServiceSpec
     val ledgerConfigurationSubscription = mock[LedgerConfigurationSubscription]
     val seedService = SeedService.WeakRandom
     val commandExecutor = mock[CommandExecutor]
-    val metrics = new Metrics(new MetricRegistry)
+    val metrics = Metrics.ForTesting
 
     val disclosedContract = DisclosedContract(
       templateId = Identifier.assertFromString("some:pkg:identifier"),
@@ -203,6 +207,19 @@ class ApiSubmissionServiceSpec
         createdAt = Timestamp.Epoch,
         keyHash = None,
         driverMetadata = ImmArray.empty,
+      ),
+    )
+    val engineEnrichedDisclosedContract = ProcessedDisclosedContract(
+      templateId = Identifier.assertFromString("some:pkg:identifier"),
+      contractId = TransactionBuilder.newCid,
+      argument = Value.ValueNil,
+      metadata = EngineEnrichedContractMetadata(
+        createdAt = Timestamp.Epoch,
+        driverMetadata = ImmArray.empty,
+        signatories = Set.empty,
+        stakeholders = Set.empty,
+        maybeKeyWithMaintainers = None,
+        agreementText = "",
       ),
     )
     val commands = Commands(
@@ -247,7 +264,7 @@ class ApiSubmissionServiceSpec
     )
     val estimatedInterpretationCost = 5L
     val explicitlyDisclosedContracts =
-      ImmArray(Versioned(TransactionVersion.VDev, disclosedContract))
+      ImmArray(Versioned(TransactionVersion.VDev, engineEnrichedDisclosedContract))
     val commandExecutionResult = CommandExecutionResult(
       submitterInfo = submitterInfo,
       transactionMeta = transactionMeta,

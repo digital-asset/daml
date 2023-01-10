@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.config
@@ -25,10 +25,12 @@ final case class ParticipantConfig(
     indexService: IndexServiceConfig = IndexServiceConfig(),
     indexer: IndexerConfig = IndexerConfig(),
     participantIdOverride: Option[Ref.ParticipantId] = None,
+    servicesThreadPoolSize: Int = ParticipantConfig.DefaultServicesThreadPoolSize,
 )
 
 object ParticipantConfig {
   def defaultIndexJdbcUrl(participantId: Ref.ParticipantId): String =
     s"jdbc:h2:mem:$participantId;db_close_delay=-1;db_close_on_exit=false"
   val DefaultParticipantId: Ref.ParticipantId = Ref.ParticipantId.assertFromString("default")
+  val DefaultServicesThreadPoolSize: Int = Runtime.getRuntime.availableProcessors()
 }

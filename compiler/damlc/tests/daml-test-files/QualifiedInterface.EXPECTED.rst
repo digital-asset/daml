@@ -1,7 +1,7 @@
 .. _module-qualifiedinterface-53968:
 
-Module QualifiedInterface
--------------------------
+QualifiedInterface
+------------------
 
 Templates
 ^^^^^^^^^

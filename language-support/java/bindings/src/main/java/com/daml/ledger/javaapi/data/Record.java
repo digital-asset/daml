@@ -1,7 +1,9 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.javaapi.data;
+
+import static java.util.Collections.unmodifiableList;
 
 import com.daml.ledger.api.v1.ValueOuterClass;
 import java.util.ArrayList;
@@ -26,21 +28,18 @@ public final class Record extends DamlRecord {
   }
 
   public Record(@NonNull Identifier recordId, @NonNull List<@NonNull Field> fields) {
-    super(recordId, (List) fields); // safe-ish cast due to java.util.List being invariant in E
+    super(recordId, unmodifiableList(fields));
   }
 
   public Record(@NonNull List<@NonNull Field> fields) {
-    super((List) fields); // safe-ish cast due to java.util.List being invariant in E
+    super(unmodifiableList(fields));
   }
 
   public Record(
       @NonNull Optional<Identifier> recordId,
       @NonNull List<@NonNull Field> fields,
       Map<String, Value> fieldsMap) {
-    super(
-        recordId,
-        (List) fields,
-        fieldsMap); // safe-ish cast due to java.util.List being invariant in E
+    super(recordId, unmodifiableList(fields), fieldsMap);
   }
 
   /** @deprecated Use {@link DamlRecord#fromProto(ValueOuterClass.Record)} instead */

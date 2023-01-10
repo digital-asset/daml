@@ -1,12 +1,9 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.rxjava;
 
-import com.daml.ledger.javaapi.data.LedgerOffset;
-import com.daml.ledger.javaapi.data.Transaction;
-import com.daml.ledger.javaapi.data.TransactionFilter;
-import com.daml.ledger.javaapi.data.TransactionTree;
+import com.daml.ledger.javaapi.data.*;
 import io.reactivex.Flowable;
 import io.reactivex.Single;
 import java.util.Set;
@@ -29,6 +26,16 @@ public interface TransactionsClient {
 
   Flowable<Transaction> getTransactions(
       LedgerOffset begin, TransactionFilter filter, boolean verbose, String accessToken);
+
+  Flowable<Transaction> getTransactions(
+      ContractFilter<?> contractFilter, LedgerOffset begin, Set<String> parties, boolean verbose);
+
+  Flowable<Transaction> getTransactions(
+      ContractFilter<?> contractFilter,
+      LedgerOffset begin,
+      Set<String> parties,
+      boolean verbose,
+      String accessToken);
 
   Flowable<TransactionTree> getTransactionsTrees(
       LedgerOffset begin, LedgerOffset end, TransactionFilter filter, boolean verbose);

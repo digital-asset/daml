@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.benchtool
@@ -12,17 +12,20 @@ import com.daml.ledger.api.benchtool.config.WorkflowConfig.StreamConfig.{
   TransactionTreesStreamConfig,
   TransactionsStreamConfig,
 }
-import com.daml.ledger.api.benchtool.submission.AllocatedParties
+import com.daml.ledger.api.benchtool.submission.{AllocatedParties, BenchtoolTestsPackageInfo}
 import com.daml.ledger.client.binding.Primitive.TemplateId
 import com.daml.ledger.test.benchtool.Foo.{Foo1, Foo2, Foo3}
 import com.daml.ledger.test.benchtool.InterfaceSubscription.{FooI1, FooI2, FooI3}
 import scalaz.syntax.tag._
 
-class ConfigEnricher(allocatedParties: AllocatedParties) {
+class ConfigEnricher(
+    allocatedParties: AllocatedParties,
+    packageInfo: BenchtoolTestsPackageInfo,
+) {
 
   private def toTemplateId[T](templateId: TemplateId[T]): (String, String) = {
     val id = templateId.unwrap
-    id.entityName -> s"${id.packageId}:${id.moduleName}:${id.entityName}"
+    id.entityName -> s"${packageInfo.packageId}:${id.moduleName}:${id.entityName}"
   }
 
   private val interfaceNameToFullyQualifiedNameMap: Map[String, String] = List(

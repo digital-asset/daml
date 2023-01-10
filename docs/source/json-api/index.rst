@@ -1,4 +1,4 @@
-.. Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 .. _json-api:
@@ -21,23 +21,19 @@ complicating concerns including, but not limited to:
 - asynchronous submit/completion workflows,
 - temporal queries (e.g. active contracts *as of a certain time*), and
 
-For these and other features, use :doc:`the Ledger API </app-dev/ledger-api>`
-instead.
+For these and other features, use :doc:`the Ledger API </app-dev/ledger-api>` instead.
+The HTTP JSON API service is a "proxy", after a fashion, for that API; *there is literally nothing that HTTP JSON API service can do that your own application cannot do via gRPC*.
 
 If you are using this API from JavaScript or TypeScript, we strongly recommend using :doc:`the JavaScript bindings and code generator </app-dev/bindings-ts/index>` rather than invoking these endpoints directly.
 This will both simplify access to the endpoints described here and (with TypeScript) help to provide the correct JavaScript value format for each of your contracts, choice arguments, and choice results.
+
+As suggested by those bindings, the primary target application for the HTTP JSON API service is a web application, where user actions translate to one or a few ledger operations.
+It is not intended for high-throughput, high-performance ledger automation; the Ledger API is better suited to such use cases.
 
 We welcome feedback about the JSON API on
 `our issue tracker <https://github.com/digital-asset/daml/issues/new/choose>`_, or
 `on our forum <https://discuss.daml.com>`_.
 
-.. toctree::
-   :hidden:
-   :maxdepth: 3
-
-   lf-value-specification
-   search-query-language
-   production-setup
 
 Run the JSON API
 ****************
@@ -211,51 +207,16 @@ using.
 With Query Store
 ----------------
 
-In production setups, you should configure the JSON API to use a
-PostgreSQL backend as a cache. The in-memory backend will call the
+In production setups, you should configure the HTTP JSON API service to use a PostgreSQL backend as a :doc:`production-setup/query-store`.
+The in-memory backend will call the
 ledger to fetch the entire active contract set for the templates in
 your query every time so it is generally not recommended to rely on
-this in production. Note that the PostgreSQL backend acts purely as a
-cache. It is safe to reinitialize the database at any time.
+this in production.
+Note that the query store is a redundant copy of on-ledger data.
+It is safe to reinitialize the database at any time.
 
-To enable the PostgreSQL backend you can add the ``query-store`` config block in your application config file
+To enable the PostgreSQL backend you can add the ``query-store`` config block :doc:`as described <production-setup/query-store>`.
 
-.. code-block:: none
-
-    query-store {
-      base-config {
-        user = "postgres"
-        password = "password"
-        driver = "org.postgresql.Driver"
-        url = "jdbc:postgresql://localhost:5432/test?&ssl=true"
-
-        // prefix for table names to avoid collisions, empty by default
-        table-prefix = "foo"
-
-        // max pool size for the database connection pool
-        pool-size = 12
-        //specifies the min idle connections for database connection pool.
-        min-idle = 4
-        //specifies the idle timeout for the database connection pool.
-        idle-timeout = 12s
-        //specifies the connection timeout for database connection pool.
-        connection-timeout = 90s
-      }
-      // option setting how the schema should be handled.
-      // Valid options are start-only, create-only, create-if-needed-and-start and create-and-start
-      start-mode = "create-if-needed-and-start"
-    }
-
-.. note:: When you use the Query Store you'll want to use ``start-mode=create-if-needed-and-start`` so that all the necessary tables are created if they don't exist.
-
-you can also use the ``--query-store-jdbc-config`` CLI flag (deprecated), an example of which is below.
-
-.. code-block:: shell
-
-    daml json-api --ledger-host localhost --ledger-port 6865 --http-port 7575 \
-    --query-store-jdbc-config "driver=org.postgresql.Driver,url=jdbc:postgresql://localhost:5432/test?&ssl=true,user=postgres,password=password,start-mode=create-if-needed-and-start"
-
-.. note:: The JSON API provides many other useful configuration flags, run ``daml json-api --help`` to see all of them.
 
 .. _json-api-access-tokens:
 

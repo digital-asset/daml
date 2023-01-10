@@ -1,9 +1,9 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.benchtool.util
 
-import com.daml.error.definitions.LedgerApiErrors
+import com.daml.error.definitions.CommonErrors
 import com.daml.error.utils.ErrorDetails
 import io.grpc.stub.{ClientCallStreamObserver, ClientResponseObserver}
 import org.slf4j.Logger
@@ -48,7 +48,7 @@ abstract class ObserverWithResult[RespT, Result](logger: Logger)
   }
 
   private def isServerShuttingDownError(ex: io.grpc.StatusRuntimeException): Boolean =
-    ErrorDetails.matches(ex, LedgerApiErrors.ServerIsShuttingDown)
+    ErrorDetails.matches(ex, CommonErrors.ServerIsShuttingDown)
 
   override def onCompleted(): Unit = {
     logger.info(withStreamName(s"Stream completed."))

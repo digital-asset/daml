@@ -1,8 +1,9 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.sandbox.auth
 
+import com.daml.ledger.api.v1.admin.{user_management_service => proto}
 import com.daml.ledger.api.v1.command_completion_service.{
   CommandCompletionServiceGrpc,
   CompletionStreamRequest,
@@ -21,9 +22,9 @@ final class CompletionStreamAuthIT
 
   override val testCanReadAsMainActor: Boolean = false
 
-  override protected def stream
-      : Option[String] => StreamObserver[CompletionStreamResponse] => Unit =
-    streamFor(serviceCallName)
+  override protected def stream(
+      context: ServiceCallContext
+  ): StreamObserver[CompletionStreamResponse] => Unit = streamFor(serviceCallName, context)
 
   private def mkRequest(applicationId: String) =
     new CompletionStreamRequest(
@@ -34,18 +35,24 @@ final class CompletionStreamAuthIT
     )
 
   private def streamFor(
-      applicationId: String
-  ): Option[String] => StreamObserver[CompletionStreamResponse] => Unit =
-    token =>
-      observer =>
-        stub(CommandCompletionServiceGrpc.stub(channel), token)
-          .completionStream(mkRequest(applicationId), observer)
+      applicationId: String,
+      context: ServiceCallContext,
+  ): StreamObserver[CompletionStreamResponse] => Unit =
+    observer =>
+      stub(CommandCompletionServiceGrpc.stub(channel), context.token)
+        .completionStream(mkRequest(context.applicationId(applicationId)), observer)
 
-  override protected def serviceCallWithoutApplicationId(token: Option[String]): Future[Any] =
-    // Note: the token must allow actAs mainActor for this call to work.
-    submitAndWait(token, "", party = mainActor).flatMap(_ =>
-      new StreamConsumer[CompletionStreamResponse](streamFor("")(token)).first()
-    )
+  override def serviceCallWithMainActorUser(
+      userPrefix: String,
+      rights: Vector[proto.Right.Kind],
+  ): Future[Any] =
+    for {
+      (_, context) <- createUserByAdmin(userPrefix + mainActor, rights = rights.map(proto.Right(_)))
+      _ <- submitAndWait(context.token, "", party = mainActor)
+      _ <- new StreamConsumer[CompletionStreamResponse](
+        streamFor("", context.copy(includeApplicationId = false))
+      ).first()
+    } yield ()
 
   // The completion stream is the one read-only endpoint where the application
   // identifier is part of the request. Hence, we didn't put this test in a shared
@@ -56,20 +63,22 @@ final class CompletionStreamAuthIT
     .setHappyCase(
       "Ledger API client can make a call with the correct application ID"
     ) in {
-    expectSuccess(serviceCallWithToken(canReadAsMainActorActualApplicationId))
+    expectSuccess(serviceCall(canReadAsMainActorActualApplicationId))
   }
 
   it should "deny calls with an unknown application ID" taggedAs securityAsset.setAttack(
     attackPermissionDenied(threat = "Present a JWT with an unknown application ID")
   ) in {
-    expectPermissionDenied(serviceCallWithToken(canReadAsMainActorRandomApplicationId))
+    expectPermissionDenied(serviceCall(canReadAsMainActorRandomApplicationId))
   }
 
   it should "allow calls with an application ID present in the message and a token with an empty application ID" taggedAs securityAsset
     .setHappyCase(
       "Ledger API client can make a call with an application ID present in the message and a token with an empty application ID"
     ) in {
-    expectSuccess(serviceCallWithoutApplicationId(canActAsMainActorActualApplicationId))
+    expectSuccess(
+      serviceCall(canActAsMainActorActualApplicationId.copy(includeApplicationId = false))
+    )
   }
 
   it should "deny calls with an application ID present in the message and a token without application ID" taggedAs securityAsset
@@ -79,6 +88,6 @@ final class CompletionStreamAuthIT
       )
     ) in {
     // Note: need canActAsMainActor as the test first submits a change that it then listens for.
-    expectInvalidArgument(serviceCallWithoutApplicationId(canActAsMainActor))
+    expectInvalidArgument(serviceCall(canActAsMainActor.copy(includeApplicationId = false)))
   }
 }

@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 syntax = "proto3";
@@ -24,6 +24,7 @@ message ExperimentalFeatures {
   ExperimentalCommitterEventLog committer_event_log = 6;
   ExperimentalExplicitDisclosure explicit_disclosure = 7;
   ExperimentalUserAndPartyLocalMetadataExtensions user_and_party_local_metadata_extensions = 8;
+  AcsActiveAtOffsetFeature acs_active_at_offset = 9;
 }
 
 // GRPC self-service error codes are returned by the Ledger API.
@@ -116,5 +117,10 @@ message ExperimentalExplicitDisclosure {
 // - metadata with annotations and resource version for users and parties,
 // - update calls for users and parties.
 message ExperimentalUserAndPartyLocalMetadataExtensions {
+  bool supported = 1;
+}
+
+// Whether the Ledger API supports requesting ACS at an offset
+message AcsActiveAtOffsetFeature {
   bool supported = 1;
 }

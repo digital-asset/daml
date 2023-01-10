@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.javaapi.data.codegen;
@@ -7,6 +7,7 @@ import com.daml.ledger.javaapi.data.CreatedEvent;
 import com.daml.ledger.javaapi.data.DamlRecord;
 import com.daml.ledger.javaapi.data.Identifier;
 import com.daml.ledger.javaapi.data.Value;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
@@ -15,15 +16,22 @@ import java.util.function.Function;
  * Metadata and utilities associated with a template as a whole, rather than one single contract
  * made from that template.
  *
+ * <p>Application code <em>should not</em> instantiate or subclass; instead, refer to the {@code
+ * COMPANION} field on generated {@link com.daml.ledger.javaapi.data.Template} subclasses. All
+ * {@code protected} members herein are considered part of the <strong>INTERNAL API</strong>.
+ *
+ * <p>Every instance is either a {@link WithKey} or {@link WithoutKey}, depending on whether the
+ * template defined a {@code key} type. {@link WithKey} defines extra utilities for working with
+ * contract keys.
+ *
  * @param <Ct> The {@link Contract} subclass generated within the template class.
  * @param <Id> The {@link ContractId} subclass generated within the template class.
  * @param <Data> The generated {@link com.daml.ledger.javaapi.data.Template} subclass named after
  *     the template, whose instances contain only the payload.
  */
-public abstract class ContractCompanion<Ct, Id, Data> extends ContractTypeCompanion {
-  final String templateClassName; // not something we want outside this package
-
-  protected final Function<String, Id> newContractId;
+public abstract class ContractCompanion<Ct, Id, Data>
+    extends ContractTypeCompanion<Ct, Id, Data, Data> {
+  /** @hidden */
   protected final Function<DamlRecord, Data> fromValue;
 
   /**
@@ -55,40 +63,42 @@ public abstract class ContractCompanion<Ct, Id, Data> extends ContractTypeCompan
   }
 
   /**
-   * Tries to parse a contract from an event expected to create a {@code Ct} contract.
+   * <strong>INTERNAL API</strong>: this is meant for use by {@link WithoutKey} and {@link WithKey},
+   * and <em>should not be referenced directly</em>. Applications should refer to the {@code
+   * COMPANION} field on generated {@link com.daml.ledger.javaapi.data.Template} subclasses instead.
    *
-   * @param event the event to try to parse a contract from
-   * @throws IllegalArgumentException when the {@link CreatedEvent#arguments} cannot be parsed as
-   *     {@code Data}, or the {@link CreatedEvent#contractKey} cannot be parsed as {@code Key}.
-   * @return The parsed contract, with payload and metadata, if present.
+   * @hidden
    */
-  public abstract Ct fromCreatedEvent(CreatedEvent event);
-
-  public Id toContractId(ContractId<Data> parameterizedContractId) {
-    return newContractId.apply(parameterizedContractId.contractId);
-  }
-
   protected ContractCompanion(
       String templateClassName,
       Identifier templateId,
       Function<String, Id> newContractId,
-      Function<DamlRecord, Data> fromValue) {
-    super(templateId);
-    this.templateClassName = templateClassName;
-    this.newContractId = newContractId;
+      Function<DamlRecord, Data> fromValue,
+      List<Choice<Data, ?, ?>> choices) {
+    super(templateId, templateClassName, newContractId, choices);
     this.fromValue = fromValue;
   }
 
   public static final class WithoutKey<Ct, Id, Data> extends ContractCompanion<Ct, Id, Data> {
     private final NewContract<Ct, Id, Data> newContract;
 
+    /**
+     * <strong>INTERNAL API</strong>: this is meant for use by <a
+     * href="https://docs.daml.com/app-dev/bindings-java/codegen.html">the Java code generator</a>,
+     * and <em>should not be referenced directly</em>. Applications should refer to the {@code
+     * COMPANION} field on generated {@link com.daml.ledger.javaapi.data.Template} subclasses
+     * instead.
+     *
+     * @hidden
+     */
     public WithoutKey(
         String templateClassName,
         Identifier templateId,
         Function<String, Id> newContractId,
         Function<DamlRecord, Data> fromValue,
-        NewContract<Ct, Id, Data> newContract) {
-      super(templateClassName, templateId, newContractId, fromValue);
+        NewContract<Ct, Id, Data> newContract,
+        List<Choice<Data, ?, ?>> choices) {
+      super(templateClassName, templateId, newContractId, fromValue, choices);
       this.newContract = newContract;
     }
 
@@ -129,14 +139,24 @@ public abstract class ContractCompanion<Ct, Id, Data> extends ContractTypeCompan
     private final NewContract<Ct, Id, Data, Key> newContract;
     private final Function<Value, Key> keyFromValue;
 
+    /**
+     * <strong>INTERNAL API</strong>: this is meant for use by <a
+     * href="https://docs.daml.com/app-dev/bindings-java/codegen.html">the Java code generator</a>,
+     * and <em>should not be referenced directly</em>. Applications should refer to the {@code
+     * COMPANION} field on generated {@link com.daml.ledger.javaapi.data.Template} subclasses
+     * instead.
+     *
+     * @hidden
+     */
     public WithKey(
         String templateClassName,
         Identifier templateId,
         Function<String, Id> newContractId,
         Function<DamlRecord, Data> fromValue,
         NewContract<Ct, Id, Data, Key> newContract,
+        List<Choice<Data, ?, ?>> choices,
         Function<Value, Key> keyFromValue) {
-      super(templateClassName, templateId, newContractId, fromValue);
+      super(templateClassName, templateId, newContractId, fromValue, choices);
       this.newContract = newContract;
       this.keyFromValue = keyFromValue;
     }

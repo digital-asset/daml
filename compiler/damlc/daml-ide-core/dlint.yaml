@@ -1,4 +1,4 @@
-# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 # hlint configuration file
@@ -364,9 +364,9 @@
     - warn: {lhs: identity =<< x, rhs: DA.Action.join x}
     - hint: {lhs: join (f <$> x), rhs: f =<< x}
     - hint: {lhs: join (fmap f x), rhs: f =<< x}
-    - hint: {lhs: a >> return (), rhs: DA.Action.void a, side: isAtom a || isApp a}
-    - warn: {lhs: fmap (const ()), rhs: DA.Action.void}
-    - warn: {lhs: const () <$> x, rhs: DA.Action.void x}
+    - hint: {lhs: a >> return (), rhs: DA.Functor.void a, side: isAtom a || isApp a}
+    - warn: {lhs: fmap (const ()), rhs: DA.Functor.void}
+    - warn: {lhs: const () <$> x, rhs: DA.Functor.void x}
     - warn: {lhs: flip (>=>), rhs: (<=<)}
     - warn: {lhs: flip (<=<), rhs: (>=>)}
     - warn: {lhs: flip (>>=), rhs: (=<<)}

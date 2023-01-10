@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -52,6 +52,7 @@ private[lf] final class ConcurrentCompiledPackages(compilerConfig: Compiler.Conf
 
   // TODO SC remove 'return', notwithstanding a love of unhandled exceptions
   @SuppressWarnings(Array("org.wartremover.warts.Return"))
+  @scala.annotation.nowarn("msg=return statement uses an exception to pass control to the caller")
   private def addPackageInternal(state: AddPackageState): Result[Unit] =
     this.synchronized {
       var toCompile = state.toCompile

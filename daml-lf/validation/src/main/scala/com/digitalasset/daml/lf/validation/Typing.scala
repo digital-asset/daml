@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.validation
@@ -646,12 +646,38 @@ private[validation] object Typing {
       iiBody.methods.values.foreach { case InterfaceInstanceMethod(name, value) =>
         methods.get(name) match {
           case None =>
-            throw EUnknownMethodInInterfaceInstance(ctx, name)
-          case Some(method) => env.checkTopExpr(value, method.returnType)
+            throw EUnknownMethodInInterfaceInstance(ctx, name, interfaceId, templateId)
+          case Some(method) =>
+            try env.checkTopExpr(value, method.returnType)
+            catch {
+              case e: ETypeMismatch => {
+                throw EMethodTypeMismatch(
+                  e.context,
+                  interfaceId,
+                  templateId,
+                  name,
+                  e.foundType,
+                  e.expectedType,
+                  e.expr,
+                )
+              }
+            }
         }
       }
 
-      env.checkTopExpr(iiBody.view, view)
+      try env.checkTopExpr(iiBody.view, view)
+      catch {
+        case e: ETypeMismatch => {
+          throw EViewTypeMismatch(
+            e.context,
+            interfaceId,
+            templateId,
+            e.foundType,
+            e.expectedType,
+            e.expr,
+          )
+        }
+      }
     }
 
     private[Typing] def checkDefException(
@@ -799,8 +825,9 @@ private[validation] object Typing {
     private def typeOfRecProj(typ0: TypeConApp, field: FieldName, record: Expr): Work[Type] =
       checkTypConApp(typ0) match {
         case DataRecord(recordType) =>
-          val fieldType = recordType.lookup(field, EUnknownField(ctx, field))
-          checkExpr(record, typeConAppToType(typ0)) {
+          val typ1 = typeConAppToType(typ0)
+          val fieldType = recordType.lookup(field, EUnknownField(ctx, field, typ1))
+          checkExpr(record, typ1) {
             Ret(fieldType)
           }
         case _ =>
@@ -817,8 +844,20 @@ private[validation] object Typing {
         case DataRecord(recordType) =>
           val typ1 = typeConAppToType(typ0)
           checkExpr(record, typ1) {
-            checkExpr(update, recordType.lookup(field, EUnknownField(ctx, field))) {
-              Ret(typ1)
+            try
+              checkExpr(update, recordType.lookup(field, EUnknownField(ctx, field, typ1))) {
+                Ret(typ1)
+              }
+            catch {
+              case e: ETypeMismatch =>
+                throw EFieldTypeMismatch(
+                  ctx,
+                  fieldName = field,
+                  targetRecord = typ1,
+                  foundType = e.foundType,
+                  expectedType = e.expectedType,
+                  expr = e.expr,
+                )
             }
           }
         case _ =>
@@ -839,7 +878,7 @@ private[validation] object Typing {
       typeOf(proj.struct) { ty =>
         toStruct(ty).fields.get(proj.field) match {
           case Some(typ) => Ret(typ)
-          case None => throw EUnknownField(ctx, proj.field)
+          case None => throw EUnknownField(ctx, proj.field, ty)
         }
       }
 
@@ -851,7 +890,7 @@ private[validation] object Typing {
             checkExpr(upd.update, updateType) {
               Ret(structType)
             }
-          case None => throw EUnknownField(ctx, upd.field)
+          case None => throw EUnknownField(ctx, upd.field, ty)
         }
       }
 
@@ -1252,6 +1291,14 @@ private[validation] object Typing {
       }
     }
 
+    private def typeOfActingAsConsortium(members: Expr, consortium: Expr): Work[Type] = {
+      checkExpr(members, TList(TParty)) {
+        checkExpr(consortium, TParty) {
+          Ret(TUpdate(TUnit))
+        }
+      }
+    }
+
     private def checkByKey[T](tmplId: TypeConName, key: Expr)(work: => Work[T]): Work[T] = {
       val tmplKey = handleLookup(ctx, pkgInterface.lookupTemplateKey(tmplId))
       checkExpr(key, tmplKey.typ) {
@@ -1280,6 +1327,8 @@ private[validation] object Typing {
         typeOfFetchTemplate(tpl, cid)
       case UpdateFetchInterface(tpl, cid) =>
         typeOfFetchInterface(tpl, cid)
+      case UpdateActingAsConsortium(members, consortium) =>
+        typeOfActingAsConsortium(members, consortium)
       case UpdateGetTime =>
         Ret(TUpdate(TTimestamp))
       case UpdateEmbedExpr(typ, exp) =>
@@ -1495,7 +1544,19 @@ private[validation] object Typing {
     private def resolveExprType[T](expr: Expr, typ: Type)(k: Type => Work[T]): Work[T] = {
       typeOf(expr) { exprType =>
         if (!alphaEquiv(exprType, typ))
-          throw ETypeMismatch(ctx, foundType = exprType, expectedType = typ, expr = Some(expr))
+          expr match {
+            case e: ERecProj =>
+              throw EFieldTypeMismatch(
+                ctx,
+                fieldName = e.field,
+                targetRecord = typeConAppToType(e.tycon),
+                foundType = exprType,
+                expectedType = typ,
+                expr = Some(expr),
+              )
+            case _ =>
+              throw ETypeMismatch(ctx, foundType = exprType, expectedType = typ, expr = Some(expr))
+          }
         k(exprType)
       }
     }

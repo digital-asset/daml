@@ -1,4 +1,4 @@
--- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 -- | TextMap - A map is an associative array data type composed of a
@@ -29,6 +29,7 @@ import DA.List qualified as List
 import DA.Optional
 import DA.Traversable qualified as Traversable
 import GHC.Types (primitive)
+import GHC.Tuple.Check()
 
 -- | Create a map from a list of key/value pairs.
 fromList : [(Text, a)] -> TextMap a

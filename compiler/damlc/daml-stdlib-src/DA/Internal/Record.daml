@@ -1,4 +1,4 @@
--- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE NoImplicitPrelude #-}
@@ -11,6 +11,7 @@ module DA.Internal.Record(HasField(..), Symbol, getFieldPrim, setFieldPrim) wher
 import GHC.Types
 import GHC.Tuple() -- reqired for Tuple's themselves
 import GHC.Integer.Type() -- required for Integer primitives
+import GHC.Tuple.Check()
 
 -- | `HasField` gives you getter and setter functions for each record field
 -- automatically.

@@ -1,21 +1,24 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.store.dao
 
-import com.codahale.metrics.{InstrumentedExecutorService, Timer}
+import java.sql.Connection
+import java.util.concurrent.{Executor, TimeUnit}
+
 import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
+import com.daml.executors.InstrumentedExecutors
 import com.daml.ledger.api.health.{HealthStatus, ReportsHealth}
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.metrics.{DatabaseMetrics, MetricName, Metrics}
+import com.daml.metrics.api.MetricHandle.Timer
+import com.daml.metrics.api.MetricName
+import com.daml.metrics.{DatabaseMetrics, Metrics}
 import com.daml.platform.configuration.ServerRole
 import com.google.common.util.concurrent.ThreadFactoryBuilder
-
-import java.sql.Connection
-import java.util.concurrent.{Executor, Executors, TimeUnit}
 import javax.sql.DataSource
+
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal
@@ -24,6 +27,7 @@ private[platform] trait DbDispatcher {
   def executeSql[T](databaseMetrics: DatabaseMetrics)(sql: Connection => T)(implicit
       loggingContext: LoggingContext
   ): Future[T]
+
 }
 
 private[dao] final class DbDispatcherImpl private[dao] (
@@ -100,6 +104,7 @@ private[dao] final class DbDispatcherImpl private[dao] (
 }
 
 object DbDispatcher {
+
   private val logger = ContextualizedLogger.get(this.getClass)
 
   def owner(
@@ -116,7 +121,7 @@ object DbDispatcher {
         minimumIdle = connectionPoolSize,
         maxPoolSize = connectionPoolSize,
         connectionTimeout = connectionTimeout,
-        metrics = Some(metrics.registry),
+        metrics = Some(metrics.dropwizardFactory.registry),
       )
       connectionProvider <- DataSourceConnectionProvider.owner(hikariDataSource)
       threadPoolName = MetricName(
@@ -124,18 +129,17 @@ object DbDispatcher {
         serverRole.threadPoolSuffix,
       )
       executor <- ResourceOwner.forExecutorService(() =>
-        new InstrumentedExecutorService(
-          Executors.newFixedThreadPool(
-            connectionPoolSize,
-            new ThreadFactoryBuilder()
-              .setNameFormat(s"$threadPoolName-%d")
-              .setUncaughtExceptionHandler((_, e) =>
-                logger.error("Uncaught exception in the SQL executor.", e)
-              )
-              .build(),
-          ),
-          metrics.registry,
+        InstrumentedExecutors.newFixedThreadPoolWithFactory(
           threadPoolName,
+          connectionPoolSize,
+          new ThreadFactoryBuilder()
+            .setNameFormat(s"$threadPoolName-%d")
+            .setUncaughtExceptionHandler((_, e) =>
+              logger.error("Uncaught exception in the SQL executor.", e)
+            )
+            .build(),
+          metrics.dropwizardFactory.registry,
+          metrics.executorServiceMetrics,
         )
       )
     } yield new DbDispatcherImpl(

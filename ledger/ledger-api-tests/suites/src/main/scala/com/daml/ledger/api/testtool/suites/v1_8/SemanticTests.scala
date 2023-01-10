@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.testtool.suites.v1_8
@@ -310,9 +310,11 @@ final class SemanticTests extends LedgerTestSuite {
           .mustFail("fetching the offer with the wrong party")
 
         tree <- alpha.exercise(houseOwner, offer.exercisePaintOffer_Accept(iou))
-        (newIouEvent +: _, agreementEvent +: _) = createdEvents(tree).partition(
+        (newIouEvents, agreementEvents) = createdEvents(tree).partition(
           _.getTemplateId == Tag.unwrap(Iou.id)
         )
+        newIouEvent <- Future(newIouEvents.head)
+        agreementEvent <- Future(agreementEvents.head)
         newIou = Primitive.ContractId[Iou](newIouEvent.contractId)
         agreement = Primitive.ContractId[PaintAgree](agreementEvent.contractId)
         _ <- synchronize(alpha, beta)

@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.http
@@ -26,6 +26,9 @@ import com.typesafe.scalalogging.StrictLogging
 import org.scalatest._
 import org.scalatest.freespec.AsyncFreeSpec
 import org.scalatest.matchers.should.Matchers
+import com.daml.test.evidence.tag.Security.SecurityTest.Property.Authorization
+import com.daml.test.evidence.tag.Security.{Attack, SecurityTest}
+import com.daml.test.evidence.scalatest.ScalaTestSupport.Implicits._
 import scalaz.std.list._
 import scalaz.std.option._
 import scalaz.std.scalaFuture._
@@ -50,13 +53,25 @@ import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
 
 @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
-abstract class AbstractWebsocketServiceIntegrationTest
+abstract class AbstractWebsocketServiceIntegrationTest(val integration: String)
     extends AsyncFreeSpec
     with Matchers
     with Inside
     with StrictLogging
     with AbstractHttpServiceIntegrationTestFuns
     with BeforeAndAfterAll {
+
+  private val authorizationSecurity =
+    SecurityTest(
+      property = Authorization,
+      asset = s"HTTP JSON API Service: WebsocketService $integration",
+    )
+
+  private def attackUnauthorized(threat: String): Attack = Attack(
+    actor = s"Websocket client",
+    threat = threat,
+    mitigation = s"Refuse call by the client with UNAUTHORIZED",
+  )
 
   import WebsocketTestFixture._
 
@@ -97,20 +112,21 @@ abstract class AbstractWebsocketServiceIntegrationTest
     SimpleScenario("query", Uri.Path("/v1/stream/query"), baseQueryInput),
     SimpleScenario("fetch", Uri.Path("/v1/stream/fetch"), baseFetchInput),
   ).foreach { scenario =>
-    // TEST_EVIDENCE: Authorization: websocket request with valid protocol token should allow client subscribe to stream
-    s"${scenario.id} request with valid protocol token should allow client subscribe to stream" in withHttpService {
-      (uri, _, _, _) =>
-        jwt(uri).flatMap(jwt =>
-          wsConnectRequest(
-            uri.copy(scheme = "ws").withPath(scenario.path),
-            validSubprotocol(jwt),
-            scenario.input,
-          )._1 flatMap (x => x.response.status shouldBe StatusCodes.SwitchingProtocols)
-        )
+    s"${scenario.id} request with valid protocol token should allow client subscribe to stream" taggedAs authorizationSecurity
+      .setHappyCase(
+        "Websocket client with valid protocol token can subscribe to stream"
+      ) in withHttpService { (uri, _, _, _) =>
+      jwt(uri).flatMap(jwt =>
+        wsConnectRequest(
+          uri.copy(scheme = "ws").withPath(scenario.path),
+          validSubprotocol(jwt),
+          scenario.input,
+        )._1 flatMap (x => x.response.status shouldBe StatusCodes.SwitchingProtocols)
+      )
     }
 
-    // TEST_EVIDENCE: Authorization: websocket request with invalid protocol token should be denied
-    s"${scenario.id} request with invalid protocol token should be denied" in withHttpService {
+    s"${scenario.id} request with invalid protocol token should be denied" taggedAs authorizationSecurity
+      .setAttack(attackUnauthorized("Present invalid protocol token")) in withHttpService {
       (uri, _, _, _) =>
         wsConnectRequest(
           uri.copy(scheme = "ws").withPath(scenario.path),
@@ -119,8 +135,8 @@ abstract class AbstractWebsocketServiceIntegrationTest
         )._1 flatMap (x => x.response.status shouldBe StatusCodes.Unauthorized)
     }
 
-    // TEST_EVIDENCE: Authorization: websocket request without protocol token should be denied
-    s"${scenario.id} request without protocol token should be denied" in withHttpService {
+    s"${scenario.id} request without protocol token should be denied" taggedAs authorizationSecurity
+      .setAttack(attackUnauthorized("Present no protocol token")) in withHttpService {
       (uri, _, _, _) =>
         wsConnectRequest(
           uri.copy(scheme = "ws").withPath(scenario.path),
@@ -129,20 +145,25 @@ abstract class AbstractWebsocketServiceIntegrationTest
         )._1 flatMap (x => x.response.status shouldBe StatusCodes.Unauthorized)
     }
 
-    // TEST_EVIDENCE: Authorization: multiple websocket requests over the same WebSocket connection are NOT allowed
-    s"two ${scenario.id} requests over the same WebSocket connection are NOT allowed" in withHttpService {
-      fixture =>
-        immediateQuery(fixture, scenario.mapInput(_.mapConcat(x => List(x, x))))
-          .flatMap { msgs =>
-            inside(msgs) { case Seq(errorMsg) =>
-              val error = decodeErrorResponse(errorMsg)
-              error shouldBe domain.ErrorResponse(
-                List("Multiple requests over the same WebSocket connection are not allowed."),
-                None,
-                StatusCodes.BadRequest,
-              )
-            }
+    s"two ${scenario.id} requests over the same WebSocket connection are NOT allowed" taggedAs authorizationSecurity
+      .setAttack(
+        Attack(
+          actor = "Websocket client",
+          threat = "Sends two requests over the same connection",
+          mitigation = "Refuse call by the client with BADREQUEST",
+        )
+      ) in withHttpService { fixture =>
+      immediateQuery(fixture, scenario.mapInput(_.mapConcat(x => List(x, x))))
+        .flatMap { msgs =>
+          inside(msgs) { case Seq(errorMsg) =>
+            val error = decodeErrorResponse(errorMsg)
+            error shouldBe domain.ErrorResponse(
+              List("Multiple requests over the same WebSocket connection are not allowed."),
+              None,
+              StatusCodes.BadRequest,
+            )
           }
+        }
     }
   }
 
@@ -158,15 +179,11 @@ abstract class AbstractWebsocketServiceIntegrationTest
       Source.single(TextMessage.Strict("""[{"templateId": "AA:BB", "key": ["k", "v"]}]""")),
     ),
   ).foreach { scenario =>
-    s"${scenario.id} report UnknownTemplateIds and error when cannot resolve any template ID" in withHttpService {
+    s"${scenario.id} report error when cannot resolve any template ID" in withHttpService {
       fixture =>
         immediateQuery(fixture, scenario)
           .flatMap { msgs =>
-            inside(msgs) { case Seq(warningMsg, errorMsg) =>
-              val warning = decodeServiceWarning(warningMsg)
-              inside(warning) { case domain.UnknownTemplateIds(ids) =>
-                ids shouldBe List(domain.ContractTypeId(None, "AA", "BB"))
-              }
+            inside(msgs) { case Seq(errorMsg) =>
               val error = decodeErrorResponse(errorMsg)
               error shouldBe domain.ErrorResponse(
                 List(ErrorMessages.cannotResolveAnyTemplateId),
@@ -225,7 +242,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
         aliceHeaders <- fixture.getUniquePartyAndAuthHeaders("Alice")
         (alice, headers) = aliceHeaders
         _ <- initialIouCreate(uri, alice, headers)
-        jwt <- jwtForParties(uri)(List(alice.unwrap), List(), testId)
+        jwt <- jwtForParties(uri)(List(alice), List(), testId)
         clientMsg <- singleClientQueryStream(
           jwt,
           uri,
@@ -245,7 +262,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
         aliceHeaders <- fixture.getUniquePartyAndAuthHeaders("Alice")
         (alice, headers) = aliceHeaders
         _ <- initialAccountCreate(fixture, alice, headers)
-        jwt <- jwtForParties(uri)(List(alice.unwrap), Nil, testId)
+        jwt <- jwtForParties(uri)(List(alice), Nil, testId)
         fetchRequest = s"""[{"templateId": "Account:Account", "key": ["$alice", "abc123"]}]"""
         clientMsg <- singleClientFetchStream(jwt, uri, fetchRequest)
           .take(2)
@@ -389,7 +406,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
 
       for {
         (alice, aliceAuthHeaders) <- fixture.getUniquePartyAndAuthHeaders("Alice")
-        jwt <- jwtForParties(uri)(List(alice.unwrap), List(), testId)
+        jwt <- jwtForParties(uri)(List(alice), List(), testId)
         (kill, source) = singleClientQueryStream(
           jwt,
           uri,
@@ -415,7 +432,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
         (alice, headers) = aliceHeaders
         _ <- initialIouCreate(uri, alice, headers)
 
-        clientMsg <- jwtForParties(uri)(List(alice.unwrap), List(), testId)
+        clientMsg <- jwtForParties(uri)(List(alice), List(), testId)
           .flatMap(
             singleClientQueryStream(
               _,
@@ -439,7 +456,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
         (alice, headers) = aliceHeaders
         _ <- initialAccountCreate(fixture, alice, headers)
 
-        clientMsg <- jwtForParties(uri)(List(alice.unwrap), List(), testId).flatMap(
+        clientMsg <- jwtForParties(uri)(List(alice), List(), testId).flatMap(
           singleClientFetchStream(
             _,
             uri,
@@ -490,12 +507,15 @@ abstract class AbstractWebsocketServiceIntegrationTest
 
   private def exercisePayload(cid: domain.ContractId, amount: BigDecimal = BigDecimal("42.42")) = {
     import json.JsonProtocol._
-    Map(
-      "templateId" -> "Iou:Iou".toJson,
-      "contractId" -> cid.toJson,
-      "choice" -> "Iou_Split".toJson,
-      "argument" -> Map("splitAmount" -> amount).toJson,
-    ).toJson
+    domain
+      .ExerciseCommand(
+        domain.EnrichedContractId(Some(TpId.Iou.Iou), cid): domain.ContractLocator[JsValue],
+        domain.Choice("Iou_Split"),
+        Map("splitAmount" -> amount).toJson,
+        None,
+        None,
+      )
+      .toJson
   }
 
   "matchedQueries should be correct for multiqueries with per-query offsets" in withHttpService {
@@ -513,7 +533,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
             for {
               evtsWrapper @ ContractDelta(Vector((ctid, _)), Vector(), None) <- readOne
               _ = {
-                (ctid: String) shouldBe (iouCid.unwrap: String)
+                (ctid: domain.ContractId) shouldBe iouCid
                 inside(evtsWrapper) { case JsObject(obj) =>
                   inside(obj get "events") {
                     case Some(
@@ -548,7 +568,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
         (party, headers) = aliceHeaders
         creation <- initialIouCreate(uri, party, headers)
         iouCid = resultContractId(creation)
-        jwt <- jwtForParties(uri)(List(party.unwrap), List(), testId)
+        jwt <- jwtForParties(uri)(List(party), List(), testId)
         (kill, source) = singleClientQueryStream(jwt, uri, query)
           .viaMat(KillSwitches.single)(Keep.right)
           .preMaterialize()
@@ -586,12 +606,12 @@ abstract class AbstractWebsocketServiceIntegrationTest
           .interpret(
             for {
               ContractDelta(Vector((ctid, _)), Vector(), None) <- readOne
-              _ = (ctid: String) shouldBe (iouCid.unwrap: String)
+              _ = (ctid: domain.ContractId) shouldBe iouCid
               _ <- liftF(
                 getAliceHeaders.flatMap { case (_, headers) =>
                   fixture.postJsonRequest(
                     Uri.Path("/v1/exercise"),
-                    exercisePayload(domain.ContractId(ctid)),
+                    exercisePayload(ctid),
                     headers,
                   ) map { case (statusCode, _) =>
                     statusCode.isSuccess shouldBe true
@@ -657,7 +677,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
         (party, headers) = aliceHeaders
         creation <- initialIouCreate(uri, party, headers)
         iouCid = resultContractId(creation)
-        jwt <- jwtForParties(uri)(List(party.unwrap), List(), testId)
+        jwt <- jwtForParties(uri)(List(party), List(), testId)
         (kill, source) = singleClientQueryStream(jwt, uri, query)
           .viaMat(KillSwitches.single)(Keep.right)
           .preMaterialize()
@@ -760,7 +780,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
         r2 <- f2
         cid2 = resultContractId(r2)
 
-        jwt <- jwtForParties(uri)(List(alice.unwrap, bob.unwrap), List(), testId)
+        jwt <- jwtForParties(uri)(List(alice, bob), List(), testId)
         (kill, source) = singleClientQueryStream(
           jwt,
           uri,
@@ -771,7 +791,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
           lastSeen.unwrap should be > liveStart.unwrap
           liveStart
         }
-        rescan <- jwtForParties(uri)(List(alice.unwrap), List(), testId).flatMap(jwt =>
+        rescan <- jwtForParties(uri)(List(alice), List(), testId).flatMap(jwt =>
           (singleClientQueryStream(
             jwt,
             uri,
@@ -826,7 +846,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
           Consume.interpret(
             for {
               ContractDelta(Vector((cid, c)), Vector(), None) <- readOne
-              _ = (cid: String) shouldBe (cid1.unwrap: String)
+              _ = (cid: domain.ContractId) shouldBe cid1
               ctid <- liftF(postArchiveCommand(templateId, cid2, fixture, headers).flatMap {
                 case (statusCode, _) =>
                   statusCode.isSuccess shouldBe true
@@ -842,8 +862,8 @@ abstract class AbstractWebsocketServiceIntegrationTest
 
               ContractDelta(Vector(), Vector(observeArchivedCid), Some(lastSeenOffset)) <- readOne
               (liveStartOffset, msgCount) = {
-                (observeArchivedCid.contractId.unwrap: String) shouldBe (archivedCid: String)
-                (observeArchivedCid.contractId: domain.ContractId) shouldBe (cid1: domain.ContractId)
+                observeArchivedCid.contractId shouldBe archivedCid
+                observeArchivedCid.contractId shouldBe cid1
                 (off, 0)
               }
 
@@ -865,7 +885,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
 
         r2 <- f2
         cid2 = resultContractId(r2)
-        jwt <- jwtForParties(uri)(List(alice.unwrap), List(), testId)
+        jwt <- jwtForParties(uri)(List(alice), List(), testId)
         (kill, source) = singleClientFetchStream(jwt, uri, fetchRequest(None))
           .viaMat(KillSwitches.single)(Keep.right)
           .preMaterialize()
@@ -971,7 +991,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
         r2 <- f2
         cid2 = resultContractId(r2)
 
-        jwt <- jwtForParties(uri)(List(alice.unwrap, bob.unwrap), List(), testId)
+        jwt <- jwtForParties(uri)(List(alice, bob), List(), testId)
         (kill, source) = singleClientFetchStream(
           jwt,
           uri,
@@ -1000,7 +1020,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
     for {
       aliceHeaders <- fixture.getUniquePartyAndAuthHeaders("Alice")
       (alice, headers) = aliceHeaders
-      jwt <- jwtForParties(uri)(List(alice.unwrap), List(), testId)
+      jwt <- jwtForParties(uri)(List(alice), List(), testId)
       create = (account: String) =>
         for {
           r <- postCreateCommand(
@@ -1066,10 +1086,12 @@ abstract class AbstractWebsocketServiceIntegrationTest
   /** Consume ACS blocks expecting `createCount` contracts.  Fail if there
     * are too many contracts.
     */
-  private[this] def readAcsN(createCount: Int): Consume.FCC[JsValue, Vector[(String, JsValue)]] = {
+  private[this] def readAcsN(
+      createCount: Int
+  ): Consume.FCC[JsValue, Vector[(domain.ContractId, JsValue)]] = {
     val dslSyntax = Consume.syntax[JsValue]
     import dslSyntax._
-    def go(createCount: Int): Consume.FCC[JsValue, Vector[(String, JsValue)]] =
+    def go(createCount: Int): Consume.FCC[JsValue, Vector[(domain.ContractId, JsValue)]] =
       if (createCount <= 0) point(Vector.empty)
       else
         for {
@@ -1085,21 +1107,21 @@ abstract class AbstractWebsocketServiceIntegrationTest
     * The caller is in charge of reading the live marker if that is expected
     */
   private[this] def updateAcs(
-      acs: Map[String, JsValue],
+      acs: Map[domain.ContractId, JsValue],
       events: Int,
-  ): Consume.FCC[JsValue, Map[String, JsValue]] = {
+  ): Consume.FCC[JsValue, Map[domain.ContractId, JsValue]] = {
     val dslSyntax = Consume.syntax[JsValue]
     import dslSyntax._
     def go(
-        acs: Map[String, JsValue],
+        acs: Map[domain.ContractId, JsValue],
         missingEvents: Int,
-    ): Consume.FCC[JsValue, Map[String, JsValue]] =
+    ): Consume.FCC[JsValue, Map[domain.ContractId, JsValue]] =
       if (missingEvents <= 0) {
         point(acs)
       } else {
         for {
           ContractDelta(creates, archives, _) <- readOne
-          newAcs = acs ++ creates -- archives.map(_.contractId.unwrap)
+          newAcs = acs ++ creates -- archives.map(_.contractId)
           events = creates.size + archives.size
           next <- go(newAcs, missingEvents - events)
         } yield next
@@ -1144,7 +1166,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
       _ = pruned should ===(PruneGrpc.PruneResponse())
 
       // now query again with a pruned offset
-      jwt <- jwtForParties(uri)(List(alice.unwrap), List(), testId)
+      jwt <- jwtForParties(uri)(List(alice), List(), testId)
       query = s"""[{"templateIds": ["Iou:Iou"]}]"""
       streamError <- singleClientQueryStream(jwt, uri, query, Some(offsetBeforeArchive))
         .runWith(Sink.seq)
@@ -1186,7 +1208,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
       // wait for the creation's offset
       offsetAfter <- readUntil[In] {
         case ContractDelta(creates, _, off @ Some(_)) =>
-          if (creates.exists(_._1 == cid.unwrap)) off else None
+          if (creates.exists(_._1 == cid)) off else None
         case _ => None
       }
     } yield (cid, offsetAfter)
@@ -1217,7 +1239,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
 
     val query = """[{"templateIds": ["Iou:Iou"]}]"""
     for {
-      jwt <- jwtForParties(uri)(List(party.unwrap), List(), testId)
+      jwt <- jwtForParties(uri)(List(party), List(), testId)
       (kill, source) =
         singleClientQueryStream(jwt, uri, query)
           .viaMat(KillSwitches.single)(Keep.right)
@@ -1237,7 +1259,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
           """[
             {"templateIds": ["Iou:Iou"]}
           ]"""
-        jwt <- jwtForParties(uri)(List(alice.unwrap), List(), testId)
+        jwt <- jwtForParties(uri)(List(alice), List(), testId)
         (kill, source) =
           singleClientQueryStream(jwt, uri, query)
             .viaMat(KillSwitches.single)(Keep.right)
@@ -1247,7 +1269,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
           .map(iouSplitResult)
           .filterNot(_ == \/-((Vector(), Vector()))) // liveness marker/heartbeat
           .runWith(
-            Consume.interpret(trialSplitSeq(fixture, splitSample, kill, alice.unwrap, headers))
+            Consume.interpret(trialSplitSeq(fixture, splitSample, kill, alice, headers))
           )
       } yield res
   }
@@ -1256,7 +1278,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
       fixture: UriFixture,
       ss: SplitSeq[BigDecimal],
       kill: UniqueKillSwitch,
-      partyName: String,
+      partyName: domain.Party,
       headers: List[HttpHeader],
   ): Consume.FCC[IouSplitResult, Assertion] = {
     val dslSyntax = Consume.syntax[IouSplitResult]
@@ -1292,16 +1314,19 @@ abstract class AbstractWebsocketServiceIntegrationTest
 
     val initialPayload = {
       import json.JsonProtocol._
-      Map(
-        "templateId" -> "Iou:Iou".toJson,
-        "payload" -> Map(
-          "observers" -> List[String]().toJson,
-          "issuer" -> partyName.toJson,
-          "amount" -> ss.x.toJson,
-          "currency" -> "USD".toJson,
-          "owner" -> partyName.toJson,
-        ).toJson,
-      ).toJson
+      domain
+        .CreateCommand(
+          TpId.Iou.Iou,
+          Map(
+            "observers" -> List[String]().toJson,
+            "issuer" -> partyName.toJson,
+            "amount" -> ss.x.toJson,
+            "currency" -> "USD".toJson,
+            "owner" -> partyName.toJson,
+          ).toJson,
+          meta = None,
+        )
+        .toJson
     }
     for {
       (StatusCodes.OK, _) <- liftF(
@@ -1323,7 +1348,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
       creates traverse {
         case (cid, JsObject(fields)) =>
           fields get "amount" collect { case JsString(amt) =>
-            (domain.ContractId(cid), BigDecimal(amt))
+            (cid, BigDecimal(amt))
           }
         case _ => None
       } map ((_, archives map (_.contractId))) toRightDisjunction jsv
@@ -1336,7 +1361,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
 
       def test(
           expectedContractId: String,
-          expectedParties: Vector[JsString],
+          expectedParties: Vector[domain.Party],
           killSwitch: UniqueKillSwitch,
       ): Sink[JsValue, Future[ShouldHaveEnded]] = {
         val dslSyntax = Consume.syntax[JsValue]
@@ -1347,10 +1372,12 @@ abstract class AbstractWebsocketServiceIntegrationTest
             _ = sharedAccountId shouldBe expectedContractId
             ContractDelta(Vector(), _, Some(offset)) <- readOne
             _ = inside(sharedAccount) { case JsObject(obj) =>
-              inside((obj get "owners", obj get "number")) {
-                case (Some(JsArray(owners)), Some(JsString(number))) =>
-                  owners should contain theSameElementsAs expectedParties
-                  number shouldBe "4444"
+              import json.JsonProtocol._
+              inside(
+                (obj get "owners" map (SprayJson.decode[Vector[domain.Party]](_)), obj get "number")
+              ) { case (Some(\/-(owners)), Some(JsString(number))) =>
+                owners should contain theSameElementsAs expectedParties
+                number shouldBe "4444"
               }
             }
             ContractDelta(Vector(), _, Some(_)) <- readOne
@@ -1369,7 +1396,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
 
       for {
         aliceAndBob @ List(alice, bob) <- List("Alice", "Bob").traverse { p =>
-          fixture.getUniquePartyAndAuthHeaders(p).map(_._1.unwrap)
+          fixture.getUniquePartyAndAuthHeaders(p).map(_._1)
         }
         jwtForAliceAndBob <-
           jwtForParties(uri)(actAs = aliceAndBob, readAs = Nil, ledgerId = testId)
@@ -1393,7 +1420,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
           .preMaterialize()
         result <- source via parseResp runWith test(
           expectedContractId.unwrap,
-          Vector(JsString(alice), JsString(bob)),
+          Vector(alice, bob),
           killSwitch,
         )
       } yield inside(result) { case ShouldHaveEnded(_, 2, _) =>
@@ -1408,7 +1435,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
     for {
       aliceHeaders <- fixture.getUniquePartyAndAuthHeaders("Alice")
       (alice, headers) = aliceHeaders
-      jwt <- jwtForParties(uri)(List(alice.unwrap), List(), testId)
+      jwt <- jwtForParties(uri)(List(alice), List(), testId)
       createIouCommand = (currency: String) => s"""{
            |  "templateId": "Iou:Iou",
            |  "payload": {
@@ -1636,13 +1663,6 @@ abstract class AbstractWebsocketServiceIntegrationTest
     import json.JsonProtocol._
     inside(SprayJson.decode[domain.ErrorResponse](str)) { case \/-(e) =>
       e
-    }
-  }
-
-  private def decodeServiceWarning(str: String): domain.ServiceWarning = {
-    import json.JsonProtocol._
-    inside(SprayJson.decode[domain.AsyncWarningsWrapper](str)) { case \/-(w) =>
-      w.warnings
     }
   }
 }

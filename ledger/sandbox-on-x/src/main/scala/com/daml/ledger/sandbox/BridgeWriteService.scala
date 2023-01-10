@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.sandbox
@@ -7,7 +7,7 @@ import akka.NotUsed
 import akka.stream.scaladsl.Sink
 import akka.stream.{BoundedSourceQueue, Materializer, QueueOfferResult}
 import com.daml.daml_lf_dev.DamlLf.Archive
-import com.daml.error.definitions.LedgerApiErrors
+import com.daml.error.definitions.{CommonErrors, LedgerApiErrors}
 import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
 import com.daml.ledger.api.DeduplicationPeriod
 import com.daml.ledger.api.health.{HealthStatus, Healthy}
@@ -16,7 +16,7 @@ import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.v2._
 import com.daml.ledger.sandbox.bridge.{BridgeMetrics, LedgerBridge}
 import com.daml.ledger.sandbox.domain.{Rejection, Submission}
-import com.daml.lf.command.DisclosedContract
+import com.daml.lf.command.ProcessedDisclosedContract
 import com.daml.lf.data.{ImmArray, Ref, Time}
 import com.daml.lf.transaction.{GlobalKey, SubmittedTransaction, Versioned}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
@@ -50,7 +50,7 @@ class BridgeWriteService(
       transaction: SubmittedTransaction,
       estimatedInterpretationCost: Long,
       globalKeyMapping: Map[GlobalKey, Option[Value.ContractId]],
-      disclosedContracts: ImmArray[Versioned[DisclosedContract]],
+      explicitlyDisclosedContracts: ImmArray[Versioned[ProcessedDisclosedContract]],
   )(implicit
       loggingContext: LoggingContext,
       telemetryContext: TelemetryContext,
@@ -65,7 +65,7 @@ class BridgeWriteService(
           transaction,
           estimatedInterpretationCost,
           deduplicationDuration,
-          disclosedContracts,
+          explicitlyDisclosedContracts,
         )
       case DeduplicationPeriod.DeduplicationOffset(_) =>
         CompletableFuture.completedFuture(
@@ -165,7 +165,7 @@ class BridgeWriteService(
       transaction: SubmittedTransaction,
       estimatedInterpretationCost: Long,
       deduplicationDuration: Duration,
-      disclosedContracts: ImmArray[Versioned[DisclosedContract]],
+      disclosedContracts: ImmArray[Versioned[ProcessedDisclosedContract]],
   )(implicit errorLogger: ContextualizedErrorLogger): CompletionStage[SubmissionResult] = {
     val maxDeduplicationDuration = submitterInfo.ledgerConfiguration.maxDeduplicationDuration
     if (deduplicationDuration.compareTo(maxDeduplicationDuration) > 0)
@@ -225,7 +225,7 @@ object BridgeWriteService {
           )
         case QueueOfferResult.QueueClosed =>
           SubmissionResult.SynchronousError(
-            LedgerApiErrors.ServiceNotRunning
+            CommonErrors.ServiceNotRunning
               .Reject("Sandbox-on-X ledger bridge")
               .rpcStatus()
           )

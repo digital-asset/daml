@@ -40,12 +40,9 @@ instance DA.Internal.Desugar.HasArchive MyInterface where
   archive cid
     = DA.Internal.Desugar.exercise cid DA.Internal.Desugar.Archive
 instance DA.Internal.Desugar.HasToAnyChoice MyInterface DA.Internal.Desugar.Archive (()) where
-  _toAnyChoice _
-    = GHC.Types.primitive @"EToAnyInterfaceChoice" ([] : [MyInterface])
+  _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
 instance DA.Internal.Desugar.HasFromAnyChoice MyInterface DA.Internal.Desugar.Archive (()) where
-  _fromAnyChoice _
-    = GHC.Types.primitive
-        @"EFromAnyInterfaceChoice" ([] : [MyInterface])
+  _fromAnyChoice = GHC.Types.primitive @"EFromAnyChoice"
 instance DA.Internal.Desugar.HasExerciseGuarded MyInterface DA.Internal.Desugar.Archive (()) where
   exerciseGuarded pred cid arg
     = GHC.Types.primitive
@@ -60,12 +57,9 @@ instance DA.Internal.Desugar.HasExercise MyInterface DA.Internal.Desugar.Archive
         (DA.Internal.Desugar.toInterfaceContractId @MyInterface cid)
         arg
 instance DA.Internal.Desugar.HasToAnyChoice MyInterface MyVirtualChoice (()) where
-  _toAnyChoice _
-    = GHC.Types.primitive @"EToAnyInterfaceChoice" ([] : [MyInterface])
+  _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
 instance DA.Internal.Desugar.HasFromAnyChoice MyInterface MyVirtualChoice (()) where
-  _fromAnyChoice _
-    = GHC.Types.primitive
-        @"EFromAnyInterfaceChoice" ([] : [MyInterface])
+  _fromAnyChoice = GHC.Types.primitive @"EFromAnyChoice"
 instance DA.Internal.Desugar.HasExerciseGuarded MyInterface MyVirtualChoice (()) where
   exerciseGuarded pred cid arg
     = GHC.Types.primitive
@@ -82,7 +76,7 @@ instance DA.Internal.Desugar.HasExercise MyInterface MyVirtualChoice (()) where
 data MyVirtualChoice
   = MyVirtualChoice {}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
-_choice_MyInterfaceArchive :
+_choice$_MyInterfaceArchive :
   (MyInterface
    -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.ContractId MyInterface
@@ -91,12 +85,12 @@ _choice_MyInterfaceArchive :
    DA.Internal.Desugar.Consuming MyInterface,
    DA.Internal.Desugar.Optional (MyInterface
                                  -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]))
-_choice_MyInterfaceArchive
+_choice$_MyInterfaceArchive
   = (\ this arg@DA.Internal.Desugar.Archive
        -> DA.Internal.Desugar.signatory this, 
      \ _ _ _ -> pure (), DA.Internal.Desugar.Consuming, 
      DA.Internal.Desugar.None)
-_choice_MyInterfaceMyVirtualChoice :
+_choice$_MyInterfaceMyVirtualChoice :
   (MyInterface -> MyVirtualChoice -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.ContractId MyInterface
    -> MyInterface
@@ -104,7 +98,7 @@ _choice_MyInterfaceMyVirtualChoice :
    DA.Internal.Desugar.Consuming MyInterface,
    DA.Internal.Desugar.Optional (MyInterface
                                  -> MyVirtualChoice -> [DA.Internal.Desugar.Party]))
-_choice_MyInterfaceMyVirtualChoice
+_choice$_MyInterfaceMyVirtualChoice
   = (\ this arg@MyVirtualChoice
        -> let _ = this in
           let _ = arg in DA.Internal.Desugar.toParties ([] : [Party]), 
@@ -114,6 +108,8 @@ _choice_MyInterfaceMyVirtualChoice
      DA.Internal.Desugar.Consuming, DA.Internal.Desugar.None)
 instance DA.Internal.Desugar.HasInterfaceView MyInterface EmptyInterfaceView where
   _view = GHC.Types.primitive @"EViewInterface"
+instance DA.Internal.Desugar.HasFromAnyView MyInterface EmptyInterfaceView where
+  _fromAnyView = GHC.Types.primitive @"EFromAnyView"
 data GHC.Types.DamlTemplate => MyTemplate
   = MyTemplate {p : Party}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
@@ -160,10 +156,10 @@ instance DA.Internal.Desugar.HasIsInterfaceType MyTemplate where
 instance DA.Internal.Desugar.HasExercise MyTemplate DA.Internal.Desugar.Archive (()) where
   exercise = GHC.Types.primitive @"UExercise"
 instance DA.Internal.Desugar.HasToAnyChoice MyTemplate DA.Internal.Desugar.Archive (()) where
-  _toAnyChoice = GHC.Types.primitive @"EToAnyTemplateChoice"
+  _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
 instance DA.Internal.Desugar.HasFromAnyChoice MyTemplate DA.Internal.Desugar.Archive (()) where
-  _fromAnyChoice = GHC.Types.primitive @"EFromAnyTemplateChoice"
-_choice_MyTemplateArchive :
+  _fromAnyChoice = GHC.Types.primitive @"EFromAnyChoice"
+_choice$_MyTemplateArchive :
   (MyTemplate
    -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.ContractId MyTemplate
@@ -172,7 +168,7 @@ _choice_MyTemplateArchive :
    DA.Internal.Desugar.Consuming MyTemplate,
    DA.Internal.Desugar.Optional (MyTemplate
                                  -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]))
-_choice_MyTemplateArchive
+_choice$_MyTemplateArchive
   = (\ this _ -> DA.Internal.Desugar.signatory this, 
      \ _ _ _ -> pure (), DA.Internal.Desugar.Consuming, 
      DA.Internal.Desugar.None)

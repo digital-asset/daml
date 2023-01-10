@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.sandbox.bridge.validate
@@ -42,6 +42,7 @@ private[validate] class SequenceImpl(
     initialLedgerConfiguration: Option[Configuration],
     bridgeMetrics: BridgeMetrics,
     maxDeduplicationDuration: Duration,
+    explicitDisclosureEnabled: Boolean,
 ) extends Sequence {
   private[this] implicit val logger: ContextualizedLogger = ContextualizedLogger.get(getClass)
 
@@ -190,9 +191,10 @@ private[validate] class SequenceImpl(
           txSubmission,
         )
       } yield transactionAccepted(
-        txSubmission.submission,
-        offsetIdx,
-        recordTime,
+        transactionSubmission = txSubmission.submission,
+        index = offsetIdx,
+        currentTimestamp = recordTime,
+        populateContractMetadata = explicitDisclosureEnabled,
       )
     }(txSubmission.submission.loggingContext, logger)
       .fold(_.toCommandRejectedUpdate(recordTime), identity)

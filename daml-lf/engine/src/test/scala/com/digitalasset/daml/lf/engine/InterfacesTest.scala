@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -72,18 +72,10 @@ class InterfacesTest
     val cid2 = toContractId("2")
     val contracts = Map(
       cid1 -> assertAsVersionedContract(
-        ContractInstance(
-          idT1,
-          ValueRecord(None, ImmArray((None, ValueParty(party)))),
-          "",
-        )
+        ContractInstance(idT1, ValueRecord(None, ImmArray((None, ValueParty(party)))))
       ),
       cid2 -> assertAsVersionedContract(
-        ContractInstance(
-          idT2,
-          ValueRecord(None, ImmArray((None, ValueParty(party)))),
-          "",
-        )
+        ContractInstance(idT2, ValueRecord(None, ImmArray((None, ValueParty(party)))))
       ),
     )
     val lookupContract = contracts.get(_)
@@ -117,7 +109,7 @@ class InterfacesTest
     /* generic exercise tests */
     "be able to exercise interface I1 on a T1 contract" in {
       val command = ApiCommand.Exercise(
-        TemplateOrInterface.Interface(idI1),
+        idI1,
         cid1,
         "C1",
         ValueRecord(None, ImmArray.empty),
@@ -126,7 +118,7 @@ class InterfacesTest
     }
     "be able to exercise interface I1 on a T2 contract" in {
       val command = ApiCommand.Exercise(
-        TemplateOrInterface.Interface(idI1),
+        idI1,
         cid2,
         "C1",
         ValueRecord(None, ImmArray.empty),
@@ -135,7 +127,7 @@ class InterfacesTest
     }
     "be able to exercise interface I2 on a T2 contract" in {
       val command = ApiCommand.Exercise(
-        TemplateOrInterface.Interface(idI2),
+        idI2,
         cid2,
         "C2",
         ValueRecord(None, ImmArray.empty),
@@ -144,7 +136,7 @@ class InterfacesTest
     }
     "be unable to exercise interface I2 on a T1 contract" in {
       val command = ApiCommand.Exercise(
-        TemplateOrInterface.Interface(idI2),
+        idI2,
         cid1,
         "C2",
         ValueRecord(None, ImmArray.empty),
@@ -157,7 +149,7 @@ class InterfacesTest
     }
     "be able to exercise T1 by interface I1" in {
       val command = ApiCommand.Exercise(
-        TemplateOrInterface.Interface(idI1),
+        idI1,
         cid1,
         "C1",
         ValueRecord(None, ImmArray.empty),
@@ -166,7 +158,7 @@ class InterfacesTest
     }
     "be able to exercise T2 by interface I1" in {
       val command = ApiCommand.Exercise(
-        TemplateOrInterface.Interface(idI1),
+        idI1,
         cid2,
         "C1",
         ValueRecord(None, ImmArray.empty),
@@ -175,7 +167,7 @@ class InterfacesTest
     }
     "be able to exercise T2 by interface I2" in {
       val command = ApiCommand.Exercise(
-        TemplateOrInterface.Interface(idI2),
+        idI2,
         cid2,
         "C2",
         ValueRecord(None, ImmArray.empty),
@@ -184,7 +176,7 @@ class InterfacesTest
     }
     "be unable to exercise T1 by interface I2 (stopped in preprocessor)" in {
       val command = ApiCommand.Exercise(
-        TemplateOrInterface.Interface(idT1),
+        idT1,
         cid1,
         "C2",
         ValueRecord(None, ImmArray.empty),
@@ -194,7 +186,7 @@ class InterfacesTest
 
     "be able to exercise T2 by interface I5 and usedPackages should include I5's packageId" in {
       val command = ApiCommand.Exercise(
-        TemplateOrInterface.Interface(idI5),
+        idI5,
         cid2,
         "C5",
         ValueRecord(None, ImmArray.empty),

@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -460,32 +460,30 @@ class SpeedyTest extends AnyWordSpec with Matchers with Inside {
   "checkContractVisibility" should {
 
     "warn about non-visible local contracts" in new VisibilityChecking {
-      machine.checkContractVisibility(ledger, localContractId, localCachedContract)
+      machine.checkContractVisibility(localContractId, localCachedContract)
 
       testLogger.iterator.size shouldBe 1
     }
 
     "accept non-visible disclosed contracts" in new VisibilityChecking {
-      machine.checkContractVisibility(ledger, disclosedContractId, disclosedCachedContract)
+      machine.checkContractVisibility(disclosedContractId, disclosedCachedContract)
 
       testLogger.iterator.size shouldBe 0
     }
 
     "warn about non-visible global contracts" in new VisibilityChecking {
-      machine.checkContractVisibility(ledger, globalContractId, globalCachedContract)
+      machine.checkContractVisibility(globalContractId, globalCachedContract)
 
       testLogger.iterator.size shouldBe 1
     }
   }
 
   "checkKeyVisibility" should {
-    val handleKeyFound = { (_: Speedy.Machine, contractId: ContractId) =>
-      Speedy.Control.Value(SContractId(contractId))
-    }
+    val handleKeyFound = (contractId: ContractId) => Speedy.Control.Value(SContractId(contractId))
 
     "accept non-visible local contract keys" in new VisibilityChecking {
-      val result: Try[Speedy.Control] = Try {
-        machine.checkKeyVisibility(ledger, localContractKey, localContractId, handleKeyFound)
+      val result = Try {
+        machine.checkKeyVisibility(localContractKey, localContractId, handleKeyFound)
       }
 
       inside(result) { case Success(Speedy.Control.Value(SContractId(`localContractId`))) =>
@@ -494,9 +492,8 @@ class SpeedyTest extends AnyWordSpec with Matchers with Inside {
     }
 
     "accept non-visible disclosed contract keys" in new VisibilityChecking {
-      val result: Try[Speedy.Control] = Try {
+      val result = Try {
         machine.checkKeyVisibility(
-          ledger,
           disclosedContractKey,
           disclosedContractId,
           handleKeyFound,
@@ -509,8 +506,8 @@ class SpeedyTest extends AnyWordSpec with Matchers with Inside {
     }
 
     "reject non-visible global contract keys" in new VisibilityChecking {
-      val result: Try[Speedy.Control] = Try {
-        machine.checkKeyVisibility(ledger, globalContractKey, globalContractId, handleKeyFound)
+      val result = Try {
+        machine.checkKeyVisibility(globalContractKey, globalContractId, handleKeyFound)
       }
 
       inside(result) {
@@ -629,7 +626,7 @@ object SpeedyTest {
     val disclosedCachedContract: CachedContract =
       buildHouseCachedContract(alice, alice, label = "disclosed-label")
     val testLogger: WarningLog = new WarningLog(ContextualizedLogger.createFor("daml.warnings"))
-    val machine: Speedy.Machine = Speedy.Machine
+    val machine: Speedy.UpdateMachine = Speedy.Machine
       .fromUpdateSExpr(
         pkg,
         crypto.Hash.hashPrivateKey("VisibilityChecking"),
@@ -649,6 +646,5 @@ object SpeedyTest {
         houseTemplateType,
         disclosedContractKey.hash -> disclosedContractId,
       )
-    val ledger: Speedy.OnLedger = machine.ledgerMode.asInstanceOf[Speedy.OnLedger]
   }
 }

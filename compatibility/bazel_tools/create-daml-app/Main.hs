@@ -1,4 +1,4 @@
--- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 module Main (main) where
 
@@ -204,6 +204,7 @@ main = withTempDir $ \npmCache -> do
           callProcessSilent patchPath ["-p2", "-i", messagingPatch]
           forM_ ["MessageEdit", "MessageList"] $ \messageComponent ->
             assertFileExists ("ui" </> "src" </> "components" </> messageComponent <.> "tsx")
+          callProcessSilent "sed" ["-i", "s|--openssl-legacy-provider||g", "ui/package.json"]
         step "Extract codegen output"
         extractTarGz codegenPath $ uiDir </> "daml.js"
         -- we patch all the 'package.json' files to point to the local versions of the TypeScript

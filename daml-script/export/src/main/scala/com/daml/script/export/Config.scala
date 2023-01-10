@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.script.export
@@ -39,6 +39,7 @@ final case class PartyConfig(
     parties: Seq[Party],
 )
 
+@SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
 object Config {
   val DefaultMaxInboundMessageSize: Int = 4194304
 

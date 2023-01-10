@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.refinements
@@ -27,6 +27,10 @@ object ApiTypes {
   sealed trait TemplateIdTag
   type TemplateId = Identifier @@ TemplateIdTag
   val TemplateId = Tag.of[TemplateIdTag]
+
+  sealed trait InterfaceIdTag
+  type InterfaceId = Identifier @@ InterfaceIdTag
+  val InterfaceId = Tag.of[InterfaceIdTag]
 
   sealed trait ApplicationIdTag
   type ApplicationId = String @@ ApplicationIdTag

@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.data
@@ -549,7 +549,7 @@ class NumericSpec
 
       forEvery(testCases) { numerics =>
         val suffled = random.shuffle(numerics)
-        suffled.sorted(compareTo).map(BigDec(_)) shouldBe suffled.map(BigDec(_)).sorted
+        suffled.sorted(compareTo _).map(BigDec(_)) shouldBe suffled.map(BigDec(_)).sorted
       }
     }
   }

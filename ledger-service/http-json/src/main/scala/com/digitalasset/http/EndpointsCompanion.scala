@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.http
@@ -80,7 +80,7 @@ object EndpointsCompanion {
       case NotFound(e) => s"Endpoints.NotFound: ${e: String}"
     }
 
-    def fromThrowable: Throwable PartialFunction Error = {
+    def fromThrowable: PartialFunction[Throwable, Error] = {
       case LedgerClientJwt.Grpc.StatusEnvelope(status) => ParticipantServerError(status)
       case NonFatal(t) => ServerError(t)
     }

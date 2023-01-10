@@ -1,13 +1,12 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.auth
 
-import java.util.concurrent.{CompletableFuture, CompletionStage}
+import com.daml.jwt.{Error, JwtFromBearerHeader, JwtVerifier, JwtVerifierBase}
 
+import java.util.concurrent.{CompletableFuture, CompletionStage}
 import com.daml.lf.data.Ref
-import com.daml.jwt.{JwtVerifier, JwtVerifierBase}
-import com.daml.ledger.api.auth.AuthServiceJWT.Error
 import io.grpc.Metadata
 import org.slf4j.{Logger, LoggerFactory}
 import spray.json._
@@ -45,26 +44,20 @@ class AuthServiceJWT(verifier: JwtVerifierBase) extends AuthService {
   private[this] def parsePayload(jwtPayload: String): Either[Error, AuthServiceJWTPayload] = {
     import AuthServiceJWTCodec.JsonImplicits._
     Try(JsonParser(jwtPayload).convertTo[AuthServiceJWTPayload]).toEither.left.map(t =>
-      Error("Could not parse JWT token: " + t.getMessage)
+      Error(Symbol("parsePayload"), "Could not parse JWT token: " + t.getMessage)
     )
   }
 
-  private[this] def parseJWTPayload(header: String): Either[Error, AuthServiceJWTPayload] = {
-    val BearerTokenRegex = "Bearer (.*)".r
-
+  private[this] def parseJWTPayload(header: String): Either[Error, AuthServiceJWTPayload] =
     for {
-      token <- BearerTokenRegex
-        .findFirstMatchIn(header)
-        .map(_.group(1))
-        .toRight(Error("Authorization header does not use Bearer format"))
+      token <- JwtFromBearerHeader(header)
       decoded <- verifier
         .verify(com.daml.jwt.domain.Jwt(token))
         .toEither
         .left
-        .map(e => Error("Could not verify JWT token: " + e.message))
+        .map(e => Error(Symbol("parseJWTPayload"), "Could not verify JWT token: " + e.message))
       parsed <- parsePayload(decoded.payload)
     } yield parsed
-  }
 
   private[this] def payloadToClaims: AuthServiceJWTPayload => ClaimSet = {
     case payload: CustomDamlJWTPayload =>
@@ -101,8 +94,6 @@ class AuthServiceJWT(verifier: JwtVerifierBase) extends AuthService {
 }
 
 object AuthServiceJWT {
-  final case class Error(message: String)
-
   def apply(verifier: com.auth0.jwt.interfaces.JWTVerifier) =
     new AuthServiceJWT(new JwtVerifier(verifier))
 

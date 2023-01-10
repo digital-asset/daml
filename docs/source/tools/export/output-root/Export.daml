@@ -1,15 +1,15 @@
--- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE ApplicativeDo #-}
 module Export where
 import Daml.Script
-import qualified ScriptExample
-import qualified DA.Traversable
 import qualified DA.Stack
 import qualified DA.TextMap
+import qualified DA.Traversable
+import qualified ScriptExample
 
--- | Mapping from party names in the original ledger state 
+-- | Mapping from party names in the original ledger state
 -- to parties to be used in 'export'.
 type Parties = DA.TextMap.TextMap Party
 
@@ -69,10 +69,11 @@ export Args{parties, contracts} = do
   let bob_0 = lookupParty "Bob" parties
 -- EXPORT_PARTIES_END
 -- EXPORT_PROPOSALS_BEGIN
-  (coinProposal_1_0, coinProposal_1_1) <- submit bank_0 do
-    coinProposal_1_0 <- createCmd (ScriptExample.CoinProposal {coin = (ScriptExample.Coin {issuer = bank_0,
+  ((coerceContractId @_ @ScriptExample.CoinProposal -> coinProposal_1_0),
+      (coerceContractId @_ @ScriptExample.CoinProposal -> coinProposal_1_1)) <- submit bank_0 do
+    (coerceContractId @_ @ScriptExample.CoinProposal -> coinProposal_1_0) <- createCmd (ScriptExample.CoinProposal {coin = (ScriptExample.Coin {issuer = bank_0,
             owner = alice_0})})
-    coinProposal_1_1 <- createCmd (ScriptExample.CoinProposal {coin = (ScriptExample.Coin {issuer = bank_0,
+    (coerceContractId @_ @ScriptExample.CoinProposal -> coinProposal_1_1) <- createCmd (ScriptExample.CoinProposal {coin = (ScriptExample.Coin {issuer = bank_0,
             owner = bob_0})})
     pure (coinProposal_1_0, coinProposal_1_1)
 -- EXPORT_PROPOSALS_END

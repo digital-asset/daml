@@ -41,11 +41,9 @@ instance DA.Internal.Desugar.HasArchive Iface where
   archive cid
     = DA.Internal.Desugar.exercise cid DA.Internal.Desugar.Archive
 instance DA.Internal.Desugar.HasToAnyChoice Iface DA.Internal.Desugar.Archive (()) where
-  _toAnyChoice _
-    = GHC.Types.primitive @"EToAnyInterfaceChoice" ([] : [Iface])
+  _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
 instance DA.Internal.Desugar.HasFromAnyChoice Iface DA.Internal.Desugar.Archive (()) where
-  _fromAnyChoice _
-    = GHC.Types.primitive @"EFromAnyInterfaceChoice" ([] : [Iface])
+  _fromAnyChoice = GHC.Types.primitive @"EFromAnyChoice"
 instance DA.Internal.Desugar.HasExerciseGuarded Iface DA.Internal.Desugar.Archive (()) where
   exerciseGuarded pred cid arg
     = GHC.Types.primitive
@@ -60,11 +58,9 @@ instance DA.Internal.Desugar.HasExercise Iface DA.Internal.Desugar.Archive (()) 
         (DA.Internal.Desugar.toInterfaceContractId @Iface cid)
         arg
 instance DA.Internal.Desugar.HasToAnyChoice Iface FooBar (()) where
-  _toAnyChoice _
-    = GHC.Types.primitive @"EToAnyInterfaceChoice" ([] : [Iface])
+  _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
 instance DA.Internal.Desugar.HasFromAnyChoice Iface FooBar (()) where
-  _fromAnyChoice _
-    = GHC.Types.primitive @"EFromAnyInterfaceChoice" ([] : [Iface])
+  _fromAnyChoice = GHC.Types.primitive @"EFromAnyChoice"
 instance DA.Internal.Desugar.HasExerciseGuarded Iface FooBar (()) where
   exerciseGuarded pred cid arg
     = GHC.Types.primitive
@@ -81,7 +77,7 @@ instance DA.Internal.Desugar.HasExercise Iface FooBar (()) where
 data FooBar
   = FooBar {}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
-_choice_IfaceArchive :
+_choice$_IfaceArchive :
   (Iface
    -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.ContractId Iface
@@ -90,19 +86,19 @@ _choice_IfaceArchive :
    DA.Internal.Desugar.Consuming Iface,
    DA.Internal.Desugar.Optional (Iface
                                  -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]))
-_choice_IfaceArchive
+_choice$_IfaceArchive
   = (\ this arg@DA.Internal.Desugar.Archive
        -> DA.Internal.Desugar.signatory this, 
      \ _ _ _ -> pure (), DA.Internal.Desugar.Consuming, 
      DA.Internal.Desugar.None)
-_choice_IfaceFooBar :
+_choice$_IfaceFooBar :
   (Iface -> FooBar -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.ContractId Iface
    -> Iface -> FooBar -> DA.Internal.Desugar.Update (()),
    DA.Internal.Desugar.Consuming Iface,
    DA.Internal.Desugar.Optional (Iface
                                  -> FooBar -> [DA.Internal.Desugar.Party]))
-_choice_IfaceFooBar
+_choice$_IfaceFooBar
   = (\ this arg@FooBar
        -> let _ = this in
           let _ = arg in DA.Internal.Desugar.toParties (owner this), 
@@ -111,3 +107,5 @@ _choice_IfaceFooBar
      DA.Internal.Desugar.Consuming, DA.Internal.Desugar.None)
 instance DA.Internal.Desugar.HasInterfaceView Iface EmptyInterfaceView where
   _view = GHC.Types.primitive @"EViewInterface"
+instance DA.Internal.Desugar.HasFromAnyView Iface EmptyInterfaceView where
+  _fromAnyView = GHC.Types.primitive @"EFromAnyView"

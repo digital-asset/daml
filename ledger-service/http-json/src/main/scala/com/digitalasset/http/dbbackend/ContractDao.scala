@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.http.dbbackend
@@ -10,10 +10,10 @@ import com.daml.doobie.logging.Slf4jLogHandler
 import com.daml.http.dbbackend.Queries.SurrogateTpId
 import com.daml.http.domain
 import com.daml.http.json.JsonProtocol.LfValueDatabaseCodec
+import com.daml.http.metrics.HttpJsonApiMetrics
 import com.daml.http.util.Logging.InstanceUUID
 import com.daml.lf.crypto.Hash
 import com.daml.logging.LoggingContextOf
-import com.daml.metrics.Metrics
 import com.daml.nonempty.{+-:, NonEmpty, NonEmptyF}
 import domain.Offset.`Offset ordering`
 import doobie.LogHandler
@@ -94,7 +94,7 @@ object ContractDao {
       tpIdCacheMaxEntries: Option[Long] = None,
   )(implicit
       ec: ExecutionContext,
-      metrics: Metrics,
+      metrics: HttpJsonApiMetrics,
   ): ContractDao = {
     val cs: ContextShift[IO] = IO.contextShift(ec)
     val setup = for {
@@ -124,7 +124,7 @@ object ContractDao {
       driver: SupportedJdbcDriver.Available,
       tpIdCacheMaxEntries: Long,
   )(implicit
-      metrics: Metrics
+      metrics: HttpJsonApiMetrics
   ) =
     driver.configure(
       tablePrefix = cfg.baseConfig.tablePrefix,
@@ -311,7 +311,7 @@ object ContractDao {
       log: LogHandler,
       sjd: SupportedJdbcDriver.TC,
       lc: LoggingContextOf[InstanceUUID],
-  ): ConnectionIO[Vector[domain.ActiveContract[JsValue]]] = {
+  ): ConnectionIO[Vector[domain.ActiveContract.ResolvedCtTyId[JsValue]]] = {
     import sjd.q.queries
     for {
       tpId <- surrogateTemplateId(templateId)
@@ -325,15 +325,16 @@ object ContractDao {
 
   private[http] def selectContractsMultiTemplate[Pos](
       parties: domain.PartySet,
-      predicates: Seq[(domain.ContractTypeId.Resolved, doobie.Fragment)],
+      predicates: NonEmpty[Seq[(domain.ContractTypeId.Resolved, doobie.Fragment)]],
       trackMatchIndices: MatchedQueryMarker[Pos],
   )(implicit
       log: LogHandler,
       sjd: SupportedJdbcDriver.TC,
       lc: LoggingContextOf[InstanceUUID],
-  ): ConnectionIO[Vector[(domain.ActiveContract[JsValue], Pos)]] = {
-    import sjd.q.{queries => sjdQueries}, cats.syntax.traverse._, cats.instances.vector._
-    predicates.zipWithIndex.toVector
+  ): ConnectionIO[Vector[(domain.ActiveContract.ResolvedCtTyId[JsValue], Pos)]] = {
+    import sjd.q.{queries => sjdQueries}, cats.syntax.traverse._, cats.instances.vector._,
+    com.daml.nonempty.catsinstances._
+    predicates.zipWithIndex.toVector.toNEF
       .traverse { case ((tid, pred), ix) =>
         surrogateTemplateId(tid) map (stid => (ix, stid, tid, pred))
       }
@@ -385,7 +386,7 @@ object ContractDao {
       log: LogHandler,
       sjd: SupportedJdbcDriver.TC,
       lc: LoggingContextOf[InstanceUUID],
-  ): ConnectionIO[Option[domain.ActiveContract[JsValue]]] = {
+  ): ConnectionIO[Option[domain.ActiveContract.ResolvedCtTyId[JsValue]]] = {
     import sjd.q._
     for {
       tpId <- surrogateTemplateId(templateId)
@@ -405,7 +406,7 @@ object ContractDao {
       log: LogHandler,
       sjd: SupportedJdbcDriver.TC,
       lc: LoggingContextOf[InstanceUUID],
-  ): ConnectionIO[Option[domain.ActiveContract[JsValue]]] = {
+  ): ConnectionIO[Option[domain.ActiveContract.ResolvedCtTyId[JsValue]]] = {
     import sjd.q._
     for {
       tpId <- surrogateTemplateId(templateId)
@@ -426,7 +427,7 @@ object ContractDao {
 
   private def toDomain(templateId: domain.ContractTypeId.Resolved)(
       a: Queries.DBContract[_, JsValue, JsValue, Vector[String]]
-  ): domain.ActiveContract[JsValue] =
+  ): domain.ActiveContract.ResolvedCtTyId[JsValue] =
     domain.ActiveContract(
       contractId = domain.ContractId(a.contractId),
       templateId = templateId,

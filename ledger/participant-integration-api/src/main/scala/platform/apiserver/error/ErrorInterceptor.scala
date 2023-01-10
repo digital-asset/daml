@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.apiserver.error
@@ -18,6 +18,8 @@ import io.grpc.{
   StatusRuntimeException,
 }
 
+import scala.util.control.NonFatal
+
 final class ErrorInterceptor extends ServerInterceptor {
 
   private val logger = ContextualizedLogger.get(getClass)
@@ -33,16 +35,17 @@ final class ErrorInterceptor extends ServerInterceptor {
 
       /** Here we are trying to detect status/trailers pairs that:
         * - originated from the server implementation (i.e. Participant services as opposed to internal to gRPC implementation) AND
-        * - did not originate from self-service errors infrastructure.
+        * - did not originate from LAPI error codes.
         * NOTE: We are not attempting to detect if a status/trailers pair originates from exceptional conditions within gRPC implementation itself.
         *
-        * We are handling unary endpoints that returned failed Futures,
+        * We are handling unary endpoints that returned failed Futures or other direct invocation of [[io.grpc.stub.StreamObserver#onError]].
         * We are NOT handling here exceptions thrown outside of Futures or Akka streams. These are handled separately in
         * [[com.daml.platform.apiserver.error.ErrorListener]].
         * We are NOT handling here exceptions thrown inside Akka streaming. These are handled in
         * [[com.daml.grpc.adapter.server.akka.ServerAdapter.toSink]]
         *
         * Details:
+        * 1. Handling of Status.INTERNAL:
         * The gRPC services that we generate via scalapb are using [[scalapb.grpc.Grpc.completeObserver]]
         * when bridging from Future[T] and into io.grpc.stub.StreamObserver[T].
         * [[scalapb.grpc.Grpc.completeObserver]] does the following:
@@ -52,31 +55,42 @@ final class ErrorInterceptor extends ServerInterceptor {
         * Knowing that Status.INTERNAL is used only by [[com.daml.error.ErrorCategory.SystemInternalAssumptionViolated]],
         * which is marked a security sensitive, we have the following heuristic: check whether gRPC status is Status.INTERNAL
         * and gRPC status description is not security sanitized.
+        * 2. Handling of Status.UNKNOWN:
+        * We do not have an error category that uses UNKNOWN so there is no risk of catching a legitimate Ledger API error code.
+        * A Status.UNKNOWN can arise when someone (us or a library):
+        * - calls [[io.grpc.stub.StreamObserver#onError]] providing an exception that is not a Status(Runtime)Exception
+        *   (see [[io.grpc.stub.ServerCalls.ServerCallStreamObserverImpl#onError]] and [[io.grpc.Status#fromThrowable]]),
+        * - calls [[io.grpc.ServerCall#close]] providing status.UNKNOWN.
         */
       override def close(status: Status, trailers: Metadata): Unit = {
-        if (
-          status.getCode == Status.Code.INTERNAL &&
-          (status.getDescription == null || !BaseError.isSanitizedSecuritySensitiveMessage(
-            status.getDescription
-          ))
-        ) {
+        if (isUnsanitizedInternal(status) || status.getCode == Status.Code.UNKNOWN) {
           val recreatedException = status.asRuntimeException(trailers)
-          val selfServiceException = LedgerApiErrors.InternalError
+          val errorCodeException = LedgerApiErrors.InternalError
             .UnexpectedOrUnknownException(t = recreatedException)(
               new DamlContextualizedErrorLogger(logger, emptyLoggingContext, None)
             )
             .asGrpcError
           // Retrieving status and metadata in the same way as in `io.grpc.stub.ServerCalls.ServerCallStreamObserverImpl.onError`.
           val newMetadata =
-            Option(Status.trailersFromThrowable(selfServiceException)).getOrElse(new Metadata())
-          val newStatus = Status.fromThrowable(selfServiceException)
-          super.close(newStatus, newMetadata)
+            Option(Status.trailersFromThrowable(errorCodeException)).getOrElse(new Metadata())
+          val newStatus = Status.fromThrowable(errorCodeException)
+          LogOnUnhandledFailureInClose(superClose(newStatus, newMetadata))
         } else {
-          super.close(status, trailers)
+          LogOnUnhandledFailureInClose(superClose(status, trailers))
         }
       }
 
+      /** This method serves as an accessor to the super.close() which facilitates its access from the outside of this class.
+        * This is needed in order to allow the call to be captured in the closure passed to the [[LogOnUnhandledFailureInClose]]
+        * error handler.
+        *
+        * TODO As at Scala 2.13.8, not using this redirection results in a runtime IllegalAccessError.
+        *      Remove this redirection once the runtime exception can be avoided.
+        */
+      private def superClose(status: Status, trailers: Metadata): Unit =
+        super.close(status, trailers)
     }
+
     val listener = next.startCall(forwardingCall, headers)
     new ErrorListener(
       delegate = listener,
@@ -84,7 +98,15 @@ final class ErrorInterceptor extends ServerInterceptor {
     )
   }
 
+  private def isUnsanitizedInternal[RespT, ReqT](status: Status): Boolean =
+    status.getCode == Status.Code.INTERNAL &&
+      (status.getDescription == null ||
+        !BaseError.isSanitizedSecuritySensitiveMessage(
+          status.getDescription
+        ))
 }
+
+object ErrorInterceptor
 
 class ErrorListener[ReqT, RespT](delegate: ServerCall.Listener[ReqT], call: ServerCall[ReqT, RespT])
     extends ForwardingServerCallListener.SimpleForwardingServerCallListener[ReqT](delegate) {
@@ -107,18 +129,40 @@ class ErrorListener[ReqT, RespT](delegate: ServerCall.Listener[ReqT], call: Serv
       // 2. We need to catch it and call `call.close` as otherwise gRPC will close the stream with a Status.UNKNOWN
       //    (see io.grpc.internal.ServerImpl.JumpToApplicationThreadServerStreamListener.internalClose)
       case t: StatusException =>
-        call.close(t.getStatus, t.getTrailers)
+        LogOnUnhandledFailureInClose(call.close(t.getStatus, t.getTrailers))
       case t: StatusRuntimeException =>
-        call.close(t.getStatus, t.getTrailers)
-      case t: Throwable =>
+        LogOnUnhandledFailureInClose(call.close(t.getStatus, t.getTrailers))
+      case NonFatal(t) =>
         val e = LedgerApiErrors.InternalError
           .UnexpectedOrUnknownException(t = t)(
             new DamlContextualizedErrorLogger(logger, emptyLoggingContext, None)
           )
           .asGrpcError
-        call.close(e.getStatus, e.getTrailers)
+        LogOnUnhandledFailureInClose(call.close(e.getStatus, e.getTrailers))
     }
-
   }
+}
 
+private[error] object LogOnUnhandledFailureInClose {
+  private val logger = ContextualizedLogger.get(getClass)
+
+  def apply[T](close: => T): T = {
+    // If close throws, we can't call ServerCall.close a second time
+    // since it might have already been marked internally as closed.
+    // In this situation, we can't do much about it except for notifying the participant operator.
+    try close
+    catch {
+      case NonFatal(e) =>
+        // Instantiate the self-service error code as it logs the error on creation.
+        // This error is considered security-sensitive and can't be propagated to the client.
+        LedgerApiErrors.InternalError
+          .Generic(
+            s"Unhandled error in ${classOf[ServerCall[_, _]].getSimpleName}.close(). " +
+              s"The gRPC client might have not been notified about the call/stream termination. " +
+              s"Either notify clients to retry pending unary/streaming calls or restart the participant server.",
+            Some(e),
+          )(new DamlContextualizedErrorLogger(logger, LoggingContext.empty, None))
+        throw e
+    }
+  }
 }

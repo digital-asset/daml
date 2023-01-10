@@ -1,4 +1,4 @@
--- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE CPP #-}
@@ -11,6 +11,7 @@ module DA.Internal.Desugar (
     module DA.Internal.Template.Functions,
     module DA.Internal.Exception,
     module DA.Internal.Interface,
+    module DA.Internal.Interface.AnyView,
     Eq(..), Show(..),
     Bool(..), Text, Optional(..),
     (&&),
@@ -27,13 +28,14 @@ module DA.Internal.Desugar (
     mkMethod,
     InterfaceView,
     mkInterfaceView,
-    codeGenAllowLargeTuples
+    userWrittenTuple
 ) where
 
 import DA.Internal.Prelude
 import DA.Internal.Template
 import DA.Internal.Template.Functions
 import DA.Internal.Interface
+import DA.Internal.Interface.AnyView
 import DA.Internal.LF
 #ifndef DAML_EXCEPTIONS
 import DA.Internal.Exception ()
@@ -41,6 +43,7 @@ import DA.Internal.Exception ()
 import DA.Internal.Exception
 #endif
 import GHC.Types (magic, Symbol)
+import GHC.Tuple.Check (userWrittenTuple)
 
 -- These are only used as markers by desugaring, we do not translate them to LF.
 data NonConsuming t = NonConsuming {}
@@ -143,6 +146,3 @@ newtype InterfaceView p i t = InterfaceView ()
 -- it's extracted unmodified.
 mkInterfaceView : forall p i t v. (Implements t i, HasInterfaceView i v) => (t -> v) -> InterfaceView p i t
 mkInterfaceView = magic @"mkInterfaceView"
-
-codeGenAllowLargeTuples : forall a. a -> a
-codeGenAllowLargeTuples = magic @"codeGenAllowLargeTuples"

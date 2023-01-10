@@ -43,6 +43,22 @@
         <test>com.daml.platform.indexer.ha.IndexerStabilitySpec</test>
     </appender>
 
+    <appender name="LogOnUnhandledFailureInCloseCapture" class="com.daml.platform.testing.LogCollector">
+        <test>com.daml.platform.apiserver.error.ErrorInterceptorSpec</test>
+    </appender>
+
+    <logger name="com.daml.platform.apiserver.error.LogOnUnhandledFailureInClose" level="INFO">
+        <appender-ref ref="LogOnUnhandledFailureInCloseCapture"/>
+    </logger>
+
+    <appender name="ErrorInterceptor" class="com.daml.platform.testing.LogCollector">
+        <test>com.daml.platform.apiserver.error.ErrorInterceptorSpec</test>
+    </appender>
+
+    <logger name="com.daml.platform.apiserver.error.ErrorInterceptor" level="INFO">
+        <appender-ref ref="ErrorInterceptor"/>
+    </logger>
+
     <logger name="com.daml.platform.store.dao.HikariConnection" level="INFO">
         <appender-ref ref="JdbcIndexerSpecAppender"/>
         <appender-ref ref="IndexerStabilitySpecAppender"/>

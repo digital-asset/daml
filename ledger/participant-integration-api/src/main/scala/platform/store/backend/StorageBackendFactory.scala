@@ -1,10 +1,15 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.store.backend
 
 import com.daml.platform.store.DbType
 import com.daml.platform.store.backend.h2.H2StorageBackendFactory
+import com.daml.platform.store.backend.localstore.{
+  IdentityProviderStorageBackend,
+  PartyRecordStorageBackend,
+  UserManagementStorageBackend,
+}
 import com.daml.platform.store.backend.oracle.OracleStorageBackendFactory
 import com.daml.platform.store.backend.postgresql.PostgresStorageBackendFactory
 import com.daml.platform.store.cache.LedgerEndCache
@@ -33,6 +38,7 @@ trait StorageBackendFactory {
   def createResetStorageBackend: ResetStorageBackend
   def createStringInterningStorageBackend: StringInterningStorageBackend
   def createUserManagementStorageBackend: UserManagementStorageBackend
+  def createIdentityProviderConfigStorageBackend: IdentityProviderStorageBackend
   def createMeteringStorageReadBackend(ledgerEndCache: LedgerEndCache): MeteringStorageReadBackend
   def createMeteringStorageWriteBackend: MeteringStorageWriteBackend
 

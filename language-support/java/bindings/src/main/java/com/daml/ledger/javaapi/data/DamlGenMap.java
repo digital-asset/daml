@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.javaapi.data;
@@ -22,8 +22,6 @@ public final class DamlGenMap extends Value {
   static @NonNull DamlGenMap fromPrivateMap(@NonNull Map<@NonNull Value, @NonNull Value> map) {
     return new DamlGenMap(Collections.unmodifiableMap(map));
   }
-
-  private static @NonNull DamlGenMap EMPTY = fromPrivateMap(Collections.EMPTY_MAP);
 
   public static DamlGenMap of(@NonNull Map<@NonNull Value, @NonNull Value> map) {
     return fromPrivateMap(new LinkedHashMap<>(map));

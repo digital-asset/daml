@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 package com.daml.platform.store.dao.events
 
@@ -8,7 +8,7 @@ import com.daml.ledger.offset.Offset
 import com.daml.platform.store.EventSequentialId
 
 // (startExclusive, endInclusive]
-private[events] final case class EventsRange[A](startExclusive: A, endInclusive: A) {
+final case class EventsRange[A](startExclusive: A, endInclusive: A) {
   def map[B](f: A => B): EventsRange[B] =
     copy(startExclusive = f(startExclusive), endInclusive = f(endInclusive))
 }

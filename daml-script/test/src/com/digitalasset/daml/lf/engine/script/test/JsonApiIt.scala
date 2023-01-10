@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.engine.script.test
@@ -9,10 +9,10 @@ import akka.http.scaladsl.Http.ServerBinding
 import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.server.Directives._
 import akka.stream.Materializer
-import com.codahale.metrics.MetricRegistry
 import com.daml.bazeltools.BazelRunfiles._
 import com.daml.cliopts.Logging.LogEncoder
 import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
+import com.daml.http.metrics.HttpJsonApiMetrics
 import com.daml.http.util.Logging.{InstanceUUID, instanceUUIDLogCtx}
 import com.daml.http.{HttpService, StartSettings, nonrepudiation}
 import com.daml.jwt.JwtSigner
@@ -62,7 +62,6 @@ import com.daml.lf.typesig.EnvironmentSignature
 import com.daml.lf.typesig.reader.SignatureReader
 import com.daml.lf.value.json.ApiCodecCompressed
 import com.daml.logging.LoggingContextOf
-import com.daml.metrics.{Metrics, MetricsReporter}
 import com.daml.platform.apiserver.AuthServiceConfig.UnsafeJwtHmac256
 import com.daml.platform.apiserver.services.GrpcClientResource
 import com.daml.platform.sandbox.UploadPackageHelper._
@@ -82,6 +81,7 @@ import scalaz.syntax.traverse._
 import scalaz.{-\/, \/-}
 import spray.json._
 import java.io.File
+import com.daml.metrics.api.reporters.MetricsReporter
 
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{Await, Future}
@@ -93,7 +93,10 @@ trait JsonApiFixture
 
   override protected def darFile = new File(rlocation("daml-script/test/script-test.dar"))
 
+  protected val darFileDev = new File(rlocation("daml-script/test/script-test-1.dev.dar"))
   protected val darFileNoLedger = new File(rlocation("daml-script/test/script-test-no-ledger.dar"))
+
+  override protected def packageFiles: List[File] = List(darFile, darFileDev)
 
   override protected def serverPort: Port = suiteResource.value._1
   override protected def channel: Channel = suiteResource.value._2
@@ -143,6 +146,7 @@ trait JsonApiFixture
 
   protected def getUserToken(userId: UserId): String = {
     val payload = StandardJWTPayload(
+      issuer = None,
       userId = userId,
       participantId = None,
       exp = None,
@@ -205,7 +209,7 @@ trait JsonApiFixture
                   jsonApiExecutionSequencerFactory,
                   jsonApiActorSystem.dispatcher,
                   lc,
-                  metrics = new Metrics(new MetricRegistry()),
+                  metrics = HttpJsonApiMetrics.ForTesting,
                 )
                 .flatMap({
                   case -\/(e) => Future.failed(new IllegalStateException(e.toString))
@@ -239,6 +243,7 @@ final class JsonApiIt
 
   val (dar, envIface) = readDar(darFile)
   val (darNoLedger, envIfaceNoLedger) = readDar(darFileNoLedger)
+  val (darDev, envIfaceDev) = readDar(darFileDev)
 
   private def getClients(
       parties: List[String] = List(party),
@@ -529,6 +534,18 @@ final class JsonApiIt
       for {
         clients <- getClients()
         result <- run(clients, QualifiedName.assertFromString("ScriptTest:jsonQueryContractId"))
+      } yield {
+        assert(result == SUnit)
+      }
+    }
+    "queryInterface" in {
+      for {
+        clients <- getClients(envIface = envIfaceDev)
+        result <- run(
+          clients,
+          QualifiedName.assertFromString("TestInterfaces:jsonQueryInterface"),
+          dar = darDev,
+        )
       } yield {
         assert(result == SUnit)
       }

@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.sandbox.bridge
@@ -14,8 +14,9 @@ import com.daml.ledger.sandbox.BridgeConfig
 import com.daml.ledger.sandbox.bridge.validate.ConflictCheckingLedgerBridge
 import com.daml.ledger.sandbox.domain.Submission
 import com.daml.lf.data.Ref.ParticipantId
-import com.daml.lf.data.{Ref, Time}
+import com.daml.lf.data.{Bytes, Ref, Time}
 import com.daml.lf.transaction.{CommittedTransaction, TransactionNodeStatistics}
+import com.daml.lf.value.Value.ContractId
 import com.daml.logging.LoggingContext
 import com.google.common.primitives.Longs
 
@@ -34,6 +35,8 @@ object LedgerBridge {
       bridgeMetrics: BridgeMetrics,
       servicesThreadPoolSize: Int,
       timeProvider: TimeProvider,
+      stageBufferSize: Int,
+      explicitDisclosureEnabled: Boolean,
   )(implicit
       loggingContext: LoggingContext,
       servicesExecutionContext: ExecutionContext,
@@ -45,6 +48,8 @@ object LedgerBridge {
         bridgeMetrics,
         servicesThreadPoolSize,
         timeProvider,
+        stageBufferSize,
+        explicitDisclosureEnabled,
       )
     else
       ResourceOwner.forValue(() => new PassThroughLedgerBridge(participantId, timeProvider))
@@ -55,6 +60,8 @@ object LedgerBridge {
       bridgeMetrics: BridgeMetrics,
       servicesThreadPoolSize: Int,
       timeProvider: TimeProvider,
+      stageBufferSize: Int,
+      explicitDisclosureEnabled: Boolean,
   )(implicit
       loggingContext: LoggingContext,
       servicesExecutionContext: ExecutionContext,
@@ -80,6 +87,8 @@ object LedgerBridge {
       maxDeduplicationDuration = initialLedgerConfiguration
         .map(_.maxDeduplicationDuration)
         .getOrElse(BridgeConfig.DefaultMaximumDeduplicationDuration),
+      stageBufferSize = stageBufferSize,
+      explicitDisclosureEnabled = explicitDisclosureEnabled,
     )
 
   private[bridge] def packageUploadSuccess(
@@ -125,6 +134,7 @@ object LedgerBridge {
       transactionSubmission: Submission.Transaction,
       index: Long,
       currentTimestamp: Time.Timestamp,
+      populateContractMetadata: Boolean,
   ): Update.TransactionAccepted = {
     val submittedTransaction = transactionSubmission.transaction
     val completionInfo = Some(
@@ -132,6 +142,19 @@ object LedgerBridge {
         Some(TransactionNodeStatistics(submittedTransaction))
       )
     )
+    val contractMetadata: Map[ContractId, Bytes] =
+      if (populateContractMetadata) {
+        submittedTransaction
+          .localContracts[ContractId]
+          .keySet
+          .view
+          .map[(ContractId, Bytes)] { case cid: ContractId.V1 =>
+            cid -> cid.toBytes
+          }
+          .toMap
+      } else {
+        Map.empty
+      }
     Update.TransactionAccepted(
       optCompletionInfo = completionInfo,
       transactionMeta = transactionSubmission.transactionMeta,
@@ -140,7 +163,7 @@ object LedgerBridge {
       recordTime = currentTimestamp,
       divulgedContracts = Nil,
       blindingInfo = None,
-      contractMetadata = Map.empty,
+      contractMetadata = contractMetadata,
     )
   }
 

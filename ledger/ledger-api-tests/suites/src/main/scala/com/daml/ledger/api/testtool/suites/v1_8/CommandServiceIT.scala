@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.testtool.suites.v1_8
@@ -178,7 +178,12 @@ final class CommandServiceIT extends LedgerTestSuite {
     val request = ledger.submitAndWaitRequest(party, Dummy(party).create.command)
     for {
       _ <- ledger.submitAndWait(request)
-      failure <- ledger.submitAndWait(request).mustFail("submitting a duplicate request")
+      failure <- ledger
+        .submitRequestAndTolerateGrpcError(
+          LedgerApiErrors.ConsistencyErrors.SubmissionAlreadyInFlight,
+          _.submitAndWait(request),
+        )
+        .mustFail("submitting a duplicate request")
     } yield {
       assertGrpcError(
         failure,
@@ -198,7 +203,10 @@ final class CommandServiceIT extends LedgerTestSuite {
     for {
       _ <- ledger.submitAndWaitForTransactionId(request)
       failure <- ledger
-        .submitAndWaitForTransactionId(request)
+        .submitRequestAndTolerateGrpcError(
+          LedgerApiErrors.ConsistencyErrors.SubmissionAlreadyInFlight,
+          _.submitAndWaitForTransactionId(request),
+        )
         .mustFail("submitting a duplicate request")
     } yield {
       assertGrpcError(
@@ -219,7 +227,10 @@ final class CommandServiceIT extends LedgerTestSuite {
     for {
       _ <- ledger.submitAndWaitForTransaction(request)
       failure <- ledger
-        .submitAndWaitForTransaction(request)
+        .submitRequestAndTolerateGrpcError(
+          LedgerApiErrors.ConsistencyErrors.SubmissionAlreadyInFlight,
+          _.submitAndWaitForTransaction(request),
+        )
         .mustFail("submitting a duplicate request")
     } yield {
       assertGrpcError(
@@ -240,7 +251,10 @@ final class CommandServiceIT extends LedgerTestSuite {
     for {
       _ <- ledger.submitAndWaitForTransactionTree(request)
       failure <- ledger
-        .submitAndWaitForTransactionTree(request)
+        .submitRequestAndTolerateGrpcError(
+          LedgerApiErrors.ConsistencyErrors.SubmissionAlreadyInFlight,
+          _.submitAndWaitForTransactionTree(request),
+        )
         .mustFail("submitting a duplicate request")
     } yield {
       assertGrpcError(

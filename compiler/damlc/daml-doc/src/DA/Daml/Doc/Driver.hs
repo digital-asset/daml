@@ -1,4 +1,4 @@
--- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 module DA.Daml.Doc.Driver
@@ -7,6 +7,7 @@ module DA.Daml.Doc.Driver
     , OutputFormat(..)
     , RenderFormat(..)
     , TransformOptions(..)
+    , ExternalAnchorPath(..)
     , runDamlDoc
     , loadExternalAnchors
     ) where
@@ -18,6 +19,7 @@ import DA.Daml.Doc.Transform
 
 import DA.Daml.Options.Types
 
+import DA.Bazel.Runfiles
 import Development.IDE.Core.Shake (NotificationHandler)
 import Development.IDE.Types.Location
 
@@ -33,13 +35,13 @@ import System.Exit
 import System.Directory
 import System.FilePath
 
-import qualified Data.HashMap.Strict as HMS
 import qualified Data.Aeson as AE
 import qualified Data.Aeson.Encode.Pretty as AP
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as LBS
-import qualified Data.Text.Extended as T
+import qualified Data.HashMap.Strict as HMS
 import qualified Data.Text.Encoding as T
+import qualified Data.Text.Extended as T
 
 data DamldocOptions = DamldocOptions
     { do_inputFormat :: InputFormat
@@ -58,7 +60,7 @@ data DamldocOptions = DamldocOptions
     , do_baseURL :: Maybe T.Text -- ^ base URL for generated documentation
     , do_hooglePath :: Maybe FilePath -- ^ hoogle database output path
     , do_anchorPath :: Maybe FilePath -- ^ anchor table output path
-    , do_externalAnchorPath :: Maybe FilePath -- ^ external anchor table input path
+    , do_externalAnchorPath :: ExternalAnchorPath -- ^ external anchor table input path
     }
 
 data InputFormat = InputJson | InputDaml
@@ -66,6 +68,16 @@ data InputFormat = InputJson | InputDaml
 
 data OutputFormat = OutputJson | OutputDocs RenderFormat
     deriving (Eq, Show, Read)
+
+data ExternalAnchorPath
+  = NoExternalAnchorPath
+      -- ^ Use an empty AnchorMap
+  | DefaultExternalAnchorPath
+      -- ^ Use the AnchorMap for daml-prim and daml-stdlib defined by
+      -- //compiler/damlc:daml-base-anchors.json
+  | ExplicitExternalAnchorPath FilePath
+      -- ^ Read the AnchorMap from the given file
+  deriving (Eq, Show, Read)
 
 -- | Run damldocs!
 runDamlDoc :: DamldocOptions -> IO ()
@@ -100,22 +112,31 @@ inputDocData DamldocOptions{..} = do
 -- | Load a database of external anchors from a file. Will abnormally
 -- terminate the program if there's an IOError or json decoding
 -- failure.
-loadExternalAnchors :: Maybe FilePath -> IO AnchorMap
-loadExternalAnchors path = do
+loadExternalAnchors :: ExternalAnchorPath -> IO AnchorMap
+loadExternalAnchors eapath = do
     let printAndExit err = do
             hPutStr stderr err
             exitFailure
-    anchors <- tryLoadAnchors path
+    anchors <- case eapath of
+        NoExternalAnchorPath -> pure . Right $ AnchorMap HMS.empty
+        DefaultExternalAnchorPath -> getDamlBaseAnchorsPath >>= tryLoadAnchors
+        ExplicitExternalAnchorPath path -> tryLoadAnchors path
     either printAndExit pure anchors
     where
-        tryLoadAnchors = \case
-            Just path -> runExceptT $ do
-              bytes <- ExceptT $ first readErr <$> try @IOError (LBS.fromStrict <$> BS.readFile path)
-              ExceptT $ pure (first decodeErr (AE.eitherDecode @AnchorMap bytes))
-              where
-                  readErr = const $ "Failed to read anchor table '" ++ path ++ "'"
-                  decodeErr err = unlines ["Failed to decode anchor table '" ++ path ++ "':", err]
-            Nothing -> pure . Right $ AnchorMap HMS.empty
+        tryLoadAnchors path = runExceptT $ do
+            bytes <- ExceptT $ first readErr <$> try @IOError (LBS.fromStrict <$> BS.readFile path)
+            ExceptT $ pure (first decodeErr (AE.eitherDecode @AnchorMap bytes))
+            where
+                readErr = const $ "Failed to read anchor table '" ++ path ++ "'"
+                decodeErr err = unlines ["Failed to decode anchor table '" ++ path ++ "':", err]
+        getDamlBaseAnchorsPath = locateResource Resource
+            -- //compiler/damlc:daml-base-anchors.json
+            { resourcesPath = "daml-base-anchors.json"
+              -- In a packaged application, this is stored directly underneath
+              -- the resources directory because it's a single file.
+              -- See @bazel_tools/packaging/packaging.bzl@.
+            , runfilesPathPrefix = mainWorkspace </> "compiler" </> "damlc"
+            }
 
 -- | Output doc data.
 renderDocData :: DamldocOptions -> [ModuleDoc] -> IO ()

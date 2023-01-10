@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.store.backend
@@ -35,16 +35,19 @@ private[backend] trait StorageBackendTestsCompletions
     executeSql(updateLedgerEnd(offset(4), 3L))
     val completions0to3 = executeSql(
       backend.completion
-        .commandCompletions(Offset.beforeBegin, offset(3), applicationId, Set(party))
+        .commandCompletions(Offset.beforeBegin, offset(3), applicationId, Set(party), limit = 10)
     )
     val completions1to3 = executeSql(
-      backend.completion.commandCompletions(offset(1), offset(3), applicationId, Set(party))
+      backend.completion
+        .commandCompletions(offset(1), offset(3), applicationId, Set(party), limit = 10)
     )
     val completions2to3 = executeSql(
-      backend.completion.commandCompletions(offset(2), offset(3), applicationId, Set(party))
+      backend.completion
+        .commandCompletions(offset(2), offset(3), applicationId, Set(party), limit = 10)
     )
     val completions1to9 = executeSql(
-      backend.completion.commandCompletions(offset(1), offset(9), applicationId, Set(party))
+      backend.completion
+        .commandCompletions(offset(1), offset(9), applicationId, Set(party), limit = 10)
     )
 
     completions0to3 should have length 2
@@ -67,7 +70,8 @@ private[backend] trait StorageBackendTestsCompletions
     executeSql(updateLedgerEnd(offset(2), 1L))
 
     val completions = executeSql(
-      backend.completion.commandCompletions(offset(1), offset(2), applicationId, Set(party))
+      backend.completion
+        .commandCompletions(offset(1), offset(2), applicationId, Set(party), limit = 10)
     )
 
     completions should have length 1
@@ -89,15 +93,17 @@ private[backend] trait StorageBackendTestsCompletions
     executeSql(ingest(dtos, _))
     executeSql(updateLedgerEnd(offset(3), 2L))
     val completions = executeSql(
-      backend.completion.commandCompletions(offset(1), offset(3), someApplicationId, Set(party))
-    )
+      backend.completion
+        .commandCompletions(offset(1), offset(3), someApplicationId, Set(party), limit = 10)
+    ).toList
 
     completions should have length 2
-    val List(completionWithSubmissionId, completionWithoutSubmissionId) = completions
-    completionWithSubmissionId.completions should have length 1
-    completionWithSubmissionId.completions.head.submissionId should be(someSubmissionId)
-    completionWithoutSubmissionId.completions should have length 1
-    completionWithoutSubmissionId.completions.head.submissionId should be("")
+    inside(completions) { case List(completionWithSubmissionId, completionWithoutSubmissionId) =>
+      completionWithSubmissionId.completions should have length 1
+      completionWithSubmissionId.completions.head.submissionId should be(someSubmissionId)
+      completionWithoutSubmissionId.completions should have length 1
+      completionWithoutSubmissionId.completions.head.submissionId should be("")
+    }
   }
 
   it should "correctly persist and retrieve command deduplication offsets" in {
@@ -119,18 +125,20 @@ private[backend] trait StorageBackendTestsCompletions
 
     executeSql(updateLedgerEnd(offset(3), 2L))
     val completions = executeSql(
-      backend.completion.commandCompletions(offset(1), offset(3), someApplicationId, Set(party))
-    )
+      backend.completion
+        .commandCompletions(offset(1), offset(3), someApplicationId, Set(party), limit = 10)
+    ).toList
 
     completions should have length 2
-    val List(completionWithDeduplicationOffset, completionWithoutDeduplicationOffset) =
-      completions
-    completionWithDeduplicationOffset.completions should have length 1
-    completionWithDeduplicationOffset.completions.head.deduplicationPeriod.deduplicationOffset should be(
-      Some(anOffsetHex)
-    )
-    completionWithoutDeduplicationOffset.completions should have length 1
-    completionWithoutDeduplicationOffset.completions.head.deduplicationPeriod.deduplicationOffset should not be defined
+    inside(completions) {
+      case List(completionWithDeduplicationOffset, completionWithoutDeduplicationOffset) =>
+        completionWithDeduplicationOffset.completions should have length 1
+        completionWithDeduplicationOffset.completions.head.deduplicationPeriod.deduplicationOffset should be(
+          Some(anOffsetHex)
+        )
+        completionWithoutDeduplicationOffset.completions should have length 1
+        completionWithoutDeduplicationOffset.completions.head.deduplicationPeriod.deduplicationOffset should not be defined
+    }
   }
 
   it should "correctly persist and retrieve command deduplication durations" in {
@@ -160,18 +168,20 @@ private[backend] trait StorageBackendTestsCompletions
 
     executeSql(updateLedgerEnd(offset(3), 2L))
     val completions = executeSql(
-      backend.completion.commandCompletions(offset(1), offset(3), someApplicationId, Set(party))
-    )
+      backend.completion
+        .commandCompletions(offset(1), offset(3), someApplicationId, Set(party), limit = 10)
+    ).toList
 
     completions should have length 2
-    val List(completionWithDeduplicationOffset, completionWithoutDeduplicationOffset) =
-      completions
-    completionWithDeduplicationOffset.completions should have length 1
-    completionWithDeduplicationOffset.completions.head.deduplicationPeriod.deduplicationDuration should be(
-      Some(expectedDuration)
-    )
-    completionWithoutDeduplicationOffset.completions should have length 1
-    completionWithoutDeduplicationOffset.completions.head.deduplicationPeriod.deduplicationDuration should not be defined
+    inside(completions) {
+      case List(completionWithDeduplicationOffset, completionWithoutDeduplicationOffset) =>
+        completionWithDeduplicationOffset.completions should have length 1
+        completionWithDeduplicationOffset.completions.head.deduplicationPeriod.deduplicationDuration should be(
+          Some(expectedDuration)
+        )
+        completionWithoutDeduplicationOffset.completions should have length 1
+        completionWithoutDeduplicationOffset.completions.head.deduplicationPeriod.deduplicationDuration should not be defined
+    }
   }
 
   it should "fail on broken command deduplication durations in DB" in {
@@ -203,6 +213,7 @@ private[backend] trait StorageBackendTestsCompletions
           offset(2),
           someApplicationId,
           Set(party),
+          limit = 10,
         )
       )
     )
@@ -227,6 +238,7 @@ private[backend] trait StorageBackendTestsCompletions
           offset(3),
           someApplicationId,
           Set(party),
+          limit = 10,
         )
       )
     )

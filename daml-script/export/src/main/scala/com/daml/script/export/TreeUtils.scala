@@ -1,10 +1,10 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.script.export
 
 import java.time.Instant
-import com.daml.ledger.api.refinements.ApiTypes.{Choice, ContractId, Party, TemplateId}
+import com.daml.ledger.api.refinements.ApiTypes.{Choice, ContractId, InterfaceId, Party, TemplateId}
 import com.daml.ledger.api.v1.event.{CreatedEvent, ExercisedEvent}
 import com.daml.ledger.api.v1.transaction.{TransactionTree, TreeEvent}
 import com.daml.ledger.api.v1.transaction.TreeEvent.Kind
@@ -14,6 +14,7 @@ import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.language.{Graphs, StablePackage}
+import com.daml.scalautil.Statement.discard
 import scalaz.std.option._
 import scalaz.std.iterable._
 import scalaz.std.set._
@@ -30,6 +31,7 @@ object TreeUtils {
   ) extends Selector
   final case class ExercisedSelector(
       templateId: TemplateId,
+      interfaceId: Option[InterfaceId],
       choice: Choice,
       index: Int,
   ) extends Selector
@@ -78,9 +80,10 @@ object TreeUtils {
         f(event, selector)
       case event @ Kind.Exercised(value) =>
         val templateId = TemplateId(value.getTemplateId)
+        val interfaceId = InterfaceId.subst(value.interfaceId)
         val choice = Choice(value.choice)
         val index = exercised((templateId, choice))
-        val selector = ExercisedSelector(templateId, choice, index)
+        val selector = ExercisedSelector(templateId, interfaceId, choice, index)
         exercised((templateId, choice)) += 1
         f(event, selector)
     }
@@ -161,37 +164,57 @@ object TreeUtils {
         }
   }
 
-  case class CreatedContract(cid: ContractId, tplId: Identifier, path: List[Selector])
+  sealed abstract class CreatedContract extends Product with Serializable {
+    def cid: ContractId
+    def tplId: TemplateId
+  }
 
-  def treeCreatedCids(tree: TransactionTree): Seq[CreatedContract] = {
-    var cids: Seq[CreatedContract] = Seq()
+  object CreatedContract {
+    final case class SimpleCreatedContract(cid: ContractId, tplId: TemplateId)
+        extends CreatedContract
+
+    def apply(cid: ContractId, tplId: TemplateId): CreatedContract =
+      SimpleCreatedContract(cid, tplId)
+  }
+
+  final case class CreatedContractWithPath(cid: ContractId, tplId: TemplateId, path: List[Selector])
+      extends CreatedContract
+
+  def treeCreatedCids(tree: TransactionTree): List[CreatedContractWithPath] = {
+    var cids: List[CreatedContractWithPath] = List()
     traverseTree(tree) { case (selectors, kind) =>
       kind match {
         case Kind.Empty =>
         case Kind.Exercised(_) =>
         case Kind.Created(value) =>
-          cids ++= Seq(
-            CreatedContract(ContractId(value.contractId), value.getTemplateId, selectors)
-          )
+          cids ::=
+            CreatedContractWithPath(
+              ContractId(value.contractId),
+              TemplateId(value.getTemplateId),
+              selectors,
+            )
       }
     }
-    cids
+    cids.reverse
   }
 
   def treeEventCreatedConsumedCids(
       event: TreeEvent.Kind,
       tree: TransactionTree,
-  ): (Set[ContractId], Set[ContractId]) = {
-    var created = Set.empty[ContractId]
+  ): (List[CreatedContract], Set[ContractId]) = {
+    var created = List.empty[CreatedContract]
     var consumed = Set.empty[ContractId]
     traverseEventInTree(event, tree) {
       case (_, Kind.Created(value)) =>
-        created += ContractId(value.contractId)
+        created ::= CreatedContract(
+          ContractId(value.contractId),
+          TemplateId(value.getTemplateId),
+        )
       case (_, Kind.Exercised(value)) if value.consuming =>
         consumed += ContractId(value.contractId)
       case _ =>
     }
-    (created, consumed)
+    (created.reverse, consumed)
   }
 
   def treeReferencedCids(tree: TransactionTree): Set[ContractId] = {
@@ -247,7 +270,7 @@ object TreeUtils {
       }
       def removeArchivedContractKey(exercisedEvent: ExercisedEvent): Unit = {
         if (exercisedEvent.consuming) {
-          contractKeys -= ContractId(exercisedEvent.contractId)
+          discard(contractKeys -= ContractId(exercisedEvent.contractId))
         }
       }
       def updateContractKeys(ev: Kind): Unit = {
@@ -262,7 +285,7 @@ object TreeUtils {
       rootEvents.foreach {
         case Kind.Empty =>
         case Kind.Created(createdEvent) =>
-          commands += CreateCommand(createdEvent)
+          discard(commands += CreateCommand(createdEvent))
           addContractKey(createdEvent)
         case ev @ Kind.Exercised(exercisedEvent) =>
           val optCreateAndExercise = commands.lastOption.flatMap {
@@ -280,8 +303,8 @@ object TreeUtils {
             case Some(command) => commands.update(commands.length - 1, command)
             case None =>
               optExerciseByKey match {
-                case Some(command) => commands += command
-                case None => commands += ExerciseCommand(exercisedEvent)
+                case Some(command) => discard(commands += command)
+                case None => discard(commands += ExerciseCommand(exercisedEvent))
               }
           }
           updateContractKeys(ev)
@@ -294,14 +317,14 @@ object TreeUtils {
     *
     * A create command is a simple command. An exercise command can be a simple command.
     */
-  case class SimpleCommand(command: Command, contractId: ContractId)
+  case class SimpleCommand(command: Command, contractId: CreatedContract)
 
   object SimpleCommand {
     def fromCommand(command: Command, tree: TransactionTree): Option[SimpleCommand] = {
       def simpleExercise(
           exercisedEvent: ExercisedEvent,
-          extraCreated: Set[ContractId],
-      ): Option[ContractId] = {
+          extraCreated: List[CreatedContract],
+      ): Option[CreatedContract] = {
         val result = exercisedEvent.exerciseResult.flatMap {
           _.sum match {
             case Sum.ContractId(value) => Some(value)
@@ -309,24 +332,40 @@ object TreeUtils {
           }
         }
         val (created, consumed) = treeEventCreatedConsumedCids(Kind.Exercised(exercisedEvent), tree)
-        val netCreated = (extraCreated ++ created) -- consumed
-        (result, netCreated.toSeq) match {
-          case (Some(cid), Seq(createdCid)) if cid == createdCid =>
-            Some(ContractId(cid))
+        val netCreated = (extraCreated ++ created).filterNot(c => consumed.contains(c.cid))
+        (result, netCreated) match {
+          case (Some(cid), List(created)) if cid == created.cid =>
+            Some(created)
           case _ => None
         }
       }
       command match {
         case CreateCommand(createdEvent) =>
-          Some(SimpleCommand(command, ContractId(createdEvent.contractId)))
+          Some(
+            SimpleCommand(
+              command,
+              CreatedContract(
+                ContractId(createdEvent.contractId),
+                TemplateId(createdEvent.getTemplateId),
+              ),
+            )
+          )
         case ExerciseCommand(exercisedEvent) =>
-          simpleExercise(exercisedEvent, Set.empty).map(SimpleCommand(command, _))
+          simpleExercise(exercisedEvent, List.empty).map(SimpleCommand(command, _))
         case ExerciseByKeyCommand(exercisedEvent, _, _) =>
-          simpleExercise(exercisedEvent, Set.empty).map(SimpleCommand(command, _))
+          simpleExercise(exercisedEvent, List.empty).map(SimpleCommand(command, _))
         case CreateAndExerciseCommand(createdEvent, exercisedEvent) =>
           // We count the contract created by the created event into the set of created contracts.
           // The command is only considered simple if it only creates one contract overall and returns its id.
-          simpleExercise(exercisedEvent, Set(ContractId(createdEvent.contractId)))
+          simpleExercise(
+            exercisedEvent,
+            List(
+              CreatedContract(
+                ContractId(createdEvent.contractId),
+                TemplateId(createdEvent.getTemplateId),
+              )
+            ),
+          )
             .map(SimpleCommand(command, _))
       }
     }
@@ -396,7 +435,7 @@ object TreeUtils {
           val submit = Submit.fromTree(tree)
           if (timestamp > currentTime) {
             currentTime = timestamp
-            result += SetTime(timestamp)
+            discard(result += SetTime(timestamp))
           }
           result += submit
         }
@@ -428,7 +467,15 @@ object TreeUtils {
   object SubmitSimple {
     def fromCreatedEvents(createdEvents: Seq[CreatedEvent]): SubmitSimple = {
       val simpleCommands =
-        createdEvents.map(ev => SimpleCommand(CreateCommand(ev), ContractId(ev.contractId)))
+        createdEvents.map(ev =>
+          SimpleCommand(
+            CreateCommand(ev),
+            CreatedContract(
+              ContractId(ev.contractId),
+              TemplateId(ev.getTemplateId),
+            ),
+          )
+        )
       val submitters = Party.subst(createdEvents.foldMap(_.signatories.toSet))
       submitters.toSeq match {
         case Seq(submitter) => SubmitSimpleSingle(simpleCommands, submitter)

@@ -1,0 +1,185 @@
+-- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+{-# LANGUAGE CPP #-}
+{-# LANGUAGE NoImplicitPrelude #-}
+
+{-
+Note [instance Show Text]
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The code here has been adapted from GHC's module
+[`GHC.Show`](https://github.com/digital-asset/ghc/blob/da-master-8.8.1/libraries/base/GHC/Show.hs).
+
+Most changes were related to the lack of a native `Char` type in Daml and
+consequently the fact that Daml's `Text` is not a list of `Char`, unlike
+Haskell's `String`. Thus, we introduce `Chr` as a type synonym for `Text` where
+we know the length is exactly 1 (see Note [newtype Chr debugging]). Then,
+`showLitText` is defined in terms of `showLitChrs` (very close to Haskell's
+`showLitString`) but first `explode`s the `Text` argument to produce the list of
+`Chr` that `showLitChrs` expects.
+
+Note [Point-free ShowS]
+~~~~~~~~~~~~~~~~~~~~~~~
+
+Unlike GHC's `showLitChar` and `showLitString`, we do _not_ make `ShowS`'s
+argument explicit.
+
+Empirically, making it explicit in the functions with a `ShowS` return type
+worsened the performance of
+> bazel test //compiler/damlc/tests:integration-v1dev --test_arg -p --test_arg "ShowText.daml"
+Taking 30.0s vs. 13.6 for the point-free version (with `longStringSize = 100000`)
+
+This makes sense considering that `showString` (defined as `(++)`) will only
+do the concatenation once all arguments are available, so the point-free version
+is "lazier" than the literal translation of GHC's.
+
+Note [newtype Chr debugging]
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The macro `__DEBUG__SHOW_TEXT_CHR_NEWTYPE` can be `#define`d to switch to an
+implementation where `Chr` is a newtype'd `Text`. This ensures that an
+arbitrary-length `Text` can't be used as a `Chr` without going through a
+conversion function, which can be useful during development.
+
+Since Daml newtypes impose a performance penalty (unlike Haskell newtypes), the
+implementation we actually use in `daml-prim` uses a type synonym instead
+(corresponding to the case where the macro is not defined).
+-}
+-- #define __DEBUG__SHOW_TEXT_CHR_NEWTYPE
+
+module GHC.Show.Text
+  ( showsPrecText
+  ) where
+
+import GHC.Base (
+#ifdef __DEBUG__SHOW_TEXT_CHR_NEWTYPE
+    map,
+#endif
+    (.), (++), ($)
+  )
+import GHC.Classes (Eq (..), Ord (..), (&&))
+import GHC.CString (fromString)
+import GHC.Err (error)
+import GHC.Types (Bool, Int, Text, primitive)
+
+-- # Exported
+
+showsPrecText : Int -> Text -> ShowS
+showsPrecText _ x =
+    showString "\""
+  . showLitText x
+  . showString "\""
+
+-- # Primitives
+
+primExplode : Text -> [Text]
+primExplode = primitive @"BEExplodeText"
+
+primTextToCodePoints : Text -> [Int]
+primTextToCodePoints = primitive @"BETextToCodePoints"
+
+primIntToText : Int -> Text
+primIntToText = primitive @"BEToText"
+
+-- # Internal
+
+explode : Text -> [Chr]
+
+-- See Note [newtype Chr debugging]
+#ifdef __DEBUG__SHOW_TEXT_CHR_NEWTYPE
+
+newtype Chr = MkChr Text
+  deriving (Eq, Ord)
+
+#define CH(t) (MkChr t)
+
+explode = map MkChr . primExplode
+
+#else
+
+type Chr = Text
+
+#define CH(t) t
+
+explode = primExplode
+
+#endif
+
+startsWithDigit : Text -> Bool
+startsWithDigit t = "0" <= t && t < ":" -- ':' immediately follows '9' in ASCII
+
+startsWithUppercaseH : Text -> Bool
+startsWithUppercaseH t = "H" <= t && t < "I"
+
+ord : Chr -> Int
+ord CH(t) = case primTextToCodePoints t of
+  [p] -> p
+  _ -> error $ "impossible: GHC.Show.Text.ord applied to argument with length /= 1, \"" ++ t ++ "\""
+
+type ShowS = Text -> Text
+
+showString : Text -> ShowS
+showString = (++)
+
+showInt : Int -> ShowS
+showInt = showString . primIntToText
+
+showLitText : Text -> ShowS
+showLitText = showLitChrs . explode
+
+-- Compared with GHC's `showLitString`, this is point-free on `ShowS`'s
+-- argument - see Note [Point-free ShowS]
+showLitChrs : [Chr] -> ShowS
+showLitChrs []               = \s -> s
+showLitChrs (CH("\"") :: cs) = showString "\\\"" . showLitChrs cs
+showLitChrs (c        :: cs) = showLitChr c . showLitChrs cs
+
+-- Compared with GHC's `showLitChar`, this is point-free on `ShowS`'s
+-- argument - see Note [Point-free ShowS]
+-- Also, the cases for "\a\b\f\n\r\t\v" are handled by `ctrlChrText`.
+showLitChr : Chr -> ShowS
+showLitChr c | c > CH("\DEL")       = showString "\\" . showInt (ord c) . protectEsc startsWithDigit
+showLitChr CH("\DEL")               = showString "\\DEL"
+showLitChr CH("\\")                 = showString "\\\\"
+showLitChr c@(CH(t)) | c >= CH(" ") = showString t
+showLitChr CH("\SO")                = showString "\\SO" . protectEsc startsWithUppercaseH
+showLitChr c                        = showString "\\" . showString (ctrlChrText c)
+
+-- Compared with GHC's `protectEsc`, the predicate is applied to the entire
+-- suffix (instead of only its first `Char`), in order to avoid using `explode`.
+-- This is okay since the only predicates used (`startsWithDigit` and
+-- `startsWithUppercaseH`) are implemented in terms of comparisons with
+-- single-character `Text`s, so they should be O(1).
+-- Also, unlike GHC's `protectEsc`, this doesn't take a `ShowS` argument for the
+-- prefix; instead the caller adds the prefix before the call to this function.
+protectEsc : (Text -> Bool) -> ShowS
+protectEsc p = cont
+         where cont s | p s = showString "\\&" s
+               cont s       = s
+
+-- Unlike GHC's `asciiTab`, on which this is based,
+--   * This is defined as a function instead of a list, since we don't have
+--     `(!!)` available for indexing.
+--   * This drops the case for `'\SP'` (the space character), since it's
+--     already covered by `showLitChr c@(CH(t)) | c >= CH(" ")`.
+--   * This drops the case for `'\SO'`, since it's  already covered by
+--     `showLitChr CH("\SO")`.
+--   * The values for "\BEL\BS\HT\LF\VT\FF\CR" are mapped directly to
+--     "\a\b\t\n\v\f\r" respectively.
+ctrlChrText : Chr -> Text
+ctrlChrText c = case c of
+  CH("\NUL") -> "NUL"; CH("\SOH") -> "SOH"; CH("\STX") -> "STX"; CH("\ETX") -> "ETX";
+  CH("\EOT") -> "EOT"; CH("\ENQ") -> "ENQ"; CH("\ACK") -> "ACK"; CH("\BEL") -> "a";
+
+  CH("\BS")  -> "b";   CH("\HT")  -> "t";   CH("\LF")  -> "n";   CH("\VT")  -> "v";
+  CH("\FF")  -> "f";   CH("\CR")  -> "r"; {-CH("\SO")  -> "SO";-}CH("\SI")  -> "SI";
+
+  CH("\DLE") -> "DLE"; CH("\DC1") -> "DC1"; CH("\DC2") -> "DC2"; CH("\DC3") -> "DC3";
+  CH("\DC4") -> "DC4"; CH("\NAK") -> "NAK"; CH("\SYN") -> "SYN"; CH("\ETB") -> "ETB";
+
+  CH("\CAN") -> "CAN"; CH("\EM")  -> "EM";  CH("\SUB") -> "SUB"; CH("\ESC") -> "ESC";
+  CH("\FS")  -> "FS";  CH("\GS")  -> "GS";  CH("\RS")  -> "RS";  CH("\US")  -> "US";
+
+  CH(t) -> error $
+    "impossible: GHC.Show.Text.ctrlChrText applied to non-control-character argument, \"" ++ t ++ "\""

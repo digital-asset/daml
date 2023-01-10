@@ -1,4 +1,4 @@
-# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -63,7 +63,8 @@ da_scala_library(
     tags = ["maven_coordinates=com.daml:error-generator-lib:__VERSION__"],
     visibility = ["//visibility:public"],
     runtime_deps = [
-        # Add the KV errors to the classpath so they can be picked up by the generator
+        # Add error definition targets to the classpath so they can be picked up by the generator
+        "//ledger/ledger-api-errors",
         "//ledger/participant-state-kv-errors",
     ],
     deps = [

@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.sandbox.bridge.validate
@@ -7,8 +7,9 @@ import com.daml.ledger.participant.state.v2.ChangeId
 import com.daml.ledger.sandbox.bridge.BridgeMetrics
 import com.daml.ledger.sandbox.bridge.validate.DeduplicationState.DeduplicationQueue
 import com.daml.lf.data.Time
-
 import java.time.Duration
+
+import com.daml.metrics.api.MetricsContext
 
 case class DeduplicationState private (
     private[validate] val deduplicationQueue: DeduplicationQueue,
@@ -30,7 +31,8 @@ case class DeduplicationState private (
       s"Cannot deduplicate for a period ($commandDeduplicationDuration) longer than the max deduplication duration ($maxDeduplicationDuration).",
     )
 
-    bridgeMetrics.Stages.Sequence.deduplicationQueueLength.update(deduplicationQueue.size)
+    bridgeMetrics.Stages.Sequence.deduplicationQueueLength
+      .update(deduplicationQueue.size)(MetricsContext.Empty)
 
     val expiredTimestamp = expiredThreshold(maxDeduplicationDuration, recordTime)
     val queueAfterEvictions = deduplicationQueue.withoutOlderThan(expiredTimestamp)

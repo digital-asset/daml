@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.pureconfigutils
@@ -6,25 +6,19 @@ package com.daml.pureconfigutils
 import akka.http.scaladsl.model.Uri
 import com.auth0.jwt.algorithms.Algorithm
 import com.daml.dbutils.JdbcConfig
-import com.daml.jwt.{
-  ECDSAVerifier,
-  HMAC256Verifier,
-  JwksVerifier,
-  JwtVerifier,
-  JwtVerifierBase,
-  RSA256Verifier,
-}
+import com.daml.jwt.{ECDSAVerifier, HMAC256Verifier, JwksVerifier, JwtVerifierBase, RSA256Verifier}
 import com.daml.ledger.api.tls.TlsConfiguration
-import com.daml.metrics.MetricsReporter
 import com.daml.platform.services.time.TimeProviderType
 import pureconfig.error.{CannotConvert, ConvertFailure, FailureReason}
 import pureconfig.{ConfigObjectCursor, ConfigReader, ConvertHelpers}
 import pureconfig.generic.semiauto.deriveReader
+import com.daml.jwt.{Error => JwtError}
 import scalaz.\/
 import scalaz.syntax.std.option._
 
 import java.nio.file.Path
 import java.io.File
+import com.daml.metrics.api.reporters.MetricsReporter
 import scala.concurrent.duration.FiniteDuration
 
 final case class HttpServerConfig(address: String, port: Int, portFile: Option[Path] = None)
@@ -45,7 +39,7 @@ final case class LedgerApiConfig(
 final case class MetricsConfig(reporter: MetricsReporter, reportingInterval: FiniteDuration)
 
 object TokenVerifierConfig {
-  private val knownTokenVerifiers: Map[String, String => JwtVerifier.Error \/ JwtVerifierBase] =
+  private val knownTokenVerifiers: Map[String, String => JwtError \/ JwtVerifierBase] =
     Map(
       "rs256-crt" -> (RSA256Verifier.fromCrtFile(_)),
       "es256-crt" -> (ECDSAVerifier
@@ -53,10 +47,10 @@ object TokenVerifierConfig {
       "es512-crt" -> (ECDSAVerifier
         .fromCrtFile(_, Algorithm.ECDSA512(_, null))),
       "rs256-jwks" -> (valueStr =>
-        \/.attempt(JwksVerifier(valueStr))(e => JwtVerifier.Error(Symbol("RS256"), e.getMessage))
+        \/.attempt(JwksVerifier(valueStr))(e => JwtError(Symbol("RS256"), e.getMessage))
       ),
     )
-  private val unsafeTokenVerifier: (String, String => JwtVerifier.Error \/ JwtVerifierBase) =
+  private val unsafeTokenVerifier: (String, String => JwtError \/ JwtVerifierBase) =
     "hs256-unsafe" -> (HMAC256Verifier(_))
 
   def extractByType(

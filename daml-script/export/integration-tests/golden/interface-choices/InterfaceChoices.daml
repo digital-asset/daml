@@ -1,0 +1,77 @@
+-- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+{-# LANGUAGE ApplicativeDo #-}
+
+module InterfaceChoices where
+
+import Daml.Script
+
+-- import DA.Action (when)
+
+import InterfaceChoices.Asset
+import InterfaceChoices.Token
+
+data LedgerParties = LedgerParties with
+  alice : Party
+  bob : Party
+  charlie : Party
+
+allocateParties : Script LedgerParties
+allocateParties = do
+  alice <- allocatePartyWithHint "Alice" (PartyIdHint "Alice")
+  bob <- allocatePartyWithHint "Bob" (PartyIdHint "Bob")
+  charlie <- allocatePartyWithHint "Charlie" (PartyIdHint "Charlie")
+  pure (LedgerParties alice bob charlie)
+
+initializeWith : LedgerParties -> Script ()
+initializeWith LedgerParties {alice, bob, charlie} = do
+  aliceKoins <- submit alice do
+    createCmd Asset with
+      issuer = alice
+      owner = alice
+      name = "Koin"
+      amount = 260
+      notes = []
+
+  bobKoins <- submit alice do
+    exerciseCmd aliceKoins Give with newOwner = bob
+
+  aliceQoins <- submit alice do
+    createCmd Asset with
+      issuer = alice
+      owner = alice
+      name = "Qoin"
+      amount = 10
+      notes = []
+
+  charlieQoins <- submit alice do
+    exerciseCmd aliceQoins Give with newOwner = charlie
+
+  charlieToken <- submit bob do
+    exerciseCmd (toInterfaceContractId @Token bobKoins) Transfer with
+      newOwner = charlie
+
+  (charlieToken120, charlieToken140) <- submit charlie do
+    exerciseCmd charlieToken Split with
+      splitAmount = 120
+
+  (aliceToken120, bobToken140) <- submit charlie do
+    liftA2 (,)
+      do exerciseCmd charlieToken120 Transfer with
+          newOwner = alice
+      do exerciseCmd charlieToken140 Transfer with
+          newOwner = bob
+
+  bobAnnotatedAsset140 <- submit bob do
+    exerciseCmd (fromInterfaceContractId @Asset bobToken140) Annotate with
+      note = "Thank you Alice"
+
+  submit bob do
+    exerciseCmd bobAnnotatedAsset140 Give with
+      newOwner = alice
+
+  pure ()
+
+initialize : Script ()
+initialize = initializeWith =<< allocateParties

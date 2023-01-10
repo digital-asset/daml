@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.engine
@@ -21,7 +21,6 @@ package trigger {
 
   import com.daml.auth.middleware.api.Tagged.{AccessToken, RefreshToken}
   import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
-  import com.daml.logging.LoggingContextOf
 
   case class LedgerConfig(
       host: String,
@@ -46,7 +45,13 @@ package trigger {
       triggerRefreshToken: Option[RefreshToken],
       triggerReadAs: Set[Party],
   ) {
-    private[trigger] def withLoggingContext[T]: (LoggingContextOf[Trigger] => T) => T =
-      Trigger.newLoggingContext(triggerName, triggerParty, triggerReadAs, Some(triggerInstance))
+    private[trigger] def withTriggerLogContext[T]: (TriggerLogContext => T) => T =
+      Trigger.newTriggerLogContext(
+        triggerName,
+        triggerParty,
+        triggerReadAs,
+        triggerInstance.toString,
+        triggerApplicationId,
+      )
   }
 }

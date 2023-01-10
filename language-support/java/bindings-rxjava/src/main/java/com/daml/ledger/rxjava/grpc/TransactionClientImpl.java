@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.rxjava.grpc;
@@ -90,6 +90,30 @@ public final class TransactionClientImpl implements TransactionsClient {
   public Flowable<Transaction> getTransactions(
       LedgerOffset begin, TransactionFilter filter, boolean verbose, String accessToken) {
     return getTransactions(begin, filter, verbose, Optional.of(accessToken));
+  }
+
+  private Flowable<Transaction> getTransactions(
+      ContractFilter<?> contractFilter,
+      LedgerOffset begin,
+      Set<String> parties,
+      boolean verbose,
+      Optional<String> accessToken) {
+    TransactionFilter filter = contractFilter.transactionFilter(parties);
+    return getTransactions(begin, filter, verbose, accessToken);
+  }
+
+  public Flowable<Transaction> getTransactions(
+      ContractFilter<?> contractFilter,
+      LedgerOffset begin,
+      Set<String> parties,
+      boolean verbose,
+      String accessToken) {
+    return getTransactions(contractFilter, begin, parties, verbose, Optional.of(accessToken));
+  }
+
+  public Flowable<Transaction> getTransactions(
+      ContractFilter<?> contractFilter, LedgerOffset begin, Set<String> parties, boolean verbose) {
+    return getTransactions(contractFilter, begin, parties, verbose, Optional.empty());
   }
 
   private Flowable<TransactionTree> extractTransactionTrees(

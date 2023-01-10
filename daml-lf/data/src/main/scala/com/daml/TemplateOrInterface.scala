@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -10,12 +10,4 @@ sealed abstract class TemplateOrInterface[+T, +I] extends Product with Serializa
 object TemplateOrInterface {
   final case class Template[+T](value: T) extends TemplateOrInterface[T, Nothing]
   final case class Interface[+I](value: I) extends TemplateOrInterface[Nothing, I]
-
-  implicit class MergeableTemplateOrInterface[A](private val x: TemplateOrInterface[A, A])
-      extends AnyVal {
-    def merge: A = x match {
-      case Template(a) => a
-      case Interface(a) => a
-    }
-  }
 }

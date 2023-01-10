@@ -1,4 +1,4 @@
--- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE ApplicativeDo #-}
@@ -462,8 +462,8 @@ expectUserNotFound script = try do _ <- script; undefined catch UserNotFound _ -
 
 testUserManagementForParty : Party -> Script ()
 testUserManagementForParty p1 = do
-  True <- isValidUserId "good"
-  False <- isValidUserId "BAD"
+  True <- isValidUserId "Good"
+  False <- isValidUserId "BAD?" -- contains invalid character '?'
   participantAdmin <- getParticipantAdmin ()
   users <- listAllUsers
   users === [participantAdmin]

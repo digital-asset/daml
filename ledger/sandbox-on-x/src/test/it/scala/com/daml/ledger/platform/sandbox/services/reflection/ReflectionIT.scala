@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.sandbox.services.reflection
@@ -32,7 +32,7 @@ final class ReflectionIT
     "accessed" should {
 
       "provide a list of exposed services" in {
-        val expectedServiceCount: Int = 18
+        val expectedServiceCount: Int = 19
         for {
           response <- execRequest(listServices)
         } yield {

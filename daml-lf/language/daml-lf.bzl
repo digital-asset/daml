@@ -1,4 +1,4 @@
-# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 def mangle_for_java(name):
@@ -57,8 +57,8 @@ versions = struct(
 lf_version_configuration = {
     "legacy": "1.8",
     "default": "1.14",
-    "latest": "1.14",
-    "preview": "1.15",
+    "latest": "1.15",
+    #    "preview": "",
     "dev": "1.dev",
 }
 

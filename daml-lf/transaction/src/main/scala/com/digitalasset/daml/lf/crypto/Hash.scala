@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -324,7 +324,7 @@ object Hash {
       .addTypedValue(arg)
       .build
 
-  def hashContractInstnce(
+  def hashContractInstance(
       templateId: Ref.Identifier,
       arg: Value,
   ): Either[String, Hash] =

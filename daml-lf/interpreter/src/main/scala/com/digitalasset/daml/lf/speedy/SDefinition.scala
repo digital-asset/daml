@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.speedy
@@ -15,7 +15,7 @@ import com.daml.lf.speedy.SExpr.SExpr
 final case class SDefinition(
     body: SExpr
 ) {
-  private var _cached: Option[SValue] = None
+  private[this] var _cached: Option[SValue] = None
   private[speedy] def cached: Option[SValue] = _cached
   private[speedy] def setCached(sValue: SValue): Unit = _cached = Some(sValue)
 }

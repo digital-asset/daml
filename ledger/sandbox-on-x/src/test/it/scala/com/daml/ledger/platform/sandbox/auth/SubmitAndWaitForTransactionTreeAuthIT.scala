@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.sandbox.auth
@@ -13,10 +13,11 @@ final class SubmitAndWaitForTransactionTreeAuthIT
 
   override def serviceCallName: String = "CommandService#SubmitAndWaitForTransactionTree"
 
-  override def serviceCallWithToken(token: Option[String]): Future[Any] =
-    submitAndWaitForTransactionTree(token, party = mainActor)
-
-  override def serviceCallWithoutApplicationId(token: Option[String]): Future[Any] =
-    submitAndWaitForTransactionTree(token, "", party = mainActor)
+  override def serviceCall(context: ServiceCallContext): Future[Any] =
+    submitAndWaitForTransactionTree(
+      context.token,
+      context.applicationId(serviceCallName),
+      party = mainActor,
+    )
 
 }

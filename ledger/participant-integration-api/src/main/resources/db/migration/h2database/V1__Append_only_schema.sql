@@ -127,7 +127,7 @@ CREATE TABLE participant_command_completions (
     rejection_status_details BINARY LARGE OBJECT
 );
 
-CREATE INDEX participant_command_completion_offset_application_idx ON participant_command_completions (completion_offset, application_id);
+CREATE INDEX participant_command_completions_application_id_offset_idx ON participant_command_completions USING btree (application_id, completion_offset);
 
 ---------------------------------------------------------------------------------------------------
 -- Events table: divulgence
@@ -208,7 +208,10 @@ CREATE TABLE participant_events_create (
 
     -- * compression flags
     create_argument_compression SMALLINT,
-    create_key_value_compression SMALLINT
+    create_key_value_compression SMALLINT,
+
+    -- * contract driver metadata
+    driver_metadata BINARY LARGE OBJECT
 );
 
 -- offset index: used to translate to sequential_id
@@ -216,9 +219,6 @@ CREATE INDEX participant_events_create_event_offset ON participant_events_create
 
 -- sequential_id index for paging
 CREATE INDEX participant_events_create_event_sequential_id ON participant_events_create (event_sequential_id);
-
--- lookup by transaction id
-CREATE INDEX participant_events_create_transaction_id_idx ON participant_events_create (transaction_id);
 
 -- lookup by contract id
 CREATE INDEX participant_events_create_contract_id_idx ON participant_events_create (contract_id);
@@ -278,9 +278,6 @@ CREATE INDEX participant_events_consuming_exercise_event_offset ON participant_e
 -- sequential_id index for paging
 CREATE INDEX participant_events_consuming_exercise_event_sequential_id ON participant_events_consuming_exercise (event_sequential_id);
 
--- lookup by transaction id
-CREATE INDEX participant_events_consuming_exercise_transaction_id_idx ON participant_events_consuming_exercise (transaction_id);
-
 -- lookup by contract id
 CREATE INDEX participant_events_consuming_exercise_contract_id_idx ON participant_events_consuming_exercise (contract_id);
 
@@ -336,23 +333,63 @@ CREATE INDEX participant_events_non_consuming_exercise_event_offset ON participa
 -- sequential_id index for paging
 CREATE INDEX participant_events_non_consuming_exercise_event_sequential_id ON participant_events_non_consuming_exercise (event_sequential_id);
 
--- lookup by transaction id
-CREATE INDEX participant_events_non_consuming_exercise_transaction_id_idx ON participant_events_non_consuming_exercise (transaction_id);
-
 CREATE TABLE string_interning (
     internal_id integer PRIMARY KEY NOT NULL,
     external_string text
 );
 
-CREATE TABLE participant_events_create_filter (
+-----------------------------
+-- Filter tables for events
+-----------------------------
+
+-- create stakeholders
+CREATE TABLE pe_create_id_filter_stakeholder (
     event_sequential_id BIGINT NOT NULL,
     template_id INTEGER NOT NULL,
     party_id INTEGER NOT NULL
 );
+CREATE INDEX pe_create_id_filter_stakeholder_pts_idx ON pe_create_id_filter_stakeholder(party_id, template_id, event_sequential_id);
+CREATE INDEX pe_create_id_filter_stakeholder_pt_idx ON pe_create_id_filter_stakeholder(party_id, event_sequential_id);
+CREATE INDEX pe_create_id_filter_stakeholder_s_idx ON pe_create_id_filter_stakeholder(event_sequential_id);
 
-CREATE INDEX idx_participant_events_create_filter_party_template_seq_id_idx ON participant_events_create_filter(party_id, template_id, event_sequential_id);
-CREATE INDEX idx_participant_events_create_filter_party_seq_id_idx ON participant_events_create_filter(party_id, event_sequential_id);
-CREATE INDEX idx_participant_events_create_seq_id_idx ON participant_events_create_filter(event_sequential_id);
+CREATE TABLE pe_create_id_filter_non_stakeholder_informee (
+   event_sequential_id BIGINT NOT NULL,
+   party_id INTEGER NOT NULL
+);
+CREATE INDEX pe_create_id_filter_non_stakeholder_informee_ps_idx ON pe_create_id_filter_non_stakeholder_informee(party_id, event_sequential_id);
+CREATE INDEX pe_create_id_filter_non_stakeholder_informee_s_idx ON pe_create_id_filter_non_stakeholder_informee(event_sequential_id);
+
+CREATE TABLE pe_consuming_id_filter_stakeholder (
+   event_sequential_id BIGINT NOT NULL,
+   template_id INTEGER NOT NULL,
+   party_id INTEGER NOT NULL
+);
+CREATE INDEX pe_consuming_id_filter_stakeholder_pts_idx ON pe_consuming_id_filter_stakeholder(party_id, template_id, event_sequential_id);
+CREATE INDEX pe_consuming_id_filter_stakeholder_ps_idx  ON pe_consuming_id_filter_stakeholder(party_id, event_sequential_id);
+CREATE INDEX pe_consuming_id_filter_stakeholder_s_idx   ON pe_consuming_id_filter_stakeholder(event_sequential_id);
+
+CREATE TABLE pe_consuming_id_filter_non_stakeholder_informee (
+   event_sequential_id BIGINT NOT NULL,
+   party_id INTEGER NOT NULL
+);
+CREATE INDEX pe_consuming_id_filter_non_stakeholder_informee_ps_idx ON pe_consuming_id_filter_non_stakeholder_informee(party_id, event_sequential_id);
+CREATE INDEX pe_consuming_id_filter_non_stakeholder_informee_s_idx ON pe_consuming_id_filter_non_stakeholder_informee(event_sequential_id);
+
+CREATE TABLE pe_non_consuming_id_filter_informee (
+   event_sequential_id BIGINT NOT NULL,
+   party_id INTEGER NOT NULL
+);
+CREATE INDEX pe_non_consuming_id_filter_informee_ps_idx ON pe_non_consuming_id_filter_informee(party_id, event_sequential_id);
+CREATE INDEX pe_non_consuming_id_filter_informee_s_idx ON pe_non_consuming_id_filter_informee(event_sequential_id);
+
+CREATE TABLE participant_transaction_meta(
+    transaction_id VARCHAR NOT NULL,
+    event_offset VARCHAR NOT NULL,
+    event_sequential_id_first BIGINT NOT NULL,
+    event_sequential_id_last BIGINT NOT NULL
+);
+CREATE INDEX participant_transaction_meta_tid_idx ON participant_transaction_meta(transaction_id);
+CREATE INDEX participant_transaction_meta_event_offset_idx ON participant_transaction_meta(event_offset);
 
 CREATE TABLE transaction_metering (
     application_id VARCHAR NOT NULL,
@@ -382,15 +419,27 @@ CREATE UNIQUE INDEX participant_metering_from_to_application ON participant_mete
 -- NOTE: We keep participant user and party record tables independent from indexer-based tables, such that
 --       we maintain a property that they can be moved to a separate database without any extra schema changes.
 ---------------------------------------------------------------------------------------------------
+-- Participant local store: identity provider configurations
+---------------------------------------------------------------------------------------------------
+CREATE TABLE participant_identity_provider_config
+(
+    identity_provider_id VARCHAR(255) PRIMARY KEY NOT NULL,
+    issuer               VARCHAR                  NOT NULL UNIQUE,
+    jwks_url             VARCHAR                  NOT NULL,
+    is_deactivated       BOOLEAN                  NOT NULL
+);
+
+---------------------------------------------------------------------------------------------------
 -- Participant local store: users
 ---------------------------------------------------------------------------------------------------
 CREATE TABLE participant_users (
-    internal_id         INTEGER             GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    user_id             VARCHAR(256)        NOT NULL UNIQUE,
-    primary_party       VARCHAR(512),
-    is_deactivated      BOOLEAN             NOT NULL,
-    resource_version    BIGINT              NOT NULL,
-    created_at          BIGINT              NOT NULL
+    internal_id          INTEGER             GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    user_id              VARCHAR(256)        NOT NULL UNIQUE,
+    primary_party        VARCHAR(512),
+    identity_provider_id VARCHAR(255)        REFERENCES participant_identity_provider_config (identity_provider_id),
+    is_deactivated       BOOLEAN             NOT NULL,
+    resource_version     BIGINT              NOT NULL,
+    created_at           BIGINT              NOT NULL
 );
 CREATE TABLE participant_user_rights (
     user_internal_id    INTEGER             NOT NULL REFERENCES participant_users (internal_id) ON DELETE CASCADE,
@@ -412,8 +461,8 @@ CREATE TABLE participant_user_annotations (
     updated_at          BIGINT              NOT NULL,
     UNIQUE (internal_id, name)
 );
-INSERT INTO participant_users(user_id, primary_party, is_deactivated, resource_version, created_at)
-    VALUES ('participant_admin', NULL, false, 0,  0);
+INSERT INTO participant_users(user_id, primary_party, identity_provider_id, is_deactivated, resource_version, created_at)
+    VALUES ('participant_admin', NULL, NULL, false, 0,  0);
 INSERT INTO participant_user_rights(user_internal_id, user_right, for_party, granted_at)
     SELECT internal_id, 1, NULL, 0
     FROM participant_users
@@ -423,10 +472,11 @@ INSERT INTO participant_user_rights(user_internal_id, user_right, for_party, gra
 -- Participant local store: party records
 ---------------------------------------------------------------------------------------------------
 CREATE TABLE participant_party_records (
-    internal_id         INTEGER             GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    party               VARCHAR(512)        NOT NULL UNIQUE,
-    resource_version    BIGINT              NOT NULL,
-    created_at          BIGINT              NOT NULL
+    internal_id          INTEGER             GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    party                VARCHAR(512)        NOT NULL UNIQUE,
+    identity_provider_id VARCHAR(255)        REFERENCES participant_identity_provider_config (identity_provider_id),
+    resource_version     BIGINT              NOT NULL,
+    created_at           BIGINT              NOT NULL
 );
 CREATE TABLE participant_party_record_annotations (
     internal_id         INTEGER             NOT NULL REFERENCES participant_party_records (internal_id) ON DELETE CASCADE,

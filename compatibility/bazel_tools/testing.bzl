@@ -1,4 +1,4 @@
-# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -855,22 +855,6 @@ excluded_test_tool_tests = [
             },
         ],
     },
-    {
-        # This exclusion is due incompatible Ledger API test-tool changes:
-        # The 'PartyDetails' message now contains a new 'local_metadata' field which is returned by
-        # 'PartyManagementService.GetParties' and 'PartyManagementService.ListKnownParties' RPCs
-        # and we changed the existing IT tests to verify that this new field is indeed returned.
-        "start": "2.4.0-snapshot.20220914.10592.1",
-        "platform_ranges": [
-            {
-                "end": "2.4.0-snapshot.20220914.10592.0.cf7c2b5c",
-                "exclusions": [
-                    "PartyManagementServiceIT:PMGetPartiesDetails",
-                    "PartyManagementServiceIT:PMListKnownParties",
-                ],
-            },
-        ],
-    },
 ]
 
 def in_range(version, range):
@@ -1123,7 +1107,7 @@ def sdk_platform_test(sdk_version, platform_version):
     sandbox_classic_args = ["sandbox-classic", "--contract-id-seeding=testing-weak"]
 
     sandbox_on_x = "@daml-sdk-{}//:sandbox-on-x".format(platform_version)
-    sandbox_on_x_args = ["--contract-id-seeding=testing-weak", "--implicit-party-allocation=false", "--mutable-contract-state-cache"]
+    sandbox_on_x_args = ["--contract-id-seeding=testing-weak", "--implicit-party-allocation=false", "--mutable-contract-state-cache", "--enable-user-management=true"]
     sandbox_on_x_cmd = ["run-legacy-cli-config"] if versions.is_at_least("2.4.0-snapshot.20220712.10212.0.0bf28176", platform_version) else []
 
     json_api_args = ["json-api"]

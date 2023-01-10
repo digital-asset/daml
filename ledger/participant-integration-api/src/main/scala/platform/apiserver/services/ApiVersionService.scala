@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.apiserver.services
@@ -6,6 +6,7 @@ package com.daml.platform.apiserver.services
 import com.daml.error.definitions.LedgerApiErrors
 import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
 import com.daml.ledger.api.v1.experimental_features.{
+  AcsActiveAtOffsetFeature,
   ExperimentalFeatures,
   ExperimentalOptionalLedgerId,
   ExperimentalSelfServiceErrorCodes,
@@ -23,7 +24,7 @@ import com.daml.ledger.api.v1.version_service.{
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.apiserver.LedgerFeatures
-import com.daml.platform.usermanagement.UserManagementConfig
+import com.daml.platform.localstore.UserManagementConfig
 import io.grpc.ServerServiceDefinition
 
 import scala.annotation.nowarn
@@ -78,6 +79,7 @@ private[apiserver] final class ApiVersionService private (
           explicitDisclosure = Some(ledgerFeatures.explicitDisclosure),
           userAndPartyLocalMetadataExtensions =
             Some(ExperimentalUserAndPartyLocalMetadataExtensions(supported = true)),
+          acsActiveAtOffset = Some(AcsActiveAtOffsetFeature(supported = true)),
         )
       ),
     )
@@ -90,18 +92,15 @@ private[apiserver] final class ApiVersionService private (
       .map(apiVersionResponse)
       .andThen(logger.logErrorsOnCall[GetLedgerApiVersionResponse])
       .recoverWith { case NonFatal(_) =>
-        internalError
+        Future.failed(
+          LedgerApiErrors.InternalError
+            .VersionService(message = "Cannot read Ledger API version")
+            .asGrpcError
+        )
       }
 
   private def apiVersionResponse(version: String) =
     GetLedgerApiVersionResponse(version, Some(featuresDescriptor))
-
-  private lazy val internalError: Future[Nothing] =
-    Future.failed(
-      LedgerApiErrors.InternalError
-        .VersionService(message = "Cannot read Ledger API version")
-        .asGrpcError
-    )
 
   private def readVersion(versionFileName: String): Try[String] =
     Try {

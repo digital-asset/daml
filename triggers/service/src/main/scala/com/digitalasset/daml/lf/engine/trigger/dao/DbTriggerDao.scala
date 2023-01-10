@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.engine.trigger.dao
@@ -29,6 +29,7 @@ import scala.util.Try
 import scala.language.existentials
 import scala.util.control.NonFatal
 
+@scala.annotation.nowarn("msg=Block result was adapted via implicit conversion")
 abstract class DbTriggerDao protected (
     dataSource: DataSource with Closeable,
     xa: ConnectionPool.T,

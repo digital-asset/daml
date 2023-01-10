@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.store.dao
@@ -7,6 +7,7 @@ import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.ledger.offset.Offset
 import com.daml.logging.LoggingContext
+import com.daml.metrics.api.MetricsContext
 import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.store.cache.InMemoryFanoutBuffer
 import com.daml.platform.store.cache.InMemoryFanoutBuffer.BufferSlice
@@ -84,7 +85,7 @@ class BufferedStreamsReader[PERSISTENCE_FETCH_ARGS, API_RESPONSE](
               ),
             )
 
-            bufferReaderMetrics.sliceSize.update(bufferSlice.slice.size)
+            bufferReaderMetrics.sliceSize.update(bufferSlice.slice.size)(MetricsContext.Empty)
 
             bufferSlice match {
               case BufferSlice.Inclusive(slice) =>

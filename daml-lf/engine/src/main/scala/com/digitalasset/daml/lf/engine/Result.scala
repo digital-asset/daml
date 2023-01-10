@@ -1,11 +1,11 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
 package engine
 
 import com.daml.lf.data.Ref._
-import com.daml.lf.data.{BackStack, ImmArray, ImmArrayCons}
+import com.daml.lf.data.{BackStack, FrontStack, ImmArray}
 import com.daml.lf.language.Ast._
 import com.daml.lf.transaction.GlobalKeyWithMaintainers
 import com.daml.lf.value.Value._
@@ -134,12 +134,12 @@ object Result {
       },
     )
 
-  def sequence[A](results0: ImmArray[Result[A]]): Result[ImmArray[A]] = {
+  def sequence[A](results0: FrontStack[Result[A]]): Result[ImmArray[A]] = {
     @tailrec
-    def go(okResults: BackStack[A], results: ImmArray[Result[A]]): Result[BackStack[A]] =
-      results match {
-        case ImmArray() => ResultDone(okResults)
-        case ImmArrayCons(res, results_) =>
+    def go(okResults: BackStack[A], results: FrontStack[Result[A]]): Result[BackStack[A]] =
+      results.pop match {
+        case None => ResultDone(okResults)
+        case Some((res, results_)) =>
           res match {
             case ResultDone(x) => go(okResults :+ x, results_)
             case ResultError(err) => ResultError(err)

@@ -10,16 +10,15 @@ To edit documentation:
 
 - Same as code: find the file, edit it on a branch, make a PR.
 - For new files, best to copy existing ones, to get the formatting right. 
-
-  Don't forget you need to add your file to the `toctree` in `/docs/source/index.rst` *and* `/docs/configs/pdf/index.rst`.
-- **Make sure you preview** before you push.
+- If you need to change the table of contents, look at the section about it further down
+- **Make sure you preview** before you push. Maybe include screenshots in a comment for your PR if relevant.
 - Don't insert line-breaks inside inline literals. Building preview will treat this as an error.
 
 ### Generated documentation
 
 Not all of our docs are in rst files: some get generated. They are:
 
-- the ledger API proto docs,
+- the Ledger API proto docs,
 - the Daml standard library reference,
 - the Java bindings reference,
 - error codes inventory.
@@ -28,7 +27,7 @@ To edit those docs, edit the content inside the code source.
 
 ### Previewing
 
-To preview the full docs, as deployed to docs.daml.com, run `scripts/preview.sh`.
+To preview the docs run `scripts/preview.sh`.
 
 To live-preview the docs, run `scripts/live-preview.sh`. The script accepts two flags:
 
@@ -37,6 +36,9 @@ To live-preview the docs, run `scripts/live-preview.sh`. The script accepts two 
 
 Note that neither PDF, nor generated docs will benefit from live updates. 
 To update generated docs or PDF docs, quit the preview script with CTRL+C and start it again.
+
+The preview is indicative of contents documented in this repository. For the final result, you
+should go to https://github.com/digital-asset/docs.daml.com and consult the preview instructions.
 
 ### Style conventions
 
@@ -62,28 +64,27 @@ If you’re not familiar, it’s really worth reading the [primer](http://www.sp
 
 ## Updating the table of contents
 
-The table of contents is generated automatically based on the titles
-and `:toctree:` entries in the Rst files. However, the root index
-files `docs/source/index.rst` and `docs/configs/pdf/index.rst` are
-special in two ways:
+The table of contents is handled in https://github.com/digital-asset/docs.daml.com.
 
-First, there are different versions for the HTML and the PDF
-docs build. These should be kept in sync with the difference beeing
-that in the HTML guide we hide we use captions on `:toctree:` entries
-and mark them as `:hidden:` because the ToC shows up in the sidebar
-while in the PDF version we use section headers instead of captions
-and do not hide the `:toctree:` entries.
+If you want need to add an item that needs to end up on the table of contents, you need to:
 
-The second the `index.rst` files in the Daml repository are only used
- for preview in the Daml repository and have no effect on the the
- published documentation. Instead, we replace them by the
- [`index_html.rst`](https://github.com/DACH-NY/assembly/blob/main/docs/index/index_html.rst)
- and
- [`index_pdf.rst`](https://github.com/DACH-NY/assembly/blob/main/docs/index/index_pdf.rst)
- files in the assembly repo which combine the documentation from the
- Daml and the Canton repository. So if you change the root index files
- in the Daml repository make sure that you apply the same change in
- the assembly repository.
+1. get the PR that introduces the new item
+2. wait for the following daily snapshot
+3. follow the instructions on https://github.com/digital-asset/docs.daml.com, in particular with regards to
+   [making changes to the next unreleased version](https://github.com/digital-asset/docs.daml.com#making-changes-to-the-next-unreleased-version)
+
+## Linking to pages from the Canton documentation
+
+This repository only includes content for the Daml SDK. However the Daml documentation includes both
+content from this repository and from [Canton's](https://github.com/digital-asset/canton). This means that
+linking to a page in the Canton documentation requires some additional care. In particular, you have to:
+
+1. find the anchor point to which you want to link in the Canton documentation
+2. add the anchor point name in the `//docs/canton-refs.rst` document (unless it's already there)
+3. refer to the anchor point in your page
+
+You can see a small example of this procedure in
+[this commit](https://github.com/digital-asset/daml/commit/30acaaea777b92712fe46c2062361f5f44b260ce).
 
 ## How the docs get built
 

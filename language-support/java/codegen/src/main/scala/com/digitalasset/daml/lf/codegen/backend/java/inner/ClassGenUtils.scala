@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.codegen.backend.java.inner
@@ -29,10 +29,10 @@ private[inner] object ClassGenUtils {
   val getArguments = CodeBlock.of("event.getArguments()")
   val getAgreementText = CodeBlock.of("event.getAgreementText()")
 
-  def getContractKey(t: Type, packagePrefixes: Map[PackageId, String]) =
+  def getContractKey(t: Type)(implicit packagePrefixes: PackagePrefixes) =
     CodeBlock.of(
       "event.getContractKey().map(e -> $L)",
-      FromValueGenerator.extractor(t, "e", CodeBlock.of("e"), newNameGenerator, packagePrefixes),
+      FromValueGenerator.extractor(t, "e", CodeBlock.of("e"), newNameGenerator),
     )
 
   val getSignatories = CodeBlock.of("event.getSignatories()")
@@ -79,14 +79,15 @@ private[inner] object ClassGenUtils {
       choiceName: ChoiceName,
       choice: TemplateChoice[Type],
       fields: Fields,
-      packagePrefixes: Map[PackageId, String],
-  )(alter: MethodSpec.Builder => MethodSpec.Builder): MethodSpec = {
+  )(alter: MethodSpec.Builder => MethodSpec.Builder)(implicit
+      packagePrefixes: PackagePrefixes
+  ): MethodSpec = {
     val methodName = s"$name${choiceName.capitalize}"
     val choiceBuilder = MethodSpec
       .methodBuilder(methodName)
       .addModifiers(Modifier.PUBLIC)
       .returns(returns)
-    val javaType = toJavaTypeName(choice.param, packagePrefixes)
+    val javaType = toJavaTypeName(choice.param)
     for (FieldInfo(_, _, javaName, javaType) <- fields) {
       choiceBuilder.addParameter(javaType, javaName)
     }

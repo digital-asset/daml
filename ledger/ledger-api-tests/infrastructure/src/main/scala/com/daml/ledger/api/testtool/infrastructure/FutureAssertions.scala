@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.testtool.infrastructure
@@ -34,7 +34,7 @@ final class FutureAssertions[T](future: Future[T]) {
   def mustFailWith(
       context: String,
       errorCode: ErrorCode,
-      exceptionMessageSubstring: Option[String],
+      exceptionMessageSubstring: Option[String] = None,
   )(implicit executionContext: ExecutionContext): Future[Unit] = {
     for {
       error <- mustFail(context)

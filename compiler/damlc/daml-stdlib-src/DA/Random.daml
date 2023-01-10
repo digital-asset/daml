@@ -1,4 +1,4 @@
--- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 -- | HIDE
@@ -6,11 +6,11 @@ module DA.Random (Minstd, minstd_rand, minstd_init, minstd_initFromTime) where
 
 import DA.Time
 import DA.Date
+import DA.Random.Types (Minstd (..))
 
 next : Int -> Int
 next s = (48271 * s) % 2147483647
 
-data Minstd = Minstd Int
 minstd_rand : Int -> Minstd -> (Minstd, Int)
 minstd_rand bound (Minstd state) =
   let
