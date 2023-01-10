@@ -42,7 +42,7 @@ object Tracked {
       context: MetricsContext
   ): Future[T] = {
     startMeter.mark()
-    Thread.sleep(60)
+    completedMeter.mark(0)
     future.andThen { case _ => completedMeter.mark() }(
       ExecutionContext.parasitic
     )
