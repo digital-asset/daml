@@ -3,6 +3,7 @@
 
 package com.daml.metrics.api.noop
 
+import com.daml.metrics.api.MetricHandle.Gauge.CloseableGauge
 import com.daml.metrics.api.MetricHandle.LabeledMetricsFactory
 import com.daml.metrics.api.{MetricHandle, MetricName, MetricsContext}
 
@@ -27,7 +28,7 @@ class NoOpMetricsFactory extends LabeledMetricsFactory {
       name: MetricName,
       gaugeSupplier: () => T,
       description: String,
-  )(implicit context: MetricsContext): Unit = ()
+  )(implicit context: MetricsContext): CloseableGauge = () => ()
 
   override def meter(
       name: MetricName,
