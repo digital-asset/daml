@@ -11,6 +11,7 @@ import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
+import com.daml.metrics.api.opentelemetry.OpenTelemetryFactory
 import com.daml.platform.ApiOffset
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.store.DbSupport.{ConnectionPoolConfig, DbConfig}
@@ -57,7 +58,10 @@ object IndexMetadata {
       executionContext: ExecutionContext,
       loggingContext: LoggingContext,
   ) = {
-    val metrics = new Metrics(new MetricRegistry, GlobalOpenTelemetry.getMeter("daml"))
+    val metrics = new Metrics(
+      new MetricRegistry,
+      new OpenTelemetryFactory(GlobalOpenTelemetry.getMeter("daml")),
+    )
     DbSupport
       .owner(
         serverRole = ServerRole.ReadIndexMetadata,

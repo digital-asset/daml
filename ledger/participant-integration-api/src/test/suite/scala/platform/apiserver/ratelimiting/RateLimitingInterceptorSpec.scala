@@ -17,6 +17,7 @@ import com.daml.ledger.api.testing.utils.TestingServerInterceptors.serverOwner
 import com.daml.ledger.resources.{ResourceOwner, TestResourceContext}
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
+import com.daml.metrics.api.opentelemetry.OpenTelemetryFactory
 import com.daml.platform.apiserver.configuration.RateLimitingConfig
 import com.daml.platform.apiserver.ratelimiting.LimitResult.LimitResultCheck
 import com.daml.platform.apiserver.ratelimiting.ThreadpoolCheck.ThreadpoolCount
@@ -375,7 +376,7 @@ final class RateLimitingInterceptorSpec
   }
 
   it should "support addition checks" in {
-    val metrics = new Metrics(new MetricRegistry, GlobalOpenTelemetry.getMeter("test"))
+    val metrics = createMetrics
 
     val apiServices: ThreadpoolCount = new ThreadpoolCount(metrics)(
       "Api Services Threadpool",
@@ -412,9 +413,8 @@ object RateLimitingInterceptorSpec extends MockitoSugar {
   private val logger = LoggerFactory.getLogger(getClass)
   private val healthChecks = new HealthChecks(Map.empty[ComponentName, ReportsHealth])
 
-  private def createMetrics = {
-    new Metrics(new MetricRegistry, GlobalOpenTelemetry.getMeter("test"))
-  }
+  private def createMetrics =
+    new Metrics(new MetricRegistry, new OpenTelemetryFactory(GlobalOpenTelemetry.getMeter("test")))
 
   // For tests that do not involve memory
   private def underLimitMemoryPoolMXBean(): MemoryPoolMXBean = {

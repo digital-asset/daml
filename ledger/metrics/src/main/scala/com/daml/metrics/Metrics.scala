@@ -9,16 +9,16 @@ import com.daml.metrics.api.dropwizard.DropwizardFactory
 import com.daml.metrics.api.opentelemetry.OpenTelemetryFactory
 import com.daml.metrics.grpc.DamlGrpcServerMetrics
 import io.opentelemetry.api.GlobalOpenTelemetry
-import io.opentelemetry.api.metrics.{Meter => OtelMeter}
 
 object Metrics {
-  lazy val ForTesting = new Metrics(new MetricRegistry, GlobalOpenTelemetry.getMeter("test"))
+  lazy val ForTesting =
+    new Metrics(new MetricRegistry, new OpenTelemetryFactory(GlobalOpenTelemetry.getMeter("test")))
 }
 
-final class Metrics(override val registry: MetricRegistry, val otelMeter: OtelMeter)
-    extends DropwizardFactory {
-
-  val openTelemetryFactory: OpenTelemetryFactory = new OpenTelemetryFactory(otelMeter)
+final class Metrics(
+    override val registry: MetricRegistry,
+    val openTelemetryFactory: OpenTelemetryFactory,
+) extends DropwizardFactory {
 
   object test {
     private val prefix: MetricName = MetricName("test")

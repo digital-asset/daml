@@ -14,6 +14,7 @@ import com.daml.grpc.sampleservice.HelloServiceResponding
 import com.daml.ledger.api.testing.utils.{AkkaBeforeAndAfterAll, TestingServerInterceptors}
 import com.daml.ledger.resources.{ResourceOwner, TestResourceContext}
 import com.daml.metrics.Metrics
+import com.daml.metrics.api.opentelemetry.OpenTelemetryFactory
 import com.daml.platform.apiserver.MetricsInterceptorSpec._
 import com.daml.platform.hello.HelloServiceGrpc.HelloService
 import com.daml.platform.hello.{HelloRequest, HelloResponse, HelloServiceGrpc}
@@ -112,7 +113,7 @@ final class MetricsInterceptorSpec
   }
 
   private def createMetrics = {
-    new Metrics(new MetricRegistry, GlobalOpenTelemetry.getMeter("test"))
+    new Metrics(new MetricRegistry, new OpenTelemetryFactory(GlobalOpenTelemetry.getMeter("test")))
   }
 }
 

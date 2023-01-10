@@ -12,6 +12,7 @@ import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.logging.ContextualizedLogger
 import com.daml.logging.LoggingContext.{newLoggingContext, withEnrichedLoggingContext}
 import com.daml.metrics.Metrics
+import com.daml.metrics.api.opentelemetry.OpenTelemetryFactory
 import com.daml.platform.LedgerApiServer
 import com.daml.platform.configuration.IndexServiceConfig
 import com.daml.platform.indexer.{IndexerConfig, IndexerServiceOwner, IndexerStartupMode}
@@ -98,7 +99,10 @@ object IndexerStabilityTestFixture {
                   // create a new MetricRegistry for each indexer, so they don't step on each other toes:
                   // Gauges can only be registered once. A subsequent attempt results in an exception for the
                   // call MetricRegistry#register or MetricRegistry#registerGauge
-                  metrics = new Metrics(new MetricRegistry, GlobalOpenTelemetry.getMeter("test"))
+                  metrics = new Metrics(
+                    new MetricRegistry,
+                    new OpenTelemetryFactory(GlobalOpenTelemetry.getMeter("test")),
+                  )
                   (inMemoryState, inMemoryStateUpdaterFlow) <-
                     LedgerApiServer
                       .createInMemoryStateAndUpdater(
