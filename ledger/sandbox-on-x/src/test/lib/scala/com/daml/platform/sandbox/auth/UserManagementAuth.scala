@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.sandbox.auth
@@ -20,9 +20,14 @@ trait UserManagementAuth {
   def stub(token: Option[String]): UserManagementServiceGrpc.UserManagementServiceStub =
     stub(UserManagementServiceGrpc.stub(channel), token)
 
-  def createFreshUser(token: Option[String]): Future[CreateUserResponse] = {
+  def createFreshUser(
+      token: Option[String],
+      identityProviderId: String,
+  ): Future[CreateUserResponse] = {
     val userId = "fresh-user-" + UUID.randomUUID().toString
-    val req = CreateUserRequest(Some(User(userId)))
+    val req = CreateUserRequest(
+      Some(User(userId, identityProviderId = identityProviderId))
+    )
     stub(token).createUser(req)
   }
 

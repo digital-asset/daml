@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.sandbox.auth
@@ -13,10 +13,15 @@ final class SubmitMultiPartyAuthIT
 
   override def serviceCallName: String = "CommandSubmissionService#Submit"
 
-  override def serviceCallWithToken(
-      token: Option[String],
+  override def serviceCall(
+      context: ServiceCallContext,
       requestSubmitters: RequestSubmitters,
   ): Future[Any] =
-    submit(token, requestSubmitters.party, requestSubmitters.actAs, requestSubmitters.readAs)
+    submit(
+      context.token,
+      requestSubmitters.party,
+      requestSubmitters.actAs,
+      requestSubmitters.readAs,
+    )
 
 }

@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.sandbox.auth
@@ -12,16 +12,15 @@ final class UpdateUserAuthIT extends AdminServiceCallAuthTests with UserManageme
 
   override def serviceCallName: String = "UserManagementService#UpdateUser"
 
-  override def serviceCallWithToken(token: Option[String]): Future[Any] = {
+  override def serviceCall(context: ServiceCallContext): Future[Any] =
     for {
-      response <- createFreshUser(token)
-      _ <- stub(token).updateUser(
+      response <- createFreshUser(context.token, context.identityProviderId)
+      _ <- stub(context.token).updateUser(
         UpdateUserRequest(
           user = response.user,
           updateMask = Some(FieldMask(scala.Seq("is_deactivated"))),
         )
       )
     } yield ()
-  }
 
 }

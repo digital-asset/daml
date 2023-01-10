@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.engine.trigger.test
@@ -10,9 +10,6 @@ import com.daml.lf.speedy.SValue._
 import com.daml.lf.value.Value.ContractId
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.daml.ledger.api.v1.commands.CreateCommand
-import com.daml.ledger.api.v1.event.{Event => ApiEvent}
-import com.daml.ledger.api.v1.event.Event.Event.Created
-import com.daml.ledger.api.v1.transaction.{Transaction => ApiTransaction}
 import com.daml.ledger.api.v1.{value => LedgerApi}
 import com.daml.ledger.sandbox.SandboxOnXForTest.ParticipantId
 import com.daml.lf.engine.trigger.Runner.TriggerContext
@@ -25,10 +22,8 @@ import scalaz.syntax.traverse._
 
 import scala.jdk.CollectionConverters._
 import com.daml.lf.engine.trigger.TriggerMsg
-import com.daml.util.Ctx
 
 import java.util.UUID
-import scala.concurrent.Future
 
 abstract class AbstractFuncTests
     extends AsyncWordSpec
@@ -40,86 +35,6 @@ abstract class AbstractFuncTests
   self: Suite =>
 
   this.getClass.getSimpleName can {
-    "Failure testing" should {
-      val contractPairings = 500
-
-      s"with $contractPairings contract pairings and always failing submissions" should {
-        def command(template: String, owner: String, i: Int): CreateCommand =
-          CreateCommand(
-            templateId = Some(LedgerApi.Identifier(packageId, "Cats", template)),
-            createArguments = Some(
-              LedgerApi.Record(fields =
-                Seq(
-                  LedgerApi.RecordField("owner", Some(LedgerApi.Value().withParty(owner))),
-                  template match {
-                    case "TestControl" =>
-                      LedgerApi.RecordField("size", Some(LedgerApi.Value().withInt64(i.toLong)))
-                    case _ =>
-                      LedgerApi.RecordField("isin", Some(LedgerApi.Value().withInt64(i.toLong)))
-                  },
-                )
-              )
-            ),
-          )
-
-        def cat(owner: String, i: Int): CreateCommand = command("Cat", owner, i)
-
-        def food(owner: String, i: Int): CreateCommand = command("Food", owner, i)
-
-        def notObserving(
-            templateId: LedgerApi.Identifier
-        ): TriggerContext[TriggerMsg] => Boolean = {
-          case Ctx(
-                _,
-                TriggerMsg.Transaction(
-                  ApiTransaction(_, _, _, _, Seq(ApiEvent(Created(created))), _)
-                ),
-                _,
-              ) if created.getTemplateId == templateId =>
-            false
-
-          case _ =>
-            true
-        }
-
-        "Process all contract pairings successfully" in {
-          for {
-            client <- ledgerClient()
-            party <- allocateParty(client)
-            _ <- Future.sequence(
-              (0 until contractPairings).map { i =>
-                create(client, party, cat(party, i))
-              }
-            )
-            _ <- Future.sequence(
-              (0 until contractPairings).map { i =>
-                create(client, party, food(party, i))
-              }
-            )
-            runner = getRunner(
-              client,
-              QualifiedName.assertFromString("Cats:trigger"),
-              party,
-            )
-            (acs, offset) <- runner.queryACS()
-            _ <- runner
-              .runWithACS(
-                acs,
-                offset,
-                msgFlow = Flow[TriggerContext[TriggerMsg]]
-                  // Allow flow to proceed until we observe a CatExample:TestComplete contract being created
-                  .takeWhile(
-                    notObserving(LedgerApi.Identifier(packageId, "Cats", "TestComplete"))
-                  ),
-              )
-              ._2
-          } yield {
-            succeed
-          }
-        }
-      }
-    }
-
     "Batch trigger" should {
       val triggerId = QualifiedName.assertFromString("BatchTrigger:test")
 

@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.index
@@ -178,9 +178,9 @@ final class IndexServiceOwner(
       participantId = participantId,
       ledgerEndCache = ledgerEndCache,
       stringInterning = stringInterning,
-      completionsMaxPayloadsPerPayloadsPage = config.completionsMaxPayloadsPerPayloadsPage,
-      transactionsFlatStreamReaderConfig = config.transactionsFlatStreamReaderConfig,
-      transactionsTreeStreamReaderConfig = config.transactionsTreeStreamReaderConfig,
+      completionsPageSize = config.completionsPageSize,
+      transactionFlatStreamsConfig = config.transactionFlatStreams,
+      transactionTreeStreamsConfig = config.transactionTreeStreams,
       globalMaxEventIdQueries = config.globalMaxEventIdQueries,
       globalMaxEventPayloadQueries = config.globalMaxEventPayloadQueries,
     )

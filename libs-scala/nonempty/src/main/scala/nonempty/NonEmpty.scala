@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.nonempty
@@ -261,6 +261,11 @@ object NonEmptyCollInstances {
     def groupBy[K](f: A => K): NonEmpty[Map[K, NonEmpty[C]]] =
       NonEmptyColl.Instance.subst[Lambda[f[_] => f[Map[K, f[C]]]]]((self: ESelf) groupBy f)
     def groupBy1[K](f: A => K): NonEmpty[Map[K, NonEmpty[C]]] = self groupBy f
+    def groupMap[K, B](key: A => K)(f: A => B): NonEmpty[Map[K, NonEmpty[CC[B]]]] =
+      NonEmptyColl.Instance
+        .subst[Lambda[f[_] => f[Map[K, f[CC[B]]]]]]((self: ESelf).groupMap(key)(f))
+    def groupMap1[K, B](key: A => K)(f: A => B): NonEmpty[Map[K, NonEmpty[CC[B]]]] =
+      self.groupMap(key)(f)
     def toList: NonEmpty[List[A]] = un((self: ESelf).toList)
     def toVector: NonEmpty[Vector[A]] = un((self: ESelf).toVector)
     def toSeq: NonEmpty[imm.Seq[A]] = un((self: ESelf).toSeq)

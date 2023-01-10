@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.sandbox.auth
@@ -11,10 +11,10 @@ final class SetTimeAuthIT extends AdminServiceCallAuthTests with TimeAuth {
 
   override def serviceCallName: String = "TimeService#SetTime"
 
-  override def serviceCallWithToken(token: Option[String]): Future[Any] = {
+  override def serviceCall(context: ServiceCallContext): Future[Any] = {
     for {
-      response <- loadTimeNow(token)
-      _ <- stub(TimeServiceGrpc.stub(channel), token)
+      response <- loadTimeNow(context.token)
+      _ <- stub(TimeServiceGrpc.stub(channel), context.token)
         .setTime(
           new SetTimeRequest(
             currentTime = response.get.currentTime,

@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.sandbox.auth
@@ -13,18 +13,19 @@ import scala.concurrent.Future
 class GetUserWithGivenUserIdAuthIT extends AdminServiceCallAuthTests {
   override def serviceCallName: String = "UserManagementService#GetUser(given-user-id)"
 
-  // only admin users are allowed to specify a user-id other than their own for which to retrieve a user
-  override def serviceCallWithToken(token: Option[String]): Future[Any] = {
+  // admin and idp admin users are allowed to specify a user-id other than their own for which to retrieve a user
+  override def serviceCall(context: ServiceCallContext): Future[Any] = {
+    import context._
     val testId = UUID.randomUUID().toString
 
     def getUser(userId: String): Future[User] =
       stub(UserManagementServiceGrpc.stub(channel), token)
-        .getUser(GetUserRequest(userId))
+        .getUser(GetUserRequest(userId, identityProviderId = identityProviderId))
         .map(_.user.get)
 
     for {
       // create a normal users
-      (alice, _) <- createUserByAdmin(testId + "-alice")
+      (alice, _) <- createUserByAdmin(testId + "-alice", identityProviderId = identityProviderId)
 
       // test that only admins can retrieve his own user and the newly created alice user
       _ <- getUser("participant_admin")

@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.store.backend
@@ -23,7 +23,7 @@ class UpdateToMeteringDbDtoSpec extends AnyWordSpec with MetricValues {
 
   import DbDtoEq._
 
-  private val updateEventsMetrics = newUpdateMetrics
+  private val IndexedUpdatesMetrics = newUpdateMetrics
 
   "UpdateMeteringToDbDto" should {
 
@@ -75,7 +75,7 @@ class UpdateToMeteringDbDtoSpec extends AnyWordSpec with MetricValues {
     "extract transaction metering" in {
 
       val actual =
-        UpdateToMeteringDbDto(clock = () => timestamp, updateEventsMetrics)(MetricsContext.Empty)(
+        UpdateToMeteringDbDto(clock = () => timestamp, IndexedUpdatesMetrics)(MetricsContext.Empty)(
           List((Offset.fromHexString(offset), someTransactionAccepted))
         )
 
@@ -104,7 +104,7 @@ class UpdateToMeteringDbDtoSpec extends AnyWordSpec with MetricValues {
       val expected: Vector[DbDto.TransactionMetering] = Vector(metering)
 
       val actual =
-        UpdateToMeteringDbDto(clock = () => timestamp, updateEventsMetrics)(MetricsContext.Empty)(
+        UpdateToMeteringDbDto(clock = () => timestamp, IndexedUpdatesMetrics)(MetricsContext.Empty)(
           List(
             (
               Offset.fromHexString(Ref.HexString.assertFromString("01")),
@@ -123,7 +123,7 @@ class UpdateToMeteringDbDtoSpec extends AnyWordSpec with MetricValues {
 
     "return empty vector if input iterable is empty" in {
       val expected: Vector[DbDto.TransactionMetering] = Vector.empty
-      val actual = UpdateToMeteringDbDto(clock = () => timestamp, updateEventsMetrics)(
+      val actual = UpdateToMeteringDbDto(clock = () => timestamp, IndexedUpdatesMetrics)(
         MetricsContext.Empty
       )(List.empty)
       actual should equal(expected)(decided by DbDtoSeqEq)
@@ -137,7 +137,7 @@ class UpdateToMeteringDbDtoSpec extends AnyWordSpec with MetricValues {
       )
 
       val actual =
-        UpdateToMeteringDbDto(clock = () => timestamp, updateEventsMetrics)(MetricsContext.Empty)(
+        UpdateToMeteringDbDto(clock = () => timestamp, IndexedUpdatesMetrics)(MetricsContext.Empty)(
           List((Offset.fromHexString(offset), txWithNoActionCount))
         )
 
@@ -145,11 +145,11 @@ class UpdateToMeteringDbDtoSpec extends AnyWordSpec with MetricValues {
     }
 
     "increment metered events counter" in {
-      val updateEventsMetrics = newUpdateMetrics
-      UpdateToMeteringDbDto(clock = () => timestamp, updateEventsMetrics)(MetricsContext.Empty)(
+      val IndexedUpdatesMetrics = newUpdateMetrics
+      UpdateToMeteringDbDto(clock = () => timestamp, IndexedUpdatesMetrics)(MetricsContext.Empty)(
         List((Offset.fromHexString(offset), someTransactionAccepted))
       )
-      updateEventsMetrics.meteredEventsMeter.value shouldBe (statistics.committed.actions + statistics.rolledBack.actions)
+      IndexedUpdatesMetrics.meteredEventsMeter.value shouldBe (statistics.committed.actions + statistics.rolledBack.actions)
     }
   }
 

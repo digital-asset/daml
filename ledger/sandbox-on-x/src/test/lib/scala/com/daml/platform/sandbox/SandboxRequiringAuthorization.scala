@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.sandbox
@@ -39,9 +39,10 @@ trait SandboxRequiringAuthorizationFuns {
       userId: String,
       expiresIn: Option[Duration] = None,
       participantId: Option[String] = None,
+      issuer: Option[String] = None,
   ): StandardJWTPayload =
     StandardJWTPayload(
-      issuer = None,
+      issuer = issuer,
       participantId = participantId,
       userId = userId,
       exp = expiresIn.map(delta => Instant.now().plusNanos(delta.toNanos)),

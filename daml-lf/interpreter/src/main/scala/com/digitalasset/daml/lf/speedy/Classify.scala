@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -38,7 +38,7 @@ private[speedy] object Classify { // classify the machine state w.r.t what step 
     }
   }
 
-  def classifyMachine(machine: Machine, counts: Counts): Unit = {
+  def classifyMachine(machine: Machine[_], counts: Counts): Unit = {
     machine.currentControl match {
       case Control.Value(_) =>
         // classify a value by the continuation it is about to return to

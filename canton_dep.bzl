@@ -1,8 +1,8 @@
-# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 canton = {
-    "sha": "fd830e5f3d09009fdff38033deb773cea5d6891875752de67cbca80e772c6fcf",
+    "sha": "3ce5365d5719a0c8f7b651dfd2bc415f7fee8da29175cd0cc2c599c895a5d9f4",
     "prefix": "canton-open-source-2.6.0-SNAPSHOT",
-    "url": "https://www.canton.io/releases/canton-open-source-20221219.tar.gz",
+    "url": "https://www.canton.io/releases/canton-open-source-20230106.tar.gz",
 }

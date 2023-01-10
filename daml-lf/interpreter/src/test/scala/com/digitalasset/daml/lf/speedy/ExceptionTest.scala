@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -694,7 +694,7 @@ class ExceptionTest extends AnyWordSpec with Inside with Matchers with TableDriv
 
   private val party = Party.assertFromString("Alice")
 
-  private def runUpdateExpr(pkgs1: PureCompiledPackages)(e: Expr): SResult = {
+  private def runUpdateExpr(pkgs1: PureCompiledPackages)(e: Expr): SResult[Question.Update] = {
     def transactionSeed: crypto.Hash = crypto.Hash.hashPrivateKey("ExceptionTest.scala")
     Speedy.Machine.fromUpdateExpr(pkgs1, transactionSeed, e, Set(party)).run()
   }

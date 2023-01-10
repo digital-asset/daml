@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.http.dbbackend
@@ -24,15 +24,16 @@ class QueriesSpec extends AnyWordSpec with Matchers with TableDrivenPropertyChec
     val cases = Table(
       ("map", "projection"),
       (
-        Seq((SurrogateTpId(55L), fr"foo") -> 0),
+        NonEmpty(Seq, (SurrogateTpId(55L), fr"foo") -> 0),
         sql"CASE WHEN (tpid = ${55L}) THEN ${0}||''  ELSE NULL END ",
       ),
       (
-        Seq((SurrogateTpId(55L), fr"foo") -> 0, (SurrogateTpId(66L), fr"foo") -> 1),
+        NonEmpty(Seq, (SurrogateTpId(55L), fr"foo") -> 0, (SurrogateTpId(66L), fr"foo") -> 1),
         sql"CASE WHEN (tpid = ${55L}) THEN ${0}||''  WHEN (tpid = ${66L}) THEN ${1}||''  ELSE NULL END ",
       ),
       (
-        Seq(
+        NonEmpty(
+          Seq,
           (SurrogateTpId(55L), fr"foo") -> 0,
           (SurrogateTpId(55L), fr"bar") -> 1,
           (SurrogateTpId(66L), fr"baz") -> 2,

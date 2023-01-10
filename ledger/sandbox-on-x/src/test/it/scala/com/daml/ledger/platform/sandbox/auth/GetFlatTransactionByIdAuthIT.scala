@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.sandbox.auth
@@ -24,7 +24,7 @@ final class GetFlatTransactionByIdAuthIT extends ReadOnlyServiceCallAuthTests {
   private lazy val request =
     new GetTransactionByIdRequest(unwrappedLedgerId, UUID.randomUUID.toString, List(mainActor))
 
-  override def serviceCallWithToken(token: Option[String]): Future[Any] =
-    stub(TransactionServiceGrpc.stub(channel), token).getFlatTransactionById(request)
+  override def serviceCall(context: ServiceCallContext): Future[Any] =
+    stub(TransactionServiceGrpc.stub(channel), context.token).getFlatTransactionById(request)
 
 }

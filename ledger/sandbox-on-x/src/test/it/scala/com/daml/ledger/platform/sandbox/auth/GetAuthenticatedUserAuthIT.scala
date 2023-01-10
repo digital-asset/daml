@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.sandbox.auth
@@ -23,28 +23,30 @@ class GetAuthenticatedUserAuthIT extends ServiceCallAuthTests {
 
   override def serviceCallName: String = "UserManagementService#GetUser(<authenticated-user>)"
 
-  override def serviceCallWithToken(token: Option[String]): Future[Any] =
-    stub(UserManagementServiceGrpc.stub(channel), token).getUser(GetUserRequest())
+  override def serviceCall(context: ServiceCallContext): Future[Any] =
+    stub(UserManagementServiceGrpc.stub(channel), context.token)
+      .getUser(GetUserRequest(identityProviderId = context.identityProviderId))
 
-  private def expectUser(token: Option[String], expectedUser: User): Future[Assertion] =
-    serviceCallWithToken(token).map(assertResult(GetUserResponse(Some(expectedUser)))(_))
+  private def expectUser(context: ServiceCallContext, expectedUser: User): Future[Assertion] =
+    serviceCall(context).map(assertResult(GetUserResponse(Some(expectedUser)))(_))
 
-  private def getUser(token: Option[String], userId: String) =
-    stub(UserManagementServiceGrpc.stub(channel), token).getUser(GetUserRequest(userId))
+  private def getUser(context: ServiceCallContext, userId: String) =
+    stub(UserManagementServiceGrpc.stub(channel), context.token)
+      .getUser(GetUserRequest(userId, identityProviderId = context.identityProviderId))
 
   behavior of serviceCallName
 
   it should "deny unauthenticated access" taggedAs securityAsset.setAttack(
     attackUnauthenticated(threat = "Do not present JWT")
   ) in {
-    expectUnauthenticated(serviceCallWithToken(None))
+    expectUnauthenticated(serviceCall(noToken))
   }
 
   it should "deny access for a standard token referring to an unknown user" taggedAs securityAsset
     .setAttack(
       attackPermissionDenied(threat = "Present JWT with an unknown user")
     ) in {
-    expectPermissionDenied(serviceCallWithToken(canReadAsUnknownUserStandardJWT))
+    expectPermissionDenied(serviceCall(canReadAsUnknownUserStandardJWT))
   }
 
   it should "return the 'participant_admin' user when using its standard token" taggedAs securityAsset
@@ -65,7 +67,7 @@ class GetAuthenticatedUserAuthIT extends ServiceCallAuthTests {
   it should "return invalid argument for custom token" taggedAs securityAsset.setAttack(
     attackInvalidArgument(threat = "Present a custom JWT")
   ) in {
-    expectInvalidArgument(serviceCallWithToken(canReadAsAdmin))
+    expectInvalidArgument(serviceCall(canReadAsAdmin))
   }
 
   it should "allow access to a non-admin user's own user record" taggedAs securityAsset
@@ -74,11 +76,11 @@ class GetAuthenticatedUserAuthIT extends ServiceCallAuthTests {
     ) in {
     for {
       // admin creates user
-      (alice, aliceToken) <- createUserByAdmin(testId + "-alice")
+      (alice, aliceTokenContext) <- createUserByAdmin(testId + "-alice")
       // user accesses its own user record without specifying the id
-      aliceRetrieved1 <- getUser(aliceToken, "")
+      aliceRetrieved1 <- getUser(aliceTokenContext, "")
       // user accesses its own user record with specifying the id
-      aliceRetrieved2 <- getUser(aliceToken, alice.id)
+      aliceRetrieved2 <- getUser(aliceTokenContext, alice.id)
       expected = GetUserResponse(Some(alice))
     } yield assertResult((expected, expected))((aliceRetrieved1, aliceRetrieved2))
   }
