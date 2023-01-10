@@ -42,7 +42,7 @@ Checking Coverage
 
 When ``daml test`` runs, it analyzes the ledger record to produce a report on what percentage of templates were created and which interface and template choices were exercised during our tests.
 
-Define Templates, Choices, and Interfaces
+Define templates, choices, and interfaces
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 To demonstrate how the coverage report works, we start by defining three dummy templates, ``T1``, ``T2``, and ``T3``. Each template has two dummy choices:
