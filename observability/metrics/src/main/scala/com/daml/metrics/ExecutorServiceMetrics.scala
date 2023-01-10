@@ -14,6 +14,7 @@ import com.daml.metrics.ExecutorServiceMetrics.{
 import com.daml.metrics.InstrumentedExecutorServiceMetrics.InstrumentedExecutorService
 import com.daml.metrics.api.MetricHandle.Factory
 import com.daml.metrics.api.{MetricName, MetricsContext}
+import com.daml.scalautil.Statement.discard
 import org.slf4j.LoggerFactory
 
 class ExecutorServiceMetrics(factory: Factory) {
@@ -95,15 +96,17 @@ class ExecutorServiceMetrics(factory: Factory) {
         "Approximate total number of tasks that have ever been scheduled for execution.",
       )
       queuedTasksGauge(() => executor.getQueue.size)
-      factory.gaugeWithSupplier(
-        ThreadPoolMetricsName.RemainingQueueCapacity,
-        () => executor.getQueue.remainingCapacity,
-        "Additional elements that this queue can ideally accept without blocking.",
-      )
+      discard {
+        factory.gaugeWithSupplier(
+          ThreadPoolMetricsName.RemainingQueueCapacity,
+          () => executor.getQueue.remainingCapacity,
+          "Additional elements that this queue can ideally accept without blocking.",
+        )
+      }
     }
   }
 
-  private def poolSizeGauge(size: () => Int)(implicit mc: MetricsContext): Unit = {
+  private def poolSizeGauge(size: () => Int)(implicit mc: MetricsContext): Unit = discard {
     factory.gaugeWithSupplier(
       CommonMetricsName.PoolSize,
       size,
@@ -111,15 +114,16 @@ class ExecutorServiceMetrics(factory: Factory) {
     )
   }
 
-  private def activeThreadsGauge(activeThreads: () => Int)(implicit mc: MetricsContext): Unit = {
-    factory.gaugeWithSupplier(
-      CommonMetricsName.ActiveThreads,
-      activeThreads,
-      "Estimate of the number of threads that executing tasks.",
-    )
-  }
+  private def activeThreadsGauge(activeThreads: () => Int)(implicit mc: MetricsContext): Unit =
+    discard {
+      factory.gaugeWithSupplier(
+        CommonMetricsName.ActiveThreads,
+        activeThreads,
+        "Estimate of the number of threads that executing tasks.",
+      )
+    }
 
-  private def queuedTasksGauge(queueSize: () => Int)(implicit mc: MetricsContext): Unit = {
+  private def queuedTasksGauge(queueSize: () => Int)(implicit mc: MetricsContext): Unit = discard {
     factory.gaugeWithSupplier(
       CommonMetricsName.QueuedTasks,
       queueSize,
