@@ -1,15 +1,18 @@
 -- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-module InterfaceSynonymTypeMismatchErrors where
+module InterfaceSynonymNonExistentMethod where
 
--- @ERROR range=23:7-23:24; Implementation of method ‘getValueBad’ on interface ‘I’ should return ‘Int’ but instead returns ‘Text’
+-- @ERROR range=27:7-27:31; Tried to implement method ‘getValueNonexistent’, but interface ‘I’ does not have a method with that name. Method ‘getValueNonexistent’ is only a method on the following interfaces: ‘J’
 
 type I = MyLongInterfaceNameI
 interface MyLongInterfaceNameI where
   getValueGood : Int
   getValueBad : Int
   viewtype TView
+
+interface J where
+  getValueNonexistent : ()
 
 data TView = TView {}
 
@@ -20,4 +23,5 @@ template T with p: Party
       view = TView
       -- Check that method return types matching resolves synonyms first
       getValueGood = 1 -- matching case
-      getValueBad = "c" -- mismatching case
+      -- Check that missing method warnings still considers I to be an interface
+      getValueNonexistent = ()
