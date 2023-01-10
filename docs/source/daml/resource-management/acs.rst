@@ -7,7 +7,7 @@ Managing Latency and Throughput
 Problem Definition
 ******************
 
-Latency is a measure of how long a business transaction takes to complete while throughput measures, on average, the minimum and maximum range of business transactions possible per second. Defense against latency and throughput issues can be written into the Daml application during design. 
+Latency is a measure of how long a business transaction takes to complete. Throughput measures, on average, the number of business transactions possible per second while taking into account any lower or upper bounds which may point to bottlenecks. Defense against latency and throughput issues can be written into the Daml application during design. 
 
 First we need to identify the potential bottlenecks in a Daml application. We can do this by analyzing the domain-specific transactions.
 
