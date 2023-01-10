@@ -1,0 +1,9 @@
+
+module UseTheNewPrimitive where
+
+import DA.Assert ((===))
+
+main = scenario do
+  revApp 11 (\x -> x*x) === 121
+
+-- @ENABLE-SCENARIOS

@@ -655,6 +655,17 @@ private[lf] object SBuiltin {
     }
   }
 
+  final case object SBRevApp extends SBuiltin(2) {
+    override private[speedy] def execute[Q](
+        args: util.ArrayList[SValue],
+        machine: Machine[Q],
+    ): Control[Q] = {
+      val arg = args.get(0)
+      val func = args.get(1).asInstanceOf[SPAP]
+      machine.enterApplication(func, Array(SEValue(arg)))
+    }
+  }
+
   final case object SBMapToList extends SBuiltinPure(1) {
 
     override private[speedy] def executePure(args: util.ArrayList[SValue]): SList =

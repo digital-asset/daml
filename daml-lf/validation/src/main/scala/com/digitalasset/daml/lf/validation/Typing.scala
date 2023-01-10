@@ -136,6 +136,12 @@ private[validation] object Typing {
           alpha.name -> KStar,
           TForall(beta.name -> KStar, (alpha ->: beta ->: beta) ->: beta ->: TList(alpha) ->: beta),
         ),
+      // Example of new primitive
+      BRevApp ->
+        TForall(
+          alpha.name -> KStar,
+          TForall(beta.name -> KStar, alpha ->: (alpha ->: beta) ->: beta),
+        ),
       // Maps
       BTextMapEmpty ->
         TForall(

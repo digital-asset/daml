@@ -301,6 +301,9 @@ data BuiltinExpr
   | BEFoldr                      -- :: ∀a b. (a -> b -> b) -> b -> List a -> b
   | BEEqualList                  -- :: ∀a. (a -> a -> Bool) -> List a -> List a -> Bool
 
+  -- Example of new primitive
+  | BERevApp                     -- :: ∀a b. a -> (a -> b) -> b
+
   -- Map operations
   | BETextMapEmpty               -- :: ∀ a. TextMap a
   | BETextMapInsert              -- :: ∀ a. Text -> a -> TextMap a -> TextMap a

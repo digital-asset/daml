@@ -47,6 +47,8 @@ module DA.Internal.LF
   #ifdef DAML_EXCEPTIONS
   , AnyException
   #endif
+
+  , revApp
   ) where
 
 import GHC.Stack.Types (HasCallStack)
@@ -270,3 +272,7 @@ instance Ord TypeRep where
 data AnyException = AnyException Opaque
 
 #endif
+
+-- | Example of new primitive -- reverse function application
+revApp : a -> (a -> b) -> b
+revApp = primitive @"BERevApp"

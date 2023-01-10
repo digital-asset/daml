@@ -458,6 +458,7 @@ private[lf] final class PhaseOne(
           // List functions
           case BFoldl => SBFoldl
           case BFoldr => SBFoldr
+          case BRevApp => SBRevApp
           case BEqualList => SBEqualList
 
           // Errors
