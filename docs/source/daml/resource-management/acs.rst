@@ -202,7 +202,7 @@ When you need to read a contract, or act on a single contract in multiple ways, 
 
 Separate templates for large payloads that change rarely and require minimum access from those for fields that change with almost every action. This optimizes resource consumption for multiple business transactions. 
 
-This batching approach makes updates in one transaction submission rather than requiring separate transactions for each update. Note: this option can increase latency a little bit and may increase the possibility of command failure but this can be avoided. For example:
+This batching approach makes updates in one transaction submission rather than requiring separate transactions for each update. Note: this option can cause a small increase in latency and may increase the possibility of command failure but this can be avoided. For example:
 
 .. code-block:: daml
 
