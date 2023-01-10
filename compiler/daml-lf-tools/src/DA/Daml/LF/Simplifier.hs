@@ -137,6 +137,7 @@ safetyStep = \case
       BEExpInt64          -> Safe 1
       BEFoldl             -> Safe 2
       BEFoldr             -> Safe 2
+      BEWithAuthorityOf   -> undefined -- NICK
       BETextMapEmpty      -> Safe 0
       BETextMapInsert     -> Safe 3
       BETextMapLookup     -> Safe 2
