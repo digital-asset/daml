@@ -43,15 +43,15 @@ final class FailureTesting
     val contractPairings = 400
 
     def notObserving(
-      templateId: LedgerApi.Identifier
+        templateId: LedgerApi.Identifier
     ): TriggerContext[TriggerMsg] => Boolean = {
       case Ctx(
-      _,
-      TriggerMsg.Transaction(
-      ApiTransaction(_, _, _, _, Seq(ApiEvent(Created(created))), _)
-      ),
-      _,
-      ) if created.getTemplateId == templateId =>
+            _,
+            TriggerMsg.Transaction(
+              ApiTransaction(_, _, _, _, Seq(ApiEvent(Created(created))), _)
+            ),
+            _,
+          ) if created.getTemplateId == templateId =>
         false
 
       case _ =>

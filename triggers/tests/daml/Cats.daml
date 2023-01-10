@@ -120,7 +120,7 @@ crashingTrigger = Trigger
       (breedCount, baseIndex) <- get
       put (2 * breedCount, baseIndex + breedCount + 1)
   , rule = uncontrolledBreeding
-  , registeredTemplates = RegisteredTemplates [ registeredTemplate @TestComplete, registeredTemplate @Cat ]
+  , registeredTemplates = RegisteredTemplates [ registeredTemplate @Cat ]
   , heartbeat = Some (seconds 1)
   }
 
