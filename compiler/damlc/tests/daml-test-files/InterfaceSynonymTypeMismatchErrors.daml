@@ -3,7 +3,7 @@
 
 module InterfaceSynonymTypeMismatchErrors where
 
--- @ERROR range=23:7-23:24; Implementation of method ‘getValueBad’ on interface ‘I’ should return ‘Int’ but instead returns ‘Text’
+-- @ERROR range=23:7-23:24; Possible Daml-specific reason for the following type error: Implementation of method ‘getValueBad’ on interface ‘I’ should return ‘Int’ but instead returns ‘Text’
 
 type I = MyLongInterfaceNameI
 interface MyLongInterfaceNameI where

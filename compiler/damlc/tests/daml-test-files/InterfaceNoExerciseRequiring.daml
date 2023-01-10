@@ -25,7 +25,7 @@ interface Token where
 interface SubToken requires Token where
   viewtype EmptyInterfaceView
 
--- @ERROR range=31:3-32:26; The choice ‘GetRich’ belongs to interface ‘Token’ which ‘SubToken’ implements.
+-- @ERROR range=31:3-32:26; Possible Daml-specific reason for the following type error: The choice ‘GetRich’ belongs to interface ‘Token’ which ‘SubToken’ implements.
 cannotExercise : ContractId SubToken -> Update (ContractId Token)
 cannotExercise sub = do
   exercise sub GetRich with

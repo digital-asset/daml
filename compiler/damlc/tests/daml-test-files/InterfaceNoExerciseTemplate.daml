@@ -36,7 +36,7 @@ template Asset
       getAmount = amount
       setAmount x = toInterface @Token (this with amount = x)
 
--- @ERROR range=42:3-43:26; The choice ‘GetRich’ belongs to interface ‘Token’ which ‘Asset’ implements.
+-- @ERROR range=42:3-43:26; Possible Daml-specific reason for the following type error: The choice ‘GetRich’ belongs to interface ‘Token’ which ‘Asset’ implements.
 cannotExercise : ContractId Asset -> Update (ContractId Token)
 cannotExercise asset = do
   exercise asset GetRich with

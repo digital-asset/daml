@@ -3,7 +3,7 @@
 
 module InterfaceChoiceResultMismatch where
 
--- @ERROR range=23:12-23:27; Tried to get a result of type ‘Either Text ()’ by exercising choice ‘C’ on interface ‘I’ but exercising choice ‘C’ should return type ‘()’ instead.
+-- @ERROR range=23:12-23:27; Possible Daml-specific reason for the following type error: Tried to get a result of type ‘Either Text ()’ by exercising choice ‘C’ on interface ‘I’ but exercising choice ‘C’ should return type ‘()’ instead.
 
 interface I where
   getController : Party
