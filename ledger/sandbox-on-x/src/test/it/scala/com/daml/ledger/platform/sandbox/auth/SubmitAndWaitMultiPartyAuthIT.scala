@@ -13,10 +13,15 @@ final class SubmitAndWaitMultiPartyAuthIT
 
   override def serviceCallName: String = "CommandService#SubmitAndWait"
 
-  override def serviceCallWithToken(
-      token: Option[String],
+  override def serviceCall(
+      context: ServiceCallContext,
       requestSubmitters: RequestSubmitters,
   ): Future[Any] =
-    submitAndWait(token, requestSubmitters.party, requestSubmitters.actAs, requestSubmitters.readAs)
+    submitAndWait(
+      context.token,
+      requestSubmitters.party,
+      requestSubmitters.actAs,
+      requestSubmitters.readAs,
+    )
 
 }

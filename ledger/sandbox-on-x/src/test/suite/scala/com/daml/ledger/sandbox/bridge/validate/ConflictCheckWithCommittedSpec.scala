@@ -265,7 +265,7 @@ class ConflictCheckWithCommittedSpec
     val conflictCheckWithCommitted: ConflictCheckWithCommittedImpl =
       new ConflictCheckWithCommittedImpl(
         indexService = indexServiceMock,
-        bridgeMetrics = new BridgeMetrics(Metrics.ForTesting),
+        bridgeMetrics = new BridgeMetrics(Metrics.ForTesting.dropwizardFactory),
       )(scala.concurrent.ExecutionContext.global)
 
     val inputContract: ContractId = cid(1)

@@ -9,7 +9,6 @@ final class CreateUserAuthIT extends AdminServiceCallAuthTests with UserManageme
 
   override def serviceCallName: String = "UserManagementService#CreateUser"
 
-  override def serviceCallWithToken(token: Option[String]): Future[Any] =
-    createFreshUser(token)
-
+  override def serviceCall(context: ServiceCallContext): Future[Any] =
+    createFreshUser(context.token, context.identityProviderId)
 }

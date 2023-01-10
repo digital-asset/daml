@@ -11,8 +11,8 @@ final class GetLedgerApiVersionAuthIT extends UnsecuredServiceCallAuthTests {
 
   override def serviceCallName: String = "VersionService#GetLedgerApiVersion"
 
-  override def serviceCallWithToken(token: Option[String]): Future[Any] =
-    stub(VersionServiceGrpc.stub(channel), token)
+  override def serviceCall(context: ServiceCallContext): Future[Any] =
+    stub(VersionServiceGrpc.stub(channel), context.token)
       .getLedgerApiVersion(new GetLedgerApiVersionRequest())
 
 }

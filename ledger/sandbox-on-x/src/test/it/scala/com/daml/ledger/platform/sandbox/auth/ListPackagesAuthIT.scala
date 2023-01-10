@@ -11,8 +11,8 @@ final class ListPackagesAuthIT extends PublicServiceCallAuthTests {
 
   override def serviceCallName: String = "PackageService#ListPackages"
 
-  override def serviceCallWithToken(token: Option[String]): Future[Any] =
-    stub(PackageServiceGrpc.stub(channel), token)
+  override def serviceCall(context: ServiceCallContext): Future[Any] =
+    stub(PackageServiceGrpc.stub(channel), context.token)
       .listPackages(ListPackagesRequest())
 
 }

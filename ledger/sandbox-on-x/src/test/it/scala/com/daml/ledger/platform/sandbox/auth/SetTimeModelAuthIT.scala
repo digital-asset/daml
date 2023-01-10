@@ -30,11 +30,11 @@ final class SetTimeModelAuthIT extends AdminServiceCallAuthTests {
     stub(ConfigManagementServiceGrpc.stub(channel), token).setTimeModel(request)
   }
 
-  override def serviceCallWithToken(token: Option[String]): Future[Any] = {
+  override def serviceCall(context: ServiceCallContext): Future[Any] = {
     for {
-      response <- stub(ConfigManagementServiceGrpc.stub(channel), token)
+      response <- stub(ConfigManagementServiceGrpc.stub(channel), context.token)
         .getTimeModel(new GetTimeModelRequest())
-      _ <- setTimeModel(token, response.getTimeModel, response.configurationGeneration)
+      _ <- setTimeModel(context.token, response.getTimeModel, response.configurationGeneration)
     } yield ()
   }
 

@@ -20,10 +20,10 @@ final class GetPackageStatusAuthIT extends PublicServiceCallAuthTests {
       .listPackages(ListPackagesRequest())
   }
 
-  override def serviceCallWithToken(token: Option[String]): Future[Any] =
+  override def serviceCall(context: ServiceCallContext): Future[Any] =
     for {
-      loadPackageResponse <- loadPackages(token)
-      _ <- stub(PackageServiceGrpc.stub(channel), token)
+      loadPackageResponse <- loadPackages(context.token)
+      _ <- stub(PackageServiceGrpc.stub(channel), context.token)
         .getPackageStatus(GetPackageStatusRequest(packageId = loadPackageResponse.packageIds.head))
     } yield ()
 

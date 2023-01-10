@@ -8,9 +8,7 @@ import com.daml.ledger.api.v1.admin.party_management_service.{
   AllocatePartyRequest,
   PartyManagementServiceGrpc,
 }
-
 import java.util.concurrent.Executors
-
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, ExecutionContext, Future}
 

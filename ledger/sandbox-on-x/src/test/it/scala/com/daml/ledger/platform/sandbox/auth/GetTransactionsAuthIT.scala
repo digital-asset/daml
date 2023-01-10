@@ -20,9 +20,10 @@ final class GetTransactionsAuthIT
   private lazy val request =
     new GetTransactionsRequest(unwrappedLedgerId, Option(ledgerBegin), None, txFilterFor(mainActor))
 
-  override protected def stream: Option[String] => StreamObserver[GetTransactionsResponse] => Unit =
-    token =>
-      observer =>
-        stub(TransactionServiceGrpc.stub(channel), token).getTransactions(request, observer)
+  override protected def stream(
+      context: ServiceCallContext
+  ): StreamObserver[GetTransactionsResponse] => Unit =
+    observer =>
+      stub(TransactionServiceGrpc.stub(channel), context.token).getTransactions(request, observer)
 
 }

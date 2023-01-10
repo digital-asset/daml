@@ -3,18 +3,17 @@
 
 package com.daml.metrics
 
-import com.codahale.metrics.MetricRegistry
+import com.daml.metrics.api.MetricHandle.Factory
 import com.daml.metrics.api.{MetricDoc, MetricName}
-import com.daml.metrics.api.dropwizard.FactoryWithDBMetrics
 
 @MetricDoc.GroupTag(
   representative = "daml.user_management.<operation>",
   groupableClass = classOf[DatabaseMetrics],
 )
-class UserManagementMetrics(override val prefix: MetricName, override val registry: MetricRegistry)
-    extends FactoryWithDBMetrics {
+class UserManagementMetrics(val prefix: MetricName, val factory: Factory)
+    extends DatabaseMetricsFactory(prefix, factory) {
 
-  val cache = new CacheMetrics(prefix :+ "cache", registry)
+  val cache = new CacheMetrics(prefix :+ "cache", factory)
 
   val getUserInfo: DatabaseMetrics = createDbMetrics("get_user_info")
   val createUser: DatabaseMetrics = createDbMetrics("create_user")
@@ -23,4 +22,5 @@ class UserManagementMetrics(override val prefix: MetricName, override val regist
   val grantRights: DatabaseMetrics = createDbMetrics("grant_rights")
   val revokeRights: DatabaseMetrics = createDbMetrics("revoke_rights")
   val listUsers: DatabaseMetrics = createDbMetrics("list_users")
+
 }

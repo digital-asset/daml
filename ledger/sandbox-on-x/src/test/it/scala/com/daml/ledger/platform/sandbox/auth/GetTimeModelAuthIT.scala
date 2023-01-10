@@ -14,7 +14,8 @@ final class GetTimeModelAuthIT extends AdminServiceCallAuthTests {
 
   override def serviceCallName: String = "ConfigManagementService#GetTimeModel"
 
-  override def serviceCallWithToken(token: Option[String]): Future[Any] =
-    stub(ConfigManagementServiceGrpc.stub(channel), token).getTimeModel(new GetTimeModelRequest())
+  override def serviceCall(context: ServiceCallContext): Future[Any] =
+    stub(ConfigManagementServiceGrpc.stub(channel), context.token)
+      .getTimeModel(new GetTimeModelRequest())
 
 }

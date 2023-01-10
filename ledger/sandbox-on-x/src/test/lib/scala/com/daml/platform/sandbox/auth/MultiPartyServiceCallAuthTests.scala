@@ -33,19 +33,21 @@ trait MultiPartyServiceCallAuthTests extends SecuredServiceCallAuthTests {
   private[this] val randomActAs: List[String] = List.fill(actorsCount)(UUID.randomUUID.toString)
   private[this] val randomReadAs: List[String] = List.fill(readersCount)(UUID.randomUUID.toString)
 
-  override def serviceCallWithToken(token: Option[String]): Future[Any] =
-    serviceCallWithToken(token, submitters)
+  override def serviceCall(context: ServiceCallContext): Future[Any] =
+    serviceCall(context, submitters)
 
-  def serviceCallWithToken(token: Option[String], requestSubmitters: RequestSubmitters): Future[Any]
+  def serviceCall(context: ServiceCallContext, requestSubmitters: RequestSubmitters): Future[Any]
 
   private[this] def serviceCallFor(
       tokenParties: TokenParties,
       requestSubmitters: RequestSubmitters,
   ): Future[Any] = {
-    val token = Option(
-      toHeader(multiPartyToken(tokenParties.actAs, tokenParties.readAs))
+    val context = ServiceCallContext(
+      Option(
+        toHeader(multiPartyToken(tokenParties.actAs, tokenParties.readAs))
+      )
     )
-    serviceCallWithToken(token, requestSubmitters)
+    serviceCall(context, requestSubmitters)
   }
 
   protected override def prerequisiteParties: List[String] = actAs :+ singleParty

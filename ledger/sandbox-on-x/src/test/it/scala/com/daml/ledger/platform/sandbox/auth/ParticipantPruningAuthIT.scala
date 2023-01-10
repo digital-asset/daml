@@ -14,8 +14,8 @@ final class ParticipantPruningAuthIT extends AdminServiceCallAuthTests {
 
   override def serviceCallName: String = "ParticipantPruningService#Prune"
 
-  override def serviceCallWithToken(token: Option[String]): Future[Any] =
-    stub(ParticipantPruningServiceGrpc.stub(channel), token)
+  override def serviceCall(context: ServiceCallContext): Future[Any] =
+    stub(ParticipantPruningServiceGrpc.stub(channel), context.token)
       .prune(new PruneRequest(pruneUpTo = "000000000000"))
 
 }

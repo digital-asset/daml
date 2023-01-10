@@ -11,8 +11,8 @@ final class ListKnownPartiesAuthIT extends AdminServiceCallAuthTests {
 
   override def serviceCallName: String = "PartyManagementService#ListKnownParties"
 
-  override def serviceCallWithToken(token: Option[String]): Future[Any] =
-    stub(PartyManagementServiceGrpc.stub(channel), token)
-      .listKnownParties(ListKnownPartiesRequest())
+  override def serviceCall(context: ServiceCallContext): Future[Any] =
+    stub(PartyManagementServiceGrpc.stub(channel), context.token)
+      .listKnownParties(ListKnownPartiesRequest(identityProviderId = context.identityProviderId))
 
 }

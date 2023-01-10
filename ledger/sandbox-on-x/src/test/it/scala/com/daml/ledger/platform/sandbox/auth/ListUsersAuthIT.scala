@@ -11,7 +11,7 @@ final class ListUsersAuthIT extends AdminServiceCallAuthTests with UserManagemen
 
   override def serviceCallName: String = "UserManagementService#ListUsers"
 
-  override def serviceCallWithToken(token: Option[String]): Future[Any] =
-    stub(token).listUsers(ListUsersRequest())
+  override def serviceCall(context: ServiceCallContext): Future[Any] =
+    stub(context.token).listUsers(ListUsersRequest(identityProviderId = context.identityProviderId))
 
 }

@@ -13,7 +13,7 @@ trait ServiceCallWithMainActorAuthTests extends SecuredServiceCallAuthTests {
   final protected val mainActor: String = UUID.randomUUID.toString
 
   private val signedIncorrectly =
-    Option(toHeader(readWriteToken(mainActor), UUID.randomUUID.toString))
+    ServiceCallContext(Option(toHeader(readWriteToken(mainActor), UUID.randomUUID.toString)))
 
   it should "deny calls authorized to read/write as the wrong party" taggedAs securityAsset
     .setAttack(
@@ -21,68 +21,88 @@ trait ServiceCallWithMainActorAuthTests extends SecuredServiceCallAuthTests {
         "Present a JWT with an unknown party authorized to read/write"
       )
     ) in {
-    expectPermissionDenied(serviceCallWithToken(canActAsRandomParty))
+    expectPermissionDenied(serviceCall(canActAsRandomParty))
   }
   it should "deny calls authorized to read-only as the wrong party" taggedAs securityAsset
     .setAttack(
       attackPermissionDenied(threat = "Present a JWT with an unknown party authorized to read-only")
     ) in {
-    expectPermissionDenied(serviceCallWithToken(canReadAsRandomParty))
+    expectPermissionDenied(serviceCall(canReadAsRandomParty))
   }
   it should "deny calls with an invalid signature" taggedAs securityAsset.setAttack(
     attackPermissionDenied(threat = "Present a JWT signed by an unknown secret")
   ) in {
-    expectUnauthenticated(serviceCallWithToken(signedIncorrectly))
+    expectUnauthenticated(serviceCall(signedIncorrectly))
   }
 
   protected val canReadAsMainActor =
-    Option(toHeader(readOnlyToken(mainActor)))
+    ServiceCallContext(Option(toHeader(readOnlyToken(mainActor))))
   protected val canReadAsMainActorExpired =
-    Option(toHeader(expiringIn(Duration.ofDays(-1), readOnlyToken(mainActor))))
+    ServiceCallContext(Option(toHeader(expiringIn(Duration.ofDays(-1), readOnlyToken(mainActor)))))
   protected val canReadAsMainActorExpiresTomorrow =
-    Option(toHeader(expiringIn(Duration.ofDays(1), readOnlyToken(mainActor))))
+    ServiceCallContext(Option(toHeader(expiringIn(Duration.ofDays(1), readOnlyToken(mainActor)))))
 
   protected val canActAsMainActor =
-    Option(toHeader(readWriteToken(mainActor)))
+    ServiceCallContext(Option(toHeader(readWriteToken(mainActor))))
   protected val canActAsMainActorExpired =
-    Option(toHeader(expiringIn(Duration.ofDays(-1), readWriteToken(mainActor))))
+    ServiceCallContext(Option(toHeader(expiringIn(Duration.ofDays(-1), readWriteToken(mainActor)))))
   protected val canActAsMainActorExpiresTomorrow =
-    Option(toHeader(expiringIn(Duration.ofDays(1), readWriteToken(mainActor))))
+    ServiceCallContext(Option(toHeader(expiringIn(Duration.ofDays(1), readWriteToken(mainActor)))))
 
   // Note: lazy val, because the ledger ID is only known after the sandbox start
   protected lazy val canReadAsMainActorActualLedgerId =
-    Option(toHeader(forLedgerId(unwrappedLedgerId, readOnlyToken(mainActor))))
+    ServiceCallContext(Option(toHeader(forLedgerId(unwrappedLedgerId, readOnlyToken(mainActor)))))
   protected val canReadAsMainActorRandomLedgerId =
-    Option(toHeader(forLedgerId(UUID.randomUUID.toString, readOnlyToken(mainActor))))
+    ServiceCallContext(
+      Option(toHeader(forLedgerId(UUID.randomUUID.toString, readOnlyToken(mainActor))))
+    )
   protected val canReadAsMainActorActualParticipantId =
-    Option(toHeader(forParticipantId("sandbox-participant", readOnlyToken(mainActor))))
+    ServiceCallContext(
+      Option(toHeader(forParticipantId("sandbox-participant", readOnlyToken(mainActor))))
+    )
   protected val canReadAsMainActorRandomParticipantId =
-    Option(
-      toHeader(forParticipantId(UUID.randomUUID.toString, readOnlyToken(mainActor)))
+    ServiceCallContext(
+      Option(
+        toHeader(forParticipantId(UUID.randomUUID.toString, readOnlyToken(mainActor)))
+      )
     )
   protected val canReadAsMainActorActualApplicationId =
-    Option(toHeader(forApplicationId(serviceCallName, readOnlyToken(mainActor))))
+    ServiceCallContext(
+      Option(toHeader(forApplicationId(serviceCallName, readOnlyToken(mainActor))))
+    )
   protected val canReadAsMainActorRandomApplicationId =
-    Option(
-      toHeader(forApplicationId(UUID.randomUUID.toString, readOnlyToken(mainActor)))
+    ServiceCallContext(
+      Option(
+        toHeader(forApplicationId(UUID.randomUUID.toString, readOnlyToken(mainActor)))
+      )
     )
 
   // Note: lazy val, because the ledger ID is only known after the sandbox start
   protected lazy val canActAsMainActorActualLedgerId =
-    Option(toHeader(forLedgerId(unwrappedLedgerId, readWriteToken(mainActor))))
+    ServiceCallContext(Option(toHeader(forLedgerId(unwrappedLedgerId, readWriteToken(mainActor)))))
   protected val canActAsMainActorRandomLedgerId =
-    Option(toHeader(forLedgerId(UUID.randomUUID.toString, readWriteToken(mainActor))))
+    ServiceCallContext(
+      Option(toHeader(forLedgerId(UUID.randomUUID.toString, readWriteToken(mainActor))))
+    )
   protected val canActAsMainActorActualParticipantId =
-    Option(toHeader(forParticipantId("sandbox-participant", readWriteToken(mainActor))))
+    ServiceCallContext(
+      Option(toHeader(forParticipantId("sandbox-participant", readWriteToken(mainActor))))
+    )
   protected val canActAsMainActorRandomParticipantId =
-    Option(
-      toHeader(forParticipantId(UUID.randomUUID.toString, readWriteToken(mainActor)))
+    ServiceCallContext(
+      Option(
+        toHeader(forParticipantId(UUID.randomUUID.toString, readWriteToken(mainActor)))
+      )
     )
   protected val canActAsMainActorActualApplicationId =
-    Option(toHeader(forApplicationId(serviceCallName, readWriteToken(mainActor))))
+    ServiceCallContext(
+      Option(toHeader(forApplicationId(serviceCallName, readWriteToken(mainActor))))
+    )
   protected val canActAsMainActorRandomApplicationId =
-    Option(
-      toHeader(forApplicationId(UUID.randomUUID.toString, readWriteToken(mainActor)))
+    ServiceCallContext(
+      Option(
+        toHeader(forApplicationId(UUID.randomUUID.toString, readWriteToken(mainActor)))
+      )
     )
 
 }

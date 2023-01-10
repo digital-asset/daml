@@ -11,8 +11,8 @@ final class GetPartiesAuthIT extends AdminServiceCallAuthTests {
 
   override def serviceCallName: String = "PartyManagementService#GetParties"
 
-  override def serviceCallWithToken(token: Option[String]): Future[Any] =
-    stub(PartyManagementServiceGrpc.stub(channel), token)
-      .getParties(GetPartiesRequest())
+  override def serviceCall(context: ServiceCallContext): Future[Any] =
+    stub(PartyManagementServiceGrpc.stub(channel), context.token)
+      .getParties(GetPartiesRequest(identityProviderId = context.identityProviderId))
 
 }

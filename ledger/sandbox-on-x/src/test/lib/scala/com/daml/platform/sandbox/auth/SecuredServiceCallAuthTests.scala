@@ -11,6 +11,6 @@ trait SecuredServiceCallAuthTests extends ServiceCallAuthTests {
   it should "deny unauthenticated calls" taggedAs securityAsset.setAttack(
     attackUnauthenticated(threat = "Do not present a JWT")
   ) in {
-    expectUnauthenticated(serviceCallWithToken(None))
+    expectUnauthenticated(serviceCall(noToken))
   }
 }

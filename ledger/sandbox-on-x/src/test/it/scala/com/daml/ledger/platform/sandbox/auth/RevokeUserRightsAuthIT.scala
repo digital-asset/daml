@@ -18,24 +18,24 @@ final class RevokeUserRightsAuthIT extends AdminServiceCallAuthTests with UserMa
   private def adminPermission =
     ums.Right(ums.Right.Kind.ParticipantAdmin(ums.Right.ParticipantAdmin()))
 
-  override def serviceCallWithToken(token: Option[String]): Future[Any] = {
+  override def serviceCall(context: ServiceCallContext): Future[Any] =
     for {
-      response <- createFreshUser(token)
+      response <- createFreshUser(context.token, context.identityProviderId)
       userId = response.user.getOrElse(sys.error("Could not load create a fresh user")).id
-      _ <- stub(token).grantUserRights(
+      _ <- stub(context.token).grantUserRights(
         GrantUserRightsRequest(
           userId = userId,
           rights = scala.Seq(adminPermission),
+          identityProviderId = context.identityProviderId,
         )
       )
-      _ <- stub(token).revokeUserRights(
+      _ <- stub(context.token).revokeUserRights(
         RevokeUserRightsRequest(
           userId = userId,
           rights = scala.Seq(adminPermission),
+          identityProviderId = context.identityProviderId,
         )
       )
     } yield {}
-
-  }
 
 }
