@@ -25,7 +25,7 @@ class DeduplicationStateSpec extends AnyFlatSpec with Matchers {
   private val t2 = t0.add(Duration.ofMinutes(2L))
   private val t3 = t0.add(Duration.ofMinutes(3L))
 
-  private val bridgeMetrics = new BridgeMetrics(Metrics.ForTesting)
+  private val bridgeMetrics = new BridgeMetrics(Metrics.ForTesting.dropwizardFactory)
 
   it should "deduplicate commands within the requested deduplication window" in {
     val deduplicationState = DeduplicationState.empty(

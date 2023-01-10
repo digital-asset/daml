@@ -68,7 +68,7 @@ final class RateLimitingInterceptorSpec
     val metrics = createMetrics
     withChannel(metrics, new HelloServiceAkkaImplementation, config).use { channel: Channel =>
       val helloService = HelloServiceGrpc.stub(channel)
-      val submitted = metrics.registry.meter(
+      val submitted = metrics.dropwizardFactory.registry.meter(
         MetricRegistry.name(
           metrics.daml.index.db.threadpool.connection,
           ServerRole.ApiServer.threadPoolSuffix,
@@ -91,7 +91,7 @@ final class RateLimitingInterceptorSpec
 
   it should "allow metadata requests even when over limit" in {
     val metrics = createMetrics
-    metrics.registry
+    metrics.dropwizardFactory.registry
       .meter(MetricRegistry.name(metrics.daml.lapi.threadpool.apiServices, "submitted"))
       .mark(config.maxApiServicesQueueSize.toLong + 1) // Over limit
 
@@ -124,7 +124,7 @@ final class RateLimitingInterceptorSpec
 
   it should "allow health checks event when over limit" in {
     val metrics = createMetrics
-    metrics.registry
+    metrics.dropwizardFactory.registry
       .meter(MetricRegistry.name(metrics.daml.lapi.threadpool.apiServices, "submitted"))
       .mark(config.maxApiServicesQueueSize.toLong + 1) // Over limit
 
@@ -375,7 +375,7 @@ final class RateLimitingInterceptorSpec
   }
 
   it should "support addition checks" in {
-    val metrics = new Metrics(new MetricRegistry, GlobalOpenTelemetry.getMeter("test"))
+    val metrics = Metrics(new MetricRegistry, GlobalOpenTelemetry.getMeter("test"))
 
     val apiServices: ThreadpoolCount = new ThreadpoolCount(metrics)(
       "Api Services Threadpool",
@@ -390,7 +390,7 @@ final class RateLimitingInterceptorSpec
       additionalChecks = List(apiServicesCheck),
     ).use { channel: Channel =>
       val helloService = HelloServiceGrpc.stub(channel)
-      val submitted = metrics.registry.meter(
+      val submitted = metrics.dropwizardFactory.registry.meter(
         MetricRegistry.name(metrics.daml.lapi.threadpool.apiServices, "submitted")
       )
       for {
@@ -413,7 +413,7 @@ object RateLimitingInterceptorSpec extends MockitoSugar {
   private val healthChecks = new HealthChecks(Map.empty[ComponentName, ReportsHealth])
 
   private def createMetrics = {
-    new Metrics(new MetricRegistry, GlobalOpenTelemetry.getMeter("test"))
+    Metrics(new MetricRegistry, GlobalOpenTelemetry.getMeter("test"))
   }
 
   // For tests that do not involve memory

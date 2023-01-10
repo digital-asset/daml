@@ -3,14 +3,11 @@
 
 package com.daml.metrics
 
-import com.codahale.metrics.MetricRegistry
 import com.daml.metrics.api.MetricDoc.MetricQualification.Debug
-import com.daml.metrics.api.MetricHandle.{Counter, Histogram, Meter, Timer}
-import com.daml.metrics.api.dropwizard.DropwizardFactory
+import com.daml.metrics.api.MetricHandle.{Counter, Factory, Histogram, Meter, Timer}
 import com.daml.metrics.api.{MetricDoc, MetricName}
 
-class ExecutionMetrics(val prefix: MetricName, override val registry: MetricRegistry)
-    extends DropwizardFactory {
+class ExecutionMetrics(val prefix: MetricName, val factory: Factory) {
 
   @MetricDoc.Tag(
     summary = "The time to lookup individual active contracts during interpretation.",
@@ -19,7 +16,7 @@ class ExecutionMetrics(val prefix: MetricName, override val registry: MetricRegi
                     |individual active contracts.""",
     qualification = Debug,
   )
-  val lookupActiveContract: Timer = timer(prefix :+ "lookup_active_contract")
+  val lookupActiveContract: Timer = factory.timer(prefix :+ "lookup_active_contract")
 
   @MetricDoc.Tag(
     summary = "The compound time to lookup all active contracts in a single Daml command.",
@@ -29,7 +26,7 @@ class ExecutionMetrics(val prefix: MetricName, override val registry: MetricRegi
     qualification = Debug,
   )
   val lookupActiveContractPerExecution: Timer =
-    timer(prefix :+ "lookup_active_contract_per_execution")
+    factory.timer(prefix :+ "lookup_active_contract_per_execution")
 
   @MetricDoc.Tag(
     summary = "The number of the active contracts looked up per Daml command.",
@@ -39,7 +36,7 @@ class ExecutionMetrics(val prefix: MetricName, override val registry: MetricRegi
     qualification = Debug,
   )
   val lookupActiveContractCountPerExecution: Histogram =
-    histogram(prefix :+ "lookup_active_contract_count_per_execution")
+    factory.histogram(prefix :+ "lookup_active_contract_count_per_execution")
 
   @MetricDoc.Tag(
     summary = "The time to lookup individual contract keys during interpretation.",
@@ -48,7 +45,7 @@ class ExecutionMetrics(val prefix: MetricName, override val registry: MetricRegi
                     |individual contract keys.""",
     qualification = Debug,
   )
-  val lookupContractKey: Timer = timer(prefix :+ "lookup_contract_key")
+  val lookupContractKey: Timer = factory.timer(prefix :+ "lookup_contract_key")
 
   @MetricDoc.Tag(
     summary = "The compound time to lookup all contract keys in a single Daml command.",
@@ -58,7 +55,7 @@ class ExecutionMetrics(val prefix: MetricName, override val registry: MetricRegi
     qualification = Debug,
   )
   val lookupContractKeyPerExecution: Timer =
-    timer(prefix :+ "lookup_contract_key_per_execution")
+    factory.timer(prefix :+ "lookup_contract_key_per_execution")
 
   @MetricDoc.Tag(
     summary = "The number of contract keys looked up per Daml command.",
@@ -68,7 +65,7 @@ class ExecutionMetrics(val prefix: MetricName, override val registry: MetricRegi
     qualification = Debug,
   )
   val lookupContractKeyCountPerExecution: Histogram =
-    histogram(prefix :+ "lookup_contract_key_count_per_execution")
+    factory.histogram(prefix :+ "lookup_contract_key_count_per_execution")
 
   @MetricDoc.Tag(
     summary = "The time to fetch individual Daml code packages during interpretation.",
@@ -77,7 +74,7 @@ class ExecutionMetrics(val prefix: MetricName, override val registry: MetricRegi
                     |the packages that are necessary for interpretation.""",
     qualification = Debug,
   )
-  val getLfPackage: Timer = timer(prefix :+ "get_lf_package")
+  val getLfPackage: Timer = factory.timer(prefix :+ "get_lf_package")
 
   @MetricDoc.Tag(
     summary = "The number of the interpretation retries.",
@@ -85,7 +82,7 @@ class ExecutionMetrics(val prefix: MetricName, override val registry: MetricRegi
                     |effective time in this ledger api server process.""",
     qualification = Debug,
   )
-  val retry: Meter = meter(prefix :+ "retry")
+  val retry: Meter = factory.meter(prefix :+ "retry")
 
   @MetricDoc.Tag(
     summary = "The overall time spent interpreting a Daml command.",
@@ -93,7 +90,7 @@ class ExecutionMetrics(val prefix: MetricName, override val registry: MetricRegi
                     |executing Daml and fetching data).""",
     qualification = Debug,
   )
-  val total: Timer = timer(prefix :+ "total")
+  val total: Timer = factory.timer(prefix :+ "total")
 
   @MetricDoc.Tag(
     summary = "The number of Daml commands currently being interpreted.",
@@ -101,7 +98,7 @@ class ExecutionMetrics(val prefix: MetricName, override val registry: MetricRegi
                     |executing Daml code and fetching data).""",
     qualification = Debug,
   )
-  val totalRunning: Counter = counter(prefix :+ "total_running")
+  val totalRunning: Counter = factory.counter(prefix :+ "total_running")
 
   @MetricDoc.Tag(
     summary = "The time spent executing a Daml command.",
@@ -109,7 +106,7 @@ class ExecutionMetrics(val prefix: MetricName, override val registry: MetricRegi
                     |data).""",
     qualification = Debug,
   )
-  val engine: Timer = timer(prefix :+ "engine")
+  val engine: Timer = factory.timer(prefix :+ "engine")
 
   @MetricDoc.Tag(
     summary = "The number of Daml commands currently being executed.",
@@ -117,18 +114,17 @@ class ExecutionMetrics(val prefix: MetricName, override val registry: MetricRegi
                     |engine (excluding fetching data).""",
     qualification = Debug,
   )
-  val engineRunning: Counter = counter(prefix :+ "engine_running")
+  val engineRunning: Counter = factory.counter(prefix :+ "engine_running")
 
   @MetricDoc.GroupTag(
     representative = "daml.execution.cache.<state_cache>",
     groupableClass = classOf[CacheMetrics],
   )
-  object cache extends DropwizardFactory {
+  object cache {
     val prefix: MetricName = ExecutionMetrics.this.prefix :+ "cache"
-    override val registry = ExecutionMetrics.this.registry
 
     object keyState {
-      val stateCache: CacheMetrics = new CacheMetrics(prefix :+ "key_state", registry)
+      val stateCache: CacheMetrics = new CacheMetrics(prefix :+ "key_state", factory)
 
       @MetricDoc.Tag(
         summary = "The time spent to update the cache.",
@@ -137,11 +133,11 @@ class ExecutionMetrics(val prefix: MetricName, override val registry: MetricRegi
                         |updating logic. This metric is created with debugging purposes in mind.""",
         qualification = Debug,
       )
-      val registerCacheUpdate: Timer = timer(prefix :+ "key_state" :+ "register_update")
+      val registerCacheUpdate: Timer = factory.timer(prefix :+ "key_state" :+ "register_update")
     }
 
     object contractState {
-      val stateCache: CacheMetrics = new CacheMetrics(prefix :+ "contract_state", registry)
+      val stateCache: CacheMetrics = new CacheMetrics(prefix :+ "contract_state", factory)
 
       @MetricDoc.Tag(
         summary = "The time spent to update the cache.",
@@ -150,7 +146,8 @@ class ExecutionMetrics(val prefix: MetricName, override val registry: MetricRegi
                         |updating logic. This metric is created with debugging purposes in mind.""",
         qualification = Debug,
       )
-      val registerCacheUpdate: Timer = timer(prefix :+ "contract_state" :+ "register_update")
+      val registerCacheUpdate: Timer =
+        factory.timer(prefix :+ "contract_state" :+ "register_update")
     }
 
     @MetricDoc.Tag(
@@ -163,7 +160,7 @@ class ExecutionMetrics(val prefix: MetricName, override val registry: MetricRegi
       qualification = Debug,
     )
     val resolveDivulgenceLookup: Counter =
-      counter(prefix :+ "resolve_divulgence_lookup")
+      factory.counter(prefix :+ "resolve_divulgence_lookup")
 
     @MetricDoc.Tag(
       summary =
@@ -175,7 +172,7 @@ class ExecutionMetrics(val prefix: MetricName, override val registry: MetricRegi
       qualification = Debug,
     )
     val resolveFullLookup: Counter =
-      counter(prefix :+ "resolve_full_lookup")
+      factory.counter(prefix :+ "resolve_full_lookup")
 
     @MetricDoc.Tag(
       summary = "The number of cache read-throughs resulting in not found contracts.",
@@ -185,6 +182,6 @@ class ExecutionMetrics(val prefix: MetricName, override val registry: MetricRegi
           |incrmented.""",
       qualification = Debug,
     )
-    val readThroughNotFound: Counter = counter(prefix :+ "read_through_not_found")
+    val readThroughNotFound: Counter = factory.counter(prefix :+ "read_through_not_found")
   }
 }
