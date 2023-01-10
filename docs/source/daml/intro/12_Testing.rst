@@ -7,13 +7,13 @@ Test Daml Contracts
 This chapter is all about testing and debugging the Daml contracts you've built using the tools from earlier chapters. You've already met Daml Script as a way of testing your code inside the IDE. In this chapter you'll learn about more ways to test with Daml Script and its other uses, as well as other tools you can use for testing and debugging. You'll also learn about a few error cases that are most likely to crop up only in actual distributed testing, and which need some care to avoid. Specifically we will cover:
 
 - Daml Test tooling - Script, REPL, and Navigator
-- Checking coverage of choices
+- Checking choice coverage
 - The ``trace`` and ``debug`` functions
 - Contention
 
 Note that this section only covers testing your Daml contracts. For more holistic application testing, please refer to :doc:`/getting-started/testing`.
 
-If you no longer have your projects set up, you can load all the code for this section into a folder called ``intro12`` by running ``daml new intro12 --template daml-intro-12``.
+If you no longer have your projects set up, load all the code for this section into a folder called ``intro12`` by running ``daml new intro12 --template daml-intro-12``.
 
 Daml Test Tooling
 -----------------
@@ -45,7 +45,7 @@ When ``daml test`` runs, it analyzes the ledger record to produce a report on wh
 Define Templates, Choices, and Interfaces
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-To demonstrate how the coverage report works, we start by defining three dummy templates, ``T1``, ``T2``, and ``T3``. Each template has two dummy choices each:
+To demonstrate how the coverage report works, we start by defining three dummy templates, ``T1``, ``T2``, and ``T3``. Each template has two dummy choices:
 
 .. literalinclude:: daml/daml-intro-12/daml/Token_Coverage.daml
   :language: daml
@@ -59,7 +59,7 @@ We also define an interface ``I`` with instances for ``T1`` and ``T2``:
   :start-after: -- INTERFACE_DEFINITIONS_START
   :end-before: -- INTERFACE_DEFINITIONS_END
 
-Start Testing
+Start testing
 ~~~~~~~~~~~~~
 
 By writing a test which selectively creates and exercises only some of these templates and choices, we will see how the coverage report shows us templates and choices we haven't created and exercised respectively.
@@ -71,7 +71,7 @@ To start, the test allocates a single party, ``alice``, which we will use for th
   :start-after: -- ALLOCATE_PARTY_START
   :end-before: -- ALLOCATE_PARTY_END
 
-Template Creation Coverage
+Template creation coverage
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The coverage report mentions which templates were defined but never created. For example, the following test creates contracts out of only ``T1`` and ``T2``, never creating instances of template ``T3``:
@@ -95,7 +95,7 @@ Running ``daml test --show-coverage`` reports how many templates were defined (3
       Token_Coverage:T3
   ...
 
-Template Choice Exercise Coverage
+Template choice exercise coverage
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The coverage report also tracks which choices were exercised. For example, the following test exercises the first and second choices of ``T1`` and the second choice of ``T2``. It also archives ``T1``, but not ``T2``.
@@ -105,7 +105,7 @@ The coverage report also tracks which choices were exercised. For example, the f
   :start-after: -- EXERCISE_TEMPLATES_START
   :end-before: -- EXERCISE_TEMPLATES_END
 
-``daml test --show-coverage`` reports that the test exercised 4 out of 9 choices, and lists the choices that weren't exercised, including the second choice of ``T2`` and all of the choices on ``T3``.
+``daml test --show-coverage`` reports that the test exercised 4 out of 9 choices, and lists the choices that weren't exercised, including the second choice of ``T2`` and all the choices on ``T3``.
 
 Note that ``Token_Coverage:T2:Archive`` is included in the list of unexercised choices - because ``t2`` was not archived, its ``Archive`` choice was not run.
 
@@ -124,7 +124,7 @@ Note that ``Token_Coverage:T2:Archive`` is included in the list of unexercised c
     Token_Coverage:T3:C_T3_2
   ...
 
-Interface Choice Exercise Coverage
+Interface choice exercise coverage
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The coverage report also tracks interfaces, with two differences:
