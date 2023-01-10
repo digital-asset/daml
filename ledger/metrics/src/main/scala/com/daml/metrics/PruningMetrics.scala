@@ -10,6 +10,6 @@ class PruningMetrics(prefix: MetricName, factory: Factory) {
   // Using a meter, which can keep track of how many time the operation was executed, even if the
   // operation is fully executed between 2 metric fetches by the monitoring.
   // With a (boolean) gauge, there is a large risk that some operation invocation would be missed.
-  val pruneStarted = factory.meter(prefix :+ "prune" :+ "started")
-  val pruneCompleted = factory.meter(prefix :+ "prune" :+ "completed")
+  val pruneCommandStarted = factory.meter(prefix :+ "prune" :+ "started")
+  val pruneCommandCompleted = factory.meter(prefix :+ "prune" :+ "completed")
 }
