@@ -7,7 +7,7 @@ import com.daml.metrics.api.MetricHandle.Factory
 import com.daml.metrics.api.MetricHandle.Gauge.ClosableGauge
 import com.daml.metrics.api.{MetricHandle, MetricName, MetricsContext}
 
-object NoOpMetricsFactory extends Factory {
+trait NoOpMetricsFactory extends Factory {
 
   override def timer(
       name: MetricName,
@@ -51,3 +51,5 @@ object NoOpMetricsFactory extends Factory {
       context: MetricsContext
   ): MetricHandle.Histogram = NoOpHistogram(name)
 }
+
+object NoOpMetricsFactory extends NoOpMetricsFactory
