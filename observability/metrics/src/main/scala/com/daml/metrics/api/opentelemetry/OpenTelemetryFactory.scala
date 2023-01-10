@@ -8,6 +8,7 @@ import java.util.concurrent.TimeUnit
 
 import com.daml.buildinfo.BuildInfo
 import com.daml.metrics.api.Gauges.VarGauge
+import com.daml.metrics.api.MetricHandle.Gauge.{ClosableGauge, SimpleClosableGauge}
 import com.daml.metrics.api.MetricHandle.Timer.TimerHandle
 import com.daml.metrics.api.MetricHandle.{Counter, Factory, Gauge, Histogram, Meter, Timer}
 import com.daml.metrics.api.opentelemetry.OpenTelemetryTimer.{
@@ -52,27 +53,29 @@ class OpenTelemetryFactory(otelMeter: OtelMeter) extends Factory {
     initial match {
       case longInitial: Int =>
         val varGauge = new VarGauge[Int](longInitial)
-        otelMeter.gaugeBuilder(name).ofLongs().setDescription(description).buildWithCallback {
-          consumer =>
-            consumer.record(varGauge.getValue.toLong, attributes)
-        }
-        OpenTelemetryGauge(name, varGauge.asInstanceOf[VarGauge[T]])
+        val registeredGauge =
+          otelMeter.gaugeBuilder(name).ofLongs().setDescription(description).buildWithCallback {
+            consumer =>
+              consumer.record(varGauge.getValue.toLong, attributes)
+          }
+        OpenTelemetryGauge(name, varGauge.asInstanceOf[VarGauge[T]], registeredGauge)
       case longInitial: Long =>
         val varGauge = new VarGauge[Long](longInitial)
-        otelMeter.gaugeBuilder(name).ofLongs().setDescription(description).buildWithCallback {
-          consumer =>
-            consumer.record(varGauge.getValue, attributes)
-        }
-        OpenTelemetryGauge(name, varGauge.asInstanceOf[VarGauge[T]])
+        val registeredGauge =
+          otelMeter.gaugeBuilder(name).ofLongs().setDescription(description).buildWithCallback {
+            consumer =>
+              consumer.record(varGauge.getValue, attributes)
+          }
+        OpenTelemetryGauge(name, varGauge.asInstanceOf[VarGauge[T]], registeredGauge)
       case doubleInitial: Double =>
         val varGauge = new VarGauge[Double](doubleInitial)
-        otelMeter.gaugeBuilder(name).setDescription(description).buildWithCallback { consumer =>
-          consumer.record(varGauge.getValue, attributes)
-        }
-        OpenTelemetryGauge(name, varGauge.asInstanceOf[VarGauge[T]])
+        val registeredGauge =
+          otelMeter.gaugeBuilder(name).setDescription(description).buildWithCallback { consumer =>
+            consumer.record(varGauge.getValue, attributes)
+          }
+        OpenTelemetryGauge(name, varGauge.asInstanceOf[VarGauge[T]], registeredGauge)
       case _ =>
-        // A NoOp gauge as OpenTelemetry only supports longs and doubles
-        OpenTelemetryGauge(name, VarGauge(initial))
+        throw new IllegalArgumentException("Gauges support only numeric values.")
     }
   }
 
@@ -82,12 +85,12 @@ class OpenTelemetryFactory(otelMeter: OtelMeter) extends Factory {
       description: String,
   )(implicit
       context: MetricsContext = MetricsContext.Empty
-  ): Unit = {
+  ): ClosableGauge = {
     val value = valueSupplier()
     val attributes = globalMetricsContext.merge(context).asAttributes
     value match {
       case _: Int =>
-        otelMeter
+        val gaugeHandle = otelMeter
           .gaugeBuilder(name)
           .ofLongs()
           .setDescription(description)
@@ -95,9 +98,9 @@ class OpenTelemetryFactory(otelMeter: OtelMeter) extends Factory {
             val value = valueSupplier()
             consumer.record(value.asInstanceOf[Int].toLong, attributes)
           }
-        ()
+        SimpleClosableGauge(gaugeHandle)
       case _: Long =>
-        otelMeter
+        val gaugeHandle = otelMeter
           .gaugeBuilder(name)
           .ofLongs()
           .setDescription(description)
@@ -105,18 +108,18 @@ class OpenTelemetryFactory(otelMeter: OtelMeter) extends Factory {
             val value = valueSupplier()
             consumer.record(value.asInstanceOf[Long], attributes)
           }
-        ()
+        SimpleClosableGauge(gaugeHandle)
       case _: Double =>
-        otelMeter
+        val gaugeHandle = otelMeter
           .gaugeBuilder(name)
           .setDescription(description)
           .buildWithCallback { consumer =>
             val value = valueSupplier()
             consumer.record(value.asInstanceOf[Double], attributes)
           }
-        ()
+        SimpleClosableGauge(gaugeHandle)
       case _ =>
-      // NoOp as opentelemetry only supports longs and doubles
+        throw new IllegalArgumentException("Gauges support only numeric values.")
     }
   }
 
@@ -199,13 +202,16 @@ object OpenTelemetryTimer {
   }
 }
 
-case class OpenTelemetryGauge[T](name: String, varGauge: VarGauge[T]) extends Gauge[T] {
+case class OpenTelemetryGauge[T](name: String, varGauge: VarGauge[T], reference: AutoCloseable)
+    extends Gauge[T] {
 
   override def updateValue(newValue: T): Unit = varGauge.updateValue(newValue)
 
   override def updateValue(f: T => T): Unit = varGauge.updateValue(f)
 
   override def getValue: T = varGauge.getValue
+
+  override def close(): Unit = reference.close()
 }
 
 case class OpenTelemetryMeter(name: String, counter: LongCounter, meterContext: MetricsContext)

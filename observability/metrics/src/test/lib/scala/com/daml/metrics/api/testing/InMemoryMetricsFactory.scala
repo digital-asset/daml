@@ -5,8 +5,9 @@ package com.daml.metrics.api.testing
 
 import java.time.Duration
 import java.util.concurrent.TimeUnit
-import java.util.concurrent.atomic.{AtomicLong, AtomicReference}
+import java.util.concurrent.atomic.{AtomicBoolean, AtomicLong, AtomicReference}
 
+import com.daml.metrics.api.MetricHandle.Gauge.ClosableGauge
 import com.daml.metrics.api.MetricHandle.{Counter, Factory, Gauge, Histogram, Meter, Timer}
 import com.daml.metrics.api.testing.InMemoryMetricsFactory.{
   InMemoryCounter,
@@ -37,7 +38,10 @@ class InMemoryMetricsFactory extends Factory {
       name: MetricName,
       gaugeSupplier: () => T,
       description: String,
-  )(implicit context: MetricsContext): Unit = asyncGauges.addOne(name -> context -> gaugeSupplier)
+  )(implicit context: MetricsContext): ClosableGauge = {
+    asyncGauges.addOne(name -> context -> gaugeSupplier)
+    () => discard { asyncGauges.remove(name -> context) }
+  }
 
   override def meter(name: MetricName, description: String)(implicit
       context: MetricsContext
@@ -101,17 +105,29 @@ object InMemoryMetricsFactory extends InMemoryMetricsFactory {
 
   case class InMemoryGauge[T](context: MetricsContext) extends Gauge[T] {
     val value = new AtomicReference[T]()
+    val closed = new AtomicBoolean(false)
 
     override def name: String = "test"
 
-    override def updateValue(newValue: T): Unit =
+    override def updateValue(newValue: T): Unit = {
+      checkClosed()
       value.set(newValue)
+    }
 
-    override def updateValue(f: T => T): Unit = discard(value.updateAndGet(value => f(value)))
+    override def updateValue(f: T => T): Unit = {
+      checkClosed()
+      discard(value.updateAndGet(value => f(value)))
+    }
 
-    override def getValue: T = value.get()
+    override def getValue: T = {
+      checkClosed()
+      value.get()
+    }
 
-    override def updateValue(f: T => T): Unit = discard(value.updateAndGet((t: T) => f(t)))
+    override def close(): Unit = closed.set(true)
+
+    private def checkClosed(): Unit =
+      if (closed.get()) throw new IllegalArgumentException("Already closed")
   }
 
   case class InMemoryMeter(initialContext: MetricsContext) extends Meter {

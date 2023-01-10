@@ -28,6 +28,7 @@ da_scala_library(
         "//libs-scala/build-info",
         "//libs-scala/concurrent",
         "//libs-scala/resources",
+        "//libs-scala/scala-utils",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:io_grpc_grpc_api",
         "@maven//:io_opentelemetry_instrumentation_opentelemetry_runtime_metrics",

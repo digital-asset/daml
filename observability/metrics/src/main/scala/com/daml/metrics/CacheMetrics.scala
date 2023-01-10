@@ -6,6 +6,7 @@ package com.daml.metrics
 import com.daml.metrics.api.MetricDoc.MetricQualification.Debug
 import com.daml.metrics.api.MetricHandle.{Counter, Factory}
 import com.daml.metrics.api.{MetricDoc, MetricName, MetricsContext}
+import com.daml.scalautil.Statement.discard
 
 final class CacheMetrics(val prefix: MetricName, val factory: Factory) {
 
@@ -39,9 +40,11 @@ final class CacheMetrics(val prefix: MetricName, val factory: Factory) {
   )
   val evictionWeight: Counter = factory.counter(prefix :+ "evicted_weight")
 
-  def registerSizeGauge(sizeSupplier: () => Long): Unit =
+  def registerSizeGauge(sizeSupplier: () => Long): Unit = discard {
     factory.gaugeWithSupplier(prefix :+ "size", sizeSupplier)(MetricsContext.Empty)
-  def registerWeightGauge(weightSupplier: () => Long): Unit =
+  }
+  def registerWeightGauge(weightSupplier: () => Long): Unit = discard {
     factory.gaugeWithSupplier(prefix :+ "weight", weightSupplier)(MetricsContext.Empty)
+  }
 
 }
