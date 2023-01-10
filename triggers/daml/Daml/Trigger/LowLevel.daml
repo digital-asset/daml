@@ -6,6 +6,8 @@ module Daml.Trigger.LowLevel
   ( Message(..)
   , Completion(..)
   , CompletionStatus(..)
+  , applyBackPressure
+  , cancelBackPressure
   , Transaction(..)
   , AnyContractId
   , toAnyContractId
@@ -166,6 +168,14 @@ data CompletionStatus
   = Failed { status : Int, message : Text }
   | Succeeded { transactionId : TransactionId }
   deriving Show
+
+-- This definition should be kept consistent with the status value of the object `InFlightCommandApplyBackPressureException`
+applyBackPressure : CompletionStatus
+applyBackPressure = Failed { status = -1, message = "Apply backpressure warning" }
+
+-- This definition should be kept consistent with the status value of the object `InFlightCommandNoBackPressureException`
+cancelBackPressure : CompletionStatus
+cancelBackPressure = Failed { status = -2, message = "Cancel backpressure warning" }
 
 data ActiveContracts = ActiveContracts { activeContracts : [Created] }
 

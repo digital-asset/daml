@@ -5,13 +5,17 @@ package com.daml.lf.engine.trigger
 
 import scala.concurrent.duration._
 
-/** @param parallelism The number of submitSingleCommand invocations each trigger will
-  *                    attempt to execute in parallel. Note that this does not in any
-  *                    way bound the number of already-submitted, but not completed,
+/** @param parallelism The number of submitSingleCommand invocations each trigger will attempt to execute in parallel.
+  *                    Note that this does not in any way bound the number of already-submitted, but not completed,
   *                    commands that may be pending.
-  * @param maxRetries Maximum number of retries for a failing ledger API command submission.
+  * @param maxRetries Maximum number of retries when the ledger client fails an API command submission.
   * @param maxSubmissionRequests Used to control rate at which we throttle ledger client submission requests.
   * @param maxSubmissionDuration Used to control rate at which we throttle ledger client submission requests.
+  * @param inFlightCommandFailureCount When the number of in-flight command submissions exceeds this value, then we
+  *                                    automatically fail command submissions and signal Daml rule evaluation to
+  *                                    backpressure.
+  * @param inFlightCommandCrashCount When the number of in-flight command submissions exceeds this value, then we
+  *                                  automatically crash the trigger by throwing an InFlightCommandOverflowException.
   * @param submissionFailureQueueSize Size of the queue holding ledger API command submission failures.
   * @param maximumBatchSize Maximum number of messages triggers will batch (for rule evaluation/processing) before
   *                         backpressure is applied.
@@ -21,6 +25,8 @@ final case class TriggerRunnerConfig(
     maxRetries: Int,
     maxSubmissionRequests: Int,
     maxSubmissionDuration: FiniteDuration,
+    inFlightCommandFailureCount: Int,
+    inFlightCommandCrashCount: Int,
     submissionFailureQueueSize: Int,
     maximumBatchSize: Long,
 )
@@ -34,6 +40,8 @@ object TriggerRunnerConfig {
       maxRetries = 6,
       maxSubmissionRequests = 100,
       maxSubmissionDuration = 5.seconds,
+      inFlightCommandFailureCount = 1000,
+      inFlightCommandCrashCount = 10000,
       // 256 here comes from the default ExecutionContext.
       submissionFailureQueueSize = 256 + parallelism,
       maximumBatchSize = 1000,

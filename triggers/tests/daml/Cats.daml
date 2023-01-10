@@ -46,15 +46,15 @@ template TestComplete
   where
     signatory owner
 
-trigger : Trigger Int
-trigger = Trigger
+feedingTrigger : Trigger Int
+feedingTrigger = Trigger
   { initialize = pure 500
   , updateState = \msg -> case msg of
       MTransaction (Transaction _ _ [ArchivedEvent (fromArchived @Cat -> Some (_, catId)), ArchivedEvent (fromArchived @Food -> Some (_, foodId))]) -> do
         modify (subtract 1)
       _ -> pure ()
   , rule = feedTheCats
-  , registeredTemplates =  RegisteredTemplates [ registeredTemplate @TestComplete, registeredTemplate @Cat, registeredTemplate @Food ]
+  , registeredTemplates = RegisteredTemplates [ registeredTemplate @TestComplete, registeredTemplate @Cat, registeredTemplate @Food ]
   , heartbeat = Some (seconds 1)
   }
 
@@ -71,3 +71,58 @@ feedTheCats party = do
           void $ emitCommands [exerciseCmd catCid (Feed foodCid)] [toAnyContractId catCid, toAnyContractId foodCid]
         None ->
           pure ()
+
+breedingTrigger: Trigger (Int, Int)
+breedingTrigger = Trigger
+  { initialize = pure (1, 0)
+  , updateState = \msg -> case msg of
+      MCompletion completion
+        | applyBackPressure <- completion.status -> do
+          -- apply back pressure signal detected
+          (_, baseIndex) <- get
+          put (0, baseIndex)
+        | cancelBackPressure <- completion.status -> do
+          -- release back pressure signal detected
+          (_, baseIndex) <- get
+          put (-1, baseIndex)
+      _ -> do
+        -- allow exponential cat breeding!
+        (breedCount, baseIndex) <- get
+        put (2 * breedCount, baseIndex + breedCount + 1)
+  , rule = breedTheCats
+  , registeredTemplates = RegisteredTemplates [ registeredTemplate @TestComplete, registeredTemplate @Cat ]
+  , heartbeat = Some (seconds 1)
+  }
+
+breedTheCats: Party -> TriggerA (Int, Int) ()
+breedTheCats party = do
+  (breedCount, baseIndex) <- get
+  if breedCount < 0 then
+    -- release back pressure signal detected, so complete this test
+    void $ emitCommands [createCmd (TestComplete party)] []
+  else if breedCount == 0 then
+    -- apply back pressure signal detected, so stop cat breeding
+    pure ()
+  else do
+    -- breed some cats
+    forA_ [1..breedCount] \offset -> do
+      void $ emitCommands [createCmd (Cat party (baseIndex + offset))] []
+
+crashingTrigger: Trigger (Int, Int)
+crashingTrigger = Trigger
+  { initialize = pure (1, 0)
+  , updateState = \_ -> do
+      -- allow (unconstrained) exponential cat breeding!
+      (breedCount, baseIndex) <- get
+      put (2 * breedCount, baseIndex + breedCount + 1)
+  , rule = uncontrolledBreeding
+  , registeredTemplates = RegisteredTemplates [ registeredTemplate @TestComplete, registeredTemplate @Cat ]
+  , heartbeat = Some (seconds 1)
+  }
+
+uncontrolledBreeding: Party -> TriggerA (Int, Int) ()
+uncontrolledBreeding party = do
+  (breedCount, baseIndex) <- get
+  -- breed some cats
+  forA_ [1..breedCount] \offset -> do
+    void $ emitCommands [createCmd (Cat party (baseIndex + offset))] []

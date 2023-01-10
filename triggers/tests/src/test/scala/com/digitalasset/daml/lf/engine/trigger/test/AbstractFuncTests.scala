@@ -17,14 +17,14 @@ import com.daml.ledger.api.v1.{value => LedgerApi}
 import com.daml.ledger.sandbox.SandboxOnXForTest.ParticipantId
 import com.daml.lf.engine.trigger.Runner.TriggerContext
 import com.daml.platform.services.time.TimeProviderType
-import io.grpc.{Status => grpcStatus, StatusRuntimeException}
+import io.grpc.{StatusRuntimeException, Status => grpcStatus}
 import org.scalatest._
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 import scalaz.syntax.traverse._
 
 import scala.jdk.CollectionConverters._
-import com.daml.lf.engine.trigger.TriggerMsg
+import com.daml.lf.engine.trigger.{InFlightCommandOverflowException, TriggerMsg}
 import com.daml.util.Ctx
 
 import java.util.UUID
@@ -42,6 +42,22 @@ abstract class AbstractFuncTests
   this.getClass.getSimpleName can {
     "Failure testing" should {
       val contractPairings = 500
+
+      def notObserving(
+          templateId: LedgerApi.Identifier
+      ): TriggerContext[TriggerMsg] => Boolean = {
+        case Ctx(
+              _,
+              TriggerMsg.Transaction(
+                ApiTransaction(_, _, _, _, Seq(ApiEvent(Created(created))), _)
+              ),
+              _,
+            ) if created.getTemplateId == templateId =>
+          false
+
+        case _ =>
+          true
+      }
 
       s"with $contractPairings contract pairings and always failing submissions" should {
         def command(template: String, owner: String, i: Int): CreateCommand =
@@ -66,22 +82,6 @@ abstract class AbstractFuncTests
 
         def food(owner: String, i: Int): CreateCommand = command("Food", owner, i)
 
-        def notObserving(
-            templateId: LedgerApi.Identifier
-        ): TriggerContext[TriggerMsg] => Boolean = {
-          case Ctx(
-                _,
-                TriggerMsg.Transaction(
-                  ApiTransaction(_, _, _, _, Seq(ApiEvent(Created(created))), _)
-                ),
-                _,
-              ) if created.getTemplateId == templateId =>
-            false
-
-          case _ =>
-            true
-        }
-
         // TODO https://github.com/digital-asset/daml/pull/15929
         //  enable the test
         "Process all contract pairings successfully" ignore {
@@ -100,7 +100,7 @@ abstract class AbstractFuncTests
             )
             runner = getRunner(
               client,
-              QualifiedName.assertFromString("Cats:trigger"),
+              QualifiedName.assertFromString("Cats:feedingTrigger"),
               party,
             )
             (acs, offset) <- runner.queryACS()
@@ -109,7 +109,7 @@ abstract class AbstractFuncTests
                 acs,
                 offset,
                 msgFlow = Flow[TriggerContext[TriggerMsg]]
-                  // Allow flow to proceed until we observe a CatExample:TestComplete contract being created
+                  // Allow flow to proceed until we observe a Cats:TestComplete contract being created
                   .takeWhile(
                     notObserving(LedgerApi.Identifier(packageId, "Cats", "TestComplete"))
                   ),
@@ -117,6 +117,50 @@ abstract class AbstractFuncTests
               ._2
           } yield {
             succeed
+          }
+        }
+      }
+
+      "trigger rules can detect back pressure signals" in {
+        for {
+          client <- ledgerClient()
+          party <- allocateParty(client)
+          runner = getRunner(
+            client,
+            QualifiedName.assertFromString("Cats:breedingTrigger"),
+            party,
+          )
+          (acs, offset) <- runner.queryACS()
+          _ <- runner
+            .runWithACS(
+              acs,
+              offset,
+              msgFlow = Flow[TriggerContext[TriggerMsg]]
+                // Allow flow to proceed until we observe a Cats:TestComplete contract being created
+                .takeWhile(
+                  notObserving(LedgerApi.Identifier(packageId, "Cats", "TestComplete"))
+                ),
+            )
+            ._2
+        } yield {
+          succeed
+        }
+      }
+
+      "unconstrained command submissions cause triggers to crash" in {
+        recoverToSucceededIf[InFlightCommandOverflowException] {
+          for {
+            client <- ledgerClient()
+            party <- allocateParty(client)
+            runner = getRunner(
+              client,
+              QualifiedName.assertFromString("Cats:crashingTrigger"),
+              party,
+            )
+            (acs, offset) <- runner.queryACS()
+            _ <- runner.runWithACS(acs, offset)._2
+          } yield {
+            fail("Cats:crashingTrigger failed to crash")
           }
         }
       }
