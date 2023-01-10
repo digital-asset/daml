@@ -13,11 +13,10 @@ import com.daml.metrics.api.{MetricDoc, MetricName}
 class PartyRecordStoreMetrics(
     prefix: MetricName,
     factory: Factory,
-) {
+) extends DatabaseMetricsFactory(prefix, factory) {
 
   val getPartyRecord: DatabaseMetrics = createDbMetrics("get_party_record")
   val createPartyRecord: DatabaseMetrics = createDbMetrics("create_party_record")
   val updatePartyRecord: DatabaseMetrics = createDbMetrics("update_party_record")
 
-  private def createDbMetrics(name: String) = new DatabaseMetrics(prefix, name, factory)
 }

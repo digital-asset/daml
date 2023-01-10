@@ -13,7 +13,7 @@ import com.daml.metrics.api.{MetricDoc, MetricName}
 class IdentityProviderConfigStoreMetrics(
     prefix: MetricName,
     factory: DropwizardMetricsFactory,
-) {
+) extends DatabaseMetricsFactory(prefix, factory) {
 
   val cacheByIssuer = new CacheMetrics(prefix :+ "cache_by_issuer", factory)
   val createIdpConfig: DatabaseMetrics = createDbMetrics("create_identity_provider_config")
@@ -22,7 +22,4 @@ class IdentityProviderConfigStoreMetrics(
   val updateIdpConfig: DatabaseMetrics = createDbMetrics("update_identity_provider_config")
   val listIdpConfigs: DatabaseMetrics = createDbMetrics("list_identity_provider_configs")
 
-  private def createDbMetrics(name: String) = {
-    new DatabaseMetrics(prefix, name, factory)
-  }
 }

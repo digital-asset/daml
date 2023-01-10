@@ -10,7 +10,8 @@ import com.daml.metrics.api.{MetricDoc, MetricName}
   representative = "daml.user_management.<operation>",
   groupableClass = classOf[DatabaseMetrics],
 )
-class UserManagementMetrics(val prefix: MetricName, val factory: Factory) {
+class UserManagementMetrics(val prefix: MetricName, val factory: Factory)
+    extends DatabaseMetricsFactory(prefix, factory) {
 
   val cache = new CacheMetrics(prefix :+ "cache", factory)
 
@@ -22,7 +23,4 @@ class UserManagementMetrics(val prefix: MetricName, val factory: Factory) {
   val revokeRights: DatabaseMetrics = createDbMetrics("revoke_rights")
   val listUsers: DatabaseMetrics = createDbMetrics("list_users")
 
-  private def createDbMetrics(name: String) = {
-    new DatabaseMetrics(prefix, name, factory)
-  }
 }

@@ -11,7 +11,8 @@ import com.daml.metrics.api.{MetricDoc, MetricName}
   representative = "daml.index.db.<operation>",
   groupableClass = classOf[DatabaseMetrics],
 )
-class IndexDBMetrics(prefix: MetricName, factory: Factory) {
+class IndexDBMetrics(prefix: MetricName, factory: Factory)
+    extends DatabaseMetricsFactory(prefix, factory) {
 
   @MetricDoc.Tag(
     summary = "The time spent looking up a contract using its key.",
@@ -242,7 +243,5 @@ class IndexDBMetrics(prefix: MetricName, factory: Factory) {
       connection :+ "<server_role>"
     )
   }
-
-  private def createDbMetrics(name: String) = new DatabaseMetrics(prefix, name, factory)
 
 }
