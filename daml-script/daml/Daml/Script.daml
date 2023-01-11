@@ -182,7 +182,8 @@ data QueryACS a = QueryACS
 
 -- | Query the set of active contracts of the template
 -- that are visible to the given party.
-query : forall t p. (Template t, IsParties p) => p -> Script [(ContractId t, t)]
+query : forall t p. (Template t, HasAgreement t, IsParties p) => p -> Script [(ContractId t, t)]
+-- The 'HasAgreement t' constraint prevents this function from being used on interface types.
 query p = lift $ Free $ Query QueryACS with
   parties = toParties p
   tplId = templateTypeRep @t
@@ -191,7 +192,8 @@ query p = lift $ Free $ Query QueryACS with
 
 -- | Query the set of active contracts of the template
 -- that are visible to the given party and match the given predicate.
-queryFilter : (Template c, IsParties p) => p -> (c -> Bool) -> Script [(ContractId c, c)]
+queryFilter : (Template c, HasAgreement c, IsParties p) => p -> (c -> Bool) -> Script [(ContractId c, c)]
+-- The 'HasAgreement c' constraint prevents this function from being used on interface types.
 queryFilter p f = filter (\(_, c) -> f c) <$> query p
 
 data QueryContractIdPayload a = QueryContractIdPayload
@@ -212,7 +214,8 @@ data QueryContractIdPayload a = QueryContractIdPayload
 --
 -- This is semantically equivalent to calling `query`
 -- and filtering on the client side.
-queryContractId : forall t p. (Template t, IsParties p) => HasCallStack => p -> ContractId t -> Script (Optional t)
+queryContractId : forall t p. (Template t, HasAgreement t, IsParties p) => HasCallStack => p -> ContractId t -> Script (Optional t)
+-- The 'HasAgreement t' constraint prevents this function from being used on interface types.
 queryContractId p c = lift $ Free $ QueryContractId QueryContractIdPayload with
   parties = toParties p
   tplId = templateTypeRep @t
@@ -601,7 +604,8 @@ internalCreateAndExerciseCmd : forall r. AnyTemplate -> AnyChoice -> Commands r
 internalCreateAndExerciseCmd tplArg choiceArg = Commands $ Ap (\f -> f (CreateAndExercise tplArg choiceArg identity) (pure (fromLedgerValue @r)))
 
 -- | Create a contract of the given template.
-createCmd : Template t => t -> Commands (ContractId t)
+createCmd : (Template t, HasAgreement t) => t -> Commands (ContractId t)
+-- The 'HasAgreement t' constraint prevents this function from being used on interface types.
 createCmd arg = internalCreateCmd (toAnyTemplate arg)
 
 -- | Exercise a choice on the given contract.
@@ -613,7 +617,8 @@ exerciseByKeyCmd : forall t k c r. (TemplateKey t k, Choice t c r) => k -> c -> 
 exerciseByKeyCmd key arg = internalExerciseByKeyCmd (templateTypeRep @t) (toAnyContractKey @t key) (toAnyChoice @t arg)
 
 -- | Create a contract and exercise a choice on it in the same transaction.
-createAndExerciseCmd : forall t c r. (Template t, Choice t c r) => t -> c -> Commands r
+createAndExerciseCmd : forall t c r. (Template t, Choice t c r, HasAgreement t) => t -> c -> Commands r
+-- The 'HasAgreement t' constraint prevents this function from being used on interface types.
 createAndExerciseCmd tplArg choiceArg = internalCreateAndExerciseCmd (toAnyTemplate tplArg) (toAnyChoice @t choiceArg)
 
 -- | Archive the given contract.
