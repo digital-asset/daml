@@ -180,7 +180,7 @@ object UpdateToDbDto {
           incrementCounterForEvent(
             metrics.daml.indexerEvents,
             IndexedUpdatesMetrics.Labels.eventType.transaction,
-            IndexedUpdatesMetrics.Labels.status.rejected,
+            IndexedUpdatesMetrics.Labels.status.accepted,
           )
         }
         val blinding = u.blindingInfo.getOrElse(Blinding.blind(u.transaction))
