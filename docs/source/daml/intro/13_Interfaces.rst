@@ -170,7 +170,7 @@ Now that we have some interfaces and templates with instances for them, we can
 reduce duplication in the code for different templates by instead going through
 the common interface.
 
-For instance, both ``Cash`` and ``NFT`` are ``Asset``s, which means that
+For instance, both ``Cash`` and ``NFT`` are ``Asset``\s, which means that
 contracts of either template have an owner who can propose to transfer the
 contract to a third party. Thus, we use Daml Script (see
 :ref:`testing-using-script`) to test that the same contract can be created by
@@ -225,9 +225,9 @@ in the body of ``mkAssetTest``:
   :start-after: -- MK_NFT_BEGIN
   :end-before: -- MK_NFT_END
 
-In turn, ``mkAssetTest`` isn't very different from other Daml ``Script``s you
+In turn, ``mkAssetTest`` isn't very different from other Daml ``Script``\s you
 might have written before: it uses ``do`` notation as usual, including
-``submit`` blocks constructed from ``Command``s that define the ordered
+``submit`` blocks constructed from ``Command``\s that define the ordered
 transactions that take place in the test. The main difference is that when
 querying values of interface types we cannot use the functions ``query`` and
 ``queryContractId``; instead, we must use ``queryInterface``  (for obtaining the
