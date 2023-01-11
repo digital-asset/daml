@@ -1,8 +1,6 @@
 -- @ERROR range=18:1-18:10; Attempt to fetch, lookup or exercise a key associated with a contract
 -- @ERROR range=61:1-61:15; Attempt to fetch, lookup or exercise a key associated with a contract
 -- @ERROR range=79:1-79:12; Attempt to fetch, lookup or exercise a key associated with a contract
--- @ERROR range=109:1-109:12; Attempt to fetch, lookup or exercise a key associated with a contract
--- @ERROR range=115:1-115:11;  Attempt to fetch, lookup or exercise a key associated with a contract
 module ContractKeyNotVisible where
 
 import DA.Optional
@@ -117,12 +115,5 @@ localFetch = scenario do
   p2 <- getParty "p2"
   cid <- submit p1 $ create (LocalKeyVisibility p1 p2)
   submit p2 $ exercise cid LocalFetch
-
-localLookupFetchMustFail = scenario do
-  p1 <- getParty "p1"
-  p2 <- getParty "p2"
-  cid <- submit p1 $ create (LocalKeyVisibility p1 p2)
-  submitMustFail p2 $ exercise cid LocalLookup
-  submitMustFail p2 $ exercise cid LocalFetch
 
 -- @ENABLE-SCENARIOS
