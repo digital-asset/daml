@@ -89,6 +89,9 @@ There are a few things happening here:
      :start-after: -- DATA_VASSET_DEF_BEGIN
      :end-before: -- DATA_VASSET_DEF_END
 
+   .. hint::
+     See :ref:`daml-ref-serializable-types` for more information on
+     serializability requirements.
 
 2. We have defined the methods ``setOwner`` and ``toTransferProposal`` as part
    of the ``IAsset`` interface, and method ``asset`` as part of the
