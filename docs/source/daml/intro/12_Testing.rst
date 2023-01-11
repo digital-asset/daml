@@ -13,7 +13,7 @@ This chapter is all about testing and debugging the Daml contracts you've built 
 
 Note that this section only covers testing your Daml contracts. For more holistic application testing, please refer to :doc:`/getting-started/testing`.
 
-If you no longer have your projects set up, load all the code for this section into a folder called ``intro12`` by running ``daml new intro12 --template daml-intro-12``.
+If you no longer have your projects set up, load all the code for this parts 1 and 2 of this section into two folders ``intro12-part1`` and ``intro12-part2``, by running ``daml new intro12-part1 --template daml-intro-12-part1`` and ``daml new intro12-part2 --template daml-intro-12-part2``.
 
 Daml Test Tooling
 -----------------
@@ -47,14 +47,14 @@ Define templates, choices, and interfaces
 
 To demonstrate how the coverage report works, we start by defining three dummy templates, ``T1``, ``T2``, and ``T3``. Each template has two dummy choices:
 
-.. literalinclude:: daml/daml-intro-12/daml/Token_Coverage.daml
+.. literalinclude:: daml/daml-intro-12-part1/daml/Token_Coverage.daml
   :language: daml
   :start-after: -- TEMPLATE_DEFINITIONS_START
   :end-before: -- TEMPLATE_DEFINITIONS_END
 
 We also define an interface ``I`` with instances for ``T1`` and ``T2``:
 
-.. literalinclude:: daml/daml-intro-12/daml/Token_Coverage.daml
+.. literalinclude:: daml/daml-intro-12-part1/daml/Token_Coverage.daml
   :language: daml
   :start-after: -- INTERFACE_DEFINITIONS_START
   :end-before: -- INTERFACE_DEFINITIONS_END
@@ -66,7 +66,7 @@ By writing a test which selectively creates and exercises only some of these tem
 
 To start, the test allocates a single party, ``alice``, which we will use for the whole test:
 
-.. literalinclude:: daml/daml-intro-12/daml/Token_Coverage.daml
+.. literalinclude:: daml/daml-intro-12-part1/daml/Token_Coverage.daml
   :language: daml
   :start-after: -- ALLOCATE_PARTY_START
   :end-before: -- ALLOCATE_PARTY_END
@@ -76,7 +76,7 @@ Template creation coverage
 
 The coverage report mentions which templates were defined but never created. For example, the following test creates contracts out of only ``T1`` and ``T2``, never creating instances of template ``T3``:
 
-.. literalinclude:: daml/daml-intro-12/daml/Token_Coverage.daml
+.. literalinclude:: daml/daml-intro-12-part1/daml/Token_Coverage.daml
   :language: daml
   :start-after: -- CREATE_TEMPLATES_START
   :end-before: -- CREATE_TEMPLATES_END
@@ -100,7 +100,7 @@ Template choice exercise coverage
 
 The coverage report also tracks which choices were exercised. For example, the following test exercises the first and second choices of ``T1`` and the second choice of ``T2``. It also archives ``T1``, but not ``T2``.
 
-.. literalinclude:: daml/daml-intro-12/daml/Token_Coverage.daml
+.. literalinclude:: daml/daml-intro-12-part1/daml/Token_Coverage.daml
   :language: daml
   :start-after: -- EXERCISE_TEMPLATES_START
   :end-before: -- EXERCISE_TEMPLATES_END
@@ -133,7 +133,7 @@ The coverage report also tracks interfaces, with two differences:
 
 The following test creates ``t1`` and ``t2`` as before, but casts them immediately to ``I`` to get two contracts of ``I``: ``t1_i`` via ``T1``, and ``t2_i`` via ``T2``. It exercises both choices on the ``t1_i``, but only the first choice on ``t2_i``.
 
-.. literalinclude:: daml/daml-intro-12/daml/Token_Coverage.daml
+.. literalinclude:: daml/daml-intro-12-part1/daml/Token_Coverage.daml
   :language: daml
   :start-after: -- EXERCISE_INTERFACES_START
   :end-before: -- EXERCISE_INTERFACES_END
