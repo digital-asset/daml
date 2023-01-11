@@ -15,7 +15,7 @@ import com.daml.lf.engine.Blinding
 import com.daml.lf.ledger.EventId
 import com.daml.lf.transaction.Transaction.ChildrenRecursion
 import com.daml.metrics.api.MetricsContext
-import com.daml.metrics.api.MetricsContext.withExtraMetricLabels
+import com.daml.metrics.api.MetricsContext.{withExtraMetricLabels, withOptionalMetricLabels}
 import com.daml.metrics.{IndexedUpdatesMetrics, Metrics}
 import com.daml.platform._
 import com.daml.platform.index.index.StatusDetails
@@ -38,7 +38,8 @@ object UpdateToDbDto {
           IndexedUpdatesMetrics.Labels.grpcCode -> Status
             .fromCodeValue(u.reasonTemplate.code)
             .getCode
-            .name()
+            .name(),
+          IndexedUpdatesMetrics.Labels.applicationId -> u.completionInfo.applicationId,
         ) { implicit mc: MetricsContext =>
           incrementCounterForEvent(
             metrics.daml.indexerEvents,
@@ -173,11 +174,15 @@ object UpdateToDbDto {
         )
 
       case u: TransactionAccepted =>
-        incrementCounterForEvent(
-          metrics.daml.indexerEvents,
-          IndexedUpdatesMetrics.Labels.eventType.transaction,
-          IndexedUpdatesMetrics.Labels.status.accepted,
-        )
+        withOptionalMetricLabels(
+          IndexedUpdatesMetrics.Labels.applicationId -> u.optCompletionInfo.map(_.applicationId)
+        ) { implicit mc: MetricsContext =>
+          incrementCounterForEvent(
+            metrics.daml.indexerEvents,
+            IndexedUpdatesMetrics.Labels.eventType.transaction,
+            IndexedUpdatesMetrics.Labels.status.rejected,
+          )
+        }
         val blinding = u.blindingInfo.getOrElse(Blinding.blind(u.transaction))
         // TODO LLP: Extract in common functionality together with duplicated code in [[InMemoryStateUpdater]]
         val preorderTraversal = u.transaction
