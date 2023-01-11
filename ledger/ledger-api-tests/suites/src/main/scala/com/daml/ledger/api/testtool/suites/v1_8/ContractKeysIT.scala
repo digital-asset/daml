@@ -397,7 +397,7 @@ final class ContractKeysIT extends LedgerTestSuite {
   })
 
   test(
-    "CKLocalFetchByKeyKeyVisibility",
+    "CKLocalFetchByKeyVisibility",
     "Visibility should not be checked for fetch-by-key of contracts created in the current transaction",
     allocate(SingleParty, SingleParty),
   )(implicit ec => {
