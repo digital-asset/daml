@@ -236,7 +236,7 @@ private[lf] object Speedy {
         SVisibleToStakeholders.fromSubmitters(committers, readAs)
       }
 
-    def incompleteTransaction: IIncompleteTx = ptx.finishIncomplete
+    def incompleteTransaction: IncompleteTx = ptx.finishIncomplete
     def nodesToString: String = ptx.nodesToString
     private[speedy] def isLocalContract(contractId: V.ContractId): Boolean = {
       ptx.contractState.locallyCreated.contains(contractId)
@@ -409,7 +409,7 @@ private[lf] object Speedy {
         handleKeyFound: V.ContractId => Control.Value,
     ): Control.Value = {
       // For local contract keys and disclosed contract keys, we do not perform visibility checking
-      if (onLedger.isLocalContractKey(coid, gkey) || onLedger.isDisclosedContractKey(coid, gkey)) {
+      if (isLocalContractKey(coid, gkey) || isDisclosedContractKey(coid, gkey)) {
         handleKeyFound(coid)
       } else {
         getCachedContract(coid) match {
