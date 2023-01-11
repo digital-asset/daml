@@ -82,7 +82,7 @@ resource "google_project_iam_member" "assembly-write" {
   member  = "serviceAccount:${google_service_account.assembly-sas["assembly-rw"].email}"
 }
 
-resource "google_project_iam_member" "assembly-write" {
+resource "google_project_iam_member" "assembly-overwrite" {
   project = local.project
   role    = "roles/storage.objectAdmin"
   member  = "serviceAccount:${google_service_account.assembly-sas["assembly-rw"].email}"
