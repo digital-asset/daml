@@ -79,10 +79,10 @@ To abstract this behavior, we introduce two interfaces, ``IAsset`` and
 There are a few things happening here:
 
 1. For each interface, we have defined a ``viewtype``. This is mandatory for all
-   interfaces. All viewtypes must be serializable records, since <insert
-   justification here>. This declaration means that the special ``view`` method,
-   when applied to a value of this interface, will return the specified type, in
-   this case ``VAsset``. This is the definition of ``VAsset``:
+   interfaces. All viewtypes must be serializable records. This declaration
+   means that the special ``view`` method, when applied to a value of this
+   interface, will return the specified type, in this case ``VAsset``. This is
+   the definition of ``VAsset``:
 
    .. literalinclude:: daml/daml-intro-13/daml/IAsset.daml
      :language: daml
