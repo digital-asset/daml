@@ -20,8 +20,8 @@ To do that:
      gpg --keyserver hkp://pgp.mit.edu --search F26D8A0AADF666CCB28F2AB1650EC3253B6A8FF5
 
    This should come back with a key belonging to ``Digital Asset Holdings, LLC
-   <security@digitalasset.com>``, created on 2019-05-16 and expiring on
-   023-04-18. If any of those details are different, something is wrong. In
+   <security@digitalasset.com>``, created on 2023-01-10 and expiring on
+   2025-01-09. If any of those details are different, something is wrong. In
    that case please contact Digital Asset immediately.
 
    Alternatively, if keyservers do not work for you (we are having a bit of
