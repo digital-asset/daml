@@ -47,6 +47,7 @@ and generates a signed access token describing those privileges.
 
 Once the access token is issued, the Daml application sends it along with every Ledger API request.
 The Daml ledger verifies:
+
 - that the token was issued by one of its trusted token issuers
 - that the token has not been tampered with
 - that the token had not expired

@@ -7,43 +7,38 @@ import com.codahale.metrics.MetricRegistry
 import com.daml.metrics.CacheMetrics
 import com.daml.metrics.api.MetricHandle.{Counter, Meter, Timer}
 import com.daml.metrics.api.MetricName
-import com.daml.metrics.api.dropwizard.DropwizardFactory
+import com.daml.metrics.api.dropwizard.DropwizardMetricsFactory
 import com.daml.metrics.api.opentelemetry.OpenTelemetryFactory
 import com.daml.metrics.http.{DamlHttpMetrics, DamlWebSocketMetrics}
 import io.opentelemetry.api.GlobalOpenTelemetry
-import io.opentelemetry.api.metrics.{Meter => OtelMeter}
 
 object HttpJsonApiMetrics {
   lazy val ForTesting =
     new HttpJsonApiMetrics(
-      new MetricRegistry,
-      GlobalOpenTelemetry.getMeter("test"),
+      new DropwizardMetricsFactory(new MetricRegistry),
+      new OpenTelemetryFactory(GlobalOpenTelemetry.getMeter("test")),
     )
 }
 
 class HttpJsonApiMetrics(
-    val registry: MetricRegistry,
-    val otelMeter: OtelMeter,
+    dropwizardFactory: DropwizardMetricsFactory,
+    openTelemetryFactory: OpenTelemetryFactory,
 ) {
   val prefix: MetricName = MetricName.Daml :+ "http_json_api"
 
-  object Db extends DropwizardFactory {
+  object Db {
     val prefix: MetricName = HttpJsonApiMetrics.this.prefix :+ "db"
-    override val registry: MetricRegistry = HttpJsonApiMetrics.this.registry
 
-    val fetchByIdFetch: Timer = timer(prefix :+ "fetch_by_id_fetch")
-    val fetchByIdQuery: Timer = timer(prefix :+ "fetch_by_id_query")
-    val fetchByKeyFetch: Timer = timer(prefix :+ "fetch_by_key_fetch")
-    val fetchByKeyQuery: Timer = timer(prefix :+ "fetch_by_key_query")
-    val searchFetch: Timer = timer(prefix :+ "search_fetch")
-    val searchQuery: Timer = timer(prefix :+ "search_query")
+    val fetchByIdFetch: Timer = dropwizardFactory.timer(prefix :+ "fetch_by_id_fetch")
+    val fetchByIdQuery: Timer = dropwizardFactory.timer(prefix :+ "fetch_by_id_query")
+    val fetchByKeyFetch: Timer = dropwizardFactory.timer(prefix :+ "fetch_by_key_fetch")
+    val fetchByKeyQuery: Timer = dropwizardFactory.timer(prefix :+ "fetch_by_key_query")
+    val searchFetch: Timer = dropwizardFactory.timer(prefix :+ "search_fetch")
+    val searchQuery: Timer = dropwizardFactory.timer(prefix :+ "search_query")
   }
 
-  val surrogateTemplateIdCache = new CacheMetrics(prefix :+ "surrogate_tpid_cache", registry)
-
-  val dropwizardFactory = new DropwizardFactory {
-    override val registry: MetricRegistry = HttpJsonApiMetrics.this.registry
-  }
+  val surrogateTemplateIdCache =
+    new CacheMetrics(prefix :+ "surrogate_tpid_cache", dropwizardFactory)
 
   // Meters how long processing of a command submission request takes
   val commandSubmissionTimer: Timer =
@@ -93,8 +88,6 @@ class HttpJsonApiMetrics(
   // Meters party allocation throughput
   val allocatePartyThroughput: Meter =
     dropwizardFactory.meter(prefix :+ "allocation_party_throughput")
-
-  val openTelemetryFactory: OpenTelemetryFactory = new OpenTelemetryFactory(otelMeter)
 
   val http = new DamlHttpMetrics(openTelemetryFactory, "json-api")
   val websocket = new DamlWebSocketMetrics(openTelemetryFactory, "json-api")
