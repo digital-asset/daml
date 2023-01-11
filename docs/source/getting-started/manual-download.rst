@@ -17,7 +17,7 @@ To do that:
    Security Public Key imported into your keychain. Once you have ``gpg``
    installed, you can import the key by running::
 
-     gpg --keyserver https://keys.openpgp.org --search F26D8A0AADF666CCB28F2AB1650EC3253B6A8FF5
+     gpg --keyserver hkp://pgp.mit.edu --search F26D8A0AADF666CCB28F2AB1650EC3253B6A8FF5
 
    This should come back with a key belonging to ``Digital Asset Holdings, LLC
    <security@digitalasset.com>``, created on 2019-05-16 and expiring on
