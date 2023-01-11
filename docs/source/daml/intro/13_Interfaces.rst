@@ -200,7 +200,7 @@ contract value of type ``t`` when given two ``Party`` arguments - the constraint
 instance for ``IAsset``).
 
 Before looking at the body of ``mkAssetTest``, notice how we use it to define
-the new tests ``cashAssetTest`` and ``nftAssetTest``; תhese are almost identical
+the new tests ``cashAssetTest`` and ``nftAssetTest``; these are almost identical
 except for the label and function given in each case to ``mkAssetTest``. In
 effect, we have abstracted those away, so we don't need to include those details
 in the body of ``mkAssetTest``:
