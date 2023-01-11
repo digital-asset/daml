@@ -122,8 +122,8 @@ Interface instances
 
 On its own, an interface isn't very useful, since all contracts on the ledger
 must belong to some template type. In order to make the link between an
-interface and a template, we define an interface instance on either the
-template or the interface. In this example, we add
+interface and a template, we define an interface instance inside the body of
+either the template or the interface. In this example, we add
 ``interface instance IAsset for Cash`` and
 ``interface instance IAssetTransferProposal for CashTransferProposal``:
 
