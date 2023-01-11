@@ -3,7 +3,7 @@
 
 module TemplateChoiceResultMismatch where
 
--- @ERROR range=26:12-26:27; Tried to get a result of type ‘Either Text ()’ by exercising choice ‘C’ on template ‘T’ but exercising choice ‘C’ should return type ‘()’ instead.
+-- @ERROR range=26:12-26:27; Possible Daml-specific reason for the following type error: Tried to get a result of type ‘Either Text ()’ by exercising choice ‘C’ on template ‘T’ but exercising choice ‘C’ should return type ‘()’ instead.
 
 template T
   with
