@@ -496,4 +496,4 @@ External template choices and interface instance choices are also reported with 
 Next Up
 -------
 
-You've reached the end of the Introduction to Daml. Congratulations! You can move on to the :doc:`nexs steps <99_NextSteps>` to understand how to put in practice the skills you've learned. Happy Daml'ing!
+There's little more to learn about writing Daml at this point that isn't best learned by practice and consulting reference material for both Daml and Haskell. In section 13, we will cover the use of interfaces in more detail.

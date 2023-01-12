@@ -240,4 +240,4 @@ Let's try another search. Suppose you didn't want the first element, but the one
 Next Up
 -------
 
-There's little more to learn about writing Daml at this point that isn't best learned by practice and consulting reference material for both Daml and Haskell. To finish off this course, you'll learn a little more about your options for testing and interacting with Daml code in :doc:`12_Testing`, and about the operational semantics of some keywords and common associated failures.
+In the following section, you'll learn a little more about your options for testing and interacting with Daml code in :doc:`12_Testing`, about the operational semantics of some keywords and common associated failures, and a little bit about how coverage reports work in Daml testing.
