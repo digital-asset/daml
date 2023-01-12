@@ -3,36 +3,11 @@
 
 package com.daml.metrics
 
-import com.daml.metrics.api.MetricDoc.MetricQualification.{Debug, Errors, Traffic}
-import com.daml.metrics.api.MetricHandle.{Counter, Factory, Timer}
-import com.daml.metrics.api.noop.{NoOpCounter, NoOpTimer}
+import com.daml.metrics.api.MetricDoc.MetricQualification.{Debug, Traffic}
+import com.daml.metrics.api.MetricHandle.{Counter, Factory}
 import com.daml.metrics.api.{MetricDoc, MetricName}
 
 class LAPIMetrics(val prefix: MetricName, val factory: Factory) {
-
-  @MetricDoc.Tag(
-    summary = "The time spent serving a ledger api grpc request.",
-    description = """The time spent servicing a particular type of ledger api grpc request. Unary
-                    |methods report the time to serve the request, streaming methods measure the
-                    |time to return the first response.""",
-    qualification = Traffic,
-  )
-  val forMethodForDocs: Timer = NoOpTimer(prefix :+ "<service_method>")
-  def forMethod(name: String): Timer = factory.timer(prefix :+ name)
-
-  object return_status {
-    private val prefix: MetricName = LAPIMetrics.this.prefix :+ "return_status"
-
-    @MetricDoc.Tag(
-      summary = "The number of ledger api grpc responses with this code.",
-      description = """This group of metrics counts the total number gRPC status codes returned by
-                      |the ledger api.""",
-      qualification = Errors,
-    )
-    val forCodeForDocs = NoOpCounter(prefix :+ "<gRPC_status_code>")
-
-    def forCode(code: String): Counter = factory.counter(prefix :+ code)
-  }
 
   object threadpool {
     private val prefix: MetricName = LAPIMetrics.this.prefix :+ "threadpool"
