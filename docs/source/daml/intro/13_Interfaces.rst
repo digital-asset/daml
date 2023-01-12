@@ -240,7 +240,7 @@ set of visible active contracts of a given interface type) and
 corresponding to the used interface, rather than the contract record itself.
 This is because the ledger might contain contracts of template types that you
 don't know about but that do implement our interface, so the view is the only
-sensible thing it can see.
+sensible thing that can be returned by the ledger.
 
 Also note that immediately after creating the asset with ``createCmd``, you convert
 the resulting ``ContractId t`` into a ``ContractId IAsset`` using
