@@ -862,7 +862,7 @@ excluded_test_tool_tests = [
             {
                 "end": "2.6.0-snapshot.20221226.11190.0.71548477",
                 "exclusions": [
-                    "ContractKeysIT:CKLocalLookupByKeyVisibility",
+                    "ContractKeysIT:CKLocalFetchByKeyVisibility",
                     "ContractKeysIT:CKLocalLookupByKeyVisibility",
                 ],
             },
