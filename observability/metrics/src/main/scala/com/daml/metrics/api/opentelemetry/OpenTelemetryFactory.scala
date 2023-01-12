@@ -193,7 +193,7 @@ case class OpenTelemetryTimer(
 object OpenTelemetryTimer {
 
   private[opentelemetry] val TimerUnit: String = "seconds"
-  val TimerUnitAndSuffix: MetricName = MetricName("duration", TimerUnit)
+  val TimerUnitAndSuffix: MetricName = MetricName(TimerUnit)
 
   private val NanosecondsInASecond = 1_000_000_000
 
