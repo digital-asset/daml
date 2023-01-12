@@ -358,6 +358,7 @@ argWhitelist = S.fromList
     , "new", "skeleton", "empty-skeleton", "quickstart-java", "copy-trigger", "gsg-trigger"
     , "daml-intro-1", "daml-intro-2", "daml-intro-3", "daml-intro-4"
     , "daml-intro-5", "daml-intro-6", "daml-intro-7", "script-example"
+    , "daml-intro-13"
     , "migrate"
     , "init"
     , "build"

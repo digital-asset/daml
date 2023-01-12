@@ -137,6 +137,8 @@ Choices
   Starting with ``choice`` lets you pass in a ``Party`` to use as a controller. But you must make sure to add that party as an ``observer``.
 - See :doc:`choices` for full reference information.
 
+.. _daml-ref-serializable-types:
+
 Serializable Types
 ******************
 
