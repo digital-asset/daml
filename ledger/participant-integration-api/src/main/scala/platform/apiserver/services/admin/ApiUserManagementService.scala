@@ -171,7 +171,6 @@ private[apiserver] final class ApiUserManagementService(
             authorizedUserIdO.isParticipantAdmin,
           )
           _ <- verifyUserIsNonExistentOrInIdp(user.identityProviderId, user.id)
-          authorizedUserIdO <- authorizedUserIdFO
           _ <-
             if (
               authorizedUserIdO.userId
