@@ -56,7 +56,7 @@ appropriate, with the main difference being that an ``NFT`` has a ``url : Text``
 field whereas ``Cash`` has ``currency : Text`` and ``amount : Decimal``.
 
 
-Interface definition
+Interface Definition
 --------------------
 
 To abstract this behavior, you will next introduce two interfaces: ``IAsset`` and
@@ -120,7 +120,7 @@ There are a few things happening here:
   For a detailed explanation of the syntax used here, check out :ref:`daml-ref-interfaces`
 
 
-Interface instances
+Interface Instances
 -------------------
 
 On its own, an interface isn't very useful, since all contracts on the ledger
@@ -166,7 +166,7 @@ in ``toTransferProposal``, it is applied to a ``CashTransferProposal`` value
 value.
 
 
-Using an interface
+Using an Interface
 ------------------
 
 Now that you have some interfaces and templates with instances for them, you can
