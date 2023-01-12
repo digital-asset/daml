@@ -192,7 +192,7 @@ the body of this test a single time, with the name ``mkAssetTest``,
 .. literalinclude:: daml/daml-intro-13/daml/Main.daml
   :language: daml
   :start-after: -- MK_ASSET_TEST_BEGIN
-  :lines: 2
+  :lines: 4
 
 You now have not the test itself, but rather a recipe for making the
 test given some inputs - in this case, ``assetTxt`` (a label used for
