@@ -48,7 +48,10 @@ module DA.Internal.LF
   , AnyException
   #endif
 
+  #ifdef DAML_UNSTABLE
   , withAuthorityOf
+  #endif
+
   ) where
 
 import GHC.Stack.Types (HasCallStack)
@@ -273,6 +276,10 @@ data AnyException = AnyException Opaque
 
 #endif
 
+#ifdef DAML_UNSTABLE
+
 -- | Authority operations.
 withAuthorityOf : [Party] -> Update a -> Update a
 withAuthorityOf = primitive @"BEWithAuthorityOf"
+
+#endif

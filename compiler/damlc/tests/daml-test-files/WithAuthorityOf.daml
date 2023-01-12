@@ -1,4 +1,6 @@
 
+-- @SINCE-LF-FEATURE DAML_UNSTABLE
+
 module WithAuthorityOf where
 
 --import Daml.Script -- NICK
