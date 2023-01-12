@@ -57,6 +57,7 @@ load("//:versions.bzl", "latest_stable_version")
 #   - https://github.com/digital-asset/daml/pull/5608
 #   - https://github.com/digital-asset/daml/pull/7829
 #   - https://github.com/digital-asset/daml/pull/9218
+#   - https://github.com/digital-asset/daml/pull/15131
 # - ContractKeysSubmitterIsMaintainerIT:
 #   - https://github.com/digital-asset/daml/pull/5611
 # - SemanticTests:
