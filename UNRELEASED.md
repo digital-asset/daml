@@ -45,3 +45,26 @@ The following index db metrics were added:
 The following index db metrics were removed:
 - daml_index_db_get_flat_transactions*
 - daml_index_db_get_transaction_trees*
+
+### Changes to the metrics 
+
+The following metrics were added:
+- daml.identity_provider_config_store.*
+- daml_index_db_flat_transactions_stream_translation*
+- daml_index_db_flat_transactions_stream_fetch_event_consuming_ids_stakeholder*
+- daml_index_db_flat_transactions_stream_fetch_event_consuming_payloads*
+- daml_index_db_flat_transactions_stream_fetch_event_create_ids_stakeholder*
+- daml_index_db_flat_transactions_stream_fetch_event_create_payloads*
+- daml_index_db_tree_transactions_stream_translation*
+- daml_index_db_tree_transactions_stream_fetch_event_consuming_ids_non_stakeholder*
+- daml_index_db_tree_transactions_stream_fetch_event_consuming_ids_stakeholder*
+- daml_index_db_tree_transactions_stream_fetch_event_consuming_payloads*
+- daml_index_db_tree_transactions_stream_fetch_event_create_ids_non_stakeholder*
+- daml_index_db_tree_transactions_stream_fetch_event_create_ids_stakeholder*
+- daml_index_db_tree_transactions_stream_fetch_event_create_payloads*
+- daml_index_db_tree_transactions_stream_fetch_event_non_consuming_ids_informee*
+- daml_index_db_tree_transactions_stream_fetch_event_non_consuming_payloads*
+
+The following metrics were removed:
+- daml_index_db_get_flat_transactions*
+- daml_index_db_get_transaction_trees*

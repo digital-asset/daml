@@ -3,13 +3,12 @@
 
 package com.daml.ledger.api.auth
 
-import java.time.Instant
-
 import akka.actor.Scheduler
 import com.daml.error.definitions.LedgerApiErrors
 import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
 import com.daml.jwt.JwtTimestampLeeway
 import com.daml.ledger.api.auth.interceptor.AuthorizationInterceptor
+import com.daml.ledger.api.domain.IdentityProviderId
 import com.daml.ledger.api.v1.transaction_filter.TransactionFilter
 import com.daml.ledger.api.validation.ValidationErrors
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
@@ -18,6 +17,7 @@ import io.grpc.StatusRuntimeException
 import io.grpc.stub.{ServerCallStreamObserver, StreamObserver}
 import scalapb.lenses.Lens
 
+import java.time.Instant
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 
@@ -81,6 +81,62 @@ final class Authorizer(
         ()
       }
     }
+
+  def requireIdpAdminClaimsAndMatchingRequestIdpId[Req, Res](
+      identityProviderId: String,
+      call: Req => Future[Res],
+  ): Req => Future[Res] =
+    authorize(call) { claims =>
+      for {
+        _ <- valid(claims)
+        _ <- claims.isAdminOrIDPAdmin
+        requestIdentityProviderId <- requireIdentityProviderId(identityProviderId)
+        _ <- validateRequestIdentityProviderId(requestIdentityProviderId, claims)
+      } yield ()
+    }
+
+  def requireMatchingRequestIdpId[Req, Res](
+      identityProviderId: String,
+      call: Req => Future[Res],
+  ): Req => Future[Res] =
+    authorize(call) { claims =>
+      for {
+        _ <- valid(claims)
+        requestIdentityProviderId <- requireIdentityProviderId(identityProviderId)
+        _ <- validateRequestIdentityProviderId(requestIdentityProviderId, claims)
+      } yield ()
+    }
+
+  def requireIdpAdminClaims[Req, Res](
+      call: Req => Future[Res]
+  ): Req => Future[Res] =
+    authorize(call) { claims =>
+      for {
+        _ <- valid(claims)
+        _ <- claims.isAdminOrIDPAdmin
+      } yield {
+        ()
+      }
+    }
+
+  private def requireIdentityProviderId(
+      identityProviderId: String
+  ): Either[AuthorizationError, IdentityProviderId] =
+    IdentityProviderId.fromString(identityProviderId).left.map { reason =>
+      AuthorizationError.InvalidField("identity_provider_id", reason)
+    }
+
+  private def validateRequestIdentityProviderId(
+      requestIdentityProviderId: IdentityProviderId,
+      claims: ClaimSet.Claims,
+  ): Either[AuthorizationError, Unit] = claims.identityProviderId match {
+    case id: IdentityProviderId.Id if requestIdentityProviderId != id =>
+      // Claim is valid only for the specific Identity Provider,
+      // and identity_provider_id in the request matches the one provided in the claim.
+      Left(AuthorizationError.InvalidIdentityProviderId(requestIdentityProviderId))
+    case _ =>
+      Right(())
+  }
 
   private[this] def requireForAll[T](
       xs: IterableOnce[T],
@@ -216,8 +272,18 @@ final class Authorizer(
       errOrV: Either[AuthorizationError, T]
   ): Either[StatusRuntimeException, T] =
     errOrV.fold(
-      err =>
-        Left(LedgerApiErrors.AuthorizationChecks.PermissionDenied.Reject(err.reason).asGrpcError),
+      {
+        case AuthorizationError.InvalidField(fieldName, reason) =>
+          Left(
+            LedgerApiErrors.RequestValidation.InvalidField
+              .Reject(fieldName = fieldName, message = reason)
+              .asGrpcError
+          )
+        case err =>
+          Left(
+            LedgerApiErrors.AuthorizationChecks.PermissionDenied.Reject(err.reason).asGrpcError
+          )
+      },
       Right(_),
     )
 

@@ -61,6 +61,9 @@ class IdentityProviderIdSpec extends AnyWordSpec with Matchers {
     IdentityProviderId.fromString("a123") shouldBe Right(
       IdentityProviderId.Id.assertFromString("a123")
     )
+    IdentityProviderId.fromString("a" * 256) shouldBe Left(
+      "Daml-LF Ledger String is too long (max: 255)"
+    )
   }
 
   "IdentityProviderId.fromDb" in {
