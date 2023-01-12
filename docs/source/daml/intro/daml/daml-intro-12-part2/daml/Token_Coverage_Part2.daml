@@ -1,0 +1,55 @@
+-- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+
+module Token_Coverage_Part2 where
+
+import Daml.Script
+-- IMPORT_EXTERNAL_BEGIN
+import qualified Token_Coverage_Part1 as External
+-- IMPORT_EXTERNAL_END
+
+-- DEFINE_INTERNAL_TEMPLATE_BEGIN
+template T with owner: Party where
+  signatory owner
+
+  interface instance External.I for T where
+    view = External.IView
+    getController = owner
+-- DEFINE_INTERNAL_TEMPLATE_END
+
+-- DEFINE_INTERNAL_INTERFACE_START
+data IView = IView {}
+interface I where
+  viewtype IView
+  getController : Party
+
+  nonconsuming choice I_C : ()
+    controller (getController this)
+    do pure ()
+
+  interface instance I for T where
+    view = IView
+    getController = owner
+
+  interface instance I for External.T1 where
+    view = IView
+    getController = owner
+-- DEFINE_INTERNAL_INTERFACE_END
+
+-- TEST_T3_BEGIN
+testT3 : Script ()
+testT3 = do
+  alice <- allocateParty "Alice"
+  external_t3 <- submit alice (createCmd External.T3 with owner = alice)
+  pure ()
+-- TEST_T3_END
+
+-- TEST_T1_AND_T2_BEGIN
+testT1AndT2 : Script ()
+testT1AndT2 = do
+  alice <- allocateParty "Alice"
+  external_t1 <- submit alice (createCmd External.T1 with owner = alice)
+  external_t2 <- submit alice (createCmd External.T2 with owner = alice)
+  pure ()
+-- TEST_T1_AND_T2_END

@@ -42,19 +42,32 @@ Checking Coverage
 
 When ``daml test`` runs, it analyzes the ledger record to produce a report on what percentage of templates were created and which interface and template choices were exercised during our tests.
 
+Flags Controlling Tests and Coverage
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+``daml test`` has four important options which affect the coverage report: ``--test-pattern PATTERN``, ``--files FILE``, ``--show-coverage``, and ``--all``:
+
+Enabling ``--show-coverage`` lists by name any templates, choices, and interfaces which are not covered. By default, the report only reports percentage of coverage.
+
+The remaining three options affect which tests are run. The coverage report is in aggregate for all tests run - tests that don't run do not count towards coverage.
+
+* Passing ``--test-pattern <PATTERN>`` runs only the local tests which match ``PATTERN``.
+* Passing ``--files <FILE>`` runs only the tests found in ``FILE``.
+* Enabling ``--all`` runs tests in dependency modules as well. Note: it is not affected by ``test-pattern`` - all external tests are run, and ``test-pattern`` only restricts local tests.
+
 Define templates, choices, and interfaces
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 To demonstrate how the coverage report works, we start by defining three dummy templates, ``T1``, ``T2``, and ``T3``. Each template has two dummy choices:
 
-.. literalinclude:: daml/daml-intro-12-part1/daml/Token_Coverage.daml
+.. literalinclude:: daml/daml-intro-12-part1/daml/Token_Coverage_Part1.daml
   :language: daml
   :start-after: -- TEMPLATE_DEFINITIONS_START
   :end-before: -- TEMPLATE_DEFINITIONS_END
 
 We also define an interface ``I`` with instances for ``T1`` and ``T2``:
 
-.. literalinclude:: daml/daml-intro-12-part1/daml/Token_Coverage.daml
+.. literalinclude:: daml/daml-intro-12-part1/daml/Token_Coverage_Part1.daml
   :language: daml
   :start-after: -- INTERFACE_DEFINITIONS_START
   :end-before: -- INTERFACE_DEFINITIONS_END
@@ -66,7 +79,7 @@ By writing a test which selectively creates and exercises only some of these tem
 
 To start, the test allocates a single party, ``alice``, which we will use for the whole test:
 
-.. literalinclude:: daml/daml-intro-12-part1/daml/Token_Coverage.daml
+.. literalinclude:: daml/daml-intro-12-part1/daml/Token_Coverage_Part1.daml
   :language: daml
   :start-after: -- ALLOCATE_PARTY_START
   :end-before: -- ALLOCATE_PARTY_END
@@ -76,7 +89,7 @@ Template creation coverage
 
 The coverage report mentions which templates were defined but never created. For example, the following test creates contracts out of only ``T1`` and ``T2``, never creating instances of template ``T3``:
 
-.. literalinclude:: daml/daml-intro-12-part1/daml/Token_Coverage.daml
+.. literalinclude:: daml/daml-intro-12-part1/daml/Token_Coverage_Part1.daml
   :language: daml
   :start-after: -- CREATE_TEMPLATES_START
   :end-before: -- CREATE_TEMPLATES_END
@@ -92,7 +105,7 @@ Running ``daml test --show-coverage`` reports how many templates were defined (3
     3 defined
     2 ( 66.7%) created
     internal templates never created: 1
-      Token_Coverage:T3
+      Token_Coverage_Part1:T3
   ...
 
 Template choice exercise coverage
@@ -100,14 +113,14 @@ Template choice exercise coverage
 
 The coverage report also tracks which choices were exercised. For example, the following test exercises the first and second choices of ``T1`` and the second choice of ``T2``. It also archives ``T1``, but not ``T2``.
 
-.. literalinclude:: daml/daml-intro-12-part1/daml/Token_Coverage.daml
+.. literalinclude:: daml/daml-intro-12-part1/daml/Token_Coverage_Part1.daml
   :language: daml
   :start-after: -- EXERCISE_TEMPLATES_START
   :end-before: -- EXERCISE_TEMPLATES_END
 
 ``daml test --show-coverage`` reports that the test exercised 4 out of 9 choices, and lists the choices that weren't exercised, including the second choice of ``T2`` and all the choices on ``T3``.
 
-Note that ``Token_Coverage:T2:Archive`` is included in the list of unexercised choices - because ``t2`` was not archived, its ``Archive`` choice was not run.
+Note that ``Token_Coverage_Part1:T2:Archive`` is included in the list of unexercised choices - because ``t2`` was not archived, its ``Archive`` choice was not run.
 
 .. code-block::
 
@@ -117,11 +130,11 @@ Note that ``Token_Coverage:T2:Archive`` is included in the list of unexercised c
   9 defined
   4 ( 44.4%) exercised
   internal template choices never exercised: 5
-    Token_Coverage:T2:Archive
-    Token_Coverage:T2:C_T2_2
-    Token_Coverage:T3:Archive
-    Token_Coverage:T3:C_T3_1
-    Token_Coverage:T3:C_T3_2
+    Token_Coverage_Part1:T2:Archive
+    Token_Coverage_Part1:T2:C_T2_2
+    Token_Coverage_Part1:T3:Archive
+    Token_Coverage_Part1:T3:C_T3_1
+    Token_Coverage_Part1:T3:C_T3_2
   ...
 
 Interface choice exercise coverage
@@ -133,12 +146,12 @@ The coverage report also tracks interfaces, with two differences:
 
 The following test creates ``t1`` and ``t2`` as before, but casts them immediately to ``I`` to get two contracts of ``I``: ``t1_i`` via ``T1``, and ``t2_i`` via ``T2``. It exercises both choices on the ``t1_i``, but only the first choice on ``t2_i``.
 
-.. literalinclude:: daml/daml-intro-12-part1/daml/Token_Coverage.daml
+.. literalinclude:: daml/daml-intro-12-part1/daml/Token_Coverage_Part1.daml
   :language: daml
   :start-after: -- EXERCISE_INTERFACES_START
   :end-before: -- EXERCISE_INTERFACES_END
 
-In the coverage report, there are four detected choices, as expected: two choices for the implementation of ``I`` for ``T1``, and two choices for the implementation of ``I`` for ``T2``. Three were exercised, so the only choice that wasn't exercised was ``C_I_1`` for ``T2``, which is reported as ``Token_Coverage:T2:C_I_1``.
+In the coverage report, there are four detected choices, as expected: two choices for the implementation of ``I`` for ``T1``, and two choices for the implementation of ``I`` for ``T2``. Three were exercised, so the only choice that wasn't exercised was ``C_I_1`` for ``T2``, which is reported as ``Token_Coverage_Part1:T2:C_I_1``.
 
 .. code-block::
 
@@ -148,7 +161,212 @@ In the coverage report, there are four detected choices, as expected: two choice
     4 defined
     3 ( 75.0%) exercised
     internal interface choices never exercised: 1
-      Token_Coverage:T2:C_I_2
+      Token_Coverage_Part1:T2:C_I_2
+  ...
+
+Checking Coverage of External Dependencies
+------------------------------------------
+
+The coverage report also describes coverage for external templates, interfaces, and choices. In the ``intro12-part1`` directory, run ``daml build --output intro12-part1.dar``, and copy the resulting ``./intro12-part1.dar`` file into the ``intro12-part2`` directory, where the remainder of our commands will be run.
+
+The ``daml.yaml`` configuration file in part2 specifies ``intro12-part1.dar`` as a dependency, letting us import its module.
+
+Definitions
+~~~~~~~~~~~
+
+We begin by defining importing the external dependency ``Token_Coverage_Part1`` as ``External`` to bring all of its external templates and interfaces into scope.
+
+.. literalinclude:: daml/daml-intro-12-part2/daml/Token_Coverage_Part2.daml
+  :language: daml
+  :start-after: -- IMPORT_EXTERNAL_BEGIN
+  :end-before: -- IMPORT_EXTERNAL_END
+
+We also define a dummy template ``T`` with no choices, but an implementation of external interface ``External.I``.
+
+.. literalinclude:: daml/daml-intro-12-part2/daml/Token_Coverage_Part2.daml
+  :language: daml
+  :start-after: -- DEFINE_INTERNAL_TEMPLATE_BEGIN
+  :end-before: -- DEFINE_INTERNAL_TEMPLATE_END
+
+Finally, we define an interface ``I`` with one dummy choice, and implementations for our local template ``T`` and the external template ``External.T1``.
+
+.. literalinclude:: daml/daml-intro-12-part2/daml/Token_Coverage_Part2.daml
+  :language: daml
+  :start-after: -- DEFINE_INTERNAL_INTERFACE_START
+  :end-before: -- DEFINE_INTERNAL_INTERFACE_END
+
+Local Definitions
+~~~~~~~~~~~~~~~~~
+
+Running ``daml test -p '/^$/'`` to create a coverage report without running any tests - because no tests were run, coverage will be 0% in all cases, but the report will still tally all discovered templates, interfaces, and choices, both external and internal.
+
+.. code-block:: none
+
+  Modules internal to this package:
+  - Internal templates
+    1 defined
+    0 (  0.0%) created
+  - Internal template choices
+    1 defined
+    0 (  0.0%) exercised
+  - Internal interface implementations
+    3 defined
+      2 internal interfaces
+      1 external interfaces
+  - Internal interface choices
+    4 defined
+    0 (  0.0%) exercised
+
+  Modules external to this package:
+  - External templates
+    3 defined
+    0 (  0.0%) created in any tests
+    0 (  0.0%) created in internal tests
+    0 (  0.0%) created in external tests
+  - External template choices
+    9 defined
+    0 (  0.0%) exercised in any tests
+    0 (  0.0%) exercised in internal tests
+    0 (  0.0%) exercised in external tests
+  - External interface implementations
+    2 defined
+  - External interface choices
+    4 defined
+    0 (  0.0%) exercised in any tests
+    0 (  0.0%) exercised in internal tests
+    0 (  0.0%) exercised in external tests
+
+We defined 1 template with 1 default choice (``Archive``), which get reported along with their coverage in the first two sections:
+
+.. code-block:: none
+
+  - Internal templates
+    1 defined
+    0 (  0.0%) created
+  - Internal template choices
+    1 defined
+    0 (  0.0%) exercised
+
+We also have 3 interface implementations that we have defined locally, ``External.I for T``, ``I for T``, and ``I for External.T1``. Note that while the interface implementations are local, the interfaces that they are defined over can be non-local - in this case we have 2 for the local interface ``I``, and 1 for the external interface ``External.I``. The total number of locally defined implementations, and the breakdown into local interfaces and external interfaces, is presented in the "Internal interface implementations" section.
+
+.. code-block:: none
+
+  - Internal interface implementations
+    3 defined
+      2 internal interfaces
+      1 external interfaces
+
+These local interface implementations provide 4 choices, two from ``External.I for T``, one from ``I for T``, and one from ``I for External.T1``, reported in the next section along with coverage.
+
+.. code-block:: none
+
+  - Internal interface choices
+    4 defined
+    0 (  0.0%) exercised
+
+External Definitions
+~~~~~~~~~~~~~~~~~~~~
+
+By importing ``Token_Coverage_Part1`` as ``External``, we have brought 3 templates, 9 template choices, 2 interface instances, and 4 interface choices into scope from there, which are listed in the external modules section.
+
+.. code-block:: none
+
+  ...
+  Modules external to this package:
+  - External templates
+    3 defined
+    ...
+  - External template choices
+    9 defined
+    ...
+  - External interface implementations
+    2 defined
+  - External interface choices
+    4 defined
+    ...
+
+External, Internal, and "Any" Coverage
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Unlike internal types, externally defined types can be covered by both internal and external tests. As a result, the report for external types distinguishes between coverage provided by internal tests, external tests, and "any" tests (both internal and external tests).
+
+Here we cover how to run internal and external tests simultaneously to get an aggregate report, and how to interpret this report.
+
+The ``--all`` flag runs tests in external modules as well. Run ``daml test --all --test-pattern notests`` in the ``intro12-part2`` directory - this instructs ``daml test`` to run all tests from external modules, and to run local tests matching ``notests``. We have no local tests named ``notests``, so this will only run the ``main`` test from ``part1``. Because the ``main`` test from ``part1`` does not use any of the types defined in ``part2``, the internal section of the resulting coverage report shows 0% everywhere. However, the ``main`` test does exercise many types in ``part1`` which are external to ``part2`` - as a result, the report's "external" section is similar to the "internal" section in the report for ``part1``:
+
+.. code-block:: none
+
+  ...
+  Modules external to this package:
+  - External templates
+    3 defined
+    2 ( 66.7%) created in any tests
+    0 (  0.0%) created in internal tests
+    2 ( 66.7%) created in external tests
+  - External template choices
+    9 defined
+    4 ( 44.4%) exercised in any tests
+    0 (  0.0%) exercised in internal tests
+    4 ( 44.4%) exercised in external tests
+  - External interface implementations
+    2 defined
+  - External interface choices
+    4 defined
+    3 ( 75.0%) exercised in any tests
+    0 (  0.0%) exercised in internal tests
+    3 ( 75.0%) exercised in external tests
+
+Note that unlike the internal section of the report in Part 1, the external section of the report in Part 2 has coverage for internal tests, external tests, and any tests. In this report, we only ran an external test, ``External:main``, so 0 is reported for all internal tests.
+
+Let's write a local test which will create ``External:T3``, a template which the ``External:main`` test does not create.
+
+.. literalinclude:: daml/daml-intro-12-part2/daml/Token_Coverage_Part2.daml
+  :language: daml
+  :start-after: -- TEST_T3_BEGIN
+  :end-before: -- TEST_T3_END
+
+If we run this test on its own using ``daml test --test-pattern testT3``, our external coverage report will show that 1 out of 3 of the external templates in scope were created, 1 by internal tests and 0 by external tests.
+
+.. code-block:: none
+
+  ...
+  modules external to this package:
+  - external templates
+    3 defined
+    1 ( 33.3%) created in any tests
+    1 ( 33.3%) created in internal tests
+    0 (  0.0%) created in external tests
+  ...
+
+We can run this test alongside the ``External:main`` test using ``daml test --all --test-pattern testT3``, to get an aggregate coverage report. The report now shows that 2 out of 3 of the external templates in scope were created in ``External:main``, and 1 out of 3 by internal test ``testT3``. Because ``External:main`` creates ``External:T1`` and ``External:T2``, and ``testT3`` creates ``External:T3``, all types are created across our tests, and the overall coverage across any tests is 3 out of 3 (100%).
+
+.. code-block:: none
+
+  ...
+  Modules external to this package:
+  - External templates
+    3 defined
+    3 (100.0%) created in any tests
+    1 ( 33.3%) created in internal tests
+    2 ( 66.7%) created in external tests
+  ...
+
+If we define a different local test, ``testT1AndT2``, which creates ``T1`` and ``T2``, running it alongside ``External:Main``, our report shows 2 out of 3 for "internal tests", 2 out of 3 for "external tests", but 2 out of 3 for "any tests"! Because the templates created by each test overlap, ``T3`` is never created and never covered, so despite an abundance of testing for external templates, coverage is still less than 100%.
+
+.. literalinclude:: daml/daml-intro-12-part2/daml/Token_Coverage_Part2.daml
+  :language: daml
+  :start-after: -- TEST_T1_AND_T2_BEGIN
+  :end-before: -- TEST_T1_AND_T2_END
+
+.. code-block:: none
+
+  ...
+  Modules external to this package:
+  - External templates
+    3 defined
+    2 ( 66.7%) created in any tests
+    2 ( 66.7%) created in internal tests
+    2 ( 66.7%) created in external tests
   ...
 
 Debug, Trace, and Stacktraces

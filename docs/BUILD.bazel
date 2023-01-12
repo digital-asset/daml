@@ -736,6 +736,35 @@ daml_test(
 )
 
 daml_test(
+    name = "daml-intro-daml-12-part1-test",
+    srcs = glob(
+        ["source/daml/intro/daml/daml-intro-12-part1/**/*.daml"],
+    ),
+    target = "1.15",
+    deps = ["//daml-script/daml:daml-script-1.15.dar"],
+)
+
+daml_compile(
+    name = "daml-intro12-part1",
+    srcs = glob(
+        ["source/daml/intro/daml/daml-intro-12-part1/**/*.daml"],
+    ),
+    target = "1.15",
+    dependencies = ["//daml-script/daml:daml-script-1.15.dar"],
+)
+
+daml_test(
+    name = "daml-intro-daml-12-part2-test",
+    srcs = glob(
+        ["source/daml/intro/daml/daml-intro-12-part2/**/*.daml"],
+    ),
+    target = "1.15",
+    deps = ["//daml-script/daml:daml-script-1.15.dar"],
+    data_deps = ["daml-intro12-part1.dar"],
+    additional_compiler_flags = ["-p", "/^$$/"],
+)
+
+daml_test(
     name = "daml-intro-daml-10-test",
     srcs = glob(
         ["source/daml/intro/daml/daml-intro-10/**/*.daml"],

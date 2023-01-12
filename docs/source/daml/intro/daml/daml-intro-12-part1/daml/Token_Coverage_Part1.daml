@@ -2,7 +2,7 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 
-module Token_Coverage where
+module Token_Coverage_Part1 where
 
 import Daml.Script
 

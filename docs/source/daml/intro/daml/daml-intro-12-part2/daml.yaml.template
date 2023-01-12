@@ -6,6 +6,8 @@ dependencies:
   - daml-prim
   - daml-stdlib
   - daml-script
+data-dependencies:
+  - ./intro12-part1.dar
 build-options:
   - --target=1.15
 sandbox-options:
