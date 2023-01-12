@@ -83,14 +83,16 @@ final class PartyRestrictionUserManagementAuthIT
         idpAdmin,
       )
 
-      _ <- expectInvalidArgument(createUser(
-        UUID.randomUUID().toString + "-alice-3",
-        idpAdmin,
-        Vector(
-          uproto.Right(uproto.Right.Kind.CanReadAs(uproto.Right.CanReadAs("some-party-1"))),
-          uproto.Right(uproto.Right.Kind.CanActAs(uproto.Right.CanActAs("some-party-2"))),
-        ),
-      ))
+      _ <- expectInvalidArgument(
+        createUser(
+          UUID.randomUUID().toString + "-alice-3",
+          idpAdmin,
+          Vector(
+            uproto.Right(uproto.Right.Kind.CanReadAs(uproto.Right.CanReadAs("some-party-1"))),
+            uproto.Right(uproto.Right.Kind.CanActAs(uproto.Right.CanActAs("some-party-2"))),
+          ),
+        )
+      )
 
       _ <- allocateParty(idpAdmin, "some-party-1")
       _ <- allocateParty(idpAdmin, "some-party-2")
