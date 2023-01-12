@@ -92,6 +92,15 @@ The command submission service deduplicates submitted commands based on their :r
 
 For details on how to use command deduplication, see the :doc:`Command Deduplication Guide <command-deduplication>`.
 
+.. _command-submission-disclosed-contracts:
+
+(Experimental) Submitting commands with disclosed contracts
+-----------------------------------------------------------
+
+Starting with Canton 2.6, Ledger API clients can submit commands with attached
+disclosed contracts for bypassing the contract's visibility restriction to stakeholders. For more details,
+see :doc:`Submitting commands with disclosed contracts <submission-disclosed-contracts>`.
+
 .. _command-completion-service:
 
 Command Completion Service
