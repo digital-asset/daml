@@ -74,9 +74,9 @@ final class PartyRestrictionUserManagementAuthIT
         UUID.randomUUID().toString + "-alice-2",
         alice,
         Vector(),
-        //Vector(
+        // Vector(
         //  Right(Right.Kind.CanReadAs(Right.CanReadAs("some-party-2")))
-        //),
+        // ),
         "",
       )
 
