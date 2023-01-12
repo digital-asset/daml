@@ -64,7 +64,8 @@ test = do
   tId <- submit alice do Script.createCmd T with party = alice, count = 1
   let activeContracts = toACS tId
   let commandsInFlight = Map.empty
-  (endCount, commands) <- testRule trigger alice [] activeContracts commandsInFlight 1
+  let config = TriggerConfig 1
+  (endCount, commands) <- testRule trigger alice [] activeContracts commandsInFlight config 1
   assertEq endCount (-1)
   let flatCommands = flattenCommands commands
   assertCreateCmd flatCommands $ \T { party, count } -> do
@@ -106,4 +107,5 @@ testQueryIds = do
   tId' <- submit alice do Script.createCmd T with party = alice, count = 43
   let activeContracts = toACS tId <> toACS tId'
   let commandsInFlight = Map.empty
-  testRule queryIds alice [] activeContracts commandsInFlight ()
+  let config = TriggerConfig 1
+  testRule queryIds alice [] activeContracts commandsInFlight config ()

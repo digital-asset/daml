@@ -30,15 +30,10 @@ import com.daml.lf.data.Ref._
 import com.daml.lf.data.ScalazEqual._
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.trigger.Runner.{
-  ApplyFlowControl,
-  FlowControl,
-  NoFlowControl,
-  ReleaseFlowControl,
   SeenMsgs,
   TriggerContext,
   TriggerContextualFlow,
   TriggerContextualSource,
-  inFlightCommandNoBackPressure,
   logger,
   triggerUserState,
 }
@@ -65,7 +60,6 @@ import com.daml.script.converter.ConverterException
 import com.daml.util.Ctx
 import com.google.protobuf.empty.Empty
 import com.google.rpc.status.Status
-import io.grpc.{Status => grpcStatus}
 import io.grpc.StatusRuntimeException
 import scalaz.syntax.bifunctor._
 import scalaz.syntax.std.boolean._
@@ -107,16 +101,6 @@ private[lf] final case class Trigger(
     // Whether the trigger supports readAs claims (SDK 1.18 and newer) or not.
     hasReadAs: Boolean,
 )
-
-private case object InFlightCommandApplyBackPressureException extends Exception {
-  // Must be kept in-sync with the DAML code LowLevel#applyBackPressure
-  val status: Status = Status(-1, "Apply backpressure warning")
-}
-
-private case object InFlightCommandNoBackPressureException extends Exception {
-  // Must be kept in-sync with the DAML code LowLevel#cancelBackPressure
-  val status: Status = Status(-2, "Cancel backpressure warning")
-}
 
 private final case class InFlightCommandOverflowException(inFlightCommands: Int, crashCount: Int)
     extends Exception
@@ -426,12 +410,14 @@ object Trigger {
     val `2.0.0` = new Version(0)
     val `2.5.0` = new Version(50)
     val `2.5.1` = new Version(51)
+    val `2.6.0` = new Version(60)
 
     def fromString(s: Option[String]): Either[String, Version] =
       s match {
         case None => Right(`2.0.0`)
         case Some("Version_2_5") => Right(`2.5.0`)
         case Some("Version_2_5_1") => Right(`2.5.1`)
+        case Some("Version_2_6") => Right(`2.6.0`)
         case Some(s) => Left(s"""cannot parse trigger version "$s".""")
       }
   }
@@ -541,13 +527,7 @@ private[lf] class Runner private (
     }
   }
 
-  import Runner.{
-    inFlightCommandApplyBackPressure,
-    DamlFun,
-    SingleCommandFailure,
-    overloadedRetryDelay,
-    retrying,
-  }
+  import Runner.{DamlFun, SingleCommandFailure, overloadedRetryDelay, retrying}
 
   @throws[RuntimeException]
   private def handleCommands(
@@ -666,20 +646,10 @@ private[lf] class Runner private (
           OverflowStrategy.fail.withLogLevel(Logging.WarningLevel),
         )
         .map { case ctx @ Ctx(_, SingleCommandFailure(commandId, s), _) =>
-          val status = s.getStatus.getCause match {
-            case cause: InFlightCommandApplyBackPressureException.type =>
-              ctx.context.logWarning("Signaling trigger rule evaluation to apply backpressure")
-              cause.status
-            case cause: InFlightCommandNoBackPressureException.type =>
-              ctx.context.logWarning("Signaling trigger rule evaluation to clear backpressure")
-              cause.status
-            case _ =>
-              Status(s.getStatus.getCode.value(), s.getStatus.getDescription)
-          }
           val completion = TriggerMsg.Completion(
             Completion(
               commandId,
-              Some(status),
+              Some(Status(s.getStatus.getCode.value(), s.getStatus.getDescription)),
             )
           )
 
@@ -765,16 +735,24 @@ private[lf] class Runner private (
       compiler.unsafeCompile(
         ERecProj(trigger.defn.ty, Name.assertFromString("initialState"), trigger.defn.expr)
       )
-    // Convert the ACS to a speedy value.
-    val createdValue: SValue = converter.fromACS(acs).orConverterException
     // Setup an application expression of initialState on the ACS.
-    val partyArg = SParty(Ref.Party.assertFromString(parties.actAs.unwrap))
-    val initialStateArgs = if (trigger.hasReadAs) {
-      val readAsArg = SList(
-        parties.readAs.map(p => SParty(Ref.Party.assertFromString(p.unwrap))).to(FrontStack)
-      )
-      Array(partyArg, readAsArg, createdValue)
-    } else Array(partyArg, createdValue)
+    val initialStateArgs = if (trigger.defn.version >= Trigger.Version.`2.6.0`) {
+      Array(converter.fromTriggerSetupArguments(parties, acs, triggerConfig).orConverterException)
+    } else {
+      val createdValue: SValue = converter.fromACS(acs).orConverterException
+      val partyArg = SParty(Ref.Party.assertFromString(parties.actAs.unwrap))
+
+      if (trigger.hasReadAs) {
+        // trigger version SDK 1.18 and newer
+        val readAsArg = SList(
+          parties.readAs.map(p => SParty(Ref.Party.assertFromString(p.unwrap))).to(FrontStack)
+        )
+        Array(partyArg, readAsArg, createdValue)
+      } else {
+        // trigger version prior to SDK 1.18
+        Array(partyArg, createdValue)
+      }
+    }
     val initialState: SExpr =
       makeApp(
         getInitialState,
@@ -1023,56 +1001,33 @@ private[lf] class Runner private (
         case z => Some(z)
       }
 
-    // Used to defend (by crashing) against trigger rules that emit excessive numbers of command submission requests
-    val crashFlow: TriggerContextualFlow[SubmitRequest, SubmitRequest, NotUsed] =
+    // Used to defend (by raising an unhandled exception) against trigger rules that emit excessive numbers of command submission requests
+    val overflowFlow: TriggerContextualFlow[SubmitRequest, SubmitRequest, NotUsed] =
       TriggerContextualFlow[SubmitRequest]
         .wireTap {
           case Ctx(context, request, _)
-              if inFlightCommands.count > triggerConfig.inFlightCommandCrashCount =>
+              if inFlightCommands.count > triggerConfig.inFlightCommandOverflowCount =>
             context.logError(
-              "Due to excessive in-flight commands, crashing trigger",
+              "Due to excessive in-flight commands, stopping the trigger",
               "commandId" -> request.getCommands.commandId,
               "in-flight-commands" -> inFlightCommands.count,
-              "in-flight-command-crash-count" -> triggerConfig.inFlightCommandCrashCount,
+              "in-flight-command-crash-count" -> triggerConfig.inFlightCommandOverflowCount,
             )
 
             throw InFlightCommandOverflowException(
               inFlightCommands.count,
-              triggerConfig.inFlightCommandCrashCount,
+              triggerConfig.inFlightCommandOverflowCount,
             )
 
           case _ =>
         }
-    // Used to limit rate (by using back pressure to slow trigger rule evaluation) at which we hit the ledger with command submission requests
+    // Used to limit rate (by using back pressure to slow trigger rule evaluation) ledger command submission requests
     val throttleFlow: TriggerContextualFlow[SubmitRequest, SubmitRequest, NotUsed] =
       TriggerContextualFlow[SubmitRequest]
         .throttle(triggerConfig.maxSubmissionRequests, triggerConfig.maxSubmissionDuration)
-    // Used to determine if flow control needs to be applied and reported to Daml trigger rules
-    val controlDecisionFlow
-        : TriggerContextualFlow[SubmitRequest, (FlowControl, SubmitRequest), NotUsed] =
-      TriggerContextualFlow[SubmitRequest]
-        .scan[(FlowControl, Option[TriggerContext[SubmitRequest]])]((NoFlowControl, None)) {
-          case ((ApplyFlowControl, _), request)
-              if inFlightCommands.count <= triggerConfig.inFlightCommandFailureCount =>
-            (ReleaseFlowControl, Some(request))
-
-          case (_, request)
-              if inFlightCommands.count <= triggerConfig.inFlightCommandFailureCount =>
-            (NoFlowControl, Some(request))
-
-          case (_, request) =>
-            (ApplyFlowControl, Some(request))
-        }
-        .collect { case (decision, Some(ctx @ Ctx(_, request, _))) =>
-          ctx.copy(value = (decision, request))
-        }
-    // Main ledger command submission flow - used whenever flow control is not applied
+    // Main ledger command submission flow
     val submissionFlow =
-      TriggerContextualFlow[(FlowControl, SubmitRequest)]
-        .collect {
-          case ctx @ Ctx(_, (control, request), _) if control != ApplyFlowControl =>
-            ctx.copy(value = request)
-        }
+      TriggerContextualFlow[SubmitRequest]
         .via(
           retrying(
             initialTries = triggerConfig.maxRetries,
@@ -1087,72 +1042,8 @@ private[lf] class Runner private (
               ctx.copy(value = err)
             }
         )
-    // When flow controls are to be applied, report back pressure to be applied to Daml trigger rules
-    val applyControlToFlow
-        : TriggerContextualFlow[(FlowControl, SubmitRequest), SingleCommandFailure, NotUsed] =
-      TriggerContextualFlow[(FlowControl, SubmitRequest)]
-        .collect { case Ctx(context, (ApplyFlowControl, request), _) =>
-          context.logWarning(
-            "Due to excessive in-flight commands, failing submission request and signaling for rule evaluation to back pressure",
-            "commandId" -> request.getCommands.commandId,
-            "in-flight-commands" -> inFlightCommands.count,
-            "in-flight-command-failure-count" -> triggerConfig.inFlightCommandFailureCount,
-            "in-flight-command-crash-count" -> triggerConfig.inFlightCommandCrashCount,
-          )
 
-          inFlightCommands.remove(UUID.fromString(request.getCommands.commandId))(context)
-
-          Ctx(
-            context,
-            SingleCommandFailure(
-              request.getCommands.commandId,
-              new StatusRuntimeException(inFlightCommandApplyBackPressure),
-            ),
-          )
-        }
-    // When flow controls are to be released, allow ledger command submissions (on the submissionFlow) and report back pressure release to Daml trigger rules here
-    val releaseControlOnFlow
-        : TriggerContextualFlow[(FlowControl, SubmitRequest), SingleCommandFailure, NotUsed] =
-      TriggerContextualFlow[(FlowControl, SubmitRequest)]
-        .collect { case Ctx(context, (ReleaseFlowControl, _), _) =>
-          context.logInfo(
-            "Signaling for trigger rule evaluator to stop applying back pressure",
-            "in-flight-commands" -> inFlightCommands.count,
-            "in-flight-command-failure-count" -> triggerConfig.inFlightCommandFailureCount,
-            "in-flight-command-crash-count" -> triggerConfig.inFlightCommandCrashCount,
-          )
-
-          Ctx(
-            context,
-            SingleCommandFailure(
-              "", // We intentionally use an empty command ID here since the request also needs to follow the submissionFlow
-              new StatusRuntimeException(inFlightCommandNoBackPressure),
-            ),
-          )
-        }
-    @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
-    val graph = GraphDSL.create() { implicit gb =>
-      import GraphDSL.Implicits._
-
-      val broadcast = gb.add(Broadcast[TriggerContext[(FlowControl, SubmitRequest)]](3))
-      val merge = gb.add(Merge[TriggerContext[SingleCommandFailure]](3))
-      val crash = gb.add(crashFlow)
-      val throttle = gb.add(throttleFlow)
-      val decision = gb.add(controlDecisionFlow)
-      val submit = gb.add(submissionFlow)
-      val control = gb.add(applyControlToFlow)
-      val release = gb.add(releaseControlOnFlow)
-
-      // format: off
-      crash ~> throttle ~> decision ~> broadcast ~> submit  ~> merge
-                                       broadcast ~> control ~> merge
-                                       broadcast ~> release ~> merge
-      // format: on
-
-      FlowShape(crash.in, merge.out)
-    }
-
-    Flow.fromGraph(graph)
+    overflowFlow.via(throttleFlow).via(submissionFlow)
   }
 
   // Run the trigger given the state of the ACS. The msgFlow argument
@@ -1191,12 +1082,6 @@ object Runner {
 
   private[trigger] implicit val logger: ContextualizedLogger = ContextualizedLogger.get(getClass)
 
-  private[trigger] val inFlightCommandApplyBackPressure: grpcStatus =
-    grpcStatus.UNKNOWN.withCause(InFlightCommandApplyBackPressureException)
-
-  private[trigger] val inFlightCommandNoBackPressure: grpcStatus =
-    grpcStatus.UNKNOWN.withCause(InFlightCommandNoBackPressureException)
-
   type TriggerContext[+Value] = Ctx[TriggerLogContext, Value]
 
   type TriggerContextualSource[+Out, +Mat] = Source[TriggerContext[Out], Mat]
@@ -1230,11 +1115,6 @@ object Runner {
       )
     }
   }
-
-  private sealed trait FlowControl
-  private case object ApplyFlowControl extends FlowControl
-  private case object NoFlowControl extends FlowControl
-  private case object ReleaseFlowControl extends FlowControl
 
   private def triggerUserState(state: SValue, level: Trigger.Level): SValue = {
     level match {

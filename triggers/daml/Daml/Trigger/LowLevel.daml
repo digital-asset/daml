@@ -6,8 +6,8 @@ module Daml.Trigger.LowLevel
   ( Message(..)
   , Completion(..)
   , CompletionStatus(..)
-  , applyBackPressure
-  , cancelBackPressure
+  , TriggerConfig(..)
+  , TriggerSetupArguments(..)
   , Transaction(..)
   , AnyContractId
   , toAnyContractId
@@ -169,9 +169,18 @@ data CompletionStatus
   | Succeeded { transactionId : TransactionId }
   deriving Show
 
--- This definition should be kept consistent with the status value of the object `InFlightCommandApplyBackPressureException`
-applyBackPressure : CompletionStatus
-applyBackPressure = Failed { status = -1, message = "Apply backpressure warning" }
+data TriggerConfig = TriggerConfig
+  { maxInFlightCommands : Int
+    -- ^ maximum number of commands that should be allowed to be in-flight at any point in time
+  }
+
+-- This definition is used to simplify future extensions of trigger initialState arguments
+data TriggerSetupArguments = TriggerSetupArguments
+  { actAs : Party
+  , readAs : [Party]
+  , acs : ActiveContracts
+  , config : TriggerConfig
+  }
 
 -- This definition should be kept consistent with the status value of the object `InFlightCommandNoBackPressureException`
 cancelBackPressure : CompletionStatus
@@ -190,7 +199,7 @@ data Trigger s = Trigger
 -- | Batching trigger is (approximately) a left-fold over `Message` with
 -- an accumulator of type `s`.
 data BatchTrigger s = BatchTrigger
-  { initialState : Party -> [Party] -> ActiveContracts -> TriggerSetup s
+  { initialState : TriggerSetupArguments -> TriggerSetup s
   , update : [Message] -> TriggerRule s ()
   , registeredTemplates : RegisteredTemplates
   , heartbeat : Optional RelTime
