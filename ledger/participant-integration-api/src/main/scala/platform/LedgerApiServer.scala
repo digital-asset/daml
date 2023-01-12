@@ -161,12 +161,16 @@ class LedgerApiServer(
       ): Future[domain.IdentityProviderConfig] =
         identityProviderStore.getActiveIdentityProviderByIssuer(issuer)
     }
+
+    val healthChecks = healthChecksWithIndexer + ("write" -> writeService)
+    metrics.daml.health.registerHealthGauge("ledger-api", () => healthChecks.isHealthy(None))
+
     ApiServiceOwner(
       indexService = indexService,
       ledgerId = ledgerId,
       config = apiServerConfig,
       optWriteService = Some(writeService),
-      healthChecks = healthChecksWithIndexer + ("write" -> writeService),
+      healthChecks = healthChecks,
       metrics = metrics,
       timeServiceBackend = timeServiceBackend,
       otherInterceptors = rateLimitingInterceptor.toList,

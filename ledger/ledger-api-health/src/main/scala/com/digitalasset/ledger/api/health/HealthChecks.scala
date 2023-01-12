@@ -13,7 +13,7 @@ class HealthChecks(components: Components) {
 
   def isHealthy(componentName: Option[ComponentName]): Boolean =
     componentName match {
-      case None => components.forall(_._2.currentHealth() == Healthy)
+      case None => components.values.forall(_.currentHealth() == Healthy)
       case Some(name) => components(name).currentHealth() == Healthy
     }
 

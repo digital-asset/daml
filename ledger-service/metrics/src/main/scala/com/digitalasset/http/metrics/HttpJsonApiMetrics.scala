@@ -4,7 +4,7 @@
 package com.daml.http.metrics
 
 import com.codahale.metrics.MetricRegistry
-import com.daml.metrics.CacheMetrics
+import com.daml.metrics.{CacheMetrics, HealthMetrics}
 import com.daml.metrics.api.MetricHandle.{Counter, Meter, Timer}
 import com.daml.metrics.api.MetricName
 import com.daml.metrics.api.dropwizard.DropwizardMetricsFactory
@@ -18,12 +18,16 @@ object HttpJsonApiMetrics {
       new DropwizardMetricsFactory(new MetricRegistry),
       new OpenTelemetryFactory(GlobalOpenTelemetry.getMeter("test")),
     )
+
+  final val ComponentName = "json-api"
 }
 
 class HttpJsonApiMetrics(
     dropwizardFactory: DropwizardMetricsFactory,
     openTelemetryFactory: OpenTelemetryFactory,
 ) {
+  import HttpJsonApiMetrics._
+
   val prefix: MetricName = MetricName.Daml :+ "http_json_api"
 
   object Db {
@@ -89,6 +93,8 @@ class HttpJsonApiMetrics(
   val allocatePartyThroughput: Meter =
     dropwizardFactory.meter(prefix :+ "allocation_party_throughput")
 
-  val http = new DamlHttpMetrics(openTelemetryFactory, "json-api")
-  val websocket = new DamlWebSocketMetrics(openTelemetryFactory, "json-api")
+  val http = new DamlHttpMetrics(openTelemetryFactory, ComponentName)
+  val websocket = new DamlWebSocketMetrics(openTelemetryFactory, ComponentName)
+
+  val health = new HealthMetrics(openTelemetryFactory)
 }

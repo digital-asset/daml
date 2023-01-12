@@ -182,6 +182,11 @@ object HttpService {
         healthTimeoutSeconds,
       )
 
+      _ = metrics.health.registerHealthGauge(
+        HttpJsonApiMetrics.ComponentName,
+        () => healthService.ready().map(_.checks.forall(_.result)),
+      )
+
       (encoder, decoder) = buildJsonCodecs(packageService)
 
       jsonEndpoints = new Endpoints(
