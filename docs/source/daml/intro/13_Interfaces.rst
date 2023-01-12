@@ -169,13 +169,13 @@ value.
 Using an interface
 ------------------
 
-Now that we have some interfaces and templates with instances for them, we can
+Now that you have some interfaces and templates with instances for them, you can
 reduce duplication in the code for different templates by instead going through
 the common interface.
 
 For instance, both ``Cash`` and ``NFT`` are ``Asset``\s, which means that
 contracts of either template have an owner who can propose to transfer the
-contract to a third party. Thus, we use Daml Script (see
+contract to a third party. Thus, you can use Daml Script (see
 :ref:`testing-using-script`) to test that the same contract can be created by
 ``Alice`` and successively transfered to ``Bob`` and then ``Charlie``, who then
 proposes to transfer to ``Dominic``, who rejects the proposal, and finally to
@@ -186,15 +186,15 @@ both defined in ``intro13/daml/Main.daml``.
 
 But that's a lot of duplication! ``cashTest`` and ``nftTest`` only differ in
 the line that creates the original asset and in the names of the choices used.
-With our new interfaces ``IAsset`` and ``IAssetTransferProposal``, we can write
-the body of this test a single time, which we name ``mkAssetTest``,
+With the new interfaces ``IAsset`` and ``IAssetTransferProposal``, you can write
+the body of this test a single time, with the name ``mkAssetTest``,
 
 .. literalinclude:: daml/daml-intro-13/daml/Main.daml
   :language: daml
   :start-after: -- MK_ASSET_TEST_BEGIN
   :lines: 2
 
-The idea is that it isn't the test itself, but rather a recipe for making the
+You now have not the test itself, but rather a recipe for making the
 test given some inputs - in this case, ``assetTxt`` (a label used for
 debugging), ``Parties {..}`` (a structure containing the ``Party`` values for
 ``Alice`` and friends) and finally ``mkAsset`` (a function that returns a
@@ -202,10 +202,10 @@ contract value of type ``t`` when given two ``Party`` arguments - the constraint
 ``Implements t IAsset`` means that ``t`` must be some template with an interface
 instance for ``IAsset``).
 
-Before looking at the body of ``mkAssetTest``, notice how we use it to define
+Before looking at the body of ``mkAssetTest``, notice how you use it to define
 the new tests ``cashAssetTest`` and ``nftAssetTest``; these are almost identical
 except for the label and function given in each case to ``mkAssetTest``. In
-effect, we have abstracted those away, so we don't need to include those details
+effect, you have abstracted those away, so you don't need to include those details
 in the body of ``mkAssetTest``:
 
 .. literalinclude:: daml/daml-intro-13/daml/Main.daml
@@ -232,19 +232,19 @@ In turn, ``mkAssetTest`` isn't very different from other Daml ``Script``\s you
 might have written before: it uses ``do`` notation as usual, including
 ``submit`` blocks constructed from ``Command``\s that define the ordered
 transactions that take place in the test. The main difference is that when
-querying values of interface types we cannot use the functions ``query`` and
-``queryContractId``; instead, we must use ``queryInterface``  (for obtaining the
+querying values of interface types you cannot use the functions ``query`` and
+``queryContractId``; instead you must use ``queryInterface`` (for obtaining the
 set of visible active contracts of a given interface type) and
 ``queryInterfaceContractId`` (for obtaining a single contract given its
 ``ContractId``). Importantly, these functions return the *view* of the contract
 corresponding to the used interface, rather than the contract record itself.
-This is because the ledger might contain contracts of template types that we
+This is because the ledger might contain contracts of template types that you
 don't know about but that do implement our interface, so the view is the only
 sensible thing it can see.
 
-Also, note that right after creating the asset with ``createCmd``, we convert
+Also note that immediately after creating the asset with ``createCmd``, you convert
 the resulting ``ContractId t`` into a ``ContractId IAsset`` using
-``toInterfaceContractId``, which allows us to exercise ``IAsset`` choices on it.
+``toInterfaceContractId``, which allows you to exercise ``IAsset`` choices on it.
 
 .. literalinclude:: daml/daml-intro-13/daml/Main.daml
   :language: daml
