@@ -3,31 +3,27 @@
 
 package com.daml.metrics
 
-import com.codahale.metrics.MetricRegistry
 import com.daml.metrics.api.MetricDoc.MetricQualification.Debug
-import com.daml.metrics.api.MetricHandle.{Histogram, Timer}
-import com.daml.metrics.api.dropwizard.FactoryWithDBMetrics
+import com.daml.metrics.api.MetricHandle.{Factory, Histogram, Timer}
 import com.daml.metrics.api.{MetricDoc, MetricName}
 
-class IndexDBMetrics(override val prefix: MetricName, override val registry: MetricRegistry)
-    extends MainIndexDBMetrics(prefix, registry)
+class IndexDBMetrics(val prefix: MetricName, val factory: Factory)
+    extends MainIndexDBMetrics(prefix, factory)
     with TransactionStreamsDbMetrics {
   self =>
 }
 
-trait TransactionStreamsDbMetrics extends FactoryWithDBMetrics {
-  self =>
-
-  def prefix: MetricName
-  def registry: MetricRegistry
+trait TransactionStreamsDbMetrics {
+  self: DatabaseMetricsFactory =>
+  val prefix: MetricName
+  val factory: Factory
 
   @MetricDoc.GroupTag(
     representative = "daml.index.db.flat_transactions_stream.<operation>",
     groupableClass = classOf[DatabaseMetrics],
   )
-  object flatTxStream extends FactoryWithDBMetrics {
-    override val prefix: MetricName = self.prefix :+ "flat_transactions_stream"
-    override val registry: MetricRegistry = self.registry
+  object flatTxStream {
+    val prefix: MetricName = self.prefix :+ "flat_transactions_stream"
 
     val fetchEventCreateIdsStakeholder: DatabaseMetrics = createDbMetrics(
       "fetch_event_create_ids_stakeholder"
@@ -46,16 +42,15 @@ trait TransactionStreamsDbMetrics extends FactoryWithDBMetrics {
                       |takes to turn the serialized Daml-LF values into in-memory representation.""",
       qualification = Debug,
     )
-    val translationTimer: Timer = timer(prefix :+ "translation")
+    val translationTimer: Timer = factory.timer(prefix :+ "translation")
   }
 
   @MetricDoc.GroupTag(
     representative = "daml.index.db.tree_transactions_stream.<operation>",
     groupableClass = classOf[DatabaseMetrics],
   )
-  object treeTxStream extends FactoryWithDBMetrics {
-    override val prefix: MetricName = self.prefix :+ "tree_transactions_stream"
-    override val registry: MetricRegistry = self.registry
+  object treeTxStream {
+    val prefix: MetricName = self.prefix :+ "tree_transactions_stream"
 
     val fetchEventCreateIdsStakeholder: DatabaseMetrics = createDbMetrics(
       "fetch_event_create_ids_stakeholder"
@@ -86,7 +81,7 @@ trait TransactionStreamsDbMetrics extends FactoryWithDBMetrics {
                       |takes to turn the serialized Daml-LF values into in-memory representation.""",
       qualification = Debug,
     )
-    val translationTimer: Timer = timer(prefix :+ "translation")
+    val translationTimer: Timer = factory.timer(prefix :+ "translation")
   }
 
 }
@@ -95,8 +90,8 @@ trait TransactionStreamsDbMetrics extends FactoryWithDBMetrics {
   representative = "daml.index.db.<operation>",
   groupableClass = classOf[DatabaseMetrics],
 )
-class MainIndexDBMetrics(override val prefix: MetricName, override val registry: MetricRegistry)
-    extends FactoryWithDBMetrics { self =>
+class MainIndexDBMetrics(prefix: MetricName, factory: Factory)
+    extends DatabaseMetricsFactory(prefix, factory) { self =>
 
   @MetricDoc.Tag(
     summary = "The time spent looking up a contract using its key.",
@@ -105,7 +100,7 @@ class MainIndexDBMetrics(override val prefix: MetricName, override val registry:
                     |into a transaction.""",
     qualification = Debug,
   )
-  val lookupKey: Timer = timer(prefix :+ "lookup_key")
+  val lookupKey: Timer = factory.timer(prefix :+ "lookup_key")
 
   @MetricDoc.Tag(
     summary = "The time spent fetching a contract using its id.",
@@ -114,7 +109,7 @@ class MainIndexDBMetrics(override val prefix: MetricName, override val registry:
                     |into a transaction.""",
     qualification = Debug,
   )
-  val lookupActiveContract: Timer = timer(prefix :+ "lookup_active_contract")
+  val lookupActiveContract: Timer = factory.timer(prefix :+ "lookup_active_contract")
 
   private val overall = createDbMetrics("all")
   val waitAll: Timer = overall.waitTimer
@@ -139,7 +134,7 @@ class MainIndexDBMetrics(override val prefix: MetricName, override val registry:
   )
   val loadPartyEntries: DatabaseMetrics = createDbMetrics("load_party_entries")
 
-  object storeTransactionDbMetrics extends DatabaseMetrics(prefix, "store_ledger_entry", registry)
+  val storeTransactionDbMetrics: DatabaseMetrics = createDbMetrics("store_ledger_entry")
 
   val storeRejectionDbMetrics: DatabaseMetrics = createDbMetrics(
     "store_rejection"
@@ -187,7 +182,7 @@ class MainIndexDBMetrics(override val prefix: MetricName, override val registry:
                       |representation. This metric represents time necessary to do that.""",
       qualification = Debug,
     )
-    val getLfPackage: Timer = timer(prefix :+ "get_lf_package")
+    val getLfPackage: Timer = factory.timer(prefix :+ "get_lf_package")
   }
 
   object compression {
@@ -200,7 +195,8 @@ class MainIndexDBMetrics(override val prefix: MetricName, override val registry:
                       |arguments of a create event.""",
       qualification = Debug,
     )
-    val createArgumentCompressed: Histogram = histogram(prefix :+ "create_argument_compressed")
+    val createArgumentCompressed: Histogram =
+      factory.histogram(prefix :+ "create_argument_compressed")
 
     @MetricDoc.Tag(
       summary = "The size of the decompressed argument of a create event.",
@@ -209,7 +205,8 @@ class MainIndexDBMetrics(override val prefix: MetricName, override val registry:
                       |arguments of a create event.""",
       qualification = Debug,
     )
-    val createArgumentUncompressed: Histogram = histogram(prefix :+ "create_argument_uncompressed")
+    val createArgumentUncompressed: Histogram =
+      factory.histogram(prefix :+ "create_argument_uncompressed")
 
     @MetricDoc.Tag(
       summary = "The size of the compressed key value of a create event.",
@@ -218,7 +215,8 @@ class MainIndexDBMetrics(override val prefix: MetricName, override val registry:
                       |value of a create event.""",
       qualification = Debug,
     )
-    val createKeyValueCompressed: Histogram = histogram(prefix :+ "create_key_value_compressed")
+    val createKeyValueCompressed: Histogram =
+      factory.histogram(prefix :+ "create_key_value_compressed")
 
     @MetricDoc.Tag(
       summary = "The size of the decompressed key value of a create event.",
@@ -227,7 +225,7 @@ class MainIndexDBMetrics(override val prefix: MetricName, override val registry:
                       |value of a create event.""",
       qualification = Debug,
     )
-    val createKeyValueUncompressed: Histogram = histogram(
+    val createKeyValueUncompressed: Histogram = factory.histogram(
       prefix :+ "create_key_value_uncompressed"
     )
 
@@ -238,7 +236,8 @@ class MainIndexDBMetrics(override val prefix: MetricName, override val registry:
                       |arguments of an exercise event.""",
       qualification = Debug,
     )
-    val exerciseArgumentCompressed: Histogram = histogram(prefix :+ "exercise_argument_compressed")
+    val exerciseArgumentCompressed: Histogram =
+      factory.histogram(prefix :+ "exercise_argument_compressed")
 
     @MetricDoc.Tag(
       summary = "The size of the decompressed argument of an exercise event.",
@@ -247,7 +246,7 @@ class MainIndexDBMetrics(override val prefix: MetricName, override val registry:
                       |arguments of an exercise event.""",
       qualification = Debug,
     )
-    val exerciseArgumentUncompressed: Histogram = histogram(
+    val exerciseArgumentUncompressed: Histogram = factory.histogram(
       prefix :+ "exercise_argument_uncompressed"
     )
 
@@ -258,7 +257,8 @@ class MainIndexDBMetrics(override val prefix: MetricName, override val registry:
                       |result of an exercise event.""",
       qualification = Debug,
     )
-    val exerciseResultCompressed: Histogram = histogram(prefix :+ "exercise_result_compressed")
+    val exerciseResultCompressed: Histogram =
+      factory.histogram(prefix :+ "exercise_result_compressed")
 
     @MetricDoc.Tag(
       summary = "The size of the decompressed result of an exercise event.",
@@ -267,7 +267,8 @@ class MainIndexDBMetrics(override val prefix: MetricName, override val registry:
                       |result of an exercise event.""",
       qualification = Debug,
     )
-    val exerciseResultUncompressed: Histogram = histogram(prefix :+ "exercise_result_uncompressed")
+    val exerciseResultUncompressed: Histogram =
+      factory.histogram(prefix :+ "exercise_result_uncompressed")
   }
 
   object threadpool {

@@ -19,7 +19,7 @@ import scala.util.chaining._
 
 class SequencerStateSpec extends AnyFlatSpec with Matchers {
   private implicit val bridgeMetrics: BridgeMetrics = new BridgeMetrics(
-    Metrics.ForTesting
+    Metrics.ForTesting.dropwizardFactory
   )
 
   "enqueue" should "update the sequencer state" in {

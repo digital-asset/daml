@@ -721,7 +721,7 @@ daml_test(
 )
 
 daml_test(
-    name = "daml-intro-daml-test-excl-8-9-10-12",
+    name = "daml-intro-daml-test-excl-8-9-10-12-13",
     srcs = glob(
         ["source/daml/intro/daml/**/*.daml"],
         exclude = [
@@ -730,9 +730,19 @@ daml_test(
             "source/daml/intro/daml/daml-intro-10/**",
             "source/daml/intro/daml/daml-intro-12-part1/**",
             "source/daml/intro/daml/daml-intro-12-part2/**",
+            "source/daml/intro/daml/daml-intro-13/**",
         ],
     ),
     deps = ["//daml-script/daml:daml-script.dar"],
+)
+
+daml_test(
+    name = "daml-intro-daml-13-test",
+    srcs = glob(
+        ["source/daml/intro/daml/daml-intro-13/**/*.daml"],
+    ),
+    target = "1.15",
+    deps = ["//daml-script/daml:daml-script-1.15.dar"],
 )
 
 daml_test(

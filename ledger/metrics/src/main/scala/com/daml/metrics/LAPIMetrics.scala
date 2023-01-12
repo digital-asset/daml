@@ -3,14 +3,12 @@
 
 package com.daml.metrics
 
-import com.codahale.metrics.MetricRegistry
 import com.daml.metrics.api.MetricDoc.MetricQualification.{Debug, Errors, Traffic}
-import com.daml.metrics.api.MetricHandle.{Counter, Timer}
-import com.daml.metrics.api.dropwizard.{DropwizardCounter, DropwizardFactory, DropwizardTimer}
+import com.daml.metrics.api.MetricHandle.{Counter, Factory, Timer}
+import com.daml.metrics.api.dropwizard.{DropwizardCounter, DropwizardTimer}
 import com.daml.metrics.api.{MetricDoc, MetricName}
 
-class LAPIMetrics(val prefix: MetricName, override val registry: MetricRegistry)
-    extends DropwizardFactory {
+class LAPIMetrics(val prefix: MetricName, val factory: Factory) {
 
   @MetricDoc.Tag(
     summary = "The time spent serving a ledger api grpc request.",
@@ -20,7 +18,7 @@ class LAPIMetrics(val prefix: MetricName, override val registry: MetricRegistry)
     qualification = Traffic,
   )
   val forMethodForDocs: Timer = DropwizardTimer(prefix :+ "<service_method>", null)
-  def forMethod(name: String): Timer = timer(prefix :+ name)
+  def forMethod(name: String): Timer = factory.timer(prefix :+ name)
 
   object return_status {
     private val prefix: MetricName = LAPIMetrics.this.prefix :+ "return_status"
@@ -33,7 +31,7 @@ class LAPIMetrics(val prefix: MetricName, override val registry: MetricRegistry)
     )
     val forCodeForDocs = DropwizardCounter(prefix :+ "<gRPC_status_code>", null)
 
-    def forCode(code: String): Counter = counter(prefix :+ code)
+    def forCode(code: String): Counter = factory.counter(prefix :+ code)
   }
 
   object threadpool {
@@ -63,7 +61,7 @@ class LAPIMetrics(val prefix: MetricName, override val registry: MetricRegistry)
                       |to all clients.""",
       qualification = Traffic,
     )
-    val transactionTrees: Counter = counter(prefix :+ "transaction_trees_sent")
+    val transactionTrees: Counter = factory.counter(prefix :+ "transaction_trees_sent")
 
     @MetricDoc.Tag(
       summary = "The number of the flat transactions sent over the ledger api.",
@@ -71,7 +69,7 @@ class LAPIMetrics(val prefix: MetricName, override val registry: MetricRegistry)
                       |all clients.""",
       qualification = Traffic,
     )
-    val transactions: Counter = counter(prefix :+ "transactions_sent")
+    val transactions: Counter = factory.counter(prefix :+ "transactions_sent")
 
     @MetricDoc.Tag(
       summary = "The number of the command completions sent by the ledger api.",
@@ -79,7 +77,7 @@ class LAPIMetrics(val prefix: MetricName, override val registry: MetricRegistry)
                       |clients.""",
       qualification = Traffic,
     )
-    val completions: Counter = counter(prefix :+ "completions_sent")
+    val completions: Counter = factory.counter(prefix :+ "completions_sent")
 
     @MetricDoc.Tag(
       summary = "The number of the active contracts sent by the ledger api.",
@@ -87,7 +85,7 @@ class LAPIMetrics(val prefix: MetricName, override val registry: MetricRegistry)
                       |clients.""",
       qualification = Traffic,
     )
-    val acs: Counter = counter(prefix :+ "acs_sent")
+    val acs: Counter = factory.counter(prefix :+ "acs_sent")
 
     val activeName: MetricName = prefix :+ "active"
 
@@ -96,6 +94,6 @@ class LAPIMetrics(val prefix: MetricName, override val registry: MetricRegistry)
       description = "The number of ledger api streams currently being served to all clients.",
       qualification = Debug,
     )
-    val active: Counter = counter(activeName)
+    val active: Counter = factory.counter(activeName)
   }
 }

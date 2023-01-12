@@ -3,10 +3,9 @@
 
 package com.daml.metrics
 
-import com.codahale.metrics.MetricRegistry
 import com.daml.metrics.api.MetricDoc.MetricQualification.{Debug, Latency, Saturation, Traffic}
-import com.daml.metrics.api.MetricHandle.{Counter, Histogram, Timer}
-import com.daml.metrics.api.dropwizard.{DropwizardFactory, DropwizardTimer}
+import com.daml.metrics.api.MetricHandle.{Counter, Factory, Histogram, Timer}
+import com.daml.metrics.api.dropwizard.DropwizardTimer
 import com.daml.metrics.api.{MetricDoc, MetricName}
 
 @MetricDoc.GroupTag(
@@ -17,9 +16,8 @@ import com.daml.metrics.api.{MetricDoc, MetricName}
   representative = "daml.parallel_indexer.<stage>",
   groupableClass = classOf[DatabaseMetrics],
 )
-class ParallelIndexerMetrics(val prefix: MetricName, override val registry: MetricRegistry)
-    extends DropwizardFactory {
-  val initialization = new DatabaseMetrics(prefix, "initialization", registry)
+class ParallelIndexerMetrics(prefix: MetricName, factory: Factory) {
+  val initialization = new DatabaseMetrics(prefix, "initialization", factory)
 
   // Number of state updates persisted to the database
   // (after the effect of the corresponding Update is persisted into the database,
@@ -31,7 +29,7 @@ class ParallelIndexerMetrics(val prefix: MetricName, override val registry: Metr
                     |party allocations, rejections, etc.""",
     qualification = Traffic,
   )
-  val updates: Counter = counter(prefix :+ "updates")
+  val updates: Counter = factory.counter(prefix :+ "updates")
 
   @MetricDoc.Tag(
     summary = "The number of elements in the queue in front of the indexer.",
@@ -39,7 +37,7 @@ class ParallelIndexerMetrics(val prefix: MetricName, override val registry: Metr
                     |batch formation during the database ingestion.""",
     qualification = Saturation,
   )
-  val inputBufferLength: Counter = counter(prefix :+ "input_buffer_length")
+  val inputBufferLength: Counter = factory.counter(prefix :+ "input_buffer_length")
 
   @MetricDoc.Tag(
     summary = "The size of the queue between the indexer and the in-memory state updating flow.",
@@ -48,7 +46,7 @@ class ParallelIndexerMetrics(val prefix: MetricName, override val registry: Metr
                     |downstream stages of the flow.""",
     qualification = Debug,
   )
-  val outputBatchedBufferLength: Counter = counter(prefix :+ "output_batched_buffer_length")
+  val outputBatchedBufferLength: Counter = factory.counter(prefix :+ "output_batched_buffer_length")
 
   // Input mapping stage
   // Translating state updates to data objects corresponding to individual SQL insert statements
@@ -65,7 +63,7 @@ class ParallelIndexerMetrics(val prefix: MetricName, override val registry: Metr
                       |database submission.""",
       qualification = Debug,
     )
-    val batchSize: Histogram = histogram(prefix :+ "batch_size")
+    val batchSize: Histogram = factory.histogram(prefix :+ "batch_size")
   }
 
   // Batching stage
@@ -88,7 +86,7 @@ class ParallelIndexerMetrics(val prefix: MetricName, override val registry: Metr
                       |indexer.""",
       qualification = Debug,
     )
-    val duration: Timer = timer(prefix :+ "duration")
+    val duration: Timer = factory.timer(prefix :+ "duration")
   }
 
   @MetricDoc.Tag(
@@ -102,9 +100,9 @@ class ParallelIndexerMetrics(val prefix: MetricName, override val registry: Metr
 
   // Ingestion stage
   // Parallel ingestion of prepared data into the database
-  val ingestion = new DatabaseMetrics(prefix, "ingestion", registry)
+  val ingestion = new DatabaseMetrics(prefix, "ingestion", factory)
 
   // Tail ingestion stage
   // The throttled update of ledger end parameters
-  val tailIngestion = new DatabaseMetrics(prefix, "tail_ingestion", registry)
+  val tailIngestion = new DatabaseMetrics(prefix, "tail_ingestion", factory)
 }

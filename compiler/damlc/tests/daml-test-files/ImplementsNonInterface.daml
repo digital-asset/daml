@@ -6,7 +6,7 @@
 -- is caught prior due to missing Eq and Show instances.
 
 -- @SINCE-LF-FEATURE DAML_INTERFACE
--- @ERROR range=19:7-19:16; Tried to make an interface implementation of ‘Bool’, but ‘Bool’ is not an interface.
+-- @ERROR range=19:7-19:16; Possible Daml-specific reason for the following type error: Tried to make an interface implementation of ‘Bool’, but ‘Bool’ is not an interface.
 
 module ImplementsNonInterface where
 
