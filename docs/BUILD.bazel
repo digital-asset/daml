@@ -759,8 +759,8 @@ daml_compile(
     srcs = glob(
         ["source/daml/intro/daml/daml-intro-12-part1/**/*.daml"],
     ),
-    target = "1.15",
     dependencies = ["//daml-script/daml:daml-script-1.15.dar"],
+    target = "1.15",
 )
 
 daml_test(
@@ -768,10 +768,9 @@ daml_test(
     srcs = glob(
         ["source/daml/intro/daml/daml-intro-12-part2/**/*.daml"],
     ),
+    data_deps = ["daml-intro12-part1.dar"],
     target = "1.15",
     deps = ["//daml-script/daml:daml-script-1.15.dar"],
-    data_deps = ["daml-intro12-part1.dar"],
-    additional_compiler_flags = ["-p", "/^$$/"],
 )
 
 daml_test(
