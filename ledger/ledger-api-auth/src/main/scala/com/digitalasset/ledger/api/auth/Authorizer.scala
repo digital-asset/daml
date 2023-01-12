@@ -84,12 +84,13 @@ final class Authorizer(
 
   def requireIdpAdminClaimsAndMatchingRequestIdpId[Req, Res](
       identityProviderId: String,
+      isParticipantAdminGranted: Boolean,
       call: Req => Future[Res],
   ): Req => Future[Res] =
     authorize(call) { claims =>
       for {
         _ <- valid(claims)
-        _ <- claims.isAdminOrIDPAdmin
+        _ <- if (isParticipantAdminGranted) claims.isAdmin else claims.isAdminOrIDPAdmin
         requestIdentityProviderId <- requireIdentityProviderId(identityProviderId)
         _ <- validateRequestIdentityProviderId(requestIdentityProviderId, claims)
       } yield ()

@@ -396,22 +396,7 @@ private[apiserver] final class ApiUserManagementService(
       isParticipantAdmin: Boolean,
   ): Future[Unit] =
     if (isParticipantAdmin) Future.unit
-    else
-      for {
-        _ <- verifyNoParticipantAdminAccessIsGiven(rights, isParticipantAdmin)
-        _ <- partyExistsOrError(userParties(rights), identityProviderId)
-      } yield ()
-
-  private def verifyNoParticipantAdminAccessIsGiven(
-      rights: Set[UserRight],
-      isParticipantAdmin: Boolean,
-  ): Future[Unit] = if (!isParticipantAdmin && rights.contains(UserRight.ParticipantAdmin))
-    Future.failed(
-      LedgerApiErrors.AuthorizationChecks.PermissionDenied
-        .Reject(s"ParticipantAdmin grant can only be given by another ParticipantAdmin.")
-        .asGrpcError
-    )
-  else Future.unit
+    else partyExistsOrError(userParties(rights), identityProviderId)
 
   private def partyExistsOrError(
       parties: Set[Ref.Party],

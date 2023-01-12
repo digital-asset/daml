@@ -28,11 +28,15 @@ private[daml] final class UserManagementServiceAuthorization(
   private implicit val errorLogger: ContextualizedErrorLogger =
     new DamlContextualizedErrorLogger(logger, loggingContext, None)
 
+  private def isAdminGranted(rights: Seq[Right]) =
+    rights.contains(Right(Right.Kind.ParticipantAdmin(Right.ParticipantAdmin())))
+
   override def createUser(request: CreateUserRequest): Future[CreateUserResponse] =
     request.user match {
       case Some(user) =>
         authorizer.requireIdpAdminClaimsAndMatchingRequestIdpId(
           user.identityProviderId,
+          isAdminGranted(request.rights),
           service.createUser,
         )(
           request
@@ -51,6 +55,7 @@ private[daml] final class UserManagementServiceAuthorization(
       case Success(None) =>
         authorizer.requireIdpAdminClaimsAndMatchingRequestIdpId(
           request.identityProviderId,
+          isParticipantAdminGranted = false,
           service.getUser,
         )(
           request
@@ -60,18 +65,21 @@ private[daml] final class UserManagementServiceAuthorization(
   override def deleteUser(request: DeleteUserRequest): Future[DeleteUserResponse] =
     authorizer.requireIdpAdminClaimsAndMatchingRequestIdpId(
       request.identityProviderId,
+      isParticipantAdminGranted = false,
       service.deleteUser,
     )(request)
 
   override def listUsers(request: ListUsersRequest): Future[ListUsersResponse] =
     authorizer.requireIdpAdminClaimsAndMatchingRequestIdpId(
       request.identityProviderId,
+      isParticipantAdminGranted = false,
       service.listUsers,
     )(request)
 
   override def grantUserRights(request: GrantUserRightsRequest): Future[GrantUserRightsResponse] =
     authorizer.requireIdpAdminClaimsAndMatchingRequestIdpId(
       request.identityProviderId,
+      isAdminGranted(request.rights),
       service.grantUserRights,
     )(
       request
@@ -82,6 +90,7 @@ private[daml] final class UserManagementServiceAuthorization(
   ): Future[RevokeUserRightsResponse] =
     authorizer.requireIdpAdminClaimsAndMatchingRequestIdpId(
       request.identityProviderId,
+      isAdminGranted(request.rights),
       service.revokeUserRights,
     )(
       request
@@ -100,6 +109,7 @@ private[daml] final class UserManagementServiceAuthorization(
       case Success(None) =>
         authorizer.requireIdpAdminClaimsAndMatchingRequestIdpId(
           request.identityProviderId,
+          isParticipantAdminGranted = false,
           service.listUserRights,
         )(
           request
@@ -111,6 +121,7 @@ private[daml] final class UserManagementServiceAuthorization(
       case Some(user) =>
         authorizer.requireIdpAdminClaimsAndMatchingRequestIdpId(
           user.identityProviderId,
+          isParticipantAdminGranted = false,
           service.updateUser,
         )(
           request

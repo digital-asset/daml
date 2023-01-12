@@ -28,6 +28,7 @@ private[daml] final class PartyManagementServiceAuthorization(
   override def getParties(request: GetPartiesRequest): Future[GetPartiesResponse] =
     authorizer.requireIdpAdminClaimsAndMatchingRequestIdpId(
       request.identityProviderId,
+      isParticipantAdminGranted = false,
       service.getParties,
     )(request)
 
@@ -36,6 +37,7 @@ private[daml] final class PartyManagementServiceAuthorization(
   ): Future[ListKnownPartiesResponse] =
     authorizer.requireIdpAdminClaimsAndMatchingRequestIdpId(
       request.identityProviderId,
+      isParticipantAdminGranted = false,
       service.listKnownParties,
     )(
       request
@@ -44,6 +46,7 @@ private[daml] final class PartyManagementServiceAuthorization(
   override def allocateParty(request: AllocatePartyRequest): Future[AllocatePartyResponse] =
     authorizer.requireIdpAdminClaimsAndMatchingRequestIdpId(
       request.identityProviderId,
+      isParticipantAdminGranted = false,
       service.allocateParty,
     )(
       request
@@ -55,6 +58,7 @@ private[daml] final class PartyManagementServiceAuthorization(
     case Some(partyDetails) =>
       authorizer.requireIdpAdminClaimsAndMatchingRequestIdpId(
         partyDetails.identityProviderId,
+        isParticipantAdminGranted = false,
         service.updatePartyDetails,
       )(
         request
