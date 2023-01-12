@@ -491,6 +491,8 @@ If we define a different local test, ``testT1AndT2``, which creates ``T1`` and `
     2 ( 66.7%) created in external tests
   ...
 
+External template choices and interface instance choices are also reported with "any", internal, and external coverage - we will not cover them here.
+
 Next Up
 -------
 
