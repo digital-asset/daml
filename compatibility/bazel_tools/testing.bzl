@@ -280,6 +280,10 @@ excluded_test_tool_tests = [
                 "end": "1.13.0-snapshot.20210419.6730.0.8c3a8c04",
                 "exclusions": ["ContractKeysIT:CKLocalKeyVisibility"],
             },
+            {
+                "start": "2.6.0-snapshot.20221226.11190.1",
+                "exclusions": ["ContractKeysIT:CKLocalKeyVisibility"],
+            },
         ],
     },
     {
