@@ -60,12 +60,13 @@ testRule
   -> [Party] -- ^ Execute the rule with these parties as `readAs`
   -> ACSBuilder  -- ^ List these contracts in the 'ACS'.
   -> Map CommandId [Command]  -- ^ The commands in flight.
-  -> TriggerConfig  -- ^ Trigger configuration.
   -> s  -- ^ The trigger state.
   -> Script (s, [Commands])  -- ^ The 'Commands' and new state emitted by the rule. The 'CommandId's will start from @"0"@.
-testRule trigger party readAs acsBuilder commandsInFlight config s = do
+testRule trigger party readAs acsBuilder commandsInFlight s = do
   time <- getTime
   acs <- buildACS party acsBuilder
+  let config = TriggerConfig
+        { maxInFlightCommands = 1 }
   let state = TriggerState
         { acs = acs
         , actAs = party

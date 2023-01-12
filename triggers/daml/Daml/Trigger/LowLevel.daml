@@ -182,10 +182,6 @@ data TriggerSetupArguments = TriggerSetupArguments
   , config : TriggerConfig
   }
 
--- This definition should be kept consistent with the status value of the object `InFlightCommandNoBackPressureException`
-cancelBackPressure : CompletionStatus
-cancelBackPressure = Failed { status = -2, message = "Cancel backpressure warning" }
-
 data ActiveContracts = ActiveContracts { activeContracts : [Created] }
 
 -- @WARN use 'BatchTrigger s' instead of 'Trigger s'
