@@ -254,4 +254,4 @@ the resulting ``ContractId t`` into a ``ContractId IAsset`` using
 Next Up
 -------
 
-You've reached the end of the Introduction to Daml. Congratulations! You can move on to the :doc:`nexs steps <99_NextSteps>` to understand how to put in practice the skills you've learned. Happy Daml'ing!
+You've reached the end of the Introduction to Daml. Congratulations! You can move on to the :doc:`next steps <99_NextSteps>` to understand how to put in practice the skills you've learned. Happy Daml'ing!

@@ -496,4 +496,4 @@ External template choices and interface instance choices are also reported with 
 Next Up
 -------
 
-There's little more to learn about writing Daml at this point that isn't best learned by practice and consulting reference material for both Daml and Haskell. In section 13, we will cover the use of interfaces in more detail.
+There's little more to learn about writing Daml at this point that isn't best learned by practice and consulting reference material for both Daml and Haskell. In section 13, :doc:`Interfaces <13_Interfaces>` we will cover the use of interfaces, a feature which aids code reuse across your Daml programs.
