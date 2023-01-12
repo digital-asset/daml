@@ -211,8 +211,11 @@ trait ServiceCallAuthTests
       identityProviderId: String = "",
       rights: Vector[proto.Right] = Vector.empty,
       tokenIssuer: Option[String] = None,
+      secret: Option[String] = None,
   ): Future[(proto.User, ServiceCallContext)] = {
-    val userToken = Option(toHeader(standardToken(userId, issuer = tokenIssuer)))
+    val userToken = Option(
+      toHeader(standardToken(userId, issuer = tokenIssuer), secret = secret.getOrElse(jwtSecret))
+    )
     val user = proto.User(
       id = userId,
       metadata = Some(ObjectMeta()),

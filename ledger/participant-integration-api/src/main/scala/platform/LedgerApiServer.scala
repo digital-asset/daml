@@ -8,9 +8,9 @@ import akka.stream.Materializer
 import com.daml.api.util.TimeProvider
 import com.daml.ledger.api.auth.{
   AuthService,
-  CachedJwtVerifierLoader,
   IdentityProviderConfigLoader,
   IdentityProviderAwareAuthService,
+  JwtVerifierLoader,
 }
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.health.HealthChecks
@@ -38,6 +38,7 @@ import scala.concurrent.{ExecutionContext, ExecutionContextExecutorService, Futu
 
 class LedgerApiServer(
     authService: AuthService,
+    jwtVerifierLoader: JwtVerifierLoader,
     buildWriteService: IndexService => ResourceOwner[WriteService],
     engine: Engine,
     ledgerFeatures: LedgerFeatures,
@@ -122,6 +123,7 @@ class LedgerApiServer(
           participantConfig.apiServer,
           participantId,
           explicitDisclosureUnsafeEnabled,
+          jwtVerifierLoader,
         )
       } yield apiService
     }
@@ -141,6 +143,7 @@ class LedgerApiServer(
       apiServerConfig: ApiServerConfig,
       participantId: Ref.ParticipantId,
       explicitDisclosureUnsafeEnabled: Boolean,
+      jwtVerifierLoader: JwtVerifierLoader,
   )(implicit
       actorSystem: ActorSystem,
       loggingContext: LoggingContext,
@@ -190,10 +193,7 @@ class LedgerApiServer(
       authService = new IdentityProviderAwareAuthService(
         defaultAuthService = authService,
         identityProviderConfigLoader = identityProviderConfigLoader,
-        jwtVerifierLoader = new CachedJwtVerifierLoader(
-          jwtTimestampLeeway = participantConfig.jwtTimestampLeeway,
-          metrics = metrics,
-        )(servicesExecutionContext),
+        jwtVerifierLoader = jwtVerifierLoader,
       )(servicesExecutionContext, loggingContext),
       jwtTimestampLeeway = participantConfig.jwtTimestampLeeway,
       explicitDisclosureUnsafeEnabled = explicitDisclosureUnsafeEnabled,
