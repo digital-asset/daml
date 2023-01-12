@@ -857,13 +857,13 @@ excluded_test_tool_tests = [
         ],
     },
     {
-        "start": "2.6.0-snapshot.20221226.11190.0.71548477",
+        "start": "2.6.0-snapshot.20221226.11190.1",
         "platform_ranges": [
             {
                 "end": "2.6.0-snapshot.20221226.11190.0.71548477",
                 "exclusions": [
-                    "ContractLKeyIT:CKLocalLookupByKeyVisibility",
-                    "ContractLKeyIT:CKLocalFetchByKeyVisibility",
+                    "ContractKeysIT:CKLocalLookupByKeyVisibility",
+                    "ContractKeysIT:CKLocalLookupByKeyVisibility",
                 ],
             },
         ],
