@@ -490,10 +490,10 @@ private[lf] object SBuiltin {
     ): Control.Value = {
       val coid = getSContractId(args, 0).coid
       machine match {
-        case _: PureMachine | _: ScenarioMachine =>
-          Control.Value(SOptional(Some(SText(coid))))
         case _: UpdateMachine =>
           Control.Value(SValue.SValue.None)
+        case _ =>
+          Control.Value(SOptional(Some(SText(coid))))
       }
     }
   }
@@ -2112,6 +2112,18 @@ private[lf] object SBuiltin {
       )
     }
 
+  }
+
+  final case class SBGenericAsk(tag: Any) extends SBuiltin(1) {
+    override private[speedy] def execute[Q](
+        args: util.ArrayList[SValue],
+        machine: Machine[Q],
+    ): Control[Q] =
+      machine.asGenericMachine(productPrefix)(_ =>
+        Control.Question(
+          Question.Generic(tag, args.get(0), sexpr => machine.setControl(Control.Expression(sexpr)))
+        )
+      )
   }
 
   object SBExperimental {

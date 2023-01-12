@@ -9,6 +9,7 @@ load(
     "lf_scalacopts",
     "lf_scalacopts_stricter",
 )
+load("//rules_daml:daml.bzl", "daml_compile")
 
 da_scala_library(
     name = "engine",
@@ -33,6 +34,12 @@ da_scala_library(
     ],
 )
 
+daml_compile(
+    name = "IO",
+    srcs = glob(["src/test/daml/**/*.daml"]),
+    target = "1.dev",
+)
+
 da_scala_test_suite(
     name = "tests",
     srcs = glob(
@@ -46,6 +53,7 @@ da_scala_test_suite(
         ],
     ),
     data = [
+        ":IO.dar",
         "//daml-lf/tests:AuthTests.dar",
         "//daml-lf/tests:BasicTests.dar",
         "//daml-lf/tests:BasicTests-dev.dar",

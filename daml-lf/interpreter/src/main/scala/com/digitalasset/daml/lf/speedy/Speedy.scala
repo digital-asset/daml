@@ -166,6 +166,11 @@ private[lf] object Speedy {
     ): Nothing =
       throw SErrorCrash(location, "unexpected update machine")
 
+    private[speedy] def asGenericMachine(location: String)(
+        f: GenericMachine => Control[Question.Generic]
+    ): Nothing =
+      throw SErrorCrash(location, "unexpected update machine")
+
     /** unwindToHandler is called when an exception is thrown by the builtin SBThrow or
       * re-thrown by the builtin SBTryHandler. If a catch-handler is found, we initiate
       * execution of the handler code (which might decide to re-throw). Otherwise we call
@@ -544,7 +549,45 @@ private[lf] object Speedy {
         f: ScenarioMachine => Control[Question.Scenario]
     ): Control[Question.Scenario] = f(this)
 
+    private[speedy] def asGenericMachine(location: String)(
+        f: GenericMachine => Control[Question.Generic]
+    ): Nothing =
+      throw SErrorCrash(location, "unexpected scenario machine")
+
     /** Scenario Machine does not handle exceptions */
+    private[speedy] override def handleException(excep: SValue.SAny): Control.Error =
+      unhandledException(excep)
+  }
+
+  final class GenericMachine(
+      override val sexpr: SExpr,
+      /* The trace log. */
+      override val traceLog: TraceLog,
+      /* Engine-generated warnings. */
+      override val warningLog: WarningLog,
+      /* Compiled packages (Daml-LF ast + compiled speedy expressions). */
+      override var compiledPackages: CompiledPackages,
+      /* Profile of the run when the packages haven been compiled with profiling enabled. */
+      override val profile: Profile,
+  )(implicit loggingContext: LoggingContext)
+      extends Machine[Question.Generic] {
+
+    private[speedy] override def asUpdateMachine(location: String)(
+        f: UpdateMachine => Control[Question.Update]
+    ): Nothing =
+      throw SErrorCrash(location, "unexpected pure machine")
+
+    private[speedy] override def asScenarioMachine(location: String)(
+        f: ScenarioMachine => Control[Question.Scenario]
+    ): Nothing =
+      throw SErrorCrash(location, "unexpected pure machine")
+
+    private[speedy] def asGenericMachine(location: String)(
+        f: GenericMachine => Control[Question.Generic]
+    ): Control[Question.Generic] =
+      f(this)
+
+    /** Pure Machine does not handle exceptions */
     private[speedy] override def handleException(excep: SValue.SAny): Control.Error =
       unhandledException(excep)
   }
@@ -569,6 +612,11 @@ private[lf] object Speedy {
 
     private[speedy] override def asScenarioMachine(location: String)(
         f: ScenarioMachine => Control[Question.Scenario]
+    ): Nothing =
+      throw SErrorCrash(location, "unexpected pure machine")
+
+    private[speedy] def asGenericMachine(location: String)(
+        f: GenericMachine => Control[Question.Generic]
     ): Nothing =
       throw SErrorCrash(location, "unexpected pure machine")
 
@@ -668,6 +716,10 @@ private[lf] object Speedy {
 
     private[speedy] def asScenarioMachine(location: String)(
         f: ScenarioMachine => Control[Question.Scenario]
+    ): Control[Q]
+
+    private[speedy] def asGenericMachine(location: String)(
+        f: GenericMachine => Control[Question.Generic]
     ): Control[Q]
 
     @inline

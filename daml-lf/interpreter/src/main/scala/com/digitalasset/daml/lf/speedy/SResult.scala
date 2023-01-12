@@ -77,6 +77,8 @@ object Question {
 
   }
 
+  case class Generic(tag: Any, arg: SValue, callback: SExpr.SExpr => Unit)
+
 }
 
 /** The result from small-step evaluation.
