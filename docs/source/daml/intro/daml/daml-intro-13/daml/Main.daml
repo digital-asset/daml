@@ -244,7 +244,9 @@ mkArchiveNftTransferProposalTest Parties {..} = do
     archiveCmd bobMemeTransferProposal
 
 -- MK_ASSET_TEST_BEGIN
-mkAssetTest : (Template t, Implements t IAsset) => Text -> Parties -> (Party -> Party -> t) -> Script (ContractId IAsset)
+mkAssetTest : forall t.
+  (Template t, Implements t IAsset, HasAgreement t) =>
+  Text -> Parties -> (Party -> Party -> t) -> Script (ContractId IAsset)
 mkAssetTest assetTxt Parties {..} mkAsset = do
   aliceAsset <-
     alice `submit` do
@@ -311,7 +313,9 @@ mkAssetTest assetTxt Parties {..} mkAsset = do
   pure charlieAsset''
 -- MK_ASSET_TEST_END
 
-mkArchiveAssetTest : (Template t, Implements t IAsset) => Parties -> (Party -> Party -> t) -> Script ()
+mkArchiveAssetTest : forall t.
+  (Template t, Implements t IAsset, HasAgreement t) =>
+  Parties -> (Party -> Party -> t) -> Script ()
 mkArchiveAssetTest Parties {..} mkAsset = do
   aliceAsset <-
     alice `submit` do
@@ -321,7 +325,9 @@ mkArchiveAssetTest Parties {..} mkAsset = do
   alice `submit` do
     archiveCmd aliceAsset
 
-mkArchiveAssetTransferProposalTest : (Template t, Implements t IAsset) => Parties -> (Party -> Party -> t) -> Script ()
+mkArchiveAssetTransferProposalTest : forall t.
+  (Template t, Implements t IAsset, HasAgreement t) =>
+  Parties -> (Party -> Party -> t) -> Script ()
 mkArchiveAssetTransferProposalTest Parties {..} mkAsset = do
   aliceAsset <-
     alice `submit` do
