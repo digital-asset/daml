@@ -78,10 +78,10 @@ To abstract this behavior, you will next introduce two interfaces: ``IAsset`` an
 
 There are a few things happening here:
 
-1. For each interface, we have defined a ``viewtype``. This is mandatory for all
+1. For each interface, you have defined a ``viewtype``. This is mandatory for all
    interfaces. All viewtypes must be serializable records. This declaration
    means that the special ``view`` method, when applied to a value of this
-   interface, will return the specified type, in this case ``VAsset``. This is
+   interface, will return the specified type (in this case ``VAsset``). This is
    the definition of ``VAsset``:
 
    .. literalinclude:: daml/daml-intro-13/daml/IAsset.daml
@@ -93,21 +93,21 @@ There are a few things happening here:
      See :ref:`daml-ref-serializable-types` for more information on
      serializability requirements.
 
-2. We have defined the methods ``setOwner`` and ``toTransferProposal`` as part
+2. You have defined the methods ``setOwner`` and ``toTransferProposal`` as part
    of the ``IAsset`` interface, and method ``asset`` as part of the
-   ``IAssetTransferProposal`` interface. Later, when we provide instances of
-   these interfaces, we'll see that it is mandatory to implement each of these
+   ``IAssetTransferProposal`` interface. Later, when you provide instances of
+   these interfaces, you will see that it is mandatory to implement each of these
    methods.
 
-3. We have defined the choice ``ProposeIAssetTransfer`` as part of the
+3. You have defined the choice ``ProposeIAssetTransfer`` as part of the
    ``IAsset`` interface, and the choices ``AcceptIAssetTransferProposal``,
    ``RejectIAssetTransferProposal`` and ``WithdrawIAssetTransferProposal`` as
    part of the ``IAssetTransferProposal`` interface. These correspond one-to-one
    with the choices of ``Cash`` / ``CashTransferProposal`` and ``NFT`` /
    ``NFTTransferProposal``.
 
-   You should notice that the choice controller and the choice body are defined
-   in terms of the methods that we bundled with the interfaces, including the
+   Notice that the choice controller and the choice body are defined
+   in terms of the methods that you bundled with the interfaces, including the
    special ``view`` method. For example, the controller of
    ``choice ProposeIAssetTransfer`` is ``(view this).owner``, that is, it's the
    ``owner`` field of the ``view`` for the implicit current contract ``this``,
@@ -125,8 +125,8 @@ Interface instances
 
 On its own, an interface isn't very useful, since all contracts on the ledger
 must belong to some template type. In order to make the link between an
-interface and a template, we define an interface instance inside the body of
-either the template or the interface. In this example, we add
+interface and a template, you must define an interface instance inside the body of
+either the template or the interface. In this example, add:
 ``interface instance IAsset for Cash`` and
 ``interface instance IAssetTransferProposal for CashTransferProposal``:
 
@@ -143,7 +143,7 @@ either the template or the interface. In this example, we add
 The corresponding interface instances for ``NFT`` and ``NFTTransferProposal``
 are very similar so we omit them here.
 
-Inside the interface instances, we must implement every method defined for the
+Inside the interface instances, you must implement every method defined for the
 corresponding interface, including the special ``view`` method.  Within each
 method implementation the variable ``this`` is in scope, corresponding to the
 implict current contract, which will have the type of the template (in this case
@@ -154,14 +154,14 @@ and owner of the current ``Cash`` contract, as well as ``this``, which refers to
 the entire ``Cash`` contract payload.
 
 The implementations given for each method must match the types given in the
-interface definition. In particular, we see that the ``view`` definition
+interface definition. Notice that the ``view`` definition
 discussed above returns a ``VAsset``, corresponding to ``IAsset``'s
 ``viewtype``. Similarly, ``setOwner`` returns an ``IAsset``, and
 ``toTransferProposal`` returns an ``IAssetTransferProposal``. In these last two,
-we have used the function ``toInterface`` to convert values from a template type
+the function ``toInterface`` converts values from a template type
 into an interface type. In ``setOwner``, ``toInterface`` is applied to a
 ``Cash`` value (``this with owner = newOwner``), producing an ``IAsset`` value;
-in ``toTransferProposal``, it's applied to a ``CashTransferProposal`` value
+in ``toTransferProposal``, it is applied to a ``CashTransferProposal`` value
 (``CashTransferProposal with {...}``), producing an ``IAssetTransferProposal``
 value.
 
