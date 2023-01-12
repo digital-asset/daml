@@ -20,7 +20,7 @@ way to abstract those behaviors into a Daml type.
 Context
 -------
 
-First, let's define some templates.
+First, define some templates:
 
 .. literalinclude:: daml/daml-intro-13/daml/Cash.daml
   :language: daml
@@ -33,7 +33,7 @@ First, let's define some templates.
   :end-before: -- TEMPLATE_CASH_TF_DEF_END
 
 These declarations from ``intro13/daml/Cash.daml`` define ``Cash`` as a simple
-template with an issuer and an owner, a currency and an amount. A ``Cash``
+template with an issuer, an owner, a currency, and an amount. A ``Cash``
 contract grants its ``owner`` the choice ``ProposeCashTransfer``, which allows
 the owner to propose another party, the ``newOwner``, to take over ownership of
 the asset.
@@ -59,7 +59,7 @@ field whereas ``Cash`` has ``currency : Text`` and ``amount : Decimal``.
 Interface definition
 --------------------
 
-To abstract this behavior, we introduce two interfaces, ``IAsset`` and
+To abstract this behavior, you will next introduce two interfaces: ``IAsset`` and
 ``IAssetTransferProposal``.
 
 .. hint::
