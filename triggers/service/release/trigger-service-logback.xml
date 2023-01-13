@@ -6,7 +6,7 @@
             </then>
             <else>
                 <encoder>
-                    <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+                    <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg %replace(, context: %marker){', context: $', ''} %n</pattern>
                 </encoder>
             </else>
         </if>
@@ -18,7 +18,7 @@
 
     <logger name="io.netty" level="WARN"/>
     <logger name="io.grpc.netty" level="WARN"/>
-    <logger name="com.daml.lf.engine.trigger" level="DEBUG"/>
+    <logger name="com.daml.lf.engine.trigger" level="INFO"/>
 
     <root level="${LOG_LEVEL_ROOT:-INFO}">
         <appender-ref ref="STDOUT" />
