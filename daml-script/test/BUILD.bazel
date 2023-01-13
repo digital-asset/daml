@@ -69,6 +69,7 @@ genrule(
       cp -L $(location :daml/TestContractId.daml) $$TMP_DIR/daml
       cp -L $(location :daml/TestExceptions.daml) $$TMP_DIR/daml
       cp -L $(location :daml/TestInterfaces.daml) $$TMP_DIR/daml
+      cp -L $(location :daml/TestWithAuthorityOf.daml) $$TMP_DIR/daml
       cp -L $(location //daml-script/daml:daml-script-1.dev.dar) $$TMP_DIR/
       cat << EOF > $$TMP_DIR/daml.yaml
 sdk-version: {sdk}

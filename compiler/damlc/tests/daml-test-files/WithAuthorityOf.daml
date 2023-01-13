@@ -3,8 +3,6 @@
 
 module WithAuthorityOf where
 
---import Daml.Script -- NICK
-
 template HasConsortiumAutority
   with
     consortiumParty: Party
@@ -31,27 +29,3 @@ template ProposeConsortiumAuthority
         withAuthorityOf accepted $ do
           withAuthorityOf [consortiumParty] $ do
             create HasConsortiumAutority with consortiumParty
-
-{-
-test : Script () -- NICK
-test = do
-  alice <- allocateParty "Alice"
-  bob <- allocateParty "Bob"
-  charlie <- allocateParty "Charlie"
-
-  org <- allocateParty "TheOrg"
-
-  prop <- submit alice do
-    createCmd ProposeConsortiumAuthority with
-      proposer = alice
-      accepted = []
-      obs = [bob,charlie]
-      consortiumParty = org
-
-  prop <- submit bob do exerciseCmd prop Accept with who = bob
-  prop <- submit charlie do exerciseCmd prop Accept with who = charlie
-
-  submitMustFail alice do exerciseCmd prop Ratify -- TODO: make this not fail
-
-  pure ()
--}

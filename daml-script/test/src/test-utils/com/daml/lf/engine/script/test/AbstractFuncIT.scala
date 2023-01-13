@@ -359,6 +359,20 @@ abstract class AbstractFuncIT
         }
       }
     }
+    "WithAuthorityOf:test" should {
+      "succeed" in {
+        for {
+          clients <- participantClients()
+          v <- run(
+            clients,
+            QualifiedName.assertFromString("TestWithAuthorityOf:test"),
+            dar = devDar,
+          )
+        } yield {
+          v shouldBe (SUnit)
+        }
+      }
+    }
     "testMultiPartyQuery" should {
       "should return contracts for all listed parties" in {
         for {
