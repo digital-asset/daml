@@ -81,7 +81,7 @@ There are a few things happening here:
 1. For each interface, you have defined a ``viewtype``. This is mandatory for
    all interfaces. All viewtypes must be serializable records. The viewtype
    abstracts the read side by providing a uniform way in which implementations
-   of IAsset are represented on the Ledger API. This declaration means that the
+   of ``IAsset`` are represented on the Ledger API. This declaration means that the
    special ``view`` method, when applied to a value of this interface, will
    return the specified type (in this case ``VAsset``). This is the definition
    of ``VAsset``:
