@@ -324,6 +324,7 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
     "UNIX_MICROSECONDS_TO_TIMESTAMP" -> BUnixMicrosecondsToTimestamp,
     "FOLDL" -> BFoldl,
     "FOLDR" -> BFoldr,
+    "WITH_AUTHORITY_OF" -> BWithAuthorityOf,
     "TEXTMAP_EMPTY" -> BTextMapEmpty,
     "TEXTMAP_INSERT" -> BTextMapInsert,
     "TEXTMAP_LOOKUP" -> BTextMapLookup,
