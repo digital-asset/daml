@@ -155,7 +155,7 @@ trait AdminOrIDPAdminServiceCallAuthTests
     identityProviderConfig.identityProviderId
   }
 
-  private def idpAdminRights: Vector[proto.Right.Kind] = Vector(
+  def idpAdminRights: Vector[proto.Right.Kind] = Vector(
     proto.Right.Kind.IdentityProviderAdmin(proto.Right.IdentityProviderAdmin())
   )
 }

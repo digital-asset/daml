@@ -4,11 +4,18 @@
 package com.daml.platform.sandbox.auth
 
 import scala.concurrent.Future
+import com.daml.ledger.api.v1.admin.{user_management_service => ums}
 
-final class CreateUserAuthIT extends AdminOrIDPAdminServiceCallAuthTests with UserManagementAuth {
+final class CreateUserAuthIT
+    extends AdminOrIDPAdminServiceCallAuthTests
+    with UserManagementAuth
+    with GrantPermissionTest {
 
   override def serviceCallName: String = "UserManagementService#CreateUser"
 
-  override def serviceCall(context: ServiceCallContext): Future[Any] =
-    createFreshUser(context.token, context.identityProviderId)
+  def serviceCallWithGrantPermission(
+      context: ServiceCallContext,
+      permission: ums.Right,
+  ): Future[Any] =
+    createFreshUser(context.token, context.identityProviderId, scala.Seq(permission))
 }

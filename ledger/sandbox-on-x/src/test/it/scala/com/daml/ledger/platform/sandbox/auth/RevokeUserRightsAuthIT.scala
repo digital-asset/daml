@@ -13,28 +13,29 @@ import scala.concurrent.Future
 
 final class RevokeUserRightsAuthIT
     extends AdminOrIDPAdminServiceCallAuthTests
-    with UserManagementAuth {
+    with UserManagementAuth
+    with GrantPermissionTest {
 
   override def serviceCallName: String = "UserManagementService#RevokeUserRights"
 
-  private def adminPermission =
-    ums.Right(ums.Right.Kind.ParticipantAdmin(ums.Right.ParticipantAdmin()))
-
-  override def serviceCall(context: ServiceCallContext): Future[Any] =
+  def serviceCallWithGrantPermission(
+      context: ServiceCallContext,
+      permission: ums.Right,
+  ): Future[Any] =
     for {
       response <- createFreshUser(context.token, context.identityProviderId)
       userId = response.user.getOrElse(sys.error("Could not load create a fresh user")).id
       _ <- stub(context.token).grantUserRights(
         GrantUserRightsRequest(
           userId = userId,
-          rights = scala.Seq(adminPermission),
+          rights = scala.Seq(permission),
           identityProviderId = context.identityProviderId,
         )
       )
       _ <- stub(context.token).revokeUserRights(
         RevokeUserRightsRequest(
           userId = userId,
-          rights = scala.Seq(adminPermission),
+          rights = scala.Seq(permission),
           identityProviderId = context.identityProviderId,
         )
       )
