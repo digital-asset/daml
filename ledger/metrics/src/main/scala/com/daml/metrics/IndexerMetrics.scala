@@ -59,6 +59,6 @@ class IndexerMetrics(val prefix: MetricName, override val registry: MetricRegist
 
   gaugeWithSupplier(
     prefix :+ "current_record_time_lag",
-    () => () => Instant.now().toEpochMilli - lastReceivedRecordTime.getValue,
+    () => Instant.now().toEpochMilli - lastReceivedRecordTime.getValue,
   )
 }
