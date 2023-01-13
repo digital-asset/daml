@@ -660,7 +660,7 @@ private[lf] object SBuiltin {
         args: util.ArrayList[SValue],
         machine: Machine[Q],
     ): Control[Q] = {
-      sys.error("SBWithAuthorityOf/NICK")
+      sys.error("SBWithAuthorityOf") // TODO https://github.com/digital-asset/daml/issues/15882
     }
   }
 
