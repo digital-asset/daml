@@ -119,7 +119,8 @@ conformance_test(
     lf_versions = [
         "default",
         "preview",
-        "dev",
+        # TODO https://github.com/digital-asset/daml/issues/15882
+        #"dev", # reactivate when canton uses the updated snapshot
     ],
     ports = conformance_test_ports,
     preview_mod_flag = "",
