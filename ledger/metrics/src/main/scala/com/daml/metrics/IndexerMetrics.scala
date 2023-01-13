@@ -23,15 +23,6 @@ class IndexerMetrics(prefix: MetricName, factory: Factory) {
     factory.gauge(prefix :+ "last_received_record_time", 0L)(MetricsContext.Empty)
 
   @MetricDoc.Tag(
-    summary = "A string value representing the last ledger offset ingested by the index db.",
-    description = """It is only available on metrics backends that support strings. In particular,
-                    |it is not available in Prometheus.""",
-    qualification = Debug,
-  )
-  val lastReceivedOffset: Gauge[String] =
-    factory.gauge(prefix :+ "last_received_offset", "<none>")(MetricsContext.Empty)
-
-  @MetricDoc.Tag(
     summary = "The sequential id of the current ledger end kept in the database.",
     description = """The ledger end's sequential id is a monotonically increasing integer value
                     |representing the sequential id ascribed to the most recent ledger event

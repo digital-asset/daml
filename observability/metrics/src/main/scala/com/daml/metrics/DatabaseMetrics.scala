@@ -6,14 +6,16 @@ package com.daml.metrics
 import com.daml.metrics.api.MetricDoc.MetricQualification.Debug
 import com.daml.metrics.api.MetricHandle.{Factory, Timer}
 import com.daml.metrics.api.noop.NoOpMetricsFactory
-import com.daml.metrics.api.{MetricDoc, MetricName}
+import com.daml.metrics.api.{MetricDoc, MetricName, MetricsContext}
 
 class DatabaseMetrics private[metrics] (
     val prefix: MetricName,
     val name: String,
     val factory: Factory,
 ) {
-  protected val dbPrefix: MetricName = prefix :+ name
+  protected val dbPrefix: MetricName = MetricName.Daml :+ "database"
+  private implicit val mc: MetricsContext =
+    MetricsContext("component" -> prefix, "operation" -> name)
 
   @MetricDoc.Tag(
     summary = "The time needed to acquire a connection to the database.",

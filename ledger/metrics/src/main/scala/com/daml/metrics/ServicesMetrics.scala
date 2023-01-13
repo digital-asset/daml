@@ -6,7 +6,7 @@ package com.daml.metrics
 import com.daml.metrics.api.MetricDoc.MetricQualification.{Debug, Saturation, Traffic}
 import com.daml.metrics.api.MetricHandle.{Counter, Factory, Histogram, Timer}
 import com.daml.metrics.api.noop.NoOpTimer
-import com.daml.metrics.api.{MetricDoc, MetricName}
+import com.daml.metrics.api.{MetricDoc, MetricName, MetricsContext}
 
 class ServicesMetrics(prefix: MetricName, factory: Factory) {
 
@@ -50,7 +50,7 @@ class ServicesMetrics(prefix: MetricName, factory: Factory) {
     val lookupActiveContract: Timer = factory.timer(prefix :+ "lookup_active_contract")
     @MetricDoc.FanInstanceTag
     val lookupContractStateWithoutDivulgence: Timer = factory.timer(
-      prefix :+ "lookup_contract_state_without_divulgence"
+      prefix :+ "lookup_contract_state_no_divulgence"
     )
     @MetricDoc.FanInstanceTag
     val lookupContractKey: Timer = factory.timer(prefix :+ "lookup_contract_key")
@@ -107,7 +107,9 @@ class ServicesMetrics(prefix: MetricName, factory: Factory) {
     }
 
     case class BufferedReader(streamName: String) {
-      val prefix: MetricName = index.prefix :+ s"${streamName}_buffer_reader"
+      val prefix: MetricName = index.prefix :+ "buffer_reader"
+      private implicit val mc: MetricsContext =
+        MetricsContext("stream_name" -> streamName)
 
       @MetricDoc.Tag(
         summary =
@@ -179,7 +181,7 @@ class ServicesMetrics(prefix: MetricName, factory: Factory) {
     val prefix: MetricName = ServicesMetrics.this.prefix :+ "read"
 
     @MetricDoc.FanInstanceTag
-    val getLedgerInitialConditions: Timer = factory.timer(prefix :+ "get_ledger_initial_conditions")
+    val getLedgerInitialConditions: Timer = factory.timer(prefix :+ "initial_conditions")
     @MetricDoc.FanInstanceTag
     val stateUpdates: Timer = factory.timer(prefix :+ "state_updates")
   }
