@@ -90,8 +90,6 @@ private[lf] final case class TriggerDefinition(
     expr: Expr,
 ) {
   val triggerIds = TriggerIds(ty.tycon.packageId)
-
-  val isBatchTrigger: Boolean = ty.tycon == triggerIds.damlTriggerLowLevel("BatchTrigger")
 }
 
 private[lf] final case class Trigger(
@@ -1031,6 +1029,7 @@ private[lf] class Runner private (
             )
 
           case _ =>
+            println(s"DEBUGGY: ${inFlightCommands.count}")
         }
     // Used to limit rate (by using back pressure to slow trigger rule evaluation) ledger command submission requests
     val throttleFlow: TriggerContextualFlow[SubmitRequest, SubmitRequest, NotUsed] =

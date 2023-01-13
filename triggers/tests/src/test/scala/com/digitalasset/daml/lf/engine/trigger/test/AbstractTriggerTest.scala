@@ -69,6 +69,8 @@ trait AbstractTriggerTest
   protected def ledgerClientChannelConfiguration =
     LedgerClientChannelConfiguration.InsecureDefaults
 
+  protected def triggerRunnerConfiguration = DefaultTriggerRunnerConfig
+
   protected def ledgerClient(
       maxInboundMessageSize: Int = RunnerConfig.DefaultMaxInboundMessageSize,
       config: Option[LedgerClientConfiguration] = None,
@@ -113,7 +115,7 @@ trait AbstractTriggerTest
       Runner(
         compiledPackages,
         trigger,
-        DefaultTriggerRunnerConfig,
+        triggerRunnerConfiguration,
         client,
         config.participants(ParticipantId).apiServer.timeProviderType,
         applicationId,

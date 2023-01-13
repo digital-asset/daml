@@ -77,7 +77,7 @@ feedTheCats party = do
           pure ()
 
 breedingRate : Int
-breedingRate = 20
+breedingRate = 100
 
 overflowTrigger: Trigger (Int, Int)
 overflowTrigger = Trigger
