@@ -57,6 +57,6 @@ class IndexerMetrics(prefix: MetricName, factory: Factory) {
 
   factory.gaugeWithSupplier(
     prefix :+ "current_record_time_lag",
-    () => () => Instant.now().toEpochMilli - lastReceivedRecordTime.getValue,
+    () => Instant.now().toEpochMilli - lastReceivedRecordTime.getValue,
   )(MetricsContext.Empty)
 }
