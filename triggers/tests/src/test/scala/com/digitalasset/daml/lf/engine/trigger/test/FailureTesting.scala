@@ -42,46 +42,47 @@ final class FailureTesting
     // The following value should be kept in sync with the value of contractPairings in Cats.daml
     val contractPairings = 400
 
-    def notObserving(
-        templateId: LedgerApi.Identifier
-    ): TriggerContext[TriggerMsg] => Boolean = {
-      case Ctx(
-            _,
-            TriggerMsg.Transaction(
-              ApiTransaction(_, _, _, _, Seq(ApiEvent(Created(created))), _)
-            ),
-            _,
-          ) if created.getTemplateId == templateId =>
-        false
-
-      case _ =>
-        true
-    }
-
-    def command(template: String, owner: String, i: Int): CreateCommand =
-      CreateCommand(
-        templateId = Some(LedgerApi.Identifier(packageId, "Cats", template)),
-        createArguments = Some(
-          LedgerApi.Record(fields =
-            Seq(
-              LedgerApi.RecordField("owner", Some(LedgerApi.Value().withParty(owner))),
-              template match {
-                case "TestControl" =>
-                  LedgerApi.RecordField("size", Some(LedgerApi.Value().withInt64(i.toLong)))
-                case _ =>
-                  LedgerApi.RecordField("isin", Some(LedgerApi.Value().withInt64(i.toLong)))
-              },
-            )
-          )
-        ),
-      )
-
-    def cat(owner: String, i: Int): CreateCommand = command("Cat", owner, i)
-
-    def food(owner: String, i: Int): CreateCommand = command("Food", owner, i)
-
     s"with $contractPairings contract pairings and always failing submissions" should {
-      "Process all contract pairings successfully" ignore {
+
+      def notObserving(
+          templateId: LedgerApi.Identifier
+      ): TriggerContext[TriggerMsg] => Boolean = {
+        case Ctx(
+              _,
+              TriggerMsg.Transaction(
+                ApiTransaction(_, _, _, _, Seq(ApiEvent(Created(created))), _)
+              ),
+              _,
+            ) if created.getTemplateId == templateId =>
+          false
+
+        case _ =>
+          true
+      }
+
+      def command(template: String, owner: String, i: Int): CreateCommand =
+        CreateCommand(
+          templateId = Some(LedgerApi.Identifier(packageId, "Cats", template)),
+          createArguments = Some(
+            LedgerApi.Record(fields =
+              Seq(
+                LedgerApi.RecordField("owner", Some(LedgerApi.Value().withParty(owner))),
+                template match {
+                  case "TestControl" =>
+                    LedgerApi.RecordField("size", Some(LedgerApi.Value().withInt64(i.toLong)))
+                  case _ =>
+                    LedgerApi.RecordField("isin", Some(LedgerApi.Value().withInt64(i.toLong)))
+                },
+              )
+            )
+          ),
+        )
+
+      def cat(owner: String, i: Int): CreateCommand = command("Cat", owner, i)
+
+      def food(owner: String, i: Int): CreateCommand = command("Food", owner, i)
+
+      "Process all contract pairings successfully" in {
         for {
           client <- ledgerClient()
           party <- allocateParty(client)
@@ -116,41 +117,17 @@ final class FailureTesting
           succeed
         }
       }
+    }
 
-      "trigger rules can detect back pressure signals" ignore {
-        for {
-          client <- ledgerClient()
-          party <- allocateParty(client)
-          runner = getRunner(
-            client,
-            QualifiedName.assertFromString("Cats:breedingTrigger"),
-            party,
-          )
-          (acs, offset) <- runner.queryACS()
-          _ <- runner
-            .runWithACS(
-              acs,
-              offset,
-              msgFlow = Flow[TriggerContext[TriggerMsg]]
-                // Allow flow to proceed until we observe a Cats:TestComplete contract being created
-                .takeWhile(
-                  notObserving(LedgerApi.Identifier(packageId, "Cats", "TestComplete"))
-                ),
-            )
-            ._2
-        } yield {
-          succeed
-        }
-      }
-
-      "unconstrained command submissions cause triggers to crash" in {
+    "Ledger completion delays" should {
+      "Eventually cause a trigger overflow" ignore {
         recoverToSucceededIf[InFlightCommandOverflowException] {
           for {
             client <- ledgerClient()
             party <- allocateParty(client)
             runner = getRunner(
               client,
-              QualifiedName.assertFromString("Cats:crashingTrigger"),
+              QualifiedName.assertFromString("Cats:overflowTrigger"),
               party,
             )
             (acs, offset) <- runner.queryACS()
@@ -158,18 +135,18 @@ final class FailureTesting
               .runWithACS(
                 acs,
                 offset,
-                msgFlow = Flow[TriggerContext[TriggerMsg]],
-                // Filter out all completion events and simulate ledger delays
-//                  .filter {
-//                    case _ =>
-//                      false
-//                    case _ =>
-//                      true
-//                  },
+                msgFlow = Flow[TriggerContext[TriggerMsg]]
+                  // Filter out all completion events and so simulate ledger command completion delays
+                  .filter {
+                    case Ctx(_, TriggerMsg.Completion(_), _) =>
+                      false
+                    case _ =>
+                      true
+                  },
               )
               ._2
           } yield {
-            fail("Cats:crashingTrigger failed to crash")
+            fail("Cats:overflowTrigger failed to crash")
           }
         }
       }

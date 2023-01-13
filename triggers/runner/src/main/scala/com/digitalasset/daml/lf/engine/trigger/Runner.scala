@@ -90,6 +90,8 @@ private[lf] final case class TriggerDefinition(
     expr: Expr,
 ) {
   val triggerIds = TriggerIds(ty.tycon.packageId)
+
+  val isBatchTrigger: Boolean = ty.tycon == triggerIds.damlTriggerLowLevel("BatchTrigger")
 }
 
 private[lf] final case class Trigger(
@@ -736,23 +738,25 @@ private[lf] class Runner private (
         ERecProj(trigger.defn.ty, Name.assertFromString("initialState"), trigger.defn.expr)
       )
     // Setup an application expression of initialState on the ACS.
-    val initialStateArgs = if (trigger.defn.version >= Trigger.Version.`2.6.0`) {
-      Array(converter.fromTriggerSetupArguments(parties, acs, triggerConfig).orConverterException)
-    } else {
-      val createdValue: SValue = converter.fromACS(acs).orConverterException
-      val partyArg = SParty(Ref.Party.assertFromString(parties.actAs.unwrap))
-
-      if (trigger.hasReadAs) {
-        // trigger version SDK 1.18 and newer
-        val readAsArg = SList(
-          parties.readAs.map(p => SParty(Ref.Party.assertFromString(p.unwrap))).to(FrontStack)
-        )
-        Array(partyArg, readAsArg, createdValue)
+    // TODO: move this into TriggerDefinition?
+    val initialStateArgs =
+      if (trigger.defn.isBatchTrigger && trigger.defn.version >= Trigger.Version.`2.6.0`) {
+        Array(converter.fromTriggerSetupArguments(parties, acs, triggerConfig).orConverterException)
       } else {
-        // trigger version prior to SDK 1.18
-        Array(partyArg, createdValue)
+        val createdValue: SValue = converter.fromACS(acs).orConverterException
+        val partyArg = SParty(Ref.Party.assertFromString(parties.actAs.unwrap))
+
+        if (trigger.hasReadAs) {
+          // trigger version SDK 1.18 and newer
+          val readAsArg = SList(
+            parties.readAs.map(p => SParty(Ref.Party.assertFromString(p.unwrap))).to(FrontStack)
+          )
+          Array(partyArg, readAsArg, createdValue)
+        } else {
+          // trigger version prior to SDK 1.18
+          Array(partyArg, createdValue)
+        }
       }
-    }
     val initialState: SExpr =
       makeApp(
         getInitialState,
