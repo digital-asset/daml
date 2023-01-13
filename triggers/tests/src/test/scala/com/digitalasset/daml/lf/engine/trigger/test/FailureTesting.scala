@@ -44,22 +44,6 @@ final class FailureTesting
 
     s"with $contractPairings contract pairings and always failing submissions" should {
 
-      def notObserving(
-          templateId: LedgerApi.Identifier
-      ): TriggerContext[TriggerMsg] => Boolean = {
-        case Ctx(
-              _,
-              TriggerMsg.Transaction(
-                ApiTransaction(_, _, _, _, Seq(ApiEvent(Created(created))), _)
-              ),
-              _,
-            ) if created.getTemplateId == templateId =>
-          false
-
-        case _ =>
-          true
-      }
-
       def command(template: String, owner: String, i: Int): CreateCommand =
         CreateCommand(
           templateId = Some(LedgerApi.Identifier(packageId, "Cats", template)),
@@ -81,6 +65,22 @@ final class FailureTesting
       def cat(owner: String, i: Int): CreateCommand = command("Cat", owner, i)
 
       def food(owner: String, i: Int): CreateCommand = command("Food", owner, i)
+
+      def notObserving(
+          templateId: LedgerApi.Identifier
+      ): TriggerContext[TriggerMsg] => Boolean = {
+        case Ctx(
+              _,
+              TriggerMsg.Transaction(
+                ApiTransaction(_, _, _, _, Seq(ApiEvent(Created(created))), _)
+              ),
+              _,
+            ) if created.getTemplateId == templateId =>
+          false
+
+        case _ =>
+          true
+      }
 
       "Process all contract pairings successfully" in {
         for {
@@ -120,7 +120,7 @@ final class FailureTesting
     }
 
     "Ledger completion delays" should {
-      "Eventually cause a trigger overflow" ignore {
+      "Eventually cause a trigger overflow" in {
         recoverToSucceededIf[InFlightCommandOverflowException] {
           for {
             client <- ledgerClient()
@@ -146,7 +146,7 @@ final class FailureTesting
               )
               ._2
           } yield {
-            fail("Cats:overflowTrigger failed to crash")
+            fail("Cats:overflowTrigger failed to throw InFlightCommandOverflowException")
           }
         }
       }

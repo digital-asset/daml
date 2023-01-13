@@ -102,7 +102,33 @@ private[lf] final case class Trigger(
     heartbeat: Option[FiniteDuration],
     // Whether the trigger supports readAs claims (SDK 1.18 and newer) or not.
     hasReadAs: Boolean,
-)
+) {
+
+  def initialStateArguments(
+      parties: TriggerParties,
+      acs: Seq[CreatedEvent],
+      triggerConfig: TriggerRunnerConfig,
+      converter: Converter,
+  ): Array[SValue] = {
+    if (defn.version >= Trigger.Version.`2.6.0`) {
+      Array(converter.fromTriggerSetupArguments(parties, acs, triggerConfig).orConverterException)
+    } else {
+      val createdValue: SValue = converter.fromACS(acs).orConverterException
+      val partyArg = SParty(Ref.Party.assertFromString(parties.actAs.unwrap))
+
+      if (hasReadAs) {
+        // trigger version SDK 1.18 and newer
+        val readAsArg = SList(
+          parties.readAs.map(p => SParty(Ref.Party.assertFromString(p.unwrap))).to(FrontStack)
+        )
+        Array(partyArg, readAsArg, createdValue)
+      } else {
+        // trigger version prior to SDK 1.18
+        Array(partyArg, createdValue)
+      }
+    }
+  }
+}
 
 private final case class InFlightCommandOverflowException(inFlightCommands: Int, crashCount: Int)
     extends Exception
@@ -738,29 +764,10 @@ private[lf] class Runner private (
         ERecProj(trigger.defn.ty, Name.assertFromString("initialState"), trigger.defn.expr)
       )
     // Setup an application expression of initialState on the ACS.
-    // TODO: move this into TriggerDefinition?
-    val initialStateArgs =
-      if (trigger.defn.isBatchTrigger && trigger.defn.version >= Trigger.Version.`2.6.0`) {
-        Array(converter.fromTriggerSetupArguments(parties, acs, triggerConfig).orConverterException)
-      } else {
-        val createdValue: SValue = converter.fromACS(acs).orConverterException
-        val partyArg = SParty(Ref.Party.assertFromString(parties.actAs.unwrap))
-
-        if (trigger.hasReadAs) {
-          // trigger version SDK 1.18 and newer
-          val readAsArg = SList(
-            parties.readAs.map(p => SParty(Ref.Party.assertFromString(p.unwrap))).to(FrontStack)
-          )
-          Array(partyArg, readAsArg, createdValue)
-        } else {
-          // trigger version prior to SDK 1.18
-          Array(partyArg, createdValue)
-        }
-      }
     val initialState: SExpr =
       makeApp(
         getInitialState,
-        initialStateArgs,
+        trigger.initialStateArguments(parties, acs, triggerConfig, converter),
       )
     // Prepare a speedy machine for evaluating expressions.
     val machine: Speedy.PureMachine =
