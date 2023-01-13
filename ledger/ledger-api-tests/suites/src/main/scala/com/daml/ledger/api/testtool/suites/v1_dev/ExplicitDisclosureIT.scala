@@ -32,12 +32,14 @@ import com.daml.ledger.test.model.Test
 import com.daml.ledger.test.model.Test._
 import com.daml.ledger.test.modelext.TestExtension.IDelegated
 import com.daml.lf.crypto.Hash
+import com.daml.lf.data.Bytes
 import com.daml.lf.data.Ref.{DottedName, Identifier, PackageId, QualifiedName}
 import com.google.protobuf.ByteString
 import com.google.protobuf.timestamp.Timestamp
 import scalaz.syntax.tag._
 
 import java.time.temporal.ChronoUnit
+import java.util.regex.Pattern
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Success, Try}
 
@@ -365,14 +367,16 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
           transactionFilter = filterTxBy(owner, template = byTemplate, interface = None),
         )
 
-        //      // TODO ED: Enable once the check is implemented in command interpretation
-        //      // Exercise a choice using invalid explicit disclosure (bad contract key)
-        //      errorBadKey <- testContext
-        //        .exerciseFetchDelegated(
-        //          testContext.disclosedContract
-        //            .update(_.metadata.contractKeyHash := ByteString.copyFromUtf8("BadKeyBadKeyBadKeyBadKeyBadKey00"))
-        //        )
-        //        .mustFail("using a mismatching contract key hash in metadata")
+//        _ <- testContext
+//          .exerciseFetchDelegated(
+//            testContext.disclosedContract
+//              .update(
+//                _.metadata.contractKeyHash := ByteString.copyFromUtf8(
+//                  "BadKeyBadKeyBadKeyBadKeyBadKey00"
+//                )
+//              )
+//          )
+//          .mustFail("using a mismatching contract key hash in metadata")
 
         // Exercise a choice using invalid explicit disclosure (bad ledger time)
         _ <- testContext
@@ -576,16 +580,29 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
       } yield {
         assertGrpcError(
           errorDuplicateContractId,
-          LedgerApiErrors.CommandExecution.Interpreter.InvalidArgumentInterpretationError,
-          // TODO ED: Ensure contractId inlined in error message
-          Some("Found duplicated contract IDs in submitted disclosed contracts for template"),
+          LedgerApiErrors.CommandExecution.Preprocessing.PreprocessingFailed,
+          Some(
+            s"Preprocessor encountered a duplicate disclosed contract ID ContractId(${testContext.disclosedContract.contractId})"
+          ),
           checkDefiniteAnswerMetadata = true,
         )
-        assertGrpcError(
+
+        val expectedKeyHashString = {
+          val bytes = Bytes.fromByteString(
+            testContext.disclosedContract.metadata
+              .getOrElse(fail("metadata not present"))
+              .contractKeyHash
+          )
+          Hash.fromBytes(bytes).getOrElse(fail("Could not decode hash")).toHexString
+        }
+        assertGrpcErrorRegex(
           errorDuplicateKey,
           LedgerApiErrors.CommandExecution.Interpreter.InvalidArgumentInterpretationError,
-          // TODO ED: Ensure contract key hash inlined in error message
-          Some("Found duplicated contract keys in submitted disclosed contracts"),
+          Some(
+            Pattern.compile(
+              s"Found duplicated contract keys in submitted disclosed contracts .* $expectedKeyHashString"
+            )
+          ),
           checkDefiniteAnswerMetadata = true,
         )
       }
