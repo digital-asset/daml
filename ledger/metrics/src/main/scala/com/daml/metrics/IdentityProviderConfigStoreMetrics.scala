@@ -23,7 +23,4 @@ class IdentityProviderConfigStoreMetrics(
   val updateIdpConfig: DatabaseMetrics = createDbMetrics("update_identity_provider_config")
   val listIdpConfigs: DatabaseMetrics = createDbMetrics("list_identity_provider_configs")
 
-  private def createDbMetrics(name: String) = {
-    new DatabaseMetrics(prefix, name, factory)
-  }
 }
