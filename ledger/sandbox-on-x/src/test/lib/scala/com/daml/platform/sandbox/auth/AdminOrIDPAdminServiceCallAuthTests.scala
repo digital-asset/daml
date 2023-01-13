@@ -149,6 +149,31 @@ trait AdminOrIDPAdminServiceCallAuthTests
     }
   }
 
+  it should "deny calls if Jwks url is unreachable" taggedAs adminSecurityAsset
+    .setAttack(
+      attackPermissionDenied(threat =
+        "Present a JWT which cannot be validated as Jwks URL is unreachable"
+      )
+    ) in {
+    expectPermissionDenied {
+      val suffix = UUID.randomUUID().toString
+      val idpConfig = IdentityProviderConfig(
+        identityProviderId = "idp-id-" + suffix,
+        isDeactivated = false,
+        issuer = "issuer-" + suffix,
+        jwksUrl =
+          TestJwtVerifierLoader.jwksUrl3.value, // TestJwtVerifierLoader.jwksUrl3 returns failure
+      )
+      for {
+        response <- createConfig(canReadAsAdminStandardJWT, idpConfig)
+        identityProviderConfig = response.identityProviderConfig
+          .getOrElse(sys.error("Failed to create idp config"))
+        tokenIssuer = Some(identityProviderConfig.issuer)
+        _ <- serviceCallWithIDPUser(idpAdminRights, identityProviderId(response), tokenIssuer)
+      } yield ()
+    }
+  }
+
   private def identityProviderId(response: CreateIdentityProviderConfigResponse): String = {
     val identityProviderConfig = response.identityProviderConfig
       .getOrElse(sys.error("Failed to create idp config"))
