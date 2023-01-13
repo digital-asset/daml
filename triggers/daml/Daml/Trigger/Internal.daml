@@ -179,7 +179,7 @@ runRule rule = do
 -- | Transform the (legacy) low-level trigger type into a batching trigger.
 runLegacyTrigger : LowLevel.Trigger s -> BatchTrigger s
 runLegacyTrigger userTrigger = BatchTrigger
-  { initialState = userTrigger.initialState
+  { initialState = \args -> userTrigger.initialState args.actAs args.readAs args.acs
   , update = \msgs -> forA_ msgs userTrigger.update
   , registeredTemplates = userTrigger.registeredTemplates
   , heartbeat = userTrigger.heartbeat

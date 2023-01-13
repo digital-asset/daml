@@ -277,10 +277,10 @@ runTrigger userTrigger = LowLevel.BatchTrigger
   , heartbeat = userTrigger.heartbeat
   }
   where
-    initialState party readAs (ActiveContracts createdEvents) =
-      let acs = foldl (\acs created -> applyEvent (CreatedEvent created) acs) (ACS mempty Map.empty) createdEvents
-          userState = runTriggerInitializeA userTrigger.initialize (TriggerInitState acs party readAs)
-          state = TriggerState acs party readAs userState Map.empty
+    initialState args =
+      let acs = foldl (\acs created -> applyEvent (CreatedEvent created) acs) (ACS mempty Map.empty) args.acs.activeContracts
+          userState = runTriggerInitializeA userTrigger.initialize (TriggerInitState acs args.actAs args.readAs)
+          state = TriggerState acs args.actAs args.readAs userState Map.empty
       in TriggerSetup $ execStateT (runTriggerRule $ runRule userTrigger.rule) state
 
     mkUserState state acs msg =

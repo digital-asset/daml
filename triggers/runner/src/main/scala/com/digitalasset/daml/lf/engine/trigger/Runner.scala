@@ -100,7 +100,35 @@ private[lf] final case class Trigger(
     heartbeat: Option[FiniteDuration],
     // Whether the trigger supports readAs claims (SDK 1.18 and newer) or not.
     hasReadAs: Boolean,
-)
+) {
+
+  def initialStateArguments(
+      parties: TriggerParties,
+      acs: Seq[CreatedEvent],
+      converter: Converter,
+  ): Array[SValue] = {
+    if (defn.version >= Trigger.Version.`2.5.1`) {
+      Array(converter.fromTriggerSetupArguments(parties, acs).orConverterException)
+    } else {
+      val createdValue: SValue = converter.fromACS(acs).orConverterException
+      val partyArg = SParty(Ref.Party.assertFromString(parties.actAs.unwrap))
+
+      if (hasReadAs) {
+        // trigger version SDK 1.18 and newer
+        val readAsArg = SList(
+          parties.readAs.map(p => SParty(Ref.Party.assertFromString(p.unwrap))).to(FrontStack)
+        )
+        Array(partyArg, readAsArg, createdValue)
+      } else {
+        // trigger version prior to SDK 1.18
+        Array(partyArg, createdValue)
+      }
+    }
+  }
+}
+
+private final case class InFlightCommandOverflowException(inFlightCommands: Int, crashCount: Int)
+    extends Exception
 
 // Utilities for interacting with the speedy machine.
 private[lf] object Machine {
@@ -731,20 +759,11 @@ private[lf] class Runner private (
       compiler.unsafeCompile(
         ERecProj(trigger.defn.ty, Name.assertFromString("initialState"), trigger.defn.expr)
       )
-    // Convert the ACS to a speedy value.
-    val createdValue: SValue = converter.fromACS(acs).orConverterException
     // Setup an application expression of initialState on the ACS.
-    val partyArg = SParty(Ref.Party.assertFromString(parties.actAs.unwrap))
-    val initialStateArgs = if (trigger.hasReadAs) {
-      val readAsArg = SList(
-        parties.readAs.map(p => SParty(Ref.Party.assertFromString(p.unwrap))).to(FrontStack)
-      )
-      Array(partyArg, readAsArg, createdValue)
-    } else Array(partyArg, createdValue)
     val initialState: SExpr =
       makeApp(
         getInitialState,
-        initialStateArgs,
+        trigger.initialStateArguments(parties, acs, converter),
       )
     // Prepare a speedy machine for evaluating expressions.
     val machine: Speedy.OffLedgerMachine =

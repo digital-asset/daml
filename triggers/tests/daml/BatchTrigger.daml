@@ -10,8 +10,8 @@ import Daml.Trigger.LowLevel
 
 test : BatchTrigger [Text]
 test = BatchTrigger
-  { initialState = \party _readAs _ -> do
-      submitCommands [createCmd (T party)]
+  { initialState = \args -> do
+      submitCommands [createCmd (T args.actAs)]
       pure []
   , update = \msgs -> forA_ msgs \msg -> do
       case msg of
