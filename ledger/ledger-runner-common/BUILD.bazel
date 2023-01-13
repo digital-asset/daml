@@ -35,6 +35,7 @@ da_scala_library(
         "//ledger/ledger-api-common",
         "//ledger/ledger-configuration",
         "//ledger/ledger-resources",
+        "//ledger/metrics",
         "//ledger/participant-integration-api",
         "//libs-scala/contextualized-logging",
         "//libs-scala/jwt",

@@ -15,7 +15,8 @@ class IdentityProviderConfigStoreMetrics(
     factory: DropwizardMetricsFactory,
 ) extends DatabaseMetricsFactory(prefix, factory) {
 
-  val cacheByIssuer = new CacheMetrics(prefix :+ "cache_by_issuer", factory)
+  val idpConfigCache = new CacheMetrics(prefix :+ "idp_config_cache", factory)
+  val verifierCache = new CacheMetrics(prefix :+ "verifier_cache", factory)
   val createIdpConfig: DatabaseMetrics = createDbMetrics("create_identity_provider_config")
   val getIdpConfig: DatabaseMetrics = createDbMetrics("get_identity_provider_config")
   val deleteIdpConfig: DatabaseMetrics = createDbMetrics("delete_identity_provider_config")

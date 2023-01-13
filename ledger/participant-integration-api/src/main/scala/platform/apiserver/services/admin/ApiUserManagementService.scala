@@ -100,6 +100,7 @@ private[apiserver] final class ApiUserManagementService(
       } { case (user, pRights) =>
         for {
           _ <- identityProviderExistsOrError(user.identityProviderId)
+          _ <- verifyUserIsNonExistentOrInIdp(user.identityProviderId, user.id)
           result <- userManagementStore
             .createUser(
               user = user,
@@ -149,10 +150,10 @@ private[apiserver] final class ApiUserManagementService(
           pFieldMask,
         )
       } { case (user, fieldMask) =>
-        // TODO IDP: Check if user belongs to the same `identityProviderId` or is ParticipantAdmin
         for {
           userUpdate <- handleUpdatePathResult(user.id, UserUpdateMapper.toUpdate(user, fieldMask))
           _ <- identityProviderExistsOrError(user.identityProviderId)
+          _ <- verifyUserIsNonExistentOrInIdp(user.identityProviderId, user.id)
           authorizedUserIdO <- authorizedUserIdFO
           _ <-
             if (
@@ -215,10 +216,9 @@ private[apiserver] final class ApiUserManagementService(
           "identity_provider_id",
         )
       } yield (userId, identityProviderId)
-    } { case (userId, _) =>
-      // TODO IDP: Check if user belongs to the same `identityProviderId` or is ParticipantAdmin
-      userManagementStore
-        .getUser(userId)
+    } { case (userId, identityProviderId) =>
+      verifyUserIsNonExistentOrInIdp(identityProviderId, userId)
+        .flatMap { _ => userManagementStore.getUser(userId) }
         .flatMap(handleResult("getting user"))
         .map(u => GetUserResponse(Some(toProtoUser(u))))
     }
@@ -233,10 +233,9 @@ private[apiserver] final class ApiUserManagementService(
             "identity_provider_id",
           )
         } yield (userId, identityProviderId)
-      } { case (userId, _) =>
-        // TODO IDP: Check if user belongs to the same `identityProviderId` or is ParticipantAdmin
-        userManagementStore
-          .deleteUser(userId)
+      } { case (userId, identityProviderId) =>
+        verifyUserIsNonExistentOrInIdp(identityProviderId, userId)
+          .flatMap { _ => userManagementStore.deleteUser(userId) }
           .flatMap(handleResult("deleting user"))
           .map(_ => proto.DeleteUserResponse())
       }
@@ -264,7 +263,6 @@ private[apiserver] final class ApiUserManagementService(
         (fromExcl, pageSize, identityProviderId)
       }
     ) { case (fromExcl, pageSize, identityProviderId) =>
-      // TODO IDP: Check if user belongs to the same `identityProviderId` or is ParticipantAdmin
       userManagementStore
         .listUsers(fromExcl, pageSize, identityProviderId)
         .flatMap(handleResult("listing users"))
@@ -290,13 +288,9 @@ private[apiserver] final class ApiUserManagementService(
           "identity_provider_id",
         )
       } yield (userId, rights, identityProviderId)
-    ) { case (userId, rights, _) =>
-      // TODO IDP: Check if user belongs to the same `identityProviderId` or is ParticipantAdmin
-      userManagementStore
-        .grantRights(
-          id = userId,
-          rights = rights,
-        )
+    ) { case (userId, rights, identityProviderId) =>
+      verifyUserIsNonExistentOrInIdp(identityProviderId, userId)
+        .flatMap { _ => userManagementStore.grantRights(id = userId, rights = rights) }
         .flatMap(handleResult("grant user rights"))
         .map(_.view.map(toProtoRight).toList)
         .map(proto.GrantUserRightsResponse(_))
@@ -315,13 +309,9 @@ private[apiserver] final class ApiUserManagementService(
           "identity_provider_id",
         )
       } yield (userId, rights, identityProviderId)
-    ) { case (userId, rights, _) =>
-      // TODO IDP: Check if user belongs to the same `identityProviderId` or is ParticipantAdmin
-      userManagementStore
-        .revokeRights(
-          id = userId,
-          rights = rights,
-        )
+    ) { case (userId, rights, identityProviderId) =>
+      verifyUserIsNonExistentOrInIdp(identityProviderId, userId)
+        .flatMap { _ => userManagementStore.revokeRights(id = userId, rights = rights) }
         .flatMap(handleResult("revoke user rights"))
         .map(_.view.map(toProtoRight).toList)
         .map(proto.RevokeUserRightsResponse(_))
@@ -339,10 +329,9 @@ private[apiserver] final class ApiUserManagementService(
           "identity_provider_id",
         )
       } yield (userId, identityProviderId)
-    } { case (userId, _) =>
-      // TODO IDP: Check if user belongs to the same `identityProviderId` or is ParticipantAdmin
-      userManagementStore
-        .listUserRights(userId)
+    } { case (userId, identityProviderId) =>
+      verifyUserIsNonExistentOrInIdp(identityProviderId, userId)
+        .flatMap { _ => userManagementStore.listUserRights(userId) }
         .flatMap(handleResult("list user rights"))
         .map(_.view.map(toProtoRight).toList)
         .map(proto.ListUserRightsResponse(_))
@@ -364,7 +353,7 @@ private[apiserver] final class ApiUserManagementService(
     identityProviderExists(id)
       .flatMap { idpExists =>
         if (idpExists)
-          Future.successful(())
+          Future.unit
         else
           Future.failed(
             LedgerApiErrors.RequestValidation.InvalidArgument
@@ -372,6 +361,24 @@ private[apiserver] final class ApiUserManagementService(
               .asGrpcError
           )
       }
+
+  // Check if user either doesn't exist or exists and belongs to the requested Identity Provider
+  // Alternatively, identity_provider_id could be part of the compound unique key within user database.
+  // It was considered as complication for the implementation and for now is simplified.
+  private def verifyUserIsNonExistentOrInIdp(
+      identityProviderId: IdentityProviderId,
+      userId: Ref.UserId,
+  ): Future[Unit] = {
+    userManagementStore.getUser(userId).flatMap {
+      case Right(user) if user.identityProviderId != identityProviderId =>
+        Future.failed(
+          LedgerApiErrors.AuthorizationChecks.PermissionDenied
+            .Reject(s"User ${user.id} belongs to another Identity Provider")
+            .asGrpcError
+        )
+      case _ => Future.unit
+    }
+  }
 
   private def handleResult[T](operation: String)(result: UserManagementStore.Result[T]): Future[T] =
     result match {

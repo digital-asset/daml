@@ -1,0 +1,11 @@
+sdk-version: __VERSION__
+name: daml-intro-to-interfaces
+build-options: [--target=1.15]
+source: daml
+version: 0.0.1
+dependencies:
+  - daml-prim
+  - daml-stdlib
+  - daml-script
+sandbox-options:
+  - --wall-clock-time

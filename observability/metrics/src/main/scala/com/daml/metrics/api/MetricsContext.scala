@@ -48,4 +48,12 @@ object MetricsContext {
     metrics.merge(MetricsContext(Map(labels: _*)))
   )
 
+  def withOptionalMetricLabels[T](labels: (String, Option[String])*)(run: MetricsContext => T)(
+      implicit metrics: MetricsContext
+  ): T = run(
+    metrics.merge(MetricsContext(Map(labels.collect({ case (key, Some(value)) =>
+      key -> value
+    }): _*)))
+  )
+
 }

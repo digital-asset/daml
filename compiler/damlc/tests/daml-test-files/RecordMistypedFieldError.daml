@@ -1,7 +1,7 @@
 -- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
 -- All rights reserved.
 
--- @ERROR range=14:18-14:26; Tried to get field ‘b’ with type ‘Text’ on value of type ‘Record’, but that field has type ‘Int’
+-- @ERROR range=14:18-14:26; Possible Daml-specific reason for the following type error: Tried to get field ‘b’ with type ‘Text’ on value of type ‘Record’, but that field has type ‘Int’
 
 module RecordMistypedFieldError where
 
