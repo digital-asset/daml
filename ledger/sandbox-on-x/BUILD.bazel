@@ -654,7 +654,7 @@ server_conformance_test(
 # (i.e. test asserting that submissions using disclosed contracts are rejected)
 # TODO ED: Remove once feature deemed stable
 conformance_test(
-    name = "conformance-test-explicit-disclosure-disabled-h2",
+    name = "conformance-test-explicit-disclosure-disabled-lf-dev-h2",
     hocon = True,
     lf_versions = [
         "1.dev",

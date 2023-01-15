@@ -8,7 +8,6 @@ import com.daml.ledger.api.refinements.ApiTypes.Party
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
-import com.daml.ledger.api.testtool.infrastructure.Synchronize.synchronize
 import com.daml.ledger.api.testtool.infrastructure.TransactionHelpers.createdEvents
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
 import com.daml.ledger.api.v1.command_service.SubmitAndWaitRequest
@@ -28,7 +27,6 @@ import com.daml.ledger.api.v1.value.{Record, RecordField, Value}
 import com.daml.ledger.api.validation.NoLoggingValueValidator
 import com.daml.ledger.client.binding
 import com.daml.ledger.client.binding.Primitive
-import com.daml.ledger.test.model.Test
 import com.daml.ledger.test.model.Test._
 import com.daml.ledger.test.modelext.TestExtension.IDelegated
 import com.daml.lf.crypto.Hash
@@ -367,16 +365,14 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
           transactionFilter = filterTxBy(owner, template = byTemplate, interface = None),
         )
 
-//        _ <- testContext
-//          .exerciseFetchDelegated(
-//            testContext.disclosedContract
-//              .update(
-//                _.metadata.contractKeyHash := ByteString.copyFromUtf8(
-//                  "BadKeyBadKeyBadKeyBadKeyBadKey00"
-//                )
-//              )
-//          )
-//          .mustFail("using a mismatching contract key hash in metadata")
+        //      // TODO ED: Enable once the check is implemented in command interpretation
+        //      // Exercise a choice using invalid explicit disclosure (bad contract key)
+        //      errorBadKey <- testContext
+        //        .exerciseFetchDelegated(
+        //          testContext.disclosedContract
+        //            .update(_.metadata.contractKeyHash := ByteString.copyFromUtf8("BadKeyBadKeyBadKeyBadKeyBadKey00"))
+        //        )
+        //        .mustFail("using a mismatching contract key hash in metadata")
 
         // Exercise a choice using invalid explicit disclosure (bad ledger time)
         _ <- testContext
@@ -608,24 +604,6 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
       }
   })
 
-  // TODO ED: Deduplicate with CKLocalKeyVisibility
-  test(
-    "EDLocalKeyVisibility",
-    "A local contract can be fetched/looked-up -by-key when the readers are not the contracts' stakeholders",
-    allocate(SingleParty, SingleParty),
-    enabled = _.explicitDisclosure,
-  )(implicit ec => {
-    case Participants(Participant(ledger1, party1), Participant(ledger2, party2)) =>
-      import Test.LocalKeyVisibilityOperations
-      for {
-        ops <- ledger1.create(party1, LocalKeyVisibilityOperations(party1, party2))
-
-        _ <- synchronize(ledger1, ledger2)
-        _ <- ledger2.exercise(party2, ops.exerciseLocalLookup())
-        _ <- ledger2.exercise(party2, ops.exerciseLocalFetch())
-      } yield ()
-  })
-
   test(
     "EDNormalizedDisclosedContract",
     "Submission works if the provided disclosed contract is normalized",
@@ -688,7 +666,7 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
       }
   })
 
-  // TODO ED: Consider extracting this assertion in generic contract test
+  // TODO ED: Extract this assertion in generic stream/ACS tests once the feature is deemed stable
   test(
     "EDContractDriverMetadata",
     "The contract driver metadata is present and consistent across all endpoints",
