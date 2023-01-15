@@ -221,8 +221,8 @@ com.google.api.grpc:proto-google-common-protos 2.0.1 : Apache License 2.0
 combine-source-map 0.8.0 : MIT License
 combined-stream 1.0.8 : MIT License
 Commander.js 2.19.0 : MIT License
+Commander.js 7.2.0 : MIT License
 Commander.js v2.20.3 : MIT License
-Commander.js v7.2.0 : MIT License
 commonjs-assert 1.4.1 : MIT License
 commonjs-assert v1.5.0 : MIT License
 Commons IO 2.5 : Apache License 2.0
@@ -7692,7 +7692,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE
 ---
 
 MIT License
-(Commander.js 2.19.0, Commander.js v2.20.3, Commander.js v7.2.0)
+(Commander.js 2.19.0, Commander.js 7.2.0, Commander.js v2.20.3)
 
 (The MIT License)
 
