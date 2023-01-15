@@ -74,30 +74,16 @@ class BridgeWriteServiceTest extends AnyFlatSpec with MockitoSugar with Matchers
         transactionSubmission = submission,
         index = 0,
         currentTimestamp = Time.Timestamp.now(),
-        populateContractMetadata = false,
       )
     update.optCompletionInfo.flatMap(_.statistics) shouldBe Some(expected)
   }
 
-  "toTransactionAccepted" should "forward empty contract metadata if disabled" in {
+  "toTransactionAccepted" should "forward populate contract metadata" in {
     val update =
       LedgerBridge.transactionAccepted(
         transactionSubmission = submission,
         index = 0,
         currentTimestamp = Time.Timestamp.now(),
-        populateContractMetadata = false,
-      )
-
-    update.contractMetadata shouldBe empty
-  }
-
-  "toTransactionAccepted" should "forward populate contract metadata if enabled" in {
-    val update =
-      LedgerBridge.transactionAccepted(
-        transactionSubmission = submission,
-        index = 0,
-        currentTimestamp = Time.Timestamp.now(),
-        populateContractMetadata = true,
       )
 
     update.contractMetadata shouldBe Map(

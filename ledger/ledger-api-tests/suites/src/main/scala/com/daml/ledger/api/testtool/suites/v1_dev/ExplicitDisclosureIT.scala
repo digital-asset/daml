@@ -633,6 +633,7 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
     )
   })
 
+  // TODO ED: Remove this test once feature is deemed stable and not configurable in Canton
   test(
     "EDFeatureDisabled",
     "Submission fails when disclosed contracts provided on feature disabled",
