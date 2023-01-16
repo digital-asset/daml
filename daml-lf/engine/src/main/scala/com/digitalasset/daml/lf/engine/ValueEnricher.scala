@@ -155,6 +155,8 @@ final class ValueEnricher(
 
   def enrichNode(node: Node): Result[Node] =
     node match {
+      case na: Node.Authority =>
+        ResultDone(na)
       case rb @ Node.Rollback(_) =>
         ResultDone(rb)
       case create: Node.Create =>

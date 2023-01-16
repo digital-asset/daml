@@ -252,6 +252,7 @@ object TransactionCoder {
       TransactionOuterClass.Node.newBuilder().setNodeId(encodeNid.asString(nodeId))
 
     node match {
+      case _: Node.Authority => ??? // TODO #15882 -- we need to extend the transaction proto
       case Node.Rollback(children) =>
         val builder = TransactionOuterClass.NodeRollback.newBuilder()
         children.foreach(id => discard(builder.addChildren(encodeNid.asString(id))))

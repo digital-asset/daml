@@ -556,6 +556,7 @@ final class Conversions(
       .map(eventId => builder.setConsumedBy(convertEventId(eventId)))
 
     nodeInfo.node match {
+      case _: Node.Authority => ??? // TODO #15882 -- we need to extend IDE-communication proto
       case rollback: Node.Rollback =>
         val rollbackBuilder = proto.Node.Rollback.newBuilder
           .addAllChildren(
@@ -650,6 +651,7 @@ final class Conversions(
       .setNodeId(proto.NodeId.newBuilder.setId(nodeId.index.toString).build)
     // FIXME(JM): consumedBy, parent, ...
     node match {
+      case _: Node.Authority => ??? // TODO #15882 -- we need to extend IDE-communication proto
       case rollback: Node.Rollback =>
         val rollbackBuilder =
           proto.Node.Rollback.newBuilder

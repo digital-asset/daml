@@ -17,6 +17,7 @@ sealed abstract class Node extends Product with Serializable with CidContainer[N
   def optVersion: Option[TransactionVersion] = this match {
     case node: Node.Action => Some(node.version)
     case _: Node.Rollback => None
+    case _: Node.Authority => None
   }
 
   def mapNodeId(f: NodeId => NodeId): Node
@@ -234,6 +235,18 @@ object Node {
     override def mapCid(f: ContractId => ContractId): Node.Rollback = this
     override def mapNodeId(f: NodeId => NodeId): Node.Rollback =
       copy(children.map(f))
+
+    override protected def self: Node = this
+  }
+
+  final case class Authority(
+      obtained: Set[Party],
+      children: ImmArray[NodeId],
+  ) extends Node {
+
+    override def mapCid(f: ContractId => ContractId): Node.Authority = this
+    override def mapNodeId(f: NodeId => NodeId): Node.Authority =
+      copy(children = children.map(f))
 
     override protected def self: Node = this
   }

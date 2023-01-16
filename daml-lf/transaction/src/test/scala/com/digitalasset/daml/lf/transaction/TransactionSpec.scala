@@ -193,6 +193,8 @@ class TransactionSpec
       for {
         entry <- danglingRefGenNode
         node = entry match {
+          case (_, na: Node.Authority) =>
+            na.copy(children = ImmArray.Empty)
           case (_, nr: Node.Rollback) =>
             nr.copy(children = ImmArray.Empty)
           case (_, n: Node.LeafOnlyAction) => n
@@ -217,6 +219,7 @@ class TransactionSpec
       forAll(genEmptyNode, minSuccessful(10)) { n =>
         val version = n.optVersion.getOrElse(TransactionVersion.minExceptions)
         n match {
+          case _: Node.Authority => ()
           case _: Node.Rollback => ()
           case n: Node.Action =>
             val m = n.updateVersion(diffVersion(version))

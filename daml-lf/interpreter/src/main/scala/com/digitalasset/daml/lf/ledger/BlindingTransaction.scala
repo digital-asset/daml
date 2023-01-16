@@ -97,6 +97,9 @@ object BlindingTransaction {
                 )
               }
           }
+
+        case Some(_: Node.Authority) => ??? // TODO #15882 -- we unsure what to do here
+
         case Some(rollback: Node.Rollback) =>
           // Rollback nodes are disclosed to the witnesses of the parent exercise.
           val state = state0.discloseNode(parentExerciseWitnesses, nodeId)
