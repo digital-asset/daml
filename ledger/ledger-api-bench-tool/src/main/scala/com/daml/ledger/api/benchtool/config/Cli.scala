@@ -267,7 +267,7 @@ object Cli {
           timeoutInSecondsO = timeoutInSecondsO,
           maxItemCount = maxItemCount,
           // NOTE: Unsupported on CLI
-          partyNamePrefixFilterO = None,
+          partyNamePrefixFiltersO = None,
           subscriptionDelay = subscriptionDelayO,
         )
 
@@ -295,7 +295,7 @@ object Cli {
             timeoutInSecondsO = timeoutInSecondsO,
             maxItemCount = maxItemCount,
             // NOTE: Unsupported on CLI
-            partyNamePrefixFilterO = None,
+            partyNamePrefixFiltersO = None,
             subscriptionDelay = subscriptionDelayO,
           )
 
@@ -332,7 +332,7 @@ object Cli {
           timeoutInSecondsO = timeoutInSecondsO,
           maxItemCount = maxItemCount,
           // NOTE: Unsupported on CLI
-          partyNamePrefixFilterO = None,
+          partyNamePrefixFiltersO = None,
           subscriptionDelay = subscriptionDelayO,
         )
 

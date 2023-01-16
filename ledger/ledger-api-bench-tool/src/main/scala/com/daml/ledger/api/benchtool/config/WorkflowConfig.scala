@@ -7,6 +7,7 @@ import com.daml.ledger.api.benchtool.config.WorkflowConfig.FooSubmissionConfig.{
   ConsumingExercises,
   NonconsumingExercises,
 }
+import com.daml.ledger.api.benchtool.config.WorkflowConfig.StreamConfig.PartyNamePrefixFilter
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 
 import scala.concurrent.duration.FiniteDuration
@@ -25,7 +26,7 @@ object WorkflowConfig {
     def numberOfExtraSubmitters: Int
     def uniqueParties: Boolean
     def waitForSubmission: Boolean
-    def observerPartySetO: Option[FooSubmissionConfig.PartySet]
+    def observerPartySets: List[FooSubmissionConfig.PartySet]
   }
 
   final case class FibonacciSubmissionConfig(
@@ -37,7 +38,7 @@ object WorkflowConfig {
     override val numberOfObservers = 0
     override val numberOfDivulgees = 0
     override val numberOfExtraSubmitters = 0
-    override val observerPartySetO: Option[FooSubmissionConfig.PartySet] = None
+    override val observerPartySets: List[FooSubmissionConfig.PartySet] = List.empty
   }
 
   final case class FooSubmissionConfig(
@@ -51,7 +52,7 @@ object WorkflowConfig {
       consumingExercises: Option[ConsumingExercises] = None,
       applicationIds: List[FooSubmissionConfig.ApplicationId] = List.empty,
       maybeWaitForSubmission: Option[Boolean] = None,
-      observerPartySetO: Option[FooSubmissionConfig.PartySet] = None,
+      observerPartySets: List[FooSubmissionConfig.PartySet] = List.empty,
   ) extends SubmissionConfig {
     def waitForSubmission: Boolean = maybeWaitForSubmission.getOrElse(true)
   }
@@ -102,7 +103,9 @@ object WorkflowConfig {
       */
     def timeoutInSecondsO: Option[Long] = None
 
-    def partySetPrefix: Option[String]
+    def partySetPrefixes: List[String]
+
+    def partyNamePrefixFilters: List[PartyNamePrefixFilter]
 
     def subscriptionDelay: Option[FiniteDuration]
   }
@@ -124,7 +127,7 @@ object WorkflowConfig {
     final case class TransactionsStreamConfig(
         name: String,
         filters: List[PartyFilter],
-        partyNamePrefixFilterO: Option[PartyNamePrefixFilter] = None,
+        protected val partyNamePrefixFiltersO: Option[List[PartyNamePrefixFilter]] = None,
         beginOffset: Option[LedgerOffset] = None,
         endOffset: Option[LedgerOffset] = None,
         objectives: Option[StreamConfig.TransactionObjectives] = None,
@@ -132,13 +135,15 @@ object WorkflowConfig {
         override val maxItemCount: Option[Long] = None,
         override val timeoutInSecondsO: Option[Long] = None,
     ) extends StreamConfig {
-      override def partySetPrefix: Option[String] = partyNamePrefixFilterO.map(_.partyNamePrefix)
+      override def partySetPrefixes: List[String] = partyNamePrefixFilters.map(_.partyNamePrefix)
+      override def partyNamePrefixFilters: List[PartyNamePrefixFilter] =
+        partyNamePrefixFiltersO.getOrElse(Nil)
     }
 
     final case class TransactionTreesStreamConfig(
         name: String,
         filters: List[PartyFilter],
-        partyNamePrefixFilterO: Option[PartyNamePrefixFilter] = None,
+        protected val partyNamePrefixFiltersO: Option[List[PartyNamePrefixFilter]] = None,
         beginOffset: Option[LedgerOffset] = None,
         endOffset: Option[LedgerOffset] = None,
         objectives: Option[StreamConfig.TransactionObjectives] = None,
@@ -146,19 +151,25 @@ object WorkflowConfig {
         override val maxItemCount: Option[Long] = None,
         override val timeoutInSecondsO: Option[Long] = None,
     ) extends StreamConfig {
-      override def partySetPrefix: Option[String] = partyNamePrefixFilterO.map(_.partyNamePrefix)
+      override def partySetPrefixes: List[String] =
+        partyNamePrefixFiltersO.getOrElse(Nil).map(_.partyNamePrefix)
+      override def partyNamePrefixFilters: List[PartyNamePrefixFilter] =
+        partyNamePrefixFiltersO.getOrElse(Nil)
     }
 
     final case class ActiveContractsStreamConfig(
         name: String,
         filters: List[PartyFilter],
-        partyNamePrefixFilterO: Option[PartyNamePrefixFilter] = None,
+        protected val partyNamePrefixFiltersO: Option[List[PartyNamePrefixFilter]] = None,
         objectives: Option[StreamConfig.AcsAndCompletionsObjectives] = None,
         subscriptionDelay: Option[FiniteDuration] = None,
         override val maxItemCount: Option[Long] = None,
         override val timeoutInSecondsO: Option[Long] = None,
     ) extends StreamConfig {
-      override def partySetPrefix: Option[String] = partyNamePrefixFilterO.map(_.partyNamePrefix)
+      override def partySetPrefixes: List[String] =
+        partyNamePrefixFiltersO.getOrElse(Nil).map(_.partyNamePrefix)
+      override def partyNamePrefixFilters: List[PartyNamePrefixFilter] =
+        partyNamePrefixFiltersO.getOrElse(Nil)
     }
 
     final case class CompletionsStreamConfig(
@@ -171,7 +182,8 @@ object WorkflowConfig {
         override val maxItemCount: Option[Long],
         override val timeoutInSecondsO: Option[Long],
     ) extends StreamConfig {
-      override def partySetPrefix: Option[String] = None
+      override def partySetPrefixes: List[String] = List.empty
+      override def partyNamePrefixFilters: List[PartyNamePrefixFilter] = List.empty
     }
 
     trait CommonObjectivesConfig {

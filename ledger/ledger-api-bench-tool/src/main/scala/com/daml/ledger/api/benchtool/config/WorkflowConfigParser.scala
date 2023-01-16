@@ -7,8 +7,13 @@ import cats.syntax.functor._
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import io.circe.yaml.parser
 import io.circe.{Decoder, HCursor}
-
 import java.io.Reader
+
+import com.daml.ledger.api.benchtool.config.WorkflowConfig.FooSubmissionConfig.{
+  ConsumingExercises,
+  NonconsumingExercises,
+}
+
 import scala.concurrent.duration.{Duration, FiniteDuration}
 import scala.util.{Failure, Success, Try}
 
@@ -182,19 +187,41 @@ object WorkflowConfigParser {
       )(FooSubmissionConfig.PartySet.apply)
 
     implicit val fooSubmissionConfigDecoder: Decoder[FooSubmissionConfig] =
-      Decoder.forProduct11(
-        "num_instances",
-        "num_observers",
-        "unique_parties",
-        "instance_distribution",
-        "num_divulgees",
-        "num_extra_submitters",
-        "nonconsuming_exercises",
-        "consuming_exercises",
-        "application_ids",
-        "wait_for_submission",
-        "observers_party_set",
-      )(FooSubmissionConfig.apply)
+      (c: HCursor) => {
+        for {
+          numInstances <- c.downField("num_instances").as[Int]
+          numObservers <- c.downField("num_observers").as[Int]
+          uniqueObservers <- c.downField("unique_parties").as[Boolean]
+          instancesDistribution <- c
+            .downField("instance_distribution")
+            .as[List[FooSubmissionConfig.ContractDescription]]
+          numberOfDivulgees <- c.downField("num_divulgees").as[Int]
+          numberOfExtraSubmitters <- c.downField("num_extra_submitters").as[Int]
+          nonConsumingExercises <- c
+            .downField("nonconsuming_exercises")
+            .as[Option[NonconsumingExercises]]
+          consumingExercises <- c.downField("consuming_exercises").as[Option[ConsumingExercises]]
+          applicationIds <- c
+            .downField("application_ids")
+            .as[List[FooSubmissionConfig.ApplicationId]]
+          maybeWaitForSubmission <- c.downField("wait_for_submission").as[Option[Boolean]]
+          observerPartySets <- c
+            .downField("observers_party_sets")
+            .as[Option[List[FooSubmissionConfig.PartySet]]]
+        } yield FooSubmissionConfig(
+          numInstances,
+          numObservers,
+          uniqueObservers,
+          instancesDistribution,
+          numberOfDivulgees,
+          numberOfExtraSubmitters,
+          nonConsumingExercises,
+          consumingExercises,
+          applicationIds,
+          maybeWaitForSubmission,
+          observerPartySets.getOrElse(List.empty),
+        )
+      }
 
     implicit val fibonacciSubmissionConfigDecoder: Decoder[FibonacciSubmissionConfig] =
       Decoder.forProduct4(

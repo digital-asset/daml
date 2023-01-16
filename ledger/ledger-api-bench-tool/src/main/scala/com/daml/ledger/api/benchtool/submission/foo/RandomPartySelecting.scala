@@ -5,6 +5,7 @@ package com.daml.ledger.api.benchtool.submission.foo
 
 import com.daml.ledger.api.benchtool.config.WorkflowConfig.FooSubmissionConfig
 import com.daml.ledger.api.benchtool.submission.{AllocatedParties, RandomnessProvider}
+import com.daml.ledger.client
 import com.daml.ledger.client.binding.Primitive
 
 class RandomPartySelecting(
@@ -18,10 +19,17 @@ class RandomPartySelecting(
   private val extraSubmittersProbability = probabilitiesByPartyIndex(
     allocatedParties.extraSubmitters
   )
-  private val observerPartySetPartiesProbability =
-    allocatedParties.observerPartySetO.fold(List.empty[(Primitive.Party, Double)])(
-      _.parties.map(party => party -> config.observerPartySetO.get.visibility)
-    )
+  private val observerPartySetPartiesProbability: List[(client.binding.Primitive.Party, Double)] =
+    allocatedParties.observerPartySets.flatMap { partySet =>
+      val visibility = config.observerPartySets
+        .find(_.partyNamePrefix == partySet.mainPartyNamePrefix)
+        .fold(
+          sys.error(
+            s"Could not find visibility for party set ${partySet.mainPartyNamePrefix} in the submission config"
+          )
+        )(_.visibility)
+      partySet.parties.map(party => party -> visibility)
+    }
 
   def nextPartiesForContracts(): PartiesSelection = {
     PartiesSelection(

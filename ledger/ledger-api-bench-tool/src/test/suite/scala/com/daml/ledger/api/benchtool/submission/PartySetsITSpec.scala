@@ -43,12 +43,17 @@ class PartySetsITSpec
           payloadSizeBytes = 0,
         )
       ),
-      observerPartySetO = Some(
+      observerPartySets = List(
         PartySet(
-          partyNamePrefix = "MyParty",
+          partyNamePrefix = "FooParty",
           count = 100,
           visibility = 0.5,
-        )
+        ),
+        PartySet(
+          partyNamePrefix = "BarParty",
+          count = 20,
+          visibility = 0.05,
+        ),
       ),
       consumingExercises = Some(
         ConsumingExercises(
@@ -81,39 +86,81 @@ class PartySetsITSpec
         consumingEventsRandomnessProvider = RandomnessProvider.forSeed(seed = 0),
       )
       _ <- tested.performSubmission()
-      _ = allocatedParties.observerPartySetO.get.parties(87).toString shouldBe "MyParty-87"
-      treeResults_myParty87 <- observeStreams(
+      _ = allocatedParties.observerPartySets
+        .find(_.mainPartyNamePrefix == "FooParty")
+        .value
+        .parties(87)
+        .toString shouldBe "FooParty-87"
+      treeResults_fooParty87 <- observeStreams(
         configDesugaring = configDesugaring,
-        filterByParties = List("MyParty-87"),
+        filterByParties = List("FooParty-87"),
         apiServices = apiServices,
         expectedTemplateNames = Set("Foo1"),
       )
-      treeResults_partySet <- observeStreams(
+      treeResults_fooPartySet <- observeStreams(
         configDesugaring = configDesugaring,
-        filterByPartyNamePrefixO = Some("MyParty"),
+        filterByPartyNamePrefixes = List("FooParty"),
+        apiServices = apiServices,
+        expectedTemplateNames = Set("Foo1"),
+      )
+      treeResults_fooPartyNamePrefix <- observeStreams(
+        configDesugaring = configDesugaring,
+        // matches 10 parties: {FooParty-30, FooParty-31, .., FooParty-39}
+        filterByPartyNamePrefixes = List("FooParty-3"),
+        apiServices = apiServices,
+        expectedTemplateNames = Set("Foo1"),
+      )
+      treeResults_barPartySet <- observeStreams(
+        configDesugaring = configDesugaring,
+        filterByPartyNamePrefixes = List("BarParty"),
+        apiServices = apiServices,
+        expectedTemplateNames = Set("Foo1"),
+      )
+      treeResults_barPartyNamePrefix <- observeStreams(
+        configDesugaring = configDesugaring,
+        // Matches 10 parties: {BarParty-10, BarParty-11, .., BarParty-19}
+        filterByPartyNamePrefixes = List("BarParty-1"),
         apiServices = apiServices,
         expectedTemplateNames = Set("Foo1"),
       )
 
     } yield {
       { // Party from party set
-        treeResults_myParty87.numberOfCreatesPerTemplateName("Foo1") shouldBe 6
-        treeResults_myParty87.numberOfNonConsumingExercisesPerTemplateName("Foo1") shouldBe 12
-        treeResults_myParty87.numberOfConsumingExercisesPerTemplateName("Foo1") shouldBe 1
+        treeResults_fooParty87.numberOfCreatesPerTemplateName("Foo1") shouldBe 6
+        treeResults_fooParty87.numberOfNonConsumingExercisesPerTemplateName("Foo1") shouldBe 12
+        treeResults_fooParty87.numberOfConsumingExercisesPerTemplateName("Foo1") shouldBe 1
       }
-      { // Party set
-        treeResults_partySet.numberOfCreatesPerTemplateName("Foo1") shouldBe 10
-        treeResults_partySet.numberOfNonConsumingExercisesPerTemplateName("Foo1") shouldBe 20
-        treeResults_partySet.numberOfConsumingExercisesPerTemplateName("Foo1") shouldBe 1
+      { // Foo party set
+        treeResults_fooPartySet.numberOfCreatesPerTemplateName("Foo1") shouldBe 10
+        treeResults_fooPartySet.numberOfNonConsumingExercisesPerTemplateName("Foo1") shouldBe 20
+        treeResults_fooPartySet.numberOfConsumingExercisesPerTemplateName("Foo1") shouldBe 1
       }
-
+      { // Foo party set subset
+        treeResults_fooPartyNamePrefix.numberOfCreatesPerTemplateName("Foo1") shouldBe 10
+        treeResults_fooPartyNamePrefix.numberOfNonConsumingExercisesPerTemplateName(
+          "Foo1"
+        ) shouldBe 20
+        treeResults_fooPartyNamePrefix.numberOfConsumingExercisesPerTemplateName("Foo1") shouldBe 1
+      }
+      { // Bar party set
+        treeResults_barPartySet.numberOfCreatesPerTemplateName("Foo1") shouldBe 7
+        treeResults_barPartySet.numberOfNonConsumingExercisesPerTemplateName("Foo1") shouldBe 14
+        treeResults_barPartySet.numberOfConsumingExercisesPerTemplateName("Foo1") shouldBe 1
+      }
+      { // Bar party set subset
+        treeResults_barPartyNamePrefix.numberOfCreatesPerTemplateName("Foo1") shouldBe 5
+        treeResults_barPartyNamePrefix.numberOfNonConsumingExercisesPerTemplateName(
+          "Foo1"
+        ) shouldBe 10
+        treeResults_barPartyNamePrefix.numberOfConsumingExercisesPerTemplateName("Foo1") shouldBe 1
+      }
       succeed
     }
   }
 
   private def observeStreams(
       configDesugaring: ConfigEnricher,
-      filterByPartyNamePrefixO: Option[String] = None,
+      filterByPartyNamePrefixes: List[String] = List.empty,
       filterByParties: List[String] = List.empty,
       filterByTemplates: List[String] = List.empty,
       apiServices: LedgerApiServices,
@@ -129,10 +176,12 @@ class PartySetsITSpec
           interfaces = List.empty,
         )
       ),
-      partyNamePrefixFilterO = filterByPartyNamePrefixO.map(partyNamePrefix =>
-        PartyNamePrefixFilter(
-          partyNamePrefix = partyNamePrefix,
-          templates = filterByTemplates,
+      partyNamePrefixFiltersO = Some(
+        filterByPartyNamePrefixes.map(partyNamePrefix =>
+          PartyNamePrefixFilter(
+            partyNamePrefix = partyNamePrefix,
+            templates = filterByTemplates,
+          )
         )
       ),
       beginOffset = None,

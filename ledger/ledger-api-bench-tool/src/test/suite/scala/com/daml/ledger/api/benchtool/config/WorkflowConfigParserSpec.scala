@@ -47,10 +47,13 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
           |         weight: 100
           |       - id: App-2
           |         weight: 102
-          |  observers_party_set:
-          |     party_name_prefix: MyParty
-          |     count: 99
-          |     visibility: 0.35
+          |  observers_party_sets:
+          |     - party_name_prefix: FooParty
+          |       count: 99
+          |       visibility: 0.35
+          |     - party_name_prefix: BazParty
+          |       count: 10
+          |       visibility: 0.01
           |streams:
           |  - type: active-contracts
           |    name: stream-1
@@ -109,12 +112,9 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
                   weight = 102,
                 ),
               ),
-              observerPartySetO = Some(
-                PartySet(
-                  partyNamePrefix = "MyParty",
-                  count = 99,
-                  visibility = 0.35,
-                )
+              observerPartySets = List(
+                PartySet(partyNamePrefix = "FooParty", count = 99, visibility = 0.35),
+                PartySet(partyNamePrefix = "BazParty", count = 10, visibility = 0.01),
               ),
             )
           ),
@@ -248,8 +248,10 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
           |         - Foo1
           |         - Foo3
           |    filter_by_party_set:
-          |      party_name_prefix: My-Party
-          |      templates: [Foo1, Foo2]
+          |      - party_name_prefix: MyParty
+          |        templates: [Foo1, Foo2]
+          |      - party_name_prefix: MyOtherParty
+          |        templates: [Foo1]
           |    begin_offset: foo
           |    end_offset: bar
           |    subscription_delay: 7min    
@@ -272,10 +274,16 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
                   templates = List("Foo1", "Foo3"),
                 )
               ),
-              partyNamePrefixFilterO = Some(
-                PartyNamePrefixFilter(
-                  partyNamePrefix = "My-Party",
-                  templates = List("Foo1", "Foo2"),
+              partyNamePrefixFiltersO = Some(
+                List(
+                  PartyNamePrefixFilter(
+                    partyNamePrefix = "MyParty",
+                    templates = List("Foo1", "Foo2"),
+                  ),
+                  PartyNamePrefixFilter(
+                    partyNamePrefix = "MyOtherParty",
+                    templates = List("Foo1"),
+                  ),
                 )
               ),
               beginOffset = Some(offset("foo")),
@@ -605,8 +613,8 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
         |         - Foo1
         |         - Foo3
         |    filter_by_party_set:
-        |      party_name_prefix: My-Party
-        |      interfaces: [FooInterface]
+        |      - party_name_prefix: My-Party
+        |        interfaces: [FooInterface]
         |    begin_offset: foo
         |    end_offset: bar
         |    subscription_delay: 7min    
@@ -629,10 +637,12 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
                 templates = List("Foo1", "Foo3"),
               )
             ),
-            partyNamePrefixFilterO = Some(
-              PartyNamePrefixFilter(
-                partyNamePrefix = "My-Party",
-                interfaces = List("FooInterface"),
+            partyNamePrefixFiltersO = Some(
+              List(
+                PartyNamePrefixFilter(
+                  partyNamePrefix = "My-Party",
+                  interfaces = List("FooInterface"),
+                )
               )
             ),
             beginOffset = Some(offset("foo")),

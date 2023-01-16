@@ -55,7 +55,7 @@ case class CommandSubmitter(
           s"Command submission preparation failed. Details: ${ex.getLocalizedMessage}",
           ex,
         )
-        Future.failed(CommandSubmitter.CommandSubmitterError(ex.getLocalizedMessage))
+        Future.failed(CommandSubmitter.CommandSubmitterError(ex.getLocalizedMessage, ex))
       }
   }
 
@@ -97,7 +97,7 @@ case class CommandSubmitter(
     })
       .recoverWith { case NonFatal(ex) =>
         logger.error(s"Command submission failed. Details: ${ex.getLocalizedMessage}", ex)
-        Future.failed(CommandSubmitter.CommandSubmitterError(ex.getLocalizedMessage))
+        Future.failed(CommandSubmitter.CommandSubmitterError(ex.getLocalizedMessage, ex))
       }
   }
 
@@ -213,7 +213,9 @@ case class CommandSubmitter(
                       s"Command submission failed. Details: ${ex.getLocalizedMessage}",
                       ex,
                     )
-                    Future.failed(CommandSubmitter.CommandSubmitterError(ex.getLocalizedMessage))
+                    Future.failed(
+                      CommandSubmitter.CommandSubmitterError(ex.getLocalizedMessage, ex)
+                    )
                 }
             }
             .runWith(progressLoggingSink)
@@ -240,7 +242,8 @@ case class CommandSubmitter(
 }
 
 object CommandSubmitter {
-  case class CommandSubmitterError(msg: String) extends RuntimeException(msg)
+  case class CommandSubmitterError(msg: String, cause: Throwable)
+      extends RuntimeException(msg, cause)
 
   case class SubmissionSummary(observers: List[Primitive.Party])
 
