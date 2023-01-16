@@ -27,6 +27,9 @@ case class MetricsContext(labels: Map[String, String]) {
     */
   def merge(context: MetricsContext): MetricsContext = this.copy(labels = labels ++ context.labels)
 
+  def withExtraLabels(extraLabels: (String, String)*): MetricsContext =
+    this.copy(labels = labels ++ extraLabels)
+
 }
 
 object MetricsContext {
@@ -45,7 +48,15 @@ object MetricsContext {
   def withExtraMetricLabels[T](labels: (String, String)*)(run: MetricsContext => T)(implicit
       metrics: MetricsContext
   ): T = run(
-    metrics.merge(MetricsContext(Map(labels: _*)))
+    metrics.withExtraLabels(labels: _*)
+  )
+
+  def withOptionalMetricLabels[T](labels: (String, Option[String])*)(run: MetricsContext => T)(
+      implicit metrics: MetricsContext
+  ): T = run(
+    metrics.merge(MetricsContext(Map(labels.collect({ case (key, Some(value)) =>
+      key -> value
+    }): _*)))
   )
 
 }

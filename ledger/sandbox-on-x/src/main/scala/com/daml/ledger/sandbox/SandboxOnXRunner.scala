@@ -124,6 +124,8 @@ object SandboxOnXRunner {
           explicitDisclosure = ExperimentalExplicitDisclosure.of(explicitDisclosureUnsafeEnabled),
         ),
         authService = configAdaptor.authService(participantConfig),
+        jwtVerifierLoader =
+          configAdaptor.jwtVerifierLoader(participantConfig, metrics, servicesExecutionContext),
         buildWriteService = buildWriteServiceLambda,
         engine = new Engine(config.engine),
         ledgerId = config.ledgerId,

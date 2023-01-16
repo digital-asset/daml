@@ -78,6 +78,7 @@ da_scala_library(
         "//ledger-api/rs-grpc-bridge",
         "//ledger/ledger-api-auth",
         "//ledger/ledger-api-common",
+        "//ledger/ledger-api-domain",
         "//ledger/participant-local-store",
         "//libs-scala/contextualized-logging",
         "@maven//:com_google_protobuf_protobuf_java",

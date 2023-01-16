@@ -3,14 +3,16 @@
 
 package com.daml.ledger.runner.common
 
-import com.daml.ledger.api.auth.AuthService
+import com.daml.ledger.api.auth.{AuthService, CachedJwtVerifierLoader, JwtVerifierLoader}
 import com.daml.ledger.configuration.Configuration
+import com.daml.metrics.Metrics
 import com.daml.platform.apiserver.{ApiServerConfig, TimeServiceBackend}
 import com.daml.platform.config.ParticipantConfig
 import com.daml.platform.configuration.InitialLedgerConfiguration
 import com.daml.platform.services.time.TimeProviderType
 
 import java.time.{Duration, Instant}
+import scala.concurrent.ExecutionContext
 
 class ConfigAdaptor {
   def initialLedgerConfig(
@@ -40,4 +42,14 @@ class ConfigAdaptor {
 
   def authService(participantConfig: ParticipantConfig): AuthService =
     participantConfig.authentication.create(participantConfig.jwtTimestampLeeway)
+
+  def jwtVerifierLoader(
+      participantConfig: ParticipantConfig,
+      metrics: Metrics,
+      executionContext: ExecutionContext,
+  ): JwtVerifierLoader =
+    new CachedJwtVerifierLoader(
+      jwtTimestampLeeway = participantConfig.jwtTimestampLeeway,
+      metrics = metrics,
+    )(executionContext)
 }

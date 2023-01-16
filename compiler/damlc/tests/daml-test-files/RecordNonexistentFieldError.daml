@@ -1,7 +1,7 @@
 -- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
 -- All rights reserved.
 
--- @ERROR range=14:17-14:25; Tried to access nonexistent field ‘c’ with type ‘Int’ on value of type ‘Record’
+-- @ERROR range=14:17-14:25; Possible Daml-specific reason for the following type error: Tried to access nonexistent field ‘c’ with type ‘Int’ on value of type ‘Record’
 
 module RecordNonexistentFieldError where
 

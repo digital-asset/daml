@@ -38,7 +38,11 @@ trait SandboxFixture
         cfg = config.withDataSource(
           dataSource(jdbcUrl.getOrElse(SandboxOnXForTest.defaultH2SandboxJdbcUrl()))
         )
-        port <- SandboxOnXRunner.owner(ConfigAdaptor(authService), cfg, bridgeConfig)
+        port <- SandboxOnXRunner.owner(
+          ConfigAdaptor(authService, idpJwtVerifierLoader),
+          cfg,
+          bridgeConfig,
+        )
         channel <- GrpcClientResource.owner(port)
         client = adminLedgerClient(port, cfg, jwtSecret)(
           system.dispatcher,

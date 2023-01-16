@@ -238,9 +238,16 @@ private[lf] object Speedy {
 
     def incompleteTransaction: IncompleteTx = ptx.finishIncomplete
     def nodesToString: String = ptx.nodesToString
+    private[speedy] def isLocalContract(contractId: V.ContractId): Boolean = {
+      ptx.contractState.locallyCreated.contains(contractId)
+    }
 
     private[speedy] def isDisclosedContract(contractId: V.ContractId): Boolean =
       ptx.disclosedContractIds.contains(contractId)
+
+    private[speedy] def isLocalContractKey(contractId: V.ContractId, key: GlobalKey): Boolean = {
+      isLocalContract(contractId) && ptx.contractState.activeState.getLocalActiveKey(key).nonEmpty
+    }
 
     private[speedy] def isDisclosedContractKey(
         contractId: V.ContractId,
@@ -401,8 +408,8 @@ private[lf] object Speedy {
         coid: V.ContractId,
         handleKeyFound: V.ContractId => Control.Value,
     ): Control.Value = {
-      // For disclosed contract keys, we do not perform visibility checking
-      if (isDisclosedContractKey(coid, gkey)) {
+      // For local contract keys and disclosed contract keys, we do not perform visibility checking
+      if (isLocalContractKey(coid, gkey) || isDisclosedContractKey(coid, gkey)) {
         handleKeyFound(coid)
       } else {
         getCachedContract(coid) match {

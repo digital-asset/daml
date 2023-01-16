@@ -13,6 +13,7 @@ import com.daml.ledger.api.auth.{
   AuthServiceJWTCodec,
   AuthServiceJWTPayload,
   CustomDamlJWTPayload,
+  JwtVerifierLoader,
   StandardJWTPayload,
   StandardJWTTokenFormat,
 }
@@ -97,6 +98,9 @@ trait SandboxRequiringAuthorization extends SandboxRequiringAuthorizationFuns {
       HMAC256Verifier(self.jwtSecret).getOrElse(sys.error("Failed to create HMAC256 verifier"))
     Some(AuthServiceJWT(jwtVerifier))
   }
+
+  override protected def idpJwtVerifierLoader: Option[JwtVerifierLoader] =
+    Some(new TestJwtVerifierLoader(self.jwtSecret))
 
   protected lazy val wrappedLedgerId: LedgerId = ledgerId(Some(toHeader(adminToken)))
   protected lazy val unwrappedLedgerId: String = wrappedLedgerId.unwrap

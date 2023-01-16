@@ -3,8 +3,8 @@
 
 package com.daml.ledger.api.auth.services
 
-import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
 import com.daml.error.definitions.LedgerApiErrors
+import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
 import com.daml.ledger.api.auth._
 import com.daml.ledger.api.v1.admin.user_management_service._
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
@@ -29,39 +29,95 @@ private[daml] final class UserManagementServiceAuthorization(
     new DamlContextualizedErrorLogger(logger, loggingContext, None)
 
   override def createUser(request: CreateUserRequest): Future[CreateUserResponse] =
-    authorizer.requireAdminClaims(service.createUser)(request)
+    request.user match {
+      case Some(user) =>
+        authorizer.requireIdpAdminClaimsAndMatchingRequestIdpId(
+          user.identityProviderId,
+          service.createUser,
+        )(
+          request
+        )
+      case None =>
+        authorizer.requireIdpAdminClaims(service.createUser)(request)
+    }
 
   override def getUser(request: GetUserRequest): Future[GetUserResponse] =
     defaultToAuthenticatedUser(request.userId) match {
       case Failure(ex) => Future.failed(ex)
-      case Success(Some(userId)) => service.getUser(request.copy(userId = userId))
-      case Success(None) => authorizer.requireAdminClaims(service.getUser)(request)
+      case Success(Some(userId)) =>
+        authorizer.requireMatchingRequestIdpId(request.identityProviderId, service.getUser)(
+          request.copy(userId = userId)
+        )
+      case Success(None) =>
+        authorizer.requireIdpAdminClaimsAndMatchingRequestIdpId(
+          request.identityProviderId,
+          service.getUser,
+        )(
+          request
+        )
     }
 
   override def deleteUser(request: DeleteUserRequest): Future[DeleteUserResponse] =
-    authorizer.requireAdminClaims(service.deleteUser)(request)
+    authorizer.requireIdpAdminClaimsAndMatchingRequestIdpId(
+      request.identityProviderId,
+      service.deleteUser,
+    )(request)
 
   override def listUsers(request: ListUsersRequest): Future[ListUsersResponse] =
-    authorizer.requireAdminClaims(service.listUsers)(request)
+    authorizer.requireIdpAdminClaimsAndMatchingRequestIdpId(
+      request.identityProviderId,
+      service.listUsers,
+    )(request)
 
   override def grantUserRights(request: GrantUserRightsRequest): Future[GrantUserRightsResponse] =
-    authorizer.requireAdminClaims(service.grantUserRights)(request)
+    authorizer.requireIdpAdminClaimsAndMatchingRequestIdpId(
+      request.identityProviderId,
+      service.grantUserRights,
+    )(
+      request
+    )
 
   override def revokeUserRights(
       request: RevokeUserRightsRequest
   ): Future[RevokeUserRightsResponse] =
-    authorizer.requireAdminClaims(service.revokeUserRights)(request)
+    authorizer.requireIdpAdminClaimsAndMatchingRequestIdpId(
+      request.identityProviderId,
+      service.revokeUserRights,
+    )(
+      request
+    )
 
   override def listUserRights(request: ListUserRightsRequest): Future[ListUserRightsResponse] =
     defaultToAuthenticatedUser(request.userId) match {
       case Failure(ex) => Future.failed(ex)
-      case Success(Some(userId)) => service.listUserRights(request.copy(userId = userId))
-      case Success(None) => authorizer.requireAdminClaims(service.listUserRights)(request)
+      case Success(Some(userId)) =>
+        authorizer.requireMatchingRequestIdpId(
+          request.identityProviderId,
+          service.listUserRights,
+        )(
+          request.copy(userId = userId)
+        )
+      case Success(None) =>
+        authorizer.requireIdpAdminClaimsAndMatchingRequestIdpId(
+          request.identityProviderId,
+          service.listUserRights,
+        )(
+          request
+        )
     }
 
-  override def updateUser(request: UpdateUserRequest): Future[UpdateUserResponse] = {
-    authorizer.requireAdminClaims(service.updateUser)(request)
-  }
+  override def updateUser(request: UpdateUserRequest): Future[UpdateUserResponse] =
+    request.user match {
+      case Some(user) =>
+        authorizer.requireIdpAdminClaimsAndMatchingRequestIdpId(
+          user.identityProviderId,
+          service.updateUser,
+        )(
+          request
+        )
+      case None =>
+        authorizer.requireIdpAdminClaims(service.updateUser)(request)
+    }
 
   override def bindService(): ServerServiceDefinition =
     UserManagementServiceGrpc.bindService(this, executionContext)

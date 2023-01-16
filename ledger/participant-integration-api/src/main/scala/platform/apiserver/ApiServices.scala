@@ -327,6 +327,7 @@ private[daml] object ApiServices {
           ApiParticipantPruningService.createApiService(
             indexService,
             writeService,
+            metrics,
           )
 
         List(

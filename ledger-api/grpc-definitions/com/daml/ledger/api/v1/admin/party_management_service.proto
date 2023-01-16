@@ -188,7 +188,7 @@ message PartyDetails {
   // Optional
   string display_name = 2;
 
-  // true if party is hosted by the participant.
+  // true if party is hosted by the participant and the party shares the same identity provider as the user issuing the request.
   // Optional
   bool is_local = 3;
 
@@ -198,6 +198,9 @@ message PartyDetails {
   ObjectMeta local_metadata = 4;
 
   // The id of the ``Identity Provider``
-  // Optional, if not set, assume the party is managed by the default identity provider or party is not hosted by the participant.
+  // Optional, if not set, there could be 3 options:
+  // 1) the party is managed by the default identity provider.
+  // 2) party is not hosted by the participant.
+  // 3) party is hosted by the participant, but is outside of the user's identity provider.
   string identity_provider_id = 5;
 }

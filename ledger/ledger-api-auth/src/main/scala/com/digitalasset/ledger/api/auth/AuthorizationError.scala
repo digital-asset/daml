@@ -3,6 +3,8 @@
 
 package com.daml.ledger.api.auth
 
+import com.daml.ledger.api.domain.IdentityProviderId
+
 import java.time.Instant
 
 sealed abstract class AuthorizationError {
@@ -53,4 +55,13 @@ object AuthorizationError {
   final case class MissingActClaim(party: String) extends AuthorizationError {
     override val reason = s"Claims do not authorize to act as party '$party'"
   }
+
+  final case class InvalidIdentityProviderId(identityProviderId: IdentityProviderId)
+      extends AuthorizationError {
+    private val id = identityProviderId.toRequestString
+    override val reason =
+      s"identity_provider_id from the request `$id` does not match the one provided in the authorization claims"
+  }
+
+  final case class InvalidField(fieldName: String, reason: String) extends AuthorizationError
 }

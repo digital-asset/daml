@@ -3,13 +3,14 @@
 
 package com.daml.ledger.sandbox
 
-import com.daml.ledger.api.auth.{AuthService, AuthServiceWildcard}
+import com.daml.ledger.api.auth.{AuthService, AuthServiceWildcard, JwtVerifierLoader}
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.runner.common.Config
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.ParticipantId
 import com.daml.lf.engine.{EngineConfig => _EngineConfig}
 import com.daml.lf.language.LanguageVersion
+import com.daml.metrics.Metrics
 import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.apiserver.{AuthServiceConfig, ApiServerConfig => _ApiServerConfig}
 import com.daml.platform.config.MetricsConfig.MetricRegistryType
@@ -19,9 +20,10 @@ import com.daml.platform.indexer.{IndexerConfig => _IndexerConfig}
 import com.daml.platform.localstore.UserManagementConfig
 import com.daml.platform.store.DbSupport.ParticipantDataSourceConfig
 import com.daml.ports.Port
+
 import java.time.Duration
 import java.util.UUID
-
+import scala.concurrent.ExecutionContext
 import scala.concurrent.duration._
 
 object SandboxOnXForTest {
@@ -88,13 +90,27 @@ object SandboxOnXForTest {
     metrics = MetricsConfig.DefaultMetricsConfig.copy(registryType = MetricRegistryType.New),
   )
 
-  class ConfigAdaptor(authServiceOverwrite: Option[AuthService]) extends BridgeConfigAdaptor {
+  class ConfigAdaptor(
+      authServiceOverwrite: Option[AuthService],
+      jwtVerifierLoaderOverwrite: Option[JwtVerifierLoader],
+  ) extends BridgeConfigAdaptor {
     override def authService(participantConfig: _ParticipantConfig): AuthService = {
       authServiceOverwrite.getOrElse(AuthServiceWildcard)
     }
+
+    override def jwtVerifierLoader(
+        participantConfig: _ParticipantConfig,
+        metrics: Metrics,
+        executionContext: ExecutionContext,
+    ): JwtVerifierLoader = jwtVerifierLoaderOverwrite.getOrElse(
+      super.jwtVerifierLoader(participantConfig, metrics, executionContext)
+    )
   }
   object ConfigAdaptor {
-    def apply(authServiceOverwrite: Option[AuthService]) = new ConfigAdaptor(authServiceOverwrite)
+    def apply(
+        authServiceOverwrite: Option[AuthService],
+        jwtVerifierLoaderOverwrite: Option[JwtVerifierLoader] = None,
+    ) = new ConfigAdaptor(authServiceOverwrite, jwtVerifierLoaderOverwrite)
   }
 
   def defaultH2SandboxJdbcUrl() =

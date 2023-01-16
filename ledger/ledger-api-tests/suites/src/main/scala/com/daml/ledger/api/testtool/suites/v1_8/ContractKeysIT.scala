@@ -383,8 +383,8 @@ final class ContractKeysIT extends LedgerTestSuite {
   })
 
   test(
-    "CKLocalKeyVisibility",
-    "Visibility should be checked for fetch-by-key/lookup-by-key of contracts created in the current transaction",
+    "CKLocalLookupByKeyVisibility",
+    "Visibility should not be checked for lookup-by-key of contracts created in the current transaction",
     allocate(SingleParty, SingleParty),
   )(implicit ec => {
     case Participants(Participant(ledger1, party1), Participant(ledger2, party2)) =>
@@ -392,36 +392,22 @@ final class ContractKeysIT extends LedgerTestSuite {
       for {
         ops <- ledger1.create(party1, LocalKeyVisibilityOperations(party1, party2))
         _ <- synchronize(ledger1, ledger2)
-        failedLookup <- ledger2
-          .exercise(party2, ops.exerciseLocalLookup())
-          .mustFail("lookup not visible")
-        failedFetch <- ledger2
-          .exercise(party2, ops.exerciseLocalFetch())
-          .mustFail("fetch not visible")
-        _ <- ledger2.exercise(
-          actAs = List(party2),
-          readAs = List(party1),
-          ops.exerciseLocalLookup(),
-        )
-        _ <- ledger2.exercise(
-          actAs = List(party2),
-          readAs = List(party1),
-          ops.exerciseLocalFetch(),
-        )
-      } yield {
-        assertGrpcError(
-          failedLookup,
-          LedgerApiErrors.CommandExecution.Interpreter.GenericInterpretationError,
-          Some("not visible"),
-          checkDefiniteAnswerMetadata = true,
-        )
-        assertGrpcError(
-          failedFetch,
-          LedgerApiErrors.CommandExecution.Interpreter.GenericInterpretationError,
-          Some("not visible"),
-          checkDefiniteAnswerMetadata = true,
-        )
-      }
+        _ <- ledger2.exercise(party2, ops.exerciseLocalLookup())
+      } yield ()
+  })
+
+  test(
+    "CKLocalFetchByKeyVisibility",
+    "Visibility should not be checked for fetch-by-key of contracts created in the current transaction",
+    allocate(SingleParty, SingleParty),
+  )(implicit ec => {
+    case Participants(Participant(ledger1, party1), Participant(ledger2, party2)) =>
+      import Test.LocalKeyVisibilityOperations
+      for {
+        ops <- ledger1.create(party1, LocalKeyVisibilityOperations(party1, party2))
+        _ <- synchronize(ledger1, ledger2)
+        _ <- ledger2.exercise(party2, ops.exerciseLocalFetch())
+      } yield ()
   })
 
   test(

@@ -65,7 +65,8 @@ final class Metrics(
     object parallelIndexer
         extends ParallelIndexerMetrics(prefix :+ "parallel_indexer", dropwizardFactory)
 
-    object services extends ServicesMetrics(prefix :+ "services", dropwizardFactory)
+    object services
+        extends ServicesMetrics(prefix :+ "services", dropwizardFactory, openTelemetryFactory)
 
     object grpc extends DamlGrpcServerMetrics(openTelemetryFactory, "participant")
 

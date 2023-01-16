@@ -55,7 +55,6 @@ object LanguageVersion {
     val bigNumeric = v1_13
     val exceptions = v1_14
     val basicInterfaces = v1_15
-    val explicitDisclosure = v1_dev
 
     /** Unstable, experimental features. This should stay in 1.dev forever.
       * Features implemented with this flag should be moved to a separate

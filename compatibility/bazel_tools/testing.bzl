@@ -57,6 +57,7 @@ load("//:versions.bzl", "latest_stable_version")
 #   - https://github.com/digital-asset/daml/pull/5608
 #   - https://github.com/digital-asset/daml/pull/7829
 #   - https://github.com/digital-asset/daml/pull/9218
+#   - https://github.com/digital-asset/daml/pull/15131
 # - ContractKeysSubmitterIsMaintainerIT:
 #   - https://github.com/digital-asset/daml/pull/5611
 # - SemanticTests:
@@ -277,6 +278,10 @@ excluded_test_tool_tests = [
         "platform_ranges": [
             {
                 "end": "1.13.0-snapshot.20210419.6730.0.8c3a8c04",
+                "exclusions": ["ContractKeysIT:CKLocalKeyVisibility"],
+            },
+            {
+                "start": "2.6.0-snapshot.20221226.11190.1",
                 "exclusions": ["ContractKeysIT:CKLocalKeyVisibility"],
             },
         ],
@@ -851,6 +856,18 @@ excluded_test_tool_tests = [
                 "exclusions": [
                     "ExceptionsIT:ExRollbackCreate",
                     "ExceptionsIT:ExRollbackExerciseCreateLookup",
+                ],
+            },
+        ],
+    },
+    {
+        "start": "2.6.0-snapshot.20221226.11190.1",
+        "platform_ranges": [
+            {
+                "end": "2.6.0-snapshot.20221226.11190.0.71548477",
+                "exclusions": [
+                    "ContractKeysIT:CKLocalFetchByKeyVisibility",
+                    "ContractKeysIT:CKLocalLookupByKeyVisibility",
                 ],
             },
         ],

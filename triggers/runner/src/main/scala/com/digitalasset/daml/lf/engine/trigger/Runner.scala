@@ -108,7 +108,7 @@ private[lf] final case class Trigger(
       triggerConfig: TriggerRunnerConfig,
       converter: Converter,
   ): Array[SValue] = {
-    if (defn.version >= Trigger.Version.`2.6.0`) {
+    if (defn.version >= Trigger.Version.`2.5.1`) {
       Array(converter.fromTriggerSetupArguments(parties, acs, triggerConfig).orConverterException)
     } else {
       val createdValue: SValue = converter.fromACS(acs).orConverterException
