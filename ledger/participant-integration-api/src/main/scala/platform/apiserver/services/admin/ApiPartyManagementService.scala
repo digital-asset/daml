@@ -154,27 +154,6 @@ private[apiserver] final class ApiPartyManagementService private (
     }
   }
 
-  private def blindAndConvertToProto(
-      identityProviderId: IdentityProviderId
-  ): ((IndexerPartyDetails, Option[PartyRecord])) => ProtoPartyDetails = {
-    case (details, recordO) if recordO.map(_.identityProviderId).contains(identityProviderId) =>
-      toProtoPartyDetails(
-        partyDetails = details,
-        metadataO = recordO.map(_.metadata),
-        recordO.map(_.identityProviderId),
-      )
-    case (details, _) if identityProviderId == IdentityProviderId.Default =>
-      // For the Default IDP, `isLocal` flag is delivered as is.
-      toProtoPartyDetails(partyDetails = details, metadataO = None, identityProviderId = None)
-    case (details, _) =>
-      // Expose the party, but blind the identity provider and report it as non-local.
-      toProtoPartyDetails(
-        partyDetails = details.copy(isLocal = false),
-        metadataO = None,
-        identityProviderId = None,
-      )
-  }
-
   override def allocateParty(request: AllocatePartyRequest): Future[AllocatePartyResponse] = {
     val submissionId = submissionIdGenerator(request.partyIdHint)
     withEnrichedLoggingContext(
@@ -484,6 +463,27 @@ private[apiserver] final class ApiPartyManagementService private (
 }
 
 private[apiserver] object ApiPartyManagementService {
+
+  def blindAndConvertToProto(
+      identityProviderId: IdentityProviderId
+  ): ((IndexerPartyDetails, Option[PartyRecord])) => ProtoPartyDetails = {
+    case (details, recordO) if recordO.map(_.identityProviderId).contains(identityProviderId) =>
+      toProtoPartyDetails(
+        partyDetails = details,
+        metadataO = recordO.map(_.metadata),
+        recordO.map(_.identityProviderId),
+      )
+    case (details, _) if identityProviderId == IdentityProviderId.Default =>
+      // For the Default IDP, `isLocal` flag is delivered as is.
+      toProtoPartyDetails(partyDetails = details, metadataO = None, identityProviderId = None)
+    case (details, _) =>
+      // Expose the party, but blind the identity provider and report it as non-local.
+      toProtoPartyDetails(
+        partyDetails = details.copy(isLocal = false),
+        metadataO = None,
+        identityProviderId = None,
+      )
+  }
 
   private def toProtoPartyDetails(
       partyDetails: IndexerPartyDetails,
