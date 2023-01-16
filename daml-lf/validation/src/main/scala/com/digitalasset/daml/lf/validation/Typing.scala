@@ -1297,14 +1297,6 @@ private[validation] object Typing {
       }
     }
 
-    private def typeOfActingAsConsortium(members: Expr, consortium: Expr): Work[Type] = {
-      checkExpr(members, TList(TParty)) {
-        checkExpr(consortium, TParty) {
-          Ret(TUpdate(TUnit))
-        }
-      }
-    }
-
     private def checkByKey[T](tmplId: TypeConName, key: Expr)(work: => Work[T]): Work[T] = {
       val tmplKey = handleLookup(ctx, pkgInterface.lookupTemplateKey(tmplId))
       checkExpr(key, tmplKey.typ) {
@@ -1333,8 +1325,6 @@ private[validation] object Typing {
         typeOfFetchTemplate(tpl, cid)
       case UpdateFetchInterface(tpl, cid) =>
         typeOfFetchInterface(tpl, cid)
-      case UpdateActingAsConsortium(members, consortium) =>
-        typeOfActingAsConsortium(members, consortium)
       case UpdateGetTime =>
         Ret(TUpdate(TTimestamp))
       case UpdateEmbedExpr(typ, exp) =>

@@ -128,10 +128,6 @@ private[validation] object TypeIterable {
       case UpdateFetchInterface(interface, contractId) =>
         Iterator(TTyCon(interface)) ++
           iterator(contractId)
-      case UpdateActingAsConsortium(members, consortium) =>
-        val _ = (members, consortium)
-        // iterator(members) ++ iterator(consortium) //ok?
-        ??? // TODO: https://github.com/digital-asset/daml/issues/15882
       case UpdateExercise(templateId, choice @ _, cid, arg) =>
         Iterator(TTyCon(templateId)) ++
           iterator(cid) ++

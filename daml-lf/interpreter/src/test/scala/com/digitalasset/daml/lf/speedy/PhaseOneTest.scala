@@ -99,8 +99,6 @@ class PhaseOneTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
         ("ucreateI", ucreateI),
         ("ufetch", ufetch),
         ("ufetchI", ufetchI),
-        ("uactingAsConsortium1", uactingAsConsortium1),
-        ("uactingAsConsortium2", uactingAsConsortium2),
         ("uexercise1", uexercise1),
         ("uexercise2", uexercise2),
         ("uexerciseI1", uexerciseI1),
@@ -211,8 +209,6 @@ class PhaseOneTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
   private def ucreateI = (x: Expr) => EUpdate(UpdateCreateInterface(tcon, x))
   private def ufetch = (x: Expr) => EUpdate(UpdateFetchTemplate(tcon, x))
   private def ufetchI = (x: Expr) => EUpdate(UpdateFetchInterface(tcon, x))
-  private def uactingAsConsortium1 = (x: Expr) => EUpdate(UpdateActingAsConsortium(x, exp))
-  private def uactingAsConsortium2 = (x: Expr) => EUpdate(UpdateActingAsConsortium(exp, x))
   private def uexercise1 = (x: Expr) => EUpdate(UpdateExercise(tcon, choice, x, exp))
   private def uexercise2 = (x: Expr) => EUpdate(UpdateExercise(tcon, choice, exp, x))
   private def uexerciseI1 = (x: Expr) =>

@@ -1704,25 +1704,6 @@ private[lf] object SBuiltin {
     }
   }
 
-  /** $acting_as_consortium
-    *    :: Token
-    *    -> List Party    (members)
-    *    -> Party         (consortium)
-    *    -> Unit
-    */
-  final case object SBActingAsConsortium extends SBuiltin(3) {
-    override private[speedy] def execute[Q](
-        args: util.ArrayList[SValue],
-        machine: Machine[Q],
-    ): Control[Q] = {
-      checkToken(args, 0)
-      val members = args.get(1)
-      val consortium = args.get(2)
-      val _ = (members, consortium)
-      ??? // TODO: https://github.com/digital-asset/daml/issues/15882
-    }
-  }
-
   final case class SBSSubmit(optLocation: Option[Location], mustFail: Boolean)
       extends ScenarioBuiltin(3) {
     override protected def executeScenario(

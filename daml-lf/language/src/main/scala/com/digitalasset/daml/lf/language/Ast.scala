@@ -559,10 +559,6 @@ object Ast {
   final case class UpdateFetchTemplate(templateId: TypeConName, contractId: Expr) extends Update
   final case class UpdateFetchInterface(interfaceId: TypeConName, contractId: Expr) extends Update
 
-  final case class UpdateActingAsConsortium(membersE: Expr, consortium: Expr) extends Update
-  // TODO: https://github.com/digital-asset/daml/issues/15882
-  // final case class UpdateCanActAsConsortium(membersE: Expr, consortium: Expr) extends Update
-
   final case class UpdateExercise(
       templateId: TypeConName,
       choice: ChoiceName,
