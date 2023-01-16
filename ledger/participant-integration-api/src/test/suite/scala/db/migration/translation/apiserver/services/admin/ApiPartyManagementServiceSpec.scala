@@ -74,7 +74,7 @@ class ApiPartyManagementServiceSpec
     }
 
     "blind `isLocal` if local record does not exist for non default IDP" in new TestScope {
-      blind(IdentityProviderId("idp_1"), partyDetails, None) shouldBe protoPartyDetails
+      blind(IdentityProviderId("idp_1"), partyDetails, None) shouldBe protoPartyDetails.copy(isLocal = false)
     }
 
     "propagate trace context" in {
