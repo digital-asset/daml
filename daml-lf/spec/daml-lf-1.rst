@@ -4557,6 +4557,14 @@ List functions
   predicate give as first argument.
 
 
+Authority functions
+~~~~~~~~~~~~~~~~~~~
+
+* ``WITH_AUTHORITY_OF : ∀ (α : ⋆) . 'List' 'Party' → 'Update' α → 'Update' α``
+
+  Request authorization from the ledger for the scope of an update operation.
+
+
 Text map functions
 ~~~~~~~~~~~~~~~~~~
 

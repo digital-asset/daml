@@ -655,6 +655,15 @@ private[lf] object SBuiltin {
     }
   }
 
+  final case object SBWithAuthorityOf extends SBuiltin(2) {
+    override private[speedy] def execute[Q](
+        args: util.ArrayList[SValue],
+        machine: Machine[Q],
+    ): Control[Q] = {
+      sys.error("SBWithAuthorityOf") // TODO https://github.com/digital-asset/daml/issues/15882
+    }
+  }
+
   final case object SBMapToList extends SBuiltinPure(1) {
 
     override private[speedy] def executePure(args: util.ArrayList[SValue]): SList =

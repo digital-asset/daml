@@ -1,0 +1,31 @@
+
+-- @SINCE-LF-FEATURE DAML_UNSTABLE
+
+module WithAuthorityOf where
+
+template HasConsortiumAutority
+  with
+    consortiumParty: Party
+  where
+    signatory consortiumParty
+
+template ProposeConsortiumAuthority
+  with
+    proposer: Party
+    accepted: [Party]
+    obs: [Party]
+    consortiumParty: Party
+  where
+    signatory proposer, accepted
+    observer obs
+
+    choice Accept : ContractId ProposeConsortiumAuthority
+      with who: Party
+      controller who
+      do create this with accepted = who :: this.accepted
+
+    choice Ratify : ContractId HasConsortiumAutority controller proposer
+      do
+        withAuthorityOf accepted $ do
+          withAuthorityOf [consortiumParty] $ do
+            create HasConsortiumAutority with consortiumParty
