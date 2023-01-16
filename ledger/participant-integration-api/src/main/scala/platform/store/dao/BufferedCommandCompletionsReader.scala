@@ -19,7 +19,8 @@ import com.daml.platform.{ApplicationId, Party}
 import scala.concurrent.{ExecutionContext, Future}
 
 class BufferedCommandCompletionsReader(
-    bufferReader: BufferedStreamsReader[CompletionsFilter, CompletionStreamResponse]
+    bufferReader: BufferedStreamsReader[CompletionsFilter, CompletionStreamResponse],
+    delegate: LedgerDaoCommandCompletionsReader,
 ) extends LedgerDaoCommandCompletionsReader {
 
   override def getCommandCompletions(
@@ -65,6 +66,11 @@ class BufferedCommandCompletionsReader(
 
     Option.when(visibilityPredicate)(completionDetails.completionStreamResponse)
   }
+
+  override def getOffsetAfter(start: Offset, count: Int)(implicit
+      loggingContext: LoggingContext
+  ): Future[Offset] =
+    delegate.getOffsetAfter(start, count)
 }
 
 object BufferedCommandCompletionsReader {
@@ -97,7 +103,8 @@ object BufferedCommandCompletionsReader {
         bufferedStreamEventsProcessingParallelism = 1,
         metrics = metrics,
         streamName = "completions",
-      )
+      ),
+      delegate = delegate,
     )
   }
 }

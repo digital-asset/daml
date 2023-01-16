@@ -97,6 +97,7 @@ final class IndexServiceOwner(
         pruneBuffers = inMemoryState.inMemoryFanoutBuffer.prune,
         dispatcher = () => inMemoryState.dispatcherState.getDispatcher,
         packageMetadataView = inMemoryState.packageMetadataView,
+        pruningStateManager = inMemoryState.pruningState,
         metrics = metrics,
       )
     } yield new TimedIndexService(indexService, metrics)

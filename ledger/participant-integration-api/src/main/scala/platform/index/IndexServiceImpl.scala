@@ -46,12 +46,12 @@ import com.daml.platform.akkastreams.dispatcher.Dispatcher
 import com.daml.platform.akkastreams.dispatcher.DispatcherImpl.DispatcherIsClosedException
 import com.daml.platform.akkastreams.dispatcher.SubSource.RangeSource
 import com.daml.platform.index.IndexServiceImpl.{
+  foldToSource,
   memoizedTransactionFilterProjection,
   transactionFilterProjection,
+  validateTransactionFilter,
   validatedAcsActiveAtOffset,
   withValidatedFilter,
-  validateTransactionFilter,
-  foldToSource,
 }
 import com.daml.platform.store.dao.{
   EventProjectionProperties,
@@ -62,7 +62,7 @@ import com.daml.platform.store.dao.{
 import com.daml.platform.store.entries.PartyLedgerEntry
 import com.daml.platform.store.packagemeta.PackageMetadataView
 import com.daml.platform.store.packagemeta.PackageMetadataView.PackageMetadata
-import com.daml.platform.{ApiOffset, PruneBuffers, TemplatePartiesFilter}
+import com.daml.platform.{ApiOffset, PruneBuffers, PruningStateManager, TemplatePartiesFilter}
 import com.daml.tracing.{Event, SpanAttribute, Spans}
 import io.grpc.StatusRuntimeException
 import scalaz.syntax.tag.ToTagOps
@@ -79,6 +79,7 @@ private[index] class IndexServiceImpl(
     pruneBuffers: PruneBuffers,
     dispatcher: () => Dispatcher[Offset],
     packageMetadataView: PackageMetadataView,
+    pruningStateManager: PruningStateManager,
     metrics: Metrics,
 ) extends IndexService {
   // An Akka stream buffer is added at the end of all streaming queries,
@@ -389,7 +390,16 @@ private[index] class IndexServiceImpl(
       loggingContext: LoggingContext
   ): Future[Unit] = {
     pruneBuffers(pruneUpToInclusive)
-    ledgerDao.prune(pruneUpToInclusive, pruneAllDivulgedContracts)
+    // TODO pruning: Do we need to prune the buffers incrementally as well?
+    pruningStateManager.pruneAsync(
+      latestPrunedUpToInclusive =
+        Offset.beforeBegin, // TODO pruning: Actually fetch the latest and used
+      upToInclusive = pruneUpToInclusive,
+      pruneAllDivulgedContracts = pruneAllDivulgedContracts,
+    )(
+      getOffsetAfter = ledgerDao.completions.getOffsetAfter(_, _),
+      prune = ledgerDao.prune(_, _)(loggingContext),
+    )
   }
 
   override def getMeteringReportData(
