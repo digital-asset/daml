@@ -163,12 +163,15 @@ private[apiserver] final class ApiPartyManagementService private (
         metadataO = recordO.map(_.metadata),
         recordO.map(_.identityProviderId),
       )
+    case (details, _) if identityProviderId == IdentityProviderId.Default =>
+      // For the Default IDP, `isLocal` flag is delivered as is.
+      toProtoPartyDetails(partyDetails = details, metadataO = None, identityProviderId = None)
     case (details, _) =>
       // Expose the party, but blind the identity provider and report it as non-local.
       toProtoPartyDetails(
         partyDetails = details.copy(isLocal = false),
         metadataO = None,
-        None,
+        identityProviderId = None,
       )
   }
 
