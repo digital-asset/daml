@@ -68,7 +68,7 @@ instance DA.Internal.Desugar.HasToAnyChoice K DA.Internal.Desugar.Archive (()) w
   _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
 instance DA.Internal.Desugar.HasFromAnyChoice K DA.Internal.Desugar.Archive (()) where
   _fromAnyChoice = GHC.Types.primitive @"EFromAnyChoice"
-_choice_KArchive :
+_choice$_KArchive :
   (K -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.ContractId K
    -> K
@@ -76,7 +76,7 @@ _choice_KArchive :
    DA.Internal.Desugar.Consuming K,
    DA.Internal.Desugar.Optional (K
                                  -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]))
-_choice_KArchive
+_choice$_KArchive
   = (\ this _ -> DA.Internal.Desugar.signatory this, 
      \ _ _ _ -> pure (), DA.Internal.Desugar.Consuming, 
      DA.Internal.Desugar.None)
@@ -273,7 +273,7 @@ instance DA.Internal.Desugar.HasToAnyChoice T NonRollbackArchive (()) where
   _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
 instance DA.Internal.Desugar.HasFromAnyChoice T NonRollbackArchive (()) where
   _fromAnyChoice = GHC.Types.primitive @"EFromAnyChoice"
-_choice_TArchive :
+_choice$_TArchive :
   (T -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.ContractId T
    -> T
@@ -281,32 +281,32 @@ _choice_TArchive :
    DA.Internal.Desugar.Consuming T,
    DA.Internal.Desugar.Optional (T
                                  -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]))
-_choice_TArchive
+_choice$_TArchive
   = (\ this _ -> DA.Internal.Desugar.signatory this, 
      \ _ _ _ -> pure (), DA.Internal.Desugar.Consuming, 
      DA.Internal.Desugar.None)
-_choice_TThrow :
+_choice$_TThrow :
   (T -> Throw -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.ContractId T
    -> T -> Throw -> DA.Internal.Desugar.Update (()),
    DA.Internal.Desugar.NonConsuming T,
    DA.Internal.Desugar.Optional (T
                                  -> Throw -> [DA.Internal.Desugar.Party]))
-_choice_TThrow
+_choice$_TThrow
   = (\ this@T {..} arg@Throw
        -> let _ = this in
           let _ = arg in DA.Internal.Desugar.toParties (p), 
      \ self this@T {..} arg@Throw
        -> let _ = self in let _ = this in let _ = arg in do throw E, 
      DA.Internal.Desugar.NonConsuming, DA.Internal.Desugar.None)
-_choice_TCatch :
+_choice$_TCatch :
   (T -> Catch -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.ContractId T
    -> T -> Catch -> DA.Internal.Desugar.Update (()),
    DA.Internal.Desugar.NonConsuming T,
    DA.Internal.Desugar.Optional (T
                                  -> Catch -> [DA.Internal.Desugar.Party]))
-_choice_TCatch
+_choice$_TCatch
   = (\ this@T {..} arg@Catch
        -> let _ = this in
           let _ = arg in DA.Internal.Desugar.toParties (p), 
@@ -322,28 +322,28 @@ _choice_TCatch
                      -> DA.Internal.Desugar.Some pure ()
                    _ -> DA.Internal.Desugar.None, 
      DA.Internal.Desugar.NonConsuming, DA.Internal.Desugar.None)
-_choice_TThrowArithmeticError :
+_choice$_TThrowArithmeticError :
   (T -> ThrowArithmeticError -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.ContractId T
    -> T -> ThrowArithmeticError -> DA.Internal.Desugar.Update (Int),
    DA.Internal.Desugar.NonConsuming T,
    DA.Internal.Desugar.Optional (T
                                  -> ThrowArithmeticError -> [DA.Internal.Desugar.Party]))
-_choice_TThrowArithmeticError
+_choice$_TThrowArithmeticError
   = (\ this@T {..} arg@ThrowArithmeticError
        -> let _ = this in
           let _ = arg in DA.Internal.Desugar.toParties (p), 
      \ self this@T {..} arg@ThrowArithmeticError
        -> let _ = self in let _ = this in let _ = arg in do pure (1 / 0), 
      DA.Internal.Desugar.NonConsuming, DA.Internal.Desugar.None)
-_choice_TCatchArithmeticError :
+_choice$_TCatchArithmeticError :
   (T -> CatchArithmeticError -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.ContractId T
    -> T -> CatchArithmeticError -> DA.Internal.Desugar.Update (Int),
    DA.Internal.Desugar.NonConsuming T,
    DA.Internal.Desugar.Optional (T
                                  -> CatchArithmeticError -> [DA.Internal.Desugar.Party]))
-_choice_TCatchArithmeticError
+_choice$_TCatchArithmeticError
   = (\ this@T {..} arg@CatchArithmeticError
        -> let _ = this in
           let _ = arg in DA.Internal.Desugar.toParties (p), 
@@ -359,14 +359,14 @@ _choice_TCatchArithmeticError
                      -> DA.Internal.Desugar.Some pure 42
                    _ -> DA.Internal.Desugar.None, 
      DA.Internal.Desugar.NonConsuming, DA.Internal.Desugar.None)
-_choice_TUncatchableTry :
+_choice$_TUncatchableTry :
   (T -> UncatchableTry -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.ContractId T
    -> T -> UncatchableTry -> DA.Internal.Desugar.Update (()),
    DA.Internal.Desugar.NonConsuming T,
    DA.Internal.Desugar.Optional (T
                                  -> UncatchableTry -> [DA.Internal.Desugar.Party]))
-_choice_TUncatchableTry
+_choice$_TUncatchableTry
   = (\ this@T {..} arg@UncatchableTry {..}
        -> let _ = this in
           let _ = arg in DA.Internal.Desugar.toParties (p), 
@@ -382,14 +382,14 @@ _choice_TUncatchableTry
                      -> DA.Internal.Desugar.Some pure ()
                    _ -> DA.Internal.Desugar.None, 
      DA.Internal.Desugar.NonConsuming, DA.Internal.Desugar.None)
-_choice_TTransientDuplicate :
+_choice$_TTransientDuplicate :
   (T -> TransientDuplicate -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.ContractId T
    -> T -> TransientDuplicate -> DA.Internal.Desugar.Update (()),
    DA.Internal.Desugar.NonConsuming T,
    DA.Internal.Desugar.Optional (T
                                  -> TransientDuplicate -> [DA.Internal.Desugar.Party]))
-_choice_TTransientDuplicate
+_choice$_TTransientDuplicate
   = (\ this@T {..} arg@TransientDuplicate {..}
        -> let _ = this in
           let _ = arg in DA.Internal.Desugar.toParties (p), 
@@ -408,14 +408,14 @@ _choice_TTransientDuplicate
                      -> DA.Internal.Desugar.Some pure ()
                    _ -> DA.Internal.Desugar.None, 
      DA.Internal.Desugar.NonConsuming, DA.Internal.Desugar.None)
-_choice_TNonTransientDuplicate :
+_choice$_TNonTransientDuplicate :
   (T -> NonTransientDuplicate -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.ContractId T
    -> T -> NonTransientDuplicate -> DA.Internal.Desugar.Update (()),
    DA.Internal.Desugar.NonConsuming T,
    DA.Internal.Desugar.Optional (T
                                  -> NonTransientDuplicate -> [DA.Internal.Desugar.Party]))
-_choice_TNonTransientDuplicate
+_choice$_TNonTransientDuplicate
   = (\ this@T {..} arg@NonTransientDuplicate {..}
        -> let _ = this in
           let _ = arg in DA.Internal.Desugar.toParties (p), 
@@ -433,14 +433,14 @@ _choice_TNonTransientDuplicate
                      -> DA.Internal.Desugar.Some pure ()
                    _ -> DA.Internal.Desugar.None, 
      DA.Internal.Desugar.NonConsuming, DA.Internal.Desugar.None)
-_choice_TRollbackKey :
+_choice$_TRollbackKey :
   (T -> RollbackKey -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.ContractId T
    -> T -> RollbackKey -> DA.Internal.Desugar.Update (()),
    DA.Internal.Desugar.NonConsuming T,
    DA.Internal.Desugar.Optional (T
                                  -> RollbackKey -> [DA.Internal.Desugar.Party]))
-_choice_TRollbackKey
+_choice$_TRollbackKey
   = (\ this@T {..} arg@RollbackKey {..}
        -> let _ = this in
           let _ = arg in DA.Internal.Desugar.toParties (p), 
@@ -458,14 +458,14 @@ _choice_TRollbackKey
                      -> DA.Internal.Desugar.Some create (K p i) >> pure ()
                    _ -> DA.Internal.Desugar.None, 
      DA.Internal.Desugar.NonConsuming, DA.Internal.Desugar.None)
-_choice_TRollbackArchive :
+_choice$_TRollbackArchive :
   (T -> RollbackArchive -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.ContractId T
    -> T -> RollbackArchive -> DA.Internal.Desugar.Update (()),
    DA.Internal.Desugar.NonConsuming T,
    DA.Internal.Desugar.Optional (T
                                  -> RollbackArchive -> [DA.Internal.Desugar.Party]))
-_choice_TRollbackArchive
+_choice$_TRollbackArchive
   = (\ this@T {..} arg@RollbackArchive {..}
        -> let _ = this in
           let _ = arg in DA.Internal.Desugar.toParties (p), 
@@ -482,14 +482,14 @@ _choice_TRollbackArchive
                      -> DA.Internal.Desugar.Some archive cid
                    _ -> DA.Internal.Desugar.None, 
      DA.Internal.Desugar.NonConsuming, DA.Internal.Desugar.None)
-_choice_TNonRollbackArchive :
+_choice$_TNonRollbackArchive :
   (T -> NonRollbackArchive -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.ContractId T
    -> T -> NonRollbackArchive -> DA.Internal.Desugar.Update (()),
    DA.Internal.Desugar.NonConsuming T,
    DA.Internal.Desugar.Optional (T
                                  -> NonRollbackArchive -> [DA.Internal.Desugar.Party]))
-_choice_TNonRollbackArchive
+_choice$_TNonRollbackArchive
   = (\ this@T {..} arg@NonRollbackArchive {..}
        -> let _ = this in
           let _ = arg in DA.Internal.Desugar.toParties (p), 
@@ -589,7 +589,7 @@ instance DA.Internal.Desugar.HasToAnyChoice Fetcher RollbackFetch (()) where
   _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
 instance DA.Internal.Desugar.HasFromAnyChoice Fetcher RollbackFetch (()) where
   _fromAnyChoice = GHC.Types.primitive @"EFromAnyChoice"
-_choice_FetcherArchive :
+_choice$_FetcherArchive :
   (Fetcher
    -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.ContractId Fetcher
@@ -598,32 +598,32 @@ _choice_FetcherArchive :
    DA.Internal.Desugar.Consuming Fetcher,
    DA.Internal.Desugar.Optional (Fetcher
                                  -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]))
-_choice_FetcherArchive
+_choice$_FetcherArchive
   = (\ this _ -> DA.Internal.Desugar.signatory this, 
      \ _ _ _ -> pure (), DA.Internal.Desugar.Consuming, 
      DA.Internal.Desugar.None)
-_choice_FetcherFetch :
+_choice$_FetcherFetch :
   (Fetcher -> Fetch -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.ContractId Fetcher
    -> Fetcher -> Fetch -> DA.Internal.Desugar.Update (K),
    DA.Internal.Desugar.Consuming Fetcher,
    DA.Internal.Desugar.Optional (Fetcher
                                  -> Fetch -> [DA.Internal.Desugar.Party]))
-_choice_FetcherFetch
+_choice$_FetcherFetch
   = (\ this@Fetcher {..} arg@Fetch {..}
        -> let _ = this in
           let _ = arg in DA.Internal.Desugar.toParties (obs), 
      \ self this@Fetcher {..} arg@Fetch {..}
        -> let _ = self in let _ = this in let _ = arg in do fetch cid, 
      DA.Internal.Desugar.Consuming, DA.Internal.Desugar.None)
-_choice_FetcherRollbackFetch :
+_choice$_FetcherRollbackFetch :
   (Fetcher -> RollbackFetch -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.ContractId Fetcher
    -> Fetcher -> RollbackFetch -> DA.Internal.Desugar.Update (()),
    DA.Internal.Desugar.Consuming Fetcher,
    DA.Internal.Desugar.Optional (Fetcher
                                  -> RollbackFetch -> [DA.Internal.Desugar.Party]))
-_choice_FetcherRollbackFetch
+_choice$_FetcherRollbackFetch
   = (\ this@Fetcher {..} arg@RollbackFetch {..}
        -> let _ = this in
           let _ = arg in DA.Internal.Desugar.toParties (obs), 

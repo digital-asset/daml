@@ -1,0 +1,26 @@
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module TemplateChoiceResultMismatch where
+
+-- @ERROR range=26:12-26:27; Possible Daml-specific reason for the following type error: Tried to get a result of type ‘Either Text ()’ by exercising choice ‘C’ on template ‘T’ but exercising choice ‘C’ should return type ‘()’ instead.
+
+template T
+  with
+    p : Party
+  where
+    signatory p
+
+    choice C : ()
+      controller p
+      do pure ()
+
+exerciseE : Choice t c (Either Text r) => ContractId t -> c -> Update r
+exerciseE cid c = do
+  r <- exercise cid c
+  case r of
+    Left err -> abort err
+    Right r -> pure r
+
+test : ContractId T -> Update ()
+test cid = exerciseE cid C

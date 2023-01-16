@@ -54,7 +54,7 @@ instance DA.Internal.Desugar.HasToAnyChoice MyTemplate DA.Internal.Desugar.Archi
   _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
 instance DA.Internal.Desugar.HasFromAnyChoice MyTemplate DA.Internal.Desugar.Archive (()) where
   _fromAnyChoice = GHC.Types.primitive @"EFromAnyChoice"
-_choice_MyTemplateArchive :
+_choice$_MyTemplateArchive :
   (MyTemplate
    -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.ContractId MyTemplate
@@ -63,7 +63,7 @@ _choice_MyTemplateArchive :
    DA.Internal.Desugar.Consuming MyTemplate,
    DA.Internal.Desugar.Optional (MyTemplate
                                  -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]))
-_choice_MyTemplateArchive
+_choice$_MyTemplateArchive
   = (\ this _ -> DA.Internal.Desugar.signatory this, 
      \ _ _ _ -> pure (), DA.Internal.Desugar.Consuming, 
      DA.Internal.Desugar.None)

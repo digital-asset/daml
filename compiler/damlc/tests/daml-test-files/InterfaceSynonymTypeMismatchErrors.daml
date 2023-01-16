@@ -1,0 +1,23 @@
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module InterfaceSynonymTypeMismatchErrors where
+
+-- @ERROR range=23:7-23:24; Possible Daml-specific reason for the following type error: Implementation of method ‘getValueBad’ on interface ‘I’ should return ‘Int’ but instead returns ‘Text’
+
+type I = MyLongInterfaceNameI
+interface MyLongInterfaceNameI where
+  getValueGood : Int
+  getValueBad : Int
+  viewtype TView
+
+data TView = TView {}
+
+template T with p: Party
+  where
+    signatory p
+    interface instance I for T where
+      view = TView
+      -- Check that method return types matching resolves synonyms first
+      getValueGood = 1 -- matching case
+      getValueBad = "c" -- mismatching case
