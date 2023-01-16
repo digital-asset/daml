@@ -240,4 +240,4 @@ Let's try another search. Suppose you didn't want the first element, but the one
 Next Up
 -------
 
-In the following section, you'll find options for testing and interacting with Daml code`. We also talk about the operational semantics of some keywords and their commonly associated failures, and a little bit about how coverage reports work in Daml testing.
+In the following section, you'll find options for testing and interacting with Daml code. We also talk about the operational semantics of some keywords and their commonly associated failures, and a little bit about how coverage reports work in Daml testing.
