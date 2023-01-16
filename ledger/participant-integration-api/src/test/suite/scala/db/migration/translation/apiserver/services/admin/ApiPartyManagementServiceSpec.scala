@@ -25,7 +25,7 @@ import com.daml.platform.localstore.api.{PartyRecord, PartyRecordStore}
 import com.daml.telemetry.TelemetrySpecBase._
 import com.daml.telemetry.{TelemetryContext, TelemetrySpecBase}
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
-import org.scalatest.concurrent.ScalaFutures
+import org.scalatest.concurrent.{IntegrationPatience, ScalaFutures}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
@@ -39,6 +39,7 @@ class ApiPartyManagementServiceSpec
     with Matchers
     with ScalaFutures
     with ArgumentMatchersSugar
+    with IntegrationPatience
     with AkkaBeforeAndAfterAll {
 
   private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
