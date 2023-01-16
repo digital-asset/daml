@@ -99,6 +99,13 @@ featureUnstable = Feature
     , featureCppFlag = Just "DAML_UNSTABLE"
     }
 
+featureWithAuthority :: Feature
+featureWithAuthority = Feature
+    { featureName = "withAuthorityOf primitive"
+    , featureMinVersion = versionDev
+    , featureCppFlag = Just "DAML_WITH_AUTHORITY"
+    }
+
 featureBigNumeric :: Feature
 featureBigNumeric = Feature
     { featureName = "BigNumeric type"
@@ -152,6 +159,7 @@ allFeatures =
     , featureExtendedInterfaces
     , featureUnstable
     , featureExperimental
+    , featureWithAuthority
     ]
 
 featureVersionMap :: MS.Map T.Text Version

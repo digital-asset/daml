@@ -1,5 +1,5 @@
 
--- @SINCE-LF-FEATURE DAML_UNSTABLE
+-- @SINCE-LF-FEATURE DAML_WITH_AUTHORITY
 
 module WithAuthorityOf where
 
