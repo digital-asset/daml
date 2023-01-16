@@ -765,7 +765,7 @@ class PureConfigReaderWriterSpec
       |  max-transactions-in-memory-fan-out-buffer-size = 10000
       |  in-memory-state-updater-parallelism = 2
       |  in-memory-fan-out-thread-pool-size = 16
-      |  prepare-package-metadata-time-out-warning = 1 second
+      |  prepare-package-metadata-time-out-warning = 5 second
       |  """.stripMargin
 
   it should "support current defaults" in {
