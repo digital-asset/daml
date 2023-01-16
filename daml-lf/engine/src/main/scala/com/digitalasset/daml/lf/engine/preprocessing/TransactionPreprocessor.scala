@@ -95,6 +95,8 @@ private[preprocessing] final class TransactionPreprocessor(
             case _: Node.LookupByKey =>
               invalidRootNode(id, s"Transaction contains a lookup by key root node $id")
           }
+        case Some(_: Node.Authority) =>
+          invalidRootNode(id, s"invalid transaction, root refers to a authority node $id")
         case Some(_: Node.Rollback) =>
           invalidRootNode(id, s"invalid transaction, root refers to a rollback node $id")
         case None =>

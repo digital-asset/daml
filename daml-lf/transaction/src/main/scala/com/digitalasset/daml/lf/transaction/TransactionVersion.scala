@@ -52,6 +52,7 @@ object TransactionVersion {
   private[lf] val minByKey = V14
   private[lf] val minInterfaces = V15
   private[lf] val minExplicitDisclosure = VDev
+  private[lf] val minWithAuthority = VDev
 
   private[lf] val assignNodeVersion: LanguageVersion => TransactionVersion = {
     import LanguageVersion._
@@ -73,6 +74,7 @@ object TransactionVersion {
     tx.nodes.valuesIterator.foldLeft(TransactionVersion.minVersion) {
       case (acc, action: Node.Action) => acc max action.version
       case (acc, _: Node.Rollback) => acc max minExceptions
+      case (acc, _: Node.Authority) => acc max minWithAuthority
     }
   }
 

@@ -259,6 +259,7 @@ private[speedy] case class PartialTransaction(
       // so we need to compute them.
       val rootNodes = {
         val allChildNodeIds: Set[NodeId] = nodes.values.iterator.flatMap {
+          case au: Node.Authority => au.children.toSeq
           case rb: Node.Rollback => rb.children.toSeq
           case _: Node.LeafOnlyAction => Nil
           case ex: Node.Exercise => ex.children.toSeq
