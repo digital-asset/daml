@@ -6,7 +6,7 @@ package com.daml.ledger.client.services.commands
 import akka.stream.scaladsl.{Sink, Source}
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.api.v1.commands.Commands
-import com.daml.telemetry.TelemetryContext
+import com.daml.tracing.TelemetryContext
 import com.daml.util.Ctx
 import com.google.protobuf.empty.Empty
 import org.mockito.captor.ArgCaptor

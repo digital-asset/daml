@@ -43,7 +43,7 @@ import com.daml.platform.localstore.api.{
 import com.daml.platform.server.api.services.domain.CommandCompletionService
 import com.daml.platform.server.api.services.grpc.{GrpcHealthService, GrpcTransactionService}
 import com.daml.platform.services.time.TimeProviderType
-import com.daml.telemetry.TelemetryContext
+import com.daml.tracing.TelemetryContext
 import io.grpc.BindableService
 import io.grpc.protobuf.services.ProtoReflectionService
 

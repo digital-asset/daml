@@ -39,7 +39,7 @@ da_scala_library(
         "//libs-scala/contextualized-logging",
         "//libs-scala/grpc-utils",
         "//libs-scala/logging-entries",
-        "//observability/telemetry",
+        "//observability/tracing",
         "@maven//:com_google_api_grpc_proto_google_common_protos",
         "@maven//:com_google_protobuf_protobuf_java",
     ],

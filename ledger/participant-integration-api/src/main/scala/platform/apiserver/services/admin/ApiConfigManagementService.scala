@@ -24,7 +24,7 @@ import com.daml.platform.apiserver.services.admin.ApiConfigManagementService._
 import com.daml.platform.apiserver.services.logging
 import com.daml.platform.server.api.ValidationLogger
 import com.daml.platform.server.api.validation.FieldValidations
-import com.daml.telemetry.{DefaultTelemetry, TelemetryContext}
+import com.daml.tracing.{DefaultTelemetry, TelemetryContext}
 import io.grpc.{ServerServiceDefinition, StatusRuntimeException}
 
 import scala.concurrent.duration.{Duration, FiniteDuration}

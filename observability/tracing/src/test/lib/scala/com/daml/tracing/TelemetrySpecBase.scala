@@ -1,9 +1,9 @@
 // Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.telemetry
+package com.daml.tracing
 
-import com.daml.telemetry.TelemetrySpecBase._
+import com.daml.tracing.TelemetrySpecBase._
 import io.opentelemetry.api.trace.{Span, Tracer}
 import io.opentelemetry.sdk.testing.exporter.InMemorySpanExporter
 import io.opentelemetry.sdk.trace.SdkTracerProvider

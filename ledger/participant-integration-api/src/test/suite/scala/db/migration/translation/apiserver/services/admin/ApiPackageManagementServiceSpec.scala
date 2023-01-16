@@ -27,8 +27,8 @@ import com.daml.lf.language.Ast.Expr
 import com.daml.lf.language.{Ast, LanguageVersion}
 import com.daml.lf.testing.parser.Implicits.defaultParserParameters
 import com.daml.logging.LoggingContext
-import com.daml.telemetry.TelemetrySpecBase._
-import com.daml.telemetry.{TelemetryContext, TelemetrySpecBase}
+import com.daml.tracing.TelemetrySpecBase._
+import com.daml.tracing.{TelemetryContext, TelemetrySpecBase}
 import com.google.protobuf.ByteString
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.matchers.should.Matchers

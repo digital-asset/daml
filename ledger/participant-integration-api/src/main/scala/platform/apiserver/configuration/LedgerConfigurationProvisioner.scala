@@ -13,7 +13,7 @@ import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.configuration.InitialLedgerConfiguration
-import com.daml.telemetry.{DefaultTelemetry, SpanKind, SpanName}
+import com.daml.tracing.{DefaultTelemetry, SpanKind, SpanName}
 
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.{Duration => ScalaDuration}

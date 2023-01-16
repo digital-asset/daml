@@ -10,7 +10,7 @@ import com.daml.ledger.api.v1.commands.Commands.DeduplicationPeriod
 import com.daml.ledger.api.{SubmissionIdGenerator, domain}
 import com.daml.ledger.client.configuration.CommandClientConfiguration
 import com.daml.lf.data.Ref
-import com.daml.telemetry.NoOpTelemetryContext
+import com.daml.tracing.NoOpTelemetryContext
 import com.daml.util.Ctx
 import com.google.protobuf.duration.Duration
 import org.scalatest.matchers.should.Matchers

@@ -19,7 +19,7 @@ import com.daml.lf.data.Ref.SubmissionId
 import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.LoggingContext
 import com.daml.platform.configuration.InitialLedgerConfiguration
-import com.daml.telemetry.TelemetryContext
+import com.daml.tracing.TelemetryContext
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.concurrent.Eventually
 import org.scalatest.matchers.should.Matchers

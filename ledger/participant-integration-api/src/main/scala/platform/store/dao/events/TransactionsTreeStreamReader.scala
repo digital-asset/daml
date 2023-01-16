@@ -30,8 +30,8 @@ import com.daml.platform.store.dao.events.FilterTableACSReader.{
 }
 import com.daml.platform.store.dao.{DbDispatcher, EventProjectionProperties, PaginatingAsyncStream}
 import com.daml.platform.store.utils.{ConcurrencyLimiter, QueueBasedConcurrencyLimiter, Telemetry}
-import com.daml.telemetry
-import com.daml.telemetry.Spans
+import com.daml.tracing
+import com.daml.tracing.Spans
 
 import scala.collection.mutable.ArrayBuffer
 import scala.util.chaining._
@@ -82,7 +82,7 @@ class TransactionsTreeStreamReader(
         case (_, response) =>
           response.transactions.foreach(txn =>
             Spans.addEventToSpan(
-              telemetry.Event("transaction", TraceIdentifiers.fromTransactionTree(txn)),
+              tracing.Event("transaction", TraceIdentifiers.fromTransactionTree(txn)),
               span,
             )
           )

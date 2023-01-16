@@ -28,7 +28,7 @@ import com.daml.platform.localstore.api.{
 }
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.ports.{Port, PortFiles}
-import com.daml.telemetry.TelemetryContext
+import com.daml.tracing.TelemetryContext
 import io.grpc.{BindableService, ServerInterceptor}
 import scalaz.{-\/, \/-}
 

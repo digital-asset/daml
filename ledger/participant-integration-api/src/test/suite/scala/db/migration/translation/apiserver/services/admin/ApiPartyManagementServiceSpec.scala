@@ -20,8 +20,8 @@ import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext
 import com.daml.platform.apiserver.services.admin.ApiPartyManagementServiceSpec._
 import com.daml.platform.localstore.api.{PartyRecord, PartyRecordStore}
-import com.daml.telemetry.TelemetrySpecBase._
-import com.daml.telemetry.{TelemetryContext, TelemetrySpecBase}
+import com.daml.tracing.TelemetrySpecBase._
+import com.daml.tracing.{TelemetryContext, TelemetrySpecBase}
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
