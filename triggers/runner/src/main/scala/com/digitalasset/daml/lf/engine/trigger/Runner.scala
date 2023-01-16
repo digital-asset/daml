@@ -35,6 +35,8 @@ import com.daml.lf.engine.trigger.Runner.{
   TriggerContextualFlow,
   TriggerContextualSource,
   logger,
+  triggerACSInternalState,
+  triggerInFlightInternalState,
   triggerUserState,
 }
 import com.daml.lf.engine.trigger.Runner.Implicits._
@@ -853,6 +855,13 @@ private[lf] class Runner private (
               "Trigger rule initial state",
               "state" -> triggerUserState(state, trigger.defn.level),
             )
+            if (trigger.defn.level == Trigger.Level.High) {
+              triggerContext.logTrace(
+                "Trigger rule initial internal state",
+                "acs" -> triggerACSInternalState(state),
+                "in-flight" -> triggerInFlightInternalState(state),
+              )
+            }
 
             state
           }
@@ -891,7 +900,13 @@ private[lf] class Runner private (
                   "Trigger rule state updated",
                   "state" -> triggerUserState(state, trigger.defn.level),
                 )
-
+                if (trigger.defn.level == Trigger.Level.High) {
+                  triggerContext.logTrace(
+                    "Trigger rule internal state updated",
+                    "acs" -> triggerACSInternalState(state),
+                    "in-flight" -> triggerInFlightInternalState(state),
+                  )
+                }
                 newState
               },
             ).orConverterException
@@ -1110,6 +1125,30 @@ object Runner {
       case Trigger.Level.Low =>
         state
     }
+  }
+
+  private def triggerACSInternalState(state: SValue): SValue = {
+    // Assumes that the trigger is high level
+    state
+      .expect(
+        "SRecord",
+        { case SRecord(_, _, values) =>
+          values.get(0)
+        },
+      )
+      .orConverterException
+  }
+
+  private def triggerInFlightInternalState(state: SValue): SValue = {
+    // Assumes that the trigger is high level
+    state
+      .expect(
+        "SRecord",
+        { case SRecord(_, _, values) =>
+          values.get(4)
+        },
+      )
+      .orConverterException
   }
 
   private def overloadedRetryDelay(afterTries: Int): FiniteDuration =
@@ -1332,7 +1371,11 @@ object Runner {
         )
 
     implicit def `api.Value to LoggingValue`: ToLoggingValue[api.Value] = value =>
-      PrettyPrint.prettyApiValue(verbose = true, maxListWidth = Some(20))(value).render(80)
+      if (logger.withoutContext.isTraceEnabled) {
+        PrettyPrint.prettyApiValue(verbose = true)(value).render(80)
+      } else {
+        PrettyPrint.prettyApiValue(verbose = true, maxListWidth = Some(20))(value).render(80)
+      }
 
     implicit def `SValue to LoggingValue`: ToLoggingValue[SValue] = value =>
       PrettyPrint.prettySValue(value).render(80)
