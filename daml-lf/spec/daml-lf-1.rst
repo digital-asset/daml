@@ -4564,6 +4564,7 @@ Authority functions
 
   Request authorization from the ledger for the scope of an update operation.
 
+  [*Available in versions >= 1.dev*]
 
 Text map functions
 ~~~~~~~~~~~~~~~~~~

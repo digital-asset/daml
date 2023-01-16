@@ -48,7 +48,7 @@ module DA.Internal.LF
   , AnyException
   #endif
 
-  #ifdef DAML_UNSTABLE
+  #ifdef DAML_WITH_AUTHORITY
   , withAuthorityOf
   #endif
 
@@ -276,7 +276,7 @@ data AnyException = AnyException Opaque
 
 #endif
 
-#ifdef DAML_UNSTABLE
+#ifdef DAML_WITH_AUTHORITY
 
 -- | Authority operations.
 withAuthorityOf : [Party] -> Update a -> Update a
