@@ -365,7 +365,8 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
           transactionFilter = filterTxBy(owner, template = byTemplate, interface = None),
         )
 
-        //      // TODO ED: Enable once the check is implemented in command interpretation
+        //      // TODO ED: Enable once the check (https://github.com/digital-asset/daml/issues/16068)
+        //      //          is implemented in command interpretation.
         //      // Exercise a choice using invalid explicit disclosure (bad contract key)
         //      errorBadKey <- testContext
         //        .exerciseFetchDelegated(
