@@ -74,6 +74,10 @@ private[platform] trait LedgerDaoCommandCompletionsReader {
   )(implicit
       loggingContext: LoggingContext
   ): Source[(Offset, CompletionStreamResponse), NotUsed]
+
+  def getOffsetAfter(start: Offset, count: Int)(implicit
+      loggingContext: LoggingContext
+  ): Future[Offset]
 }
 
 private[platform] trait LedgerReadDao extends ReportsHealth {

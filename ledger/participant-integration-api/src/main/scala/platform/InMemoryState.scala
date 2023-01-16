@@ -27,6 +27,7 @@ private[platform] class InMemoryState(
     val stringInterningView: StringInterningView,
     val dispatcherState: DispatcherState,
     val packageMetadataView: PackageMetadataView,
+    val pruningState: PruningStateManager,
 )(implicit executionContext: ExecutionContext) {
   private val logger = ContextualizedLogger.get(getClass)
 
@@ -43,6 +44,13 @@ private[platform] class InMemoryState(
     logger.info(s"Initializing participant in-memory state to ledger end: $ledgerEnd")
 
     for {
+      // TODO pruning: do we need to
+      //               1. abort pruning?
+      //                     A: In theory yes, since the ledger end can move backwards (due to async commit)
+      //                        and the original request pruning offset might be beyond ledger end. But we could also leave it
+      //                        as is if we check on individual queries the ledger end.
+      //               2. wait for pruning abort?
+      _ <- pruningState.shutdown()
       // First stop the active dispatcher (if exists) to ensure
       // termination of existing Ledger API subscriptions and to also ensure
       // that new Ledger API subscriptions racing with `initializeTo`
@@ -78,6 +86,7 @@ object InMemoryState {
 
     for {
       dispatcherState <- DispatcherState.owner(apiStreamShutdownTimeout)
+      pruningStateManager <- PruningStateManager(1000) // TODO pruning: Configurable
     } yield new InMemoryState(
       ledgerEndCache = MutableLedgerEndCache()
         .tap(
@@ -97,6 +106,7 @@ object InMemoryState {
       ),
       stringInterningView = new StringInterningView,
       packageMetadataView = PackageMetadataView.create,
+      pruningState = pruningStateManager,
     )(executionContext)
   }
 }

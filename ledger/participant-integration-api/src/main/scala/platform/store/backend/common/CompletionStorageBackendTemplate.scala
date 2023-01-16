@@ -4,7 +4,6 @@
 package com.daml.platform.store.backend.common
 
 import java.sql.Connection
-
 import anorm.SqlParser.{array, byteArray, int, long, str}
 import anorm.{Row, RowParser, SimpleSql, ~}
 import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
@@ -28,6 +27,19 @@ class CompletionStorageBackendTemplate(
   import com.daml.platform.store.backend.Conversions.ArrayColumnToIntArray._
 
   private val logger: ContextualizedLogger = ContextualizedLogger.get(this.getClass)
+
+  override def offsetAfter(start: Offset, after: Int)(connection: Connection): Offset = {
+    import com.daml.platform.store.backend.Conversions.OffsetToStatement
+
+    SQL"""
+        SELECT MAX(completion_offset)
+        FROM participant_command_completions
+        WHERE completion_offset > $start
+        ORDER BY completion_offset DESC
+        ${QueryStrategy.limitClause(Some(after))}"""
+      .as(offset("completion_offset").singleOpt)(connection)
+      .getOrElse(start) // TODO pruning: Or Offset.beforeBegin?
+  }
 
   override def commandCompletions(
       startExclusive: Offset,
