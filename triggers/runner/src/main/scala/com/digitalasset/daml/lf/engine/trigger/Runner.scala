@@ -1013,7 +1013,7 @@ private[lf] class Runner private (
     // Used to defend (by raising an unhandled exception) against trigger rules that emit excessive numbers of command submission requests
     val overflowFlow: TriggerContextualFlow[SubmitRequest, SubmitRequest, NotUsed] =
       TriggerContextualFlow[SubmitRequest]
-        .wireTap {
+        .map {
           case Ctx(context, request, _)
               if inFlightCommands.count > triggerConfig.inFlightCommandOverflowCount =>
             context.logError(
@@ -1028,7 +1028,8 @@ private[lf] class Runner private (
               triggerConfig.inFlightCommandOverflowCount,
             )
 
-          case _ =>
+          case ctx =>
+            ctx
         }
     // Used to limit rate (by using back pressure to slow trigger rule evaluation) ledger command submission requests
     val throttleFlow: TriggerContextualFlow[SubmitRequest, SubmitRequest, NotUsed] =

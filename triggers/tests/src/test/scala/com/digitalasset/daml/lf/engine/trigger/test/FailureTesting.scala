@@ -127,8 +127,8 @@ final class FailureTesting
       }
     }
 
-    "Ledger completion delays" should {
-      "Eventually cause a trigger overflow" ignore {
+    "Ledger completion and transaction delays" should {
+      "Eventually cause a trigger overflow" in {
         recoverToSucceededIf[InFlightCommandOverflowException] {
           for {
             client <- ledgerClient()
