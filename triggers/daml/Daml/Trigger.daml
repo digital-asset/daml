@@ -59,7 +59,7 @@ import qualified DA.Map as Map
 import DA.Optional
 
 import Daml.Trigger.Internal
-import Daml.Trigger.LowLevel hiding (Trigger)
+import Daml.Trigger.LowLevel hiding (BatchTrigger, Trigger)
 import qualified Daml.Trigger.LowLevel as LowLevel
 
 -- public API
@@ -268,52 +268,62 @@ dedupExerciseByKey k c = do
   unless (any ((Some (k, c) ==) . fromExerciseByKey @t) cmds) $
     void $ emitCommands [exerciseByKeyCmd @t k c] []
 
--- | Transform the high-level trigger type into the one from `Daml.Trigger.LowLevel`.
-runTrigger : Trigger s -> LowLevel.Trigger (TriggerState s)
-runTrigger userTrigger = LowLevel.Trigger
-  { initialState = initialState
+-- | Transform the high-level trigger type into the batching trigger from `Daml.Trigger.LowLevel`.
+runTrigger : forall s. Trigger s -> LowLevel.BatchTrigger (TriggerState s)
+runTrigger userTrigger = LowLevel.BatchTrigger
+  { initialState
   , update = update
   , registeredTemplates = userTrigger.registeredTemplates
   , heartbeat = userTrigger.heartbeat
   }
   where
-    initialState party readAs (ActiveContracts createdEvents) =
-      let acs = foldl (\acs created -> applyEvent (CreatedEvent created) acs) (ACS mempty Map.empty) createdEvents
-          userState = runTriggerInitializeA userTrigger.initialize (TriggerInitState acs party readAs)
-          state = TriggerState acs party readAs userState Map.empty
+    initialState args =
+      let acs = foldl (\acs created -> applyEvent (CreatedEvent created) acs) (ACS mempty Map.empty) args.acs.activeContracts
+          userState = runTriggerInitializeA userTrigger.initialize (TriggerInitState acs args.actAs args.readAs)
+          state = TriggerState acs args.actAs args.readAs userState Map.empty
       in TriggerSetup $ execStateT (runTriggerRule $ runRule userTrigger.rule) state
-    utUpdateState commandsInFlight acs actAs readAs msg =
-      let state = TriggerUpdateState commandsInFlight acs actAs readAs
-      in execState $ flip runTriggerUpdateA state $ userTrigger.updateState msg
-    update msg = do
-      time <- getTime
+
+    mkUserState state acs msg =
+      let state' = TriggerUpdateState state.commandsInFlight acs state.actAs state.readAs
+      in execState (flip runTriggerUpdateA state' $ userTrigger.updateState msg) state.userState
+
+    update msgs = do
+      runUserTrigger <- or <$> mapA processMessage msgs
+      when runUserTrigger $
+        runRule userTrigger.rule
+
+    -- Returns 'True' if the processed message means we need to run the user's trigger.
+    processMessage : Message -> TriggerRule (TriggerState s) Bool
+    processMessage msg = do
       state <- get
       case msg of
         MCompletion completion ->
           -- NB: the commands-in-flight and ACS updateState sees are those
           -- prior to updates incurred by the msg
-          let userState = utUpdateState state.commandsInFlight state.acs state.actAs state.readAs (MCompletion completion) state.userState
+          let userState = mkUserState state state.acs msg
           in case completion.status of
-            Succeeded {} ->
+            Succeeded {} -> do
               -- We delete successful completions when we receive the corresponding transaction
               -- to avoid removing a command from commandsInFlight before we have modified the ACS.
               put $ state { userState }
+              pure False
             Failed {} -> do
                 let commandsInFlight = Map.delete completion.commandId state.commandsInFlight
                     acs = state.acs { pendingContracts = Map.delete completion.commandId state.acs.pendingContracts }
                 put $ state { commandsInFlight, userState, acs }
-                runRule userTrigger.rule
+                pure True
         MTransaction transaction -> do
           let acs = applyTransaction transaction state.acs
               -- again, we use the commands-in-flight and ACS before the update below
-              userState = utUpdateState state.commandsInFlight acs state.actAs state.readAs (MTransaction transaction) state.userState
+              userState = mkUserState state acs msg
               -- See the comment above for why we delete this here instead of when we receive the completion.
               (acs', commandsInFlight) = case transaction.commandId of
                 None -> (acs, state.commandsInFlight)
                 Some commandId -> (acs { pendingContracts = Map.delete commandId acs.pendingContracts }, Map.delete commandId state.commandsInFlight)
           put $ state { acs = acs', userState, commandsInFlight }
-          runRule userTrigger.rule
+          pure True
         MHeartbeat -> do
-          let userState = utUpdateState state.commandsInFlight state.acs state.actAs state.readAs MHeartbeat state.userState
+          let userState = mkUserState state state.acs msg
           put $ state { userState }
-          runRule userTrigger.rule
+          pure True
+

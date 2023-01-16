@@ -6,6 +6,7 @@ module Daml.Trigger.LowLevel
   ( Message(..)
   , Completion(..)
   , CompletionStatus(..)
+  , TriggerSetupArguments(..)
   , Transaction(..)
   , AnyContractId
   , toAnyContractId
@@ -19,6 +20,7 @@ module Daml.Trigger.LowLevel
   , Archived(..)
   , fromArchived
   , Trigger(..)
+  , BatchTrigger(..)
   , ActiveContracts(..)
   , Commands(..)
   , Command(..)
@@ -166,13 +168,28 @@ data CompletionStatus
   | Succeeded { transactionId : TransactionId }
   deriving Show
 
+-- Introduced in version 2.5.1: this definition is used to simplify future extensions of trigger initialState arguments
+data TriggerSetupArguments = TriggerSetupArguments
+  { actAs : Party
+  , readAs : [Party]
+  , acs : ActiveContracts
+  }
+
 data ActiveContracts = ActiveContracts { activeContracts : [Created] }
 
--- | Trigger is (approximately) a left-fold over `Message` with
--- an accumulator of type `s`.
+-- @WARN use 'BatchTrigger s' instead of 'Trigger s'
 data Trigger s = Trigger
   { initialState : Party -> [Party] -> ActiveContracts -> TriggerSetup s
   , update : Message -> TriggerRule s ()
+  , registeredTemplates : RegisteredTemplates
+  , heartbeat : Optional RelTime
+  }
+
+-- | Batching trigger is (approximately) a left-fold over `Message` with
+-- an accumulator of type `s`.
+data BatchTrigger s = BatchTrigger
+  { initialState : TriggerSetupArguments -> TriggerSetup s
+  , update : [Message] -> TriggerRule s ()
   , registeredTemplates : RegisteredTemplates
   , heartbeat : Optional RelTime
   }

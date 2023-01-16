@@ -25,9 +25,7 @@ import com.daml.ledger.api.v1.{value => api}
 import com.daml.ledger.client.LedgerClient
 import com.daml.ledger.client.services.commands.CompletionStreamElement._
 import com.daml.lf.archive.Dar
-import com.daml.lf.data.FrontStack
-import com.daml.lf.data.ImmArray
-import com.daml.lf.data.Ref
+import com.daml.lf.data.{BackStack, FrontStack, ImmArray, Ref}
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.ScalazEqual._
 import com.daml.lf.data.Time.Timestamp
@@ -102,7 +100,35 @@ private[lf] final case class Trigger(
     heartbeat: Option[FiniteDuration],
     // Whether the trigger supports readAs claims (SDK 1.18 and newer) or not.
     hasReadAs: Boolean,
-)
+) {
+
+  def initialStateArguments(
+      parties: TriggerParties,
+      acs: Seq[CreatedEvent],
+      converter: Converter,
+  ): Array[SValue] = {
+    if (defn.version >= Trigger.Version.`2.5.1`) {
+      Array(converter.fromTriggerSetupArguments(parties, acs).orConverterException)
+    } else {
+      val createdValue: SValue = converter.fromACS(acs).orConverterException
+      val partyArg = SParty(Ref.Party.assertFromString(parties.actAs.unwrap))
+
+      if (hasReadAs) {
+        // trigger version SDK 1.18 and newer
+        val readAsArg = SList(
+          parties.readAs.map(p => SParty(Ref.Party.assertFromString(p.unwrap))).to(FrontStack)
+        )
+        Array(partyArg, readAsArg, createdValue)
+      } else {
+        // trigger version prior to SDK 1.18
+        Array(partyArg, createdValue)
+      }
+    }
+  }
+}
+
+private final case class InFlightCommandOverflowException(inFlightCommands: Int, crashCount: Int)
+    extends Exception
 
 // Utilities for interacting with the speedy machine.
 private[lf] object Machine {
@@ -209,27 +235,79 @@ object Trigger {
       )
     }
 
+    def fromV20ExtractTriggerDefinition(
+        ty: TTyCon,
+        tyArg: Type,
+        triggerIds: TriggerIds,
+        version: Trigger.Version,
+    ): Either[String, TriggerDefinition] = {
+      val tyCon = ty.tycon
+
+      if (tyCon == triggerIds.damlTriggerLowLevel("Trigger")) {
+        val expr = EVal(triggerId)
+        val ty = TypeConApp(tyCon, ImmArray(tyArg))
+
+        Right(TriggerDefinition(triggerId, ty, version, Level.Low, expr))
+      } else if (tyCon == triggerIds.damlTrigger("Trigger")) {
+        val runTrigger = EVal(triggerIds.damlTrigger("runTrigger"))
+        val expr = EApp(runTrigger, EVal(triggerId))
+        val triggerState = TTyCon(triggerIds.damlTriggerInternal("TriggerState"))
+        val stateTy = TApp(triggerState, tyArg)
+        val lowLevelTriggerTy = triggerIds.damlTriggerLowLevel("Trigger")
+        val ty = TypeConApp(lowLevelTriggerTy, ImmArray(stateTy))
+
+        Right(TriggerDefinition(triggerId, ty, version, Level.High, expr))
+      } else {
+        error(triggerId, ty)
+      }
+    }
+
+    def fromV251ExtractTriggerDefinition(
+        ty: TTyCon,
+        tyArg: Type,
+        triggerIds: TriggerIds,
+        version: Trigger.Version,
+    ): Either[String, TriggerDefinition] = {
+      val tyCon = ty.tycon
+
+      if (tyCon == triggerIds.damlTriggerLowLevel("BatchTrigger")) {
+        val expr = EVal(triggerId)
+        val ty = TypeConApp(tyCon, ImmArray(tyArg))
+
+        Right(TriggerDefinition(triggerId, ty, version, Level.Low, expr))
+      } else if (tyCon == triggerIds.damlTriggerLowLevel("Trigger")) {
+        val runTrigger = EVal(triggerIds.damlTriggerInternal("runLegacyTrigger"))
+        val expr = EApp(runTrigger, EVal(triggerId))
+        val triggerState = TTyCon(triggerIds.damlTriggerInternal("TriggerState"))
+        val stateTy = TApp(triggerState, tyArg)
+        val lowLevelTriggerTy = triggerIds.damlTriggerLowLevel("Trigger")
+        val ty = TypeConApp(lowLevelTriggerTy, ImmArray(stateTy))
+
+        Right(TriggerDefinition(triggerId, ty, version, Level.Low, expr))
+      } else if (tyCon == triggerIds.damlTrigger("Trigger")) {
+        val runTrigger = EVal(triggerIds.damlTrigger("runTrigger"))
+        val expr = EApp(runTrigger, EVal(triggerId))
+        val triggerState = TTyCon(triggerIds.damlTriggerInternal("TriggerState"))
+        val stateTy = TApp(triggerState, tyArg)
+        val lowLevelTriggerTy = triggerIds.damlTriggerLowLevel("Trigger")
+        val ty = TypeConApp(lowLevelTriggerTy, ImmArray(stateTy))
+
+        Right(TriggerDefinition(triggerId, ty, version, Level.High, expr))
+      } else {
+        error(triggerId, ty)
+      }
+    }
+
     pkgInterface.lookupValue(triggerId) match {
       case Right(DValueSignature(TApp(ty @ TTyCon(tyCon), tyArg), _, _)) =>
         val triggerIds = TriggerIds(tyCon.packageId)
-        if (tyCon == triggerIds.damlTriggerLowLevel("Trigger")) {
-          val expr = EVal(triggerId)
-          val ty = TypeConApp(tyCon, ImmArray(tyArg))
-          detectVersion(pkgInterface, triggerIds).map(
-            TriggerDefinition(triggerId, ty, _, Level.Low, expr)
-          )
-        } else if (tyCon == triggerIds.damlTrigger("Trigger")) {
-          val runTrigger = EVal(triggerIds.damlTrigger("runTrigger"))
-          val expr = EApp(runTrigger, EVal(triggerId))
-          val triggerState = TTyCon(triggerIds.damlTriggerInternal("TriggerState"))
-          val stateTy = TApp(triggerState, tyArg)
-          val lowLevelTriggerTy = triggerIds.damlTriggerLowLevel("Trigger")
-          val ty = TypeConApp(lowLevelTriggerTy, ImmArray(stateTy))
-          detectVersion(pkgInterface, triggerIds).map(
-            TriggerDefinition(triggerId, ty, _, Level.High, expr)
-          )
-        } else {
-          error(triggerId, ty)
+        // Ensure version related trigger definition updates take into account the conflateMsgValue code
+        detectVersion(pkgInterface, triggerIds).flatMap { version =>
+          if (version < Trigger.Version.`2.5.1`) {
+            fromV20ExtractTriggerDefinition(ty, tyArg, triggerIds, version)
+          } else {
+            fromV251ExtractTriggerDefinition(ty, tyArg, triggerIds, version)
+          }
         }
 
       case Right(DValueSignature(ty, _, _)) =>
@@ -350,15 +428,19 @@ object Trigger {
     }
   }
 
-  sealed abstract class Version extends Serializable
+  final class Version(protected val rank: Int) extends Ordered[Version] {
+    override def compare(that: Version): Int = this.rank compare that.rank
+  }
   object Version {
-    case object `2.0` extends Version
-    case object `2.5` extends Version
+    val `2.0.0` = new Version(0)
+    val `2.5.0` = new Version(50)
+    val `2.5.1` = new Version(51)
 
     def fromString(s: Option[String]): Either[String, Version] =
       s match {
-        case None => Right(`2.0`)
-        case Some("Version_2_5") => Right(`2.5`)
+        case None => Right(`2.0.0`)
+        case Some("Version_2_5") => Right(`2.5.0`)
+        case Some("Version_2_5_1") => Right(`2.5.1`)
         case Some(s) => Left(s"""cannot parse trigger version "$s".""")
       }
   }
@@ -677,20 +759,11 @@ private[lf] class Runner private (
       compiler.unsafeCompile(
         ERecProj(trigger.defn.ty, Name.assertFromString("initialState"), trigger.defn.expr)
       )
-    // Convert the ACS to a speedy value.
-    val createdValue: SValue = converter.fromACS(acs).orConverterException
     // Setup an application expression of initialState on the ACS.
-    val partyArg = SParty(Ref.Party.assertFromString(parties.actAs.unwrap))
-    val initialStateArgs = if (trigger.hasReadAs) {
-      val readAsArg = SList(
-        parties.readAs.map(p => SParty(Ref.Party.assertFromString(p.unwrap))).to(FrontStack)
-      )
-      Array(partyArg, readAsArg, createdValue)
-    } else Array(partyArg, createdValue)
     val initialState: SExpr =
       makeApp(
         getInitialState,
-        initialStateArgs,
+        trigger.initialStateArguments(parties, acs, converter),
       )
     // Prepare a speedy machine for evaluating expressions.
     val machine: Speedy.OffLedgerMachine =
@@ -722,6 +795,36 @@ private[lf] class Runner private (
       case ctx @ Ctx(_, TriggerMsg.Heartbeat, _) =>
         ctx.copy(value = converter.fromHeartbeat)
     }
+
+  private[this] def conflateMsgValue: TriggerContextualFlow[SValue, SValue, NotUsed] = {
+    val noop = Flow.fromFunction[TriggerContext[SValue], TriggerContext[SValue]](identity)
+
+    // Ensure version related trigger definition updates take into account the detectTriggerDefinition code
+    if (trigger.defn.version < Trigger.Version.`2.5.1`) {
+      noop
+    } else {
+      noop
+        .batch(
+          triggerConfig.maximumBatchSize,
+          { case ctx @ Ctx(context, value, _) =>
+            TriggerLogContext.newRootSpan("batch") { batchContext =>
+              batchContext
+                .groupWith(context)
+                .logDebug("Batching message for rule evaluation", "index" -> 0)
+
+              ctx.copy(context = batchContext, value = BackStack(value))
+            }
+          },
+        ) { case (ctx @ Ctx(batchContext, stack, _), Ctx(context, value, _)) =>
+          batchContext
+            .groupWith(context)
+            .logDebug("Batching message for rule evaluation", "index" -> (stack.length + 1))
+
+          ctx.copy(value = stack :+ value)
+        }
+        .map(_.map(stack => SList(stack.toImmArray.toFrontStack)))
+    }
+  }
 
   // A flow for trigger messages representing a process for the
   // accumulated state changes resulting from application of the
@@ -815,12 +918,12 @@ private[lf] class Runner private (
       val submissions = gb add Merge[TriggerContext[SubmitRequest]](2)
       val finalStateIn = gb add Concat[SValue](2)
       // format: off
-      initialState.finalState                    ~> initialStateOut ~> rule.initState
+      initialState.finalState                    ~> initialStateOut                     ~> rule.initState
       initialState.elemsOut                          ~> submissions
-                          msgIn ~> hideIrrelevantMsgs ~> encodeMsgs ~> rule.elemsIn
-                                                        submissions <~ rule.elemsOut
-                                                    initialStateOut                     ~> finalStateIn
-                                                                       rule.finalStates ~> finalStateIn ~> saveLastState
+                          msgIn ~> hideIrrelevantMsgs ~> encodeMsgs ~> conflateMsgValue ~> rule.elemsIn
+                                                        submissions                     <~ rule.elemsOut
+                                                    initialStateOut                                         ~> finalStateIn
+                                                                                           rule.finalStates ~> finalStateIn ~> saveLastState
       // format: on
       new FlowShape(msgIn.in, submissions.out)
     }
@@ -1230,7 +1333,7 @@ object Runner {
         )
 
     implicit def `api.Value to LoggingValue`: ToLoggingValue[api.Value] = value =>
-      PrettyPrint.prettyApiValue(verbose = true)(value).render(80)
+      PrettyPrint.prettyApiValue(verbose = true, maxListWidth = Some(20))(value).render(80)
 
     implicit def `SValue to LoggingValue`: ToLoggingValue[SValue] = value =>
       PrettyPrint.prettySValue(value).render(80)

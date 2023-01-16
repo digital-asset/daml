@@ -8,8 +8,9 @@ package trigger
 import scalaz.std.either._
 import scalaz.std.list._
 import scalaz.std.option._
+import scalaz.syntax.tag._
 import scalaz.syntax.traverse._
-import com.daml.lf.data.{FrontStack, ImmArray}
+import com.daml.lf.data.{FrontStack, ImmArray, Ref}
 import com.daml.lf.data.Ref._
 import com.daml.lf.language.Ast._
 import com.daml.lf.speedy.{ArrayList, SValue}
@@ -63,6 +64,8 @@ final class Converter(
   private[this] val anyTemplateTyCon = DA.Internal.Any.AnyTemplate
   private[this] val anyViewTyCon = DA.Internal.Interface.AnyView.Types.AnyView
   private[this] val activeContractsTy = triggerIds.damlTriggerLowLevel("ActiveContracts")
+  private[this] val triggerSetupArgumentsTy =
+    triggerIds.damlTriggerLowLevel("TriggerSetupArguments")
   private[this] val anyContractIdTy = triggerIds.damlTriggerLowLevel("AnyContractId")
   private[this] val archivedTy = triggerIds.damlTriggerLowLevel("Archived")
   private[this] val commandIdTy = triggerIds.damlTriggerLowLevel("CommandId")
@@ -173,7 +176,7 @@ final class Converter(
       viewValue <- view.viewValue.traverseU(fromRecord(viewType, _))
     } yield SOptional(viewValue.map(fromAnyView(viewType, _)))
 
-  private[this] def fromV25CreatedEvent(
+  private[this] def fromV250CreatedEvent(
       created: CreatedEvent
   ): Either[String, SValue] =
     for {
@@ -192,9 +195,10 @@ final class Converter(
     }
 
   private[this] val fromCreatedEvent: CreatedEvent => Either[String, SValue] =
-    triggerDef.version match {
-      case Trigger.Version.`2.0` => fromV20CreatedEvent
-      case Trigger.Version.`2.5` => fromV25CreatedEvent
+    if (triggerDef.version < Trigger.Version.`2.5.0`) {
+      fromV20CreatedEvent
+    } else {
+      fromV250CreatedEvent
     }
 
   private def fromEvent(ev: Event): Either[String, SValue] =
@@ -289,6 +293,23 @@ final class Converter(
         .traverse(fromCreatedEvent)
         .map(xs => SList(FrontStack.from(xs)))
     } yield record(activeContractsTy, "activeContracts" -> events)
+
+  def fromTriggerSetupArguments(
+      parties: TriggerParties,
+      createdEvents: Seq[CreatedEvent],
+  ): Either[String, SValue] =
+    for {
+      acs <- fromACS(createdEvents)
+      actAs = SParty(Ref.Party.assertFromString(parties.actAs.unwrap))
+      readAs = SList(
+        parties.readAs.map(p => SParty(Ref.Party.assertFromString(p.unwrap))).to(FrontStack)
+      )
+    } yield record(
+      triggerSetupArgumentsTy,
+      "actAs" -> actAs,
+      "readAs" -> readAs,
+      "acs" -> acs,
+    )
 
   def toFiniteDuration(value: SValue): Either[String, FiniteDuration] =
     value.expect(

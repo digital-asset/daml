@@ -1,0 +1,32 @@
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+
+module BatchTrigger where
+
+import DA.Foldable (forA_)
+
+import Daml.Trigger.LowLevel
+
+test : BatchTrigger [Text]
+test = BatchTrigger
+  { initialState = \args -> do
+      submitCommands [createCmd (T args.actAs)]
+      pure []
+  , update = \msgs -> forA_ msgs \msg -> do
+      case msg of
+        MTransaction (Transaction _ (Some (CommandId cmdId)) [CreatedEvent (fromCreated @T -> Some (_, cid, _))]) -> do
+          submitCommands [exerciseCmd cid Archive]
+          modify (cmdId ::)
+        MTransaction (Transaction _ (Some (CommandId cmdId)) [ArchivedEvent (fromArchived @T -> Some _)]) ->
+          modify (cmdId ::)
+        _ -> pure ()
+  , registeredTemplates = AllInDar
+  , heartbeat = None
+  }
+
+template T
+  with
+    p : Party
+  where
+    signatory p

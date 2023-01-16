@@ -44,6 +44,8 @@ DAML_LF_VERSIONS = [
       cp -L $(location :daml/ReadAs.daml) $$TMP_DIR/daml
       cp -L $(location :daml/ActAs.daml) $$TMP_DIR/daml
       cp -L $(location :daml/QueryFilter.daml) $$TMP_DIR/daml
+      cp -L $(location :daml/Cats.daml) $$TMP_DIR/daml
+      cp -L $(location :daml/BatchTrigger.daml) $$TMP_DIR/daml
       cp -L $(location //templates:copy-trigger/src/CopyTrigger.daml) $$TMP_DIR/daml
       cp -L $(location //triggers/daml:daml-trigger{suffix}.dar) $$TMP_DIR/daml-trigger.dar
       cp -L $(location //daml-script/daml:daml-script{suffix}.dar) $$TMP_DIR/daml-script.dar
@@ -146,6 +148,60 @@ da_scala_library(
             "@maven//:org_scalatestplus_scalacheck_1_15",
             "@maven//:org_scalaz_scalaz_core",
         ],
+        deps = [
+            ":test-utils",
+            "//bazel_tools/runfiles:scala_runfiles",
+            "//daml-lf/archive:daml_lf_archive_reader",
+            "//daml-lf/data",
+            "//daml-lf/engine",
+            "//daml-lf/interpreter",
+            "//daml-lf/language",
+            "//language-support/scala/bindings",
+            "//language-support/scala/bindings-akka",
+            "//ledger-api/rs-grpc-bridge",
+            "//ledger-api/testing-utils",
+            "//ledger/caching",
+            "//ledger/ledger-api-auth",
+            "//ledger/ledger-api-common",
+            "//ledger/ledger-api-domain",
+            "//ledger/ledger-configuration",
+            "//ledger/ledger-resources",
+            "//ledger/ledger-runner-common",
+            "//ledger/metrics",
+            "//ledger/participant-integration-api",
+            "//ledger/sandbox-on-x",
+            "//ledger/sandbox-on-x:sandbox-on-x-test-lib",
+            "//ledger/test-common",
+            "//libs-scala/contextualized-logging",
+            "//libs-scala/logging-entries",
+            "//libs-scala/ports",
+            "//libs-scala/resources",
+            "//libs-scala/scalatest-utils",
+            "//triggers/runner:trigger-runner-lib",
+        ],
+    )
+    for lf_version in DAML_LF_VERSIONS
+    for suffix in [("-" + lf_version) if lf_version else ""]
+]
+
+[
+    da_scala_test_suite(
+        name = "trigger-failure-integration-tests" + suffix,
+        srcs = [
+            "src/test/scala/com/digitalasset/daml/lf/engine/trigger/test/FailureTesting.scala",
+        ],
+        data = [
+            ":acs%s.dar" % suffix,
+            "//ledger/test-common/test-certificates",
+        ],
+        resources = ["//triggers/runner:src/main/resources/logback.xml"],
+        scala_deps = [
+            "@maven//:com_typesafe_akka_akka_stream",
+            "@maven//:org_scalacheck_scalacheck",
+            "@maven//:org_scalatestplus_scalacheck_1_15",
+            "@maven//:org_scalaz_scalaz_core",
+        ],
+        tags = ["exclusive"],
         deps = [
             ":test-utils",
             "//bazel_tools/runfiles:scala_runfiles",

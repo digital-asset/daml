@@ -25,15 +25,17 @@ module Daml.Trigger.Internal
   ) where
 
 import DA.Action.State
+import DA.Foldable (forA_)
 import DA.Functor ((<&>))
 import DA.Map (Map)
 import qualified DA.Map as Map
 import DA.Optional (fromOptional)
 
 import Daml.Trigger.LowLevel hiding (Trigger)
+import qualified Daml.Trigger.LowLevel as LowLevel
 
 -- We use this singleton enumeration to track the version of the API between Daml code and Scala code of the trigger
-data Version = Version_2_5
+data Version = Version_2_5_1
 
 -- public API
 
@@ -172,6 +174,16 @@ runRule rule = do
               readAs = aState.readAs
               actAs = aState.actAs
           in state { commandsInFlight, acs, userState, readAs, actAs }
+
+-- | HIDE
+-- | Transform the (legacy) low-level trigger type into a batching trigger.
+runLegacyTrigger : LowLevel.Trigger s -> BatchTrigger s
+runLegacyTrigger userTrigger = BatchTrigger
+  { initialState = \args -> userTrigger.initialState args.actAs args.readAs args.acs
+  , update = \msgs -> forA_ msgs userTrigger.update
+  , registeredTemplates = userTrigger.registeredTemplates
+  , heartbeat = userTrigger.heartbeat
+  }
 
 -- | HIDE
 liftTriggerRule : TriggerRule (TriggerAState s) a -> TriggerA s a
