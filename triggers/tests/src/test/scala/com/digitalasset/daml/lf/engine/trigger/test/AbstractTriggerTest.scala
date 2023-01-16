@@ -45,15 +45,16 @@ trait AbstractTriggerTest
   self: Suite =>
 
   protected def toHighLevelResult(s: SValue) = s match {
-    case SRecord(_, _, values) if values.size == 5 =>
+    case SRecord(_, _, values) if values.size == 6 =>
       AbstractTriggerTest.HighLevelResult(
         values.get(0),
         values.get(1),
         values.get(2),
         values.get(3),
         values.get(4),
+        values.get(5),
       )
-    case _ => throw new IllegalArgumentException(s"Expected record with 5 fields but got $s")
+    case _ => throw new IllegalArgumentException(s"Expected record with 6 fields but got $s")
   }
 
   protected val applicationId = RunnerConfig.DefaultApplicationId
@@ -227,5 +228,6 @@ object AbstractTriggerTest {
       readAs: SValue,
       state: SValue,
       commandsInFlight: SValue,
+      config: SValue,
   )
 }

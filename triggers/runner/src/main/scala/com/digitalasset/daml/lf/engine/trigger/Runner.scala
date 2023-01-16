@@ -1029,7 +1029,6 @@ private[lf] class Runner private (
             )
 
           case _ =>
-            println(s"DEBUGGY: ${inFlightCommands.count}")
         }
     // Used to limit rate (by using back pressure to slow trigger rule evaluation) ledger command submission requests
     val throttleFlow: TriggerContextualFlow[SubmitRequest, SubmitRequest, NotUsed] =

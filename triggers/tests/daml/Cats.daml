@@ -79,19 +79,20 @@ feedTheCats party = do
 breedingRate : Int
 breedingRate = 100
 
-overflowTrigger: Trigger (Int, Int)
+overflowTrigger: Trigger Int
 overflowTrigger = Trigger
-  { initialize = pure (breedingRate, -breedingRate)
+  { initialize = pure 0
   , updateState = \_ -> do
-      (breedCount, baseIndex) <- get
-      put (breedCount, baseIndex + breedCount)
+      breedCount <- get
+      put(breedCount + breedingRate)
   , rule = breedingOverflow
   , registeredTemplates = RegisteredTemplates [ registeredTemplate @Cat ]
   , heartbeat = Some (seconds 1)
   }
 
-breedingOverflow: Party -> TriggerA (Int, Int) ()
+breedingOverflow: Party -> TriggerA Int ()
 breedingOverflow party = do
-  (breedCount, baseIndex) <- get
-  forA_ [1..breedCount] \offset -> do
-    void $ emitCommands [createCmd (Cat party (baseIndex + offset))] []
+  breedCount <- get
+  forA_ [1..breedingRate] \offset -> do
+    debug ("DEBUGGY " <> (show (breedCount + offset)))
+    void $ emitCommands [createCmd (Cat party (breedCount + offset))] []

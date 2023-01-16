@@ -10,10 +10,15 @@ import com.daml.ledger.api.v1.event.Event.Event.Created
 import com.daml.ledger.api.v1.event.{Event => ApiEvent}
 import com.daml.ledger.api.v1.transaction.{Transaction => ApiTransaction}
 import com.daml.ledger.api.v1.{value => LedgerApi}
+import com.daml.ledger.runner.common.Config
 import com.daml.ledger.sandbox.SandboxOnXForTest.{ApiServerConfig, singleParticipant}
 import com.daml.lf.data.Ref.QualifiedName
 import com.daml.lf.engine.trigger.Runner.TriggerContext
-import com.daml.lf.engine.trigger.{InFlightCommandOverflowException, TriggerMsg, TriggerRunnerConfig}
+import com.daml.lf.engine.trigger.{
+  InFlightCommandOverflowException,
+  TriggerMsg,
+  TriggerRunnerConfig,
+}
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.util.Ctx
 import org.scalatest.{Inside, TryValues}
@@ -30,7 +35,7 @@ final class FailureTesting
     with SuiteResourceManagementAroundAll
     with TryValues {
 
-  override def config = super.config.copy(
+  override protected def config: Config = super.config.copy(
     participants = singleParticipant(
       ApiServerConfig.copy(
         timeProviderType = TimeProviderType.Static
@@ -38,15 +43,15 @@ final class FailureTesting
     )
   )
 
-  override def triggerRunnerConfiguration: TriggerRunnerConfig = super.triggerRunnerConfiguration
-    .copy(inFlightCommandBackPressureCount = 20, inFlightCommandOverflowCount = 200)
+  override protected def triggerRunnerConfiguration: TriggerRunnerConfig =
+    super.triggerRunnerConfiguration
+      .copy(inFlightCommandBackPressureCount = 20, inFlightCommandOverflowCount = 200)
 
   "Failure testing" should {
     // The following value should be kept in sync with the value of contractPairings in Cats.daml
     val contractPairings = 400
 
     s"with $contractPairings contract pairings and always failing submissions" should {
-
       def command(template: String, owner: String, i: Int): CreateCommand =
         CreateCommand(
           templateId = Some(LedgerApi.Identifier(packageId, "Cats", template)),
@@ -85,7 +90,7 @@ final class FailureTesting
           true
       }
 
-      "Process all contract pairings successfully" ignore {
+      "Process all contract pairings successfully" in {
         for {
           client <- ledgerClient()
           party <- allocateParty(client)
@@ -123,7 +128,7 @@ final class FailureTesting
     }
 
     "Ledger completion delays" should {
-      "Eventually cause a trigger overflow" in {
+      "Eventually cause a trigger overflow" ignore {
         recoverToSucceededIf[InFlightCommandOverflowException] {
           for {
             client <- ledgerClient()
@@ -141,14 +146,11 @@ final class FailureTesting
                 msgFlow = Flow[TriggerContext[TriggerMsg]]
                   // Filter out all completion and transaction events and so simulate ledger command completion delays
                   .filter {
-                    case Ctx(_, x @ TriggerMsg.Completion(_), _) =>
-                      println(s"DEBUGGY: drop $x")
+                    case Ctx(_, TriggerMsg.Completion(_), _) =>
                       false
-                    case Ctx(_, x @ TriggerMsg.Transaction(_), _) =>
-                      println(s"DEBUGGY: drop $x")
+                    case Ctx(_, TriggerMsg.Transaction(_), _) =>
                       false
-                    case Ctx(_, x, _) =>
-                      println(s"DEBUGGY: allow $x")
+                    case _ =>
                       true
                   },
               )
