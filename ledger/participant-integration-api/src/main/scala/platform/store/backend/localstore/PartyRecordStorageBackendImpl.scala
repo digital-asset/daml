@@ -108,14 +108,11 @@ object PartyRecordStorageBackendImpl extends PartyRecordStorageBackend {
   override def filterExistingParties(
       parties: Set[Ref.Party],
       identityProviderId: Option[IdentityProviderId.Id],
-  )(connection: Connection): Set[Ref.Party] = {
+  )(connection: Connection): Set[Ref.Party] = if (parties.nonEmpty) {
     import com.daml.platform.store.backend.common.SimpleSqlAsVectorOf._
     import com.daml.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
-    val filteredParties = if (parties.nonEmpty) {
-      cSQL"party in (${parties.map(_.toString)})"
-    } else {
-      cSQL"1 != 1"
-    }
+    val filteredParties = cSQL"party in (${parties.map(_.toString)})"
+
     val filteredIdentityProviderId = identityProviderId match {
       case Some(id) => cSQL"identity_provider_id = ${id.value: String}"
       case None => cSQL"identity_provider_id is NULL"
@@ -129,5 +126,5 @@ object PartyRecordStorageBackendImpl extends PartyRecordStorageBackend {
        """
       .asVectorOf(party("party"))(connection)
       .toSet
-  }
+  } else Set.empty
 }
