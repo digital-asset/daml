@@ -25,7 +25,7 @@ final class RevokeUserRightsAuthIT
     for {
       response <- createFreshUser(context.token, context.identityProviderId)
       userId = response.user.getOrElse(sys.error("Could not load create a fresh user")).id
-      _ <- stub(context.token).grantUserRights(
+      _ <- stub(canReadAsAdminStandardJWT.token).grantUserRights(
         GrantUserRightsRequest(
           userId = userId,
           rights = scala.Seq(permission),
