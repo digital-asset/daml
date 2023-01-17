@@ -1012,13 +1012,8 @@ private[lf] object SBuiltin {
           machine.ptx
             .insertCreate(
               submissionTime = machine.submissionTime,
-              templateId = cached.templateId,
-              arg = createArgValue,
-              agreementText = cached.agreementText,
+              contract = cached,
               optLocation = machine.getLastLocation,
-              signatories = cached.signatories,
-              stakeholders = cached.stakeholders,
-              key = cached.key.map(_.toNormalizedKeyWithMaintainers(version)),
               version = version,
             ) match {
             case Right((coid, newPtx)) =>
@@ -1061,31 +1056,25 @@ private[lf] object SBuiltin {
         machine
           .getCachedContract(coid)
           .getOrElse(crash(s"Contract ${coid.coid} is missing from cache"))
-      val sigs = cached.signatories
       val templateVersion = machine.tmplId2TxVersion(templateId)
       val interfaceVersion = interfaceId.map(machine.tmplId2TxVersion)
       val exerciseVersion = interfaceVersion.fold(templateVersion)(_.max(templateVersion))
       val chosenValue = args.get(0).toNormalizedValue(exerciseVersion)
-      val templateObservers = cached.observers
       val ctrls = extractParties(NameOf.qualifiedNameOfCurrentFunc, args.get(2))
       machine.enforceChoiceControllersLimit(ctrls, coid, templateId, choiceId, chosenValue)
       val obsrs = extractParties(NameOf.qualifiedNameOfCurrentFunc, args.get(3))
       machine.enforceChoiceObserversLimit(obsrs, coid, templateId, choiceId, chosenValue)
-      val mbKey = cached.key.map(_.toNormalizedKeyWithMaintainers(exerciseVersion))
 
       machine.ptx
         .beginExercises(
           targetId = coid,
-          templateId = templateId,
+          contract = cached,
           interfaceId = interfaceId,
           choiceId = choiceId,
           optLocation = machine.getLastLocation,
           consuming = consuming,
           actingParties = ctrls,
-          signatories = sigs,
-          stakeholders = sigs union templateObservers,
           choiceObservers = obsrs,
-          mbKey = mbKey,
           byKey = byKey,
           chosenValue = chosenValue,
           version = exerciseVersion,
@@ -1484,16 +1473,10 @@ private[lf] object SBuiltin {
           .getCachedContract(coid)
           .getOrElse(crash(s"Contract ${coid.coid} is missing from cache"))
       val version = machine.tmplId2TxVersion(templateId)
-      val signatories = cached.signatories
-      val observers = cached.observers
-      val key = cached.key.map(_.toNormalizedKeyWithMaintainers(version))
       machine.ptx.insertFetch(
         coid = coid,
-        templateId = templateId,
+        contract = cached,
         optLocation = machine.getLastLocation,
-        signatories = signatories,
-        observers = observers,
-        key = key,
         byKey = byKey,
         version = version,
       ) match {
@@ -1527,11 +1510,10 @@ private[lf] object SBuiltin {
         case _ => crash(s"Non option value when inserting lookup node")
       }
       val version = machine.tmplId2TxVersion(templateId)
-      val key = keyWithMaintainers.toNormalizedKeyWithMaintainers(version)
       machine.ptx.insertLookup(
         templateId = templateId,
         optLocation = machine.getLastLocation,
-        key = key,
+        key = keyWithMaintainers,
         result = mbCoid,
         version = version,
       ) match {
