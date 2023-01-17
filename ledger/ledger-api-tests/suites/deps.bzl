@@ -9,8 +9,8 @@ def deps(lf_version):
         "//ledger/test-common:carbonv2-tests-%s.scala" % lf_version,
         "//ledger/test-common:carbonv3-tests-%s.scala" % lf_version,
     ]
-    additional_tests = carbon_tests if (versions.gte(lf_version, "1.15")) else []
-    additional_dev_tests = ["//ledger/test-common:modelext-tests-%s.scala" % lf_version] if (versions.gte(lf_version, "1.dev")) else []
+    model_tests = ["//ledger/test-common:modelext-tests-%s.scala" % lf_version]
+    additional_tests = carbon_tests + model_tests if (versions.gte(lf_version, "1.15")) else []
     return [
         "//daml-lf/data",
         "//daml-lf/transaction",
@@ -38,4 +38,4 @@ def deps(lf_version):
         "@maven//:io_grpc_grpc_netty",
         "@maven//:io_netty_netty_handler",
         "@maven//:org_slf4j_slf4j_api",
-    ] + additional_tests + additional_dev_tests
+    ] + additional_tests

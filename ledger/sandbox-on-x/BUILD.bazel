@@ -623,7 +623,7 @@ server_conformance_test(
         ledger.participants.default.api-server.seeding = testing-weak
     """,
     lf_versions = [
-        "1.dev",
+        "1.15",
     ],
     servers = SERVERS,
     test_tool_args = [
