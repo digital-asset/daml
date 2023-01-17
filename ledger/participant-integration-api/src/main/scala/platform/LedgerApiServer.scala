@@ -8,8 +8,6 @@ import akka.stream.Materializer
 import com.daml.api.util.TimeProvider
 import com.daml.ledger.api.auth.{
   AuthService,
-  IdentityProviderConfigLoader,
-  IdentityProviderAwareAuthService,
   JwtVerifierLoader,
 }
 import com.daml.ledger.api.domain
@@ -34,7 +32,7 @@ import com.daml.platform.localstore._
 import com.daml.platform.store.DbSupport
 import com.daml.platform.store.DbSupport.ParticipantDataSourceConfig
 
-import scala.concurrent.{ExecutionContext, ExecutionContextExecutorService, Future}
+import scala.concurrent.{ExecutionContext, ExecutionContextExecutorService}
 
 class LedgerApiServer(
     authService: AuthService,
@@ -155,12 +153,6 @@ class LedgerApiServer(
         cacheExpiryAfterWrite = apiServerConfig.identityProviderManagement.cacheExpiryAfterWrite,
         maxIdentityProviders = IdentityProviderManagementConfig.MaxIdentityProviders,
       )(servicesExecutionContext, loggingContext)
-    val identityProviderConfigLoader = new IdentityProviderConfigLoader {
-      override def getIdentityProviderConfig(issuer: LedgerId)(implicit
-          loggingContext: LoggingContext
-      ): Future[domain.IdentityProviderConfig] =
-        identityProviderStore.getActiveIdentityProviderByIssuer(issuer)
-    }
     ApiServiceOwner(
       indexService = indexService,
       ledgerId = ledgerId,
@@ -190,11 +182,8 @@ class LedgerApiServer(
       ),
       ledgerFeatures = ledgerFeatures,
       participantId = participantId,
-      authService = new IdentityProviderAwareAuthService(
-        defaultAuthService = authService,
-        identityProviderConfigLoader = identityProviderConfigLoader,
-        jwtVerifierLoader = jwtVerifierLoader,
-      )(servicesExecutionContext, loggingContext),
+      authService = authService,
+      jwtVerifierLoader = jwtVerifierLoader,
       jwtTimestampLeeway = participantConfig.jwtTimestampLeeway,
       explicitDisclosureUnsafeEnabled = explicitDisclosureUnsafeEnabled,
     )
