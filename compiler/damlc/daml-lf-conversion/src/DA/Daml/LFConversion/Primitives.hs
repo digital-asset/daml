@@ -508,6 +508,32 @@ convertPrim _ "EViewInterface" (TCon iface :-> _) =
       ETmLam (mkVar "i", TCon iface) $
         EViewInterface iface (EVar $ mkVar "i")
 
+convertPrim version "EChoiceController" _
+    | not (version `supports` featureChoiceFuncs) =
+        conversionError "'choiceController' is only available with --target=1.dev"
+
+convertPrim _ "EChoiceController"
+    (TCon template :-> TCon choice :-> TList TParty) =
+    pure $
+    ETmLam (mkVar "template", TCon template) $
+    ETmLam (mkVar "choice", TCon choice) $
+    EChoiceController template choiceName (EVar (mkVar "template")) (EVar (mkVar "choice"))
+  where
+    choiceName = ChoiceName (T.intercalate "." $ unTypeConName $ qualObject choice)
+
+convertPrim version "EChoiceObserver" _
+    | not (version `supports` featureChoiceFuncs) =
+        conversionError "'choiceObserver' is only available with --target=1.dev"
+
+convertPrim _ "EChoiceObserver"
+    (TCon template :-> TCon choice :-> TList TParty) =
+    pure $
+    ETmLam (mkVar "template", TCon template) $
+    ETmLam (mkVar "choice", TCon choice) $
+    EChoiceObserver template choiceName (EVar (mkVar "template")) (EVar (mkVar "choice"))
+  where
+    choiceName = ChoiceName (T.intercalate "." $ unTypeConName $ qualObject choice)
+
 convertPrim (V1 PointDev) (L.stripPrefix "$" -> Just builtin) typ =
     pure $
       EExperimental (T.pack builtin) typ

@@ -373,6 +373,18 @@ private[lf] final class PhaseOne(
         compileExp(env, exp) { exp =>
           Return(SBViewInterface(ifaceId)(exp))
         }
+      case EChoiceController(tpl, choiceName, contract, choiceArg) =>
+        compileExp(env, contract) { contract =>
+          compileExp(env, choiceArg) { choiceArg =>
+            Return(t.ChoiceControllerDefRef(tpl, choiceName)(contract, choiceArg))
+          }
+        }
+      case EChoiceObserver(tpl, choiceName, contract, choiceArg) =>
+        compileExp(env, contract) { contract =>
+          compileExp(env, choiceArg) { choiceArg =>
+            Return(t.ChoiceObserverDefRef(tpl, choiceName)(contract, choiceArg))
+          }
+        }
       case EExperimental(name, _) =>
         Return(SBExperimental(name))
     }

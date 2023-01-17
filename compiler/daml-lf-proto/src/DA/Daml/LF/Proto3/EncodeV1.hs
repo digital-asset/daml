@@ -741,6 +741,18 @@ encodeExpr' = \case
         expr_ViewInterfaceInterface <- encodeQualTypeConName iface
         expr_ViewInterfaceExpr <- encodeExpr expr
         pureExpr $ P.ExprSumViewInterface P.Expr_ViewInterface{..}
+    EChoiceController tpl ch expr1 expr2 -> do
+        expr_ChoiceControllerTemplate <- encodeQualTypeConName tpl
+        expr_ChoiceControllerChoiceInternedStr <- encodeNameId unChoiceName ch
+        expr_ChoiceControllerContractExpr <- encodeExpr expr1
+        expr_ChoiceControllerChoiceArgExpr <- encodeExpr expr2
+        pureExpr $ P.ExprSumChoiceController P.Expr_ChoiceController{..}
+    EChoiceObserver tpl ch expr1 expr2 -> do
+        expr_ChoiceObserverTemplate <- encodeQualTypeConName tpl
+        expr_ChoiceObserverChoiceInternedStr <- encodeNameId unChoiceName ch
+        expr_ChoiceObserverContractExpr <- encodeExpr expr1
+        expr_ChoiceObserverChoiceArgExpr <- encodeExpr expr2
+        pureExpr $ P.ExprSumChoiceObserver P.Expr_ChoiceObserver{..}
     EExperimental name ty -> do
         let expr_ExperimentalName = encodeString name
         expr_ExperimentalType <- encodeType ty

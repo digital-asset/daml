@@ -4,6 +4,7 @@
 package com.daml.lf.validation
 
 import com.daml.lf.data.{ImmArray, Numeric, Struct}
+import com.daml.lf.data.TemplateOrInterface
 import com.daml.lf.data.Ref._
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.Util._
@@ -1449,6 +1450,25 @@ private[validation] object Typing {
         Ret(TOptional(typ))
     }
 
+    private[Typing] def typeOfChoiceControllerOrObserver(
+        ty: TypeConName,
+        choiceName: ChoiceName,
+        contract: Expr,
+        choiceArg: Expr,
+    ): Work[Type] = {
+      val choice = handleLookup(ctx, pkgInterface.lookupTemplateOrInterface(ty)) match {
+        case TemplateOrInterface.Template(_) =>
+          handleLookup(ctx, pkgInterface.lookupTemplateChoice(ty, choiceName))
+        case TemplateOrInterface.Interface(_) =>
+          handleLookup(ctx, pkgInterface.lookupInterfaceChoice(ty, choiceName))
+      }
+      checkExpr(contract, TTyCon(ty)) {
+        checkExpr(choiceArg, choice.argBinder._2) {
+          Ret(TParties)
+        }
+      }
+    }
+
     private[Typing] def typeOfExpr(e: Expr): Work[Type] = e match {
       case expr: ExprAtomic =>
         typeOfAtomic(expr)
@@ -1531,6 +1551,10 @@ private[validation] object Typing {
         checkExpr(value, TAnyException) {
           Ret(TOptional(typ))
         }
+      case EChoiceController(ty, ch, expr1, expr2) =>
+        typeOfChoiceControllerOrObserver(ty, ch, expr1, expr2)
+      case EChoiceObserver(ty, ch, expr1, expr2) =>
+        typeOfChoiceControllerOrObserver(ty, ch, expr1, expr2)
       case expr: ExprInterface =>
         typOfExprInterface(expr)
       case EExperimental(_, typ) =>

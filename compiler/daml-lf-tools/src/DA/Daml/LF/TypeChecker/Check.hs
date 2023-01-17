@@ -57,6 +57,7 @@ import           DA.Daml.LF.Ast.Optics (dataConsType)
 import           DA.Daml.LF.Ast.Type
 import           DA.Daml.LF.Ast.Alpha
 import           DA.Daml.LF.Ast.Numeric
+import qualified DA.Daml.LF.TemplateOrInterface as TemplateOrInterface
 import           DA.Daml.LF.TypeChecker.Env
 import           DA.Daml.LF.TypeChecker.Error
 
@@ -821,6 +822,22 @@ typeOf' = \case
     iface <- inWorld (lookupInterface ifaceId)
     checkExpr expr (TCon ifaceId)
     pure (intView iface)
+  EChoiceController tpl choiceName contract choiceArg -> do
+    ty <- inWorld (lookupTemplateOrInterface tpl)
+    choice <- inWorld $ case ty of
+      TemplateOrInterface.Template {} -> lookupChoice (tpl, choiceName)
+      TemplateOrInterface.Interface {} -> lookupInterfaceChoice (tpl, choiceName)
+    checkExpr contract (TCon tpl)
+    checkExpr choiceArg (chcArgType choice)
+    pure (TList TParty)
+  EChoiceObserver tpl choiceName contract choiceArg -> do
+    ty <- inWorld (lookupTemplateOrInterface tpl)
+    choice <- inWorld $ case ty of
+      TemplateOrInterface.Template {} -> lookupChoice (tpl, choiceName)
+      TemplateOrInterface.Interface {} -> lookupInterfaceChoice (tpl, choiceName)
+    checkExpr contract (TCon tpl)
+    checkExpr choiceArg (chcArgType choice)
+    pure (TList TParty)
   EExperimental name ty -> do
     checkFeature featureExperimental
     checkExperimentalType name ty
