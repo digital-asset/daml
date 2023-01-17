@@ -180,7 +180,7 @@ data TriggerSetupArguments = TriggerSetupArguments
   { actAs : Party
   , readAs : [Party]
   , acs : ActiveContracts
-  , config : TriggerConfig
+  , config : TriggerConfig -- added in version 2.6.0
   }
 
 data ActiveContracts = ActiveContracts { activeContracts : [Created] }
