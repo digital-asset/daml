@@ -28,7 +28,11 @@ case class OpenTelemetryOwner(reporter: Option[MetricsReporter])
       context: ResourceContext
   ): Resource[OpenTelemetry] = {
     Resource(
-      Future(
+      Future {
+        if (sys.props.get("otel.traces.exporter").isEmpty) {
+          // if no trace exporter is configured then default to none instead of the oltp default used by the library
+          sys.props.addOne("otel.traces.exporter" -> "none")
+        }
         AutoConfiguredOpenTelemetrySdk
           .builder()
           .addMeterProviderCustomizer { case (builder, _) =>
@@ -45,7 +49,7 @@ case class OpenTelemetryOwner(reporter: Option[MetricsReporter])
           .setResultAsGlobal(true)
           .build()
           .getOpenTelemetrySdk
-      )
+      }
     ) { sdk =>
       Future {
         sdk.getSdkMeterProvider.close()
