@@ -417,6 +417,7 @@ private[lf] object ScenarioRunner {
           SubmissionError(Error.RunnerException(err), enrich(ledgerMachine.incompleteTransaction))
         case SResultQuestion(question) =>
           question match {
+            case _: Question.Update.NeedAuthority => ??? // TODO #15882
             case Question.Update.NeedContract(coid, committers, callback) =>
               ledger.lookupContract(
                 coid,

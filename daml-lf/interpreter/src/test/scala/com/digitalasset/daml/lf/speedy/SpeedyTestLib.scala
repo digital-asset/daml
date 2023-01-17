@@ -65,6 +65,7 @@ private[speedy] object SpeedyTestLib {
       machine.run() match {
         case SResultQuestion(question) =>
           question match {
+            case _: Question.Update.NeedAuthority => ??? // TODO #15882
             case Question.Update.NeedTime(callback) =>
               getTime.lift(()) match {
                 case Some(value) =>
