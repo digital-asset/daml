@@ -31,10 +31,14 @@ The Ledger API exposes the following services:
   - Use the :ref:`command submission service <command-submission-service>` to submit commands (create a contract or exercise a choice) to the ledger.
   - Use the :ref:`command completion service <command-completion-service>` to track the status of submitted commands.
   - Use the :ref:`command service <command-service>` for a convenient service that combines the command submission and completion services.
+
+.. _reading-from-the-ledger:
+
 - Reading from the ledger
 
   - Use the :ref:`transaction service <transaction-service>` to stream committed transactions and the resulting events (choices exercised, and contracts created or archived), and to look up transactions.
   - Use the :ref:`active contracts service <active-contract-service>` to quickly bootstrap an application with the currently active contracts. It saves you the work to process the ledger from the beginning to obtain its current state.
+
 - Utility services
 
   - Use the :ref:`party management service <party-service>` to allocate and find information about parties on the Daml ledger.
@@ -44,6 +48,7 @@ The Ledger API exposes the following services:
   - Use the :ref:`version service <version-service>` to retrieve information about the Ledger API version.
   - Use the :ref:`user management service <user-management-service>` to manage users and their rights.
   - Use the :ref:`metering report service <metering-report-service>` to retrieve a participant metering report.
+
 - Testing services (on Sandbox only, *not* for production ledgers)
 
   - Use the :ref:`time service <time-service>` to obtain the time as known by the ledger.
