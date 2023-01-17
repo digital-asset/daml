@@ -12,9 +12,9 @@ import scala.concurrent.Future
 
 class PartyRecordsExist(partyRecordStore: PartyRecordStore) {
 
-  def apply(id: IdentityProviderId, parties: Set[Ref.Party])(implicit
-      loggingContext: LoggingContext
+  def filterPartiesExistingInPartyRecordStore(id: IdentityProviderId, parties: Set[Ref.Party])(
+      implicit loggingContext: LoggingContext
   ): Future[Set[Ref.Party]] =
-    partyRecordStore.partiesExist(parties, id)
+    partyRecordStore.filterExistingParties(parties, id)
 
 }

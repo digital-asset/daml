@@ -105,7 +105,7 @@ object PartyRecordStorageBackendImpl extends PartyRecordStorageBackend {
     )
   }
 
-  override def fetchPartiesExist(
+  override def filterExistingParties(
       parties: Set[Ref.Party],
       identityProviderId: Option[IdentityProviderId.Id],
   )(connection: Connection): Set[Ref.Party] = {
@@ -126,7 +126,6 @@ object PartyRecordStorageBackendImpl extends PartyRecordStorageBackend {
          FROM participant_party_records
          WHERE
              $filteredIdentityProviderId AND $filteredParties
-         ORDER BY party
        """
       .asVectorOf(party("party"))(connection)
       .toSet

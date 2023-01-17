@@ -281,10 +281,10 @@ class PersistentPartyRecordStore(
     (now.getEpochSecond * 1000 * 1000) + (now.getNano / 1000)
   }
 
-  override def partiesExist(parties: Set[Party], identityProviderId: IdentityProviderId)(implicit
-      loggingContext: LoggingContext
+  override def filterExistingParties(parties: Set[Party], identityProviderId: IdentityProviderId)(
+      implicit loggingContext: LoggingContext
   ): Future[Set[Party]] = inTransaction(_.partiesExist) { implicit connection =>
-    Right(backend.fetchPartiesExist(parties, identityProviderId.toDb)(connection))
+    Right(backend.filterExistingParties(parties, identityProviderId.toDb)(connection))
   }.map {
     case Right(value) => value
     case Left(_) => Set.empty

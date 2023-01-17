@@ -94,28 +94,28 @@ private[backend] trait StorageBackendTestsPartyRecord
     val _ = executeSql(tested.createPartyRecord(partyRecord1))
     val _ = executeSql(tested.createPartyRecord(partyRecord2))
     executeSql(
-      tested.fetchPartiesExist(
+      tested.filterExistingParties(
         Set(),
         Some(IdentityProviderId.Id(LedgerString.assertFromString("cde"))),
       )
     ) shouldBe Set.empty
 
     executeSql(
-      tested.fetchPartiesExist(
+      tested.filterExistingParties(
         Set(),
         None,
       )
     ) shouldBe Set.empty
 
     executeSql(
-      tested.fetchPartiesExist(
+      tested.filterExistingParties(
         Set(party1, party2),
         None,
       )
     ) shouldBe Set(party1)
 
     executeSql(
-      tested.fetchPartiesExist(
+      tested.filterExistingParties(
         Set(party1, party2),
         Some(idpId),
       )

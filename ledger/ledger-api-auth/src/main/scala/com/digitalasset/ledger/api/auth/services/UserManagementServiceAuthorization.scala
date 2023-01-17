@@ -29,7 +29,7 @@ private[daml] final class UserManagementServiceAuthorization(
     new DamlContextualizedErrorLogger(logger, loggingContext, None)
 
   // Only ParticipantAdmin is allowed to grant ParticipantAdmin right
-  private def grantingParticipantAdmin(rights: Seq[Right]): Boolean =
+  private def containsParticipantAdmin(rights: Seq[Right]): Boolean =
     rights.contains(Right(Right.Kind.ParticipantAdmin(Right.ParticipantAdmin())))
 
   override def createUser(request: CreateUserRequest): Future[CreateUserResponse] =
@@ -37,7 +37,7 @@ private[daml] final class UserManagementServiceAuthorization(
       case Some(user) =>
         authorizer.requireIdpAdminClaimsAndMatchingRequestIdpId(
           user.identityProviderId,
-          grantingParticipantAdmin(request.rights),
+          containsParticipantAdmin(request.rights),
           service.createUser,
         )(
           request
@@ -77,7 +77,7 @@ private[daml] final class UserManagementServiceAuthorization(
   override def grantUserRights(request: GrantUserRightsRequest): Future[GrantUserRightsResponse] =
     authorizer.requireIdpAdminClaimsAndMatchingRequestIdpId(
       request.identityProviderId,
-      grantingParticipantAdmin(request.rights),
+      containsParticipantAdmin(request.rights),
       service.grantUserRights,
     )(
       request
@@ -88,7 +88,7 @@ private[daml] final class UserManagementServiceAuthorization(
   ): Future[RevokeUserRightsResponse] =
     authorizer.requireIdpAdminClaimsAndMatchingRequestIdpId(
       request.identityProviderId,
-      grantingParticipantAdmin(request.rights),
+      containsParticipantAdmin(request.rights),
       service.revokeUserRights,
     )(
       request

@@ -65,7 +65,7 @@ private[apiserver] final class ApiUserManagementService(
   override def createUser(request: proto.CreateUserRequest): Future[CreateUserResponse] =
     withSubmissionId { implicit loggingContext =>
       // Retrieving the authenticated user context from the thread-local context
-      val authorizedUserContextFO: Future[AuthenticatedUserContext] =
+      val authorizedUserContextF: Future[AuthenticatedUserContext] =
         resolveAuthenticatedUserContext()
       withValidation {
         for {
@@ -105,7 +105,7 @@ private[apiserver] final class ApiUserManagementService(
       } { case (user, pRights) =>
         for {
           _ <- identityProviderExistsOrError(user.identityProviderId)
-          authorizedUserContext <- authorizedUserContextFO
+          authorizedUserContext <- authorizedUserContextF
           _ <- verifyPartyExistInIdp(
             pRights,
             user.identityProviderId,
@@ -124,7 +124,7 @@ private[apiserver] final class ApiUserManagementService(
 
   override def updateUser(request: UpdateUserRequest): Future[UpdateUserResponse] = {
     withSubmissionId { implicit loggingContext =>
-      val authorizedUserContextFO: Future[AuthenticatedUserContext] =
+      val authorizedUserContextF: Future[AuthenticatedUserContext] =
         resolveAuthenticatedUserContext()
       withValidation {
         for {
@@ -164,7 +164,7 @@ private[apiserver] final class ApiUserManagementService(
         for {
           userUpdate <- handleUpdatePathResult(user.id, UserUpdateMapper.toUpdate(user, fieldMask))
           _ <- identityProviderExistsOrError(user.identityProviderId)
-          authorizedUserContext <- authorizedUserContextFO
+          authorizedUserContext <- authorizedUserContextF
           _ <- verifyPartyExistInIdp(
             Set(),
             user.identityProviderId,
@@ -295,7 +295,7 @@ private[apiserver] final class ApiUserManagementService(
       request: proto.GrantUserRightsRequest
   ): Future[proto.GrantUserRightsResponse] = withSubmissionId { implicit loggingContext =>
     // Retrieving the authenticated user context from the thread-local context
-    val authorizedUserContextFO: Future[AuthenticatedUserContext] =
+    val authorizedUserContextF: Future[AuthenticatedUserContext] =
       resolveAuthenticatedUserContext()
     withValidation(
       for {
@@ -309,7 +309,7 @@ private[apiserver] final class ApiUserManagementService(
     ) { case (userId, rights, identityProviderId) =>
       for {
         _ <- verifyUserIsNonExistentOrInIdp(identityProviderId, userId)
-        authorizedUserContext <- authorizedUserContextFO
+        authorizedUserContext <- authorizedUserContextF
         _ <- verifyPartyExistInIdp(
           rights,
           identityProviderId,
@@ -329,7 +329,7 @@ private[apiserver] final class ApiUserManagementService(
       request: proto.RevokeUserRightsRequest
   ): Future[proto.RevokeUserRightsResponse] = withSubmissionId { implicit loggingContext =>
     // Retrieving the authenticated user context from the thread-local context
-    val authorizedUserContextFO: Future[AuthenticatedUserContext] =
+    val authorizedUserContextF: Future[AuthenticatedUserContext] =
       resolveAuthenticatedUserContext()
     withValidation(
       for {
@@ -342,7 +342,7 @@ private[apiserver] final class ApiUserManagementService(
       } yield (userId, rights, identityProviderId)
     ) { case (userId, rights, identityProviderId) =>
       for {
-        authorizedUserContext <- authorizedUserContextFO
+        authorizedUserContext <- authorizedUserContextF
         _ <- verifyPartyExistInIdp(
           rights,
           identityProviderId,
@@ -402,7 +402,8 @@ private[apiserver] final class ApiUserManagementService(
       parties: Set[Ref.Party],
       identityProviderId: IdentityProviderId,
   ): Future[Unit] =
-    partyRecordExist(identityProviderId, parties)
+    partyRecordExist
+      .filterPartiesExistingInPartyRecordStore(identityProviderId, parties)
       .flatMap { partiesExist =>
         val partiesNotExist = parties -- partiesExist
         if (partiesNotExist.isEmpty)
