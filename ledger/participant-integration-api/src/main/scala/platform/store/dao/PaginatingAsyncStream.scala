@@ -31,7 +31,9 @@ private[platform] object PaginatingAsyncStream {
     * @param queryPage takes the offset from which to start the next page and returns that page
     * @tparam T the type of the items returned in each call
     */
-  def apply[T](pageSize: Int)(queryPage: Long => Future[Vector[T]]): Source[T, NotUsed] = {
+  def streamFromLimitOffsetPagination[T](
+      pageSize: Int
+  )(queryPage: Long => Future[Vector[T]]): Source[T, NotUsed] = {
     Source
       .unfoldAsync(Option(0L)) {
         case None => Future.successful(None)
@@ -88,7 +90,7 @@ private[platform] object PaginatingAsyncStream {
   )(
       fetchPage: IdPaginationState => Future[Vector[Long]]
   ): Source[Long, NotUsed] = {
-    // TODO etq: Make sure this requirement is documented
+    // TODO etq: Make sure this requirement is documented in the config
     assert(idPageBufferSize > 0)
     val initialState = IdPaginationState(
       fromIdExclusive = initialFromIdExclusive,
