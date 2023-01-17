@@ -10,10 +10,15 @@ import com.daml.ledger.api.v1.event.Event.Event.Created
 import com.daml.ledger.api.v1.event.{Event => ApiEvent}
 import com.daml.ledger.api.v1.transaction.{Transaction => ApiTransaction}
 import com.daml.ledger.api.v1.{value => LedgerApi}
+import com.daml.ledger.runner.common.Config
 import com.daml.ledger.sandbox.SandboxOnXForTest.{ApiServerConfig, singleParticipant}
 import com.daml.lf.data.Ref.QualifiedName
 import com.daml.lf.engine.trigger.Runner.TriggerContext
-import com.daml.lf.engine.trigger.TriggerMsg
+import com.daml.lf.engine.trigger.{
+  InFlightCommandOverflowException,
+  TriggerMsg,
+  TriggerRunnerConfig,
+}
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.util.Ctx
 import org.scalatest.{Inside, TryValues}
@@ -30,13 +35,17 @@ final class FailureTesting
     with SuiteResourceManagementAroundAll
     with TryValues {
 
-  override def config = super.config.copy(
+  override protected def config: Config = super.config.copy(
     participants = singleParticipant(
       ApiServerConfig.copy(
         timeProviderType = TimeProviderType.Static
       )
     )
   )
+
+  override protected def triggerRunnerConfiguration: TriggerRunnerConfig =
+    super.triggerRunnerConfiguration
+      .copy(inFlightCommandBackPressureCount = 20, inFlightCommandOverflowCount = 200)
 
   "Failure testing" should {
     // The following value should be kept in sync with the value of contractPairings in Cats.daml
@@ -97,7 +106,7 @@ final class FailureTesting
           )
           runner = getRunner(
             client,
-            QualifiedName.assertFromString("Cats:trigger"),
+            QualifiedName.assertFromString("Cats:feedingTrigger"),
             party,
           )
           (acs, offset) <- runner.queryACS()
@@ -114,6 +123,41 @@ final class FailureTesting
             ._2
         } yield {
           succeed
+        }
+      }
+    }
+
+    "Ledger completion and transaction delays" should {
+      "Eventually cause a trigger overflow" in {
+        recoverToSucceededIf[InFlightCommandOverflowException] {
+          for {
+            client <- ledgerClient()
+            party <- allocateParty(client)
+            runner = getRunner(
+              client,
+              QualifiedName.assertFromString("Cats:overflowTrigger"),
+              party,
+            )
+            (acs, offset) <- runner.queryACS()
+            _ <- runner
+              .runWithACS(
+                acs,
+                offset,
+                msgFlow = Flow[TriggerContext[TriggerMsg]]
+                  // Filter out all completion and transaction events and so simulate ledger command completion delays
+                  .filter {
+                    case Ctx(_, TriggerMsg.Completion(_), _) =>
+                      false
+                    case Ctx(_, TriggerMsg.Transaction(_), _) =>
+                      false
+                    case _ =>
+                      true
+                  },
+              )
+              ._2
+          } yield {
+            fail("Cats:overflowTrigger failed to throw InFlightCommandOverflowException")
+          }
         }
       }
     }

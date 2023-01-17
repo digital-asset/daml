@@ -35,7 +35,7 @@ import Daml.Trigger.LowLevel hiding (Trigger)
 import qualified Daml.Trigger.LowLevel as LowLevel
 
 -- We use this singleton enumeration to track the version of the API between Daml code and Scala code of the trigger
-data Version = Version_2_5_1
+data Version = Version_2_6
 
 -- public API
 
@@ -166,14 +166,15 @@ runRule rule = do
   state <- get
   TriggerRule . zoom zoomIn zoomOut . runTriggerRule . flip runTriggerA state.acs
       $ rule state.actAs
-  where zoomIn state = TriggerAState state.commandsInFlight state.acs.pendingContracts state.userState state.readAs state.actAs
+  where zoomIn state = TriggerAState state.commandsInFlight state.acs.pendingContracts state.userState state.readAs state.actAs state.config
         zoomOut state aState =
           let commandsInFlight = aState.commandsInFlight
               acs = state.acs { pendingContracts = aState.pendingContracts }
               userState = aState.userState
               readAs = aState.readAs
               actAs = aState.actAs
-          in state { commandsInFlight, acs, userState, readAs, actAs }
+              config = aState.config
+          in state { commandsInFlight, acs, userState, readAs, actAs, config }
 
 -- | HIDE
 -- | Transform the (legacy) low-level trigger type into a batching trigger.
@@ -203,6 +204,8 @@ data TriggerAState s = TriggerAState
   -- ^ zoomed from TriggerState
   , actAs : Party
   -- ^ zoomed from TriggerState
+  , config : TriggerConfig
+  -- ^ zoomed from TriggerState
   }
 
 -- | HIDE
@@ -212,6 +215,7 @@ data TriggerState s = TriggerState
   , readAs : [Party]
   , userState : s
   , commandsInFlight : Map CommandId [Command]
+  , config : TriggerConfig
   }
 
 -- | HIDE

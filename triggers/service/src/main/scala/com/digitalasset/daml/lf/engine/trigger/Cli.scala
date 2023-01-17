@@ -333,7 +333,27 @@ private[trigger] object Cli {
       )
       .action((size, cli) =>
         if (size > 0) cli.copy(triggerConfig = cli.triggerConfig.copy(maximumBatchSize = size))
-        else throw new IllegalArgumentException(s"batch size must be strictly positive")
+        else throw new IllegalArgumentException("batch size must be strictly positive")
+      )
+
+    opt[Int]("overflow-size")
+      .optional()
+      .text(
+        s"maximum number of in-flight command submissions before a trigger overflow exception occurs. Defaults to ${DefaultTriggerRunnerConfig.inFlightCommandOverflowCount}"
+      )
+      .action((size, cli) =>
+        if (size > 0)
+          cli.copy(triggerConfig = cli.triggerConfig.copy(inFlightCommandOverflowCount = size))
+        else throw new IllegalArgumentException("overflow size must be strictly positive")
+      )
+
+    opt[Unit]("no-overflow")
+      .optional()
+      .text(
+        "disables in-flight command overflow checks."
+      )
+      .action((_, cli) =>
+        cli.copy(triggerConfig = cli.triggerConfig.copy(allowInFlightCommandOverflows = false))
       )
 
     opt[Unit]("dev-mode-unsafe")

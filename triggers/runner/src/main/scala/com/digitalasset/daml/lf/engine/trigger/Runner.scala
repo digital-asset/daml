@@ -105,10 +105,11 @@ private[lf] final case class Trigger(
   def initialStateArguments(
       parties: TriggerParties,
       acs: Seq[CreatedEvent],
+      triggerConfig: TriggerRunnerConfig,
       converter: Converter,
   ): Array[SValue] = {
     if (defn.version >= Trigger.Version.`2.5.1`) {
-      Array(converter.fromTriggerSetupArguments(parties, acs).orConverterException)
+      Array(converter.fromTriggerSetupArguments(parties, acs, triggerConfig).orConverterException)
     } else {
       val createdValue: SValue = converter.fromACS(acs).orConverterException
       val partyArg = SParty(Ref.Party.assertFromString(parties.actAs.unwrap))
@@ -435,12 +436,14 @@ object Trigger {
     val `2.0.0` = new Version(0)
     val `2.5.0` = new Version(50)
     val `2.5.1` = new Version(51)
+    val `2.6.0` = new Version(60)
 
     def fromString(s: Option[String]): Either[String, Version] =
       s match {
         case None => Right(`2.0.0`)
         case Some("Version_2_5") => Right(`2.5.0`)
         case Some("Version_2_5_1") => Right(`2.5.1`)
+        case Some("Version_2_6") => Right(`2.6.0`)
         case Some(s) => Left(s"""cannot parse trigger version "$s".""")
       }
   }
@@ -762,7 +765,7 @@ private[lf] class Runner private (
     val initialState: SExpr =
       makeApp(
         getInitialState,
-        trigger.initialStateArguments(parties, acs, converter),
+        trigger.initialStateArguments(parties, acs, triggerConfig, converter),
       )
     // Prepare a speedy machine for evaluating expressions.
     val machine: Speedy.PureMachine =
@@ -1007,22 +1010,50 @@ private[lf] class Runner private (
         case z => Some(z)
       }
 
-    TriggerContextualFlow[SubmitRequest]
-      .throttle(triggerConfig.maxSubmissionRequests, triggerConfig.maxSubmissionDuration)
-      .via(
-        retrying(
-          initialTries = triggerConfig.maxRetries,
-          backoff = overloadedRetryDelay,
-          parallelism = triggerConfig.parallelism,
-          retryableSubmit,
-          submit,
-        )
-          .collect { case ctx @ Ctx(context, Some(err), _) =>
-            context.logWarning("Ledger API command submission request failed", "error" -> err)
+    // Used to defend (by raising an unhandled exception) against trigger rules that emit excessive numbers of command submission requests
+    val overflowFlow: TriggerContextualFlow[SubmitRequest, SubmitRequest, NotUsed] =
+      TriggerContextualFlow[SubmitRequest]
+        .map {
+          case Ctx(context, request, _)
+              if triggerConfig.allowInFlightCommandOverflows && inFlightCommands.count > triggerConfig.inFlightCommandOverflowCount =>
+            context.logError(
+              "Due to excessive in-flight commands, stopping the trigger",
+              "commandId" -> request.getCommands.commandId,
+              "in-flight-commands" -> inFlightCommands.count,
+              "in-flight-command-crash-count" -> triggerConfig.inFlightCommandOverflowCount,
+            )
 
-            ctx.copy(value = err)
-          }
-      )
+            throw InFlightCommandOverflowException(
+              inFlightCommands.count,
+              triggerConfig.inFlightCommandOverflowCount,
+            )
+
+          case ctx =>
+            ctx
+        }
+    // Used to limit rate (by using back pressure to slow trigger rule evaluation) ledger command submission requests
+    val throttleFlow: TriggerContextualFlow[SubmitRequest, SubmitRequest, NotUsed] =
+      TriggerContextualFlow[SubmitRequest]
+        .throttle(triggerConfig.maxSubmissionRequests, triggerConfig.maxSubmissionDuration)
+    // Main ledger command submission flow
+    val submissionFlow =
+      TriggerContextualFlow[SubmitRequest]
+        .via(
+          retrying(
+            initialTries = triggerConfig.maxRetries,
+            backoff = overloadedRetryDelay,
+            parallelism = triggerConfig.parallelism,
+            retryableSubmit,
+            submit,
+          )
+            .collect { case ctx @ Ctx(context, Some(err), _) =>
+              context.logWarning("Ledger API command submission request failed", "error" -> err)
+
+              ctx.copy(value = err)
+            }
+        )
+
+    overflowFlow.via(throttleFlow).via(submissionFlow)
   }
 
   // Run the trigger given the state of the ACS. The msgFlow argument
@@ -1327,6 +1358,7 @@ object Runner {
           LoggingEntries(
             "commandId" -> failure.commandId,
             "status" -> failure.s.getStatus.getCode.value(),
+            "statusName" -> failure.s.getStatus.getCode.name(),
             "message" -> failure.s.getStatus.getDescription,
           )
         )

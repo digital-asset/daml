@@ -64,6 +64,7 @@ final class Converter(
   private[this] val anyTemplateTyCon = DA.Internal.Any.AnyTemplate
   private[this] val anyViewTyCon = DA.Internal.Interface.AnyView.Types.AnyView
   private[this] val activeContractsTy = triggerIds.damlTriggerLowLevel("ActiveContracts")
+  private[this] val triggerConfigTy = triggerIds.damlTriggerLowLevel("TriggerConfig")
   private[this] val triggerSetupArgumentsTy =
     triggerIds.damlTriggerLowLevel("TriggerSetupArguments")
   private[this] val anyContractIdTy = triggerIds.damlTriggerLowLevel("AnyContractId")
@@ -294,9 +295,16 @@ final class Converter(
         .map(xs => SList(FrontStack.from(xs)))
     } yield record(activeContractsTy, "activeContracts" -> events)
 
+  private[this] def fromTriggerConfig(triggerConfig: TriggerRunnerConfig): SValue =
+    record(
+      triggerConfigTy,
+      "maxInFlightCommands" -> SValue.SInt64(triggerConfig.inFlightCommandBackPressureCount),
+    )
+
   def fromTriggerSetupArguments(
       parties: TriggerParties,
       createdEvents: Seq[CreatedEvent],
+      triggerConfig: TriggerRunnerConfig,
   ): Either[String, SValue] =
     for {
       acs <- fromACS(createdEvents)
@@ -304,11 +312,13 @@ final class Converter(
       readAs = SList(
         parties.readAs.map(p => SParty(Ref.Party.assertFromString(p.unwrap))).to(FrontStack)
       )
+      config = fromTriggerConfig(triggerConfig)
     } yield record(
       triggerSetupArgumentsTy,
       "actAs" -> actAs,
       "readAs" -> readAs,
       "acs" -> acs,
+      "config" -> config,
     )
 
   def toFiniteDuration(value: SValue): Either[String, FiniteDuration] =

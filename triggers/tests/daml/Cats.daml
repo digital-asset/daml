@@ -50,15 +50,15 @@ contractPairings : Int
 -- The following value should be kept in sync with the value of contractPairings in FailureTesting.scala
 contractPairings = 400
 
-trigger : Trigger Int
-trigger = Trigger
+feedingTrigger : Trigger Int
+feedingTrigger = Trigger
   { initialize = pure contractPairings
   , updateState = \msg -> case msg of
       MTransaction (Transaction _ _ [ArchivedEvent (fromArchived @Cat -> Some (_, catId)), ArchivedEvent (fromArchived @Food -> Some (_, foodId))]) -> do
         modify (subtract 1)
       _ -> pure ()
   , rule = feedTheCats
-  , registeredTemplates =  RegisteredTemplates [ registeredTemplate @TestComplete, registeredTemplate @Cat, registeredTemplate @Food ]
+  , registeredTemplates = RegisteredTemplates [ registeredTemplate @TestComplete, registeredTemplate @Cat, registeredTemplate @Food ]
   , heartbeat = Some (seconds 1)
   }
 
@@ -75,3 +75,24 @@ feedTheCats party = do
           void $ emitCommands [exerciseCmd catCid (Feed foodCid)] [toAnyContractId catCid, toAnyContractId foodCid]
         None ->
           pure ()
+
+breedingRate : Int
+breedingRate = 100
+
+overflowTrigger: Trigger Int
+overflowTrigger = Trigger
+  { initialize = pure 0
+  , updateState = \_ -> do
+      breedCount <- get
+      put(breedCount + breedingRate)
+  , rule = breedingOverflow
+  , registeredTemplates = RegisteredTemplates [ registeredTemplate @Cat ]
+  , heartbeat = Some (seconds 1)
+  }
+
+breedingOverflow: Party -> TriggerA Int ()
+breedingOverflow party = do
+  breedCount <- get
+  forA_ [1..breedingRate] \offset -> do
+    debug ("DEBUGGY " <> (show (breedCount + offset)))
+    void $ emitCommands [createCmd (Cat party (breedCount + offset))] []
