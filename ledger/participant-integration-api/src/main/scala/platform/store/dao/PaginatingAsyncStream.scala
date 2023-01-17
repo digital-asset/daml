@@ -6,7 +6,7 @@ package com.daml.platform.store.dao
 import akka.NotUsed
 import akka.stream.OverflowStrategy
 import akka.stream.scaladsl.Source
-import com.daml.platform.store.dao.events.FilterTableACSReader.IdQueryConfiguration
+import com.daml.platform.store.dao.events.IdPageSizing
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -79,35 +79,34 @@ private[platform] object PaginatingAsyncStream {
       .flatMapConcat(Source(_))
   }
 
-  case class IdPaginationState(startOffset: Long, pageSize: Int)
+  case class IdPaginationState(fromIdExclusive: Long, pageSize: Int)
 
-  // TODO etq: Unify with com.daml.platform.store.dao.events.FilterTableACSReader.idSource
   def streamIdsFromSeekPagination(
-      pageConfig: IdQueryConfiguration,
-      pageBufferSize: Int,
-      initialStartOffset: Long,
+      idPageSizing: IdPageSizing,
+      idPageBufferSize: Int,
+      initialFromIdExclusive: Long,
   )(
       fetchPage: IdPaginationState => Future[Vector[Long]]
   ): Source[Long, NotUsed] = {
+    // TODO etq: Make sure this requirement is documented
+    assert(idPageBufferSize > 0)
+    val initialState = IdPaginationState(
+      fromIdExclusive = initialFromIdExclusive,
+      pageSize = idPageSizing.minPageSize,
+    )
     Source
-      .unfoldAsync[IdPaginationState, Vector[Long]](
-        IdPaginationState(
-          startOffset = initialStartOffset,
-          pageSize = pageConfig.minPageSize,
-        ): IdPaginationState
-      ) { state: IdPaginationState =>
+      .unfoldAsync[IdPaginationState, Vector[Long]](initialState) { state =>
         fetchPage(state).map {
           case empty if empty.isEmpty => None
-          case nonEmpty: Vector[Long] =>
-            val nextPageStartOffset = nonEmpty.last
-            val newState = IdPaginationState(
-              startOffset = nextPageStartOffset,
-              pageSize = Math.min(state.pageSize * 4, pageConfig.maxPageSize),
+          case ids =>
+            val nextState = IdPaginationState(
+              fromIdExclusive = ids.last,
+              pageSize = Math.min(state.pageSize * 4, idPageSizing.maxPageSize),
             )
-            Some(newState -> nonEmpty)
+            Some(nextState -> ids)
         }(ExecutionContext.parasitic)
       }
-      .buffer(pageBufferSize, OverflowStrategy.backpressure)
+      .buffer(idPageBufferSize, OverflowStrategy.backpressure)
       .mapConcat(identity)
   }
 

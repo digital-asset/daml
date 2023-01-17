@@ -475,7 +475,7 @@ private class JdbcLedgerDao(
   private val acsEventFetchingQueryLimiter =
     new QueueBasedConcurrencyLimiter(acsGlobalParallelism, servicesExecutionContext)
 
-  private val acsReader = new FilterTableACSReader(
+  private val acsReader = new ACSReader(
     dispatcher = dbDispatcher,
     queryNonPruned = queryNonPruned,
     eventStorageBackend = readStorageBackend.eventStorageBackend,
@@ -484,9 +484,9 @@ private class JdbcLedgerDao(
     idPageBufferSize = acsIdPageBufferSize,
     idPageWorkingMemoryBytes = acsIdPageWorkingMemoryBytes,
     idFetchingParallelism = acsIdFetchingParallelism,
-    acsFetchingparallelism = acsContractFetchingParallelism,
+    acsFetchingParallelism = acsContractFetchingParallelism,
     metrics = metrics,
-    querylimiter = acsEventFetchingQueryLimiter,
+    queryLimiter = acsEventFetchingQueryLimiter,
     executionContext = servicesExecutionContext,
   )
 

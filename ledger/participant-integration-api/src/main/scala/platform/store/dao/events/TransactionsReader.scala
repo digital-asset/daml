@@ -156,7 +156,9 @@ private[dao] final class TransactionsReader(
     Source
       .futureSource(
         getAcsEventSeqIdRange(activeAt)
-          .map(requestedRange => acsReader.acsStream(filter, requestedRange.endInclusive))
+          .map(requestedRange =>
+            acsReader.streamActiveContractSetEvents(filter, requestedRange.endInclusive)
+          )
       )
       .mapAsync(payloadProcessingParallelism) { rawResult =>
         Timed.future(
