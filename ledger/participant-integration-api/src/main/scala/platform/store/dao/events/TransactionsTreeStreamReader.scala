@@ -273,7 +273,7 @@ class TransactionsTreeStreamReader(
       maxOutputBatchCount: Int,
   )(sourcesOfIds: Vector[Source[Long, NotUsed]]): Source[ArrayBuffer[Long], NotUsed] = {
     EventIdsUtils
-      .mergeSortAndDeduplicateIds(sourcesOfIds)
+      .sortAndDeduplicateIds(sourcesOfIds)
       .via(
         BatchN(
           maxBatchSize = maxOutputBatchSize,

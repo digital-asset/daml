@@ -118,7 +118,7 @@ class ACSReader(
 
     decomposedFilters
       .map(fetchIds)
-      .pipe(EventIdsUtils.mergeSortAndDeduplicateIds)
+      .pipe(EventIdsUtils.sortAndDeduplicateIds)
       .via(
         BatchN(
           maxBatchSize = pageSize,

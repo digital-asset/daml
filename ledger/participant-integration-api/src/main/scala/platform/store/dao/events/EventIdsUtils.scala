@@ -10,8 +10,8 @@ import scala.annotation.tailrec
 
 object EventIdsUtils {
 
-  def mergeSortAndDeduplicateIds(ids: Vector[Source[Long, NotUsed]]): Source[Long, NotUsed] =
-    mergeSortAndDeduplicateIds(ids).statefulMapConcat(statefulDeduplicate)
+  def sortAndDeduplicateIds(ids: Vector[Source[Long, NotUsed]]): Source[Long, NotUsed] =
+    mergeSort(ids).statefulMapConcat(statefulDeduplicate)
 
   @tailrec
   protected[events] def mergeSort[T: Ordering](

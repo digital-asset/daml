@@ -138,7 +138,7 @@ class TransactionsFlatStreamReader(
             }
           )
         }
-        .pipe(EventIdsUtils.mergeSortAndDeduplicateIds)
+        .pipe(EventIdsUtils.sortAndDeduplicateIds)
         .via(
           BatchN(
             maxBatchSize = maxPayloadsPerPayloadsPage,
