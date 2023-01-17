@@ -7,7 +7,7 @@ package speedy
 import com.daml.lf.data.Ref.{ChoiceName, Location, Party, TypeConName}
 import com.daml.lf.data.{BackStack, ImmArray, Time}
 import com.daml.lf.ledger.Authorize
-import com.daml.lf.speedy.Speedy.{CachedContract, SKeyWithMaintainers}
+import com.daml.lf.speedy.Speedy.{CachedContract, CachedKey}
 import com.daml.lf.transaction.ContractKeyUniquenessMode
 import com.daml.lf.transaction.{
   ContractStateMachine,
@@ -353,7 +353,7 @@ private[speedy] case class PartialTransaction(
       contract.agreementText,
       contract.signatories,
       contract.stakeholders,
-      contract.key.map(_.toNormalizedKeyWithMaintainers(version)),
+      contract.key.map(_.toNodeKey(version)),
       version,
     )
     val nid = NodeId(nextNodeIdx)
@@ -398,7 +398,7 @@ private[speedy] case class PartialTransaction(
       actingParties,
       contract.signatories,
       contract.stakeholders,
-      contract.key.map(_.toNormalizedKeyWithMaintainers(version)),
+      contract.key.map(_.toNodeKey(version)),
       normByKey(version, byKey),
       version,
     )
@@ -408,7 +408,7 @@ private[speedy] case class PartialTransaction(
         contractState.visitFetch(
           contract.templateId,
           coid,
-          contract.key.map(_.unnormalizedKeyValue),
+          contract.key.map(_.lfValue),
           byKey,
         )
       )
@@ -423,13 +423,13 @@ private[speedy] case class PartialTransaction(
   def insertLookup(
       templateId: TypeConName,
       optLocation: Option[Location],
-      key: SKeyWithMaintainers,
+      key: CachedKey,
       result: Option[Value.ContractId],
       version: TxVersion,
   ): Either[Tx.TransactionError, PartialTransaction] = {
     val auth = Authorize(context.info.authorizers)
     val nid = NodeId(nextNodeIdx)
-    val keyWithMaintainers = key.toNormalizedKeyWithMaintainers(version)
+    val keyWithMaintainers = key.toNodeKey(version)
     val keyValue = keyWithMaintainers.key
     val node = Node.LookupByKey(
       templateId,
@@ -474,7 +474,7 @@ private[speedy] case class PartialTransaction(
         targetId = targetId,
         templateId = contract.templateId,
         interfaceId = interfaceId,
-        contractKey = contract.key.map(_.toNormalizedKeyWithMaintainers(version)),
+        contractKey = contract.key.map(_.toNodeKey(version)),
         choiceId = choiceId,
         consuming = consuming,
         actingParties = actingParties,
@@ -495,7 +495,7 @@ private[speedy] case class PartialTransaction(
           nid,
           contract.templateId,
           targetId,
-          contract.key.map(_.unnormalizedKeyValue),
+          contract.key.map(_.lfValue),
           byKey,
           consuming,
         )

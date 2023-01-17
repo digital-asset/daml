@@ -111,11 +111,14 @@ private[lf] object Speedy {
 
   sealed abstract class LedgerMode extends Product with Serializable
 
-  final case class SKeyWithMaintainers(key: SValue, maintainers: Set[Party]) {
-    def toNormalizedKeyWithMaintainers(version: TxVersion) =
+  final case class CachedKey(
+      globalKey: GlobalKey,
+      key: SValue,
+      maintainers: Set[Party],
+  ) {
+    def toNodeKey(version: TxVersion) =
       Node.KeyWithMaintainers(key.toNormalizedValue(version), maintainers)
-    val unnormalizedKeyValue = key.toUnnormalizedValue
-    val unnormalizedKeyWithMaintainers = Node.KeyWithMaintainers(unnormalizedKeyValue, maintainers)
+    val lfValue = globalKey.key
   }
 
   final case class CachedContract(
@@ -124,7 +127,7 @@ private[lf] object Speedy {
       agreementText: String,
       signatories: Set[Party],
       observers: Set[Party],
-      key: Option[SKeyWithMaintainers],
+      key: Option[CachedKey],
   ) {
     val stakeholders: Set[Party] = signatories union observers
     private[speedy] val any = SValue.SAny(TTyCon(templateId), value)
@@ -344,7 +347,7 @@ private[lf] object Speedy {
               val transactionVersion = tmplId2TxVersion(cachedContract.templateId)
               val maybeKeyWithMaintainers =
                 cachedContract.key
-                  .map(_.toNormalizedKeyWithMaintainers(transactionVersion))
+                  .map(_.toNodeKey(transactionVersion))
                   .map { case Node.KeyWithMaintainers(key, maintainers) =>
                     GlobalKeyWithMaintainers(
                       globalKey = GlobalKey.assertBuild(disclosedContract.templateId, key),
