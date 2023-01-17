@@ -1015,7 +1015,7 @@ private[lf] class Runner private (
       TriggerContextualFlow[SubmitRequest]
         .map {
           case Ctx(context, request, _)
-              if inFlightCommands.count > triggerConfig.inFlightCommandOverflowCount =>
+              if triggerConfig.allowInFlightCommandOverflows && inFlightCommands.count > triggerConfig.inFlightCommandOverflowCount =>
             context.logError(
               "Due to excessive in-flight commands, stopping the trigger",
               "commandId" -> request.getCommands.commandId,

@@ -347,6 +347,15 @@ private[trigger] object Cli {
         else throw new IllegalArgumentException("overflow size must be strictly positive")
       )
 
+    opt[Unit]("no-overflow")
+      .optional()
+      .text(
+        "disables in-flight command overflow checks."
+      )
+      .action((_, cli) =>
+        cli.copy(triggerConfig = cli.triggerConfig.copy(allowInFlightCommandOverflows = false))
+      )
+
     opt[Unit]("dev-mode-unsafe")
       .action((_, c) => c.copy(compilerConfig = Compiler.Config.Dev))
       .optional()
