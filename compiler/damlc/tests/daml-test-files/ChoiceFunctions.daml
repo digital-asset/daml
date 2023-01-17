@@ -26,18 +26,6 @@ template T
       controller p, q
       do pure ()
 
-instance HasChoiceController T C1 where
-  _choiceController = GHC.Types.primitive @"EChoiceController"
-
-instance HasChoiceObserver T C1 where
-  _choiceObserver = GHC.Types.primitive @"EChoiceObserver"
-
-instance HasChoiceController T C2 where
-  _choiceController = GHC.Types.primitive @"EChoiceController"
-
-instance HasChoiceObserver T C2 where
-  _choiceObserver = GHC.Types.primitive @"EChoiceObserver"
-
 interface I where
   viewtype EmptyInterfaceView
 
@@ -56,18 +44,6 @@ interface I where
   interface instance I for T where
     view = EmptyInterfaceView
     pi = p
-
-instance HasChoiceController I C3 where
-  _choiceController = GHC.Types.primitive @"EChoiceController"
-
-instance HasChoiceObserver I C3 where
-  _choiceObserver = GHC.Types.primitive @"EChoiceObserver"
-
-instance HasChoiceController I C4 where
-  _choiceController = GHC.Types.primitive @"EChoiceController"
-
-instance HasChoiceObserver I C4 where
-  _choiceObserver = GHC.Types.primitive @"EChoiceObserver"
 
 main = scenario do
   a <- getParty "a"
