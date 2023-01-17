@@ -8,7 +8,6 @@ import com.daml.ledger.api.refinements.ApiTypes.Party
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
-import com.daml.ledger.api.testtool.infrastructure.Synchronize.synchronize
 import com.daml.ledger.api.testtool.infrastructure.TransactionHelpers.createdEvents
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
 import com.daml.ledger.api.v1.command_service.SubmitAndWaitRequest
@@ -28,16 +27,17 @@ import com.daml.ledger.api.v1.value.{Record, RecordField, Value}
 import com.daml.ledger.api.validation.NoLoggingValueValidator
 import com.daml.ledger.client.binding
 import com.daml.ledger.client.binding.Primitive
-import com.daml.ledger.test.model.Test
 import com.daml.ledger.test.model.Test._
 import com.daml.ledger.test.modelext.TestExtension.IDelegated
 import com.daml.lf.crypto.Hash
+import com.daml.lf.data.Bytes
 import com.daml.lf.data.Ref.{DottedName, Identifier, PackageId, QualifiedName}
 import com.google.protobuf.ByteString
 import com.google.protobuf.timestamp.Timestamp
 import scalaz.syntax.tag._
 
 import java.time.temporal.ChronoUnit
+import java.util.regex.Pattern
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Success, Try}
 
@@ -365,7 +365,8 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
           transactionFilter = filterTxBy(owner, template = byTemplate, interface = None),
         )
 
-        //      // TODO ED: Enable once the check is implemented in command interpretation
+        //      // TODO ED: Enable once the check (https://github.com/digital-asset/daml/issues/16068)
+        //      //          is implemented in command interpretation.
         //      // Exercise a choice using invalid explicit disclosure (bad contract key)
         //      errorBadKey <- testContext
         //        .exerciseFetchDelegated(
@@ -576,37 +577,32 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
       } yield {
         assertGrpcError(
           errorDuplicateContractId,
-          LedgerApiErrors.CommandExecution.Interpreter.InvalidArgumentInterpretationError,
-          // TODO ED: Ensure contractId inlined in error message
-          Some("Found duplicated contract IDs in submitted disclosed contracts for template"),
+          LedgerApiErrors.CommandExecution.Preprocessing.PreprocessingFailed,
+          Some(
+            s"Preprocessor encountered a duplicate disclosed contract ID ContractId(${testContext.disclosedContract.contractId})"
+          ),
           checkDefiniteAnswerMetadata = true,
         )
-        assertGrpcError(
+
+        val expectedKeyHashString = {
+          val bytes = Bytes.fromByteString(
+            testContext.disclosedContract.metadata
+              .getOrElse(fail("metadata not present"))
+              .contractKeyHash
+          )
+          Hash.fromBytes(bytes).getOrElse(fail("Could not decode hash")).toHexString
+        }
+        assertGrpcErrorRegex(
           errorDuplicateKey,
           LedgerApiErrors.CommandExecution.Interpreter.InvalidArgumentInterpretationError,
-          // TODO ED: Ensure contract key hash inlined in error message
-          Some("Found duplicated contract keys in submitted disclosed contracts"),
+          Some(
+            Pattern.compile(
+              s"Found duplicated contract keys in submitted disclosed contracts .* $expectedKeyHashString"
+            )
+          ),
           checkDefiniteAnswerMetadata = true,
         )
       }
-  })
-
-  // TODO ED: Deduplicate with CKLocalKeyVisibility
-  test(
-    "EDLocalKeyVisibility",
-    "A local contract can be fetched/looked-up -by-key when the readers are not the contracts' stakeholders",
-    allocate(SingleParty, SingleParty),
-    enabled = _.explicitDisclosure,
-  )(implicit ec => {
-    case Participants(Participant(ledger1, party1), Participant(ledger2, party2)) =>
-      import Test.LocalKeyVisibilityOperations
-      for {
-        ops <- ledger1.create(party1, LocalKeyVisibilityOperations(party1, party2))
-
-        _ <- synchronize(ledger1, ledger2)
-        _ <- ledger2.exercise(party2, ops.exerciseLocalLookup())
-        _ <- ledger2.exercise(party2, ops.exerciseLocalFetch())
-      } yield ()
   })
 
   test(
@@ -671,7 +667,7 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
       }
   })
 
-  // TODO ED: Consider extracting this assertion in generic contract test
+  // TODO ED: Extract this assertion in generic stream/ACS tests once the feature is deemed stable
   test(
     "EDContractDriverMetadata",
     "The contract driver metadata is present and consistent across all endpoints",
