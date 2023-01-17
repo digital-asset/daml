@@ -164,16 +164,16 @@ private[apiserver] final class ApiUserManagementService(
         for {
           userUpdate <- handleUpdatePathResult(user.id, UserUpdateMapper.toUpdate(user, fieldMask))
           _ <- identityProviderExistsOrError(user.identityProviderId)
-          authorizedUserIdO <- authorizedUserContextFO
+          authorizedUserContext <- authorizedUserContextFO
           _ <- verifyPartyExistInIdp(
             Set(),
             user.identityProviderId,
-            authorizedUserIdO.isParticipantAdmin,
+            authorizedUserContext.isParticipantAdmin,
           )
           _ <- verifyUserIsNonExistentOrInIdp(user.identityProviderId, user.id)
           _ <-
             if (
-              authorizedUserIdO.userId
+              authorizedUserContext.userId
                 .contains(userUpdate.id) && userUpdate.isDeactivatedUpdateO.contains(true)
             ) {
               Future.failed(
