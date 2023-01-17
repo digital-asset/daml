@@ -394,15 +394,12 @@ private[apiserver] final class ApiUserManagementService(
       rights: Set[UserRight],
       identityProviderId: IdentityProviderId,
       isParticipantAdmin: Boolean,
-  ): Future[Unit] =
-    if (isParticipantAdmin) partyExistsOrError(userParties(rights), identityProviderId)
-    else partyExistsOrError(userParties(rights), identityProviderId)
-
-  private def partyExistsOrError(
-      parties: Set[Ref.Party],
-      identityProviderId: IdentityProviderId,
-  ): Future[Unit] =
-    partyRecordExist(identityProviderId, parties)
+  ): Future[Unit] = {
+    val parties = userParties(rights)
+    val exist =
+      if (isParticipantAdmin) partyRecordExist(parties)
+      else partyRecordExist(identityProviderId, parties)
+    exist
       .flatMap { partiesExist =>
         val partiesNotExist = parties -- partiesExist
         if (partiesNotExist.isEmpty)
@@ -416,6 +413,7 @@ private[apiserver] final class ApiUserManagementService(
               .asGrpcError
           )
       }
+  }
 
   private def identityProviderExistsOrError(id: IdentityProviderId): Future[Unit] =
     identityProviderExists(id)

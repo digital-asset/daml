@@ -131,4 +131,27 @@ object PartyRecordStorageBackendImpl extends PartyRecordStorageBackend {
       .asVectorOf(party("party"))(connection)
       .toSet
   }
+
+  override def fetchPartiesExist(
+      parties: Set[Ref.Party]
+  )(connection: Connection): Set[Ref.Party] = {
+    import com.daml.platform.store.backend.common.SimpleSqlAsVectorOf._
+    import com.daml.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
+    val filteredParties = if (parties.nonEmpty) {
+      cSQL"party in (${parties.map(_.toString)})"
+    } else {
+      cSQL"1 != 1"
+    }
+
+    SQL"""
+         SELECT
+             party
+         FROM participant_party_records
+         WHERE
+             $filteredParties
+         ORDER BY party
+       """
+      .asVectorOf(party("party"))(connection)
+      .toSet
+  }
 }

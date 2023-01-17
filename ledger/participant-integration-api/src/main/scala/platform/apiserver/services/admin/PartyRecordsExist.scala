@@ -17,4 +17,9 @@ class PartyRecordsExist(partyRecordStore: PartyRecordStore) {
   ): Future[Set[Ref.Party]] =
     partyRecordStore.partiesExist(parties, id)
 
+  def apply(parties: Set[Ref.Party])(implicit
+      loggingContext: LoggingContext
+  ): Future[Set[Ref.Party]] =
+    partyRecordStore.partiesExist(parties)
+
 }
