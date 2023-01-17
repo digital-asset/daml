@@ -209,8 +209,8 @@ class InMemoryPartyRecordStore(executionContext: ExecutionContext) extends Party
       loggingContext: LoggingContext
   ): Future[Set[Party]] = {
     withState {
-      parties.map(party => (party, state.get(party))).collect {
-        case (party, Some(_)) => party
+      parties.map(party => (party, state.get(party))).collect { case (party, Some(_)) =>
+        party
       }
     }
   }
