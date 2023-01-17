@@ -246,7 +246,7 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
           |        templates:
           |         - Foo1
           |         - Foo3
-          |    filter_by_party_set:
+          |    party_prefix_filters:
           |      - party_name_prefix: MyParty
           |        templates: [Foo1, Foo2]
           |      - party_name_prefix: MyOtherParty
@@ -606,7 +606,7 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
     )
   }
 
-  "parse filter_by_party_set interfaces" in {
+  "parse party_prefix_filters interfaces" in {
     val yaml =
       """streams:
         |  - type: transactions
@@ -616,7 +616,7 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
         |        templates:
         |         - Foo1
         |         - Foo3
-        |    filter_by_party_set:
+        |    party_prefix_filters:
         |      - party_name_prefix: My-Party
         |        interfaces: [FooInterface]
         |    begin_offset: foo

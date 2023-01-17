@@ -77,6 +77,10 @@ class ConfigEnricherSpec extends AnyFlatSpec with Matchers {
             partyNamePrefix = "MyParty-2",
             templates = templates,
           ),
+          PartyNamePrefixFilter(
+            partyNamePrefix = "Obs",
+            templates = templates,
+          ),
         ),
         subscriptionDelay = Some(Duration(1337, TimeUnit.SECONDS)),
       )
@@ -120,6 +124,11 @@ class ConfigEnricherSpec extends AnyFlatSpec with Matchers {
         ),
         PartyFilter(
           party = "MyParty-22",
+          templates = enrichedTemplates,
+          interfaces = List.empty,
+        ),
+        PartyFilter(
+          party = "Obs-0",
           templates = enrichedTemplates,
           interfaces = List.empty,
         ),

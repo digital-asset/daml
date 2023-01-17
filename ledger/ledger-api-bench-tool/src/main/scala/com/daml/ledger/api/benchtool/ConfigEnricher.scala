@@ -49,21 +49,24 @@ class ConfigEnricher(
           .copy(
             filters = enrichFilters(config.filters) ++ config.partyNamePrefixFilters.flatMap(
               convertFilterByPartySet
-            )
+            ),
+            partyNamePrefixFilters = List.empty,
           )
       case config: TransactionTreesStreamConfig =>
         config
           .copy(
             filters = enrichFilters(config.filters) ++ config.partyNamePrefixFilters.flatMap(
               convertFilterByPartySet
-            )
+            ),
+            partyNamePrefixFilters = List.empty,
           )
       case config: ActiveContractsStreamConfig =>
         config
           .copy(
             filters = enrichFilters(config.filters) ++ config.partyNamePrefixFilters.flatMap(
               convertFilterByPartySet
-            )
+            ),
+            partyNamePrefixFilters = List.empty,
           )
       case config: CompletionsStreamConfig =>
         config.copy(parties = config.parties.map(party => convertParty(party)))

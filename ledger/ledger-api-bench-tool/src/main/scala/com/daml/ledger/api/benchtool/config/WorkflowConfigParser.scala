@@ -106,7 +106,7 @@ object WorkflowConfigParser {
           beginOffset <- c.downField("begin_offset").as[Option[LedgerOffset]]
           endOffset <- c.downField("end_offset").as[Option[LedgerOffset]]
           partyNamePrefixFilters <- c
-            .downField("filter_by_party_set")
+            .downField("party_prefix_filters")
             .as[Option[List[PartyNamePrefixFilter]]]
           objectives <- c.downField("objectives").as[Option[StreamConfig.TransactionObjectives]]
           subscriptionDelay <- c
@@ -137,7 +137,7 @@ object WorkflowConfigParser {
           beginOffset <- c.downField("begin_offset").as[Option[LedgerOffset]]
           endOffset <- c.downField("end_offset").as[Option[LedgerOffset]]
           partyNamePrefixFilters <- c
-            .downField("filter_by_party_set")
+            .downField("party_prefix_filters")
             .as[Option[List[PartyNamePrefixFilter]]]
           objectives <- c.downField("objectives").as[Option[StreamConfig.TransactionObjectives]]
           subscriptionDelay <- c
@@ -166,7 +166,7 @@ object WorkflowConfigParser {
           name <- c.downField("name").as[String]
           filters <- c.downField("filters").as[Option[List[PartyFilter]]]
           partyNamePrefixFilters <- c
-            .downField("filter_by_party_set")
+            .downField("party_prefix_filters")
             .as[Option[List[PartyNamePrefixFilter]]]
           objectives <- c
             .downField("objectives")
@@ -191,7 +191,7 @@ object WorkflowConfigParser {
     Decoder.forProduct7(
       "name",
       "filters",
-      "filter_by_party_set",
+      "party_prefix_filters",
       "objectives",
       "subscription_delay",
       "max_item_count",
