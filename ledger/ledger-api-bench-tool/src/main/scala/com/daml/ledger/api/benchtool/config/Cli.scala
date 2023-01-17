@@ -239,7 +239,7 @@ object Cli {
                   minItemRate = minItemRate,
                   maxItemRate = maxItemRate,
                   // NOTE: Unsupported on CLI
-                  maxTotalStreamRuntimeDurationInMs = None,
+                  maxTotalStreamRuntimeDuration = None,
                 )
               )
           }
@@ -255,7 +255,7 @@ object Cli {
           minItemRate <- optionalDoubleField("min-item-rate")
           maxItemRate <- optionalDoubleField("max-item-rate")
           maxItemCount <- optionalLongField("max-item-count")
-          timeoutInSecondsO <- optionalLongField("timeout")
+          timeoutInSecondsO <- optionalScalaDurationField("timeout")
           subscriptionDelayO <- optionalScalaDurationField("subscription-delay")
         } yield WorkflowConfig.StreamConfig.TransactionsStreamConfig(
           name = name,
@@ -264,10 +264,10 @@ object Cli {
           endOffset = endOffset,
           objectives =
             transactionObjectives(maxDelaySeconds, minConsumptionSpeed, minItemRate, maxItemRate),
-          timeoutInSecondsO = timeoutInSecondsO,
+          timeoutDurationO = timeoutInSecondsO,
           maxItemCount = maxItemCount,
           // NOTE: Unsupported on CLI
-          partyNamePrefixFiltersO = None,
+          partyNamePrefixFilters = List.empty,
           subscriptionDelay = subscriptionDelayO,
         )
 
@@ -283,7 +283,7 @@ object Cli {
             minItemRate <- optionalDoubleField("min-item-rate")
             maxItemRate <- optionalDoubleField("max-item-rate")
             maxItemCount <- optionalLongField("max-item-count")
-            timeoutInSecondsO <- optionalLongField("timeout")
+            timeoutInSecondsO <- optionalScalaDurationField("timeout")
             subscriptionDelayO <- optionalScalaDurationField("subscription-delay")
           } yield WorkflowConfig.StreamConfig.TransactionTreesStreamConfig(
             name = name,
@@ -292,10 +292,10 @@ object Cli {
             endOffset = endOffset,
             objectives =
               transactionObjectives(maxDelaySeconds, minConsumptionSpeed, minItemRate, maxItemRate),
-            timeoutInSecondsO = timeoutInSecondsO,
+            timeoutDurationO = timeoutInSecondsO,
             maxItemCount = maxItemCount,
             // NOTE: Unsupported on CLI
-            partyNamePrefixFiltersO = None,
+            partyNamePrefixFilters = List.empty,
             subscriptionDelay = subscriptionDelayO,
           )
 
@@ -311,7 +311,7 @@ object Cli {
                   minItemRate = minItemRate,
                   maxItemRate = maxItemRate,
                   // NOTE: Unsupported on CLI
-                  maxTotalStreamRuntimeDurationInMs = None,
+                  maxTotalStreamRuntimeDuration = None,
                 )
               )
           }
@@ -323,16 +323,16 @@ object Cli {
           minItemRate <- optionalDoubleField("min-item-rate")
           maxItemRate <- optionalDoubleField("max-item-rate")
           maxItemCount <- optionalLongField("max-item-count")
-          timeoutInSecondsO <- optionalLongField("timeout")
+          timeoutInSecondsO <- optionalScalaDurationField("timeout")
           subscriptionDelayO <- optionalScalaDurationField("subscription-delay")
         } yield WorkflowConfig.StreamConfig.ActiveContractsStreamConfig(
           name = name,
           filters = filters,
           objectives = rateObjectives(minItemRate, maxItemRate),
-          timeoutInSecondsO = timeoutInSecondsO,
+          timeoutDurationO = timeoutInSecondsO,
           maxItemCount = maxItemCount,
           // NOTE: Unsupported on CLI
-          partyNamePrefixFiltersO = None,
+          partyNamePrefixFilters = List.empty,
           subscriptionDelay = subscriptionDelayO,
         )
 
@@ -344,7 +344,7 @@ object Cli {
             beginOffset <- optionalStringField("begin-offset").map(_.map(offset))
             minItemRate <- optionalDoubleField("min-item-rate")
             maxItemRate <- optionalDoubleField("max-item-rate")
-            timeoutInSecondsO <- optionalLongField("timeout")
+            timeoutInSecondsO <- optionalScalaDurationField("timeout")
             maxItemCount <- optionalLongField("max-item-count")
             subscriptionDelayO <- optionalScalaDurationField("subscription-delay")
           } yield WorkflowConfig.StreamConfig.CompletionsStreamConfig(
@@ -353,7 +353,7 @@ object Cli {
             applicationId = applicationId,
             beginOffset = beginOffset,
             objectives = rateObjectives(minItemRate, maxItemRate),
-            timeoutInSecondsO = timeoutInSecondsO,
+            timeoutDurationO = timeoutInSecondsO,
             maxItemCount = maxItemCount,
             subscriptionDelay = subscriptionDelayO,
           )

@@ -13,6 +13,10 @@ import com.daml.ledger.api.benchtool.config.WorkflowConfig.FooSubmissionConfig.{
   ConsumingExercises,
   NonconsumingExercises,
 }
+import com.daml.ledger.api.benchtool.config.WorkflowConfig.StreamConfig.{
+  PartyFilter,
+  PartyNamePrefixFilter,
+}
 
 import scala.concurrent.duration.{Duration, FiniteDuration}
 import scala.util.{Failure, Success, Try}
@@ -31,6 +35,19 @@ object WorkflowConfigParser {
   case class ParserError(details: String)
 
   object Decoders {
+    implicit val scalaDurationDecoder: Decoder[FiniteDuration] =
+      Decoder.decodeString.emapTry(strDuration =>
+        Try(Duration(strDuration)).flatMap {
+          case infinite: Duration.Infinite =>
+            Failure(
+              new IllegalArgumentException(
+                s"Subscription delay duration must be finite, but got $infinite"
+              )
+            )
+          case duration: FiniteDuration => Success(duration)
+        }
+      )
+
     implicit val transactionObjectivesDecoder: Decoder[StreamConfig.TransactionObjectives] =
       Decoder.forProduct5(
         "max_delay_seconds",
@@ -81,67 +98,134 @@ object WorkflowConfigParser {
         )
       }
 
-    implicit val scalaDurationDecoder: Decoder[FiniteDuration] =
-      Decoder.decodeString.emapTry(strDuration =>
-        Try(Duration(strDuration)).flatMap {
-          case infinite: Duration.Infinite =>
-            Failure(
-              new IllegalArgumentException(
-                s"Subscription delay duration must be finite, but got $infinite"
-              )
-            )
-          case duration: FiniteDuration => Success(duration)
-        }
-      )
-
     implicit val transactionStreamDecoder: Decoder[StreamConfig.TransactionsStreamConfig] =
-      Decoder.forProduct9(
-        "name",
-        "filters",
-        "filter_by_party_set",
-        "begin_offset",
-        "end_offset",
-        "objectives",
-        "subscription_delay",
-        "max_item_count",
-        "timeout_in_seconds",
-      )(StreamConfig.TransactionsStreamConfig.apply)
+      (c: HCursor) => {
+        for {
+          name <- c.downField("name").as[String]
+          filters <- c.downField("filters").as[Option[List[PartyFilter]]]
+          beginOffset <- c.downField("begin_offset").as[Option[LedgerOffset]]
+          endOffset <- c.downField("end_offset").as[Option[LedgerOffset]]
+          partyNamePrefixFilters <- c
+            .downField("filter_by_party_set")
+            .as[Option[List[PartyNamePrefixFilter]]]
+          objectives <- c.downField("objectives").as[Option[StreamConfig.TransactionObjectives]]
+          subscriptionDelay <- c
+            .downField("subscription_delay")
+            .as[Option[FiniteDuration]]
+          maxItemCount <- c.downField("max_item_count").as[Option[Long]]
+          timeout <- c
+            .downField("timeout")
+            .as[Option[FiniteDuration]]
+        } yield StreamConfig.TransactionsStreamConfig(
+          name = name,
+          filters = filters.getOrElse(List.empty),
+          partyNamePrefixFilters = partyNamePrefixFilters.getOrElse(List.empty),
+          beginOffset = beginOffset,
+          endOffset = endOffset,
+          objectives = objectives,
+          subscriptionDelay = subscriptionDelay,
+          maxItemCount = maxItemCount,
+          timeoutDurationO = timeout,
+        )
+      }
 
     implicit val transactionTreesStreamDecoder: Decoder[StreamConfig.TransactionTreesStreamConfig] =
-      Decoder.forProduct9(
-        "name",
-        "filters",
-        "filter_by_party_set",
-        "begin_offset",
-        "end_offset",
-        "objectives",
-        "subscription_delay",
-        "max_item_count",
-        "timeout_in_seconds",
-      )(StreamConfig.TransactionTreesStreamConfig.apply)
+      (c: HCursor) => {
+        for {
+          name <- c.downField("name").as[String]
+          filters <- c.downField("filters").as[Option[List[PartyFilter]]]
+          beginOffset <- c.downField("begin_offset").as[Option[LedgerOffset]]
+          endOffset <- c.downField("end_offset").as[Option[LedgerOffset]]
+          partyNamePrefixFilters <- c
+            .downField("filter_by_party_set")
+            .as[Option[List[PartyNamePrefixFilter]]]
+          objectives <- c.downField("objectives").as[Option[StreamConfig.TransactionObjectives]]
+          subscriptionDelay <- c
+            .downField("subscription_delay")
+            .as[Option[FiniteDuration]]
+          maxItemCount <- c.downField("max_item_count").as[Option[Long]]
+          timeout <- c
+            .downField("timeout")
+            .as[Option[FiniteDuration]]
+        } yield StreamConfig.TransactionTreesStreamConfig(
+          name = name,
+          filters = filters.getOrElse(List.empty),
+          partyNamePrefixFilters = partyNamePrefixFilters.getOrElse(List.empty),
+          beginOffset = beginOffset,
+          endOffset = endOffset,
+          objectives = objectives,
+          subscriptionDelay = subscriptionDelay,
+          maxItemCount = maxItemCount,
+          timeoutDurationO = timeout,
+        )
+      }
 
     implicit val activeContractsStreamDecoder: Decoder[StreamConfig.ActiveContractsStreamConfig] =
-      Decoder.forProduct7(
-        "name",
-        "filters",
-        "filter_by_party_set",
-        "objectives",
-        "subscription_delay",
-        "max_item_count",
-        "timeout_in_seconds",
-      )(StreamConfig.ActiveContractsStreamConfig.apply)
+      (c: HCursor) => {
+        for {
+          name <- c.downField("name").as[String]
+          filters <- c.downField("filters").as[Option[List[PartyFilter]]]
+          partyNamePrefixFilters <- c
+            .downField("filter_by_party_set")
+            .as[Option[List[PartyNamePrefixFilter]]]
+          objectives <- c
+            .downField("objectives")
+            .as[Option[StreamConfig.AcsAndCompletionsObjectives]]
+          subscriptionDelay <- c
+            .downField("subscription_delay")
+            .as[Option[FiniteDuration]]
+          maxItemCount <- c.downField("max_item_count").as[Option[Long]]
+          timeout <- c
+            .downField("timeout")
+            .as[Option[FiniteDuration]]
+        } yield StreamConfig.ActiveContractsStreamConfig(
+          name = name,
+          filters = filters.getOrElse(List.empty),
+          partyNamePrefixFilters = partyNamePrefixFilters.getOrElse(List.empty),
+          objectives = objectives,
+          subscriptionDelay = subscriptionDelay,
+          maxItemCount = maxItemCount,
+          timeoutDurationO = timeout,
+        )
+      }
+    Decoder.forProduct7(
+      "name",
+      "filters",
+      "filter_by_party_set",
+      "objectives",
+      "subscription_delay",
+      "max_item_count",
+      "timeout",
+    )(StreamConfig.ActiveContractsStreamConfig.apply)
 
     implicit val completionsStreamDecoder: Decoder[StreamConfig.CompletionsStreamConfig] =
-      Decoder.forProduct8(
-        "name",
-        "parties",
-        "application_id",
-        "begin_offset",
-        "objectives",
-        "subscription_delay",
-        "max_item_count",
-        "timeout_in_seconds",
-      )(StreamConfig.CompletionsStreamConfig.apply)
+      (c: HCursor) => {
+        for {
+          name <- c.downField("name").as[String]
+          parties <- c.downField("parties").as[List[String]]
+          applicationId <- c.downField("application_id").as[String]
+          beginOffset <- c.downField("begin_offset").as[Option[LedgerOffset]]
+          objectives <- c
+            .downField("objectives")
+            .as[Option[StreamConfig.AcsAndCompletionsObjectives]]
+          subscriptionDelay <- c
+            .downField("subscription_delay")
+            .as[Option[FiniteDuration]]
+          maxItemCount <- c.downField("max_item_count").as[Option[Long]]
+          timeout <- c
+            .downField("timeout")
+            .as[Option[FiniteDuration]]
+        } yield StreamConfig.CompletionsStreamConfig(
+          name = name,
+          parties = parties,
+          applicationId = applicationId,
+          beginOffset = beginOffset,
+          objectives = objectives,
+          subscriptionDelay = subscriptionDelay,
+          maxItemCount = maxItemCount,
+          timeoutDurationO = timeout,
+        )
+      }
 
     implicit val streamConfigDecoder: Decoder[StreamConfig] =
       Decoder
@@ -195,15 +279,15 @@ object WorkflowConfigParser {
           instancesDistribution <- c
             .downField("instance_distribution")
             .as[List[FooSubmissionConfig.ContractDescription]]
-          numberOfDivulgees <- c.downField("num_divulgees").as[Int]
-          numberOfExtraSubmitters <- c.downField("num_extra_submitters").as[Int]
+          numberOfDivulgees <- c.downField("num_divulgees").as[Option[Int]]
+          numberOfExtraSubmitters <- c.downField("num_extra_submitters").as[Option[Int]]
           nonConsumingExercises <- c
             .downField("nonconsuming_exercises")
             .as[Option[NonconsumingExercises]]
           consumingExercises <- c.downField("consuming_exercises").as[Option[ConsumingExercises]]
           applicationIds <- c
             .downField("application_ids")
-            .as[List[FooSubmissionConfig.ApplicationId]]
+            .as[Option[List[FooSubmissionConfig.ApplicationId]]]
           maybeWaitForSubmission <- c.downField("wait_for_submission").as[Option[Boolean]]
           observerPartySets <- c
             .downField("observers_party_sets")
@@ -213,11 +297,11 @@ object WorkflowConfigParser {
           numObservers,
           uniqueObservers,
           instancesDistribution,
-          numberOfDivulgees,
-          numberOfExtraSubmitters,
+          numberOfDivulgees.getOrElse(0),
+          numberOfExtraSubmitters.getOrElse(0),
           nonConsumingExercises,
           consumingExercises,
-          applicationIds,
+          applicationIds.getOrElse(List.empty),
           maybeWaitForSubmission,
           observerPartySets.getOrElse(List.empty),
         )

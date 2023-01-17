@@ -68,17 +68,15 @@ class ConfigEnricherSpec extends AnyFlatSpec with Matchers {
             interfaces = List.empty,
           ),
         ),
-        partyNamePrefixFiltersO = Some(
-          List(
-            PartyNamePrefixFilter(
-              partyNamePrefix = "MyParty-1",
-              templates = templates,
-            ),
-            PartyNamePrefixFilter(
-              partyNamePrefix = "MyParty-2",
-              templates = templates,
-            ),
-          )
+        partyNamePrefixFilters = List(
+          PartyNamePrefixFilter(
+            partyNamePrefix = "MyParty-1",
+            templates = templates,
+          ),
+          PartyNamePrefixFilter(
+            partyNamePrefix = "MyParty-2",
+            templates = templates,
+          ),
         ),
         subscriptionDelay = Some(Duration(1337, TimeUnit.SECONDS)),
       )
@@ -126,7 +124,6 @@ class ConfigEnricherSpec extends AnyFlatSpec with Matchers {
           interfaces = List.empty,
         ),
       ),
-      partyNamePrefixFiltersO = None,
       subscriptionDelay = Some(Duration(1337, TimeUnit.SECONDS)),
     )
   }

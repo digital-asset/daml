@@ -128,7 +128,7 @@ class FooCommandSubmitterITSpec
       endOffset = Some(LedgerOffset().withBoundary(LedgerOffset.LedgerBoundary.LEDGER_END)),
       objectives = None,
       maxItemCount = None,
-      timeoutInSecondsO = None,
+      timeoutDurationO = None,
     )
     apiServices.transactionService.transactionTrees(
       config = config,

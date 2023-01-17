@@ -13,7 +13,6 @@ import com.daml.ledger.api.v1.transaction_service.{
 }
 import com.google.protobuf.timestamp.Timestamp
 import java.time.{Clock, Duration}
-
 import com.daml.ledger.api.benchtool.metrics.metrics.TotalStreamRuntimeMetric
 import com.daml.ledger.api.benchtool.metrics.metrics.TotalStreamRuntimeMetric.MaxDurationObjective
 
@@ -195,12 +194,16 @@ object MetricsSet {
     configO.flatMap(createTotalRuntimeMetricO[T]).toList
 
   private def createTotalRuntimeMetricO[T](config: CommonObjectivesConfig): Option[Metric[T]] = {
-    config.maxTotalStreamRuntimeDurationInMs.map(maxRuntimeInMillis =>
+    config.maxTotalStreamRuntimeDuration.map((maxStreamDuration: FiniteDuration) =>
       TotalStreamRuntimeMetric.empty(
         clock = Clock.systemUTC(),
         startTime = Clock.systemUTC().instant(),
-        objective = MaxDurationObjective(Duration.ofMillis(maxRuntimeInMillis)),
+        objective = MaxDurationObjective(maxValue = toJavaDuration(maxStreamDuration)),
       )
     )
+  }
+
+  protected[metrics] def toJavaDuration[T](maxStreamDuration: FiniteDuration) = {
+    Duration.ofNanos(maxStreamDuration.toNanos)
   }
 }

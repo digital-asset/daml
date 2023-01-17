@@ -18,7 +18,6 @@ import com.daml.ledger.api.v1.transaction_service.{
 import com.daml.timer.Delayed
 import org.slf4j.LoggerFactory
 
-import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.{Duration, FiniteDuration}
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -50,7 +49,7 @@ object Benchmark {
                 itemCountingFunction = MetricsSet.countFlatTransactionsEvents,
                 maxItemCount = streamConfig.maxItemCount,
               )(system, ec)
-            _ = streamConfig.timeoutInSecondsO
+            _ = streamConfig.timeoutDurationO
               .foreach(timeout => scheduleCancelStreamTask(timeout, observer))
             result <- apiServices.transactionService.transactions(streamConfig, observer)
           } yield result
@@ -73,7 +72,7 @@ object Benchmark {
                 itemCountingFunction = MetricsSet.countTreeTransactionsEvents,
                 maxItemCount = streamConfig.maxItemCount,
               )(system, ec)
-            _ = streamConfig.timeoutInSecondsO
+            _ = streamConfig.timeoutDurationO
               .foreach(timeout => scheduleCancelStreamTask(timeout, observer))
             result <- apiServices.transactionService.transactionTrees(streamConfig, observer)
           } yield result
@@ -97,7 +96,7 @@ object Benchmark {
                   (response) => MetricsSet.countActiveContracts(response).toLong,
                 maxItemCount = streamConfig.maxItemCount,
               )(system, ec)
-            _ = streamConfig.timeoutInSecondsO
+            _ = streamConfig.timeoutDurationO
               .foreach(timeout => scheduleCancelStreamTask(timeout, observer))
             result <- apiServices.activeContractsService.getActiveContracts(streamConfig, observer)
           } yield result
@@ -117,7 +116,7 @@ object Benchmark {
                 itemCountingFunction = (response) => MetricsSet.countCompletions(response).toLong,
                 maxItemCount = streamConfig.maxItemCount,
               )(system, ec)
-            _ = streamConfig.timeoutInSecondsO
+            _ = streamConfig.timeoutDurationO
               .foreach(timeout => scheduleCancelStreamTask(timeout, observer))
             result <- apiServices.commandCompletionService.completions(streamConfig, observer)
           } yield result
@@ -128,10 +127,10 @@ object Benchmark {
         else Right(())
       }
 
-  def scheduleCancelStreamTask(timeoutInSeconds: Long, observer: ObserverWithResult[_, _])(implicit
-      ec: ExecutionContext
+  def scheduleCancelStreamTask(timeoutDuration: Duration, observer: ObserverWithResult[_, _])(
+      implicit ec: ExecutionContext
   ): Unit = {
-    val _ = Delayed.by(t = Duration(timeoutInSeconds, TimeUnit.SECONDS))(
+    val _ = Delayed.by(t = timeoutDuration)(
       observer.cancel()
     )
   }
