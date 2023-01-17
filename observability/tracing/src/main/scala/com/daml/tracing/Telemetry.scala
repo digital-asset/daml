@@ -7,7 +7,7 @@ import java.util.concurrent.TimeUnit
 import java.util.{Map => jMap}
 
 import io.opentelemetry.api.common.{AttributeKey, Attributes}
-import io.opentelemetry.api.trace
+import io.opentelemetry.api.{OpenTelemetry, trace}
 import io.opentelemetry.api.trace.{Span, SpanBuilder, SpanContext, Tracer}
 import io.opentelemetry.context.Context
 
@@ -106,7 +106,8 @@ abstract class DefaultTelemetry(override protected val tracer: Tracer) extends T
 }
 
 /** Default implementation of Telemetry. Uses OpenTelemetry to generate and gather traces. */
-object DefaultTelemetry extends DefaultTelemetry(OpenTelemetryTracer)
+class DefaultOpenTelemetry(openTelemetry: OpenTelemetry)
+    extends DefaultTelemetry(openTelemetry.getTracer(DamlTracerName))
 
 /** Implementation of Telemetry that does nothing.
   *

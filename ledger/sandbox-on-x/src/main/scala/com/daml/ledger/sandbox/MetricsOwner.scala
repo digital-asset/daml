@@ -33,6 +33,9 @@ case class MetricsOwner(meter: Meter, config: MetricsConfig, name: String)
     }
 
     metricRegistry.registerAll(new JvmMetricSet)
+    // registers using the already registered global OpenTelemetry library
+    JvmMetricSet.registerObservers()
+
     Resource(
       Future(
         Metrics(

@@ -1,58 +1,65 @@
 // Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.metrics
+package com.daml.telemetry
 
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
-import com.daml.metrics.OpenTelemetryMeterOwner.buildProviderWithViews
 import com.daml.metrics.api.MetricHandle.Histogram
 import com.daml.metrics.api.opentelemetry.OpenTelemetryTimer
 import com.daml.metrics.api.reporters.MetricsReporter
 import com.daml.metrics.api.reporters.MetricsReporter.Prometheus
-import io.opentelemetry.api.metrics.Meter
+import com.daml.telemetry.OpenTelemetryOwner.addViewsToProvider
+import io.opentelemetry.api.OpenTelemetry
 import io.opentelemetry.exporter.prometheus.PrometheusCollector
+import io.opentelemetry.sdk.autoconfigure.AutoConfiguredOpenTelemetrySdk
+import io.opentelemetry.sdk.metrics.SdkMeterProviderBuilder
 import io.opentelemetry.sdk.metrics.common.InstrumentType
 import io.opentelemetry.sdk.metrics.view.{Aggregation, InstrumentSelector, View}
-import io.opentelemetry.sdk.metrics.{SdkMeterProvider, SdkMeterProviderBuilder}
 
 import scala.annotation.nowarn
 import scala.concurrent.Future
 import scala.jdk.CollectionConverters.SeqHasAsJava
 
 @nowarn("msg=deprecated")
-case class OpenTelemetryMeterOwner(enabled: Boolean, reporter: Option[MetricsReporter])
-    extends ResourceOwner[Meter] {
+case class OpenTelemetryOwner(reporter: Option[MetricsReporter])
+    extends ResourceOwner[OpenTelemetry] {
 
   override def acquire()(implicit
       context: ResourceContext
-  ): Resource[Meter] = {
-    val meterProviderBuilder = buildProviderWithViews
-
-    /* To integrate with prometheus we're using the deprecated [[PrometheusCollector]].
-     * More details about the deprecation here: https://github.com/open-telemetry/opentelemetry-java/issues/4284
-     * This forces us to keep the current OpenTelemetry version (see ticket for potential paths forward).
-     */
-    val meterProvider = if (enabled && reporter.exists(_.isInstanceOf[Prometheus])) {
-      meterProviderBuilder.registerMetricReader(PrometheusCollector.create()).build()
-    } else meterProviderBuilder.build()
+  ): Resource[OpenTelemetry] = {
     Resource(
       Future(
-        meterProvider.meterBuilder("daml").build()
+        AutoConfiguredOpenTelemetrySdk
+          .builder()
+          .addMeterProviderCustomizer { case (builder, _) =>
+            val meterProviderBuilder = addViewsToProvider(builder)
+            /* To integrate with prometheus we're using the deprecated [[PrometheusCollector]].
+             * More details about the deprecation here: https://github.com/open-telemetry/opentelemetry-java/issues/4284
+             * This forces us to keep the current OpenTelemetry version (see ticket for potential paths forward).
+             */
+            if (reporter.exists(_.isInstanceOf[Prometheus])) {
+              meterProviderBuilder.registerMetricReader(PrometheusCollector.create())
+            } else meterProviderBuilder
+          }
+          .registerShutdownHook(false)
+          .setResultAsGlobal(true)
+          .build()
+          .getOpenTelemetrySdk
       )
-    ) { _ =>
+    ) { sdk =>
       Future {
-        meterProvider.close()
+        sdk.getSdkMeterProvider.close()
+        sdk.getSdkTracerProvider.close()
       }
     }
   }
 
 }
 
-object OpenTelemetryMeterOwner {
+object OpenTelemetryOwner {
 
-  def buildProviderWithViews: SdkMeterProviderBuilder = {
-    SdkMeterProvider
-      .builder()
+  def addViewsToProvider(builder: SdkMeterProviderBuilder): SdkMeterProviderBuilder = {
+    builder
       .registerView(
         histogramSelectorEndingWith(OpenTelemetryTimer.TimerUnitAndSuffix),
         explicitHistogramBucketsView(

@@ -3,6 +3,7 @@
 
 package com.daml.tracing
 
+import io.opentelemetry.api.GlobalOpenTelemetry
 import io.opentelemetry.api.trace.Span
 import io.opentelemetry.context.Context
 import io.opentelemetry.semconv.trace.attributes.SemanticAttributes
@@ -17,13 +18,15 @@ class TelemetrySpec extends AsyncWordSpec with TelemetrySpecBase with Matchers {
   import TelemetrySpec._
   import TelemetrySpecBase._
 
+  val telemetry = new DefaultOpenTelemetry(GlobalOpenTelemetry.get())
+
   "contextFromGrpcThreadLocalContext" should {
     "return a context" in {
       val span = anEmptySpan()
       span.setAttribute("existingKey", "existingValue")
       val scope = span.makeCurrent()
       try {
-        val context = DefaultTelemetry.contextFromGrpcThreadLocalContext()
+        val context = telemetry.contextFromGrpcThreadLocalContext()
         context.setAttribute(anApplicationIdSpanAttribute._1, anApplicationIdSpanAttribute._2)
       } finally {
         scope.close()
@@ -45,14 +48,14 @@ class TelemetrySpec extends AsyncWordSpec with TelemetrySpecBase with Matchers {
       val span = anEmptySpan()
       val metadata = DefaultTelemetryContext(tracer, span).encodeMetadata()
 
-      val context = DefaultTelemetry.contextFromMetadata(Some(metadata))
+      val context = telemetry.contextFromMetadata(Some(metadata))
 
       metadata.keySet contains "traceparent"
       context.encodeMetadata() shouldBe metadata
     }
 
     "return a root context if no metadata was provided" in {
-      val context = DefaultTelemetry.contextFromMetadata(None)
+      val context = telemetry.contextFromMetadata(None)
       context.encodeMetadata() shouldBe empty
     }
 
@@ -66,7 +69,7 @@ class TelemetrySpec extends AsyncWordSpec with TelemetrySpecBase with Matchers {
       val span = anEmptySpan()
       val openTelemetryContext = Context.current.`with`(span)
 
-      val context = DefaultTelemetry.contextFromOpenTelemetryContext(openTelemetryContext)
+      val context = telemetry.contextFromOpenTelemetryContext(openTelemetryContext)
 
       Span.fromContextOrNull(context.openTelemetryContext) shouldBe span
     }
@@ -74,7 +77,7 @@ class TelemetrySpec extends AsyncWordSpec with TelemetrySpecBase with Matchers {
     "return a root context" in {
       val openTelemetryContext = Context.root
 
-      val context = DefaultTelemetry.contextFromOpenTelemetryContext(openTelemetryContext)
+      val context = telemetry.contextFromOpenTelemetryContext(openTelemetryContext)
 
       Span.fromContextOrNull(context.openTelemetryContext) shouldBe Span.getInvalid
     }

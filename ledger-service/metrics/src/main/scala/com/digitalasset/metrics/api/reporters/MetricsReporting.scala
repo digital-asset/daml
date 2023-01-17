@@ -9,8 +9,9 @@ import com.codahale.metrics.Slf4jReporter.LoggingLevel
 import com.codahale.metrics.jmx.JmxReporter
 import com.codahale.metrics.{MetricRegistry, Reporter, Slf4jReporter}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
-import com.daml.metrics.{JvmMetricSet, OpenTelemetryMeterOwner}
+import com.daml.metrics.JvmMetricSet
 import io.opentelemetry.api.metrics.{Meter => OtelMeter}
+import com.daml.telemetry.OpenTelemetryOwner
 
 import scala.concurrent.Future
 import scala.concurrent.duration.Duration
@@ -41,7 +42,7 @@ final class MetricsReporting[M](
     val registry = new MetricRegistry
     registry.registerAll(new JvmMetricSet)
     for {
-      openTelemetryMeter <- OpenTelemetryMeterOwner(enabled = true, extraMetricsReporter).acquire()
+      openTelemetry <- OpenTelemetryOwner(extraMetricsReporter).acquire()
       slf4JReporter <- acquire(newSlf4jReporter(registry))
       _ <- acquire(newJmxReporter(registry))
         .map(_.start())
@@ -53,7 +54,7 @@ final class MetricsReporting[M](
       _ <- Resource(Future.successful(slf4JReporter))(reporter =>
         Future.successful(reporter.report())
       )
-    } yield metrics(registry, openTelemetryMeter)
+    } yield metrics(registry, openTelemetry.getMeter("daml"))
   }
 
   private def newJmxReporter(registry: MetricRegistry): JmxReporter =

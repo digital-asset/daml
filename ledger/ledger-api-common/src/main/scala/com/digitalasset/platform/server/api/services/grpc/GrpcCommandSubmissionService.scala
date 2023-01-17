@@ -3,6 +3,8 @@
 
 package com.daml.platform.server.api.services.grpc
 
+import java.time.{Duration, Instant}
+
 import com.daml.error.DamlContextualizedErrorLogger
 import com.daml.ledger.api.SubmissionIdGenerator
 import com.daml.ledger.api.domain.LedgerId
@@ -19,11 +21,10 @@ import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.server.api.services.domain.CommandSubmissionService
 import com.daml.platform.server.api.{ProxyCloseable, ValidationLogger}
-import com.daml.tracing.{DefaultTelemetry, SpanAttribute, TelemetryContext}
+import com.daml.tracing.{SpanAttribute, Telemetry, TelemetryContext}
 import com.google.protobuf.empty.Empty
 import io.grpc.ServerServiceDefinition
 
-import java.time.{Duration, Instant}
 import scala.concurrent.{ExecutionContext, Future}
 
 class GrpcCommandSubmissionService(
@@ -35,6 +36,7 @@ class GrpcCommandSubmissionService(
     submissionIdGenerator: SubmissionIdGenerator,
     metrics: Metrics,
     explicitDisclosureUnsafeEnabled: Boolean,
+    telemetry: Telemetry,
 )(implicit executionContext: ExecutionContext, loggingContext: LoggingContext)
     extends ApiCommandSubmissionService
     with ProxyCloseable
@@ -47,7 +49,7 @@ class GrpcCommandSubmissionService(
 
   override def submit(request: ApiSubmitRequest): Future[Empty] = {
     implicit val telemetryContext: TelemetryContext =
-      DefaultTelemetry.contextFromGrpcThreadLocalContext()
+      telemetry.contextFromGrpcThreadLocalContext()
     request.commands.foreach { commands =>
       telemetryContext.setAttribute(SpanAttribute.ApplicationId, commands.applicationId)
       telemetryContext.setAttribute(SpanAttribute.CommandId, commands.commandId)

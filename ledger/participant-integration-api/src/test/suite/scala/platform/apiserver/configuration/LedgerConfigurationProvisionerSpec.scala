@@ -19,7 +19,7 @@ import com.daml.lf.data.Ref.SubmissionId
 import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.LoggingContext
 import com.daml.platform.configuration.InitialLedgerConfiguration
-import com.daml.tracing.TelemetryContext
+import com.daml.tracing.{NoOpTelemetry, TelemetryContext}
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.concurrent.Eventually
 import org.scalatest.matchers.should.Matchers
@@ -74,6 +74,7 @@ final class LedgerConfigurationProvisionerSpec
         timeProvider = timeProvider,
         submissionIdGenerator = submissionIdGenerator,
         scheduler = scheduler,
+        telemetry = NoOpTelemetry,
       ).submit(initialLedgerConfiguration)
         .use { _ =>
           verify(writeService, never).submitConfiguration(
@@ -118,6 +119,7 @@ final class LedgerConfigurationProvisionerSpec
         timeProvider = timeProvider,
         submissionIdGenerator = SubmissionIdGenerator.Random,
         scheduler = scheduler,
+        telemetry = NoOpTelemetry,
       ).submit(initialLedgerConfiguration)
         .use { _ =>
           scheduler.timePasses(1.second)
@@ -156,6 +158,7 @@ final class LedgerConfigurationProvisionerSpec
       timeProvider = timeProvider,
       submissionIdGenerator = SubmissionIdGenerator.Random,
       scheduler = scheduler,
+      telemetry = NoOpTelemetry,
     ).submit(initialLedgerConfiguration)
       .use { _ =>
         scheduler.scheduleOnce(
@@ -198,6 +201,7 @@ final class LedgerConfigurationProvisionerSpec
       timeProvider = timeProvider,
       submissionIdGenerator = SubmissionIdGenerator.Random,
       scheduler = scheduler,
+      telemetry = NoOpTelemetry,
     ).submit(initialLedgerConfiguration).acquire()
 
     resource.asFuture

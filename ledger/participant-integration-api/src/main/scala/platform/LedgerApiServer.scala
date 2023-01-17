@@ -8,8 +8,8 @@ import akka.stream.Materializer
 import com.daml.api.util.TimeProvider
 import com.daml.ledger.api.auth.{
   AuthService,
-  IdentityProviderConfigLoader,
   IdentityProviderAwareAuthService,
+  IdentityProviderConfigLoader,
   JwtVerifierLoader,
 }
 import com.daml.ledger.api.domain
@@ -33,6 +33,7 @@ import com.daml.platform.indexer.IndexerServiceOwner
 import com.daml.platform.localstore._
 import com.daml.platform.store.DbSupport
 import com.daml.platform.store.DbSupport.ParticipantDataSourceConfig
+import com.daml.tracing.Telemetry
 
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutorService, Future}
 
@@ -56,6 +57,7 @@ class LedgerApiServer(
     //          in order to ensure that participants cannot be configured to accept explicitly disclosed contracts.
     explicitDisclosureUnsafeEnabled: Boolean = false,
     rateLimitingInterceptor: Option[RateLimitingInterceptor] = None,
+    telemetry: Telemetry,
 )(implicit actorSystem: ActorSystem, materializer: Materializer) {
 
   def owner: ResourceOwner[ApiService] = {
@@ -124,6 +126,7 @@ class LedgerApiServer(
           participantId,
           explicitDisclosureUnsafeEnabled,
           jwtVerifierLoader,
+          telemetry = telemetry,
         )
       } yield apiService
     }
@@ -144,6 +147,7 @@ class LedgerApiServer(
       participantId: Ref.ParticipantId,
       explicitDisclosureUnsafeEnabled: Boolean,
       jwtVerifierLoader: JwtVerifierLoader,
+      telemetry: Telemetry,
   )(implicit
       actorSystem: ActorSystem,
       loggingContext: LoggingContext,
@@ -197,6 +201,7 @@ class LedgerApiServer(
       )(servicesExecutionContext, loggingContext),
       jwtTimestampLeeway = participantConfig.jwtTimestampLeeway,
       explicitDisclosureUnsafeEnabled = explicitDisclosureUnsafeEnabled,
+      telemetry = telemetry,
     )
   }
 }

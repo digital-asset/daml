@@ -43,7 +43,7 @@ import com.daml.platform.localstore.api.{
 import com.daml.platform.server.api.services.domain.CommandCompletionService
 import com.daml.platform.server.api.services.grpc.{GrpcHealthService, GrpcTransactionService}
 import com.daml.platform.services.time.TimeProviderType
-import com.daml.tracing.TelemetryContext
+import com.daml.tracing.{Telemetry, TelemetryContext}
 import io.grpc.BindableService
 import io.grpc.protobuf.services.ProtoReflectionService
 
@@ -95,6 +95,7 @@ private[daml] object ApiServices {
       meteringReportKey: MeteringReportKey,
       explicitDisclosureUnsafeEnabled: Boolean,
       createExternalServices: () => List[BindableService] = () => Nil,
+      telemetry: Telemetry,
   )(implicit
       materializer: Materializer,
       esf: ExecutionSequencerFactory,
@@ -118,6 +119,7 @@ private[daml] object ApiServices {
       timeProvider = timeProvider,
       materializer = materializer,
       servicesExecutionContext = servicesExecutionContext,
+      telemetry = telemetry,
     )
 
     override def acquire()(implicit context: ResourceContext): Resource[ApiServices] = {
@@ -274,6 +276,7 @@ private[daml] object ApiServices {
           checkOverloaded,
           metrics,
           explicitDisclosureUnsafeEnabled = explicitDisclosureUnsafeEnabled,
+          telemetry = telemetry,
         )
 
         // Note: the command service uses the command submission, command completion, and transaction
@@ -307,6 +310,7 @@ private[daml] object ApiServices {
           transactionsService,
           writeService,
           managementServiceTimeout,
+          telemetry = telemetry,
         )
 
         val apiPackageManagementService = ApiPackageManagementService.createApiService(
@@ -315,12 +319,14 @@ private[daml] object ApiServices {
           writeService,
           managementServiceTimeout,
           engine,
+          telemetry = telemetry,
         )
 
         val apiConfigManagementService = ApiConfigManagementService.createApiService(
           configManagementService,
           writeService,
           timeProvider,
+          telemetry = telemetry,
         )
 
         val apiParticipantPruningService =
