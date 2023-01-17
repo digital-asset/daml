@@ -176,7 +176,7 @@ da_scala_library(
             "//libs-scala/ports",
             "//libs-scala/resources",
             "//libs-scala/scalatest-utils",
-            "//observability/telemetry",
+            "//observability/tracing",
             "//triggers/runner:trigger-runner-lib",
         ],
     )
@@ -230,7 +230,7 @@ da_scala_library(
             "//libs-scala/ports",
             "//libs-scala/resources",
             "//libs-scala/scalatest-utils",
-            "//observability/telemetry",
+            "//observability/tracing",
             "//triggers/runner:trigger-runner-lib",
         ],
     )

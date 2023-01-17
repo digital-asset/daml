@@ -4,7 +4,7 @@
 package com.daml.platform.server.api.services.domain
 
 import com.daml.ledger.api.messages.command.submission.SubmitRequest
-import com.daml.telemetry.TelemetryContext
+import com.daml.tracing.TelemetryContext
 
 import scala.concurrent.Future
 

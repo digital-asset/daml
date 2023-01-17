@@ -7,7 +7,7 @@ import java.util.concurrent.CompletionStage
 
 import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext
-import com.daml.telemetry.TelemetryContext
+import com.daml.tracing.TelemetryContext
 
 /** An interface for on-boarding parties via a participant. */
 trait WritePartyService {

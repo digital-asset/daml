@@ -23,8 +23,8 @@ import com.daml.lf.data.Ref.SubmissionId
 import com.daml.lf.data.{Ref, Time}
 import com.daml.logging.LoggingContext
 import com.daml.platform.apiserver.services.admin.ApiConfigManagementServiceSpec._
-import com.daml.telemetry.TelemetrySpecBase._
-import com.daml.telemetry.{TelemetryContext, TelemetrySpecBase}
+import com.daml.tracing.TelemetrySpecBase._
+import com.daml.tracing.{TelemetryContext, TelemetrySpecBase}
 import com.google.protobuf.duration.{Duration => DurationProto}
 import com.google.protobuf.timestamp.Timestamp
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}

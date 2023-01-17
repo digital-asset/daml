@@ -24,7 +24,7 @@ import com.daml.platform.server.api.services.domain.CommandSubmissionService
 import com.daml.platform.server.api.services.grpc.GrpcCommandSubmissionService
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.scalautil.future.FutureConversion.CompletionStageConversionOps
-import com.daml.telemetry.TelemetryContext
+import com.daml.tracing.TelemetryContext
 import com.daml.timer.Delayed
 
 import java.time.{Duration, Instant}

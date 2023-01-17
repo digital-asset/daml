@@ -29,8 +29,8 @@ import com.daml.platform.store.dao.events.FilterTableACSReader.{
   statefulDeduplicate,
 }
 import com.daml.platform.store.utils.{ConcurrencyLimiter, QueueBasedConcurrencyLimiter, Telemetry}
-import com.daml.telemetry
-import com.daml.telemetry.Spans
+import com.daml.tracing
+import com.daml.tracing.Spans
 
 import scala.util.chaining._
 import scala.collection.mutable.ArrayBuffer
@@ -78,7 +78,7 @@ class TransactionsFlatStreamReader(
         case (_, getTransactionsResponse) =>
           getTransactionsResponse.transactions.foreach { transaction =>
             val event =
-              telemetry.Event("transaction", TraceIdentifiers.fromTransaction(transaction))
+              tracing.Event("transaction", TraceIdentifiers.fromTransaction(transaction))
             Spans.addEventToSpan(event, span)
           }
       })

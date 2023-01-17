@@ -19,7 +19,7 @@ import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.server.api.services.domain.CommandSubmissionService
 import com.daml.platform.server.api.{ProxyCloseable, ValidationLogger}
-import com.daml.telemetry.{DefaultTelemetry, SpanAttribute, TelemetryContext}
+import com.daml.tracing.{DefaultTelemetry, SpanAttribute, TelemetryContext}
 import com.google.protobuf.empty.Empty
 import io.grpc.ServerServiceDefinition
 

@@ -27,7 +27,7 @@ import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.apiserver.services.admin.ApiPackageManagementService._
 import com.daml.platform.apiserver.services.logging
-import com.daml.telemetry.{DefaultTelemetry, TelemetryContext}
+import com.daml.tracing.{DefaultTelemetry, TelemetryContext}
 import com.google.protobuf.ByteString
 import io.grpc.{ServerServiceDefinition, StatusRuntimeException}
 import scalaz.std.either._

@@ -28,8 +28,8 @@ import com.daml.platform.store.dao.{
 import com.daml.platform.store.backend.EventStorageBackend
 import com.daml.platform.store.dao.events.EventsTable.TransactionConversions
 import com.daml.platform.store.utils.Telemetry
-import com.daml.telemetry
-import com.daml.telemetry.{SpanAttribute, Spans}
+import com.daml.tracing
+import com.daml.tracing.{SpanAttribute, Spans}
 import io.opentelemetry.api.trace.Span
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -171,7 +171,7 @@ private[dao] final class TransactionsReader(
       .mapConcat(TransactionConversions.toGetActiveContractsResponse(_)(contextualizedErrorLogger))
       .wireTap(response => {
         Spans.addEventToSpan(
-          telemetry.Event("contract", Map((SpanAttribute.Offset, response.offset))),
+          tracing.Event("contract", Map((SpanAttribute.Offset, response.offset))),
           span,
         )
       })

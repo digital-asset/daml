@@ -1,7 +1,7 @@
 // Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.telemetry
+package com.daml.tracing
 
 import java.util.{HashMap => jHashMap, Map => jMap}
 
@@ -72,7 +72,7 @@ trait TelemetryContext {
     * Originally, it has been created to carry tracing metadata across boundaries, and
     * to create complete traces.
     *
-    * @see [[com.daml.telemetry.Telemetry.contextFromMetadata(java.util.Map)]]
+    * @see [[com.daml.tracing.Telemetry.contextFromMetadata(java.util.Map)]]
     */
   def encodeMetadata(): jMap[String, String]
 

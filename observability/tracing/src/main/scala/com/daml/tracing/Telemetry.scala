@@ -1,7 +1,7 @@
 // Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.telemetry
+package com.daml.tracing
 
 import java.util.concurrent.TimeUnit
 import java.util.{Map => jMap}
@@ -30,7 +30,7 @@ abstract class Telemetry(protected val tracer: Tracer) {
     * Originally, it has been created to carry tracing metadata across boundaries, and
     * to create complete traces.
     *
-    * @see [[com.daml.telemetry.TelemetryContext.encodeMetadata()]]
+    * @see [[com.daml.tracing.TelemetryContext.encodeMetadata()]]
     */
   def contextFromMetadata(metadata: Option[jMap[String, String]]): TelemetryContext
 

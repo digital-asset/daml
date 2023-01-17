@@ -36,7 +36,7 @@ import com.daml.platform.apiserver.SeedService
 import com.daml.platform.apiserver.configuration.LedgerConfigurationSubscription
 import com.daml.platform.apiserver.execution.{CommandExecutionResult, CommandExecutor}
 import com.daml.platform.services.time.TimeProviderType
-import com.daml.telemetry.{NoOpTelemetryContext, TelemetryContext}
+import com.daml.tracing.{NoOpTelemetryContext, TelemetryContext}
 import com.google.rpc.status.{Status => RpcStatus}
 import io.grpc.{Status, StatusRuntimeException}
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}

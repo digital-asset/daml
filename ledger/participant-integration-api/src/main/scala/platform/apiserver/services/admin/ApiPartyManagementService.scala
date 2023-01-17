@@ -52,7 +52,7 @@ import com.daml.platform.server.api.validation.FieldValidations.{
   requireResourceVersion,
   verifyMetadataAnnotations,
 }
-import com.daml.telemetry.{DefaultTelemetry, TelemetryContext}
+import com.daml.tracing.{DefaultTelemetry, TelemetryContext}
 import io.grpc.{ServerServiceDefinition, StatusRuntimeException}
 import scalaz.std.either._
 import scalaz.std.list._
