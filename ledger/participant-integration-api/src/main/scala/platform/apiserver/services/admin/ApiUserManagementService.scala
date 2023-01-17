@@ -395,7 +395,7 @@ private[apiserver] final class ApiUserManagementService(
       identityProviderId: IdentityProviderId,
       isParticipantAdmin: Boolean,
   ): Future[Unit] =
-    if (isParticipantAdmin) Future.unit
+    if (isParticipantAdmin) partyExistsOrError(userParties(rights), identityProviderId)
     else partyExistsOrError(userParties(rights), identityProviderId)
 
   private def partyExistsOrError(
