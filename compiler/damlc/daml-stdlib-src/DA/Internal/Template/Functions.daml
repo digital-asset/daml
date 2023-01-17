@@ -91,12 +91,33 @@ type Choice t c r =
   , HasExercise t c r
   , HasToAnyChoice t c r
   , HasFromAnyChoice t c r
+  , HasChoiceController t c
+  , HasChoiceObserver t c
   )
 
 -- | Exposes `exercise` function. Part of the `Choice` constraint.
 class HasExercise t c r | t c -> r where
   -- | Exercise a choice on the contract with the given contract ID.
   exercise : ContractId t -> c -> Update r
+
+-- | Exposes `choiceController` function. Part of the `Choice` constraint.
+class HasChoiceController t c where
+  -- | HIDE
+  _choiceController : t -> c -> [Party]
+
+-- | Calculate the controllers needed to exercise a choice on the given contract.
+choiceController : HasChoiceController t c => t -> c -> [Party]
+choiceController = _choiceController
+
+-- | Exposes `choiceObserver` function. Part of the `Choice` constraint.
+class HasChoiceObserver t c where
+  -- | HIDE
+  _choiceObserver : t -> c -> [Party]
+
+-- | Calculate the observers that will be notified when the given choice is
+-- exercised on the given contract.
+choiceObserver : HasChoiceObserver t c => t -> c -> [Party]
+choiceObserver = _choiceObserver
 
 -- | (1.dev only) Exposes `exerciseGuarded` function.
 -- Only available for interface choices.
