@@ -480,8 +480,7 @@ class SequenceSpec
     }
 
     def buildSequence(
-        initialLedgerConfiguration: Option[Configuration] = initialLedgerConfiguration,
-        explicitDisclosureEnabled: Boolean = false,
+        initialLedgerConfiguration: Option[Configuration] = initialLedgerConfiguration
     ) = new SequenceImpl(
       participantId = Ref.ParticipantId.assertFromString(participantName),
       bridgeMetrics = bridgeMetrics,
@@ -490,7 +489,6 @@ class SequenceSpec
       initialAllocatedParties = allocatedInformees,
       initialLedgerConfiguration = initialLedgerConfiguration,
       maxDeduplicationDuration = maxDeduplicationDuration,
-      explicitDisclosureEnabled = explicitDisclosureEnabled,
     )
 
     def exerciseNonConsuming(
