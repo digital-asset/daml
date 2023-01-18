@@ -23,11 +23,6 @@ import com.daml.platform.store.backend.common.{
 }
 import com.daml.platform.store.dao.PaginatingAsyncStream.IdPaginationState
 import com.daml.platform.store.dao.events.EventsTable.TransactionConversions
-import com.daml.platform.store.dao.events.FilterTableACSReader.{
-  Filter,
-  IdQueryConfiguration,
-  statefulDeduplicate,
-}
 import com.daml.platform.store.dao.{DbDispatcher, EventProjectionProperties, PaginatingAsyncStream}
 import com.daml.platform.store.utils.{ConcurrencyLimiter, QueueBasedConcurrencyLimiter, Telemetry}
 import com.daml.tracing
@@ -109,27 +104,26 @@ class TransactionsTreeStreamReader(
       new QueueBasedConcurrencyLimiter(maxParallelIdNonConsumingQueries, executionContext)
     val payloadQueriesLimiter =
       new QueueBasedConcurrencyLimiter(maxParallelPayloadQueries, executionContext)
-    // TODO etq: Use dedicated filter type for TreeTransactions (only parties)
-    val decomposedFilters = requestingParties.iterator.map(party => Filter(party, None)).toVector
-    val idPageSizing = IdQueryConfiguration(
+    val filterParties = requestingParties.toVector
+    val idPageSizing = IdPageSizing.calculateFrom(
       maxIdPageSize = maxIdsPerIdPage,
       // The ids for tree transactions are retrieved from five separate id tables.
       // To account for that we assign a fifth of the working memory to each table.
       idPageWorkingMemoryBytes = maxWorkingMemoryInBytesForIdPages / 5,
-      filterSize = decomposedFilters.size,
+      filterSize = filterParties.size,
       idPageBufferSize = maxPagesPerIdPagesBuffer,
     )
 
     def fetchIds(
-        filter: Filter,
+        filterParty: Party,
         target: EventIdSourceForInformees,
         maxParallelIdQueriesLimiter: QueueBasedConcurrencyLimiter,
         metric: DatabaseMetrics,
     ): Source[Long, NotUsed] = {
       PaginatingAsyncStream.streamIdsFromSeekPagination(
-        pageConfig = idPageSizing,
-        pageBufferSize = maxPagesPerIdPagesBuffer,
-        initialStartOffset = startExclusiveEventSequentialId,
+        idPageSizing = idPageSizing,
+        idPageBufferSize = maxPagesPerIdPagesBuffer,
+        initialFromIdExclusive = startExclusiveEventSequentialId,
       )(
         fetchPage = (state: IdPaginationState) => {
           maxParallelIdQueriesLimiter.execute {
@@ -138,8 +132,8 @@ class TransactionsTreeStreamReader(
                 eventStorageBackend.transactionStreamingQueries.fetchEventIdsForInformee(
                   target = target
                 )(
-                  informee = filter.party,
-                  startExclusive = state.startOffset,
+                  informee = filterParty,
+                  startExclusive = state.fromIdExclusive,
                   endInclusive = endInclusiveEventSequentialId,
                   limit = state.pageSize,
                 )(connection)
@@ -185,14 +179,14 @@ class TransactionsTreeStreamReader(
     }
 
     val idsCreate =
-      (decomposedFilters.map(filter =>
+      (filterParties.map(filter =>
         fetchIds(
           filter,
           EventIdSourceForInformees.CreateStakeholder,
           createEventIdQueriesLimiter,
           dbMetrics.treeTxStream.fetchEventCreateIdsStakeholder,
         )
-      ) ++ decomposedFilters.map(filter =>
+      ) ++ filterParties.map(filter =>
         fetchIds(
           filter,
           EventIdSourceForInformees.CreateNonStakeholder,
@@ -206,14 +200,14 @@ class TransactionsTreeStreamReader(
         )
       )
     val idsConsuming =
-      (decomposedFilters.map(filter =>
+      (filterParties.map(filter =>
         fetchIds(
           filter,
           EventIdSourceForInformees.ConsumingStakeholder,
           consumingEventIdQueriesLimiter,
           dbMetrics.treeTxStream.fetchEventConsumingIdsStakeholder,
         )
-      ) ++ decomposedFilters.map(filter =>
+      ) ++ filterParties.map(filter =>
         fetchIds(
           filter,
           EventIdSourceForInformees.ConsumingNonStakeholder,
@@ -226,7 +220,7 @@ class TransactionsTreeStreamReader(
           maxOutputBatchCount = maxParallelPayloadConsumingQueries + 1,
         )
       )
-    val idsNonConsuming = decomposedFilters
+    val idsNonConsuming = filterParties
       .map(filter =>
         fetchIds(
           filter,
@@ -278,9 +272,8 @@ class TransactionsTreeStreamReader(
       maxOutputBatchSize: Int,
       maxOutputBatchCount: Int,
   )(sourcesOfIds: Vector[Source[Long, NotUsed]]): Source[ArrayBuffer[Long], NotUsed] = {
-    sourcesOfIds
-      .pipe(FilterTableACSReader.mergeSort[Long])
-      .statefulMapConcat(statefulDeduplicate)
+    EventIdsUtils
+      .sortAndDeduplicateIds(sourcesOfIds)
       .via(
         BatchN(
           maxBatchSize = maxOutputBatchSize,
