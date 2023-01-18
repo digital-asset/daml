@@ -18,6 +18,7 @@ import com.daml.platform.apiserver.configuration.RateLimitingConfig
 import com.daml.platform.config.{MetricsConfig, ParticipantConfig}
 import com.daml.platform.config.MetricsConfig.MetricRegistryType
 import com.daml.platform.configuration.{
+  AcsStreamsConfig,
   CommandConfiguration,
   IndexServiceConfig,
   InitialLedgerConfiguration,
@@ -383,25 +384,25 @@ object ArbitraryConfig {
     acsIdPageWorkingMemoryBytes <- Gen.chooseNum(0, Int.MaxValue)
     acsIdFetchingParallelism <- Gen.chooseNum(0, Int.MaxValue)
     acsContractFetchingParallelism <- Gen.chooseNum(0, Int.MaxValue)
-    acsGlobalParallelism <- Gen.chooseNum(0, Int.MaxValue)
     maxContractStateCacheSize <- Gen.long
     maxContractKeyStateCacheSize <- Gen.long
     maxTransactionsInMemoryFanOutBufferSize <- Gen.chooseNum(0, Int.MaxValue)
     apiStreamShutdownTimeout <- Gen.finiteDuration
   } yield IndexServiceConfig(
-    eventsPageSize,
     eventsProcessingParallelism,
     bufferedStreamsPageSize,
-    acsIdPageSize,
-    acsIdPageBufferSize,
-    acsIdPageWorkingMemoryBytes,
-    acsIdFetchingParallelism,
-    acsContractFetchingParallelism,
-    acsGlobalParallelism,
     maxContractStateCacheSize,
     maxContractKeyStateCacheSize,
     maxTransactionsInMemoryFanOutBufferSize,
     apiStreamShutdownTimeout,
+    acsStreams = AcsStreamsConfig(
+      maxIdsPerIdPage = acsIdPageSize,
+      maxPayloadsPerPayloadsPage = eventsPageSize,
+      maxPagesPerIdPagesBuffer = acsIdPageBufferSize,
+      maxWorkingMemoryInBytesForIdPages = acsIdPageWorkingMemoryBytes,
+      maxParallelIdCreateQueries = acsIdFetchingParallelism,
+      maxParallelPayloadCreateQueries = acsContractFetchingParallelism,
+    ),
   )
 
   val participantConfig = for {
