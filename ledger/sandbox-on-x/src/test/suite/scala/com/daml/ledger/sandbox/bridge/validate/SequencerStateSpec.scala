@@ -114,7 +114,7 @@ class SequencerStateSpec extends AnyFlatSpec with Matchers {
 
   private def key(i: Long) = {
     val templateId = Ref.Identifier.assertFromString("pkg:M:T")
-    GlobalKey(templateId, Value.ValueInt64(i))
+    GlobalKey.assert(templateId, Value.ValueInt64(i))
   }
 
   private def cid(i: Int): ContractId = ContractId.V1(Hash.hashPrivateKey(i.toString))
