@@ -750,15 +750,8 @@ class PureConfigReaderWriterSpec
 
   val validIndexServiceConfigValue =
     """
-      |  acs-contract-fetching-parallelism = 2
-      |  acs-global-parallelism = 10
-      |  acs-id-fetching-parallelism = 2
-      |  acs-id-page-buffer-size = 1
-      |  acs-id-page-size = 20000
-      |  acs-id-page-working-memory-bytes = 104857600
       |  api-stream-shutdown-timeout = "5s"
       |  buffered-streams-page-size = 100
-      |  events-page-size = 1000
       |  events-processing-parallelism = 8
       |  max-contract-key-state-cache-size = 100000
       |  max-contract-state-cache-size = 100000
