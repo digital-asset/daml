@@ -47,6 +47,12 @@ object Question {
         callback: Option[ContractId] => Boolean,
     ) extends Update
 
+    final case class NeedAuthority(
+        using: Set[Party],
+        requesting: Set[Party],
+        // Callback: the request is granted
+        callback: Boolean => Unit,
+    ) extends Update
   }
 
   sealed abstract class Scenario extends Product with Serializable
