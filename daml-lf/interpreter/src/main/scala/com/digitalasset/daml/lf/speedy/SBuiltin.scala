@@ -660,7 +660,12 @@ private[lf] object SBuiltin {
         args: util.ArrayList[SValue],
         machine: Machine[Q],
     ): Control[Q] = {
-      sys.error("SBWithAuthorityOf") // TODO https://github.com/digital-asset/daml/issues/15882
+      // TODO https://github.com/digital-asset/daml/issues/15882
+      // For development, implement this primitive as the identity operation. No authority is gained.
+      // val parties = args.get(0)
+      // println(s"**SBWithAuthorityOf/execute, parties=$parties")
+      val action = args.get(1)
+      Control.Value(action)
     }
   }
 
