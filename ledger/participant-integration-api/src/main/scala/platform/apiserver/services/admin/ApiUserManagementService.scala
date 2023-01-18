@@ -458,6 +458,8 @@ private[apiserver] final class ApiUserManagementService(
   }
 
   // Check if user exists and belongs to the requested Identity Provider
+  // There is a possible race condition here, as user might be deleted and reintroduced within another IDP
+  // In order to fix this, proper atomicity is to be considered, by implementing this check in the persistence layer
   private def verifyUserExistsAndInIdp(
       identityProviderId: IdentityProviderId,
       userId: Ref.UserId,
