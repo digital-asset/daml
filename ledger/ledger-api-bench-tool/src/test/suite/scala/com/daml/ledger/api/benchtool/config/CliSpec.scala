@@ -94,7 +94,7 @@ class CliSpec extends AnyWordSpec with Matchers with OptionValues with TableDriv
           endOffset = None,
           objectives = None,
           maxItemCount = None,
-          timeoutDurationO = None,
+          timeoutO = None,
         ),
         s"stream-type=transaction-trees,name=$name,filters=$party1" -> TransactionTreesStreamConfig(
           name = name,
@@ -103,14 +103,14 @@ class CliSpec extends AnyWordSpec with Matchers with OptionValues with TableDriv
           endOffset = None,
           objectives = None,
           maxItemCount = None,
-          timeoutDurationO = None,
+          timeoutO = None,
         ),
         s"stream-type=active-contracts,name=$name,filters=$party1" -> ActiveContractsStreamConfig(
           name = name,
           filters = List(PartyFilter(party1, Nil, Nil)),
           objectives = None,
           maxItemCount = None,
-          timeoutDurationO = None,
+          timeoutO = None,
         ),
         s"stream-type=completions,name=$name,parties=$party1+$party2,application-id=$appId,timeout=123s,max-item-count=5" -> CompletionsStreamConfig(
           name = name,
@@ -118,7 +118,7 @@ class CliSpec extends AnyWordSpec with Matchers with OptionValues with TableDriv
           applicationId = appId,
           beginOffset = None,
           objectives = None,
-          timeoutDurationO = Some(Duration(123, TimeUnit.SECONDS)),
+          timeoutO = Some(Duration(123, TimeUnit.SECONDS)),
           maxItemCount = Some(5),
         ),
       )
@@ -154,7 +154,7 @@ class CliSpec extends AnyWordSpec with Matchers with OptionValues with TableDriv
           endOffset = None,
           objectives = None,
           maxItemCount = None,
-          timeoutDurationO = None,
+          timeoutO = None,
         ),
         s"stream-type=transaction-trees,name=$name,filters=$filters" -> TransactionTreesStreamConfig(
           name = name,
@@ -163,14 +163,14 @@ class CliSpec extends AnyWordSpec with Matchers with OptionValues with TableDriv
           endOffset = None,
           objectives = None,
           maxItemCount = None,
-          timeoutDurationO = None,
+          timeoutO = None,
         ),
         s"stream-type=active-contracts,name=$name,filters=$filters" -> ActiveContractsStreamConfig(
           name = name,
           filters = filtersList,
           objectives = None,
           maxItemCount = None,
-          timeoutDurationO = None,
+          timeoutO = None,
         ),
       )
       forAll(cases) { (argument, config) =>
@@ -203,7 +203,7 @@ class CliSpec extends AnyWordSpec with Matchers with OptionValues with TableDriv
           endOffset = None,
           objectives = None,
           maxItemCount = None,
-          timeoutDurationO = None,
+          timeoutO = None,
         )
         val expectedConfig =
           Config.Default.copy(workflow = Config.Default.workflow.copy(streams = List(streamConfig)))
@@ -237,7 +237,7 @@ class CliSpec extends AnyWordSpec with Matchers with OptionValues with TableDriv
           endOffset = Some(offset),
           objectives = None,
           maxItemCount = None,
-          timeoutDurationO = None,
+          timeoutO = None,
         )
         val expectedConfig =
           Config.Default.copy(workflow = Config.Default.workflow.copy(streams = List(streamConfig)))
@@ -283,7 +283,7 @@ class CliSpec extends AnyWordSpec with Matchers with OptionValues with TableDriv
           endOffset = None,
           objectives = Some(objectives),
           maxItemCount = None,
-          timeoutDurationO = None,
+          timeoutO = None,
         )
         val expectedConfig =
           Config.Default.copy(workflow = Config.Default.workflow.copy(streams = List(streamConfig)))
@@ -310,7 +310,7 @@ class CliSpec extends AnyWordSpec with Matchers with OptionValues with TableDriv
           filters = List(PartyFilter(party, Nil, Nil)),
           objectives = Some(objectives),
           maxItemCount = None,
-          timeoutDurationO = None,
+          timeoutO = None,
         )
         val expectedConfig =
           Config.Default.copy(workflow = Config.Default.workflow.copy(streams = List(streamConfig)))

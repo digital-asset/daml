@@ -104,7 +104,7 @@ class InterfaceSubscriptionITSpec
       ),
       objectives = None,
       maxItemCount = None,
-      timeoutDurationO = None,
+      timeoutO = None,
     )
     apiServices.activeContractsService.getActiveContracts(
       config = configDesugaring

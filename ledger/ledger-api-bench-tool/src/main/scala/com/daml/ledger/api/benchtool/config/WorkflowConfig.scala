@@ -101,7 +101,7 @@ object WorkflowConfig {
 
     /** If specified, used to cancel the stream after the specified time out
       */
-    def timeoutDurationO: Option[FiniteDuration] = None
+    def timeoutO: Option[FiniteDuration] = None
 
     def partySetPrefixes: List[String]
 
@@ -133,7 +133,7 @@ object WorkflowConfig {
         objectives: Option[StreamConfig.TransactionObjectives] = None,
         subscriptionDelay: Option[FiniteDuration] = None,
         override val maxItemCount: Option[Long] = None,
-        override val timeoutDurationO: Option[FiniteDuration] = None,
+        override val timeoutO: Option[FiniteDuration] = None,
     ) extends StreamConfig {
       override def partySetPrefixes: List[String] = partyNamePrefixFilters.map(_.partyNamePrefix)
     }
@@ -147,7 +147,7 @@ object WorkflowConfig {
         objectives: Option[StreamConfig.TransactionObjectives] = None,
         subscriptionDelay: Option[FiniteDuration] = None,
         override val maxItemCount: Option[Long] = None,
-        override val timeoutDurationO: Option[FiniteDuration] = None,
+        override val timeoutO: Option[FiniteDuration] = None,
     ) extends StreamConfig {
       override def partySetPrefixes: List[String] =
         partyNamePrefixFilters.map(_.partyNamePrefix)
@@ -160,7 +160,7 @@ object WorkflowConfig {
         objectives: Option[StreamConfig.AcsAndCompletionsObjectives] = None,
         subscriptionDelay: Option[FiniteDuration] = None,
         override val maxItemCount: Option[Long] = None,
-        override val timeoutDurationO: Option[FiniteDuration] = None,
+        override val timeoutO: Option[FiniteDuration] = None,
     ) extends StreamConfig {
       override def partySetPrefixes: List[String] =
         partyNamePrefixFilters.map(_.partyNamePrefix)
@@ -174,7 +174,7 @@ object WorkflowConfig {
         objectives: Option[StreamConfig.AcsAndCompletionsObjectives],
         subscriptionDelay: Option[FiniteDuration] = None,
         override val maxItemCount: Option[Long],
-        override val timeoutDurationO: Option[FiniteDuration],
+        override val timeoutO: Option[FiniteDuration],
     ) extends StreamConfig {
       override def partySetPrefixes: List[String] = List.empty
       override def partyNamePrefixFilters: List[PartyNamePrefixFilter] = List.empty

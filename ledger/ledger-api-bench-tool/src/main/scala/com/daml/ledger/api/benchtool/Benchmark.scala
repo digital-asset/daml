@@ -49,7 +49,7 @@ object Benchmark {
                 itemCountingFunction = MetricsSet.countFlatTransactionsEvents,
                 maxItemCount = streamConfig.maxItemCount,
               )(system, ec)
-            _ = streamConfig.timeoutDurationO
+            _ = streamConfig.timeoutO
               .foreach(timeout => scheduleCancelStreamTask(timeout, observer))
             result <- apiServices.transactionService.transactions(streamConfig, observer)
           } yield result
@@ -72,7 +72,7 @@ object Benchmark {
                 itemCountingFunction = MetricsSet.countTreeTransactionsEvents,
                 maxItemCount = streamConfig.maxItemCount,
               )(system, ec)
-            _ = streamConfig.timeoutDurationO
+            _ = streamConfig.timeoutO
               .foreach(timeout => scheduleCancelStreamTask(timeout, observer))
             result <- apiServices.transactionService.transactionTrees(streamConfig, observer)
           } yield result
@@ -96,7 +96,7 @@ object Benchmark {
                   (response) => MetricsSet.countActiveContracts(response).toLong,
                 maxItemCount = streamConfig.maxItemCount,
               )(system, ec)
-            _ = streamConfig.timeoutDurationO
+            _ = streamConfig.timeoutO
               .foreach(timeout => scheduleCancelStreamTask(timeout, observer))
             result <- apiServices.activeContractsService.getActiveContracts(streamConfig, observer)
           } yield result
@@ -116,7 +116,7 @@ object Benchmark {
                 itemCountingFunction = (response) => MetricsSet.countCompletions(response).toLong,
                 maxItemCount = streamConfig.maxItemCount,
               )(system, ec)
-            _ = streamConfig.timeoutDurationO
+            _ = streamConfig.timeoutO
               .foreach(timeout => scheduleCancelStreamTask(timeout, observer))
             result <- apiServices.commandCompletionService.completions(streamConfig, observer)
           } yield result

@@ -125,7 +125,7 @@ object WorkflowConfigParser {
           objectives = objectives,
           subscriptionDelay = subscriptionDelay,
           maxItemCount = maxItemCount,
-          timeoutDurationO = timeout,
+          timeoutO = timeout,
         )
       }
 
@@ -156,7 +156,7 @@ object WorkflowConfigParser {
           objectives = objectives,
           subscriptionDelay = subscriptionDelay,
           maxItemCount = maxItemCount,
-          timeoutDurationO = timeout,
+          timeoutO = timeout,
         )
       }
 
@@ -185,7 +185,7 @@ object WorkflowConfigParser {
           objectives = objectives,
           subscriptionDelay = subscriptionDelay,
           maxItemCount = maxItemCount,
-          timeoutDurationO = timeout,
+          timeoutO = timeout,
         )
       }
     Decoder.forProduct7(
@@ -223,7 +223,7 @@ object WorkflowConfigParser {
           objectives = objectives,
           subscriptionDelay = subscriptionDelay,
           maxItemCount = maxItemCount,
-          timeoutDurationO = timeout,
+          timeoutO = timeout,
         )
       }
 

@@ -134,7 +134,7 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
                 )
               ),
               maxItemCount = Some(700),
-              timeoutDurationO = None,
+              timeoutO = None,
               subscriptionDelay = Some(Duration(7, TimeUnit.MINUTES)),
             ),
             // Configuration with all optional values missing
@@ -295,7 +295,7 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
                 )
               ),
               maxItemCount = None,
-              timeoutDurationO = None,
+              timeoutO = None,
               subscriptionDelay = Some(Duration(7, TimeUnit.MINUTES)),
             )
           ),
@@ -344,7 +344,7 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
                 )
               ),
               maxItemCount = None,
-              timeoutDurationO = None,
+              timeoutO = None,
               subscriptionDelay = Some(Duration(7, TimeUnit.MINUTES)),
             )
           ),
@@ -381,7 +381,7 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
               endOffset = Some(offset("bar")),
               objectives = None,
               maxItemCount = None,
-              timeoutDurationO = None,
+              timeoutO = None,
               subscriptionDelay = Some(Duration(7, TimeUnit.MINUTES)),
             )
           ),
@@ -435,7 +435,7 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
                 )
               ),
               maxItemCount = None,
-              timeoutDurationO = None,
+              timeoutO = None,
               subscriptionDelay = Some(Duration(7, TimeUnit.MINUTES)),
             )
           ),
@@ -476,7 +476,7 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
                 )
               ),
               maxItemCount = None,
-              timeoutDurationO = None,
+              timeoutO = None,
               subscriptionDelay = Some(Duration(7, TimeUnit.MINUTES)),
             )
           ),
@@ -513,7 +513,7 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
                   maxItemRate = Some(345),
                 )
               ),
-              timeoutDurationO = Some(Duration(100, TimeUnit.SECONDS)),
+              timeoutO = Some(Duration(100, TimeUnit.SECONDS)),
               maxItemCount = Some(101L),
               subscriptionDelay = Some(Duration(7, TimeUnit.MINUTES)),
             )
@@ -551,7 +551,7 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
               endOffset = Some(ledgerEndOffset),
               objectives = None,
               maxItemCount = None,
-              timeoutDurationO = None,
+              timeoutO = None,
               subscriptionDelay = Some(Duration(7, TimeUnit.MINUTES)),
             )
           ),
@@ -598,7 +598,7 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
               )
             ),
             maxItemCount = None,
-            timeoutDurationO = None,
+            timeoutO = None,
             subscriptionDelay = Some(Duration(7, TimeUnit.MINUTES)),
           )
         ),
@@ -659,7 +659,7 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
               )
             ),
             maxItemCount = None,
-            timeoutDurationO = None,
+            timeoutO = None,
             subscriptionDelay = Some(Duration(7, TimeUnit.MINUTES)),
           )
         ),
