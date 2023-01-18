@@ -216,7 +216,7 @@ final class RateLimitingInterceptorSpec
         for {
           fStatus1 <- streamHello(channel) // Ok
           fStatus2 <- streamHello(channel) // Ok
-          activeStreams = metrics.daml.lapi.streams.active.getCount
+          activeStreams = metrics.daml.lapi.streams.active.getValue
           fStatus3 <- streamHello(channel) // Limited
           status3 <- fStatus3 // Closed as part of limiting
           _ = waitService.completeStream()
@@ -233,7 +233,7 @@ final class RateLimitingInterceptorSpec
           status3.getCode shouldBe Code.ABORTED
           status3.getDescription should include(metrics.daml.lapi.streams.activeName)
           status4.getCode shouldBe Code.OK
-          eventually { metrics.daml.lapi.streams.active.getCount shouldBe 0 }
+          eventually { metrics.daml.lapi.streams.active.getValue shouldBe 0 }
         }
       }
     }
@@ -255,7 +255,7 @@ final class RateLimitingInterceptorSpec
           fStatus2 <- streamHello(channel)
           fHelloStatus2 = singleHello(channel)
 
-          activeStreams = metrics.daml.lapi.streams.active.getCount
+          activeStreams = metrics.daml.lapi.streams.active.getValue
 
           _ = waitService.completeStream()
           _ = waitService.completeSingle()
@@ -273,7 +273,7 @@ final class RateLimitingInterceptorSpec
           helloStatus1.getCode shouldBe Code.OK
           status2.getCode shouldBe Code.OK
           helloStatus2.getCode shouldBe Code.OK
-          eventually { metrics.daml.lapi.streams.active.getCount shouldBe 0 }
+          eventually { metrics.daml.lapi.streams.active.getValue shouldBe 0 }
         }
       }
     }
@@ -323,7 +323,7 @@ final class RateLimitingInterceptorSpec
       } yield {
         status1.getCode shouldBe Code.CANCELLED
 
-        eventually { metrics.daml.lapi.streams.active.getCount shouldBe 0 }
+        eventually { metrics.daml.lapi.streams.active.getValue shouldBe 0 }
       }
     }
   }
