@@ -59,11 +59,18 @@ object SandboxOnXRunner {
       config: Config,
       bridgeConfig: BridgeConfig,
       explicitDisclosureUnsafeEnabled: Boolean = false,
+      registerGlobalOpenTelemetry: Boolean,
   ): ResourceOwner[Port] =
     new ResourceOwner[Port] {
       override def acquire()(implicit context: ResourceContext): Resource[Port] =
         SandboxOnXRunner
-          .run(bridgeConfig, config, configAdaptor, explicitDisclosureUnsafeEnabled)
+          .run(
+            bridgeConfig,
+            config,
+            configAdaptor,
+            explicitDisclosureUnsafeEnabled,
+            registerGlobalOpenTelemetry,
+          )
           .acquire()
     }
 
@@ -72,6 +79,7 @@ object SandboxOnXRunner {
       config: Config,
       configAdaptor: BridgeConfigAdaptor,
       explicitDisclosureUnsafeEnabled: Boolean,
+      registerGlobalOpenTelemetry: Boolean,
   ): ResourceOwner[Port] = newLoggingContext { implicit loggingContext =>
     implicit val actorSystem: ActorSystem = ActorSystem(RunnerName)
     implicit val materializer: Materializer = Materializer(actorSystem)
@@ -82,7 +90,8 @@ object SandboxOnXRunner {
       _ <- ResourceOwner.forActorSystem(() => actorSystem)
       _ <- ResourceOwner.forMaterializer(() => materializer)
       openTelemetry <- OpenTelemetryOwner(
-        Option.when(config.metrics.enabled)(config.metrics.reporter)
+        setAsGlobal = registerGlobalOpenTelemetry,
+        Option.when(config.metrics.enabled)(config.metrics.reporter),
       )
 
       (participantId, dataSource, participantConfig) <- assertSingleParticipant(config)

@@ -21,7 +21,7 @@ import scala.concurrent.Future
 import scala.jdk.CollectionConverters.SeqHasAsJava
 
 @nowarn("msg=deprecated")
-case class OpenTelemetryOwner(reporter: Option[MetricsReporter])
+case class OpenTelemetryOwner(setAsGlobal: Boolean, reporter: Option[MetricsReporter])
     extends ResourceOwner[OpenTelemetry] {
 
   override def acquire()(implicit
@@ -54,8 +54,6 @@ case class OpenTelemetryOwner(reporter: Option[MetricsReporter])
       Future {
         sdk.getSdkMeterProvider.close()
         sdk.getSdkTracerProvider.close()
-        // Safe to reset as we need to cleanup the closed resources
-        GlobalOpenTelemetry.resetForTest()
       }
     }
   }

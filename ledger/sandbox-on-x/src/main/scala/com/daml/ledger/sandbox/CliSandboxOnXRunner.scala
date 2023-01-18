@@ -28,6 +28,7 @@ object CliSandboxOnXRunner {
   def run(
       args: collection.Seq[String],
       manipulateConfig: CliConfig[BridgeConfig] => CliConfig[BridgeConfig] = identity,
+      registerGlobalOpenTelemetry: Boolean,
   ): Unit = {
     val explicitDisclosureEnabled = args.contains(ExplicitDisclosureEnabledArg)
     val config = CliConfig
@@ -39,12 +40,13 @@ object CliSandboxOnXRunner {
       )
       .map(manipulateConfig)
       .getOrElse(sys.exit(1))
-    runProgram(config, explicitDisclosureEnabled)
+    runProgram(config, explicitDisclosureEnabled, registerGlobalOpenTelemetry)
   }
 
   private def runProgram(
       cliConfig: CliConfig[BridgeConfig],
       explicitDisclosureUnsafeEnabled: Boolean,
+      registerGlobalOpenTelemetry: Boolean,
   ): Unit =
     cliConfig.mode match {
       case Mode.Run =>
@@ -54,7 +56,12 @@ object CliSandboxOnXRunner {
             System.err.println,
             { sandboxOnXConfig =>
               program(
-                sox(new BridgeConfigAdaptor, sandboxOnXConfig, explicitDisclosureUnsafeEnabled)
+                sox(
+                  new BridgeConfigAdaptor,
+                  sandboxOnXConfig,
+                  explicitDisclosureUnsafeEnabled,
+                  registerGlobalOpenTelemetry,
+                )
               )
             },
           )
@@ -68,7 +75,14 @@ object CliSandboxOnXRunner {
         val configAdaptor: BridgeConfigAdaptor = new BridgeConfigAdaptor
         val sandboxOnXConfig: SandboxOnXConfig =
           SandboxOnXConfig.fromLegacy(configAdaptor, cliConfig)
-        program(sox(configAdaptor, sandboxOnXConfig, explicitDisclosureUnsafeEnabled))
+        program(
+          sox(
+            configAdaptor,
+            sandboxOnXConfig,
+            explicitDisclosureUnsafeEnabled,
+            registerGlobalOpenTelemetry,
+          )
+        )
       case Mode.PrintDefaultConfig(outputFilePathO) =>
         val text = genDefaultConfigText(cliConfig.configMap)
         outputFilePathO match {
@@ -95,6 +109,7 @@ object CliSandboxOnXRunner {
       configAdaptor: BridgeConfigAdaptor,
       sandboxOnXConfig: SandboxOnXConfig,
       explicitDisclosureUnsafeEnabled: Boolean,
+      registerGlobalOpenTelemetry: Boolean,
   ): ResourceOwner[Unit] = {
     Banner.show(Console.out)
     logger.withoutContext.info(
@@ -106,6 +121,7 @@ object CliSandboxOnXRunner {
         sandboxOnXConfig.ledger,
         sandboxOnXConfig.bridge,
         explicitDisclosureUnsafeEnabled,
+        registerGlobalOpenTelemetry,
       )
       .map(_ => ())
   }

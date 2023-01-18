@@ -118,7 +118,7 @@ class EngineModeIT
         ),
         dataSource = dataSource(SandboxOnXForTest.defaultH2SandboxJdbcUrl()),
       )
-      SandboxOnXRunner.owner(ConfigAdaptor(authService), sandboxConfig, bridgeConfig)
+      SandboxOnXRunner.owner(ConfigAdaptor(authService), sandboxConfig, bridgeConfig, registerGlobalOpenTelemetry = false)
     }
 
     def load(langVersion: LanguageVersion, range: VersionRange[LanguageVersion]) =

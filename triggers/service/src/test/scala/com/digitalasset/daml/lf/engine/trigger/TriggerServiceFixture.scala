@@ -356,6 +356,7 @@ trait SandboxFixture extends BeforeAndAfterAll with AbstractAuthFixture with Akk
           configAdaptor = ConfigAdaptor(authService),
           config = sandboxConfig(jdbcUrl = jdbcUrl),
           bridgeConfig = BridgeConfig(),
+          registerGlobalOpenTelemetry = false,
         )
         channel <- GrpcClientResource.owner(port)
       } yield (port, channel),

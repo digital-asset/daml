@@ -42,7 +42,7 @@ final class MetricsReporting[M](
     val registry = new MetricRegistry
     registry.registerAll(new JvmMetricSet)
     for {
-      openTelemetry <- OpenTelemetryOwner(extraMetricsReporter).acquire()
+      openTelemetry <- OpenTelemetryOwner(true, extraMetricsReporter).acquire()
       slf4JReporter <- acquire(newSlf4jReporter(registry))
       _ <- acquire(newJmxReporter(registry))
         .map(_.start())
