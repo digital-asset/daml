@@ -47,8 +47,6 @@ private[bridge] class PassThroughLedgerBridge(
           transactionSubmission = s,
           index = index,
           currentTimestamp = currentTimestamp,
-          // Explicit disclosure not enabled for pass-through ledger bridge
-          populateContractMetadata = false,
         )
     }
 }

@@ -24,10 +24,6 @@ import com.daml.platform.store.backend.common.{
 import com.daml.platform.store.dao.{DbDispatcher, EventProjectionProperties, PaginatingAsyncStream}
 import com.daml.platform.store.dao.PaginatingAsyncStream.IdPaginationState
 import com.daml.platform.store.dao.events.EventsTable.TransactionConversions
-import com.daml.platform.store.dao.events.FilterTableACSReader.{
-  IdQueryConfiguration,
-  statefulDeduplicate,
-}
 import com.daml.platform.store.utils.{ConcurrencyLimiter, QueueBasedConcurrencyLimiter, Telemetry}
 import com.daml.tracing
 import com.daml.tracing.Spans
@@ -100,8 +96,8 @@ class TransactionsFlatStreamReader(
       new QueueBasedConcurrencyLimiter(maxParallelIdConsumingQueries, executionContext)
     val payloadQueriesLimiter =
       new QueueBasedConcurrencyLimiter(maxParallelPayloadQueries, executionContext)
-    val decomposedFilters = FilterTableACSReader.makeSimpleFilters(filteringConstraints).toVector
-    val idPageSizing = IdQueryConfiguration(
+    val decomposedFilters = FilterUtils.decomposeFilters(filteringConstraints).toVector
+    val idPageSizing = IdPageSizing.calculateFrom(
       maxIdPageSize = maxIdsPerIdPage,
       // The ids for flat transactions are retrieved from two separate id tables.
       // To account for that we assign a half of the working memory to each table.
@@ -119,9 +115,9 @@ class TransactionsFlatStreamReader(
       decomposedFilters
         .map { filter =>
           PaginatingAsyncStream.streamIdsFromSeekPagination(
-            pageConfig = idPageSizing,
-            pageBufferSize = maxPagesPerIdPagesBuffer,
-            initialStartOffset = startExclusiveEventSequentialId,
+            idPageSizing = idPageSizing,
+            idPageBufferSize = maxPagesPerIdPagesBuffer,
+            initialFromIdExclusive = startExclusiveEventSequentialId,
           )(
             fetchPage = (state: IdPaginationState) => {
               maxParallelIdQueriesLimiter.execute {
@@ -132,7 +128,7 @@ class TransactionsFlatStreamReader(
                     )(
                       stakeholder = filter.party,
                       templateIdO = filter.templateId,
-                      startExclusive = state.startOffset,
+                      startExclusive = state.fromIdExclusive,
                       endInclusive = endInclusiveEventSequentialId,
                       limit = state.pageSize,
                     )(connection)
@@ -142,8 +138,7 @@ class TransactionsFlatStreamReader(
             }
           )
         }
-        .pipe(FilterTableACSReader.mergeSort[Long])
-        .statefulMapConcat(statefulDeduplicate)
+        .pipe(EventIdsUtils.sortAndDeduplicateIds)
         .via(
           BatchN(
             maxBatchSize = maxPayloadsPerPayloadsPage,

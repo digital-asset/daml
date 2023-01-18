@@ -65,12 +65,15 @@ testRule
 testRule trigger party readAs acsBuilder commandsInFlight s = do
   time <- getTime
   acs <- buildACS party acsBuilder
+  let config = TriggerConfig
+        { maxInFlightCommands = 1 }
   let state = TriggerState
         { acs = acs
         , actAs = party
         , readAs = readAs
         , userState = s
         , commandsInFlight = commandsInFlight
+        , config = config
         }
   -- A sufficiently powerful `TriggerF` command will entail redoing this as a
   -- natural transformation from `Free TriggerF` to `Free ScriptF`, which in

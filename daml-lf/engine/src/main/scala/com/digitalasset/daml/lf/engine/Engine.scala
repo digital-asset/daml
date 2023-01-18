@@ -377,6 +377,8 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
 
         case SResultQuestion(question) =>
           question match {
+            case _: Question.Update.NeedAuthority => ??? // TODO #15882
+
             case Question.Update.NeedTime(callback) =>
               callback(time)
 

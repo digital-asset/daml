@@ -58,19 +58,12 @@ object SandboxOnXRunner {
       configAdaptor: BridgeConfigAdaptor,
       config: Config,
       bridgeConfig: BridgeConfig,
-      explicitDisclosureUnsafeEnabled: Boolean = false,
       registerGlobalOpenTelemetry: Boolean,
   ): ResourceOwner[Port] =
     new ResourceOwner[Port] {
       override def acquire()(implicit context: ResourceContext): Resource[Port] =
         SandboxOnXRunner
-          .run(
-            bridgeConfig,
-            config,
-            configAdaptor,
-            explicitDisclosureUnsafeEnabled,
-            registerGlobalOpenTelemetry,
-          )
+          .run(bridgeConfig, config, configAdaptor, registerGlobalOpenTelemetry)
           .acquire()
     }
 
@@ -78,7 +71,6 @@ object SandboxOnXRunner {
       bridgeConfig: BridgeConfig,
       config: Config,
       configAdaptor: BridgeConfigAdaptor,
-      explicitDisclosureUnsafeEnabled: Boolean,
       registerGlobalOpenTelemetry: Boolean,
   ): ResourceOwner[Port] = newLoggingContext { implicit loggingContext =>
     implicit val actorSystem: ActorSystem = ActorSystem(RunnerName)
@@ -113,7 +105,6 @@ object SandboxOnXRunner {
         servicesExecutionContext = servicesExecutionContext,
         timeServiceBackendO = timeServiceBackendO,
         stageBufferSize = bridgeConfig.stageBufferSize,
-        explicitDisclosureEnabled = explicitDisclosureUnsafeEnabled,
       )
       apiServer <- new LedgerApiServer(
         ledgerFeatures = LedgerFeatures(
@@ -131,7 +122,7 @@ object SandboxOnXRunner {
           contractIdFeatures = ExperimentalContractIds.of(
             v1 = ExperimentalContractIds.ContractIdV1Support.NON_SUFFIXED
           ),
-          explicitDisclosure = ExperimentalExplicitDisclosure.of(explicitDisclosureUnsafeEnabled),
+          explicitDisclosure = ExperimentalExplicitDisclosure.of(true),
         ),
         authService = configAdaptor.authService(participantConfig),
         jwtVerifierLoader =
@@ -150,7 +141,7 @@ object SandboxOnXRunner {
         timeServiceBackendO = timeServiceBackendO,
         servicesExecutionContext = servicesExecutionContext,
         metrics = metrics,
-        explicitDisclosureUnsafeEnabled = explicitDisclosureUnsafeEnabled,
+        explicitDisclosureUnsafeEnabled = true,
         rateLimitingInterceptor =
           participantConfig.apiServer.rateLimit.map(buildRateLimitingInterceptor(metrics)),
         telemetry = new DefaultOpenTelemetry(openTelemetry),
@@ -218,7 +209,6 @@ object SandboxOnXRunner {
       servicesExecutionContext: ExecutionContextExecutorService,
       timeServiceBackendO: Option[TimeServiceBackend],
       stageBufferSize: Int,
-      explicitDisclosureEnabled: Boolean,
   ): IndexService => ResourceOwner[WriteService] = { indexService =>
     val bridgeMetrics = new BridgeMetrics(factory = metricsFactory)
     for {
@@ -230,7 +220,6 @@ object SandboxOnXRunner {
         servicesThreadPoolSize,
         timeServiceBackendO.getOrElse(TimeProvider.UTC),
         stageBufferSize,
-        explicitDisclosureEnabled,
       )(loggingContext, servicesExecutionContext)
       writeService <- ResourceOwner.forCloseable(() =>
         new BridgeWriteService(

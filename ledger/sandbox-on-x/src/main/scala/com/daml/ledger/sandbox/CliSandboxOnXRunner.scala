@@ -12,13 +12,6 @@ import com.daml.logging.ContextualizedLogger
 import com.daml.resources.ProgramResource
 
 object CliSandboxOnXRunner {
-  // TODO ED: Remove flag once explicit disclosure is deemed stable and all
-  //          backing ledgers implement proper validation against malicious clients
-  //
-  // NOTE: The flag is explicitly extracted out of the provided program arguments
-  //       and not passed via the HOCON config in order to prevent accidental
-  //       enablement, which could render participants vulnerable to malicious clients.
-  private val ExplicitDisclosureEnabledArg = "explicit-disclosure-unsafe-enabled"
   private val logger = ContextualizedLogger.get(getClass)
   val RunnerName = "sandbox-on-x"
 
@@ -30,22 +23,20 @@ object CliSandboxOnXRunner {
       manipulateConfig: CliConfig[BridgeConfig] => CliConfig[BridgeConfig] = identity,
       registerGlobalOpenTelemetry: Boolean,
   ): Unit = {
-    val explicitDisclosureEnabled = args.contains(ExplicitDisclosureEnabledArg)
     val config = CliConfig
       .parse(
         RunnerName,
         BridgeConfig.Parser,
         BridgeConfig.Default,
-        args.filterNot(_ == ExplicitDisclosureEnabledArg),
+        args,
       )
       .map(manipulateConfig)
       .getOrElse(sys.exit(1))
-    runProgram(config, explicitDisclosureEnabled, registerGlobalOpenTelemetry)
+    runProgram(config, registerGlobalOpenTelemetry)
   }
 
   private def runProgram(
       cliConfig: CliConfig[BridgeConfig],
-      explicitDisclosureUnsafeEnabled: Boolean,
       registerGlobalOpenTelemetry: Boolean,
   ): Unit =
     cliConfig.mode match {
@@ -56,12 +47,7 @@ object CliSandboxOnXRunner {
             System.err.println,
             { sandboxOnXConfig =>
               program(
-                sox(
-                  new BridgeConfigAdaptor,
-                  sandboxOnXConfig,
-                  explicitDisclosureUnsafeEnabled,
-                  registerGlobalOpenTelemetry,
-                )
+                sox(new BridgeConfigAdaptor, sandboxOnXConfig, registerGlobalOpenTelemetry)
               )
             },
           )
@@ -75,14 +61,7 @@ object CliSandboxOnXRunner {
         val configAdaptor: BridgeConfigAdaptor = new BridgeConfigAdaptor
         val sandboxOnXConfig: SandboxOnXConfig =
           SandboxOnXConfig.fromLegacy(configAdaptor, cliConfig)
-        program(
-          sox(
-            configAdaptor,
-            sandboxOnXConfig,
-            explicitDisclosureUnsafeEnabled,
-            registerGlobalOpenTelemetry,
-          )
-        )
+        program(sox(configAdaptor, sandboxOnXConfig, registerGlobalOpenTelemetry))
       case Mode.PrintDefaultConfig(outputFilePathO) =>
         val text = genDefaultConfigText(cliConfig.configMap)
         outputFilePathO match {
@@ -108,7 +87,6 @@ object CliSandboxOnXRunner {
   private def sox(
       configAdaptor: BridgeConfigAdaptor,
       sandboxOnXConfig: SandboxOnXConfig,
-      explicitDisclosureUnsafeEnabled: Boolean,
       registerGlobalOpenTelemetry: Boolean,
   ): ResourceOwner[Unit] = {
     Banner.show(Console.out)
@@ -120,7 +98,6 @@ object CliSandboxOnXRunner {
         configAdaptor,
         sandboxOnXConfig.ledger,
         sandboxOnXConfig.bridge,
-        explicitDisclosureUnsafeEnabled,
         registerGlobalOpenTelemetry,
       )
       .map(_ => ())

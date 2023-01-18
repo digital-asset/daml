@@ -36,7 +36,6 @@ object LedgerBridge {
       servicesThreadPoolSize: Int,
       timeProvider: TimeProvider,
       stageBufferSize: Int,
-      explicitDisclosureEnabled: Boolean,
   )(implicit
       loggingContext: LoggingContext,
       servicesExecutionContext: ExecutionContext,
@@ -49,7 +48,6 @@ object LedgerBridge {
         servicesThreadPoolSize,
         timeProvider,
         stageBufferSize,
-        explicitDisclosureEnabled,
       )
     else
       ResourceOwner.forValue(() => new PassThroughLedgerBridge(participantId, timeProvider))
@@ -61,7 +59,6 @@ object LedgerBridge {
       servicesThreadPoolSize: Int,
       timeProvider: TimeProvider,
       stageBufferSize: Int,
-      explicitDisclosureEnabled: Boolean,
   )(implicit
       loggingContext: LoggingContext,
       servicesExecutionContext: ExecutionContext,
@@ -88,7 +85,6 @@ object LedgerBridge {
         .map(_.maxDeduplicationDuration)
         .getOrElse(BridgeConfig.DefaultMaximumDeduplicationDuration),
       stageBufferSize = stageBufferSize,
-      explicitDisclosureEnabled = explicitDisclosureEnabled,
     )
 
   private[bridge] def packageUploadSuccess(
@@ -134,7 +130,6 @@ object LedgerBridge {
       transactionSubmission: Submission.Transaction,
       index: Long,
       currentTimestamp: Time.Timestamp,
-      populateContractMetadata: Boolean,
   ): Update.TransactionAccepted = {
     val submittedTransaction = transactionSubmission.transaction
     val completionInfo = Some(
@@ -143,18 +138,14 @@ object LedgerBridge {
       )
     )
     val contractMetadata: Map[ContractId, Bytes] =
-      if (populateContractMetadata) {
-        submittedTransaction
-          .localContracts[ContractId]
-          .keySet
-          .view
-          .map[(ContractId, Bytes)] { case cid: ContractId.V1 =>
-            cid -> cid.toBytes
-          }
-          .toMap
-      } else {
-        Map.empty
-      }
+      submittedTransaction
+        .localContracts[ContractId]
+        .keySet
+        .view
+        .map[(ContractId, Bytes)] { case cid: ContractId.V1 =>
+          cid -> cid.toBytes
+        }
+        .toMap
     Update.TransactionAccepted(
       optCompletionInfo = completionInfo,
       transactionMeta = transactionSubmission.transactionMeta,

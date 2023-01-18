@@ -50,7 +50,7 @@ class ConfigEnricher(
             filters = enrichFilters(config.filters) ++ config.partyNamePrefixFilters.flatMap(
               convertFilterByPartySet
             ),
-            partyNamePrefixFiltersO = None,
+            partyNamePrefixFilters = List.empty,
           )
       case config: TransactionTreesStreamConfig =>
         config
@@ -58,7 +58,7 @@ class ConfigEnricher(
             filters = enrichFilters(config.filters) ++ config.partyNamePrefixFilters.flatMap(
               convertFilterByPartySet
             ),
-            partyNamePrefixFiltersO = None,
+            partyNamePrefixFilters = List.empty,
           )
       case config: ActiveContractsStreamConfig =>
         config
@@ -66,7 +66,7 @@ class ConfigEnricher(
             filters = enrichFilters(config.filters) ++ config.partyNamePrefixFilters.flatMap(
               convertFilterByPartySet
             ),
-            partyNamePrefixFiltersO = None,
+            partyNamePrefixFilters = List.empty,
           )
       case config: CompletionsStreamConfig =>
         config.copy(parties = config.parties.map(party => convertParty(party)))

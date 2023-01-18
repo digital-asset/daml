@@ -176,19 +176,17 @@ class PartySetsITSpec
           interfaces = List.empty,
         )
       ),
-      partyNamePrefixFiltersO = Some(
-        filterByPartyNamePrefixes.map(partyNamePrefix =>
-          PartyNamePrefixFilter(
-            partyNamePrefix = partyNamePrefix,
-            templates = filterByTemplates,
-          )
+      partyNamePrefixFilters = filterByPartyNamePrefixes.map(partyNamePrefix =>
+        PartyNamePrefixFilter(
+          partyNamePrefix = partyNamePrefix,
+          templates = filterByTemplates,
         )
       ),
       beginOffset = None,
       endOffset = Some(LedgerOffset().withBoundary(LedgerOffset.LedgerBoundary.LEDGER_END)),
       objectives = None,
       maxItemCount = None,
-      timeoutInSecondsO = None,
+      timeoutO = None,
     )
     for {
       _ <- apiServices.transactionService.transactionTrees(

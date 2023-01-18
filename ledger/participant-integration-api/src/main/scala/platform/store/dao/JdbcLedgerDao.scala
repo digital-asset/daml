@@ -116,7 +116,7 @@ private class JdbcLedgerDao(
       startExclusive: Offset,
       endInclusive: Offset,
   )(implicit loggingContext: LoggingContext): Source[(Offset, ConfigurationEntry), NotUsed] =
-    PaginatingAsyncStream(PageSize) { queryOffset =>
+    PaginatingAsyncStream.streamFromLimitOffsetPagination(PageSize) { queryOffset =>
       withEnrichedLoggingContext("queryOffset" -> queryOffset) { implicit loggingContext =>
         dbDispatcher.executeSql(metrics.daml.index.db.loadConfigurationEntries) {
           readStorageBackend.configurationStorageBackend.configurationEntries(
@@ -206,7 +206,7 @@ private class JdbcLedgerDao(
       startExclusive: Offset,
       endInclusive: Offset,
   )(implicit loggingContext: LoggingContext): Source[(Offset, PartyLedgerEntry), NotUsed] = {
-    PaginatingAsyncStream(PageSize) { queryOffset =>
+    PaginatingAsyncStream.streamFromLimitOffsetPagination(PageSize) { queryOffset =>
       withEnrichedLoggingContext("queryOffset" -> queryOffset) { implicit loggingContext =>
         dbDispatcher.executeSql(metrics.daml.index.db.loadPartyEntries)(
           readStorageBackend.partyStorageBackend.partyEntries(
@@ -345,7 +345,7 @@ private class JdbcLedgerDao(
       startExclusive: Offset,
       endInclusive: Offset,
   )(implicit loggingContext: LoggingContext): Source[(Offset, PackageLedgerEntry), NotUsed] =
-    PaginatingAsyncStream(PageSize) { queryOffset =>
+    PaginatingAsyncStream.streamFromLimitOffsetPagination(PageSize) { queryOffset =>
       withEnrichedLoggingContext("queryOffset" -> queryOffset) { implicit loggingContext =>
         dbDispatcher.executeSql(metrics.daml.index.db.loadPackageEntries)(
           readStorageBackend.packageStorageBackend.packageEntries(
@@ -475,7 +475,7 @@ private class JdbcLedgerDao(
   private val acsEventFetchingQueryLimiter =
     new QueueBasedConcurrencyLimiter(acsGlobalParallelism, servicesExecutionContext)
 
-  private val acsReader = new FilterTableACSReader(
+  private val acsReader = new ACSReader(
     dispatcher = dbDispatcher,
     queryNonPruned = queryNonPruned,
     eventStorageBackend = readStorageBackend.eventStorageBackend,
@@ -484,9 +484,9 @@ private class JdbcLedgerDao(
     idPageBufferSize = acsIdPageBufferSize,
     idPageWorkingMemoryBytes = acsIdPageWorkingMemoryBytes,
     idFetchingParallelism = acsIdFetchingParallelism,
-    acsFetchingparallelism = acsContractFetchingParallelism,
+    acsFetchingParallelism = acsContractFetchingParallelism,
     metrics = metrics,
-    querylimiter = acsEventFetchingQueryLimiter,
+    queryLimiter = acsEventFetchingQueryLimiter,
     executionContext = servicesExecutionContext,
   )
 
