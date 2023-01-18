@@ -13,7 +13,9 @@ class HealthMetrics(val factory: Factory) {
 
   def registerHealthGauge(componentName: String, supplier: () => Boolean): Unit = {
     val asLong = () => if (supplier()) 1L else 0L
-    factory.gaugeWithSupplier(MetricName, asLong)(MetricsContext((ComponentLabel, componentName)))
+    factory.gaugeWithSupplier(MetricName, asLong, "The status of the Daml components")(
+      MetricsContext((ComponentLabel, componentName))
+    )
   }
 
   def registerHealthGauge(componentName: String, supplier: () => Future[Boolean])(implicit

@@ -8,6 +8,27 @@ The below sections contain the list of common metrics we expose for Daml service
 
 For the metric types referenced below, see the `relevant Prometheus documentation <https://prometheus.io/docs/tutorials/understanding_metric_types/>`_.
 
+Health Metrics
+**************
+
+We expose the below metrics for each components.
+
+daml_health_status
+==================
+
+- **Description**: The status of the component
+- **Values**:
+
+  - **0**: Not healthy
+  - **1**: Healthy
+  
+- **Labels**: 
+
+  - **component**: the name of the component being monitored
+
+- **Type**: Gauge
+
+
 gRPC Metrics
 ************
 We expose the below metrics for all gRPC endpoints.
