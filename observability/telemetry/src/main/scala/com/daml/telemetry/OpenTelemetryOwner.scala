@@ -46,7 +46,7 @@ case class OpenTelemetryOwner(setAsGlobal: Boolean, reporter: Option[MetricsRepo
             } else meterProviderBuilder
           }
           .registerShutdownHook(false)
-          .setResultAsGlobal(true)
+          .setResultAsGlobal(setAsGlobal)
           .build()
           .getOpenTelemetrySdk
       }
