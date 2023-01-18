@@ -23,6 +23,7 @@ module DA.Daml.LF.Ast.World(
     lookupValue,
     lookupModule,
     lookupInterface,
+    lookupTemplateOrInterface,
     InterfaceInstanceInfo(..),
     lookupInterfaceInstance,
     ) where
@@ -41,7 +42,7 @@ import Data.Either.Extra (maybeToEither)
 import DA.Daml.LF.Ast.Base
 import DA.Daml.LF.Ast.Pretty ()
 import DA.Daml.LF.Ast.Version
-import DA.Daml.LF.TemplateOrInterface (TemplateOrInterface')
+import DA.Daml.LF.TemplateOrInterface (TemplateOrInterface, TemplateOrInterface')
 import qualified DA.Daml.LF.TemplateOrInterface as TemplateOrInterface
 
 -- | The 'World' contains all imported packages together with (a subset of)
@@ -107,6 +108,7 @@ data LookupError
   | LEChoice !(Qualified TypeConName) !ChoiceName
   | LEInterface !(Qualified TypeConName)
   | LEInterfaceMethod !(Qualified TypeConName) !MethodName
+  | LETemplateOrInterface !(Qualified TypeConName)
   | LEUnknownInterfaceInstance !InterfaceInstanceHead
   | LEAmbiguousInterfaceInstance !InterfaceInstanceHead
   deriving (Eq, Ord, Show)
@@ -150,6 +152,16 @@ lookupTemplate = lookupDefinition moduleTemplates LETemplate
 
 lookupInterface :: Qualified TypeConName -> World -> Either LookupError DefInterface
 lookupInterface = lookupDefinition moduleInterfaces LEInterface
+
+lookupTemplateOrInterface ::
+  Qualified TypeConName -> World -> Either LookupError (TemplateOrInterface Template DefInterface)
+lookupTemplateOrInterface tyCon world =
+  case lookupTemplate tyCon world of
+    Right template -> Right (TemplateOrInterface.Template template)
+    Left _ ->
+      case lookupInterface tyCon world of
+        Right interface -> Right (TemplateOrInterface.Interface interface)
+        Left _ -> Left (LETemplateOrInterface tyCon)
 
 lookupException :: Qualified TypeConName -> World -> Either LookupError DefException
 lookupException = lookupDefinition moduleExceptions LEException
@@ -208,6 +220,7 @@ instance Pretty LookupError where
     LEChoice tplRef chName -> "unknown choice:" <-> pretty tplRef <> ":" <> pretty chName
     LEInterface ifaceRef -> "unknown interface:" <-> pretty ifaceRef
     LEInterfaceMethod ifaceRef methodName -> "unknown interface method:" <-> pretty ifaceRef <> "." <> pretty methodName
+    LETemplateOrInterface tyRef -> "unknown template or interface:" <-> pretty tyRef
     LEUnknownInterfaceInstance iiHead -> "unknown" <-> quotes (pretty iiHead)
     LEAmbiguousInterfaceInstance iiHead ->
       hsep

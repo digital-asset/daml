@@ -51,6 +51,10 @@ instance DA.Internal.Desugar.HasExercise A DA.Internal.Desugar.Archive (()) wher
         @"UExerciseInterface"
         (DA.Internal.Desugar.toInterfaceContractId @A cid)
         arg
+instance DA.Internal.Desugar.HasChoiceController A DA.Internal.Desugar.Archive where
+  _choiceController = GHC.Types.primitive @"EChoiceController"
+instance DA.Internal.Desugar.HasChoiceObserver A DA.Internal.Desugar.Archive where
+  _choiceObserver = GHC.Types.primitive @"EChoiceObserver"
 _choice$_AArchive :
   (A -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.ContractId A
@@ -123,6 +127,10 @@ instance DA.Internal.Desugar.HasExercise B DA.Internal.Desugar.Archive (()) wher
         @"UExerciseInterface"
         (DA.Internal.Desugar.toInterfaceContractId @B cid)
         arg
+instance DA.Internal.Desugar.HasChoiceController B DA.Internal.Desugar.Archive where
+  _choiceController = GHC.Types.primitive @"EChoiceController"
+instance DA.Internal.Desugar.HasChoiceObserver B DA.Internal.Desugar.Archive where
+  _choiceObserver = GHC.Types.primitive @"EChoiceObserver"
 _choice$_BArchive :
   (B -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.ContractId B
@@ -189,6 +197,10 @@ instance DA.Internal.Desugar.HasToAnyChoice T DA.Internal.Desugar.Archive (()) w
   _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
 instance DA.Internal.Desugar.HasFromAnyChoice T DA.Internal.Desugar.Archive (()) where
   _fromAnyChoice = GHC.Types.primitive @"EFromAnyChoice"
+instance DA.Internal.Desugar.HasChoiceController T DA.Internal.Desugar.Archive where
+  _choiceController = GHC.Types.primitive @"EChoiceController"
+instance DA.Internal.Desugar.HasChoiceObserver T DA.Internal.Desugar.Archive where
+  _choiceObserver = GHC.Types.primitive @"EChoiceObserver"
 _choice$_TArchive :
   (T -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.ContractId T

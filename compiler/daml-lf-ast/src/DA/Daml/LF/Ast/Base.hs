@@ -611,6 +611,18 @@ data Expr
     { viewInterfaceInterface :: !(Qualified TypeConName)
     , viewInterfaceExpr :: !Expr
     }
+  | EChoiceController
+    { choiceControllerTemplate :: !(Qualified TypeConName)
+    , choiceControllerChoice :: !ChoiceName
+    , choiceControllerContract :: !Expr
+    , choiceControllerChoiceArg :: !Expr
+    }
+  | EChoiceObserver
+    { choiceObserverTemplate :: !(Qualified TypeConName)
+    , choiceObserverChoice :: !ChoiceName
+    , choiceObserverContract :: !Expr
+    , choiceObserverChoiceArg :: !Expr
+    }
   -- | Experimental Expression Hook
   | EExperimental !T.Text !Type
   deriving (Eq, Data, Generic, NFData, Ord, Show)

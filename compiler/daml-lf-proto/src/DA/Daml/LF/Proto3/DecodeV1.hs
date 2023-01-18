@@ -710,6 +710,16 @@ decodeExprSum exprSum = mayDecode "exprSum" exprSum $ \case
   LF1.ExprSumViewInterface LF1.Expr_ViewInterface {..} -> EViewInterface
     <$> mayDecode "expr_ViewInterfaceInterface" expr_ViewInterfaceInterface decodeTypeConName
     <*> mayDecode "expr_ViewInterfaceExpr" expr_ViewInterfaceExpr decodeExpr
+  LF1.ExprSumChoiceController LF1.Expr_ChoiceController {..} -> EChoiceController
+    <$> mayDecode "expr_ChoiceControllerTemplate" expr_ChoiceControllerTemplate decodeTypeConName
+    <*> decodeNameId ChoiceName expr_ChoiceControllerChoiceInternedStr
+    <*> mayDecode "expr_ChoiceControllerContractExpr" expr_ChoiceControllerContractExpr decodeExpr
+    <*> mayDecode "expr_ChoiceControllerChoiceArgExpr" expr_ChoiceControllerChoiceArgExpr decodeExpr
+  LF1.ExprSumChoiceObserver LF1.Expr_ChoiceObserver {..} -> EChoiceObserver
+    <$> mayDecode "expr_ChoiceObserverTemplate" expr_ChoiceObserverTemplate decodeTypeConName
+    <*> decodeNameId ChoiceName expr_ChoiceObserverChoiceInternedStr
+    <*> mayDecode "expr_ChoiceObserverContractExpr" expr_ChoiceObserverContractExpr decodeExpr
+    <*> mayDecode "expr_ChoiceObserverChoiceArgExpr" expr_ChoiceObserverChoiceArgExpr decodeExpr
   LF1.ExprSumExperimental (LF1.Expr_Experimental name mbType) -> do
     ty <- mayDecode "expr_Experimental" mbType decodeType
     pure $ EExperimental (decodeString name) ty

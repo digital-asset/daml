@@ -277,7 +277,7 @@ private[lf] class PackageInterface(signatures: PartialFunction[PackageId, Packag
     lookupInterface(ifaceName, context).flatMap(
       _.choices
         .get(chName)
-        .toRight(LookupError.NotFound(Reference.TemplateChoice(ifaceName, chName), context))
+        .toRight(LookupError.NotFound(Reference.InterfaceChoice(ifaceName, chName), context))
     )
 
   def lookupInterfaceChoice(

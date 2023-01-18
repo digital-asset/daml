@@ -153,6 +153,22 @@ object Ast {
   /** Extract the payload from an AnyException if it matches the given exception type */
   final case class EFromAnyException(typ: Type, value: Expr) extends Expr
 
+  /** Extract the controllers from a contract and a choice */
+  final case class EChoiceController(
+      templateId: TypeConName,
+      choice: ChoiceName,
+      contractExpr: Expr,
+      choiceArgExpr: Expr,
+  ) extends Expr
+
+  /** Extract the observers from a contract and a choice */
+  final case class EChoiceObserver(
+      templateId: TypeConName,
+      choice: ChoiceName,
+      contractExpr: Expr,
+      choiceArgExpr: Expr,
+  ) extends Expr
+
   // We use this type to reduce depth of pattern matching
   sealed abstract class ExprInterface extends Expr
 

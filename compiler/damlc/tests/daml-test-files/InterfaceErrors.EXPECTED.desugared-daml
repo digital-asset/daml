@@ -56,6 +56,10 @@ instance DA.Internal.Desugar.HasExercise MyInterface DA.Internal.Desugar.Archive
         @"UExerciseInterface"
         (DA.Internal.Desugar.toInterfaceContractId @MyInterface cid)
         arg
+instance DA.Internal.Desugar.HasChoiceController MyInterface DA.Internal.Desugar.Archive where
+  _choiceController = GHC.Types.primitive @"EChoiceController"
+instance DA.Internal.Desugar.HasChoiceObserver MyInterface DA.Internal.Desugar.Archive where
+  _choiceObserver = GHC.Types.primitive @"EChoiceObserver"
 instance DA.Internal.Desugar.HasToAnyChoice MyInterface MyVirtualChoice (()) where
   _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
 instance DA.Internal.Desugar.HasFromAnyChoice MyInterface MyVirtualChoice (()) where
@@ -73,6 +77,10 @@ instance DA.Internal.Desugar.HasExercise MyInterface MyVirtualChoice (()) where
         @"UExerciseInterface"
         (DA.Internal.Desugar.toInterfaceContractId @MyInterface cid)
         arg
+instance DA.Internal.Desugar.HasChoiceController MyInterface MyVirtualChoice where
+  _choiceController = GHC.Types.primitive @"EChoiceController"
+instance DA.Internal.Desugar.HasChoiceObserver MyInterface MyVirtualChoice where
+  _choiceObserver = GHC.Types.primitive @"EChoiceObserver"
 data MyVirtualChoice
   = MyVirtualChoice {}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
@@ -159,6 +167,10 @@ instance DA.Internal.Desugar.HasToAnyChoice MyTemplate DA.Internal.Desugar.Archi
   _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
 instance DA.Internal.Desugar.HasFromAnyChoice MyTemplate DA.Internal.Desugar.Archive (()) where
   _fromAnyChoice = GHC.Types.primitive @"EFromAnyChoice"
+instance DA.Internal.Desugar.HasChoiceController MyTemplate DA.Internal.Desugar.Archive where
+  _choiceController = GHC.Types.primitive @"EChoiceController"
+instance DA.Internal.Desugar.HasChoiceObserver MyTemplate DA.Internal.Desugar.Archive where
+  _choiceObserver = GHC.Types.primitive @"EChoiceObserver"
 _choice$_MyTemplateArchive :
   (MyTemplate
    -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party],

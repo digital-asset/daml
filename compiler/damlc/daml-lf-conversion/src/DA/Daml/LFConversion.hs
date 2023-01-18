@@ -815,6 +815,18 @@ convertTypeDef env o@(ATyCon t) = withRange (convNameLoc t) $ if
     , NameIn DA_Internal_Template_Functions "HasExerciseGuarded" <- cls
     ->  pure []
 
+    -- Remove HasChoiceController instances when choice functions are unsupported
+    | not (envLfVersion env `supports` featureChoiceFuncs)
+    , Just cls <- tyConClass_maybe t
+    , NameIn DA_Internal_Template_Functions "HasChoiceController" <- cls
+    -> pure []
+
+    -- Remove HasChoiceObserver instances when choice functions are unsupported
+    | not (envLfVersion env `supports` featureChoiceFuncs)
+    , Just cls <- tyConClass_maybe t
+    , NameIn DA_Internal_Template_Functions "HasChoiceObserver" <- cls
+    -> pure []
+
     -- Constraint tuples are represented by LF structs.
     | isConstraintTupleTyCon t
     -> pure []
@@ -1309,6 +1321,44 @@ convertBind env mc (name, x)
     , DesugarDFunId _ _ (NameIn DA_Internal_Template_Functions "HasExerciseGuarded") _ <- name
     = pure []
 
+    -- Remove choice controller when Choice Functions are unsupported
+    | not (envLfVersion env `supports` featureChoiceFuncs)
+    , "$c_choiceController" `T.isPrefixOf` getOccText name
+    = pure []
+
+    -- Remove choice controller when Choice Functions are unsupported
+    | not (envLfVersion env `supports` featureChoiceFuncs)
+    , NameIn DA_Internal_Template_Functions "_choiceController" <- name
+    = pure []
+
+    -- Remove choice controller when Choice Functions are unsupported
+    | not (envLfVersion env `supports` featureChoiceFuncs)
+    , NameIn DA_Internal_Template_Functions "choiceController" <- name
+    = pure []
+
+    | not (envLfVersion env `supports` featureChoiceFuncs)
+    , DesugarDFunId _ _ (NameIn DA_Internal_Template_Functions "HasChoiceController") _ <- name
+    = pure []
+
+    -- Remove choice observer when Choice Functions are unsupported
+    | not (envLfVersion env `supports` featureChoiceFuncs)
+    , "$c_choiceObserver" `T.isPrefixOf` getOccText name
+    = pure []
+
+    -- Remove choice observer when Choice Functions are unsupported
+    | not (envLfVersion env `supports` featureChoiceFuncs)
+    , NameIn DA_Internal_Template_Functions "_choiceObserver" <- name
+    = pure []
+
+    -- Remove choice observer when Choice Functions are unsupported
+    | not (envLfVersion env `supports` featureChoiceFuncs)
+    , NameIn DA_Internal_Template_Functions "choiceObserver" <- name
+    = pure []
+
+    | not (envLfVersion env `supports` featureChoiceFuncs)
+    , DesugarDFunId _ _ (NameIn DA_Internal_Template_Functions "HasChoiceObserver") _ <- name
+    = pure []
+
     -- Remove internal functions.
     | Just internals <- lookupUFM internalFunctions (envGHCModuleName env)
     , getOccFS name `elementOfUniqSet` internals
@@ -1561,6 +1611,12 @@ convertExpr env0 e = do
     go env (VarIn DA_Internal_Template_Functions "exerciseGuarded") _
         | not $ envLfVersion env `supports` featureExtendedInterfaces
         = conversionError "Guarded exercises are only available with --target=1.dev"
+    go env (VarIn DA_Internal_Template_Functions "choiceController") _
+        | not $ envLfVersion env `supports` featureChoiceFuncs
+        = conversionError "The function `choiceController` is only available with --target=1.dev"
+    go env (VarIn DA_Internal_Template_Functions "choiceObserver") _
+        | not $ envLfVersion env `supports` featureChoiceFuncs
+        = conversionError "The function `choiceObserver` is only available with --target=1.dev"
 
     go env (ConstraintTupleProjection index arity) args
         | (LExpr x : args') <- drop arity args -- drop the type arguments

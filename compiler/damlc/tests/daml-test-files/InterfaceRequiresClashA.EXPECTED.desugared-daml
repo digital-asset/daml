@@ -51,6 +51,10 @@ instance DA.Internal.Desugar.HasExercise I DA.Internal.Desugar.Archive (()) wher
         @"UExerciseInterface"
         (DA.Internal.Desugar.toInterfaceContractId @I cid)
         arg
+instance DA.Internal.Desugar.HasChoiceController I DA.Internal.Desugar.Archive where
+  _choiceController = GHC.Types.primitive @"EChoiceController"
+instance DA.Internal.Desugar.HasChoiceObserver I DA.Internal.Desugar.Archive where
+  _choiceObserver = GHC.Types.primitive @"EChoiceObserver"
 _choice$_IArchive :
   (I -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.ContractId I

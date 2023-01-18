@@ -1476,6 +1476,28 @@ private[archive] class DecodeV1(minor: LV.Minor) {
             Ret(EViewInterface(ifaceId, expr))
           }
 
+        case PLF.Expr.SumCase.CHOICE_CONTROLLER =>
+          assertSince(LV.Features.choiceFuncs, "Expr.choice_controller")
+          val choiceController = lfExpr.getChoiceController
+          val tplCon = decodeTypeConName(choiceController.getTemplate)
+          val choiceName = handleInternedName(choiceController.getChoiceInternedStr)
+          decodeExpr(choiceController.getContractExpr, definition) { contractExpr =>
+            decodeExpr(choiceController.getChoiceArgExpr, definition) { choiceArgExpr =>
+              Ret(EChoiceController(tplCon, choiceName, contractExpr, choiceArgExpr))
+            }
+          }
+
+        case PLF.Expr.SumCase.CHOICE_OBSERVER =>
+          assertSince(LV.Features.choiceFuncs, "Expr.choice_observer")
+          val choiceObserver = lfExpr.getChoiceObserver
+          val tplCon = decodeTypeConName(choiceObserver.getTemplate)
+          val choiceName = handleInternedName(choiceObserver.getChoiceInternedStr)
+          decodeExpr(choiceObserver.getContractExpr, definition) { contractExpr =>
+            decodeExpr(choiceObserver.getChoiceArgExpr, definition) { choiceArgExpr =>
+              Ret(EChoiceObserver(tplCon, choiceName, contractExpr, choiceArgExpr))
+            }
+          }
+
         case PLF.Expr.SumCase.EXPERIMENTAL =>
           assertSince(LV.v1_dev, "Expr.experimental")
           val experimental = lfExpr.getExperimental

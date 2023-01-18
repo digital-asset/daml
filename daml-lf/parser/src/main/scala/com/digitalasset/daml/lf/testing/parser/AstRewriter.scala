@@ -160,6 +160,10 @@ private[daml] class AstRewriter(
           EViewInterface(apply(ifaceId), apply(expr))
         case EObserverInterface(ifaceId, body) =>
           EObserverInterface(apply(ifaceId), apply(body))
+        case EChoiceController(typeId, choiceName, contract, choiceArg) =>
+          EChoiceController(apply(typeId), choiceName, apply(contract), apply(choiceArg))
+        case EChoiceObserver(typeId, choiceName, contract, choiceArg) =>
+          EChoiceObserver(apply(typeId), choiceName, apply(contract), apply(choiceArg))
       }
 
   def apply(x: TypeConApp): TypeConApp = x match {

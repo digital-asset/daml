@@ -116,6 +116,8 @@ freeVarsStep = \case
     ESignatoryInterfaceF _ e -> e
     EObserverInterfaceF _ e -> e
     EViewInterfaceF _ e -> e
+    EChoiceControllerF _ _ e1 e2 -> e1 <> e2
+    EChoiceObserverF _ _ e1 e2 -> e1 <> e2
     EExperimentalF _ t -> freeVarsInType t
 
   where
