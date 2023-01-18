@@ -9,7 +9,7 @@ import com.daml.metrics.api.opentelemetry.OpenTelemetryTimer
 import com.daml.metrics.api.reporters.MetricsReporter
 import com.daml.metrics.api.reporters.MetricsReporter.Prometheus
 import com.daml.telemetry.OpenTelemetryOwner.addViewsToProvider
-import io.opentelemetry.api.{GlobalOpenTelemetry, OpenTelemetry}
+import io.opentelemetry.api.OpenTelemetry
 import io.opentelemetry.exporter.prometheus.PrometheusCollector
 import io.opentelemetry.sdk.autoconfigure.AutoConfiguredOpenTelemetrySdk
 import io.opentelemetry.sdk.metrics.SdkMeterProviderBuilder
