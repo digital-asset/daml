@@ -52,6 +52,10 @@ instance DA.Internal.Desugar.HasExercise Gettable DA.Internal.Desugar.Archive ((
         @"UExerciseInterface"
         (DA.Internal.Desugar.toInterfaceContractId @Gettable cid)
         arg
+instance DA.Internal.Desugar.HasChoiceController Gettable DA.Internal.Desugar.Archive where
+  _choiceController = GHC.Types.primitive @"EChoiceController"
+instance DA.Internal.Desugar.HasChoiceObserver Gettable DA.Internal.Desugar.Archive where
+  _choiceObserver = GHC.Types.primitive @"EChoiceObserver"
 instance DA.Internal.Desugar.HasToAnyChoice Gettable Get (Gettable) where
   _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
 instance DA.Internal.Desugar.HasFromAnyChoice Gettable Get (Gettable) where
@@ -69,6 +73,10 @@ instance DA.Internal.Desugar.HasExercise Gettable Get (Gettable) where
         @"UExerciseInterface"
         (DA.Internal.Desugar.toInterfaceContractId @Gettable cid)
         arg
+instance DA.Internal.Desugar.HasChoiceController Gettable Get where
+  _choiceController = GHC.Types.primitive @"EChoiceController"
+instance DA.Internal.Desugar.HasChoiceObserver Gettable Get where
+  _choiceObserver = GHC.Types.primitive @"EChoiceObserver"
 data Get
   = Get {anyActor : Party}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)

@@ -66,6 +66,10 @@ instance DA.Internal.Desugar.HasExercise Interface DA.Internal.Desugar.Archive (
         @"UExerciseInterface"
         (DA.Internal.Desugar.toInterfaceContractId @Interface cid)
         arg
+instance DA.Internal.Desugar.HasChoiceController Interface DA.Internal.Desugar.Archive where
+  _choiceController = GHC.Types.primitive @"EChoiceController"
+instance DA.Internal.Desugar.HasChoiceObserver Interface DA.Internal.Desugar.Archive where
+  _choiceObserver = GHC.Types.primitive @"EChoiceObserver"
 instance DA.Internal.Desugar.HasToAnyChoice Interface MyArchive (()) where
   _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
 instance DA.Internal.Desugar.HasFromAnyChoice Interface MyArchive (()) where
@@ -83,6 +87,10 @@ instance DA.Internal.Desugar.HasExercise Interface MyArchive (()) where
         @"UExerciseInterface"
         (DA.Internal.Desugar.toInterfaceContractId @Interface cid)
         arg
+instance DA.Internal.Desugar.HasChoiceController Interface MyArchive where
+  _choiceController = GHC.Types.primitive @"EChoiceController"
+instance DA.Internal.Desugar.HasChoiceObserver Interface MyArchive where
+  _choiceObserver = GHC.Types.primitive @"EChoiceObserver"
 data MyArchive
   = MyArchive {}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
