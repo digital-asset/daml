@@ -4,7 +4,7 @@
 package com.daml.lf
 package transaction
 
-import com.daml.lf.data.Ref.{Identifier, TypeConName}
+import com.daml.lf.data.Ref.TypeConName
 import com.daml.lf.transaction.Transaction.{
   DuplicateContractKey,
   InconsistentContractKey,
@@ -125,13 +125,12 @@ class ContractStateMachine[Nid](mode: ContractKeyUniquenessMode) {
       }
 
     /** Visit a create node */
-    def handleCreate(node: Node.Create): Either[KeyInputError, State] =
-      visitCreate(node.templateId, node.coid, node.keyValue).left.map(Right(_))
+    def handleCreate(node: Node.Create, key: Option[GlobalKey]): Either[KeyInputError, State] =
+      visitCreate(node.coid, key).left.map(Right(_))
 
     private[lf] def visitCreate(
-        templateId: TypeConName,
         contractId: ContractId,
-        mbKey: Option[Value],
+        mbKey: Option[GlobalKey],
     ): Either[DuplicateContractKey, State] = {
       val me =
         this.copy(
@@ -145,31 +144,32 @@ class ContractStateMachine[Nid](mode: ContractKeyUniquenessMode) {
       // active keys
       mbKey match {
         case None => Right(me)
-        case Some(key) =>
-          val ck = GlobalKey(templateId, key)
-
-          val conflict = lookupActiveKey(ck).exists(_ != KeyInactive)
+        case Some(gk) =>
+          val conflict = lookupActiveKey(gk).exists(_ != KeyInactive)
 
           val newKeyInputs =
-            if (globalKeyInputs.contains(ck)) globalKeyInputs
-            else globalKeyInputs.updated(ck, KeyCreate)
+            if (globalKeyInputs.contains(gk)) globalKeyInputs
+            else globalKeyInputs.updated(gk, KeyCreate)
           Either.cond(
             !conflict || mode == ContractKeyUniquenessMode.Off,
             me.copy(
-              activeState = me.activeState.createKey(ck, contractId),
+              activeState = me.activeState.createKey(gk, contractId),
               globalKeyInputs = newKeyInputs,
             ),
-            DuplicateContractKey(ck),
+            DuplicateContractKey(gk),
           )
       }
     }
 
-    def handleExercise(nid: Nid, exe: Node.Exercise): Either[KeyInputError, State] =
+    def handleExercise(
+        nid: Nid,
+        exe: Node.Exercise,
+        key: Option[GlobalKey],
+    ): Either[KeyInputError, State] =
       visitExercise(
         nid,
-        exe.templateId,
         exe.targetCoid,
-        exe.keyValue,
+        key,
         exe.byKey,
         exe.consuming,
       ).left
@@ -181,16 +181,15 @@ class ContractStateMachine[Nid](mode: ContractKeyUniquenessMode) {
       */
     private[lf] def visitExercise(
         nodeId: Nid,
-        templateId: TypeConName,
         targetId: ContractId,
-        mbKey: Option[Value],
+        mbKey: Option[GlobalKey],
         byKey: Boolean,
         consuming: Boolean,
     ): Either[InconsistentContractKey, State] = {
       for {
         state <-
           if (byKey || mode == ContractKeyUniquenessMode.Strict)
-            assertKeyMapping(templateId, targetId, mbKey)
+            assertKeyMapping(targetId, mbKey)
           else
             Right(this)
       } yield {
@@ -281,29 +280,26 @@ class ContractStateMachine[Nid](mode: ContractKeyUniquenessMode) {
       }
     }
 
-    def handleFetch(node: Node.Fetch): Either[KeyInputError, State] =
-      visitFetch(node.templateId, node.coid, node.keyValue, node.byKey).left.map(Left(_))
+    def handleFetch(node: Node.Fetch, key: Option[GlobalKey]): Either[KeyInputError, State] =
+      visitFetch(node.coid, key, node.byKey).left.map(Left(_))
 
     private[lf] def visitFetch(
-        templateId: TypeConName,
         contractId: ContractId,
-        mbKey: Option[Value],
+        mbKey: Option[GlobalKey],
         byKey: Boolean,
     ): Either[InconsistentContractKey, State] =
       if (byKey || mode == ContractKeyUniquenessMode.Strict)
-        assertKeyMapping(templateId, contractId, mbKey)
+        assertKeyMapping(contractId, mbKey)
       else
         Right(this)
 
     private[this] def assertKeyMapping(
-        templateId: Identifier,
         cid: Value.ContractId,
-        mbKey: Option[Value],
+        mbKey: Option[GlobalKey],
     ): Either[InconsistentContractKey, State] =
       mbKey match {
         case None => Right(this)
-        case Some(key) =>
-          val gk = GlobalKey.assertBuild(templateId, key)
+        case Some(gk) =>
           val (keyMapping, next) = resolveKey(gk) match {
             case Right(result) => result
             case Left(handle) => handle(Some(cid))
@@ -319,17 +315,18 @@ class ContractStateMachine[Nid](mode: ContractKeyUniquenessMode) {
     def handleNode(
         id: Nid,
         node: Node.Action,
-        keyInput: => Option[ContractId],
+        gkey: Option[GlobalKey],
+        resolver: GlobalKey => Option[ContractId] = _ => None,
     ): Either[KeyInputError, State] = node match {
-      case create: Node.Create => handleCreate(create)
-      case fetch: Node.Fetch => handleFetch(fetch)
+      case create: Node.Create => handleCreate(create, gkey)
+      case fetch: Node.Fetch => handleFetch(fetch, gkey)
       case lookup: Node.LookupByKey =>
         mode match {
           case ContractKeyUniquenessMode.Strict => handleLookup(lookup)
-          case ContractKeyUniquenessMode.Off => handleLookupWith(lookup, keyInput)
+          case ContractKeyUniquenessMode.Off => handleLookupWith(lookup, gkey.flatMap(resolver))
         }
 
-      case exercise: Node.Exercise => handleExercise(id, exercise)
+      case exercise: Node.Exercise => handleExercise(id, exercise, gkey)
     }
 
     /** To be called when interpretation enters a try block or iteration enters a Rollback node

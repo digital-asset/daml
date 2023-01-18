@@ -368,9 +368,8 @@ private[speedy] case class PartialTransaction(
       case fa :: _ => Left((ptx, Tx.AuthFailureDuringExecution(nid, fa)))
       case Nil =>
         ptx.contractState.visitCreate(
-          contract.templateId,
           cid,
-          contract.key.map(_.key.toUnnormalizedValue),
+          contract.key.map(_.globalKey),
         ) match {
           case Right(next) =>
             val nextPtx = ptx.copy(contractState = next)
@@ -406,9 +405,8 @@ private[speedy] case class PartialTransaction(
       val newContractState = assertRightKey(
         // evaluation order tests require visitFetch proceeds authorizeFetch
         contractState.visitFetch(
-          contract.templateId,
           coid,
-          contract.key.map(_.lfValue),
+          contract.key.map(_.globalKey),
           byKey,
         )
       )
@@ -493,9 +491,8 @@ private[speedy] case class PartialTransaction(
       val newContractState = assertRightKey(
         contractState.visitExercise(
           nid,
-          contract.templateId,
           targetId,
-          contract.key.map(_.lfValue),
+          contract.key.map(_.globalKey),
           byKey,
           consuming,
         )
