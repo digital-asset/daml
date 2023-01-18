@@ -11,7 +11,7 @@ For the metric types referenced below, see the `relevant Prometheus documentatio
 Health Metrics
 **************
 
-We expose the below metrics for each components.
+We expose the following metrics for all components.
 
 daml_health_status
 ==================

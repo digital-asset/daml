@@ -19,7 +19,7 @@ object HttpJsonApiMetrics {
       new OpenTelemetryFactory(GlobalOpenTelemetry.getMeter("test")),
     )
 
-  final val ComponentName = "json-api"
+  final val ComponentName = "json_api"
 }
 
 class HttpJsonApiMetrics(
