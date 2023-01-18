@@ -457,6 +457,7 @@ private[apiserver] final class ApiUserManagementService(
     }
   }
 
+  // Check if user exists and belongs to the requested Identity Provider
   private def verifyUserExistsAndInIdp(
       identityProviderId: IdentityProviderId,
       userId: Ref.UserId,
