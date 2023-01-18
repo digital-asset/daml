@@ -394,28 +394,30 @@ private[lf] final class Compiler(
         ).foreach(addDef)
       }
 
-      tmpl.choices.values.foreach(choice => {
+      tmpl.choices.values.foreach { choice =>
         addDef(compileTemplateChoice(tmplId, tmpl, choice))
         addDef(compileChoiceController(tmplId, tmpl.param, choice))
         addDef(compileChoiceObserver(tmplId, tmpl.param, choice))
-      })
+      }
 
       tmpl.key.foreach { tmplKey =>
         addDef(compileContractKeyWithMaintainers(tmplId, tmpl, tmplKey))
         addDef(compileFetchByKey(tmplId, tmpl, tmplKey))
         addDef(compileLookupByKey(tmplId, tmplKey))
-        tmpl.choices.values.foreach(x => addDef(compileChoiceByKey(tmplId, tmpl, tmplKey, x)))
+        tmpl.choices.values.foreach { x =>
+          addDef(compileChoiceByKey(tmplId, tmpl, tmplKey, x))
+        }
       }
     }
 
     module.interfaces.foreach { case (ifaceName, iface) =>
       val ifaceId = Identifier(pkgId, QualifiedName(module.name, ifaceName))
       addDef(compileFetchInterface(ifaceId))
-      iface.choices.values.foreach(choice => {
+      iface.choices.values.foreach { choice =>
         addDef(compileInterfaceChoice(ifaceId, iface.param, choice))
         addDef(compileChoiceController(ifaceId, iface.param, choice))
         addDef(compileChoiceObserver(ifaceId, iface.param, choice))
-      })
+      }
       iface.coImplements.values.foreach { coimpl =>
         compileInterfaceInstance(
           parent = ifaceId,
@@ -830,9 +832,9 @@ private[lf] final class Compiler(
     val interfaceInstanceDefRef = t.InterfaceInstanceDefRef(parent, interfaceId, templateId)
     addDef(interfaceInstanceDefRef -> UnitDef)
 
-    interfaceInstanceBody.methods.values.foreach(method =>
+    interfaceInstanceBody.methods.values.foreach { method =>
       addDef(compileInterfaceInstanceMethod(interfaceInstanceDefRef, tmplParam, method))
-    )
+    }
 
     addDef(
       compileInterfaceInstanceView(interfaceInstanceDefRef, tmplParam, interfaceInstanceBody.view)
