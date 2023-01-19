@@ -4,7 +4,7 @@
 Common Metrics
 ##############
 
-The following sections contain the list of common metrics we expose for Daml services supporting a Prometheus metrics reporter.
+The following sections contain the common metrics we expose for Daml services supporting a Prometheus metrics reporter.
 
 For the metric types referenced below, see the `relevant Prometheus documentation <https://prometheus.io/docs/tutorials/understanding_metric_types/>`_.
 
@@ -208,10 +208,10 @@ daml_executor_tasks_queue_remaining
 - **Type**: Gauge
 - **Observation**: Only available for `type` = `thread_pool`
 
-Pruning metrics
+Pruning Metrics
 ***************
 
-We expose the following metrics for all pruning processes. These metrics have the following common labels attached:
+We expose the following metrics for all pruning processes. These metrics have the following labels:
 
 - **phase**:
     The name of the pruning phase being monitored
