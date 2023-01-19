@@ -1941,7 +1941,7 @@ object SBuiltinTest {
         fields.map(Ref.Name.assertFromString),
         values,
       ),
-      ContractMetadata(Time.Timestamp.now(), keyHash, ImmArray.Empty),
+      ContractMetadata(Time.Timestamp.now(), keyHash, Bytes.Empty),
     )
 
     (disclosedContract, if (withKey) Some((key, keyWithMaintainers, keyHash.get)) else None)

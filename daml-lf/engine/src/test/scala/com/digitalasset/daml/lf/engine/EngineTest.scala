@@ -7,7 +7,7 @@ package engine
 import java.io.File
 import com.daml.lf.archive.UniversalArchiveDecoder
 import com.daml.lf.data.Ref._
-import com.daml.lf.data.{Ref, _}
+import com.daml.lf.data._
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.Util._
 import com.daml.lf.transaction.{
@@ -753,7 +753,7 @@ class EngineTest
         ContractMetadata(
           now,
           Some(crypto.Hash.assertHashContractKey(templateId, usedContractKey)),
-          ImmArray.empty,
+          Bytes.Empty,
         ),
       )
       val unusedDisclosedContract = DisclosedContract(
@@ -767,7 +767,7 @@ class EngineTest
         ContractMetadata(
           now,
           Some(crypto.Hash.assertHashContractKey(templateId, unusedContractKey)),
-          ImmArray.empty,
+          Bytes.Empty,
         ),
       )
       val fetchByKeyCommand = speedy.Command.FetchByKey(
@@ -1652,7 +1652,7 @@ class EngineTest
         ContractMetadata(
           now,
           Some(crypto.Hash.assertHashContractKey(templateId, usedContractKey)),
-          ImmArray.empty,
+          Bytes.Empty,
         ),
       )
       val unusedDisclosedContract = DisclosedContract(
@@ -1666,7 +1666,7 @@ class EngineTest
         ContractMetadata(
           now,
           Some(crypto.Hash.assertHashContractKey(templateId, unusedContractKey)),
-          ImmArray.empty,
+          Bytes.Empty,
         ),
       )
       val lookupByKeyCommand = speedy.Command.LookupByKey(
@@ -1717,7 +1717,7 @@ class EngineTest
         ImmArray(Ref.Name.assertFromString("p")),
         ArrayList(SValue.SParty(alice)),
       ),
-      ContractMetadata(Time.Timestamp.now(), None, ImmArray.empty),
+      ContractMetadata(Time.Timestamp.now(), None, Bytes.Empty),
     )
     val unusedDisclosedContract = DisclosedContract(
       templateId,
@@ -1727,7 +1727,7 @@ class EngineTest
         ImmArray(Ref.Name.assertFromString("p")),
         ArrayList(SValue.SParty(alice)),
       ),
-      ContractMetadata(Time.Timestamp.now(), None, ImmArray.empty),
+      ContractMetadata(Time.Timestamp.now(), None, Bytes.Empty),
     )
 
     "unused disclosed contracts not saved to ledger" in {

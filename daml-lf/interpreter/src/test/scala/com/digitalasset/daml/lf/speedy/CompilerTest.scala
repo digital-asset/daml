@@ -617,7 +617,7 @@ object CompilerTest {
       templateId,
       SContractId(contractId),
       contract(keyLabel),
-      ContractMetadata(Time.Timestamp.now(), keyHash, ImmArray.Empty),
+      ContractMetadata(Time.Timestamp.now(), keyHash, Bytes.Empty),
     )
 
     disclosedContract
@@ -632,7 +632,7 @@ object CompilerTest {
       templateId,
       SContractId(contractId),
       preCondContract(precondition = precondition),
-      ContractMetadata(Time.Timestamp.now(), None, ImmArray.Empty),
+      ContractMetadata(Time.Timestamp.now(), None, Bytes.Empty),
     )
   }
 }
