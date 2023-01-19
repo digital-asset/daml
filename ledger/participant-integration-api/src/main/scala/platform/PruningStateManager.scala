@@ -122,8 +122,8 @@ object PruningStateManager {
               val offsetToPruneTo = Ordering[Offset].min(translatedOffset, pruneUpToInclusive)
               prune(offsetToPruneTo, pruneAllDivulgedContracts)
                 .flatMap { _ =>
-                  logger.warn(s"Pruned up to $translatedOffset")
-                  go(start = translatedOffset)
+                  logger.warn(s"Pruned up to $offsetToPruneTo")
+                  go(start = offsetToPruneTo)
                 }
             }
         }
