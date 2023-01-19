@@ -60,11 +60,20 @@ object LedgerReader {
       packageIds: List[String],
       ledgerId: LedgerId,
       token: Option[String],
-  ): Future[Error \/ PS] =
+  ): Future[Error \/ PS] = {
+    implicit final class `TraverseFM Ops`[T[_], A](private val self: T[A]) {
+      import scalaz.syntax.traverse._
+      import scalaz.{Free, Monad, NaturalTransformation, Traverse}
+      def traverseFM[F[_]: Monad, B](f: A => F[B])(implicit T: Traverse[T]): F[T[B]] =
+        self
+          .traverse(a => Free suspend (Free liftF f(a)))
+          .foldMap(NaturalTransformation.refl)
+    }
     packageIds
-      .traverse(client.getPackage(_, ledgerId, token))
+      .traverseFM(client.getPackage(_, ledgerId, token))
       .map(createPackageStoreFromArchives)
       .map(_.map(Some(_)))
+  }
 
   private def createPackageStoreFromArchives(
       packageResponses: List[GetPackageResponse]
