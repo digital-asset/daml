@@ -4,8 +4,6 @@
 package com.daml.ledger.api.testtool.infrastructure.participant
 
 import com.daml.error.ErrorCode
-
-import java.time.{Clock, Instant}
 import com.daml.ledger.api.refinements.ApiTypes.TemplateId
 import com.daml.ledger.api.testtool.infrastructure.Eventually.eventually
 import com.daml.ledger.api.testtool.infrastructure.ProtobufConverters._
@@ -29,39 +27,19 @@ import com.daml.ledger.api.v1.active_contracts_service.{
   GetActiveContractsRequest,
   GetActiveContractsResponse,
 }
-import com.daml.ledger.api.v1.admin.config_management_service.{
-  GetTimeModelRequest,
-  GetTimeModelResponse,
-  SetTimeModelRequest,
-  SetTimeModelResponse,
-  TimeModel,
-}
+import com.daml.ledger.api.v1.admin.config_management_service._
 import com.daml.ledger.api.v1.admin.object_meta.ObjectMeta
 import com.daml.ledger.api.v1.admin.package_management_service.{
   ListKnownPackagesRequest,
   PackageDetails,
   UploadDarFileRequest,
 }
-import com.daml.ledger.api.v1.admin.participant_pruning_service.{PruneRequest, PruneResponse}
-import com.daml.ledger.api.v1.admin.party_management_service.{
-  AllocatePartyRequest,
-  AllocatePartyResponse,
-  GetParticipantIdRequest,
-  GetPartiesRequest,
-  GetPartiesResponse,
-  ListKnownPartiesRequest,
-  ListKnownPartiesResponse,
-  PartyDetails,
-  UpdatePartyDetailsRequest,
-  UpdatePartyDetailsResponse,
+import com.daml.ledger.api.v1.admin.participant_pruning_service.{
+  PruneRequest,
+  PruneResponse,
 }
-import com.daml.ledger.api.v1.command_completion_service.{
-  Checkpoint,
-  CompletionEndRequest,
-  CompletionEndResponse,
-  CompletionStreamRequest,
-  CompletionStreamResponse,
-}
+import com.daml.ledger.api.v1.admin.party_management_service._
+import com.daml.ledger.api.v1.command_completion_service._
 import com.daml.ledger.api.v1.command_service.{
   SubmitAndWaitForTransactionIdResponse,
   SubmitAndWaitForTransactionResponse,
@@ -112,10 +90,11 @@ import io.grpc.stub.StreamObserver
 import scalaz.Tag
 import scalaz.syntax.tag._
 
+import java.time.{Clock, Instant}
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.{Failure, Success}
 import scala.util.control.NonFatal
+import scala.util.{Failure, Success}
 
 /** Exposes services running on some participant server in a test case.
   *

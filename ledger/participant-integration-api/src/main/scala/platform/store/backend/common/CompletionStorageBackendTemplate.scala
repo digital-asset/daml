@@ -32,11 +32,14 @@ class CompletionStorageBackendTemplate(
     import com.daml.platform.store.backend.Conversions.OffsetToStatement
 
     SQL"""
-        SELECT MAX(completion_offset)
-        FROM participant_command_completions
-        WHERE completion_offset > $start
-        ORDER BY completion_offset DESC
-        ${QueryStrategy.limitClause(Some(after))}"""
+        WITH next_offsets_chunk AS (
+            SELECT completion_offset
+            FROM participant_command_completions
+            WHERE completion_offset > $start
+            ORDER BY completion_offset ASC
+            ${QueryStrategy.limitClause(Some(after))}
+         )
+       SELECT MAX(completion_offset) AS completion_offset FROM next_offsets_chunk"""
       .as(offset("completion_offset").singleOpt)(connection)
       .getOrElse(start) // TODO pruning: Or Offset.beforeBegin?
   }

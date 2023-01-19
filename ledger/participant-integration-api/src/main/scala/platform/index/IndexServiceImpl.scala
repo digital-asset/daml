@@ -391,16 +391,22 @@ private[index] class IndexServiceImpl(
   ): Future[Unit] = {
     pruneBuffers(pruneUpToInclusive)
     // TODO pruning: Do we need to prune the buffers incrementally as well?
-    pruningStateManager.pruneAsync(
-      latestPrunedUpToInclusive =
-        Offset.beforeBegin, // TODO pruning: Actually fetch the latest and used
-      upToInclusive = pruneUpToInclusive,
-      pruneAllDivulgedContracts = pruneAllDivulgedContracts,
-    )(
-      getOffsetAfter = ledgerDao.completions.getOffsetAfter(_, _),
-      prune = ledgerDao.prune(_, _)(loggingContext),
-    )
+    pruningStateManager
+      .startAsyncPrune(
+        latestPrunedUpToInclusive =
+          Offset.beforeBegin, // TODO pruning: Actually fetch the latest and used
+        upToInclusive = pruneUpToInclusive,
+        pruneAllDivulgedContracts = pruneAllDivulgedContracts,
+      )(
+        getOffsetAfter = ledgerDao.completions.getOffsetAfter(_, _),
+        prune = ledgerDao.prune(_, _)(loggingContext),
+      )
+      .fold(msg => Future.failed(new IllegalStateException(msg)), _ => Future.unit)
   }
+
+  override def pruneStatus()(implicit
+      loggingContext: LoggingContext
+  ): Future[Unit] = pruningStateManager.running
 
   override def getMeteringReportData(
       from: Timestamp,

@@ -8,6 +8,8 @@ import com.daml.ledger.api.v1.admin.participant_pruning_service.{
   ParticipantPruningServiceGrpc,
   PruneRequest,
   PruneResponse,
+  PruneStatusRequest,
+  PruneStatusResponse,
 }
 import com.daml.ledger.api.v1.admin.participant_pruning_service.ParticipantPruningServiceGrpc.ParticipantPruningService
 import com.daml.platform.api.grpc.GrpcApiService
@@ -32,4 +34,6 @@ class ParticipantPruningServiceAuthorization(
   override def prune(request: PruneRequest): Future[PruneResponse] =
     authorizer.requireAdminClaims(service.prune)(request)
 
+  override def pruneStatus(request: PruneStatusRequest): Future[PruneStatusResponse] =
+    authorizer.requireAdminClaims(service.pruneStatus)(request)
 }
