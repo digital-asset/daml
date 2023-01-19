@@ -204,8 +204,7 @@ class ContractStateMachine[Nid](mode: ContractKeyUniquenessMode) {
         throw new UnsupportedOperationException(
           "handleLookup can only be used if all key nodes are considered"
         )
-      visitLookup(globalKey(lookup), lookup.result, lookup.result).left
-        .map(Left(_))
+      visitLookup(globalKey(lookup), lookup.result, lookup.result).left.map(Left(_))
     }
 
     /** Must be used to handle lookups iff in [[com.daml.lf.transaction.ContractKeyUniquenessMode.Off]] mode
