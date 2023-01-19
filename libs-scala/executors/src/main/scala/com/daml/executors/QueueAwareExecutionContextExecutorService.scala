@@ -9,6 +9,11 @@ import com.daml.scalautil.Statement.discard
 import scala.concurrent.ExecutionContextExecutorService
 import scala.jdk.CollectionConverters.{CollectionHasAsScala, SeqHasAsJava}
 
+/** Keeps track of the number of tasks submitted to the executor but that have not started execution just yet.
+  * We use this wrapper to access the queue size in performance critical code paths because
+  * reading the queue size from the executor itself can take an amount of time linear with the number of tasks waiting
+  * in the queues.
+  */
 class QueueAwareExecutionContextExecutorService(
     delegate: ExecutionContextExecutorService
 ) extends ExecutionContextExecutorService {
