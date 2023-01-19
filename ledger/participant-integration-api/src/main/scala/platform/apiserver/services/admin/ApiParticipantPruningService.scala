@@ -10,6 +10,8 @@ import com.daml.ledger.api.v1.admin.participant_pruning_service.{
   ParticipantPruningServiceGrpc,
   PruneRequest,
   PruneResponse,
+  PruneStatusRequest,
+  PruneStatusResponse,
 }
 import com.daml.ledger.api.validation.ValidationErrors._
 import com.daml.ledger.offset.Offset
@@ -97,6 +99,9 @@ final class ApiParticipantPruningService private (
             },
         )
     }
+
+  override def pruneStatus(request: PruneStatusRequest): Future[PruneStatusResponse] =
+    readBackend.pruneStatus().map(_ => PruneStatusResponse(ongoing = true))
 
   private def validateRequest(
       request: PruneRequest

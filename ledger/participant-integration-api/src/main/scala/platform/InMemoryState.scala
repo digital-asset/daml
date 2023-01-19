@@ -68,6 +68,7 @@ private[platform] class InMemoryState(
       }
       // Start a new Ledger API offset dispatcher
       _ = dispatcherState.startDispatcher(ledgerEnd.lastOffset)
+      _ <- pruningState.start()
     } yield ()
   }
 }

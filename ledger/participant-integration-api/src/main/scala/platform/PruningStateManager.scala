@@ -1,3 +1,6 @@
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
 package com.daml.platform
 
 import com.daml.ledger.offset.Offset
@@ -12,35 +15,43 @@ class PruningStateManager(
     maxBatchSize: Int,
     executionContext: ExecutionContext,
 ) {
+  private val logger = ContextualizedLogger.get(getClass)
   @volatile private var pruningStateRef: PruningState = PruningStateAtStartup
   private implicit val ec: ExecutionContext = executionContext
 
   // TODO pruning: Allow the LAPI to query the pruning state/progress?
-  def pruneAsync(
+  def startAsyncPrune(
       latestPrunedUpToInclusive: Offset,
       upToInclusive: Offset,
       pruneAllDivulgedContracts: Boolean,
   )(getOffsetAfter: (Offset, Int) => Future[Offset], prune: (Offset, Boolean) => Future[Unit])(
       implicit loggingContext: LoggingContext
-  ): Future[Unit] =
+  ): Either[String, Unit] =
     pruningStateRef.synchronized {
-      if (pruningStateRef.canBeStarted) {
-        val newPruningState = PruningStateInitialized()
-        val ret = newPruningState.pruneInternally(
-          latestPrunedUpToInclusive = latestPrunedUpToInclusive,
-          upToInclusive = upToInclusive,
-          pruneAllDivulgedContracts = pruneAllDivulgedContracts,
-          maxBatchSize = maxBatchSize,
-        )(
-          getOffsetAfter = getOffsetAfter,
-          prune = prune,
-        )
-        pruningStateRef = newPruningState
-        ret
-      } else {
-        Future.failed(new RuntimeException("Pruning in progress. TODO log as error code"))
-      }
+      Either.cond(
+        pruningStateRef.canBeStarted, {
+          val newPruningState = PruningStateInitialized()
+          newPruningState.pruneInternally(
+            latestPrunedUpToInclusive = latestPrunedUpToInclusive,
+            pruneUpToInclusive = upToInclusive,
+            pruneAllDivulgedContracts = pruneAllDivulgedContracts,
+            maxBatchSize = maxBatchSize,
+          )(
+            getOffsetAfter = getOffsetAfter,
+            prune = prune,
+          )
+          pruningStateRef = newPruningState
+          ()
+        },
+        "Pruning in progress. TODO log as error code",
+      )
     }
+
+  def running(implicit loggingContext: LoggingContext): Future[Unit] = {
+    val isRunning = !pruningStateRef.canBeStarted
+    logger.info(s"Prune status queried: $pruningStateRef and running: $isRunning")
+    pruningStateRef.running
+  }
 
   def shutdown(): Future[Unit] =
     pruningStateRef.synchronized {
@@ -48,6 +59,12 @@ class PruningStateManager(
       pruningStateRef = PruningStateShutdown
       originalState.abort
     }
+
+  def start(): Future[Unit] = pruningStateRef.synchronized {
+    val oldState = pruningStateRef
+    pruningStateRef = PruningStateAtStartup
+    oldState.abort // Wait for old state to finish in case
+  }
 }
 
 object PruningStateManager {
@@ -64,17 +81,21 @@ object PruningStateManager {
   sealed trait PruningState extends Product with Serializable {
     def canBeStarted: Boolean
 
+    def running: Future[Unit]
+
     def abort: Future[Unit]
   }
 
   final case object PruningStateAtStartup extends PruningState {
     override val canBeStarted: Boolean = true
     override val abort: Future[Unit] = Future.unit
+    override val running: Future[Unit] = Future.unit
   }
 
   final case object PruningStateShutdown extends PruningState {
     override val canBeStarted: Boolean = false
     override val abort: Future[Unit] = Future.unit
+    override val running: Future[Unit] = Future.unit
   }
 
   final case class PruningStateInitialized() extends PruningState {
@@ -84,33 +105,33 @@ object PruningStateManager {
 
     def pruneInternally(
         latestPrunedUpToInclusive: Offset,
-        upToInclusive: Offset,
+        pruneUpToInclusive: Offset,
         pruneAllDivulgedContracts: Boolean, // TODO pruning: Consider in prunedUpToInclusive
         maxBatchSize: Int,
     )(getOffsetAfter: (Offset, Int) => Future[Offset], prune: (Offset, Boolean) => Future[Unit])(
         implicit
         loggingContext: LoggingContext,
         executionContext: ExecutionContext,
-    ): Future[Unit] = {
+    ): Unit = {
       def go(start: Offset): Future[Unit] =
-        if (aborted || start >= upToInclusive)
+        if (aborted || start >= pruneUpToInclusive)
           Future.unit
         else {
           getOffsetAfter(start, maxBatchSize)
-            .flatMap { pruneUpToInclusive =>
-              prune(pruneUpToInclusive, pruneAllDivulgedContracts)
+            .flatMap { translatedOffset =>
+              val offsetToPruneTo = Ordering[Offset].min(translatedOffset, pruneUpToInclusive)
+              prune(offsetToPruneTo, pruneAllDivulgedContracts)
                 .flatMap { _ =>
-                  logger.info(s"Pruned up to $pruneUpToInclusive")
-                  if (aborted) go(pruneUpToInclusive) else Future.unit
+                  logger.warn(s"Pruned up to $translatedOffset")
+                  go(start = translatedOffset)
                 }
             }
         }
 
-      logger.info(
-        s"Pruning the Index database incrementally (in batches of $maxBatchSize) from $latestPrunedUpToInclusive to $upToInclusive"
+      logger.warn(
+        s"Pruning the Index database incrementally (in batches of $maxBatchSize) from $latestPrunedUpToInclusive to $pruneUpToInclusive"
       )
-      runningF = go(latestPrunedUpToInclusive)
-      Future.unit // Checks wrt the ledger end and latest pruning offset are async
+      runningF = go(start = latestPrunedUpToInclusive)
     }
 
     override def canBeStarted: Boolean = runningF.isCompleted
@@ -120,5 +141,7 @@ object PruningStateManager {
       aborted = true
       runningF // TODO pruning: add timeout
     }
+
+    override def running: Future[Unit] = runningF
   }
 }

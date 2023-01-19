@@ -206,6 +206,10 @@ private[daml] final class TimedIndexService(delegate: IndexService, metrics: Met
       delegate.prune(pruneUpToInclusive, pruneAllDivulgedContracts),
     )
 
+  override def pruneStatus()(implicit
+      loggingContext: LoggingContext
+  ): Future[Unit] = delegate.pruneStatus()
+
   override def getCompletions(
       startExclusive: LedgerOffset,
       endInclusive: LedgerOffset,
