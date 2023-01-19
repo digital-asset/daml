@@ -684,7 +684,7 @@ class ActiveContractsServiceIT extends LedgerTestSuite {
         ledger.delayMechanism,
         "Pruning",
       ) {
-        ledger.prune(pruneUpTo = anOffset)
+        ledger.prune(pruneUpTo = anOffset, attempts = 1)
       }
       (acsOffset, acs) <- ledger
         .activeContractsIds(
@@ -718,7 +718,7 @@ class ActiveContractsServiceIT extends LedgerTestSuite {
         ledger.delayMechanism,
         "Pruning",
       ) {
-        ledger.prune(pruneUpTo = offset2)
+        ledger.prune(pruneUpTo = offset2, attempts = 1)
       }
       _ <- ledger
         .activeContractsIds(
