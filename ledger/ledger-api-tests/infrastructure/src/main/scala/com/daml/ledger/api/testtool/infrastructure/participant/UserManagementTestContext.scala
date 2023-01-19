@@ -4,10 +4,14 @@
 package com.daml.ledger.api.testtool.infrastructure.participant
 
 import java.util.concurrent.ConcurrentHashMap
-
 import com.daml.error.definitions.LedgerApiErrors
 import com.daml.error.utils.ErrorDetails
 import com.daml.ledger.api.testtool.infrastructure.LedgerServices
+import com.daml.ledger.api.v1.admin.identity_provider_config_service.{
+  CreateIdentityProviderConfigRequest,
+  CreateIdentityProviderConfigResponse,
+  IdentityProviderConfig,
+}
 import com.daml.ledger.api.v1.admin.user_management_service.UserManagementServiceGrpc.UserManagementService
 import com.daml.ledger.api.v1.admin.user_management_service.{
   CreateUserRequest,
@@ -17,6 +21,7 @@ import com.daml.ledger.api.v1.admin.user_management_service.{
   User,
 }
 
+import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
 
 trait UserManagementTestContext {
@@ -75,6 +80,23 @@ trait UserManagementTestContext {
           }
       )
     Future.sequence(deletions).map(_ => ())
+  }
+
+  def createIdentityProviderConfig(
+      identityProviderId: String
+  ): Future[CreateIdentityProviderConfigResponse] = {
+    services.identityProviderConfig.createIdentityProviderConfig(
+      CreateIdentityProviderConfigRequest(
+        Some(
+          IdentityProviderConfig(
+            identityProviderId = identityProviderId,
+            isDeactivated = false,
+            issuer = UUID.randomUUID().toString,
+            jwksUrl = "http://daml.com/jwks.json",
+          )
+        )
+      )
+    )
   }
 
 }

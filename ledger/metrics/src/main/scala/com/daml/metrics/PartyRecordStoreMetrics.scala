@@ -16,6 +16,7 @@ class PartyRecordStoreMetrics(
 ) extends DatabaseMetricsFactory(prefix, factory) {
 
   val getPartyRecord: DatabaseMetrics = createDbMetrics("get_party_record")
+  val partiesExist: DatabaseMetrics = createDbMetrics("parties_exist")
   val createPartyRecord: DatabaseMetrics = createDbMetrics("create_party_record")
   val updatePartyRecord: DatabaseMetrics = createDbMetrics("update_party_record")
 
