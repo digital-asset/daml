@@ -6,7 +6,7 @@ package command
 
 import com.daml.lf.data.Ref._
 import com.daml.lf.value.Value
-import com.daml.lf.data.{ImmArray, Time}
+import com.daml.lf.data.{Bytes, ImmArray, Time}
 import com.daml.lf.transaction.{GlobalKeyWithMaintainers, Versioned}
 
 /** Accepted commands coming from API */
@@ -124,7 +124,7 @@ final case class ProcessedDisclosedContract(
 final case class ContractMetadata(
     createdAt: Time.Timestamp,
     keyHash: Option[crypto.Hash],
-    driverMetadata: ImmArray[Byte],
+    driverMetadata: Bytes,
 )
 
 /** Contract metadata attached to disclosed contracts after command interpretation.
@@ -141,7 +141,7 @@ final case class ContractMetadata(
   */
 final case class EngineEnrichedContractMetadata(
     createdAt: Time.Timestamp,
-    driverMetadata: ImmArray[Byte],
+    driverMetadata: Bytes,
     signatories: Set[Party],
     stakeholders: Set[Party],
     maybeKeyWithMaintainers: Option[Versioned[GlobalKeyWithMaintainers]],

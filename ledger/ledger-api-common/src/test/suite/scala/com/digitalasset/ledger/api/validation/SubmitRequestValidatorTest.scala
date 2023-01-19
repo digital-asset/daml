@@ -104,7 +104,7 @@ class SubmitRequestValidatorTest
           Some(templateId),
           ImmArray.empty,
         ),
-        ContractMetadata(Time.Timestamp.now(), None, ImmArray.Empty),
+        ContractMetadata(Time.Timestamp.now(), None, Bytes.Empty),
       )
     )
 

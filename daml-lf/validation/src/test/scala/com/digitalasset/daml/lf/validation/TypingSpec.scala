@@ -293,6 +293,16 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
         // EObserverInterface
         E"λ (i: Mod:I) → (( observer_interface @Mod:I i ))" ->
           T"Mod:I → List Party",
+        // EChoiceController
+        E"λ (e₁: Mod:T) (e₂: Int64) → (( choice_controller @Mod:T Ch e₁ e₂ ))" ->
+          T"Mod:T → Int64 → (( List Party ))",
+        E"λ (e₁: Mod:I) (e₂: Int64) → (( choice_controller @Mod:I ChIface e₁ e₂ ))" ->
+          T"Mod:I → Int64 → (( List Party ))",
+        // EChoiceObserver
+        E"λ (e₁: Mod:T) (e₂: Int64) → (( choice_observer @Mod:T Ch e₁ e₂ ))" ->
+          T"Mod:T → Int64 → (( List Party ))",
+        E"λ (e₁: Mod:I) (e₂: Int64) → (( choice_observer @Mod:I ChIface e₁ e₂ ))" ->
+          T"Mod:I → Int64 → (( List Party ))",
       )
 
       forEvery(testCases) { (exp: Expr, expectedType: Type) =>
@@ -872,7 +882,7 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
             case EUnknownDefinition(
                   _,
                   LookupError
-                    .NotFound(Reference.TemplateChoice(_, _), Reference.InterfaceChoice(_, _)),
+                    .NotFound(Reference.InterfaceChoice(_, _), Reference.InterfaceChoice(_, _)),
                 ) =>
           },
         E"Λ (σ : ⋆).λ (e₁: ContractId Mod:I) (e₂: σ) (e₃: Mod:I → Bool) → ⸨ exercise_interface_with_guard @Mod:T ChIface e₁ e₂ e₃ ⸩" -> //
@@ -1001,6 +1011,40 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
             case EUnknownDefinition(
                   _,
                   LookupError.NotFound(Reference.Interface(_), Reference.Interface(_)),
+                ) =>
+          },
+        // EChoiceController - template/interface must have choice
+        E"λ (e₁: Mod:T) (e₂: Int64) → ⸨ choice_controller @Mod:T FakeChoice e₁ e₂ ⸩" -> //
+          {
+            case EUnknownDefinition(
+                  _,
+                  LookupError
+                    .NotFound(Reference.TemplateChoice(_, _), Reference.TemplateChoice(_, _)),
+                ) =>
+          },
+        E"λ (e₁: Mod:I) (e₂: Int64) → ⸨ choice_controller @Mod:I FakeChoice e₁ e₂ ⸩" -> //
+          {
+            case EUnknownDefinition(
+                  _,
+                  LookupError
+                    .NotFound(Reference.InterfaceChoice(_, _), Reference.InterfaceChoice(_, _)),
+                ) =>
+          },
+        // EChoiceObserver - template/interface must have choice
+        E"λ (e₁: Mod:T) (e₂: Int64) → ⸨ choice_observer @Mod:T FakeChoice e₁ e₂ ⸩" -> //
+          {
+            case EUnknownDefinition(
+                  _,
+                  LookupError
+                    .NotFound(Reference.TemplateChoice(_, _), Reference.TemplateChoice(_, _)),
+                ) =>
+          },
+        E"λ (e₁: Mod:I) (e₂: Int64) → ⸨ choice_observer @Mod:I FakeChoice e₁ e₂ ⸩" -> //
+          {
+            case EUnknownDefinition(
+                  _,
+                  LookupError
+                    .NotFound(Reference.InterfaceChoice(_, _), Reference.InterfaceChoice(_, _)),
                 ) =>
           },
       )

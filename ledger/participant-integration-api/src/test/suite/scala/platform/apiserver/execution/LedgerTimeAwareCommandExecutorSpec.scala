@@ -16,7 +16,7 @@ import com.daml.lf.command.{
 }
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref.Identifier
-import com.daml.lf.data.{ImmArray, Ref, Time}
+import com.daml.lf.data.{Bytes, ImmArray, Ref, Time}
 import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.transaction.{TransactionVersion, Versioned}
 import com.daml.lf.value.Value
@@ -77,7 +77,7 @@ class LedgerTimeAwareCommandExecutorSpec
         argument = Value.ValueNil,
         metadata = EngineEnrichedContractMetadata(
           createdAt = Time.Timestamp.Epoch,
-          driverMetadata = ImmArray.empty,
+          driverMetadata = Bytes.Empty,
           signatories = Set.empty,
           stakeholders = Set.empty,
           maybeKeyWithMaintainers = None,

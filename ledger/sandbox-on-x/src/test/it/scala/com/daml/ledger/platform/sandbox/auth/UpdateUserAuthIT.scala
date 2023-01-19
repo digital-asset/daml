@@ -8,7 +8,7 @@ import com.google.protobuf.field_mask.FieldMask
 
 import scala.concurrent.Future
 
-final class UpdateUserAuthIT extends AdminServiceCallAuthTests with UserManagementAuth {
+final class UpdateUserAuthIT extends AdminOrIDPAdminServiceCallAuthTests with UserManagementAuth {
 
   override def serviceCallName: String = "UserManagementService#UpdateUser"
 

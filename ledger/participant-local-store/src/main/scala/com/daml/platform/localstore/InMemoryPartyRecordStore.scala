@@ -194,4 +194,14 @@ class InMemoryPartyRecordStore(executionContext: ExecutionContext) extends Party
       Right(())
     }
   }
+
+  override def filterExistingParties(parties: Set[Party], identityProviderId: IdentityProviderId)(
+      implicit loggingContext: LoggingContext
+  ): Future[Set[Party]] = {
+    withState {
+      parties.map(party => (party, state.get(party))).collect {
+        case (party, Some(record)) if record.identityProviderId == identityProviderId => party
+      }
+    }
+  }
 }

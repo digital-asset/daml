@@ -376,6 +376,14 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
           EObserverInterface(I.tycon, e"body"),
         "observer_interface @'-pkgId-':Mod:I body" ->
           EObserverInterface(I.tycon, e"body"),
+        "choice_controller @Mod:T ChoiceName contract choiceArg" ->
+          EChoiceController(T.tycon, n"ChoiceName", e"contract", e"choiceArg"),
+        "choice_controller @'-pkgId-':Mod:T ChoiceName contract choiceArg" ->
+          EChoiceController(T.tycon, n"ChoiceName", e"contract", e"choiceArg"),
+        "choice_observer @Mod:T ChoiceName contract choiceArg" ->
+          EChoiceObserver(T.tycon, n"ChoiceName", e"contract", e"choiceArg"),
+        "choice_observer @'-pkgId-':Mod:T ChoiceName contract choiceArg" ->
+          EChoiceObserver(T.tycon, n"ChoiceName", e"contract", e"choiceArg"),
       )
 
       forEvery(testCases)((stringToParse, expectedExp) =>

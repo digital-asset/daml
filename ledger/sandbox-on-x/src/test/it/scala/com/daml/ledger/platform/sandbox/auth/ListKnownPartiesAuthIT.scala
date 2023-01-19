@@ -7,7 +7,7 @@ import com.daml.ledger.api.v1.admin.party_management_service._
 
 import scala.concurrent.Future
 
-final class ListKnownPartiesAuthIT extends AdminServiceCallAuthTests {
+final class ListKnownPartiesAuthIT extends AdminOrIDPAdminServiceCallAuthTests {
 
   override def serviceCallName: String = "PartyManagementService#ListKnownParties"
 

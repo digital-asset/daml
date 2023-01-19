@@ -141,6 +141,13 @@ featureExtendedInterfaces = Feature
     , featureCppFlag = Just "DAML_INTERFACE_EXTENDED"
     }
 
+featureChoiceFuncs :: Feature
+featureChoiceFuncs = Feature
+    { featureName = "choiceController and choiceObserver functions"
+    , featureMinVersion = versionDev
+    , featureCppFlag = Just "DAML_CHOICE_FUNCS"
+    }
+
 featureExperimental :: Feature
 featureExperimental = Feature
     { featureName = "Daml Experimental"
@@ -157,6 +164,7 @@ allFeatures =
     , featureNatSynonyms
     , featureSimpleInterfaces
     , featureExtendedInterfaces
+    , featureChoiceFuncs
     , featureUnstable
     , featureExperimental
     , featureWithAuthority

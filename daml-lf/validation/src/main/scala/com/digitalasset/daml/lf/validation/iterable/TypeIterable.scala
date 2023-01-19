@@ -102,6 +102,14 @@ private[validation] object TypeIterable {
       case EViewInterface(ifaceId, expr) =>
         Iterator(TTyCon(ifaceId)) ++
           iterator(expr)
+      case EChoiceController(tpl, choiceName @ _, contract, choiceArg) =>
+        Iterator(TTyCon(tpl)) ++
+          iterator(contract) ++
+          iterator(choiceArg)
+      case EChoiceObserver(tpl, choiceName @ _, contract, choiceArg) =>
+        Iterator(TTyCon(tpl)) ++
+          iterator(contract) ++
+          iterator(choiceArg)
       case EVar(_) | EVal(_) | EBuiltin(_) | EPrimCon(_) | EPrimLit(_) | EApp(_, _) | ECase(_, _) |
           ELocation(_, _) | EStructCon(_) | EStructProj(_, _) | EStructUpd(_, _, _) | ETyAbs(_, _) |
           EExperimental(_, _) =>

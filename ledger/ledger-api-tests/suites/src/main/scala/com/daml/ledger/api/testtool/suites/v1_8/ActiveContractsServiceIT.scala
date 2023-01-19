@@ -743,14 +743,16 @@ class ActiveContractsServiceIT extends LedgerTestSuite {
     enabled = _.acsActiveAtOffsetFeature,
     disabledReason = "Requires ACS with active_at_offset",
     partyAllocation = allocate(SingleParty),
+    runConcurrently = false,
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     val transactionFilter = Some(TransactionFilter(filtersByParty = Map(party.unwrap -> Filters())))
     for {
+      offsetBeyondLedgerEnd <- ledger.offsetBeyondLedgerEnd()
       _ <- ledger
         .activeContracts(
           GetActiveContractsRequest(
             filter = transactionFilter,
-            activeAtOffset = s"000000100000001d",
+            activeAtOffset = offsetBeyondLedgerEnd.getAbsolute,
           )
         )
         .mustFailWith(

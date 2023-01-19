@@ -1009,6 +1009,23 @@ message Expr {
     Expr expr = 2;
   }
 
+  // Obtain the controllers for a choice.
+  // *Available in versions >= 1.dev*
+  message ChoiceController {
+    TypeConName template = 1;
+    int32 choice_interned_str = 2;
+    Expr contract_expr = 3;
+    Expr choice_arg_expr = 4;
+  }
+
+  // Obtain the observers for a choice.
+  // *Available in versions >= 1.dev*
+  message ChoiceObserver {
+    TypeConName template = 1;
+    int32 choice_interned_str = 2;
+    Expr contract_expr = 3;
+    Expr choice_arg_expr = 4;
+  }
 
   message Experimental {
     string name = 1;
@@ -1154,6 +1171,14 @@ message Expr {
     ToRequiredInterface to_required_interface = 44;
     FromRequiredInterface from_required_interface = 45;
     UnsafeFromRequiredInterface unsafe_from_required_interface = 46;
+
+    // Obtain the controllers for a choice.
+    // *Available in versions >= 1.dev*
+    ChoiceController choice_controller = 47;
+
+    // Obtain the observers for a choice.
+    // *Available in versions >= 1.dev*
+    ChoiceObserver choice_observer = 48;
 
     Experimental experimental = 9999; // *Available only in 1.dev*
   }

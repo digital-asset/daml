@@ -5,6 +5,8 @@ package com.daml.platform.apiserver.services.admin
 
 import com.daml.error.definitions.LedgerApiErrors
 import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
+import com.daml.ledger.api.SubmissionIdGenerator
+import com.daml.ledger.api.auth.ClaimAdmin
 import com.daml.ledger.api.auth.ClaimSet.Claims
 import com.daml.ledger.api.auth.interceptor.AuthorizationInterceptor
 import com.daml.ledger.api.domain._
@@ -15,7 +17,6 @@ import com.daml.ledger.api.v1.admin.user_management_service.{
   UpdateUserResponse,
 }
 import com.daml.ledger.api.v1.admin.{user_management_service => proto}
-import com.daml.ledger.api.SubmissionIdGenerator
 import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
@@ -39,6 +40,7 @@ import scala.util.Try
 private[apiserver] final class ApiUserManagementService(
     userManagementStore: UserManagementStore,
     identityProviderExists: IdentityProviderExists,
+    partyRecordExist: PartyRecordsExist,
     maxUsersPageSize: Int,
     submissionIdGenerator: SubmissionIdGenerator,
 )(implicit
@@ -62,6 +64,9 @@ private[apiserver] final class ApiUserManagementService(
 
   override def createUser(request: proto.CreateUserRequest): Future[CreateUserResponse] =
     withSubmissionId { implicit loggingContext =>
+      // Retrieving the authenticated user context from the thread-local context
+      val authorizedUserContextF: Future[AuthenticatedUserContext] =
+        resolveAuthenticatedUserContext()
       withValidation {
         for {
           pUser <- requirePresence(request.user, "user")
@@ -100,7 +105,13 @@ private[apiserver] final class ApiUserManagementService(
       } { case (user, pRights) =>
         for {
           _ <- identityProviderExistsOrError(user.identityProviderId)
-          _ <- verifyUserIsNonExistentOrInIdp(user.identityProviderId, user.id)
+          authorizedUserContext <- authorizedUserContextF
+          _ <- verifyPartyExistInIdp(
+            pRights,
+            user.identityProviderId,
+            authorizedUserContext.isParticipantAdmin,
+          )
+          _ <- verifyUserDoesNotExist(user.identityProviderId, user.id, "creating user")
           result <- userManagementStore
             .createUser(
               user = user,
@@ -113,8 +124,8 @@ private[apiserver] final class ApiUserManagementService(
 
   override def updateUser(request: UpdateUserRequest): Future[UpdateUserResponse] = {
     withSubmissionId { implicit loggingContext =>
-      // Retrieving the authenticated user from the context
-      val authorizedUserIdFO: Future[Option[String]] = resolveAuthenticatedUser()
+      val authorizedUserContextF: Future[AuthenticatedUserContext] =
+        resolveAuthenticatedUserContext()
       withValidation {
         for {
           pUser <- requirePresence(request.user, "user")
@@ -153,11 +164,16 @@ private[apiserver] final class ApiUserManagementService(
         for {
           userUpdate <- handleUpdatePathResult(user.id, UserUpdateMapper.toUpdate(user, fieldMask))
           _ <- identityProviderExistsOrError(user.identityProviderId)
-          _ <- verifyUserIsNonExistentOrInIdp(user.identityProviderId, user.id)
-          authorizedUserIdO <- authorizedUserIdFO
+          authorizedUserContext <- authorizedUserContextF
+          _ <- verifyPartyExistInIdp(
+            Set(),
+            user.identityProviderId,
+            authorizedUserContext.isParticipantAdmin,
+          )
+          _ <- verifyUserExistsAndInIdp(user.identityProviderId, user.id, "updating user")
           _ <-
             if (
-              authorizedUserIdO
+              authorizedUserContext.userId
                 .contains(userUpdate.id) && userUpdate.isDeactivatedUpdateO.contains(true)
             ) {
               Future.failed(
@@ -181,7 +197,7 @@ private[apiserver] final class ApiUserManagementService(
     }
   }
 
-  private def resolveAuthenticatedUser(): Future[Option[String]] = {
+  private def resolveAuthenticatedUserContext(): Future[AuthenticatedUserContext] = {
     AuthorizationInterceptor
       .extractClaimSetFromContext()
       .fold(
@@ -192,9 +208,8 @@ private[apiserver] final class ApiUserManagementService(
               .asGrpcError
           ),
         fb = {
-          case claims: Claims if claims.resolvedFromUser =>
-            Future.successful(claims.applicationId)
-          case claims: Claims if !claims.resolvedFromUser => Future.successful(None)
+          case claims: Claims =>
+            Future.successful(AuthenticatedUserContext(claims))
           case claimsSet =>
             Future.failed(
               LedgerApiErrors.InternalError
@@ -217,7 +232,7 @@ private[apiserver] final class ApiUserManagementService(
         )
       } yield (userId, identityProviderId)
     } { case (userId, identityProviderId) =>
-      verifyUserIsNonExistentOrInIdp(identityProviderId, userId)
+      verifyUserExistsAndInIdp(identityProviderId, userId, "getting user")
         .flatMap { _ => userManagementStore.getUser(userId) }
         .flatMap(handleResult("getting user"))
         .map(u => GetUserResponse(Some(toProtoUser(u))))
@@ -234,7 +249,7 @@ private[apiserver] final class ApiUserManagementService(
           )
         } yield (userId, identityProviderId)
       } { case (userId, identityProviderId) =>
-        verifyUserIsNonExistentOrInIdp(identityProviderId, userId)
+        verifyUserExistsAndInIdp(identityProviderId, userId, "deleting user")
           .flatMap { _ => userManagementStore.deleteUser(userId) }
           .flatMap(handleResult("deleting user"))
           .map(_ => proto.DeleteUserResponse())
@@ -279,6 +294,9 @@ private[apiserver] final class ApiUserManagementService(
   override def grantUserRights(
       request: proto.GrantUserRightsRequest
   ): Future[proto.GrantUserRightsResponse] = withSubmissionId { implicit loggingContext =>
+    // Retrieving the authenticated user context from the thread-local context
+    val authorizedUserContextF: Future[AuthenticatedUserContext] =
+      resolveAuthenticatedUserContext()
     withValidation(
       for {
         userId <- requireUserId(request.userId, "user_id")
@@ -289,17 +307,30 @@ private[apiserver] final class ApiUserManagementService(
         )
       } yield (userId, rights, identityProviderId)
     ) { case (userId, rights, identityProviderId) =>
-      verifyUserIsNonExistentOrInIdp(identityProviderId, userId)
-        .flatMap { _ => userManagementStore.grantRights(id = userId, rights = rights) }
-        .flatMap(handleResult("grant user rights"))
-        .map(_.view.map(toProtoRight).toList)
-        .map(proto.GrantUserRightsResponse(_))
+      for {
+        _ <- verifyUserExistsAndInIdp(identityProviderId, userId, "grant user rights")
+        authorizedUserContext <- authorizedUserContextF
+        _ <- verifyPartyExistInIdp(
+          rights,
+          identityProviderId,
+          authorizedUserContext.isParticipantAdmin,
+        )
+        result <- userManagementStore
+          .grantRights(
+            id = userId,
+            rights = rights,
+          )
+        handledResult <- handleResult("grant user rights")(result)
+      } yield proto.GrantUserRightsResponse(handledResult.view.map(toProtoRight).toList)
     }
   }
 
   override def revokeUserRights(
       request: proto.RevokeUserRightsRequest
   ): Future[proto.RevokeUserRightsResponse] = withSubmissionId { implicit loggingContext =>
+    // Retrieving the authenticated user context from the thread-local context
+    val authorizedUserContextF: Future[AuthenticatedUserContext] =
+      resolveAuthenticatedUserContext()
     withValidation(
       for {
         userId <- FieldValidations.requireUserId(request.userId, "user_id")
@@ -310,11 +341,21 @@ private[apiserver] final class ApiUserManagementService(
         )
       } yield (userId, rights, identityProviderId)
     ) { case (userId, rights, identityProviderId) =>
-      verifyUserIsNonExistentOrInIdp(identityProviderId, userId)
-        .flatMap { _ => userManagementStore.revokeRights(id = userId, rights = rights) }
-        .flatMap(handleResult("revoke user rights"))
-        .map(_.view.map(toProtoRight).toList)
-        .map(proto.RevokeUserRightsResponse(_))
+      for {
+        authorizedUserContext <- authorizedUserContextF
+        _ <- verifyPartyExistInIdp(
+          rights,
+          identityProviderId,
+          authorizedUserContext.isParticipantAdmin,
+        )
+        _ <- verifyUserExistsAndInIdp(identityProviderId, userId, "revoke user rights")
+        result <- userManagementStore
+          .revokeRights(
+            id = userId,
+            rights = rights,
+          )
+        handledResult <- handleResult("revoke user rights")(result)
+      } yield proto.RevokeUserRightsResponse(handledResult.view.map(toProtoRight).toList)
     }
   }
 
@@ -330,7 +371,7 @@ private[apiserver] final class ApiUserManagementService(
         )
       } yield (userId, identityProviderId)
     } { case (userId, identityProviderId) =>
-      verifyUserIsNonExistentOrInIdp(identityProviderId, userId)
+      verifyUserExistsAndInIdp(identityProviderId, userId, "list user rights")
         .flatMap { _ => userManagementStore.listUserRights(userId) }
         .flatMap(handleResult("list user rights"))
         .map(_.view.map(toProtoRight).toList)
@@ -349,6 +390,34 @@ private[apiserver] final class ApiUserManagementService(
         Future.successful(t)
     }
 
+  private def verifyPartyExistInIdp(
+      rights: Set[UserRight],
+      identityProviderId: IdentityProviderId,
+      isParticipantAdmin: Boolean,
+  ): Future[Unit] =
+    if (isParticipantAdmin) Future.unit
+    else partyExistsOrError(userParties(rights), identityProviderId)
+
+  private def partyExistsOrError(
+      parties: Set[Ref.Party],
+      identityProviderId: IdentityProviderId,
+  ): Future[Unit] =
+    partyRecordExist
+      .filterPartiesExistingInPartyRecordStore(identityProviderId, parties)
+      .flatMap { partiesExist =>
+        val partiesNotExist = parties -- partiesExist
+        if (partiesNotExist.isEmpty)
+          Future.successful(())
+        else
+          Future.failed(
+            LedgerApiErrors.RequestValidation.InvalidArgument
+              .Reject(
+                s"Provided parties [${partiesNotExist.mkString(",")}] have not been found in identity_provider_id=${identityProviderId.toRequestString}."
+              )
+              .asGrpcError
+          )
+      }
+
   private def identityProviderExistsOrError(id: IdentityProviderId): Future[Unit] =
     identityProviderExists(id)
       .flatMap { idpExists =>
@@ -362,18 +431,51 @@ private[apiserver] final class ApiUserManagementService(
           )
       }
 
-  // Check if user either doesn't exist or exists and belongs to the requested Identity Provider
+  // Check if user either doesn't exist or if it does - it belongs to the requested Identity Provider
   // Alternatively, identity_provider_id could be part of the compound unique key within user database.
   // It was considered as complication for the implementation and for now is simplified.
-  private def verifyUserIsNonExistentOrInIdp(
+  private def verifyUserDoesNotExist(
       identityProviderId: IdentityProviderId,
       userId: Ref.UserId,
+      operation: String,
   ): Future[Unit] = {
     userManagementStore.getUser(userId).flatMap {
       case Right(user) if user.identityProviderId != identityProviderId =>
         Future.failed(
           LedgerApiErrors.AuthorizationChecks.PermissionDenied
             .Reject(s"User ${user.id} belongs to another Identity Provider")
+            .asGrpcError
+        )
+      case Right(_) =>
+        Future.failed(
+          LedgerApiErrors.Admin.UserManagement.UserAlreadyExists
+            .Reject(operation, userId.toString)
+            .asGrpcError
+        )
+      case _ =>
+        Future.unit
+    }
+  }
+
+  // Check if user exists and belongs to the requested Identity Provider
+  // There is a possible race condition here, as user might be deleted and reintroduced within another IDP
+  // In order to fix this, proper atomicity is to be considered, by implementing this check in the persistence layer
+  private def verifyUserExistsAndInIdp(
+      identityProviderId: IdentityProviderId,
+      userId: Ref.UserId,
+      operation: String,
+  ): Future[Unit] = {
+    userManagementStore.getUser(userId).flatMap {
+      case Right(user) if user.identityProviderId != identityProviderId =>
+        Future.failed(
+          LedgerApiErrors.AuthorizationChecks.PermissionDenied
+            .Reject(s"User ${user.id} belongs to another Identity Provider")
+            .asGrpcError
+        )
+      case Left(UserManagementStore.UserNotFound(id)) =>
+        Future.failed(
+          LedgerApiErrors.Admin.UserManagement.UserNotFound
+            .Reject(operation, id.toString)
             .asGrpcError
         )
       case _ => Future.unit
@@ -420,6 +522,11 @@ private[apiserver] final class ApiUserManagementService(
         Future.successful(t)
     }
 
+  private def userParties(rights: Set[UserRight]): Set[Ref.Party] = rights.collect {
+    case UserRight.CanActAs(party) => party
+    case UserRight.CanReadAs(party) => party
+  }
+
   private def withValidation[A, B](validatedResult: Either[StatusRuntimeException, A])(
       f: A => Future[B]
   ): Future[B] =
@@ -460,6 +567,16 @@ private[apiserver] final class ApiUserManagementService(
 }
 
 object ApiUserManagementService {
+  case class AuthenticatedUserContext(userId: Option[String], isParticipantAdmin: Boolean)
+  object AuthenticatedUserContext {
+    def apply(claims: Claims): AuthenticatedUserContext = claims match {
+      case claims: Claims if claims.resolvedFromUser =>
+        AuthenticatedUserContext(claims.applicationId, claims.claims.contains(ClaimAdmin))
+      case claims: Claims =>
+        AuthenticatedUserContext(None, claims.claims.contains(ClaimAdmin))
+    }
+  }
+
   private def toProtoUser(user: User): proto.User =
     proto.User(
       id = user.id,

@@ -143,9 +143,10 @@ class TimeoutParticipantTestContext(timeoutScaleFactor: Double, delegate: Partic
       partyIdHint: Option[String] = None,
       displayName: Option[String] = None,
       localMetadata: Option[ObjectMeta] = None,
+      identityProviderId: Option[String] = None,
   ): Future[Primitive.Party] = withTimeout(
     s"Allocate party with hint $partyIdHint and display name $displayName",
-    delegate.allocateParty(partyIdHint, displayName, localMetadata),
+    delegate.allocateParty(partyIdHint, displayName, localMetadata, identityProviderId),
   )
 
   override def getParties(req: GetPartiesRequest): Future[GetPartiesResponse] = withTimeout(

@@ -86,6 +86,10 @@ private[validation] object ExprIterable {
         iterator(expr)
       case EObserverInterface(iface @ _, body) =>
         iterator(body)
+      case EChoiceController(tpl @ _, choiceName @ _, contract, choiceArg) =>
+        Iterator(contract, choiceArg)
+      case EChoiceObserver(tpl @ _, choiceName @ _, contract, choiceArg) =>
+        Iterator(contract, choiceArg)
     }
   }
 
