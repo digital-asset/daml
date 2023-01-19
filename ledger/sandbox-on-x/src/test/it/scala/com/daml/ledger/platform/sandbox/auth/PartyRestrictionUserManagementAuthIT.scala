@@ -61,7 +61,6 @@ final class PartyRestrictionUserManagementAuthIT
       )
 
   it should "allow to grant permissions to parties which are allocated in the IDP" in {
-
     for {
       idpConfig <- createConfig(canReadAsAdmin)
       identityProviderConfig = idpConfig.identityProviderConfig.getOrElse(
@@ -74,8 +73,7 @@ final class PartyRestrictionUserManagementAuthIT
         rights = Vector(
           uproto.Right(
             uproto.Right.Kind.IdentityProviderAdmin(uproto.Right.IdentityProviderAdmin())
-          ),
-          uproto.Right(uproto.Right.Kind.CanReadAs(uproto.Right.CanReadAs("some-party-2"))),
+          )
         ),
         primaryParty = "some-party-1",
         secret = Some(TestJwtVerifierLoader.secret1),
@@ -84,33 +82,43 @@ final class PartyRestrictionUserManagementAuthIT
         UUID.randomUUID().toString + "-alice-2",
         idpAdmin,
       )
+      _ <- assertAPIExpectsPartiesAllocated(idpAdmin, UUID.randomUUID().toString)
+    } yield succeed
 
+  }
+
+  it should "allow to grant permissions to parties which are allocated in the IDP by participant_admin" in {
+    assertAPIExpectsPartiesAllocated(canReadAsAdmin, UUID.randomUUID().toString)
+  }
+
+  private def assertAPIExpectsPartiesAllocated(context: ServiceCallContext, suffix: String) = {
+    for {
       _ <- expectInvalidArgument(
         createUser(
           UUID.randomUUID().toString + "-alice-3",
-          idpAdmin,
+          context,
           Vector(
-            uproto.Right(uproto.Right.Kind.CanReadAs(uproto.Right.CanReadAs("some-party-1"))),
-            uproto.Right(uproto.Right.Kind.CanActAs(uproto.Right.CanActAs("some-party-2"))),
+            uproto.Right(
+              uproto.Right.Kind.CanReadAs(uproto.Right.CanReadAs(s"some-party-1-$suffix"))
+            ),
+            uproto.Right(uproto.Right.Kind.CanActAs(uproto.Right.CanActAs(s"some-party-2-$suffix"))),
           ),
         )
       )
 
-      _ <- allocateParty(idpAdmin, "some-party-1")
-      _ <- allocateParty(idpAdmin, "some-party-2")
+      _ <- allocateParty(context, s"some-party-1-$suffix")
+      _ <- allocateParty(context, s"some-party-2-$suffix")
 
       _ <- createUser(
         UUID.randomUUID().toString + "-alice-4",
-        idpAdmin,
+        context,
         Vector(
-          uproto.Right(uproto.Right.Kind.CanReadAs(uproto.Right.CanReadAs("some-party-1"))),
-          uproto.Right(uproto.Right.Kind.CanActAs(uproto.Right.CanActAs("some-party-2"))),
+          uproto.Right(
+            uproto.Right.Kind.CanReadAs(uproto.Right.CanReadAs(s"some-party-1-$suffix"))
+          ),
+          uproto.Right(uproto.Right.Kind.CanActAs(uproto.Right.CanActAs(s"some-party-2-$suffix"))),
         ),
       )
-    } yield {
-      assert(true)
-    }
-
+    } yield succeed
   }
-
 }
