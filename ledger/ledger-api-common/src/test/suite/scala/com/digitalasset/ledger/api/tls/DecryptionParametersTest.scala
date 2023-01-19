@@ -5,66 +5,75 @@ package com.daml.ledger.api.tls
 
 import java.io.ByteArrayInputStream
 import java.nio.file.Files
+import java.security.spec.AlgorithmParameterSpec
 import javax.crypto.{Cipher, KeyGenerator, SecretKey}
+
 import org.apache.commons.codec.binary.Hex
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
-
+import java.security.SecureRandom
 import java.util.Base64
+import javax.crypto.spec.{GCMParameterSpec, IvParameterSpec}
 
 class DecryptionParametersTest extends AnyWordSpec with Matchers {
 
-  "decryption parameters" should {
+  val iv: Array[Byte] = new Array[Byte](16)
+  SecureRandom.getInstanceStrong.nextBytes(iv)
 
-    // given
-    val key: SecretKey = KeyGenerator.getInstance("AES").generateKey()
-    val clearText = "clearText123 " * 10
-    val clearTextBytes = clearText.getBytes
-    val transformation = "AES/CBC/PKCS5Padding"
-    val cipher = Cipher.getInstance(transformation)
-    cipher.init(Cipher.ENCRYPT_MODE, key)
-    val hexEncodedKey = new String(Hex.encodeHexString(key.getEncoded))
-    val hexEncodedIv = new String(Hex.encodeHex(cipher.getIV))
-    val cipherText: Array[Byte] = cipher.doFinal(clearTextBytes)
+  def testTransformation(transformation: String, parameterSpec: AlgorithmParameterSpec): Unit =
+    s"decryption parameters of $transformation" should {
 
-    val tested = DecryptionParameters(
-      transformation = transformation,
-      keyInHex = hexEncodedKey,
-      initializationVectorInHex = hexEncodedIv,
-    )
-
-    "decrypt a byte array" in {
-      // when
-      val actual: Array[Byte] = tested.decrypt(cipherText)
-
-      // then
-      actual shouldBe clearTextBytes
-      new String(actual) shouldBe clearText
-    }
-
-    "decrypt a file" in
-      testFileDecoding("-verbatim", cipherText)
-
-    "decrypt a file in base64" in
-      testFileDecoding("-base64", Base64.getEncoder.encode(cipherText))
-
-    "decrypt a file in MIME base64" in
-      testFileDecoding("-mime-base64", Base64.getMimeEncoder.encode(cipherText))
-
-    def testFileDecoding(fileSuffix: String, content: Array[Byte]) = {
       // given
-      val tmpFilePath = Files.createTempFile(s"cipher-text$fileSuffix", ".enc")
-      Files.write(tmpFilePath, content)
-      assume(Files.readAllBytes(tmpFilePath) sameElements content)
+      val key: SecretKey = KeyGenerator.getInstance("AES").generateKey()
+      val clearText = "clearText123 " * 10
+      val clearTextBytes = clearText.getBytes
+      val cipher = Cipher.getInstance(transformation)
+      cipher.init(Cipher.ENCRYPT_MODE, key, parameterSpec)
+      val hexEncodedKey = new String(Hex.encodeHexString(key.getEncoded))
+      val hexEncodedIv = new String(Hex.encodeHex(cipher.getIV))
+      val cipherText: Array[Byte] = cipher.doFinal(clearTextBytes)
 
-      // when
-      val actual: Array[Byte] = tested.decrypt(tmpFilePath.toFile)
+      val tested = DecryptionParameters(
+        transformation = transformation,
+        keyInHex = hexEncodedKey,
+        initializationVectorInHex = hexEncodedIv,
+      )
 
-      // then
-      actual shouldBe clearTextBytes
-      new String(actual) shouldBe clearText
+      "decrypt a byte array" in {
+        // when
+        val actual: Array[Byte] = tested.decrypt(cipherText)
+
+        // then
+        actual shouldBe clearTextBytes
+        new String(actual) shouldBe clearText
+      }
+
+      "decrypt a file" in
+        testFileDecoding("-verbatim", cipherText)
+
+      "decrypt a file in base64" in
+        testFileDecoding("-base64", Base64.getEncoder.encode(cipherText))
+
+      "decrypt a file in MIME base64" in
+        testFileDecoding("-mime-base64", Base64.getMimeEncoder.encode(cipherText))
+
+      def testFileDecoding(fileSuffix: String, content: Array[Byte]) = {
+        // given
+        val tmpFilePath = Files.createTempFile(s"cipher-text$fileSuffix", ".enc")
+        Files.write(tmpFilePath, content)
+        assume(Files.readAllBytes(tmpFilePath) sameElements content)
+
+        // when
+        val actual: Array[Byte] = tested.decrypt(tmpFilePath.toFile)
+
+        // then
+        actual shouldBe clearTextBytes
+        new String(actual) shouldBe clearText
+      }
     }
-  }
+
+  testTransformation("AES/CBC/PKCS5Padding", new IvParameterSpec(iv))
+  testTransformation("AES/GCM/NoPadding", new GCMParameterSpec(128, iv))
 
   it should {
     "extract algorithm name from long transformation string" in {
@@ -93,6 +102,12 @@ class DecryptionParametersTest extends AnyWordSpec with Matchers {
   }
 
   it should {
+    val expected = DecryptionParameters(
+      transformation = "algorithm1/mode2/padding3",
+      keyInHex = "<hex encoded bytes of key>",
+      initializationVectorInHex = "<hex encoded bytes of iv>",
+    )
+
     "parse JSON file specifying decryption parameters" in {
       // given
       val jsonPayload =
@@ -103,14 +118,25 @@ class DecryptionParametersTest extends AnyWordSpec with Matchers {
           |	"key_length" : 123
           |}
           |""".stripMargin
-      val expected = DecryptionParameters(
-        transformation = "algorithm1/mode2/padding3",
-        keyInHex = "<hex encoded bytes of key>",
-        initializationVectorInHex = "<hex encoded bytes of iv>",
-      )
       // when
       val actual = DecryptionParameters.parsePayload(jsonPayload)
+      // then
+      actual shouldBe expected
+    }
 
+    "parse longer JSON file specifying decryption parameters" in {
+      // given
+      val jsonPayload =
+        """{
+          |	"algorithm": "algorithm1/mode2/padding3",
+          |	"key": "<hex encoded bytes of key>",
+          |	"iv": "<hex encoded bytes of iv>",
+          |	"key_length" : 123,
+          | "additional_info":"{TAG_LENGTH_BITS = 128}"
+          |}
+          |""".stripMargin
+      // when
+      val actual = DecryptionParameters.parsePayload(jsonPayload)
       // then
       actual shouldBe expected
     }

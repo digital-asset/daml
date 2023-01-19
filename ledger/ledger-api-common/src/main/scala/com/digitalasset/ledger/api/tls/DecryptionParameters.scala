@@ -7,7 +7,7 @@ import java.io.File
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import javax.crypto.Cipher
-import javax.crypto.spec.{IvParameterSpec, SecretKeySpec}
+import javax.crypto.spec.{GCMParameterSpec, IvParameterSpec, SecretKeySpec}
 import org.apache.commons.codec.binary.Hex
 import org.apache.commons.io.IOUtils
 import org.slf4j.LoggerFactory
@@ -37,8 +37,15 @@ case class DecryptionParameters(
     decrypt(bytes)
   }
 
-  private[tls] def algorithm: String = {
-    transformation.split("/")(0)
+  private[tls] val longPattern = "([a-zA-Z0-9]+)/([a-zA-Z0-9]+)/[a-zA-Z0-9]+".r
+  private[tls] val shortPattern = "([a-zA-Z0-9]+)".r
+
+  private[tls] val (algorithm, mode): (String, String) = {
+    transformation match {
+      case longPattern(a, m) => (a, m)
+      case shortPattern(a) => (a, "GCM")
+      case _ => ("AES", "GCM")
+    }
   }
 
   private[tls] def decrypt(encrypted: Array[Byte]): Array[Byte] = {
@@ -46,8 +53,14 @@ case class DecryptionParameters(
     val secretKey = new SecretKeySpec(key, algorithm)
     val iv: Array[Byte] = Hex.decodeHex(initializationVectorInHex)
     val cipher = Cipher.getInstance(transformation)
-    val ivParameterSpec = new IvParameterSpec(iv)
-    cipher.init(Cipher.DECRYPT_MODE, secretKey, ivParameterSpec)
+
+    if (mode == "GCM") {
+      val gcmParameterSpec = new GCMParameterSpec(128, iv)
+      cipher.init(Cipher.DECRYPT_MODE, secretKey, gcmParameterSpec)
+    } else {
+      val ivParameterSpec = new IvParameterSpec(iv)
+      cipher.init(Cipher.DECRYPT_MODE, secretKey, ivParameterSpec)
+    }
     val binary = decodeBase64OrGetVerbatim(encrypted)
     cipher.doFinal(binary)
   }
