@@ -270,7 +270,9 @@ trait AuthMiddlewareFixture
             clientSecret = SecretString("oauth-middleware-secret"),
             tokenVerifier = authVerifier,
           )
-          middleware <- Resource(MiddlewareServer.start(middlewareConfig))(closeServerBinding)
+          middleware <- Resource(
+            MiddlewareServer.start(middlewareConfig, registerGlobalOpenTelemetry = false)
+          )(closeServerBinding)
         } yield (clock, oauthServer, middleware)
       }
     })

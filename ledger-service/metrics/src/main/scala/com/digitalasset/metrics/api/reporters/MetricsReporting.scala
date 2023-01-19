@@ -36,13 +36,15 @@ final class MetricsReporting[M](
     jmxDomain: String,
     extraMetricsReporter: Option[MetricsReporter],
     extraMetricsReportingInterval: Duration,
+    registerGlobalOpenTelemetry: Boolean,
 )(metrics: (MetricRegistry, OtelMeter) => M)
     extends ResourceOwner[M] {
   def acquire()(implicit context: ResourceContext): Resource[M] = {
     val registry = new MetricRegistry
     registry.registerAll(new JvmMetricSet)
     for {
-      openTelemetry <- OpenTelemetryOwner(true, extraMetricsReporter).acquire()
+      openTelemetry <- OpenTelemetryOwner(registerGlobalOpenTelemetry, extraMetricsReporter)
+        .acquire()
       slf4JReporter <- acquire(newSlf4jReporter(registry))
       _ <- acquire(newJmxReporter(registry))
         .map(_.start())
