@@ -7,7 +7,7 @@ import com.daml.ledger.participant.state.index.v2.{MaximumLedgerTime, MaximumLed
 import com.daml.lf.command.{EngineEnrichedContractMetadata, ProcessedDisclosedContract}
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref.Identifier
-import com.daml.lf.data.{ImmArray, Time}
+import com.daml.lf.data.{Bytes, ImmArray, Time}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 import com.daml.logging.LoggingContext
@@ -77,7 +77,7 @@ class ResolveMaximumLedgerTimeSpec
       argument = Value.ValueNil,
       metadata = EngineEnrichedContractMetadata(
         createdAt = createdAt,
-        driverMetadata = ImmArray.empty,
+        driverMetadata = Bytes.Empty,
         signatories = Set.empty,
         stakeholders = Set.empty,
         maybeKeyWithMaintainers = None,

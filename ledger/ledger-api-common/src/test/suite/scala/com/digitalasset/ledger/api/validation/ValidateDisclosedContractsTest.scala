@@ -27,7 +27,7 @@ import com.daml.lf.command.{
   DisclosedContract => LfDisclosedContract,
 }
 import com.daml.lf.crypto.Hash
-import com.daml.lf.data.{ImmArray, Ref, Time}
+import com.daml.lf.data.{Bytes, ImmArray, Ref, Time}
 import com.daml.lf.value.Value.ValueRecord
 import com.daml.lf.value.{Value => Lf}
 import com.google.protobuf.ByteString
@@ -292,7 +292,7 @@ object ValidateDisclosedContractsTest {
       LfContractMetadata(
         createdAt = Time.Timestamp.assertFromLong(1337000000L),
         keyHash = Some(Hash.assertFromString("00" * 31 + "ff")),
-        driverMetadata = ImmArray.from(ByteString.copyFromUtf8("SomeDriverMetadata").toByteArray),
+        driverMetadata = Bytes.fromByteString(ByteString.copyFromUtf8("SomeDriverMetadata")),
       ),
     )
 

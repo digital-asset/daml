@@ -5,7 +5,7 @@ package com.daml.lf
 package speedy
 
 import com.daml.lf.command.ContractMetadata
-import com.daml.lf.data.{FrontStack, ImmArray, Ref, Time}
+import com.daml.lf.data.{Bytes, FrontStack, ImmArray, Ref, Time}
 import com.daml.lf.data.Ref.{Location, Party}
 import com.daml.lf.interpretation.{Error => IE}
 import com.daml.lf.language.Ast._
@@ -360,7 +360,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           ImmArray(Ref.Name.assertFromString("signatory")),
           ArrayList(SParty(signatory)),
         ),
-        ContractMetadata(Time.Timestamp.now(), None, ImmArray.Empty),
+        ContractMetadata(Time.Timestamp.now(), None, Bytes.Empty),
       ),
     )
 

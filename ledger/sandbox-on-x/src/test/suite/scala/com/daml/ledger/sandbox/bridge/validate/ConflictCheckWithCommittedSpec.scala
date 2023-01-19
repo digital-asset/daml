@@ -17,7 +17,7 @@ import com.daml.ledger.sandbox.domain.Submission
 import com.daml.lf.command.{EngineEnrichedContractMetadata, ProcessedDisclosedContract}
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Time.Timestamp
-import com.daml.lf.data.{ImmArray, Ref, Time}
+import com.daml.lf.data.{Bytes, ImmArray, Ref, Time}
 import com.daml.lf.transaction._
 import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.value.Value
@@ -236,7 +236,7 @@ class ConflictCheckWithCommittedSpec
             Versioned(
               TransactionVersion.VDev,
               disclosedContract.copy(metadata =
-                disclosedContract.metadata.copy(driverMetadata = ImmArray.empty)
+                disclosedContract.metadata.copy(driverMetadata = Bytes.Empty)
               ),
             )
           )
@@ -303,7 +303,7 @@ class ConflictCheckWithCommittedSpec
         argument = Value.ValueText("Some contract value"),
         metadata = EngineEnrichedContractMetadata(
           createdAt = Time.Timestamp.now(),
-          driverMetadata = ImmArray.from(contractId.toBytes.toByteArray),
+          driverMetadata = contractId.toBytes,
           signatories = Set.empty,
           stakeholders = Set.empty,
           maybeKeyWithMaintainers = None,

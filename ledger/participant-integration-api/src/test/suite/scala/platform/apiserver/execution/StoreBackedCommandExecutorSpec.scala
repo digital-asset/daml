@@ -16,7 +16,7 @@ import com.daml.lf.command.{
 }
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref.{Identifier, ParticipantId}
-import com.daml.lf.data.{ImmArray, Ref, Time}
+import com.daml.lf.data.{Bytes, ImmArray, Ref, Time}
 import com.daml.lf.engine.{Engine, ResultDone}
 import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.transaction.{SubmittedTransaction, Transaction, TransactionVersion, Versioned}
@@ -42,7 +42,7 @@ class StoreBackedCommandExecutorSpec
         argument = Value.ValueNil,
         metadata = EngineEnrichedContractMetadata(
           createdAt = Time.Timestamp.Epoch,
-          driverMetadata = ImmArray.empty,
+          driverMetadata = Bytes.Empty,
           signatories = Set.empty,
           stakeholders = Set.empty,
           maybeKeyWithMaintainers = None,

@@ -6,7 +6,7 @@ package speedy
 
 import com.daml.lf.command.ContractMetadata
 import com.daml.lf.data.Ref.Party
-import com.daml.lf.data.{ImmArray, Ref, Time}
+import com.daml.lf.data.{Bytes, ImmArray, Ref, Time}
 import com.daml.lf.interpretation.Error.{ContractKeyNotFound, ContractNotActive}
 import com.daml.lf.speedy.SExpr.SEValue
 import com.daml.lf.value.Value
@@ -504,7 +504,7 @@ private[lf] trait ExplicitDisclosureTestMethods extends AnyFreeSpec with Inside 
           ),
           ArrayList(SValue.SParty(disclosureParty), SValue.SParty(maintainerParty)),
         ),
-        ContractMetadata(Time.Timestamp.now(), Some(houseContractKey.hash), ImmArray.Empty),
+        ContractMetadata(Time.Timestamp.now(), Some(houseContractKey.hash), Bytes.Empty),
       )
     val (result, ledger) =
       evaluateSExpr(

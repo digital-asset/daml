@@ -23,7 +23,7 @@ import com.daml.lf.command.{
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref.Identifier
 import com.daml.lf.data.Time.Timestamp
-import com.daml.lf.data.{ImmArray, Ref, Time}
+import com.daml.lf.data.{Bytes, ImmArray, Ref, Time}
 import com.daml.lf.engine.{Error => LfError}
 import com.daml.lf.interpretation.{Error => LfInterpretationError}
 import com.daml.lf.language.{LookupError, Reference}
@@ -206,7 +206,7 @@ class ApiSubmissionServiceSpec
       metadata = ContractMetadata(
         createdAt = Timestamp.Epoch,
         keyHash = None,
-        driverMetadata = ImmArray.empty,
+        driverMetadata = Bytes.Empty,
       ),
     )
     val engineEnrichedDisclosedContract = ProcessedDisclosedContract(
@@ -215,7 +215,7 @@ class ApiSubmissionServiceSpec
       argument = Value.ValueNil,
       metadata = EngineEnrichedContractMetadata(
         createdAt = Timestamp.Epoch,
-        driverMetadata = ImmArray.empty,
+        driverMetadata = Bytes.Empty,
         signatories = Set.empty,
         stakeholders = Set.empty,
         maybeKeyWithMaintainers = None,
