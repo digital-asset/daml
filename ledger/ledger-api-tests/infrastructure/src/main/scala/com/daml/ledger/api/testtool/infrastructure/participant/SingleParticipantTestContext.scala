@@ -171,7 +171,7 @@ final class SingleParticipantTestContext private[participant] (
       .map(_.getOffset)
 
   override def offsetBeyondLedgerEnd(): Future[LedgerOffset] =
-    currentEnd().map(end => LedgerOffset(LedgerOffset.Value.Absolute("FFFF" + end.getAbsolute)))
+    currentEnd().map(end => LedgerOffset(LedgerOffset.Value.Absolute("ffff" + end.getAbsolute)))
 
   override def time(): Future[Instant] =
     new StreamConsumer[GetTimeResponse](services.time.getTime(new GetTimeRequest(ledgerId), _))
