@@ -7,6 +7,7 @@ import com.daml.error._
 import com.daml.error.definitions.ErrorGroups.ParticipantErrorGroup.LedgerApiErrorGroup
 import com.daml.lf.engine.Error.Validation.ReplayMismatch
 import com.daml.lf.engine.{Error => LfError}
+import com.daml.metrics.ExecutorServiceMetrics
 import org.slf4j.event.Level
 
 @Explanation(
@@ -112,7 +113,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
   )
   @Resolution(
     """The following actions can be taken:
-      |Here the 'queue size' for the threadpool = 'submitted tasks' - 'completed tasks' - 'running tasks'
+      |Here the 'queue size' for the threadpool is considered as reported by the executor itself.
       |1. Review the historical 'queue size' growth by inspecting the metric given in the message.
       |2. Review the maximum 'queue size' limits configured in the rate limiting configuration.
       |3. Try to space out requests that are likely to require a lot of CPU or database power.
@@ -125,18 +126,19 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
       ) {
     case class Rejection(
         name: String,
+        metricNameLabel: String,
         queued: Long,
         limit: Int,
-        metricPrefix: String,
         fullMethodName: String,
     )(implicit errorLogger: ContextualizedErrorLogger)
         extends DamlErrorWithDefiniteAnswer(
-          s"The $name queue size ($queued) has exceeded the maximum ($limit). Api services metrics are available at $metricPrefix.",
+          s"The $name queue size ($queued) has exceeded the maximum ($limit). Metrics for queue size available at ${ExecutorServiceMetrics.CommonMetricsName.QueuedTasks}.",
           extraContext = Map(
             "name" -> name,
             "queued" -> queued,
             "limit" -> limit,
-            "metricPrefix" -> metricPrefix,
+            "name_label" -> metricNameLabel,
+            "metrics" -> ExecutorServiceMetrics.CommonMetricsName.QueuedTasks,
             "fullMethodName" -> fullMethodName,
           ),
         )

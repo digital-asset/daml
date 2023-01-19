@@ -21,7 +21,6 @@ import com.daml.platform.apiserver.configuration.RateLimitingConfig
 import com.daml.platform.apiserver.ratelimiting.LimitResult.LimitResultCheck
 import com.daml.platform.apiserver.ratelimiting.ThreadpoolCheck.ThreadpoolCount
 import com.daml.platform.apiserver.services.GrpcClientResource
-import com.daml.platform.configuration.ServerRole
 import com.daml.platform.hello.{HelloRequest, HelloResponse, HelloServiceGrpc}
 import com.daml.platform.server.api.services.grpc.GrpcHealthService
 import com.daml.ports.Port
@@ -66,20 +65,18 @@ final class RateLimitingInterceptorSpec
 
   it should "limit calls when apiServices DB thread pool executor service is over limit" in {
     val metrics = createMetrics
-    withChannel(metrics, new HelloServiceAkkaImplementation, config).use { channel: Channel =>
+    val queueSizeValues =
+      Iterator(0L, config.maxApiServicesQueueSize.toLong + 1, 0L)
+    withChannel(
+      metrics,
+      new HelloServiceAkkaImplementation,
+      config,
+      threadPoolQueueSize = () => queueSizeValues.next(),
+    ).use { channel: Channel =>
       val helloService = HelloServiceGrpc.stub(channel)
-      val submitted = metrics.dropwizardFactory.registry.meter(
-        MetricRegistry.name(
-          metrics.daml.index.db.threadpool.connection,
-          ServerRole.ApiServer.threadPoolSuffix,
-          "submitted",
-        )
-      )
       for {
         _ <- helloService.single(HelloRequest(1))
-        _ = submitted.mark(config.maxApiServicesIndexDbQueueSize.toLong + 1)
         exception <- helloService.single(HelloRequest(2)).failed
-        _ = submitted.mark(-config.maxApiServicesIndexDbQueueSize.toLong - 1)
         _ <- helloService.single(HelloRequest(3))
       } yield {
         exception.getMessage should include(metrics.daml.index.db.threadpool.connection)
@@ -377,9 +374,10 @@ final class RateLimitingInterceptorSpec
   it should "support addition checks" in {
     val metrics = Metrics(new MetricRegistry, GlobalOpenTelemetry.getMeter("test"))
 
-    val apiServices: ThreadpoolCount = new ThreadpoolCount(metrics)(
+    val apiServices: ThreadpoolCount = ThreadpoolCount(
       "Api Services Threadpool",
       metrics.daml.lapi.threadpool.apiServices,
+      () => 0,
     )
     val apiServicesCheck = ThreadpoolCheck(apiServices, config.maxApiServicesQueueSize)
 
@@ -433,10 +431,18 @@ object RateLimitingInterceptorSpec extends MockitoSugar {
       pool: List[MemoryPoolMXBean] = List(underLimitMemoryPoolMXBean()),
       memoryBean: MemoryMXBean = ManagementFactory.getMemoryMXBean,
       additionalChecks: List[LimitResultCheck] = List.empty,
+      threadPoolQueueSize: () => Long = () => 0,
   ): ResourceOwner[Channel] =
     for {
       server <- serverOwner(
-        RateLimitingInterceptor(metrics, config, pool, memoryBean, additionalChecks),
+        RateLimitingInterceptor(
+          metrics,
+          config,
+          pool,
+          memoryBean,
+          additionalChecks,
+          threadPoolQueueSize,
+        ),
         service,
       )
       channel <- GrpcClientResource.owner(Port(server.getPort))

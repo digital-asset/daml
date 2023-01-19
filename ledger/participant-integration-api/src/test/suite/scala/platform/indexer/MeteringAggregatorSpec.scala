@@ -25,10 +25,12 @@ import org.mockito.MockitoSugar
 import org.mockito.captor.ArgCaptor
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpecLike
-
 import java.sql.Connection
 import java.time.temporal.ChronoUnit
 import java.time.{LocalDate, LocalTime, OffsetDateTime, ZoneOffset}
+
+import com.daml.executors.QueueAwareExecutionContextExecutorService
+
 import scala.concurrent.Future
 
 //noinspection TypeAnnotation
@@ -58,6 +60,8 @@ final class MeteringAggregatorSpec extends AnyWordSpecLike with MockitoSugar wit
         ): Future[T] = Future.successful {
           sql(conn)
         }
+        override val executor: QueueAwareExecutionContextExecutorService =
+          mock[QueueAwareExecutionContextExecutorService]
       }
 
       val parameterStore: ParameterStorageBackend = mock[ParameterStorageBackend]

@@ -13,6 +13,7 @@ da_scala_library(
     visibility = ["//visibility:public"],
     deps = [
         "//observability/metrics",
+        "//libs-scala/scala-utils",
         "@maven//:io_dropwizard_metrics_metrics_core",
     ],
 )

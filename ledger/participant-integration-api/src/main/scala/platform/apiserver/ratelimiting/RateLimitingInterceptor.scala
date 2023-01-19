@@ -83,6 +83,7 @@ object RateLimitingInterceptor {
       metrics: Metrics,
       config: RateLimitingConfig,
       additionalChecks: List[LimitResultCheck] = List.empty,
+      indexDbQueueSizeProvider: () => Long,
   ): RateLimitingInterceptor = {
     apply(
       metrics = metrics,
@@ -90,6 +91,7 @@ object RateLimitingInterceptor {
       tenuredMemoryPools = ManagementFactory.getMemoryPoolMXBeans.asScala.toList,
       memoryMxBean = ManagementFactory.getMemoryMXBean,
       additionalChecks = additionalChecks,
+      indexDbQueueSizeProvider: () => Long,
     )
   }
 
@@ -99,11 +101,16 @@ object RateLimitingInterceptor {
       tenuredMemoryPools: List[MemoryPoolMXBean],
       memoryMxBean: MemoryMXBean,
       additionalChecks: List[LimitResultCheck],
+      indexDbQueueSizeProvider: () => Long,
   ): RateLimitingInterceptor = {
 
-    val indexDbThreadpool: ThreadpoolCount = new ThreadpoolCount(metrics)(
+    val indexDbThreadpool: ThreadpoolCount = ThreadpoolCount(
       "Index Database Connection Threadpool",
-      MetricName(metrics.daml.index.db.threadpool.connection, ServerRole.ApiServer.threadPoolSuffix),
+      MetricName(
+        metrics.daml.index.db.threadpool.connection,
+        ServerRole.ApiServer.threadPoolSuffix,
+      ),
+      queueSizeProvider = indexDbQueueSizeProvider,
     )
 
     val activeStreamsName = metrics.daml.lapi.streams.activeName

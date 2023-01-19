@@ -9,7 +9,7 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.Sink
 import com.daml.api.util.TimeProvider
 import com.daml.buildinfo.BuildInfo
-import com.daml.executors.InstrumentedExecutors
+import com.daml.executors.{InstrumentedExecutors, QueueAwareExecutionContextExecutorService}
 import com.daml.ledger.api.auth.{
   AuthServiceJWT,
   AuthServiceNone,
@@ -138,8 +138,10 @@ object SandboxOnXRunner {
         servicesExecutionContext = servicesExecutionContext,
         metrics = metrics,
         explicitDisclosureUnsafeEnabled = true,
-        rateLimitingInterceptor =
-          participantConfig.apiServer.rateLimit.map(buildRateLimitingInterceptor(metrics)),
+        rateLimitingInterceptor = participantConfig.apiServer.rateLimit.map(config =>
+          (dbExecutor: QueueAwareExecutionContextExecutorService) =>
+            buildRateLimitingInterceptor(metrics, dbExecutor, servicesExecutionContext)(config)
+        ),
       )(actorSystem, materializer).owner
     } yield {
       logInitializationHeader(
@@ -230,7 +232,7 @@ object SandboxOnXRunner {
   private def buildServicesExecutionContext(
       metrics: Metrics,
       servicesThreadPoolSize: Int,
-  ): ResourceOwner[ExecutionContextExecutorService] =
+  ): ResourceOwner[QueueAwareExecutionContextExecutorService] =
     ResourceOwner
       .forExecutorService(() =>
         InstrumentedExecutors.newWorkStealingExecutor(
@@ -285,16 +287,24 @@ object SandboxOnXRunner {
   }
 
   def buildRateLimitingInterceptor(
-      metrics: Metrics
+      metrics: Metrics,
+      indexDbExecutor: QueueAwareExecutionContextExecutorService,
+      apiServicesExecutor: QueueAwareExecutionContextExecutorService,
   )(config: RateLimitingConfig): RateLimitingInterceptor = {
 
-    val apiServices: ThreadpoolCount = new ThreadpoolCount(metrics)(
+    val apiServices: ThreadpoolCount = ThreadpoolCount(
       "Api Services Threadpool",
       metrics.daml.lapi.threadpool.apiServices,
+      () => apiServicesExecutor.getQueueSize
     )
     val apiServicesCheck = ThreadpoolCheck(apiServices, config.maxApiServicesQueueSize)
 
-    RateLimitingInterceptor(metrics, config, List(apiServicesCheck))
+    RateLimitingInterceptor(
+      metrics,
+      config,
+      List(apiServicesCheck),
+      () => indexDbExecutor.getQueueSize,
+    )
 
   }
 
