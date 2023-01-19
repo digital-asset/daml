@@ -16,7 +16,7 @@ import scalaz.Scalaz._
 import scalaz._
 
 import scala.collection.immutable.Map
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 
 object LedgerReader {
 
@@ -28,9 +28,6 @@ object LedgerReader {
   val UpToDate: Future[Error \/ Option[PackageStore]] =
     Future.successful(\/-(None))
 
-  // FIXME Find a more suitable execution context for these helpers
-  import scala.concurrent.ExecutionContext.Implicits.global
-
   /** @return [[UpToDate]] if packages did not change
     */
   def loadPackageStoreUpdates(
@@ -39,7 +36,7 @@ object LedgerReader {
       ledgerId: LedgerId,
   )(
       loadedPackageIds: Set[String]
-  ): Future[Error \/ Option[PackageStore]] =
+  )(implicit ec: ExecutionContext): Future[Error \/ Option[PackageStore]] =
     for {
       newPackageIds <- client.listPackages(ledgerId, token).map(_.packageIds.toList)
       diffIds = newPackageIds.filterNot(loadedPackageIds): List[String] // keeping the order
@@ -50,9 +47,10 @@ object LedgerReader {
 
   /** @return [[UpToDate]] if packages did not change
     */
+  @deprecated("TODO #15922 unused?", since = "2.5.2")
   def loadPackageStoreUpdates(client: PackageClient, token: Option[String])(
       loadedPackageIds: Set[String]
-  ): Future[Error \/ Option[PackageStore]] =
+  )(implicit ec: ExecutionContext): Future[Error \/ Option[PackageStore]] =
     loadPackageStoreUpdates(client.it, token, client.ledgerId)(loadedPackageIds)
 
   private def load[PS >: Some[PackageStore]](
@@ -60,7 +58,7 @@ object LedgerReader {
       packageIds: List[String],
       ledgerId: LedgerId,
       token: Option[String],
-  ): Future[Error \/ PS] =
+  )(implicit ec: ExecutionContext): Future[Error \/ PS] =
     packageIds
       .traverse(client.getPackage(_, ledgerId, token))
       .map(createPackageStoreFromArchives)
