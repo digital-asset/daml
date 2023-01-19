@@ -11,7 +11,7 @@ import io.grpc.{Status, StatusRuntimeException}
 import scala.concurrent.Future
 
 class ListUserRightsWithGivenUserIdAuthIT
-    extends AdminServiceCallAuthTests
+    extends AdminOrIDPAdminServiceCallAuthTests
     with UserManagementAuth {
 
   override def serviceCallName: String = "UserManagementService#ListUserRights(given-user-id)"
@@ -30,8 +30,6 @@ class ListUserRightsWithGivenUserIdAuthIT
       // create a normal user
       (alice, _) <- createUserByAdmin(testId + "-alice", identityProviderId)
 
-      // test that only admins can retrieve his own user and the newly created alice user
-      _ <- getRights("participant_admin")
       _ <- getRights(alice.id)
 
       // test for a non-existent user

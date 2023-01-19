@@ -7,7 +7,7 @@ import com.daml.ledger.api.v1.admin.user_management_service.ListUsersRequest
 
 import scala.concurrent.Future
 
-final class ListUsersAuthIT extends AdminServiceCallAuthTests with UserManagementAuth {
+final class ListUsersAuthIT extends AdminOrIDPAdminServiceCallAuthTests with UserManagementAuth {
 
   override def serviceCallName: String = "UserManagementService#ListUsers"
 

@@ -8,6 +8,7 @@ import com.daml.ledger.api.v1.admin.user_management_service.{
   CreateUserResponse,
   User,
   UserManagementServiceGrpc,
+  Right,
 }
 
 import java.util.UUID
@@ -23,10 +24,12 @@ trait UserManagementAuth {
   def createFreshUser(
       token: Option[String],
       identityProviderId: String,
+      rights: scala.Seq[Right] = scala.Seq.empty,
   ): Future[CreateUserResponse] = {
     val userId = "fresh-user-" + UUID.randomUUID().toString
     val req = CreateUserRequest(
-      Some(User(userId, identityProviderId = identityProviderId))
+      user = Some(User(userId, identityProviderId = identityProviderId)),
+      rights = rights,
     )
     stub(token).createUser(req)
   }
