@@ -295,7 +295,7 @@ object SandboxOnXRunner {
     val apiServices: ThreadpoolCount = ThreadpoolCount(
       "Api Services Threadpool",
       metrics.daml.lapi.threadpool.apiServices,
-      () => apiServicesExecutor.getQueueSize
+      () => apiServicesExecutor.getQueueSize,
     )
     val apiServicesCheck = ThreadpoolCheck(apiServices, config.maxApiServicesQueueSize)
 

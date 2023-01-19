@@ -12,8 +12,8 @@ da_scala_library(
     tags = ["maven_coordinates=com.daml:executors:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [
-        "//observability/metrics",
         "//libs-scala/scala-utils",
+        "//observability/metrics",
         "@maven//:io_dropwizard_metrics_metrics_core",
     ],
 )

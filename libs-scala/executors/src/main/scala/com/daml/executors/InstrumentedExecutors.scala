@@ -3,11 +3,7 @@
 
 package com.daml.executors
 
-import java.util.concurrent.{
-  ExecutorService,
-  ThreadFactory,
-  Executors => JavaExecutors,
-}
+import java.util.concurrent.{ExecutorService, ThreadFactory, Executors => JavaExecutors}
 
 import com.codahale.metrics.{InstrumentedExecutorService, MetricRegistry}
 import com.daml.metrics.ExecutorServiceMetrics
