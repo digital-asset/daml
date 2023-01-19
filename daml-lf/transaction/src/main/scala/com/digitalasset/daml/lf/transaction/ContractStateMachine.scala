@@ -4,7 +4,6 @@
 package com.daml.lf
 package transaction
 
-import com.daml.lf.data.Ref.TypeConName
 import com.daml.lf.transaction.Transaction.{
   DuplicateContractKey,
   InconsistentContractKey,
@@ -125,8 +124,8 @@ class ContractStateMachine[Nid](mode: ContractKeyUniquenessMode) {
       }
 
     /** Visit a create node */
-    def handleCreate(node: Node.Create, key: Option[GlobalKey]): Either[KeyInputError, State] =
-      visitCreate(node.coid, key).left.map(Right(_))
+    def handleCreate(node: Node.Create): Either[KeyInputError, State] =
+      visitCreate(node.coid, globalKeyOpt(node)).left.map(Right(_))
 
     private[lf] def visitCreate(
         contractId: ContractId,
@@ -161,15 +160,11 @@ class ContractStateMachine[Nid](mode: ContractKeyUniquenessMode) {
       }
     }
 
-    def handleExercise(
-        nid: Nid,
-        exe: Node.Exercise,
-        key: Option[GlobalKey],
-    ): Either[KeyInputError, State] =
+    def handleExercise(nid: Nid, exe: Node.Exercise): Either[KeyInputError, State] =
       visitExercise(
         nid,
         exe.targetCoid,
-        key,
+        globalKeyOpt(exe),
         exe.byKey,
         exe.consuming,
       ).left
@@ -209,7 +204,8 @@ class ContractStateMachine[Nid](mode: ContractKeyUniquenessMode) {
         throw new UnsupportedOperationException(
           "handleLookup can only be used if all key nodes are considered"
         )
-      visitLookup(lookup.templateId, lookup.key.key, lookup.result, lookup.result).left.map(Left(_))
+      visitLookup(globalKey(lookup), lookup.result, lookup.result).left
+        .map(Left(_))
     }
 
     /** Must be used to handle lookups iff in [[com.daml.lf.transaction.ContractKeyUniquenessMode.Off]] mode
@@ -231,16 +227,14 @@ class ContractStateMachine[Nid](mode: ContractKeyUniquenessMode) {
         throw new UnsupportedOperationException(
           "handleLookupWith can only be used if only by-key nodes are considered"
         )
-      visitLookup(lookup.templateId, lookup.key.key, keyInput, lookup.result).left.map(Left(_))
+      visitLookup(globalKey(lookup), keyInput, lookup.result).left.map(Left(_))
     }
 
     private[lf] def visitLookup(
-        templateId: TypeConName,
-        key: Value,
+        gk: GlobalKey,
         keyInput: Option[ContractId],
         keyResolution: Option[ContractId],
     ): Either[InconsistentContractKey, State] = {
-      val gk = GlobalKey.assertBuild(templateId, key)
       val (keyMapping, next) = resolveKey(gk) match {
         case Right(result) => result
         case Left(handle) => handle(keyInput)
@@ -280,8 +274,8 @@ class ContractStateMachine[Nid](mode: ContractKeyUniquenessMode) {
       }
     }
 
-    def handleFetch(node: Node.Fetch, key: Option[GlobalKey]): Either[KeyInputError, State] =
-      visitFetch(node.coid, key, node.byKey).left.map(Left(_))
+    def handleFetch(node: Node.Fetch): Either[KeyInputError, State] =
+      visitFetch(node.coid, globalKeyOpt(node), node.byKey).left.map(Left(_))
 
     private[lf] def visitFetch(
         contractId: ContractId,
@@ -315,18 +309,17 @@ class ContractStateMachine[Nid](mode: ContractKeyUniquenessMode) {
     def handleNode(
         id: Nid,
         node: Node.Action,
-        gkey: Option[GlobalKey],
-        resolver: GlobalKey => Option[ContractId] = _ => None,
+        keyInput: => Option[ContractId],
     ): Either[KeyInputError, State] = node match {
-      case create: Node.Create => handleCreate(create, gkey)
-      case fetch: Node.Fetch => handleFetch(fetch, gkey)
+      case create: Node.Create => handleCreate(create)
+      case fetch: Node.Fetch => handleFetch(fetch)
       case lookup: Node.LookupByKey =>
         mode match {
           case ContractKeyUniquenessMode.Strict => handleLookup(lookup)
-          case ContractKeyUniquenessMode.Off => handleLookupWith(lookup, gkey.flatMap(resolver))
+          case ContractKeyUniquenessMode.Off => handleLookupWith(lookup, keyInput)
         }
 
-      case exercise: Node.Exercise => handleExercise(id, exercise, gkey)
+      case exercise: Node.Exercise => handleExercise(id, exercise)
     }
 
     /** To be called when interpretation enters a try block or iteration enters a Rollback node
@@ -539,4 +532,11 @@ object ContractStateMachine {
       ActiveLedgerState(Set.empty, Map.empty, Map.empty)
     def empty[Nid]: ActiveLedgerState[Nid] = EMPTY
   }
+
+  private def globalKeyOpt(node: Node.Action) =
+    node.keyOpt.map(k => GlobalKey.assertBuild(node.templateId, k.key))
+
+  private def globalKey(node: Node.LookupByKey) =
+    GlobalKey.assertBuild(node.templateId, node.key.key)
+
 }

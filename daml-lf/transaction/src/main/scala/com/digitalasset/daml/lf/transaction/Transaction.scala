@@ -509,10 +509,7 @@ sealed abstract class HasTxNodes {
       Right(machine.initial)
     )(
       exerciseBegin = (acc, nid, exe) =>
-        (
-          acc.flatMap(_.handleExercise(nid, exe, globalKey(exe))),
-          Transaction.ChildrenRecursion.DoRecurse,
-        ),
+        (acc.flatMap(_.handleExercise(nid, exe)), Transaction.ChildrenRecursion.DoRecurse),
       exerciseEnd = (acc, _, _) => acc,
       rollbackBegin =
         (acc, _, _) => (acc.map(_.beginRollback()), Transaction.ChildrenRecursion.DoRecurse),
@@ -663,9 +660,6 @@ sealed abstract class HasTxNodes {
       case Some((head, _)) =>
         Right(head.head)
     }
-
-  private[this] def globalKey(node: Node.Action) =
-    node.keyOpt.map(k => GlobalKey.assertBuild(node.templateId, k.key))
 
 }
 

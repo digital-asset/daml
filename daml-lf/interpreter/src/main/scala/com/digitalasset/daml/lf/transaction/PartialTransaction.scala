@@ -11,7 +11,6 @@ import com.daml.lf.speedy.Speedy.{CachedContract, CachedKey}
 import com.daml.lf.transaction.ContractKeyUniquenessMode
 import com.daml.lf.transaction.{
   ContractStateMachine,
-  GlobalKey,
   Node,
   NodeId,
   SubmittedTransaction => SubmittedTx,
@@ -427,21 +426,12 @@ private[speedy] case class PartialTransaction(
   ): Either[Tx.TransactionError, PartialTransaction] = {
     val auth = Authorize(context.info.authorizers)
     val nid = NodeId(nextNodeIdx)
-    val keyWithMaintainers = key.toNodeKey(version)
-    val keyValue = keyWithMaintainers.key
-    val node = Node.LookupByKey(
-      templateId,
-      keyWithMaintainers,
-      result,
-      version,
-    )
-    val gkey = GlobalKey.assertBuild(templateId, keyValue)
+    val node = Node.LookupByKey(templateId, key.toNodeKey(version), result, version)
     // This method is only called after we have already resolved the key in com.daml.lf.speedy.SBuiltin.SBUKeyBuiltin.execute
     // so the current state's global key inputs must resolve the key.
-    val keyInput = contractState.globalKeyInputs(gkey)
-    val newContractState = assertRightKey(
-      contractState.visitLookup(templateId, keyValue, keyInput.toKeyMapping, result)
-    )
+    val keyInput = contractState.globalKeyInputs(key.globalKey)
+    val newContractState =
+      assertRightKey(contractState.visitLookup(key.globalKey, keyInput.toKeyMapping, result))
     authorizationChecker.authorizeLookupByKey(optLocation, node)(auth) match {
       case fa :: _ => Left(Tx.AuthFailureDuringExecution(nid, fa))
       case Nil =>
