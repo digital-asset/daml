@@ -392,20 +392,19 @@ private[apiserver] final class ApiUserManagementService(
       rights: Set[UserRight],
       identityProviderId: IdentityProviderId,
       isParticipantAdmin: Boolean,
-  ): Future[Unit] =
-    if (isParticipantAdmin) Future.unit
-    else partyExistsOrError(userParties(rights), identityProviderId)
+  ): Future[Unit] = {
+    val parties = userParties(rights)
+    val partiesExistingInPartyRecordStore =
+      if (isParticipantAdmin) partyRecordExist.filterPartiesExistingInPartyRecordStore(parties)
+      else
+        partyRecordExist
+          .filterPartiesExistingInPartyRecordStore(identityProviderId, parties)
 
-  private def partyExistsOrError(
-      parties: Set[Ref.Party],
-      identityProviderId: IdentityProviderId,
-  ): Future[Unit] =
-    partyRecordExist
-      .filterPartiesExistingInPartyRecordStore(identityProviderId, parties)
+    partiesExistingInPartyRecordStore
       .flatMap { partiesExist =>
         val partiesNotExist = parties -- partiesExist
         if (partiesNotExist.isEmpty)
-          Future.successful(())
+          Future.unit
         else
           Future.failed(
             LedgerApiErrors.RequestValidation.InvalidArgument
@@ -415,6 +414,7 @@ private[apiserver] final class ApiUserManagementService(
               .asGrpcError
           )
       }
+  }
 
   private def identityProviderExistsOrError(id: IdentityProviderId): Future[Unit] =
     identityProviderExists(id)

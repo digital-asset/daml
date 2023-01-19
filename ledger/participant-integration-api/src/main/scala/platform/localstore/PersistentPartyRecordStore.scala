@@ -289,4 +289,13 @@ class PersistentPartyRecordStore(
     case Right(value) => value
     case Left(_) => Set.empty
   }
+
+  override def filterExistingParties(parties: Set[Party])(implicit
+      loggingContext: LoggingContext
+  ): Future[Set[Party]] = inTransaction(_.partiesExist) { implicit connection =>
+    Right(backend.filterExistingParties(parties)(connection))
+  }.map {
+    case Right(value) => value
+    case Left(_) => Set.empty
+  }
 }

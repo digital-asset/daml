@@ -31,6 +31,9 @@ trait PartyRecordStorageBackend extends ResourceVersionOps {
       identityProviderId: Option[IdentityProviderId.Id],
   )(connection: Connection): Set[Ref.Party]
 
+  def filterExistingParties(
+      parties: Set[Ref.Party]
+  )(connection: Connection): Set[Ref.Party]
 }
 
 object PartyRecordStorageBackend {

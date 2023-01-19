@@ -43,6 +43,10 @@ trait PartyRecordStore {
       implicit loggingContext: LoggingContext
   ): Future[Set[Ref.Party]]
 
+  def filterExistingParties(parties: Set[Ref.Party])(implicit
+      loggingContext: LoggingContext
+  ): Future[Set[Ref.Party]]
+
 }
 
 object PartyRecordStore {

@@ -204,4 +204,14 @@ class InMemoryPartyRecordStore(executionContext: ExecutionContext) extends Party
       }
     }
   }
+
+  override def filterExistingParties(parties: Set[Party])(implicit
+      loggingContext: LoggingContext
+  ): Future[Set[Party]] = {
+    withState {
+      parties.map(party => (party, state.get(party))).collect { case (party, Some(_)) =>
+        party
+      }
+    }
+  }
 }
