@@ -6,7 +6,7 @@ package com.daml.metrics
 import com.daml.metrics.api.MetricDoc.MetricQualification.{Debug, Errors, Traffic}
 import com.daml.metrics.api.MetricHandle.{Counter, Factory, Timer}
 import com.daml.metrics.api.dropwizard.{DropwizardCounter, DropwizardTimer}
-import com.daml.metrics.api.{MetricDoc, MetricName}
+import com.daml.metrics.api.{MetricDoc, MetricHandle, MetricName, MetricsContext}
 
 class LAPIMetrics(val prefix: MetricName, val factory: Factory) {
 
@@ -89,11 +89,14 @@ class LAPIMetrics(val prefix: MetricName, val factory: Factory) {
 
     val activeName: MetricName = prefix :+ "active"
 
+    private val ActiveStreamsDescription =
+      "The number of ledger api streams currently being served to all clients."
     @MetricDoc.Tag(
-      summary = "The number of the actice streams served by the ledger api.",
-      description = "The number of ledger api streams currently being served to all clients.",
+      summary = "The number of the active streams served by the ledger api.",
+      description = ActiveStreamsDescription,
       qualification = Debug,
     )
-    val active: Counter = factory.counter(activeName)
+    val active: MetricHandle.Gauge[Int] =
+      factory.gauge(activeName, 0, ActiveStreamsDescription)(MetricsContext.Empty)
   }
 }

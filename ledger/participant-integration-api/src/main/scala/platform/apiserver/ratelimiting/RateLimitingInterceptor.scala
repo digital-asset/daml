@@ -3,7 +3,11 @@
 
 package com.daml.platform.apiserver.ratelimiting
 
+import java.lang.management.{ManagementFactory, MemoryMXBean, MemoryPoolMXBean}
+import java.util.concurrent.atomic.AtomicBoolean
+
 import com.daml.metrics.Metrics
+import com.daml.metrics.api.MetricName
 import com.daml.platform.apiserver.configuration.RateLimitingConfig
 import com.daml.platform.apiserver.ratelimiting.LimitResult.{
   LimitResultCheck,
@@ -17,9 +21,6 @@ import io.grpc.ForwardingServerCallListener.SimpleForwardingServerCallListener
 import io.grpc.{Metadata, ServerCall, ServerCallHandler, ServerInterceptor}
 import org.slf4j.LoggerFactory
 
-import java.lang.management.{ManagementFactory, MemoryMXBean, MemoryPoolMXBean}
-import java.util.concurrent.atomic.AtomicBoolean
-import com.daml.metrics.api.MetricName
 import scala.jdk.CollectionConverters.ListHasAsScala
 import scala.util.Try
 
@@ -28,7 +29,7 @@ final class RateLimitingInterceptor(
     checks: List[LimitResultCheck],
 ) extends ServerInterceptor {
 
-  private val activeStreamsCounter = metrics.daml.lapi.streams.active
+  private val activeStreamsGauge = metrics.daml.lapi.streams.active
 
   override def interceptCall[ReqT, RespT](
       call: ServerCall[ReqT, RespT],
@@ -48,8 +49,11 @@ final class RateLimitingInterceptor(
       case UnderLimit if isStream =>
         val delegate = next.startCall(call, headers)
         val listener =
-          new OnCloseCallListener(delegate, runOnceOnTermination = () => activeStreamsCounter.dec())
-        activeStreamsCounter.inc() // Only do after call above has returned
+          new OnCloseCallListener(
+            delegate,
+            runOnceOnTermination = () => activeStreamsGauge.updateValue(_ - 1),
+          )
+        activeStreamsGauge.updateValue(_ + 1) // Only do after call above has returned
         listener
 
       case UnderLimit =>
