@@ -29,13 +29,19 @@ import com.daml.ledger.test.model.Test.{
   WithObservers,
   Witnesses => TestWitnesses,
 }
+import com.daml.ledger.api.testtool.infrastructure.FutureAssertions
+import com.daml.logging.LoggingContext
 import scalaz.syntax.tag._
 
+import scala.concurrent.duration._
 import scala.collection.immutable.Seq
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Random
 
 class ActiveContractsServiceIT extends LedgerTestSuite {
+
+  private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
+
   test(
     "ACSinvalidLedgerId",
     "The ActiveContractService should fail for requests with an invalid ledger identifier",
@@ -672,7 +678,14 @@ class ActiveContractsServiceIT extends LedgerTestSuite {
       c1 <- ledger.create(party, Dummy(party))
       anOffset <- ledger.currentEnd()
       _ <- ledger.create(party, Dummy(party))
-      _ <- ledger.prune(pruneUpTo = anOffset)
+      _ <- FutureAssertions.succeedsEventually(
+        retryDelay = 10.millis,
+        maxRetryDuration = 10.seconds,
+        ledger.delayMechanism,
+        "Pruning",
+      ) {
+        ledger.prune(pruneUpTo = anOffset)
+      }
       (acsOffset, acs) <- ledger
         .activeContractsIds(
           GetActiveContractsRequest(
@@ -699,7 +712,14 @@ class ActiveContractsServiceIT extends LedgerTestSuite {
       _ <- ledger.create(party, Dummy(party))
       offset2 <- ledger.currentEnd()
       _ <- ledger.create(party, Dummy(party))
-      _ <- ledger.prune(pruneUpTo = offset2)
+      _ <- FutureAssertions.succeedsEventually(
+        retryDelay = 10.millis,
+        maxRetryDuration = 10.seconds,
+        ledger.delayMechanism,
+        "Pruning",
+      ) {
+        ledger.prune(pruneUpTo = offset2)
+      }
       _ <- ledger
         .activeContractsIds(
           GetActiveContractsRequest(
