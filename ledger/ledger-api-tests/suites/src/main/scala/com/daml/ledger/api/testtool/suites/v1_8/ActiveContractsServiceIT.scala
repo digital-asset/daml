@@ -679,12 +679,15 @@ class ActiveContractsServiceIT extends LedgerTestSuite {
       anOffset <- ledger.currentEnd()
       _ <- ledger.create(party, Dummy(party))
       _ <- FutureAssertions.succeedsEventually(
-        retryDelay = 10.millis,
+        retryDelay = 100.millis,
         maxRetryDuration = 10.seconds,
         ledger.delayMechanism,
         "Pruning",
       ) {
-        ledger.prune(pruneUpTo = anOffset, attempts = 1)
+        for {
+          _ <- ledger.submitAndWait(ledger.submitAndWaitRequest(party, Dummy(party).create.command))
+          _ <- ledger.prune(pruneUpTo = anOffset, attempts = 1)
+        } yield ()
       }
       (acsOffset, acs) <- ledger
         .activeContractsIds(
@@ -713,12 +716,15 @@ class ActiveContractsServiceIT extends LedgerTestSuite {
       offset2 <- ledger.currentEnd()
       _ <- ledger.create(party, Dummy(party))
       _ <- FutureAssertions.succeedsEventually(
-        retryDelay = 10.millis,
+        retryDelay = 100.millis,
         maxRetryDuration = 10.seconds,
         ledger.delayMechanism,
         "Pruning",
       ) {
-        ledger.prune(pruneUpTo = offset2, attempts = 1)
+        for {
+          _ <- ledger.submitAndWait(ledger.submitAndWaitRequest(party, Dummy(party).create.command))
+          _ <- ledger.prune(pruneUpTo = offset2, attempts = 1)
+        } yield ()
       }
       _ <- ledger
         .activeContractsIds(
