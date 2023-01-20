@@ -91,14 +91,7 @@ object IndexMetadata {
           participantId = Ref.ParticipantId.assertFromString("1"),
           ledgerEndCache = MutableLedgerEndCache(), // not used
           stringInterning = new StringInterningView(), // not used
-          acsStreamsConfig = AcsStreamsConfig(
-            maxPayloadsPerPayloadsPage = 1000,
-            maxIdsPerIdPage = 20000,
-            maxPagesPerIdPagesBuffer = 1,
-            maxWorkingMemoryInBytesForIdPages = 100 * 1024 * 1024,
-            maxParallelIdCreateQueries = 2,
-            maxParallelPayloadCreateQueries = 2,
-          ),
+          acsStreamsConfig = AcsStreamsConfig.default,
           transactionFlatStreamsConfig = TransactionFlatStreamsConfig.default,
           transactionTreeStreamsConfig = TransactionTreeStreamsConfig.default,
           globalMaxEventIdQueries = 20,

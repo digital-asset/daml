@@ -579,6 +579,12 @@ object CliConfig {
         .action((acsContractFetchingParallelism, config) =>
           config.copy(acsContractFetchingParallelism = acsContractFetchingParallelism)
         ),
+      opt[Int]("acs-global-parallelism-limit")
+        .optional()
+        .text(
+          s"This configuration option is deprecated and has no effect on the application"
+        )
+        .action((_, config) => config),
       opt[Long]("max-lf-value-translation-cache-entries")
         .optional()
         .text(
