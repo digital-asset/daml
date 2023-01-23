@@ -29,8 +29,9 @@ import com.daml.lf.language.{Ast, LanguageVersion}
 import com.daml.lf.testing.parser.Implicits.defaultParserParameters
 import com.daml.logging.LoggingContext
 import com.daml.tracing.TelemetrySpecBase._
-import com.daml.tracing.{NoOpTelemetry, TelemetryContext, TelemetrySpecBase}
+import com.daml.tracing.{DefaultOpenTelemetry, TelemetryContext, TelemetrySpecBase}
 import com.google.protobuf.ByteString
+import io.opentelemetry.api.GlobalOpenTelemetry
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
@@ -99,7 +100,7 @@ class ApiPackageManagementServiceSpec
       mockEngine,
       mockDarReader,
       _ => Ref.SubmissionId.assertFromString("aSubmission"),
-      telemetry = NoOpTelemetry,
+      telemetry = new DefaultOpenTelemetry(GlobalOpenTelemetry.get()),
     )
   }
 }
