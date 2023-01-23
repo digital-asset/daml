@@ -91,7 +91,15 @@ You can also take a look at the ``pom.xml`` file from the :ref:`quickstart proje
 Connect to the Ledger
 =====================
 
-Before any ledger services can be accessed, a connection to the ledger must be established. This is done by creating a instance of a ``DamlLedgerClient`` using one of the factory methods ``DamlLedgerClient.forLedgerIdAndHost`` and ``DamlLedgerClient.forHostWithLedgerIdDiscovery``. This instance can then be used to access service clients.
+Before any ledger services can be accessed, a connection to the ledger must be established. This is done by creating an instance of a ``DamlLedgerClient``. To create an instance of a ledger client, use the static ``newBuilder(..)`` method to create a ``DamlLedgerClient.Builder``. Then use the builder instance to create the ``DamlLedgerClient``. Finally, call the ``connect()`` method on the client.
+
+.. code-block:: java
+
+    // Create a client object to access services on the ledger.
+    DamlLedgerClient client = DamlLedgerClient.newBuilder(ledgerhost, ledgerport).build();
+
+    // Connects to the ledger and runs initial validation.
+    client.connect();
 
 .. _ledger-api-java-bindings-authorization:
 
