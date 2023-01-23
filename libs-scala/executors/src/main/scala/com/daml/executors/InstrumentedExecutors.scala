@@ -25,7 +25,8 @@ object InstrumentedExecutors {
     val executionContext =
       ExecutionContext.fromExecutorService(executorServiceWithMetrics, errorReporter)
     new QueueAwareExecutionContextExecutorService(
-      executionContext
+      executionContext,
+      name
     )
   }
 
@@ -42,7 +43,8 @@ object InstrumentedExecutors {
     val executionContext =
       ExecutionContext.fromExecutorService(executorServiceWithMetrics, errorReporter)
     new QueueAwareExecutionContextExecutorService(
-      executionContext
+      executionContext,
+      name
     )
   }
 
@@ -60,7 +62,8 @@ object InstrumentedExecutors {
     val executionContext =
       ExecutionContext.fromExecutorService(executorServiceWithMetrics, errorReporter)
     new QueueAwareExecutionContextExecutorService(
-      executionContext
+      executionContext,
+      name
     )
   }
 
@@ -77,7 +80,8 @@ object InstrumentedExecutors {
     val executionContext =
       ExecutionContext.fromExecutorService(executorServiceWithMetrics, errorReporter)
     new QueueAwareExecutionContextExecutorService(
-      executionContext
+      executionContext,
+      name
     )
   }
 

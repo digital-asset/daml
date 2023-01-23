@@ -18,7 +18,8 @@ import scala.jdk.CollectionConverters.{CollectionHasAsScala, SeqHasAsJava}
   * in the queues.
   */
 class QueueAwareExecutionContextExecutorService(
-    delegate: ExecutionContextExecutorService
+    delegate: ExecutionContextExecutorService,
+    val name: String
 ) extends ExecutionContextExecutorService {
 
   private val queueTracking = new AtomicLong(0)

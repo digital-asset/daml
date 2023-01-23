@@ -394,7 +394,8 @@ class ParallelIndexerSubscriptionSpec extends AnyFlatSpec with Matchers {
 
       override val executor: QueueAwareExecutionContextExecutorService =
         new QueueAwareExecutionContextExecutorService(
-          ExecutionContext.fromExecutorService(Executors.newSingleThreadExecutor())
+          ExecutionContext.fromExecutorService(Executors.newSingleThreadExecutor()),
+          "test",
         )
     }
 
@@ -448,7 +449,8 @@ class ParallelIndexerSubscriptionSpec extends AnyFlatSpec with Matchers {
 
       override val executor: QueueAwareExecutionContextExecutorService =
         new QueueAwareExecutionContextExecutorService(
-          ExecutionContext.fromExecutorService(Executors.newSingleThreadExecutor())
+          ExecutionContext.fromExecutorService(Executors.newSingleThreadExecutor()),
+          "test",
         )
     }
 
