@@ -6,16 +6,22 @@ package com.daml.platform.apiserver.ratelimiting
 import com.daml.error.definitions.LedgerApiErrors.ThreadpoolOverloaded
 import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
 import com.daml.executors.QueueAwareExecutionContextExecutorService
-import com.daml.platform.apiserver.ratelimiting.LimitResult.{LimitResultCheck, OverLimit, UnderLimit}
+import com.daml.platform.apiserver.ratelimiting.LimitResult.{
+  LimitResultCheck,
+  OverLimit,
+  UnderLimit,
+}
 
 object ThreadpoolCheck {
 
   private implicit val logger: ContextualizedErrorLogger =
     DamlContextualizedErrorLogger.forClass(getClass)
 
-  def apply(name: String,
-            queue: QueueAwareExecutionContextExecutorService,
-            limit: Int): LimitResultCheck =
+  def apply(
+      name: String,
+      queue: QueueAwareExecutionContextExecutorService,
+      limit: Int,
+  ): LimitResultCheck =
     (fullMethodName, _) => {
       val queued = queue.getQueueSize
       if (queued > limit) {

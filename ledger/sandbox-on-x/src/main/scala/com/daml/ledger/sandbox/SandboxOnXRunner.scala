@@ -10,7 +10,12 @@ import akka.stream.scaladsl.Sink
 import com.daml.api.util.TimeProvider
 import com.daml.buildinfo.BuildInfo
 import com.daml.executors.{InstrumentedExecutors, QueueAwareExecutionContextExecutorService}
-import com.daml.ledger.api.auth.{AuthServiceJWT, AuthServiceNone, AuthServiceStatic, AuthServiceWildcard}
+import com.daml.ledger.api.auth.{
+  AuthServiceJWT,
+  AuthServiceNone,
+  AuthServiceStatic,
+  AuthServiceWildcard,
+}
 import com.daml.ledger.api.v1.experimental_features._
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.IndexService
