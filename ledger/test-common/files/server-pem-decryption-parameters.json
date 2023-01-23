@@ -1,6 +1,6 @@
 {
-  "algorithm": "AES/CBC/PKCS5Padding",
+  "algorithm": "AES/GCM/NoPadding",
   "key": "0034567890abcdef1234567890abcdef",
   "iv": "1134567890abcdef1234567890abcdef",
-  "key_length" : 128
+  "tag_length" : 128
 }
