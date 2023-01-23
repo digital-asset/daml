@@ -208,7 +208,7 @@ trait CompletionStorageBackend {
       pruneUpToInclusive: Offset
   )(connection: Connection, loggingContext: LoggingContext): Unit
 
-  def offsetAfter(start: Offset, after: Int)(connection: Connection): Offset
+  def offsetAfter(start: Offset, after: Int)(connection: Connection): Option[Offset]
 }
 
 trait ContractStorageBackend {

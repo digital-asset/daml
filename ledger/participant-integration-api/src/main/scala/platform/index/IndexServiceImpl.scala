@@ -62,7 +62,7 @@ import com.daml.platform.store.dao.{
 import com.daml.platform.store.entries.PartyLedgerEntry
 import com.daml.platform.store.packagemeta.PackageMetadataView
 import com.daml.platform.store.packagemeta.PackageMetadataView.PackageMetadata
-import com.daml.platform.{ApiOffset, PruneBuffers, PruningStateManager, TemplatePartiesFilter}
+import com.daml.platform.{ApiOffset, PruneBuffers, TemplatePartiesFilter}
 import com.daml.tracing.{Event, SpanAttribute, Spans}
 import io.grpc.StatusRuntimeException
 import scalaz.syntax.tag.ToTagOps
@@ -77,9 +77,9 @@ private[index] class IndexServiceImpl(
     commandCompletionsReader: LedgerDaoCommandCompletionsReader,
     contractStore: ContractStore,
     pruneBuffers: PruneBuffers,
+    incrementalIndexPruningService: IncrementalIndexPruningService,
     dispatcher: () => Dispatcher[Offset],
     packageMetadataView: PackageMetadataView,
-    pruningStateManager: PruningStateManager,
     metrics: Metrics,
 ) extends IndexService {
   // An Akka stream buffer is added at the end of all streaming queries,
@@ -389,50 +389,9 @@ private[index] class IndexServiceImpl(
   override def prune(pruneUpToInclusive: Offset, pruneAllDivulgedContracts: Boolean)(implicit
       loggingContext: LoggingContext
   ): Future[Unit] = {
-    // TODO pruning: Do we need to prune the buffers incrementally as well?
-    //               Not necessarily. Incremental pruning for buffers
-    //               could be a performance optimization that's likely unnecessary
     pruneBuffers(pruneUpToInclusive)
-    implicit val ec: ExecutionContext = ExecutionContext.parasitic
-    for {
-      pruningOffsets <- ledgerDao.pruningOffsets
-      startPruningOffset = getStartPruningOffset(pruneAllDivulgedContracts, pruningOffsets)
-
-      _ <- pruningStateManager
-        .startAsyncPrune(
-          startBatchPruningFrom = startPruningOffset,
-          upToInclusive = pruneUpToInclusive,
-          pruneAllDivulgedContracts = pruneAllDivulgedContracts,
-        )(
-          getOffsetAfter = ledgerDao.completions.getOffsetAfter(_, _),
-          prune = ledgerDao.prune(_, _)(loggingContext),
-        )
-        .fold(msg => Future.failed(new IllegalStateException(msg)), _ => Future.unit)
-    } yield ()
+    incrementalIndexPruningService.prune(pruneUpToInclusive, pruneAllDivulgedContracts)
   }
-
-  // Computes the starting offset for batch pruning.
-  // If divulgence pruning is enabled,
-  // the latest divulged contracts pruned up to inclusive is chosen
-  // (as it's guaranteed to be smaller than pruned_up_to_inclusive
-  private def getStartPruningOffset(
-      pruneAllDivulgedContracts: Boolean,
-      pruningOffsets: (Option[Offset], Option[Offset]),
-  ): Offset =
-    if (pruneAllDivulgedContracts)
-      pruningOffsets match {
-        case (None, _) => Offset.beforeBegin
-        case (Some(prunedAllDivulgence), Some(_)) => prunedAllDivulgence
-        case (Some(_), None) =>
-          throw new IllegalStateException(
-            "Pruning all divulgence present and other is None (TODO pruning rephrase)"
-          )
-      }
-    else pruningOffsets._2.getOrElse(Offset.beforeBegin)
-
-  override def pruneStatus()(implicit
-      loggingContext: LoggingContext
-  ): Future[Unit] = pruningStateManager.running
 
   override def getMeteringReportData(
       from: Timestamp,

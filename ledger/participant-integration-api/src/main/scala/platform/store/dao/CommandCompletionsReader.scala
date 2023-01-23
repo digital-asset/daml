@@ -14,8 +14,6 @@ import com.daml.platform.{ApiOffset, ApplicationId, Party}
 import com.daml.platform.store.dao.events.QueryNonPruned
 import com.daml.platform.store.backend.CompletionStorageBackend
 
-import scala.concurrent.Future
-
 /** @param pageSize a single DB fetch query is guaranteed to fetch no more than this many results.
   */
 private[dao] final class CommandCompletionsReader(
@@ -71,10 +69,4 @@ private[dao] final class CommandCompletionsReader(
       }
     source.map(response => offsetFor(response) -> response)
   }
-
-  override def getOffsetAfter(start: Offset, count: Int)(implicit
-      loggingContext: LoggingContext
-  ): Future[Offset] = dispatcher.executeSql(
-    metrics.daml.index.db.getCompletionOffsetAfter
-  )(storageBackend.offsetAfter(start, count))
 }
