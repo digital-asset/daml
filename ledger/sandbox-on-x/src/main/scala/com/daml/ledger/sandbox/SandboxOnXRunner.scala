@@ -16,13 +16,7 @@ import com.daml.ledger.api.auth.{
   AuthServiceStatic,
   AuthServiceWildcard,
 }
-import com.daml.ledger.api.v1.experimental_features.{
-  CommandDeduplicationFeatures,
-  CommandDeduplicationPeriodSupport,
-  CommandDeduplicationType,
-  ExperimentalContractIds,
-  ExperimentalExplicitDisclosure,
-}
+import com.daml.ledger.api.v1.experimental_features._
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.IndexService
 import com.daml.ledger.participant.state.v2.{Update, WriteService}
@@ -37,7 +31,6 @@ import com.daml.metrics.api.MetricHandle.Factory
 import com.daml.metrics.{Metrics, OpenTelemetryMeterOwner}
 import com.daml.platform.LedgerApiServer
 import com.daml.platform.apiserver.configuration.RateLimitingConfig
-import com.daml.platform.apiserver.ratelimiting.ThreadpoolCheck.ThreadpoolCount
 import com.daml.platform.apiserver.ratelimiting.{RateLimitingInterceptor, ThreadpoolCheck}
 import com.daml.platform.apiserver.{LedgerFeatures, TimeServiceBackend}
 import com.daml.platform.config.ParticipantConfig
@@ -292,19 +285,19 @@ object SandboxOnXRunner {
       apiServicesExecutor: QueueAwareExecutionContextExecutorService,
   )(config: RateLimitingConfig): RateLimitingInterceptor = {
 
-    val apiServices: ThreadpoolCount = ThreadpoolCount(
-      "Api Services Threadpool",
-      apiServicesExecutor.name,
-      () => apiServicesExecutor.getQueueSize,
+    val indexDbCheck = ThreadpoolCheck(
+      "Index DB Threadpool",
+      indexDbExecutor,
+      config.maxApiServicesIndexDbQueueSize,
     )
-    val apiServicesCheck = ThreadpoolCheck(apiServices, config.maxApiServicesQueueSize)
 
-    RateLimitingInterceptor(
-      metrics,
-      config,
-      List(apiServicesCheck),
-      () => indexDbExecutor.getQueueSize,
+    val apiServicesCheck = ThreadpoolCheck(
+      "Api Services Threadpool",
+      apiServicesExecutor,
+      config.maxApiServicesQueueSize,
     )
+
+    RateLimitingInterceptor(metrics, config, List(indexDbCheck, apiServicesCheck))
 
   }
 

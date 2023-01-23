@@ -3,6 +3,8 @@
 
 package com.daml.platform.apiserver
 
+import java.util.concurrent.Executors
+
 import com.daml.error.DamlContextualizedErrorLogger
 import com.daml.error.definitions.LedgerApiErrors
 import com.daml.grpc.sampleservice.implementations.HelloServiceReferenceImplementation
@@ -12,7 +14,7 @@ import com.daml.ledger.resources.{ResourceOwner, TestResourceContext}
 import com.daml.metrics.Metrics
 import com.daml.platform.apiserver.GrpcServerSpec._
 import com.daml.platform.apiserver.configuration.RateLimitingConfig
-import com.daml.platform.apiserver.ratelimiting.RateLimitingInterceptor
+import com.daml.platform.apiserver.ratelimiting.{LimitResult, RateLimitingInterceptor}
 import com.daml.platform.hello.{HelloRequest, HelloResponse, HelloServiceGrpc}
 import com.daml.ports.Port
 import com.google.protobuf.ByteString
@@ -20,7 +22,6 @@ import io.grpc.{ManagedChannel, ServerInterceptor, Status, StatusRuntimeExceptio
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
-import java.util.concurrent.Executors
 import scala.concurrent.Future
 
 final class GrpcServerSpec extends AsyncWordSpec with Matchers with TestResourceContext {
@@ -90,8 +91,17 @@ final class GrpcServerSpec extends AsyncWordSpec with Matchers with TestResource
       val rateLimitingInterceptor = RateLimitingInterceptor(
         metrics,
         rateLimitingConfig,
-        indexDbQueueSizeProvider =
-          () => rateLimitingConfig.maxApiServicesIndexDbQueueSize.toLong + 1,
+        additionalChecks = List((_, _) =>
+          LimitResult.OverLimit(
+            LedgerApiErrors.ThreadpoolOverloaded.Rejection(
+              "test",
+              "test",
+              100,
+              59,
+              "test",
+            )(DamlContextualizedErrorLogger.forTesting(getClass))
+          )
+        ),
       )
       resources(metrics, List(rateLimitingInterceptor)).use { channel =>
         val helloService = HelloServiceGrpc.stub(channel)
