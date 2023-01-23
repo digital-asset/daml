@@ -27,27 +27,24 @@ class IdentityProviderAwareAuthService(
   private implicit val logger: ContextualizedLogger = ContextualizedLogger.get(getClass)
 
   override def decodeMetadata(headers: Metadata): CompletionStage[ClaimSet] = {
-    (getAuthorizationHeader(headers) match {
-      case None => Future.successful(ClaimSet.Unauthenticated)
-      case Some(header) =>
-        parseJWTPayload(header).recover { case error =>
-          // While we failed to authorize the token using IDP, it could still be possible
-          // to be valid by other means of authorizations, i.e. using default auth service
-          logger.info("Failed to authorize the token: " + error.getMessage)
-          ClaimSet.Unauthenticated
-        }
-    }).asJava
-      .thenCompose(defaultAuth(headers))
-  }
-
-  def defaultAuth(
-      headers: Metadata
-  )(prevClaims: ClaimSet): CompletionStage[ClaimSet] =
-    if (prevClaims != ClaimSet.Unauthenticated)
-      CompletableFuture.completedFuture(prevClaims)
-    else {
-      defaultAuthService.decodeMetadata(headers)
+    /*
+      First, we check for the default authorization, if it gives `Unauthenticated` - IDP-Aware is attempted.
+     */
+    defaultAuthService.decodeMetadata(headers).thenCompose {
+      case result if result == ClaimSet.Unauthenticated =>
+        (getAuthorizationHeader(headers) match {
+          case None => Future.successful(ClaimSet.Unauthenticated)
+          case Some(header) =>
+            parseJWTPayload(header).recover { case error =>
+              // While we failed to authorize the token using IDP, it could still be possible
+              // to be valid by other means of authorizations, i.e. using default auth service
+              logger.warn("Failed to authorize the token: " + error.getMessage)
+              ClaimSet.Unauthenticated
+            }
+        }).asJava
+      case result => CompletableFuture.completedFuture(result)
     }
+  }
 
   private def getAuthorizationHeader(headers: Metadata): Option[String] =
     Option(headers.get(AUTHORIZATION_KEY))
