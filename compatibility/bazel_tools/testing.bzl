@@ -874,10 +874,10 @@ excluded_test_tool_tests = [
         ],
     },
     {
-        "start": "2.6.0-snapshot.20230119.11284.1",
+        "end": "2.6.0-snapshot.20230119.11284.0.179b865a",
         "platform_ranges": [
             {
-                "end": "2.6.0-snapshot.20230119.11284.0.179b865a",
+                "start": "2.6.0-snapshot.20230119.11284.1",
                 "exclusions": [
                     "UserManagementServiceIT:TestGrantUserRights",
                     "UserManagementServiceIT:TestRevokeUserRights",
