@@ -20,7 +20,7 @@ class DecryptionParametersTest extends AnyWordSpec with Matchers {
     val key: SecretKey = KeyGenerator.getInstance("AES").generateKey()
     val clearText = "clearText123 " * 10
     val clearTextBytes = clearText.getBytes
-    val transformation = "AES/CBC/PKCS5Padding"
+    val transformation = DecryptionParameters.AES_GCM_NOPADDING
     val cipher = Cipher.getInstance(transformation)
     cipher.init(Cipher.ENCRYPT_MODE, key)
     val hexEncodedKey = new String(Hex.encodeHexString(key.getEncoded))
@@ -31,6 +31,7 @@ class DecryptionParametersTest extends AnyWordSpec with Matchers {
       transformation = transformation,
       keyInHex = hexEncodedKey,
       initializationVectorInHex = hexEncodedIv,
+      tagLength = 128,
     )
 
     "decrypt a byte array" in {
@@ -43,22 +44,29 @@ class DecryptionParametersTest extends AnyWordSpec with Matchers {
     }
 
     "decrypt a file" in
-      testFileDecoding("-verbatim", cipherText)
+      testFileDecoding(tested, "-verbatim", cipherText)
 
     "decrypt a file in base64" in
-      testFileDecoding("-base64", Base64.getEncoder.encode(cipherText))
+      testFileDecoding(tested, "-base64", Base64.getEncoder.encode(cipherText))
 
     "decrypt a file in MIME base64" in
-      testFileDecoding("-mime-base64", Base64.getMimeEncoder.encode(cipherText))
+      testFileDecoding(tested, "-mime-base64", Base64.getMimeEncoder.encode(cipherText))
 
-    def testFileDecoding(fileSuffix: String, content: Array[Byte]) = {
+    "not support other modes" in {
+      val invalid = tested.copy(transformation = "AES/CBC/PKCS5Padding")
+      an[IllegalArgumentException] should be thrownBy invalid.decrypt(
+        Files.createTempFile("unused", ".enc").toFile
+      )
+    }
+
+    def testFileDecoding(params: DecryptionParameters, fileSuffix: String, content: Array[Byte]) = {
       // given
       val tmpFilePath = Files.createTempFile(s"cipher-text$fileSuffix", ".enc")
       Files.write(tmpFilePath, content)
       assume(Files.readAllBytes(tmpFilePath) sameElements content)
 
       // when
-      val actual: Array[Byte] = tested.decrypt(tmpFilePath.toFile)
+      val actual: Array[Byte] = params.decrypt(tmpFilePath.toFile)
 
       // then
       actual shouldBe clearTextBytes
@@ -73,18 +81,7 @@ class DecryptionParametersTest extends AnyWordSpec with Matchers {
         transformation = "algorithm1/mode2/padding3",
         keyInHex = "dummyKey",
         initializationVectorInHex = "dummyIv",
-      )
-
-      // when & then
-      tested.algorithm shouldBe "algorithm1"
-    }
-
-    "extract algorithm name from short transformation string" in {
-      // given
-      val tested = DecryptionParameters(
-        transformation = "algorithm1",
-        keyInHex = "dummyKey",
-        initializationVectorInHex = "dummyIv",
+        tagLength = 128,
       )
 
       // when & then
@@ -100,13 +97,14 @@ class DecryptionParametersTest extends AnyWordSpec with Matchers {
           |	"algorithm": "algorithm1/mode2/padding3",
           |	"key": "<hex encoded bytes of key>",
           |	"iv": "<hex encoded bytes of iv>",
-          |	"key_length" : 123
+          |	"tag_length" : 128
           |}
           |""".stripMargin
       val expected = DecryptionParameters(
         transformation = "algorithm1/mode2/padding3",
         keyInHex = "<hex encoded bytes of key>",
         initializationVectorInHex = "<hex encoded bytes of iv>",
+        tagLength = 128,
       )
       // when
       val actual = DecryptionParameters.parsePayload(jsonPayload)
