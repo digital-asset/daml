@@ -116,10 +116,10 @@ class HttpServiceIntegrationTestUserManagementNoAuth
     ) in withHttpService { fixture =>
       import fixture.{encoder, client => ledgerClient}
       val alice = getUniqueParty("Alice")
-      val bob = getUniqueParty("Bob")
       val command = iouCreateCommand(alice)
       val input: JsValue = encoder.encodeCreateCommand(command).valueOr(e => fail(e.shows))
       for {
+        (bob, _) <- fixture.getUniquePartyAndAuthHeaders("Bob")
         user <- createUser(ledgerClient)(
           Ref.UserId.assertFromString(getUniqueUserName("nice.user")),
           initialRights = List(
@@ -147,18 +147,18 @@ class HttpServiceIntegrationTestUserManagementNoAuth
         )
       ) in withHttpService { fixture =>
       import fixture.{encoder, client => ledgerClient}
-      val alice = getUniqueParty("Alice")
-      val bob = getUniqueParty("Bob")
-      val meta = domain.CommandMeta(
-        None,
-        Some(NonEmptyList(bob)),
-        None,
-        submissionId = None,
-        deduplicationPeriod = None,
-      )
-      val command = iouCreateCommand(alice, meta = Some(meta))
-      val input: JsValue = encoder.encodeCreateCommand(command).valueOr(e => fail(e.shows))
       for {
+        (alice, _) <- fixture.getUniquePartyAndAuthHeaders("Alice")
+        (bob, _) <- fixture.getUniquePartyAndAuthHeaders("Bob")
+        meta = domain.CommandMeta(
+          None,
+          Some(NonEmptyList(bob)),
+          None,
+          submissionId = None,
+          deduplicationPeriod = None,
+        )
+        command = iouCreateCommand(alice, meta = Some(meta))
+        input: JsValue = encoder.encodeCreateCommand(command).valueOr(e => fail(e.shows))
         user <- createUser(ledgerClient)(
           Ref.UserId.assertFromString(getUniqueUserName("nice.user")),
           initialRights = List(
@@ -204,38 +204,38 @@ class HttpServiceIntegrationTestUserManagementNoAuth
   }
 
   "user/rights endpoint" - {
-    "POST yields user rights for a specific user" in withHttpServiceAndClient {
-      (uri, _, _, ledgerClient, _) =>
-        import spray.json._
-        val alice = getUniqueParty("Alice")
-        val bob = getUniqueParty("Bob")
-        for {
-          user <- createUser(ledgerClient)(
-            Ref.UserId.assertFromString(getUniqueUserName("nice.user")),
-            initialRights = List(
-              CanActAs(Ref.Party.assertFromString(alice.unwrap)),
-              CanActAs(Ref.Party.assertFromString(bob.unwrap)),
-            ),
+    "POST yields user rights for a specific user" in withHttpService { fixture =>
+      import fixture.{client => ledgerClient}
+      import spray.json._
+      for {
+        (alice, _) <- fixture.getUniquePartyAndAuthHeaders("Alice")
+        (bob, _) <- fixture.getUniquePartyAndAuthHeaders("Bob")
+        user <- createUser(ledgerClient)(
+          Ref.UserId.assertFromString(getUniqueUserName("nice.user")),
+          initialRights = List(
+            CanActAs(Ref.Party.assertFromString(alice.unwrap)),
+            CanActAs(Ref.Party.assertFromString(bob.unwrap)),
+          ),
+        )
+        response <- postRequest(
+          fixture.uri.withPath(Uri.Path("/v1/user/rights")),
+          domain.ListUserRightsRequest(user.id).toJson,
+          headers = headersWithAdminAuth,
+        ).parseResponse[List[domain.UserRight]]
+      } yield inside(response) { case domain.OkResponse(result, _, StatusCodes.OK) =>
+        result should contain theSameElementsAs
+          List[domain.UserRight](
+            domain.CanActAs(alice),
+            domain.CanActAs(bob),
           )
-          response <- postRequest(
-            uri.withPath(Uri.Path("/v1/user/rights")),
-            domain.ListUserRightsRequest(user.id).toJson,
-            headers = headersWithAdminAuth,
-          ).parseResponse[List[domain.UserRight]]
-        } yield inside(response) { case domain.OkResponse(result, _, StatusCodes.OK) =>
-          result should contain theSameElementsAs
-            List[domain.UserRight](
-              domain.CanActAs(alice),
-              domain.CanActAs(bob),
-            )
-        }
+      }
     }
 
     "GET yields user rights for the current user" in withHttpService { fixture =>
       import fixture.{client => ledgerClient}
-      val alice = getUniqueParty("Alice")
-      val bob = getUniqueParty("Bob")
       for {
+        (alice, _) <- fixture.getUniquePartyAndAuthHeaders("Alice")
+        (bob, _) <- fixture.getUniquePartyAndAuthHeaders("Bob")
         user <- createUser(ledgerClient)(
           Ref.UserId.assertFromString(getUniqueUserName("nice.user")),
           initialRights = List(
@@ -262,22 +262,22 @@ class HttpServiceIntegrationTestUserManagementNoAuth
   }
 
   "user/create endpoint" - {
-    "supports creating a user" in withHttpServiceAndClient { (uri, _, _, _, _) =>
+    "supports creating a user" in withHttpService { fixture =>
       import spray.json._
-      val alice = getUniqueParty("Alice")
-      val createUserRequest = domain.CreateUserRequest(
-        "nice.user2",
-        Some(alice.unwrap),
-        Some(
-          List[domain.UserRight](
-            domain.CanActAs(alice),
-            domain.ParticipantAdmin,
-          )
-        ),
-      )
       for {
+        (alice, _) <- fixture.getUniquePartyAndAuthHeaders("Alice")
+        createUserRequest = domain.CreateUserRequest(
+          "nice.user2",
+          Some(alice.unwrap),
+          Some(
+            List[domain.UserRight](
+              domain.CanActAs(alice),
+              domain.ParticipantAdmin,
+            )
+          ),
+        )
         response <- postRequest(
-          uri.withPath(Uri.Path("/v1/user/create")),
+          fixture.uri.withPath(Uri.Path("/v1/user/create")),
           createUserRequest.toJson,
           headers = headersWithAdminAuth,
         ).parseResponse[JsValue]
@@ -321,22 +321,22 @@ class HttpServiceIntegrationTestUserManagementNoAuth
     import scalaz.std.scalaFuture._
     import scalaz.syntax.traverse._
     import scalaz.std.list._
-    val alice = getUniqueParty("Alice")
-    val usernames =
-      List("nice.username", "nice.username2", "nice.username3").map(getUniqueUserName)
-    val createUserRequests = usernames.map(name =>
-      domain.CreateUserRequest(
-        name,
-        Some(alice.unwrap),
-        Some(
-          List[domain.UserRight](
-            domain.CanActAs(alice),
-            domain.ParticipantAdmin,
-          )
-        ),
-      )
-    )
     for {
+      (alice, _) <- fixture.getUniquePartyAndAuthHeaders("Alice")
+      usernames =
+        List("nice.username", "nice.username2", "nice.username3").map(getUniqueUserName)
+      createUserRequests = usernames.map(name =>
+        domain.CreateUserRequest(
+          name,
+          Some(alice.unwrap),
+          Some(
+            List[domain.UserRight](
+              domain.CanActAs(alice),
+              domain.ParticipantAdmin,
+            )
+          ),
+        )
+      )
       _ <- createUserRequests.traverse(createUserRequest =>
         for {
           (status, _) <- postRequest(
@@ -359,11 +359,11 @@ class HttpServiceIntegrationTestUserManagementNoAuth
   }
 
   "user endpoint" - {
-    "POST yields information about a specific user" in withHttpServiceAndClient {
-      (uri, _, _, _, _) =>
-        import spray.json._
-        val alice = getUniqueParty("Alice")
-        val createUserRequest = domain.CreateUserRequest(
+    "POST yields information about a specific user" in withHttpService { fixture =>
+      import spray.json._
+      for {
+        (alice, _) <- fixture.getUniquePartyAndAuthHeaders("Alice")
+        createUserRequest = domain.CreateUserRequest(
           getUniqueUserName("nice.user"),
           Some(alice.unwrap),
           Some(
@@ -373,43 +373,42 @@ class HttpServiceIntegrationTestUserManagementNoAuth
             )
           ),
         )
-        for {
-          response1 <- postRequest(
-            uri.withPath(Uri.Path("/v1/user/create")),
-            createUserRequest.toJson,
-            headers = headersWithAdminAuth,
-          ).parseResponse[JsValue]
-          _ <- inside(response1) { case domain.OkResponse(r, _, StatusCodes.OK) =>
-            r shouldBe JsObject()
-          }
-          response2 <- postRequest(
-            uri.withPath(Uri.Path(s"/v1/user")),
-            domain.GetUserRequest(createUserRequest.userId).toJson,
-            headers = headersWithAdminAuth,
-          ).parseResponse[UserDetails]
-        } yield inside(response2) { case domain.OkResponse(ud, _, StatusCodes.OK) =>
-          ud shouldBe UserDetails(
-            createUserRequest.userId,
-            createUserRequest.primaryParty,
-          )
+        response1 <- postRequest(
+          fixture.uri.withPath(Uri.Path("/v1/user/create")),
+          createUserRequest.toJson,
+          headers = headersWithAdminAuth,
+        ).parseResponse[JsValue]
+        _ <- inside(response1) { case domain.OkResponse(r, _, StatusCodes.OK) =>
+          r shouldBe JsObject()
         }
+        response2 <- postRequest(
+          fixture.uri.withPath(Uri.Path(s"/v1/user")),
+          domain.GetUserRequest(createUserRequest.userId).toJson,
+          headers = headersWithAdminAuth,
+        ).parseResponse[UserDetails]
+      } yield inside(response2) { case domain.OkResponse(ud, _, StatusCodes.OK) =>
+        ud shouldBe UserDetails(
+          createUserRequest.userId,
+          createUserRequest.primaryParty,
+        )
+      }
     }
 
     "GET yields information about the current user" in withHttpService { fixture =>
       import fixture.uri
       import spray.json._
-      val alice = getUniqueParty("Alice")
-      val createUserRequest = domain.CreateUserRequest(
-        getUniqueUserName("nice.user"),
-        Some(alice.unwrap),
-        Some(
-          List[domain.UserRight](
-            domain.CanActAs(alice),
-            domain.ParticipantAdmin,
-          )
-        ),
-      )
       for {
+        (alice, _) <- fixture.getUniquePartyAndAuthHeaders("Alice")
+        createUserRequest = domain.CreateUserRequest(
+          getUniqueUserName("nice.user"),
+          Some(alice.unwrap),
+          Some(
+            List[domain.UserRight](
+              domain.CanActAs(alice),
+              domain.ParticipantAdmin,
+            )
+          ),
+        )
         response1 <- postRequest(
           uri.withPath(Uri.Path("/v1/user/create")),
           createUserRequest.toJson,
@@ -438,18 +437,18 @@ class HttpServiceIntegrationTestUserManagementNoAuth
       import fixture.uri
       import spray.json._
       import spray.json.DefaultJsonProtocol._
-      val alice = getUniqueParty("Alice")
-      val createUserRequest = domain.CreateUserRequest(
-        getUniqueUserName("nice.user"),
-        Some(alice.unwrap),
-        Some(
-          List[domain.UserRight](
-            domain.CanActAs(alice),
-            domain.ParticipantAdmin,
-          )
-        ),
-      )
       for {
+        (alice, _) <- fixture.getUniquePartyAndAuthHeaders("Alice")
+        createUserRequest = domain.CreateUserRequest(
+          getUniqueUserName("nice.user"),
+          Some(alice.unwrap),
+          Some(
+            List[domain.UserRight](
+              domain.CanActAs(alice),
+              domain.ParticipantAdmin,
+            )
+          ),
+        )
         response1 <- postRequest(
           uri.withPath(Uri.Path("/v1/user/create")),
           createUserRequest.toJson,
@@ -475,20 +474,20 @@ class HttpServiceIntegrationTestUserManagementNoAuth
       }
   }
 
-  "granting the user rights for a specific user should be possible via a POST to the user/rights/grant endpoint" in withHttpServiceAndClient {
-    (uri, _, _, ledgerClient, _) =>
+  "granting the user rights for a specific user should be possible via a POST to the user/rights/grant endpoint" in withHttpService {
+    fixture =>
       import spray.json._
-      val alice = getUniqueParty("Alice")
-      val bob = getUniqueParty("Bob")
       for {
-        user <- createUser(ledgerClient)(
+        (alice, _) <- fixture.getUniquePartyAndAuthHeaders("Alice")
+        (bob, _) <- fixture.getUniquePartyAndAuthHeaders("Bob")
+        user <- createUser(fixture.client)(
           Ref.UserId.assertFromString(getUniqueUserName("nice.user")),
           initialRights = List(
             CanActAs(Ref.Party.assertFromString(alice.unwrap))
           ),
         )
         response <- postRequest(
-          uri.withPath(Uri.Path("/v1/user/rights/grant")),
+          fixture.uri.withPath(Uri.Path("/v1/user/rights/grant")),
           domain
             .GrantUserRightsRequest(
               user.id,
@@ -507,7 +506,7 @@ class HttpServiceIntegrationTestUserManagementNoAuth
           ](domain.CanActAs(bob), domain.ParticipantAdmin)
         }
         response2 <- postRequest(
-          uri.withPath(Uri.Path("/v1/user/rights")),
+          fixture.uri.withPath(Uri.Path("/v1/user/rights")),
           domain.ListUserRightsRequest(user.id).toJson,
           headers = headersWithAdminAuth,
         ).parseResponse[List[domain.UserRight]]
@@ -522,14 +521,14 @@ class HttpServiceIntegrationTestUserManagementNoAuth
       } yield assertion
   }
 
-  "revoking the user rights for a specific user should be possible via a POST to the user/rights/revoke endpoint" in withHttpServiceAndClient {
-    (uri, _, _, ledgerClient, _) =>
+  "revoking the user rights for a specific user should be possible via a POST to the user/rights/revoke endpoint" in withHttpService {
+    fixture =>
       import spray.json._
-      val alice = getUniqueParty("Alice")
-      val bob = getUniqueParty("Bob")
-      val charlie = getUniqueParty("Charlie")
       for {
-        user <- createUser(ledgerClient)(
+        (alice, _) <- fixture.getUniquePartyAndAuthHeaders("Alice")
+        (bob, _) <- fixture.getUniquePartyAndAuthHeaders("Bob")
+        (charlie, _) <- fixture.getUniquePartyAndAuthHeaders("Charlie")
+        user <- createUser(fixture.client)(
           Ref.UserId.assertFromString(getUniqueUserName("nice.user")),
           initialRights = List(
             CanActAs(Ref.Party.assertFromString(alice.unwrap)),
@@ -538,7 +537,7 @@ class HttpServiceIntegrationTestUserManagementNoAuth
           ),
         )
         response <- postRequest(
-          uri.withPath(Uri.Path("/v1/user/rights/revoke")),
+          fixture.uri.withPath(Uri.Path("/v1/user/rights/revoke")),
           domain
             .RevokeUserRightsRequest(
               user.id,
@@ -558,7 +557,7 @@ class HttpServiceIntegrationTestUserManagementNoAuth
           )
         }
         response2 <- postRequest(
-          uri.withPath(Uri.Path("/v1/user/rights")),
+          fixture.uri.withPath(Uri.Path("/v1/user/rights")),
           domain.ListUserRightsRequest(user.id).toJson,
           headers = headersWithAdminAuth,
         ).parseResponse[List[domain.UserRight]]
@@ -585,8 +584,7 @@ class HttpServiceIntegrationTestUserManagementNoAuth
             Some(p.unwrap),
             Some(
               List[domain.UserRight](
-                domain.CanActAs(p),
-                domain.ParticipantAdmin,
+                domain.ParticipantAdmin
               )
             ),
           )

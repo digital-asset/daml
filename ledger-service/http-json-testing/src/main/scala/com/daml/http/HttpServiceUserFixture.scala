@@ -8,7 +8,7 @@ import akka.http.scaladsl.model.headers.Authorization
 import com.daml.http.HttpServiceTestFixture.{authorizationHeader, postRequest}
 import com.daml.http.util.ClientUtil.uniqueId
 import com.daml.jwt.JwtSigner
-import com.daml.jwt.domain.{Jwt, DecodedJwt}
+import com.daml.jwt.domain.{DecodedJwt, Jwt}
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.platform.sandbox.SandboxRequiringAuthorizationFuns
 import com.daml.scalautil.ImplicitPreference
@@ -70,6 +70,21 @@ object HttpServiceUserFixture {
     this: Suite =>
     override lazy val jwtAdminNoParty: Jwt = Jwt(toHeader(adminTokenStandardJWT))
 
+    private def allocateParty(
+        uri: Uri
+    )(party: domain.Party) = {
+      import spray.json._, json.JsonProtocol._
+      val request = domain.AllocatePartyRequest(
+        Some(party),
+        None,
+      )
+      postRequest(
+        uri.withPath(Uri.Path("/v1/parties/allocate")),
+        json = request.toJson,
+        headers = headersWithAdminAuth,
+      )
+    }
+
     override final def jwtForParties(
         uri: Uri
     )(
@@ -94,6 +109,8 @@ object HttpServiceUserFixture {
       )
       import spray.json._, json.JsonProtocol._
       for {
+        _ <- Future.sequence(actAs.map(allocateParty(uri)))
+        _ <- Future.sequence(readAs.map(allocateParty(uri)))
         _ <- postRequest(
           uri.withPath(Uri.Path("/v1/user/create")),
           createUserRequest.toJson,
