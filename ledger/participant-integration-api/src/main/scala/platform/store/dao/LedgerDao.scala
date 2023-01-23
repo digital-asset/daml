@@ -148,6 +148,10 @@ private[platform] trait LedgerReadDao extends ReportsHealth {
       loggingContext: LoggingContext
   ): Future[Unit]
 
+  def pruningOffsets(implicit
+      loggingContext: LoggingContext
+  ): Future[(Option[Offset], Option[Offset])]
+
   /** Returns all TransactionMetering records matching given criteria */
   def meteringReportData(
       from: Timestamp,

@@ -21,7 +21,7 @@ class PruningStateManager(
 
   // TODO pruning: Allow the LAPI to query the pruning state/progress?
   def startAsyncPrune(
-      latestPrunedUpToInclusive: Offset,
+      startBatchPruningFrom: Offset,
       upToInclusive: Offset,
       pruneAllDivulgedContracts: Boolean,
   )(getOffsetAfter: (Offset, Int) => Future[Offset], prune: (Offset, Boolean) => Future[Unit])(
@@ -32,7 +32,7 @@ class PruningStateManager(
         pruningStateRef.canBeStarted, {
           val newPruningState = PruningStateInitialized()
           newPruningState.pruneInternally(
-            latestPrunedUpToInclusive = latestPrunedUpToInclusive,
+            latestPrunedUpToInclusive = startBatchPruningFrom,
             pruneUpToInclusive = upToInclusive,
             pruneAllDivulgedContracts = pruneAllDivulgedContracts,
             maxBatchSize = maxBatchSize,
