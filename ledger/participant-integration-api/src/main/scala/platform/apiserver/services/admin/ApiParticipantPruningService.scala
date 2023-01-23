@@ -10,8 +10,6 @@ import com.daml.ledger.api.v1.admin.participant_pruning_service.{
   ParticipantPruningServiceGrpc,
   PruneRequest,
   PruneResponse,
-  PruneStatusRequest,
-  PruneStatusResponse,
 }
 import com.daml.ledger.api.validation.ValidationErrors._
 import com.daml.ledger.offset.Offset
@@ -41,7 +39,7 @@ final class ApiParticipantPruningService private (
     metrics: Metrics,
     telemetry: Telemetry,
 )(implicit executionContext: ExecutionContext, loggingContext: LoggingContext)
-    extends ParticipantPruningServiceGrpc.ParticipantPruningService
+    extends SinglePruningOpEnforcer
     with GrpcApiService {
 
   private implicit val logger: ContextualizedLogger = ContextualizedLogger.get(this.getClass)
@@ -51,57 +49,52 @@ final class ApiParticipantPruningService private (
 
   override def close(): Unit = ()
 
-  override def prune(request: PruneRequest): Future[PruneResponse] =
-    withEnrichedLoggingContext(traceId(telemetry.traceIdFromGrpcContext)) {
-      implicit loggingContext =>
-        val submissionIdOrErr = Ref.SubmissionId
-          .fromString(
-            if (request.submissionId.nonEmpty) request.submissionId else UUID.randomUUID().toString
-          )
-          .left
-          .map(err =>
-            invalidArgument(s"submission_id $err")(
-              contextualizedErrorLogger(request.submissionId)
-            )
-          )
-
-        submissionIdOrErr.fold(
-          t => Future.failed(ValidationLogger.logFailure(request, t)),
-          submissionId =>
-            LoggingContext.withEnrichedLoggingContext(logging.submissionId(submissionId)) {
-              implicit loggingContext =>
-                logger.info(s"Pruning up to ${request.pruneUpTo}")
-                (for {
-
-                  pruneUpTo <- validateRequest(request)(
-                    loggingContext,
-                    contextualizedErrorLogger(submissionId),
-                  )
-
-                  // If write service pruning succeeds but ledger api server index pruning fails, the user can bring the
-                  // systems back in sync by reissuing the prune request at the currently specified or later offset.
-                  _ <- Tracked.future(
-                    metrics.daml.services.pruning.pruneCommandStarted,
-                    metrics.daml.services.pruning.pruneCommandCompleted,
-                    pruneWriteService(pruneUpTo, submissionId, request.pruneAllDivulgedContracts),
-                  )(MetricsContext(("phase", "underlyingLedger")))
-
-                  pruneResponse <- Tracked.future(
-                    metrics.daml.services.pruning.pruneCommandStarted,
-                    metrics.daml.services.pruning.pruneCommandCompleted,
-                    pruneLedgerApiServerIndex(
-                      pruneUpTo,
-                      request.pruneAllDivulgedContracts,
-                    ),
-                  )(MetricsContext(("phase", "ledgerApiServerIndex")))
-
-                } yield pruneResponse).andThen(logger.logErrorsOnCall[PruneResponse])
-            },
+  protected def pruneInternal(request: PruneRequest): Future[PruneResponse] = {
+    val submissionIdOrErr = Ref.SubmissionId
+      .fromString(
+        if (request.submissionId.nonEmpty) request.submissionId else UUID.randomUUID().toString
+      )
+      .left
+      .map(err =>
+        invalidArgument(s"submission_id $err")(
+          contextualizedErrorLogger(request.submissionId)
         )
-    }
+      )
 
-  override def pruneStatus(request: PruneStatusRequest): Future[PruneStatusResponse] =
-    readBackend.pruneStatus().map(_ => PruneStatusResponse(ongoing = true))
+    submissionIdOrErr.fold(
+      t => Future.failed(ValidationLogger.logFailure(request, t)),
+      submissionId =>
+        LoggingContext.withEnrichedLoggingContext(logging.submissionId(submissionId)) {
+          implicit loggingContext =>
+            logger.info(s"Pruning up to ${request.pruneUpTo}")
+            (for {
+
+              pruneUpTo <- validateRequest(request)(
+                loggingContext,
+                contextualizedErrorLogger(submissionId),
+              )
+
+              // If write service pruning succeeds but ledger api server index pruning fails, the user can bring the
+              // systems back in sync by reissuing the prune request at the currently specified or later offset.
+              _ <- Tracked.future(
+                metrics.daml.services.pruning.pruneCommandStarted,
+                metrics.daml.services.pruning.pruneCommandCompleted,
+                pruneWriteService(pruneUpTo, submissionId, request.pruneAllDivulgedContracts),
+              )(MetricsContext(("phase", "underlyingLedger")))
+
+              pruneResponse <- Tracked.future(
+                metrics.daml.services.pruning.pruneCommandStarted,
+                metrics.daml.services.pruning.pruneCommandCompleted,
+                pruneLedgerApiServerIndex(
+                  pruneUpTo,
+                  request.pruneAllDivulgedContracts,
+                ),
+              )(MetricsContext(("phase", "ledgerApiServerIndex")))
+
+            } yield pruneResponse).andThen(logger.logErrorsOnCall[PruneResponse])
+        },
+    )
+  }
 
   private def validateRequest(
       request: PruneRequest
@@ -206,6 +199,31 @@ final class ApiParticipantPruningService private (
       loggingContext: LoggingContext
   ): ContextualizedErrorLogger =
     new DamlContextualizedErrorLogger(logger, loggingContext, Some(submissionId))
+}
+
+trait SinglePruningOpEnforcer extends ParticipantPruningServiceGrpc.ParticipantPruningService {
+  this: ApiParticipantPruningService =>
+  private var running: Option[Future[PruneResponse]] = None
+
+  override def prune(request: PruneRequest): Future[PruneResponse] =
+    ifNotRunning { pruneInternal(request) }
+
+  private def ifNotRunning(go: => Future[PruneResponse]): Future[PruneResponse] =
+    synchronized {
+      def accept(): Future[PruneResponse] = {
+        val newRunning = go
+        running = Some(newRunning)
+        newRunning
+      }
+
+      running match {
+        case None => accept()
+        case Some(currentF) =>
+          if (currentF.isCompleted) accept()
+          else
+            Future.failed(new IllegalStateException("Pruning in progress. TODO log as error code"))
+      }
+    }
 }
 
 object ApiParticipantPruningService {

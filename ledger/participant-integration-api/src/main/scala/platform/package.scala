@@ -64,5 +64,4 @@ package object platform {
   private[platform] type Hash = crypto.Hash
 
   private[platform] type PruneBuffers = Offset => Unit
-  private[platform] val PruneBuffersNoOp: PruneBuffers = _ => ()
 }

@@ -449,7 +449,7 @@ private class JdbcLedgerDao(
       }(servicesExecutionContext)
   }
 
-  def pruningOffsets(implicit
+  override def pruningOffsets(implicit
       loggingContext: LoggingContext
   ): Future[(Option[Offset], Option[Offset])] =
     dbDispatcher.executeSql(metrics.daml.index.db.fetchPruningOffsetsMetrics) { conn =>
@@ -457,6 +457,13 @@ private class JdbcLedgerDao(
         conn
       ) -> parameterStorageBackend.prunedUpToInclusive(conn)
     }
+
+  override def getOffsetAfter(startExclusive: Offset, count: Int)(implicit
+      loggingContext: LoggingContext
+  ): Future[Option[Offset]] =
+    dbDispatcher.executeSql(
+      metrics.daml.index.db.getOffsetAfter
+    )(readStorageBackend.completionStorageBackend.offsetAfter(startExclusive, count))
 
   private val translation: LfValueTranslation =
     new LfValueTranslation(

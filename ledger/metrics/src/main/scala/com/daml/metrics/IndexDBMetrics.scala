@@ -116,7 +116,7 @@ class MainIndexDBMetrics(prefix: MetricName, factory: Factory)
   val execAll: Timer = overall.executionTimer
 
   val getCompletions: DatabaseMetrics = createDbMetrics("get_completions")
-  val getCompletionOffsetAfter: DatabaseMetrics = createDbMetrics("get_completion_offset_after")
+  val getOffsetAfter: DatabaseMetrics = createDbMetrics("get_offset_after")
   val getLedgerId: DatabaseMetrics = createDbMetrics("get_ledger_id")
   val getParticipantId: DatabaseMetrics = createDbMetrics("get_participant_id")
   val getLedgerEnd: DatabaseMetrics = createDbMetrics("get_ledger_end")

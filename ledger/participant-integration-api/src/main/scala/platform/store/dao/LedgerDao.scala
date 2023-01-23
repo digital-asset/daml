@@ -74,10 +74,6 @@ private[platform] trait LedgerDaoCommandCompletionsReader {
   )(implicit
       loggingContext: LoggingContext
   ): Source[(Offset, CompletionStreamResponse), NotUsed]
-
-  def getOffsetAfter(start: Offset, count: Int)(implicit
-      loggingContext: LoggingContext
-  ): Future[Offset]
 }
 
 private[platform] trait LedgerReadDao extends ReportsHealth {
@@ -148,9 +144,19 @@ private[platform] trait LedgerReadDao extends ReportsHealth {
       loggingContext: LoggingContext
   ): Future[Unit]
 
+  /** Return the pruned offsets from the parameters table (if defined)
+    * as a tuple of (participant_all_divulged_contracts_pruned_up_to_inclusive, participant_pruned_up_to_inclusive)
+    */
   def pruningOffsets(implicit
       loggingContext: LoggingContext
   ): Future[(Option[Offset], Option[Offset])]
+
+  /** Return the count-th or highest offset after `startExclusive`. If no offsets greater than `startExclusive`
+    * exist, return None.
+    */
+  def getOffsetAfter(startExclusive: Offset, count: Int)(implicit
+      loggingContext: LoggingContext
+  ): Future[Option[Offset]]
 
   /** Returns all TransactionMetering records matching given criteria */
   def meteringReportData(

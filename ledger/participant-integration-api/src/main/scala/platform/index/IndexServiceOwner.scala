@@ -87,6 +87,11 @@ final class IndexServiceOwner(
         metrics = metrics,
       )(inMemoryFanOutExecutionContext)
 
+      incrementalIndexPruningService = new IncrementalIndexPruningService(
+        ledgerReadDao = ledgerDao,
+        maximumPruningWindowSize = config.maximumPruningWindowSize,
+      )
+
       indexService = new IndexServiceImpl(
         ledgerId = ledgerId,
         participantId = participantId,
@@ -97,8 +102,8 @@ final class IndexServiceOwner(
         pruneBuffers = inMemoryState.inMemoryFanoutBuffer.prune,
         dispatcher = () => inMemoryState.dispatcherState.getDispatcher,
         packageMetadataView = inMemoryState.packageMetadataView,
-        pruningStateManager = inMemoryState.pruningState,
         metrics = metrics,
+        incrementalIndexPruningService = incrementalIndexPruningService,
       )
     } yield new TimedIndexService(indexService, metrics)
   }

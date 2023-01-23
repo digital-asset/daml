@@ -16,8 +16,4 @@ trait IndexParticipantPruningService {
       loggingContext: LoggingContext
   ): Future[Unit]
 
-  def pruneStatus()(implicit
-      loggingContext: LoggingContext
-  ): Future[Unit]
-
 }
