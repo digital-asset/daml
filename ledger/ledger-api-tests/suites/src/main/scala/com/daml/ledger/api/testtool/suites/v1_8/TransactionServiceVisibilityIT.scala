@@ -5,7 +5,7 @@ package com.daml.ledger.api.testtool.suites.v1_8
 
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
-import com.daml.ledger.api.testtool.infrastructure.Eventually.eventually
+import com.daml.ledger.api.testtool.infrastructure.Eventually
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
 import com.daml.ledger.api.testtool.infrastructure.Synchronize.synchronize
 import com.daml.ledger.api.testtool.infrastructure.TransactionHelpers._
@@ -28,8 +28,20 @@ import com.daml.test.evidence.tag.Security.SecurityTest.Property.Privacy
 
 import scala.collection.immutable.Seq
 import scala.collection.mutable
+import scala.concurrent.{ExecutionContext, Future}
 
 class TransactionServiceVisibilityIT extends LedgerTestSuite {
+
+  // quadruple the eventually wait duration compared to default to avoid database timeouts
+  // when running against Oracle in enterprise mode
+  def eventually[A](
+      assertionName: String
+  )(runAssertion: => Future[A])(implicit ec: ExecutionContext): Future[A] =
+    Eventually.eventually(
+      assertionName,
+      attempts =
+        12, // compared to the default of 10; 4x comes from exponential 2x backoff on each attempt
+    )(runAssertion)
 
   def privacyHappyCase(asset: String, happyCase: String)(implicit
       lineNo: sourcecode.Line,
