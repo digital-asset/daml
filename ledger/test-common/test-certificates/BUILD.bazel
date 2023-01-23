@@ -85,7 +85,7 @@ chmod 444 $(location server.crt)
 # Encrypt server's key and dump encryption parameters to a JSON file.
 # The openssl CLI doesn't support AES-GCM, therefore we have to do it with a small scala program
 # NOTE: Encryption details used to encrypt the private must be kept in sync with `ledger/test-common/files/server-pem-decryption-parameters.json`
-$(location @local_jdk//:bin/java) -jar $(location aes-gcm-encrypt_deploy.jar) \
+$(JAVABASE)/bin/java -jar $(location aes-gcm-encrypt_deploy.jar) \
     $(location server.pem) \
     $(location server.pem.enc) \
     0034567890abcdef1234567890abcdef \
@@ -170,8 +170,10 @@ $(location @openssl_dev_env//:openssl) req -config $(location openssl-alternativ
 $(location @openssl_dev_env//:openssl) x509 -noout -text -in $(location ca_alternative.crt)
 
     """,
+    toolchains = [
+        "@bazel_tools//tools/jdk:current_java_runtime",
+    ],
     tools = [
-        "@local_jdk//:bin/java",
         "@openssl_dev_env//:openssl",
     ],
     visibility = ["//visibility:public"],
