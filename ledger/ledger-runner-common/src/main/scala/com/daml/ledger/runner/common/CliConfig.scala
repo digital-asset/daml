@@ -12,7 +12,7 @@ import com.daml.platform.apiserver.{AuthServiceConfig, AuthServiceConfigCli}
 import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.config.ParticipantConfig
 import com.daml.platform.configuration.Readers._
-import com.daml.platform.configuration.{CommandConfiguration, IndexServiceConfig}
+import com.daml.platform.configuration.{AcsStreamsConfig, CommandConfiguration, IndexServiceConfig}
 import com.daml.platform.indexer.{IndexerConfig, IndexerStartupMode}
 import com.daml.platform.localstore.UserManagementConfig
 import com.daml.platform.services.time.TimeProviderType
@@ -31,7 +31,6 @@ final case class CliConfig[Extra](
     engineConfig: EngineConfig,
     authService: AuthServiceConfig,
     acsContractFetchingParallelism: Int,
-    acsGlobalParallelism: Int,
     acsIdFetchingParallelism: Int,
     acsIdPageSize: Int,
     configurationLoadTimeout: Duration,
@@ -78,13 +77,12 @@ object CliConfig {
         forbidV0ContractId = true,
       ),
       authService = AuthServiceConfig.Wildcard,
-      acsContractFetchingParallelism = IndexServiceConfig.DefaultAcsContractFetchingParallelism,
-      acsGlobalParallelism = IndexServiceConfig.DefaultAcsGlobalParallelism,
-      acsIdFetchingParallelism = IndexServiceConfig.DefaultAcsIdFetchingParallelism,
-      acsIdPageSize = IndexServiceConfig.DefaultAcsIdPageSize,
+      acsContractFetchingParallelism = AcsStreamsConfig.DefaultAcsContractFetchingParallelism,
+      acsIdFetchingParallelism = AcsStreamsConfig.DefaultAcsIdFetchingParallelism,
+      acsIdPageSize = AcsStreamsConfig.DefaultAcsIdPageSize,
       configurationLoadTimeout = Duration.ofSeconds(10),
       commandConfig = CommandConfiguration.Default,
-      eventsPageSize = IndexServiceConfig.DefaultEventsPageSize,
+      eventsPageSize = AcsStreamsConfig.DefaultEventsPageSize,
       bufferedStreamsPageSize = IndexServiceConfig.DefaultBufferedStreamsPageSize,
       eventsProcessingParallelism = IndexServiceConfig.DefaultEventsProcessingParallelism,
       extra = extra,
@@ -503,7 +501,7 @@ object CliConfig {
       opt[Int]("events-page-size")
         .optional()
         .text(
-          s"Number of events fetched from the index for every round trip when serving streaming calls. Default is ${IndexServiceConfig.DefaultEventsPageSize}."
+          s"Number of events fetched from the index for every round trip when serving streaming calls. Default is ${AcsStreamsConfig.DefaultEventsPageSize}."
         )
         .validate { pageSize =>
           if (pageSize > 0) Right(())
@@ -550,7 +548,7 @@ object CliConfig {
       opt[Int]("acs-id-page-size")
         .optional()
         .text(
-          s"Number of contract ids fetched from the index for every round trip when serving ACS calls. Default is ${IndexServiceConfig.DefaultAcsIdPageSize}."
+          s"Number of contract ids fetched from the index for every round trip when serving ACS calls. Default is ${AcsStreamsConfig.DefaultAcsIdPageSize}."
         )
         .validate { acsIdPageSize =>
           if (acsIdPageSize > 0) Right(())
@@ -560,7 +558,7 @@ object CliConfig {
       opt[Int]("acs-id-fetching-parallelism")
         .optional()
         .text(
-          s"Number of contract id pages fetched in parallel when serving ACS calls. Default is ${IndexServiceConfig.DefaultAcsIdFetchingParallelism}."
+          s"Number of contract id pages fetched in parallel when serving ACS calls. Default is ${AcsStreamsConfig.DefaultAcsIdFetchingParallelism}."
         )
         .validate { acsIdFetchingParallelism =>
           if (acsIdFetchingParallelism > 0) Right(())
@@ -572,7 +570,7 @@ object CliConfig {
       opt[Int]("acs-contract-fetching-parallelism")
         .optional()
         .text(
-          s"Number of event pages fetched in parallel when serving ACS calls. Default is ${IndexServiceConfig.DefaultAcsContractFetchingParallelism}."
+          s"Number of event pages fetched in parallel when serving ACS calls. Default is ${AcsStreamsConfig.DefaultAcsContractFetchingParallelism}."
         )
         .validate { acsContractFetchingParallelism =>
           if (acsContractFetchingParallelism > 0) Right(())
@@ -584,11 +582,9 @@ object CliConfig {
       opt[Int]("acs-global-parallelism-limit")
         .optional()
         .text(
-          s"Maximum number of concurrent ACS queries to the index database. Default is ${IndexServiceConfig.DefaultAcsGlobalParallelism}."
+          s"This configuration option is deprecated and has no effect on the application"
         )
-        .action((acsGlobalParallelism, config) =>
-          config.copy(acsGlobalParallelism = acsGlobalParallelism)
-        ),
+        .action((_, config) => config),
       opt[Long]("max-lf-value-translation-cache-entries")
         .optional()
         .text(

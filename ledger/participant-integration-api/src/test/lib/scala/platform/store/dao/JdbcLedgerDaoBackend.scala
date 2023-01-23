@@ -13,6 +13,7 @@ import com.daml.logging.LoggingContext
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.configuration.{
+  AcsStreamsConfig,
   ServerRole,
   TransactionFlatStreamsConfig,
   TransactionTreeStreamsConfig,
@@ -56,7 +57,6 @@ private[dao] trait JdbcLedgerDaoBackend extends AkkaBeforeAndAfterAll {
       acsIdPageSize: Int,
       acsIdFetchingParallelism: Int,
       acsContractFetchingParallelism: Int,
-      acsGlobalParallelism: Int,
   )(implicit
       loggingContext: LoggingContext
   ): ResourceOwner[LedgerDao] = {
@@ -87,14 +87,7 @@ private[dao] trait JdbcLedgerDaoBackend extends AkkaBeforeAndAfterAll {
             ingestionStorageBackend = storageBackendFactory.createIngestionStorageBackend,
             parameterStorageBackend = storageBackendFactory.createParameterStorageBackend,
           ),
-          eventsPageSize = eventsPageSize,
           eventsProcessingParallelism = eventsProcessingParallelism,
-          acsIdPageSize = acsIdPageSize,
-          acsIdPageBufferSize = 1,
-          acsIdPageWorkingMemoryBytes = 100 * 1024 * 1024,
-          acsIdFetchingParallelism = acsIdFetchingParallelism,
-          acsContractFetchingParallelism = acsContractFetchingParallelism,
-          acsGlobalParallelism = acsGlobalParallelism,
           servicesExecutionContext = executionContext,
           metrics = metrics,
           engine = Some(new Engine()),
@@ -102,6 +95,14 @@ private[dao] trait JdbcLedgerDaoBackend extends AkkaBeforeAndAfterAll {
           ledgerEndCache = ledgerEndCache,
           stringInterning = stringInterningView,
           completionsPageSize = 1000,
+          acsStreamsConfig = AcsStreamsConfig(
+            maxPayloadsPerPayloadsPage = eventsPageSize,
+            maxIdsPerIdPage = acsIdPageSize,
+            maxPagesPerIdPagesBuffer = 1,
+            maxWorkingMemoryInBytesForIdPages = 100 * 1024 * 1024,
+            maxParallelIdCreateQueries = acsIdFetchingParallelism,
+            maxParallelPayloadCreateQueries = acsContractFetchingParallelism,
+          ),
           transactionFlatStreamsConfig = TransactionFlatStreamsConfig.default,
           transactionTreeStreamsConfig = TransactionTreeStreamsConfig.default,
           globalMaxEventIdQueries = 20,
@@ -131,7 +132,6 @@ private[dao] trait JdbcLedgerDaoBackend extends AkkaBeforeAndAfterAll {
           acsIdPageSize = 4,
           acsIdFetchingParallelism = 2,
           acsContractFetchingParallelism = 2,
-          acsGlobalParallelism = 10,
         ).acquire()
         _ <- Resource.fromFuture(dao.initialize(TestLedgerId, TestParticipantId))
         initialLedgerEnd <- Resource.fromFuture(dao.lookupLedgerEnd())
