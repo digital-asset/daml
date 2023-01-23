@@ -5,34 +5,27 @@ package com.daml.platform.apiserver.ratelimiting
 
 import com.daml.error.definitions.LedgerApiErrors.ThreadpoolOverloaded
 import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
-import com.daml.platform.apiserver.ratelimiting.LimitResult.{
-  LimitResultCheck,
-  OverLimit,
-  UnderLimit,
-}
+import com.daml.executors.QueueAwareExecutionContextExecutorService
+import com.daml.platform.apiserver.ratelimiting.LimitResult.{LimitResultCheck, OverLimit, UnderLimit}
 
 object ThreadpoolCheck {
 
   private implicit val logger: ContextualizedErrorLogger =
     DamlContextualizedErrorLogger.forClass(getClass)
 
-  final case class ThreadpoolCount(
-      name: String,
-      metricNameLabel: String,
-      queueSizeProvider: () => Long,
-  )
-
-  def apply(count: ThreadpoolCount, limit: Int): LimitResultCheck =
+  def apply(name: String,
+            queue: QueueAwareExecutionContextExecutorService,
+            limit: Int): LimitResultCheck =
     (fullMethodName, _) => {
-      val queued = count.queueSizeProvider()
+      val queued = queue.getQueueSize
       if (queued > limit) {
         OverLimit(
           ThreadpoolOverloaded.Rejection(
-            name = count.name,
+            name = name,
             queued = queued,
             limit = limit,
             fullMethodName = fullMethodName,
-            metricNameLabel = count.metricNameLabel,
+            metricNameLabel = queue.name,
           )
         )
       } else UnderLimit
