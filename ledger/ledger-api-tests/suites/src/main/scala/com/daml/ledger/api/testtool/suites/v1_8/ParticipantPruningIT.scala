@@ -30,6 +30,7 @@ class ParticipantPruningIT extends LedgerTestSuite {
     "PRFailPruneByNoOffset",
     "Pruning a participant without specifying an offset should fail",
     allocate(NoParties),
+    runConcurrently = false,
   )(implicit ec => { case Participants(Participant(participant)) =>
     for {
       failure <- participant
@@ -156,6 +157,7 @@ class ParticipantPruningIT extends LedgerTestSuite {
     "PRFailPruneByNonHexOffset",
     "Pruning a participant specifying a non-hexadecimal offset should fail",
     allocate(NoParties),
+    runConcurrently = false,
   )(implicit ec => { case Participants(Participant(participant)) =>
     for {
       cannotPruneNonHexOffset <- participant
