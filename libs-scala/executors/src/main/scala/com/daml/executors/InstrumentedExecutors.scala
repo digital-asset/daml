@@ -26,7 +26,7 @@ object InstrumentedExecutors {
       ExecutionContext.fromExecutorService(executorServiceWithMetrics, errorReporter)
     new QueueAwareExecutionContextExecutorService(
       executionContext,
-      name
+      name,
     )
   }
 
@@ -44,7 +44,7 @@ object InstrumentedExecutors {
       ExecutionContext.fromExecutorService(executorServiceWithMetrics, errorReporter)
     new QueueAwareExecutionContextExecutorService(
       executionContext,
-      name
+      name,
     )
   }
 
@@ -63,7 +63,7 @@ object InstrumentedExecutors {
       ExecutionContext.fromExecutorService(executorServiceWithMetrics, errorReporter)
     new QueueAwareExecutionContextExecutorService(
       executionContext,
-      name
+      name,
     )
   }
 
@@ -81,7 +81,7 @@ object InstrumentedExecutors {
       ExecutionContext.fromExecutorService(executorServiceWithMetrics, errorReporter)
     new QueueAwareExecutionContextExecutorService(
       executionContext,
-      name
+      name,
     )
   }
 
