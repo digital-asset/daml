@@ -11,7 +11,7 @@ import com.daml.lf.data.{Bytes, FrontStack, ImmArray, Ref, Struct, Time}
 import com.daml.lf.language.Ast
 import com.daml.lf.speedy.SExpr.SEMakeClo
 import com.daml.lf.speedy.SValue.{SContractId, SToken}
-import com.daml.lf.speedy.Speedy.{CachedContract, SKeyWithMaintainers}
+import com.daml.lf.speedy.Speedy.{CachedContract, CachedKey}
 import com.daml.lf.transaction.{GlobalKey, GlobalKeyWithMaintainers, TransactionVersion, Versioned}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.{ContractId, ContractInstance}
@@ -219,7 +219,15 @@ object ExplicitDisclosureLib {
       ),
     )
     val mbKey =
-      if (withKey) Some(SKeyWithMaintainers(contract, Set(maintainer))) else None
+      if (withKey)
+        Some(
+          CachedKey(
+            GlobalKey.assertBuild(templateId, contract.toUnnormalizedValue),
+            contract,
+            Set(maintainer),
+          )
+        )
+      else None
 
     CachedContract(
       templateId,
