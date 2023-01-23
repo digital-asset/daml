@@ -882,6 +882,7 @@ excluded_test_tool_tests = [
                     "UserManagementServiceIT:TestGrantUserRights",
                     "UserManagementServiceIT:TestRevokeUserRights",
                     "UserManagementServiceIT:TestListUserRights",
+                    "UserManagementServiceIT:UserManagementUserRightsLimit",
                     "UserManagementServiceIT:RaceConditionGrantRights",
                     "UserManagementServiceIT:RaceConditionRevokeRights",
                 ],
