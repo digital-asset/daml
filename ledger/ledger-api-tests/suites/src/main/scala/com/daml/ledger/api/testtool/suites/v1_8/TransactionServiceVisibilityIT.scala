@@ -29,18 +29,18 @@ import com.daml.test.evidence.tag.Security.SecurityTest.Property.Privacy
 import scala.collection.immutable.Seq
 import scala.collection.mutable
 import scala.concurrent.{ExecutionContext, Future}
-import scala.concurrent.duration.DurationInt
 
 class TransactionServiceVisibilityIT extends LedgerTestSuite {
 
-  // triple eventually wait duration compared to default to avoid database timeouts
+  // quadruple the eventually wait duration compared to default to avoid database timeouts
   // when running against Oracle in enterprise mode
   def eventually[A](
       assertionName: String
   )(runAssertion: => Future[A])(implicit ec: ExecutionContext): Future[A] =
     Eventually.eventually(
       assertionName,
-      firstWaitTime = 30.millis, // compared to default of 10.millis
+      attempts =
+        12, // compared to the default of 10; 4x comes from exponential 2x backoff on each attempt
     )(runAssertion)
 
   def privacyHappyCase(asset: String, happyCase: String)(implicit
