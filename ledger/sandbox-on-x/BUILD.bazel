@@ -507,10 +507,12 @@ server_conformance_test(
           }
         }
         index-service {
+          acs-streams {
+             max-ids-per-id-page = 2
+             max-payloads-per-payloads-page = 2
+          }
           max-contract-key-state-cache-size = 2
           max-contract-state-cache-size = 2
-          acs-id-page-size = 2
-          events-page-size = 2
           max-transactions-in-memory-fan-out-buffer-size = 3
           buffered-streams-page-size = 1
         }
