@@ -605,7 +605,7 @@ object CompilerTest {
       if (withKey) {
         Some(
           GlobalKeyWithMaintainers(
-            GlobalKey(templateId, key.toUnnormalizedValue),
+            GlobalKey.assertBuild(templateId, key.toUnnormalizedValue),
             Set(maintainer),
           )
         )

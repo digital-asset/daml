@@ -11,6 +11,7 @@ import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.daml.platform.indexer.parallel.BatchN
 import com.daml.platform.TemplatePartiesFilter
+import com.daml.platform.configuration.AcsStreamsConfig
 import com.daml.platform.store.dao.{DbDispatcher, PaginatingAsyncStream}
 import com.daml.platform.store.backend.EventStorageBackend
 import com.daml.platform.store.dao.PaginatingAsyncStream.IdPaginationState
@@ -31,17 +32,13 @@ import scala.util.chaining._
   * the input to the payload fetching step.
   */
 class ACSReader(
+    config: AcsStreamsConfig,
+    globalIdQueriesLimiter: ConcurrencyLimiter,
+    globalPayloadQueriesLimiter: ConcurrencyLimiter,
     dispatcher: DbDispatcher,
     queryNonPruned: QueryNonPruned,
     eventStorageBackend: EventStorageBackend,
-    pageSize: Int,
-    idPageSize: Int,
-    idPageBufferSize: Int,
-    idPageWorkingMemoryBytes: Int,
-    idFetchingParallelism: Int,
-    acsFetchingParallelism: Int,
     metrics: Metrics,
-    queryLimiter: ConcurrencyLimiter,
     executionContext: ExecutionContext,
 ) {
   private val logger = ContextualizedLogger.get(getClass)
@@ -54,45 +51,48 @@ class ACSReader(
   ): Source[Vector[EventStorageBackend.Entry[Raw.FlatEvent]], NotUsed] = {
     val allFilterParties = filter.allFilterParties
     val decomposedFilters = FilterUtils.decomposeFilters(filter).toVector
-    val idQueryLimiter =
-      new QueueBasedConcurrencyLimiter(idFetchingParallelism, executionContext)
+    val idQueriesLimiter =
+      new QueueBasedConcurrencyLimiter(config.maxParallelIdCreateQueries, executionContext)
     val idQueryPageSizing = IdPageSizing.calculateFrom(
-      maxIdPageSize = idPageSize,
-      idPageWorkingMemoryBytes = idPageWorkingMemoryBytes,
+      maxIdPageSize = config.maxIdsPerIdPage,
+      idPageWorkingMemoryBytes = config.maxWorkingMemoryInBytesForIdPages,
       filterSize = decomposedFilters.size,
-      idPageBufferSize = idPageBufferSize,
+      idPageBufferSize = config.maxPagesPerIdPagesBuffer,
     )
 
     def fetchIds(filter: DecomposedFilter): Source[Long, NotUsed] =
       PaginatingAsyncStream.streamIdsFromSeekPagination(
         idPageSizing = idQueryPageSizing,
-        idPageBufferSize = idPageBufferSize,
+        idPageBufferSize = config.maxPagesPerIdPagesBuffer,
         initialFromIdExclusive = 0L,
       )((state: IdPaginationState) =>
-        idQueryLimiter.execute {
-          dispatcher.executeSql(metrics.daml.index.db.getActiveContractIds) { connection =>
-            val ids =
-              eventStorageBackend.transactionStreamingQueries.fetchIdsOfCreateEventsForStakeholder(
-                stakeholder = filter.party,
-                templateIdO = filter.templateId,
-                startExclusive = state.fromIdExclusive,
-                endInclusive = activeAt._2,
-                limit = state.pageSize,
-              )(connection)
-            logger.debug(
-              s"getActiveContractIds $filter returned #${ids.size} ${ids.lastOption
-                  .map(last => s"until $last")
-                  .getOrElse("")}"
-            )
-            ids
-          }
-        }
+        idQueriesLimiter.execute(
+          globalIdQueriesLimiter.execute(
+            dispatcher.executeSql(metrics.daml.index.db.getActiveContractIds) { connection =>
+              val ids =
+                eventStorageBackend.transactionStreamingQueries
+                  .fetchIdsOfCreateEventsForStakeholder(
+                    stakeholder = filter.party,
+                    templateIdO = filter.templateId,
+                    startExclusive = state.fromIdExclusive,
+                    endInclusive = activeAt._2,
+                    limit = state.pageSize,
+                  )(connection)
+              logger.debug(
+                s"getActiveContractIds $filter returned #${ids.size} ${ids.lastOption
+                    .map(last => s"until $last")
+                    .getOrElse("")}"
+              )
+              ids
+            }
+          )
+        )
       )
 
     def fetchPayloads(
         ids: Iterable[Long]
     ): Future[Vector[EventStorageBackend.Entry[Raw.FlatEvent]]] =
-      queryLimiter.execute(
+      globalPayloadQueriesLimiter.execute(
         dispatcher.executeSql(metrics.daml.index.db.getActiveContractBatch) { connection =>
           val result = queryNonPruned.executeSql(
             eventStorageBackend.activeContractEventBatch(
@@ -121,15 +121,18 @@ class ACSReader(
       .pipe(EventIdsUtils.sortAndDeduplicateIds)
       .via(
         BatchN(
-          maxBatchSize = pageSize,
-          maxBatchCount = acsFetchingParallelism + 1,
+          maxBatchSize = config.maxPayloadsPerPayloadsPage,
+          maxBatchCount = config.maxParallelPayloadCreateQueries + 1,
         )
       )
       .async
       .addAttributes(
-        Attributes.inputBuffer(initial = acsFetchingParallelism, max = acsFetchingParallelism)
+        Attributes.inputBuffer(
+          initial = config.maxParallelPayloadCreateQueries,
+          max = config.maxParallelPayloadCreateQueries,
+        )
       )
-      .mapAsync(acsFetchingParallelism)(fetchPayloads)
+      .mapAsync(config.maxParallelPayloadCreateQueries)(fetchPayloads)
   }
 }
 

@@ -122,7 +122,7 @@ class TransactionPointwiseQueries(
       .map(stringInterning.party.tryInternalize)
       .flatMap(_.iterator)
       .toSet
-    // TODO etq: Consider implementing support for `fetchSizeHint` and `limit`.
+    // Improvement idea: Add support for `fetchSizeHint` and `limit`.
     def selectFrom(tableName: String, selectColumns: String) = cSQL"""
         (
           SELECT

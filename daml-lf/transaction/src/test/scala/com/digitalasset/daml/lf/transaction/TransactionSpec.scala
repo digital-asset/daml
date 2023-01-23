@@ -379,7 +379,7 @@ class TransactionSpec
     val dummyBuilder = TransactionBuilder()
     val parties = List("Alice")
     def keyValue(s: String) = V.ValueText(s)
-    def globalKey(s: V.ContractId) = GlobalKey("Mod:T", keyValue(s.coid))
+    def globalKey(s: V.ContractId) = GlobalKey.assertBuild("Mod:T", keyValue(s.coid))
     def create(s: V.ContractId) = dummyBuilder
       .create(
         id = s,

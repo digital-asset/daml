@@ -464,7 +464,7 @@ abstract class EventStorageBackendTemplate(
       .asVectorOf(rawFlatEventParser(allInternedFilterParties, stringInterning))(connection)
   }
 
-  // TODO etq: Implement pruning queries in terms of event sequential id in order to be able to drop offset based indices.
+  // Improvement idea: Implement pruning queries in terms of event sequential id in order to be able to drop offset based indices.
   /** Deletes a subset of the indexed data (up to the pruning offset) in the following order and in the manner specified:
     * 1.a if pruning-all-divulged-contracts is enabled: all divulgence events (retroactive divulgence),
     * 1.b otherwise: divulgence events for which there are archive events (retroactive divulgence),
@@ -867,9 +867,10 @@ abstract class EventStorageBackendTemplate(
        """
   }
 
-  // TODO etq: Currently we query two additional tables: create and consuming events tables.
-  //           This can be simplified to query only the create events table if we impose the ordering
-  //           that create events tables has already been pruned.
+  // Improvement idea:
+  // In order to prune an id filter table we query two additional tables: create and consuming events tables.
+  // This can be simplified to query only the create events table if we ensure the ordering
+  // that create events tables are pruned before id filter tables.
   /** Prunes create events id filter table only for contracts archived before the specified offset
     */
   private def pruneIdFilterCreate(tableName: String, pruneUpToInclusive: Offset): SimpleSql[Row] = {
@@ -894,9 +895,11 @@ abstract class EventStorageBackendTemplate(
           )"""
   }
 
-  // TODO etq: Currently we query an events table to discover the event offset corresponding to a row from the id filter
-  //           table. This query can simplified not to query the events table at all if we pruned by the event sequential
-  //           id rather than by the event offset.
+  // Improvement idea:
+  // In order to prune an id filter table we query an events table to discover
+  // the event offset corresponding.
+  // This query can simplified not to query the events table at all
+  // if we were to prune by the sequential id rather than by the offset.
   private def pruneIdFilterConsumingOrNonConsuming(
       idFilterTableName: String,
       eventsTableName: String,

@@ -166,7 +166,6 @@ class TransactionsTreeStreamReader(
                     eventSequentialIds = ids,
                     allFilterParties = requestingParties,
                   )(connection),
-                  // TODO etq: Consider rolling out event-seq-id based queryNonPruned
                   minOffsetExclusive = startExclusiveOffset,
                   error = (prunedOffset: Offset) =>
                     s"Transactions request from ${startExclusiveOffset.toHexString} to ${endInclusiveOffset.toHexString} precedes pruned offset ${prunedOffset.toHexString}",

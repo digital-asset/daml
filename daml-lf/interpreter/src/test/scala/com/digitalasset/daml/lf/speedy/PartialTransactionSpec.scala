@@ -7,6 +7,7 @@ package speedy
 import com.daml.lf.data.ImmArray
 import com.daml.lf.speedy.PartialTransaction
 import com.daml.lf.speedy.SValue.{SValue => _, _}
+import com.daml.lf.speedy.Speedy.CachedContract
 import com.daml.lf.transaction.{ContractKeyUniquenessMode, Node, TransactionVersion}
 import com.daml.lf.value.Value
 import org.scalatest._
@@ -40,17 +41,21 @@ class PartialTransactionSpec extends AnyWordSpec with Matchers with Inside {
 
   private[this] implicit class PartialTransactionExtra(val ptx: PartialTransaction) {
 
+    val contract = CachedContract(
+      templateId = templateId,
+      value = SValue.SUnit,
+      agreementText = "agreement",
+      signatories = Set(party),
+      observers = Set.empty,
+      key = None,
+    )
+
     def insertCreate_ : PartialTransaction =
       ptx
         .insertCreate(
           submissionTime = data.Time.Timestamp.Epoch,
-          templateId = templateId,
-          arg = Value.ValueUnit,
-          agreementText = "agreement",
+          contract = contract,
           optLocation = None,
-          signatories = Set(party),
-          stakeholders = Set.empty,
-          key = None,
           version = TransactionVersion.maxVersion,
         )
         .toOption
@@ -61,16 +66,13 @@ class PartialTransactionSpec extends AnyWordSpec with Matchers with Inside {
       ptx
         .beginExercises(
           targetId = cid,
-          templateId = templateId,
+          contract = contract,
           interfaceId = None,
           choiceId = choiceId,
           optLocation = None,
           consuming = false,
           actingParties = Set(party),
-          signatories = Set(party),
-          stakeholders = Set.empty,
           choiceObservers = Set.empty,
-          mbKey = None,
           byKey = false,
           chosenValue = Value.ValueUnit,
           version = TransactionVersion.maxVersion,
