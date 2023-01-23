@@ -5,14 +5,14 @@ package com.daml.ledger.indexerbenchmark
 
 import com.codahale.metrics.Snapshot
 import com.daml.metrics.Metrics
-import com.daml.metrics.api.MetricHandle.{Histogram, Timer}
-import com.daml.metrics.api.dropwizard.{DropwizardHistogram, DropwizardTimer}
-import com.daml.metrics.api.noop.NoOpTimer
+import com.daml.metrics.api.MetricHandle.{Counter, Histogram, Timer}
+import com.daml.metrics.api.dropwizard.{DropwizardCounter, DropwizardHistogram, DropwizardTimer}
+import com.daml.metrics.api.noop.{NoOpCounter, NoOpTimer}
 
 class IndexerBenchmarkResult(config: Config, metrics: Metrics, startTime: Long, stopTime: Long) {
 
   private val duration: Double = (stopTime - startTime).toDouble / 1000000000.0
-  private val updates: Long = metrics.daml.parallelIndexer.updates.getCount
+  private val updates: Long = counterState(metrics.daml.parallelIndexer.updates)
   private val updateRate: Double = updates / duration
   private val inputMappingDurationMetric = metrics.dropwizardFactory.timer(
     metrics.daml.parallelIndexer.inputMapping.executor :+ "duration"
@@ -119,6 +119,16 @@ class IndexerBenchmarkResult(config: Config, metrics: Metrics, startTime: Long, 
       case other => throw new IllegalArgumentException(s"Metric $other not supported")
     }
   }
+
+  private[this] def counterState(counter: Counter): Long = {
+    counter match {
+      case DropwizardCounter(_, metric) =>
+        metric.getCount
+      case NoOpCounter(_) => 0
+      case other => throw new IllegalArgumentException(s"Metric $other not supported")
+    }
+  }
+
   private def dropwizardSnapshotToString(data: Snapshot) = {
     s"[min: ${data.getMin}, median: ${data.getMedian}, max: ${data.getMax}"
   }

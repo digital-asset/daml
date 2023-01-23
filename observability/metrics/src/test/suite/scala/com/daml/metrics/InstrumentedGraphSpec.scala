@@ -11,14 +11,21 @@ import com.codahale.{metrics => codahale}
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.metrics.InstrumentedGraph._
 import com.daml.metrics.InstrumentedGraphSpec.SamplingCounter
+import com.daml.metrics.api.MetricsContext
 import com.daml.metrics.api.dropwizard.{DropwizardCounter, DropwizardTimer}
+import com.daml.metrics.api.testing.InMemoryMetricsFactory.{InMemoryCounter, InMemoryTimer}
+import com.daml.metrics.api.testing.MetricValues
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{Future, Promise}
 
-final class InstrumentedGraphSpec extends AsyncFlatSpec with Matchers with AkkaBeforeAndAfterAll {
+final class InstrumentedGraphSpec
+    extends AsyncFlatSpec
+    with Matchers
+    with AkkaBeforeAndAfterAll
+    with MetricValues {
 
   behavior of "InstrumentedSource.queue"
 
@@ -61,9 +68,9 @@ final class InstrumentedGraphSpec extends AsyncFlatSpec with Matchers with AkkaB
     val lowAcceptanceThreshold = bufferSize - acceptanceTolerance
     val highAcceptanceThreshold = bufferSize + acceptanceTolerance
 
-    val maxBuffered = DropwizardCounter("test-length", new InstrumentedGraphSpec.MaxValueCounter())
-    val capacityCounter = DropwizardCounter("test-capacity", new codahale.Counter())
-    val delayTimer = DropwizardTimer("test-delay", new codahale.Timer())
+    val maxBuffered = InMemoryCounter(MetricsContext.Empty)
+    val capacityCounter = InMemoryCounter(MetricsContext.Empty)
+    val delayTimer = InMemoryTimer(MetricsContext.Empty)
 
     val stop = Promise[Unit]()
 
@@ -81,7 +88,7 @@ final class InstrumentedGraphSpec extends AsyncFlatSpec with Matchers with AkkaB
     val input = Seq.fill(inputSize)(util.Random.nextInt())
 
     val results = input.map(source.offer)
-    capacityCounter.getCount shouldEqual bufferSize
+    capacityCounter.value shouldEqual bufferSize
     stop.success(())
     source.complete()
     val enqueued = results.count {
@@ -96,9 +103,9 @@ final class InstrumentedGraphSpec extends AsyncFlatSpec with Matchers with AkkaB
       inputSize shouldEqual (enqueued + dropped)
       assert(enqueued >= bufferSize)
       assert(dropped <= bufferSize)
-      assert(maxBuffered.getCount >= lowAcceptanceThreshold)
-      assert(maxBuffered.getCount <= highAcceptanceThreshold)
-      capacityCounter.getCount shouldEqual 0
+      assert(maxBuffered.value >= lowAcceptanceThreshold)
+      assert(maxBuffered.value <= highAcceptanceThreshold)
+      capacityCounter.value shouldEqual 0
     }
   }
 

@@ -52,7 +52,6 @@ case class NoOpCounter(name: String) extends Counter {
   override def dec(n: Long)(implicit context: _root_.com.daml.metrics.api.MetricsContext): Unit =
     ()
 
-  override def getCount: Long = 0
 }
 
 case class NoOpHistogram(name: String) extends Histogram {

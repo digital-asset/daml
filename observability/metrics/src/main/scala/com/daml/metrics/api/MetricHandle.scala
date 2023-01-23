@@ -149,7 +149,7 @@ object MetricHandle {
     def dec(n: Long)(implicit
         context: MetricsContext
     ): Unit
-    def getCount: Long
+
   }
 
   trait Histogram extends MetricHandle {
