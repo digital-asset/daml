@@ -90,7 +90,8 @@ object LedgerReader {
       ledgerId: LedgerId,
       token: Option[String],
   )(implicit ec: ExecutionContext): Future[Error \/ PS] = {
-    packageIds
+    util.Random
+      .shuffle(packageIds)
       .traverse { pkid =>
         val ck = (ledgerId, pkid)
         loadCache.cache
