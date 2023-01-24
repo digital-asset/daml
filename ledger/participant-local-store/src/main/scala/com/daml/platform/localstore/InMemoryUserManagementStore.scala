@@ -27,7 +27,7 @@ class InMemoryUserManagementStore(createAdmin: Boolean = true) extends UserManag
     state.put(AdminUser.user.id, AdminUser)
   }
 
-  override def getUserInfo(id: UserId)(implicit
+  override def getUserInfo(id: UserId, identityProviderId: IdentityProviderId)(implicit
       loggingContext: LoggingContext
   ): Future[Result[UserManagementStore.UserInfo]] =
     withUser(id)(info => Right(toDomainUserInfo(info)))
@@ -100,7 +100,7 @@ class InMemoryUserManagementStore(createAdmin: Boolean = true) extends UserManag
   }
 
   override def deleteUser(
-      id: Ref.UserId
+      id: Ref.UserId, identityProviderId: IdentityProviderId
   )(implicit loggingContext: LoggingContext): Future[Result[Unit]] =
     withUser(id) { _ =>
       state.remove(id)
@@ -110,6 +110,7 @@ class InMemoryUserManagementStore(createAdmin: Boolean = true) extends UserManag
   override def grantRights(
       id: Ref.UserId,
       granted: Set[UserRight],
+      identityProviderId: IdentityProviderId,
   )(implicit loggingContext: LoggingContext): Future[Result[Set[UserRight]]] =
     withUser(id) { userInfo =>
       val newlyGranted = granted.diff(userInfo.rights) // faster than filter
@@ -123,6 +124,7 @@ class InMemoryUserManagementStore(createAdmin: Boolean = true) extends UserManag
   override def revokeRights(
       id: Ref.UserId,
       revoked: Set[UserRight],
+      identityProviderId: IdentityProviderId,
   )(implicit loggingContext: LoggingContext): Future[Result[Set[UserRight]]] =
     withUser(id) { userInfo =>
       val effectivelyRevoked = revoked.intersect(userInfo.rights) // faster than filter

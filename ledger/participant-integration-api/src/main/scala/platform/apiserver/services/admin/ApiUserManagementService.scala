@@ -111,7 +111,6 @@ private[apiserver] final class ApiUserManagementService(
             user.identityProviderId,
             authorizedUserContext.isParticipantAdmin,
           )
-          _ <- verifyUserDoesNotExist(user.identityProviderId, user.id, "creating user")
           result <- userManagementStore
             .createUser(
               user = user,
@@ -170,7 +169,6 @@ private[apiserver] final class ApiUserManagementService(
             user.identityProviderId,
             authorizedUserContext.isParticipantAdmin,
           )
-          _ <- verifyUserExistsAndInIdp(user.identityProviderId, user.id, "updating user")
           _ <-
             if (
               authorizedUserContext.userId
@@ -232,8 +230,8 @@ private[apiserver] final class ApiUserManagementService(
         )
       } yield (userId, identityProviderId)
     } { case (userId, identityProviderId) =>
-      verifyUserExistsAndInIdp(identityProviderId, userId, "getting user")
-        .flatMap { _ => userManagementStore.getUser(userId) }
+      userManagementStore
+        .getUser(userId, identityProviderId)
         .flatMap(handleResult("getting user"))
         .map(u => GetUserResponse(Some(toProtoUser(u))))
     }
@@ -249,8 +247,8 @@ private[apiserver] final class ApiUserManagementService(
           )
         } yield (userId, identityProviderId)
       } { case (userId, identityProviderId) =>
-        verifyUserExistsAndInIdp(identityProviderId, userId, "deleting user")
-          .flatMap { _ => userManagementStore.deleteUser(userId) }
+        userManagementStore
+          .deleteUser(userId, identityProviderId)
           .flatMap(handleResult("deleting user"))
           .map(_ => proto.DeleteUserResponse())
       }
@@ -308,7 +306,6 @@ private[apiserver] final class ApiUserManagementService(
       } yield (userId, rights, identityProviderId)
     ) { case (userId, rights, identityProviderId) =>
       for {
-        _ <- verifyUserExistsAndInIdp(identityProviderId, userId, "grant user rights")
         authorizedUserContext <- authorizedUserContextF
         _ <- verifyPartyExistInIdp(
           rights,
@@ -319,6 +316,7 @@ private[apiserver] final class ApiUserManagementService(
           .grantRights(
             id = userId,
             rights = rights,
+            identityProviderId = identityProviderId,
           )
         handledResult <- handleResult("grant user rights")(result)
       } yield proto.GrantUserRightsResponse(handledResult.view.map(toProtoRight).toList)
@@ -348,11 +346,11 @@ private[apiserver] final class ApiUserManagementService(
           identityProviderId,
           authorizedUserContext.isParticipantAdmin,
         )
-        _ <- verifyUserExistsAndInIdp(identityProviderId, userId, "revoke user rights")
         result <- userManagementStore
           .revokeRights(
             id = userId,
             rights = rights,
+            identityProviderId = identityProviderId,
           )
         handledResult <- handleResult("revoke user rights")(result)
       } yield proto.RevokeUserRightsResponse(handledResult.view.map(toProtoRight).toList)
@@ -371,8 +369,8 @@ private[apiserver] final class ApiUserManagementService(
         )
       } yield (userId, identityProviderId)
     } { case (userId, identityProviderId) =>
-      verifyUserExistsAndInIdp(identityProviderId, userId, "list user rights")
-        .flatMap { _ => userManagementStore.listUserRights(userId) }
+      userManagementStore
+        .listUserRights(userId, identityProviderId)
         .flatMap(handleResult("list user rights"))
         .map(_.view.map(toProtoRight).toList)
         .map(proto.ListUserRightsResponse(_))
@@ -430,57 +428,6 @@ private[apiserver] final class ApiUserManagementService(
               .asGrpcError
           )
       }
-
-  // Check if user either doesn't exist or if it does - it belongs to the requested Identity Provider
-  // Alternatively, identity_provider_id could be part of the compound unique key within user database.
-  // It was considered as complication for the implementation and for now is simplified.
-  private def verifyUserDoesNotExist(
-      identityProviderId: IdentityProviderId,
-      userId: Ref.UserId,
-      operation: String,
-  ): Future[Unit] = {
-    userManagementStore.getUser(userId).flatMap {
-      case Right(user) if user.identityProviderId != identityProviderId =>
-        Future.failed(
-          LedgerApiErrors.AuthorizationChecks.PermissionDenied
-            .Reject(s"User ${user.id} belongs to another Identity Provider")
-            .asGrpcError
-        )
-      case Right(_) =>
-        Future.failed(
-          LedgerApiErrors.Admin.UserManagement.UserAlreadyExists
-            .Reject(operation, userId.toString)
-            .asGrpcError
-        )
-      case _ =>
-        Future.unit
-    }
-  }
-
-  // Check if user exists and belongs to the requested Identity Provider
-  // There is a possible race condition here, as user might be deleted and reintroduced within another IDP
-  // In order to fix this, proper atomicity is to be considered, by implementing this check in the persistence layer
-  private def verifyUserExistsAndInIdp(
-      identityProviderId: IdentityProviderId,
-      userId: Ref.UserId,
-      operation: String,
-  ): Future[Unit] = {
-    userManagementStore.getUser(userId).flatMap {
-      case Right(user) if user.identityProviderId != identityProviderId =>
-        Future.failed(
-          LedgerApiErrors.AuthorizationChecks.PermissionDenied
-            .Reject(s"User ${user.id} belongs to another Identity Provider")
-            .asGrpcError
-        )
-      case Left(UserManagementStore.UserNotFound(id)) =>
-        Future.failed(
-          LedgerApiErrors.Admin.UserManagement.UserNotFound
-            .Reject(operation, id.toString)
-            .asGrpcError
-        )
-      case _ => Future.unit
-    }
-  }
 
   private def handleResult[T](operation: String)(result: UserManagementStore.Result[T]): Future[T] =
     result match {

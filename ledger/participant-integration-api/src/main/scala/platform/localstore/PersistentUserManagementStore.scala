@@ -97,7 +97,7 @@ class PersistentUserManagementStore(
 
   private val logger = ContextualizedLogger.get(getClass)
 
-  override def getUserInfo(id: UserId)(implicit
+  override def getUserInfo(id: UserId, identityProviderId: IdentityProviderId)(implicit
       loggingContext: LoggingContext
   ): Future[Result[UserInfo]] = {
     inTransaction(_.getUserInfo) { implicit connection =>
@@ -237,7 +237,8 @@ class PersistentUserManagementStore(
   }
 
   override def deleteUser(
-      id: UserId
+      id: UserId,
+      identityProviderId: IdentityProviderId,
   )(implicit loggingContext: LoggingContext): Future[Result[Unit]] = {
     inTransaction(_.deleteUser) { implicit connection =>
       if (!backend.deleteUser(id = id)(connection)) {
@@ -253,6 +254,7 @@ class PersistentUserManagementStore(
   override def grantRights(
       id: UserId,
       rights: Set[domain.UserRight],
+      identityProviderId: IdentityProviderId,
   )(implicit loggingContext: LoggingContext): Future[Result[Set[domain.UserRight]]] = {
     inTransaction(_.grantRights) { implicit connection =>
       withUser(id = id) { user =>
@@ -285,6 +287,7 @@ class PersistentUserManagementStore(
   override def revokeRights(
       id: UserId,
       rights: Set[domain.UserRight],
+      identityProviderId: IdentityProviderId,
   )(implicit loggingContext: LoggingContext): Future[Result[Set[domain.UserRight]]] = {
     inTransaction(_.revokeRights) { implicit connection =>
       withUser(id = id) { user =>

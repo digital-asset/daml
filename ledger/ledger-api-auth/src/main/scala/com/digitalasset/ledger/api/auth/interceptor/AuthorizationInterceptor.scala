@@ -85,12 +85,12 @@ final class AuthorizationInterceptor(
         for {
           userManagementStore <- getUserManagementStore(userManagementStoreO)
           userId <- getUserId(userIdStr)
-          user <- verifyUserIsActive(userManagementStore, userId)
+          user <- verifyUserIsActive(userManagementStore, userId, identityProviderId)
           _ <- verifyUserIsWithinIdentityProvider(
             identityProviderId,
             user,
           )
-          userRightsResult <- userManagementStore.listUserRights(userId)
+          userRightsResult <- userManagementStore.listUserRights(userId, identityProviderId)
           claimsSet <- userRightsResult match {
             case Left(msg) =>
               Future.failed(
@@ -136,9 +136,10 @@ final class AuthorizationInterceptor(
   private def verifyUserIsActive(
       userManagementStore: UserManagementStore,
       userId: UserId,
+      identityProviderId: IdentityProviderId,
   ): Future[User] =
     for {
-      userResult <- userManagementStore.getUser(id = userId)
+      userResult <- userManagementStore.getUser(id = userId, identityProviderId)
       value <- userResult match {
         case Left(msg) =>
           Future.failed(

@@ -33,6 +33,7 @@ private[auth] final class UserRightsChangeAsyncChecker(
       userClaimsMismatchCallback: () => Unit
   )(implicit loggingContext: LoggingContext): () => Unit = {
     val delay = userRightsCheckIntervalInSeconds.seconds
+    val identityProviderId = originalClaims.identityProviderId
     val userId = originalClaims.applicationId.fold[Ref.UserId](
       throw new RuntimeException(
         "Claims were resolved from a user but userId (applicationId) is missing in the claims."
@@ -49,8 +50,8 @@ private[auth] final class UserRightsChangeAsyncChecker(
         val userState
             : Future[Either[UserManagementStore.Error, (domain.User, Set[domain.UserRight])]] =
           for {
-            userRightsResult <- userManagementStore.listUserRights(userId)
-            userResult <- userManagementStore.getUser(userId)
+            userRightsResult <- userManagementStore.listUserRights(userId, identityProviderId)
+            userResult <- userManagementStore.getUser(userId, identityProviderId)
           } yield {
             for {
               userRights <- userRightsResult
