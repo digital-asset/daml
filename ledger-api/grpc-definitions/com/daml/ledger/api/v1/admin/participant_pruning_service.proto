@@ -27,7 +27,8 @@ service ParticipantPruningService {
   // the potentially long-running prune request ends successfully or with an error.
   rpc Prune (PruneRequest) returns (PruneResponse);
 
-  rpc LastPrunedOffsets (LastPrunedOffsetsRequest) returns (LastPrunedOffsetsResponse);
+  // Get the latest successfully pruned ledger offsets
+  rpc LatestPrunedOffsets (LatestPrunedOffsetsRequest) returns (LatestPrunedOffsetsResponse);
 
 }
 
@@ -58,13 +59,17 @@ message PruneRequest {
   bool prune_all_divulged_contracts = 3;
 }
 
-message LastPrunedOffsetsRequest {
+message LatestPrunedOffsetsRequest {
   // Empty for now, but may contain fields in the future
 }
 
-message LastPrunedOffsetsResponse {
+message LatestPrunedOffsetsResponse {
+  // The offset up until the ledger has been pruned, excluding divulgence events
+  // (when the PruneRequest was issued with prune_all_divulged_contracts=false)
   LedgerOffset participant_pruned_up_to_inclusive = 1;
 
+  // The offset up until the ledger has been pruned including all divulgence events
+  // (when the PruneRequest was issued with prune_all_divulged_contracts=true)
   LedgerOffset all_divulged_contracts_pruned_up_to_inclusive = 2;
 }
 

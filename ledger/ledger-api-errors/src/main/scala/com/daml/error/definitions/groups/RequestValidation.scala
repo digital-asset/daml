@@ -156,6 +156,22 @@ object RequestValidation extends LedgerApiErrors.RequestValidation {
   }
 
   @Explanation(
+    "This rejection is given when a pruning request is issued against a participant which already has a pruning request ongoing."
+  )
+  @Resolution("Retry the pruning request after the previous request has finished.")
+  object ConcurrentPruningRequestError
+      extends ErrorCode(
+        id = "CONCURRENT_PARTICIPANT_PRUNING_REQUESTED",
+        ErrorCategory.InvalidGivenCurrentSystemStateOther,
+      ) {
+    case class Reject()(implicit
+        loggingContext: ContextualizedErrorLogger
+    ) extends DamlErrorWithDefiniteAnswer(
+          cause = "Another participant pruning request already is in progress"
+        )
+  }
+
+  @Explanation(
     "This rejection is given when a read request uses an offset beyond the current ledger end."
   )
   @Resolution("Use an offset that is before the ledger end.")
