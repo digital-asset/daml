@@ -5,10 +5,10 @@ package com.daml.platform.apiserver.ratelimiting
 
 import java.io.IOException
 import java.lang.management._
-import java.util.concurrent.{Executors, LinkedBlockingQueue, TimeUnit}
+import java.util.concurrent.{LinkedBlockingQueue, TimeUnit}
 
 import com.codahale.metrics.MetricRegistry
-import com.daml.executors.QueueAwareExecutionContextExecutorService
+import com.daml.executors.executors.{NamedExecutor, QueueAwareExecutor}
 import com.daml.grpc.adapter.utils.implementations.HelloServiceAkkaImplementation
 import com.daml.grpc.sampleservice.implementations.HelloServiceReferenceImplementation
 import com.daml.ledger.api.health.HealthChecks.ComponentName
@@ -44,7 +44,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.time.{Second, Span}
 import org.slf4j.LoggerFactory
 
-import scala.concurrent.{ExecutionContext, Future, Promise}
+import scala.concurrent.{Future, Promise}
 
 final class RateLimitingInterceptorSpec
     extends AsyncFlatSpec
@@ -65,13 +65,11 @@ final class RateLimitingInterceptorSpec
 
   it should "support additional checks" in {
     val metrics = createMetrics
-    val queueSizeValues =
-      Iterator(0L, config.maxApiServicesQueueSize.toLong + 1, 0L)
-    val executorWithQueueSize = new QueueAwareExecutionContextExecutorService(
-      ExecutionContext.fromExecutorService(Executors.newSingleThreadExecutor()),
-      "test",
-    ) {
-      override def getQueueSize: Long = queueSizeValues.next()
+    val executorWithQueueSize = new QueueAwareExecutor with NamedExecutor {
+      private val queueSizeValues =
+        Iterator(0L, config.maxApiServicesQueueSize.toLong + 1, 0L)
+      override def queueSize: Long = queueSizeValues.next()
+      override def name: String = "test"
     }
     val threadPoolHumanReadableName = "For testing"
     withChannel(

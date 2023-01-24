@@ -9,7 +9,12 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.Sink
 import com.daml.api.util.TimeProvider
 import com.daml.buildinfo.BuildInfo
-import com.daml.executors.{InstrumentedExecutors, QueueAwareExecutionContextExecutorService}
+import com.daml.executors.executors.{
+  NamedExecutor,
+  QueueAwareExecutionContextExecutorService,
+  QueueAwareExecutor,
+}
+import com.daml.executors.InstrumentedExecutors
 import com.daml.ledger.api.auth.{
   AuthServiceJWT,
   AuthServiceNone,
@@ -136,7 +141,7 @@ object SandboxOnXRunner {
         metrics = metrics,
         explicitDisclosureUnsafeEnabled = true,
         rateLimitingInterceptor = participantConfig.apiServer.rateLimit.map(config =>
-          (dbExecutor: QueueAwareExecutionContextExecutorService) =>
+          dbExecutor =>
             buildRateLimitingInterceptor(metrics, dbExecutor, servicesExecutionContext)(config)
         ),
         telemetry = new DefaultOpenTelemetry(openTelemetry),
@@ -286,8 +291,8 @@ object SandboxOnXRunner {
 
   def buildRateLimitingInterceptor(
       metrics: Metrics,
-      indexDbExecutor: QueueAwareExecutionContextExecutorService,
-      apiServicesExecutor: QueueAwareExecutionContextExecutorService,
+      indexDbExecutor: QueueAwareExecutor with NamedExecutor,
+      apiServicesExecutor: QueueAwareExecutor with NamedExecutor,
   )(config: RateLimitingConfig): RateLimitingInterceptor = {
 
     val indexDbCheck = ThreadpoolCheck(

@@ -5,9 +5,8 @@ package com.daml.platform.indexer.parallel
 
 import java.sql.Connection
 import java.time.Instant
-import java.util.concurrent.Executors
 
-import com.daml.executors.QueueAwareExecutionContextExecutorService
+import com.daml.executors.executors.{NamedExecutor, QueueAwareExecutor}
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.lf.crypto.Hash
@@ -31,7 +30,7 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.time.SpanSugar.convertIntToGrainOfTime
 
-import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.concurrent.{Await, Future}
 
 class ParallelIndexerSubscriptionSpec extends AnyFlatSpec with Matchers {
 
@@ -392,11 +391,11 @@ class ParallelIndexerSubscriptionSpec extends AnyFlatSpec with Matchers {
       ): Future[T] =
         Future.successful(sql(connection))
 
-      override val executor: QueueAwareExecutionContextExecutorService =
-        new QueueAwareExecutionContextExecutorService(
-          ExecutionContext.fromExecutorService(Executors.newSingleThreadExecutor()),
-          "test",
-        )
+      override val executor = new QueueAwareExecutor with NamedExecutor {
+        override def queueSize: Long = 0
+        override def name: String = "test"
+      }
+
     }
 
     val batchPayload = "Some batch payload"
@@ -447,11 +446,10 @@ class ParallelIndexerSubscriptionSpec extends AnyFlatSpec with Matchers {
       ): Future[T] =
         Future.successful(sql(connection))
 
-      override val executor: QueueAwareExecutionContextExecutorService =
-        new QueueAwareExecutionContextExecutorService(
-          ExecutionContext.fromExecutorService(Executors.newSingleThreadExecutor()),
-          "test",
-        )
+      override val executor = new QueueAwareExecutor with NamedExecutor {
+        override def queueSize: Long = 0
+        override def name: String = "test"
+      }
     }
 
     val ledgerEnd = ParameterStorageBackend.LedgerEnd(

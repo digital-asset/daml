@@ -6,7 +6,7 @@ package com.daml.platform
 import akka.actor.ActorSystem
 import akka.stream.Materializer
 import com.daml.api.util.TimeProvider
-import com.daml.executors.QueueAwareExecutionContextExecutorService
+import com.daml.executors.executors.{NamedExecutor, QueueAwareExecutor}
 import com.daml.ledger.api.auth.{AuthService, JwtVerifierLoader}
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.health.HealthChecks
@@ -53,7 +53,7 @@ class LedgerApiServer(
     //          in order to ensure that participants cannot be configured to accept explicitly disclosed contracts.
     explicitDisclosureUnsafeEnabled: Boolean = false,
     rateLimitingInterceptor: Option[
-      QueueAwareExecutionContextExecutorService => RateLimitingInterceptor
+      QueueAwareExecutor with NamedExecutor => RateLimitingInterceptor
     ] = None,
     telemetry: Telemetry,
 )(implicit actorSystem: ActorSystem, materializer: Materializer) {
