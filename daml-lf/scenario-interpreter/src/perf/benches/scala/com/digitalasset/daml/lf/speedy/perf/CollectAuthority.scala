@@ -59,7 +59,7 @@ private[lf] class CollectAuthorityState {
 
     machine = Machine.fromScenarioExpr(
       compiledPackages,
-      expr,
+      scenario = expr,
     )
     the_sexpr = machine.currentControl match {
       case Control.Expression(exp) => exp
@@ -105,6 +105,8 @@ private[lf] class CollectAuthorityState {
               callback(value)
             case ScenarioRunner.SubmissionError(err, _) => crash(s"Submission failed $err")
           }
+        case SResultInterruption(_, callback) =>
+          callback()
         case SResultFinal(v) => finalValue = v
         case r => crash(s"bench run: unexpected result from speedy: ${r}")
       }
@@ -151,6 +153,8 @@ private[lf] class CollectAuthorityState {
               cachedContract ++= api.cachedContract
               step = api.step
           }
+        case SResultInterruption(_, callback) =>
+          callback()
         case SResultFinal(v) =>
           finalValue = v
         case r =>
