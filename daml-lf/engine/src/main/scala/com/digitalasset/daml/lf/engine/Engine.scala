@@ -393,7 +393,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
           handleError(err)
       }
 
-    while (!result.isEmpty) {
+    while (result.isEmpty) {
       machine.run() match {
 
         case SResultQuestion(question) =>
