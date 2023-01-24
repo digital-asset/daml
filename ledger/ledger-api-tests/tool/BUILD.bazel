@@ -104,8 +104,7 @@ conformance_test(
             trust-collection-file=$(rootpath //ledger/test-common/test-certificates:ca.crt)
             private-key-file=$(rootpath //ledger/test-common/test-certificates:server.pem.enc)
             #temporarily use decryption parameters from a gist to migrate to the new AES/GCM/NoPadding encryption
-            #secrets-url="https://raw.githubusercontent.com/digital-asset/daml/release/2.4.x/ledger/test-common/files/server-pem-decryption-parameters.json"
-            secrets-url="https://raw.githubusercontent.com/digital-asset/daml/aes-gcm/ledger/test-common/files/server-pem-decryption-parameters.json"
+            secrets-url="https://raw.githubusercontent.com/digital-asset/daml/release/2.4.x/ledger/test-common/files/server-pem-decryption-parameters.json"
             minimum-server-protocol-version=TLSv1.3
           }
         }
@@ -143,8 +142,7 @@ conformance_test(
             trust-collection-file=$(rootpath //ledger/test-common/test-certificates:ca.crt)
             private-key-file=$(rootpath //ledger/test-common/test-certificates:server.pem.enc)
             #temporarily use decryption parameters from a gist to migrate to the new AES/GCM/NoPadding encryption
-            #secrets-url="https://raw.githubusercontent.com/digital-asset/daml/main/ledger/test-common/files/server-pem-decryption-parameters.json"
-            secrets-url="https://raw.githubusercontent.com/digital-asset/daml/aes-gcm/ledger/test-common/files/server-pem-decryption-parameters.json"
+            secrets-url="https://raw.githubusercontent.com/digital-asset/daml/release/2.4.x/ledger/test-common/files/server-pem-decryption-parameters.json"
           }
         }
     """,
