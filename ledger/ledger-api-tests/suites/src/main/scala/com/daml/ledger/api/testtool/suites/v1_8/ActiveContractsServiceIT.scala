@@ -30,6 +30,7 @@ import com.daml.ledger.test.model.Test.{
   Witnesses => TestWitnesses,
 }
 import com.daml.ledger.api.testtool.infrastructure.FutureAssertions
+import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.logging.LoggingContext
 import scalaz.syntax.tag._
 
@@ -678,21 +679,7 @@ class ActiveContractsServiceIT extends LedgerTestSuite {
       c1 <- ledger.create(party, Dummy(party))
       anOffset <- ledger.currentEnd()
       _ <- ledger.create(party, Dummy(party))
-      _ <- FutureAssertions.succeedsEventually(
-        retryDelay = 100.millis,
-        maxRetryDuration = 10.seconds,
-        ledger.delayMechanism,
-        "Pruning",
-      ) {
-        // We are retrying a command submission + pruning to make this test compatible with Canton.
-        // That's because in Canton pruning will fail unless ACS commitments have been exchanged between participants.
-        // To this end, submitting a command is prompting Canton to exchange ACS commitments
-        // and allows the pruning call to eventually succeed.
-        for {
-          _ <- ledger.submitAndWait(ledger.submitAndWaitRequest(party, Dummy(party).create.command))
-          _ <- ledger.prune(pruneUpTo = anOffset, attempts = 1)
-        } yield ()
-      }
+      _ <- pruneCantonSafe(ledger = ledger, pruneUpTo = anOffset, party = party)
       (acsOffset, acs) <- ledger
         .activeContractsIds(
           GetActiveContractsRequest(
@@ -719,21 +706,7 @@ class ActiveContractsServiceIT extends LedgerTestSuite {
       _ <- ledger.create(party, Dummy(party))
       offset2 <- ledger.currentEnd()
       _ <- ledger.create(party, Dummy(party))
-      _ <- FutureAssertions.succeedsEventually(
-        retryDelay = 100.millis,
-        maxRetryDuration = 10.seconds,
-        ledger.delayMechanism,
-        "Pruning",
-      ) {
-        // We are retrying a command submission + pruning to make this test compatible with Canton.
-        // That's because in Canton pruning will fail unless ACS commitments have been exchanged between participants.
-        // To this end, repeatedly submitting commands is prompting Canton to exchange ACS commitments
-        // and allows the pruning call to eventually succeed.
-        for {
-          _ <- ledger.submitAndWait(ledger.submitAndWaitRequest(party, Dummy(party).create.command))
-          _ <- ledger.prune(pruneUpTo = offset2, attempts = 1)
-        } yield ()
-      }
+      _ <- pruneCantonSafe(ledger = ledger, pruneUpTo = offset2, party = party)
       _ <- ledger
         .activeContractsIds(
           GetActiveContractsRequest(
@@ -822,4 +795,27 @@ class ActiveContractsServiceIT extends LedgerTestSuite {
       s"${party.mkString(" and ")} expected $count $templateId events, but received $templateEvents.",
     )
   }
+
+  /** We are retrying a command submission + pruning to make this test compatible with Canton.
+    * That's because in Canton pruning will fail unless ACS commitments have been exchanged between participants.
+    * To this end, repeatedly submitting commands is prompting Canton to exchange ACS commitments
+    * and allows the pruning call to eventually succeed.
+    */
+  private def pruneCantonSafe(
+      ledger: ParticipantTestContext,
+      pruneUpTo: LedgerOffset,
+      party: Party,
+  )(implicit ec: ExecutionContext): Future[Unit] =
+    FutureAssertions.succeedsEventually(
+      retryDelay = 100.millis,
+      maxRetryDuration = 10.seconds,
+      ledger.delayMechanism,
+      "Pruning",
+    ) {
+      for {
+        _ <- ledger.submitAndWait(ledger.submitAndWaitRequest(party, Dummy(party).create.command))
+        _ <- ledger.prune(pruneUpTo = pruneUpTo, attempts = 1)
+      } yield ()
+    }
+
 }
