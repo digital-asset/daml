@@ -56,6 +56,20 @@ object LedgerReader {
 
   final class LoadCache private () {
     import com.daml.caching.CaffeineCache, com.github.benmanes.caffeine.cache.Caffeine
+
+    // This cache serves *concurrent* load requests, not *subsequent* requests;
+    // once a request is complete, its records shouldn't be touched at all for
+    // any requests that follow for the rest of the server lifetime, hence the
+    // short timeout.  The timeout is chosen to allow concurrent contention to
+    // resolve even in unideal execution situations with large package sets, but
+    // short enough not to pointlessly cache for pkg reqs that do not overlap at
+    // all.
+    //
+    // A hit indicates concurrent contention, so we actually want to *maximize
+    // misses, not hits*, but the hitrate is really determined by the client's
+    // request pattern, so there isn't anything you can really do about it on
+    // the server configuration.  100% miss rate means no redundant work is
+    // happening; it does not mean the server is being slower.
     private[LedgerReader] val cache = CaffeineCache[(LedgerId, String), GetPackageResponse](
       Caffeine
         .newBuilder()
