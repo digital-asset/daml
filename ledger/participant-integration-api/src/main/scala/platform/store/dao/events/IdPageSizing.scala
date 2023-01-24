@@ -18,46 +18,71 @@ case class IdPageSizing(
 object IdPageSizing {
   private val logger = ContextualizedLogger.get(getClass)
 
+  // Approximation of how many index entries is present in a leaf page of a btree index.
+  // Fetching fewer ids than this only adds round-trip overhead, without decreasing the number of disk page reads per round-trip.
+  // Experiments, with default fill ratio for BTree Index, show  that:
+  // - (party_id, template_id) index has 244 tuples per disk page,
+  // - wildcard party_id index has 254 per disk page.
+  // We are picking a smaller number to accommodate for pruning, deletions and index bloat effect
+  // which all result in a smaller ratio of tuples per disk page.
+  private val NumOfBtreeLeafPageEntriesApprox = 200
+
+  /** Calculates the ideal page sizes to fetch ids with.
+    */
   def calculateFrom(
       maxIdPageSize: Int,
-      idPageWorkingMemoryBytes: Int,
-      filterSize: Int,
-      idPageBufferSize: Int,
+      workingMemoryInBytesForIdPages: Int,
+      numOfDecomposedFilters: Int,
+      numOfPagesInIdPageBuffer: Int,
   )(implicit loggingContext: LoggingContext): IdPageSizing = {
-    val LowestIdPageSize =
-      Math.min(10, maxIdPageSize) // maxIdPageSize can override this if it is smaller
-    // Approximation how many index entries can be present in one btree index leaf page (fetching smaller than this only adds round-trip overhead, without boiling down to smaller disk read)
-    // Experiments show party_id, template_id index has 244 tuples per page, wildcard party_id index has 254 per page (with default fill ratio for BTREE Index)
-    // Picking a lower number is for accommodating pruning, deletions, index bloat effect, which boil down to lower tuple per page ratio.
-    val RecommendedMinIdPageSize =
-      Math.min(200, maxIdPageSize) // maxIdPageSize can override this if it is smaller
-    val calculatedMaxIdPageSize =
-      idPageWorkingMemoryBytes
-        ./(8) // IDs stored in 8 bytes
-        ./(
-          idPageBufferSize + 1
-        ) // for each filter we need one page fetched for merge sorting, and additional pages might reside in the buffer
-        ./(filterSize)
-    if (calculatedMaxIdPageSize < LowestIdPageSize) {
+    val calculated = calculateMaxNumOfIdsPerPage(
+      workingMemoryInBytesForIdPages = workingMemoryInBytesForIdPages,
+      numOfDecomposedFilters = numOfDecomposedFilters,
+      numOfPagesInIdPageBuffer = numOfPagesInIdPageBuffer,
+    )
+    // maxNumberOfIdsPerIdPage can override this if it is smaller
+    val minIdPageSize = Math.min(10, maxIdPageSize)
+    // maxNumberOfIdsPerIdPage can override this if it is smaller
+    val recommendedIdPageSize = Math.min(NumOfBtreeLeafPageEntriesApprox, maxIdPageSize)
+    // An id occupies 8 bytes
+    if (calculated < minIdPageSize) {
       logger.warn(
-        s"Calculated maximum ID page size supporting API stream memory limits [$calculatedMaxIdPageSize] is too low: $LowestIdPageSize is used instead. Warning: API stream memory limits not respected. Warning: Dangerously low maximum ID page size can cause poor streaming performance. Filter size [$filterSize] too large?"
+        s"Calculated maximum ID page size supporting API stream memory limits [$calculated] is too low: $minIdPageSize is used instead. " +
+          s"Warning: API stream memory limits not respected. Warning: Dangerously low maximum ID page size can cause poor streaming performance. " +
+          s"Filter size [$numOfDecomposedFilters] too large?"
       )
-      IdPageSizing(LowestIdPageSize, LowestIdPageSize)
-    } else if (calculatedMaxIdPageSize < RecommendedMinIdPageSize) {
+      IdPageSizing(minIdPageSize, minIdPageSize)
+    } else if (calculated < recommendedIdPageSize) {
       logger.warn(
-        s"Calculated maximum ID page size supporting API stream memory limits [$calculatedMaxIdPageSize] is very low. Warning: Low maximum ID page size can cause poor streaming performance. Filter size [$filterSize] too large?"
+        s"Calculated maximum ID page size supporting API stream memory limits [$calculated] is very low. " +
+          s"Warning: Low maximum ID page size can cause poor streaming performance. Filter size [$numOfDecomposedFilters] too large?"
       )
-      IdPageSizing(calculatedMaxIdPageSize, calculatedMaxIdPageSize)
-    } else if (calculatedMaxIdPageSize < maxIdPageSize) {
+      IdPageSizing(calculated, calculated)
+    } else if (calculated < maxIdPageSize) {
       logger.info(
-        s"Calculated maximum ID page size supporting API stream memory limits [$calculatedMaxIdPageSize] is low. Warning: Low maximum ID page size can cause poor streaming performance. Filter size [$filterSize] too large?"
+        s"Calculated maximum ID page size supporting API stream memory limits [$calculated] is low. " +
+          s"Warning: Low maximum ID page size can cause poor streaming performance. Filter size [$numOfDecomposedFilters] too large?"
       )
-      IdPageSizing(RecommendedMinIdPageSize, calculatedMaxIdPageSize)
+      IdPageSizing(recommendedIdPageSize, calculated)
     } else {
       logger.debug(
-        s"Calculated maximum ID page size supporting API stream memory limits [$calculatedMaxIdPageSize] is sufficiently high, using [$maxIdPageSize] instead."
+        s"Calculated maximum ID page size supporting API stream memory limits [$calculated] is high, using [$maxIdPageSize] instead."
       )
-      IdPageSizing(RecommendedMinIdPageSize, maxIdPageSize)
+      IdPageSizing(recommendedIdPageSize, maxIdPageSize)
     }
+  }
+
+  private def calculateMaxNumOfIdsPerPage(
+      workingMemoryInBytesForIdPages: Int,
+      numOfDecomposedFilters: Int,
+      numOfPagesInIdPageBuffer: Int,
+  ): Int = {
+    val numOfIdsInMemory = workingMemoryInBytesForIdPages / 8
+    // For each decomposed filter we have:
+    //  1) one page fetched for merge sorting
+    //  2) and additional pages residing in the buffer.
+    val maxNumOfIdPages = (numOfPagesInIdPageBuffer + 1) * numOfDecomposedFilters
+    val maxNumOfIdsPerPage = numOfIdsInMemory / maxNumOfIdPages
+    maxNumOfIdsPerPage
   }
 }
