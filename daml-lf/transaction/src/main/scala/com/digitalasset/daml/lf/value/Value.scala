@@ -239,7 +239,7 @@ object Value {
       def assertBuild(discriminator: crypto.Hash, suffix: Bytes): V1 =
         assertRight(build(discriminator, suffix))
 
-      val prefix: Bytes = Bytes.assertFromString("")
+      val prefix: Bytes = Bytes.assertFromString("00")
 
       private val suffixStart: Int = crypto.Hash.underlyingHashLength + prefix.length
 

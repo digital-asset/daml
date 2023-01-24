@@ -214,7 +214,7 @@ class TransactionServiceRequestValidator(
 
     for {
       apiContractKey <- requirePresence(req.contractKey, "contract_key")
-      contractId <- ValueValidator.validateValue(apiContractKey)
+      contractKey <- ValueValidator.validateValue(apiContractKey)
       apiTemplateId <- requirePresence(req.templateId, "template_id")
       templateId <- FieldValidations.validateIdentifier(apiTemplateId)
       _ <- requireNonEmpty(req.requestingParties, "requesting_parties")
@@ -230,7 +230,7 @@ class TransactionServiceRequestValidator(
     } yield {
 
       transaction.GetEventsByContractKeyRequest(
-        contractKey = contractId,
+        contractKey = contractKey,
         templateId = templateId,
         requestingParties = requestingParties,
         maxEvents = if (req.maxEvents != 0) req.maxEvents else 1000,

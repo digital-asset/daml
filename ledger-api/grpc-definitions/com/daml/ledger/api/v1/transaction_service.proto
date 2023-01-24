@@ -136,19 +136,21 @@ message GetFlatTransactionResponse {
 }
 
 message GetEventsByContractIdRequest {
-  // The contract id being queried
+  // The contract id being queried.
   // Required
   string contract_id = 1;
 
   // The parties whose events the client expects to see.
-  // Events that are not visible for the parties in this collection will not be present in the response.
-  // Each element must be a valid PartyIdString (as described in ``value.proto``).
+  // The events associated with the contract key will only be returned if the requesting parties includes
+  // at least one party that is a witness of the action that created the event. For a full description
+  // of witness see https://docs.daml.com/concepts/ledger-model/ledger-privacy.html#projections.
   // Required
   repeated string requesting_parties = 2;
 
 }
 message GetEventsByContractIdResponse {
-  // The collection of events, will only contain CreateEvent and consuming ExerciseEvents
+  // The collection of events, will only contain CreateEvent and consuming ExerciseEvents. If the
+  // requested `contract_id` has been archived or never existed this collection will be empty.
   repeated TreeEvent events = 1;
 }
 
@@ -163,16 +165,17 @@ message GetEventsByContractKeyRequest {
   Identifier template_id = 2;
 
   // The parties whose events the client expects to see.
-  // Events that are not visible for the parties in this collection will not be present in the response.
-  // Each element must be a valid PartyIdString (as described in ``value.proto``).
+  // The events associated with the contract key will only be returned if the requesting parties includes
+  // at least one party that is a witness of the action that created the event. For a full description
+  // of witness see https://docs.daml.com/concepts/ledger-model/ledger-privacy.html#projections.
   // Required
   repeated string requesting_parties = 3;
 
   // Optional - will default to 1000.
-  int32 max_events = 4;
+  uint32 max_events = 4;
 
   // Search from ledger offset after the provided begin_exclusive
-  // Optional - will default to the epoch offset if not provided
+  // Optional - will default to the searching of ledger from the start
   LedgerOffset begin_exclusive = 5;
 
   // If provided only return events with an offset <= `end_inclusive`
@@ -180,6 +183,7 @@ message GetEventsByContractKeyRequest {
   LedgerOffset end_inclusive = 6;
 
 }
+
 message GetEventsByContractKeyResponse {
 
   // The collection of events, will only contain CreateEvent and consuming ExerciseEvents. Note
@@ -190,6 +194,13 @@ message GetEventsByContractKeyResponse {
   // If populated there are potentially more rows, to avoid gaps make
   // the next request with `begin_exclusive` set to `last_offset`
   LedgerOffset last_offset = 2;
+
+  // This will pruning offset at the time of the report. Any events associated with consumed contracts
+  // that precede the `pruning_offset` wil not be present in the report. Events associated active
+  // contracts will be present even if they predate the `pruning_offset`.
+  // Optional
+  LedgerOffset pruned_offset = 3;
+
 }
 
 message GetLedgerEndRequest {

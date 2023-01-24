@@ -56,18 +56,13 @@ class EventReaderQueries(
             SELECT
               #$selectColumns,
               #$witnessesColumn as event_witnesses,
-              e.command_id
+              command_id
             FROM
-              #$tableName e
-            JOIN parameters p
-            ON
-              p.participant_pruned_up_to_inclusive IS NULL
-              OR
-              e.event_offset > p.participant_pruned_up_to_inclusive
+              #$tableName
             WHERE
-              e.contract_id = ${contractId.coid}
+              contract_id = ${contractId.coid}
             ORDER BY
-              e.event_sequential_id
+              event_sequential_id
         ) x
       )
     """
@@ -116,13 +111,12 @@ class EventReaderQueries(
 
     val query = SQL"""
         WITH key_contract AS (
-            SELECT e.contract_id cid
-            FROM participant_events_create e
-            JOIN parameters p ON p.participant_pruned_up_to_inclusive IS NULL OR event_offset > p.participant_pruned_up_to_inclusive
+            SELECT contract_id cid
+            FROM participant_events_create
             WHERE create_key_hash = $keyHash
-            AND e.event_sequential_id >= $precedingCreateSeq
-            AND e.event_sequential_id <= $endInclusive
-            ORDER BY e.event_sequential_id
+            AND event_sequential_id >= $precedingCreateSeq
+            AND event_sequential_id <= $endInclusive
+            ORDER BY event_sequential_id
             FETCH FIRST #$maxEvents ROWS ONLY
         ), pre_filtered AS (
             SELECT  #$selectColumnsForTransactionTreeCreate,

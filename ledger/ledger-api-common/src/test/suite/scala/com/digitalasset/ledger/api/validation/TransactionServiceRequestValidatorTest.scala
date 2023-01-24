@@ -650,7 +650,7 @@ class TransactionServiceRequestValidatorTest
         )
       }
 
-      "allow or default optional values" in {
+      "default optional values" in {
         val expected = txRequest.copy(
           maxEvents = 1000,
           startExclusive = domain.LedgerOffset.LedgerBegin,
