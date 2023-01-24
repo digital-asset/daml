@@ -55,7 +55,7 @@ object LedgerReader {
 
   private val loadCache = {
     import com.daml.caching.CaffeineCache, com.github.benmanes.caffeine.cache.Caffeine
-    CaffeineCache[String, GetPackageResponse](
+    CaffeineCache[(LedgerId, String), GetPackageResponse](
       Caffeine
         .newBuilder()
         .softValues()
@@ -71,17 +71,18 @@ object LedgerReader {
       token: Option[String],
   )(implicit ec: ExecutionContext): Future[Error \/ PS] = {
     packageIds
-      .traverse(pkid =>
+      .traverse { pkid =>
+        val ck = (ledgerId, pkid)
         loadCache
-          .getIfPresent(pkid)
+          .getIfPresent(ck)
           .cata(
             Future.successful,
             client.getPackage(pkid, ledgerId, token).map { pkresp =>
-              loadCache.put(pkid, pkresp)
+              loadCache.put(ck, pkresp)
               pkresp
             },
           )
-      )
+      }
       .map(createPackageStoreFromArchives)
       .map(_.map(Some(_)))
   }
