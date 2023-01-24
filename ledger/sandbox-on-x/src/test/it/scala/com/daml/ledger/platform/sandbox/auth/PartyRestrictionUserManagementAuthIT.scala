@@ -78,7 +78,7 @@ final class PartyRestrictionUserManagementAuthIT
           uproto.Right(uproto.Right.Kind.CanReadAs(uproto.Right.CanReadAs("some-party-2"))),
         ),
         primaryParty = "some-party-1",
-        secret = Some(TestJwtVerifierLoader.secret1)
+        secret = Some(TestJwtVerifierLoader.secret1),
       )
       _ <- createUser(
         UUID.randomUUID().toString + "-alice-2",
