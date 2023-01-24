@@ -4,10 +4,10 @@
 package com.daml.platform.store.dao
 
 import java.sql.Connection
-import java.util.concurrent.{Executor, TimeUnit}
+import java.util.concurrent.TimeUnit
 
 import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
-import com.daml.executors.InstrumentedExecutors
+import com.daml.executors.{InstrumentedExecutors, QueueAwareExecutionContextExecutorService}
 import com.daml.ledger.api.health.{HealthStatus, ReportsHealth}
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
@@ -24,6 +24,7 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal
 
 private[platform] trait DbDispatcher {
+  val executor: QueueAwareExecutionContextExecutorService
   def executeSql[T](databaseMetrics: DatabaseMetrics)(sql: Connection => T)(implicit
       loggingContext: LoggingContext
   ): Future[T]
@@ -32,7 +33,7 @@ private[platform] trait DbDispatcher {
 
 private[dao] final class DbDispatcherImpl private[dao] (
     connectionProvider: JdbcConnectionProvider,
-    executor: Executor,
+    val executor: QueueAwareExecutionContextExecutorService,
     overallWaitTimer: Timer,
     overallExecutionTimer: Timer,
 )(implicit loggingContext: LoggingContext)

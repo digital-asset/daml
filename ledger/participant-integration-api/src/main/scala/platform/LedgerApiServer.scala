@@ -6,6 +6,7 @@ package com.daml.platform
 import akka.actor.ActorSystem
 import akka.stream.Materializer
 import com.daml.api.util.TimeProvider
+import com.daml.executors.QueueAwareExecutionContextExecutorService
 import com.daml.ledger.api.auth.{AuthService, JwtVerifierLoader}
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.health.HealthChecks
@@ -51,7 +52,9 @@ class LedgerApiServer(
     //          Currently, we provide this flag outside the HOCON configuration objects
     //          in order to ensure that participants cannot be configured to accept explicitly disclosed contracts.
     explicitDisclosureUnsafeEnabled: Boolean = false,
-    rateLimitingInterceptor: Option[RateLimitingInterceptor] = None,
+    rateLimitingInterceptor: Option[
+      QueueAwareExecutionContextExecutorService => RateLimitingInterceptor
+    ] = None,
     telemetry: Telemetry,
 )(implicit actorSystem: ActorSystem, materializer: Materializer) {
 
@@ -162,7 +165,8 @@ class LedgerApiServer(
       healthChecks = healthChecksWithIndexer + ("write" -> writeService),
       metrics = metrics,
       timeServiceBackend = timeServiceBackend,
-      otherInterceptors = rateLimitingInterceptor.toList,
+      otherInterceptors =
+        rateLimitingInterceptor.map(provider => provider(dbSupport.dbDispatcher.executor)).toList,
       engine = sharedEngine,
       servicesExecutionContext = servicesExecutionContext,
       userManagementStore = PersistentUserManagementStore.cached(

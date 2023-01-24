@@ -9,20 +9,14 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.Sink
 import com.daml.api.util.TimeProvider
 import com.daml.buildinfo.BuildInfo
-import com.daml.executors.InstrumentedExecutors
+import com.daml.executors.{InstrumentedExecutors, QueueAwareExecutionContextExecutorService}
 import com.daml.ledger.api.auth.{
   AuthServiceJWT,
   AuthServiceNone,
   AuthServiceStatic,
   AuthServiceWildcard,
 }
-import com.daml.ledger.api.v1.experimental_features.{
-  CommandDeduplicationFeatures,
-  CommandDeduplicationPeriodSupport,
-  CommandDeduplicationType,
-  ExperimentalContractIds,
-  ExperimentalExplicitDisclosure,
-}
+import com.daml.ledger.api.v1.experimental_features._
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.IndexService
 import com.daml.ledger.participant.state.v2.{Update, WriteService}
@@ -37,7 +31,6 @@ import com.daml.metrics.api.MetricHandle.Factory
 import com.daml.metrics.Metrics
 import com.daml.platform.LedgerApiServer
 import com.daml.platform.apiserver.configuration.RateLimitingConfig
-import com.daml.platform.apiserver.ratelimiting.ThreadpoolCheck.ThreadpoolCount
 import com.daml.platform.apiserver.ratelimiting.{RateLimitingInterceptor, ThreadpoolCheck}
 import com.daml.platform.apiserver.{LedgerFeatures, TimeServiceBackend}
 import com.daml.platform.config.ParticipantConfig
@@ -142,8 +135,10 @@ object SandboxOnXRunner {
         servicesExecutionContext = servicesExecutionContext,
         metrics = metrics,
         explicitDisclosureUnsafeEnabled = true,
-        rateLimitingInterceptor =
-          participantConfig.apiServer.rateLimit.map(buildRateLimitingInterceptor(metrics)),
+        rateLimitingInterceptor = participantConfig.apiServer.rateLimit.map(config =>
+          (dbExecutor: QueueAwareExecutionContextExecutorService) =>
+            buildRateLimitingInterceptor(metrics, dbExecutor, servicesExecutionContext)(config)
+        ),
         telemetry = new DefaultOpenTelemetry(openTelemetry),
       )(actorSystem, materializer).owner
     } yield {
@@ -235,7 +230,7 @@ object SandboxOnXRunner {
   private def buildServicesExecutionContext(
       metrics: Metrics,
       servicesThreadPoolSize: Int,
-  ): ResourceOwner[ExecutionContextExecutorService] =
+  ): ResourceOwner[QueueAwareExecutionContextExecutorService] =
     ResourceOwner
       .forExecutorService(() =>
         InstrumentedExecutors.newWorkStealingExecutor(
@@ -290,16 +285,24 @@ object SandboxOnXRunner {
   }
 
   def buildRateLimitingInterceptor(
-      metrics: Metrics
+      metrics: Metrics,
+      indexDbExecutor: QueueAwareExecutionContextExecutorService,
+      apiServicesExecutor: QueueAwareExecutionContextExecutorService,
   )(config: RateLimitingConfig): RateLimitingInterceptor = {
 
-    val apiServices: ThreadpoolCount = new ThreadpoolCount(metrics)(
-      "Api Services Threadpool",
-      metrics.daml.lapi.threadpool.apiServices,
+    val indexDbCheck = ThreadpoolCheck(
+      "Index DB Threadpool",
+      indexDbExecutor,
+      config.maxApiServicesIndexDbQueueSize,
     )
-    val apiServicesCheck = ThreadpoolCheck(apiServices, config.maxApiServicesQueueSize)
 
-    RateLimitingInterceptor(metrics, config, List(apiServicesCheck))
+    val apiServicesCheck = ThreadpoolCheck(
+      "Api Services Threadpool",
+      apiServicesExecutor,
+      config.maxApiServicesQueueSize,
+    )
+
+    RateLimitingInterceptor(metrics, config, List(indexDbCheck, apiServicesCheck))
 
   }
 

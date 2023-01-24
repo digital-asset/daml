@@ -8,7 +8,7 @@ import java.util.concurrent.{ExecutorService, ThreadFactory, Executors => JavaEx
 import com.codahale.metrics.{InstrumentedExecutorService, MetricRegistry}
 import com.daml.metrics.ExecutorServiceMetrics
 
-import scala.concurrent.{ExecutionContext, ExecutionContextExecutorService}
+import scala.concurrent.ExecutionContext
 
 object InstrumentedExecutors {
 
@@ -18,11 +18,16 @@ object InstrumentedExecutors {
       registry: MetricRegistry,
       executorServiceMetrics: ExecutorServiceMetrics,
       errorReporter: Throwable => Unit = ExecutionContext.defaultReporter,
-  ): ExecutionContextExecutorService = {
+  ): QueueAwareExecutionContextExecutorService = {
     val executorService = JavaExecutors.newWorkStealingPool(parallelism)
     val executorServiceWithMetrics =
       addMetricsToExecutorService(name, registry, executorServiceMetrics, executorService)
-    ExecutionContext.fromExecutorService(executorServiceWithMetrics, errorReporter)
+    val executionContext =
+      ExecutionContext.fromExecutorService(executorServiceWithMetrics, errorReporter)
+    new QueueAwareExecutionContextExecutorService(
+      executionContext,
+      name,
+    )
   }
 
   def newFixedThreadPool(
@@ -31,11 +36,16 @@ object InstrumentedExecutors {
       registry: MetricRegistry,
       executorServiceMetrics: ExecutorServiceMetrics,
       errorReporter: Throwable => Unit = ExecutionContext.defaultReporter,
-  ): ExecutionContextExecutorService = {
+  ): QueueAwareExecutionContextExecutorService = {
     val executorService = JavaExecutors.newFixedThreadPool(nThreads)
     val executorServiceWithMetrics =
       addMetricsToExecutorService(name, registry, executorServiceMetrics, executorService)
-    ExecutionContext.fromExecutorService(executorServiceWithMetrics, errorReporter)
+    val executionContext =
+      ExecutionContext.fromExecutorService(executorServiceWithMetrics, errorReporter)
+    new QueueAwareExecutionContextExecutorService(
+      executionContext,
+      name,
+    )
   }
 
   def newFixedThreadPoolWithFactory(
@@ -45,11 +55,16 @@ object InstrumentedExecutors {
       registry: MetricRegistry,
       executorServiceMetrics: ExecutorServiceMetrics,
       errorReporter: Throwable => Unit = ExecutionContext.defaultReporter,
-  ): ExecutionContextExecutorService = {
+  ): QueueAwareExecutionContextExecutorService = {
     val executorService = JavaExecutors.newFixedThreadPool(nThreads, threadFactory)
     val executorServiceWithMetrics =
       addMetricsToExecutorService(name, registry, executorServiceMetrics, executorService)
-    ExecutionContext.fromExecutorService(executorServiceWithMetrics, errorReporter)
+    val executionContext =
+      ExecutionContext.fromExecutorService(executorServiceWithMetrics, errorReporter)
+    new QueueAwareExecutionContextExecutorService(
+      executionContext,
+      name,
+    )
   }
 
   def newCachedThreadPoolWithFactory(
@@ -58,11 +73,16 @@ object InstrumentedExecutors {
       registry: MetricRegistry,
       executorServiceMetrics: ExecutorServiceMetrics,
       errorReporter: Throwable => Unit = ExecutionContext.defaultReporter,
-  ): ExecutionContextExecutorService = {
+  ): QueueAwareExecutionContextExecutorService = {
     val executorService = JavaExecutors.newCachedThreadPool(threadFactory)
     val executorServiceWithMetrics =
       addMetricsToExecutorService(name, registry, executorServiceMetrics, executorService)
-    ExecutionContext.fromExecutorService(executorServiceWithMetrics, errorReporter)
+    val executionContext =
+      ExecutionContext.fromExecutorService(executorServiceWithMetrics, errorReporter)
+    new QueueAwareExecutionContextExecutorService(
+      executionContext,
+      name,
+    )
   }
 
   private def addMetricsToExecutorService(

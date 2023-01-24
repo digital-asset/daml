@@ -5,9 +5,10 @@ package com.daml.platform.apiserver.ratelimiting
 
 import java.io.IOException
 import java.lang.management._
-import java.util.concurrent.{LinkedBlockingQueue, TimeUnit}
+import java.util.concurrent.{Executors, LinkedBlockingQueue, TimeUnit}
 
 import com.codahale.metrics.MetricRegistry
+import com.daml.executors.QueueAwareExecutionContextExecutorService
 import com.daml.grpc.adapter.utils.implementations.HelloServiceAkkaImplementation
 import com.daml.grpc.sampleservice.implementations.HelloServiceReferenceImplementation
 import com.daml.ledger.api.health.HealthChecks.ComponentName
@@ -19,9 +20,7 @@ import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.apiserver.configuration.RateLimitingConfig
 import com.daml.platform.apiserver.ratelimiting.LimitResult.LimitResultCheck
-import com.daml.platform.apiserver.ratelimiting.ThreadpoolCheck.ThreadpoolCount
 import com.daml.platform.apiserver.services.GrpcClientResource
-import com.daml.platform.configuration.ServerRole
 import com.daml.platform.hello.{HelloRequest, HelloResponse, HelloServiceGrpc}
 import com.daml.platform.server.api.services.grpc.GrpcHealthService
 import com.daml.ports.Port
@@ -45,7 +44,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.time.{Second, Span}
 import org.slf4j.LoggerFactory
 
-import scala.concurrent.{Future, Promise}
+import scala.concurrent.{ExecutionContext, Future, Promise}
 
 final class RateLimitingInterceptorSpec
     extends AsyncFlatSpec
@@ -64,25 +63,36 @@ final class RateLimitingInterceptorSpec
 
   behavior of "RateLimitingInterceptor"
 
-  it should "limit calls when apiServices DB thread pool executor service is over limit" in {
+  it should "support additional checks" in {
     val metrics = createMetrics
-    withChannel(metrics, new HelloServiceAkkaImplementation, config).use { channel: Channel =>
-      val helloService = HelloServiceGrpc.stub(channel)
-      val submitted = metrics.dropwizardFactory.registry.meter(
-        MetricRegistry.name(
-          metrics.daml.index.db.threadpool.connection,
-          ServerRole.ApiServer.threadPoolSuffix,
-          "submitted",
+    val queueSizeValues =
+      Iterator(0L, config.maxApiServicesQueueSize.toLong + 1, 0L)
+    val executorWithQueueSize = new QueueAwareExecutionContextExecutorService(
+      ExecutionContext.fromExecutorService(Executors.newSingleThreadExecutor()),
+      "test",
+    ) {
+      override def getQueueSize: Long = queueSizeValues.next()
+    }
+    val threadPoolHumanReadableName = "For testing"
+    withChannel(
+      metrics,
+      new HelloServiceAkkaImplementation,
+      config,
+      additionalChecks = List(
+        ThreadpoolCheck(
+          threadPoolHumanReadableName,
+          executorWithQueueSize,
+          config.maxApiServicesQueueSize,
         )
-      )
+      ),
+    ).use { channel: Channel =>
+      val helloService = HelloServiceGrpc.stub(channel)
       for {
         _ <- helloService.single(HelloRequest(1))
-        _ = submitted.mark(config.maxApiServicesIndexDbQueueSize.toLong + 1)
         exception <- helloService.single(HelloRequest(2)).failed
-        _ = submitted.mark(-config.maxApiServicesIndexDbQueueSize.toLong - 1)
         _ <- helloService.single(HelloRequest(3))
       } yield {
-        exception.getMessage should include(metrics.daml.index.db.threadpool.connection)
+        exception.toString should include(threadPoolHumanReadableName)
       }
     }
   }
@@ -374,37 +384,6 @@ final class RateLimitingInterceptorSpec
     underTest.calculateCollectionUsageThreshold(101000) shouldBe 100000 // 101000 - 1000
   }
 
-  it should "support addition checks" in {
-    val metrics = Metrics(new MetricRegistry, GlobalOpenTelemetry.getMeter("test"))
-
-    val apiServices: ThreadpoolCount = new ThreadpoolCount(metrics)(
-      "Api Services Threadpool",
-      metrics.daml.lapi.threadpool.apiServices,
-    )
-    val apiServicesCheck = ThreadpoolCheck(apiServices, config.maxApiServicesQueueSize)
-
-    withChannel(
-      metrics,
-      new HelloServiceAkkaImplementation,
-      config,
-      additionalChecks = List(apiServicesCheck),
-    ).use { channel: Channel =>
-      val helloService = HelloServiceGrpc.stub(channel)
-      val submitted = metrics.dropwizardFactory.registry.meter(
-        MetricRegistry.name(metrics.daml.lapi.threadpool.apiServices, "submitted")
-      )
-      for {
-        _ <- helloService.single(HelloRequest(1))
-        _ = submitted.mark(config.maxApiServicesQueueSize.toLong + 1)
-        exception <- helloService.single(HelloRequest(2)).failed
-        _ = submitted.mark(-config.maxApiServicesQueueSize.toLong - 1)
-        _ <- helloService.single(HelloRequest(3))
-      } yield {
-        exception.getMessage should include(metrics.daml.lapi.threadpool.apiServices)
-      }
-    }
-  }
-
 }
 
 object RateLimitingInterceptorSpec extends MockitoSugar {
@@ -436,7 +415,13 @@ object RateLimitingInterceptorSpec extends MockitoSugar {
   ): ResourceOwner[Channel] =
     for {
       server <- serverOwner(
-        RateLimitingInterceptor(metrics, config, pool, memoryBean, additionalChecks),
+        RateLimitingInterceptor(
+          metrics,
+          config,
+          pool,
+          memoryBean,
+          additionalChecks,
+        ),
         service,
       )
       channel <- GrpcClientResource.owner(Port(server.getPort))

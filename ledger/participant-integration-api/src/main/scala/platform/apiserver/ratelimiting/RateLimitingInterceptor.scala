@@ -3,11 +3,7 @@
 
 package com.daml.platform.apiserver.ratelimiting
 
-import java.lang.management.{ManagementFactory, MemoryMXBean, MemoryPoolMXBean}
-import java.util.concurrent.atomic.AtomicBoolean
-
 import com.daml.metrics.Metrics
-import com.daml.metrics.api.MetricName
 import com.daml.platform.apiserver.configuration.RateLimitingConfig
 import com.daml.platform.apiserver.ratelimiting.LimitResult.{
   LimitResultCheck,
@@ -15,12 +11,12 @@ import com.daml.platform.apiserver.ratelimiting.LimitResult.{
   UnderLimit,
 }
 import com.daml.platform.apiserver.ratelimiting.RateLimitingInterceptor._
-import com.daml.platform.apiserver.ratelimiting.ThreadpoolCheck.ThreadpoolCount
-import com.daml.platform.configuration.ServerRole
 import io.grpc.ForwardingServerCallListener.SimpleForwardingServerCallListener
 import io.grpc.{Metadata, ServerCall, ServerCallHandler, ServerInterceptor}
 import org.slf4j.LoggerFactory
 
+import java.lang.management.{ManagementFactory, MemoryMXBean, MemoryPoolMXBean}
+import java.util.concurrent.atomic.AtomicBoolean
 import scala.jdk.CollectionConverters.ListHasAsScala
 import scala.util.Try
 
@@ -101,11 +97,6 @@ object RateLimitingInterceptor {
       additionalChecks: List[LimitResultCheck],
   ): RateLimitingInterceptor = {
 
-    val indexDbThreadpool: ThreadpoolCount = new ThreadpoolCount(metrics)(
-      "Index Database Connection Threadpool",
-      MetricName(metrics.daml.index.db.threadpool.connection, ServerRole.ApiServer.threadPoolSuffix),
-    )
-
     val activeStreamsName = metrics.daml.lapi.streams.activeName
     val activeStreamsCounter = metrics.daml.lapi.streams.active
 
@@ -113,13 +104,12 @@ object RateLimitingInterceptor {
       metrics = metrics,
       checks = List[LimitResultCheck](
         MemoryCheck(tenuredMemoryPools, memoryMxBean, config),
-        ThreadpoolCheck(indexDbThreadpool, config.maxApiServicesIndexDbQueueSize),
         StreamCheck(activeStreamsCounter, activeStreamsName, config.maxStreams),
       ) ::: additionalChecks,
     )
   }
 
-  val doNonLimit: Set[String] = Set(
+  private val doNonLimit: Set[String] = Set(
     "grpc.reflection.v1alpha.ServerReflection/ServerReflectionInfo",
     "grpc.health.v1.Health/Check",
     "grpc.health.v1.Health/Watch",
