@@ -98,6 +98,8 @@ private[lf] class CollectAuthorityState {
             location,
             crypto.Hash.hashPrivateKey(step.toString),
             doEnrichment = false,
+            timeoutSeconds = Long.MaxValue,
+            deadlineInNanos = Long.MaxValue,
           ) match {
             case ScenarioRunner.Commit(_, value, _) =>
               callback(value)
@@ -138,6 +140,8 @@ private[lf] class CollectAuthorityState {
             SEValue(commands),
             location,
             crypto.Hash.hashPrivateKey(step.toString),
+            timeoutSeconds = Long.MaxValue,
+            deadlineInNanos = Long.MaxValue,
           ) match {
             case ScenarioRunner.SubmissionError(err, _) => crash(s"Submission failed $err")
             case ScenarioRunner.Commit(result, value, _) =>

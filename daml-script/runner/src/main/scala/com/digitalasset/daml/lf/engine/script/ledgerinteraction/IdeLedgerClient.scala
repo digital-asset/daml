@@ -271,6 +271,10 @@ class IdeLedgerClient(
           nextSeed(),
           traceLog,
           warningLog,
+          // TODO https://github.com/digital-asset/daml/issues/13954
+          //  add timeout support to Script
+          timeoutSeconds = Long.MaxValue,
+          deadlineInNanos = Long.MaxValue,
         )(Script.DummyLoggingContext)
       result match {
         case err: ScenarioRunner.SubmissionError => err

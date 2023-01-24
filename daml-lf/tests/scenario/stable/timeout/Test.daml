@@ -1,0 +1,16 @@
+-- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+
+module Test where
+
+import qualified DA.BigNumeric as BigNumeric
+
+loop:  Int -> () 
+loop 0 = ()
+loop x = loop $ x + 1 
+
+run = scenario do
+  alice <- getParty "Alice"
+  submit alice do
+     pure $ loop 1

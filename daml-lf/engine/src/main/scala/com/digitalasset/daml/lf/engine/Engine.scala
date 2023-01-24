@@ -366,14 +366,35 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
       s"Last location: ${Pretty.prettyLoc(machine.getLastLocation).render(80)}, partial transaction: ${machine.nodesToString}"
     )
 
-    var finished: Boolean = false
-    var finalValue: SResultFinal = null
+    var result = Option.empty[Result[(SubmittedTransaction, Tx.Metadata)]]
 
-    while (!finished) {
+    def finish =
+      machine.finish match {
+        case Right(UpdateMachine.Result(tx, _, nodeSeeds, globalKeyMapping, disclosedContracts)) =>
+          deps(tx).flatMap { deps =>
+            val meta = Tx.Metadata(
+              submissionSeed = None,
+              submissionTime = machine.submissionTime,
+              usedPackages = deps,
+              dependsOnTime = machine.getDependsOnTime,
+              nodeSeeds = nodeSeeds,
+              globalKeyMapping = globalKeyMapping,
+              disclosures = disclosedContracts,
+            )
+            config.profileDir.foreach { dir =>
+              val desc = Engine.profileDesc(tx)
+              val profileFile = dir.resolve(s"${meta.submissionTime}-$desc.json")
+              machine.profile.name = s"${meta.submissionTime}-$desc"
+              machine.profile.writeSpeedscopeJson(profileFile)
+            }
+            ResultDone((tx, meta))
+          }
+        case Left(err) =>
+          handleError(err)
+      }
+
+    while (!result.isEmpty) {
       machine.run() match {
-        case fv: SResultFinal =>
-          finished = true
-          finalValue = fv
 
         case SResultQuestion(question) =>
           question match {
@@ -383,15 +404,17 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
               callback(time)
 
             case Question.Update.NeedPackage(pkgId, context, callback) =>
-              return Result.needPackage(
-                pkgId,
-                context,
-                pkg => {
-                  compiledPackages.addPackage(pkgId, pkg).flatMap { _ =>
-                    callback(compiledPackages)
-                    interpretLoop(machine, time)
-                  }
-                },
+              result = Some(
+                Result.needPackage(
+                  pkgId,
+                  context,
+                  pkg => {
+                    compiledPackages.addPackage(pkgId, pkg).flatMap { _ =>
+                      callback(compiledPackages)
+                      interpretLoop(machine, time)
+                    }
+                  },
+                )
               )
 
             case Question.Update.NeedContract(contractId, _, callback) =>
@@ -400,7 +423,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
                 interpretLoop(machine, time)
               }
 
-              return Result.needContract(contractId, continueWithContract)
+              result = Some(Result.needContract(contractId, continueWithContract))
 
             case Question.Update.NeedKey(gk, _, cb) =>
               def continueWithCoid = (result: Option[ContractId]) => {
@@ -408,40 +431,34 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
                 interpretLoop(machine, time)
               }
 
-              return ResultNeedKey(
-                gk,
-                continueWithCoid,
+              result = Some(
+                ResultNeedKey(
+                  gk,
+                  continueWithCoid,
+                )
               )
           }
 
+        case SResultInterruption(_, callback) =>
+          // TODO https://github.com/digital-asset/daml/issues/13954
+          //  add a case in Engine.Result to handle this
+          callback()
+
+        case _: SResultFinal =>
+          result = Some(finish)
+
         case SResultError(err) =>
-          return handleError(err, detailMsg)
+          result = Some(handleError(err, detailMsg))
       }
     }
 
-    machine.finish match {
-      case Right(UpdateMachine.Result(tx, _, nodeSeeds, globalKeyMapping, disclosedContracts)) =>
-        deps(tx).flatMap { deps =>
-          val meta = Tx.Metadata(
-            submissionSeed = None,
-            submissionTime = machine.submissionTime,
-            usedPackages = deps,
-            dependsOnTime = machine.getDependsOnTime,
-            nodeSeeds = nodeSeeds,
-            globalKeyMapping = globalKeyMapping,
-            disclosures = disclosedContracts,
-          )
-          config.profileDir.foreach { dir =>
-            val desc = Engine.profileDesc(tx)
-            val profileFile = dir.resolve(s"${meta.submissionTime}-$desc.json")
-            machine.profile.name = s"${meta.submissionTime}-$desc"
-            machine.profile.writeSpeedscopeJson(profileFile)
-          }
-          ResultDone((tx, meta))
-        }
-      case Left(err) =>
-        handleError(err)
-    }
+    result.getOrElse(
+      throw InternalError.runtimeException(
+        NameOf.qualifiedNameOfCurrentFunc,
+        "unexpected empty result",
+      )
+    )
+
   }
 
   def clearPackages(): Unit = compiledPackages.clear()

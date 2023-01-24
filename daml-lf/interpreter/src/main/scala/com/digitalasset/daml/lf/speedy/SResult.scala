@@ -92,14 +92,18 @@ object Question {
 sealed abstract class SResult[+Q] extends Product with Serializable
 
 object SResult {
-  final case class SResultError(err: SError) extends SResult[Nothing]
+
+  final case class SResultQuestion[Q](question: Q) extends SResult[Q]
 
   /** The speedy machine has completed evaluation to reach a final value.
     * And, if the evaluation was on-ledger, a completed transaction.
     */
   final case class SResultFinal(v: SValue) extends SResult[Nothing]
 
-  final case class SResultQuestion[Q](question: Q) extends SResult[Q]
+  final case class SResultError(err: SError) extends SResult[Nothing]
+
+  final case class SResultInterruption(iterations: Long, callback: () => Unit)
+      extends SResult[Nothing]
 
   sealed abstract class SVisibleToStakeholders extends Product with Serializable
   object SVisibleToStakeholders {

@@ -28,6 +28,8 @@ object Error {
     override def toString = "CRASH: " + reason
   }
 
+  final case class Timeout(timeoutSeconds: Long) extends Error
+
   final case class ContractNotEffective(
       coid: ContractId,
       templateId: Identifier,

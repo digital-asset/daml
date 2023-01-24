@@ -151,7 +151,9 @@ class Context(val contextId: Context.ContextId, languageVersion: LanguageVersion
       name: String,
   ): Option[ScenarioRunner.ScenarioResult] = {
     val id = Identifier(PackageId.assertFromString(pkgId), QualifiedName.assertFromString(name))
-    defns.get(LfDefRef(id)).map(defn => ScenarioRunner.run(() => buildMachine(defn), txSeeding))
+    defns
+      .get(LfDefRef(id))
+      .map(defn => ScenarioRunner.run(() => buildMachine(defn), txSeeding, Long.MaxValue))
   }
 
   def interpretScript(
@@ -209,6 +211,7 @@ class Context(val contextId: Context.ContextId, languageVersion: LanguageVersion
               ledgerClient.ledger,
               clientMachine.traceLog,
               clientMachine.warningLog,
+              clientMachine.profile,
               dummyDuration,
               dummySteps,
               v,

@@ -42,7 +42,6 @@ private[lf] object Speedy {
 
   // These have zero cost when not enabled. But they are not switchable at runtime.
   private val enableInstrumentation: Boolean = false
-  private val enableLightweightStepTracing: Boolean = false
 
   /** Instrumentation counters. */
   final class Instrumentation() {
@@ -143,6 +142,7 @@ private[lf] object Speedy {
       override val warningLog: WarningLog,
       override var compiledPackages: CompiledPackages,
       override val profile: Profile,
+      override val iterationsBetweenInterruptions: Long,
       val validating: Boolean,
       val submissionTime: Time.Timestamp,
       val contractKeyUniqueness: ContractKeyUniquenessMode,
@@ -450,6 +450,7 @@ private[lf] object Speedy {
         committers: Set[Party],
         readAs: Set[Party],
         authorizationChecker: AuthorizationChecker = DefaultAuthorizationChecker,
+        iterationsBetweenInterruptions: Long = 10000,
         validating: Boolean = false,
         traceLog: TraceLog = newTraceLog,
         warningLog: WarningLog = newWarningLog,
@@ -482,6 +483,7 @@ private[lf] object Speedy {
         traceLog = traceLog,
         warningLog = warningLog,
         profile = new Profile(),
+        iterationsBetweenInterruptions = iterationsBetweenInterruptions,
         compiledPackages = compiledPackages,
       )
     }
@@ -534,14 +536,12 @@ private[lf] object Speedy {
 
   final class ScenarioMachine(
       override val sexpr: SExpr,
-      /* The trace log. */
       override val traceLog: TraceLog,
-      /* Engine-generated warnings. */
       override val warningLog: WarningLog,
-      /* Compiled packages (Daml-LF ast + compiled speedy expressions). */
       override var compiledPackages: CompiledPackages,
-      /* Profile of the run when the packages haven been compiled with profiling enabled. */
       override val profile: Profile,
+      override val iterationsBetweenInterruptions: Long =
+        ScenarioMachine.defaultIterationsBetweenInterruptions,
   )(implicit loggingContext: LoggingContext)
       extends Machine[Question.Scenario] {
 
@@ -559,6 +559,10 @@ private[lf] object Speedy {
       unhandledException(excep)
   }
 
+  object ScenarioMachine {
+    val defaultIterationsBetweenInterruptions: Long = 10000
+  }
+
   final class PureMachine(
       override val sexpr: SExpr,
       /* The trace log. */
@@ -569,6 +573,7 @@ private[lf] object Speedy {
       override var compiledPackages: CompiledPackages,
       /* Profile of the run when the packages haven been compiled with profiling enabled. */
       override val profile: Profile,
+      override val iterationsBetweenInterruptions: Long,
   )(implicit loggingContext: LoggingContext)
       extends Machine[Nothing] {
 
@@ -591,6 +596,9 @@ private[lf] object Speedy {
       run() match {
         case SResultError(err) => Left(err)
         case SResultFinal(v) => Right(v)
+        case SResultInterruption(_, callback) =>
+          callback()
+          runPure()
         case SResultQuestion(nothing) => nothing
       }
   }
@@ -607,6 +615,9 @@ private[lf] object Speedy {
     var compiledPackages: CompiledPackages
     /* Profile of the run when the packages haven been compiled with profiling enabled. */
     val profile: Profile
+
+    /* number of iteration between cooperation interruption */
+    val iterationsBetweenInterruptions: Long
 
     private[speedy] def handleException(excep: SValue.SAny): Control[Nothing]
 
@@ -636,7 +647,11 @@ private[lf] object Speedy {
     /* The last encountered location */
     private[this] var lastLocation: Option[Location] = None
     /* Used when enableLightweightStepTracing is true */
-    private[this] var steps: Int = 0
+    private[this] var interruptionCountDown: Long = iterationsBetweenInterruptions
+    private[this] var interrupted: Int = 0
+
+    private[this] def steps: Long =
+      interrupted * iterationsBetweenInterruptions + iterationsBetweenInterruptions - interruptionCountDown
 
     /* Used when enableInstrumentation is true */
     private[this] val track: Instrumentation = new Instrumentation
@@ -803,7 +818,8 @@ private[lf] object Speedy {
       kontStack = initialKontStack()
       env = emptyEnv
       envBase = 0
-      steps = 0
+      interruptionCountDown = iterationsBetweenInterruptions
+      interrupted = 0
       track.reset()
     }
 
@@ -819,29 +835,35 @@ private[lf] object Speedy {
           if (enableInstrumentation) {
             Classify.classifyMachine(this, track.classifyCounts)
           }
-          if (enableLightweightStepTracing) {
-            steps += 1
-            println(s"$steps: ${PrettyLightweight.ppMachine(this)}")
-          }
           val thisControl = control
           setControl(Control.WeAreUnset)
-          thisControl match {
-            case Control.WeAreUnset =>
-              sys.error("**attempt to run a machine with unset control")
-            case Control.Expression(exp) =>
-              control = exp.execute(this)
-              loop()
-            case Control.Value(value) =>
-              popTempStackToBase()
-              control = popKont().execute(this, value)
-              loop()
-            case Control.Question(res) =>
-              SResultQuestion(res)
-            case Control.Complete(value: SValue) =>
-              if (enableInstrumentation) track.print()
-              SResultFinal(value)
-            case Control.Error(ie) =>
-              SResultError(SErrorDamlException(ie))
+          if (interruptionCountDown == 0) {
+            // The two following line does not actually change the value of steps.
+            // This is important if we want the number of iterations to be the same independently on the value of
+            // `iterationsBetweenInterruptions`
+            interrupted += 1
+            interruptionCountDown = iterationsBetweenInterruptions
+            SResultInterruption(steps, () => control = thisControl)
+          } else {
+            interruptionCountDown -= 1
+            thisControl match {
+              case Control.Value(value) =>
+                popTempStackToBase()
+                control = popKont().execute(this, value)
+                loop()
+              case Control.Expression(exp) =>
+                control = exp.execute(this)
+                loop()
+              case Control.Question(res) =>
+                SResultQuestion(res)
+              case Control.Complete(value: SValue) =>
+                if (enableInstrumentation) track.print()
+                SResultFinal(value)
+              case Control.Error(ie) =>
+                SResultError(SErrorDamlException(ie))
+              case Control.WeAreUnset =>
+                sys.error("**attempt to run a machine with unset control")
+            }
           }
         }
         loop()
@@ -1215,6 +1237,8 @@ private[lf] object Speedy {
     def fromScenarioSExpr(
         compiledPackages: CompiledPackages,
         scenario: SExpr,
+        iterationsBetweenInterruptions: Long =
+          ScenarioMachine.defaultIterationsBetweenInterruptions,
         traceLog: TraceLog = newTraceLog,
         warningLog: WarningLog = newWarningLog,
     )(implicit loggingContext: LoggingContext): ScenarioMachine =
@@ -1224,6 +1248,7 @@ private[lf] object Speedy {
         warningLog = warningLog,
         compiledPackages = compiledPackages,
         profile = new Profile(),
+        iterationsBetweenInterruptions = iterationsBetweenInterruptions,
       )
 
     @throws[PackageNotFound]
@@ -1232,10 +1257,12 @@ private[lf] object Speedy {
     def fromScenarioExpr(
         compiledPackages: CompiledPackages,
         scenario: Expr,
+        iterationsBetweenInterruptions: Long = ScenarioMachine.defaultIterationsBetweenInterruptions,
     )(implicit loggingContext: LoggingContext): ScenarioMachine =
       fromScenarioSExpr(
         compiledPackages = compiledPackages,
         scenario = compiledPackages.compiler.unsafeCompile(scenario),
+        iterationsBetweenInterruptions = iterationsBetweenInterruptions,
       )
 
     @throws[PackageNotFound]
@@ -1244,6 +1271,7 @@ private[lf] object Speedy {
     def fromPureSExpr(
         compiledPackages: CompiledPackages,
         expr: SExpr,
+        iterationsBetweenInterruptions: Long = Long.MaxValue,
         traceLog: TraceLog = newTraceLog,
         warningLog: WarningLog = newWarningLog,
     )(implicit loggingContext: LoggingContext): PureMachine =
@@ -1253,6 +1281,7 @@ private[lf] object Speedy {
         warningLog = warningLog,
         compiledPackages = compiledPackages,
         profile = new Profile(),
+        iterationsBetweenInterruptions = iterationsBetweenInterruptions,
       )
 
     @throws[PackageNotFound]
@@ -1307,12 +1336,12 @@ private[lf] object Speedy {
 
   private[speedy] sealed abstract class Control[+Q]
   object Control {
-    final case object WeAreUnset extends Control[Nothing]
-    final case class Expression(e: SExpr) extends Control[Nothing]
     final case class Value(v: SValue) extends Control[Nothing]
+    final case class Expression(e: SExpr) extends Control[Nothing]
     final case class Question[Q](res: Q) extends Control[Q]
     final case class Complete(res: SValue) extends Control[Nothing]
     final case class Error(err: interpretation.Error) extends Control[Nothing]
+    final case object WeAreUnset extends Control[Nothing]
   }
 
   /** Kont, or continuation. Describes the next step for the machine
