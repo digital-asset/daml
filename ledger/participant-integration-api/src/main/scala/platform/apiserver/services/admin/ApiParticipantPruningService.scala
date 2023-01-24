@@ -227,7 +227,7 @@ final class ApiParticipantPruningService private (
   ): ContextualizedErrorLogger =
     new DamlContextualizedErrorLogger(logger, loggingContext, Some(submissionId))
 
-  override def lastPrunedOffsets(
+  override def latestPrunedOffsets(
       request: LatestPrunedOffsetsRequest
   ): Future[LatestPrunedOffsetsResponse] =
     readBackend.lastPrunedOffsets().map { case (divulgencePrunedUpTo, prunedUpToInclusive) =>

@@ -37,5 +37,5 @@ class ParticipantPruningServiceAuthorization(
   override def latestPrunedOffsets(
       request: LatestPrunedOffsetsRequest
   ): Future[LatestPrunedOffsetsResponse] =
-    authorizer.requireAdminClaims(service.lastPrunedOffsets)(request)
+    authorizer.requireAdminClaims(service.latestPrunedOffsets)(request)
 }

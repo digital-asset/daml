@@ -615,6 +615,7 @@ server_conformance_test(
     test_tool_args = [
         "--verbose",
         "--include=InterfaceSubscriptionsIT,ExplicitDisclosureIT",
+    ],
 )
 
 exports_files([
