@@ -538,7 +538,13 @@ private class JdbcLedgerDao(
     )
 
   override def eventsReader: LedgerDaoEventsReader =
-    new EventsReader(dbDispatcher, readStorageBackend.eventStorageBackend, metrics, translation)(
+    new EventsReader(
+      dbDispatcher,
+      readStorageBackend.eventStorageBackend,
+      parameterStorageBackend,
+      metrics,
+      translation,
+    )(
       servicesExecutionContext
     )
 

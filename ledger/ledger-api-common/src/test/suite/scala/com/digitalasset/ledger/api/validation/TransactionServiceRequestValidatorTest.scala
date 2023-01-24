@@ -597,7 +597,7 @@ class TransactionServiceRequestValidatorTest
         requestingParties = Set(party),
         maxEvents = 100,
         startExclusive = ledgerEnd,
-        endInclusive = Some(ledgerEnd),
+        endInclusive = ledgerEnd,
       )
 
       val v1LedgerEnd =
@@ -654,7 +654,7 @@ class TransactionServiceRequestValidatorTest
         val expected = txRequest.copy(
           maxEvents = 1000,
           startExclusive = domain.LedgerOffset.LedgerBegin,
-          endInclusive = None,
+          endInclusive = domain.LedgerOffset.LedgerEnd,
         )
         val request = apiRequest.clearBeginExclusive.clearEndInclusive.withMaxEvents(0)
         validator.validateEventsByContractKey(request) shouldBe Right(expected)

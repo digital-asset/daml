@@ -4,21 +4,28 @@
 package com.daml.ledger.api.testtool.suites.v1_8
 
 import java.util.regex.Pattern
-
 import com.daml.error.definitions.LedgerApiErrors
-import com.daml.ledger.api.testtool.infrastructure.Allocation._
+import com.daml.ledger.api.refinements.ApiTypes
+import com.daml.ledger.api.testtool.infrastructure.Allocation.{Participant, _}
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
 import com.daml.ledger.api.testtool.infrastructure.Synchronize.synchronize
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.transaction.TransactionTree
-import com.daml.ledger.client.binding
+import com.daml.ledger.api.v1.transaction_service.{
+  GetEventsByContractIdRequest,
+  GetEventsByContractKeyRequest,
+}
+import com.daml.ledger.api.v1.value.{Record, RecordField, Value}
 import com.daml.ledger.client.binding.Primitive
 import com.daml.ledger.client.binding.Primitive.Party
-import com.daml.ledger.test.model.Test.Dummy
+import com.daml.ledger.test.model.Test.{Dummy, TextKey}
 import com.daml.ledger.test.semantic.DivulgenceTests._
+import scalaz.Tag
+import scalaz.syntax.tag.ToTagOps
 
+import scala.collection.immutable
 import scala.concurrent.{ExecutionContext, Future}
 
 class ParticipantPruningIT extends LedgerTestSuite {
@@ -694,6 +701,89 @@ class ParticipantPruningIT extends LedgerTestSuite {
     } yield ()
   })
 
+  test(
+    "PREventsByContractIdPruned",
+    "Expose both create and exercise events contract id",
+    allocate(SingleParty),
+  )(implicit ec => { case Participants(Participant(participant, party)) =>
+    def getEvents(dummyCid: Primitive.ContractId[Dummy]): Future[Int] = {
+      val request = GetEventsByContractIdRequest(dummyCid.unwrap, immutable.Seq(party.unwrap))
+      participant.getEventsByContractId(request).map(_.events.size)
+    }
+
+    for {
+      dummyCid <- participant.create(party, Dummy(party))
+      _ <- pruneToCurrentEnd(participant, party)
+      events1 <- getEvents(dummyCid)
+      exerciseCmd = participant.submitAndWaitRequest(party, dummyCid.exerciseDummyChoice1().command)
+      _ <- participant.submitAndWaitForTransactionTree(exerciseCmd)
+      events2 <- getEvents(dummyCid)
+      _ <- pruneToCurrentEnd(participant, party)
+      events3 <- getEvents(dummyCid)
+    } yield {
+      assertEquals("Expected single create event after prune", events1, 1)
+      assertEquals("Expected create and consume event before prune", events2, 2)
+      assertEquals("Expected no events following prune", events3, 0)
+    }
+  })
+
+  test(
+    "PREventsByContractKey",
+    "At most max events events should be returned",
+    allocate(SingleParty),
+  )(implicit ec => { case Participants(Participant(participant, party)) =>
+    val exercisedKey = "pruning test key"
+    val key = makeTextKeyKey(party, exercisedKey)
+
+    def getEvents: Future[(Int, String)] = participant
+      .getEventsByContractKey(
+        GetEventsByContractKeyRequest(
+          contractKey = Some(key),
+          templateId = Some(TextKey.id.unwrap),
+          requestingParties = Tag.unsubst(immutable.Seq(party)),
+          maxEvents = 10,
+          beginExclusive = None,
+          endInclusive = None,
+        )
+      )
+      .map(r =>
+        (
+          r.events.size,
+          assertDefined(
+            r.prunedOffset.flatMap(_.value.absolute),
+            "Expected populated absolute offset",
+          ),
+        )
+      )
+
+    for {
+      textKeyCid1 <- participant.create(party, TextKey(party, exercisedKey, Nil))
+      end1 <- pruneToCurrentEnd(participant, party).map(_.getAbsolute)
+      (events1, offset1) <- getEvents
+      exerciseCmd = participant.submitAndWaitRequest(
+        party,
+        textKeyCid1.exerciseTextKeyChoice().command,
+      )
+      _ <- participant.submitAndWaitForTransactionTree(exerciseCmd)
+      (events2, _) <- getEvents
+      end3 <- pruneToCurrentEnd(participant, party).map(_.getAbsolute)
+      (events3, offset3) <- getEvents
+    } yield {
+      assertEquals("Expected single create event after prune", events1, 1)
+      assertEquals("Expected create and consume event before prune", events2, 2)
+      assertEquals("Expected no events following prune", events3, 0)
+
+      assert(
+        offset1 >= end1,
+        s"Expected reported prune end ($offset1) at #1 to be equal or higher than last known prune ($end1)",
+      )
+      assert(
+        offset3 >= end3,
+        s"Expected reported prune end ($offset3) at #3 to be equal or higher than last known prune ($end3)",
+      )
+    }
+  })
+
   private def createDivulgence(
       alice: Party,
       bob: Party,
@@ -712,7 +802,7 @@ class ParticipantPruningIT extends LedgerTestSuite {
       alpha: ParticipantTestContext,
       beta: ParticipantTestContext,
       contract: Primitive.ContractId[Contract],
-      divulgence: binding.Primitive.ContractId[Divulgence],
+      divulgence: Primitive.ContractId[Divulgence],
   )(implicit ec: ExecutionContext) =
     for {
       _ <- synchronize(alpha, beta)
@@ -838,4 +928,31 @@ class ParticipantPruningIT extends LedgerTestSuite {
         s"Active contract set comparison before and after pruning failed: $acsBeforePruning vs $acsAfterPruning",
       )
     }
+
+  // Note that the Daml template must be inspected to establish the key type and fields
+  // For the TextKey template the key is: (tkParty, tkKey) : (Party, Text)
+  // When populating the Record identifiers are not required.
+  private def makeTextKeyKey(party: ApiTypes.Party, keyText: String) = {
+    Value(
+      Value.Sum.Record(
+        Record(fields =
+          Vector(
+            RecordField(value = Some(Value(Value.Sum.Party(party.unwrap)))),
+            RecordField(value = Some(Value(Value.Sum.Text(keyText)))),
+          )
+        )
+      )
+    )
+  }
+
+  private def pruneToCurrentEnd(participant: ParticipantTestContext, party: Party)(implicit
+      ec: ExecutionContext
+  ): Future[LedgerOffset] = {
+    for {
+      end <- participant.currentEnd()
+      _ <- participant.create(party, Dummy(party)) // To increment the ledger end
+      _ <- participant.prune(end)
+    } yield end
+  }
+
 }

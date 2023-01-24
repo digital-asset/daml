@@ -17,7 +17,7 @@ import com.daml.logging.LoggingContext
 import com.daml.metrics.{DatabaseMetrics, Metrics}
 import com.daml.platform
 import com.daml.platform.store.EventSequentialId
-import com.daml.platform.store.backend.EventStorageBackend
+import com.daml.platform.store.backend.{EventStorageBackend, ParameterStorageBackend}
 import com.daml.platform.store.dao.{DbDispatcher, EventProjectionProperties, LedgerDaoEventsReader}
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -25,6 +25,7 @@ import scala.concurrent.{ExecutionContext, Future}
 private[dao] sealed class EventsReader(
     val dbDispatcher: DbDispatcher,
     val eventStorageBackend: EventStorageBackend,
+    val parameterStorageBackend: ParameterStorageBackend,
     val metrics: Metrics,
     val lfValueTranslation: LfValueTranslation,
 )(implicit ec: ExecutionContext)
@@ -89,7 +90,7 @@ private[dao] sealed class EventsReader(
 
     for {
 
-      rawEvents <- dbDispatcher.executeSql(dbMetric) { conn =>
+      (rawEvents, prunedOffset) <- dbDispatcher.executeSql(dbMetric) { conn =>
         def lookupSeq(o: Offset) = eventStorageBackend
           .maxEventSequentialIdOfAnObservableEvent(o)(conn)
           .getOrElse(EventSequentialId.beforeBegin)
@@ -97,13 +98,17 @@ private[dao] sealed class EventsReader(
         val startSeqExclusive = lookupSeq(startExclusive)
         val endSeqInclusive = lookupSeq(endInclusive)
 
-        eventStorageBackend.eventReaderQueries.fetchContractKeyEvents(
+        val prunedOffset = parameterStorageBackend.prunedUpToInclusive(conn)
+
+        val rawEvents = eventStorageBackend.eventReaderQueries.fetchContractKeyEvents(
           keyHash,
           requestingParties,
           maxEvents,
           startSeqExclusive,
           endSeqInclusive,
         )(conn)
+
+        (rawEvents, prunedOffset)
       }
 
       filteredRawEvents = rawEvents.filter(
@@ -115,10 +120,13 @@ private[dao] sealed class EventsReader(
       }
 
     } yield {
+
+      def toAbsolute(o: Offset) = LedgerOffset(LedgerOffset.Value.Absolute(o.toHexString))
+
       val lastOffset = rawEvents.lastOption
         .filter(_ => rawEvents.size >= maxEvents)
-        .map(o => LedgerOffset(LedgerOffset.Value.Absolute(o.eventOffset.toHexString)))
-      GetEventsByContractKeyResponse(deserialized, lastOffset)
+        .map(e => toAbsolute(e.eventOffset))
+      GetEventsByContractKeyResponse(deserialized, lastOffset, prunedOffset.map(toAbsolute))
     }
   }
 }

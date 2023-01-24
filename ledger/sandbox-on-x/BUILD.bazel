@@ -632,6 +632,7 @@ conformance_test(
     test_tool_args = [
         "--verbose",
         "--include=TransactionServiceGetEventsIT",
+        "--include=ParticipantPruningIT",
         #        "--include=ContractIdIT",
         #        "--include=TransactionServiceQueryIT",
         #        "--include=ContractKeysIT:CKLocalKeyVisibility",
