@@ -32,6 +32,7 @@ da_scala_library(
         "@maven//:io_dropwizard_metrics_metrics_graphite",
         "@maven//:io_dropwizard_metrics_metrics_jvm",
         "@maven//:io_grpc_grpc_api",
+        "@maven//:io_opentelemetry_instrumentation_opentelemetry_runtime_metrics",
         "@maven//:io_opentelemetry_opentelemetry_api",
         "@maven//:io_opentelemetry_opentelemetry_context",
         "@maven//:io_prometheus_simpleclient",
