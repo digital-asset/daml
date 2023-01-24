@@ -61,6 +61,7 @@ da_scala_library(
         "//libs-scala/resources-akka",
         "//libs-scala/resources-grpc",
         "//observability/metrics",
+        "//observability/telemetry",
         "//observability/tracing",
         "@maven//:com_google_guava_guava",
         "@maven//:com_google_protobuf_protobuf_java",
@@ -507,10 +508,12 @@ server_conformance_test(
           }
         }
         index-service {
+          acs-streams {
+             max-ids-per-id-page = 2
+             max-payloads-per-payloads-page = 2
+          }
           max-contract-key-state-cache-size = 2
           max-contract-state-cache-size = 2
-          acs-id-page-size = 2
-          events-page-size = 2
           max-transactions-in-memory-fan-out-buffer-size = 3
           buffered-streams-page-size = 1
         }
@@ -599,9 +602,8 @@ conformance_test(
     ],
 )
 
-# TODO Make sure InterfaceSubscriptionsIT is run on all servers, after Interface feature is on stable lf
 server_conformance_test(
-    name = "conformance-test-interface-subscriptions",
+    name = "conformance-test-lf-latest",
     hocon = True,
     hocon_config = """
         ledger.participants.default.api-server.seeding = testing-weak
@@ -612,23 +614,7 @@ server_conformance_test(
     servers = SERVERS,
     test_tool_args = [
         "--verbose",
-        "--include=InterfaceSubscriptionsIT",
-    ],
-)
-
-server_conformance_test(
-    name = "conformance-test-explicit-disclosure",
-    hocon = True,
-    hocon_config = """
-        ledger.participants.default.api-server.seeding = testing-weak
-    """,
-    lf_versions = [
-        "1.dev",
-    ],
-    servers = SERVERS,
-    test_tool_args = [
-        "--verbose",
-        "--include=ExplicitDisclosureIT",
+        "--include=InterfaceSubscriptionsIT,ExplicitDisclosureIT",
     ],
 )
 

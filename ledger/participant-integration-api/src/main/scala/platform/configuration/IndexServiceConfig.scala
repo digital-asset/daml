@@ -6,16 +6,8 @@ package com.daml.platform.configuration
 import scala.concurrent.duration.{Duration, FiniteDuration}
 
 final case class IndexServiceConfig(
-    eventsPageSize: Int = IndexServiceConfig.DefaultEventsPageSize,
     eventsProcessingParallelism: Int = IndexServiceConfig.DefaultEventsProcessingParallelism,
     bufferedStreamsPageSize: Int = IndexServiceConfig.DefaultBufferedStreamsPageSize,
-    acsIdPageSize: Int = IndexServiceConfig.DefaultAcsIdPageSize,
-    acsIdPageBufferSize: Int = IndexServiceConfig.DefaultAcsIdPageBufferSize,
-    acsIdPageWorkingMemoryBytes: Int = IndexServiceConfig.DefaultAcsIdPageWorkingMemoryBytes,
-    acsIdFetchingParallelism: Int = IndexServiceConfig.DefaultAcsIdFetchingParallelism,
-    // Must be a power of 2
-    acsContractFetchingParallelism: Int = IndexServiceConfig.DefaultAcsContractFetchingParallelism,
-    acsGlobalParallelism: Int = IndexServiceConfig.DefaultAcsGlobalParallelism,
     maxContractStateCacheSize: Long = IndexServiceConfig.DefaultMaxContractStateCacheSize,
     maxContractKeyStateCacheSize: Long = IndexServiceConfig.DefaultMaxContractKeyStateCacheSize,
     maxTransactionsInMemoryFanOutBufferSize: Int =
@@ -27,6 +19,7 @@ final case class IndexServiceConfig(
     preparePackageMetadataTimeOutWarning: FiniteDuration =
       IndexServiceConfig.PreparePackageMetadataTimeOutWarning,
     completionsPageSize: Int = 1000,
+    acsStreams: AcsStreamsConfig = AcsStreamsConfig.default,
     transactionFlatStreams: TransactionFlatStreamsConfig = TransactionFlatStreamsConfig.default,
     transactionTreeStreams: TransactionTreeStreamsConfig = TransactionTreeStreamsConfig.default,
     globalMaxEventIdQueries: Int = 20,
@@ -34,16 +27,8 @@ final case class IndexServiceConfig(
 )
 
 object IndexServiceConfig {
-  val DefaultEventsPageSize: Int = 1000
   val DefaultEventsProcessingParallelism: Int = 8
   val DefaultBufferedStreamsPageSize: Int = 100
-  val DefaultAcsIdPageSize: Int = 20000
-  val DefaultAcsIdPageBufferSize: Int = 1
-  val DefaultAcsIdPageWorkingMemoryBytes: Int = 100 * 1024 * 1024
-  val DefaultAcsIdFetchingParallelism: Int = 2
-  // Must be a power of 2
-  val DefaultAcsContractFetchingParallelism: Int = 2
-  val DefaultAcsGlobalParallelism: Int = 10
   val DefaultMaxContractStateCacheSize: Long = 100000L
   val DefaultMaxContractKeyStateCacheSize: Long = 100000L
   val DefaultMaxTransactionsInMemoryFanOutBufferSize: Int = 10000
@@ -51,6 +36,28 @@ object IndexServiceConfig {
   val DefaultInMemoryStateUpdaterParallelism: Int = 2
   val DefaultInMemoryFanOutThreadPoolSize: Int = 16
   val PreparePackageMetadataTimeOutWarning: FiniteDuration = FiniteDuration(5, "second")
+}
+
+case class AcsStreamsConfig(
+    maxIdsPerIdPage: Int = AcsStreamsConfig.DefaultAcsIdPageSize,
+    maxPagesPerIdPagesBuffer: Int = AcsStreamsConfig.DefaultAcsIdPageBufferSize,
+    maxWorkingMemoryInBytesForIdPages: Int = AcsStreamsConfig.DefaultAcsIdPageWorkingMemoryBytes,
+    maxPayloadsPerPayloadsPage: Int = AcsStreamsConfig.DefaultEventsPageSize,
+    maxParallelIdCreateQueries: Int = AcsStreamsConfig.DefaultAcsIdFetchingParallelism,
+    // Must be a power of 2
+    maxParallelPayloadCreateQueries: Int = AcsStreamsConfig.DefaultAcsContractFetchingParallelism,
+)
+
+object AcsStreamsConfig {
+  val DefaultEventsPageSize: Int = 1000
+  val DefaultAcsIdPageSize: Int = 20000
+  val DefaultAcsIdPageBufferSize: Int = 1
+  val DefaultAcsIdPageWorkingMemoryBytes: Int = 100 * 1024 * 1024
+  val DefaultAcsIdFetchingParallelism: Int = 2
+  // Must be a power of 2
+  val DefaultAcsContractFetchingParallelism: Int = 2
+
+  val default: AcsStreamsConfig = AcsStreamsConfig()
 }
 
 case class TransactionFlatStreamsConfig(

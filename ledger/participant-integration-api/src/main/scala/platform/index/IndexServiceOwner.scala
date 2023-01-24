@@ -164,14 +164,7 @@ final class IndexServiceOwner(
   ): LedgerReadDao =
     JdbcLedgerDao.read(
       dbSupport = dbSupport,
-      eventsPageSize = config.eventsPageSize,
       eventsProcessingParallelism = config.eventsProcessingParallelism,
-      acsIdPageSize = config.acsIdPageSize,
-      acsIdPageBufferSize = config.acsIdPageBufferSize,
-      acsIdPageWorkingMemoryBytes = config.acsIdPageWorkingMemoryBytes,
-      acsIdFetchingParallelism = config.acsIdFetchingParallelism,
-      acsContractFetchingParallelism = config.acsContractFetchingParallelism,
-      acsGlobalParallelism = config.acsGlobalParallelism,
       servicesExecutionContext = servicesExecutionContext,
       metrics = metrics,
       engine = Some(engine),
@@ -179,6 +172,7 @@ final class IndexServiceOwner(
       ledgerEndCache = ledgerEndCache,
       stringInterning = stringInterning,
       completionsPageSize = config.completionsPageSize,
+      acsStreamsConfig = config.acsStreams,
       transactionFlatStreamsConfig = config.transactionFlatStreams,
       transactionTreeStreamsConfig = config.transactionTreeStreams,
       globalMaxEventIdQueries = config.globalMaxEventIdQueries,

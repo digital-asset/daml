@@ -18,9 +18,12 @@ import com.daml.platform.apiserver.configuration.RateLimitingConfig
 import com.daml.platform.config.{MetricsConfig, ParticipantConfig}
 import com.daml.platform.config.MetricsConfig.MetricRegistryType
 import com.daml.platform.configuration.{
+  AcsStreamsConfig,
   CommandConfiguration,
   IndexServiceConfig,
   InitialLedgerConfiguration,
+  TransactionFlatStreamsConfig,
+  TransactionTreeStreamsConfig,
 }
 import com.daml.platform.indexer.{IndexerConfig, IndexerStartupMode, PackageMetadataViewConfig}
 import com.daml.platform.indexer.ha.HaConfig
@@ -32,12 +35,12 @@ import com.daml.platform.store.backend.postgresql.PostgresDataSourceConfig
 import com.daml.platform.store.backend.postgresql.PostgresDataSourceConfig.SynchronousCommitValue
 import com.daml.ports.Port
 import io.netty.handler.ssl.ClientAuth
-
 import java.io.File
 import java.net.InetSocketAddress
 import java.nio.file.Paths
 import java.time.Duration
 import java.time.temporal.ChronoUnit
+
 import com.daml.metrics.api.reporters.MetricsReporter
 
 object ArbitraryConfig {
@@ -374,34 +377,97 @@ object ArbitraryConfig {
     packageMetadataView = packageMetadataViewConfig,
   )
 
-  val indexServiceConfig = for {
-    eventsPageSize <- Gen.chooseNum(0, Int.MaxValue)
+  def genAcsStreamConfig: Gen[AcsStreamsConfig] =
+    for {
+      eventsPageSize <- Gen.chooseNum(0, Int.MaxValue)
+      acsIdPageSize <- Gen.chooseNum(0, Int.MaxValue)
+      acsIdPageBufferSize <- Gen.chooseNum(0, Int.MaxValue)
+      acsIdPageWorkingMemoryBytes <- Gen.chooseNum(0, Int.MaxValue)
+      acsIdFetchingParallelism <- Gen.chooseNum(0, Int.MaxValue)
+      acsContractFetchingParallelism <- Gen.chooseNum(0, Int.MaxValue)
+    } yield AcsStreamsConfig(
+      maxIdsPerIdPage = acsIdPageSize,
+      maxPayloadsPerPayloadsPage = eventsPageSize,
+      maxPagesPerIdPagesBuffer = acsIdPageBufferSize,
+      maxWorkingMemoryInBytesForIdPages = acsIdPageWorkingMemoryBytes,
+      maxParallelIdCreateQueries = acsIdFetchingParallelism,
+      maxParallelPayloadCreateQueries = acsContractFetchingParallelism,
+    )
+
+  def genTransactionFlatStreams: Gen[TransactionFlatStreamsConfig] =
+    for {
+      maxIdsPerIdPage <- Gen.chooseNum(0, Int.MaxValue)
+      maxPayloadsPerPayloadsPage <- Gen.chooseNum(0, Int.MaxValue)
+      maxPagesPerIdPagesBuffer <- Gen.chooseNum(0, Int.MaxValue)
+      maxWorkingMemoryInBytesForIdPages <- Gen.chooseNum(0, Int.MaxValue)
+      maxParallelIdCreateQueries <- Gen.chooseNum(0, Int.MaxValue)
+      maxParallelPayloadCreateQueries <- Gen.chooseNum(0, Int.MaxValue)
+      maxParallelIdConsumingQueries <- Gen.chooseNum(0, Int.MaxValue)
+      maxParallelPayloadConsumingQueries <- Gen.chooseNum(0, Int.MaxValue)
+      maxParallelPayloadQueries <- Gen.chooseNum(0, Int.MaxValue)
+      transactionsProcessingParallelism <- Gen.chooseNum(0, Int.MaxValue)
+    } yield TransactionFlatStreamsConfig(
+      maxIdsPerIdPage = maxIdsPerIdPage,
+      maxPagesPerIdPagesBuffer = maxPayloadsPerPayloadsPage,
+      maxWorkingMemoryInBytesForIdPages = maxPagesPerIdPagesBuffer,
+      maxPayloadsPerPayloadsPage = maxWorkingMemoryInBytesForIdPages,
+      maxParallelIdCreateQueries = maxParallelIdCreateQueries,
+      maxParallelIdConsumingQueries = maxParallelPayloadCreateQueries,
+      maxParallelPayloadCreateQueries = maxParallelIdConsumingQueries,
+      maxParallelPayloadConsumingQueries = maxParallelPayloadConsumingQueries,
+      maxParallelPayloadQueries = maxParallelPayloadQueries,
+      transactionsProcessingParallelism = transactionsProcessingParallelism,
+    )
+
+  def genTransactionTreeStreams: Gen[TransactionTreeStreamsConfig] =
+    for {
+      maxIdsPerIdPage <- Gen.chooseNum(0, Int.MaxValue)
+      maxPayloadsPerPayloadsPage <- Gen.chooseNum(0, Int.MaxValue)
+      maxPagesPerIdPagesBuffer <- Gen.chooseNum(0, Int.MaxValue)
+      maxWorkingMemoryInBytesForIdPages <- Gen.chooseNum(0, Int.MaxValue)
+      maxParallelIdCreateQueries <- Gen.chooseNum(0, Int.MaxValue)
+      maxParallelPayloadCreateQueries <- Gen.chooseNum(0, Int.MaxValue)
+      maxParallelIdConsumingQueries <- Gen.chooseNum(0, Int.MaxValue)
+      maxParallelPayloadConsumingQueries <- Gen.chooseNum(0, Int.MaxValue)
+      maxParallelPayloadQueries <- Gen.chooseNum(0, Int.MaxValue)
+      transactionsProcessingParallelism <- Gen.chooseNum(0, Int.MaxValue)
+      maxParallelIdNonConsumingQueries <- Gen.chooseNum(0, Int.MaxValue)
+      maxParallelPayloadNonConsumingQueries <- Gen.chooseNum(0, Int.MaxValue)
+    } yield TransactionTreeStreamsConfig(
+      maxIdsPerIdPage = maxIdsPerIdPage,
+      maxPagesPerIdPagesBuffer = maxPayloadsPerPayloadsPage,
+      maxWorkingMemoryInBytesForIdPages = maxPagesPerIdPagesBuffer,
+      maxPayloadsPerPayloadsPage = maxWorkingMemoryInBytesForIdPages,
+      maxParallelIdCreateQueries = maxParallelIdCreateQueries,
+      maxParallelIdConsumingQueries = maxParallelPayloadCreateQueries,
+      maxParallelPayloadCreateQueries = maxParallelIdConsumingQueries,
+      maxParallelPayloadConsumingQueries = maxParallelPayloadConsumingQueries,
+      maxParallelPayloadQueries = maxParallelPayloadQueries,
+      transactionsProcessingParallelism = transactionsProcessingParallelism,
+      maxParallelIdNonConsumingQueries = maxParallelIdNonConsumingQueries,
+      maxParallelPayloadNonConsumingQueries = maxParallelPayloadNonConsumingQueries,
+    )
+
+  val indexServiceConfig: Gen[IndexServiceConfig] = for {
+    acsStreams <- genAcsStreamConfig
+    transactionFlatStreams <- genTransactionFlatStreams
+    transactionTreeStreams <- genTransactionTreeStreams
     eventsProcessingParallelism <- Gen.chooseNum(0, Int.MaxValue)
     bufferedStreamsPageSize <- Gen.chooseNum(0, Int.MaxValue)
-    acsIdPageSize <- Gen.chooseNum(0, Int.MaxValue)
-    acsIdPageBufferSize <- Gen.chooseNum(0, Int.MaxValue)
-    acsIdPageWorkingMemoryBytes <- Gen.chooseNum(0, Int.MaxValue)
-    acsIdFetchingParallelism <- Gen.chooseNum(0, Int.MaxValue)
-    acsContractFetchingParallelism <- Gen.chooseNum(0, Int.MaxValue)
-    acsGlobalParallelism <- Gen.chooseNum(0, Int.MaxValue)
     maxContractStateCacheSize <- Gen.long
     maxContractKeyStateCacheSize <- Gen.long
     maxTransactionsInMemoryFanOutBufferSize <- Gen.chooseNum(0, Int.MaxValue)
     apiStreamShutdownTimeout <- Gen.finiteDuration
   } yield IndexServiceConfig(
-    eventsPageSize,
     eventsProcessingParallelism,
     bufferedStreamsPageSize,
-    acsIdPageSize,
-    acsIdPageBufferSize,
-    acsIdPageWorkingMemoryBytes,
-    acsIdFetchingParallelism,
-    acsContractFetchingParallelism,
-    acsGlobalParallelism,
     maxContractStateCacheSize,
     maxContractKeyStateCacheSize,
     maxTransactionsInMemoryFanOutBufferSize,
     apiStreamShutdownTimeout,
+    acsStreams = acsStreams,
+    transactionFlatStreams = transactionFlatStreams,
+    transactionTreeStreams = transactionTreeStreams,
   )
 
   val participantConfig = for {

@@ -33,7 +33,7 @@ class IdentityProviderAwareAuthService(
         parseJWTPayload(header).recover { case error =>
           // While we failed to authorize the token using IDP, it could still be possible
           // to be valid by other means of authorizations, i.e. using default auth service
-          logger.warn("Failed to authorize the token: " + error.getMessage)
+          logger.info("Failed to authorize the token: " + error.getMessage)
           ClaimSet.Unauthenticated
         }
     }).asJava

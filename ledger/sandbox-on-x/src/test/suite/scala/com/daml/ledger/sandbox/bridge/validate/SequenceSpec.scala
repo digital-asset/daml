@@ -561,7 +561,7 @@ class SequenceSpec
 
   private def contractKey(i: Long) = {
     val templateId = Ref.Identifier.assertFromString("pkg:M:T")
-    GlobalKey(templateId, Value.ValueInt64(i))
+    GlobalKey.assertBuild(templateId, Value.ValueInt64(i))
   }
 
   private def cId(i: Int) = ContractId.V1(Hash.hashPrivateKey(i.toString))

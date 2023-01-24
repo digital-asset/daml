@@ -270,7 +270,9 @@ trait AuthMiddlewareFixture
             clientSecret = SecretString("oauth-middleware-secret"),
             tokenVerifier = authVerifier,
           )
-          middleware <- Resource(MiddlewareServer.start(middlewareConfig))(closeServerBinding)
+          middleware <- Resource(
+            MiddlewareServer.start(middlewareConfig, registerGlobalOpenTelemetry = false)
+          )(closeServerBinding)
         } yield (clock, oauthServer, middleware)
       }
     })
@@ -356,6 +358,7 @@ trait SandboxFixture extends BeforeAndAfterAll with AbstractAuthFixture with Akk
           configAdaptor = ConfigAdaptor(authService),
           config = sandboxConfig(jdbcUrl = jdbcUrl),
           bridgeConfig = BridgeConfig(),
+          registerGlobalOpenTelemetry = false,
         )
         channel <- GrpcClientResource.owner(port)
       } yield (port, channel),

@@ -52,13 +52,13 @@ import com.daml.platform.server.api.validation.FieldValidations.{
   requireResourceVersion,
   verifyMetadataAnnotations,
 }
-import com.daml.tracing.{DefaultTelemetry, TelemetryContext}
+import com.daml.tracing.{Telemetry, TelemetryContext}
 import io.grpc.{ServerServiceDefinition, StatusRuntimeException}
 import scalaz.std.either._
 import scalaz.std.list._
 import scalaz.syntax.traverse._
-
 import java.util.UUID
+
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}
 import scala.jdk.FutureConverters.CompletionStageOps
@@ -71,6 +71,7 @@ private[apiserver] final class ApiPartyManagementService private (
     writeService: state.WritePartyService,
     managementServiceTimeout: FiniteDuration,
     submissionIdGenerator: String => Ref.SubmissionId,
+    telemetry: Telemetry,
 )(implicit
     materializer: Materializer,
     executionContext: ExecutionContext,
@@ -162,7 +163,7 @@ private[apiserver] final class ApiPartyManagementService private (
     ) { implicit loggingContext =>
       logger.info("Allocating party")
       implicit val telemetryContext: TelemetryContext =
-        DefaultTelemetry.contextFromGrpcThreadLocalContext()
+        telemetry.contextFromGrpcThreadLocalContext()
       implicit val errorLogger: DamlContextualizedErrorLogger =
         new DamlContextualizedErrorLogger(logger, loggingContext, None)
 
@@ -506,6 +507,7 @@ private[apiserver] object ApiPartyManagementService {
       writeBackend: state.WritePartyService,
       managementServiceTimeout: FiniteDuration,
       submissionIdGenerator: String => Ref.SubmissionId = CreateSubmissionId.withPrefix,
+      telemetry: Telemetry,
   )(implicit
       materializer: Materializer,
       executionContext: ExecutionContext,
@@ -519,6 +521,7 @@ private[apiserver] object ApiPartyManagementService {
       writeBackend,
       managementServiceTimeout,
       submissionIdGenerator,
+      telemetry,
     )
 
   private object CreateSubmissionId {

@@ -79,6 +79,7 @@ object ServiceMain {
           None,
           10 seconds,
           logTriggerStatus,
+          registerGlobalOpenTelemetry = false,
         ),
         "TriggerService",
       )
@@ -182,6 +183,7 @@ object ServiceMain {
               config.triggerConfig,
               config.metricsReporter,
               config.metricsReportingInterval,
+              registerGlobalOpenTelemetry = true,
             ),
             "TriggerService",
           )

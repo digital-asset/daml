@@ -20,7 +20,7 @@ import com.daml.lf.speedy.SBuiltin.{
 import com.daml.lf.speedy.SError.{SError, SErrorCrash}
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SValue.{SValue => _, _}
-import com.daml.lf.speedy.Speedy.{CachedContract, Machine, SKeyWithMaintainers}
+import com.daml.lf.speedy.Speedy.{CachedContract, Machine, CachedKey}
 import com.daml.lf.testing.parser.Implicits._
 import com.daml.lf.transaction.{GlobalKey, GlobalKeyWithMaintainers, TransactionVersion}
 import com.daml.lf.value.Value
@@ -1693,7 +1693,9 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
         val templateId = Ref.Identifier.assertFromString("-pkgId-:Mod:IouWithKey")
         val (disclosedContract, Some((key, keyWithMaintainers, keyHash))) =
           buildDisclosedContract(contractId, alice, alice, templateId, withKey = true)
-        val optionalKey = Some(SKeyWithMaintainers(key, Set(alice)))
+        val optionalKey = Some(
+          CachedKey(GlobalKey.assertBuild(templateId, key.toUnnormalizedValue), key, Set(alice))
+        )
         val cachedContract = CachedContract(
           templateId,
           disclosedContract.argument,
@@ -1913,7 +1915,7 @@ object SBuiltinTest {
       if (withKey) {
         Some(
           GlobalKeyWithMaintainers(
-            GlobalKey(templateId, key.toUnnormalizedValue),
+            GlobalKey.assertBuild(templateId, key.toUnnormalizedValue),
             Set(maintainer),
           )
         )

@@ -35,11 +35,11 @@ import com.daml.platform.localstore.api.{
 }
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.ports.{Port, PortFiles}
-import com.daml.tracing.TelemetryContext
+import com.daml.tracing.{Telemetry, TelemetryContext}
 import io.grpc.{BindableService, ServerInterceptor}
 import scalaz.{-\/, \/-}
-
 import java.time.Clock
+
 import scala.collection.immutable
 import scala.concurrent.{ExecutionContextExecutor, Future}
 import scala.util.{Failure, Success, Try}
@@ -72,6 +72,7 @@ object ApiServiceOwner {
       jwtTimestampLeeway: Option[JwtTimestampLeeway],
       explicitDisclosureUnsafeEnabled: Boolean = false,
       createExternalServices: () => List[BindableService] = () => Nil,
+      telemetry: Telemetry,
   )(implicit
       actorSystem: ActorSystem,
       materializer: Materializer,
@@ -142,6 +143,7 @@ object ApiServiceOwner {
         meteringReportKey = meteringReportKey,
         explicitDisclosureUnsafeEnabled = explicitDisclosureUnsafeEnabled,
         createExternalServices = createExternalServices,
+        telemetry = telemetry,
       )(materializer, executionSequencerFactory, loggingContext)
         .map(_.withServices(otherServices))
       apiService <- new LedgerApiService(

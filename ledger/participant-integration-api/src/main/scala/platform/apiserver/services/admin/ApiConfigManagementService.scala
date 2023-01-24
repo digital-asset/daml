@@ -24,7 +24,7 @@ import com.daml.platform.apiserver.services.admin.ApiConfigManagementService._
 import com.daml.platform.apiserver.services.logging
 import com.daml.platform.server.api.ValidationLogger
 import com.daml.platform.server.api.validation.FieldValidations
-import com.daml.tracing.{DefaultTelemetry, TelemetryContext}
+import com.daml.tracing.{Telemetry, TelemetryContext}
 import io.grpc.{ServerServiceDefinition, StatusRuntimeException}
 
 import scala.concurrent.duration.{Duration, FiniteDuration}
@@ -37,6 +37,7 @@ private[apiserver] final class ApiConfigManagementService private (
     writeService: state.WriteConfigService,
     timeProvider: TimeProvider,
     submissionIdGenerator: String => Ref.SubmissionId,
+    telemetry: Telemetry,
 )(implicit
     materializer: Materializer,
     executionContext: ExecutionContext,
@@ -89,7 +90,7 @@ private[apiserver] final class ApiConfigManagementService private (
         logger.info("Setting time model")
 
         implicit val telemetryContext: TelemetryContext =
-          DefaultTelemetry.contextFromGrpcThreadLocalContext()
+          telemetry.contextFromGrpcThreadLocalContext()
         implicit val contextualizedErrorLogger: ContextualizedErrorLogger =
           new DamlContextualizedErrorLogger(logger, loggingContext, Some(request.submissionId))
 
@@ -209,6 +210,7 @@ private[apiserver] object ApiConfigManagementService {
       writeBackend: state.WriteConfigService,
       timeProvider: TimeProvider,
       submissionIdGenerator: String => Ref.SubmissionId = augmentSubmissionId,
+      telemetry: Telemetry,
   )(implicit
       materializer: Materializer,
       executionContext: ExecutionContext,
@@ -219,6 +221,7 @@ private[apiserver] object ApiConfigManagementService {
       writeBackend,
       timeProvider,
       submissionIdGenerator,
+      telemetry,
     )
 
   private final class SynchronousResponseStrategy(

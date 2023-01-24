@@ -24,10 +24,10 @@ import com.daml.platform.server.api.services.domain.CommandSubmissionService
 import com.daml.platform.server.api.services.grpc.GrpcCommandSubmissionService
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.scalautil.future.FutureConversion.CompletionStageConversionOps
-import com.daml.tracing.TelemetryContext
+import com.daml.tracing.{Telemetry, TelemetryContext}
 import com.daml.timer.Delayed
-
 import java.time.{Duration, Instant}
+
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 
@@ -44,6 +44,7 @@ private[apiserver] object ApiSubmissionService {
       checkOverloaded: TelemetryContext => Option[state.SubmissionResult],
       metrics: Metrics,
       explicitDisclosureUnsafeEnabled: Boolean,
+      telemetry: Telemetry,
   )(implicit
       executionContext: ExecutionContext,
       loggingContext: LoggingContext,
@@ -67,6 +68,7 @@ private[apiserver] object ApiSubmissionService {
       submissionIdGenerator = SubmissionIdGenerator.Random,
       metrics = metrics,
       explicitDisclosureUnsafeEnabled = explicitDisclosureUnsafeEnabled,
+      telemetry = telemetry,
     )
 }
 

@@ -4,6 +4,7 @@
 package com.daml.platform.apiserver.services.admin
 
 import java.util.concurrent.{CompletableFuture, CompletionStage}
+
 import akka.stream.scaladsl.Source
 import com.daml.ledger.api.domain.LedgerOffset.Absolute
 import com.daml.ledger.api.domain.{IdentityProviderId, ObjectMeta}
@@ -23,7 +24,8 @@ import com.daml.platform.apiserver.services.admin.ApiPartyManagementService.blin
 import com.daml.platform.apiserver.services.admin.ApiPartyManagementServiceSpec._
 import com.daml.platform.localstore.api.{PartyRecord, PartyRecordStore}
 import com.daml.tracing.TelemetrySpecBase._
-import com.daml.tracing.{TelemetryContext, TelemetrySpecBase}
+import com.daml.tracing.{DefaultOpenTelemetry, TelemetryContext, TelemetrySpecBase}
+import io.opentelemetry.api.GlobalOpenTelemetry
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.concurrent.{IntegrationPatience, ScalaFutures}
 import org.scalatest.matchers.should.Matchers
@@ -119,6 +121,7 @@ class ApiPartyManagementServiceSpec
         TestWritePartyService,
         Duration.Zero,
         _ => Ref.SubmissionId.assertFromString("aSubmission"),
+        new DefaultOpenTelemetry(GlobalOpenTelemetry.get()),
       )
 
       val span = anEmptySpan()

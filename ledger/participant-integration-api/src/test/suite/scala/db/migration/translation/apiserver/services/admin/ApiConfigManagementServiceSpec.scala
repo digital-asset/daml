@@ -24,18 +24,20 @@ import com.daml.lf.data.{Ref, Time}
 import com.daml.logging.LoggingContext
 import com.daml.platform.apiserver.services.admin.ApiConfigManagementServiceSpec._
 import com.daml.tracing.TelemetrySpecBase._
-import com.daml.tracing.{TelemetryContext, TelemetrySpecBase}
+import com.daml.tracing.{DefaultOpenTelemetry, NoOpTelemetry, TelemetryContext, TelemetrySpecBase}
 import com.google.protobuf.duration.{Duration => DurationProto}
 import com.google.protobuf.timestamp.Timestamp
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
-
 import java.time.Duration
 import java.util.concurrent.CompletableFuture.completedFuture
 import java.util.concurrent.CompletionStage
 import java.util.concurrent.atomic.{AtomicLong, AtomicReference}
+
+import io.opentelemetry.api.GlobalOpenTelemetry
+
 import scala.collection.immutable
 import scala.concurrent.duration.{Duration => ScalaDuration}
 import scala.concurrent.{Await, Future, Promise}
@@ -73,6 +75,7 @@ class ApiConfigManagementServiceSpec
         ),
         writeService,
         TimeProvider.UTC,
+        telemetry = NoOpTelemetry,
       )
 
       apiConfigManagementService
@@ -90,6 +93,7 @@ class ApiConfigManagementServiceSpec
         EmptyIndexConfigManagementService,
         writeService,
         TimeProvider.UTC,
+        telemetry = NoOpTelemetry,
       )
 
       apiConfigManagementService
@@ -137,6 +141,7 @@ class ApiConfigManagementServiceSpec
         indexService,
         writeService,
         timeProvider,
+        telemetry = NoOpTelemetry,
       )
 
       apiConfigManagementService
@@ -172,6 +177,7 @@ class ApiConfigManagementServiceSpec
         EmptyIndexConfigManagementService,
         writeService,
         timeProvider,
+        telemetry = NoOpTelemetry,
       )
 
       apiConfigManagementService
@@ -203,6 +209,7 @@ class ApiConfigManagementServiceSpec
         TestWriteConfigService,
         TimeProvider.UTC,
         _ => Ref.SubmissionId.assertFromString("aSubmission"),
+        telemetry = new DefaultOpenTelemetry(GlobalOpenTelemetry.get()),
       )
 
       val span = anEmptySpan()

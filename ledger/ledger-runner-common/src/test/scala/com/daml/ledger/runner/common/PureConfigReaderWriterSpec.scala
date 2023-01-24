@@ -749,24 +749,53 @@ class PureConfigReaderWriterSpec
   behavior of "IndexServiceConfig"
 
   val validIndexServiceConfigValue =
-    """
-      |  acs-contract-fetching-parallelism = 2
-      |  acs-global-parallelism = 10
-      |  acs-id-fetching-parallelism = 2
-      |  acs-id-page-buffer-size = 1
-      |  acs-id-page-size = 20000
-      |  acs-id-page-working-memory-bytes = 104857600
-      |  api-stream-shutdown-timeout = "5s"
-      |  buffered-streams-page-size = 100
-      |  events-page-size = 1000
-      |  events-processing-parallelism = 8
-      |  max-contract-key-state-cache-size = 100000
-      |  max-contract-state-cache-size = 100000
-      |  max-transactions-in-memory-fan-out-buffer-size = 10000
-      |  in-memory-state-updater-parallelism = 2
-      |  in-memory-fan-out-thread-pool-size = 16
-      |  prepare-package-metadata-time-out-warning = 5 second
-      |  """.stripMargin
+    """|
+      |acs-streams {
+      |    max-ids-per-id-page=20000
+      |    max-pages-per-id-pages-buffer=1
+      |    max-parallel-id-create-queries=2
+      |    max-parallel-payload-create-queries=2
+      |    max-payloads-per-payloads-page=1000
+      |    max-working-memory-in-bytes-for-id-pages=104857600
+      |}
+      |api-stream-shutdown-timeout="5s"
+      |buffered-streams-page-size=100
+      |completions-page-size=1000
+      |events-processing-parallelism=8
+      |global-max-event-id-queries=20
+      |global-max-event-payload-queries=10
+      |in-memory-fan-out-thread-pool-size=16
+      |in-memory-state-updater-parallelism=2
+      |max-contract-key-state-cache-size=100000
+      |max-contract-state-cache-size=100000
+      |max-transactions-in-memory-fan-out-buffer-size=10000
+      |prepare-package-metadata-time-out-warning="5s"
+      |transaction-flat-streams {
+      |    max-ids-per-id-page=20000
+      |    max-pages-per-id-pages-buffer=1
+      |    max-parallel-id-consuming-queries=4
+      |    max-parallel-id-create-queries=4
+      |    max-parallel-payload-consuming-queries=2
+      |    max-parallel-payload-create-queries=2
+      |    max-parallel-payload-queries=2
+      |    max-payloads-per-payloads-page=1000
+      |    max-working-memory-in-bytes-for-id-pages=104857600
+      |    transactions-processing-parallelism=8
+      |}
+      |transaction-tree-streams {
+      |    max-ids-per-id-page=20000
+      |    max-pages-per-id-pages-buffer=1
+      |    max-parallel-id-consuming-queries=8
+      |    max-parallel-id-create-queries=8
+      |    max-parallel-id-non-consuming-queries=4
+      |    max-parallel-payload-consuming-queries=2
+      |    max-parallel-payload-create-queries=2
+      |    max-parallel-payload-non-consuming-queries=2
+      |    max-parallel-payload-queries=2
+      |    max-payloads-per-payloads-page=1000
+      |    max-working-memory-in-bytes-for-id-pages=104857600
+      |    transactions-processing-parallelism=8
+      |}""".stripMargin
 
   it should "support current defaults" in {
     val value = validIndexServiceConfigValue

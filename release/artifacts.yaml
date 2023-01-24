@@ -289,3 +289,5 @@
   type: jar-scala
 - target: //observability/tracing:tracing-test-lib
   type: jar-scala
+- target: //observability/telemetry:telemetry
+  type: jar-scala

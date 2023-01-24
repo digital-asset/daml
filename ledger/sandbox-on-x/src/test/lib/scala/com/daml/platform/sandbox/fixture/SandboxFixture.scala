@@ -42,6 +42,7 @@ trait SandboxFixture
           ConfigAdaptor(authService, idpJwtVerifierLoader),
           cfg,
           bridgeConfig,
+          registerGlobalOpenTelemetry = false,
         )
         channel <- GrpcClientResource.owner(port)
         client = adminLedgerClient(port, cfg, jwtSecret)(

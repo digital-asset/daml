@@ -1000,25 +1000,20 @@ private[lf] object SBuiltin {
       val version = machine.tmplId2TxVersion(cached.templateId)
       val createArgValue = cached.value.toNormalizedValue(version)
       cached.key match {
-        case Some(skey) if skey.maintainers.isEmpty =>
+        case Some(cachedKey) if cachedKey.maintainers.isEmpty =>
           Control.Error(
             IE.CreateEmptyContractKeyMaintainers(
               cached.templateId,
               createArgValue,
-              skey.unnormalizedKeyValue,
+              cachedKey.lfValue,
             )
           )
         case _ =>
           machine.ptx
             .insertCreate(
               submissionTime = machine.submissionTime,
-              templateId = cached.templateId,
-              arg = createArgValue,
-              agreementText = cached.agreementText,
+              contract = cached,
               optLocation = machine.getLastLocation,
-              signatories = cached.signatories,
-              stakeholders = cached.stakeholders,
-              key = cached.key.map(_.toNormalizedKeyWithMaintainers(version)),
               version = version,
             ) match {
             case Right((coid, newPtx)) =>
@@ -1061,31 +1056,25 @@ private[lf] object SBuiltin {
         machine
           .getCachedContract(coid)
           .getOrElse(crash(s"Contract ${coid.coid} is missing from cache"))
-      val sigs = cached.signatories
       val templateVersion = machine.tmplId2TxVersion(templateId)
       val interfaceVersion = interfaceId.map(machine.tmplId2TxVersion)
       val exerciseVersion = interfaceVersion.fold(templateVersion)(_.max(templateVersion))
       val chosenValue = args.get(0).toNormalizedValue(exerciseVersion)
-      val templateObservers = cached.observers
       val ctrls = extractParties(NameOf.qualifiedNameOfCurrentFunc, args.get(2))
       machine.enforceChoiceControllersLimit(ctrls, coid, templateId, choiceId, chosenValue)
       val obsrs = extractParties(NameOf.qualifiedNameOfCurrentFunc, args.get(3))
       machine.enforceChoiceObserversLimit(obsrs, coid, templateId, choiceId, chosenValue)
-      val mbKey = cached.key.map(_.toNormalizedKeyWithMaintainers(exerciseVersion))
 
       machine.ptx
         .beginExercises(
           targetId = coid,
-          templateId = templateId,
+          contract = cached,
           interfaceId = interfaceId,
           choiceId = choiceId,
           optLocation = machine.getLastLocation,
           consuming = consuming,
           actingParties = ctrls,
-          signatories = sigs,
-          stakeholders = sigs union templateObservers,
           choiceObservers = obsrs,
-          mbKey = mbKey,
           byKey = byKey,
           chosenValue = chosenValue,
           version = exerciseVersion,
@@ -1484,16 +1473,10 @@ private[lf] object SBuiltin {
           .getCachedContract(coid)
           .getOrElse(crash(s"Contract ${coid.coid} is missing from cache"))
       val version = machine.tmplId2TxVersion(templateId)
-      val signatories = cached.signatories
-      val observers = cached.observers
-      val key = cached.key.map(_.toNormalizedKeyWithMaintainers(version))
       machine.ptx.insertFetch(
         coid = coid,
-        templateId = templateId,
+        contract = cached,
         optLocation = machine.getLastLocation,
-        signatories = signatories,
-        observers = observers,
-        key = key,
         byKey = byKey,
         version = version,
       ) match {
@@ -1516,8 +1499,7 @@ private[lf] object SBuiltin {
         args: util.ArrayList[SValue],
         machine: UpdateMachine,
     ): Control[Nothing] = {
-      val keyWithMaintainers =
-        extractKeyWithMaintainers(NameOf.qualifiedNameOfCurrentFunc, args.get(0))
+      val cachedKey = extractKey(NameOf.qualifiedNameOfCurrentFunc, templateId, args.get(0))
       val mbCoid = args.get(1) match {
         case SOptional(mb) =>
           mb.map {
@@ -1527,11 +1509,10 @@ private[lf] object SBuiltin {
         case _ => crash(s"Non option value when inserting lookup node")
       }
       val version = machine.tmplId2TxVersion(templateId)
-      val key = keyWithMaintainers.toNormalizedKeyWithMaintainers(version)
       machine.ptx.insertLookup(
         templateId = templateId,
         optLocation = machine.getLastLocation,
-        key = key,
+        key = cachedKey,
         result = mbCoid,
         version = version,
       ) match {
@@ -1593,19 +1574,18 @@ private[lf] object SBuiltin {
         args: util.ArrayList[SValue],
         machine: UpdateMachine,
     ): Control[Question.Update] = {
-      val skey = args.get(0)
-      val keyWithMaintainers = extractKeyWithMaintainers(NameOf.qualifiedNameOfCurrentFunc, skey)
+      val svalue = args.get(0)
+      val cachedKey = extractKey(NameOf.qualifiedNameOfCurrentFunc, operation.templateId, svalue)
 
-      if (keyWithMaintainers.maintainers.isEmpty) {
+      if (cachedKey.maintainers.isEmpty) {
         Control.Error(
           IE.FetchEmptyContractKeyMaintainers(
             operation.templateId,
-            keyWithMaintainers.unnormalizedKeyValue,
+            cachedKey.lfValue,
           )
         )
       } else {
-        val gkey = GlobalKey(operation.templateId, keyWithMaintainers.unnormalizedKeyValue)
-
+        val gkey = cachedKey.globalKey
         machine.ptx.contractState.resolveKey(gkey) match {
           case Right((keyMapping, next)) =>
             machine.ptx = machine.ptx.copy(contractState = next)
@@ -1632,7 +1612,7 @@ private[lf] object SBuiltin {
                     // SBFetchAny will populate machine.cachedContracts with the contract pointed by coid
                     val e = SEAppAtomic(
                       SEBuiltin(SBFetchAny),
-                      Array(SEValue(SContractId(coid)), SEValue(SOptional(Some(skey)))),
+                      Array(SEValue(SContractId(coid)), SEValue(SOptional(Some(svalue)))),
                     )
                     (Control.Expression(e), true)
                   }
@@ -1649,7 +1629,7 @@ private[lf] object SBuiltin {
               case None =>
                 Control.Question(
                   Question.Update.NeedKey(
-                    GlobalKeyWithMaintainers(gkey, keyWithMaintainers.maintainers),
+                    GlobalKeyWithMaintainers(gkey, cachedKey.maintainers),
                     machine.committers,
                     callback = { res =>
                       val (control, bool) = continue(res)
@@ -2145,15 +2125,11 @@ private[lf] object SBuiltin {
       val cachedContract = extractCachedContract(args.get(0))
       val templateId = cachedContract.templateId
       val optError: Option[Either[IE, Unit]] = for {
-        keyWithMaintainers <- cachedContract.key
+        cachedKey <- cachedContract.key
       } yield {
         for {
-          keyHash <- crypto.Hash
-            .hashContractKey(templateId, keyWithMaintainers.unnormalizedKeyValue)
-            .left
-            .map(msg => IE.DisclosedContractKeyHashingError(contractId, templateId, msg))
           result <- machine.disclosureKeyTable
-            .addContractKey(templateId, keyHash, contractId)
+            .addContractKey(templateId, cachedKey.globalKey.hash, contractId)
         } yield result
       }
 
@@ -2203,17 +2179,25 @@ private[lf] object SBuiltin {
   private[this] val keyIdx = keyWithMaintainersStructFields.indexOf(Ast.keyFieldName)
   private[this] val maintainerIdx = keyWithMaintainersStructFields.indexOf(Ast.maintainersFieldName)
 
-  private[this] def extractKeyWithMaintainers(location: String, v: SValue): SKeyWithMaintainers =
+  private[this] def extractKey(
+      location: String,
+      templateId: Ref.TypeConName,
+      v: SValue,
+  ): CachedKey =
     v match {
       case SStruct(_, vals) =>
-        val skey = SKeyWithMaintainers(
-          vals.get(keyIdx),
+        val keyValue = vals.get(keyIdx)
+        val lfValue = keyValue.toUnnormalizedValue
+        val gkey = GlobalKey
+          .build(templateId, lfValue)
+          .getOrElse(
+            throw SErrorDamlException(IE.ContractIdInContractKey(keyValue.toUnnormalizedValue))
+          )
+        CachedKey(
+          gkey,
+          keyValue,
           extractParties(NameOf.qualifiedNameOfCurrentFunc, vals.get(maintainerIdx)),
         )
-        skey.unnormalizedKeyValue.foreachCid(_ =>
-          throw SErrorDamlException(IE.ContractIdInContractKey(skey.unnormalizedKeyValue))
-        )
-        skey
       case _ => throw SErrorCrash(location, s"Invalid key with maintainers: $v")
     }
 
@@ -2249,7 +2233,7 @@ private[lf] object SBuiltin {
         }
         val mbKey = vals.get(cachedContractKeyIdx) match {
           case SOptional(mbKey) =>
-            mbKey.map(extractKeyWithMaintainers(NameOf.qualifiedNameOfCurrentFunc, _))
+            mbKey.map(extractKey(NameOf.qualifiedNameOfCurrentFunc, templateId, _))
           case v =>
             throw SErrorCrash(
               NameOf.qualifiedNameOfCurrentFunc,

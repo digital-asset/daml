@@ -49,7 +49,7 @@ object Resources {
   )(implicit sys: ActorSystem): ResourceOwner[ServerBinding] =
     new ResourceOwner[ServerBinding] {
       override def acquire()(implicit context: ResourceContext): Resource[ServerBinding] =
-        Resource(Server.start(config))(_.unbind().map(_ => ()))
+        Resource(Server.start(config, registerGlobalOpenTelemetry = false))(_.unbind().map(_ => ()))
     }
   def authMiddlewareClientBinding(client: Client, callbackPath: Uri.Path)(implicit
       sys: ActorSystem

@@ -90,7 +90,6 @@ private[platform] object PaginatingAsyncStream {
   )(
       fetchPage: IdPaginationState => Future[Vector[Long]]
   ): Source[Long, NotUsed] = {
-    // TODO etq: Make sure this requirement is documented in the config
     assert(idPageBufferSize > 0)
     val initialState = IdPaginationState(
       fromIdExclusive = initialFromIdExclusive,
