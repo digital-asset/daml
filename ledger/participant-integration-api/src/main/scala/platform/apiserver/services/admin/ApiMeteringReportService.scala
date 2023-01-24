@@ -13,11 +13,14 @@ import com.daml.ledger.participant.state.index.v2.MeteringStore.ReportData
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.ApplicationId
 import com.daml.lf.data.Time.Timestamp
+import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.apiserver.meteringreport.{MeteringReportGenerator, MeteringReportKey}
 import com.daml.platform.apiserver.services.admin.ApiMeteringReportService._
 import com.daml.platform.server.api.ValidationLogger
+import com.daml.platform.server.api.services.grpc.Logging.traceId
+import com.daml.tracing.Telemetry
 import com.google.protobuf.timestamp.{Timestamp => ProtoTimestamp}
 import io.grpc.{ServerServiceDefinition, StatusRuntimeException}
 
@@ -30,6 +33,7 @@ private[apiserver] final class ApiMeteringReportService(
     participantId: Ref.ParticipantId,
     store: MeteringStore,
     meteringReportKey: MeteringReportKey,
+    telemetry: Telemetry,
     clock: () => ProtoTimestamp = () => toProtoTimestamp(Timestamp.now()),
 )(implicit
     executionContext: ExecutionContext,
@@ -78,23 +82,24 @@ private[apiserver] final class ApiMeteringReportService(
 
   override def getMeteringReport(
       request: GetMeteringReportRequest
-  ): Future[GetMeteringReportResponse] = {
-    logger.info(s"Received metering report request: $request")
+  ): Future[GetMeteringReportResponse] =
+    withEnrichedLoggingContext(traceId(telemetry.traceIdFromGrpcContext)) {
+      implicit loggingContext =>
+        logger.info(s"Received metering report request: $request")
 
-    implicit class WrapEither[T](either: Either[StatusRuntimeException, T]) {
-      def toFuture: Future[T] = either.fold(
-        e => Future.failed(ValidationLogger.logFailure(request, e)),
-        Future.successful,
-      )
+        implicit class WrapEither[T](either: Either[StatusRuntimeException, T]) {
+          def toFuture: Future[T] = either.fold(
+            e => Future.failed(ValidationLogger.logFailure(request, e)),
+            Future.successful,
+          )
+        }
+
+        for {
+          (from, to, applicationId) <- validateRequest(request).toFuture
+          reportData <- store.getMeteringReportData(from, to, applicationId)
+          report <- generateReport(request, from, to, applicationId, reportData).toFuture
+        } yield report
     }
-
-    for {
-      (from, to, applicationId) <- validateRequest(request).toFuture
-      reportData <- store.getMeteringReportData(from, to, applicationId)
-      report <- generateReport(request, from, to, applicationId, reportData).toFuture
-    } yield report
-
-  }
 }
 
 private[apiserver] object ApiMeteringReportService {

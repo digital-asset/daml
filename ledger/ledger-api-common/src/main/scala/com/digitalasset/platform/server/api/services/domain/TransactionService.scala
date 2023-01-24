@@ -18,6 +18,7 @@ import com.daml.ledger.api.v1.transaction_service.{
   GetTransactionTreesResponse,
   GetTransactionsResponse,
 }
+import com.daml.logging.LoggingContext
 
 import scala.concurrent.Future
 
@@ -25,19 +26,29 @@ trait TransactionService {
 
   def getLedgerEnd(ledgerId: String): Future[LedgerOffset.Absolute]
 
-  def getTransactions(req: GetTransactionsRequest): Source[GetTransactionsResponse, NotUsed]
+  def getTransactions(req: GetTransactionsRequest)(implicit
+      loggingContext: LoggingContext
+  ): Source[GetTransactionsResponse, NotUsed]
 
   def getTransactionTrees(
       req: GetTransactionTreesRequest
+  )(implicit
+      loggingContext: LoggingContext
   ): Source[GetTransactionTreesResponse, NotUsed]
 
-  def getTransactionById(req: GetTransactionByIdRequest): Future[GetTransactionResponse]
+  def getTransactionById(req: GetTransactionByIdRequest)(implicit
+      loggingContext: LoggingContext
+  ): Future[GetTransactionResponse]
 
-  def getTransactionByEventId(req: GetTransactionByEventIdRequest): Future[GetTransactionResponse]
+  def getTransactionByEventId(req: GetTransactionByEventIdRequest)(implicit
+      loggingContext: LoggingContext
+  ): Future[GetTransactionResponse]
 
-  def getFlatTransactionById(req: GetTransactionByIdRequest): Future[GetFlatTransactionResponse]
+  def getFlatTransactionById(req: GetTransactionByIdRequest)(implicit
+      loggingContext: LoggingContext
+  ): Future[GetFlatTransactionResponse]
 
   def getFlatTransactionByEventId(
       req: GetTransactionByEventIdRequest
-  ): Future[GetFlatTransactionResponse]
+  )(implicit loggingContext: LoggingContext): Future[GetFlatTransactionResponse]
 }

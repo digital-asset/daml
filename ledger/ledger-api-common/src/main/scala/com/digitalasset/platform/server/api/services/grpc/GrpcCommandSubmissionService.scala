@@ -16,6 +16,7 @@ import com.daml.ledger.api.v1.command_submission_service.{
   SubmitRequest => ApiSubmitRequest,
 }
 import com.daml.ledger.api.validation.{CommandsValidator, SubmitRequestValidator}
+import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.api.grpc.GrpcApiService
@@ -50,36 +51,39 @@ class GrpcCommandSubmissionService(
   override def submit(request: ApiSubmitRequest): Future[Empty] = {
     implicit val telemetryContext: TelemetryContext =
       telemetry.contextFromGrpcThreadLocalContext()
-    request.commands.foreach { commands =>
-      telemetryContext.setAttribute(SpanAttribute.ApplicationId, commands.applicationId)
-      telemetryContext.setAttribute(SpanAttribute.CommandId, commands.commandId)
-      telemetryContext.setAttribute(SpanAttribute.Submitter, commands.party)
-      telemetryContext.setAttribute(SpanAttribute.WorkflowId, commands.workflowId)
-    }
-    val requestWithSubmissionId = generateSubmissionIdIfEmpty(request)
-    val errorLogger = new DamlContextualizedErrorLogger(
-      logger = logger,
-      loggingContext = loggingContext,
-      correlationId = requestWithSubmissionId.commands.map(_.submissionId),
-    )
-    Timed.timedAndTrackedFuture(
-      metrics.daml.commands.submissions,
-      metrics.daml.commands.submissionsRunning,
-      Timed
-        .value(
-          metrics.daml.commands.validation,
-          validator.validate(
-            requestWithSubmissionId,
-            currentLedgerTime(),
-            currentUtcTime(),
-            maxDeduplicationDuration(),
-          )(errorLogger),
+    withEnrichedLoggingContext(Logging.traceId(telemetryContext.traceId)) {
+      implicit loggingContext =>
+        request.commands.foreach { commands =>
+          telemetryContext.setAttribute(SpanAttribute.ApplicationId, commands.applicationId)
+          telemetryContext.setAttribute(SpanAttribute.CommandId, commands.commandId)
+          telemetryContext.setAttribute(SpanAttribute.Submitter, commands.party)
+          telemetryContext.setAttribute(SpanAttribute.WorkflowId, commands.workflowId)
+        }
+        val requestWithSubmissionId = generateSubmissionIdIfEmpty(request)
+        val errorLogger = new DamlContextualizedErrorLogger(
+          logger = logger,
+          loggingContext = loggingContext,
+          correlationId = requestWithSubmissionId.commands.map(_.submissionId),
         )
-        .fold(
-          t => Future.failed(ValidationLogger.logFailure(requestWithSubmissionId, t)),
-          service.submit(_).map(_ => Empty.defaultInstance),
-        ),
-    )
+        Timed.timedAndTrackedFuture(
+          metrics.daml.commands.submissions,
+          metrics.daml.commands.submissionsRunning,
+          Timed
+            .value(
+              metrics.daml.commands.validation,
+              validator.validate(
+                requestWithSubmissionId,
+                currentLedgerTime(),
+                currentUtcTime(),
+                maxDeduplicationDuration(),
+              )(errorLogger),
+            )
+            .fold(
+              t => Future.failed(ValidationLogger.logFailure(requestWithSubmissionId, t)),
+              service.submit(_).map(_ => Empty.defaultInstance),
+            ),
+        )
+    }
   }
 
   override def bindService(): ServerServiceDefinition =

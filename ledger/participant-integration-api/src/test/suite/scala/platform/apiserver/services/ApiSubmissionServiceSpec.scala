@@ -285,13 +285,13 @@ class ApiSubmissionServiceSpec
       .thenReturn(Future.successful(Right(commandExecutionResult)))
     when(
       writeService.submitTransaction(
-        submitterInfo,
-        transactionMeta,
-        transaction,
-        estimatedInterpretationCost,
-        Map.empty,
-        explicitlyDisclosedContracts,
-      )
+        eqTo(submitterInfo),
+        eqTo(transactionMeta),
+        eqTo(transaction),
+        eqTo(estimatedInterpretationCost),
+        eqTo(Map.empty),
+        eqTo(explicitlyDisclosedContracts),
+      )(any[LoggingContext], any[TelemetryContext])
     ).thenReturn(CompletableFuture.completedFuture(SubmissionResult.Acknowledged))
 
     def apiSubmissionService(

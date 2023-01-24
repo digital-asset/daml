@@ -83,6 +83,8 @@ trait TelemetryContext {
     */
   def openTelemetryContext: Context
 
+  def traceId: Option[String]
+
 }
 
 /** Default implementation of TelemetryContext. Uses OpenTelemetry to generate and gather traces.
@@ -168,6 +170,11 @@ protected class DefaultTelemetryContext(protected val tracer: Tracer, protected 
   }
 
   override def openTelemetryContext: Context = Context.current.`with`(span)
+
+  val traceId: Option[String] = Option(span)
+    .filter(_.getSpanContext.isValid)
+    .map(_.getSpanContext.getTraceId)
+
 }
 
 object DefaultTelemetryContext {
@@ -233,4 +240,6 @@ object NoOpTelemetryContext extends TelemetryContext {
   override def encodeMetadata(): jMap[String, String] = new jHashMap()
 
   override def openTelemetryContext: Context = Context.root.`with`(Span.getInvalid)
+
+  override def traceId: Option[String] = None
 }

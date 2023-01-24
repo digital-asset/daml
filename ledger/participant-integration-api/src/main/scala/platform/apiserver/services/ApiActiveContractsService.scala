@@ -20,8 +20,10 @@ import com.daml.metrics.Metrics
 import com.daml.platform.ApiOffset
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.server.api.ValidationLogger
+import com.daml.platform.server.api.services.grpc.Logging.traceId
 import com.daml.platform.server.api.validation.ActiveContractsServiceValidation
 import com.daml.platform.server.api.validation.FieldValidations
+import com.daml.tracing.Telemetry
 import io.grpc.stub.StreamObserver
 import io.grpc.{BindableService, ServerServiceDefinition}
 
@@ -30,6 +32,7 @@ import scala.concurrent.ExecutionContext
 private[apiserver] final class ApiActiveContractsService private (
     backend: ACSBackend,
     metrics: Metrics,
+    telemetry: Telemetry,
 )(implicit
     mat: Materializer,
     esf: ExecutionSequencerFactory,
@@ -61,7 +64,10 @@ private[apiserver] final class ApiActiveContractsService private (
         }
       )
     } yield {
-      withEnrichedLoggingContext(logging.filters(filters)) { implicit loggingContext =>
+      withEnrichedLoggingContext(
+        logging.filters(filters),
+        traceId(telemetry.traceIdFromGrpcContext),
+      ) { implicit loggingContext =>
         logger.info(s"Received request for active contracts: $request")
         backend.getActiveContracts(
           filter = filters,
@@ -86,6 +92,7 @@ private[apiserver] object ApiActiveContractsService {
       ledgerId: LedgerId,
       backend: ACSBackend,
       metrics: Metrics,
+      telemetry: Telemetry,
   )(implicit
       mat: Materializer,
       esf: ExecutionSequencerFactory,
@@ -95,6 +102,7 @@ private[apiserver] object ApiActiveContractsService {
     val service = new ApiActiveContractsService(
       backend = backend,
       metrics = metrics,
+      telemetry = telemetry,
     )
     new ActiveContractsServiceValidation(
       service = service,

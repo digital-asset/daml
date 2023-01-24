@@ -4,7 +4,6 @@
 package com.daml.platform.apiserver.services
 
 import java.util.concurrent.atomic.AtomicLong
-
 import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
@@ -24,6 +23,7 @@ import com.daml.platform.apiserver.services.ApiCommandCompletionService._
 import com.daml.platform.server.api.ValidationLogger
 import com.daml.platform.server.api.services.domain.CommandCompletionService
 import com.daml.platform.server.api.services.grpc.GrpcCommandCompletionService
+import com.daml.tracing.Telemetry
 import io.grpc.ServerServiceDefinition
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -49,7 +49,7 @@ private[apiserver] final class ApiCommandCompletionService private (
 
   override def completionStreamSource(
       request: CompletionStreamRequest
-  ): Source[CompletionStreamResponse, NotUsed] =
+  )(implicit loggingContext: LoggingContext): Source[CompletionStreamResponse, NotUsed] =
     Source.future(getLedgerEnd()).flatMapConcat { ledgerEnd =>
       validator
         .validateCompletionStreamRequest(request, ledgerEnd)
@@ -89,6 +89,7 @@ private[apiserver] object ApiCommandCompletionService {
       ledgerId: LedgerId,
       completionsService: IndexCompletionsService,
       metrics: Metrics,
+      telemetry: Telemetry,
   )(implicit
       materializer: Materializer,
       esf: ExecutionSequencerFactory,
@@ -105,6 +106,7 @@ private[apiserver] object ApiCommandCompletionService {
     impl -> new GrpcCommandCompletionService(
       impl,
       validator,
+      telemetry,
     ) with GrpcApiService {
       override def bindService(): ServerServiceDefinition =
         CommandCompletionServiceGrpc.bindService(this, executionContext)
