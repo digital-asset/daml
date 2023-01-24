@@ -1377,6 +1377,22 @@ Validation errors raised when evaluating requests in the Ledger API.
 
 
 
+.. _error_code_CONCURRENT_PARTICIPANT_PRUNING_REQUESTED:
+
+CONCURRENT_PARTICIPANT_PRUNING_REQUESTED
+---------------------------------------------------------------------------------------------------------------------------------------
+    
+    **Explanation**: This rejection is given when a pruning request is issued against a participant which already has a pruning request ongoing.
+
+    **Category**: InvalidGivenCurrentSystemStateOther
+
+    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status FAILED_PRECONDITION including a detailed error message.
+
+    **Resolution**: Retry the pruning request after the previous request has finished.
+
+
+
+
 .. _error_code_INVALID_ARGUMENT:
 
 INVALID_ARGUMENT
