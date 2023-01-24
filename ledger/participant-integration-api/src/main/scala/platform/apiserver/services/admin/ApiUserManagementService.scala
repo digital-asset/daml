@@ -431,6 +431,12 @@ private[apiserver] final class ApiUserManagementService(
 
   private def handleResult[T](operation: String)(result: UserManagementStore.Result[T]): Future[T] =
     result match {
+      case Left(UserManagementStore.PermissionDenied(id)) =>
+        Future.failed(
+          LedgerApiErrors.AuthorizationChecks.PermissionDenied
+            .Reject(s"User $id belongs to another Identity Provider")
+            .asGrpcError
+        )
       case Left(UserManagementStore.UserNotFound(id)) =>
         Future.failed(
           LedgerApiErrors.Admin.UserManagement.UserNotFound

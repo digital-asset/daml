@@ -174,7 +174,7 @@ trait AdminOrIDPAdminServiceCallAuthTests
     }
   }
 
-  private def identityProviderId(response: CreateIdentityProviderConfigResponse): String = {
+  def identityProviderId(response: CreateIdentityProviderConfigResponse): String = {
     val identityProviderConfig = response.identityProviderConfig
       .getOrElse(sys.error("Failed to create idp config"))
     identityProviderConfig.identityProviderId

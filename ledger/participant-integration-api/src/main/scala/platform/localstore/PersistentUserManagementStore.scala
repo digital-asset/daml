@@ -101,7 +101,7 @@ class PersistentUserManagementStore(
       loggingContext: LoggingContext
   ): Future[Result[UserInfo]] = {
     inTransaction(_.getUserInfo) { implicit connection =>
-      withUser(id) { dbUser =>
+      withUser(id, identityProviderId) { dbUser =>
         val rights = backend.getUserRights(internalId = dbUser.internalId)(connection)
         val annotations = backend.getUserAnnotations(internalId = dbUser.internalId)(connection)
         val domainUser = toDomainUser(dbUser, annotations)
@@ -115,7 +115,7 @@ class PersistentUserManagementStore(
       rights: Set[domain.UserRight],
   )(implicit loggingContext: LoggingContext): Future[Result[User]] = {
     inTransaction(_.createUser) { implicit connection: Connection =>
-      withoutUser(user.id) {
+      withoutUser(user.id, user.identityProviderId) {
         val now = epochMicroseconds()
         if (
           !ResourceAnnotationValidation
@@ -165,7 +165,7 @@ class PersistentUserManagementStore(
   )(implicit loggingContext: LoggingContext): Future[Result[User]] = {
     inTransaction(_.updateUser) { implicit connection =>
       for {
-        _ <- withUser(id = userUpdate.id) { dbUser =>
+        _ <- withUser(id = userUpdate.id, userUpdate.identityProviderId) { dbUser =>
           val now = epochMicroseconds()
           // Step 1: Update resource version
           // NOTE: We starts by writing to the 'resource_version' attribute
@@ -227,7 +227,7 @@ class PersistentUserManagementStore(
             )(connection)
           }
         }
-        domainUser <- withUser(id = userUpdate.id) { dbUserAfterUpdates =>
+        domainUser <- withUser(id = userUpdate.id, identityProviderId = userUpdate.identityProviderId) { dbUserAfterUpdates =>
           val annotations =
             backend.getUserAnnotations(internalId = dbUserAfterUpdates.internalId)(connection)
           toDomainUser(dbUser = dbUserAfterUpdates, annotations = annotations)
@@ -241,11 +241,9 @@ class PersistentUserManagementStore(
       identityProviderId: IdentityProviderId,
   )(implicit loggingContext: LoggingContext): Future[Result[Unit]] = {
     inTransaction(_.deleteUser) { implicit connection =>
-      if (!backend.deleteUser(id = id)(connection)) {
-        Left(UserNotFound(userId = id))
-      } else {
-        Right(())
-      }
+      withUser(id, identityProviderId) { _ =>
+        backend.deleteUser(id = id)(connection)
+      }.map(_ => ())
     }.map(tapSuccess { _ =>
       logger.info(s"Deleted user with id: ${id}")
     })(scala.concurrent.ExecutionContext.parasitic)
@@ -257,7 +255,7 @@ class PersistentUserManagementStore(
       identityProviderId: IdentityProviderId,
   )(implicit loggingContext: LoggingContext): Future[Result[Set[domain.UserRight]]] = {
     inTransaction(_.grantRights) { implicit connection =>
-      withUser(id = id) { user =>
+      withUser(id = id, identityProviderId) { user =>
         val now = epochMicroseconds()
         val addedRights = rights.filter { right =>
           if (!backend.userRightExists(internalId = user.internalId, right = right)(connection)) {
@@ -290,7 +288,7 @@ class PersistentUserManagementStore(
       identityProviderId: IdentityProviderId,
   )(implicit loggingContext: LoggingContext): Future[Result[Set[domain.UserRight]]] = {
     inTransaction(_.revokeRights) { implicit connection =>
-      withUser(id = id) { user =>
+      withUser(id = id, identityProviderId) { user =>
         val revokedRights = rights.filter { right =>
           backend.deleteUserRight(internalId = user.internalId, right = right)(connection)
         }
@@ -370,21 +368,28 @@ class PersistentUserManagementStore(
   }
 
   private def withUser[T](
-      id: Ref.UserId
+      id: Ref.UserId,
+      identityProviderId: IdentityProviderId,
   )(
       f: UserManagementStorageBackend.DbUserWithId => T
   )(implicit connection: Connection): Result[T] = {
     backend.getUser(id = id)(connection) match {
-      case Some(user) => Right(f(user))
+      case Some(user) if user.payload.identityProviderId == identityProviderId.toDb =>
+        Right(f(user))
+      case Some(_) => Left(PermissionDenied(userId = id))
       case None => Left(UserNotFound(userId = id))
     }
   }
 
   private def withoutUser[T](
-      id: Ref.UserId
+      id: Ref.UserId,
+      identityProviderId: IdentityProviderId,
   )(t: => T)(implicit connection: Connection): Result[T] = {
     backend.getUser(id = id)(connection) match {
-      case Some(user) => Left(UserExists(userId = user.payload.id))
+      case Some(user) if user.payload.identityProviderId != identityProviderId.toDb =>
+        Left(PermissionDenied(userId = id))
+      case Some(user) =>
+        Left(UserExists(userId = user.payload.id))
       case None => Right(t)
     }
   }
