@@ -36,13 +36,13 @@ final class CreateUserAuthIT
           userId,
           canReadAsAdmin.token,
           identityProviderId(response1),
-          Seq.empty
+          Seq.empty,
         )
         _ <- createFreshUser(
           userId,
           canReadAsAdmin.token,
           identityProviderId(response2),
-          Seq.empty
+          Seq.empty,
         )
 
       } yield ()

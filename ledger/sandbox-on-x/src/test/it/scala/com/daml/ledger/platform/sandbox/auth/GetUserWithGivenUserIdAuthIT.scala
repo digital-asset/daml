@@ -26,7 +26,10 @@ class GetUserWithGivenUserIdAuthIT
 
     for {
       // create a normal users
-      (alice, _) <- createUserByAdmin(testId + "-alice", identityProviderId = context.identityProviderId)
+      (alice, _) <- createUserByAdmin(
+        testId + "-alice",
+        identityProviderId = context.identityProviderId,
+      )
 
       _ <- getUser(alice.id)
 

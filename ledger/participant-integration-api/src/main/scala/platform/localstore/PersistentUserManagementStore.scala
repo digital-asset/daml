@@ -227,7 +227,10 @@ class PersistentUserManagementStore(
             )(connection)
           }
         }
-        domainUser <- withUser(id = userUpdate.id, identityProviderId = userUpdate.identityProviderId) { dbUserAfterUpdates =>
+        domainUser <- withUser(
+          id = userUpdate.id,
+          identityProviderId = userUpdate.identityProviderId,
+        ) { dbUserAfterUpdates =>
           val annotations =
             backend.getUserAnnotations(internalId = dbUserAfterUpdates.internalId)(connection)
           toDomainUser(dbUser = dbUserAfterUpdates, annotations = annotations)

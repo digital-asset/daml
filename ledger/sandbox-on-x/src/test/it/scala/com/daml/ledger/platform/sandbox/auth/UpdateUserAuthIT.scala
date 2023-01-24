@@ -25,7 +25,6 @@ final class UpdateUserAuthIT extends AdminOrIDPAdminServiceCallAuthTests with Us
       )
     } yield ()
 
-
   it should "deny calls if user is created already within another IDP" taggedAs adminSecurityAsset
     .setAttack(
       attackPermissionDenied(threat = "Present an existing userId but foreign Identity Provider")
@@ -45,7 +44,9 @@ final class UpdateUserAuthIT extends AdminOrIDPAdminServiceCallAuthTests with Us
 
         _ <- stub(canReadAsAdmin.token).updateUser(
           UpdateUserRequest(
-            user = response.user.map(user => user.copy(identityProviderId = identityProviderId(response2))),
+            user = response.user.map(user =>
+              user.copy(identityProviderId = identityProviderId(response2))
+            ),
             updateMask = Some(FieldMask(scala.Seq("is_deactivated"))),
           )
         )
