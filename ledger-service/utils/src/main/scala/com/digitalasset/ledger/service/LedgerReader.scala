@@ -96,8 +96,11 @@ object LedgerReader {
         loadCache.cache
           .getIfPresent(ck)
           .cata(
-            Future.successful,
+            { v => println("s11 hit"); Future.successful(v) },
             client.getPackage(pkid, ledgerId, token).map { pkresp =>
+              println(
+                loadCache.cache.getIfPresent(ck).cata(_ => "s11 granular contention", "s11 miss")
+              )
               loadCache.cache.put(ck, pkresp)
               pkresp
             },

@@ -120,6 +120,7 @@ private class PackageService(
         )
         .map {
           case Some(diff) =>
+            println(s"s11 overlapped loads ${(diff.keySet intersect _state.packageIds).size}")
             updateState(diff)
             logger.info(s"new package IDs loaded: ${diff.keySet.mkString(", ")}")
             logger.debug(s"loaded diff: $diff")
