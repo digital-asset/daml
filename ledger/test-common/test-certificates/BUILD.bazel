@@ -1,13 +1,17 @@
 # Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-load("@os_info//:os_info.bzl", "is_windows")
+load(
+    "//bazel_tools:scala.bzl",
+    "da_scala_binary",
+)
 
 genrule(
     name = "test-certificates",
     srcs = [
         ":openssl-template.cnf",
         ":openssl-alternative-template.cnf",
+        ":aes-gcm-encrypt_deploy.jar",
     ],
     outs = [
         "openssl.cnf",
@@ -79,12 +83,14 @@ $(location @openssl_dev_env//:openssl) ca -batch -config $(location openssl.cnf)
 chmod 444 $(location server.crt)
 
 # Encrypt server's key and dump encryption parameters to a JSON file.
+# The openssl CLI doesn't support AES-GCM, therefore we have to do it with a small scala program
 # NOTE: Encryption details used to encrypt the private must be kept in sync with `ledger/test-common/files/server-pem-decryption-parameters.json`
-$(location @openssl_dev_env//:openssl) enc -aes-128-cbc -base64 \
-    -in $(location server.pem) \
-    -out $(location server.pem.enc) \
-    -K 0034567890abcdef1234567890abcdef \
-    -iv 1134567890abcdef1234567890abcdef
+$(JAVABASE)/bin/java -jar $(location aes-gcm-encrypt_deploy.jar) \
+    $(location server.pem) \
+    $(location server.pem.enc) \
+    0034567890abcdef1234567890abcdef \
+    1134567890abcdef1234567890abcdef \
+    128
 
 # Generate Client CA private key
 $(location @openssl_dev_env//:openssl) genrsa -out $(location client.key) 4096
@@ -164,8 +170,24 @@ $(location @openssl_dev_env//:openssl) req -config $(location openssl-alternativ
 $(location @openssl_dev_env//:openssl) x509 -noout -text -in $(location ca_alternative.crt)
 
     """,
+    toolchains = [
+        "@bazel_tools//tools/jdk:current_java_runtime",
+    ],
     tools = [
         "@openssl_dev_env//:openssl",
     ],
     visibility = ["//visibility:public"],
+)
+
+# The openssl CLI doesn't support AES-GCM, therefore we have to do it with a small scala program
+da_scala_binary(
+    name = "aes-gcm-encrypt",
+    srcs = glob(["AesGcmEncrypt.scala"]),
+    main_class = "encrypt.AesGcmEncrypt",
+    visibility = [
+        "//visibility:public",
+    ],
+    deps = [
+        "@maven//:commons_codec_commons_codec",
+    ],
 )

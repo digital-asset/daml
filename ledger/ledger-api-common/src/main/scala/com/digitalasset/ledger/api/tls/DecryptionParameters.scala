@@ -3,17 +3,17 @@
 
 package com.daml.ledger.api.tls
 
-import java.io.File
-import java.nio.charset.StandardCharsets
-import java.nio.file.Files
-import javax.crypto.Cipher
-import javax.crypto.spec.{IvParameterSpec, SecretKeySpec}
 import org.apache.commons.codec.binary.Hex
 import org.apache.commons.io.IOUtils
 import org.slf4j.LoggerFactory
 import spray.json.{DefaultJsonProtocol, RootJsonFormat}
 
+import java.io.File
+import java.nio.charset.StandardCharsets
+import java.nio.file.Files
 import java.util.Base64
+import javax.crypto.Cipher
+import javax.crypto.spec.{GCMParameterSpec, SecretKeySpec}
 import scala.util.{Try, Using}
 
 final class PrivateKeyDecryptionException(cause: Throwable) extends Exception(cause)
@@ -29,10 +29,16 @@ case class DecryptionParameters(
     transformation: String,
     keyInHex: String,
     initializationVectorInHex: String,
+    tagLength: Int,
 ) {
   import DecryptionParameters._
 
   def decrypt(encrypted: File): Array[Byte] = {
+    if (transformation != AES_GCM_NOPADDING) {
+      throw new IllegalArgumentException(
+        s"Only $AES_GCM_NOPADDING is supported, but ${transformation} was provided."
+      )
+    }
     val bytes = Files.readAllBytes(encrypted.toPath)
     decrypt(bytes)
   }
@@ -46,7 +52,7 @@ case class DecryptionParameters(
     val secretKey = new SecretKeySpec(key, algorithm)
     val iv: Array[Byte] = Hex.decodeHex(initializationVectorInHex)
     val cipher = Cipher.getInstance(transformation)
-    val ivParameterSpec = new IvParameterSpec(iv)
+    val ivParameterSpec = new GCMParameterSpec(tagLength, iv)
     cipher.init(Cipher.DECRYPT_MODE, secretKey, ivParameterSpec)
     val binary = decodeBase64OrGetVerbatim(encrypted)
     cipher.doFinal(binary)
@@ -59,10 +65,13 @@ object DecryptionParametersJsonProtocol extends DefaultJsonProtocol {
     "algorithm",
     "key",
     "iv",
+    "tag_length",
   )
 }
 
 object DecryptionParameters {
+
+  val AES_GCM_NOPADDING = "AES/GCM/NoPadding"
 
   /** Creates an instance of [[DecryptionParameters]] by fetching necessary information from an URL
     */
