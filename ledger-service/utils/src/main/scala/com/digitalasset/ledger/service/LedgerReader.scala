@@ -53,16 +53,43 @@ object LedgerReader {
   )(implicit ec: ExecutionContext): Future[Error \/ Option[PackageStore]] =
     loadPackageStoreUpdates(client.it, token, client.ledgerId)(loadedPackageIds)
 
+  private val loadEC =
+    concurrent.ExecutionContext fromExecutorService java.util.concurrent.Executors
+      .newSingleThreadExecutor()
+
+  private val loadCache = {
+    import com.daml.caching.CaffeineCache, com.github.benmanes.caffeine.cache.Caffeine
+    CaffeineCache[String, GetPackageResponse](
+      Caffeine
+        .newBuilder()
+        .softValues()
+        .expireAfterWrite(60, java.util.concurrent.TimeUnit.SECONDS),
+      None,
+    )
+  }
+
   private def load[PS >: Some[PackageStore]](
       client: LoosePackageClient,
       packageIds: List[String],
       ledgerId: LedgerId,
       token: Option[String],
-  )(implicit ec: ExecutionContext): Future[Error \/ PS] =
+  ): Future[Error \/ PS] = {
+    implicit val ec: ExecutionContext = loadEC
     packageIds
-      .traverse(client.getPackage(_, ledgerId, token))
+      .traverse(pkid =>
+        loadCache
+          .getIfPresent(pkid)
+          .cata(
+            Future.successful,
+            client.getPackage(pkid, ledgerId, token).map { pkresp =>
+              loadCache.put(pkid, pkresp)
+              pkresp
+            },
+          )
+      )
       .map(createPackageStoreFromArchives)
       .map(_.map(Some(_)))
+  }
 
   private def createPackageStoreFromArchives(
       packageResponses: List[GetPackageResponse]
