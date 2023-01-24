@@ -41,7 +41,7 @@ trait UserStoreTests extends UserStoreSpecBase { self: AsyncFreeSpec =>
 
   val persistedIdentityProviderId =
     IdentityProviderId.Id(LedgerString.assertFromString("idp1"))
-  private val idpId = persistedIdentityProviderId //shorter alias
+  private val idpId = persistedIdentityProviderId // shorter alias
   val idp1 = IdentityProviderConfig(
     identityProviderId = persistedIdentityProviderId,
     isDeactivated = false,
@@ -358,7 +358,7 @@ trait UserStoreTests extends UserStoreSpecBase { self: AsyncFreeSpec =>
           rights3 <- tested.grantRights(
             "user1",
             Set(CanActAs("party1"), CanReadAs("party2")),
-            idpId
+            idpId,
           )
           rights4 <- tested.listUserRights("user1", idpId)
         } yield {
@@ -398,7 +398,7 @@ trait UserStoreTests extends UserStoreSpecBase { self: AsyncFreeSpec =>
           rights5 <- tested.revokeRights(
             "user1",
             Set(CanActAs("party1"), CanReadAs("party2")),
-            idpId
+            idpId,
           )
           rights6 <- tested.listUserRights("user1", idpId)
         } yield {

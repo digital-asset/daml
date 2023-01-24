@@ -186,7 +186,9 @@ class CachedUserManagementStoreSpec
       order
         .verify(delegate, times(1))
         .createUser(any[User], any[Set[UserRight]])(any[LoggingContext])
-      order.verify(delegate, times(2)).getUserInfo(any[Ref.UserId], eqTo(idpId))(any[LoggingContext])
+      order
+        .verify(delegate, times(2))
+        .getUserInfo(any[Ref.UserId], eqTo(idpId))(any[LoggingContext])
       order.verifyNoMoreInteractions()
       create1 shouldBe Right(createdUser1)
       get1 shouldBe Right(createdUserInfo)

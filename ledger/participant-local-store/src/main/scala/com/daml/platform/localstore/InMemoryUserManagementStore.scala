@@ -100,7 +100,8 @@ class InMemoryUserManagementStore(createAdmin: Boolean = true) extends UserManag
   }
 
   override def deleteUser(
-      id: Ref.UserId, identityProviderId: IdentityProviderId
+      id: Ref.UserId,
+      identityProviderId: IdentityProviderId,
   )(implicit loggingContext: LoggingContext): Future[Result[Unit]] =
     withUser(id) { _ =>
       state.remove(id)
