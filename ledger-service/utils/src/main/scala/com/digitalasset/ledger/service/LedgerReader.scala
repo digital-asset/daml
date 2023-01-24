@@ -53,10 +53,6 @@ object LedgerReader {
   )(implicit ec: ExecutionContext): Future[Error \/ Option[PackageStore]] =
     loadPackageStoreUpdates(client.it, token, client.ledgerId)(loadedPackageIds)
 
-  private val loadEC =
-    concurrent.ExecutionContext fromExecutorService java.util.concurrent.Executors
-      .newSingleThreadExecutor()
-
   private val loadCache = {
     import com.daml.caching.CaffeineCache, com.github.benmanes.caffeine.cache.Caffeine
     CaffeineCache[String, GetPackageResponse](
@@ -73,8 +69,7 @@ object LedgerReader {
       packageIds: List[String],
       ledgerId: LedgerId,
       token: Option[String],
-  ): Future[Error \/ PS] = {
-    implicit val ec: ExecutionContext = loadEC
+  )(implicit ec: ExecutionContext): Future[Error \/ PS] = {
     packageIds
       .traverse(pkid =>
         loadCache
