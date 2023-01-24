@@ -89,14 +89,16 @@ class LAPIMetrics(val prefix: MetricName, val factory: Factory) {
 
     val activeName: MetricName = prefix :+ "active"
 
-    private val ActiveStreamsDescription =
-      "The number of ledger api streams currently being served to all clients."
     @MetricDoc.Tag(
       summary = "The number of the active streams served by the ledger api.",
-      description = ActiveStreamsDescription,
+      description = "The number of ledger api streams currently being served to all clients.",
       qualification = Debug,
     )
     val active: MetricHandle.Gauge[Int] =
-      factory.gauge(activeName, 0, ActiveStreamsDescription)(MetricsContext.Empty)
+      factory.gauge(
+        activeName,
+        0,
+        "The number of ledger api streams currently being served to all clients.",
+      )(MetricsContext.Empty)
   }
 }
