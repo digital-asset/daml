@@ -25,7 +25,7 @@ Daml Ledger
 ===========
 
 A Daml ledger is a distributed ledger system running `Daml smart contracts <#contract>`__ according to the :doc:`Daml ledger model </concepts/ledger-model/index>` and exposes the Daml Ledger APIs.
-All current implementations of Daml ledgers consists of a Daml driver that utilises and underlying Synchronization Technology to either implement the Daml ledger directly, or run the Canton protocol.
+All current implementations of Daml ledgers consist of a Daml driver that utilises an underlying Synchronization Technology to either implement the Daml ledger directly, or to run the Canton protocol.
 
 Canton Ledger
 -------------
@@ -43,7 +43,7 @@ applications portable between different underlying `synchronization technologies
 Synchronization Technology
 ==========================
 
-The syncronization technology is the database or blockchain that Daml uses for synchronization, messaging and topology. Daml runs on a range of synchronization technologies, from centralized 
+The syncronization technology is the database or blockchain that Daml uses for synchronization, messaging, and topology. Daml runs on a range of synchronization technologies, from centralized 
 databases to fully distributed deployments, and users can employ the technology that best suits their technical and operational needs.
 
 Daml Drivers
@@ -57,18 +57,18 @@ Daml Language Concepts
 Contract
 ========
 
-A **contract** is an item on a `ledger <#daml-ledger>`__. They are created from blueprints called `templates <#template>`__, and include:
+**Contracts** are items on a `ledger <#daml-ledger>`__. They are created from blueprints called `templates <#template>`__, and include:
 
 - data (parameters)
 - roles (`signatory`_, `observer`_)
 - `choices <#choice>`__ (and `controllers <#controller>`__)
 
-Contracts are immutable: once they are created on the ledger, the information in the contract cannot be changed. The only thing that can happen to it is that the contract can be `archived <#active-contract-archived-contract>`__.
+Contracts are immutable: once they are created on the ledger, the information in the contract cannot be changed. The only thing that can happen to them is that they can be `archived <#active-contract-archived-contract>`__.
 
 Active Contract, Archived Contract
 ----------------------------------
 
-When a `contract <#contract>`__ is created on a `ledger <#daml-ledger>`__, it becomes **active**. But that doesn't mean it will stay active forever: it can be **archived**. This can happen:
+When a `contract <#contract>`__ is created on a `ledger <#daml-ledger>`__, it becomes **active**. But that doesn't mean it will remain active forever: it can be **archived**. This can happen:
 
 - if the `signatories <#signatory>`__ of the contract decide to archive it
 - if a `consuming choice <#consuming-choice>`__ is exercised on the contract
@@ -87,7 +87,7 @@ Choice
 
 A **choice** is something that a `party <#party>`__ can `exercise <#exercise>`__ on a `contract <#contract>`__. You write code in the choice body that specifies what happens when the choice is exercised: for example, it could create a new contract.
 
-Choices give you a way to transform the data in a contract: while the contract itself is immutable, you can write a choice that `archives <#active-contract-archived-contract>`__ the contract and creates a new version of it with updated data.
+Choices give one a way to transform the data in a contract: while the contract itself is immutable, you can write a choice that `archives <#active-contract-archived-contract>`__ the contract and creates a new version of it with updated data.
 
 A choice can only be exercised by its `controller <#controller>`__. Within the choice body, you have the `authorization <#authorization-signing>`__ of all of the contract's `signatories <#signatory>`__.
 
