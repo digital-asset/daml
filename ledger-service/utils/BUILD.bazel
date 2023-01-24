@@ -18,7 +18,6 @@ da_scala_library(
     tags = ["maven_coordinates=com.daml:http-json-utils:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [
-        "@maven//:com_github_ben_manes_caffeine_caffeine",
         "//daml-lf/api-type-signature",
         "//daml-lf/archive:daml_lf_1.dev_archive_proto_java",
         "//daml-lf/archive:daml_lf_archive_reader",
@@ -29,6 +28,7 @@ da_scala_library(
         "//libs-scala/contextualized-logging",
         "//libs-scala/logging-entries",
         "//libs-scala/scala-utils",
+        "@maven//:com_github_ben_manes_caffeine_caffeine",
     ],
 )
 
