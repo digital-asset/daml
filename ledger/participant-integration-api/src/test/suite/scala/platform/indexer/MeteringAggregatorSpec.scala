@@ -29,7 +29,7 @@ import java.sql.Connection
 import java.time.temporal.ChronoUnit
 import java.time.{LocalDate, LocalTime, OffsetDateTime, ZoneOffset}
 
-import com.daml.executors.QueueAwareExecutionContextExecutorService
+import com.daml.executors.executors.QueueAwareExecutionContextExecutorService
 
 import scala.concurrent.Future
 
