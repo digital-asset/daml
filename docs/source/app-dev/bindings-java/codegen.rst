@@ -333,18 +333,13 @@ The Java code generated for this variant is:
 
   package com.acme.enum;
 
-
   public enum Color implements DamlEnum<Color> {
     RED,
-
     GREEN,
-
     BLUE;
 
     /* ... */
-
     public static final Color fromValue(Value value$) { /* ... */ }
-
     public final DamlEnum toValue() { /* ... */ }
   }
 
