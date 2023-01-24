@@ -94,11 +94,11 @@ For details on how to use command deduplication, see the :doc:`Command Deduplica
 
 .. _command-explicit-contract-disclosure:
 
-(Experimental) Explicit contract disclosure
+Explicit contract disclosure (experimental)
 -------------------------------------------
 
-Starting with Canton 2.6, Ledger API clients can make use of explicit contract disclosure and submit commands with attached
-disclosed contracts for bypassing the contract's visibility restriction to stakeholders. For more details,
+Starting with Canton 2.6, Ledger API clients can use explicit contract disclosure to submit commands with attached
+disclosed contracts that bypass the contract's visibility restriction to stakeholders. For more details,
 see :doc:`Explicit contract disclosure <explicit-contract-disclosure>`.
 
 .. _command-completion-service:

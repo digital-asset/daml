@@ -3,7 +3,7 @@
 
 .. _explicit-contract-disclosure:
 
-(Experimental) Explicit contract disclosure
+Explicit contract disclosure (experimental)
 ###########################################
 
 Read delegation using explicit contract disclosure
