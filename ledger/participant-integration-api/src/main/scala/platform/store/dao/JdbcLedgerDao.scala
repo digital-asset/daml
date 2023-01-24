@@ -463,7 +463,7 @@ private class JdbcLedgerDao(
   ): Future[Option[Offset]] =
     dbDispatcher.executeSql(
       metrics.daml.index.db.getOffsetAfter
-    )(readStorageBackend.completionStorageBackend.offsetAfter(startExclusive, count))
+    )(readStorageBackend.eventStorageBackend.offsetAfter(startExclusive, count))
 
   private val translation: LfValueTranslation =
     new LfValueTranslation(

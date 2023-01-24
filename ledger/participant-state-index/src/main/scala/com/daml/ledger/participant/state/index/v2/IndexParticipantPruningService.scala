@@ -3,6 +3,7 @@
 
 package com.daml.ledger.participant.state.index.v2
 
+import com.daml.ledger.api.domain.LedgerOffset
 import com.daml.ledger.offset.Offset
 import com.daml.logging.LoggingContext
 
@@ -15,5 +16,9 @@ trait IndexParticipantPruningService {
   def prune(pruneUpToInclusive: Offset, pruneAllDivulgedContracts: Boolean)(implicit
       loggingContext: LoggingContext
   ): Future[Unit]
+
+  def lastPrunedOffsets()(implicit
+      loggingContext: LoggingContext
+  ): Future[(LedgerOffset.Absolute, LedgerOffset.Absolute)]
 
 }

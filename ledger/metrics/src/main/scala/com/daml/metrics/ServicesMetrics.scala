@@ -76,6 +76,8 @@ class ServicesMetrics(
     @MetricDoc.FanInstanceTag
     val prune: Timer = factory.timer(prefix :+ "prune")
     @MetricDoc.FanInstanceTag
+    val lastPrunedOffsets: Timer = factory.timer(prefix :+ "last_pruned_offsets")
+    @MetricDoc.FanInstanceTag
     val getTransactionMetering: Timer = factory.timer(prefix :+ "get_transaction_metering")
 
     object InMemoryFanoutBuffer {
