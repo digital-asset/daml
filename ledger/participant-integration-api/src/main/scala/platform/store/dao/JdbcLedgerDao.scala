@@ -460,10 +460,11 @@ private class JdbcLedgerDao(
 
   override def getOffsetAfter(startExclusive: Offset, count: Int)(implicit
       loggingContext: LoggingContext
-  ): Future[Option[Offset]] =
+  ): Future[Option[Offset]] = {
     dbDispatcher.executeSql(
       metrics.daml.index.db.getOffsetAfter
     )(readStorageBackend.eventStorageBackend.offsetAfter(startExclusive, count))
+  }
 
   private val translation: LfValueTranslation =
     new LfValueTranslation(

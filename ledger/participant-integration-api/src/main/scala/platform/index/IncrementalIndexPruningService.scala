@@ -53,11 +53,11 @@ class IncrementalIndexPruningService(ledgerReadDao: LedgerReadDao, maximumPrunin
         // Ensure we don't prune beyond the requested pruneUpToInclusive
         pruneTo = Ordering[Offset].min(maxWindowOffset, pruneUpToInclusive)
         _ <- OptionT.liftF(ledgerReadDao.prune(pruneTo, pruneAllDivulgedContracts))
-        _ = logger.info(s"Pruned up to $pruneTo")
+        _ = logger.warn(s"Pruned up to $pruneTo")
         _ <- go(pruningWindowStartExclusive = pruneTo)
       } yield ()
 
-    logger.info(
+    logger.warn(
       s"Pruning the Index database incrementally (maximum window size of $maxPruningWindowSize) " +
         s"from $latestPrunedUpToInclusive to $pruneUpToInclusive " +
         s"with divulged contracts pruning ${if (pruneAllDivulgedContracts) "enabled" else "disabled"}."
