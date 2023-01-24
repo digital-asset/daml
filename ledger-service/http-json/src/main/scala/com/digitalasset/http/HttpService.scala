@@ -126,7 +126,9 @@ object HttpService {
 
       _ = logger.info(s"contractDao: ${contractDao.toString}")
 
-      packageService = new PackageService(doLoad(pkgManagementClient.packageClient))
+      packageCache = LedgerReader.LoadCache.freshCache()
+
+      packageService = new PackageService(doLoad(pkgManagementClient.packageClient, packageCache))
 
       commandService = new CommandService(
         LedgerClientJwt.submitAndWaitForTransaction(client),
@@ -248,13 +250,15 @@ object HttpService {
   }
 
   private[http] def doLoad(
-      packageClient: PackageClient
+      packageClient: PackageClient,
+      loadCache: LedgerReader.LoadCache,
   )(jwt: Jwt, ledgerId: LedgerApiDomain.LedgerId)(ids: Set[String])(implicit
       ec: ExecutionContext
   ): Future[PackageService.ServerError \/ Option[PackageStore]] =
     LedgerReader
       .loadPackageStoreUpdates(
         packageClient,
+        loadCache,
         some(jwt.value),
         ledgerId,
       )(ids)

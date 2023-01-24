@@ -32,6 +32,7 @@ object LedgerReader {
     */
   def loadPackageStoreUpdates(
       client: LoosePackageClient,
+      loadCache: LoadCache,
       token: Option[String],
       ledgerId: LedgerId,
   )(
@@ -42,20 +43,20 @@ object LedgerReader {
       diffIds = newPackageIds.filterNot(loadedPackageIds): List[String] // keeping the order
       result <-
         if (diffIds.isEmpty) UpToDate
-        else load[Option[PackageStore]](client, diffIds, ledgerId, token)
+        else load[Option[PackageStore]](client, loadCache, diffIds, ledgerId, token)
     } yield result
 
   /** @return [[UpToDate]] if packages did not change
     */
   @deprecated("TODO #15922 unused?", since = "2.5.2")
-  def loadPackageStoreUpdates(client: PackageClient, token: Option[String])(
+  def loadPackageStoreUpdates(client: PackageClient, loadCache: LoadCache, token: Option[String])(
       loadedPackageIds: Set[String]
   )(implicit ec: ExecutionContext): Future[Error \/ Option[PackageStore]] =
-    loadPackageStoreUpdates(client.it, token, client.ledgerId)(loadedPackageIds)
+    loadPackageStoreUpdates(client.it, loadCache, token, client.ledgerId)(loadedPackageIds)
 
-  private val loadCache = {
+  final class LoadCache private () {
     import com.daml.caching.CaffeineCache, com.github.benmanes.caffeine.cache.Caffeine
-    CaffeineCache[(LedgerId, String), GetPackageResponse](
+    private[LedgerReader] val cache = CaffeineCache[(LedgerId, String), GetPackageResponse](
       Caffeine
         .newBuilder()
         .softValues()
@@ -64,8 +65,13 @@ object LedgerReader {
     )
   }
 
+  object LoadCache {
+    def freshCache(): LoadCache = new LoadCache()
+  }
+
   private def load[PS >: Some[PackageStore]](
       client: LoosePackageClient,
+      loadCache: LoadCache,
       packageIds: List[String],
       ledgerId: LedgerId,
       token: Option[String],
@@ -73,12 +79,12 @@ object LedgerReader {
     packageIds
       .traverse { pkid =>
         val ck = (ledgerId, pkid)
-        loadCache
+        loadCache.cache
           .getIfPresent(ck)
           .cata(
             Future.successful,
             client.getPackage(pkid, ledgerId, token).map { pkresp =>
-              loadCache.put(ck, pkresp)
+              loadCache.cache.put(ck, pkresp)
               pkresp
             },
           )
