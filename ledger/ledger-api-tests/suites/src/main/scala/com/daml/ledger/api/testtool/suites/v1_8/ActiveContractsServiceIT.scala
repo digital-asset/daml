@@ -684,6 +684,10 @@ class ActiveContractsServiceIT extends LedgerTestSuite {
         ledger.delayMechanism,
         "Pruning",
       ) {
+        // We are retrying a command submission + pruning to make this test compatible with Canton.
+        // That's because in Canton pruning will fail unless ACS commitments have been exchanged between participants.
+        // To this end, submitting a command is prompting Canton to exchange ACS commitments
+        // and allows the pruning call to eventually succeed.
         for {
           _ <- ledger.submitAndWait(ledger.submitAndWaitRequest(party, Dummy(party).create.command))
           _ <- ledger.prune(pruneUpTo = anOffset, attempts = 1)
@@ -721,6 +725,10 @@ class ActiveContractsServiceIT extends LedgerTestSuite {
         ledger.delayMechanism,
         "Pruning",
       ) {
+        // We are retrying a command submission + pruning to make this test compatible with Canton.
+        // That's because in Canton pruning will fail unless ACS commitments have been exchanged between participants.
+        // To this end, submitting a command is prompting Canton to exchange ACS commitments
+        // and allows the pruning call to eventually succeed.
         for {
           _ <- ledger.submitAndWait(ledger.submitAndWaitRequest(party, Dummy(party).create.command))
           _ <- ledger.prune(pruneUpTo = offset2, attempts = 1)
