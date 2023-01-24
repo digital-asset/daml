@@ -487,6 +487,7 @@ server_conformance_test(
     servers = SERVERS,
     test_tool_args = [
         "--verbose",
+        "--include=ParticipantPruningIT",
     ],
 )
 

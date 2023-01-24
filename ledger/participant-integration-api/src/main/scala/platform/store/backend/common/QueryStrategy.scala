@@ -19,6 +19,12 @@ object QueryStrategy {
       .map(to => cSQL"fetch next $to rows only")
       .getOrElse(cSQL"")
 
+  def whereOffsetHigherThanClause(column: String, offsetThreshold: Offset): CompositeSql = {
+    import com.daml.platform.store.backend.Conversions.OffsetToStatement
+
+    if (offsetThreshold == Offset.beforeBegin) cSQL""
+    else cSQL"WHERE #$column > $offsetThreshold"
+  }
 }
 
 trait QueryStrategy {

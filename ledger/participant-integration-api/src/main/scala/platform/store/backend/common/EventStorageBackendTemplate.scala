@@ -809,19 +809,19 @@ abstract class EventStorageBackendTemplate(
   }
 
   override def offsetAfter(start: Offset, after: Int)(connection: Connection): Option[Offset] = {
-    import com.daml.platform.store.backend.Conversions.OffsetToStatement
 
     SQL"""
         WITH next_offsets_chunk AS (
             SELECT event_offset
             FROM participant_transaction_meta
-            WHERE event_offset > $start
+            ${QueryStrategy.whereOffsetHigherThanClause("event_offset", start)}
             ORDER BY event_offset ASC
             ${QueryStrategy.limitClause(Some(after))}
          )
        SELECT MAX(event_offset) AS max_offset_in_window FROM next_offsets_chunk"""
       // TODO pruning: Revisit result set parser
       .as(offset("max_offset_in_window").?.single)(connection)
+
   }
 
   private def pruneIdFilterCreateStakeholder(pruneUpToInclusive: Offset): SimpleSql[Row] =
