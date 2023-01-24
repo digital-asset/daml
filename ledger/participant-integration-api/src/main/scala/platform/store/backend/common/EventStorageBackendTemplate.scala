@@ -808,8 +808,7 @@ abstract class EventStorageBackendTemplate(
        """.as(get[Long](1).singleOpt)(connection)
   }
 
-  override def offsetAfter(start: Offset, after: Int)(connection: Connection): Option[Offset] = {
-
+  override def offsetAfter(start: Offset, after: Int)(connection: Connection): Option[Offset] =
     SQL"""
         WITH next_offsets_chunk AS (
             SELECT event_offset
@@ -819,10 +818,7 @@ abstract class EventStorageBackendTemplate(
             ${QueryStrategy.limitClause(Some(after))}
          )
        SELECT MAX(event_offset) AS max_offset_in_window FROM next_offsets_chunk"""
-      // TODO pruning: Revisit result set parser
       .as(offset("max_offset_in_window").?.single)(connection)
-
-  }
 
   private def pruneIdFilterCreateStakeholder(pruneUpToInclusive: Offset): SimpleSql[Row] =
     pruneIdFilterCreate(

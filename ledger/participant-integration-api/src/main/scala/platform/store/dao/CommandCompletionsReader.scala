@@ -4,6 +4,7 @@
 package com.daml.platform.store.dao
 
 import java.sql.Connection
+
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
@@ -69,4 +70,5 @@ private[dao] final class CommandCompletionsReader(
       }
     source.map(response => offsetFor(response) -> response)
   }
+
 }
