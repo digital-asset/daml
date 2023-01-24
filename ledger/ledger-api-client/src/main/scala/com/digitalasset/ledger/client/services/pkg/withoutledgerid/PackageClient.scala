@@ -25,10 +25,21 @@ private[daml] final class PackageClient(service: PackageServiceStub) {
       packageId: String,
       ledgerIdToUse: LedgerId,
       token: Option[String] = None,
-  ): Future[GetPackageResponse] =
+  )(implicit ec: concurrent.ExecutionContext): Future[GetPackageResponse] = {
     LedgerClient
-      .stub(service, token)
+      .stub(
+        ec match {
+          case ex: java.util.concurrent.Executor =>
+            println("s11 juc Exec")
+            service withExecutor ex
+          case _ =>
+            println("s11 no juc Exec")
+            service
+        },
+        token,
+      )
       .getPackage(GetPackageRequest(ledgerIdToUse.unwrap, packageId))
+  }
 
   def getPackageStatus(
       packageId: String,
