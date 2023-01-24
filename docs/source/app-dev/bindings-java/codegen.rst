@@ -384,24 +384,6 @@ The Java code generated for this variant is:
     public final DamlEnum toValue() { /* ... */ }
   }
 
-
-
-.. code-block:: java
-  :caption: com/acme/enum/bookattribute/Authors.java
-
-  package com.acme.enum.bookattribute;
-
-  public class Authors extends BookAttribute {
-    public final List<String> listValue;
-
-    public static Authors fromValue(Value value) { /* ... */ }
-
-    public Author(List<String> listValue) { /* ... */ }
-    public Value toValue() { /* ... */ }
-
-  }
-
-
 Convert a Value of a Generated Type to a Java Bindings Value
 """"""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 
