@@ -7,16 +7,21 @@ import java.util.UUID
 import com.daml.error.definitions.LedgerApiErrors
 import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
 import com.daml.ledger.api.v1.admin.participant_pruning_service.{
+  LastPrunedOffsetsRequest,
+  LastPrunedOffsetsResponse,
   ParticipantPruningServiceGrpc,
   PruneRequest,
   PruneResponse,
 }
+import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.validation.ValidationErrors._
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.{IndexParticipantPruningService, LedgerEndService}
 import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
+import com.daml.lf.data.Ref.IdString
+import com.daml.lf.data.Ref.IdString.LedgerString
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.api.MetricsContext
 import com.daml.metrics.{Metrics, Tracked}
@@ -42,15 +47,59 @@ final class ApiParticipantPruningService private (
     extends SinglePruningOpEnforcer
     with GrpcApiService {
 
-  private implicit val logger: ContextualizedLogger = ContextualizedLogger.get(this.getClass)
+  private implicit val logger: ContextualizedLogger = ContextualizedLogger.get(getClass)
 
   override def bindService(): ServerServiceDefinition =
     ParticipantPruningServiceGrpc.bindService(this, executionContext)
 
   override def close(): Unit = ()
 
-  protected def pruneInternal(request: PruneRequest): Future[PruneResponse] = {
-    val submissionIdOrErr = Ref.SubmissionId
+  override def prune(request: PruneRequest): Future[PruneResponse] =
+    withValidatedSubmissionId(request) { submissionId =>
+      ifNotRunning {
+        pruneInternal(submissionId, request)
+      }
+    }
+
+  private def pruneInternal(
+      submissionId: IdString.LedgerString,
+      request: PruneRequest,
+  ): Future[PruneResponse] =
+    LoggingContext.withEnrichedLoggingContext(logging.submissionId(submissionId)) {
+      implicit loggingContext =>
+        logger.info(s"Pruning participant index and write service up to ${request.pruneUpTo}")
+
+        val pruneResponse = for {
+          pruneUpTo <- validateRequest(request)(
+            loggingContext,
+            contextualizedErrorLogger(submissionId),
+          )
+
+          // If write service pruning succeeds but ledger api server index pruning fails, the user can bring the
+          // systems back in sync by reissuing the prune request at the currently specified or later offset.
+          _ <- Tracked.future(
+            metrics.daml.services.pruning.pruneCommandStarted,
+            metrics.daml.services.pruning.pruneCommandCompleted,
+            pruneWriteService(pruneUpTo, submissionId, request.pruneAllDivulgedContracts),
+          )(MetricsContext(("phase", "underlyingLedger")))
+
+          response <- Tracked.future(
+            metrics.daml.services.pruning.pruneCommandStarted,
+            metrics.daml.services.pruning.pruneCommandCompleted,
+            pruneLedgerApiServerIndex(
+              pruneUpTo,
+              request.pruneAllDivulgedContracts,
+            ),
+          )(MetricsContext(("phase", "ledgerApiServerIndex")))
+        } yield response
+
+        pruneResponse.andThen(logger.logErrorsOnCall[PruneResponse])
+    }
+
+  protected def withValidatedSubmissionId(
+      request: PruneRequest
+  )(pruneWithSubmissionId: LedgerString => Future[PruneResponse]): Future[PruneResponse] =
+    Ref.SubmissionId
       .fromString(
         if (request.submissionId.nonEmpty) request.submissionId else UUID.randomUUID().toString
       )
@@ -60,41 +109,10 @@ final class ApiParticipantPruningService private (
           contextualizedErrorLogger(request.submissionId)
         )
       )
-
-    submissionIdOrErr.fold(
-      t => Future.failed(ValidationLogger.logFailure(request, t)),
-      submissionId =>
-        LoggingContext.withEnrichedLoggingContext(logging.submissionId(submissionId)) {
-          implicit loggingContext =>
-            logger.info(s"Pruning up to ${request.pruneUpTo}")
-            (for {
-
-              pruneUpTo <- validateRequest(request)(
-                loggingContext,
-                contextualizedErrorLogger(submissionId),
-              )
-
-              // If write service pruning succeeds but ledger api server index pruning fails, the user can bring the
-              // systems back in sync by reissuing the prune request at the currently specified or later offset.
-              _ <- Tracked.future(
-                metrics.daml.services.pruning.pruneCommandStarted,
-                metrics.daml.services.pruning.pruneCommandCompleted,
-                pruneWriteService(pruneUpTo, submissionId, request.pruneAllDivulgedContracts),
-              )(MetricsContext(("phase", "underlyingLedger")))
-
-              pruneResponse <- Tracked.future(
-                metrics.daml.services.pruning.pruneCommandStarted,
-                metrics.daml.services.pruning.pruneCommandCompleted,
-                pruneLedgerApiServerIndex(
-                  pruneUpTo,
-                  request.pruneAllDivulgedContracts,
-                ),
-              )(MetricsContext(("phase", "ledgerApiServerIndex")))
-
-            } yield pruneResponse).andThen(logger.logErrorsOnCall[PruneResponse])
-        },
-    )
-  }
+      .fold(
+        t => Future.failed(ValidationLogger.logFailure(request, t)),
+        pruneWithSubmissionId,
+      )
 
   private def validateRequest(
       request: PruneRequest
@@ -199,16 +217,25 @@ final class ApiParticipantPruningService private (
       loggingContext: LoggingContext
   ): ContextualizedErrorLogger =
     new DamlContextualizedErrorLogger(logger, loggingContext, Some(submissionId))
+
+  override def lastPrunedOffsets(
+      request: LastPrunedOffsetsRequest
+  ): Future[LastPrunedOffsetsResponse] =
+    readBackend.lastPrunedOffsets().map { case (divulgencePrunedUpTo, prunedUpToInclusive) =>
+      LastPrunedOffsetsResponse(
+        participantPrunedUpToInclusive =
+          Some(LedgerOffset(LedgerOffset.Value.Absolute(divulgencePrunedUpTo.value))),
+        allDivulgedContractsPrunedUpToInclusive =
+          Some(LedgerOffset(LedgerOffset.Value.Absolute(prunedUpToInclusive.value))),
+      )
+    }
 }
 
 trait SinglePruningOpEnforcer extends ParticipantPruningServiceGrpc.ParticipantPruningService {
   this: ApiParticipantPruningService =>
   private var running: Option[Future[PruneResponse]] = None
 
-  override def prune(request: PruneRequest): Future[PruneResponse] =
-    ifNotRunning { pruneInternal(request) }
-
-  private def ifNotRunning(go: => Future[PruneResponse]): Future[PruneResponse] =
+  def ifNotRunning(go: => Future[PruneResponse]): Future[PruneResponse] =
     synchronized {
       def accept(): Future[PruneResponse] = {
         val newRunning = go

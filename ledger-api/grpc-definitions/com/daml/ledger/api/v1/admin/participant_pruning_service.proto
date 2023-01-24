@@ -5,6 +5,8 @@ syntax = "proto3";
 
 package com.daml.ledger.api.v1.admin;
 
+import "com/daml/ledger/api/v1/ledger_offset.proto";
+
 option java_outer_classname = "ParticipantPruningServiceOuterClass";
 option java_package = "com.daml.ledger.api.v1.admin";
 option csharp_namespace = "Com.Daml.Ledger.Api.V1.Admin";
@@ -24,6 +26,8 @@ service ParticipantPruningService {
   // Prune the ledger specifying the offset before and at which ledger transactions should be removed. Only returns when
   // the potentially long-running prune request ends successfully or with an error.
   rpc Prune (PruneRequest) returns (PruneResponse);
+
+  rpc LastPrunedOffsets (LastPrunedOffsetsRequest) returns (LastPrunedOffsetsResponse);
 
 }
 
@@ -52,6 +56,16 @@ message PruneRequest {
   //   1. no application using this participant node relies on divulgence OR
   //   2. divulged contracts on which applications rely have been re-divulged after the `prune_up_to` offset.
   bool prune_all_divulged_contracts = 3;
+}
+
+message LastPrunedOffsetsRequest {
+  // Empty for now, but may contain fields in the future
+}
+
+message LastPrunedOffsetsResponse {
+  LedgerOffset participant_pruned_up_to_inclusive = 1;
+
+  LedgerOffset all_divulged_contracts_pruned_up_to_inclusive = 2;
 }
 
 message PruneResponse {

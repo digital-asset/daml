@@ -28,21 +28,6 @@ class CompletionStorageBackendTemplate(
 
   private val logger: ContextualizedLogger = ContextualizedLogger.get(this.getClass)
 
-  override def offsetAfter(start: Offset, after: Int)(connection: Connection): Option[Offset] = {
-    import com.daml.platform.store.backend.Conversions.OffsetToStatement
-
-    SQL"""
-        WITH next_offsets_chunk AS (
-            SELECT completion_offset
-            FROM participant_command_completions
-            WHERE completion_offset > $start
-            ORDER BY completion_offset ASC
-            ${QueryStrategy.limitClause(Some(after))}
-         )
-       SELECT MAX(completion_offset) AS completion_offset FROM next_offsets_chunk"""
-      .as(offset("completion_offset").singleOpt)(connection)
-  }
-
   override def commandCompletions(
       startExclusive: Offset,
       endInclusive: Offset,

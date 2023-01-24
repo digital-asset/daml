@@ -207,8 +207,6 @@ trait CompletionStorageBackend {
   def pruneCompletions(
       pruneUpToInclusive: Offset
   )(connection: Connection, loggingContext: LoggingContext): Unit
-
-  def offsetAfter(start: Offset, after: Int)(connection: Connection): Option[Offset]
 }
 
 trait ContractStorageBackend {
@@ -287,6 +285,8 @@ trait EventStorageBackend {
   def rawEvents(startExclusive: Long, endInclusive: Long)(
       connection: Connection
   ): Vector[EventStorageBackend.RawTransactionEvent]
+
+  def offsetAfter(start: Offset, after: Int)(connection: Connection): Option[Offset]
 }
 
 object EventStorageBackend {

@@ -393,6 +393,16 @@ private[index] class IndexServiceImpl(
     incrementalIndexPruningService.prune(pruneUpToInclusive, pruneAllDivulgedContracts)
   }
 
+  override def lastPrunedOffsets()(implicit
+      loggingContext: LoggingContext
+  ): Future[(LedgerOffset.Absolute, LedgerOffset.Absolute)] =
+    ledgerDao.pruningOffsets
+      .map { case (divulgencePrunedUpToO, prunedUpToInclusiveO) =>
+        toApiOffset(divulgencePrunedUpToO.getOrElse(Offset.beforeBegin)) -> toApiOffset(
+          prunedUpToInclusiveO.getOrElse(Offset.beforeBegin)
+        )
+      }(ExecutionContext.parasitic)
+
   override def getMeteringReportData(
       from: Timestamp,
       to: Option[Timestamp],
@@ -415,6 +425,7 @@ private[index] class IndexServiceImpl(
     val offset =
       if (ledgerDomainOffset == Offset.beforeBegin) ApiOffset.begin
       else ledgerDomainOffset
+
     toAbsolute(offset)
   }
 
