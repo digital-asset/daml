@@ -60,6 +60,9 @@ dropwizard_version = "4.1.33"
 opentelemetry_version = "1.12.0"
 prometheus_version = "0.14.1"
 
+# group libraries controlled by the same org
+circe_version = "0.14.2"
+
 def install_java_deps():
     maven_install(
         artifacts = version_specific.get(scala_major_version, []) + [
@@ -104,12 +107,12 @@ def install_java_deps():
             "org.playframework.anorm:anorm-akka_{}:2.6.8".format(scala_major_version),
             "com.typesafe.scala-logging:scala-logging_{}:3.9.2".format(scala_major_version),
             "com.zaxxer:HikariCP:3.2.0",
-            "eu.rekawek.toxiproxy:toxiproxy-java:2.1.3",
-            "io.circe:circe-core_{}:0.13.0".format(scala_major_version),
-            "io.circe:circe-generic_{}:0.13.0".format(scala_major_version),
-            "io.circe:circe-generic-extras_{}:0.13.0".format(scala_major_version),
-            "io.circe:circe-parser_{}:0.13.0".format(scala_major_version),
-            "io.circe:circe-yaml_{}:0.13.0".format(scala_major_version),
+            "eu.rekawek.toxiproxy:toxiproxy-java:2.1.7",
+            "io.circe:circe-core_{}:{}".format(scala_major_version, circe_version),
+            "io.circe:circe-generic_{}:{}".format(scala_major_version, circe_version),
+            "io.circe:circe-generic-extras_{}:{}".format(scala_major_version, circe_version),
+            "io.circe:circe-parser_{}:{}".format(scala_major_version, circe_version),
+            "io.circe:circe-yaml_{}:{}".format(scala_major_version, circe_version),
             "io.dropwizard.metrics:metrics-core:{}".format(dropwizard_version),
             maven.artifact("io.dropwizard.metrics", "metrics-graphite", dropwizard_version, exclusions = ["com.rabbitmq:amqp-client"]),
             "io.dropwizard.metrics:metrics-jmx:{}".format(dropwizard_version),
@@ -164,8 +167,8 @@ def install_java_deps():
             "io.gatling:gatling-http:{}".format(gatling_version),
             "io.gatling:gatling-http-client:{}".format(gatling_version),
             "io.reactivex.rxjava2:rxjava:2.2.21",
-            "io.spray:spray-json_{}:1.3.5".format(scala_major_version),
-            "io.github.paoloboni:spray-json-derived-codecs_{}:2.3.4".format(scala_major_version),
+            "io.spray:spray-json_{}:1.3.6".format(scala_major_version),
+            "io.github.paoloboni:spray-json-derived-codecs_{}:2.3.10".format(scala_major_version),
             "javax.annotation:javax.annotation-api:1.2",
             "javax.ws.rs:javax.ws.rs-api:2.1",
             "junit:junit:4.12",
