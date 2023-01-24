@@ -81,8 +81,6 @@ object Main extends App {
 // The Daml-LF Read-Eval-Print-Loop
 object Repl {
 
-  private[this] val timeoutSeconds: Long = 5
-
   private[this] implicit def logContext: LoggingContext = LoggingContext.ForTesting
 
   val defaultCompilerConfig: Compiler.Config =
@@ -187,7 +185,7 @@ object Repl {
   case class ScenarioRunnerHelper(
       packages: Map[PackageId, Package],
       compilerConfig: Compiler.Config,
-      timeoutSeconds: Long,
+      timeout: Duration,
   ) {
 
     val (compiledPackages, compileTime) =
@@ -208,7 +206,7 @@ object Repl {
       ScenarioRunner.run(
         buildMachine = () => Speedy.Machine.fromScenarioExpr(compiledPackages, expr),
         initialSeed = seed,
-        timeoutSeconds = 5,
+        timeout = timeout,
       )
   }
 
@@ -263,7 +261,7 @@ object Repl {
       State(
         packages = Map.empty,
         packageFiles = Seq(),
-        ScenarioRunnerHelper(Map.empty, compilerCompiler, timeoutSeconds),
+        ScenarioRunnerHelper(Map.empty, compilerCompiler, 5.seconds),
         reader = null,
         history = new DefaultHistory(),
         quit = false,
@@ -414,7 +412,8 @@ object Repl {
       true -> rebuildReader(
         state.copy(
           packages = packagesMap,
-          scenarioRunner = ScenarioRunnerHelper(packagesMap, compilerConfig, timeoutSeconds),
+          scenarioRunner =
+            state.scenarioRunner.copy(packages = packagesMap, compilerConfig = compilerConfig),
         )
       )
     } catch {

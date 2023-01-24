@@ -24,6 +24,8 @@ import java.io.File
 import java.util.concurrent.TimeUnit
 import org.openjdk.jmh.annotations._
 
+import scala.concurrent.duration._
+
 private[lf] class CollectAuthority {
   @Benchmark @BenchmarkMode(Array(Mode.AverageTime)) @OutputTimeUnit(TimeUnit.MILLISECONDS)
   def bench(state: CollectAuthorityState): Unit = {
@@ -98,7 +100,7 @@ private[lf] class CollectAuthorityState {
             location,
             crypto.Hash.hashPrivateKey(step.toString),
             doEnrichment = false,
-            timeoutSeconds = Long.MaxValue,
+            timeout = 1.minute,
             deadlineInNanos = Long.MaxValue,
           ) match {
             case ScenarioRunner.Commit(_, value, _) =>
@@ -142,7 +144,7 @@ private[lf] class CollectAuthorityState {
             SEValue(commands),
             location,
             crypto.Hash.hashPrivateKey(step.toString),
-            timeoutSeconds = Long.MaxValue,
+            timeout = Duration.Inf,
             deadlineInNanos = Long.MaxValue,
           ) match {
             case ScenarioRunner.SubmissionError(err, _) => crash(s"Submission failed $err")

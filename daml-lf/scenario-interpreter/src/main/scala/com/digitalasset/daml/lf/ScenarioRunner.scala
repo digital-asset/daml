@@ -6,13 +6,13 @@ package scenario
 
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{ImmArray, Ref, Time}
-import com.daml.lf.engine.{Engine, ValueEnricher, Result, ResultDone, ResultError}
+import com.daml.lf.engine.{Engine, Result, ResultDone, ResultError, ValueEnricher}
 import com.daml.lf.engine.preprocessing.ValueTranslator
 import com.daml.lf.language.{Ast, LookupError}
 import com.daml.lf.transaction.{GlobalKey, NodeId, SubmittedTransaction}
 import com.daml.lf.value.Value.{ContractId, VersionedContractInstance}
 import com.daml.lf.speedy._
-import com.daml.lf.speedy.SExpr.{SExpr, SEValue, SEApp}
+import com.daml.lf.speedy.SExpr.{SEApp, SEValue, SExpr}
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.transaction.IncompleteTransaction
 import com.daml.lf.value.Value
@@ -20,7 +20,7 @@ import com.daml.logging.LoggingContext
 import com.daml.scalautil.Statement.discard
 
 import scala.annotation.tailrec
-import scala.concurrent.duration._
+import scala.concurrent.duration.Duration
 import scala.util.{Failure, Success, Try}
 
 /** Speedy scenario runner that uses the reference ledger.
@@ -30,7 +30,7 @@ import scala.util.{Failure, Success, Try}
 final class ScenarioRunner private (
     machine: Speedy.ScenarioMachine,
     initialSeed: crypto.Hash,
-    timeoutSeconds: Long,
+    timeout: Duration,
 ) {
   import ScenarioRunner._
 
@@ -43,7 +43,7 @@ final class ScenarioRunner private (
     // NOTE(JM): Written with an imperative loop and exceptions for speed
     // and so that we don't need to worry about stack usage.
     val startTime = System.nanoTime()
-    val deadlineInNanos = startTime + timeoutSeconds.seconds.toNanos
+    val deadlineInNanos = startTime + timeout.toNanos
     var steps = 0
     var finalValue: SValue = null
     while (finalValue == null) {
@@ -51,7 +51,7 @@ final class ScenarioRunner private (
       steps += 1 // this counts the number of external `Need` interactions
 
       if (System.nanoTime() > deadlineInNanos)
-        throw scenario.Error.Timeout(timeoutSeconds)
+        throw scenario.Error.Timeout(timeout)
 
       machine.run() match {
 
@@ -78,7 +78,7 @@ final class ScenarioRunner private (
                 seed = nextSeed(),
                 traceLog = machine.traceLog,
                 warningLog = machine.warningLog,
-                timeoutSeconds = timeoutSeconds,
+                timeout = timeout,
                 deadlineInNanos = deadlineInNanos,
               )
               if (mustFail) {
@@ -144,10 +144,10 @@ private[lf] object ScenarioRunner {
   def run(
       buildMachine: () => Speedy.ScenarioMachine,
       initialSeed: crypto.Hash,
-      timeoutSeconds: Long,
+      timeout: Duration,
   )(implicit loggingContext: LoggingContext): ScenarioResult = {
     val machine = buildMachine()
-    val runner = new ScenarioRunner(machine, initialSeed, timeoutSeconds)
+    val runner = new ScenarioRunner(machine, initialSeed, timeout)
     handleUnsafe(runner.runUnsafe) match {
       case Left(err) =>
         val stackTrace =
@@ -402,7 +402,7 @@ private[lf] object ScenarioRunner {
       traceLog: TraceLog = Speedy.Machine.newTraceLog,
       warningLog: WarningLog = Speedy.Machine.newWarningLog,
       doEnrichment: Boolean = true,
-      timeoutSeconds: Long,
+      timeout: Duration,
       deadlineInNanos: Long,
   )(implicit loggingContext: LoggingContext): SubmissionResult[R] = {
     val ledgerMachine = Speedy.UpdateMachine(
@@ -458,7 +458,7 @@ private[lf] object ScenarioRunner {
         case SResultInterruption(_, callback) =>
           if (deadlineInNanos < System.nanoTime()) {
             SubmissionError(
-              Error.Timeout(timeoutSeconds),
+              Error.Timeout(timeout),
               enrich(ledgerMachine.incompleteTransaction),
             )
           } else {
