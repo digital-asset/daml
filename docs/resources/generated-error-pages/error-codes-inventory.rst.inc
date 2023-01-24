@@ -456,7 +456,7 @@ THREADPOOL_OVERLOADED
 
     **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status ABORTED including a detailed error message.
 
-    **Resolution**: The following actions can be taken: Here the 'queue size' for the threadpool = 'submitted tasks' - 'completed tasks' - 'running tasks' 1. Review the historical 'queue size' growth by inspecting the metric given in the message. 2. Review the maximum 'queue size' limits configured in the rate limiting configuration. 3. Try to space out requests that are likely to require a lot of CPU or database power.      
+    **Resolution**: The following actions can be taken: Here the 'queue size' for the threadpool is considered as reported by the executor itself. 1. Review the historical 'queue size' growth by inspecting the metric given in the message. 2. Review the maximum 'queue size' limits configured in the rate limiting configuration. 3. Try to space out requests that are likely to require a lot of CPU or database power.      
 
 
 
