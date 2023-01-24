@@ -15,8 +15,12 @@ class FooSubmission(
     submissionConfig: FooSubmissionConfig,
     allocatedParties: AllocatedParties,
     names: Names,
-    partySelectingRandomnessProvider: RandomnessProvider = RandomnessProvider.Default,
-    consumingEventsRandomnessProvider: RandomnessProvider = RandomnessProvider.Default,
+    partySelectingRandomnessProvider: RandomnessProvider,
+    payloadRandomnessProvider: RandomnessProvider,
+    consumingEventsRandomnessProvider: RandomnessProvider,
+    nonConsumingEventsRandomnessProvider: RandomnessProvider,
+    applicationIdRandomnessProvider: RandomnessProvider,
+    contractDescriptionRandomnessProvider: RandomnessProvider,
 ) {
 
   def performSubmission()(implicit
@@ -49,13 +53,16 @@ class FooSubmission(
           Future.unit
         }
       generator: CommandGenerator = new FooCommandGenerator(
-        defaultRandomnessProvider = RandomnessProvider.Default,
         config = submissionConfig,
         divulgeesToDivulgerKeyMap = divulgeesToDivulgerKeyMap,
         names = names,
         allocatedParties = allocatedParties,
         partySelecting = partySelecting,
+        contractDescriptionRandomnessProvider = contractDescriptionRandomnessProvider,
+        payloadRandomnessProvider = payloadRandomnessProvider,
         consumingEventsRandomnessProvider = consumingEventsRandomnessProvider,
+        nonConsumingEventsRandomnessProvider = nonConsumingEventsRandomnessProvider,
+        applicationIdRandomnessProvider = applicationIdRandomnessProvider,
       )
       _ <- submitter
         .generateAndSubmit(

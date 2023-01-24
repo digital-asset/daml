@@ -69,6 +69,12 @@ class InterfaceSubscriptionITSpec
         submissionConfig = config,
         allocatedParties = allocatedParties,
         names = names,
+        partySelectingRandomnessProvider = RandomnessProvider.forSeed(seed = 0),
+        payloadRandomnessProvider = RandomnessProvider.forSeed(seed = 0),
+        consumingEventsRandomnessProvider = RandomnessProvider.forSeed(seed = 0),
+        nonConsumingEventsRandomnessProvider = RandomnessProvider.forSeed(seed = 0),
+        applicationIdRandomnessProvider = RandomnessProvider.forSeed(seed = 0),
+        contractDescriptionRandomnessProvider = RandomnessProvider.forSeed(seed = 0),
       )
       _ <- tested.performSubmission()
       observedEvents <- observer(

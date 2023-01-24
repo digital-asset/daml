@@ -12,23 +12,24 @@ import com.daml.ledger.api.benchtool.services.LedgerApiServices
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.client.binding
+import com.daml.scalautil.Statement.discard
 import com.daml.timer.Delayed
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
-import org.scalatest.{AppendedClues, Ignore, OptionValues}
+import org.scalatest.{AppendedClues, OptionValues}
+import org.scalatest.Checkpoints
 
 import scala.concurrent.Future
 import scala.concurrent.duration.Duration
 
-// Flaky
-@Ignore
 class WeightedApplicationIdsAndSubmittersITSpec
     extends AsyncFlatSpec
     with BenchtoolSandboxFixture
     with SuiteResourceManagementAroundAll
     with Matchers
     with AppendedClues
-    with OptionValues {
+    with OptionValues
+    with Checkpoints {
 
   it should "populate participant with contracts using specified application-ids and submitters" in {
     val submissionConfig = WorkflowConfig.FooSubmissionConfig(
@@ -66,6 +67,12 @@ class WeightedApplicationIdsAndSubmittersITSpec
         submissionConfig = submissionConfig,
         names = names,
         allocatedParties = allocatedParties,
+        partySelectingRandomnessProvider = RandomnessProvider.forSeed(seed = 0),
+        payloadRandomnessProvider = RandomnessProvider.forSeed(seed = 0),
+        consumingEventsRandomnessProvider = RandomnessProvider.forSeed(seed = 0),
+        nonConsumingEventsRandomnessProvider = RandomnessProvider.forSeed(seed = 0),
+        applicationIdRandomnessProvider = RandomnessProvider.forSeed(seed = 0),
+        contractDescriptionRandomnessProvider = RandomnessProvider.forSeed(seed = 0),
       )
       _ <- tested.performSubmission()
       completionsApp1 <- observeCompletions(
@@ -89,13 +96,19 @@ class WeightedApplicationIdsAndSubmittersITSpec
         applicationId = "App-1",
       )
     } yield {
+      val cp = new Checkpoint
       // App only filters
-      completionsApp1.completions.size shouldBe 90 +- 9
-      completionsApp2.completions.size shouldBe 10 +- 9
+      cp(discard(completionsApp1.completions.size shouldBe 85))
+      cp(discard(completionsApp2.completions.size shouldBe 15))
       // App and party filters
-      completionsApp1Submitter0.completions.size shouldBe completionsApp1.completions.size
-      completionsApp1Submitter0.completions.size shouldBe 90 +- 9
-      completionsApp1Submitter1.completions.size shouldBe 10 +- 9
+      cp(
+        discard(
+          completionsApp1Submitter0.completions.size shouldBe completionsApp1.completions.size
+        )
+      )
+      cp(discard(completionsApp1Submitter0.completions.size shouldBe 85))
+      cp(discard(completionsApp1Submitter1.completions.size shouldBe 15))
+      cp.reportAll()
       succeed
     }
   }
