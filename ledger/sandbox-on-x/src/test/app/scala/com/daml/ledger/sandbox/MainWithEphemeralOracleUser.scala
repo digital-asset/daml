@@ -28,6 +28,7 @@ object MainWithEphemeralOracleUser {
             )
           )
         ),
+      registerGlobalOpenTelemetry = false,
     )
   }
 }

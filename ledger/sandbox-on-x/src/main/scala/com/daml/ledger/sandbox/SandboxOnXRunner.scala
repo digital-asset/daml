@@ -34,7 +34,7 @@ import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.api.MetricHandle.Factory
-import com.daml.metrics.{Metrics, OpenTelemetryMeterOwner}
+import com.daml.metrics.Metrics
 import com.daml.platform.LedgerApiServer
 import com.daml.platform.apiserver.configuration.RateLimitingConfig
 import com.daml.platform.apiserver.ratelimiting.ThreadpoolCheck.ThreadpoolCount
@@ -44,6 +44,8 @@ import com.daml.platform.config.ParticipantConfig
 import com.daml.platform.store.DbSupport.ParticipantDataSourceConfig
 import com.daml.platform.store.DbType
 import com.daml.ports.Port
+import com.daml.telemetry.OpenTelemetryOwner
+import com.daml.tracing.DefaultOpenTelemetry
 
 import scala.concurrent.ExecutionContextExecutorService
 import scala.util.Try
@@ -56,11 +58,12 @@ object SandboxOnXRunner {
       configAdaptor: BridgeConfigAdaptor,
       config: Config,
       bridgeConfig: BridgeConfig,
+      registerGlobalOpenTelemetry: Boolean,
   ): ResourceOwner[Port] =
     new ResourceOwner[Port] {
       override def acquire()(implicit context: ResourceContext): Resource[Port] =
         SandboxOnXRunner
-          .run(bridgeConfig, config, configAdaptor)
+          .run(bridgeConfig, config, configAdaptor, registerGlobalOpenTelemetry)
           .acquire()
     }
 
@@ -68,6 +71,7 @@ object SandboxOnXRunner {
       bridgeConfig: BridgeConfig,
       config: Config,
       configAdaptor: BridgeConfigAdaptor,
+      registerGlobalOpenTelemetry: Boolean,
   ): ResourceOwner[Port] = newLoggingContext { implicit loggingContext =>
     implicit val actorSystem: ActorSystem = ActorSystem(RunnerName)
     implicit val materializer: Materializer = Materializer(actorSystem)
@@ -77,13 +81,13 @@ object SandboxOnXRunner {
       // This is necessary because we can't declare them as implicits in a `for` comprehension.
       _ <- ResourceOwner.forActorSystem(() => actorSystem)
       _ <- ResourceOwner.forMaterializer(() => materializer)
-      openTelemetryMeter <- OpenTelemetryMeterOwner(
-        config.metrics.enabled,
-        Some(config.metrics.reporter),
+      openTelemetry <- OpenTelemetryOwner(
+        setAsGlobal = registerGlobalOpenTelemetry,
+        Option.when(config.metrics.enabled)(config.metrics.reporter),
       )
 
       (participantId, dataSource, participantConfig) <- assertSingleParticipant(config)
-      metrics <- MetricsOwner(openTelemetryMeter, config.metrics, participantId)
+      metrics <- MetricsOwner(openTelemetry.getMeter("daml"), config.metrics, participantId)
       timeServiceBackendO = configAdaptor.timeServiceBackend(participantConfig.apiServer)
       (stateUpdatesFeedSink, stateUpdatesSource) <- AkkaSubmissionsBridge()
 
@@ -140,6 +144,7 @@ object SandboxOnXRunner {
         explicitDisclosureUnsafeEnabled = true,
         rateLimitingInterceptor =
           participantConfig.apiServer.rateLimit.map(buildRateLimitingInterceptor(metrics)),
+        telemetry = new DefaultOpenTelemetry(openTelemetry),
       )(actorSystem, materializer).owner
     } yield {
       logInitializationHeader(

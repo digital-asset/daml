@@ -14,7 +14,8 @@ import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.server.api.services.domain.CommandSubmissionService
-import com.daml.tracing.{SpanAttribute, TelemetryContext, TelemetrySpecBase}
+import com.daml.tracing.{DefaultOpenTelemetry, SpanAttribute, TelemetryContext, TelemetrySpecBase}
+import io.opentelemetry.api.GlobalOpenTelemetry
 import org.mockito.captor.ArgCaptor
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.matchers.should.Matchers
@@ -124,6 +125,7 @@ class GrpcCommandSubmissionServiceSpec
       submissionIdGenerator = () => Ref.SubmissionId.assertFromString(generatedSubmissionId),
       metrics = Metrics.ForTesting,
       explicitDisclosureUnsafeEnabled = false,
+      telemetry = new DefaultOpenTelemetry(GlobalOpenTelemetry.get()),
     )
 }
 

@@ -182,7 +182,14 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
         jdbcUrl = jdbcUrl,
       )
       portF <- Future(
-        SandboxOnXRunner.owner(ConfigAdaptor(authService), config, bridgeConfig).acquire()
+        SandboxOnXRunner
+          .owner(
+            ConfigAdaptor(authService),
+            config,
+            bridgeConfig,
+            registerGlobalOpenTelemetry = false,
+          )
+          .acquire()
       )
       port <- portF.asFuture
     } yield (portF, port)

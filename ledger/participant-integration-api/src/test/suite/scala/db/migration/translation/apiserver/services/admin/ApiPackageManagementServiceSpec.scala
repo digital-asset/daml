@@ -5,6 +5,7 @@ package com.daml.platform.apiserver.services.admin
 
 import java.util.concurrent.{CompletableFuture, CompletionStage}
 import java.util.zip.ZipInputStream
+
 import akka.stream.scaladsl.Source
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.daml_lf_dev.DamlLf.Archive
@@ -28,8 +29,9 @@ import com.daml.lf.language.{Ast, LanguageVersion}
 import com.daml.lf.testing.parser.Implicits.defaultParserParameters
 import com.daml.logging.LoggingContext
 import com.daml.tracing.TelemetrySpecBase._
-import com.daml.tracing.{TelemetryContext, TelemetrySpecBase}
+import com.daml.tracing.{DefaultOpenTelemetry, TelemetryContext, TelemetrySpecBase}
 import com.google.protobuf.ByteString
+import io.opentelemetry.api.GlobalOpenTelemetry
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
@@ -98,6 +100,7 @@ class ApiPackageManagementServiceSpec
       mockEngine,
       mockDarReader,
       _ => Ref.SubmissionId.assertFromString("aSubmission"),
+      telemetry = new DefaultOpenTelemetry(GlobalOpenTelemetry.get()),
     )
   }
 }

@@ -21,6 +21,7 @@ object CliSandboxOnXRunner {
   def run(
       args: collection.Seq[String],
       manipulateConfig: CliConfig[BridgeConfig] => CliConfig[BridgeConfig] = identity,
+      registerGlobalOpenTelemetry: Boolean,
   ): Unit = {
     val config = CliConfig
       .parse(
@@ -31,11 +32,12 @@ object CliSandboxOnXRunner {
       )
       .map(manipulateConfig)
       .getOrElse(sys.exit(1))
-    runProgram(config)
+    runProgram(config, registerGlobalOpenTelemetry)
   }
 
   private def runProgram(
-      cliConfig: CliConfig[BridgeConfig]
+      cliConfig: CliConfig[BridgeConfig],
+      registerGlobalOpenTelemetry: Boolean,
   ): Unit =
     cliConfig.mode match {
       case Mode.Run =>
@@ -45,7 +47,7 @@ object CliSandboxOnXRunner {
             System.err.println,
             { sandboxOnXConfig =>
               program(
-                sox(new BridgeConfigAdaptor, sandboxOnXConfig)
+                sox(new BridgeConfigAdaptor, sandboxOnXConfig, registerGlobalOpenTelemetry)
               )
             },
           )
@@ -59,7 +61,7 @@ object CliSandboxOnXRunner {
         val configAdaptor: BridgeConfigAdaptor = new BridgeConfigAdaptor
         val sandboxOnXConfig: SandboxOnXConfig =
           SandboxOnXConfig.fromLegacy(configAdaptor, cliConfig)
-        program(sox(configAdaptor, sandboxOnXConfig))
+        program(sox(configAdaptor, sandboxOnXConfig, registerGlobalOpenTelemetry))
       case Mode.PrintDefaultConfig(outputFilePathO) =>
         val text = genDefaultConfigText(cliConfig.configMap)
         outputFilePathO match {
@@ -85,6 +87,7 @@ object CliSandboxOnXRunner {
   private def sox(
       configAdaptor: BridgeConfigAdaptor,
       sandboxOnXConfig: SandboxOnXConfig,
+      registerGlobalOpenTelemetry: Boolean,
   ): ResourceOwner[Unit] = {
     Banner.show(Console.out)
     logger.withoutContext.info(
@@ -95,6 +98,7 @@ object CliSandboxOnXRunner {
         configAdaptor,
         sandboxOnXConfig.ledger,
         sandboxOnXConfig.bridge,
+        registerGlobalOpenTelemetry,
       )
       .map(_ => ())
   }

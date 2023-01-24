@@ -9,22 +9,22 @@ import akka.actor.ActorSystem
 import akka.http.scaladsl.Http.ServerBinding
 import akka.stream.Materializer
 import com.daml.cliopts.Logging.LogEncoder
-import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
-import com.daml.runtime.JdbcDrivers
-import com.daml.scalautil.Statement.discard
-import com.daml.http.dbbackend.ContractDao
-import scalaz.{-\/, \/, \/-}
-import scalaz.std.anyVal._
-import scalaz.std.option._
-import scalaz.syntax.show._
 import com.daml.cliopts.{GlobalLogLevel, Logging}
-import com.daml.metrics.api.reporters.MetricsReporting
+import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
+import com.daml.http.dbbackend.ContractDao
 import com.daml.http.metrics.HttpJsonApiMetrics
 import com.daml.http.util.Logging.{InstanceUUID, instanceUUIDLogCtx}
 import com.daml.ledger.resources.ResourceContext
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 import com.daml.metrics.api.dropwizard.DropwizardMetricsFactory
 import com.daml.metrics.api.opentelemetry.OpenTelemetryFactory
+import com.daml.metrics.api.reporters.MetricsReporting
+import com.daml.runtime.JdbcDrivers
+import com.daml.scalautil.Statement.discard
+import scalaz.std.anyVal._
+import scalaz.std.option._
+import scalaz.syntax.show._
+import scalaz.{-\/, \/, \/-}
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future}
@@ -101,6 +101,7 @@ object Main {
       getClass.getName,
       config.metricsReporter,
       config.metricsReportingInterval,
+      registerGlobalOpenTelemetry = true,
     )((registry, otelMeter) =>
       new HttpJsonApiMetrics(
         new DropwizardMetricsFactory(registry),
