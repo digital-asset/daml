@@ -79,7 +79,7 @@ NOTICES     @garyverhaegen-da @dasormeter
 /triggers/service/     @ray-roestenburg-da
 
 # Misc
-/docs/              @stefanobaghino-da @digital-asset/daml-docs @hrischuk-da
+/docs/              @digital-asset/daml-docs @hrischuk-da
 /libs-scala/nonempty-cats/src/    @S11001001
 /libs-scala/scala-utils/src/    @S11001001
 /libs-scala/scalatest-utils/src/    @S11001001
