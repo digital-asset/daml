@@ -43,6 +43,7 @@ import com.daml.platform.localstore.api.{
   PartyRecordStore,
   PartyRecordUpdate,
 }
+import com.daml.platform.server.api.services.grpc.Logging.traceId
 import com.daml.platform.server.api.validation.FieldValidations.{
   optionalIdentityProviderId,
   optionalString,
@@ -97,15 +98,20 @@ private[apiserver] final class ApiPartyManagementService private (
 
   override def getParticipantId(
       request: GetParticipantIdRequest
-  ): Future[GetParticipantIdResponse] = {
-    logger.info("Getting Participant ID")
-    partyManagementService
-      .getParticipantId()
-      .map(pid => GetParticipantIdResponse(pid.toString))
-  }
+  ): Future[GetParticipantIdResponse] =
+    withEnrichedLoggingContext(traceId(telemetry.traceIdFromGrpcContext)) {
+      implicit loggingContext =>
+        logger.info("Getting Participant ID")
+        partyManagementService
+          .getParticipantId()
+          .map(pid => GetParticipantIdResponse(pid.toString))
+    }
 
   override def getParties(request: GetPartiesRequest): Future[GetPartiesResponse] =
-    withEnrichedLoggingContext(logging.partyStrings(request.parties)) { implicit loggingContext =>
+    withEnrichedLoggingContext(
+      logging.partyStrings(request.parties),
+      traceId(telemetry.traceIdFromGrpcContext),
+    ) { implicit loggingContext =>
       implicit val errorLogger: DamlContextualizedErrorLogger =
         new DamlContextualizedErrorLogger(logger, loggingContext, None)
       logger.info("Getting parties")
@@ -133,33 +139,36 @@ private[apiserver] final class ApiPartyManagementService private (
 
   override def listKnownParties(
       request: ListKnownPartiesRequest
-  ): Future[ListKnownPartiesResponse] = {
-    logger.info("Listing known parties")
-    implicit val errorLogger: DamlContextualizedErrorLogger =
-      new DamlContextualizedErrorLogger(logger, loggingContext, None)
-    withValidation {
-      optionalIdentityProviderId(
-        request.identityProviderId,
-        "identity_provider_id",
-      )
-    } { identityProviderId =>
-      for {
-        partyDetailsSeq <- partyManagementService.listKnownParties()
-        partyRecords <- fetchPartyRecords(partyDetailsSeq)
-      } yield {
-        val protoDetails = partyDetailsSeq
-          .zip(partyRecords)
-          .map(blindAndConvertToProto(identityProviderId))
-        ListKnownPartiesResponse(protoDetails)
-      }
+  ): Future[ListKnownPartiesResponse] =
+    withEnrichedLoggingContext(traceId(telemetry.traceIdFromGrpcContext)) {
+      implicit loggingContext =>
+        logger.info("Listing known parties")
+        implicit val errorLogger: DamlContextualizedErrorLogger =
+          new DamlContextualizedErrorLogger(logger, loggingContext, None)
+        withValidation {
+          optionalIdentityProviderId(
+            request.identityProviderId,
+            "identity_provider_id",
+          )
+        } { identityProviderId =>
+          for {
+            partyDetailsSeq <- partyManagementService.listKnownParties()
+            partyRecords <- fetchPartyRecords(partyDetailsSeq)
+          } yield {
+            val protoDetails = partyDetailsSeq
+              .zip(partyRecords)
+              .map(blindAndConvertToProto(identityProviderId))
+            ListKnownPartiesResponse(protoDetails)
+          }
+        }
     }
-  }
 
   override def allocateParty(request: AllocatePartyRequest): Future[AllocatePartyResponse] = {
     val submissionId = submissionIdGenerator(request.partyIdHint)
     withEnrichedLoggingContext(
       logging.partyString(request.partyIdHint),
       logging.submissionId(submissionId),
+      traceId(telemetry.traceIdFromGrpcContext),
     ) { implicit loggingContext =>
       logger.info("Allocating party")
       implicit val telemetryContext: TelemetryContext =
@@ -225,7 +234,8 @@ private[apiserver] final class ApiPartyManagementService private (
   ): Future[UpdatePartyDetailsResponse] = {
     val submissionId = submissionIdGenerator(request.partyDetails.fold("")(_.party))
     withEnrichedLoggingContext(
-      logging.submissionId(submissionId)
+      logging.submissionId(submissionId),
+      traceId(telemetry.traceIdFromGrpcContext),
     ) { implicit loggingContext =>
       logger.info("Updating a party")
       implicit val errorLogger: DamlContextualizedErrorLogger =

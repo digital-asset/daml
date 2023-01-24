@@ -81,7 +81,7 @@ private[apiserver] final class ApiSubmissionService private[services] (
     commandExecutor: CommandExecutor,
     checkOverloaded: TelemetryContext => Option[state.SubmissionResult],
     metrics: Metrics,
-)(implicit executionContext: ExecutionContext, loggingContext: LoggingContext)
+)(implicit executionContext: ExecutionContext)
     extends CommandSubmissionService
     with AutoCloseable {
 
@@ -89,7 +89,7 @@ private[apiserver] final class ApiSubmissionService private[services] (
 
   override def submit(
       request: SubmitRequest
-  )(implicit telemetryContext: TelemetryContext): Future[Unit] =
+  )(implicit telemetryContext: TelemetryContext, loggingContext: LoggingContext): Future[Unit] =
     withEnrichedLoggingContext(logging.commands(request.commands)) { implicit loggingContext =>
       logger.info("Submitting commands for interpretation")
       logger.trace(s"Commands: ${request.commands.commands.commands}")
@@ -173,7 +173,10 @@ private[apiserver] final class ApiSubmissionService private[services] (
   private def submitTransaction(
       transactionInfo: CommandExecutionResult,
       ledgerConfig: Configuration,
-  )(implicit telemetryContext: TelemetryContext): Future[state.SubmissionResult] =
+  )(implicit
+      telemetryContext: TelemetryContext,
+      loggingContext: LoggingContext,
+  ): Future[state.SubmissionResult] =
     timeProviderType match {
       case TimeProviderType.WallClock =>
         // Submit transactions such that they arrive at the ledger sequencer exactly when record time equals ledger time.
@@ -197,7 +200,10 @@ private[apiserver] final class ApiSubmissionService private[services] (
 
   private def submitTransaction(
       result: CommandExecutionResult
-  )(implicit telemetryContext: TelemetryContext): Future[state.SubmissionResult] = {
+  )(implicit
+      telemetryContext: TelemetryContext,
+      loggingContext: LoggingContext,
+  ): Future[state.SubmissionResult] = {
     metrics.daml.commands.validSubmissions.mark()
     logger.debug("Submitting transaction to ledger")
     writeService

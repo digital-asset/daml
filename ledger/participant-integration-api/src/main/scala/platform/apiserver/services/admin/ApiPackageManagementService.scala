@@ -28,6 +28,7 @@ import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.apiserver.services.admin.ApiPackageManagementService._
 import com.daml.platform.apiserver.services.logging
 import com.daml.tracing.{Telemetry, TelemetryContext}
+import com.daml.platform.server.api.services.grpc.Logging.traceId
 import com.google.protobuf.ByteString
 import io.grpc.{ServerServiceDefinition, StatusRuntimeException}
 import scalaz.std.either._
@@ -76,22 +77,24 @@ private[apiserver] final class ApiPackageManagementService private (
 
   override def listKnownPackages(
       request: ListKnownPackagesRequest
-  ): Future[ListKnownPackagesResponse] = {
-    logger.info("Listing known packages")
-    packagesIndex
-      .listLfPackages()
-      .map { pkgs =>
-        ListKnownPackagesResponse(pkgs.toSeq.map { case (pkgId, details) =>
-          PackageDetails(
-            pkgId.toString,
-            details.size,
-            Some(TimestampConversion.fromLf(details.knownSince)),
-            details.sourceDescription.getOrElse(""),
-          )
-        })
-      }
-      .andThen(logger.logErrorsOnCall[ListKnownPackagesResponse])
-  }
+  ): Future[ListKnownPackagesResponse] =
+    withEnrichedLoggingContext(traceId(telemetry.traceIdFromGrpcContext)) {
+      implicit loggingContext =>
+        logger.info("Listing known packages")
+        packagesIndex
+          .listLfPackages()
+          .map { pkgs =>
+            ListKnownPackagesResponse(pkgs.toSeq.map { case (pkgId, details) =>
+              PackageDetails(
+                pkgId.toString,
+                details.size,
+                Some(TimestampConversion.fromLf(details.knownSince)),
+                details.sourceDescription.getOrElse(""),
+              )
+            })
+          }
+          .andThen(logger.logErrorsOnCall[ListKnownPackagesResponse])
+    }
 
   private def decodeAndValidate(
       darFile: ByteString
@@ -117,7 +120,10 @@ private[apiserver] final class ApiPackageManagementService private (
 
   override def uploadDarFile(request: UploadDarFileRequest): Future[UploadDarFileResponse] = {
     val submissionId = submissionIdGenerator(request.submissionId)
-    withEnrichedLoggingContext(logging.submissionId(submissionId)) { implicit loggingContext =>
+    withEnrichedLoggingContext(
+      logging.submissionId(submissionId),
+      traceId(telemetry.traceIdFromGrpcContext),
+    ) { implicit loggingContext =>
       logger.info("Uploading DAR file")
 
       implicit val telemetryContext: TelemetryContext =

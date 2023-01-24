@@ -152,7 +152,7 @@ private[daml] object ApiServices {
         checkOverloaded: TelemetryContext => Option[state.SubmissionResult],
     )(implicit executionContext: ExecutionContext): List[BindableService] = {
       val apiTransactionService =
-        ApiTransactionService.create(ledgerId, transactionsService, metrics)
+        ApiTransactionService.create(ledgerId, transactionsService, metrics, telemetry)
 
       val apiLedgerIdentityService =
         ApiLedgerIdentityService.create(ledgerId)
@@ -164,7 +164,7 @@ private[daml] object ApiServices {
         )
 
       val apiPackageService =
-        ApiPackageService.create(ledgerId, packagesService)
+        ApiPackageService.create(ledgerId, packagesService, telemetry)
 
       val apiConfigurationService =
         ApiLedgerConfigurationService.create(ledgerId, configurationService)
@@ -174,6 +174,7 @@ private[daml] object ApiServices {
           ledgerId,
           completionsService,
           metrics,
+          telemetry,
         )
 
       val apiActiveContractsService =
@@ -181,6 +182,7 @@ private[daml] object ApiServices {
           ledgerId,
           activeContractsService,
           metrics,
+          telemetry,
         )
 
       val apiTimeServiceOpt =
@@ -224,7 +226,7 @@ private[daml] object ApiServices {
         }
 
       val apiMeteringReportService =
-        new ApiMeteringReportService(participantId, meteringStore, meteringReportKey)
+        new ApiMeteringReportService(participantId, meteringStore, meteringReportKey, telemetry)
 
       apiTimeServiceOpt.toList :::
         writeServiceBackedApiServices :::
@@ -335,6 +337,7 @@ private[daml] object ApiServices {
             indexService,
             writeService,
             metrics,
+            telemetry,
           )
 
         List(

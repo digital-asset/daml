@@ -79,6 +79,13 @@ abstract class Telemetry(protected val tracer: Tracer) {
     * Any span create from this context should be the first span of a new trace.
     */
   protected def rootContext: TelemetryContext
+
+  /** Returns the trace-id of the telemetry context from the OpenTelemetry context stored in the gRPC
+    * thread local context.
+    * This is used to obtain the tracing id from an incoming gRPC call.
+    */
+  def traceIdFromGrpcContext: Option[String] = contextFromGrpcThreadLocalContext().traceId
+
 }
 
 abstract class DefaultTelemetry(override protected val tracer: Tracer) extends Telemetry(tracer) {

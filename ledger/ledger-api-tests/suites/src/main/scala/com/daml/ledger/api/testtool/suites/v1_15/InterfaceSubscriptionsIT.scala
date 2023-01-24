@@ -481,8 +481,15 @@ class InterfaceSubscriptionsIT extends LedgerTestSuite {
       )
       assertEquals(
         "1 and 3 produce the same views (but not the same create arguments)",
-        transactions1.map(updateTransaction()),
-        transactions3.map(updateTransaction(emptyContractKey = true, emptyCreateArguments = true)),
+        // do not check on details since tid is contained and it is expected to be different
+        transactions1.map(updateTransaction(emptyDetails = true)),
+        transactions3.map(
+          updateTransaction(
+            emptyContractKey = true,
+            emptyCreateArguments = true,
+            emptyDetails = true,
+          )
+        ),
       )
     }
   })
@@ -681,6 +688,7 @@ class InterfaceSubscriptionsIT extends LedgerTestSuite {
       emptyWitness: Boolean = false,
       emptyCreateArguments: Boolean = false,
       emptyContractKey: Boolean = false,
+      emptyDetails: Boolean = false,
   )(tx: com.daml.ledger.api.v1.transaction.Transaction): Transaction = {
     tx.copy(
       events = tx.events.map { event =>
@@ -689,7 +697,15 @@ class InterfaceSubscriptionsIT extends LedgerTestSuite {
             created.copy(value =
               created.value.copy(
                 witnessParties = if (emptyWitness) Seq.empty else created.value.witnessParties,
-                interfaceViews = if (emptyView) Seq.empty else created.value.interfaceViews,
+                interfaceViews =
+                  if (emptyView) Seq.empty
+                  else if (emptyDetails)
+                    created.value.interfaceViews.map(iv =>
+                      iv.copy(viewStatus =
+                        iv.viewStatus.map(status => status.copy(details = Seq.empty))
+                      )
+                    )
+                  else created.value.interfaceViews,
                 contractKey = if (emptyContractKey) None else created.value.contractKey,
                 createArguments = if (emptyCreateArguments) None else created.value.createArguments,
               )

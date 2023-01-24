@@ -36,6 +36,7 @@ final class ContextualizedLoggerSpec
       val m = logger.withoutContext
       verify(m).info(toStringEqTo[Marker]("""{id: "foobar"}"""), eqTo("a"))
     }
+
   it should "decorate the logs with rich, structured context" in
     withContext("id" -> 7, "parties" -> Seq("one", "two", "three"))() {
       logger => implicit loggingContext =>

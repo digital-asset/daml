@@ -16,13 +16,16 @@ import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.server.api.ValidationLogger
+import com.daml.platform.server.api.services.grpc.Logging.traceId
 import com.daml.platform.server.api.validation.PackageServiceValidation
+import com.daml.tracing.Telemetry
 import io.grpc.{BindableService, ServerServiceDefinition}
 
 import scala.concurrent.{ExecutionContext, Future}
 
 private[apiserver] final class ApiPackageService private (
-    backend: IndexPackagesService
+    backend: IndexPackagesService,
+    telemetry: Telemetry,
 )(implicit executionContext: ExecutionContext, loggingContext: LoggingContext)
     extends PackageService
     with GrpcApiService {
@@ -35,15 +38,21 @@ private[apiserver] final class ApiPackageService private (
   override def close(): Unit = ()
 
   override def listPackages(request: ListPackagesRequest): Future[ListPackagesResponse] = {
-    logger.info(s"Received request to list packages: $request")
-    backend
-      .listLfPackages()
-      .map(p => ListPackagesResponse(p.keys.toSeq))
-      .andThen(logger.logErrorsOnCall[ListPackagesResponse])
+    withEnrichedLoggingContext(traceId(telemetry.traceIdFromGrpcContext)) {
+      implicit loggingContext =>
+        logger.info(s"Received request to list packages: $request")
+        backend
+          .listLfPackages()
+          .map(p => ListPackagesResponse(p.keys.toSeq))
+          .andThen(logger.logErrorsOnCall[ListPackagesResponse])
+    }
   }
 
   override def getPackage(request: GetPackageRequest): Future[GetPackageResponse] =
-    withEnrichedLoggingContext("packageId" -> request.packageId) { implicit loggingContext =>
+    withEnrichedLoggingContext(
+      logging.packageId(request.packageId),
+      traceId(telemetry.traceIdFromGrpcContext),
+    ) { implicit loggingContext =>
       logger.info(s"Received request for a package: $request")
       withValidatedPackageId(request.packageId, request) { packageId =>
         backend
@@ -66,7 +75,10 @@ private[apiserver] final class ApiPackageService private (
   override def getPackageStatus(
       request: GetPackageStatusRequest
   ): Future[GetPackageStatusResponse] =
-    withEnrichedLoggingContext("packageId" -> request.packageId) { implicit loggingContext =>
+    withEnrichedLoggingContext(
+      logging.packageId(request.packageId),
+      traceId(telemetry.traceIdFromGrpcContext),
+    ) { implicit loggingContext =>
       logger.info(s"Received request for a package status: $request")
       withValidatedPackageId(request.packageId, request) { packageId =>
         backend
@@ -124,12 +136,14 @@ private[platform] object ApiPackageService {
   def create(
       ledgerId: LedgerId,
       backend: IndexPackagesService,
+      telemetry: Telemetry,
   )(implicit
       executionContext: ExecutionContext,
       loggingContext: LoggingContext,
   ): PackageService with GrpcApiService = {
     val service = new ApiPackageService(
-      backend = backend
+      backend = backend,
+      telemetry = telemetry,
     )
     new PackageServiceValidation(
       service = service,

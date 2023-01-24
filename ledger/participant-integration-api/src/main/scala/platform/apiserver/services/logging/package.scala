@@ -91,6 +91,9 @@ package object logging {
   private[services] def workflowId(id: String): LoggingEntry =
     "workflowId" -> id
 
+  private[services] def packageId(id: String): LoggingEntry =
+    "packageId" -> id
+
   private[services] def commands(cmds: Commands): LoggingEntry =
     "commands" -> cmds
 

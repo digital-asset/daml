@@ -30,6 +30,7 @@ import com.daml.lf.testing.parser.Implicits.defaultParserParameters
 import com.daml.logging.LoggingContext
 import com.daml.tracing.TelemetrySpecBase._
 import com.daml.tracing.{DefaultOpenTelemetry, TelemetryContext, TelemetrySpecBase}
+import com.daml.platform.testing.LogCollector
 import com.google.protobuf.ByteString
 import io.opentelemetry.api.GlobalOpenTelemetry
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
@@ -51,9 +52,15 @@ class ApiPackageManagementServiceSpec
 
   private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
 
+  override def beforeEach(): Unit = {
+    super.beforeEach()
+    LogCollector.clear[this.type]
+  }
+
+  val apiService = createApiService()
+
   "ApiPackageManagementService $suffix" should {
     "propagate trace context" in {
-      val apiService = createApiService()
 
       val span = anEmptySpan()
       val scope = span.makeCurrent()
@@ -68,6 +75,27 @@ class ApiPackageManagementServiceSpec
           succeed
         }
     }
+
+    "have a tid" in {
+      def readLog(): Seq[LogCollector.Entry] =
+        LogCollector.readAsEntries[this.type, ApiPackageManagementService]
+
+      val span = anEmptySpan()
+      val _ = span.makeCurrent()
+      apiService
+        .uploadDarFile(UploadDarFileRequest(ByteString.EMPTY, aSubmissionId))
+        .map { _ =>
+          val logs = readLog()
+          val markers = logs.map(_.marker.fold("")(_.toString))
+          val nonEmptyTid = ".*tid: \"[a-zA-Z0-9]+\"}"
+          assert(logs.nonEmpty, "No logs were found")
+          assert(
+            markers.forall(_.matches(nonEmptyTid)),
+            "At least one log entry does not contain a trace-id",
+          )
+        }
+    }
+
   }
 
   private def createApiService(): PackageManagementServiceGrpc.PackageManagementService = {
