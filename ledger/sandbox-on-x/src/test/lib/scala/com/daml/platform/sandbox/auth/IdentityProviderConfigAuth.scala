@@ -33,7 +33,7 @@ trait IdentityProviderConfigAuth {
         isDeactivated = false,
         issuer = issuer,
         jwksUrl =
-          TestJwtVerifierLoader.jwksUrl1.value, // token must be signed with default `jwtSecret`
+          TestJwtVerifierLoader.jwksUrl1.value, // token must be signed with `TestJwtVerifierLoader.secret1`
       )
     createConfig(context, config)
   }

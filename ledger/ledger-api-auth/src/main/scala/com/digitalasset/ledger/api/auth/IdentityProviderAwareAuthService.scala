@@ -42,7 +42,8 @@ class IdentityProviderAwareAuthService(
               ClaimSet.Unauthenticated
             }
         }).asJava
-      case result => CompletableFuture.completedFuture(result)
+      case result =>
+        CompletableFuture.completedFuture(result)
     }
   }
 

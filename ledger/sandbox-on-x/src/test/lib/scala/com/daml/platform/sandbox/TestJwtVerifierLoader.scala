@@ -10,14 +10,14 @@ import com.daml.platform.sandbox.TestJwtVerifierLoader._
 
 import scala.concurrent.Future
 
-class TestJwtVerifierLoader(defaultHMACSecret: String) extends JwtVerifierLoader {
+class TestJwtVerifierLoader() extends JwtVerifierLoader {
   private def verifier(secret: String): JwtVerifier =
     HMAC256Verifier(secret).getOrElse(sys.error("Failed to create HMAC256 verifier"))
 
-  private val defaultJwtVerifier = verifier(defaultHMACSecret)
+  private val defaultJwtVerifier = verifier(secret1)
 
   private val verifierMap = Map(
-    jwksUrl1 -> Future.successful(verifier(defaultHMACSecret)),
+    jwksUrl1 -> Future.successful(verifier(secret1)),
     jwksUrl2 -> Future.successful(verifier(secret2)),
     jwksUrl3 -> Future.failed(new VerifierException),
   )
@@ -33,6 +33,7 @@ object TestJwtVerifierLoader {
   val jwksUrl2: JwksUrl = JwksUrl.assertFromString("http://daml.com/jwks2.json")
   val jwksUrl3: JwksUrl = JwksUrl.assertFromString("http://daml.com/jwks3.json")
 
+  val secret1: String = "secret1"
   val secret2: String = "secret2"
 
   class VerifierException extends Exception("Unable to find verifier")
