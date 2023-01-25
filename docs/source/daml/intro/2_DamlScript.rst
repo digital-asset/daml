@@ -122,11 +122,16 @@ To test for failing submits and keep the script running thereafter, or fail if t
 Archive Contracts
 -----------------
 
-Archiving contracts works just like creating them, but using ``archiveCmd`` instead of ``createCmd``. Where ``createCmd`` takes an instance of a template, ``archiveCmd`` takes a reference to a contract.
+Archiving contracts is the counterpart to creating contracts. As contracts are immutable, whenever you want to update them (loosely: change their state) you have to archive the current contract residing on the ledger and create a new one.
 
-References to contracts have the type ``ContractId a``, where ``a`` is a *type parameter* representing the type of contract that the ID refers to. For example, a reference to a ``Token`` would be a ``ContractId Token``.
+To archive a contract use the ``archiveCmd`` instead of ``createCmd``. Whereas ``createCmd`` takes an instance of a template, ``archiveCmd`` takes a reference to a created contract. Archiving requires authorization from controllers.
 
-To ``archiveCmd`` the token Alice has created, you need to get a handle on its contract ID. In scripts, you do this using ``<-`` notation. That's because the contract ID needs to be retrieved from the ledger. How this works is discussed in :doc:`5_Restrictions`.
+.. important::
+    Archive choices are present on all templates and cannot be removed.
+
+References to contracts have the type ``ContractId a``, where ``a`` is a *type parameter* representing the type of contract that the id refers to. For example, a reference to a ``Token`` would be a ``ContractId Token``.
+
+To ``archiveCmd`` the token Alice has created, you need the contract id. Retrieve the contract id from the ledger with the ``<-`` notation. How this works is discussed in :doc:`5_Restrictions`.
 
 This script first checks that Bob cannot archive Alice's token. Then Alice successfully archives it:
 
