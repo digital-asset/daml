@@ -13,6 +13,7 @@ import com.daml.metrics.api.dropwizard.{
   DropwizardTimer,
 }
 import com.daml.metrics.api.testing.InMemoryMetricsFactory.{
+  InMemoryCounter,
   InMemoryHistogram,
   InMemoryMeter,
   InMemoryTimer,
@@ -65,6 +66,7 @@ trait MetricValues {
 
     def value: Long = counter match {
       case DropwizardCounter(_, metric) => metric.getCount
+      case timer @ InMemoryCounter(_) => singleValueFromContexts(timer.markers.toMap).get()
       case other =>
         throw new IllegalArgumentException(s"Value not supported for $other")
     }
