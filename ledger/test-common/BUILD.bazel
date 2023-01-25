@@ -81,7 +81,7 @@ alias(
             ],
         ),
     ]
-    for target in lf_version_configuration_versions
+    for target in lf_version_configuration_versions + ["1.14"]
 ]
 
 # Carbon tests helps to test upgrades when packages are dependent on each other
@@ -103,7 +103,7 @@ general_test_names = [
 # Correspond to the directories under src/test/lib/daml
 test_names = {
     lf_version: general_test_names + (carbon_test_names if versions.gte(lf_version, "1.15") else [])
-    for lf_version in lf_version_configuration_versions
+    for lf_version in lf_version_configuration_versions + ["1.14"]
 }
 
 da_scala_dar_resources_library(
@@ -127,7 +127,7 @@ da_scala_dar_resources_library(
             "**/*Interface*daml",
         ],
     },
-    lf_versions = lf_version_configuration_versions,
+    lf_versions = lf_version_configuration_versions + ["1.14"],
     maven_name_prefix = "test",
     visibility = ["//visibility:public"],
 )
@@ -162,5 +162,5 @@ da_scala_dar_resources_library(
         ]
         for test_name in test_names.get(target, [])
     ]
-    for target in lf_version_configuration_versions
+    for target in lf_version_configuration_versions + ["1.14"]
 ]
