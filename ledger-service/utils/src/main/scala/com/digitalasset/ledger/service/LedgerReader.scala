@@ -77,6 +77,8 @@ object LedgerReader {
         .expireAfterWrite(60, java.util.concurrent.TimeUnit.SECONDS),
       None,
     )
+
+    private[LedgerReader] val ParallelLoadFactor = 8
   }
 
   object LoadCache {
@@ -90,24 +92,28 @@ object LedgerReader {
       ledgerId: LedgerId,
       token: Option[String],
   )(implicit ec: ExecutionContext): Future[Error \/ PS] = {
-    packageIds
-      .traverse { pkid =>
-        val ck = (ledgerId, pkid)
-        loadCache.cache
-          .getIfPresent(ck)
-          .cata(
-            { v => println("s11 hit"); Future.successful(v) },
-            client.getPackage(pkid, ledgerId, token).map { pkresp =>
-              println(
-                loadCache.cache.getIfPresent(ck).cata(_ => "s11 granular contention", "s11 miss")
-              )
-              loadCache.cache.put(ck, pkresp)
-              pkresp
-            },
-          )
+    util.Random
+      .shuffle(packageIds)
+      .grouped(loadCache.ParallelLoadFactor)
+      .toList
+      .traverseFM {
+        _.traverse { pkid =>
+          val ck = (ledgerId, pkid)
+          loadCache.cache
+            .getIfPresent(ck)
+            .cata(
+              { v => println("s11 hit"); Future.successful(v) },
+              client.getPackage(pkid, ledgerId, token).map { pkresp =>
+                println(
+                  loadCache.cache.getIfPresent(ck).cata(_ => "s11 granular contention", "s11 miss")
+                )
+                loadCache.cache.put(ck, pkresp)
+                pkresp
+              },
+            )
+        }
       }
-      .map(createPackageStoreFromArchives)
-      .map(_.map(Some(_)))
+      .map(groups => createPackageStoreFromArchives(groups.flatten).map(Some(_)))
   }
 
   private def createPackageStoreFromArchives(
@@ -149,5 +155,23 @@ object LedgerReader {
         } yield DefDataType(ImmArraySeq(), viewType)
       }
     }
+  }
+
+  // TODO #15922 factor with jdbcledgerdaosuite
+  private implicit final class `TraverseFM Ops`[T[_], A](private val self: T[A]) extends AnyVal {
+
+    import scalaz.syntax.traverse._
+    import scalaz.{Free, Monad, NaturalTransformation, Traverse}
+
+    /** Like `traverse`, but guarantees that
+      *
+      *  - `f` is evaluated left-to-right, and
+      *  - `B` from the preceding element is evaluated before `f` is invoked for
+      *    the subsequent `A`.
+      */
+    def traverseFM[F[_]: Monad, B](f: A => F[B])(implicit T: Traverse[T]): F[T[B]] =
+      self
+        .traverse(a => Free suspend (Free liftF f(a)))
+        .foldMap(NaturalTransformation.refl)
   }
 }
