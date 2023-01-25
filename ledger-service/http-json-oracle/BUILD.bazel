@@ -118,6 +118,7 @@ da_scala_test_suite(
         "//libs-scala/jwt",
         "//libs-scala/oracle-testing",
         "//libs-scala/ports",
+        "//observability/metrics:metrics-test-lib",
         "@maven//:org_scalatest_scalatest_compatible",
     ],
 )
