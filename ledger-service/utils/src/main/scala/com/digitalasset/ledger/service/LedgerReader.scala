@@ -91,9 +91,9 @@ object LedgerReader {
   }
 
   private def retryLoop[A](fa: => Future[A])(implicit ec: ExecutionContext): Future[A] =
-    randomRetry() { (_, _) => fa }
+    packageRetry { (_, _) => fa }
 
-  private def randomRetry(): RetryStrategy = {
+  private val packageRetry: RetryStrategy = {
     import concurrent.duration._, com.google.rpc.Code
     RetryStrategy.constant(
       Some(20),
