@@ -596,8 +596,7 @@ private[lf] object Speedy {
       run() match {
         case SResultError(err) => Left(err)
         case SResultFinal(v) => Right(v)
-        case SResultInterruption(callback) =>
-          callback()
+        case SResultInterruption =>
           runPure()
         case SResultQuestion(nothing) => nothing
       }
@@ -829,12 +828,12 @@ private[lf] object Speedy {
         def loop(): SResult[Q] = {
           if (enableInstrumentation)
             Classify.classifyMachine(this, track.classifyCounts)
-          val thisControl = control
-          setControl(Control.WeAreUnset)
           if (interruptionCountDown == 0) {
             interruptionCountDown = iterationsBetweenInterruptions
-            SResultInterruption(() => control = thisControl)
+            SResultInterruption
           } else {
+            val thisControl = control
+            setControl(Control.WeAreUnset)
             interruptionCountDown -= 1
             thisControl match {
               case Control.Value(value) =>

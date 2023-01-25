@@ -436,10 +436,9 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
               )
           }
 
-        case SResultInterruption(callback) =>
+        case SResultInterruption =>
           // TODO https://github.com/digital-asset/daml/issues/13954
           //  add a case in Engine.Result to handle this
-          callback()
           loop()
 
         case _: SResultFinal =>

@@ -107,8 +107,7 @@ private[lf] class CollectAuthorityState {
               callback(value)
             case ScenarioRunner.SubmissionError(err, _) => crash(s"Submission failed $err")
           }
-        case SResultInterruption(callback) =>
-          callback()
+        case SResultInterruption =>
         case SResultFinal(v) => finalValue = v
         case r => crash(s"bench run: unexpected result from speedy: ${r}")
       }
@@ -155,8 +154,7 @@ private[lf] class CollectAuthorityState {
               cachedContract ++= api.cachedContract
               step = api.step
           }
-        case SResultInterruption(callback) =>
-          callback()
+        case SResultInterruption =>
         case SResultFinal(v) =>
           finalValue = v
         case r =>

@@ -106,8 +106,7 @@ final class ScenarioRunner private (
         case SResultFinal(v) =>
           finalValue = v
 
-        case SResultInterruption(callback) =>
-          callback()
+        case SResultInterruption =>
 
         case SResultError(err) =>
           throw scenario.Error.RunnerException(err)
@@ -455,16 +454,14 @@ private[lf] object ScenarioRunner {
             case res: Question.Update.NeedPackage =>
               throw Error.Internal(s"unexpected $res")
           }
-        case SResultInterruption(callback) =>
-          if (deadlineInNanos < System.nanoTime()) {
+        case SResultInterruption =>
+          if (deadlineInNanos < System.nanoTime())
             SubmissionError(
               Error.Timeout(timeout),
               enrich(ledgerMachine.incompleteTransaction),
             )
-          } else {
-            callback()
+          else
             go()
-          }
         case SResult.SResultFinal(resultValue) =>
           ledgerMachine.finish match {
             case Right(Speedy.UpdateMachine.Result(tx, locationInfo, _, _, _)) =>
