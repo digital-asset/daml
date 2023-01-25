@@ -15,9 +15,7 @@ class PackageClient(val ledgerId: LedgerId, service: PackageServiceStub) {
   def listPackages(token: Option[String] = None): Future[ListPackagesResponse] =
     it.listPackages(ledgerId, token)
 
-  def getPackage(packageId: String, token: Option[String] = None)(implicit
-      ec: concurrent.ExecutionContext
-  ): Future[GetPackageResponse] =
+  def getPackage(packageId: String, token: Option[String] = None): Future[GetPackageResponse] =
     it.getPackage(packageId, ledgerId, token)
 
   def getPackageStatus(
