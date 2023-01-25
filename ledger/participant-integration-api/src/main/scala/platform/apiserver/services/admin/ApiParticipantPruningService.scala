@@ -20,7 +20,6 @@ import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.{IndexParticipantPruningService, LedgerEndService}
 import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.lf.data.Ref
-import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.lf.data.Ref.IdString
 import com.daml.lf.data.Ref.IdString.LedgerString
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
@@ -57,18 +56,20 @@ final class ApiParticipantPruningService private (
 
   override def prune(request: PruneRequest): Future[PruneResponse] =
     withValidatedSubmissionId(request) { submissionId =>
-      LoggingContext.withEnrichedLoggingContext(logging.submissionId(submissionId)) {
-        implicit loggingContext =>
-          implicit val contextualizedErrorLogger: ContextualizedErrorLogger =
-            new DamlContextualizedErrorLogger(
-              logger = logger,
-              loggingContext = loggingContext,
-              correlationId = Some(submissionId),
-            )
+      LoggingContext.withEnrichedLoggingContext(
+        logging.submissionId(submissionId),
+        traceId(telemetry.traceIdFromGrpcContext),
+      ) { implicit loggingContext =>
+        implicit val contextualizedErrorLogger: ContextualizedErrorLogger =
+          new DamlContextualizedErrorLogger(
+            logger = logger,
+            loggingContext = loggingContext,
+            correlationId = Some(submissionId),
+          )
 
-          ifNotRunning {
-            pruneInternal(submissionId, request)
-          }
+        ifNotRunning {
+          pruneInternal(submissionId, request)
+        }
       }
     }
 

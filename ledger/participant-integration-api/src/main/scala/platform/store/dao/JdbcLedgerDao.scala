@@ -405,6 +405,7 @@ private class JdbcLedgerDao(
 
     dbDispatcher
       .executeSql(metrics.daml.index.db.pruneDbMetrics) { conn =>
+        // TODO pruning: Extract outside of prune() in order to not execute for each pruning window
         if (
           !readStorageBackend.eventStorageBackend.isPruningOffsetValidAgainstMigration(
             pruneUpToInclusive,
