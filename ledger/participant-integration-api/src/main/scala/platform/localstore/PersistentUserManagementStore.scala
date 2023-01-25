@@ -246,7 +246,10 @@ class PersistentUserManagementStore(
     inTransaction(_.deleteUser) { implicit connection =>
       withUser(id, identityProviderId) { _ =>
         backend.deleteUser(id = id)(connection)
-      }.map(_ => ())
+      }.flatMap {
+        case true => Right(())
+        case false => Left(UserNotFound(userId = id))
+      }
     }.map(tapSuccess { _ =>
       logger.info(s"Deleted user with id: ${id}")
     })(scala.concurrent.ExecutionContext.parasitic)
