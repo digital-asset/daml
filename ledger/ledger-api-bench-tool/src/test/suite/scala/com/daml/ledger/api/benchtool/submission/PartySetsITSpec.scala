@@ -17,9 +17,10 @@ import com.daml.ledger.api.benchtool.config.WorkflowConfig.StreamConfig.{
 import com.daml.ledger.api.benchtool.services.LedgerApiServices
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
+import com.daml.scalautil.Statement.discard
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
-import org.scalatest.{AppendedClues, OptionValues}
+import org.scalatest.{AppendedClues, Checkpoints, OptionValues}
 
 import scala.concurrent.Future
 
@@ -29,7 +30,8 @@ class PartySetsITSpec
     with SuiteResourceManagementAroundAll
     with Matchers
     with AppendedClues
-    with OptionValues {
+    with OptionValues
+    with Checkpoints {
 
   it should "submit a party-set and apply party-set filter on a stream" in {
     val submissionConfig = WorkflowConfig.FooSubmissionConfig(
@@ -83,7 +85,11 @@ class PartySetsITSpec
         allocatedParties = allocatedParties,
         names = names,
         partySelectingRandomnessProvider = RandomnessProvider.forSeed(seed = 0),
+        payloadRandomnessProvider = RandomnessProvider.forSeed(seed = 0),
         consumingEventsRandomnessProvider = RandomnessProvider.forSeed(seed = 0),
+        nonConsumingEventsRandomnessProvider = RandomnessProvider.forSeed(seed = 0),
+        applicationIdRandomnessProvider = RandomnessProvider.forSeed(seed = 0),
+        contractDescriptionRandomnessProvider = RandomnessProvider.forSeed(seed = 0),
       )
       _ <- tested.performSubmission()
       _ = allocatedParties.observerPartySets
@@ -125,35 +131,86 @@ class PartySetsITSpec
       )
 
     } yield {
+      val cp = new Checkpoint
+
       { // Party from party set
-        treeResults_fooParty87.numberOfCreatesPerTemplateName("Foo1") shouldBe 6
-        treeResults_fooParty87.numberOfNonConsumingExercisesPerTemplateName("Foo1") shouldBe 12
-        treeResults_fooParty87.numberOfConsumingExercisesPerTemplateName("Foo1") shouldBe 1
+        cp(discard(treeResults_fooParty87.numberOfCreatesPerTemplateName("Foo1") shouldBe 6))
+        cp(
+          discard(
+            treeResults_fooParty87.numberOfNonConsumingExercisesPerTemplateName("Foo1") shouldBe 12
+          )
+        )
+        cp(
+          discard(
+            treeResults_fooParty87.numberOfConsumingExercisesPerTemplateName("Foo1") shouldBe 1
+          )
+        )
       }
       { // Foo party set
-        treeResults_fooPartySet.numberOfCreatesPerTemplateName("Foo1") shouldBe 10
-        treeResults_fooPartySet.numberOfNonConsumingExercisesPerTemplateName("Foo1") shouldBe 20
-        treeResults_fooPartySet.numberOfConsumingExercisesPerTemplateName("Foo1") shouldBe 1
+        cp(discard(treeResults_fooPartySet.numberOfCreatesPerTemplateName("Foo1") shouldBe 10))
+        cp(
+          discard(
+            treeResults_fooPartySet.numberOfNonConsumingExercisesPerTemplateName("Foo1") shouldBe 20
+          )
+        )
+        cp(
+          discard(
+            treeResults_fooPartySet.numberOfConsumingExercisesPerTemplateName("Foo1") shouldBe 1
+          )
+        )
       }
       { // Foo party set subset
-        treeResults_fooPartyNamePrefix.numberOfCreatesPerTemplateName("Foo1") shouldBe 10
-        treeResults_fooPartyNamePrefix.numberOfNonConsumingExercisesPerTemplateName(
-          "Foo1"
-        ) shouldBe 20
-        treeResults_fooPartyNamePrefix.numberOfConsumingExercisesPerTemplateName("Foo1") shouldBe 1
+        cp(
+          discard(treeResults_fooPartyNamePrefix.numberOfCreatesPerTemplateName("Foo1") shouldBe 10)
+        )
+        cp(
+          discard(
+            treeResults_fooPartyNamePrefix.numberOfNonConsumingExercisesPerTemplateName(
+              "Foo1"
+            ) shouldBe 20
+          )
+        )
+        cp(
+          discard(
+            treeResults_fooPartyNamePrefix.numberOfConsumingExercisesPerTemplateName(
+              "Foo1"
+            ) shouldBe 1
+          )
+        )
       }
       { // Bar party set
-        treeResults_barPartySet.numberOfCreatesPerTemplateName("Foo1") shouldBe 7
-        treeResults_barPartySet.numberOfNonConsumingExercisesPerTemplateName("Foo1") shouldBe 14
-        treeResults_barPartySet.numberOfConsumingExercisesPerTemplateName("Foo1") shouldBe 1
+        cp(discard(treeResults_barPartySet.numberOfCreatesPerTemplateName("Foo1") shouldBe 7))
+        cp(
+          discard(
+            treeResults_barPartySet.numberOfNonConsumingExercisesPerTemplateName("Foo1") shouldBe 14
+          )
+        )
+        cp(
+          discard(
+            treeResults_barPartySet.numberOfConsumingExercisesPerTemplateName("Foo1") shouldBe 1
+          )
+        )
       }
       { // Bar party set subset
-        treeResults_barPartyNamePrefix.numberOfCreatesPerTemplateName("Foo1") shouldBe 5
-        treeResults_barPartyNamePrefix.numberOfNonConsumingExercisesPerTemplateName(
-          "Foo1"
-        ) shouldBe 10
-        treeResults_barPartyNamePrefix.numberOfConsumingExercisesPerTemplateName("Foo1") shouldBe 1
+        cp(
+          discard(treeResults_barPartyNamePrefix.numberOfCreatesPerTemplateName("Foo1") shouldBe 5)
+        )
+        cp(
+          discard(
+            treeResults_barPartyNamePrefix.numberOfNonConsumingExercisesPerTemplateName(
+              "Foo1"
+            ) shouldBe 10
+          )
+        )
+        cp(
+          discard(
+            treeResults_barPartyNamePrefix.numberOfConsumingExercisesPerTemplateName(
+              "Foo1"
+            ) shouldBe 1
+          )
+        )
       }
+      cp.reportAll()
       succeed
     }
   }
