@@ -98,19 +98,23 @@ object LedgerReader {
       .traverseFM {
         _.traverse { pkid =>
           val ck = (ledgerId, pkid)
-          retryLoop {loadCache.cache
-            .getIfPresent(ck)
-            .cata(
-              { v => println("s11 hit"); Future.successful(v) },
-              client.getPackage(pkid, ledgerId, token).map { pkresp =>
-                val decoded = decodeInterfaceFromPackageResponse(pkresp)
-                println(
-                  loadCache.cache.getIfPresent(ck).cata(_ => "s11 granular contention", "s11 miss")
-                )
-                loadCache.cache.put(ck, decoded)
-                decoded
-              },
-            )}
+          retryLoop {
+            loadCache.cache
+              .getIfPresent(ck)
+              .cata(
+                { v => println("s11 hit"); Future.successful(v) },
+                client.getPackage(pkid, ledgerId, token).map { pkresp =>
+                  val decoded = decodeInterfaceFromPackageResponse(pkresp)
+                  println(
+                    loadCache.cache
+                      .getIfPresent(ck)
+                      .cata(_ => "s11 granular contention", "s11 miss")
+                  )
+                  loadCache.cache.put(ck, decoded)
+                  decoded
+                },
+              )
+          }
         }
       }
       .map(groups => createPackageStoreFromArchives(groups.flatten).map(Some(_)))
