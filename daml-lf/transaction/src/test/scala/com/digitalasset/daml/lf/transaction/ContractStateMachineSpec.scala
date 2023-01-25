@@ -622,6 +622,7 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
     case _: Node.Create | _: Node.Fetch | _: Node.LookupByKey => ImmArray.empty[NodeId]
     case exercise: Node.Exercise => exercise.children
     case rollback: Node.Rollback => rollback.children
+    case authority: Node.Authority => authority.children
   }
 
   /** Visits the `root` node and all its children in execution order and updates the `state` accordingly,
@@ -651,6 +652,8 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
     val node = nodes(root)
     for {
       next <- node match {
+        case _: Node.Authority =>
+          ??? // TODO #15882 -- treat like exercise with no keys. recurse directly on children
         case actionNode: Node.Action =>
           lazy val gkeyO =
             actionNode.keyOpt.map(key => GlobalKey.assertBuild(actionNode.templateId, key.key))
@@ -662,6 +665,7 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
         visitSubtrees(ksm)(nodes, children(node).toSeq, resolver, next)
       }
       exited = node match {
+        case _: Node.Authority => ??? // TODO #15882
         case _: Node.Rollback => afterChildren.endRollback()
         case _ => afterChildren
       }

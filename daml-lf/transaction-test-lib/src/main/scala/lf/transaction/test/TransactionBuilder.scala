@@ -39,11 +39,11 @@ final class TransactionBuilder(pkgTxVersion: Ref.PackageId => TransactionVersion
   def add(node: Node, parentId: NodeId): NodeId = ids.synchronized {
     lazy val nodeId = newNode(node) // lazy to avoid getting the next id if the method later throws
     nodes(parentId) match {
-      case _: Node.Exercise | _: Node.Rollback =>
+      case _: Node.Exercise | _: Node.Rollback | _: Node.Authority =>
         children += parentId -> (children(parentId) :+ nodeId)
       case _ =>
         throw new IllegalArgumentException(
-          s"Node ${parentId.index} either does not exist or is not an exercise or rollback"
+          s"Node ${parentId.index} either does not exist or is not an exercise, rollback or authority"
         )
     }
     nodeId
@@ -52,6 +52,8 @@ final class TransactionBuilder(pkgTxVersion: Ref.PackageId => TransactionVersion
   def build(): VersionedTransaction = ids.synchronized {
     import TransactionVersion.Ordering
     val finalNodes = nodes.transform {
+      case (nid, au: Node.Authority) =>
+        au.copy(children = children(nid).toImmArray)
       case (nid, rb: Node.Rollback) =>
         rb.copy(children = children(nid).toImmArray)
       case (nid, exe: Node.Exercise) =>

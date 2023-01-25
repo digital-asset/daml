@@ -63,6 +63,11 @@ private[lf] object NormalizeRollbacks {
                   k(Vector(Norm.Exe(exe, norms.toList)))
                 }
 
+              case aut: Node.Authority =>
+                traverseNodeIds(aut.children.toList) { norms =>
+                  k(Vector(Norm.Aut(aut, norms.toList)))
+                }
+
               case leaf: Node.LeafOnlyAction =>
                 k(Vector(Norm.Leaf(leaf)))
             }
@@ -180,6 +185,13 @@ private[lf] object NormalizeRollbacks {
                 s.push(me, node)(k)
               }
             }
+          case Norm.Aut(aut, subs) =>
+            s.pushSeedId(me) { s =>
+              pushNorms(s, subs) { (s, children) =>
+                val node = aut.copy(children = children.to(ImmArray))
+                s.push(me, node)(k)
+              }
+            }
         }
       }
     }
@@ -247,6 +259,7 @@ private[lf] object NormalizeRollbacks {
       sealed abstract class Act extends Norm
       final case class Leaf(node: Node.LeafOnlyAction) extends Act
       final case class Exe(node: Node.Exercise, children: List[Norm]) extends Act
+      final case class Aut(node: Node.Authority, children: List[Norm]) extends Act
 
       // A *normalized* rollback tx/node. 2 cases:
       // - rollback containing a single non-rollback tx/node.

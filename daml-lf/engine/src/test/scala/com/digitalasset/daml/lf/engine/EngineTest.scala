@@ -2674,6 +2674,8 @@ object EngineTest {
                   exe.choiceId,
                   exe.chosenValue,
                 )
+              case _: Node.Authority =>
+                sys.error("unexpected authority node")
               case _: Node.Rollback =>
                 sys.error("unexpected rollback node")
             }

@@ -549,6 +549,7 @@ object Engine {
       val makeDesc = (kind: String, tmpl: Ref.Identifier, extra: Option[String]) =>
         s"$kind:${tmpl.qualifiedName.name}${extra.map(extra => s":$extra").getOrElse("")}"
       tx.nodes.get(tx.roots(0)).toList.head match {
+        case _: Node.Authority => "authority"
         case _: Node.Rollback => "rollback"
         case create: Node.Create => makeDesc("create", create.templateId, None)
         case exercise: Node.Exercise =>

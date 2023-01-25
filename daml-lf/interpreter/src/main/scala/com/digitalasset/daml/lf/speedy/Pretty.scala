@@ -187,6 +187,8 @@ private[lf] object Pretty {
   // A minimal pretty-print of an update transaction node, without recursing into child nodes..
   def prettyPartialTransactionNode(node: Node): Doc =
     node match {
+      case _: Node.Authority =>
+        text("authority")
       case Node.Rollback(_) =>
         text("rollback")
       case create: Node.Create =>
@@ -281,6 +283,8 @@ private[lf] object Pretty {
     val eventId = EventId(txId.id, nodeId)
     val ni = l.ledgerData.nodeInfos(eventId)
     val ppNode = ni.node match {
+      case na: Node.Authority =>
+        text("authority:") / stack(na.children.toList.map(prettyEventInfo(l, txId)))
       case Node.Rollback(children) =>
         text("rollback:") / stack(children.toList.map(prettyEventInfo(l, txId)))
       case create: Node.Create =>
