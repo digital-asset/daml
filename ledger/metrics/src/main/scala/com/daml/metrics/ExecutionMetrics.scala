@@ -4,10 +4,10 @@
 package com.daml.metrics
 
 import com.daml.metrics.api.MetricDoc.MetricQualification.Debug
-import com.daml.metrics.api.MetricHandle.{Counter, Factory, Histogram, Meter, Timer}
+import com.daml.metrics.api.MetricHandle.{Counter, MetricsFactory, Histogram, Meter, Timer}
 import com.daml.metrics.api.{MetricDoc, MetricName}
 
-class ExecutionMetrics(val prefix: MetricName, val factory: Factory) {
+class ExecutionMetrics(val prefix: MetricName, val factory: MetricsFactory) {
 
   @MetricDoc.Tag(
     summary = "The time to lookup individual active contracts during interpretation.",

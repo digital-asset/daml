@@ -17,7 +17,11 @@ trait MetricHandle {
 
 object MetricHandle {
 
-  trait Factory {
+  trait LabeledMetricsFactory {
+    this: MetricsFactory =>
+  }
+
+  trait MetricsFactory {
 
     /** A timer can be represented by either a summary or a histogram.
       *  - For `Dropwizard` the timer is represented as a summary.

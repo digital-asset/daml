@@ -10,7 +10,7 @@ import org.scalatest.wordspec.AnyWordSpec
 
 import scala.jdk.CollectionConverters.MapHasAsScala
 
-class OpenTelemetryFactorySpec extends AnyWordSpec with Matchers {
+class OpenTelemetryMetricsFactorySpec extends AnyWordSpec with Matchers {
 
   "merging metrics contexts" should {
 

@@ -4,11 +4,11 @@
 package com.daml.metrics
 
 import com.daml.metrics.api.MetricDoc.MetricQualification.{Debug, Errors, Traffic}
-import com.daml.metrics.api.MetricHandle.{Counter, Factory, Timer}
+import com.daml.metrics.api.MetricHandle.{Counter, MetricsFactory, Timer}
 import com.daml.metrics.api.dropwizard.{DropwizardCounter, DropwizardTimer}
 import com.daml.metrics.api.{MetricDoc, MetricHandle, MetricName, MetricsContext}
 
-class LAPIMetrics(val prefix: MetricName, val factory: Factory) {
+class LAPIMetrics(val prefix: MetricName, val factory: MetricsFactory) {
 
   @MetricDoc.Tag(
     summary = "The time spent serving a ledger api grpc request.",

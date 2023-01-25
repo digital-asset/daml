@@ -5,13 +5,13 @@ package com.daml.metrics.api.dropwizard
 
 import com.codahale.{metrics => codahale}
 import com.daml.metrics.api.Gauges.VarGauge
-import com.daml.metrics.api.MetricHandle.{Counter, Factory, Gauge, Histogram, Meter, Timer}
+import com.daml.metrics.api.MetricHandle.{Counter, MetricsFactory, Gauge, Histogram, Meter, Timer}
 import com.daml.metrics.api.{Gauges, MetricName, MetricsContext}
 import com.daml.scalautil.Statement.discard
 
 import scala.concurrent.blocking
 
-class DropwizardMetricsFactory(val registry: codahale.MetricRegistry) extends Factory {
+class DropwizardMetricsFactory(val registry: codahale.MetricRegistry) extends MetricsFactory {
 
   override def timer(name: MetricName, description: String = "")(implicit
       context: MetricsContext = MetricsContext.Empty

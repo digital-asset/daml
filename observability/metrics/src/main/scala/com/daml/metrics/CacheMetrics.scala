@@ -4,10 +4,10 @@
 package com.daml.metrics
 
 import com.daml.metrics.api.MetricDoc.MetricQualification.Debug
-import com.daml.metrics.api.MetricHandle.{Counter, Factory}
+import com.daml.metrics.api.MetricHandle.{Counter, MetricsFactory}
 import com.daml.metrics.api.{MetricDoc, MetricName, MetricsContext}
 
-final class CacheMetrics(val prefix: MetricName, val factory: Factory) {
+final class CacheMetrics(val prefix: MetricName, val factory: MetricsFactory) {
 
   @MetricDoc.Tag(
     summary = "The number of cache hits.",

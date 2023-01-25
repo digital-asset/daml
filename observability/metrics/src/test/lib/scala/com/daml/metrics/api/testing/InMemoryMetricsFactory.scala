@@ -7,7 +7,15 @@ import java.time.Duration
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.{AtomicLong, AtomicReference}
 
-import com.daml.metrics.api.MetricHandle.{Counter, Factory, Gauge, Histogram, Meter, Timer}
+import com.daml.metrics.api.MetricHandle.{
+  Counter,
+  Gauge,
+  Histogram,
+  LabeledMetricsFactory,
+  Meter,
+  MetricsFactory,
+  Timer,
+}
 import com.daml.metrics.api.testing.InMemoryMetricsFactory.{
   InMemoryCounter,
   InMemoryGauge,
@@ -20,7 +28,7 @@ import com.daml.scalautil.Statement.discard
 
 import scala.collection.concurrent.{TrieMap, Map => ConcurrentMap}
 
-class InMemoryMetricsFactory extends Factory {
+class InMemoryMetricsFactory extends MetricsFactory with LabeledMetricsFactory {
 
   val asyncGauges: ConcurrentMap[(MetricName, MetricsContext), () => Any] =
     TrieMap[(MetricName, MetricsContext), () => Any]()

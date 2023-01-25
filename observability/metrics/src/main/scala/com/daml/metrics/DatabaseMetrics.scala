@@ -5,14 +5,14 @@ package com.daml.metrics
 
 import com.codahale.metrics.MetricRegistry
 import com.daml.metrics.api.MetricDoc.MetricQualification.Debug
-import com.daml.metrics.api.MetricHandle.{Factory, Timer}
+import com.daml.metrics.api.MetricHandle.{MetricsFactory, Timer}
 import com.daml.metrics.api.dropwizard.DropwizardMetricsFactory
 import com.daml.metrics.api.{MetricDoc, MetricName}
 
 class DatabaseMetrics private[metrics] (
     val prefix: MetricName,
     val name: String,
-    val factory: Factory,
+    val factory: MetricsFactory,
 ) {
   protected val dbPrefix: MetricName = prefix :+ name
 

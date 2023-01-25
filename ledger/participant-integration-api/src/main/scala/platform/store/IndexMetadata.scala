@@ -12,7 +12,7 @@ import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import com.daml.metrics.api.dropwizard.DropwizardMetricsFactory
-import com.daml.metrics.api.opentelemetry.OpenTelemetryFactory
+import com.daml.metrics.api.opentelemetry.OpenTelemetryMetricsFactory
 import com.daml.platform.ApiOffset
 import com.daml.platform.configuration.{
   AcsStreamsConfig,
@@ -66,7 +66,7 @@ object IndexMetadata {
   ) = {
     val metrics = new Metrics(
       new DropwizardMetricsFactory(new MetricRegistry),
-      new OpenTelemetryFactory(GlobalOpenTelemetry.getMeter("daml")),
+      new OpenTelemetryMetricsFactory(GlobalOpenTelemetry.getMeter("daml")),
     )
     DbSupport
       .owner(
