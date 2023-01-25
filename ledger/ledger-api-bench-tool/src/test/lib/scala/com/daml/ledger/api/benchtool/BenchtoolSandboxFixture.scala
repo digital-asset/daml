@@ -48,6 +48,7 @@ trait BenchtoolSandboxFixture extends SandboxFixture {
           names = names,
           adminServices = apiServices,
         ),
+        commandGenerationParallelism = 1,
       )
     } yield (
       apiServices,
