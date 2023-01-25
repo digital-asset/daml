@@ -121,7 +121,13 @@ private class PackageService(
         .map {
           case Some(diff) =>
             // this is not a perfect reduction, but is never less efficient
-            // and often more efficient in concurrent loading
+            // and often more efficient in concurrent loading.
+            //
+            // But how can we just drop half of the packages on the floor?
+            // Because if a package is in _state already, then by definition
+            // it cannot depend on any of the packages that remain in
+            // loadsSinceReloading; therefore, loadsSinceReloading is the valid
+            // diff we would have seen had we started the reload *now*.
             val loadsSinceReloading = diff -- _state.packageIds
             println(s"s11 overlapped loads ${diff.size - loadsSinceReloading.size}")
             if (loadsSinceReloading.isEmpty)
