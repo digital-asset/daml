@@ -55,9 +55,9 @@ class ACSReader(
       new QueueBasedConcurrencyLimiter(config.maxParallelIdCreateQueries, executionContext)
     val idQueryPageSizing = IdPageSizing.calculateFrom(
       maxIdPageSize = config.maxIdsPerIdPage,
-      idPageWorkingMemoryBytes = config.maxWorkingMemoryInBytesForIdPages,
-      filterSize = decomposedFilters.size,
-      idPageBufferSize = config.maxPagesPerIdPagesBuffer,
+      workingMemoryInBytesForIdPages = config.maxWorkingMemoryInBytesForIdPages,
+      numOfDecomposedFilters = decomposedFilters.size,
+      numOfPagesInIdPageBuffer = config.maxPagesPerIdPagesBuffer,
     )
 
     def fetchIds(filter: DecomposedFilter): Source[Long, NotUsed] =

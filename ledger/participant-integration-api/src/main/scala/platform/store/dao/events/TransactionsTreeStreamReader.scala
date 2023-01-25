@@ -109,9 +109,9 @@ class TransactionsTreeStreamReader(
       maxIdPageSize = maxIdsPerIdPage,
       // The ids for tree transactions are retrieved from five separate id tables.
       // To account for that we assign a fifth of the working memory to each table.
-      idPageWorkingMemoryBytes = maxWorkingMemoryInBytesForIdPages / 5,
-      filterSize = filterParties.size,
-      idPageBufferSize = maxPagesPerIdPagesBuffer,
+      workingMemoryInBytesForIdPages = maxWorkingMemoryInBytesForIdPages / 5,
+      numOfDecomposedFilters = filterParties.size,
+      numOfPagesInIdPageBuffer = maxPagesPerIdPagesBuffer,
     )
 
     def fetchIds(

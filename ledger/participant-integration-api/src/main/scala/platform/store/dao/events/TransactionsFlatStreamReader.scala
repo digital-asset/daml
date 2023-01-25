@@ -101,9 +101,9 @@ class TransactionsFlatStreamReader(
       maxIdPageSize = maxIdsPerIdPage,
       // The ids for flat transactions are retrieved from two separate id tables.
       // To account for that we assign a half of the working memory to each table.
-      idPageWorkingMemoryBytes = maxWorkingMemoryInBytesForIdPages / 2,
-      filterSize = decomposedFilters.size,
-      idPageBufferSize = maxPagesPerIdPagesBuffer,
+      workingMemoryInBytesForIdPages = maxWorkingMemoryInBytesForIdPages / 2,
+      numOfDecomposedFilters = decomposedFilters.size,
+      numOfPagesInIdPageBuffer = maxPagesPerIdPagesBuffer,
     )
 
     def fetchIds(

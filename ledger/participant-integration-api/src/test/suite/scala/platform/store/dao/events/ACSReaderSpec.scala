@@ -35,9 +35,9 @@ class ACSReaderSpec extends AsyncFlatSpec with Matchers with BeforeAndAfterAll {
   it should "compute correct parameters for a realistic case" in {
     def realisticConfigForFilterSize(filterSize: Int) = IdPageSizing.calculateFrom(
       maxIdPageSize = 10000,
-      idPageWorkingMemoryBytes = 100 * 1024 * 1024,
-      filterSize = filterSize,
-      idPageBufferSize = 1,
+      workingMemoryInBytesForIdPages = 100 * 1024 * 1024,
+      numOfDecomposedFilters = filterSize,
+      numOfPagesInIdPageBuffer = 1,
     )
     // progression: 200 800 3200 10000 10000...
     realisticConfigForFilterSize(1) shouldBe IdPageSizing(200, 10000)
@@ -55,9 +55,9 @@ class ACSReaderSpec extends AsyncFlatSpec with Matchers with BeforeAndAfterAll {
   it should "compute correct parameters, if maxIdPageSize is lower than recommended (200), then maxIdPageSize is preferred" in {
     def configWith(filterSize: Int) = IdPageSizing.calculateFrom(
       maxIdPageSize = 150,
-      idPageWorkingMemoryBytes = 100 * 1024 * 1024,
-      filterSize = filterSize,
-      idPageBufferSize = 1,
+      workingMemoryInBytesForIdPages = 100 * 1024 * 1024,
+      numOfDecomposedFilters = filterSize,
+      numOfPagesInIdPageBuffer = 1,
     )
     configWith(1) shouldBe IdPageSizing(150, 150)
     configWith(10) shouldBe IdPageSizing(150, 150)
@@ -72,9 +72,9 @@ class ACSReaderSpec extends AsyncFlatSpec with Matchers with BeforeAndAfterAll {
   it should "compute correct parameters, if maxIdPageSize is lower than minimum (10), then maxIdPageSize is preferred" in {
     def configWith(filterSize: Int) = IdPageSizing.calculateFrom(
       maxIdPageSize = 4,
-      idPageWorkingMemoryBytes = 100 * 1024 * 1024,
-      filterSize = filterSize,
-      idPageBufferSize = 1,
+      workingMemoryInBytesForIdPages = 100 * 1024 * 1024,
+      numOfDecomposedFilters = filterSize,
+      numOfPagesInIdPageBuffer = 1,
     )
     configWith(1) shouldBe IdPageSizing(4, 4)
     configWith(10) shouldBe IdPageSizing(4, 4)
