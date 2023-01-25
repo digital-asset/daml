@@ -287,7 +287,7 @@ class PersistentPartyRecordStore(
     Right(backend.filterExistingParties(parties, identityProviderId.toDb)(connection))
   }.map {
     case Right(value) => value
-    case Left(_) => Set.empty  // It is always `Right`, see few lines above
+    case Left(_) => Set.empty // It is always `Right`, see few lines above
   }
 
   override def filterExistingParties(parties: Set[Party])(implicit
