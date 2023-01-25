@@ -32,6 +32,7 @@ import com.daml.ledger.test.modelext.TestExtension.IDelegated
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Bytes
 import com.daml.lf.data.Ref.{DottedName, Identifier, PackageId, QualifiedName}
+import com.daml.lf.value.Value.{ContractId => LfContractId}
 import com.google.protobuf.ByteString
 import com.google.protobuf.timestamp.Timestamp
 import scalaz.syntax.tag._
@@ -570,7 +571,15 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
             testContext.disclosedContract,
             testContext.disclosedContract.update(
               // Set distinct contract id
-              _.modify(_.withContractId("00" * 32 + "ff"))
+              _.modify(_.update(_.contractId.modify { originalCid =>
+                val originalLfCid = LfContractId.V1.assertFromString(originalCid)
+                LfContractId
+                  .V1(
+                    discriminator = Hash.hashPrivateKey("a distinct Contract ID"),
+                    originalLfCid.suffix, // Don't change the suffix so that Canton can still parse it
+                  )
+                  .coid
+              }))
             ),
           )
           .mustFail("duplicate key hash")
