@@ -120,10 +120,17 @@ private class PackageService(
         )
         .map {
           case Some(diff) =>
-            println(s"s11 overlapped loads ${(diff.keySet intersect _state.packageIds).size}")
-            updateState(diff)
-            logger.info(s"new package IDs loaded: ${diff.keySet.mkString(", ")}")
-            logger.debug(s"loaded diff: $diff")
+            // this is not a perfect reduction, but is never less efficient
+            // and often more efficient in concurrent loading
+            val loadsSinceReloading = diff -- _state.packageIds
+            println(s"s11 overlapped loads ${diff.size - loadsSinceReloading.size}")
+            if (loadsSinceReloading.isEmpty)
+              logger.debug("new package IDs not found")
+            else {
+              updateState(loadsSinceReloading)
+              logger.info(s"new package IDs loaded: ${loadsSinceReloading.keySet.mkString(", ")}")
+              logger.debug(s"loaded diff: $loadsSinceReloading")
+            }
           case None => logger.debug("new package IDs not found")
         }
         .map { res =>
