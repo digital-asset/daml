@@ -93,39 +93,46 @@ object LedgerReader {
       ledgerId: LedgerId,
       token: Option[String],
   )(implicit ec: ExecutionContext): Future[Error \/ PS] = {
-    import loadCache.{cache, ParallelLoadFactor}
     util.Random
-      .shuffle(packageIds.grouped(ParallelLoadFactor).toList)
+      .shuffle(packageIds.grouped(loadCache.ParallelLoadFactor).toList)
       .traverseFM {
-        _.traverse { pkid =>
-          val ck = (ledgerId, pkid)
-          retryLoop {
+        _.traverse(getPackage(client, loadCache, ledgerId, token)(_))
+      }
+      .map(groups => createPackageStoreFromArchives(groups.flatten).map(Some(_)))
+  }
+
+  private def getPackage(
+      client: LoosePackageClient,
+      loadCache: LoadCache,
+      ledgerId: LedgerId,
+      token: Option[String],
+  )(pkid: String)(implicit ec: ExecutionContext): Future[Error \/ PackageSignature] = {
+    import loadCache.cache
+    val ck = (ledgerId, pkid)
+    retryLoop {
+      cache
+        .getIfPresent(ck)
+        .cata(
+          { v => println("s11 hit"); Future.successful(v) },
+          client.getPackage(pkid, ledgerId, token).map { pkresp =>
             cache
               .getIfPresent(ck)
               .cata(
-                { v => println("s11 hit"); Future.successful(v) },
-                client.getPackage(pkid, ledgerId, token).map { pkresp =>
-                  cache
-                    .getIfPresent(ck)
-                    .cata(
-                      { decoded =>
-                        println("s11 granular contention")
-                        decoded
-                      }, {
-                        val decoded = decodeInterfaceFromPackageResponse(pkresp)
-                        println(
-                          cache.getIfPresent(ck).cata(_ => "s11 granular contention", "s11 miss")
-                        )
-                        cache.put(ck, decoded)
-                        decoded
-                      },
-                    )
+                { decoded =>
+                  println("s11 granular contention")
+                  decoded
+                }, {
+                  val decoded = decodeInterfaceFromPackageResponse(pkresp)
+                  println(
+                    cache.getIfPresent(ck).cata(_ => "s11 granular contention", "s11 miss")
+                  )
+                  cache.put(ck, decoded)
+                  decoded
                 },
               )
-          }
-        }
-      }
-      .map(groups => createPackageStoreFromArchives(groups.flatten).map(Some(_)))
+          },
+        )
+    }
   }
 
   private def createPackageStoreFromArchives(
