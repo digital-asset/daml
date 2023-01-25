@@ -93,25 +93,33 @@ object LedgerReader {
       ledgerId: LedgerId,
       token: Option[String],
   )(implicit ec: ExecutionContext): Future[Error \/ PS] = {
+    import loadCache.{cache, ParallelLoadFactor}
     util.Random
-      .shuffle(packageIds.grouped(loadCache.ParallelLoadFactor).toList)
+      .shuffle(packageIds.grouped(ParallelLoadFactor).toList)
       .traverseFM {
         _.traverse { pkid =>
           val ck = (ledgerId, pkid)
           retryLoop {
-            loadCache.cache
+            cache
               .getIfPresent(ck)
               .cata(
                 { v => println("s11 hit"); Future.successful(v) },
                 client.getPackage(pkid, ledgerId, token).map { pkresp =>
-                  val decoded = decodeInterfaceFromPackageResponse(pkresp)
-                  println(
-                    loadCache.cache
-                      .getIfPresent(ck)
-                      .cata(_ => "s11 granular contention", "s11 miss")
-                  )
-                  loadCache.cache.put(ck, decoded)
-                  decoded
+                  cache
+                    .getIfPresent(ck)
+                    .cata(
+                      { decoded =>
+                        println("s11 granular contention")
+                        decoded
+                      }, {
+                        val decoded = decodeInterfaceFromPackageResponse(pkresp)
+                        println(
+                          cache.getIfPresent(ck).cata(_ => "s11 granular contention", "s11 miss")
+                        )
+                        cache.put(ck, decoded)
+                        decoded
+                      },
+                    )
                 },
               )
           }
