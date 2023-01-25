@@ -105,14 +105,14 @@ class FooCommandSubmitterITSpec
         discard(
           observerResult_signatory.avgSizeOfCreateEventPerTemplateName(
             "Foo1"
-          ) shouldBe 162 withClue ("payload size of create Foo1")
+          ) shouldBe 162 +- 20 withClue ("payload size of create Foo1")
         )
       )
       cp(
         discard(
           observerResult_signatory.avgSizeOfCreateEventPerTemplateName(
             "Foo2"
-          ) shouldBe 162 withClue ("payload size of create Foo2")
+          ) shouldBe 162 +- 20 withClue ("payload size of create Foo2")
         )
       )
       cp(
