@@ -166,10 +166,12 @@ object LedgerReader {
     }(_.getLocalizedMessage).join
   }
 
-  private def retryLoop[A](fa: => Future[A])(implicit ec: ExecutionContext): Future[A] =
-    packageRetry { (_, _) => fa }
+  private def retryLoop[A](
+      fa: => Future[A]
+  )(implicit ec: ExecutionContext, lc: LoggingContextOf[Any]): Future[A] =
+    packageRetry.apply { (_, _) => fa }
 
-  private val packageRetry: RetryStrategy = {
+  private def packageRetry(implicit lc: LoggingContextOf[Any]): RetryStrategy = {
     import concurrent.duration._, com.google.rpc.Code
     RetryStrategy.constant(
       Some(20),
@@ -177,7 +179,7 @@ object LedgerReader {
     ) { case Grpc.StatusEnvelope(status) =>
       val retry = Code.ABORTED == (Code forNumber status.getCode) &&
         (status.getMessage startsWith "THREADPOOL_OVERLOADED")
-      if (retry) println(s"s11 retrying")
+      if (retry) logger.trace("package load failed with THREADPOOL_OVERLOADED; retrying")
       retry
     }
   }

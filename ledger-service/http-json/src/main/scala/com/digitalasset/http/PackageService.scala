@@ -129,7 +129,10 @@ private class PackageService(
             // loadsSinceReloading; therefore, loadsSinceReloading is the valid
             // diff we would have seen had we started the reload *now*.
             val loadsSinceReloading = diff -- _state.packageIds
-            println(s"s11 overlapped loads ${diff.size - loadsSinceReloading.size}")
+            if (diff.sizeIs > loadsSinceReloading.size)
+              logger.debug(
+                s"discarding ${diff.size - loadsSinceReloading.size} redundant loaded packages"
+              )
             if (loadsSinceReloading.isEmpty)
               logger.debug("new package IDs not found")
             else {
