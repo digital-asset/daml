@@ -64,6 +64,14 @@ object RetryStrategy {
       cause: Throwable,
   ) extends FailedRetryException(message, cause)
 
+  private[daml] def apply(
+      attempts: Option[Int],
+      firstWaitTime: Duration,
+      waitTimeCap: Duration,
+      progression: Duration => Duration,
+      predicate: PartialFunction[Throwable, Boolean],
+  ): RetryStrategy =
+    new RetryStrategy(attempts, firstWaitTime, waitTimeCap, progression, predicate)
 }
 
 final class RetryStrategy private (
