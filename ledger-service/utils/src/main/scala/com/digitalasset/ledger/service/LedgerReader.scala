@@ -12,6 +12,7 @@ import com.daml.ledger.api.v1.package_service.GetPackageResponse
 import com.daml.ledger.client.services.pkg.PackageClient
 import com.daml.ledger.client.services.pkg.withoutledgerid.{PackageClient => LoosePackageClient}
 import com.daml.lf.data.ImmArray.ImmArraySeq
+import com.daml.timer.RetryStrategy
 import scalaz.Scalaz._
 import scalaz._
 
@@ -97,7 +98,7 @@ object LedgerReader {
       .traverseFM {
         _.traverse { pkid =>
           val ck = (ledgerId, pkid)
-          loadCache.cache
+          retryLoop {loadCache.cache
             .getIfPresent(ck)
             .cata(
               { v => println("s11 hit"); Future.successful(v) },
@@ -109,7 +110,7 @@ object LedgerReader {
                 loadCache.cache.put(ck, decoded)
                 decoded
               },
-            )
+            )}
         }
       }
       .map(groups => createPackageStoreFromArchives(groups.flatten).map(Some(_)))
@@ -133,6 +134,22 @@ object LedgerReader {
       (if (!errors.empty) -\/("Errors reading LF archive:\n" + errors.toString)
        else \/-(out)): Error \/ PackageSignature
     }(_.getLocalizedMessage).join
+  }
+
+  private def retryLoop[A](fa: => Future[A])(implicit ec: ExecutionContext): Future[A] =
+    packageRetry { (_, _) => fa }
+
+  private val packageRetry: RetryStrategy = {
+    import concurrent.duration._, com.google.rpc.Code
+    RetryStrategy.constant(
+      Some(20),
+      250.millis,
+    ) { case Grpc.StatusEnvelope(status) =>
+      val retry = Code.ABORTED == (Code forNumber status.getCode) &&
+        (status.getMessage startsWith "THREADPOOL_OVERLOADED")
+      if (retry) println(s"s11 retrying")
+      retry
+    }
   }
 
   def damlLfTypeLookup(
