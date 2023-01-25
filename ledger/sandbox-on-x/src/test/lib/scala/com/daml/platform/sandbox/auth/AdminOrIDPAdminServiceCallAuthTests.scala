@@ -31,7 +31,7 @@ trait AdminOrIDPAdminServiceCallAuthTests
       identityProviderId = identityProviderId,
       tokenIssuer = tokenIssuer,
       rights = rights.map(proto.Right(_)),
-      secret = secret,
+      secret = secret.orElse(Some(TestJwtVerifierLoader.secret1)),
     ).flatMap { case (_, context) =>
       serviceCall(context)
     }
@@ -53,7 +53,7 @@ trait AdminOrIDPAdminServiceCallAuthTests
 
   it should "deny calls with freshly created IDP Admin user with missing issuer" taggedAs adminSecurityAsset
     .setAttack(attackPermissionDenied(threat = "Present a JWT with a missing issuer")) in {
-    expectPermissionDenied {
+    expectUnauthenticated {
       for {
         response <- createConfig(canReadAsAdminStandardJWT)
         _ <- serviceCallWithIDPUser(idpAdminRights, identityProviderId(response), None)
@@ -155,7 +155,7 @@ trait AdminOrIDPAdminServiceCallAuthTests
         "Present a JWT which cannot be validated as Jwks URL is unreachable"
       )
     ) in {
-    expectPermissionDenied {
+    expectUnauthenticated {
       val suffix = UUID.randomUUID().toString
       val idpConfig = IdentityProviderConfig(
         identityProviderId = "idp-id-" + suffix,

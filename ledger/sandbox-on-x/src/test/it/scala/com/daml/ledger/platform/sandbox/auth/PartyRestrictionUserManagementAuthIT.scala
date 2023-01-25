@@ -9,6 +9,7 @@ import com.daml.ledger.runner.common.Config
 import com.daml.ledger.sandbox.SandboxOnXForTest.{ApiServerConfig, singleParticipant}
 import com.daml.ledger.api.v1.admin.{user_management_service => uproto}
 import com.daml.ledger.api.v1.admin.{party_management_service => pproto}
+import com.daml.platform.sandbox.TestJwtVerifierLoader
 
 import java.util.UUID
 import scala.concurrent.Future
@@ -77,6 +78,7 @@ final class PartyRestrictionUserManagementAuthIT
           uproto.Right(uproto.Right.Kind.CanReadAs(uproto.Right.CanReadAs("some-party-2"))),
         ),
         primaryParty = "some-party-1",
+        secret = Some(TestJwtVerifierLoader.secret1),
       )
       _ <- createUser(
         UUID.randomUUID().toString + "-alice-2",

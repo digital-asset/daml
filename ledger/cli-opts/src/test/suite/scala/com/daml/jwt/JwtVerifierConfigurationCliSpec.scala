@@ -38,7 +38,7 @@ class JwtVerifierConfigurationCliSpec extends AsyncWordSpec with Matchers {
       val secret = "someSecret"
       val authService = parseConfig(Array("--auth-jwt-hs256-unsafe", secret))
       val token = JWT.create().sign(Algorithm.HMAC256(secret))
-      val metadata = createAuthMetadata(authService, token)
+      val metadata = createAuthMetadata(token)
       decodeAndCheckMetadata(authService, metadata)
     }
 
@@ -49,7 +49,7 @@ class JwtVerifierConfigurationCliSpec extends AsyncWordSpec with Matchers {
         val token = JWT.create().sign(Algorithm.RSA256(publicKey, privateKey))
 
         val authService = parseConfig(Array("--auth-jwt-rs256-crt", certificatePath.toString))
-        val metadata = createAuthMetadata(authService, token)
+        val metadata = createAuthMetadata(token)
         decodeAndCheckMetadata(authService, metadata)
       }
 
@@ -60,7 +60,7 @@ class JwtVerifierConfigurationCliSpec extends AsyncWordSpec with Matchers {
         val token = JWT.create().sign(Algorithm.ECDSA256(publicKey, privateKey))
 
         val authService = parseConfig(Array("--auth-jwt-es256-crt", certificatePath.toString))
-        val metadata = createAuthMetadata(authService, token)
+        val metadata = createAuthMetadata(token)
         decodeAndCheckMetadata(authService, metadata)
       }
 
@@ -71,7 +71,7 @@ class JwtVerifierConfigurationCliSpec extends AsyncWordSpec with Matchers {
         val token = JWT.create().sign(Algorithm.ECDSA512(publicKey, privateKey))
 
         val authService = parseConfig(Array("--auth-jwt-es512-crt", certificatePath.toString))
-        val metadata = createAuthMetadata(authService, token)
+        val metadata = createAuthMetadata(token)
         decodeAndCheckMetadata(authService, metadata)
       }
 
@@ -91,7 +91,7 @@ class JwtVerifierConfigurationCliSpec extends AsyncWordSpec with Matchers {
       Future {
         val url = SimpleHttpServer.responseUrl(server)
         val authService = parseConfig(Array("--auth-jwt-rs256-jwks", url))
-        val metadata = createAuthMetadata(authService, token)
+        val metadata = createAuthMetadata(token)
         (authService, metadata)
       }.flatMap { case (authService, metadata) =>
         decodeAndCheckMetadata(authService, metadata)
@@ -112,9 +112,9 @@ object JwtVerifierConfigurationCliSpec {
     parser.parse(args, new AtomicReference[AuthService](AuthServiceWildcard)).get.get()
   }
 
-  private def createAuthMetadata(authService: AuthService, token: String) = {
+  private def createAuthMetadata(token: String) = {
     val metadata = new Metadata()
-    metadata.put(authService.AUTHORIZATION_KEY, s"Bearer $token")
+    metadata.put(AuthService.AUTHORIZATION_KEY, s"Bearer $token")
     metadata
   }
 
