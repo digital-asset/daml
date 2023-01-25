@@ -186,7 +186,7 @@ message GetEventsByContractKeyRequest {
 
 message GetEventsByContractKeyResponse {
 
-  // The collection of events, will only contain CreateEvent and consuming ExerciseEvents. Note
+  // The collection of events, will only contain CreateEvents and consuming ExerciseEvents. Note
   // that the number of events contained should not be used to determine if another call is
   // required to get all rows, use the `last_offset` below for this determination.
   repeated TreeEvent events = 1;
