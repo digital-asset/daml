@@ -44,7 +44,7 @@ object IdPageSizing {
     val minIdPageSize = Math.min(10, maxIdPageSize)
     // maxNumberOfIdsPerIdPage can override this if it is smaller
     val recommendedIdPageSize = Math.min(NumOfBtreeLeafPageEntriesApprox, maxIdPageSize)
-    // An id occupies 8 bytes
+    // An id occupies 8 bytes (it's a 64-bit long)
     if (calculated < minIdPageSize) {
       logger.warn(
         s"Calculated maximum ID page size supporting API stream memory limits [$calculated] is too low: $minIdPageSize is used instead. " +
