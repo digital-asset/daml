@@ -95,23 +95,15 @@ object LedgerReader {
 
   private def randomRetry(): RetryStrategy = {
     import concurrent.duration._, com.google.rpc.Code
-    def shortWeighted50To500 = {
-      val root = util.Random.between(7.071, 22.361)
-      (root * root).millis
-    }
-    RetryStrategy(
+    RetryStrategy.constant(
       Some(20),
-      shortWeighted50To500,
-      10.seconds,
-      { prior =>
-        println(s"s11 retrying again (last: $prior)")
-        shortWeighted50To500
-      },
-      { case Grpc.StatusEnvelope(status) =>
-        Code.ABORTED == (Code forNumber status.getCode) &&
+      250.millis,
+    ) { case Grpc.StatusEnvelope(status) =>
+      val retry = Code.ABORTED == (Code forNumber status.getCode) &&
         (status.getMessage startsWith "THREADPOOL_OVERLOADED")
-      },
-    )
+      if (retry) println(s"s11 retrying")
+      retry
+    }
   }
 
   def damlLfTypeLookup(
