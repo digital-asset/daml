@@ -409,7 +409,8 @@ private[apiserver] final class ApiUserManagementService(
           Future.failed(
             LedgerApiErrors.RequestValidation.InvalidArgument
               .Reject(
-                s"Provided parties [${partiesNotExist.mkString(",")}] have not been found in identity_provider_id=`${identityProviderId.toRequestString}`."
+                s"Provided parties have not been found in identity_provider_id=`${identityProviderId.toRequestString}`: [${partiesNotExist
+                    .mkString(",")}]."
               )
               .asGrpcError
           )
