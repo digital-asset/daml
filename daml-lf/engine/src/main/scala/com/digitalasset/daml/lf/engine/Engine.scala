@@ -409,7 +409,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
               Result.needPackage(
                 pkgId,
                 context,
-                pkg => {
+                { pkg: Package =>
                   compiledPackages.addPackage(pkgId, pkg).flatMap { _ =>
                     callback(compiledPackages)
                     interpretLoop(machine, time)
@@ -418,20 +418,22 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
               )
 
             case Question.Update.NeedContract(contractId, _, callback) =>
-              def continueWithContract = (coinst: VersionedContractInstance) => {
-                callback(coinst.unversioned)
-                interpretLoop(machine, time)
-              }
+              Result.needContract(
+                contractId,
+                { coinst: VersionedContractInstance =>
+                  callback(coinst.unversioned)
+                  interpretLoop(machine, time)
+                },
+              )
 
-              Result.needContract(contractId, continueWithContract)
-
-            case Question.Update.NeedKey(gk, _, cb) =>
-              def continueWithCoid = (result: Option[ContractId]) => {
-                discard[Boolean](cb(result))
-                interpretLoop(machine, time)
-              }
-
-              ResultNeedKey(gk, continueWithCoid)
+            case Question.Update.NeedKey(gk, _, callback) =>
+              ResultNeedKey(
+                gk,
+                { coid: Option[ContractId] =>
+                  discard[Boolean](callback(coid))
+                  interpretLoop(machine, time)
+                },
+              )
           }
 
         case SResultInterruption(callback) =>
