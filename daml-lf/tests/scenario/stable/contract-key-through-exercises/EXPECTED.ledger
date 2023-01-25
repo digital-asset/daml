@@ -1,63 +1,63 @@
 transactions:
-TX #0 1970-01-01T00:00:00Z [Test:48] version: 14
-#0:0 version: 14
+TX #0 1970-01-01T00:00:00Z [Test:48] version: 15
+#0:0 version: 15
 │   archived by #1:0
 │   referenced by #1:0
 │   disclosed to (since): Alice (#0), Bob (#0)
 └─> create Test:KeyOps@XXXXXXXX
     with: { signatories = DA.Set.Types:Set@XXXXXXXX{ map = GenMap('Alice' -> <unit>) }, counterParty = 'Bob' }
 
-TX #1 1970-01-01T00:00:00Z [Test:49] version: 14
-#1:0 version: 14
+TX #1 1970-01-01T00:00:00Z [Test:49] version: 15
+#1:0 version: 15
 │   disclosed to (since): Alice (#1), Bob (#1)
 └─> Bob exercises Accept:Test:KeyOps@XXXXXXXX on 00662af883a5ac96f706d6af9627078daf1d4f833adcb5c33d75426182437c7418
     with {  }
     children:
-    #1:1 version: 14
+    #1:1 version: 15
     │   referenced by #2:0, #3:0, #5:0
     │   disclosed to (since): Alice (#1), Bob (#1)
     └─> create Test:KeyOps@XXXXXXXX
         with: { signatories = DA.Set.Types:Set@XXXXXXXX{ map = GenMap('Alice' -> <unit>, 'Bob' -> <unit>) }, counterParty = 'Bob' }
 
-TX #2 1970-01-01T00:00:00Z [Test:51] version: 14
-#2:0 version: 14
+TX #2 1970-01-01T00:00:00Z [Test:51] version: 15
+#2:0 version: 15
 │   disclosed to (since): Alice (#2), Bob (#2)
 └─> Alice exercises LookupGivenKey:Test:KeyOps@XXXXXXXX on 00420cfea44e4d7f536caf95c9a45394bdc0994e38cbff3b02c444d39bd3ba3d9a
     with { actor = 'Alice', keyMaintainers = DA.Set.Types:Set@XXXXXXXX{ map = GenMap('Alice' -> <unit>) } }
     children:
-    #2:1 version: 14
+    #2:1 version: 15
     │   disclosed to (since): Alice (#2), Bob (#2)
     └─> lookup by key Test:BasicKey@XXXXXXXX
     key { map = GenMap('Alice' -> <unit>) }
     not found
 
-TX #3 1970-01-01T00:00:00Z [Test:54] version: 14
-#3:0 version: 14
+TX #3 1970-01-01T00:00:00Z [Test:54] version: 15
+#3:0 version: 15
 │   disclosed to (since): Alice (#3), Bob (#3)
 └─> Bob exercises LookupGivenKey:Test:KeyOps@XXXXXXXX on 00420cfea44e4d7f536caf95c9a45394bdc0994e38cbff3b02c444d39bd3ba3d9a
     with { actor = 'Bob', keyMaintainers = DA.Set.Types:Set@XXXXXXXX{ map = GenMap('Alice' -> <unit>) } }
     children:
-    #3:1 version: 14
+    #3:1 version: 15
     │   disclosed to (since): Alice (#3), Bob (#3)
     └─> lookup by key Test:BasicKey@XXXXXXXX
     key { map = GenMap('Alice' -> <unit>) }
     not found
 
-TX #4 1970-01-01T00:00:00Z [Test:57] version: 14
-#4:0 version: 14
+TX #4 1970-01-01T00:00:00Z [Test:57] version: 15
+#4:0 version: 15
 │   referenced by #5:1
 │   disclosed to (since): Alice (#4)
 └─> create Test:BasicKey@XXXXXXXX
     with: { owners = DA.Set.Types:Set@XXXXXXXX{ map = GenMap('Alice' -> <unit>) } }
 key { map = GenMap('Alice' -> <unit>) }
 
-TX #5 1970-01-01T00:00:00Z [Test:59] version: 14
-#5:0 version: 14
+TX #5 1970-01-01T00:00:00Z [Test:59] version: 15
+#5:0 version: 15
 │   disclosed to (since): Alice (#5), Bob (#5)
 └─> Alice exercises LookupGivenKey:Test:KeyOps@XXXXXXXX on 00420cfea44e4d7f536caf95c9a45394bdc0994e38cbff3b02c444d39bd3ba3d9a
     with { actor = 'Alice', keyMaintainers = DA.Set.Types:Set@XXXXXXXX{ map = GenMap('Alice' -> <unit>) } }
     children:
-    #5:1 version: 14
+    #5:1 version: 15
     │   disclosed to (since): Alice (#5), Bob (#5)
     └─> lookup by key Test:BasicKey@XXXXXXXX
     key { map = GenMap('Alice' -> <unit>) }

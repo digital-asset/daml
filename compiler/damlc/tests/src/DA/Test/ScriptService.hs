@@ -53,7 +53,7 @@ main =
       setEnv "TASTY_NUM_THREADS" "1" True
 
       -- Package DB setup, we only need to do this once so we do it at the beginning.
-      scriptDar <- locateRunfiles $ mainWorkspace </> "daml-script/daml/daml-script-1.14.dar"
+      scriptDar <- locateRunfiles $ mainWorkspace </> "daml-script/daml/daml-script.dar"
       writeFileUTF8 "daml.yaml" $
         unlines
           [ "sdk-version: " <> sdkVersion,

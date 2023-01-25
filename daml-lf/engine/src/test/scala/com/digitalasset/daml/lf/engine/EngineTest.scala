@@ -775,11 +775,7 @@ class EngineTest
         key = usedContractSKey,
       )
 
-      val transactionVersion = {
-        // TODO https://github.com/digital-asset/daml/issues/15745
-        //      Do not hard code the transaction version
-        TxVersions.V14
-      }
+      val transactionVersion = TxVersions.StableVersions.max
       val expectedProcessedDisclosedContract = ProcessedDisclosedContract(
         templateId = usedDisclosedContract.templateId,
         contractId = usedDisclosedContract.contractId.value,
@@ -1674,8 +1670,7 @@ class EngineTest
         contractKey = usedContractSKey,
       )
 
-      val transactionVersion =
-        TxVersions.V14 // TODO(#15745) Do not hard code the transaction version
+      val transactionVersion = TxVersions.StableVersions.max
       val expectedProcessedDisclosedContract = ProcessedDisclosedContract(
         templateId = usedDisclosedContract.templateId,
         contractId = usedDisclosedContract.contractId.value,
