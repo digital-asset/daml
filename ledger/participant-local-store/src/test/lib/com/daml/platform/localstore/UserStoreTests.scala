@@ -16,6 +16,7 @@ import com.daml.lf.data.Ref.{LedgerString, Party, UserId}
 import com.daml.logging.LoggingContext
 import com.daml.platform.localstore.api.UserManagementStore.{
   MaxAnnotationsSizeExceeded,
+  PermissionDenied,
   UserExists,
   UserNotFound,
   UsersPage,
@@ -41,7 +42,8 @@ trait UserStoreTests extends UserStoreSpecBase { self: AsyncFreeSpec =>
 
   val persistedIdentityProviderId =
     IdentityProviderId.Id(LedgerString.assertFromString("idp1"))
-  private val idpId = persistedIdentityProviderId // shorter alias
+  private val idpId =
+    IdentityProviderId.Default
   val idp1 = IdentityProviderConfig(
     identityProviderId = persistedIdentityProviderId,
     isDeactivated = false,
@@ -54,7 +56,7 @@ trait UserStoreTests extends UserStoreSpecBase { self: AsyncFreeSpec =>
       primaryParty: Option[Ref.Party] = None,
       isDeactivated: Boolean = false,
       annotations: Map[String, String] = Map.empty,
-      identityProviderId: IdentityProviderId = IdentityProviderId.Default,
+      identityProviderId: IdentityProviderId = idpId,
   ): User = User(
     id = name,
     primaryParty = primaryParty,
@@ -142,6 +144,22 @@ trait UserStoreTests extends UserStoreSpecBase { self: AsyncFreeSpec =>
       }
     }
 
+    "deny permission re-creating an existing user within another IDP" in {
+      testIt { tested =>
+        val user = newUser("user1")
+        for {
+          res1 <- tested.createUser(user, Set.empty)
+          res2 <- tested.createUser(
+            user.copy(identityProviderId = persistedIdentityProviderId),
+            Set.empty,
+          )
+        } yield {
+          res1 shouldBe Right(createdUser("user1"))
+          res2 shouldBe Left(PermissionDenied(user.id))
+        }
+      }
+    }
+
     "find a freshly created user" in {
       testIt { tested =>
         val user = newUser("user1")
@@ -151,6 +169,19 @@ trait UserStoreTests extends UserStoreSpecBase { self: AsyncFreeSpec =>
         } yield {
           res1 shouldBe Right(createdUser("user1"))
           user1 shouldBe res1
+        }
+      }
+    }
+
+    "deny to find a freshly created user within another IDP" in {
+      testIt { tested =>
+        val user = newUser("user1")
+        for {
+          res1 <- tested.createUser(user, Set.empty)
+          user1 <- tested.getUser(user.id, persistedIdentityProviderId)
+        } yield {
+          res1 shouldBe Right(createdUser("user1"))
+          user1 shouldBe Left(PermissionDenied(user.id))
         }
       }
     }
@@ -178,6 +209,18 @@ trait UserStoreTests extends UserStoreSpecBase { self: AsyncFreeSpec =>
           user1 shouldBe res1
           res2 shouldBe Right(())
           user2 shouldBe Left(UserNotFound("user1"))
+        }
+      }
+    }
+    "deny to delete user within another IDP" in {
+      testIt { tested =>
+        val user = newUser("user1")
+        for {
+          res1 <- tested.createUser(user, Set.empty)
+          user1 <- tested.getUser("user1", persistedIdentityProviderId)
+        } yield {
+          res1 shouldBe Right(createdUser("user1"))
+          user1 shouldBe Left(PermissionDenied(user.id))
         }
       }
     }
@@ -340,6 +383,16 @@ trait UserStoreTests extends UserStoreSpecBase { self: AsyncFreeSpec =>
         }
       }
     }
+    "listUserRights should deny for user in another IDP" in {
+      testIt { tested =>
+        for {
+          _ <- tested.createUser(newUser("user1"), Set.empty)
+          rights1 <- tested.listUserRights("user1", persistedIdentityProviderId)
+        } yield {
+          rights1 shouldBe Left(PermissionDenied("user1"))
+        }
+      }
+    }
     "listUserRights should fail on non-existent user" in {
       testIt { tested =>
         for {
@@ -384,6 +437,16 @@ trait UserStoreTests extends UserStoreSpecBase { self: AsyncFreeSpec =>
 
       }
     }
+    "grantRights should deny for user in another IDP" in {
+      testIt { tested =>
+        for {
+          _ <- tested.createUser(newUser("user1"), Set.empty)
+          rights1 <- tested.grantRights("user1", Set.empty, persistedIdentityProviderId)
+        } yield {
+          rights1 shouldBe Left(PermissionDenied("user1"))
+        }
+      }
+    }
     "revokeRights should revoke rights" in {
       testIt { tested =>
         for {
@@ -422,6 +485,16 @@ trait UserStoreTests extends UserStoreSpecBase { self: AsyncFreeSpec =>
           rights1 <- tested.revokeRights("user1", Set.empty, idpId)
         } yield {
           rights1 shouldBe Left(UserNotFound("user1"))
+        }
+      }
+    }
+    "revokeRights should deny for user in another IDP" in {
+      testIt { tested =>
+        for {
+          _ <- tested.createUser(newUser("user1"), Set.empty)
+          rights1 <- tested.revokeRights("user1", Set.empty, persistedIdentityProviderId)
+        } yield {
+          rights1 shouldBe Left(PermissionDenied("user1"))
         }
       }
     }
