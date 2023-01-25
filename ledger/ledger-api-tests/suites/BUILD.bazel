@@ -14,16 +14,6 @@ versions = {
             "src/main/scala/com/daml/ledger/api/testtool/suites/v1_8.scala",
         ],
     },
-    "1.14": {
-        "srcs": glob([
-            "src/main/scala/com/daml/ledger/api/testtool/suites/v1_8/**/*",
-            "src/main/scala/com/daml/ledger/api/testtool/suites/v1_14/**/*",
-        ]),
-        "entrypoints": [
-            "src/main/scala/com/daml/ledger/api/testtool/suites/v1_8.scala",
-            "src/main/scala/com/daml/ledger/api/testtool/suites/v1_14.scala",
-        ],
-    },
     "1.15": {
         "srcs": glob([
             "src/main/scala/com/daml/ledger/api/testtool/suites/v1_8/**/*",
