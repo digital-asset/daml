@@ -40,24 +40,21 @@ final class GrantUserRightsAuthIT
     expectPermissionDenied {
       val userId = "fresh-user-" + UUID.randomUUID().toString
       for {
-        response1 <- createConfig(canReadAsAdminStandardJWT)
-        response2 <- createConfig(canReadAsAdminStandardJWT)
-
+        idpConfigresponse1 <- createConfig(canReadAsAdminStandardJWT)
+        idpConfigresponse2 <- createConfig(canReadAsAdminStandardJWT)
         _ <- createFreshUser(
           userId,
           canReadAsAdmin.token,
-          toIdentityProviderId(response1),
+          toIdentityProviderId(idpConfigresponse1),
           Seq.empty,
         )
-
         _ <- stub(canReadAsAdmin.token).grantUserRights(
           GrantUserRightsRequest(
             userId = userId,
             rights = scala.Seq(idpAdminPermission),
-            identityProviderId = toIdentityProviderId(response2),
+            identityProviderId = toIdentityProviderId(idpConfigresponse2),
           )
         )
-
       } yield ()
     }
   }

@@ -29,20 +29,20 @@ final class DeleteUserAuthIT extends AdminOrIDPAdminServiceCallAuthTests with Us
     expectPermissionDenied {
       val userId = "fresh-user-" + UUID.randomUUID().toString
       for {
-        response1 <- createConfig(canReadAsAdminStandardJWT)
-        response2 <- createConfig(canReadAsAdminStandardJWT)
-
+        idpConfigresponse1 <- createConfig(canReadAsAdminStandardJWT)
+        idpConfigresponse2 <- createConfig(canReadAsAdminStandardJWT)
         _ <- createFreshUser(
           userId,
           canReadAsAdmin.token,
-          toIdentityProviderId(response1),
+          toIdentityProviderId(idpConfigresponse1),
           Seq.empty,
         )
-
         _ <- stub(canReadAsAdmin.token).deleteUser(
-          DeleteUserRequest(userId = userId, identityProviderId = toIdentityProviderId(response2))
+          DeleteUserRequest(
+            userId = userId,
+            identityProviderId = toIdentityProviderId(idpConfigresponse2),
+          )
         )
-
       } yield ()
     }
   }

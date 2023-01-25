@@ -32,25 +32,22 @@ final class UpdateUserAuthIT extends AdminOrIDPAdminServiceCallAuthTests with Us
     expectPermissionDenied {
       val userId = "fresh-user-" + UUID.randomUUID().toString
       for {
-        response1 <- createConfig(canReadAsAdminStandardJWT)
-        response2 <- createConfig(canReadAsAdminStandardJWT)
-
-        response <- createFreshUser(
+        idpConfigresponse1 <- createConfig(canReadAsAdminStandardJWT)
+        idpConfigresponse2 <- createConfig(canReadAsAdminStandardJWT)
+        createUserResponse <- createFreshUser(
           userId,
           canReadAsAdmin.token,
-          toIdentityProviderId(response1),
+          toIdentityProviderId(idpConfigresponse1),
           Seq.empty,
         )
-
         _ <- stub(canReadAsAdmin.token).updateUser(
           UpdateUserRequest(
-            user = response.user.map(user =>
-              user.copy(identityProviderId = toIdentityProviderId(response2))
+            user = createUserResponse.user.map(user =>
+              user.copy(identityProviderId = toIdentityProviderId(idpConfigresponse2))
             ),
             updateMask = Some(FieldMask(scala.Seq("is_deactivated"))),
           )
         )
-
       } yield ()
     }
   }

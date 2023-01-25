@@ -53,20 +53,19 @@ class GetUserWithGivenUserIdAuthIT
     expectPermissionDenied {
       val userId = "fresh-user-" + UUID.randomUUID().toString
       for {
-        response1 <- createConfig(canReadAsAdminStandardJWT)
-        response2 <- createConfig(canReadAsAdminStandardJWT)
-
+        idpConfigresponse1 <- createConfig(canReadAsAdminStandardJWT)
+        idpConfigresponse2 <- createConfig(canReadAsAdminStandardJWT)
         _ <- createFreshUser(
           userId,
           canReadAsAdmin.token,
-          toIdentityProviderId(response1),
+          toIdentityProviderId(idpConfigresponse1),
           Seq.empty,
         )
-
         _ <- stub(UserManagementServiceGrpc.stub(channel), canReadAsAdmin.token)
-          .getUser(GetUserRequest(userId, identityProviderId = toIdentityProviderId(response2)))
+          .getUser(
+            GetUserRequest(userId, identityProviderId = toIdentityProviderId(idpConfigresponse2))
+          )
           .map(_.user.get)
-
       } yield ()
     }
   }

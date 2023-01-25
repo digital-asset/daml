@@ -29,22 +29,20 @@ final class CreateUserAuthIT
     expectPermissionDenied {
       val userId = "fresh-user-" + UUID.randomUUID().toString
       for {
-        response1 <- createConfig(canReadAsAdminStandardJWT)
-        response2 <- createConfig(canReadAsAdminStandardJWT)
-
+        idpConfigResponse1 <- createConfig(canReadAsAdminStandardJWT)
+        idpConfigresponse2 <- createConfig(canReadAsAdminStandardJWT)
         _ <- createFreshUser(
           userId,
           canReadAsAdmin.token,
-          toIdentityProviderId(response1),
+          toIdentityProviderId(idpConfigResponse1),
           Seq.empty,
         )
         _ <- createFreshUser(
           userId,
           canReadAsAdmin.token,
-          toIdentityProviderId(response2),
+          toIdentityProviderId(idpConfigresponse2),
           Seq.empty,
         )
-
       } yield ()
     }
   }
