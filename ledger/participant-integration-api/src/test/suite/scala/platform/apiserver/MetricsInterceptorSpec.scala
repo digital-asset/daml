@@ -52,7 +52,7 @@ final class MetricsInterceptorSpec
         )
       } yield {
         eventually {
-          metrics.dropwizardFactory.registry
+          metrics.registry
             .timer("daml.lapi.hello_service.single")
             .getCount shouldBe 3
         }
@@ -84,7 +84,7 @@ final class MetricsInterceptorSpec
         _ <- HelloServiceGrpc.stub(channel).single(HelloRequest(reqInt = 7))
       } yield {
         eventually {
-          val metric = metrics.dropwizardFactory.registry.timer("daml.lapi.hello_service.single")
+          val metric = metrics.registry.timer("daml.lapi.hello_service.single")
           metric.getCount should be > 0L
 
           val snapshot = metric.getSnapshot
@@ -105,7 +105,7 @@ final class MetricsInterceptorSpec
       } yield {
         eventually {
           val metric =
-            metrics.dropwizardFactory.registry.timer("daml.lapi.hello_service.server_streaming")
+            metrics.registry.timer("daml.lapi.hello_service.server_streaming")
           metric.getCount should be > 0L
 
           val snapshot = metric.getSnapshot

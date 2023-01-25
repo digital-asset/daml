@@ -15,17 +15,26 @@ import io.opentelemetry.api.metrics.Meter
 object Metrics {
 
   def apply(registry: MetricRegistry, otelMeter: Meter) =
-    new Metrics(new DropwizardMetricsFactory(registry), new OpenTelemetryMetricsFactory(otelMeter))
+    new Metrics(
+      new DropwizardMetricsFactory(registry),
+      new OpenTelemetryMetricsFactory(otelMeter),
+      registry,
+    )
 
-  lazy val ForTesting = new Metrics(
-    new DropwizardMetricsFactory(new MetricRegistry),
-    new OpenTelemetryMetricsFactory(GlobalOpenTelemetry.getMeter("test")),
-  )
+  lazy val ForTesting: Metrics = {
+    val registry = new MetricRegistry
+    new Metrics(
+      new DropwizardMetricsFactory(registry),
+      new OpenTelemetryMetricsFactory(GlobalOpenTelemetry.getMeter("test")),
+      registry,
+    )
+  }
 }
 
 final class Metrics(
     val defaultMetricsFactory: MetricsFactory,
     val labelMetricsFactory: MetricsFactory with LabeledMetricsFactory,
+    val registry: MetricRegistry,
 ) {
 
   val executorServiceMetrics = new ExecutorServiceMetrics(labelMetricsFactory)

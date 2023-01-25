@@ -32,7 +32,7 @@ class StateCacheSpec extends AsyncFlatSpec with Matchers with MockitoSugar with 
     scala.concurrent.ExecutionContext.global
 
   private val cacheUpdateTimer =
-    Metrics.ForTesting.dropwizardFactory.timer(MetricName("cache-update"))
+    Metrics.ForTesting.defaultMetricsFactory.timer(MetricName("cache-update"))
 
   behavior of s"$className.putAsync"
 

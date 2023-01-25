@@ -98,7 +98,7 @@ object SandboxOnXRunner {
         bridgeConfig = bridgeConfig,
         materializer = materializer,
         loggingContext = loggingContext,
-        metricsFactory = metrics.dropwizardFactory,
+        metricsFactory = metrics.defaultMetricsFactory,
         servicesThreadPoolSize = servicesThreadPoolSize,
         servicesExecutionContext = servicesExecutionContext,
         timeServiceBackendO = timeServiceBackendO,
@@ -241,7 +241,7 @@ object SandboxOnXRunner {
         InstrumentedExecutors.newWorkStealingExecutor(
           metrics.daml.lapi.threadpool.apiServices,
           servicesThreadPoolSize,
-          metrics.dropwizardFactory.registry,
+          metrics.registry,
           metrics.executorServiceMetrics,
         )
       )

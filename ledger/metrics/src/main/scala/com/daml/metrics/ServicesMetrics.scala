@@ -12,7 +12,6 @@ import com.daml.metrics.api.MetricHandle.{
   Timer,
 }
 import com.daml.metrics.api.dropwizard.DropwizardTimer
-import com.daml.metrics.api.opentelemetry.OpenTelemetryMetricsFactory
 import com.daml.metrics.api.{MetricDoc, MetricName}
 
 class ServicesMetrics(

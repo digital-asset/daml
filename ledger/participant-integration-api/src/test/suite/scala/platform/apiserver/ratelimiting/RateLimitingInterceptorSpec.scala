@@ -99,7 +99,7 @@ final class RateLimitingInterceptorSpec
 
   it should "allow metadata requests even when over limit" in {
     val metrics = createMetrics
-    metrics.dropwizardFactory.registry
+    metrics.registry
       .meter(MetricRegistry.name(metrics.daml.lapi.threadpool.apiServices, "submitted"))
       .mark(config.maxApiServicesQueueSize.toLong + 1) // Over limit
 
@@ -132,7 +132,7 @@ final class RateLimitingInterceptorSpec
 
   it should "allow health checks event when over limit" in {
     val metrics = createMetrics
-    metrics.dropwizardFactory.registry
+    metrics.registry
       .meter(MetricRegistry.name(metrics.daml.lapi.threadpool.apiServices, "submitted"))
       .mark(config.maxApiServicesQueueSize.toLong + 1) // Over limit
 

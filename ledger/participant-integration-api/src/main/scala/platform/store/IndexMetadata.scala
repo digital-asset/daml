@@ -64,9 +64,11 @@ object IndexMetadata {
       executionContext: ExecutionContext,
       loggingContext: LoggingContext,
   ) = {
+    val registry = new MetricRegistry
     val metrics = new Metrics(
-      new DropwizardMetricsFactory(new MetricRegistry),
+      new DropwizardMetricsFactory(registry),
       new OpenTelemetryMetricsFactory(GlobalOpenTelemetry.getMeter("daml")),
+      registry,
     )
     DbSupport
       .owner(

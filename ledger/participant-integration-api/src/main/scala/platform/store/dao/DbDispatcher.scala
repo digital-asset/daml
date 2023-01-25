@@ -127,7 +127,7 @@ object DbDispatcher {
         minimumIdle = connectionPoolSize,
         maxPoolSize = connectionPoolSize,
         connectionTimeout = connectionTimeout,
-        metrics = Some(metrics.dropwizardFactory.registry),
+        metrics = Some(metrics.registry),
       )
       connectionProvider <- DataSourceConnectionProvider.owner(hikariDataSource)
       threadPoolName = MetricName(
@@ -144,7 +144,7 @@ object DbDispatcher {
               logger.error("Uncaught exception in the SQL executor.", e)
             )
             .build(),
-          metrics.dropwizardFactory.registry,
+          metrics.registry,
           metrics.executorServiceMetrics,
         )
       )
