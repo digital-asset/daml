@@ -12,7 +12,7 @@ import com.daml.ledger.api.auth.interceptor.AuthorizationInterceptor
 import com.daml.ledger.api.auth.{
   AuthService,
   Authorizer,
-  IdentityProviderAwareAuthService,
+  IdentityProviderAwareAuthServiceImpl,
   IdentityProviderConfigLoader,
   JwtVerifierLoader,
 }
@@ -151,12 +151,12 @@ object ApiServiceOwner {
         config.address,
         config.tls,
         AuthorizationInterceptor(
-          authService = new IdentityProviderAwareAuthService(
-            defaultAuthService = authService,
+          authService = authService,
+          Option.when(config.userManagement.enabled)(userManagementStore),
+          new IdentityProviderAwareAuthServiceImpl(
             identityProviderConfigLoader = identityProviderConfigLoader,
             jwtVerifierLoader = jwtVerifierLoader,
           )(servicesExecutionContext, loggingContext),
-          Option.when(config.userManagement.enabled)(userManagementStore),
           servicesExecutionContext,
         ) :: otherInterceptors,
         servicesExecutionContext,

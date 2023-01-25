@@ -3,7 +3,10 @@
 
 package com.daml.ledger.api.auth
 
-import com.daml.ledger.api.auth.interceptor.AuthorizationInterceptor
+import com.daml.ledger.api.auth.interceptor.{
+  AuthorizationInterceptor,
+  IdentityProviderAwareAuthService,
+}
 import io.grpc.protobuf.StatusProto
 import io.grpc.{Metadata, ServerCall, Status}
 import org.mockito.captor.ArgCaptor
@@ -11,12 +14,12 @@ import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.Assertion
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
-import java.util.concurrent.CompletableFuture
 
+import java.util.concurrent.CompletableFuture
 import com.daml.platform.localstore.api.UserManagementStore
 
 import scala.concurrent.ExecutionContext.global
-import scala.concurrent.Promise
+import scala.concurrent.{Future, Promise}
 import scala.util.Success
 
 class AuthorizationInterceptorSpec
@@ -40,6 +43,7 @@ class AuthorizationInterceptorSpec
 
   private def testServerCloseError(assertRpcStatus: (Status, Metadata) => Assertion) = {
     val authService = mock[AuthService]
+    val identityProviderAwareAuthService = mock[IdentityProviderAwareAuthService]
     val userManagementService = mock[UserManagementStore]
     val serverCall = mock[ServerCall[Nothing, Nothing]]
     val failedMetadataDecode = CompletableFuture.supplyAsync[ClaimSet](() =>
@@ -57,12 +61,15 @@ class AuthorizationInterceptorSpec
       AuthorizationInterceptor(
         authService,
         Some(userManagementService),
+        identityProviderAwareAuthService,
         global,
       )
 
     val statusCaptor = ArgCaptor[Status]
     val metadataCaptor = ArgCaptor[Metadata]
 
+    when(identityProviderAwareAuthService.checkForIdpAwareAccess(any[Metadata]))
+      .thenReturn(Future.successful(ClaimSet.Unauthenticated))
     when(authService.decodeMetadata(any[Metadata])).thenReturn(failedMetadataDecode)
     authorizationInterceptor.interceptCall[Nothing, Nothing](serverCall, new Metadata(), null)
 

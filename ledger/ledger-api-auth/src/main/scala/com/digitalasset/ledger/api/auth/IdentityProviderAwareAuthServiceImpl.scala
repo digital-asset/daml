@@ -10,45 +10,34 @@ import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import io.grpc.Metadata
 import spray.json._
 import com.daml.jwt.{Error => JwtError}
+import com.daml.ledger.api.auth.interceptor.IdentityProviderAwareAuthService
 
-import java.util.concurrent.{CompletableFuture, CompletionStage}
 import scala.concurrent.{ExecutionContext, Future}
-import scala.jdk.FutureConverters.FutureOps
 
-class IdentityProviderAwareAuthService(
-    defaultAuthService: AuthService,
+class IdentityProviderAwareAuthServiceImpl(
     identityProviderConfigLoader: IdentityProviderConfigLoader,
     jwtVerifierLoader: JwtVerifierLoader,
 )(implicit
     executionContext: ExecutionContext,
     loggingContext: LoggingContext,
-) extends AuthService {
+) extends IdentityProviderAwareAuthService {
 
   private implicit val logger: ContextualizedLogger = ContextualizedLogger.get(getClass)
 
-  override def decodeMetadata(headers: Metadata): CompletionStage[ClaimSet] = {
-    /*
-      First, we check for the default authorization, if it gives `Unauthenticated` - IDP-Aware is attempted.
-     */
-    defaultAuthService.decodeMetadata(headers).thenCompose {
-      case result if result == ClaimSet.Unauthenticated =>
-        (getAuthorizationHeader(headers) match {
-          case None => Future.successful(ClaimSet.Unauthenticated)
-          case Some(header) =>
-            parseJWTPayload(header).recover { case error =>
-              // While we failed to authorize the token using IDP, it could still be possible
-              // to be valid by other means of authorizations, i.e. using default auth service
-              logger.warn("Failed to authorize the token: " + error.getMessage)
-              ClaimSet.Unauthenticated
-            }
-        }).asJava
-      case result =>
-        CompletableFuture.completedFuture(result)
+  def checkForIdpAwareAccess(headers: Metadata): Future[ClaimSet] =
+    getAuthorizationHeader(headers) match {
+      case None => Future.successful(ClaimSet.Unauthenticated)
+      case Some(header) =>
+        parseJWTPayload(header).recover { case error =>
+          // While we failed to authorize the token using IDP, it could still be possible
+          // to be valid by other means of authorizations, i.e. using default auth service
+          logger.warn("Failed to authorize the token: " + error.getMessage)
+          ClaimSet.Unauthenticated
+        }
     }
-  }
 
   private def getAuthorizationHeader(headers: Metadata): Option[String] =
-    Option(headers.get(AUTHORIZATION_KEY))
+    Option(headers.get(AuthService.AUTHORIZATION_KEY))
 
   private def parseJWTPayload(
       header: String

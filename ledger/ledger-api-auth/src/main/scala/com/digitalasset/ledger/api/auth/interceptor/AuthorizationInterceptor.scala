@@ -27,6 +27,7 @@ import scala.util.{Failure, Success, Try}
 final class AuthorizationInterceptor(
     authService: AuthService,
     userManagementStoreO: Option[UserManagementStore],
+    identityProviderAwareAuthService: IdentityProviderAwareAuthService,
     implicit val ec: ExecutionContext,
 )(implicit loggingContext: LoggingContext)
     extends ServerInterceptor {
@@ -55,6 +56,7 @@ final class AuthorizationInterceptor(
       authService
         .decodeMetadata(headers)
         .asScala
+        .flatMap(checkForIdpAwareService(headers, _))
         .flatMap(resolveAuthenticatedUserRights)
         .onComplete {
           case Failure(error: StatusRuntimeException) =>
@@ -78,6 +80,12 @@ final class AuthorizationInterceptor(
         }
     }
   }
+
+  private def checkForIdpAwareService(headers: Metadata, claimSet: ClaimSet) =
+    if (claimSet == ClaimSet.Unauthenticated)
+      identityProviderAwareAuthService.checkForIdpAwareAccess(headers)
+    else
+      Future.successful(claimSet)
 
   private[this] def resolveAuthenticatedUserRights(claimSet: ClaimSet): Future[ClaimSet] =
     claimSet match {
@@ -208,10 +216,16 @@ object AuthorizationInterceptor {
   def apply(
       authService: AuthService,
       userManagementStoreO: Option[UserManagementStore],
+      identityProviderAwareAuthService: IdentityProviderAwareAuthService,
       ec: ExecutionContext,
   ): AuthorizationInterceptor =
     LoggingContext.newLoggingContext { implicit loggingContext: LoggingContext =>
-      new AuthorizationInterceptor(authService, userManagementStoreO, ec)
+      new AuthorizationInterceptor(
+        authService,
+        userManagementStoreO,
+        identityProviderAwareAuthService,
+        ec,
+      )
     }
 
   def convertUserRightsToClaims(userRights: Set[UserRight]): Seq[Claim] = {
