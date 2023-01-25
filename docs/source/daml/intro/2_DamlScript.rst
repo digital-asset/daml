@@ -126,6 +126,8 @@ Archiving contracts is the counterpart to creating contracts. As contracts are i
 
 To archive a contract use the ``archiveCmd`` instead of ``createCmd``. Whereas ``createCmd`` takes an instance of a template, ``archiveCmd`` takes a reference to a created contract. Archiving requires authorization from controllers.
 
+Contracts are also archived whenever a `consuming choice </daml/intro/4_Transformations.html#choices-in-the-ledger-model>`_ is exercised.
+
 .. important::
     Archive choices are present on all templates and cannot be removed.
 
