@@ -106,7 +106,7 @@ private[apiserver] final class ApiUserManagementService(
         for {
           _ <- identityProviderExistsOrError(user.identityProviderId)
           authorizedUserContext <- authorizedUserContextF
-          _ <- verifyPartyExistInIdp(
+          _ <- verifyPartiesExistInIdp(
             pRights,
             user.identityProviderId,
             authorizedUserContext.isParticipantAdmin,
@@ -164,7 +164,7 @@ private[apiserver] final class ApiUserManagementService(
           userUpdate <- handleUpdatePathResult(user.id, UserUpdateMapper.toUpdate(user, fieldMask))
           _ <- identityProviderExistsOrError(user.identityProviderId)
           authorizedUserContext <- authorizedUserContextF
-          _ <- verifyPartyExistInIdp(
+          _ <- verifyPartiesExistInIdp(
             Set(),
             user.identityProviderId,
             authorizedUserContext.isParticipantAdmin,
@@ -307,7 +307,7 @@ private[apiserver] final class ApiUserManagementService(
     ) { case (userId, rights, identityProviderId) =>
       for {
         authorizedUserContext <- authorizedUserContextF
-        _ <- verifyPartyExistInIdp(
+        _ <- verifyPartiesExistInIdp(
           rights,
           identityProviderId,
           authorizedUserContext.isParticipantAdmin,
@@ -341,7 +341,7 @@ private[apiserver] final class ApiUserManagementService(
     ) { case (userId, rights, identityProviderId) =>
       for {
         authorizedUserContext <- authorizedUserContextF
-        _ <- verifyPartyExistInIdp(
+        _ <- verifyPartiesExistInIdp(
           rights,
           identityProviderId,
           authorizedUserContext.isParticipantAdmin,
@@ -388,7 +388,7 @@ private[apiserver] final class ApiUserManagementService(
         Future.successful(t)
     }
 
-  private def verifyPartyExistInIdp(
+  private def verifyPartiesExistInIdp(
       rights: Set[UserRight],
       identityProviderId: IdentityProviderId,
       isParticipantAdmin: Boolean,
