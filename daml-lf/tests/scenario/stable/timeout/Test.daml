@@ -3,7 +3,7 @@
 
 module Test where
 
-loop 0 = ()
+loop : Int -> ()
 loop x = loop (x + 1) 
 
 run = scenario do

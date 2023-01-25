@@ -76,7 +76,7 @@ private[lf] object Pretty {
           intercalate(comma + space, parties.map(prettyParty))
 
       case Error.Timeout(timeout) =>
-        text(s"Timeout: evaluation needed more that ${timeout.toSeconds}s. to complete")
+        text(s"Timeout: evaluation needed more that ${timeout.toSeconds}s to complete")
     }
 
 }
