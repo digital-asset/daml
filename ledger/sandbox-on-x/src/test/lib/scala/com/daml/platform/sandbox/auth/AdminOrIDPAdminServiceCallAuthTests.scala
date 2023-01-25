@@ -46,7 +46,7 @@ trait AdminOrIDPAdminServiceCallAuthTests
         identityProviderConfig = response.identityProviderConfig
           .getOrElse(sys.error("Failed to create idp config"))
         tokenIssuer = Some(identityProviderConfig.issuer)
-        _ <- serviceCallWithIDPUser(idpAdminRights, identityProviderId(response), tokenIssuer)
+        _ <- serviceCallWithIDPUser(idpAdminRights, toIdentityProviderId(response), tokenIssuer)
       } yield ()
     }
   }
@@ -56,7 +56,7 @@ trait AdminOrIDPAdminServiceCallAuthTests
     expectPermissionDenied {
       for {
         response <- createConfig(canReadAsAdminStandardJWT)
-        _ <- serviceCallWithIDPUser(idpAdminRights, identityProviderId(response), None)
+        _ <- serviceCallWithIDPUser(idpAdminRights, toIdentityProviderId(response), None)
       } yield ()
     }
   }
@@ -76,7 +76,7 @@ trait AdminOrIDPAdminServiceCallAuthTests
         response1 <- createConfig(canReadAsAdminStandardJWT, identityProviderConfig)
         (_, context) <- createUserByAdmin(
           userId = UUID.randomUUID().toString,
-          identityProviderId = identityProviderId(response1),
+          identityProviderId = toIdentityProviderId(response1),
           tokenIssuer = Some(tokenIssuer),
           rights = idpAdminRights.map(proto.Right(_)),
         )
@@ -100,7 +100,7 @@ trait AdminOrIDPAdminServiceCallAuthTests
         identityProviderConfig = response.identityProviderConfig
           .getOrElse(sys.error("Failed to create idp config"))
         tokenIssuer = Some(identityProviderConfig.issuer)
-        _ <- serviceCallWithIDPUser(Vector(), identityProviderId(response), tokenIssuer)
+        _ <- serviceCallWithIDPUser(Vector(), toIdentityProviderId(response), tokenIssuer)
       } yield ()
     }
   }
@@ -116,11 +116,11 @@ trait AdminOrIDPAdminServiceCallAuthTests
         tokenIssuer1 = Some(identityProviderConfig1.issuer)
         _ <- createUserByAdmin(
           userId = UUID.randomUUID().toString,
-          identityProviderId = identityProviderId(response1),
+          identityProviderId = toIdentityProviderId(response1),
           tokenIssuer = tokenIssuer1,
           rights = idpAdminRights.map(proto.Right(_)),
         ).flatMap { case (_, context) =>
-          serviceCall(context.copy(identityProviderId = identityProviderId(response2)))
+          serviceCall(context.copy(identityProviderId = toIdentityProviderId(response2)))
         }
       } yield ()
     }
@@ -169,12 +169,12 @@ trait AdminOrIDPAdminServiceCallAuthTests
         identityProviderConfig = response.identityProviderConfig
           .getOrElse(sys.error("Failed to create idp config"))
         tokenIssuer = Some(identityProviderConfig.issuer)
-        _ <- serviceCallWithIDPUser(idpAdminRights, identityProviderId(response), tokenIssuer)
+        _ <- serviceCallWithIDPUser(idpAdminRights, toIdentityProviderId(response), tokenIssuer)
       } yield ()
     }
   }
 
-  def identityProviderId(response: CreateIdentityProviderConfigResponse): String = {
+  def toIdentityProviderId(response: CreateIdentityProviderConfigResponse): String = {
     val identityProviderConfig = response.identityProviderConfig
       .getOrElse(sys.error("Failed to create idp config"))
     identityProviderConfig.identityProviderId

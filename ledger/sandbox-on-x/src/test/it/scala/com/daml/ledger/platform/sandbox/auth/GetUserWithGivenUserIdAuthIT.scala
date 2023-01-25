@@ -59,12 +59,12 @@ class GetUserWithGivenUserIdAuthIT
         _ <- createFreshUser(
           userId,
           canReadAsAdmin.token,
-          identityProviderId(response1),
+          toIdentityProviderId(response1),
           Seq.empty,
         )
 
         _ <- stub(UserManagementServiceGrpc.stub(channel), canReadAsAdmin.token)
-          .getUser(GetUserRequest(userId, identityProviderId = identityProviderId(response2)))
+          .getUser(GetUserRequest(userId, identityProviderId = toIdentityProviderId(response2)))
           .map(_.user.get)
 
       } yield ()

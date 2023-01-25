@@ -35,13 +35,13 @@ final class CreateUserAuthIT
         _ <- createFreshUser(
           userId,
           canReadAsAdmin.token,
-          identityProviderId(response1),
+          toIdentityProviderId(response1),
           Seq.empty,
         )
         _ <- createFreshUser(
           userId,
           canReadAsAdmin.token,
-          identityProviderId(response2),
+          toIdentityProviderId(response2),
           Seq.empty,
         )
 

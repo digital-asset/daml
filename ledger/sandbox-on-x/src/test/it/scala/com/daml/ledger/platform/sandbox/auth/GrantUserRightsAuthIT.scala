@@ -46,7 +46,7 @@ final class GrantUserRightsAuthIT
         _ <- createFreshUser(
           userId,
           canReadAsAdmin.token,
-          identityProviderId(response1),
+          toIdentityProviderId(response1),
           Seq.empty,
         )
 
@@ -54,7 +54,7 @@ final class GrantUserRightsAuthIT
           GrantUserRightsRequest(
             userId = userId,
             rights = scala.Seq(idpAdminPermission),
-            identityProviderId = identityProviderId(response2),
+            identityProviderId = toIdentityProviderId(response2),
           )
         )
 

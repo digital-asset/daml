@@ -35,12 +35,12 @@ final class DeleteUserAuthIT extends AdminOrIDPAdminServiceCallAuthTests with Us
         _ <- createFreshUser(
           userId,
           canReadAsAdmin.token,
-          identityProviderId(response1),
+          toIdentityProviderId(response1),
           Seq.empty,
         )
 
         _ <- stub(canReadAsAdmin.token).deleteUser(
-          DeleteUserRequest(userId = userId, identityProviderId = identityProviderId(response2))
+          DeleteUserRequest(userId = userId, identityProviderId = toIdentityProviderId(response2))
         )
 
       } yield ()

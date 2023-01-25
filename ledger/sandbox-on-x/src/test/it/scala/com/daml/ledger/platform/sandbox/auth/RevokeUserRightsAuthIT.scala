@@ -56,7 +56,7 @@ final class RevokeUserRightsAuthIT
         _ <- createFreshUser(
           userId,
           canReadAsAdmin.token,
-          identityProviderId(response1),
+          toIdentityProviderId(response1),
           Seq.empty,
         )
 
@@ -64,14 +64,14 @@ final class RevokeUserRightsAuthIT
           GrantUserRightsRequest(
             userId = userId,
             rights = scala.Seq(idpAdminPermission),
-            identityProviderId = identityProviderId(response1),
+            identityProviderId = toIdentityProviderId(response1),
           )
         )
         _ <- stub(canReadAsAdminStandardJWT.token).revokeUserRights(
           RevokeUserRightsRequest(
             userId = userId,
             rights = scala.Seq(idpAdminPermission),
-            identityProviderId = identityProviderId(response2),
+            identityProviderId = toIdentityProviderId(response2),
           )
         )
 

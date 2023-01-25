@@ -38,14 +38,14 @@ final class UpdateUserAuthIT extends AdminOrIDPAdminServiceCallAuthTests with Us
         response <- createFreshUser(
           userId,
           canReadAsAdmin.token,
-          identityProviderId(response1),
+          toIdentityProviderId(response1),
           Seq.empty,
         )
 
         _ <- stub(canReadAsAdmin.token).updateUser(
           UpdateUserRequest(
             user = response.user.map(user =>
-              user.copy(identityProviderId = identityProviderId(response2))
+              user.copy(identityProviderId = toIdentityProviderId(response2))
             ),
             updateMask = Some(FieldMask(scala.Seq("is_deactivated"))),
           )
