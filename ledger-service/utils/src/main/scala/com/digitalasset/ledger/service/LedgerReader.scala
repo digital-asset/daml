@@ -12,6 +12,7 @@ import com.daml.ledger.api.v1.package_service.GetPackageResponse
 import com.daml.ledger.client.services.pkg.PackageClient
 import com.daml.ledger.client.services.pkg.withoutledgerid.{PackageClient => LoosePackageClient}
 import com.daml.lf.data.ImmArray.ImmArraySeq
+import com.daml.logging.LoggingContextOf
 import com.daml.timer.RetryStrategy
 import scalaz.Scalaz._
 import scalaz._
@@ -38,7 +39,10 @@ object LedgerReader {
       ledgerId: LedgerId,
   )(
       loadedPackageIds: Set[String]
-  )(implicit ec: ExecutionContext): Future[Error \/ Option[PackageStore]] =
+  )(implicit
+      ec: ExecutionContext,
+      lc: LoggingContextOf[Any],
+  ): Future[Error \/ Option[PackageStore]] =
     for {
       newPackageIds <- client.listPackages(ledgerId, token).map(_.packageIds.toList)
       diffIds = newPackageIds.filterNot(loadedPackageIds): List[String] // keeping the order
@@ -52,7 +56,10 @@ object LedgerReader {
   @deprecated("TODO #15922 unused?", since = "2.5.2")
   def loadPackageStoreUpdates(client: PackageClient, loadCache: LoadCache, token: Option[String])(
       loadedPackageIds: Set[String]
-  )(implicit ec: ExecutionContext): Future[Error \/ Option[PackageStore]] =
+  )(implicit
+      ec: ExecutionContext,
+      lc: LoggingContextOf[Any],
+  ): Future[Error \/ Option[PackageStore]] =
     loadPackageStoreUpdates(client.it, loadCache, token, client.ledgerId)(loadedPackageIds)
 
   final class LoadCache private () {
@@ -92,7 +99,7 @@ object LedgerReader {
       packageIds: List[String],
       ledgerId: LedgerId,
       token: Option[String],
-  )(implicit ec: ExecutionContext): Future[Error \/ PS] = {
+  )(implicit ec: ExecutionContext, lc: LoggingContextOf[Any]): Future[Error \/ PS] = {
     util.Random
       .shuffle(packageIds.grouped(loadCache.ParallelLoadFactor).toList)
       .traverseFM {
@@ -106,26 +113,30 @@ object LedgerReader {
       loadCache: LoadCache,
       ledgerId: LedgerId,
       token: Option[String],
-  )(pkid: String)(implicit ec: ExecutionContext): Future[Error \/ PackageSignature] = {
+  )(
+      pkid: String
+  )(implicit ec: ExecutionContext, lc: LoggingContextOf[Any]): Future[Error \/ PackageSignature] = {
     import loadCache.cache
     val ck = (ledgerId, pkid)
     retryLoop {
       cache
         .getIfPresent(ck)
         .cata(
-          { v => println("s11 hit"); Future.successful(v) },
+          { v =>
+            logger.trace(s"detected redundant package load before starting: $pkid")
+            Future successful v
+          },
           client.getPackage(pkid, ledgerId, token).map { pkresp =>
             cache
               .getIfPresent(ck)
               .cata(
                 { decoded =>
-                  println("s11 granular contention")
+                  logger.trace(s"detected redundant package load after gRPC: $pkid")
                   decoded
                 }, {
                   val decoded = decodeInterfaceFromPackageResponse(pkresp)
-                  println(
-                    cache.getIfPresent(ck).cata(_ => "s11 granular contention", "s11 miss")
-                  )
+                  if (logger.trace.isEnabled && cache.getIfPresent(ck).isDefined)
+                    logger.trace(s"detected redundant package load after decoding: $pkid")
                   cache.put(ck, decoded)
                   decoded
                 },
@@ -204,4 +215,6 @@ object LedgerReader {
         .traverse(a => Free suspend (Free liftF f(a)))
         .foldMap(NaturalTransformation.refl)
   }
+
+  private val logger = com.daml.logging.ContextualizedLogger get getClass
 }

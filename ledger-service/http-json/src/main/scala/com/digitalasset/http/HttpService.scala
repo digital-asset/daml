@@ -253,7 +253,8 @@ object HttpService {
       packageClient: PackageClient,
       loadCache: LedgerReader.LoadCache,
   )(jwt: Jwt, ledgerId: LedgerApiDomain.LedgerId)(ids: Set[String])(implicit
-      ec: ExecutionContext
+      ec: ExecutionContext,
+      lc: LoggingContextOf[InstanceUUID],
   ): Future[PackageService.ServerError \/ Option[PackageStore]] =
     LedgerReader
       .loadPackageStoreUpdates(
