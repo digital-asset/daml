@@ -70,7 +70,7 @@ object LedgerReader {
     // request pattern, so there isn't anything you can really do about it on
     // the server configuration.  100% miss rate means no redundant work is
     // happening; it does not mean the server is being slower.
-    private[LedgerReader] val cache = CaffeineCache[(LedgerId, String), GetPackageResponse](
+    private[LedgerReader] val cache = CaffeineCache[(LedgerId, String), Error \/ PackageSignature](
       Caffeine
         .newBuilder()
         .softValues()
@@ -104,11 +104,12 @@ object LedgerReader {
             .cata(
               { v => println("s11 hit"); Future.successful(v) },
               client.getPackage(pkid, ledgerId, token).map { pkresp =>
+                val decoded = decodeInterfaceFromPackageResponse(pkresp)
                 println(
                   loadCache.cache.getIfPresent(ck).cata(_ => "s11 granular contention", "s11 miss")
                 )
-                loadCache.cache.put(ck, pkresp)
-                pkresp
+                loadCache.cache.put(ck, decoded)
+                decoded
               },
             )
         }
@@ -117,15 +118,10 @@ object LedgerReader {
   }
 
   private def createPackageStoreFromArchives(
-      packageResponses: List[GetPackageResponse]
+      packageResponses: List[Error \/ PackageSignature]
   ): Error \/ PackageStore = {
-    packageResponses
-      .traverse { packageResponse: GetPackageResponse =>
-        decodeInterfaceFromPackageResponse(packageResponse).map { interface =>
-          (interface.packageId, interface)
-        }
-      }
-      .map(_.toMap)
+    packageResponses.sequence
+      .map(_.groupMapReduce(_.packageId: String)(identity)((_, sig) => sig))
   }
 
   private def decodeInterfaceFromPackageResponse(
