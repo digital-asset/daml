@@ -132,7 +132,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
         fullMethodName: String,
     )(implicit errorLogger: ContextualizedErrorLogger)
         extends DamlErrorWithDefiniteAnswer(
-          s"The $name queue size ($queued) has exceeded the maximum ($limit). Metrics for queue size available at ${ExecutorServiceMetrics.CommonMetricsName.QueuedTasks}.",
+          s"The $metricNameLabel ($name) queue size ($queued) has exceeded the maximum ($limit). Metrics for queue size available at ${ExecutorServiceMetrics.CommonMetricsName.QueuedTasks}.",
           extraContext = Map(
             "name" -> name,
             "queued" -> queued,
