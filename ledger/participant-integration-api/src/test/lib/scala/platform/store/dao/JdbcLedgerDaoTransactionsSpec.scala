@@ -563,7 +563,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
       txSeq: Gen[Vector[Boolean]],
       codePath: Gen[FlatTransactionCodePath],
   ) = {
-    import JdbcLedgerDaoSuite._
+    import com.daml.scalautil.TraverseFMSyntax._
     import scalaz.std.list._
     import scalaz.std.scalaFuture._
 

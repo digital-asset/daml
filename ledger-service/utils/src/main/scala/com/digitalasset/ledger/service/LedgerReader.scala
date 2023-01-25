@@ -13,6 +13,7 @@ import com.daml.ledger.client.services.pkg.PackageClient
 import com.daml.ledger.client.services.pkg.withoutledgerid.{PackageClient => LoosePackageClient}
 import com.daml.lf.data.ImmArray.ImmArraySeq
 import com.daml.logging.LoggingContextOf
+import com.daml.scalautil.TraverseFMSyntax._
 import com.daml.timer.RetryStrategy
 import scalaz.Scalaz._
 import scalaz._
@@ -198,24 +199,6 @@ object LedgerReader {
         } yield DefDataType(ImmArraySeq(), viewType)
       }
     }
-  }
-
-  // TODO #15922 factor with jdbcledgerdaosuite
-  private implicit final class `TraverseFM Ops`[T[_], A](private val self: T[A]) extends AnyVal {
-
-    import scalaz.syntax.traverse._
-    import scalaz.{Free, Monad, NaturalTransformation, Traverse}
-
-    /** Like `traverse`, but guarantees that
-      *
-      *  - `f` is evaluated left-to-right, and
-      *  - `B` from the preceding element is evaluated before `f` is invoked for
-      *    the subsequent `A`.
-      */
-    def traverseFM[F[_]: Monad, B](f: A => F[B])(implicit T: Traverse[T]): F[T[B]] =
-      self
-        .traverse(a => Free suspend (Free liftF f(a)))
-        .foldMap(NaturalTransformation.refl)
   }
 
   private val logger = com.daml.logging.ContextualizedLogger get getClass
