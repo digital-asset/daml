@@ -54,7 +54,7 @@ object LedgerReader {
 
   /** @return [[UpToDate]] if packages did not change
     */
-  @deprecated("TODO #15922 unused?", since = "2.5.2")
+  @deprecated("unused overload, see #15922", since = "2.5.2")
   def loadPackageStoreUpdates(client: PackageClient, loadCache: LoadCache, token: Option[String])(
       loadedPackageIds: Set[String]
   )(implicit
