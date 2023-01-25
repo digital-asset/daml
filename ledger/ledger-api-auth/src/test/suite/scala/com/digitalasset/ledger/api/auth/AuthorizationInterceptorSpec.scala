@@ -68,7 +68,7 @@ class AuthorizationInterceptorSpec
     val statusCaptor = ArgCaptor[Status]
     val metadataCaptor = ArgCaptor[Metadata]
 
-    when(identityProviderAwareAuthService.checkForIdpAwareAccess(any[Metadata]))
+    when(identityProviderAwareAuthService.decodeMetadata(any[Metadata]))
       .thenReturn(Future.successful(ClaimSet.Unauthenticated))
     when(authService.decodeMetadata(any[Metadata])).thenReturn(failedMetadataDecode)
     authorizationInterceptor.interceptCall[Nothing, Nothing](serverCall, new Metadata(), null)

@@ -9,5 +9,5 @@ import io.grpc.Metadata
 import scala.concurrent.Future
 
 trait IdentityProviderAwareAuthService {
-  def checkForIdpAwareAccess(headers: Metadata): Future[ClaimSet]
+  def decodeMetadata(headers: Metadata): Future[ClaimSet]
 }

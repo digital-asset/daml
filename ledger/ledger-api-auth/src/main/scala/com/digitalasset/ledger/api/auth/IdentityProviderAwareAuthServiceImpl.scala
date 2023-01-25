@@ -24,7 +24,7 @@ class IdentityProviderAwareAuthServiceImpl(
 
   private implicit val logger: ContextualizedLogger = ContextualizedLogger.get(getClass)
 
-  def checkForIdpAwareAccess(headers: Metadata): Future[ClaimSet] =
+  def decodeMetadata(headers: Metadata): Future[ClaimSet] =
     getAuthorizationHeader(headers) match {
       case None => Future.successful(ClaimSet.Unauthenticated)
       case Some(header) =>

@@ -56,7 +56,7 @@ final class AuthorizationInterceptor(
       authService
         .decodeMetadata(headers)
         .asScala
-        .flatMap(checkForIdpAwareService(headers, _))
+        .flatMap(fallbackToIdpAuthService(headers, _))
         .flatMap(resolveAuthenticatedUserRights)
         .onComplete {
           case Failure(error: StatusRuntimeException) =>
@@ -81,9 +81,9 @@ final class AuthorizationInterceptor(
     }
   }
 
-  private def checkForIdpAwareService(headers: Metadata, claimSet: ClaimSet) =
+  private def fallbackToIdpAuthService(headers: Metadata, claimSet: ClaimSet) =
     if (claimSet == ClaimSet.Unauthenticated)
-      identityProviderAwareAuthService.checkForIdpAwareAccess(headers)
+      identityProviderAwareAuthService.decodeMetadata(headers)
     else
       Future.successful(claimSet)
 
