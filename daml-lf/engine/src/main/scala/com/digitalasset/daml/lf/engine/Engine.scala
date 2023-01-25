@@ -29,6 +29,8 @@ import com.daml.logging.LoggingContext
 import com.daml.nameof.NameOf
 import com.daml.scalautil.Statement.discard
 
+import scala.annotation.tailrec
+
 /** Allows for evaluating [[Commands]] and validating [[Transaction]]s.
   * <p>
   *
@@ -366,9 +368,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
       s"Last location: ${Pretty.prettyLoc(machine.getLastLocation).render(80)}, partial transaction: ${machine.nodesToString}"
     )
 
-    var result = Option.empty[Result[(SubmittedTransaction, Tx.Metadata)]]
-
-    def finish =
+    def finish: Result[(SubmittedTransaction, Tx.Metadata)] =
       machine.finish match {
         case Right(UpdateMachine.Result(tx, _, nodeSeeds, globalKeyMapping, disclosedContracts)) =>
           deps(tx).flatMap { deps =>
@@ -393,7 +393,8 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
           handleError(err)
       }
 
-    while (result.isEmpty) {
+    @tailrec
+    def loop(): Result[(SubmittedTransaction, Tx.Metadata)] =
       machine.run() match {
 
         case SResultQuestion(question) =>
@@ -402,19 +403,18 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
 
             case Question.Update.NeedTime(callback) =>
               callback(time)
+              loop()
 
             case Question.Update.NeedPackage(pkgId, context, callback) =>
-              result = Some(
-                Result.needPackage(
-                  pkgId,
-                  context,
-                  pkg => {
-                    compiledPackages.addPackage(pkgId, pkg).flatMap { _ =>
-                      callback(compiledPackages)
-                      interpretLoop(machine, time)
-                    }
-                  },
-                )
+              Result.needPackage(
+                pkgId,
+                context,
+                pkg => {
+                  compiledPackages.addPackage(pkgId, pkg).flatMap { _ =>
+                    callback(compiledPackages)
+                    interpretLoop(machine, time)
+                  }
+                },
               )
 
             case Question.Update.NeedContract(contractId, _, callback) =>
@@ -423,7 +423,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
                 interpretLoop(machine, time)
               }
 
-              result = Some(Result.needContract(contractId, continueWithContract))
+              Result.needContract(contractId, continueWithContract)
 
             case Question.Update.NeedKey(gk, _, cb) =>
               def continueWithCoid = (result: Option[ContractId]) => {
@@ -431,34 +431,23 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
                 interpretLoop(machine, time)
               }
 
-              result = Some(
-                ResultNeedKey(
-                  gk,
-                  continueWithCoid,
-                )
-              )
+              ResultNeedKey(gk, continueWithCoid)
           }
 
-        case SResultInterruption(_, callback) =>
+        case SResultInterruption(callback) =>
           // TODO https://github.com/digital-asset/daml/issues/13954
           //  add a case in Engine.Result to handle this
           callback()
+          loop()
 
         case _: SResultFinal =>
-          result = Some(finish)
+          finish
 
         case SResultError(err) =>
-          result = Some(handleError(err, detailMsg))
+          handleError(err, detailMsg)
       }
-    }
 
-    result.getOrElse(
-      throw InternalError.runtimeException(
-        NameOf.qualifiedNameOfCurrentFunc,
-        "unexpected empty result",
-      )
-    )
-
+    loop()
   }
 
   def clearPackages(): Unit = compiledPackages.clear()

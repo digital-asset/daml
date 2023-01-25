@@ -96,7 +96,7 @@ private[speedy] object SpeedyTestLib {
           }
         case fv: SResultFinal =>
           Right(fv)
-        case SResultInterruption(_, callback) =>
+        case SResultInterruption(callback) =>
           callback()
           loop
         case SResultError(err) =>

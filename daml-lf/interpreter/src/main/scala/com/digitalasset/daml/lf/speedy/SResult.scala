@@ -102,8 +102,7 @@ object SResult {
 
   final case class SResultError(err: SError) extends SResult[Nothing]
 
-  final case class SResultInterruption(iterations: Long, callback: () => Unit)
-      extends SResult[Nothing]
+  final case class SResultInterruption(callback: () => Unit) extends SResult[Nothing]
 
   sealed abstract class SVisibleToStakeholders extends Product with Serializable
   object SVisibleToStakeholders {

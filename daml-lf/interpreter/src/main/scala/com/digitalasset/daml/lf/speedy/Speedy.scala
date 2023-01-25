@@ -596,7 +596,7 @@ private[lf] object Speedy {
       run() match {
         case SResultError(err) => Left(err)
         case SResultFinal(v) => Right(v)
-        case SResultInterruption(_, callback) =>
+        case SResultInterruption(callback) =>
           callback()
           runPure()
         case SResultQuestion(nothing) => nothing
@@ -648,10 +648,6 @@ private[lf] object Speedy {
     private[this] var lastLocation: Option[Location] = None
     /* Used when enableLightweightStepTracing is true */
     private[this] var interruptionCountDown: Long = iterationsBetweenInterruptions
-    private[this] var interrupted: Int = 0
-
-    private[this] def steps: Long =
-      interrupted * iterationsBetweenInterruptions + iterationsBetweenInterruptions - interruptionCountDown
 
     /* Used when enableInstrumentation is true */
     private[this] val track: Instrumentation = new Instrumentation
@@ -819,7 +815,6 @@ private[lf] object Speedy {
       env = emptyEnv
       envBase = 0
       interruptionCountDown = iterationsBetweenInterruptions
-      interrupted = 0
       track.reset()
     }
 
@@ -832,18 +827,13 @@ private[lf] object Speedy {
       try {
         @tailrec
         def loop(): SResult[Q] = {
-          if (enableInstrumentation) {
+          if (enableInstrumentation)
             Classify.classifyMachine(this, track.classifyCounts)
-          }
           val thisControl = control
           setControl(Control.WeAreUnset)
           if (interruptionCountDown == 0) {
-            // The two following line does not actually change the value of steps.
-            // This is important if we want the number of iterations to be the same independently on the value of
-            // `iterationsBetweenInterruptions`
-            interrupted += 1
             interruptionCountDown = iterationsBetweenInterruptions
-            SResultInterruption(steps, () => control = thisControl)
+            SResultInterruption(() => control = thisControl)
           } else {
             interruptionCountDown -= 1
             thisControl match {

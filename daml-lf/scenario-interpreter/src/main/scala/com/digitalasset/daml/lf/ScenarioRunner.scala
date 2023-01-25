@@ -106,8 +106,8 @@ final class ScenarioRunner private (
         case SResultFinal(v) =>
           finalValue = v
 
-        case SResultInterruption(_, resume) =>
-          resume()
+        case SResultInterruption(callback) =>
+          callback()
 
         case SResultError(err) =>
           throw scenario.Error.RunnerException(err)
@@ -455,7 +455,7 @@ private[lf] object ScenarioRunner {
             case res: Question.Update.NeedPackage =>
               throw Error.Internal(s"unexpected $res")
           }
-        case SResultInterruption(_, callback) =>
+        case SResultInterruption(callback) =>
           if (deadlineInNanos < System.nanoTime()) {
             SubmissionError(
               Error.Timeout(timeout),
