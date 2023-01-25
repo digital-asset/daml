@@ -58,10 +58,10 @@ trait TransactionService {
 
   def getEventsByContractId(
       req: GetEventsByContractIdRequest
-  ): Future[GetEventsByContractIdResponse]
+  )(implicit loggingContext: LoggingContext): Future[GetEventsByContractIdResponse]
 
   def getEventsByContractKey(
       req: GetEventsByContractKeyRequest
-  ): Future[GetEventsByContractKeyResponse]
+  )(implicit loggingContext: LoggingContext): Future[GetEventsByContractKeyResponse]
 
 }

@@ -207,7 +207,7 @@ private[apiserver] final class ApiTransactionService private (
 
   override def getEventsByContractId(
       request: GetEventsByContractIdRequest
-  ): Future[GetEventsByContractIdResponse] = {
+  )(implicit loggingContext: LoggingContext): Future[GetEventsByContractIdResponse] = {
 
     withEnrichedLoggingContext(
       logging.contractId(request.contractId),
@@ -228,7 +228,7 @@ private[apiserver] final class ApiTransactionService private (
 
   override def getEventsByContractKey(
       request: GetEventsByContractKeyRequest
-  ): Future[GetEventsByContractKeyResponse] = {
+  )(implicit loggingContext: LoggingContext): Future[GetEventsByContractKeyResponse] = {
 
     withEnrichedLoggingContext(
       logging.contractKey(request.contractKey),
