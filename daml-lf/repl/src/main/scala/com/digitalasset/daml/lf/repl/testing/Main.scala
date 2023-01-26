@@ -28,7 +28,7 @@ import org.jline.reader.impl.completer.{AggregateCompleter, ArgumentCompleter, S
 import org.jline.reader.impl.history.DefaultHistory
 
 import scala.collection.immutable.ListMap
-import scala.concurrent.duration.Duration
+import scala.concurrent.duration._
 import scala.jdk.CollectionConverters._
 
 object Main extends App {
@@ -185,6 +185,7 @@ object Repl {
   case class ScenarioRunnerHelper(
       packages: Map[PackageId, Package],
       compilerConfig: Compiler.Config,
+      timeout: Duration,
   ) {
 
     val (compiledPackages, compileTime) =
@@ -201,16 +202,12 @@ object Repl {
         transaction.TransactionVersion.StableVersions
       }
 
-    def run(
-        expr: Expr
-    ): (Speedy.ScenarioMachine, ScenarioRunner.ScenarioResult) = {
-      val machine =
-        Speedy.Machine.fromScenarioExpr(
-          compiledPackages,
-          expr,
-        )
-      (machine, ScenarioRunner.run(() => machine, seed))
-    }
+    def run(expr: Expr): ScenarioRunner.ScenarioResult =
+      ScenarioRunner.run(
+        buildMachine = () => Speedy.Machine.fromScenarioExpr(compiledPackages, expr),
+        initialSeed = seed,
+        timeout = timeout,
+      )
   }
 
   case class Command(help: String, action: (State, Seq[String]) => State)
@@ -264,7 +261,7 @@ object Repl {
       State(
         packages = Map.empty,
         packageFiles = Seq(),
-        ScenarioRunnerHelper(Map.empty, compilerCompiler),
+        ScenarioRunnerHelper(Map.empty, compilerCompiler, 5.seconds),
         reader = null,
         history = new DefaultHistory(),
         quit = false,
@@ -415,7 +412,8 @@ object Repl {
       true -> rebuildReader(
         state.copy(
           packages = packagesMap,
-          scenarioRunner = ScenarioRunnerHelper(packagesMap, compilerConfig),
+          scenarioRunner =
+            state.scenarioRunner.copy(packages = packagesMap, compilerConfig = compilerConfig),
         )
       )
     } catch {
@@ -520,14 +518,14 @@ object Repl {
   def invokeTest(state: State, idAndArgs: Seq[String]): (Boolean, State) = {
     buildExprFromTest(state, idAndArgs)
       .map { expr =>
-        val (_, errOrLedger) = state.scenarioRunner.run(expr)
+        val errOrLedger = state.scenarioRunner.run(expr)
         errOrLedger match {
           case error: ScenarioRunner.ScenarioError =>
             println(PrettyScenario.prettyError(error.error).render(128))
             (false, state)
           case success: ScenarioRunner.ScenarioSuccess =>
             // NOTE(JM): cannot print this, output used in tests.
-            // println(s"done in ${diff.formatted("%.2f")}ms, ${steps} steps")
+//            println(s"done in ${success.duration.toMicros}us, ${success.steps} steps")
             println(prettyLedger(success.ledger).render(128))
             (true, state)
         }
@@ -552,12 +550,12 @@ object Repl {
     var totalSteps = 0
     allTests.foreach { case (name, body) =>
       print(name + ": ")
-      val (machine, errOrLedger) = state.scenarioRunner.run(body)
+      val errOrLedger = state.scenarioRunner.run(body)
       errOrLedger match {
         case error: ScenarioRunner.ScenarioError =>
           println(
             "failed at " +
-              prettyLoc(machine.getLastLocation).render(128) +
+              prettyLoc(error.stackTrace.toSeq.headOption).render(128) +
               ": " + PrettyScenario.prettyError(error.error).render(128)
           )
           failures += 1
@@ -583,16 +581,16 @@ object Repl {
           state.scenarioRunner.run(expr)
         }
         println("Collecting profile...")
-        val (machine, errOrLedger) =
+        val errOrLedger =
           state.scenarioRunner.run(expr)
         errOrLedger match {
           case error: ScenarioRunner.ScenarioError =>
             println(PrettyScenario.prettyError(error.error).render(128))
             (false, state)
-          case _: ScenarioRunner.ScenarioSuccess =>
+          case success: ScenarioRunner.ScenarioSuccess =>
             println("Writing profile...")
-            machine.profile.name = testId
-            machine.profile.writeSpeedscopeJson(outputFile)
+            success.profile.name = testId
+            success.profile.writeSpeedscopeJson(outputFile)
             (true, state)
         }
       }

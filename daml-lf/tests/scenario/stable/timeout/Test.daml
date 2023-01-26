@@ -1,0 +1,12 @@
+-- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module Test where
+
+loop : Int -> ()
+loop x = loop (x + 1) 
+
+run = scenario do
+  alice <- getParty "p"
+  submit alice do
+     pure $ loop 1

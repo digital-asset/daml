@@ -96,6 +96,8 @@ private[speedy] object SpeedyTestLib {
           }
         case fv: SResultFinal =>
           Right(fv)
+        case SResultInterruption =>
+          loop
         case SResultError(err) =>
           Left(err)
       }
@@ -155,6 +157,7 @@ private[speedy] object SpeedyTestLib {
           commitLocation = machine.commitLocation,
           limits = machine.limits,
           disclosureKeyTable = machine.disclosureKeyTable,
+          iterationsBetweenInterruptions = machine.iterationsBetweenInterruptions,
         )
 
       def withCachedContracts(cachedContracts: (ContractId, CachedContract)*): UpdateMachine = {

@@ -36,6 +36,7 @@ import scalaz.OneAnd._
 import scalaz.std.set._
 import scalaz.syntax.foldable._
 
+import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
@@ -271,6 +272,10 @@ class IdeLedgerClient(
           nextSeed(),
           traceLog,
           warningLog,
+          // TODO https://github.com/digital-asset/daml/issues/13954
+          //  add timeout support to Script
+          timeout = Duration.Inf,
+          deadlineInNanos = Long.MaxValue,
         )(Script.DummyLoggingContext)
       result match {
         case err: ScenarioRunner.SubmissionError => err

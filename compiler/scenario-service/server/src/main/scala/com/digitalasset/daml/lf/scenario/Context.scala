@@ -5,11 +5,10 @@ package com.daml.lf
 package scenario
 
 import java.util.concurrent.atomic.AtomicLong
-
 import akka.stream.Materializer
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.lf.archive
-import com.daml.lf.data.{assertRight, ImmArray}
+import com.daml.lf.data.{ImmArray, assertRight}
 import com.daml.lf.data.Ref.{Identifier, ModuleName, PackageId, QualifiedName}
 import com.daml.lf.engine.script.ledgerinteraction.{IdeLedgerClient, ScriptTimeMode}
 import com.daml.lf.language.{Ast, LanguageVersion, Util => AstUtil}
@@ -24,6 +23,7 @@ import com.daml.logging.LoggingContext
 import scala.concurrent.ExecutionContext
 import scala.concurrent.Future
 import scala.collection.immutable.HashMap
+import scala.concurrent.duration._
 import scala.util.{Failure, Success}
 
 /** Scenario interpretation context: maintains a set of modules and external packages, with which
@@ -151,7 +151,9 @@ class Context(val contextId: Context.ContextId, languageVersion: LanguageVersion
       name: String,
   ): Option[ScenarioRunner.ScenarioResult] = {
     val id = Identifier(PackageId.assertFromString(pkgId), QualifiedName.assertFromString(name))
-    defns.get(LfDefRef(id)).map(defn => ScenarioRunner.run(() => buildMachine(defn), txSeeding))
+    defns
+      .get(LfDefRef(id))
+      .map(defn => ScenarioRunner.run(() => buildMachine(defn), txSeeding, 1.minute))
   }
 
   def interpretScript(
@@ -209,6 +211,7 @@ class Context(val contextId: Context.ContextId, languageVersion: LanguageVersion
               ledgerClient.ledger,
               clientMachine.traceLog,
               clientMachine.warningLog,
+              clientMachine.profile,
               dummyDuration,
               dummySteps,
               v,

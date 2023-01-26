@@ -11,6 +11,7 @@ import com.daml.lf.speedy.SError.SError
 import com.daml.lf.transaction.{GlobalKey, VersionedTransaction}
 import com.daml.lf.value.Value.ContractId
 
+import scala.concurrent.duration.Duration
 import scala.util.control.NoStackTrace
 
 /** Errors from scenario interpretation. */
@@ -27,6 +28,8 @@ object Error {
   final case class Internal(reason: String) extends Error {
     override def toString = "CRASH: " + reason
   }
+
+  final case class Timeout(timeout: Duration) extends Error
 
   final case class ContractNotEffective(
       coid: ContractId,

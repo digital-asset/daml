@@ -313,6 +313,10 @@ final class Conversions(
             .addAllParties(parties.map(convertParty).asJava)
             .build
         )
+      case Error.Timeout(_) =>
+        // TODO https://github.com/digital-asset/daml/issues/13954
+        //  add proper support for evaluation timeout
+        builder.setCrash("timeout")
     }
     builder.build
   }

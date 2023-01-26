@@ -24,6 +24,8 @@ import java.io.File
 import java.util.concurrent.TimeUnit
 import org.openjdk.jmh.annotations._
 
+import scala.concurrent.duration._
+
 private[lf] class CollectAuthority {
   @Benchmark @BenchmarkMode(Array(Mode.AverageTime)) @OutputTimeUnit(TimeUnit.MILLISECONDS)
   def bench(state: CollectAuthorityState): Unit = {
@@ -59,7 +61,7 @@ private[lf] class CollectAuthorityState {
 
     machine = Machine.fromScenarioExpr(
       compiledPackages,
-      expr,
+      scenario = expr,
     )
     the_sexpr = machine.currentControl match {
       case Control.Expression(exp) => exp
@@ -98,11 +100,14 @@ private[lf] class CollectAuthorityState {
             location,
             crypto.Hash.hashPrivateKey(step.toString),
             doEnrichment = false,
+            timeout = 1.minute,
+            deadlineInNanos = Long.MaxValue,
           ) match {
             case ScenarioRunner.Commit(_, value, _) =>
               callback(value)
             case ScenarioRunner.SubmissionError(err, _) => crash(s"Submission failed $err")
           }
+        case SResultInterruption =>
         case SResultFinal(v) => finalValue = v
         case r => crash(s"bench run: unexpected result from speedy: ${r}")
       }
@@ -138,6 +143,8 @@ private[lf] class CollectAuthorityState {
             SEValue(commands),
             location,
             crypto.Hash.hashPrivateKey(step.toString),
+            timeout = Duration.Inf,
+            deadlineInNanos = Long.MaxValue,
           ) match {
             case ScenarioRunner.SubmissionError(err, _) => crash(s"Submission failed $err")
             case ScenarioRunner.Commit(result, value, _) =>
@@ -147,6 +154,7 @@ private[lf] class CollectAuthorityState {
               cachedContract ++= api.cachedContract
               step = api.step
           }
+        case SResultInterruption =>
         case SResultFinal(v) =>
           finalValue = v
         case r =>
