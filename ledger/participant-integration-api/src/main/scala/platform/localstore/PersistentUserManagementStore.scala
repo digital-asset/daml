@@ -45,7 +45,7 @@ final case class UserManagementConfig(
     cacheExpiryAfterWriteInSeconds: Int =
       UserManagementConfig.DefaultCacheExpiryAfterWriteInSeconds,
     maxUsersPageSize: Int = UserManagementConfig.DefaultMaxUsersPageSize,
-    maxRightsPerUser: Int = UserManagementConfig.DefaultMaxRightsPerUser
+    maxRightsPerUser: Int = UserManagementConfig.DefaultMaxRightsPerUser,
 )
 
 object PersistentUserManagementStore {

@@ -56,59 +56,58 @@ final class UserManagementServiceIT extends UserManagementServiceITBase {
     allocate(NoParties),
     enabled = _.userManagement.maxRightsPerUser > 0,
     disabledReason = "requires user management feature with user rights limit",
-  )(implicit ec => {
-    case Participants(Participant(ledger)) =>
-      def assertTooManyUserRightsError(t: Throwable): Unit = {
-        assertGrpcError(
-          t = t,
-          errorCode = LedgerApiErrors.Admin.UserManagement.TooManyUserRights,
-          exceptionMessageSubstring = None,
+  )(implicit ec => { case Participants(Participant(ledger)) =>
+    def assertTooManyUserRightsError(t: Throwable): Unit = {
+      assertGrpcError(
+        t = t,
+        errorCode = LedgerApiErrors.Admin.UserManagement.TooManyUserRights,
+        exceptionMessageSubstring = None,
+      )
+    }
+
+    def createCanActAs(id: Int) =
+      Permission(Permission.Kind.CanActAs(Permission.CanActAs(s"acting-party-$id")))
+
+    def allocateParty(id: Int) =
+      ledger.allocateParty(Some(s"acting-party-$id"))
+
+    val user1 = newUser(UUID.randomUUID.toString)
+    val user2 = newUser(UUID.randomUUID.toString)
+
+    val maxRightsPerUser = ledger.features.userManagement.maxRightsPerUser
+    val permissionsMaxAndOne = (1 to (maxRightsPerUser + 1)).map(createCanActAs)
+    val allocatePartiesMaxAndOne = (1 to (maxRightsPerUser + 1)).map(allocateParty)
+    val permissionOne = permissionsMaxAndOne.head
+    val permissionsMax = permissionsMaxAndOne.tail
+
+    for {
+      // cannot create user with #limit+1 rights
+      _ <- Future.sequence(allocatePartiesMaxAndOne)
+      create1 <- ledger
+        .createUser(CreateUserRequest(Some(user1), permissionsMaxAndOne))
+        .mustFail(
+          "creating user with too many rights"
         )
-      }
-
-      def createCanActAs(id: Int) =
-        Permission(Permission.Kind.CanActAs(Permission.CanActAs(s"acting-party-$id")))
-
-      def allocateParty(id: Int) =
-        ledger.allocateParty(Some(s"acting-party-$id"))
-
-      val user1 = newUser(UUID.randomUUID.toString)
-      val user2 = newUser(UUID.randomUUID.toString)
-
-      val maxRightsPerUser = ledger.features.userManagement.maxRightsPerUser
-      val permissionsMaxAndOne = (1 to (maxRightsPerUser + 1)).map(createCanActAs)
-      val allocatePartiesMaxAndOne = (1 to (maxRightsPerUser + 1)).map(allocateParty)
-      val permissionOne = permissionsMaxAndOne.head
-      val permissionsMax = permissionsMaxAndOne.tail
-
-      for {
-        // cannot create user with #limit+1 rights
-        _ <- Future.sequence(allocatePartiesMaxAndOne)
-        create1 <- ledger
-          .createUser(CreateUserRequest(Some(user1), permissionsMaxAndOne))
-          .mustFail(
-            "creating user with too many rights"
-          )
-        // can create user with #limit rights
-        create2 <- ledger.createUser(CreateUserRequest(Some(user1), permissionsMax))
-        // fails adding one more right
-        grant1 <- ledger.userManagement
-          .grantUserRights(GrantUserRightsRequest(user1.id, rights = Seq(permissionOne)))
-          .mustFail(
-            "granting more rights exceeds max number of user rights per user"
-          )
-        // rights already added are intact
-        rights1 <- ledger.userManagement.listUserRights(ListUserRightsRequest(user1.id))
-        // can create other users with #limit rights
-        create3 <- ledger.createUser(CreateUserRequest(Some(user2), permissionsMax))
-      } yield {
-        assertTooManyUserRightsError(create1)
-        assertEquals(unsetResourceVersion(create2), CreateUserResponse(Some(user1)))
-        assertTooManyUserRightsError(grant1)
-        assertEquals(rights1.rights.size, permissionsMaxAndOne.tail.size)
-        assertSameElements(rights1.rights, permissionsMaxAndOne.tail)
-        assertEquals(unsetResourceVersion(create3), CreateUserResponse(Some(user2)))
-      }
+      // can create user with #limit rights
+      create2 <- ledger.createUser(CreateUserRequest(Some(user1), permissionsMax))
+      // fails adding one more right
+      grant1 <- ledger.userManagement
+        .grantUserRights(GrantUserRightsRequest(user1.id, rights = Seq(permissionOne)))
+        .mustFail(
+          "granting more rights exceeds max number of user rights per user"
+        )
+      // rights already added are intact
+      rights1 <- ledger.userManagement.listUserRights(ListUserRightsRequest(user1.id))
+      // can create other users with #limit rights
+      create3 <- ledger.createUser(CreateUserRequest(Some(user2), permissionsMax))
+    } yield {
+      assertTooManyUserRightsError(create1)
+      assertEquals(unsetResourceVersion(create2), CreateUserResponse(Some(user1)))
+      assertTooManyUserRightsError(grant1)
+      assertEquals(rights1.rights.size, permissionsMaxAndOne.tail.size)
+      assertSameElements(rights1.rights, permissionsMaxAndOne.tail)
+      assertEquals(unsetResourceVersion(create3), CreateUserResponse(Some(user2)))
+    }
   })
 
   test(
