@@ -250,6 +250,7 @@ class LedgerApiBenchTool(
           partySelecting = new RandomPartySelecting(
             config = submissionConfig,
             allocatedParties = allocatedParties,
+            randomnessProvider = RandomnessProvider.Default,
           ),
           contractDescriptionRandomnessProvider = RandomnessProvider.Default,
           payloadRandomnessProvider = RandomnessProvider.Default,

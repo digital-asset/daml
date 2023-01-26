@@ -34,6 +34,7 @@ case class CommandSubmitter(
     metricsManager: MetricsManager[LatencyNanos],
     waitForSubmission: Boolean,
     commandGenerationParallelism: Int = 8,
+    maxInFlightCommandsOverride: Option[Int] = None,
 ) {
   private val logger = LoggerFactory.getLogger(getClass)
   private val submitLatencyTimer = if (waitForSubmission) {
@@ -191,32 +192,33 @@ case class CommandSubmitter(
             .groupedWithin(submissionBatchSize, 1.minute)
             .map(cmds => cmds.head._1 -> cmds.map(_._2).toList)
             .buffer(maxInFlightCommands, OverflowStrategy.backpressure)
-            .mapAsync(maxInFlightCommands) { case (index, commands) =>
-              timed(submitLatencyTimer, metricsManager) {
-                submit(
-                  id = names.commandId(index),
-                  actAs = baseActAs ++ generator.nextExtraCommandSubmitters(),
-                  commands = commands.flatten,
-                  applicationId = generator.nextApplicationId(),
-                  useSubmitAndWait = config.waitForSubmission,
-                )
-              }
-                .map(_ => index + commands.length - 1)
-                .recoverWith {
-                  case e: io.grpc.StatusRuntimeException
-                      if e.getStatus.getCode == Status.Code.ABORTED =>
-                    logger.info(s"Flow rate limited at index $index: ${e.getLocalizedMessage}")
-                    Thread.sleep(10) // Small back-off period
-                    Future.successful(index + commands.length - 1)
-                  case ex =>
-                    logger.error(
-                      s"Command submission failed. Details: ${ex.getLocalizedMessage}",
-                      ex,
-                    )
-                    Future.failed(
-                      CommandSubmitter.CommandSubmitterError(ex.getLocalizedMessage, ex)
-                    )
+            .mapAsync(maxInFlightCommandsOverride.getOrElse(maxInFlightCommands)) {
+              case (index, commands) =>
+                timed(submitLatencyTimer, metricsManager) {
+                  submit(
+                    id = names.commandId(index),
+                    actAs = baseActAs ++ generator.nextExtraCommandSubmitters(),
+                    commands = commands.flatten,
+                    applicationId = generator.nextApplicationId(),
+                    useSubmitAndWait = config.waitForSubmission,
+                  )
                 }
+                  .map(_ => index + commands.length - 1)
+                  .recoverWith {
+                    case e: io.grpc.StatusRuntimeException
+                        if e.getStatus.getCode == Status.Code.ABORTED =>
+                      logger.info(s"Flow rate limited at index $index: ${e.getLocalizedMessage}")
+                      Thread.sleep(10) // Small back-off period
+                      Future.successful(index + commands.length - 1)
+                    case ex =>
+                      logger.error(
+                        s"Command submission failed. Details: ${ex.getLocalizedMessage}",
+                        ex,
+                      )
+                      Future.failed(
+                        CommandSubmitter.CommandSubmitterError(ex.getLocalizedMessage, ex)
+                      )
+                  }
             }
             .runWith(progressLoggingSink)
         } yield ()

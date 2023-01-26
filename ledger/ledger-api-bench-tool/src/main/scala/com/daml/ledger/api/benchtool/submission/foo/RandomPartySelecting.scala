@@ -11,7 +11,7 @@ import com.daml.ledger.client.binding.Primitive
 class RandomPartySelecting(
     config: FooSubmissionConfig,
     allocatedParties: AllocatedParties,
-    randomnessProvider: RandomnessProvider = RandomnessProvider.Default,
+    randomnessProvider: RandomnessProvider,
 ) {
 
   private val observersProbability = probabilitiesByPartyIndex(allocatedParties.observers)

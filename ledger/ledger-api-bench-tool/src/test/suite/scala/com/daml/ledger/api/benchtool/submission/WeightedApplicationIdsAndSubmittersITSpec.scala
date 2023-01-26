@@ -107,7 +107,7 @@ class WeightedApplicationIdsAndSubmittersITSpec
         )
       )
       cp(discard(completionsApp1Submitter0.completions.size shouldBe 85))
-      cp(discard(completionsApp1Submitter1.completions.size shouldBe 15))
+      cp(discard(completionsApp1Submitter1.completions.size shouldBe 12))
       cp.reportAll()
       succeed
     }

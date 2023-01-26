@@ -48,6 +48,10 @@ trait BenchtoolSandboxFixture extends SandboxFixture {
           names = names,
           adminServices = apiServices,
         ),
+        // Making command generation deterministic w.r.t. parallelism
+        commandGenerationParallelism = 1,
+        // Making command submission deterministic w.r.t. parallelism
+        maxInFlightCommandsOverride = Some(1),
       )
     } yield (
       apiServices,
