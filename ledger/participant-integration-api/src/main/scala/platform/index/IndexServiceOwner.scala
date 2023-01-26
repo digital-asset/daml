@@ -164,7 +164,6 @@ final class IndexServiceOwner(
   ): LedgerReadDao =
     JdbcLedgerDao.read(
       dbSupport = dbSupport,
-      eventsProcessingParallelism = config.eventsProcessingParallelism,
       servicesExecutionContext = servicesExecutionContext,
       metrics = metrics,
       engine = Some(engine),

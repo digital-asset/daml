@@ -46,6 +46,7 @@ case class AcsStreamsConfig(
     maxParallelIdCreateQueries: Int = AcsStreamsConfig.DefaultAcsIdFetchingParallelism,
     // Must be a power of 2
     maxParallelPayloadCreateQueries: Int = AcsStreamsConfig.DefaultAcsContractFetchingParallelism,
+    payloadProcessingParallelism: Int = IndexServiceConfig.DefaultEventsProcessingParallelism,
 )
 
 object AcsStreamsConfig {
