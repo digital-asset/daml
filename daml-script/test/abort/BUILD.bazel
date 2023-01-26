@@ -1,0 +1,42 @@
+# Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load("//rules_daml:daml.bzl", "daml_test")
+
+must_fail = True
+
+must_pass = False
+
+test_cases = {
+    "try_ok_catch_AnyException_abort": must_fail,
+    "try_ok_catch_AnyException_fail": must_fail,
+    "try_ok_catch_AnyException_error": must_fail,
+    "try_ok_catch_AnyException_throw_GeneralError": must_fail,
+    "try_ok_catch_AnyException_throw_CustomError": must_fail,
+    "try_ok_catch_GeneralError_abort": must_fail,
+    "try_ok_catch_GeneralError_fail": must_fail,
+    "try_ok_catch_GeneralError_error": must_fail,
+    "try_ok_catch_GeneralError_throw_GeneralError": must_fail,
+    "try_ok_catch_GeneralError_throw_CustomError": must_fail,
+    "try_ok_catch_CustomError_abort": must_fail,
+    "try_ok_catch_CustomError_fail": must_fail,
+    "try_ok_catch_CustomError_error": must_fail,
+    "try_ok_catch_CustomError_throw_CustomError": must_fail,
+    "try_ok_catch_CustomError_throw_GeneralError": must_fail,
+}
+
+[
+    daml_test(
+        name = "case_%s" % test_name,
+        srcs = [
+            ":Abort.daml",
+        ],
+        additional_compiler_flags = [
+            "-p",
+            test_name,
+        ],
+        must_fail = must_fail,
+        deps = ["//daml-script/daml:daml-script.dar"],
+    )
+    for test_name, must_fail in test_cases.items()
+]

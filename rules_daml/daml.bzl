@@ -378,6 +378,7 @@ def daml_test(
         damlc = "//compiler/damlc:damlc",
         additional_compiler_flags = [],
         target = None,
+        must_fail = False,
         **kwargs):
     sh_inline_test(
         name = name,
@@ -404,7 +405,11 @@ EOF
 cat $$tmpdir/daml.yaml
 {cp_srcs}
 cd $$tmpdir
+{status_check}if
 $$DAMLC test {damlc_opts} --files {files}
+{status_check}then echo "Expected 'daml test' to fail, but it passed" && exit 1
+{status_check}else exit 0
+{status_check}fi
 """.format(
             damlc = damlc,
             files = " ".join(["$(rootpaths %s)" % src for src in srcs]),
@@ -420,6 +425,7 @@ $$DAMLC test {damlc_opts} --files {files}
                 for src in srcs
             ]),
             target = "--target=" + target if (target) else "",
+            status_check = "" if must_fail else "#",
         ),
         **kwargs
     )

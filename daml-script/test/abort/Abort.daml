@@ -1,0 +1,159 @@
+-- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module Abort where
+
+import DA.Exception
+import Daml.Script
+
+exception CustomError
+
+try_ok_catch_AnyException_abort : Script ()
+try_ok_catch_AnyException_abort = do
+  isThrown <-
+    try do pure False
+    catch (e : AnyException) -> pure True
+  debug isThrown
+  if isThrown
+    then pure ()
+    else abort "expected exception but didn't get one"
+
+try_ok_catch_AnyException_fail : Script ()
+try_ok_catch_AnyException_fail = do
+  isThrown <-
+    try do pure False
+    catch (e : AnyException) -> pure True
+  debug isThrown
+  if isThrown
+    then pure ()
+    else fail "expected exception but didn't get one"
+
+try_ok_catch_AnyException_error : Script ()
+try_ok_catch_AnyException_error = do
+  isThrown <-
+    try do pure False
+    catch (e : AnyException) -> pure True
+  debug isThrown
+  if isThrown
+    then pure ()
+    else error "expected exception but didn't get one"
+
+try_ok_catch_AnyException_throw_GeneralError : Script ()
+try_ok_catch_AnyException_throw_GeneralError = do
+  isThrown <-
+    try do pure False
+    catch (e : AnyException) -> pure True
+  debug isThrown
+  if isThrown
+    then pure ()
+    else throw (GeneralError "expected exception but didn't get one")
+
+try_ok_catch_AnyException_throw_CustomError : Script ()
+try_ok_catch_AnyException_throw_CustomError = do
+  isThrown <-
+    try do pure False
+    catch (e : AnyException) -> pure True
+  debug isThrown
+  if isThrown
+    then pure ()
+    else throw CustomError
+
+try_ok_catch_GeneralError_abort : Script ()
+try_ok_catch_GeneralError_abort = do
+  isThrown <-
+    try do pure False
+    catch (e : GeneralError) -> pure True
+  debug isThrown
+  if isThrown
+    then pure ()
+    else abort "expected exception but didn't get one"
+
+try_ok_catch_GeneralError_fail : Script ()
+try_ok_catch_GeneralError_fail = do
+  isThrown <-
+    try do pure False
+    catch (e : GeneralError) -> pure True
+  debug isThrown
+  if isThrown
+    then pure ()
+    else fail "expected exception but didn't get one"
+
+try_ok_catch_GeneralError_error : Script ()
+try_ok_catch_GeneralError_error = do
+  isThrown <-
+    try do pure False
+    catch (e : GeneralError) -> pure True
+  debug isThrown
+  if isThrown
+    then pure ()
+    else error "expected exception but didn't get one"
+
+try_ok_catch_GeneralError_throw_GeneralError : Script ()
+try_ok_catch_GeneralError_throw_GeneralError = do
+  isThrown <-
+    try do pure False
+    catch (e : GeneralError) -> pure True
+  debug isThrown
+  if isThrown
+    then pure ()
+    else throw (GeneralError "expected exception but didn't get one")
+
+try_ok_catch_GeneralError_throw_CustomError : Script ()
+try_ok_catch_GeneralError_throw_CustomError = do
+  isThrown <-
+    try do pure False
+    catch (e : GeneralError) -> pure True
+  debug isThrown
+  if isThrown
+    then pure ()
+    else throw CustomError
+
+try_ok_catch_CustomError_abort : Script ()
+try_ok_catch_CustomError_abort = do
+  isThrown <-
+    try do pure False
+    catch (e : CustomError) -> pure True
+  debug isThrown
+  if isThrown
+    then pure ()
+    else abort "expected exception but didn't get one"
+
+try_ok_catch_CustomError_fail : Script ()
+try_ok_catch_CustomError_fail = do
+  isThrown <-
+    try do pure False
+    catch (e : CustomError) -> pure True
+  debug isThrown
+  if isThrown
+    then pure ()
+    else fail "expected exception but didn't get one"
+
+try_ok_catch_CustomError_error : Script ()
+try_ok_catch_CustomError_error = do
+  isThrown <-
+    try do pure False
+    catch (e : CustomError) -> pure True
+  debug isThrown
+  if isThrown
+    then pure ()
+    else error "expected exception but didn't get one"
+
+try_ok_catch_CustomError_throw_CustomError : Script ()
+try_ok_catch_CustomError_throw_CustomError = do
+  isThrown <-
+    try do pure False
+    catch (e : CustomError) -> pure True
+  debug isThrown
+  if isThrown
+    then pure ()
+    else throw CustomError
+
+try_ok_catch_CustomError_throw_GeneralError : Script ()
+try_ok_catch_CustomError_throw_GeneralError = do
+  isThrown <-
+    try do pure False
+    catch (e : CustomError) -> pure True
+  debug isThrown
+  if isThrown
+    then pure ()
+    else throw (GeneralError "expected exception but didn't get one")
