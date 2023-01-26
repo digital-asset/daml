@@ -52,8 +52,8 @@ archive
    archive ContractId
 
 - ``archive`` function.
-- Archives a contract already created and residing on the ledger. The contract is fetched by its unique contract identifier ``ContractId <name of template>``.
-- Returns a transaction id on success.
+- Archives a contract already created and residing on the ledger. The contract is fetched by its unique contract identifier ``ContractId <name of template>`` and then exercises the `Archive` choice on it.
+- Returns unit.
 - Requires authorization from the contract controllers/signatories. Without the required authorization, the transaction fails. For more detail on authorization, see :ref:`daml-ref-signatories`.
 
 - All templates implicitly have an `Archive` choice that cannot be removed, which is equivalent to:
