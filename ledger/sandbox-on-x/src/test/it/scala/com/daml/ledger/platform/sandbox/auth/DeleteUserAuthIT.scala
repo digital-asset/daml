@@ -5,7 +5,9 @@ package com.daml.platform.sandbox.auth
 
 import com.daml.ledger.api.v1.admin.user_management_service.DeleteUserRequest
 
+import java.util.UUID
 import scala.concurrent.Future
+import com.daml.test.evidence.scalatest.ScalaTestSupport.Implicits._
 
 final class DeleteUserAuthIT extends AdminOrIDPAdminServiceCallAuthTests with UserManagementAuth {
 
@@ -20,4 +22,28 @@ final class DeleteUserAuthIT extends AdminOrIDPAdminServiceCallAuthTests with Us
       )
     } yield ()
 
+  it should "deny calls if user is created already within another IDP" taggedAs adminSecurityAsset
+    .setAttack(
+      attackPermissionDenied(threat = "Present an existing userId but foreign Identity Provider")
+    ) in {
+    expectPermissionDenied {
+      val userId = "fresh-user-" + UUID.randomUUID().toString
+      for {
+        idpConfigresponse1 <- createConfig(canReadAsAdminStandardJWT)
+        idpConfigresponse2 <- createConfig(canReadAsAdminStandardJWT)
+        _ <- createFreshUser(
+          userId,
+          canReadAsAdmin.token,
+          toIdentityProviderId(idpConfigresponse1),
+          Seq.empty,
+        )
+        _ <- stub(canReadAsAdmin.token).deleteUser(
+          DeleteUserRequest(
+            userId = userId,
+            identityProviderId = toIdentityProviderId(idpConfigresponse2),
+          )
+        )
+      } yield ()
+    }
+  }
 }
