@@ -11,7 +11,6 @@ package object v1_15 {
     v1_14.default(timeoutScaleFactor) ++ Vector(
       new InterfaceIT,
       new InterfaceSubscriptionsIT,
-      new ExplicitDisclosureIT,
     )
 
   def optional(tlsConfig: Option[TlsConfiguration]): Vector[LedgerTestSuite] =

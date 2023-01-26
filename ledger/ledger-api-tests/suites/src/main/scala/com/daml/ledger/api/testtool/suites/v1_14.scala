@@ -4,6 +4,7 @@
 package com.daml.ledger.api.testtool.suites
 
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
+import com.daml.ledger.api.testtool.suites.v1_15.ExplicitDisclosureIT
 import com.daml.ledger.api.tls.TlsConfiguration
 
 package object v1_14 {
@@ -12,6 +13,7 @@ package object v1_14 {
       new ExceptionRaceConditionIT,
       new ExceptionsIT,
       new LimitsIT,
+      new ExplicitDisclosureIT,
     )).sortBy(_.name)
 
   def optional(tlsConfig: Option[TlsConfiguration]): Vector[LedgerTestSuite] =
