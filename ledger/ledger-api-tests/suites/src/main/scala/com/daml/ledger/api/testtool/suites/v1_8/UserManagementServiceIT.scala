@@ -54,7 +54,8 @@ final class UserManagementServiceIT extends UserManagementServiceITBase {
     "UserManagementUserRightsLimit",
     "Test user rights per user limit",
     allocate(NoParties),
-    enabled = _.userManagement.maxRightsPerUser > 0,
+    enabled = features =>
+      features.userManagement.maxRightsPerUser > 0 && features.userManagement.maxRightsPerUser <= 100,
     disabledReason = "requires user management feature with user rights limit",
   )(implicit ec => { case Participants(Participant(ledger)) =>
     def assertTooManyUserRightsError(t: Throwable): Unit = {

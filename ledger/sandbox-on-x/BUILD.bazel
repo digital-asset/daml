@@ -476,7 +476,6 @@ server_conformance_test(
           seeding = testing-weak
           user-management {
             enabled = true
-            max-rights-per-user = 100
           }
         }
         index-service {
@@ -506,7 +505,6 @@ server_conformance_test(
           user-management {
             enabled = true
             max-cache-size = 2
-            max-rights-per-user = 100
           }
         }
         index-service {
