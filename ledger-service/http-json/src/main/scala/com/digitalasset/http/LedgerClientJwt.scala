@@ -19,14 +19,13 @@ import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.transaction.Transaction
 import com.daml.ledger.api.v1.transaction_filter.TransactionFilter
 import com.daml.ledger.client.withoutledgerid.{LedgerClient => DamlLedgerClient}
+import com.daml.ledger.service.Grpc.StatusEnvelope
 import com.daml.lf.data.Ref
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 import com.google.protobuf
 import scalaz.{-\/, OneAnd, \/}
-import scalaz.syntax.std.boolean._
 
 import scala.concurrent.{Future, ExecutionContext => EC}
-import scala.util.control.NonFatal
 import com.daml.ledger.api.{domain => LedgerApiDomain}
 import com.daml.ledger.api.v1.admin.metering_report_service.{
   GetMeteringReportRequest,
@@ -41,8 +40,7 @@ import com.daml.ledger.client.services.admin.{
 import com.daml.ledger.client.services.commands.SynchronousCommandClient
 import com.daml.ledger.client.services.pkg.withoutledgerid.PackageClient
 import com.daml.ledger.client.services.transactions.withoutledgerid.TransactionClient
-import com.google.rpc.{Code, Status}
-import io.grpc.protobuf.StatusProto
+import com.google.rpc.Code
 
 object LedgerClientJwt {
   import Grpc.EFuture, Grpc.Category._
@@ -347,21 +345,6 @@ object LedgerClientJwt {
     type EFuture[E, A] = Future[Error[E] \/ A]
 
     final case class Error[+E](e: E, message: String)
-
-    private[http] object StatusEnvelope {
-      def unapply(t: Throwable): Option[Status] = t match {
-        case NonFatal(t) =>
-          val status = StatusProto fromThrowable t
-          if (status == null) None
-          else {
-            // fromThrowable uses UNKNOWN if it didn't find one
-            val code = com.google.rpc.Code.forNumber(status.getCode)
-            if (code == null) None
-            else (code != com.google.rpc.Code.UNKNOWN) option status
-          }
-        case _ => None
-      }
-    }
 
     // like Code but with types
     // only needs to contain types that may be reported to the json-api user;

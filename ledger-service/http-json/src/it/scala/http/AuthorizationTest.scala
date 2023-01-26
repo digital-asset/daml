@@ -7,13 +7,14 @@ import akka.actor.ActorSystem
 import akka.stream.Materializer
 import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.daml.http.HttpServiceTestFixture.UseTls
-import com.daml.http.util.Logging.instanceUUIDLogCtx
+import com.daml.http.util.Logging.{InstanceUUID, instanceUUIDLogCtx}
 import com.daml.http.util.SandboxTestLedger
 import com.daml.jwt.domain.Jwt
 import com.daml.ledger.api.auth.{AuthServiceStatic, Claim, ClaimPublic, ClaimSet}
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.daml.ledger.client.withoutledgerid.{LedgerClient => DamlLedgerClient}
+import com.daml.logging.LoggingContextOf
 import com.daml.test.evidence.tag.Security.SecurityTest.Property.Authorization
 import com.daml.test.evidence.tag.Security.SecurityTest
 import com.daml.test.evidence.scalatest.ScalaTestSupport.Implicits._
@@ -75,8 +76,12 @@ final class AuthorizationTest
     }
   }
 
-  private def packageService(client: DamlLedgerClient): PackageService =
-    new PackageService(HttpService.doLoad(client.packageClient))
+  private def packageService(
+      client: DamlLedgerClient
+  )(implicit lc: LoggingContextOf[InstanceUUID]): PackageService = {
+    val loadCache = com.daml.ledger.service.LedgerReader.LoadCache.freshCache()
+    new PackageService(HttpService.doLoad(client.packageClient, loadCache))
+  }
 
   behavior of "PackageService against an authenticated sandbox"
 

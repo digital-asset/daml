@@ -711,7 +711,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
       commands: Vector[(Offset, LedgerEntry.Transaction)]
   ): Future[Vector[(Offset, LedgerEntry.Transaction)]] = {
 
-    import JdbcLedgerDaoSuite._
+    import com.daml.scalautil.TraverseFMSyntax._
     import scalaz.std.scalaFuture._
     import scalaz.std.vector._
 
@@ -904,22 +904,5 @@ object JdbcLedgerDaoSuite {
 
   private type DivulgedContracts =
     Map[(ContractId, VersionedContractInstance), Set[Party]]
-
-  implicit final class `TraverseFM Ops`[T[_], A](private val self: T[A]) extends AnyVal {
-
-    import scalaz.syntax.traverse._
-    import scalaz.{Free, Monad, NaturalTransformation, Traverse}
-
-    /** Like `traverse`, but guarantees that
-      *
-      *  - `f` is evaluated left-to-right, and
-      *  - `B` from the preceding element is evaluated before `f` is invoked for
-      *    the subsequent `A`.
-      */
-    def traverseFM[F[_]: Monad, B](f: A => F[B])(implicit T: Traverse[T]): F[T[B]] =
-      self
-        .traverse(a => Free suspend (Free liftF f(a)))
-        .foldMap(NaturalTransformation.refl)
-  }
 
 }
