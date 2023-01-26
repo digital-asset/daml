@@ -81,8 +81,9 @@ final class UserManagementServiceIT extends UserManagementServiceITBase {
     val permissionsMax = permissionsMaxAndOne.tail
 
     for {
-      // cannot create user with #limit+1 rights
+      // allocating parties before user is created
       _ <- Future.sequence(allocatePartiesMaxAndOne)
+      // cannot create user with #limit+1 rights
       create1 <- ledger
         .createUser(CreateUserRequest(Some(user1), permissionsMaxAndOne))
         .mustFail(
