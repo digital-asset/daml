@@ -80,5 +80,7 @@ final class Metrics(
 
     object grpc extends DamlGrpcServerMetrics(labelMetricsFactory, "participant")
 
+    object health extends HealthMetrics(openTelemetryFactory)
+
   }
 }

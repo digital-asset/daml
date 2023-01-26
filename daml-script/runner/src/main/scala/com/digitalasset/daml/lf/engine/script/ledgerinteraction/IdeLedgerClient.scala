@@ -462,14 +462,18 @@ class IdeLedgerClient(
       esf: ExecutionSequencerFactory,
       mat: Materializer,
   ): Future[Option[User]] =
-    userManagementStore.getUser(id)(LoggingContext.empty).map(_.toOption)
+    userManagementStore
+      .getUser(id, IdentityProviderId.Default)(LoggingContext.empty)
+      .map(_.toOption)
 
   override def deleteUser(id: UserId)(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
   ): Future[Option[Unit]] =
-    userManagementStore.deleteUser(id)(LoggingContext.empty).map(_.toOption)
+    userManagementStore
+      .deleteUser(id, IdentityProviderId.Default)(LoggingContext.empty)
+      .map(_.toOption)
 
   override def listAllUsers()(implicit
       ec: ExecutionContext,
@@ -487,7 +491,7 @@ class IdeLedgerClient(
       mat: Materializer,
   ): Future[Option[List[UserRight]]] =
     userManagementStore
-      .grantRights(id, rights.toSet)(LoggingContext.empty)
+      .grantRights(id, rights.toSet, IdentityProviderId.Default)(LoggingContext.empty)
       .map(_.toOption.map(_.toList))
 
   override def revokeUserRights(
@@ -499,7 +503,7 @@ class IdeLedgerClient(
       mat: Materializer,
   ): Future[Option[List[UserRight]]] =
     userManagementStore
-      .revokeRights(id, rights.toSet)(LoggingContext.empty)
+      .revokeRights(id, rights.toSet, IdentityProviderId.Default)(LoggingContext.empty)
       .map(_.toOption.map(_.toList))
 
   override def listUserRights(id: UserId)(implicit
@@ -507,5 +511,7 @@ class IdeLedgerClient(
       esf: ExecutionSequencerFactory,
       mat: Materializer,
   ): Future[Option[List[UserRight]]] =
-    userManagementStore.listUserRights(id)(LoggingContext.empty).map(_.toOption.map(_.toList))
+    userManagementStore
+      .listUserRights(id, IdentityProviderId.Default)(LoggingContext.empty)
+      .map(_.toOption.map(_.toList))
 }

@@ -27,6 +27,15 @@ trait UserManagementAuth {
       rights: scala.Seq[Right] = scala.Seq.empty,
   ): Future[CreateUserResponse] = {
     val userId = "fresh-user-" + UUID.randomUUID().toString
+    createFreshUser(userId, token, identityProviderId, rights)
+  }
+
+  def createFreshUser(
+      userId: String,
+      token: Option[String],
+      identityProviderId: String,
+      rights: scala.Seq[Right],
+  ): Future[CreateUserResponse] = {
     val req = CreateUserRequest(
       user = Some(User(userId, identityProviderId = identityProviderId)),
       rights = rights,
