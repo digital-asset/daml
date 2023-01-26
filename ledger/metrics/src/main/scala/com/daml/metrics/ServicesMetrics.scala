@@ -17,7 +17,7 @@ import com.daml.metrics.api.{MetricDoc, MetricName}
 class ServicesMetrics(
     prefix: MetricName,
     factory: MetricsFactory,
-    openTelemetryFactory: LabeledMetricsFactory,
+    labeledMetricsFactory: LabeledMetricsFactory,
 ) {
 
   @MetricDoc.FanTag(
@@ -231,6 +231,6 @@ class ServicesMetrics(
     val prune: Timer = factory.timer(prefix :+ "prune")
   }
 
-  object pruning extends PruningMetrics(prefix :+ "pruning", openTelemetryFactory)
+  object pruning extends PruningMetrics(prefix :+ "pruning", labeledMetricsFactory)
 
 }
