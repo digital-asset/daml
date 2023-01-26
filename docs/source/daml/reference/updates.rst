@@ -49,7 +49,7 @@ archive
 
 .. code-block:: daml
 
-   archiveCmd ContractId
+   archive ContractId
 
 - ``archiveCmd`` function.
 - Archives a contract already created and residing on the ledger. The contract is fetched by its unique contract identifier ``ContractId <name of template>``.
