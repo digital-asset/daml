@@ -8,7 +8,7 @@ import com.daml.lf.command._
 import com.daml.lf.data._
 import com.daml.lf.data.Ref.{Identifier, PackageId, ParticipantId, Party}
 import com.daml.lf.language.Ast._
-import com.daml.lf.speedy.{InitialSeeding, Pretty, Question, SError, SValue}
+import com.daml.lf.speedy.{InitialSeeding, Pretty, Question, SError, SResult, SValue}
 import com.daml.lf.speedy.SExpr.{SEApp, SExpr}
 import com.daml.lf.speedy.Speedy.{Machine, PureMachine, UpdateMachine}
 import com.daml.lf.speedy.SResult._
@@ -28,8 +28,6 @@ import com.daml.lf.validation.Validation
 import com.daml.logging.LoggingContext
 import com.daml.nameof.NameOf
 import com.daml.scalautil.Statement.discard
-
-import scala.annotation.tailrec
 
 /** Allows for evaluating [[Commands]] and validating [[Transaction]]s.
   * <p>
@@ -60,7 +58,6 @@ import scala.annotation.tailrec
   *
   * This class is thread safe as long `nextRandomInt` is.
   */
-@scala.annotation.nowarn("msg=return statement uses an exception to pass control to the caller")
 class Engine(val config: EngineConfig = Engine.StableConfig) {
 
   config.profileDir.foreach(Files.createDirectories(_))
@@ -330,6 +327,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
   }
 
   @SuppressWarnings(Array("org.wartremover.warts.Return"))
+  @scala.annotation.nowarn("msg=return statement uses an exception to pass control to the caller")
   private[engine] def deps(tx: VersionedTransaction): Result[Set[PackageId]] = {
     val nodePkgIds =
       tx.nodes.values.collect { case node: Node.Action => node.packageIds }.flatten.toSet
@@ -358,8 +356,6 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
     }
   }
 
-  // TODO SC remove 'return', notwithstanding a love of unhandled exceptions
-  @SuppressWarnings(Array("org.wartremover.warts.Return"))
   private[engine] def interpretLoop(
       machine: UpdateMachine,
       time: Time.Timestamp,
@@ -396,7 +392,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
           handleError(err)
       }
 
-    @tailrec
+    @scala.annotation.tailrec
     def loop(): Result[(SubmittedTransaction, Tx.Metadata)] =
       machine.run() match {
 
@@ -440,9 +436,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
           }
 
         case SResultInterruption =>
-          // TODO https://github.com/digital-asset/daml/issues/13954
-          //  add a case in Engine.Result to handle this
-          loop()
+          ResultInterruption(() => interpretLoop(machine, time))
 
         case _: SResultFinal =>
           finish
@@ -522,10 +516,13 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
       argument: Value,
       interfaceId: Identifier,
   )(implicit loggingContext: LoggingContext): Result[Versioned[Value]] = {
+    @scala.annotation.nowarn("msg=dead code following this construct")
     def interpret(machine: PureMachine): Result[SValue] =
-      machine.runPure() match {
-        case Right(v) => ResultDone(v)
-        case Left(err) => handleError(err, None)
+      machine.run() match {
+        case SResultFinal(v) => ResultDone(v)
+        case SResultError(err) => handleError(err, None)
+        case SResult.SResultInterruption => ResultInterruption(() => interpret(machine))
+        case SResultQuestion(nothing) => nothing: Nothing
       }
     for {
       view <- preprocessor.preprocessInterfaceView(templateId, argument, interfaceId)
@@ -533,7 +530,11 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
         NameOf.qualifiedNameOfCurrentFunc,
         compiledPackages.compiler.unsafeCompileInterfaceView(view),
       )
-      machine = Machine.fromPureSExpr(compiledPackages, sexpr)
+      machine = Machine.fromPureSExpr(
+        compiledPackages,
+        sexpr,
+        config.iterationsBetweenInterruptions,
+      )
       r <- interpret(machine)
       version = machine.tmplId2TxVersion(interfaceId)
     } yield Versioned(version, r.toNormalizedValue(version))

@@ -469,6 +469,9 @@ final class LfValueTranslation(
               )
               .map(resume)
               .flatMap(goAsync)
+
+          case LfEngine.ResultInterruption(continue) =>
+            goAsync(continue())
         }
 
       Future(engine.computeInterfaceView(templateId, value, interfaceId))
