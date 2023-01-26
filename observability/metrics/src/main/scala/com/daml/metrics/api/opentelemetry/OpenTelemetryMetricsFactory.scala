@@ -9,7 +9,14 @@ import java.util.concurrent.TimeUnit
 import com.daml.buildinfo.BuildInfo
 import com.daml.metrics.api.Gauges.VarGauge
 import com.daml.metrics.api.MetricHandle.Timer.TimerHandle
-import com.daml.metrics.api.MetricHandle.{Counter, Factory, Gauge, Histogram, Meter, Timer}
+import com.daml.metrics.api.MetricHandle.{
+  Counter,
+  Gauge,
+  Histogram,
+  LabeledMetricsFactory,
+  Meter,
+  Timer,
+}
 import com.daml.metrics.api.opentelemetry.OpenTelemetryTimer.{
   TimerUnit,
   TimerUnitAndSuffix,
@@ -25,11 +32,12 @@ import io.opentelemetry.api.metrics.{
   Meter => OtelMeter,
 }
 
-class OpenTelemetryFactory(otelMeter: OtelMeter) extends Factory {
-
-  val globalMetricsContext: MetricsContext = MetricsContext(
-    Map("daml_version" -> BuildInfo.Version)
-  )
+class OpenTelemetryMetricsFactory(
+    otelMeter: OtelMeter,
+    globalMetricsContext: MetricsContext = MetricsContext(
+      Map("daml_version" -> BuildInfo.Version)
+    ),
+) extends LabeledMetricsFactory {
 
   override def timer(name: MetricName, description: String)(implicit
       context: MetricsContext = MetricsContext.Empty

@@ -6,11 +6,11 @@ package com.daml.metrics
 import java.time.Instant
 
 import com.daml.metrics.api.MetricDoc.MetricQualification.Debug
-import com.daml.metrics.api.MetricHandle.{Factory, Gauge}
+import com.daml.metrics.api.MetricHandle.{MetricsFactory, Gauge}
 import com.daml.metrics.api.dropwizard.DropwizardGauge
 import com.daml.metrics.api.{MetricDoc, MetricName, MetricsContext}
 
-class IndexerMetrics(prefix: MetricName, factory: Factory) {
+class IndexerMetrics(prefix: MetricName, factory: MetricsFactory) {
 
   @MetricDoc.Tag(
     summary = "The time of the last event ingested by the index db (in milliseconds since EPOCH).",

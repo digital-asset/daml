@@ -4,10 +4,10 @@
 package com.daml.metrics
 
 import com.daml.metrics.api.MetricDoc.MetricQualification.{Debug, Latency}
-import com.daml.metrics.api.MetricHandle.{Counter, Factory, Meter, Timer}
+import com.daml.metrics.api.MetricHandle.{Counter, MetricsFactory, Meter, Timer}
 import com.daml.metrics.api.{MetricDoc, MetricName}
 
-class CommandMetrics(val prefix: MetricName, val factory: Factory) {
+class CommandMetrics(val prefix: MetricName, val factory: MetricsFactory) {
 
   @MetricDoc.Tag(
     summary = "The time to validate a Daml command.",

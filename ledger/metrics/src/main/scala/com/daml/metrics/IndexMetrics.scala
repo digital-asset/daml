@@ -4,10 +4,10 @@
 package com.daml.metrics
 
 import com.daml.metrics.api.MetricDoc.MetricQualification.{Debug, Saturation}
-import com.daml.metrics.api.MetricHandle.{Counter, Factory, Gauge, Timer}
+import com.daml.metrics.api.MetricHandle.{Counter, MetricsFactory, Gauge, Timer}
 import com.daml.metrics.api.{MetricDoc, MetricName, MetricsContext}
 
-class IndexMetrics(prefix: MetricName, factory: Factory) {
+class IndexMetrics(prefix: MetricName, factory: MetricsFactory) {
 
   @MetricDoc.Tag(
     summary = "The buffer size for transaction trees requests.",

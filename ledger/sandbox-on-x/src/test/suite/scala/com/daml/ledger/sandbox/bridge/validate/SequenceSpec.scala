@@ -315,7 +315,7 @@ class SequenceSpec
   }
 
   private trait TestContext extends FixtureContext {
-    private val bridgeMetrics = new BridgeMetrics(Metrics.ForTesting.dropwizardFactory)
+    private val bridgeMetrics = new BridgeMetrics(Metrics.ForTesting.defaultMetricsFactory)
     val timeProviderMock: TimeProvider = mock[TimeProvider]
     val submissionId: IdString.LedgerString =
       Ref.SubmissionId.assertFromString("some-submission-id")
