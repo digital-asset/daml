@@ -237,7 +237,6 @@ case class OpenTelemetryCounter(
   override def dec(n: Long)(implicit
       context: MetricsContext
   ): Unit = counter.add(-n, AttributesHelper.multiContextAsAttributes(counterContext, context))
-  override def getCount: Long = 0 // Not supported by OpenTelemetry
 
 }
 

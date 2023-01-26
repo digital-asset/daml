@@ -135,8 +135,6 @@ object InMemoryMetricsFactory extends InMemoryMetricsFactory {
     override def dec(value: Long)(implicit context: MetricsContext): Unit =
       addToContext(markers, initialContext.merge(context), -value)
 
-    override def getCount: Long = 0
-
   }
 
   case class InMemoryHistogram(initialContext: MetricsContext) extends Histogram {

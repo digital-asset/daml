@@ -14,6 +14,7 @@ import com.daml.grpc.sampleservice.HelloServiceResponding
 import com.daml.ledger.api.testing.utils.{AkkaBeforeAndAfterAll, TestingServerInterceptors}
 import com.daml.ledger.resources.{ResourceOwner, TestResourceContext}
 import com.daml.metrics.Metrics
+import com.daml.metrics.api.testing.MetricValues
 import com.daml.platform.apiserver.MetricsInterceptorSpec._
 import com.daml.platform.hello.HelloServiceGrpc.HelloService
 import com.daml.platform.hello.{HelloRequest, HelloResponse, HelloServiceGrpc}
@@ -34,7 +35,8 @@ final class MetricsInterceptorSpec
     with AkkaBeforeAndAfterAll
     with Matchers
     with Eventually
-    with TestResourceContext {
+    with TestResourceContext
+    with MetricValues {
 
   implicit override val patienceConfig: PatienceConfig =
     PatienceConfig(timeout = scaled(Span(1, Second)))
@@ -68,8 +70,8 @@ final class MetricsInterceptorSpec
         val okCounter = metrics.daml.lapi.return_status.forCode("OK")
         val internalCounter = metrics.daml.lapi.return_status.forCode("INTERNAL")
         eventually {
-          okCounter.getCount shouldBe 1
-          internalCounter.getCount shouldBe 1
+          okCounter.value shouldBe 1
+          internalCounter.value shouldBe 1
         }
       }
     }

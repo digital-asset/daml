@@ -12,6 +12,7 @@ import com.daml.ledger.client.GrpcChannel
 import com.daml.ledger.client.configuration.LedgerClientChannelConfiguration
 import com.daml.ledger.resources.{ResourceOwner, TestResourceContext}
 import com.daml.metrics.Metrics
+import com.daml.metrics.api.testing.MetricValues
 import com.daml.platform.apiserver.GrpcServerSpec._
 import com.daml.platform.apiserver.configuration.RateLimitingConfig
 import com.daml.platform.apiserver.ratelimiting.{LimitResult, RateLimitingInterceptor}
@@ -24,7 +25,11 @@ import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.concurrent.Future
 
-final class GrpcServerSpec extends AsyncWordSpec with Matchers with TestResourceContext {
+final class GrpcServerSpec
+    extends AsyncWordSpec
+    with Matchers
+    with TestResourceContext
+    with MetricValues {
   "a GRPC server" should {
     "handle a request to a valid service" in {
       resources().use { channel =>
@@ -110,7 +115,7 @@ final class GrpcServerSpec extends AsyncWordSpec with Matchers with TestResource
             s.getStatus.getCode shouldBe Status.Code.ABORTED
             metrics.daml.lapi.return_status
               .forCode(Status.Code.ABORTED.toString)
-              .getCount shouldBe 1
+              .value shouldBe 1
           case o => fail(s"Expected StatusRuntimeException, not $o")
         }
       }
