@@ -3,10 +3,10 @@
 
 package com.daml.metrics.api.noop
 
-import com.daml.metrics.api.MetricHandle.{LabeledMetricsFactory, MetricsFactory}
+import com.daml.metrics.api.MetricHandle.LabeledMetricsFactory
 import com.daml.metrics.api.{MetricHandle, MetricName, MetricsContext}
 
-object NoOpMetricsFactory extends MetricsFactory with LabeledMetricsFactory {
+object NoOpMetricsFactory extends LabeledMetricsFactory {
 
   override def timer(
       name: MetricName,

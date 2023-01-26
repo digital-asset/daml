@@ -17,10 +17,6 @@ trait MetricHandle {
 
 object MetricHandle {
 
-  trait LabeledMetricsFactory {
-    this: MetricsFactory =>
-  }
-
   trait MetricsFactory {
 
     /** A timer can be represented by either a summary or a histogram.
@@ -73,6 +69,8 @@ object MetricHandle {
     ): Histogram
 
   }
+
+  trait LabeledMetricsFactory extends MetricsFactory
 
   trait Timer extends MetricHandle {
 

@@ -13,7 +13,6 @@ import com.daml.metrics.api.MetricHandle.{
   Histogram,
   LabeledMetricsFactory,
   Meter,
-  MetricsFactory,
   Timer,
 }
 import com.daml.metrics.api.testing.InMemoryMetricsFactory.{
@@ -28,7 +27,7 @@ import com.daml.scalautil.Statement.discard
 
 import scala.collection.concurrent.{TrieMap, Map => ConcurrentMap}
 
-class InMemoryMetricsFactory extends MetricsFactory with LabeledMetricsFactory {
+class InMemoryMetricsFactory extends LabeledMetricsFactory {
 
   val asyncGauges: ConcurrentMap[(MetricName, MetricsContext), () => Any] =
     TrieMap[(MetricName, MetricsContext), () => Any]()

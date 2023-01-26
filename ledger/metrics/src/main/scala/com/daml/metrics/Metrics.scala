@@ -33,7 +33,7 @@ object Metrics {
 
 final class Metrics(
     val defaultMetricsFactory: MetricsFactory,
-    val labelMetricsFactory: MetricsFactory with LabeledMetricsFactory,
+    val labelMetricsFactory: LabeledMetricsFactory,
     val registry: MetricRegistry,
 ) {
 

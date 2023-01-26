@@ -28,7 +28,7 @@ object HttpJsonApiMetrics {
 
 class HttpJsonApiMetrics(
     defaultMetricsFactory: MetricsFactory,
-    labeledMetricsFactory: MetricsFactory with LabeledMetricsFactory,
+    labeledMetricsFactory: LabeledMetricsFactory,
 ) {
   val prefix: MetricName = MetricName.Daml :+ "http_json_api"
 

@@ -15,7 +15,6 @@ import com.daml.metrics.api.MetricHandle.{
   Histogram,
   LabeledMetricsFactory,
   Meter,
-  MetricsFactory,
   Timer,
 }
 import com.daml.metrics.api.opentelemetry.OpenTelemetryTimer.{
@@ -38,8 +37,7 @@ class OpenTelemetryMetricsFactory(
     globalMetricsContext: MetricsContext = MetricsContext(
       Map("daml_version" -> BuildInfo.Version)
     ),
-) extends MetricsFactory
-    with LabeledMetricsFactory {
+) extends LabeledMetricsFactory {
 
   override def timer(name: MetricName, description: String)(implicit
       context: MetricsContext = MetricsContext.Empty

@@ -17,7 +17,7 @@ import com.daml.metrics.api.{MetricDoc, MetricName}
 class ServicesMetrics(
     prefix: MetricName,
     factory: MetricsFactory,
-    openTelemetryFactory: MetricsFactory with LabeledMetricsFactory,
+    openTelemetryFactory: LabeledMetricsFactory,
 ) {
 
   @MetricDoc.FanTag(

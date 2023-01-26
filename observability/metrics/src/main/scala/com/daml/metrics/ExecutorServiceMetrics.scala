@@ -11,11 +11,11 @@ import com.daml.metrics.ExecutorServiceMetrics.{
   NameLabelKey,
   ThreadPoolMetricsName,
 }
-import com.daml.metrics.api.MetricHandle.{LabeledMetricsFactory, MetricsFactory}
+import com.daml.metrics.api.MetricHandle.LabeledMetricsFactory
 import com.daml.metrics.api.{MetricName, MetricsContext}
 import org.slf4j.LoggerFactory
 
-class ExecutorServiceMetrics(factory: MetricsFactory with LabeledMetricsFactory) {
+class ExecutorServiceMetrics(factory: LabeledMetricsFactory) {
 
   private val logger = LoggerFactory.getLogger(getClass)
 
