@@ -33,11 +33,11 @@ object Metrics {
 
 final class Metrics(
     val defaultMetricsFactory: MetricsFactory,
-    val labelMetricsFactory: LabeledMetricsFactory,
+    val labeledMetricsFactory: LabeledMetricsFactory,
     val registry: MetricRegistry,
 ) {
 
-  val executorServiceMetrics = new ExecutorServiceMetrics(labelMetricsFactory)
+  val executorServiceMetrics = new ExecutorServiceMetrics(labeledMetricsFactory)
 
   object test {
     private val prefix: MetricName = MetricName("test")
@@ -70,17 +70,17 @@ final class Metrics(
 
     object indexer extends IndexerMetrics(prefix :+ "indexer", defaultMetricsFactory)
 
-    object indexerEvents extends IndexedUpdatesMetrics(prefix :+ "indexer", labelMetricsFactory)
+    object indexerEvents extends IndexedUpdatesMetrics(prefix :+ "indexer", labeledMetricsFactory)
 
     object parallelIndexer
         extends ParallelIndexerMetrics(prefix :+ "parallel_indexer", defaultMetricsFactory)
 
     object services
-        extends ServicesMetrics(prefix :+ "services", defaultMetricsFactory, labelMetricsFactory)
+        extends ServicesMetrics(prefix :+ "services", defaultMetricsFactory, labeledMetricsFactory)
 
-    object grpc extends DamlGrpcServerMetrics(labelMetricsFactory, "participant")
+    object grpc extends DamlGrpcServerMetrics(labeledMetricsFactory, "participant")
 
-    object health extends HealthMetrics(openTelemetryFactory)
+    object health extends HealthMetrics(labeledMetricsFactory)
 
   }
 }

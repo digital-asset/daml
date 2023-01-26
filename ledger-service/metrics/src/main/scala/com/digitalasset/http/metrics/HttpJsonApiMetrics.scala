@@ -102,5 +102,5 @@ class HttpJsonApiMetrics(
   val http = new DamlHttpMetrics(labeledMetricsFactory, ComponentName)
   val websocket = new DamlWebSocketMetrics(labeledMetricsFactory, ComponentName)
 
-  val health = new HealthMetrics(openTelemetryFactory)
+  val health = new HealthMetrics(labeledMetricsFactory)
 }

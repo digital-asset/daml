@@ -3,12 +3,14 @@
 
 package com.daml.metrics
 
-import com.daml.metrics.api.MetricHandle.Factory
-import com.daml.metrics.api.{MetricsContext, MetricName => MN}
 import java.util.concurrent.TimeoutException
+
+import com.daml.metrics.api.MetricHandle.LabeledMetricsFactory
+import com.daml.metrics.api.{MetricsContext, MetricName => MN}
+
 import scala.concurrent.{Await, ExecutionContext, Future}
 
-class HealthMetrics(val factory: Factory) {
+class HealthMetrics(val factory: LabeledMetricsFactory) {
   import HealthMetrics._
 
   def registerHealthGauge(componentName: String, supplier: () => Boolean): Unit = {
