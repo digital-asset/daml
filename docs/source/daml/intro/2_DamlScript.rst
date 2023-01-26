@@ -131,7 +131,7 @@ Contracts are also archived whenever a `consuming choice </daml/intro/4_Transfor
 .. important::
     Archive choices are present on all templates and cannot be removed.
 
-References to contracts have the type ``ContractId a``, where ``a`` is a *type parameter* representing the type of contract that the id refers to. For example, a reference to a ``Token`` would be a ``ContractId Token``.
+References to contracts have the type ``ContractId a``, where ``a`` is a *type parameter* representing the template type of contract that the id refers to. For example, a reference to a ``Token`` would be a ``ContractId Token``.
 
 To ``archiveCmd`` the token Alice has created, you need the contract id. Retrieve the contract id from the ledger with the ``<-`` notation. How this works is discussed in :doc:`5_Restrictions`.
 
