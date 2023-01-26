@@ -53,9 +53,9 @@ object AcsStreamsConfig {
   val DefaultAcsIdPageSize: Int = 20000
   val DefaultAcsIdPageBufferSize: Int = 1
   val DefaultAcsIdPageWorkingMemoryBytes: Int = 100 * 1024 * 1024
-  val DefaultAcsIdFetchingParallelism: Int = 2
+  val DefaultAcsIdFetchingParallelism: Int = 16
   // Must be a power of 2
-  val DefaultAcsContractFetchingParallelism: Int = 2
+  val DefaultAcsContractFetchingParallelism: Int = 16
 
   val default: AcsStreamsConfig = AcsStreamsConfig()
 }
@@ -68,10 +68,10 @@ case class TransactionFlatStreamsConfig(
     maxParallelIdCreateQueries: Int = 4,
     maxParallelIdConsumingQueries: Int = 4,
     // Must be a power of 2
-    maxParallelPayloadCreateQueries: Int = 2,
+    maxParallelPayloadCreateQueries: Int = 16,
     // Must be a power of 2
-    maxParallelPayloadConsumingQueries: Int = 2,
-    maxParallelPayloadQueries: Int = 2,
+    maxParallelPayloadConsumingQueries: Int = 16,
+    maxParallelPayloadQueries: Int = 16,
     transactionsProcessingParallelism: Int = 8,
 )
 object TransactionFlatStreamsConfig {
@@ -87,12 +87,12 @@ case class TransactionTreeStreamsConfig(
     maxParallelIdConsumingQueries: Int = 8,
     maxParallelIdNonConsumingQueries: Int = 4,
     // Must be a power of 2
-    maxParallelPayloadCreateQueries: Int = 2,
+    maxParallelPayloadCreateQueries: Int = 16,
     // Must be a power of 2
-    maxParallelPayloadConsumingQueries: Int = 2,
+    maxParallelPayloadConsumingQueries: Int = 16,
     // Must be a power of 2
-    maxParallelPayloadNonConsumingQueries: Int = 2,
-    maxParallelPayloadQueries: Int = 2,
+    maxParallelPayloadNonConsumingQueries: Int = 16,
+    maxParallelPayloadQueries: Int = 16,
     transactionsProcessingParallelism: Int = 8,
 )
 object TransactionTreeStreamsConfig {

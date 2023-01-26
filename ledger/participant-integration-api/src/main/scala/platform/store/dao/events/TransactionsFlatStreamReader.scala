@@ -156,10 +156,8 @@ class TransactionsFlatStreamReader(
       ids.async
         .addAttributes(
           Attributes.inputBuffer(
-            // TODO etq: Consider use the nearest greater or equal power of two instead to prevent stream creation failures
-            // TODO etq: Consider removing this buffer completely
-            initial = maxParallelPayloadQueries,
-            max = maxParallelPayloadQueries,
+            initial = 1,
+            max = 1,
           )
         )
         .mapAsync(maxParallelPayloadQueries)(ids =>

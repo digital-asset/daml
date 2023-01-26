@@ -128,8 +128,8 @@ class ACSReader(
       .async
       .addAttributes(
         Attributes.inputBuffer(
-          initial = config.maxParallelPayloadCreateQueries,
-          max = config.maxParallelPayloadCreateQueries,
+          initial = 1,
+          max = 1,
         )
       )
       .mapAsync(config.maxParallelPayloadCreateQueries)(fetchPayloads)

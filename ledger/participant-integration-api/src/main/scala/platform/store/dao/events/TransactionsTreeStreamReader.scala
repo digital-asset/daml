@@ -153,7 +153,7 @@ class TransactionsTreeStreamReader(
       ids.async
         .addAttributes(
           Attributes
-            .inputBuffer(initial = maxParallelPayloadQueries, max = maxParallelPayloadQueries)
+            .inputBuffer(initial = 1, max = 1)
         )
         .mapAsync(maxParallelPayloadQueries)(ids =>
           payloadQueriesLimiter.execute {
