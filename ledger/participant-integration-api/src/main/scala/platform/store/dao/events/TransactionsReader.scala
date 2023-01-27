@@ -37,7 +37,6 @@ import scala.util.{Failure, Success}
   * @param queryNonPruned
   * @param eventStorageBackend
   * @param metrics
-  * @param lfValueTranslation The delegate in charge of translating serialized Daml-LF values
   * @param acsReader Knows how to streams ACS
   * @param executionContext Runs transformations on data fetched from the database, including Daml-LF value deserialization
   */
