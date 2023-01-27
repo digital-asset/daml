@@ -13,7 +13,7 @@ module DA.Internal.LF
   , partyFromText
 
   , ContractId
-  , coerceContractId  -- This is temporary for testing.
+  , coerceContractId
 
   , Date
 
@@ -151,8 +151,9 @@ instance Show (ContractId a) where
     None -> "<contract-id>"
     Some t -> t
 
--- | HIDE This is currently used in the internals of Daml script and Daml triggers
--- but not really something that we want to expose to users.
+-- | Used to convert the type index of a `ContractId`, since they are just
+-- pointers. Note that subsequent fetches and exercises might fail if the
+-- template of the contract on the ledger doesn't match.
 coerceContractId : ContractId a -> ContractId b
 coerceContractId = primitive @"BECoerceContractId"
 
