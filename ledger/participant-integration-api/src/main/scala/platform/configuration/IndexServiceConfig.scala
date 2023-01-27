@@ -67,9 +67,7 @@ case class TransactionFlatStreamsConfig(
     maxPayloadsPerPayloadsPage: Int = 1000,
     maxParallelIdCreateQueries: Int = 4,
     maxParallelIdConsumingQueries: Int = 4,
-    // Must be a power of 2
     maxParallelPayloadCreateQueries: Int = 2,
-    // Must be a power of 2
     maxParallelPayloadConsumingQueries: Int = 2,
     maxParallelPayloadQueries: Int = 2,
     transactionsProcessingParallelism: Int = 8,
@@ -86,11 +84,8 @@ case class TransactionTreeStreamsConfig(
     maxParallelIdCreateQueries: Int = 8,
     maxParallelIdConsumingQueries: Int = 8,
     maxParallelIdNonConsumingQueries: Int = 4,
-    // Must be a power of 2
     maxParallelPayloadCreateQueries: Int = 2,
-    // Must be a power of 2
     maxParallelPayloadConsumingQueries: Int = 2,
-    // Must be a power of 2
     maxParallelPayloadNonConsumingQueries: Int = 2,
     maxParallelPayloadQueries: Int = 2,
     transactionsProcessingParallelism: Int = 8,

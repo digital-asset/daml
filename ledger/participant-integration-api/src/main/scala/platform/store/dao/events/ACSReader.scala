@@ -116,6 +116,9 @@ class ACSReader(
         }
       )
 
+    // Akka requires for this buffer's size to be a power of two.
+    val inputBufferSize =
+      Utils.largestSmallerOrEqualPowerOfTwo(config.maxParallelPayloadCreateQueries)
     decomposedFilters
       .map(fetchIds)
       .pipe(EventIdsUtils.sortAndDeduplicateIds)
@@ -126,12 +129,7 @@ class ACSReader(
         )
       )
       .async
-      .addAttributes(
-        Attributes.inputBuffer(
-          initial = config.maxParallelPayloadCreateQueries,
-          max = config.maxParallelPayloadCreateQueries,
-        )
-      )
+      .addAttributes(Attributes.inputBuffer(initial = inputBufferSize, max = inputBufferSize))
       .mapAsync(config.maxParallelPayloadCreateQueries)(fetchPayloads)
   }
 }

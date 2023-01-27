@@ -153,15 +153,10 @@ class TransactionsFlatStreamReader(
         maxParallelPayloadQueries: Int,
         dbMetric: DatabaseMetrics,
     ): Source[EventStorageBackend.Entry[Raw.FlatEvent], NotUsed] = {
+      // Akka requires for this buffer's size to be a power of two.
+      val inputBufferSize = Utils.largestSmallerOrEqualPowerOfTwo(maxParallelPayloadQueries)
       ids.async
-        .addAttributes(
-          Attributes.inputBuffer(
-            // TODO etq: Consider use the nearest greater or equal power of two instead to prevent stream creation failures
-            // TODO etq: Consider removing this buffer completely
-            initial = maxParallelPayloadQueries,
-            max = maxParallelPayloadQueries,
-          )
-        )
+        .addAttributes(Attributes.inputBuffer(initial = inputBufferSize, max = inputBufferSize))
         .mapAsync(maxParallelPayloadQueries)(ids =>
           payloadQueriesLimiter.execute {
             globalPayloadQueriesLimiter.execute {
