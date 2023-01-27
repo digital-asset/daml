@@ -96,7 +96,7 @@ final class GrpcTransactionService(
 
   override def getTransactionByEventId(
       request: GetTransactionByEventIdRequest
-  ): Future[GetTransactionResponse] = {
+  ): Future[GetTransactionResponse] =
     withEnrichedLoggingContext(traceId(telemetry.traceIdFromGrpcContext)) {
       implicit loggingContext =>
         getSingleTransaction(
@@ -105,11 +105,10 @@ final class GrpcTransactionService(
           service.getTransactionByEventId,
         )
     }
-  }
 
   override def getTransactionById(
       request: GetTransactionByIdRequest
-  ): Future[GetTransactionResponse] = {
+  ): Future[GetTransactionResponse] =
     withEnrichedLoggingContext(traceId(telemetry.traceIdFromGrpcContext)) {
       implicit loggingContext =>
         getSingleTransaction(
@@ -118,11 +117,10 @@ final class GrpcTransactionService(
           service.getTransactionById,
         )
     }
-  }
 
   override def getFlatTransactionByEventId(
       request: GetTransactionByEventIdRequest
-  ): Future[GetFlatTransactionResponse] = {
+  ): Future[GetFlatTransactionResponse] =
     withEnrichedLoggingContext(traceId(telemetry.traceIdFromGrpcContext)) {
       implicit loggingContext =>
         getSingleTransaction(
@@ -131,11 +129,10 @@ final class GrpcTransactionService(
           service.getFlatTransactionByEventId,
         )
     }
-  }
 
   override def getFlatTransactionById(
       request: GetTransactionByIdRequest
-  ): Future[GetFlatTransactionResponse] = {
+  ): Future[GetFlatTransactionResponse] =
     withEnrichedLoggingContext(traceId(telemetry.traceIdFromGrpcContext)) {
       implicit loggingContext =>
         getSingleTransaction(
@@ -144,7 +141,6 @@ final class GrpcTransactionService(
           service.getFlatTransactionById,
         )
     }
-  }
 
   override def getLedgerEnd(request: GetLedgerEndRequest): Future[GetLedgerEndResponse] = {
     val validation = validator.validateLedgerEnd(request)
@@ -163,4 +159,7 @@ final class GrpcTransactionService(
   override def bindService(): ServerServiceDefinition =
     TransactionServiceGrpc.bindService(this, executionContext)
 
+  override def getLatestPrunedOffsets(
+      request: GetLatestPrunedOffsetsRequest
+  ): Future[GetLatestPrunedOffsetsResponse] = service.getLatestPrunedOffsets
 }

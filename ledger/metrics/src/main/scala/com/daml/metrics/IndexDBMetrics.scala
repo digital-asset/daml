@@ -146,6 +146,7 @@ class MainIndexDBMetrics(prefix: MetricName, factory: MetricsFactory)
   val storePackageEntryDbMetrics: DatabaseMetrics = createDbMetrics("store_package_entry")
   val loadPackageEntries: DatabaseMetrics = createDbMetrics("load_package_entries")
   val pruneDbMetrics: DatabaseMetrics = createDbMetrics("prune")
+  val fetchPruningOffsetsMetrics: DatabaseMetrics = createDbMetrics("fetch_pruning_offsets")
   val lookupActiveContractDbMetrics: DatabaseMetrics = createDbMetrics("lookup_active_contract")
   val lookupContractByKeyDbMetrics: DatabaseMetrics = createDbMetrics(
     "lookup_contract_by_key"

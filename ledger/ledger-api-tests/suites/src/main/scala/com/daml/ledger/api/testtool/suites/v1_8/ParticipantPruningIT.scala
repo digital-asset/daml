@@ -4,7 +4,6 @@
 package com.daml.ledger.api.testtool.suites.v1_8
 
 import java.util.regex.Pattern
-
 import com.daml.error.definitions.LedgerApiErrors
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
@@ -45,6 +44,68 @@ class ParticipantPruningIT extends LedgerTestSuite {
         failure,
         LedgerApiErrors.RequestValidation.InvalidArgument,
         Some("prune_up_to not specified"),
+      )
+    }
+  })
+
+  test(
+    "PRQueryLatestPrunedOffsets",
+    "It should be possible to query the latest pruned offsets",
+    allocate(SingleParty),
+  )(implicit ec => { case Participants(Participant(participant, alice)) =>
+    for {
+      (prunedUpToInclusive_initial, allDivulgencePrunedUpToInclusive_initial) <- participant
+        .latestPrunedOffsets()
+      _ <- participant.create(alice, Dummy(alice))
+      ledgerEndAfterCreate <- participant.currentEnd()
+
+      // TODO pruning: Wait for reconciliation
+      _ <- populateLedgerAndGetOffsets(participant, alice)
+
+      _ <- participant.prune(ledgerEndAfterCreate, pruneAllDivulgedContracts = false)
+
+      (
+        prunedUpToInclusive_afterRegularPruning,
+        allDivulgencePrunedUpToInclusive_afterRegularPruning,
+      ) <- participant.latestPrunedOffsets()
+
+      _ <- participant.prune(ledgerEndAfterCreate, pruneAllDivulgedContracts = true)
+
+      (
+        prunedUpToInclusive_afterAllDivulgencePruning,
+        allDivulgencePrunedUpToInclusive_afterAllDivulgencePruning,
+      ) <- participant.latestPrunedOffsets()
+
+    } yield {
+      assert(
+        assertion =
+          prunedUpToInclusive_initial != prunedUpToInclusive_afterRegularPruning, // TODO pruning: gt
+        message =
+          s"The initial pruning offset ($prunedUpToInclusive_initial) should be different than the latest pruning offset ($prunedUpToInclusive_afterRegularPruning)",
+      )
+
+      assertEquals(
+        "All divulgence pruning offset does not change after regular pruning",
+        allDivulgencePrunedUpToInclusive_initial,
+        allDivulgencePrunedUpToInclusive_afterRegularPruning,
+      )
+
+      assertEquals(
+        "Requested pruning offset matches the queried offset",
+        prunedUpToInclusive_afterRegularPruning,
+        ledgerEndAfterCreate,
+      )
+
+      assertEquals(
+        "Pruned up to inclusive offset is not changed if the same pruning offset is used",
+        prunedUpToInclusive_afterRegularPruning,
+        prunedUpToInclusive_afterAllDivulgencePruning,
+      )
+
+      assertEquals(
+        "All divulgence pruning offset matches the requested pruning offset with all divulgence pruning enabled",
+        allDivulgencePrunedUpToInclusive_afterAllDivulgencePruning,
+        ledgerEndAfterCreate,
       )
     }
   })
