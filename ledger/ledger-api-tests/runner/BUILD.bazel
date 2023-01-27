@@ -37,5 +37,5 @@ load("@os_info//:os_info.bzl", "is_windows")
             "@maven//:org_slf4j_slf4j_api",
         ],
     )
-    for lf_version in lf_version_configuration_versions
+    for lf_version in lf_version_configuration_versions + ["1.14"]
 ]
