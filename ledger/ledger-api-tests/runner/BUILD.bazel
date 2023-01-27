@@ -12,6 +12,7 @@ load(
     "lf_version_configuration_versions",
 )
 load("@os_info//:os_info.bzl", "is_windows")
+load("//ledger/ledger-api-tests:conformance.bzl", "testtool_lf_versions")
 
 [
     da_scala_library(
@@ -37,5 +38,5 @@ load("@os_info//:os_info.bzl", "is_windows")
             "@maven//:org_slf4j_slf4j_api",
         ],
     )
-    for lf_version in lf_version_configuration_versions + ["1.14"]
+    for lf_version in testtool_lf_versions
 ]

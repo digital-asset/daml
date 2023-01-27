@@ -7,6 +7,7 @@ load(
     "lf_version_configuration",
     "lf_version_configuration_versions",
 )
+load("//ledger/ledger-api-tests:conformance.bzl", "testtool_lf_versions")
 
 [
     da_scala_library(
@@ -43,7 +44,7 @@ load(
             "@maven//:org_slf4j_slf4j_api",
         ],
     )
-    for lf_version in lf_version_configuration_versions + ["1.14"]
+    for lf_version in testtool_lf_versions
 ]
 
 [
