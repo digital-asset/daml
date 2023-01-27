@@ -77,7 +77,7 @@ da_scala_binary(
             "@maven//:io_netty_netty_handler",
         ],
     )
-    for lf_version in lf_version_configuration_versions
+    for lf_version in lf_version_configuration_versions + ["1.14"]
 ]
 
 conformance_test(
