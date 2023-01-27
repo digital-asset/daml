@@ -7,7 +7,7 @@ object Utils {
 
   /** @param n needs to be positive
     */
-  def largestSmallerPowerOfTwo(n: Int): Int =
+  def largestSmallerOrEqualPowerOfTwo(n: Int): Int =
     Integer.highestOneBit(n)
 
 }
