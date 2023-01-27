@@ -42,6 +42,7 @@ final class TransactionsServiceImpl(ledgerContent: Observable[LedgerItem])
   val lastFlatTransactionByEventIdRequest = new AtomicReference[GetTransactionByEventIdRequest]()
   val lastFlatTransactionByIdRequest = new AtomicReference[GetTransactionByIdRequest]()
   val lastLedgerEndRequest = new AtomicReference[GetLedgerEndRequest]()
+  val lastLatestPrunedOffsetsRequest = new AtomicReference[GetLatestPrunedOffsetsRequest]
 
   override def getTransactions(
       request: GetTransactionsRequest,
@@ -118,6 +119,15 @@ final class TransactionsServiceImpl(ledgerContent: Observable[LedgerItem])
         .last(GetLedgerEndResponse(Option(LedgerOffset(Boundary(LEDGER_BEGIN)))))
     result.subscribe(promise.success _, promise.failure _)
     promise.future
+  }
+
+  override def getLatestPrunedOffsets(
+      request: GetLatestPrunedOffsetsRequest
+  ): Future[GetLatestPrunedOffsetsResponse] = {
+    lastLatestPrunedOffsetsRequest.set(request)
+    Future.successful(
+      new GetLatestPrunedOffsetsResponse(None)
+    ) // just a mock, not intended for consumption
   }
 
 }

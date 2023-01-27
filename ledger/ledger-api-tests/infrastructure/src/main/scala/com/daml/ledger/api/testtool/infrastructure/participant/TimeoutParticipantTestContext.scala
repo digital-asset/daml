@@ -549,4 +549,9 @@ class TimeoutParticipantTestContext(timeoutScaleFactor: Double, delegate: Partic
       templateIds: Seq[TemplateId],
       interfaceFilters: Seq[(TemplateId, IncludeInterfaceView)],
   ): Filters = delegate.filters(templateIds, interfaceFilters)
+
+  override def latestPrunedOffsets(): Future[(LedgerOffset, LedgerOffset)] = withTimeout(
+    "Requesting the latest pruned offsets",
+    delegate.latestPrunedOffsets(),
+  )
 }

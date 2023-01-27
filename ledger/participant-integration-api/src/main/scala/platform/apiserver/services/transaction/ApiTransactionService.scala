@@ -9,16 +9,13 @@ import akka.stream.scaladsl.Source
 import com.daml.error.definitions.LedgerApiErrors
 import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
 import com.daml.grpc.adapter.ExecutionSequencerFactory
-import com.daml.ledger.api.domain.{
-  Filters,
-  LedgerId,
-  LedgerOffset,
-  TransactionFilter,
-  TransactionId,
-}
+import com.daml.ledger.api.domain
+import com.daml.ledger.api.domain.{Filters, LedgerId, TransactionFilter, TransactionId}
 import com.daml.ledger.api.messages.transaction._
+import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.transaction_service.{
   GetFlatTransactionResponse,
+  GetLatestPrunedOffsetsResponse,
   GetTransactionResponse,
   GetTransactionTreesResponse,
   GetTransactionsResponse,
@@ -69,8 +66,10 @@ private[apiserver] final class ApiTransactionService private (
 
   private val logger: ContextualizedLogger = ContextualizedLogger.get(this.getClass)
 
-  override def getLedgerEnd(ledgerId: String): Future[LedgerOffset.Absolute] =
-    transactionsService.currentLedgerEnd().andThen(logger.logErrorsOnCall[LedgerOffset.Absolute])
+  override def getLedgerEnd(ledgerId: String): Future[domain.LedgerOffset.Absolute] =
+    transactionsService
+      .currentLedgerEnd()
+      .andThen(logger.logErrorsOnCall[domain.LedgerOffset.Absolute])
 
   override def getTransactions(
       request: GetTransactionsRequest
@@ -264,4 +263,15 @@ private[apiserver] final class ApiTransactionService private (
       logging.workflowId(workflowId),
       logging.offset(offset),
     )
+
+  override def getLatestPrunedOffsets: Future[GetLatestPrunedOffsetsResponse] =
+    transactionsService.latestPrunedOffsets().map {
+      case (prunedUpToInclusive, divulgencePrunedUpTo) =>
+        GetLatestPrunedOffsetsResponse(
+          participantPrunedUpToInclusive =
+            Some(LedgerOffset(LedgerOffset.Value.Absolute(divulgencePrunedUpTo.value))),
+          allDivulgedContractsPrunedUpToInclusive =
+            Some(LedgerOffset(LedgerOffset.Value.Absolute(prunedUpToInclusive.value))),
+        )
+    }
 }

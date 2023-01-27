@@ -88,6 +88,7 @@ import com.daml.ledger.api.v1.transaction_filter.{
   TransactionFilter,
 }
 import com.daml.ledger.api.v1.transaction_service.{
+  GetLatestPrunedOffsetsRequest,
   GetLedgerEndRequest,
   GetTransactionByEventIdRequest,
   GetTransactionByIdRequest,
@@ -169,6 +170,13 @@ final class SingleParticipantTestContext private[participant] (
     services.transaction
       .getLedgerEnd(new GetLedgerEndRequest(overrideLedgerId))
       .map(_.getOffset)
+
+  override def latestPrunedOffsets(): Future[(LedgerOffset, LedgerOffset)] =
+    services.transaction
+      .getLatestPrunedOffsets(GetLatestPrunedOffsetsRequest())
+      .map(response =>
+        response.getParticipantPrunedUpToInclusive -> response.getAllDivulgedContractsPrunedUpToInclusive
+      )
 
   override def offsetBeyondLedgerEnd(): Future[LedgerOffset] =
     currentEnd().map(end => LedgerOffset(LedgerOffset.Value.Absolute("ffff" + end.getAbsolute)))

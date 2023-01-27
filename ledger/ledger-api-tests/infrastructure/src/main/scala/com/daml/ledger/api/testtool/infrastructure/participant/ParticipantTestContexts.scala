@@ -422,6 +422,7 @@ trait ParticipantTestContext extends UserManagementTestContext {
       pruneAllDivulgedContracts: Boolean = false,
   ): Future[PruneResponse]
 
+  def latestPrunedOffsets(): Future[(LedgerOffset, LedgerOffset)]
 }
 
 object ParticipantTestContext {

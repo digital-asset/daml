@@ -238,4 +238,9 @@ private[daml] final class TimedIndexService(delegate: IndexService, metrics: Met
       metrics.daml.services.index.lookupContractStateWithoutDivulgence,
       delegate.lookupContractStateWithoutDivulgence(contractId),
     )
+
+  override def latestPrunedOffsets()(implicit
+      loggingContext: LoggingContext
+  ): Future[(LedgerOffset.Absolute, LedgerOffset.Absolute)] =
+    Timed.future(metrics.daml.services.index.latestPrunedOffsets, delegate.latestPrunedOffsets())
 }

@@ -43,6 +43,9 @@ service TransactionService {
   // Subscriptions started with the returned offset will serve transactions created after this RPC was called.
   rpc GetLedgerEnd (GetLedgerEndRequest) returns (GetLedgerEndResponse);
 
+  // Get the latest successfully pruned ledger offsets
+  rpc GetLatestPrunedOffsets (GetLatestPrunedOffsetsRequest) returns (GetLatestPrunedOffsetsResponse);
+
 }
 
 message GetTransactionsRequest {
@@ -140,3 +143,16 @@ message GetLedgerEndResponse {
   LedgerOffset offset = 1;
 }
 
+message GetLatestPrunedOffsetsRequest {
+  // Empty for now, but may contain fields in the future
+}
+
+message GetLatestPrunedOffsetsResponse {
+  // The offset up until the ledger has been pruned, excluding divulgence events
+  // (when the PruneRequest was issued with prune_all_divulged_contracts=false)
+  LedgerOffset participant_pruned_up_to_inclusive = 1;
+
+  // The offset up until the ledger has been pruned including all divulgence events
+  // (when the PruneRequest was issued with prune_all_divulged_contracts=true)
+  LedgerOffset all_divulged_contracts_pruned_up_to_inclusive = 2;
+}
