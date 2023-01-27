@@ -13,7 +13,10 @@ import com.daml.ledger.api.testtool.infrastructure.Synchronize.synchronize
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.transaction.TransactionTree
-import com.daml.ledger.api.v1.transaction_service.{GetEventsByContractIdRequest, GetEventsByContractKeyRequest}
+import com.daml.ledger.api.v1.transaction_service.{
+  GetEventsByContractIdRequest,
+  GetEventsByContractKeyRequest,
+}
 import com.daml.ledger.api.v1.value.{Record, RecordField, Value}
 import com.daml.ledger.client.binding.Primitive
 import com.daml.ledger.client.binding.Primitive.Party
@@ -727,7 +730,11 @@ class ParticipantPruningIT extends LedgerTestSuite {
     } yield {
       assertEquals("Expected single create event after prune", events1, 1)
       assertEquals("Expected create and consume event before prune", events2, 2)
-      assertEquals("Pruning to a point before create and consume does not remove events", events3, 2)
+      assertEquals(
+        "Pruning to a point before create and consume does not remove events",
+        events3,
+        2,
+      )
       assertEquals("Expected no events following prune", events4, 0)
     }
   })
@@ -951,8 +958,8 @@ class ParticipantPruningIT extends LedgerTestSuite {
   }
 
   /** Note that the ledger end returned will be that prior to the dummy contract creation/prune calls
-   * so will not represent the ledger end post pruning
-   */
+    * so will not represent the ledger end post pruning
+    */
   private def pruneToCurrentEnd(participant: ParticipantTestContext, party: Party)(implicit
       ec: ExecutionContext
   ): Future[LedgerOffset] = {
@@ -963,15 +970,15 @@ class ParticipantPruningIT extends LedgerTestSuite {
   }
 
   /** We are retrying a command submission + pruning to make this test compatible with Canton.
-   * That's because in Canton pruning will fail unless ACS commitments have been exchanged between participants.
-   * To this end, repeatedly submitting commands is prompting Canton to exchange ACS commitments
-   * and allows the pruning call to eventually succeed.
-   */
+    * That's because in Canton pruning will fail unless ACS commitments have been exchanged between participants.
+    * To this end, repeatedly submitting commands is prompting Canton to exchange ACS commitments
+    * and allows the pruning call to eventually succeed.
+    */
   private def pruneCantonSafe(
-                               ledger: ParticipantTestContext,
-                               pruneUpTo: LedgerOffset,
-                               party: Party,
-                             )(implicit ec: ExecutionContext): Future[Unit] =
+      ledger: ParticipantTestContext,
+      pruneUpTo: LedgerOffset,
+      party: Party,
+  )(implicit ec: ExecutionContext): Future[Unit] =
     FutureAssertions.succeedsEventually(
       retryDelay = 100.millis,
       maxRetryDuration = 10.seconds,
@@ -983,6 +990,5 @@ class ParticipantPruningIT extends LedgerTestSuite {
         _ <- ledger.prune(pruneUpTo = pruneUpTo, attempts = 1)
       } yield ()
     }
-
 
 }
