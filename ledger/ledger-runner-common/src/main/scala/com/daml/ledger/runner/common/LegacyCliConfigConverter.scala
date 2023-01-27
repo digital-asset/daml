@@ -33,7 +33,7 @@ object LegacyCliConfigConverter {
         maxPayloadsPerPayloadsPage = cliConfig.eventsPageSize,
       ),
       bufferedStreamsPageSize = cliConfig.bufferedStreamsPageSize,
-      bufferedEventsProcessingParallelism = cliConfig.eventsProcessingParallelism,
+      bufferedEventsProcessingParallelism = cliConfig.bufferedEventsProcessingParallelism,
       maxContractStateCacheSize = config.maxContractStateCacheSize,
       maxContractKeyStateCacheSize = config.maxContractKeyStateCacheSize,
       maxTransactionsInMemoryFanOutBufferSize = cliConfig.maxTransactionsInMemoryFanOutBufferSize,
