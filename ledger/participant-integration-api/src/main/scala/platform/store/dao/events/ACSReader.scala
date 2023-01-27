@@ -183,11 +183,11 @@ class ACSReader(
       eventProjectionProperties: EventProjectionProperties,
   )(implicit lc: LoggingContext): Future[Vector[EventStorageBackend.Entry[Event]]] = {
     Timed.future(
-      future = Future(
+      future = Future.delegate(
         Future.traverse(rawEvents)(
           deserializeEntry(eventProjectionProperties, lfValueTranslation)
         )
-      ).flatMap(identity),
+      ),
       timer = dbMetrics.getActiveContracts.translationTimer,
     )
   }
