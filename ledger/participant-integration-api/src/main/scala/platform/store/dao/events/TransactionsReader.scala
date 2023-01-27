@@ -5,7 +5,6 @@ package com.daml.platform.store.dao.events
 
 import akka.stream.scaladsl.Source
 import akka.{Done, NotUsed}
-import com.daml.error.DamlContextualizedErrorLogger
 import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
 import com.daml.ledger.api.v1.transaction_service.{
   GetFlatTransactionResponse,
@@ -15,9 +14,8 @@ import com.daml.ledger.api.v1.transaction_service.{
 }
 import com.daml.ledger.offset.Offset
 import com.daml.lf.data.Ref
-import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.logging.LoggingContext
 import com.daml.metrics._
-import com.daml.nameof.NameOf.qualifiedNameOfCurrentFunc
 import com.daml.platform._
 import com.daml.platform.ApiOffset
 import com.daml.platform.store.dao.{
@@ -26,10 +24,6 @@ import com.daml.platform.store.dao.{
   LedgerDaoTransactionsReader,
 }
 import com.daml.platform.store.backend.EventStorageBackend
-import com.daml.platform.store.dao.events.EventsTable.TransactionConversions
-import com.daml.platform.store.utils.Telemetry
-import com.daml.tracing
-import com.daml.tracing.{SpanAttribute, Spans}
 import io.opentelemetry.api.trace.Span
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -42,9 +36,7 @@ import scala.util.{Failure, Success}
   * @param dispatcher Executes the queries prepared by this object
   * @param queryNonPruned
   * @param eventStorageBackend
-  * @param payloadProcessingParallelism The parallelism for loading and decoding event payloads
   * @param metrics
-  * @param lfValueTranslation The delegate in charge of translating serialized Daml-LF values
   * @param acsReader Knows how to streams ACS
   * @param executionContext Runs transformations on data fetched from the database, including Daml-LF value deserialization
   */
@@ -56,20 +48,14 @@ private[dao] final class TransactionsReader(
     dispatcher: DbDispatcher,
     queryNonPruned: QueryNonPruned,
     eventStorageBackend: EventStorageBackend,
-    payloadProcessingParallelism: Int,
     metrics: Metrics,
-    lfValueTranslation: LfValueTranslation,
     acsReader: ACSReader,
 )(implicit executionContext: ExecutionContext)
     extends LedgerDaoTransactionsReader {
 
-  import TransactionsReader._
-
   private val dbMetrics = metrics.daml.index.db
   private val eventSeqIdReader =
     new EventsRange.EventSeqIdReader(eventStorageBackend.maxEventSequentialIdOfAnObservableEvent)
-
-  private val logger = ContextualizedLogger.get(this.getClass)
 
   override def getFlatTransactions(
       startExclusive: Offset,
@@ -145,40 +131,18 @@ private[dao] final class TransactionsReader(
       filter: TemplatePartiesFilter,
       eventProjectionProperties: EventProjectionProperties,
   )(implicit loggingContext: LoggingContext): Source[GetActiveContractsResponse, NotUsed] = {
-    val contextualizedErrorLogger = new DamlContextualizedErrorLogger(logger, loggingContext, None)
-    val span =
-      Telemetry.Transactions.createSpan(activeAt)(qualifiedNameOfCurrentFunc)
-
-    logger.debug(
-      s"getActiveContracts($activeAt, $filter, $eventProjectionProperties)"
-    )
-
-    Source
-      .futureSource(
-        getAcsEventSeqIdRange(activeAt)
-          .map(requestedRange =>
-            acsReader.streamActiveContractSetEvents(filter, requestedRange.endInclusive)
-          )
+    val requestedRangeF: Future[EventsRange[(Offset, Long)]] = getAcsEventSeqIdRange(activeAt)
+    val futureSource = requestedRangeF
+      .map(requestedRange =>
+        acsReader.streamActiveContracts(
+          filter,
+          requestedRange.endInclusive,
+          eventProjectionProperties,
+        )
       )
-      .mapAsync(payloadProcessingParallelism) { rawResult =>
-        Timed.future(
-          future = Future(
-            Future.traverse(rawResult)(
-              deserializeEntry(eventProjectionProperties, lfValueTranslation)
-            )
-          ).flatMap(identity),
-          timer = dbMetrics.getActiveContracts.translationTimer,
-        )
-      }
-      .mapConcat(TransactionConversions.toGetActiveContractsResponse(_)(contextualizedErrorLogger))
-      .wireTap(response => {
-        Spans.addEventToSpan(
-          tracing.Event("contract", Map((SpanAttribute.Offset, response.offset))),
-          span,
-        )
-      })
-      .mapMaterializedValue(_ => NotUsed)
-      .watchTermination()(endSpanOnTermination(span))
+    Source
+      .futureSource(futureSource)
+      .mapMaterializedValue((_: Future[NotUsed]) => NotUsed)
   }
 
   private def getAcsEventSeqIdRange(activeAt: Offset)(implicit

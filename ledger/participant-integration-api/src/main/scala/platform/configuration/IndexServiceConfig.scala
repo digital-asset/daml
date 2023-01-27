@@ -6,7 +6,8 @@ package com.daml.platform.configuration
 import scala.concurrent.duration.{Duration, FiniteDuration}
 
 final case class IndexServiceConfig(
-    eventsProcessingParallelism: Int = IndexServiceConfig.DefaultEventsProcessingParallelism,
+    bufferedEventsProcessingParallelism: Int =
+      IndexServiceConfig.DefaultBufferedEventsProcessingParallelism,
     bufferedStreamsPageSize: Int = IndexServiceConfig.DefaultBufferedStreamsPageSize,
     maxContractStateCacheSize: Long = IndexServiceConfig.DefaultMaxContractStateCacheSize,
     maxContractKeyStateCacheSize: Long = IndexServiceConfig.DefaultMaxContractKeyStateCacheSize,
@@ -27,7 +28,7 @@ final case class IndexServiceConfig(
 )
 
 object IndexServiceConfig {
-  val DefaultEventsProcessingParallelism: Int = 8
+  val DefaultBufferedEventsProcessingParallelism: Int = 8
   val DefaultBufferedStreamsPageSize: Int = 100
   val DefaultMaxContractStateCacheSize: Long = 100000L
   val DefaultMaxContractKeyStateCacheSize: Long = 100000L
@@ -46,6 +47,7 @@ case class AcsStreamsConfig(
     maxParallelIdCreateQueries: Int = AcsStreamsConfig.DefaultAcsIdFetchingParallelism,
     // Must be a power of 2
     maxParallelPayloadCreateQueries: Int = AcsStreamsConfig.DefaultAcsContractFetchingParallelism,
+    contractProcessingParallelism: Int = AcsStreamsConfig.DefaultContractProcessingParallelism,
 )
 
 object AcsStreamsConfig {
@@ -56,6 +58,7 @@ object AcsStreamsConfig {
   val DefaultAcsIdFetchingParallelism: Int = 2
   // Must be a power of 2
   val DefaultAcsContractFetchingParallelism: Int = 2
+  val DefaultContractProcessingParallelism: Int = 8
 
   val default: AcsStreamsConfig = AcsStreamsConfig()
 }

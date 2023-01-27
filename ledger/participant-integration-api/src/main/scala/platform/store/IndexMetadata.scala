@@ -85,7 +85,6 @@ object IndexMetadata {
       .map(dbSupport =>
         JdbcLedgerDao.read(
           dbSupport = dbSupport,
-          eventsProcessingParallelism = 8,
           completionsPageSize = 1000,
           servicesExecutionContext = executionContext,
           metrics = metrics,

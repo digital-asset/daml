@@ -37,7 +37,7 @@ final case class CliConfig[Extra](
     commandConfig: CommandConfiguration,
     eventsPageSize: Int,
     bufferedStreamsPageSize: Int,
-    eventsProcessingParallelism: Int,
+    bufferedEventsProcessingParallelism: Int,
     extra: Extra,
     ledgerId: String,
     maxDeduplicationDuration: Option[Duration],
@@ -84,7 +84,8 @@ object CliConfig {
       commandConfig = CommandConfiguration.Default,
       eventsPageSize = AcsStreamsConfig.DefaultEventsPageSize,
       bufferedStreamsPageSize = IndexServiceConfig.DefaultBufferedStreamsPageSize,
-      eventsProcessingParallelism = IndexServiceConfig.DefaultEventsProcessingParallelism,
+      bufferedEventsProcessingParallelism =
+        IndexServiceConfig.DefaultBufferedEventsProcessingParallelism,
       extra = extra,
       ledgerId = UUID.randomUUID().toString,
       maxDeduplicationDuration = None,
@@ -536,14 +537,14 @@ object CliConfig {
       opt[Int]("buffers-prefetching-parallelism")
         .optional()
         .text(
-          s"Number of events fetched/decoded in parallel for populating the Ledger API internal buffers. Default is ${IndexServiceConfig.DefaultEventsProcessingParallelism}."
+          s"Number of events fetched/decoded in parallel for populating the Ledger API internal buffers. Default is ${IndexServiceConfig.DefaultBufferedEventsProcessingParallelism}."
         )
         .validate { buffersPrefetchingParallelism =>
           if (buffersPrefetchingParallelism > 0) Right(())
           else Left("buffers-prefetching-parallelism should be strictly positive")
         }
-        .action((eventsProcessingParallelism, config) =>
-          config.copy(eventsProcessingParallelism = eventsProcessingParallelism)
+        .action((bufferedEventsProcessingParallelism, config) =>
+          config.copy(bufferedEventsProcessingParallelism = bufferedEventsProcessingParallelism)
         ),
       opt[Int]("acs-id-page-size")
         .optional()

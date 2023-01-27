@@ -78,7 +78,7 @@ final class IndexServiceOwner(
         transactionsBuffer = inMemoryState.inMemoryFanoutBuffer,
         lfValueTranslation = lfValueTranslation,
         metrics = metrics,
-        eventProcessingParallelism = config.eventsProcessingParallelism,
+        eventProcessingParallelism = config.bufferedEventsProcessingParallelism,
       )(inMemoryFanOutExecutionContext)
 
       bufferedCommandCompletionsReader = BufferedCommandCompletionsReader(
@@ -164,7 +164,6 @@ final class IndexServiceOwner(
   ): LedgerReadDao =
     JdbcLedgerDao.read(
       dbSupport = dbSupport,
-      eventsProcessingParallelism = config.eventsProcessingParallelism,
       servicesExecutionContext = servicesExecutionContext,
       metrics = metrics,
       engine = Some(engine),
