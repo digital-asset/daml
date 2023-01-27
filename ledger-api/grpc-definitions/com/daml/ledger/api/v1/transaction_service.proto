@@ -141,7 +141,7 @@ message GetEventsByContractIdRequest {
   string contract_id = 1;
 
   // The parties whose events the client expects to see.
-  // The events associated with the contract key will only be returned if the requesting parties includes
+  // The events associated with the contract id will only be returned if the requesting parties includes
   // at least one party that is a witness of the action that created the event. For a full description
   // of witness see https://docs.daml.com/concepts/ledger-model/ledger-privacy.html#projections.
   // Required
@@ -196,7 +196,7 @@ message GetEventsByContractKeyResponse {
   LedgerOffset last_offset = 2;
 
   // This will pruning offset at the time of the report. Any events associated with consumed contracts
-  // that precede the `pruning_offset` wil not be present in the report. Events associated active
+  // that precede the `pruning_offset` will not be present in the report. Events associated active
   // contracts will be present even if they predate the `pruning_offset`.
   // Optional
   LedgerOffset pruned_offset = 3;

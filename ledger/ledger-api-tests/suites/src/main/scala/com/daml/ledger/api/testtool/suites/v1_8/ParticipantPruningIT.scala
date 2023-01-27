@@ -8,30 +8,32 @@ import com.daml.error.definitions.LedgerApiErrors
 import com.daml.ledger.api.refinements.ApiTypes
 import com.daml.ledger.api.testtool.infrastructure.Allocation.{Participant, _}
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
-import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
+import com.daml.ledger.api.testtool.infrastructure.{FutureAssertions, LedgerTestSuite}
 import com.daml.ledger.api.testtool.infrastructure.Synchronize.synchronize
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.transaction.TransactionTree
-import com.daml.ledger.api.v1.transaction_service.{
-  GetEventsByContractIdRequest,
-  GetEventsByContractKeyRequest,
-}
+import com.daml.ledger.api.v1.transaction_service.{GetEventsByContractIdRequest, GetEventsByContractKeyRequest}
 import com.daml.ledger.api.v1.value.{Record, RecordField, Value}
 import com.daml.ledger.client.binding.Primitive
 import com.daml.ledger.client.binding.Primitive.Party
 import com.daml.ledger.test.model.Test.{Dummy, TextKey}
 import com.daml.ledger.test.semantic.DivulgenceTests._
+import com.daml.logging.LoggingContext
 import scalaz.Tag
 import scalaz.syntax.tag.ToTagOps
 
 import scala.collection.immutable
+import scala.concurrent.duration.DurationInt
 import scala.concurrent.{ExecutionContext, Future}
 
 class ParticipantPruningIT extends LedgerTestSuite {
 
-  private val batchesToPopulate =
-    74 // One point of populating the ledger with a lot of events is to help advance canton's safe-pruning offsets
+  private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
+
+  // One point of populating the ledger with a lot of events is to help advance canton's safe-pruning offsets
+  private val batchesToPopulate = 74
+
   private val lastItemToPruneIndex = batchesToPopulate
 
   test(
@@ -948,14 +950,39 @@ class ParticipantPruningIT extends LedgerTestSuite {
     )
   }
 
+  /** Note that the ledger end returned will be that prior to the dummy contract creation/prune calls
+   * so will not represent the ledger end post pruning
+   */
   private def pruneToCurrentEnd(participant: ParticipantTestContext, party: Party)(implicit
       ec: ExecutionContext
   ): Future[LedgerOffset] = {
     for {
       end <- participant.currentEnd()
-      _ <- participant.create(party, Dummy(party)) // To increment the ledger end
-      _ <- participant.prune(end)
+      _ <- pruneCantonSafe(participant, end, party)
     } yield end
   }
+
+  /** We are retrying a command submission + pruning to make this test compatible with Canton.
+   * That's because in Canton pruning will fail unless ACS commitments have been exchanged between participants.
+   * To this end, repeatedly submitting commands is prompting Canton to exchange ACS commitments
+   * and allows the pruning call to eventually succeed.
+   */
+  private def pruneCantonSafe(
+                               ledger: ParticipantTestContext,
+                               pruneUpTo: LedgerOffset,
+                               party: Party,
+                             )(implicit ec: ExecutionContext): Future[Unit] =
+    FutureAssertions.succeedsEventually(
+      retryDelay = 100.millis,
+      maxRetryDuration = 10.seconds,
+      ledger.delayMechanism,
+      "Pruning",
+    ) {
+      for {
+        _ <- ledger.submitAndWait(ledger.submitAndWaitRequest(party, Dummy(party).create.command))
+        _ <- ledger.prune(pruneUpTo = pruneUpTo, attempts = 1)
+      } yield ()
+    }
+
 
 }
