@@ -44,7 +44,6 @@ import scala.util.{Failure, Success}
 private class JdbcLedgerDao(
     dbDispatcher: DbDispatcher with ReportsHealth,
     servicesExecutionContext: ExecutionContext,
-    payloadProcessingParallelism: Int,
     metrics: Metrics,
     engine: Option[Engine],
     sequentialIndexer: SequentialWriteDao,
@@ -475,9 +474,9 @@ private class JdbcLedgerDao(
     dispatcher = dbDispatcher,
     queryNonPruned = queryNonPruned,
     eventStorageBackend = readStorageBackend.eventStorageBackend,
+    lfValueTranslation = translation,
     metrics = metrics,
-    executionContext = servicesExecutionContext,
-  )
+  )(servicesExecutionContext)
 
   private val flatTransactionsStreamReader = new TransactionsFlatStreamReader(
     config = transactionFlatStreamsConfig,
@@ -520,9 +519,7 @@ private class JdbcLedgerDao(
       dispatcher = dbDispatcher,
       queryNonPruned = queryNonPruned,
       eventStorageBackend = readStorageBackend.eventStorageBackend,
-      payloadProcessingParallelism = payloadProcessingParallelism,
       metrics = metrics,
-      lfValueTranslation = translation,
       flatTransactionsStreamReader = flatTransactionsStreamReader,
       treeTransactionsStreamReader = treeTransactionsStreamReader,
       flatTransactionPointwiseReader = flatTransactionPointwiseReader,
@@ -615,7 +612,6 @@ private[platform] object JdbcLedgerDao {
 
   def read(
       dbSupport: DbSupport,
-      eventsProcessingParallelism: Int,
       servicesExecutionContext: ExecutionContext,
       metrics: Metrics,
       engine: Option[Engine],
@@ -632,7 +628,6 @@ private[platform] object JdbcLedgerDao {
     new JdbcLedgerDao(
       dbDispatcher = dbSupport.dbDispatcher,
       servicesExecutionContext = servicesExecutionContext,
-      payloadProcessingParallelism = eventsProcessingParallelism,
       metrics = metrics,
       engine = engine,
       sequentialIndexer = SequentialWriteDao.noop,
@@ -651,7 +646,6 @@ private[platform] object JdbcLedgerDao {
   def write(
       dbSupport: DbSupport,
       sequentialWriteDao: SequentialWriteDao,
-      eventsProcessingParallelism: Int,
       servicesExecutionContext: ExecutionContext,
       metrics: Metrics,
       engine: Option[Engine],
@@ -668,7 +662,6 @@ private[platform] object JdbcLedgerDao {
     new JdbcLedgerDao(
       dbDispatcher = dbSupport.dbDispatcher,
       servicesExecutionContext = servicesExecutionContext,
-      payloadProcessingParallelism = eventsProcessingParallelism,
       metrics = metrics,
       engine = engine,
       sequentialIndexer = sequentialWriteDao,
