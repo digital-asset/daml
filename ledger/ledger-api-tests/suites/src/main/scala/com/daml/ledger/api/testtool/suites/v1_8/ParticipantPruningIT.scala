@@ -703,7 +703,7 @@ class ParticipantPruningIT extends LedgerTestSuite {
 
   test(
     "PREventsByContractIdPruned",
-    "Expose both create and exercise events contract id",
+    "Ensure that EventsByContractId works as expected with pruned data",
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(participant, party)) =>
     def getEvents(dummyCid: Primitive.ContractId[Dummy]): Future[Int] = {
@@ -713,23 +713,26 @@ class ParticipantPruningIT extends LedgerTestSuite {
 
     for {
       dummyCid <- participant.create(party, Dummy(party))
-      _ <- pruneToCurrentEnd(participant, party)
+      end1 <- pruneToCurrentEnd(participant, party)
       events1 <- getEvents(dummyCid)
       exerciseCmd = participant.submitAndWaitRequest(party, dummyCid.exerciseDummyChoice1().command)
       _ <- participant.submitAndWaitForTransactionTree(exerciseCmd)
       events2 <- getEvents(dummyCid)
-      _ <- pruneToCurrentEnd(participant, party)
+      _ <- participant.prune(end1)
       events3 <- getEvents(dummyCid)
+      _ <- pruneToCurrentEnd(participant, party)
+      events4 <- getEvents(dummyCid)
     } yield {
       assertEquals("Expected single create event after prune", events1, 1)
       assertEquals("Expected create and consume event before prune", events2, 2)
-      assertEquals("Expected no events following prune", events3, 0)
+      assertEquals("Pruning to a point before create and consume does not remove events", events3, 2)
+      assertEquals("Expected no events following prune", events4, 0)
     }
   })
 
   test(
     "PREventsByContractKey",
-    "At most max events events should be returned",
+    "Ensure that EventsByContractKey works as expected with pruned data",
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(participant, party)) =>
     val exercisedKey = "pruning test key"
