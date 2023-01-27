@@ -34,7 +34,7 @@ class RollbackTest extends AnyWordSpec with Matchers with TableDrivenPropertyChe
     val machine = Speedy.Machine.fromUpdateSExpr(pkgs1, transactionSeed, example, Set(party))
     SpeedyTestLib
       .buildTransaction(machine)
-      .fold(e => fail(Pretty.prettyError(e).toString()), identity)
+      .fold(e => fail(Pretty.prettyError(e).render(80)), identity)
   }
 
   val pkgs: PureCompiledPackages = SpeedyTestLib.typeAndCompile(p"""

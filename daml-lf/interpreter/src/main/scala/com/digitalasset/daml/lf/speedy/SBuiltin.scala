@@ -655,15 +655,16 @@ private[lf] object SBuiltin {
     }
   }
 
-  final case object SBWithAuthorityOf extends SBuiltin(2) {
-    override private[speedy] def execute[Q](
+  final case object SBWithAuthorityOf extends UpdateBuiltin(2) {
+    override protected def executeUpdate(
         args: util.ArrayList[SValue],
-        machine: Machine[Q],
-    ): Control[Q] = {
+        machine: UpdateMachine,
+    ): Control[Question.Update] = {
       // TODO https://github.com/digital-asset/daml/issues/15882
       // For development, implement this primitive as the identity operation. No authority is gained.
-      // val parties = args.get(0)
-      // println(s"**SBWithAuthorityOf/execute, parties=$parties")
+      val C = machine.ptx.context.info.authorizers // NICK: find/show this info
+      val P = args.get(0)
+      println(s"**NICK: SBWithAuthorityOf/execute\n- C=$C\n- P=$P")
       val action = args.get(1)
       Control.Value(action)
     }

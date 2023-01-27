@@ -37,7 +37,8 @@ private[lf] object PartialTransaction {
 
   sealed abstract class ContextInfo {
     val actionChildSeed: Int => crypto.Hash
-    private[PartialTransaction] def authorizers: Set[Party]
+    // private[PartialTransaction] def authorizers: Set[Party] //NICK
+    private[lf] def authorizers: Set[Party]
   }
 
   sealed abstract class RootContextInfo extends ContextInfo {
