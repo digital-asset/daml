@@ -7,7 +7,7 @@ import scala.concurrent.duration.{Duration, FiniteDuration}
 
 final case class IndexServiceConfig(
     bufferedEventsProcessingParallelism: Int =
-      IndexServiceConfig.DefaultEventsProcessingParallelism,
+      IndexServiceConfig.DefaultBufferedEventsProcessingParallelism,
     bufferedStreamsPageSize: Int = IndexServiceConfig.DefaultBufferedStreamsPageSize,
     maxContractStateCacheSize: Long = IndexServiceConfig.DefaultMaxContractStateCacheSize,
     maxContractKeyStateCacheSize: Long = IndexServiceConfig.DefaultMaxContractKeyStateCacheSize,
@@ -28,7 +28,7 @@ final case class IndexServiceConfig(
 )
 
 object IndexServiceConfig {
-  val DefaultEventsProcessingParallelism: Int = 8
+  val DefaultBufferedEventsProcessingParallelism: Int = 8
   val DefaultBufferedStreamsPageSize: Int = 100
   val DefaultMaxContractStateCacheSize: Long = 100000L
   val DefaultMaxContractKeyStateCacheSize: Long = 100000L

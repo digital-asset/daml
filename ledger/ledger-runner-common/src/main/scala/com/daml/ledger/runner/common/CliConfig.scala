@@ -84,7 +84,8 @@ object CliConfig {
       commandConfig = CommandConfiguration.Default,
       eventsPageSize = AcsStreamsConfig.DefaultEventsPageSize,
       bufferedStreamsPageSize = IndexServiceConfig.DefaultBufferedStreamsPageSize,
-      bufferedEventsProcessingParallelism = IndexServiceConfig.DefaultEventsProcessingParallelism,
+      bufferedEventsProcessingParallelism =
+        IndexServiceConfig.DefaultBufferedEventsProcessingParallelism,
       extra = extra,
       ledgerId = UUID.randomUUID().toString,
       maxDeduplicationDuration = None,
@@ -536,7 +537,7 @@ object CliConfig {
       opt[Int]("buffers-prefetching-parallelism")
         .optional()
         .text(
-          s"Number of events fetched/decoded in parallel for populating the Ledger API internal buffers. Default is ${IndexServiceConfig.DefaultEventsProcessingParallelism}."
+          s"Number of events fetched/decoded in parallel for populating the Ledger API internal buffers. Default is ${IndexServiceConfig.DefaultBufferedEventsProcessingParallelism}."
         )
         .validate { buffersPrefetchingParallelism =>
           if (buffersPrefetchingParallelism > 0) Right(())
