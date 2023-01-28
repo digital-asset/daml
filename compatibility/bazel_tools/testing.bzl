@@ -873,6 +873,22 @@ excluded_test_tool_tests = [
             },
         ],
     },
+    {
+        "end": "2.6.0-snapshot.20230119.11284.0.179b865a",
+        "platform_ranges": [
+            {
+                "start": "2.6.0-snapshot.20230119.11284.1",
+                "exclusions": [
+                    "UserManagementServiceIT:TestGrantUserRights",
+                    "UserManagementServiceIT:TestRevokeUserRights",
+                    "UserManagementServiceIT:TestListUserRights",
+                    "UserManagementServiceIT:UserManagementUserRightsLimit",
+                    "UserManagementServiceIT:RaceConditionGrantRights",
+                    "UserManagementServiceIT:RaceConditionRevokeRights",
+                ],
+            },
+        ],
+    },
 ]
 
 def in_range(version, range):

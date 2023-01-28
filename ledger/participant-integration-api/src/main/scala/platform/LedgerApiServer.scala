@@ -179,7 +179,7 @@ class LedgerApiServer(
         cacheExpiryAfterWriteInSeconds =
           apiServerConfig.userManagement.cacheExpiryAfterWriteInSeconds,
         maxCacheSize = apiServerConfig.userManagement.maxCacheSize,
-        maxRightsPerUser = UserManagementConfig.MaxRightsPerUser,
+        maxRightsPerUser = apiServerConfig.userManagement.maxRightsPerUser,
         timeProvider = TimeProvider.UTC,
       )(servicesExecutionContext, loggingContext),
       identityProviderConfigStore = identityProviderStore,

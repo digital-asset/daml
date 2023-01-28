@@ -107,7 +107,7 @@ final class OngoingStreamAuthIT
       // Making a change to the user Alice
       _ <- grantUserRightsByAdmin(
         userId = userIdAlice,
-        Right(Right.Kind.CanActAs(Right.CanActAs(UUID.randomUUID().toString))),
+        Right(Right.Kind.ParticipantAdmin(Right.ParticipantAdmin())),
       )
       _ <- Delayed.Future.by((UserManagementCacheExpiryInSeconds + 1).second)(
         Future(

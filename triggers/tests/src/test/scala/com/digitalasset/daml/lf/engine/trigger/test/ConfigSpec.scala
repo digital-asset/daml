@@ -99,6 +99,9 @@ class ConfigSpec
       for {
         client <- LedgerClient(channel, clientConfig)
         userId = randomUserId()
+        _ <- client.partyManagementClient.allocateParty(hint = Some("primary"), None, None)
+        _ <- client.partyManagementClient.allocateParty(hint = Some("alice"), None, None)
+        _ <- client.partyManagementClient.allocateParty(hint = Some("bob"), None, None)
         _ <- client.userManagementClient.createUser(
           User(userId, Some("primary"), isDeactivated = false, metadata = ObjectMeta.empty),
           Seq(

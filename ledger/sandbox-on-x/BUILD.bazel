@@ -539,6 +539,7 @@ server_conformance_test(
           user-management {
             enabled = true
             max-cache-size = 0
+            max-rights-per-user = 100
           }
         }
         index-service {
