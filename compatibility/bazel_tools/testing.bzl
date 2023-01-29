@@ -889,6 +889,18 @@ excluded_test_tool_tests = [
             },
         ],
     },
+    {
+        "start": "2.6.0-snapshot.20230123.11292.1",
+        "platform_ranges": [
+            {
+                "end": "2.6.0-snapshot.20230123.11292.0.b3f84bfc",
+                "exclusions": [
+                    # This test relies on a new Ledger API endpoint. Disable it for prior platforms
+                    "ParticipantPruningIT:PRQueryLatestPrunedOffsets",
+                ],
+            },
+        ],
+    },
 ]
 
 def in_range(version, range):
