@@ -144,15 +144,15 @@ message GetLedgerEndResponse {
 }
 
 message GetLatestPrunedOffsetsRequest {
-  // Empty for now, but may contain fields in the future
+  // Empty for now, but may contain fields in the future.
 }
 
 message GetLatestPrunedOffsetsResponse {
-  // The offset up until the ledger has been pruned, excluding divulgence events
-  // (when the PruneRequest was issued with prune_all_divulged_contracts=false)
+  // The offset up until the ledger has been pruned, without pruning divulgence events.
   LedgerOffset participant_pruned_up_to_inclusive = 1;
 
-  // The offset up until the ledger has been pruned including all divulgence events
-  // (when the PruneRequest was issued with prune_all_divulged_contracts=true)
+  // The offset up until the ledger has been pruned including pruning all divulgence events.
+  // For more details about all divulgence events pruning,
+  // see PruneRequest.prune_all_divulged_contracts in ``participant_pruning_service.proto``.
   LedgerOffset all_divulged_contracts_pruned_up_to_inclusive = 2;
 }
