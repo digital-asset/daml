@@ -54,14 +54,19 @@ class ParticipantPruningIT extends LedgerTestSuite {
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(participant, alice)) =>
     for {
-      (prunedUpToInclusive_initial, allDivulgencePrunedUpToInclusive_initial) <- participant
-        .latestPrunedOffsets()
+      (prunedUpToInclusive_initial, allDivulgencePrunedUpToInclusive_initial) <-
+        participant.latestPrunedOffsets()
+
+      // Create a dummy contract to move the initial ledger end forward
       _ <- participant.create(alice, Dummy(alice))
+      // Capture the offset at which to prune
       ledgerEndAfterCreate <- participant.currentEnd()
 
-      // TODO pruning: Wait for reconciliation
-      _ <- populateLedgerAndGetOffsets(participant, alice)
+      // Created another dummy contract to allow pruning at the previously captured ledger end
+      // TODO pruning: Remove this statement once pruning semantics allow pruning at the ledger end
+      _ <- participant.create(alice, Dummy(alice))
 
+      // Prune the ledger without divulgence
       _ <- participant.prune(ledgerEndAfterCreate, pruneAllDivulgedContracts = false)
 
       (
@@ -69,6 +74,7 @@ class ParticipantPruningIT extends LedgerTestSuite {
         allDivulgencePrunedUpToInclusive_afterRegularPruning,
       ) <- participant.latestPrunedOffsets()
 
+      // Prune the ledger with divulgence
       _ <- participant.prune(ledgerEndAfterCreate, pruneAllDivulgedContracts = true)
 
       (
@@ -79,7 +85,7 @@ class ParticipantPruningIT extends LedgerTestSuite {
     } yield {
       assert(
         assertion =
-          prunedUpToInclusive_initial != prunedUpToInclusive_afterRegularPruning, // TODO pruning: gt
+          prunedUpToInclusive_initial.getAbsolute < prunedUpToInclusive_afterRegularPruning.getAbsolute,
         message =
           s"The initial pruning offset ($prunedUpToInclusive_initial) should be different than the latest pruning offset ($prunedUpToInclusive_afterRegularPruning)",
       )
