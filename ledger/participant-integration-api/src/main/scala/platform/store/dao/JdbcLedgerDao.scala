@@ -404,6 +404,7 @@ private class JdbcLedgerDao(
 
     dbDispatcher
       .executeSql(metrics.daml.index.db.pruneDbMetrics) { conn =>
+        // TODO pruning: Extract outside of prune() in order to not execute for each pruning window
         if (
           !readStorageBackend.eventStorageBackend.isPruningOffsetValidAgainstMigration(
             pruneUpToInclusive,
@@ -455,6 +456,14 @@ private class JdbcLedgerDao(
       parameterStorageBackend.prunedUpToInclusive(conn) -> parameterStorageBackend
         .participantAllDivulgedContractsPrunedUpToInclusive(conn)
     }
+
+  override def getOffsetAfter(startExclusive: Offset, count: Int)(implicit
+      loggingContext: LoggingContext
+  ): Future[Option[Offset]] = {
+    dbDispatcher.executeSql(
+      metrics.daml.index.db.getOffsetAfter
+    )(readStorageBackend.eventStorageBackend.offsetAfter(startExclusive, count))
+  }
 
   private val translation: LfValueTranslation =
     new LfValueTranslation(

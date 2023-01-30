@@ -119,6 +119,7 @@ class MainIndexDBMetrics(prefix: MetricName, factory: MetricsFactory)
   val getLedgerId: DatabaseMetrics = createDbMetrics("get_ledger_id")
   val getParticipantId: DatabaseMetrics = createDbMetrics("get_participant_id")
   val getLedgerEnd: DatabaseMetrics = createDbMetrics("get_ledger_end")
+  val getOffsetAfter: DatabaseMetrics = createDbMetrics("get_offset_after")
   val initializeLedgerParameters: DatabaseMetrics = createDbMetrics(
     "initialize_ledger_parameters"
   )

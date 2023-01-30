@@ -808,6 +808,18 @@ abstract class EventStorageBackendTemplate(
        """.as(get[Long](1).singleOpt)(connection)
   }
 
+  override def offsetAfter(start: Offset, count: Int)(connection: Connection): Option[Offset] =
+    SQL"""
+        WITH next_offsets_chunk AS (
+            SELECT event_offset
+            FROM participant_transaction_meta
+            ${QueryStrategy.whereOffsetHigherThanClause("event_offset", start)}
+            ORDER BY event_offset ASC
+            ${QueryStrategy.limitClause(Some(count))}
+         )
+       SELECT MAX(event_offset) AS max_offset_in_window FROM next_offsets_chunk"""
+      .as(offset("max_offset_in_window").?.single)(connection)
+
   private def pruneIdFilterCreateStakeholder(pruneUpToInclusive: Offset): SimpleSql[Row] =
     pruneIdFilterCreate(
       tableName = "pe_create_id_filter_stakeholder",

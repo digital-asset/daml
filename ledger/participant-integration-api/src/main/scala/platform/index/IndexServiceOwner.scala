@@ -87,6 +87,11 @@ final class IndexServiceOwner(
         metrics = metrics,
       )(inMemoryFanOutExecutionContext)
 
+      incrementalIndexPruningService = new IncrementalIndexPruningService(
+        ledgerReadDao = ledgerDao,
+        maximumPruningWindowSize = config.maximumPruningWindowSize,
+      )
+
       indexService = new IndexServiceImpl(
         ledgerId = ledgerId,
         participantId = participantId,
@@ -98,6 +103,7 @@ final class IndexServiceOwner(
         dispatcher = () => inMemoryState.dispatcherState.getDispatcher,
         packageMetadataView = inMemoryState.packageMetadataView,
         metrics = metrics,
+        incrementalIndexPruningService = incrementalIndexPruningService,
       )
     } yield new TimedIndexService(indexService, metrics)
   }

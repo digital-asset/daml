@@ -77,6 +77,7 @@ private[index] class IndexServiceImpl(
     commandCompletionsReader: LedgerDaoCommandCompletionsReader,
     contractStore: ContractStore,
     pruneBuffers: PruneBuffers,
+    incrementalIndexPruningService: IncrementalIndexPruningService,
     dispatcher: () => Dispatcher[Offset],
     packageMetadataView: PackageMetadataView,
     metrics: Metrics,
@@ -389,7 +390,7 @@ private[index] class IndexServiceImpl(
       loggingContext: LoggingContext
   ): Future[Unit] = {
     pruneBuffers(pruneUpToInclusive)
-    ledgerDao.prune(pruneUpToInclusive, pruneAllDivulgedContracts)
+    incrementalIndexPruningService.prune(pruneUpToInclusive, pruneAllDivulgedContracts)
   }
 
   override def getMeteringReportData(

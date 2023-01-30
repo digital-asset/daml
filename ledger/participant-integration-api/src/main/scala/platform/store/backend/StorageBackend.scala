@@ -285,6 +285,11 @@ trait EventStorageBackend {
   def rawEvents(startExclusive: Long, endInclusive: Long)(
       connection: Connection
   ): Vector[EventStorageBackend.RawTransactionEvent]
+
+  /** Return the `count`-th or highest offset after `startExclusive`.
+    * If there are no offsets greater than `startExclusive`, return None.
+    */
+  def offsetAfter(startExclusive: Offset, count: Int)(connection: Connection): Option[Offset]
 }
 
 object EventStorageBackend {

@@ -157,6 +157,13 @@ private[platform] trait LedgerReadDao extends ReportsHealth {
       to: Option[Timestamp],
       applicationId: Option[ApplicationId],
   )(implicit loggingContext: LoggingContext): Future[ReportData]
+
+  /** Return the `count`-th or highest offset after `startExclusive`.
+    * If there are no offsets greater than `startExclusive`, return None.
+    */
+  def getOffsetAfter(startExclusive: Offset, count: Int)(implicit
+      loggingContext: LoggingContext
+  ): Future[Option[Offset]]
 }
 
 // TODO sandbox-classic clean-up: This interface and its implementation is only used in the JdbcLedgerDao suite
