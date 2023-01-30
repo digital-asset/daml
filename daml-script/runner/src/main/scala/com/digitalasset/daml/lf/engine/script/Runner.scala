@@ -492,7 +492,8 @@ private[lf] class Runner(
                           .flatMap {
                             case SOptional(None) =>
                               Future.failed(exce)
-                            case SOptional(Some(free)) => Future.successful(SEApp(SEValue(continue), Array(free)))
+                            case SOptional(Some(free)) =>
+                              Future.successful(SEApp(SEValue(continue), Array(free)))
                             case e =>
                               Future.failed(
                                 new ConverterException(s"Expected SOptional but got $e")
