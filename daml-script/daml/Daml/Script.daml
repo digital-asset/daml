@@ -2,6 +2,7 @@
 -- SPDX-License-Identifier: Apache-2.0
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE InstanceSigs #-}
 
 module Daml.Script
   ( Script
@@ -168,6 +169,7 @@ instance ActionThrow Script where
   throw e = lift (Free (Throw (ThrowPayload (toAnyException e))))
 
 instance ActionCatch Script where
+  _tryCatch : (() -> Script t) -> (AnyException -> Optional (Script t)) -> Script t
   _tryCatch act handle = lift $ Free $ Catch $ CatchPayload with
     act = \() -> fmap (first pure) $ runScript (act ()) ()
     handle = \e -> fmap (\s -> fmap fst $ runScript s ()) (handle e)
