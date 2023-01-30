@@ -397,7 +397,7 @@ private[lf] object Speedy {
         coid: V.ContractId,
         handleKeyFound: V.ContractId => Control.Value,
     ): Control.Value = {
-      // For local and disclosed contract keys, we do not perform visibility checking
+      // For local and disclosed contracts, we do not perform visibility checking
       if (isLocalContract(coid) || isDisclosedContract(coid)) {
         handleKeyFound(coid)
       } else {
