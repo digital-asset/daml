@@ -874,6 +874,7 @@ excluded_test_tool_tests = [
         ],
     },
     {
+        "start": "2.1.0",
         "end": "2.6.0-snapshot.20230119.11284.0.179b865a",
         "platform_ranges": [
             {
