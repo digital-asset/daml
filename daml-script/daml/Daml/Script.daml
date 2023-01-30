@@ -157,8 +157,9 @@ data ScriptF a
 -- (try x catch f) >>= f should not pull `f` in the try block
 data CatchPayload a = CatchPayload
   with
-    act : () -> Free ScriptF (a, ())
-    handle : AnyException -> Optional a
+    act : () -> Free ScriptF (Free ScriptF LedgerValue, ())
+    handle : AnyException -> Optional (Free ScriptF LedgerValue)
+    continue : LedgerValue -> a
   deriving Functor
 
 data ThrowPayload = ThrowPayload
@@ -171,8 +172,9 @@ instance ActionThrow Script where
 instance ActionCatch Script where
   _tryCatch : (() -> Script t) -> (AnyException -> Optional (Script t)) -> Script t
   _tryCatch act handle = lift $ Free $ Catch $ CatchPayload with
-    act = \() -> fmap (first pure) $ runScript (act ()) ()
-    handle = \e -> fmap (\s -> fmap fst $ runScript s ()) (handle e)
+    act = \() -> fmap (first (pure . toLedgerValue)) $ runScript (act ()) ()
+    handle = \e -> fmap (\s -> fmap (toLedgerValue . fst) $ runScript s ()) (handle e)
+    continue = fromLedgerValue : LedgerValue -> Free ScriptF t
 #endif
 
 data QueryACS a = QueryACS
@@ -580,6 +582,9 @@ data LedgerValue = LedgerValue {}
 
 fromLedgerValue : LedgerValue -> a
 fromLedgerValue = error "foobar" -- gets replaced by the identity-function in script/Runner.scala
+
+toLedgerValue : a -> LedgerValue
+toLedgerValue = error "foobar" -- gets replaced by the identity-function in script/Runner.scala
 
 -- | HIDE A version of 'createCmd' without constraints.
 --
