@@ -101,7 +101,6 @@ scala_compile_deps = [
     "@maven//:org_playframework_anorm_anorm",
     "@maven//:org_playframework_anorm_anorm_tokenizer",
     "@maven//:org_scalaz_scalaz_core",
-    "@maven//:org_typelevel_cats_core",
     "@maven//:io_spray_spray_json",
 ]
 
