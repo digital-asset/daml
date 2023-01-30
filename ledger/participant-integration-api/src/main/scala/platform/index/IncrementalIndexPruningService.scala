@@ -3,7 +3,6 @@
 
 package com.daml.platform.index
 
-import cats.data.OptionT
 import com.daml.ledger.offset.Offset
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.store.dao.LedgerReadDao
@@ -39,30 +38,32 @@ class IncrementalIndexPruningService(ledgerReadDao: LedgerReadDao, maximumPrunin
       loggingContext: LoggingContext,
       executionContext: ExecutionContext,
   ): Future[Unit] = {
-    def go(pruningWindowStartExclusive: Offset): OptionT[Future, Unit] =
-      for {
-        // If start exclusive is not smaller than the requested pruneUpToInclusive, we're done
-        _ <- OptionT.when[Future, Unit](pruningWindowStartExclusive < pruneUpToInclusive)(())
-        maxWindowOffset <- OptionT(
-          // If no offset after `pruningWindowStartExclusive`, nothing else to prune
-          ledgerReadDao.getOffsetAfter(
-            startExclusive = pruningWindowStartExclusive,
-            count = maxPruningWindowSize,
-          )
-        )
-        // Ensure we don't prune beyond the requested pruneUpToInclusive
-        pruneTo = Ordering[Offset].min(maxWindowOffset, pruneUpToInclusive)
-        _ <- OptionT.liftF(ledgerReadDao.prune(pruneTo, pruneAllDivulgedContracts))
-        _ = logger.warn(s"Pruned up to $pruneTo")
-        _ <- go(pruningWindowStartExclusive = pruneTo)
-      } yield ()
+    def go(pruningWindowStartExclusive: Offset): Future[Unit] =
+      // If start exclusive is not smaller than the requested `pruneUpToInclusive`, we're done
+      if (pruningWindowStartExclusive < pruneUpToInclusive)
+        for {
+          maxWindowOffset <- ledgerReadDao
+            .getOffsetAfter(
+              startExclusive = pruningWindowStartExclusive,
+              count = maxPruningWindowSize,
+            )
+            // If no offset after `pruningWindowStartExclusive`,
+            // use `pruneUpToInclusive` to cover the entire requested range and ensure termination
+            .map(_.getOrElse(pruneUpToInclusive))
+          // Ensure we don't prune beyond the requested pruneUpToInclusive
+          pruneNextWindowUpTo = Ordering[Offset].min(maxWindowOffset, pruneUpToInclusive)
+          _ = logger.info(s"Pruned up to $pruneNextWindowUpTo")
+          _ <- go(pruningWindowStartExclusive = pruneNextWindowUpTo)
+        } yield ()
+      else Future.unit
 
-    logger.warn(
+    logger.info(
       s"Pruning the Index database incrementally (maximum window size of $maxPruningWindowSize) " +
         s"from $latestPrunedUpToInclusive to $pruneUpToInclusive " +
         s"with divulged contracts pruning ${if (pruneAllDivulgedContracts) "enabled" else "disabled"}."
     )
-    go(pruningWindowStartExclusive = latestPrunedUpToInclusive).getOrElse(())
+
+    go(pruningWindowStartExclusive = latestPrunedUpToInclusive)
   }
 
   // Computes the starting offset for the incremental pruning.
@@ -75,9 +76,9 @@ class IncrementalIndexPruningService(ledgerReadDao: LedgerReadDao, maximumPrunin
   ): Offset =
     if (pruneAllDivulgedContracts)
       pruningOffsets match {
-        case (None, _) => Offset.beforeBegin
-        case (Some(prunedAllDivulgence), Some(_)) => prunedAllDivulgence
-        case (Some(_), None) =>
+        case (_, None) => Offset.beforeBegin
+        case (Some(_), Some(prunedAllDivulgence)) => prunedAllDivulgence
+        case (None, Some(_)) =>
           throw new IllegalStateException(
             "Pruning all divulgence present and other is None (TODO pruning rephrase)"
           )
