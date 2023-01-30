@@ -248,20 +248,6 @@ private[lf] object Speedy {
     private[speedy] def isDisclosedContract(contractId: V.ContractId): Boolean =
       ptx.disclosedContractIds.contains(contractId)
 
-    private[speedy] def isLocalContractKey(contractId: V.ContractId, key: GlobalKey): Boolean = {
-      isLocalContract(contractId) && ptx.contractState.activeState.getLocalActiveKey(key).nonEmpty
-    }
-
-    private[speedy] def isDisclosedContractKey(
-        contractId: V.ContractId,
-        key: GlobalKey,
-    ): Boolean = {
-      isDisclosedContract(contractId) && disclosureKeyTable.isValidDisclosedContractKeyEntry(
-        key,
-        contractId,
-      )
-    }
-
     private[speedy] def updateCachedContracts(cid: V.ContractId, contract: CachedContract): Unit = {
       enforceLimit(
         contract.signatories.size,
@@ -411,8 +397,8 @@ private[lf] object Speedy {
         coid: V.ContractId,
         handleKeyFound: V.ContractId => Control.Value,
     ): Control.Value = {
-      // For local contract keys and disclosed contract keys, we do not perform visibility checking
-      if (isLocalContractKey(coid, gkey) || isDisclosedContractKey(coid, gkey)) {
+      // For local and disclosed contract keys, we do not perform visibility checking
+      if (isLocalContract(coid) || isDisclosedContract(coid)) {
         handleKeyFound(coid)
       } else {
         getCachedContract(coid) match {
