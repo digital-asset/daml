@@ -31,6 +31,9 @@ The Ledger API exposes the following services:
   - Use the :ref:`command submission service <command-submission-service>` to submit commands (create a contract or exercise a choice) to the ledger.
   - Use the :ref:`command completion service <command-completion-service>` to track the status of submitted commands.
   - Use the :ref:`command service <command-service>` for a convenient service that combines the command submission and completion services.
+
+.. _reading-from-the-ledger:
+
 - Reading from the ledger
 
   - Use the :ref:`transaction service <transaction-service>` to stream committed transactions and the resulting events (choices exercised, and contracts created or archived), and to look up transactions.
