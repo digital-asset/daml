@@ -192,6 +192,7 @@ class AuthServiceJWTCodecSpec
           userId = "someUserId",
           exp = Some(Instant.ofEpochSecond(100)),
           format = StandardJWTTokenFormat.Scope,
+          audiences = List("someParticipantId"),
         )
         parse(serialized) shouldBe Success(expected)
       }
@@ -211,6 +212,7 @@ class AuthServiceJWTCodecSpec
           userId = "someUserId",
           exp = Some(Instant.ofEpochSecond(100)),
           format = StandardJWTTokenFormat.Scope,
+          audiences = List("someParticipantId"),
         )
         parse(serialized) shouldBe Success(expected)
       }
@@ -229,6 +231,7 @@ class AuthServiceJWTCodecSpec
           userId = "someUserId",
           exp = None,
           format = StandardJWTTokenFormat.Scope,
+          audiences = List.empty,
         )
         parse(serialized) shouldBe Success(expected)
       }
@@ -246,6 +249,7 @@ class AuthServiceJWTCodecSpec
           userId = "someUserId",
           exp = None,
           format = StandardJWTTokenFormat.Scope,
+          audiences = List.empty,
         )
         parse(serialized) shouldBe Success(expected)
       }
@@ -279,6 +283,7 @@ class AuthServiceJWTCodecSpec
           userId = "someUserId",
           exp = Some(Instant.ofEpochSecond(100)),
           format = StandardJWTTokenFormat.ParticipantId,
+          audiences = List("https://daml.com/jwt/aud/participant/someParticipantId"),
         )
         parse(serialized) shouldBe Success(expected)
       }
@@ -298,6 +303,7 @@ class AuthServiceJWTCodecSpec
             userId = "someUserId",
             exp = Some(Instant.ofEpochSecond(100)),
             format = StandardJWTTokenFormat.ParticipantId,
+            audiences = List("https://daml.com/jwt/aud/participant/someParticipantId"),
           )
         )
 
@@ -316,6 +322,7 @@ class AuthServiceJWTCodecSpec
             userId = "someUserId",
             exp = Some(Instant.ofEpochSecond(100)),
             format = StandardJWTTokenFormat.Scope,
+            audiences = List("someParticipantId"),
           )
         )
       }
@@ -335,6 +342,7 @@ class AuthServiceJWTCodecSpec
           userId = "someUserId",
           exp = Some(Instant.ofEpochSecond(100)),
           format = StandardJWTTokenFormat.ParticipantId,
+          audiences = List("https://daml.com/jwt/aud/participant/someParticipantId"),
         )
         parse(serialized) shouldBe Success(expected)
       }

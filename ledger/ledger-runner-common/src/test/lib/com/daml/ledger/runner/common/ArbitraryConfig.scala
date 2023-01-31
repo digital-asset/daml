@@ -15,7 +15,7 @@ import com.daml.lf.data.Ref
 import com.daml.platform.apiserver.{ApiServerConfig, AuthServiceConfig}
 import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.apiserver.configuration.RateLimitingConfig
-import com.daml.platform.config.{MetricsConfig, ParticipantConfig}
+import com.daml.platform.config.{JwtAudience, MetricsConfig, ParticipantConfig}
 import com.daml.platform.config.MetricsConfig.MetricRegistryType
 import com.daml.platform.configuration.{
   AcsStreamsConfig,
@@ -35,15 +35,20 @@ import com.daml.platform.store.backend.postgresql.PostgresDataSourceConfig
 import com.daml.platform.store.backend.postgresql.PostgresDataSourceConfig.SynchronousCommitValue
 import com.daml.ports.Port
 import io.netty.handler.ssl.ClientAuth
+
 import java.io.File
 import java.net.InetSocketAddress
 import java.nio.file.Paths
 import java.time.Duration
 import java.time.temporal.ChronoUnit
-
 import com.daml.metrics.api.reporters.MetricsReporter
 
 object ArbitraryConfig {
+  val jwtAudience: Gen[JwtAudience] = for {
+    enabled <- Gen.oneOf(true, false)
+    str <- Gen.option(Gen.alphaNumStr)
+  } yield JwtAudience(enabled, str)
+
   val duration: Gen[Duration] = for {
     value <- Gen.chooseNum(0, Int.MaxValue)
     unit <- Gen.oneOf(

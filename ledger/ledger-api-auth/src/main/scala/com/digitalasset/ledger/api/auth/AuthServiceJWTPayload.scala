@@ -88,6 +88,7 @@ final case class StandardJWTPayload(
     participantId: Option[String],
     exp: Option[Instant],
     format: StandardJWTTokenFormat,
+    audiences: List[String],
 ) extends AuthServiceJWTPayload
 
 /** Codec for writing and reading [[AuthServiceJWTPayload]] to and from JSON.
@@ -144,9 +145,53 @@ object AuthServiceJWTCodec {
         propExp -> writeOptionalInstant(v.exp),
       )
     case v: StandardJWTPayload if v.format == StandardJWTTokenFormat.Scope =>
+      val aud: List[String] = if (v.participantId.exists(v.audiences.contains)) {
+        v.audiences
+      } else {
+        v.participantId match {
+          case Some(participantId) => participantId :: v.audiences
+          case None => v.audiences
+        }
+      }
       JsObject(
         propIss -> writeOptionalString(v.issuer),
-        propAud -> writeOptionalString(v.participantId),
+        propAud -> writeStringList(aud),
+        "sub" -> JsString(v.userId),
+        "exp" -> writeOptionalInstant(v.exp),
+        "scope" -> JsString(scopeLedgerApiFull),
+      )
+    case v: StandardJWTPayload =>
+      val audienceFromParticipantId = audPrefix + v.participantId.getOrElse("")
+      val aud = if (v.audiences.contains(audienceFromParticipantId)) {
+        v.audiences
+      } else {
+        audienceFromParticipantId :: v.audiences
+      }
+      JsObject(
+        propIss -> writeOptionalString(v.issuer),
+        propAud -> writeStringList(aud),
+        "sub" -> JsString(v.userId),
+        "exp" -> writeOptionalInstant(v.exp),
+      )
+  }
+
+  def writeAudienceBasedPayload: AuthServiceJWTPayload => JsValue = {
+    case v: CustomDamlJWTPayload =>
+      JsObject(
+        oidcNamespace -> JsObject(
+          propLedgerId -> writeOptionalString(v.ledgerId),
+          propParticipantId -> writeOptionalString(v.participantId),
+          propApplicationId -> writeOptionalString(v.applicationId),
+          propAdmin -> JsBoolean(v.admin),
+          propActAs -> writeStringList(v.actAs),
+          propReadAs -> writeStringList(v.readAs),
+        ),
+        propExp -> writeOptionalInstant(v.exp),
+      )
+    case v: StandardJWTPayload if v.format == StandardJWTTokenFormat.Scope =>
+      JsObject(
+        propIss -> writeOptionalString(v.issuer),
+        propAud -> writeStringList(v.audiences),
         "sub" -> JsString(v.userId),
         "exp" -> writeOptionalInstant(v.exp),
         "scope" -> JsString(scopeLedgerApiFull),
@@ -154,7 +199,7 @@ object AuthServiceJWTCodec {
     case v: StandardJWTPayload =>
       JsObject(
         propIss -> writeOptionalString(v.issuer),
-        propAud -> JsString(audPrefix + v.participantId.getOrElse("")),
+        propAud -> writeStringList(v.audiences),
         "sub" -> JsString(v.userId),
         "exp" -> writeOptionalInstant(v.exp),
       )
@@ -182,6 +227,22 @@ object AuthServiceJWTCodec {
     } yield parsed
   }
 
+  def readAudienceBasedToken(value: JsValue): AuthServiceJWTPayload = value match {
+    case JsObject(fields) =>
+      StandardJWTPayload(
+        issuer = readOptionalString("iss", fields),
+        participantId = None,
+        userId = readOptionalString("sub", fields).get,
+        exp = readInstant("exp", fields),
+        format = StandardJWTTokenFormat.ParticipantId,
+        audiences = readOptionalStringOrArray(propAud, fields),
+      )
+    case _ =>
+      deserializationError(
+        s"Could not read ${value.prettyPrint} as AuthServiceJWTPayload: value is not an object"
+      )
+  }
+
   def readPayload(value: JsValue): AuthServiceJWTPayload = value match {
     case JsObject(fields) =>
       val scope = fields.get("scope")
@@ -204,6 +265,7 @@ object AuthServiceJWTCodec {
               userId = readOptionalString("sub", fields).get, // guarded by if-clause above
               exp = readInstant("exp", fields),
               format = StandardJWTTokenFormat.ParticipantId,
+              audiences = readOptionalStringOrArray(propAud, fields),
             )
           case Nil =>
             deserializationError(
@@ -233,6 +295,7 @@ object AuthServiceJWTCodec {
           userId = readOptionalString("sub", fields).get, // guarded by if-clause above
           exp = readInstant("exp", fields),
           format = StandardJWTTokenFormat.Scope,
+          audiences = readOptionalStringOrArray(propAud, fields),
         )
       } else {
         if (scope.nonEmpty)
@@ -307,6 +370,25 @@ object AuthServiceJWTCodec {
         deserializationError(s"Could not read ${value.prettyPrint} as string for $name")
     }
 
+  private[this] def readOptionalStringOrArray(
+      name: String,
+      fields: Map[String, JsValue],
+  ): List[String] =
+    fields.get(name) match {
+      case None => List.empty
+      case Some(JsNull) => List.empty
+      case Some(JsString(value)) => List(value)
+      case Some(JsArray(Vector(JsString(value)))) => List(value)
+      case Some(JsArray(values)) =>
+        values.toList.map {
+          case JsString(value) => value
+          case value =>
+            deserializationError(s"Could not read ${value.prettyPrint} as string element for $name")
+        }
+      case Some(value) =>
+        deserializationError(s"Could not read ${value.prettyPrint} as string for $name")
+    }
+
   private[this] def readOptionalStringList(
       name: String,
       fields: Map[String, JsValue],
@@ -353,6 +435,13 @@ object AuthServiceJWTCodec {
     implicit object AuthServiceJWTPayloadFormat extends RootJsonFormat[AuthServiceJWTPayload] {
       override def write(v: AuthServiceJWTPayload): JsValue = writePayload(v)
       override def read(json: JsValue): AuthServiceJWTPayload = readPayload(json)
+    }
+  }
+  object AudienceBasedTokenJsonImplicits extends DefaultJsonProtocol {
+    implicit object AuthServiceJWTPayloadFormat extends RootJsonFormat[AuthServiceJWTPayload] {
+      override def write(v: AuthServiceJWTPayload): JsValue = writeAudienceBasedPayload(v)
+
+      override def read(json: JsValue): AuthServiceJWTPayload = readAudienceBasedToken(json)
     }
   }
 }

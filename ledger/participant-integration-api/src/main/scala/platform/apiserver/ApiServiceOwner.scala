@@ -70,6 +70,7 @@ object ApiServiceOwner {
       jwtVerifierLoader: JwtVerifierLoader,
       meteringReportKey: MeteringReportKey = CommunityKey,
       jwtTimestampLeeway: Option[JwtTimestampLeeway],
+      targetAudience: Option[String],
       explicitDisclosureUnsafeEnabled: Boolean = false,
       createExternalServices: () => List[BindableService] = () => Nil,
       telemetry: Telemetry,
@@ -95,6 +96,7 @@ object ApiServiceOwner {
       Clock.systemUTC.instant _,
       ledgerId,
       participantId,
+      targetAudience,
       userManagementStore,
       servicesExecutionContext,
       userRightsCheckIntervalInSeconds = config.userManagement.cacheExpiryAfterWriteInSeconds,
@@ -158,6 +160,7 @@ object ApiServiceOwner {
           new IdentityProviderAwareAuthServiceImpl(
             identityProviderConfigLoader = identityProviderConfigLoader,
             jwtVerifierLoader = jwtVerifierLoader,
+            expectsAudienceBasedTokens = targetAudience.isDefined,
           )(servicesExecutionContext, loggingContext),
           servicesExecutionContext,
         ) :: otherInterceptors,

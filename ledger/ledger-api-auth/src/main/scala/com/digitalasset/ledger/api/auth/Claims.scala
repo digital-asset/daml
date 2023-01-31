@@ -73,6 +73,7 @@ object ClaimSet {
     * @param expiration     If set, the claims will cease to be valid at the given time.
     * @param resolvedFromUser  If set, then the claims were resolved from a user in the user management service.
     * @param identityProviderId  If set, the claims will only be valid on the given Identity Provider configuration.
+    * @param payloadAudiences  If set, the claims will only be valid for the provided JWT audience claims.
     */
   final case class Claims(
       claims: Seq[Claim],
@@ -82,7 +83,16 @@ object ClaimSet {
       expiration: Option[Instant],
       identityProviderId: IdentityProviderId,
       resolvedFromUser: Boolean,
+      payloadAudiences: List[String],
   ) extends ClaimSet {
+
+    def validForTargetAudience(targetAudience: String): Either[AuthorizationError, Unit] =
+      Either.cond(
+        payloadAudiences.contains(targetAudience),
+        (),
+        AuthorizationError.InvalidTargetAudience(payloadAudiences, targetAudience),
+      )
+
     def validForLedger(id: String): Either[AuthorizationError, Unit] =
       Either.cond(ledgerId.forall(_ == id), (), AuthorizationError.InvalidLedger(ledgerId.get, id))
 
@@ -169,6 +179,7 @@ object ClaimSet {
       userId: String,
       participantId: Option[String],
       expiration: Option[Instant],
+      payloadAudiences: List[String],
   ) extends ClaimSet
 
   object Claims {
@@ -182,11 +193,14 @@ object ClaimSet {
       expiration = None,
       resolvedFromUser = false,
       identityProviderId = IdentityProviderId.Default,
+      payloadAudiences = List.empty,
     )
 
     /** A set of [[Claims]] that has all possible authorizations */
     val Wildcard: Claims =
-      Empty.copy(claims = List[Claim](ClaimPublic, ClaimAdmin, ClaimActAsAnyParty))
+      Empty.copy(
+        claims = List[Claim](ClaimPublic, ClaimAdmin, ClaimActAsAnyParty)
+      )
 
   }
 

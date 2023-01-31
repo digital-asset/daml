@@ -50,11 +50,12 @@ final class LedgerServices(val ledgerId: String) {
   private val participantId = "LedgerServicesParticipant"
   private val authorizer =
     new Authorizer(
-      () => Clock.systemUTC().instant(),
-      ledgerId,
-      participantId,
-      new InMemoryUserManagementStore(),
-      executionContext,
+      now = () => Clock.systemUTC().instant(),
+      ledgerId = ledgerId,
+      participantId = participantId,
+      targetAudience = None,
+      userManagementStore = new InMemoryUserManagementStore(),
+      ec = executionContext,
       userRightsCheckIntervalInSeconds = 1,
       akkaScheduler = akkaSystem.scheduler,
     )(LoggingContext.ForTesting)

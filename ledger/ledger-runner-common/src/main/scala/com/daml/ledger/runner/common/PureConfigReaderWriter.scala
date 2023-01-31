@@ -16,7 +16,7 @@ import com.daml.metrics.api.reporters.MetricsReporter
 import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.apiserver.configuration.RateLimitingConfig
 import com.daml.platform.apiserver.{ApiServerConfig, AuthServiceConfig}
-import com.daml.platform.config.{MetricsConfig, ParticipantConfig}
+import com.daml.platform.config.{JwtAudience, MetricsConfig, ParticipantConfig}
 import com.daml.platform.configuration.{
   AcsStreamsConfig,
   CommandConfiguration,
@@ -213,6 +213,12 @@ class PureConfigReaderWriter(secure: Boolean = true) {
 
   implicit val jwtTimestampLeewayConfigConvert: ConfigConvert[Option[JwtTimestampLeeway]] =
     optConvertEnabled(deriveConvert[JwtTimestampLeeway])
+
+  implicit val jwtAudienceConvert: ConfigConvert[JwtAudience] =
+    deriveConvert[JwtAudience]
+
+  implicit val jwtAudienceHint =
+    ProductHint[JwtAudience](allowUnknownKeys = false)
 
   implicit val authServiceConfigUnsafeJwtHmac256Reader
       : ConfigReader[AuthServiceConfig.UnsafeJwtHmac256] =

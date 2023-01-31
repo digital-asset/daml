@@ -151,6 +151,7 @@ trait JsonApiFixture
       participantId = None,
       exp = None,
       format = StandardJWTTokenFormat.Scope,
+      audiences = List.empty,
     )
     val header = """{"alg": "HS256", "typ": "JWT"}"""
     val jwt = DecodedJwt[String](header, AuthServiceJWTCodec.writeToString(payload))

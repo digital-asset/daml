@@ -77,6 +77,7 @@ class PureConfigReaderWriterSpec
     val readerWriter = new PureConfigReaderWriter(secure)
     import readerWriter._
     testReaderWriterIsomorphism(secure, ArbitraryConfig.duration)
+    testReaderWriterIsomorphism(secure, ArbitraryConfig.jwtAudience)
     testReaderWriterIsomorphism(secure, ArbitraryConfig.versionRange)
     testReaderWriterIsomorphism(secure, ArbitraryConfig.limits)
     testReaderWriterIsomorphism(secure, ArbitraryConfig.contractKeyUniquenessMode)

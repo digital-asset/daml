@@ -22,7 +22,7 @@ import com.daml.logging.LoggingContext.newLoggingContextWith
 import com.daml.metrics.Metrics
 import com.daml.platform.apiserver._
 import com.daml.platform.apiserver.ratelimiting.RateLimitingInterceptor
-import com.daml.platform.config.ParticipantConfig
+import com.daml.platform.config.{JwtAudience, ParticipantConfig}
 import com.daml.platform.configuration.{IndexServiceConfig, ServerRole}
 import com.daml.platform.index.{InMemoryStateUpdater, IndexServiceOwner}
 import com.daml.platform.indexer.IndexerServiceOwner
@@ -125,6 +125,7 @@ class LedgerApiServer(
           explicitDisclosureUnsafeEnabled,
           jwtVerifierLoader,
           telemetry = telemetry,
+          jwtAudience = participantConfig.jwtAudience,
         )
       } yield apiService
     }
@@ -145,6 +146,7 @@ class LedgerApiServer(
       participantId: Ref.ParticipantId,
       explicitDisclosureUnsafeEnabled: Boolean,
       jwtVerifierLoader: JwtVerifierLoader,
+      jwtAudience: JwtAudience,
       telemetry: Telemetry,
   )(implicit
       actorSystem: ActorSystem,
@@ -196,6 +198,7 @@ class LedgerApiServer(
       jwtTimestampLeeway = participantConfig.jwtTimestampLeeway,
       explicitDisclosureUnsafeEnabled = explicitDisclosureUnsafeEnabled,
       telemetry = telemetry,
+      targetAudience = jwtAudience.targetAudience,
     )
   }
 }
