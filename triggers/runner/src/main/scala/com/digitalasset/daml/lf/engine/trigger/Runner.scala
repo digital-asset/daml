@@ -25,7 +25,7 @@ import com.daml.ledger.api.v1.{value => api}
 import com.daml.ledger.client.LedgerClient
 import com.daml.ledger.client.services.commands.CompletionStreamElement._
 import com.daml.lf.archive.Dar
-import com.daml.lf.data.{BackStack, FrontStack, ImmArray, Ref}
+import com.daml.lf.data.{FrontStack, ImmArray, Ref}
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.ScalazEqual._
 import com.daml.lf.data.Time.Timestamp
