@@ -153,10 +153,14 @@ data ScriptF a
   | Throw ThrowPayload
   deriving Functor
 
--- The slightly odd nesting here is required to preserve scoping.
--- (try x catch f) >>= f should not pull `f` in the try block
+-- `(try x catch f) >>= g` roughly translates to
+-- CatchPayload with
+--   act = \() -> x
+--   handle = f
+--   continue = g
 data CatchPayload a = CatchPayload
   with
+    -- TODO(MA): simplify to `act : () -> Free ScriptF LedgerValue`
     act : () -> Free ScriptF (Free ScriptF LedgerValue, ())
     handle : AnyException -> Optional (Free ScriptF LedgerValue)
     continue : LedgerValue -> a
