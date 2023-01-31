@@ -1143,7 +1143,7 @@ object Runner {
   }
 
   private def mapSize(smap: SValue): Int = {
-    smap.expect("SMap", { case SMap(_, values) => values.size }).getOrElse(0)
+    smap.expect("SMap", { case SMap(_, values) => values.size }).orConverterException
   }
 
   // The following method should be kept in sync with ACS in Internal.daml
@@ -1158,7 +1158,7 @@ object Runner {
       )
     } yield size
 
-    result.getOrElse(0)
+    result.orConverterException
   }
 
   private def triggerUserState(state: SValue, level: Trigger.Level): SValue = {
