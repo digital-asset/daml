@@ -485,6 +485,34 @@ abstract class EventStorageBackendTemplate(
   )(connection: Connection, loggingContext: LoggingContext): Unit = {
     import com.daml.platform.store.backend.Conversions.OffsetToStatement
 
+    pruneWithLogging("prune all")(
+      SQL"""
+       WITH archived_events AS (
+         SELECT participant_events_consuming_exercise.contract_id
+           FROM participant_events_consuming_exercise
+          WHERE event_offset <= $pruneUpToInclusive
+       ),
+       deleted_retroactive_divulgence AS(
+         -- Retroactive divulgence events (only for contracts archived before the specified offset)
+         DELETE FROM participant_events_divulgence delete_events
+               WHERE delete_events.contract_id IN (SELECT contract_id FROM archived_events)
+                 AND delete_events.event_offset <= $pruneUpToInclusive -- TODO pruning: do we even need this guard? Probably not
+       ),
+       deleted_create_events AS (
+         -- Create events (only for contracts archived before the specified offset)
+         DELETE FROM participant_events_create delete_events
+               WHERE delete_events.contract_id IN (SELECT contract_id FROM archived_events)
+       ),
+       deleted_nonconsuming AS (
+         -- Non-consuming exercises
+         DELETE FROM participant_events_non_consuming_exercise delete_events
+            WHERE delete_events.contract_id IN (SELECT contract_id FROM archived_events)
+       )
+         -- TODO use RETURNING
+         DELETE FROM participant_events_consuming_exercise delete_events
+               WHERE delete_events.contract_id IN (SELECT contract_id FROM archived_events)
+       """)(connection, loggingContext)
+
     if (pruneAllDivulgedContracts) {
       pruneWithLogging(queryDescription = "All retroactive divulgence events pruning") {
         // Note: do not use `QueryStrategy.offsetIsSmallerOrEqual` because divulgence events have a nullable offset
@@ -495,38 +523,9 @@ abstract class EventStorageBackendTemplate(
             or delete_events.event_offset is null
           """
       }(connection, loggingContext)
-    } else {
-      pruneWithLogging(queryDescription = "Archived retroactive divulgence events pruning") {
-        // Note: do not use `QueryStrategy.offsetIsSmallerOrEqual` because divulgence events have a nullable offset
-        SQL"""
-          -- Retroactive divulgence events (only for contracts archived before the specified offset)
-          delete from participant_events_divulgence delete_events
-          where
-            delete_events.event_offset <= $pruneUpToInclusive
-            and exists (
-              select 1 from participant_events_consuming_exercise archive_events
-              where
-                archive_events.event_offset <= $pruneUpToInclusive and
-                archive_events.contract_id = delete_events.contract_id
-            )"""
-      }(connection, loggingContext)
     }
 
     pruneIdFilterTables(pruneUpToInclusive)(connection, loggingContext)
-
-    pruneWithLogging(queryDescription = "Create events pruning") {
-      SQL"""
-          -- Create events (only for contracts archived before the specified offset)
-          delete from participant_events_create delete_events
-          where
-            delete_events.event_offset <= $pruneUpToInclusive and
-            exists (
-              SELECT 1 FROM participant_events_consuming_exercise archive_events
-              WHERE
-                archive_events.event_offset <= $pruneUpToInclusive AND
-                archive_events.contract_id = delete_events.contract_id
-            )"""
-    }(connection, loggingContext)
 
     if (pruneAllDivulgedContracts) {
       val pruneAfterClause = {
@@ -556,22 +555,6 @@ abstract class EventStorageBackendTemplate(
          """
       }(connection, loggingContext)
     }
-
-    pruneWithLogging(queryDescription = "Exercise (consuming) events pruning") {
-      SQL"""
-          -- Exercise events (consuming)
-          delete from participant_events_consuming_exercise delete_events
-          where
-            delete_events.event_offset <= $pruneUpToInclusive"""
-    }(connection, loggingContext)
-
-    pruneWithLogging(queryDescription = "Exercise (non-consuming) events pruning") {
-      SQL"""
-          -- Exercise events (non-consuming)
-          delete from participant_events_non_consuming_exercise delete_events
-          where
-            delete_events.event_offset <= $pruneUpToInclusive"""
-    }(connection, loggingContext)
 
     pruneWithLogging(queryDescription = "transaction meta pruning") {
       pruneTransactionMeta(pruneUpToInclusive = pruneUpToInclusive)
