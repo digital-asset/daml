@@ -72,16 +72,31 @@ class ParticipantPruningIT extends LedgerTestSuite {
   })
 
   test(
+    "PRFPruneAtLedgerEndOffset",
+    "Pruning a participant at the ledger end offset should succeed",
+    allocate(NoParties),
+    runConcurrently = false,
+  )(implicit ec => { case Participants(Participant(participant)) =>
+    for {
+      actualEndExclusive <- participant.currentEnd()
+      _ <- participant
+        .prune(actualEndExclusive, attempts = 1)
+    } yield {
+      // succeeding by not reporting any validation errors
+    }
+  })
+
+  test(
     "PRFailPruneByOutOfBoundsOffset",
-    "Pruning a participant specifying an offset after the ledger end should fail",
+    "Pruning a participant specifying an offset beyond the ledger end should fail",
     allocate(NoParties),
     runConcurrently =
       false, // in spite of being a negative test, cannot be run concurrently as otherwise ledger end grows
   )(implicit ec => { case Participants(Participant(participant)) =>
     for {
-      actualEndExclusive <- participant.currentEnd()
+      offsetBeyondLedgerEnd <- participant.offsetBeyondLedgerEnd()
       cannotPruneOffsetBeyondEnd <- participant
-        .prune(actualEndExclusive, attempts = 1)
+        .prune(offsetBeyondLedgerEnd, attempts = 1)
         .mustFail("pruning, specifying an offset after the ledger end")
     } yield {
       assertGrpcError(
