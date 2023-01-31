@@ -7,6 +7,7 @@ import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{FrontStack, FrontStackCons, Numeric}
 import com.daml.lf.engine.script.{ScriptF, StackTrace}
+import com.daml.lf.engine.script.Runner.InterpretationError
 import com.daml.lf.speedy.SValue
 import com.daml.lf.speedy.SValue._
 import io.grpc.{Status, StatusRuntimeException}
@@ -324,6 +325,74 @@ abstract class AbstractFuncIT
           v <- run(
             clients,
             QualifiedName.assertFromString("TestExceptions:test"),
+            dar = devDar,
+          )
+        } yield {
+          v shouldBe (SUnit)
+        }
+      }
+    }
+    "Exceptions:try_catch_then_error" should {
+      "fail" in {
+        for {
+          clients <- participantClients()
+          exception <- recoverToExceptionIf[InterpretationError](
+            run(
+              clients,
+              QualifiedName.assertFromString("TestExceptions:try_catch_then_error"),
+              dar = devDar,
+            )
+          ).map(_.toString)
+        } yield {
+          exception should include("Unhandled Daml exception")
+          exception should include("GeneralError")
+          exception should include("expected exception")
+        }
+      }
+    }
+    "Exceptions:try_catch_then_fail" should {
+      "fail" in {
+        for {
+          clients <- participantClients()
+          exception <- recoverToExceptionIf[InterpretationError](
+            run(
+              clients,
+              QualifiedName.assertFromString("TestExceptions:try_catch_then_fail"),
+              dar = devDar,
+            )
+          ).map(_.toString)
+        } yield {
+          exception should include("Unhandled Daml exception")
+          exception should include("GeneralError")
+          exception should include("expected exception")
+        }
+      }
+    }
+    "Exceptions:try_catch_then_abort" should {
+      "fail" in {
+        for {
+          clients <- participantClients()
+          exception <- recoverToExceptionIf[InterpretationError](
+            run(
+              clients,
+              QualifiedName.assertFromString("TestExceptions:try_catch_then_abort"),
+              dar = devDar,
+            )
+          ).map(_.toString)
+        } yield {
+          exception should include("Unhandled Daml exception")
+          exception should include("GeneralError")
+          exception should include("expected exception")
+        }
+      }
+    }
+    "Exceptions:try_catch_recover" should {
+      "succeed" in {
+        for {
+          clients <- participantClients()
+          v <- run(
+            clients,
+            QualifiedName.assertFromString("TestExceptions:try_catch_recover"),
             dar = devDar,
           )
         } yield {

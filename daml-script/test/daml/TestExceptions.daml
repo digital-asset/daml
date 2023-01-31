@@ -70,3 +70,40 @@ test = script do
     catch
       Test2 _ -> pure 42
   exc === 42
+
+-- tests that the error from {- 6 -} doesn't get caught in {- 3 -} (#16132)
+try_catch_then_error : Script ()
+try_catch_then_error = do
+  {- 1 -} wasThrown <-
+  {- 2 -}   try do pure False
+  {- 3 -}   catch (_ : AnyException) -> pure True
+  {- 4 -} if wasThrown
+  {- 5 -}   then pure ()
+  {- 6 -}   else error "expected exception"
+
+-- tests that the error from {- 6 -} doesn't get caught in {- 3 -} (#16132)
+try_catch_then_fail : Script ()
+try_catch_then_fail = do
+  {- 1 -} wasThrown <-
+  {- 2 -}   try do pure False
+  {- 3 -}   catch (_ : AnyException) -> pure True
+  {- 4 -} if wasThrown
+  {- 5 -}   then pure ()
+  {- 6 -}   else fail "expected exception"
+
+-- tests that the error from {- 6 -} doesn't get caught in {- 3 -} (#16132)
+try_catch_then_abort : Script ()
+try_catch_then_abort = do
+  {- 1 -} wasThrown <-
+  {- 2 -}   try do pure False
+  {- 3 -}   catch (_ : AnyException) -> pure True
+  {- 4 -} if wasThrown
+  {- 5 -}   then pure ()
+  {- 6 -}   else abort "expected exception"
+
+try_catch_recover : Script ()
+try_catch_recover = do
+  x <-
+    try do error "uh-oh"
+    catch (e : AnyException) -> pure (message e <> "!")
+  x === "uh-oh!"
