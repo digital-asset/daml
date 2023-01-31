@@ -172,7 +172,11 @@ data CompletionStatus
 -- Introduced in version 2.6.0
 data TriggerConfig = TriggerConfig
   { maxInFlightCommands : Int
-    -- ^ maximum number of commands that should be allowed to be in-flight at any point in time
+    -- ^ maximum number of commands that should be allowed to be in-flight at any point in time.
+    --   Exceeding this value will eventually lead to the trigger run raising an InFlightCommandOverflowException exception.
+  , maxActiveContracts : Int
+    -- ^ maximum number of active contracts that we will allow to be stored
+    --   Exceeding this value will lead to the trigger runner raising an ACSOverflowException exception.
   }
 
 -- Introduced in version 2.5.1: this definition is used to simplify future extensions of trigger initialState arguments

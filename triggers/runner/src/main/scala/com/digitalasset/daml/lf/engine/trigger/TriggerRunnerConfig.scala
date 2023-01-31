@@ -20,6 +20,7 @@ import scala.concurrent.duration._
   * @param submissionFailureQueueSize Size of the queue holding ledger API command submission failures.
   * @param maximumBatchSize Maximum number of messages triggers will batch (for rule evaluation/processing) before
   *                         backpressure is applied.
+  * @param maximumActiveContracts Maximum number of active contracts that we will store at any point in time.
   */
 final case class TriggerRunnerConfig(
     parallelism: Int,
@@ -31,6 +32,7 @@ final case class TriggerRunnerConfig(
     allowInFlightCommandOverflows: Boolean,
     submissionFailureQueueSize: Int,
     maximumBatchSize: Long,
+    maximumActiveContracts: Long,
 )
 
 object TriggerRunnerConfig {
@@ -48,6 +50,7 @@ object TriggerRunnerConfig {
       // 256 here comes from the default ExecutionContext.
       submissionFailureQueueSize = 256 + parallelism,
       maximumBatchSize = 1000,
+      maximumActiveContracts = 10000,
     )
   }
 }
