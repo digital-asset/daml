@@ -72,7 +72,7 @@ private[daml] object Converter {
         pf.lift(self) toRight orElse
 
       def expect[R](name: String, pf: A PartialFunction R): ErrorOr[R] =
-        self.intoOr(pf)(s"Expected $name but got $self")
+        self.intoOr(pf)(s"Expected $name but got ${self.getClass.getSimpleName}")
 
       def expectE[R](name: String, pf: A PartialFunction ErrorOr[R]): ErrorOr[R] =
         self.expect(name, pf).join
