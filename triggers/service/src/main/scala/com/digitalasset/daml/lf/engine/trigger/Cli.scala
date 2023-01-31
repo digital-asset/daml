@@ -329,7 +329,7 @@ private[trigger] object Cli {
     opt[Long]("max-batch-size")
       .optional()
       .text(
-        s"maximum number of messages processed between two high-level rule triggers Defaults to ${DefaultTriggerRunnerConfig.maximumBatchSize}"
+        s"maximum number of messages processed between two high-level rule triggers. Defaults to ${DefaultTriggerRunnerConfig.maximumBatchSize}"
       )
       .action((size, cli) =>
         if (size > 0) cli.copy(triggerConfig = cli.triggerConfig.copy(maximumBatchSize = size))
