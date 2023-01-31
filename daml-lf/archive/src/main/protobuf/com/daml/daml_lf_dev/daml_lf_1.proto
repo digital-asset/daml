@@ -450,7 +450,6 @@ enum BuiltinFunction {
 
   FOLDL = 20;
   FOLDR = 21;
-  XX_WITH_AUTHORITY_OF = 149; //NICK, no!
 
   TEXTMAP_EMPTY = 96;
   TEXTMAP_INSERT = 97;
@@ -572,7 +571,7 @@ enum BuiltinFunction {
 
   TYPEREP_TYCON_NAME = 148; // *Available in versions >= 1.dev*
 
-  // Next id is 150.
+  // Next id is 149.
 
   // EXPERIMENTAL TEXT PRIMITIVES -- these do not yet have stable numbers.
   TEXT_TO_UPPER = 9901; // *Available in versions >= 1.dev*

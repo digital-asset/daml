@@ -277,13 +277,6 @@ typeOfBuiltin = \case
              (tBeta :-> tAlpha :-> tBeta) :-> tBeta :-> TList tAlpha :-> tBeta
   BEFoldr -> pure $ TForall (alpha, KStar) $ TForall (beta, KStar) $
              (tAlpha :-> tBeta :-> tBeta) :-> tBeta :-> TList tAlpha :-> tBeta
-
-  XXBEWithAuthorityOf ->
-    pure $ TForall (alpha, KStar) $
-    TList TParty :->
-    TUpdate tAlpha :->
-    TUpdate tAlpha
-
   BETextMapEmpty  -> pure $ TForall (alpha, KStar) $ TTextMap tAlpha
   BETextMapInsert -> pure $ TForall (alpha, KStar) $ TText :-> tAlpha :-> TTextMap tAlpha :-> TTextMap tAlpha
   BETextMapLookup -> pure $ TForall (alpha, KStar) $ TText :-> TTextMap tAlpha :-> TOptional tAlpha

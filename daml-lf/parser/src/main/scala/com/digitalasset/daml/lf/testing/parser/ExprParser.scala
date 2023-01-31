@@ -338,7 +338,6 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
     "UNIX_MICROSECONDS_TO_TIMESTAMP" -> BUnixMicrosecondsToTimestamp,
     "FOLDL" -> BFoldl,
     "FOLDR" -> BFoldr,
-    "WITH_AUTHORITY_OF" -> XXBWithAuthorityOf,
     "TEXTMAP_EMPTY" -> BTextMapEmpty,
     "TEXTMAP_INSERT" -> BTextMapInsert,
     "TEXTMAP_LOOKUP" -> BTextMapLookup,
@@ -530,6 +529,11 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
       case typ ~ body ~ _ ~ binder ~ _ ~ handler => UpdateTryCatch(typ, body, binder, handler)
     }
 
+  private lazy val updateWithAuthority =
+    Id("with_authority") ~> argTyp ~ expr0 ~ expr0 ^^ { case typ ~ parties ~ body =>
+      UpdateWithAuthority(typ, parties, body)
+    }
+
   private lazy val update: Parser[Update] =
     updatePure |
       updateBlock |
@@ -545,7 +549,8 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
       updateLookupByKey |
       updateGetTime |
       updateEmbedExpr |
-      updateCatch
+      updateCatch |
+      updateWithAuthority
 
   private lazy val int: Parser[Int] =
     acceptMatch("Int", { case Number(l) => l.toInt })

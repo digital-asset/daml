@@ -470,7 +470,6 @@ private[lf] final class PhaseOne(
           // List functions
           case BFoldl => SBFoldl
           case BFoldr => SBFoldr
-          case XXBWithAuthorityOf => SBWithAuthority // NICK,die
           case BEqualList => SBEqualList
 
           // Errors
@@ -794,7 +793,6 @@ private[lf] final class PhaseOne(
           }
         }
       case UpdateWithAuthority(_, parties, body) =>
-        // NICK -- PhaseOne: finally do the token wrangling...think carefully!
         compileExp(env, parties) { parties =>
           let(env, parties) { (partiesPos, env) =>
             compileExp(env, body) { body =>

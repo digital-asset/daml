@@ -516,7 +516,6 @@ encodeBuiltinExpr = \case
 
     BEFoldl -> builtin P.BuiltinFunctionFOLDL
     BEFoldr -> builtin P.BuiltinFunctionFOLDR
-    XXBEWithAuthorityOf -> builtin P.BuiltinFunctionXX_WITH_AUTHORITY_OF --NICK, no
     BEEqualList -> builtin P.BuiltinFunctionEQUAL_LIST
     BEExplodeText -> builtin P.BuiltinFunctionEXPLODE_TEXT
     BEAppendText -> builtin P.BuiltinFunctionAPPEND_TEXT

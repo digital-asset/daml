@@ -137,12 +137,6 @@ private[validation] object Typing {
           alpha.name -> KStar,
           TForall(beta.name -> KStar, (alpha ->: beta ->: beta) ->: beta ->: TList(alpha) ->: beta),
         ),
-      // Authority
-      XXBWithAuthorityOf ->
-        TForall(
-          alpha.name -> KStar,
-          TList(TParty) ->: TUpdate(alpha) ->: TUpdate(alpha),
-        ),
       // Maps
       BTextMapEmpty ->
         TForall(

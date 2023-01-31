@@ -209,7 +209,6 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
         "UNIX_MICROSECONDS_TO_TIMESTAMP" -> BUnixMicrosecondsToTimestamp,
         "FOLDL" -> BFoldl,
         "FOLDR" -> BFoldr,
-        "WITH_AUTHORITY_OF" -> XXBWithAuthorityOf,
         "EXPLODE_TEXT" -> BExplodeText,
         "IMPLODE_TEXT" -> BImplodeText,
         "APPEND_TEXT" -> BAppendText,
@@ -488,6 +487,8 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
           UpdateEmbedExpr(t"tau", e"e"),
         "try @tau body catch err -> handler err" ->
           UpdateTryCatch(t"tau", e"body", n"err", e"handler err"),
+        "with_authority @tau parties body" ->
+          UpdateWithAuthority(t"tau", e"parties", e"body"),
       )
 
       forEvery(testCases)((stringToParse, expectedUpdate) =>

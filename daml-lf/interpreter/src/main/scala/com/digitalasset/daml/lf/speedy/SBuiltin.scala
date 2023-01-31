@@ -1831,7 +1831,6 @@ private[lf] object SBuiltin {
       val action = args.get(1)
       println(s"**NICK: SBWithAuthority/execute (#args=${args.size})\n- C=$C\n- P=$P")
       checkToken(args, 2)
-      // Control.Value(action) //NICK
       machine.enterApplication(action, Array(SEValue(SToken)))
     }
   }

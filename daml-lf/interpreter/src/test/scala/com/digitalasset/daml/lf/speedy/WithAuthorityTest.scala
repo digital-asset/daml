@@ -67,7 +67,7 @@ class WithAuthorityTest extends AnyFreeSpec with Matchers with TableDrivenProper
         val createForSomeoneElse : Party -> Party -> Update Unit =
           \(me: Party) -> \(other: Party) ->
 
-            WITH_AUTHORITY_OF@Unit (Cons @Party [other] Nil@Party)
+            with_authority @Unit (Cons @Party [other] Nil@Party)
             (ubind
               x1: ContractId M:T1 <- create @M:T1 M:T1 { party = other, info = 100 }
             in upure @Unit ());
