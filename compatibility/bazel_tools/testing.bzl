@@ -906,6 +906,18 @@ excluded_test_tool_tests = [
             },
         ],
     },
+    {
+        "start": "2.5.2",
+        "platform_ranges": [
+            {
+                "end": "2.6.0-snapshot",
+                "exclusions": [
+                    "ParticipantPruningIT:PREventsByContractIdPruned",
+                    "ParticipantPruningIT:PREventsByContractKey",
+                ],
+            },
+        ],
+    },
 ]
 
 def in_range(version, range):

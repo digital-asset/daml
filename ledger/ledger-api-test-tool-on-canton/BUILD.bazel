@@ -83,6 +83,13 @@ conformance_test_tool_args = [
     ]),
 ]
 
+dev_domain_conformance_test_tool_args = conformance_test_tool_args + [
+    "--exclude=" + ",".join([
+        # temporary
+        "TransactionServiceGetEventsIT",  # Only exclude until GetEventsByContract based SDK is merged into canton (see DPP-1398)
+    ]),
+]
+
 conformance_test(
     name = "conformance-test",
     extra_data =
@@ -117,7 +124,7 @@ conformance_test(
         ],
     extra_runner_args = ["7000"],
     lf_versions = [
-        "default",
+        # "default", # This is in non-dev domain
         "preview",
         "dev",
     ],
@@ -129,5 +136,5 @@ conformance_test(
         "--config=$$(canonicalize_rlocation $(rootpath :canton-dev.conf))",
         "--bootstrap=$$(canonicalize_rlocation $(rootpath :bootstrap-dev.canton))",
     ],
-    test_tool_args = conformance_test_tool_args,
+    test_tool_args = dev_domain_conformance_test_tool_args,
 ) if not is_windows else None
