@@ -807,9 +807,15 @@ private[lf] class Runner private (
     } else {
       noop
         .groupedWithin(triggerConfig.maximumBatchSize.toInt, triggerConfig.batchingDuration)
-        .collect { case batch @ ctx +: _ =>
-          // FIXME: context logging!!
-          ctx.copy(value = SList(FrontStack(batch.map(_.value): _*)))
+        // We drop empty message batches only here
+        .collect { case batch @ ctx +: remaining =>
+          ctx.context.childSpan("batch", "size" -> batch.size) {
+            implicit triggerContext: TriggerLogContext =>
+              ctx.copy(
+                context = triggerContext.groupWith(remaining.map(_.context): _*),
+                value = SList(FrontStack(batch.map(_.value): _*)),
+              )
+          }
         }
     }
   }
