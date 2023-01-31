@@ -864,7 +864,7 @@ private[lf] class Runner private (
             val activeContracts = numberOfActiveContracts(state)
             if (activeContracts > triggerConfig.maximumActiveContracts) {
               triggerContext.logError(
-                "Due to excessive number of active contracts, stopping the trigger",
+                "Due to an excessive number of active contracts, stopping the trigger",
                 "active-contracts" -> activeContracts,
                 "active-contract-overflow-count" -> triggerConfig.maximumActiveContracts,
               )
@@ -912,7 +912,7 @@ private[lf] class Runner private (
                 val activeContracts = numberOfActiveContracts(newState)
                 if (activeContracts > triggerConfig.maximumActiveContracts) {
                   triggerContext.logError(
-                    "Due to excessive number of active contracts, stopping the trigger",
+                    "Due to an excessive number of active contracts, stopping the trigger",
                     "active-contracts" -> activeContracts,
                     "active-contract-overflow-count" -> triggerConfig.maximumActiveContracts,
                   )
