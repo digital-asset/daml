@@ -485,10 +485,9 @@ abstract class EventStorageBackendTemplate(
   )(connection: Connection, loggingContext: LoggingContext): Unit = {
     import com.daml.platform.store.backend.Conversions.OffsetToStatement
 
-    pruneWithLogging("prune all")(
-      SQL"""
+    pruneWithLogging("prune all")(SQL"""
        WITH archived_events AS (
-         SELECT participant_events_consuming_exercise.contract_id
+         SELECT contract_id, event_sequential_id
            FROM participant_events_consuming_exercise
           WHERE event_offset <= $pruneUpToInclusive
        ),
@@ -498,16 +497,45 @@ abstract class EventStorageBackendTemplate(
                WHERE delete_events.contract_id IN (SELECT contract_id FROM archived_events)
                  AND delete_events.event_offset <= $pruneUpToInclusive -- TODO pruning: do we even need this guard? Probably not
        ),
+       created_events_to_be_deleted AS (
+         SELECT contract_id, event_sequential_id FROM participant_events_create creates_to_be_deleted
+               WHERE creates_to_be_deleted.contract_id IN (SELECT contract_id FROM archived_events)
+       ),
+       nonconsuming_events_to_be_deleted AS (
+          SELECT contract_id, event_sequential_id FROM participant_events_non_consuming_exercise nonconsuming_to_be_deleted
+            WHERE nonconsuming_to_be_deleted.contract_id IN (SELECT contract_id FROM archived_events)
+       ),
        deleted_create_events AS (
          -- Create events (only for contracts archived before the specified offset)
          DELETE FROM participant_events_create delete_events
-               WHERE delete_events.contract_id IN (SELECT contract_id FROM archived_events)
+               WHERE delete_events.contract_id IN (SELECT contract_id FROM created_events_to_be_deleted)
        ),
        deleted_nonconsuming AS (
          -- Non-consuming exercises
          DELETE FROM participant_events_non_consuming_exercise delete_events
             WHERE delete_events.contract_id IN (SELECT contract_id FROM archived_events)
-       )
+       ),
+       ${pruneIdFilter(
+        eventSequentialIdTableName = "created_events_to_be_deleted",
+        tableName = "pe_create_id_filter_stakeholder",
+      )},
+       ${pruneIdFilter(
+        eventSequentialIdTableName = "created_events_to_be_deleted",
+        tableName = "pe_create_id_filter_non_stakeholder_informee",
+      )},
+      ${pruneIdFilter(
+        eventSequentialIdTableName = "archived_events",
+        tableName = "pe_consuming_id_filter_stakeholder",
+      )},
+      ${pruneIdFilter(
+        eventSequentialIdTableName = "archived_events",
+        tableName = "pe_consuming_id_filter_non_stakeholder_informee",
+      )},
+      ${pruneIdFilter(
+        eventSequentialIdTableName = "nonconsuming_events_to_be_deleted",
+        tableName = "pe_non_consuming_id_filter_informee",
+      )}
+      
          -- TODO use RETURNING
          DELETE FROM participant_events_consuming_exercise delete_events
                WHERE delete_events.contract_id IN (SELECT contract_id FROM archived_events)
@@ -525,8 +553,6 @@ abstract class EventStorageBackendTemplate(
       }(connection, loggingContext)
     }
 
-    pruneIdFilterTables(pruneUpToInclusive)(connection, loggingContext)
-
     if (pruneAllDivulgedContracts) {
       val pruneAfterClause = {
         // We need to distinguish between the two cases since lexicographical comparison
@@ -541,7 +567,13 @@ abstract class EventStorageBackendTemplate(
         SQL"""
             -- Immediate divulgence pruning
             delete from participant_events_create c
-            where event_offset <= $pruneUpToInclusive
+            using parameters
+            where
+            (
+              event_offset > parameters.participant_all_divulged_contracts_pruned_up_to_inclusive -- TODO pruning check
+              OR parameters.participant_all_divulged_contracts_pruned_up_to_inclusive IS NULL
+            )
+            AND event_offset <= $pruneUpToInclusive
             -- Only prune create events which did not have a locally hosted party before their creation offset
             and not exists (
               select 1
@@ -558,27 +590,6 @@ abstract class EventStorageBackendTemplate(
 
     pruneWithLogging(queryDescription = "transaction meta pruning") {
       pruneTransactionMeta(pruneUpToInclusive = pruneUpToInclusive)
-    }(connection, loggingContext)
-  }
-
-  private def pruneIdFilterTables(pruneUpToInclusive: Offset)(
-      connection: Connection,
-      loggingContext: LoggingContext,
-  ): Unit = {
-    pruneWithLogging("Pruning id filter create stakeholder table") {
-      pruneIdFilterCreateStakeholder(pruneUpToInclusive)
-    }(connection, loggingContext)
-    pruneWithLogging("Pruning id filter create non-stakeholder informee table") {
-      pruneIdFilterCreateNonStakeholderInformee(pruneUpToInclusive)
-    }(connection, loggingContext)
-    pruneWithLogging("Pruning id filter consuming stakeholder table") {
-      pruneIdFilterConsumingStakeholder(pruneUpToInclusive)
-    }(connection, loggingContext)
-    pruneWithLogging("Pruning id filter consuming non-stakeholders informee table") {
-      pruneIdFilterConsumingNonStakeholderInformee(pruneUpToInclusive)
-    }(connection, loggingContext)
-    pruneWithLogging("Pruning id filter non-consuming informee table") {
-      pruneIdFilterNonConsumingInformee(pruneUpToInclusive)
     }(connection, loggingContext)
   }
 
@@ -803,44 +814,7 @@ abstract class EventStorageBackendTemplate(
        SELECT MAX(event_offset) AS max_offset_in_window FROM next_offsets_chunk"""
       .as(offset("max_offset_in_window").?.single)(connection)
 
-  private def pruneIdFilterCreateStakeholder(pruneUpToInclusive: Offset): SimpleSql[Row] =
-    pruneIdFilterCreate(
-      tableName = "pe_create_id_filter_stakeholder",
-      pruneUpToInclusive = pruneUpToInclusive,
-    )
-
-  private def pruneIdFilterCreateNonStakeholderInformee(
-      pruneUpToInclusive: Offset
-  ): SimpleSql[Row] =
-    pruneIdFilterCreate(
-      tableName = "pe_create_id_filter_non_stakeholder_informee",
-      pruneUpToInclusive = pruneUpToInclusive,
-    )
-
-  private def pruneIdFilterConsumingStakeholder(pruneUpToInclusive: Offset): SimpleSql[Row] =
-    pruneIdFilterConsumingOrNonConsuming(
-      idFilterTableName = "pe_consuming_id_filter_stakeholder",
-      eventsTableName = "participant_events_consuming_exercise",
-      pruneUpToInclusive = pruneUpToInclusive,
-    )
-
-  private def pruneIdFilterConsumingNonStakeholderInformee(
-      pruneUpToInclusive: Offset
-  ): SimpleSql[Row] = {
-    pruneIdFilterConsumingOrNonConsuming(
-      idFilterTableName = "pe_consuming_id_filter_non_stakeholder_informee",
-      eventsTableName = "participant_events_consuming_exercise",
-      pruneUpToInclusive = pruneUpToInclusive,
-    )
-  }
-
-  private def pruneIdFilterNonConsumingInformee(pruneUpToInclusive: Offset): SimpleSql[Row] =
-    pruneIdFilterConsumingOrNonConsuming(
-      idFilterTableName = "pe_non_consuming_id_filter_informee",
-      eventsTableName = "participant_events_non_consuming_exercise",
-      pruneUpToInclusive = pruneUpToInclusive,
-    )
-
+  // TODO pruning: Help!!!
   /** Callers can call it only once pruning of create, consuming and non-consuming event tables has already finished.
     * The implementation assumes that these tables have already been pruned.
     */
@@ -862,56 +836,11 @@ abstract class EventStorageBackendTemplate(
        """
   }
 
-  // Improvement idea:
-  // In order to prune an id filter table we query two additional tables: create and consuming events tables.
-  // This can be simplified to query only the create events table if we ensure the ordering
-  // that create events tables are pruned before id filter tables.
-  /** Prunes create events id filter table only for contracts archived before the specified offset
-    */
-  private def pruneIdFilterCreate(tableName: String, pruneUpToInclusive: Offset): SimpleSql[Row] = {
-    import com.daml.platform.store.backend.Conversions.OffsetToStatement
-    SQL"""
-          DELETE FROM
-            #$tableName id_filter
-          WHERE EXISTS (
-            SELECT * from participant_events_create c
-            WHERE
-            c.event_offset <= $pruneUpToInclusive
-            AND
-            EXISTS (
-              SELECT 1 FROM participant_events_consuming_exercise archive
-              WHERE
-                archive.event_offset <= $pruneUpToInclusive
-                AND
-                archive.contract_id = c.contract_id
-              )
-            AND
-            c.event_sequential_id = id_filter.event_sequential_id
-          )"""
-  }
-
-  // Improvement idea:
-  // In order to prune an id filter table we query an events table to discover
-  // the event offset corresponding.
-  // This query can simplified not to query the events table at all
-  // if we were to prune by the sequential id rather than by the offset.
-  private def pruneIdFilterConsumingOrNonConsuming(
-      idFilterTableName: String,
-      eventsTableName: String,
-      pruneUpToInclusive: Offset,
-  ): SimpleSql[Row] = {
-    import com.daml.platform.store.backend.Conversions.OffsetToStatement
-    SQL"""
-          DELETE FROM
-            #$idFilterTableName id_filter
-          WHERE EXISTS (
-            SELECT * FROM #$eventsTableName events
-          WHERE
-            events.event_offset <= $pruneUpToInclusive
-            AND
-            events.event_sequential_id = id_filter.event_sequential_id
-          )"""
-
-  }
-
+  private def pruneIdFilter(eventSequentialIdTableName: String, tableName: String) =
+    cSQL"""
+          delete_id_filter_#$tableName AS (
+            DELETE FROM #$tableName id_filter
+            WHERE id_filter.event_sequential_id IN (SELECT event_sequential_id from #$eventSequentialIdTableName)
+          )
+          """
 }
