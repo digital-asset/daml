@@ -889,6 +889,30 @@ excluded_test_tool_tests = [
             },
         ],
     },
+    {
+        "end": "2.6.0-snapshot.20230123.11292.0.b3f84bfc",
+        "platform_ranges": [
+            {
+                "start": "2.6.0-snapshot.20230123.11292.0.b3f84bfc.1",
+                "exclusions": [
+                    # This test expected pruning at the ledger end to fail. In the current platform such pruning succeeds.
+                    "PRFailPruneByOutOfBoundsOffset:PRFailPruneByOutOfBoundsOffset",
+                ],
+            },
+        ],
+    },
+    {
+        "start": "2.6.0-snapshot.20230123.11292.0.b3f84bfc.1",
+        "platform_ranges": [
+            {
+                "end": "2.6.0-snapshot.20230123.11292.0.b3f84bfc",
+                "exclusions": [
+                    # This test expects pruning at the ledger end to succeed. In the previous platforms such pruning fails.
+                    "PRFailPruneByOutOfBoundsOffset:PRPruneAtLedgerEndOffset",
+                ],
+            },
+        ],
+    },
 ]
 
 def in_range(version, range):

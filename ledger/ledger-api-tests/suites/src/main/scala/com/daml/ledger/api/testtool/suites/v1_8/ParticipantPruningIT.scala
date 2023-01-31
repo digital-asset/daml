@@ -72,7 +72,7 @@ class ParticipantPruningIT extends LedgerTestSuite {
   })
 
   test(
-    "PRFPruneAtLedgerEndOffset",
+    "PRPruneAtLedgerEndOffset",
     "Pruning a participant at the ledger end offset should succeed",
     allocate(NoParties),
     runConcurrently = false,
