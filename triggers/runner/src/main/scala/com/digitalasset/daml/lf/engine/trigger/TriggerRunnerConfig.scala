@@ -15,7 +15,7 @@ import scala.concurrent.duration._
   *                                         enable Daml rule evaluation to apply backpressure (by failing emitCommands
   *                                         evaluations).
   * @param inFlightCommandOverflowCount When the number of in-flight command submissions exceeds this value, then we
-  *                                  kill the trigger instance by throwing an InFlightCommandOverflowException.
+  *                                     kill the trigger instance by throwing an InFlightCommandOverflowException.
   * @param allowInFlightCommandOverflows flag to control whether we allow in-flight command overflows or not.
   * @param submissionFailureQueueSize Size of the queue holding ledger API command submission failures.
   * @param maximumBatchSize Maximum number of messages triggers will batch (for rule evaluation/processing).

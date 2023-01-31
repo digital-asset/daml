@@ -47,7 +47,7 @@ template TestComplete
     signatory owner
 
 contractPairings : Int
--- The following value should be kept in sync with the value of contractPairings in FailureTesting.scala
+-- The following value should be kept in sync with the value of contractPairings in LoadTesting.scala
 contractPairings = 400
 
 feedingTrigger : Trigger Int
@@ -77,7 +77,28 @@ feedTheCats party = do
           pure ()
 
 breedingRate : Int
+-- The following value should be kept in sync with the value of breedingRate in LoadTesting.scala
 breedingRate = 100
+
+breedingTrigger : Trigger Int
+breedingTrigger = Trigger
+  { initialize = pure 100
+  , updateState = \msg -> case msg of
+       MTransaction (Transaction _ _ [CreatedEvent (fromCreated @Cat -> Some catId)]) -> do
+         modify (subtract 1)
+       _ -> pure ()
+  , rule = breedTheCats
+  , registeredTemplates = RegisteredTemplates [ registeredTemplate @TestComplete, registeredTemplate @Cat ]
+  , heartbeat = None
+  }
+
+breedTheCats: Party -> TriggerA Int ()
+breedTheCats party = do
+  breedCount <- get
+  if breedCount == 0 then
+    void $ emitCommands [createCmd (TestComplete party)] []
+  else
+    void $ emitCommands [createCmd (Cat party breedCount)] []
 
 overflowTrigger: Trigger Int
 overflowTrigger = Trigger

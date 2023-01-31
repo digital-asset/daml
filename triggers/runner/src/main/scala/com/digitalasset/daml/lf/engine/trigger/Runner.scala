@@ -853,7 +853,7 @@ private[lf] class Runner private (
               "state" -> triggerUserState(state, trigger.defn.level),
             )
 
-            val activeContracts = numberOfActiveContracts(state)
+            val activeContracts = acs.length
             if (activeContracts > triggerConfig.maximumActiveContracts) {
               triggerContext.logError(
                 "Due to an excessive number of active contracts, stopping the trigger",
@@ -1142,12 +1142,20 @@ object Runner {
     }
   }
 
+  private def mapSize(smap: SValue): Int = {
+    smap.expect("SMap", { case SMap(_, values) => values.size }).getOrElse(0)
+  }
+
+  // The following method should be kept in sync with ACS in Internal.daml
   private def numberOfActiveContracts(svalue: SValue): Int = {
     // svalue: TriggerState s
     val result = for {
       acs <- svalue.expect("SRecord", { case SRecord(_, _, values) => values.get(0) })
-      inFlightCommands <- acs.expect("SRecord", { case SRecord(_, _, values) => values.get(0) })
-      size <- inFlightCommands.expect("SMap", { case SMap(_, values) => values.size })
+      activeContracts <- acs.expect("SRecord", { case SRecord(_, _, values) => values.get(0) })
+      size <- activeContracts.expect(
+        "SMap",
+        { case SMap(_, values) => values.values.map(mapSize).sum },
+      )
     } yield size
 
     result.getOrElse(0)

@@ -43,6 +43,7 @@ data Version = Version_2_6
 -- a given type.
 
 -- This will change to a Map once we have proper maps in Daml-LF
+-- The following variant type should be kept in sync with method numberOfActiveContracts in Runner.scala
 data ACS = ACS
   { activeContracts : Map.Map TemplateTypeRep (Map.Map AnyContractId AnyTemplate)
   , pendingContracts : Map CommandId [AnyContractId]
