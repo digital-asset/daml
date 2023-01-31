@@ -302,7 +302,7 @@ data BuiltinExpr
   | BEEqualList                  -- :: ∀a. (a -> a -> Bool) -> List a -> List a -> Bool
 
   -- Authority operations
-  | BEWithAuthorityOf            -- :: ∀ a. List Party -> Update a -> Update a
+  | XXBEWithAuthorityOf            -- :: ∀ a. List Party -> Update a -> Update a -- NICK,kill
 
   -- Map operations
   | BETextMapEmpty               -- :: ∀ a. TextMap a
@@ -774,6 +774,11 @@ data Update
     , tryCatchExpr :: !Expr
     , tryCatchVar :: !ExprVarName
     , tryCatchHandler :: !Expr
+    }
+  | UWithAuthority
+    { withAuthorityType :: !Type
+    , withAuthorityParties :: !Expr
+    , withAuthorityBody :: !Expr
     }
   deriving (Eq, Data, Generic, NFData, Ord, Show)
 

@@ -84,6 +84,7 @@ data UpdateF expr
   | UFetchByKeyF !(RetrieveByKeyF expr)
   | ULookupByKeyF !(RetrieveByKeyF expr)
   | UTryCatchF !Type !expr !ExprVarName !expr
+  | UWithAuthorityF !Type !expr !expr
   deriving (Foldable, Functor, Traversable)
 
 data RetrieveByKeyF expr = RetrieveByKeyF
@@ -133,6 +134,7 @@ projectUpdate = \case
   ULookupByKey a -> ULookupByKeyF (projectRetrieveByKey a)
   UFetchByKey a -> UFetchByKeyF (projectRetrieveByKey a)
   UTryCatch a b c d -> UTryCatchF a b c d
+  UWithAuthority a b c -> UWithAuthorityF a b c
 
 projectRetrieveByKey :: RetrieveByKey -> RetrieveByKeyF Expr
 projectRetrieveByKey (RetrieveByKey tpl key) = RetrieveByKeyF tpl key
@@ -153,6 +155,7 @@ embedUpdate = \case
   UFetchByKeyF a -> UFetchByKey (embedRetrieveByKey a)
   ULookupByKeyF a -> ULookupByKey (embedRetrieveByKey a)
   UTryCatchF a b c d -> UTryCatch a b c d
+  UWithAuthorityF a b c -> UWithAuthority a b c
 
 embedRetrieveByKey :: RetrieveByKeyF Expr -> RetrieveByKey
 embedRetrieveByKey RetrieveByKeyF{..} = RetrieveByKey

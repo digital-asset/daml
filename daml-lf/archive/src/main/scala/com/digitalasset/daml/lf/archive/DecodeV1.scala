@@ -1742,6 +1742,17 @@ private[archive] class DecodeV1(minor: LV.Minor) {
             }
           }
 
+        case PLF.Update.SumCase.WITH_AUTHORITY =>
+          assertSince(LV.Features.withAuthority, "Update.with_authority")
+          val withAuthority = lfUpdate.getWithAuthority
+          decodeType(withAuthority.getType) { typ =>
+            decodeExpr(withAuthority.getParties, definition) { parties =>
+              decodeExpr(withAuthority.getBody, definition) { body =>
+                Ret(UpdateWithAuthority(typ, parties, body))
+              }
+            }
+          }
+
         case PLF.Update.SumCase.SUM_NOT_SET =>
           throw Error.Parsing("Update.SUM_NOT_SET")
       }
@@ -2076,7 +2087,7 @@ private[archive] object DecodeV1 {
       BuiltinFunctionInfo(NUMERIC_TO_INT64, BNumericToInt64, minVersion = numeric),
       BuiltinFunctionInfo(FOLDL, BFoldl),
       BuiltinFunctionInfo(FOLDR, BFoldr),
-      BuiltinFunctionInfo(WITH_AUTHORITY_OF, BWithAuthorityOf),
+      BuiltinFunctionInfo(XX_WITH_AUTHORITY_OF, XXBWithAuthorityOf), // NICK, die
       BuiltinFunctionInfo(TEXTMAP_EMPTY, BTextMapEmpty),
       BuiltinFunctionInfo(TEXTMAP_INSERT, BTextMapInsert),
       BuiltinFunctionInfo(TEXTMAP_LOOKUP, BTextMapLookup),

@@ -138,7 +138,7 @@ private[validation] object Typing {
           TForall(beta.name -> KStar, (alpha ->: beta ->: beta) ->: beta ->: TList(alpha) ->: beta),
         ),
       // Authority
-      BWithAuthorityOf ->
+      XXBWithAuthorityOf ->
         TForall(
           alpha.name -> KStar,
           TList(TParty) ->: TUpdate(alpha) ->: TUpdate(alpha),
@@ -1356,6 +1356,14 @@ private[validation] object Typing {
         val updTyp = TUpdate(typ)
         checkExpr(body, updTyp) {
           introExprVar(binder, TAnyException).checkExpr(handler, TOptional(updTyp)) {
+            Ret(updTyp)
+          }
+        }
+      case UpdateWithAuthority(typ, parties, body) =>
+        checkType(typ, KStar)
+        val updTyp = TUpdate(typ)
+        checkExpr(parties, TList(TParty)) {
+          checkExpr(body, updTyp) {
             Ret(updTyp)
           }
         }

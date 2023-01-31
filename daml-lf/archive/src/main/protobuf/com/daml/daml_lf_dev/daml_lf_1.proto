@@ -450,7 +450,7 @@ enum BuiltinFunction {
 
   FOLDL = 20;
   FOLDR = 21;
-  WITH_AUTHORITY_OF = 149;
+  XX_WITH_AUTHORITY_OF = 149; //NICK, no!
 
   TEXTMAP_EMPTY = 96;
   TEXTMAP_INSERT = 97;
@@ -1415,6 +1415,16 @@ message Update {
     Expr catch_expr = 4;
   }
 
+  // WithAuthority Update
+  // *Available in versions >= 1.dev*
+  message WithAuthority {
+    Type type = 1;
+    // Requested authority
+    Expr parties = 2;
+    // Scoped update body
+    Expr body = 3;
+  }
+
   oneof Sum {
     Pure pure = 1;
     Block block = 2;
@@ -1431,6 +1441,7 @@ message Update {
     CreateInterface create_interface = 12; // *Available in versions >= 1.15*
     ExerciseInterface exercise_interface = 13; // *Available in versions >= 1.15*
     FetchInterface fetch_interface = 14; // *Available in versions >= 1.15*
+    WithAuthority with_authority = 15; // *Available in versions >= 1.dev*
   }
 }
 

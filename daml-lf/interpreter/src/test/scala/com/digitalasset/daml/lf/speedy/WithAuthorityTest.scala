@@ -64,14 +64,9 @@ class WithAuthorityTest extends AnyFreeSpec with Matchers with TableDrivenProper
               x2: ContractId M:T1 <- create @M:T1 M:T1 { party = party, info = 200 }
             in upure @Unit ();
 
-        /*val myid : Update Unit -> Update Unit = //NICK
-          \(body: Update Unit) ->
-            WITH_AUTHORITY_OF @Unit (Nil@Party) body;*/
-
         val createForSomeoneElse : Party -> Party -> Update Unit =
           \(me: Party) -> \(other: Party) ->
 
-            //M:myid //NICK
             WITH_AUTHORITY_OF@Unit (Cons @Party [other] Nil@Party)
             (ubind
               x1: ContractId M:T1 <- create @M:T1 M:T1 { party = other, info = 100 }
@@ -113,14 +108,13 @@ class WithAuthorityTest extends AnyFreeSpec with Matchers with TableDrivenProper
 
       val either: Either[SError, SubmittedTransaction] = SpeedyTestLib.buildTransaction(machine)
 
-      either match { // NICK: inside?
+      either match { // NICK: inside
         case Left(e) =>
           fail(s"NICK-FAIL:[${Pretty.prettyError(e).render(80)}]")
 
         case Right(tx) =>
           // println(s"tx=\n- $tx")
           val ids: List[Tree] = shapeOfTransaction(tx)
-
           ids shouldBe List(C(100))
       }
     }

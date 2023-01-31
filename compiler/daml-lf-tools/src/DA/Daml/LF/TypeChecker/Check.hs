@@ -278,7 +278,7 @@ typeOfBuiltin = \case
   BEFoldr -> pure $ TForall (alpha, KStar) $ TForall (beta, KStar) $
              (tAlpha :-> tBeta :-> tBeta) :-> tBeta :-> TList tAlpha :-> tBeta
 
-  BEWithAuthorityOf ->
+  XXBEWithAuthorityOf ->
     pure $ TForall (alpha, KStar) $
     TList TParty :->
     TUpdate tAlpha :->
@@ -691,6 +691,11 @@ typeOfUpdate = \case
     checkExpr expr (TUpdate typ)
     introExprVar var TAnyException $ do
         checkExpr handler (TOptional (TUpdate typ))
+    pure (TUpdate typ)
+  UWithAuthority typ parties body -> do
+    checkType typ KStar
+    checkExpr parties (TList TParty)
+    checkExpr body (TUpdate typ)
     pure (TUpdate typ)
 
 typeOfScenario :: MonadGamma m => Scenario -> m Type

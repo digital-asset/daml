@@ -516,7 +516,7 @@ encodeBuiltinExpr = \case
 
     BEFoldl -> builtin P.BuiltinFunctionFOLDL
     BEFoldr -> builtin P.BuiltinFunctionFOLDR
-    BEWithAuthorityOf -> builtin P.BuiltinFunctionWITH_AUTHORITY_OF
+    XXBEWithAuthorityOf -> builtin P.BuiltinFunctionXX_WITH_AUTHORITY_OF --NICK, no
     BEEqualList -> builtin P.BuiltinFunctionEQUAL_LIST
     BEExplodeText -> builtin P.BuiltinFunctionEXPLODE_TEXT
     BEAppendText -> builtin P.BuiltinFunctionAPPEND_TEXT
@@ -825,6 +825,11 @@ encodeUpdate = fmap (P.Update . Just) . \case
         update_TryCatchVarInternedStr <- encodeNameId unExprVarName tryCatchVar
         update_TryCatchCatchExpr <- encodeExpr tryCatchHandler
         pure $ P.UpdateSumTryCatch P.Update_TryCatch{..}
+    UWithAuthority{..} -> do
+        update_WithAuthorityType <- encodeType withAuthorityType
+        update_WithAuthorityParties <- encodeExpr withAuthorityParties
+        update_WithAuthorityBody <- encodeExpr withAuthorityBody
+        pure $ P.UpdateSumWithAuthority P.Update_WithAuthority{..}
 
 encodeRetrieveByKey :: RetrieveByKey -> Encode P.Update_RetrieveByKey
 encodeRetrieveByKey RetrieveByKey{..} = do

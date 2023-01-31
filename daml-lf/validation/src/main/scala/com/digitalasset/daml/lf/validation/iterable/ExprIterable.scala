@@ -122,6 +122,8 @@ private[validation] object ExprIterable {
         Iterator(body)
       case UpdateTryCatch(typ @ _, body, binder @ _, handler) =>
         Iterator(body, handler)
+      case UpdateWithAuthority(typ @ _, parties, body) =>
+        Iterator(parties, body)
     }
   }
 

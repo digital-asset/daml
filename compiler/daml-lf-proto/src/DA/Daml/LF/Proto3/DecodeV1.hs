@@ -473,7 +473,7 @@ decodeBuiltinFunction = \case
 
   LF1.BuiltinFunctionFOLDL          -> pure BEFoldl
   LF1.BuiltinFunctionFOLDR          -> pure BEFoldr
-  LF1.BuiltinFunctionWITH_AUTHORITY_OF -> pure BEWithAuthorityOf
+  LF1.BuiltinFunctionXX_WITH_AUTHORITY_OF -> pure XXBEWithAuthorityOf -- NICK, no
   LF1.BuiltinFunctionEQUAL_LIST     -> pure BEEqualList
   LF1.BuiltinFunctionAPPEND_TEXT    -> pure BEAppendText
 
@@ -784,6 +784,11 @@ decodeUpdate LF1.Update{..} = mayDecode "updateSum" updateSum $ \case
       <*> mayDecode "update_TryCatchTryExpr" update_TryCatchTryExpr decodeExpr
       <*> decodeNameId ExprVarName update_TryCatchVarInternedStr
       <*> mayDecode "update_TryCatchCatchExpr" update_TryCatchCatchExpr decodeExpr
+  LF1.UpdateSumWithAuthority LF1.Update_WithAuthority{..} ->
+    fmap EUpdate $ UWithAuthority
+      <$> mayDecode "update_WithAuthorityType" update_WithAuthorityType decodeType
+      <*> mayDecode "update_WithAuthorityParties" update_WithAuthorityParties decodeExpr
+      <*> mayDecode "update_WithAuthorityBody" update_WithAuthorityBody decodeExpr
 
 decodeRetrieveByKey :: LF1.Update_RetrieveByKey -> Decode RetrieveByKey
 decodeRetrieveByKey LF1.Update_RetrieveByKey{..} = RetrieveByKey

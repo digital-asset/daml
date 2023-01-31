@@ -267,7 +267,7 @@ instance Pretty BuiltinExpr where
     BEExpInt64 -> "EXP_INT64"
     BEFoldl -> "FOLDL"
     BEFoldr -> "FOLDR"
-    BEWithAuthorityOf -> "WITH_AUTHORITY_OF"
+    XXBEWithAuthorityOf -> "WITH_AUTHORITY_OF" -- NICK, die
     BETextMapEmpty -> "TEXTMAP_EMPTY"
     BETextMapInsert -> "TEXTMAP_INSERT"
     BETextMapLookup -> "TEXTMAP_LOOKUP"
@@ -432,6 +432,8 @@ instance Pretty Update where
       pPrintAppKeyword lvl prec "ulookup_by_key" [tplArg retrieveByKeyTemplate, TmArg retrieveByKeyKey]
     UTryCatch t e1 x e2 -> keyword_ "try" <-> pPrintTyArg lvl t <-> pPrintTmArg lvl e1
       <-> keyword_ "catch" <-> pPrintPrec lvl precParam x <-> keyword_ "." <-> pPrintTmArg lvl e2
+    UWithAuthority typ e1 e2 ->
+      pPrintAppKeyword lvl prec "with_authority" [TyArg typ, TmArg e1, TmArg e2]
 
 instance Pretty Scenario where
   pPrintPrec lvl prec = \case

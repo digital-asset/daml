@@ -89,8 +89,9 @@ convertPrim _ "BEFoldr" ((a1 :-> b1 :-> b2) :-> b3 :-> TList a2 :-> b4) | a1 == 
     pure $ EBuiltin BEFoldr `ETyApp` a1 `ETyApp` b1
 
 -- Authority operations
-convertPrim _ "BEWithAuthorityOf" (TList TParty :-> TUpdate a1 :-> TUpdate a2) | a1 == a2 =
-    pure $ EBuiltin BEWithAuthorityOf `ETyApp` a1
+convertPrim _ "BEWithAuthorityOf" (TList TParty :-> TUpdate a1 :-> TUpdate a2) | a1 == a2 = do
+    --pure $ EBuiltin XXBEWithAuthorityOf `ETyApp` a1 --NICK, remove
+    pure $ ETmLam (varV1, TList TParty) $ ETmLam (varV2, TUpdate a1) $ EUpdate $ UWithAuthority a1 (EVar varV1) (EVar varV2)
 
 -- Error
 convertPrim _ "BEError" (TText :-> t2) =

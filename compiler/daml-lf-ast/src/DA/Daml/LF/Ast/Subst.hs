@@ -314,6 +314,7 @@ applySubstInUpdate subst = \case
             (applySubstInExpr subst e1)
             x'
             (applySubstInExpr subst' e2)
+    UWithAuthority{} -> undefined --NICK
 
 applySubstInScenario :: Subst -> Scenario -> Scenario
 applySubstInScenario subst = \case

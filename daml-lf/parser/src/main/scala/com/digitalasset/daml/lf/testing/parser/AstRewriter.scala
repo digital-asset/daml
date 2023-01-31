@@ -218,6 +218,7 @@ private[daml] class AstRewriter(
         UpdateEmbedExpr(apply(typ), apply(body))
       case UpdateTryCatch(typ, body, binder, handler) =>
         UpdateTryCatch(apply(typ), apply(body), binder, apply(handler))
+      case _: UpdateWithAuthority => ??? // NICK
     }
 
   def apply(x: RetrieveByKey): RetrieveByKey = x match {

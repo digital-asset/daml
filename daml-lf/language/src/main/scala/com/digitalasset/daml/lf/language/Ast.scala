@@ -458,7 +458,7 @@ object Ast {
   final case object BFoldr extends BuiltinFunction // : ∀a b. (a → b → b) → b → List a → b
 
   // Authority
-  final case object BWithAuthorityOf
+  final case object XXBWithAuthorityOf // NICK
       extends BuiltinFunction // : ∀ a. List Party → Update a → Update a
 
   // Maps
@@ -606,6 +606,11 @@ object Ast {
       body: Expr,
       binder: ExprVarName,
       handler: Expr,
+  ) extends Update
+  final case class UpdateWithAuthority(
+      typ: Type,
+      parties: Expr,
+      body: Expr,
   ) extends Update
 
   //

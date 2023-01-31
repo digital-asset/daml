@@ -158,6 +158,10 @@ private[validation] object TypeIterable {
         Iterator(typ) ++
           iterator(body) ++
           iterator(handler)
+      case UpdateWithAuthority(typ, parties, body) =>
+        Iterator(typ) ++
+          iterator(parties) ++
+          iterator(body)
     }
 
   private[validation] def iterator(binding: Binding): Iterator[Type] =

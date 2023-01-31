@@ -347,6 +347,7 @@ alphaPattern env p1 p2 k = case p1 of
 
 alphaUpdate :: AlphaEnv -> Update -> Update -> Bool
 alphaUpdate env = \case
+    UWithAuthority{} -> undefined --NICK
     UPure t1 e1 -> \case
         UPure t2 e2 -> alphaType' env t1 t2
             && alphaExpr' env e1 e2

@@ -157,6 +157,7 @@ freeVarsStep = \case
         UFetchByKeyF r -> retrieveByKeyFKey r
         ULookupByKeyF r -> retrieveByKeyFKey r
         UTryCatchF t e1 x e2 -> freeVarsInType t <> e1 <> bindExprVar x e2
+        UWithAuthorityF t e1 e2 -> freeVarsInType t <> e1 <> e2
 
     goScenario :: ScenarioF FreeVars -> FreeVars
     goScenario = \case

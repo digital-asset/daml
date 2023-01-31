@@ -60,9 +60,6 @@ private[lf] object DefaultAuthorizationChecker extends AuthorizationChecker {
   )(
       auth: Authorize
   ): List[FailedAuthorization] = {
-    // println(s"**authorizeCreate: $auth") //NICK
-    // def xxx():Unit = ???
-    // xxx()
     authorize(
       passIf = create.signatories subsetOf auth.authParties,
       failWith = FailedAuthorization.CreateMissingAuthorization(
