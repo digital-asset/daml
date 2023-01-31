@@ -18,8 +18,9 @@ import scala.concurrent.duration._
   *                                  kill the trigger instance by throwing an InFlightCommandOverflowException.
   * @param allowInFlightCommandOverflows flag to control whether we allow in-flight command overflows or not.
   * @param submissionFailureQueueSize Size of the queue holding ledger API command submission failures.
-  * @param maximumBatchSize Maximum number of messages triggers will batch (for rule evaluation/processing) before
-  *                         backpressure is applied.
+  * @param maximumBatchSize Maximum number of messages triggers will batch (for rule evaluation/processing).
+  * @param batchingDuration Period of time we will wait before emitting a message batch (for rule evaluation/processing).
+  * @param maximumActiveContracts Maximum number of active contracts that we will store at any point in time.
   */
 final case class TriggerRunnerConfig(
     parallelism: Int,
@@ -31,6 +32,8 @@ final case class TriggerRunnerConfig(
     allowInFlightCommandOverflows: Boolean,
     submissionFailureQueueSize: Int,
     maximumBatchSize: Long,
+    batchingDuration: FiniteDuration,
+    maximumActiveContracts: Long,
 )
 
 object TriggerRunnerConfig {
@@ -48,6 +51,8 @@ object TriggerRunnerConfig {
       // 256 here comes from the default ExecutionContext.
       submissionFailureQueueSize = 256 + parallelism,
       maximumBatchSize = 1000,
+      batchingDuration = 250.milliseconds,
+      maximumActiveContracts = 10000,
     )
   }
 }
