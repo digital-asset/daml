@@ -415,6 +415,12 @@ private[daml] class EncodeV1(minor: LV.Minor) {
           b.setVarInternedStr(stringsTable.insert(binder))
           b.setCatchExpr(catchExpr)
           builder.setTryCatch(b)
+        case UpdateWithAuthority(ty, parties, body) =>
+          val b = PLF.Update.WithAuthority.newBuilder()
+          b.setType(ty)
+          b.setParties(parties)
+          b.setBody(body)
+          builder.setWithAuthority(b)
       }
       builder.build()
     }
