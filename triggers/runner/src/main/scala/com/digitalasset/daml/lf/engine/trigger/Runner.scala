@@ -1151,6 +1151,7 @@ object Runner {
   }
 
   private def numberOfActiveContracts(svalue: SValue): Int = {
+    // svalue: TriggerState s
     val result = for {
       acs <- svalue.expect("SRecord", { case SRecord(_, _, values) => values.get(0) })
       inFlightCommands <- acs.expect("SRecord", { case SRecord(_, _, values) => values.get(0) })
@@ -1161,6 +1162,7 @@ object Runner {
   }
 
   private def triggerUserState(state: SValue, level: Trigger.Level): SValue = {
+    // state: TriggerState s
     level match {
       case Trigger.Level.High =>
         state

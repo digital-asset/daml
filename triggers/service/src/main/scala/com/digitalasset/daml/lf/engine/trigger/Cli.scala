@@ -336,15 +336,6 @@ private[trigger] object Cli {
         else throw new IllegalArgumentException("batch size must be strictly positive")
       )
 
-    opt[FiniteDuration]("batch-duration")
-      .optional()
-      .text(
-        s"Period of time we will wait before emitting a message batch (for rule evaluation/processing). Defaults to ${DefaultTriggerRunnerConfig.batchingDuration}"
-      )
-      .action((period, cli) =>
-        cli.copy(triggerConfig = cli.triggerConfig.copy(batchingDuration = period))
-      )
-
     opt[Long]("max-active-contracts")
       .optional()
       .text(
