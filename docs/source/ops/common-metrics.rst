@@ -247,3 +247,24 @@ daml_services_pruning_prune_completed_total
 - **Description**: Total number of completed pruning processes.
 - **Type**: Counter
 
+JVM Metrics
+************
+We expose the following metrics for the JVM if enabled.
+
+runtime_jvm_gc_time
+==============================
+- **Description**: Time spent in a given JVM garbage collector in milliseconds.
+- **Labels**:
+
+  - **gc**: Garbage collector
+
+- **Type**: Gauge
+
+runtime_jvm_gc_count
+==============================
+- **Description**: The number of collections that have occurred for a given JVM garbage collector.
+- **Labels**:
+
+  - **gc**: Garbage collector
+
+- **Type**: Gauge
