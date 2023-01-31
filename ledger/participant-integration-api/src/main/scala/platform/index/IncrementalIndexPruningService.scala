@@ -52,6 +52,7 @@ class IncrementalIndexPruningService(ledgerReadDao: LedgerReadDao, maximumPrunin
             .map(_.getOrElse(pruneUpToInclusive))
           // Ensure we don't prune beyond the requested pruneUpToInclusive
           pruneNextWindowUpTo = Ordering[Offset].min(maxWindowOffset, pruneUpToInclusive)
+          _ <- ledgerReadDao.prune(pruneNextWindowUpTo, pruneAllDivulgedContracts)
           _ = logger.info(s"Pruned up to $pruneNextWindowUpTo")
           _ <- go(pruningWindowStartExclusive = pruneNextWindowUpTo)
         } yield ()
@@ -76,9 +77,9 @@ class IncrementalIndexPruningService(ledgerReadDao: LedgerReadDao, maximumPrunin
   ): Offset =
     if (pruneAllDivulgedContracts)
       pruningOffsets match {
-        case (_, None) => Offset.beforeBegin
-        case (Some(_), Some(prunedAllDivulgence)) => prunedAllDivulgence
-        case (None, Some(_)) =>
+        case (None, _) => Offset.beforeBegin
+        case (Some(prunedAllDivulgence), Some(_)) => prunedAllDivulgence
+        case (Some(_), None) =>
           throw new IllegalStateException(
             "Pruning all divulgence present and other is None (TODO pruning rephrase)"
           )
