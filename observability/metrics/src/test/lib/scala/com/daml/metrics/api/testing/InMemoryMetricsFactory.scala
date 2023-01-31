@@ -21,48 +21,106 @@ import com.daml.metrics.api.testing.InMemoryMetricsFactory.{
   InMemoryHistogram,
   InMemoryMeter,
   InMemoryTimer,
+  MetricsState,
 }
 import com.daml.metrics.api.{MetricHandle, MetricName, MetricsContext}
 import com.daml.scalautil.Statement.discard
 
 import scala.collection.concurrent.{TrieMap, Map => ConcurrentMap}
+import scala.collection.mutable
 
 class InMemoryMetricsFactory extends LabeledMetricsFactory {
 
-  val asyncGauges: ConcurrentMap[(MetricName, MetricsContext), () => Any] =
-    TrieMap[(MetricName, MetricsContext), () => Any]()
+  val metrics: MetricsState =
+    MetricsState(
+      timers = mutable.Map.empty,
+      gauges = mutable.Map.empty,
+      meters = mutable.Map.empty,
+      counters = mutable.Map.empty,
+      histograms = mutable.Map.empty,
+      asyncGauges = TrieMap[(MetricName, MetricsContext), () => Any](),
+    )
 
   override def timer(name: MetricName, description: String)(implicit
       context: MetricsContext
-  ): MetricHandle.Timer = InMemoryTimer(context)
+  ): MetricHandle.Timer = metrics.addTimer(name, context, InMemoryTimer(context))
 
   override def gauge[T](name: MetricName, initial: T, description: String)(implicit
       context: MetricsContext
-  ): MetricHandle.Gauge[T] = InMemoryGauge(context, initial)
+  ): MetricHandle.Gauge[T] = metrics.addGauge(name, context, InMemoryGauge(context, initial))
 
   override def gaugeWithSupplier[T](
       name: MetricName,
       gaugeSupplier: () => T,
       description: String,
-  )(implicit context: MetricsContext): Unit = asyncGauges.addOne(name -> context -> gaugeSupplier)
+  )(implicit context: MetricsContext): Unit =
+    metrics.asyncGauges.addOne(name -> context -> gaugeSupplier)
 
   override def meter(name: MetricName, description: String)(implicit
       context: MetricsContext
-  ): MetricHandle.Meter = InMemoryMeter(context)
+  ): MetricHandle.Meter = metrics.addMeter(name, context, InMemoryMeter(context))
 
   override def counter(name: MetricName, description: String)(implicit
       context: MetricsContext
-  ): MetricHandle.Counter = InMemoryCounter(context)
+  ): MetricHandle.Counter = metrics.addCounter(name, context, InMemoryCounter(context))
 
   override def histogram(name: MetricName, description: String)(implicit
       context: MetricsContext
-  ): MetricHandle.Histogram = InMemoryHistogram(context)
+  ): MetricHandle.Histogram = metrics.addHistogram(name, context, InMemoryHistogram(context))
 
 }
 
 object InMemoryMetricsFactory extends InMemoryMetricsFactory {
 
-  private def addToContext[T](
+  type MetricIdentifier = (MetricName, MetricsContext)
+  case class MetricsState(
+      timers: mutable.Map[MetricIdentifier, InMemoryTimer],
+      gauges: mutable.Map[MetricIdentifier, InMemoryGauge[_]],
+      meters: mutable.Map[MetricIdentifier, InMemoryMeter],
+      counters: mutable.Map[MetricIdentifier, InMemoryCounter],
+      histograms: mutable.Map[MetricIdentifier, InMemoryHistogram],
+      asyncGauges: ConcurrentMap[MetricIdentifier, () => Any],
+  ) {
+
+    def addTimer(name: MetricName, context: MetricsContext, timer: InMemoryTimer): Timer = {
+      timers.addOne(name -> context -> timer)
+      timer
+    }
+
+    def addGauge[T](
+        name: MetricName,
+        context: MetricsContext,
+        gauge: InMemoryGauge[T],
+    ): Gauge[T] = {
+      gauges.addOne(name -> context -> gauge)
+      gauge
+    }
+
+    def addMeter(name: MetricName, context: MetricsContext, meter: InMemoryMeter): InMemoryMeter = {
+      meters.addOne(name -> context -> meter)
+      meter
+    }
+
+    def addCounter(
+        name: MetricName,
+        context: MetricsContext,
+        counter: InMemoryCounter,
+    ): InMemoryCounter = {
+      counters.addOne(name -> context -> counter)
+      counter
+    }
+
+    def addHistogram(
+        name: MetricName,
+        context: MetricsContext,
+        histogram: InMemoryHistogram,
+    ): InMemoryHistogram = {
+      histograms.addOne(name -> context -> histogram)
+      histogram
+    }
+  }
+
+  private def addToContext(
       markers: ConcurrentMap[MetricsContext, AtomicLong],
       context: MetricsContext,
       value: Long,
@@ -76,7 +134,7 @@ object InMemoryMetricsFactory extends InMemoryMetricsFactory {
   }
 
   case class InMemoryTimer(initialContext: MetricsContext) extends Timer {
-    val data = InMemoryHistogram(initialContext)
+    val data: InMemoryHistogram = InMemoryHistogram(initialContext)
 
     override def name: String = "test"
 

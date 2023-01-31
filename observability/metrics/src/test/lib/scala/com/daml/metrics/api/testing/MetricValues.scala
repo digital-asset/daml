@@ -50,7 +50,7 @@ trait MetricValues {
   class InMemoryMetricFactoryValues(factory: InMemoryMetricsFactory) {
 
     def asyncGaugeValues(labelFilter: LabelFilter*): Map[MetricName, Any] = {
-      factory.asyncGauges
+      factory.metrics.asyncGauges
         .filter { case ((_, metricContext), _) =>
           labelFilter.forall(filter => metricContext.labels.get(filter.name).contains(filter.value))
         }
