@@ -799,32 +799,18 @@ private[lf] class Runner private (
     }
 
   private[this] def conflateMsgValue: TriggerContextualFlow[SValue, SValue, NotUsed] = {
-    val noop = Flow.fromFunction[TriggerContext[SValue], TriggerContext[SValue]](identity)
+    val noop = Flow[TriggerContext[SValue]]
 
     // Ensure version related trigger definition updates take into account the detectTriggerDefinition code
     if (trigger.defn.version < Trigger.Version.`2.5.1`) {
       noop
     } else {
       noop
-        .batch(
-          triggerConfig.maximumBatchSize,
-          { case ctx @ Ctx(context, value, _) =>
-            TriggerLogContext.newRootSpan("batch") { batchContext =>
-              batchContext
-                .groupWith(context)
-                .logDebug("Batching message for rule evaluation", "index" -> 0)
-
-              ctx.copy(context = batchContext, value = BackStack(value))
-            }
-          },
-        ) { case (ctx @ Ctx(batchContext, stack, _), Ctx(context, value, _)) =>
-          batchContext
-            .groupWith(context)
-            .logDebug("Batching message for rule evaluation", "index" -> (stack.length + 1))
-
-          ctx.copy(value = stack :+ value)
+        .groupedWithin(triggerConfig.maximumBatchSize.toInt, triggerConfig.batchingDuration)
+        .collect { case batch @ ctx +: _ =>
+          // FIXME: context logging!!
+          ctx.copy(value = SList(FrontStack(batch.map(_.value): _*)))
         }
-        .map(_.map(stack => SList(stack.toImmArray.toFrontStack)))
     }
   }
 
