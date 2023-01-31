@@ -414,7 +414,6 @@ private[index] class IndexServiceImpl(
     val offset =
       if (ledgerDomainOffset == Offset.beforeBegin) ApiOffset.begin
       else ledgerDomainOffset
-
     toAbsolute(offset)
   }
 

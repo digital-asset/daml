@@ -56,32 +56,22 @@ class ParticipantPruningIT extends LedgerTestSuite {
     for {
       (prunedUpToInclusive_initial, allDivulgencePrunedUpToInclusive_initial) <-
         participant.latestPrunedOffsets()
-
-      // Create a dummy contract to move the initial ledger end forward
-      _ <- participant.create(alice, Dummy(alice))
-      // Capture the offset at which to prune
-      ledgerEndAfterCreate <- participant.currentEnd()
-
-      // Created another dummy contract to allow pruning at the previously captured ledger end
-      // TODO pruning: Remove this statement once pruning semantics allow pruning at the ledger end
-      _ <- participant.create(alice, Dummy(alice))
+      offsets <- populateLedgerAndGetOffsets(participant, alice)
+      offsetToPruneUpTo = offsets(lastItemToPruneIndex)
 
       // Prune the ledger without divulgence
-      _ <- participant.prune(ledgerEndAfterCreate, pruneAllDivulgedContracts = false)
-
+      _ <- participant.prune(offsetToPruneUpTo, pruneAllDivulgedContracts = false)
       (
         prunedUpToInclusive_afterRegularPruning,
         allDivulgencePrunedUpToInclusive_afterRegularPruning,
       ) <- participant.latestPrunedOffsets()
 
       // Prune the ledger with divulgence
-      _ <- participant.prune(ledgerEndAfterCreate, pruneAllDivulgedContracts = true)
-
+      _ <- participant.prune(offsetToPruneUpTo, pruneAllDivulgedContracts = true)
       (
         prunedUpToInclusive_afterAllDivulgencePruning,
         allDivulgencePrunedUpToInclusive_afterAllDivulgencePruning,
       ) <- participant.latestPrunedOffsets()
-
     } yield {
       assert(
         assertion =
@@ -99,7 +89,7 @@ class ParticipantPruningIT extends LedgerTestSuite {
       assertEquals(
         "Requested pruning offset matches the queried offset",
         prunedUpToInclusive_afterRegularPruning,
-        ledgerEndAfterCreate,
+        offsetToPruneUpTo,
       )
 
       assertEquals(
@@ -111,7 +101,7 @@ class ParticipantPruningIT extends LedgerTestSuite {
       assertEquals(
         "All divulgence pruning offset matches the requested pruning offset with all divulgence pruning enabled",
         allDivulgencePrunedUpToInclusive_afterAllDivulgencePruning,
-        ledgerEndAfterCreate,
+        offsetToPruneUpTo,
       )
     }
   })

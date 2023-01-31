@@ -148,7 +148,7 @@ message GetLatestPrunedOffsetsRequest {
 }
 
 message GetLatestPrunedOffsetsResponse {
-  // The offset up until the ledger has been pruned, without pruning divulgence events.
+  // The offset up until the ledger has been pruned, without pruning all divulgence events.
   LedgerOffset participant_pruned_up_to_inclusive = 1;
 
   // The offset up until the ledger has been pruned including pruning all divulgence events.
