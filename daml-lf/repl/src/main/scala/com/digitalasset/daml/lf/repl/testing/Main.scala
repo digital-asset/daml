@@ -204,9 +204,9 @@ object Repl {
 
     def run(expr: Expr): ScenarioRunner.ScenarioResult =
       ScenarioRunner.run(
-        buildMachine = () => Speedy.Machine.fromScenarioExpr(compiledPackages, expr),
+        Speedy.Machine.fromScenarioExpr(compiledPackages, expr),
         initialSeed = seed,
-        timeout = timeout,
+        timeout,
       )
   }
 

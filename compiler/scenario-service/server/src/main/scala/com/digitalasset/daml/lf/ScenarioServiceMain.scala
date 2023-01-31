@@ -25,6 +25,7 @@ import io.grpc.netty.NettyServerBuilder
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Success, Failure}
 import scala.collection.concurrent.TrieMap
+import scala.concurrent.duration._
 import scala.jdk.CollectionConverters._
 import scala.util.control.NonFatal
 
@@ -37,6 +38,7 @@ private final case class ScenarioServiceConfig(
 private object ScenarioServiceConfig {
   // default to 128MB
   val DefaultMaxInboundMessageSize: Int = 128 * 1024 * 1024
+  val DefaultTimeout = 60.seconds
 
   val parser = new scopt.OptionParser[ScenarioServiceConfig]("scenario-service") {
     head("scenario-service")
@@ -234,7 +236,7 @@ class ScenarioService(
       LanguageVersion.Major.V1,
       LanguageVersion.Minor(req.getLfMinor),
     )
-    val ctx = Context.newContext(lfVersion)
+    val ctx = Context.newContext(lfVersion, req.getEvaluationTimeout.seconds)
     contexts += (ctx.contextId -> ctx)
     val response = NewContextResponse.newBuilder.setContextId(ctx.contextId).build
     respObs.onNext(response)

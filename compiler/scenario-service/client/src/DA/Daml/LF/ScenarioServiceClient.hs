@@ -66,7 +66,8 @@ toLowLevelOpts :: LF.Version -> Options -> LowLevel.Options
 toLowLevelOpts optDamlLfVersion Options{..} =
     LowLevel.Options{..}
     where
-        optRequestTimeout = fromMaybe 60 $ cnfGrpcTimeout optScenarioServiceConfig
+        optGrpcTimeout = fromMaybe 70 $ cnfGrpcTimeout optScenarioServiceConfig
+        optEvaluationTimeout = fromMaybe 60 $ cnfEvaluationTimeout optScenarioServiceConfig
         optGrpcMaxMessageSize = cnfGrpcMaxMessageSize optScenarioServiceConfig
         optJvmOptions = cnfJvmOptions optScenarioServiceConfig
 
@@ -134,6 +135,7 @@ withScenarioService' (EnableScenarioService enable) enableScenarios ver loggerH 
 data ScenarioServiceConfig = ScenarioServiceConfig
     { cnfGrpcMaxMessageSize :: Maybe Int -- In bytes
     , cnfGrpcTimeout :: Maybe LowLevel.TimeoutSeconds
+    , cnfEvaluationTimeout :: Maybe LowLevel.TimeoutSeconds
     , cnfJvmOptions :: [String]
     } deriving Show
 
@@ -141,6 +143,7 @@ defaultScenarioServiceConfig :: ScenarioServiceConfig
 defaultScenarioServiceConfig = ScenarioServiceConfig
     { cnfGrpcMaxMessageSize = Nothing
     , cnfGrpcTimeout = Nothing
+    , cnfEvaluationTimeout = Nothing
     , cnfJvmOptions = []
     }
 
@@ -157,6 +160,7 @@ parseScenarioServiceConfig :: ProjectConfig -> Either ConfigError ScenarioServic
 parseScenarioServiceConfig conf = do
     cnfGrpcMaxMessageSize <- queryOpt "grpc-max-message-size"
     cnfGrpcTimeout <- queryOpt "grpc-timeout"
+    cnfEvaluationTimeout <- queryOpt "evaluation-timeout"
     cnfJvmOptions <- fromMaybe [] <$> queryOpt "jvm-options"
     pure ScenarioServiceConfig {..}
   where queryOpt opt = do
