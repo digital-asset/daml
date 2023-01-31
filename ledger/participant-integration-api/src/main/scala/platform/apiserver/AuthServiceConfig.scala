@@ -15,13 +15,19 @@ import com.daml.jwt.{
 import com.daml.ledger.api.auth.{AuthService, AuthServiceJWT, AuthServiceWildcard}
 
 sealed trait AuthServiceConfig {
-  def create(jwtTimestampLeeway: Option[JwtTimestampLeeway]): AuthService
+  def create(
+      jwtTimestampLeeway: Option[JwtTimestampLeeway],
+      expectsAudienceBasedTokens: Boolean,
+  ): AuthService
 }
 object AuthServiceConfig {
 
   /** [default] Allows everything */
   final object Wildcard extends AuthServiceConfig {
-    override def create(jwtTimestampLeeway: Option[JwtTimestampLeeway]): AuthService =
+    override def create(
+        jwtTimestampLeeway: Option[JwtTimestampLeeway],
+        expectsAudienceBasedTokens: Boolean,
+    ): AuthService =
       AuthServiceWildcard
   }
 
@@ -33,8 +39,12 @@ object AuthServiceConfig {
           s"Failed to create HMAC256 verifier (secret: $secret): $err"
         )
       )
-    def create(jwtTimestampLeeway: Option[JwtTimestampLeeway]): AuthService = AuthServiceJWT(
-      verifier(jwtTimestampLeeway)
+    def create(
+        jwtTimestampLeeway: Option[JwtTimestampLeeway],
+        expectsAudienceBasedTokens: Boolean,
+    ): AuthService = AuthServiceJWT(
+      verifier(jwtTimestampLeeway),
+      expectsAudienceBasedTokens,
     )
   }
 
@@ -43,8 +53,11 @@ object AuthServiceConfig {
     private def verifier(jwtTimestampLeeway: Option[JwtTimestampLeeway]) = RSA256Verifier
       .fromCrtFile(certificate, jwtTimestampLeeway)
       .valueOr(err => throw new IllegalArgumentException(s"Failed to create RSA256 verifier: $err"))
-    override def create(jwtTimestampLeeway: Option[JwtTimestampLeeway]): AuthService =
-      AuthServiceJWT(verifier(jwtTimestampLeeway))
+    override def create(
+        jwtTimestampLeeway: Option[JwtTimestampLeeway],
+        expectsAudienceBasedTokens: Boolean,
+    ): AuthService =
+      AuthServiceJWT(verifier(jwtTimestampLeeway), expectsAudienceBasedTokens)
   }
 
   /** "Enables JWT-based authorization, where the JWT is signed by ECDSA256 with the verifying public key loaded from the given X509 certificate file (.crt)" */
@@ -54,8 +67,11 @@ object AuthServiceConfig {
       .valueOr(err =>
         throw new IllegalArgumentException(s"Failed to create ECDSA256 verifier: $err")
       )
-    override def create(jwtTimestampLeeway: Option[JwtTimestampLeeway]): AuthService =
-      AuthServiceJWT(verifier(jwtTimestampLeeway))
+    override def create(
+        jwtTimestampLeeway: Option[JwtTimestampLeeway],
+        expectsAudienceBasedTokens: Boolean,
+    ): AuthService =
+      AuthServiceJWT(verifier(jwtTimestampLeeway), expectsAudienceBasedTokens)
   }
 
   /** Enables JWT-based authorization, where the JWT is signed by ECDSA512 with the verifying public key loaded from the given X509 certificate file (.crt) */
@@ -65,16 +81,22 @@ object AuthServiceConfig {
       .valueOr(err =>
         throw new IllegalArgumentException(s"Failed to create ECDSA512 verifier: $err")
       )
-    override def create(jwtTimestampLeeway: Option[JwtTimestampLeeway]): AuthService =
-      AuthServiceJWT(verifier(jwtTimestampLeeway))
+    override def create(
+        jwtTimestampLeeway: Option[JwtTimestampLeeway],
+        expectsAudienceBasedTokens: Boolean,
+    ): AuthService =
+      AuthServiceJWT(verifier(jwtTimestampLeeway), expectsAudienceBasedTokens)
   }
 
   /** Enables JWT-based authorization, where the JWT is signed by RSA256 with the verifying public key loaded from the given JWKS URL */
   final case class JwtRs256Jwks(url: String) extends AuthServiceConfig {
     private def verifier(jwtTimestampLeeway: Option[JwtTimestampLeeway]) =
       JwksVerifier(url, jwtTimestampLeeway)
-    override def create(jwtTimestampLeeway: Option[JwtTimestampLeeway]): AuthService =
-      AuthServiceJWT(verifier(jwtTimestampLeeway))
+    override def create(
+        jwtTimestampLeeway: Option[JwtTimestampLeeway],
+        expectsAudienceBasedTokens: Boolean,
+    ): AuthService =
+      AuthServiceJWT(verifier(jwtTimestampLeeway), expectsAudienceBasedTokens)
   }
 
 }

@@ -35,6 +35,7 @@ package object rxjava {
       () => Clock.systemUTC().instant(),
       "testLedgerId",
       "testParticipantId",
+      None,
       new InMemoryUserManagementStore(),
       ExecutionContext.parasitic,
       userRightsCheckIntervalInSeconds = 1,

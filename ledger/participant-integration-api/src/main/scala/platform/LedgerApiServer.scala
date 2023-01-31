@@ -196,6 +196,7 @@ class LedgerApiServer(
       jwtTimestampLeeway = participantConfig.jwtTimestampLeeway,
       explicitDisclosureUnsafeEnabled = explicitDisclosureUnsafeEnabled,
       telemetry = telemetry,
+      targetAudience = None,
     )
   }
 }

@@ -17,6 +17,7 @@ import scala.concurrent.{ExecutionContext, Future}
 class IdentityProviderAwareAuthServiceImpl(
     identityProviderConfigLoader: IdentityProviderConfigLoader,
     jwtVerifierLoader: JwtVerifierLoader,
+    expectsAudienceBasedTokens: Boolean = false,
 )(implicit
     executionContext: ExecutionContext,
     loggingContext: LoggingContext,
@@ -90,8 +91,20 @@ class IdentityProviderAwareAuthServiceImpl(
         Future.successful(payload)
     }
 
-  private def parse(jwtPayload: String): AuthServiceJWTPayload = {
+  private def parse(jwtPayload: String): AuthServiceJWTPayload = if (expectsAudienceBasedTokens)
+    parseAudienceBasedPayload(jwtPayload)
+  else
+    parseOldPayload(jwtPayload)
+
+  private def parseOldPayload(jwtPayload: String): AuthServiceJWTPayload = {
     import AuthServiceJWTCodec.JsonImplicits._
+    JsonParser(jwtPayload).convertTo[AuthServiceJWTPayload]
+  }
+
+  private[this] def parseAudienceBasedPayload(
+      jwtPayload: String
+  ): AuthServiceJWTPayload = {
+    import AuthServiceJWTCodec.AudienceBasedTokenJsonImplicits._
     JsonParser(jwtPayload).convertTo[AuthServiceJWTPayload]
   }
 
@@ -101,5 +114,6 @@ class IdentityProviderAwareAuthServiceImpl(
       participantId = payload.participantId,
       userId = payload.userId,
       expiration = payload.exp,
+      targetAudiences = payload.audiences,
     )
 }

@@ -28,6 +28,7 @@ final class Authorizer(
     now: () => Instant,
     ledgerId: String,
     participantId: String,
+    targetAudience: Option[String],
     userManagementStore: UserManagementStore,
     ec: ExecutionContext,
     userRightsCheckIntervalInSeconds: Int,
@@ -46,6 +47,10 @@ final class Authorizer(
       _ <- claims.notExpired(now(), jwtTimestampLeeway)
       _ <- claims.validForLedger(ledgerId)
       _ <- claims.validForParticipant(participantId)
+      _ <- requireForAll(
+        targetAudience.toList,
+        targetAudience => claims.validForTargetAudience(targetAudience),
+      )
     } yield {
       ()
     }

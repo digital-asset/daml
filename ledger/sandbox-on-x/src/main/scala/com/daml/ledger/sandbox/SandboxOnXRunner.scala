@@ -255,7 +255,7 @@ object SandboxOnXRunner {
   ): Unit = {
     val apiServerConfig = participantConfig.apiServer
     val authentication =
-      participantConfig.authentication.create(participantConfig.jwtTimestampLeeway) match {
+      participantConfig.authentication.create(participantConfig.jwtTimestampLeeway, false) match {
         case _: AuthServiceJWT => "JWT-based authentication"
         case AuthServiceNone => "none authenticated"
         case _: AuthServiceStatic => "static authentication"

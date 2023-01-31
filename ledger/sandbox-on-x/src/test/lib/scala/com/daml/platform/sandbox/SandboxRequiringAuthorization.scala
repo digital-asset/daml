@@ -48,6 +48,7 @@ trait SandboxRequiringAuthorizationFuns {
       userId = userId,
       exp = expiresIn.map(delta => Instant.now().plusNanos(delta.toNanos)),
       format = StandardJWTTokenFormat.Scope,
+      audiences = List.empty,
     )
 
   protected def randomUserId(): String = UUID.randomUUID().toString
@@ -96,7 +97,7 @@ trait SandboxRequiringAuthorization extends SandboxRequiringAuthorizationFuns {
   override protected def authService: Option[AuthService] = {
     val jwtVerifier =
       HMAC256Verifier(self.jwtSecret).getOrElse(sys.error("Failed to create HMAC256 verifier"))
-    Some(AuthServiceJWT(jwtVerifier))
+    Some(AuthServiceJWT(jwtVerifier, false))
   }
 
   override protected def idpJwtVerifierLoader: Option[JwtVerifierLoader] =

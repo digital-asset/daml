@@ -19,7 +19,8 @@ import scala.util.Try
 /** An AuthService that reads a JWT token from a `Authorization: Bearer` HTTP header.
   * The token is expected to use the format as defined in [[AuthServiceJWTPayload]]:
   */
-class AuthServiceJWT(verifier: JwtVerifierBase) extends AuthService {
+class AuthServiceJWT(verifier: JwtVerifierBase, expectsAudienceBasedTokens: Boolean)
+    extends AuthService {
 
   protected val logger: Logger = LoggerFactory.getLogger(AuthServiceJWT.getClass)
 
@@ -43,11 +44,25 @@ class AuthServiceJWT(verifier: JwtVerifierBase) extends AuthService {
       token => payloadToClaims(token),
     )
 
-  private[this] def parsePayload(jwtPayload: String): Either[Error, AuthServiceJWTPayload] = {
-    import AuthServiceJWTCodec.JsonImplicits._
-    Try(JsonParser(jwtPayload).convertTo[AuthServiceJWTPayload]).toEither.left.map(t =>
+  private[this] def parsePayload(jwtPayload: String): Either[Error, AuthServiceJWTPayload] =
+    (if (expectsAudienceBasedTokens) {
+       Try(parseAudienceBasedPayload(jwtPayload))
+     } else {
+       Try(parseOldPayload(jwtPayload))
+     }).toEither.left.map(t =>
       Error(Symbol("parsePayload"), "Could not parse JWT token: " + t.getMessage)
     )
+
+  private[this] def parseOldPayload(jwtPayload: String): AuthServiceJWTPayload = {
+    import AuthServiceJWTCodec.JsonImplicits._
+    JsonParser(jwtPayload).convertTo[AuthServiceJWTPayload]
+  }
+
+  private[this] def parseAudienceBasedPayload(
+      jwtPayload: String
+  ): AuthServiceJWTPayload = {
+    import AuthServiceJWTCodec.AudienceBasedTokenJsonImplicits._
+    JsonParser(jwtPayload).convertTo[AuthServiceJWTPayload]
   }
 
   private[this] def parseJWTPayload(header: String): Either[Error, AuthServiceJWTPayload] =
@@ -85,6 +100,7 @@ class AuthServiceJWT(verifier: JwtVerifierBase) extends AuthService {
         expiration = payload.exp,
         resolvedFromUser = false,
         identityProviderId = IdentityProviderId.Default,
+        targetAudiences = List.empty,
       )
 
     case payload: StandardJWTPayload =>
@@ -93,14 +109,18 @@ class AuthServiceJWT(verifier: JwtVerifierBase) extends AuthService {
         participantId = payload.participantId,
         userId = payload.userId,
         expiration = payload.exp,
+        targetAudiences = payload.audiences,
       )
   }
 }
 
 object AuthServiceJWT {
-  def apply(verifier: com.auth0.jwt.interfaces.JWTVerifier) =
-    new AuthServiceJWT(new JwtVerifier(verifier))
+  def apply(
+      verifier: com.auth0.jwt.interfaces.JWTVerifier,
+      expectsAudienceBasedTokens: Boolean,
+  ): AuthServiceJWT =
+    new AuthServiceJWT(new JwtVerifier(verifier), expectsAudienceBasedTokens)
 
-  def apply(verifier: JwtVerifierBase) =
-    new AuthServiceJWT(verifier)
+  def apply(verifier: JwtVerifierBase, expectsAudienceBasedTokens: Boolean): AuthServiceJWT =
+    new AuthServiceJWT(verifier, expectsAudienceBasedTokens)
 }
