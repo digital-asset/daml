@@ -16,6 +16,13 @@ object ToLoggingContext {
   implicit def `TriggerLogContext to LoggingContextOf[Trigger]`(implicit
       triggerContext: TriggerLogContext
   ): LoggingContextOf[Trigger] = {
+    val parentEntries = if (triggerContext.span.parent.isEmpty) {
+      LoggingEntries.empty
+    } else if (triggerContext.span.parent.size == 1) {
+      LoggingEntries("parent" -> triggerContext.span.parent.head)
+    } else {
+      LoggingEntries("parent" -> triggerContext.span.parent)
+    }
     val spanEntries = LoggingEntries(
       "span" -> LoggingValue.Nested(
         LoggingEntries(
@@ -23,9 +30,7 @@ object ToLoggingContext {
             s"$path.$name"
           ),
           "id" -> triggerContext.span.id,
-        ) ++ triggerContext.span.parent.fold(LoggingEntries.empty)(id =>
-          LoggingEntries("parent" -> id)
-        )
+        ) ++ parentEntries
       )
     )
 
@@ -66,8 +71,15 @@ final class TriggerLogContext private (
     f(new TriggerLogContext(loggingContext, entries ++ additionalEntries, span.childSpan(name)))
   }
 
-  def groupWith(context: TriggerLogContext): TriggerLogContext = {
-    new TriggerLogContext(loggingContext, entries, span.groupWith(context.span))
+  def groupWith(contexts: TriggerLogContext*): TriggerLogContext = {
+    val groupEntries = contexts.foldLeft(entries.toSet) { case (entries, context) =>
+      entries ++ context.entries.toSet
+    }
+    val groupSpans = contexts.foldLeft(span) { case (span, context) =>
+      span.groupWith(context.span)
+    }
+
+    new TriggerLogContext(loggingContext, groupEntries.toSeq, groupSpans)
   }
 
   def logError(message: String, additionalEntries: (String, LoggingValue)*)(implicit
@@ -126,7 +138,7 @@ object TriggerLogContext {
   private[trigger] final case class TriggerLogSpan(
       path: BackStack[String],
       id: UUID = UUID.randomUUID(),
-      parent: Option[UUID] = None,
+      parent: Set[UUID] = Set.empty,
   ) {
     def nextSpan(name: String): TriggerLogSpan = {
       val basePath = path.pop.fold(BackStack.empty[String])(_._1)
@@ -135,11 +147,11 @@ object TriggerLogContext {
     }
 
     def childSpan(name: String): TriggerLogSpan = {
-      TriggerLogSpan(path :+ name, parent = Some(id))
+      TriggerLogSpan(path :+ name, parent = Set(id))
     }
 
     def groupWith(span: TriggerLogSpan): TriggerLogSpan = {
-      copy(parent = Some(span.id))
+      copy(parent = parent + span.id)
     }
   }
 }
