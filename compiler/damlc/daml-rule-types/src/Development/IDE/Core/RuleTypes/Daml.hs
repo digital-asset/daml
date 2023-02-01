@@ -94,7 +94,14 @@ instance NFData VirtualResource
 -- | Runs all scenarios in the given file (but not scenarios in imports).
 type instance RuleResult RunScenarios = [(VirtualResource, Either SS.Error SS.ScenarioResult)]
 
+-- | Runs a single scenarios in the given file with the given name
+-- Kept as a list as we can't enforce a single test as an invariant - there may
+-- be no test with that name
+type instance RuleResult RunSingleScenario = [(VirtualResource, Either SS.Error SS.ScenarioResult)]
+
 type instance RuleResult RunScripts = [(VirtualResource, Either SS.Error SS.ScenarioResult)]
+
+type instance RuleResult RunSingleScript = [(VirtualResource, Either SS.Error SS.ScenarioResult)]
 
 -- | Encode a module and produce a hash of the module and all its transitive dependencies.
 -- The hash is used to decide if a module needs to be reloaded in the scenario service.
@@ -204,11 +211,27 @@ instance Binary   RunScenarios
 instance Hashable RunScenarios
 instance NFData   RunScenarios
 
+data RunSingleScenario = RunSingleScenario T.Text
+    deriving (Eq, Show, Typeable, Generic)
+--data RunSingleScenario = RunSingleScenario
+--    deriving (Eq, Show, Typeable, Generic)
+instance Binary   RunSingleScenario
+instance Hashable RunSingleScenario
+instance NFData   RunSingleScenario
+
 data RunScripts = RunScripts
     deriving (Eq, Show, Typeable, Generic)
 instance Binary   RunScripts
 instance Hashable RunScripts
 instance NFData   RunScripts
+
+data RunSingleScript = RunSingleScript T.Text
+    deriving (Eq, Show, Typeable, Generic)
+--data RunSingleScript = RunSingleScript
+--    deriving (Eq, Show, Typeable, Generic)
+instance Binary   RunSingleScript
+instance Hashable RunSingleScript
+instance NFData   RunSingleScript
 
 data EncodeModule = EncodeModule
     deriving (Eq, Show, Typeable, Generic)

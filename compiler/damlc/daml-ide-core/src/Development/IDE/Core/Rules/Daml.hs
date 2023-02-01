@@ -821,14 +821,30 @@ runScenariosRule :: Rules ()
 runScenariosRule =
     define $ \RunScenarios file -> do
       m <- moduleForScenario file
-      world <- worldForFile file
-      Just scenarioService <- envScenarioService <$> getDamlServiceEnv
       testFilter <- envTestFilter <$> getDamlServiceEnv
       let scenarios =  [sc | (sc, _scLoc) <- scenariosInModule m, testFilter $ LF.unExprValName $ LF.qualObject sc]
+      scenarioResults <-
+          forM scenarios $ \scenario ->
+              use_ (RunSingleScenario (LF.unExprValName (LF.qualObject scenario))) file
+      pure ([], Just (concat scenarioResults))
+
+runSingleScenarioRule :: Rules ()
+runSingleScenarioRule =
+    define $ \(RunSingleScenario targetScenarioName) file -> do
+      m <- moduleForScenario file
+      world <- worldForFile file
+
+      Just scenarioService <- envScenarioService <$> getDamlServiceEnv
       ctxRoot <- use_ GetScenarioRoot file
       ctxId <- use_ CreateScenarioContext ctxRoot
+
+      let scenarios =
+            [ sc
+            | (sc, _scLoc) <- scenariosInModule m
+            , targetScenarioName == LF.unExprValName (LF.qualObject sc)]
+
       scenarioResults <-
-          liftIO $ forM scenarios $ \scenario -> do
+          forM scenarios $ \scenario -> do
               (vr, res) <- runScenario scenarioService file ctxId scenario
               let scenarioName = LF.qualObject scenario
               let mbLoc = NM.lookup scenarioName (LF.moduleValues m) >>= LF.dvalLocation
@@ -841,15 +857,31 @@ runScriptsRule :: Rules ()
 runScriptsRule =
     define $ \RunScripts file -> do
       m <- moduleForScenario file
-      world <- worldForFile file
-      Just scenarioService <- envScenarioService <$> getDamlServiceEnv
       testFilter <- envTestFilter <$> getDamlServiceEnv
       let scenarios =  [sc | (sc, _scLoc) <- scriptsInModule m, testFilter $ LF.unExprValName $ LF.qualObject sc]
+      scenarioResults <-
+          forM scenarios $ \scenario ->
+              use_ (RunSingleScript (LF.unExprValName (LF.qualObject scenario))) file
+      pure ([], Just (concat scenarioResults))
+
+runSingleScriptRule :: Rules ()
+runSingleScriptRule =
+    define $ \(RunSingleScript targetScriptName) file -> do
+      m <- moduleForScenario file
+      world <- worldForFile file
+      Just scenarioService <- envScenarioService <$> getDamlServiceEnv
+
       ctxRoot <- use_ GetScenarioRoot file
       ctxId <- use_ CreateScenarioContext ctxRoot
+
+      let scenarios =
+              [ sc
+              | (sc, _scLoc) <- scriptsInModule m
+              , targetScriptName == LF.unExprValName (LF.qualObject sc)]
+
       scenarioResults <-
-          liftIO $ forM scenarios $ \scenario -> do
-              (vr, res) <- runScript scenarioService file ctxId scenario
+          forM scenarios $ \scenario -> do
+              (vr, res) <- liftIO $ runScript scenarioService file ctxId scenario
               let scenarioName = LF.qualObject scenario
               let mbLoc = NM.lookup scenarioName (LF.moduleValues m) >>= LF.dvalLocation
               let range = maybe noRange sourceLocToRange mbLoc
@@ -1376,7 +1408,9 @@ damlRule opts = do
     generateRawPackageRule opts
     generatePackageDepsRule opts
     runScenariosRule
+    runSingleScenarioRule
     runScriptsRule
+    runSingleScriptRule
     getScenarioRootsRule
     getScenarioRootRule
     getDlintDiagnosticsRule
