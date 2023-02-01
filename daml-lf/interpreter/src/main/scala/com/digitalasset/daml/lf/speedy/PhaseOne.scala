@@ -470,7 +470,7 @@ private[lf] final class PhaseOne(
           // List functions
           case BFoldl => SBFoldl
           case BFoldr => SBFoldr
-          case BWithAuthorityOf => SBWithAuthorityOf
+          case BWithAuthority => SBWithAuthority
           case BEqualList => SBEqualList
 
           // Errors

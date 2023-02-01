@@ -101,7 +101,7 @@ featureUnstable = Feature
 
 featureWithAuthority :: Feature
 featureWithAuthority = Feature
-    { featureName = "withAuthorityOf primitive"
+    { featureName = "withAuthority primitive"
     , featureMinVersion = versionDev
     , featureCppFlag = Just "DAML_WITH_AUTHORITY"
     }

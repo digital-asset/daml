@@ -655,7 +655,7 @@ private[lf] object SBuiltin {
     }
   }
 
-  final case object SBWithAuthorityOf extends SBuiltin(2) {
+  final case object SBWithAuthority extends SBuiltin(2) {
     override private[speedy] def execute[Q](
         args: util.ArrayList[SValue],
         machine: Machine[Q],
@@ -663,7 +663,7 @@ private[lf] object SBuiltin {
       // TODO https://github.com/digital-asset/daml/issues/15882
       // For development, implement this primitive as the identity operation. No authority is gained.
       // val parties = args.get(0)
-      // println(s"**SBWithAuthorityOf/execute, parties=$parties")
+      // println(s"**SBWithAuthority/execute, parties=$parties")
       val action = args.get(1)
       Control.Value(action)
     }
