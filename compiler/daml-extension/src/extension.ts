@@ -419,9 +419,10 @@ interface VirtualResourceFormattingStartedParams {
 }
 
 namespace DamlVirtualResourceFormattingStarted {
-  export let type = new NotificationType<VirtualResourceFormattingStartedParams>(
-    "daml/virtualResource/didStartFormatting",
-  );
+  export let type =
+    new NotificationType<VirtualResourceFormattingStartedParams>(
+      "daml/virtualResource/didStartFormatting",
+    );
 }
 
 type UriString = string;
@@ -526,7 +527,8 @@ class VirtualResourceManager {
       }
     });
     this._panels.set(uri, panel);
-    panel.webview.html = this._panelContents.get(uri) || "Loading virtual resource...";
+    panel.webview.html =
+      this._panelContents.get(uri) || "Loading virtual resource...";
   }
 
   public setRenderingStarted(uri: UriString) {
