@@ -35,6 +35,7 @@ import com.daml.lf.engine.trigger.Runner.{
   TriggerContextualFlow,
   TriggerContextualSource,
   logger,
+  numberOfActiveContracts,
   triggerUserState,
 }
 import com.daml.lf.engine.trigger.Runner.Implicits._
@@ -129,6 +130,9 @@ private[lf] final case class Trigger(
 }
 
 private final case class InFlightCommandOverflowException(inFlightCommands: Int, crashCount: Int)
+    extends Exception
+
+private final case class ACSOverflowException(activeContracts: Int, crashCount: Long)
     extends Exception
 
 // Utilities for interacting with the speedy machine.
@@ -849,6 +853,16 @@ private[lf] class Runner private (
               "state" -> triggerUserState(state, trigger.defn.level),
             )
 
+            val activeContracts = acs.length
+            if (activeContracts > triggerConfig.maximumActiveContracts) {
+              triggerContext.logError(
+                "Due to an excessive number of active contracts, stopping the trigger",
+                "active-contracts" -> activeContracts,
+                "active-contract-overflow-count" -> triggerConfig.maximumActiveContracts,
+              )
+              throw ACSOverflowException(activeContracts, triggerConfig.maximumActiveContracts)
+            }
+
             state
           }
       )
@@ -887,7 +901,22 @@ private[lf] class Runner private (
                   "state" -> triggerUserState(state, trigger.defn.level),
                 )
 
-                newState
+                numberOfActiveContracts(newState, trigger.defn.level) match {
+                  case Some(activeContracts)
+                      if activeContracts > triggerConfig.maximumActiveContracts =>
+                    triggerContext.logError(
+                      "Due to an excessive number of active contracts, stopping the trigger",
+                      "active-contracts" -> activeContracts,
+                      "active-contract-overflow-count" -> triggerConfig.maximumActiveContracts,
+                    )
+                    throw ACSOverflowException(
+                      activeContracts,
+                      triggerConfig.maximumActiveContracts,
+                    )
+
+                  case _ =>
+                    newState
+                }
               },
             ).orConverterException
           )
@@ -1012,7 +1041,7 @@ private[lf] class Runner private (
               "Due to excessive in-flight commands, stopping the trigger",
               "commandId" -> request.getCommands.commandId,
               "in-flight-commands" -> inFlightCommands.count,
-              "in-flight-command-crash-count" -> triggerConfig.inFlightCommandOverflowCount,
+              "in-flight-command-overflow-count" -> triggerConfig.inFlightCommandOverflowCount,
             )
 
             throw InFlightCommandOverflowException(
@@ -1118,9 +1147,35 @@ object Runner {
     }
   }
 
+  private def mapSize(smap: SValue): Int = {
+    smap.expect("SMap", { case SMap(_, values) => values.size }).orConverterException
+  }
+
+  private def numberOfActiveContracts(svalue: SValue, level: Trigger.Level): Option[Int] = {
+    level match {
+      case Trigger.Level.High =>
+        // The following code should be kept in sync with the ACS variant type in Internal.daml
+        // svalue: TriggerState s
+        val result = for {
+          acs <- svalue.expect("SRecord", { case SRecord(_, _, values) => values.get(0) })
+          activeContracts <- acs.expect("SRecord", { case SRecord(_, _, values) => values.get(0) })
+          size <- activeContracts.expect(
+            "SMap",
+            { case SMap(_, values) => values.values.map(mapSize).sum },
+          )
+        } yield size
+
+        Some(result.orConverterException)
+
+      case Trigger.Level.Low =>
+        None
+    }
+  }
+
   private def triggerUserState(state: SValue, level: Trigger.Level): SValue = {
     level match {
       case Trigger.Level.High =>
+        // state: TriggerState s
         state
           .expect(
             "SRecord",
