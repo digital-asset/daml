@@ -78,12 +78,12 @@ final class UserManagementServiceIT extends UserManagementServiceITBase {
     for {
       // allocating parties before user is created
       allocatedParties <- Future.sequence(allocatePartiesMaxAndOne)
-      permissionsMaxAndOne = allocatedParties.map(createCanActAs)
-      permissionOne = permissionsMaxAndOne.head
-      permissionsMax = permissionsMaxAndOne.tail
+      permissionsMaxPlusOne = allocatedParties.map(createCanActAs)
+      permissionOne = permissionsMaxPlusOne.head
+      permissionsMax = permissionsMaxPlusOne.tail
       // cannot create user with #limit+1 rights
       create1 <- ledger
-        .createUser(CreateUserRequest(Some(user1), permissionsMaxAndOne))
+        .createUser(CreateUserRequest(Some(user1), permissionsMaxPlusOne))
         .mustFail(
           "creating user with too many rights"
         )
@@ -103,8 +103,8 @@ final class UserManagementServiceIT extends UserManagementServiceITBase {
       assertTooManyUserRightsError(create1)
       assertEquals(unsetResourceVersion(create2), CreateUserResponse(Some(user1)))
       assertTooManyUserRightsError(grant1)
-      assertEquals(rights1.rights.size, permissionsMaxAndOne.tail.size)
-      assertSameElements(rights1.rights, permissionsMaxAndOne.tail)
+      assertEquals(rights1.rights.size, permissionsMaxPlusOne.tail.size)
+      assertSameElements(rights1.rights, permissionsMaxPlusOne.tail)
       assertEquals(unsetResourceVersion(create3), CreateUserResponse(Some(user2)))
     }
   })
