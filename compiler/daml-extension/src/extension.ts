@@ -78,6 +78,10 @@ export async function activate(context: vscode.ExtensionContext) {
       DamlVirtualResourceNoteNotification.type,
       params => virtualResourceManager.setNote(params.uri, params.note),
     );
+    damlLanguageClient.onNotification(
+      DamlVirtualResourceFormattingStarted.type,
+      params => virtualResourceManager.setRenderingStarted(params.uri),
+    );
   });
 
   damlLanguageClient.start();
@@ -406,6 +410,20 @@ namespace DamlVirtualResourceNoteNotification {
   );
 }
 
+interface VirtualResourceFormattingStartedParams {
+  /** The virtual resource uri */
+  uri: string;
+
+  /** A message describing the formatting */
+  message: string;
+}
+
+namespace DamlVirtualResourceFormattingStarted {
+  export let type = new NotificationType<VirtualResourceFormattingStartedParams>(
+    "daml/virtualResource/didStartFormatting",
+  );
+}
+
 type UriString = string;
 type ScenarioResult = string;
 type View = {
@@ -508,7 +526,11 @@ class VirtualResourceManager {
       }
     });
     this._panels.set(uri, panel);
-    panel.webview.html = this._panelContents.get(uri) || "";
+    panel.webview.html = this._panelContents.get(uri) || "Loading virtual resource...";
+  }
+
+  public setRenderingStarted(uri: UriString) {
+    const panel = this._panels.get(uri);
   }
 
   public setContent(uri: UriString, contents: ScenarioResult) {
