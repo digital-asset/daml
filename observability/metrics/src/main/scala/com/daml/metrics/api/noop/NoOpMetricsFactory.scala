@@ -6,7 +6,7 @@ package com.daml.metrics.api.noop
 import com.daml.metrics.api.MetricHandle.LabeledMetricsFactory
 import com.daml.metrics.api.{MetricHandle, MetricName, MetricsContext}
 
-object NoOpMetricsFactory extends LabeledMetricsFactory {
+class NoOpMetricsFactory extends LabeledMetricsFactory {
 
   override def timer(
       name: MetricName,
@@ -50,3 +50,5 @@ object NoOpMetricsFactory extends LabeledMetricsFactory {
       context: MetricsContext
   ): MetricHandle.Histogram = NoOpHistogram(name)
 }
+
+object NoOpMetricsFactory extends NoOpMetricsFactory
