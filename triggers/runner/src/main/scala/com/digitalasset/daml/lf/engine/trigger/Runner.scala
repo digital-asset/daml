@@ -901,17 +901,22 @@ private[lf] class Runner private (
                   "state" -> triggerUserState(state, trigger.defn.level),
                 )
 
-                val activeContracts = numberOfActiveContracts(newState)
-                if (activeContracts > triggerConfig.maximumActiveContracts) {
-                  triggerContext.logError(
-                    "Due to an excessive number of active contracts, stopping the trigger",
-                    "active-contracts" -> activeContracts,
-                    "active-contract-overflow-count" -> triggerConfig.maximumActiveContracts,
-                  )
-                  throw ACSOverflowException(activeContracts, triggerConfig.maximumActiveContracts)
-                }
+                numberOfActiveContracts(newState, trigger.defn.level) match {
+                  case Some(activeContracts)
+                      if activeContracts > triggerConfig.maximumActiveContracts =>
+                    triggerContext.logError(
+                      "Due to an excessive number of active contracts, stopping the trigger",
+                      "active-contracts" -> activeContracts,
+                      "active-contract-overflow-count" -> triggerConfig.maximumActiveContracts,
+                    )
+                    throw ACSOverflowException(
+                      activeContracts,
+                      triggerConfig.maximumActiveContracts,
+                    )
 
-                newState
+                  case _ =>
+                    newState
+                }
               },
             ).orConverterException
           )
@@ -1146,25 +1151,31 @@ object Runner {
     smap.expect("SMap", { case SMap(_, values) => values.size }).orConverterException
   }
 
-  // The following method should be kept in sync with ACS in Internal.daml
-  private def numberOfActiveContracts(svalue: SValue): Int = {
-    // svalue: TriggerState s
-    val result = for {
-      acs <- svalue.expect("SRecord", { case SRecord(_, _, values) => values.get(0) })
-      activeContracts <- acs.expect("SRecord", { case SRecord(_, _, values) => values.get(0) })
-      size <- activeContracts.expect(
-        "SMap",
-        { case SMap(_, values) => values.values.map(mapSize).sum },
-      )
-    } yield size
+  private def numberOfActiveContracts(svalue: SValue, level: Trigger.Level): Option[Int] = {
+    level match {
+      case Trigger.Level.High =>
+        // The following code should be kept in sync with the ACS variant type in Internal.daml
+        // svalue: TriggerState s
+        val result = for {
+          acs <- svalue.expect("SRecord", { case SRecord(_, _, values) => values.get(0) })
+          activeContracts <- acs.expect("SRecord", { case SRecord(_, _, values) => values.get(0) })
+          size <- activeContracts.expect(
+            "SMap",
+            { case SMap(_, values) => values.values.map(mapSize).sum },
+          )
+        } yield size
 
-    result.orConverterException
+        Some(result.orConverterException)
+
+      case Trigger.Level.Low =>
+        None
+    }
   }
 
   private def triggerUserState(state: SValue, level: Trigger.Level): SValue = {
-    // state: TriggerState s
     level match {
       case Trigger.Level.High =>
+        // state: TriggerState s
         state
           .expect(
             "SRecord",
