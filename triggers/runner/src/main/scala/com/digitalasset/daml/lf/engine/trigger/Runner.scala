@@ -669,7 +669,7 @@ private[lf] class Runner private (
           case next @ -\/(_) =>
             val endTime = System.nanoTime()
             triggerContext.logDebug(
-              "Trigger rule step evaluation",
+              "Trigger metrics",
               "metrics" -> LoggingValue.Nested(
                 LoggingEntries(
                   "steps" -> numberOfRuleEvaluations,
