@@ -57,6 +57,7 @@ archive
 - Requires authorization from the contract controllers/signatories. Without the required authorization, the transaction fails. For more detail on authorization, see :ref:`daml-ref-signatories`.
 
 - All templates implicitly have an `Archive` choice that cannot be removed, which is equivalent to:
+
 .. code-block:: daml
 
    choice Archive : ()
