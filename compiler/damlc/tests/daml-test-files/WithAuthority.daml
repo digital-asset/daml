@@ -1,7 +1,7 @@
 
 -- @SINCE-LF-FEATURE DAML_WITH_AUTHORITY
 
-module WithAuthorityOf where
+module WithAuthority where
 
 template HasConsortiumAutority
   with

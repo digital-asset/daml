@@ -359,13 +359,13 @@ abstract class AbstractFuncIT
         }
       }
     }
-    "WithAuthorityOf:test" should {
+    "WithAuthority:test" should {
       "succeed" in {
         for {
           clients <- participantClients()
           v <- run(
             clients,
-            QualifiedName.assertFromString("TestWithAuthorityOf:test"),
+            QualifiedName.assertFromString("TestWithAuthority:test"),
             dar = devDar,
           )
         } yield {

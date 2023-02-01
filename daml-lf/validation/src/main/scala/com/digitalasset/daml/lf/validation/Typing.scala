@@ -138,7 +138,7 @@ private[validation] object Typing {
           TForall(beta.name -> KStar, (alpha ->: beta ->: beta) ->: beta ->: TList(alpha) ->: beta),
         ),
       // Authority
-      BWithAuthorityOf ->
+      BWithAuthority ->
         TForall(
           alpha.name -> KStar,
           TList(TParty) ->: TUpdate(alpha) ->: TUpdate(alpha),

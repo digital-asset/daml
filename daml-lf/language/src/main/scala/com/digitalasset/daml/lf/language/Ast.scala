@@ -458,7 +458,7 @@ object Ast {
   final case object BFoldr extends BuiltinFunction // : ∀a b. (a → b → b) → b → List a → b
 
   // Authority
-  final case object BWithAuthorityOf
+  final case object BWithAuthority
       extends BuiltinFunction // : ∀ a. List Party → Update a → Update a
 
   // Maps

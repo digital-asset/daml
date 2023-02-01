@@ -450,7 +450,7 @@ enum BuiltinFunction {
 
   FOLDL = 20;
   FOLDR = 21;
-  WITH_AUTHORITY_OF = 149;
+  WITH_AUTHORITY = 149;
 
   TEXTMAP_EMPTY = 96;
   TEXTMAP_INSERT = 97;
