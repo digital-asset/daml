@@ -1405,6 +1405,16 @@ object Runner {
     result.isRight
   }
 
+  private def isMessage(svalue: SValue): Boolean = {
+    // svalue: Message
+    isTransaction(svalue) || isCompletion(svalue) || isHeartbeat(svalue)
+  }
+
+  private def isCompletion(svalue: SValue): Boolean = {
+    // svalue: Message
+    svalue.expect("SVariant", { case SVariant(_, "MCompletion", _, _) => true }).isRight
+  }
+
   private def isTransaction(svalue: SValue): Boolean = {
     // svalue: Message
     svalue.expect("SVariant", { case SVariant(_, "MTransaction", _, _) => true }).isRight
@@ -1428,7 +1438,11 @@ object Runner {
       events <- values.expect("SList", { case SList(events) => events.toImmArray })
     } yield events.filter(isCreateEvent).length
 
-    result.getOrElse(0)
+    if (isMessage(svalue)) {
+      result.getOrElse(0)
+    } else {
+      result.orConverterException
+    }
   }
 
   private def isArchiveEvent(svalue: SValue): Boolean = {
@@ -1449,7 +1463,11 @@ object Runner {
       events <- values.expect("SList", { case SList(events) => events.toImmArray })
     } yield events.filter(isArchiveEvent).length
 
-    result.getOrElse(0)
+    if (isMessage(svalue)) {
+      result.getOrElse(0)
+    } else {
+      result.orConverterException
+    }
   }
 
   private def isHeartbeat(svalue: SValue): Boolean = {
