@@ -516,6 +516,7 @@ server_conformance_test(
           max-contract-state-cache-size = 2
           max-transactions-in-memory-fan-out-buffer-size = 3
           buffered-streams-page-size = 1
+          maximum-pruning-window-size = 10
         }
       }
     }
