@@ -200,10 +200,11 @@ emitCommands cmds pending = do
     }
   pure id
 
--- Version of emitCommands that will fail when there are too many commands in-flight.
--- When this function fails to return a command ID, then client code should manage this
--- scenario. Failing to manage this warning scenario will eventually cause the trigger
--- runner to stop with an InFlightCommandOverflowException exception.
+-- Version of emitCommands that will not perform command submissions once there are too
+-- many commands in-flight. When this function does not to return a command ID (i.e. it
+-- returns None), then client code should manage this scenario. Failing to manage this
+-- warning scenario will eventually cause the trigger runner to stop with an
+-- InFlightCommandOverflowException exception.
 emitCommandsV2 : [Command] -> [AnyContractId] -> TriggerA s (Optional CommandId)
 emitCommandsV2 cmds pending = do
   mbId <- liftTriggerRule $ mbSubmitCommands cmds
