@@ -10,19 +10,15 @@ terraform {
   required_providers {
     secret = {
       source  = "numtide/secret"
-      version = "1.2.0"
+      version = "1.2.1"
     }
     google = {
       source  = "hashicorp/google"
-      version = "4.9.0"
+      version = "4.43.0"
     }
     google-beta = {
       source  = "hashicorp/google-beta"
-      version = "4.9.0"
-    }
-    template = {
-      source  = "hashicorp/template"
-      version = "2.2.0"
+      version = "4.43.0"
     }
   }
 }
@@ -40,9 +36,6 @@ provider "google-beta" {
 }
 
 provider "secret" {
-}
-
-provider "template" {
 }
 
 data "google_project" "current" {
