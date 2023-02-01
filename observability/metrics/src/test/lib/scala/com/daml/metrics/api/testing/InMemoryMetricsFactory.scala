@@ -27,18 +27,17 @@ import com.daml.metrics.api.{MetricHandle, MetricName, MetricsContext}
 import com.daml.scalautil.Statement.discard
 
 import scala.collection.concurrent.{TrieMap, Map => ConcurrentMap}
-import scala.collection.mutable
 
 class InMemoryMetricsFactory extends LabeledMetricsFactory {
 
   val metrics: MetricsState =
     MetricsState(
-      timers = mutable.Map.empty,
-      gauges = mutable.Map.empty,
-      meters = mutable.Map.empty,
-      counters = mutable.Map.empty,
-      histograms = mutable.Map.empty,
-      asyncGauges = TrieMap[(MetricName, MetricsContext), () => Any](),
+      timers = TrieMap.empty,
+      gauges = TrieMap.empty,
+      meters = TrieMap.empty,
+      counters = TrieMap.empty,
+      histograms = TrieMap.empty,
+      asyncGauges = TrieMap.empty,
     )
 
   override def timer(name: MetricName, description: String)(implicit
@@ -74,11 +73,11 @@ object InMemoryMetricsFactory extends InMemoryMetricsFactory {
 
   type MetricIdentifier = (MetricName, MetricsContext)
   case class MetricsState(
-      timers: mutable.Map[MetricIdentifier, InMemoryTimer],
-      gauges: mutable.Map[MetricIdentifier, InMemoryGauge[_]],
-      meters: mutable.Map[MetricIdentifier, InMemoryMeter],
-      counters: mutable.Map[MetricIdentifier, InMemoryCounter],
-      histograms: mutable.Map[MetricIdentifier, InMemoryHistogram],
+      timers: ConcurrentMap[MetricIdentifier, InMemoryTimer],
+      gauges: ConcurrentMap[MetricIdentifier, InMemoryGauge[_]],
+      meters: ConcurrentMap[MetricIdentifier, InMemoryMeter],
+      counters: ConcurrentMap[MetricIdentifier, InMemoryCounter],
+      histograms: ConcurrentMap[MetricIdentifier, InMemoryHistogram],
       asyncGauges: ConcurrentMap[MetricIdentifier, () => Any],
   ) {
 
