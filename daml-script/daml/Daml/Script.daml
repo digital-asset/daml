@@ -163,7 +163,7 @@ data CatchPayload a = CatchPayload
     -- TODO(MA): simplify to `act : () -> Free ScriptF LedgerValue`
     act : () -> Free ScriptF (Free ScriptF LedgerValue, ())
     handle : AnyException -> Optional (Free ScriptF LedgerValue)
-    continue : LedgerValue -> a
+    continue : Free ScriptF LedgerValue -> a
   deriving Functor
 
 data ThrowPayload = ThrowPayload
@@ -174,11 +174,11 @@ instance ActionThrow Script where
   throw e = lift (Free (Throw (ThrowPayload (toAnyException e))))
 
 instance ActionCatch Script where
-  _tryCatch : (() -> Script t) -> (AnyException -> Optional (Script t)) -> Script t
+  _tryCatch : forall t. (() -> Script t) -> (AnyException -> Optional (Script t)) -> Script t
   _tryCatch act handle = lift $ Free $ Catch $ CatchPayload with
     act = \() -> fmap (first (pure . toLedgerValue)) $ runScript (act ()) ()
     handle = \e -> fmap (\s -> fmap (toLedgerValue . fst) $ runScript s ()) (handle e)
-    continue = fromLedgerValue : LedgerValue -> Free ScriptF t
+    continue = fmap fromLedgerValue : Free ScriptF LedgerValue -> Free ScriptF t
 #endif
 
 data QueryACS a = QueryACS
