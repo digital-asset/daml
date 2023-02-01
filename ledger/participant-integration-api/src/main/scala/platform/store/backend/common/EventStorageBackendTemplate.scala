@@ -506,6 +506,7 @@ abstract class EventStorageBackendTemplate(
                OR #$parametersTable.participant_all_divulged_contracts_pruned_up_to_inclusive IS NULL
              )
              AND #$createsTable.event_offset <= $pruneUpToInclusive
+             $pruneAfterClause
              -- Only prune create events which did not have a locally hosted party before their creation offset
              AND NOT EXISTS (
               SELECT 1
@@ -518,7 +519,6 @@ abstract class EventStorageBackendTemplate(
             "p.party_id",
           )}
              )
-             $pruneAfterClause
           )
          """
       } else cSQL""""""
@@ -534,7 +534,8 @@ abstract class EventStorageBackendTemplate(
       else
         cSQL"""
           DELETE FROM participant_events_divulgence delete_events
-                WHERE delete_events.contract_id IN (SELECT contract_id FROM deleted_consuming_events)
+                USING deleted_consuming_events
+                WHERE delete_events.contract_id = deleted_consuming_events.contract_id
                   AND delete_events.event_offset <= $pruneUpToInclusive -- TODO pruning: do we even need this guard? Probably not
             """
 
@@ -560,9 +561,7 @@ abstract class EventStorageBackendTemplate(
       )}
            RETURNING contract_id, event_sequential_id, transaction_id
        ),
-       deleted_retroactive_divulgence AS(
-         $retroactiveDivulgencePruning
-       ),
+       deleted_retroactive_divulgence AS($retroactiveDivulgencePruning),
        ${pruneIdFilter(
         eventSequentialIdTableName = "deleted_creates",
         tableName = "pe_create_id_filter_stakeholder",
