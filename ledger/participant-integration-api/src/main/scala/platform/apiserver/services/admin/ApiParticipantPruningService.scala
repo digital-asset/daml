@@ -3,17 +3,10 @@
 
 package com.daml.platform.apiserver.services.admin
 
-import java.util.UUID
 import com.daml.error.definitions.LedgerApiErrors
 import com.daml.error.definitions.groups.RequestValidation.ConcurrentPruningRequestError
 import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
-import com.daml.ledger.api.v1.admin.participant_pruning_service.{
-  LatestPrunedOffsetsRequest,
-  LatestPrunedOffsetsResponse,
-  ParticipantPruningServiceGrpc,
-  PruneRequest,
-  PruneResponse,
-}
+import com.daml.ledger.api.v1.admin.participant_pruning_service._
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.validation.ValidationErrors._
 import com.daml.ledger.offset.Offset
@@ -35,6 +28,7 @@ import com.daml.tracing.Telemetry
 import io.grpc.protobuf.StatusProto
 import io.grpc.{ServerServiceDefinition, StatusRuntimeException}
 
+import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
 import scala.jdk.FutureConverters.CompletionStageOps
 
@@ -43,7 +37,8 @@ final class ApiParticipantPruningService private (
     writeBackend: state.WriteParticipantPruningService,
     metrics: Metrics,
     telemetry: Telemetry,
-)(implicit executionContext: ExecutionContext, loggingContext: LoggingContext)
+    loggingContext: LoggingContext,
+)(implicit executionContext: ExecutionContext)
     extends SinglePruningOpEnforcer
     with GrpcApiService {
 
@@ -55,23 +50,24 @@ final class ApiParticipantPruningService private (
   override def close(): Unit = ()
 
   override def prune(request: PruneRequest): Future[PruneResponse] =
-    withValidatedSubmissionId(request) { submissionId =>
-      LoggingContext.withEnrichedLoggingContext(
-        logging.submissionId(submissionId),
-        traceId(telemetry.traceIdFromGrpcContext),
-      ) { implicit loggingContext =>
-        implicit val contextualizedErrorLogger: ContextualizedErrorLogger =
-          new DamlContextualizedErrorLogger(
-            logger = logger,
-            loggingContext = loggingContext,
-            correlationId = Some(submissionId),
-          )
+    LoggingContext.withEnrichedLoggingContext(traceId(telemetry.traceIdFromGrpcContext)) {
+      implicit lc =>
+        withValidatedSubmissionId(request) { submissionId =>
+          LoggingContext.withEnrichedLoggingContext(logging.submissionId(submissionId)) {
+            implicit lc =>
+              implicit val contextualizedErrorLogger: ContextualizedErrorLogger =
+                new DamlContextualizedErrorLogger(
+                  logger = logger,
+                  loggingContext = lc,
+                  correlationId = Some(submissionId),
+                )
 
-        ifNotRunning {
-          pruneInternal(submissionId, request)
+              ifNotRunning {
+                pruneInternal(submissionId, request)
+              }
+          }
         }
-      }
-    }
+    }(loggingContext)
 
   private def pruneInternal(
       submissionId: IdString.LedgerString,
@@ -108,7 +104,9 @@ final class ApiParticipantPruningService private (
 
   protected def withValidatedSubmissionId(
       request: PruneRequest
-  )(pruneWithSubmissionId: LedgerString => Future[PruneResponse]): Future[PruneResponse] =
+  )(
+      pruneWithSubmissionId: LedgerString => Future[PruneResponse]
+  )(implicit loggingContext: LoggingContext): Future[PruneResponse] =
     Ref.SubmissionId
       .fromString(
         if (request.submissionId.nonEmpty) request.submissionId else UUID.randomUUID().toString
@@ -231,13 +229,14 @@ final class ApiParticipantPruningService private (
   override def latestPrunedOffsets(
       request: LatestPrunedOffsetsRequest
   ): Future[LatestPrunedOffsetsResponse] =
-    readBackend.lastPrunedOffsets().map { case (divulgencePrunedUpTo, prunedUpToInclusive) =>
-      LatestPrunedOffsetsResponse(
-        participantPrunedUpToInclusive =
-          Some(LedgerOffset(LedgerOffset.Value.Absolute(divulgencePrunedUpTo.value))),
-        allDivulgedContractsPrunedUpToInclusive =
-          Some(LedgerOffset(LedgerOffset.Value.Absolute(prunedUpToInclusive.value))),
-      )
+    readBackend.lastPrunedOffsets()(loggingContext).map {
+      case (divulgencePrunedUpTo, prunedUpToInclusive) =>
+        LatestPrunedOffsetsResponse(
+          participantPrunedUpToInclusive =
+            Some(LedgerOffset(LedgerOffset.Value.Absolute(divulgencePrunedUpTo.value))),
+          allDivulgedContractsPrunedUpToInclusive =
+            Some(LedgerOffset(LedgerOffset.Value.Absolute(prunedUpToInclusive.value))),
+        )
     }
 }
 
@@ -249,20 +248,12 @@ trait SinglePruningOpEnforcer extends ParticipantPruningServiceGrpc.ParticipantP
       pruningRequest: => Future[PruneResponse]
   )(implicit errorLogger: ContextualizedErrorLogger): Future[PruneResponse] =
     synchronized {
-      def accept(): Future[PruneResponse] = {
+      if (ongoingRequestF.forall(_.isCompleted)) {
         val newRequest = pruningRequest
         ongoingRequestF = Some(newRequest)
         newRequest
-      }
-
-      ongoingRequestF match {
-        case None => accept()
-        case Some(currentF) =>
-          if (currentF.isCompleted) accept()
-          else {
-            // TODO pruning: Consider logging and returning the pruning request correlation id
-            Future.failed(ConcurrentPruningRequestError.Reject().asGrpcError)
-          }
+      } else { // TODO pruning: Consider logging and returning the pruning request correlation id
+        Future.failed(ConcurrentPruningRequestError.Reject().asGrpcError)
       }
     }
 }
@@ -277,6 +268,6 @@ object ApiParticipantPruningService {
       executionContext: ExecutionContext,
       loggingContext: LoggingContext,
   ): ParticipantPruningServiceGrpc.ParticipantPruningService with GrpcApiService =
-    new ApiParticipantPruningService(readBackend, writeBackend, metrics, telemetry)
+    new ApiParticipantPruningService(readBackend, writeBackend, metrics, telemetry, loggingContext)
 
 }
