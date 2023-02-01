@@ -603,6 +603,30 @@ conformance_test(
     ],
 )
 
+conformance_test(
+    name = "conformance-test-static-time2",
+    ports = [6865],
+    server = ":app",
+    server_args = ["run"],
+    server_hocon_config = """
+    {
+      ledger.participants.default {
+        api-server {
+          seeding = testing-weak
+          user-management {
+            enabled = true
+            max-rights-per-user = 100
+          }
+        }
+      }
+    }
+    """,
+    test_tool_args = [
+        "--verbose",
+        "--include=UserManagementServiceIT:RaceConditionGrantRights",
+    ],
+)
+
 server_conformance_test(
     name = "conformance-test-lf-latest",
     hocon = True,
