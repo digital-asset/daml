@@ -1116,50 +1116,58 @@ ofInterestRule = do
     defineNoFile $ \OfInterest -> do
         setPriority priorityFilesOfInterest
         DamlEnv{..} <- getDamlServiceEnv
+
         -- query for files of interest
-        files   <- getFilesOfInterest
         openVRs <- useNoFile_ GetOpenVirtualResources
-        let vrFiles = HashSet.map vrScenarioFile openVRs
-        -- We run scenarios for all files of interest to get diagnostics
-        -- and for the files for which we have open VRs so that they get
-        -- updated.
-        let scenarioFiles = files `HashSet.union` vrFiles
-        gc scenarioFiles
-        let openVRsByFile = HashMap.fromListWith (<>) (map (\vr -> (vrScenarioFile vr, [vr])) $ HashSet.toList openVRs)
-        -- compile and notify any errors
-        let runScenarios file = do
-                world <- worldForFile file
-                mbScenarioVrs <- use RunScenarios file
-                mbScriptVrs <- use RunScripts file
-                let vrs = fromMaybe [] mbScenarioVrs ++ fromMaybe [] mbScriptVrs
-                forM_ vrs $ \(vr, res) -> do
-                    let doc = formatScenarioResult world res
-                    when (vr `HashSet.member` openVRs) $
-                        vrChangedNotification vr doc
-                let vrScenarioNames = Set.fromList $ fmap (vrScenarioName . fst) vrs
-                forM_ (HashMap.lookupDefault [] file openVRsByFile) $ \ovr -> do
-                    when (not $ vrScenarioName ovr `Set.member` vrScenarioNames) $
-                        vrNoteSetNotification ovr $ LF.scenarioNotInFileNote $
-                        T.pack $ fromNormalizedFilePath file
+        let vrFiles =
+                HashMap.fromListWith (<>)
+                    (map (\vr -> (vrScenarioFile vr, [vr])) $ HashSet.toList openVRs)
+        gc (HashMap.keysSet vrFiles)
 
-        -- We don’t always have a scenario service (e.g., damlc compile)
-        -- so only run scenarios if we have one.
-        let shouldRunScenarios = isJust envScenarioService
-
-        let notifyOpenVrsOnGetDalfError file = do
+        -- Check files that can't be compiled
+        let checkUncompilableFiles = flip map (HashMap.keys vrFiles) $ \file -> do
             mbDalf <- getDalf file
             when (isNothing mbDalf) $ do
-                forM_ (HashMap.lookupDefault [] file openVRsByFile) $ \ovr ->
+                forM_ (HashMap.lookupDefault [] file vrFiles) $ \ovr ->
                     vrNoteSetNotification ovr $ LF.fileWScenarioNoLongerCompilesNote $ T.pack $
                         fromNormalizedFilePath file
 
-        let files = HashSet.toList scenarioFiles
-        let dalfActions = [notifyOpenVrsOnGetDalfError f | f <- files]
-        let dlintActions = [use_ GetDlintDiagnostics f | f <- files]
-        let runScenarioActions = [runScenarios f | shouldRunScenarios, f <- files]
+        -- Check diagnostics from Dlint
+        let dlintActions = map (use_ GetDlintDiagnostics) (HashMap.keys vrFiles)
+
+        -- Run any open scenarios to report their results
+        let runScenarioActions =
+                if isJust envScenarioService -- only run scenarios when we have a service
+                    then map runScenario (HashSet.toList openVRs)
+                    else []
+
+        -- Run all in parallel
         _ <- parallel $ dalfActions <> dlintActions <> runScenarioActions
         return ()
   where
+      -- Run a single scenario
+      runScenario vr = do
+          -- Extract file with world info
+          let file = vrScenarioFile vr
+          world <- worldForFile file
+
+          -- Run either the scenario or the script in the appropriate file
+          mbScenarioVrs <- use (RunSingleScenario (vrScenarioName vr)) file
+          mbScriptVrs <- use (RunSingleScript (vrScenarioName vr)) file
+          let vrResults = fromMaybe [] mbScenarioVrs ++ fromMaybe [] mbScriptVrs
+
+          -- Should be a singleton list, send results via LSP
+          forM_ vrResults $ \(vr, res) -> do
+              vrFormattingStartedNotification vr
+              let doc = formatScenarioResult world res
+              vrChangedNotification vr doc
+
+          -- If the scenario name is not in the results, the scenario no
+          -- longer exists on this file - Notify the client via LSP
+          when (vrScenarioName vr `notElem` map (vrScenarioName . fst) vrResults) $
+              vrNoteSetNotification vr $ LF.scenarioNotInFileNote $
+              T.pack $ fromNormalizedFilePath file
+
       gc :: HashSet.HashSet NormalizedFilePath -> Action ()
       gc roots = do
         depInfoOrErr <- sequence <$> uses GetDependencyInformation (HashSet.toList roots)
