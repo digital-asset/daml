@@ -147,6 +147,36 @@ object AuthServiceJWTCodec {
     case v: StandardJWTPayload if v.format == StandardJWTTokenFormat.Scope =>
       JsObject(
         propIss -> writeOptionalString(v.issuer),
+        propAud -> writeOptionalString(v.participantId),
+        "sub" -> JsString(v.userId),
+        "exp" -> writeOptionalInstant(v.exp),
+        "scope" -> JsString(scopeLedgerApiFull),
+      )
+    case v: StandardJWTPayload =>
+      JsObject(
+        propIss -> writeOptionalString(v.issuer),
+        propAud -> JsString(audPrefix + v.participantId.getOrElse("")),
+        "sub" -> JsString(v.userId),
+        "exp" -> writeOptionalInstant(v.exp),
+      )
+  }
+
+  def writeAudienceBasedPayload: AuthServiceJWTPayload => JsValue = {
+    case v: CustomDamlJWTPayload =>
+      JsObject(
+        oidcNamespace -> JsObject(
+          propLedgerId -> writeOptionalString(v.ledgerId),
+          propParticipantId -> writeOptionalString(v.participantId),
+          propApplicationId -> writeOptionalString(v.applicationId),
+          propAdmin -> JsBoolean(v.admin),
+          propActAs -> writeStringList(v.actAs),
+          propReadAs -> writeStringList(v.readAs),
+        ),
+        propExp -> writeOptionalInstant(v.exp),
+      )
+    case v: StandardJWTPayload if v.format == StandardJWTTokenFormat.Scope =>
+      JsObject(
+        propIss -> writeOptionalString(v.issuer),
         propAud -> writeStringList(v.audiences),
         "sub" -> JsString(v.userId),
         "exp" -> writeOptionalInstant(v.exp),
@@ -374,7 +404,7 @@ object AuthServiceJWTCodec {
   }
   object AudienceBasedTokenJsonImplicits extends DefaultJsonProtocol {
     implicit object AuthServiceJWTPayloadFormat extends RootJsonFormat[AuthServiceJWTPayload] {
-      override def write(v: AuthServiceJWTPayload): JsValue = writePayload(v)
+      override def write(v: AuthServiceJWTPayload): JsValue = writeAudienceBasedPayload(v)
 
       override def read(json: JsValue): AuthServiceJWTPayload = readAudienceBasedToken(json)
     }
