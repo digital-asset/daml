@@ -44,6 +44,28 @@ do
 
 .. _daml-ref-create:
 
+archive
+*******
+
+.. code-block:: daml
+
+   archive ContractId
+
+- ``archive`` function.
+- Archives a contract already created and residing on the ledger. The contract is fetched by its unique contract identifier ``ContractId <name of template>`` and then exercises the `Archive` choice on it.
+- Returns unit.
+- Requires authorization from the contract controllers/signatories. Without the required authorization, the transaction fails. For more detail on authorization, see :ref:`daml-ref-signatories`.
+
+- All templates implicitly have an `Archive` choice that cannot be removed, which is equivalent to:
+
+.. code-block:: daml
+
+   choice Archive : ()
+     controller (signatory this)
+     do return ()
+
+.. _daml-ref-archive:
+
 create
 ******
 
@@ -53,8 +75,7 @@ create
 
 - ``create`` function.
 - Creates a contract on the ledger. When a contract is committed to the ledger, it is given a unique contract identifier of type ``ContractId <name of template>``.
-
-  Creating the contract returns that ``ContractId``.
+- Creating the contract returns that ``ContractId``.
 - Use ``with`` to specify the template parameters.
 - Requires authorization from the signatories of the contract being created. This is given by being signatories of the contract from which the other contract is created, being the controller, or explicitly creating the contract itself.
 
