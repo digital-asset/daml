@@ -979,20 +979,22 @@ private[lf] class Runner private (
           "state" -> triggerUserState(state, trigger.defn.level),
           "message" -> messageVal.value,
         )
-        triggerContext.logInfo(
-          "Trigger metrics",
-          "metrics" -> LoggingValue.Nested(
-            LoggingEntries(
-              "in-flight" -> numberOfInFlightCommands(state),
-              "acs" -> LoggingValue.Nested(
-                LoggingEntries(
-                  "active" -> numberOfActiveContracts(state),
-                  "pending" -> numberOfPendingContracts(state),
-                )
-              ),
-            )
-          ),
-        )
+        if (trigger.defn.level == Trigger.Level.High) {
+          triggerContext.logInfo(
+            "Trigger metrics",
+            "metrics" -> LoggingValue.Nested(
+              LoggingEntries(
+                "in-flight" -> numberOfInFlightCommands(state, trigger.defn.level),
+                "acs" -> LoggingValue.Nested(
+                  LoggingEntries(
+                    "active" -> numberOfActiveContracts(state, trigger.defn.level),
+                    "pending" -> numberOfPendingContracts(state, trigger.defn.level),
+                  )
+                ),
+              )
+            ),
+          )
+        }
 
         val clientTime: Timestamp =
           Timestamp.assertFromInstant(Runner.getTimeProvider(timeProviderType).getCurrentTime)
@@ -1018,32 +1020,39 @@ private[lf] class Runner private (
                   "Trigger rule state updated",
                   "state" -> triggerUserState(state, trigger.defn.level),
                 )
-                triggerContext.logInfo(
-                  "Trigger metrics",
-                  "metrics" -> LoggingValue.Nested(
-                    LoggingEntries(
-                      "in-flight" -> numberOfInFlightCommands(state),
-                      "acs" -> LoggingValue.Nested(
-                        LoggingEntries(
-                          "active" -> numberOfActiveContracts(state),
-                          "pending" -> numberOfPendingContracts(state),
-                        )
-                      ),
-                    )
-                  ),
-                )
-
-                val activeContracts = numberOfActiveContracts(newState)
-                if (activeContracts > triggerConfig.maximumActiveContracts) {
-                  triggerContext.logError(
-                    "Due to an excessive number of active contracts, stopping the trigger",
-                    "active-contracts" -> activeContracts,
-                    "active-contract-overflow-count" -> triggerConfig.maximumActiveContracts,
+                if (trigger.defn.level == Trigger.Level.High) {
+                  triggerContext.logInfo(
+                    "Trigger metrics",
+                    "metrics" -> LoggingValue.Nested(
+                      LoggingEntries(
+                        "in-flight" -> numberOfInFlightCommands(state, trigger.defn.level),
+                        "acs" -> LoggingValue.Nested(
+                          LoggingEntries(
+                            "active" -> numberOfActiveContracts(state, trigger.defn.level),
+                            "pending" -> numberOfPendingContracts(state, trigger.defn.level),
+                          )
+                        ),
+                      )
+                    ),
                   )
-                  throw ACSOverflowException(activeContracts, triggerConfig.maximumActiveContracts)
                 }
 
-                newState
+                numberOfActiveContracts(newState, trigger.defn.level) match {
+                  case Some(activeContracts)
+                      if activeContracts > triggerConfig.maximumActiveContracts =>
+                    triggerContext.logError(
+                      "Due to an excessive number of active contracts, stopping the trigger",
+                      "active-contracts" -> activeContracts,
+                      "active-contract-overflow-count" -> triggerConfig.maximumActiveContracts,
+                    )
+                    throw ACSOverflowException(
+                      activeContracts,
+                      triggerConfig.maximumActiveContracts,
+                    )
+
+                  case _ =>
+                    newState
+                }
               },
             ).orConverterException
           )
@@ -1275,60 +1284,81 @@ object Runner {
   }
 
   private def mapSize(smap: SValue): Int = {
-    smap.expect("SMap", { case SMap(_, values) => values.size }).getOrElse(0)
+    smap.expect("SMap", { case SMap(_, values) => values.size }).orConverterException
   }
 
   private def listSize(smap: SValue): Int = {
-    smap.expect("SList", { case SList(values) => values.length }).getOrElse(0)
+    smap.expect("SList", { case SList(values) => values.length }).orConverterException
   }
 
-  private def numberOfActiveContracts(svalue: SValue): Int = {
-    // svalue: TriggerState s
-    val result = for {
-      acs <- svalue.expect("SRecord", { case SRecord(_, _, values) => values.get(0) })
-      activeContracts <- acs.expect("SRecord", { case SRecord(_, _, values) => values.get(0) })
-      size <- activeContracts.expect(
-        "SMap",
-        { case SMap(_, values) => values.values.map(mapSize).sum },
-      )
-    } yield size
+  private def numberOfActiveContracts(svalue: SValue, level: Trigger.Level): Option[Int] = {
+    level match {
+      case Trigger.Level.High =>
+        // The following code should be kept in sync with the ACS variant type in Internal.daml
+        // svalue: TriggerState s
+        val result = for {
+          acs <- svalue.expect("SRecord", { case SRecord(_, _, values) => values.get(0) })
+          activeContracts <- acs.expect("SRecord", { case SRecord(_, _, values) => values.get(0) })
+          size <- activeContracts.expect(
+            "SMap",
+            { case SMap(_, values) => values.values.map(mapSize).sum },
+          )
+        } yield size
 
-    result.getOrElse(0)
+        Some(result.orConverterException)
+
+      case Trigger.Level.Low =>
+        None
+    }
   }
 
-  private def numberOfPendingContracts(svalue: SValue): Int = {
-    // svalue: TriggerState s
-    val result = for {
-      acs <- svalue.expect("SRecord", { case SRecord(_, _, values) => values.get(0) })
-      pendingContracts <- acs.expect(
-        "SRecord",
-        { case SRecord(_, _, values) if values.size() >= 1 => values.get(1) },
-      )
-      size <- pendingContracts.expect(
-        "SMap",
-        { case SMap(_, values) => values.values.map(listSize).sum },
-      )
-    } yield size
+  private def numberOfPendingContracts(svalue: SValue, level: Trigger.Level): Option[Int] = {
+    level match {
+      case Trigger.Level.High =>
+        // The following code should be kept in sync with the ACS variant type in Internal.daml
+        // svalue: TriggerState s
+        val result = for {
+          acs <- svalue.expect("SRecord", { case SRecord(_, _, values) => values.get(0) })
+          pendingContracts <- acs.expect(
+            "SRecord",
+            { case SRecord(_, _, values) if values.size() >= 1 => values.get(1) },
+          )
+          size <- pendingContracts.expect(
+            "SMap",
+            { case SMap(_, values) => values.values.map(listSize).sum },
+          )
+        } yield size
 
-    result.getOrElse(0)
+        Some(result.orConverterException)
+
+      case Trigger.Level.Low =>
+        None
+    }
   }
 
-  private def numberOfInFlightCommands(svalue: SValue): Int = {
-    // svalue: TriggerState s
-    val result = for {
-      inFlightCommands <- svalue.expect(
-        "SRecord",
-        { case SRecord(_, _, values) if values.size() >= 4 => values.get(4) },
-      )
-    } yield mapSize(inFlightCommands)
+  private def numberOfInFlightCommands(svalue: SValue, level: Trigger.Level): Option[Int] = {
+    level match {
+      case Trigger.Level.High =>
+        // The following code should be kept in sync with the TriggerState record type in Internal.daml
+        // svalue: TriggerState s
+        val result = for {
+          inFlightCommands <- svalue.expect(
+            "SRecord",
+            { case SRecord(_, _, values) if values.size() >= 4 => values.get(4) },
+          )
+        } yield mapSize(inFlightCommands)
 
-    result.getOrElse(0)
+        Some(result.orConverterException)
+
+      case Trigger.Level.Low =>
+        None
+    }
   }
 
   private def triggerUserState(state: SValue, level: Trigger.Level): SValue = {
-    // state: TriggerState s
     level match {
       case Trigger.Level.High =>
+        // state: TriggerState s
         state
           .expect(
             "SRecord",
@@ -1344,6 +1374,7 @@ object Runner {
   }
 
   private def isSubmissionFailure(svalue: SValue): Boolean = {
+    // svalue: Message
     val result = for {
       values <- svalue.expect(
         "SVariant",
@@ -1359,6 +1390,7 @@ object Runner {
   }
 
   private def isSubmissionSuccess(svalue: SValue): Boolean = {
+    // svalue: Message
     val result = for {
       values <- svalue.expect(
         "SVariant",
@@ -1374,14 +1406,17 @@ object Runner {
   }
 
   private def isTransaction(svalue: SValue): Boolean = {
+    // svalue: Message
     svalue.expect("SVariant", { case SVariant(_, "MTransaction", _, _) => true }).isRight
   }
 
   private def isCreateEvent(svalue: SValue): Boolean = {
+    // svalue: Event
     svalue.expect("SVariant", { case SVariant(_, "CreatedEvent", _, _) => true }).isRight
   }
 
   private def numberOfCreateEvents(svalue: SValue): Int = {
+    // svalue: Message
     val result = for {
       values <- svalue.expect(
         "SVariant",
@@ -1397,10 +1432,12 @@ object Runner {
   }
 
   private def isArchiveEvent(svalue: SValue): Boolean = {
+    // svalue: Event
     svalue.expect("SVariant", { case SVariant(_, "ArchivedEvent", _, _) => true }).isRight
   }
 
   private def numberOfArchiveEvents(svalue: SValue): Int = {
+    // svalue: Message
     val result = for {
       values <- svalue.expect(
         "SVariant",
@@ -1416,6 +1453,7 @@ object Runner {
   }
 
   private def isHeartbeat(svalue: SValue): Boolean = {
+    // svalue: Message
     svalue
       .expect(
         "SVariant",

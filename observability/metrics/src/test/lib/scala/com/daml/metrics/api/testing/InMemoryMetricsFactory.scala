@@ -38,7 +38,7 @@ class InMemoryMetricsFactory extends LabeledMetricsFactory {
 
   override def gauge[T](name: MetricName, initial: T, description: String)(implicit
       context: MetricsContext
-  ): MetricHandle.Gauge[T] = InMemoryGauge(context)
+  ): MetricHandle.Gauge[T] = InMemoryGauge(context, initial)
 
   override def gaugeWithSupplier[T](
       name: MetricName,
@@ -106,8 +106,8 @@ object InMemoryMetricsFactory extends InMemoryMetricsFactory {
 
   }
 
-  case class InMemoryGauge[T](context: MetricsContext) extends Gauge[T] {
-    val value = new AtomicReference[T]()
+  case class InMemoryGauge[T](context: MetricsContext, initial: T) extends Gauge[T] {
+    val value = new AtomicReference[T](initial)
 
     override def name: String = "test"
 
