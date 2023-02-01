@@ -1117,15 +1117,19 @@ ofInterestRule = do
         setPriority priorityFilesOfInterest
         DamlEnv{..} <- getDamlServiceEnv
 
-        -- query for files of interest
+        -- query for files of interest & open scripts/scenarios
+        files <- getFilesOfInterest
         openVRs <- useNoFile_ GetOpenVirtualResources
         let vrFiles =
                 HashMap.fromListWith (<>)
                     (map (\vr -> (vrScenarioFile vr, [vr])) $ HashSet.toList openVRs)
-        gc (HashMap.keysSet vrFiles)
+
+        -- determine all files
+        let allFiles = files `HashSet.union` HashMap.keysSet vrFiles
+        gc allFiles
 
         -- Check files that can't be compiled
-        let checkUncompilableFiles = flip map (HashMap.keys vrFiles) $ \file -> do
+        let checkUncompilableFiles = flip map (HashSet.toList allFiles) $ \file -> do
             mbDalf <- getDalf file
             when (isNothing mbDalf) $ do
                 forM_ (HashMap.lookupDefault [] file vrFiles) $ \ovr ->
@@ -1133,7 +1137,7 @@ ofInterestRule = do
                         fromNormalizedFilePath file
 
         -- Check diagnostics from Dlint
-        let dlintActions = map (use_ GetDlintDiagnostics) (HashMap.keys vrFiles)
+        let dlintActions = map (use_ GetDlintDiagnostics) (HashSet.toList allFiles)
 
         -- Run any open scenarios to report their results
         let runScenarioActions =
