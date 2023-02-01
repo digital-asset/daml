@@ -149,7 +149,7 @@ data ScriptF a
 #ifndef DAML_EXCEPTIONS
   deriving Functor
 #else
-  | Catch (CatchPayload a)
+  | Catch (CatchPayload LedgerValue a)
   | Throw ThrowPayload
   deriving Functor
 
@@ -158,13 +158,18 @@ data ScriptF a
 --   act = \() -> x
 --   handle = f
 --   continue = g
-data CatchPayload a = CatchPayload
+data CatchPayload x a = CatchPayload
   with
-    -- TODO(MA): simplify to `act : () -> Free ScriptF LedgerValue`
-    act : () -> Free ScriptF (Free ScriptF LedgerValue, ())
-    handle : AnyException -> Optional (Free ScriptF LedgerValue)
-    continue : Free ScriptF LedgerValue -> a
+    -- TODO(MA): simplify to `act : () -> Free ScriptF x`
+    act : () -> Free ScriptF (Free ScriptF x, ())
+    handle : AnyException -> Optional (Free ScriptF x)
+    continue : Free ScriptF x -> a
   deriving Functor
+
+-- This wraps a `CatchPayload` whose inner action returns an `x` into an
+-- existential - we forget what `x` was.
+castCatchPayload : CatchPayload x a -> CatchPayload LedgerValue a
+castCatchPayload = error "foobar" -- gets replaced by the identity-function in script/Runner.scala
 
 data ThrowPayload = ThrowPayload
   with
@@ -175,10 +180,13 @@ instance ActionThrow Script where
 
 instance ActionCatch Script where
   _tryCatch : forall t. (() -> Script t) -> (AnyException -> Optional (Script t)) -> Script t
-  _tryCatch act handle = lift $ Free $ Catch $ CatchPayload with
-    act = \() -> fmap (first (pure . toLedgerValue)) $ runScript (act ()) ()
-    handle = \e -> fmap (\s -> fmap (toLedgerValue . fst) $ runScript s ()) (handle e)
-    continue = fmap fromLedgerValue : Free ScriptF LedgerValue -> Free ScriptF t
+  _tryCatch act handle = lift $ Free $ Catch $ castCatchPayload payload
+    where
+      payload : CatchPayload t (Free ScriptF t)
+      payload = CatchPayload with
+        act = \() -> fmap (first pure) $ runScript (act ()) ()
+        handle = \e -> fmap (\s -> fmap fst $ runScript s ()) (handle e)
+        continue = identity
 #endif
 
 data QueryACS a = QueryACS
@@ -586,9 +594,6 @@ data LedgerValue = LedgerValue {}
 
 fromLedgerValue : LedgerValue -> a
 fromLedgerValue = error "foobar" -- gets replaced by the identity-function in script/Runner.scala
-
-toLedgerValue : a -> LedgerValue
-toLedgerValue = error "foobar" -- gets replaced by the identity-function in script/Runner.scala
 
 -- | HIDE A version of 'createCmd' without constraints.
 --

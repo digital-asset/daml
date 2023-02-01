@@ -390,14 +390,16 @@ private[lf] class Runner(
     timeMode: ScriptTimeMode,
 ) extends StrictLogging {
 
-  // We overwrite 'fromLedgerValue' and 'toLedgerValue' with identity functions.
-  // These are type errors but Speedy doesn’t care about the types and the only thing we do
-  // with the result is convert it to ledger values/record so it's safe.
+  // We overwrite the definition of 'fromLedgerValue' with an identity function.
+  // This is a type error but Speedy doesn’t care about the types and the only thing we do
+  // with the result is convert it to ledger values/record so this is safe.
+  // We do the same substitution for 'castCatchPayload' to circumvent Daml's
+  // lack of existential types.
   private val extendedCompiledPackages = {
     val damlScriptDefs: PartialFunction[SDefinitionRef, SDefinition] = {
       case LfDefRef(id) if id == script.scriptIds.damlScript("fromLedgerValue") =>
         SDefinition(SEMakeClo(Array(), 1, SELocA(0)))
-      case LfDefRef(id) if id == script.scriptIds.damlScript("toLedgerValue") =>
+      case LfDefRef(id) if id == script.scriptIds.damlScript("castCatchPayload") =>
         SDefinition(SEMakeClo(Array(), 1, SELocA(0)))
     }
     new CompiledPackages(Runner.compilerConfig) {
