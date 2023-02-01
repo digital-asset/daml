@@ -1142,7 +1142,7 @@ ofInterestRule = do
                     else []
 
         -- Run all in parallel
-        _ <- parallel $ dalfActions <> dlintActions <> runScenarioActions
+        _ <- parallel $ checkUncompilableFiles <> dlintActions <> runScenarioActions
         return ()
   where
       -- Run a single scenario
