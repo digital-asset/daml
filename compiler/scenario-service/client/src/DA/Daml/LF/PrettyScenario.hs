@@ -496,7 +496,7 @@ prettyScenarioErrorError (Just err) =  do
         , label_ "Key Hash: " $ ltext keyHash
         ]
     ScenarioErrorErrorEvaluationTimeout timeout ->
-      pure $ text $ T.pack $ "Evaluation times out after " <> show timeout <> " seconds"
+      pure $ text $ T.pack $ "Evaluation timed out after " <> show timeout <> " seconds"
 
 partyDifference :: V.Vector Party -> V.Vector Party -> Doc SyntaxClass
 partyDifference with without =

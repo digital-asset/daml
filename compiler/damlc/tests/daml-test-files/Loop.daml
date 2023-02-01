@@ -8,7 +8,7 @@ module Loop where
 loop : Int -> ()
 loop x = loop (x + 1) 
 
--- @ERROR range=12:1-12:25; Evaluation times out after 5 seconds
+-- @ERROR range=12:1-12:25; Evaluation timed out after 5 seconds
 loop_in_scenario_machine = scenario do
   alice <- getParty "p"
   pure $ loop 1
@@ -23,7 +23,7 @@ template Helper
       do
         pure $ loop 1
 
--- @ERROR range=27:1-27:23; Evaluation times out after 5 seconds
+-- @ERROR range=27:1-27:23; Evaluation timed out after 5 seconds
 loop_in_ledger_machine = scenario do 
    alice <- getParty "p"
    alice `submit` createAndExercise (Helper alice) Go

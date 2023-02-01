@@ -38,7 +38,6 @@ private final case class ScenarioServiceConfig(
 private object ScenarioServiceConfig {
   // default to 128MB
   val DefaultMaxInboundMessageSize: Int = 128 * 1024 * 1024
-  val DefaultTimeout = 60.seconds
 
   val parser = new scopt.OptionParser[ScenarioServiceConfig]("scenario-service") {
     head("scenario-service")
