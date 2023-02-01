@@ -581,12 +581,10 @@ abstract class EventStorageBackendTemplate(
       ${pruneIdFilter(
         eventSequentialIdTableName = "deleted_nonconsuming_events",
         tableName = "pe_non_consuming_id_filter_informee",
-      )},
-      ${pruneTransactionMeta("deleted_creates")}
+      )}
 
-         -- TODO use RETURNING
-         DELETE FROM participant_events_consuming_exercise delete_events
-               WHERE delete_events.contract_id IN (SELECT contract_id FROM deleted_consuming_events)
+      DELETE FROM participant_transaction_meta m
+      WHERE m.event_offset <= $pruneUpToInclusive
        """)(connection, loggingContext)
   }
 
@@ -810,27 +808,6 @@ abstract class EventStorageBackendTemplate(
          )
        SELECT MAX(event_offset) AS max_offset_in_window FROM next_offsets_chunk"""
       .as(offset("max_offset_in_window").?.single)(connection)
-
-  /** Callers can call it only once pruning of create, consuming and non-consuming event tables has already finished.
-    * The implementation assumes that these tables have already been pruned.
-    */
-  private def pruneTransactionMeta(prunedCreatesTransactionIdsTable: String) =
-    cSQL"""
-         delete_from_participant_transaction_meta AS (
-            DELETE FROM
-               participant_transaction_meta m
-            WHERE
-             m.transaction_id IN (SELECT transaction_id FROM #$prunedCreatesTransactionIdsTable)
-             AND
-             NOT EXISTS (
-               SELECT 1 FROM participant_events_create c
-               WHERE
-                 c.event_sequential_id >= m.event_sequential_id_first
-                 AND
-                 c.event_sequential_id <= m.event_sequential_id_last
-             )
-         )
-       """
 
   private def pruneIdFilter(eventSequentialIdTableName: String, tableName: String) =
     cSQL"""
