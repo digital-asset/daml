@@ -485,112 +485,110 @@ abstract class EventStorageBackendTemplate(
   )(connection: Connection, loggingContext: LoggingContext): Unit = {
     import com.daml.platform.store.backend.Conversions.OffsetToStatement
 
+    def orClauseOnImmediateDivulgencePruning(
+        createsTable: String,
+        parametersTable: String,
+    ): ComposableQuery.CompositeSql =
+      if (pruneAllDivulgedContracts) {
+        val pruneAfterClause = {
+          // We need to distinguish between the two cases since lexicographical comparison
+          // in Oracle doesn't work with '' (empty strings are treated as NULLs) as one of the operands
+          participantAllDivulgedContractsPrunedUpToInclusive(connection) match {
+            case Some(pruneAfter) => cSQL"and event_offset > $pruneAfter"
+            case None => cSQL""
+          }
+        }
+
+        cSQL"""
+            OR(
+             (
+               #$createsTable.event_offset > #$parametersTable.participant_all_divulged_contracts_pruned_up_to_inclusive -- TODO pruning check
+               OR #$parametersTable.participant_all_divulged_contracts_pruned_up_to_inclusive IS NULL
+             )
+             AND #$createsTable.event_offset <= $pruneUpToInclusive
+             -- Only prune create events which did not have a locally hosted party before their creation offset
+             AND NOT EXISTS (
+              SELECT 1
+                FROM party_entries p
+               WHERE p.typ = 'accept'
+                 AND p.ledger_offset <= #$createsTable.event_offset
+                 AND #${queryStrategy.isTrue("p.is_local")}
+                 AND #${queryStrategy.arrayContains(
+            s"$createsTable.flat_event_witnesses",
+            "p.party_id",
+          )}
+             )
+             $pruneAfterClause
+          )
+         """
+      } else cSQL""""""
+
+    val retroactiveDivulgencePruning =
+      if (pruneAllDivulgedContracts)
+        cSQL"""
+          -- Retroactive divulgence events
+          DELETE FROM participant_events_divulgence delete_events
+                WHERE delete_events.event_offset <= $pruneUpToInclusive
+                   OR delete_events.event_offset IS NULL
+          """
+      else
+        cSQL"""
+          DELETE FROM participant_events_divulgence delete_events
+                WHERE delete_events.contract_id IN (SELECT contract_id FROM deleted_consuming_events)
+                  AND delete_events.event_offset <= $pruneUpToInclusive -- TODO pruning: do we even need this guard? Probably not
+            """
+
     pruneWithLogging("prune all")(SQL"""
-       WITH archived_events AS (
-         SELECT contract_id, event_sequential_id
-           FROM participant_events_consuming_exercise
-          WHERE event_offset <= $pruneUpToInclusive
+       WITH
+       deleted_consuming_events AS (
+          DELETE FROM participant_events_consuming_exercise
+                WHERE event_offset <= $pruneUpToInclusive
+            RETURNING contract_id, event_sequential_id
+       ),
+       deleted_nonconsuming_events AS (
+          DELETE FROM participant_events_non_consuming_exercise
+                WHERE event_offset <= $pruneUpToInclusive
+            RETURNING event_sequential_id
+       ),
+       deleted_creates AS (
+          DELETE FROM participant_events_create creates_to_be_deleted
+                USING parameters
+                WHERE creates_to_be_deleted.contract_id IN (SELECT contract_id FROM deleted_consuming_events)
+          ${orClauseOnImmediateDivulgencePruning(
+        createsTable = "creates_to_be_deleted",
+        parametersTable = "parameters",
+      )}
+           RETURNING contract_id, event_sequential_id, transaction_id
        ),
        deleted_retroactive_divulgence AS(
-         -- Retroactive divulgence events (only for contracts archived before the specified offset)
-         DELETE FROM participant_events_divulgence delete_events
-               WHERE delete_events.contract_id IN (SELECT contract_id FROM archived_events)
-                 AND delete_events.event_offset <= $pruneUpToInclusive -- TODO pruning: do we even need this guard? Probably not
-       ),
-       created_events_to_be_deleted AS (
-         SELECT contract_id, event_sequential_id FROM participant_events_create creates_to_be_deleted
-               WHERE creates_to_be_deleted.contract_id IN (SELECT contract_id FROM archived_events)
-       ),
-       nonconsuming_events_to_be_deleted AS (
-          SELECT contract_id, event_sequential_id FROM participant_events_non_consuming_exercise nonconsuming_to_be_deleted
-            WHERE nonconsuming_to_be_deleted.contract_id IN (SELECT contract_id FROM archived_events)
-       ),
-       deleted_create_events AS (
-         -- Create events (only for contracts archived before the specified offset)
-         DELETE FROM participant_events_create delete_events
-               WHERE delete_events.contract_id IN (SELECT contract_id FROM created_events_to_be_deleted)
-       ),
-       deleted_nonconsuming AS (
-         -- Non-consuming exercises
-         DELETE FROM participant_events_non_consuming_exercise delete_events
-            WHERE delete_events.contract_id IN (SELECT contract_id FROM archived_events)
+         $retroactiveDivulgencePruning
        ),
        ${pruneIdFilter(
-        eventSequentialIdTableName = "created_events_to_be_deleted",
+        eventSequentialIdTableName = "deleted_creates",
         tableName = "pe_create_id_filter_stakeholder",
       )},
        ${pruneIdFilter(
-        eventSequentialIdTableName = "created_events_to_be_deleted",
+        eventSequentialIdTableName = "deleted_creates",
         tableName = "pe_create_id_filter_non_stakeholder_informee",
       )},
       ${pruneIdFilter(
-        eventSequentialIdTableName = "archived_events",
+        eventSequentialIdTableName = "deleted_consuming_events",
         tableName = "pe_consuming_id_filter_stakeholder",
       )},
       ${pruneIdFilter(
-        eventSequentialIdTableName = "archived_events",
+        eventSequentialIdTableName = "deleted_consuming_events",
         tableName = "pe_consuming_id_filter_non_stakeholder_informee",
       )},
       ${pruneIdFilter(
-        eventSequentialIdTableName = "nonconsuming_events_to_be_deleted",
+        eventSequentialIdTableName = "deleted_nonconsuming_events",
         tableName = "pe_non_consuming_id_filter_informee",
-      )}
-      
+      )},
+      ${pruneTransactionMeta("deleted_creates")}
+
          -- TODO use RETURNING
          DELETE FROM participant_events_consuming_exercise delete_events
-               WHERE delete_events.contract_id IN (SELECT contract_id FROM archived_events)
+               WHERE delete_events.contract_id IN (SELECT contract_id FROM deleted_consuming_events)
        """)(connection, loggingContext)
-
-    if (pruneAllDivulgedContracts) {
-      pruneWithLogging(queryDescription = "All retroactive divulgence events pruning") {
-        // Note: do not use `QueryStrategy.offsetIsSmallerOrEqual` because divulgence events have a nullable offset
-        SQL"""
-          -- Retroactive divulgence events
-          delete from participant_events_divulgence delete_events
-          where delete_events.event_offset <= $pruneUpToInclusive
-            or delete_events.event_offset is null
-          """
-      }(connection, loggingContext)
-    }
-
-    if (pruneAllDivulgedContracts) {
-      val pruneAfterClause = {
-        // We need to distinguish between the two cases since lexicographical comparison
-        // in Oracle doesn't work with '' (empty strings are treated as NULLs) as one of the operands
-        participantAllDivulgedContractsPrunedUpToInclusive(connection) match {
-          case Some(pruneAfter) => cSQL"and event_offset > $pruneAfter"
-          case None => cSQL""
-        }
-      }
-
-      pruneWithLogging(queryDescription = "Immediate divulgence events pruning") {
-        SQL"""
-            -- Immediate divulgence pruning
-            delete from participant_events_create c
-            using parameters
-            where
-            (
-              event_offset > parameters.participant_all_divulged_contracts_pruned_up_to_inclusive -- TODO pruning check
-              OR parameters.participant_all_divulged_contracts_pruned_up_to_inclusive IS NULL
-            )
-            AND event_offset <= $pruneUpToInclusive
-            -- Only prune create events which did not have a locally hosted party before their creation offset
-            and not exists (
-              select 1
-              from party_entries p
-              where p.typ = 'accept'
-              and p.ledger_offset <= c.event_offset
-              and #${queryStrategy.isTrue("p.is_local")}
-              and #${queryStrategy.arrayContains("c.flat_event_witnesses", "p.party_id")}
-            )
-            $pruneAfterClause
-         """
-      }(connection, loggingContext)
-    }
-
-    pruneWithLogging(queryDescription = "transaction meta pruning") {
-      pruneTransactionMeta(pruneUpToInclusive = pruneUpToInclusive)
-    }(connection, loggingContext)
   }
 
   private def pruneWithLogging(queryDescription: String)(query: SimpleSql[Row])(
@@ -814,27 +812,26 @@ abstract class EventStorageBackendTemplate(
        SELECT MAX(event_offset) AS max_offset_in_window FROM next_offsets_chunk"""
       .as(offset("max_offset_in_window").?.single)(connection)
 
-  // TODO pruning: Help!!!
   /** Callers can call it only once pruning of create, consuming and non-consuming event tables has already finished.
     * The implementation assumes that these tables have already been pruned.
     */
-  private def pruneTransactionMeta(pruneUpToInclusive: Offset): SimpleSql[Row] = {
-    import com.daml.platform.store.backend.Conversions.OffsetToStatement
-    SQL"""
-         DELETE FROM
-            participant_transaction_meta m
-         WHERE
-          m.event_offset <= $pruneUpToInclusive
-          AND
-          NOT EXISTS (
-            SELECT 1 FROM participant_events_create c
+  private def pruneTransactionMeta(prunedCreatesTransactionIdsTable: String) =
+    cSQL"""
+         delete_from_participant_transaction_meta AS (
+            DELETE FROM
+               participant_transaction_meta m
             WHERE
-              c.event_sequential_id >= m.event_sequential_id_first
-              AND
-              c.event_sequential_id <= m.event_sequential_id_last
-          )
+             m.transaction_id IN (SELECT transaction_id FROM #$prunedCreatesTransactionIdsTable)
+             AND
+             NOT EXISTS (
+               SELECT 1 FROM participant_events_create c
+               WHERE
+                 c.event_sequential_id >= m.event_sequential_id_first
+                 AND
+                 c.event_sequential_id <= m.event_sequential_id_last
+             )
+         )
        """
-  }
 
   private def pruneIdFilter(eventSequentialIdTableName: String, tableName: String) =
     cSQL"""
