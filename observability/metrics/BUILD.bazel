@@ -12,11 +12,14 @@ da_scala_library(
     srcs = glob(["src/main/scala/**/*.scala"]),
     resources = glob(["src/main/resources/**/*"]),
     scala_deps = [
+        "@maven//:com_chuusai_shapeless",
+        "@maven//:com_github_pureconfig_pureconfig_core",
+        "@maven//:com_github_pureconfig_pureconfig_generic",
+        "@maven//:com_github_scopt_scopt",
         "@maven//:com_thesamet_scalapb_scalapb_runtime",
         "@maven//:com_typesafe_akka_akka_actor",
         "@maven//:com_typesafe_akka_akka_stream",
         "@maven//:org_scalaz_scalaz_core",
-        "@maven//:com_github_scopt_scopt",
     ],
     tags = ["maven_coordinates=com.daml:metrics:__VERSION__"],
     visibility = [
