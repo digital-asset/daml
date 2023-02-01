@@ -906,20 +906,19 @@ runScenariosScriptsPkg projRoot extPkg pkgs = do
             ctxIdOrErr
     scenarioContextsVar <- envScenarioContexts <$> getDamlServiceEnv
     liftIO $ modifyMVar_ scenarioContextsVar $ pure . HashMap.insert projRoot ctxId
-    rs <-
-        liftIO $ do
-          scenarioResults <- forM scenarios $ \scenario ->
-              runScenario scenarioService pkgName' ctxId scenario
-          scriptResults <- forM scripts $ \script ->
-                  runScript
-                      scenarioService
-                      pkgName'
-                      ctxId
-                      script
-          pure $
-              [ (toDiagnostics world pkgName' noRange res, (vr, res))
-              | (vr, res) <- scenarioResults ++ scriptResults
-              ]
+    rs <- do
+        scenarioResults <- forM scenarios $ \scenario ->
+            runScenario scenarioService pkgName' ctxId scenario
+        scriptResults <- forM scripts $ \script ->
+            liftIO $ runScript
+                scenarioService
+                pkgName'
+                ctxId
+                script
+        pure $
+            [ (toDiagnostics world pkgName' noRange res, (vr, res))
+            | (vr, res) <- scenarioResults ++ scriptResults
+            ]
     let (diags, results) = unzip rs
     pure (concat diags, Just results)
   where
@@ -1222,9 +1221,9 @@ formatScenarioResult world errOrRes =
         Right res ->
             LF.renderScenarioResult world res
 
-runScenario :: SS.Handle -> NormalizedFilePath -> SS.ContextId -> LF.ValueRef -> IO (VirtualResource, Either SS.Error SS.ScenarioResult)
+runScenario :: SS.Handle -> NormalizedFilePath -> SS.ContextId -> LF.ValueRef -> Action (VirtualResource, Either SS.Error SS.ScenarioResult)
 runScenario scenarioService file ctxId scenario = do
-    res <- SS.runScenario scenarioService ctxId scenario
+    res <- liftIO $ SS.runScenario scenarioService ctxId scenario
     let scenarioName = LF.qualObject scenario
     let vr = VRScenario file (LF.unExprValName scenarioName)
     pure (vr, res)
