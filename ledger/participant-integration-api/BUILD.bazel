@@ -161,6 +161,7 @@ da_scala_library(
         "@maven//:org_scalatest_scalatest_flatspec",
         "@maven//:org_scalatest_scalatest_matchers_core",
         "@maven//:org_scalatest_scalatest_shouldmatchers",
+        "@maven//:org_playframework_anorm_anorm",
     ],
     scala_runtime_deps = [
         "@maven//:com_typesafe_akka_akka_slf4j",

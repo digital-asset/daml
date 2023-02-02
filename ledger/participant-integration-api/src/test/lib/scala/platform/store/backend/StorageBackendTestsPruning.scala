@@ -4,18 +4,17 @@
 package com.daml.platform.store.backend
 
 import com.daml.lf.data.Ref
-import com.daml.platform.store.backend.common.{
-  EventIdSourceForInformees,
-  EventPayloadSourceForTreeTx,
-}
-import com.daml.platform.store.dao.events.Raw
-import org.scalatest.OptionValues
+import com.daml.platform.store.backend.PruningDto._
+import com.daml.platform.store.backend.PruningDto
+import org.scalatest.{Assertion, Checkpoints, OptionValues}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
+import java.sql.Connection
 
 private[backend] trait StorageBackendTestsPruning
     extends Matchers
     with OptionValues
+    with Checkpoints
     with StorageBackendSpec {
   this: AnyFlatSpec =>
 
@@ -127,72 +126,15 @@ private[backend] trait StorageBackendTestsPruning
     val endOffset = offset(4)
     val endId = 6L
     executeSql(updateLedgerEnd(endOffset, endId))
-
-    def fetchIdsNonConsuming_streaming: Seq[Long] = {
-      executeSql(
-        backend.event.transactionStreamingQueries
-          .fetchEventIdsForInformee(
-            target = EventIdSourceForInformees.NonConsumingInformee
-          )(informee = signatoryParty, startExclusive = 0, endInclusive = endId, limit = 10)
+    executeSql(
+      assertIndexDbData(
+        consuming = Vector(Consuming(6)),
+        consumingFilterStakeholder = Vector(ConsumingFilterStakeholder(6, 3)),
+        consumingFilterNonStakeholder = Vector(ConsumingFilterNonStakeholder(6, 1)),
+        nonConsuming = Vector(NonConsuming(5)),
+        nonConsumingFilter = Vector(NonConsumingFilter(5, 3)),
       )
-    }
-
-    def fetchIdsConsumingStakeholder_streaming: Seq[Long] = {
-      executeSql(
-        backend.event.transactionStreamingQueries
-          .fetchEventIdsForInformee(
-            target = EventIdSourceForInformees.ConsumingStakeholder
-          )(informee = signatoryParty, startExclusive = 0, endInclusive = endId, limit = 10)
-      )
-    }
-    def fetchIdsConsumingNonStakeholder_streaming: Seq[Long] = {
-      executeSql(
-        backend.event.transactionStreamingQueries
-          .fetchEventIdsForInformee(
-            target = EventIdSourceForInformees.ConsumingNonStakeholder
-          )(informee = actorParty, startExclusive = 0, endInclusive = endId, limit = 10)
-      )
-    }
-
-    def fetchTreeNonConsuming_streaming(
-        eventSequentialIds: Iterable[Long]
-    ): Seq[EventStorageBackend.Entry[Raw.TreeEvent]] = {
-      executeSql(
-        backend.event.transactionStreamingQueries.fetchEventPayloadsTree(
-          target = EventPayloadSourceForTreeTx.NonConsuming
-        )(
-          eventSequentialIds = eventSequentialIds,
-          allFilterParties = Set(signatoryParty),
-        )
-      )
-    }
-
-    def fetchTreeConsuming_streaming(
-        eventSequentialIds: Iterable[Long]
-    ): Seq[EventStorageBackend.Entry[Raw.TreeEvent]] = {
-      executeSql(
-        backend.event.transactionStreamingQueries.fetchEventPayloadsTree(
-          target = EventPayloadSourceForTreeTx.Consuming
-        )(
-          eventSequentialIds = eventSequentialIds,
-          allFilterParties = Set(signatoryParty, actorParty),
-        )
-      )
-    }
-
-    // before pruning
-    val before1_idsNonConsuming = fetchIdsNonConsuming_streaming
-    val before2_idsConsumingStakeholder = fetchIdsConsumingStakeholder_streaming
-    val before3_idsConsumingNonStakeholder = fetchIdsConsumingNonStakeholder_streaming
-    val before4_eventsTreeNonConsuming = fetchTreeNonConsuming_streaming(before1_idsNonConsuming)
-    val before5_eventsTreeConsuming = fetchTreeConsuming_streaming(
-      before2_idsConsumingStakeholder ++ before3_idsConsumingNonStakeholder
     )
-    before1_idsNonConsuming should not be empty
-    before2_idsConsumingStakeholder should not be empty
-    before3_idsConsumingNonStakeholder should not be empty
-    before4_eventsTreeNonConsuming should not be empty
-    before5_eventsTreeConsuming should not be empty
     // Prune before the offset at which we ingested our events
     executeSql(
       backend.event.pruneEvents(offset(2), pruneAllDivulgedContracts = true)(
@@ -201,18 +143,16 @@ private[backend] trait StorageBackendTestsPruning
       )
     )
     executeSql(backend.parameter.updatePrunedUptoInclusive(offset(2)))
-    val interim1_idsNonConsuming = fetchIdsNonConsuming_streaming
-    val interim2_idsConsumingStakeholder = fetchIdsConsumingStakeholder_streaming
-    val interim3_idsConsumingNonStakeholder = fetchIdsConsumingNonStakeholder_streaming
-    val interim4_eventsTreeNonConsuming = fetchTreeNonConsuming_streaming(before1_idsNonConsuming)
-    val interim5_eventsTreeConsuming = fetchTreeConsuming_streaming(
-      before2_idsConsumingStakeholder ++ before3_idsConsumingNonStakeholder
+    executeSql(
+      assertIndexDbData(
+        consuming = Vector(Consuming(6)),
+        consumingFilterStakeholder = Vector(ConsumingFilterStakeholder(6, 3)),
+        consumingFilterNonStakeholder = Vector(ConsumingFilterNonStakeholder(6, 1)),
+        nonConsuming = Vector(NonConsuming(5)),
+        nonConsumingFilter = Vector(NonConsumingFilter(5, 3)),
+      )
     )
-    interim1_idsNonConsuming should not be empty
-    interim2_idsConsumingStakeholder should not be empty
-    interim3_idsConsumingNonStakeholder should not be empty
-    interim4_eventsTreeNonConsuming should not be empty
-    interim5_eventsTreeConsuming should not be empty
+
     // Prune at the ledger end
     executeSql(
       backend.event.pruneEvents(endOffset, pruneAllDivulgedContracts = true)(
@@ -221,19 +161,7 @@ private[backend] trait StorageBackendTestsPruning
       )
     )
     executeSql(backend.parameter.updatePrunedUptoInclusive(endOffset))
-    // after pruning
-    val after1_idsNonConsuming = fetchIdsNonConsuming_streaming
-    val after2_idsConsumingStakeholder = fetchIdsConsumingStakeholder_streaming
-    val after3_idsConsumingNonStakeholder = fetchIdsConsumingNonStakeholder_streaming
-    val after4_eventsTreeNonConsuming = fetchTreeNonConsuming_streaming(before1_idsNonConsuming)
-    val after5_eventsTreeConsuming = fetchTreeConsuming_streaming(
-      before2_idsConsumingStakeholder ++ before3_idsConsumingNonStakeholder
-    )
-    after1_idsNonConsuming shouldBe empty
-    after2_idsConsumingStakeholder shouldBe empty
-    after3_idsConsumingNonStakeholder shouldBe empty
-    after4_eventsTreeNonConsuming shouldBe empty
-    after5_eventsTreeConsuming shouldBe empty
+    executeSql(assertIndexDbData())
   }
 
   it should "prune an archived contract" in {
@@ -294,83 +222,24 @@ private[backend] trait StorageBackendTestsPruning
     )
     executeSql(updateLedgerEnd(offset(2), 2L))
 
-    def fetchIdsSignatory_streaming: Seq[Long] = {
-      executeSql(
-        backend.event.transactionStreamingQueries
-          .fetchEventIdsForInformee(
-            target = EventIdSourceForInformees.CreateStakeholder
-          )(informee = signatoryParty, startExclusive = 0, endInclusive = 2L, limit = 10)
-      )
-    }
-
-    def fetchIdsObserver_streaming: Seq[Long] = {
-      executeSql(
-        backend.event.transactionStreamingQueries
-          .fetchEventIdsForInformee(
-            target = EventIdSourceForInformees.CreateStakeholder
-          )(informee = observerParty, startExclusive = 0, endInclusive = 2L, limit = 10)
-      )
-    }
-
-    def fetchIdsNonStakeholders_streaming: Seq[Long] = {
-      executeSql(
-        backend.event.transactionStreamingQueries
-          .fetchEventIdsForInformee(
-            target = EventIdSourceForInformees.CreateNonStakeholder
-          )(
-            informee = nonStakeholderInformeeParty,
-            startExclusive = 0,
-            endInclusive = 2L,
-            limit = 10,
-          )
-      )
-    }
-
-    def fetchTreeEventsCreate_streaming(
-        eventSequentialIds: Iterable[Long]
-    ): Seq[EventStorageBackend.Entry[Raw.TreeEvent]] = {
-      executeSql(
-        backend.event.transactionStreamingQueries.fetchEventPayloadsTree(
-          target = EventPayloadSourceForTreeTx.Create
-        )(
-          eventSequentialIds = eventSequentialIds,
-          allFilterParties = Set(signatoryParty),
-        )
-      )
-    }
-
     // Make sure the entries related to the create event are visible
-    val before1_idsSignatory_streaming = fetchIdsSignatory_streaming
-    val before2_idsObserver_streaming = fetchIdsObserver_streaming
-    val before3_idsNonStakeholders_streaming = fetchIdsNonStakeholders_streaming
-    val before4_treeEvents_streaming = fetchTreeEventsCreate_streaming(
-      before1_idsSignatory_streaming ++ before2_idsObserver_streaming ++ before3_idsNonStakeholders_streaming
+    executeSql(
+      assertIndexDbData(
+        create = Vector(Create(1)),
+        createFilterStakeholder = Vector(
+          CreateFilterStakeholder(1, 2),
+          CreateFilterStakeholder(1, 3),
+        ),
+        createFilterNonStakeholder = Vector(CreateFilterNonStakeholder(1, 4)),
+        consuming = Vector(Consuming(2)),
+        consumingFilterStakeholder = Vector(
+          ConsumingFilterStakeholder(2, 2),
+          ConsumingFilterStakeholder(2, 3),
+        ),
+        txMeta = Vector(TxMeta("00000001"), TxMeta("00000002")),
+      )
     )
 
-    val before5_ids_pointwise =
-      executeSql(backend.event.transactionPointwiseQueries.fetchIdsFromTransactionMeta(createTxId))
-    val before5_eventsFlat_pointwise =
-      fetchEventsFlat_pointwise(before5_ids_pointwise.value._1, before5_ids_pointwise.value._2)
-    val before6_eventsTree_pointwise =
-      fetchEventsTree_pointwise(before5_ids_pointwise.value._1, before5_ids_pointwise.value._2)
-    val before7_txMeta =
-      executeSql(backend.event.transactionPointwiseQueries.fetchIdsFromTransactionMeta(createTxId))
-
-    val before7_rawEvents = executeSql(backend.event.rawEvents(0, 2L))
-    val before8_activeContracts = executeSql(
-      backend.event
-        .activeContractEventBatch(List(1L), Set(Ref.Party.assertFromString(signatoryParty)), 2L)
-    )
-    before1_idsSignatory_streaming should not be empty
-    before2_idsObserver_streaming should not be empty
-    before3_idsNonStakeholders_streaming should not be empty
-    before4_treeEvents_streaming should not be empty
-    before5_ids_pointwise should not be empty
-    before5_eventsFlat_pointwise should not be empty
-    before6_eventsTree_pointwise should not be empty
-    before7_txMeta should not be empty
-    before7_rawEvents should not be empty
-    before8_activeContracts shouldBe empty
     // Prune
     executeSql(
       backend.event.pruneEvents(offset(2), pruneAllDivulgedContracts = true)(
@@ -380,42 +249,7 @@ private[backend] trait StorageBackendTestsPruning
     )
     executeSql(backend.parameter.updatePrunedUptoInclusive(offset(2)))
     // Make sure the entries related to the create event are not visible anymore
-    val after1_idsSignatory = fetchIdsSignatory_streaming
-    val after2_idsObserver = fetchIdsObserver_streaming
-    val after3_idsNonStakeholders = executeSql(
-      backend.event.transactionStreamingQueries
-        .fetchEventIdsForInformee(
-          target = EventIdSourceForInformees.CreateNonStakeholder
-        )(informee = signatoryParty, startExclusive = 0, endInclusive = 2L, limit = 10)
-    )
-    val after4_treeEvents = fetchTreeEventsCreate_streaming(
-      before1_idsSignatory_streaming ++ before2_idsObserver_streaming ++ before3_idsNonStakeholders_streaming
-    )
-
-    val after5_ids_pointwise =
-      executeSql(backend.event.transactionPointwiseQueries.fetchIdsFromTransactionMeta(createTxId))
-    val after5_eventsFlat_pointwise =
-      fetchEventsFlat_pointwise(before5_ids_pointwise.value._1, before5_ids_pointwise.value._2)
-    val after6_eventsTree_pointwise =
-      fetchEventsTree_pointwise(before5_ids_pointwise.value._1, before5_ids_pointwise.value._2)
-    val after7_txMeta =
-      executeSql(backend.event.transactionPointwiseQueries.fetchIdsFromTransactionMeta(createTxId))
-
-    val after7_rawEvents = executeSql(backend.event.rawEvents(0, 2L))
-    val after8_activeContracts = executeSql(
-      backend.event
-        .activeContractEventBatch(List(1L), Set(Ref.Party.assertFromString(signatoryParty)), 2L)
-    )
-    after1_idsSignatory shouldBe empty
-    after2_idsObserver shouldBe empty
-    after3_idsNonStakeholders shouldBe empty
-    after4_treeEvents shouldBe empty
-    after5_eventsFlat_pointwise shouldBe empty
-    after5_ids_pointwise shouldBe empty
-    after6_eventsTree_pointwise shouldBe empty
-    after7_txMeta shouldBe empty
-    after7_rawEvents shouldBe empty
-    after8_activeContracts shouldBe empty
+    executeSql(assertIndexDbData())
   }
 
   it should "not prune an active contract" in {
@@ -454,81 +288,19 @@ private[backend] trait StorageBackendTestsPruning
     )
     executeSql(updateLedgerEnd(offset(2), 1L))
 
-    def fetchIdsSignatory_streaming: Seq[Long] = {
-      executeSql(
-        backend.event.transactionStreamingQueries
-          .fetchEventIdsForInformee(
-            target = EventIdSourceForInformees.CreateStakeholder
-          )(informee = signatoryParty, startExclusive = 0, endInclusive = 1L, limit = 10)
-      )
-    }
-
-    def fetchIdsObserver_streaming: Seq[Long] = {
-      executeSql(
-        backend.event.transactionStreamingQueries
-          .fetchEventIdsForInformee(
-            target = EventIdSourceForInformees.CreateStakeholder
-          )(informee = observerParty, startExclusive = 0, endInclusive = 1L, limit = 10)
-      )
-    }
-
-    def fetchIdsNonStakeholders_streaming: Seq[Long] = {
-      executeSql(
-        backend.event.transactionStreamingQueries
-          .fetchEventIdsForInformee(
-            target = EventIdSourceForInformees.CreateNonStakeholder
-          )(
-            informee = nonStakeholderInformeeParty,
-            startExclusive = 0,
-            endInclusive = 1L,
-            limit = 10,
-          )
-      )
-    }
-
-    def fetchTreeEvents_streaming(
-        eventSequentialIds: Iterable[Long]
-    ): Seq[EventStorageBackend.Entry[Raw.TreeEvent]] = {
-      executeSql(
-        backend.event.transactionStreamingQueries.fetchEventPayloadsTree(
-          target = EventPayloadSourceForTreeTx.Create
-        )(
-          eventSequentialIds = eventSequentialIds,
-          allFilterParties = Set(signatoryParty),
-        )
-      )
-    }
-
     // Make sure the entries relate to the create event are visible
-    val before_idsSignatory_streaming = fetchIdsSignatory_streaming
-    val before_idsObserver_streaming = fetchIdsObserver_streaming
-    val before_idsNonStakeholders_streaming = fetchIdsNonStakeholders_streaming
-    val before_treeEvents_streaming = fetchTreeEvents_streaming(
-      before_idsSignatory_streaming ++ before_idsObserver_streaming ++ before_idsNonStakeholders_streaming
+    executeSql(
+      assertIndexDbData(
+        create = Vector(Create(1)),
+        createFilterStakeholder = Vector(
+          CreateFilterStakeholder(1, 2),
+          CreateFilterStakeholder(1, 3),
+        ),
+        createFilterNonStakeholder = Vector(CreateFilterNonStakeholder(1, 4)),
+        txMeta = Vector(TxMeta("00000002")),
+      )
     )
 
-    val before_ids_pointwise =
-      executeSql(backend.event.transactionPointwiseQueries.fetchIdsFromTransactionMeta(createTxId))
-    val before_eventsFlat_pointwise =
-      fetchEventsFlat_pointwise(before_ids_pointwise.value._1, before_ids_pointwise.value._2)
-    val before_eventsTree_pointwise =
-      fetchEventsTree_pointwise(before_ids_pointwise.value._1, before_ids_pointwise.value._2)
-    val before_txMeta =
-      executeSql(backend.event.transactionPointwiseQueries.fetchIdsFromTransactionMeta(createTxId))
-    val before_rawEvents = executeSql(backend.event.rawEvents(0, 1L))
-    val before_activeContracts = executeSql(
-      backend.event
-        .activeContractEventBatch(List(1L), Set(Ref.Party.assertFromString(signatoryParty)), 1L)
-    )
-    before_idsSignatory_streaming should not be empty
-    before_idsNonStakeholders_streaming should not be empty
-    before_treeEvents_streaming should not be empty
-    before_eventsFlat_pointwise should not be empty
-    before_ids_pointwise should not be empty
-    before_eventsTree_pointwise should not be empty
-    before_txMeta should not be empty
-    before_rawEvents should not be empty
-    before_activeContracts should have size 1
     // Prune
     executeSql(
       backend.event.pruneEvents(offset(2), pruneAllDivulgedContracts = true)(
@@ -539,38 +311,17 @@ private[backend] trait StorageBackendTestsPruning
     executeSql(backend.parameter.updatePrunedUptoInclusive(offset(2)))
 
     // Make sure the entries related to the create event are still visible - active contracts should not be pruned
-    val after_idsStakeholders_streaming = fetchIdsSignatory_streaming
-    val after_idsNonStakeholders_streaming = fetchIdsNonStakeholders_streaming
-    val after_treeEvents_streaming = fetchTreeEvents_streaming(
-      before_idsSignatory_streaming ++ before_idsObserver_streaming ++ before_idsNonStakeholders_streaming
+    executeSql(
+      assertIndexDbData(
+        create = Vector(Create(1)),
+        createFilterStakeholder = Vector(
+          CreateFilterStakeholder(1, 2),
+          CreateFilterStakeholder(1, 3),
+        ),
+        createFilterNonStakeholder = Vector(CreateFilterNonStakeholder(1, 4)),
+        txMeta = Vector(TxMeta("00000002")),
+      )
     )
-
-    val after_ids_pointwise =
-      executeSql(backend.event.transactionPointwiseQueries.fetchIdsFromTransactionMeta(createTxId))
-    val after_eventsFlat_pointwise =
-      fetchEventsFlat_pointwise(before_ids_pointwise.value._1, before_ids_pointwise.value._2)
-    val after_eventsTree_pointwise =
-      fetchEventsTree_pointwise(before_ids_pointwise.value._1, before_ids_pointwise.value._2)
-    val after_txMeta =
-      executeSql(backend.event.transactionPointwiseQueries.fetchIdsFromTransactionMeta(createTxId))
-    val after_rawEvents = executeSql(backend.event.rawEvents(0, 1L))
-    val after_activeContracts = executeSql(
-      backend.event
-        .activeContractEventBatch(List(1L), Set(Ref.Party.assertFromString(signatoryParty)), 1L)
-    )
-    // Note: while the ACS service should still see active contracts, the transaction stream service should not return
-    // any data before the last pruning offset. For pointwise transaction lookups, we check the pruning offset
-    // inside the database query - that's why they do not return any results. For transaction stream lookups, we only
-    // check the pruning offset when starting the stream - that's why those queries still return data here.
-    after_idsStakeholders_streaming should not be empty
-    after_idsNonStakeholders_streaming should not be empty
-    after_treeEvents_streaming should not be empty
-    after_eventsFlat_pointwise shouldBe empty
-    after_ids_pointwise shouldBe empty
-    after_eventsTree_pointwise shouldBe empty
-    after_txMeta shouldBe empty
-    after_rawEvents should not be empty
-    after_activeContracts should have size 1
   }
 
   it should "prune all retroactively and immediately divulged contracts (if pruneAllDivulgedContracts is set)" in {
@@ -617,44 +368,27 @@ private[backend] trait StorageBackendTestsPruning
     executeSql(
       updateLedgerEnd(offset(4), 4L)
     )
-    val contract1_beforePruning = executeSql(
-      backend.contract.activeContractWithoutArgument(
-        Set(divulgee),
-        contract1_id,
+    executeSql(
+      assertIndexDbData(
+        create = Vector(Create(1), Create(2)),
+        divulgence = Vector(Divulgence(3)),
       )
     )
-    val contract2_beforePruning = executeSql(
-      backend.contract.activeContractWithoutArgument(
-        Set(divulgee),
-        contract2_id,
-      )
-    )
+
     executeSql(
       backend.event.pruneEvents(offset(3), pruneAllDivulgedContracts = true)(
         _,
         loggingContext,
       )
     )
-    val contract1_afterPruning = executeSql(
-      backend.contract.activeContractWithoutArgument(
-        Set(divulgee),
-        contract1_id,
+    executeSql(
+      assertIndexDbData(
+        create = Vector(Create(2)),
+        // Immediate divulgence for contract2 occurred after the associated party became locally hosted
+        // so it is not pruned
+        divulgence = Vector.empty,
       )
     )
-    val contract2_afterPruning = executeSql(
-      backend.contract.activeContractWithoutArgument(
-        Set(divulgee),
-        contract2_id,
-      )
-    )
-
-    contract1_beforePruning should not be empty
-    contract2_beforePruning should not be empty
-
-    contract1_afterPruning shouldBe empty
-    // Immediate divulgence for contract2 occurred after the associated party became locally hosted
-    // so it is not pruned
-    contract2_afterPruning should not be empty
   }
 
   it should "only prune retroactively divulged contracts if there exists an associated consuming exercise (if pruneAllDivulgedContracts is not set)" in {
@@ -688,7 +422,6 @@ private[backend] trait StorageBackendTestsPruning
       divulgee = divulgee,
     )
     executeSql(backend.parameter.initializeParameters(someIdentityParams))
-
     // Ingest
     executeSql(
       ingest(
@@ -705,16 +438,16 @@ private[backend] trait StorageBackendTestsPruning
     executeSql(
       updateLedgerEnd(offset(5), 5L)
     )
-    val contract1_beforePruning = executeSql(
-      backend.contract.activeContractWithoutArgument(
-        Set(divulgee),
-        contract1_id,
-      )
-    )
-    val contract2_beforePruning = executeSql(
-      backend.contract.activeContractWithoutArgument(
-        Set(divulgee),
-        contract2_id,
+    executeSql(
+      assertIndexDbData(
+        // Contract 1 appears as active tu `divulgee` before pruning
+        create = Seq(Create(1)),
+        consuming = Seq(Consuming(3)),
+        divulgence = Seq(
+          Divulgence(2),
+          // Contract 2 appears as active tu `divulgee` before pruning
+          Divulgence(4),
+        ),
       )
     )
     executeSql(
@@ -723,29 +456,18 @@ private[backend] trait StorageBackendTestsPruning
         loggingContext,
       )
     )
-    val contract1_afterPruning = executeSql(
-      backend.contract.activeContractWithoutArgument(
-        Set(divulgee),
-        contract1_id,
+    executeSql(
+      assertIndexDbData(
+        // Contract 1 should not be visible anymore to `divulgee` after pruning
+        create = Seq.empty,
+        consuming = Seq.empty,
+        divulgence = Seq(
+          // Contract 2 did not have a locally stored exercise event
+          // hence its divulgence is not pruned - appears active to `divulgee`
+          Divulgence(4)
+        ),
       )
     )
-    val contract2_afterPruning = executeSql(
-      backend.contract.activeContractWithoutArgument(
-        Set(divulgee),
-        contract2_id,
-      )
-    )
-
-    // Contract 1 appears as active tu `divulgee` before pruning
-    contract1_beforePruning should not be empty
-    // Contract 2 appears as active tu `divulgee` before pruning
-    contract2_beforePruning should not be empty
-
-    // Contract 1 should not be visible anymore to `divulgee` after pruning
-    contract1_afterPruning shouldBe empty
-    // Contract 2 did not have a locally stored exercise event
-    // hence its divulgence is not pruned - appears active to `divulgee`
-    contract2_afterPruning should not be empty
   }
 
   it should "prune completions" in {
@@ -754,7 +476,6 @@ private[backend] trait StorageBackendTestsPruning
       offset = offset(1),
       submitter = someParty,
     )
-    val applicationId = dtoApplicationId(completion)
 
     executeSql(backend.parameter.initializeParameters(someIdentityParams))
 
@@ -763,13 +484,9 @@ private[backend] trait StorageBackendTestsPruning
     executeSql(updateLedgerEnd(offset(1), 1L))
 
     // Make sure the completion is visible
-    val before = executeSql(
-      backend.completion.commandCompletions(
-        offset(0),
-        offset(1),
-        applicationId,
-        Set(someParty),
-        limit = 10,
+    executeSql(
+      assertIndexDbData(
+        completion = Seq(PruningDto.Completion("00000001"))
       )
     )
 
@@ -778,44 +495,48 @@ private[backend] trait StorageBackendTestsPruning
     executeSql(backend.parameter.updatePrunedUptoInclusive(offset(1)))
 
     // Make sure the completion is not visible anymore
-    val after = executeSql(
-      backend.completion.commandCompletions(
-        offset(0),
-        offset(1),
-        applicationId,
-        Set(someParty),
-        limit = 10,
-      )
-    )
-
-    before should not be empty
-    after shouldBe empty
-  }
-
-  private def fetchEventsTree_pointwise(
-      firstEventSequentialId: Long,
-      lastEventSequentialId: Long,
-  ): Seq[EventStorageBackend.Entry[Raw.TreeEvent]] = {
     executeSql(
-      backend.event.transactionPointwiseQueries.fetchTreeTransactionEvents(
-        firstEventSequentialId = firstEventSequentialId,
-        lastEventSequentialId = lastEventSequentialId,
-        requestingParties = Set(signatoryParty, observerParty, nonStakeholderInformeeParty),
+      assertIndexDbData(
+        completion = Seq.empty
       )
     )
   }
 
-  private def fetchEventsFlat_pointwise(
-      firstEventSequentialId: Long,
-      lastEventSequentialId: Long,
-  ): Seq[EventStorageBackend.Entry[Raw.FlatEvent]] = {
-    executeSql(
-      backend.event.transactionPointwiseQueries.fetchFlatTransactionEvents(
-        firstEventSequentialId = firstEventSequentialId,
-        lastEventSequentialId = lastEventSequentialId,
-        requestingParties = Set(signatoryParty, observerParty, nonStakeholderInformeeParty),
-      )
-    )
+  /** Asserts the content of the tables subject to pruning.
+    * Be default asserts the tables are empty.
+    */
+  def assertIndexDbData(
+      create: Seq[Create] = Seq.empty,
+      consuming: Seq[Consuming] = Seq.empty,
+      nonConsuming: Seq[NonConsuming] = Seq.empty,
+      divulgence: Seq[Divulgence] = Seq.empty,
+      createFilterStakeholder: Seq[CreateFilterStakeholder] = Seq.empty,
+      createFilterNonStakeholder: Seq[CreateFilterNonStakeholder] = Seq.empty,
+      consumingFilterStakeholder: Seq[ConsumingFilterStakeholder] = Seq.empty,
+      consumingFilterNonStakeholder: Seq[ConsumingFilterNonStakeholder] = Seq.empty,
+      nonConsumingFilter: Seq[NonConsumingFilter] = Seq.empty,
+      txMeta: Seq[TxMeta] = Seq.empty,
+      completion: Seq[Completion] = Seq.empty,
+  )(c: Connection): Assertion = {
+    implicit val _c: Connection = c
+    val queries = backend.pruningDtoQeuries
+    val cp = new Checkpoint
+    // create
+    queries.create shouldBe create
+    queries.createFilterStakeholder shouldBe createFilterStakeholder
+    queries.createFilterNonStakeholder shouldBe createFilterNonStakeholder
+    // consuming
+    queries.consuming shouldBe consuming
+    queries.consumingFilterStakeholder shouldBe consumingFilterStakeholder
+    queries.consumingFilterNonStakeholder shouldBe consumingFilterNonStakeholder
+    // non-consuming
+    queries.nonConsuming shouldBe nonConsuming
+    queries.nonConsumingFilter shouldBe nonConsumingFilter
+    // other
+    queries.divulgence shouldBe divulgence
+    queries.txMeta shouldBe txMeta
+    queries.completions shouldBe completion
+    cp.reportAll()
+    succeed
   }
-
 }
