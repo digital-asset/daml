@@ -69,7 +69,7 @@ object SandboxOnXRunner {
       bridgeConfig: BridgeConfig,
       config: Config,
       configAdaptor: BridgeConfigAdaptor,
-      registerGlobalOpenTelemetry: Boolean,
+      registerGlobalOpenTelemetry: Boolean = true,
   ): ResourceOwner[Port] = newLoggingContext { implicit loggingContext =>
     implicit val actorSystem: ActorSystem = ActorSystem(RunnerName)
     implicit val materializer: Materializer = Materializer(actorSystem)
