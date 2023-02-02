@@ -4,9 +4,8 @@
 package com.daml.ledger.javaapi.data
 
 import java.time.{Instant, LocalDate}
-
 import com.daml.ledger.api.v1._
-import com.google.protobuf.Empty
+import com.google.protobuf.{ByteString, Empty, Any}
 import org.scalacheck.{Arbitrary, Gen}
 import Arbitrary.arbitrary
 
@@ -119,6 +118,13 @@ object Generators {
 
   def contractIdValueGen: Gen[ValueOuterClass.Value] =
     Arbitrary.arbString.arbitrary.map(ValueOuterClass.Value.newBuilder().setContractId(_).build())
+
+  def byteStringGen: Gen[ByteString] =
+    Arbitrary.arbString.arbitrary.map(str => com.google.protobuf.ByteString.copyFromUtf8(str))
+
+  def createArgumentsBlobGen: Gen[Any] = {
+    byteStringGen.map(byteString => Any.newBuilder().setValue(byteString).build())
+  }
 
   def listGen: Gen[ValueOuterClass.List] =
     Gen
@@ -240,6 +246,7 @@ object Generators {
       contractId <- contractIdValueGen.map(_.getContractId)
       templateId <- identifierGen
       createArgument <- recordGen
+      createArgumentsBlob <- createArgumentsBlobGen
       interfaceViews <- Gen.listOf(interfaceViewGen)
       eventId <- Arbitrary.arbString.arbitrary
       witnessParties <- Gen.listOf(Arbitrary.arbString.arbitrary)
@@ -250,6 +257,7 @@ object Generators {
       .setContractId(contractId)
       .setTemplateId(templateId)
       .setCreateArguments(createArgument)
+      .setCreateArgumentsBlob(createArgumentsBlob)
       .addAllInterfaceViews(interfaceViews.asJava)
       .setEventId(eventId)
       .addAllWitnessParties(witnessParties.asJava)

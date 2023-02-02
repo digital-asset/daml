@@ -28,6 +28,7 @@ import org.scalacheck.{Arbitrary, Gen, Shrink}
 
 import scala.jdk.CollectionConverters._
 import scala.jdk.OptionConverters._
+import com.daml.ledger.javaapi
 
 @SuppressWarnings(
   Array(
@@ -210,6 +211,7 @@ object TransactionGenerator {
     contractKey <- Gen.option(valueGen(0))
     (scalaTemplateId, javaTemplateId) <- identifierGen
     (scalaRecord, javaRecord) <- Gen.sized(recordGen)
+    createArgumentsBlob <- javaapi.data.Generators.createArgumentsBlobGen
     signatories <- Gen.listOf(nonEmptyId)
     observers <- Gen.listOf(nonEmptyId)
     interfaceViews <- Gen.listOf(interfaceViewGen)
@@ -235,6 +237,7 @@ object TransactionGenerator {
       javaTemplateId,
       contractId,
       javaRecord,
+      createArgumentsBlob,
       interfaceViews.view.collect { case (_, (id, Right(rec))) => (id, rec) }.toMap.asJava,
       interfaceViews.view.collect { case (_, (id, Left(stat))) => (id, stat) }.toMap.asJava,
       agreementText.toJava,

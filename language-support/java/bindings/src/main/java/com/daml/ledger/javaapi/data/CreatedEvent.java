@@ -4,6 +4,7 @@
 package com.daml.ledger.javaapi.data;
 
 import com.daml.ledger.api.v1.EventOuterClass;
+import com.google.protobuf.Any;
 import com.google.protobuf.StringValue;
 import com.google.rpc.Status;
 import java.util.*;
@@ -24,6 +25,8 @@ public final class CreatedEvent implements Event, TreeEvent {
 
   private final DamlRecord arguments;
 
+  private final com.google.protobuf.Any createArgumentsBlob;
+
   private final @NonNull Map<@NonNull Identifier, @NonNull DamlRecord> interfaceViews;
 
   private final @NonNull Map<@NonNull Identifier, @NonNull Status> failedInterfaceViews;
@@ -42,6 +45,7 @@ public final class CreatedEvent implements Event, TreeEvent {
       @NonNull Identifier templateId,
       @NonNull String contractId,
       @NonNull DamlRecord arguments,
+      com.google.protobuf.@NonNull Any createArgumentsBlob,
       @NonNull Map<@NonNull Identifier, @NonNull DamlRecord> interfaceViews,
       @NonNull Map<@NonNull Identifier, com.google.rpc.@NonNull Status> failedInterfaceViews,
       @NonNull Optional<String> agreementText,
@@ -53,6 +57,7 @@ public final class CreatedEvent implements Event, TreeEvent {
     this.templateId = templateId;
     this.contractId = contractId;
     this.arguments = arguments;
+    this.createArgumentsBlob = createArgumentsBlob;
     this.interfaceViews = Map.copyOf(interfaceViews);
     this.failedInterfaceViews = Map.copyOf(failedInterfaceViews);
     this.agreementText = agreementText;
@@ -82,6 +87,8 @@ public final class CreatedEvent implements Event, TreeEvent {
         templateId,
         contractId,
         arguments,
+        // so - ideally wouldn't want `null` here.
+        null,
         Collections.emptyMap(),
         Collections.emptyMap(),
         agreementText,
@@ -117,6 +124,10 @@ public final class CreatedEvent implements Event, TreeEvent {
   @NonNull
   public DamlRecord getArguments() {
     return arguments;
+  }
+
+  public Any getCreateArgumentsBlob() {
+    return createArgumentsBlob;
   }
 
   @NonNull
@@ -159,6 +170,7 @@ public final class CreatedEvent implements Event, TreeEvent {
         && Objects.equals(templateId, that.templateId)
         && Objects.equals(contractId, that.contractId)
         && Objects.equals(arguments, that.arguments)
+        && Objects.equals(createArgumentsBlob, that.createArgumentsBlob)
         && Objects.equals(interfaceViews, that.interfaceViews)
         && Objects.equals(failedInterfaceViews, that.failedInterfaceViews)
         && Objects.equals(agreementText, that.agreementText)
@@ -175,6 +187,7 @@ public final class CreatedEvent implements Event, TreeEvent {
         templateId,
         contractId,
         arguments,
+        createArgumentsBlob,
         interfaceViews,
         failedInterfaceViews,
         agreementText,
@@ -218,6 +231,7 @@ public final class CreatedEvent implements Event, TreeEvent {
         EventOuterClass.CreatedEvent.newBuilder()
             .setContractId(this.getContractId())
             .setCreateArguments(this.getArguments().toProtoRecord())
+                .setCreateArgumentsBlob(createArgumentsBlob)
             .addAllInterfaceViews(
                 Stream.concat(
                         toProtoInterfaceViews(
@@ -259,6 +273,7 @@ public final class CreatedEvent implements Event, TreeEvent {
         Identifier.fromProto(createdEvent.getTemplateId()),
         createdEvent.getContractId(),
         DamlRecord.fromProto(createdEvent.getCreateArguments()),
+            createdEvent.getCreateArgumentsBlob(),
         splitInterfaceViews.get(true).stream()
             .collect(
                 Collectors.toUnmodifiableMap(
