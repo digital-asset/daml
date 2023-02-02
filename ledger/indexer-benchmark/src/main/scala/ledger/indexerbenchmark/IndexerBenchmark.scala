@@ -19,8 +19,9 @@ import com.daml.lf.data.Time
 import com.daml.logging.LoggingContext
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.metrics.api.dropwizard.DropwizardMetricsFactory
+import com.daml.metrics.api.noop.NoOpMetricsFactory
 import com.daml.metrics.api.opentelemetry.OpenTelemetryMetricsFactory
-import com.daml.metrics.api.testing.{InMemoryMetricsFactory, MetricValues, ProxyMetricsFactory}
+import com.daml.metrics.api.testing.ProxyMetricsFactory
 import com.daml.metrics.{JvmMetricSet, Metrics}
 import com.daml.platform.LedgerApiServer
 import com.daml.platform.indexer.{Indexer, IndexerServiceOwner, JdbcIndexer}
@@ -91,8 +92,7 @@ class IndexerBenchmark() {
           metrics,
           startTime,
           stopTime,
-          metricName =>
-            MetricValues.singleValueFromContexts(inMemoryMetrics.metrics.timers(metricName).toMap),
+          metricName => throw new IllegalStateException("Just testing"),
         )
 
         println(result.banner)
@@ -135,7 +135,7 @@ class IndexerBenchmark() {
       val dropwizardFactory = new DropwizardMetricsFactory(registry)
       val openTelemetryFactory =
         new OpenTelemetryMetricsFactory(openTelemetry.getMeter("indexer-benchmark"))
-      val inMemoryMetricFactory = new InMemoryMetricsFactory
+      val inMemoryMetricFactory = new NoOpMetricsFactory
       JvmMetricSet.registerObservers()
       registry.registerAll(new JvmMetricSet)
       val metrics = new Metrics(
