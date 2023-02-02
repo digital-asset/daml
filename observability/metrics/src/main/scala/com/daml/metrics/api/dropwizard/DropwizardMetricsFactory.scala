@@ -5,7 +5,8 @@ package com.daml.metrics.api.dropwizard
 
 import com.codahale.{metrics => codahale}
 import com.daml.metrics.api.Gauges.VarGauge
-import com.daml.metrics.api.MetricHandle.{Counter, MetricsFactory, Gauge, Histogram, Meter, Timer}
+import com.daml.metrics.api.MetricHandle.Gauge.{CloseableGauge, SimpleCloseableGauge}
+import com.daml.metrics.api.MetricHandle.{Counter, Gauge, Histogram, Meter, MetricsFactory, Timer}
 import com.daml.metrics.api.{Gauges, MetricName, MetricsContext}
 import com.daml.scalautil.Statement.discard
 
@@ -21,7 +22,7 @@ class DropwizardMetricsFactory(val registry: codahale.MetricRegistry) extends Me
       context: MetricsContext = MetricsContext.Empty
   ): Gauge[T] = {
     val registeredGauge = reRegisterGauge[T, VarGauge[T]](name, Gauges.VarGauge(initial))
-    DropwizardGauge(name, registeredGauge)
+    DropwizardGauge(name, registeredGauge, () => discard(registry.remove(name)))
   }
 
   override def gaugeWithSupplier[T](
@@ -30,11 +31,12 @@ class DropwizardMetricsFactory(val registry: codahale.MetricRegistry) extends Me
       description: String = "",
   )(implicit
       context: MetricsContext = MetricsContext.Empty
-  ): Unit = discard {
+  ): CloseableGauge = {
     reRegisterGauge[T, AsyncGauge[T]](
       name,
       AsyncGauge(gaugeSupplier),
     )
+    SimpleCloseableGauge(() => discard(registry.remove(name)))
   }
 
   override def meter(name: MetricName, description: String = "")(implicit

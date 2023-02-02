@@ -5,6 +5,7 @@ package com.daml.metrics
 
 import java.util.concurrent.TimeoutException
 
+import com.daml.metrics.api.MetricHandle.Gauge.CloseableGauge
 import com.daml.metrics.api.MetricHandle.LabeledMetricsFactory
 import com.daml.metrics.api.{MetricsContext, MetricName => MN}
 
@@ -13,7 +14,7 @@ import scala.concurrent.{Await, ExecutionContext, Future}
 class HealthMetrics(val factory: LabeledMetricsFactory) {
   import HealthMetrics._
 
-  def registerHealthGauge(componentName: String, supplier: () => Boolean): Unit = {
+  def registerHealthGauge(componentName: String, supplier: () => Boolean): CloseableGauge = {
     val asLong = () => if (supplier()) 1L else 0L
     factory.gaugeWithSupplier(MetricName, asLong, "The status of the Daml components")(
       MetricsContext((ComponentLabel, componentName))
@@ -22,7 +23,7 @@ class HealthMetrics(val factory: LabeledMetricsFactory) {
 
   def registerHealthGauge(componentName: String, supplier: () => Future[Boolean])(implicit
       executionContext: ExecutionContext
-  ): Unit = {
+  ): CloseableGauge = {
     registerHealthGauge(
       componentName,
       // gaugeWithSupplier underlying code requires the value to be provided in a finite amount of time

@@ -6,6 +6,7 @@ package com.daml.metrics.api
 import java.time.Duration
 import java.util.concurrent.TimeUnit
 
+import com.daml.metrics.api.MetricHandle.Gauge.CloseableGauge
 import com.daml.metrics.api.MetricHandle.Timer.TimerHandle
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -43,7 +44,7 @@ object MetricHandle {
         description: String = "",
     )(implicit
         context: MetricsContext
-    ): Unit
+    ): CloseableGauge
 
     /** A meter represents a monotonically increasing value.
       * In Prometheus this is actually represented by a `Counter`.
@@ -114,7 +115,7 @@ object MetricHandle {
 
   }
 
-  trait Gauge[T] extends MetricHandle {
+  trait Gauge[T] extends MetricHandle with CloseableGauge {
     def metricType: String = "Gauge"
 
     def updateValue(newValue: T): Unit
@@ -122,6 +123,19 @@ object MetricHandle {
     def updateValue(f: T => T): Unit
 
     def getValue: T
+  }
+
+  object Gauge {
+
+    /** Because gauges represent a specific value at a given time, there is a distinction between the value of a gauge no
+      * longer being updated vs. the value no longer existing (contrary to how meters, histograms work). Because of this reasoning
+      * gauges have to be closed after usage.
+      */
+    trait CloseableGauge extends AutoCloseable
+
+    case class SimpleCloseableGauge(delegate: AutoCloseable) extends CloseableGauge {
+      override def close(): Unit = delegate.close()
+    }
   }
 
   trait Meter extends MetricHandle {
