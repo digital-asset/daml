@@ -1084,8 +1084,8 @@ scenarioTests mbScenarioService = Tasty.testGroup "Scenario tests"
           let vr = VRScenario foo "v"
           setFilesOfInterest [foo]
           setOpenVirtualResources []
-          -- We expect to get the diagnostic here but no virtual resource.
-          expectOneError (foo,1,0) "Assertion failed"
+          -- We expect to get no diagnostics because the scenario is never run
+          expectNoErrors
           expectNoVirtualResource vr
     , testCase' "Scenario opened but not in files of interest" $ do
           foo <- makeFile "Foo.daml" $ T.unlines
