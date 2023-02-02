@@ -211,6 +211,8 @@ public final class CreatedEvent implements Event, TreeEvent {
         + '\''
         + ", arguments="
         + arguments
+        + ", createArgumentsBlob="
+        + createArgumentsBlob
         + ", interfaceViews="
         + interfaceViews
         + ", failedInterfaceViews="
