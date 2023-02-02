@@ -19,6 +19,7 @@ module Daml.Trigger
  , put
  , modify
  , emitCommands
+ , emitCommandsV2
  , runTrigger
  , CommandId
  , Command(..)
@@ -54,7 +55,7 @@ import DA.Action
 import DA.Action.State (execState)
 import DA.Foldable (any)
 import DA.Functor ((<&>))
-import DA.Map (Map)
+import DA.Map (Map, size)
 import qualified DA.Map as Map
 import DA.Optional
 
@@ -198,6 +199,34 @@ emitCommands cmds pending = do
     , pendingContracts = Map.insert id pending s.pendingContracts
     }
   pure id
+
+-- Version of emitCommands that will not perform command submissions once there are too
+-- many commands in-flight. When this function does not to return a command ID (i.e. it
+-- returns None), then client code should manage this scenario. Failing to manage this
+-- warning scenario will eventually cause the trigger runner to stop with an
+-- InFlightCommandOverflowException exception.
+emitCommandsV2 : [Command] -> [AnyContractId] -> TriggerA s (Optional CommandId)
+emitCommandsV2 cmds pending = do
+  mbId <- liftTriggerRule $ mbSubmitCommands cmds
+  case mbId of
+    None ->
+      pure None
+    Some id -> do
+      let commands = Commands id cmds
+      liftTriggerRule $ modify $ \s -> s
+        { commandsInFlight = addCommands s.commandsInFlight commands
+        , pendingContracts = Map.insert id pending s.pendingContracts
+        }
+      pure (Some id)
+  where
+    mbSubmitCommands cmds = do
+      state <- get
+      if size state.commandsInFlight < state.config.maxInFlightCommands then do
+        id <- submitCommands cmds
+        pure (Some id)
+      else do
+        _ <- debug "WARN: too many commands currently in-flight, so command submission will be dropped"
+        pure None
 
 -- | Create the template if it’s not already in the list of commands
 -- in flight (it will still be created if it is in the ACS).
