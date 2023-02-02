@@ -19,9 +19,8 @@ import com.daml.lf.data.Time
 import com.daml.logging.LoggingContext
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.metrics.api.dropwizard.DropwizardMetricsFactory
-import com.daml.metrics.api.noop.NoOpMetricsFactory
 import com.daml.metrics.api.opentelemetry.OpenTelemetryMetricsFactory
-import com.daml.metrics.api.testing.ProxyMetricsFactory
+import com.daml.metrics.api.testing.{InMemoryMetricsFactory, MetricValues, ProxyMetricsFactory}
 import com.daml.metrics.{JvmMetricSet, Metrics}
 import com.daml.platform.LedgerApiServer
 import com.daml.platform.indexer.{Indexer, IndexerServiceOwner, JdbcIndexer}
@@ -53,7 +52,7 @@ class IndexerBenchmark() {
       val readService = createReadService(updates)
 
       val resource = for {
-        (metrics, _) <- metricsResource(config).acquire()
+        (metrics, inMemoryMetrics) <- metricsResource(config).acquire()
         servicesExecutionContext <- ResourceOwner
           .forExecutorService(() => Executors.newWorkStealingPool())
           .map(ExecutionContext.fromExecutorService)
@@ -92,7 +91,8 @@ class IndexerBenchmark() {
           metrics,
           startTime,
           stopTime,
-          _ => throw new IllegalStateException("Just testing"),
+          metricName =>
+            MetricValues.singleValueFromContexts(inMemoryMetrics.metrics.timers(metricName).toMap),
         )
 
         println(result.banner)
@@ -135,7 +135,7 @@ class IndexerBenchmark() {
       val dropwizardFactory = new DropwizardMetricsFactory(registry)
       val openTelemetryFactory =
         new OpenTelemetryMetricsFactory(openTelemetry.getMeter("indexer-benchmark"))
-      val inMemoryMetricFactory = new NoOpMetricsFactory
+      val inMemoryMetricFactory = new InMemoryMetricsFactory
       JvmMetricSet.registerObservers()
       registry.registerAll(new JvmMetricSet)
       val metrics = new Metrics(
