@@ -190,7 +190,7 @@ object InMemoryMetricsFactory extends InMemoryMetricsFactory {
     override def close(): Unit = closed.set(true)
 
     private def checkClosed(): Unit =
-      if (closed.get()) throw new IllegalStateException()("Already closed")
+      if (closed.get()) throw new IllegalStateException("Already closed")
   }
 
   case class InMemoryMeter(initialContext: MetricsContext) extends Meter {
