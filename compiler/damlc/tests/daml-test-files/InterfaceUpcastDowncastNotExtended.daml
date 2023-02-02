@@ -1,10 +1,12 @@
 -- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
--- @SINCE-LF-FEATURE DAML_INTERFACE_EXTENDED
+-- @SINCE-LF-FEATURE DAML_INTERFACE
+-- @UNTIL-LF-FEATURE DAML_INTERFACE_EXTENDED
+-- @ERROR Requires in Daml interfaces are only available with --target=1.dev
 
 -- | Try out some upcasts and downcasts, checking that everything works.
-module InterfaceUpcastDowncast where
+module InterfaceUpcastDowncastNotExtended where
 
 import DA.Assert ((===))
 import DA.Optional (isNone)
