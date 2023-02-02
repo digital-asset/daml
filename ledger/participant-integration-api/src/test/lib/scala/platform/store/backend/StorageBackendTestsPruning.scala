@@ -128,11 +128,11 @@ private[backend] trait StorageBackendTestsPruning
     executeSql(updateLedgerEnd(endOffset, endId))
     executeSql(
       assertIndexDbData(
-        consuming = Vector(Consuming(6)),
-        consumingFilterStakeholder = Vector(ConsumingFilterStakeholder(6, 3)),
-        consumingFilterNonStakeholder = Vector(ConsumingFilterNonStakeholder(6, 1)),
-        nonConsuming = Vector(NonConsuming(5)),
-        nonConsumingFilter = Vector(NonConsumingFilter(5, 3)),
+        consuming = Vector(EventConsuming(6)),
+        consumingFilterStakeholder = Vector(FilterConsumingStakeholder(6, 3)),
+        consumingFilterNonStakeholder = Vector(FilterConsumingNonStakeholder(6, 1)),
+        nonConsuming = Vector(EventNonConsuming(5)),
+        nonConsumingFilter = Vector(FilterNonConsuming(5, 3)),
       )
     )
     // Prune before the offset at which we ingested our events
@@ -145,11 +145,11 @@ private[backend] trait StorageBackendTestsPruning
     executeSql(backend.parameter.updatePrunedUptoInclusive(offset(2)))
     executeSql(
       assertIndexDbData(
-        consuming = Vector(Consuming(6)),
-        consumingFilterStakeholder = Vector(ConsumingFilterStakeholder(6, 3)),
-        consumingFilterNonStakeholder = Vector(ConsumingFilterNonStakeholder(6, 1)),
-        nonConsuming = Vector(NonConsuming(5)),
-        nonConsumingFilter = Vector(NonConsumingFilter(5, 3)),
+        consuming = Vector(EventConsuming(6)),
+        consumingFilterStakeholder = Vector(FilterConsumingStakeholder(6, 3)),
+        consumingFilterNonStakeholder = Vector(FilterConsumingNonStakeholder(6, 1)),
+        nonConsuming = Vector(EventNonConsuming(5)),
+        nonConsumingFilter = Vector(FilterNonConsuming(5, 3)),
       )
     )
 
@@ -225,16 +225,16 @@ private[backend] trait StorageBackendTestsPruning
     // Make sure the entries related to the create event are visible
     executeSql(
       assertIndexDbData(
-        create = Vector(Create(1)),
+        create = Vector(EventCreate(1)),
         createFilterStakeholder = Vector(
-          CreateFilterStakeholder(1, 2),
-          CreateFilterStakeholder(1, 3),
+          FilterCreateStakeholder(1, 2),
+          FilterCreateStakeholder(1, 3),
         ),
-        createFilterNonStakeholder = Vector(CreateFilterNonStakeholder(1, 4)),
-        consuming = Vector(Consuming(2)),
+        createFilterNonStakeholder = Vector(FilterCreateNonStakeholder(1, 4)),
+        consuming = Vector(EventConsuming(2)),
         consumingFilterStakeholder = Vector(
-          ConsumingFilterStakeholder(2, 2),
-          ConsumingFilterStakeholder(2, 3),
+          FilterConsumingStakeholder(2, 2),
+          FilterConsumingStakeholder(2, 3),
         ),
         txMeta = Vector(TxMeta("00000001"), TxMeta("00000002")),
       )
@@ -291,12 +291,12 @@ private[backend] trait StorageBackendTestsPruning
     // Make sure the entries relate to the create event are visible
     executeSql(
       assertIndexDbData(
-        create = Vector(Create(1)),
+        create = Vector(EventCreate(1)),
         createFilterStakeholder = Vector(
-          CreateFilterStakeholder(1, 2),
-          CreateFilterStakeholder(1, 3),
+          FilterCreateStakeholder(1, 2),
+          FilterCreateStakeholder(1, 3),
         ),
-        createFilterNonStakeholder = Vector(CreateFilterNonStakeholder(1, 4)),
+        createFilterNonStakeholder = Vector(FilterCreateNonStakeholder(1, 4)),
         txMeta = Vector(TxMeta("00000002")),
       )
     )
@@ -313,12 +313,12 @@ private[backend] trait StorageBackendTestsPruning
     // Make sure the entries related to the create event are still visible - active contracts should not be pruned
     executeSql(
       assertIndexDbData(
-        create = Vector(Create(1)),
+        create = Vector(EventCreate(1)),
         createFilterStakeholder = Vector(
-          CreateFilterStakeholder(1, 2),
-          CreateFilterStakeholder(1, 3),
+          FilterCreateStakeholder(1, 2),
+          FilterCreateStakeholder(1, 3),
         ),
-        createFilterNonStakeholder = Vector(CreateFilterNonStakeholder(1, 4)),
+        createFilterNonStakeholder = Vector(FilterCreateNonStakeholder(1, 4)),
         txMeta = Vector(TxMeta("00000002")),
       )
     )
@@ -370,8 +370,8 @@ private[backend] trait StorageBackendTestsPruning
     )
     executeSql(
       assertIndexDbData(
-        create = Vector(Create(1), Create(2)),
-        divulgence = Vector(Divulgence(3)),
+        create = Vector(EventCreate(1), EventCreate(2)),
+        divulgence = Vector(EventDivulgence(3)),
       )
     )
 
@@ -383,7 +383,7 @@ private[backend] trait StorageBackendTestsPruning
     )
     executeSql(
       assertIndexDbData(
-        create = Vector(Create(2)),
+        create = Vector(EventCreate(2)),
         // Immediate divulgence for contract2 occurred after the associated party became locally hosted
         // so it is not pruned
         divulgence = Vector.empty,
@@ -441,12 +441,12 @@ private[backend] trait StorageBackendTestsPruning
     executeSql(
       assertIndexDbData(
         // Contract 1 appears as active tu `divulgee` before pruning
-        create = Seq(Create(1)),
-        consuming = Seq(Consuming(3)),
+        create = Seq(EventCreate(1)),
+        consuming = Seq(EventConsuming(3)),
         divulgence = Seq(
-          Divulgence(2),
+          EventDivulgence(2),
           // Contract 2 appears as active tu `divulgee` before pruning
-          Divulgence(4),
+          EventDivulgence(4),
         ),
       )
     )
@@ -464,7 +464,7 @@ private[backend] trait StorageBackendTestsPruning
         divulgence = Seq(
           // Contract 2 did not have a locally stored exercise event
           // hence its divulgence is not pruned - appears active to `divulgee`
-          Divulgence(4)
+          EventDivulgence(4)
         ),
       )
     )
@@ -506,34 +506,34 @@ private[backend] trait StorageBackendTestsPruning
     * Be default asserts the tables are empty.
     */
   def assertIndexDbData(
-      create: Seq[Create] = Seq.empty,
-      consuming: Seq[Consuming] = Seq.empty,
-      nonConsuming: Seq[NonConsuming] = Seq.empty,
-      divulgence: Seq[Divulgence] = Seq.empty,
-      createFilterStakeholder: Seq[CreateFilterStakeholder] = Seq.empty,
-      createFilterNonStakeholder: Seq[CreateFilterNonStakeholder] = Seq.empty,
-      consumingFilterStakeholder: Seq[ConsumingFilterStakeholder] = Seq.empty,
-      consumingFilterNonStakeholder: Seq[ConsumingFilterNonStakeholder] = Seq.empty,
-      nonConsumingFilter: Seq[NonConsumingFilter] = Seq.empty,
+      create: Seq[EventCreate] = Seq.empty,
+      createFilterStakeholder: Seq[FilterCreateStakeholder] = Seq.empty,
+      createFilterNonStakeholder: Seq[FilterCreateNonStakeholder] = Seq.empty,
+      consuming: Seq[EventConsuming] = Seq.empty,
+      consumingFilterStakeholder: Seq[FilterConsumingStakeholder] = Seq.empty,
+      consumingFilterNonStakeholder: Seq[FilterConsumingNonStakeholder] = Seq.empty,
+      nonConsuming: Seq[EventNonConsuming] = Seq.empty,
+      nonConsumingFilter: Seq[FilterNonConsuming] = Seq.empty,
+      divulgence: Seq[EventDivulgence] = Seq.empty,
       txMeta: Seq[TxMeta] = Seq.empty,
       completion: Seq[Completion] = Seq.empty,
   )(c: Connection): Assertion = {
     implicit val _c: Connection = c
-    val queries = backend.pruningDtoQeuries
+    val queries = backend.pruningDtoQueries
     val cp = new Checkpoint
     // create
-    queries.create shouldBe create
-    queries.createFilterStakeholder shouldBe createFilterStakeholder
-    queries.createFilterNonStakeholder shouldBe createFilterNonStakeholder
+    queries.eventCreate shouldBe create
+    queries.filterCreateStakeholder shouldBe createFilterStakeholder
+    queries.filterCreateNonStakeholder shouldBe createFilterNonStakeholder
     // consuming
-    queries.consuming shouldBe consuming
-    queries.consumingFilterStakeholder shouldBe consumingFilterStakeholder
-    queries.consumingFilterNonStakeholder shouldBe consumingFilterNonStakeholder
+    queries.eventConsuming shouldBe consuming
+    queries.filterConsumingStakeholder shouldBe consumingFilterStakeholder
+    queries.filterConsumingNonStakeholder shouldBe consumingFilterNonStakeholder
     // non-consuming
-    queries.nonConsuming shouldBe nonConsuming
-    queries.nonConsumingFilter shouldBe nonConsumingFilter
+    queries.eventNonConsuming shouldBe nonConsuming
+    queries.filterNonConsuming shouldBe nonConsumingFilter
     // other
-    queries.divulgence shouldBe divulgence
+    queries.eventDivulgence shouldBe divulgence
     queries.txMeta shouldBe txMeta
     queries.completions shouldBe completion
     cp.reportAll()

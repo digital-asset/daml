@@ -98,9 +98,8 @@ case class TestBackend(
     participantPartyStorageBackend: PartyRecordStorageBackend,
     metering: TestMeteringBackend,
     identityProviderStorageBackend: IdentityProviderStorageBackend,
-) {
-  val pruningDtoQeuries: PruningDtoQueries = new PruningDtoQueries
-}
+    pruningDtoQueries: PruningDtoQueries = new PruningDtoQueries,
+)
 
 case class TestMeteringBackend(
     read: MeteringStorageReadBackend,

@@ -16,16 +16,16 @@ import com.daml.platform.store.backend.common.SimpleSqlAsVectorOf._
   */
 object PruningDto {
 
-  case class Create(seqId: Long)
-  case class Consuming(seqId: Long)
-  case class NonConsuming(seqId: Long)
-  case class Divulgence(seqId: Long)
+  case class EventCreate(seqId: Long)
+  case class EventConsuming(seqId: Long)
+  case class EventNonConsuming(seqId: Long)
+  case class EventDivulgence(seqId: Long)
 
-  case class CreateFilterStakeholder(seqId: Long, party: Long)
-  case class CreateFilterNonStakeholder(seqId: Long, party: Long)
-  case class ConsumingFilterStakeholder(seqId: Long, party: Long)
-  case class ConsumingFilterNonStakeholder(seqId: Long, party: Long)
-  case class NonConsumingFilter(seqId: Long, party: Long)
+  case class FilterCreateStakeholder(seqId: Long, party: Long)
+  case class FilterCreateNonStakeholder(seqId: Long, party: Long)
+  case class FilterConsumingStakeholder(seqId: Long, party: Long)
+  case class FilterConsumingNonStakeholder(seqId: Long, party: Long)
+  case class FilterNonConsuming(seqId: Long, party: Long)
 
   case class TxMeta(offset: String)
   case class Completion(offset: String)
@@ -38,34 +38,34 @@ class PruningDtoQueries {
     long("event_sequential_id") ~ long("party_id") map { case seqId ~ partyId => f(seqId, partyId) }
   private def offsetParser[T](f: String => T): RowParser[T] = str("offset") map (f)
 
-  def create(implicit c: Connection): Seq[Create] =
+  def eventCreate(implicit c: Connection): Seq[EventCreate] =
     SQL"SELECT event_sequential_id FROM participant_events_create ORDER BY event_sequential_id"
-      .asVectorOf(seqIdParser(Create))(c)
-  def consuming(implicit c: Connection): Seq[Consuming] =
+      .asVectorOf(seqIdParser(EventCreate))(c)
+  def eventConsuming(implicit c: Connection): Seq[EventConsuming] =
     SQL"SELECT event_sequential_id FROM participant_events_consuming_exercise ORDER BY event_sequential_id"
-      .asVectorOf(seqIdParser(Consuming))(c)
-  def nonConsuming(implicit c: Connection): Seq[NonConsuming] =
+      .asVectorOf(seqIdParser(EventConsuming))(c)
+  def eventNonConsuming(implicit c: Connection): Seq[EventNonConsuming] =
     SQL"SELECT event_sequential_id FROM participant_events_non_consuming_exercise ORDER BY event_sequential_id"
-      .asVectorOf(seqIdParser(NonConsuming))(c)
-  def divulgence(implicit c: Connection): Seq[Divulgence] =
+      .asVectorOf(seqIdParser(EventNonConsuming))(c)
+  def eventDivulgence(implicit c: Connection): Seq[EventDivulgence] =
     SQL"SELECT event_sequential_id FROM participant_events_divulgence ORDER BY event_sequential_id"
-      .asVectorOf(seqIdParser(Divulgence))(c)
+      .asVectorOf(seqIdParser(EventDivulgence))(c)
 
-  def createFilterStakeholder(implicit c: Connection): Seq[CreateFilterStakeholder] =
+  def filterCreateStakeholder(implicit c: Connection): Seq[FilterCreateStakeholder] =
     SQL"SELECT event_sequential_id, party_id FROM pe_create_id_filter_stakeholder ORDER BY event_sequential_id, party_id"
-      .asVectorOf(idFilterParser(CreateFilterStakeholder))(c)
-  def createFilterNonStakeholder(implicit c: Connection): Seq[CreateFilterNonStakeholder] =
+      .asVectorOf(idFilterParser(FilterCreateStakeholder))(c)
+  def filterCreateNonStakeholder(implicit c: Connection): Seq[FilterCreateNonStakeholder] =
     SQL"SELECT event_sequential_id, party_id FROM pe_create_id_filter_non_stakeholder_informee ORDER BY event_sequential_id, party_id"
-      .asVectorOf(idFilterParser(CreateFilterNonStakeholder))(c)
-  def consumingFilterStakeholder(implicit c: Connection): Seq[ConsumingFilterStakeholder] =
+      .asVectorOf(idFilterParser(FilterCreateNonStakeholder))(c)
+  def filterConsumingStakeholder(implicit c: Connection): Seq[FilterConsumingStakeholder] =
     SQL"SELECT event_sequential_id, party_id FROM pe_consuming_id_filter_stakeholder ORDER BY event_sequential_id, party_id"
-      .asVectorOf(idFilterParser(ConsumingFilterStakeholder))(c)
-  def consumingFilterNonStakeholder(implicit c: Connection): Seq[ConsumingFilterNonStakeholder] =
+      .asVectorOf(idFilterParser(FilterConsumingStakeholder))(c)
+  def filterConsumingNonStakeholder(implicit c: Connection): Seq[FilterConsumingNonStakeholder] =
     SQL"SELECT event_sequential_id, party_id FROM pe_consuming_id_filter_non_stakeholder_informee ORDER BY event_sequential_id, party_id"
-      .asVectorOf(idFilterParser(ConsumingFilterNonStakeholder))(c)
-  def nonConsumingFilter(implicit c: Connection): Seq[NonConsumingFilter] =
+      .asVectorOf(idFilterParser(FilterConsumingNonStakeholder))(c)
+  def filterNonConsuming(implicit c: Connection): Seq[FilterNonConsuming] =
     SQL"SELECT event_sequential_id, party_id FROM pe_non_consuming_id_filter_informee ORDER BY event_sequential_id, party_id"
-      .asVectorOf(idFilterParser(NonConsumingFilter))(c)
+      .asVectorOf(idFilterParser(FilterNonConsuming))(c)
 
   def txMeta(implicit c: Connection): Seq[TxMeta] =
     SQL"SELECT event_offset AS offset FROM participant_transaction_meta ORDER BY event_offset"
