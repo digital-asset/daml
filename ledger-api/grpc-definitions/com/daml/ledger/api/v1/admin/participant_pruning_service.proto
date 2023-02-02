@@ -30,18 +30,17 @@ service ParticipantPruningService {
 message PruneRequest {
   // Inclusive offset up to which the ledger is to be pruned.
   // By default the following data is pruned:
-  //   1. All normal and divulged contracts that have been archived before
-  //   `prune_up_to`.
-  //   2. All transaction events and completions before `prune_up_to`
+  //   1. All normal and divulged contracts that have been archived before or at `prune_up_to` offset.
+  //   2. All transaction events and completions before or at `prune_up_to` offset.
   string prune_up_to = 1;
 
   // Unique submission identifier.
   // Optional, defaults to a random identifier, used for logging.
   string submission_id = 2;
 
-  // Prune all immediately and retroactively divulged contracts created before `prune_up_to`
-  // independent of whether they were archived before `prune_up_to`. Useful to avoid leaking
-  // storage on participant nodes that can see a divulged contract but not its archival.
+  // Prune all immediately and retroactively divulged contracts created before or at `prune_up_to` offset
+  // independent of whether they were archived before or at `prune_up_to` offset.
+  // Useful to avoid leaking storage on participant nodes that can see a divulged contract but not its archival.
   //
   // Application developers SHOULD write their Daml applications
   // such that they do not rely on divulged contracts; i.e., no warnings from
