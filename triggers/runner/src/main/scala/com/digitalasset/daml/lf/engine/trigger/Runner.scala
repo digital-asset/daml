@@ -669,7 +669,7 @@ private[lf] class Runner private (
           case next @ -\/(_) =>
             val endTime = System.nanoTime()
             triggerContext.logDebug(
-              "Trigger metrics",
+              "Trigger rule evaluation end",
               "metrics" -> LoggingValue.Nested(
                 LoggingEntries(
                   "steps" -> numberOfRuleEvaluations,
@@ -885,7 +885,7 @@ private[lf] class Runner private (
             val heartbeats = batchValue.count(isHeartbeat)
 
             batchContext.logInfo(
-              "Trigger metrics",
+              "Trigger rule message batching",
               "metrics" -> LoggingValue.Nested(
                 LoggingEntries(
                   "size" -> total,
@@ -945,12 +945,13 @@ private[lf] class Runner private (
               "state" -> triggerUserState(state, trigger.defn.level),
             )
             triggerContext.logInfo(
-              "Trigger metrics",
+              "Trigger rule initialization",
               "metrics" -> LoggingValue.Nested(
                 LoggingEntries(
                   "acs" -> LoggingValue.Nested(
                     LoggingEntries(
-                      "active" -> acs.length
+                      "active" -> acs.length,
+                      "pending" -> 0,
                     )
                   )
                 )
@@ -981,7 +982,7 @@ private[lf] class Runner private (
         )
         if (trigger.defn.level == Trigger.Level.High) {
           triggerContext.logInfo(
-            "Trigger metrics",
+            "Trigger rule evaluation start",
             "metrics" -> LoggingValue.Nested(
               LoggingEntries(
                 "in-flight" -> numberOfInFlightCommands(state, trigger.defn.level),
@@ -1022,14 +1023,14 @@ private[lf] class Runner private (
                 )
                 if (trigger.defn.level == Trigger.Level.High) {
                   triggerContext.logInfo(
-                    "Trigger metrics",
+                    "Trigger rule evaluation end",
                     "metrics" -> LoggingValue.Nested(
                       LoggingEntries(
-                        "in-flight" -> numberOfInFlightCommands(state, trigger.defn.level),
+                        "in-flight" -> numberOfInFlightCommands(newState, trigger.defn.level),
                         "acs" -> LoggingValue.Nested(
                           LoggingEntries(
-                            "active" -> numberOfActiveContracts(state, trigger.defn.level),
-                            "pending" -> numberOfPendingContracts(state, trigger.defn.level),
+                            "active" -> numberOfActiveContracts(newState, trigger.defn.level),
+                            "pending" -> numberOfPendingContracts(newState, trigger.defn.level),
                           )
                         ),
                       )
@@ -1287,10 +1288,6 @@ object Runner {
     smap.expect("SMap", { case SMap(_, values) => values.size }).orConverterException
   }
 
-  private def listSize(smap: SValue): Int = {
-    smap.expect("SList", { case SList(values) => values.length }).orConverterException
-  }
-
   private def numberOfActiveContracts(svalue: SValue, level: Trigger.Level): Option[Int] = {
     level match {
       case Trigger.Level.High =>
@@ -1325,7 +1322,7 @@ object Runner {
           )
           size <- pendingContracts.expect(
             "SMap",
-            { case SMap(_, values) => values.values.map(listSize).sum },
+            { case SMap(_, values) => values.size },
           )
         } yield size
 

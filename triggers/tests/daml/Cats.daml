@@ -48,7 +48,7 @@ template TestComplete
 
 contractPairings : Int
 -- The following value should be kept in sync with the value of contractPairings in LoadTesting.scala
-contractPairings = 400
+contractPairings = 500
 
 feedingTrigger : Trigger Int
 feedingTrigger = Trigger
@@ -82,7 +82,7 @@ breedingRate = 100
 
 breedingTrigger : Trigger Int
 breedingTrigger = Trigger
-  { initialize = pure 100
+  { initialize = pure breedingRate
   , updateState = \msg -> case msg of
        MTransaction (Transaction _ _ [CreatedEvent (fromCreated @Cat -> Some catId)]) -> do
          modify (subtract 1)
@@ -99,6 +99,41 @@ breedTheCats party = do
     void $ emitCommands [createCmd (TestComplete party)] []
   else
     void $ emitCommands [createCmd (Cat party breedCount)] []
+
+breedAndFeedTrigger: Trigger (Int, Int)
+breedAndFeedTrigger = Trigger
+  { initialize = pure (contractPairings, 0)
+  , updateState = \msg -> case msg of
+      MTransaction (Transaction _ _ [CreatedEvent (fromCreated @Cat -> Some (_, catId, _)), CreatedEvent (fromCreated @Food -> Some (_, foodId, _))]) -> do
+        (pendingCount, breedCount) <- get
+        put (pendingCount, breedCount + 1)
+      MTransaction (Transaction _ _ [ArchivedEvent (fromArchived @Cat -> Some (_, catId)), ArchivedEvent (fromArchived @Food -> Some (_, foodId))]) -> do
+        (pendingCount, breedCount) <- get
+        put (pendingCount - 1, breedCount)
+      _ -> pure ()
+  , rule = breedAndFeedTheCats
+  , registeredTemplates = RegisteredTemplates [ registeredTemplate @TestComplete, registeredTemplate @Cat, registeredTemplate @Food ]
+  , heartbeat = Some (seconds 1)
+  }
+
+breedAndFeedTheCats: Party -> TriggerA (Int, Int) ()
+breedAndFeedTheCats party = do
+  (pendingCount, breedCount) <- get
+  if breedCount == 0 then
+    forA_ [1..contractPairings] \n -> do
+      void $ emitCommands [createCmd (Cat party n), createCmd (Food party n)] []
+  else if breedCount < contractPairings then
+    pure ()
+  else if pendingCount == 0 then
+    void $ emitCommands [createCmd (TestComplete party)] []
+  else do
+    cats <- query @Cat
+    forA_ cats \(catCid, Cat{..}) -> do
+      queryContractKey @Food (Food owner isin) >>= \case
+        Some (foodCid, _) -> do
+          void $ emitCommands [exerciseCmd catCid (Feed foodCid)] [toAnyContractId catCid, toAnyContractId foodCid]
+        None ->
+          pure ()
 
 overflowTrigger: Trigger Int
 overflowTrigger = Trigger
