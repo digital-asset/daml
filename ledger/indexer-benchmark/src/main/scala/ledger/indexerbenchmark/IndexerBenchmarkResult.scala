@@ -174,7 +174,7 @@ class IndexerBenchmarkResult(
       case DropwizardCounter(_, metric) =>
         metric.getCount
       case NoOpCounter(_) => 0
-      case InMemoryCounter(_) => counter.value
+      case InMemoryCounter(_, _) => counter.value
       case ProxyCounter(_, targets) =>
         targets
           .collectFirst { case inMemory: InMemoryCounter =>

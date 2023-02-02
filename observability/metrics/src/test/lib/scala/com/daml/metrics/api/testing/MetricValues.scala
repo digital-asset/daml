@@ -72,7 +72,7 @@ trait MetricValues {
 
     def value: Long = counter match {
       case DropwizardCounter(_, metric) => metric.getCount
-      case timer @ InMemoryCounter(_) => singleValueFromContexts(timer.markers.toMap).get()
+      case timer: InMemoryCounter => singleValueFromContexts(timer.markers.toMap).get()
       case other =>
         throw new IllegalArgumentException(s"Value not supported for $other")
     }
