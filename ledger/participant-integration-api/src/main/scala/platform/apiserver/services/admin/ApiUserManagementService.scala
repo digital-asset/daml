@@ -17,6 +17,7 @@ import com.daml.ledger.api.v1.admin.user_management_service.{
   UpdateUserResponse,
 }
 import com.daml.ledger.api.v1.admin.{user_management_service => proto}
+import com.daml.ledger.participant.state.index.v2.IndexPartyManagementService
 import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
@@ -43,6 +44,7 @@ private[apiserver] final class ApiUserManagementService(
     partyRecordExist: PartyRecordsExist,
     maxUsersPageSize: Int,
     submissionIdGenerator: SubmissionIdGenerator,
+    indexPartyManagementService: IndexPartyManagementService,
 )(implicit
     executionContext: ExecutionContext,
     loggingContext: LoggingContext,
@@ -402,18 +404,27 @@ private[apiserver] final class ApiUserManagementService(
 
     partiesExistingInPartyRecordStore
       .flatMap { partiesExist =>
-        val partiesNotExist = parties -- partiesExist
-        if (partiesNotExist.isEmpty)
+        val partyRecordNotNotExist = parties -- partiesExist
+        if (partyRecordNotNotExist.isEmpty)
           Future.unit
-        else
-          Future.failed(
-            LedgerApiErrors.RequestValidation.InvalidArgument
-              .Reject(
-                s"Provided parties have not been found in identity_provider_id=`${identityProviderId.toRequestString}`: [${partiesNotExist
-                    .mkString(",")}]."
-              )
-              .asGrpcError
-          )
+        else {
+          indexPartyManagementService.getParties(partyRecordNotNotExist.toList).flatMap {
+            partiesNotKnown =>
+              val partyNotKnownNotExist =
+                (partiesNotKnown.map(_.party).toSet -- partyRecordNotNotExist)
+              if (partyNotKnownNotExist.isEmpty) Future.unit
+              else {
+                Future.failed(
+                  LedgerApiErrors.RequestValidation.InvalidArgument
+                    .Reject(
+                      s"Provided parties have not been found in identity_provider_id=`${identityProviderId.toRequestString}`: [${partyNotKnownNotExist
+                          .mkString(",")}]."
+                    )
+                    .asGrpcError
+                )
+              }
+          }
+        }
       }
   }
 
