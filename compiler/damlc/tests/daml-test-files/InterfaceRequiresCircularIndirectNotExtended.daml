@@ -1,11 +1,12 @@
 -- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
--- @SINCE-LF-FEATURE DAML_INTERFACE_EXTENDED
--- @ERROR Circular interface requirement is not allowed: interface A requires InterfaceRequiresCircularIndirect:B requires A
+-- @SINCE-LF-FEATURE DAML_INTERFACE
+-- @UNTIL-LF-FEATURE DAML_INTERFACE_EXTENDED
+-- @ERROR Requires in Daml interfaces are only available with --target=1.dev
 
 -- | Check that an interface cannot require itself indirectly.
-module InterfaceRequiresCircularIndirect where
+module InterfaceRequiresCircularIndirectNotExtended where
 
 data EmptyInterfaceView = EmptyInterfaceView {}
 
