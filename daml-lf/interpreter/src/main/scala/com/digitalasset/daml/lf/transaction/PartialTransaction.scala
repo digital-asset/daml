@@ -11,7 +11,6 @@ import com.daml.lf.speedy.Speedy.{CachedContract, CachedKey}
 import com.daml.lf.transaction.ContractKeyUniquenessMode
 import com.daml.lf.transaction.{
   ContractStateMachine,
-  GlobalKey,
   GlobalKeyWithMaintainers,
   Node,
   NodeId,
@@ -369,7 +368,7 @@ private[speedy] case class PartialTransaction(
       case Nil =>
         ptx.contractState.visitCreate(
           cid,
-          contract.key.map(_.globalKey),
+          createNode.gkeyOpt,
         ) match {
           case Right(next) =>
             val nextPtx = ptx.copy(contractState = next)
@@ -397,7 +396,7 @@ private[speedy] case class PartialTransaction(
       actingParties,
       contract.signatories,
       contract.stakeholders,
-      contract.key.map(_.globalKeyWithMaintainers),
+      contract.keyOpt.map(_.globalKeyWithMaintainers),
       normByKey(version, byKey),
       version,
     )
@@ -406,7 +405,7 @@ private[speedy] case class PartialTransaction(
         // evaluation order tests require visitFetch proceeds authorizeFetch
         contractState.visitFetch(
           coid,
-          contract.key.map(_.globalKey),
+          contract.gkeyOpt,
           byKey,
         )
       )
@@ -467,17 +466,9 @@ private[speedy] case class PartialTransaction(
         targetId = targetId,
         templateId = contract.templateId,
         interfaceId = interfaceId,
-        contractKey = contract.key.map {
+        contractKey =
           // We need to renormalize the key
-          case CachedKey(GlobalKeyWithMaintainers(_, maintainers), key) =>
-            GlobalKeyWithMaintainers(
-              GlobalKey.assertBuild(
-                contract.templateId,
-                key.toNormalizedValue(version),
-              ),
-              maintainers,
-            )
-        },
+          contract.keyOpt.map(_.renormalizedGlobalKeyWithMaintainers(version)),
         choiceId = choiceId,
         consuming = consuming,
         actingParties = actingParties,
@@ -497,7 +488,7 @@ private[speedy] case class PartialTransaction(
         contractState.visitExercise(
           nid,
           targetId,
-          contract.key.map(_.globalKey),
+          contract.gkeyOpt,
           byKey,
           consuming,
         )

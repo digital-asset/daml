@@ -8,8 +8,7 @@ import com.daml.lf.data.Ref._
 import com.daml.lf.data._
 import com.daml.lf.ledger.FailedAuthorization
 import com.daml.lf.value.Value
-import com.daml.lf.value.Value.ContractId
-import com.daml.lf.command.ProcessedDisclosedContract
+import com.daml.lf.value.Value.{ContractId, VersionedContractInstance}
 import com.daml.lf.transaction.ContractStateMachine.KeyMapping
 
 import scala.annotation.tailrec
@@ -715,7 +714,7 @@ object Transaction {
     * @param nodeSeeds        : An association list that maps to each ID of create and exercise
     *                         nodes its seeds.
     * @param globalKeyMapping : input key mapping inferred by interpretation
-    * @param disclosures      : contracts passed via explicit disclosure that have been used in this transaction
+    * @param disclosedEvents    : create contracts passed via explicit disclosure that have been used in this transaction
     */
   final case class Metadata(
       submissionSeed: Option[crypto.Hash],
@@ -724,7 +723,7 @@ object Transaction {
       dependsOnTime: Boolean,
       nodeSeeds: ImmArray[(NodeId, crypto.Hash)],
       globalKeyMapping: Map[GlobalKey, Option[Value.ContractId]],
-      disclosures: ImmArray[Versioned[ProcessedDisclosedContract]],
+      disclosedEvents: ImmArray[DisclosedEvent],
   )
 
   def commitTransaction(submittedTransaction: SubmittedTransaction): CommittedTransaction =
@@ -810,4 +809,52 @@ object Transaction {
     case object DoNotRecurse extends ChildrenRecursion
   }
 
+}
+
+/** An explicitly-disclosed contract that has been used during command interpretation
+  * and enriched with additional contract metadata.
+  *
+  * @param createEvent the create event of the contract
+  * @param createdAt ledger effective time of the transaction that created the contract
+  * @param driverMetadata opaque bytestring used by the underlying ledger implementation
+  */
+final case class DisclosedEvent(
+    createEvent: Node.Create,
+    createdAt: Time.Timestamp,
+    driverMetadata: Bytes,
+) {
+  def contractId: Value.ContractId = createEvent.coid
+
+  def templateId: TypeConName = createEvent.templateId
+
+  def versionedCoinst: VersionedContractInstance = createEvent.versionedCoinst
+}
+
+object DisclosedEvent {
+  def apply(
+      templateId: Identifier,
+      contractId: Value.ContractId,
+      argument: Value,
+      createdAt: Time.Timestamp,
+      driverMetadata: Bytes,
+      signatories: Set[Party],
+      stakeholders: Set[Party],
+      keyOpt: Option[GlobalKeyWithMaintainers],
+      agreementText: String,
+      version: TransactionVersion,
+  ): DisclosedEvent =
+    DisclosedEvent(
+      createEvent = Node.Create(
+        templateId = templateId,
+        coid = contractId,
+        arg = argument,
+        signatories = signatories,
+        stakeholders = stakeholders,
+        keyOpt = keyOpt,
+        agreementText = agreementText,
+        version = version,
+      ),
+      createdAt = createdAt,
+      driverMetadata = driverMetadata,
+    )
 }

@@ -84,7 +84,7 @@ class PrepareSubmissionSpec extends AsyncFlatSpec with Matchers {
         transactionMeta = txMeta,
         transaction = SubmittedTransaction(txBuilder.build()),
         estimatedInterpretationCost = 0L,
-        disclosedContracts = ImmArray.empty,
+        disclosedEvents = ImmArray.empty,
       )
     )
     validationResult.map(
@@ -120,7 +120,7 @@ class PrepareSubmissionSpec extends AsyncFlatSpec with Matchers {
         transactionMeta = txMeta,
         transaction = SubmittedTransaction(txBuilder.build()),
         estimatedInterpretationCost = 0L,
-        disclosedContracts = ImmArray.empty,
+        disclosedEvents = ImmArray.empty,
       )
     )
     validationResult.map(

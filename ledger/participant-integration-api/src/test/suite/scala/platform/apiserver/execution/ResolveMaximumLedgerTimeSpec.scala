@@ -4,10 +4,10 @@
 package com.daml.platform.apiserver.execution
 
 import com.daml.ledger.participant.state.index.v2.{MaximumLedgerTime, MaximumLedgerTimeService}
-import com.daml.lf.command.{EngineEnrichedContractMetadata, ProcessedDisclosedContract}
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref.Identifier
 import com.daml.lf.data.{Bytes, ImmArray, Time}
+import com.daml.lf.transaction.{DisclosedEvent, TransactionVersion}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 import com.daml.logging.LoggingContext
@@ -33,25 +33,25 @@ class ResolveMaximumLedgerTimeSpec
   behavior of classOf[ResolveMaximumLedgerTime].getSimpleName
 
   it should "resolve maximum ledger time using disclosed contracts with fallback to contract store lookup" in new TestScope {
-    private val disclosedContracts = ImmArray(
-      buildDisclosedContract(cId_1, t1),
-      buildDisclosedContract(cId_2, t2),
+    private val disclosedEvents = ImmArray(
+      buildDisclosedEvent(cId_1, t1),
+      buildDisclosedEvent(cId_2, t2),
     )
 
     resolveMaximumLedgerTime(
-      disclosedContracts,
+      disclosedEvents,
       Set(cId_2, cId_3, cId_4),
     ).futureValue shouldBe MaximumLedgerTime.Max(t4)
   }
 
   it should "resolve maximum ledger time when all contracts are provided as explicitly disclosed" in new TestScope {
-    private val disclosedContracts = ImmArray(
-      buildDisclosedContract(cId_1, t1),
-      buildDisclosedContract(cId_2, t2),
+    private val disclosedEvents = ImmArray(
+      buildDisclosedEvent(cId_1, t1),
+      buildDisclosedEvent(cId_2, t2),
     )
 
     resolveMaximumLedgerTime(
-      disclosedContracts,
+      disclosedEvents,
       Set(cId_1, cId_2),
     ).futureValue shouldBe MaximumLedgerTime.Max(t2)
   }
@@ -70,19 +70,18 @@ class ResolveMaximumLedgerTimeSpec
     ).futureValue shouldBe archived
   }
 
-  private def buildDisclosedContract(cId: ContractId, createdAt: Time.Timestamp) =
-    ProcessedDisclosedContract(
+  private def buildDisclosedEvent(cId: ContractId, createdAt: Time.Timestamp) =
+    DisclosedEvent(
       templateId = Identifier.assertFromString("some:pkg:identifier"),
       contractId = cId,
       argument = Value.ValueNil,
-      metadata = EngineEnrichedContractMetadata(
-        createdAt = createdAt,
-        driverMetadata = Bytes.Empty,
-        signatories = Set.empty,
-        stakeholders = Set.empty,
-        keyOpt = None,
-        agreementText = "",
-      ),
+      createdAt = createdAt,
+      driverMetadata = Bytes.Empty,
+      signatories = Set.empty,
+      stakeholders = Set.empty,
+      keyOpt = None,
+      agreementText = "",
+      version = TransactionVersion.StableVersions.max,
     )
 
   private def contractId(id: Int): ContractId =

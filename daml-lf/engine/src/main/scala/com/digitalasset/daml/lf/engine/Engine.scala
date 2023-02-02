@@ -326,7 +326,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
       limits = config.limits,
       disclosedContracts = disclosures,
     )
-    interpretLoop(machine, ledgerTime)
+    interpretLoop(machine, ledgerTime, disclosures)
   }
 
   @SuppressWarnings(Array("org.wartremover.warts.Return"))
@@ -363,6 +363,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
   private[engine] def interpretLoop(
       machine: UpdateMachine,
       time: Time.Timestamp,
+      disclosures: ImmArray[speedy.DisclosedContract],
   ): Result[(SubmittedTransaction, Tx.Metadata)] = {
     def detailMsg = Some(
       s"Last location: ${Pretty.prettyLoc(machine.getLastLocation).render(80)}, partial transaction: ${machine.nodesToString}"
@@ -370,7 +371,9 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
 
     def finish: Result[(SubmittedTransaction, Tx.Metadata)] =
       machine.finish match {
-        case Right(UpdateMachine.Result(tx, _, nodeSeeds, globalKeyMapping, disclosedContracts)) =>
+        case Right(
+              UpdateMachine.Result(tx, _, nodeSeeds, globalKeyMapping, disclosedCreateEvent)
+            ) =>
           deps(tx).flatMap { deps =>
             val meta = Tx.Metadata(
               submissionSeed = None,
@@ -379,7 +382,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
               dependsOnTime = machine.getDependsOnTime,
               nodeSeeds = nodeSeeds,
               globalKeyMapping = globalKeyMapping,
-              disclosures = disclosedContracts,
+              disclosedEvents = disclosedCreateEvent,
             )
             config.profileDir.foreach { dir =>
               val desc = Engine.profileDesc(tx)
@@ -412,7 +415,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
                 { pkg: Package =>
                   compiledPackages.addPackage(pkgId, pkg).flatMap { _ =>
                     callback(compiledPackages)
-                    interpretLoop(machine, time)
+                    interpretLoop(machine, time, disclosures)
                   }
                 },
               )
@@ -422,7 +425,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
                 contractId,
                 { coinst: VersionedContractInstance =>
                   callback(coinst.unversioned)
-                  interpretLoop(machine, time)
+                  interpretLoop(machine, time, disclosures)
                 },
               )
 
@@ -431,7 +434,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
                 gk,
                 { coid: Option[ContractId] =>
                   discard[Boolean](callback(coid))
-                  interpretLoop(machine, time)
+                  interpretLoop(machine, time, disclosures)
                 },
               )
           }

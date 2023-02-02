@@ -236,7 +236,7 @@ object ExplicitDisclosureLib {
       agreementText = "",
       signatories = Set(signatory),
       observers = Set.empty,
-      key = mbKey,
+      keyOpt = mbKey,
     )
   }
 

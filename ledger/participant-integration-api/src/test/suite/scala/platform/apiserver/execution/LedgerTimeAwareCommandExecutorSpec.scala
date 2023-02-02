@@ -9,16 +9,12 @@ import com.daml.ledger.api.domain.{CommandId, Commands, LedgerId}
 import com.daml.ledger.configuration.{Configuration, LedgerTimeModel}
 import com.daml.ledger.participant.state.index.v2.MaximumLedgerTime
 import com.daml.ledger.participant.state.v2.{SubmitterInfo, TransactionMeta}
-import com.daml.lf.command.{
-  EngineEnrichedContractMetadata,
-  ProcessedDisclosedContract,
-  ApiCommands => LfCommands,
-}
+import com.daml.lf.command.{ApiCommands => LfCommands}
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref.Identifier
 import com.daml.lf.data.{Bytes, ImmArray, Ref, Time}
 import com.daml.lf.transaction.test.TransactionBuilder
-import com.daml.lf.transaction.{TransactionVersion, Versioned}
+import com.daml.lf.transaction.{DisclosedEvent, TransactionVersion}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 import com.daml.logging.LoggingContext
@@ -68,22 +64,18 @@ class LedgerTimeAwareCommandExecutorSpec
     )
   )
 
-  private val disclosedContracts = ImmArray(
-    Versioned(
-      TransactionVersion.V15,
-      ProcessedDisclosedContract(
-        templateId = Identifier.assertFromString("some:pkg:identifier"),
-        contractId = cid,
-        argument = Value.ValueNil,
-        metadata = EngineEnrichedContractMetadata(
-          createdAt = Time.Timestamp.Epoch,
-          driverMetadata = Bytes.Empty,
-          signatories = Set.empty,
-          stakeholders = Set.empty,
-          keyOpt = None,
-          agreementText = "",
-        ),
-      ),
+  private val disclosedEvents = ImmArray(
+    DisclosedEvent(
+      templateId = Identifier.assertFromString("some:pkg:identifier"),
+      contractId = cid,
+      argument = Value.ValueNil,
+      createdAt = Time.Timestamp.Epoch,
+      driverMetadata = Bytes.Empty,
+      signatories = Set.empty,
+      stakeholders = Set.empty,
+      keyOpt = None,
+      agreementText = "",
+      version = TransactionVersion.StableVersions.max,
     )
   )
 
@@ -108,7 +100,7 @@ class LedgerTimeAwareCommandExecutorSpec
       dependsOnLedgerTime,
       5L,
       Map.empty,
-      disclosedContracts,
+      disclosedEvents,
     )
 
     val mockExecutor = mock[CommandExecutor]
@@ -125,7 +117,7 @@ class LedgerTimeAwareCommandExecutorSpec
     resolveMaximumLedgerTimeResults.tail.foldLeft(
       when(
         mockResolveMaximumLedgerTime(
-          eqTo(disclosedContracts.map(_.unversioned)),
+          eqTo(disclosedEvents),
           any[Set[ContractId]],
         )(
           any[LoggingContext]
@@ -178,7 +170,7 @@ class LedgerTimeAwareCommandExecutorSpec
           dependsOnLedgerTime,
           5L,
           Map.empty,
-          disclosedContracts,
+          disclosedEvents,
         )
       )
 

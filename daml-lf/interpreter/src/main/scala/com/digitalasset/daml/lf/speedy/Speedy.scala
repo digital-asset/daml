@@ -4,11 +4,9 @@
 package com.daml.lf
 package speedy
 
-import com.daml.lf.command.{EngineEnrichedContractMetadata, ProcessedDisclosedContract}
-
 import java.util
 import com.daml.lf.data.Ref._
-import com.daml.lf.data.{FrontStack, ImmArray, NoCopy, Ref, Time}
+import com.daml.lf.data.{ImmArray, NoCopy, FrontStack, Time, Ref}
 import com.daml.lf.interpretation.{Error => IError}
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.{LookupError, Util => AstUtil}
@@ -19,14 +17,14 @@ import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.Speedy.Machine.{newTraceLog, newWarningLog}
 import com.daml.lf.transaction.ContractStateMachine.KeyMapping
+import com.daml.lf.transaction.GlobalKeyWithMaintainers
 import com.daml.lf.transaction.{
-  ContractKeyUniquenessMode,
-  GlobalKey,
-  GlobalKeyWithMaintainers,
-  Node,
-  NodeId,
   SubmittedTransaction,
-  Versioned,
+  Node,
+  ContractKeyUniquenessMode,
+  DisclosedEvent,
+  NodeId,
+  GlobalKey,
   IncompleteTransaction => IncompleteTx,
   TransactionVersion => TxVersion,
 }
@@ -35,7 +33,7 @@ import com.daml.nameof.NameOf
 import com.daml.scalautil.Statement.discard
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 
-import scala.annotation.{nowarn, tailrec}
+import scala.annotation.{tailrec, nowarn}
 import scala.collection.mutable
 
 private[lf] object Speedy {
@@ -117,7 +115,12 @@ private[lf] object Speedy {
     def globalKey: GlobalKey = globalKeyWithMaintainers.globalKey
     def templateId: TypeConName = globalKey.templateId
     def maintainers: Set[Party] = globalKeyWithMaintainers.maintainers
-    val lfValue = globalKey.key
+    val lfValue: V = globalKey.key
+    def renormalizedGlobalKeyWithMaintainers(version: TxVersion) = {
+      globalKeyWithMaintainers.copy(
+        globalKey = GlobalKey.assertBuild(templateId, key.toNormalizedValue(version))
+      )
+    }
   }
 
   final case class CachedContract(
@@ -127,20 +130,21 @@ private[lf] object Speedy {
       agreementText: String,
       signatories: Set[Party],
       observers: Set[Party],
-      key: Option[CachedKey],
+      keyOpt: Option[CachedKey],
   ) {
     val stakeholders: Set[Party] = signatories union observers
     private[speedy] val any = SValue.SAny(TTyCon(templateId), value)
     private[speedy] def arg = value.toNormalizedValue(version)
+    private[speedy] def gkeyOpt: Option[GlobalKey] = keyOpt.map(_.globalKey)
     private[speedy] def toCreateNode(coid: V.ContractId) =
       Node.Create(
         coid = coid,
         templateId = templateId,
-        arg = arg,
+        arg = value.toNormalizedValue(version),
         agreementText = agreementText,
         signatories = signatories,
         stakeholders = stakeholders,
-        keyOpt = key.map(_.globalKeyWithMaintainers),
+        keyOpt = keyOpt.map(_.globalKeyWithMaintainers),
         version = version,
       )
   }
@@ -343,28 +347,11 @@ private[lf] object Speedy {
                   s"contract ${lfContractId.coid} not in cachedContracts",
                 )
               )
-              val transactionVersion = tmplId2TxVersion(cachedContract.templateId)
-              val keyOpt = cachedContract.key.map(k =>
-                Versioned(cachedContract.version, k.globalKeyWithMaintainers)
-              )
-
-              val engineEnrichedContractMetadata = EngineEnrichedContractMetadata(
+              DisclosedEvent(
+                cachedContract.toCreateNode(disclosedContract.contractId.value),
                 createdAt = disclosedContract.metadata.createdAt,
                 driverMetadata = disclosedContract.metadata.driverMetadata,
-                signatories = cachedContract.signatories,
-                stakeholders = cachedContract.stakeholders,
-                keyOpt = keyOpt,
-                agreementText = cachedContract.agreementText,
               )
-              val engineEnrichedDisclosedContract =
-                ProcessedDisclosedContract(
-                  templateId = disclosedContract.templateId,
-                  contractId = disclosedContract.contractId.value,
-                  argument = disclosedContract.argument.toNormalizedValue(transactionVersion),
-                  metadata = engineEnrichedContractMetadata,
-                )
-
-              Versioned(transactionVersion, engineEnrichedDisclosedContract)
           },
       )
     }
@@ -485,7 +472,7 @@ private[lf] object Speedy {
         locationInfo: Map[NodeId, Location],
         seeds: NodeSeeds,
         globalKeyMapping: Map[GlobalKey, KeyMapping],
-        disclosedContracts: ImmArray[Versioned[ProcessedDisclosedContract]],
+        disclosedEvents: ImmArray[DisclosedEvent],
     )
   }
 
