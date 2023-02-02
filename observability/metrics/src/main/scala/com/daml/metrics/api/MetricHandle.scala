@@ -127,8 +127,8 @@ object MetricHandle {
 
   object Gauge {
 
-    /** Because gauges represent a specific value at a given time there is a distinction between the value of a gauge no
-      * longer being updated vs the value no longer existing (contrary to how meters, histograms work). Because of this reasoning
+    /** Because gauges represent a specific value at a given time, there is a distinction between the value of a gauge no
+      * longer being updated vs. the value no longer existing (contrary to how meters, histograms work). Because of this reasoning
       * gauges have to be closed after usage.
       */
     trait CloseableGauge extends AutoCloseable
