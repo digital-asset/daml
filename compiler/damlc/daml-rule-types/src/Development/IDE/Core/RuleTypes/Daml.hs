@@ -213,8 +213,6 @@ instance NFData   RunScenarios
 
 data RunSingleScenario = RunSingleScenario T.Text
     deriving (Eq, Show, Typeable, Generic)
---data RunSingleScenario = RunSingleScenario
---    deriving (Eq, Show, Typeable, Generic)
 instance Binary   RunSingleScenario
 instance Hashable RunSingleScenario
 instance NFData   RunSingleScenario
@@ -227,8 +225,6 @@ instance NFData   RunScripts
 
 data RunSingleScript = RunSingleScript T.Text
     deriving (Eq, Show, Typeable, Generic)
---data RunSingleScript = RunSingleScript
---    deriving (Eq, Show, Typeable, Generic)
 instance Binary   RunSingleScript
 instance Hashable RunSingleScript
 instance NFData   RunSingleScript
