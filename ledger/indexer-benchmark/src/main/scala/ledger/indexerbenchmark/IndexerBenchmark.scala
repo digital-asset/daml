@@ -53,7 +53,7 @@ class IndexerBenchmark() {
       val readService = createReadService(updates)
 
       val resource = for {
-        (metrics, inMemoryMetrics) <- metricsResource(config).acquire()
+        (metrics, _) <- metricsResource(config).acquire()
         servicesExecutionContext <- ResourceOwner
           .forExecutorService(() => Executors.newWorkStealingPool())
           .map(ExecutionContext.fromExecutorService)
@@ -92,7 +92,7 @@ class IndexerBenchmark() {
           metrics,
           startTime,
           stopTime,
-          metricName => throw new IllegalStateException("Just testing"),
+          _ => throw new IllegalStateException("Just testing"),
         )
 
         println(result.banner)
