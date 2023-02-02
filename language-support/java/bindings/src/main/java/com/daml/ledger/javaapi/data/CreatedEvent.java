@@ -231,7 +231,7 @@ public final class CreatedEvent implements Event, TreeEvent {
         EventOuterClass.CreatedEvent.newBuilder()
             .setContractId(this.getContractId())
             .setCreateArguments(this.getArguments().toProtoRecord())
-                .setCreateArgumentsBlob(createArgumentsBlob)
+            .setCreateArgumentsBlob(createArgumentsBlob)
             .addAllInterfaceViews(
                 Stream.concat(
                         toProtoInterfaceViews(
@@ -273,7 +273,7 @@ public final class CreatedEvent implements Event, TreeEvent {
         Identifier.fromProto(createdEvent.getTemplateId()),
         createdEvent.getContractId(),
         DamlRecord.fromProto(createdEvent.getCreateArguments()),
-            createdEvent.getCreateArgumentsBlob(),
+        createdEvent.getCreateArgumentsBlob(),
         splitInterfaceViews.get(true).stream()
             .collect(
                 Collectors.toUnmodifiableMap(
