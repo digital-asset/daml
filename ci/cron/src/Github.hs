@@ -4,13 +4,8 @@
 module Github
   ( Asset(..)
   , GitHubRelease(..)
-  , Version(..)
-  , Versions(..)
   , add_github_contact_header
-  , version
-  , versions
   , fetch_gh_paginated
-  , fetch_gh_versions
   ) where
 
 import Data.Aeson
@@ -19,18 +14,13 @@ import qualified Data.CaseInsensitive as CI
 import Data.Function ((&))
 import Data.HashMap.Strict (HashMap)
 import qualified Data.HashMap.Strict as HMS
-import Data.List (sortOn)
 import qualified Data.List.Split as Split
-import Data.Ord (Down(..))
 import qualified Data.SemVer as SemVer
-import Data.Set (Set)
-import qualified Data.Set as Set
 import qualified Data.Text as Text
 import qualified Network.HTTP.Client as HTTP
 import qualified Network.HTTP.Client.TLS as TLS
 import Network.HTTP.Types.Status (statusCode)
 import Network.URI
-import Safe (headMay)
 import qualified System.Exit as Exit
 import qualified Text.Regex.TDFA as Regex
 
@@ -55,25 +45,6 @@ instance Show Version where
 
 version :: Text.Text -> Version
 version t = Version $ (\case Left s -> (error s); Right v -> v) $ SemVer.fromText t
-
-data Versions = Versions { top :: Maybe Version, all_versions :: Set Version, dropdown :: [Version] }
-    deriving Eq
-
-versions :: [GitHubRelease] -> Versions
-versions vs =
-    let all_versions = Set.fromList $ map tag vs
-        dropdown = vs
-                   & filter (not . prerelease)
-                   & map tag
-                   & filter (>= version "1.0.0")
-                   & sortOn Down
-        top = headMay dropdown
-    in Versions {..}
-
-fetch_gh_versions :: (Version -> Bool) -> IO Versions
-fetch_gh_versions pred = do
-    response <- fetch_gh_paginated "https://api.github.com/repos/digital-asset/daml/releases"
-    return $ versions $ filter (\v -> pred (tag v)) response
 
 fetch_gh_paginated :: String -> IO [GitHubRelease]
 fetch_gh_paginated url = do
