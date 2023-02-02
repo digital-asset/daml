@@ -11,6 +11,9 @@ import anorm.~
 import com.daml.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
 import com.daml.platform.store.backend.common.SimpleSqlAsVectorOf._
 
+/** Contains dto classes each holding a minimal set of data sufficient
+  * to uniquely identify a row in the corresponding table.
+  */
 object PruningDto {
 
   case class Create(seqId: Long)
