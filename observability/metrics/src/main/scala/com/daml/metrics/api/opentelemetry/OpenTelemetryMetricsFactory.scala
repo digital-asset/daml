@@ -174,11 +174,14 @@ case class OpenTelemetryTimer(
       context: MetricsContext
   ): T = {
     val start = System.nanoTime()
-    val result = call
-    histogram.record(
-      convertNanosecondsToSeconds(System.nanoTime() - start),
-      AttributesHelper.multiContextAsAttributes(timerContext, context),
-    )
+    val result =
+      try { call }
+      finally {
+        histogram.record(
+          convertNanosecondsToSeconds(System.nanoTime() - start),
+          AttributesHelper.multiContextAsAttributes(timerContext, context),
+        )
+      }
     result
   }
 

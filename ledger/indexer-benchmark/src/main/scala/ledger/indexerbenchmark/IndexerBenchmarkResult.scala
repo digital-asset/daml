@@ -3,21 +3,40 @@
 
 package com.daml.ledger.indexerbenchmark
 
+import java.util.concurrent.TimeUnit
+
 import com.codahale.metrics.Snapshot
 import com.daml.metrics.Metrics
 import com.daml.metrics.api.MetricHandle.{Counter, Histogram, Timer}
+import com.daml.metrics.api.MetricName
 import com.daml.metrics.api.dropwizard.{DropwizardCounter, DropwizardHistogram, DropwizardTimer}
 import com.daml.metrics.api.noop.{NoOpCounter, NoOpTimer}
+import com.daml.metrics.api.testing.InMemoryMetricsFactory.{
+  InMemoryCounter,
+  InMemoryHistogram,
+  InMemoryTimer,
+}
+import com.daml.metrics.api.testing.MetricValues
+import com.daml.metrics.api.testing.ProxyMetricsFactory.{ProxyCounter, ProxyHistogram, ProxyTimer}
 
-class IndexerBenchmarkResult(config: Config, metrics: Metrics, startTime: Long, stopTime: Long) {
+import scala.concurrent.duration.DurationDouble
 
-  private val duration: Double = (stopTime - startTime).toDouble / 1000000000.0
+class IndexerBenchmarkResult(
+    config: Config,
+    metrics: Metrics,
+    startTimeInNano: Long,
+    stopTimeInNano: Long,
+    timerReader: MetricName => Timer,
+) extends MetricValues {
+
+  private val duration: Double =
+    (stopTimeInNano - startTimeInNano).toDouble.nanos.toUnit(TimeUnit.SECONDS)
   private val updates: Long = counterState(metrics.daml.parallelIndexer.updates)
   private val updateRate: Double = updates / duration
-  private val inputMappingDurationMetric = metrics.defaultMetricsFactory.timer(
+  private val inputMappingDurationMetric = timerReader(
     metrics.daml.parallelIndexer.inputMapping.executor :+ "duration"
   )
-  private val batchingDurationMetric = metrics.defaultMetricsFactory.timer(
+  private val batchingDurationMetric = timerReader(
     metrics.daml.parallelIndexer.batching.executor :+ "duration"
   )
   val (failure, minimumUpdateRateFailureInfo): (Boolean, String) =
@@ -97,6 +116,16 @@ class IndexerBenchmarkResult(config: Config, metrics: Metrics, startTime: Long, 
       case DropwizardHistogram(_, metric) =>
         val data = metric.getSnapshot
         dropwizardSnapshotToString(data)
+      case _: InMemoryHistogram =>
+        recordedHistogramValuesToString(histogram.values)
+      case ProxyHistogram(_, targets) =>
+        targets
+          .collectFirst { case inMemory: InMemoryHistogram =>
+            inMemory
+          }
+          .fold(throw new IllegalArgumentException(s"Histogram $histogram cannot be printed."))(
+            histogramToString
+          )
       case other => throw new IllegalArgumentException(s"Metric $other not supported")
     }
   }
@@ -107,6 +136,16 @@ class IndexerBenchmarkResult(config: Config, metrics: Metrics, startTime: Long, 
         val data = metric.getSnapshot
         dropwizardSnapshotToString(data)
       case NoOpTimer(_) => ""
+      case _: InMemoryTimer =>
+        recordedHistogramValuesToString(timer.values)
+      case ProxyTimer(_, targets) =>
+        targets
+          .collectFirst { case inMemory: InMemoryTimer =>
+            inMemory
+          }
+          .fold(throw new IllegalArgumentException(s"Timer $timer cannot be printed."))(
+            timerToString
+          )
       case other => throw new IllegalArgumentException(s"Metric $other not supported")
     }
   }
@@ -116,6 +155,16 @@ class IndexerBenchmarkResult(config: Config, metrics: Metrics, startTime: Long, 
       case DropwizardTimer(_, metric) =>
         metric.getMeanRate
       case NoOpTimer(_) => 0
+      case timer: InMemoryTimer =>
+        timer.data.values.size.toDouble / duration
+      case ProxyTimer(_, targets) =>
+        targets
+          .collectFirst { case inMemory: InMemoryTimer =>
+            inMemory
+          }
+          .fold(throw new IllegalArgumentException(s"Timer $timer cannot be printed."))(
+            timerMeanRate
+          )
       case other => throw new IllegalArgumentException(s"Metric $other not supported")
     }
   }
@@ -125,11 +174,33 @@ class IndexerBenchmarkResult(config: Config, metrics: Metrics, startTime: Long, 
       case DropwizardCounter(_, metric) =>
         metric.getCount
       case NoOpCounter(_) => 0
+      case InMemoryCounter(_) => counter.value
+      case ProxyCounter(_, targets) =>
+        targets
+          .collectFirst { case inMemory: InMemoryCounter =>
+            inMemory
+          }
+          .fold(throw new IllegalArgumentException(s"Counter $counter cannot be printed."))(
+            counterState
+          )
       case other => throw new IllegalArgumentException(s"Metric $other not supported")
     }
   }
 
   private def dropwizardSnapshotToString(data: Snapshot) = {
     s"[min: ${data.getMin}, median: ${data.getMedian}, max: ${data.getMax}"
+  }
+
+  private def recordedHistogramValuesToString(data: Seq[Long]) = {
+    s"[min: ${data.min}, median: ${median(data)}, max: ${data.max}"
+  }
+
+  private def median(data: Seq[Long]) = {
+    val sorted = data.sorted
+    if (sorted.size % 2 == 0) {
+      (sorted(sorted.size / 2 - 1) + (sorted.size / 2)) / 2
+    } else {
+      sorted(sorted.size / 2)
+    }
   }
 }

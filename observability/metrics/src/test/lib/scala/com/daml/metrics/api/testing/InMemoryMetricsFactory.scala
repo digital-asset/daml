@@ -54,8 +54,8 @@ class InMemoryMetricsFactory extends LabeledMetricsFactory {
       gaugeSupplier: () => T,
       description: String,
   )(implicit context: MetricsContext): CloseableGauge = {
-    metrics.asyncGauges.addOne(name -> context -> gaugeSupplier)
-    () => discard { metrics.asyncGauges.remove(name -> context) }
+    metrics.addAsyncGauge(name, context, gaugeSupplier)
+    () => discard { metrics.asyncGauges.get(name).foreach(_.remove(context)) }
   }
 
   override def meter(name: MetricName, description: String)(implicit
@@ -74,18 +74,19 @@ class InMemoryMetricsFactory extends LabeledMetricsFactory {
 
 object InMemoryMetricsFactory extends InMemoryMetricsFactory {
 
-  type MetricIdentifier = (MetricName, MetricsContext)
+  type StoredMetric[Metric] = ConcurrentMap[MetricsContext, Metric]
+  type MetricsByName[Metric] = ConcurrentMap[MetricName, StoredMetric[Metric]]
   case class MetricsState(
-      timers: ConcurrentMap[MetricIdentifier, InMemoryTimer],
-      gauges: ConcurrentMap[MetricIdentifier, InMemoryGauge[_]],
-      meters: ConcurrentMap[MetricIdentifier, InMemoryMeter],
-      counters: ConcurrentMap[MetricIdentifier, InMemoryCounter],
-      histograms: ConcurrentMap[MetricIdentifier, InMemoryHistogram],
-      asyncGauges: ConcurrentMap[MetricIdentifier, () => Any],
+      timers: MetricsByName[InMemoryTimer],
+      gauges: MetricsByName[InMemoryGauge[_]],
+      meters: MetricsByName[InMemoryMeter],
+      counters: MetricsByName[InMemoryCounter],
+      histograms: MetricsByName[InMemoryHistogram],
+      asyncGauges: MetricsByName[() => Any],
   ) {
 
     def addTimer(name: MetricName, context: MetricsContext, timer: InMemoryTimer): Timer = {
-      timers.addOne(name -> context -> timer)
+      addOneToState(name, context, timer, timers)
       timer
     }
 
@@ -94,12 +95,21 @@ object InMemoryMetricsFactory extends InMemoryMetricsFactory {
         context: MetricsContext,
         gauge: InMemoryGauge[T],
     ): Gauge[T] = {
-      gauges.addOne(name -> context -> gauge)
+      addOneToState(name, context, gauge, gauges)
+      gauge
+    }
+
+    def addAsyncGauge(
+        name: MetricName,
+        context: MetricsContext,
+        gauge: () => Any,
+    ): () => Any = {
+      addOneToState(name, context, gauge, asyncGauges)
       gauge
     }
 
     def addMeter(name: MetricName, context: MetricsContext, meter: InMemoryMeter): InMemoryMeter = {
-      meters.addOne(name -> context -> meter)
+      addOneToState(name, context, meter, meters)
       meter
     }
 
@@ -108,7 +118,7 @@ object InMemoryMetricsFactory extends InMemoryMetricsFactory {
         context: MetricsContext,
         counter: InMemoryCounter,
     ): InMemoryCounter = {
-      counters.addOne(name -> context -> counter)
+      addOneToState(name, context, counter, counters)
       counter
     }
 
@@ -117,8 +127,17 @@ object InMemoryMetricsFactory extends InMemoryMetricsFactory {
         context: MetricsContext,
         histogram: InMemoryHistogram,
     ): InMemoryHistogram = {
-      histograms.addOne(name -> context -> histogram)
+      addOneToState(name, context, histogram, histograms)
       histogram
+    }
+
+    private def addOneToState[T](
+        name: MetricName,
+        context: MetricsContext,
+        metric: T,
+        state: MetricsByName[T],
+    ) = {
+      state.getOrElseUpdate(name, TrieMap.empty).addOne(context -> metric)
     }
   }
 
@@ -220,14 +239,14 @@ object InMemoryMetricsFactory extends InMemoryMetricsFactory {
 
   case class InMemoryHistogram(initialContext: MetricsContext) extends Histogram {
 
-    val values: collection.concurrent.Map[MetricsContext, Seq[Long]] = TrieMap()
+    val recordedValues: collection.concurrent.Map[MetricsContext, Seq[Long]] = TrieMap()
 
     override def name: String = "test"
 
     override def update(value: Long)(implicit
         context: MetricsContext
     ): Unit = discard {
-      values.updateWith(initialContext.merge(context)) {
+      recordedValues.updateWith(initialContext.merge(context)) {
         case None => Some(Seq(value))
         case Some(existingValues) =>
           Some(

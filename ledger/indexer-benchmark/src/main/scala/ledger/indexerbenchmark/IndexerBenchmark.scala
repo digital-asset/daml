@@ -9,6 +9,7 @@ import akka.NotUsed
 import akka.actor.ActorSystem
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
+import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.api.health.{HealthStatus, Healthy}
 import com.daml.ledger.configuration.{Configuration, LedgerInitialConditions, LedgerTimeModel}
 import com.daml.ledger.offset.Offset
@@ -17,10 +18,14 @@ import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.data.Time
 import com.daml.logging.LoggingContext
 import com.daml.logging.LoggingContext.newLoggingContext
+import com.daml.metrics.api.dropwizard.DropwizardMetricsFactory
+import com.daml.metrics.api.opentelemetry.OpenTelemetryMetricsFactory
+import com.daml.metrics.api.testing.{InMemoryMetricsFactory, MetricValues, ProxyMetricsFactory}
 import com.daml.metrics.{JvmMetricSet, Metrics}
 import com.daml.platform.LedgerApiServer
 import com.daml.platform.indexer.{Indexer, IndexerServiceOwner, JdbcIndexer}
 import com.daml.resources
+import com.daml.telemetry.OpenTelemetryOwner
 
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext, ExecutionContextExecutor, Future}
@@ -33,9 +38,6 @@ class IndexerBenchmark() {
       config: Config,
   ): Future[Unit] = {
     newLoggingContext { implicit loggingContext =>
-      val metrics = Metrics.ForTesting
-      metrics.registry.registerAll(new JvmMetricSet)
-
       val system = ActorSystem("IndexerBenchmark")
       implicit val materializer: Materializer = Materializer(system)
       implicit val resourceContext: ResourceContext = ResourceContext(system.dispatcher)
@@ -50,6 +52,7 @@ class IndexerBenchmark() {
       val readService = createReadService(updates)
 
       val resource = for {
+        (metrics, inMemoryMetrics) <- metricsResource(config).acquire()
         servicesExecutionContext <- ResourceOwner
           .forExecutorService(() => Executors.newWorkStealingPool())
           .map(ExecutionContext.fromExecutorService)
@@ -72,7 +75,6 @@ class IndexerBenchmark() {
           inMemoryStateUpdaterFlow,
           servicesExecutionContext,
         )
-        _ <- metricsResource(config, metrics)
         _ = println("Setting up the index database...")
         indexer <- indexer(config, indexerExecutionContext, indexerFactory)
         _ = println("Starting the indexing...")
@@ -84,7 +86,14 @@ class IndexerBenchmark() {
         _ <- Resource.fromFuture(system.terminate())
         _ = indexerExecutor.shutdown()
       } yield {
-        val result = new IndexerBenchmarkResult(config, metrics, startTime, stopTime)
+        val result = new IndexerBenchmarkResult(
+          config,
+          metrics,
+          startTime,
+          stopTime,
+          metricName =>
+            MetricValues.singleValueFromContexts(inMemoryMetrics.metrics.timers(metricName).toMap),
+        )
 
         println(result.banner)
 
@@ -120,13 +129,32 @@ class IndexerBenchmark() {
       )
       .acquire()
 
-  private def metricsResource(config: Config, metrics: Metrics)(implicit rc: ResourceContext) =
-    config.metricsReporter.fold(Resource.unit)(reporter =>
-      ResourceOwner
-        .forCloseable(() => reporter.register(metrics.registry))
-        .map(_.start(config.metricsReportingInterval.getSeconds, TimeUnit.SECONDS))
-        .acquire()
-    )
+  private def metricsResource(config: Config) = {
+    OpenTelemetryOwner(setAsGlobal = true, config.metricsReporter).flatMap { openTelemetry =>
+      val registry = new MetricRegistry
+      val dropwizardFactory = new DropwizardMetricsFactory(registry)
+      val openTelemetryFactory =
+        new OpenTelemetryMetricsFactory(openTelemetry.getMeter("indexer-benchmark"))
+      val inMemoryMetricFactory = new InMemoryMetricsFactory
+      JvmMetricSet.registerObservers()
+      registry.registerAll(new JvmMetricSet)
+      val metrics = new Metrics(
+        new ProxyMetricsFactory(
+          dropwizardFactory,
+          inMemoryMetricFactory,
+        ),
+        new ProxyMetricsFactory(openTelemetryFactory, inMemoryMetricFactory),
+        registry,
+      )
+      config.metricsReporter
+        .fold(ResourceOwner.unit)(reporter =>
+          ResourceOwner
+            .forCloseable(() => reporter.register(metrics.registry))
+            .map(_.start(config.metricsReportingInterval.getSeconds, TimeUnit.SECONDS))
+        )
+        .map(_ => metrics -> inMemoryMetricFactory)
+    }
+  }
 
   private[this] def createReadService(
       updates: Source[(Offset, Update), NotUsed]
