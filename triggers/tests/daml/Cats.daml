@@ -48,7 +48,7 @@ template TestComplete
 
 contractPairings : Int
 -- The following value should be kept in sync with the value of contractPairings in LoadTesting.scala
-contractPairings = 500
+contractPairings = 400
 
 feedingTrigger : Trigger Int
 feedingTrigger = Trigger

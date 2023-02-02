@@ -50,7 +50,7 @@ object TriggerRunnerConfig {
       allowInFlightCommandOverflows = true,
       // 256 here comes from the default ExecutionContext.
       submissionFailureQueueSize = 256 + parallelism,
-      maximumBatchSize = 500,
+      maximumBatchSize = 1000,
       batchingDuration = 250.milliseconds,
       maximumActiveContracts = 10000,
     )

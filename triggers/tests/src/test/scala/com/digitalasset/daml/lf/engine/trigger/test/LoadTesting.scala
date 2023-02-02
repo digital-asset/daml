@@ -37,7 +37,7 @@ abstract class LoadTesting
     with TryValues {
 
   // The following value should be kept in sync with the value of contractPairings in Cats.daml
-  val contractPairings: Int = 500
+  val contractPairings: Int = 400
   // The following value should be kept in sync with the value of breedingRate in Cats.daml
   val breedingRate: Int = 100
 
