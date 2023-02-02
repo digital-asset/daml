@@ -78,10 +78,6 @@ export async function activate(context: vscode.ExtensionContext) {
       DamlVirtualResourceNoteNotification.type,
       params => virtualResourceManager.setNote(params.uri, params.note),
     );
-    damlLanguageClient.onNotification(
-      DamlVirtualResourceFormattingStarted.type,
-      params => virtualResourceManager.setRenderingStarted(params.uri),
-    );
   });
 
   damlLanguageClient.start();
@@ -408,21 +404,6 @@ namespace DamlVirtualResourceNoteNotification {
   export let type = new NotificationType<VirtualResourceNoteParams>(
     "daml/virtualResource/note",
   );
-}
-
-interface VirtualResourceFormattingStartedParams {
-  /** The virtual resource uri */
-  uri: string;
-
-  /** A message describing the formatting */
-  message: string;
-}
-
-namespace DamlVirtualResourceFormattingStarted {
-  export let type =
-    new NotificationType<VirtualResourceFormattingStartedParams>(
-      "daml/virtualResource/didStartFormatting",
-    );
 }
 
 type UriString = string;

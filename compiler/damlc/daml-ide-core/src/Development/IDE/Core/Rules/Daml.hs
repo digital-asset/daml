@@ -1077,34 +1077,6 @@ vrNoteSetNotification vr note = do
         sendNotification lspEnv (LSP.SCustomMethod virtualResourceNoteSetNotification) $
         toJSON $ VirtualResourceNoteSetParams (virtualResourceToUri vr) note
 
--- | Virtual resource formatting started notification
--- Sent when we start formatting the report for a test
-virtualResourceFormattingStartedNotification :: T.Text
-virtualResourceFormattingStartedNotification = "daml/virtualResource/didStartFormatting"
-
--- | Parameters for the virtual resource formatting started notification
-data VirtualResourceFormattingStartedParams = VirtualResourceFormattingStartedParams
-    { _vrfspUri      :: !T.Text
-      -- ^ The uri of the virtual resource.
-    , _vrfspMessage :: !T.Text
-      -- ^ The new contents of the virtual resource.
-    } deriving Show
-
-instance ToJSON VirtualResourceFormattingStartedParams where
-    toJSON VirtualResourceFormattingStartedParams{..} =
-        object ["uri" .= _vrfspUri, "message" .= _vrfspMessage ]
-
-instance FromJSON VirtualResourceFormattingStartedParams where
-    parseJSON = withObject "VirtualResourceFormattingStartedParams" $ \o ->
-        VirtualResourceFormattingStartedParams <$> o .: "uri" <*> o .: "message"
-
-vrFormattingStartedNotification :: VirtualResource -> Action ()
-vrFormattingStartedNotification vr = do
-    ShakeExtras { lspEnv } <- getShakeExtras
-    liftIO $
-        sendNotification lspEnv (LSP.SCustomMethod virtualResourceFormattingStartedNotification) $
-            toJSON $ VirtualResourceFormattingStartedParams (virtualResourceToUri vr) "Hello!"
-
 -- A rule that builds the files-of-interest and notifies via the
 -- callback of any errors. NOTE: results may contain errors for any
 -- dependent module.
@@ -1162,7 +1134,6 @@ ofInterestRule = do
 
           -- Should be a singleton list, send results via LSP
           forM_ vrResults $ \(vr, res) -> do
-              vrFormattingStartedNotification vr
               let doc = formatScenarioResult world res
               vrChangedNotification vr doc
 
