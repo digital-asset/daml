@@ -102,9 +102,12 @@ object FieldValidations {
   def requireJwksUrl(raw: String, fieldName: String)(implicit
       errorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, JwksUrl] =
-    JwksUrl.fromString(raw).left.map { error =>
-      invalidField(fieldName = fieldName, message = s"Malformed URL: $error")
-    }
+    for {
+      _ <- requireNonEmptyString(raw, fieldName)
+      value <- JwksUrl.fromString(raw).left.map { error =>
+        invalidField(fieldName = fieldName, message = s"Malformed URL: $error")
+      }
+    } yield value
 
   def requireParties(parties: Set[String])(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
@@ -147,7 +150,10 @@ object FieldValidations {
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, IdentityProviderId.Id] =
-    IdentityProviderId.Id.fromString(s).left.map(invalidField(fieldName, _))
+    for {
+      _ <- requireNonEmptyString(s, fieldName)
+      value <- IdentityProviderId.Id.fromString(s).left.map(invalidField(fieldName, _))
+    } yield value
 
   def optionalIdentityProviderId(
       s: String,
