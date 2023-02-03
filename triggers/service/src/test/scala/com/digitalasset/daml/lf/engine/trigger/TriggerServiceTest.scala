@@ -651,11 +651,18 @@ trait AbstractTriggerServiceTest extends AbstractTriggerServiceTestHelper {
       client <- sandboxClient(
         catsAppId,
         actAs = List(ApiTypes.Party(alice.unwrap)),
-        admin = true,
       )
+      adminClient <- sandboxClient(catsAppId, admin = true)
+      _ <- adminClient.partyManagementClient.allocateParty(Some(alice.unwrap), None)
       _ <- Future.sequence(
-        (1 until 100).map(id => submitCmd(client, alice.unwrap, cat(id.toLong)))
+        (1 to 100).map(id => submitCmd(client, alice.unwrap, cat(id.toLong)))
       )
+      // Wait for our Cat contracts to be created
+      _ <- RetryStrategy.constant(20, 1.seconds) { (_, _) =>
+        getActiveContracts(client, alice, Identifier(testPkgId, "Cats", "Cat"))
+          .map(_.length shouldBe 100)
+      }
+      // Now allow the trigger to start running
       resp <- startTrigger(uri, s"$testPkgId:Cats:breedingTrigger", alice, Some(catsAppId))
       catsTrigger <- parseTriggerId(resp)
       _ <- assertTriggerIds(uri, alice, Vector(catsTrigger))
@@ -664,6 +671,7 @@ trait AbstractTriggerServiceTest extends AbstractTriggerServiceTestHelper {
     } yield succeed
   }
 
+  // TODO: ensure no Cat contracts
   it should "stop the trigger if the ACS overflows at runtime" inClaims withTriggerService(
     List(dar),
     triggerRunnerConfig = Some(
@@ -683,6 +691,7 @@ trait AbstractTriggerServiceTest extends AbstractTriggerServiceTestHelper {
     } yield succeed
   }
 
+  // TODO: ensure no Cat contracts
   it should "stop the trigger if the in-flight commands overflow at runtime" inClaims withTriggerService(
     List(dar),
     triggerRunnerConfig = Some(
