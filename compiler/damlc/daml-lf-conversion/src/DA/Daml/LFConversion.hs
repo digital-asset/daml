@@ -701,8 +701,6 @@ convertInterface env mc intName ib =
     convertRequires requires = S.fromList <$>
       forM requires \(iface, mloc) ->
         withRange mloc do
-          unless (envLfVersion env `supports` featureExtendedInterfaces) do
-            unsupported "Requires in Daml interfaces are only available with --target=1.dev" ()
           convertInterfaceTyCon env handleIsNotInterface iface
       where
         handleIsNotInterface tyCon =

@@ -3,7 +3,7 @@
 
 module InterfaceContractDoesNotImplementInterface where
 
--- @SINCE-LF-FEATURE DAML_INTERFACE_EXTENDED
+-- @SINCE-LF-FEATURE DAML_INTERFACE
 data EmptyInterfaceView = EmptyInterfaceView {}
 
 interface I where

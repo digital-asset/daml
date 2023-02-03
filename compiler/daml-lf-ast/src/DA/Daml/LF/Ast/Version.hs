@@ -136,7 +136,7 @@ featureSimpleInterfaces = Feature
 
 featureExtendedInterfaces :: Feature
 featureExtendedInterfaces = Feature
-    { featureName = "Guards and requires in interfaces"
+    { featureName = "Guards in interfaces"
     , featureMinVersion = versionDev
     , featureCppFlag = Just "DAML_INTERFACE_EXTENDED"
     }
