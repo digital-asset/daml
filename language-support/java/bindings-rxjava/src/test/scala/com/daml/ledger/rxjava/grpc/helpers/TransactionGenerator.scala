@@ -21,7 +21,7 @@ import com.daml.ledger.api.v1.{ContractMetadataOuterClass, value}
 import com.daml.ledger.api.v1.value.Value.Sum
 import com.daml.ledger.api.v1.value.{Identifier, Record, RecordField, Value, Variant}
 import com.daml.ledger.javaapi.data.ContractMetadata
-import com.google.protobuf.{Any, ByteString, Timestamp => ProtobufTimestamp}
+import com.google.protobuf.{Any, ByteString}
 import com.google.protobuf.empty.Empty
 import com.google.protobuf.timestamp.{Timestamp => ScalaTimestamp}
 import com.google.rpc.{Status => JStatus}
@@ -55,25 +55,14 @@ object TransactionGenerator {
     byteStringGen.map(byteString => Any.newBuilder().setValue(byteString).build())
   }
 
-  def instantGen: Gen[Instant] =
-    Gen
-      .chooseNum(
-        Instant.parse("0001-01-01T00:00:00Z").toEpochMilli,
-        Instant.parse("9999-12-31T23:59:59.999999Z").toEpochMilli,
-      )
-      .map(Instant.ofEpochMilli)
-
-  def timestampProtobufGen: Gen[ProtobufTimestamp] =
-    instantGen.map(instant => ProtobufTimestamp.newBuilder().setNanos(instant.getNano).build())
-
   def contractMetadataGen: Gen[ContractMetadataOuterClass.ContractMetadata] = {
     for {
-      createdAt <- timestampProtobufGen
+      (createdAtScala, _) <- timestampGen
       contractKeyHash <- byteStringGen
       driverMetadata <- byteStringGen
     } yield ContractMetadataOuterClass.ContractMetadata
       .newBuilder()
-      .setCreatedAt(createdAt)
+      .setCreatedAt(ScalaTimestamp.toJavaProto(createdAtScala))
       .setContractKeyHash(contractKeyHash)
       .setDriverMetadata(driverMetadata)
       .build()
@@ -256,7 +245,7 @@ object TransactionGenerator {
         Some(scalaTemplateId),
         contractKey.map(_._1),
         Some(scalaRecord),
-        Some(com.google.protobuf.any.Any.fromJavaProto(createArgumentsBlob)), // None,
+        Some(com.google.protobuf.any.Any.fromJavaProto(createArgumentsBlob)),
         interfaceViews.map(_._1),
         signatories ++ observers,
         signatories,

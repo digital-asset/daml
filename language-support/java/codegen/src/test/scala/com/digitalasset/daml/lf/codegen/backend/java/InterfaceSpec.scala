@@ -47,7 +47,7 @@ final class InterfaceSpec extends AnyWordSpec with Matchers {
             "c",
             new TemplateRetro("", "", 0).toValue,
             Any.getDefaultInstance,
-            ContractMetadata.EmptyContractMetadata(),
+            ContractMetadata.Empty(),
             Map(ic.TEMPLATE_ID -> data.toValue).asJava,
             emptyMap,
             Optional.empty,
