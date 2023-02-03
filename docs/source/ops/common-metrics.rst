@@ -256,7 +256,7 @@ runtime_jvm_gc_time
 - **Description**: Time spent in a given JVM garbage collector in milliseconds.
 - **Labels**:
 
-  - **gc**: Garbage collector
+  - **gc**: Garbage collector regions (eg: ``G1 Old Generation``, ``G1 New Generation``)
 
 - **Type**: Counter
 
@@ -265,7 +265,7 @@ runtime_jvm_gc_count
 - **Description**: The number of collections that have occurred for a given JVM garbage collector.
 - **Labels**:
 
-  - **gc**: Garbage collector
+  - **gc**: Garbage collector regions (eg: ``G1 Old Generation``, ``G1 New Generation``)
 
 - **Type**: Counter
 
