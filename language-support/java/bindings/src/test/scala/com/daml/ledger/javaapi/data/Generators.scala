@@ -5,7 +5,7 @@ package com.daml.ledger.javaapi.data
 
 import java.time.{Instant, LocalDate}
 import com.daml.ledger.api.v1._
-import com.google.protobuf.{ByteString, Empty, Any}
+import com.google.protobuf.{ByteString, Empty, Any, Timestamp => ProtobufTimestamp}
 import org.scalacheck.{Arbitrary, Gen}
 import Arbitrary.arbitrary
 
@@ -126,6 +126,19 @@ object Generators {
     byteStringGen.map(byteString => Any.newBuilder().setValue(byteString).build())
   }
 
+  def contractMetadataGen: Gen[ContractMetadataOuterClass.ContractMetadata] = {
+    for {
+      createdAt <- timestampProtobufGen
+      contractKeyHash <- byteStringGen
+      driverMetadata <- byteStringGen
+    } yield ContractMetadataOuterClass.ContractMetadata
+      .newBuilder()
+      .setCreatedAt(createdAt)
+      .setContractKeyHash(contractKeyHash)
+      .setDriverMetadata(driverMetadata)
+      .build()
+  }
+
   def listGen: Gen[ValueOuterClass.List] =
     Gen
       .sized(height =>
@@ -190,6 +203,9 @@ object Generators {
       ValueOuterClass.Value.newBuilder().setTimestamp(instant.toEpochMilli * 1000).build()
     )
 
+  def timestampProtobufGen: Gen[ProtobufTimestamp] =
+    instantGen.map(instant => ProtobufTimestamp.newBuilder().setNanos(instant.getNano).build())
+
   def instantGen: Gen[Instant] =
     Gen
       .chooseNum(
@@ -247,6 +263,7 @@ object Generators {
       templateId <- identifierGen
       createArgument <- recordGen
       createArgumentsBlob <- createArgumentsBlobGen
+      contractMetadata <- contractMetadataGen
       interfaceViews <- Gen.listOf(interfaceViewGen)
       eventId <- Arbitrary.arbString.arbitrary
       witnessParties <- Gen.listOf(Arbitrary.arbString.arbitrary)
@@ -258,6 +275,7 @@ object Generators {
       .setTemplateId(templateId)
       .setCreateArguments(createArgument)
       .setCreateArgumentsBlob(createArgumentsBlob)
+      .setMetadata(contractMetadata)
       .addAllInterfaceViews(interfaceViews.asJava)
       .setEventId(eventId)
       .addAllWitnessParties(witnessParties.asJava)

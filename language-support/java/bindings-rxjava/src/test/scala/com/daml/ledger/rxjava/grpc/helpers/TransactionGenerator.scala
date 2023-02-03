@@ -17,9 +17,11 @@ import com.daml.ledger.api.v1.event.{
   InterfaceView,
 }
 import com.daml.ledger.api.v1.transaction.TreeEvent.Kind.Exercised
-import com.daml.ledger.api.v1.value
+import com.daml.ledger.api.v1.{ContractMetadataOuterClass, value}
 import com.daml.ledger.api.v1.value.Value.Sum
 import com.daml.ledger.api.v1.value.{Identifier, Record, RecordField, Value, Variant}
+import com.daml.ledger.javaapi.data.ContractMetadata
+import com.google.protobuf.{Any, ByteString, Timestamp => ProtobufTimestamp}
 import com.google.protobuf.empty.Empty
 import com.google.protobuf.timestamp.{Timestamp => ScalaTimestamp}
 import com.google.rpc.{Status => JStatus}
@@ -28,7 +30,6 @@ import org.scalacheck.{Arbitrary, Gen, Shrink}
 
 import scala.jdk.CollectionConverters._
 import scala.jdk.OptionConverters._
-import com.daml.ledger.javaapi
 
 @SuppressWarnings(
   Array(
@@ -46,6 +47,37 @@ object TransactionGenerator {
       if (s.mkString.equals("")) { throw new IllegalStateException() }
       s.mkString
     })
+
+  def byteStringGen: Gen[ByteString] =
+    Arbitrary.arbString.arbitrary.map(str => com.google.protobuf.ByteString.copyFromUtf8(str))
+
+  def createArgumentsBlobGen: Gen[Any] = {
+    byteStringGen.map(byteString => Any.newBuilder().setValue(byteString).build())
+  }
+
+  def instantGen: Gen[Instant] =
+    Gen
+      .chooseNum(
+        Instant.parse("0001-01-01T00:00:00Z").toEpochMilli,
+        Instant.parse("9999-12-31T23:59:59.999999Z").toEpochMilli,
+      )
+      .map(Instant.ofEpochMilli)
+
+  def timestampProtobufGen: Gen[ProtobufTimestamp] =
+    instantGen.map(instant => ProtobufTimestamp.newBuilder().setNanos(instant.getNano).build())
+
+  def contractMetadataGen: Gen[ContractMetadataOuterClass.ContractMetadata] = {
+    for {
+      createdAt <- timestampProtobufGen
+      contractKeyHash <- byteStringGen
+      driverMetadata <- byteStringGen
+    } yield ContractMetadataOuterClass.ContractMetadata
+      .newBuilder()
+      .setCreatedAt(createdAt)
+      .setContractKeyHash(contractKeyHash)
+      .setDriverMetadata(driverMetadata)
+      .build()
+  }
 
   val timestampGen: Gen[(ScalaTimestamp, Instant)] = for {
     seconds <- Gen.posNum[Long]
@@ -211,7 +243,8 @@ object TransactionGenerator {
     contractKey <- Gen.option(valueGen(0))
     (scalaTemplateId, javaTemplateId) <- identifierGen
     (scalaRecord, javaRecord) <- Gen.sized(recordGen)
-    createArgumentsBlob <- javaapi.data.Generators.createArgumentsBlobGen
+    createArgumentsBlob <- createArgumentsBlobGen
+    contractMetadata <- contractMetadataGen
     signatories <- Gen.listOf(nonEmptyId)
     observers <- Gen.listOf(nonEmptyId)
     interfaceViews <- Gen.listOf(interfaceViewGen)
@@ -223,12 +256,15 @@ object TransactionGenerator {
         Some(scalaTemplateId),
         contractKey.map(_._1),
         Some(scalaRecord),
-        None,
+        Some(com.google.protobuf.any.Any.fromJavaProto(createArgumentsBlob)), // None,
         interfaceViews.map(_._1),
         signatories ++ observers,
         signatories,
         observers,
         agreementText,
+        Some(
+          com.daml.ledger.api.v1.contract_metadata.ContractMetadata.fromJavaProto(contractMetadata)
+        ),
       )
     ),
     new data.CreatedEvent(
@@ -238,6 +274,7 @@ object TransactionGenerator {
       contractId,
       javaRecord,
       createArgumentsBlob,
+      ContractMetadata.fromProto(contractMetadata),
       interfaceViews.view.collect { case (_, (id, Right(rec))) => (id, rec) }.toMap.asJava,
       interfaceViews.view.collect { case (_, (id, Left(stat))) => (id, stat) }.toMap.asJava,
       agreementText.toJava,

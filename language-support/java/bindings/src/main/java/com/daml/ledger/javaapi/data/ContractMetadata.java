@@ -3,67 +3,75 @@
 
 package com.daml.ledger.javaapi.data;
 
-        import com.daml.ledger.api.v1.ContractMetadataOuterClass;
-        import java.util.Objects;
-
-        import com.google.protobuf.ByteString;
-        import org.checkerframework.checker.nullness.qual.NonNull;
+import com.daml.ledger.api.v1.ContractMetadataOuterClass;
+import com.google.protobuf.ByteString;
+import java.util.Objects;
+import org.checkerframework.checker.nullness.qual.NonNull;
 
 public final class ContractMetadata {
 
-    public final com.google.protobuf.Timestamp createdAt;
-    public final ByteString contractKeyHash;
-    public final ByteString driverMetadata;
+  // Note that we can't use a `com.daml.ledger.javaapi.data.Timestamp` here because
+  // it only supports milliseconds-precision and we require lossless conversions through
+  // from/toProto.
+  public final ByteString driverMetadata;
+  public final com.google.protobuf.Timestamp createdAt;
+  public final ByteString contractKeyHash;
 
+  public static ContractMetadata EmptyContractMetadata() {
+    return new ContractMetadata(
+        com.google.protobuf.Timestamp.getDefaultInstance(), ByteString.EMPTY, ByteString.EMPTY);
+  }
 
-    public ContractMetadata(
-            com.google.protobuf.@NonNull Timestamp createdAt, @NonNull ByteString contractKeyHash, @NonNull ByteString driverMetadata) {
-        this.createdAt = createdAt;
-        this.contractKeyHash = contractKeyHash;
-        this.driverMetadata = driverMetadata;
-    }
+  public ContractMetadata(
+      com.google.protobuf.@NonNull Timestamp createdAt,
+      @NonNull ByteString contractKeyHash,
+      @NonNull ByteString driverMetadata) {
+    this.createdAt = createdAt;
+    this.contractKeyHash = contractKeyHash;
+    this.driverMetadata = driverMetadata;
+  }
 
-    @NonNull
-    public static ContractMetadata fromProto(ContractMetadataOuterClass.ContractMetadata metadata) {
-        return new ContractMetadata(metadata.getCreatedAt(), metadata.getContractKeyHash(), metadata.getDriverMetadata());
-    }
+  @NonNull
+  public static ContractMetadata fromProto(ContractMetadataOuterClass.ContractMetadata metadata) {
+    return new ContractMetadata(
+        metadata.getCreatedAt(), metadata.getContractKeyHash(), metadata.getDriverMetadata());
+  }
 
-    public ContractMetadataOuterClass.ContractMetadata toProto() {
-        return ContractMetadataOuterClass.ContractMetadata.newBuilder()
-                .setCreatedAt(this.createdAt)
-                .setContractKeyHash(this.contractKeyHash)
-                .setDriverMetadata(this.driverMetadata).build();
-    }
+  public ContractMetadataOuterClass.ContractMetadata toProto() {
+    return ContractMetadataOuterClass.ContractMetadata.newBuilder()
+        .setCreatedAt(this.createdAt)
+        .setContractKeyHash(this.contractKeyHash)
+        .setDriverMetadata(this.driverMetadata)
+        .build();
+  }
 
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) return true;
+    if (o == null || getClass() != o.getClass()) return false;
+    ContractMetadata that = (ContractMetadata) o;
+    return Objects.equals(createdAt, that.createdAt)
+        && Objects.equals(contractKeyHash, that.contractKeyHash)
+        && Objects.equals(driverMetadata, that.driverMetadata);
+  }
 
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
-        ContractMetadata that = (ContractMetadata) o;
-        return Objects.equals(createdAt, that.createdAt)
-                && Objects.equals(contractKeyHash, that.contractKeyHash)
-                && Objects.equals(driverMetadata, that.driverMetadata);
-    }
+  @Override
+  public int hashCode() {
+    return Objects.hash(createdAt, contractKeyHash, driverMetadata);
+  }
 
-    @Override
-    public int hashCode() {
-        return Objects.hash(createdAt, contractKeyHash, driverMetadata);
-    }
-
-    @Override
-    public String toString() {
-        return "ContractMetadata{"
-                + "createdAt='"
-                + createdAt
-                + '\''
-                + ", contractKeyHash='"
-                + contractKeyHash
-                + '\''
-                + ", driverMetadata='"
-                + driverMetadata
-                + '\''
-                + '}';
-    }
+  @Override
+  public String toString() {
+    return "ContractMetadata{"
+        + "createdAt='"
+        + createdAt
+        + '\''
+        + ", contractKeyHash='"
+        + contractKeyHash
+        + '\''
+        + ", driverMetadata='"
+        + driverMetadata
+        + '\''
+        + '}';
+  }
 }
-
