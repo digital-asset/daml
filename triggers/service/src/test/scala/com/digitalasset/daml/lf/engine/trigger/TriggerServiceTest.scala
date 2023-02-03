@@ -654,6 +654,10 @@ trait AbstractTriggerServiceTest extends AbstractTriggerServiceTestHelper {
       )
       adminClient <- sandboxClient(catsAppId, admin = true)
       _ <- adminClient.partyManagementClient.allocateParty(Some(alice.unwrap), None)
+      // Ensure there are no Cat contracts
+      _ <- getActiveContracts(client, alice, Identifier(testPkgId, "Cats", "Cat"))
+        .map(_ shouldBe Vector())
+      // Create 100 Cat contracts
       _ <- Future.sequence(
         (1 to 100).map(id => submitCmd(client, alice.unwrap, cat(id.toLong)))
       )
@@ -671,7 +675,6 @@ trait AbstractTriggerServiceTest extends AbstractTriggerServiceTestHelper {
     } yield succeed
   }
 
-  // TODO: ensure no Cat contracts
   it should "stop the trigger if the ACS overflows at runtime" inClaims withTriggerService(
     List(dar),
     triggerRunnerConfig = Some(
@@ -682,8 +685,36 @@ trait AbstractTriggerServiceTest extends AbstractTriggerServiceTestHelper {
         )
     ),
   ) { uri: Uri =>
+    def killCat(id: String): Command = {
+      Command().withExercise(
+        ExerciseCommand(
+          templateId = Some(Identifier(testPkgId, "Cats", "Cat")),
+          contractId = id,
+          choice = "Archive",
+          choiceArgument = Some(Value().withRecord(Record())),
+        )
+      )
+    }
+
+    val catsAppId = ApiTypes.ApplicationId("cats-app-id")
+
     for {
-      resp <- startTrigger(uri, s"$testPkgId:Cats:breedingTrigger", alice)
+      client <- sandboxClient(
+        catsAppId,
+        actAs = List(ApiTypes.Party(alice.unwrap)),
+      )
+      _ <- getActiveContracts(client, alice, Identifier(testPkgId, "Cats", "Cat"))
+        .flatMap(events =>
+          Future.sequence(events.map { event =>
+            submitCmd(client, alice.unwrap, killCat(event.contractId))
+          })
+        )
+      // Wait until there are no Cat contracts
+      _ <- RetryStrategy.constant(20, 1.seconds) { (_, _) =>
+        getActiveContracts(client, alice, Identifier(testPkgId, "Cats", "Cat"))
+          .map(_ shouldBe Vector())
+      }
+      resp <- startTrigger(uri, s"$testPkgId:Cats:breedingTrigger", alice, Some(catsAppId))
       catsTrigger <- parseTriggerId(resp)
       _ <- assertTriggerIds(uri, alice, Vector(catsTrigger))
       _ <- assertTriggerStatus(catsTrigger, _ should contain("stopped: runtime failure"))
@@ -691,7 +722,6 @@ trait AbstractTriggerServiceTest extends AbstractTriggerServiceTestHelper {
     } yield succeed
   }
 
-  // TODO: ensure no Cat contracts
   it should "stop the trigger if the in-flight commands overflow at runtime" inClaims withTriggerService(
     List(dar),
     triggerRunnerConfig = Some(
@@ -704,8 +734,36 @@ trait AbstractTriggerServiceTest extends AbstractTriggerServiceTestHelper {
       )
     ),
   ) { uri: Uri =>
+    def killCat(id: String): Command = {
+      Command().withExercise(
+        ExerciseCommand(
+          templateId = Some(Identifier(testPkgId, "Cats", "Cat")),
+          contractId = id,
+          choice = "Archive",
+          choiceArgument = Some(Value().withRecord(Record())),
+        )
+      )
+    }
+
+    val catsAppId = ApiTypes.ApplicationId("cats-app-id")
+
     for {
-      resp <- startTrigger(uri, s"$testPkgId:Cats:breedingTrigger", alice)
+      client <- sandboxClient(
+        catsAppId,
+        actAs = List(ApiTypes.Party(alice.unwrap)),
+      )
+      _ <- getActiveContracts(client, alice, Identifier(testPkgId, "Cats", "Cat"))
+        .flatMap(events =>
+          Future.sequence(events.map { event =>
+            submitCmd(client, alice.unwrap, killCat(event.contractId))
+          })
+        )
+      // Wait until there are no Cat contracts
+      _ <- RetryStrategy.constant(20, 1.seconds) { (_, _) =>
+        getActiveContracts(client, alice, Identifier(testPkgId, "Cats", "Cat"))
+          .map(_ shouldBe Vector())
+      }
+      resp <- startTrigger(uri, s"$testPkgId:Cats:breedingTrigger", alice, Some(catsAppId))
       catsTrigger <- parseTriggerId(resp)
       _ <- assertTriggerIds(uri, alice, Vector(catsTrigger))
       _ <- assertTriggerStatus(catsTrigger, _ should contain("stopped: runtime failure"))
