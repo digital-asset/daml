@@ -36,7 +36,7 @@ class PruningDtoQueries {
   private def seqIdParser[T](f: Long => T): RowParser[T] = long("event_sequential_id").map(f)
   private def idFilterParser[T](f: (Long, Long) => T): RowParser[T] =
     long("event_sequential_id") ~ long("party_id") map { case seqId ~ partyId => f(seqId, partyId) }
-  private def offsetParser[T](f: String => T): RowParser[T] = str("offset") map (f)
+  private def offsetParser[T](f: String => T): RowParser[T] = str("ledger_offset") map (f)
 
   def eventCreate(implicit c: Connection): Seq[EventCreate] =
     SQL"SELECT event_sequential_id FROM participant_events_create ORDER BY event_sequential_id"
@@ -68,10 +68,10 @@ class PruningDtoQueries {
       .asVectorOf(idFilterParser(FilterNonConsuming))(c)
 
   def txMeta(implicit c: Connection): Seq[TxMeta] =
-    SQL"SELECT event_offset AS offset FROM participant_transaction_meta ORDER BY event_offset"
+    SQL"SELECT event_offset AS ledger_offset FROM participant_transaction_meta ORDER BY event_offset"
       .asVectorOf(offsetParser(TxMeta))(c)
   def completions(implicit c: Connection): Seq[Completion] =
-    SQL"SELECT completion_offset AS offset FROM participant_command_completions ORDER BY completion_offset"
+    SQL"SELECT completion_offset AS ledger_offset FROM participant_command_completions ORDER BY completion_offset"
       .asVectorOf(offsetParser(Completion))(c)
 
 }
