@@ -71,27 +71,14 @@ class PartySetsITSpec
       ),
     )
     for {
-      (apiServices, names, submitter) <- benchtoolFixture()
-      allocatedParties <- submitter.prepare(submissionConfig)
+      (apiServices, allocatedParties, fooSubmission) <- benchtoolFooSubmissionFixture(
+        submissionConfig
+      )
       configDesugaring = new ConfigEnricher(
         allocatedParties,
         BenchtoolTestsPackageInfo.StaticDefault,
       )
-      tested = new FooSubmission(
-        submitter = submitter,
-        maxInFlightCommands = 1,
-        submissionBatchSize = 1,
-        submissionConfig = submissionConfig,
-        allocatedParties = allocatedParties,
-        names = names,
-        partySelectingRandomnessProvider = RandomnessProvider.forSeed(seed = 0),
-        payloadRandomnessProvider = RandomnessProvider.forSeed(seed = 0),
-        consumingEventsRandomnessProvider = RandomnessProvider.forSeed(seed = 0),
-        nonConsumingEventsRandomnessProvider = RandomnessProvider.forSeed(seed = 0),
-        applicationIdRandomnessProvider = RandomnessProvider.forSeed(seed = 0),
-        contractDescriptionRandomnessProvider = RandomnessProvider.forSeed(seed = 0),
-      )
-      _ <- tested.performSubmission()
+      _ <- fooSubmission.performSubmission()
       _ = allocatedParties.observerPartySets
         .find(_.mainPartyNamePrefix == "FooParty")
         .value
@@ -134,10 +121,10 @@ class PartySetsITSpec
       val cp = new Checkpoint
 
       { // Party from party set
-        cp(discard(treeResults_fooParty87.numberOfCreatesPerTemplateName("Foo1") shouldBe 6))
+        cp(discard(treeResults_fooParty87.numberOfCreatesPerTemplateName("Foo1") shouldBe 4))
         cp(
           discard(
-            treeResults_fooParty87.numberOfNonConsumingExercisesPerTemplateName("Foo1") shouldBe 12
+            treeResults_fooParty87.numberOfNonConsumingExercisesPerTemplateName("Foo1") shouldBe 8
           )
         )
         cp(
@@ -155,7 +142,7 @@ class PartySetsITSpec
         )
         cp(
           discard(
-            treeResults_fooPartySet.numberOfConsumingExercisesPerTemplateName("Foo1") shouldBe 1
+            treeResults_fooPartySet.numberOfConsumingExercisesPerTemplateName("Foo1") shouldBe 4
           )
         )
       }
@@ -174,20 +161,20 @@ class PartySetsITSpec
           discard(
             treeResults_fooPartyNamePrefix.numberOfConsumingExercisesPerTemplateName(
               "Foo1"
-            ) shouldBe 1
+            ) shouldBe 4
           )
         )
       }
       { // Bar party set
-        cp(discard(treeResults_barPartySet.numberOfCreatesPerTemplateName("Foo1") shouldBe 7))
+        cp(discard(treeResults_barPartySet.numberOfCreatesPerTemplateName("Foo1") shouldBe 5))
         cp(
           discard(
-            treeResults_barPartySet.numberOfNonConsumingExercisesPerTemplateName("Foo1") shouldBe 14
+            treeResults_barPartySet.numberOfNonConsumingExercisesPerTemplateName("Foo1") shouldBe 10
           )
         )
         cp(
           discard(
-            treeResults_barPartySet.numberOfConsumingExercisesPerTemplateName("Foo1") shouldBe 1
+            treeResults_barPartySet.numberOfConsumingExercisesPerTemplateName("Foo1") shouldBe 2
           )
         )
       }
@@ -206,7 +193,7 @@ class PartySetsITSpec
           discard(
             treeResults_barPartyNamePrefix.numberOfConsumingExercisesPerTemplateName(
               "Foo1"
-            ) shouldBe 1
+            ) shouldBe 2
           )
         )
       }

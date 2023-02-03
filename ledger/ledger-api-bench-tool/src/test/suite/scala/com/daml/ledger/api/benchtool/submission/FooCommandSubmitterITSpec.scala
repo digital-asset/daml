@@ -64,24 +64,9 @@ class FooCommandSubmitterITSpec
     )
 
     for {
-      (apiServices, names, submitter) <- benchtoolFixture()
-      allocatedParties <- submitter.prepare(config)
+      (apiServices, allocatedParties, fooSubmission) <- benchtoolFooSubmissionFixture(config)
       _ = allocatedParties.divulgees shouldBe empty
-      tested = new FooSubmission(
-        submitter = submitter,
-        maxInFlightCommands = 1,
-        submissionBatchSize = 5,
-        submissionConfig = config,
-        allocatedParties = allocatedParties,
-        names = names,
-        partySelectingRandomnessProvider = RandomnessProvider.forSeed(seed = 0),
-        payloadRandomnessProvider = RandomnessProvider.forSeed(seed = 0),
-        consumingEventsRandomnessProvider = RandomnessProvider.forSeed(seed = 0),
-        nonConsumingEventsRandomnessProvider = RandomnessProvider.forSeed(seed = 0),
-        applicationIdRandomnessProvider = RandomnessProvider.forSeed(seed = 0),
-        contractDescriptionRandomnessProvider = RandomnessProvider.forSeed(seed = 0),
-      )
-      _ <- tested.performSubmission()
+      _ <- fooSubmission.performSubmission()
       observerResult_signatory: ObservedEvents <- treeEventsObserver(
         apiServices = apiServices,
         party = allocatedParties.signatory,
@@ -146,7 +131,7 @@ class FooCommandSubmitterITSpec
       // Second observer can see ~10% of all non-consuming events
       cp(
         discard(
-          observerResult_observer1.nonConsumingExercises.size shouldBe 32 withClue ("number of non consuming exercises visible to Obs-1")
+          observerResult_observer1.nonConsumingExercises.size shouldBe 14 withClue ("number of non consuming exercises visible to Obs-1")
         )
       )
       cp.reportAll()
