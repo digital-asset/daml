@@ -111,14 +111,14 @@ trait MetricValues {
 
     def values: Seq[Long] = histogram match {
       case histogram: InMemoryHistogram =>
-        singleValueFromContexts(histogram.recordedValues.toMap)
+        singleValueFromContexts(histogram.recordedValues.toMap.view.mapValues(_.toSeq).toMap)
       case other =>
         throw new IllegalArgumentException(s"Values not supported for $other")
     }
 
     def valuesWithContext: Map[MetricsContext, Seq[Long]] = histogram match {
       case histogram: InMemoryHistogram =>
-        histogram.recordedValues.toMap
+        histogram.recordedValues.toMap.view.mapValues(_.toSeq).toMap
       case other =>
         throw new IllegalArgumentException(s"Values not supported for $other")
     }
@@ -152,14 +152,14 @@ trait MetricValues {
 
     def values: Seq[Long] = timer match {
       case timer: InMemoryTimer =>
-        singleValueFromContexts(timer.data.recordedValues.toMap)
+        singleValueFromContexts(timer.data.recordedValues.toMap.view.mapValues(_.toSeq).toMap)
       case other =>
         throw new IllegalArgumentException(s"Count not supported for $other")
     }
 
     def valuesWithContext: Map[MetricsContext, Seq[Long]] = timer match {
       case timer: InMemoryTimer =>
-        timer.data.recordedValues.toMap
+        timer.data.recordedValues.toMap.view.mapValues(_.toSeq).toMap
       case other =>
         throw new IllegalArgumentException(s"Values not supported for $other")
     }
