@@ -8,7 +8,6 @@ import java.util.concurrent.TimeUnit
 import com.codahale.metrics.Snapshot
 import com.daml.metrics.Metrics
 import com.daml.metrics.api.MetricHandle.{Counter, Histogram, Timer}
-import com.daml.metrics.api.MetricName
 import com.daml.metrics.api.dropwizard.{DropwizardCounter, DropwizardHistogram, DropwizardTimer}
 import com.daml.metrics.api.noop.{NoOpCounter, NoOpTimer}
 import com.daml.metrics.api.testing.InMemoryMetricsFactory.{
@@ -26,19 +25,13 @@ class IndexerBenchmarkResult(
     metrics: Metrics,
     startTimeInNano: Long,
     stopTimeInNano: Long,
-    timerReader: MetricName => Timer,
 ) extends MetricValues {
 
   private val duration: Double =
     (stopTimeInNano - startTimeInNano).toDouble.nanos.toUnit(TimeUnit.SECONDS)
   private val updates: Long = counterState(metrics.daml.parallelIndexer.updates)
   private val updateRate: Double = updates / duration
-  private val inputMappingDurationMetric = timerReader(
-    metrics.daml.parallelIndexer.inputMapping.executor
-  )
-  private val batchingDurationMetric = timerReader(
-    metrics.daml.parallelIndexer.batching.executor
-  )
+
   val (failure, minimumUpdateRateFailureInfo): (Boolean, String) =
     config.minUpdateRate match {
       case Some(requiredMinUpdateRate) if requiredMinUpdateRate > updateRate =>
@@ -78,12 +71,6 @@ class IndexerBenchmarkResult(
        |  inputMapping.batchSize:     ${histogramToString(
         metrics.daml.parallelIndexer.inputMapping.batchSize
       )}
-       |  inputMapping.duration:      ${timerToString(
-        inputMappingDurationMetric
-      )}
-       |  inputMapping.duration.rate: ${timerMeanRate(inputMappingDurationMetric)}
-       |  batching.duration:      ${timerToString(batchingDurationMetric)}
-       |  batching.duration.rate: ${timerMeanRate(batchingDurationMetric)}
        |  seqMapping.duration: ${timerToString(
         metrics.daml.parallelIndexer.seqMapping.duration
       )}|

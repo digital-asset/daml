@@ -20,7 +20,7 @@ import com.daml.logging.LoggingContext
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.metrics.api.dropwizard.DropwizardMetricsFactory
 import com.daml.metrics.api.opentelemetry.OpenTelemetryMetricsFactory
-import com.daml.metrics.api.testing.{InMemoryMetricsFactory, MetricValues, ProxyMetricsFactory}
+import com.daml.metrics.api.testing.{InMemoryMetricsFactory, ProxyMetricsFactory}
 import com.daml.metrics.{JvmMetricSet, Metrics}
 import com.daml.platform.LedgerApiServer
 import com.daml.platform.indexer.{Indexer, IndexerServiceOwner, JdbcIndexer}
@@ -53,7 +53,7 @@ class IndexerBenchmark() {
       val readService = createReadService(updates)
 
       val resource = for {
-        (metrics, inMemoryMetrics) <- metricsResource(config).acquire()
+        metrics <- metricsResource(config).acquire()
         servicesExecutionContext <- ResourceOwner
           .forExecutorService(() => Executors.newWorkStealingPool())
           .map(ExecutionContext.fromExecutorService)
@@ -92,13 +92,11 @@ class IndexerBenchmark() {
           metrics,
           startTime,
           stopTime,
-          metricName =>
-            MetricValues.singleValueFromContexts(inMemoryMetrics.metrics.timers(metricName).toMap),
         )
 
         println(result.banner)
 
-        // Note: this allows the user to inpsect the contents of an ephemeral database
+        // Note: this allows the user to inspect the contents of an ephemeral database
         if (config.waitForUserInput) {
           println(
             s"Index database is still running at ${config.dataSource.jdbcUrl}."
@@ -153,7 +151,7 @@ class IndexerBenchmark() {
             .forCloseable(() => reporter.register(metrics.registry))
             .map(_.start(config.metricsReportingInterval.getSeconds, TimeUnit.SECONDS))
         )
-        .map(_ => metrics -> inMemoryMetricFactory)
+        .map(_ => metrics)
     }
   }
 
