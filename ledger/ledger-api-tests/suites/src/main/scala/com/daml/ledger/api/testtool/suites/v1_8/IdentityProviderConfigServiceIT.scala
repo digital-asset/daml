@@ -57,7 +57,7 @@ class IdentityProviderConfigServiceIT extends UserManagementServiceITBase {
     for {
       _ <- createAndCheck(
         "empty identity_provider_id",
-        LedgerApiErrors.RequestValidation.InvalidField,
+        LedgerApiErrors.RequestValidation.MissingField,
         identityProviderId = "",
       )
       _ <- createAndCheck(
@@ -72,11 +72,11 @@ class IdentityProviderConfigServiceIT extends UserManagementServiceITBase {
       )
       _ <- createAndCheck(
         "empty jwks_url",
-        LedgerApiErrors.RequestValidation.InvalidField,
+        LedgerApiErrors.RequestValidation.MissingField,
         jwksUrl = "",
       )
       _ <- createAndCheck(
-        "non valid url",
+        "non valid jwks_url",
         LedgerApiErrors.RequestValidation.InvalidField,
         jwksUrl = "url.com",
       )
@@ -120,7 +120,7 @@ class IdentityProviderConfigServiceIT extends UserManagementServiceITBase {
     for {
       _ <- createAndCheck(
         "empty identity_provider_id",
-        LedgerApiErrors.RequestValidation.InvalidField,
+        LedgerApiErrors.RequestValidation.MissingField,
         identityProviderId = "",
       )
       _ <- createAndCheck(
@@ -167,7 +167,7 @@ class IdentityProviderConfigServiceIT extends UserManagementServiceITBase {
     for {
       _ <- createAndCheck(
         "empty identity_provider_id",
-        LedgerApiErrors.RequestValidation.InvalidField,
+        LedgerApiErrors.RequestValidation.MissingField,
         identityProviderId = "",
       )
       _ <- createAndCheck(
@@ -244,7 +244,7 @@ class IdentityProviderConfigServiceIT extends UserManagementServiceITBase {
     for {
       _ <- createAndCheck(
         "empty identity_provider_id",
-        LedgerApiErrors.RequestValidation.InvalidField,
+        LedgerApiErrors.RequestValidation.MissingField,
         identityProviderId = "",
       )
       _ <- createAndCheck(
@@ -317,7 +317,7 @@ class IdentityProviderConfigServiceIT extends UserManagementServiceITBase {
   })
 
   test(
-    "IdentityProviderCreateConfig",
+    "IdentityProviderUpdateConfig",
     "Exercise UpdateIdentityProviderConfig",
     allocate(NoParties),
     enabled = _.userManagement.supported,
@@ -386,7 +386,7 @@ class IdentityProviderConfigServiceIT extends UserManagementServiceITBase {
   })
 
   test(
-    "IdentityProviderCreateConfig",
+    "IdentityProviderGetConfig",
     "Exercise GetIdentityProviderConfig",
     allocate(NoParties),
     enabled = _.userManagement.supported,
@@ -435,7 +435,7 @@ class IdentityProviderConfigServiceIT extends UserManagementServiceITBase {
   })
 
   test(
-    "IdentityProviderCreateConfig",
+    "IdentityProviderListConfig",
     "Exercise ListIdentityProviderConfig",
     allocate(NoParties),
     enabled = _.userManagement.supported,
@@ -455,7 +455,7 @@ class IdentityProviderConfigServiceIT extends UserManagementServiceITBase {
   })
 
   test(
-    "IdentityProviderCreateConfig",
+    "IdentityProviderDeleteConfig",
     "Exercise DeleteIdentityProviderConfig",
     allocate(NoParties),
     enabled = _.userManagement.supported,

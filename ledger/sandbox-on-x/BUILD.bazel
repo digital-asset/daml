@@ -620,6 +620,31 @@ server_conformance_test(
     ],
 )
 
+conformance_test(
+    name = "conformance-test-idp",
+    hocon = True,
+    ports = [6865],
+    server = ":app",
+    server_args = ["run"],
+    server_hocon_config = """
+    {
+      ledger.participants.default {
+        api-server {
+          seeding = testing-weak
+          user-management {
+            enabled = true
+            max-rights-per-user = 100
+          }
+        }
+      }
+    }
+    """,
+    test_tool_args = [
+        "--verbose",
+        "--include=IdentityProviderConfigServiceIT",
+    ],
+)
+
 exports_files([
     "src/app/resources/logback.xml",
 ])
