@@ -40,6 +40,7 @@ import com.daml.ledger.api.v1.transaction_filter.{Filters, InclusiveFilters, Tra
 import com.daml.ledger.client.LedgerClient
 import com.daml.ledger.client.services.commands.CompletionStreamElement
 import com.daml.lf.data.Ref.PackageId
+import com.daml.lf.engine.trigger.TriggerRunnerConfig.DefaultTriggerRunnerConfig
 import com.daml.timer.RetryStrategy
 import com.daml.test.evidence.tag.Security.SecurityTest.Property.{
   Authenticity,
@@ -614,6 +615,88 @@ trait AbstractTriggerServiceTest extends AbstractTriggerServiceTestHelper {
       _ <- fields.get("status") shouldBe Some(JsNumber(StatusCodes.NotFound.intValue))
       _ <- fields.get("errors") shouldBe
         Some(JsArray(JsString(s"No trigger running with id $uuid")))
+    } yield succeed
+  }
+
+  it should "stop the trigger if the ACS is too large at initialization time" in withTriggerService(
+    List(dar),
+    triggerRunnerConfig = Some(
+      DefaultTriggerRunnerConfig
+        .copy(
+          // Rate limit ledger submissions to 1 per millisecond
+          maxSubmissionDuration = 100.millis,
+          // As the trigger starts with the ACS pre-populated with 100 Cat contracts, we should overflow at startup using 10
+          maximumActiveContracts = 10,
+        )
+    ),
+  ) { uri: Uri =>
+    def cat(id: Long): Command = {
+      Command().withCreate(
+        CreateCommand(
+          templateId = Some(Identifier(testPkgId, "Cats", "Cat")),
+          createArguments = Some(
+            Record(
+              None,
+              Seq(
+                RecordField(value = Some(Value().withParty(aliceExp.unwrap))),
+                RecordField(value = Some(Value().withInt64(id))),
+              ),
+            )
+          ),
+        )
+      )
+    }
+
+    for {
+      client <- sandboxClient(
+        ApiTypes.ApplicationId("exp-app-id"),
+        actAs = List(ApiTypes.Party(aliceExp.unwrap)),
+      )
+      _ <- Future.sequence((1 until 100).map(id => submitCmd(client, aliceExp.unwrap, cat(id))))
+      resp <- startTrigger(uri, s"$testPkgId:Cats:breedingTrigger", alice)
+      catsTrigger <- parseTriggerId(resp)
+      _ <- assertTriggerIds(uri, alice, Vector(catsTrigger))
+      _ <- assertTriggerStatus(catsTrigger, _ should contain("stopped: runtime failure"))
+    } yield succeed
+  }
+
+  it should "stop the trigger if the ACS overflows at runtime" in withTriggerService(
+    List(dar),
+    triggerRunnerConfig = Some(
+      DefaultTriggerRunnerConfig
+        .copy(
+          // Rate limit ledger submissions to 1 per millisecond
+          maxSubmissionDuration = 100.millis,
+          // As the trigger creates 100 Cat contracts and the initial ACS is empty, we should eventually overflow using 50
+          maximumActiveContracts = 50,
+        )
+    ),
+  ) { uri: Uri =>
+    for {
+      resp <- startTrigger(uri, s"$testPkgId:Cats:breedingTrigger", alice)
+      catsTrigger <- parseTriggerId(resp)
+      _ <- assertTriggerIds(uri, alice, Vector(catsTrigger))
+      _ <- assertTriggerStatus(catsTrigger, _ should contain("stopped: runtime failure"))
+    } yield succeed
+  }
+
+  it should "stop the trigger if the in-flight commands overflow at runtime" in withTriggerService(
+    List(dar),
+    triggerRunnerConfig = Some(
+      DefaultTriggerRunnerConfig.copy(
+        // Rate limit ledger submissions to 1 per millisecond
+        maxSubmissionDuration = 100.millis,
+        // As our submission rate is faster than the ledger can manage and we are submitting 100 Cat create commands,
+        // in-flights should overflow using 10
+        inFlightCommandOverflowCount = 10,
+      )
+    ),
+  ) { uri: Uri =>
+    for {
+      resp <- startTrigger(uri, s"$testPkgId:Cats:breedingTrigger", alice)
+      catsTrigger <- parseTriggerId(resp)
+      _ <- assertTriggerIds(uri, alice, Vector(catsTrigger))
+      _ <- assertTriggerStatus(catsTrigger, _ should contain("stopped: runtime failure"))
     } yield succeed
   }
 }
