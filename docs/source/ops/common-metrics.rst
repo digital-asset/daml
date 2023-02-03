@@ -258,7 +258,7 @@ runtime_jvm_gc_time
 
   - **gc**: Garbage collector
 
-- **Type**: Gauge
+- **Type**: Counter
 
 runtime_jvm_gc_count
 ==============================
@@ -267,7 +267,7 @@ runtime_jvm_gc_count
 
   - **gc**: Garbage collector
 
-- **Type**: Gauge
+- **Type**: Counter
 
 runtime_jvm_memory_area
 ==============================
