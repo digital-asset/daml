@@ -9,7 +9,14 @@ import com.daml.error.definitions.LedgerApiErrors
 import java.util.UUID
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
-import com.daml.ledger.api.v1.admin.identity_provider_config_service.{CreateIdentityProviderConfigRequest, DeleteIdentityProviderConfigRequest, DeleteIdentityProviderConfigResponse, GetIdentityProviderConfigRequest, IdentityProviderConfig, UpdateIdentityProviderConfigRequest}
+import com.daml.ledger.api.v1.admin.identity_provider_config_service.{
+  CreateIdentityProviderConfigRequest,
+  DeleteIdentityProviderConfigRequest,
+  DeleteIdentityProviderConfigResponse,
+  GetIdentityProviderConfigRequest,
+  IdentityProviderConfig,
+  UpdateIdentityProviderConfigRequest,
+}
 import com.google.protobuf.field_mask.FieldMask
 
 import scala.concurrent.Future
@@ -391,12 +398,21 @@ class IdentityProviderConfigServiceIT extends UserManagementServiceITBase {
     val jwksUrl: String = "http://daml.com/jwks.json"
     for {
       response1 <- ledger.createIdentityProviderConfig(
-        identityProviderId, isDeactivated, issuer, jwksUrl
+        identityProviderId,
+        isDeactivated,
+        issuer,
+        jwksUrl,
       )
-      response2 <- ledger.getIdentityProviderConfig(GetIdentityProviderConfigRequest(identityProviderId))
-      response3 <- ledger.getIdentityProviderConfig(GetIdentityProviderConfigRequest(
-        UUID.randomUUID().toString
-      )).mustFail("non existing idp")
+      response2 <- ledger.getIdentityProviderConfig(
+        GetIdentityProviderConfigRequest(identityProviderId)
+      )
+      response3 <- ledger
+        .getIdentityProviderConfig(
+          GetIdentityProviderConfigRequest(
+            UUID.randomUUID().toString
+          )
+        )
+        .mustFail("non existing idp")
     } yield {
       assertIdentityProviderConfig(response1.identityProviderConfig) { config =>
         assertEquals(config.identityProviderId, identityProviderId)
@@ -412,8 +428,7 @@ class IdentityProviderConfigServiceIT extends UserManagementServiceITBase {
       }
       assertGrpcError(
         t = response3,
-        errorCode =
-          LedgerApiErrors.Admin.IdentityProviderConfig.IdentityProviderConfigNotFound,
+        errorCode = LedgerApiErrors.Admin.IdentityProviderConfig.IdentityProviderConfigNotFound,
         exceptionMessageSubstring = None,
       )
     }
@@ -450,14 +465,14 @@ class IdentityProviderConfigServiceIT extends UserManagementServiceITBase {
     for {
       _ <- ledger.createIdentityProviderConfig(identityProviderId = id)
       deleted <- ledger.deleteIdentityProviderConfig(DeleteIdentityProviderConfigRequest(id))
-      configDoesNotExist <- ledger.deleteIdentityProviderConfig(DeleteIdentityProviderConfigRequest(id))
+      configDoesNotExist <- ledger
+        .deleteIdentityProviderConfig(DeleteIdentityProviderConfigRequest(id))
         .mustFail("config does not exist anymore")
     } yield {
       assertEquals(deleted, DeleteIdentityProviderConfigResponse())
       assertGrpcError(
         t = configDoesNotExist,
-        errorCode =
-          LedgerApiErrors.Admin.IdentityProviderConfig.IdentityProviderConfigNotFound,
+        errorCode = LedgerApiErrors.Admin.IdentityProviderConfig.IdentityProviderConfigNotFound,
         exceptionMessageSubstring = None,
       )
     }

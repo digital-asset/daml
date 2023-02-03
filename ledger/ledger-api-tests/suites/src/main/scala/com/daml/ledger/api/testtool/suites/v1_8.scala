@@ -56,7 +56,7 @@ package object v1_8 {
       new ValueLimitsIT,
       new WitnessesIT,
       new WronglyTypedContractIdIT,
-      new IdentityProviderConfigServiceIT
+      new IdentityProviderConfigServiceIT,
     )
 
   def optional(tlsConfiguration: Option[TlsConfiguration]): Vector[LedgerTestSuite] =
