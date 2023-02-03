@@ -7,7 +7,7 @@ Time on Daml Ledgers
 ####################
 
 The Daml language contains a function :ref:`getTime <daml-ref-gettime>` which returns the “current time”.
-However, the notion of time comes with a lot of problems in a distributed setting.
+However, maintaining a “current time” can be a bit challenging in a distributed setting.
 
 This document describes the detailed semantics of time on Daml ledgers,
 centered around the two timestamps assigned to each transaction:
@@ -32,12 +32,11 @@ Record Time
 
 The *record time* ``rt_TX`` is another property of a transaction.
 It is timestamp with microsecond resolution,
-and is assigned by the ledger when the transaction is recorded on the ledger.
+and is assigned by the backing storage mechanism when the transaction is persisted.
 
 The record time should be an intuitive representation of "real time",
-but the Daml ledger model does not prescribe how exactly the record time is assigned.
-Each ledger implementation might use a different way of representing time in a distributed setting -
-for details, contact your ledger operator.
+but the Daml abstract ledger model does not prescribe how exactly the record time is assigned.
+Each persistance technology might use a different way of representing time in a distributed setting.
 
 
 .. _time_guarantees:
