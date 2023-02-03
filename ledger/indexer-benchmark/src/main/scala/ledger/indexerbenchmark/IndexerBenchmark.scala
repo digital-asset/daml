@@ -196,7 +196,7 @@ object IndexerBenchmark {
     val result: Future[Unit] = new IndexerBenchmark()
       .run(updates, config)
       .recover { case ex =>
-        logger.error(s"Error running", ex)
+        logger.error("Error running benchmark", ex)
         sys.exit(1)
       }(scala.concurrent.ExecutionContext.Implicits.global)
 
