@@ -26,6 +26,7 @@ import com.daml.platform.LedgerApiServer
 import com.daml.platform.indexer.{Indexer, IndexerServiceOwner, JdbcIndexer}
 import com.daml.resources
 import com.daml.telemetry.OpenTelemetryOwner
+import com.typesafe.scalalogging.LazyLogging
 
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext, ExecutionContextExecutor, Future}
@@ -186,7 +187,7 @@ class IndexerBenchmark() {
   }
 }
 
-object IndexerBenchmark {
+object IndexerBenchmark extends LazyLogging {
   val LedgerId = "IndexerBenchmarkLedger"
 
   def runAndExit(
@@ -196,7 +197,7 @@ object IndexerBenchmark {
     val result: Future[Unit] = new IndexerBenchmark()
       .run(updates, config)
       .recover { case ex =>
-        println(s"Error: ${ex.getMessage}")
+        logger.error(s"Error running", ex)
         sys.exit(1)
       }(scala.concurrent.ExecutionContext.Implicits.global)
 
