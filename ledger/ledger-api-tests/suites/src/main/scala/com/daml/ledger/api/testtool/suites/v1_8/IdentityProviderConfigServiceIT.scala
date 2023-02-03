@@ -24,7 +24,7 @@ import scala.concurrent.Future
 class IdentityProviderConfigServiceIT extends UserManagementServiceITBase {
 
   test(
-    "IdentityProviderCreateConfigInvalidArguments",
+    "CreateConfigInvalidArguments",
     "Test argument validation for IdentityProviderConfigService#CreateIdentityProviderConfig",
     allocate(NoParties),
     enabled = _.userManagement.supported,
@@ -37,22 +37,14 @@ class IdentityProviderConfigServiceIT extends UserManagementServiceITBase {
         isDeactivated: Boolean = false,
         issuer: String = UUID.randomUUID().toString,
         jwksUrl: String = "http://daml.com/jwks.json",
-    ): Future[Unit] = {
-      for {
-        throwable <- ledger
-          .createIdentityProviderConfig(
-            identityProviderId,
-            isDeactivated,
-            issuer,
-            jwksUrl,
-          )
-          .mustFail(context = problem)
-      } yield assertGrpcError(
-        t = throwable,
-        errorCode = expectedErrorCode,
-        exceptionMessageSubstring = None,
+    ): Future[Unit] = ledger
+      .createIdentityProviderConfig(
+        identityProviderId,
+        isDeactivated,
+        issuer,
+        jwksUrl,
       )
-    }
+      .mustFailWith(context = problem, expectedErrorCode)
 
     for {
       _ <- createAndCheck(
@@ -80,20 +72,17 @@ class IdentityProviderConfigServiceIT extends UserManagementServiceITBase {
         LedgerApiErrors.RequestValidation.InvalidField,
         jwksUrl = "url.com",
       )
-      createEmptyIdpConfig <- ledger
+      _ <- ledger
         .createIdentityProviderConfig(CreateIdentityProviderConfigRequest(None))
-        .mustFail(context = "empty identity_provider_config")
-    } yield {
-      assertGrpcError(
-        t = createEmptyIdpConfig,
-        errorCode = LedgerApiErrors.RequestValidation.MissingField,
-        exceptionMessageSubstring = None,
-      )
-    }
+        .mustFailWith(
+          context = "empty identity_provider_config",
+          LedgerApiErrors.RequestValidation.MissingField,
+        )
+    } yield ()
   })
 
   test(
-    "IdentityProviderGetConfigInvalidArguments",
+    "GetConfigInvalidArguments",
     "Test argument validation for IdentityProviderConfigService#GetIdentityProviderConfig",
     allocate(NoParties),
     enabled = _.userManagement.supported,
@@ -103,19 +92,11 @@ class IdentityProviderConfigServiceIT extends UserManagementServiceITBase {
         problem: String,
         expectedErrorCode: ErrorCode,
         identityProviderId: String,
-    ): Future[Unit] = {
-      for {
-        throwable <- ledger
-          .getIdentityProviderConfig(
-            GetIdentityProviderConfigRequest(identityProviderId)
-          )
-          .mustFail(context = problem)
-      } yield assertGrpcError(
-        t = throwable,
-        errorCode = expectedErrorCode,
-        exceptionMessageSubstring = None,
+    ): Future[Unit] = ledger
+      .getIdentityProviderConfig(
+        GetIdentityProviderConfigRequest(identityProviderId)
       )
-    }
+      .mustFailWith(context = problem, expectedErrorCode)
 
     for {
       _ <- createAndCheck(
@@ -132,7 +113,7 @@ class IdentityProviderConfigServiceIT extends UserManagementServiceITBase {
   })
 
   test(
-    "IdentityProviderUpdateConfigInvalidArguments",
+    "UpdateConfigInvalidArguments",
     "Test argument validation for IdentityProviderConfigService#UpdateIdentityProviderConfig",
     allocate(NoParties),
     enabled = _.userManagement.supported,
@@ -146,23 +127,15 @@ class IdentityProviderConfigServiceIT extends UserManagementServiceITBase {
         issuer: String = UUID.randomUUID().toString,
         jwksUrl: String = "http://daml.com/jwks.json",
         updateMask: Option[FieldMask] = Some(FieldMask(Seq("is_deactivated"))),
-    ): Future[Unit] = {
-      for {
-        throwable <- ledger
-          .updateIdentityProviderConfig(
-            identityProviderId,
-            isDeactivated,
-            issuer,
-            jwksUrl,
-            updateMask,
-          )
-          .mustFail(context = problem)
-      } yield assertGrpcError(
-        t = throwable,
-        errorCode = expectedErrorCode,
-        exceptionMessageSubstring = None,
+    ): Future[Unit] = ledger
+      .updateIdentityProviderConfig(
+        identityProviderId,
+        isDeactivated,
+        issuer,
+        jwksUrl,
+        updateMask,
       )
-    }
+      .mustFailWith(context = problem, expectedErrorCode)
 
     for {
       _ <- createAndCheck(
@@ -185,39 +158,31 @@ class IdentityProviderConfigServiceIT extends UserManagementServiceITBase {
         LedgerApiErrors.RequestValidation.MissingField,
         updateMask = None,
       )
-      updateEmptyConfig <- ledger
+      _ <- ledger
         .updateIdentityProviderConfig(UpdateIdentityProviderConfigRequest(None))
-        .mustFail(context = "empty identity_provider_config")
+        .mustFailWith(
+          context = "empty identity_provider_config",
+          LedgerApiErrors.RequestValidation.MissingField,
+        )
 
       createdIdp <- ledger.createIdentityProviderConfig()
 
-      emptyUpdateMask <- ledger
+      _ <- ledger
         .updateIdentityProviderConfig(
           UpdateIdentityProviderConfigRequest(
             Some(createdIdp.identityProviderConfig.get),
             Some(FieldMask(Seq.empty)),
           )
         )
-        .mustFail(context = "empty update_mask")
-    } yield {
-      assertGrpcError(
-        t = updateEmptyConfig,
-        errorCode = LedgerApiErrors.RequestValidation.MissingField,
-        exceptionMessageSubstring = None,
-      )
-
-      assertGrpcError(
-        t = emptyUpdateMask,
-        errorCode =
+        .mustFailWith(
+          context = "empty update_mask",
           LedgerApiErrors.Admin.IdentityProviderConfig.InvalidUpdateIdentityProviderConfigRequest,
-        exceptionMessageSubstring = Some("update mask contains no entries"),
-      )
-
-    }
+        )
+    } yield ()
   })
 
   test(
-    "IdentityProviderDeleteConfigInvalidArguments",
+    "DeleteConfigInvalidArguments",
     "Test argument validation for IdentityProviderConfigService#DeleteIdentityProviderConfig",
     allocate(NoParties),
     enabled = _.userManagement.supported,
@@ -227,19 +192,11 @@ class IdentityProviderConfigServiceIT extends UserManagementServiceITBase {
         problem: String,
         expectedErrorCode: ErrorCode,
         identityProviderId: String,
-    ): Future[Unit] = {
-      for {
-        throwable <- ledger
-          .deleteIdentityProviderConfig(
-            DeleteIdentityProviderConfigRequest(identityProviderId)
-          )
-          .mustFail(context = problem)
-      } yield assertGrpcError(
-        t = throwable,
-        errorCode = expectedErrorCode,
-        exceptionMessageSubstring = None,
+    ): Future[Unit] = ledger
+      .deleteIdentityProviderConfig(
+        DeleteIdentityProviderConfigRequest(identityProviderId)
       )
-    }
+      .mustFailWith(context = problem, expectedErrorCode)
 
     for {
       _ <- createAndCheck(
@@ -256,7 +213,7 @@ class IdentityProviderConfigServiceIT extends UserManagementServiceITBase {
   })
 
   test(
-    "IdentityProviderCreateConfig",
+    "CreateConfig",
     "Exercise CreateIdentityProviderConfig",
     allocate(NoParties),
     enabled = _.userManagement.supported,
@@ -276,20 +233,26 @@ class IdentityProviderConfigServiceIT extends UserManagementServiceITBase {
       response2 <- ledger.createIdentityProviderConfig(
         isDeactivated = true
       )
-      sameIdpIdExists <- ledger
+      _ <- ledger
         .createIdentityProviderConfig(
           identityProviderId,
           isDeactivated,
           UUID.randomUUID().toString,
           jwksUrl,
         )
-        .mustFail("Creating duplicate IDP with the same ID")
+        .mustFailWith(
+          "Creating duplicate IDP with the same ID",
+          LedgerApiErrors.Admin.IdentityProviderConfig.IdentityProviderConfigAlreadyExists,
+        )
 
-      sameIssuerExists <- ledger
+      _ <- ledger
         .createIdentityProviderConfig(
           issuer = issuer
         )
-        .mustFail("Creating duplicate IDP with the same issuer")
+        .mustFailWith(
+          "Creating duplicate IDP with the same issuer",
+          LedgerApiErrors.Admin.IdentityProviderConfig.IdentityProviderConfigIssuerAlreadyExists,
+        )
 
     } yield {
       assertIdentityProviderConfig(response1.identityProviderConfig) { config =>
@@ -301,23 +264,11 @@ class IdentityProviderConfigServiceIT extends UserManagementServiceITBase {
       assertIdentityProviderConfig(response2.identityProviderConfig) { config =>
         assertEquals(config.isDeactivated, true)
       }
-      assertGrpcError(
-        t = sameIdpIdExists,
-        errorCode =
-          LedgerApiErrors.Admin.IdentityProviderConfig.IdentityProviderConfigAlreadyExists,
-        exceptionMessageSubstring = None,
-      )
-      assertGrpcError(
-        t = sameIssuerExists,
-        errorCode =
-          LedgerApiErrors.Admin.IdentityProviderConfig.IdentityProviderConfigIssuerAlreadyExists,
-        exceptionMessageSubstring = None,
-      )
     }
   })
 
   test(
-    "IdentityProviderUpdateConfig",
+    "UpdateConfig",
     "Exercise UpdateIdentityProviderConfig",
     allocate(NoParties),
     enabled = _.userManagement.supported,
@@ -354,7 +305,7 @@ class IdentityProviderConfigServiceIT extends UserManagementServiceITBase {
         )
 
       duplicateIssuer = response2.identityProviderConfig.get.issuer
-      duplicateIssuerError <- ledger
+      _ <- ledger
         .updateIdentityProviderConfig(
           UpdateIdentityProviderConfigRequest(
             identityProviderConfig =
@@ -362,7 +313,10 @@ class IdentityProviderConfigServiceIT extends UserManagementServiceITBase {
             updateMask = Some(FieldMask(Seq("issuer"))),
           )
         )
-        .mustFail("Updating to the issuer which already exists")
+        .mustFailWith(
+          "Updating to the issuer which already exists",
+          LedgerApiErrors.Admin.IdentityProviderConfig.IdentityProviderConfigIssuerAlreadyExists,
+        )
     } yield {
       assertIdentityProviderConfig(isDeactivatedUpdate.identityProviderConfig) { config =>
         assertEquals(config.isDeactivated, true)
@@ -375,18 +329,11 @@ class IdentityProviderConfigServiceIT extends UserManagementServiceITBase {
       assertIdentityProviderConfig(issuerUpdate.identityProviderConfig) { config =>
         assertEquals(config.issuer, newIssuer)
       }
-
-      assertGrpcError(
-        t = duplicateIssuerError,
-        errorCode =
-          LedgerApiErrors.Admin.IdentityProviderConfig.IdentityProviderConfigIssuerAlreadyExists,
-        exceptionMessageSubstring = None,
-      )
     }
   })
 
   test(
-    "IdentityProviderGetConfig",
+    "GetConfig",
     "Exercise GetIdentityProviderConfig",
     allocate(NoParties),
     enabled = _.userManagement.supported,
@@ -406,13 +353,16 @@ class IdentityProviderConfigServiceIT extends UserManagementServiceITBase {
       response2 <- ledger.getIdentityProviderConfig(
         GetIdentityProviderConfigRequest(identityProviderId)
       )
-      response3 <- ledger
+      _ <- ledger
         .getIdentityProviderConfig(
           GetIdentityProviderConfigRequest(
             UUID.randomUUID().toString
           )
         )
-        .mustFail("non existing idp")
+        .mustFailWith(
+          "non existing idp",
+          LedgerApiErrors.Admin.IdentityProviderConfig.IdentityProviderConfigNotFound,
+        )
     } yield {
       assertIdentityProviderConfig(response1.identityProviderConfig) { config =>
         assertEquals(config.identityProviderId, identityProviderId)
@@ -426,16 +376,11 @@ class IdentityProviderConfigServiceIT extends UserManagementServiceITBase {
         assertEquals(config.issuer, issuer)
         assertEquals(config.jwksUrl, jwksUrl)
       }
-      assertGrpcError(
-        t = response3,
-        errorCode = LedgerApiErrors.Admin.IdentityProviderConfig.IdentityProviderConfigNotFound,
-        exceptionMessageSubstring = None,
-      )
     }
   })
 
   test(
-    "IdentityProviderListConfig",
+    "ListConfig",
     "Exercise ListIdentityProviderConfig",
     allocate(NoParties),
     enabled = _.userManagement.supported,
@@ -455,7 +400,7 @@ class IdentityProviderConfigServiceIT extends UserManagementServiceITBase {
   })
 
   test(
-    "IdentityProviderDeleteConfig",
+    "DeleteConfig",
     "Exercise DeleteIdentityProviderConfig",
     allocate(NoParties),
     enabled = _.userManagement.supported,
@@ -465,16 +410,14 @@ class IdentityProviderConfigServiceIT extends UserManagementServiceITBase {
     for {
       _ <- ledger.createIdentityProviderConfig(identityProviderId = id)
       deleted <- ledger.deleteIdentityProviderConfig(DeleteIdentityProviderConfigRequest(id))
-      configDoesNotExist <- ledger
+      _ <- ledger
         .deleteIdentityProviderConfig(DeleteIdentityProviderConfigRequest(id))
-        .mustFail("config does not exist anymore")
+        .mustFailWith(
+          "config does not exist anymore",
+          LedgerApiErrors.Admin.IdentityProviderConfig.IdentityProviderConfigNotFound,
+        )
     } yield {
       assertEquals(deleted, DeleteIdentityProviderConfigResponse())
-      assertGrpcError(
-        t = configDoesNotExist,
-        errorCode = LedgerApiErrors.Admin.IdentityProviderConfig.IdentityProviderConfigNotFound,
-        exceptionMessageSubstring = None,
-      )
     }
   })
 
