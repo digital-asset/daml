@@ -28,6 +28,7 @@ import com.daml.metrics.api.{MetricHandle, MetricName, MetricsContext}
 import com.daml.scalautil.Statement.discard
 
 import scala.collection.concurrent.{TrieMap, Map => ConcurrentMap}
+import scala.collection.mutable
 
 class InMemoryMetricsFactory extends LabeledMetricsFactory {
 
@@ -236,16 +237,17 @@ object InMemoryMetricsFactory extends InMemoryMetricsFactory {
   case class InMemoryHistogram(override val name: String, initialContext: MetricsContext)
       extends Histogram {
 
-    val recordedValues: collection.concurrent.Map[MetricsContext, Seq[Long]] = TrieMap()
+    val recordedValues: collection.concurrent.Map[MetricsContext, collection.mutable.Buffer[Long]] =
+      TrieMap()
 
     override def update(value: Long)(implicit
         context: MetricsContext
     ): Unit = discard {
       recordedValues.updateWith(initialContext.merge(context)) {
-        case None => Some(Seq(value))
+        case None => Some(mutable.Buffer(value))
         case Some(existingValues) =>
           Some(
-            existingValues :+ value
+            existingValues.addOne(value)
           )
       }
     }
