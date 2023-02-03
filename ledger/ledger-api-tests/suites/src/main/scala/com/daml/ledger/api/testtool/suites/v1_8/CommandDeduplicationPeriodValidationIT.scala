@@ -175,10 +175,8 @@ class CommandDeduplicationPeriodValidationIT extends LedgerTestSuite {
       start <- ledger.currentEnd()
       firstCreate <- ledger.create(party, Dummy(party))
       _ <- ledger.exercise(party, firstCreate.exerciseDummyChoice1())
-      secondCreate <- ledger.create(party, Dummy(party))
       _ <- ledger.submitAndWait(ledger.submitAndWaitRequest(party, Dummy(party).create.command))
       end <- ledger.currentEnd()
-      _ <- ledger.exercise(party, secondCreate.exerciseDummyChoice1())
       _ <- FutureAssertions.succeedsEventually(
         retryDelay = 10.millis,
         maxRetryDuration = 10.seconds,

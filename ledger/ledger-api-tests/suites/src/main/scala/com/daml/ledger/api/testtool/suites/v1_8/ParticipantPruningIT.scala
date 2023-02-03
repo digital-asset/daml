@@ -840,9 +840,6 @@ class ParticipantPruningIT extends LedgerTestSuite {
 
       _ <- populateLedgerAndGetOffsets(participant, localParty)
 
-      // Dummy needed to prune at this offset
-      _ <- participant.create(localParty, Dummy(localParty))
-
       acsBeforePruning <- participant.activeContracts(localParty)
       _ <- participant.prune(offset, pruneAllDivulgedContracts = pruneAllDivulgedContracts)
       acsAfterPruning <- participant.activeContracts(localParty)

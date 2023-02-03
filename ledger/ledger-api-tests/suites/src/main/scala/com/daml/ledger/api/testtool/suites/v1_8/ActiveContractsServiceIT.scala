@@ -678,7 +678,6 @@ class ActiveContractsServiceIT extends LedgerTestSuite {
     for {
       c1 <- ledger.create(party, Dummy(party))
       anOffset <- ledger.currentEnd()
-      _ <- ledger.create(party, Dummy(party))
       _ <- pruneCantonSafe(ledger = ledger, pruneUpTo = anOffset, party = party)
       (acsOffset, acs) <- ledger
         .activeContractsIds(
@@ -705,7 +704,6 @@ class ActiveContractsServiceIT extends LedgerTestSuite {
       offset1 <- ledger.currentEnd()
       _ <- ledger.create(party, Dummy(party))
       offset2 <- ledger.currentEnd()
-      _ <- ledger.create(party, Dummy(party))
       _ <- pruneCantonSafe(ledger = ledger, pruneUpTo = offset2, party = party)
       _ <- ledger
         .activeContractsIds(
