@@ -68,6 +68,7 @@ message GetEventsByContractKeyRequest {
 
   // If populated the `create_event` in the response will be the last create event to happen prior to this event
   // If not populated then the create event in the response will be that latest create event.
+  // By working backwards from event to event all historical key events can be discovered.
   // Optional
   string end_exclusive_event_id = 4;
 
