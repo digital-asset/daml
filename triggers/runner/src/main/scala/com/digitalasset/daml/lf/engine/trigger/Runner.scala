@@ -139,13 +139,17 @@ private[lf] final case class Trigger(
 
 /** Throwing an instance of this exception will cause the trigger service to stop the runner
   */
-private sealed abstract class TriggerOverflowException extends Exception
+private sealed abstract class TriggerOverflowException(message: String) extends Exception(message)
 
-private final case class InFlightCommandOverflowException(inFlightCommands: Int, crashCount: Int)
-    extends TriggerOverflowException
+private final case class InFlightCommandOverflowException(inFlightCommands: Int, overflowCount: Int)
+    extends TriggerOverflowException(
+      s"$inFlightCommands in-flight commands exceed limit of $overflowCount"
+    )
 
-private final case class ACSOverflowException(activeContracts: Int, crashCount: Long)
-    extends TriggerOverflowException
+private final case class ACSOverflowException(activeContracts: Int, overflowCount: Long)
+    extends TriggerOverflowException(
+      s"$activeContracts active contracts exceed limit of $overflowCount"
+    )
 
 // Utilities for interacting with the speedy machine.
 private[lf] object Machine {
@@ -672,7 +676,7 @@ private[lf] class Runner private (
         go(state) match {
           case next @ -\/(_) =>
             val endTime = System.nanoTime()
-            triggerContext.logDebug(
+            triggerContext.logInfo(
               "Trigger rule evaluation end",
               "metrics" -> LoggingValue.Nested(
                 LoggingEntries(
