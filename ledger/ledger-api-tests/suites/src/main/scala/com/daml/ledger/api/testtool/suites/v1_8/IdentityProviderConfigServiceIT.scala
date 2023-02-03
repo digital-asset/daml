@@ -219,16 +219,19 @@ class IdentityProviderConfigServiceIT extends UserManagementServiceITBase {
     enabled = _.userManagement.supported,
     disabledReason = "requires user management feature",
   )(implicit ec => { case Participants(Participant(ledger)) =>
-    val identityProviderId: String = UUID.randomUUID().toString
-    val isDeactivated: Boolean = false
-    val issuer: String = UUID.randomUUID().toString
-    val jwksUrl: String = "http://daml.com/jwks.json"
+    val identityProviderId = UUID.randomUUID().toString
+    val isDeactivated = false
+    val issuer = UUID.randomUUID().toString
+    val jwksUrl = "http://daml.com/jwks.json"
+    val config = IdentityProviderConfig(
+      identityProviderId,
+      isDeactivated,
+      issuer,
+      jwksUrl,
+    )
     for {
       response1 <- ledger.createIdentityProviderConfig(
-        identityProviderId,
-        isDeactivated,
-        issuer,
-        jwksUrl,
+        CreateIdentityProviderConfigRequest(Some(config))
       )
       response2 <- ledger.createIdentityProviderConfig(
         isDeactivated = true
@@ -255,12 +258,7 @@ class IdentityProviderConfigServiceIT extends UserManagementServiceITBase {
         )
 
     } yield {
-      assertIdentityProviderConfig(response1.identityProviderConfig) { config =>
-        assertEquals(config.identityProviderId, identityProviderId)
-        assertEquals(config.isDeactivated, isDeactivated)
-        assertEquals(config.issuer, issuer)
-        assertEquals(config.jwksUrl, jwksUrl)
-      }
+      assertEquals(response1.identityProviderConfig, Some(config))
       assertIdentityProviderConfig(response2.identityProviderConfig) { config =>
         assertEquals(config.isDeactivated, true)
       }
@@ -339,16 +337,19 @@ class IdentityProviderConfigServiceIT extends UserManagementServiceITBase {
     enabled = _.userManagement.supported,
     disabledReason = "requires user management feature",
   )(implicit ec => { case Participants(Participant(ledger)) =>
-    val identityProviderId: String = UUID.randomUUID().toString
-    val isDeactivated: Boolean = false
-    val issuer: String = UUID.randomUUID().toString
-    val jwksUrl: String = "http://daml.com/jwks.json"
+    val identityProviderId = UUID.randomUUID().toString
+    val isDeactivated = false
+    val issuer = UUID.randomUUID().toString
+    val jwksUrl = "http://daml.com/jwks.json"
+    val config = IdentityProviderConfig(
+      identityProviderId,
+      isDeactivated,
+      issuer,
+      jwksUrl,
+    )
     for {
       response1 <- ledger.createIdentityProviderConfig(
-        identityProviderId,
-        isDeactivated,
-        issuer,
-        jwksUrl,
+        CreateIdentityProviderConfigRequest(Some(config))
       )
       response2 <- ledger.getIdentityProviderConfig(
         GetIdentityProviderConfigRequest(identityProviderId)
@@ -364,18 +365,8 @@ class IdentityProviderConfigServiceIT extends UserManagementServiceITBase {
           LedgerApiErrors.Admin.IdentityProviderConfig.IdentityProviderConfigNotFound,
         )
     } yield {
-      assertIdentityProviderConfig(response1.identityProviderConfig) { config =>
-        assertEquals(config.identityProviderId, identityProviderId)
-        assertEquals(config.isDeactivated, isDeactivated)
-        assertEquals(config.issuer, issuer)
-        assertEquals(config.jwksUrl, jwksUrl)
-      }
-      assertIdentityProviderConfig(response2.identityProviderConfig) { config =>
-        assertEquals(config.identityProviderId, identityProviderId)
-        assertEquals(config.isDeactivated, isDeactivated)
-        assertEquals(config.issuer, issuer)
-        assertEquals(config.jwksUrl, jwksUrl)
-      }
+      assertEquals(response1.identityProviderConfig, Some(config))
+      assertEquals(response2.identityProviderConfig, Some(config))
     }
   })
 
