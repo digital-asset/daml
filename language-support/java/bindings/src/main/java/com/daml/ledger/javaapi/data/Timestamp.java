@@ -35,6 +35,15 @@ public final class Timestamp extends Value {
     return new Timestamp(instant.getEpochSecond() * 1_000_000L + instant.getNano() / 1000L);
   }
 
+  /**
+   * Constructs a {@link Timestamp} value from an {@link Instant} up to microsecond precision. This
+   * is a lossy conversion as nanoseconds are not preserved.
+   */
+  @NonNull
+  public static Timestamp fromProtobufTimestamp(com.google.protobuf. @NonNull Timestamp instant) {
+    return new Timestamp(instant.getSeconds() * 1_000_000L + instant.getNanos() / 1000L);
+  }
+
   private final long value;
 
   /**
