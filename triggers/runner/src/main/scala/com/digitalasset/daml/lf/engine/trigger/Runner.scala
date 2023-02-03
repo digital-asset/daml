@@ -137,11 +137,15 @@ private[lf] final case class Trigger(
   }
 }
 
+/** Throwing an instance of this exception will cause the trigger service to stop the runner
+  */
+private sealed abstract class TriggerOverflowException extends Exception
+
 private final case class InFlightCommandOverflowException(inFlightCommands: Int, crashCount: Int)
-    extends Exception
+    extends TriggerOverflowException
 
 private final case class ACSOverflowException(activeContracts: Int, crashCount: Long)
-    extends Exception
+    extends TriggerOverflowException
 
 // Utilities for interacting with the speedy machine.
 private[lf] object Machine {
