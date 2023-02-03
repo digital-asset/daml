@@ -34,10 +34,10 @@ class IndexerBenchmarkResult(
   private val updates: Long = counterState(metrics.daml.parallelIndexer.updates)
   private val updateRate: Double = updates / duration
   private val inputMappingDurationMetric = timerReader(
-    metrics.daml.parallelIndexer.inputMapping.executor :+ "duration"
+    metrics.daml.parallelIndexer.inputMapping.executor
   )
   private val batchingDurationMetric = timerReader(
-    metrics.daml.parallelIndexer.batching.executor :+ "duration"
+    metrics.daml.parallelIndexer.batching.executor
   )
   val (failure, minimumUpdateRateFailureInfo): (Boolean, String) =
     config.minUpdateRate match {
