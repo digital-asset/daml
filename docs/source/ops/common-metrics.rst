@@ -264,6 +264,7 @@ runtime_jvm_gc_count
 ==============================
 - **Description**: The number of collections that have occurred for a given JVM garbage collector.
 - **Labels**:
+
   - **gc**: Garbage collector
 
 - **Type**: Gauge
@@ -272,12 +273,14 @@ runtime_jvm_memory_area
 ==============================
 - **Description**: JVM memory area statistics.
 - **Labels**:
-  - **area**: Can be `heap` or `non_heap`
-  - **type**: Can be `committed`, `used` or `max`
+
+  - **area**: Can be ``heap`` or ``non_heap``
+  - **type**: Can be ``committed``, ``used`` or ``max``
 
 runtime_jvm_memory_pool
 ==============================
 - **Description**: JVM memory pool statistics.
 - **Labels**:
+
   - **pool**: Defined pool name.
-  - **type**: Can be `committed`, `used` or `max`
+  - **type**: Can be ``committed``, ``used`` or ``max``
