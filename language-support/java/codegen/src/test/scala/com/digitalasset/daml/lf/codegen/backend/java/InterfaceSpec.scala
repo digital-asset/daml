@@ -3,6 +3,8 @@
 
 package com.daml.lf.codegen.backend.java
 
+import com.daml.ledger.javaapi.data.ContractMetadata
+import com.google.protobuf.Any
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import ut.retro.InterfaceRetro
@@ -44,6 +46,8 @@ final class InterfaceSpec extends AnyWordSpec with Matchers {
             TemplateRetro.TEMPLATE_ID,
             "c",
             new TemplateRetro("", "", 0).toValue,
+            Any.getDefaultInstance,
+            ContractMetadata.EmptyContractMetadata(),
             Map(ic.TEMPLATE_ID -> data.toValue).asJava,
             emptyMap,
             Optional.empty,
