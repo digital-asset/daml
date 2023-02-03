@@ -652,7 +652,9 @@ trait AbstractTriggerServiceTest extends AbstractTriggerServiceTestHelper {
         ApiTypes.ApplicationId("exp-app-id"),
         actAs = List(ApiTypes.Party(aliceExp.unwrap)),
       )
-      _ <- Future.sequence((1 until 100).map(id => submitCmd(client, aliceExp.unwrap, cat(id))))
+      _ <- Future.sequence(
+        (1 until 100).map(id => submitCmd(client, aliceExp.unwrap, cat(id.toLong)))
+      )
       resp <- startTrigger(uri, s"$testPkgId:Cats:breedingTrigger", alice)
       catsTrigger <- parseTriggerId(resp)
       _ <- assertTriggerIds(uri, alice, Vector(catsTrigger))
