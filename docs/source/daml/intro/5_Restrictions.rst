@@ -66,21 +66,23 @@ For example, the simple Iou in :ref:`simple_iou` allowed the no-op where the ``o
   :start-after: -- TRANSFER_TEST_BEGIN
   :end-before: -- TRANSFER_TEST_END
 
-Similarly, you can write a ``Redeem`` choice, which allows the ``owner`` to redeem an ``Iou`` during business hours on weekdays. The choice doesn't do anything other than archiving the ``SimpleIou``. (This assumes that actual cash changes hands off-ledger:)
+Similarly, you can write a ``Redeem`` choice, which allows the ``owner`` to redeem an ``Iou`` *during business hours on weekdays*. Notice the ``Redeem`` choice implementation below confirms that ``getTime`` returns a value that is during business hours on weekdays. If all those checks pass, it doesn't do anything other than archive the ``SimpleIou``. (This assumes that actual cash changes hands off-ledger:)
 
 .. literalinclude:: daml/daml-intro-5/daml/Restrictions.daml
   :language: daml
   :start-after: -- REDEEM_CHOICE_BEGIN
   :end-before: -- REDEEM_CHOICE_END
 
+There's quite a lot going on inside the ``do`` block of the ``Redeem`` choice, with several uses of the ``<-`` operator. ``do`` blocks and ``<-`` deserve a proper explanation which we will get to below. For now, let's look at how the ``Redeem`` choice is exercised in a script.
+
 .. literalinclude:: daml/daml-intro-5/daml/Restrictions.daml
   :language: daml
   :start-after: -- REDEEM_TEST_BEGIN
   :end-before: -- REDEEM_TEST_END
 
-There are quite a few new time-related functions from the ``DA.Time`` and ``DA.Date`` libraries here. Their names should be reasonably descriptive so how they work won't be covered here, but given that Daml assumes it is run in a distributed setting, we will still discuss time in Daml.
+In the above example, the time is taken apart into day of week and hour of day using standard library functions from ``DA.Date`` and ``DA.Time``. The hour of the day is checked to be in the range from 8 to 18.
 
-There's also quite a lot going on inside the ``do`` block of the ``Redeem`` choice, with several uses of the ``<-`` operator. ``do`` blocks and ``<-`` deserve a proper explanation at this point.
+There are quite a few new time-related functions from the ``DA.Time`` and ``DA.Date`` libraries here. Their names should be reasonably descriptive so how they work won't be covered here, but given that Daml assumes it is run in a distributed setting, we will still discuss time in Daml.
 
 Time on Daml Ledgers
 --------------------
@@ -88,8 +90,6 @@ Time on Daml Ledgers
 Each transaction on a Daml ledger has two timestamps called the *ledger time (LT)* and the *record time (RT)*. The ledger time is set by the participant, the record time is set by the ledger.
 
 Each Daml ledger has a policy on the allowed difference between LT and RT called the *skew*. The participant has to take a good guess at what the record time will be. If it's too far off, the transaction will be rejected.
-
-``getTime`` is an action that gets the LT from the ledger. In the above example, that time is taken apart into day of week and hour of day using standard library functions from ``DA.Date`` and ``DA.Time``. The hour of the day is checked to be in the range from 8 to 18.
 
 Consider the following example: Suppose that the ledger had a skew of 10 seconds. At 17:59:55, Alice submits a transaction to redeem an Iou. One second later, the transaction is assigned a LT of 17:59:56, but then takes 10 seconds to commit and is recorded on the ledger at 18:00:06. Even though it was committed after business hours, it would be a valid transaction and be committed successfully as ``getTime`` will return 17:59:56 so ``hrs == 17``. Since the RT is 18:00:06, ``LT - RT <= 10 seconds`` and the transaction won't be rejected.
 
