@@ -18,6 +18,7 @@ import com.daml.metrics.api.testing.InMemoryMetricsFactory.{
   InMemoryMeter,
   InMemoryTimer,
 }
+import com.daml.metrics.api.testing.MetricValues.singleValueFromContexts
 
 trait MetricValues {
 
@@ -49,15 +50,20 @@ trait MetricValues {
 
   class InMemoryMetricFactoryValues(factory: InMemoryMetricsFactory) {
 
-    def asyncGaugeValues(labelFilter: LabelFilter*): Map[MetricName, Any] = {
-      factory.metrics.asyncGauges
-        .filter { case ((_, metricContext), _) =>
-          labelFilter.forall(filter => metricContext.labels.get(filter.name).contains(filter.value))
-        }
-        .map { case ((metricName, _), valueProvider) =>
-          metricName -> valueProvider()
-        }
-        .toMap
+    def asyncGaugeValue(metricName: MetricName, labelFilter: LabelFilter*): Any = {
+      singleValueFromContexts(
+        factory.metrics
+          .asyncGauges(metricName)
+          .filter { case (metricContext, _) =>
+            labelFilter.forall(filter =>
+              metricContext.labels.get(filter.name).contains(filter.value)
+            )
+          }
+          .map { case (context, valueProvider) =>
+            context -> valueProvider()
+          }
+          .toMap
+      )
     }
 
   }
@@ -66,7 +72,7 @@ trait MetricValues {
 
     def value: Long = counter match {
       case DropwizardCounter(_, metric) => metric.getCount
-      case timer @ InMemoryCounter(_) => singleValueFromContexts(timer.markers.toMap).get()
+      case timer: InMemoryCounter => singleValueFromContexts(timer.markers.toMap).get()
       case other =>
         throw new IllegalArgumentException(s"Value not supported for $other")
     }
@@ -105,14 +111,14 @@ trait MetricValues {
 
     def values: Seq[Long] = histogram match {
       case histogram: InMemoryHistogram =>
-        singleValueFromContexts(histogram.values.toMap)
+        singleValueFromContexts(histogram.recordedValues.toMap.view.mapValues(_.toSeq).toMap)
       case other =>
         throw new IllegalArgumentException(s"Values not supported for $other")
     }
 
     def valuesWithContext: Map[MetricsContext, Seq[Long]] = histogram match {
       case histogram: InMemoryHistogram =>
-        histogram.values.toMap
+        histogram.recordedValues.toMap.view.mapValues(_.toSeq).toMap
       case other =>
         throw new IllegalArgumentException(s"Values not supported for $other")
     }
@@ -132,28 +138,28 @@ trait MetricValues {
     def count: Long = timer match {
       case DropwizardTimer(_, metric) => metric.getCount
       case timer: InMemoryTimer =>
-        singleValueFromContexts(timer.data.values.toMap.view.mapValues(_.size.toLong).toMap)
+        singleValueFromContexts(timer.data.recordedValues.toMap.view.mapValues(_.size.toLong).toMap)
       case other =>
         throw new IllegalArgumentException(s"Count not supported for $other")
     }
 
     def countsWithContext: Map[MetricsContext, Long] = timer match {
       case timer: InMemoryTimer =>
-        timer.data.values.toMap.view.mapValues(_.size.toLong).toMap
+        timer.data.recordedValues.toMap.view.mapValues(_.size.toLong).toMap
       case other =>
         throw new IllegalArgumentException(s"Counts not supported for $other")
     }
 
     def values: Seq[Long] = timer match {
       case timer: InMemoryTimer =>
-        singleValueFromContexts(timer.data.values.toMap)
+        singleValueFromContexts(timer.data.recordedValues.toMap.view.mapValues(_.toSeq).toMap)
       case other =>
         throw new IllegalArgumentException(s"Count not supported for $other")
     }
 
     def valuesWithContext: Map[MetricsContext, Seq[Long]] = timer match {
       case timer: InMemoryTimer =>
-        timer.data.values.toMap
+        timer.data.recordedValues.toMap.view.mapValues(_.toSeq).toMap
       case other =>
         throw new IllegalArgumentException(s"Values not supported for $other")
     }
@@ -171,12 +177,15 @@ trait MetricValues {
     val matchingFilters = labelFilters.foldLeft(contextToValueMapping) { (acc, labelFilter) =>
       acc.filter(labelFilter.value == _._1.labels.getOrElse(labelFilter.name, null))
     }
-    singleValueFromContexts(matchingFilters)
+    MetricValues.singleValueFromContexts(matchingFilters)
   }
 
-  private def singleValueFromContexts[T](
+}
+object MetricValues extends MetricValues {
+
+  def singleValueFromContexts[T](
       contextToValueMapping: Map[MetricsContext, T]
-  ) = if (contextToValueMapping.size == 1)
+  ): T = if (contextToValueMapping.size == 1)
     contextToValueMapping.head._2
   else
     throw new IllegalArgumentException("Cannot get value with multi context metrics.")
