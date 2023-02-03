@@ -407,25 +407,39 @@ private[apiserver] final class ApiUserManagementService(
         val partyRecordNotNotExist = parties -- partiesExist
         if (partyRecordNotNotExist.isEmpty)
           Future.unit
-        else {
-          indexPartyManagementService.getParties(partyRecordNotNotExist.toList).flatMap {
-            partiesNotKnown =>
-              val partyNotKnownNotExist =
-                (partiesNotKnown.map(_.party).toSet -- partyRecordNotNotExist)
-              if (partyNotKnownNotExist.isEmpty) Future.unit
-              else {
-                Future.failed(
-                  LedgerApiErrors.RequestValidation.InvalidArgument
-                    .Reject(
-                      s"Provided parties have not been found in identity_provider_id=`${identityProviderId.toRequestString}`: [${partyNotKnownNotExist
-                          .mkString(",")}]."
-                    )
-                    .asGrpcError
-                )
-              }
-          }
-        }
+        else
+          verifyPartiesExistsInIdp(partyRecordNotNotExist, identityProviderId)
       }
+  }
+
+  private def verifyPartiesExistsInIdp(
+      partyRecordNotExist: Set[Ref.Party],
+      identityProviderId: IdentityProviderId,
+  ): Future[Unit] =
+    indexKnownParties(partyRecordNotExist.toList).flatMap { partiesKnown =>
+      val partyNotKnownNotExist = partyRecordNotExist -- partiesKnown
+      if (partyNotKnownNotExist.isEmpty) Future.unit
+      else
+        partiesNotExistsError(partyNotKnownNotExist, identityProviderId)
+    }
+
+  private def indexKnownParties(parties: Seq[Ref.Party]): Future[Set[Ref.Party]] =
+    indexPartyManagementService.getParties(parties).map { partyDetails =>
+      partyDetails.map(_.party).toSet
+    }
+
+  private def partiesNotExistsError(
+      partyRecordNotNotExist: Set[Ref.Party],
+      identityProviderId: IdentityProviderId,
+  ) = {
+    val message =
+      s"Provided parties have not been found in " +
+        s"identity_provider_id=`${identityProviderId.toRequestString}`: [${partyRecordNotNotExist.mkString(",")}]."
+    Future.failed(
+      LedgerApiErrors.RequestValidation.InvalidArgument
+        .Reject(message)
+        .asGrpcError
+    )
   }
 
   private def identityProviderExistsOrError(id: IdentityProviderId): Future[Unit] =
