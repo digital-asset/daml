@@ -20,6 +20,7 @@ import ch.qos.logback.classic.{Level => LogLevel}
 import com.daml.cliopts.Logging.LogEncoder
 import com.daml.http.{WebsocketConfig => WSC}
 import com.daml.http.dbbackend.JdbcConfig
+import com.daml.metrics.MetricsConfig
 import com.daml.metrics.api.reporters.MetricsReporter
 
 // The internal transient scopt structure *and* StartSettings; external `start`
@@ -43,7 +44,7 @@ private[http] final case class Config(
     logLevel: Option[LogLevel] = None, // the default is in logback.xml
     logEncoder: LogEncoder = LogEncoder.Plain,
     metricsReporter: Option[MetricsReporter] = None,
-    metricsReportingInterval: FiniteDuration = StartSettings.DefaultMetricsReportingInterval,
+    metricsReportingInterval: FiniteDuration = MetricsConfig.DefaultMetricsReportingInterval,
     surrogateTpIdCacheMaxEntries: Option[Long] = None,
 ) extends StartSettings
 

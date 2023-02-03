@@ -4,6 +4,7 @@
 package com.daml.pureconfigutils
 
 import com.daml.jwt.JwtVerifierBase
+import com.daml.metrics.MetricsConfig
 import org.scalatest.Inside.inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
