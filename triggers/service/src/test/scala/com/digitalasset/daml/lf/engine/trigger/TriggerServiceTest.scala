@@ -618,6 +618,36 @@ trait AbstractTriggerServiceTest extends AbstractTriggerServiceTestHelper {
     } yield succeed
   }
 
+  def breedCat(id: Long): Command = {
+    Command().withCreate(
+      CreateCommand(
+        templateId = Some(Identifier(testPkgId, "Cats", "Cat")),
+        createArguments = Some(
+          Record(
+            None,
+            Seq(
+              RecordField(value = Some(Value().withParty(alice.unwrap))),
+              RecordField(value = Some(Value().withInt64(id))),
+            ),
+          )
+        ),
+      )
+    )
+  }
+
+  def killCat(id: String): Command = {
+    Command().withExercise(
+      ExerciseCommand(
+        templateId = Some(Identifier(testPkgId, "Cats", "Cat")),
+        contractId = id,
+        choice = "Archive",
+        choiceArgument = Some(Value().withRecord(Record())),
+      )
+    )
+  }
+
+  val catsAppId = ApiTypes.ApplicationId("cats-app-id")
+
   it should "stop the trigger if the ACS is too large at initialization time" inClaims withTriggerService(
     List(dar),
     triggerRunnerConfig = Some(
@@ -628,25 +658,6 @@ trait AbstractTriggerServiceTest extends AbstractTriggerServiceTestHelper {
         )
     ),
   ) { uri: Uri =>
-    def cat(id: Long): Command = {
-      Command().withCreate(
-        CreateCommand(
-          templateId = Some(Identifier(testPkgId, "Cats", "Cat")),
-          createArguments = Some(
-            Record(
-              None,
-              Seq(
-                RecordField(value = Some(Value().withParty(alice.unwrap))),
-                RecordField(value = Some(Value().withInt64(id))),
-              ),
-            )
-          ),
-        )
-      )
-    }
-
-    val catsAppId = ApiTypes.ApplicationId("cats-app-id")
-
     for {
       client <- sandboxClient(
         catsAppId,
@@ -659,7 +670,7 @@ trait AbstractTriggerServiceTest extends AbstractTriggerServiceTestHelper {
         .map(_ shouldBe Vector())
       // Create 100 Cat contracts
       _ <- Future.sequence(
-        (1 to 100).map(id => submitCmd(client, alice.unwrap, cat(id.toLong)))
+        (1 to 100).map(id => submitCmd(client, alice.unwrap, breedCat(id.toLong)))
       )
       // Wait for our Cat contracts to be created
       _ <- RetryStrategy.constant(20, 1.seconds) { (_, _) =>
@@ -685,19 +696,6 @@ trait AbstractTriggerServiceTest extends AbstractTriggerServiceTestHelper {
         )
     ),
   ) { uri: Uri =>
-    def killCat(id: String): Command = {
-      Command().withExercise(
-        ExerciseCommand(
-          templateId = Some(Identifier(testPkgId, "Cats", "Cat")),
-          contractId = id,
-          choice = "Archive",
-          choiceArgument = Some(Value().withRecord(Record())),
-        )
-      )
-    }
-
-    val catsAppId = ApiTypes.ApplicationId("cats-app-id")
-
     for {
       client <- sandboxClient(
         catsAppId,
@@ -734,19 +732,6 @@ trait AbstractTriggerServiceTest extends AbstractTriggerServiceTestHelper {
       )
     ),
   ) { uri: Uri =>
-    def killCat(id: String): Command = {
-      Command().withExercise(
-        ExerciseCommand(
-          templateId = Some(Identifier(testPkgId, "Cats", "Cat")),
-          contractId = id,
-          choice = "Archive",
-          choiceArgument = Some(Value().withRecord(Record())),
-        )
-      )
-    }
-
-    val catsAppId = ApiTypes.ApplicationId("cats-app-id")
-
     for {
       client <- sandboxClient(
         catsAppId,
