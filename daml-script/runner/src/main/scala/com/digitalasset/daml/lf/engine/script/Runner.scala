@@ -216,6 +216,8 @@ object Runner {
   final case class InterpretationError(error: SError.SError)
       extends RuntimeException(s"${Pretty.prettyError(error).render(80)}")
 
+  final case object Canceled extends RuntimeException
+
   private[script] val compilerConfig = {
     import Compiler._
     Config(
@@ -354,6 +356,7 @@ object Runner {
       timeMode: ScriptTimeMode,
       traceLog: TraceLog = Speedy.Machine.newTraceLog,
       warningLog: WarningLog = Speedy.Machine.newWarningLog,
+      canceled: () => Boolean = () => false,
   )(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
@@ -380,7 +383,7 @@ object Runner {
         throw new RuntimeException(s"The script ${scriptId} requires an argument.")
     }
     val runner = new Runner(compiledPackages, scriptAction, timeMode)
-    runner.runWithClients(initialClients, traceLog, warningLog)
+    runner.runWithClients(initialClients, traceLog, warningLog, canceled)
   }
 }
 
@@ -421,6 +424,7 @@ private[lf] class Runner(
       initialClients: Participants[ScriptLedgerClient],
       traceLog: TraceLog = Speedy.Machine.newTraceLog,
       warningLog: WarningLog = Speedy.Machine.newWarningLog,
+      canceled: () => Boolean = () => false,
   )(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
@@ -434,8 +438,13 @@ private[lf] class Runner(
         warningLog = warningLog,
       )(Script.DummyLoggingContext)
 
+    @scala.annotation.tailrec
     def stepToValue(): Either[RuntimeException, SValue] =
       machine.run() match {
+        case _ if canceled() =>
+          Left(Runner.Canceled)
+        case SResultInterruption =>
+          stepToValue()
         case SResultFinal(v) =>
           Right(v)
         case SResultError(err) =>

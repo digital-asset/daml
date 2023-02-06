@@ -495,6 +495,8 @@ prettyScenarioErrorError (Just err) =  do
         , label_ "Template: " $ prettyMay "<missing template>" (prettyDefName world) templateId
         , label_ "Key Hash: " $ ltext keyHash
         ]
+    ScenarioErrorErrorEvaluationTimeout timeout ->
+      pure $ text $ T.pack $ "Evaluation timed out after " <> show timeout <> " seconds"
 
 partyDifference :: V.Vector Party -> V.Vector Party -> Doc SyntaxClass
 partyDifference with without =
