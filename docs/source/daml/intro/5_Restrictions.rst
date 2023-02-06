@@ -87,7 +87,7 @@ There are quite a few new time-related functions from the ``DA.Time`` and ``DA.D
 Time on Daml Ledgers
 --------------------
 
-Each transaction on a Daml ledger has two timestamps. One of the timestamps is called the *ledger time (LT)*. The other is called the *record time (RT)*.
+Each transaction on a Daml ledger has two timestamps:  the *ledger time (LT)* and the *record time (RT)*.
 
 **Ledger time (LT)** is the time associated with a transaction in the abstract ledger model. It is the time of a transaction from a business and application perspective. The LT time is determined by the participant. When you call ``getTime``, it is the LT time that is returned. The LT is used when reasoning about related transactions and commits. The LTs can be compared with other LTs to guarantee model consistency. For example, LTs are used to enforce that no transaction depends on a contract that does not exist. This is the requirement known as "causal monotonicity."
 
