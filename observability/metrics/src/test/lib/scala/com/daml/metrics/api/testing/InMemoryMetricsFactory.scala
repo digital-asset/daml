@@ -4,7 +4,7 @@
 package com.daml.metrics.api.testing
 
 import java.time.Duration
-import java.util.concurrent.TimeUnit
+import java.util.concurrent.{ConcurrentLinkedQueue, TimeUnit}
 import java.util.concurrent.atomic.{AtomicBoolean, AtomicLong, AtomicReference}
 
 import com.daml.metrics.api.MetricHandle.Gauge.CloseableGauge
@@ -28,7 +28,6 @@ import com.daml.metrics.api.{MetricHandle, MetricName, MetricsContext}
 import com.daml.scalautil.Statement.discard
 
 import scala.collection.concurrent.{TrieMap, Map => ConcurrentMap}
-import scala.collection.mutable
 
 class InMemoryMetricsFactory extends LabeledMetricsFactory {
 
@@ -138,7 +137,7 @@ object InMemoryMetricsFactory extends InMemoryMetricsFactory {
         metric: T,
         state: MetricsByName[T],
     ) = {
-      state.getOrElseUpdate(name, TrieMap.empty).addOne(context -> metric)
+      discard(state.getOrElseUpdate(name, TrieMap.empty).addOne(context -> metric))
     }
   }
 
@@ -237,17 +236,21 @@ object InMemoryMetricsFactory extends InMemoryMetricsFactory {
   case class InMemoryHistogram(override val name: String, initialContext: MetricsContext)
       extends Histogram {
 
-    val recordedValues: collection.concurrent.Map[MetricsContext, collection.mutable.Buffer[Long]] =
+    val recordedValues: collection.concurrent.Map[MetricsContext, ConcurrentLinkedQueue[Long]] =
       TrieMap()
 
     override def update(value: Long)(implicit
         context: MetricsContext
     ): Unit = discard {
       recordedValues.updateWith(initialContext.merge(context)) {
-        case None => Some(mutable.Buffer(value))
+        case None =>
+          val queue = new ConcurrentLinkedQueue[Long]()
+          discard(queue.add(value))
+          Some(queue)
         case Some(existingValues) =>
+          discard(existingValues.add(value))
           Some(
-            existingValues.addOne(value)
+            existingValues
           )
       }
     }
