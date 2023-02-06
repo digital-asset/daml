@@ -24,11 +24,7 @@ final class FooCommandGenerator(
     divulgeesToDivulgerKeyMap: Map[Set[Primitive.Party], Value],
     names: Names,
     partySelecting: RandomPartySelecting,
-    contractDescriptionRandomnessProvider: RandomnessProvider,
-    payloadRandomnessProvider: RandomnessProvider,
-    consumingEventsRandomnessProvider: RandomnessProvider,
-    nonConsumingEventsRandomnessProvider: RandomnessProvider,
-    applicationIdRandomnessProvider: RandomnessProvider,
+    randomnessProvider: RandomnessProvider,
 ) extends CommandGenerator {
   private val contractDescriptions = new Distribution[FooSubmissionConfig.ContractDescription](
     weights = config.instanceDistribution.map(_.weight),
@@ -75,7 +71,7 @@ final class FooCommandGenerator(
       names.benchtoolApplicationId
     )(applicationIdsDistribution =>
       applicationIdsDistribution
-        .choose(applicationIdRandomnessProvider.randomDouble())
+        .choose(randomnessProvider.randomDouble())
         .applicationId
     )
   }
@@ -85,7 +81,7 @@ final class FooCommandGenerator(
   }
 
   private def pickContractDescription(): FooSubmissionConfig.ContractDescription =
-    contractDescriptions.choose(contractDescriptionRandomnessProvider.randomDouble())
+    contractDescriptions.choose(randomnessProvider.randomDouble())
 
   private def createCommands(
       templateDescriptor: FooTemplateDescriptor,
@@ -122,7 +118,7 @@ final class FooCommandGenerator(
     // Consuming events
     val consumingPayloadO: Option[String] = config.consumingExercises
       .flatMap(config =>
-        if (consumingEventsRandomnessProvider.randomDouble() <= config.probability) {
+        if (randomnessProvider.randomDouble() <= config.probability) {
           Some(randomPayload(config.payloadSizeBytes))
         } else None
       )
@@ -185,7 +181,7 @@ final class FooCommandGenerator(
     val nonconsumingExercisePayloads: Seq[String] =
       config.nonConsumingExercises.fold(Seq.empty[String]) { config =>
         var f = config.probability.toInt
-        if (nonConsumingEventsRandomnessProvider.randomDouble() <= config.probability - f) {
+        if (randomnessProvider.randomDouble() <= config.probability - f) {
           f += 1
         }
         Seq.fill[String](f)(randomPayload(config.payloadSizeBytes))
@@ -271,7 +267,7 @@ final class FooCommandGenerator(
   }
 
   private def randomPayload(sizeBytes: Int): String =
-    FooCommandGenerator.randomPayload(payloadRandomnessProvider, sizeBytes)
+    FooCommandGenerator.randomPayload(randomnessProvider, sizeBytes)
 
 }
 
