@@ -6,13 +6,13 @@ package com.daml.ledger.api.benchtool.metrics.metrics
 import java.time.{Clock, Duration, Instant}
 
 import com.daml.ledger.api.benchtool.metrics.{Metric, MetricValue, ServiceLevelObjective}
-import com.daml.ledger.api.benchtool.metrics.metrics.TotalStreamRuntimeMetric.{
+import com.daml.ledger.api.benchtool.metrics.metrics.TotalRuntimeMetric.{
   MaxDurationObjective,
   Value,
 }
 import com.daml.ledger.api.benchtool.util.TimeUtil
 
-object TotalStreamRuntimeMetric {
+object TotalRuntimeMetric {
 
   case class MaxDurationObjective(maxValue: Duration) extends ServiceLevelObjective[Value] {
     override def isViolatedBy(value: Value): Boolean = value.v.compareTo(maxValue) > 0
@@ -22,8 +22,8 @@ object TotalStreamRuntimeMetric {
       clock: Clock,
       startTime: Instant,
       objective: MaxDurationObjective,
-  ): TotalStreamRuntimeMetric[T] =
-    TotalStreamRuntimeMetric[T](
+  ): TotalRuntimeMetric[T] =
+    TotalRuntimeMetric[T](
       clock = clock,
       startTime = startTime,
       objective = objective,
@@ -34,7 +34,7 @@ object TotalStreamRuntimeMetric {
 
 /** Measures the total runtime since the set start time to the time of receiving the most recent item.
   */
-case class TotalStreamRuntimeMetric[T](
+case class TotalRuntimeMetric[T](
     clock: Clock,
     startTime: Instant,
     objective: MaxDurationObjective,

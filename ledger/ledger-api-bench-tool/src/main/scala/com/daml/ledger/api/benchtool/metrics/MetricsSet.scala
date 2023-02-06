@@ -13,8 +13,8 @@ import com.daml.ledger.api.v1.transaction_service.{
 }
 import com.google.protobuf.timestamp.Timestamp
 import java.time.{Clock, Duration}
-import com.daml.ledger.api.benchtool.metrics.metrics.TotalStreamRuntimeMetric
-import com.daml.ledger.api.benchtool.metrics.metrics.TotalStreamRuntimeMetric.MaxDurationObjective
+import com.daml.ledger.api.benchtool.metrics.metrics.TotalRuntimeMetric
+import com.daml.ledger.api.benchtool.metrics.metrics.TotalRuntimeMetric.MaxDurationObjective
 
 import scala.concurrent.duration.FiniteDuration
 
@@ -94,7 +94,7 @@ object MetricsSet {
       SizeMetric.empty[GetActiveContractsResponse](
         sizingFunction = _.serializedSize.toLong
       ),
-    ) ++ optionalMetrics(configO)
+    ) ++ optionalMaxDurationMetrics(configO)
 
   def activeContractsExposedMetrics(
       streamName: String,
@@ -128,7 +128,7 @@ object MetricsSet {
       SizeMetric.empty(
         sizingFunction = _.serializedSize.toLong
       ),
-    ) ++ optionalMetrics(configO)
+    ) ++ optionalMaxDurationMetrics(configO)
 
   def completionsExposedMetrics(
       streamName: String,
@@ -175,7 +175,7 @@ object MetricsSet {
       SizeMetric.empty[T](
         sizingFunction = sizingFunction
       ),
-    ) ++ optionalMetrics(configO)
+    ) ++ optionalMaxDurationMetrics(configO)
   }
 
   def countActiveContracts(response: GetActiveContractsResponse): Int =
@@ -190,18 +190,21 @@ object MetricsSet {
   def countTreeTransactionsEvents(response: GetTransactionTreesResponse): Long =
     response.transactions.foldLeft(0L)((acc, tx) => acc + tx.eventsById.size)
 
-  private def optionalMetrics[T](configO: Option[CommonObjectivesConfig]): List[Metric[T]] =
-    configO.flatMap(createTotalRuntimeMetricO[T]).toList
+  private def optionalMaxDurationMetrics[T](
+      configO: Option[CommonObjectivesConfig]
+  ): List[Metric[T]] = {
+    for {
+      config <- configO
+      maxRuntime <- config.maxTotalStreamRuntimeDuration
+    } yield createTotalRuntimeMetric[T](maxRuntime)
+  }.toList
 
-  private def createTotalRuntimeMetricO[T](config: CommonObjectivesConfig): Option[Metric[T]] = {
-    config.maxTotalStreamRuntimeDuration.map((maxStreamDuration: FiniteDuration) =>
-      TotalStreamRuntimeMetric.empty(
-        clock = Clock.systemUTC(),
-        startTime = Clock.systemUTC().instant(),
-        objective = MaxDurationObjective(maxValue = toJavaDuration(maxStreamDuration)),
-      )
+  def createTotalRuntimeMetric[T](maxRuntime: FiniteDuration): Metric[T] =
+    TotalRuntimeMetric.empty(
+      clock = Clock.systemUTC(),
+      startTime = Clock.systemUTC().instant(),
+      objective = MaxDurationObjective(maxValue = toJavaDuration(maxRuntime)),
     )
-  }
 
   protected[metrics] def toJavaDuration[T](maxStreamDuration: FiniteDuration) = {
     Duration.ofNanos(maxStreamDuration.toNanos)

@@ -61,7 +61,7 @@ class InterfaceSubscriptionITSpec
         allocatedParties,
         BenchtoolTestsPackageInfo.StaticDefault,
       )
-      _ <- fooSubmission.performSubmission()
+      _ <- fooSubmission.performSubmission(submissionConfig = config)
       observedEvents <- observer(
         configDesugaring = configDesugaring,
         apiServices = apiServices,

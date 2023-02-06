@@ -22,24 +22,24 @@ class FlatEventsObserver(expectedTemplateNames: Set[String], logger: Logger)
     extends ObserverWithResult[GetTransactionsResponse, ObservedEvents](logger) {
 
   private val createEvents = collection.mutable.ArrayBuffer[ObservedCreateEvent]()
-  private val exerciseEvents = collection.mutable.ArrayBuffer[ObservedExerciseEvent]()
 
   override def streamName: String = "dummy-stream-name"
 
   override def onNext(value: GetTransactionsResponse): Unit =
     for {
       transaction <- value.transactions
-      event <- transaction.events
-      created <- event.event.created.toList
+      allEvents = transaction.events
+      event <- allEvents
     } {
-      createEvents.addOne(ObservedCreateEvent(created))
+      event.event.created.foreach(created =>
+        createEvents.addOne(ObservedCreateEvent(created, offset = transaction.offset))
+      )
     }
 
   override def completeWith(): Future[ObservedEvents] = Future.successful(
     ObservedEvents(
       expectedTemplateNames = expectedTemplateNames,
       createEvents = createEvents.toList,
-      exerciseEvents = exerciseEvents.toList,
     )
   )
 }

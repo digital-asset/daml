@@ -174,6 +174,14 @@ class LedgerApiBenchTool(
               actorSystem = actorSystem,
               maxLatencyObjectiveMillis = config.maxLatencyObjectiveMillis,
             )
+          } else if (config.workflow.pruning.isDefined) {
+            new PruningBenchmark(reportingPeriod = config.reportingPeriod).benchmarkPruning(
+              pruningConfig =
+                config.workflow.pruning.getOrElse(sys.error("Pruning config not defined!")),
+              regularUserServices = regularUserServices,
+              adminServices = adminServices,
+              actorSystem = actorSystem,
+            )
           } else {
             benchmarkStreams(
               regularUserServices = regularUserServices,
@@ -255,7 +263,7 @@ class LedgerApiBenchTool(
           randomnessProvider = RandomnessProvider.Default,
         )
         for {
-          metricsManager <- MetricsManager(
+          metricsManager <- MetricsManager.create(
             observedMetric = "submit-and-wait-latency",
             logInterval = config.reportingPeriod,
             metrics = List(LatencyMetric.empty(maxLatencyObjectiveMillis)),
@@ -332,11 +340,10 @@ class LedgerApiBenchTool(
               submitter = submitter,
               maxInFlightCommands = config.maxInFlightCommands,
               submissionBatchSize = config.submissionBatchSize,
-              submissionConfig = submissionConfig,
               allocatedParties = allocatedParties,
               names = names,
               randomnessProvider = RandomnessProvider.Default,
-            ).performSubmission()
+            ).performSubmission(submissionConfig)
           case submissionConfig: FibonacciSubmissionConfig =>
             val generator: CommandGenerator = new FibonacciCommandGenerator(
               signatory = allocatedParties.signatory,

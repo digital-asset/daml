@@ -6,7 +6,7 @@ package com.daml.ledger.api.benchtool.submission
 case class ObservedEvents(
     expectedTemplateNames: Set[String],
     createEvents: Seq[ObservedCreateEvent],
-    exerciseEvents: Seq[ObservedExerciseEvent],
+    exerciseEvents: Seq[ObservedExerciseEvent] = List.empty,
 ) {
   private val _actualTemplateNames =
     (createEvents.map(_.templateName) ++ exerciseEvents.map(_.templateName)).toSet
