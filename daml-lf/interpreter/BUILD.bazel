@@ -113,7 +113,7 @@ da_scala_benchmark_jmh(
     name = "speedy-compilation-benchmark",
     srcs = glob(["src/bench/**/SpeedyCompilationBench.scala"]),
     data = [
-        "//ledger/test-common:model-tests-1.14.dar",
+        "//ledger/test-common:model-tests-default.dar",
     ],
     scala_deps = [
         "@maven//:org_scalaz_scalaz_core",

@@ -51,23 +51,10 @@ class NonStakeholderInformeesITSpec
       applicationIds = List.empty,
     )
     for {
-      (apiServices, names, submitter) <- benchtoolFixture()
-      allocatedParties <- submitter.prepare(submissionConfig)
-      tested = new FooSubmission(
-        submitter = submitter,
-        maxInFlightCommands = 1,
-        submissionBatchSize = 5,
-        submissionConfig = submissionConfig,
-        allocatedParties = allocatedParties,
-        names = names,
-        partySelectingRandomnessProvider = RandomnessProvider.forSeed(seed = 0),
-        payloadRandomnessProvider = RandomnessProvider.forSeed(seed = 0),
-        consumingEventsRandomnessProvider = RandomnessProvider.forSeed(seed = 0),
-        nonConsumingEventsRandomnessProvider = RandomnessProvider.forSeed(seed = 0),
-        applicationIdRandomnessProvider = RandomnessProvider.forSeed(seed = 0),
-        contractDescriptionRandomnessProvider = RandomnessProvider.forSeed(seed = 0),
+      (apiServices, allocatedParties, fooSubmission) <- benchtoolFooSubmissionFixture(
+        submissionConfig
       )
-      _ <- tested.performSubmission()
+      _ <- fooSubmission.performSubmission()
       (treeResults_divulgee0, flatResults_divulgee0) <- observeAllTemplatesForParty(
         party = allocatedParties.divulgees(0),
         apiServices = apiServices,
@@ -123,7 +110,7 @@ class NonStakeholderInformeesITSpec
           val flatFoo1 = flatResults_divulgee0.numberOfConsumingExercisesPerTemplateName("Foo1")
           cp(
             discard(
-              treeFoo1 shouldBe 14 withClue ("number of Foo1 consuming events visible to divulgee0 on tree transactions stream")
+              treeFoo1 shouldBe 13 withClue ("number of Foo1 consuming events visible to divulgee0 on tree transactions stream")
             )
           )
           cp(
@@ -139,7 +126,7 @@ class NonStakeholderInformeesITSpec
         val flatFoo1 = flatResults_divulgee1.numberOfCreatesPerTemplateName("Foo1")
         // This assertion will fail once in ~37k test executions with number of observed items being 0
         // because for 100 instances and 10% chance of divulging to divulgee1, divulgee1 won't be disclosed any contracts once in 1/(0.9**100) ~= 37649
-        cp(discard(treeFoo1 shouldBe 12))
+        cp(discard(treeFoo1 shouldBe 9))
         cp(discard(flatFoo1 shouldBe 0))
         val divulger = treeResults_divulgee1.numberOfCreatesPerTemplateName("Divulger")
         cp(discard(divulger shouldBe 4))
@@ -150,7 +137,7 @@ class NonStakeholderInformeesITSpec
         val flatFoo1 = flatResults_observer0.numberOfCreatesPerTemplateName("Foo1")
         cp(discard(treeFoo1 shouldBe 100))
         // Approximately 10% of contracts is created and archived in the same transaction and thus omitted from the flat transactions stream
-        cp(discard(flatFoo1 shouldBe 86))
+        cp(discard(flatFoo1 shouldBe 87))
         val divulger = treeResults_observer0.numberOfCreatesPerTemplateName("Divulger")
         cp(discard(divulger shouldBe 0))
       }

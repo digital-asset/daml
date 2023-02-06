@@ -71,7 +71,8 @@ import qualified ScenarioService as SS
 data Options = Options
   { optServerJar :: FilePath
   , optJvmOptions :: [String]
-  , optRequestTimeout :: TimeoutSeconds
+  , optEvaluationTimeout :: TimeoutSeconds
+  , optGrpcTimeout :: TimeoutSeconds
   , optGrpcMaxMessageSize :: Maybe Int
   , optLogDebug :: String -> IO ()
   , optLogInfo :: String -> IO ()
@@ -80,7 +81,7 @@ data Options = Options
   , optEnableScenarios :: EnableScenarios
   }
 
-type TimeoutSeconds = Int
+type TimeoutSeconds = Int64
 
 data Handle = Handle
   { hClient :: SS.ScenarioService ClientRequest ClientResult
@@ -276,8 +277,11 @@ newCtx :: Handle -> IO (Either BackendError ContextId)
 newCtx Handle{..} = do
   res <- performRequest
       (SS.scenarioServiceNewContext hClient)
-      (optRequestTimeout hOptions)
-      (SS.NewContextRequest $ TL.pack $ LF.renderMinorVersion $ LF.versionMinor $ optDamlLfVersion hOptions)
+      (optGrpcTimeout hOptions)
+      (SS.NewContextRequest
+         (TL.pack $ LF.renderMinorVersion $ LF.versionMinor $ optDamlLfVersion hOptions)
+         (optEvaluationTimeout hOptions)
+      )
   pure (ContextId . SS.newContextResponseContextId <$> res)
 
 cloneCtx :: Handle -> ContextId -> IO (Either BackendError ContextId)
@@ -285,7 +289,7 @@ cloneCtx Handle{..} (ContextId ctxId) = do
   res <-
     performRequest
       (SS.scenarioServiceCloneContext hClient)
-      (optRequestTimeout hOptions)
+      (optGrpcTimeout hOptions)
       (SS.CloneContextRequest ctxId)
   pure (ContextId . SS.cloneContextResponseContextId <$> res)
 
@@ -294,7 +298,7 @@ deleteCtx Handle{..} (ContextId ctxId) = do
   res <-
     performRequest
       (SS.scenarioServiceDeleteContext hClient)
-      (optRequestTimeout hOptions)
+      (optGrpcTimeout hOptions)
       (SS.DeleteContextRequest ctxId)
   pure (void res)
 
@@ -303,7 +307,7 @@ gcCtxs Handle{..} ctxIds = do
     res <-
         performRequest
             (SS.scenarioServiceGCContexts hClient)
-            (optRequestTimeout hOptions)
+            (optGrpcTimeout hOptions)
             (SS.GCContextsRequest (V.fromList (map getContextId ctxIds)))
     pure (void res)
 
@@ -312,7 +316,7 @@ updateCtx Handle{..} (ContextId ctxId) ContextUpdate{..} = do
   res <-
     performRequest
       (SS.scenarioServiceUpdateContext hClient)
-      (optRequestTimeout hOptions) $
+      (optGrpcTimeout hOptions) $
       SS.UpdateContextRequest
           ctxId
           (Just updModules)
@@ -342,7 +346,7 @@ runScenario Handle{..} (ContextId ctxId) name = do
   res <-
     performRequest
       (SS.scenarioServiceRunScenario hClient)
-      (optRequestTimeout hOptions)
+      (optGrpcTimeout hOptions)
       (SS.RunScenarioRequest ctxId (Just (toIdentifier name)))
   pure $ case res of
     Left err -> Left (BackendError err)
@@ -369,7 +373,7 @@ runScript Handle{..} (ContextId ctxId) name = do
   res <-
     performRequest
       (SS.scenarioServiceRunScript hClient)
-      (optRequestTimeout hOptions)
+      (optGrpcTimeout hOptions)
       (SS.RunScenarioRequest ctxId (Just (toIdentifier name)))
   pure $ case res of
     Left err -> Left (BackendError err)
@@ -383,7 +387,7 @@ performRequest
   -> payload
   -> IO (Either BackendError response)
 performRequest method timeoutSeconds payload = do
-  method (ClientNormalRequest payload timeoutSeconds mempty) >>= \case
+  method (ClientNormalRequest payload (fromIntegral timeoutSeconds) mempty) >>= \case
     ClientNormalResponse resp _ _ StatusOk _ -> return (Right resp)
     ClientNormalResponse _ _ _ status _ -> return (Left $ BErrorFail status)
     ClientErrorResponse err -> return (Left $ BErrorClient err)

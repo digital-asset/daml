@@ -12,6 +12,7 @@ import com.daml.metrics.ExecutorServiceMetrics.{
   NameLabelKey,
   ThreadPoolMetricsName,
 }
+import com.daml.metrics.api.MetricName
 import com.daml.metrics.api.testing.{InMemoryMetricsFactory, MetricValues}
 import org.scalatest.concurrent.Eventually
 import org.scalatest.matchers.should.Matchers
@@ -36,7 +37,8 @@ class ExecutorServiceMetricsSpec
         Executors.newFixedThreadPool(configuredNumberOfThreads),
       )
 
-      val registeredGauges = factory.asyncGaugeValues(LabelFilter(NameLabelKey, testName))
+      def registeredGauges(name: MetricName) =
+        factory.asyncGaugeValue(name, LabelFilter(NameLabelKey, testName))
       eventually {
         registeredGauges(ThreadPoolMetricsName.CorePoolSize) shouldBe configuredNumberOfThreads
         registeredGauges(ThreadPoolMetricsName.MaxPoolSize) shouldBe configuredNumberOfThreads
@@ -62,7 +64,8 @@ class ExecutorServiceMetricsSpec
         Executors.newWorkStealingPool(parallelism),
       )
 
-      val registeredGauges = factory.asyncGaugeValues(LabelFilter(NameLabelKey, testName))
+      def registeredGauges(name: MetricName) =
+        factory.asyncGaugeValue(name, LabelFilter(NameLabelKey, testName))
       eventually {
         registeredGauges(ForkJoinMetricsName.RunningThreads) shouldBe 0
         registeredGauges(ForkJoinMetricsName.StolenTasks) shouldBe 0

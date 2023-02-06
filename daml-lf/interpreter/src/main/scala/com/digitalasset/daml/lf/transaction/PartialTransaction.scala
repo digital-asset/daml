@@ -170,6 +170,14 @@ private[lf] object PartialTransaction {
     val actionChildSeed: NodeIdx => crypto.Hash = parent.info.actionChildSeed
   }
 
+  final case class WithAuthorityContextInfo(
+      nodeId: NodeId,
+      parent: Context,
+      authorizers: Set[Party],
+  ) extends ContextInfo {
+    val actionChildSeed: NodeIdx => crypto.Hash = parent.info.actionChildSeed
+  }
+
   def initial(
       contractKeyUniqueness: ContractKeyUniquenessMode,
       initialSeeds: InitialSeeding,
@@ -633,6 +641,43 @@ private[speedy] case class PartialTransaction(
     }
   }
 
+  /** Open an Authority context.
+    * Must be closed by a `endWithAuthority`
+    */
+  def beginWithAuthority(
+      required: Set[Party]
+  ): PartialTransaction = {
+    val was = context.info.authorizers
+    val now = required
+    println(s"**beginWithAuthority\n- Was=$was\n- Now=$now") // TODO #15882: remove debug
+    val nid = NodeId(nextNodeIdx)
+    val info = WithAuthorityContextInfo(nid, context, authorizers = required)
+    copy(
+      nextNodeIdx = nextNodeIdx + 1,
+      context = Context(info).copy(nextActionChildIdx = context.nextActionChildIdx),
+    )
+  }
+
+  def endWithAuthority: PartialTransaction = {
+    context.info match {
+      case info: WithAuthorityContextInfo =>
+        val was = info.authorizers
+        val now = info.parent.info.authorizers
+        println(s"**endWithAuthority\n- was=$was\n- now=$now") // TODO #15882: remove debug
+        copy(
+          context = info.parent.copy(
+            children = info.parent.children :++ context.children.toImmArray,
+            nextActionChildIdx = context.nextActionChildIdx,
+          )
+        )
+      case _ =>
+        InternalError.runtimeException(
+          NameOf.qualifiedNameOfCurrentFunc,
+          "endWithAuthority called in non-authority context",
+        )
+    }
+  }
+
   /** Double check the execution of a step with the unconsumedness of a
     * `ContractId`.
     */
@@ -674,6 +719,7 @@ private[speedy] case class PartialTransaction(
     def go(ptx: PartialTransaction): PartialTransaction = ptx.context.info match {
       case _: PartialTransaction.ExercisesContextInfo => go(ptx.abortExercises)
       case _: PartialTransaction.TryContextInfo => go(ptx.endTry)
+      case _: PartialTransaction.WithAuthorityContextInfo => go(ptx.endWithAuthority)
       case _: PartialTransaction.RootContextInfo => ptx
     }
     go(this)

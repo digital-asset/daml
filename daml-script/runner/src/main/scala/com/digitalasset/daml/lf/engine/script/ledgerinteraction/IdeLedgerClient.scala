@@ -36,7 +36,7 @@ import scalaz.OneAnd._
 import scalaz.std.set._
 import scalaz.syntax.foldable._
 
-import scala.concurrent.duration._
+import scala.annotation.tailrec
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
@@ -45,6 +45,7 @@ class IdeLedgerClient(
     val compiledPackages: CompiledPackages,
     traceLog: TraceLog,
     warningLog: WarningLog,
+    canceled: () => Boolean,
 ) extends ScriptLedgerClient {
   override def transport = "script service"
 
@@ -243,17 +244,22 @@ class IdeLedgerClient(
       commands: List[command.ApiCommand],
       optLocation: Option[Location],
   )(implicit ec: ExecutionContext): Future[
-    ScenarioRunner.SubmissionResult[ScenarioLedger.CommitResult]
+    Either[
+      ScenarioRunner.SubmissionError,
+      ScenarioRunner.Commit[ScenarioLedger.CommitResult],
+    ]
   ] = Future {
     val unallocatedSubmitters: Set[Party] =
       (actAs.toSet union readAs) -- allocatedParties.values.map(_.party)
     if (unallocatedSubmitters.nonEmpty) {
-      ScenarioRunner.SubmissionError(
-        scenario.Error.PartiesNotAllocated(unallocatedSubmitters),
-        IncompleteTransaction(
-          transaction = Transaction(Map.empty, ImmArray.empty),
-          locationInfo = Map.empty,
-        ),
+      Left(
+        ScenarioRunner.SubmissionError(
+          scenario.Error.PartiesNotAllocated(unallocatedSubmitters),
+          IncompleteTransaction(
+            transaction = Transaction(Map.empty, ImmArray.empty),
+            locationInfo = Map.empty,
+          ),
+        )
       )
     } else {
 
@@ -272,27 +278,37 @@ class IdeLedgerClient(
           nextSeed(),
           traceLog,
           warningLog,
-          // TODO https://github.com/digital-asset/daml/issues/13954
-          //  add timeout support to Script
-          timeout = Duration.Inf,
-          deadlineInNanos = Long.MaxValue,
         )(Script.DummyLoggingContext)
-      result match {
-        case err: ScenarioRunner.SubmissionError => err
-        case commit: ScenarioRunner.Commit[_] =>
-          val referencedParties: Set[Party] =
-            commit.result.richTransaction.blindingInfo.disclosure.values
-              .foldLeft(Set.empty[Party])(_ union _)
-          val unallocatedParties = referencedParties -- allocatedParties.values.map(_.party)
-          if (unallocatedParties.nonEmpty) {
-            ScenarioRunner.SubmissionError(
-              scenario.Error.PartiesNotAllocated(unallocatedParties),
-              commit.tx,
+
+      @tailrec
+      def loop(
+          result: ScenarioRunner.SubmissionResult[ScenarioLedger.CommitResult]
+      ): Either[
+        ScenarioRunner.SubmissionError,
+        ScenarioRunner.Commit[ScenarioLedger.CommitResult],
+      ] =
+        result match {
+          case _ if canceled() =>
+            throw Runner.Canceled
+          case ScenarioRunner.Interruption(continue) =>
+            loop(continue())
+          case err: ScenarioRunner.SubmissionError => Left(err)
+          case commit @ ScenarioRunner.Commit(result, _, _) =>
+            val referencedParties: Set[Party] =
+              result.richTransaction.blindingInfo.disclosure.values
+                .fold(Set.empty[Party])(_ union _)
+            val unallocatedParties = referencedParties -- allocatedParties.values.map(_.party)
+            Either.cond(
+              unallocatedParties.isEmpty,
+              commit,
+              ScenarioRunner.SubmissionError(
+                scenario.Error.PartiesNotAllocated(unallocatedParties),
+                commit.tx,
+              ),
             )
-          } else {
-            commit
-          }
-      }
+        }
+
+      loop(result)
     }
   }
 
@@ -306,7 +322,7 @@ class IdeLedgerClient(
       mat: Materializer,
   ): Future[Either[StatusRuntimeException, Seq[ScriptLedgerClient.CommandResult]]] =
     unsafeSubmit(actAs, readAs, commands, optLocation).map {
-      case ScenarioRunner.Commit(result, _, _) =>
+      case Right(ScenarioRunner.Commit(result, _, _)) =>
         _currentSubmission = None
         _ledger = result.newLedger
         val transaction = result.richTransaction.transaction
@@ -328,8 +344,8 @@ class IdeLedgerClient(
               throw new IllegalArgumentException(s"Invalid root node: $node")
           }
         }
-        Right(transaction.roots.toSeq.map(convRootEvent(_)))
-      case ScenarioRunner.SubmissionError(err, tx) =>
+        Right(transaction.roots.toSeq.map(convRootEvent))
+      case Left(ScenarioRunner.SubmissionError(err, tx)) =>
         _currentSubmission = Some(ScenarioRunner.CurrentSubmission(optLocation, tx))
         throw err
     }
@@ -339,18 +355,16 @@ class IdeLedgerClient(
       readAs: Set[Ref.Party],
       commands: List[command.ApiCommand],
       optLocation: Option[Location],
-  )(implicit ec: ExecutionContext, mat: Materializer): Future[Either[Unit, Unit]] = {
-    unsafeSubmit(actAs, readAs, commands, optLocation)
-      .map({
-        case commit: ScenarioRunner.Commit[_] =>
-          _currentSubmission = Some(ScenarioRunner.CurrentSubmission(optLocation, commit.tx))
-          Left(())
-        case _: ScenarioRunner.SubmissionError =>
-          _currentSubmission = None
-          _ledger = ledger.insertAssertMustFail(actAs.toSet, readAs, optLocation)
-          Right(())
-      })
-  }
+  )(implicit ec: ExecutionContext, mat: Materializer): Future[Either[Unit, Unit]] =
+    unsafeSubmit(actAs, readAs, commands, optLocation).map {
+      case Right(ScenarioRunner.Commit(_, _, tx)) =>
+        _currentSubmission = Some(ScenarioRunner.CurrentSubmission(optLocation, tx))
+        Left(())
+      case Left(_) =>
+        _currentSubmission = None
+        _ledger = ledger.insertAssertMustFail(actAs.toSet, readAs, optLocation)
+        Right(())
+    }
 
   override def submitTree(
       actAs: OneAnd[Set, Ref.Party],
@@ -360,9 +374,9 @@ class IdeLedgerClient(
   )(implicit
       ec: ExecutionContext,
       mat: Materializer,
-  ): Future[ScriptLedgerClient.TransactionTree] = {
+  ): Future[ScriptLedgerClient.TransactionTree] =
     unsafeSubmit(actAs, readAs, commands, optLocation).map {
-      case ScenarioRunner.Commit(result, _, _) =>
+      case Right(ScenarioRunner.Commit(result, _, _)) =>
         _currentSubmission = None
         _ledger = result.newLedger
         val transaction = result.richTransaction.transaction
@@ -386,11 +400,10 @@ class IdeLedgerClient(
         ScriptLedgerClient.TransactionTree(
           transaction.roots.collect(Function.unlift(convEvent(_))).toList
         )
-      case ScenarioRunner.SubmissionError(err, tx) =>
+      case Left(ScenarioRunner.SubmissionError(err, tx)) =>
         _currentSubmission = Some(ScenarioRunner.CurrentSubmission(optLocation, tx))
         throw new IllegalStateException(err)
     }
-  }
 
   override def allocateParty(partyIdHint: String, displayName: String)(implicit
       ec: ExecutionContext,

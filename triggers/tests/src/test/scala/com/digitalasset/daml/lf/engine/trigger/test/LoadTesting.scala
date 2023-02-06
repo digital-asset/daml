@@ -37,7 +37,7 @@ abstract class LoadTesting
     with TryValues {
 
   // The following value should be kept in sync with the value of contractPairings in Cats.daml
-  val contractPairings = 400
+  val contractPairings: Int = 400
   // The following value should be kept in sync with the value of breedingRate in Cats.daml
   val breedingRate: Int = 100
 
@@ -90,8 +90,8 @@ abstract class LoadTesting
 
 final class BaseLoadTesting extends LoadTesting {
 
-  "Failure testing" should {
-    s"with $contractPairings contract pairings and always failing submissions" should {
+  s"With $contractPairings contract pairings" should {
+    "Contracts are already created" should {
       "Process all contract pairings successfully" in {
         for {
           client <- ledgerClient()
@@ -127,6 +127,34 @@ final class BaseLoadTesting extends LoadTesting {
           succeed
         }
       }
+
+      "Contracts are created by the trigger" should {
+        "Process all contract pairings successfully" in {
+          for {
+            client <- ledgerClient()
+            party <- allocateParty(client)
+            runner = getRunner(
+              client,
+              QualifiedName.assertFromString("Cats:breedAndFeedTrigger"),
+              party,
+            )
+            (acs, offset) <- runner.queryACS()
+            _ <- runner
+              .runWithACS(
+                acs,
+                offset,
+                msgFlow = Flow[TriggerContext[TriggerMsg]]
+                  // Allow flow to proceed until we observe a CatExample:TestComplete contract being created
+                  .takeWhile(
+                    notObserving(LedgerApi.Identifier(packageId, "Cats", "TestComplete"))
+                  ),
+              )
+              ._2
+          } yield {
+            succeed
+          }
+        }
+      }
     }
   }
 }
@@ -135,7 +163,7 @@ final class InFlightLoadTesting extends LoadTesting {
 
   override protected def triggerRunnerConfiguration: TriggerRunnerConfig =
     super.triggerRunnerConfiguration
-      .copy(inFlightCommandBackPressureCount = 20, inFlightCommandOverflowCount = 200)
+      .copy(inFlightCommandBackPressureCount = 20, inFlightCommandOverflowCount = 40)
 
   "Ledger completion and transaction delays" should {
     "Eventually cause a trigger overflow" in {

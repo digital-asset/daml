@@ -15,12 +15,7 @@ class FooSubmission(
     submissionConfig: FooSubmissionConfig,
     allocatedParties: AllocatedParties,
     names: Names,
-    partySelectingRandomnessProvider: RandomnessProvider,
-    payloadRandomnessProvider: RandomnessProvider,
-    consumingEventsRandomnessProvider: RandomnessProvider,
-    nonConsumingEventsRandomnessProvider: RandomnessProvider,
-    applicationIdRandomnessProvider: RandomnessProvider,
-    contractDescriptionRandomnessProvider: RandomnessProvider,
+    randomnessProvider: RandomnessProvider,
 ) {
 
   def performSubmission()(implicit
@@ -35,7 +30,7 @@ class FooSubmission(
       new RandomPartySelecting(
         config = submissionConfig,
         allocatedParties = allocatedParties,
-        randomnessProvider = partySelectingRandomnessProvider,
+        randomnessProvider = randomnessProvider,
       )
     for {
       _ <-
@@ -58,11 +53,7 @@ class FooSubmission(
         names = names,
         allocatedParties = allocatedParties,
         partySelecting = partySelecting,
-        contractDescriptionRandomnessProvider = contractDescriptionRandomnessProvider,
-        payloadRandomnessProvider = payloadRandomnessProvider,
-        consumingEventsRandomnessProvider = consumingEventsRandomnessProvider,
-        nonConsumingEventsRandomnessProvider = nonConsumingEventsRandomnessProvider,
-        applicationIdRandomnessProvider = applicationIdRandomnessProvider,
+        randomnessProvider = randomnessProvider,
       )
       _ <- submitter
         .generateAndSubmit(

@@ -19,7 +19,6 @@ import scalaz.syntax.std.option._
 import java.nio.file.Path
 import java.io.File
 import com.daml.metrics.api.reporters.MetricsReporter
-import scala.concurrent.duration.FiniteDuration
 
 final case class HttpServerConfig(address: String, port: Int, portFile: Option[Path] = None)
 final case class LedgerTlsConfig(
@@ -36,7 +35,6 @@ final case class LedgerApiConfig(
     port: Int,
     tls: LedgerTlsConfig = LedgerTlsConfig(),
 )
-final case class MetricsConfig(reporter: MetricsReporter, reportingInterval: FiniteDuration)
 
 object TokenVerifierConfig {
   private val knownTokenVerifiers: Map[String, String => JwtError \/ JwtVerifierBase] =
@@ -125,5 +123,4 @@ object SharedConfigReaders {
     deriveReader[LedgerTlsConfig]
   implicit val ledgerApiConfReader: ConfigReader[LedgerApiConfig] =
     deriveReader[LedgerApiConfig]
-  implicit val metricsConfigReader: ConfigReader[MetricsConfig] = deriveReader[MetricsConfig]
 }

@@ -7,7 +7,8 @@ import akka.stream.ThrottleMode
 import com.daml.cliopts
 import com.daml.cliopts.Logging.LogEncoder
 import com.daml.http.dbbackend.{DbStartupMode, JdbcConfig}
-import com.daml.pureconfigutils.{HttpServerConfig, LedgerApiConfig, MetricsConfig}
+import com.daml.metrics.MetricsConfig
+import com.daml.pureconfigutils.{HttpServerConfig, LedgerApiConfig}
 import com.daml.pureconfigutils.SharedConfigReaders._
 import pureconfig.ConfigReader
 import pureconfig.generic.semiauto._
@@ -87,7 +88,7 @@ private[http] final case class FileBasedConfig(
       logEncoder = logEncoder,
       metricsReporter = metrics.map(_.reporter),
       metricsReportingInterval =
-        metrics.map(_.reportingInterval).getOrElse(StartSettings.DefaultMetricsReportingInterval),
+        metrics.map(_.reportingInterval).getOrElse(MetricsConfig.DefaultMetricsReportingInterval),
       surrogateTpIdCacheMaxEntries = maxTemplateIdCacheEntries,
     )
   }

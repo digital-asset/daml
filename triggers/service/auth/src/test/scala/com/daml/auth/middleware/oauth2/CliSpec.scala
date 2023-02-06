@@ -8,14 +8,17 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 import com.daml.bazeltools.BazelRunfiles.requiredResource
 import com.daml.jwt.JwksVerifier
+import com.daml.metrics.MetricsConfig
+import com.daml.metrics.api.reporters.MetricsReporter
 import org.scalatest.Inside.inside
 import pureconfig.error.{CannotReadFile, ConfigReaderFailures}
 
 import java.nio.file.Paths
+import java.net.InetSocketAddress
 import scala.concurrent.duration._
 
 class CliSpec extends AsyncWordSpec with Matchers {
-  val minimalCfg = Config(
+  val minimalCfg = FileConfig(
     oauthAuth = Uri("https://oauth2/uri"),
     oauthToken = Uri("https://oauth2/token"),
     callbackUri = Some(Uri("https://example.com/auth/cb")),
@@ -61,6 +64,12 @@ class CliSpec extends AsyncWordSpec with Matchers {
         oauthAuthTemplate = Some(Paths.get("auth_template")),
         oauthTokenTemplate = Some(Paths.get("token_template")),
         oauthRefreshTemplate = Some(Paths.get("refresh_template")),
+        metrics = Some(
+          MetricsConfig(
+            MetricsReporter.Prometheus(new InetSocketAddress("0.0.0.0", 5104)),
+            30.seconds,
+          )
+        ),
       )
       // token verifier needs to be set.
       c.tokenVerifier shouldBe a[JwksVerifier]

@@ -252,11 +252,7 @@ class LedgerApiBenchTool(
             allocatedParties = allocatedParties,
             randomnessProvider = RandomnessProvider.Default,
           ),
-          contractDescriptionRandomnessProvider = RandomnessProvider.Default,
-          payloadRandomnessProvider = RandomnessProvider.Default,
-          consumingEventsRandomnessProvider = RandomnessProvider.Default,
-          nonConsumingEventsRandomnessProvider = RandomnessProvider.Default,
-          applicationIdRandomnessProvider = RandomnessProvider.Default,
+          randomnessProvider = RandomnessProvider.Default,
         )
         for {
           metricsManager <- MetricsManager(
@@ -339,12 +335,7 @@ class LedgerApiBenchTool(
               submissionConfig = submissionConfig,
               allocatedParties = allocatedParties,
               names = names,
-              partySelectingRandomnessProvider = RandomnessProvider.Default,
-              payloadRandomnessProvider = RandomnessProvider.Default,
-              consumingEventsRandomnessProvider = RandomnessProvider.Default,
-              nonConsumingEventsRandomnessProvider = RandomnessProvider.Default,
-              applicationIdRandomnessProvider = RandomnessProvider.Default,
-              contractDescriptionRandomnessProvider = RandomnessProvider.Default,
+              randomnessProvider = RandomnessProvider.Default,
             ).performSubmission()
           case submissionConfig: FibonacciSubmissionConfig =>
             val generator: CommandGenerator = new FibonacciCommandGenerator(

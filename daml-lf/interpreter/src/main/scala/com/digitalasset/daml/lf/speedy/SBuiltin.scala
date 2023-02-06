@@ -655,20 +655,6 @@ private[lf] object SBuiltin {
     }
   }
 
-  final case object SBWithAuthority extends SBuiltin(2) {
-    override private[speedy] def execute[Q](
-        args: util.ArrayList[SValue],
-        machine: Machine[Q],
-    ): Control[Q] = {
-      // TODO https://github.com/digital-asset/daml/issues/15882
-      // For development, implement this primitive as the identity operation. No authority is gained.
-      // val parties = args.get(0)
-      // println(s"**SBWithAuthority/execute, parties=$parties")
-      val action = args.get(1)
-      Control.Value(action)
-    }
-  }
-
   final case object SBMapToList extends SBuiltinPure(1) {
 
     override private[speedy] def executePure(args: util.ArrayList[SValue]): SList =
@@ -1829,6 +1815,26 @@ private[lf] object SBuiltin {
           machine.handleException(excep) // re-throw
         case Some(handler) =>
           machine.enterApplication(handler, Array(SEValue(SToken)))
+      }
+    }
+  }
+
+  final case object SBWithAuthority extends UpdateBuiltin(3) {
+    override protected def executeUpdate(
+        args: util.ArrayList[SValue],
+        machine: UpdateMachine,
+    ): Control[Question.Update] = {
+      val required = extractParties(NameOf.qualifiedNameOfCurrentFunc, args.get(0))
+      val action = args.get(1)
+      checkToken(args, 2)
+      // TODO #15882: check with ledger if required authority is allowed
+      machine.ptx.beginWithAuthority(
+        required = required
+      ) match {
+        case ptx =>
+          machine.ptx = ptx
+          machine.pushKont(KCloseWithAuthority)
+          machine.enterApplication(action, Array(SEValue(SToken)))
       }
     }
   }

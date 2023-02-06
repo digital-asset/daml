@@ -224,6 +224,7 @@ da_scala_test(
         "//libs-scala/scala-utils",
         "//libs-scala/test-evidence/scalatest:test-evidence-scalatest",
         "//libs-scala/test-evidence/tag:test-evidence-tag",
+        "//observability/metrics",
         "@maven//:com_auth0_java_jwt",
         "@maven//:com_typesafe_config",
     ],

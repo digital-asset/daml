@@ -29,7 +29,7 @@ final class InstrumentedGraphSpec
   it should "correctly enqueue and measure queue delay" in {
     val capacityCounter = NoOpCounter("capacity")
     val maxBuffered = NoOpCounter("buffered")
-    val delayTimer = InMemoryTimer(MetricsContext.Empty)
+    val delayTimer = InMemoryTimer("test", MetricsContext.Empty)
     val bufferSize = 2
 
     val (source, sink) =
@@ -66,8 +66,8 @@ final class InstrumentedGraphSpec
     val highAcceptanceThreshold = bufferSize + acceptanceTolerance
 
     val maxBuffered = new MaxValueCounter
-    val capacityCounter = InMemoryCounter(MetricsContext.Empty)
-    val delayTimer = InMemoryTimer(MetricsContext.Empty)
+    val capacityCounter = InMemoryCounter("test", MetricsContext.Empty)
+    val delayTimer = InMemoryTimer("test", MetricsContext.Empty)
 
     val stop = Promise[Unit]()
 
@@ -158,14 +158,14 @@ final class InstrumentedGraphSpec
 object InstrumentedGraphSpec extends MetricValues {
   // For testing only, this counter will never decrease
   // so that we can test the maximum value read
-  private final class MaxValueCounter extends InMemoryCounter(MetricsContext.Empty) {
+  private final class MaxValueCounter extends InMemoryCounter("test", MetricsContext.Empty) {
     override def dec(value: Long)(implicit mc: MetricsContext): Unit = ()
 
   }
 
   // For testing only, provides a sampled sequence of the state of the counter until finishSampling is called.
   private final class SamplingCounter(samplingInterval: FiniteDuration)
-      extends InMemoryCounter(MetricsContext.Empty) { self =>
+      extends InMemoryCounter("test", MetricsContext.Empty) { self =>
     private val t = new java.util.Timer()
     private val samples = scala.collection.mutable.ListBuffer[Long]()
     private val task = new java.util.TimerTask {

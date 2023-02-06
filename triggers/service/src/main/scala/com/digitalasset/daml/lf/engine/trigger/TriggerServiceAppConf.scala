@@ -11,6 +11,7 @@ import com.daml.platform.services.time.TimeProviderType
 import pureconfig.{ConfigReader, ConvertHelpers}
 import com.daml.auth.middleware.api.{Client => AuthClient}
 import com.daml.lf.engine.trigger.TriggerRunnerConfig.DefaultTriggerRunnerConfig
+import com.daml.metrics.MetricsConfig
 import com.daml.pureconfigutils.LedgerApiConfig
 import com.daml.pureconfigutils.SharedConfigReaders._
 import pureconfig.error.FailureReason
@@ -110,6 +111,7 @@ private[trigger] final case class TriggerServiceAppConf(
     triggerConfig: TriggerRunnerConfig = DefaultTriggerRunnerConfig,
     rootLoggingLevel: Option[Level] = None,
     logEncoder: LogEncoder = LogEncoder.Plain,
+    metrics: Option[MetricsConfig] = None,
 ) {
   def toServiceConfig: ServiceConfig = {
     ServiceConfig(
@@ -141,6 +143,9 @@ private[trigger] final case class TriggerServiceAppConf(
       triggerConfig = triggerConfig,
       rootLoggingLevel = rootLoggingLevel,
       logEncoder = logEncoder,
+      metricsReporter = metrics.map(_.reporter),
+      metricsReportingInterval =
+        metrics.map(_.reportingInterval).getOrElse(MetricsConfig.DefaultMetricsReportingInterval),
     )
   }
 }

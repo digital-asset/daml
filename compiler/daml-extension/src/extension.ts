@@ -508,7 +508,12 @@ class VirtualResourceManager {
       }
     });
     this._panels.set(uri, panel);
-    panel.webview.html = this._panelContents.get(uri) || "";
+    panel.webview.html =
+      this._panelContents.get(uri) || "Loading virtual resource...";
+  }
+
+  public setRenderingStarted(uri: UriString) {
+    const panel = this._panels.get(uri);
   }
 
   public setContent(uri: UriString, contents: ScenarioResult) {

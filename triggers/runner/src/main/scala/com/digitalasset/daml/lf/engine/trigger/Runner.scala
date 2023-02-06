@@ -34,8 +34,16 @@ import com.daml.lf.engine.trigger.Runner.{
   TriggerContext,
   TriggerContextualFlow,
   TriggerContextualSource,
+  isHeartbeat,
+  isSubmissionFailure,
+  isSubmissionSuccess,
+  isTransaction,
   logger,
+  numberOfArchiveEvents,
   numberOfActiveContracts,
+  numberOfCreateEvents,
+  numberOfInFlightCommands,
+  numberOfPendingContracts,
   triggerUserState,
 }
 import com.daml.lf.engine.trigger.Runner.Implicits._
@@ -590,49 +598,101 @@ private[lf] class Runner private (
   )(implicit
       triggerContext: TriggerLogContext
   ): UnfoldState[SValue, TriggerContext[SubmitRequest]] = {
-    def evaluate(se: SExpr): SValue = {
-      val machine = Speedy.Machine.fromPureSExpr(compiledPackages, se)
-      // Evaluate it.
-      machine.setExpressionToEvaluate(se)
-      Machine.stepToValue(machine)
-    }
-    type Termination = SValue \/ (TriggerContext[SubmitRequest], SValue)
-    @tailrec def go(v: SValue): Termination = {
-      val resumed: Termination Either SValue = unrollFree(v) match {
-        case Right(Right(vvv @ (variant, vv))) =>
-          // Must be kept in-sync with the DAML code LowLevel#TriggerF
-          vvv.match2 {
-            case "GetTime" /*(Time -> a)*/ => { case DamlFun(timeA) =>
-              Right(evaluate(makeAppD(timeA, STimestamp(clientTime))))
-            }
-            case "Submit" /*([Command], Text -> a)*/ => {
-              case DamlTuple2(sCommands, DamlFun(textA)) =>
-                val commands = converter.toCommands(sCommands).orConverterException
-                val (commandUUID, submitRequest) = handleCommands(commands)
-                Left(
-                  \/-(
-                    (
-                      Ctx(triggerContext, submitRequest),
-                      evaluate(makeAppD(textA, SText((commandUUID: UUID).toString))),
+    var numberOfRuleEvaluations = 0
+    var numberOfSubmissions = 0
+    var numberOfCreates = 0
+    var numberOfExercises = 0
+    var numberOfCreateAndExercise = 0
+    var numberOfExerciseByKey = 0
+
+    val startTime = System.nanoTime()
+
+    triggerContext.childSpan("step") { implicit triggerContext: TriggerLogContext =>
+      def evaluate(se: SExpr): SValue = {
+        val machine: Speedy.PureMachine =
+          Speedy.Machine.fromPureSExpr(compiledPackages, se)
+        // Evaluate it.
+        machine.setExpressionToEvaluate(se)
+        Machine.stepToValue(machine)
+      }
+
+      type Termination = SValue \/ (TriggerContext[SubmitRequest], SValue)
+      @tailrec def go(v: SValue): Termination = {
+        numberOfRuleEvaluations += 1
+
+        val resumed: Termination Either SValue = unrollFree(v) match {
+          case Right(Right(vvv @ (variant, vv))) =>
+            // Must be kept in-sync with the DAML code LowLevel#TriggerF
+            vvv.match2 {
+              case "GetTime" /*(Time -> a)*/ => { case DamlFun(timeA) =>
+                Right(evaluate(makeAppD(timeA, STimestamp(clientTime))))
+              }
+              case "Submit" /*([Command], Text -> a)*/ => {
+                case DamlTuple2(sCommands, DamlFun(textA)) =>
+                  numberOfSubmissions += 1
+
+                  val commands = converter.toCommands(sCommands).orConverterException
+                  val (commandUUID, submitRequest) = handleCommands(commands)
+
+                  numberOfCreates += commands.count(_.command.isCreate)
+                  numberOfExercises += commands.count(_.command.isExercise)
+                  numberOfCreateAndExercise += commands.count(_.command.isCreateAndExercise)
+                  numberOfExerciseByKey += commands.count(_.command.isExerciseByKey)
+
+                  Left(
+                    \/-(
+                      (
+                        Ctx(triggerContext, submitRequest),
+                        evaluate(makeAppD(textA, SText((commandUUID: UUID).toString))),
+                      )
+                    ): Termination
+                  )
+              }
+              case _ =>
+                triggerContext.logError("Unrecognised TriggerF step", "variant" -> variant)
+                throw new ConverterException(s"unrecognized TriggerF step $variant")
+            }(fallback = throw new ConverterException(s"invalid contents for $variant: $vv"))
+          case Right(Left(newState)) => Left(-\/(newState))
+          case Left(e) => throw new ConverterException(e)
+        }
+
+        resumed match {
+          case Left(newState) => newState
+          case Right(suspended) => go(suspended)
+        }
+      }
+
+      UnfoldState(v)({ state =>
+        numberOfRuleEvaluations += 1
+
+        go(state) match {
+          case next @ -\/(_) =>
+            val endTime = System.nanoTime()
+            triggerContext.logDebug(
+              "Trigger rule evaluation end",
+              "metrics" -> LoggingValue.Nested(
+                LoggingEntries(
+                  "steps" -> numberOfRuleEvaluations,
+                  "submissions" -> LoggingValue.Nested(
+                    LoggingEntries(
+                      "total" -> numberOfSubmissions,
+                      "create" -> numberOfCreates,
+                      "exercise" -> numberOfExercises,
+                      "createAndExercise" -> numberOfCreateAndExercise,
+                      "exerciseByKey" -> numberOfExerciseByKey,
                     )
-                  ): Termination
+                  ),
+                  "duration" -> s"${FiniteDuration(endTime - startTime, "nanos").toMillis}ms",
                 )
-            }
-            case _ =>
-              triggerContext.logError("Unrecognised TriggerF step", "variant" -> variant)
-              throw new ConverterException(s"unrecognized TriggerF step $variant")
-          }(fallback = throw new ConverterException(s"invalid contents for $variant: $vv"))
-        case Right(Left(newState)) => Left(-\/(newState))
-        case Left(e) => throw new ConverterException(e)
-      }
+              ),
+            )
+            next
 
-      resumed match {
-        case Left(newState) => newState
-        case Right(suspended) => go(suspended)
-      }
+          case next =>
+            next
+        }
+      })
     }
-
-    UnfoldState(v)(go)
   }
 
   // This function produces a source of trigger messages,
@@ -813,12 +873,44 @@ private[lf] class Runner private (
         .groupedWithin(triggerConfig.maximumBatchSize.toInt, triggerConfig.batchingDuration)
         // We drop empty message batches only here
         .collect { case batch @ ctx +: remaining =>
-          ctx.context.childSpan("batch", "size" -> batch.size) {
-            implicit triggerContext: TriggerLogContext =>
-              ctx.copy(
-                context = triggerContext.groupWith(remaining.map(_.context): _*),
-                value = SList(FrontStack(batch.map(_.value): _*)),
-              )
+          ctx.context.childSpan("batch") { implicit triggerContext: TriggerLogContext =>
+            val batchContext = triggerContext.groupWith(remaining.map(_.context): _*)
+            val batchValue = batch.map(_.value)
+            val total = batchValue.size
+            val failures = batchValue.count(isSubmissionFailure)
+            val completions = batchValue.count(isSubmissionSuccess)
+            val transactions = batchValue.count(isTransaction)
+            val creates = batchValue.map(numberOfCreateEvents).sum
+            val archives = batchValue.map(numberOfArchiveEvents).sum
+            val heartbeats = batchValue.count(isHeartbeat)
+
+            batchContext.logInfo(
+              "Trigger rule message batching",
+              "metrics" -> LoggingValue.Nested(
+                LoggingEntries(
+                  "size" -> total,
+                  "completions" -> LoggingValue.Nested(
+                    LoggingEntries(
+                      "failures" -> failures,
+                      "successes" -> completions,
+                    )
+                  ),
+                  "transactions" -> LoggingValue.Nested(
+                    LoggingEntries(
+                      "total" -> transactions,
+                      "creates" -> creates,
+                      "archives" -> archives,
+                    )
+                  ),
+                  "heartbeats" -> heartbeats,
+                )
+              ),
+            )
+
+            ctx.copy(
+              context = batchContext,
+              value = SList(FrontStack(batchValue: _*)),
+            )
           }
         }
     }
@@ -852,6 +944,19 @@ private[lf] class Runner private (
               "Trigger rule initial state",
               "state" -> triggerUserState(state, trigger.defn.level),
             )
+            triggerContext.logInfo(
+              "Trigger rule initialization",
+              "metrics" -> LoggingValue.Nested(
+                LoggingEntries(
+                  "acs" -> LoggingValue.Nested(
+                    LoggingEntries(
+                      "active" -> acs.length,
+                      "pending" -> 0,
+                    )
+                  )
+                )
+              ),
+            )
 
             val activeContracts = acs.length
             if (activeContracts > triggerConfig.maximumActiveContracts) {
@@ -875,6 +980,22 @@ private[lf] class Runner private (
           "state" -> triggerUserState(state, trigger.defn.level),
           "message" -> messageVal.value,
         )
+        if (trigger.defn.level == Trigger.Level.High) {
+          triggerContext.logInfo(
+            "Trigger rule evaluation start",
+            "metrics" -> LoggingValue.Nested(
+              LoggingEntries(
+                "in-flight" -> numberOfInFlightCommands(state, trigger.defn.level),
+                "acs" -> LoggingValue.Nested(
+                  LoggingEntries(
+                    "active" -> numberOfActiveContracts(state, trigger.defn.level),
+                    "pending" -> numberOfPendingContracts(state, trigger.defn.level),
+                  )
+                ),
+              )
+            ),
+          )
+        }
 
         val clientTime: Timestamp =
           Timestamp.assertFromInstant(Runner.getTimeProvider(timeProviderType).getCurrentTime)
@@ -900,6 +1021,22 @@ private[lf] class Runner private (
                   "Trigger rule state updated",
                   "state" -> triggerUserState(state, trigger.defn.level),
                 )
+                if (trigger.defn.level == Trigger.Level.High) {
+                  triggerContext.logInfo(
+                    "Trigger rule evaluation end",
+                    "metrics" -> LoggingValue.Nested(
+                      LoggingEntries(
+                        "in-flight" -> numberOfInFlightCommands(newState, trigger.defn.level),
+                        "acs" -> LoggingValue.Nested(
+                          LoggingEntries(
+                            "active" -> numberOfActiveContracts(newState, trigger.defn.level),
+                            "pending" -> numberOfPendingContracts(newState, trigger.defn.level),
+                          )
+                        ),
+                      )
+                    ),
+                  )
+                }
 
                 numberOfActiveContracts(newState, trigger.defn.level) match {
                   case Some(activeContracts)
@@ -1172,6 +1309,49 @@ object Runner {
     }
   }
 
+  private def numberOfPendingContracts(svalue: SValue, level: Trigger.Level): Option[Int] = {
+    level match {
+      case Trigger.Level.High =>
+        // The following code should be kept in sync with the ACS variant type in Internal.daml
+        // svalue: TriggerState s
+        val result = for {
+          acs <- svalue.expect("SRecord", { case SRecord(_, _, values) => values.get(0) })
+          pendingContracts <- acs.expect(
+            "SRecord",
+            { case SRecord(_, _, values) if values.size() >= 1 => values.get(1) },
+          )
+          size <- pendingContracts.expect(
+            "SMap",
+            { case SMap(_, values) => values.size },
+          )
+        } yield size
+
+        Some(result.orConverterException)
+
+      case Trigger.Level.Low =>
+        None
+    }
+  }
+
+  private def numberOfInFlightCommands(svalue: SValue, level: Trigger.Level): Option[Int] = {
+    level match {
+      case Trigger.Level.High =>
+        // The following code should be kept in sync with the TriggerState record type in Internal.daml
+        // svalue: TriggerState s
+        val result = for {
+          inFlightCommands <- svalue.expect(
+            "SRecord",
+            { case SRecord(_, _, values) if values.size() >= 4 => values.get(4) },
+          )
+        } yield mapSize(inFlightCommands)
+
+        Some(result.orConverterException)
+
+      case Trigger.Level.Low =>
+        None
+    }
+  }
+
   private def triggerUserState(state: SValue, level: Trigger.Level): SValue = {
     level match {
       case Trigger.Level.High =>
@@ -1188,6 +1368,115 @@ object Runner {
       case Trigger.Level.Low =>
         state
     }
+  }
+
+  private def isSubmissionFailure(svalue: SValue): Boolean = {
+    // svalue: Message
+    val result = for {
+      values <- svalue.expect(
+        "SVariant",
+        {
+          case SVariant(_, "MCompletion", _, SRecord(_, _, values)) if values.size() >= 1 =>
+            values.get(1)
+        },
+      )
+      _ <- values.expect("SVariant", { case SVariant(_, "Failed", _, _) => true })
+    } yield ()
+
+    result.isRight
+  }
+
+  private def isSubmissionSuccess(svalue: SValue): Boolean = {
+    // svalue: Message
+    val result = for {
+      values <- svalue.expect(
+        "SVariant",
+        {
+          case SVariant(_, "MCompletion", _, SRecord(_, _, values)) if values.size() >= 1 =>
+            values.get(1)
+        },
+      )
+      _ <- values.expect("SVariant", { case SVariant(_, "Succeeded", _, _) => true })
+    } yield ()
+
+    result.isRight
+  }
+
+  private def isMessage(svalue: SValue): Boolean = {
+    // svalue: Message
+    isTransaction(svalue) || isCompletion(svalue) || isHeartbeat(svalue)
+  }
+
+  private def isCompletion(svalue: SValue): Boolean = {
+    // svalue: Message
+    svalue.expect("SVariant", { case SVariant(_, "MCompletion", _, _) => true }).isRight
+  }
+
+  private def isTransaction(svalue: SValue): Boolean = {
+    // svalue: Message
+    svalue.expect("SVariant", { case SVariant(_, "MTransaction", _, _) => true }).isRight
+  }
+
+  private def isCreateEvent(svalue: SValue): Boolean = {
+    // svalue: Event
+    svalue.expect("SVariant", { case SVariant(_, "CreatedEvent", _, _) => true }).isRight
+  }
+
+  private def numberOfCreateEvents(svalue: SValue): Int = {
+    // svalue: Message
+    val result = for {
+      values <- svalue.expect(
+        "SVariant",
+        {
+          case SVariant(_, "MTransaction", _, SRecord(_, _, values)) if values.size() >= 2 =>
+            values.get(2)
+        },
+      )
+      events <- values.expect("SList", { case SList(events) => events.toImmArray })
+    } yield events.filter(isCreateEvent).length
+
+    if (isMessage(svalue)) {
+      result.getOrElse(0)
+    } else {
+      result.orConverterException
+    }
+  }
+
+  private def isArchiveEvent(svalue: SValue): Boolean = {
+    // svalue: Event
+    svalue.expect("SVariant", { case SVariant(_, "ArchivedEvent", _, _) => true }).isRight
+  }
+
+  private def numberOfArchiveEvents(svalue: SValue): Int = {
+    // svalue: Message
+    val result = for {
+      values <- svalue.expect(
+        "SVariant",
+        {
+          case SVariant(_, "MTransaction", _, SRecord(_, _, values)) if values.size() >= 2 =>
+            values.get(2)
+        },
+      )
+      events <- values.expect("SList", { case SList(events) => events.toImmArray })
+    } yield events.filter(isArchiveEvent).length
+
+    if (isMessage(svalue)) {
+      result.getOrElse(0)
+    } else {
+      result.orConverterException
+    }
+  }
+
+  private def isHeartbeat(svalue: SValue): Boolean = {
+    // svalue: Message
+    svalue
+      .expect(
+        "SVariant",
+        { case SVariant(_, "MHeartbeat", _, _) =>
+          true
+        },
+      )
+      .isRight
   }
 
   private def overloadedRetryDelay(afterTries: Int): FiniteDuration =
