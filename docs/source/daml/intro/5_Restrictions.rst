@@ -93,7 +93,7 @@ Each transaction on a Daml ledger has two timestamps:  the *ledger time (LT)* an
 
 **Record time (RT)** is the time assigned by the persistence layer. It represents the time that the transaction is “physically” recorded. For example, “The backing database ledger has assigned the timestamp of such-and-such time to this transaction.” The only purpose of the RT is to ensure that transactions are being recorded in a timely manner.
 
-Each Daml ledger has a policy on the allowed difference between LT and RT called the *skew*. If it's too far off, the transaction will be rejected. Consequently, the participant keeps a running estimate of the time required to record a transation. The participant assigns the LT based on that estimate.
+Each Daml ledger has a policy on the allowed difference between LT and RT called the *skew*. If it's too far off, the transaction will be rejected. This is the requirement known as “bounded skew.” Consequently, the participant keeps a running estimate of the time required to record a transaction. The participant assigns the LT based on that estimate.
 
 The RT is not really relevant outside the ledger. The reason for this is that ``getTime`` returns LT and is the logical time of the transaction. The primary role of RT from the application's perspective is to set an upper-bound on the amount of skew between the logical business concept of time and the wall-clock time. A consistent zero-skew is not feasible given this is a distributed system.
 
