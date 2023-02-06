@@ -136,7 +136,7 @@ object InMemoryMetricsFactory extends InMemoryMetricsFactory {
         context: MetricsContext,
         metric: T,
         state: MetricsByName[T],
-    ) = {
+    ): Unit = {
       discard(state.getOrElseUpdate(name, TrieMap.empty).addOne(context -> metric))
     }
   }
