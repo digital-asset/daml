@@ -906,6 +906,17 @@ excluded_test_tool_tests = [
             },
         ],
     },
+    {
+        "start": "2.6.0-snapshot.20230130.11335.0.a24439f0",
+        "platform_ranges": [
+            {
+                "end": "2.6.0-snapshot.20230130.11335.1",
+                "exclusions": [
+                    "IdentityProviderConfigServiceIT",
+                ],
+            },
+        ],
+    },
 ]
 
 def in_range(version, range):
