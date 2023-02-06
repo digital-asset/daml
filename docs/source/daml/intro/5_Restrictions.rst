@@ -109,7 +109,7 @@ For tests, you can set time using the following functions:
 - ``setTime``, which sets the ledger time to the given time.
 - ``passTime``, which takes a ``RelTime`` (a relative time) and moves the ledger by that much.
 
-On a distributed Daml ledger, there are no guarantees that ledger time or record time are strictly increasing. The only guarantee is that ledger time is increasing *with causality*. That is, if a transaction ``TX2`` depends on a transaction ``TX1``, then the ledger enforces that the LT of ``TX2`` is greater than or equal to that of ``TX1``.
+On a distributed Daml ledger, there are no guarantees that LT or RT are strictly increasing. The only guarantee is that ledger time is increasing *with causality*. That is, if a transaction ``TX2`` depends on a transaction ``TX1``, then the ledger enforces that the LT of ``TX2`` is greater than or equal to that of ``TX1``.
 
 The following script illustrates that idea by moving the logical time back by three days and then trying to exercise a choice on a contract *that hasn't been created yet*. That fails, as you would hope.
 
