@@ -42,7 +42,7 @@ object ScriptF {
         cause,
       )
 
-  final case class Catch(act: SValue, handle: SValue) extends ScriptF
+  final case class Catch(act: SValue, handle: SValue, continue: SValue) extends ScriptF
   final case class Throw(exc: SAny) extends ScriptF
 
   sealed trait Cmd extends ScriptF {
@@ -946,8 +946,8 @@ object ScriptF {
 
   private def parseCatch(v: SValue): Either[String, Catch] = {
     v match {
-      case SRecord(_, _, ArrayList(act, handle)) =>
-        Right(Catch(act, handle))
+      case SRecord(_, _, ArrayList(act, handle, continue)) =>
+        Right(Catch(act, handle, continue))
       case _ => Left(s"Expected Catch payload but got $v")
     }
 
