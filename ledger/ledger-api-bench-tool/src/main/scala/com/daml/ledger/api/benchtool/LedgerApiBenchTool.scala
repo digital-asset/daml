@@ -181,6 +181,8 @@ class LedgerApiBenchTool(
               regularUserServices = regularUserServices,
               adminServices = adminServices,
               actorSystem = actorSystem,
+              signatory = allocatedParties.signatory,
+              names = names,
             )
           } else {
             benchmarkStreams(

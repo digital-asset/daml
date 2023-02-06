@@ -77,6 +77,8 @@ class PruningITSpec
         regularUserServices = apiServices,
         adminServices = apiServices,
         actorSystem = actorSystem,
+        signatory = allocatedParties.signatory,
+        names = new Names(),
       )
       acsPostPruning: ObservedEvents <- acsObserver(
         apiServices = apiServices,
