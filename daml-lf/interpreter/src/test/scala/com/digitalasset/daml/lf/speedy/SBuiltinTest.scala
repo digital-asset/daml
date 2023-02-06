@@ -22,7 +22,7 @@ import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SValue.{SValue => _, _}
 import com.daml.lf.speedy.Speedy.{CachedContract, Machine, CachedKey}
 import com.daml.lf.testing.parser.Implicits._
-import com.daml.lf.transaction.{GlobalKey, GlobalKeyWithMaintainers, TransactionVersion}
+import com.daml.lf.transaction.{GlobalKeyWithMaintainers, TransactionVersion}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.{ContractId, ValueArithmeticError, VersionedContractInstance}
 import org.scalatest.prop.TableDrivenPropertyChecks
@@ -1651,6 +1651,7 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
         val (disclosedContract, None) =
           buildDisclosedContract(contractId, alice, alice, templateId, withKey = false)
         val cachedContract = CachedContract(
+          version = txVersion,
           templateId,
           disclosedContract.argument,
           "",
@@ -1694,9 +1695,13 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
         val (disclosedContract, Some((key, keyWithMaintainers, keyHash))) =
           buildDisclosedContract(contractId, alice, alice, templateId, withKey = true)
         val optionalKey = Some(
-          CachedKey(GlobalKey.assertBuild(templateId, key.toUnnormalizedValue), key, Set(alice))
+          CachedKey(
+            GlobalKeyWithMaintainers.assertBuild(templateId, key.toUnnormalizedValue, Set(alice)),
+            key,
+          )
         )
         val cachedContract = CachedContract(
+          version = txVersion,
           templateId,
           disclosedContract.argument,
           "agreement",
@@ -1813,6 +1818,8 @@ object SBuiltinTest {
 
     """
 
+  private val txVersion = TransactionVersion.assignNodeVersion(pkg.languageVersion)
+
   val compiledPackages: PureCompiledPackages =
     PureCompiledPackages.assertBuild(Map(defaultParserParameters.defaultPackageId -> pkg))
 
@@ -1914,10 +1921,7 @@ object SBuiltinTest {
     val globalKey =
       if (withKey) {
         Some(
-          GlobalKeyWithMaintainers(
-            GlobalKey.assertBuild(templateId, key.toUnnormalizedValue),
-            Set(maintainer),
-          )
+          GlobalKeyWithMaintainers.assertBuild(templateId, key.toUnnormalizedValue, Set(maintainer))
         )
       } else {
         None

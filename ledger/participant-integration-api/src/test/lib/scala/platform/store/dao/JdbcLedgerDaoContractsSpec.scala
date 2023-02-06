@@ -3,13 +3,12 @@
 
 package com.daml.platform.store.dao
 
-import com.daml.lf.transaction.GlobalKey
-import com.daml.lf.transaction.Node.KeyWithMaintainers
+import com.daml.lf.transaction.GlobalKeyWithMaintainers
 import com.daml.lf.value.Value.{ValueText, VersionedContractInstance}
 import com.daml.platform.store.interfaces.LedgerDaoContractsReader
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
-import org.scalatest.{Inside, LoneElement, OptionValues}
+import org.scalatest.{OptionValues, LoneElement, Inside}
 
 private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside with OptionValues {
   this: AsyncFlatSpec with Matchers with JdbcLedgerDaoSuite =>
@@ -146,21 +145,28 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside wi
   it should "present the contract key state at a specific event sequential id" in {
     val aTextValue = ValueText(scala.util.Random.nextString(10))
 
+    val key = GlobalKeyWithMaintainers.assertBuild(someTemplateId, aTextValue, Set(alice, bob))
+
     for {
       (_, tx) <- createAndStoreContract(
         submittingParties = Set(alice),
         signatories = Set(alice, bob),
         stakeholders = Set(alice, bob),
-        key = Some(KeyWithMaintainers(aTextValue, Set(alice, bob))),
+        key = Some(key),
       )
-      key = GlobalKey.assertBuild(someTemplateId, aTextValue)
       contractId = nonTransient(tx).loneElement
       _ <- store(singleNonConsumingExercise(contractId))
       ledgerEndAtCreate <- ledgerDao.lookupLedgerEnd()
       _ <- store(txArchiveContract(alice, (contractId, None)))
       ledgerEndAfterArchive <- ledgerDao.lookupLedgerEnd()
-      queryAfterCreate <- contractsReader.lookupKeyState(key, ledgerEndAtCreate.lastOffset)
-      queryAfterArchive <- contractsReader.lookupKeyState(key, ledgerEndAfterArchive.lastOffset)
+      queryAfterCreate <- contractsReader.lookupKeyState(
+        key.globalKey,
+        ledgerEndAtCreate.lastOffset,
+      )
+      queryAfterArchive <- contractsReader.lookupKeyState(
+        key.globalKey,
+        ledgerEndAfterArchive.lastOffset,
+      )
     } yield {
       queryAfterCreate match {
         case LedgerDaoContractsReader.KeyAssigned(fetchedContractId, stakeholders) =>

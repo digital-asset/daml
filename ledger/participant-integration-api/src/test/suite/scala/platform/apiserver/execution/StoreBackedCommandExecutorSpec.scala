@@ -45,7 +45,7 @@ class StoreBackedCommandExecutorSpec
           driverMetadata = Bytes.Empty,
           signatories = Set.empty,
           stakeholders = Set.empty,
-          maybeKeyWithMaintainers = None,
+          keyOpt = None,
           agreementText = "some agreement text",
         ),
       ),

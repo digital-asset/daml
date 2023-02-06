@@ -144,6 +144,6 @@ final case class EngineEnrichedContractMetadata(
     driverMetadata: Bytes,
     signatories: Set[Party],
     stakeholders: Set[Party],
-    maybeKeyWithMaintainers: Option[Versioned[GlobalKeyWithMaintainers]],
+    keyOpt: Option[Versioned[GlobalKeyWithMaintainers]],
     agreementText: String,
 )

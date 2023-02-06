@@ -4,18 +4,21 @@
 package com.daml.lf
 package engine
 
-import com.daml.lf.data.Ref.{Identifier, Name, PackageId}
+import com.daml.lf.data.Ref.{Identifier, PackageId, Name}
 import com.daml.lf.language.{Ast, LookupError}
 import com.daml.lf.transaction.{
-  IncompleteTransaction,
-  Transaction,
-  Node,
   NodeId,
+  Transaction,
   VersionedTransaction,
+  IncompleteTransaction,
+  Node,
 }
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.VersionedValue
 import com.daml.lf.speedy.SValue
+import com.daml.lf.transaction.GlobalKey
+import com.daml.lf.transaction.GlobalKeyWithMaintainers
+import com.daml.lf.transaction.Versioned
 
 // Provide methods to add missing information in values (and value containers):
 // - type constructor in records, variants, and enums
@@ -120,35 +123,33 @@ final class ValueEnricher(
   private val ResultNone = ResultDone(None)
 
   def enrichContractKey(
-      tyCon: Identifier,
-      key: Node.KeyWithMaintainers,
-  ): Result[Node.KeyWithMaintainers] =
-    enrichContractKey(tyCon, key.key).map(normalizedKey => key.copy(key = normalizedKey))
+      key: GlobalKeyWithMaintainers
+  ): Result[GlobalKeyWithMaintainers] =
+    enrichContractKey(key.globalKey.templateId, key.globalKey.key).map(normalizedKey =>
+      key.copy(globalKey = GlobalKey.assertBuild(key.globalKey.templateId, normalizedKey))
+    )
 
   def enrichContractKey(
-      tyCon: Identifier,
-      key: Option[Node.KeyWithMaintainers],
-  ): Result[Option[Node.KeyWithMaintainers]] =
+      key: Option[GlobalKeyWithMaintainers]
+  ): Result[Option[GlobalKeyWithMaintainers]] =
     key match {
       case Some(k) =>
-        enrichContractKey(tyCon, k).map(Some(_))
+        enrichContractKey(k).map(Some(_))
       case None =>
         ResultNone
     }
 
   def enrichVersionedContractKey(
-      tyCon: Identifier,
-      key: Node.VersionedKeyWithMaintainers,
-  ): Result[Node.VersionedKeyWithMaintainers] =
-    enrichContractKey(tyCon, key.unversioned).map(normalizedValue => key.map(_ => normalizedValue))
+      key: Versioned[GlobalKeyWithMaintainers]
+  ): Result[Versioned[GlobalKeyWithMaintainers]] =
+    enrichContractKey(key.unversioned).map(normalizedValue => key.map(_ => normalizedValue))
 
   def enrichVersionedContractKey(
-      tyCon: Identifier,
-      key: Option[Node.VersionedKeyWithMaintainers],
-  ): Result[Option[Node.VersionedKeyWithMaintainers]] =
+      key: Option[Versioned[GlobalKeyWithMaintainers]]
+  ): Result[Option[Versioned[GlobalKeyWithMaintainers]]] =
     key match {
       case Some(k) =>
-        enrichVersionedContractKey(tyCon, k).map(Some(_))
+        enrichVersionedContractKey(k).map(Some(_))
       case None =>
         ResultNone
     }
@@ -162,15 +163,15 @@ final class ValueEnricher(
       case create: Node.Create =>
         for {
           arg <- enrichValue(Ast.TTyCon(create.templateId), create.arg)
-          key <- enrichContractKey(create.templateId, create.key)
-        } yield create.copy(arg = arg, key = key)
+          key <- enrichContractKey(create.keyOpt)
+        } yield create.copy(arg = arg, keyOpt = key)
       case fetch: Node.Fetch =>
         for {
-          key <- enrichContractKey(fetch.templateId, fetch.key)
-        } yield fetch.copy(key = key)
+          key <- enrichContractKey(fetch.keyOpt)
+        } yield fetch.copy(keyOpt = key)
       case lookup: Node.LookupByKey =>
         for {
-          key <- enrichContractKey(lookup.templateId, lookup.key)
+          key <- enrichContractKey(lookup.key)
         } yield lookup.copy(key = key)
       case exe: Node.Exercise =>
         for {
@@ -188,8 +189,8 @@ final class ValueEnricher(
             case None =>
               ResultNone
           }
-          key <- enrichContractKey(exe.templateId, exe.key)
-        } yield exe.copy(chosenValue = choiceArg, exerciseResult = result, key = key)
+          key <- enrichContractKey(exe.keyOpt)
+        } yield exe.copy(chosenValue = choiceArg, exerciseResult = result, keyOpt = key)
     }
 
   def enrichTransaction(tx: Transaction): Result[Transaction] =

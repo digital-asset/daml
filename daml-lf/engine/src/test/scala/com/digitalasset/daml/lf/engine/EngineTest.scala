@@ -11,15 +11,14 @@ import com.daml.lf.data._
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.Util._
 import com.daml.lf.transaction.{
-  GlobalKey,
-  GlobalKeyWithMaintainers,
-  Node,
-  NodeId,
-  Normalization,
-  ReplayMismatch,
   SubmittedTransaction,
+  Node,
+  ReplayMismatch,
+  Normalization,
+  GlobalKeyWithMaintainers,
+  NodeId,
+  GlobalKey,
   Validation,
-  Versioned,
   VersionedTransaction,
   Transaction => Tx,
   TransactionVersion => TxVersions,
@@ -28,22 +27,23 @@ import com.daml.lf.value.Value
 import Value._
 import com.daml.bazeltools.BazelRunfiles.rlocation
 import com.daml.lf
-import com.daml.lf.speedy.{ArrayList, DisclosedContract, InitialSeeding, SValue, svalue}
+import com.daml.lf.speedy.{SValue, svalue, ArrayList, DisclosedContract, InitialSeeding}
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.command._
 import com.daml.lf.crypto.Hash
 import com.daml.lf.engine.Error.Interpretation
 import com.daml.lf.engine.Error.Interpretation.DamlException
-import com.daml.lf.language.{LanguageVersion, PackageInterface, StablePackage}
+import com.daml.lf.language.{PackageInterface, LanguageVersion, StablePackage}
+import com.daml.lf.transaction.Versioned
 import com.daml.lf.transaction.test.TransactionBuilder.assertAsVersionedContract
 import com.daml.logging.LoggingContext
 import com.daml.test.evidence.scalatest.ScalaTestSupport.Implicits.tagToContainer
 import com.daml.test.evidence.tag.Security.SecurityTest.Property.Authorization
 import com.daml.test.evidence.tag.Security.{
-  Attack,
-  SecurityTest,
-  SecurityTestLayer,
   SecurityTestSuite,
+  SecurityTestLayer,
+  SecurityTest,
+  Attack,
 }
 import org.scalactic.Equality
 import org.scalatest.prop.TableDrivenPropertyChecks
@@ -51,7 +51,7 @@ import org.scalatest.{Assertion, EitherValues}
 import org.scalatest.wordspec.AnyWordSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.Inside._
-import org.scalatest.matchers.{MatchResult, Matcher}
+import org.scalatest.matchers.{Matcher, MatchResult}
 
 import scala.collection.immutable.HashMap
 import scala.language.implicitConversions
@@ -785,7 +785,7 @@ class EngineTest
           driverMetadata = usedDisclosedContract.metadata.driverMetadata,
           signatories = Set(alice),
           stakeholders = Set(alice),
-          maybeKeyWithMaintainers = Some(
+          keyOpt = Some(
             Versioned(
               transactionVersion,
               GlobalKeyWithMaintainers(
@@ -1533,7 +1533,7 @@ class EngineTest
         newEngine()
           .reinterpret(
             submitters,
-            ReplayCommand.LookupByKey(lookupNode.templateId, lookupNode.key.key),
+            ReplayCommand.LookupByKey(lookupNode.templateId, lookupNode.key.value),
             nodeSeedMap.get(nid),
             txMeta.submissionTime,
             now,
@@ -1577,7 +1577,7 @@ class EngineTest
         newEngine()
           .reinterpret(
             submitters,
-            ReplayCommand.LookupByKey(lookupNode.templateId, lookupNode.key.key),
+            ReplayCommand.LookupByKey(lookupNode.templateId, lookupNode.key.value),
             nodeSeedMap.get(nid),
             txMeta.submissionTime,
             now,
@@ -1680,7 +1680,7 @@ class EngineTest
           driverMetadata = usedDisclosedContract.metadata.driverMetadata,
           signatories = Set(alice),
           stakeholders = Set(alice),
-          maybeKeyWithMaintainers = Some(
+          keyOpt = Some(
             Versioned(
               transactionVersion,
               GlobalKeyWithMaintainers(
@@ -1742,7 +1742,7 @@ class EngineTest
           driverMetadata = usedDisclosedContract.metadata.driverMetadata,
           signatories = Set(alice),
           stakeholders = Set(alice),
-          maybeKeyWithMaintainers = None,
+          keyOpt = None,
           agreementText = s"'$alice'", // agreement show party
         ),
       )
@@ -1824,7 +1824,7 @@ class EngineTest
         case Some(Node.Fetch(_, _, _, _, _, key, _, _)) =>
           key match {
             // just test that the maintainers match here, getting the key out is a bit hairier
-            case Some(Node.KeyWithMaintainers(_, maintainers)) =>
+            case Some(GlobalKeyWithMaintainers(_, maintainers)) =>
               assert(maintainers == Set(alice))
             case None => fail("the recomputed fetch didn't have a key")
           }
@@ -1894,9 +1894,9 @@ class EngineTest
 
       tx.transaction.nodes
         .collectFirst { case (id, nf: Node.Fetch) =>
-          nf.key match {
+          nf.keyOpt match {
             // just test that the maintainers match here, getting the key out is a bit hairier
-            case Some(Node.KeyWithMaintainers(_, maintainers)) =>
+            case Some(GlobalKeyWithMaintainers(_, maintainers)) =>
               assert(maintainers == Set(alice))
             case None => fail("the recomputed fetch didn't have a key")
           }
@@ -2647,14 +2647,14 @@ object EngineTest {
               case create: Node.Create =>
                 ReplayCommand.Create(create.templateId, create.arg)
               case fetch: Node.Fetch if fetch.byKey =>
-                val key = fetch.key.getOrElse(sys.error("unexpected empty contract key")).key
+                val key = fetch.keyOpt.getOrElse(sys.error("unexpected empty contract key")).value
                 ReplayCommand.FetchByKey(fetch.templateId, key)
               case fetch: Node.Fetch =>
                 ReplayCommand.Fetch(fetch.templateId, fetch.coid)
               case lookup: Node.LookupByKey =>
-                ReplayCommand.LookupByKey(lookup.templateId, lookup.key.key)
+                ReplayCommand.LookupByKey(lookup.templateId, lookup.key.value)
               case exe: Node.Exercise if exe.byKey =>
-                val key = exe.key.getOrElse(sys.error("unexpected empty contract key")).key
+                val key = exe.keyOpt.getOrElse(sys.error("unexpected empty contract key")).value
                 ReplayCommand.ExerciseByKey(
                   exe.templateId,
                   key,
@@ -2805,8 +2805,8 @@ object EngineTest {
               create.coid,
               create.versionedCoinst,
             ),
-            create.key.fold(keys)(k =>
-              keys.updated(GlobalKey.assertBuild(create.templateId, k.key), create.coid)
+            create.keyOpt.fold(keys)(k =>
+              keys.updated(GlobalKey.assertBuild(create.templateId, k.value), create.coid)
             ),
           )
         case (acc, _) => acc

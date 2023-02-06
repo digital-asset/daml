@@ -34,7 +34,7 @@ class AuthorizationSpec extends AnyFreeSpec with Matchers with Inside {
       argument = ValueRecord(None, ImmArray.Empty),
       signatories = signatories,
       observers = Seq("Carl"),
-      key = Some(Value.ValueUnit),
+      keyOpt = Some(Value.ValueUnit),
       maintainers = maintainers,
     )
 

@@ -537,7 +537,7 @@ object TransactionConversionsSpec {
       choiceObservers = choiceObservers,
       children = children,
       exerciseResult = None,
-      key = None,
+      keyOpt = None,
       byKey = false,
       version = TransactionVersion.VDev,
     )

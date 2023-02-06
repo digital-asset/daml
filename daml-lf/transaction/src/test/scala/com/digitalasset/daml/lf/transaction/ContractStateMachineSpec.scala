@@ -5,7 +5,8 @@ package com.daml
 package lf
 package transaction
 
-import com.daml.lf.data.{ImmArray, Ref}
+import com.daml.lf.data.Ref.TypeConName
+import com.daml.lf.data.{Ref, ImmArray}
 import com.daml.lf.transaction.ContractStateMachine.{
   ActiveLedgerState,
   KeyActive,
@@ -14,7 +15,6 @@ import com.daml.lf.transaction.ContractStateMachine.{
   KeyResolver,
 }
 import com.daml.lf.transaction.ContractStateMachineSpec._
-import com.daml.lf.transaction.Node.KeyWithMaintainers
 import com.daml.lf.transaction.Transaction.{
   ChildrenRecursion,
   DuplicateContractKey,
@@ -60,8 +60,15 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
     ContractId.V1(hash)
   }
 
-  private def toKeyWithMaintainers(key: String): Option[KeyWithMaintainers] =
-    if (key.isEmpty) None else Some(Node.KeyWithMaintainers(Value.ValueText(key), aliceS))
+  private def toKeyWithMaintainers(templateId: TypeConName, key: String): GlobalKeyWithMaintainers =
+    GlobalKeyWithMaintainers.assertBuild(templateId, Value.ValueText(key), aliceS)
+
+  private def toOptKeyWithMaintainers(
+      templateId: TypeConName,
+      key: String,
+  ): Option[GlobalKeyWithMaintainers] =
+    if (key.isEmpty) None
+    else Some(toKeyWithMaintainers(templateId, key))
 
   def gkey(key: String): GlobalKey =
     GlobalKey.assertBuild(templateId, Value.ValueText(key))
@@ -77,7 +84,7 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
       agreementText = "",
       signatories = aliceS,
       stakeholders = aliceS,
-      key = toKeyWithMaintainers(key),
+      keyOpt = toOptKeyWithMaintainers(templateId, key),
       version = txVersion,
     )
 
@@ -100,7 +107,7 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
       choiceObservers = Set.empty,
       children = ImmArray.Empty,
       exerciseResult = None,
-      key = toKeyWithMaintainers(key),
+      keyOpt = toOptKeyWithMaintainers(templateId, key),
       byKey = byKey,
       version = txVersion,
     )
@@ -117,7 +124,7 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
       actingParties = aliceS,
       signatories = aliceS,
       stakeholders = aliceS,
-      key = toKeyWithMaintainers(key),
+      keyOpt = toOptKeyWithMaintainers(templateId, key),
       byKey = byKey,
       version = txVersion,
     )
@@ -129,7 +136,7 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
   ): Node.LookupByKey =
     Node.LookupByKey(
       templateId = templateId,
-      key = Node.KeyWithMaintainers(Value.ValueText(key), aliceS),
+      key = toKeyWithMaintainers(templateId, key),
       result = contractId,
       version = txVersion,
     )
@@ -655,9 +662,7 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
         case _: Node.Authority =>
           ??? // TODO #15882 -- treat like exercise with no keys. recurse directly on children
         case actionNode: Node.Action =>
-          lazy val gkeyO =
-            actionNode.keyOpt.map(key => GlobalKey.assertBuild(actionNode.templateId, key.key))
-          state.handleNode((), actionNode, gkeyO.flatMap(resolver))
+          state.handleNode((), actionNode, actionNode.gkeyOpt.flatMap(resolver))
         case _: Node.Rollback =>
           Right(state.beginRollback())
       }
@@ -736,25 +741,24 @@ object ContractStateMachineSpec {
   def resolverFromTx(tx: HasTxNodes): KeyResolver = {
     def updateKey(
         resolver: KeyResolver,
-        templateId: Ref.TypeConName,
-        mbKey: Option[KeyWithMaintainers],
+        mbKey: Option[GlobalKey],
         mapping: KeyMapping,
-    ): KeyResolver = mbKey.fold(resolver) { key =>
-      val gkey = GlobalKey.assertBuild(templateId, key.key)
+    ): KeyResolver = mbKey.fold(resolver) { gkey =>
       if (resolver.contains(gkey)) resolver else resolver.updated(gkey, mapping)
     }
 
     tx.foldInExecutionOrder(Map.empty: KeyResolver)(
       exerciseBegin = (s, _, ex) =>
-        updateKey(s, ex.templateId, ex.key, KeyActive(ex.targetCoid)) ->
+        updateKey(s, ex.gkeyOpt, KeyActive(ex.targetCoid)) ->
           ChildrenRecursion.DoRecurse,
       exerciseEnd = (s, _, _) => s,
       leaf = (s, _, leaf) =>
         leaf match {
-          case create: Node.Create => updateKey(s, create.templateId, create.key, KeyInactive)
-          case fetch: Node.Fetch => updateKey(s, fetch.templateId, fetch.key, KeyActive(fetch.coid))
+          case create: Node.Create => updateKey(s, create.gkeyOpt, KeyInactive)
+          case fetch: Node.Fetch =>
+            updateKey(s, fetch.gkeyOpt, KeyActive(fetch.coid))
           case lookup: Node.LookupByKey =>
-            updateKey(s, lookup.templateId, Some(lookup.key), lookup.result)
+            updateKey(s, Some(lookup.gkey), lookup.result)
         },
       rollbackBegin = (s, _, _) => s -> ChildrenRecursion.DoRecurse,
       rollbackEnd = (s, _, _) => s,

@@ -7,16 +7,17 @@ package value
 
 import com.daml.lf.data.Ref._
 import com.daml.lf.data._
-import com.daml.lf.transaction.{TransactionVersion, Versioned}
+import com.daml.lf.transaction.{Versioned, TransactionVersion}
 import com.daml.lf.value.Value._
 import com.daml.lf.value.{ValueOuterClass => proto}
+import com.daml.nameof.NameOf
 import com.daml.scalautil.Statement.discard
 import com.google.protobuf
 import com.google.protobuf.{ByteString, CodedInputStream}
 
 import scala.Ordering.Implicits.infixOrderingOps
 import scala.jdk.CollectionConverters._
-import scala.util.{Failure, Success, Try}
+import scala.util.{Try, Success, Failure}
 
 /** Utilities to serialize and de-serialize Values
   * as they form part of transactions, nodes and contract instances
@@ -88,6 +89,12 @@ object ValueCoder {
 
   val NoCidDecoder: DecodeCid = new DecodeCid {
     override def decodeOptional(structForm: ValueOuterClass.ContractId) = Right(None)
+  }
+
+  // To be use only when certain the value does not contain Contract Ids
+  val UnsafeNoCidEncoder: EncodeCid = new EncodeCid {
+    override private[lf] def encode(contractId: ContractId) =
+      InternalError.runtimeException(NameOf.qualifiedNameOfCurrentFunc, "unexpected contract ID")
   }
 
   /** Simple encoding to wire of identifiers

@@ -73,11 +73,11 @@ private[preprocessing] final class TransactionPreprocessor(
             case create: Node.Create =>
               acc :+ commandPreprocessor.unsafePreprocessCreate(create.templateId, create.arg)
             case exe: Node.Exercise =>
-              val cmd = exe.key match {
+              val cmd = exe.keyOpt match {
                 case Some(key) if exe.byKey =>
                   commandPreprocessor.unsafePreprocessExerciseByKey(
                     exe.templateId,
-                    key.key,
+                    key.globalKey.key,
                     exe.choiceId,
                     exe.chosenValue,
                   )

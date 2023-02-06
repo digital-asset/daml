@@ -234,8 +234,7 @@ object UpdateToDbDto {
                   create_agreement_text = Some(create.agreementText).filter(_.nonEmpty),
                   create_key_value = createKeyValue
                     .map(compressionStrategy.createKeyValueCompression.compress),
-                  create_key_hash = create.key
-                    .map(key => Key.assertBuild(create.templateId, key.key).hash.bytes.toHexString),
+                  create_key_hash = create.keyOpt.map(_.globalKey.hash.bytes.toHexString),
                   create_argument_compression = compressionStrategy.createArgumentCompression.id,
                   create_key_value_compression =
                     compressionStrategy.createKeyValueCompression.id.filter(_ =>

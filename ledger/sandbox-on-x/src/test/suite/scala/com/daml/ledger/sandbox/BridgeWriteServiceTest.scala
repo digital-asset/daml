@@ -30,7 +30,7 @@ class BridgeWriteServiceTest extends AnyFlatSpec with MockitoSugar with Matchers
     agreementText = "dummyAgreement",
     signatories = Set.empty,
     stakeholders = Set.empty,
-    key = None,
+    keyOpt = None,
     version = TransactionVersion.minVersion,
   )
 

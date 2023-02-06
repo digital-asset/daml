@@ -4,14 +4,14 @@
 package com.daml.platform.participant.util
 
 import java.time.Instant
-
-import com.daml.ledger.api.v1.event.{ArchivedEvent, CreatedEvent, Event, ExercisedEvent}
+import com.daml.ledger.api.v1.event.{CreatedEvent, ExercisedEvent, Event, ArchivedEvent}
 import com.daml.ledger.api.v1.transaction.TreeEvent
 import com.daml.ledger.api.v1.{value => api}
 import com.daml.lf.data.LawlessTraversals._
 import com.daml.lf.data.Ref.Identifier
 import com.daml.lf.data.{Numeric, Ref}
 import com.daml.lf.ledger.EventId
+import com.daml.lf.transaction.GlobalKeyWithMaintainers
 import com.daml.lf.transaction.{Node, NodeId}
 import com.daml.lf.value.{Value => Lf}
 import com.google.protobuf.empty.Empty
@@ -173,13 +173,13 @@ object LfEngineToApi {
 
   def lfContractKeyToApiValue(
       verbose: Boolean,
-      lf: Node.KeyWithMaintainers,
+      lf: GlobalKeyWithMaintainers,
   ): Either[String, api.Value] =
-    lfValueToApiValue(verbose, lf.key)
+    lfValueToApiValue(verbose, lf.value)
 
   def lfContractKeyToApiValue(
       verbose: Boolean,
-      lf: Option[Node.KeyWithMaintainers],
+      lf: Option[GlobalKeyWithMaintainers],
   ): Either[String, Option[api.Value]] =
     lf.fold[Either[String, Option[api.Value]]](Right(None))(
       lfContractKeyToApiValue(verbose, _).map(Some(_))
@@ -193,7 +193,7 @@ object LfEngineToApi {
   ): Either[String, Event] =
     for {
       arg <- lfValueToApiRecord(verbose, node.arg)
-      key <- lfContractKeyToApiValue(verbose, node.key)
+      key <- lfContractKeyToApiValue(verbose, node.keyOpt)
     } yield Event(
       Event.Event.Created(
         CreatedEvent(
@@ -238,7 +238,7 @@ object LfEngineToApi {
   ): Either[String, TreeEvent] =
     for {
       arg <- lfValueToApiRecord(verbose, node.arg)
-      key <- lfContractKeyToApiValue(verbose, node.key)
+      key <- lfContractKeyToApiValue(verbose, node.keyOpt)
     } yield TreeEvent(
       TreeEvent.Kind.Created(
         CreatedEvent(

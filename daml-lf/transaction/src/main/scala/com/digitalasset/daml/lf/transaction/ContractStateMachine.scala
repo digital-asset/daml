@@ -125,7 +125,7 @@ class ContractStateMachine[Nid](mode: ContractKeyUniquenessMode) {
 
     /** Visit a create node */
     def handleCreate(node: Node.Create): Either[KeyInputError, State] =
-      visitCreate(node.coid, globalKeyOpt(node)).left.map(Right(_))
+      visitCreate(node.coid, node.gkeyOpt).left.map(Right(_))
 
     private[lf] def visitCreate(
         contractId: ContractId,
@@ -164,7 +164,7 @@ class ContractStateMachine[Nid](mode: ContractKeyUniquenessMode) {
       visitExercise(
         nid,
         exe.targetCoid,
-        globalKeyOpt(exe),
+        exe.gkeyOpt,
         exe.byKey,
         exe.consuming,
       ).left
@@ -204,7 +204,7 @@ class ContractStateMachine[Nid](mode: ContractKeyUniquenessMode) {
         throw new UnsupportedOperationException(
           "handleLookup can only be used if all key nodes are considered"
         )
-      visitLookup(globalKey(lookup), lookup.result, lookup.result).left.map(Left(_))
+      visitLookup(lookup.gkey, lookup.result, lookup.result).left.map(Left(_))
     }
 
     /** Must be used to handle lookups iff in [[com.daml.lf.transaction.ContractKeyUniquenessMode.Off]] mode
@@ -226,7 +226,7 @@ class ContractStateMachine[Nid](mode: ContractKeyUniquenessMode) {
         throw new UnsupportedOperationException(
           "handleLookupWith can only be used if only by-key nodes are considered"
         )
-      visitLookup(globalKey(lookup), keyInput, lookup.result).left.map(Left(_))
+      visitLookup(lookup.gkey, keyInput, lookup.result).left.map(Left(_))
     }
 
     private[lf] def visitLookup(
@@ -274,7 +274,7 @@ class ContractStateMachine[Nid](mode: ContractKeyUniquenessMode) {
     }
 
     def handleFetch(node: Node.Fetch): Either[KeyInputError, State] =
-      visitFetch(node.coid, globalKeyOpt(node), node.byKey).left.map(Left(_))
+      visitFetch(node.coid, node.gkeyOpt, node.byKey).left.map(Left(_))
 
     private[lf] def visitFetch(
         contractId: ContractId,
@@ -531,11 +531,5 @@ object ContractStateMachine {
       ActiveLedgerState(Set.empty, Map.empty, Map.empty)
     def empty[Nid]: ActiveLedgerState[Nid] = EMPTY
   }
-
-  private def globalKeyOpt(node: Node.Action) =
-    node.keyOpt.map(k => GlobalKey.assertBuild(node.templateId, k.key))
-
-  private def globalKey(node: Node.LookupByKey) =
-    GlobalKey.assertBuild(node.templateId, node.key.key)
 
 }

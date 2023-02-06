@@ -80,7 +80,7 @@ class LedgerTimeAwareCommandExecutorSpec
           driverMetadata = Bytes.Empty,
           signatories = Set.empty,
           stakeholders = Set.empty,
-          maybeKeyWithMaintainers = None,
+          keyOpt = None,
           agreementText = "",
         ),
       ),
