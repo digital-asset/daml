@@ -35,7 +35,7 @@ It is timestamp with microsecond resolution,
 and is assigned by the backing storage mechanism when the transaction is persisted.
 
 The record time should be an intuitive representation of "real time",
-but the Daml abstract ledger model does not prescribe how exactly the record time is assigned.
+but the Daml abstract ledger model does not prescribe exactly how to assign the record time.
 Each persistance technology might use a different way of representing time in a distributed setting.
 
 
