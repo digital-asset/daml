@@ -60,14 +60,10 @@ object TriggerRunner {
                 Behaviors
                   .supervise(
                     Behaviors
-                      .supervise(
-                        Behaviors
-                          .supervise(TriggerRunnerImpl(config))
-                          .onFailure[InitializationHalted](stop)
-                      )
-                      .onFailure[UnauthenticatedException](stop)
+                      .supervise(TriggerRunnerImpl(config))
+                      .onFailure[InitializationHalted](stop)
                   )
-                  .onFailure[TriggerOverflowException](stop)
+                  .onFailure[UnauthenticatedException](stop)
               )
               .onFailure(
                 restartWithBackoff(

@@ -646,7 +646,7 @@ trait AbstractTriggerServiceTest extends AbstractTriggerServiceTestHelper {
     )
   }
 
-  val catsAppId = ApiTypes.ApplicationId("cats-app-id")
+  val catsAppId: ApplicationId = ApiTypes.ApplicationId("cats-app-id")
 
   it should "stop the trigger if the ACS is too large at initialization time" inClaims withTriggerService(
     List(dar),

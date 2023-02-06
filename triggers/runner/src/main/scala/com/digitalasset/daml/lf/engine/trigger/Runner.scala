@@ -961,7 +961,8 @@ private[lf] class Runner private (
                       "active" -> acs.length,
                       "pending" -> 0,
                     )
-                  )
+                  ),
+                  "in-flight" -> 0,
                 )
               ),
             )
