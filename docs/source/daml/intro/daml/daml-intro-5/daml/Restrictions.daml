@@ -54,13 +54,13 @@ template SimpleIou
           dow = dayOfWeek today
           timeofday = now `subTime` time today 0 0 0
           hrs = convertRelTimeToMicroseconds timeofday / 3600000000
-        assertMsg
-          ("Cannot redeem outside business hours. Current time: " <> show timeofday)
-          (hrs >= 8 && hrs <= 18)
-        case dow of
-          Saturday -> abort "Cannot redeem on a Saturday."
-          Sunday -> abort "Cannot redeem on a Sunday."
-          _ -> return ()
+        if (hrs < 8 && hrs > 18) then
+          abort "Cannot redeem outside business hours. Current time: " <> show timeofday
+        else if dow == Saturday then
+          abort "Cannot redeem on a Saturday."
+        else if dow == Sunday then 
+          abort "Cannot redeem on a Sunday."
+        else return ()
 -- REDEEM_CHOICE_END
 
 -- RESTRICTIONS_TEST_BEGIN

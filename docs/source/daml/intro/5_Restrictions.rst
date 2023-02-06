@@ -73,7 +73,8 @@ Similarly, you can write a ``Redeem`` choice, which allows the ``owner`` to rede
   :start-after: -- REDEEM_CHOICE_BEGIN
   :end-before: -- REDEEM_CHOICE_END
 
-There's quite a lot going on inside the ``do`` block of the ``Redeem`` choice, with several uses of the ``<-`` operator. ``do`` blocks and ``<-`` deserve a proper explanation which we will get to below. For now, let's look at how the ``Redeem`` choice is exercised in a script.
+
+Now let's look at how the ``Redeem`` choice is exercised in a script:
 
 .. literalinclude:: daml/daml-intro-5/daml/Restrictions.daml
   :language: daml
