@@ -17,6 +17,7 @@ import com.daml.ledger.api.v1.admin.user_management_service.{
   UpdateUserResponse,
 }
 import com.daml.ledger.api.v1.admin.{user_management_service => proto}
+import com.daml.ledger.participant.state.index.v2.IndexPartyManagementService
 import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
@@ -43,6 +44,7 @@ private[apiserver] final class ApiUserManagementService(
     partyRecordExist: PartyRecordsExist,
     maxUsersPageSize: Int,
     submissionIdGenerator: SubmissionIdGenerator,
+    indexPartyManagementService: IndexPartyManagementService,
 )(implicit
     executionContext: ExecutionContext,
     loggingContext: LoggingContext,
@@ -402,19 +404,42 @@ private[apiserver] final class ApiUserManagementService(
 
     partiesExistingInPartyRecordStore
       .flatMap { partiesExist =>
-        val partiesNotExist = parties -- partiesExist
-        if (partiesNotExist.isEmpty)
+        val partiesWithoutRecord = parties -- partiesExist
+        if (partiesWithoutRecord.isEmpty)
           Future.unit
         else
-          Future.failed(
-            LedgerApiErrors.RequestValidation.InvalidArgument
-              .Reject(
-                s"Provided parties have not been found in identity_provider_id=`${identityProviderId.toRequestString}`: [${partiesNotExist
-                    .mkString(",")}]."
-              )
-              .asGrpcError
-          )
+          verifyPartiesExistsInIdp(partiesWithoutRecord, identityProviderId)
       }
+  }
+
+  private def verifyPartiesExistsInIdp(
+      partiesWithoutRecord: Set[Ref.Party],
+      identityProviderId: IdentityProviderId,
+  ): Future[Unit] =
+    indexKnownParties(partiesWithoutRecord.toList).flatMap { partiesKnown =>
+      val unknownParties = partiesWithoutRecord -- partiesKnown
+      if (unknownParties.isEmpty) Future.unit
+      else
+        partiesNotExistsError(unknownParties, identityProviderId)
+    }
+
+  private def indexKnownParties(parties: Seq[Ref.Party]): Future[Set[Ref.Party]] =
+    indexPartyManagementService.getParties(parties).map { partyDetails =>
+      partyDetails.map(_.party).toSet
+    }
+
+  private def partiesNotExistsError(
+      unknownParties: Set[Ref.Party],
+      identityProviderId: IdentityProviderId,
+  ) = {
+    val message =
+      s"Provided parties have not been found in " +
+        s"identity_provider_id=`${identityProviderId.toRequestString}`: [${unknownParties.mkString(",")}]."
+    Future.failed(
+      LedgerApiErrors.RequestValidation.InvalidArgument
+        .Reject(message)
+        .asGrpcError
+    )
   }
 
   private def identityProviderExistsOrError(id: IdentityProviderId): Future[Unit] =
