@@ -29,7 +29,6 @@ import com.daml.platform.localstore.api.UserManagementStore
 import com.daml.platform.server.api.validation.FieldValidations
 import com.google.protobuf.InvalidProtocolBufferException
 import io.grpc.{ServerServiceDefinition, StatusRuntimeException}
-import scalaz.std.either._
 import scalaz.std.list._
 import scalaz.syntax.traverse._
 
@@ -404,23 +403,23 @@ private[apiserver] final class ApiUserManagementService(
 
     partiesExistingInPartyRecordStore
       .flatMap { partiesExist =>
-        val partyRecordNotNotExist = parties -- partiesExist
-        if (partyRecordNotNotExist.isEmpty)
+        val partiesWithoutRecord = parties -- partiesExist
+        if (partiesWithoutRecord.isEmpty)
           Future.unit
         else
-          verifyPartiesExistsInIdp(partyRecordNotNotExist, identityProviderId)
+          verifyPartiesExistsInIdp(partiesWithoutRecord, identityProviderId)
       }
   }
 
   private def verifyPartiesExistsInIdp(
-      partyRecordNotExist: Set[Ref.Party],
+      partiesWithoutRecord: Set[Ref.Party],
       identityProviderId: IdentityProviderId,
   ): Future[Unit] =
-    indexKnownParties(partyRecordNotExist.toList).flatMap { partiesKnown =>
-      val partyNotKnownNotExist = partyRecordNotExist -- partiesKnown
-      if (partyNotKnownNotExist.isEmpty) Future.unit
+    indexKnownParties(partiesWithoutRecord.toList).flatMap { partiesKnown =>
+      val unknownParties = partiesWithoutRecord -- partiesKnown
+      if (unknownParties.isEmpty) Future.unit
       else
-        partiesNotExistsError(partyNotKnownNotExist, identityProviderId)
+        partiesNotExistsError(unknownParties, identityProviderId)
     }
 
   private def indexKnownParties(parties: Seq[Ref.Party]): Future[Set[Ref.Party]] =
@@ -429,12 +428,12 @@ private[apiserver] final class ApiUserManagementService(
     }
 
   private def partiesNotExistsError(
-      partyRecordNotNotExist: Set[Ref.Party],
+      unknownParties: Set[Ref.Party],
       identityProviderId: IdentityProviderId,
   ) = {
     val message =
       s"Provided parties have not been found in " +
-        s"identity_provider_id=`${identityProviderId.toRequestString}`: [${partyRecordNotNotExist.mkString(",")}]."
+        s"identity_provider_id=`${identityProviderId.toRequestString}`: [${unknownParties.mkString(",")}]."
     Future.failed(
       LedgerApiErrors.RequestValidation.InvalidArgument
         .Reject(message)
