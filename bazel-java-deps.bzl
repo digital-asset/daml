@@ -105,7 +105,7 @@ def install_java_deps():
             "com.typesafe.akka:akka-testkit_{}:{}".format(scala_major_version, akka_version),
             "org.playframework.anorm:anorm_{}:2.6.8".format(scala_major_version),
             "org.playframework.anorm:anorm-akka_{}:2.6.8".format(scala_major_version),
-            "com.typesafe.scala-logging:scala-logging_{}:3.9.2".format(scala_major_version),
+            "com.typesafe.scala-logging:scala-logging_{}:3.9.5".format(scala_major_version),
             "com.zaxxer:HikariCP:3.2.0",
             "eu.rekawek.toxiproxy:toxiproxy-java:2.1.7",
             "io.circe:circe-core_{}:{}".format(scala_major_version, circe_version),
