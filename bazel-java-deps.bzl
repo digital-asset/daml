@@ -81,7 +81,7 @@ def install_java_deps():
             "com.google.code.gson:gson:2.10",
             "com.google.guava:guava:{}".format(guava_version),
             "com.h2database:h2:2.1.210",
-            "com.github.pathikrit:better-files_{}:3.8.0".format(scala_major_version),
+            "com.github.pathikrit:better-files_{}:3.9.1".format(scala_major_version),
             "com.github.tototoshi:scala-csv_{}:1.3.10".format(scala_major_version),
             "com.lihaoyi:sourcecode_{}:0.3.0".format(scala_major_version),
             "com.lihaoyi:pprint_{}:0.8.1".format(scala_major_version),
