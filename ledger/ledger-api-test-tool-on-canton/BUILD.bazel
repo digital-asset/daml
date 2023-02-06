@@ -93,9 +93,7 @@ conformance_test(
     extra_runner_args = ["7000"],
     lf_versions = [
         "default",
-        # TODO https://github.com/digital-asset/daml/issues/12051
-        #  uncomment as soon as canton has a up-to-date engine
-        #"latest",
+        "latest",
     ],
     ports = conformance_test_ports,
     runner = "@//bazel_tools/client_server/runner_with_health_check",

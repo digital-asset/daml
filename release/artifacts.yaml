@@ -197,6 +197,8 @@
   type: jar-scala
 - target: //ledger/test-common:test-common-1.14
   type: jar-scala
+- target: //ledger/test-common:test-common-1.15
+  type: jar-scala
 - target: //ledger/test-common:test-common-1.dev
   type: jar-scala
 - target: //ledger/test-common:carbonv1-tests-1.15.scala
