@@ -9,7 +9,14 @@ import com.daml.bazeltools.BazelRunfiles.rlocation
 import com.daml.ledger.api.benchtool.config.WorkflowConfig
 import com.daml.ledger.api.benchtool.metrics.MetricsManager.NoOpMetricsManager
 import com.daml.ledger.api.benchtool.services.LedgerApiServices
-import com.daml.ledger.api.benchtool.submission.{AllocatedParties, CommandSubmitter, FooSubmission, Names, PartyAllocating, RandomnessProvider}
+import com.daml.ledger.api.benchtool.submission.{
+  AllocatedParties,
+  CommandSubmitter,
+  FooSubmission,
+  Names,
+  PartyAllocating,
+  RandomnessProvider,
+}
 import com.daml.ledger.test.BenchtoolTestDar
 import com.daml.lf.language.LanguageVersion
 import com.daml.metrics.api.noop.NoOpMetricsFactory

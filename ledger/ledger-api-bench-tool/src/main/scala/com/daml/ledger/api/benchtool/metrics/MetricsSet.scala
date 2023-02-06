@@ -6,8 +6,8 @@ package com.daml.ledger.api.benchtool.metrics
 import java.time.{Clock, Duration}
 
 import com.daml.ledger.api.benchtool.config.WorkflowConfig.StreamConfig._
-import com.daml.ledger.api.benchtool.metrics.metrics.TotalStreamRuntimeMetric
-import com.daml.ledger.api.benchtool.metrics.metrics.TotalStreamRuntimeMetric.MaxDurationObjective
+import com.daml.ledger.api.benchtool.metrics.metrics.TotalRuntimeMetric
+import com.daml.ledger.api.benchtool.metrics.metrics.TotalRuntimeMetric.MaxDurationObjective
 import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
 import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
 import com.daml.ledger.api.v1.transaction_service.{
@@ -16,9 +16,6 @@ import com.daml.ledger.api.v1.transaction_service.{
 }
 import com.daml.metrics.api.MetricHandle.MetricsFactory
 import com.google.protobuf.timestamp.Timestamp
-import java.time.{Clock, Duration}
-import com.daml.ledger.api.benchtool.metrics.metrics.TotalRuntimeMetric
-import com.daml.ledger.api.benchtool.metrics.metrics.TotalRuntimeMetric.MaxDurationObjective
 
 import scala.concurrent.duration.FiniteDuration
 
