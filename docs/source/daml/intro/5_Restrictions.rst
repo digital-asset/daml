@@ -73,6 +73,7 @@ Similarly, you can write a ``Redeem`` choice, which allows the ``owner`` to rede
   :start-after: -- REDEEM_CHOICE_BEGIN
   :end-before: -- REDEEM_CHOICE_END
 
+Notice in the above example, the time is taken apart into day of week and hour of day using standard library functions from ``DA.Date`` and ``DA.Time``. The hour of the day is checked to be in the range from 8 to 18. The day of week is checked to not be Saturday or Sunday.
 
 Now let's look at how the ``Redeem`` choice is exercised in a script:
 
@@ -81,9 +82,7 @@ Now let's look at how the ``Redeem`` choice is exercised in a script:
   :start-after: -- REDEEM_TEST_BEGIN
   :end-before: -- REDEEM_TEST_END
 
-In the above example, the time is taken apart into day of week and hour of day using standard library functions from ``DA.Date`` and ``DA.Time``. The hour of the day is checked to be in the range from 8 to 18.
-
-There are quite a few new time-related functions from the ``DA.Time`` and ``DA.Date`` libraries here. Their names should be reasonably descriptive so how they work won't be covered here, but given that Daml assumes it is run in a distributed setting, we will still discuss time in Daml.
+For the purposes of testing the ``Redeem`` choice, the above code sets and advances the ledger time with the ``setTime`` and ``passTime`` functions respectively. Exercising the choice should fail or should not fail depending on the day of week and the time of day. While that is straightforward, the issue of time on a Daml ledger is worthy of more discussion.
 
 Time on Daml Ledgers
 --------------------
