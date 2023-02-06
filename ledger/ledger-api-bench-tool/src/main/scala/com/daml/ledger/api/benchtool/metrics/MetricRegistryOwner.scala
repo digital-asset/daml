@@ -3,52 +3,50 @@
 
 package com.daml.ledger.api.benchtool.metrics
 
+import java.util.concurrent.TimeUnit
+
+import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
+import com.daml.metrics.api.reporters.MetricsReporter
+import io.opentelemetry.api.metrics.MeterProvider
+import io.opentelemetry.exporter.prometheus.PrometheusHttpServer
+import io.opentelemetry.sdk.metrics.SdkMeterProvider
+import io.opentelemetry.sdk.metrics.`export`.PeriodicMetricReader
 import org.slf4j.Logger
 
 import scala.concurrent.duration.Duration
-import java.util.concurrent.TimeUnit
-import com.codahale.metrics.{MetricRegistry, ScheduledReporter, Slf4jReporter}
-import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
-import com.daml.metrics.api.reporters.MetricsReporter
-
-import scala.concurrent.Future
 
 class MetricRegistryOwner(
     reporter: MetricsReporter,
     reportingInterval: Duration,
     logger: Logger,
-) extends ResourceOwner[MetricRegistry] {
+) extends ResourceOwner[MeterProvider] {
   override def acquire()(implicit
       context: ResourceContext
-  ): Resource[MetricRegistry] =
-    for {
-      registry <- ResourceOwner.forValue(() => new MetricRegistry).acquire()
-      _ <- acquireSlfjReporter(registry)
-      metricsReporter <- acquireMetricsReporter(registry)
-      _ = metricsReporter.start(reportingInterval.toMillis, TimeUnit.MILLISECONDS)
-    } yield registry
+  ): Resource[MeterProvider] =
+    ResourceOwner.forCloseable(() => metricOwner).acquire()
 
-  private def acquireSlfjReporter(
-      registry: MetricRegistry
-  )(implicit context: ResourceContext): Resource[Slf4jReporter] =
-    Resource {
-      Future.successful(newSlf4jReporter(registry))
-    } { reporter =>
-      Future(reporter.report()) // Trigger a report to the SLF4J logger on shutdown.
-        .andThen { case _ => reporter.close() } // Gracefully shut down
+  private def metricOwner = {
+    val loggingMetricReader = PeriodicMetricReader
+      .builder(new Slf4jMetricExporter(logger))
+      .setInterval(reportingInterval.toMillis, TimeUnit.MILLISECONDS)
+      .newMetricReaderFactory()
+    val meterProviderBuilder = SdkMeterProvider
+      .builder()
+    reporter match {
+      case MetricsReporter.Console => meterProviderBuilder.registerMetricReader(loggingMetricReader)
+      case MetricsReporter.Prometheus(address) =>
+        meterProviderBuilder
+          .registerMetricReader(loggingMetricReader)
+          .registerMetricReader(
+            PrometheusHttpServer
+              .builder()
+              .setHost(address.getHostString)
+              .setPort(address.getPort)
+              .newMetricReaderFactory()
+          )
+      case _ => throw new IllegalArgumentException(s"Metric reporter $reporter not supported.")
     }
+    meterProviderBuilder.build()
+  }
 
-  private def acquireMetricsReporter(registry: MetricRegistry)(implicit
-      context: ResourceContext
-  ): Resource[ScheduledReporter] =
-    ResourceOwner.forCloseable(() => reporter.register(registry)).acquire()
-
-  private def newSlf4jReporter(registry: MetricRegistry): Slf4jReporter =
-    Slf4jReporter
-      .forRegistry(registry)
-      .convertRatesTo(TimeUnit.SECONDS)
-      .convertDurationsTo(TimeUnit.MILLISECONDS)
-      .withLoggingLevel(Slf4jReporter.LoggingLevel.DEBUG)
-      .outputTo(logger)
-      .build()
 }

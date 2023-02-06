@@ -6,7 +6,6 @@ package com.daml.ledger.api.benchtool.submission
 import akka.actor.ActorSystem
 import akka.stream.scaladsl.{Sink, Source}
 import akka.stream.{Materializer, OverflowStrategy}
-import com.codahale.metrics.{MetricRegistry, Timer}
 import com.daml.ledger.api.benchtool.config.WorkflowConfig.SubmissionConfig
 import com.daml.ledger.api.benchtool.infrastructure.TestDars
 import com.daml.ledger.api.benchtool.metrics.LatencyMetric.LatencyNanos
@@ -16,6 +15,8 @@ import com.daml.ledger.api.v1.commands.{Command, Commands}
 import com.daml.ledger.client
 import com.daml.ledger.client.binding.Primitive
 import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
+import com.daml.metrics.api.MetricHandle.{MetricsFactory, Timer}
+import com.daml.metrics.api.MetricName
 import io.grpc.Status
 import org.slf4j.LoggerFactory
 import scalaz.syntax.tag._
@@ -30,7 +31,7 @@ case class CommandSubmitter(
     benchtoolUserServices: LedgerApiServices,
     adminServices: LedgerApiServices,
     partyAllocating: PartyAllocating,
-    metricRegistry: MetricRegistry,
+    metricsFactory: MetricsFactory,
     metricsManager: MetricsManager[LatencyNanos],
     waitForSubmission: Boolean,
     commandGenerationParallelism: Int = 8,
@@ -38,9 +39,9 @@ case class CommandSubmitter(
 ) {
   private val logger = LoggerFactory.getLogger(getClass)
   private val submitLatencyTimer = if (waitForSubmission) {
-    metricRegistry.timer("daml_submit_and_wait_latency")
+    metricsFactory.timer(MetricName("daml_submit_and_wait_latency"))
   } else {
-    metricRegistry.timer("daml_submit_latency")
+    metricsFactory.timer(MetricName("daml_submit_latency"))
   }
 
   def prepare(config: SubmissionConfig)(implicit
@@ -235,10 +236,12 @@ case class CommandSubmitter(
   private def timed[O](timer: Timer, metricsManager: MetricsManager[LatencyNanos])(
       f: => Future[O]
   )(implicit ec: ExecutionContext) = {
-    val ctx = timer.time()
+    val ctx = timer.startAsync()
+    val startNanos = System.nanoTime()
     f.map(_.tap { _ =>
-      val latencyNanos = ctx.stop()
-      metricsManager.sendNewValue(latencyNanos)
+      ctx.stop()
+      val endNanos = System.nanoTime()
+      metricsManager.sendNewValue(endNanos - startNanos)
     })
   }
 }
