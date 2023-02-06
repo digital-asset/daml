@@ -4,6 +4,7 @@
 package com.daml.ledger.javaapi.data;
 
 import com.daml.ledger.api.v1.EventOuterClass;
+import com.google.protobuf.Any;
 import com.google.protobuf.StringValue;
 import com.google.rpc.Status;
 import java.util.*;
@@ -24,6 +25,10 @@ public final class CreatedEvent implements Event, TreeEvent {
 
   private final DamlRecord arguments;
 
+  private final @NonNull Any createArgumentsBlob;
+
+  private final @NonNull ContractMetadata contractMetadata;
+
   private final @NonNull Map<@NonNull Identifier, @NonNull DamlRecord> interfaceViews;
 
   private final @NonNull Map<@NonNull Identifier, @NonNull Status> failedInterfaceViews;
@@ -42,6 +47,8 @@ public final class CreatedEvent implements Event, TreeEvent {
       @NonNull Identifier templateId,
       @NonNull String contractId,
       @NonNull DamlRecord arguments,
+      @NonNull Any createArgumentsBlob,
+      @NonNull ContractMetadata contractMetadata,
       @NonNull Map<@NonNull Identifier, @NonNull DamlRecord> interfaceViews,
       @NonNull Map<@NonNull Identifier, com.google.rpc.@NonNull Status> failedInterfaceViews,
       @NonNull Optional<String> agreementText,
@@ -53,12 +60,47 @@ public final class CreatedEvent implements Event, TreeEvent {
     this.templateId = templateId;
     this.contractId = contractId;
     this.arguments = arguments;
+    this.createArgumentsBlob = createArgumentsBlob;
+    this.contractMetadata = contractMetadata;
     this.interfaceViews = Map.copyOf(interfaceViews);
     this.failedInterfaceViews = Map.copyOf(failedInterfaceViews);
     this.agreementText = agreementText;
     this.contractKey = contractKey;
     this.signatories = Set.copyOf(signatories);
     this.observers = Set.copyOf(observers);
+  }
+
+  /**
+   * @deprecated You should pass {@code createArgumentsBlob} and {@code contractMetadata} arguments
+   *     as well. Since Daml 2.6.0
+   */
+  @Deprecated
+  public CreatedEvent(
+      @NonNull List<@NonNull String> witnessParties,
+      @NonNull String eventId,
+      @NonNull Identifier templateId,
+      @NonNull String contractId,
+      @NonNull DamlRecord arguments,
+      @NonNull Map<@NonNull Identifier, @NonNull DamlRecord> interfaceViews,
+      @NonNull Map<@NonNull Identifier, com.google.rpc.@NonNull Status> failedInterfaceViews,
+      @NonNull Optional<String> agreementText,
+      @NonNull Optional<Value> contractKey,
+      @NonNull Collection<@NonNull String> signatories,
+      @NonNull Collection<@NonNull String> observers) {
+    this(
+        witnessParties,
+        eventId,
+        templateId,
+        contractId,
+        arguments,
+        Any.getDefaultInstance(),
+        ContractMetadata.Empty(),
+        interfaceViews,
+        failedInterfaceViews,
+        agreementText,
+        contractKey,
+        signatories,
+        observers);
   }
 
   /**
@@ -82,6 +124,8 @@ public final class CreatedEvent implements Event, TreeEvent {
         templateId,
         contractId,
         arguments,
+        Any.getDefaultInstance(),
+        ContractMetadata.Empty(),
         Collections.emptyMap(),
         Collections.emptyMap(),
         agreementText,
@@ -117,6 +161,14 @@ public final class CreatedEvent implements Event, TreeEvent {
   @NonNull
   public DamlRecord getArguments() {
     return arguments;
+  }
+
+  public Any getCreateArgumentsBlob() {
+    return createArgumentsBlob;
+  }
+
+  public ContractMetadata getContractMetadata() {
+    return contractMetadata;
   }
 
   @NonNull
@@ -159,6 +211,8 @@ public final class CreatedEvent implements Event, TreeEvent {
         && Objects.equals(templateId, that.templateId)
         && Objects.equals(contractId, that.contractId)
         && Objects.equals(arguments, that.arguments)
+        && Objects.equals(createArgumentsBlob, that.createArgumentsBlob)
+        && Objects.equals(contractMetadata, that.contractMetadata)
         && Objects.equals(interfaceViews, that.interfaceViews)
         && Objects.equals(failedInterfaceViews, that.failedInterfaceViews)
         && Objects.equals(agreementText, that.agreementText)
@@ -175,6 +229,8 @@ public final class CreatedEvent implements Event, TreeEvent {
         templateId,
         contractId,
         arguments,
+        createArgumentsBlob,
+        contractMetadata,
         interfaceViews,
         failedInterfaceViews,
         agreementText,
@@ -198,6 +254,10 @@ public final class CreatedEvent implements Event, TreeEvent {
         + '\''
         + ", arguments="
         + arguments
+        + ", createArgumentsBlob="
+        + createArgumentsBlob
+        + ", contractMetadata="
+        + contractMetadata
         + ", interfaceViews="
         + interfaceViews
         + ", failedInterfaceViews="
@@ -218,6 +278,8 @@ public final class CreatedEvent implements Event, TreeEvent {
         EventOuterClass.CreatedEvent.newBuilder()
             .setContractId(this.getContractId())
             .setCreateArguments(this.getArguments().toProtoRecord())
+            .setCreateArgumentsBlob(createArgumentsBlob)
+            .setMetadata(contractMetadata.toProto())
             .addAllInterfaceViews(
                 Stream.concat(
                         toProtoInterfaceViews(
@@ -259,6 +321,8 @@ public final class CreatedEvent implements Event, TreeEvent {
         Identifier.fromProto(createdEvent.getTemplateId()),
         createdEvent.getContractId(),
         DamlRecord.fromProto(createdEvent.getCreateArguments()),
+        createdEvent.getCreateArgumentsBlob(),
+        ContractMetadata.fromProto(createdEvent.getMetadata()),
         splitInterfaceViews.get(true).stream()
             .collect(
                 Collectors.toUnmodifiableMap(

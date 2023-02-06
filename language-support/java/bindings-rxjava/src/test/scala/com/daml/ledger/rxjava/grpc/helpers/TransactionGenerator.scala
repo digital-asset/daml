@@ -17,9 +17,11 @@ import com.daml.ledger.api.v1.event.{
   InterfaceView,
 }
 import com.daml.ledger.api.v1.transaction.TreeEvent.Kind.Exercised
-import com.daml.ledger.api.v1.value
+import com.daml.ledger.api.v1.{ContractMetadataOuterClass, value}
 import com.daml.ledger.api.v1.value.Value.Sum
 import com.daml.ledger.api.v1.value.{Identifier, Record, RecordField, Value, Variant}
+import com.daml.ledger.javaapi.data.ContractMetadata
+import com.google.protobuf.{Any, ByteString}
 import com.google.protobuf.empty.Empty
 import com.google.protobuf.timestamp.{Timestamp => ScalaTimestamp}
 import com.google.rpc.{Status => JStatus}
@@ -45,6 +47,26 @@ object TransactionGenerator {
       if (s.mkString.equals("")) { throw new IllegalStateException() }
       s.mkString
     })
+
+  def byteStringGen: Gen[ByteString] =
+    Arbitrary.arbString.arbitrary.map(str => com.google.protobuf.ByteString.copyFromUtf8(str))
+
+  def createArgumentsBlobGen: Gen[Any] = {
+    byteStringGen.map(byteString => Any.newBuilder().setValue(byteString).build())
+  }
+
+  def contractMetadataGen: Gen[ContractMetadataOuterClass.ContractMetadata] = {
+    for {
+      (createdAtScala, _) <- timestampGen
+      contractKeyHash <- byteStringGen
+      driverMetadata <- byteStringGen
+    } yield ContractMetadataOuterClass.ContractMetadata
+      .newBuilder()
+      .setCreatedAt(ScalaTimestamp.toJavaProto(createdAtScala))
+      .setContractKeyHash(contractKeyHash)
+      .setDriverMetadata(driverMetadata)
+      .build()
+  }
 
   val timestampGen: Gen[(ScalaTimestamp, Instant)] = for {
     seconds <- Gen.posNum[Long]
@@ -210,6 +232,8 @@ object TransactionGenerator {
     contractKey <- Gen.option(valueGen(0))
     (scalaTemplateId, javaTemplateId) <- identifierGen
     (scalaRecord, javaRecord) <- Gen.sized(recordGen)
+    createArgumentsBlob <- createArgumentsBlobGen
+    contractMetadata <- contractMetadataGen
     signatories <- Gen.listOf(nonEmptyId)
     observers <- Gen.listOf(nonEmptyId)
     interfaceViews <- Gen.listOf(interfaceViewGen)
@@ -221,12 +245,15 @@ object TransactionGenerator {
         Some(scalaTemplateId),
         contractKey.map(_._1),
         Some(scalaRecord),
-        None,
+        Some(com.google.protobuf.any.Any.fromJavaProto(createArgumentsBlob)),
         interfaceViews.map(_._1),
         signatories ++ observers,
         signatories,
         observers,
         agreementText,
+        Some(
+          com.daml.ledger.api.v1.contract_metadata.ContractMetadata.fromJavaProto(contractMetadata)
+        ),
       )
     ),
     new data.CreatedEvent(
@@ -235,6 +262,8 @@ object TransactionGenerator {
       javaTemplateId,
       contractId,
       javaRecord,
+      createArgumentsBlob,
+      ContractMetadata.fromProto(contractMetadata),
       interfaceViews.view.collect { case (_, (id, Right(rec))) => (id, rec) }.toMap.asJava,
       interfaceViews.view.collect { case (_, (id, Left(stat))) => (id, stat) }.toMap.asJava,
       agreementText.toJava,
