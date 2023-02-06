@@ -942,7 +942,7 @@ private[lf] class Runner private (
           .leftMap { state =>
             triggerContext.logDebug(
               "Trigger rule initial state",
-              "state" -> triggerUserState(state, trigger.defn.level),
+              "state" -> triggerUserState(state, trigger.defn.level, trigger.defn.version),
             )
             triggerContext.logInfo(
               "Trigger rule initialization",
@@ -977,7 +977,7 @@ private[lf] class Runner private (
       messageVal.context.enrichTriggerContext() { implicit triggerContext: TriggerLogContext =>
         triggerContext.logDebug(
           "Trigger rule evaluation",
-          "state" -> triggerUserState(state, trigger.defn.level),
+          "state" -> triggerUserState(state, trigger.defn.level, trigger.defn.version),
           "message" -> messageVal.value,
         )
         if (trigger.defn.level == Trigger.Level.High) {
@@ -985,7 +985,11 @@ private[lf] class Runner private (
             "Trigger rule evaluation start",
             "metrics" -> LoggingValue.Nested(
               LoggingEntries(
-                "in-flight" -> numberOfInFlightCommands(state, trigger.defn.level),
+                "in-flight" -> numberOfInFlightCommands(
+                  state,
+                  trigger.defn.level,
+                  trigger.defn.version,
+                ),
                 "acs" -> LoggingValue.Nested(
                   LoggingEntries(
                     "active" -> numberOfActiveContracts(state, trigger.defn.level),
@@ -1019,14 +1023,18 @@ private[lf] class Runner private (
               { case DamlTuple2(SUnit, newState) =>
                 triggerContext.logDebug(
                   "Trigger rule state updated",
-                  "state" -> triggerUserState(state, trigger.defn.level),
+                  "state" -> triggerUserState(state, trigger.defn.level, trigger.defn.version),
                 )
                 if (trigger.defn.level == Trigger.Level.High) {
                   triggerContext.logInfo(
                     "Trigger rule evaluation end",
                     "metrics" -> LoggingValue.Nested(
                       LoggingEntries(
-                        "in-flight" -> numberOfInFlightCommands(newState, trigger.defn.level),
+                        "in-flight" -> numberOfInFlightCommands(
+                          newState,
+                          trigger.defn.level,
+                          trigger.defn.version,
+                        ),
                         "acs" -> LoggingValue.Nested(
                           LoggingEntries(
                             "active" -> numberOfActiveContracts(newState, trigger.defn.level),
@@ -1333,8 +1341,16 @@ object Runner {
     }
   }
 
-  private def numberOfInFlightCommands(svalue: SValue, level: Trigger.Level): Option[Int] = {
+  private def numberOfInFlightCommands(
+      svalue: SValue,
+      level: Trigger.Level,
+      version: Trigger.Version,
+  ): Option[Int] = {
     level match {
+      case Trigger.Level.High if version <= Trigger.Version.`2.0.0` =>
+        // For older trigger code, we do not support extracting commands that are in-flight
+        None
+
       case Trigger.Level.High =>
         // The following code should be kept in sync with the TriggerState record type in Internal.daml
         // svalue: TriggerState s
@@ -1352,8 +1368,16 @@ object Runner {
     }
   }
 
-  private def triggerUserState(state: SValue, level: Trigger.Level): SValue = {
+  private def triggerUserState(
+      state: SValue,
+      level: Trigger.Level,
+      version: Trigger.Version,
+  ): SValue = {
     level match {
+      case Trigger.Level.High if version <= Trigger.Version.`2.0.0` =>
+        // For old trigger code, we do not support extracting the user state
+        state
+
       case Trigger.Level.High =>
         // state: TriggerState s
         state
