@@ -7,7 +7,7 @@ Time on Daml Ledgers
 ####################
 
 The Daml language contains a function :ref:`getTime <daml-ref-gettime>` which returns the “current time”.
-However, maintaining a “current time” can be a bit challenging in a distributed setting.
+However, maintaining a “current time” can be challenging in a distributed setting.
 
 This document describes the detailed semantics of time on Daml ledgers,
 centered around the two timestamps assigned to each transaction:
