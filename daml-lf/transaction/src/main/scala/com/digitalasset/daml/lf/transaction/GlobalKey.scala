@@ -50,7 +50,7 @@ object GlobalKeyWithMaintainers {
       value: Value,
       maintainers: Set[Ref.Party],
   ): GlobalKeyWithMaintainers =
-    GlobalKeyWithMaintainers.assertBuild(templateId, value, maintainers)
+    GlobalKeyWithMaintainers(GlobalKey.assertBuild(templateId, value), maintainers)
 }
 
 /** Controls whether the engine should error out when it encounters duplicate keys.
