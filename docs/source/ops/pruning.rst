@@ -73,7 +73,7 @@ Professional advice on database administration is strongly recommended that woul
 Determine a Suitable Pruning Offset
 -----------------------------------
 
-The :ref:`Transaction Service <transaction-service>` and the :ref:`Active Contract Service <active-contract-service>` provide offsets of the ledger end of the Transactions, and of Active Contracts snapshots respectively. Such offsets can be passed unchanged to `prune` calls, as long as they are lexicographically lower than the current ledger end. An additional constraint imposed by Canton is that the participant you are pruning must have already exchanged the ACS commitments with other participants for the offset that you prune at.
+The :ref:`Transaction Service <transaction-service>` and the :ref:`Active Contract Service <active-contract-service>` provide offsets of the ledger end of the Transactions, and of Active Contracts snapshots respectively. Such offsets can be passed unchanged to `prune` calls, as long as they are lexicographically lower than the current ledger end. An additional constraint imposed by Canton is that the participant you are pruning must have already exchanged the ACS commitments with other participants for the offset that you prune at. Refer to `Canton pruning documentation <../canton/usermanual/pruning.html#current-limitations>`__ for more information.
 
 When pruning all divulged contracts, the participant operator can choose the pruning offset (provided that the suitable ACS commitments have already been exchanged) as follows:
 
