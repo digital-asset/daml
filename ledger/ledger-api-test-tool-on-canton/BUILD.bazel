@@ -80,11 +80,6 @@ conformance_test_tool_args = [
         "CommandDeduplicationPeriodValidationIT:OffsetPruned",  # requires pruning not available in canton community
         "ActiveContractsServiceIT:AcsBeforePruningOffsetIsDisallowed",  # requires pruning not available in canton community
         "ActiveContractsServiceIT:AcsAtPruningOffsetIsAllowed",  # requires pruning not available in canton community
-        # TODO idp: Enable these tests once on canton version using 2.6.0-snapshot.20230203 or later
-        "IdentityProviderConfigServiceIT:CreateConfigInvalidArguments",
-        "IdentityProviderConfigServiceIT:GetConfigInvalidArguments",
-        "IdentityProviderConfigServiceIT:UpdateConfigInvalidArguments",
-        "IdentityProviderConfigServiceIT:DeleteConfigInvalidArguments",
     ]),
 ]
 
