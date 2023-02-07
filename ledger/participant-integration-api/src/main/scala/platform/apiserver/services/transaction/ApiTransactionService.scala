@@ -269,9 +269,9 @@ private[apiserver] final class ApiTransactionService private (
       case (prunedUpToInclusive, divulgencePrunedUpTo) =>
         GetLatestPrunedOffsetsResponse(
           participantPrunedUpToInclusive =
-            Some(LedgerOffset(LedgerOffset.Value.Absolute(divulgencePrunedUpTo.value))),
-          allDivulgedContractsPrunedUpToInclusive =
             Some(LedgerOffset(LedgerOffset.Value.Absolute(prunedUpToInclusive.value))),
+          allDivulgedContractsPrunedUpToInclusive =
+            Some(LedgerOffset(LedgerOffset.Value.Absolute(divulgencePrunedUpTo.value))),
         )
     }
 }

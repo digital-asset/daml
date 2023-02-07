@@ -490,8 +490,8 @@ private[index] class IndexServiceImpl(
   ): Future[(LedgerOffset.Absolute, LedgerOffset.Absolute)] =
     ledgerDao.pruningOffsets
       .map { case (prunedUpToInclusiveO, divulgencePrunedUpToO) =>
-        toApiOffset(divulgencePrunedUpToO.getOrElse(Offset.beforeBegin)) -> toApiOffset(
-          prunedUpToInclusiveO.getOrElse(Offset.beforeBegin)
+        toApiOffset(prunedUpToInclusiveO.getOrElse(Offset.beforeBegin)) -> toApiOffset(
+          divulgencePrunedUpToO.getOrElse(Offset.beforeBegin)
         )
       }(ExecutionContext.parasitic)
 }

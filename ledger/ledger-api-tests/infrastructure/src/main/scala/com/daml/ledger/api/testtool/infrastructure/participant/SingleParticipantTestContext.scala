@@ -20,6 +20,7 @@ import com.daml.ledger.api.testtool.infrastructure.time.{
 }
 import com.daml.ledger.api.testtool.infrastructure.{
   Endpoint,
+  FutureAssertions,
   Identification,
   LedgerServices,
   PartyAllocationConfiguration,
@@ -836,6 +837,28 @@ final class SingleParticipantTestContext private[participant] (
           logger.warn("Failed to prune", exception)(LoggingContext.ForTesting)
         }
     }
+
+  override def pruneCantonSafe(
+      pruneUpTo: LedgerOffset,
+      party: Primitive.Party,
+      dummyCommand: Primitive.Party => Command,
+      pruneAllDivulgedContracts: Boolean = false,
+  )(implicit ec: ExecutionContext): Future[Unit] =
+    FutureAssertions.succeedsEventually(
+      retryDelay = 100.millis,
+      maxRetryDuration = 10.seconds,
+      delayMechanism,
+      "Pruning",
+    ) {
+      for {
+        _ <- submitAndWait(submitAndWaitRequest(party, dummyCommand(party)))
+        _ <- prune(
+          pruneUpTo = pruneUpTo,
+          attempts = 1,
+          pruneAllDivulgedContracts = pruneAllDivulgedContracts,
+        )
+      } yield ()
+    }(ec, LoggingContext.ForTesting)
 
   private[infrastructure] override def preallocateParties(
       n: Int,

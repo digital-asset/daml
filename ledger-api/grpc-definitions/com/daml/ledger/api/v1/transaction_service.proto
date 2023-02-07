@@ -148,11 +148,12 @@ message GetLatestPrunedOffsetsRequest {
 }
 
 message GetLatestPrunedOffsetsResponse {
-  // The offset up until the ledger has been pruned, without pruning all divulgence events.
+  // The offset up to which the ledger has been pruned, disregarding the state of all divulged contracts pruning.
   LedgerOffset participant_pruned_up_to_inclusive = 1;
 
-  // The offset up until the ledger has been pruned including pruning all divulgence events.
-  // For more details about all divulgence events pruning,
-  // see PruneRequest.prune_all_divulged_contracts in ``participant_pruning_service.proto``.
+  // The offset up to which all divulged events have been pruned on the ledger. It can be at or before the
+  // ``participant_pruned_up_to_inclusive`` offset.
+  // For more details about all divulged events pruning,
+  // see ``PruneRequest.prune_all_divulged_contracts`` in ``participant_pruning_service.proto``.
   LedgerOffset all_divulged_contracts_pruned_up_to_inclusive = 2;
 }

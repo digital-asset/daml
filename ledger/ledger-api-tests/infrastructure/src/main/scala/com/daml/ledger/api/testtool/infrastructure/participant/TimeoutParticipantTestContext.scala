@@ -532,6 +532,14 @@ class TimeoutParticipantTestContext(timeoutScaleFactor: Double, delegate: Partic
     delegate.prune(pruneUpTo, attempts, pruneAllDivulgedContracts),
   )
 
+  override def pruneCantonSafe(
+      pruneUpTo: LedgerOffset,
+      party: Primitive.Party,
+      dummyCommand: Primitive.Party => Command,
+      pruneAllDivulgedContracts: Boolean = false,
+  )(implicit ec: ExecutionContext): Future[Unit] =
+    delegate.pruneCantonSafe(pruneUpTo, party, dummyCommand, pruneAllDivulgedContracts)
+
   private def withTimeout[T](hint: String, future: => Future[T]): Future[T] = {
     Future.firstCompletedOf(
       Seq(

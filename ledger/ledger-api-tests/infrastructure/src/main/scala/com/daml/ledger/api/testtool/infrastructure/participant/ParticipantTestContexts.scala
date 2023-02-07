@@ -71,7 +71,7 @@ import com.google.protobuf.ByteString
 import io.grpc.health.v1.health.HealthCheckResponse
 import io.grpc.stub.StreamObserver
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 
 trait ParticipantTestContext extends UserManagementTestContext {
 
@@ -421,6 +421,18 @@ trait ParticipantTestContext extends UserManagementTestContext {
       attempts: Int = 10,
       pruneAllDivulgedContracts: Boolean = false,
   ): Future[PruneResponse]
+
+  /** We are retrying a command submission + pruning to get a safe-to-prune offset for Canton.
+    * That's because in Canton pruning will fail unless ACS commitments have been exchanged between participants.
+    * To this end, repeatedly submitting commands is prompting Canton to exchange ACS commitments
+    * and allows the pruning call to eventually succeed.
+    */
+  def pruneCantonSafe(
+      pruneUpTo: LedgerOffset,
+      party: Primitive.Party,
+      dummyCommand: Primitive.Party => Command,
+      pruneAllDivulgedContracts: Boolean = false,
+  )(implicit ec: ExecutionContext): Future[Unit]
 
   def latestPrunedOffsets(): Future[(LedgerOffset, LedgerOffset)]
 }
