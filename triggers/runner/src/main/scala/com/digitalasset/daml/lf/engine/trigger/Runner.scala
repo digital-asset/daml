@@ -945,7 +945,7 @@ private[lf] class Runner private (
               "state" -> triggerUserState(state, trigger.defn.level, trigger.defn.version),
             )
             triggerContext.logInfo(
-              "Trigger rule initialization",
+              "Trigger rule initialization start",
               "metrics" -> LoggingValue.Nested(
                 LoggingEntries(
                   "acs" -> LoggingValue.Nested(
@@ -967,6 +967,21 @@ private[lf] class Runner private (
               )
               throw ACSOverflowException(activeContracts, triggerConfig.maximumActiveContracts)
             }
+
+            triggerContext.logInfo(
+              "Trigger rule initialization end",
+              "metrics" -> LoggingValue.Nested(
+                LoggingEntries(
+                  "acs" -> LoggingValue.Nested(
+                    LoggingEntries(
+                      "active" -> numberOfActiveContracts(state, trigger.defn.level),
+                      "pending" -> numberOfPendingContracts(state, trigger.defn.level),
+                    )
+                  ),
+                  "in-flight" -> numberOfInFlightCommands(state, trigger.defn.level),
+                )
+              ),
+            )
 
             state
           }
