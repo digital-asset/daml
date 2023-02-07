@@ -8,19 +8,19 @@ package test
 import com.daml.lf.data.Ref._
 import com.daml.lf.data._
 import com.daml.lf.transaction.{
-  NodeId,
+  GlobalKey,
+  GlobalKeyWithMaintainers,
   Transaction,
-  VersionedTransaction,
   Node,
-  Versioned,
+  NodeId,
   TransactionVersion,
+  Versioned,
+  VersionedTransaction,
 }
 import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.value.Value._
-import org.scalacheck.{Gen, Arbitrary}
+import org.scalacheck.{Arbitrary, Gen}
 import Arbitrary.arbitrary
-import com.daml.lf.transaction.GlobalKey
-import com.daml.lf.transaction.GlobalKeyWithMaintainers
 
 import scala.Ordering.Implicits.infixOrderingOps
 import scala.collection.immutable.HashMap

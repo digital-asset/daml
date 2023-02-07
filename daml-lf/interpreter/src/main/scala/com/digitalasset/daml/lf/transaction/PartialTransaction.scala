@@ -4,16 +4,16 @@
 package com.daml.lf
 package speedy
 
-import com.daml.lf.data.Ref.{Party, TypeConName, ChoiceName, Location}
-import com.daml.lf.data.{ImmArray, Time, BackStack}
+import com.daml.lf.data.Ref.{ChoiceName, Location, Party, TypeConName}
+import com.daml.lf.data.{BackStack, ImmArray, Time}
 import com.daml.lf.ledger.Authorize
-import com.daml.lf.speedy.Speedy.{CachedKey, CachedContract}
+import com.daml.lf.speedy.Speedy.{CachedContract, CachedKey}
 import com.daml.lf.transaction.ContractKeyUniquenessMode
-import com.daml.lf.transaction.GlobalKey
-import com.daml.lf.transaction.GlobalKeyWithMaintainers
 import com.daml.lf.transaction.{
-  Node,
   ContractStateMachine,
+  GlobalKey,
+  GlobalKeyWithMaintainers,
+  Node,
   NodeId,
   SubmittedTransaction => SubmittedTx,
   Transaction => Tx,

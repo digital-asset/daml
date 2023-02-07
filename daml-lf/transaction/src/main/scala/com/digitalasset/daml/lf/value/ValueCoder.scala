@@ -7,7 +7,7 @@ package value
 
 import com.daml.lf.data.Ref._
 import com.daml.lf.data._
-import com.daml.lf.transaction.{Versioned, TransactionVersion}
+import com.daml.lf.transaction.{TransactionVersion, Versioned}
 import com.daml.lf.value.Value._
 import com.daml.lf.value.{ValueOuterClass => proto}
 import com.daml.nameof.NameOf
@@ -17,7 +17,7 @@ import com.google.protobuf.{ByteString, CodedInputStream}
 
 import scala.Ordering.Implicits.infixOrderingOps
 import scala.jdk.CollectionConverters._
-import scala.util.{Try, Success, Failure}
+import scala.util.{Failure, Success, Try}
 
 /** Utilities to serialize and de-serialize Values
   * as they form part of transactions, nodes and contract instances

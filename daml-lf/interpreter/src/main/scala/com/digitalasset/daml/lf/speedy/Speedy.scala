@@ -8,7 +8,7 @@ import com.daml.lf.command.{EngineEnrichedContractMetadata, ProcessedDisclosedCo
 
 import java.util
 import com.daml.lf.data.Ref._
-import com.daml.lf.data.{ImmArray, NoCopy, FrontStack, Time, Ref}
+import com.daml.lf.data.{FrontStack, ImmArray, NoCopy, Ref, Time}
 import com.daml.lf.interpretation.{Error => IError}
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.{LookupError, Util => AstUtil}
@@ -19,13 +19,13 @@ import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.Speedy.Machine.{newTraceLog, newWarningLog}
 import com.daml.lf.transaction.ContractStateMachine.KeyMapping
-import com.daml.lf.transaction.GlobalKeyWithMaintainers
 import com.daml.lf.transaction.{
-  SubmittedTransaction,
-  Node,
   ContractKeyUniquenessMode,
   GlobalKey,
+  GlobalKeyWithMaintainers,
+  Node,
   NodeId,
+  SubmittedTransaction,
   Versioned,
   IncompleteTransaction => IncompleteTx,
   TransactionVersion => TxVersion,
@@ -35,7 +35,7 @@ import com.daml.nameof.NameOf
 import com.daml.scalautil.Statement.discard
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 
-import scala.annotation.{tailrec, nowarn}
+import scala.annotation.{nowarn, tailrec}
 import scala.collection.mutable
 
 private[lf] object Speedy {

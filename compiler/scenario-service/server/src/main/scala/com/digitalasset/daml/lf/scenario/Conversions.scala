@@ -4,13 +4,18 @@
 package com.daml.lf
 package scenario
 
-import com.daml.lf.data.{Numeric, Ref, ImmArray}
+import com.daml.lf.data.{ImmArray, Numeric, Ref}
 import com.daml.lf.ledger.EventId
 import com.daml.lf.scenario.api.{v1 => proto}
-import com.daml.lf.speedy.{SValue, Warning, SError, WarningLog, TraceLog}
-import com.daml.lf.transaction.{IncompleteTransaction, Node, NodeId, GlobalKey}
+import com.daml.lf.speedy.{SError, SValue, TraceLog, Warning, WarningLog}
+import com.daml.lf.transaction.{
+  GlobalKey,
+  GlobalKeyWithMaintainers,
+  IncompleteTransaction,
+  Node,
+  NodeId,
+}
 import com.daml.lf.ledger._
-import com.daml.lf.transaction.GlobalKeyWithMaintainers
 import com.daml.lf.value.{Value => V}
 
 import scala.jdk.CollectionConverters._

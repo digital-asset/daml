@@ -4,15 +4,15 @@
 package com.daml.platform.participant.util
 
 import java.time.Instant
-import com.daml.ledger.api.v1.event.{CreatedEvent, ExercisedEvent, Event, ArchivedEvent}
+
+import com.daml.ledger.api.v1.event.{ArchivedEvent, CreatedEvent, Event, ExercisedEvent}
 import com.daml.ledger.api.v1.transaction.TreeEvent
 import com.daml.ledger.api.v1.{value => api}
 import com.daml.lf.data.LawlessTraversals._
 import com.daml.lf.data.Ref.Identifier
 import com.daml.lf.data.{Numeric, Ref}
 import com.daml.lf.ledger.EventId
-import com.daml.lf.transaction.GlobalKeyWithMaintainers
-import com.daml.lf.transaction.{Node, NodeId}
+import com.daml.lf.transaction.{GlobalKeyWithMaintainers, Node, NodeId}
 import com.daml.lf.value.{Value => Lf}
 import com.google.protobuf.empty.Empty
 import com.google.protobuf.timestamp.Timestamp

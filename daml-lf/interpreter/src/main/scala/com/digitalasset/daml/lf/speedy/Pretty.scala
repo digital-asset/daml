@@ -11,13 +11,17 @@ import com.daml.lf.value.Value
 import Value._
 import com.daml.lf.ledger._
 import com.daml.lf.data.Ref._
-import com.daml.lf.scenario.ScenarioLedger.{Disclosure, TransactionId}
+import com.daml.lf.scenario.ScenarioLedger.{TransactionId, Disclosure}
 import com.daml.lf.scenario._
-import com.daml.lf.transaction.{Node, NodeId, TransactionVersion => TxVersion}
+import com.daml.lf.transaction.{
+  GlobalKeyWithMaintainers,
+  Node,
+  NodeId,
+  TransactionVersion => TxVersion,
+}
 import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.speedy.SBuiltin._
-import com.daml.lf.transaction.GlobalKeyWithMaintainers
 
 import scala.annotation.nowarn
 

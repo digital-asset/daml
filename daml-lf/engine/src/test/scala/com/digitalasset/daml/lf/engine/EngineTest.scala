@@ -11,14 +11,15 @@ import com.daml.lf.data._
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.Util._
 import com.daml.lf.transaction.{
-  SubmittedTransaction,
-  Node,
-  ReplayMismatch,
-  Normalization,
-  GlobalKeyWithMaintainers,
-  NodeId,
   GlobalKey,
+  GlobalKeyWithMaintainers,
+  Node,
+  NodeId,
+  Normalization,
+  ReplayMismatch,
+  SubmittedTransaction,
   Validation,
+  Versioned,
   VersionedTransaction,
   Transaction => Tx,
   TransactionVersion => TxVersions,
@@ -27,23 +28,22 @@ import com.daml.lf.value.Value
 import Value._
 import com.daml.bazeltools.BazelRunfiles.rlocation
 import com.daml.lf
-import com.daml.lf.speedy.{SValue, svalue, ArrayList, DisclosedContract, InitialSeeding}
+import com.daml.lf.speedy.{ArrayList, DisclosedContract, InitialSeeding, SValue, svalue}
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.command._
 import com.daml.lf.crypto.Hash
 import com.daml.lf.engine.Error.Interpretation
 import com.daml.lf.engine.Error.Interpretation.DamlException
-import com.daml.lf.language.{PackageInterface, LanguageVersion, StablePackage}
-import com.daml.lf.transaction.Versioned
+import com.daml.lf.language.{LanguageVersion, PackageInterface, StablePackage}
 import com.daml.lf.transaction.test.TransactionBuilder.assertAsVersionedContract
 import com.daml.logging.LoggingContext
 import com.daml.test.evidence.scalatest.ScalaTestSupport.Implicits.tagToContainer
 import com.daml.test.evidence.tag.Security.SecurityTest.Property.Authorization
 import com.daml.test.evidence.tag.Security.{
-  SecurityTestSuite,
-  SecurityTestLayer,
-  SecurityTest,
   Attack,
+  SecurityTest,
+  SecurityTestLayer,
+  SecurityTestSuite,
 }
 import org.scalactic.Equality
 import org.scalatest.prop.TableDrivenPropertyChecks
@@ -51,7 +51,7 @@ import org.scalatest.{Assertion, EitherValues}
 import org.scalatest.wordspec.AnyWordSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.Inside._
-import org.scalatest.matchers.{Matcher, MatchResult}
+import org.scalatest.matchers.{MatchResult, Matcher}
 
 import scala.collection.immutable.HashMap
 import scala.language.implicitConversions

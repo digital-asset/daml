@@ -5,8 +5,7 @@ package com.daml
 package lf
 package transaction
 
-import com.daml.lf.data.Ref.TypeConName
-import com.daml.lf.data.{Ref, ImmArray}
+import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.transaction.ContractStateMachine.{
   ActiveLedgerState,
   KeyActive,
@@ -60,11 +59,14 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
     ContractId.V1(hash)
   }
 
-  private def toKeyWithMaintainers(templateId: TypeConName, key: String): GlobalKeyWithMaintainers =
+  private def toKeyWithMaintainers(
+      templateId: Ref.TypeConName,
+      key: String,
+  ): GlobalKeyWithMaintainers =
     GlobalKeyWithMaintainers.assertBuild(templateId, Value.ValueText(key), aliceS)
 
   private def toOptKeyWithMaintainers(
-      templateId: TypeConName,
+      templateId: Ref.TypeConName,
       key: String,
   ): Option[GlobalKeyWithMaintainers] =
     if (key.isEmpty) None

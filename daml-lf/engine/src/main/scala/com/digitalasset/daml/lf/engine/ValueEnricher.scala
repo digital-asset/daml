@@ -4,21 +4,21 @@
 package com.daml.lf
 package engine
 
-import com.daml.lf.data.Ref.{Identifier, PackageId, Name}
+import com.daml.lf.data.Ref.{Identifier, Name, PackageId}
 import com.daml.lf.language.{Ast, LookupError}
 import com.daml.lf.transaction.{
-  NodeId,
-  Transaction,
-  VersionedTransaction,
+  GlobalKey,
+  GlobalKeyWithMaintainers,
   IncompleteTransaction,
+  Transaction,
   Node,
+  NodeId,
+  Versioned,
+  VersionedTransaction,
 }
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.VersionedValue
 import com.daml.lf.speedy.SValue
-import com.daml.lf.transaction.GlobalKey
-import com.daml.lf.transaction.GlobalKeyWithMaintainers
-import com.daml.lf.transaction.Versioned
 
 // Provide methods to add missing information in values (and value containers):
 // - type constructor in records, variants, and enums

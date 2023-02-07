@@ -19,12 +19,12 @@ import com.daml.lf.speedy.{SExpr0 => compileTime}
 import com.daml.lf.speedy.{SExpr => runTime}
 import com.daml.lf.speedy.SValue.{SValue => _, _}
 import com.daml.lf.speedy.SValue.{SValue => SV}
-import com.daml.lf.transaction.TransactionVersion
 import com.daml.lf.transaction.{
   ContractStateMachine,
   GlobalKey,
   GlobalKeyWithMaintainers,
   Transaction => Tx,
+  TransactionVersion,
 }
 import com.daml.lf.value.{Value => V}
 import com.daml.lf.value.Value.ValueArithmeticError

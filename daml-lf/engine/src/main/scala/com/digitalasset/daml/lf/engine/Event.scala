@@ -4,7 +4,7 @@
 package com.daml.lf
 package engine
 
-import com.daml.lf.data.Ref.{Party, Identifier, ChoiceName}
+import com.daml.lf.data.Ref.{ChoiceName, Identifier, Party}
 import com.daml.lf.transaction.NodeId
 import com.daml.lf.data.ImmArray
 import com.daml.lf.transaction.GlobalKeyWithMaintainers

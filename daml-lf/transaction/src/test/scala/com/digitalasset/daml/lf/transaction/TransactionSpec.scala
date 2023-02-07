@@ -560,11 +560,9 @@ class TransactionSpec
       val create0 = create(cid("#0"))
       val create1 = create(cid("#1")).copy(
         keyOpt = Some(
-          GlobalKeyWithMaintainers(
-            GlobalKey.assertBuild(
-              templateId = "Mod:T",
-              key = keyValue(cid("#0").coid),
-            ),
+          GlobalKeyWithMaintainers.assertBuild(
+            templateId = "Mod:T",
+            value = keyValue(cid("#0").coid),
             maintainers = Set.empty,
           )
         )
