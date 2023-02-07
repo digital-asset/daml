@@ -42,6 +42,9 @@ object Node {
 
     final def gkeyOpt: Option[GlobalKey] = keyOpt.map(_.globalKey)
 
+    def versionedKeyOpt: Option[Versioned[GlobalKeyWithMaintainers]] =
+      keyOpt.map(Versioned(version, _))
+
     final override protected def self: this.type = this
 
     /** Required authorizers (see ledger model); UNSAFE TO USE on fetch nodes of transaction with versions < 5
