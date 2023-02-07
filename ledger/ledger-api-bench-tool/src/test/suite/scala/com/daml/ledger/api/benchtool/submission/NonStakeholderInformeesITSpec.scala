@@ -54,7 +54,7 @@ class NonStakeholderInformeesITSpec
       (apiServices, allocatedParties, fooSubmission) <- benchtoolFooSubmissionFixture(
         submissionConfig
       )
-      _ <- fooSubmission.performSubmission()
+      _ <- fooSubmission.performSubmission(submissionConfig = submissionConfig)
       (treeResults_divulgee0, flatResults_divulgee0) <- observeAllTemplatesForParty(
         party = allocatedParties.divulgees(0),
         apiServices = apiServices,

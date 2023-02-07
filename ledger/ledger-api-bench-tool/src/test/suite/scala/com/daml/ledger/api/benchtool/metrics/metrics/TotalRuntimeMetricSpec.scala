@@ -6,14 +6,14 @@ package com.daml.ledger.api.benchtool.metrics.metrics
 import java.time.{Clock, Duration, Instant, ZoneId}
 
 import com.daml.clock.AdjustableClock
-import com.daml.ledger.api.benchtool.metrics.metrics.TotalStreamRuntimeMetric.{
+import com.daml.ledger.api.benchtool.metrics.metrics.TotalRuntimeMetric.{
   MaxDurationObjective,
   Value,
 }
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
-class TotalStreamRuntimeMetricSpec extends AnyFlatSpec with Matchers {
+class TotalRuntimeMetricSpec extends AnyFlatSpec with Matchers {
 
   it should "keep track of total stream runtime" in {
     val startTime = Instant.EPOCH.plusMillis(1000)
@@ -21,7 +21,7 @@ class TotalStreamRuntimeMetricSpec extends AnyFlatSpec with Matchers {
     val objective = MaxDurationObjective(
       maxValue = Duration.ofMillis(103)
     )
-    val tested = TotalStreamRuntimeMetric[Any](
+    val tested = TotalRuntimeMetric[Any](
       clock = clock,
       startTime = clock.instant,
       objective = objective,

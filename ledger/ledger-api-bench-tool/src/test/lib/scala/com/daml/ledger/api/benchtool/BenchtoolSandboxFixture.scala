@@ -4,6 +4,7 @@
 package com.daml.ledger.api.benchtool
 
 import java.io.File
+
 import com.codahale.metrics.MetricRegistry
 import com.daml.bazeltools.BazelRunfiles.rlocation
 import com.daml.ledger.api.benchtool.config.WorkflowConfig
@@ -81,7 +82,6 @@ trait BenchtoolSandboxFixture extends SandboxFixture {
         allocatedParties = allocatedParties,
         names = new Names(),
         randomnessProvider = RandomnessProvider.forSeed(seed = 0),
-        submissionConfig = submissionConfig,
       )
     } yield (apiServices, allocatedParties, foo)
   }

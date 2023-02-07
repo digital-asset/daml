@@ -23,7 +23,7 @@ object StreamMetrics {
       system: ActorSystem[SpawnProtocol.Command],
       ec: ExecutionContext,
   ): Future[MeteredStreamObserver[StreamElem]] =
-    MetricsManager(streamName, logInterval, metrics, exposedMetrics).map { manager =>
+    MetricsManager.create(streamName, logInterval, metrics, exposedMetrics).map { manager =>
       new MeteredStreamObserver[StreamElem](
         streamName = streamName,
         logger = logger,

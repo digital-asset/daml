@@ -66,7 +66,7 @@ class FooCommandSubmitterITSpec
     for {
       (apiServices, allocatedParties, fooSubmission) <- benchtoolFooSubmissionFixture(config)
       _ = allocatedParties.divulgees shouldBe empty
-      _ <- fooSubmission.performSubmission()
+      _ <- fooSubmission.performSubmission(submissionConfig = config)
       observerResult_signatory: ObservedEvents <- treeEventsObserver(
         apiServices = apiServices,
         party = allocatedParties.signatory,

@@ -12,13 +12,12 @@ class FooSubmission(
     submitter: CommandSubmitter,
     maxInFlightCommands: Int,
     submissionBatchSize: Int,
-    submissionConfig: FooSubmissionConfig,
     allocatedParties: AllocatedParties,
     names: Names,
     randomnessProvider: RandomnessProvider,
 ) {
 
-  def performSubmission()(implicit
+  def performSubmission(submissionConfig: FooSubmissionConfig)(implicit
       ec: ExecutionContext
   ): Future[Unit] = {
     val (divulgerCmds, divulgeesToDivulgerKeyMap) = FooDivulgerCommandGenerator

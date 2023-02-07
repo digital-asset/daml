@@ -78,7 +78,7 @@ class PartySetsITSpec
         allocatedParties,
         BenchtoolTestsPackageInfo.StaticDefault,
       )
-      _ <- fooSubmission.performSubmission()
+      _ <- fooSubmission.performSubmission(submissionConfig = submissionConfig)
       _ = allocatedParties.observerPartySets
         .find(_.mainPartyNamePrefix == "FooParty")
         .value

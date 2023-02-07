@@ -26,6 +26,9 @@ final class FooCommandGenerator(
     partySelecting: RandomPartySelecting,
     randomnessProvider: RandomnessProvider,
 ) extends CommandGenerator {
+
+  private val activeContractKeysPool = new ActiveContractKeysPool(randomnessProvider)
+
   private val contractDescriptions = new Distribution[FooSubmissionConfig.ContractDescription](
     weights = config.instanceDistribution.map(_.weight),
     items = config.instanceDistribution.toIndexedSeq,
@@ -110,6 +113,9 @@ final class FooCommandGenerator(
           case "Foo3" => Foo3(signatory, observers, payload, keyId = fooKeyId).create.command
         }
     }
+    if (config.allowNonTransientContracts) {
+      activeContractKeysPool.addContractKey(templateDescriptor.name, fooContractKey)
+    }
     // Non-consuming events
     val nonconsumingExercises: Seq[Command] = makeNonConsumingExerciseCommands(
       templateDescriptor = templateDescriptor,
@@ -123,11 +129,20 @@ final class FooCommandGenerator(
         } else None
       )
     val consumingExerciseO: Option[Command] = consumingPayloadO.map { payload =>
+      val selectedActiveFooContractKey = {
+        if (config.allowNonTransientContracts) {
+          // This can choose at random a key of any the previously generated contracts.
+          activeContractKeysPool.getAndRemoveContractKey(templateDescriptor.name)
+        } else {
+          // This is always the key of the contract created in this batch of commands.
+          fooContractKey
+        }
+      }
       divulgerContractKeyO match {
         case Some(divulgerContractKey) =>
           makeDivulgedConsumeExerciseCommand(
             templateDescriptor = templateDescriptor,
-            fooContractKey = fooContractKey,
+            fooContractKey = selectedActiveFooContractKey,
             payload = payload,
             divulgerContractKey = divulgerContractKey,
           )
@@ -142,7 +157,7 @@ final class FooCommandGenerator(
                 value = Some(Value(Value.Sum.Text(payload))),
               )
             ),
-          )(contractKey = fooContractKey)
+          )(contractKey = selectedActiveFooContractKey)
       }
     }
     Seq(createFooCmd) ++ nonconsumingExercises ++ consumingExerciseO.toList

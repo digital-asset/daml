@@ -8,19 +8,27 @@ case class ObservedExerciseEvent(
     choiceName: String,
     choiceArgumentsSerializedSize: Int,
     consuming: Boolean,
+    offset: String,
+    contractId: String,
 )
 object ObservedExerciseEvent {
-  def apply(exercised: com.daml.ledger.api.v1.event.ExercisedEvent): ObservedExerciseEvent = {
+  def apply(
+      exercised: com.daml.ledger.api.v1.event.ExercisedEvent,
+      offset: String,
+  ): ObservedExerciseEvent = {
     val argsSize = exercised.choiceArgument.fold(0)(_.serializedSize)
     val templateName = exercised.templateId
       .getOrElse(sys.error(s"Expected templateId in $exercised"))
       .entityName
+    val contractId = exercised.contractId
     val choiceName = exercised.choice
     ObservedExerciseEvent(
       templateName = templateName,
       choiceName = choiceName,
       choiceArgumentsSerializedSize = argsSize,
       consuming = exercised.consuming,
+      offset = offset,
+      contractId = contractId,
     )
   }
 }

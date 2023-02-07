@@ -61,7 +61,7 @@ class WeightedApplicationIdsAndSubmittersITSpec
       (apiServices, allocatedParties, fooSubmission) <- benchtoolFooSubmissionFixture(
         submissionConfig
       )
-      _ <- fooSubmission.performSubmission()
+      _ <- fooSubmission.performSubmission(submissionConfig = submissionConfig)
       completionsApp1 <- observeCompletions(
         parties = List(allocatedParties.signatory),
         apiServices = apiServices,
