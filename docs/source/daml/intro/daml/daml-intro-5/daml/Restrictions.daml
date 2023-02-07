@@ -55,6 +55,11 @@ template SimpleIou
           timeofday = now `subTime` time today 0 0 0
           hrs = convertRelTimeToMicroseconds timeofday / 3600000000
         if (hrs < 8 || hrs > 18) then
+          abort $ "Cannot redeem outside business hours. Current time: " <> show timeofday
+        else case dow of
+          Saturday -> abort "Cannot redeem on a Saturday."
+          Sunday -> abort "Cannot redeem on a Sunday."
+          _ -> return ()
           abort "Cannot redeem outside business hours. Current time: " <> show timeofday
         else if dow == Saturday then
           abort "Cannot redeem on a Saturday."
