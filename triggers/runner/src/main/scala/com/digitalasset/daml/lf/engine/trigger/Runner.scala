@@ -978,7 +978,11 @@ private[lf] class Runner private (
                       "pending" -> numberOfPendingContracts(state, trigger.defn.level),
                     )
                   ),
-                  "in-flight" -> numberOfInFlightCommands(state, trigger.defn.level),
+                  "in-flight" -> numberOfInFlightCommands(
+                    state,
+                    trigger.defn.level,
+                    trigger.defn.version,
+                  ),
                 )
               ),
             )
