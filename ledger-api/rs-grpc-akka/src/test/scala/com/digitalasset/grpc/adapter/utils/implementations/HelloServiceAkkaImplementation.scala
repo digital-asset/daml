@@ -38,7 +38,7 @@ class HelloServiceAkkaImplementation(implicit
     Source
       .single(request)
       .via(Flow[HelloRequest].mapConcat(responses))
-      .runWith(ServerAdapter.toSink(responseObserver))
+      .runWith(ServerAdapter.toSink(responseObserver, identity))
       .onComplete(_ => serverStreamingCalls.incrementAndGet())
 
 }

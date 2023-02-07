@@ -4,8 +4,6 @@
 package com.daml.grpc.adapter.server.akka
 
 import akka.stream.scaladsl.Sink
-import com.daml.error.DamlContextualizedErrorLogger
-import com.daml.error.definitions.CommonErrors
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.grpc.adapter.server.rs.ServerSubscriber
 import io.grpc.stub.{ServerCallStreamObserver, StreamObserver}
@@ -15,10 +13,9 @@ import scala.concurrent.{Future, Promise}
 
 object ServerAdapter {
 
-  private val errorLogger = DamlContextualizedErrorLogger.forClass(getClass)
-
   def toSink[Resp](
-      streamObserver: StreamObserver[Resp]
+      streamObserver: StreamObserver[Resp],
+      errorHandler: Throwable => Throwable,
   )(implicit executionSequencerFactory: ExecutionSequencerFactory): Sink[Resp, Future[Unit]] = {
     val subscriber =
       new ServerSubscriber[Resp](
@@ -32,10 +29,7 @@ object ServerAdapter {
           throwable match {
             case t: StatusException => t
             case t: StatusRuntimeException => t
-            case _ =>
-              CommonErrors.ServiceInternalError
-                .UnexpectedOrUnknownException(throwable)(errorLogger)
-                .asGrpcError
+            case _ => errorHandler(throwable)
           }
         }
       }

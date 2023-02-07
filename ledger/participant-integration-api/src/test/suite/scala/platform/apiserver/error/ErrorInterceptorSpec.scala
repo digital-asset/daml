@@ -10,12 +10,12 @@ import com.daml.error._
 import com.daml.error.definitions.{CommonErrors, DamlError}
 import com.daml.error.utils.ErrorDetails
 import com.daml.grpc.adapter.ExecutionSequencerFactory
-import com.daml.grpc.adapter.server.akka.StreamingServiceLifecycleManagement
 import com.daml.grpc.sampleservice.HelloServiceResponding
 import com.daml.ledger.api.testing.utils.{AkkaBeforeAndAfterAll, TestingServerInterceptors}
 import com.daml.ledger.resources.{ResourceOwner, TestResourceContext}
 import com.daml.platform.hello.HelloServiceGrpc.HelloService
 import com.daml.platform.hello.{HelloRequest, HelloResponse, HelloServiceGrpc}
+import com.daml.platform.server.api.services.grpc.StreamingServiceLifecycleManagement
 import com.daml.platform.testing.LogCollector.{ThrowableCause, ThrowableEntry}
 import com.daml.platform.testing.{LogCollector, LogCollectorAssertions, StreamConsumer}
 import io.grpc._

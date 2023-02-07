@@ -1,7 +1,7 @@
 // Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.grpc.adapter.server.akka
+package com.daml.platform.server.api.services.grpc
 
 import akka.NotUsed
 import akka.stream.scaladsl.{Keep, Source}
@@ -9,6 +9,7 @@ import akka.stream.{KillSwitch, KillSwitches, Materializer}
 import com.daml.error.ContextualizedErrorLogger
 import com.daml.error.definitions.CommonErrors
 import com.daml.grpc.adapter.ExecutionSequencerFactory
+import com.daml.grpc.adapter.server.akka.ServerAdapter
 import io.grpc.StatusRuntimeException
 import io.grpc.stub.StreamObserver
 
@@ -29,6 +30,11 @@ trait StreamingServiceLifecycleManagement extends AutoCloseable {
     }
   }
 
+  private def errorHandler(throwable: Throwable) =
+    CommonErrors.ServiceInternalError
+      .UnexpectedOrUnknownException(throwable)(contextualizedErrorLogger)
+      .asGrpcError
+
   protected def registerStream[RespT](
       responseObserver: StreamObserver[RespT]
   )(createSource: => Source[RespT, NotUsed])(implicit
@@ -42,7 +48,7 @@ trait StreamingServiceLifecycleManagement extends AutoCloseable {
     // Double-checked locking to keep the (potentially expensive)
     // by-name `source` evaluation out of the synchronized block
     ifNotClosed { () =>
-      val sink = ServerAdapter.toSink(responseObserver)
+      val sink = ServerAdapter.toSink(responseObserver, errorHandler)
       // Force evaluation before synchronized block
       val source = createSource
 

@@ -7,7 +7,6 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.daml.error.DamlContextualizedErrorLogger
 import com.daml.grpc.adapter.ExecutionSequencerFactory
-import com.daml.grpc.adapter.server.akka.StreamingServiceLifecycleManagement
 import com.daml.ledger.api.v1.command_completion_service._
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.validation.CompletionServiceRequestValidator
