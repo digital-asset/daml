@@ -60,12 +60,6 @@ template SimpleIou
           Saturday -> abort "Cannot redeem on a Saturday."
           Sunday -> abort "Cannot redeem on a Sunday."
           _ -> return ()
-          abort "Cannot redeem outside business hours. Current time: " <> show timeofday
-        else if dow == Saturday then
-          abort "Cannot redeem on a Saturday."
-        else if dow == Sunday then 
-          abort "Cannot redeem on a Sunday."
-        else return ()
 -- REDEEM_CHOICE_END
 
 -- RESTRICTIONS_TEST_BEGIN
