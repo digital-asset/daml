@@ -3,12 +3,12 @@
 
 package com.daml.ledger.api.benchtool.config
 
-import com.daml.ledger.api.tls.TlsConfigurationCli
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.metrics.api.reporters.MetricsReporter
 import scopt.{OptionDef, OptionParser, Read}
-
 import java.io.File
+import java.nio.file.Paths
+
 import scala.concurrent.duration.{Duration, FiniteDuration}
 import scala.util.{Failure, Success, Try}
 
@@ -120,15 +120,56 @@ object Cli {
       )
       .action((secret, config) => config.copy(authorizationTokenSecret = Some(secret)))
 
-    TlsConfigurationCli.parse(parser = this, colSpacer = "        ")((f, c) =>
-      c.copy(tls = f(c.tls))
-    )
+    opt[String]("pem")
+      .optional()
+      .text("TLS: The pem file to be used as the private key.")
+      .validate(validatePath(_, "The file specified via --pem does not exist"))
+      .action { (path, config) =>
+        config.copy(tls =
+          config.tls.copy(enabled = true, privateKeyFile = Some(Paths.get(path).toFile))
+        )
+      }
+
+    opt[String]("crt")
+      .optional()
+      .text(
+        s"TLS: The crt file to be used as the cert chain. Required for client authentication."
+      )
+      .validate(validatePath(_, "The file specified via --crt does not exist"))
+      .action { (path, config) =>
+        config
+          .copy(tls = config.tls.copy(enabled = true, certChainFile = Some(Paths.get(path).toFile)))
+      }
+
+    opt[String]("cacrt")
+      .optional()
+      .text("TLS: The crt file to be used as the trusted root CA.")
+      .validate(validatePath(_, "The file specified via --cacrt does not exist"))
+      .action { (path, config) =>
+        config.copy(tls =
+          config.tls.copy(enabled = true, trustCollectionFile = Some(Paths.get(path).toFile))
+        )
+      }
+
+    // allows you to enable tls without any special certs,
+    // i.e., tls without client auth with the default root certs.
+    // If any certificates are set tls is enabled implicitly and
+    // this is redundant.
+    opt[Unit]("tls")
+      .optional()
+      .text("TLS: Enable tls. This is redundant if --pem, --crt or --cacrt are set")
+      .action { (_, config) => config.copy(tls = config.tls.copy(enabled = true)) }
 
     checkConfig(c =>
       if (c.latencyTest && c.workflow.streams.nonEmpty)
         Left("Latency test cannot have configured streams")
       else Right(())
     )
+
+    private def validatePath(path: String, message: String): Either[String, Unit] = {
+      val valid = Try(Paths.get(path).toFile.canRead).getOrElse(false)
+      if (valid) Right(()) else Left(message)
+    }
 
     help("help").text("Prints this information")
 
