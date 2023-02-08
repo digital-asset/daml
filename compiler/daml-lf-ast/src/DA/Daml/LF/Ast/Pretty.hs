@@ -645,8 +645,8 @@ pPrintTemplate lvl modName (Template mbLoc tpl param precond signatories observe
           , nest 2 (keyword_ "maintainers" <-> pPrintPrec lvl 0 (tplKeyMaintainers key))
           ]
       implementsDoc =
-        [ pPrintInterfaceInstance lvl (InterfaceInstanceHead interface qTpl) body
-        | TemplateImplements interface body <- NM.toList implements
+        [ pPrintInterfaceInstance lvl (InterfaceInstanceHead interface qTpl loc) body
+        | TemplateImplements interface body loc <- NM.toList implements
         ]
       qTpl = Qualified PRSelf modName tpl
 
@@ -722,8 +722,8 @@ pPrintDefInterface lvl modName defInterface =
     methodDocs = map (pPrintInterfaceMethod lvl) (NM.toList intMethods)
     choiceDocs = map (pPrintTemplateChoice lvl modName intName) (NM.toList intChoices)
     interfaceInstanceDocs =
-      [ pPrintInterfaceInstance lvl (InterfaceInstanceHead qIntName template) body
-      | InterfaceCoImplements template body <- NM.toList intCoImplements
+      [ pPrintInterfaceInstance lvl (InterfaceInstanceHead qIntName template loc) body
+      | InterfaceCoImplements template body loc <- NM.toList intCoImplements
       ]
     qIntName = Qualified PRSelf modName intName
 

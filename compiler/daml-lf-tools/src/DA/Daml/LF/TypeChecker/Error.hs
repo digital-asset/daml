@@ -164,13 +164,32 @@ data Error
 
 contextLocation :: Context -> Maybe SourceLoc
 contextLocation = \case
-  ContextNone            -> Nothing
-  ContextDefTypeSyn _ s  -> synLocation s
-  ContextDefDataType _ d -> dataLocation d
-  ContextTemplate _ t _  -> tplLocation t
-  ContextDefValue _ v    -> dvalLocation v
-  ContextDefException _ e -> exnLocation e
-  ContextDefInterface _ i _ -> intLocation i
+  ContextNone                -> Nothing
+  ContextDefTypeSyn _ s      -> synLocation s
+  ContextDefDataType _ d     -> dataLocation d
+  ContextTemplate _ t tp     -> templateLocation t tp
+  ContextDefValue _ v        -> dvalLocation v
+  ContextDefException _ e    -> exnLocation e
+  ContextDefInterface _ i ip -> interfaceLocation i ip
+
+templateLocation :: Template -> TemplatePart -> Maybe SourceLoc
+templateLocation t = \case
+  TPWhole -> tplLocation t
+  TPStakeholders -> Nothing
+  TPPrecondition -> Nothing
+  TPSignatories -> Nothing
+  TPObservers -> Nothing
+  TPAgreement -> Nothing
+  TPKey -> Nothing
+  TPChoice tc -> chcLocation tc
+  TPInterfaceInstance iih -> iiLocation iih
+
+interfaceLocation :: DefInterface -> InterfacePart -> Maybe SourceLoc
+interfaceLocation i = \case
+  IPWhole -> intLocation i
+  IPMethod im -> ifmLocation im
+  IPChoice tc -> chcLocation tc
+  IPInterfaceInstance iih -> iiLocation iih
 
 errorLocation :: Error -> Maybe SourceLoc
 errorLocation = \case

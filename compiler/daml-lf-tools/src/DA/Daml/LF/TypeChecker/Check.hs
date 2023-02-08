@@ -768,15 +768,15 @@ typeOf' = \case
     checkExpr val ty2
     pure ty1
   EToInterface iface tpl val -> do
-    checkUniqueInterfaceInstanceExists (InterfaceInstanceHead iface tpl)
+    checkUniqueInterfaceInstanceExists (InterfaceInstanceHead iface tpl Nothing)
     checkExpr val (TCon tpl)
     pure (TCon iface)
   EFromInterface iface tpl val -> do
-    checkUniqueInterfaceInstanceExists (InterfaceInstanceHead iface tpl)
+    checkUniqueInterfaceInstanceExists (InterfaceInstanceHead iface tpl Nothing)
     checkExpr val (TCon iface)
     pure (TOptional (TCon tpl))
   EUnsafeFromInterface iface tpl cid val -> do
-    checkUniqueInterfaceInstanceExists (InterfaceInstanceHead iface tpl)
+    checkUniqueInterfaceInstanceExists (InterfaceInstanceHead iface tpl Nothing)
     checkExpr cid (TContractId (TCon iface))
     checkExpr val (TCon iface)
     pure (TCon tpl)
@@ -950,8 +950,8 @@ checkIface m iface = do
         checkTemplateChoice tcon choice
 
   -- check interface instances
-  forM_ (intCoImplements iface) \InterfaceCoImplements {iciTemplate, iciBody} -> do
-    let iiHead = InterfaceInstanceHead tcon iciTemplate
+  forM_ (intCoImplements iface) \InterfaceCoImplements {iciTemplate, iciBody, iciLocation} -> do
+    let iiHead = InterfaceInstanceHead tcon iciTemplate iciLocation
     withPart (IPInterfaceInstance iiHead) do
       checkInterfaceInstance (intParam iface) iiHead iciBody
 
@@ -1015,8 +1015,8 @@ checkTemplate m t@(Template _loc tpl param precond signatories observers text ch
     withPart TPObservers $ checkExpr observers (TList TParty)
     withPart TPAgreement $ checkExpr text TText
     for_ choices $ \c -> withPart (TPChoice c) $ checkTemplateChoice tcon c
-  forM_ implements \TemplateImplements {tpiInterface, tpiBody} -> do
-    let iiHead = InterfaceInstanceHead tpiInterface tcon
+  forM_ implements \TemplateImplements {tpiInterface, tpiBody, tpiLocation} -> do
+    let iiHead = InterfaceInstanceHead tpiInterface tcon tpiLocation
     withPart (TPInterfaceInstance iiHead) do
       checkInterfaceInstance param iiHead tpiBody
   whenJust mbKey $ checkTemplateKey param tcon
@@ -1042,7 +1042,7 @@ checkInterfaceInstance tmplParam iiHead iiBody = do
 
   -- check requires
   forM_ intRequires \required -> do
-    let requiredInterfaceInstance = InterfaceInstanceHead required iiTemplate
+    let requiredInterfaceInstance = InterfaceInstanceHead required iiTemplate Nothing
     eRequired <- inWorld (Right . lookupInterfaceInstance requiredInterfaceInstance)
     whenLeft eRequired \(_ :: LookupError) ->
       throwWithContext (EMissingRequiredInterfaceInstance requiredInterfaceInstance iiInterface)

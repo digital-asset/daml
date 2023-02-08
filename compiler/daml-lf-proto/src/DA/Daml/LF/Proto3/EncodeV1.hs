@@ -969,6 +969,7 @@ encodeTemplateImplements :: TemplateImplements -> Encode P.DefTemplate_Implement
 encodeTemplateImplements TemplateImplements{..} = do
     defTemplate_ImplementsInterface <- encodeQualTypeConName tpiInterface
     defTemplate_ImplementsBody <- encodeInterfaceInstanceBody tpiBody
+    defTemplate_ImplementsLocation <- traverse encodeSourceLoc tpiLocation
     pure P.DefTemplate_Implements {..}
 
 encodeInterfaceInstanceBody :: InterfaceInstanceBody -> Encode (Just P.InterfaceInstanceBody)
@@ -1057,6 +1058,7 @@ encodeInterfaceCoImplements :: InterfaceCoImplements -> Encode P.DefInterface_Co
 encodeInterfaceCoImplements InterfaceCoImplements {..} = do
     defInterface_CoImplementsTemplate <- encodeQualTypeConName iciTemplate
     defInterface_CoImplementsBody <- encodeInterfaceInstanceBody iciBody
+    defInterface_CoImplementsLocation <- traverse encodeSourceLoc iciLocation
     pure P.DefInterface_CoImplements {..}
 
 encodePackageMetadata :: PackageMetadata -> Encode P.PackageMetadata
