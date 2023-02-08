@@ -15,6 +15,9 @@ import java.io.File
 import java.time.{Duration => JDuration}
 import java.util.UUID
 import akka.http.scaladsl.model.Uri.Query
+import ch.qos.logback.classic.Logger
+import ch.qos.logback.classic.spi.ILoggingEvent
+import ch.qos.logback.core.read.ListAppender
 import org.scalactic.source
 import org.scalatest._
 import org.scalatest.flatspec.AsyncFlatSpec
@@ -53,6 +56,7 @@ import com.daml.test.evidence.scalatest.ScalaTestSupport.Implicits._
 import com.google.protobuf.empty.Empty
 import com.typesafe.scalalogging.StrictLogging
 import org.scalatest.time.{Seconds, Span}
+import org.slf4j.LoggerFactory
 
 import java.nio.file.Files
 import scala.concurrent.duration._
@@ -86,6 +90,13 @@ trait AbstractTriggerServiceTestHelper
   protected lazy val dar: Dar[(PackageId, DamlLf.ArchivePayload)] =
     DarReader.assertReadArchiveFromFile(darPath).map(p => p.pkgId -> p.proto)
   protected lazy val testPkgId: PackageId = dar.main._1
+
+  private[this] val triggerRunnerLogAppender = new ListAppender[ILoggingEvent]()
+  private[this] val triggerRunnerLogger: Logger =
+    LoggerFactory.getLogger(classOf[Runner]).asInstanceOf[Logger]
+
+  triggerRunnerLogAppender.start()
+  triggerRunnerLogger.addAppender(triggerRunnerLogAppender)
 
   protected def submitCmd(client: LedgerClient, party: String, cmd: Command): Future[Empty] = {
     val req = SubmitAndWaitRequest(
@@ -273,6 +284,20 @@ trait AbstractTriggerServiceTestHelper
     eventually {
       pred(getTriggerStatus(triggerInstance).map(_._2))
     }
+
+  def assertTriggerRunnerStatus(
+      triggerInstance: UUID,
+      pred: Vector[String] => Assertion,
+  ): Assertion = {
+    val filterString = s"id: \"$triggerInstance\""
+
+    eventually {
+      pred(triggerRunnerLogAppender.list.toArray.toVector.collect {
+        case event: ILoggingEvent if event.getMarker.toString contains filterString =>
+          event.toString
+      })
+    }
+  }
 }
 
 // Tests for all trigger service configurations go here
@@ -682,7 +707,12 @@ trait AbstractTriggerServiceTest extends AbstractTriggerServiceTestHelper {
       catsTrigger <- parseTriggerId(resp)
       _ <- assertTriggerIds(uri, alice, Vector(catsTrigger))
       _ <- assertTriggerStatus(catsTrigger, _ should contain("stopped: runtime failure"))
-      // TODO: check logs for an ACSOverflowException
+      _ <- assertTriggerRunnerStatus(
+        catsTrigger,
+        _ should contain(
+          "[ERROR] Due to an excessive number of active contracts, stopping the trigger"
+        ),
+      )
     } yield succeed
   }
 
@@ -716,7 +746,12 @@ trait AbstractTriggerServiceTest extends AbstractTriggerServiceTestHelper {
       catsTrigger <- parseTriggerId(resp)
       _ <- assertTriggerIds(uri, alice, Vector(catsTrigger))
       _ <- assertTriggerStatus(catsTrigger, _ should contain("stopped: runtime failure"))
-      // TODO: check logs for an ACSOverflowException
+      _ <- assertTriggerRunnerStatus(
+        catsTrigger,
+        _ should contain(
+          "[ERROR] Due to an excessive number of active contracts, stopping the trigger"
+        ),
+      )
     } yield succeed
   }
 
@@ -752,7 +787,10 @@ trait AbstractTriggerServiceTest extends AbstractTriggerServiceTestHelper {
       catsTrigger <- parseTriggerId(resp)
       _ <- assertTriggerIds(uri, alice, Vector(catsTrigger))
       _ <- assertTriggerStatus(catsTrigger, _ should contain("stopped: runtime failure"))
-      // TODO: check logs for a InFlightCommandOverflowException
+      _ <- assertTriggerRunnerStatus(
+        catsTrigger,
+        _ should contain("[ERROR] Due to excessive in-flight commands, stopping the trigger"),
+      )
     } yield succeed
   }
 }
