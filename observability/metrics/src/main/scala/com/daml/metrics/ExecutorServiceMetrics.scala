@@ -145,7 +145,7 @@ class ExecutorServiceMetrics(factory: LabeledMetricsFactory) {
     factory.gaugeWithSupplier(
       CommonMetricsName.ActiveThreads,
       activeThreads,
-      "Estimate of the number of threads that executing tasks.",
+      "Estimate of the number of threads that are executing tasks.",
     )
 
   private def queuedTasksGauge(queueSize: () => Int)(implicit mc: MetricsContext) =
