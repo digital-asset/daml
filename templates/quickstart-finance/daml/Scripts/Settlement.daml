@@ -6,13 +6,14 @@ import Daml.Script
 
 -- INTERFACE DEPENDENCIES --
 import Daml.Finance.Interface.Holding.Base qualified as Holding (I)
-import Daml.Finance.Interface.Instrument.Base.Instrument qualified as Instrument (I, qty)
+import Daml.Finance.Interface.Instrument.Base.Instrument qualified as Instrument (I)
 import Daml.Finance.Interface.Settlement.Batch qualified as Batch (Settle(..))
-import Daml.Finance.Interface.Settlement.Factory qualified as Factory (I)
+import Daml.Finance.Interface.Settlement.Factory qualified as Settlement (F)
 import Daml.Finance.Interface.Settlement.Instruction qualified as Instruction (Allocate(..), Approve(..))
 import Daml.Finance.Interface.Settlement.RouteProvider qualified as RouteProvider (I)
 import Daml.Finance.Interface.Settlement.Types (Allocation(..), Approval(..))
 import Daml.Finance.Interface.Types.Common.Types (AccountKey, Id(..), InstrumentKey(..))
+import Daml.Finance.Interface.Util.Common (qty)
 
 -- IMPLEMENTATION DEPENDENCIES --
 import Daml.Finance.Instrument.Token.Instrument (Instrument(..))
@@ -36,7 +37,7 @@ data SettlementState = SettlementState
     usdInstrument : InstrumentKey
     tokenInstrument : InstrumentKey
     routeProviderCid : ContractId RouteProvider.I
-    settlementFactoryCid : ContractId Factory.I
+    settlementFactoryCid : ContractId Settlement.F
     aliceHoldingCid : ContractId Holding.I
     bobHoldingCid : ContractId Holding.I
   deriving (Eq, Show)
@@ -101,7 +102,7 @@ runSettlement = do
   -- Setup a Settlement Factory facility
   -- This is used to generate settlement instructions from a list of `RoutedStep`s
   -- SETTLEMENT_FACTORY_BEGIN
-  settlementFactoryCid <- toInterfaceContractId @Factory.I <$> submit bank do
+  settlementFactoryCid <- toInterfaceContractId @Settlement.F <$> submit bank do
     createCmd Factory with
       provider = bank
       observers = S.fromList [alice, bob]
@@ -112,8 +113,8 @@ runSettlement = do
   dvpProposalCid <- submit bob do
     createCmd DvP.Proposal with
       id = "xccy trade"
-      recQuantity = Instrument.qty 10.0 tokenInstrument
-      payQuantity = Instrument.qty 1000.0 usdInstrument
+      recQuantity = qty 10.0 tokenInstrument
+      payQuantity = qty 1000.0 usdInstrument
       proposer = bob
       counterparty = alice
       routeProviderCid
