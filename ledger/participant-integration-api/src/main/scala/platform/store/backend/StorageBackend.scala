@@ -279,8 +279,9 @@ trait EventStorageBackend {
       endInclusive: Long,
   )(connection: Connection): Vector[EventStorageBackend.Entry[Raw.FlatEvent]]
 
-  /** Max event sequential id of observable (create, consuming and nonconsuming exercise) events. */
-  def maxEventSequentialIdOfAnObservableEvent(offset: Offset)(connection: Connection): Option[Long]
+  def maxEventSequentialId(untilInclusiveOffset: Offset)(
+      connection: Connection
+  ): Long
 
   def rawEvents(startExclusive: Long, endInclusive: Long)(
       connection: Connection
@@ -288,18 +289,6 @@ trait EventStorageBackend {
 }
 
 object EventStorageBackend {
-  case class RangeParams(
-      startExclusive: Long,
-      endInclusive: Long,
-      limit: Option[Int],
-      fetchSizeHint: Option[Int],
-  )
-
-  case class FilterParams(
-      wildCardParties: Set[Party],
-      partiesAndTemplates: Set[(Set[Party], Set[Identifier])],
-  )
-
   case class RawTransactionEvent(
       eventKind: Int,
       transactionId: String,

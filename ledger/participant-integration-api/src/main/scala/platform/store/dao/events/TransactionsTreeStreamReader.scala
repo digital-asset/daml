@@ -52,20 +52,21 @@ class TransactionsTreeStreamReader(
     Ordering.by[EventStorageBackend.Entry[Raw.TreeEvent], Long](_.eventSequentialId)
 
   def streamTreeTransaction(
-      queryRange: EventsRange[(Offset, Long)],
+      queryRange: EventsRange,
       requestingParties: Set[Party],
       eventProjectionProperties: EventProjectionProperties,
   )(implicit
       loggingContext: LoggingContext
   ): Source[(Offset, GetTransactionTreesResponse), NotUsed] = {
-    val startExclusiveOffset: Offset = queryRange.startExclusive._1
-    val endInclusiveOffset: Offset = queryRange.endInclusive._1
     val span =
-      Telemetry.Transactions.createSpan(startExclusiveOffset, endInclusiveOffset)(
+      Telemetry.Transactions.createSpan(
+        queryRange.startExclusiveOffset,
+        queryRange.endInclusiveOffset,
+      )(
         qualifiedNameOfCurrentFunc
       )
     logger.debug(
-      s"streamTreeTransaction($startExclusiveOffset, $endInclusiveOffset, $requestingParties, $eventProjectionProperties)"
+      s"streamTreeTransaction(${queryRange.startExclusiveOffset}, ${queryRange.endInclusiveOffset}, $requestingParties, $eventProjectionProperties)"
     )
     val sourceOfTreeTransactions = doStreamTreeTransaction(
       queryRange,
@@ -86,16 +87,12 @@ class TransactionsTreeStreamReader(
   }
 
   private def doStreamTreeTransaction(
-      queryRange: EventsRange[(Offset, Long)],
+      queryRange: EventsRange,
       requestingParties: Set[Party],
       eventProjectionProperties: EventProjectionProperties,
   )(implicit
       loggingContext: LoggingContext
   ): Source[(Offset, GetTransactionTreesResponse), NotUsed] = {
-    val (startExclusiveOffset, startExclusiveEventSequentialId): (Offset, Long) =
-      queryRange.startExclusive
-    val (endInclusiveOffset, endInclusiveEventSequentialId): (Offset, Long) =
-      queryRange.endInclusive
     val createEventIdQueriesLimiter =
       new QueueBasedConcurrencyLimiter(maxParallelIdCreateQueries, executionContext)
     val consumingEventIdQueriesLimiter =
@@ -123,7 +120,7 @@ class TransactionsTreeStreamReader(
       PaginatingAsyncStream.streamIdsFromSeekPagination(
         idPageSizing = idPageSizing,
         idPageBufferSize = maxPagesPerIdPagesBuffer,
-        initialFromIdExclusive = startExclusiveEventSequentialId,
+        initialFromIdExclusive = queryRange.startExclusiveEventSeqId,
       )(
         fetchPage = (state: IdPaginationState) => {
           maxParallelIdQueriesLimiter.execute {
@@ -134,7 +131,7 @@ class TransactionsTreeStreamReader(
                 )(
                   informee = filterParty,
                   startExclusive = state.fromIdExclusive,
-                  endInclusive = endInclusiveEventSequentialId,
+                  endInclusive = queryRange.endInclusiveEventSeqId,
                   limit = state.pageSize,
                 )(connection)
               }
@@ -165,9 +162,9 @@ class TransactionsTreeStreamReader(
                     eventSequentialIds = ids,
                     allFilterParties = requestingParties,
                   )(connection),
-                  minOffsetExclusive = startExclusiveOffset,
+                  minOffsetExclusive = queryRange.startExclusiveOffset,
                   error = (prunedOffset: Offset) =>
-                    s"Transactions request from ${startExclusiveOffset.toHexString} to ${endInclusiveOffset.toHexString} precedes pruned offset ${prunedOffset.toHexString}",
+                    s"Transactions request from ${queryRange.startExclusiveOffset.toHexString} to ${queryRange.endInclusiveOffset.toHexString} precedes pruned offset ${prunedOffset.toHexString}",
                 )
               }
             }

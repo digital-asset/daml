@@ -794,18 +794,29 @@ abstract class EventStorageBackendTemplate(
       .asVectorOf(rawTransactionEventParser)(connection)
   }
 
-  override def maxEventSequentialIdOfAnObservableEvent(
-      offset: Offset
-  )(connection: Connection): Option[Long] = {
+  override def maxEventSequentialId(
+      untilInclusiveOffset: Offset
+  )(connection: Connection): Long = {
+    val ledgerEnd = ledgerEndCache()
     import com.daml.platform.store.backend.Conversions.OffsetToStatement
     SQL"""
-         SELECT
-            event_sequential_id_last
-         FROM
-            participant_transaction_meta
-         WHERE
-            event_offset = (SELECT MAX(event_offset) FROM participant_transaction_meta WHERE event_offset <= $offset)
-       """.as(get[Long](1).singleOpt)(connection)
+     SELECT
+        event_sequential_id_first
+     FROM
+        participant_transaction_meta
+     WHERE
+        event_offset > $untilInclusiveOffset
+        AND event_offset <= ${ledgerEnd._1}
+     ORDER BY
+        event_offset
+     ${QueryStrategy.limitClause(Some(1))}
+   """.as(get[Long](1).singleOpt)(connection)
+      .getOrElse(
+        // after the offset there is no meta, so no tx,
+        // therefore the next (minimum) event sequential id will be
+        // the first event sequential id after the ledger end
+        ledgerEnd._2 + 1
+      ) - 1
   }
 
   private def pruneIdFilterCreateStakeholder(pruneUpToInclusive: Offset): SimpleSql[Row] =
@@ -846,9 +857,6 @@ abstract class EventStorageBackendTemplate(
       pruneUpToInclusive = pruneUpToInclusive,
     )
 
-  /** Callers can call it only once pruning of create, consuming and non-consuming event tables has already finished.
-    * The implementation assumes that these tables have already been pruned.
-    */
   private def pruneTransactionMeta(pruneUpToInclusive: Offset): SimpleSql[Row] = {
     import com.daml.platform.store.backend.Conversions.OffsetToStatement
     SQL"""
@@ -856,14 +864,6 @@ abstract class EventStorageBackendTemplate(
             participant_transaction_meta m
          WHERE
           m.event_offset <= $pruneUpToInclusive
-          AND
-          NOT EXISTS (
-            SELECT 1 FROM participant_events_create c
-            WHERE
-              c.event_sequential_id >= m.event_sequential_id_first
-              AND
-              c.event_sequential_id <= m.event_sequential_id_last
-          )
        """
   }
 
