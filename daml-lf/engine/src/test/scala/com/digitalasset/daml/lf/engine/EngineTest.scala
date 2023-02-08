@@ -775,11 +775,7 @@ class EngineTest
         key = usedContractSKey,
       )
 
-      val transactionVersion = {
-        // TODO https://github.com/digital-asset/daml/issues/15745
-        //      Do not hard code the transaction version
-        TxVersions.V14
-      }
+      val transactionVersion = TxVersions.assignNodeVersion(basicTestsPkg.languageVersion)
       val expectedProcessedDisclosedEvent = DisclosedEvent(
         templateId = usedDisclosedContract.templateId,
         usedDisclosedContract.contractId.value,
@@ -1668,8 +1664,7 @@ class EngineTest
         contractKey = usedContractSKey,
       )
 
-      val transactionVersion =
-        TxVersions.V14 // TODO(#15745) Do not hard code the transaction version
+      val transactionVersion = TxVersions.assignNodeVersion(basicTestsPkg.languageVersion)
       val expectedProcessedDisclosedEvent = DisclosedEvent(
         templateId = usedDisclosedContract.templateId,
         contractId = usedDisclosedContract.contractId.value,
@@ -1722,8 +1717,7 @@ class EngineTest
         coid = usedDisclosedContract.contractId,
       )
 
-      val transactionVersion =
-        TxVersions.V14 // TODO(#15745) Do not hard code the transaction version
+      val transactionVersion = TxVersions.assignNodeVersion(basicTestsPkg.languageVersion)
       val expectedProcessedDisclosedEvent = DisclosedEvent(
         templateId = usedDisclosedContract.templateId,
         contractId = usedDisclosedContract.contractId.value,
@@ -2760,11 +2754,12 @@ object EngineTest {
         disclosedContracts: DisclosedContract*
     ): Matcher[VersionedTransaction] =
       Matcher { transaction =>
-        val expectedResult = Set(disclosedContracts: _*).map(_.contractId.value)
+        val expectedResult = disclosedContracts.map(_.contractId.value).toSet
         val actualResult = transaction.inputContracts
+        remy.log(expectedResult -> actualResult)
         val debugMessage = Seq(
-          s"expected but missing contract IDs: ${expectedResult.filter(!actualResult.toSeq.contains(_))}",
-          s"unexpected but found contract IDs: ${actualResult.filter(!expectedResult.toSeq.contains(_))}",
+          s"expected but missing contract IDs: ${expectedResult.filter(!actualResult.contains(_))}",
+          s"unexpected but found contract IDs: ${actualResult.filter(!expectedResult.contains(_))}",
         ).mkString("\n  ", "\n  ", "")
 
         MatchResult(
