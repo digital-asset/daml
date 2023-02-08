@@ -38,7 +38,7 @@ object IndexServiceConfig {
   val DefaultInMemoryStateUpdaterParallelism: Int = 2
   val DefaultInMemoryFanOutThreadPoolSize: Int = 16
   val PreparePackageMetadataTimeOutWarning: FiniteDuration = FiniteDuration(5, "second")
-  val MaximumPruningWindowSize: Int = 8000
+  val MaximumPruningWindowSize: Int = 100000
 }
 
 case class AcsStreamsConfig(
