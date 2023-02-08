@@ -599,7 +599,10 @@ sealed abstract class HasTxNodes {
       leaf: (NodeId, Node.LeafOnlyAction) => Unit,
       exerciseEnd: (NodeId, Node.Exercise) => Unit,
       rollbackEnd: (NodeId, Node.Rollback) => Unit,
+      authorityBegin: (NodeId, Node.Authority) => ChildrenRecursion, // NICK: with default
+      authorityEnd: (NodeId, Node.Authority) => ChildrenRecursion, // NICK: with default
   ): Unit = {
+    val _ = (authorityBegin, authorityEnd) // NICK: use them! must extend fix the Either type
     @tailrec
     def loop(
         currNodes: FrontStack[NodeId],
@@ -610,7 +613,8 @@ sealed abstract class HasTxNodes {
       currNodes.pop match {
         case Some((nid, rest)) =>
           nodes(nid) match {
-            case _: Node.Authority => ??? // TODO #15882 -- need authority{Begin,End} callbacks
+            // case _: Node.Authority => ??? // TODO #15882 -- need authority{Begin,End} callbacks
+            case _: Node.Authority => () // NICK: temp avoid crash!
             case rb: Node.Rollback =>
               rollbackBegin(nid, rb) match {
                 case ChildrenRecursion.DoRecurse =>
@@ -671,6 +675,15 @@ sealed abstract class HasTxNodes {
       (nid, node) => acc = leaf(acc, nid, node),
       (nid, node) => acc = exerciseEnd(acc, nid, node),
       (nid, node) => acc = rollbackEnd(acc, nid, node),
+      // NICK: also add begin/End auth callbacks to fold; fixup callers; and delegate here
+      authorityBegin = (nid, node) => {
+        val _ = (nid, node) // NICK
+        ??? // NICK
+      },
+      authorityEnd = (nid, node) => {
+        val _ = (nid, node) // NICK
+        ??? // NICK
+      },
     )
     acc
   }

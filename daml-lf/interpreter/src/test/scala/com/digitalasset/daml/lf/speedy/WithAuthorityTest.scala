@@ -64,7 +64,7 @@ class WithAuthorityTest
       val either: Either[SError, SubmittedTransaction] = SpeedyTestLib.buildTransaction(machine)
       either match {
         case Right(tx) =>
-          println(s"TX=$tx")
+          println(s"TX=$tx") // NICK: assert the tx has expected shape, with correct auth nodes.
         case Left(e) =>
           fail(Pretty.prettyError(e).render(80))
       }

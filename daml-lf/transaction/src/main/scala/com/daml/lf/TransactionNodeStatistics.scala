@@ -159,6 +159,12 @@ object TransactionNodeStatistics {
       },
       exerciseEnd = (_, _) => (),
       rollbackEnd = (_, _) => rollbackDepth -= 1,
+      authorityBegin = (_, _) => {
+        ??? // NICK
+      },
+      authorityEnd = (_, _) => {
+        ??? // NICK
+      },
     )
 
     TransactionNodeStatistics(build(committed), build(rolledBack))

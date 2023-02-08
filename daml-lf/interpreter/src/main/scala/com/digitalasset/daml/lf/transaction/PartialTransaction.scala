@@ -664,12 +664,15 @@ private[speedy] case class PartialTransaction(
         val was = info.authorizers
         val now = info.parent.info.authorizers
         println(s"**endWithAuthority\n- was=$was\n- now=$now") // TODO #15882: remove debug
-        copy(
-          context = info.parent.copy(
-            children = info.parent.children :++ context.children.toImmArray,
-            nextActionChildIdx = context.nextActionChildIdx,
-          )
+        val authNode = Node.Authority(
+          obtained = info.authorizers, // NICK: change to now for a bug!
+          children = context.children.toImmArray,
         )
+        copy(
+          context = info.parent.addActionChild(info.nodeId, context.minChildVersion),
+          nodes = nodes.updated(info.nodeId, authNode),
+        )
+
       case _ =>
         InternalError.runtimeException(
           NameOf.qualifiedNameOfCurrentFunc,

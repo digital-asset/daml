@@ -154,6 +154,12 @@ private[snapshot] object TransactionSnapshot {
         },
         exerciseEnd = (_, _) => (),
         rollbackEnd = (_, _) => (),
+        authorityBegin = (_, _) => {
+          ??? // NICK
+        },
+        authorityEnd = (_, _) => {
+          ??? // NICK
+        },
       )
 
     def updateWithArchive(archive: ByteString) =
