@@ -16,7 +16,8 @@ import com.daml.ledger.api.v1.command_submission_service.CommandSubmissionServic
 import com.daml.ledger.api.v1.value.Value.Sum
 import com.daml.ledger.api.v1.value.{RecordField, Value, Variant}
 import com.daml.ledger.client.withoutledgerid.{LedgerClient => DamlLedgerClient}
-import com.daml.nonrepudiation.NonRepudiationProxy
+import com.daml.metrics.api.noop.NoOpMetricsFactory
+import com.daml.nonrepudiation.{Metrics, NonRepudiationProxy}
 import com.daml.nonrepudiation.postgresql.{Tables, createTransactor}
 import com.daml.nonrepudiation.testing.generateKeyAndCertificate
 import com.daml.ports.{FreePort, Port}
@@ -131,6 +132,7 @@ abstract class AbstractNonRepudiationTest
             db.certificates,
             db.signedPayloads,
             Clock.systemUTC(),
+            new Metrics(NoOpMetricsFactory),
             CommandServiceGrpc.CommandService.scalaDescriptor.fullName,
             CommandSubmissionServiceGrpc.CommandSubmissionService.scalaDescriptor.fullName,
           )

@@ -7,8 +7,8 @@ import java.io.ByteArrayInputStream
 import java.security.PublicKey
 import java.time.Clock
 
-import com.codahale.metrics.Timer
 import com.daml.grpc.interceptors.ForwardingServerCallListener
+import com.daml.metrics.api.MetricHandle.{Meter, Timer}
 import io.grpc.Metadata.Key
 import io.grpc._
 import org.slf4j.{Logger, LoggerFactory}
@@ -19,18 +19,19 @@ final class SignatureVerificationInterceptor(
     certificateRepository: CertificateRepository.Read,
     signedPayloadRepository: SignedPayloadRepository.Write,
     timestampProvider: Clock,
+    metrics: Metrics,
 ) extends ServerInterceptor {
 
   import SignatureVerificationInterceptor._
 
   private val timedCertificateRepository =
-    new CertificateRepository.Timed(Metrics.getKeyTimer, certificateRepository)
+    new CertificateRepository.Timed(metrics.getKeyTimer, certificateRepository)
 
   private val timedSignedPayloadRepository =
-    new SignedPayloadRepository.Timed(Metrics.addSignedPayloadTimer, signedPayloadRepository)
+    new SignedPayloadRepository.Timed(metrics.addSignedPayloadTimer, signedPayloadRepository)
 
   private val timedSignatureVerification =
-    new SignatureVerification.Timed(Metrics.verifySignatureTimer)
+    new SignatureVerification.Timed(metrics.verifySignatureTimer)
 
   override def interceptCall[ReqT, RespT](
       call: ServerCall[ReqT, RespT],
@@ -38,7 +39,7 @@ final class SignatureVerificationInterceptor(
       next: ServerCallHandler[ReqT, RespT],
   ): ServerCall.Listener[ReqT] = {
 
-    val runningTimer = Metrics.processingTimer.time()
+    val runningTimer = metrics.processingTimer.startAsync()
 
     val signatureData =
       for {
@@ -64,9 +65,10 @@ final class SignatureVerificationInterceptor(
           signedPayloads = timedSignedPayloadRepository,
           timestampProvider = timestampProvider,
           runningTimer = runningTimer,
+          rejectionMeter = metrics.rejectionsMeter,
         )
       case Left(rejection) =>
-        rejection.report(runningTimer)
+        rejection.report(metrics.rejectionsMeter, runningTimer)
         call.close(SignatureVerificationFailed, new Metadata())
         new ServerCall.Listener[ReqT] {}
     }
@@ -98,8 +100,8 @@ object SignatureVerificationInterceptor {
   }
 
   private trait Rejection {
-    def report(timer: Timer.Context): Unit = {
-      Metrics.rejectionsMeter.mark()
+    def report(rejectionMeter: Meter, timer: Timer.TimerHandle): Unit = {
+      rejectionMeter.mark()
       timer.stop()
       this match {
         case Rejection.Error(reason) =>
@@ -143,7 +145,8 @@ object SignatureVerificationInterceptor {
       signatureVerification: SignatureVerification,
       signedPayloads: SignedPayloadRepository.Write,
       timestampProvider: Clock,
-      runningTimer: Timer.Context,
+      runningTimer: Timer.TimerHandle,
+      rejectionMeter: Meter,
   ) extends ForwardingServerCallListener(call, metadata, next) {
 
     private def castToByteArray(request: ReqT): Either[Rejection, Array[Byte]] = {
@@ -184,7 +187,7 @@ object SignatureVerificationInterceptor {
         }
 
       result.left.foreach { rejection =>
-        rejection.report(runningTimer)
+        rejection.report(rejectionMeter, runningTimer)
         call.close(SignatureVerificationFailed, new Metadata())
       }
     }

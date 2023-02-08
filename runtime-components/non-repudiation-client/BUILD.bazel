@@ -38,6 +38,7 @@ da_scala_test(
         "//ledger-api/grpc-definitions:ledger_api_proto_scala",
         "//libs-scala/resources",
         "//libs-scala/resources-grpc",
+        "//observability/metrics",
         "//runtime-components/non-repudiation",
         "//runtime-components/non-repudiation-client",
         "//runtime-components/non-repudiation-testing",

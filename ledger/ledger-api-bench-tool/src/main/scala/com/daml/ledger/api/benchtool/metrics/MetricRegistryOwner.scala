@@ -6,6 +6,7 @@ package com.daml.ledger.api.benchtool.metrics
 import java.util.concurrent.TimeUnit
 
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
+import com.daml.metrics.api.opentelemetry.Slf4jMetricExporter
 import com.daml.metrics.api.reporters.MetricsReporter
 import io.opentelemetry.api.metrics.MeterProvider
 import io.opentelemetry.exporter.prometheus.PrometheusHttpServer
