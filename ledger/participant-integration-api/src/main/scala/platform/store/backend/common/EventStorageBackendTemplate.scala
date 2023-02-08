@@ -22,7 +22,7 @@ import com.daml.platform.store.backend.common.SimpleSqlAsVectorOf._
 import com.daml.platform.store.dao.events.Raw
 import com.daml.platform.store.backend.EventStorageBackend
 import com.daml.platform.store.backend.EventStorageBackend.RawTransactionEvent
-import com.daml.platform.store.backend.common.ComposableQuery.{CompositeSql, SqlStringInterpolation}
+import com.daml.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
 import com.daml.platform.store.cache.LedgerEndCache
 import com.daml.platform.store.interning.StringInterning
 
@@ -484,6 +484,7 @@ abstract class EventStorageBackendTemplate(
       pruneAllDivulgedContracts: Boolean,
   )(connection: Connection, loggingContext: LoggingContext): Unit = {
     import com.daml.platform.store.backend.Conversions.OffsetToStatement
+    connection.setAutoCommit(false)
 
     def orClauseOnImmediateDivulgencePruning(
         createsTable: String
@@ -493,17 +494,16 @@ abstract class EventStorageBackendTemplate(
           // We need to distinguish between the two cases since lexicographical comparison
           // in Oracle doesn't work with '' (empty strings are treated as NULLs) as one of the operands
           participantAllDivulgedContractsPrunedUpToInclusive(connection) match {
-            case Some(pruneAfter) => cSQL"and event_offset > $pruneAfter"
+            case Some(pruneAfter) => cSQL"event_offset > $pruneAfter and"
             case None => cSQL""
           }
         }
 
         cSQL"""
             OR (
-             #$createsTable.event_offset <= $pruneUpToInclusive
              $pruneAfterClause
              -- Only prune create events which did not have a locally hosted party before their creation offset
-             AND NOT EXISTS (
+             NOT EXISTS (
               SELECT 1
                 FROM party_entries p
                WHERE p.typ = 'accept'
@@ -520,181 +520,141 @@ abstract class EventStorageBackendTemplate(
 
     val retroactiveDivulgencePruning =
       if (pruneAllDivulgedContracts)
-        cSQL"""
+        SQL"""
           -- Retroactive divulgence events
           DELETE FROM participant_events_divulgence delete_events
                 WHERE delete_events.event_offset <= $pruneUpToInclusive
                    OR delete_events.event_offset IS NULL
-             RETURNING 1
           """
       else
-        cSQL"""
+        SQL"""
           DELETE FROM participant_events_divulgence delete_events
                 USING deleted_consuming_events
                 WHERE delete_events.contract_id = deleted_consuming_events.contract_id
                   AND delete_events.event_offset <= $pruneUpToInclusive -- TODO pruning: do we even need this guard? Probably not
-            RETURNING 1
             """
+    if (connection.getAutoCommit)
+      throw new RuntimeException("These cannot be run non-transactionally")
 
-    pruneWithLogging("prune all")(SQL"""
-       WITH
-       ${withCountingDeletedResults("deleted_consuming_events")(
-        cSQL"""
-            DELETE FROM participant_events_consuming_exercise
-                  WHERE event_offset <= $pruneUpToInclusive
-              RETURNING contract_id, event_sequential_id
-      """
-      )},
-      ${withCountingDeletedResults("deleted_nonconsuming_events")(
-        cSQL"""
-        DELETE FROM participant_events_non_consuming_exercise
-              WHERE event_offset <= $pruneUpToInclusive
-          RETURNING event_sequential_id
-      """
-      )},
-      ${withCountingDeletedResults("deleted_creates")(
-        cSQL"""
-        DELETE FROM participant_events_create
-              USING parameters
-              WHERE contract_id IN (SELECT contract_id FROM deleted_consuming_events)
-        ${orClauseOnImmediateDivulgencePruning(createsTable = "participant_events_create")}
-         RETURNING contract_id, event_sequential_id, transaction_id
-      """
-      )},
-      ${withCountingDeletedResults("deleted_retroactive_divulgence")(
-        retroactiveDivulgencePruning
-      )},
-       ${pruneIdFilter(
-        eventSequentialIdTableName = "deleted_creates",
-        tableName = "pe_create_id_filter_stakeholder",
-      )},
-       ${pruneIdFilter(
-        eventSequentialIdTableName = "deleted_creates",
-        tableName = "pe_create_id_filter_non_stakeholder_informee",
-      )},
-      ${pruneIdFilter(
-        eventSequentialIdTableName = "deleted_consuming_events",
-        tableName = "pe_consuming_id_filter_stakeholder",
-      )},
-      ${pruneIdFilter(
-        eventSequentialIdTableName = "deleted_consuming_events",
-        tableName = "pe_consuming_id_filter_non_stakeholder_informee",
-      )},
-      ${pruneIdFilter(
-        eventSequentialIdTableName = "deleted_nonconsuming_events",
-        tableName = "pe_non_consuming_id_filter_informee",
-      )},
-      ${withCountingDeletedResults("deleted_participant_transaction_meta")(cSQL"""
-        DELETE FROM participant_transaction_meta m
-              WHERE m.event_offset <= $pruneUpToInclusive
-          RETURNING *
-      """)}
+    val createIndex = (tableName: String, column: String, indexType: String) =>
+      SQL"""CREATE INDEX #$tableName#$column ON #$tableName USING #$indexType(#$column)"""
 
-       SELECT count_deleted_consuming_events.count AS count_deleted_consuming_events,
-              count_deleted_nonconsuming_events.count AS count_deleted_nonconsuming_events,
-              count_deleted_creates.count AS count_deleted_creates,
-              count_deleted_retroactive_divulgence.count AS count_deleted_retroactive_divulgence,
-              
-              count_id_filter_pe_create_id_filter_stakeholder.count AS count_id_filter_pe_create_id_filter_stakeholder,
-              count_id_filter_pe_create_id_filter_non_stakeholder_informee.count AS count_id_filter_pe_create_id_filter_non_stakeholder_informee,
-              count_id_filter_pe_consuming_id_filter_stakeholder.count AS count_id_filter_pe_consuming_id_filter_stakeholder,
-              count_id_filter_pe_consuming_id_filter_non_stakeholder_informee.count AS count_id_filter_pe_consuming_id_filter_non_stakeholder_informee,
-              count_id_filter_pe_non_consuming_id_filter_informee.count AS count_id_filter_pe_non_consuming_id_filter_informee,
-              
-              count_deleted_participant_transaction_meta.count AS count_deleted_participant_transaction_meta
-              
-         FROM count_deleted_consuming_events,
-              count_deleted_nonconsuming_events,
-              count_deleted_creates,
-              count_deleted_retroactive_divulgence,
-              count_id_filter_pe_create_id_filter_stakeholder,
-              count_id_filter_pe_create_id_filter_non_stakeholder_informee,
-              count_id_filter_pe_consuming_id_filter_stakeholder,
-              count_id_filter_pe_consuming_id_filter_non_stakeholder_informee,
-              count_id_filter_pe_non_consuming_id_filter_informee,
-              count_deleted_participant_transaction_meta
-       """)(connection, loggingContext)
+    executeWithLogging("consuming temp")(
+      SQL"""CREATE TEMP TABLE deleted_consuming_events ON COMMIT DROP -- TODO check that no temp tables stay alive. Also use tmp_ as more relevant name
+           AS SELECT contract_id, event_sequential_id FROM participant_events_consuming_exercise WHERE event_offset <= $pruneUpToInclusive
+         """
+    )(connection, loggingContext)
+    executeWithLogging("delete create contract_id index on consuming")(
+      createIndex("deleted_consuming_events", "contract_id", "BTREE")
+    )(connection, loggingContext)
+    executeWithLogging("create event_sequential_id index on consuming")(
+      createIndex("deleted_consuming_events", "event_sequential_id", "BTREE")
+    )(connection, loggingContext)
+
+    executeWithLogging("nonconsuming temp")(
+      SQL"""CREATE TEMP TABLE deleted_nonconsuming_events ON COMMIT DROP -- TODO check that no temp tables stay alive
+           AS SELECT contract_id, event_sequential_id FROM participant_events_non_consuming_exercise WHERE event_offset <= $pruneUpToInclusive
+         """
+    )(connection, loggingContext)
+    executeWithLogging("create contract_id index on nonconsuming")(
+      createIndex("deleted_nonconsuming_events", "contract_id", "BTREE")
+    )(connection, loggingContext)
+    executeWithLogging("create event_sequential_id index on nonconsuming")(
+      createIndex("deleted_nonconsuming_events", "event_sequential_id", "BTREE")
+    )(connection, loggingContext)
+
+    executeWithLogging("creates temp")(
+      SQL"""CREATE TEMP TABLE deleted_creates ON COMMIT DROP -- TODO check that no temp tables stay alive
+           AS SELECT contract_id, event_sequential_id FROM participant_events_create pec
+                 WHERE pec.event_offset <= $pruneUpToInclusive
+                  AND (EXISTS (SELECT 1 FROM deleted_consuming_events dce WHERE dce.contract_id = pec.contract_id)
+           ${orClauseOnImmediateDivulgencePruning(createsTable = "pec")})
+         """
+    )(connection, loggingContext)
+
+    executeWithLogging("create contract_id index on creates")(
+      createIndex("deleted_creates", "contract_id", "BTREE")
+    )(connection, loggingContext)
+    executeWithLogging("create event_sequential_id index on creates")(
+      createIndex("deleted_creates", "event_sequential_id", "BTREE")
+    )(connection, loggingContext)
+
+    delete("consuming")(SQL"""
+        DELETE FROM participant_events_consuming_exercise pece
+              WHERE EXISTS (SELECT 1 FROM deleted_consuming_events dce WHERE pece.contract_id = dce.contract_id)
+      """)(connection, loggingContext)
+
+    delete("nonconsuming")(SQL"""
+      DELETE FROM participant_events_non_consuming_exercise pence
+                  WHERE EXISTS (SELECT 1 FROM deleted_nonconsuming_events dnce WHERE dnce.contract_id = pence.contract_id)
+      """)(connection, loggingContext)
+
+    delete("creates")(SQL"""
+      DELETE FROM participant_events_create pec
+            WHERE EXISTS (SELECT 1 FROM deleted_creates dc WHERE dc.contract_id = pec.contract_id)
+      """)(connection, loggingContext)
+
+    delete("retroactive divulgence")(retroactiveDivulgencePruning)(connection, loggingContext)
+
+    pruneIdFilter(
+      eventSequentialIdTableName = "deleted_creates",
+      tableName = "pe_create_id_filter_stakeholder",
+    )(connection, loggingContext)
+
+    pruneIdFilter(
+      eventSequentialIdTableName = "deleted_creates",
+      tableName = "pe_create_id_filter_non_stakeholder_informee",
+    )(connection, loggingContext)
+
+    pruneIdFilter(
+      eventSequentialIdTableName = "deleted_consuming_events",
+      tableName = "pe_consuming_id_filter_stakeholder",
+    )(connection, loggingContext)
+
+    pruneIdFilter(
+      eventSequentialIdTableName = "deleted_consuming_events",
+      tableName = "pe_consuming_id_filter_non_stakeholder_informee",
+    )(connection, loggingContext)
+
+    pruneIdFilter(
+      eventSequentialIdTableName = "deleted_nonconsuming_events",
+      tableName = "pe_non_consuming_id_filter_informee",
+    )(connection, loggingContext)
+
+    delete("deleting from participant_transaction_meta")(SQL"""
+        DELETE FROM participant_transaction_meta m WHERE m.event_offset < $pruneUpToInclusive
+         """)(connection, loggingContext)
+
+    connection.commit()
   }
 
-  private def withCountingDeletedResults(interimTableName: String)(
-      deleteReturningSql: CompositeSql
-  ): CompositeSql =
-    cSQL"""
-        #$interimTableName AS ( $deleteReturningSql ),
-        count_#$interimTableName AS ( SELECT COUNT(*) AS count FROM #$interimTableName )
-        """
-
   private def pruneIdFilter(eventSequentialIdTableName: String, tableName: String) =
-    withCountingDeletedResults(s"id_filter_$tableName")(
-      cSQL"""
+    delete(s"deleting idFilter $tableName")(
+      SQL"""
         DELETE FROM #$tableName id_filter
-        USING #$eventSequentialIdTableName
-        WHERE id_filter.event_sequential_id = #$eventSequentialIdTableName.event_sequential_id
-        RETURNING 1 -- for counting purposes
+        WHERE EXISTS (SELECT 1 FROM #$eventSequentialIdTableName ft WHERE id_filter.event_sequential_id = ft.event_sequential_id)
       """
-    )
+    )(_, _)
 
-  private def pruneWithLogging(queryDescription: String)(query: SimpleSql[Row])(
+  private def delete(queryDescription: String)(query: SimpleSql[Row])(
       connection: Connection,
       loggingContext: LoggingContext,
   ): Unit = {
-    val deletedRows = query.as(
-      (
-        get[Int]("count_deleted_consuming_events") ~
-          get[Int]("count_deleted_nonconsuming_events") ~
-          get[Int]("count_deleted_creates") ~
-          get[Int]("count_deleted_retroactive_divulgence") ~
-          get[Int]("count_id_filter_pe_create_id_filter_stakeholder") ~
-          get[Int]("count_id_filter_pe_create_id_filter_non_stakeholder_informee") ~
-          get[Int]("count_id_filter_pe_consuming_id_filter_stakeholder") ~
-          get[Int]("count_id_filter_pe_consuming_id_filter_non_stakeholder_informee") ~
-          get[Int]("count_id_filter_pe_non_consuming_id_filter_informee") ~
-          get[Int]("count_deleted_participant_transaction_meta")
-      ).single map {
-        case count_deleted_consuming_events ~
-            count_deleted_nonconsuming_events ~
-            count_deleted_creates ~
-            count_deleted_retroactive_divulgence ~
-            count_id_filter_pe_create_id_filter_stakeholder ~
-            count_id_filter_pe_create_id_filter_non_stakeholder_informee ~
-            count_id_filter_pe_consuming_id_filter_stakeholder ~
-            count_id_filter_pe_consuming_id_filter_non_stakeholder_informee ~
-            count_id_filter_pe_non_consuming_id_filter_informee ~
-            count_deleted_participant_transaction_meta =>
-          Counts(
-            count_deleted_consuming_events = count_deleted_consuming_events,
-            count_deleted_nonconsuming_events = count_deleted_nonconsuming_events,
-            count_deleted_creates = count_deleted_creates,
-            count_deleted_retroactive_divulgence = count_deleted_retroactive_divulgence,
-            count_id_filter_pe_create_id_filter_stakeholder =
-              count_id_filter_pe_create_id_filter_stakeholder,
-            count_id_filter_pe_create_id_filter_non_stakeholder_informee =
-              count_id_filter_pe_create_id_filter_non_stakeholder_informee,
-            count_id_filter_pe_consuming_id_filter_stakeholder =
-              count_id_filter_pe_consuming_id_filter_stakeholder,
-            count_id_filter_pe_consuming_id_filter_non_stakeholder_informee =
-              count_id_filter_pe_consuming_id_filter_non_stakeholder_informee,
-            count_id_filter_pe_non_consuming_id_filter_informee =
-              count_id_filter_pe_non_consuming_id_filter_informee,
-            count_deleted_participant_transaction_meta = count_deleted_participant_transaction_meta,
-          )
-      }
-    )(connection)
-    logger.warn(s"$queryDescription finished: deleted $deletedRows.")(loggingContext)
+    val deletedRows = query.executeUpdate()(connection)
+    logger.warn(s"deleting $queryDescription finished: deleted $deletedRows rows.")(loggingContext)
   }
 
-  case class Counts(
-      count_deleted_consuming_events: Int,
-      count_deleted_nonconsuming_events: Int,
-      count_deleted_creates: Int,
-      count_deleted_retroactive_divulgence: Int,
-      count_id_filter_pe_create_id_filter_stakeholder: Int,
-      count_id_filter_pe_create_id_filter_non_stakeholder_informee: Int,
-      count_id_filter_pe_consuming_id_filter_stakeholder: Int,
-      count_id_filter_pe_consuming_id_filter_non_stakeholder_informee: Int,
-      count_id_filter_pe_non_consuming_id_filter_informee: Int,
-      count_deleted_participant_transaction_meta: Int,
-  )
+  private def executeWithLogging(queryDescription: String)(query: SimpleSql[Row])(
+      connection: Connection,
+      loggingContext: LoggingContext,
+  ): Unit = {
+    val start = System.nanoTime()
+    query.execute()(connection)
+    val end = System.nanoTime()
+    logger.warn(s"$queryDescription finished: took ${(end - start) / 1000000L} millis")(
+      loggingContext
+    )
+  }
 
   private val rawTransactionEventParser: RowParser[RawTransactionEvent] = {
     import com.daml.platform.store.backend.Conversions.ArrayColumnToStringArray.arrayColumnToStringArray

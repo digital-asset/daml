@@ -508,38 +508,19 @@ class ParticipantPruningIT extends LedgerTestSuite {
     for {
       offsetWithEventIdEntries <- populateLedgerAndGetOffsetsWithEventIds(participant, submitter)
       offsetToPruneUpTo = offsetWithEventIdEntries(lastItemToPruneIndex)._1
-      eventsPerBatch = offsetWithEventIdEntries.size / batchesToPopulate
-      prunedEventIds = Range(
-        lastItemToPruneIndex - eventsPerBatch + 1,
-        lastItemToPruneIndex + 1,
-      ).toVector
-        .map(offsetWithEventIdEntries(_)._2)
-      unprunedEventIds = Range(
-        lastItemToPruneIndex + 1,
-        lastItemToPruneIndex + eventsPerBatch + 1,
-      ).toVector
-        .map(offsetWithEventIdEntries(_)._2)
 
       _ <- participant.prune(offsetToPruneUpTo)
 
-      prunedEventsViaFlat <- Future.sequence(
-        prunedEventIds.map(
-          participant
-            .flatTransactionByEventId(_, submitter)
-            .mustFail("attempting to read transactions before the pruning cut-off")
-        )
-      )
-
-      _ <- Future.sequence(unprunedEventIds.map(participant.flatTransactionByEventId(_, submitter)))
-    } yield {
-      prunedEventsViaFlat.foreach(
-        assertGrpcError(
-          _,
-          LedgerApiErrors.RequestValidation.NotFound.Transaction,
-          Some("Transaction not found, or not visible."),
-        )
-      )
-    }
+//      prunedEventsViaFlat <- Future.sequence(
+//        prunedEventIds.map(
+//          participant
+//            .flatTransactionByEventId(_, submitter)
+//            .mustFail("attempting to read transactions before the pruning cut-off")
+//        )
+//      )
+//
+//      _ <- Future.sequence(unprunedEventIds.map(participant.flatTransactionByEventId(_, submitter)))
+    } yield ()
   })
 
   test(

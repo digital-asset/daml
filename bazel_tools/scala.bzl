@@ -173,7 +173,7 @@ default_compile_arguments = {
 kind_projector_plugin = "@maven//:org_typelevel_kind_projector_{}".format(scala_version_suffix)
 
 default_initial_heap_size = "128m"
-default_max_heap_size = "1g"
+default_max_heap_size = "10g"
 default_scalac_stack_size = "2m"
 
 def _jvm_flags(initial_heap_size, max_heap_size):
