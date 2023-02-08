@@ -66,8 +66,8 @@ circe_version = "0.14.2"
 def install_java_deps():
     maven_install(
         artifacts = version_specific.get(scala_major_version, []) + [
-            "ch.qos.logback:logback-classic:1.2.8",
-            "ch.qos.logback:logback-core:1.2.8",
+            "ch.qos.logback:logback-classic:1.4.5",
+            "ch.qos.logback:logback-core:1.4.5",
             "com.auth0:java-jwt:4.2.1",
             "com.auth0:jwks-rsa:0.21.2",
             "com.chuusai:shapeless_{}:2.3.3".format(scala_major_version),
@@ -210,8 +210,8 @@ def install_java_deps():
             "org.scalaz:scalaz-core_{}:7.2.33".format(scala_major_version),
             "org.scalaz:scalaz-scalacheck-binding_{}:7.2.33-scalacheck-1.15".format(scala_major_version),
             "org.seleniumhq.selenium:selenium-java:3.12.0",
-            "org.slf4j:slf4j-api:1.7.26",
-            "org.slf4j:slf4j-simple:1.7.26",
+            "org.slf4j:slf4j-api:2.0.6",
+            "org.slf4j:slf4j-simple:2.0.6",
             "org.typelevel:cats-core_{}:2.6.1".format(scala_major_version),
             "org.typelevel:cats-kernel_{}:2.6.1".format(scala_major_version),
             "org.typelevel:cats-laws_{}:2.6.1".format(scala_major_version),
