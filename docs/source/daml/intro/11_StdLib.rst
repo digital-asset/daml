@@ -188,9 +188,9 @@ Other than the typeclasses defined in Prelude, there are two modules generalizin
 Search the Standard Library
 ---------------------------
 
-Being able to browse the Standard Library starting from :doc:`/daml/stdlib/index` is a start, and the module naming helps, but it's not an efficient process for finding out what a function you've encountered does, or even less so to find a function that does a thing you need to do.
+Being able to browse the Standard Library starting from :doc:`/daml/stdlib/index` is a start, and the module naming helps, but it's not an efficient process for finding out what a function you've encountered does, even less so for finding a function that does a thing you need to do.
 
-Daml has it's own version of the `Hoogle <https://hoogle.haskell.org/>`__ search engine, which offers search both by name and by signature. It's fully integrated into the search bar on `https://docs.daml.com/ <https://docs.daml.com/>`__, but for those wanting a pure Standard Library search, it's also available on `<https://hoogle.daml.com>`__.
+Daml has its own version of the `Hoogle <https://hoogle.haskell.org/>`__ search engine, which offers search both by name and by signature. This function is fully integrated into the search bar on `https://docs.daml.com/ <https://docs.daml.com/>`__, but for those wanting a pure Standard Library search, it's also available on `<https://hoogle.daml.com>`__.
 
 Search for Functions by Name
 ............................
