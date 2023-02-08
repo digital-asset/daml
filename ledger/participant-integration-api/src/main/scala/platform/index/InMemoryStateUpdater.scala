@@ -227,9 +227,11 @@ private[platform] object InMemoryStateUpdater {
         exerciseBegin = (acc, nid, node) => ((nid -> node) :: acc, ChildrenRecursion.DoRecurse),
         // Rollback nodes are not indexed
         rollbackBegin = (acc, _, _) => (acc, ChildrenRecursion.DoNotRecurse),
+        authorityBegin = (acc, _, _) => (acc, ChildrenRecursion.DoRecurse),
         leaf = (acc, nid, node) => (nid -> node) :: acc,
         exerciseEnd = (acc, _, _) => acc,
         rollbackEnd = (acc, _, _) => acc,
+        authorityEnd = (acc, _, _) => acc,
       )
       .reverseIterator
 

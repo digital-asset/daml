@@ -395,9 +395,11 @@ sealed abstract class HasTxNodes {
         else { (acc, ChildrenRecursion.DoRecurse) }
       },
       rollbackBegin = (acc, _, _) => (acc, ChildrenRecursion.DoNotRecurse),
+      authorityBegin = (acc, _, _) => (acc, ChildrenRecursion.DoRecurse),
       leaf = (acc, _, _) => acc,
       exerciseEnd = (acc, _, _) => acc,
       rollbackEnd = (acc, _, _) => acc,
+      authorityEnd = (acc, _, _) => acc,
     )
 
   /** Local and global contracts that are inactive at the end of the transaction.
@@ -465,6 +467,14 @@ sealed abstract class HasTxNodes {
           case c: Node.Create => acc.create(c.coid)
           case _ => acc
         },
+      authorityBegin = (acc, nid, node) => {
+        val _ = (acc, nid, node) // NICK
+        ??? // NICK
+      },
+      authorityEnd = (acc, nid, node) => {
+        val _ = (acc, nid, node) // NICK
+        ??? // NICK
+      },
     ).currentState.inactiveCids
   }
 
@@ -522,6 +532,14 @@ sealed abstract class HasTxNodes {
       leaf = (consumedByMap, _, _) => consumedByMap,
       exerciseEnd = (consumedByMap, _, _) => consumedByMap,
       rollbackEnd = (consumedByMap, _, _) => consumedByMap,
+      authorityBegin = (acc, nid, node) => {
+        val _ = (acc, nid, node) // NICK
+        ??? // NICK
+      },
+      authorityEnd = (acc, nid, node) => {
+        val _ = (acc, nid, node) // NICK
+        ??? // NICK
+      },
     )
 
   /** Return the expected contract key inputs (i.e. the state before the transaction)
@@ -550,6 +568,8 @@ sealed abstract class HasTxNodes {
       rollbackBegin =
         (acc, _, _) => (acc.map(_.beginRollback()), Transaction.ChildrenRecursion.DoRecurse),
       rollbackEnd = (acc, _, _) => acc.map(_.endRollback()),
+      authorityBegin = (acc, _, _) => (acc, Transaction.ChildrenRecursion.DoRecurse),
+      authorityEnd = (acc, _, _) => acc,
       leaf = (
           acc,
           nid,
@@ -578,6 +598,7 @@ sealed abstract class HasTxNodes {
         case (acc, _, _) => (acc, ChildrenRecursion.DoRecurse)
       },
       rollbackBegin = (acc, _, _) => (acc, ChildrenRecursion.DoNotRecurse),
+      authorityBegin = (acc, _, _) => (acc, ChildrenRecursion.DoRecurse),
       leaf = {
         case (acc, _, create: Node.Create) =>
           create.key.fold(acc)(key =>
@@ -587,6 +608,7 @@ sealed abstract class HasTxNodes {
       },
       exerciseEnd = (acc, _, _) => acc,
       rollbackEnd = (acc, _, _) => acc,
+      authorityEnd = (acc, _, _) => acc,
     )
   }
 
@@ -596,36 +618,44 @@ sealed abstract class HasTxNodes {
   final def foreachInExecutionOrder(
       exerciseBegin: (NodeId, Node.Exercise) => ChildrenRecursion,
       rollbackBegin: (NodeId, Node.Rollback) => ChildrenRecursion,
+      authorityBegin: (NodeId, Node.Authority) => ChildrenRecursion,
       leaf: (NodeId, Node.LeafOnlyAction) => Unit,
       exerciseEnd: (NodeId, Node.Exercise) => Unit,
       rollbackEnd: (NodeId, Node.Rollback) => Unit,
-      authorityBegin: (NodeId, Node.Authority) => ChildrenRecursion, // NICK: with default
-      authorityEnd: (NodeId, Node.Authority) => ChildrenRecursion, // NICK: with default
+      authorityEnd: (NodeId, Node.Authority) => Unit,
   ): Unit = {
-    val _ = (authorityBegin, authorityEnd) // NICK: use them! must extend fix the Either type
+    sealed abstract class StackItem
+    object SI {
+      final case class Rollback(x: Node.Rollback) extends StackItem
+      final case class Exercise(y: Node.Exercise) extends StackItem
+      final case class Authority(y: Node.Authority) extends StackItem
+    }
     @tailrec
     def loop(
         currNodes: FrontStack[NodeId],
-        stack: FrontStack[
-          ((NodeId, Either[Node.Rollback, Node.Exercise]), FrontStack[NodeId])
-        ],
+        stack: FrontStack[((NodeId, StackItem), FrontStack[NodeId])],
     ): Unit =
       currNodes.pop match {
         case Some((nid, rest)) =>
           nodes(nid) match {
-            // case _: Node.Authority => ??? // TODO #15882 -- need authority{Begin,End} callbacks
-            case _: Node.Authority => () // NICK: temp avoid crash!
+            case au: Node.Authority =>
+              authorityBegin(nid, au) match {
+                case ChildrenRecursion.DoRecurse =>
+                  loop(au.children.toFrontStack, ((nid, SI.Authority(au)), rest) +: stack)
+                case ChildrenRecursion.DoNotRecurse =>
+                  loop(rest, stack)
+              }
             case rb: Node.Rollback =>
               rollbackBegin(nid, rb) match {
                 case ChildrenRecursion.DoRecurse =>
-                  loop(rb.children.toFrontStack, ((nid, Left(rb)), rest) +: stack)
+                  loop(rb.children.toFrontStack, ((nid, SI.Rollback(rb)), rest) +: stack)
                 case ChildrenRecursion.DoNotRecurse =>
                   loop(rest, stack)
               }
             case exe: Node.Exercise =>
               exerciseBegin(nid, exe) match {
                 case ChildrenRecursion.DoRecurse =>
-                  loop(exe.children.toFrontStack, ((nid, Right(exe)), rest) +: stack)
+                  loop(exe.children.toFrontStack, ((nid, SI.Exercise(exe)), rest) +: stack)
                 case ChildrenRecursion.DoNotRecurse =>
                   loop(rest, stack)
               }
@@ -637,11 +667,14 @@ sealed abstract class HasTxNodes {
           stack.pop match {
             case Some((((nid, either), brothers), rest)) =>
               either match {
-                case Left(rb) =>
+                case SI.Rollback(rb) =>
                   rollbackEnd(nid, rb)
                   loop(brothers, rest)
-                case Right(exe) =>
+                case SI.Exercise(exe) =>
                   exerciseEnd(nid, exe)
+                  loop(brothers, rest)
+                case SI.Authority(exe) =>
+                  authorityEnd(nid, exe)
                   loop(brothers, rest)
               }
             case None =>
@@ -656,34 +689,33 @@ sealed abstract class HasTxNodes {
   final def foldInExecutionOrder[A](z: A)(
       exerciseBegin: (A, NodeId, Node.Exercise) => (A, ChildrenRecursion),
       rollbackBegin: (A, NodeId, Node.Rollback) => (A, ChildrenRecursion),
+      authorityBegin: (A, NodeId, Node.Authority) => (A, ChildrenRecursion),
       leaf: (A, NodeId, Node.LeafOnlyAction) => A,
       exerciseEnd: (A, NodeId, Node.Exercise) => A,
       rollbackEnd: (A, NodeId, Node.Rollback) => A,
+      authorityEnd: (A, NodeId, Node.Authority) => A,
   ): A = {
     var acc = z
     foreachInExecutionOrder(
-      (nid, node) => {
+      exerciseBegin = (nid, node) => {
         val (acc2, bool) = exerciseBegin(acc, nid, node)
         acc = acc2
         bool
       },
-      (nid, node) => {
+      rollbackBegin = (nid, node) => {
         val (acc2, bool) = rollbackBegin(acc, nid, node)
         acc = acc2
         bool
       },
-      (nid, node) => acc = leaf(acc, nid, node),
-      (nid, node) => acc = exerciseEnd(acc, nid, node),
-      (nid, node) => acc = rollbackEnd(acc, nid, node),
-      // NICK: also add begin/End auth callbacks to fold; fixup callers; and delegate here
       authorityBegin = (nid, node) => {
-        val _ = (nid, node) // NICK
-        ??? // NICK
+        val (acc2, bool) = authorityBegin(acc, nid, node)
+        acc = acc2
+        bool
       },
-      authorityEnd = (nid, node) => {
-        val _ = (nid, node) // NICK
-        ??? // NICK
-      },
+      leaf = (nid, node) => acc = leaf(acc, nid, node),
+      exerciseEnd = (nid, node) => acc = exerciseEnd(acc, nid, node),
+      rollbackEnd = (nid, node) => acc = rollbackEnd(acc, nid, node),
+      authorityEnd = (nid, node) => acc = authorityEnd(acc, nid, node),
     )
     acc
   }
@@ -693,9 +725,17 @@ sealed abstract class HasTxNodes {
     foldInExecutionOrder[Set[NodeId]](Set.empty)(
       (acc, nid, _) => (acc + nid, ChildrenRecursion.DoRecurse),
       (acc, nid, _) => (acc + nid, ChildrenRecursion.DoRecurse),
+      authorityBegin = (acc, nid, node) => {
+        val _ = (acc, nid, node) // NICK
+        ??? // NICK
+      },
       (acc, nid, _) => acc + nid,
       (acc, _, _) => acc,
       (acc, _, _) => acc,
+      authorityEnd = (acc, nid, node) => {
+        val _ = (acc, nid, node) // NICK
+        ??? // NICK
+      },
     )
   }
 

@@ -27,6 +27,14 @@ object TransactionNormalizer {
           },
         (acc, _, _) => acc,
         (acc, _, _) => acc,
+        authorityBegin = (acc, nid, node) => {
+          val _ = (acc, nid, node) // NICK
+          ??? // NICK
+        },
+        authorityEnd = (acc, nid, node) => {
+          val _ = (acc, nid, node) // NICK
+          ??? // NICK
+        },
       )
     val filteredNodes =
       tx.nodes

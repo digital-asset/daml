@@ -124,6 +124,14 @@ class TransactionSpec
         (acc, nid, _) => s"leaf(${nid.index})" :: acc,
         (acc, nid, _) => s"exerciseEnd(${nid.index})" :: acc,
         (acc, nid, _) => s"rollbackEnd(${nid.index})" :: acc,
+        authorityBegin = (acc, nid, node) => {
+          val _ = (acc, nid, node) // NICK
+          ??? // NICK
+        },
+        authorityEnd = (acc, nid, node) => {
+          val _ = (acc, nid, node) // NICK
+          ??? // NICK
+        },
       )
 
       result.reverse.mkString(", ") shouldBe
