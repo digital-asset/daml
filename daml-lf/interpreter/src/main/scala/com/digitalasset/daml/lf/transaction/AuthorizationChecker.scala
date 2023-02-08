@@ -73,7 +73,7 @@ private[lf] object DefaultAuthorizationChecker extends AuthorizationChecker {
         passIf = create.signatories.nonEmpty,
         failWith = FailedAuthorization.NoSignatories(create.templateId, optLocation),
       ) ++
-      (create.key match {
+      (create.keyOpt match {
         case None => List()
         case Some(key) =>
           val maintainers = key.maintainers

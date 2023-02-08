@@ -42,6 +42,7 @@ class PartialTransactionSpec extends AnyWordSpec with Matchers with Inside {
   private[this] implicit class PartialTransactionExtra(val ptx: PartialTransaction) {
 
     val contract = CachedContract(
+      version = TransactionVersion.maxVersion,
       templateId = templateId,
       value = SValue.SUnit,
       agreementText = "agreement",
@@ -56,7 +57,6 @@ class PartialTransactionSpec extends AnyWordSpec with Matchers with Inside {
           submissionTime = data.Time.Timestamp.Epoch,
           contract = contract,
           optLocation = None,
-          version = TransactionVersion.maxVersion,
         )
         .toOption
         .get

@@ -40,7 +40,18 @@ object GlobalKey {
 final case class GlobalKeyWithMaintainers(
     globalKey: GlobalKey,
     maintainers: Set[Ref.Party],
-)
+) {
+  def value: Value = globalKey.key
+}
+
+object GlobalKeyWithMaintainers {
+  def assertBuild(
+      templateId: Ref.TypeConName,
+      value: Value,
+      maintainers: Set[Ref.Party],
+  ): GlobalKeyWithMaintainers =
+    GlobalKeyWithMaintainers(GlobalKey.assertBuild(templateId, value), maintainers)
+}
 
 /** Controls whether the engine should error out when it encounters duplicate keys.
   * This is always turned on with the exception of Canton which allows turning this on or off

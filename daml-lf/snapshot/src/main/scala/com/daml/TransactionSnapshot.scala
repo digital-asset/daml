@@ -11,7 +11,6 @@ import com.daml.lf.language.{Ast, LanguageVersion, Util => AstUtil}
 import com.daml.lf.testing.snapshot.Snapshot.SubmissionEntry.EntryCase
 import com.daml.lf.transaction.Transaction.ChildrenRecursion
 import com.daml.lf.transaction.{
-  GlobalKey,
   GlobalKeyWithMaintainers,
   Node,
   SubmittedTransaction => SubmittedTx,
@@ -168,12 +167,7 @@ private[snapshot] object TransactionSnapshot {
         cid -> create.versionedCoinst
       }.toMap
       val contractKeys = relevantCreateNodes.view.flatMap { case (cid, create) =>
-        create.key.map { case Node.KeyWithMaintainers(key, maintainers) =>
-          GlobalKeyWithMaintainers(
-            GlobalKey.assertBuild(create.templateId, key),
-            maintainers,
-          ) -> cid
-        }.toList
+        create.keyOpt.map(_ -> cid).toList
       }.toMap
       new TransactionSnapshot(
         transaction = tx,

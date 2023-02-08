@@ -222,14 +222,15 @@ object ExplicitDisclosureLib {
       if (withKey)
         Some(
           CachedKey(
-            GlobalKey.assertBuild(templateId, contract.toUnnormalizedValue),
+            GlobalKeyWithMaintainers
+              .assertBuild(templateId, contract.toUnnormalizedValue, Set(maintainer)),
             contract,
-            Set(maintainer),
           )
         )
       else None
 
     CachedContract(
+      TransactionVersion.minExplicitDisclosure,
       templateId,
       contract,
       agreementText = "",

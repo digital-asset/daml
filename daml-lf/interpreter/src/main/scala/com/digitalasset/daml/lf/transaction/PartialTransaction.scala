@@ -11,6 +11,8 @@ import com.daml.lf.speedy.Speedy.{CachedContract, CachedKey}
 import com.daml.lf.transaction.ContractKeyUniquenessMode
 import com.daml.lf.transaction.{
   ContractStateMachine,
+  GlobalKey,
+  GlobalKeyWithMaintainers,
   Node,
   NodeId,
   SubmittedTransaction => SubmittedTx,
@@ -142,7 +144,7 @@ private[lf] object PartialTransaction {
       targetId: Value.ContractId,
       templateId: TypeConName,
       interfaceId: Option[TypeConName],
-      contractKey: Option[Node.KeyWithMaintainers],
+      contractKey: Option[GlobalKeyWithMaintainers],
       choiceId: ChoiceName,
       consuming: Boolean,
       actingParties: Set[Party],
@@ -347,28 +349,18 @@ private[speedy] case class PartialTransaction(
       submissionTime: Time.Timestamp,
       contract: CachedContract,
       optLocation: Option[Location],
-      version: TxVersion,
   ): Either[(PartialTransaction, Tx.TransactionError), (Value.ContractId, PartialTransaction)] = {
     val auth = Authorize(context.info.authorizers)
     val actionNodeSeed = context.nextActionChildSeed
     val discriminator =
       crypto.Hash.deriveContractDiscriminator(actionNodeSeed, submissionTime, contract.stakeholders)
     val cid = Value.ContractId.V1(discriminator)
-    val createNode = Node.Create(
-      cid,
-      contract.templateId,
-      contract.value.toNormalizedValue(version),
-      contract.agreementText,
-      contract.signatories,
-      contract.stakeholders,
-      contract.key.map(_.toNodeKey(version)),
-      version,
-    )
+    val createNode = contract.toCreateNode(cid)
     val nid = NodeId(nextNodeIdx)
     val ptx = copy(
       actionNodeLocations = actionNodeLocations :+ optLocation,
       nextNodeIdx = nextNodeIdx + 1,
-      context = context.addActionChild(nid, version),
+      context = context.addActionChild(nid, createNode.version),
       nodes = nodes.updated(nid, createNode),
       actionNodeSeeds = actionNodeSeeds :+ actionNodeSeed,
     )
@@ -405,7 +397,7 @@ private[speedy] case class PartialTransaction(
       actingParties,
       contract.signatories,
       contract.stakeholders,
-      contract.key.map(_.toNodeKey(version)),
+      contract.key.map(_.globalKeyWithMaintainers),
       normByKey(version, byKey),
       version,
     )
@@ -427,15 +419,19 @@ private[speedy] case class PartialTransaction(
   }
 
   def insertLookup(
-      templateId: TypeConName,
       optLocation: Option[Location],
       key: CachedKey,
       result: Option[Value.ContractId],
-      version: TxVersion,
+      keyVersion: TxVersion,
   ): Either[Tx.TransactionError, PartialTransaction] = {
     val auth = Authorize(context.info.authorizers)
     val nid = NodeId(nextNodeIdx)
-    val node = Node.LookupByKey(templateId, key.toNodeKey(version), result, version)
+    val node = Node.LookupByKey(
+      key.templateId,
+      key.globalKeyWithMaintainers,
+      result,
+      keyVersion,
+    )
     // This method is only called after we have already resolved the key in com.daml.lf.speedy.SBuiltin.SBUKeyBuiltin.execute
     // so the current state's global key inputs must resolve the key.
     val keyInput = contractState.globalKeyInputs(key.globalKey)
@@ -444,7 +440,7 @@ private[speedy] case class PartialTransaction(
     authorizationChecker.authorizeLookupByKey(optLocation, node)(auth) match {
       case fa :: _ => Left(Tx.AuthFailureDuringExecution(nid, fa))
       case Nil =>
-        Right(insertLeafNode(node, version, optLocation, newContractState))
+        Right(insertLeafNode(node, keyVersion, optLocation, newContractState))
     }
   }
 
@@ -471,7 +467,17 @@ private[speedy] case class PartialTransaction(
         targetId = targetId,
         templateId = contract.templateId,
         interfaceId = interfaceId,
-        contractKey = contract.key.map(_.toNodeKey(version)),
+        contractKey = contract.key.map {
+          // We need to renormalize the key
+          case CachedKey(GlobalKeyWithMaintainers(_, maintainers), key) =>
+            GlobalKeyWithMaintainers(
+              GlobalKey.assertBuild(
+                contract.templateId,
+                key.toNormalizedValue(version),
+              ),
+              maintainers,
+            )
+        },
         choiceId = choiceId,
         consuming = consuming,
         actingParties = actingParties,
@@ -573,7 +579,7 @@ private[speedy] case class PartialTransaction(
       choiceObservers = ec.choiceObservers,
       children = ImmArray.Empty,
       exerciseResult = None,
-      key = ec.contractKey,
+      keyOpt = ec.contractKey,
       byKey = normByKey(ec.version, ec.byKey),
       version = ec.version,
     )

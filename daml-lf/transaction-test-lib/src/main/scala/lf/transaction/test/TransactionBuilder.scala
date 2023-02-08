@@ -106,7 +106,7 @@ final class TransactionBuilder(pkgTxVersion: Ref.PackageId => TransactionVersion
       argument: Value,
       signatories: Set[Ref.Party],
       observers: Set[Ref.Party],
-      key: Option[Value],
+      keyOpt: Option[Value],
       maintainers: Set[Ref.Party],
   ): Node.Create = {
     Node.Create(
@@ -116,7 +116,8 @@ final class TransactionBuilder(pkgTxVersion: Ref.PackageId => TransactionVersion
       agreementText = "",
       signatories = signatories,
       stakeholders = signatories | observers,
-      key = key.map(Node.KeyWithMaintainers(_, maintainers)),
+      keyOpt =
+        keyOpt.map(key => GlobalKeyWithMaintainers.assertBuild(templateId, key, maintainers)),
       version = pkgTxVersion(templateId.packageId),
     )
   }
@@ -145,7 +146,7 @@ final class TransactionBuilder(pkgTxVersion: Ref.PackageId => TransactionVersion
       signatories = contract.signatories,
       children = ImmArray.Empty,
       exerciseResult = result,
-      key = contract.key,
+      keyOpt = contract.keyOpt,
       byKey = byKey,
       version = pkgTxVersion(contract.templateId.packageId),
     )
@@ -169,7 +170,7 @@ final class TransactionBuilder(pkgTxVersion: Ref.PackageId => TransactionVersion
       actingParties = contract.signatories.map(Ref.Party.assertFromString),
       signatories = contract.signatories,
       stakeholders = contract.stakeholders,
-      key = contract.key,
+      keyOpt = contract.keyOpt,
       byKey = byKey,
       version = pkgTxVersion(contract.templateId.packageId),
     )
@@ -180,7 +181,7 @@ final class TransactionBuilder(pkgTxVersion: Ref.PackageId => TransactionVersion
   def lookupByKey(contract: Node.Create, found: Boolean = true): Node.LookupByKey =
     Node.LookupByKey(
       templateId = contract.templateId,
-      key = contract.key.get,
+      key = contract.keyOpt.get,
       result = if (found) Some(contract.coid) else None,
       version = pkgTxVersion(contract.templateId.packageId),
     )
@@ -195,8 +196,8 @@ object TransactionBuilder {
 
   type TxValue = value.Value.VersionedValue
 
-  type KeyWithMaintainers = Node.KeyWithMaintainers
-  type TxKeyWithMaintainers = Node.VersionedKeyWithMaintainers
+  type KeyWithMaintainers = GlobalKeyWithMaintainers
+  type TxKeyWithMaintainers = Versioned[GlobalKeyWithMaintainers]
 
   def apply(
       pkgLangVersion: Ref.PackageId => LanguageVersion = _ => LanguageVersion.StableVersions.max

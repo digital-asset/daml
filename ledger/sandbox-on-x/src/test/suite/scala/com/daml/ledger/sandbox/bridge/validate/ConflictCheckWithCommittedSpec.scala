@@ -306,7 +306,7 @@ class ConflictCheckWithCommittedSpec
           driverMetadata = contractId.toBytes,
           signatories = Set.empty,
           stakeholders = Set.empty,
-          maybeKeyWithMaintainers = None,
+          keyOpt = None,
           agreementText = "",
         ),
       )

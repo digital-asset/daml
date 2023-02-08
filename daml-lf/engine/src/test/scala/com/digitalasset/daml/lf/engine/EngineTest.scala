@@ -785,7 +785,7 @@ class EngineTest
           driverMetadata = usedDisclosedContract.metadata.driverMetadata,
           signatories = Set(alice),
           stakeholders = Set(alice),
-          maybeKeyWithMaintainers = Some(
+          keyOpt = Some(
             Versioned(
               transactionVersion,
               GlobalKeyWithMaintainers(
@@ -1533,7 +1533,7 @@ class EngineTest
         newEngine()
           .reinterpret(
             submitters,
-            ReplayCommand.LookupByKey(lookupNode.templateId, lookupNode.key.key),
+            ReplayCommand.LookupByKey(lookupNode.templateId, lookupNode.key.value),
             nodeSeedMap.get(nid),
             txMeta.submissionTime,
             now,
@@ -1577,7 +1577,7 @@ class EngineTest
         newEngine()
           .reinterpret(
             submitters,
-            ReplayCommand.LookupByKey(lookupNode.templateId, lookupNode.key.key),
+            ReplayCommand.LookupByKey(lookupNode.templateId, lookupNode.key.value),
             nodeSeedMap.get(nid),
             txMeta.submissionTime,
             now,
@@ -1680,7 +1680,7 @@ class EngineTest
           driverMetadata = usedDisclosedContract.metadata.driverMetadata,
           signatories = Set(alice),
           stakeholders = Set(alice),
-          maybeKeyWithMaintainers = Some(
+          keyOpt = Some(
             Versioned(
               transactionVersion,
               GlobalKeyWithMaintainers(
@@ -1742,7 +1742,7 @@ class EngineTest
           driverMetadata = usedDisclosedContract.metadata.driverMetadata,
           signatories = Set(alice),
           stakeholders = Set(alice),
-          maybeKeyWithMaintainers = None,
+          keyOpt = None,
           agreementText = s"'$alice'", // agreement show party
         ),
       )
@@ -1824,7 +1824,7 @@ class EngineTest
         case Some(Node.Fetch(_, _, _, _, _, key, _, _)) =>
           key match {
             // just test that the maintainers match here, getting the key out is a bit hairier
-            case Some(Node.KeyWithMaintainers(_, maintainers)) =>
+            case Some(GlobalKeyWithMaintainers(_, maintainers)) =>
               assert(maintainers == Set(alice))
             case None => fail("the recomputed fetch didn't have a key")
           }
@@ -1894,9 +1894,9 @@ class EngineTest
 
       tx.transaction.nodes
         .collectFirst { case (id, nf: Node.Fetch) =>
-          nf.key match {
+          nf.keyOpt match {
             // just test that the maintainers match here, getting the key out is a bit hairier
-            case Some(Node.KeyWithMaintainers(_, maintainers)) =>
+            case Some(GlobalKeyWithMaintainers(_, maintainers)) =>
               assert(maintainers == Set(alice))
             case None => fail("the recomputed fetch didn't have a key")
           }
@@ -2647,14 +2647,14 @@ object EngineTest {
               case create: Node.Create =>
                 ReplayCommand.Create(create.templateId, create.arg)
               case fetch: Node.Fetch if fetch.byKey =>
-                val key = fetch.key.getOrElse(sys.error("unexpected empty contract key")).key
+                val key = fetch.keyOpt.getOrElse(sys.error("unexpected empty contract key")).value
                 ReplayCommand.FetchByKey(fetch.templateId, key)
               case fetch: Node.Fetch =>
                 ReplayCommand.Fetch(fetch.templateId, fetch.coid)
               case lookup: Node.LookupByKey =>
-                ReplayCommand.LookupByKey(lookup.templateId, lookup.key.key)
+                ReplayCommand.LookupByKey(lookup.templateId, lookup.key.value)
               case exe: Node.Exercise if exe.byKey =>
-                val key = exe.key.getOrElse(sys.error("unexpected empty contract key")).key
+                val key = exe.keyOpt.getOrElse(sys.error("unexpected empty contract key")).value
                 ReplayCommand.ExerciseByKey(
                   exe.templateId,
                   key,
@@ -2805,8 +2805,8 @@ object EngineTest {
               create.coid,
               create.versionedCoinst,
             ),
-            create.key.fold(keys)(k =>
-              keys.updated(GlobalKey.assertBuild(create.templateId, k.key), create.coid)
+            create.keyOpt.fold(keys)(k =>
+              keys.updated(GlobalKey.assertBuild(create.templateId, k.value), create.coid)
             ),
           )
         case (acc, _) => acc

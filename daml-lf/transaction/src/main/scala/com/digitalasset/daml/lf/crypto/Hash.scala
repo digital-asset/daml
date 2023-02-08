@@ -304,9 +304,6 @@ object Hash {
       .addTypedValue(key)
       .build
 
-  def safeHashContractKey(templateId: Ref.Identifier, key: Value): Hash =
-    assertHashContractKey(templateId, key)
-
   def hashContractKey(
       templateId: Ref.Identifier,
       key: Value,

@@ -111,16 +111,17 @@ private[lf] object Speedy {
   sealed abstract class LedgerMode extends Product with Serializable
 
   final case class CachedKey(
-      globalKey: GlobalKey,
+      globalKeyWithMaintainers: GlobalKeyWithMaintainers,
       key: SValue,
-      maintainers: Set[Party],
   ) {
-    def toNodeKey(version: TxVersion) =
-      Node.KeyWithMaintainers(key.toNormalizedValue(version), maintainers)
+    def globalKey: GlobalKey = globalKeyWithMaintainers.globalKey
+    def templateId: TypeConName = globalKey.templateId
+    def maintainers: Set[Party] = globalKeyWithMaintainers.maintainers
     val lfValue = globalKey.key
   }
 
   final case class CachedContract(
+      version: TxVersion,
       templateId: Ref.TypeConName,
       value: SValue,
       agreementText: String,
@@ -130,6 +131,18 @@ private[lf] object Speedy {
   ) {
     val stakeholders: Set[Party] = signatories union observers
     private[speedy] val any = SValue.SAny(TTyCon(templateId), value)
+    private[speedy] def arg = value.toNormalizedValue(version)
+    private[speedy] def toCreateNode(coid: V.ContractId) =
+      Node.Create(
+        coid = coid,
+        templateId = templateId,
+        arg = arg,
+        agreementText = agreementText,
+        signatories = signatories,
+        stakeholders = stakeholders,
+        keyOpt = key.map(_.globalKeyWithMaintainers),
+        version = version,
+      )
   }
 
   private[this] def enforceLimit(actual: Int, limit: Int, error: Int => IError.Limit.Error): Unit =
@@ -331,23 +344,16 @@ private[lf] object Speedy {
                 )
               )
               val transactionVersion = tmplId2TxVersion(cachedContract.templateId)
-              val maybeKeyWithMaintainers =
-                cachedContract.key
-                  .map(_.toNodeKey(transactionVersion))
-                  .map { case Node.KeyWithMaintainers(key, maintainers) =>
-                    GlobalKeyWithMaintainers(
-                      globalKey = GlobalKey.assertBuild(disclosedContract.templateId, key),
-                      maintainers = maintainers,
-                    )
-                  }
-                  .map(Versioned(transactionVersion, _))
+              val keyOpt = cachedContract.key.map(k =>
+                Versioned(cachedContract.version, k.globalKeyWithMaintainers)
+              )
 
               val engineEnrichedContractMetadata = EngineEnrichedContractMetadata(
                 createdAt = disclosedContract.metadata.createdAt,
                 driverMetadata = disclosedContract.metadata.driverMetadata,
                 signatories = cachedContract.signatories,
                 stakeholders = cachedContract.stakeholders,
-                maybeKeyWithMaintainers = maybeKeyWithMaintainers,
+                keyOpt = keyOpt,
                 agreementText = cachedContract.agreementText,
               )
               val engineEnrichedDisclosedContract =
@@ -1704,7 +1710,7 @@ private[lf] object Speedy {
   private[speedy] final case class KCacheContract(cid: V.ContractId) extends Kont {
     override def execute[Q](machine: Machine[Q], sv: SValue): Control[Q] =
       machine.asUpdateMachine(productPrefix) { machine =>
-        val cached = SBuiltin.extractCachedContract(sv)
+        val cached = SBuiltin.extractCachedContract(machine.tmplId2TxVersion, sv)
         machine.checkContractVisibility(cid, cached)
         machine.addGlobalContract(cid, cached)
         Control.Value(cached.any)

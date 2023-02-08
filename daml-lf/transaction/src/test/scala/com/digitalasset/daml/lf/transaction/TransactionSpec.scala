@@ -559,9 +559,10 @@ class TransactionSpec
       val builder = TransactionBuilder()
       val create0 = create(cid("#0"))
       val create1 = create(cid("#1")).copy(
-        key = Some(
-          Node.KeyWithMaintainers(
-            key = keyValue(cid("#0").coid),
+        keyOpt = Some(
+          GlobalKeyWithMaintainers.assertBuild(
+            templateId = "Mod:T",
+            value = keyValue(cid("#0").coid),
             maintainers = Set.empty,
           )
         )
@@ -1043,7 +1044,7 @@ object TransactionSpec {
       choiceObservers = Set.empty,
       children = children,
       exerciseResult = if (hasExerciseResult) Some(V.ValueUnit) else None,
-      key = None,
+      keyOpt = None,
       byKey = false,
       version = TransactionVersion.minVersion,
     )
@@ -1056,7 +1057,7 @@ object TransactionSpec {
       agreementText = "dummyAgreement",
       signatories = Set.empty,
       stakeholders = Set.empty,
-      key = None,
+      keyOpt = None,
       version = TransactionVersion.minVersion,
     )
 
