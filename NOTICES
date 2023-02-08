@@ -144,7 +144,6 @@ bos/attoparsec 0.14.4 : BSD 3-clause "New" or "Revised" License
 Bouncy Castle 1.70 : MIT License
 Bouncy Castle PKIX, CMS, EAC, TSP, PKCS, OCSP, CMP, and CRMF APIs 1.70 : MIT License
 brace-expansion 1.1.11 : MIT License
-braces 3.0.2 : MIT License
 brorand 1.1.0 : MIT License
 browser-pack 6.1.0 : MIT License
 browserify-aes 1.2.0 : MIT License
@@ -753,6 +752,7 @@ Metrics Core 4.1.33 : Apache License 2.0
 Metrics Integration with JMX 4.1.33 : Apache License 2.0
 micromark 2.11.4 : MIT License
 micromatch 4.0.4 : MIT License
+micromatch/braces 3.0.2 : MIT License
 Microsoft/tslib 1.14.1 : BSD Zero Clause License
 Microsoft/tslib 2.2.0 : BSD Zero Clause License
 miller-rabin 4.0.1 : MIT License
@@ -17829,7 +17829,7 @@ Permission is hereby granted, free of charge, to any person
 ---
 
 MIT License
-(braces 3.0.2)
+(micromatch/braces 3.0.2)
 
 Upstream-Contact: https://github.com/jonschlinkert/braces/issues
 Source: https://github.com/jonschlinkert/braces
