@@ -758,14 +758,8 @@ object ContractStateMachineSpec {
         },
       rollbackBegin = (s, _, _) => s -> ChildrenRecursion.DoRecurse,
       rollbackEnd = (s, _, _) => s,
-      authorityBegin = (acc, nid, node) => {
-        val _ = (acc, nid, node) // NICK
-        ??? // NICK
-      },
-      authorityEnd = (acc, nid, node) => {
-        val _ = (acc, nid, node) // NICK
-        ??? // NICK
-      },
+      authorityBegin = (s, _, _) => s -> ChildrenRecursion.DoRecurse,
+      authorityEnd = (s, _, _) => s,
     )
   }
 

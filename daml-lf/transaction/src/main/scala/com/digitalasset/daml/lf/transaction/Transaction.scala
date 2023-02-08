@@ -467,14 +467,10 @@ sealed abstract class HasTxNodes {
           case c: Node.Create => acc.create(c.coid)
           case _ => acc
         },
-      authorityBegin = (acc, nid, node) => {
-        val _ = (acc, nid, node) // NICK
-        ??? // NICK
+      authorityBegin = (acc, _, _) => {
+        (acc, ChildrenRecursion.DoRecurse)
       },
-      authorityEnd = (acc, nid, node) => {
-        val _ = (acc, nid, node) // NICK
-        ??? // NICK
-      },
+      authorityEnd = (acc, _, _) => acc,
     ).currentState.inactiveCids
   }
 
@@ -529,17 +525,13 @@ sealed abstract class HasTxNodes {
       rollbackBegin = (consumedByMap, _, _) => {
         (consumedByMap, ChildrenRecursion.DoNotRecurse)
       },
+      authorityBegin = (consumedByMap, _, _) => {
+        (consumedByMap, ChildrenRecursion.DoRecurse)
+      },
       leaf = (consumedByMap, _, _) => consumedByMap,
       exerciseEnd = (consumedByMap, _, _) => consumedByMap,
       rollbackEnd = (consumedByMap, _, _) => consumedByMap,
-      authorityBegin = (acc, nid, node) => {
-        val _ = (acc, nid, node) // NICK
-        ??? // NICK
-      },
-      authorityEnd = (acc, nid, node) => {
-        val _ = (acc, nid, node) // NICK
-        ??? // NICK
-      },
+      authorityEnd = (consumedByMap, _, _) => consumedByMap,
     )
 
   /** Return the expected contract key inputs (i.e. the state before the transaction)
@@ -723,19 +715,13 @@ sealed abstract class HasTxNodes {
   // This method returns all node-ids reachable from the roots of a transaction.
   final def reachableNodeIds: Set[NodeId] = {
     foldInExecutionOrder[Set[NodeId]](Set.empty)(
-      (acc, nid, _) => (acc + nid, ChildrenRecursion.DoRecurse),
-      (acc, nid, _) => (acc + nid, ChildrenRecursion.DoRecurse),
-      authorityBegin = (acc, nid, node) => {
-        val _ = (acc, nid, node) // NICK
-        ??? // NICK
-      },
-      (acc, nid, _) => acc + nid,
-      (acc, _, _) => acc,
-      (acc, _, _) => acc,
-      authorityEnd = (acc, nid, node) => {
-        val _ = (acc, nid, node) // NICK
-        ??? // NICK
-      },
+      exerciseBegin = (acc, nid, _) => (acc + nid, ChildrenRecursion.DoRecurse),
+      rollbackBegin = (acc, nid, _) => (acc + nid, ChildrenRecursion.DoRecurse),
+      authorityBegin = (acc, nid, _) => (acc + nid, ChildrenRecursion.DoRecurse),
+      leaf = (acc, nid, _) => acc + nid,
+      exerciseEnd = (acc, _, _) => acc,
+      rollbackEnd = (acc, _, _) => acc,
+      authorityEnd = (acc, _, _) => acc,
     )
   }
 
