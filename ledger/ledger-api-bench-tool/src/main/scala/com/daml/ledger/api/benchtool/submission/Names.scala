@@ -28,20 +28,50 @@ class Names {
     partyNames(DivulgeePrefix, numberOfDivulgees, uniqueParties)
 
   def extraSubmitterPartyNames(numberOfExtraSubmitters: Int, uniqueParties: Boolean): Seq[String] =
-    partyNames(ExtraSubmitterPrefix, numberOfExtraSubmitters, uniqueParties)
+    partyNames(
+      ExtraSubmitterPrefix,
+      numberOfExtraSubmitters,
+      uniqueParties,
+      padPartyIndexWithLeadingZeroes = true,
+    )
+
+  def partySetPartyName(prefix: String, numberOfParties: Int, uniqueParties: Boolean): Seq[String] =
+    partyNames(
+      prefix = prefix,
+      numberOfParties = numberOfParties,
+      uniqueParties = uniqueParties,
+      // Padding the party names with leading zeroes makes it more convenient to construct requests based on a party prefix.
+      // For example, if we have 1000 parties in a party set, we can use prefix 'Party-1' to match precisely the parties {Party-100, Party-101, .., Party-199}
+      padPartyIndexWithLeadingZeroes = true,
+    )
 
   def commandId(index: Int): String = s"command-$index-$identifierSuffix"
 
   def darId(index: Int) = s"submission-dars-$index-$identifierSuffix"
 
-  def partyNames(
+  private def partyNames(
       prefix: String,
       numberOfParties: Int,
       uniqueParties: Boolean,
-  ): Seq[String] =
-    (0 until numberOfParties).map(i => partyName(prefix, i, uniqueParties))
+      padPartyIndexWithLeadingZeroes: Boolean = false,
+  ): Seq[String] = {
+    val largestIndex = numberOfParties - 1
+    val paddingTargetLength = largestIndex.toString.length
+    def indexToString(i: Int): String =
+      if (padPartyIndexWithLeadingZeroes) {
+        padLeftWithZeroes(i, paddingTargetLength)
+      } else {
+        i.toString
+      }
+    (0 until numberOfParties).map(i => partyName(prefix, indexToString(i), uniqueParties))
+  }
 
-  private def partyName(baseName: String, index: Int, uniqueParties: Boolean): String =
+  private def padLeftWithZeroes(i: Int, len: Int): String = {
+    val iText = i.toString
+    "0" * (len - iText.length) + iText
+  }
+
+  private def partyName(baseName: String, index: String, uniqueParties: Boolean): String =
     s"$baseName$PartyPrefixSeparatorChar$index" + (if (uniqueParties) identifierSuffix else "")
 
 }
@@ -53,7 +83,9 @@ object Names {
   val DivulgeePrefix = "Div"
   val ExtraSubmitterPrefix = "Sub"
 
-  def parsePartyNamePrefix(partyName: String): String = {
+  /** @return main prefix of a party which is the prefix up to the first '-' character
+    */
+  def parsePartyNameMainPrefix(partyName: String): String = {
     partyName.split(Names.PartyPrefixSeparatorChar)(0)
   }
 

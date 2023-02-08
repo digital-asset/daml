@@ -419,6 +419,10 @@ private[lf] object SExpr {
   final case class ObserversDefRef(ref: DefinitionRef) extends SDefinitionRef
   final case class ContractKeyWithMaintainersDefRef(ref: DefinitionRef) extends SDefinitionRef
   final case class ToCachedContractDefRef(ref: DefinitionRef) extends SDefinitionRef
+  final case class ChoiceControllerDefRef(ref: DefinitionRef, choiceName: ChoiceName)
+      extends SDefinitionRef
+  final case class ChoiceObserverDefRef(ref: DefinitionRef, choiceName: ChoiceName)
+      extends SDefinitionRef
 
   /** InterfaceInstanceDefRef(parent, interfaceId, templateId)
     * points to the Unit value if 'parent' defines an interface instance

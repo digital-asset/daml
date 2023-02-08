@@ -28,7 +28,7 @@ class Normalization {
     * longer need this separate normalization pass.
     */
 
-  private type KWM = Node.KeyWithMaintainers
+  private type KWM = GlobalKeyWithMaintainers
   private type VTX = VersionedTransaction
 
   def normalizeTx(vtx: VTX): VTX = {
@@ -50,10 +50,12 @@ class Normalization {
     import scala.Ordering.Implicits.infixOrderingOps
     node match {
 
+      case old: Node.Authority => old
+
       case old: Node.Create =>
         old
           .copy(arg = normValue(old.version)(old.arg))
-          .copy(key = old.key.map(normKWM(old.version)))
+          .copy(keyOpt = old.keyOpt.map(normKWM(old.version)))
 
       case old: Node.Fetch =>
         (if (old.version >= TransactionVersion.minByKey) {
@@ -62,7 +64,7 @@ class Normalization {
            old.copy(byKey = false)
          })
           .copy(
-            key = old.key.map(normKWM(old.version))
+            keyOpt = old.keyOpt.map(normKWM(old.version))
           )
 
       case old: Node.Exercise =>
@@ -74,7 +76,7 @@ class Normalization {
           .copy(
             chosenValue = normValue(old.version)(old.chosenValue),
             exerciseResult = old.exerciseResult.map(normValue(old.version)),
-            key = old.key.map(normKWM(old.version)),
+            keyOpt = old.keyOpt.map(normKWM(old.version)),
           )
 
       case old: Node.LookupByKey =>
@@ -93,8 +95,11 @@ class Normalization {
 
   private def normKWM(version: TransactionVersion)(x: KWM): KWM = {
     x match {
-      case Node.KeyWithMaintainers(key, maintainers) =>
-        Node.KeyWithMaintainers(normValue(version)(key), maintainers)
+      case GlobalKeyWithMaintainers(key, maintainers) =>
+        GlobalKeyWithMaintainers(
+          GlobalKey.assertBuild(key.templateId, normValue(version)(key.key)),
+          maintainers,
+        )
     }
   }
 

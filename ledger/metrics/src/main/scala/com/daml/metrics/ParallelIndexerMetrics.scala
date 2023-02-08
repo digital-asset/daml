@@ -4,7 +4,7 @@
 package com.daml.metrics
 
 import com.daml.metrics.api.MetricDoc.MetricQualification.{Debug, Latency, Saturation, Traffic}
-import com.daml.metrics.api.MetricHandle.{Counter, Factory, Histogram, Timer}
+import com.daml.metrics.api.MetricHandle.{Counter, MetricsFactory, Histogram, Timer}
 import com.daml.metrics.api.dropwizard.DropwizardTimer
 import com.daml.metrics.api.{MetricDoc, MetricName}
 
@@ -16,7 +16,7 @@ import com.daml.metrics.api.{MetricDoc, MetricName}
   representative = "daml.parallel_indexer.<stage>",
   groupableClass = classOf[DatabaseMetrics],
 )
-class ParallelIndexerMetrics(prefix: MetricName, factory: Factory) {
+class ParallelIndexerMetrics(prefix: MetricName, factory: MetricsFactory) {
   val initialization = new DatabaseMetrics(prefix, "initialization", factory)
 
   // Number of state updates persisted to the database

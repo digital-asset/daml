@@ -171,7 +171,7 @@ final class SingleParticipantTestContext private[participant] (
       .map(_.getOffset)
 
   override def offsetBeyondLedgerEnd(): Future[LedgerOffset] =
-    currentEnd().map(end => LedgerOffset(LedgerOffset.Value.Absolute("FFFF" + end.getAbsolute)))
+    currentEnd().map(end => LedgerOffset(LedgerOffset.Value.Absolute("ffff" + end.getAbsolute)))
 
   override def time(): Future[Instant] =
     new StreamConsumer[GetTimeResponse](services.time.getTime(new GetTimeRequest(ledgerId), _))
@@ -232,6 +232,7 @@ final class SingleParticipantTestContext private[participant] (
       partyIdHint: Option[String] = None,
       displayName: Option[String] = None,
       localMetadata: Option[ObjectMeta] = None,
+      identityProviderId: Option[String] = None,
   ): Future[Party] =
     services.partyManagement
       .allocateParty(
@@ -239,6 +240,7 @@ final class SingleParticipantTestContext private[participant] (
           partyIdHint = partyIdHint.getOrElse(""),
           displayName = displayName.getOrElse(""),
           localMetadata = localMetadata,
+          identityProviderId = identityProviderId.getOrElse(""),
         )
       )
       .map(r => Party(r.partyDetails.get.party))

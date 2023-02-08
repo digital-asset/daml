@@ -6,11 +6,11 @@ package com.daml.metrics
 import java.time.Instant
 
 import com.daml.metrics.api.MetricDoc.MetricQualification.Debug
-import com.daml.metrics.api.MetricHandle.{Factory, Gauge}
-import com.daml.metrics.api.dropwizard.DropwizardGauge
+import com.daml.metrics.api.MetricHandle.{Gauge, MetricsFactory}
+import com.daml.metrics.api.noop.NoOpGauge
 import com.daml.metrics.api.{MetricDoc, MetricName, MetricsContext}
 
-class IndexerMetrics(prefix: MetricName, factory: Factory) {
+class IndexerMetrics(prefix: MetricName, factory: MetricsFactory) {
 
   @MetricDoc.Tag(
     summary = "The time of the last event ingested by the index db (in milliseconds since EPOCH).",
@@ -21,15 +21,6 @@ class IndexerMetrics(prefix: MetricName, factory: Factory) {
   )
   val lastReceivedRecordTime: Gauge[Long] =
     factory.gauge(prefix :+ "last_received_record_time", 0L)(MetricsContext.Empty)
-
-  @MetricDoc.Tag(
-    summary = "A string value representing the last ledger offset ingested by the index db.",
-    description = """It is only available on metrics backends that support strings. In particular,
-                    |it is not available in Prometheus.""",
-    qualification = Debug,
-  )
-  val lastReceivedOffset: Gauge[String] =
-    factory.gauge(prefix :+ "last_received_offset", "<none>")(MetricsContext.Empty)
 
   @MetricDoc.Tag(
     summary = "The sequential id of the current ledger end kept in the database.",
@@ -53,7 +44,8 @@ class IndexerMetrics(prefix: MetricName, factory: Factory) {
                     |can be negative.""",
     qualification = Debug,
   )
-  val currentRecordTimeLag: Gauge[Long] = DropwizardGauge(prefix :+ "current_record_time_lag", null)
+  val currentRecordTimeLagForDocs: Gauge[Long] =
+    NoOpGauge(prefix :+ "current_record_time_lag", 0)
 
   factory.gaugeWithSupplier(
     prefix :+ "current_record_time_lag",

@@ -14,7 +14,8 @@ import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.server.api.services.domain.CommandSubmissionService
-import com.daml.telemetry.{SpanAttribute, TelemetryContext, TelemetrySpecBase}
+import com.daml.tracing.{DefaultOpenTelemetry, SpanAttribute, TelemetryContext, TelemetrySpecBase}
+import io.opentelemetry.api.GlobalOpenTelemetry
 import org.mockito.captor.ArgCaptor
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.matchers.should.Matchers
@@ -38,7 +39,10 @@ class GrpcCommandSubmissionServiceSpec
       val span = anEmptySpan()
       val scope = span.makeCurrent()
       val mockCommandSubmissionService = mock[CommandSubmissionService with AutoCloseable]
-      when(mockCommandSubmissionService.submit(any[SubmitRequest])(any[TelemetryContext]))
+      when(
+        mockCommandSubmissionService
+          .submit(any[SubmitRequest])(any[TelemetryContext], any[LoggingContext])
+      )
         .thenReturn(Future.unit)
 
       try {
@@ -63,13 +67,17 @@ class GrpcCommandSubmissionServiceSpec
         aSubmitRequest.update(_.commands.submissionId := expectedSubmissionId)
       val requestCaptor = ArgCaptor[com.daml.ledger.api.messages.command.submission.SubmitRequest]
       val mockCommandSubmissionService = mock[CommandSubmissionService with AutoCloseable]
-      when(mockCommandSubmissionService.submit(any[SubmitRequest])(any[TelemetryContext]))
+      when(
+        mockCommandSubmissionService
+          .submit(any[SubmitRequest])(any[TelemetryContext], any[LoggingContext])
+      )
         .thenReturn(Future.unit)
 
       grpcCommandSubmissionService(mockCommandSubmissionService)
         .submit(requestWithSubmissionId)
         .map { _ =>
-          verify(mockCommandSubmissionService).submit(requestCaptor.capture)(any[TelemetryContext])
+          verify(mockCommandSubmissionService)
+            .submit(requestCaptor.capture)(any[TelemetryContext], any[LoggingContext])
           requestCaptor.value.commands.submissionId shouldBe Some(expectedSubmissionId)
         }
     }
@@ -78,13 +86,17 @@ class GrpcCommandSubmissionServiceSpec
       val requestCaptor = ArgCaptor[com.daml.ledger.api.messages.command.submission.SubmitRequest]
 
       val mockCommandSubmissionService = mock[CommandSubmissionService with AutoCloseable]
-      when(mockCommandSubmissionService.submit(any[SubmitRequest])(any[TelemetryContext]))
+      when(
+        mockCommandSubmissionService
+          .submit(any[SubmitRequest])(any[TelemetryContext], any[LoggingContext])
+      )
         .thenReturn(Future.unit)
 
       grpcCommandSubmissionService(mockCommandSubmissionService)
         .submit(aSubmitRequest)
         .map { _ =>
-          verify(mockCommandSubmissionService).submit(requestCaptor.capture)(any[TelemetryContext])
+          verify(mockCommandSubmissionService)
+            .submit(requestCaptor.capture)(any[TelemetryContext], any[LoggingContext])
           requestCaptor.value.commands.submissionId shouldBe Some(generatedSubmissionId)
         }
     }
@@ -124,6 +136,7 @@ class GrpcCommandSubmissionServiceSpec
       submissionIdGenerator = () => Ref.SubmissionId.assertFromString(generatedSubmissionId),
       metrics = Metrics.ForTesting,
       explicitDisclosureUnsafeEnabled = false,
+      telemetry = new DefaultOpenTelemetry(GlobalOpenTelemetry.get()),
     )
 }
 

@@ -35,6 +35,10 @@ trait AuthService {
     */
   def decodeMetadata(headers: io.grpc.Metadata): CompletionStage[ClaimSet]
 
+}
+
+object AuthService {
+
   /** The [[Metadata.Key]] to use for looking up the `Authorization` header in the
     * request metadata.
     */

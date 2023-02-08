@@ -30,7 +30,7 @@ class ActiveContractsObserver(logger: Logger, expectedTemplateNames: Set[String]
     for {
       created <- value.activeContracts
     } {
-      createEvents.addOne(ObservedCreateEvent(created))
+      createEvents.addOne(ObservedCreateEvent(created, offset = value.offset))
     }
 
   override def completeWith(): Future[ObservedEvents] = Future.successful(

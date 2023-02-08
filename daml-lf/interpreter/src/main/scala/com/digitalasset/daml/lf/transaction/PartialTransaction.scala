@@ -5,12 +5,14 @@ package com.daml.lf
 package speedy
 
 import com.daml.lf.data.Ref.{ChoiceName, Location, Party, TypeConName}
-import com.daml.lf.data.{BackStack, ImmArray, Ref, Time}
+import com.daml.lf.data.{BackStack, ImmArray, Time}
 import com.daml.lf.ledger.Authorize
+import com.daml.lf.speedy.Speedy.{CachedContract, CachedKey}
 import com.daml.lf.transaction.ContractKeyUniquenessMode
 import com.daml.lf.transaction.{
   ContractStateMachine,
   GlobalKey,
+  GlobalKeyWithMaintainers,
   Node,
   NodeId,
   SubmittedTransaction => SubmittedTx,
@@ -142,7 +144,7 @@ private[lf] object PartialTransaction {
       targetId: Value.ContractId,
       templateId: TypeConName,
       interfaceId: Option[TypeConName],
-      contractKey: Option[Node.KeyWithMaintainers],
+      contractKey: Option[GlobalKeyWithMaintainers],
       choiceId: ChoiceName,
       consuming: Boolean,
       actingParties: Set[Party],
@@ -165,6 +167,14 @@ private[lf] object PartialTransaction {
       parent: Context,
       // Set to the authorizers (the union of signatories & actors) of the nearest
       // parent exercise or the submitters if there is no parent exercise.
+      authorizers: Set[Party],
+  ) extends ContextInfo {
+    val actionChildSeed: NodeIdx => crypto.Hash = parent.info.actionChildSeed
+  }
+
+  final case class WithAuthorityContextInfo(
+      nodeId: NodeId,
+      parent: Context,
       authorizers: Set[Party],
   ) extends ContextInfo {
     val actionChildSeed: NodeIdx => crypto.Hash = parent.info.actionChildSeed
@@ -259,6 +269,7 @@ private[speedy] case class PartialTransaction(
       // so we need to compute them.
       val rootNodes = {
         val allChildNodeIds: Set[NodeId] = nodes.values.iterator.flatMap {
+          case au: Node.Authority => au.children.toSeq
           case rb: Node.Rollback => rb.children.toSeq
           case _: Node.LeafOnlyAction => Nil
           case ex: Node.Exercise => ex.children.toSeq
@@ -336,42 +347,30 @@ private[speedy] case class PartialTransaction(
     */
   def insertCreate(
       submissionTime: Time.Timestamp,
-      templateId: Ref.Identifier,
-      arg: Value,
-      agreementText: String,
+      contract: CachedContract,
       optLocation: Option[Location],
-      signatories: Set[Party],
-      stakeholders: Set[Party],
-      key: Option[Node.KeyWithMaintainers],
-      version: TxVersion,
   ): Either[(PartialTransaction, Tx.TransactionError), (Value.ContractId, PartialTransaction)] = {
     val auth = Authorize(context.info.authorizers)
     val actionNodeSeed = context.nextActionChildSeed
     val discriminator =
-      crypto.Hash.deriveContractDiscriminator(actionNodeSeed, submissionTime, stakeholders)
+      crypto.Hash.deriveContractDiscriminator(actionNodeSeed, submissionTime, contract.stakeholders)
     val cid = Value.ContractId.V1(discriminator)
-    val createNode = Node.Create(
-      cid,
-      templateId,
-      arg,
-      agreementText,
-      signatories,
-      stakeholders,
-      key,
-      version,
-    )
+    val createNode = contract.toCreateNode(cid)
     val nid = NodeId(nextNodeIdx)
     val ptx = copy(
       actionNodeLocations = actionNodeLocations :+ optLocation,
       nextNodeIdx = nextNodeIdx + 1,
-      context = context.addActionChild(nid, version),
+      context = context.addActionChild(nid, createNode.version),
       nodes = nodes.updated(nid, createNode),
       actionNodeSeeds = actionNodeSeeds :+ actionNodeSeed,
     )
     authorizationChecker.authorizeCreate(optLocation, createNode)(auth) match {
       case fa :: _ => Left((ptx, Tx.AuthFailureDuringExecution(nid, fa)))
       case Nil =>
-        ptx.contractState.visitCreate(templateId, cid, key.map(_.key)) match {
+        ptx.contractState.visitCreate(
+          cid,
+          contract.key.map(_.globalKey),
+        ) match {
           case Right(next) =>
             val nextPtx = ptx.copy(contractState = next)
             Right((cid, nextPtx))
@@ -383,33 +382,33 @@ private[speedy] case class PartialTransaction(
 
   def insertFetch(
       coid: Value.ContractId,
-      templateId: TypeConName,
+      contract: CachedContract,
       optLocation: Option[Location],
-      signatories: Set[Party],
-      observers: Set[Party],
-      key: Option[Node.KeyWithMaintainers],
       byKey: Boolean,
       version: TxVersion,
   ): Either[Tx.TransactionError, PartialTransaction] = {
-    val stakeholders = observers union signatories
     val contextActors = context.info.authorizers
-    val actingParties = contextActors intersect stakeholders
+    val actingParties = contextActors intersect contract.stakeholders
     val auth = Authorize(context.info.authorizers)
     val nid = NodeId(nextNodeIdx)
     val node = Node.Fetch(
       coid,
-      templateId,
+      contract.templateId,
       actingParties,
-      signatories,
-      stakeholders,
-      key,
+      contract.signatories,
+      contract.stakeholders,
+      contract.key.map(_.globalKeyWithMaintainers),
       normByKey(version, byKey),
       version,
     )
     mustBeActive(NameOf.qualifiedNameOfCurrentFunc, coid) {
       val newContractState = assertRightKey(
         // evaluation order tests require visitFetch proceeds authorizeFetch
-        contractState.visitFetch(templateId, coid, key.map(_.key), byKey)
+        contractState.visitFetch(
+          coid,
+          contract.key.map(_.globalKey),
+          byKey,
+        )
       )
       authorizationChecker.authorizeFetch(optLocation, node)(auth) match {
         case fa :: _ => Left(Tx.AuthFailureDuringExecution(nid, fa))
@@ -420,31 +419,28 @@ private[speedy] case class PartialTransaction(
   }
 
   def insertLookup(
-      templateId: TypeConName,
       optLocation: Option[Location],
-      key: Node.KeyWithMaintainers,
+      key: CachedKey,
       result: Option[Value.ContractId],
-      version: TxVersion,
+      keyVersion: TxVersion,
   ): Either[Tx.TransactionError, PartialTransaction] = {
     val auth = Authorize(context.info.authorizers)
     val nid = NodeId(nextNodeIdx)
     val node = Node.LookupByKey(
-      templateId,
-      key,
+      key.templateId,
+      key.globalKeyWithMaintainers,
       result,
-      version,
+      keyVersion,
     )
-    val gkey = GlobalKey.assertBuild(templateId, key.key)
     // This method is only called after we have already resolved the key in com.daml.lf.speedy.SBuiltin.SBUKeyBuiltin.execute
     // so the current state's global key inputs must resolve the key.
-    val keyInput = contractState.globalKeyInputs(gkey)
-    val newContractState = assertRightKey(
-      contractState.visitLookup(templateId, key.key, keyInput.toKeyMapping, result)
-    )
+    val keyInput = contractState.globalKeyInputs(key.globalKey)
+    val newContractState =
+      assertRightKey(contractState.visitLookup(key.globalKey, keyInput.toKeyMapping, result))
     authorizationChecker.authorizeLookupByKey(optLocation, node)(auth) match {
       case fa :: _ => Left(Tx.AuthFailureDuringExecution(nid, fa))
       case Nil =>
-        Right(insertLeafNode(node, version, optLocation, newContractState))
+        Right(insertLeafNode(node, keyVersion, optLocation, newContractState))
     }
   }
 
@@ -453,16 +449,13 @@ private[speedy] case class PartialTransaction(
     */
   def beginExercises(
       targetId: Value.ContractId,
-      templateId: TypeConName,
+      contract: CachedContract,
       interfaceId: Option[TypeConName],
       choiceId: ChoiceName,
       optLocation: Option[Location],
       consuming: Boolean,
       actingParties: Set[Party],
-      signatories: Set[Party],
-      stakeholders: Set[Party],
       choiceObservers: Set[Party],
-      mbKey: Option[Node.KeyWithMaintainers],
       byKey: Boolean,
       chosenValue: Value,
       version: TxVersion,
@@ -472,15 +465,25 @@ private[speedy] case class PartialTransaction(
     val ec =
       ExercisesContextInfo(
         targetId = targetId,
-        templateId = templateId,
+        templateId = contract.templateId,
         interfaceId = interfaceId,
-        contractKey = mbKey,
+        contractKey = contract.key.map {
+          // We need to renormalize the key
+          case CachedKey(GlobalKeyWithMaintainers(_, maintainers), key) =>
+            GlobalKeyWithMaintainers(
+              GlobalKey.assertBuild(
+                contract.templateId,
+                key.toNormalizedValue(version),
+              ),
+              maintainers,
+            )
+        },
         choiceId = choiceId,
         consuming = consuming,
         actingParties = actingParties,
         chosenValue = chosenValue,
-        signatories = signatories,
-        stakeholders = stakeholders,
+        signatories = contract.signatories,
+        stakeholders = contract.stakeholders,
         choiceObservers = choiceObservers,
         nodeId = nid,
         parent = context,
@@ -491,7 +494,13 @@ private[speedy] case class PartialTransaction(
       // important: the semantics of Daml dictate that contracts are immediately
       // inactive as soon as you exercise it. therefore, mark it as consumed now.
       val newContractState = assertRightKey(
-        contractState.visitExercise(nid, templateId, targetId, mbKey.map(_.key), byKey, consuming)
+        contractState.visitExercise(
+          nid,
+          targetId,
+          contract.key.map(_.globalKey),
+          byKey,
+          consuming,
+        )
       )
       authorizationChecker.authorizeExercise(optLocation, makeExNode(ec))(auth) match {
         case fa :: _ => Left(Tx.AuthFailureDuringExecution(nid, fa))
@@ -570,7 +579,7 @@ private[speedy] case class PartialTransaction(
       choiceObservers = ec.choiceObservers,
       children = ImmArray.Empty,
       exerciseResult = None,
-      key = ec.contractKey,
+      keyOpt = ec.contractKey,
       byKey = normByKey(ec.version, ec.byKey),
       version = ec.version,
     )
@@ -638,6 +647,43 @@ private[speedy] case class PartialTransaction(
     }
   }
 
+  /** Open an Authority context.
+    * Must be closed by a `endWithAuthority`
+    */
+  def beginWithAuthority(
+      required: Set[Party]
+  ): PartialTransaction = {
+    val was = context.info.authorizers
+    val now = required
+    println(s"**beginWithAuthority\n- Was=$was\n- Now=$now") // TODO #15882: remove debug
+    val nid = NodeId(nextNodeIdx)
+    val info = WithAuthorityContextInfo(nid, context, authorizers = required)
+    copy(
+      nextNodeIdx = nextNodeIdx + 1,
+      context = Context(info).copy(nextActionChildIdx = context.nextActionChildIdx),
+    )
+  }
+
+  def endWithAuthority: PartialTransaction = {
+    context.info match {
+      case info: WithAuthorityContextInfo =>
+        val was = info.authorizers
+        val now = info.parent.info.authorizers
+        println(s"**endWithAuthority\n- was=$was\n- now=$now") // TODO #15882: remove debug
+        copy(
+          context = info.parent.copy(
+            children = info.parent.children :++ context.children.toImmArray,
+            nextActionChildIdx = context.nextActionChildIdx,
+          )
+        )
+      case _ =>
+        InternalError.runtimeException(
+          NameOf.qualifiedNameOfCurrentFunc,
+          "endWithAuthority called in non-authority context",
+        )
+    }
+  }
+
   /** Double check the execution of a step with the unconsumedness of a
     * `ContractId`.
     */
@@ -679,6 +725,7 @@ private[speedy] case class PartialTransaction(
     def go(ptx: PartialTransaction): PartialTransaction = ptx.context.info match {
       case _: PartialTransaction.ExercisesContextInfo => go(ptx.abortExercises)
       case _: PartialTransaction.TryContextInfo => go(ptx.endTry)
+      case _: PartialTransaction.WithAuthorityContextInfo => go(ptx.endWithAuthority)
       case _: PartialTransaction.RootContextInfo => ptx
     }
     go(this)

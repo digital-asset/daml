@@ -55,6 +55,10 @@ instance DA.Internal.Desugar.HasExercise Token DA.Internal.Desugar.Archive (()) 
         @"UExerciseInterface"
         (DA.Internal.Desugar.toInterfaceContractId @Token cid)
         arg
+instance DA.Internal.Desugar.HasChoiceController Token DA.Internal.Desugar.Archive where
+  _choiceController = GHC.Types.primitive @"EChoiceController"
+instance DA.Internal.Desugar.HasChoiceObserver Token DA.Internal.Desugar.Archive where
+  _choiceObserver = GHC.Types.primitive @"EChoiceObserver"
 _choice$_TokenArchive :
   (Token
    -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party],
@@ -130,6 +134,10 @@ instance DA.Internal.Desugar.HasToAnyChoice Asset DA.Internal.Desugar.Archive ((
   _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
 instance DA.Internal.Desugar.HasFromAnyChoice Asset DA.Internal.Desugar.Archive (()) where
   _fromAnyChoice = GHC.Types.primitive @"EFromAnyChoice"
+instance DA.Internal.Desugar.HasChoiceController Asset DA.Internal.Desugar.Archive where
+  _choiceController = GHC.Types.primitive @"EChoiceController"
+instance DA.Internal.Desugar.HasChoiceObserver Asset DA.Internal.Desugar.Archive where
+  _choiceObserver = GHC.Types.primitive @"EChoiceObserver"
 _choice$_AssetArchive :
   (Asset
    -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party],

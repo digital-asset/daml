@@ -25,7 +25,7 @@ class MetaDataTest extends AnyWordSpec with Matchers with TableDrivenPropertyChe
       argument = ValueUnit,
       signatories = parties,
       observers = noOne,
-      key = Some(ValueParty("alice")),
+      keyOpt = Some(ValueParty("alice")),
       maintainers = parties,
     )
     val nodeWithoutInterface = Table[TransactionBuilder => Node](
@@ -56,7 +56,7 @@ class MetaDataTest extends AnyWordSpec with Matchers with TableDrivenPropertyChe
       argument = ValueUnit,
       signatories = parties,
       observers = noOne,
-      key = Some(ValueParty("alice")),
+      keyOpt = Some(ValueParty("alice")),
       maintainers = parties,
     )
     val nodeWithInterface = Table[TransactionBuilder => Node](

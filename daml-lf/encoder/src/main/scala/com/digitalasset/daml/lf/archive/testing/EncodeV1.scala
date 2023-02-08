@@ -374,9 +374,6 @@ private[daml] class EncodeV1(minor: LV.Minor) {
           builder.setFetchInterface(
             PLF.Update.FetchInterface.newBuilder().setInterface(interface).setCid(contractId)
           )
-        case UpdateActingAsConsortium(members, consortium) =>
-          val _ = (members, consortium)
-          ??? // TODO: https://github.com/digital-asset/daml/issues/15882
         case UpdateExercise(templateId, choice, cid, arg) =>
           val b = PLF.Update.Exercise.newBuilder()
           b.setTemplate(templateId)
@@ -747,6 +744,24 @@ private[daml] class EncodeV1(minor: LV.Minor) {
               .setInterface(iface)
               .setExpr(value)
           )
+        case EChoiceController(ty, choiceName, contract, choiceArg) =>
+          assertSince(LV.Features.choiceFuncs, "Expr.ChoiceController")
+          val b = PLF.Expr.ChoiceController
+            .newBuilder()
+            .setTemplate(ty)
+            .setContractExpr(contract)
+            .setChoiceArgExpr(choiceArg)
+          setInternedString(choiceName, b.setChoiceInternedStr)
+          builder.setChoiceController(b)
+        case EChoiceObserver(ty, choiceName, contract, choiceArg) =>
+          assertSince(LV.Features.choiceFuncs, "Expr.ChoiceObserver")
+          val b = PLF.Expr.ChoiceObserver
+            .newBuilder()
+            .setTemplate(ty)
+            .setContractExpr(contract)
+            .setChoiceArgExpr(choiceArg)
+          setInternedString(choiceName, b.setChoiceInternedStr)
+          builder.setChoiceObserver(b)
         case EExperimental(name, ty) =>
           assertSince(LV.v1_dev, "Expr.experimental")
           builder.setExperimental(PLF.Expr.Experimental.newBuilder().setName(name).setType(ty))

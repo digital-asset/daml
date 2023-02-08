@@ -20,12 +20,12 @@ private[speedy] object PrettyLightweight { // lightweight pretty printer for CEK
 
   def ppCtrl(control: Control[_]): String =
     control match {
-      case Control.WeAreUnset => "unset"
       case Control.Value(v) => s"V-${pp(v)}"
       case Control.Expression(e) => s"E-${pp(e)}"
       case Control.Question(_) => "question"
       case Control.Complete(_) => "complete"
       case Control.Error(_) => "error"
+      case Control.WeAreUnset => "unset"
     }
 
   def ppEnv(env: Env): String = {

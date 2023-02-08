@@ -153,6 +153,22 @@ object Ast {
   /** Extract the payload from an AnyException if it matches the given exception type */
   final case class EFromAnyException(typ: Type, value: Expr) extends Expr
 
+  /** Extract the controllers from a contract and a choice */
+  final case class EChoiceController(
+      templateId: TypeConName,
+      choice: ChoiceName,
+      contractExpr: Expr,
+      choiceArgExpr: Expr,
+  ) extends Expr
+
+  /** Extract the observers from a contract and a choice */
+  final case class EChoiceObserver(
+      templateId: TypeConName,
+      choice: ChoiceName,
+      contractExpr: Expr,
+      choiceArgExpr: Expr,
+  ) extends Expr
+
   // We use this type to reduce depth of pattern matching
   sealed abstract class ExprInterface extends Expr
 
@@ -441,6 +457,10 @@ object Ast {
   final case object BFoldl extends BuiltinFunction // : ∀a b. (b → a → b) → b → List a → b
   final case object BFoldr extends BuiltinFunction // : ∀a b. (a → b → b) → b → List a → b
 
+  // Authority
+  final case object BWithAuthority
+      extends BuiltinFunction // : ∀ a. List Party → Update a → Update a
+
   // Maps
   final case object BTextMapEmpty extends BuiltinFunction // : ∀ a. TextMap a
   final case object BTextMapInsert
@@ -554,10 +574,6 @@ object Ast {
   final case class UpdateCreateInterface(interfaceId: TypeConName, arg: Expr) extends Update
   final case class UpdateFetchTemplate(templateId: TypeConName, contractId: Expr) extends Update
   final case class UpdateFetchInterface(interfaceId: TypeConName, contractId: Expr) extends Update
-
-  final case class UpdateActingAsConsortium(membersE: Expr, consortium: Expr) extends Update
-  // TODO: https://github.com/digital-asset/daml/issues/15882
-  // final case class UpdateCanActAsConsortium(membersE: Expr, consortium: Expr) extends Update
 
   final case class UpdateExercise(
       templateId: TypeConName,

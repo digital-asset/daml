@@ -6,13 +6,13 @@ package com.daml.ledger.api.benchtool.config
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
-
 import java.io.StringReader
-import com.daml.ledger.api.benchtool.config.WorkflowConfig.FooSubmissionConfig
+
+import com.daml.ledger.api.benchtool.config.WorkflowConfig.{FooSubmissionConfig, PruningConfig}
 import com.daml.ledger.api.benchtool.config.WorkflowConfig.FooSubmissionConfig.PartySet
 import com.daml.ledger.api.benchtool.config.WorkflowConfig.StreamConfig.PartyNamePrefixFilter
-
 import java.util.concurrent.TimeUnit
+
 import scala.concurrent.duration.Duration
 
 class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
@@ -32,6 +32,7 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
           |  num_divulgees: 5
           |  num_extra_submitters: 6
           |  unique_parties: true
+          |  allow_non_transient_contracts: true
           |  instance_distribution:
           |    - template: Foo1
           |      weight: 50
@@ -47,10 +48,13 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
           |         weight: 100
           |       - id: App-2
           |         weight: 102
-          |  observers_party_set:
-          |     party_name_prefix: MyParty
-          |     count: 99
-          |     visibility: 0.35
+          |  observers_party_sets:
+          |     - party_name_prefix: FooParty
+          |       count: 99
+          |       visibility: 0.35
+          |     - party_name_prefix: BazParty
+          |       count: 10
+          |       visibility: 0.01
           |streams:
           |  - type: active-contracts
           |    name: stream-1
@@ -69,12 +73,19 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
           |    filters:
           |      - party: Obs-2
           |        templates:
-          |         - Foo1""".stripMargin
+          |         - Foo1
+          |unary:
+          | - type: pruning
+          |   name: pruning-123
+          |   prune_all_divulged_contracts: false
+          |   max_duration_objective: 56 ms
+          |""".stripMargin
 
       parseYaml(yaml) shouldBe Right(
         WorkflowConfig(
           submission = Some(
             WorkflowConfig.FooSubmissionConfig(
+              allowNonTransientContracts = true,
               numberOfInstances = 500,
               numberOfObservers = 4,
               numberOfDivulgees = 5,
@@ -109,12 +120,9 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
                   weight = 102,
                 ),
               ),
-              observerPartySetO = Some(
-                PartySet(
-                  partyNamePrefix = "MyParty",
-                  count = 99,
-                  visibility = 0.35,
-                )
+              observerPartySets = List(
+                PartySet(partyNamePrefix = "FooParty", count = 99, visibility = 0.35),
+                PartySet(partyNamePrefix = "BazParty", count = 10, visibility = 0.01),
               ),
             )
           ),
@@ -134,7 +142,7 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
                 )
               ),
               maxItemCount = Some(700),
-              timeoutInSecondsO = None,
+              timeoutO = None,
               subscriptionDelay = Some(Duration(7, TimeUnit.MINUTES)),
             ),
             // Configuration with all optional values missing
@@ -147,6 +155,13 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
                 )
               ),
             ),
+          ),
+          pruning = Some(
+            PruningConfig(
+              name = "pruning-123",
+              pruneAllDivulgedContracts = false,
+              maxDurationObjective = Duration(56, TimeUnit.MILLISECONDS),
+            )
           ),
         )
       )
@@ -172,8 +187,7 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
         |    - template: Foo3
         |      weight: 10
         |      payload_size_bytes: 25
-        |  application_ids: []
-""".stripMargin
+        """.stripMargin
 
       parseYaml(yaml) shouldBe Right(
         WorkflowConfig(
@@ -247,9 +261,11 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
           |        templates:
           |         - Foo1
           |         - Foo3
-          |    filter_by_party_set:
-          |      party_name_prefix: My-Party
-          |      templates: [Foo1, Foo2]
+          |    party_prefix_filters:
+          |      - party_name_prefix: MyParty
+          |        templates: [Foo1, Foo2]
+          |      - party_name_prefix: MyOtherParty
+          |        templates: [Foo1]
           |    begin_offset: foo
           |    end_offset: bar
           |    subscription_delay: 7min    
@@ -258,7 +274,7 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
           |      min_consumption_speed: 2.34
           |      min_item_rate: 12
           |      max_item_rate: 34
-          |      max_stream_duration: 56
+          |      max_stream_duration: 56 ms
           |""".stripMargin
       parseYaml(yaml) shouldBe Right(
         WorkflowConfig(
@@ -272,11 +288,15 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
                   templates = List("Foo1", "Foo3"),
                 )
               ),
-              partyNamePrefixFilterO = Some(
+              partyNamePrefixFilters = List(
                 PartyNamePrefixFilter(
-                  partyNamePrefix = "My-Party",
+                  partyNamePrefix = "MyParty",
                   templates = List("Foo1", "Foo2"),
-                )
+                ),
+                PartyNamePrefixFilter(
+                  partyNamePrefix = "MyOtherParty",
+                  templates = List("Foo1"),
+                ),
               ),
               beginOffset = Some(offset("foo")),
               endOffset = Some(offset("bar")),
@@ -286,16 +306,18 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
                   minConsumptionSpeed = Some(2.34),
                   minItemRate = Some(12),
                   maxItemRate = Some(34),
-                  maxTotalStreamRuntimeDurationInMs = Some(56),
+                  maxTotalStreamRuntimeDuration = Some(Duration(56, TimeUnit.MILLISECONDS)),
                 )
               ),
               maxItemCount = None,
-              timeoutInSecondsO = None,
+              timeoutO = None,
               subscriptionDelay = Some(Duration(7, TimeUnit.MINUTES)),
             )
           ),
         )
       )
+      // Right(WorkflowConfig(None,List(TransactionsStreamConfig(stream-1,List(PartyFilter(Obs-2,List(Foo1, Foo3),List())),List(PartyNamePrefixFilter(MyParty,List(Foo1, Foo2),List()), PartyNamePrefixFilter(MyOtherParty,List(Foo1),List())),Some(LedgerOffset(Absolute(foo))),Some(LedgerOffset(Absolute(foo))),Some(TransactionObjectives(Some(123),Some(2.34),Some(12.0),Some(34.0),Some(56 milliseconds))),Some(7 minutes),None,None)))) was not equal to
+      // Right(WorkflowConfig(None,List(TransactionsStreamConfig(stream-1,List(PartyFilter(Obs-2,List(Foo1, Foo3),List())),List(PartyNamePrefixFilter(MyParty,List(Foo1, Foo2),List()), PartyNamePrefixFilter(MyOtherParty,List(Foo1),List())),Some(LedgerOffset(Absolute(foo))),Some(LedgerOffset(Absolute(bar))),Some(TransactionObjectives(Some(123),Some(2.34),Some(12.0),Some(34.0),Some(56 milliseconds))),Some(7 minutes),None,None))))
     }
 
     "parse stream configuration with some objectives set" in {
@@ -337,7 +359,7 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
                 )
               ),
               maxItemCount = None,
-              timeoutInSecondsO = None,
+              timeoutO = None,
               subscriptionDelay = Some(Duration(7, TimeUnit.MINUTES)),
             )
           ),
@@ -374,7 +396,7 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
               endOffset = Some(offset("bar")),
               objectives = None,
               maxItemCount = None,
-              timeoutInSecondsO = None,
+              timeoutO = None,
               subscriptionDelay = Some(Duration(7, TimeUnit.MINUTES)),
             )
           ),
@@ -392,6 +414,7 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
           |        templates:
           |         - Foo1
           |         - Foo3
+          |      - party: Obs-3
           |    begin_offset: foo
           |    end_offset: bar
           |    subscription_delay: 7min    
@@ -410,7 +433,11 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
                 WorkflowConfig.StreamConfig.PartyFilter(
                   party = "Obs-2",
                   templates = List("Foo1", "Foo3"),
-                )
+                ),
+                WorkflowConfig.StreamConfig.PartyFilter(
+                  party = "Obs-3",
+                  templates = List.empty,
+                ),
               ),
               beginOffset = Some(offset("foo")),
               endOffset = Some(offset("bar")),
@@ -423,7 +450,7 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
                 )
               ),
               maxItemCount = None,
-              timeoutInSecondsO = None,
+              timeoutO = None,
               subscriptionDelay = Some(Duration(7, TimeUnit.MINUTES)),
             )
           ),
@@ -464,7 +491,7 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
                 )
               ),
               maxItemCount = None,
-              timeoutInSecondsO = None,
+              timeoutO = None,
               subscriptionDelay = Some(Duration(7, TimeUnit.MINUTES)),
             )
           ),
@@ -480,7 +507,7 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
           |    parties: [Obs-2]
           |    begin_offset: foo
           |    application_id: foobar
-          |    timeout_in_seconds: 100
+          |    timeout: 100s
           |    max_item_count: 101
           |    subscription_delay: 7min    
           |    objectives:
@@ -501,7 +528,7 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
                   maxItemRate = Some(345),
                 )
               ),
-              timeoutInSecondsO = Some(100),
+              timeoutO = Some(Duration(100, TimeUnit.SECONDS)),
               maxItemCount = Some(101L),
               subscriptionDelay = Some(Duration(7, TimeUnit.MINUTES)),
             )
@@ -539,7 +566,7 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
               endOffset = Some(ledgerEndOffset),
               objectives = None,
               maxItemCount = None,
-              timeoutInSecondsO = None,
+              timeoutO = None,
               subscriptionDelay = Some(Duration(7, TimeUnit.MINUTES)),
             )
           ),
@@ -586,7 +613,7 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
               )
             ),
             maxItemCount = None,
-            timeoutInSecondsO = None,
+            timeoutO = None,
             subscriptionDelay = Some(Duration(7, TimeUnit.MINUTES)),
           )
         ),
@@ -594,7 +621,7 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
     )
   }
 
-  "parse filter_by_party_set interfaces" in {
+  "parse party_prefix_filters interfaces" in {
     val yaml =
       """streams:
         |  - type: transactions
@@ -604,9 +631,9 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
         |        templates:
         |         - Foo1
         |         - Foo3
-        |    filter_by_party_set:
-        |      party_name_prefix: My-Party
-        |      interfaces: [FooInterface]
+        |    party_prefix_filters:
+        |      - party_name_prefix: My-Party
+        |        interfaces: [FooInterface]
         |    begin_offset: foo
         |    end_offset: bar
         |    subscription_delay: 7min    
@@ -615,7 +642,7 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
         |      min_consumption_speed: 2.34
         |      min_item_rate: 12
         |      max_item_rate: 34
-        |      max_stream_duration: 56
+        |      max_stream_duration: 56 ms
         |""".stripMargin
     parseYaml(yaml) shouldBe Right(
       WorkflowConfig(
@@ -629,7 +656,7 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
                 templates = List("Foo1", "Foo3"),
               )
             ),
-            partyNamePrefixFilterO = Some(
+            partyNamePrefixFilters = List(
               PartyNamePrefixFilter(
                 partyNamePrefix = "My-Party",
                 interfaces = List("FooInterface"),
@@ -643,11 +670,11 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
                 minConsumptionSpeed = Some(2.34),
                 minItemRate = Some(12),
                 maxItemRate = Some(34),
-                maxTotalStreamRuntimeDurationInMs = Some(56),
+                maxTotalStreamRuntimeDuration = Some(Duration(56, TimeUnit.MILLISECONDS)),
               )
             ),
             maxItemCount = None,
-            timeoutInSecondsO = None,
+            timeoutO = None,
             subscriptionDelay = Some(Duration(7, TimeUnit.MINUTES)),
           )
         ),

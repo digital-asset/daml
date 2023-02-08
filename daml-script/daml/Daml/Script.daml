@@ -2,6 +2,7 @@
 -- SPDX-License-Identifier: Apache-2.0
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE InstanceSigs #-}
 
 module Daml.Script
   ( Script
@@ -148,17 +149,27 @@ data ScriptF a
 #ifndef DAML_EXCEPTIONS
   deriving Functor
 #else
-  | Catch (CatchPayload a)
+  | Catch (CatchPayload LedgerValue a)
   | Throw ThrowPayload
   deriving Functor
 
--- The slightly odd nesting here is required to preserve scoping.
--- (try x catch f) >>= f should not pull `f` in the try block
-data CatchPayload a = CatchPayload
+-- `(try x catch f) >>= g` roughly translates to
+-- CatchPayload with
+--   act = \() -> x
+--   handle = f
+--   continue = g
+data CatchPayload x a = CatchPayload
   with
-    act : () -> Free ScriptF (a, ())
-    handle : AnyException -> Optional a
+    -- TODO(MA): simplify to `act : () -> Free ScriptF x`
+    act : () -> Free ScriptF (Free ScriptF x, ())
+    handle : AnyException -> Optional (Free ScriptF x)
+    continue : Free ScriptF x -> a
   deriving Functor
+
+-- This wraps a `CatchPayload` whose inner action returns an `x` into an
+-- existential - we forget what `x` was.
+castCatchPayload : CatchPayload x a -> CatchPayload LedgerValue a
+castCatchPayload = error "foobar" -- gets replaced by the identity-function in script/Runner.scala
 
 data ThrowPayload = ThrowPayload
   with
@@ -168,9 +179,14 @@ instance ActionThrow Script where
   throw e = lift (Free (Throw (ThrowPayload (toAnyException e))))
 
 instance ActionCatch Script where
-  _tryCatch act handle = lift $ Free $ Catch $ CatchPayload with
-    act = \() -> fmap (first pure) $ runScript (act ()) ()
-    handle = \e -> fmap (\s -> fmap fst $ runScript s ()) (handle e)
+  _tryCatch : forall t. (() -> Script t) -> (AnyException -> Optional (Script t)) -> Script t
+  _tryCatch act handle = lift $ Free $ Catch $ castCatchPayload payload
+    where
+      payload : CatchPayload t (Free ScriptF t)
+      payload = CatchPayload with
+        act = \() -> fmap (first pure) $ runScript (act ()) ()
+        handle = \e -> fmap (\s -> fmap fst $ runScript s ()) (handle e)
+        continue = identity
 #endif
 
 data QueryACS a = QueryACS
@@ -443,7 +459,7 @@ data GetTimePayload a = GetTimePayload
 -- This is primarily useful in tests
 -- where you repeatedly call `query` until a certain state is reached.
 --
--- Note that this will sleep for the same duration in both wallcock and static time mode.
+-- Note that this will sleep for the same duration in both wall clock and static time mode.
 sleep : HasCallStack => RelTime -> Script ()
 sleep duration = lift $ Free $Sleep SleepRec with
   duration = duration

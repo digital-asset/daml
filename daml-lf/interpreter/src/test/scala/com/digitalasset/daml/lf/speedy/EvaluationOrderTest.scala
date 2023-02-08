@@ -5,7 +5,7 @@ package com.daml.lf
 package speedy
 
 import com.daml.lf.command.ContractMetadata
-import com.daml.lf.data.{FrontStack, ImmArray, Ref, Time}
+import com.daml.lf.data.{Bytes, FrontStack, ImmArray, Ref, Time}
 import com.daml.lf.data.Ref.{Location, Party}
 import com.daml.lf.interpretation.{Error => IE}
 import com.daml.lf.language.Ast._
@@ -14,7 +14,7 @@ import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.testing.parser.Implicits.{defaultParserParameters => _, _}
-import com.daml.lf.transaction.{GlobalKey, GlobalKeyWithMaintainers, TransactionVersion, Versioned}
+import com.daml.lf.transaction.{GlobalKeyWithMaintainers, TransactionVersion, Versioned}
 import com.daml.lf.ledger.FailedAuthorization
 import com.daml.lf.ledger.FailedAuthorization.{
   ExerciseMissingAuthorization,
@@ -360,7 +360,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           ImmArray(Ref.Name.assertFromString("signatory")),
           ArrayList(SParty(signatory)),
         ),
-        ContractMetadata(Time.Timestamp.now(), None, ImmArray.Empty),
+        ContractMetadata(Time.Timestamp.now(), None, Bytes.Empty),
       ),
     )
 
@@ -402,7 +402,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
   private[this] val getHelper = Map(helperCId -> helper)
 
   private[this] val getKey = Map(
-    GlobalKeyWithMaintainers(GlobalKey.assertBuild(T, keyValue), Set(alice)) -> cId
+    GlobalKeyWithMaintainers.assertBuild(T, keyValue, Set(alice)) -> cId
   )
 
   private[this] val dummyContract = Versioned(

@@ -3,7 +3,7 @@
 
 package com.daml.metrics
 
-import com.daml.metrics.api.MetricHandle.Factory
+import com.daml.metrics.api.MetricHandle.MetricsFactory
 import com.daml.metrics.api.{MetricDoc, MetricName}
 
 @MetricDoc.GroupTag(
@@ -12,10 +12,11 @@ import com.daml.metrics.api.{MetricDoc, MetricName}
 )
 class PartyRecordStoreMetrics(
     prefix: MetricName,
-    factory: Factory,
+    factory: MetricsFactory,
 ) extends DatabaseMetricsFactory(prefix, factory) {
 
   val getPartyRecord: DatabaseMetrics = createDbMetrics("get_party_record")
+  val partiesExist: DatabaseMetrics = createDbMetrics("parties_exist")
   val createPartyRecord: DatabaseMetrics = createDbMetrics("create_party_record")
   val updatePartyRecord: DatabaseMetrics = createDbMetrics("update_party_record")
 

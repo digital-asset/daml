@@ -11,15 +11,12 @@ import com.daml.platform.apiserver.ratelimiting.LimitResult.{
   UnderLimit,
 }
 import com.daml.platform.apiserver.ratelimiting.RateLimitingInterceptor._
-import com.daml.platform.apiserver.ratelimiting.ThreadpoolCheck.ThreadpoolCount
-import com.daml.platform.configuration.ServerRole
 import io.grpc.ForwardingServerCallListener.SimpleForwardingServerCallListener
 import io.grpc.{Metadata, ServerCall, ServerCallHandler, ServerInterceptor}
 import org.slf4j.LoggerFactory
 
 import java.lang.management.{ManagementFactory, MemoryMXBean, MemoryPoolMXBean}
 import java.util.concurrent.atomic.AtomicBoolean
-import com.daml.metrics.api.MetricName
 import scala.jdk.CollectionConverters.ListHasAsScala
 import scala.util.Try
 
@@ -28,7 +25,7 @@ final class RateLimitingInterceptor(
     checks: List[LimitResultCheck],
 ) extends ServerInterceptor {
 
-  private val activeStreamsCounter = metrics.daml.lapi.streams.active
+  private val activeStreamsGauge = metrics.daml.lapi.streams.active
 
   override def interceptCall[ReqT, RespT](
       call: ServerCall[ReqT, RespT],
@@ -48,8 +45,11 @@ final class RateLimitingInterceptor(
       case UnderLimit if isStream =>
         val delegate = next.startCall(call, headers)
         val listener =
-          new OnCloseCallListener(delegate, runOnceOnTermination = () => activeStreamsCounter.dec())
-        activeStreamsCounter.inc() // Only do after call above has returned
+          new OnCloseCallListener(
+            delegate,
+            runOnceOnTermination = () => activeStreamsGauge.updateValue(_ - 1),
+          )
+        activeStreamsGauge.updateValue(_ + 1) // Only do after call above has returned
         listener
 
       case UnderLimit =>
@@ -97,11 +97,6 @@ object RateLimitingInterceptor {
       additionalChecks: List[LimitResultCheck],
   ): RateLimitingInterceptor = {
 
-    val indexDbThreadpool: ThreadpoolCount = new ThreadpoolCount(metrics)(
-      "Index Database Connection Threadpool",
-      MetricName(metrics.daml.index.db.threadpool.connection, ServerRole.ApiServer.threadPoolSuffix),
-    )
-
     val activeStreamsName = metrics.daml.lapi.streams.activeName
     val activeStreamsCounter = metrics.daml.lapi.streams.active
 
@@ -109,13 +104,12 @@ object RateLimitingInterceptor {
       metrics = metrics,
       checks = List[LimitResultCheck](
         MemoryCheck(tenuredMemoryPools, memoryMxBean, config),
-        ThreadpoolCheck(indexDbThreadpool, config.maxApiServicesIndexDbQueueSize),
         StreamCheck(activeStreamsCounter, activeStreamsName, config.maxStreams),
       ) ::: additionalChecks,
     )
   }
 
-  val doNonLimit: Set[String] = Set(
+  private val doNonLimit: Set[String] = Set(
     "grpc.reflection.v1alpha.ServerReflection/ServerReflectionInfo",
     "grpc.health.v1.Health/Check",
     "grpc.health.v1.Health/Watch",

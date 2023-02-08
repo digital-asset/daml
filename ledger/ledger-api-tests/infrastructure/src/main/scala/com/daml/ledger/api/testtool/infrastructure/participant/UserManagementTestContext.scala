@@ -4,10 +4,22 @@
 package com.daml.ledger.api.testtool.infrastructure.participant
 
 import java.util.concurrent.ConcurrentHashMap
-
 import com.daml.error.definitions.LedgerApiErrors
 import com.daml.error.utils.ErrorDetails
 import com.daml.ledger.api.testtool.infrastructure.LedgerServices
+import com.daml.ledger.api.v1.admin.identity_provider_config_service.{
+  CreateIdentityProviderConfigRequest,
+  CreateIdentityProviderConfigResponse,
+  DeleteIdentityProviderConfigRequest,
+  DeleteIdentityProviderConfigResponse,
+  GetIdentityProviderConfigRequest,
+  GetIdentityProviderConfigResponse,
+  IdentityProviderConfig,
+  ListIdentityProviderConfigsRequest,
+  ListIdentityProviderConfigsResponse,
+  UpdateIdentityProviderConfigRequest,
+  UpdateIdentityProviderConfigResponse,
+}
 import com.daml.ledger.api.v1.admin.user_management_service.UserManagementServiceGrpc.UserManagementService
 import com.daml.ledger.api.v1.admin.user_management_service.{
   CreateUserRequest,
@@ -16,7 +28,9 @@ import com.daml.ledger.api.v1.admin.user_management_service.{
   DeleteUserResponse,
   User,
 }
+import com.google.protobuf.field_mask.FieldMask
 
+import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
 
 trait UserManagementTestContext {
@@ -76,5 +90,70 @@ trait UserManagementTestContext {
       )
     Future.sequence(deletions).map(_ => ())
   }
+
+  def createIdentityProviderConfig(
+      identityProviderId: String = UUID.randomUUID().toString,
+      isDeactivated: Boolean = false,
+      issuer: String = UUID.randomUUID().toString,
+      jwksUrl: String = "http://daml.com/jwks.json",
+  ): Future[CreateIdentityProviderConfigResponse] =
+    services.identityProviderConfig.createIdentityProviderConfig(
+      CreateIdentityProviderConfigRequest(
+        Some(
+          IdentityProviderConfig(
+            identityProviderId = identityProviderId,
+            isDeactivated = isDeactivated,
+            issuer = issuer,
+            jwksUrl = jwksUrl,
+          )
+        )
+      )
+    )
+
+  def updateIdentityProviderConfig(
+      identityProviderId: String = UUID.randomUUID().toString,
+      isDeactivated: Boolean = false,
+      issuer: String = UUID.randomUUID().toString,
+      jwksUrl: String = "http://daml.com/jwks.json",
+      updateMask: Option[FieldMask] = None,
+  ): Future[UpdateIdentityProviderConfigResponse] =
+    services.identityProviderConfig.updateIdentityProviderConfig(
+      UpdateIdentityProviderConfigRequest(
+        Some(
+          IdentityProviderConfig(
+            identityProviderId = identityProviderId,
+            isDeactivated = isDeactivated,
+            issuer = issuer,
+            jwksUrl = jwksUrl,
+          )
+        ),
+        updateMask,
+      )
+    )
+
+  def updateIdentityProviderConfig(
+      request: UpdateIdentityProviderConfigRequest
+  ): Future[UpdateIdentityProviderConfigResponse] =
+    services.identityProviderConfig.updateIdentityProviderConfig(request)
+
+  def createIdentityProviderConfig(
+      request: CreateIdentityProviderConfigRequest
+  ): Future[CreateIdentityProviderConfigResponse] =
+    services.identityProviderConfig.createIdentityProviderConfig(request)
+
+  def getIdentityProviderConfig(
+      request: GetIdentityProviderConfigRequest
+  ): Future[GetIdentityProviderConfigResponse] =
+    services.identityProviderConfig.getIdentityProviderConfig(request)
+
+  def deleteIdentityProviderConfig(
+      request: DeleteIdentityProviderConfigRequest
+  ): Future[DeleteIdentityProviderConfigResponse] =
+    services.identityProviderConfig.deleteIdentityProviderConfig(request)
+
+  def listIdentityProviderConfig(): Future[ListIdentityProviderConfigsResponse] =
+    services.identityProviderConfig.listIdentityProviderConfigs(
+      ListIdentityProviderConfigsRequest()
+    )
 
 }

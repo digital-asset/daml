@@ -183,7 +183,7 @@ object PreprocessorSpec {
         if (withNormalization) None else Some(templateId),
         if (withFieldsReversed) recordFields.reverse else recordFields,
       ),
-      ContractMetadata(Time.Timestamp.now(), Some(keyHash), ImmArray.Empty),
+      ContractMetadata(Time.Timestamp.now(), Some(keyHash), Bytes.Empty),
     )
   }
 

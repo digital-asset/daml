@@ -373,6 +373,18 @@ private[lf] final class PhaseOne(
         compileExp(env, exp) { exp =>
           Return(SBViewInterface(ifaceId)(exp))
         }
+      case EChoiceController(tpl, choiceName, contract, choiceArg) =>
+        compileExp(env, contract) { contract =>
+          compileExp(env, choiceArg) { choiceArg =>
+            Return(t.ChoiceControllerDefRef(tpl, choiceName)(contract, choiceArg))
+          }
+        }
+      case EChoiceObserver(tpl, choiceName, contract, choiceArg) =>
+        compileExp(env, contract) { contract =>
+          compileExp(env, choiceArg) { choiceArg =>
+            Return(t.ChoiceObserverDefRef(tpl, choiceName)(contract, choiceArg))
+          }
+        }
       case EExperimental(name, _) =>
         Return(SBExperimental(name))
     }
@@ -459,6 +471,9 @@ private[lf] final class PhaseOne(
           case BFoldl => SBFoldl
           case BFoldr => SBFoldr
           case BEqualList => SBEqualList
+
+          // Authority functions
+          case BWithAuthority => SBWithAuthority
 
           // Errors
           case BError => SBUserError
@@ -707,12 +722,6 @@ private[lf] final class PhaseOne(
       case UpdateFetchInterface(ifaceId, coid) =>
         compileExp(env, coid) { coid =>
           Return(t.FetchInterfaceDefRef(ifaceId)(coid))
-        }
-      case UpdateActingAsConsortium(members, consortium) =>
-        compileExp(env, members) { members =>
-          compileExp(env, consortium) { consortium =>
-            Return(SBActingAsConsortium(members, consortium))
-          }
         }
       case UpdateEmbedExpr(_, exp) =>
         compileEmbedExpr(env, exp)

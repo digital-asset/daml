@@ -3,10 +3,11 @@
 
 package com.daml.metrics.api.noop
 
-import com.daml.metrics.api.MetricHandle.Factory
+import com.daml.metrics.api.MetricHandle.Gauge.CloseableGauge
+import com.daml.metrics.api.MetricHandle.LabeledMetricsFactory
 import com.daml.metrics.api.{MetricHandle, MetricName, MetricsContext}
 
-object NoOpMetricsFactory extends Factory {
+class NoOpMetricsFactory extends LabeledMetricsFactory {
 
   override def timer(
       name: MetricName,
@@ -27,7 +28,7 @@ object NoOpMetricsFactory extends Factory {
       name: MetricName,
       gaugeSupplier: () => T,
       description: String,
-  )(implicit context: MetricsContext): Unit = ()
+  )(implicit context: MetricsContext): CloseableGauge = () => ()
 
   override def meter(
       name: MetricName,
@@ -50,3 +51,5 @@ object NoOpMetricsFactory extends Factory {
       context: MetricsContext
   ): MetricHandle.Histogram = NoOpHistogram(name)
 }
+
+object NoOpMetricsFactory extends NoOpMetricsFactory

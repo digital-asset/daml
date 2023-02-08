@@ -78,7 +78,7 @@ final class IndexServiceOwner(
         transactionsBuffer = inMemoryState.inMemoryFanoutBuffer,
         lfValueTranslation = lfValueTranslation,
         metrics = metrics,
-        eventProcessingParallelism = config.eventsProcessingParallelism,
+        eventProcessingParallelism = config.bufferedEventsProcessingParallelism,
       )(inMemoryFanOutExecutionContext)
 
       bufferedCommandCompletionsReader = BufferedCommandCompletionsReader(
@@ -164,14 +164,6 @@ final class IndexServiceOwner(
   ): LedgerReadDao =
     JdbcLedgerDao.read(
       dbSupport = dbSupport,
-      eventsPageSize = config.eventsPageSize,
-      eventsProcessingParallelism = config.eventsProcessingParallelism,
-      acsIdPageSize = config.acsIdPageSize,
-      acsIdPageBufferSize = config.acsIdPageBufferSize,
-      acsIdPageWorkingMemoryBytes = config.acsIdPageWorkingMemoryBytes,
-      acsIdFetchingParallelism = config.acsIdFetchingParallelism,
-      acsContractFetchingParallelism = config.acsContractFetchingParallelism,
-      acsGlobalParallelism = config.acsGlobalParallelism,
       servicesExecutionContext = servicesExecutionContext,
       metrics = metrics,
       engine = Some(engine),
@@ -179,6 +171,7 @@ final class IndexServiceOwner(
       ledgerEndCache = ledgerEndCache,
       stringInterning = stringInterning,
       completionsPageSize = config.completionsPageSize,
+      acsStreamsConfig = config.acsStreams,
       transactionFlatStreamsConfig = config.transactionFlatStreams,
       transactionTreeStreamsConfig = config.transactionTreeStreams,
       globalMaxEventIdQueries = config.globalMaxEventIdQueries,
@@ -194,7 +187,7 @@ final class IndexServiceOwner(
         InstrumentedExecutors.newWorkStealingExecutor(
           metrics.daml.lapi.threadpool.inMemoryFanOut.toString,
           threadPoolSize,
-          metrics.dropwizardFactory.registry,
+          metrics.registry,
           metrics.executorServiceMetrics,
         )
       )

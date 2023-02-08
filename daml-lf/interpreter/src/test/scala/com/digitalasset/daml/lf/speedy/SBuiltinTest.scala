@@ -20,9 +20,9 @@ import com.daml.lf.speedy.SBuiltin.{
 import com.daml.lf.speedy.SError.{SError, SErrorCrash}
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SValue.{SValue => _, _}
-import com.daml.lf.speedy.Speedy.{CachedContract, Machine, SKeyWithMaintainers}
+import com.daml.lf.speedy.Speedy.{CachedContract, Machine, CachedKey}
 import com.daml.lf.testing.parser.Implicits._
-import com.daml.lf.transaction.{GlobalKey, GlobalKeyWithMaintainers, TransactionVersion}
+import com.daml.lf.transaction.{GlobalKeyWithMaintainers, TransactionVersion}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.{ContractId, ValueArithmeticError, VersionedContractInstance}
 import org.scalatest.prop.TableDrivenPropertyChecks
@@ -1651,6 +1651,7 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
         val (disclosedContract, None) =
           buildDisclosedContract(contractId, alice, alice, templateId, withKey = false)
         val cachedContract = CachedContract(
+          version = txVersion,
           templateId,
           disclosedContract.argument,
           "",
@@ -1693,8 +1694,14 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
         val templateId = Ref.Identifier.assertFromString("-pkgId-:Mod:IouWithKey")
         val (disclosedContract, Some((key, keyWithMaintainers, keyHash))) =
           buildDisclosedContract(contractId, alice, alice, templateId, withKey = true)
-        val optionalKey = Some(SKeyWithMaintainers(key, Set(alice)))
+        val optionalKey = Some(
+          CachedKey(
+            GlobalKeyWithMaintainers.assertBuild(templateId, key.toUnnormalizedValue, Set(alice)),
+            key,
+          )
+        )
         val cachedContract = CachedContract(
+          version = txVersion,
           templateId,
           disclosedContract.argument,
           "agreement",
@@ -1811,6 +1818,8 @@ object SBuiltinTest {
 
     """
 
+  private val txVersion = TransactionVersion.assignNodeVersion(pkg.languageVersion)
+
   val compiledPackages: PureCompiledPackages =
     PureCompiledPackages.assertBuild(Map(defaultParserParameters.defaultPackageId -> pkg))
 
@@ -1912,10 +1921,7 @@ object SBuiltinTest {
     val globalKey =
       if (withKey) {
         Some(
-          GlobalKeyWithMaintainers(
-            GlobalKey(templateId, key.toUnnormalizedValue),
-            Set(maintainer),
-          )
+          GlobalKeyWithMaintainers.assertBuild(templateId, key.toUnnormalizedValue, Set(maintainer))
         )
       } else {
         None
@@ -1941,7 +1947,7 @@ object SBuiltinTest {
         fields.map(Ref.Name.assertFromString),
         values,
       ),
-      ContractMetadata(Time.Timestamp.now(), keyHash, ImmArray.Empty),
+      ContractMetadata(Time.Timestamp.now(), keyHash, Bytes.Empty),
     )
 
     (disclosedContract, if (withKey) Some((key, keyWithMaintainers, keyHash.get)) else None)

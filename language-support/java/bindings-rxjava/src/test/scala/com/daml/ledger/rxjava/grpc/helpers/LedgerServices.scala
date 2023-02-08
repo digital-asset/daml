@@ -6,14 +6,13 @@ package com.daml.ledger.rxjava.grpc.helpers
 import java.net.{InetSocketAddress, SocketAddress}
 import java.time.{Clock, Duration}
 import java.util.concurrent.TimeUnit
-
 import akka.actor.ActorSystem
 import com.daml.ledger.rxjava.grpc._
 import com.daml.ledger.rxjava.grpc.helpers.TransactionsServiceImpl.LedgerItem
 import com.daml.ledger.rxjava.{CommandCompletionClient, LedgerConfigurationClient, PackageClient}
 import com.daml.grpc.adapter.{ExecutionSequencerFactory, SingleThreadExecutionSequencerPool}
 import com.daml.ledger.api.auth.interceptor.AuthorizationInterceptor
-import com.daml.ledger.api.auth.{AuthService, AuthServiceWildcard, Authorizer}
+import com.daml.ledger.api.auth.{AuthService, AuthServiceWildcard, Authorizer, ClaimSet}
 import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
 import com.daml.ledger.api.v1.command_completion_service.{
   CompletionEndResponse,
@@ -100,6 +99,7 @@ final class LedgerServices(val ledgerId: String) {
     val authorizationInterceptor = AuthorizationInterceptor(
       authService,
       Some(new InMemoryUserManagementStore()),
+      { _ => Future.successful(ClaimSet.Unauthenticated) },
       executionContext,
     )
     services

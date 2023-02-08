@@ -1,0 +1,20 @@
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module InterfaceViewSynonymTypeMismatch where
+
+-- @ERROR range=20:7-20:24; Possible Daml-specific reason for the following type error: Tried to implement a view of type ‘WrongTView’ on interface ‘I’, but the definition of interface ‘I’ requires a view of type ‘TView'’ (Type synonym of ‘TView’)
+
+interface I where
+  viewtype TView'
+
+data TView = TView {}
+type TView' = TView
+
+data WrongTView = WrongTView {}
+
+template T with p: Party
+  where
+    signatory p
+    interface instance I for T where
+      view = WrongTView

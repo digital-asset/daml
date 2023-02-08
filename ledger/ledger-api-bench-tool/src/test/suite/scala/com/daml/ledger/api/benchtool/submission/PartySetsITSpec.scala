@@ -17,9 +17,10 @@ import com.daml.ledger.api.benchtool.config.WorkflowConfig.StreamConfig.{
 import com.daml.ledger.api.benchtool.services.LedgerApiServices
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
+import com.daml.scalautil.Statement.discard
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
-import org.scalatest.{AppendedClues, OptionValues}
+import org.scalatest.{AppendedClues, Checkpoints, OptionValues}
 
 import scala.concurrent.Future
 
@@ -29,7 +30,8 @@ class PartySetsITSpec
     with SuiteResourceManagementAroundAll
     with Matchers
     with AppendedClues
-    with OptionValues {
+    with OptionValues
+    with Checkpoints {
 
   it should "submit a party-set and apply party-set filter on a stream" in {
     val submissionConfig = WorkflowConfig.FooSubmissionConfig(
@@ -43,12 +45,17 @@ class PartySetsITSpec
           payloadSizeBytes = 0,
         )
       ),
-      observerPartySetO = Some(
+      observerPartySets = List(
         PartySet(
-          partyNamePrefix = "MyParty",
+          partyNamePrefix = "FooParty",
           count = 100,
           visibility = 0.5,
-        )
+        ),
+        PartySet(
+          partyNamePrefix = "BarParty",
+          count = 20,
+          visibility = 0.05,
+        ),
       ),
       consumingExercises = Some(
         ConsumingExercises(
@@ -64,56 +71,140 @@ class PartySetsITSpec
       ),
     )
     for {
-      (apiServices, names, submitter) <- benchtoolFixture()
-      allocatedParties <- submitter.prepare(submissionConfig)
+      (apiServices, allocatedParties, fooSubmission) <- benchtoolFooSubmissionFixture(
+        submissionConfig
+      )
       configDesugaring = new ConfigEnricher(
         allocatedParties,
         BenchtoolTestsPackageInfo.StaticDefault,
       )
-      tested = new FooSubmission(
-        submitter = submitter,
-        maxInFlightCommands = 1,
-        submissionBatchSize = 1,
-        submissionConfig = submissionConfig,
-        allocatedParties = allocatedParties,
-        names = names,
-        partySelectingRandomnessProvider = RandomnessProvider.forSeed(seed = 0),
-        consumingEventsRandomnessProvider = RandomnessProvider.forSeed(seed = 0),
-      )
-      _ <- tested.performSubmission()
-      _ = allocatedParties.observerPartySetO.get.parties(87).toString shouldBe "MyParty-87"
-      treeResults_myParty87 <- observeStreams(
+      _ <- fooSubmission.performSubmission(submissionConfig = submissionConfig)
+      _ = allocatedParties.observerPartySets
+        .find(_.mainPartyNamePrefix == "FooParty")
+        .value
+        .parties(87)
+        .toString shouldBe "FooParty-87"
+      treeResults_fooParty87 <- observeStreams(
         configDesugaring = configDesugaring,
-        filterByParties = List("MyParty-87"),
+        filterByParties = List("FooParty-87"),
         apiServices = apiServices,
         expectedTemplateNames = Set("Foo1"),
       )
-      treeResults_partySet <- observeStreams(
+      treeResults_fooPartySet <- observeStreams(
         configDesugaring = configDesugaring,
-        filterByPartyNamePrefixO = Some("MyParty"),
+        filterByPartyNamePrefixes = List("FooParty"),
+        apiServices = apiServices,
+        expectedTemplateNames = Set("Foo1"),
+      )
+      treeResults_fooPartyNamePrefix <- observeStreams(
+        configDesugaring = configDesugaring,
+        // matches 10 parties: {FooParty-30, FooParty-31, .., FooParty-39}
+        filterByPartyNamePrefixes = List("FooParty-3"),
+        apiServices = apiServices,
+        expectedTemplateNames = Set("Foo1"),
+      )
+      treeResults_barPartySet <- observeStreams(
+        configDesugaring = configDesugaring,
+        filterByPartyNamePrefixes = List("BarParty"),
+        apiServices = apiServices,
+        expectedTemplateNames = Set("Foo1"),
+      )
+      treeResults_barPartyNamePrefix <- observeStreams(
+        configDesugaring = configDesugaring,
+        // Matches 10 parties: {BarParty-10, BarParty-11, .., BarParty-19}
+        filterByPartyNamePrefixes = List("BarParty-1"),
         apiServices = apiServices,
         expectedTemplateNames = Set("Foo1"),
       )
 
     } yield {
-      { // Party from party set
-        treeResults_myParty87.numberOfCreatesPerTemplateName("Foo1") shouldBe 6
-        treeResults_myParty87.numberOfNonConsumingExercisesPerTemplateName("Foo1") shouldBe 12
-        treeResults_myParty87.numberOfConsumingExercisesPerTemplateName("Foo1") shouldBe 1
-      }
-      { // Party set
-        treeResults_partySet.numberOfCreatesPerTemplateName("Foo1") shouldBe 10
-        treeResults_partySet.numberOfNonConsumingExercisesPerTemplateName("Foo1") shouldBe 20
-        treeResults_partySet.numberOfConsumingExercisesPerTemplateName("Foo1") shouldBe 1
-      }
+      val cp = new Checkpoint
 
+      { // Party from party set
+        cp(discard(treeResults_fooParty87.numberOfCreatesPerTemplateName("Foo1") shouldBe 4))
+        cp(
+          discard(
+            treeResults_fooParty87.numberOfNonConsumingExercisesPerTemplateName("Foo1") shouldBe 8
+          )
+        )
+        cp(
+          discard(
+            treeResults_fooParty87.numberOfConsumingExercisesPerTemplateName("Foo1") shouldBe 1
+          )
+        )
+      }
+      { // Foo party set
+        cp(discard(treeResults_fooPartySet.numberOfCreatesPerTemplateName("Foo1") shouldBe 10))
+        cp(
+          discard(
+            treeResults_fooPartySet.numberOfNonConsumingExercisesPerTemplateName("Foo1") shouldBe 20
+          )
+        )
+        cp(
+          discard(
+            treeResults_fooPartySet.numberOfConsumingExercisesPerTemplateName("Foo1") shouldBe 4
+          )
+        )
+      }
+      { // Foo party set subset
+        cp(
+          discard(treeResults_fooPartyNamePrefix.numberOfCreatesPerTemplateName("Foo1") shouldBe 10)
+        )
+        cp(
+          discard(
+            treeResults_fooPartyNamePrefix.numberOfNonConsumingExercisesPerTemplateName(
+              "Foo1"
+            ) shouldBe 20
+          )
+        )
+        cp(
+          discard(
+            treeResults_fooPartyNamePrefix.numberOfConsumingExercisesPerTemplateName(
+              "Foo1"
+            ) shouldBe 4
+          )
+        )
+      }
+      { // Bar party set
+        cp(discard(treeResults_barPartySet.numberOfCreatesPerTemplateName("Foo1") shouldBe 5))
+        cp(
+          discard(
+            treeResults_barPartySet.numberOfNonConsumingExercisesPerTemplateName("Foo1") shouldBe 10
+          )
+        )
+        cp(
+          discard(
+            treeResults_barPartySet.numberOfConsumingExercisesPerTemplateName("Foo1") shouldBe 2
+          )
+        )
+      }
+      { // Bar party set subset
+        cp(
+          discard(treeResults_barPartyNamePrefix.numberOfCreatesPerTemplateName("Foo1") shouldBe 5)
+        )
+        cp(
+          discard(
+            treeResults_barPartyNamePrefix.numberOfNonConsumingExercisesPerTemplateName(
+              "Foo1"
+            ) shouldBe 10
+          )
+        )
+        cp(
+          discard(
+            treeResults_barPartyNamePrefix.numberOfConsumingExercisesPerTemplateName(
+              "Foo1"
+            ) shouldBe 2
+          )
+        )
+      }
+      cp.reportAll()
       succeed
     }
   }
 
   private def observeStreams(
       configDesugaring: ConfigEnricher,
-      filterByPartyNamePrefixO: Option[String] = None,
+      filterByPartyNamePrefixes: List[String] = List.empty,
       filterByParties: List[String] = List.empty,
       filterByTemplates: List[String] = List.empty,
       apiServices: LedgerApiServices,
@@ -129,7 +220,7 @@ class PartySetsITSpec
           interfaces = List.empty,
         )
       ),
-      partyNamePrefixFilterO = filterByPartyNamePrefixO.map(partyNamePrefix =>
+      partyNamePrefixFilters = filterByPartyNamePrefixes.map(partyNamePrefix =>
         PartyNamePrefixFilter(
           partyNamePrefix = partyNamePrefix,
           templates = filterByTemplates,
@@ -139,7 +230,7 @@ class PartySetsITSpec
       endOffset = Some(LedgerOffset().withBoundary(LedgerOffset.LedgerBoundary.LEDGER_END)),
       objectives = None,
       maxItemCount = None,
-      timeoutInSecondsO = None,
+      timeoutO = None,
     )
     for {
       _ <- apiServices.transactionService.transactionTrees(

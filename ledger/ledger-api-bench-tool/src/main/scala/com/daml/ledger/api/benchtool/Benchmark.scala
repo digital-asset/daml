@@ -4,7 +4,6 @@
 package com.daml.ledger.api.benchtool
 
 import akka.actor.typed.{ActorSystem, SpawnProtocol}
-import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.api.benchtool.config.WorkflowConfig.StreamConfig
 import com.daml.ledger.api.benchtool.metrics.{BenchmarkResult, MetricsSet, StreamMetrics}
 import com.daml.ledger.api.benchtool.services.LedgerApiServices
@@ -15,10 +14,10 @@ import com.daml.ledger.api.v1.transaction_service.{
   GetTransactionTreesResponse,
   GetTransactionsResponse,
 }
+import com.daml.metrics.api.MetricHandle.MetricsFactory
 import com.daml.timer.Delayed
 import org.slf4j.LoggerFactory
 
-import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.{Duration, FiniteDuration}
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -29,7 +28,7 @@ object Benchmark {
       streamConfigs: List[StreamConfig],
       reportingPeriod: FiniteDuration,
       apiServices: LedgerApiServices,
-      metricRegistry: MetricRegistry,
+      metricsFactory: MetricsFactory,
       system: ActorSystem[SpawnProtocol.Command],
   )(implicit ec: ExecutionContext): Future[Either[String, Unit]] =
     Future
@@ -45,12 +44,12 @@ object Benchmark {
                 logger = logger,
                 exposedMetrics = Some(
                   MetricsSet
-                    .transactionExposedMetrics(streamConfig.name, metricRegistry, reportingPeriod)
+                    .transactionExposedMetrics(streamConfig.name, metricsFactory)
                 ),
                 itemCountingFunction = MetricsSet.countFlatTransactionsEvents,
                 maxItemCount = streamConfig.maxItemCount,
               )(system, ec)
-            _ = streamConfig.timeoutInSecondsO
+            _ = streamConfig.timeoutO
               .foreach(timeout => scheduleCancelStreamTask(timeout, observer))
             result <- apiServices.transactionService.transactions(streamConfig, observer)
           } yield result
@@ -66,14 +65,13 @@ object Benchmark {
                 exposedMetrics = Some(
                   MetricsSet.transactionTreesExposedMetrics(
                     streamConfig.name,
-                    metricRegistry,
-                    reportingPeriod,
+                    metricsFactory,
                   )
                 ),
                 itemCountingFunction = MetricsSet.countTreeTransactionsEvents,
                 maxItemCount = streamConfig.maxItemCount,
               )(system, ec)
-            _ = streamConfig.timeoutInSecondsO
+            _ = streamConfig.timeoutO
               .foreach(timeout => scheduleCancelStreamTask(timeout, observer))
             result <- apiServices.transactionService.transactionTrees(streamConfig, observer)
           } yield result
@@ -89,15 +87,13 @@ object Benchmark {
                 exposedMetrics = Some(
                   MetricsSet.activeContractsExposedMetrics(
                     streamConfig.name,
-                    metricRegistry,
-                    reportingPeriod,
+                    metricsFactory,
                   )
                 ),
-                itemCountingFunction =
-                  (response) => MetricsSet.countActiveContracts(response).toLong,
+                itemCountingFunction = response => MetricsSet.countActiveContracts(response).toLong,
                 maxItemCount = streamConfig.maxItemCount,
               )(system, ec)
-            _ = streamConfig.timeoutInSecondsO
+            _ = streamConfig.timeoutO
               .foreach(timeout => scheduleCancelStreamTask(timeout, observer))
             result <- apiServices.activeContractsService.getActiveContracts(streamConfig, observer)
           } yield result
@@ -112,12 +108,12 @@ object Benchmark {
                 logger = logger,
                 exposedMetrics = Some(
                   MetricsSet
-                    .completionsExposedMetrics(streamConfig.name, metricRegistry, reportingPeriod)
+                    .completionsExposedMetrics(streamConfig.name, metricsFactory)
                 ),
-                itemCountingFunction = (response) => MetricsSet.countCompletions(response).toLong,
+                itemCountingFunction = response => MetricsSet.countCompletions(response).toLong,
                 maxItemCount = streamConfig.maxItemCount,
               )(system, ec)
-            _ = streamConfig.timeoutInSecondsO
+            _ = streamConfig.timeoutO
               .foreach(timeout => scheduleCancelStreamTask(timeout, observer))
             result <- apiServices.commandCompletionService.completions(streamConfig, observer)
           } yield result
@@ -128,10 +124,10 @@ object Benchmark {
         else Right(())
       }
 
-  def scheduleCancelStreamTask(timeoutInSeconds: Long, observer: ObserverWithResult[_, _])(implicit
-      ec: ExecutionContext
+  def scheduleCancelStreamTask(timeoutDuration: Duration, observer: ObserverWithResult[_, _])(
+      implicit ec: ExecutionContext
   ): Unit = {
-    val _ = Delayed.by(t = Duration(timeoutInSeconds, TimeUnit.SECONDS))(
+    val _ = Delayed.by(t = timeoutDuration)(
       observer.cancel()
     )
   }

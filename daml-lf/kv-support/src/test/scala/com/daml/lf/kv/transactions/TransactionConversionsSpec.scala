@@ -422,7 +422,7 @@ object TransactionConversionsSpec {
     )
   }
   private val aChildExerciseNode = exercise(Set(aChildObserver), ImmArray.empty)
-  private val aGlobalKey = GlobalKey(aTemplateId, aUnitValue)
+  private val aGlobalKey = GlobalKey.assertBuild(aTemplateId, aUnitValue)
   private val aRawChildNode = RawTransaction.Node(aChildNode.toByteString)
   private val aRootExerciseNode = exercise(Set(aRootObserver), ImmArray(aChildNodeId))
   private val aRootNode = buildProtoNode(aRawRootNodeId.value) { builder =>
@@ -537,7 +537,7 @@ object TransactionConversionsSpec {
       choiceObservers = choiceObservers,
       children = children,
       exerciseResult = None,
-      key = None,
+      keyOpt = None,
       byKey = false,
       version = TransactionVersion.VDev,
     )

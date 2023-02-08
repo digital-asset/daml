@@ -13,7 +13,7 @@ import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.lf.data.Ref
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.apiserver.services.admin.SynchronousResponse.{Accepted, Rejected}
-import com.daml.telemetry.TelemetryContext
+import com.daml.tracing.TelemetryContext
 import io.grpc.StatusRuntimeException
 
 import scala.concurrent.duration.FiniteDuration

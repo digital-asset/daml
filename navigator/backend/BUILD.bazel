@@ -87,7 +87,7 @@ da_scala_library(
         "//libs-scala/grpc-utils",
         "//libs-scala/nonempty",
         "//libs-scala/scala-utils",
-        "//observability/telemetry",
+        "//observability/tracing",
         "@maven//:com_typesafe_config",
         "@maven//:io_grpc_grpc_netty",
         "@maven//:io_netty_netty_handler",

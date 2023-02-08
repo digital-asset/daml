@@ -9,7 +9,14 @@ import com.daml.api.util.TimeProvider
 import com.daml.buildinfo.BuildInfo
 import com.daml.jwt.JwtTimestampLeeway
 import com.daml.ledger.api.auth.interceptor.AuthorizationInterceptor
-import com.daml.ledger.api.auth.{AuthService, Authorizer}
+import com.daml.ledger.api.auth.{
+  AuthService,
+  Authorizer,
+  IdentityProviderAwareAuthServiceImpl,
+  IdentityProviderConfigLoader,
+  JwtVerifierLoader,
+}
+import com.daml.ledger.api.domain
 import com.daml.ledger.api.health.HealthChecks
 import com.daml.ledger.configuration.LedgerId
 import com.daml.ledger.participant.state.index.v2.IndexService
@@ -28,13 +35,13 @@ import com.daml.platform.localstore.api.{
 }
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.ports.{Port, PortFiles}
-import com.daml.telemetry.TelemetryContext
+import com.daml.tracing.{Telemetry, TelemetryContext}
 import io.grpc.{BindableService, ServerInterceptor}
 import scalaz.{-\/, \/-}
-
 import java.time.Clock
+
 import scala.collection.immutable
-import scala.concurrent.ExecutionContextExecutor
+import scala.concurrent.{ExecutionContextExecutor, Future}
 import scala.util.{Failure, Success, Try}
 
 object ApiServiceOwner {
@@ -60,10 +67,12 @@ object ApiServiceOwner {
         _ => None, // Used for Canton rate-limiting,
       ledgerFeatures: LedgerFeatures,
       authService: AuthService,
+      jwtVerifierLoader: JwtVerifierLoader,
       meteringReportKey: MeteringReportKey = CommunityKey,
       jwtTimestampLeeway: Option[JwtTimestampLeeway],
       explicitDisclosureUnsafeEnabled: Boolean = false,
       createExternalServices: () => List[BindableService] = () => Nil,
+      telemetry: Telemetry,
   )(implicit
       actorSystem: ActorSystem,
       materializer: Materializer,
@@ -94,6 +103,13 @@ object ApiServiceOwner {
     )
     // TODO LLP: Consider fusing the index health check with the indexer health check
     val healthChecksWithIndexService = healthChecks + ("index" -> indexService)
+
+    val identityProviderConfigLoader = new IdentityProviderConfigLoader {
+      override def getIdentityProviderConfig(issuer: LedgerId)(implicit
+          loggingContext: LoggingContext
+      ): Future[domain.IdentityProviderConfig] =
+        identityProviderConfigStore.getActiveIdentityProviderByIssuer(issuer)
+    }
 
     for {
       executionSequencerFactory <- new ExecutionSequencerFactoryOwner()
@@ -127,6 +143,7 @@ object ApiServiceOwner {
         meteringReportKey = meteringReportKey,
         explicitDisclosureUnsafeEnabled = explicitDisclosureUnsafeEnabled,
         createExternalServices = createExternalServices,
+        telemetry = telemetry,
       )(materializer, executionSequencerFactory, loggingContext)
         .map(_.withServices(otherServices))
       apiService <- new LedgerApiService(
@@ -136,8 +153,12 @@ object ApiServiceOwner {
         config.address,
         config.tls,
         AuthorizationInterceptor(
-          authService,
+          authService = authService,
           Option.when(config.userManagement.enabled)(userManagementStore),
+          new IdentityProviderAwareAuthServiceImpl(
+            identityProviderConfigLoader = identityProviderConfigLoader,
+            jwtVerifierLoader = jwtVerifierLoader,
+          )(servicesExecutionContext, loggingContext),
           servicesExecutionContext,
         ) :: otherInterceptors,
         servicesExecutionContext,

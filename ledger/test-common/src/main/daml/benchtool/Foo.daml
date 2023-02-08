@@ -145,3 +145,9 @@ template Foo3
       controller signatory
       do
           return ()
+
+template Dummy
+  with
+    signatory: Party
+  where
+    signatory signatory

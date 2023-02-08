@@ -24,13 +24,9 @@ import com.daml.platform.store.backend.common.{
 import com.daml.platform.store.dao.{DbDispatcher, EventProjectionProperties, PaginatingAsyncStream}
 import com.daml.platform.store.dao.PaginatingAsyncStream.IdPaginationState
 import com.daml.platform.store.dao.events.EventsTable.TransactionConversions
-import com.daml.platform.store.dao.events.FilterTableACSReader.{
-  IdQueryConfiguration,
-  statefulDeduplicate,
-}
 import com.daml.platform.store.utils.{ConcurrencyLimiter, QueueBasedConcurrencyLimiter, Telemetry}
-import com.daml.telemetry
-import com.daml.telemetry.Spans
+import com.daml.tracing
+import com.daml.tracing.Spans
 
 import scala.util.chaining._
 import scala.collection.mutable.ArrayBuffer
@@ -78,7 +74,7 @@ class TransactionsFlatStreamReader(
         case (_, getTransactionsResponse) =>
           getTransactionsResponse.transactions.foreach { transaction =>
             val event =
-              telemetry.Event("transaction", TraceIdentifiers.fromTransaction(transaction))
+              tracing.Event("transaction", TraceIdentifiers.fromTransaction(transaction))
             Spans.addEventToSpan(event, span)
           }
       })
@@ -100,14 +96,14 @@ class TransactionsFlatStreamReader(
       new QueueBasedConcurrencyLimiter(maxParallelIdConsumingQueries, executionContext)
     val payloadQueriesLimiter =
       new QueueBasedConcurrencyLimiter(maxParallelPayloadQueries, executionContext)
-    val decomposedFilters = FilterTableACSReader.makeSimpleFilters(filteringConstraints).toVector
-    val idPageSizing = IdQueryConfiguration(
+    val decomposedFilters = FilterUtils.decomposeFilters(filteringConstraints).toVector
+    val idPageSizing = IdPageSizing.calculateFrom(
       maxIdPageSize = maxIdsPerIdPage,
       // The ids for flat transactions are retrieved from two separate id tables.
       // To account for that we assign a half of the working memory to each table.
-      idPageWorkingMemoryBytes = maxWorkingMemoryInBytesForIdPages / 2,
-      filterSize = decomposedFilters.size,
-      idPageBufferSize = maxPagesPerIdPagesBuffer,
+      workingMemoryInBytesForIdPages = maxWorkingMemoryInBytesForIdPages / 2,
+      numOfDecomposedFilters = decomposedFilters.size,
+      numOfPagesInIdPageBuffer = maxPagesPerIdPagesBuffer,
     )
 
     def fetchIds(
@@ -119,9 +115,9 @@ class TransactionsFlatStreamReader(
       decomposedFilters
         .map { filter =>
           PaginatingAsyncStream.streamIdsFromSeekPagination(
-            pageConfig = idPageSizing,
-            pageBufferSize = maxPagesPerIdPagesBuffer,
-            initialStartOffset = startExclusiveEventSequentialId,
+            idPageSizing = idPageSizing,
+            idPageBufferSize = maxPagesPerIdPagesBuffer,
+            initialFromIdExclusive = startExclusiveEventSequentialId,
           )(
             fetchPage = (state: IdPaginationState) => {
               maxParallelIdQueriesLimiter.execute {
@@ -132,7 +128,7 @@ class TransactionsFlatStreamReader(
                     )(
                       stakeholder = filter.party,
                       templateIdO = filter.templateId,
-                      startExclusive = state.startOffset,
+                      startExclusive = state.fromIdExclusive,
                       endInclusive = endInclusiveEventSequentialId,
                       limit = state.pageSize,
                     )(connection)
@@ -142,8 +138,7 @@ class TransactionsFlatStreamReader(
             }
           )
         }
-        .pipe(FilterTableACSReader.mergeSort[Long])
-        .statefulMapConcat(statefulDeduplicate)
+        .pipe(EventIdsUtils.sortAndDeduplicateIds)
         .via(
           BatchN(
             maxBatchSize = maxPayloadsPerPayloadsPage,
@@ -158,15 +153,10 @@ class TransactionsFlatStreamReader(
         maxParallelPayloadQueries: Int,
         dbMetric: DatabaseMetrics,
     ): Source[EventStorageBackend.Entry[Raw.FlatEvent], NotUsed] = {
+      // Akka requires for this buffer's size to be a power of two.
+      val inputBufferSize = Utils.largestSmallerOrEqualPowerOfTwo(maxParallelPayloadQueries)
       ids.async
-        .addAttributes(
-          Attributes.inputBuffer(
-            // TODO etq: Consider use the nearest greater or equal power of two instead to prevent stream creation failures
-            // TODO etq: Consider removing this buffer completely
-            initial = maxParallelPayloadQueries,
-            max = maxParallelPayloadQueries,
-          )
-        )
+        .addAttributes(Attributes.inputBuffer(initial = inputBufferSize, max = inputBufferSize))
         .mapAsync(maxParallelPayloadQueries)(ids =>
           payloadQueriesLimiter.execute {
             globalPayloadQueriesLimiter.execute {

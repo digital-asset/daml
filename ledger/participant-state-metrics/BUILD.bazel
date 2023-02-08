@@ -30,7 +30,7 @@ da_scala_library(
         "//ledger/participant-state",
         "//libs-scala/contextualized-logging",
         "//observability/metrics",
-        "//observability/telemetry",
+        "//observability/tracing",
         "@maven//:com_google_protobuf_protobuf_java",
     ],
 )

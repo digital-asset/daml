@@ -267,6 +267,7 @@ instance Pretty BuiltinExpr where
     BEExpInt64 -> "EXP_INT64"
     BEFoldl -> "FOLDL"
     BEFoldr -> "FOLDR"
+    BEWithAuthority -> "WITH_AUTHORITY"
     BETextMapEmpty -> "TEXTMAP_EMPTY"
     BETextMapInsert -> "TEXTMAP_INSERT"
     BETextMapLookup -> "TEXTMAP_LOOKUP"
@@ -560,6 +561,10 @@ instance Pretty Expr where
         [interfaceArg ty, TmArg expr]
     EViewInterface iface expr -> pPrintAppKeyword lvl prec "view"
         [interfaceArg iface, TmArg expr]
+    EChoiceController tpl ch expr1 expr2 -> pPrintAppKeyword lvl prec "choice_controller"
+        [TyArg (TCon tpl), TmArg (EVar (ExprVarName (unChoiceName ch))), TmArg expr1, TmArg expr2]
+    EChoiceObserver tpl ch expr1 expr2 -> pPrintAppKeyword lvl prec "choice_observer"
+        [TyArg (TCon tpl), TmArg (EVar (ExprVarName (unChoiceName ch))), TmArg expr1, TmArg expr2]
     EExperimental name _ ->  pPrint $ "$" <> name
 
 instance Pretty DefTypeSyn where

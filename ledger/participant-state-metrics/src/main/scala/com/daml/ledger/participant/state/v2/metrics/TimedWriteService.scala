@@ -21,7 +21,7 @@ import com.daml.lf.transaction.{GlobalKey, SubmittedTransaction, Versioned}
 import com.daml.lf.value.Value
 import com.daml.logging.LoggingContext
 import com.daml.metrics.{Metrics, Timed}
-import com.daml.telemetry.TelemetryContext
+import com.daml.tracing.TelemetryContext
 
 final class TimedWriteService(delegate: WriteService, metrics: Metrics) extends WriteService {
 

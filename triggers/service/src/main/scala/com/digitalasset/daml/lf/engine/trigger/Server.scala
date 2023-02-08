@@ -544,6 +544,7 @@ object Server {
       metricsReporter: Option[MetricsReporter],
       metricsReportingInterval: FiniteDuration,
       logTriggerStatus: (UUID, String) => Unit = (_, _) => (),
+      registerGlobalOpenTelemetry: Boolean,
   ): Behavior[Message] = Behaviors.setup { implicit ctx =>
     // Implicit boilerplate.
     // These are required to execute methods in the Server class and are passed
@@ -561,6 +562,7 @@ object Server {
       getClass.getName,
       metricsReporter,
       metricsReportingInterval,
+      registerGlobalOpenTelemetry,
     )((_, otelMeter) => TriggerServiceMetrics(otelMeter))
     val metricsResource = metricsReporting.acquire()
 

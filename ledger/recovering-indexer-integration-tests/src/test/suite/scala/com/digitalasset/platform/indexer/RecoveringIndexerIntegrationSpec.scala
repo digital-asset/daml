@@ -34,7 +34,7 @@ import com.daml.platform.store.DbSupport.{
 import com.daml.platform.store.cache.MutableLedgerEndCache
 import com.daml.platform.store.DbSupport
 import com.daml.platform.testing.LogCollector
-import com.daml.telemetry.{NoOpTelemetryContext, TelemetryContext}
+import com.daml.tracing.{NoOpTelemetryContext, TelemetryContext}
 import com.daml.timer.RetryStrategy
 import org.mockito.Mockito._
 import org.mockito.{ArgumentMatchers, MockitoSugar}

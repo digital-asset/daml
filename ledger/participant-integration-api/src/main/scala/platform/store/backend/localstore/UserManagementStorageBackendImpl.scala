@@ -349,16 +349,4 @@ object UserManagementStorageBackendImpl extends UserManagementStorageBackend {
     rowsUpdated == 1
   }
 
-  override def updateUserIdentityProviderId(
-      internalId: Int,
-      identityProviderId: Option[IdentityProviderId.Id],
-  )(connection: Connection): Boolean = {
-    IdentityProviderAwareBackend.updateIdentityProviderId("participant_users")(
-      internalId,
-      identityProviderId,
-    )(
-      connection
-    )
-  }
-
 }

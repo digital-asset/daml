@@ -315,7 +315,7 @@ class SequenceSpec
   }
 
   private trait TestContext extends FixtureContext {
-    private val bridgeMetrics = new BridgeMetrics(Metrics.ForTesting.dropwizardFactory)
+    private val bridgeMetrics = new BridgeMetrics(Metrics.ForTesting.defaultMetricsFactory)
     val timeProviderMock: TimeProvider = mock[TimeProvider]
     val submissionId: IdString.LedgerString =
       Ref.SubmissionId.assertFromString("some-submission-id")
@@ -480,8 +480,7 @@ class SequenceSpec
     }
 
     def buildSequence(
-        initialLedgerConfiguration: Option[Configuration] = initialLedgerConfiguration,
-        explicitDisclosureEnabled: Boolean = false,
+        initialLedgerConfiguration: Option[Configuration] = initialLedgerConfiguration
     ) = new SequenceImpl(
       participantId = Ref.ParticipantId.assertFromString(participantName),
       bridgeMetrics = bridgeMetrics,
@@ -490,7 +489,6 @@ class SequenceSpec
       initialAllocatedParties = allocatedInformees,
       initialLedgerConfiguration = initialLedgerConfiguration,
       maxDeduplicationDuration = maxDeduplicationDuration,
-      explicitDisclosureEnabled = explicitDisclosureEnabled,
     )
 
     def exerciseNonConsuming(
@@ -563,7 +561,7 @@ class SequenceSpec
 
   private def contractKey(i: Long) = {
     val templateId = Ref.Identifier.assertFromString("pkg:M:T")
-    GlobalKey(templateId, Value.ValueInt64(i))
+    GlobalKey.assertBuild(templateId, Value.ValueInt64(i))
   }
 
   private def cId(i: Int) = ContractId.V1(Hash.hashPrivateKey(i.toString))

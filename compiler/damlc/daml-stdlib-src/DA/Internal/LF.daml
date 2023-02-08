@@ -13,7 +13,7 @@ module DA.Internal.LF
   , partyFromText
 
   , ContractId
-  , coerceContractId  -- This is temporary for testing.
+  , coerceContractId
 
   , Date
 
@@ -47,6 +47,11 @@ module DA.Internal.LF
   #ifdef DAML_EXCEPTIONS
   , AnyException
   #endif
+
+  #ifdef DAML_WITH_AUTHORITY
+  , withAuthorityOf
+  #endif
+
   ) where
 
 import GHC.Stack.Types (HasCallStack)
@@ -146,8 +151,9 @@ instance Show (ContractId a) where
     None -> "<contract-id>"
     Some t -> t
 
--- | HIDE This is currently used in the internals of Daml script and Daml triggers
--- but not really something that we want to expose to users.
+-- | Used to convert the type index of a `ContractId`, since they are just
+-- pointers. Note that subsequent fetches and exercises might fail if the
+-- template of the contract on the ledger doesn't match.
 coerceContractId : ContractId a -> ContractId b
 coerceContractId = primitive @"BECoerceContractId"
 
@@ -268,5 +274,13 @@ instance Ord TypeRep where
 
 -- | A wrapper for all exception types.
 data AnyException = AnyException Opaque
+
+#endif
+
+#ifdef DAML_WITH_AUTHORITY
+
+-- | Authority operations.
+withAuthorityOf : [Party] -> Update a -> Update a
+withAuthorityOf = primitive @"BEWithAuthority"
 
 #endif

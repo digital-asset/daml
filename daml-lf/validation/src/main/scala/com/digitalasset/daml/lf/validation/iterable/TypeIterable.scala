@@ -102,6 +102,14 @@ private[validation] object TypeIterable {
       case EViewInterface(ifaceId, expr) =>
         Iterator(TTyCon(ifaceId)) ++
           iterator(expr)
+      case EChoiceController(tpl, choiceName @ _, contract, choiceArg) =>
+        Iterator(TTyCon(tpl)) ++
+          iterator(contract) ++
+          iterator(choiceArg)
+      case EChoiceObserver(tpl, choiceName @ _, contract, choiceArg) =>
+        Iterator(TTyCon(tpl)) ++
+          iterator(contract) ++
+          iterator(choiceArg)
       case EVar(_) | EVal(_) | EBuiltin(_) | EPrimCon(_) | EPrimLit(_) | EApp(_, _) | ECase(_, _) |
           ELocation(_, _) | EStructCon(_) | EStructProj(_, _) | EStructUpd(_, _, _) | ETyAbs(_, _) |
           EExperimental(_, _) =>
@@ -128,10 +136,6 @@ private[validation] object TypeIterable {
       case UpdateFetchInterface(interface, contractId) =>
         Iterator(TTyCon(interface)) ++
           iterator(contractId)
-      case UpdateActingAsConsortium(members, consortium) =>
-        val _ = (members, consortium)
-        // iterator(members) ++ iterator(consortium) //ok?
-        ??? // TODO: https://github.com/digital-asset/daml/issues/15882
       case UpdateExercise(templateId, choice @ _, cid, arg) =>
         Iterator(TTyCon(templateId)) ++
           iterator(cid) ++

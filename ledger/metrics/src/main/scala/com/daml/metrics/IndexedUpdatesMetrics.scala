@@ -4,10 +4,10 @@
 package com.daml.metrics
 
 import com.daml.metrics.api.MetricDoc.MetricQualification.Debug
-import com.daml.metrics.api.MetricHandle.Factory
+import com.daml.metrics.api.MetricHandle.MetricsFactory
 import com.daml.metrics.api.{MetricDoc, MetricHandle, MetricName}
 
-class IndexedUpdatesMetrics(prefix: MetricName, metricFactory: Factory) {
+class IndexedUpdatesMetrics(prefix: MetricName, metricFactory: MetricsFactory) {
 
   @MetricDoc.Tag(
     summary = "Number of events that will be metered",

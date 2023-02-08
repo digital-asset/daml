@@ -6,6 +6,7 @@ package com.daml.platform.indexer.parallel
 import java.sql.Connection
 import java.time.Instant
 
+import com.daml.executors.executors.{NamedExecutor, QueueAwareExecutor}
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.lf.crypto.Hash
@@ -389,6 +390,12 @@ class ParallelIndexerSubscriptionSpec extends AnyFlatSpec with Matchers {
           loggingContext: LoggingContext
       ): Future[T] =
         Future.successful(sql(connection))
+
+      override val executor = new QueueAwareExecutor with NamedExecutor {
+        override def queueSize: Long = 0
+        override def name: String = "test"
+      }
+
     }
 
     val batchPayload = "Some batch payload"
@@ -433,10 +440,16 @@ class ParallelIndexerSubscriptionSpec extends AnyFlatSpec with Matchers {
   it should "apply ingestTailFunction on the last batch and forward the batch of batches" in {
     val connection = new TestConnection
     val dbDispatcher = new DbDispatcher {
+
       override def executeSql[T](databaseMetrics: DatabaseMetrics)(sql: Connection => T)(implicit
           loggingContext: LoggingContext
       ): Future[T] =
         Future.successful(sql(connection))
+
+      override val executor = new QueueAwareExecutor with NamedExecutor {
+        override def queueSize: Long = 0
+        override def name: String = "test"
+      }
     }
 
     val ledgerEnd = ParameterStorageBackend.LedgerEnd(

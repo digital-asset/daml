@@ -74,7 +74,9 @@ class KeyHasherSpec extends AnyWordSpec with Matchers {
       val value = complexValue
       val hash = "2b1019f99147ca726baa3a12509399327746f1f9c4636a6ec5f5d7af1e7c2942"
 
-      KeyHasher.hashKeyString(GlobalKey(templateId("module", "name"), value)) shouldBe hash
+      KeyHasher.hashKeyString(
+        GlobalKey.assertBuild(templateId("module", "name"), value)
+      ) shouldBe hash
     }
 
     "be deterministic and thread safe" in {
@@ -82,7 +84,7 @@ class KeyHasherSpec extends AnyWordSpec with Matchers {
       // Note: intentionally does not reuse value instances
       val hashes = Vector
         .range(0, 1000)
-        .map(_ => GlobalKey(templateId("module", "name"), complexValue))
+        .map(_ => GlobalKey.assertBuild(templateId("module", "name"), complexValue))
         .par
         .map(key => KeyHasher.hashKeyString(key))
 
@@ -93,8 +95,8 @@ class KeyHasherSpec extends AnyWordSpec with Matchers {
       // Same value but different template ID should produce a different hash
       val value = ValueText("A")
 
-      val hash1 = KeyHasher.hashKeyString(GlobalKey(templateId("AA", "A"), value))
-      val hash2 = KeyHasher.hashKeyString(GlobalKey(templateId("A", "AA"), value))
+      val hash1 = KeyHasher.hashKeyString(GlobalKey.assertBuild(templateId("AA", "A"), value))
+      val hash2 = KeyHasher.hashKeyString(GlobalKey.assertBuild(templateId("A", "AA"), value))
 
       hash1.equals(hash2) shouldBe false
     }
@@ -106,8 +108,8 @@ class KeyHasherSpec extends AnyWordSpec with Matchers {
 
       val tid = templateId("module", "name")
 
-      val hash1 = KeyHasher.hashKeyString(GlobalKey(tid, value1))
-      val hash2 = KeyHasher.hashKeyString(GlobalKey(tid, value2))
+      val hash1 = KeyHasher.hashKeyString(GlobalKey.assertBuild(tid, value1))
+      val hash2 = KeyHasher.hashKeyString(GlobalKey.assertBuild(tid, value2))
 
       hash1.equals(hash2) shouldBe false
     }
@@ -121,8 +123,8 @@ class KeyHasherSpec extends AnyWordSpec with Matchers {
 
       val tid = templateId("module", "name")
 
-      val hash1 = KeyHasher.hashKeyString(GlobalKey(tid, value1))
-      val hash2 = KeyHasher.hashKeyString(GlobalKey(tid, value2))
+      val hash1 = KeyHasher.hashKeyString(GlobalKey.assertBuild(tid, value1))
+      val hash2 = KeyHasher.hashKeyString(GlobalKey.assertBuild(tid, value2))
 
       hash1.equals(hash2) shouldBe false
     }
@@ -146,8 +148,8 @@ class KeyHasherSpec extends AnyWordSpec with Matchers {
 
       val tid = templateId("module", "name")
 
-      val hash1 = KeyHasher.hashKeyString(GlobalKey(tid, value1))
-      val hash2 = KeyHasher.hashKeyString(GlobalKey(tid, value2))
+      val hash1 = KeyHasher.hashKeyString(GlobalKey.assertBuild(tid, value1))
+      val hash2 = KeyHasher.hashKeyString(GlobalKey.assertBuild(tid, value2))
 
       hash1.equals(hash2) shouldBe false
     }
@@ -160,8 +162,8 @@ class KeyHasherSpec extends AnyWordSpec with Matchers {
 
       val tid = templateId("module", "name")
 
-      val hash1 = KeyHasher.hashKeyString(GlobalKey(tid, value1))
-      val hash2 = KeyHasher.hashKeyString(GlobalKey(tid, value2))
+      val hash1 = KeyHasher.hashKeyString(GlobalKey.assertBuild(tid, value1))
+      val hash2 = KeyHasher.hashKeyString(GlobalKey.assertBuild(tid, value2))
 
       hash1.equals(hash2) shouldBe false
     }
@@ -174,8 +176,8 @@ class KeyHasherSpec extends AnyWordSpec with Matchers {
 
       val tid = templateId("module", "name")
 
-      val hash1 = KeyHasher.hashKeyString(GlobalKey(tid, value1))
-      val hash2 = KeyHasher.hashKeyString(GlobalKey(tid, value2))
+      val hash1 = KeyHasher.hashKeyString(GlobalKey.assertBuild(tid, value1))
+      val hash2 = KeyHasher.hashKeyString(GlobalKey.assertBuild(tid, value2))
 
       hash1.equals(hash2) shouldBe false
     }
@@ -202,8 +204,8 @@ class KeyHasherSpec extends AnyWordSpec with Matchers {
 
       val tid = templateId("module", "name")
 
-      val hash1 = KeyHasher.hashKeyString(GlobalKey(tid, value1))
-      val hash2 = KeyHasher.hashKeyString(GlobalKey(tid, value2))
+      val hash1 = KeyHasher.hashKeyString(GlobalKey.assertBuild(tid, value1))
+      val hash2 = KeyHasher.hashKeyString(GlobalKey.assertBuild(tid, value2))
 
       hash1.equals(hash2) shouldBe false
     }
@@ -230,8 +232,8 @@ class KeyHasherSpec extends AnyWordSpec with Matchers {
 
       val tid = templateId("module", "name")
 
-      val hash1 = KeyHasher.hashKeyString(GlobalKey(tid, value1))
-      val hash2 = KeyHasher.hashKeyString(GlobalKey(tid, value2))
+      val hash1 = KeyHasher.hashKeyString(GlobalKey.assertBuild(tid, value1))
+      val hash2 = KeyHasher.hashKeyString(GlobalKey.assertBuild(tid, value2))
 
       hash1.equals(hash2) shouldBe false
     }
@@ -242,8 +244,8 @@ class KeyHasherSpec extends AnyWordSpec with Matchers {
 
       val tid = templateId("module", "name")
 
-      val hash1 = KeyHasher.hashKeyString(GlobalKey(tid, value1))
-      val hash2 = KeyHasher.hashKeyString(GlobalKey(tid, value2))
+      val hash1 = KeyHasher.hashKeyString(GlobalKey.assertBuild(tid, value1))
+      val hash2 = KeyHasher.hashKeyString(GlobalKey.assertBuild(tid, value2))
 
       hash1.equals(hash2) shouldBe false
     }
@@ -254,8 +256,8 @@ class KeyHasherSpec extends AnyWordSpec with Matchers {
 
       val tid = templateId("module", "name")
 
-      val hash1 = KeyHasher.hashKeyString(GlobalKey(tid, value1))
-      val hash2 = KeyHasher.hashKeyString(GlobalKey(tid, value2))
+      val hash1 = KeyHasher.hashKeyString(GlobalKey.assertBuild(tid, value1))
+      val hash2 = KeyHasher.hashKeyString(GlobalKey.assertBuild(tid, value2))
 
       hash1.equals(hash2) shouldBe false
     }
@@ -266,8 +268,8 @@ class KeyHasherSpec extends AnyWordSpec with Matchers {
 
       val tid = templateId("module", "name")
 
-      val hash1 = KeyHasher.hashKeyString(GlobalKey(tid, value1))
-      val hash2 = KeyHasher.hashKeyString(GlobalKey(tid, value2))
+      val hash1 = KeyHasher.hashKeyString(GlobalKey.assertBuild(tid, value1))
+      val hash2 = KeyHasher.hashKeyString(GlobalKey.assertBuild(tid, value2))
 
       hash1.equals(hash2) shouldBe false
     }
@@ -280,8 +282,8 @@ class KeyHasherSpec extends AnyWordSpec with Matchers {
 
       val tid = templateId("module", "name")
 
-      val hash1 = KeyHasher.hashKeyString(GlobalKey(tid, value1))
-      val hash2 = KeyHasher.hashKeyString(GlobalKey(tid, value2))
+      val hash1 = KeyHasher.hashKeyString(GlobalKey.assertBuild(tid, value1))
+      val hash2 = KeyHasher.hashKeyString(GlobalKey.assertBuild(tid, value2))
 
       hash1.equals(hash2) shouldBe false
     }
@@ -294,8 +296,8 @@ class KeyHasherSpec extends AnyWordSpec with Matchers {
 
       val tid = templateId("module", "name")
 
-      val hash1 = KeyHasher.hashKeyString(GlobalKey(tid, value1))
-      val hash2 = KeyHasher.hashKeyString(GlobalKey(tid, value2))
+      val hash1 = KeyHasher.hashKeyString(GlobalKey.assertBuild(tid, value1))
+      val hash2 = KeyHasher.hashKeyString(GlobalKey.assertBuild(tid, value2))
 
       hash1.equals(hash2) shouldBe false
     }
@@ -306,8 +308,8 @@ class KeyHasherSpec extends AnyWordSpec with Matchers {
 
       val tid = templateId("module", "name")
 
-      val hash1 = KeyHasher.hashKeyString(GlobalKey(tid, value1))
-      val hash2 = KeyHasher.hashKeyString(GlobalKey(tid, value2))
+      val hash1 = KeyHasher.hashKeyString(GlobalKey.assertBuild(tid, value1))
+      val hash2 = KeyHasher.hashKeyString(GlobalKey.assertBuild(tid, value2))
 
       hash1.equals(hash2) shouldBe false
     }
@@ -332,8 +334,8 @@ class KeyHasherSpec extends AnyWordSpec with Matchers {
 
       val tid = templateId("module", "name")
 
-      val hash1 = KeyHasher.hashKeyString(GlobalKey(tid, value1))
-      val hash2 = KeyHasher.hashKeyString(GlobalKey(tid, value2))
+      val hash1 = KeyHasher.hashKeyString(GlobalKey.assertBuild(tid, value1))
+      val hash2 = KeyHasher.hashKeyString(GlobalKey.assertBuild(tid, value2))
 
       hash1.equals(hash2) shouldBe false
     }

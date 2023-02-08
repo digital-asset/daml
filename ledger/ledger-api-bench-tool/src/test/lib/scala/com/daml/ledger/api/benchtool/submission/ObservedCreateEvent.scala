@@ -7,18 +7,24 @@ case class ObservedCreateEvent(
     templateName: String,
     createArgumentsSerializedSize: Int,
     interfaceViews: Seq[ObservedInterfaceView],
+    offset: String,
+    contractId: String,
 )
 
 object ObservedCreateEvent {
-  def apply(created: com.daml.ledger.api.v1.event.CreatedEvent): ObservedCreateEvent = {
+  def apply(
+      created: com.daml.ledger.api.v1.event.CreatedEvent,
+      offset: String,
+  ): ObservedCreateEvent = {
     val argsSize = created.createArguments.fold(0)(_.serializedSize)
     val templateName =
       created.templateId.getOrElse(sys.error(s"Expected templateId in $created")).entityName
-
     ObservedCreateEvent(
       templateName = templateName,
       createArgumentsSerializedSize = argsSize,
       interfaceViews = created.interfaceViews.map(ObservedInterfaceView.apply),
+      offset = offset,
+      contractId = created.contractId,
     )
   }
 }

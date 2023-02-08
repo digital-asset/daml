@@ -33,7 +33,7 @@ NOTICES     @garyverhaegen-da @dasormeter
 
 # Runtime
 /daml-lf/ @remyhaemmerle-da
-/daml-lf/data-scalacheck/src/main/ @remyhaemmerle-da @S11001001
+/daml-lf/data-scalacheck/src/main/ @remyhaemmerle-da
 /daml-lf/kv-support/ @digital-asset/kv-committer @remyhaemmerle-da
 /daml-lf/transaction-test-lib/src/main/ @remyhaemmerle-da @S11001001
 
@@ -69,7 +69,7 @@ NOTICES     @garyverhaegen-da @dasormeter
 # Ecosystems
 /language-support/hs/       @nickchapman-da @remyhaemmerle-da
 /language-support/java/     @ray-roestenburg-da
-/language-support/scala/    @S11001001 @ray-roestenburg-da
+/language-support/scala/    @ray-roestenburg-da
 /language-support/ts/       @garyverhaegen-da @ray-roestenburg-da
 
 # Application Runtime
@@ -79,7 +79,8 @@ NOTICES     @garyverhaegen-da @dasormeter
 /triggers/service/     @ray-roestenburg-da
 
 # Misc
-/docs/              @stefanobaghino-da @digital-asset/daml-docs @hrischuk-da
+/docs/              @digital-asset/daml-docs @hrischuk-da
+/libs-scala/nonempty/src/    @S11001001
 /libs-scala/nonempty-cats/src/    @S11001001
 /libs-scala/scala-utils/src/    @S11001001
 /libs-scala/scalatest-utils/src/    @S11001001

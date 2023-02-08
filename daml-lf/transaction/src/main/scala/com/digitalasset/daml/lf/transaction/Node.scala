@@ -17,6 +17,7 @@ sealed abstract class Node extends Product with Serializable with CidContainer[N
   def optVersion: Option[TransactionVersion] = this match {
     case node: Node.Action => Some(node.version)
     case _: Node.Rollback => None
+    case _: Node.Authority => None
   }
 
   def mapNodeId(f: NodeId => NodeId): Node
@@ -37,7 +38,12 @@ object Node {
       */
     def packageIds: Iterable[PackageId]
 
-    def keyOpt: Option[KeyWithMaintainers]
+    def keyOpt: Option[GlobalKeyWithMaintainers]
+
+    final def gkeyOpt: Option[GlobalKey] = keyOpt.map(_.globalKey)
+
+    def versionedKeyOpt: Option[Versioned[GlobalKeyWithMaintainers]] =
+      keyOpt.map(Versioned(version, _))
 
     final override protected def self: this.type = this
 
@@ -70,21 +76,22 @@ object Node {
       agreementText: String,
       signatories: Set[Party],
       stakeholders: Set[Party],
-      key: Option[KeyWithMaintainers],
+      keyOpt: Option[GlobalKeyWithMaintainers],
       // For the sake of consistency between types with a version field, keep this field the last.
       override val version: TransactionVersion,
   ) extends LeafOnlyAction
       with ActionNodeInfo.Create {
 
-    override def byKey: Boolean = false
+    @deprecated("use keyOpt", since = "2.6.0")
+    def key: Option[GlobalKeyWithMaintainers] = keyOpt
 
-    override def keyOpt: Option[KeyWithMaintainers] = key
+    override def byKey: Boolean = false
 
     override private[lf] def updateVersion(version: TransactionVersion): Node.Create =
       copy(version = version)
 
     override def mapCid(f: ContractId => ContractId): Node.Create =
-      copy(coid = f(coid), arg = arg.mapCid(f), key = key.map(_.mapCid(f)))
+      copy(coid = f(coid), arg = arg.mapCid(f))
 
     override def packageIds: Iterable[PackageId] = Iterable(templateId.packageId)
 
@@ -95,9 +102,7 @@ object Node {
 
     def versionedCoinst: Value.VersionedContractInstance = versioned(coinst)
 
-    def versionedKey: Option[VersionedKeyWithMaintainers] = key.map(versioned)
-
-    def keyValue: Option[Value] = key.map(_.key)
+    def versionedKey: Option[Versioned[GlobalKeyWithMaintainers]] = keyOpt.map(versioned(_))
   }
 
   /** Denotes that the contract identifier `coid` needs to be active for the transaction to be valid. */
@@ -107,26 +112,23 @@ object Node {
       actingParties: Set[Party],
       signatories: Set[Party],
       stakeholders: Set[Party],
-      key: Option[KeyWithMaintainers],
+      override val keyOpt: Option[GlobalKeyWithMaintainers],
       override val byKey: Boolean,
       // For the sake of consistency between types with a version field, keep this field the last.
       override val version: TransactionVersion,
   ) extends LeafOnlyAction
       with ActionNodeInfo.Fetch {
 
-    override def keyOpt: Option[KeyWithMaintainers] = key
+    @deprecated("use keyOpt", since = "2.6.0")
+    def key: Option[GlobalKeyWithMaintainers] = keyOpt
 
     override private[lf] def updateVersion(version: TransactionVersion): Node.Fetch =
       copy(version = version)
 
     override def mapCid(f: ContractId => ContractId): Node.Fetch =
-      copy(coid = f(coid), key = key.map(_.mapCid(f)))
+      copy(coid = f(coid))
 
     override def packageIds: Iterable[PackageId] = Iterable(templateId.packageId)
-
-    def versionedKey: Option[VersionedKeyWithMaintainers] = key.map(versioned)
-
-    def keyValue: Option[Value] = key.map(_.key)
   }
 
   /** Denotes a transaction node for an exercise.
@@ -147,7 +149,7 @@ object Node {
       choiceObservers: Set[Party],
       children: ImmArray[NodeId],
       exerciseResult: Option[Value],
-      key: Option[KeyWithMaintainers],
+      keyOpt: Option[GlobalKeyWithMaintainers],
       override val byKey: Boolean,
       // For the sake of consistency between types with a version field, keep this field the last.
       override val version: TransactionVersion,
@@ -156,7 +158,8 @@ object Node {
 
     def qualifiedChoiceName = QualifiedChoiceName(interfaceId, choiceId)
 
-    override def keyOpt: Option[KeyWithMaintainers] = key
+    @deprecated("use keyOpt", since = "2.6.0")
+    def key: Option[GlobalKeyWithMaintainers] = keyOpt
 
     override private[lf] def updateVersion(
         version: TransactionVersion
@@ -167,7 +170,6 @@ object Node {
       targetCoid = f(targetCoid),
       chosenValue = chosenValue.mapCid(f),
       exerciseResult = exerciseResult.map(_.mapCid(f)),
-      key = key.map(_.mapCid(f)),
     )
 
     override def mapNodeId(f: NodeId => NodeId): Node.Exercise =
@@ -180,24 +182,25 @@ object Node {
 
     def versionedExerciseResult: Option[Value.VersionedValue] = exerciseResult.map(versioned)
 
-    def versionedKey: Option[VersionedKeyWithMaintainers] = key.map(versioned)
+    def versionedKey: Option[Versioned[GlobalKeyWithMaintainers]] = keyOpt.map(versioned)
 
-    def keyValue: Option[Value] = key.map(_.key)
   }
 
   final case class LookupByKey(
       override val templateId: TypeConName,
-      key: KeyWithMaintainers,
+      key: GlobalKeyWithMaintainers,
       result: Option[ContractId],
       // For the sake of consistency between types with a version field, keep this field the last.
       override val version: TransactionVersion,
   ) extends LeafOnlyAction
       with ActionNodeInfo.LookupByKey {
 
-    override def keyOpt: Some[KeyWithMaintainers] = Some(key)
+    override def keyOpt: Some[GlobalKeyWithMaintainers] = Some(key)
+
+    def gkey: GlobalKey = key.globalKey
 
     override def mapCid(f: ContractId => ContractId): Node.LookupByKey =
-      copy(key = key.mapCid(f), result = result.map(f))
+      copy(result = result.map(f))
 
     override def keyMaintainers: Set[Party] = key.maintainers
     override def hasResult: Boolean = result.isDefined
@@ -207,25 +210,15 @@ object Node {
       copy(version = version)
 
     override def packageIds: Iterable[PackageId] = Iterable(templateId.packageId)
-
-    def versionedKey: VersionedKeyWithMaintainers = versioned(key)
-
-    def keyValue: Value = key.key
   }
 
-  final case class KeyWithMaintainers(key: Value, maintainers: Set[Party])
-      extends CidContainer[KeyWithMaintainers] {
+  @deprecated("use GlobalKey", since = "2.6.0")
+  type KeyWithMaintainers = GlobalKey
+  @deprecated("use GlobalKey", since = "2.6.0")
+  val KeyWithMaintainers = GlobalKey
 
-    def map(f: Value => Value): KeyWithMaintainers =
-      copy(key = f(key))
-
-    override protected def self: this.type = this
-
-    override def mapCid(f: ContractId => ContractId): KeyWithMaintainers =
-      copy(key = key.mapCid(f))
-  }
-
-  type VersionedKeyWithMaintainers = Versioned[KeyWithMaintainers]
+  @deprecated("use VersionedGlobalKey", since = "2.6.0")
+  type VersionedKeyWithMaintainers = VersionedGlobalKey
 
   final case class Rollback(
       children: ImmArray[NodeId]
@@ -234,6 +227,18 @@ object Node {
     override def mapCid(f: ContractId => ContractId): Node.Rollback = this
     override def mapNodeId(f: NodeId => NodeId): Node.Rollback =
       copy(children.map(f))
+
+    override protected def self: Node = this
+  }
+
+  final case class Authority(
+      obtained: Set[Party],
+      children: ImmArray[NodeId],
+  ) extends Node {
+
+    override def mapCid(f: ContractId => ContractId): Node.Authority = this
+    override def mapNodeId(f: NodeId => NodeId): Node.Authority =
+      copy(children = children.map(f))
 
     override protected def self: Node = this
   }

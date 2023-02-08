@@ -3,8 +3,9 @@
 
 package com.daml.ledger.api.auth
 
-import java.util.concurrent.{CompletableFuture, CompletionStage}
+import com.daml.ledger.api.auth.AuthService.AUTHORIZATION_KEY
 
+import java.util.concurrent.{CompletableFuture, CompletionStage}
 import io.grpc.Metadata
 
 /** An AuthService that matches the value of the `Authorization` HTTP header against

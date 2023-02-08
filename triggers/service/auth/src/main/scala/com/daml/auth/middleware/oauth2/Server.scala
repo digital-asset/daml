@@ -319,7 +319,9 @@ class Server(config: Config) extends StrictLogging {
 }
 
 object Server extends StrictLogging {
-  def start(config: Config)(implicit sys: ActorSystem): Future[ServerBinding] = {
+  def start(config: Config, registerGlobalOpenTelemetry: Boolean)(implicit
+      sys: ActorSystem
+  ): Future[ServerBinding] = {
     implicit val ec: ExecutionContext = sys.getDispatcher
 
     implicit val rc: ResourceContext = ResourceContext(ec)
@@ -328,6 +330,7 @@ object Server extends StrictLogging {
       getClass.getName,
       config.metricsReporter,
       config.metricsReportingInterval,
+      registerGlobalOpenTelemetry,
     )((_, otelMeter) => Oauth2MiddlewareMetrics(otelMeter))
     val metricsResource = metricsReporting.acquire()
 

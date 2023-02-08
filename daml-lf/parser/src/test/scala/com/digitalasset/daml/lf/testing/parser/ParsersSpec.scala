@@ -209,6 +209,7 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
         "UNIX_MICROSECONDS_TO_TIMESTAMP" -> BUnixMicrosecondsToTimestamp,
         "FOLDL" -> BFoldl,
         "FOLDR" -> BFoldr,
+        "WITH_AUTHORITY" -> BWithAuthority,
         "EXPLODE_TEXT" -> BExplodeText,
         "IMPLODE_TEXT" -> BImplodeText,
         "APPEND_TEXT" -> BAppendText,
@@ -375,6 +376,14 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
           EObserverInterface(I.tycon, e"body"),
         "observer_interface @'-pkgId-':Mod:I body" ->
           EObserverInterface(I.tycon, e"body"),
+        "choice_controller @Mod:T ChoiceName contract choiceArg" ->
+          EChoiceController(T.tycon, n"ChoiceName", e"contract", e"choiceArg"),
+        "choice_controller @'-pkgId-':Mod:T ChoiceName contract choiceArg" ->
+          EChoiceController(T.tycon, n"ChoiceName", e"contract", e"choiceArg"),
+        "choice_observer @Mod:T ChoiceName contract choiceArg" ->
+          EChoiceObserver(T.tycon, n"ChoiceName", e"contract", e"choiceArg"),
+        "choice_observer @'-pkgId-':Mod:T ChoiceName contract choiceArg" ->
+          EChoiceObserver(T.tycon, n"ChoiceName", e"contract", e"choiceArg"),
       )
 
       forEvery(testCases)((stringToParse, expectedExp) =>
@@ -461,8 +470,6 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
           UpdateFetchTemplate(T.tycon, e"e"),
         "fetch_interface @Mod:I e" ->
           UpdateFetchInterface(I.tycon, e"e"),
-        "acting_as_consortium members consortium" ->
-          UpdateActingAsConsortium(e"members", e"consortium"),
         "exercise @Mod:T Choice cid arg" ->
           UpdateExercise(T.tycon, n"Choice", e"cid", e"arg"),
         "exercise_interface @Mod:I Choice cid arg" ->

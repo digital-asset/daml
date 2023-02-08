@@ -21,6 +21,7 @@ object MainWithEphemeralPostgresql extends PostgresAround {
             )
           )
         ),
+      registerGlobalOpenTelemetry = false,
     )
   }
 }

@@ -3,7 +3,7 @@
 
 package com.daml.metrics
 
-import com.daml.metrics.api.dropwizard.DropwizardMetricsFactory
+import com.daml.metrics.api.MetricHandle.MetricsFactory
 import com.daml.metrics.api.{MetricDoc, MetricName}
 
 @MetricDoc.GroupTag(
@@ -12,7 +12,7 @@ import com.daml.metrics.api.{MetricDoc, MetricName}
 )
 class IdentityProviderConfigStoreMetrics(
     prefix: MetricName,
-    factory: DropwizardMetricsFactory,
+    factory: MetricsFactory,
 ) extends DatabaseMetricsFactory(prefix, factory) {
 
   val idpConfigCache = new CacheMetrics(prefix :+ "idp_config_cache", factory)

@@ -4,7 +4,7 @@
 package com.daml.platform.store.utils
 
 import com.daml.ledger.offset.Offset
-import com.daml.telemetry.{OpenTelemetryTracer, SpanAttribute}
+import com.daml.tracing.{OpenTelemetryTracer, SpanAttribute}
 import io.opentelemetry.api.trace.Span
 
 object Telemetry {
@@ -28,4 +28,5 @@ object Telemetry {
         .startSpan()
 
   }
+
 }

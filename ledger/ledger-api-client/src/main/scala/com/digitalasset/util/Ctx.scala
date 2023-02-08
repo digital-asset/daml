@@ -3,7 +3,7 @@
 
 package com.daml.util
 
-import com.daml.telemetry.{NoOpTelemetryContext, TelemetryContext}
+import com.daml.tracing.{NoOpTelemetryContext, TelemetryContext}
 
 /** Ctx wraps a value with some contextual information.
   */

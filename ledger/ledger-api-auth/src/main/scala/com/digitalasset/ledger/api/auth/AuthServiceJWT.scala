@@ -4,6 +4,7 @@
 package com.daml.ledger.api.auth
 
 import com.daml.jwt.{Error, JwtFromBearerHeader, JwtVerifier, JwtVerifierBase}
+import com.daml.ledger.api.auth.AuthService.AUTHORIZATION_KEY
 
 import java.util.concurrent.{CompletableFuture, CompletionStage}
 import com.daml.lf.data.Ref

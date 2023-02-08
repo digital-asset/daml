@@ -34,7 +34,7 @@ class RollbackTest extends AnyWordSpec with Matchers with TableDrivenPropertyChe
     val machine = Speedy.Machine.fromUpdateSExpr(pkgs1, transactionSeed, example, Set(party))
     SpeedyTestLib
       .buildTransaction(machine)
-      .fold(e => fail(Pretty.prettyError(e).toString()), identity)
+      .fold(e => fail(Pretty.prettyError(e).render(80)), identity)
   }
 
   val pkgs: PureCompiledPackages = SpeedyTestLib.typeAndCompile(p"""
@@ -206,6 +206,7 @@ object RollbackTest {
   final case class C(x: Long) extends Tree // Create Node
   final case class X(x: List[Tree]) extends Tree // Exercise Node
   final case class R(x: List[Tree]) extends Tree // Rollback Node
+  final case class A(x: List[Tree]) extends Tree // Authority Node
 
   private def shapeOfTransaction(tx: SubmittedTransaction): List[Tree] = {
     def trees(nid: NodeId): List[Tree] = {
@@ -223,6 +224,8 @@ object RollbackTest {
           List(X(node.children.toList.flatMap(nid => trees(nid))))
         case node: Node.Rollback =>
           List(R(node.children.toList.flatMap(nid => trees(nid))))
+        case node: Node.Authority =>
+          List(A(node.children.toList.flatMap(nid => trees(nid))))
       }
     }
     tx.roots.toList.flatMap(nid => trees(nid))

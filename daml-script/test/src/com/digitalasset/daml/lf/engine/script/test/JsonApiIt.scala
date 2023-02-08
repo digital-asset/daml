@@ -172,7 +172,12 @@ trait JsonApiFixture
         cfg = config.withDataSource(
           dataSource(jdbcUrl.getOrElse(SandboxOnXForTest.defaultH2SandboxJdbcUrl()))
         )
-        serverPort <- SandboxOnXRunner.owner(ConfigAdaptor(authService), cfg, bridgeConfig)
+        serverPort <- SandboxOnXRunner.owner(
+          ConfigAdaptor(authService),
+          cfg,
+          bridgeConfig,
+          registerGlobalOpenTelemetry = false,
+        )
         channel <- GrpcClientResource.owner(serverPort)
         adminClient = UploadPackageHelper.adminLedgerClient(serverPort, cfg, secret)(
           system.dispatcher,

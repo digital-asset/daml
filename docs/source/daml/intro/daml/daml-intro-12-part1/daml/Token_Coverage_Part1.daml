@@ -1,0 +1,109 @@
+-- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+
+module Token_Coverage_Part1 where
+
+import Daml.Script
+
+-- TEMPLATE_DEFINITIONS_START
+-- Create three dummy tokens with two dummy choices each
+template T1 with owner : Party where
+  signatory owner
+
+  nonconsuming choice C_T1_1 : ()
+    controller owner
+    do pure ()
+
+  nonconsuming choice C_T1_2 : ()
+    controller owner
+    do pure ()
+
+template T2 with owner : Party where
+  signatory owner
+
+  nonconsuming choice C_T2_1 : ()
+    controller owner
+    do pure ()
+
+  nonconsuming choice C_T2_2 : ()
+    controller owner
+    do pure ()
+
+template T3 with owner : Party where
+  signatory owner
+
+  nonconsuming choice C_T3_1 : ()
+    controller owner
+    do pure ()
+
+  nonconsuming choice C_T3_2 : ()
+    controller owner
+    do pure ()
+-- TEMPLATE_DEFINITIONS_END
+
+-- INTERFACE_DEFINITIONS_START
+-- Create dummy interface with two dummy choices, implement over T1 and T2, and an unused empty view
+data IView = IView {}
+interface I where
+  viewtype IView
+  getController : Party
+
+  nonconsuming choice C_I_1 : ()
+    controller (getController this)
+    do pure ()
+
+  nonconsuming choice C_I_2 : ()
+    controller (getController this)
+    do pure ()
+
+  interface instance I for T1 where
+    view = IView
+    getController = owner
+
+  interface instance I for T2 where
+    view = IView
+    getController = owner
+-- INTERFACE_DEFINITIONS_END
+
+-- ALLOCATE_PARTY_START
+main = do
+  -- Allocate a party
+  alice <- allocateParty "Alice"
+-- ALLOCATE_PARTY_END
+
+-- CREATE_TEMPLATES_START
+  -- Create contracts out of templates T1 and T2
+  t1 <- submit alice (createCmd T1 with owner = alice)
+  t2 <- submit alice (createCmd T2 with owner = alice)
+-- CREATE_TEMPLATES_END
+
+-- EXERCISE_TEMPLATES_START
+  -- Exercise all choices & archive t1
+  submit alice (exerciseCmd t1 C_T1_1)
+  submit alice (exerciseCmd t1 C_T1_2)
+  submit alice (archiveCmd t1)
+
+  -- Exercise only first choice on t2, don't archive
+  submit alice (exerciseCmd t2 C_T2_1)
+-- EXERCISE_TEMPLATES_END
+
+-- CREATE_INTERFACES_START
+  -- Create new contracts out of templates T1 and T2
+  t1 <- submit alice (createCmd T1 with owner = alice)
+  t2 <- submit alice (createCmd T2 with owner = alice)
+
+  -- Cast t1, t2 into interface I
+  let t1_i, t2_i : ContractId I
+      t1_i = toInterfaceContractId t1
+      t2_i = toInterfaceContractId t2
+-- CREATE_INTERFACES_END
+
+-- EXERCISE_INTERFACES_START
+  -- Exercise all choices on t1_i
+  submit alice (exerciseCmd t1_i C_I_1)
+  submit alice (exerciseCmd t1_i C_I_2)
+
+  -- Exercise only first choice on t2_i
+  submit alice (exerciseCmd t2_i C_I_1)
+-- EXERCISE_INTERFACES_END

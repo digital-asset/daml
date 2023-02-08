@@ -8,34 +8,72 @@ import com.daml.ledger.api.v1.admin.user_management_service.{
   RevokeUserRightsRequest,
 }
 import com.daml.ledger.api.v1.admin.{user_management_service => ums}
+import com.daml.test.evidence.scalatest.ScalaTestSupport.Implicits._
 
+import java.util.UUID
 import scala.concurrent.Future
 
-final class RevokeUserRightsAuthIT extends AdminServiceCallAuthTests with UserManagementAuth {
+final class RevokeUserRightsAuthIT
+    extends AdminOrIDPAdminServiceCallAuthTests
+    with UserManagementAuth
+    with GrantPermissionTest {
 
   override def serviceCallName: String = "UserManagementService#RevokeUserRights"
 
-  private def adminPermission =
-    ums.Right(ums.Right.Kind.ParticipantAdmin(ums.Right.ParticipantAdmin()))
-
-  override def serviceCall(context: ServiceCallContext): Future[Any] =
+  def serviceCallWithGrantPermission(
+      context: ServiceCallContext,
+      permission: ums.Right,
+  ): Future[Any] =
     for {
       response <- createFreshUser(context.token, context.identityProviderId)
       userId = response.user.getOrElse(sys.error("Could not load create a fresh user")).id
-      _ <- stub(context.token).grantUserRights(
+      _ <- stub(canReadAsAdminStandardJWT.token).grantUserRights(
         GrantUserRightsRequest(
           userId = userId,
-          rights = scala.Seq(adminPermission),
+          rights = scala.Seq(permission),
           identityProviderId = context.identityProviderId,
         )
       )
       _ <- stub(context.token).revokeUserRights(
         RevokeUserRightsRequest(
           userId = userId,
-          rights = scala.Seq(adminPermission),
+          rights = scala.Seq(permission),
           identityProviderId = context.identityProviderId,
         )
       )
     } yield {}
+
+  it should "deny calls if user is created already within another IDP" taggedAs adminSecurityAsset
+    .setAttack(
+      attackPermissionDenied(threat = "Present an existing userId but foreign Identity Provider")
+    ) in {
+    expectPermissionDenied {
+      val userId = "fresh-user-" + UUID.randomUUID().toString
+      for {
+        idpConfigresponse1 <- createConfig(canReadAsAdminStandardJWT)
+        idpConfigresponse2 <- createConfig(canReadAsAdminStandardJWT)
+        _ <- createFreshUser(
+          userId,
+          canReadAsAdmin.token,
+          toIdentityProviderId(idpConfigresponse1),
+          Seq.empty,
+        )
+        _ <- stub(canReadAsAdminStandardJWT.token).grantUserRights(
+          GrantUserRightsRequest(
+            userId = userId,
+            rights = scala.Seq(idpAdminPermission),
+            identityProviderId = toIdentityProviderId(idpConfigresponse1),
+          )
+        )
+        _ <- stub(canReadAsAdminStandardJWT.token).revokeUserRights(
+          RevokeUserRightsRequest(
+            userId = userId,
+            rights = scala.Seq(idpAdminPermission),
+            identityProviderId = toIdentityProviderId(idpConfigresponse2),
+          )
+        )
+      } yield ()
+    }
+  }
 
 }

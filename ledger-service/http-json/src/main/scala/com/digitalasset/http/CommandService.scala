@@ -25,6 +25,7 @@ import com.daml.jwt.domain.Jwt
 import com.daml.ledger.api.refinements.{ApiTypes => lar}
 import com.daml.ledger.api.v1.commands.Commands.DeduplicationPeriod
 import com.daml.ledger.api.{v1 => lav1}
+import com.daml.ledger.service.Grpc.StatusEnvelope
 import com.daml.logging.LoggingContextOf.{label, withEnrichedLoggingContext}
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 import scalaz.std.option._
@@ -159,7 +160,7 @@ class CommandService(
       fa.transformWith {
         case Failure(e) =>
           Future.successful(-\/(e match {
-            case Grpc.StatusEnvelope(status) => GrpcError(status)
+            case StatusEnvelope(status) => GrpcError(status)
             case _ => InternalError(Some(op), e)
           }))
         case Success(-\/(e)) =>

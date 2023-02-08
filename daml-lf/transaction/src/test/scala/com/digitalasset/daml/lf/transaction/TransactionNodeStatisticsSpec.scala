@@ -59,7 +59,7 @@ class TransactionNodeStatisticsSpec
         argument = Value.ValueUnit,
         signatories = parties,
         observers = Set.empty,
-        key = if (withKey) Some(Value.ValueUnit) else None,
+        keyOpt = if (withKey) Some(Value.ValueUnit) else None,
         maintainers = if (withKey) parties else Set.empty,
       )
     }

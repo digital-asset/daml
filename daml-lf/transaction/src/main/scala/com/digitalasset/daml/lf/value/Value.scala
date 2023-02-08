@@ -166,7 +166,7 @@ object Value {
     new `Value Equal instance`
 
   /** A contract instance is a value plus the template that originated it. */
-  final case class ContractInstance(template: Identifier, arg: Key)
+  final case class ContractInstance(template: Identifier, arg: Value)
       extends CidContainer[ContractInstance] {
 
     override protected def self: this.type = this
@@ -196,12 +196,12 @@ object Value {
 
   object VersionedContractInstance {
     def apply(template: Identifier, arg: VersionedValue): VersionedContractInstance =
-      arg.map((arg: Key) => ContractInstance(template, arg))
+      arg.map(ContractInstance(template, _))
 
     def apply(
         version: transaction.TransactionVersion,
         template: Identifier,
-        arg: Key,
+        arg: Value,
     ): VersionedContractInstance =
       transaction.Versioned(version, ContractInstance(template, arg))
   }
@@ -290,10 +290,6 @@ object Value {
 
     implicit val equalInstance: Equal[ContractId] = Equal.equalA
   }
-
-  /** * Keys cannot contain contract ids
-    */
-  type Key = Value
 
   val ValueTrue: ValueBool = ValueBool.True
   val ValueFalse: ValueBool = ValueBool.False

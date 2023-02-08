@@ -13,7 +13,12 @@ import com.daml.lf.ledger._
 import com.daml.lf.data.Ref._
 import com.daml.lf.scenario.ScenarioLedger.{TransactionId, Disclosure}
 import com.daml.lf.scenario._
-import com.daml.lf.transaction.{Node, NodeId, TransactionVersion => TxVersion}
+import com.daml.lf.transaction.{
+  GlobalKeyWithMaintainers,
+  Node,
+  NodeId,
+  TransactionVersion => TxVersion,
+}
 import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.speedy.SBuiltin._
@@ -187,6 +192,8 @@ private[lf] object Pretty {
   // A minimal pretty-print of an update transaction node, without recursing into child nodes..
   def prettyPartialTransactionNode(node: Node): Doc =
     node match {
+      case _: Node.Authority =>
+        text("authority")
       case Node.Rollback(_) =>
         text("rollback")
       case create: Node.Create =>
@@ -267,13 +274,9 @@ private[lf] object Pretty {
           prettyLoc(amf.optLocation)
     }
 
-  def prettyKeyWithMaintainers(key: Node.KeyWithMaintainers): Doc =
+  def prettyKeyWithMaintainers(key: GlobalKeyWithMaintainers): Doc =
     // the maintainers are induced from the key -- so don't clutter
-    prettyValue(false)(key.key)
-
-  def prettyVersionedKeyWithMaintainers(key: Node.VersionedKeyWithMaintainers): Doc =
-    // the maintainers are induced from the key -- so don't clutter
-    prettyKeyWithMaintainers(key.unversioned)
+    prettyValue(false)(key.value)
 
   def prettyEventInfo(l: ScenarioLedger, txId: TransactionId)(nodeId: NodeId): Doc = {
     def arrowRight(d: Doc) = text("└─>") & d
@@ -281,13 +284,15 @@ private[lf] object Pretty {
     val eventId = EventId(txId.id, nodeId)
     val ni = l.ledgerData.nodeInfos(eventId)
     val ppNode = ni.node match {
+      case na: Node.Authority =>
+        text("authority:") / stack(na.children.toList.map(prettyEventInfo(l, txId)))
       case Node.Rollback(children) =>
         text("rollback:") / stack(children.toList.map(prettyEventInfo(l, txId)))
       case create: Node.Create =>
         val d = "create" &: prettyContractInst(create.coinst)
-        create.versionedKey match {
+        create.keyOpt match {
           case None => d
-          case Some(key) => d / text("key") & prettyVersionedKeyWithMaintainers(key)
+          case Some(key) => d / text("key") & prettyKeyWithMaintainers(key)
         }
       case ea: Node.Fetch =>
         "ensure active" &: prettyContractId(ea.coid)
@@ -306,7 +311,7 @@ private[lf] object Pretty {
             .nested(4)
       case lbk: Node.LookupByKey =>
         text("lookup by key") & prettyIdentifier(lbk.templateId) /
-          text("key") & prettyVersionedKeyWithMaintainers(lbk.versionedKey) /
+          text("key") & prettyKeyWithMaintainers(lbk.key) /
           (lbk.result match {
             case None => text("not found")
             case Some(coid) => text("found") & prettyContractId(coid)

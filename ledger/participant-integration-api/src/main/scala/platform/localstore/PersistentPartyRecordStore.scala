@@ -280,4 +280,22 @@ class PersistentPartyRecordStore(
     val now = timeProvider.getCurrentTime
     (now.getEpochSecond * 1000 * 1000) + (now.getNano / 1000)
   }
+
+  override def filterExistingParties(parties: Set[Party], identityProviderId: IdentityProviderId)(
+      implicit loggingContext: LoggingContext
+  ): Future[Set[Party]] = inTransaction(_.partiesExist) { implicit connection =>
+    Right(backend.filterExistingParties(parties, identityProviderId.toDb)(connection))
+  }.map {
+    case Right(value) => value
+    case Left(_) => Set.empty // It is always `Right`, see few lines above
+  }
+
+  override def filterExistingParties(parties: Set[Party])(implicit
+      loggingContext: LoggingContext
+  ): Future[Set[Party]] = inTransaction(_.partiesExist) { implicit connection =>
+    Right(backend.filterExistingParties(parties)(connection))
+  }.map {
+    case Right(value) => value
+    case Left(_) => Set.empty // It is always `Right`, see few lines above
+  }
 }

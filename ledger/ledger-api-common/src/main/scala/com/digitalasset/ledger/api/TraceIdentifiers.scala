@@ -4,7 +4,7 @@
 package com.daml.ledger.api
 
 import com.daml.ledger.api.v1.transaction.{Transaction, TransactionTree}
-import com.daml.telemetry.SpanAttribute
+import com.daml.tracing.SpanAttribute
 
 /** Extracts identifiers from Protobuf messages to correlate traces.
   */

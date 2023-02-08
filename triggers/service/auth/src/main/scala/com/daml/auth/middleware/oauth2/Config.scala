@@ -8,6 +8,7 @@ import akka.http.scaladsl.model.Uri
 import com.daml.auth.middleware.oauth2.Config._
 import com.daml.cliopts
 import com.daml.jwt.JwtVerifierBase
+import com.daml.metrics.MetricsConfig
 import com.daml.metrics.api.reporters.MetricsReporter
 import com.daml.pureconfigutils.SharedConfigReaders._
 import pureconfig.{ConfigReader, ConvertHelpers}
@@ -50,18 +51,61 @@ final case class Config(
   }
 }
 
+@scala.annotation.nowarn("msg=Block result was adapted via implicit conversion")
+object FileConfig {
+  implicit val clientSecretReader: ConfigReader[SecretString] =
+    ConfigReader.fromString[SecretString](ConvertHelpers.catchReadError(s => SecretString(s)))
+
+  implicit val cfgReader: ConfigReader[FileConfig] = deriveReader[FileConfig]
+}
+
+final case class FileConfig(
+    address: String = cliopts.Http.defaultAddress,
+    port: Int = DefaultHttpPort,
+    portFile: Option[Path] = None,
+    callbackUri: Option[Uri] = None,
+    maxLoginRequests: Int = DefaultMaxLoginRequests,
+    loginTimeout: FiniteDuration = DefaultLoginTimeout,
+    cookieSecure: Boolean = DefaultCookieSecure,
+    oauthAuth: Uri,
+    oauthToken: Uri,
+    oauthAuthTemplate: Option[Path] = None,
+    oauthTokenTemplate: Option[Path] = None,
+    oauthRefreshTemplate: Option[Path] = None,
+    clientId: String,
+    clientSecret: SecretString,
+    tokenVerifier: JwtVerifierBase,
+    metrics: Option[MetricsConfig] = None,
+) {
+  def toConfig(): Config = Config(
+    address = address,
+    port = port,
+    portFile = portFile,
+    callbackUri = callbackUri,
+    maxLoginRequests = maxLoginRequests,
+    loginTimeout = loginTimeout,
+    cookieSecure = cookieSecure,
+    oauthAuth = oauthAuth,
+    oauthToken = oauthToken,
+    oauthAuthTemplate = oauthAuthTemplate,
+    oauthTokenTemplate = oauthTokenTemplate,
+    oauthRefreshTemplate = oauthRefreshTemplate,
+    clientId = clientId,
+    clientSecret = clientSecret,
+    tokenVerifier = tokenVerifier,
+    metricsReporter = metrics.map(_.reporter),
+    metricsReportingInterval =
+      metrics.map(_.reportingInterval).getOrElse(MetricsConfig.DefaultMetricsReportingInterval),
+  )
+}
+
 final case class SecretString(value: String) {
   override def toString: String = "###"
 }
 
-@scala.annotation.nowarn("msg=Block result was adapted via implicit conversion")
 object Config {
   val DefaultHttpPort: Int = 3000
   val DefaultCookieSecure: Boolean = true
   val DefaultMaxLoginRequests: Int = 100
   val DefaultLoginTimeout: FiniteDuration = 5.minutes
-
-  implicit val clientSecretReader: ConfigReader[SecretString] =
-    ConfigReader.fromString[SecretString](ConvertHelpers.catchReadError(s => SecretString(s)))
-  implicit val cfgReader: ConfigReader[Config] = deriveReader[Config]
 }

@@ -123,7 +123,7 @@ final class LfValueTranslation(
   private def serializeNullableKeyOrThrow(c: Create): Option[Array[Byte]] =
     c.versionedKey.map(k =>
       ValueSerializer.serializeValue(
-        value = k.map(_.key),
+        value = k.map(_.value),
         errorContext = cantSerialize(attribute = "key", forContract = c.coid),
       )
     )
@@ -131,7 +131,7 @@ final class LfValueTranslation(
   private def serializeNullableKeyOrThrow(e: Exercise): Option[Array[Byte]] = {
     e.versionedKey.map(k =>
       ValueSerializer.serializeValue(
-        value = k.map(_.key),
+        value = k.map(_.value),
         errorContext = cantSerialize(attribute = "key", forContract = e.targetCoid),
       )
     )

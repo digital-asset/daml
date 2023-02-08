@@ -10,7 +10,7 @@ import com.daml.lf.data.ImmArray
 import com.daml.lf.transaction.{GlobalKey, SubmittedTransaction, Versioned}
 import com.daml.lf.value.Value
 import com.daml.logging.LoggingContext
-import com.daml.telemetry.TelemetryContext
+import com.daml.tracing.TelemetryContext
 
 /** An interface to change a ledger via a participant.
   * '''Please note that this interface is unstable and may significantly change.'''

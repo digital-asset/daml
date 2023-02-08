@@ -91,7 +91,12 @@ trait ToxicSandboxFixture
           .getOrElse(SandboxBackend.H2Database.owner)
           .map(info => info.jdbcUrl)
         cfg = config.withDataSource(dataSource(jdbcUrl))
-        port <- SandboxOnXRunner.owner(ConfigAdaptor(authService), cfg, bridgeConfig)
+        port <- SandboxOnXRunner.owner(
+          ConfigAdaptor(authService),
+          cfg,
+          bridgeConfig,
+          registerGlobalOpenTelemetry = false,
+        )
         channel <- GrpcClientResource.owner(port)
         client = UploadPackageHelper.adminLedgerClient(port, cfg, jwtSecret)(
           system.dispatcher,

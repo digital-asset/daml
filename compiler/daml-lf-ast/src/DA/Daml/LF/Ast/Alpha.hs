@@ -289,6 +289,20 @@ alphaExpr' env = \case
             -> alphaTypeCon iface1 iface2
             && alphaExpr' env expr1 expr2
         _ -> False
+    EChoiceController t1 ch1 e1a e1b -> \case
+        EChoiceController t2 ch2 e2a e2b
+            -> alphaTypeCon t1 t2
+            && ch1 == ch2
+            && alphaExpr' env e1a e2a
+            && alphaExpr' env e1b e2b
+        _ -> False
+    EChoiceObserver t1 ch1 e1a e1b -> \case
+        EChoiceObserver t2 ch2 e2a e2b
+            -> alphaTypeCon t1 t2
+            && ch1 == ch2
+            && alphaExpr' env e1a e2a
+            && alphaExpr' env e1b e2b
+        _ -> False
     EExperimental n1 t1 -> \case
         EExperimental n2 t2 -> n1 == n2 && alphaType t1 t2
         _ -> False

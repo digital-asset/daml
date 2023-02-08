@@ -56,21 +56,12 @@ class InterfaceSubscriptionITSpec
     )
 
     for {
-      (apiServices, names, submitter) <- benchtoolFixture()
-      allocatedParties <- submitter.prepare(config)
+      (apiServices, allocatedParties, fooSubmission) <- benchtoolFooSubmissionFixture(config)
       configDesugaring = new ConfigEnricher(
         allocatedParties,
         BenchtoolTestsPackageInfo.StaticDefault,
       )
-      tested = new FooSubmission(
-        submitter = submitter,
-        maxInFlightCommands = 1,
-        submissionBatchSize = 5,
-        submissionConfig = config,
-        allocatedParties = allocatedParties,
-        names = names,
-      )
-      _ <- tested.performSubmission()
+      _ <- fooSubmission.performSubmission(submissionConfig = config)
       observedEvents <- observer(
         configDesugaring = configDesugaring,
         apiServices = apiServices,
@@ -104,7 +95,7 @@ class InterfaceSubscriptionITSpec
       ),
       objectives = None,
       maxItemCount = None,
-      timeoutInSecondsO = None,
+      timeoutO = None,
     )
     apiServices.activeContractsService.getActiveContracts(
       config = configDesugaring

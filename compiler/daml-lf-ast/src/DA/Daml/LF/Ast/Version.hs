@@ -54,7 +54,7 @@ version1_15 = V1 $ PointStable 15
 
 -- | The Daml-LF version used by default.
 versionDefault :: Version
-versionDefault = version1_14
+versionDefault = version1_15
 
 -- | The Daml-LF development version.
 versionDev :: Version
@@ -99,6 +99,13 @@ featureUnstable = Feature
     , featureCppFlag = Just "DAML_UNSTABLE"
     }
 
+featureWithAuthority :: Feature
+featureWithAuthority = Feature
+    { featureName = "withAuthority primitive"
+    , featureMinVersion = versionDev
+    , featureCppFlag = Just "DAML_WITH_AUTHORITY"
+    }
+
 featureBigNumeric :: Feature
 featureBigNumeric = Feature
     { featureName = "BigNumeric type"
@@ -134,6 +141,13 @@ featureExtendedInterfaces = Feature
     , featureCppFlag = Just "DAML_INTERFACE_EXTENDED"
     }
 
+featureChoiceFuncs :: Feature
+featureChoiceFuncs = Feature
+    { featureName = "choiceController and choiceObserver functions"
+    , featureMinVersion = versionDev
+    , featureCppFlag = Just "DAML_CHOICE_FUNCS"
+    }
+
 featureExperimental :: Feature
 featureExperimental = Feature
     { featureName = "Daml Experimental"
@@ -150,8 +164,10 @@ allFeatures =
     , featureNatSynonyms
     , featureSimpleInterfaces
     , featureExtendedInterfaces
+    , featureChoiceFuncs
     , featureUnstable
     , featureExperimental
+    , featureWithAuthority
     ]
 
 featureVersionMap :: MS.Map T.Text Version

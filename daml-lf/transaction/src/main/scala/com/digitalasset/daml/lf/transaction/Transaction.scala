@@ -105,6 +105,16 @@ final case class Transaction(
               go(newErrors + NotWellFormedError(nid, DanglingNodeId), newVisited, nids)
             case Some(node) =>
               node match {
+                case na: Node.Authority =>
+                  go(
+                    newErrors,
+                    newVisited,
+                    if (alreadyVisited) {
+                      nids
+                    } else {
+                      na.children ++: nids
+                    },
+                  )
                 case nr: Node.Rollback =>
                   go(
                     newErrors,
@@ -154,6 +164,18 @@ final case class Transaction(
           val node1 = nodes(nid1)
           val node2 = other.nodes(nid2)
           node1 match {
+            case na1: Node.Authority =>
+              node2 match {
+                case na2: Node.Authority =>
+                  val blankedNa1: Node.Authority =
+                    na1.copy(children = ImmArray.Empty)
+                  val blankedNa2: Node.Authority =
+                    na2.copy(children = ImmArray.Empty)
+                  compare(blankedNa1, blankedNa2) &&
+                  na1.children.length == na2.children.length &&
+                  go(na1.children.zip(na2.children) ++: rest)
+                case _ => false
+              }
             case nr1: Node.Rollback => // TODO: can this be Node.Rollback ?
               node2 match {
                 case nr2: Node.Rollback => // TODO: and here
@@ -209,16 +231,18 @@ final case class Transaction(
   def serializable(f: Value => ImmArray[String]): ImmArray[String] = {
     fold(BackStack.empty[String]) { case (errs, (_, node)) =>
       node match {
+        case _: Node.Authority =>
+          errs
         case Node.Rollback(_) =>
           errs
         case _: Node.Fetch => errs
         case nc: Node.Create =>
-          errs :++ f(nc.arg) :++ (nc.key match {
+          errs :++ f(nc.arg) :++ (nc.keyOpt match {
             case None => ImmArray.Empty
-            case Some(key) => f(key.key)
+            case Some(key) => f(key.globalKey.key)
           })
         case ne: Node.Exercise => errs :++ f(ne.chosenValue)
-        case nlbk: Node.LookupByKey => errs :++ f(nlbk.key.key)
+        case nlbk: Node.LookupByKey => errs :++ f(nlbk.gkey.key)
       }
     }.toImmArray
   }
@@ -227,18 +251,20 @@ final case class Transaction(
   def foldValues[Z](z: Z)(f: (Z, Value) => Z): Z =
     fold(z) { case (z, (_, n)) =>
       n match {
+        case _: Node.Authority =>
+          z
         case Node.Rollback(_) =>
           z
         case c: Node.Create =>
           val z1 = f(z, c.arg)
-          val z2 = c.key match {
+          val z2 = c.keyOpt match {
             case None => z1
-            case Some(k) => f(z1, k.key)
+            case Some(k) => f(z1, k.globalKey.key)
           }
           z2
-        case nf: Node.Fetch => nf.key.fold(z)(k => f(z, k.key))
+        case nf: Node.Fetch => nf.keyOpt.fold(z)(k => f(z, k.globalKey.key))
         case e: Node.Exercise => f(z, e.chosenValue)
-        case lk: Node.LookupByKey => f(z, lk.key.key)
+        case lk: Node.LookupByKey => f(z, lk.gkey.key)
       }
     }
 
@@ -261,6 +287,7 @@ sealed abstract class HasTxNodes {
     nodes.values.foldLeft(Set.empty[Ref.Party]) {
       case (acc, node: Node.Action) => acc | node.informeesOfNode
       case (acc, _: Node.Rollback) => acc
+      case (acc, _: Node.Authority) => acc
     }
 
   // We assume that rollback node cannot be a root of a transaction.
@@ -276,6 +303,10 @@ sealed abstract class HasTxNodes {
         case _: Node.Rollback =>
           throw new IllegalArgumentException(
             s"invalid transaction, root refers to a Rollback node $nid"
+          )
+        case _: Node.Authority =>
+          throw new IllegalArgumentException(
+            s"invalid transaction, root refers to an Authority node $nid"
           )
       }
     )
@@ -293,6 +324,7 @@ sealed abstract class HasTxNodes {
         val node = nodes(nodeId)
         f(nodeId, node)
         node match {
+          case na: Node.Authority => go(na.children ++: toVisit)
           case nr: Node.Rollback => go(nr.children ++: toVisit)
           case _: Node.LeafOnlyAction => go(toVisit)
           case ne: Node.Exercise => go(ne.children ++: toVisit)
@@ -331,6 +363,8 @@ sealed abstract class HasTxNodes {
         val (globalState1, newPathState) = op(globalState, pathState, nodeId, node)
         globalState = globalState1
         node match {
+          case na: Node.Authority =>
+            go(na.children.map(_ -> newPathState) ++: toVisit)
           case nr: Node.Rollback =>
             go(nr.children.map(_ -> newPathState) ++: toVisit)
           case _: Node.LeafOnlyAction => go(toVisit)
@@ -453,15 +487,9 @@ sealed abstract class HasTxNodes {
     */
   final def contractKeys: Set[GlobalKey] = {
     fold(Set.empty[GlobalKey]) {
-      case (acc, (_, node: Node.Create)) =>
-        node.key.fold(acc)(key => acc + GlobalKey.assertBuild(node.templateId, key.key))
-      case (acc, (_, node: Node.Exercise)) =>
-        node.key.fold(acc)(key => acc + GlobalKey.assertBuild(node.templateId, key.key))
-      case (acc, (_, node: Node.Fetch)) =>
-        node.key.fold(acc)(key => acc + GlobalKey.assertBuild(node.templateId, key.key))
-      case (acc, (_, node: Node.LookupByKey)) =>
-        acc + GlobalKey.assertBuild(node.templateId, node.key.key)
-      case (acc, (_, _: Node.Rollback)) =>
+      case (acc, (_, node: Node.Action)) =>
+        node.gkeyOpt.fold(acc)(acc + _)
+      case (acc, (_, (_: Node.Authority | _: Node.Rollback))) =>
         acc
     }
   }
@@ -534,9 +562,7 @@ sealed abstract class HasTxNodes {
       exerciseBegin = {
         case (acc, _, exec) if exec.consuming =>
           (
-            exec.key.fold(acc)(key =>
-              acc.updated(GlobalKey.assertBuild(exec.templateId, key.key), None)
-            ),
+            exec.gkeyOpt.fold(acc)(acc.updated(_, None)),
             ChildrenRecursion.DoRecurse,
           )
         case (acc, _, _) => (acc, ChildrenRecursion.DoRecurse)
@@ -544,9 +570,7 @@ sealed abstract class HasTxNodes {
       rollbackBegin = (acc, _, _) => (acc, ChildrenRecursion.DoNotRecurse),
       leaf = {
         case (acc, _, create: Node.Create) =>
-          create.key.fold(acc)(key =>
-            acc.updated(GlobalKey.assertBuild(create.templateId, key.key), Some(create.coid))
-          )
+          create.gkeyOpt.fold(acc)(acc.updated(_, Some(create.coid)))
         case (acc, _, _: Node.Fetch | _: Node.LookupByKey) => acc
       },
       exerciseEnd = (acc, _, _) => acc,
@@ -574,6 +598,7 @@ sealed abstract class HasTxNodes {
       currNodes.pop match {
         case Some((nid, rest)) =>
           nodes(nid) match {
+            case _: Node.Authority => ??? // TODO #15882 -- need authority{Begin,End} callbacks
             case rb: Node.Rollback =>
               rollbackBegin(nid, rb) match {
                 case ChildrenRecursion.DoRecurse =>

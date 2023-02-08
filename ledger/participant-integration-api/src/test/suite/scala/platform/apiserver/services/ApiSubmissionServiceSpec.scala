@@ -23,7 +23,7 @@ import com.daml.lf.command.{
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref.Identifier
 import com.daml.lf.data.Time.Timestamp
-import com.daml.lf.data.{ImmArray, Ref, Time}
+import com.daml.lf.data.{Bytes, ImmArray, Ref, Time}
 import com.daml.lf.engine.{Error => LfError}
 import com.daml.lf.interpretation.{Error => LfInterpretationError}
 import com.daml.lf.language.{LookupError, Reference}
@@ -36,7 +36,7 @@ import com.daml.platform.apiserver.SeedService
 import com.daml.platform.apiserver.configuration.LedgerConfigurationSubscription
 import com.daml.platform.apiserver.execution.{CommandExecutionResult, CommandExecutor}
 import com.daml.platform.services.time.TimeProviderType
-import com.daml.telemetry.{NoOpTelemetryContext, TelemetryContext}
+import com.daml.tracing.{NoOpTelemetryContext, TelemetryContext}
 import com.google.rpc.status.{Status => RpcStatus}
 import io.grpc.{Status, StatusRuntimeException}
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
@@ -206,7 +206,7 @@ class ApiSubmissionServiceSpec
       metadata = ContractMetadata(
         createdAt = Timestamp.Epoch,
         keyHash = None,
-        driverMetadata = ImmArray.empty,
+        driverMetadata = Bytes.Empty,
       ),
     )
     val engineEnrichedDisclosedContract = ProcessedDisclosedContract(
@@ -215,10 +215,10 @@ class ApiSubmissionServiceSpec
       argument = Value.ValueNil,
       metadata = EngineEnrichedContractMetadata(
         createdAt = Timestamp.Epoch,
-        driverMetadata = ImmArray.empty,
+        driverMetadata = Bytes.Empty,
         signatories = Set.empty,
         stakeholders = Set.empty,
-        maybeKeyWithMaintainers = None,
+        keyOpt = None,
         agreementText = "",
       ),
     )
@@ -285,13 +285,13 @@ class ApiSubmissionServiceSpec
       .thenReturn(Future.successful(Right(commandExecutionResult)))
     when(
       writeService.submitTransaction(
-        submitterInfo,
-        transactionMeta,
-        transaction,
-        estimatedInterpretationCost,
-        Map.empty,
-        explicitlyDisclosedContracts,
-      )
+        eqTo(submitterInfo),
+        eqTo(transactionMeta),
+        eqTo(transaction),
+        eqTo(estimatedInterpretationCost),
+        eqTo(Map.empty),
+        eqTo(explicitlyDisclosedContracts),
+      )(any[LoggingContext], any[TelemetryContext])
     ).thenReturn(CompletableFuture.completedFuture(SubmissionResult.Acknowledged))
 
     def apiSubmissionService(

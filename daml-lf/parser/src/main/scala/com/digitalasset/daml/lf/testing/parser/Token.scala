@@ -61,6 +61,8 @@ private[parser] object Token {
   case object `interface_template_type_rep` extends Token
   case object `signatory_interface` extends Token
   case object `observer_interface` extends Token
+  case object `choice_controller` extends Token
+  case object `choice_observer` extends Token
 
   final case class Id(s: String) extends Token
   final case class ContractId(s: String) extends Token

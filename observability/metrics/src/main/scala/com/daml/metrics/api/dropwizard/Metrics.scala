@@ -64,14 +64,16 @@ sealed case class DropwizardCounter(name: String, metric: codahale.Counter) exte
       context: MetricsContext
   ): Unit = metric.dec(n)
 
-  override def getCount: Long = metric.getCount
 }
 
-sealed case class DropwizardGauge[T](name: String, metric: Gauges.VarGauge[T]) extends Gauge[T] {
+sealed case class DropwizardGauge[T](name: String, metric: Gauges.VarGauge[T], cleanUp: () => Unit)
+    extends Gauge[T] {
   def updateValue(newValue: T): Unit = metric.updateValue(newValue)
   override def getValue: T = metric.getValue
 
   override def updateValue(f: T => T): Unit = metric.updateValue(f)
+
+  override def close(): Unit = cleanUp()
 }
 
 sealed case class DropwizardHistogram(name: String, metric: codahale.Histogram)

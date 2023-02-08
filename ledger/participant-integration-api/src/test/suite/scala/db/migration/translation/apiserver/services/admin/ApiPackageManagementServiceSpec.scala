@@ -5,6 +5,7 @@ package com.daml.platform.apiserver.services.admin
 
 import java.util.concurrent.{CompletableFuture, CompletionStage}
 import java.util.zip.ZipInputStream
+
 import akka.stream.scaladsl.Source
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.daml_lf_dev.DamlLf.Archive
@@ -27,9 +28,11 @@ import com.daml.lf.language.Ast.Expr
 import com.daml.lf.language.{Ast, LanguageVersion}
 import com.daml.lf.testing.parser.Implicits.defaultParserParameters
 import com.daml.logging.LoggingContext
-import com.daml.telemetry.TelemetrySpecBase._
-import com.daml.telemetry.{TelemetryContext, TelemetrySpecBase}
+import com.daml.tracing.TelemetrySpecBase._
+import com.daml.tracing.{DefaultOpenTelemetry, TelemetryContext, TelemetrySpecBase}
+import com.daml.platform.testing.LogCollector
 import com.google.protobuf.ByteString
+import io.opentelemetry.api.GlobalOpenTelemetry
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
@@ -49,9 +52,15 @@ class ApiPackageManagementServiceSpec
 
   private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
 
+  override def beforeEach(): Unit = {
+    super.beforeEach()
+    LogCollector.clear[this.type]
+  }
+
+  val apiService = createApiService()
+
   "ApiPackageManagementService $suffix" should {
     "propagate trace context" in {
-      val apiService = createApiService()
 
       val span = anEmptySpan()
       val scope = span.makeCurrent()
@@ -66,6 +75,27 @@ class ApiPackageManagementServiceSpec
           succeed
         }
     }
+
+    "have a tid" in {
+      def readLog(): Seq[LogCollector.Entry] =
+        LogCollector.readAsEntries[this.type, ApiPackageManagementService]
+
+      val span = anEmptySpan()
+      val _ = span.makeCurrent()
+      apiService
+        .uploadDarFile(UploadDarFileRequest(ByteString.EMPTY, aSubmissionId))
+        .map { _ =>
+          val logs = readLog()
+          val markers = logs.map(_.marker.fold("")(_.toString))
+          val nonEmptyTid = ".*tid: \"[a-zA-Z0-9]+\"}"
+          assert(logs.nonEmpty, "No logs were found")
+          assert(
+            markers.forall(_.matches(nonEmptyTid)),
+            "At least one log entry does not contain a trace-id",
+          )
+        }
+    }
+
   }
 
   private def createApiService(): PackageManagementServiceGrpc.PackageManagementService = {
@@ -98,6 +128,7 @@ class ApiPackageManagementServiceSpec
       mockEngine,
       mockDarReader,
       _ => Ref.SubmissionId.assertFromString("aSubmission"),
+      telemetry = new DefaultOpenTelemetry(GlobalOpenTelemetry.get()),
     )
   }
 }

@@ -8,7 +8,7 @@ import java.util.concurrent.CompletionStage
 import com.daml.daml_lf_dev.DamlLf.Archive
 import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext
-import com.daml.telemetry.TelemetryContext
+import com.daml.tracing.TelemetryContext
 
 /** An interface for uploading packages via a participant. */
 trait WritePackagesService {

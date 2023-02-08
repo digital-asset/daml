@@ -270,7 +270,9 @@ trait AuthMiddlewareFixture
             clientSecret = SecretString("oauth-middleware-secret"),
             tokenVerifier = authVerifier,
           )
-          middleware <- Resource(MiddlewareServer.start(middlewareConfig))(closeServerBinding)
+          middleware <- Resource(
+            MiddlewareServer.start(middlewareConfig, registerGlobalOpenTelemetry = false)
+          )(closeServerBinding)
         } yield (clock, oauthServer, middleware)
       }
     })
@@ -356,6 +358,7 @@ trait SandboxFixture extends BeforeAndAfterAll with AbstractAuthFixture with Akk
           configAdaptor = ConfigAdaptor(authService),
           config = sandboxConfig(jdbcUrl = jdbcUrl),
           bridgeConfig = BridgeConfig(),
+          registerGlobalOpenTelemetry = false,
         )
         channel <- GrpcClientResource.owner(port)
       } yield (port, channel),
@@ -551,6 +554,7 @@ trait TriggerServiceFixture
   private def triggerServiceOwner(
       encodedDars: List[Dar[(PackageId, DamlLf.ArchivePayload)]],
       authCallback: Option[Uri],
+      triggerRunnerConfig: Option[TriggerRunnerConfig],
   ) =
     new ResourceOwner[ServerBinding] {
       override def acquire()(implicit context: ResourceContext): Resource[ServerBinding] =
@@ -585,7 +589,7 @@ trait TriggerServiceFixture
                 jdbcConfig,
                 false,
                 Compiler.Config.Dev,
-                DefaultTriggerRunnerConfig,
+                triggerRunnerConfig.getOrElse(DefaultTriggerRunnerConfig),
                 logTriggerStatus,
               )
             } yield r
@@ -599,13 +603,14 @@ trait TriggerServiceFixture
   def withTriggerService[A](
       encodedDars: List[Dar[(PackageId, DamlLf.ArchivePayload)]],
       authCallback: Option[Uri] = None,
+      triggerRunnerConfig: Option[TriggerRunnerConfig] = None,
   )(testFn: Uri => Future[A])(implicit
       ec: ExecutionContext,
       pos: source.Position,
   ): Future[A] = {
     logger.info(s"${pos.fileName}:${pos.lineNumber}: setting up trigger service")
     implicit val context: ResourceContext = ResourceContext(ec)
-    triggerServiceOwner(encodedDars, authCallback).use { binding =>
+    triggerServiceOwner(encodedDars, authCallback, triggerRunnerConfig).use { binding =>
       val uri = Uri.from(scheme = "http", host = "localhost", port = binding.localAddress.getPort)
       testFn(uri)
     }

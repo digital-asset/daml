@@ -61,6 +61,7 @@ object LedgerFactories {
         ConfigAdaptor(None),
         config,
         bridgeConfig,
+        registerGlobalOpenTelemetry = true,
       )
       channel <- GrpcClientResource.owner(port)
       client = UploadPackageHelper.adminLedgerClient(port, config, None)(

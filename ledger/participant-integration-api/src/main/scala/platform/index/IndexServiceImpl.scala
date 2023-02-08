@@ -63,7 +63,7 @@ import com.daml.platform.store.entries.PartyLedgerEntry
 import com.daml.platform.store.packagemeta.PackageMetadataView
 import com.daml.platform.store.packagemeta.PackageMetadataView.PackageMetadata
 import com.daml.platform.{ApiOffset, PruneBuffers, TemplatePartiesFilter}
-import com.daml.telemetry.{Event, SpanAttribute, Spans}
+import com.daml.tracing.{Event, SpanAttribute, Spans}
 import io.grpc.StatusRuntimeException
 import scalaz.syntax.tag.ToTagOps
 

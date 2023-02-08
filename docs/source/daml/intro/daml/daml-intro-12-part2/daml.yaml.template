@@ -1,0 +1,14 @@
+sdk-version: __VERSION__
+name: __PROJECT_NAME__
+source: daml
+version: 1.0.0
+dependencies:
+  - daml-prim
+  - daml-stdlib
+  - daml-script
+data-dependencies:
+  - ./intro12-part1.dar
+build-options:
+  - --target=1.15
+sandbox-options:
+  - --wall-clock-time

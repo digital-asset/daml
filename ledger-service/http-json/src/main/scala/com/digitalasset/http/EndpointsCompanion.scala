@@ -25,6 +25,7 @@ import com.daml.error.utils.ErrorDetails.ErrorDetail
 import com.daml.ledger.api.refinements.{ApiTypes => lar}
 import com.daml.ledger.client.services.admin.UserManagementClient
 import com.daml.ledger.client.services.identity.LedgerIdentityClient
+import com.daml.ledger.service.Grpc.StatusEnvelope
 import com.daml.lf.data.Ref.UserId
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 import com.google.rpc.{Code => GrpcCode}
@@ -81,7 +82,7 @@ object EndpointsCompanion {
     }
 
     def fromThrowable: PartialFunction[Throwable, Error] = {
-      case LedgerClientJwt.Grpc.StatusEnvelope(status) => ParticipantServerError(status)
+      case StatusEnvelope(status) => ParticipantServerError(status)
       case NonFatal(t) => ServerError(t)
     }
   }

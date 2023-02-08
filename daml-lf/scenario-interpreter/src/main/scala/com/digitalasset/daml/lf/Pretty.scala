@@ -74,6 +74,9 @@ private[lf] object Pretty {
       case Error.PartiesNotAllocated(parties) =>
         text(s"Error: Tried to submit a command for parties that have not been allocated:") &
           intercalate(comma + space, parties.map(prettyParty))
+
+      case Error.Timeout(timeout) =>
+        text(s"Timeout: evaluation needed more that ${timeout.toSeconds}s to complete")
     }
 
 }

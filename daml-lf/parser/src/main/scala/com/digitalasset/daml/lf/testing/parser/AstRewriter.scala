@@ -160,6 +160,10 @@ private[daml] class AstRewriter(
           EViewInterface(apply(ifaceId), apply(expr))
         case EObserverInterface(ifaceId, body) =>
           EObserverInterface(apply(ifaceId), apply(body))
+        case EChoiceController(typeId, choiceName, contract, choiceArg) =>
+          EChoiceController(apply(typeId), choiceName, apply(contract), apply(choiceArg))
+        case EChoiceObserver(typeId, choiceName, contract, choiceArg) =>
+          EChoiceObserver(apply(typeId), choiceName, apply(contract), apply(choiceArg))
       }
 
   def apply(x: TypeConApp): TypeConApp = x match {
@@ -193,10 +197,6 @@ private[daml] class AstRewriter(
         UpdateFetchTemplate(apply(templateId), apply(contractId))
       case UpdateFetchInterface(interface, contractId) =>
         UpdateFetchInterface(apply(interface), apply(contractId))
-      case UpdateActingAsConsortium(members, consortium) =>
-        val _ = (members, consortium)
-        // UpdateActingAsConsortium(apply(members),apply(consortium))
-        ??? // TODO: https://github.com/digital-asset/daml/issues/15882
       case UpdateExercise(templateId, choice, cid, arg) =>
         UpdateExercise(apply(templateId), choice, apply(cid), apply(arg))
       case UpdateExerciseInterface(interface, choice, cid, arg, guard) =>

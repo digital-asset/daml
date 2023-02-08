@@ -148,7 +148,12 @@ final class MinVersionTest
     implicit val resourceContext: ResourceContext = ResourceContext(system.dispatcher)
     new OwnedResource[ResourceContext, Port](
       for {
-        _ <- SandboxOnXRunner.owner(configAdaptor, config, bridgeConfig)
+        _ <- SandboxOnXRunner.owner(
+          configAdaptor,
+          config,
+          bridgeConfig,
+          registerGlobalOpenTelemetry = false,
+        )
       } yield readPortFile(portFile)
     )
   }

@@ -42,7 +42,6 @@ private[lf] object Speedy {
 
   // These have zero cost when not enabled. But they are not switchable at runtime.
   private val enableInstrumentation: Boolean = false
-  private val enableLightweightStepTracing: Boolean = false
 
   /** Instrumentation counters. */
   final class Instrumentation() {
@@ -111,23 +110,39 @@ private[lf] object Speedy {
 
   sealed abstract class LedgerMode extends Product with Serializable
 
-  final case class SKeyWithMaintainers(key: SValue, maintainers: Set[Party]) {
-    def toNormalizedKeyWithMaintainers(version: TxVersion) =
-      Node.KeyWithMaintainers(key.toNormalizedValue(version), maintainers)
-    val unnormalizedKeyValue = key.toUnnormalizedValue
-    val unnormalizedKeyWithMaintainers = Node.KeyWithMaintainers(unnormalizedKeyValue, maintainers)
+  final case class CachedKey(
+      globalKeyWithMaintainers: GlobalKeyWithMaintainers,
+      key: SValue,
+  ) {
+    def globalKey: GlobalKey = globalKeyWithMaintainers.globalKey
+    def templateId: TypeConName = globalKey.templateId
+    def maintainers: Set[Party] = globalKeyWithMaintainers.maintainers
+    val lfValue = globalKey.key
   }
 
   final case class CachedContract(
+      version: TxVersion,
       templateId: Ref.TypeConName,
       value: SValue,
       agreementText: String,
       signatories: Set[Party],
       observers: Set[Party],
-      key: Option[SKeyWithMaintainers],
+      key: Option[CachedKey],
   ) {
     val stakeholders: Set[Party] = signatories union observers
     private[speedy] val any = SValue.SAny(TTyCon(templateId), value)
+    private[speedy] def arg = value.toNormalizedValue(version)
+    private[speedy] def toCreateNode(coid: V.ContractId) =
+      Node.Create(
+        coid = coid,
+        templateId = templateId,
+        arg = arg,
+        agreementText = agreementText,
+        signatories = signatories,
+        stakeholders = stakeholders,
+        keyOpt = key.map(_.globalKeyWithMaintainers),
+        version = version,
+      )
   }
 
   private[this] def enforceLimit(actual: Int, limit: Int, error: Int => IError.Limit.Error): Unit =
@@ -140,6 +155,7 @@ private[lf] object Speedy {
       override val warningLog: WarningLog,
       override var compiledPackages: CompiledPackages,
       override val profile: Profile,
+      override val iterationsBetweenInterruptions: Long,
       val validating: Boolean,
       val submissionTime: Time.Timestamp,
       val contractKeyUniqueness: ContractKeyUniquenessMode,
@@ -245,20 +261,6 @@ private[lf] object Speedy {
     private[speedy] def isDisclosedContract(contractId: V.ContractId): Boolean =
       ptx.disclosedContractIds.contains(contractId)
 
-    private[speedy] def isLocalContractKey(contractId: V.ContractId, key: GlobalKey): Boolean = {
-      isLocalContract(contractId) && ptx.contractState.activeState.getLocalActiveKey(key).nonEmpty
-    }
-
-    private[speedy] def isDisclosedContractKey(
-        contractId: V.ContractId,
-        key: GlobalKey,
-    ): Boolean = {
-      isDisclosedContract(contractId) && disclosureKeyTable.isValidDisclosedContractKeyEntry(
-        key,
-        contractId,
-      )
-    }
-
     private[speedy] def updateCachedContracts(cid: V.ContractId, contract: CachedContract): Unit = {
       enforceLimit(
         contract.signatories.size,
@@ -342,23 +344,16 @@ private[lf] object Speedy {
                 )
               )
               val transactionVersion = tmplId2TxVersion(cachedContract.templateId)
-              val maybeKeyWithMaintainers =
-                cachedContract.key
-                  .map(_.toNormalizedKeyWithMaintainers(transactionVersion))
-                  .map { case Node.KeyWithMaintainers(key, maintainers) =>
-                    GlobalKeyWithMaintainers(
-                      globalKey = GlobalKey.assertBuild(disclosedContract.templateId, key),
-                      maintainers = maintainers,
-                    )
-                  }
-                  .map(Versioned(transactionVersion, _))
+              val keyOpt = cachedContract.key.map(k =>
+                Versioned(cachedContract.version, k.globalKeyWithMaintainers)
+              )
 
               val engineEnrichedContractMetadata = EngineEnrichedContractMetadata(
                 createdAt = disclosedContract.metadata.createdAt,
                 driverMetadata = disclosedContract.metadata.driverMetadata,
                 signatories = cachedContract.signatories,
                 stakeholders = cachedContract.stakeholders,
-                maybeKeyWithMaintainers = maybeKeyWithMaintainers,
+                keyOpt = keyOpt,
                 agreementText = cachedContract.agreementText,
               )
               val engineEnrichedDisclosedContract =
@@ -408,8 +403,8 @@ private[lf] object Speedy {
         coid: V.ContractId,
         handleKeyFound: V.ContractId => Control.Value,
     ): Control.Value = {
-      // For local contract keys and disclosed contract keys, we do not perform visibility checking
-      if (isLocalContractKey(coid, gkey) || isDisclosedContractKey(coid, gkey)) {
+      // For local and disclosed contracts, we do not perform visibility checking
+      if (isLocalContract(coid) || isDisclosedContract(coid)) {
         handleKeyFound(coid)
       } else {
         getCachedContract(coid) match {
@@ -447,6 +442,7 @@ private[lf] object Speedy {
         committers: Set[Party],
         readAs: Set[Party],
         authorizationChecker: AuthorizationChecker = DefaultAuthorizationChecker,
+        iterationsBetweenInterruptions: Long = 10000,
         validating: Boolean = false,
         traceLog: TraceLog = newTraceLog,
         warningLog: WarningLog = newWarningLog,
@@ -479,6 +475,7 @@ private[lf] object Speedy {
         traceLog = traceLog,
         warningLog = warningLog,
         profile = new Profile(),
+        iterationsBetweenInterruptions = iterationsBetweenInterruptions,
         compiledPackages = compiledPackages,
       )
     }
@@ -531,14 +528,12 @@ private[lf] object Speedy {
 
   final class ScenarioMachine(
       override val sexpr: SExpr,
-      /* The trace log. */
       override val traceLog: TraceLog,
-      /* Engine-generated warnings. */
       override val warningLog: WarningLog,
-      /* Compiled packages (Daml-LF ast + compiled speedy expressions). */
       override var compiledPackages: CompiledPackages,
-      /* Profile of the run when the packages haven been compiled with profiling enabled. */
       override val profile: Profile,
+      override val iterationsBetweenInterruptions: Long =
+        ScenarioMachine.defaultIterationsBetweenInterruptions,
   )(implicit loggingContext: LoggingContext)
       extends Machine[Question.Scenario] {
 
@@ -556,6 +551,10 @@ private[lf] object Speedy {
       unhandledException(excep)
   }
 
+  object ScenarioMachine {
+    val defaultIterationsBetweenInterruptions: Long = 10000
+  }
+
   final class PureMachine(
       override val sexpr: SExpr,
       /* The trace log. */
@@ -566,6 +565,7 @@ private[lf] object Speedy {
       override var compiledPackages: CompiledPackages,
       /* Profile of the run when the packages haven been compiled with profiling enabled. */
       override val profile: Profile,
+      override val iterationsBetweenInterruptions: Long,
   )(implicit loggingContext: LoggingContext)
       extends Machine[Nothing] {
 
@@ -588,6 +588,8 @@ private[lf] object Speedy {
       run() match {
         case SResultError(err) => Left(err)
         case SResultFinal(v) => Right(v)
+        case SResultInterruption =>
+          runPure()
         case SResultQuestion(nothing) => nothing
       }
   }
@@ -604,6 +606,9 @@ private[lf] object Speedy {
     var compiledPackages: CompiledPackages
     /* Profile of the run when the packages haven been compiled with profiling enabled. */
     val profile: Profile
+
+    /* number of iteration between cooperation interruption */
+    val iterationsBetweenInterruptions: Long
 
     private[speedy] def handleException(excep: SValue.SAny): Control[Nothing]
 
@@ -633,7 +638,7 @@ private[lf] object Speedy {
     /* The last encountered location */
     private[this] var lastLocation: Option[Location] = None
     /* Used when enableLightweightStepTracing is true */
-    private[this] var steps: Int = 0
+    private[this] var interruptionCountDown: Long = iterationsBetweenInterruptions
 
     /* Used when enableInstrumentation is true */
     private[this] val track: Instrumentation = new Instrumentation
@@ -800,7 +805,7 @@ private[lf] object Speedy {
       kontStack = initialKontStack()
       env = emptyEnv
       envBase = 0
-      steps = 0
+      interruptionCountDown = iterationsBetweenInterruptions
       track.reset()
     }
 
@@ -813,32 +818,33 @@ private[lf] object Speedy {
       try {
         @tailrec
         def loop(): SResult[Q] = {
-          if (enableInstrumentation) {
+          if (enableInstrumentation)
             Classify.classifyMachine(this, track.classifyCounts)
-          }
-          if (enableLightweightStepTracing) {
-            steps += 1
-            println(s"$steps: ${PrettyLightweight.ppMachine(this)}")
-          }
-          val thisControl = control
-          setControl(Control.WeAreUnset)
-          thisControl match {
-            case Control.WeAreUnset =>
-              sys.error("**attempt to run a machine with unset control")
-            case Control.Expression(exp) =>
-              control = exp.execute(this)
-              loop()
-            case Control.Value(value) =>
-              popTempStackToBase()
-              control = popKont().execute(this, value)
-              loop()
-            case Control.Question(res) =>
-              SResultQuestion(res)
-            case Control.Complete(value: SValue) =>
-              if (enableInstrumentation) track.print()
-              SResultFinal(value)
-            case Control.Error(ie) =>
-              SResultError(SErrorDamlException(ie))
+          if (interruptionCountDown == 0) {
+            interruptionCountDown = iterationsBetweenInterruptions
+            SResultInterruption
+          } else {
+            val thisControl = control
+            setControl(Control.WeAreUnset)
+            interruptionCountDown -= 1
+            thisControl match {
+              case Control.Value(value) =>
+                popTempStackToBase()
+                control = popKont().execute(this, value)
+                loop()
+              case Control.Expression(exp) =>
+                control = exp.execute(this)
+                loop()
+              case Control.Question(res) =>
+                SResultQuestion(res)
+              case Control.Complete(value: SValue) =>
+                if (enableInstrumentation) track.print()
+                SResultFinal(value)
+              case Control.Error(ie) =>
+                SResultError(SErrorDamlException(ie))
+              case Control.WeAreUnset =>
+                sys.error("**attempt to run a machine with unset control")
+            }
           }
         }
         loop()
@@ -1212,6 +1218,8 @@ private[lf] object Speedy {
     def fromScenarioSExpr(
         compiledPackages: CompiledPackages,
         scenario: SExpr,
+        iterationsBetweenInterruptions: Long =
+          ScenarioMachine.defaultIterationsBetweenInterruptions,
         traceLog: TraceLog = newTraceLog,
         warningLog: WarningLog = newWarningLog,
     )(implicit loggingContext: LoggingContext): ScenarioMachine =
@@ -1221,6 +1229,7 @@ private[lf] object Speedy {
         warningLog = warningLog,
         compiledPackages = compiledPackages,
         profile = new Profile(),
+        iterationsBetweenInterruptions = iterationsBetweenInterruptions,
       )
 
     @throws[PackageNotFound]
@@ -1229,10 +1238,12 @@ private[lf] object Speedy {
     def fromScenarioExpr(
         compiledPackages: CompiledPackages,
         scenario: Expr,
+        iterationsBetweenInterruptions: Long = ScenarioMachine.defaultIterationsBetweenInterruptions,
     )(implicit loggingContext: LoggingContext): ScenarioMachine =
       fromScenarioSExpr(
         compiledPackages = compiledPackages,
         scenario = compiledPackages.compiler.unsafeCompile(scenario),
+        iterationsBetweenInterruptions = iterationsBetweenInterruptions,
       )
 
     @throws[PackageNotFound]
@@ -1241,6 +1252,7 @@ private[lf] object Speedy {
     def fromPureSExpr(
         compiledPackages: CompiledPackages,
         expr: SExpr,
+        iterationsBetweenInterruptions: Long = Long.MaxValue,
         traceLog: TraceLog = newTraceLog,
         warningLog: WarningLog = newWarningLog,
     )(implicit loggingContext: LoggingContext): PureMachine =
@@ -1250,6 +1262,7 @@ private[lf] object Speedy {
         warningLog = warningLog,
         compiledPackages = compiledPackages,
         profile = new Profile(),
+        iterationsBetweenInterruptions = iterationsBetweenInterruptions,
       )
 
     @throws[PackageNotFound]
@@ -1304,12 +1317,12 @@ private[lf] object Speedy {
 
   private[speedy] sealed abstract class Control[+Q]
   object Control {
-    final case object WeAreUnset extends Control[Nothing]
-    final case class Expression(e: SExpr) extends Control[Nothing]
     final case class Value(v: SValue) extends Control[Nothing]
+    final case class Expression(e: SExpr) extends Control[Nothing]
     final case class Question[Q](res: Q) extends Control[Q]
     final case class Complete(res: SValue) extends Control[Nothing]
     final case class Error(err: interpretation.Error) extends Control[Nothing]
+    final case object WeAreUnset extends Control[Nothing]
   }
 
   /** Kont, or continuation. Describes the next step for the machine
@@ -1697,7 +1710,7 @@ private[lf] object Speedy {
   private[speedy] final case class KCacheContract(cid: V.ContractId) extends Kont {
     override def execute[Q](machine: Machine[Q], sv: SValue): Control[Q] =
       machine.asUpdateMachine(productPrefix) { machine =>
-        val cached = SBuiltin.extractCachedContract(sv)
+        val cached = SBuiltin.extractCachedContract(machine.tmplId2TxVersion, sv)
         machine.checkContractVisibility(cid, cached)
         machine.addGlobalContract(cid, cached)
         Control.Value(cached.any)
@@ -1723,6 +1736,15 @@ private[lf] object Speedy {
       machine.asUpdateMachine(productPrefix) { machine =>
         machine.ptx = machine.ptx.endExercises(exerciseResult.toNormalizedValue)
         Control.Value(exerciseResult)
+      }
+  }
+
+  private[speedy] final case object KCloseWithAuthority extends Kont {
+
+    override def execute[Q](machine: Machine[Q], result: SValue): Control[Q] =
+      machine.asUpdateMachine(productPrefix) { machine =>
+        machine.ptx = machine.ptx.endWithAuthority
+        Control.Value(result)
       }
   }
 

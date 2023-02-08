@@ -59,7 +59,7 @@ private[lf] class CollectAuthorityState {
 
     machine = Machine.fromScenarioExpr(
       compiledPackages,
-      expr,
+      scenario = expr,
     )
     the_sexpr = machine.currentControl match {
       case Control.Expression(exp) => exp
@@ -89,20 +89,24 @@ private[lf] class CollectAuthorityState {
         case SResultQuestion(Scenario.Submit(committers, commands, location, mustFail, callback)) =>
           assert(!mustFail)
           val api = new CannedLedgerApi(step, cachedContract)
-          ScenarioRunner.submit(
-            machine.compiledPackages,
-            api,
-            committers,
-            Set.empty,
-            SEValue(commands),
-            location,
-            crypto.Hash.hashPrivateKey(step.toString),
-            doEnrichment = false,
-          ) match {
-            case ScenarioRunner.Commit(_, value, _) =>
+          ScenarioRunner
+            .submit(
+              machine.compiledPackages,
+              api,
+              committers,
+              Set.empty,
+              SEValue(commands),
+              location,
+              crypto.Hash.hashPrivateKey(step.toString),
+              doEnrichment = false,
+            )
+            .resolve() match {
+            case Right(ScenarioRunner.Commit(_, value, _)) =>
               callback(value)
-            case ScenarioRunner.SubmissionError(err, _) => crash(s"Submission failed $err")
+            case Left(ScenarioRunner.SubmissionError(err, _)) =>
+              crash(s"Submission failed $err")
           }
+        case SResultInterruption =>
         case SResultFinal(v) => finalValue = v
         case r => crash(s"bench run: unexpected result from speedy: ${r}")
       }
@@ -130,23 +134,26 @@ private[lf] class CollectAuthorityState {
         case SResultQuestion(Scenario.Submit(committers, commands, location, mustFail, callback)) =>
           assert(!mustFail)
           val api = new CachedLedgerApi(step, ledger)
-          ScenarioRunner.submit(
-            machine.compiledPackages,
-            api,
-            committers,
-            Set.empty,
-            SEValue(commands),
-            location,
-            crypto.Hash.hashPrivateKey(step.toString),
-          ) match {
-            case ScenarioRunner.SubmissionError(err, _) => crash(s"Submission failed $err")
-            case ScenarioRunner.Commit(result, value, _) =>
+          ScenarioRunner
+            .submit(
+              machine.compiledPackages,
+              api,
+              committers,
+              Set.empty,
+              SEValue(commands),
+              location,
+              crypto.Hash.hashPrivateKey(step.toString),
+            )
+            .resolve() match {
+            case Left(ScenarioRunner.SubmissionError(err, _)) => crash(s"Submission failed $err")
+            case Right(ScenarioRunner.Commit(result, value, _)) =>
               ledger = result.newLedger
               cachedCommit = cachedCommit + (step -> value)
               callback(value)
               cachedContract ++= api.cachedContract
               step = api.step
           }
+        case SResultInterruption =>
         case SResultFinal(v) =>
           finalValue = v
         case r =>

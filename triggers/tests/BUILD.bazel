@@ -176,7 +176,7 @@ da_scala_library(
             "//libs-scala/ports",
             "//libs-scala/resources",
             "//libs-scala/scalatest-utils",
-            "//observability/telemetry",
+            "//observability/tracing",
             "//triggers/runner:trigger-runner-lib",
         ],
     )
@@ -188,7 +188,7 @@ da_scala_library(
     da_scala_test_suite(
         name = "trigger-failure-integration-tests" + suffix,
         srcs = [
-            "src/test/scala/com/digitalasset/daml/lf/engine/trigger/test/FailureTesting.scala",
+            "src/test/scala/com/digitalasset/daml/lf/engine/trigger/test/LoadTesting.scala",
         ],
         data = [
             ":acs%s.dar" % suffix,
@@ -230,7 +230,7 @@ da_scala_library(
             "//libs-scala/ports",
             "//libs-scala/resources",
             "//libs-scala/scalatest-utils",
-            "//observability/telemetry",
+            "//observability/tracing",
             "//triggers/runner:trigger-runner-lib",
         ],
     )

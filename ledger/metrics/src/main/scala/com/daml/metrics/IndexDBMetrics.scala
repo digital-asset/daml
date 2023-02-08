@@ -4,10 +4,10 @@
 package com.daml.metrics
 
 import com.daml.metrics.api.MetricDoc.MetricQualification.Debug
-import com.daml.metrics.api.MetricHandle.{Factory, Histogram, Timer}
+import com.daml.metrics.api.MetricHandle.{MetricsFactory, Histogram, Timer}
 import com.daml.metrics.api.{MetricDoc, MetricName}
 
-class IndexDBMetrics(val prefix: MetricName, val factory: Factory)
+class IndexDBMetrics(val prefix: MetricName, val factory: MetricsFactory)
     extends MainIndexDBMetrics(prefix, factory)
     with TransactionStreamsDbMetrics {
   self =>
@@ -16,7 +16,7 @@ class IndexDBMetrics(val prefix: MetricName, val factory: Factory)
 trait TransactionStreamsDbMetrics {
   self: DatabaseMetricsFactory =>
   val prefix: MetricName
-  val factory: Factory
+  val factory: MetricsFactory
 
   @MetricDoc.GroupTag(
     representative = "daml.index.db.flat_transactions_stream.<operation>",
@@ -90,7 +90,7 @@ trait TransactionStreamsDbMetrics {
   representative = "daml.index.db.<operation>",
   groupableClass = classOf[DatabaseMetrics],
 )
-class MainIndexDBMetrics(prefix: MetricName, factory: Factory)
+class MainIndexDBMetrics(prefix: MetricName, factory: MetricsFactory)
     extends DatabaseMetricsFactory(prefix, factory) { self =>
 
   @MetricDoc.Tag(

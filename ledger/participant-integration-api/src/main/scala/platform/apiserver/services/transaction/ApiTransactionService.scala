@@ -35,6 +35,7 @@ import com.daml.metrics.Metrics
 import com.daml.platform.apiserver.services.{StreamMetrics, logging}
 import com.daml.platform.server.api.services.domain.TransactionService
 import com.daml.platform.server.api.services.grpc.GrpcTransactionService
+import com.daml.tracing.Telemetry
 import io.grpc._
 import scalaz.syntax.tag._
 
@@ -45,6 +46,7 @@ private[apiserver] object ApiTransactionService {
       ledgerId: LedgerId,
       transactionsService: IndexTransactionsService,
       metrics: Metrics,
+      telemetry: Telemetry,
   )(implicit
       ec: ExecutionContext,
       mat: Materializer,
@@ -55,6 +57,7 @@ private[apiserver] object ApiTransactionService {
       new ApiTransactionService(transactionsService, metrics),
       ledgerId,
       PartyNameChecker.AllowAllParties,
+      telemetry,
     )
 }
 
@@ -71,7 +74,7 @@ private[apiserver] final class ApiTransactionService private (
 
   override def getTransactions(
       request: GetTransactionsRequest
-  ): Source[GetTransactionsResponse, NotUsed] = {
+  )(implicit loggingContext: LoggingContext): Source[GetTransactionsResponse, NotUsed] = {
     withEnrichedLoggingContext(
       logging.ledgerId(request.ledgerId),
       logging.startExclusive(request.startExclusive),
@@ -91,7 +94,7 @@ private[apiserver] final class ApiTransactionService private (
 
   override def getTransactionTrees(
       request: GetTransactionTreesRequest
-  ): Source[GetTransactionTreesResponse, NotUsed] = {
+  )(implicit loggingContext: LoggingContext): Source[GetTransactionTreesResponse, NotUsed] = {
     withEnrichedLoggingContext(
       logging.ledgerId(request.ledgerId),
       logging.startExclusive(request.startExclusive),
@@ -118,7 +121,7 @@ private[apiserver] final class ApiTransactionService private (
 
   override def getTransactionByEventId(
       request: GetTransactionByEventIdRequest
-  ): Future[GetTransactionResponse] = {
+  )(implicit loggingContext: LoggingContext): Future[GetTransactionResponse] = {
     implicit val enrichedLoggingContext: LoggingContext = LoggingContext.enriched(
       logging.ledgerId(request.ledgerId),
       logging.eventId(request.eventId),
@@ -143,7 +146,7 @@ private[apiserver] final class ApiTransactionService private (
 
   override def getTransactionById(
       request: GetTransactionByIdRequest
-  ): Future[GetTransactionResponse] = {
+  )(implicit loggingContext: LoggingContext): Future[GetTransactionResponse] = {
     val errorLogger: DamlContextualizedErrorLogger = withEnrichedLoggingContext(
       logging.ledgerId(request.ledgerId),
       logging.transactionId(request.transactionId),
@@ -160,7 +163,7 @@ private[apiserver] final class ApiTransactionService private (
 
   override def getFlatTransactionByEventId(
       request: GetTransactionByEventIdRequest
-  ): Future[GetFlatTransactionResponse] = {
+  )(implicit loggingContext: LoggingContext): Future[GetFlatTransactionResponse] = {
     implicit val errorLogger: DamlContextualizedErrorLogger = withEnrichedLoggingContext(
       logging.ledgerId(request.ledgerId),
       logging.eventId(request.eventId),
@@ -185,7 +188,7 @@ private[apiserver] final class ApiTransactionService private (
 
   override def getFlatTransactionById(
       request: GetTransactionByIdRequest
-  ): Future[GetFlatTransactionResponse] = {
+  )(implicit loggingContext: LoggingContext): Future[GetFlatTransactionResponse] = {
     val errorLogger = withEnrichedLoggingContext(
       logging.ledgerId(request.ledgerId),
       logging.transactionId(request.transactionId),

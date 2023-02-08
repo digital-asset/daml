@@ -137,6 +137,7 @@ safetyStep = \case
       BEExpInt64          -> Safe 1
       BEFoldl             -> Safe 2
       BEFoldr             -> Safe 2
+      BEWithAuthority     -> undefined -- TODO https://github.com/digital-asset/daml/issues/15882
       BETextMapEmpty      -> Safe 0
       BETextMapInsert     -> Safe 3
       BETextMapLookup     -> Safe 2
@@ -218,6 +219,8 @@ safetyStep = \case
   ESignatoryInterfaceF _ s -> s <> Safe 0
   EObserverInterfaceF _ s -> s <> Safe 0
   EViewInterfaceF _ _ -> Unsafe
+  EChoiceControllerF _ _ s1 s2 -> s1 <> s2 <> Safe 0
+  EChoiceObserverF _ _ s1 s2 -> s1 <> s2 <> Safe 0
   EExperimentalF _ _ -> Unsafe
 
 isTypeClassDictionary :: DefValue -> Bool

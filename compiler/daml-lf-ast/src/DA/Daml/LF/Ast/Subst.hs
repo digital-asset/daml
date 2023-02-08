@@ -224,6 +224,16 @@ applySubstInExpr subst@Subst{..} = \case
     EViewInterface iface expr -> EViewInterface
         iface
         (applySubstInExpr subst expr)
+    EChoiceController tpl ch expr1 expr2 -> EChoiceController
+        tpl
+        ch
+        (applySubstInExpr subst expr1)
+        (applySubstInExpr subst expr2)
+    EChoiceObserver tpl ch expr1 expr2 -> EChoiceObserver
+        tpl
+        ch
+        (applySubstInExpr subst expr1)
+        (applySubstInExpr subst expr2)
     EExperimental name ty ->
         EExperimental name (applySubstInType subst ty)
 

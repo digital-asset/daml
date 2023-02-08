@@ -73,11 +73,11 @@ private[preprocessing] final class TransactionPreprocessor(
             case create: Node.Create =>
               acc :+ commandPreprocessor.unsafePreprocessCreate(create.templateId, create.arg)
             case exe: Node.Exercise =>
-              val cmd = exe.key match {
+              val cmd = exe.keyOpt match {
                 case Some(key) if exe.byKey =>
                   commandPreprocessor.unsafePreprocessExerciseByKey(
                     exe.templateId,
-                    key.key,
+                    key.globalKey.key,
                     exe.choiceId,
                     exe.chosenValue,
                   )
@@ -95,6 +95,8 @@ private[preprocessing] final class TransactionPreprocessor(
             case _: Node.LookupByKey =>
               invalidRootNode(id, s"Transaction contains a lookup by key root node $id")
           }
+        case Some(_: Node.Authority) =>
+          invalidRootNode(id, s"invalid transaction, root refers to a authority node $id")
         case Some(_: Node.Rollback) =>
           invalidRootNode(id, s"invalid transaction, root refers to a rollback node $id")
         case None =>

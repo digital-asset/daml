@@ -29,6 +29,8 @@ import com.daml.logging.LoggingContext
 import com.daml.nameof.NameOf
 import com.daml.scalautil.Statement.discard
 
+import scala.annotation.tailrec
+
 /** Allows for evaluating [[Commands]] and validating [[Transaction]]s.
   * <p>
   *
@@ -366,25 +368,48 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
       s"Last location: ${Pretty.prettyLoc(machine.getLastLocation).render(80)}, partial transaction: ${machine.nodesToString}"
     )
 
-    var finished: Boolean = false
-    var finalValue: SResultFinal = null
+    def finish: Result[(SubmittedTransaction, Tx.Metadata)] =
+      machine.finish match {
+        case Right(UpdateMachine.Result(tx, _, nodeSeeds, globalKeyMapping, disclosedContracts)) =>
+          deps(tx).flatMap { deps =>
+            val meta = Tx.Metadata(
+              submissionSeed = None,
+              submissionTime = machine.submissionTime,
+              usedPackages = deps,
+              dependsOnTime = machine.getDependsOnTime,
+              nodeSeeds = nodeSeeds,
+              globalKeyMapping = globalKeyMapping,
+              disclosures = disclosedContracts,
+            )
+            config.profileDir.foreach { dir =>
+              val desc = Engine.profileDesc(tx)
+              val profileFile = dir.resolve(s"${meta.submissionTime}-$desc.json")
+              machine.profile.name = s"${meta.submissionTime}-$desc"
+              machine.profile.writeSpeedscopeJson(profileFile)
+            }
+            ResultDone((tx, meta))
+          }
+        case Left(err) =>
+          handleError(err)
+      }
 
-    while (!finished) {
+    @tailrec
+    def loop(): Result[(SubmittedTransaction, Tx.Metadata)] =
       machine.run() match {
-        case fv: SResultFinal =>
-          finished = true
-          finalValue = fv
 
         case SResultQuestion(question) =>
           question match {
+            case _: Question.Update.NeedAuthority => ??? // TODO #15882
+
             case Question.Update.NeedTime(callback) =>
               callback(time)
+              loop()
 
             case Question.Update.NeedPackage(pkgId, context, callback) =>
-              return Result.needPackage(
+              Result.needPackage(
                 pkgId,
                 context,
-                pkg => {
+                { pkg: Package =>
                   compiledPackages.addPackage(pkgId, pkg).flatMap { _ =>
                     callback(compiledPackages)
                     interpretLoop(machine, time)
@@ -393,53 +418,37 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
               )
 
             case Question.Update.NeedContract(contractId, _, callback) =>
-              def continueWithContract = (coinst: VersionedContractInstance) => {
-                callback(coinst.unversioned)
-                interpretLoop(machine, time)
-              }
+              Result.needContract(
+                contractId,
+                { coinst: VersionedContractInstance =>
+                  callback(coinst.unversioned)
+                  interpretLoop(machine, time)
+                },
+              )
 
-              return Result.needContract(contractId, continueWithContract)
-
-            case Question.Update.NeedKey(gk, _, cb) =>
-              def continueWithCoid = (result: Option[ContractId]) => {
-                discard[Boolean](cb(result))
-                interpretLoop(machine, time)
-              }
-
-              return ResultNeedKey(
+            case Question.Update.NeedKey(gk, _, callback) =>
+              ResultNeedKey(
                 gk,
-                continueWithCoid,
+                { coid: Option[ContractId] =>
+                  discard[Boolean](callback(coid))
+                  interpretLoop(machine, time)
+                },
               )
           }
 
-        case SResultError(err) =>
-          return handleError(err, detailMsg)
-      }
-    }
+        case SResultInterruption =>
+          // TODO https://github.com/digital-asset/daml/issues/13954
+          //  add a case in Engine.Result to handle this
+          loop()
 
-    machine.finish match {
-      case Right(UpdateMachine.Result(tx, _, nodeSeeds, globalKeyMapping, disclosedContracts)) =>
-        deps(tx).flatMap { deps =>
-          val meta = Tx.Metadata(
-            submissionSeed = None,
-            submissionTime = machine.submissionTime,
-            usedPackages = deps,
-            dependsOnTime = machine.getDependsOnTime,
-            nodeSeeds = nodeSeeds,
-            globalKeyMapping = globalKeyMapping,
-            disclosures = disclosedContracts,
-          )
-          config.profileDir.foreach { dir =>
-            val desc = Engine.profileDesc(tx)
-            val profileFile = dir.resolve(s"${meta.submissionTime}-$desc.json")
-            machine.profile.name = s"${meta.submissionTime}-$desc"
-            machine.profile.writeSpeedscopeJson(profileFile)
-          }
-          ResultDone((tx, meta))
-        }
-      case Left(err) =>
-        handleError(err)
-    }
+        case _: SResultFinal =>
+          finish
+
+        case SResultError(err) =>
+          handleError(err, detailMsg)
+      }
+
+    loop()
   }
 
   def clearPackages(): Unit = compiledPackages.clear()
@@ -547,6 +556,7 @@ object Engine {
       val makeDesc = (kind: String, tmpl: Ref.Identifier, extra: Option[String]) =>
         s"$kind:${tmpl.qualifiedName.name}${extra.map(extra => s":$extra").getOrElse("")}"
       tx.nodes.get(tx.roots(0)).toList.head match {
+        case _: Node.Authority => "authority"
         case _: Node.Rollback => "rollback"
         case create: Node.Create => makeDesc("create", create.templateId, None)
         case exercise: Node.Exercise =>

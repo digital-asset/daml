@@ -27,7 +27,8 @@ import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.apiserver.services.admin.ApiPackageManagementService._
 import com.daml.platform.apiserver.services.logging
-import com.daml.telemetry.{DefaultTelemetry, TelemetryContext}
+import com.daml.tracing.{Telemetry, TelemetryContext}
+import com.daml.platform.server.api.services.grpc.Logging.traceId
 import com.google.protobuf.ByteString
 import io.grpc.{ServerServiceDefinition, StatusRuntimeException}
 import scalaz.std.either._
@@ -36,6 +37,7 @@ import scalaz.syntax.traverse._
 
 import scala.util.Using
 import java.util.zip.ZipInputStream
+
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}
 import scala.jdk.FutureConverters.CompletionStageOps
@@ -49,6 +51,7 @@ private[apiserver] final class ApiPackageManagementService private (
     engine: Engine,
     darReader: GenDarReader[Archive],
     submissionIdGenerator: String => Ref.SubmissionId,
+    telemetry: Telemetry,
 )(implicit
     materializer: Materializer,
     executionContext: ExecutionContext,
@@ -74,22 +77,24 @@ private[apiserver] final class ApiPackageManagementService private (
 
   override def listKnownPackages(
       request: ListKnownPackagesRequest
-  ): Future[ListKnownPackagesResponse] = {
-    logger.info("Listing known packages")
-    packagesIndex
-      .listLfPackages()
-      .map { pkgs =>
-        ListKnownPackagesResponse(pkgs.toSeq.map { case (pkgId, details) =>
-          PackageDetails(
-            pkgId.toString,
-            details.size,
-            Some(TimestampConversion.fromLf(details.knownSince)),
-            details.sourceDescription.getOrElse(""),
-          )
-        })
-      }
-      .andThen(logger.logErrorsOnCall[ListKnownPackagesResponse])
-  }
+  ): Future[ListKnownPackagesResponse] =
+    withEnrichedLoggingContext(traceId(telemetry.traceIdFromGrpcContext)) {
+      implicit loggingContext =>
+        logger.info("Listing known packages")
+        packagesIndex
+          .listLfPackages()
+          .map { pkgs =>
+            ListKnownPackagesResponse(pkgs.toSeq.map { case (pkgId, details) =>
+              PackageDetails(
+                pkgId.toString,
+                details.size,
+                Some(TimestampConversion.fromLf(details.knownSince)),
+                details.sourceDescription.getOrElse(""),
+              )
+            })
+          }
+          .andThen(logger.logErrorsOnCall[ListKnownPackagesResponse])
+    }
 
   private def decodeAndValidate(
       darFile: ByteString
@@ -115,11 +120,14 @@ private[apiserver] final class ApiPackageManagementService private (
 
   override def uploadDarFile(request: UploadDarFileRequest): Future[UploadDarFileResponse] = {
     val submissionId = submissionIdGenerator(request.submissionId)
-    withEnrichedLoggingContext(logging.submissionId(submissionId)) { implicit loggingContext =>
+    withEnrichedLoggingContext(
+      logging.submissionId(submissionId),
+      traceId(telemetry.traceIdFromGrpcContext),
+    ) { implicit loggingContext =>
       logger.info("Uploading DAR file")
 
       implicit val telemetryContext: TelemetryContext =
-        DefaultTelemetry.contextFromGrpcThreadLocalContext()
+        telemetry.contextFromGrpcThreadLocalContext()
 
       implicit val contextualizedErrorLogger: ContextualizedErrorLogger =
         new DamlContextualizedErrorLogger(
@@ -159,6 +167,7 @@ private[apiserver] object ApiPackageManagementService {
       engine: Engine,
       darReader: GenDarReader[Archive] = DarParser,
       submissionIdGenerator: String => Ref.SubmissionId = augmentSubmissionId,
+      telemetry: Telemetry,
   )(implicit
       materializer: Materializer,
       executionContext: ExecutionContext,
@@ -172,6 +181,7 @@ private[apiserver] object ApiPackageManagementService {
       engine,
       darReader,
       submissionIdGenerator,
+      telemetry,
     )
 
   private final class SynchronousResponseStrategy(

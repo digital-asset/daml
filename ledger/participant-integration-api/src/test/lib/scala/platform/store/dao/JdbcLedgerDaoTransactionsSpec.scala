@@ -528,7 +528,6 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
         acsIdPageSize = 2,
         acsIdFetchingParallelism = 2,
         acsContractFetchingParallelism = 2,
-        acsGlobalParallelism = 10,
       ).use(
         _.transactionsReader
           .getFlatTransactions(
@@ -563,7 +562,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
       txSeq: Gen[Vector[Boolean]],
       codePath: Gen[FlatTransactionCodePath],
   ) = {
-    import JdbcLedgerDaoSuite._
+    import com.daml.scalautil.TraverseFMSyntax._
     import scalaz.std.list._
     import scalaz.std.scalaFuture._
 
@@ -670,7 +669,6 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
       acsIdPageSize: Int,
       acsIdFetchingParallelism: Int,
       acsContractFetchingParallelism: Int,
-      acsGlobalParallelism: Int,
   ) =
     LoggingContext.newLoggingContext { implicit loggingContext =>
       daoOwner(
@@ -679,7 +677,6 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
         acsIdPageSize = acsIdPageSize,
         acsIdFetchingParallelism = acsIdFetchingParallelism,
         acsContractFetchingParallelism = acsContractFetchingParallelism,
-        acsGlobalParallelism = acsGlobalParallelism,
       )
     }
 

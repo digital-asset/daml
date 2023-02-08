@@ -37,7 +37,7 @@ da_scala_library(
         "//libs-scala/contextualized-logging",
         "//libs-scala/logging-entries",
         "//libs-scala/scala-utils",
-        "//observability/telemetry",
+        "//observability/tracing",
     ],
 )
 

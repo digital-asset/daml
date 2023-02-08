@@ -211,6 +211,15 @@ class EncodeV1Spec extends AnyWordSpec with Matchers with TableDrivenPropertyChe
            val concrete_observer_interface: Mod:Planet -> List Party =
              \ (p: Mod:Planet) -> observer_interface @Mod:Planet p;
 
+           val concrete_template_choice_controller: Mod:Person -> Int64 -> List Party =
+             \ (p : Mod:Person) (i : Int64) -> choice_controller @Mod:Person Nap p i;
+           val concrete_template_choice_observer: Mod:Person -> Int64 -> List Party =
+             \ (p : Mod:Person) (i : Int64) -> choice_observer @Mod:Person Nap p i;
+           val concrete_interface_choice_controller: Mod:Human -> Int64 -> List Party =
+             \ (p : Mod:Human) (i : Int64) -> choice_controller @Mod:Human HumanNap p i;
+           val concrete_interface_choice_observer: Mod:Human -> Int64 -> List Party =
+             \ (p : Mod:Human) (i : Int64) -> choice_observer @Mod:Human HumanNap p i;
+
            interface (this: Root) = {
              viewtype Mod:MyUnit;
              coimplements Mod0:Parcel {

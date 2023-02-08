@@ -6,7 +6,6 @@ package com.daml.ledger.api.benchtool.submission
 import akka.actor.ActorSystem
 import akka.stream.scaladsl.{Sink, Source}
 import akka.stream.{Materializer, OverflowStrategy}
-import com.codahale.metrics.{MetricRegistry, Timer}
 import com.daml.ledger.api.benchtool.config.WorkflowConfig.SubmissionConfig
 import com.daml.ledger.api.benchtool.infrastructure.TestDars
 import com.daml.ledger.api.benchtool.metrics.LatencyMetric.LatencyNanos
@@ -16,6 +15,8 @@ import com.daml.ledger.api.v1.commands.{Command, Commands}
 import com.daml.ledger.client
 import com.daml.ledger.client.binding.Primitive
 import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
+import com.daml.metrics.api.MetricHandle.{MetricsFactory, Timer}
+import com.daml.metrics.api.MetricName
 import io.grpc.Status
 import org.slf4j.LoggerFactory
 import scalaz.syntax.tag._
@@ -30,16 +31,17 @@ case class CommandSubmitter(
     benchtoolUserServices: LedgerApiServices,
     adminServices: LedgerApiServices,
     partyAllocating: PartyAllocating,
-    metricRegistry: MetricRegistry,
+    metricsFactory: MetricsFactory,
     metricsManager: MetricsManager[LatencyNanos],
     waitForSubmission: Boolean,
     commandGenerationParallelism: Int = 8,
+    maxInFlightCommandsOverride: Option[Int] = None,
 ) {
   private val logger = LoggerFactory.getLogger(getClass)
   private val submitLatencyTimer = if (waitForSubmission) {
-    metricRegistry.timer("daml_submit_and_wait_latency")
+    metricsFactory.timer(MetricName("daml_submit_and_wait_latency"))
   } else {
-    metricRegistry.timer("daml_submit_latency")
+    metricsFactory.timer(MetricName("daml_submit_latency"))
   }
 
   def prepare(config: SubmissionConfig)(implicit
@@ -55,7 +57,7 @@ case class CommandSubmitter(
           s"Command submission preparation failed. Details: ${ex.getLocalizedMessage}",
           ex,
         )
-        Future.failed(CommandSubmitter.CommandSubmitterError(ex.getLocalizedMessage))
+        Future.failed(CommandSubmitter.CommandSubmitterError(ex.getLocalizedMessage, ex))
       }
   }
 
@@ -97,7 +99,7 @@ case class CommandSubmitter(
     })
       .recoverWith { case NonFatal(ex) =>
         logger.error(s"Command submission failed. Details: ${ex.getLocalizedMessage}", ex)
-        Future.failed(CommandSubmitter.CommandSubmitterError(ex.getLocalizedMessage))
+        Future.failed(CommandSubmitter.CommandSubmitterError(ex.getLocalizedMessage, ex))
       }
   }
 
@@ -191,30 +193,33 @@ case class CommandSubmitter(
             .groupedWithin(submissionBatchSize, 1.minute)
             .map(cmds => cmds.head._1 -> cmds.map(_._2).toList)
             .buffer(maxInFlightCommands, OverflowStrategy.backpressure)
-            .mapAsync(maxInFlightCommands) { case (index, commands) =>
-              timed(submitLatencyTimer, metricsManager) {
-                submit(
-                  id = names.commandId(index),
-                  actAs = baseActAs ++ generator.nextExtraCommandSubmitters(),
-                  commands = commands.flatten,
-                  applicationId = generator.nextApplicationId(),
-                  useSubmitAndWait = config.waitForSubmission,
-                )
-              }
-                .map(_ => index + commands.length - 1)
-                .recoverWith {
-                  case e: io.grpc.StatusRuntimeException
-                      if e.getStatus.getCode == Status.Code.ABORTED =>
-                    logger.info(s"Flow rate limited at index $index: ${e.getLocalizedMessage}")
-                    Thread.sleep(10) // Small back-off period
-                    Future.successful(index + commands.length - 1)
-                  case ex =>
-                    logger.error(
-                      s"Command submission failed. Details: ${ex.getLocalizedMessage}",
-                      ex,
-                    )
-                    Future.failed(CommandSubmitter.CommandSubmitterError(ex.getLocalizedMessage))
+            .mapAsync(maxInFlightCommandsOverride.getOrElse(maxInFlightCommands)) {
+              case (index, commands) =>
+                timed(submitLatencyTimer, metricsManager) {
+                  submit(
+                    id = names.commandId(index),
+                    actAs = baseActAs ++ generator.nextExtraCommandSubmitters(),
+                    commands = commands.flatten,
+                    applicationId = generator.nextApplicationId(),
+                    useSubmitAndWait = config.waitForSubmission,
+                  )
                 }
+                  .map(_ => index + commands.length - 1)
+                  .recoverWith {
+                    case e: io.grpc.StatusRuntimeException
+                        if e.getStatus.getCode == Status.Code.ABORTED =>
+                      logger.info(s"Flow rate limited at index $index: ${e.getLocalizedMessage}")
+                      Thread.sleep(10) // Small back-off period
+                      Future.successful(index + commands.length - 1)
+                    case ex =>
+                      logger.error(
+                        s"Command submission failed. Details: ${ex.getLocalizedMessage}",
+                        ex,
+                      )
+                      Future.failed(
+                        CommandSubmitter.CommandSubmitterError(ex.getLocalizedMessage, ex)
+                      )
+                  }
             }
             .runWith(progressLoggingSink)
         } yield ()
@@ -231,16 +236,19 @@ case class CommandSubmitter(
   private def timed[O](timer: Timer, metricsManager: MetricsManager[LatencyNanos])(
       f: => Future[O]
   )(implicit ec: ExecutionContext) = {
-    val ctx = timer.time()
+    val ctx = timer.startAsync()
+    val startNanos = System.nanoTime()
     f.map(_.tap { _ =>
-      val latencyNanos = ctx.stop()
-      metricsManager.sendNewValue(latencyNanos)
+      ctx.stop()
+      val endNanos = System.nanoTime()
+      metricsManager.sendNewValue(endNanos - startNanos)
     })
   }
 }
 
 object CommandSubmitter {
-  case class CommandSubmitterError(msg: String) extends RuntimeException(msg)
+  case class CommandSubmitterError(msg: String, cause: Throwable)
+      extends RuntimeException(msg, cause)
 
   case class SubmissionSummary(observers: List[Primitive.Party])
 

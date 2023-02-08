@@ -4,6 +4,7 @@
 package com.daml.lf.validation
 
 import com.daml.lf.data.{ImmArray, Numeric, Struct}
+import com.daml.lf.data.TemplateOrInterface
 import com.daml.lf.data.Ref._
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.Util._
@@ -135,6 +136,12 @@ private[validation] object Typing {
         TForall(
           alpha.name -> KStar,
           TForall(beta.name -> KStar, (alpha ->: beta ->: beta) ->: beta ->: TList(alpha) ->: beta),
+        ),
+      // Authority
+      BWithAuthority ->
+        TForall(
+          alpha.name -> KStar,
+          TList(TParty) ->: TUpdate(alpha) ->: TUpdate(alpha),
         ),
       // Maps
       BTextMapEmpty ->
@@ -1291,14 +1298,6 @@ private[validation] object Typing {
       }
     }
 
-    private def typeOfActingAsConsortium(members: Expr, consortium: Expr): Work[Type] = {
-      checkExpr(members, TList(TParty)) {
-        checkExpr(consortium, TParty) {
-          Ret(TUpdate(TUnit))
-        }
-      }
-    }
-
     private def checkByKey[T](tmplId: TypeConName, key: Expr)(work: => Work[T]): Work[T] = {
       val tmplKey = handleLookup(ctx, pkgInterface.lookupTemplateKey(tmplId))
       checkExpr(key, tmplKey.typ) {
@@ -1327,8 +1326,6 @@ private[validation] object Typing {
         typeOfFetchTemplate(tpl, cid)
       case UpdateFetchInterface(tpl, cid) =>
         typeOfFetchInterface(tpl, cid)
-      case UpdateActingAsConsortium(members, consortium) =>
-        typeOfActingAsConsortium(members, consortium)
       case UpdateGetTime =>
         Ret(TUpdate(TTimestamp))
       case UpdateEmbedExpr(typ, exp) =>
@@ -1453,6 +1450,25 @@ private[validation] object Typing {
         Ret(TOptional(typ))
     }
 
+    private[Typing] def typeOfChoiceControllerOrObserver(
+        ty: TypeConName,
+        choiceName: ChoiceName,
+        contract: Expr,
+        choiceArg: Expr,
+    ): Work[Type] = {
+      val choice = handleLookup(ctx, pkgInterface.lookupTemplateOrInterface(ty)) match {
+        case TemplateOrInterface.Template(_) =>
+          handleLookup(ctx, pkgInterface.lookupTemplateChoice(ty, choiceName))
+        case TemplateOrInterface.Interface(_) =>
+          handleLookup(ctx, pkgInterface.lookupInterfaceChoice(ty, choiceName))
+      }
+      checkExpr(contract, TTyCon(ty)) {
+        checkExpr(choiceArg, choice.argBinder._2) {
+          Ret(TParties)
+        }
+      }
+    }
+
     private[Typing] def typeOfExpr(e: Expr): Work[Type] = e match {
       case expr: ExprAtomic =>
         typeOfAtomic(expr)
@@ -1535,6 +1551,10 @@ private[validation] object Typing {
         checkExpr(value, TAnyException) {
           Ret(TOptional(typ))
         }
+      case EChoiceController(ty, ch, expr1, expr2) =>
+        typeOfChoiceControllerOrObserver(ty, ch, expr1, expr2)
+      case EChoiceObserver(ty, ch, expr1, expr2) =>
+        typeOfChoiceControllerOrObserver(ty, ch, expr1, expr2)
       case expr: ExprInterface =>
         typOfExprInterface(expr)
       case EExperimental(_, typ) =>

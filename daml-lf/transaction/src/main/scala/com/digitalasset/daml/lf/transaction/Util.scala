@@ -88,15 +88,17 @@ object Util {
       .map(normalized => contract.map(_.copy(arg = normalized)))
 
   def normalizeKey(
-      key: Node.KeyWithMaintainers,
+      key: GlobalKeyWithMaintainers,
       version: TransactionVersion,
-  ): Either[String, Node.KeyWithMaintainers] =
-    normalizeValue(key.key, version).map(normalized => key.copy(key = normalized))
+  ): Either[String, GlobalKeyWithMaintainers] =
+    normalizeValue(key.globalKey.key, version).map(normalized =>
+      key.copy(globalKey = GlobalKey.assertBuild(key.globalKey.templateId, normalized))
+    )
 
   def normalizeOptKey(
-      key: Option[Node.KeyWithMaintainers],
+      key: Option[GlobalKeyWithMaintainers],
       version: TransactionVersion,
-  ): Either[String, Option[Node.KeyWithMaintainers]] =
+  ): Either[String, Option[GlobalKeyWithMaintainers]] =
     key match {
       case Some(value) => normalizeKey(value, version).map(Some(_))
       case None => Right(None)

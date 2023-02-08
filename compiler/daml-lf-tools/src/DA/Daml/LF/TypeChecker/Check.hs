@@ -57,6 +57,7 @@ import           DA.Daml.LF.Ast.Optics (dataConsType)
 import           DA.Daml.LF.Ast.Type
 import           DA.Daml.LF.Ast.Alpha
 import           DA.Daml.LF.Ast.Numeric
+import qualified DA.Daml.LF.TemplateOrInterface as TemplateOrInterface
 import           DA.Daml.LF.TypeChecker.Env
 import           DA.Daml.LF.TypeChecker.Error
 
@@ -276,6 +277,13 @@ typeOfBuiltin = \case
              (tBeta :-> tAlpha :-> tBeta) :-> tBeta :-> TList tAlpha :-> tBeta
   BEFoldr -> pure $ TForall (alpha, KStar) $ TForall (beta, KStar) $
              (tAlpha :-> tBeta :-> tBeta) :-> tBeta :-> TList tAlpha :-> tBeta
+
+  BEWithAuthority ->
+    pure $ TForall (alpha, KStar) $
+    TList TParty :->
+    TUpdate tAlpha :->
+    TUpdate tAlpha
+
   BETextMapEmpty  -> pure $ TForall (alpha, KStar) $ TTextMap tAlpha
   BETextMapInsert -> pure $ TForall (alpha, KStar) $ TText :-> tAlpha :-> TTextMap tAlpha :-> TTextMap tAlpha
   BETextMapLookup -> pure $ TForall (alpha, KStar) $ TText :-> TTextMap tAlpha :-> TOptional tAlpha
@@ -814,6 +822,22 @@ typeOf' = \case
     iface <- inWorld (lookupInterface ifaceId)
     checkExpr expr (TCon ifaceId)
     pure (intView iface)
+  EChoiceController tpl choiceName contract choiceArg -> do
+    ty <- inWorld (lookupTemplateOrInterface tpl)
+    choice <- inWorld $ case ty of
+      TemplateOrInterface.Template {} -> lookupChoice (tpl, choiceName)
+      TemplateOrInterface.Interface {} -> lookupInterfaceChoice (tpl, choiceName)
+    checkExpr contract (TCon tpl)
+    checkExpr choiceArg (chcArgType choice)
+    pure (TList TParty)
+  EChoiceObserver tpl choiceName contract choiceArg -> do
+    ty <- inWorld (lookupTemplateOrInterface tpl)
+    choice <- inWorld $ case ty of
+      TemplateOrInterface.Template {} -> lookupChoice (tpl, choiceName)
+      TemplateOrInterface.Interface {} -> lookupInterfaceChoice (tpl, choiceName)
+    checkExpr contract (TCon tpl)
+    checkExpr choiceArg (chcArgType choice)
+    pure (TList TParty)
   EExperimental name ty -> do
     checkFeature featureExperimental
     checkExperimentalType name ty

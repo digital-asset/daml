@@ -216,6 +216,8 @@ object Runner {
   final case class InterpretationError(error: SError.SError)
       extends RuntimeException(s"${Pretty.prettyError(error).render(80)}")
 
+  final case object Canceled extends RuntimeException
+
   private[script] val compilerConfig = {
     import Compiler._
     Config(
@@ -354,6 +356,7 @@ object Runner {
       timeMode: ScriptTimeMode,
       traceLog: TraceLog = Speedy.Machine.newTraceLog,
       warningLog: WarningLog = Speedy.Machine.newWarningLog,
+      canceled: () => Boolean = () => false,
   )(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
@@ -380,7 +383,7 @@ object Runner {
         throw new RuntimeException(s"The script ${scriptId} requires an argument.")
     }
     val runner = new Runner(compiledPackages, scriptAction, timeMode)
-    runner.runWithClients(initialClients, traceLog, warningLog)
+    runner.runWithClients(initialClients, traceLog, warningLog, canceled)
   }
 }
 
@@ -390,23 +393,27 @@ private[lf] class Runner(
     timeMode: ScriptTimeMode,
 ) extends StrictLogging {
 
-  // We overwrite the definition of fromLedgerValue with an identity function.
+  // We overwrite the definition of 'fromLedgerValue' with an identity function.
   // This is a type error but Speedy doesn’t care about the types and the only thing we do
   // with the result is convert it to ledger values/record so this is safe.
+  // We do the same substitution for 'castCatchPayload' to circumvent Daml's
+  // lack of existential types.
   private val extendedCompiledPackages = {
-    val fromLedgerValue: PartialFunction[SDefinitionRef, SDefinition] = {
+    val damlScriptDefs: PartialFunction[SDefinitionRef, SDefinition] = {
       case LfDefRef(id) if id == script.scriptIds.damlScript("fromLedgerValue") =>
+        SDefinition(SEMakeClo(Array(), 1, SELocA(0)))
+      case LfDefRef(id) if id == script.scriptIds.damlScript("castCatchPayload") =>
         SDefinition(SEMakeClo(Array(), 1, SELocA(0)))
     }
     new CompiledPackages(Runner.compilerConfig) {
       override def getDefinition(dref: SDefinitionRef): Option[SDefinition] =
-        fromLedgerValue.andThen(Some(_)).applyOrElse(dref, compiledPackages.getDefinition)
+        damlScriptDefs.andThen(Some(_)).applyOrElse(dref, compiledPackages.getDefinition)
       // FIXME: avoid override of non abstract method
       override def pkgInterface: PackageInterface = compiledPackages.pkgInterface
       override def packageIds: collection.Set[PackageId] = compiledPackages.packageIds
       // FIXME: avoid override of non abstract method
       override def definitions: PartialFunction[SDefinitionRef, SDefinition] =
-        fromLedgerValue.orElse(compiledPackages.definitions)
+        damlScriptDefs.orElse(compiledPackages.definitions)
     }
   }
 
@@ -421,6 +428,7 @@ private[lf] class Runner(
       initialClients: Participants[ScriptLedgerClient],
       traceLog: TraceLog = Speedy.Machine.newTraceLog,
       warningLog: WarningLog = Speedy.Machine.newWarningLog,
+      canceled: () => Boolean = () => false,
   )(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
@@ -434,8 +442,13 @@ private[lf] class Runner(
         warningLog = warningLog,
       )(Script.DummyLoggingContext)
 
+    @scala.annotation.tailrec
     def stepToValue(): Either[RuntimeException, SValue] =
       machine.run() match {
+        case _ if canceled() =>
+          Left(Runner.Canceled)
+        case SResultInterruption =>
+          stepToValue()
         case SResultFinal(v) =>
           Right(v)
         case SResultError(err) =>
@@ -468,9 +481,9 @@ private[lf] class Runner(
               )
               .flatMap { scriptF =>
                 scriptF match {
-                  case ScriptF.Catch(act, handle) =>
+                  case ScriptF.Catch(act, handle, continue) =>
                     run(SEAppAtomic(SEValue(act), Array(SEValue(SUnit)))).transformWith {
-                      case Success(v) => Future.successful(SEValue(v))
+                      case Success(v) => Future.successful(SEApp(SEValue(continue), Array(v)))
                       case Failure(
                             exce @ Runner.InterpretationError(
                               SError.SErrorDamlException(IE.UnhandledException(typ, value))
@@ -490,7 +503,8 @@ private[lf] class Runner(
                           .flatMap {
                             case SOptional(None) =>
                               Future.failed(exce)
-                            case SOptional(Some(free)) => Future.successful(SEValue(free))
+                            case SOptional(Some(free)) =>
+                              Future.successful(SEApp(SEValue(continue), Array(free)))
                             case e =>
                               Future.failed(
                                 new ConverterException(s"Expected SOptional but got $e")

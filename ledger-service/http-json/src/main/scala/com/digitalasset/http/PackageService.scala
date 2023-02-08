@@ -120,9 +120,26 @@ private class PackageService(
         )
         .map {
           case Some(diff) =>
-            updateState(diff)
-            logger.info(s"new package IDs loaded: ${diff.keySet.mkString(", ")}")
-            logger.debug(s"loaded diff: $diff")
+            // this is not a perfect reduction, but is never less efficient
+            // and often more efficient in concurrent loading.
+            //
+            // But how can we just drop half of the packages on the floor?
+            // Because if a package is in _state already, then by definition
+            // it cannot depend on any of the packages that remain in
+            // loadsSinceReloading; therefore, loadsSinceReloading is the valid
+            // diff we would have seen had we started the reload *now*.
+            val loadsSinceReloading = diff -- _state.packageIds
+            if (diff.sizeIs > loadsSinceReloading.size)
+              logger.debug(
+                s"discarding ${diff.size - loadsSinceReloading.size} redundant loaded packages"
+              )
+            if (loadsSinceReloading.isEmpty)
+              logger.debug("new package IDs not found")
+            else {
+              updateState(loadsSinceReloading)
+              logger.info(s"new package IDs loaded: ${loadsSinceReloading.keySet.mkString(", ")}")
+              logger.debug(s"loaded diff: $loadsSinceReloading")
+            }
           case None => logger.debug("new package IDs not found")
         }
         .map { res =>

@@ -27,6 +27,7 @@ import scala.util.{Failure, Success, Try}
 final class AuthorizationInterceptor(
     authService: AuthService,
     userManagementStoreO: Option[UserManagementStore],
+    identityProviderAwareAuthService: IdentityProviderAwareAuthService,
     implicit val ec: ExecutionContext,
 )(implicit loggingContext: LoggingContext)
     extends ServerInterceptor {
@@ -55,6 +56,7 @@ final class AuthorizationInterceptor(
       authService
         .decodeMetadata(headers)
         .asScala
+        .flatMap(fallbackToIdpAuthService(headers, _))
         .flatMap(resolveAuthenticatedUserRights)
         .onComplete {
           case Failure(error: StatusRuntimeException) =>
@@ -79,18 +81,24 @@ final class AuthorizationInterceptor(
     }
   }
 
+  private def fallbackToIdpAuthService(headers: Metadata, claimSet: ClaimSet) =
+    if (claimSet == ClaimSet.Unauthenticated)
+      identityProviderAwareAuthService.decodeMetadata(headers)
+    else
+      Future.successful(claimSet)
+
   private[this] def resolveAuthenticatedUserRights(claimSet: ClaimSet): Future[ClaimSet] =
     claimSet match {
       case ClaimSet.AuthenticatedUser(identityProviderId, userIdStr, participantId, expiration) =>
         for {
           userManagementStore <- getUserManagementStore(userManagementStoreO)
           userId <- getUserId(userIdStr)
-          user <- verifyUserIsActive(userManagementStore, userId)
+          user <- verifyUserIsActive(userManagementStore, userId, identityProviderId)
           _ <- verifyUserIsWithinIdentityProvider(
             identityProviderId,
             user,
           )
-          userRightsResult <- userManagementStore.listUserRights(userId)
+          userRightsResult <- userManagementStore.listUserRights(userId, identityProviderId)
           claimsSet <- userRightsResult match {
             case Left(msg) =>
               Future.failed(
@@ -136,9 +144,10 @@ final class AuthorizationInterceptor(
   private def verifyUserIsActive(
       userManagementStore: UserManagementStore,
       userId: UserId,
+      identityProviderId: IdentityProviderId,
   ): Future[User] =
     for {
-      userResult <- userManagementStore.getUser(id = userId)
+      userResult <- userManagementStore.getUser(id = userId, identityProviderId)
       value <- userResult match {
         case Left(msg) =>
           Future.failed(
@@ -208,10 +217,16 @@ object AuthorizationInterceptor {
   def apply(
       authService: AuthService,
       userManagementStoreO: Option[UserManagementStore],
+      identityProviderAwareAuthService: IdentityProviderAwareAuthService,
       ec: ExecutionContext,
   ): AuthorizationInterceptor =
     LoggingContext.newLoggingContext { implicit loggingContext: LoggingContext =>
-      new AuthorizationInterceptor(authService, userManagementStoreO, ec)
+      new AuthorizationInterceptor(
+        authService,
+        userManagementStoreO,
+        identityProviderAwareAuthService,
+        ec,
+      )
     }
 
   def convertUserRightsToClaims(userRights: Set[UserRight]): Seq[Claim] = {

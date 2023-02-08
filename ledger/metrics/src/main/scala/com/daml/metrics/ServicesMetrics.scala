@@ -4,15 +4,20 @@
 package com.daml.metrics
 
 import com.daml.metrics.api.MetricDoc.MetricQualification.{Debug, Saturation, Traffic}
-import com.daml.metrics.api.MetricHandle.{Counter, Factory, Histogram, Timer}
+import com.daml.metrics.api.MetricHandle.{
+  Counter,
+  Histogram,
+  LabeledMetricsFactory,
+  MetricsFactory,
+  Timer,
+}
 import com.daml.metrics.api.dropwizard.DropwizardTimer
-import com.daml.metrics.api.opentelemetry.OpenTelemetryFactory
 import com.daml.metrics.api.{MetricDoc, MetricName}
 
 class ServicesMetrics(
     prefix: MetricName,
-    factory: Factory,
-    openTelemetryFactory: OpenTelemetryFactory,
+    factory: MetricsFactory,
+    labeledMetricsFactory: LabeledMetricsFactory,
 ) {
 
   @MetricDoc.FanTag(
@@ -226,6 +231,6 @@ class ServicesMetrics(
     val prune: Timer = factory.timer(prefix :+ "prune")
   }
 
-  object pruning extends PruningMetrics(prefix :+ "pruning", openTelemetryFactory)
+  object pruning extends PruningMetrics(prefix :+ "pruning", labeledMetricsFactory)
 
 }

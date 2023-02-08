@@ -154,6 +154,6 @@ da_scala_test(
         "//ledger/sandbox-on-x:sandbox-on-x-test-lib",
         "//libs-scala/ports",
         "//libs-scala/resources",
-        "//observability/telemetry",
+        "//observability/tracing",
     ],
 )

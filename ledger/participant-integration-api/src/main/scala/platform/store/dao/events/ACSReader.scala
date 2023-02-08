@@ -5,100 +5,131 @@ package com.daml.platform.store.dao.events
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
-import akka.stream.{Attributes, OverflowStrategy}
+import akka.stream.Attributes
+import com.daml.error.DamlContextualizedErrorLogger
+import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
+import com.daml.ledger.api.v1.event.Event
 import com.daml.ledger.offset.Offset
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.metrics.Metrics
+import com.daml.metrics.{Metrics, Timed}
+import com.daml.nameof.NameOf.qualifiedNameOfCurrentFunc
 import com.daml.platform.indexer.parallel.BatchN
-import com.daml.platform.{Identifier, Party, TemplatePartiesFilter}
-import com.daml.platform.store.dao.DbDispatcher
+import com.daml.platform.TemplatePartiesFilter
+import com.daml.platform.configuration.AcsStreamsConfig
+import com.daml.platform.store.dao.{DbDispatcher, EventProjectionProperties, PaginatingAsyncStream}
 import com.daml.platform.store.backend.EventStorageBackend
-import com.daml.platform.store.utils.{ConcurrencyLimiter, QueueBasedConcurrencyLimiter}
+import com.daml.platform.store.dao.PaginatingAsyncStream.IdPaginationState
+import com.daml.platform.store.dao.events.EventsTable.TransactionConversions
+import com.daml.platform.store.dao.events.TransactionsReader.{
+  deserializeEntry,
+  endSpanOnTermination,
+}
+import com.daml.platform.store.utils.{ConcurrencyLimiter, QueueBasedConcurrencyLimiter, Telemetry}
+import com.daml.tracing
+import com.daml.tracing.{SpanAttribute, Spans}
 
-import scala.annotation.tailrec
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.chaining._
 
-trait ACSReader {
-  def acsStream(
-      filter: TemplatePartiesFilter,
-      activeAt: (Offset, Long),
-  )(implicit
-      loggingContext: LoggingContext
-  ): Source[Vector[EventStorageBackend.Entry[Raw.FlatEvent]], NotUsed]
-}
-
-object ACSReader {
-  def acsBeforePruningErrorReason(acsOffset: String, prunedUpToOffset: String): String =
-    s"Active contracts request at offset ${acsOffset} precedes pruned offset ${prunedUpToOffset}"
-
-}
-
-class FilterTableACSReader(
+/** Streams ACS events (active contracts) in a two step process consisting of:
+  * 1) fetching event sequential ids of the active contracts based on the filtering constraints,
+  * 2) fetching the active contracts based on the fetched event sequential ids.
+  *
+  * Details:
+  * An input filtering constraint (consisting of parties and template ids) is converted into
+  * decomposed filtering constraints (a constraint with exactly one party and at most one template id).
+  * For each decomposed filter, the matching event sequential ids are fetched in parallel and then merged into
+  * a strictly increasing sequence. The elements from this sequence are then batched and the batch ids serve as
+  * the input to the payload fetching step.
+  */
+class ACSReader(
+    config: AcsStreamsConfig,
+    globalIdQueriesLimiter: ConcurrencyLimiter,
+    globalPayloadQueriesLimiter: ConcurrencyLimiter,
     dispatcher: DbDispatcher,
     queryNonPruned: QueryNonPruned,
     eventStorageBackend: EventStorageBackend,
-    pageSize: Int,
-    idPageSize: Int,
-    idPageBufferSize: Int,
-    idPageWorkingMemoryBytes: Int,
-    idFetchingParallelism: Int,
-    acsFetchingparallelism: Int,
+    lfValueTranslation: LfValueTranslation,
     metrics: Metrics,
-    querylimiter: ConcurrencyLimiter,
-    executionContext: ExecutionContext,
-) extends ACSReader {
-  import FilterTableACSReader._
+)(implicit executionContext: ExecutionContext) {
+  private val logger = ContextualizedLogger.get(getClass)
+  private val dbMetrics = metrics.daml.index.db
 
-  private val logger = ContextualizedLogger.get(this.getClass)
+  def streamActiveContracts(
+      filteringConstraints: TemplatePartiesFilter,
+      activeAt: (Offset, Long),
+      eventProjectionProperties: EventProjectionProperties,
+  )(implicit loggingContext: LoggingContext): Source[GetActiveContractsResponse, NotUsed] = {
+    val (activeAtOffset, _) = activeAt
+    val span =
+      Telemetry.Transactions.createSpan(activeAtOffset)(qualifiedNameOfCurrentFunc)
+    logger.debug(
+      s"getActiveContracts($activeAtOffset, $filteringConstraints, $eventProjectionProperties)"
+    )
+    doStreamActiveContracts(
+      filteringConstraints,
+      activeAt,
+      eventProjectionProperties,
+    )
+      .wireTap(getActiveContractsResponse => {
+        val event =
+          tracing.Event("contract", Map((SpanAttribute.Offset, getActiveContractsResponse.offset)))
+        Spans.addEventToSpan(event, span)
+      })
+      .watchTermination()(endSpanOnTermination(span))
+  }
 
-  def acsStream(
+  private def doStreamActiveContracts(
       filter: TemplatePartiesFilter,
       activeAt: (Offset, Long),
+      eventProjectionProperties: EventProjectionProperties,
   )(implicit
       loggingContext: LoggingContext
-  ): Source[Vector[EventStorageBackend.Entry[Raw.FlatEvent]], NotUsed] = {
+  ): Source[GetActiveContractsResponse, NotUsed] = {
     val allFilterParties = filter.allFilterParties
-
-    val filters = makeSimpleFilters(filter).toVector
-
-    val idQueryLimiter =
-      new QueueBasedConcurrencyLimiter(idFetchingParallelism, executionContext)
-
-    val idQueryConfiguration = IdQueryConfiguration(
-      maxIdPageSize = idPageSize,
-      idPageWorkingMemoryBytes = idPageWorkingMemoryBytes,
-      filterSize = filters.size,
-      idPageBufferSize = idPageBufferSize,
+    val decomposedFilters = FilterUtils.decomposeFilters(filter).toVector
+    val idQueriesLimiter =
+      new QueueBasedConcurrencyLimiter(config.maxParallelIdCreateQueries, executionContext)
+    val idQueryPageSizing = IdPageSizing.calculateFrom(
+      maxIdPageSize = config.maxIdsPerIdPage,
+      workingMemoryInBytesForIdPages = config.maxWorkingMemoryInBytesForIdPages,
+      numOfDecomposedFilters = decomposedFilters.size,
+      numOfPagesInIdPageBuffer = config.maxPagesPerIdPagesBuffer,
     )
 
-    def toIdSource(filter: Filter): Source[Long, NotUsed] =
-      idSource(
-        idQueryConfiguration = idQueryConfiguration,
-        pageBufferSize = idPageBufferSize,
-      )(idQuery =>
-        idQueryLimiter.execute {
-          dispatcher.executeSql(metrics.daml.index.db.getActiveContractIds) { connection =>
-            val result =
-              eventStorageBackend.transactionStreamingQueries.fetchIdsOfCreateEventsForStakeholder(
-                stakeholder = filter.party,
-                templateIdO = filter.templateId,
-                startExclusive = idQuery.fromExclusiveEventSeqId,
-                endInclusive = activeAt._2,
-                limit = idQuery.pageSize,
-              )(connection)
-            logger.debug(
-              s"getActiveContractIds $filter returned #${result.size} ${result.lastOption
-                  .map(last => s"until $last")
-                  .getOrElse("")}"
-            )
-            result.toArray
-          }
-        }
+    def fetchIds(filter: DecomposedFilter): Source[Long, NotUsed] =
+      PaginatingAsyncStream.streamIdsFromSeekPagination(
+        idPageSizing = idQueryPageSizing,
+        idPageBufferSize = config.maxPagesPerIdPagesBuffer,
+        initialFromIdExclusive = 0L,
+      )((state: IdPaginationState) =>
+        idQueriesLimiter.execute(
+          globalIdQueriesLimiter.execute(
+            dispatcher.executeSql(metrics.daml.index.db.getActiveContractIds) { connection =>
+              val ids =
+                eventStorageBackend.transactionStreamingQueries
+                  .fetchIdsOfCreateEventsForStakeholder(
+                    stakeholder = filter.party,
+                    templateIdO = filter.templateId,
+                    startExclusive = state.fromIdExclusive,
+                    endInclusive = activeAt._2,
+                    limit = state.pageSize,
+                  )(connection)
+              logger.debug(
+                s"getActiveContractIds $filter returned #${ids.size} ${ids.lastOption
+                    .map(last => s"until $last")
+                    .getOrElse("")}"
+              )
+              ids
+            }
+          )
+        )
       )
 
-    def fetchAcs(ids: Iterable[Long]): Future[Vector[EventStorageBackend.Entry[Raw.FlatEvent]]] =
-      querylimiter.execute(
+    def fetchPayloads(
+        ids: Iterable[Long]
+    ): Future[Vector[EventStorageBackend.Entry[Raw.FlatEvent]]] =
+      globalPayloadQueriesLimiter.execute(
         dispatcher.executeSql(metrics.daml.index.db.getActiveContractBatch) { connection =>
           val result = queryNonPruned.executeSql(
             eventStorageBackend.activeContractEventBatch(
@@ -122,140 +153,50 @@ class FilterTableACSReader(
         }
       )
 
-    filters
-      .map(toIdSource)
-      .pipe(mergeSort[Long])
-      .statefulMapConcat(statefulDeduplicate)
+    // Akka requires for this buffer's size to be a power of two.
+    val inputBufferSize =
+      Utils.largestSmallerOrEqualPowerOfTwo(config.maxParallelPayloadCreateQueries)
+    decomposedFilters
+      .map(fetchIds)
+      .pipe(EventIdsUtils.sortAndDeduplicateIds)
       .via(
         BatchN(
-          maxBatchSize = pageSize,
-          maxBatchCount = acsFetchingparallelism + 1,
+          maxBatchSize = config.maxPayloadsPerPayloadsPage,
+          maxBatchCount = config.maxParallelPayloadCreateQueries + 1,
         )
       )
       .async
-      .addAttributes(
-        Attributes.inputBuffer(initial = acsFetchingparallelism, max = acsFetchingparallelism)
+      .addAttributes(Attributes.inputBuffer(initial = inputBufferSize, max = inputBufferSize))
+      .mapAsync(config.maxParallelPayloadCreateQueries)(fetchPayloads)
+      .mapAsync(config.contractProcessingParallelism)(
+        deserializeLfValues(_, eventProjectionProperties)
       )
-      .mapAsync(acsFetchingparallelism)(fetchAcs)
+      .mapConcat(
+        TransactionConversions.toGetActiveContractsResponse(_)(
+          new DamlContextualizedErrorLogger(logger, loggingContext, None)
+        )
+      )
   }
+
+  private def deserializeLfValues(
+      rawEvents: Vector[EventStorageBackend.Entry[Raw.FlatEvent]],
+      eventProjectionProperties: EventProjectionProperties,
+  )(implicit lc: LoggingContext): Future[Vector[EventStorageBackend.Entry[Event]]] = {
+    Timed.future(
+      future = Future.delegate(
+        Future.traverse(rawEvents)(
+          deserializeEntry(eventProjectionProperties, lfValueTranslation)
+        )
+      ),
+      timer = dbMetrics.getActiveContracts.translationTimer,
+    )
+  }
+
 }
 
-// TODO etq: Extract utilities common for tx processing to a separate object
-object FilterTableACSReader {
-  private val logger = ContextualizedLogger.get(this.getClass)
+object ACSReader {
 
-  case class Filter(party: Party, templateId: Option[Identifier])
+  def acsBeforePruningErrorReason(acsOffset: String, prunedUpToOffset: String): String =
+    s"Active contracts request at offset ${acsOffset} precedes pruned offset ${prunedUpToOffset}"
 
-  def makeSimpleFilters(filter: TemplatePartiesFilter): Seq[Filter] = {
-    val wildcardFilters = filter.wildcardParties.map { party =>
-      Filter(party, None)
-    }
-    val filters = filter.relation.iterator.flatMap { case (templateId, parties) =>
-      parties.iterator.map(party => Filter(party, Some(templateId)))
-    }.toVector ++ wildcardFilters
-    filters
-  }
-
-  case class IdQuery(fromExclusiveEventSeqId: Long, pageSize: Int)
-
-  case class IdQueryConfiguration(
-      minPageSize: Int,
-      maxPageSize: Int,
-  ) {
-    assert(minPageSize > 0)
-    assert(maxPageSize >= minPageSize)
-  }
-
-  object IdQueryConfiguration {
-    def apply(
-        maxIdPageSize: Int,
-        idPageWorkingMemoryBytes: Int,
-        filterSize: Int,
-        idPageBufferSize: Int,
-    )(implicit loggingContext: LoggingContext): IdQueryConfiguration = {
-      val LowestIdPageSize =
-        Math.min(10, maxIdPageSize) // maxIdPageSize can override this if it is smaller
-      // Approximation how many index entries can be present in one btree index leaf page (fetching smaller than this only adds round-trip overhead, without boiling down to smaller disk read)
-      // Experiments show party_id, template_id index has 244 tuples per page, wildcard party_id index has 254 per page (with default fill ratio for BTREE Index)
-      // Picking a lower number is for accommodating pruning, deletions, index bloat effect, which boil down to lower tuple per page ratio.
-      val RecommendedMinIdPageSize =
-        Math.min(200, maxIdPageSize) // maxIdPageSize can override this if it is smaller
-      val calculatedMaxIdPageSize =
-        idPageWorkingMemoryBytes
-          ./(8) // IDs stored in 8 bytes
-          ./(
-            idPageBufferSize + 1
-          ) // for each filter we need one page fetched for merge sorting, and additional pages might reside in the buffer
-          ./(filterSize)
-      if (calculatedMaxIdPageSize < LowestIdPageSize) {
-        logger.warn(
-          s"Calculated maximum ID page size supporting API stream memory limits [$calculatedMaxIdPageSize] is too low: $LowestIdPageSize is used instead. Warning: API stream memory limits not respected. Warning: Dangerously low maximum ID page size can cause poor streaming performance. Filter size [$filterSize] too large?"
-        )
-        IdQueryConfiguration(LowestIdPageSize, LowestIdPageSize)
-      } else if (calculatedMaxIdPageSize < RecommendedMinIdPageSize) {
-        logger.warn(
-          s"Calculated maximum ID page size supporting API stream memory limits [$calculatedMaxIdPageSize] is very low. Warning: Low maximum ID page size can cause poor streaming performance. Filter size [$filterSize] too large?"
-        )
-        IdQueryConfiguration(calculatedMaxIdPageSize, calculatedMaxIdPageSize)
-      } else if (calculatedMaxIdPageSize < maxIdPageSize) {
-        logger.info(
-          s"Calculated maximum ID page size supporting API stream memory limits [$calculatedMaxIdPageSize] is low. Warning: Low maximum ID page size can cause poor streaming performance. Filter size [$filterSize] too large?"
-        )
-        IdQueryConfiguration(RecommendedMinIdPageSize, calculatedMaxIdPageSize)
-      } else {
-        logger.debug(
-          s"Calculated maximum ID page size supporting API stream memory limits [$calculatedMaxIdPageSize] is sufficiently high, using [$maxIdPageSize] instead."
-        )
-        IdQueryConfiguration(RecommendedMinIdPageSize, maxIdPageSize)
-      }
-    }
-  }
-
-  def idSource(
-      idQueryConfiguration: IdQueryConfiguration,
-      pageBufferSize: Int,
-  )(getPage: IdQuery => Future[Array[Long]]): Source[Long, NotUsed] = {
-    assert(pageBufferSize > 0)
-    Source
-      .unfoldAsync(
-        IdQuery(0L, idQueryConfiguration.minPageSize)
-      ) { query =>
-        getPage(query).map {
-          case empty if empty.isEmpty => None
-          case nonEmpty =>
-            Some(
-              IdQuery(
-                nonEmpty.last,
-                Math.min(query.pageSize * 4, idQueryConfiguration.maxPageSize),
-              ) -> nonEmpty
-            )
-        }(scala.concurrent.ExecutionContext.parasitic)
-      }
-      .buffer(pageBufferSize, OverflowStrategy.backpressure)
-      .mapConcat(identity(_))
-  }
-
-  @tailrec
-  def mergeSort[T: Ordering](sources: Vector[Source[T, NotUsed]]): Source[T, NotUsed] =
-    if (sources.isEmpty) Source.empty
-    else if (sources.size == 1) sources.head
-    else
-      mergeSort(
-        sources
-          .drop(2)
-          .appended(
-            sources.take(2).reduce(_ mergeSorted _)
-          )
-      )
-
-  def statefulDeduplicate[T]: () => T => List[T] =
-    () => {
-      var last = null.asInstanceOf[T]
-      elem =>
-        if (elem == last) Nil
-        else {
-          last = elem
-          List(elem)
-        }
-    }
 }

@@ -4,13 +4,34 @@
 Common Metrics
 ##############
 
-The below sections contain the list of common metrics we expose for Daml services supporting a Prometheus metrics reporter.
+The following sections contain the common metrics we expose for Daml services supporting a Prometheus metrics reporter.
 
 For the metric types referenced below, see the `relevant Prometheus documentation <https://prometheus.io/docs/tutorials/understanding_metric_types/>`_.
 
+Health Metrics
+**************
+
+We expose the following metrics for all components.
+
+daml_health_status
+==================
+
+- **Description**: The status of the component
+- **Values**:
+
+  - **0**: Not healthy
+  - **1**: Healthy
+  
+- **Labels**: 
+
+  - **component**: the name of the component being monitored
+
+- **Type**: Gauge
+
+
 gRPC Metrics
 ************
-We expose the below metrics for all gRPC endpoints.
+We expose the following metrics for all gRPC endpoints.
 These metrics have the following common labels attached:
 
 - **grpc_service_name**:
@@ -69,7 +90,7 @@ daml_grpc_server_messages_received_bytes
 
 HTTP Metrics
 ************
-We expose the below metrics for all HTTP endpoints.
+We expose the following metrics for all HTTP endpoints.
 These metrics have the following common labels attached:
 
 - **http_verb**:
@@ -130,7 +151,7 @@ daml_http_websocket_messages_sent_bytes
 
 Java Execution Service Metrics
 ******************************
-We expose the below metrics for all execution services used by Daml components.
+We expose the following metrics for all execution services used by Daml components.
 These metrics have the following common labels attached:
 
 - **name**:
@@ -207,3 +228,59 @@ daml_executor_tasks_queue_remaining
 - **Description**: Additional elements that this queue can ideally accept without blocking.
 - **Type**: Gauge
 - **Observation**: Only available for `type` = `thread_pool`
+
+Pruning Metrics
+***************
+
+We expose the following metrics for all pruning processes. These metrics have the following labels:
+
+- **phase**:
+    The name of the pruning phase being monitored
+
+daml_services_pruning_prune_started_total
+=========================================
+- **Description**: Total number of started pruning processes.
+- **Type**: Counter
+
+daml_services_pruning_prune_completed_total
+===========================================
+- **Description**: Total number of completed pruning processes.
+- **Type**: Counter
+
+JVM Metrics
+************
+We expose the following metrics for the JVM if enabled.
+
+runtime_jvm_gc_time
+==============================
+- **Description**: Time spent in a given JVM garbage collector in milliseconds.
+- **Labels**:
+
+  - **gc**: Garbage collector regions (eg: ``G1 Old Generation``, ``G1 New Generation``)
+
+- **Type**: Counter
+
+runtime_jvm_gc_count
+==============================
+- **Description**: The number of collections that have occurred for a given JVM garbage collector.
+- **Labels**:
+
+  - **gc**: Garbage collector regions (eg: ``G1 Old Generation``, ``G1 New Generation``)
+
+- **Type**: Counter
+
+runtime_jvm_memory_area
+==============================
+- **Description**: JVM memory area statistics.
+- **Labels**:
+
+  - **area**: Can be ``heap`` or ``non_heap``
+  - **type**: Can be ``committed``, ``used`` or ``max``
+
+runtime_jvm_memory_pool
+==============================
+- **Description**: JVM memory pool statistics.
+- **Labels**:
+
+  - **pool**: Defined pool name.
+  - **type**: Can be ``committed``, ``used`` or ``max``

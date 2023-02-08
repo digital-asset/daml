@@ -12,23 +12,24 @@ import com.daml.ledger.api.benchtool.services.LedgerApiServices
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.client.binding
+import com.daml.scalautil.Statement.discard
 import com.daml.timer.Delayed
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
-import org.scalatest.{AppendedClues, Ignore, OptionValues}
+import org.scalatest.{AppendedClues, OptionValues}
+import org.scalatest.Checkpoints
 
 import scala.concurrent.Future
 import scala.concurrent.duration.Duration
 
-// Flaky
-@Ignore
 class WeightedApplicationIdsAndSubmittersITSpec
     extends AsyncFlatSpec
     with BenchtoolSandboxFixture
     with SuiteResourceManagementAroundAll
     with Matchers
     with AppendedClues
-    with OptionValues {
+    with OptionValues
+    with Checkpoints {
 
   it should "populate participant with contracts using specified application-ids and submitters" in {
     val submissionConfig = WorkflowConfig.FooSubmissionConfig(
@@ -57,17 +58,10 @@ class WeightedApplicationIdsAndSubmittersITSpec
       ),
     )
     for {
-      (apiServices, names, submitter) <- benchtoolFixture()
-      allocatedParties <- submitter.prepare(submissionConfig)
-      tested = new FooSubmission(
-        submitter = submitter,
-        maxInFlightCommands = 1,
-        submissionBatchSize = 1,
-        submissionConfig = submissionConfig,
-        names = names,
-        allocatedParties = allocatedParties,
+      (apiServices, allocatedParties, fooSubmission) <- benchtoolFooSubmissionFixture(
+        submissionConfig
       )
-      _ <- tested.performSubmission()
+      _ <- fooSubmission.performSubmission(submissionConfig = submissionConfig)
       completionsApp1 <- observeCompletions(
         parties = List(allocatedParties.signatory),
         apiServices = apiServices,
@@ -89,13 +83,19 @@ class WeightedApplicationIdsAndSubmittersITSpec
         applicationId = "App-1",
       )
     } yield {
+      val cp = new Checkpoint
       // App only filters
-      completionsApp1.completions.size shouldBe 90 +- 9
-      completionsApp2.completions.size shouldBe 10 +- 9
+      cp(discard(completionsApp1.completions.size shouldBe 91))
+      cp(discard(completionsApp2.completions.size shouldBe 9))
       // App and party filters
-      completionsApp1Submitter0.completions.size shouldBe completionsApp1.completions.size
-      completionsApp1Submitter0.completions.size shouldBe 90 +- 9
-      completionsApp1Submitter1.completions.size shouldBe 10 +- 9
+      cp(
+        discard(
+          completionsApp1Submitter0.completions.size shouldBe completionsApp1.completions.size
+        )
+      )
+      cp(discard(completionsApp1Submitter0.completions.size shouldBe 91))
+      cp(discard(completionsApp1Submitter1.completions.size shouldBe 9))
+      cp.reportAll()
       succeed
     }
   }
@@ -114,7 +114,7 @@ class WeightedApplicationIdsAndSubmittersITSpec
         applicationId = applicationId,
         beginOffset = Some(LedgerOffset().withBoundary(LedgerOffset.LedgerBoundary.LEDGER_BEGIN)),
         objectives = None,
-        timeoutInSecondsO = None,
+        timeoutO = None,
         maxItemCount = None,
       ),
       observer = observer,

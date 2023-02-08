@@ -301,6 +301,9 @@ data BuiltinExpr
   | BEFoldr                      -- :: ∀a b. (a -> b -> b) -> b -> List a -> b
   | BEEqualList                  -- :: ∀a. (a -> a -> Bool) -> List a -> List a -> Bool
 
+  -- Authority operations
+  | BEWithAuthority              -- :: ∀ a. List Party -> Update a -> Update a
+
   -- Map operations
   | BETextMapEmpty               -- :: ∀ a. TextMap a
   | BETextMapInsert              -- :: ∀ a. Text -> a -> TextMap a -> TextMap a
@@ -607,6 +610,18 @@ data Expr
   | EViewInterface
     { viewInterfaceInterface :: !(Qualified TypeConName)
     , viewInterfaceExpr :: !Expr
+    }
+  | EChoiceController
+    { choiceControllerTemplate :: !(Qualified TypeConName)
+    , choiceControllerChoice :: !ChoiceName
+    , choiceControllerContract :: !Expr
+    , choiceControllerChoiceArg :: !Expr
+    }
+  | EChoiceObserver
+    { choiceObserverTemplate :: !(Qualified TypeConName)
+    , choiceObserverChoice :: !ChoiceName
+    , choiceObserverContract :: !Expr
+    , choiceObserverChoiceArg :: !Expr
     }
   -- | Experimental Expression Hook
   | EExperimental !T.Text !Type

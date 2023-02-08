@@ -193,6 +193,8 @@ class TransactionSpec
       for {
         entry <- danglingRefGenNode
         node = entry match {
+          case (_, na: Node.Authority) =>
+            na.copy(children = ImmArray.Empty)
           case (_, nr: Node.Rollback) =>
             nr.copy(children = ImmArray.Empty)
           case (_, n: Node.LeafOnlyAction) => n
@@ -217,6 +219,7 @@ class TransactionSpec
       forAll(genEmptyNode, minSuccessful(10)) { n =>
         val version = n.optVersion.getOrElse(TransactionVersion.minExceptions)
         n match {
+          case _: Node.Authority => ()
           case _: Node.Rollback => ()
           case n: Node.Action =>
             val m = n.updateVersion(diffVersion(version))
@@ -379,7 +382,7 @@ class TransactionSpec
     val dummyBuilder = TransactionBuilder()
     val parties = List("Alice")
     def keyValue(s: String) = V.ValueText(s)
-    def globalKey(s: V.ContractId) = GlobalKey("Mod:T", keyValue(s.coid))
+    def globalKey(s: V.ContractId) = GlobalKey.assertBuild("Mod:T", keyValue(s.coid))
     def create(s: V.ContractId) = dummyBuilder
       .create(
         id = s,
@@ -556,9 +559,10 @@ class TransactionSpec
       val builder = TransactionBuilder()
       val create0 = create(cid("#0"))
       val create1 = create(cid("#1")).copy(
-        key = Some(
-          Node.KeyWithMaintainers(
-            key = keyValue(cid("#0").coid),
+        keyOpt = Some(
+          GlobalKeyWithMaintainers.assertBuild(
+            templateId = "Mod:T",
+            value = keyValue(cid("#0").coid),
             maintainers = Set.empty,
           )
         )
@@ -1040,7 +1044,7 @@ object TransactionSpec {
       choiceObservers = Set.empty,
       children = children,
       exerciseResult = if (hasExerciseResult) Some(V.ValueUnit) else None,
-      key = None,
+      keyOpt = None,
       byKey = false,
       version = TransactionVersion.minVersion,
     )
@@ -1053,7 +1057,7 @@ object TransactionSpec {
       agreementText = "dummyAgreement",
       signatories = Set.empty,
       stakeholders = Set.empty,
-      key = None,
+      keyOpt = None,
       version = TransactionVersion.minVersion,
     )
 

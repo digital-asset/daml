@@ -18,6 +18,7 @@ import scala.collection.concurrent.TrieMap
 import scala.collection.mutable
 import scala.reflect.ClassTag
 
+// An appender and a logger must be defined in the logback.xml or logback-test.xml to capture the log entries.
 object LogCollector {
 
   case class ThrowableCause(className: String, message: String)
@@ -58,6 +59,14 @@ object LogCollector {
     log
       .get(test.runtimeClass.getName.stripSuffix("$"))
       .flatMap(_.get(logger.runtimeClass.getName.stripSuffix("$")))
+      .fold(IndexedSeq.empty[Entry])(_.result())
+
+  def readAsEntries[Test](loggerClassName: String)(implicit
+      test: ClassTag[Test]
+  ): Seq[Entry] =
+    log
+      .get(test.runtimeClass.getName.stripSuffix("$"))
+      .flatMap(_.get(loggerClassName))
       .fold(IndexedSeq.empty[Entry])(_.result())
 
   def clear[Test](implicit test: ClassTag[Test]): Unit = {

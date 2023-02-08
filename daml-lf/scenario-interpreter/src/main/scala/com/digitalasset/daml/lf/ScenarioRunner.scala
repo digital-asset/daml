@@ -6,13 +6,13 @@ package scenario
 
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{ImmArray, Ref, Time}
-import com.daml.lf.engine.{Engine, ValueEnricher, Result, ResultDone, ResultError}
+import com.daml.lf.engine.{Engine, Result, ResultDone, ResultError, ValueEnricher}
 import com.daml.lf.engine.preprocessing.ValueTranslator
 import com.daml.lf.language.{Ast, LookupError}
 import com.daml.lf.transaction.{GlobalKey, NodeId, SubmittedTransaction}
 import com.daml.lf.value.Value.{ContractId, VersionedContractInstance}
 import com.daml.lf.speedy._
-import com.daml.lf.speedy.SExpr.{SExpr, SEValue, SEApp}
+import com.daml.lf.speedy.SExpr.{SEApp, SEValue, SExpr}
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.transaction.IncompleteTransaction
 import com.daml.lf.value.Value
@@ -20,6 +20,7 @@ import com.daml.logging.LoggingContext
 import com.daml.scalautil.Statement.discard
 
 import scala.annotation.tailrec
+import scala.concurrent.duration.Duration
 import scala.util.{Failure, Success, Try}
 
 /** Speedy scenario runner that uses the reference ledger.
@@ -29,6 +30,7 @@ import scala.util.{Failure, Success, Try}
 final class ScenarioRunner private (
     machine: Speedy.ScenarioMachine,
     initialSeed: crypto.Hash,
+    timeout: Duration,
 ) {
   import ScenarioRunner._
 
@@ -38,20 +40,30 @@ final class ScenarioRunner private (
   var currentSubmission: Option[CurrentSubmission] = None
 
   private def runUnsafe(implicit loggingContext: LoggingContext): ScenarioSuccess = {
-    // NOTE(JM): Written with an imperative loop and exceptions for speed
-    // and so that we don't need to worry about stack usage.
+    val isOverdue = TimeBomb(timeout).start()
     val startTime = System.nanoTime()
     var steps = 0
-    var finalValue: SValue = null
-    while (finalValue == null) {
-      // machine.print(steps)
-      steps += 1 // this counts the number of external `Need` interactions
-      machine.run() match {
-        case SResultFinal(v) =>
-          finalValue = v
 
-        case SResultError(err) =>
-          throw scenario.Error.RunnerException(err)
+    @tailrec
+    def innerLoop(
+        result: SubmissionResult[ScenarioLedger.CommitResult]
+    ): Either[SubmissionError, Commit[ScenarioLedger.CommitResult]] = {
+      if (isOverdue()) throw scenario.Error.Timeout(timeout)
+      result match {
+        case commit @ Commit(_, _, _) => Right(commit)
+        case err: SubmissionError => Left(err)
+        case Interruption(continue) => innerLoop(continue())
+      }
+    }
+
+    @tailrec
+    def outerloop(): SValue = {
+      if (isOverdue())
+        throw scenario.Error.Timeout(timeout)
+
+      steps += 1
+
+      machine.run() match {
 
         case SResultQuestion(question) =>
           question match {
@@ -66,43 +78,67 @@ final class ScenarioRunner private (
               getParty(partyText, callback)
 
             case Question.Scenario.Submit(committers, commands, location, mustFail, callback) =>
-              val submitResult = submit(
-                machine.compiledPackages,
-                ScenarioLedgerApi(ledger),
-                committers,
-                Set.empty,
-                SEValue(commands),
-                location,
-                nextSeed(),
-                machine.traceLog,
-                machine.warningLog,
+              val submitResult = innerLoop(
+                submit(
+                  compiledPackages = machine.compiledPackages,
+                  ledger = ScenarioLedgerApi(ledger),
+                  committers = committers,
+                  readAs = Set.empty,
+                  commands = SEValue(commands),
+                  location = location,
+                  seed = nextSeed(),
+                  traceLog = machine.traceLog,
+                  warningLog = machine.warningLog,
+                )
               )
+
               if (mustFail) {
                 submitResult match {
-                  case Commit(result, _, tx) =>
+                  case Right(Commit(result, _, tx)) =>
                     currentSubmission = Some(CurrentSubmission(location, tx))
                     throw scenario.Error.MustFailSucceeded(result.richTransaction.transaction)
-                  case _: SubmissionError =>
+                  case Left(_) =>
                     ledger = ledger.insertAssertMustFail(committers, Set.empty, location)
                     callback(SValue.SUnit)
                 }
               } else {
                 submitResult match {
-                  case Commit(result, value, _) =>
+                  case Right(Commit(result, value, _)) =>
                     currentSubmission = None
                     ledger = result.newLedger
                     callback(value)
-                  case SubmissionError(err, tx) =>
+                  case Left(SubmissionError(err, tx)) =>
                     currentSubmission = Some(CurrentSubmission(location, tx))
                     throw err
                 }
               }
           }
+          outerloop()
+
+        case SResultFinal(v) =>
+          v
+
+        case SResultInterruption =>
+          outerloop()
+
+        case SResultError(err) =>
+          throw scenario.Error.RunnerException(err)
+
       }
     }
+
+    val finalValue = outerloop()
     val endTime = System.nanoTime()
     val diff = (endTime - startTime) / 1000.0 / 1000.0
-    ScenarioSuccess(ledger, machine.traceLog, machine.warningLog, diff, steps, finalValue)
+    ScenarioSuccess(
+      ledger = ledger,
+      traceLog = machine.traceLog,
+      warningLog = machine.warningLog,
+      profile = machine.profile,
+      duration = diff,
+      steps = steps,
+      resultValue = finalValue,
+    )
   }
 
   private def getParty(partyText: String, callback: Party => Unit) =
@@ -120,11 +156,11 @@ final class ScenarioRunner private (
 private[lf] object ScenarioRunner {
 
   def run(
-      buildMachine: () => Speedy.ScenarioMachine,
+      machine: Speedy.ScenarioMachine,
       initialSeed: crypto.Hash,
+      timeout: Duration,
   )(implicit loggingContext: LoggingContext): ScenarioResult = {
-    val machine = buildMachine()
-    val runner = new ScenarioRunner(machine, initialSeed)
+    val runner = new ScenarioRunner(machine, initialSeed, timeout)
     handleUnsafe(runner.runUnsafe) match {
       case Left(err) =>
         val stackTrace =
@@ -155,9 +191,18 @@ private[lf] object ScenarioRunner {
     }
   }
 
-  sealed trait SubmissionResult[+R]
+  sealed abstract class SubmissionResult[+R] {
+    @tailrec
+    private[lf] final def resolve(): Either[SubmissionError, Commit[R]] = {
+      this match {
+        case commit: Commit[R] => Right(commit)
+        case error: SubmissionError => Left(error)
+        case Interruption(continue) => continue().resolve()
+      }
+    }
+  }
 
-  final case class Commit[R](
+  final case class Commit[+R](
       result: R,
       value: SValue,
       tx: IncompleteTransaction,
@@ -165,6 +210,8 @@ private[lf] object ScenarioRunner {
 
   final case class SubmissionError(error: Error, tx: IncompleteTransaction)
       extends SubmissionResult[Nothing]
+
+  final case class Interruption[R](continue: () => SubmissionResult[R]) extends SubmissionResult[R]
 
   // The interface we need from a ledger during submission. We allow abstracting over this so we can play
   // tricks like caching all responses in some benchmarks.
@@ -398,25 +445,14 @@ private[lf] object ScenarioRunner {
     val enricher = if (doEnrichment) new EnricherImpl(compiledPackages) else NoEnricher
     import enricher._
 
+    def continue = () => go()
+
     @tailrec
     def go(): SubmissionResult[R] = {
       ledgerMachine.run() match {
-        case SResult.SResultFinal(resultValue) =>
-          ledgerMachine.finish match {
-            case Right(Speedy.UpdateMachine.Result(tx, locationInfo, _, _, _)) =>
-              ledger.commit(committers, readAs, location, enrich(tx), locationInfo) match {
-                case Left(err) =>
-                  SubmissionError(err, enrich(ledgerMachine.incompleteTransaction))
-                case Right(r) =>
-                  Commit(r, resultValue, enrich(ledgerMachine.incompleteTransaction))
-              }
-            case Left(err) =>
-              throw err
-          }
-        case SResultError(err) =>
-          SubmissionError(Error.RunnerException(err), enrich(ledgerMachine.incompleteTransaction))
         case SResultQuestion(question) =>
           question match {
+            case _: Question.Update.NeedAuthority => ??? // TODO #15882
             case Question.Update.NeedContract(coid, committers, callback) =>
               ledger.lookupContract(
                 coid,
@@ -443,6 +479,22 @@ private[lf] object ScenarioRunner {
             case res: Question.Update.NeedPackage =>
               throw Error.Internal(s"unexpected $res")
           }
+        case SResultInterruption =>
+          Interruption(continue)
+        case SResult.SResultFinal(resultValue) =>
+          ledgerMachine.finish match {
+            case Right(Speedy.UpdateMachine.Result(tx, locationInfo, _, _, _)) =>
+              ledger.commit(committers, readAs, location, enrich(tx), locationInfo) match {
+                case Left(err) =>
+                  SubmissionError(err, enrich(ledgerMachine.incompleteTransaction))
+                case Right(r) =>
+                  Commit(r, resultValue, enrich(ledgerMachine.incompleteTransaction))
+              }
+            case Left(err) =>
+              throw err
+          }
+        case SResultError(err) =>
+          SubmissionError(Error.RunnerException(err), enrich(ledgerMachine.incompleteTransaction))
       }
     }
     go()
@@ -472,6 +524,7 @@ private[lf] object ScenarioRunner {
       ledger: ScenarioLedger,
       traceLog: TraceLog,
       warningLog: WarningLog,
+      profile: Profile,
       duration: Double,
       steps: Int,
       resultValue: SValue,

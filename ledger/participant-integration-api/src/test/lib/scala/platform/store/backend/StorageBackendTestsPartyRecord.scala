@@ -3,10 +3,12 @@
 
 package com.daml.platform.store.backend
 
+import com.daml.ledger.api.domain.{IdentityProviderConfig, IdentityProviderId, JwksUrl}
+
 import java.sql.SQLException
 import java.util.UUID
-
 import com.daml.lf.data.Ref
+import com.daml.lf.data.Ref.LedgerString
 import com.daml.platform.store.backend.localstore.PartyRecordStorageBackend
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -71,16 +73,66 @@ private[backend] trait StorageBackendTestsPartyRecord
     getNonexistent shouldBe None
   }
 
+  it should "filter parties within the same idp" in {
+    val idpId = IdentityProviderId.Id(LedgerString.assertFromString("abc"))
+    val _ = executeSql(
+      backend.identityProviderStorageBackend.createIdentityProviderConfig(
+        IdentityProviderConfig(
+          identityProviderId = idpId,
+          issuer = "issuer",
+          jwksUrl = JwksUrl("http://daml.com/jwks.json"),
+        )
+      )
+    )
+    val party1 = Ref.Party.assertFromString("party1")
+    val party2 = Ref.Party.assertFromString("party2")
+    val partyRecord1 = newDbPartyRecord(partyId = "party1")
+    val partyRecord2 = newDbPartyRecord(
+      partyId = "party2",
+      identityProviderId = Some(idpId),
+    )
+    val _ = executeSql(tested.createPartyRecord(partyRecord1))
+    val _ = executeSql(tested.createPartyRecord(partyRecord2))
+    executeSql(
+      tested.filterExistingParties(
+        Set(),
+        Some(IdentityProviderId.Id(LedgerString.assertFromString("cde"))),
+      )
+    ) shouldBe Set.empty
+
+    executeSql(
+      tested.filterExistingParties(
+        Set(),
+        None,
+      )
+    ) shouldBe Set.empty
+
+    executeSql(
+      tested.filterExistingParties(
+        Set(party1, party2),
+        None,
+      )
+    ) shouldBe Set(party1)
+
+    executeSql(
+      tested.filterExistingParties(
+        Set(party1, party2),
+        Some(idpId),
+      )
+    ) shouldBe Set(party2)
+  }
+
   private def newDbPartyRecord(
       partyId: String = "",
       resourceVersion: Long = 0,
       createdAt: Long = zeroMicros,
+      identityProviderId: Option[IdentityProviderId.Id] = None,
   ): PartyRecordStorageBackend.DbPartyRecordPayload = {
     val uuid = UUID.randomUUID.toString
     val party = if (partyId != "") partyId else s"party_id_$uuid"
     PartyRecordStorageBackend.DbPartyRecordPayload(
       party = Ref.Party.assertFromString(party),
-      identityProviderId = None,
+      identityProviderId = identityProviderId,
       resourceVersion = resourceVersion,
       createdAt = createdAt,
     )

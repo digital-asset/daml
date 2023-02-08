@@ -3,10 +3,10 @@
 
 package com.daml.ledger.sandbox.bridge
 
-import com.daml.metrics.api.MetricHandle.{Counter, Factory, Histogram, Timer}
+import com.daml.metrics.api.MetricHandle.{Counter, MetricsFactory, Histogram, Timer}
 import com.daml.metrics.api.MetricName
 
-class BridgeMetrics(factory: Factory) {
+class BridgeMetrics(factory: MetricsFactory) {
 
   val prefix: MetricName = MetricName.Daml :+ "sandbox_ledger_bridge"
 

@@ -24,9 +24,12 @@ da_scala_library(
         "//daml-lf/data",
         "//daml-lf/language",
         "//language-support/scala/bindings-akka",
+        "//ledger/caching",
         "//libs-scala/contextualized-logging",
         "//libs-scala/logging-entries",
         "//libs-scala/scala-utils",
+        "//libs-scala/timer-utils",
+        "@maven//:com_github_ben_manes_caffeine_caffeine",
     ],
 )
 

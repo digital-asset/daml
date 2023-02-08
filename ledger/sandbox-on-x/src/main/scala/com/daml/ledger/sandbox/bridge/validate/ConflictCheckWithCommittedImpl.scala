@@ -16,7 +16,7 @@ import com.daml.ledger.sandbox.domain.Rejection._
 import com.daml.ledger.sandbox.domain.Submission.Transaction
 import com.daml.lf.command.ProcessedDisclosedContract
 import com.daml.lf.data.Time.Timestamp
-import com.daml.lf.data.{Bytes, ImmArray, Ref}
+import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.transaction.{Versioned, Transaction => LfTransaction}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
@@ -202,9 +202,7 @@ private[validate] class ConflictCheckWithCommittedImpl(
     EitherT
       .fromEither[Future](
         ContractId.V1
-          .fromString(
-            Bytes.fromByteArray(provided.unversioned.metadata.driverMetadata.toArray).toHexString
-          )
+          .fromString(provided.unversioned.metadata.driverMetadata.toHexString)
       )
       .leftMap(_ =>
         Rejection.DisclosedContractInvalid(provided.unversioned.contractId, completionInfo)

@@ -27,15 +27,15 @@ class InMemoryUserManagementStore(createAdmin: Boolean = true) extends UserManag
     state.put(AdminUser.user.id, AdminUser)
   }
 
-  override def getUserInfo(id: UserId)(implicit
+  override def getUserInfo(id: UserId, identityProviderId: IdentityProviderId)(implicit
       loggingContext: LoggingContext
   ): Future[Result[UserManagementStore.UserInfo]] =
-    withUser(id)(info => Right(toDomainUserInfo(info)))
+    withUser(id, identityProviderId)(info => Right(toDomainUserInfo(info)))
 
   override def createUser(user: User, rights: Set[UserRight])(implicit
       loggingContext: LoggingContext
   ): Future[Result[User]] =
-    withoutUser(user.id) {
+    withoutUser(user.id, user.identityProviderId) {
       for {
         _ <- validateAnnotationsSize(user.metadata.annotations, user.id)
       } yield {
@@ -57,7 +57,7 @@ class InMemoryUserManagementStore(createAdmin: Boolean = true) extends UserManag
   override def updateUser(
       userUpdate: UserUpdate
   )(implicit loggingContext: LoggingContext): Future[Result[User]] = {
-    withUser(userUpdate.id) { userInfo =>
+    withUser(userUpdate.id, userUpdate.identityProviderId) { userInfo =>
       val updatedPrimaryParty = userUpdate.primaryPartyUpdateO.getOrElse(userInfo.user.primaryParty)
       val updatedIsDeactivated =
         userUpdate.isDeactivatedUpdateO.getOrElse(userInfo.user.isDeactivated)
@@ -100,9 +100,10 @@ class InMemoryUserManagementStore(createAdmin: Boolean = true) extends UserManag
   }
 
   override def deleteUser(
-      id: Ref.UserId
+      id: Ref.UserId,
+      identityProviderId: IdentityProviderId,
   )(implicit loggingContext: LoggingContext): Future[Result[Unit]] =
-    withUser(id) { _ =>
+    withUser(id, identityProviderId) { _ =>
       state.remove(id)
       Right(())
     }
@@ -110,8 +111,9 @@ class InMemoryUserManagementStore(createAdmin: Boolean = true) extends UserManag
   override def grantRights(
       id: Ref.UserId,
       granted: Set[UserRight],
+      identityProviderId: IdentityProviderId,
   )(implicit loggingContext: LoggingContext): Future[Result[Set[UserRight]]] =
-    withUser(id) { userInfo =>
+    withUser(id, identityProviderId) { userInfo =>
       val newlyGranted = granted.diff(userInfo.rights) // faster than filter
       // we're not doing concurrent updates -- assert as backstop and a reminder to handle the collision case in the future
       assert(
@@ -123,8 +125,9 @@ class InMemoryUserManagementStore(createAdmin: Boolean = true) extends UserManag
   override def revokeRights(
       id: Ref.UserId,
       revoked: Set[UserRight],
+      identityProviderId: IdentityProviderId,
   )(implicit loggingContext: LoggingContext): Future[Result[Set[UserRight]]] =
-    withUser(id) { userInfo =>
+    withUser(id, identityProviderId) { userInfo =>
       val effectivelyRevoked = revoked.intersect(userInfo.rights) // faster than filter
       // we're not doing concurrent updates -- assert as backstop and a reminder to handle the collision case in the future
       assert(
@@ -163,17 +166,26 @@ class InMemoryUserManagementStore(createAdmin: Boolean = true) extends UserManag
       Future.successful(t)
     )
 
-  private def withUser[T](id: Ref.UserId)(f: InMemUserInfo => Result[T]): Future[Result[T]] =
+  private def withUser[T](id: Ref.UserId, identityProviderId: IdentityProviderId)(
+      f: InMemUserInfo => Result[T]
+  ): Future[Result[T]] =
     withState(
       state.get(id) match {
-        case Some(user) => f(user)
-        case None => Left(UserNotFound(id))
+        case Some(user) if user.user.identityProviderId == identityProviderId => f(user)
+        case Some(_) =>
+          Left(PermissionDenied(id))
+        case None =>
+          Left(UserNotFound(id))
       }
     )
 
-  private def withoutUser[T](id: Ref.UserId)(t: => Result[T]): Future[Result[T]] =
+  private def withoutUser[T](id: Ref.UserId, identityProviderId: IdentityProviderId)(
+      t: => Result[T]
+  ): Future[Result[T]] =
     withState(
       state.get(id) match {
+        case Some(user) if user.user.identityProviderId != identityProviderId =>
+          Left(PermissionDenied(id))
         case Some(_) => Left(UserExists(id))
         case None => t
       }

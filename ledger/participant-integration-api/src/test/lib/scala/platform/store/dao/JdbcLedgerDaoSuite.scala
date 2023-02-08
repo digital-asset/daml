@@ -208,7 +208,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
       absCid: ContractId,
       signatories: Set[Party],
       stakeholders: Set[Party],
-      key: Option[Node.KeyWithMaintainers] = None,
+      key: Option[GlobalKeyWithMaintainers] = None,
       templateId: Identifier = someTemplateId,
       contractArgument: LfValue = someContractArgument,
   ): Node.Create =
@@ -219,13 +219,13 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
       agreementText = someAgreement,
       signatories = signatories,
       stakeholders = stakeholders,
-      key = key,
+      keyOpt = key,
       version = txVersion,
     )
 
   protected final def exerciseNode(
       targetCid: ContractId,
-      key: Option[Node.KeyWithMaintainers] = None,
+      key: Option[GlobalKeyWithMaintainers] = None,
   ): Node.Exercise =
     Node.Exercise(
       targetCoid = targetCid,
@@ -240,7 +240,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
       choiceObservers = Set.empty,
       children = ImmArray.Empty,
       exerciseResult = Some(someChoiceResult),
-      key = key,
+      keyOpt = key,
       byKey = false,
       version = txVersion,
     )
@@ -339,18 +339,16 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
 
   protected final def createTestKey(
       maintainers: Set[Party]
-  ): (Node.KeyWithMaintainers, GlobalKey) = {
+  ): GlobalKeyWithMaintainers = {
     val aTextValue = ValueText(scala.util.Random.nextString(10))
-    val keyWithMaintainers = Node.KeyWithMaintainers(aTextValue, maintainers)
-    val globalKey = GlobalKey.assertBuild(someTemplateId, aTextValue)
-    (keyWithMaintainers, globalKey)
+    GlobalKeyWithMaintainers.assertBuild(someTemplateId, aTextValue, maintainers)
   }
 
   protected final def createAndStoreContract(
       submittingParties: Set[Party],
       signatories: Set[Party],
       stakeholders: Set[Party],
-      key: Option[Node.KeyWithMaintainers],
+      key: Option[GlobalKeyWithMaintainers],
       contractArgument: LfValue = someContractArgument,
   ): Future[(Offset, LedgerEntry.Transaction)] =
     store(
@@ -397,7 +395,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
         choiceObservers = Set.empty,
         children = ImmArray.Empty,
         exerciseResult = Some(someChoiceResult),
-        key = None,
+        keyOpt = None,
         byKey = false,
         version = txVersion,
       )
@@ -432,7 +430,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
 
   protected def singleExercise(
       targetCid: ContractId,
-      key: Option[Node.KeyWithMaintainers] = None,
+      key: Option[GlobalKeyWithMaintainers] = None,
   ): (Offset, LedgerEntry.Transaction) = {
     val txBuilder = newBuilder()
     val nid = txBuilder.add(exerciseNode(targetCid, key))
@@ -707,7 +705,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
       commands: Vector[(Offset, LedgerEntry.Transaction)]
   ): Future[Vector[(Offset, LedgerEntry.Transaction)]] = {
 
-    import JdbcLedgerDaoSuite._
+    import com.daml.scalautil.TraverseFMSyntax._
     import scalaz.std.scalaFuture._
     import scalaz.std.vector._
 
@@ -731,7 +729,10 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
         agreementText = someAgreement,
         signatories = Set(party),
         stakeholders = Set(party),
-        key = Some(Node.KeyWithMaintainers(someContractKey(party, key), Set(party))),
+        keyOpt = Some(
+          GlobalKeyWithMaintainers
+            .assertBuild(someTemplateId, someContractKey(party, key), Set(party))
+        ),
         version = txVersion,
       )
     )
@@ -771,7 +772,10 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
         choiceObservers = Set.empty,
         children = ImmArray.Empty,
         exerciseResult = Some(LfValue.ValueUnit),
-        key = maybeKey.map(k => Node.KeyWithMaintainers(someContractKey(party, k), Set(party))),
+        keyOpt = maybeKey.map(k =>
+          GlobalKeyWithMaintainers
+            .assertBuild(someTemplateId, someContractKey(party, k), Set(party))
+        ),
         byKey = false,
         version = txVersion,
       )
@@ -800,7 +804,8 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
     val lookupByKeyNodeId = txBuilder.add(
       Node.LookupByKey(
         someTemplateId,
-        Node.KeyWithMaintainers(someContractKey(party, key), Set(party)),
+        GlobalKeyWithMaintainers
+          .assertBuild(someTemplateId, someContractKey(party, key), Set(party)),
         result,
         version = txVersion,
       )
@@ -900,22 +905,5 @@ object JdbcLedgerDaoSuite {
 
   private type DivulgedContracts =
     Map[(ContractId, VersionedContractInstance), Set[Party]]
-
-  implicit final class `TraverseFM Ops`[T[_], A](private val self: T[A]) extends AnyVal {
-
-    import scalaz.syntax.traverse._
-    import scalaz.{Free, Monad, NaturalTransformation, Traverse}
-
-    /** Like `traverse`, but guarantees that
-      *
-      *  - `f` is evaluated left-to-right, and
-      *  - `B` from the preceding element is evaluated before `f` is invoked for
-      *    the subsequent `A`.
-      */
-    def traverseFM[F[_]: Monad, B](f: A => F[B])(implicit T: Traverse[T]): F[T[B]] =
-      self
-        .traverse(a => Free suspend (Free liftF f(a)))
-        .foldMap(NaturalTransformation.refl)
-  }
 
 }

@@ -18,6 +18,7 @@ import com.daml.platform.apiserver.configuration.RateLimitingConfig
 import com.daml.platform.apiserver.{ApiServerConfig, AuthServiceConfig}
 import com.daml.platform.config.{MetricsConfig, ParticipantConfig}
 import com.daml.platform.configuration.{
+  AcsStreamsConfig,
   CommandConfiguration,
   IndexServiceConfig,
   InitialLedgerConfiguration,
@@ -342,6 +343,9 @@ class PureConfigReaderWriter(secure: Boolean = true) {
 
   implicit val indexServiceConfigHint =
     ProductHint[IndexServiceConfig](allowUnknownKeys = false)
+
+  implicit val acsStreamsConfigConvert: ConfigConvert[AcsStreamsConfig] =
+    deriveConvert[AcsStreamsConfig]
 
   implicit val transactionTreeStreamsConfigConvert: ConfigConvert[TransactionTreeStreamsConfig] =
     deriveConvert[TransactionTreeStreamsConfig]

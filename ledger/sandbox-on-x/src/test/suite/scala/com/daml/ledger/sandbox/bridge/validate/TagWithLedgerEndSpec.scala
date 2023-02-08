@@ -27,7 +27,7 @@ class TagWithLedgerEndSpec extends AnyFlatSpec with Matchers with MockitoSugar {
   private val indexServiceMock = mock[IndexService]
   private val tagWithLedgerEnd = new TagWithLedgerEndImpl(
     indexService = indexServiceMock,
-    bridgeMetrics = new BridgeMetrics(Metrics.ForTesting.dropwizardFactory),
+    bridgeMetrics = new BridgeMetrics(Metrics.ForTesting.defaultMetricsFactory),
   )
 
   "tagWithLedgerEnd" should "tag the incoming submissions with the index service ledger end" in {

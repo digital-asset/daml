@@ -188,9 +188,9 @@ Other than the typeclasses defined in Prelude, there are two modules generalizin
 Search the Standard Library
 ---------------------------
 
-Being able to browse the Standard Library starting from :doc:`/daml/stdlib/index` is a start, and the module naming helps, but it's not an efficient process for finding out what a function you've encountered does, or even less so to find a function that does a thing you need to do.
+Being able to browse the Standard Library starting from :doc:`/daml/stdlib/index` is a start, and the module naming helps, but it's not an efficient process for finding out what a function you've encountered does, even less so for finding a function that does a thing you need to do.
 
-Daml has it's own version of the `Hoogle <https://hoogle.haskell.org/>`__ search engine, which offers search both by name and by signature. It's fully integrated into the search bar on `https://docs.daml.com/ <https://docs.daml.com/>`__, but for those wanting a pure Standard Library search, it's also available on `<https://hoogle.daml.com>`__.
+Daml has its own version of the `Hoogle <https://hoogle.haskell.org/>`__ search engine, which offers search both by name and by signature. This function is fully integrated into the search bar on `https://docs.daml.com/ <https://docs.daml.com/>`__, but for those wanting a pure Standard Library search, it's also available on `<https://hoogle.daml.com>`__.
 
 Search for Functions by Name
 ............................
@@ -240,4 +240,4 @@ Let's try another search. Suppose you didn't want the first element, but the one
 Next Up
 -------
 
-There's little more to learn about writing Daml at this point that isn't best learned by practice and consulting reference material for both Daml and Haskell. To finish off this course, you'll learn a little more about your options for testing and interacting with Daml code in :doc:`12_Testing`, and about the operational semantics of some keywords and common associated failures.
+In the following section, you'll find options for testing and interacting with Daml code. We also talk about the operational semantics of some keywords and their commonly associated failures, and a little bit about how coverage reports work in Daml testing.

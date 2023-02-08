@@ -4,12 +4,12 @@
 package com.daml.ledger.api.testtool.suites.v1_8
 
 import java.util.UUID
-
 import com.daml.error.ErrorCode
 import com.daml.error.definitions.{IndexErrors, LedgerApiErrors}
 import com.daml.error.utils.ErrorDetails
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions.{assertEquals, _}
+import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
 import com.daml.ledger.api.v1.admin.object_meta.ObjectMeta
 import com.daml.ledger.api.v1.admin.user_management_service.{
   CreateUserRequest,
@@ -30,31 +30,29 @@ import com.daml.ledger.api.v1.admin.user_management_service.{
   Right => Permission,
 }
 import com.daml.ledger.api.v1.admin.{user_management_service => proto}
+import com.daml.ledger.client.binding.Primitive
+import scalaz.Tag
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
 final class UserManagementServiceIT extends UserManagementServiceITBase {
 
   private val adminPermission =
     Permission(Permission.Kind.ParticipantAdmin(Permission.ParticipantAdmin()))
-  private val actAsPermission1 =
-    Permission(Permission.Kind.CanActAs(Permission.CanActAs("acting-party-1")))
-  private val readAsPermission1 =
-    Permission(Permission.Kind.CanReadAs(Permission.CanReadAs("reading-party-1")))
-  private val userRightsBatch = List(
-    actAsPermission1,
-    Permission(Permission.Kind.CanActAs(Permission.CanActAs("acting-party-2"))),
-    readAsPermission1,
-    Permission(Permission.Kind.CanReadAs(Permission.CanReadAs("reading-party-2"))),
-  )
+  private def actAsPermission(party: String) =
+    Permission(Permission.Kind.CanActAs(Permission.CanActAs(party)))
+  private def readAsPermission(party: String) =
+    Permission(Permission.Kind.CanReadAs(Permission.CanReadAs(party)))
+
   private val AdminUserId = "participant_admin"
 
   test(
     "UserManagementUserRightsLimit",
     "Test user rights per user limit",
     allocate(NoParties),
-    enabled = _.userManagement.maxRightsPerUser > 0,
+    enabled = features =>
+      features.userManagement.maxRightsPerUser > 0 && features.userManagement.maxRightsPerUser <= 100,
     disabledReason = "requires user management feature with user rights limit",
   )(implicit ec => { case Participants(Participant(ledger)) =>
     def assertTooManyUserRightsError(t: Throwable): Unit = {
@@ -65,21 +63,27 @@ final class UserManagementServiceIT extends UserManagementServiceITBase {
       )
     }
 
-    def createCanActAs(id: Int) =
-      Permission(Permission.Kind.CanActAs(Permission.CanActAs(s"acting-party-$id")))
+    def createCanActAs(party: Primitive.Party) =
+      Permission(Permission.Kind.CanActAs(Permission.CanActAs(Tag.unwrap(party))))
+
+    def allocateParty(id: Int) =
+      ledger.allocateParty(Some(s"acting-party-$id"))
 
     val user1 = newUser(UUID.randomUUID.toString)
     val user2 = newUser(UUID.randomUUID.toString)
 
     val maxRightsPerUser = ledger.features.userManagement.maxRightsPerUser
-    val permissionsMaxAndOne = (1 to (maxRightsPerUser + 1)).map(createCanActAs)
-    val permissionOne = permissionsMaxAndOne.head
-    val permissionsMax = permissionsMaxAndOne.tail
+    val allocatePartiesMaxAndOne = (1 to (maxRightsPerUser + 1)).map(allocateParty)
 
     for {
+      // allocating parties before user is created
+      allocatedParties <- Future.sequence(allocatePartiesMaxAndOne)
+      permissionsMaxPlusOne = allocatedParties.map(createCanActAs)
+      permissionOne = permissionsMaxPlusOne.head
+      permissionsMax = permissionsMaxPlusOne.tail
       // cannot create user with #limit+1 rights
       create1 <- ledger
-        .createUser(CreateUserRequest(Some(user1), permissionsMaxAndOne))
+        .createUser(CreateUserRequest(Some(user1), permissionsMaxPlusOne))
         .mustFail(
           "creating user with too many rights"
         )
@@ -99,8 +103,8 @@ final class UserManagementServiceIT extends UserManagementServiceITBase {
       assertTooManyUserRightsError(create1)
       assertEquals(unsetResourceVersion(create2), CreateUserResponse(Some(user1)))
       assertTooManyUserRightsError(grant1)
-      assertEquals(rights1.rights.size, permissionsMaxAndOne.tail.size)
-      assertSameElements(rights1.rights, permissionsMaxAndOne.tail)
+      assertEquals(rights1.rights.size, permissionsMaxPlusOne.tail.size)
+      assertSameElements(rights1.rights, permissionsMaxPlusOne.tail)
       assertEquals(unsetResourceVersion(create3), CreateUserResponse(Some(user2)))
     }
   })
@@ -263,10 +267,13 @@ final class UserManagementServiceIT extends UserManagementServiceITBase {
       { participant =>
         val attempts = (1 to 10).toVector
         val userId = participant.nextUserId()
+        val suffix = UUID.randomUUID().toString
         val createUserRequest =
           CreateUserRequest(Some(User(id = userId, primaryParty = "")), rights = Seq.empty)
-        val grantRightsRequest = GrantUserRightsRequest(userId = userId, rights = userRightsBatch)
         for {
+          parties <- allocateParties(participant, suffix)
+          userRights = getUserRights(parties)
+          grantRightsRequest = GrantUserRightsRequest(userId = userId, rights = userRights)
           _ <- participant.createUser(createUserRequest)
           results <- Future.traverse(attempts) { _ =>
             participant.userManagement.grantUserRights(grantRightsRequest).transform(Success(_))
@@ -278,7 +285,7 @@ final class UserManagementServiceIT extends UserManagementServiceITBase {
               resp
           }
           assertSingleton("Success response", successes)
-          assertSameElements(successes.head.newlyGrantedRights, userRightsBatch)
+          assertSameElements(successes.head.newlyGrantedRights, userRights)
           val unexpectedErrors = results
             .collect {
               case Failure(t)
@@ -304,11 +311,14 @@ final class UserManagementServiceIT extends UserManagementServiceITBase {
       { participant =>
         val attempts = (1 to 10).toVector
         val userId = participant.nextUserId()
-        val createUserRequest =
-          CreateUserRequest(Some(User(id = userId, primaryParty = "")), rights = userRightsBatch)
-        val revokeRightsRequest = RevokeUserRightsRequest(userId = userId, rights = userRightsBatch)
+        val suffix = UUID.randomUUID().toString
         for {
+          parties <- allocateParties(participant, suffix)
+          userRights = getUserRights(parties)
+          createUserRequest =
+            CreateUserRequest(Some(User(id = userId, primaryParty = "")), rights = userRights)
           _ <- participant.createUser(createUserRequest)
+          revokeRightsRequest = RevokeUserRightsRequest(userId = userId, rights = userRights)
           results <- Future.traverse(attempts) { _ =>
             participant.userManagement.revokeUserRights(revokeRightsRequest).transform(Success(_))
           }
@@ -701,7 +711,10 @@ final class UserManagementServiceIT extends UserManagementServiceITBase {
     val userId1 = ledger.nextUserId()
     val userId2 = ledger.nextUserId()
     val user1 = User(userId1, "party1")
+    val suffix = UUID.randomUUID().toString
     for {
+      parties <- allocateParties(ledger, suffix)
+      userRights = getUserRights(parties)
       userBefore <- ledger.createUser(CreateUserRequest(Some(user1), Nil))
       res1 <- ledger.userManagement.grantUserRights(
         GrantUserRightsRequest(userId1, List(adminPermission))
@@ -713,14 +726,14 @@ final class UserManagementServiceIT extends UserManagementServiceITBase {
         GrantUserRightsRequest(userId1, List(adminPermission))
       )
       res4 <- ledger.userManagement.grantUserRights(
-        GrantUserRightsRequest(userId1, userRightsBatch)
+        GrantUserRightsRequest(userId1, userRights)
       )
       userAfter <- ledger.userManagement.getUser(GetUserRequest(userId = user1.id))
     } yield {
       assertSameElements(res1.newlyGrantedRights, List(adminPermission))
       assertUserNotFound(res2)
       assertSameElements(res3.newlyGrantedRights, List.empty)
-      assertSameElements(res4.newlyGrantedRights.toSet, userRightsBatch.toSet)
+      assertSameElements(res4.newlyGrantedRights.toSet, userRights.toSet)
       if (ledger.features.userAndPartyLocalMetadataExtensions) {
         val userResourceVersion1 = userBefore.user.get.metadata.get.resourceVersion
         val userResourceVersion2 = userAfter.user.get.metadata.get.resourceVersion
@@ -733,6 +746,14 @@ final class UserManagementServiceIT extends UserManagementServiceITBase {
     }
   })
 
+  private def getUserRights(parties: UserManagementServiceIT.Parties) =
+    List(
+      actAsPermission(parties.acting1),
+      actAsPermission(parties.acting2),
+      readAsPermission(parties.reading1),
+      readAsPermission(parties.reading2),
+    )
+
   userManagementTest(
     "TestRevokeUserRights",
     "Exercise RevokeUserRights rpc",
@@ -740,9 +761,12 @@ final class UserManagementServiceIT extends UserManagementServiceITBase {
     val userId1 = ledger.nextUserId()
     val userId2 = ledger.nextUserId()
     val user1 = User(userId1, "party1")
+    val suffix = UUID.randomUUID().toString
     for {
+      parties <- allocateParties(ledger, suffix)
+      userRights = getUserRights(parties)
       userBefore <- ledger.createUser(
-        CreateUserRequest(Some(user1), List(adminPermission) ++ userRightsBatch)
+        CreateUserRequest(Some(user1), List(adminPermission) ++ userRights)
       )
       res1 <- ledger.userManagement.revokeUserRights(
         RevokeUserRightsRequest(userId1, List(adminPermission))
@@ -754,14 +778,14 @@ final class UserManagementServiceIT extends UserManagementServiceITBase {
         RevokeUserRightsRequest(userId1, List(adminPermission))
       )
       res4 <- ledger.userManagement.revokeUserRights(
-        RevokeUserRightsRequest(userId1, userRightsBatch)
+        RevokeUserRightsRequest(userId1, userRights)
       )
       userAfter <- ledger.userManagement.getUser(GetUserRequest(userId = user1.id))
     } yield {
       assertEquals(res1, RevokeUserRightsResponse(List(adminPermission)))
       assertUserNotFound(res2)
       assertSameElements(res3.newlyRevokedRights, List.empty)
-      assertSameElements(res4.newlyRevokedRights.toSet, userRightsBatch.toSet)
+      assertSameElements(res4.newlyRevokedRights.toSet, userRights.toSet)
       if (ledger.features.userAndPartyLocalMetadataExtensions) {
         val userResourceVersion1 = userBefore.user.get.metadata.get.resourceVersion
         val userResourceVersion2 = userAfter.user.get.metadata.get.resourceVersion
@@ -784,7 +808,9 @@ final class UserManagementServiceIT extends UserManagementServiceITBase {
       primaryParty = "party4",
       metadata = Some(ObjectMeta()),
     )
+    val suffix = UUID.randomUUID().toString
     for {
+      parties <- allocateParties(ledger, suffix)
       res1 <- ledger.createUser(
         CreateUserRequest(Some(user1), Nil)
       )
@@ -792,7 +818,11 @@ final class UserManagementServiceIT extends UserManagementServiceITBase {
       res3 <- ledger.userManagement.grantUserRights(
         GrantUserRightsRequest(
           userId1,
-          List(adminPermission, actAsPermission1, readAsPermission1),
+          List(
+            adminPermission,
+            actAsPermission(parties.acting1),
+            readAsPermission(parties.reading1),
+          ),
         )
       )
       res4 <- ledger.userManagement.listUserRights(ListUserRightsRequest(userId1))
@@ -806,15 +836,42 @@ final class UserManagementServiceIT extends UserManagementServiceITBase {
       assertEquals(res2, ListUserRightsResponse(Seq.empty))
       assertSameElements(
         res3.newlyGrantedRights.toSet,
-        Set(adminPermission, actAsPermission1, readAsPermission1),
+        Set(adminPermission, actAsPermission(parties.acting1), readAsPermission(parties.reading1)),
       )
       assertSameElements(
         res4.rights.toSet,
-        Set(adminPermission, actAsPermission1, readAsPermission1),
+        Set(adminPermission, actAsPermission(parties.acting1), readAsPermission(parties.reading1)),
       )
       assertSameElements(res5.newlyRevokedRights, Seq(adminPermission))
-      assertSameElements(res6.rights.toSet, Set(actAsPermission1, readAsPermission1))
+      assertSameElements(
+        res6.rights.toSet,
+        Set(actAsPermission(parties.acting1), readAsPermission(parties.reading1)),
+      )
     }
   })
 
+  def allocateParties(ledger: ParticipantTestContext, suffix: String)(implicit
+      ec: ExecutionContext
+  ): Future[UserManagementServiceIT.Parties] = {
+    for {
+      acting1 <- ledger.allocateParty(Some(s"acting-party-1-$suffix"))
+      acting2 <- ledger.allocateParty(Some(s"acting-party-2-$suffix"))
+      reading1 <- ledger.allocateParty(Some(s"reading-party-1-$suffix"))
+      reading2 <- ledger.allocateParty(Some(s"reading-party-2-$suffix"))
+    } yield UserManagementServiceIT.Parties(
+      Tag.unwrap(acting1),
+      Tag.unwrap(acting2),
+      Tag.unwrap(reading1),
+      Tag.unwrap(reading2),
+    )
+  }
+}
+
+object UserManagementServiceIT {
+  case class Parties(
+      acting1: String,
+      acting2: String,
+      reading1: String,
+      reading2: String,
+  )
 }

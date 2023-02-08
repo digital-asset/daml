@@ -4,11 +4,11 @@
 package com.daml.metrics
 
 import com.daml.metrics.api.MetricDoc.MetricQualification.{Debug, Errors, Traffic}
-import com.daml.metrics.api.MetricHandle.{Counter, Factory, Timer}
+import com.daml.metrics.api.MetricHandle.{Counter, MetricsFactory, Timer}
 import com.daml.metrics.api.dropwizard.{DropwizardCounter, DropwizardTimer}
-import com.daml.metrics.api.{MetricDoc, MetricName}
+import com.daml.metrics.api.{MetricDoc, MetricHandle, MetricName, MetricsContext}
 
-class LAPIMetrics(val prefix: MetricName, val factory: Factory) {
+class LAPIMetrics(val prefix: MetricName, val factory: MetricsFactory) {
 
   @MetricDoc.Tag(
     summary = "The time spent serving a ledger api grpc request.",
@@ -90,10 +90,15 @@ class LAPIMetrics(val prefix: MetricName, val factory: Factory) {
     val activeName: MetricName = prefix :+ "active"
 
     @MetricDoc.Tag(
-      summary = "The number of the actice streams served by the ledger api.",
+      summary = "The number of the active streams served by the ledger api.",
       description = "The number of ledger api streams currently being served to all clients.",
       qualification = Debug,
     )
-    val active: Counter = factory.counter(activeName)
+    val active: MetricHandle.Gauge[Int] =
+      factory.gauge(
+        activeName,
+        0,
+        "The number of ledger api streams currently being served to all clients.",
+      )(MetricsContext.Empty)
   }
 }

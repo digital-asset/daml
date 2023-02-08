@@ -100,7 +100,7 @@ trait SandboxRequiringAuthorization extends SandboxRequiringAuthorizationFuns {
   }
 
   override protected def idpJwtVerifierLoader: Option[JwtVerifierLoader] =
-    Some(new TestJwtVerifierLoader(self.jwtSecret))
+    Some(new TestJwtVerifierLoader())
 
   protected lazy val wrappedLedgerId: LedgerId = ledgerId(Some(toHeader(adminToken)))
   protected lazy val unwrappedLedgerId: String = wrappedLedgerId.unwrap

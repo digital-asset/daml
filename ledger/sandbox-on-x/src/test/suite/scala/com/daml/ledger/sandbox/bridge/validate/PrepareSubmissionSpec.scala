@@ -34,7 +34,7 @@ class PrepareSubmissionSpec extends AsyncFlatSpec with Matchers {
     DamlContextualizedErrorLogger.forTesting(getClass)
 
   private val prepareSubmission = new PrepareSubmissionImpl(
-    new BridgeMetrics(Metrics.ForTesting.dropwizardFactory)
+    new BridgeMetrics(Metrics.ForTesting.defaultMetricsFactory)
   )
 
   private def cid(key: String): ContractId = ContractId.V1(Hash.hashPrivateKey(key))

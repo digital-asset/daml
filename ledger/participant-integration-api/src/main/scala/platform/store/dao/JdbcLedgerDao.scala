@@ -23,7 +23,11 @@ import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.entries.LoggingEntry
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
-import com.daml.platform.configuration.{TransactionFlatStreamsConfig, TransactionTreeStreamsConfig}
+import com.daml.platform.configuration.{
+  AcsStreamsConfig,
+  TransactionFlatStreamsConfig,
+  TransactionTreeStreamsConfig,
+}
 import com.daml.platform.{ApplicationId, PackageId, Party, SubmissionId, TransactionId, WorkflowId}
 import com.daml.platform.store._
 import com.daml.platform.store.dao.events.{TransactionsFlatStreamReader, _}
@@ -40,14 +44,6 @@ import scala.util.{Failure, Success}
 private class JdbcLedgerDao(
     dbDispatcher: DbDispatcher with ReportsHealth,
     servicesExecutionContext: ExecutionContext,
-    txMaxPayloadsPerPayloadsPage: Int,
-    payloadProcessingParallelism: Int,
-    acsIdPageSize: Int,
-    acsIdPageBufferSize: Int,
-    acsIdPageWorkingMemoryBytes: Int,
-    acsIdFetchingParallelism: Int,
-    acsContractFetchingParallelism: Int,
-    acsGlobalParallelism: Int,
     metrics: Metrics,
     engine: Option[Engine],
     sequentialIndexer: SequentialWriteDao,
@@ -55,6 +51,7 @@ private class JdbcLedgerDao(
     readStorageBackend: ReadStorageBackend,
     parameterStorageBackend: ParameterStorageBackend,
     completionsPageSize: Int,
+    acsStreamsConfig: AcsStreamsConfig,
     transactionFlatStreamsConfig: TransactionFlatStreamsConfig,
     transactionTreeStreamsConfig: TransactionTreeStreamsConfig,
     globalMaxEventIdQueries: Int,
@@ -116,7 +113,7 @@ private class JdbcLedgerDao(
       startExclusive: Offset,
       endInclusive: Offset,
   )(implicit loggingContext: LoggingContext): Source[(Offset, ConfigurationEntry), NotUsed] =
-    PaginatingAsyncStream(PageSize) { queryOffset =>
+    PaginatingAsyncStream.streamFromLimitOffsetPagination(PageSize) { queryOffset =>
       withEnrichedLoggingContext("queryOffset" -> queryOffset) { implicit loggingContext =>
         dbDispatcher.executeSql(metrics.daml.index.db.loadConfigurationEntries) {
           readStorageBackend.configurationStorageBackend.configurationEntries(
@@ -206,7 +203,7 @@ private class JdbcLedgerDao(
       startExclusive: Offset,
       endInclusive: Offset,
   )(implicit loggingContext: LoggingContext): Source[(Offset, PartyLedgerEntry), NotUsed] = {
-    PaginatingAsyncStream(PageSize) { queryOffset =>
+    PaginatingAsyncStream.streamFromLimitOffsetPagination(PageSize) { queryOffset =>
       withEnrichedLoggingContext("queryOffset" -> queryOffset) { implicit loggingContext =>
         dbDispatcher.executeSql(metrics.daml.index.db.loadPartyEntries)(
           readStorageBackend.partyStorageBackend.partyEntries(
@@ -345,7 +342,7 @@ private class JdbcLedgerDao(
       startExclusive: Offset,
       endInclusive: Offset,
   )(implicit loggingContext: LoggingContext): Source[(Offset, PackageLedgerEntry), NotUsed] =
-    PaginatingAsyncStream(PageSize) { queryOffset =>
+    PaginatingAsyncStream.streamFromLimitOffsetPagination(PageSize) { queryOffset =>
       withEnrichedLoggingContext("queryOffset" -> queryOffset) { implicit loggingContext =>
         dbDispatcher.executeSql(metrics.daml.index.db.loadPackageEntries)(
           readStorageBackend.packageStorageBackend.packageEntries(
@@ -460,35 +457,26 @@ private class JdbcLedgerDao(
 
   private val queryNonPruned = QueryNonPrunedImpl(parameterStorageBackend)
 
-  // TODO etq: Apply to ACSReader
   private val globalIdQueriesLimiter = new QueueBasedConcurrencyLimiter(
     parallelism = globalMaxEventIdQueries,
     executionContext = servicesExecutionContext,
   )
 
-  // TODO etq: Apply to ACSReader
   private val globalPayloadQueriesLimiter = new QueueBasedConcurrencyLimiter(
     parallelism = globalMaxEventPayloadQueries,
     executionContext = servicesExecutionContext,
   )
 
-  private val acsEventFetchingQueryLimiter =
-    new QueueBasedConcurrencyLimiter(acsGlobalParallelism, servicesExecutionContext)
-
-  private val acsReader = new FilterTableACSReader(
+  private val acsReader = new ACSReader(
+    config = acsStreamsConfig,
+    globalIdQueriesLimiter = globalIdQueriesLimiter,
+    globalPayloadQueriesLimiter = globalPayloadQueriesLimiter,
     dispatcher = dbDispatcher,
     queryNonPruned = queryNonPruned,
     eventStorageBackend = readStorageBackend.eventStorageBackend,
-    pageSize = txMaxPayloadsPerPayloadsPage,
-    idPageSize = acsIdPageSize,
-    idPageBufferSize = acsIdPageBufferSize,
-    idPageWorkingMemoryBytes = acsIdPageWorkingMemoryBytes,
-    idFetchingParallelism = acsIdFetchingParallelism,
-    acsFetchingparallelism = acsContractFetchingParallelism,
+    lfValueTranslation = translation,
     metrics = metrics,
-    querylimiter = acsEventFetchingQueryLimiter,
-    executionContext = servicesExecutionContext,
-  )
+  )(servicesExecutionContext)
 
   private val flatTransactionsStreamReader = new TransactionsFlatStreamReader(
     config = transactionFlatStreamsConfig,
@@ -531,9 +519,7 @@ private class JdbcLedgerDao(
       dispatcher = dbDispatcher,
       queryNonPruned = queryNonPruned,
       eventStorageBackend = readStorageBackend.eventStorageBackend,
-      payloadProcessingParallelism = payloadProcessingParallelism,
       metrics = metrics,
-      lfValueTranslation = translation,
       flatTransactionsStreamReader = flatTransactionsStreamReader,
       treeTransactionsStreamReader = treeTransactionsStreamReader,
       flatTransactionPointwiseReader = flatTransactionPointwiseReader,
@@ -626,14 +612,6 @@ private[platform] object JdbcLedgerDao {
 
   def read(
       dbSupport: DbSupport,
-      eventsPageSize: Int,
-      eventsProcessingParallelism: Int,
-      acsIdPageSize: Int,
-      acsIdPageBufferSize: Int,
-      acsIdPageWorkingMemoryBytes: Int,
-      acsIdFetchingParallelism: Int,
-      acsContractFetchingParallelism: Int,
-      acsGlobalParallelism: Int,
       servicesExecutionContext: ExecutionContext,
       metrics: Metrics,
       engine: Option[Engine],
@@ -641,31 +619,26 @@ private[platform] object JdbcLedgerDao {
       ledgerEndCache: LedgerEndCache,
       stringInterning: StringInterning,
       completionsPageSize: Int,
+      acsStreamsConfig: AcsStreamsConfig,
       transactionFlatStreamsConfig: TransactionFlatStreamsConfig,
       transactionTreeStreamsConfig: TransactionTreeStreamsConfig,
       globalMaxEventIdQueries: Int,
       globalMaxEventPayloadQueries: Int,
   ): LedgerReadDao =
     new JdbcLedgerDao(
-      dbSupport.dbDispatcher,
-      servicesExecutionContext,
-      eventsPageSize,
-      eventsProcessingParallelism,
-      acsIdPageSize,
-      acsIdPageBufferSize,
-      acsIdPageWorkingMemoryBytes,
-      acsIdFetchingParallelism,
-      acsContractFetchingParallelism,
-      acsGlobalParallelism,
-      metrics,
-      engine,
-      SequentialWriteDao.noop,
-      participantId,
-      dbSupport.storageBackendFactory.readStorageBackend(ledgerEndCache, stringInterning),
-      dbSupport.storageBackendFactory.createParameterStorageBackend,
+      dbDispatcher = dbSupport.dbDispatcher,
+      servicesExecutionContext = servicesExecutionContext,
+      metrics = metrics,
+      engine = engine,
+      sequentialIndexer = SequentialWriteDao.noop,
+      participantId = participantId,
+      readStorageBackend =
+        dbSupport.storageBackendFactory.readStorageBackend(ledgerEndCache, stringInterning),
+      parameterStorageBackend = dbSupport.storageBackendFactory.createParameterStorageBackend,
       completionsPageSize = completionsPageSize,
-      transactionFlatStreamsConfig,
-      transactionTreeStreamsConfig,
+      acsStreamsConfig = acsStreamsConfig,
+      transactionFlatStreamsConfig = transactionFlatStreamsConfig,
+      transactionTreeStreamsConfig = transactionTreeStreamsConfig,
       globalMaxEventIdQueries = globalMaxEventIdQueries,
       globalMaxEventPayloadQueries = globalMaxEventPayloadQueries,
     )
@@ -673,14 +646,6 @@ private[platform] object JdbcLedgerDao {
   def write(
       dbSupport: DbSupport,
       sequentialWriteDao: SequentialWriteDao,
-      eventsPageSize: Int,
-      eventsProcessingParallelism: Int,
-      acsIdPageSize: Int,
-      acsIdPageBufferSize: Int,
-      acsIdPageWorkingMemoryBytes: Int,
-      acsIdFetchingParallelism: Int,
-      acsContractFetchingParallelism: Int,
-      acsGlobalParallelism: Int,
       servicesExecutionContext: ExecutionContext,
       metrics: Metrics,
       engine: Option[Engine],
@@ -688,31 +653,26 @@ private[platform] object JdbcLedgerDao {
       ledgerEndCache: LedgerEndCache,
       stringInterning: StringInterning,
       completionsPageSize: Int,
+      acsStreamsConfig: AcsStreamsConfig,
       transactionFlatStreamsConfig: TransactionFlatStreamsConfig,
       transactionTreeStreamsConfig: TransactionTreeStreamsConfig,
       globalMaxEventIdQueries: Int,
       globalMaxEventPayloadQueries: Int,
   ): LedgerDao =
     new JdbcLedgerDao(
-      dbSupport.dbDispatcher,
-      servicesExecutionContext,
-      eventsPageSize,
-      eventsProcessingParallelism,
-      acsIdPageSize,
-      acsIdPageBufferSize,
-      acsIdPageWorkingMemoryBytes,
-      acsIdFetchingParallelism,
-      acsContractFetchingParallelism,
-      acsGlobalParallelism,
-      metrics,
-      engine,
-      sequentialWriteDao,
-      participantId,
-      dbSupport.storageBackendFactory.readStorageBackend(ledgerEndCache, stringInterning),
-      dbSupport.storageBackendFactory.createParameterStorageBackend,
+      dbDispatcher = dbSupport.dbDispatcher,
+      servicesExecutionContext = servicesExecutionContext,
+      metrics = metrics,
+      engine = engine,
+      sequentialIndexer = sequentialWriteDao,
+      participantId = participantId,
+      readStorageBackend =
+        dbSupport.storageBackendFactory.readStorageBackend(ledgerEndCache, stringInterning),
+      parameterStorageBackend = dbSupport.storageBackendFactory.createParameterStorageBackend,
       completionsPageSize = completionsPageSize,
-      transactionFlatStreamsConfig,
-      transactionTreeStreamsConfig,
+      acsStreamsConfig = acsStreamsConfig,
+      transactionFlatStreamsConfig = transactionFlatStreamsConfig,
+      transactionTreeStreamsConfig = transactionTreeStreamsConfig,
       globalMaxEventIdQueries = globalMaxEventIdQueries,
       globalMaxEventPayloadQueries = globalMaxEventPayloadQueries,
     )

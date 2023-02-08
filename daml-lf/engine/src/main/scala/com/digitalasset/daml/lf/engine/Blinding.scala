@@ -63,6 +63,8 @@ object Blinding {
             go(filteredRoots :+ root, remainingRoots)
           } else {
             tx.nodes(root) match {
+              case na: Node.Authority =>
+                go(filteredRoots, na.children ++: remainingRoots)
               case nr: Node.Rollback =>
                 go(filteredRoots, nr.children ++: remainingRoots)
               case _: Node.Fetch | _: Node.Create | _: Node.LookupByKey =>
@@ -87,6 +89,7 @@ object Blinding {
     val entries = blindingInfo.disclosure.view.flatMap { case (nodeId, parties) =>
       def toEntries(tyCon: Ref.TypeConName) = parties.view.map(_ -> tyCon.packageId)
       tx.nodes(nodeId) match {
+        case _: Node.Authority => ??? // TODO #15882 -- we are not sure. leave for now
         case action: Node.LeafOnlyAction =>
           toEntries(action.templateId)
         case exe: Node.Exercise =>

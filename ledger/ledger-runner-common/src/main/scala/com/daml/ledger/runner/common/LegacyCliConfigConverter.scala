@@ -5,7 +5,7 @@ package com.daml.ledger.runner.common
 
 import com.daml.platform.apiserver.ApiServerConfig
 import com.daml.platform.config.{MetricsConfig, ParticipantConfig}
-import com.daml.platform.configuration.IndexServiceConfig
+import com.daml.platform.configuration.{AcsStreamsConfig, IndexServiceConfig}
 import com.daml.platform.store.DbSupport.{
   ConnectionPoolConfig,
   DataSourceProperties,
@@ -26,13 +26,14 @@ object LegacyCliConfigConverter {
     authentication = cliConfig.authService,
     indexer = config.indexerConfig,
     indexService = IndexServiceConfig(
-      acsContractFetchingParallelism = cliConfig.acsContractFetchingParallelism,
-      acsGlobalParallelism = cliConfig.acsGlobalParallelism,
-      acsIdFetchingParallelism = cliConfig.acsIdFetchingParallelism,
-      acsIdPageSize = cliConfig.acsIdPageSize,
-      eventsPageSize = cliConfig.eventsPageSize,
+      acsStreams = AcsStreamsConfig(
+        maxParallelPayloadCreateQueries = cliConfig.acsContractFetchingParallelism,
+        maxParallelIdCreateQueries = cliConfig.acsIdFetchingParallelism,
+        maxIdsPerIdPage = cliConfig.acsIdPageSize,
+        maxPayloadsPerPayloadsPage = cliConfig.eventsPageSize,
+      ),
       bufferedStreamsPageSize = cliConfig.bufferedStreamsPageSize,
-      eventsProcessingParallelism = cliConfig.eventsProcessingParallelism,
+      bufferedEventsProcessingParallelism = cliConfig.bufferedEventsProcessingParallelism,
       maxContractStateCacheSize = config.maxContractStateCacheSize,
       maxContractKeyStateCacheSize = config.maxContractKeyStateCacheSize,
       maxTransactionsInMemoryFanOutBufferSize = cliConfig.maxTransactionsInMemoryFanOutBufferSize,

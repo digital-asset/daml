@@ -53,6 +53,8 @@ private[parser] object Lexer extends RegexParsers {
     "interface_template_type_rep" -> `interface_template_type_rep`,
     "signatory_interface" -> `signatory_interface`,
     "observer_interface" -> `observer_interface`,
+    "choice_controller" -> `choice_controller`,
+    "choice_observer" -> `choice_observer`,
   )
 
   val token: Parser[Token] =

@@ -9,6 +9,11 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.Sink
 import com.daml.api.util.TimeProvider
 import com.daml.buildinfo.BuildInfo
+import com.daml.executors.executors.{
+  NamedExecutor,
+  QueueAwareExecutionContextExecutorService,
+  QueueAwareExecutor,
+}
 import com.daml.executors.InstrumentedExecutors
 import com.daml.ledger.api.auth.{
   AuthServiceJWT,
@@ -16,13 +21,7 @@ import com.daml.ledger.api.auth.{
   AuthServiceStatic,
   AuthServiceWildcard,
 }
-import com.daml.ledger.api.v1.experimental_features.{
-  CommandDeduplicationFeatures,
-  CommandDeduplicationPeriodSupport,
-  CommandDeduplicationType,
-  ExperimentalContractIds,
-  ExperimentalExplicitDisclosure,
-}
+import com.daml.ledger.api.v1.experimental_features._
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.IndexService
 import com.daml.ledger.participant.state.v2.{Update, WriteService}
@@ -33,17 +32,18 @@ import com.daml.lf.data.Ref
 import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.metrics.api.MetricHandle.Factory
-import com.daml.metrics.{Metrics, OpenTelemetryMeterOwner}
+import com.daml.metrics.api.MetricHandle.MetricsFactory
+import com.daml.metrics.Metrics
 import com.daml.platform.LedgerApiServer
 import com.daml.platform.apiserver.configuration.RateLimitingConfig
-import com.daml.platform.apiserver.ratelimiting.ThreadpoolCheck.ThreadpoolCount
 import com.daml.platform.apiserver.ratelimiting.{RateLimitingInterceptor, ThreadpoolCheck}
 import com.daml.platform.apiserver.{LedgerFeatures, TimeServiceBackend}
 import com.daml.platform.config.ParticipantConfig
 import com.daml.platform.store.DbSupport.ParticipantDataSourceConfig
 import com.daml.platform.store.DbType
 import com.daml.ports.Port
+import com.daml.telemetry.OpenTelemetryOwner
+import com.daml.tracing.DefaultOpenTelemetry
 
 import scala.concurrent.ExecutionContextExecutorService
 import scala.util.Try
@@ -56,12 +56,12 @@ object SandboxOnXRunner {
       configAdaptor: BridgeConfigAdaptor,
       config: Config,
       bridgeConfig: BridgeConfig,
-      explicitDisclosureUnsafeEnabled: Boolean = false,
+      registerGlobalOpenTelemetry: Boolean,
   ): ResourceOwner[Port] =
     new ResourceOwner[Port] {
       override def acquire()(implicit context: ResourceContext): Resource[Port] =
         SandboxOnXRunner
-          .run(bridgeConfig, config, configAdaptor, explicitDisclosureUnsafeEnabled)
+          .run(bridgeConfig, config, configAdaptor, registerGlobalOpenTelemetry)
           .acquire()
     }
 
@@ -69,7 +69,7 @@ object SandboxOnXRunner {
       bridgeConfig: BridgeConfig,
       config: Config,
       configAdaptor: BridgeConfigAdaptor,
-      explicitDisclosureUnsafeEnabled: Boolean,
+      registerGlobalOpenTelemetry: Boolean,
   ): ResourceOwner[Port] = newLoggingContext { implicit loggingContext =>
     implicit val actorSystem: ActorSystem = ActorSystem(RunnerName)
     implicit val materializer: Materializer = Materializer(actorSystem)
@@ -79,13 +79,13 @@ object SandboxOnXRunner {
       // This is necessary because we can't declare them as implicits in a `for` comprehension.
       _ <- ResourceOwner.forActorSystem(() => actorSystem)
       _ <- ResourceOwner.forMaterializer(() => materializer)
-      openTelemetryMeter <- OpenTelemetryMeterOwner(
-        config.metrics.enabled,
-        Some(config.metrics.reporter),
+      openTelemetry <- OpenTelemetryOwner(
+        setAsGlobal = registerGlobalOpenTelemetry,
+        Option.when(config.metrics.enabled)(config.metrics.reporter),
       )
 
       (participantId, dataSource, participantConfig) <- assertSingleParticipant(config)
-      metrics <- MetricsOwner(openTelemetryMeter, config.metrics, participantId)
+      metrics <- MetricsOwner(openTelemetry.getMeter("daml"), config.metrics, participantId)
       timeServiceBackendO = configAdaptor.timeServiceBackend(participantConfig.apiServer)
       (stateUpdatesFeedSink, stateUpdatesSource) <- AkkaSubmissionsBridge()
 
@@ -98,12 +98,11 @@ object SandboxOnXRunner {
         bridgeConfig = bridgeConfig,
         materializer = materializer,
         loggingContext = loggingContext,
-        metricsFactory = metrics.dropwizardFactory,
+        metricsFactory = metrics.defaultMetricsFactory,
         servicesThreadPoolSize = servicesThreadPoolSize,
         servicesExecutionContext = servicesExecutionContext,
         timeServiceBackendO = timeServiceBackendO,
         stageBufferSize = bridgeConfig.stageBufferSize,
-        explicitDisclosureEnabled = explicitDisclosureUnsafeEnabled,
       )
       apiServer <- new LedgerApiServer(
         ledgerFeatures = LedgerFeatures(
@@ -121,7 +120,7 @@ object SandboxOnXRunner {
           contractIdFeatures = ExperimentalContractIds.of(
             v1 = ExperimentalContractIds.ContractIdV1Support.NON_SUFFIXED
           ),
-          explicitDisclosure = ExperimentalExplicitDisclosure.of(explicitDisclosureUnsafeEnabled),
+          explicitDisclosure = ExperimentalExplicitDisclosure.of(true),
         ),
         authService = configAdaptor.authService(participantConfig),
         jwtVerifierLoader =
@@ -140,9 +139,12 @@ object SandboxOnXRunner {
         timeServiceBackendO = timeServiceBackendO,
         servicesExecutionContext = servicesExecutionContext,
         metrics = metrics,
-        explicitDisclosureUnsafeEnabled = explicitDisclosureUnsafeEnabled,
-        rateLimitingInterceptor =
-          participantConfig.apiServer.rateLimit.map(buildRateLimitingInterceptor(metrics)),
+        explicitDisclosureUnsafeEnabled = true,
+        rateLimitingInterceptor = participantConfig.apiServer.rateLimit.map(config =>
+          dbExecutor =>
+            buildRateLimitingInterceptor(metrics, dbExecutor, servicesExecutionContext)(config)
+        ),
+        telemetry = new DefaultOpenTelemetry(openTelemetry),
       )(actorSystem, materializer).owner
     } yield {
       logInitializationHeader(
@@ -202,12 +204,11 @@ object SandboxOnXRunner {
       bridgeConfig: BridgeConfig,
       materializer: Materializer,
       loggingContext: LoggingContext,
-      metricsFactory: Factory,
+      metricsFactory: MetricsFactory,
       servicesThreadPoolSize: Int,
       servicesExecutionContext: ExecutionContextExecutorService,
       timeServiceBackendO: Option[TimeServiceBackend],
       stageBufferSize: Int,
-      explicitDisclosureEnabled: Boolean,
   ): IndexService => ResourceOwner[WriteService] = { indexService =>
     val bridgeMetrics = new BridgeMetrics(factory = metricsFactory)
     for {
@@ -219,7 +220,6 @@ object SandboxOnXRunner {
         servicesThreadPoolSize,
         timeServiceBackendO.getOrElse(TimeProvider.UTC),
         stageBufferSize,
-        explicitDisclosureEnabled,
       )(loggingContext, servicesExecutionContext)
       writeService <- ResourceOwner.forCloseable(() =>
         new BridgeWriteService(
@@ -235,13 +235,13 @@ object SandboxOnXRunner {
   private def buildServicesExecutionContext(
       metrics: Metrics,
       servicesThreadPoolSize: Int,
-  ): ResourceOwner[ExecutionContextExecutorService] =
+  ): ResourceOwner[QueueAwareExecutionContextExecutorService] =
     ResourceOwner
       .forExecutorService(() =>
         InstrumentedExecutors.newWorkStealingExecutor(
           metrics.daml.lapi.threadpool.apiServices,
           servicesThreadPoolSize,
-          metrics.dropwizardFactory.registry,
+          metrics.registry,
           metrics.executorServiceMetrics,
         )
       )
@@ -290,16 +290,24 @@ object SandboxOnXRunner {
   }
 
   def buildRateLimitingInterceptor(
-      metrics: Metrics
+      metrics: Metrics,
+      indexDbExecutor: QueueAwareExecutor with NamedExecutor,
+      apiServicesExecutor: QueueAwareExecutor with NamedExecutor,
   )(config: RateLimitingConfig): RateLimitingInterceptor = {
 
-    val apiServices: ThreadpoolCount = new ThreadpoolCount(metrics)(
-      "Api Services Threadpool",
-      metrics.daml.lapi.threadpool.apiServices,
+    val indexDbCheck = ThreadpoolCheck(
+      "Index DB Threadpool",
+      indexDbExecutor,
+      config.maxApiServicesIndexDbQueueSize,
     )
-    val apiServicesCheck = ThreadpoolCheck(apiServices, config.maxApiServicesQueueSize)
 
-    RateLimitingInterceptor(metrics, config, List(apiServicesCheck))
+    val apiServicesCheck = ThreadpoolCheck(
+      "Api Services Threadpool",
+      apiServicesExecutor,
+      config.maxApiServicesQueueSize,
+    )
+
+    RateLimitingInterceptor(metrics, config, List(indexDbCheck, apiServicesCheck))
 
   }
 

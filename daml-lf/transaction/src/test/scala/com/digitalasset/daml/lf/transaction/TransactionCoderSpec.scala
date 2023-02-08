@@ -232,7 +232,7 @@ class TransactionCoderSpec
           agreementText = "agreement",
           signatories = Set(Party.assertFromString("alice")),
           stakeholders = Set(Party.assertFromString("alice"), Party.assertFromString("bob")),
-          key = None,
+          keyOpt = None,
           version = TransactionVersion.minVersion,
         )
 
@@ -410,7 +410,7 @@ class TransactionCoderSpec
 
     "fail if try to encode a fetch node containing value with version different from node" in {
       forAll(fetchNodeGen, transactionVersionGen(), minSuccessful(5)) { (node, version) =>
-        whenever(node.version != version && node.key.isDefined) {
+        whenever(node.version != version && node.keyOpt.isDefined) {
           val nodeVersion = node.version
           val encodeVersion = ValueCoder.encodeValueVersion(version)
           val Right(encodedNode) = TransactionCoder.encodeNode(
@@ -845,13 +845,13 @@ class TransactionCoderSpec
     }
   def withoutContractKeyInExercise(gn: Node): Node =
     gn match {
-      case ne: Node.Exercise => ne copy (key = None)
+      case ne: Node.Exercise => ne copy (keyOpt = None)
       case _ => gn
     }
   def withoutMaintainersInExercise(gn: Node): Node =
     gn match {
       case ne: Node.Exercise =>
-        ne copy (key = ne.key.map(_.copy(maintainers = Set.empty)))
+        ne copy (keyOpt = ne.keyOpt.map(_.copy(maintainers = Set.empty)))
       case _ => gn
     }
 
@@ -895,6 +895,7 @@ class TransactionCoderSpec
 
   private[this] def normalizeNode(node: Node) =
     node match {
+      case na: Node.Authority => na // nothing to normalize
       case rb: Node.Rollback => rb // nothing to normalize
       case exe: Node.Exercise => normalizeExe(exe)
       case fetch: Node.Fetch => normalizeFetch(fetch)
@@ -907,13 +908,13 @@ class TransactionCoderSpec
   ): Node.Create = {
     create.copy(
       arg = normalize(create.arg, create.version),
-      key = create.key.map(normalizeKey(_, create.version)),
+      keyOpt = create.keyOpt.map(normalizeKey(_, create.version)),
     )
   }
 
   private[this] def normalizeFetch(fetch: Node.Fetch) =
     fetch.copy(
-      key = fetch.key.map(normalizeKey(_, fetch.version)),
+      keyOpt = fetch.keyOpt.map(normalizeKey(_, fetch.version)),
       byKey =
         if (fetch.version >= TransactionVersion.minByKey)
           fetch.byKey
@@ -939,7 +940,7 @@ class TransactionCoderSpec
       },
       choiceObservers =
         exe.choiceObservers.filter(_ => exe.version >= TransactionVersion.minChoiceObservers),
-      key = exe.key.map(normalizeKey(_, exe.version)),
+      keyOpt = exe.keyOpt.map(normalizeKey(_, exe.version)),
       byKey =
         if (exe.version >= TransactionVersion.minByKey)
           exe.byKey
@@ -947,11 +948,12 @@ class TransactionCoderSpec
     )
 
   private[this] def normalizeKey(
-      key: Node.KeyWithMaintainers,
+      key: GlobalKeyWithMaintainers,
       version: TransactionVersion,
-  ) = {
-    key.copy(key = normalize(key.key, version))
-  }
+  ) =
+    key.copy(globalKey =
+      GlobalKey.assertBuild(key.globalKey.templateId, normalize(key.value, version))
+    )
 
   private[this] def normalizeContract(contract: Versioned[Value.ContractInstanceWithAgreement]) =
     contract.map(
@@ -971,6 +973,7 @@ class TransactionCoderSpec
       node: Node,
       version: TransactionVersion,
   ): Node = node match {
+    case node: Node.Authority => node
     case node: Node.Action => node.updateVersion(version)
     case node: Node.Rollback => node
   }

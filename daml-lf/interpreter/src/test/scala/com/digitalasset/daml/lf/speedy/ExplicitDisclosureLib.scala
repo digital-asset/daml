@@ -7,11 +7,11 @@ package speedy
 import com.daml.lf.command.ContractMetadata
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref.{IdString, Party}
-import com.daml.lf.data.{FrontStack, ImmArray, Ref, Struct, Time}
+import com.daml.lf.data.{Bytes, FrontStack, ImmArray, Ref, Struct, Time}
 import com.daml.lf.language.Ast
 import com.daml.lf.speedy.SExpr.SEMakeClo
 import com.daml.lf.speedy.SValue.{SContractId, SToken}
-import com.daml.lf.speedy.Speedy.{CachedContract, SKeyWithMaintainers}
+import com.daml.lf.speedy.Speedy.{CachedContract, CachedKey}
 import com.daml.lf.transaction.{GlobalKey, GlobalKeyWithMaintainers, TransactionVersion, Versioned}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.{ContractId, ContractInstance}
@@ -135,7 +135,7 @@ object ExplicitDisclosureLib {
         ImmArray(Ref.Name.assertFromString("owner"), Ref.Name.assertFromString("key_maintainer")),
         ArrayList(SValue.SParty(owner), SValue.SParty(maintainer)),
       ),
-      ContractMetadata(Time.Timestamp.now(), keyHash, ImmArray.Empty),
+      ContractMetadata(Time.Timestamp.now(), keyHash, Bytes.Empty),
     )
   }
 
@@ -152,7 +152,7 @@ object ExplicitDisclosureLib {
         ImmArray(Ref.Name.assertFromString("owner")),
         ArrayList(SValue.SParty(owner)),
       ),
-      ContractMetadata(Time.Timestamp.now(), None, ImmArray.Empty),
+      ContractMetadata(Time.Timestamp.now(), None, Bytes.Empty),
     )
   }
 
@@ -219,9 +219,18 @@ object ExplicitDisclosureLib {
       ),
     )
     val mbKey =
-      if (withKey) Some(SKeyWithMaintainers(contract, Set(maintainer))) else None
+      if (withKey)
+        Some(
+          CachedKey(
+            GlobalKeyWithMaintainers
+              .assertBuild(templateId, contract.toUnnormalizedValue, Set(maintainer)),
+            contract,
+          )
+        )
+      else None
 
     CachedContract(
+      TransactionVersion.minExplicitDisclosure,
       templateId,
       contract,
       agreementText = "",

@@ -39,11 +39,11 @@ final class TransactionBuilder(pkgTxVersion: Ref.PackageId => TransactionVersion
   def add(node: Node, parentId: NodeId): NodeId = ids.synchronized {
     lazy val nodeId = newNode(node) // lazy to avoid getting the next id if the method later throws
     nodes(parentId) match {
-      case _: Node.Exercise | _: Node.Rollback =>
+      case _: Node.Exercise | _: Node.Rollback | _: Node.Authority =>
         children += parentId -> (children(parentId) :+ nodeId)
       case _ =>
         throw new IllegalArgumentException(
-          s"Node ${parentId.index} either does not exist or is not an exercise or rollback"
+          s"Node ${parentId.index} either does not exist or is not an exercise, rollback or authority"
         )
     }
     nodeId
@@ -52,6 +52,8 @@ final class TransactionBuilder(pkgTxVersion: Ref.PackageId => TransactionVersion
   def build(): VersionedTransaction = ids.synchronized {
     import TransactionVersion.Ordering
     val finalNodes = nodes.transform {
+      case (nid, au: Node.Authority) =>
+        au.copy(children = children(nid).toImmArray)
       case (nid, rb: Node.Rollback) =>
         rb.copy(children = children(nid).toImmArray)
       case (nid, exe: Node.Exercise) =>
@@ -104,7 +106,7 @@ final class TransactionBuilder(pkgTxVersion: Ref.PackageId => TransactionVersion
       argument: Value,
       signatories: Set[Ref.Party],
       observers: Set[Ref.Party],
-      key: Option[Value],
+      keyOpt: Option[Value],
       maintainers: Set[Ref.Party],
   ): Node.Create = {
     Node.Create(
@@ -114,7 +116,8 @@ final class TransactionBuilder(pkgTxVersion: Ref.PackageId => TransactionVersion
       agreementText = "",
       signatories = signatories,
       stakeholders = signatories | observers,
-      key = key.map(Node.KeyWithMaintainers(_, maintainers)),
+      keyOpt =
+        keyOpt.map(key => GlobalKeyWithMaintainers.assertBuild(templateId, key, maintainers)),
       version = pkgTxVersion(templateId.packageId),
     )
   }
@@ -143,7 +146,7 @@ final class TransactionBuilder(pkgTxVersion: Ref.PackageId => TransactionVersion
       signatories = contract.signatories,
       children = ImmArray.Empty,
       exerciseResult = result,
-      key = contract.key,
+      keyOpt = contract.keyOpt,
       byKey = byKey,
       version = pkgTxVersion(contract.templateId.packageId),
     )
@@ -167,7 +170,7 @@ final class TransactionBuilder(pkgTxVersion: Ref.PackageId => TransactionVersion
       actingParties = contract.signatories.map(Ref.Party.assertFromString),
       signatories = contract.signatories,
       stakeholders = contract.stakeholders,
-      key = contract.key,
+      keyOpt = contract.keyOpt,
       byKey = byKey,
       version = pkgTxVersion(contract.templateId.packageId),
     )
@@ -178,7 +181,7 @@ final class TransactionBuilder(pkgTxVersion: Ref.PackageId => TransactionVersion
   def lookupByKey(contract: Node.Create, found: Boolean = true): Node.LookupByKey =
     Node.LookupByKey(
       templateId = contract.templateId,
-      key = contract.key.get,
+      key = contract.keyOpt.get,
       result = if (found) Some(contract.coid) else None,
       version = pkgTxVersion(contract.templateId.packageId),
     )
@@ -193,8 +196,8 @@ object TransactionBuilder {
 
   type TxValue = value.Value.VersionedValue
 
-  type KeyWithMaintainers = Node.KeyWithMaintainers
-  type TxKeyWithMaintainers = Node.VersionedKeyWithMaintainers
+  type KeyWithMaintainers = GlobalKeyWithMaintainers
+  type TxKeyWithMaintainers = Versioned[GlobalKeyWithMaintainers]
 
   def apply(
       pkgLangVersion: Ref.PackageId => LanguageVersion = _ => LanguageVersion.StableVersions.max

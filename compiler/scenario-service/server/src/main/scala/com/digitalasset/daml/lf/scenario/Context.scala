@@ -5,11 +5,9 @@ package com.daml.lf
 package scenario
 
 import java.util.concurrent.atomic.AtomicLong
-
 import akka.stream.Materializer
 import com.daml.grpc.adapter.ExecutionSequencerFactory
-import com.daml.lf.archive
-import com.daml.lf.data.{assertRight, ImmArray}
+import com.daml.lf.data.{ImmArray, assertRight}
 import com.daml.lf.data.Ref.{Identifier, ModuleName, PackageId, QualifiedName}
 import com.daml.lf.engine.script.ledgerinteraction.{IdeLedgerClient, ScriptTimeMode}
 import com.daml.lf.language.{Ast, LanguageVersion, Util => AstUtil}
@@ -24,6 +22,7 @@ import com.daml.logging.LoggingContext
 import scala.concurrent.ExecutionContext
 import scala.concurrent.Future
 import scala.collection.immutable.HashMap
+import scala.concurrent.duration._
 import scala.util.{Failure, Success}
 
 /** Scenario interpretation context: maintains a set of modules and external packages, with which
@@ -35,8 +34,10 @@ object Context {
 
   private val contextCounter = new AtomicLong()
 
-  def newContext(lfVerion: LanguageVersion)(implicit loggingContext: LoggingContext): Context =
-    new Context(contextCounter.incrementAndGet(), lfVerion)
+  def newContext(lfVerion: LanguageVersion, timeout: Duration)(implicit
+      loggingContext: LoggingContext
+  ): Context =
+    new Context(contextCounter.incrementAndGet(), lfVerion, timeout)
 
   private val compilerConfig =
     Compiler.Config(
@@ -47,7 +48,11 @@ object Context {
     )
 }
 
-class Context(val contextId: Context.ContextId, languageVersion: LanguageVersion)(implicit
+class Context(
+    val contextId: Context.ContextId,
+    languageVersion: LanguageVersion,
+    timeout: Duration,
+)(implicit
     loggingContext: LoggingContext
 ) {
 
@@ -70,7 +75,7 @@ class Context(val contextId: Context.ContextId, languageVersion: LanguageVersion
   def loadedPackages(): Iterable[PackageId] = extSignatures.keys
 
   def cloneContext(): Context = synchronized {
-    val newCtx = Context.newContext(languageVersion)
+    val newCtx = Context.newContext(languageVersion, timeout)
     newCtx.extSignatures = extSignatures
     newCtx.extDefns = extDefns
     newCtx.modules = modules
@@ -151,7 +156,9 @@ class Context(val contextId: Context.ContextId, languageVersion: LanguageVersion
       name: String,
   ): Option[ScenarioRunner.ScenarioResult] = {
     val id = Identifier(PackageId.assertFromString(pkgId), QualifiedName.assertFromString(name))
-    defns.get(LfDefRef(id)).map(defn => ScenarioRunner.run(() => buildMachine(defn), txSeeding))
+    defns
+      .get(LfDefRef(id))
+      .map(defn => ScenarioRunner.run(buildMachine(defn), txSeeding, timeout))
   }
 
   def interpretScript(
@@ -168,7 +175,9 @@ class Context(val contextId: Context.ContextId, languageVersion: LanguageVersion
       Identifier(PackageId.assertFromString(pkgId), QualifiedName.assertFromString(name))
     val traceLog = Speedy.Machine.newTraceLog
     val warningLog = Speedy.Machine.newWarningLog
-    val ledgerClient: IdeLedgerClient = new IdeLedgerClient(compiledPackages, traceLog, warningLog)
+    val timeBomb = TimeBomb(timeout.toMillis)
+    val isOverdue = timeBomb.hasExploded
+    val ledgerClient = new IdeLedgerClient(compiledPackages, traceLog, warningLog, isOverdue)
     val participants = Participants(Some(ledgerClient), Map.empty, Map.empty)
     val (clientMachine, resultF) = Runner.run(
       compiledPackages = compiledPackages,
@@ -179,6 +188,7 @@ class Context(val contextId: Context.ContextId, languageVersion: LanguageVersion
       timeMode = ScriptTimeMode.Static,
       traceLog = traceLog,
       warningLog = warningLog,
+      canceled = timeBomb.start(),
     )
 
     def handleFailure(e: Error) =
@@ -209,6 +219,7 @@ class Context(val contextId: Context.ContextId, languageVersion: LanguageVersion
               ledgerClient.ledger,
               clientMachine.traceLog,
               clientMachine.warningLog,
+              clientMachine.profile,
               dummyDuration,
               dummySteps,
               v,
@@ -216,9 +227,8 @@ class Context(val contextId: Context.ContextId, languageVersion: LanguageVersion
           )
         )
       case Failure(e: Error) => handleFailure(e)
-      case Failure(e: Runner.InterpretationError) => {
-        handleFailure(Error.RunnerException(e.error))
-      }
+      case Failure(Runner.Canceled) => handleFailure(Error.Timeout(timeout))
+      case Failure(e: Runner.InterpretationError) => handleFailure(Error.RunnerException(e.error))
       case Failure(e: ScriptF.FailedCmd) =>
         e.cause match {
           case e: Error => handleFailure(e)

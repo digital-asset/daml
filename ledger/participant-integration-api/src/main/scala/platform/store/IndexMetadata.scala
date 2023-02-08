@@ -12,9 +12,10 @@ import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import com.daml.metrics.api.dropwizard.DropwizardMetricsFactory
-import com.daml.metrics.api.opentelemetry.OpenTelemetryFactory
+import com.daml.metrics.api.opentelemetry.OpenTelemetryMetricsFactory
 import com.daml.platform.ApiOffset
 import com.daml.platform.configuration.{
+  AcsStreamsConfig,
   ServerRole,
   TransactionFlatStreamsConfig,
   TransactionTreeStreamsConfig,
@@ -63,9 +64,11 @@ object IndexMetadata {
       executionContext: ExecutionContext,
       loggingContext: LoggingContext,
   ) = {
+    val registry = new MetricRegistry
     val metrics = new Metrics(
-      new DropwizardMetricsFactory(new MetricRegistry),
-      new OpenTelemetryFactory(GlobalOpenTelemetry.getMeter("daml")),
+      new DropwizardMetricsFactory(registry),
+      new OpenTelemetryMetricsFactory(GlobalOpenTelemetry.getMeter("daml")),
+      registry,
     )
     DbSupport
       .owner(
@@ -82,14 +85,6 @@ object IndexMetadata {
       .map(dbSupport =>
         JdbcLedgerDao.read(
           dbSupport = dbSupport,
-          eventsPageSize = 1000,
-          eventsProcessingParallelism = 8,
-          acsIdPageSize = 20000,
-          acsIdPageBufferSize = 1,
-          acsIdPageWorkingMemoryBytes = 100 * 1024 * 1024,
-          acsIdFetchingParallelism = 2,
-          acsContractFetchingParallelism = 2,
-          acsGlobalParallelism = 10,
           completionsPageSize = 1000,
           servicesExecutionContext = executionContext,
           metrics = metrics,
@@ -97,6 +92,7 @@ object IndexMetadata {
           participantId = Ref.ParticipantId.assertFromString("1"),
           ledgerEndCache = MutableLedgerEndCache(), // not used
           stringInterning = new StringInterningView(), // not used
+          acsStreamsConfig = AcsStreamsConfig.default,
           transactionFlatStreamsConfig = TransactionFlatStreamsConfig.default,
           transactionTreeStreamsConfig = TransactionTreeStreamsConfig.default,
           globalMaxEventIdQueries = 20,

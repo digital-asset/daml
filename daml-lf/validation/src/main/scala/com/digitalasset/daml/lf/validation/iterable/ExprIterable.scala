@@ -86,6 +86,10 @@ private[validation] object ExprIterable {
         iterator(expr)
       case EObserverInterface(iface @ _, body) =>
         iterator(body)
+      case EChoiceController(tpl @ _, choiceName @ _, contract, choiceArg) =>
+        Iterator(contract, choiceArg)
+      case EChoiceObserver(tpl @ _, choiceName @ _, contract, choiceArg) =>
+        Iterator(contract, choiceArg)
     }
   }
 
@@ -103,9 +107,6 @@ private[validation] object ExprIterable {
         Iterator(contractId)
       case UpdateFetchInterface(interface @ _, contractId) =>
         Iterator(contractId)
-      case UpdateActingAsConsortium(members, consortium) =>
-        val _ = (members, consortium)
-        ??? // TODO: https://github.com/digital-asset/daml/issues/15882
       case UpdateExercise(templateId @ _, choice @ _, cid, arg) =>
         Iterator(cid, arg)
       case UpdateExerciseInterface(interface @ _, choice @ _, cid, arg, guard) =>

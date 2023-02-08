@@ -88,3 +88,6 @@ def server_conformance_test(name, servers, server_args = [], test_tool_args = []
             server_hocon_config = hocon_config,
             hocon = hocon,
         )
+
+# versions for which we build a test-tool
+testtool_lf_versions = ["1.8", "1.14", "1.15", "1.dev"]

@@ -55,7 +55,7 @@ private[apiserver] final class ApiVersionService private (
         if (userManagementConfig.enabled) {
           UserManagementFeature(
             supported = true,
-            maxRightsPerUser = UserManagementConfig.MaxRightsPerUser,
+            maxRightsPerUser = userManagementConfig.maxRightsPerUser,
             maxUsersPageSize = userManagementConfig.maxUsersPageSize,
           )
         } else {

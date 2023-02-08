@@ -77,7 +77,7 @@ private[backend] trait StorageBackendTestsInitializeIngestion
     }
 
     it should "delete overspill entries written before first ledger end update - config, parties, packages" in {
-      fixtureOverspillBeforeFirstLedgerEndUpdate(
+      fixtureOverspillEntriesPriorToFirstLedgerEndUpdate(
         dtos = dtos,
         lastOffset = 3,
         lastEventSeqId = 0L,
@@ -124,7 +124,7 @@ private[backend] trait StorageBackendTestsInitializeIngestion
     }
 
     it should "delete overspill entries written before first ledger end update - metering" in {
-      fixtureOverspillBeforeFirstLedgerEndUpdate(
+      fixtureOverspillEntriesPriorToFirstLedgerEndUpdate(
         dtos = dtos,
         lastOffset = 4,
         lastEventSeqId = 0L,
@@ -165,35 +165,37 @@ private[backend] trait StorageBackendTestsInitializeIngestion
     )
 
     it should "delete overspill entries - events, transaction meta, completions" in {
+      val dtos2 = Vector(
+        // 3: transaction with create node
+        dtoCreate(offset(3), 5L, hashCid("#201"), signatory = signatory),
+        DbDto.IdFilterCreateStakeholder(5L, someTemplateId.toString, someParty),
+        DbDto.IdFilterCreateNonStakeholderInformee(5L, someParty),
+        dtoTransactionMeta(
+          offset(3),
+          event_sequential_id_first = 5L,
+          event_sequential_id_last = 5L,
+        ),
+        dtoCompletion(offset(3)),
+        // 4: transaction with exercise node and retroactive divulgence
+        dtoExercise(offset(4), 6L, false, hashCid("#201")),
+        DbDto.IdFilterNonConsumingInformee(6L, someParty),
+        dtoExercise(offset(4), 7L, true, hashCid("#202")),
+        DbDto.IdFilterConsumingStakeholder(7L, someTemplateId.toString, someParty),
+        DbDto.IdFilterConsumingNonStakeholderInformee(7L, someParty),
+        dtoDivulgence(Some(offset(4)), 8L, hashCid("#201")),
+        dtoTransactionMeta(
+          offset(4),
+          event_sequential_id_first = 6L,
+          event_sequential_id_last = 8L,
+        ),
+        dtoCompletion(offset(4)),
+      )
+      val allDtos = dtos ++ dtos2
       fixture(
         dtos1 = dtos,
         lastOffset1 = 2L,
         lastEventSeqId1 = 4L,
-        dtos2 = Vector(
-          // 3: transaction with create node
-          dtoCreate(offset(3), 5L, hashCid("#201"), signatory = signatory),
-          DbDto.IdFilterCreateStakeholder(5L, someTemplateId.toString, someParty),
-          DbDto.IdFilterCreateNonStakeholderInformee(5L, someParty),
-          dtoTransactionMeta(
-            offset(3),
-            event_sequential_id_first = 5L,
-            event_sequential_id_last = 5L,
-          ),
-          dtoCompletion(offset(3)),
-          // 4: transaction with exercise node and retroactive divulgence
-          dtoExercise(offset(4), 6L, false, hashCid("#201")),
-          DbDto.IdFilterNonConsumingInformee(6L, someParty),
-          dtoExercise(offset(4), 7L, true, hashCid("#202")),
-          DbDto.IdFilterConsumingStakeholder(7L, someTemplateId.toString, someParty),
-          DbDto.IdFilterConsumingNonStakeholderInformee(7L, someParty),
-          dtoDivulgence(Some(offset(4)), 8L, hashCid("#201")),
-          dtoTransactionMeta(
-            offset(4),
-            event_sequential_id_first = 6L,
-            event_sequential_id_last = 8L,
-          ),
-          dtoCompletion(offset(4)),
-        ),
+        dtos2 = dtos2,
         lastOffset2 = 10L,
         lastEventSeqId2 = 6L,
         checkContentsBefore = () => {
@@ -203,7 +205,9 @@ private[backend] trait StorageBackendTestsInitializeIngestion
             executeSql(backend.contract.activeContractWithoutArgument(readers, hashCid("#201")))
           contract101 should not be empty
           contract202 shouldBe None
-          // TODO etq: Add assertion on transaction_meta table
+          fetchIdsFromTransactionMeta(allDtos.collect { case meta: DbDto.TransactionMeta =>
+            meta.transaction_id
+          }) shouldBe Set((1, 1), (2, 4))
           fetchIdsCreateStakeholder() shouldBe List(
             1L,
             5L,
@@ -222,7 +226,9 @@ private[backend] trait StorageBackendTestsInitializeIngestion
           )
           contract101 should not be empty
           contract202 shouldBe None
-          // TODO etq: Add assertion on transaction_meta table
+          fetchIdsFromTransactionMeta(allDtos.collect { case meta: DbDto.TransactionMeta =>
+            meta.transaction_id
+          }) shouldBe Set((1, 1), (2, 4))
           fetchIdsCreateStakeholder() shouldBe List(1L)
           fetchIdsCreateNonStakeholder() shouldBe List(1L)
           fetchIdsConsumingStakeholder() shouldBe List(3L)
@@ -233,7 +239,7 @@ private[backend] trait StorageBackendTestsInitializeIngestion
     }
 
     it should "delete overspill entries written before first ledger end update - events, transaction meta, completions" in {
-      fixtureOverspillBeforeFirstLedgerEndUpdate(
+      fixtureOverspillEntriesPriorToFirstLedgerEndUpdate(
         dtos = dtos,
         lastOffset = 2,
         lastEventSeqId = 3L,
@@ -242,7 +248,9 @@ private[backend] trait StorageBackendTestsInitializeIngestion
             backend.contract.activeContractWithoutArgument(readers, hashCid("#101"))
           )
           contract101 shouldBe None
-          // TODO etq: Add assertion on transaction_meta table
+          fetchIdsFromTransactionMeta(dtos.collect { case meta: DbDto.TransactionMeta =>
+            meta.transaction_id
+          }) shouldBe empty
           fetchIdsCreateStakeholder() shouldBe empty
           fetchIdsCreateNonStakeholder() shouldBe empty
           fetchIdsConsumingStakeholder() shouldBe empty
@@ -309,6 +317,17 @@ private[backend] trait StorageBackendTestsInitializeIngestion
     )
   }
 
+  private def fetchIdsFromTransactionMeta(transactionIds: Seq[String]): Set[(Long, Long)] = {
+    val txPointwiseQueries = backend.event.transactionPointwiseQueries
+    transactionIds
+      .map(Ref.TransactionId.assertFromString)
+      .map { transactionId =>
+        executeSql(txPointwiseQueries.fetchIdsFromTransactionMeta(transactionId))
+      }
+      .flatMap(_.toList)
+      .toSet
+  }
+
   private def fixture(
       dtos1: Vector[DbDto],
       lastOffset1: Long,
@@ -341,7 +360,7 @@ private[backend] trait StorageBackendTestsInitializeIngestion
     checkContentsAfter()
   }
 
-  private def fixtureOverspillBeforeFirstLedgerEndUpdate(
+  private def fixtureOverspillEntriesPriorToFirstLedgerEndUpdate(
       dtos: Vector[DbDto],
       lastOffset: Long,
       lastEventSeqId: Long,

@@ -13,10 +13,13 @@ import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.transaction_service._
 import com.daml.ledger.api.validation.TransactionServiceRequestValidator.Result
 import com.daml.ledger.api.validation.{PartyNameChecker, TransactionServiceRequestValidator}
+import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.server.api.ValidationLogger
 import com.daml.platform.server.api.services.domain.TransactionService
+import com.daml.platform.server.api.services.grpc.Logging.traceId
+import com.daml.tracing.Telemetry
 import io.grpc.ServerServiceDefinition
 import io.grpc.stub.StreamObserver
 
@@ -26,6 +29,7 @@ final class GrpcTransactionService(
     protected val service: TransactionService,
     val ledgerId: LedgerId,
     partyNameChecker: PartyNameChecker,
+    telemetry: Telemetry,
 )(implicit
     esf: ExecutionSequencerFactory,
     mat: Materializer,
@@ -46,16 +50,19 @@ final class GrpcTransactionService(
       request: GetTransactionsRequest,
       responseObserver: StreamObserver[GetTransactionsResponse],
   ): Unit = registerStream(responseObserver) {
-    logger.debug(s"Received new transaction request $request")
-    Source.future(service.getLedgerEnd(request.ledgerId)).flatMapConcat { ledgerEnd =>
-      val validation = validator.validate(request, ledgerEnd)
+    withEnrichedLoggingContext(traceId(telemetry.traceIdFromGrpcContext)) {
+      implicit loggingContext =>
+        logger.debug(s"Received new transaction request $request")
+        Source.future(service.getLedgerEnd(request.ledgerId)).flatMapConcat { ledgerEnd =>
+          val validation = validator.validate(request, ledgerEnd)
 
-      validation.fold(
-        t => Source.failed(ValidationLogger.logFailure(request, t)),
-        req =>
-          if (req.filter.filtersByParty.isEmpty) Source.empty
-          else service.getTransactions(req),
-      )
+          validation.fold(
+            t => Source.failed(ValidationLogger.logFailure(request, t)),
+            req =>
+              if (req.filter.filtersByParty.isEmpty) Source.empty
+              else service.getTransactions(req),
+          )
+        }
     }
   }
 
@@ -63,17 +70,20 @@ final class GrpcTransactionService(
       request: GetTransactionsRequest,
       responseObserver: StreamObserver[GetTransactionTreesResponse],
   ): Unit = registerStream(responseObserver) {
-    logger.debug(s"Received new transaction tree request $request")
-    Source.future(service.getLedgerEnd(request.ledgerId)).flatMapConcat { ledgerEnd =>
-      val validation = validator.validateTree(request, ledgerEnd)
+    withEnrichedLoggingContext(traceId(telemetry.traceIdFromGrpcContext)) {
+      implicit loggingContext =>
+        logger.debug(s"Received new transaction tree request $request")
+        Source.future(service.getLedgerEnd(request.ledgerId)).flatMapConcat { ledgerEnd =>
+          val validation = validator.validateTree(request, ledgerEnd)
 
-      validation.fold(
-        t => Source.failed(ValidationLogger.logFailure(request, t)),
-        req => {
-          if (req.parties.isEmpty) Source.empty
-          else service.getTransactionTrees(req)
-        },
-      )
+          validation.fold(
+            t => Source.failed(ValidationLogger.logFailure(request, t)),
+            req => {
+              if (req.parties.isEmpty) Source.empty
+              else service.getTransactionTrees(req)
+            },
+          )
+        }
     }
   }
 
@@ -87,41 +97,53 @@ final class GrpcTransactionService(
   override def getTransactionByEventId(
       request: GetTransactionByEventIdRequest
   ): Future[GetTransactionResponse] = {
-    getSingleTransaction(
-      request,
-      validator.validateTransactionByEventId,
-      service.getTransactionByEventId,
-    )
+    withEnrichedLoggingContext(traceId(telemetry.traceIdFromGrpcContext)) {
+      implicit loggingContext =>
+        getSingleTransaction(
+          request,
+          validator.validateTransactionByEventId,
+          service.getTransactionByEventId,
+        )
+    }
   }
 
   override def getTransactionById(
       request: GetTransactionByIdRequest
   ): Future[GetTransactionResponse] = {
-    getSingleTransaction(
-      request,
-      validator.validateTransactionById,
-      service.getTransactionById,
-    )
+    withEnrichedLoggingContext(traceId(telemetry.traceIdFromGrpcContext)) {
+      implicit loggingContext =>
+        getSingleTransaction(
+          request,
+          validator.validateTransactionById,
+          service.getTransactionById,
+        )
+    }
   }
 
   override def getFlatTransactionByEventId(
       request: GetTransactionByEventIdRequest
   ): Future[GetFlatTransactionResponse] = {
-    getSingleTransaction(
-      request,
-      validator.validateTransactionByEventId,
-      service.getFlatTransactionByEventId,
-    )
+    withEnrichedLoggingContext(traceId(telemetry.traceIdFromGrpcContext)) {
+      implicit loggingContext =>
+        getSingleTransaction(
+          request,
+          validator.validateTransactionByEventId,
+          service.getFlatTransactionByEventId,
+        )
+    }
   }
 
   override def getFlatTransactionById(
       request: GetTransactionByIdRequest
   ): Future[GetFlatTransactionResponse] = {
-    getSingleTransaction(
-      request,
-      validator.validateTransactionById,
-      service.getFlatTransactionById,
-    )
+    withEnrichedLoggingContext(traceId(telemetry.traceIdFromGrpcContext)) {
+      implicit loggingContext =>
+        getSingleTransaction(
+          request,
+          validator.validateTransactionById,
+          service.getFlatTransactionById,
+        )
+    }
   }
 
   override def getLedgerEnd(request: GetLedgerEndRequest): Future[GetLedgerEndResponse] = {

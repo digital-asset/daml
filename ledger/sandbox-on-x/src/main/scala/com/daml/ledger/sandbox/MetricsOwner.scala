@@ -33,6 +33,8 @@ case class MetricsOwner(meter: Meter, config: MetricsConfig, name: String)
     }
 
     metricRegistry.registerAll(new JvmMetricSet)
+    JvmMetricSet.registerObservers()
+
     Resource(
       Future(
         Metrics(

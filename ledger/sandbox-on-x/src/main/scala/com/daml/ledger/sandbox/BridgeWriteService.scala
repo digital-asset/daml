@@ -21,7 +21,7 @@ import com.daml.lf.data.{ImmArray, Ref, Time}
 import com.daml.lf.transaction.{GlobalKey, SubmittedTransaction, Versioned}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.InstrumentedGraph
-import com.daml.telemetry.TelemetryContext
+import com.daml.tracing.TelemetryContext
 
 import java.time.Duration
 import java.util.concurrent.{CompletableFuture, CompletionStage}

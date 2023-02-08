@@ -5,5 +5,5 @@ package com.daml.ledger.sandbox
 
 object Main {
   def main(args: Array[String]): Unit =
-    CliSandboxOnXRunner.run(args)
+    CliSandboxOnXRunner.run(args, registerGlobalOpenTelemetry = true)
 }

@@ -8,6 +8,7 @@ import akka.stream.scaladsl.Source
 import com.daml.ledger.api.domain.LedgerOffset
 import com.daml.ledger.api.messages.command.completion.CompletionStreamRequest
 import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
+import com.daml.logging.LoggingContext
 
 import scala.concurrent.Future
 
@@ -17,6 +18,6 @@ trait CommandCompletionService {
 
   def completionStreamSource(
       request: CompletionStreamRequest
-  ): Source[CompletionStreamResponse, NotUsed]
+  )(implicit loggingContext: LoggingContext): Source[CompletionStreamResponse, NotUsed]
 
 }

@@ -274,14 +274,16 @@ excluded_test_tool_tests = [
         ],
     },
     {
+        # We drop visibily restrictions about local contract key in
+        #  https://github.com/digital-asset/daml/pull/15131
+        # Since this change does not raise any obvious security problems, it
+        # seems superfluous to continue checking that old SDKs enforce the
+        # restriction. So we disable completely the test.
         "start": "1.13.0-snapshot.20210419.6730.1.8c3a8c04",
+        "end": "2.6.0-snapshot.20221226.11190.0.71548477",
         "platform_ranges": [
             {
-                "end": "1.13.0-snapshot.20210419.6730.0.8c3a8c04",
-                "exclusions": ["ContractKeysIT:CKLocalKeyVisibility"],
-            },
-            {
-                "start": "2.6.0-snapshot.20221226.11190.1",
+                "start": "1.0.0",
                 "exclusions": ["ContractKeysIT:CKLocalKeyVisibility"],
             },
         ],
@@ -449,7 +451,6 @@ excluded_test_tool_tests = [
                     "TransactionServiceExerciseIT:TXRejectOnFailingAssertion",
                     "ContractKeysIT:CKTransients",
                     "ContractKeysIT:CKExerciseByKey",
-                    "ContractKeysIT:CKLocalKeyVisibility",
                     "ClosedWorldIT:ClosedWorldObserver",
                     "TransactionServiceAuthorizationIT:TXRejectMultiActorMissingAuth",
                     "TransactionServiceAuthorizationIT:TXRejectMultiActorExcessiveAuth",
@@ -868,6 +869,50 @@ excluded_test_tool_tests = [
                 "exclusions": [
                     "ContractKeysIT:CKLocalFetchByKeyVisibility",
                     "ContractKeysIT:CKLocalLookupByKeyVisibility",
+                ],
+            },
+        ],
+    },
+    {
+        "start": "2.0.0",
+        "end": "2.1.0",
+        "platform_ranges": [
+            {
+                "start": "2.6.0-snapshot.20230119.11284.1",
+                "exclusions": [
+                    "UserManagementServiceIT:TestGrantUserRights",
+                    "UserManagementServiceIT:TestRevokeUserRights",
+                    "UserManagementServiceIT:TestListUserRights",
+                    "UserManagementServiceIT:UserManagementUserRightsLimit",
+                    "UserManagementServiceIT:GrantRightsRaceCondition",
+                ],
+            },
+        ],
+    },
+    {
+        "start": "2.1.1",
+        "end": "2.6.0-snapshot.20230119.11284.0.179b865a",
+        "platform_ranges": [
+            {
+                "start": "2.6.0-snapshot.20230119.11284.1",
+                "exclusions": [
+                    "UserManagementServiceIT:TestGrantUserRights",
+                    "UserManagementServiceIT:TestRevokeUserRights",
+                    "UserManagementServiceIT:TestListUserRights",
+                    "UserManagementServiceIT:UserManagementUserRightsLimit",
+                    "UserManagementServiceIT:RaceConditionGrantRights",
+                    "UserManagementServiceIT:RaceConditionRevokeRights",
+                ],
+            },
+        ],
+    },
+    {
+        "start": "2.6.0-snapshot.20230130.11335.0.a24439f0",
+        "platform_ranges": [
+            {
+                "end": "2.6.0-snapshot.20230130.11335.1",
+                "exclusions": [
+                    "IdentityProviderConfigServiceIT",
                 ],
             },
         ],

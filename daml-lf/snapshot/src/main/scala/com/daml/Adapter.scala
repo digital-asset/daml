@@ -27,13 +27,15 @@ final class Adapter(
   // drop value version and children
   private[this] def adapt(node: Node): Node =
     node match {
+      case authority: Node.Authority =>
+        authority.copy(children = ImmArray.Empty)
       case rollback: Node.Rollback =>
         rollback.copy(children = ImmArray.Empty)
       case create: Node.Create =>
         create.copy(
           templateId = adapt(create.templateId),
           arg = adapt(create.arg),
-          key = create.key.map(adapt),
+          keyOpt = create.keyOpt.map(adapt),
         )
       case exe: Node.Exercise =>
         exe.copy(
@@ -41,12 +43,12 @@ final class Adapter(
           chosenValue = adapt(exe.chosenValue),
           children = ImmArray.Empty,
           exerciseResult = exe.exerciseResult.map(adapt),
-          key = exe.key.map(adapt),
+          keyOpt = exe.keyOpt.map(adapt),
         )
       case fetch: Node.Fetch =>
         fetch.copy(
           templateId = adapt(fetch.templateId),
-          key = fetch.key.map(adapt),
+          keyOpt = fetch.keyOpt.map(adapt),
         )
       case lookup: Node.LookupByKey =>
         lookup
@@ -56,19 +58,13 @@ final class Adapter(
           )
     }
 
-  // drop value version
-  private[this] def adapt(
-      k: Node.KeyWithMaintainers
-  ): Node.KeyWithMaintainers =
-    k.copy(adapt(k.key))
+  def adapt(k: GlobalKeyWithMaintainers): GlobalKeyWithMaintainers =
+    k.copy(globalKey = adapt(k.globalKey))
 
   def adapt(coinst: Value.VersionedContractInstance): Value.VersionedContractInstance =
     coinst.map(unversioned =>
       unversioned.copy(template = adapt(unversioned.template), arg = adapt(unversioned.arg))
     )
-
-  def adapt(gkey: GlobalKeyWithMaintainers): GlobalKeyWithMaintainers =
-    GlobalKeyWithMaintainers(adapt(gkey.globalKey), gkey.maintainers)
 
   def adapt(gkey: GlobalKey): GlobalKey =
     GlobalKey.assertBuild(adapt(gkey.templateId), adapt(gkey.key))

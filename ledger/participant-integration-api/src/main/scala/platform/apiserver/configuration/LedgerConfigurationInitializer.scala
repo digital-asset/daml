@@ -11,6 +11,7 @@ import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.logging.LoggingContext
 import com.daml.platform.configuration.InitialLedgerConfiguration
+import com.daml.tracing.Telemetry
 
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.Duration
@@ -21,6 +22,7 @@ final class LedgerConfigurationInitializer(
     timeProvider: TimeProvider,
     materializer: Materializer,
     servicesExecutionContext: ExecutionContext,
+    telemetry: Telemetry,
 ) {
   private val scheduler = materializer.system.scheduler
   private val subscriptionBuilder = new LedgerConfigurationSubscriptionFromIndex(
@@ -51,6 +53,7 @@ final class LedgerConfigurationInitializer(
             timeProvider,
             submissionIdGenerator,
             scheduler,
+            telemetry,
           ).submit(initialConfiguration)(servicesExecutionContext, loggingContext)
       }
       // Finally, we wait until either an existing configuration or the provisioned configuration

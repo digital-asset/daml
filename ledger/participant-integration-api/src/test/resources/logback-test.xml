@@ -27,6 +27,14 @@
         <appender-ref ref="RecoveringIndexerLoggerCapture"/>
     </logger>
 
+    <appender name="ApiPackageManagementServiceLoggerCapture" class="com.daml.platform.testing.LogCollector">
+        <test>com.daml.platform.apiserver.services.admin.ApiPackageManagementServiceSpec</test>
+    </appender>
+
+    <logger name="com.daml.platform.apiserver.services.admin.ApiPackageManagementService" level="INFO">
+        <appender-ref ref="ApiPackageManagementServiceLoggerCapture"/>
+    </logger>
+
     <appender name="BuffersUpdaterLoggerCapture" class="com.daml.platform.testing.LogCollector">
         <test>com.daml.platform.index.BuffersUpdaterSpec</test>
     </appender>

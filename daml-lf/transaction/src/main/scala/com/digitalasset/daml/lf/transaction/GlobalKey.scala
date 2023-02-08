@@ -14,7 +14,7 @@ final class GlobalKey private (
     val templateId: Ref.TypeConName,
     val key: Value,
     val hash: crypto.Hash,
-) extends {
+) extends data.NoCopy {
   override def equals(obj: Any): Boolean = obj match {
     case that: GlobalKey => this.hash == that.hash
     case _ => false
@@ -26,9 +26,6 @@ final class GlobalKey private (
 }
 
 object GlobalKey {
-
-  def apply(templateId: Ref.TypeConName, key: Value): GlobalKey =
-    new GlobalKey(templateId, key, crypto.Hash.safeHashContractKey(templateId, key))
 
   // Will fail if key contains contract ids
   def build(templateId: Ref.TypeConName, key: Value): Either[String, GlobalKey] =
@@ -43,7 +40,18 @@ object GlobalKey {
 final case class GlobalKeyWithMaintainers(
     globalKey: GlobalKey,
     maintainers: Set[Ref.Party],
-)
+) {
+  def value: Value = globalKey.key
+}
+
+object GlobalKeyWithMaintainers {
+  def assertBuild(
+      templateId: Ref.TypeConName,
+      value: Value,
+      maintainers: Set[Ref.Party],
+  ): GlobalKeyWithMaintainers =
+    GlobalKeyWithMaintainers(GlobalKey.assertBuild(templateId, value), maintainers)
+}
 
 /** Controls whether the engine should error out when it encounters duplicate keys.
   * This is always turned on with the exception of Canton which allows turning this on or off

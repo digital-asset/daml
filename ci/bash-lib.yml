@@ -210,7 +210,7 @@ steps:
     PUB_KEY
         gpg_dir=$(mktemp -d)
         GNUPGHOME=$gpg_dir gpg --no-tty --quiet --import $key
-        GNUPGHOME=$gpg_dir gpg --no-tty --quiet --command-fd 0 --edit-key 4911A8DFE976ACDFA07130DBE8372C0C1C734C51 << CMD
+        GNUPGHOME=$gpg_dir gpg --no-tty --quiet --command-fd 0 --edit-key F26D8A0AADF666CCB28F2AB1650EC3253B6A8FF5 << CMD
     trust
     4
     quit

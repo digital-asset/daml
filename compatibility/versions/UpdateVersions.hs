@@ -192,10 +192,17 @@ latestPatchVersions allVersions =
     f this that = toMajorMinor this /= toMajorMinor that || view SemVer.patch this >= view SemVer.patch that
     toMajorMinor v = (view SemVer.major v, view SemVer.minor v)
 
+additionalVersions :: Set Version
+additionalVersions = Set.fromList [
+    -- we add 2.5.0 as 2.5.1 add a new version in the trigger Daml library
+    SemVer.version 2 5 0 [] []
+  ]
+
 main :: IO ()
 main = do
     Opts{..} <- execParser (info optsParser fullDesc)
     stableVers <- getVersionsFromTags
-    let allVersions = Versions (Set.filter (>= minimumVersion) stableVers)
+    let filterVersions = Set.filter (>= minimumVersion) stableVers
+    let allVersions = Versions (Set.union filterVersions additionalVersions)
     checksums <- mapM (\ver -> (ver,) <$> getChecksums ver) (Set.toList $ getVersions allVersions)
     writeFileUTF8 outputFile (T.unpack $ renderVersionsFile allVersions $ Map.fromList checksums)

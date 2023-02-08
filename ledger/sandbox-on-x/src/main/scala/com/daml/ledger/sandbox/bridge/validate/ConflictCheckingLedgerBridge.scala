@@ -70,7 +70,6 @@ private[bridge] object ConflictCheckingLedgerBridge {
       servicesThreadPoolSize: Int,
       maxDeduplicationDuration: Duration,
       stageBufferSize: Int,
-      explicitDisclosureEnabled: Boolean,
   )(implicit
       servicesExecutionContext: ExecutionContext
   ): ConflictCheckingLedgerBridge =
@@ -87,7 +86,6 @@ private[bridge] object ConflictCheckingLedgerBridge {
         initialLedgerConfiguration = initialLedgerConfiguration,
         bridgeMetrics = bridgeMetrics,
         maxDeduplicationDuration = maxDeduplicationDuration,
-        explicitDisclosureEnabled = explicitDisclosureEnabled,
       ),
       servicesThreadPoolSize = servicesThreadPoolSize,
       stageBufferSize = stageBufferSize,

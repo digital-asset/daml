@@ -36,7 +36,7 @@ trait UserManagementStore {
 
   // read access
 
-  def getUserInfo(id: Ref.UserId)(implicit
+  def getUserInfo(id: Ref.UserId, identityProviderId: IdentityProviderId)(implicit
       loggingContext: LoggingContext
   ): Future[Result[UserInfo]]
 
@@ -61,28 +61,30 @@ trait UserManagementStore {
       loggingContext: LoggingContext
   ): Future[Result[User]]
 
-  def deleteUser(id: Ref.UserId)(implicit loggingContext: LoggingContext): Future[Result[Unit]]
-
-  def grantRights(id: Ref.UserId, rights: Set[UserRight])(implicit
+  def deleteUser(id: Ref.UserId, identityProviderId: IdentityProviderId)(implicit
       loggingContext: LoggingContext
+  ): Future[Result[Unit]]
+
+  def grantRights(id: Ref.UserId, rights: Set[UserRight], identityProviderId: IdentityProviderId)(
+      implicit loggingContext: LoggingContext
   ): Future[Result[Set[UserRight]]]
 
-  def revokeRights(id: Ref.UserId, rights: Set[UserRight])(implicit
-      loggingContext: LoggingContext
+  def revokeRights(id: Ref.UserId, rights: Set[UserRight], identityProviderId: IdentityProviderId)(
+      implicit loggingContext: LoggingContext
   ): Future[Result[Set[UserRight]]]
 
   // read helpers
 
-  final def getUser(id: Ref.UserId)(implicit
+  final def getUser(id: Ref.UserId, identityProviderId: IdentityProviderId)(implicit
       loggingContext: LoggingContext
   ): Future[Result[User]] = {
-    getUserInfo(id).map(_.map(_.user))(ExecutionContext.parasitic)
+    getUserInfo(id, identityProviderId).map(_.map(_.user))(ExecutionContext.parasitic)
   }
 
-  final def listUserRights(id: Ref.UserId)(implicit
+  final def listUserRights(id: Ref.UserId, identityProviderId: IdentityProviderId)(implicit
       loggingContext: LoggingContext
   ): Future[Result[Set[UserRight]]] = {
-    getUserInfo(id).map(_.map(_.rights))(ExecutionContext.parasitic)
+    getUserInfo(id, identityProviderId).map(_.map(_.rights))(ExecutionContext.parasitic)
   }
 
 }
@@ -105,4 +107,5 @@ object UserManagementStore {
   final case class TooManyUserRights(userId: Ref.UserId) extends Error
   final case class ConcurrentUserUpdate(userId: Ref.UserId) extends Error
   final case class MaxAnnotationsSizeExceeded(userId: Ref.UserId) extends Error
+  final case class PermissionDenied(userId: Ref.UserId) extends Error
 }

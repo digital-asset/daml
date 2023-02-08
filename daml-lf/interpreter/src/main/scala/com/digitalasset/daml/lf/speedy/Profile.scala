@@ -246,6 +246,8 @@ object Profile {
       implicit val interfaceInstanceViewDefRef: Allowed[InterfaceInstanceViewDefRef] = allowAll
       implicit val templateChoiceDefRef: Allowed[TemplateChoiceDefRef] = allowAll
       implicit val interfaceChoiceDefRef: Allowed[InterfaceChoiceDefRef] = allowAll
+      implicit val choiceControllerDefRef: Allowed[ChoiceControllerDefRef] = allowAll
+      implicit val choiceObserverDefRef: Allowed[ChoiceObserverDefRef] = allowAll
       implicit val fetchTemplateDefRef: Allowed[FetchTemplateDefRef] = allowAll
       implicit val fetchInterfaceDefRef: Allowed[FetchInterfaceDefRef] = allowAll
       implicit val choiceByKeyDefRef: Allowed[ChoiceByKeyDefRef] = allowAll

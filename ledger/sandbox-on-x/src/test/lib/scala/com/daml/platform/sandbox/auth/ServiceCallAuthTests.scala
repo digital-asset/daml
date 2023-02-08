@@ -212,6 +212,7 @@ trait ServiceCallAuthTests
       rights: Vector[proto.Right] = Vector.empty,
       tokenIssuer: Option[String] = None,
       secret: Option[String] = None,
+      primaryParty: String = "",
   ): Future[(proto.User, ServiceCallContext)] = {
     val userToken = Option(
       toHeader(standardToken(userId, issuer = tokenIssuer), secret = secret.getOrElse(jwtSecret))
@@ -220,6 +221,7 @@ trait ServiceCallAuthTests
       id = userId,
       metadata = Some(ObjectMeta()),
       identityProviderId = identityProviderId,
+      primaryParty = primaryParty,
     )
     val req = proto.CreateUserRequest(Some(user), rights)
     stub(proto.UserManagementServiceGrpc.stub(channel), canReadAsAdminStandardJWT.token)

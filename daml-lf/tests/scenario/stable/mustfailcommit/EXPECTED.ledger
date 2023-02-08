@@ -1,6 +1,6 @@
 transactions:
-TX #0 1970-01-01T00:00:00Z [Test:30] version: 14
-#0:0 version: 14
+TX #0 1970-01-01T00:00:00Z [Test:30] version: 15
+#0:0 version: 15
 │   disclosed to (since): p (#0)
 └─> create Test:Keyed@XXXXXXXX
     with: { p = 'p', v = 0 }
@@ -8,8 +8,8 @@ key { _1 = 'p', _2 = 0 }
 
 mustFailAt actAs: {'p'} readAs: {} [Test:35]
 
-TX #2 1970-01-01T00:00:00Z [Test:36] version: 14
-#2:0 version: 14
+TX #2 1970-01-01T00:00:00Z [Test:36] version: 15
+#2:0 version: 15
 │   disclosed to (since): p (#2)
 └─> create Test:Keyed@XXXXXXXX
     with: { p = 'p', v = 1 }

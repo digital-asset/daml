@@ -52,6 +52,8 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
       eInterfaceTemplateTypeRep |
       eSignatoryInterface |
       eObserverInterface |
+      eChoiceController |
+      eChoiceObserver |
       (id ^? builtinFunctions) ^^ EBuiltin |
       experimental |
       caseOf |
@@ -277,6 +279,18 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
       EObserverInterface(ifaceId, e)
     }
 
+  private lazy val eChoiceController: Parser[Expr] =
+    `choice_controller` ~! `@` ~> fullIdentifier ~ id ~ expr0 ~ expr0 ^^ {
+      case typeId ~ choiceName ~ contract ~ choiceArg =>
+        EChoiceController(typeId, choiceName, contract, choiceArg)
+    }
+
+  private lazy val eChoiceObserver: Parser[Expr] =
+    `choice_observer` ~! `@` ~> fullIdentifier ~ id ~ expr0 ~ expr0 ^^ {
+      case typeId ~ choiceName ~ contract ~ choiceArg =>
+        EChoiceObserver(typeId, choiceName, contract, choiceArg)
+    }
+
   private lazy val pattern: Parser[CasePat] =
     Id("_") ^^^ CPDefault |
       primCon ^^ CPPrimCon |
@@ -324,6 +338,7 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
     "UNIX_MICROSECONDS_TO_TIMESTAMP" -> BUnixMicrosecondsToTimestamp,
     "FOLDL" -> BFoldl,
     "FOLDR" -> BFoldr,
+    "WITH_AUTHORITY" -> BWithAuthority,
     "TEXTMAP_EMPTY" -> BTextMapEmpty,
     "TEXTMAP_INSERT" -> BTextMapInsert,
     "TEXTMAP_LOOKUP" -> BTextMapLookup,
@@ -468,11 +483,6 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
       UpdateFetchInterface(iface, e)
     }
 
-  private lazy val updateActingAsConsortium =
-    Id("acting_as_consortium") ~> expr0 ~ expr0 ^^ { case ms ~ c =>
-      UpdateActingAsConsortium(ms, c)
-    }
-
   private lazy val updateExercise =
     Id("exercise") ~! `@` ~> fullIdentifier ~ id ~ expr0 ~ expr0 ^^ { case t ~ choice ~ cid ~ arg =>
       UpdateExercise(t, choice, cid, arg)
@@ -527,7 +537,6 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
       updateCreateInterface |
       updateFetch |
       updateFetchInterface |
-      updateActingAsConsortium |
       updateExercise |
       updateExerciseInterface |
       updateExerciseInterfaceWithGuard |

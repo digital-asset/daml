@@ -11,9 +11,12 @@ import com.daml.grpc.adapter.server.akka.StreamingServiceLifecycleManagement
 import com.daml.ledger.api.v1.command_completion_service._
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.validation.CompletionServiceRequestValidator
+import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.server.api.ValidationLogger
 import com.daml.platform.server.api.services.domain.CommandCompletionService
+import com.daml.platform.server.api.services.grpc.Logging.traceId
+import com.daml.tracing.Telemetry
 import io.grpc.stub.StreamObserver
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -21,6 +24,7 @@ import scala.concurrent.{ExecutionContext, Future}
 class GrpcCommandCompletionService(
     service: CommandCompletionService,
     validator: CompletionServiceRequestValidator,
+    telemetry: Telemetry,
 )(implicit
     mat: Materializer,
     esf: ExecutionSequencerFactory,
@@ -36,14 +40,18 @@ class GrpcCommandCompletionService(
   def completionStream(
       request: CompletionStreamRequest,
       responseObserver: StreamObserver[CompletionStreamResponse],
-  ): Unit = registerStream(responseObserver) {
-    validator
-      .validateGrpcCompletionStreamRequest(request)
-      .fold(
-        t => Source.failed[CompletionStreamResponse](ValidationLogger.logFailure(request, t)),
-        service.completionStreamSource,
-      )
-  }
+  ): Unit =
+    withEnrichedLoggingContext(traceId(telemetry.traceIdFromGrpcContext)) {
+      implicit loggingContext =>
+        registerStream(responseObserver) {
+          validator
+            .validateGrpcCompletionStreamRequest(request)
+            .fold(
+              t => Source.failed[CompletionStreamResponse](ValidationLogger.logFailure(request, t)),
+              service.completionStreamSource,
+            )
+        }
+    }
 
   override def completionEnd(request: CompletionEndRequest): Future[CompletionEndResponse] =
     validator

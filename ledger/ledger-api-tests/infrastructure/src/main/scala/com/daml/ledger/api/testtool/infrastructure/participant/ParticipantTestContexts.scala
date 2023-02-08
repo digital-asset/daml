@@ -140,6 +140,7 @@ trait ParticipantTestContext extends UserManagementTestContext {
       partyIdHint: Option[String] = None,
       displayName: Option[String] = None,
       localMetadata: Option[ObjectMeta] = None,
+      identityProviderId: Option[String] = None,
   ): Future[Primitive.Party]
 
   def allocateParty(req: AllocatePartyRequest): Future[AllocatePartyResponse]

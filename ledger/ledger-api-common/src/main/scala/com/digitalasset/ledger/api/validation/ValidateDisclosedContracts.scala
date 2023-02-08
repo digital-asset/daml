@@ -14,7 +14,7 @@ import com.daml.ledger.api.validation.ValueValidator.{
   validateRecordFields,
 }
 import com.daml.lf.command.{ContractMetadata, DisclosedContract}
-import com.daml.lf.data.ImmArray
+import com.daml.lf.data.{Bytes, ImmArray}
 import com.daml.lf.value.Value.ValueRecord
 import com.daml.lf.value.ValueOuterClass.VersionedValue
 import com.daml.lf.value.{Value, ValueCoder}
@@ -133,7 +133,7 @@ class ValidateDisclosedContracts(explicitDisclosureFeatureEnabled: Boolean) {
       metadata = ContractMetadata(
         createdAt = validatedCreatedAt,
         keyHash = keyHash,
-        driverMetadata = ImmArray.from(metadata.driverMetadata.toByteArray),
+        driverMetadata = Bytes.fromByteString(metadata.driverMetadata),
       ),
     )
 }
