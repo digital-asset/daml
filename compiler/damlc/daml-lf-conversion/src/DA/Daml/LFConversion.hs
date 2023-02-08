@@ -1169,7 +1169,7 @@ convertImplements env mc tpl = NM.fromList <$>
 
 convertInterfaceInstance ::
      TemplateOrInterface' TypeConName
-  -> (Qualified TypeConName -> Qualified TypeConName -> InterfaceInstanceBody -> (Maybe SourceLoc) -> r)
+  -> (Qualified TypeConName -> Qualified TypeConName -> InterfaceInstanceBody -> Maybe SourceLoc -> r)
   -> Env
   -> InterfaceInstanceBinds
   -> ConvertM r

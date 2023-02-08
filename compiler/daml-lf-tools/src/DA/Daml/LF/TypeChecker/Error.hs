@@ -36,12 +36,12 @@ data Context
 
 data TemplatePart
   = TPWhole
-  | TPStakeholders
   | TPPrecondition
   | TPSignatories
   | TPObservers
   | TPAgreement
   | TPKey
+  -- ^ Specifically the `key` keyword, not maintainers
   | TPChoice TemplateChoice
   | TPInterfaceInstance InterfaceInstanceHead
 
@@ -168,22 +168,26 @@ contextLocation = \case
   ContextNone                -> Nothing
   ContextDefTypeSyn _ s      -> synLocation s
   ContextDefDataType _ d     -> dataLocation d
-  ContextTemplate _ t tp     -> templateLocation t tp <|> tplLocation t
+  ContextTemplate _ t tp     -> templateLocation t tp <|> tplLocation t -- Fallback to template header location if other locations are missing
   ContextDefValue _ v        -> dvalLocation v
   ContextDefException _ e    -> exnLocation e
-  ContextDefInterface _ i ip -> interfaceLocation i ip <|> intLocation i
+  ContextDefInterface _ i ip -> interfaceLocation i ip <|> intLocation i -- Fallback to interface header location if other locations are missing
 
 templateLocation :: Template -> TemplatePart -> Maybe SourceLoc
 templateLocation t = \case
   TPWhole -> tplLocation t
-  TPStakeholders -> Nothing
-  TPPrecondition -> Nothing
-  TPSignatories -> Nothing
-  TPObservers -> Nothing
-  TPAgreement -> Nothing
-  TPKey -> Nothing
+  TPPrecondition -> extractExprSourceLoc $ tplPrecondition t
+  TPSignatories -> extractExprSourceLoc $ tplSignatories t
+  TPObservers -> extractExprSourceLoc $ tplObservers t 
+  TPAgreement -> extractExprSourceLoc $ tplAgreement t
+  TPKey -> tplKey t >>= extractExprSourceLoc . tplKeyBody
   TPChoice tc -> chcLocation tc
   TPInterfaceInstance iih -> iiLocation iih
+
+extractExprSourceLoc :: Expr -> Maybe SourceLoc
+extractExprSourceLoc (ETmApp (ELocation loc _) _) = Just loc -- All 4 of the Expr values in Template are wrapped in ($ this)
+extractExprSourceLoc (ECase (ETmApp (ELocation loc _) _) _) = Just loc -- Precondition wraps the bool in a case when featureExceptions is supported
+extractExprSourceLoc _ = Nothing
 
 interfaceLocation :: DefInterface -> InterfacePart -> Maybe SourceLoc
 interfaceLocation i = \case
@@ -216,7 +220,6 @@ instance Show Context where
 instance Show TemplatePart where
   show = \case
     TPWhole -> ""
-    TPStakeholders -> "stakeholders"
     TPPrecondition -> "precondition"
     TPSignatories -> "signatories"
     TPObservers -> "observers"
