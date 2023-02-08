@@ -8,7 +8,7 @@ import com.daml.lf.value.Value.{ValueText, VersionedContractInstance}
 import com.daml.platform.store.interfaces.LedgerDaoContractsReader
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
-import org.scalatest.{OptionValues, LoneElement, Inside}
+import org.scalatest.{Inside, LoneElement, OptionValues}
 
 private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside with OptionValues {
   this: AsyncFlatSpec with Matchers with JdbcLedgerDaoSuite =>
