@@ -317,6 +317,7 @@ da_scala_test_suite(
         "//libs-scala/ports",
         "//libs-scala/resources",
         "//libs-scala/test-evidence/tag:test-evidence-tag",
+        "//triggers/runner:trigger-runner-lib",
         "//triggers/service/auth:oauth2-test-server",
         "@maven//:eu_rekawek_toxiproxy_toxiproxy_java_2_1_7",
         "@maven//:org_scalatest_scalatest_compatible",
