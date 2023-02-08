@@ -4,29 +4,17 @@
 module Main (main) where
 
 import qualified BazelCache
-import qualified CheckReleases
 
 import qualified Control.Monad as Control
 import qualified Options.Applicative as Opt
 import qualified System.IO.Extra as IO
 
-data CliArgs = Check { bash_lib :: String,
-                       max_releases :: Maybe Int }
-             | BazelCache BazelCache.Opts
+data CliArgs = BazelCache BazelCache.Opts
 
 parser :: Opt.ParserInfo CliArgs
 parser = info "This program is meant to be run by CI cron. You probably don't have sufficient access rights to run it locally."
-              (Opt.hsubparser (Opt.command "check" check
-                            <> Opt.command "bazel-cache" bazelCache))
+              (Opt.hsubparser (Opt.command "bazel-cache" bazelCache))
   where info t p = Opt.info (p Opt.<**> Opt.helper) (Opt.progDesc t)
-        check = info "Check existing releases."
-                     (Check <$> Opt.strOption (Opt.long "bash-lib"
-                                         <> Opt.metavar "PATH"
-                                         <> Opt.help "Path to Bash library file.")
-                            <*> (Opt.optional $
-                                  Opt.option Opt.auto (Opt.long "max-releases"
-                                         <> Opt.metavar "INT"
-                                         <> Opt.help "Max number of releases to check.")))
         bazelCache =
             info "Bazel cache debugging and fixing." $
             fmap BazelCache $ BazelCache.Opts
@@ -58,6 +46,4 @@ main = do
         \h -> IO.hSetBuffering h IO.LineBuffering
     opts <- Opt.execParser parser
     case opts of
-      Check { bash_lib, max_releases } ->
-          CheckReleases.check_releases bash_lib max_releases
       BazelCache opts -> BazelCache.run opts
