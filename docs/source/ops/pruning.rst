@@ -25,7 +25,7 @@ Still, Daml applications may be affected in the following ways:
 
 - Pruning is potentially a long-running operation and demanding one in terms of system resources; as such, it may significantly reduce Daml Ledger API throughput and increase latency while it is being performed. It is thus strongly recommended to plan pruning invocations, preferably, when the system is offline or at least when very low system utilization is expected.
 - Pruning may degrade the behavior of or abort in-progress requests if the pruning offset is too recent. In particular, the system might misbehave if command completions are pruned before the command trackers are able to process the completions.
-- Command deduplication and command tracker retention should always be configured in such a way, that the associated windows don't overlap with the pruning window, so that their operation is unaffected by pruning.
+- Command deduplication and command tracker retention should always be configured so that the associated windows don't overlap with the pruning window to ensure that their operation is unaffected by pruning.
 - Pruning may affect the behavior of Ledger API calls that allow to read data from the ledger: see the next sub-section for more information about API impacts.
 - Pruning of all divulged contracts (see :ref:`Prune Request <com.daml.ledger.api.v1.admin.PruneRequest>`) does not preserve application visibility over contracts divulged up to the pruning offset, hence applications making use of pruned divulged contracts might start experiencing failed command submissions: see the section below for determining a suitable pruning offset.
 
