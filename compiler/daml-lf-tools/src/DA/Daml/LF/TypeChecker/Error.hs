@@ -12,6 +12,7 @@ module DA.Daml.LF.TypeChecker.Error(
     toDiagnostic,
     ) where
 
+import Control.Applicative
 import DA.Pretty
 import qualified Data.Text as T
 import Development.IDE.Types.Diagnostics
@@ -167,10 +168,10 @@ contextLocation = \case
   ContextNone                -> Nothing
   ContextDefTypeSyn _ s      -> synLocation s
   ContextDefDataType _ d     -> dataLocation d
-  ContextTemplate _ t tp     -> templateLocation t tp
+  ContextTemplate _ t tp     -> templateLocation t tp <|> tplLocation t
   ContextDefValue _ v        -> dvalLocation v
   ContextDefException _ e    -> exnLocation e
-  ContextDefInterface _ i ip -> interfaceLocation i ip
+  ContextDefInterface _ i ip -> interfaceLocation i ip <|> intLocation i
 
 templateLocation :: Template -> TemplatePart -> Maybe SourceLoc
 templateLocation t = \case
