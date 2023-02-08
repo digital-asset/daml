@@ -317,6 +317,7 @@ da_scala_test_suite(
         "//libs-scala/ports",
         "//libs-scala/resources",
         "//libs-scala/test-evidence/tag:test-evidence-tag",
+        "//triggers/runner:trigger-runner-lib",
         "//triggers/service/auth:oauth2-test-server",
         "@maven//:eu_rekawek_toxiproxy_toxiproxy_java_2_1_7",
         "@maven//:org_scalatest_scalatest_compatible",
@@ -341,6 +342,7 @@ da_scala_test_suite(
           cp -L $(location :test-model/ErrorTrigger.daml) $$TMP_DIR/daml
           cp -L $(location :test-model/LowLevelErrorTrigger.daml) $$TMP_DIR/daml
           cp -L $(location :test-model/ReadAs.daml) $$TMP_DIR/daml
+          cp -L $(location :test-model/Cats.daml) $$TMP_DIR/daml
           cp -L $(location {daml_trigger}) $$TMP_DIR/daml-trigger.dar
           cp -L $(location {daml_script}) $$TMP_DIR/daml-script.dar
           cat << EOF > $$TMP_DIR/daml.yaml
