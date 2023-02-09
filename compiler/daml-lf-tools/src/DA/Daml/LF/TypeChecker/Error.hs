@@ -184,9 +184,13 @@ templateLocation t = \case
   TPChoice tc -> chcLocation tc
   TPInterfaceInstance iih -> iiLocation iih
 
+-- This function is untested and difficult to test with current architecture. It is written as best effort, but any failure on its part simply falls back to
+-- template/interface header source location.
+-- This function isn't easily testable because GHC catches these errors before daml gets to them.
 extractExprSourceLoc :: Expr -> Maybe SourceLoc
-extractExprSourceLoc (ETmApp (ELocation loc _) _) = Just loc -- All 4 of the Expr values in Template are wrapped in ($ this)
-extractExprSourceLoc (ECase (ETmApp (ELocation loc _) _) _) = Just loc -- Precondition wraps the bool in a case when featureExceptions is supported
+extractExprSourceLoc (ELocation loc _) = Just loc
+extractExprSourceLoc (ETmApp f _) = extractExprSourceLoc f -- All 4 of the Expr values in Template are wrapped in ($ this), so we match this out
+extractExprSourceLoc (ECase c _) = extractExprSourceLoc c -- Precondition wraps the bool in a case when featureExceptions is supported
 extractExprSourceLoc _ = Nothing
 
 interfaceLocation :: DefInterface -> InterfacePart -> Maybe SourceLoc
