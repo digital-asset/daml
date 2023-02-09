@@ -188,13 +188,13 @@ object AuthServiceJWTCodec {
       val scopes = scope.toList.collect({ case JsString(scope) => scope.split(" ") }).flatten
       // We're using this rather restrictive test to ensure we continue parsing all legacy sandbox tokens that
       // are in use before the 2.0 release; and thereby maintain full backwards compatibility.
-      val audienceValue = readOptionalStringOrSingletonArray(propAud, fields)
+      val audienceValue = readOptionalStringOrArray(propAud, fields)
       if (audienceValue.exists(_.startsWith(audPrefix))) {
         // Tokens with audience which starts with `https://daml.com/participant/jwt/aud/participant/${participantId}`
         // where `${participantId}` is non-empty string are supported.
         // As required for JWTs, additional fields can be in a token but will be ignored (including scope)
         audienceValue.map(_.substring(audPrefix.length)).filter(_.nonEmpty) match {
-          case Some(participantId) =>
+          case participantId :: Nil =>
             StandardJWTPayload(
               issuer = readOptionalString("iss", fields),
               participantId = Some(participantId),
@@ -202,17 +202,31 @@ object AuthServiceJWTCodec {
               exp = readInstant("exp", fields),
               format = StandardJWTTokenFormat.ParticipantId,
             )
-          case _ =>
+          case Nil =>
             deserializationError(
               s"Could not read ${value.prettyPrint} as AuthServiceJWTPayload: " +
                 s"`aud` must include participantId value prefixed by $audPrefix"
             )
+          case _ =>
+            deserializationError(
+              s"Could not read ${value.prettyPrint} as AuthServiceJWTPayload: " +
+                s"`aud` must include a single participantId value prefixed by $audPrefix"
+            )
         }
       } else if (scopes.contains(scopeLedgerApiFull)) {
         // We support the tokens with scope containing `daml_ledger_api`, there is no restriction of `aud` field.
+        val participantId = audienceValue match {
+          case id :: Nil => Some(id)
+          case Nil => None
+          case _ =>
+            deserializationError(
+              s"Could not read ${value.prettyPrint} as AuthServiceJWTPayload: " +
+                s"`aud` must be empty or a single participantId."
+            )
+        }
         StandardJWTPayload(
           issuer = readOptionalString("iss", fields),
-          participantId = audienceValue,
+          participantId = participantId,
           userId = readOptionalString("sub", fields).get, // guarded by if-clause above
           exp = readInstant("exp", fields),
           format = StandardJWTTokenFormat.Scope,
@@ -276,15 +290,16 @@ object AuthServiceJWTCodec {
         deserializationError(s"Could not read ${value.prettyPrint} as string for $name")
     }
 
-  private[this] def readOptionalStringOrSingletonArray(
+  private[this] def readOptionalStringOrArray(
       name: String,
       fields: Map[String, JsValue],
-  ): Option[String] =
+  ): List[String] =
     fields.get(name) match {
-      case None => None
-      case Some(JsNull) => None
-      case Some(JsString(value)) => Some(value)
-      case Some(JsArray(Vector(JsString(value)))) => Some(value)
+      case None => List.empty
+      case Some(JsNull) => List.empty
+      case Some(JsString(value)) => List(value)
+      case Some(array: JsArray) =>
+        readStringList(name, array.elements)
       case Some(value) =>
         deserializationError(s"Could not read ${value.prettyPrint} as string for $name")
     }
@@ -296,15 +311,18 @@ object AuthServiceJWTCodec {
     case None => List.empty
     case Some(JsNull) => List.empty
     case Some(JsArray(values)) =>
-      values.toList.map {
-        case JsString(value) => value
-        case value =>
-          deserializationError(s"Could not read ${value.prettyPrint} as string element for $name")
-      }
+      readStringList(name, values)
     case Some(value) =>
       deserializationError(s"Could not read ${value.prettyPrint} as string list for $name")
   }
 
+  private def readStringList(name: String, values: Vector[JsValue]) = {
+    values.toList.map {
+      case JsString(value) => value
+      case value =>
+        deserializationError(s"Could not read ${value.prettyPrint} as string element for $name")
+    }
+  }
   private[this] def readOptionalBoolean(
       name: String,
       fields: Map[String, JsValue],
