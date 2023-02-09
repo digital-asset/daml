@@ -764,6 +764,8 @@ object ContractStateMachineSpec {
         },
       rollbackBegin = (s, _, _) => s -> ChildrenRecursion.DoRecurse,
       rollbackEnd = (s, _, _) => s,
+      authorityBegin = (s, _, _) => s -> ChildrenRecursion.DoRecurse,
+      authorityEnd = (s, _, _) => s,
     )
   }
 

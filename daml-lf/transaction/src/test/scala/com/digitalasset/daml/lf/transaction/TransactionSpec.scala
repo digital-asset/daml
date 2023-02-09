@@ -103,7 +103,7 @@ class TransactionSpec
 
   }
 
-  "foldInExecutionOrder" - {
+  "foldInExecutionOrder" - { // TODO #15882 -- extend test for Node.Authority
     "should traverse the transaction in execution order" in {
 
       val tx = mkTransaction(
@@ -119,11 +119,16 @@ class TransactionSpec
       )
 
       val result = tx.foldInExecutionOrder(List.empty[String])(
-        (acc, nid, _) => (s"exerciseBegin(${nid.index})" :: acc, ChildrenRecursion.DoRecurse),
-        (acc, nid, _) => (s"rollbackBegin(${nid.index})" :: acc, ChildrenRecursion.DoRecurse),
-        (acc, nid, _) => s"leaf(${nid.index})" :: acc,
-        (acc, nid, _) => s"exerciseEnd(${nid.index})" :: acc,
-        (acc, nid, _) => s"rollbackEnd(${nid.index})" :: acc,
+        exerciseBegin =
+          (acc, nid, _) => (s"exerciseBegin(${nid.index})" :: acc, ChildrenRecursion.DoRecurse),
+        rollbackBegin =
+          (acc, nid, _) => (s"rollbackBegin(${nid.index})" :: acc, ChildrenRecursion.DoRecurse),
+        authorityBegin =
+          (acc, nid, _) => (s"authorityBegin(${nid.index})" :: acc, ChildrenRecursion.DoRecurse),
+        leaf = (acc, nid, _) => s"leaf(${nid.index})" :: acc,
+        exerciseEnd = (acc, nid, _) => s"exerciseEnd(${nid.index})" :: acc,
+        rollbackEnd = (acc, nid, _) => s"rollbackEnd(${nid.index})" :: acc,
+        authorityEnd = (acc, nid, _) => s"authorityEnd(${nid.index})" :: acc,
       )
 
       result.reverse.mkString(", ") shouldBe

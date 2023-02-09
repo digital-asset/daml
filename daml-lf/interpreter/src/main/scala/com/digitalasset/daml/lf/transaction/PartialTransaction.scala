@@ -95,7 +95,7 @@ private[lf] object PartialTransaction {
     def addActionChild(child: NodeId, version: TxVersion): Context = {
       Context(info, minChildVersion min version, children :+ child, nextActionChildIdx + 1)
     }
-    def addRollbackChild(child: NodeId, version: TxVersion, nextActionChildIdx: Int): Context =
+    def addNonActionChild(child: NodeId, version: TxVersion, nextActionChildIdx: Int): Context =
       Context(info, minChildVersion min version, children :+ child, nextActionChildIdx)
     // This function may be costly, it must be call at most once for each node.
     def nextActionChildSeed: crypto.Hash = info.actionChildSeed(nextActionChildIdx)
@@ -635,7 +635,7 @@ private[speedy] case class PartialTransaction(
         val rollbackNode = Node.Rollback(context.children.toImmArray)
         copy(
           context = info.parent
-            .addRollbackChild(info.nodeId, context.minChildVersion, context.nextActionChildIdx),
+            .addNonActionChild(info.nodeId, context.minChildVersion, context.nextActionChildIdx),
           nodes = nodes.updated(info.nodeId, rollbackNode),
           contractState = contractState.endRollback(),
         )
@@ -653,9 +653,6 @@ private[speedy] case class PartialTransaction(
   def beginWithAuthority(
       required: Set[Party]
   ): PartialTransaction = {
-    val was = context.info.authorizers
-    val now = required
-    println(s"**beginWithAuthority\n- Was=$was\n- Now=$now") // TODO #15882: remove debug
     val nid = NodeId(nextNodeIdx)
     val info = WithAuthorityContextInfo(nid, context, authorizers = required)
     copy(
@@ -667,14 +664,14 @@ private[speedy] case class PartialTransaction(
   def endWithAuthority: PartialTransaction = {
     context.info match {
       case info: WithAuthorityContextInfo =>
-        val was = info.authorizers
-        val now = info.parent.info.authorizers
-        println(s"**endWithAuthority\n- was=$was\n- now=$now") // TODO #15882: remove debug
+        val authNode = Node.Authority(
+          obtained = info.authorizers,
+          children = context.children.toImmArray,
+        )
         copy(
-          context = info.parent.copy(
-            children = info.parent.children :++ context.children.toImmArray,
-            nextActionChildIdx = context.nextActionChildIdx,
-          )
+          context = info.parent
+            .addNonActionChild(info.nodeId, context.minChildVersion, context.nextActionChildIdx),
+          nodes = nodes.updated(info.nodeId, authNode),
         )
       case _ =>
         InternalError.runtimeException(
