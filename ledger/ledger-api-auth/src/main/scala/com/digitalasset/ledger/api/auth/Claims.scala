@@ -82,14 +82,15 @@ object ClaimSet {
       expiration: Option[Instant],
       identityProviderId: IdentityProviderId,
       resolvedFromUser: Boolean,
-      targetAudiences: List[String],
+      targetAudiences: Option[List[String]],
   ) extends ClaimSet {
     def validForTargetAudience(targetAudience: String): Either[AuthorizationError, Unit] =
+      targetAudiences.fold[Either[AuthorizationError, Unit]](Right(()))(targetAudiences =>
       Either.cond(
         targetAudiences.contains(targetAudience),
         (),
         AuthorizationError.InvalidTargetAudience(targetAudiences, targetAudience),
-      )
+      ))
 
     def validForLedger(id: String): Either[AuthorizationError, Unit] =
       Either.cond(ledgerId.forall(_ == id), (), AuthorizationError.InvalidLedger(ledgerId.get, id))
@@ -191,12 +192,12 @@ object ClaimSet {
       expiration = None,
       resolvedFromUser = false,
       identityProviderId = IdentityProviderId.Default,
-      targetAudiences = List.empty,
+      targetAudiences = Some(List.empty),
     )
 
     /** A set of [[Claims]] that has all possible authorizations */
     val Wildcard: Claims =
-      Empty.copy(claims = List[Claim](ClaimPublic, ClaimAdmin, ClaimActAsAnyParty))
+      Empty.copy(claims = List[Claim](ClaimPublic, ClaimAdmin, ClaimActAsAnyParty), targetAudiences = None)
 
   }
 

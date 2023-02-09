@@ -100,7 +100,7 @@ class AuthServiceJWT(verifier: JwtVerifierBase, expectsAudienceBasedTokens: Bool
         expiration = payload.exp,
         resolvedFromUser = false,
         identityProviderId = IdentityProviderId.Default,
-        targetAudiences = List.empty,
+        targetAudiences = Some(List.empty),
       )
 
     case payload: StandardJWTPayload =>
