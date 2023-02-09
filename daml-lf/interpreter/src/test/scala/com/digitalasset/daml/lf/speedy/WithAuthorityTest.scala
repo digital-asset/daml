@@ -4,15 +4,17 @@
 package com.daml.lf
 package speedy
 
+import com.daml.lf.data.FrontStack
 import com.daml.lf.data.ImmArray
 import com.daml.lf.data.Ref.Party
-import com.daml.lf.speedy.SExpr.{SExpr, SEApp}
-import com.daml.lf.speedy.SValue.SParty
+import com.daml.lf.speedy.SError.SError
+import com.daml.lf.speedy.SExpr.SEApp
+import com.daml.lf.speedy.SValue.{SList, SParty}
 import com.daml.lf.testing.parser.Implicits._
 import com.daml.lf.transaction.Node
 import com.daml.lf.transaction.NodeId
 import com.daml.lf.transaction.SubmittedTransaction
-import com.daml.lf.value.Value.{ValueInt64, ValueRecord}
+import com.daml.lf.value.Value.{ValueRecord, ValueParty}
 
 import org.scalatest.Inside
 import org.scalatest.freespec.AnyFreeSpec
@@ -28,52 +30,70 @@ class WithAuthorityTest extends AnyFreeSpec with Matchers with Inside {
   val pkgs: PureCompiledPackages = SpeedyTestLib.typeAndCompile(p"""
       module M {
 
-        record @serializable T1 = { party: Party, info: Int64 } ;
+        record @serializable T1 = { signed: Party, info: Int64 } ;
         template (record : T1) = {
           precondition True;
-          signatories Cons @Party [M:T1 {party} record] (Nil @Party);
+          signatories Cons @Party [M:T1 {signed} record] (Nil @Party);
           observers Nil @Party;
           agreement "Agreement";
         };
 
-        val entryPoint : Party-> Party -> Party -> Update Unit =
-          \(a: Party) -> \(b: Party) -> \(c: Party) ->
-           WITH_AUTHORITY @Unit (Cons @Party [a,b] Nil@Party)
-           (WITH_AUTHORITY @Unit (Cons @Party [b,c] Nil@Party)
-            (ubind
-              x1: ContractId M:T1 <- create @M:T1 M:T1 { party = c, info = 100 }
+        val nest : List Party -> List Party -> Party -> Update Unit =
+          \(outer: List Party) -> \(inner: List Party) -> \(signed: Party) ->
+           WITH_AUTHORITY @Unit outer
+           (WITH_AUTHORITY @Unit inner
+            (ubind x1: ContractId M:T1 <- create @M:T1 M:T1 { signed = signed, info = 100 }
             in upure @Unit ()));
        }
       """)
 
-  "WithAuthorityTest" - {
+  "Nested" - {
+
     val a = Party.assertFromString("Alice")
     val b = Party.assertFromString("Bob")
     val c = Party.assertFromString("Charlie")
 
-    val committers = Set(a)
-
-    "{A}->{A,B}->{B,C}->{C}" in {
-      val se: SExpr = pkgs.compiler.unsafeCompile(e"M:entryPoint")
-      val example: SExpr = SEApp(se, Array(SParty(a), SParty(b), SParty(c)))
+    def makeNestExample(
+        outer: Set[Party],
+        inner: Set[Party],
+        signed: Party,
+    ): Either[SError, SubmittedTransaction] = {
+      val outerV = makeSetPartyValue(outer)
+      val innerV = makeSetPartyValue(inner)
+      val signedV = SParty(signed)
+      val example = SEApp(pkgs.compiler.unsafeCompile(e"M:nest"), Array(outerV, innerV, signedV))
+      val committers = Set(a)
       val machine = Speedy.Machine.fromUpdateSExpr(pkgs, transactionSeed, example, committers)
-      val either = SpeedyTestLib.buildTransaction(machine)
-      inside(either) { case Right(tx) =>
+      SpeedyTestLib.buildTransaction(machine)
+    }
+
+    "nest:A->{B}->{C}->C" in {
+      inside(makeNestExample(outer = Set(b), inner = Set(c), signed = c)) { case Right(tx) =>
         val shape = shapeOfTransaction(tx)
-        val expected = List(Authority(Set(a, b), List(Authority(Set(b, c), List(Create(100))))))
+        val expected = List(Authority(Set(b), List(Authority(Set(c), List(Create(c))))))
         shape shouldBe expected
       }
     }
-
+    "nest:A->{A,B}->{B,C}->C" in {
+      inside(makeNestExample(outer = Set(a, b), inner = Set(b, c), signed = c)) { case Right(tx) =>
+        val shape = shapeOfTransaction(tx)
+        val expected = List(Authority(Set(a, b), List(Authority(Set(b, c), List(Create(c))))))
+        shape shouldBe expected
+      }
+    }
   }
 }
 
 object WithAuthorityTest {
 
+  def makeSetPartyValue(set: Set[Party]): SValue = {
+    SList(FrontStack(set.toList.map(SParty(_)): _*))
+  }
+
   // TODO #15882 -- test interaction between Authority and Exercise/Rollback nodes
 
   sealed trait Shape // minimal transaction tree, for purposes of writing test expectation
-  final case class Create(x: Long) extends Shape
+  final case class Create(signed: Party) extends Shape
   final case class Exercise(x: List[Shape]) extends Shape
   final case class Rollback(x: List[Shape]) extends Shape
   final case class Authority(obtained: Set[Party], x: List[Shape]) extends Shape
@@ -83,8 +103,8 @@ object WithAuthorityTest {
       tx.nodes(nid) match {
         case create: Node.Create =>
           create.arg match {
-            case ValueRecord(_, ImmArray(_, (None, ValueInt64(n)))) =>
-              List(Create(n))
+            case ValueRecord(_, ImmArray((None, ValueParty(signed)), _)) =>
+              List(Create(signed))
             case _ =>
               sys.error(s"unexpected create.arg: ${create.arg}")
           }
