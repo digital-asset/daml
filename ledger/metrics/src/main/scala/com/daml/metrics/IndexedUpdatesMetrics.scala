@@ -23,7 +23,7 @@ class IndexedUpdatesMetrics(prefix: MetricName, metricFactory: MetricsFactory) {
   @MetricDoc.Tag(
     summary = "Number of transactions processed.",
     description =
-      "Represents the total number of transaction acceptance, transaction rejection, package upload, party allocation, etc. processed.",
+      "Represents the total number of transaction acceptance, transaction rejection, package upload, party allocation, etc. events processed.",
     qualification = Debug,
   )
   val eventsMeter: MetricHandle.Meter =
