@@ -15,8 +15,8 @@ import java.util.concurrent.{
 
 import com.daml.metrics.ExecutorServiceMetrics.{
   CommonMetricsName,
+  ExecutorServiceWithCleanup,
   ForkJoinMetricsName,
-  MetricResourceCleaningExecutorService,
   NameLabelKey,
   ThreadPoolMetricsName,
 }
@@ -32,13 +32,18 @@ class ExecutorServiceMetrics(factory: LabeledMetricsFactory) {
       name: String,
       executor: ExecutorService,
   ): ExecutorService = {
+    /* Handles the removal of registered gauges for the executor service.
+     * As all the gauges registered are async the removal could've been also done when
+     * trying to read the value of a gauge, but this would not prevent warnings being logged when an executor with
+     * the same name is registered before the gauges for a previous one was removed.
+     * */
     executor match {
       case forkJoinPool: ForkJoinPool =>
         val monitoringHandle = monitorForkJoin(name, forkJoinPool)
-        new MetricResourceCleaningExecutorService(forkJoinPool, monitoringHandle)
+        new ExecutorServiceWithCleanup(forkJoinPool, monitoringHandle)
       case threadPoolExecutor: ThreadPoolExecutor =>
         val monitoringHandle = monitorThreadPool(name, threadPoolExecutor)
-        new MetricResourceCleaningExecutorService(threadPoolExecutor, monitoringHandle)
+        new ExecutorServiceWithCleanup(threadPoolExecutor, monitoringHandle)
       case other =>
         logger.warn(
           s"Cannot monitor executor of type ${other.getClass}. Proceeding without metrics."
@@ -192,13 +197,7 @@ object ExecutorServiceMetrics {
 
   }
 
-  /*
-   * Handles the removal of registered gauges for the executor service.
-   * As all the gauges registered are async the removal could've been also done when
-   * trying to read the value of a gauge, but this would not prevent warnings being logged when an executor with
-   * the same name is registered before the gauges for a previous one was removed.
-   * */
-  class MetricResourceCleaningExecutorService(
+  private class ExecutorServiceWithCleanup(
       val delegate: ExecutorService,
       resourceCleaning: AutoCloseable,
   ) extends ExecutorService {
