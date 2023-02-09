@@ -47,6 +47,7 @@ class Metrics(metricsFactory: MetricsFactory) {
   val rejectionsMeter: Meter = metricsFactory.meter(name("rejections"))
 
 }
+
 object Metrics {
 
   def owner[Context: HasExecutionContext](reportingInterval: Duration) = new MetricsOwner(
