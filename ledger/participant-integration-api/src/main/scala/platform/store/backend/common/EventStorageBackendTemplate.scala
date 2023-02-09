@@ -536,31 +536,17 @@ abstract class EventStorageBackendTemplate(
     if (connection.getAutoCommit)
       throw new RuntimeException("These cannot be run non-transactionally")
 
-    val createIndex = (tableName: String, column: String, indexType: String) =>
-      SQL"""CREATE INDEX #$tableName#$column ON #$tableName USING #$indexType(#$column)"""
 
     executeWithLogging("consuming temp")(
       SQL"""CREATE TEMP TABLE deleted_consuming_events ON COMMIT DROP -- TODO check that no temp tables stay alive. Also use tmp_ as more relevant name
            AS SELECT contract_id, event_sequential_id FROM participant_events_consuming_exercise WHERE event_offset <= $pruneUpToInclusive
          """
     )(connection, loggingContext)
-    executeWithLogging("delete create contract_id index on consuming")(
-      createIndex("deleted_consuming_events", "contract_id", "BTREE")
-    )(connection, loggingContext)
-    executeWithLogging("create event_sequential_id index on consuming")(
-      createIndex("deleted_consuming_events", "event_sequential_id", "BTREE")
-    )(connection, loggingContext)
 
     executeWithLogging("nonconsuming temp")(
       SQL"""CREATE TEMP TABLE deleted_nonconsuming_events ON COMMIT DROP -- TODO check that no temp tables stay alive
            AS SELECT contract_id, event_sequential_id FROM participant_events_non_consuming_exercise WHERE event_offset <= $pruneUpToInclusive
          """
-    )(connection, loggingContext)
-    executeWithLogging("create contract_id index on nonconsuming")(
-      createIndex("deleted_nonconsuming_events", "contract_id", "BTREE")
-    )(connection, loggingContext)
-    executeWithLogging("create event_sequential_id index on nonconsuming")(
-      createIndex("deleted_nonconsuming_events", "event_sequential_id", "BTREE")
     )(connection, loggingContext)
 
     executeWithLogging("creates temp")(
@@ -570,13 +556,6 @@ abstract class EventStorageBackendTemplate(
                   AND (EXISTS (SELECT 1 FROM deleted_consuming_events dce WHERE dce.contract_id = pec.contract_id)
            ${orClauseOnImmediateDivulgencePruning(createsTable = "pec")})
          """
-    )(connection, loggingContext)
-
-    executeWithLogging("create contract_id index on creates")(
-      createIndex("deleted_creates", "contract_id", "BTREE")
-    )(connection, loggingContext)
-    executeWithLogging("create event_sequential_id index on creates")(
-      createIndex("deleted_creates", "event_sequential_id", "BTREE")
     )(connection, loggingContext)
 
     delete("consuming")(SQL"""
