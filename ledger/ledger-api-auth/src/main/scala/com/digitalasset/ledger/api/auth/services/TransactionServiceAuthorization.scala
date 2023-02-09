@@ -75,6 +75,11 @@ private[daml] final class TransactionServiceAuthorization(
   override def getLedgerEnd(request: GetLedgerEndRequest): Future[GetLedgerEndResponse] =
     authorizer.requirePublicClaims(service.getLedgerEnd)(request)
 
+  override def getLatestPrunedOffsets(
+      request: GetLatestPrunedOffsetsRequest
+  ): Future[GetLatestPrunedOffsetsResponse] =
+    authorizer.requirePublicClaims(service.getLatestPrunedOffsets)(request)
+
   override def bindService(): ServerServiceDefinition =
     TransactionServiceGrpc.bindService(this, executionContext)
 

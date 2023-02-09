@@ -20,6 +20,7 @@ import com.daml.ledger.api.testtool.infrastructure.time.{
 }
 import com.daml.ledger.api.testtool.infrastructure.{
   Endpoint,
+  FutureAssertions,
   Identification,
   LedgerServices,
   PartyAllocationConfiguration,
@@ -88,6 +89,7 @@ import com.daml.ledger.api.v1.transaction_filter.{
   TransactionFilter,
 }
 import com.daml.ledger.api.v1.transaction_service.{
+  GetLatestPrunedOffsetsRequest,
   GetLedgerEndRequest,
   GetTransactionByEventIdRequest,
   GetTransactionByIdRequest,
@@ -169,6 +171,13 @@ final class SingleParticipantTestContext private[participant] (
     services.transaction
       .getLedgerEnd(new GetLedgerEndRequest(overrideLedgerId))
       .map(_.getOffset)
+
+  override def latestPrunedOffsets(): Future[(LedgerOffset, LedgerOffset)] =
+    services.transaction
+      .getLatestPrunedOffsets(GetLatestPrunedOffsetsRequest())
+      .map(response =>
+        response.getParticipantPrunedUpToInclusive -> response.getAllDivulgedContractsPrunedUpToInclusive
+      )
 
   override def offsetBeyondLedgerEnd(): Future[LedgerOffset] =
     currentEnd().map(end => LedgerOffset(LedgerOffset.Value.Absolute("ffff" + end.getAbsolute)))
@@ -828,6 +837,28 @@ final class SingleParticipantTestContext private[participant] (
           logger.warn("Failed to prune", exception)(LoggingContext.ForTesting)
         }
     }
+
+  override def pruneCantonSafe(
+      pruneUpTo: LedgerOffset,
+      party: Primitive.Party,
+      dummyCommand: Primitive.Party => Command,
+      pruneAllDivulgedContracts: Boolean = false,
+  )(implicit ec: ExecutionContext): Future[Unit] =
+    FutureAssertions.succeedsEventually(
+      retryDelay = 100.millis,
+      maxRetryDuration = 10.seconds,
+      delayMechanism,
+      "Pruning",
+    ) {
+      for {
+        _ <- submitAndWait(submitAndWaitRequest(party, dummyCommand(party)))
+        _ <- prune(
+          pruneUpTo = pruneUpTo,
+          attempts = 1,
+          pruneAllDivulgedContracts = pruneAllDivulgedContracts,
+        )
+      } yield ()
+    }(ec, LoggingContext.ForTesting)
 
   private[infrastructure] override def preallocateParties(
       n: Int,

@@ -4,7 +4,6 @@
 package com.daml.ledger.api.testtool.suites.v1_8
 
 import java.util.regex.Pattern
-
 import com.daml.error.definitions.LedgerApiErrors
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
@@ -45,6 +44,110 @@ class ParticipantPruningIT extends LedgerTestSuite {
         failure,
         LedgerApiErrors.RequestValidation.InvalidArgument,
         Some("prune_up_to not specified"),
+      )
+    }
+  })
+
+  test(
+    "PRQueryLatestPrunedOffsets",
+    "It should be possible to query the latest pruned offsets",
+    allocate(SingleParty),
+  )(implicit ec => { case Participants(Participant(ledger, alice)) =>
+    for {
+      (prunedUpToInclusive_initial, allDivulgencePrunedUpToInclusive_initial) <-
+        ledger.latestPrunedOffsets()
+
+      // Move the ledger end forward
+      _ <- ledger.create(alice, Dummy(alice))
+      firstPruningOffset <- ledger.currentEnd()
+
+      // Add one more element to bypass pruning to ledger end restriction
+      // and allow pruning at the first pruning offset
+      _ <- ledger.create(alice, Dummy(alice))
+      secondPruningOffset <- ledger.currentEnd()
+
+      // Add one element to bypass pruning to ledger end restriction
+      // and allow pruning at the second pruning offset
+      _ <- ledger.create(alice, Dummy(alice))
+
+      // Prune the ledger without divulgence at firstPruningOffset
+      _ <- ledger.pruneCantonSafe(
+        firstPruningOffset,
+        alice,
+        Dummy(_).create.command,
+        pruneAllDivulgedContracts = false,
+      )
+      (
+        prunedUpToInclusive_afterFirstRegularPruning,
+        allDivulgencePrunedUpToInclusive_afterFirstRegularPruning,
+      ) <- ledger.latestPrunedOffsets()
+
+      // Prune the ledger with divulgence at firstPruningOffset
+      _ <- ledger.pruneCantonSafe(
+        firstPruningOffset,
+        alice,
+        Dummy(_).create.command,
+        pruneAllDivulgedContracts = true,
+      )
+      (
+        prunedUpToInclusive_afterFirstAllDivulgencePruning,
+        allDivulgencePrunedUpToInclusive_afterFirstAllDivulgencePruning,
+      ) <- ledger.latestPrunedOffsets()
+
+      // Prune the ledger with divulgence at secondPruningOffset
+      _ <- ledger.pruneCantonSafe(
+        secondPruningOffset,
+        alice,
+        Dummy(_).create.command,
+        pruneAllDivulgedContracts = true,
+      )
+      (
+        prunedUpToInclusive_afterSecondAllDivulgencePruning,
+        allDivulgencePrunedUpToInclusive_afterSecondAllDivulgencePruning,
+      ) <- ledger.latestPrunedOffsets()
+    } yield {
+      assert(
+        assertion =
+          prunedUpToInclusive_initial.getAbsolute < prunedUpToInclusive_afterFirstRegularPruning.getAbsolute,
+        message =
+          s"The initial pruning offset ($prunedUpToInclusive_initial) should be different than the latest pruning offset ($prunedUpToInclusive_afterFirstRegularPruning)",
+      )
+
+      assertEquals(
+        "All divulgence pruning offset does not change after regular pruning",
+        allDivulgencePrunedUpToInclusive_initial,
+        allDivulgencePrunedUpToInclusive_afterFirstRegularPruning,
+      )
+
+      assertEquals(
+        "Requested pruning offset matches the queried offset",
+        prunedUpToInclusive_afterFirstRegularPruning,
+        firstPruningOffset,
+      )
+
+      assertEquals(
+        "Pruned up to inclusive offset is not changed if the same pruning offset is used",
+        prunedUpToInclusive_afterFirstRegularPruning,
+        prunedUpToInclusive_afterFirstAllDivulgencePruning,
+      )
+
+      assertEquals(
+        "All divulgence pruning offset matches the requested pruning offset with all divulgence pruning enabled",
+        allDivulgencePrunedUpToInclusive_afterFirstAllDivulgencePruning,
+        firstPruningOffset,
+      )
+
+      assert(
+        assertion =
+          allDivulgencePrunedUpToInclusive_afterFirstAllDivulgencePruning.getAbsolute < allDivulgencePrunedUpToInclusive_afterSecondAllDivulgencePruning.getAbsolute,
+        message =
+          "Divulgence pruning offset advanced as well after the second prune call with all divulgence pruning enabled",
+      )
+
+      assertEquals(
+        "Pruning offsets are equal after all divulgence pruning",
+        allDivulgencePrunedUpToInclusive_afterSecondAllDivulgencePruning,
+        prunedUpToInclusive_afterSecondAllDivulgencePruning,
       )
     }
   })

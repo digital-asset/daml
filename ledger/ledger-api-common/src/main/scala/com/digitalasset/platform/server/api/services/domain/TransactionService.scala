@@ -14,6 +14,7 @@ import com.daml.ledger.api.messages.transaction.{
 }
 import com.daml.ledger.api.v1.transaction_service.{
   GetFlatTransactionResponse,
+  GetLatestPrunedOffsetsResponse,
   GetTransactionResponse,
   GetTransactionTreesResponse,
   GetTransactionsResponse,
@@ -51,4 +52,6 @@ trait TransactionService {
   def getFlatTransactionByEventId(
       req: GetTransactionByEventIdRequest
   )(implicit loggingContext: LoggingContext): Future[GetFlatTransactionResponse]
+
+  def getLatestPrunedOffsets: Future[GetLatestPrunedOffsetsResponse]
 }

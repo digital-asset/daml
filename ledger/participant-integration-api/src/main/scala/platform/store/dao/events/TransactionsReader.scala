@@ -151,9 +151,9 @@ private[dao] final class TransactionsReader(
     dispatcher
       .executeSql(dbMetrics.getAcsEventSeqIdRange)(implicit connection =>
         queryNonPruned.executeSql(
-          eventSeqIdReader.readEventSeqIdRange(activeAt)(connection),
-          activeAt,
-          pruned =>
+          query = eventSeqIdReader.readEventSeqIdRange(activeAt)(connection),
+          minOffsetExclusive = activeAt,
+          error = pruned =>
             ACSReader.acsBeforePruningErrorReason(
               acsOffset = activeAt.toHexString,
               prunedUpToOffset = pruned.toHexString,

@@ -406,10 +406,15 @@ private[index] class IndexServiceImpl(
   override def currentLedgerEnd()(implicit
       loggingContext: LoggingContext
   ): Future[LedgerOffset.Absolute] = {
+    val absoluteApiOffset = toApiOffset(ledgerEnd())
+    Future.successful(absoluteApiOffset)
+  }
+
+  private def toApiOffset(ledgerDomainOffset: Offset): LedgerOffset.Absolute = {
     val offset =
-      if (ledgerEnd() == Offset.beforeBegin) ApiOffset.begin
-      else ledgerEnd()
-    Future.successful(toAbsolute(offset))
+      if (ledgerDomainOffset == Offset.beforeBegin) ApiOffset.begin
+      else ledgerDomainOffset
+    toAbsolute(offset)
   }
 
   private def ledgerEnd(): Offset = dispatcher().getHead()
@@ -479,6 +484,16 @@ private[index] class IndexServiceImpl(
       loggingContext: LoggingContext
   ): Future[MaximumLedgerTime] =
     maximumLedgerTimeService.lookupMaximumLedgerTimeAfterInterpretation(ids)
+
+  override def latestPrunedOffsets()(implicit
+      loggingContext: LoggingContext
+  ): Future[(LedgerOffset.Absolute, LedgerOffset.Absolute)] =
+    ledgerDao.pruningOffsets
+      .map { case (prunedUpToInclusiveO, divulgencePrunedUpToO) =>
+        toApiOffset(prunedUpToInclusiveO.getOrElse(Offset.beforeBegin)) -> toApiOffset(
+          divulgencePrunedUpToO.getOrElse(Offset.beforeBegin)
+        )
+      }(ExecutionContext.parasitic)
 }
 
 object IndexServiceImpl {
