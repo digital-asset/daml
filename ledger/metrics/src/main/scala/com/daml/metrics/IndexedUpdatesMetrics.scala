@@ -17,7 +17,8 @@ class IndexedUpdatesMetrics(prefix: MetricName, metricFactory: MetricsFactory) {
   )
   val meteredEventsMeter: MetricHandle.Meter = metricFactory.meter(
     prefix :+ "metered_events",
-    "Number of events that will be metered.",
+    """Represents the number of events that will be included in the metering report.
+        |This is an estimate of the total number and not a substitute for the metering report.""".stripMargin,
   )
 
   @MetricDoc.Tag(
@@ -27,7 +28,10 @@ class IndexedUpdatesMetrics(prefix: MetricName, metricFactory: MetricsFactory) {
     qualification = Debug,
   )
   val eventsMeter: MetricHandle.Meter =
-    metricFactory.meter(prefix :+ "events", "Number of events ingested by the indexer.")
+    metricFactory.meter(
+      prefix :+ "events",
+      "Represents the total number of transaction acceptance, transaction rejection, package upload, party allocation, etc. processed.",
+    )
 
 }
 
