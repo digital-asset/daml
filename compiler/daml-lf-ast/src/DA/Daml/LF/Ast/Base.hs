@@ -979,7 +979,6 @@ data InterfaceInstanceMethod = InterfaceInstanceMethod
 data InterfaceInstanceHead = InterfaceInstanceHead
   { iiInterface :: !(Qualified TypeConName)
   , iiTemplate :: !(Qualified TypeConName)
-  , iiLocation :: !(Maybe SourceLoc)
   }
   deriving (Eq, Ord, Data, Generic, NFData, Show)
 

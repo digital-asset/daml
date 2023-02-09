@@ -43,13 +43,13 @@ data TemplatePart
   | TPKey
   -- ^ Specifically the `key` keyword, not maintainers
   | TPChoice TemplateChoice
-  | TPInterfaceInstance InterfaceInstanceHead
+  | TPInterfaceInstance InterfaceInstanceHead (Maybe SourceLoc)
 
 data InterfacePart
   = IPWhole
   | IPMethod InterfaceMethod
   | IPChoice TemplateChoice
-  | IPInterfaceInstance InterfaceInstanceHead
+  | IPInterfaceInstance InterfaceInstanceHead (Maybe SourceLoc)
 
 data SerializabilityRequirement
   = SRTemplateArg
@@ -182,7 +182,7 @@ templateLocation t = \case
   TPAgreement -> extractExprSourceLoc $ tplAgreement t
   TPKey -> tplKey t >>= extractExprSourceLoc . tplKeyBody
   TPChoice tc -> chcLocation tc
-  TPInterfaceInstance iih -> iiLocation iih
+  TPInterfaceInstance _ loc -> loc
 
 -- This function is untested and difficult to test with current architecture. It is written as best effort, but any failure on its part simply falls back to
 -- template/interface header source location.
@@ -198,7 +198,7 @@ interfaceLocation i = \case
   IPWhole -> intLocation i
   IPMethod im -> ifmLocation im
   IPChoice tc -> chcLocation tc
-  IPInterfaceInstance iih -> iiLocation iih
+  IPInterfaceInstance _ loc -> loc
 
 errorLocation :: Error -> Maybe SourceLoc
 errorLocation = \case
@@ -230,14 +230,14 @@ instance Show TemplatePart where
     TPAgreement -> "agreement"
     TPKey -> "key"
     TPChoice choice -> "choice " <> T.unpack (unChoiceName $ chcName choice)
-    TPInterfaceInstance iiHead -> renderPretty iiHead
+    TPInterfaceInstance iiHead _ -> renderPretty iiHead
 
 instance Show InterfacePart where
   show = \case
     IPWhole -> ""
     IPMethod method -> "method " <> T.unpack (unMethodName $ ifmName method)
     IPChoice choice -> "choice " <> T.unpack (unChoiceName $ chcName choice)
-    IPInterfaceInstance iiHead -> renderPretty iiHead
+    IPInterfaceInstance iiHead _ -> renderPretty iiHead
 
 instance Pretty SerializabilityRequirement where
   pPrint = \case
