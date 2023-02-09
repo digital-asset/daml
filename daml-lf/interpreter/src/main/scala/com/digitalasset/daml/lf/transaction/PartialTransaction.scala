@@ -647,9 +647,6 @@ private[speedy] case class PartialTransaction(
   def beginWithAuthority(
       required: Set[Party]
   ): PartialTransaction = {
-    val was = context.info.authorizers
-    val now = required
-    println(s"**beginWithAuthority\n- Was=$was\n- Now=$now") // TODO #15882: remove debug
     val nid = NodeId(nextNodeIdx)
     val info = WithAuthorityContextInfo(nid, context, authorizers = required)
     copy(
@@ -661,18 +658,14 @@ private[speedy] case class PartialTransaction(
   def endWithAuthority: PartialTransaction = {
     context.info match {
       case info: WithAuthorityContextInfo =>
-        val was = info.authorizers
-        val now = info.parent.info.authorizers
-        println(s"**endWithAuthority\n- was=$was\n- now=$now") // TODO #15882: remove debug
         val authNode = Node.Authority(
-          obtained = info.authorizers, // NICK: change to now for a bug!
+          obtained = info.authorizers,
           children = context.children.toImmArray,
         )
         copy(
           context = info.parent.addActionChild(info.nodeId, context.minChildVersion),
           nodes = nodes.updated(info.nodeId, authNode),
         )
-
       case _ =>
         InternalError.runtimeException(
           NameOf.qualifiedNameOfCurrentFunc,

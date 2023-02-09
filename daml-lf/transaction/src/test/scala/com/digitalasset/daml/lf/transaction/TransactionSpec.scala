@@ -103,7 +103,7 @@ class TransactionSpec
 
   }
 
-  "foldInExecutionOrder" - { // TODO 15882 -- extend test for Node.Authority -- NICK
+  "foldInExecutionOrder" - { // TODO #15882 -- extend test for Node.Authority
     "should traverse the transaction in execution order" in {
 
       val tx = mkTransaction(
