@@ -151,7 +151,7 @@ object MetricsInterceptorSpec {
         .mapAsync(1)(response =>
           after(delay, materializer.system.scheduler)(Future.successful(response))
         )
-        .runWith(ServerAdapter.toSink(responseObserver))
+        .runWith(ServerAdapter.toSink(responseObserver, identity))
       ()
     }
   }

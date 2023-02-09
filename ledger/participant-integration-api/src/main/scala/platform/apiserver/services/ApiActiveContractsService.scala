@@ -8,7 +8,6 @@ import akka.stream.scaladsl.Source
 import com.daml.error.definitions.LedgerApiErrors
 import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
 import com.daml.grpc.adapter.ExecutionSequencerFactory
-import com.daml.grpc.adapter.server.akka.StreamingServiceLifecycleManagement
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.v1.active_contracts_service.ActiveContractsServiceGrpc.ActiveContractsService
 import com.daml.ledger.api.v1.active_contracts_service._
@@ -21,6 +20,7 @@ import com.daml.platform.ApiOffset
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.server.api.ValidationLogger
 import com.daml.platform.server.api.services.grpc.Logging.traceId
+import com.daml.platform.server.api.services.grpc.StreamingServiceLifecycleManagement
 import com.daml.platform.server.api.validation.ActiveContractsServiceValidation
 import com.daml.platform.server.api.validation.FieldValidations
 import com.daml.tracing.Telemetry
