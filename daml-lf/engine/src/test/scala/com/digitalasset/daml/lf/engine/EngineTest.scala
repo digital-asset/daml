@@ -2758,7 +2758,6 @@ object EngineTest {
       Matcher { transaction =>
         val expectedResult = disclosedContracts.map(_.contractId.value).toSet
         val actualResult = transaction.inputContracts
-        remy.log(expectedResult -> actualResult)
         val debugMessage = Seq(
           s"expected but missing contract IDs: ${expectedResult.filter(!actualResult.contains(_))}",
           s"unexpected but found contract IDs: ${actualResult.filter(!expectedResult.contains(_))}",
