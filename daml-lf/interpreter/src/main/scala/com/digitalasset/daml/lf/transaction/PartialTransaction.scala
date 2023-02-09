@@ -93,7 +93,7 @@ private[lf] object PartialTransaction {
     def addActionChild(child: NodeId, version: TxVersion): Context = {
       Context(info, minChildVersion min version, children :+ child, nextActionChildIdx + 1)
     }
-    def addRollbackChild(child: NodeId, version: TxVersion, nextActionChildIdx: Int): Context =
+    def addNonActionChild(child: NodeId, version: TxVersion, nextActionChildIdx: Int): Context =
       Context(info, minChildVersion min version, children :+ child, nextActionChildIdx)
     // This function may be costly, it must be call at most once for each node.
     def nextActionChildSeed: crypto.Hash = info.actionChildSeed(nextActionChildIdx)
@@ -629,7 +629,7 @@ private[speedy] case class PartialTransaction(
         val rollbackNode = Node.Rollback(context.children.toImmArray)
         copy(
           context = info.parent
-            .addRollbackChild(info.nodeId, context.minChildVersion, context.nextActionChildIdx),
+            .addNonActionChild(info.nodeId, context.minChildVersion, context.nextActionChildIdx),
           nodes = nodes.updated(info.nodeId, rollbackNode),
           contractState = contractState.endRollback(),
         )
@@ -663,7 +663,8 @@ private[speedy] case class PartialTransaction(
           children = context.children.toImmArray,
         )
         copy(
-          context = info.parent.addActionChild(info.nodeId, context.minChildVersion),
+          context = info.parent
+            .addNonActionChild(info.nodeId, context.minChildVersion, context.nextActionChildIdx),
           nodes = nodes.updated(info.nodeId, authNode),
         )
       case _ =>
