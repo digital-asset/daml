@@ -22,7 +22,7 @@ import com.daml.lf.transaction.{
   SubmittedTransaction,
   Node,
   ContractKeyUniquenessMode,
-  DisclosedEvent,
+  ProcessedDisclosedContract,
   NodeId,
   GlobalKey,
   IncompleteTransaction => IncompleteTx,
@@ -347,7 +347,7 @@ private[lf] object Speedy {
                   s"contract ${lfContractId.coid} not in cachedContracts",
                 )
               )
-              DisclosedEvent(
+              ProcessedDisclosedContract(
                 cachedContract.toCreateNode(disclosedContract.contractId.value),
                 createdAt = disclosedContract.metadata.createdAt,
                 driverMetadata = disclosedContract.metadata.driverMetadata,
@@ -472,7 +472,7 @@ private[lf] object Speedy {
         locationInfo: Map[NodeId, Location],
         seeds: NodeSeeds,
         globalKeyMapping: Map[GlobalKey, KeyMapping],
-        disclosedEvents: ImmArray[DisclosedEvent],
+        processedDisclosedContracts: ImmArray[ProcessedDisclosedContract],
     )
   }
 

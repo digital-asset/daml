@@ -16,7 +16,10 @@ import com.daml.ledger.sandbox.domain.Rejection._
 import com.daml.ledger.sandbox.domain.Submission.Transaction
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.data.{ImmArray, Ref}
-import com.daml.lf.transaction.{DisclosedEvent, Transaction => LfTransaction}
+import com.daml.lf.transaction.{
+  ProcessedDisclosedContract => LfProcessedDisclosedContract,
+  Transaction => LfTransaction,
+}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
@@ -67,7 +70,7 @@ private[validate] class ConflictCheckWithCommittedImpl(
     val eitherTF: EitherT[Future, Rejection, Unit] =
       for {
         _ <- validateExplicitDisclosure(
-          submission.disclosedEvents,
+          submission.processedDisclosedContracts,
           submission.submitterInfo.toCompletionInfo(),
         )
         _ <- validateCausalMonotonicity(
@@ -153,24 +156,24 @@ private[validate] class ConflictCheckWithCommittedImpl(
     }.invertToEitherT
 
   private def validateExplicitDisclosure(
-      disclosedEvents: ImmArray[DisclosedEvent],
+      processedDisclosedContracts: ImmArray[LfProcessedDisclosedContract],
       completionInfo: CompletionInfo,
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger,
       loggingContext: LoggingContext,
   ): EitherT[Future, Rejection, Unit] =
     // Validation fails fast on the first unknown/invalid contract.
-    disclosedEvents.toList.collectFirstSomeM { disclosedEvent =>
+    processedDisclosedContracts.toList.collectFirstSomeM { processedDisclosedContract =>
       val validation = for {
-        _ <- validateDisclosedContractPayload(disclosedEvent, completionInfo)
-        _ <- validateDriverMetadataContractId(completionInfo, disclosedEvent)
+        _ <- validateDisclosedContractPayload(processedDisclosedContract, completionInfo)
+        _ <- validateDriverMetadataContractId(completionInfo, processedDisclosedContract)
       } yield ()
 
       validation.value.map(_.left.toOption)
     }.invertToEitherT
 
   private def validateDisclosedContractPayload(
-      provided: DisclosedEvent,
+      provided: LfProcessedDisclosedContract,
       completionInfo: CompletionInfo,
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger,
@@ -194,7 +197,7 @@ private[validate] class ConflictCheckWithCommittedImpl(
 
   private def validateDriverMetadataContractId(
       completionInfo: CompletionInfo,
-      provided: DisclosedEvent,
+      provided: LfProcessedDisclosedContract,
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): EitherT[Future, Rejection, Unit] =
@@ -216,7 +219,7 @@ private[validate] class ConflictCheckWithCommittedImpl(
   private def sameContractData(
       actualContractInstance: Value.VersionedContractInstance,
       actualLedgerEffectiveTime: Timestamp,
-      provided: DisclosedEvent,
+      provided: LfProcessedDisclosedContract,
   ): Either[String, Unit] = {
     val providedContractId = provided.contractId
 

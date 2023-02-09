@@ -151,15 +151,17 @@ class ConflictCheckWithCommittedSpec
 
   it should "fail validation mismatching let in disclosed contract" in new TestContext {
     when(
-      indexServiceMock.lookupContractStateWithoutDivulgence(eqTo(disclosedEvent.contractId))(
+      indexServiceMock.lookupContractStateWithoutDivulgence(
+        eqTo(processedDisclosedContract.contractId)
+      )(
         any[LoggingContext]
       )
     )
       .thenReturn(
         Future.successful(
           ContractState.Active(
-            disclosedEvent.versionedCoinst,
-            disclosedEvent.createdAt.add(Duration.ofSeconds(1000L)),
+            processedDisclosedContract.versionedCoinst,
+            processedDisclosedContract.createdAt.add(Duration.ofSeconds(1000L)),
           )
         )
       )
@@ -168,14 +170,16 @@ class ConflictCheckWithCommittedSpec
 
     validationResult match {
       case Left(DisclosedContractInvalid(contractId, _)) =>
-        contractId shouldBe disclosedEvent.contractId
+        contractId shouldBe processedDisclosedContract.contractId
       case failure => fail(s"Expectation mismatch: got $failure")
     }
   }
 
   it should "fail validation mismatching contract argument in disclosed contract" in new TestContext {
     when(
-      indexServiceMock.lookupContractStateWithoutDivulgence(eqTo(disclosedEvent.contractId))(
+      indexServiceMock.lookupContractStateWithoutDivulgence(
+        eqTo(processedDisclosedContract.contractId)
+      )(
         any[LoggingContext]
       )
     )
@@ -183,7 +187,7 @@ class ConflictCheckWithCommittedSpec
         Future.successful(
           ContractState.Active(
             VersionedContractInstance(templateId, Versioned(TransactionVersion.VDev, ValueTrue)),
-            disclosedEvent.createdAt,
+            processedDisclosedContract.createdAt,
           )
         )
       )
@@ -192,14 +196,16 @@ class ConflictCheckWithCommittedSpec
 
     validationResult match {
       case Left(DisclosedContractInvalid(contractId, _)) =>
-        contractId shouldBe disclosedEvent.contractId
+        contractId shouldBe processedDisclosedContract.contractId
       case failure => fail(s"Expectation mismatch: got $failure")
     }
   }
 
   it should "fail validation mismatching template id in disclosed contract" in new TestContext {
     when(
-      indexServiceMock.lookupContractStateWithoutDivulgence(eqTo(disclosedEvent.contractId))(
+      indexServiceMock.lookupContractStateWithoutDivulgence(
+        eqTo(processedDisclosedContract.contractId)
+      )(
         any[LoggingContext]
       )
     )
@@ -208,9 +214,9 @@ class ConflictCheckWithCommittedSpec
           ContractState.Active(
             VersionedContractInstance(
               templateId.copy(packageId = Ref.PackageId.assertFromString("anotherPackageId")),
-              Versioned(TransactionVersion.VDev, disclosedEvent.createEvent.arg),
+              Versioned(TransactionVersion.VDev, processedDisclosedContract.createEvent.arg),
             ),
-            disclosedEvent.createdAt,
+            processedDisclosedContract.createdAt,
           )
         )
       )
@@ -219,7 +225,7 @@ class ConflictCheckWithCommittedSpec
 
     validationResult match {
       case Left(DisclosedContractInvalid(contractId, _)) =>
-        contractId shouldBe disclosedEvent.contractId
+        contractId shouldBe processedDisclosedContract.contractId
       case failure => fail(s"Expectation mismatch: got $failure")
     }
   }
@@ -227,8 +233,8 @@ class ConflictCheckWithCommittedSpec
   it should "fail validation on invalid contract driver metadata" in new TestContext {
     private val submissionWithInvalidContractDriverMetadata =
       preparedTransactionSubmission.copy(submission =
-        preparedTransactionSubmission.submission.copy(disclosedEvents =
-          ImmArray(disclosedEvent.copy(driverMetadata = Bytes.Empty))
+        preparedTransactionSubmission.submission.copy(processedDisclosedContracts =
+          ImmArray(processedDisclosedContract.copy(driverMetadata = Bytes.Empty))
         )
       )
 
@@ -238,7 +244,7 @@ class ConflictCheckWithCommittedSpec
 
     validationResult match {
       case Left(DisclosedContractInvalid(contractId, _)) =>
-        contractId shouldBe disclosedEvent.contractId
+        contractId shouldBe processedDisclosedContract.contractId
       case failure => fail(s"Expectation mismatch: got $failure")
     }
   }
@@ -284,9 +290,9 @@ class ConflictCheckWithCommittedSpec
     val informeesSet: Set[Ref.Party] = transactionInformees.toSet
     val blindingInfo: BlindingInfo = BlindingInfo(Map(), Map(divulgedContract -> Set(informee1)))
 
-    val disclosedEvent: DisclosedEvent = {
+    val processedDisclosedContract: ProcessedDisclosedContract = {
       val contractId = cid(1)
-      DisclosedEvent(
+      ProcessedDisclosedContract(
         templateId = templateId,
         contractId = contractId,
         argument = Value.ValueText("Some contract value"),
@@ -305,7 +311,7 @@ class ConflictCheckWithCommittedSpec
       transactionMeta = transactionMeta,
       transaction = TransactionBuilder.EmptySubmitted,
       estimatedInterpretationCost = 0L,
-      disclosedEvents = ImmArray(disclosedEvent),
+      processedDisclosedContracts = ImmArray(processedDisclosedContract),
     )(loggingContext)
 
     val preparedTransactionSubmission: PreparedTransactionSubmission =
@@ -336,15 +342,17 @@ class ConflictCheckWithCommittedSpec
       .thenReturn(Future.successful(None))
 
     when(
-      indexServiceMock.lookupContractStateWithoutDivulgence(eqTo(disclosedEvent.contractId))(
+      indexServiceMock.lookupContractStateWithoutDivulgence(
+        eqTo(processedDisclosedContract.contractId)
+      )(
         any[LoggingContext]
       )
     )
       .thenReturn(
         Future.successful(
           ContractState.Active(
-            disclosedEvent.versionedCoinst,
-            disclosedEvent.createdAt,
+            processedDisclosedContract.versionedCoinst,
+            processedDisclosedContract.createdAt,
           )
         )
       )

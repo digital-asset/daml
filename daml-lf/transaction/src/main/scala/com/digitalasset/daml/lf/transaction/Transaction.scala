@@ -714,7 +714,7 @@ object Transaction {
     * @param nodeSeeds        : An association list that maps to each ID of create and exercise
     *                         nodes its seeds.
     * @param globalKeyMapping : input key mapping inferred by interpretation
-    * @param disclosedEvents    : create contracts passed via explicit disclosure that have been used in this transaction
+    * @param processedDisclosedContracts    : create contracts passed via explicit disclosure that have been used in this transaction
     */
   final case class Metadata(
       submissionSeed: Option[crypto.Hash],
@@ -723,7 +723,7 @@ object Transaction {
       dependsOnTime: Boolean,
       nodeSeeds: ImmArray[(NodeId, crypto.Hash)],
       globalKeyMapping: Map[GlobalKey, Option[Value.ContractId]],
-      disclosedEvents: ImmArray[DisclosedEvent],
+      processedDisclosedContracts: ImmArray[ProcessedDisclosedContract],
   )
 
   def commitTransaction(submittedTransaction: SubmittedTransaction): CommittedTransaction =
@@ -818,7 +818,7 @@ object Transaction {
   * @param createdAt ledger effective time of the transaction that created the contract
   * @param driverMetadata opaque bytestring used by the underlying ledger implementation
   */
-final case class DisclosedEvent(
+final case class ProcessedDisclosedContract(
     createEvent: Node.Create,
     createdAt: Time.Timestamp,
     driverMetadata: Bytes,
@@ -830,7 +830,7 @@ final case class DisclosedEvent(
   def versionedCoinst: VersionedContractInstance = createEvent.versionedCoinst
 }
 
-object DisclosedEvent {
+object ProcessedDisclosedContract {
   def apply(
       templateId: Identifier,
       contractId: Value.ContractId,
@@ -842,8 +842,8 @@ object DisclosedEvent {
       keyOpt: Option[GlobalKeyWithMaintainers],
       agreementText: String,
       version: TransactionVersion,
-  ): DisclosedEvent =
-    DisclosedEvent(
+  ): ProcessedDisclosedContract =
+    ProcessedDisclosedContract(
       createEvent = Node.Create(
         templateId = templateId,
         coid = contractId,

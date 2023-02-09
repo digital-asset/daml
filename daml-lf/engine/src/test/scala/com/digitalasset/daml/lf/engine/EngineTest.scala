@@ -16,7 +16,7 @@ import com.daml.lf.transaction.{
   Node,
   NodeId,
   Normalization,
-  DisclosedEvent,
+  ProcessedDisclosedContract,
   ReplayMismatch,
   SubmittedTransaction,
   Validation,
@@ -776,7 +776,7 @@ class EngineTest
       )
 
       val transactionVersion = TxVersions.assignNodeVersion(basicTestsPkg.languageVersion)
-      val expectedProcessedDisclosedEvent = DisclosedEvent(
+      val expectedProcessedDisclosedContract = ProcessedDisclosedContract(
         templateId = usedDisclosedContract.templateId,
         usedDisclosedContract.contractId.value,
         usedDisclosedContract.argument.toNormalizedValue(transactionVersion),
@@ -796,7 +796,7 @@ class EngineTest
         fetchByKeyCommand,
         unusedDisclosedContract,
         usedDisclosedContract,
-        expectedProcessedDisclosedEvent,
+        expectedProcessedDisclosedContract,
       )
     }
   }
@@ -1665,7 +1665,7 @@ class EngineTest
       )
 
       val transactionVersion = TxVersions.assignNodeVersion(basicTestsPkg.languageVersion)
-      val expectedProcessedDisclosedEvent = DisclosedEvent(
+      val expectedProcessedDisclosedContract = ProcessedDisclosedContract(
         templateId = usedDisclosedContract.templateId,
         contractId = usedDisclosedContract.contractId.value,
         argument = usedDisclosedContract.argument.toNormalizedValue(transactionVersion),
@@ -1683,7 +1683,7 @@ class EngineTest
         lookupByKeyCommand,
         unusedDisclosedContract,
         usedDisclosedContract,
-        expectedProcessedDisclosedEvent,
+        expectedProcessedDisclosedContract,
       )
     }
   }
@@ -1718,7 +1718,7 @@ class EngineTest
       )
 
       val transactionVersion = TxVersions.assignNodeVersion(basicTestsPkg.languageVersion)
-      val expectedProcessedDisclosedEvent = DisclosedEvent(
+      val expectedProcessedDisclosedContract = ProcessedDisclosedContract(
         templateId = usedDisclosedContract.templateId,
         contractId = usedDisclosedContract.contractId.value,
         argument = usedDisclosedContract.argument.toNormalizedValue(transactionVersion),
@@ -1735,7 +1735,7 @@ class EngineTest
         fetchTemplateCommand,
         unusedDisclosedContract,
         usedDisclosedContract,
-        expectedProcessedDisclosedEvent,
+        expectedProcessedDisclosedContract,
       )
     }
   }
@@ -2694,7 +2694,7 @@ object EngineTest {
           dependsOnTime = state.dependsOnTime,
           nodeSeeds = state.nodeSeeds.toImmArray,
           globalKeyMapping = Map.empty,
-          disclosedEvents = ImmArray.empty,
+          processedDisclosedContracts = ImmArray.empty,
         ),
       )
     )
@@ -2705,7 +2705,7 @@ object EngineTest {
         cmd: speedy.Command,
         unusedDisclosedContract: DisclosedContract,
         usedDisclosedContract: DisclosedContract,
-        expectedDisclosedEvent: DisclosedEvent,
+        expectedProcessedDisclosedContract: ProcessedDisclosedContract,
     ): Assertion = {
       val result = suffixLenientEngine
         .interpretCommands(
@@ -2722,7 +2722,7 @@ object EngineTest {
 
       inside(result) { case Right((transaction, metadata)) =>
         transaction should haveDisclosedInputContracts(usedDisclosedContract)
-        metadata should haveDisclosedEvents(expectedDisclosedEvent)
+        metadata should haveProcessedDisclosedContracts(expectedProcessedDisclosedContract)
       }
     }
 
@@ -2733,10 +2733,12 @@ object EngineTest {
         "org.wartremover.warts.Serializable",
       )
     )
-    def haveDisclosedEvents(expectedDisclosedEvents: DisclosedEvent*): Matcher[Tx.Metadata] =
+    def haveProcessedDisclosedContracts(
+        expectedProcessedDisclosedContracts: ProcessedDisclosedContract*
+    ): Matcher[Tx.Metadata] =
       Matcher { metadata =>
-        val expectedResult = ImmArray(expectedDisclosedEvents: _*)
-        val actualResult = metadata.disclosedEvents
+        val expectedResult = ImmArray(expectedProcessedDisclosedContracts: _*)
+        val actualResult = metadata.processedDisclosedContracts
 
         val debugMessage = Seq(
           s"expected but missing contract IDs: ${expectedResult.filter(!actualResult.toSeq.contains(_)).map(_.contractId)}",

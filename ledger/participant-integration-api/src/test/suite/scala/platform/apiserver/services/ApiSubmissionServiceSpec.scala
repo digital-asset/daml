@@ -203,7 +203,7 @@ class ApiSubmissionServiceSpec
         driverMetadata = Bytes.Empty,
       ),
     )
-    val disclosedEvent = DisclosedEvent(
+    val processedDisclosedContract = ProcessedDisclosedContract(
       templateId = Identifier.assertFromString("some:pkg:identifier"),
       contractId = TransactionBuilder.newCid,
       argument = Value.ValueNil,
@@ -256,8 +256,7 @@ class ApiSubmissionServiceSpec
       optByKeyNodes = None,
     )
     val estimatedInterpretationCost = 5L
-    val disclosedEvents =
-      ImmArray(disclosedEvent)
+    val processedDisclosedContracts = ImmArray(processedDisclosedContract)
     val commandExecutionResult = CommandExecutionResult(
       submitterInfo = submitterInfo,
       transactionMeta = transactionMeta,
@@ -265,7 +264,7 @@ class ApiSubmissionServiceSpec
       dependsOnLedgerTime = false,
       interpretationTimeNanos = estimatedInterpretationCost,
       globalKeyMapping = Map.empty,
-      disclosedEvents = disclosedEvents,
+      processedDisclosedContracts = processedDisclosedContracts,
     )
 
     when(ledgerConfigurationSubscription.latestConfiguration())
@@ -283,7 +282,7 @@ class ApiSubmissionServiceSpec
         eqTo(transaction),
         eqTo(estimatedInterpretationCost),
         eqTo(Map.empty),
-        eqTo(disclosedEvents),
+        eqTo(processedDisclosedContracts),
       )(any[LoggingContext], any[TelemetryContext])
     ).thenReturn(CompletableFuture.completedFuture(SubmissionResult.Acknowledged))
 

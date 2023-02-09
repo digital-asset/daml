@@ -30,10 +30,10 @@ package object command {
   @deprecated("use ApiCommands", since = "2.1.0")
   val Commands = ApiCommands
 
-  @deprecated("use com.daml.lf.transaction.DisclosedCreateEvent", since = "2.6.0")
-  type ProcessedDisclosedContract = transaction.DisclosedEvent
+  @deprecated("use com.daml.lf.transaction.ProcessedDisclosedContract", since = "2.6.0")
+  type ProcessedDisclosedContract = transaction.ProcessedDisclosedContract
 
-  @deprecated("use com.daml.lf.transaction.DisclosedCreateEvent", since = "2.6.0")
-  val ProcessedDisclosedContract = transaction.DisclosedEvent
+  @deprecated("use com.daml.lf.transaction.ProcessedDisclosedContract", since = "2.6.0")
+  val ProcessedDisclosedContract = transaction.ProcessedDisclosedContract
 
 }

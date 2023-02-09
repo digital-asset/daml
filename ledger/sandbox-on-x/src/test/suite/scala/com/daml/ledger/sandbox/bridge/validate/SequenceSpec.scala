@@ -374,7 +374,7 @@ class SequenceSpec
       transactionMeta = transactionMeta,
       transaction = txMock,
       estimatedInterpretationCost = 0L,
-      disclosedEvents = ImmArray.empty,
+      processedDisclosedContracts = ImmArray.empty,
     )(loggingContext)
 
     val txInformees: Set[IdString.Party] = allocatedInformees.take(2)

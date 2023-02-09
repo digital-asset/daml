@@ -6,7 +6,7 @@ package com.daml.ledger.participant.state.v2
 import java.util.concurrent.CompletionStage
 import com.daml.ledger.api.health.ReportsHealth
 import com.daml.lf.data.ImmArray
-import com.daml.lf.transaction.{DisclosedEvent, GlobalKey, SubmittedTransaction}
+import com.daml.lf.transaction.{ProcessedDisclosedContract, GlobalKey, SubmittedTransaction}
 import com.daml.lf.value.Value
 import com.daml.logging.LoggingContext
 import com.daml.tracing.TelemetryContext
@@ -99,7 +99,7 @@ trait WriteService
     * @param globalKeyMapping            Input key mapping inferred by interpretation.
     *                                    The map should contain all contract keys that were used during interpretation.
     *                                    A value of None means no contract was found with this contract key.
-    * @param disclosedEvents      Explicitly disclosed contracts used during interpretation.
+    * @param processedDisclosedContracts      Explicitly disclosed contracts used during interpretation.
     */
   def submitTransaction(
       submitterInfo: SubmitterInfo,
@@ -107,7 +107,7 @@ trait WriteService
       transaction: SubmittedTransaction,
       estimatedInterpretationCost: Long,
       globalKeyMapping: Map[GlobalKey, Option[Value.ContractId]],
-      disclosedEvents: ImmArray[DisclosedEvent],
+      processedDisclosedContracts: ImmArray[ProcessedDisclosedContract],
   )(implicit
       loggingContext: LoggingContext,
       telemetryContext: TelemetryContext,

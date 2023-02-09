@@ -16,7 +16,7 @@ import com.daml.ledger.participant.state.v2.{
   WriteService,
 }
 import com.daml.lf.data.{ImmArray, Ref, Time}
-import com.daml.lf.transaction.{GlobalKey, DisclosedEvent, SubmittedTransaction}
+import com.daml.lf.transaction.{GlobalKey, ProcessedDisclosedContract, SubmittedTransaction}
 import com.daml.lf.value.Value
 import com.daml.logging.LoggingContext
 import com.daml.metrics.{Metrics, Timed}
@@ -30,7 +30,7 @@ final class TimedWriteService(delegate: WriteService, metrics: Metrics) extends 
       transaction: SubmittedTransaction,
       estimatedInterpretationCost: Long,
       globalKeyMapping: Map[GlobalKey, Option[Value.ContractId]],
-      disclosedEvents: ImmArray[DisclosedEvent],
+      processedDisclosedContracts: ImmArray[ProcessedDisclosedContract],
   )(implicit
       loggingContext: LoggingContext,
       telemetryContext: TelemetryContext,
@@ -44,7 +44,7 @@ final class TimedWriteService(delegate: WriteService, metrics: Metrics) extends 
         transaction,
         estimatedInterpretationCost,
         globalKeyMapping,
-        disclosedEvents,
+        processedDisclosedContracts,
       ),
     )
 

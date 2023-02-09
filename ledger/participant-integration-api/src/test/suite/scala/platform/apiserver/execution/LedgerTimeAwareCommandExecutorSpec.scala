@@ -14,7 +14,7 @@ import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref.Identifier
 import com.daml.lf.data.{Bytes, ImmArray, Ref, Time}
 import com.daml.lf.transaction.test.TransactionBuilder
-import com.daml.lf.transaction.{DisclosedEvent, TransactionVersion}
+import com.daml.lf.transaction.{ProcessedDisclosedContract, TransactionVersion}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 import com.daml.logging.LoggingContext
@@ -64,8 +64,8 @@ class LedgerTimeAwareCommandExecutorSpec
     )
   )
 
-  private val disclosedEvents = ImmArray(
-    DisclosedEvent(
+  private val processedDisclosedContracts = ImmArray(
+    ProcessedDisclosedContract(
       templateId = Identifier.assertFromString("some:pkg:identifier"),
       contractId = cid,
       argument = Value.ValueNil,
@@ -100,7 +100,7 @@ class LedgerTimeAwareCommandExecutorSpec
       dependsOnLedgerTime,
       5L,
       Map.empty,
-      disclosedEvents,
+      processedDisclosedContracts,
     )
 
     val mockExecutor = mock[CommandExecutor]
@@ -117,7 +117,7 @@ class LedgerTimeAwareCommandExecutorSpec
     resolveMaximumLedgerTimeResults.tail.foldLeft(
       when(
         mockResolveMaximumLedgerTime(
-          eqTo(disclosedEvents),
+          eqTo(processedDisclosedContracts),
           any[Set[ContractId]],
         )(
           any[LoggingContext]
@@ -170,7 +170,7 @@ class LedgerTimeAwareCommandExecutorSpec
           dependsOnLedgerTime,
           5L,
           Map.empty,
-          disclosedEvents,
+          processedDisclosedContracts,
         )
       )
 

@@ -15,7 +15,7 @@ import com.daml.lf.data.{Bytes, ImmArray, Ref, Time}
 import com.daml.lf.engine.{Engine, ResultDone}
 import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.transaction.{
-  DisclosedEvent,
+  ProcessedDisclosedContract,
   SubmittedTransaction,
   Transaction,
   TransactionVersion,
@@ -33,8 +33,8 @@ class StoreBackedCommandExecutorSpec
     with MockitoSugar
     with ArgumentMatchersSugar {
 
-  private val disclosedEvents = ImmArray(
-    DisclosedEvent(
+  private val processedDisclosedContracts = ImmArray(
+    ProcessedDisclosedContract(
       templateId = Identifier.assertFromString("some:pkg:identifier"),
       contractId = TransactionBuilder.newCid,
       argument = Value.ValueNil,
@@ -55,7 +55,7 @@ class StoreBackedCommandExecutorSpec
     dependsOnTime = false,
     nodeSeeds = ImmArray.Empty,
     globalKeyMapping = Map.empty,
-    disclosedEvents = disclosedEvents,
+    processedDisclosedContracts = processedDisclosedContracts,
   )
 
   "execute" should {
@@ -117,7 +117,7 @@ class StoreBackedCommandExecutorSpec
         instance.execute(commands, submissionSeed, configuration).map { actual =>
           actual.foreach { actualResult =>
             actualResult.interpretationTimeNanos should be > 0L
-            actualResult.disclosedEvents shouldBe disclosedEvents
+            actualResult.processedDisclosedContracts shouldBe processedDisclosedContracts
           }
           succeed
         }

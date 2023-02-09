@@ -6,7 +6,7 @@ package com.daml.platform.apiserver.execution
 import com.daml.ledger.participant.state.index.v2.{MaximumLedgerTime, MaximumLedgerTimeService}
 import com.daml.lf.data.ImmArray
 import com.daml.lf.data.Time.Timestamp
-import com.daml.lf.transaction.DisclosedEvent
+import com.daml.lf.transaction.ProcessedDisclosedContract
 import com.daml.lf.value.Value.ContractId
 import com.daml.logging.LoggingContext
 
@@ -21,23 +21,25 @@ import scala.concurrent.{ExecutionContext, Future}
   */
 class ResolveMaximumLedgerTime(maximumLedgerTimeService: MaximumLedgerTimeService) {
   def apply(
-      disclosedEvents: ImmArray[DisclosedEvent],
+      processedDisclosedContracts: ImmArray[ProcessedDisclosedContract],
       usedContractIds: Set[ContractId],
   )(implicit lc: LoggingContext): Future[MaximumLedgerTime] = {
-    val usedDisclosedContractIds = disclosedEvents.iterator.map(_.contractId).toSet
+    val usedDisclosedContractIds = processedDisclosedContracts.iterator.map(_.contractId).toSet
 
     val contractIdsToBeLookedUp = usedContractIds -- usedDisclosedContractIds
 
     maximumLedgerTimeService
       .lookupMaximumLedgerTimeAfterInterpretation(contractIdsToBeLookedUp)
-      .map(adjustTimeForDisclosedContracts(_, disclosedEvents))(ExecutionContext.parasitic)
+      .map(adjustTimeForDisclosedContracts(_, processedDisclosedContracts))(
+        ExecutionContext.parasitic
+      )
   }
 
   private def adjustTimeForDisclosedContracts(
       lookupMaximumLet: MaximumLedgerTime,
-      disclosedEvents: ImmArray[DisclosedEvent],
+      processedDisclosedContracts: ImmArray[ProcessedDisclosedContract],
   ): MaximumLedgerTime =
-    disclosedEvents.iterator
+    processedDisclosedContracts.iterator
       .map(_.createdAt)
       .maxOption
       .fold(lookupMaximumLet)(adjust(lookupMaximumLet, _))
