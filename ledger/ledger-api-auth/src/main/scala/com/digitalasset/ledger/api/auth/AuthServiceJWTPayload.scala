@@ -189,11 +189,14 @@ object AuthServiceJWTCodec {
       // We're using this rather restrictive test to ensure we continue parsing all legacy sandbox tokens that
       // are in use before the 2.0 release; and thereby maintain full backwards compatibility.
       val audienceValue = readOptionalStringOrArray(propAud, fields)
-      if (audienceValue.exists(_.startsWith(audPrefix))) {
-        // Tokens with audience which starts with `https://daml.com/participant/jwt/aud/participant/${participantId}`
-        // where `${participantId}` is non-empty string are supported.
-        // As required for JWTs, additional fields can be in a token but will be ignored (including scope)
-        audienceValue.map(_.substring(audPrefix.length)).filter(_.nonEmpty) match {
+      // Tokens with audience which starts with `https://daml.com/participant/jwt/aud/participant/${participantId}`
+      // where `${participantId}` is non-empty string are supported.
+      // As required for JWTs, additional fields can be in a token but will be ignored (including scope)
+      val participantAudiences = audienceValue.filter(_.startsWith(audPrefix))
+      if (participantAudiences.nonEmpty) {
+        participantAudiences
+          .map(_.substring(audPrefix.length))
+          .filter(_.nonEmpty) match {
           case participantId :: Nil =>
             StandardJWTPayload(
               issuer = readOptionalString("iss", fields),
