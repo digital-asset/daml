@@ -989,8 +989,16 @@ private[lf] class Runner private (
                 LoggingEntries(
                   "acs" -> LoggingValue.Nested(
                     LoggingEntries(
-                      "active" -> numberOfActiveContracts(state, trigger.defn.level),
-                      "pending" -> numberOfPendingContracts(state, trigger.defn.level),
+                      "active" -> numberOfActiveContracts(
+                        state,
+                        trigger.defn.level,
+                        trigger.defn.version,
+                      ),
+                      "pending" -> numberOfPendingContracts(
+                        state,
+                        trigger.defn.level,
+                        trigger.defn.version,
+                      ),
                     )
                   ),
                   "in-flight" -> numberOfInFlightCommands(
@@ -1026,8 +1034,16 @@ private[lf] class Runner private (
                 ),
                 "acs" -> LoggingValue.Nested(
                   LoggingEntries(
-                    "active" -> numberOfActiveContracts(state, trigger.defn.level),
-                    "pending" -> numberOfPendingContracts(state, trigger.defn.level),
+                    "active" -> numberOfActiveContracts(
+                      state,
+                      trigger.defn.level,
+                      trigger.defn.version,
+                    ),
+                    "pending" -> numberOfPendingContracts(
+                      state,
+                      trigger.defn.level,
+                      trigger.defn.version,
+                    ),
                   )
                 ),
               )
@@ -1075,8 +1091,16 @@ private[lf] class Runner private (
                         ),
                         "acs" -> LoggingValue.Nested(
                           LoggingEntries(
-                            "active" -> numberOfActiveContracts(newState, trigger.defn.level),
-                            "pending" -> numberOfPendingContracts(newState, trigger.defn.level),
+                            "active" -> numberOfActiveContracts(
+                              newState,
+                              trigger.defn.level,
+                              trigger.defn.version,
+                            ),
+                            "pending" -> numberOfPendingContracts(
+                              newState,
+                              trigger.defn.level,
+                              trigger.defn.version,
+                            ),
                           )
                         ),
                       )
@@ -1084,7 +1108,7 @@ private[lf] class Runner private (
                   )
                 }
 
-                numberOfActiveContracts(newState, trigger.defn.level) match {
+                numberOfActiveContracts(newState, trigger.defn.level, trigger.defn.version) match {
                   case Some(activeContracts)
                       if activeContracts > triggerConfig.maximumActiveContracts =>
                     triggerContext.logError(
@@ -1334,8 +1358,16 @@ object Runner {
     smap.expect("SMap", { case SMap(_, values) => values.size }).orConverterException
   }
 
-  private def numberOfActiveContracts(svalue: SValue, level: Trigger.Level): Option[Int] = {
+  private def numberOfActiveContracts(
+      svalue: SValue,
+      level: Trigger.Level,
+      version: Trigger.Version,
+  ): Option[Int] = {
     level match {
+      case Trigger.Level.High if version <= Trigger.Version.`2.0.0` =>
+        // For older trigger code, we do not support extracting active contracts from the ACS
+        None
+
       case Trigger.Level.High =>
         // The following code should be kept in sync with the ACS variant type in Internal.daml
         // svalue: TriggerState s
@@ -1355,8 +1387,16 @@ object Runner {
     }
   }
 
-  private def numberOfPendingContracts(svalue: SValue, level: Trigger.Level): Option[Int] = {
+  private def numberOfPendingContracts(
+      svalue: SValue,
+      level: Trigger.Level,
+      version: Trigger.Version,
+  ): Option[Int] = {
     level match {
+      case Trigger.Level.High if version <= Trigger.Version.`2.0.0` =>
+        // For older trigger code, we do not support extracting pending contracts from the ACS
+        None
+
       case Trigger.Level.High =>
         // The following code should be kept in sync with the ACS variant type in Internal.daml
         // svalue: TriggerState s
