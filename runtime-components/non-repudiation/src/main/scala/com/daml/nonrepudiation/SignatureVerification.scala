@@ -5,7 +5,7 @@ package com.daml.nonrepudiation
 
 import java.security.Signature
 
-import com.codahale.metrics.Timer
+import com.daml.metrics.api.MetricHandle.Timer
 import org.slf4j.LoggerFactory
 
 import scala.util.Try
@@ -16,7 +16,7 @@ object SignatureVerification {
 
   final class Timed(timer: Timer) extends SignatureVerification {
     override def apply(payload: Array[Byte], signatureData: SignatureData): Try[Boolean] =
-      timer.time(() => super.apply(payload, signatureData))
+      timer.time(super.apply(payload, signatureData))
   }
 
 }

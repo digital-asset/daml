@@ -11,7 +11,7 @@ import com.daml.ledger.api.v1.command_service.CommandServiceGrpc.CommandService
 import com.daml.ledger.api.v1.command_submission_service.CommandSubmissionServiceGrpc.CommandSubmissionService
 import com.daml.nonrepudiation.api.NonRepudiationApi
 import com.daml.nonrepudiation.postgresql.{Tables, createTransactor}
-import com.daml.nonrepudiation.{MetricsReporterOwner, NonRepudiationProxy}
+import com.daml.nonrepudiation.{Metrics, NonRepudiationProxy}
 import com.daml.resources.akka.AkkaResourceOwnerFactories
 import com.daml.resources.{
   AbstractResourceOwner,
@@ -66,7 +66,6 @@ object NonRepudiationApp {
       )
       logHandler = Slf4jLogHandler(getClass)
       db = Tables.initialize(transactor)(logHandler)
-      _ <- MetricsReporterOwner.slf4j(period = configuration.metricsReportingPeriod)
       _ <- NonRepudiationApi.owner(
         configuration.apiAddress,
         configuration.apiShutdownTimeout,
@@ -74,12 +73,14 @@ object NonRepudiationApp {
         db.signedPayloads,
         actorSystem,
       )
+      metrics <- Metrics.owner(configuration.metricsReportingPeriod)
       proxy <- NonRepudiationProxy.owner(
         participantChannel,
         proxyChannelBuilder,
         db.certificates,
         db.signedPayloads,
         Clock.systemUTC(),
+        metrics,
         CommandService.scalaDescriptor.fullName,
         CommandSubmissionService.scalaDescriptor.fullName,
       )

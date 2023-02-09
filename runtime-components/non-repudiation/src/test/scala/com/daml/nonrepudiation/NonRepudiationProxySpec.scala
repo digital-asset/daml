@@ -8,6 +8,7 @@ import java.security.cert.X509Certificate
 import java.time.{Clock, Instant, ZoneId}
 
 import com.daml.grpc.test.GrpcServer
+import com.daml.metrics.api.noop.NoOpMetricsFactory
 import com.daml.nonrepudiation.SignedPayloadRepository.KeyEncoder
 import com.daml.nonrepudiation.client.TestSigningInterceptors
 import io.grpc.inprocess.{InProcessChannelBuilder, InProcessServerBuilder}
@@ -44,6 +45,7 @@ final class NonRepudiationProxySpec
         certificateRepository = certificates,
         signedPayloadRepository = signedPayloads,
         timestampProvider = timestampProvider,
+        metrics = new Metrics(NoOpMetricsFactory),
         Health.Name,
       )
       .use { _ =>
@@ -104,6 +106,7 @@ final class NonRepudiationProxySpec
         certificateRepository = certificates,
         signedPayloadRepository = signatures,
         timestampProvider = Clock.systemUTC(),
+        metrics = new Metrics(NoOpMetricsFactory),
         Health.Name,
       )
       .use { _ =>
@@ -129,6 +132,7 @@ final class NonRepudiationProxySpec
         certificates,
         signatures,
         Clock.systemUTC(),
+        new Metrics(NoOpMetricsFactory),
         Health.Name,
       )
       .use { _ =>

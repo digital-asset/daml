@@ -5,7 +5,7 @@ package com.daml.nonrepudiation
 
 import java.security.cert.X509Certificate
 
-import com.codahale.metrics.Timer
+import com.daml.metrics.api.MetricHandle.Timer
 
 object CertificateRepository {
 
@@ -24,7 +24,7 @@ object CertificateRepository {
 
   final class Timed(timer: Timer, delegate: Read) extends Read {
     override def get(fingerprint: FingerprintBytes): Option[X509Certificate] =
-      timer.time(() => delegate.get(fingerprint))
+      timer.time(delegate.get(fingerprint))
   }
 
 }

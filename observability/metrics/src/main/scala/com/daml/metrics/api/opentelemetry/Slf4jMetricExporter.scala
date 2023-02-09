@@ -1,18 +1,19 @@
 // Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.ledger.api.benchtool.metrics
+package com.daml.metrics.api.opentelemetry
 
 import java.util
 
 import io.opentelemetry.sdk.common.CompletableResultCode
 import io.opentelemetry.sdk.metrics.`export`.MetricExporter
 import io.opentelemetry.sdk.metrics.data.MetricData
-import org.slf4j.Logger
+import org.slf4j.{Logger, LoggerFactory}
 
 import scala.jdk.CollectionConverters.CollectionHasAsScala
 
-class Slf4jMetricExporter(logger: Logger) extends MetricExporter {
+class Slf4jMetricExporter(logger: Logger = LoggerFactory.getLogger("logging-metrics-exporter"))
+    extends MetricExporter {
 
   override def `export`(
       metrics: util.Collection[MetricData]

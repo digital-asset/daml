@@ -4,6 +4,7 @@
 package com.daml.nonrepudiation.client
 
 import java.time.{Clock, Instant, ZoneId}
+
 import com.daml.ledger.api.v1.CommandServiceOuterClass.SubmitAndWaitRequest
 import com.daml.ledger.javaapi.data.{Command, CommandsSubmission}
 import com.daml.ledger.api.v1.CommandsOuterClass.{Command => ProtoCommand}
@@ -14,6 +15,7 @@ import com.daml.nonrepudiation.testing._
 import com.daml.nonrepudiation.{
   AlgorithmString,
   CommandIdString,
+  Metrics,
   NonRepudiationProxy,
   SignatureBytes,
   SignedPayload,
@@ -23,8 +25,10 @@ import io.grpc.netty.NettyChannelBuilder
 import org.scalatest.Inside
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
-
 import java.util.Collections.singletonList
+
+import com.daml.metrics.api.noop.NoOpMetricsFactory
+
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.DurationInt
 
@@ -57,6 +61,7 @@ final class SigningInterceptorSpec extends AsyncFlatSpec with Matchers with Insi
           certificates,
           signedPayloads,
           Clock.fixed(expectedTimestamp, ZoneId.systemDefault()),
+          new Metrics(NoOpMetricsFactory),
           CommandService.scalaDescriptor.fullName,
           CommandSubmissionService.scalaDescriptor.fullName,
         )

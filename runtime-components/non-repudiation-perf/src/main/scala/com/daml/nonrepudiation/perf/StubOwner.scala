@@ -9,11 +9,13 @@ import java.time.Clock
 
 import com.daml.ledger.api.v1.command_submission_service.CommandSubmissionServiceGrpc
 import com.daml.ledger.api.v1.command_submission_service.CommandSubmissionServiceGrpc.CommandSubmissionServiceBlockingStub
+import com.daml.metrics.api.noop.NoOpMetricsFactory
 import com.daml.nonrepudiation.client.SigningInterceptor
 import com.daml.nonrepudiation.testing.DummyTestSetup
 import com.daml.nonrepudiation.{
   CertificateRepository,
   CommandIdString,
+  Metrics,
   NonRepudiationProxy,
   SignedPayloadRepository,
 }
@@ -45,6 +47,7 @@ final class StubOwner private (
           certificateRepository = certificates,
           signedPayloadRepository = signedPayloads,
           timestampProvider = Clock.systemUTC(),
+          metrics = new Metrics(NoOpMetricsFactory),
           serviceName = CommandSubmissionServiceGrpc.SERVICE.getName,
         )
       } yield CommandSubmissionServiceGrpc
