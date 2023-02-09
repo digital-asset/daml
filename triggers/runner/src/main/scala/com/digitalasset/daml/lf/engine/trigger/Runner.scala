@@ -952,6 +952,12 @@ private[lf] class Runner private (
               "Trigger rule initial state",
               "state" -> triggerUserState(state, trigger.defn.level, trigger.defn.version),
             )
+            if (trigger.defn.level == Trigger.Level.High) {
+              triggerContext.logTrace(
+                "Trigger rule initial state",
+                "state" -> state,
+              )
+            }
             triggerContext.logInfo(
               "Trigger rule initialization start",
               "metrics" -> LoggingValue.Nested(
@@ -1054,6 +1060,10 @@ private[lf] class Runner private (
                   "state" -> triggerUserState(state, trigger.defn.level, trigger.defn.version),
                 )
                 if (trigger.defn.level == Trigger.Level.High) {
+                  triggerContext.logTrace(
+                    "Trigger rule state updated",
+                    "state" -> newState,
+                  )
                   triggerContext.logInfo(
                     "Trigger rule evaluation end",
                     "metrics" -> LoggingValue.Nested(
@@ -1752,7 +1762,11 @@ object Runner {
         )
 
     implicit def `api.Value to LoggingValue`: ToLoggingValue[api.Value] = value =>
-      PrettyPrint.prettyApiValue(verbose = true, maxListWidth = Some(20))(value).render(80)
+      if (logger.withoutContext.isTraceEnabled) {
+        PrettyPrint.prettyApiValue(verbose = true)(value).render(80)
+      } else {
+        PrettyPrint.prettyApiValue(verbose = true, maxListWidth = Some(20))(value).render(80)
+      }
 
     implicit def `SValue to LoggingValue`: ToLoggingValue[SValue] = value =>
       PrettyPrint.prettySValue(value).render(80)
