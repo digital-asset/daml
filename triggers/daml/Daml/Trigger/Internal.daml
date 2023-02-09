@@ -43,6 +43,8 @@ data Version = Version_2_6
 -- a given type.
 
 -- This will change to a Map once we have proper maps in Daml-LF
+-- The following variant type should be kept in sync with methods numberOfActiveContracts and numberOfPendingContracts
+-- in Runner.scala
 data ACS = ACS
   { activeContracts : Map.Map TemplateTypeRep (Map.Map AnyContractId AnyTemplate)
   , pendingContracts : Map CommandId [AnyContractId]
@@ -209,6 +211,7 @@ data TriggerAState s = TriggerAState
   }
 
 -- | HIDE
+-- The following record type should be kept in sync with method numberOfInFlightCommands in Runner.scala
 data TriggerState s = TriggerState
   { acs : ACS
   , actAs : Party

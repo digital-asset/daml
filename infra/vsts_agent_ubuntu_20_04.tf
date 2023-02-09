@@ -16,17 +16,6 @@ locals {
   ]
 }
 
-data "template_file" "vsts-agent-ubuntu_20_04-startup" {
-  count    = length(local.ubuntu)
-  template = file("${path.module}/vsts_agent_ubuntu_20_04_startup.sh")
-
-  vars = {
-    vsts_token   = secret_resource.vsts-token.value
-    vsts_account = "digitalasset"
-    vsts_pool    = "ubuntu_20_04"
-  }
-}
-
 resource "google_compute_region_instance_group_manager" "vsts-agent-ubuntu_20_04" {
   count              = length(local.ubuntu)
   provider           = google-beta
@@ -70,7 +59,11 @@ resource "google_compute_instance_template" "vsts-agent-ubuntu_20_04" {
   }
 
   metadata = {
-    startup-script = data.template_file.vsts-agent-ubuntu_20_04-startup[count.index].rendered
+    startup-script = templatefile("${path.module}/vsts_agent_ubuntu_20_04_startup.sh", {
+      vsts_token   = secret_resource.vsts-token.value
+      vsts_account = "digitalasset"
+      vsts_pool    = "ubuntu_20_04"
+    })
 
     shutdown-script = nonsensitive("#!/usr/bin/env bash\nset -euo pipefail\ncd /home/vsts/agent\nsu vsts <<SHUTDOWN_AGENT\nexport VSTS_AGENT_INPUT_TOKEN='${secret_resource.vsts-token.value}'\n./config.sh remove --unattended --auth PAT\nSHUTDOWN_AGENT\n    ")
   }

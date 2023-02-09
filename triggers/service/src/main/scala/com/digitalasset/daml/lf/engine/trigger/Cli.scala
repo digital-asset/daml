@@ -329,11 +329,31 @@ private[trigger] object Cli {
     opt[Long]("max-batch-size")
       .optional()
       .text(
-        s"maximum number of messages processed between two high-level rule triggers. Defaults to ${DefaultTriggerRunnerConfig.maximumBatchSize}"
+        s"Maximum number of messages triggers will batch (for rule evaluation/processing). Defaults to ${DefaultTriggerRunnerConfig.maximumBatchSize}"
       )
       .action((size, cli) =>
         if (size > 0) cli.copy(triggerConfig = cli.triggerConfig.copy(maximumBatchSize = size))
         else throw new IllegalArgumentException("batch size must be strictly positive")
+      )
+
+    opt[FiniteDuration]("batch-duration")
+      .optional()
+      .text(
+        s"Period of time we will wait before emitting a message batch (for rule evaluation/processing). Defaults to ${DefaultTriggerRunnerConfig.batchingDuration}"
+      )
+      .action((period, cli) =>
+        cli.copy(triggerConfig = cli.triggerConfig.copy(batchingDuration = period))
+      )
+
+    opt[Long]("max-active-contracts")
+      .optional()
+      .text(
+        s"maximum number of active contracts that triggers may process. Defaults to ${DefaultTriggerRunnerConfig.maximumActiveContracts}"
+      )
+      .action((size, cli) =>
+        if (size > 0)
+          cli.copy(triggerConfig = cli.triggerConfig.copy(maximumActiveContracts = size))
+        else throw new IllegalArgumentException("active contract size must be strictly positive")
       )
 
     opt[Int]("overflow-size")

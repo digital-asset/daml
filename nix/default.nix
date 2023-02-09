@@ -206,7 +206,6 @@ in rec {
     terraform = pkgs.terraform_1.withPlugins (p: with p; [
       google
       google-beta
-      random
       secret
     ]);
     nix-store-gcs-proxy = pkgs.callPackage ./tools/nix-store-gcs-proxy {};

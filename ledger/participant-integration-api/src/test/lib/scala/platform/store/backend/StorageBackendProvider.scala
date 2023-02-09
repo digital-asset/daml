@@ -98,6 +98,7 @@ case class TestBackend(
     participantPartyStorageBackend: PartyRecordStorageBackend,
     metering: TestMeteringBackend,
     identityProviderStorageBackend: IdentityProviderStorageBackend,
+    pruningDtoQueries: PruningDtoQueries = new PruningDtoQueries,
 )
 
 case class TestMeteringBackend(

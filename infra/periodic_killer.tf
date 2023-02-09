@@ -26,7 +26,7 @@ locals {
     "serviceAccount:${google_service_account.periodic-killer.email}",
 
     "user:gary.verhaegen@digitalasset.com",
-    "user:moritz.kiefer@digitalasset.com",
+    "user:gerolf.seitz@digitalasset.com",
   ]
 }
 

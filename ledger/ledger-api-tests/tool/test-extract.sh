@@ -40,8 +40,8 @@ trap "rm -rf $$DIR" EXIT
 
 cd $DIR
 $JAVA -jar $TEST_TOOL --extract
-if [[ $(ls | wc -l) != 5 ]]; then
-    echo "Expected 5 DARs but got:"
+if [[ $(ls | wc -l) != 9 ]]; then
+    echo "Expected 9 DARs but got:"
     ls
     exit 1
 fi

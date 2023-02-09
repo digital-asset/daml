@@ -4,11 +4,20 @@
 package com.daml.ledger.api.benchtool
 
 import java.io.File
+
 import com.codahale.metrics.MetricRegistry
 import com.daml.bazeltools.BazelRunfiles.rlocation
+import com.daml.ledger.api.benchtool.config.WorkflowConfig
 import com.daml.ledger.api.benchtool.metrics.MetricsManager.NoOpMetricsManager
 import com.daml.ledger.api.benchtool.services.LedgerApiServices
-import com.daml.ledger.api.benchtool.submission.{CommandSubmitter, Names, PartyAllocating}
+import com.daml.ledger.api.benchtool.submission.{
+  AllocatedParties,
+  CommandSubmitter,
+  FooSubmission,
+  Names,
+  PartyAllocating,
+  RandomnessProvider,
+}
 import com.daml.ledger.test.BenchtoolTestDar
 import com.daml.lf.language.LanguageVersion
 import com.daml.platform.sandbox.fixture.SandboxFixture
@@ -58,6 +67,23 @@ trait BenchtoolSandboxFixture extends SandboxFixture {
       names,
       submitter,
     )
+  }
+
+  def benchtoolFooSubmissionFixture(
+      submissionConfig: WorkflowConfig.FooSubmissionConfig
+  )(implicit ec: ExecutionContext): Future[(LedgerApiServices, AllocatedParties, FooSubmission)] = {
+    for {
+      (apiServices, _, submitter) <- benchtoolFixture()
+      allocatedParties <- submitter.prepare(submissionConfig)
+      foo = new FooSubmission(
+        submitter = submitter,
+        maxInFlightCommands = 1,
+        submissionBatchSize = 1,
+        allocatedParties = allocatedParties,
+        names = new Names(),
+        randomnessProvider = RandomnessProvider.forSeed(seed = 0),
+      )
+    } yield (apiServices, allocatedParties, foo)
   }
 
 }

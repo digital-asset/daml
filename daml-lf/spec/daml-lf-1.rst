@@ -4560,7 +4560,7 @@ List functions
 Authority functions
 ~~~~~~~~~~~~~~~~~~~
 
-* ``WITH_AUTHORITY_OF : ∀ (α : ⋆) . 'List' 'Party' → 'Update' α → 'Update' α``
+* ``WITH_AUTHORITY : ∀ (α : ⋆) . 'List' 'Party' → 'Update' α → 'Update' α``
 
   Request authorization from the ledger for the scope of an update operation.
 

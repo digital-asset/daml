@@ -65,6 +65,7 @@ da_scala_library(
         "//libs-scala/resources",
         "//libs-scala/resources-akka",
         "//libs-scala/resources-grpc",
+        "//libs-scala/scala-utils",
         "//libs-scala/timer-utils",
         "//ledger/test-common:benchtool-tests-%s.scala" % "1.15",  # TODO: make the LF version configurable
         "//ledger/test-common:dar-files-%s-lib" % "1.15",  # TODO: make the LF version configurable

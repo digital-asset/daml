@@ -78,7 +78,7 @@ case class MetricsManagerImpl[T](
 }
 
 object MetricsManager {
-  def apply[StreamElem](
+  def create[StreamElem](
       observedMetric: String,
       logInterval: FiniteDuration,
       metrics: List[Metric[StreamElem]],

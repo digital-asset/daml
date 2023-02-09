@@ -214,6 +214,7 @@ private[daml] object ApiServices {
               submissionIdGenerator = SubmissionIdGenerator.Random,
               identityProviderExists = new IdentityProviderExists(identityProviderConfigStore),
               partyRecordExist = new PartyRecordsExist(partyRecordStore),
+              indexPartyManagementService = partyManagementService,
             )
           val identityProvider =
             new ApiIdentityProviderConfigService(identityProviderConfigStore)

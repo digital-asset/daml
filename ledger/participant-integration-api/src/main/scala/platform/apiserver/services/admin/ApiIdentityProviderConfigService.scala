@@ -111,7 +111,7 @@ class ApiIdentityProviderConfigService(
         updateResult <- identityProviderConfigStore.updateIdentityProviderConfig(
           identityProviderConfigUpdate
         )
-        updatedIdentityProviderConfig <- handleResult("deleting identity provider config")(
+        updatedIdentityProviderConfig <- handleResult("updating identity provider config")(
           updateResult
         )
       } yield proto.UpdateIdentityProviderConfigResponse(

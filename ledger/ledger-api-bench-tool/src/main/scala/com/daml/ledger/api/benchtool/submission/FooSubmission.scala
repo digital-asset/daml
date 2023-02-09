@@ -12,18 +12,12 @@ class FooSubmission(
     submitter: CommandSubmitter,
     maxInFlightCommands: Int,
     submissionBatchSize: Int,
-    submissionConfig: FooSubmissionConfig,
     allocatedParties: AllocatedParties,
     names: Names,
-    partySelectingRandomnessProvider: RandomnessProvider,
-    payloadRandomnessProvider: RandomnessProvider,
-    consumingEventsRandomnessProvider: RandomnessProvider,
-    nonConsumingEventsRandomnessProvider: RandomnessProvider,
-    applicationIdRandomnessProvider: RandomnessProvider,
-    contractDescriptionRandomnessProvider: RandomnessProvider,
+    randomnessProvider: RandomnessProvider,
 ) {
 
-  def performSubmission()(implicit
+  def performSubmission(submissionConfig: FooSubmissionConfig)(implicit
       ec: ExecutionContext
   ): Future[Unit] = {
     val (divulgerCmds, divulgeesToDivulgerKeyMap) = FooDivulgerCommandGenerator
@@ -35,7 +29,7 @@ class FooSubmission(
       new RandomPartySelecting(
         config = submissionConfig,
         allocatedParties = allocatedParties,
-        randomnessProvider = partySelectingRandomnessProvider,
+        randomnessProvider = randomnessProvider,
       )
     for {
       _ <-
@@ -58,11 +52,7 @@ class FooSubmission(
         names = names,
         allocatedParties = allocatedParties,
         partySelecting = partySelecting,
-        contractDescriptionRandomnessProvider = contractDescriptionRandomnessProvider,
-        payloadRandomnessProvider = payloadRandomnessProvider,
-        consumingEventsRandomnessProvider = consumingEventsRandomnessProvider,
-        nonConsumingEventsRandomnessProvider = nonConsumingEventsRandomnessProvider,
-        applicationIdRandomnessProvider = applicationIdRandomnessProvider,
+        randomnessProvider = randomnessProvider,
       )
       _ <- submitter
         .generateAndSubmit(

@@ -53,8 +53,8 @@ private[oauth2] final case class Cli(
     metricsReportingInterval: FiniteDuration = FiniteDuration(10, duration.SECONDS),
 ) extends StrictLogging {
 
-  def loadFromConfigFile: Option[Either[ConfigReaderFailures, Config]] = {
-    configFile.map(cf => ConfigSource.file(cf).load[Config])
+  def loadFromConfigFile: Option[Either[ConfigReaderFailures, FileConfig]] = {
+    configFile.map(cf => ConfigSource.file(cf).load[FileConfig])
   }
 
   def loadFromCliArgs: Config = {
@@ -84,7 +84,7 @@ private[oauth2] final case class Cli(
   def loadConfig: Option[Config] = {
     loadFromConfigFile.cata(
       {
-        case Right(cfg) => Some(cfg)
+        case Right(cfg) => Some(cfg.toConfig())
         case Left(ex) =>
           logger.error(
             s"Error loading oauth2-middleware config from file $configFile",

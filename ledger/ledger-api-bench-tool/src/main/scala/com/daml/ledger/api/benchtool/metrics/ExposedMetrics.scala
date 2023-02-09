@@ -12,6 +12,7 @@ import com.daml.ledger.api.benchtool.util.TimeUtil
 import com.daml.metrics.api.MetricHandle.{Counter, Gauge, Histogram}
 import com.daml.metrics.api.dropwizard.{DropwizardCounter, DropwizardGauge, DropwizardHistogram}
 import com.daml.metrics.api.{Gauges, MetricName, MetricsContext}
+import com.daml.scalautil.Statement.discard
 import com.google.protobuf.timestamp.Timestamp
 
 final class ExposedMetrics[T](
@@ -92,14 +93,16 @@ object ExposedMetrics {
       )
     }
     val latestRecordTimeMetric = recordTimeFunction.map { f =>
+      val name = Prefix :+ "latest_record_time" :+ streamName
       LatestRecordTimeMetric[T](
         latestRecordTime = DropwizardGauge(
-          Prefix :+ "latest_record_time" :+ streamName,
+          name,
           registry
             .register(
-              Prefix :+ "latest_record_time" :+ streamName,
+              name,
               new Gauges.VarGauge[Long](0L),
             ),
+          () => discard(registry.remove(name)),
         ),
         recordTimeFunction = f,
       )

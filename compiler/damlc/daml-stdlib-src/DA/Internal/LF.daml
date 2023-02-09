@@ -281,6 +281,6 @@ data AnyException = AnyException Opaque
 
 -- | Authority operations.
 withAuthorityOf : [Party] -> Update a -> Update a
-withAuthorityOf = primitive @"BEWithAuthorityOf"
+withAuthorityOf = primitive @"BEWithAuthority"
 
 #endif

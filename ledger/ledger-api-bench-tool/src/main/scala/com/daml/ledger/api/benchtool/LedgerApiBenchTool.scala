@@ -174,6 +174,16 @@ class LedgerApiBenchTool(
               actorSystem = actorSystem,
               maxLatencyObjectiveMillis = config.maxLatencyObjectiveMillis,
             )
+          } else if (config.workflow.pruning.isDefined) {
+            new PruningBenchmark(reportingPeriod = config.reportingPeriod).benchmarkPruning(
+              pruningConfig =
+                config.workflow.pruning.getOrElse(sys.error("Pruning config not defined!")),
+              regularUserServices = regularUserServices,
+              adminServices = adminServices,
+              actorSystem = actorSystem,
+              signatory = allocatedParties.signatory,
+              names = names,
+            )
           } else {
             benchmarkStreams(
               regularUserServices = regularUserServices,
@@ -252,14 +262,10 @@ class LedgerApiBenchTool(
             allocatedParties = allocatedParties,
             randomnessProvider = RandomnessProvider.Default,
           ),
-          contractDescriptionRandomnessProvider = RandomnessProvider.Default,
-          payloadRandomnessProvider = RandomnessProvider.Default,
-          consumingEventsRandomnessProvider = RandomnessProvider.Default,
-          nonConsumingEventsRandomnessProvider = RandomnessProvider.Default,
-          applicationIdRandomnessProvider = RandomnessProvider.Default,
+          randomnessProvider = RandomnessProvider.Default,
         )
         for {
-          metricsManager <- MetricsManager(
+          metricsManager <- MetricsManager.create(
             observedMetric = "submit-and-wait-latency",
             logInterval = config.reportingPeriod,
             metrics = List(LatencyMetric.empty(maxLatencyObjectiveMillis)),
@@ -336,16 +342,10 @@ class LedgerApiBenchTool(
               submitter = submitter,
               maxInFlightCommands = config.maxInFlightCommands,
               submissionBatchSize = config.submissionBatchSize,
-              submissionConfig = submissionConfig,
               allocatedParties = allocatedParties,
               names = names,
-              partySelectingRandomnessProvider = RandomnessProvider.Default,
-              payloadRandomnessProvider = RandomnessProvider.Default,
-              consumingEventsRandomnessProvider = RandomnessProvider.Default,
-              nonConsumingEventsRandomnessProvider = RandomnessProvider.Default,
-              applicationIdRandomnessProvider = RandomnessProvider.Default,
-              contractDescriptionRandomnessProvider = RandomnessProvider.Default,
-            ).performSubmission()
+              randomnessProvider = RandomnessProvider.Default,
+            ).performSubmission(submissionConfig)
           case submissionConfig: FibonacciSubmissionConfig =>
             val generator: CommandGenerator = new FibonacciCommandGenerator(
               signatory = allocatedParties.signatory,

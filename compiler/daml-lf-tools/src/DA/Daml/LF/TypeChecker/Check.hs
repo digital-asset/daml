@@ -278,7 +278,7 @@ typeOfBuiltin = \case
   BEFoldr -> pure $ TForall (alpha, KStar) $ TForall (beta, KStar) $
              (tAlpha :-> tBeta :-> tBeta) :-> tBeta :-> TList tAlpha :-> tBeta
 
-  BEWithAuthorityOf ->
+  BEWithAuthority ->
     pure $ TForall (alpha, KStar) $
     TList TParty :->
     TUpdate tAlpha :->

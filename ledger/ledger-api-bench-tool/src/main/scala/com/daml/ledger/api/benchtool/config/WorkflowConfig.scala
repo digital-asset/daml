@@ -15,6 +15,7 @@ import scala.concurrent.duration.FiniteDuration
 case class WorkflowConfig(
     submission: Option[WorkflowConfig.SubmissionConfig] = None,
     streams: List[WorkflowConfig.StreamConfig] = Nil,
+    pruning: Option[WorkflowConfig.PruningConfig] = None,
 )
 
 object WorkflowConfig {
@@ -53,6 +54,7 @@ object WorkflowConfig {
       applicationIds: List[FooSubmissionConfig.ApplicationId] = List.empty,
       maybeWaitForSubmission: Option[Boolean] = None,
       observerPartySets: List[FooSubmissionConfig.PartySet] = List.empty,
+      allowNonTransientContracts: Boolean = false,
   ) extends SubmissionConfig {
     def waitForSubmission: Boolean = maybeWaitForSubmission.getOrElse(true)
   }
@@ -91,6 +93,12 @@ object WorkflowConfig {
     )
 
   }
+
+  case class PruningConfig(
+      name: String,
+      pruneAllDivulgedContracts: Boolean,
+      maxDurationObjective: FiniteDuration,
+  )
 
   sealed trait StreamConfig extends Product with Serializable {
     def name: String

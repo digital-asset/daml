@@ -42,7 +42,6 @@ object StartSettings {
   val DefaultPackageReloadInterval: FiniteDuration = 5.seconds
   val DefaultMaxInboundMessageSize: Int = 4194304
   val DefaultHealthTimeoutSeconds: Int = 5
-  val DefaultMetricsReportingInterval: FiniteDuration = 10.seconds
 
   trait Default extends StartSettings {
     override val staticContentConfig: Option[StaticContentConfig] = None

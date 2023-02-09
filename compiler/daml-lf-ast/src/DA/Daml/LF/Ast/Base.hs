@@ -302,7 +302,7 @@ data BuiltinExpr
   | BEEqualList                  -- :: ∀a. (a -> a -> Bool) -> List a -> List a -> Bool
 
   -- Authority operations
-  | BEWithAuthorityOf            -- :: ∀ a. List Party -> Update a -> Update a
+  | BEWithAuthority              -- :: ∀ a. List Party -> Update a -> Update a
 
   -- Map operations
   | BETextMapEmpty               -- :: ∀ a. TextMap a
