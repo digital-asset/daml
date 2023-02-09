@@ -10,7 +10,7 @@ import com.daml.metrics.api.{MetricDoc, MetricHandle, MetricName}
 class IndexedUpdatesMetrics(prefix: MetricName, metricFactory: MetricsFactory) {
 
   @MetricDoc.Tag(
-    summary = "Number of events that will be metered",
+    summary = "Number of ledger events that are metered",
     description = """Represents the number of events that will be included in the metering report.
         |This is an estimate of the total number and not a substitute for the metering report.""",
     qualification = Debug,
@@ -21,8 +21,9 @@ class IndexedUpdatesMetrics(prefix: MetricName, metricFactory: MetricsFactory) {
   )
 
   @MetricDoc.Tag(
-    summary = "Updates processed by the indexer",
-    description = "Represents the total number of updates processed, that are sent for indexing.",
+    summary = "Number of transactions processed.",
+    description =
+      "Represents the total number of transaction acceptance, transaction rejection, package upload, party allocation, etc. processed.",
     qualification = Debug,
   )
   val eventsMeter: MetricHandle.Meter =
