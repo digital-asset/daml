@@ -188,6 +188,8 @@ object MetricValues extends MetricValues {
   ): T = if (contextToValueMapping.size == 1)
     contextToValueMapping.head._2
   else
-    throw new IllegalArgumentException("Cannot get value with multi context metrics.")
+    throw new IllegalArgumentException(
+      s"Cannot get value with multi context metrics. All contexts: $contextToValueMapping"
+    )
 
 }

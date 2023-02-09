@@ -3,47 +3,65 @@
 
 package com.daml.metrics
 
-import java.util.concurrent.{ExecutorService, ForkJoinPool, ThreadPoolExecutor}
+import java.util
+import java.util.concurrent.{
+  Callable,
+  ExecutorService,
+  ForkJoinPool,
+  Future,
+  ThreadPoolExecutor,
+  TimeUnit,
+}
 
 import com.daml.metrics.ExecutorServiceMetrics.{
   CommonMetricsName,
+  ExecutorServiceWithCleanup,
   ForkJoinMetricsName,
   NameLabelKey,
   ThreadPoolMetricsName,
 }
 import com.daml.metrics.api.MetricHandle.LabeledMetricsFactory
 import com.daml.metrics.api.{MetricName, MetricsContext}
-import com.daml.scalautil.Statement.discard
 import org.slf4j.LoggerFactory
 
 class ExecutorServiceMetrics(factory: LabeledMetricsFactory) {
 
   private val logger = LoggerFactory.getLogger(getClass)
 
-  def monitorExecutorService(name: String, executor: ExecutorService): ExecutorService = {
+  def monitorExecutorService(
+      name: String,
+      executor: ExecutorService,
+  ): ExecutorService = {
+    /* Handles the removal of registered gauges for the executor service.
+     * As all the gauges registered are async the removal could've been also done when
+     * trying to read the value of a gauge, but this would not prevent warnings being logged when an executor with
+     * the same name is registered before the gauges for a previous one was removed.
+     * */
     executor match {
       case forkJoinPool: ForkJoinPool =>
-        monitorForkJoin(name, forkJoinPool)
-        forkJoinPool
+        val monitoringHandle = monitorForkJoin(name, forkJoinPool)
+        new ExecutorServiceWithCleanup(forkJoinPool, monitoringHandle)
       case threadPoolExecutor: ThreadPoolExecutor =>
-        monitorThreadPool(name, threadPoolExecutor)
-        threadPoolExecutor
+        val monitoringHandle = monitorThreadPool(name, threadPoolExecutor)
+        new ExecutorServiceWithCleanup(threadPoolExecutor, monitoringHandle)
       case other =>
-        logger.info(s"Cannot monitor executor of type ${other.getClass}")
+        logger.warn(
+          s"Cannot monitor executor of type ${other.getClass}. Proceeding without metrics."
+        )
         other
     }
   }
 
-  def monitorForkJoin(name: String, executor: ForkJoinPool): Unit = {
+  def monitorForkJoin(name: String, executor: ForkJoinPool): AutoCloseable = {
     MetricsContext.withMetricLabels(NameLabelKey -> name, "type" -> "fork_join") { implicit mc =>
-      poolSizeGauge(() => executor.getPoolSize)
-      activeThreadsGauge(() => executor.getActiveThreadCount)
-      factory.gaugeWithSupplier(
+      val poolSizeCloseableGauge = poolSizeGauge(() => executor.getPoolSize)
+      val activeThreadsCloseableGauge = activeThreadsGauge(() => executor.getActiveThreadCount)
+      val runningThreadsCloseableGauge = factory.gaugeWithSupplier(
         ForkJoinMetricsName.RunningThreads,
         () => executor.getRunningThreadCount,
         "Estimate of the number of worker threads that are not blocked waiting to join tasks or for other managed synchronization.",
       )
-      factory.gaugeWithSupplier(
+      val stolenTasksCloseableGauge = factory.gaugeWithSupplier(
         ForkJoinMetricsName.StolenTasks,
         () => executor.getStealCount,
         "Estimate of the total number of completed tasks that were executed by a thread other than their submitter.",
@@ -51,79 +69,96 @@ class ExecutorServiceMetrics(factory: LabeledMetricsFactory) {
       // The following 2 gauges are very similar, but the `getQueuedTaskCount` returns only the queue sizes starting
       // from index 1, therefore skipping the first queue. This is done assuming that the first queue represents tasks not yet assigned
       // to a worker.
-      factory.gaugeWithSupplier(
+      val executingQueuedTasksCloseableGauge = factory.gaugeWithSupplier(
         ForkJoinMetricsName.ExecutingQueuedTasks,
         () => executor.getQueuedTaskCount,
         "Estimate of the total number of tasks currently held in queues by worker threads (but not including tasks submitted to the pool that have not begun executing).",
       )
-      queuedTasksGauge(() => executor.getQueuedSubmissionCount)
-    }
-  }
-
-  def monitorThreadPool(name: String, executor: ThreadPoolExecutor): Unit = {
-    MetricsContext.withMetricLabels("name" -> name, "type" -> "thread_pool") { implicit mc =>
-      poolSizeGauge(() => executor.getPoolSize)
-      factory.gaugeWithSupplier(
-        ThreadPoolMetricsName.CorePoolSize,
-        () => executor.getCorePoolSize,
-        "Core number of threads.",
-      )
-      factory.gaugeWithSupplier(
-        ThreadPoolMetricsName.MaxPoolSize,
-        () => executor.getMaximumPoolSize,
-        "Maximum allowed number of threads.",
-      )
-      factory.gaugeWithSupplier(
-        ThreadPoolMetricsName.LargestPoolSize,
-        () => executor.getMaximumPoolSize,
-        "Largest number of threads that have ever simultaneously been in the pool.",
-      )
-      activeThreadsGauge(() => executor.getActiveCount)
-      factory.gaugeWithSupplier(
-        ThreadPoolMetricsName.CompletedTasks,
-        () => executor.getCompletedTaskCount,
-        "Approximate total number of tasks that have completed execution.",
-      )
-      factory.gaugeWithSupplier(
-        ThreadPoolMetricsName.SubmittedTasks,
-        () => executor.getTaskCount,
-        "Approximate total number of tasks that have ever been scheduled for execution.",
-      )
-      queuedTasksGauge(() => executor.getQueue.size)
-      discard {
-        factory.gaugeWithSupplier(
-          ThreadPoolMetricsName.RemainingQueueCapacity,
-          () => executor.getQueue.remainingCapacity,
-          "Additional elements that this queue can ideally accept without blocking.",
-        )
+      val queuedSubmissionCountCloseableGauge =
+        queuedTasksGauge(() => executor.getQueuedSubmissionCount)
+      () => {
+        Seq(
+          poolSizeCloseableGauge,
+          activeThreadsCloseableGauge,
+          runningThreadsCloseableGauge,
+          stolenTasksCloseableGauge,
+          executingQueuedTasksCloseableGauge,
+          queuedSubmissionCountCloseableGauge,
+        ).foreach(_.close())
       }
     }
   }
 
-  private def poolSizeGauge(size: () => Int)(implicit mc: MetricsContext): Unit = discard {
+  def monitorThreadPool(name: String, executor: ThreadPoolExecutor): AutoCloseable = {
+    MetricsContext.withMetricLabels("name" -> name, "type" -> "thread_pool") { implicit mc =>
+      val poolSizeCloseableGauge = poolSizeGauge(() => executor.getPoolSize)
+      val corePoolSizeCloseableGauge = factory.gaugeWithSupplier(
+        ThreadPoolMetricsName.CorePoolSize,
+        () => executor.getCorePoolSize,
+        "Core number of threads.",
+      )
+      val maxPoolSizeCloseableGauge = factory.gaugeWithSupplier(
+        ThreadPoolMetricsName.MaxPoolSize,
+        () => executor.getMaximumPoolSize,
+        "Maximum allowed number of threads.",
+      )
+      val largestPoolSizeCloseableGauge = factory.gaugeWithSupplier(
+        ThreadPoolMetricsName.LargestPoolSize,
+        () => executor.getMaximumPoolSize,
+        "Largest number of threads that have ever simultaneously been in the pool.",
+      )
+      val activeThreadsCloseableGauge = activeThreadsGauge(() => executor.getActiveCount)
+      val completedTasksCloseableGauge = factory.gaugeWithSupplier(
+        ThreadPoolMetricsName.CompletedTasks,
+        () => executor.getCompletedTaskCount,
+        "Approximate total number of tasks that have completed execution.",
+      )
+      val submittedTasksCloseableGauge = factory.gaugeWithSupplier(
+        ThreadPoolMetricsName.SubmittedTasks,
+        () => executor.getTaskCount,
+        "Approximate total number of tasks that have ever been scheduled for execution.",
+      )
+      val queuedTasksCloseableGauge = queuedTasksGauge(() => executor.getQueue.size)
+      val remainingQueueCapacityCloseableGauge = factory.gaugeWithSupplier(
+        ThreadPoolMetricsName.RemainingQueueCapacity,
+        () => executor.getQueue.remainingCapacity,
+        "Additional elements that this queue can ideally accept without blocking.",
+      )
+      () =>
+        Seq(
+          poolSizeCloseableGauge,
+          corePoolSizeCloseableGauge,
+          largestPoolSizeCloseableGauge,
+          maxPoolSizeCloseableGauge,
+          activeThreadsCloseableGauge,
+          completedTasksCloseableGauge,
+          submittedTasksCloseableGauge,
+          queuedTasksCloseableGauge,
+          remainingQueueCapacityCloseableGauge,
+        ).foreach(_.close())
+    }
+  }
+
+  private def poolSizeGauge(size: () => Int)(implicit mc: MetricsContext) =
     factory.gaugeWithSupplier(
       CommonMetricsName.PoolSize,
       size,
       "Number of worker threads present in the pool.",
     )
-  }
 
-  private def activeThreadsGauge(activeThreads: () => Int)(implicit mc: MetricsContext): Unit =
-    discard {
-      factory.gaugeWithSupplier(
-        CommonMetricsName.ActiveThreads,
-        activeThreads,
-        "Estimate of the number of threads that executing tasks.",
-      )
-    }
+  private def activeThreadsGauge(activeThreads: () => Int)(implicit mc: MetricsContext) =
+    factory.gaugeWithSupplier(
+      CommonMetricsName.ActiveThreads,
+      activeThreads,
+      "Estimate of the number of threads that are executing tasks.",
+    )
 
-  private def queuedTasksGauge(queueSize: () => Int)(implicit mc: MetricsContext): Unit = discard {
+  private def queuedTasksGauge(queueSize: () => Int)(implicit mc: MetricsContext) =
     factory.gaugeWithSupplier(
       CommonMetricsName.QueuedTasks,
       queueSize,
       "Approximate number of tasks that are queued for execution.",
     )
-  }
 
 }
 object ExecutorServiceMetrics {
@@ -160,6 +195,51 @@ object ExecutorServiceMetrics {
     val ActiveThreads: MetricName = ThreadsMetricsPrefix :+ "active"
     val QueuedTasks: MetricName = TasksMetricsPrefix :+ "queued"
 
+  }
+
+  private class ExecutorServiceWithCleanup(
+      val delegate: ExecutorService,
+      resourceCleaning: AutoCloseable,
+  ) extends ExecutorService {
+    override def shutdown(): Unit = {
+      resourceCleaning.close()
+      delegate.shutdown()
+    }
+    override def shutdownNow(): util.List[Runnable] = {
+      resourceCleaning.close()
+      delegate.shutdownNow()
+    }
+
+    override def isShutdown: Boolean = delegate.isShutdown
+    override def isTerminated: Boolean = delegate.isTerminated
+    override def awaitTermination(l: Long, timeUnit: TimeUnit): Boolean =
+      delegate.awaitTermination(l, timeUnit)
+    override def submit[T](
+        callable: Callable[T]
+    ): Future[T] = delegate.submit(callable)
+    override def submit[T](
+        runnable: Runnable,
+        t: T,
+    ): Future[T] = delegate.submit(runnable, t)
+    override def submit(runnable: Runnable): Future[_] =
+      delegate.submit(runnable)
+    override def invokeAll[T](
+        collection: util.Collection[_ <: Callable[T]]
+    ): util.List[Future[T]] = delegate.invokeAll(collection)
+    override def invokeAll[T](
+        collection: util.Collection[_ <: Callable[T]],
+        l: Long,
+        timeUnit: TimeUnit,
+    ): util.List[Future[T]] = delegate.invokeAll(collection, l, timeUnit)
+    override def invokeAny[T](
+        collection: util.Collection[_ <: Callable[T]]
+    ): T = delegate.invokeAny(collection)
+    override def invokeAny[T](
+        collection: util.Collection[_ <: Callable[T]],
+        l: Long,
+        timeUnit: TimeUnit,
+    ): T = delegate.invokeAny(collection, l, timeUnit)
+    override def execute(runnable: Runnable): Unit = delegate.execute(runnable)
   }
 
 }
