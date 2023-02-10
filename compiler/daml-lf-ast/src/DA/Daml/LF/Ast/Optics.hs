@@ -79,8 +79,8 @@ templateExpr f (Template loc tpl param precond signatories observers agreement c
   <*> (NM.traverse . templateImplementsExpr) f implements
 
 templateImplementsExpr :: Traversal' TemplateImplements Expr
-templateImplementsExpr f (TemplateImplements iface body) =
-  TemplateImplements iface
+templateImplementsExpr f (TemplateImplements iface body loc) =
+  flip (TemplateImplements iface) loc
     <$> interfaceInstanceBodyExpr f body
 
 interfaceInstanceBodyExpr :: Traversal' InterfaceInstanceBody Expr

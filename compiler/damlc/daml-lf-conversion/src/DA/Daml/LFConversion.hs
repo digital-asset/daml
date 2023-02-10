@@ -1169,7 +1169,7 @@ convertImplements env mc tpl = NM.fromList <$>
 
 convertInterfaceInstance ::
      TemplateOrInterface' TypeConName
-  -> (Qualified TypeConName -> Qualified TypeConName -> InterfaceInstanceBody -> r)
+  -> (Qualified TypeConName -> Qualified TypeConName -> InterfaceInstanceBody -> Maybe SourceLoc -> r)
   -> Env
   -> InterfaceInstanceBinds
   -> ConvertM r
@@ -1185,6 +1185,7 @@ convertInterfaceInstance parent mkR env iib = withRange (iibLoc iib) do
     interfaceQualTypeCon
     templateQualTypeCon
     (InterfaceInstanceBody methods view)
+    (iibLoc iib)
   where
     qualifyInterfaceCon =
       convertInterfaceTyCon env handleIsNotInterface
