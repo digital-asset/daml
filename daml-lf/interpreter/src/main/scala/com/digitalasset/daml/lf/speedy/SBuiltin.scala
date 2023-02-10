@@ -1832,12 +1832,12 @@ private[lf] object SBuiltin {
       if (gaining.isEmpty) {
         machine.enterApplication(action, Array(SEValue(SToken)))
       } else {
-        machine.ptx.beginWithAuthority(
+        machine.ptx.beginGainAuthority(
           required = required
         ) match {
           case ptx =>
             machine.ptx = ptx
-            machine.pushKont(KCloseWithAuthority)
+            machine.pushKont(KCloseGainAuthority)
             machine.enterApplication(action, Array(SEValue(SToken)))
         }
       }

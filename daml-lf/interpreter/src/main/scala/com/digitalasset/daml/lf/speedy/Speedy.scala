@@ -1739,11 +1739,11 @@ private[lf] object Speedy {
       }
   }
 
-  private[speedy] final case object KCloseWithAuthority extends Kont {
+  private[speedy] final case object KCloseGainAuthority extends Kont {
 
     override def execute[Q](machine: Machine[Q], result: SValue): Control[Q] =
       machine.asUpdateMachine(productPrefix) { machine =>
-        machine.ptx = machine.ptx.endWithAuthority
+        machine.ptx = machine.ptx.endGainAuthority
         Control.Value(result)
       }
   }
