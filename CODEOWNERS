@@ -27,9 +27,9 @@ NOTICES     @garyverhaegen-da @dasormeter
 /daml-assistant/    @remyhaemmerle-da @ray-roestenburg-da
 /daml-script/       @remyhaemmerle-da
 /triggers/          @remyhaemmerle-da
-/compiler/          @basvangijzel-DA @remyhaemmerle-da @akrmn @dylant-da
-/libs-haskell/      @basvangijzel-DA @remyhaemmerle-da @akrmn @dylant-da
-/ghc-lib/           @basvangijzel-DA @remyhaemmerle-da @akrmn @dylant-da
+/compiler/          @basvangijzel-DA @remyhaemmerle-da @akrmn @dylant-da @samuel-williams-da
+/libs-haskell/      @basvangijzel-DA @remyhaemmerle-da @akrmn @dylant-da @samuel-williams-da
+/ghc-lib/           @basvangijzel-DA @remyhaemmerle-da @akrmn @dylant-da @samuel-williams-da
 
 # Runtime
 /daml-lf/ @remyhaemmerle-da
