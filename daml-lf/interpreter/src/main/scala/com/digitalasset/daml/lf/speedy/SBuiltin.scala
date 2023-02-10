@@ -984,7 +984,7 @@ private[lf] object SBuiltin {
         machine: UpdateMachine,
     ): Control[Nothing] = {
       val cached = extractCachedContract(machine.tmplId2TxVersion, args.get(0))
-      cached.key match {
+      cached.keyOpt match {
         case Some(cachedKey) if cachedKey.maintainers.isEmpty =>
           Control.Error(
             IE.CreateEmptyContractKeyMaintainers(
@@ -2130,7 +2130,7 @@ private[lf] object SBuiltin {
     ): Control[Nothing] = {
       val cachedContract = extractCachedContract(machine.tmplId2TxVersion, args.get(0))
       val optError: Option[Either[IE, Unit]] = for {
-        cachedKey <- cachedContract.key
+        cachedKey <- cachedContract.keyOpt
       } yield {
         for {
           result <- machine.disclosureKeyTable
@@ -2264,7 +2264,7 @@ private[lf] object SBuiltin {
           ),
           observers =
             extractParties(NameOf.qualifiedNameOfCurrentFunc, vals.get(cachedContractObserversIdx)),
-          key = mbKey,
+          keyOpt = mbKey,
         )
       case _ =>
         throw SErrorCrash(NameOf.qualifiedNameOfCurrentFunc, s"Invalid cached contract: $v")
