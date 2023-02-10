@@ -20,12 +20,55 @@ import org.scalatest.Inside
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
 
-class WithAuthorityTest extends AnyFreeSpec with Matchers with Inside {
+class WithAuthorityTest extends AnyFreeSpec with Inside {
 
+  import Matchers._ // NICK: avoid import "a"
   import WithAuthorityTest._
+
+  "Single" - {
+
+    "single (auth changed): A->{B}->B" in {
+      inside(makeSingleCall(required = Set(b), signed = b)) { case Right(tx) =>
+        val shape = shapeOfTransaction(tx)
+        val expected = List(Authority(Set(b), List(Create(b))))
+        shape shouldBe expected
+      }
+    }
+
+    "single (auth unchanged; no auth node) A->{A}->A" in {
+      inside(makeSingleCall(required = Set(aa), signed = aa)) { case Right(tx) =>
+        val shape = shapeOfTransaction(tx)
+        val expected = List(Authority(Set(aa), List(Create(aa)))) // NICK: wrong!
+        // val expected = List(Create(aa)) // NICK: want this!
+        shape shouldBe expected
+      }
+    }
+  }
+
+  "Nested" - {
+
+    "nest:A->{B}->{C}->C" in {
+      inside(makeNestCall(outer = Set(b), inner = Set(c), signed = c)) { case Right(tx) =>
+        val shape = shapeOfTransaction(tx)
+        val expected = List(Authority(Set(b), List(Authority(Set(c), List(Create(c))))))
+        shape shouldBe expected
+      }
+    }
+    "nest:A->{A,B}->{B,C}->C" in {
+      inside(makeNestCall(outer = Set(aa, b), inner = Set(b, c), signed = c)) { case Right(tx) =>
+        val shape = shapeOfTransaction(tx)
+        val expected = List(Authority(Set(aa, b), List(Authority(Set(b, c), List(Create(c))))))
+        shape shouldBe expected
+      }
+    }
+  }
+}
+
+object WithAuthorityTest {
+
   import SpeedyTestLib.loggingContext
 
-  private[this] val transactionSeed = crypto.Hash.hashPrivateKey("WithAuthorityTest.scala")
+  val transactionSeed = crypto.Hash.hashPrivateKey("WithAuthorityTest.scala")
 
   val pkgs: PureCompiledPackages = SpeedyTestLib.typeAndCompile(p"""
       module M {
@@ -38,56 +81,53 @@ class WithAuthorityTest extends AnyFreeSpec with Matchers with Inside {
           agreement "Agreement";
         };
 
+        val single : List Party -> Party -> Update Unit =
+          \(requested: List Party) -> \(signed: Party) ->
+           WITH_AUTHORITY @Unit requested
+           (ubind x1: ContractId M:T1 <- create @M:T1 M:T1 { signed = signed, info = 100 }
+            in upure @Unit ());
+
         val nest : List Party -> List Party -> Party -> Update Unit =
           \(outer: List Party) -> \(inner: List Party) -> \(signed: Party) ->
            WITH_AUTHORITY @Unit outer
            (WITH_AUTHORITY @Unit inner
             (ubind x1: ContractId M:T1 <- create @M:T1 M:T1 { signed = signed, info = 100 }
-            in upure @Unit ()));
+             in upure @Unit ()));
        }
       """)
 
-  "Nested" - {
-
-    val a = Party.assertFromString("Alice")
-    val b = Party.assertFromString("Bob")
-    val c = Party.assertFromString("Charlie")
-
-    def makeNestExample(
-        outer: Set[Party],
-        inner: Set[Party],
-        signed: Party,
-    ): Either[SError, SubmittedTransaction] = {
-      val outerV = makeSetPartyValue(outer)
-      val innerV = makeSetPartyValue(inner)
-      val signedV = SParty(signed)
-      val example = SEApp(pkgs.compiler.unsafeCompile(e"M:nest"), Array(outerV, innerV, signedV))
-      val committers = Set(a)
-      val machine = Speedy.Machine.fromUpdateSExpr(pkgs, transactionSeed, example, committers)
-      SpeedyTestLib.buildTransaction(machine)
-    }
-
-    "nest:A->{B}->{C}->C" in {
-      inside(makeNestExample(outer = Set(b), inner = Set(c), signed = c)) { case Right(tx) =>
-        val shape = shapeOfTransaction(tx)
-        val expected = List(Authority(Set(b), List(Authority(Set(c), List(Create(c))))))
-        shape shouldBe expected
-      }
-    }
-    "nest:A->{A,B}->{B,C}->C" in {
-      inside(makeNestExample(outer = Set(a, b), inner = Set(b, c), signed = c)) { case Right(tx) =>
-        val shape = shapeOfTransaction(tx)
-        val expected = List(Authority(Set(a, b), List(Authority(Set(b, c), List(Create(c))))))
-        shape shouldBe expected
-      }
-    }
-  }
-}
-
-object WithAuthorityTest {
+  val aa = Party.assertFromString("Alice") // "a" is imported from Matchers. NICK: How to prevent?
+  val b = Party.assertFromString("Bob")
+  val c = Party.assertFromString("Charlie")
 
   def makeSetPartyValue(set: Set[Party]): SValue = {
     SList(FrontStack(set.toList.map(SParty(_)): _*))
+  }
+
+  def makeSingleCall(
+      required: Set[Party],
+      signed: Party,
+  ): Either[SError, SubmittedTransaction] = {
+    val requiredV = makeSetPartyValue(required)
+    val signedV = SParty(signed)
+    val example = SEApp(pkgs.compiler.unsafeCompile(e"M:single"), Array(requiredV, signedV))
+    val committers = Set(aa)
+    val machine = Speedy.Machine.fromUpdateSExpr(pkgs, transactionSeed, example, committers)
+    SpeedyTestLib.buildTransaction(machine)
+  }
+
+  def makeNestCall(
+      outer: Set[Party],
+      inner: Set[Party],
+      signed: Party,
+  ): Either[SError, SubmittedTransaction] = {
+    val outerV = makeSetPartyValue(outer)
+    val innerV = makeSetPartyValue(inner)
+    val signedV = SParty(signed)
+    val example = SEApp(pkgs.compiler.unsafeCompile(e"M:nest"), Array(outerV, innerV, signedV))
+    val committers = Set(aa)
+    val machine = Speedy.Machine.fromUpdateSExpr(pkgs, transactionSeed, example, committers)
+    SpeedyTestLib.buildTransaction(machine)
   }
 
   // TODO #15882 -- test interaction between Authority and Exercise/Rollback nodes
