@@ -143,7 +143,6 @@ da_scala_test_suite(
         "//libs-scala/timer-utils",
         "//ledger/test-common:benchtool-tests-%s.scala" % "1.15",
         "//ledger/test-common:dar-files-%s-lib" % "1.15",
-        "//daml-script/runner:script-runner-lib",
         "//language-support/scala/bindings",
         "//ledger-api/rs-grpc-bridge",
         "//ledger-api/testing-utils",
