@@ -66,25 +66,29 @@ message GetEventsByContractKeyRequest {
   // Required
   repeated string requesting_parties = 3;
 
-  // If populated the `create_event` in the response will be the last create event to happen prior to this event
-  // If not populated then the create event in the response will be that latest create event.
-  // By working backwards from event to event all historical key events can be discovered.
+  // A `continuation_token` associated with a previous response.
   // Optional
-  string end_exclusive_event_id = 4;
+  string continuation_token = 4;
 
 }
 
 message GetEventsByContractKeyResponse {
 
-  // Will be populated if a created event is found for the request. If the `create_event`
-  // is populated then the event_id can be used to set the `end_exclusive_event_id` field
-  // in a subsequent request in order to find the preceding event pair.
+  // Will be populated if a created event is found for the request. The event will be the most recent event if
+  // no `continuation_token` is provided. If a `continuation_token` is provided then the event will be the most
+  // recent event preceding the event in the same response as the continuation_token.
   // Optional
   CreatedEvent create_event = 1;
 
   // Will be populated if a archive event is found for the `created_event`
   // Optional
   ArchivedEvent archive_event = 2;
+
+  // If the `continuation_token` is populated then there may be additional events available. To retrieve
+  // these events use the `continuation_token` in a subsequent request.
+  // Optional
+  string continuation_token = 4;
+
 
 }
 

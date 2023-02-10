@@ -3,7 +3,6 @@
 
 package com.daml.platform.apiserver.services.transaction
 
-import com.daml.error.DamlContextualizedErrorLogger
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.messages.event.{
   GetEventsByContractIdRequest,
@@ -58,7 +57,6 @@ private[apiserver] final class ApiEventQueryService private (
       logging.parties(request.requestingParties),
     ) { implicit loggingContext =>
       logger.info("Received request for events by contract ID")
-      new DamlContextualizedErrorLogger(logger, loggingContext, None)
     }
     logger.trace(s"Events by contract ID request: $request")
 
@@ -78,10 +76,9 @@ private[apiserver] final class ApiEventQueryService private (
       logging.contractKey(request.contractKey),
       logging.templateId(request.templateId),
       logging.parties(request.requestingParties),
-      logging.lfEventId(request.endExclusiveEventId),
+      logging.eventSequentialId(request.endExclusiveSeqId),
     ) { implicit loggingContext =>
       logger.info("Received request for events by contract key")
-      new DamlContextualizedErrorLogger(logger, loggingContext, None)
     }
     logger.trace(s"Events by contract key request: $request")
 
@@ -90,7 +87,7 @@ private[apiserver] final class ApiEventQueryService private (
         request.contractKey,
         request.templateId,
         request.requestingParties,
-        request.endExclusiveEventId,
+        request.endExclusiveSeqId,
       )
       .andThen(logger.logErrorsOnCall[GetEventsByContractKeyResponse])
   }

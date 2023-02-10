@@ -37,7 +37,6 @@ import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2
 import com.daml.ledger.participant.state.index.v2.MeteringStore.ReportData
 import com.daml.ledger.participant.state.index.v2._
-import com.daml.lf.ledger.{EventId => LfEventId}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.{ApplicationId, Identifier}
 import com.daml.lf.data.Time.Timestamp
@@ -73,7 +72,7 @@ import io.grpc.StatusRuntimeException
 import scalaz.syntax.tag.ToTagOps
 
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.{Success, Try}
+import scala.util.Success
 
 private[index] class IndexServiceImpl(
     val ledgerId: LedgerId,
@@ -311,13 +310,13 @@ private[index] class IndexServiceImpl(
       contractKey: com.daml.lf.value.Value,
       templateId: Ref.Identifier,
       requestingParties: Set[Ref.Party],
-      endExclusiveEventId: Option[LfEventId],
+      endExclusiveSeqId: Option[Long],
   )(implicit loggingContext: LoggingContext): Future[GetEventsByContractKeyResponse] = {
     ledgerDao.eventsReader.getEventsByContractKey(
       contractKey,
       templateId,
       requestingParties,
-      endExclusiveEventId,
+      endExclusiveSeqId,
     )
   }
 
@@ -448,16 +447,14 @@ private[index] class IndexServiceImpl(
 
   private def ledgerEnd(): Offset = dispatcher().getHead()
 
-  private def ledgerOffsetToOffset(ledgerOffset: LedgerOffset): Try[Offset] = ledgerOffset match {
-    case LedgerOffset.LedgerBegin => Success(Offset.beforeBegin)
-    case LedgerOffset.LedgerEnd => Success(ledgerEnd())
-    case LedgerOffset.Absolute(offset) => ApiOffset.tryFromString(offset)
-  }
-
   // Returns a function that memoizes the current end
   // Can be used directly or shared throughout a request processing
   private def convertOffset: LedgerOffset => Source[Offset, NotUsed] = { ledgerOffset =>
-    ledgerOffsetToOffset(ledgerOffset).fold(Source.failed, off => Source.single(off))
+    (ledgerOffset match {
+      case LedgerOffset.LedgerBegin => Success(Offset.beforeBegin)
+      case LedgerOffset.LedgerEnd => Success(ledgerEnd())
+      case LedgerOffset.Absolute(offset) => ApiOffset.tryFromString(offset)
+    }).fold(Source.failed, off => Source.single(off))
   }
 
   private def between[A](

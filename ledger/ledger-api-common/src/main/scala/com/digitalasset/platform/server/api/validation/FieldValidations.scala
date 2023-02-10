@@ -13,7 +13,6 @@ import com.daml.ledger.api.validation.ValidationErrors._
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.{Bytes, Ref, Time}
 import com.daml.lf.data.Ref.Party
-import com.daml.lf.ledger.EventId
 import com.daml.lf.value.Value.ContractId
 import com.daml.platform.server.api.validation.ResourceAnnotationValidation.{
   AnnotationsSizeExceededError,
@@ -153,13 +152,26 @@ object FieldValidations {
   ): Either[StatusRuntimeException, Option[Ref.LedgerString]] =
     optionalString(s) { nes => requireLedgerString(nes, fieldName) }
 
-  def optionalEventId(
+  def eventSequentialId(raw: String, fieldName: String)(implicit
+      errorLogger: ContextualizedErrorLogger
+  ): Either[StatusRuntimeException, Long] = {
+    Try {
+      raw.toLong
+    } match {
+      case Success(seqId) => Right(seqId)
+      case Failure(_) =>
+        // Do not mention event sequential id as this should be opaque externally
+        Left(invalidField(fieldName = fieldName, message = "Invalid field value"))
+    }
+  }
+
+  def optionalEventSequentialId(
       s: String,
       fieldName: String,
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
-  ): Either[StatusRuntimeException, Option[EventId]] = optionalString(s) { s =>
-    EventId.fromString(s).left.map(invalidField(fieldName, _))
+  ): Either[StatusRuntimeException, Option[Long]] = optionalString(s) { s =>
+    eventSequentialId(s, fieldName)
   }
 
   def requireIdentityProviderId(
