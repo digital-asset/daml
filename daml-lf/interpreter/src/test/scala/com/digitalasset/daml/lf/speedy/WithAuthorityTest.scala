@@ -38,12 +38,31 @@ class WithAuthorityTest extends AnyFreeSpec with Inside {
       }
     }
 
+    "single (auth restricted/extended) {A,B}->{B,C}->B" in {
+      inside(makeSingleCall(committers = Set(a, b), required = Set(b, c), signed = b)) {
+        case Right(tx) =>
+          val shape = shapeOfTransaction(tx)
+          val expected = List(Authority(Set(b, c), List(Create(b))))
+          shape shouldBe expected
+      }
+    }
+
     "single (auth unchanged; no auth node) A->{A}->A" in {
       inside(makeSingleCall(committers = Set(a), required = Set(a), signed = a)) { case Right(tx) =>
         val shape = shapeOfTransaction(tx)
         val expected = List(Create(a))
         shape shouldBe expected
       }
+    }
+
+    "single (auth restricted; no auth node) {A,B}->{A}->A" in {
+      inside(makeSingleCall(committers = Set(a, b), required = Set(b), signed = b)) {
+        case Right(tx) =>
+          val shape = shapeOfTransaction(tx)
+          val expected = List(Create(b))
+          shape shouldBe expected
+      }
+      // TODO #15882 -- check auth failure if we attempt sign by party removed from auth context
     }
   }
 
