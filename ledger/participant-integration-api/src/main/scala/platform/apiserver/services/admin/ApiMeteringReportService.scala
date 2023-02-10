@@ -104,7 +104,7 @@ private[apiserver] final class ApiMeteringReportService(
 
 private[apiserver] object ApiMeteringReportService {
 
-  def toOption(protoString: String): Option[String] = {
+  private def toOption(protoString: String): Option[String] = {
     if (protoString.nonEmpty) Some(protoString) else None
   }
 

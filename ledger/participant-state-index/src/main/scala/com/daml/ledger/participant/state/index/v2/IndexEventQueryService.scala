@@ -8,7 +8,6 @@ import com.daml.ledger.api.v1.event_query_service.{
   GetEventsByContractKeyResponse,
 }
 import com.daml.lf.data.Ref
-import com.daml.lf.ledger.EventId
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 import com.daml.logging.LoggingContext
@@ -29,7 +28,7 @@ trait IndexEventQueryService extends LedgerEndService {
       contractKey: Value,
       templateId: Ref.Identifier,
       requestingParties: Set[Ref.Party],
-      endExclusiveEventId: Option[EventId],
+      endExclusiveSeqId: Option[Long],
   )(implicit loggingContext: LoggingContext): Future[GetEventsByContractKeyResponse]
 
 }

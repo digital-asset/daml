@@ -27,7 +27,6 @@ import com.daml.ledger.participant.state.index.v2.{IndexerPartyDetails, PackageD
 import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
-import com.daml.lf.ledger.EventId
 import com.daml.lf.transaction.{BlindingInfo, CommittedTransaction}
 import com.daml.logging.LoggingContext
 import com.daml.platform.store.backend.ParameterStorageBackend.LedgerEnd
@@ -93,7 +92,7 @@ private[platform] trait LedgerDaoEventsReader {
       contractKey: com.daml.lf.value.Value,
       templateId: Ref.Identifier,
       requestingParties: Set[Party],
-      endExclusiveEventId: Option[EventId],
+      endExclusiveSeqId: Option[Long],
   )(implicit loggingContext: LoggingContext): Future[GetEventsByContractKeyResponse]
 
 }

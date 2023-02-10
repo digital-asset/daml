@@ -51,14 +51,14 @@ class EventQueryServiceRequestValidator(partyNameChecker: PartyNameChecker) {
       templateId <- FieldValidations.validateIdentifier(apiTemplateId)
       _ <- requireNonEmpty(req.requestingParties, "requesting_parties")
       requestingParties <- partyValidator.requireKnownParties(req.requestingParties)
-      endExclusiveEventId <- optionalEventId(req.endExclusiveEventId, "event_id")
+      endExclusiveSeqId <- optionalEventSequentialId(req.continuationToken, "continuation_token")
     } yield {
 
       event.GetEventsByContractKeyRequest(
         contractKey = contractKey,
         templateId = templateId,
         requestingParties = requestingParties,
-        endExclusiveEventId = endExclusiveEventId,
+        endExclusiveSeqId = endExclusiveSeqId,
       )
     }
 

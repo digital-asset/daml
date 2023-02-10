@@ -30,7 +30,6 @@ import com.daml.ledger.participant.state.index.v2.{
   PartyEntry,
 }
 import com.daml.lf.data.Ref
-import com.daml.lf.ledger.{EventId => LfEventId}
 import com.daml.lf.data.Ref.{ApplicationId, Party}
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.transaction.GlobalKey
@@ -260,7 +259,7 @@ private[daml] final class TimedIndexService(delegate: IndexService, metrics: Met
       contractKey: Value,
       templateId: Ref.Identifier,
       requestingParties: Set[Ref.Party],
-      endExclusiveEventId: Option[LfEventId],
+      endExclusiveSeqId: Option[Long],
   )(implicit loggingContext: LoggingContext): Future[GetEventsByContractKeyResponse] =
     Timed.future(
       metrics.daml.services.index.getEventsByContractKey,
@@ -268,7 +267,7 @@ private[daml] final class TimedIndexService(delegate: IndexService, metrics: Met
         contractKey,
         templateId,
         requestingParties,
-        endExclusiveEventId,
+        endExclusiveSeqId,
       ),
     )
 

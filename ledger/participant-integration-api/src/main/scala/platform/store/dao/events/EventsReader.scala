@@ -10,7 +10,6 @@ import com.daml.ledger.api.v1.event_query_service.{
 }
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.{Identifier, Party}
-import com.daml.lf.ledger.{EventId => LfEventId}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 import com.daml.logging.LoggingContext
@@ -33,8 +32,6 @@ private[dao] sealed class EventsReader(
     extends LedgerDaoEventsReader {
 
   protected val dbMetrics: metrics.daml.index.db.type = metrics.daml.index.db
-
-  println(ec) // TODO remove
 
   override def getEventsByContractId(contractId: ContractId, requestingParties: Set[Party])(implicit
       loggingContext: LoggingContext
@@ -79,7 +76,7 @@ private[dao] sealed class EventsReader(
       contractKey: Value,
       templateId: Ref.Identifier,
       requestingParties: Set[Party],
-      endExclusiveEventId: Option[LfEventId],
+      endExclusiveSeqId: Option[EventSequentialId],
   )(implicit loggingContext: LoggingContext): Future[GetEventsByContractKeyResponse] = {
     val keyHash: String = platform.Key.assertBuild(templateId, contractKey).hash.bytes.toHexString
 
@@ -94,19 +91,17 @@ private[dao] sealed class EventsReader(
 
     for {
 
-      (rawCreate: Option[FlatEvent.Created], rawArchive: Option[FlatEvent.Archived]) <- dbDispatcher
+      (
+        rawCreate: Option[FlatEvent.Created],
+        rawArchive: Option[FlatEvent.Archived],
+        eventSequentialId,
+      ) <- dbDispatcher
         .executeSql(dbMetrics.getEventsByContractKey) { conn =>
-          endExclusiveEventId.fold[Option[EventSequentialId]](Some(Long.MaxValue)) { eId =>
-            eventStorageBackend.eventReaderQueries.resolveEventIdToSequentialId(eId)(conn)
-          } match {
-            case Some(envExclusiveSeqId) =>
-              eventStorageBackend.eventReaderQueries.fetchNextKeyEvents(
-                keyHash,
-                requestingParties,
-                envExclusiveSeqId,
-              )(conn)
-            case None => (None, None)
-          }
+          eventStorageBackend.eventReaderQueries.fetchNextKeyEvents(
+            keyHash,
+            requestingParties,
+            endExclusiveSeqId.getOrElse(Long.MaxValue),
+          )(conn)
         }
 
       createEvent <- rawCreate.fold(Future[Option[CreatedEvent]](None)) { e =>
@@ -114,8 +109,12 @@ private[dao] sealed class EventsReader(
       }
       archiveEvent = rawArchive.map(_.deserializedArchivedEvent())
 
+      continuationToken = eventSequentialId
+        .map(_.toString)
+        .getOrElse(GetEventsByContractKeyResponse.defaultInstance.continuationToken)
+
     } yield {
-      GetEventsByContractKeyResponse(createEvent, archiveEvent)
+      GetEventsByContractKeyResponse(createEvent, archiveEvent, continuationToken)
     }
   }
 
