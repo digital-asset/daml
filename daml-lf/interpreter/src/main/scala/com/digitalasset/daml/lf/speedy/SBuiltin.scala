@@ -1827,18 +1827,34 @@ private[lf] object SBuiltin {
       val required = extractParties(NameOf.qualifiedNameOfCurrentFunc, args.get(0))
       val action = args.get(1)
       checkToken(args, 2)
-      // TODO #15882: check with ledger if required authority is allowed
-      val gaining = required.diff(machine.ptx.context.info.authorizers)
-      if (gaining.isEmpty) {
+      val current = machine.ptx.context.info.authorizers
+      if (required == current) {
+        // just run the body action
         machine.enterApplication(action, Array(SEValue(SToken)))
       } else {
-        machine.ptx.beginGainAuthority(
-          required = required
-        ) match {
-          case ptx =>
-            machine.ptx = ptx
-            machine.pushKont(KCloseGainAuthority)
-            machine.enterApplication(action, Array(SEValue(SToken)))
+        val gaining = required.diff(machine.ptx.context.info.authorizers)
+        if (gaining.isEmpty) {
+          // do scoped authority restriction; (TX) Node.Authority is *NOT* created
+          machine.ptx.beginRestrictAuthority(
+            required = required
+          ) match {
+            case ptx =>
+              machine.ptx = ptx
+              machine.pushKont(KCloseRestrictAuthority)
+              machine.enterApplication(action, Array(SEValue(SToken)))
+          }
+        } else {
+          // TODO #15882: check with ledger that required authority change is allowed
+
+          // do scoped authority change; (TX) Node.Authority *IS* created
+          machine.ptx.beginGainAuthority(
+            required = required
+          ) match {
+            case ptx =>
+              machine.ptx = ptx
+              machine.pushKont(KCloseGainAuthority)
+              machine.enterApplication(action, Array(SEValue(SToken)))
+          }
         }
       }
     }

@@ -81,36 +81,35 @@ class WithAuthorityTest extends AnyFreeSpec with Inside {
       }
     }
 
-    "single (auth unchanged) A->{A}->A [OK]" in {
+    "single (auth unchanged) A->{A}->A [OK; no auth-node]" in {
       inside(makeSingleCall(committers = Set(a), required = Set(a), signed = a)) { case Right(tx) =>
         val shape = shapeOfTransaction(tx)
-        val expected = List(Create(a)) // no auth-node
+        val expected = List(Create(a))
         shape shouldBe expected
       }
     }
 
-    "single (auth restricted) {A,B}->{B}->B [OK]" in {
+    "single (auth restricted) {A,B}->{B}->B [OK; no auth-node]" in {
       inside(makeSingleCall(committers = Set(a, b), required = Set(b), signed = b)) {
         case Right(tx) =>
           val shape = shapeOfTransaction(tx)
-          val expected = List(Create(b)) // no auth-node
+          val expected = List(Create(b))
           shape shouldBe expected
       }
     }
 
-    // TODO #15882 -- Must reduce authority (preoperly scoped) when no auth-node is created
-    // "single (auth restricted) {A,B}->{B}->A [FAIL]" in {
-    //   inside(makeSingleCall(committers = Set(a, b), required = Set(b), signed = a)) {
-    //     case Left(err) =>
-    //       inside(err) { case SError.SErrorDamlException(FailedAuthorization(_, why)) =>
-    //         inside(why) { case cma: CreateMissingAuthorization =>
-    //           val _ = cma
-    //           cma.authorizingParties shouldBe Set(b)
-    //           cma.requiredParties shouldBe Set(a)
-    //         }
-    //       }
-    //   }
-    // }
+    "single (auth restricted) {A,B}->{B}->A [FAIL]" in {
+      inside(makeSingleCall(committers = Set(a, b), required = Set(b), signed = a)) {
+        case Left(err) =>
+          inside(err) { case SError.SErrorDamlException(FailedAuthorization(_, why)) =>
+            inside(why) { case cma: CreateMissingAuthorization =>
+              val _ = cma
+              cma.authorizingParties shouldBe Set(b)
+              cma.requiredParties shouldBe Set(a)
+            }
+          }
+      }
+    }
   }
 
   "Nested" - {
@@ -132,6 +131,10 @@ class WithAuthorityTest extends AnyFreeSpec with Inside {
       }
     }
   }
+
+  // TODO #15882 -- Test that the authority gain or restriction is properly scoped
+  // TODO #15882 -- test interaction between Authority and Exercise/Rollback nodes
+
 }
 
 object WithAuthorityTest {
@@ -195,8 +198,6 @@ object WithAuthorityTest {
     val machine = Speedy.Machine.fromUpdateSExpr(pkgs, transactionSeed, example, committers)
     SpeedyTestLib.buildTransaction(machine)
   }
-
-  // TODO #15882 -- test interaction between Authority and Exercise/Rollback nodes
 
   sealed trait Shape // minimal transaction tree, for purposes of writing test expectation
   final case class Create(signed: Party) extends Shape

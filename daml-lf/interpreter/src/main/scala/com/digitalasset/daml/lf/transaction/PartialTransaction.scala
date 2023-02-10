@@ -180,6 +180,13 @@ private[lf] object PartialTransaction {
     val actionChildSeed: NodeIdx => crypto.Hash = parent.info.actionChildSeed
   }
 
+  final case class RestrictAuthorityContextInfo(
+      parent: Context,
+      authorizers: Set[Party],
+  ) extends ContextInfo {
+    val actionChildSeed: NodeIdx => crypto.Hash = parent.info.actionChildSeed
+  }
+
   def initial(
       contractKeyUniqueness: ContractKeyUniquenessMode,
       initialSeeds: InitialSeeding,
@@ -647,9 +654,7 @@ private[speedy] case class PartialTransaction(
     }
   }
 
-  /** Open an Authority context.
-    * Must be closed by a `endGainAuthority`
-    */
+  /** Open an GainAuthority context. Must be closed by a `endGainAuthority` */
   def beginGainAuthority(
       required: Set[Party]
   ): PartialTransaction = {
@@ -677,6 +682,34 @@ private[speedy] case class PartialTransaction(
         InternalError.runtimeException(
           NameOf.qualifiedNameOfCurrentFunc,
           "endGainAuthority called in non-authority context",
+        )
+    }
+  }
+
+  /** Open an RestrictAuthority context. Must be closed by a `endRestrictAuthority` */
+  def beginRestrictAuthority(
+      required: Set[Party]
+  ): PartialTransaction = {
+    val info = RestrictAuthorityContextInfo(context, authorizers = required)
+    copy(
+      context = Context(info).copy(nextActionChildIdx = context.nextActionChildIdx)
+    )
+  }
+
+  def endRestrictAuthority: PartialTransaction = {
+    context.info match {
+      case info: RestrictAuthorityContextInfo =>
+        copy(
+          context = info.parent.copy(
+            children = info.parent.children :++ context.children.toImmArray,
+            nextActionChildIdx = context.nextActionChildIdx,
+          )
+        )
+
+      case _ =>
+        InternalError.runtimeException(
+          NameOf.qualifiedNameOfCurrentFunc,
+          "endRestrictAuthority called in non-authority context",
         )
     }
   }
@@ -723,6 +756,7 @@ private[speedy] case class PartialTransaction(
       case _: PartialTransaction.ExercisesContextInfo => go(ptx.abortExercises)
       case _: PartialTransaction.TryContextInfo => go(ptx.endTry)
       case _: PartialTransaction.GainAuthorityContextInfo => go(ptx.endGainAuthority)
+      case _: PartialTransaction.RestrictAuthorityContextInfo => go(ptx.endRestrictAuthority)
       case _: PartialTransaction.RootContextInfo => ptx
     }
     go(this)
