@@ -1146,8 +1146,11 @@ def daml_lf_compatible(sdk_version, platform_version):
         # any post 1.14.0 platform supports any pre 1.16 SDK
         in_range(platform_version, {"start": "1.14.0-snapshot"}) and not in_range(sdk_version, {"start": "1.16.0-snapshot"})
     ) or (
-        # any post 1.15.0 platform supports any SDK
-        in_range(platform_version, {"start": "1.15.0-snapshot"})
+        # any post 1.15.0 platform supports any pre 2.6 SDK
+        in_range(platform_version, {"start": "1.15.0-snapshot"}) and not in_range(sdk_version, {"start": "2.5.0-snapshot"})
+    ) or (
+        # any post 2.5.0 platform supports any SDK
+        in_range(platform_version, {"start": "2.5.0-snapshot"})
     )
 
 def sdk_platform_test(sdk_version, platform_version):

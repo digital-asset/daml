@@ -40,8 +40,8 @@ jobs:
       matrix:
         linux:
           pool: ubuntu_20_04
-        macos:
-          pool: macOS-pool
+#        macos:
+#          pool: macOS-pool
     pool:
       name: $(pool)
       demands: assignment -equals default
