@@ -486,38 +486,6 @@ abstract class EventStorageBackendTemplate(
     import com.daml.platform.store.backend.Conversions.OffsetToStatement
     connection.setAutoCommit(false)
 
-    def orClauseOnImmediateDivulgencePruning(
-        createsTable: String
-    ): ComposableQuery.CompositeSql =
-      if (pruneAllDivulgedContracts) {
-        val pruneAfterClause = {
-          // We need to distinguish between the two cases since lexicographical comparison
-          // in Oracle doesn't work with '' (empty strings are treated as NULLs) as one of the operands
-          participantAllDivulgedContractsPrunedUpToInclusive(connection) match {
-            case Some(pruneAfter) => cSQL"event_offset > $pruneAfter and"
-            case None => cSQL""
-          }
-        }
-
-        cSQL"""
-            OR (
-             $pruneAfterClause
-             -- Only prune create events which did not have a locally hosted party before their creation offset
-             NOT EXISTS (
-              SELECT 1
-                FROM party_entries p
-               WHERE p.typ = 'accept'
-                 AND p.ledger_offset <= #$createsTable.event_offset
-                 AND #${queryStrategy.isTrue("p.is_local")}
-                 AND #${queryStrategy.arrayContains(
-            s"$createsTable.flat_event_witnesses",
-            "p.party_id",
-          )}
-             )
-          )
-         """
-      } else cSQL""""""
-
     val retroactiveDivulgencePruning =
       if (pruneAllDivulgedContracts)
         SQL"""
@@ -533,30 +501,72 @@ abstract class EventStorageBackendTemplate(
                 WHERE delete_events.contract_id = deleted_consuming_events.contract_id
                   AND delete_events.event_offset <= $pruneUpToInclusive -- TODO pruning: do we even need this guard? Probably not
             """
+
     if (connection.getAutoCommit)
       throw new RuntimeException("These cannot be run non-transactionally")
 
-
-    executeWithLogging("consuming temp")(
+    val createIndex = (tableName: String, column: String, indexType: String) =>
+      SQL"""CREATE INDEX #$tableName#$column ON #$tableName USING #$indexType(#$column)"""
+    executeWithLogging("consuming temp table")(
       SQL"""CREATE TEMP TABLE deleted_consuming_events ON COMMIT DROP -- TODO check that no temp tables stay alive. Also use tmp_ as more relevant name
            AS SELECT contract_id, event_sequential_id FROM participant_events_consuming_exercise WHERE event_offset <= $pruneUpToInclusive
          """
     )(connection, loggingContext)
+    executeWithLogging("create contract_id index on consuming")(
+      createIndex("deleted_consuming_events", "contract_id", "BTREE")
+    )(connection, loggingContext)
 
-    executeWithLogging("nonconsuming temp")(
+    executeWithLogging("nonconsuming temp table")(
       SQL"""CREATE TEMP TABLE deleted_nonconsuming_events ON COMMIT DROP -- TODO check that no temp tables stay alive
            AS SELECT contract_id, event_sequential_id FROM participant_events_non_consuming_exercise WHERE event_offset <= $pruneUpToInclusive
          """
     )(connection, loggingContext)
 
     executeWithLogging("creates temp")(
-      SQL"""CREATE TEMP TABLE deleted_creates ON COMMIT DROP -- TODO check that no temp tables stay alive
-           AS SELECT contract_id, event_sequential_id FROM participant_events_create pec
-                 WHERE pec.event_offset <= $pruneUpToInclusive
-                  AND (EXISTS (SELECT 1 FROM deleted_consuming_events dce WHERE dce.contract_id = pec.contract_id)
-           ${orClauseOnImmediateDivulgencePruning(createsTable = "pec")})
+      SQL"""
+           CREATE TEMP TABLE deleted_creates ON COMMIT DROP -- TODO check that no temp tables stay alive
+           AS SELECT contract_id, event_sequential_id
+              FROM participant_events_create pec
+              WHERE
+                pec.event_offset <= $pruneUpToInclusive
+                AND EXISTS (
+                  SELECT 1
+                  FROM deleted_consuming_events dce
+                  WHERE dce.contract_id = pec.contract_id
+                )
          """
     )(connection, loggingContext)
+
+    if (pruneAllDivulgedContracts) {
+      val pruneAfterClause = {
+        // We need to distinguish between the two cases since lexicographical comparison
+        // in Oracle doesn't work with '' (empty strings are treated as NULLs) as one of the operands
+        participantAllDivulgedContractsPrunedUpToInclusive(connection) match {
+          case Some(pruneAfter) => cSQL"event_offset > $pruneAfter AND"
+          case None => cSQL""
+        }
+      }
+      executeWithLogging("insert immediate divulgence into temp table")(SQL"""
+        INSERT INTO deleted_creates
+        SELECT contract_id, event_sequential_id
+        FROM participant_events_create pec
+        WHERE
+         pec.event_offset <= $pruneUpToInclusive AND
+         $pruneAfterClause
+         -- Only prune create events which did not have a locally hosted party before their creation offset
+         NOT EXISTS (
+          SELECT 1
+            FROM party_entries p
+           WHERE p.typ = 'accept'
+             AND p.ledger_offset <= pec.event_offset
+             AND #${queryStrategy.isTrue("p.is_local")}
+             AND #${queryStrategy.arrayContains(
+          s"pec.flat_event_witnesses",
+          "p.party_id",
+        )}
+       )
+   """)(connection, loggingContext)
+    }
 
     delete("consuming")(SQL"""
         DELETE FROM participant_events_consuming_exercise pece
