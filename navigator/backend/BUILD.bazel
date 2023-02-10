@@ -192,7 +192,7 @@ da_scala_test_suite(
         "//ledger/ledger-api-client",
         "//ledger/ledger-api-common",
         "//ledger/ledger-api-domain",
-        "//ledger/ledger-resources",
+        "//libs-scala/ledger-resources",
         "//ledger/ledger-runner-common",
         "//ledger/sandbox-on-x",
         "//ledger/sandbox-on-x:sandbox-on-x-test-lib",

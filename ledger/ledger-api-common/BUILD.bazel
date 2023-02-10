@@ -41,7 +41,7 @@ da_scala_library(
         "//ledger/ledger-api-errors",
         "//ledger/ledger-api-health",
         "//ledger/ledger-offset",
-        "//ledger/ledger-resources",
+        "//libs-scala/ledger-resources",
         "//ledger/metrics",
         "//libs-scala/contextualized-logging",
         "//libs-scala/crypto",

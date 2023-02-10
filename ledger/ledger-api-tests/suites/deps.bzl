@@ -19,7 +19,7 @@ def deps(lf_version):
         "//ledger/ledger-api-errors",
         "//ledger/ledger-api-common",
         "//ledger/ledger-api-tests/infrastructure:infrastructure-%s" % lf_version,
-        "//ledger/ledger-resources",
+        "//libs-scala/ledger-resources",
         "//ledger/participant-state-kv-errors",
         "//libs-scala/test-evidence/tag:test-evidence-tag",
         "//ledger/test-common:dar-files-%s-lib" % lf_version,

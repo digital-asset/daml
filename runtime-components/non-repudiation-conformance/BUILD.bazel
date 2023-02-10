@@ -32,7 +32,7 @@ da_scala_test(
         "//ledger/ledger-api-tests/infrastructure",
         "//ledger/ledger-api-tests/suites",
         "//ledger/ledger-configuration",
-        "//ledger/ledger-resources",
+        "//libs-scala/ledger-resources",
         "//ledger/participant-integration-api",
         "//libs-scala/doobie-slf4j",
         "//libs-scala/ports",

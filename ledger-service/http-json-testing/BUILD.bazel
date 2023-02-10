@@ -49,7 +49,7 @@ load("//ledger-service/utils:scalaopts.bzl", "hj_scalacopts")
             "//ledger-service/utils",
             "//ledger/ledger-api-auth",
             "//ledger/ledger-api-common",
-            "//ledger/ledger-resources",
+            "//libs-scala/ledger-resources",
             "//ledger/ledger-runner-common",
             "//ledger/participant-integration-api",
             "//ledger/sandbox-on-x",
