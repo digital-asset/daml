@@ -814,20 +814,17 @@ object Transaction {
 /** An explicitly-disclosed contract that has been used during command interpretation
   * and enriched with additional contract metadata.
   *
-  * @param createEvent the create event of the contract
+  * @param create the create event of the contract
   * @param createdAt ledger effective time of the transaction that created the contract
   * @param driverMetadata opaque bytestring used by the underlying ledger implementation
   */
 final case class ProcessedDisclosedContract(
-    createEvent: Node.Create,
+    create: Node.Create,
     createdAt: Time.Timestamp,
     driverMetadata: Bytes,
 ) {
-  def contractId: Value.ContractId = createEvent.coid
-
-  def templateId: TypeConName = createEvent.templateId
-
-  def versionedCoinst: VersionedContractInstance = createEvent.versionedCoinst
+  def contractId: Value.ContractId = create.coid
+  def templateId: TypeConName = create.templateId
 }
 
 object ProcessedDisclosedContract {
@@ -844,7 +841,7 @@ object ProcessedDisclosedContract {
       version: TransactionVersion,
   ): ProcessedDisclosedContract =
     ProcessedDisclosedContract(
-      createEvent = Node.Create(
+      create = Node.Create(
         templateId = templateId,
         coid = contractId,
         arg = argument,

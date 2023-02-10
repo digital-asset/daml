@@ -160,7 +160,7 @@ class ConflictCheckWithCommittedSpec
       .thenReturn(
         Future.successful(
           ContractState.Active(
-            processedDisclosedContract.versionedCoinst,
+            processedDisclosedContract.create.versionedCoinst,
             processedDisclosedContract.createdAt.add(Duration.ofSeconds(1000L)),
           )
         )
@@ -214,7 +214,7 @@ class ConflictCheckWithCommittedSpec
           ContractState.Active(
             VersionedContractInstance(
               templateId.copy(packageId = Ref.PackageId.assertFromString("anotherPackageId")),
-              Versioned(TransactionVersion.VDev, processedDisclosedContract.createEvent.arg),
+              Versioned(TransactionVersion.VDev, processedDisclosedContract.create.arg),
             ),
             processedDisclosedContract.createdAt,
           )
@@ -351,7 +351,7 @@ class ConflictCheckWithCommittedSpec
       .thenReturn(
         Future.successful(
           ContractState.Active(
-            processedDisclosedContract.versionedCoinst,
+            processedDisclosedContract.create.versionedCoinst,
             processedDisclosedContract.createdAt,
           )
         )

@@ -226,7 +226,7 @@ private[validate] class ConflictCheckWithCommittedImpl(
     val actualTemplate = actualContractInstance.unversioned.template
     val providedTemplate = provided.templateId
 
-    val providedContractInstance = provided.versionedCoinst
+    val providedContractInstance = provided.create.versionedCoinst
 
     val providedLet = provided.createdAt
 
