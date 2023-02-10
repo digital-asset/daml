@@ -505,17 +505,11 @@ abstract class EventStorageBackendTemplate(
     if (connection.getAutoCommit)
       throw new RuntimeException("These cannot be run non-transactionally")
 
-    val createIndex = (tableName: String, column: String, indexType: String) =>
-      SQL"""CREATE INDEX #$tableName#$column ON #$tableName USING #$indexType(#$column)"""
     executeWithLogging("consuming temp table")(
       SQL"""CREATE TEMP TABLE deleted_consuming_events ON COMMIT DROP -- TODO check that no temp tables stay alive. Also use tmp_ as more relevant name
            AS SELECT contract_id, event_sequential_id FROM participant_events_consuming_exercise WHERE event_offset <= $pruneUpToInclusive
          """
     )(connection, loggingContext)
-    executeWithLogging("create contract_id index on consuming")(
-      createIndex("deleted_consuming_events", "contract_id", "BTREE")
-    )(connection, loggingContext)
-
     executeWithLogging("nonconsuming temp table")(
       SQL"""CREATE TEMP TABLE deleted_nonconsuming_events ON COMMIT DROP -- TODO check that no temp tables stay alive
            AS SELECT contract_id, event_sequential_id FROM participant_events_non_consuming_exercise WHERE event_offset <= $pruneUpToInclusive

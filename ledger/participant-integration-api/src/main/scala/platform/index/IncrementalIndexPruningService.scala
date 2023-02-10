@@ -77,9 +77,9 @@ class IncrementalIndexPruningService(ledgerReadDao: LedgerReadDao, maximumPrunin
   ): Offset =
     if (pruneAllDivulgedContracts)
       pruningOffsets match {
-        case (None, _) => Offset.beforeBegin
-        case (Some(prunedAllDivulgence), Some(_)) => prunedAllDivulgence
-        case (Some(_), None) =>
+        case (_, None) => Offset.beforeBegin
+        case (Some(_), Some(prunedAllDivulgence)) => prunedAllDivulgence
+        case (None, Some(_)) =>
           throw new IllegalStateException(
             "Pruning all divulgence present and other is None (TODO pruning rephrase)"
           )
