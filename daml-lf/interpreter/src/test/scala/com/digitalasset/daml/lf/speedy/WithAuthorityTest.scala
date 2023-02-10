@@ -18,17 +18,20 @@ import com.daml.lf.value.Value.{ValueRecord, ValueParty}
 
 import org.scalatest.Inside
 import org.scalatest.freespec.AnyFreeSpec
-import org.scalatest.matchers.should.Matchers
+import org.scalatest.matchers.should.Matchers._
 
 class WithAuthorityTest extends AnyFreeSpec with Inside {
 
-  import Matchers._ // NICK: avoid import "a"
+  val a = Party.assertFromString("Alice")
+  val b = Party.assertFromString("Bob")
+  val c = Party.assertFromString("Charlie")
+
   import WithAuthorityTest._
 
   "Single" - {
 
     "single (auth changed): A->{B}->B" in {
-      inside(makeSingleCall(required = Set(b), signed = b)) { case Right(tx) =>
+      inside(makeSingleCall(committers = Set(a), required = Set(b), signed = b)) { case Right(tx) =>
         val shape = shapeOfTransaction(tx)
         val expected = List(Authority(Set(b), List(Create(b))))
         shape shouldBe expected
@@ -36,9 +39,9 @@ class WithAuthorityTest extends AnyFreeSpec with Inside {
     }
 
     "single (auth unchanged; no auth node) A->{A}->A" in {
-      inside(makeSingleCall(required = Set(aa), signed = aa)) { case Right(tx) =>
+      inside(makeSingleCall(committers = Set(a), required = Set(a), signed = a)) { case Right(tx) =>
         val shape = shapeOfTransaction(tx)
-        val expected = List(Create(aa))
+        val expected = List(Create(a))
         shape shouldBe expected
       }
     }
@@ -47,17 +50,19 @@ class WithAuthorityTest extends AnyFreeSpec with Inside {
   "Nested" - {
 
     "nest:A->{B}->{C}->C" in {
-      inside(makeNestCall(outer = Set(b), inner = Set(c), signed = c)) { case Right(tx) =>
-        val shape = shapeOfTransaction(tx)
-        val expected = List(Authority(Set(b), List(Authority(Set(c), List(Create(c))))))
-        shape shouldBe expected
+      inside(makeNestCall(committers = Set(a), outer = Set(b), inner = Set(c), signed = c)) {
+        case Right(tx) =>
+          val shape = shapeOfTransaction(tx)
+          val expected = List(Authority(Set(b), List(Authority(Set(c), List(Create(c))))))
+          shape shouldBe expected
       }
     }
     "nest:A->{A,B}->{B,C}->C" in {
-      inside(makeNestCall(outer = Set(aa, b), inner = Set(b, c), signed = c)) { case Right(tx) =>
-        val shape = shapeOfTransaction(tx)
-        val expected = List(Authority(Set(aa, b), List(Authority(Set(b, c), List(Create(c))))))
-        shape shouldBe expected
+      inside(makeNestCall(committers = Set(a), outer = Set(a, b), inner = Set(b, c), signed = c)) {
+        case Right(tx) =>
+          val shape = shapeOfTransaction(tx)
+          val expected = List(Authority(Set(a, b), List(Authority(Set(b, c), List(Create(c))))))
+          shape shouldBe expected
       }
     }
   }
@@ -95,27 +100,24 @@ object WithAuthorityTest {
        }
       """)
 
-  val aa = Party.assertFromString("Alice") // "a" is imported from Matchers. NICK: How to prevent?
-  val b = Party.assertFromString("Bob")
-  val c = Party.assertFromString("Charlie")
-
   def makeSetPartyValue(set: Set[Party]): SValue = {
     SList(FrontStack(set.toList.map(SParty(_)): _*))
   }
 
   def makeSingleCall(
+      committers: Set[Party],
       required: Set[Party],
       signed: Party,
   ): Either[SError, SubmittedTransaction] = {
     val requiredV = makeSetPartyValue(required)
     val signedV = SParty(signed)
     val example = SEApp(pkgs.compiler.unsafeCompile(e"M:single"), Array(requiredV, signedV))
-    val committers = Set(aa)
     val machine = Speedy.Machine.fromUpdateSExpr(pkgs, transactionSeed, example, committers)
     SpeedyTestLib.buildTransaction(machine)
   }
 
   def makeNestCall(
+      committers: Set[Party],
       outer: Set[Party],
       inner: Set[Party],
       signed: Party,
@@ -124,7 +126,6 @@ object WithAuthorityTest {
     val innerV = makeSetPartyValue(inner)
     val signedV = SParty(signed)
     val example = SEApp(pkgs.compiler.unsafeCompile(e"M:nest"), Array(outerV, innerV, signedV))
-    val committers = Set(aa)
     val machine = Speedy.Machine.fromUpdateSExpr(pkgs, transactionSeed, example, committers)
     SpeedyTestLib.buildTransaction(machine)
   }
