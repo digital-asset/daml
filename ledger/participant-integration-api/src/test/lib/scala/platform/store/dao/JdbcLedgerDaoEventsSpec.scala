@@ -3,8 +3,8 @@
 
 package com.daml.platform.store.dao
 
-import com.daml.lf.ledger.EventId
 import com.daml.lf.transaction.{GlobalKey, GlobalKeyWithMaintainers}
+import com.daml.platform.store.cache.MutableCacheBackedContractStore.EventSequentialId
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.{Inside, LoneElement, OptionValues}
@@ -13,6 +13,10 @@ import scala.concurrent.Future
 
 private[dao] trait JdbcLedgerDaoEventsSpec extends LoneElement with Inside with OptionValues {
   this: AsyncFlatSpec with Matchers with JdbcLedgerDaoSuite =>
+
+  private def toOption(protoString: String): Option[String] = {
+    if (protoString.nonEmpty) Some(protoString) else None
+  }
 
   private def eventsReader = ledgerDao.eventsReader
 
@@ -93,7 +97,7 @@ private[dao] trait JdbcLedgerDaoEventsSpec extends LoneElement with Inside with 
         contractKey = key.value,
         templateId = someTemplateId,
         requestingParties = Set(alice),
-        endExclusiveEventId = None,
+        endExclusiveSeqId = None,
       )
     } yield {
       val actual = result.createEvent.value
@@ -115,7 +119,7 @@ private[dao] trait JdbcLedgerDaoEventsSpec extends LoneElement with Inside with 
         contractKey = key.value,
         templateId = someTemplateId,
         requestingParties = Set(alice),
-        endExclusiveEventId = None,
+        endExclusiveSeqId = None,
       )
     } yield {
       val actual = result.archiveEvent.value
@@ -123,18 +127,21 @@ private[dao] trait JdbcLedgerDaoEventsSpec extends LoneElement with Inside with 
     }
   }
 
-  it should "return the maximum create prior to the end-exclusive-event" in {
+  it should "return the maximum create prior to the end-exclusive-seq-id" in {
     val key = globalKeyWithMaintainers("key5")
 
-    def getNextResult(endExclusiveEventId: Option[EventId]): Future[Option[(String, EventId)]] = {
+    // (contract-id, continuation-token)
+    def getNextResult(
+        endExclusiveSeqId: Option[EventSequentialId]
+    ): Future[(Option[String], Option[EventSequentialId])] = {
       eventsReader
         .getEventsByContractKey(
           contractKey = key.value,
           templateId = someTemplateId,
           requestingParties = Set(bob),
-          endExclusiveEventId = endExclusiveEventId,
+          endExclusiveSeqId = endExclusiveSeqId,
         )
-        .map(_.createEvent.map(e => (e.contractId, EventId.fromString(e.eventId).toOption.value)))
+        .map(r => (r.createEvent.map(_.contractId), toOption(r.continuationToken).map(_.toLong)))
     }
 
     for {
@@ -150,14 +157,16 @@ private[dao] trait JdbcLedgerDaoEventsSpec extends LoneElement with Inside with 
         singleCreate(cId => create(cId, signatories = Set(alice, bob)).copy(keyOpt = Some(key)))
       )
 
-      Some((cId3, eventId3)) <- getNextResult(None)
+      eventualTuple3 <- getNextResult(None)
+      (Some(cId3), Some(eventId3)) = eventualTuple3
       // Event 2 should be skipped as bob has no visibility of it
-      Some((cId1, eventId1)) <- getNextResult(Some(eventId3))
+      eventualTuple1 <- getNextResult(Some(eventId3))
+      (Some(cId1), Some(eventId1)) = eventualTuple1
       maybeEventId0 <- getNextResult(Some(eventId1))
     } yield {
       cId3 shouldBe nonTransient(tx3).loneElement.coid
       cId1 shouldBe nonTransient(tx1).loneElement.coid
-      maybeEventId0 shouldBe None
+      maybeEventId0 shouldBe (None, None)
     }
   }
 

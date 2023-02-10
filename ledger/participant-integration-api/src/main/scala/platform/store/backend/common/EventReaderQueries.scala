@@ -152,7 +152,9 @@ class EventReaderQueries(
       keyHash: String,
       requestingParties: Set[Party],
       endExclusiveSeqId: EventSequentialId,
-  )(conn: Connection): (Option[Raw.FlatEvent.Created], Option[Raw.FlatEvent.Archived]) = {
+  )(
+      conn: Connection
+  ): (Option[Raw.FlatEvent.Created], Option[Raw.FlatEvent.Archived], Option[EventSequentialId]) = {
 
     val intRequestingParties =
       requestingParties.iterator.map(stringInterning.party.tryInternalize).flatMap(_.iterator).toSet
@@ -168,7 +170,7 @@ class EventReaderQueries(
       selectArchivedEvent(c.event.partial.contractId, intRequestingParties)(conn)
     )
 
-    (createEvent.map(_.event), archivedEvent.map(_.event))
+    (createEvent.map(_.event), archivedEvent.map(_.event), createEvent.map(_.eventSequentialId))
   }
 
   private def eventParser(

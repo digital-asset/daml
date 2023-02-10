@@ -12,7 +12,7 @@ package object v1_15 {
       new InterfaceIT,
       new InterfaceSubscriptionsIT,
       new ExplicitDisclosureIT,
-      // new EventQueryServiceIT, // TODO enable
+      new EventQueryServiceIT,
     )
 
   def optional(tlsConfig: Option[TlsConfiguration]): Vector[LedgerTestSuite] =

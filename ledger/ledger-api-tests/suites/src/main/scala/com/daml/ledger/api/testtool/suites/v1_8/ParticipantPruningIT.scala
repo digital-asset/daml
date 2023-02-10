@@ -814,7 +814,7 @@ class ParticipantPruningIT extends LedgerTestSuite {
     "PREventsByContractIdPruned",
     "Ensure that EventsByContractId works as expected with pruned data",
     allocate(SingleParty),
-    enabled = _ => false, // TODO - Conflicts with other tests
+    runConcurrently = false,
   )(implicit ec => { case Participants(Participant(participant, party)) =>
     def getEvents(dummyCid: Primitive.ContractId[Dummy]): Future[Int] = {
       val request = GetEventsByContractIdRequest(dummyCid.unwrap, immutable.Seq(party.unwrap))
@@ -850,7 +850,7 @@ class ParticipantPruningIT extends LedgerTestSuite {
     "PREventsByContractKey",
     "Ensure that EventsByContractKey works as expected with pruned data",
     allocate(SingleParty),
-    enabled = _ => false, // TODO - Conflicts with other tests
+    runConcurrently = false,
   )(implicit ec => { case Participants(Participant(participant, party)) =>
     val exercisedKey = "pruning test key"
     val key = makeTextKeyKey(party, exercisedKey)
