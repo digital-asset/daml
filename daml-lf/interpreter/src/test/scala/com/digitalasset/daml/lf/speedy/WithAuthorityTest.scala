@@ -38,8 +38,7 @@ class WithAuthorityTest extends AnyFreeSpec with Inside {
     "single (auth unchanged; no auth node) A->{A}->A" in {
       inside(makeSingleCall(required = Set(aa), signed = aa)) { case Right(tx) =>
         val shape = shapeOfTransaction(tx)
-        val expected = List(Authority(Set(aa), List(Create(aa)))) // NICK: wrong!
-        // val expected = List(Create(aa)) // NICK: want this!
+        val expected = List(Create(aa))
         shape shouldBe expected
       }
     }

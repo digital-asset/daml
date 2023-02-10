@@ -1828,13 +1828,18 @@ private[lf] object SBuiltin {
       val action = args.get(1)
       checkToken(args, 2)
       // TODO #15882: check with ledger if required authority is allowed
-      machine.ptx.beginWithAuthority(
-        required = required
-      ) match {
-        case ptx =>
-          machine.ptx = ptx
-          machine.pushKont(KCloseWithAuthority)
-          machine.enterApplication(action, Array(SEValue(SToken)))
+      val gaining = required.diff(machine.ptx.context.info.authorizers)
+      if (gaining.isEmpty) {
+        machine.enterApplication(action, Array(SEValue(SToken)))
+      } else {
+        machine.ptx.beginWithAuthority(
+          required = required
+        ) match {
+          case ptx =>
+            machine.ptx = ptx
+            machine.pushKont(KCloseWithAuthority)
+            machine.enterApplication(action, Array(SEValue(SToken)))
+        }
       }
     }
   }
