@@ -7,6 +7,8 @@ package speedy
 import com.daml.lf.data.FrontStack
 import com.daml.lf.data.ImmArray
 import com.daml.lf.data.Ref.Party
+import com.daml.lf.interpretation.Error.FailedAuthorization
+import com.daml.lf.ledger.FailedAuthorization.CreateMissingAuthorization
 import com.daml.lf.speedy.SError.SError
 import com.daml.lf.speedy.SExpr.SEApp
 import com.daml.lf.speedy.SValue.{SList, SParty}
@@ -30,7 +32,18 @@ class WithAuthorityTest extends AnyFreeSpec with Inside {
 
   "Single" - {
 
-    "single (auth changed): A->{B}->B" in {
+    "single (auth changed): A->{B}->A [FAIL]" in {
+      inside(makeSingleCall(committers = Set(a), required = Set(b), signed = a)) { case Left(err) =>
+        inside(err) { case SError.SErrorDamlException(FailedAuthorization(_, why)) =>
+          inside(why) { case cma: CreateMissingAuthorization =>
+            cma.authorizingParties shouldBe Set(b)
+            cma.requiredParties shouldBe Set(a)
+          }
+        }
+      }
+    }
+
+    "single (auth changed): A->{B}->B [OK]" in {
       inside(makeSingleCall(committers = Set(a), required = Set(b), signed = b)) { case Right(tx) =>
         val shape = shapeOfTransaction(tx)
         val expected = List(Authority(Set(b), List(Create(b))))
@@ -38,7 +51,19 @@ class WithAuthorityTest extends AnyFreeSpec with Inside {
       }
     }
 
-    "single (auth restricted/extended) {A,B}->{B,C}->B" in {
+    "single (auth restricted/extended) {A,B}->{B,C}->A [FAIL]" in {
+      inside(makeSingleCall(committers = Set(a, b), required = Set(b, c), signed = a)) {
+        case Left(err) =>
+          inside(err) { case SError.SErrorDamlException(FailedAuthorization(_, why)) =>
+            inside(why) { case cma: CreateMissingAuthorization =>
+              cma.authorizingParties shouldBe Set(b, c)
+              cma.requiredParties shouldBe Set(a)
+            }
+          }
+      }
+    }
+
+    "single (auth restricted/extended) {A,B}->{B,C}->B [OK]" in {
       inside(makeSingleCall(committers = Set(a, b), required = Set(b, c), signed = b)) {
         case Right(tx) =>
           val shape = shapeOfTransaction(tx)
@@ -47,23 +72,45 @@ class WithAuthorityTest extends AnyFreeSpec with Inside {
       }
     }
 
-    "single (auth unchanged; no auth node) A->{A}->A" in {
+    "single (auth restricted/extended) {A,B}->{B,C}->C [OK]" in {
+      inside(makeSingleCall(committers = Set(a, b), required = Set(b, c), signed = c)) {
+        case Right(tx) =>
+          val shape = shapeOfTransaction(tx)
+          val expected = List(Authority(Set(b, c), List(Create(c))))
+          shape shouldBe expected
+      }
+    }
+
+    "single (auth unchanged) A->{A}->A [OK]" in {
       inside(makeSingleCall(committers = Set(a), required = Set(a), signed = a)) { case Right(tx) =>
         val shape = shapeOfTransaction(tx)
-        val expected = List(Create(a))
+        val expected = List(Create(a)) // no auth-node
         shape shouldBe expected
       }
     }
 
-    "single (auth restricted; no auth node) {A,B}->{A}->A" in {
+    "single (auth restricted) {A,B}->{B}->B [OK]" in {
       inside(makeSingleCall(committers = Set(a, b), required = Set(b), signed = b)) {
         case Right(tx) =>
           val shape = shapeOfTransaction(tx)
-          val expected = List(Create(b))
+          val expected = List(Create(b)) // no auth-node
           shape shouldBe expected
       }
-      // TODO #15882 -- check auth failure if we attempt sign by party removed from auth context
     }
+
+    // TODO #15882 -- Must reduce authority (preoperly scoped) when no auth-node is created
+    // "single (auth restricted) {A,B}->{B}->A [FAIL]" in {
+    //   inside(makeSingleCall(committers = Set(a, b), required = Set(b), signed = a)) {
+    //     case Left(err) =>
+    //       inside(err) { case SError.SErrorDamlException(FailedAuthorization(_, why)) =>
+    //         inside(why) { case cma: CreateMissingAuthorization =>
+    //           val _ = cma
+    //           cma.authorizingParties shouldBe Set(b)
+    //           cma.requiredParties shouldBe Set(a)
+    //         }
+    //       }
+    //   }
+    // }
   }
 
   "Nested" - {
