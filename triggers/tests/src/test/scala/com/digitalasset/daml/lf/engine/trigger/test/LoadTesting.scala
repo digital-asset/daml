@@ -163,7 +163,11 @@ final class InFlightLoadTesting extends LoadTesting {
 
   override protected def triggerRunnerConfiguration: TriggerRunnerConfig =
     super.triggerRunnerConfiguration
-      .copy(inFlightCommandBackPressureCount = 20, inFlightCommandOverflowCount = 40)
+      .copy(
+        inFlightCommandBackPressureCount = 20,
+        hardLimit =
+          super.triggerRunnerConfiguration.hardLimit.copy(inFlightCommandOverflowCount = 40),
+      )
 
   "Ledger completion and transaction delays" should {
     "Eventually cause a trigger overflow" in {
@@ -204,7 +208,9 @@ final class InFlightLoadTesting extends LoadTesting {
 final class ACSLoadTesting extends LoadTesting {
 
   override protected def triggerRunnerConfiguration: TriggerRunnerConfig =
-    super.triggerRunnerConfiguration.copy(maximumActiveContracts = 10)
+    super.triggerRunnerConfiguration.copy(hardLimit =
+      super.triggerRunnerConfiguration.hardLimit.copy(maximumActiveContracts = 10)
+    )
 
   "Large ACS on trigger startup" should {
     "Cause a trigger overflow" in {

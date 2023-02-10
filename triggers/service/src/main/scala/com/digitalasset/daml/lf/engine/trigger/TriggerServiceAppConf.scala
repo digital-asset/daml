@@ -85,6 +85,9 @@ private[trigger] object TriggerServiceAppConf {
 
   implicit val triggerConfigReader: ConfigReader[TriggerRunnerConfig] =
     deriveReader[TriggerRunnerConfig]
+
+  implicit val triggerRunnerHardLimitsReader: ConfigReader[TriggerRunnerHardLimits] =
+    deriveReader[TriggerRunnerHardLimits]
 }
 
 /* An intermediate config representation allowing us to define our HOCON config in a more modular fashion,

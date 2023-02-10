@@ -679,7 +679,7 @@ trait AbstractTriggerServiceTest extends AbstractTriggerServiceTestHelper {
       DefaultTriggerRunnerConfig
         .copy(
           // As the trigger starts with the ACS pre-populated with 100 Cat contracts, we should overflow at startup using 10
-          maximumActiveContracts = 10
+          hardLimit = DefaultTriggerRunnerConfig.hardLimit.copy(maximumActiveContracts = 10)
         )
     ),
   ) { uri: Uri =>
@@ -722,7 +722,7 @@ trait AbstractTriggerServiceTest extends AbstractTriggerServiceTestHelper {
       DefaultTriggerRunnerConfig
         .copy(
           // As the trigger creates 100 Cat contracts, we should eventually overflow using 1
-          maximumActiveContracts = 1
+          hardLimit = DefaultTriggerRunnerConfig.hardLimit.copy(maximumActiveContracts = 1)
         )
     ),
   ) { uri: Uri =>
@@ -763,7 +763,7 @@ trait AbstractTriggerServiceTest extends AbstractTriggerServiceTestHelper {
         maxSubmissionDuration = 100.millis,
         // As our submission rate is faster than the ledger can manage and we are submitting 100 Cat create commands,
         // in-flights should overflow using 10
-        inFlightCommandOverflowCount = 10,
+        hardLimit = DefaultTriggerRunnerConfig.hardLimit.copy(inFlightCommandOverflowCount = 10),
       )
     ),
   ) { uri: Uri =>
@@ -793,6 +793,8 @@ trait AbstractTriggerServiceTest extends AbstractTriggerServiceTestHelper {
       )
     } yield succeed
   }
+
+  // TODO: add in testing for TriggerRuleEvaluationTimeout and TriggerRuleStepInterpretationTimeout
 }
 
 // Tests for in-memory trigger service configurations go here

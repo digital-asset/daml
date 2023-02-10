@@ -348,22 +348,29 @@ private[trigger] object Cli {
     opt[Long]("max-active-contracts")
       .optional()
       .text(
-        s"maximum number of active contracts that triggers may process. Defaults to ${DefaultTriggerRunnerConfig.maximumActiveContracts}"
+        s"maximum number of active contracts that triggers may process. Defaults to ${DefaultTriggerRunnerConfig.hardLimit.maximumActiveContracts}"
       )
       .action((size, cli) =>
         if (size > 0)
-          cli.copy(triggerConfig = cli.triggerConfig.copy(maximumActiveContracts = size))
+          cli.copy(triggerConfig =
+            cli.triggerConfig
+              .copy(hardLimit = cli.triggerConfig.hardLimit.copy(maximumActiveContracts = size))
+          )
         else throw new IllegalArgumentException("active contract size must be strictly positive")
       )
 
     opt[Int]("overflow-size")
       .optional()
       .text(
-        s"maximum number of in-flight command submissions before a trigger overflow exception occurs. Defaults to ${DefaultTriggerRunnerConfig.inFlightCommandOverflowCount}"
+        s"maximum number of in-flight command submissions before a trigger overflow exception occurs. Defaults to ${DefaultTriggerRunnerConfig.hardLimit.inFlightCommandOverflowCount}"
       )
       .action((size, cli) =>
         if (size > 0)
-          cli.copy(triggerConfig = cli.triggerConfig.copy(inFlightCommandOverflowCount = size))
+          cli.copy(triggerConfig =
+            cli.triggerConfig.copy(hardLimit =
+              cli.triggerConfig.hardLimit.copy(inFlightCommandOverflowCount = size)
+            )
+          )
         else throw new IllegalArgumentException("overflow size must be strictly positive")
       )
 
@@ -373,7 +380,35 @@ private[trigger] object Cli {
         "disables in-flight command overflow checks."
       )
       .action((_, cli) =>
-        cli.copy(triggerConfig = cli.triggerConfig.copy(allowInFlightCommandOverflows = false))
+        cli.copy(triggerConfig =
+          cli.triggerConfig.copy(hardLimit =
+            cli.triggerConfig.hardLimit.copy(allowInFlightCommandOverflows = false)
+          )
+        )
+      )
+
+    opt[FiniteDuration]("rule-evaluation-timeout")
+      .optional()
+      .text(
+        s"Period of time we will wait for rule evaluation to complete before a timeout exception occurs. Defaults to ${DefaultTriggerRunnerConfig.hardLimit.ruleEvaluationTimeout}"
+      )
+      .action((timeout, cli) =>
+        cli.copy(triggerConfig =
+          cli.triggerConfig
+            .copy(hardLimit = cli.triggerConfig.hardLimit.copy(ruleEvaluationTimeout = timeout))
+        )
+      )
+
+    opt[FiniteDuration]("step-iteration-timeout")
+      .optional()
+      .text(
+        s"Period of time we will wait for the rule step iterator to complete before a timeout exception occurs. Defaults to ${DefaultTriggerRunnerConfig.hardLimit.stepInterpreterTimeout}"
+      )
+      .action((timeout, cli) =>
+        cli.copy(triggerConfig =
+          cli.triggerConfig
+            .copy(hardLimit = cli.triggerConfig.hardLimit.copy(stepInterpreterTimeout = timeout))
+        )
       )
 
     opt[Unit]("dev-mode-unsafe")

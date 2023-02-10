@@ -67,7 +67,7 @@ object TriggerRunner {
                       )
                       .onFailure[UnauthenticatedException](stop)
                   )
-                  .onFailure[TriggerOverflowException](stop)
+                  .onFailure[TriggerHardLimitException](stop)
               )
               .onFailure(
                 restartWithBackoff(

@@ -139,16 +139,28 @@ private[lf] final case class Trigger(
 
 /** Throwing an instance of this exception will cause the trigger service to stop the runner
   */
-private sealed abstract class TriggerOverflowException(message: String) extends Exception(message)
+private sealed abstract class TriggerHardLimitException(message: String) extends Exception(message)
 
 private final case class InFlightCommandOverflowException(inFlightCommands: Int, overflowCount: Int)
-    extends TriggerOverflowException(
+    extends TriggerHardLimitException(
       s"$inFlightCommands in-flight commands exceed limit of $overflowCount"
     )
 
 private final case class ACSOverflowException(activeContracts: Int, overflowCount: Long)
-    extends TriggerOverflowException(
+    extends TriggerHardLimitException(
       s"$activeContracts active contracts exceed limit of $overflowCount"
+    )
+
+private final case class TriggerRuleEvaluationTimeout(
+    ruleTimeout: FiniteDuration
+) extends TriggerHardLimitException(
+      s"trigger rule evaluation duration exceeded the limit of $ruleTimeout"
+    )
+
+private final case class TriggerRuleStepInterpretationTimeout(
+    stepTimeout: FiniteDuration
+) extends TriggerHardLimitException(
+      s"trigger step interpretation duration exceeded the limit of $stepTimeout"
     )
 
 // Utilities for interacting with the speedy machine.
@@ -604,7 +616,8 @@ private[lf] class Runner private (
       clientTime: Timestamp,
       v: SValue,
   )(implicit
-      triggerContext: TriggerLogContext
+      materializer: Materializer,
+      triggerContext: TriggerLogContext,
   ): UnfoldState[SValue, TriggerContext[SubmitRequest]] = {
     var numberOfRuleEvaluations = 0
     var numberOfSubmissions = 0
@@ -614,14 +627,43 @@ private[lf] class Runner private (
     var numberOfExerciseByKey = 0
 
     val startTime = System.nanoTime()
+    val ruleEvaluationTimer = materializer.scheduleOnce(
+      triggerConfig.hardLimit.ruleEvaluationTimeout,
+      () => {
+        triggerContext.logError(
+          "Stopping trigger as the rule evaluator as exceeded its allotted running time",
+          "rule-evaluation-timeout" -> triggerConfig.hardLimit.ruleEvaluationTimeout,
+        )
+
+        throw TriggerRuleEvaluationTimeout(triggerConfig.hardLimit.ruleEvaluationTimeout)
+      },
+    )
 
     triggerContext.childSpan("step") { implicit triggerContext: TriggerLogContext =>
       def evaluate(se: SExpr): SValue = {
+        val stepIteratorTimer = materializer.scheduleOnce(
+          triggerConfig.hardLimit.stepInterpreterTimeout,
+          () => {
+            triggerContext.logError(
+              "Stopping trigger as the rule step interpreter as exceeded its allotted running time",
+              "step-interpreter-timeout" -> triggerConfig.hardLimit.stepInterpreterTimeout,
+            )
+
+            throw TriggerRuleStepInterpretationTimeout(
+              triggerConfig.hardLimit.stepInterpreterTimeout
+            )
+          },
+        )
         val machine: Speedy.PureMachine =
           Speedy.Machine.fromPureSExpr(compiledPackages, se)
+
         // Evaluate it.
-        machine.setExpressionToEvaluate(se)
-        Machine.stepToValue(machine)
+        try {
+          machine.setExpressionToEvaluate(se)
+          Machine.stepToValue(machine)
+        } finally {
+          discard(stepIteratorTimer.cancel())
+        }
       }
 
       type Termination = SValue \/ (TriggerContext[SubmitRequest], SValue)
@@ -671,30 +713,32 @@ private[lf] class Runner private (
       }
 
       UnfoldState(v)({ state =>
-        numberOfRuleEvaluations += 1
-
         go(state) match {
           case next @ -\/(_) =>
-            val endTime = System.nanoTime()
-            triggerContext.logInfo(
-              "Trigger rule evaluation end",
-              "metrics" -> LoggingValue.Nested(
-                LoggingEntries(
-                  "steps" -> numberOfRuleEvaluations,
-                  "submissions" -> LoggingValue.Nested(
-                    LoggingEntries(
-                      "total" -> numberOfSubmissions,
-                      "create" -> numberOfCreates,
-                      "exercise" -> numberOfExercises,
-                      "createAndExercise" -> numberOfCreateAndExercise,
-                      "exerciseByKey" -> numberOfExerciseByKey,
-                    )
-                  ),
-                  "duration" -> s"${FiniteDuration(endTime - startTime, "nanos").toMillis}ms",
-                )
-              ),
-            )
-            next
+            try {
+              val endTime = System.nanoTime()
+              triggerContext.logInfo(
+                "Trigger rule evaluation end",
+                "metrics" -> LoggingValue.Nested(
+                  LoggingEntries(
+                    "steps" -> numberOfRuleEvaluations,
+                    "submissions" -> LoggingValue.Nested(
+                      LoggingEntries(
+                        "total" -> numberOfSubmissions,
+                        "create" -> numberOfCreates,
+                        "exercise" -> numberOfExercises,
+                        "createAndExercise" -> numberOfCreateAndExercise,
+                        "exerciseByKey" -> numberOfExerciseByKey,
+                      )
+                    ),
+                    "duration" -> s"${FiniteDuration(endTime - startTime, "nanos").toMillis}ms",
+                  )
+                ),
+              )
+              next
+            } finally {
+              discard(ruleEvaluationTimer.cancel())
+            }
 
           case next =>
             next
@@ -931,7 +975,8 @@ private[lf] class Runner private (
   private def getTriggerEvaluator(
       acs: Seq[CreatedEvent]
   )(implicit
-      triggerContext: TriggerLogContext
+      materializer: Materializer,
+      triggerContext: TriggerLogContext,
   ): TriggerContextualFlow[TriggerMsg, SubmitRequest, Future[SValue]] = {
     triggerContext.logInfo("Trigger starting")
 
@@ -974,13 +1019,16 @@ private[lf] class Runner private (
             )
 
             val activeContracts = acs.length
-            if (activeContracts > triggerConfig.maximumActiveContracts) {
+            if (activeContracts > triggerConfig.hardLimit.maximumActiveContracts) {
               triggerContext.logError(
                 "Due to an excessive number of active contracts, stopping the trigger",
                 "active-contracts" -> activeContracts,
-                "active-contract-overflow-count" -> triggerConfig.maximumActiveContracts,
+                "active-contract-overflow-count" -> triggerConfig.hardLimit.maximumActiveContracts,
               )
-              throw ACSOverflowException(activeContracts, triggerConfig.maximumActiveContracts)
+              throw ACSOverflowException(
+                activeContracts,
+                triggerConfig.hardLimit.maximumActiveContracts,
+              )
             }
 
             triggerContext.logInfo(
@@ -1110,15 +1158,15 @@ private[lf] class Runner private (
 
                 numberOfActiveContracts(newState, trigger.defn.level, trigger.defn.version) match {
                   case Some(activeContracts)
-                      if activeContracts > triggerConfig.maximumActiveContracts =>
+                      if activeContracts > triggerConfig.hardLimit.maximumActiveContracts =>
                     triggerContext.logError(
                       "Due to an excessive number of active contracts, stopping the trigger",
                       "active-contracts" -> activeContracts,
-                      "active-contract-overflow-count" -> triggerConfig.maximumActiveContracts,
+                      "active-contract-overflow-count" -> triggerConfig.hardLimit.maximumActiveContracts,
                     )
                     throw ACSOverflowException(
                       activeContracts,
-                      triggerConfig.maximumActiveContracts,
+                      triggerConfig.hardLimit.maximumActiveContracts,
                     )
 
                   case _ =>
@@ -1243,17 +1291,17 @@ private[lf] class Runner private (
       TriggerContextualFlow[SubmitRequest]
         .map {
           case Ctx(context, request, _)
-              if triggerConfig.allowInFlightCommandOverflows && inFlightCommands.count > triggerConfig.inFlightCommandOverflowCount =>
+              if triggerConfig.hardLimit.allowInFlightCommandOverflows && inFlightCommands.count > triggerConfig.hardLimit.inFlightCommandOverflowCount =>
             context.logError(
               "Due to excessive in-flight commands, stopping the trigger",
               "commandId" -> request.getCommands.commandId,
               "in-flight-commands" -> inFlightCommands.count,
-              "in-flight-command-overflow-count" -> triggerConfig.inFlightCommandOverflowCount,
+              "in-flight-command-overflow-count" -> triggerConfig.hardLimit.inFlightCommandOverflowCount,
             )
 
             throw InFlightCommandOverflowException(
               inFlightCommands.count,
-              triggerConfig.inFlightCommandOverflowCount,
+              triggerConfig.hardLimit.inFlightCommandOverflowCount,
             )
 
           case ctx =>
