@@ -728,28 +728,34 @@ prettyNodeNode nn = do
         case node_CreateContractInstance of
           Nothing -> text "<missing contract instance>"
           Just ContractInstance{..} ->
-             (keyword_ "create" <-> prettyMay "<TEMPLATE?>" (prettyDefName world) contractInstanceTemplateId)
-           $$ maybe
-                mempty
-                (\v ->
-                  keyword_ "with" $$
-                    nest 2 (prettyValue' False 0 world v))
-                  contractInstanceValue
+            fcommasep (mapV prettyParty node_CreateSignatories)
+            <-> ( -- group to align "create" and "with"
+              (keyword_ "creates" <-> prettyMay "<TEMPLATE?>" (prettyDefName world) contractInstanceTemplateId)
+              $$ maybe
+                    mempty
+                    (\v ->
+                      keyword_ "with" $$
+                        nest 2 (prettyValue' False 0 world v))
+                      contractInstanceValue
+            )
 
     NodeNodeFetch Node_Fetch{..} ->
-      pure $
-        keyword_ "fetch"
+      pure
+        $   fcommasep (mapV prettyParty node_FetchSignatories)
+        <-> (
+              keyword_ "fetches"
           <-> prettyContractId node_FetchContractId
           <-> maybe mempty
                   (\tid -> parens (prettyDefName world tid))
                   node_FetchTemplateId
-         $$ foldMap
-            (\key ->
-                let prettyKey = prettyMay "<KEY?>" (prettyValue' False 0 world) $ keyWithMaintainersKey key
-                in
-                hsep [ keyword_ "by key", prettyKey ]
-            )
-            node_FetchFetchByKey
+           $$ foldMap
+              (\key ->
+                  let prettyKey = prettyMay "<KEY?>" (prettyValue' False 0 world) $ keyWithMaintainersKey key
+                  in
+                  hsep [ keyword_ "by key", prettyKey ]
+              )
+              node_FetchFetchByKey
+        )
 
     NodeNodeExercise Node_Exercise{..} -> do
       ppChildren <- prettyChildren node_ExerciseChildren
