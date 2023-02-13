@@ -61,7 +61,7 @@ da_scala_library(
     visibility = ["//visibility:public"],
     deps = [
         ":jwt",
-        "//ledger/test-common",
+        "//test-common",
         "//libs-scala/test-evidence/scalatest:test-evidence-scalatest",
         "//libs-scala/test-evidence/tag:test-evidence-tag",
         "@maven//:com_auth0_java_jwt",
@@ -86,7 +86,7 @@ da_scala_test(
     scalacopts = lf_scalacopts,
     deps = [
         ":jwt",
-        "//ledger/test-common",
+        "//test-common",
         "//libs-scala/test-evidence/scalatest:test-evidence-scalatest",
         "//libs-scala/test-evidence/tag:test-evidence-tag",
         "@maven//:com_auth0_java_jwt",

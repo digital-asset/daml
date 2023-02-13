@@ -113,7 +113,7 @@ da_scala_library(
         "//ledger/participant-integration-api",
         "//ledger/sandbox-on-x",
         "//ledger/sandbox-on-x:sandbox-on-x-test-lib",
-        "//ledger/test-common",
+        "//test-common",
         "//libs-scala/ledger-resources",
         "//libs-scala/ports",
         "//libs-scala/resources",
@@ -139,7 +139,7 @@ da_scala_library(
         ],
         data = [
             ":acs%s.dar" % suffix,
-            "//ledger/test-common/test-certificates",
+            "//test-common/test-certificates",
         ],
         resources = ["//triggers/runner:src/main/resources/logback.xml"],
         scala_deps = [
@@ -169,7 +169,7 @@ da_scala_library(
             "//ledger/participant-integration-api",
             "//ledger/sandbox-on-x",
             "//ledger/sandbox-on-x:sandbox-on-x-test-lib",
-            "//ledger/test-common",
+            "//test-common",
             "//libs-scala/contextualized-logging",
             "//libs-scala/ledger-resources",
             "//libs-scala/logging-entries",
@@ -192,7 +192,7 @@ da_scala_library(
         ],
         data = [
             ":acs%s.dar" % suffix,
-            "//ledger/test-common/test-certificates",
+            "//test-common/test-certificates",
         ],
         resources = ["//triggers/runner:src/main/resources/logback.xml"],
         scala_deps = [
@@ -223,7 +223,7 @@ da_scala_library(
             "//ledger/participant-integration-api",
             "//ledger/sandbox-on-x",
             "//ledger/sandbox-on-x:sandbox-on-x-test-lib",
-            "//ledger/test-common",
+            "//test-common",
             "//libs-scala/contextualized-logging",
             "//libs-scala/ledger-resources",
             "//libs-scala/logging-entries",

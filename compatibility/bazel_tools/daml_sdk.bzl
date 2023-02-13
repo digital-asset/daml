@@ -91,7 +91,7 @@ def _daml_sdk_impl(ctx):
         # We cannot fully extract the JAR because there are files
         # that clash on case insensitive file systems. Luckily, we only
         # need the DAR so this is not an issue.
-        stripPrefix = "ledger/test-common",
+        stripPrefix = "test-common",
     )
 
     if ctx.attr.create_daml_app_patch:

@@ -102,8 +102,8 @@ class ConfigSpec extends AnyFreeSpec with Matchers with OptionValues {
     }
     "TLS" - {
       "--pem PEM --crt CRT" in {
-        val pemPath = rlocation("ledger/test-common/test-certificates/client.pem")
-        val crtPath = rlocation("ledger/test-common/test-certificates/client.crt")
+        val pemPath = rlocation("test-common/test-certificates/client.pem")
+        val crtPath = rlocation("test-common/test-certificates/client.crt")
         val args = defaultRequiredArgs ++ Array("--pem", pemPath, "--crt", crtPath)
         val optConfig = Config.parse(args)
         assert(

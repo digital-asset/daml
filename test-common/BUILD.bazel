@@ -18,7 +18,7 @@ load(
     "versions",
 )
 load("//ledger/ledger-api-tests:conformance.bzl", "testtool_lf_versions")
-load("//ledger/test-common:test-common.bzl", "da_scala_dar_resources_library")
+load("//test-common:test-common.bzl", "da_scala_dar_resources_library")
 
 alias(
     name = "dar-files",
@@ -112,9 +112,9 @@ da_scala_dar_resources_library(
     daml_dir_names = test_names,
     daml_root_dir = "src/main/daml",
     data_dependencies = {
-        "carbonv2": ["//ledger/test-common:carbonv1-tests-%s.build"],
-        "carbonv3": ["//ledger/test-common:carbonv2-tests-%s.build"],
-        "modelext": ["//ledger/test-common:model-tests-%s.build"],
+        "carbonv2": ["//test-common:carbonv1-tests-%s.build"],
+        "carbonv3": ["//test-common:carbonv2-tests-%s.build"],
+        "modelext": ["//test-common:model-tests-%s.build"],
     },
     enable_scenarios = True,
     exclusions = {

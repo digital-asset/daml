@@ -14,7 +14,7 @@ da_scala_library(
     data = [
         "//compiler/damlc",
         "//daml-script/daml:daml-script.dar",
-        "//ledger/test-common:dar-files",
+        "//test-common:dar-files",
     ],
     scala_deps = [
         "@maven//:com_typesafe_scala_logging_scala_logging",
@@ -48,7 +48,7 @@ da_scala_library(
         "//ledger/ledger-runner-common",
         "//ledger/participant-integration-api",
         "//ledger/sandbox-on-x:sandbox-on-x-test-lib",
-        "//ledger/test-common",
+        "//test-common",
         "//libs-scala/fs-utils",
         "//libs-scala/ledger-resources",
         "//libs-scala/ports",
@@ -96,7 +96,7 @@ da_scala_test_suite(
         "//ledger/participant-integration-api",
         "//ledger/sandbox-on-x",
         "//ledger/sandbox-on-x:sandbox-on-x-test-lib",
-        "//ledger/test-common",
+        "//test-common",
         "//libs-scala/fs-utils",
         "//libs-scala/ledger-resources",
         "//libs-scala/ports",

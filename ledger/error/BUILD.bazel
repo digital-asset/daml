@@ -60,7 +60,7 @@ da_scala_library(
     ],
     deps = [
         "//ledger/error",
-        "//ledger/test-common",
+        "//test-common",
         "//libs-scala/contextualized-logging",
         "//libs-scala/scala-utils",
         "@maven//:ch_qos_logback_logback_classic",
@@ -87,7 +87,7 @@ da_scala_test_suite(
         ":error",
         ":error-test-lib",
         ":error-test-utils",
-        "//ledger/test-common",
+        "//test-common",
         "//libs-scala/contextualized-logging",
         "//libs-scala/logging-entries",
         "@maven//:ch_qos_logback_logback_classic",

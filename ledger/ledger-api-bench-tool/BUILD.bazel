@@ -65,8 +65,8 @@ da_scala_library(
         "//libs-scala/resources-akka",
         "//libs-scala/resources-grpc",
         "//libs-scala/timer-utils",
-        "//ledger/test-common:benchtool-tests-%s.scala" % "1.15",  # TODO: make the LF version configurable
-        "//ledger/test-common:dar-files-%s-lib" % "1.15",  # TODO: make the LF version configurable
+        "//test-common:benchtool-tests-%s.scala" % "1.15",  # TODO: make the LF version configurable
+        "//test-common:dar-files-%s-lib" % "1.15",  # TODO: make the LF version configurable
         "//observability/metrics",
         "@maven//:io_grpc_grpc_api",
         "@maven//:io_grpc_grpc_core",
@@ -97,7 +97,7 @@ da_scala_library(
         "//daml-lf/transaction",
         "//ledger-api/testing-utils",
         "//libs-scala/ports",
-        "//ledger/test-common:dar-files-%s-lib" % "1.15",
+        "//test-common:dar-files-%s-lib" % "1.15",
         "//language-support/scala/bindings",
         "//ledger-api/rs-grpc-bridge",
         "//ledger/ledger-runner-common",
@@ -117,8 +117,8 @@ da_scala_test_suite(
     ),
     data = [
         "//daml-lf/encoder:testing-dars",
-        "//ledger/test-common:benchtool-tests-%s.dar" % "1.15",
-        "//ledger/test-common/test-certificates",
+        "//test-common:benchtool-tests-%s.dar" % "1.15",
+        "//test-common/test-certificates",
     ],
     scala_deps = [
         "@maven//:com_typesafe_akka_akka_actor",
@@ -138,11 +138,11 @@ da_scala_test_suite(
     deps = [
         ":ledger-api-bench-tool-lib",
         ":ledger-api-bench-tool-test-lib",
-        "//ledger/test-common",
+        "//test-common",
         "//libs-scala/postgresql-testing",
         "//libs-scala/timer-utils",
-        "//ledger/test-common:benchtool-tests-%s.scala" % "1.15",
-        "//ledger/test-common:dar-files-%s-lib" % "1.15",
+        "//test-common:benchtool-tests-%s.scala" % "1.15",
+        "//test-common:dar-files-%s-lib" % "1.15",
         "//language-support/scala/bindings",
         "//ledger-api/rs-grpc-bridge",
         "//ledger-api/testing-utils",
@@ -154,7 +154,7 @@ da_scala_test_suite(
         "//ledger/metrics",
         "//ledger/sandbox-on-x",
         "//ledger/sandbox-on-x:sandbox-on-x-test-lib",
-        "//ledger/test-common:dar-files-default-lib",
+        "//test-common:dar-files-default-lib",
         "//libs-scala/adjustable-clock",
         "//libs-scala/ledger-resources",
         "//libs-scala/ports",

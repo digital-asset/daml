@@ -41,7 +41,7 @@ da_scala_test_suite(
     deps = [
         ":cli-opts",
         "//ledger/ledger-api-auth",
-        "//ledger/test-common",
+        "//test-common",
         "//libs-scala/fs-utils",
         "//libs-scala/jwt",
         "//libs-scala/resources",

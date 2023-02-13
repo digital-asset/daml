@@ -66,7 +66,7 @@ da_scala_test_suite(
         "//ledger-api/rs-grpc-bridge",
         "//ledger-api/sample-service",
         "//ledger-api/testing-utils",
-        "//ledger/test-common",
+        "//test-common",
         "//libs-scala/ledger-resources",
         "//libs-scala/ledger-resources:ledger-resources-test-lib",
         "//libs-scala/resources",

@@ -1,0 +1,1000 @@
+ 1200  gs
+ 1201  gd
+ 1202  gs
+ 1203  ./fmt.sh 
+ 1204  gs
+ 1205  gd
+ 1206  gs
+ 1207  ga security-evidence.md ledger/ledger-api-errors/BUILD.bazel
+ 1208  git rebase --continue
+ 1209  gs
+ 1210  ./fmt.sh 
+ 1211  gs
+ 1212  ga security-evidence.md
+ 1213  git rebase --continue
+ 1214  gs
+ 1215  gco -- security-evidence.md
+ 1216  gs
+ 1217  gd
+ 1218  ./fmt.sh 
+ 1219  gs
+ 1220  gd
+ 1221  ga security-evidence.md
+ 1222  gs
+ 1223  git rebase --continue
+ 1224  gs
+ 1225  gl
+ 1226  git stash pop
+ 1227  gs
+ 1228  gd
+ 1229  ga bazel_tools/scala.bzl
+ 1230  gs
+ 1231  git diff --staged
+ 1232  bazel build //...
+ 1233  git grep FlightR
+ 1234  gb
+ 1235  gs
+ 1236  gd --staged
+ 1237  gl
+ 1238  git stash
+ 1239  gco main
+ 1240  git pull
+ 1241  gco pbatko/etq-transactions-123
+ 1242  git grep EventSequentailIdFromTo
+ 1243  git grep FilterTableACSReader
+ 1244  history | grep postgres
+ 1245  docker run --rm -d   -e POSTGRES_USER=${PG_DB_USER}   -e POSTGRES_PASSWORD=${PG_DB_USER}   --publish 5432:5432   --expose 5432   --name index_db postgres:11.12
+ 1246  sudo -u postgres pg_ctlcluster 11 main stop
+ 1247  docker run --rm -d   -e POSTGRES_USER=${PG_DB_USER}   -e POSTGRES_PASSWORD=${PG_DB_USER}   --publish 5432:5432   --expose 5432   --name index_db postgres:11.12
+ 1248  docker ps
+ 1249  echo $PG_DB_USER
+ 1250  history | grep PG_ | tail -10
+ 1251  export PG_DB_PORT=5432
+ 1252  export PG_DB_USER=indexdb
+ 1253  export PG_DB_CONTAINER=localhost
+ 1254  export JDBC_OPT="jdbc:postgresql://${PG_DB_CONTAINER}:${PG_DB_PORT}/${PG_DB_USER}?user=${PG_DB_USER}&password=${PG_DB_USER}"
+ 1255  docker run --rm -d   -e POSTGRES_USER=${PG_DB_USER}   -e POSTGRES_PASSWORD=${PG_DB_USER}   --publish 5432:5432   --expose 5432   --name index_db postgres:11.12
+ 1256  docker ps
+ 1257  bazel run //ledger/sandbox-on-x:app -- run-legacy-cli-config --participant participant-id=indexdb,port=6861,server-jdbc-url=jdbc:postgresql://localhost:5432/indexdb?user=indexdb\&password=indexdb --ledger-id foo
+ 1258  cd ../../DACH-NY/
+ 1259  l
+ 1260  cd daml-shell/
+ 1261  gl
+ 1262  git pull
+ 1263  gl
+ 1264  ls
+ 1265  ./gradlew build
+ 1266  ./gradlew :shell:testScalafmt
+ 1267  gs
+ 1268  ls
+ 1269  less README.md 
+ 1270  make run
+ 1271  make run ARGS="connect grpc://Alice@localhost:6865"
+ 1272  quit
+ 1273  ls
+ 1274  cls
+ 1275  ls
+ 1276  sl
+ 1277  ls
+ 1278  ./gradlew :kvutils-app:compileTestScala
+ 1279  :kvutils-app:test --tests "com.digitalasset.daml.driver.vmbc.participant.state.kvutils.app.RunnerSpec"
+ 1280  ./gradlew :kvutils-app:test --tests "com.digitalasset.daml.driver.vmbc.participant.state.kvutils.app.RunnerSpec"
+ 1281  for i in {1..100} do; echo $i; ./gradlew :kvutils-app:test --tests "com.digitalasset.daml.driver.vmbc.participant.state.kvutils.app.RunnerSpec"; done
+ 1282  for i in {1..100} do; echo "$i"; ./gradlew :kvutils-app:test --tests "com.digitalasset.daml.driver.vmbc.participant.state.kvutils.app.RunnerSpec"; done
+ 1283  for i in {1..100}; do echo "$i"; ./gradlew :kvutils-app:test --tests "com.digitalasset.daml.driver.vmbc.participant.state.kvutils.app.RunnerSpec"; done
+ 1284  for i in {1..100}; do echo "$i"; ./gradlew :kvutils-app:test --rerun-tasks --tests "com.digitalasset.daml.driver.vmbc.participant.state.kvutils.app.RunnerSpec"; done
+ 1285  for i in {1..100}; do echo "$i"; ./gradlew :kvutils-app:test --no-build-cache --tests "com.digitalasset.daml.driver.vmbc.participant.state.kvutils.app.RunnerSpec"; done
+ 1286  gs
+ 1287  ga  kvutils-app/src/
+ 1288  gs
+ 1289  ls
+ 1290  ls log/
+ 1291  less log/shell.log 
+ 1292  less -a -R log/shell.log 
+ 1293  less -a -R log/ansi-input.log 
+ 1294  less -a -R log/ansi-output.log 
+ 1295  less README.md 
+ 1296  ps faux | grep daml-shell
+ 1297  kill 3148100
+ 1298  ps faux | grep daml-shell
+ 1299  kill 3148103
+ 1300  make run
+ 1301  make run ARGS="connect grpc://Alice@localhost:6865"
+ 1302  quit
+ 1303  cd ~/Downloads/
+ 1304  ls
+ 1305  sudo apt install ./zoom_amd64.deb
+ 1306  docker images | grep spider-tools
+ 1307  docker images | grep 870
+ 1308  ssh canton@canton-testing.da-int.net
+ 1309  ssh canton@sgx-testing.da-int.net
+ 1310  gl main
+ 1311  cd repositories/
+ 1312  cd digital-asset/
+ 1313  cd daml
+ 1314  git grep caffeine
+ 1315  git grep scaffeine
+ 1316  git grep Auth0
+ 1317  git grep auth-middleware
+ 1318  vim docs/source/building-applications.rst
+ 1319  git grep 'docs/' -- docs/source
+ 1320  git grep '\<docs/' -- docs/source
+ 1321  git grep ' docs/' -- docs/source
+ 1322  git grep auth-middleware
+ 1323  git grep ' tools/' -- docs/source
+ 1324  ls docs/source/tools/
+ 1325  ls docs/source/tools/auth-middleware/
+ 1326  git grep 'canton-console'
+ 1327  git grep 'non-repudiation'
+ 1328  git grep 'non-repudiation' -- docs/source
+ 1329  git grep 'oauth' -- docs/source
+ 1330  gs
+ 1331  gd
+ 1332  gs
+ 1333  gco -- ledger/metrics/src/main/scala/com/daml/metrics/IndexDBMetrics.scala
+ 1334  gco main
+ 1335  git pull
+ 1336  git grep 'oauth' -- docs/source
+ 1337  git grep ' tools/' -- docs/source
+ 1338  git grep "The goal of all error messages"
+ 1339  git grep "Prevent Security Leaks in Error Codes"
+ 1340  less docs/source/app-dev/grpc/error-codes.rst
+ 1341  bazel run ledger/ledger-api-tests/tool:tool-1.14 --help
+ 1342  bazel run ledger/ledger-api-tests/tool:tool-1.14 -- --help
+ 1343  bazel run ledger/ledger-api-tests/tool:tool-1.14 -- --list
+ 1344  bazel run ledger/ledger-api-tests/tool:tool-1.14 -- --include TransactionServiceStreamsIT localhost:5011 localhost:5021
+ 1345  find ledger -name "*scala" -exec cat {} \; | wc
+ 1346  find ledger -name "*scala" -type f -exec cat {} \; | wc
+ 1347  find . -name "*scala" -type f -exec cat {} \; | wc
+ 1348  ls UN
+ 1349  ls UN*
+ 1350  ls
+ 1351  gl
+ 1352  ls
+ 1353  ls release
+ 1354  gb
+ 1355  bazel clean
+ 1356  gs
+ 1357  gl
+ 1358  gb
+ 1359  git stash list
+ 1360  tls-check
+ 1361  tls_check
+ 1362  gs
+ 1363  gd
+ 1364  gs
+ 1365  gd
+ 1366  git grep GIT_
+ 1367  git grep GITHUB_
+ 1368  gs
+ 1369  gd
+ 1370  gb
+ 1371  gco -b mziolek/support-gcm-decryption-of-secrets
+ 1372  gs
+ 1373  ga ledger/ledger-api-common/src/main/scala/com/digitalasset/ledger/api/tls/DecryptionParameters.scala ledger/ledger-api-common/src/test/suite/scala/com/digitalasset/ledger/api/tls/DecryptionParametersTest.scala
+ 1374  gs
+ 1375  gco main
+ 1376  git pull
+ 1377  gs
+ 1378  gc -m "Enable GCM decryption of the secrets"
+ 1379  ./fmt.sh 
+ 1380  gs
+ 1381  gb
+ 1382  gco mziolek/support-gcm-decryption-of-secrets
+ 1383  ./fmt.sh 
+ 1384  gs
+ 1385  ga ledger/ledger-api-common/src/main/scala/com/digitalasset/ledger/api/tls/DecryptionParameters.scala
+ 1386  gc -m "Enable GCM decryption of the secrets"
+ 1387  git push origin mziolek/support-gcm-decryption-of-secrets
+ 1388  git grep "CREATE INDEX" 
+ 1389  git grep "CREATE INDEX"  | grep contract_id
+ 1390  git grep "CREATE INDEX"  | grep contract_id | grep postg
+ 1391  git grep sandbox-on-x
+ 1392  less compiler/damlc/tests/BUILD.bazel
+ 1393  git grep conformance_test
+ 1394  find . -name BUILD.bazel -type f
+ 1395  find . -name BUILD.bazel -type f | grep repl
+ 1396  gb
+ 1397  gs
+ 1398  gco main
+ 1399  git pull
+ 1400  direnv allow
+ 1401  git grep idpAdmin
+ 1402  git grep "idpAdmin\>"
+ 1403  git grep SandboxOnXForTest
+ 1404  git grep SandboxOnXForTest | sort | cut -d '/' -f 1,2 | uniq
+ 1405  git grep SandboxOnXRunner | sort | cut -d '/' -f 1,2 | uniq
+ 1406  find . -name BAZEL.build -type -f
+ 1407   -type f
+ 1408  find . -name BUILD.bazel -type -f
+ 1409  find . -name BUILD.bazel -type f
+ 1410  find . -name BUILD.bazel -type f -exec grep -H sandbox-on-x-app-lib {} \;
+ 1411  find . -name BUILD.bazel -type f -exec grep -H sandbox-on-x-test-lib {} \;
+ 1412  find . -name BUILD.bazel -type f -exec grep -H sandbox-on-x:app {} \;
+ 1413  find . -name BUILD.bazel -type f -exec grep -H sandbox-on-x-ephe {} \;
+ 1414  find . -name BUILD.bazel -type f -exec grep -H sandbox-on-x:sandbox {} \;
+ 1415  find . -name BUILD.bazel -type f -exec grep -H sandbox-on-x: {} \;
+ 1416  find . -name BUILD.bazel -type f -exec grep -H ledger-api-client: {} \;
+ 1417  find . -name BUILD.bazel -type f -exec grep -H ledger-api-client {} \;
+ 1418  find . -name BUILD.bazel -type f -exec grep -H sandbox-on-x {} \;
+ 1419  find . -name BUILD.bazel -type f -exec grep -H sandbox-on-x {} \; | grep view
+ 1420  find . -name BUILD.bazel -type f | grep view
+ 1421  git grep custom-view
+ 1422  git grep "\<fan\>"
+ 1423  git grep "\<Fan\>"
+ 1424  git grep "Fan\>"
+ 1425  git grep "for specifying choices: choice name first"
+ 1426  less docs/source/daml/reference/choices.rst 
+ 1427  bazel query 'deps(//)' --output graph > graph.in
+ 1428  bazel query 'deps(//...)' --output graph > graph.in
+ 1429  bazel query 'deps(//ledger/...)' --output graph > graph.in
+ 1430  ls graph.in 
+ 1431  dot -Tpng < graph.in > graph.png
+ 1432  cd ledger 
+ 1433  git grep libs-haskell
+ 1434  git grep daml-lf
+ 1435  ls
+ 1436  ls ..
+ 1437  find . -name BUILD.bazel | less
+ 1438  find . -name BUILD.bazel -exec grep '"//' {} \; | less
+ 1439  find . -name BUILD.bazel -exec grep '"//' {} \; | grep -v visibility | sed -e "/[ ]\+//" | sort | uniq -c
+ 1440  find . -name BUILD.bazel -exec grep '"//' {} \; | xargs grep -v visibility | sed -e "/[ ]\+//" | sort | uniq -c
+ 1441  find . -name BUILD.bazel -exec grep '"//' {} \; | xargs grep -v visibility
+ 1442  find . -name BUILD.bazel -exec grep '"//' {} \; | grep -v visibility
+ 1443  find . -name BUILD.bazel -exec grep '"//' {} \; | grep -v visibility | sed -e "/^[ ]\+//"
+ 1444  find . -name BUILD.bazel -exec grep '"//' {} \; | grep -v visibility | sed -e "s/^[ ]\+//"
+ 1445  find . -name BUILD.bazel -exec grep '"//' {} \; | grep -v visibility | sed -e "s/^[ ]\+//" | sort | uniq -c
+ 1446  find . -name BUILD.bazel -exec grep '"//' {} \; | grep -v "visibility\|load\|]" | sed -e "s/^[ ]\+//" | sort | uniq -c
+ 1447  find . -name BUILD.bazel -exec grep '"//' {} \; | grep -v "visibility\|load\|=" | sed -e "s/^[ ]\+//" | sort | uniq -c
+ 1448  find . -name BUILD.bazel -exec grep '"//' {} \; | grep -v "visibility\|load\|=\|]" | sed -e "s/^[ ]\+//" | sort | uniq -c
+ 1449  find . -name BUILD.bazel -exec grep '"//' {} \; | grep -v "visibility\|load\|=\|]\|ledger/" | sed -e "s/^[ ]\+//" | sort | uniq -c
+ 1450  find . -name *.bzl -exec grep '"//' {} \; | grep -v "visibility\|load\|=\|]\|ledger/" | sed -e "s/^[ ]\+//" | sort | uniq -c
+ 1451  cd ../daml-lf
+ 1452  find . -name BUILD.bazel -exec grep '"//' {} \; | grep -v "visibility\|load\|=\|]\|ledger/" | sed -e "s/^[ ]\+//" | sort | uniq -c
+ 1453  cd ../libs-scala/
+ 1454  find . -name BUILD.bazel -exec grep '"//' {} \; | grep -v "visibility\|load\|=\|]\|ledger/" | sed -e "s/^[ ]\+//" | sort | uniq -c
+ 1455  cd ../observability/
+ 1456  find . -name BUILD.bazel -exec grep '"//' {} \; | grep -v "visibility\|load\|=\|]\|ledger/" | sed -e "s/^[ ]\+//" | sort | uniq -c
+ 1457  gb
+ 1458  gs
+ 1459  cd ..
+ 1460  git pull
+ 1461  gco skisel-da/party-entry
+ 1462  bazel build //ledger/...
+ 1463  git rebase main
+ 1464  bazel build //ledger/...
+ 1465  bazel clean
+ 1466  bazel build //ledger/...
+ 1467  bazel build //ledger/participant-integration-api/...
+ 1468  gco main
+ 1469  gco -- ledger/participant-integration-api/src/main/scala/platform/apiserver/services/admin/ApiUserManagementService.scala
+ 1470  gco main
+ 1471  gb
+ 1472  gb -D skisel-da/party-entry
+ 1473  gco skisel-da/party-entry
+ 1474  bazel build //ledger/participant-integration-api/...
+ 1475  gco main
+ 1476  git pull
+ 1477  gco skisel-da/idp-conformance-tests
+ 1478  gl
+ 1479  git rebase main
+ 1480  bazel build //ledger/participant-integration-api/...
+ 1481  gco main
+ 1482  gb
+ 1483  gb -D skisel-da/idp-conformance-tests
+ 1484  gco skisel-da/idp-conformance-tests
+ 1485  bazel run //ledger/ledger-api-test-tool-on-canton:conformance-test-1.15
+ 1486  gb
+ 1487  bazel query ledger/daml-test-tool/...
+ 1488  bazel query ledger/...
+ 1489  bazel query ledger/ledger-api-tests/...
+ 1490  bazel run ledger/ledger-api-tests/tool:tool-1.15 --include IdentityProviderConfigServiceIT localhost:5011
+ 1491  bazel run ledger/ledger-api-tests/tool:tool-1.15 -- --include IdentityProviderConfigServiceIT localhost:5011
+ 1492  git grep "canton version"
+ 1493  git grep canton
+ 1494  ls bazel-out/
+ 1495  ls bazel-out/k8-opt
+ 1496  ls bazel-out/k8-opt/bin/
+ 1497  ls bazel-out/k8-opt-exec-C7777A24/
+ 1498  ls bazel-out/k8-opt-exec-C7777A24/bin/
+ 1499  ls bazel-out/k8-opt-exec-C7777A24/bin/external/
+ 1500  curl GET https://www.canton.io/releases/canton-open-source-20230203.tar.gz
+ 1501  curl https://www.canton.io/releases/canton-open-source-20230203.tar.gz
+ 1502  #curl https://www.canton.io/releases/canton-open-source-20230203.tar.gz --output 
+ 1503  ls
+ 1504  mkdir dump
+ 1505  #curl https://www.canton.io/releases/canton-open-source-20230203.tar.gz --output dump/canton.tar.gz
+ 1506  curl https://www.canton.io/releases/canton-open-source-20230203.tar.gz --output dump/canton.tar.gz
+ 1507  cd dump/
+ 1508  l
+ 1509  ls
+ 1510  tar -xvf canton.tar.gz 
+ 1511  cd canton-open-source-2.6.0-SNAPSHOT
+ 1512  ls
+ 1513  cp -r ~/repositories/DACH-NY/canton/enterprise/app/target/release/canton/examples/01-simple-topology
+ 1514  cp -r ~/repositories/DACH-NY/canton/enterprise/app/target/release/canton/examples/01-simple-topology .
+ 1515  ls 01-simple-topology/
+ 1516  bin/canton -c examples/01-simple-topology/simple-topology.conf -v --debug --log-file-appender=flat
+ 1517  bin/canton --version
+ 1518  curl https://www.canton.io/releases/canton-open-source-20230205.tar.gz --output dump/canton.tar.gz
+ 1519  curl https://www.canton.io/releases/canton-open-source-20230205.tar.gz --output dump/canton1.tar.gz
+ 1520  curl https://www.canton.io/releases/canton-open-source-20230204.tar.gz --output dump/canton1.tar.gz
+ 1521  cd ..
+ 1522  gs
+ 1523  gb
+ 1524  gs
+ 1525  gl
+ 1526  bazel run //ledger/ledger-api-test-tool-on-canton:conformance-test-1.15
+ 1527  gs
+ 1528  ga ledger/ledger-api-test-tool-on-canton/BUILD.bazel
+ 1529  gc -m "fix canton tests"
+ 1530  git push origin skisel-da/idp-conformance-tests
+ 1531  daml new quickstart --template quickstart-java
+ 1532  cd quickstart/
+ 1533  ls
+ 1534  ls daml
+ 1535  less daml/Iou.daml 
+ 1536  history | less
+ 1537  git grep sandbox-perf
+ 1538  cd ..
+ 1539  rm -r quickstart/
+ 1540  git grep sandbox-perf
+ 1541  git grep sandbox-perf-lib
+ 1542  bazel run //ledger/sandbox-perf:sandbox-perf
+ 1543  gb
+ 1544  gco main
+ 1545  git pull
+ 1546  gco -b mziolek/reenable-canton-idp-tests
+ 1547  history | grep on-canton
+ 1548  bazel run //ledger/ledger-api-test-tool-on-canton:conformance-test-1.15
+ 1549  gs
+ 1550  ga ledger/ledger-api-test-tool-on-canton/BUILD.bazel
+ 1551  gc -m "Reenable IDP canton tests"
+ 1552  git push origin mziolek/reenable-canton-idp-tests
+ 1553  ls
+ 1554  cd compatibility/
+ 1555  ls 
+ 1556  less README.md 
+ 1557  ./build-release-artifacts.sh 
+ 1558  bazel run //:daml-ledger-0.0.0-platform-2.4.3
+ 1559  exit
+ 1560  wc graph.in 
+ 1561  grep "@maven" graph.in | wc
+ 1562  perl --version
+ 1563  perl -ne "print unless m/\@maven/" graph.in | wc
+ 1564  perl -ne "print if m/\@maven/" graph.in | wc
+ 1565  perl -i -ne "print unless m/\@maven/" graph.in
+ 1566  wc graph.in 
+ 1567  rm graph.png 
+ 1568  less graph.in 
+ 1569  grep "@" graph.in | cut -d '>' -f 2 | sort | uniq
+ 1570  grep "@" graph.in | cut -d '>' -f 2 | wc
+ 1571  grep "@" graph.in | cut -d '>' -f 2 | cut -d ':' -f 1 | sort | uniq
+ 1572  perl -i -ne "print unless m/\@m/" graph.in
+ 1573  wc graph.in 
+ 1574  perl -i -ne "print unless m/\@/" graph.in
+ 1575  wc graph.in 
+ 1576  less graph.in 
+ 1577  perl -i -ne "print unless m/more items/" graph.in
+ 1578  less graph.in 
+ 1579  wc graph.in 
+ 1580  less graph.in 
+ 1581  perl -ne "print if m/scala\"\$/" graph.in | head -2
+ 1582  perl -ne "print if m/scala\"\$/" graph.in | head -10
+ 1583  perl -i -ne "print unless m/scala\"\$/" graph.in 
+ 1584  wc graph.in 
+ 1585  less graph.in 
+ 1586  perl -i -ne "print unless m/scala\" ->/" graph.in 
+ 1587  wc graph.in 
+ 1588  less graph.in 
+ 1589  perl -i -ne "print unless m/scaladoc/" graph.in 
+ 1590  wc graph.in 
+ 1591  less graph.in 
+ 1592  perl -i -ne "print unless m/MVN_VERSION/" graph.in 
+ 1593  wc graph.in 
+ 1594  less graph.in 
+ 1595  perl -ne "print if m/-> \"\/\/ledger/" graph.in | head -2
+ 1596  perl -ne "print if m/-> \"\/\/ledger/" graph.in | head -20
+ 1597  perl -i -ne "print unless m/-> \"\/\/ledger/" graph.in
+ 1598  wc graph.in 
+ 1599  less graph.in 
+ 1600  sort graph.in | uniq -c
+ 1601  sort graph.in | uniq -c | head -10
+ 1602  less graph.in 
+ 1603  perl -i -ne "print unless m/bazel_tools/" graph.in
+ 1604  wc graph.in 
+ 1605  less graph.in 
+ 1606  perl -ne "print if m/bazel_tools/" graph.in | wc
+ 1607  cut -d '>' -f 2 graph.in | sed -e 's/[ ]\+/ /g' | head -10
+ 1608  cut -d '>' -f 2 graph.in | sed -e 's/[ ]\+//g' | head -10
+ 1609  cut -d '>' -f 2 graph.in | sed -e 's/[ ]\+//g' | sort | uniq -c | less
+ 1610  cut -d '>' -f 2 graph.in | sed -e 's/[ ]\+//g' | grep -v '"//ledger/' | sort | uniq -c | less
+ 1611  bazel query '... intersect allpaths(..., ledger/sandbox-on-x)')
+ 1612  bazel query '... intersect allpaths(..., ledger/sandbox-on-x)'
+ 1613  gs
+ 1614  gd
+ 1615  gs
+ 1616  ga ledger/participant-integration-api/src/main/scala/platform/apiserver/services/admin/ApiUserManagementService.scala
+ 1617  gc -m "fix the build"
+ 1618  git push origin skisel-da/party-entry
+ 1619  bazel run ledger/ledger-api-tests/tool:tool-1.15 -- --include IdentityProviderConfigServiceIT localhost:5011
+ 1620  history | less
+ 1621  find . -name BUILD.bazel -type f -exec grep -H sandbox-on-x-app-lib {} \;
+ 1622  find . -name BUILD.bazel -type f -exec grep -H sandbox-on-x-test-lib {} \;
+ 1623  find . -name BUILD.bazel -type f -exec grep -H sandbox-on-x:app {} \;
+ 1624  find . -name BUILD.bazel -type f -exec grep -H sandbox-on-x-ephe {} \;
+ 1625  find . -name BUILD.bazel -type f -exec grep -H sandbox-on-x {} \; | grep view
+ 1626  find . -name BUILD.bazel -type f -exec grep -H sandbox-on-x {} \;
+ 1627  find . -name BUILD.bazel -type f -exec grep -H daml_compile {} \;
+ 1628  find . -name BUILD.bazel -type f -exec grep -H cli-opts {} \;
+ 1629  find . -name BUILD.bazel -type f -exec grep -H caching {} \;
+ 1630  find . -name BUILD.bazel -type f -exec grep -H ledger-service {} \;
+ 1631  find . -name BUILD.bazel -type f -exec grep -H ledger-api-client {} \;
+ 1632  find . -name BUILD.bazel -type f -exec grep -H 'ledger/error' {} \;
+ 1633  history | history.txt
+ 1634  history > history.txt
+ 1635  cd ..
+ 1636  cd the-real-canton-coin/
+ 1637  git grep assert
+ 1638  git grep "assert\("
+ 1639  git grep "assert("
+ 1640  git grep "assert(" | grep daml
+ 1641  git grep json
+ 1642  git grep json-http
+ 1643  git grep repl
+ 1644  git grep repl-service
+ 1645  gl
+ 1646  git pull
+ 1647  mkdir -p /etc/nix/netrc
+ 1648  sudo mkdir -p /etc/nix/netrc
+ 1649  cd /etc/nix
+ 1650  rmdir netrc
+ 1651  sudo rmdir netrc
+ 1652  sudo vim netrc
+ 1653  cd ~/repositories/DACH-NY/the-real-canton-coin
+ 1654  cd ..
+ 1655  cd the-real-canton-coin/
+ 1656  cd ../../../..
+ 1657  cd ..
+ 1658  find enterprise -name "*scala" -type f -exec cat {} \; | wc
+ 1659  find community -name "*scala" -type f -exec cat {} \; | wc
+ 1660  find . -name "*scala" -type f -exec cat {} \; | wc
+ 1661  ls
+ 1662  cd scripts/canton-testing/
+ 1663  ./test-participant-replay.sh 
+ 1664  vim test-participant-replay.sh 
+ 1665  ./test-participant-replay.sh 
+ 1666  vim test-participant-replay.sh 
+ 1667  ls nightly-tests/
+ 1668  ls nightly-tests/2023-01-05-17-53-29/logs/
+ 1669  ls nightly-tests/2023-01-05-17-53-29/logs/test-participant-replay-primary/
+ 1670  less nightly-tests/2023-01-05-17-53-29/logs/test-participant-replay-primary/postgresql-2023-01-05-16.log 
+ 1671  less nightly-tests/2023-01-05-17-53-29/logs/test-participant-replay-secondary/postgresql-2023-01-05-16.log 
+ 1672  ls
+ 1673  ls -l
+ 1674  sbt test:compile performance/package enterprise-app/bundle
+ 1675  cd ../..
+ 1676  sbt test:compile performance/package enterprise-app/bundle
+ 1677  gl
+ 1678  gb
+ 1679  gs
+ 1680  gd
+ 1681  gs
+ 1682  gco -- community/common/src/main/scala/com/digitalasset/canton/logging/NamedLogging.scala enterprise/microbench/src/main/scala/com/digitalasset/canton/SequencerBenchmark.scala
+ 1683  gs
+ 1684  git tash
+ 1685  git stash
+ 1686  gco main
+ 1687  git pull
+ 1688  direnv allow
+ 1689  git stash pop
+ 1690  export RUN_ID=mytest
+ 1691  scripts/canton-testing/test-participant-replay.sh scripts/canton-testing/canton-testing.env
+ 1692  scripts/canton-testing/test-participant-replay.sh scripts/canton-testing/default-settings.env 
+ 1693  scripts/canton-testing/test-with-recording.sh scripts/canton-testing/default-settings.env 
+ 1694  scripts/canton-testing/test-participant-replay.sh scripts/canton-testing/default-settings.env 
+ 1695  history | tail -20
+ 1696  history | tail -30
+ 1697  find . -name "*.dump"
+ 1698  sudo rm -r nightly-tests/
+ 1699  scripts/canton-testing/test-with-recording.sh scripts/canton-testing/default-settings.env 
+ 1700  scripts/canton-testing/test-participant-replay.sh scripts/canton-testing/default-settings.env 
+ 1701  scripts/canton-testing/nightly-performance-test.sh
+ 1702  ls 
+ 1703  ls nightly-tests/
+ 1704  sudo rm -r nightly-tests/
+ 1705  ls scripts/
+ 1706  ls -l scripts/
+ 1707  ls -l scripts/canton-testing/
+ 1708  ls -l scripts/canton-testing/nightly-tests/
+ 1709  sudo rm -r scripts/canton-testing/nightly-tests/
+ 1710  ping 34.86.104.41
+ 1711  ls -l
+ 1712  scripts/canton-testing/test-with-recording.sh scripts/canton-testing/default-settings.env 
+ 1713  ls -l
+ 1714  ls nightly-tests/mytest/
+ 1715  find . -name "*.dump"
+ 1716  scripts/canton-testing/test-with-recording.sh scripts/canton-testing/default-settings.env 
+ 1717  scripts/canton-testing/test-participant-replay.sh scripts/canton-testing/default-settings.env 
+ 1718  gs
+ 1719  gd scripts/canton-testing/default-settings.env
+ 1720  gd
+ 1721  gs
+ 1722  sudo -u postgres pg_ctlcluster 11 main status
+ 1723  sudo -u postgres pg_ctlcluster 12 main status
+ 1724  sudo -u postgres pg_ctlcluster 13 main status
+ 1725  sudo -u postgres pg_ctlcluster 14 main status
+ 1726  sudo -u postgres pg_ctlcluster * main status
+ 1727  sudo -u postgres pg_ctlcluster --help
+ 1728  sudo -u postgres pg_ctlcluster -help
+ 1729  sudo -u postgres pg_ctlcluster -- --help
+ 1730  ls nightly-tests/mytest/logs/performance-runners-test-with-recording.log.gz 
+ 1731  gunzip nightly-tests/mytest/logs/performance-runners-test-with-recording.log.gz
+ 1732  ls nightly-tests/mytest/logs/
+ 1733  less nightly-tests/mytest/logs/performance-runners-test-with-recording.log
+ 1734  gunzip nightly-tests/mytest/logs/participants-test-participant-replay.log.gz 
+ 1735  less nightly-tests/mytest/logs/participants-test-participant-replay.log 
+ 1736  tail -1 nightly-tests/mytest/logs/performance-runners-test-with-recording.log
+ 1737  head -1 nightly-tests/mytest/logs/participants-test-participant-replay.log
+ 1738  ls nightly-tests/mytest/logs/test-participant-replay-primary/
+ 1739  ls nightly-tests/mytest/
+ 1740  ls nightly-tests/mytest/metrics/
+ 1741  ls nightly-tests/mytest/metrics/slack-report-test-participant-replay 
+ 1742  less nightly-tests/mytest/metrics/slack-report-test-participant-replay 
+ 1743  scripts/canton-testing/test-participant-replay.sh scripts/canton-testing/default-settings.env 
+ 1744  history | tail -50
+ 1745  sudo rm -r nightly-tests/
+ 1746  ls scripts/canton-testing/
+ 1747  scripts/canton-testing/test-with-recording.sh scripts/canton-testing/default-settings.env
+ 1748  scripts/canton-testing/test-participant-replay.sh scripts/canton-testing/default-settings.env 
+ 1749  sudo rm -r nightly-tests/
+ 1750  history | tail -100
+ 1751  gs
+ 1752  scripts/canton-testing/test-with-recording.sh scripts/canton-testing/default-settings.env
+ 1753  git grep PAYLOAD_SIZE
+ 1754  git grep "run-performance-runners\.canton"
+ 1755  git grep "test-full-system\.sh"
+ 1756  git grep "test-with-recording\.sh"
+ 1757  git grep "CANTON_SCRIPT" -- scripts/canton-testing/
+ 1758  git grep "CANTON_SCRIPT="
+ 1759  git grep "default-settings\.env"
+ 1760  gd
+ 1761  gd -- scripts/canton-testing/default-settings.env 
+ 1762  gco scripts/canton-testing/default-settings.env
+ 1763  cp scripts/canton-testing/canton-testing.env scripts/canton-testing/marcin-testing.env
+ 1764  gco scripts/canton-testing/canton-testing.env
+ 1765  sudo rm -r nightly-tests/
+ 1766  scripts/canton-testing/test-with-recording.sh scripts/canton-testing/marcin-testing.env 
+ 1767  sudo rm -r nightly-tests/
+ 1768  scripts/canton-testing/test-with-recording.sh scripts/canton-testing/marcin-testing.env 
+ 1769  ls -l nightly-tests/mytest/recordings/
+ 1770  scripts/canton-testing/test-participant-replay.sh scripts/canton-testing/marcin-testing.env 
+ 1771  ls nightly-tests/mytest/logs/
+ 1772  gunzip nightly-tests/mytest/logs/participants-test-participant-replay.log.gz
+ 1773  less nightly-tests/mytest/logs/participants-test-participant-replay.log
+ 1774  cat nightly-tests/mytest/metrics/slack-report-test-participant-replay 
+ 1775  vim r
+ 1776  chmod 777 r
+ 1777  ./r
+ 1778  grep jdbc nightly-tests/mytest/logs/participants-test-participant-replay.log
+ 1779  scripts/canton-testing/test-participant-replay.sh scripts/canton-testing/marcin-testing.env 
+ 1780  ./r
+ 1781  git pull
+ 1782  scripts/canton-testing/test-participant-replay.sh scripts/canton-testing/marcin-testing.env 
+ 1783  ls
+ 1784  cd nightly-tests/
+ 1785  ls
+ 1786  cd mytest/
+ 1787  ls
+ 1788  cd logs/
+ 1789  ls
+ 1790  gunzip participants-test-participant-replay.log.gz
+ 1791  less -R participants-test-participant-replay.log
+ 1792  rm participants-test-participant-replay.log.gz
+ 1793  rm participants-test-participant-replay.log
+ 1794  cd ../../..
+ 1795  scripts/canton-testing/test-participant-replay.sh scripts/canton-testing/marcin-testing.env 
+ 1796  cd nightly-tests/mytest/logs/
+ 1797  gunzip participants-test-participant-replay.log.gz
+ 1798  less -R participants-test-participant-replay.log
+ 1799  :q
+ 1800  grep "Event inbox is full" participants-test-participant-replay.log | head -1
+ 1801  grep "Event inbox is full" participants-test-participant-replay.log | wc
+ 1802  less -R participants-test-participant-replay.log
+ 1803  grep "Event inbox is full" participants-test-participant-replay.log | less -R
+ 1804  grep "Event inbox is full" participants-test-participant-replay.log | cut -d ' ' -f 2 | less
+ 1805  env | grep mytest
+ 1806  ls
+ 1807  ls -l
+ 1808  grep "Event inbox is full" participants-test-participant-replay.log | cut -d ' ' -f 2 | wc
+ 1809  ls
+ 1810  ls ..
+ 1811  ls ../metrics/
+ 1812  less ../metrics/slack-report-test-participant-replay 
+ 1813  less ../metrics/datadog-report-test-participant-replay 
+ 1814  ls ..
+ 1815  zless participants-test-participant-replay.log.gz
+ 1816  ls
+ 1817  less domains-test-participant-replay.log
+ 1818  ls
+ 1819  less participants-test-participant-replay.log
+ 1820  ls
+ 1821  less participants-test-participant-replay.log
+ 1822  grep 'Blocking\|Unblock' participants-test-participant-replay.log
+ 1823  ps faux | grep java
+ 1824  ps faux | grep java | grep -v -i idea
+ 1825  ps faux | grep java | grep -v -i "idea\|bazel"
+ 1826  #jcmd 2318218 JFR.start
+ 1827  jcmd --help
+ 1828  #jcmd 2318218 JFR.start
+ 1829  jcmd 2318218 JFR.start
+ 1830  ls
+ 1831  jcmd 2318218 JFR.dump name=1 filename=here.jfr
+ 1832  ps faux | grep ParticipantReplayBenchmark
+ 1833  ps faux | grep StartFlightRecording
+ 1834  ls -l ../../../replay.jfr 
+ 1835  git grep canton@github
+ 1836  git grep canton\@github
+ 1837  git grep github
+ 1838  cd ../../..
+ 1839  git grep canton\@github
+ 1840  git grep github
+ 1841  git grep crontab
+ 1842  gs
+ 1843  less scripts/canton-testing/test-participant-replay.sh
+ 1844  find . -name logback.xml
+ 1845  diff ./enterprise/app/target/streams/_global/assemblyOption/_global/streams/assembly/ef9103b26a25f34dc604c4cd9675b10a057a89b5_dir/logback.xml ./community/app/src/main/resources/logback.xml
+ 1846  diff ./enterprise/app/target/streams/_global/assemblyOption/_global/streams/assembly/ef9103b26a25f34dc604c4cd9675b10a057a89b5_dir/logback.xml ./community/app/target/scala-2.13/classes/logback.xml
+ 1847  diff ./enterprise/app/target/streams/_global/assemblyOption/_global/streams/assembly/ef9103b26a25f34dc604c4cd9675b10a057a89b5_dir/logback.xml ./daml/ledger/sandbox-on-x/src/test/app/resources/logback.xml
+ 1848  ssh canton@canton-testing.da-int.net
+ 1849  ls
+ 1850  ssh canton@canton-testing.da-int.net
+ 1851  ls
+ 1852  ls tmp/
+ 1853  scp canton@canton-testing.da-int.net:~/martino/participants-test-participant-replay.log.gz tmp
+ 1854  ssh canton@canton-testing.da-int.net
+ 1855  scp canton@canton-testing.da-int.net:~/martino/metrics.tar.gz tmp
+ 1856  scp canton@canton-testing.da-int.net:~/martino/replay.tar.gz tmp
+ 1857  scp canton@canton-testing.da-int.net:~/martino/replay.jfr.gz tmp
+ 1858  cd tmp/
+ 1859  ls
+ 1860  gunzip replay.jfr.gz 
+ 1861  mv replay.jfr remoteReplay.jfr
+ 1862  history | grep ssh
+ 1863  ssh canton@canton-testing.da-int.net
+ 1864  git grep max_connections
+ 1865  cd ..
+ 1866  git grep max_connections
+ 1867  ssh canton@canton-testing.da-int.netdomains-test-participant-replay.log.gz
+ 1868  ls
+ 1869  ls nightly-tests/mytest/
+ 1870  ls nightly-tests/
+ 1871  rm -r 2023-01-10-19-19-09
+ 1872  rm -r nightly-tests/2023-01-10-19-19-09
+ 1873  sudo rm -r nightly-tests/2023-01-10-19-19-09
+ 1874  sudo rm -r nightly-tests/mytest/metrics/
+ 1875  sudo rm -r nightly-tests/mytest/logs/
+ 1876  export RUN_ID=fastdb
+ 1877  mkdir fastdb
+ 1878  rmdor fastdb/
+ 1879  rmdir fastdb/
+ 1880  mkdir nightly-tests/fastdb/
+ 1881  cp -r nightly-tests/mytest/recordings/ nightly-tests/fastdb/
+ 1882  scripts/canton-testing/test-participant-replay.sh scripts/canton-testing/marcin-testing.env 
+ 1883  gs
+ 1884  gd community/common/src/main/scala/com/digitalasset/canton/sequencing/handlers/StoreSequencedEvent.scala
+ 1885  gs
+ 1886  gd community/common/src/main/scala/com/digitalasset/canton/sequencing/handlers/StoreSequencedEvent.scala
+ 1887  gb
+ 1888  gl
+ 1889  gd d87631f84cb0bc3b8150d6a8452deede787ae835 a49794d53fe17428c6c8b61ba5ae89461a4d7a89 -- community/common/src/test/scala/com/digitalasset/canton/sequencing/client/SequencerClientTest.scala
+ 1890  gd
+ 1891  gs
+ 1892  ga community/common/src/main/scala/com/digitalasset/canton/sequencing/client/SequencerClient.scala community/common/src/main/scala/com/digitalasset/canton/sequencing/client/SequencerClientSubscriptionError.scala community/common/src/test/scala/com/digitalasset/canton/sequencing/client/SequencerClientTest.scala
+ 1893  gs
+ 1894  gc -m "Full akka implementation"
+ 1895  git push origin mziolek/sequencer-client-pipeline
+ 1896  ssh canton@canton-testing.da-int.net
+ 1897  gb
+ 1898  ps faux | grep ssh
+ 1899  kill 2247966
+ 1900  gs
+ 1901  ssh canton@canton-testing.da-int.net
+ 1902  ssh canton@sgx-testing.da-int.net
+ 1903  brep GIT ~/.bashrc
+ 1904  grep GIT ~/.bashrc
+ 1905  gb
+ 1906  git submodule status
+ 1907  cd ..
+ 1908  cd daml-shell
+ 1909  ls
+ 1910  make run
+ 1911  ssh canton@sgx-testing.da-int.net
+ 1912  ls /mnt/
+ 1913  ls -a /mnt/
+ 1914  grep GIT ~/.bashrc 
+ 1915  ps faux | grep java
+ 1916  cd ~
+ 1917  find . -name "*tls*"
+ 1918  find . -name "*tls*check*"
+ 1919  find . -name -type f "*tls*check*"
+ 1920  find . -name "*tls*check*" -type f
+ 1921  find . -name "testssl*" -type f
+ 1922  less ./repositories/DACH-NY/daml-on-kv-oem-integration-kit/testssl-report.txt
+ 1923  less -R ./repositories/DACH-NY/daml-on-kv-oem-integration-kit/testssl-report.txt
+ 1924  find . -name "*.txt" -exec grep -i -H "jfr" {} \;
+ 1925  find temp/ -name "*.txt" -exec grep -i -H "jfr" {} \; 2>&1 | grep -v ermiss
+ 1926  find . -name "*.jfr" -type f
+ 1927  ls -l ./repositories/DACH-NY/canton/flight.jfr
+ 1928  find temp/ -name "*.txt" -exec grep -i -H "jcmd" {} \; 2>&1 | grep -v ermiss
+ 1929  cd jmc-8.1.0_linux-x64/JDK\ Mission\ Control/
+ 1930  ls
+ 1931  jmc
+ 1932  cd ../..
+ 1933  find temp/ -name "jmc" -type f 2>&1 | grep -v ermiss
+ 1934  find . -name "jmc*" -type f 2>&1 | grep -v ermiss
+ 1935  ssh canton@canton-testing.net
+ 1936  history | grep ssh
+ 1937  ls /etc/nix/netrc
+ 1938  sudo ls /etc/nix/netrc
+ 1939  ssh canton@db-testing.da-int.net
+ 1940  ssh canton@canton-testing.da-int.net
+ 1941  find jmc
+ 1942  ls
+ 1943  ls jmc*
+ 1944  which jmc
+ 1945  jmc
+ 1946  cd ..
+ 1947  cd longrunner/
+ 1948  git grep spider-tools
+ 1949  git grep spider-
+ 1950  git grep spider- | grep image
+ 1951  export TAGGABLE=(spider-kafka-ledger-bridge spider-gatling-simulations spider-compose spider-tools spider-app-metrics-exporter spider-application spider-bots spider-bridge)
+ 1952  for i in ${TAGGABLE[@]}; do   docker pull digitalasset/${i}:1.42.1166; done
+ 1953  for i in ${TAGGABLE[@]}; do   docker tag digitalasset/${i}:1.42.1166 eu.gcr.io/da-dev-concord2/${i}:1.42.1166;   docker push eu.gcr.io/da-dev-concord2/${i}:1.42.1166; done
+ 1954  sudo -u postgres pg_ctlcluster 11 main status
+ 1955  psql -u postgres
+ 1956  psql -U postgres
+ 1957  ls /var/run/
+ 1958  ls /var/run/postgresql/
+ 1959  ls /var/run/postgresql/11-main.pg_stat_tmp/
+ 1960  sudo ls /var/run/postgresql/11-main.pg_stat_tmp/
+ 1961  sudo ls -a /var/run/postgresql/11-main.pg_stat_tmp/
+ 1962  ps faux | grep postgres
+ 1963  less /home/mziolek/repositories/DACH-NY/canton/scripts/canton-testing/util/../config/postgres/_persistence.conf
+ 1964  psql -U participant1
+ 1965  psql jdbc:postgresql://localhost:4532/participant1
+ 1966  psql -U participant1
+ 1967  psql jdbc:postgresql://localhost:4531/participant1
+ 1968  psql -p 5432 -U participant1
+ 1969  psql -p 4532 -U participant1
+ 1970  psql jdbc:postgresql://localhost:4532/participant1
+ 1971  psql -h localhost -p 4532 -U participant1
+ 1972  psql -h localhost -p 4532 -U postgres
+ 1973  psql -h localhost -p 4532 -U ledger1
+ 1974  less /home/mziolek/repositories/DACH-NY/canton/scripts/canton-testing/util/../config/postgres/_persistence.conf
+ 1975  psql -h localhost -p 4531 -U participant1
+ 1976  psql -h localhost -p 4537 -U participant1
+ 1977  psql -h localhost -p 4531 -U participant1
+ 1978  psql -h localhost -p 4531 -U ledger1
+ 1979  psql -h localhost -p 4531 -U postgres
+ 1980  psql -h localhost -p 4531
+ 1981  psql -h localhost -p 4532
+ 1982  psql -h localhost -p 4531 -U participant
+ 1983  psql -h localhost -p 4532 -U participant
+ 1984  psql -h localhost -p 4532 -U participant2
+ 1985  psql -h localhost -p 4537 -U participant1 -d participant1
+ 1986  psql -h localhost -p 4531 -U participant1 -d participant1
+ 1987  ps faux | grep ssh
+ 1988  kill 2435480
+ 1989  kill 2445221
+ 1990  ps faux | grep ssh
+ 1991  kill 3119254 3138088
+ 1992  ps faux | grep ssh
+ 1993  kill 3143306
+ 1994  ps faux | grep ssh
+ 1995  kill 3191686
+ 1996  cd ..
+ 1997  cd assembly/
+ 1998  git pull
+ 1999  git grep custom-view
+ 2000  grep GIT ~/.bashrc
+ 2001  cd repositories/
+ 2002  history | less
+ 2003  cd digital-asset/
+ 2004  cd daml
+ 2005  cd compatibility/
+ 2006  bazel run //:daml-ledger-0.0.0-platform-2.4.3
+ 2007  bazel run //:ledger-api-test-tool-0.0.0-platform-2.4.3-on-x
+ 2008  cd ..
+ 2009  less history.txt 
+ 2010  find . -name BUILD.bazel -type f -exec grep -H 'ledger/ledger-api-auth' {} \;
+ 2011  find . -name BUILD.bazel -type f -exec grep -H 'ledger/ledger-api-auth' {} \; | cut -f ':' -f 1 | uniq
+ 2012  find . -name BUILD.bazel -type f -exec grep -H 'ledger/ledger-api-auth' {} \; | xargs cut -f ':' -f 1 | uniq
+ 2013  find . -name BUILD.bazel -type f -exec grep -H 'ledger/ledger-api-auth' {} \; | xargs cut -d ':' -f 1 | uniq
+ 2014  find . -name BUILD.bazel -type f -exec grep -H 'ledger/ledger-api-auth' {} \;
+ 2015  find . -name BUILD.bazel -type f -exec grep -H 'ledger/ledger-api-auth' {} \; | cut -d ':' -f 1 | uniq
+ 2016  find . -name BUILD.bazel -type f -exec grep -H 'ledger/ledger-api-auth' {} \; | cut -d ':' -f 1 | sed -e 's/\.\///' | uniq
+ 2017  find . -name BUILD.bazel -type f -exec grep -H 'ledger/ledger-api-auth' {} \; | cut -d ':' -f 1 | sed -e 's/\.\///;s/\/BUILD.bazel//' | uniq
+ 2018  find . -name BUILD.bazel -type f -exec grep -H 'ledger/ledger-api-auth-client' {} \; | cut -d ':' -f 1 | sed -e 's/\.\///;s/\/BUILD.bazel//' | uniq
+ 2019  find . -name BUILD.bazel -type f -exec grep -H 'ledger/ledger-api-bench-tool' {} \; | cut -d ':' -f 1 | sed -e 's/\.\///;s/\/BUILD.bazel//' | uniq
+ 2020  find . -name BUILD.bazel -type f -exec grep -H 'ledger/ledger-api-client' {} \; | cut -d ':' -f 1 | sed -e 's/\.\///;s/\/BUILD.bazel//' | uniq
+ 2021  find ledger -name BUILD.bazel -type f -exec grep -H 'language-support' {} \; | cut -d ':' -f 1 | sed -e 's/\.\///;s/\/BUILD.bazel//' | uniq
+ 2022  find ledger -name BUILD.bazel -type f -exec grep -H 'language-support' {} \; 
+ 2023  find ledger -name BUILD.bazel -type f -exec grep -H 'language-support' {} \; | cut -d ':' -f 1 | sed -e 's/\.\///;s/\/BUILD.bazel//' | uniq
+ 2024  find . -name BUILD.bazel -type f -exec grep -H 'rs-grpc-akka' {} \; | cut -d ':' -f 1 | sed -e 's/\.\///;s/\/BUILD.bazel//' | uniq
+ 2025  find ledger-api -name *.scala -type f -exec grep -H 'com.daml.error' {} \; | cut -d ':' -f 1 | sed -e 's/\.\///;s/\/BUILD.bazel//' | uniq
+ 2026  find . -name *.scala -type f -exec grep -H 'com.daml.error' {} \; | cut -d ':' -f 1 | sed -e 's/\.\///;s/\/BUILD.bazel//' | uniq
+ 2027  gs
+ 2028  find ledger-api -name BUILD.bazel -type f -exec grep -H 'ledger/' {} \; | cut -d ':' -f 1 | sed -e 's/\.\///;s/\/BUILD.bazel//' | uniq
+ 2029  gs
+ 2030  gl
+ 2031  gd 6a3ff188e6b6cdb103e76165a2fe982f2a7db733 a15321d3cec7f5684188163f357ac75eebef72e5
+ 2032  find . -name *.scala -type f -exec grep -H 'ledger/errors' {} \; | cut -d ':' -f 1 | sed -e 's/\.\///;s/\/BUILD.bazel//' | uniq
+ 2033  find . -name BUILD.bazel -type f -exec grep -H 'ledger/errors' {} \; | cut -d ':' -f 1 | sed -e 's/\.\///;s/\/BUILD.bazel//' | uniq
+ 2034  find . -name BUILD.bazel -type f -exec grep -H 'ledger/error' {} \; | cut -d ':' -f 1 | sed -e 's/\.\///;s/\/BUILD.bazel//' | uniq
+ 2035  find . -name BUILD.bazel -type f -exec grep -H 'language-support/scala/bindings' {} \; | cut -d ':' -f 1 | sed -e 's/\.\///;s/\/BUILD.bazel//' | uniq
+ 2036  find libs-scala -name BUILD.bazel -type f -exec grep -H 'ledger/' {} \; | cut -d ':' -f 1 | sed -e 's/\.\///;s/\/BUILD.bazel//' | uniq
+ 2037  find . -name BUILD.bazel -type f -exec grep -H 'ledger/test-common' {} \; | cut -d ':' -f 1 | sed -e 's/\.\///;s/\/BUILD.bazel//' | uniq
+ 2038  find . -name BUILD.bazel -type f -exec grep -H 'libs-scala/jwt' {} \; | cut -d ':' -f 1 | sed -e 's/\.\///;s/\/BUILD.bazel//' | uniq
+ 2039  find . -name BUILD.bazel -type f -exec grep -H 'ledger/ledger-resources' {} \; | cut -d ':' -f 1 | sed -e 's/\.\///;s/\/BUILD.bazel//' | uniq
+ 2040  find . -name BUILD.bazel -type f -exec grep -H 'ledger-api/testing-utils' {} \; | cut -d ':' -f 1 | sed -e 's/\.\///;s/\/BUILD.bazel//' | uniq
+ 2041  find . -name BUILD.bazel -type f -exec grep -H '//ledger/' {} \; | cut -d ':' -f 1 | sed -e 's/\.\///;s/\/BUILD.bazel//' | uniq
+ 2042  find . -name BUILD.bazel -type f -exec grep -H '//observability/' {} \; | cut -d ':' -f 1 | sed -e 's/\.\///;s/\/BUILD.bazel//' | uniq
+ 2043  find . -name BUILD.bazel -type f -exec grep -H '//libs-scala/executors' {} \; | cut -d ':' -f 1 | sed -e 's/\.\///;s/\/BUILD.bazel//' | uniq
+ 2044  ls ledger
+ 2045  find . -name BUILD.bazel -type f -exec grep -H '//ledger/ledger-api-common' {} \; | cut -d ':' -f 1 | sed -e 's/\.\///;s/\/BUILD.bazel//' | uniq
+ 2046  find . -name BUILD.bazel -type f -exec grep -H '//ledger/ledger-api-domain' {} \; | cut -d ':' -f 1 | sed -e 's/\.\///;s/\/BUILD.bazel//' | uniq
+ 2047  find . -name BUILD.bazel -type f -exec grep -H '///home/mziolek/repositories/digital-asset/daml/ledger/test-common/BUILD.bazel' {} \; | cut -d ':' -f 1 | sed -e 's/\.\///;s/\/BUILD.bazel//' | uniq
+ 2048  find . -name BUILD.bazel -type f -exec grep -H 'language-support/scala' {} \; | cut -d ':' -f 1 | sed -e 's/\.\///;s/\/BUILD.bazel//' | uniq
+ 2049  find . -name BUILD.bazel -type f -exec grep -H 'language-support/java' {} \; | cut -d ':' -f 1 | sed -e 's/\.\///;s/\/BUILD.bazel//' | uniq
+ 2050  ls ledger
+ 2051  find . -name BUILD.bazel -type f -exec grep -H 'ledger-api-errors' {} \; | cut -d ':' -f 1 | sed -e 's/\.\///;s/\/BUILD.bazel//' | uniq
+ 2052  find . -name BUILD.bazel -type f -exec grep -H 'ledger-api-health' {} \; | cut -d ':' -f 1 | sed -e 's/\.\///;s/\/BUILD.bazel//' | uniq
+ 2053  find . -name BUILD.bazel -type f -exec grep -H 'ledger-api-tests' {} \; | cut -d ':' -f 1 | sed -e 's/\.\///;s/\/BUILD.bazel//' | uniq
+ 2054  find . -name BUILD.bazel -type f -exec grep -H 'ledger-configuration' {} \; | cut -d ':' -f 1 | sed -e 's/\.\///;s/\/BUILD.bazel//' | uniq
+ 2055  ls ledger
+ 2056  find . -name BUILD.bazel -type f -exec grep -H 'ledger-grpc' {} \; | cut -d ':' -f 1 | sed -e 's/\.\///;s/\/BUILD.bazel//' | uniq
+ 2057  find . -name BUILD.bazel -type f -exec grep -H 'ledger-offset' {} \; | cut -d ':' -f 1 | sed -e 's/\.\///;s/\/BUILD.bazel//' | uniq
+ 2058  find . -name BUILD.bazel -type f -exec grep -H 'ledger-ledger-runner-common' {} \; | cut -d ':' -f 1 | sed -e 's/\.\///;s/\/BUILD.bazel//' | uniq
+ 2059  find . -name BUILD.bazel -type f -exec grep -H 'ledger/ledger-runner-common' {} \; | cut -d ':' -f 1 | sed -e 's/\.\///;s/\/BUILD.bazel//' | uniq
+ 2060  find . -name BUILD.bazel -type f -exec grep -H 'metering-verification' {} \; | cut -d ':' -f 1 | sed -e 's/\.\///;s/\/BUILD.bazel//' | uniq
+ 2061  ls ledger
+ 2062  find . -name BUILD.bazel -type f -exec grep -H 'ledger/metrics' {} \; | cut -d ':' -f 1 | sed -e 's/\.\///;s/\/BUILD.bazel//' | uniq
+ 2063  find . -name BUILD.bazel -type f -exec grep -H 'ledger/participant-integration-api' {} \; | cut -d ':' -f 1 | sed -e 's/\.\///;s/\/BUILD.bazel//' | uniq
+ 2064  find . -name BUILD.bazel -type f -exec grep -H 'ledger/participant-local-store' {} \; | cut -d ':' -f 1 | sed -e 's/\.\///;s/\/BUILD.bazel//' | uniq
+ 2065  ls ledger
+ 2066  find . -name BUILD.bazel -type f -exec grep -H 'ledger/participant-state' {} \; | cut -d ':' -f 1 | sed -e 's/\.\///;s/\/BUILD.bazel//' | uniq
+ 2067  find . -name BUILD.bazel -type f -exec grep -H 'ledger/participant-state-index' {} \; | cut -d ':' -f 1 | sed -e 's/\.\///;s/\/BUILD.bazel//' | uniq
+ 2068  find . -name BUILD.bazel -type f -exec grep -H 'ledger/participant-state-kv-errors' {} \; | cut -d ':' -f 1 | sed -e 's/\.\///;s/\/BUILD.bazel//' | uniq
+ 2069  find . -name BUILD.bazel -type f -exec grep -H 'ledger/participant-state-metrics' {} \; | cut -d ':' -f 1 | sed -e 's/\.\///;s/\/BUILD.bazel//' | uniq
+ 2070  find . -name BUILD.bazel -type f -exec grep -H 'ledger/recovering-indexer-integration-tests' {} \; | cut -d ':' -f 1 | sed -e 's/\.\///;s/\/BUILD.bazel//' | uniq
+ 2071  find . -name BUILD.bazel -type f -exec grep -H 'ledger/sandbox-on-x' {} \; | cut -d ':' -f 1 | sed -e 's/\.\///;s/\/BUILD.bazel//' | uniq
+ 2072  ls ledger
+ 2073  find . -name BUILD.bazel -type f -exec grep -H 'ledger/sandbox-perf' {} \; | cut -d ':' -f 1 | sed -e 's/\.\///;s/\/BUILD.bazel//' | uniq
+ 2074  find . -name BUILD.bazel -type f -exec grep -H 'ledger/libs-scala' {} \; | cut -d ':' -f 1 | sed -e 's/\.\///;s/\/BUILD.bazel//' | uniq
+ 2075  find . -name BUILD.bazel -type f -exec grep -H 'libs-scala' {} \; | cut -d ':' -f 1 | sed -e 's/\.\///;s/\/BUILD.bazel//' | uniq
+ 2076  find . -name BUILD.bazel -type f -exec grep -H 'ledger-service' {} \; | cut -d ':' -f 1 | sed -e 's/\.\///;s/\/BUILD.bazel//' | uniq
+ 2077  find . -name BUILD.bazel -type f -exec grep -H 'ledger-service/lf-value-json' {} \; | cut -d ':' -f 1 | sed -e 's/\.\///;s/\/BUILD.bazel//' | uniq
+ 2078  find . -name BUILD.bazel -type f -exec grep -H 'test-evidence' {} \; | cut -d ':' -f 1 | sed -e 's/\.\///;s/\/BUILD.bazel//' | uniq
+ 2079  find . -name BUILD.bazel -type f -exec grep -H '//test-evidence' {} \; | cut -d ':' -f 1 | sed -e 's/\.\///;s/\/BUILD.bazel//' | uniq
+ 2080  find . -name BUILD.bazel -type f -exec grep -H '//ledger-service/cli-opts' {} \; | cut -d ':' -f 1 | sed -e 's/\.\///;s/\/BUILD.bazel//' | uniq
+ 2081  gs
+ 2082  gb
+ 2083  gco main
+ 2084  gco -b mziolek/remove-ledger-service-dependencies
+ 2085  bazel build //ledger/ledger-api-bench-tool
+ 2086  gs
+ 2087  ./fmt.sh 
+ 2088  gs
+ 2089  ga ledger
+ 2090  gc -m "fix circular dependency between ledger and ledger-service"
+ 2091  git push origin mziolek/remove-ledger-service-dependencies
+ 2092  gb
+ 2093  gco mziolek/remove-errors-deps
+ 2094  git push origin mziolek/remove-errors-deps
+ 2095  grep -v '->' graph.in | sort | less
+ 2096  grep -v '-\>' graph.in | sort | less
+ 2097  grep -v '\-\>' graph.in | sort | less
+ 2098  grep -v '\->' graph.in | sort | less
+ 2099  grep -v "[-][>]" graph.in | sort | less
+ 2100  grep -v '[-][>]' graph.in | sort | less
+ 2101  grep -v '\->' graph.in | sort | less
+ 2102  grep -v '>' graph.in | sort | less
+ 2103  grep -v '>' graph.in | less
+ 2104  grep '>' graph.in | sort | less
+ 2105  grep '>' graph.in | sort | grep '"//ledger/' | grep -v 'libs-scala' | less
+ 2106  grep '>' graph.in | sort | grep '"//ledger/' | grep -v 'libs-scala\|observability\|daml-lf' | less
+ 2107  grep '>' graph.in | sort | grep '"//ledger/' | grep -v 'libs-scala\|observability\|daml-lf\|damlc\|bindings' | less
+ 2108  grep '>' graph.in | sort | grep '"//ledger/' | grep -v 'libs-scala\|observability\|daml-lf\|damlc\|bindings\|codegen' | less
+ 2109  grep bench-tool graph.in | sort | less
+ 2110  less history
+ 2111  less history.txt 
+ 2112  bazel query --noimplicit_deps 'kind(scala_library, deps(//ledger/sandbox-on-x:app))' --output graph | less
+ 2113  bazel query --noimplicit_deps "deps(//ledger)" | less
+ 2114  bazel query 'buildfiles(deps(//ledger/sandbox-on-x:app))' --output package
+ 2115  'buildfiles(deps(//foo:foo))' --output package | wc
+ 2116  bazel query 'buildfiles(deps(//ledger/sandbox-on-x:app))' --output package | wc
+ 2117  bazel query 'buildfiles(deps(//ledger))' --output package | wc
+ 2118  bazel query 'buildfiles(deps(//ledger/...))' --output package | wc
+ 2119  bazel query 'buildfiles(deps(//ledger/...))' --output package | less
+ 2120  bazel query 'buildfiles(deps(//ledger/...))' --output package | grep -v '@' | less
+ 2121  bazel query 'buildfiles(deps(//ledger/...))' | grep -v '@' | less
+ 2122  bazel query 'allpaths(//ledger/..., //ledger-service/lf-value-json)' --output graph
+ 2123  bazel query 'allpaths(//ledger/..., //daml-script/...)' --output graph
+ 2124  gb
+ 2125  git grep --cacrt
+ 2126  git grep '--cacrt'
+ 2127  git grep '\-\-cacrt'
+ 2128  bazel run //ledger/ledger-api-bench-tool --help
+ 2129  bazel run //ledger/ledger-api-bench-tool -- --help
+ 2130  find ledger/ledger-api-bench-tool/ -name *.yaml
+ 2131  find ledger/ledger-api-bench-tool/ --name *.yaml
+ 2132  find ledger/ledger-api-bench-tool/ -name *.yaml
+ 2133  cd ..
+ 2134  find daml/ledger/ledger-api-bench-tool/ -name *.yaml
+ 2135  find daml/ledger/ledger-api-bench-tool/ -name *.yml
+ 2136  cd daml
+ 2137  bazel run //ledger/ledger-api-bench-tool -- -e localhost:6865 ../../DACH-NY/daml-on-kv-oem-integration-kit/tools/bench-tool/workflows/interfaces-write-only.yaml
+ 2138  bazel run //ledger/ledger-api-bench-tool -- -e localhost:6865 --workflow-config ../../DACH-NY/daml-on-kv-oem-integration-kit/tools/bench-tool/workflows/interfaces-write-only.yaml
+ 2139  bazel run //ledger/ledger-api-bench-tool -- -e localhost:6865 --workflow-config $(pwd)/DACH-NY/daml-on-kv-oem-integration-kit/tools/bench-tool/workflows/interfaces-write-only.yaml
+ 2140  bazel run //ledger/ledger-api-bench-tool -- -e localhost:6865 --workflow-config $(pwd)/../../DACH-NY/daml-on-kv-oem-integration-kit/tools/bench-tool/workflows/interfaces-write-only.yaml
+ 2141  bazel run //ledger/ledger-api-bench-tool -- -e localhost:6865 --workflow-config $(pwd)/../../DACH-NY/daml-on-kv-oem-integration-kit/tools/bench-tool/workflows/interfaces-write-only.yaml --crt ~/temp/CA/sandbox/client.crt --pem ~/temp/CA/sandbox/client.pem --cacrt ~/temp/CA/sandbox/ca.crt
+ 2142  bazel rubuild /ledger/ledger-api-bench-tool -
+ 2143  bazel build //ledger/ledger-api-bench-tool
+ 2144  bazel run //ledger/ledger-api-bench-tool -- -e localhost:6865 --workflow-config $(pwd)/../../DACH-NY/daml-on-kv-oem-integration-kit/tools/bench-tool/workflows/interfaces-write-only.yaml --crt ~/temp/CA/sandbox/client.crt --pem ~/temp/CA/sandbox/client.pem --cacrt ~/temp/CA/sandbox/ca.crt
+ 2145  bazel query 'allpaths(//ledger/..., //daml-script/...)' --output graph
+ 2146  gb
+ 2147  gs
+ 2148  gco main
+ 2149  git pull
+ 2150  gco event-query-service
+ 2151  grep canton history.txt 
+ 2152  bazel run //ledger/ledger-api-test-tool-on-canton:conformance-test
+ 2153  history | grep guery
+ 2154  history | grep query
+ 2155  bazel query 'allpaths(//ledger/..., //daml-script/...)' --output graph
+ 2156  bazel query 'allpaths(//ledger/test-common)' --output graph
+ 2157  bazel query 'allpaths(//ledger/test-common/...)' --output graph
+ 2158  bazel query 'buildfiles(deps(//ledger/test-common/...))' --output package | less
+ 2159  bazel query 'buildfiles(deps(//ledger/test-common/...))' --output package | grep -v '@' | less
+ 2160  bazel query 'allpaths(//ledger/..., //ledger-service/...)' --output graph
+ 2161  gb
+ 2162  gco main
+ 2163  gs
+ 2164  gco -- ledger/ledger-api-test-tool-on-canton/BUILD.bazel ledger/ledger-api-tests/suites/src/main/scala/com/daml/ledger/api/testtool/suites/v1_15.scala
+ 2165  gco main
+ 2166  git pull
+ 2167  bazel query 'allpaths(//ledger/..., //ledger-service/...)' --output graph
+ 2168  bazel query 'allpaths(//ledger/..., //daml-assistant/...)' --output graph
+ 2169  bazel query 'allpaths(//ledger/..., //daml-assistant/...)' --output graph | grep -v test-common
+ 2170  bazel query 'allpaths(//ledger/..., //daml-assistant/...)' --output graph | grep -v "test-common\|conformance"
+ 2171  bazel query 'buildfiles(deps(//ledger/ledger-resources/...))' --output package | grep -v '@' | less
+ 2172  bazel query 'buildfiles(rdeps(//..., //ledger/ledger-resources/..., 1))' --output package | grep -v '@' | less
+ 2173  gco -b mziolek/move-ledger-resources
+ 2174  git grep ledger-resources
+ 2175  git grep ledger-resources | wc
+ 2176  gs
+ 2177  git grep ledger-resources | wc
+ 2178  git grep ledger-resources | grep -v libs-scala
+ 2179  git grep ledger-resources | grep -v 'libs-scala'
+ 2180  bazel build //...
+ 2181  ./fmt.sh 
+ 2182  gs
+ 2183  ga daml-lf daml-script/ language-support/ ledger-api/ ledger-service/ ledger/ navigator/ observability/ runtime-components/ triggers/
+ 2184  gs
+ 2185  gc -m "format"
+ 2186  git push origin mziolek/move-ledger-resources
+ 2187  gco -b mziolek/move-test-common
+ 2188  bazel query 'buildfiles(rdeps(//..., //test-evidence/..., 1))' --output package | grep -v '@' | less
+ 2189  bazel query 'buildfiles(rdeps(//..., //ledger/test-common/..., 1))' --output package | grep -v '@' | less
+ 2190  bazel query 'buildfiles(rdeps(//..., //ledger/test-common/..., 1))' --output package | grep -v '@'
+ 2191  bazel query 'buildfiles(deps(//ledger/test-common/...))' --output package | grep -v '@'
+ 2192  bazel build //...
+ 2193  gs
+ 2194  cd compatibility/
+ 2195  history | less
+ 2196  ./build-release-artifacts.sh
+ 2197  bazel run //:daml-ledger-0.0.0-platform-2.4.3
+ 2198  bazel run //:daml-ledger-0.0.0-platform-2.5.3
+ 2199  history > history2.txt
