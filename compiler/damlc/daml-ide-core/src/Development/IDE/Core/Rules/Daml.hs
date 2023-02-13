@@ -881,7 +881,7 @@ runSingleScriptRule =
 
       scenarioResults <-
           forM scenarios $ \scenario -> do
-              (vr, res) <- liftIO $ runScript scenarioService file ctxId scenario
+              (vr, res) <- runScript scenarioService file ctxId scenario
               let scenarioName = LF.qualObject scenario
               let mbLoc = NM.lookup scenarioName (LF.moduleValues m) >>= LF.dvalLocation
               let range = maybe noRange sourceLocToRange mbLoc
@@ -910,7 +910,7 @@ runScenariosScriptsPkg projRoot extPkg pkgs = do
         scenarioResults <- forM scenarios $ \scenario ->
             runScenario scenarioService pkgName' ctxId scenario
         scriptResults <- forM scripts $ \script ->
-            liftIO $ runScript
+            runScript
                 scenarioService
                 pkgName'
                 ctxId
@@ -1047,6 +1047,32 @@ vrChangedNotification vr doc = do
     liftIO $
         sendNotification lspEnv (LSP.SCustomMethod virtualResourceChangedNotification) $
         toJSON $ VirtualResourceChangedParams (virtualResourceToUri vr) doc
+
+virtualResourceProgressNotification :: T.Text
+virtualResourceProgressNotification = "daml/virtualResource/didProgress"
+
+-- | Parameters for the virtual resource progress notification
+data VirtualResourceProgressParams = VirtualResourceProgressParams
+    { _vrppUri      :: !T.Text
+      -- ^ The uri of the virtual resource.
+    , _vrppProgress :: !T.Text
+      -- ^ The progress status of the virtual resource
+    } deriving Show
+
+instance ToJSON VirtualResourceProgressParams where
+    toJSON VirtualResourceProgressParams{..} =
+        object ["uri" .= _vrppUri, "progress" .= _vrppProgress ]
+
+instance FromJSON VirtualResourceProgressParams where
+    parseJSON = withObject "VirtualResourceProgressParams" $ \o ->
+        VirtualResourceProgressParams <$> o .: "uri" <*> o .: "progress"
+
+vrProgressNotification :: VirtualResource -> T.Text -> Action ()
+vrProgressNotification vr doc = do
+    ShakeExtras { lspEnv } <- getShakeExtras
+    liftIO $
+        sendNotification lspEnv (LSP.SCustomMethod virtualResourceProgressNotification) $
+        toJSON $ VirtualResourceProgressParams (virtualResourceToUri vr) doc
 
 -- | Virtual resource note set notification
 -- This notification is sent by the server to the client when
@@ -1239,9 +1265,13 @@ runScenario scenarioService file ctxId scenario = do
     let vr = VRScenario file (LF.unExprValName scenarioName)
     pure (vr, res)
 
-runScript :: SS.Handle -> NormalizedFilePath -> SS.ContextId -> LF.ValueRef -> IO (VirtualResource, Either SS.Error SS.ScenarioResult)
+runScript :: SS.Handle -> NormalizedFilePath -> SS.ContextId -> LF.ValueRef -> Action (VirtualResource, Either SS.Error SS.ScenarioResult)
 runScript scenarioService file ctxId scenario = do
-    res <- SS.runScript scenarioService ctxId scenario
+    ShakeExtras {lspEnv} <- getShakeExtras
+    res <- liftIO $ SS.runLiveScript scenarioService ctxId scenario $ \status -> do
+        sendNotification lspEnv LSP.SWindowShowMessage $
+            LSP.ShowMessageParams LSP.MtInfo (TL.toStrict (SS.scenarioStatusMessage status))
+        pure ()
     let scenarioName = LF.qualObject scenario
     let vr = VRScenario file (LF.unExprValName scenarioName)
     pure (vr, res)

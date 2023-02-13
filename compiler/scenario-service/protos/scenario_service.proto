@@ -18,6 +18,8 @@ service ScenarioService {
   // We might want to switch to a more generic name.
   rpc RunScript (RunScenarioRequest) returns (RunScenarioResponse);
 
+  rpc RunLiveScript (RunScenarioRequest) returns (stream RunScenarioResponseOrStatus);
+
   // Allocate a new scenario interpretation context.
   // The context essentially defines the state consisting of a set of
   // project's modules and a set of external packages.
@@ -425,6 +427,14 @@ message RunScenarioResponse {
   }
 }
 
+message RunScenarioResponseOrStatus {
+  oneof response {
+    ScenarioError error = 1;
+    ScenarioResult result = 2;
+    ScenarioStatus status = 3;
+  }
+}
+
 message TraceMessage {
   Location location = 1; // optional
   string message = 2;
@@ -445,6 +455,10 @@ message ScenarioResult {
   repeated TraceMessage trace_log = 5;
   repeated WarningMessage warnings = 6;
   repeated string active_contracts = 7;
+}
+
+message ScenarioStatus {
+  string message = 1;
 }
 
 message ScenarioStep {

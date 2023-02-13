@@ -157,6 +157,95 @@ class ScenarioService(
       respObs: StreamObserver[RunScenarioResponse],
   ): Unit = run(req, respObs, { case (ctx, pkgId, name) => ctx.interpretScript(pkgId, name) })
 
+  override def runLiveScript(
+      req: RunScenarioRequest,
+      respObs: StreamObserver[RunScenarioResponseOrStatus],
+  ): Unit = {
+    val interpret: (Context, String, String) => Future[Option[ScenarioRunner.ScenarioResult]] =
+          { case (ctx, pkgId, name) => ctx.interpretScript(pkgId, name) }
+    val scenarioId = req.getScenarioId
+    val contextId = req.getContextId
+    val response: Future[Option[RunScenarioResponseOrStatus]] =
+      contexts
+        .get(contextId)
+        .traverse { context =>
+          val packageId = scenarioId.getPackage.getSumCase match {
+            case PackageIdentifier.SumCase.SELF =>
+              context.homePackageId
+            case PackageIdentifier.SumCase.PACKAGE_ID =>
+              scenarioId.getPackage.getPackageId
+            case PackageIdentifier.SumCase.SUM_NOT_SET =>
+              throw new RuntimeException(
+                s"Package id not set when running scenario, context id $contextId"
+              )
+          }
+          interpret(context, packageId, scenarioId.getName)
+            .map(_.map {
+              case error: ScenarioRunner.ScenarioError =>
+                RunScenarioResponseOrStatus.newBuilder
+                  .setError(
+                    new Conversions(
+                      context.homePackageId,
+                      error.ledger,
+                      error.currentSubmission.map(_.ptx),
+                      error.traceLog,
+                      error.warningLog,
+                      error.currentSubmission.flatMap(_.commitLocation),
+                      error.stackTrace,
+                    )
+                      .convertScenarioError(error.error)
+                  )
+                  .build
+              case success: ScenarioRunner.ScenarioSuccess =>
+                RunScenarioResponseOrStatus.newBuilder
+                  .setResult(
+                    new Conversions(
+                      context.homePackageId,
+                      success.ledger,
+                      None,
+                      success.traceLog,
+                      success.warningLog,
+                      None,
+                      ImmArray.Empty,
+                    )
+                      .convertScenarioResult(success.resultValue)
+                  )
+                  .build
+            })
+        }
+        .map(_.flatten)
+
+    val result =
+      for {
+        () <- Future {
+          Thread.sleep(1000)
+          respObs.onNext(RunScenarioResponseOrStatus.newBuilder
+            .setStatus(
+              ScenarioStatus.newBuilder
+                .setMessage("Hello, status here!")
+                .build
+            )
+            .build
+          )
+          Thread.sleep(1000)
+        }
+        result <- response
+      } yield result
+
+    result.onComplete {
+      case Success(None) =>
+        log(s"runScript[$contextId]: $scenarioId not found")
+        respObs.onError(notFoundContextError(req.getContextId))
+      case Success(Some(resp)) =>
+        respObs.onNext(resp)
+        respObs.onCompleted()
+      case Failure(err) =>
+        System.err.println(err)
+        respObs.onError(err)
+    }
+  }
+
+
   private def run(
       req: RunScenarioRequest,
       respObs: StreamObserver[RunScenarioResponse],
@@ -164,7 +253,7 @@ class ScenarioService(
   ): Unit = {
     val scenarioId = req.getScenarioId
     val contextId = req.getContextId
-    val response =
+    val response: Future[Option[RunScenarioResponse]] =
       contexts
         .get(contextId)
         .traverse { context =>
@@ -212,7 +301,7 @@ class ScenarioService(
                   .build
             })
         }
-        .map(_.flatMap(x => x))
+        .map(_.flatten)
 
     response.onComplete {
       case Success(None) =>
