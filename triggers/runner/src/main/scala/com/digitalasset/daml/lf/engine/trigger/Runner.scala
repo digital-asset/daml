@@ -4,6 +4,7 @@
 package com.daml.lf.engine.trigger
 
 import akka.NotUsed
+import akka.actor.Cancellable
 import akka.event.Logging
 import akka.stream._
 import akka.stream.scaladsl._
@@ -39,8 +40,8 @@ import com.daml.lf.engine.trigger.Runner.{
   isSubmissionSuccess,
   isTransaction,
   logger,
-  numberOfArchiveEvents,
   numberOfActiveContracts,
+  numberOfArchiveEvents,
   numberOfCreateEvents,
   numberOfInFlightCommands,
   numberOfPendingContracts,
@@ -615,6 +616,7 @@ private[lf] class Runner private (
   private def freeTriggerSubmits(
       clientTime: Timestamp,
       v: SValue,
+      hardLimitKillSwitch: KillSwitch,
   )(implicit
       materializer: Materializer,
       triggerContext: TriggerLogContext,
@@ -627,33 +629,45 @@ private[lf] class Runner private (
     var numberOfExerciseByKey = 0
 
     val startTime = System.nanoTime()
-    val ruleEvaluationTimer = materializer.scheduleOnce(
-      triggerConfig.hardLimit.ruleEvaluationTimeout,
-      () => {
-        triggerContext.logError(
-          "Stopping trigger as the rule evaluator as exceeded its allotted running time",
-          "rule-evaluation-timeout" -> triggerConfig.hardLimit.ruleEvaluationTimeout,
-        )
+    val ruleEvaluationTimer = if (triggerConfig.hardLimit.allowTriggerTimeouts) {
+      materializer.scheduleOnce(
+        triggerConfig.hardLimit.ruleEvaluationTimeout,
+        () => {
+          triggerContext.logError(
+            "Stopping trigger as the rule evaluator has exceeded its allotted running time",
+            "rule-evaluation-timeout" -> triggerConfig.hardLimit.ruleEvaluationTimeout,
+          )
 
-        throw TriggerRuleEvaluationTimeout(triggerConfig.hardLimit.ruleEvaluationTimeout)
-      },
-    )
+          hardLimitKillSwitch.abort(
+            TriggerRuleEvaluationTimeout(triggerConfig.hardLimit.ruleEvaluationTimeout)
+          )
+        },
+      )
+    } else {
+      Cancellable.alreadyCancelled
+    }
 
     triggerContext.childSpan("step") { implicit triggerContext: TriggerLogContext =>
       def evaluate(se: SExpr): SValue = {
-        val stepIteratorTimer = materializer.scheduleOnce(
-          triggerConfig.hardLimit.stepInterpreterTimeout,
-          () => {
-            triggerContext.logError(
-              "Stopping trigger as the rule step interpreter as exceeded its allotted running time",
-              "step-interpreter-timeout" -> triggerConfig.hardLimit.stepInterpreterTimeout,
-            )
+        val stepIteratorTimer = if (triggerConfig.hardLimit.allowTriggerTimeouts) {
+          materializer.scheduleOnce(
+            triggerConfig.hardLimit.stepInterpreterTimeout,
+            () => {
+              triggerContext.logError(
+                "Stopping trigger as the rule step interpreter has exceeded its allotted running time",
+                "step-interpreter-timeout" -> triggerConfig.hardLimit.stepInterpreterTimeout,
+              )
 
-            throw TriggerRuleStepInterpretationTimeout(
-              triggerConfig.hardLimit.stepInterpreterTimeout
-            )
-          },
-        )
+              hardLimitKillSwitch.abort(
+                TriggerRuleStepInterpretationTimeout(
+                  triggerConfig.hardLimit.stepInterpreterTimeout
+                )
+              )
+            },
+          )
+        } else {
+          Cancellable.alreadyCancelled
+        }
         val machine: Speedy.PureMachine =
           Speedy.Machine.fromPureSExpr(compiledPackages, se)
 
@@ -982,6 +996,7 @@ private[lf] class Runner private (
 
     val clientTime: Timestamp =
       Timestamp.assertFromInstant(Runner.getTimeProvider(timeProviderType).getCurrentTime)
+    val hardLimitKillSwitch = KillSwitches.shared("hard-limit")
     val (initialStateFree, evaluatedUpdate) = getInitialStateFreeAndUpdate(acs)
     // Prepare another speedy machine for evaluating expressions.
     val machine: Speedy.PureMachine =
@@ -991,7 +1006,7 @@ private[lf] class Runner private (
 
     val runInitialState = {
       toSource(
-        freeTriggerSubmits(clientTime, initialStateFree)
+        freeTriggerSubmits(clientTime, initialStateFree, hardLimitKillSwitch)
           .leftMap { state =>
             triggerContext.logDebug(
               "Trigger rule initial state",
@@ -1114,7 +1129,7 @@ private[lf] class Runner private (
         machine.setExpressionToEvaluate(makeAppD(stateFun, state))
         val updateWithNewState = Machine.stepToValue(machine)
 
-        freeTriggerSubmits(clientTime, v = updateWithNewState)
+        freeTriggerSubmits(clientTime, v = updateWithNewState, hardLimitKillSwitch)
           .leftMap(
             _.expect(
               "TriggerRule new state",
@@ -1195,13 +1210,14 @@ private[lf] class Runner private (
       val rule = gb add runRuleOnMsgs
       val submissions = gb add Merge[TriggerContext[SubmitRequest]](2)
       val finalStateIn = gb add Concat[SValue](2)
+      val killSwitch = gb add hardLimitKillSwitch.flow[TriggerContext[SValue]]
       // format: off
-      initialState.finalState                    ~> initialStateOut                     ~> rule.initState
+      initialState.finalState                    ~> initialStateOut                                   ~> rule.initState
       initialState.elemsOut                          ~> submissions
-                          msgIn ~> hideIrrelevantMsgs ~> encodeMsgs ~> conflateMsgValue ~> rule.elemsIn
-                                                        submissions                     <~ rule.elemsOut
-                                                    initialStateOut                                         ~> finalStateIn
-                                                                                           rule.finalStates ~> finalStateIn ~> saveLastState
+                          msgIn ~> hideIrrelevantMsgs ~> encodeMsgs ~> conflateMsgValue ~> killSwitch ~> rule.elemsIn
+                                                        submissions                                   <~ rule.elemsOut
+                                                    initialStateOut                                                       ~> finalStateIn
+                                                                                                         rule.finalStates ~> finalStateIn ~> saveLastState
       // format: on
       new FlowShape(msgIn.in, submissions.out)
     }

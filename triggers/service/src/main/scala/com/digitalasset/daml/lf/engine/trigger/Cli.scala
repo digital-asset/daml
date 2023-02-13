@@ -411,6 +411,18 @@ private[trigger] object Cli {
         )
       )
 
+    opt[Unit]("allow-timeouts")
+      .optional()
+      .text(
+        "Enables trigger rule evaluation timeouts."
+      )
+      .action((_, cli) =>
+        cli.copy(triggerConfig =
+          cli.triggerConfig
+            .copy(hardLimit = cli.triggerConfig.hardLimit.copy(allowTriggerTimeouts = true))
+        )
+      )
+
     opt[Unit]("dev-mode-unsafe")
       .action((_, c) => c.copy(compilerConfig = Compiler.Config.Dev))
       .optional()

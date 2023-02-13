@@ -794,7 +794,179 @@ trait AbstractTriggerServiceTest extends AbstractTriggerServiceTestHelper {
     } yield succeed
   }
 
-  // TODO: add in testing for TriggerRuleEvaluationTimeout and TriggerRuleStepInterpretationTimeout
+  it should "stop the trigger if the rule evaluator times out during initialization" inClaims withTriggerService(
+    List(dar),
+    triggerRunnerConfig = Some(
+      DefaultTriggerRunnerConfig.copy(
+        // As our submission rate takes longer than the allotted rule evaluation time, we should timeout
+        hardLimit = DefaultTriggerRunnerConfig.hardLimit
+          .copy(allowTriggerTimeouts = true, ruleEvaluationTimeout = 1.second)
+      )
+    ),
+  ) { uri: Uri =>
+    for {
+      client <- sandboxClient(
+        catsAppId,
+        actAs = List(ApiTypes.Party(alice.unwrap)),
+      )
+      _ <- getActiveContracts(client, alice, Identifier(testPkgId, "Cats", "Cat"))
+        .flatMap(events =>
+          Future.sequence(events.map { event =>
+            submitCmd(client, alice.unwrap, killCat(event.contractId))
+          })
+        )
+      // Wait until there are no Cat contracts
+      _ <- RetryStrategy.constant(20, 1.seconds) { (_, _) =>
+        getActiveContracts(client, alice, Identifier(testPkgId, "Cats", "Cat"))
+          .map(_ shouldBe Vector())
+      }
+      resp <- startTrigger(uri, s"$testPkgId:Cats:earlyBreedingTrigger", alice, Some(catsAppId))
+      catsTrigger <- parseTriggerId(resp)
+      _ <- assertTriggerIds(uri, alice, Vector(catsTrigger))
+      _ <- assertTriggerStatus(catsTrigger, _ should contain("stopped: runtime failure"))
+      _ <- assertTriggerRunnerStatus(
+        catsTrigger,
+        _ should contain(
+          "[ERROR] Stopping trigger as the rule evaluator has exceeded its allotted running time"
+        ),
+      )
+    } yield {
+      succeed
+    }
+  }
+
+  it should "stop the trigger if the rule evaluator times out at runtime" inClaims withTriggerService(
+    List(dar),
+    triggerRunnerConfig = Some(
+      DefaultTriggerRunnerConfig.copy(
+        // As our submission rate takes longer than the allotted rule evaluation time, we should timeout
+        hardLimit = DefaultTriggerRunnerConfig.hardLimit
+          .copy(allowTriggerTimeouts = true, ruleEvaluationTimeout = 1.second)
+      )
+    ),
+  ) { uri: Uri =>
+    for {
+      client <- sandboxClient(
+        catsAppId,
+        actAs = List(ApiTypes.Party(alice.unwrap)),
+      )
+      _ <- getActiveContracts(client, alice, Identifier(testPkgId, "Cats", "Cat"))
+        .flatMap(events =>
+          Future.sequence(events.map { event =>
+            submitCmd(client, alice.unwrap, killCat(event.contractId))
+          })
+        )
+      // Wait until there are no Cat contracts
+      _ <- RetryStrategy.constant(20, 1.seconds) { (_, _) =>
+        getActiveContracts(client, alice, Identifier(testPkgId, "Cats", "Cat"))
+          .map(_ shouldBe Vector())
+      }
+      resp <- startTrigger(uri, s"$testPkgId:Cats:lateBreedingTrigger", alice, Some(catsAppId))
+      catsTrigger <- parseTriggerId(resp)
+      _ <- assertTriggerIds(uri, alice, Vector(catsTrigger))
+      _ <- assertTriggerStatus(catsTrigger, _ should contain("stopped: runtime failure"))
+      _ <- assertTriggerRunnerStatus(
+        catsTrigger,
+        _ should contain(
+          "[ERROR] Stopping trigger as the rule evaluator has exceeded its allotted running time"
+        ),
+      )
+    } yield {
+      succeed
+    }
+  }
+
+  it should "stop the trigger if the rule step interpreter times out during initialization" inClaims withTriggerService(
+    List(dar),
+    triggerRunnerConfig = Some(
+      DefaultTriggerRunnerConfig.copy(
+        // We use a busy delay loop to exceed the allotted rule step interpreter time and timeout
+        hardLimit = DefaultTriggerRunnerConfig.hardLimit
+          .copy(allowTriggerTimeouts = true, stepInterpreterTimeout = 1.millisecond)
+      )
+    ),
+  ) { uri: Uri =>
+    for {
+      client <- sandboxClient(
+        catsAppId,
+        actAs = List(ApiTypes.Party(alice.unwrap)),
+      )
+      _ <- getActiveContracts(client, alice, Identifier(testPkgId, "Cats", "Cat"))
+        .flatMap(events =>
+          Future.sequence(events.map { event =>
+            submitCmd(client, alice.unwrap, killCat(event.contractId))
+          })
+        )
+      // Wait until there are no Cat contracts
+      _ <- RetryStrategy.constant(20, 1.seconds) { (_, _) =>
+        getActiveContracts(client, alice, Identifier(testPkgId, "Cats", "Cat"))
+          .map(_ shouldBe Vector())
+      }
+      resp <- startTrigger(
+        uri,
+        s"$testPkgId:Cats:earlyBreedingTriggerWithDelay",
+        alice,
+        Some(catsAppId),
+      )
+      catsTrigger <- parseTriggerId(resp)
+      _ <- assertTriggerIds(uri, alice, Vector(catsTrigger))
+      _ <- assertTriggerStatus(catsTrigger, _ should contain("stopped: runtime failure"))
+      _ <- assertTriggerRunnerStatus(
+        catsTrigger,
+        _ should contain(
+          "[ERROR] Stopping trigger as the rule step interpreter has exceeded its allotted running time"
+        ),
+      )
+    } yield {
+      succeed
+    }
+  }
+
+  it should "stop the trigger if the rule step interpreter times out at runtime" inClaims withTriggerService(
+    List(dar),
+    triggerRunnerConfig = Some(
+      DefaultTriggerRunnerConfig.copy(
+        // We use a busy delay loop to exceed the allotted rule step interpreter time and timeout
+        hardLimit = DefaultTriggerRunnerConfig.hardLimit
+          .copy(allowTriggerTimeouts = true, stepInterpreterTimeout = 1.millisecond)
+      )
+    ),
+  ) { uri: Uri =>
+    for {
+      client <- sandboxClient(
+        catsAppId,
+        actAs = List(ApiTypes.Party(alice.unwrap)),
+      )
+      _ <- getActiveContracts(client, alice, Identifier(testPkgId, "Cats", "Cat"))
+        .flatMap(events =>
+          Future.sequence(events.map { event =>
+            submitCmd(client, alice.unwrap, killCat(event.contractId))
+          })
+        )
+      // Wait until there are no Cat contracts
+      _ <- RetryStrategy.constant(20, 1.seconds) { (_, _) =>
+        getActiveContracts(client, alice, Identifier(testPkgId, "Cats", "Cat"))
+          .map(_ shouldBe Vector())
+      }
+      resp <- startTrigger(
+        uri,
+        s"$testPkgId:Cats:lateBreedingTriggerWithDelay",
+        alice,
+        Some(catsAppId),
+      )
+      catsTrigger <- parseTriggerId(resp)
+      _ <- assertTriggerIds(uri, alice, Vector(catsTrigger))
+      _ <- assertTriggerStatus(catsTrigger, _ should contain("stopped: runtime failure"))
+      _ <- assertTriggerRunnerStatus(
+        catsTrigger,
+        _ should contain(
+          "[ERROR] Stopping trigger as the rule step interpreter has exceeded its allotted running time"
+        ),
+      )
+    } yield {
+      succeed
+    }
+  }
 }
 
 // Tests for in-memory trigger service configurations go here

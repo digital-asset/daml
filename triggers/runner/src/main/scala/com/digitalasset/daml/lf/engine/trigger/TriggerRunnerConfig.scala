@@ -16,6 +16,7 @@ import scala.concurrent.duration._
   *                               TriggerRuleEvaluationTimeout.
   * @param stepInterpreterTimeout If the trigger rule step evaluator (during rule evaluation) takes longer than this
   *                                timeout value, then we throw a TriggerRuleStepInterpretationTimeout.
+  * @param allowTriggerTimeouts flag to control whether we allow rule evaluation and step interpreter timeouts or not.
   */
 final case class TriggerRunnerHardLimits(
     maximumActiveContracts: Long,
@@ -23,6 +24,7 @@ final case class TriggerRunnerHardLimits(
     allowInFlightCommandOverflows: Boolean,
     ruleEvaluationTimeout: FiniteDuration,
     stepInterpreterTimeout: FiniteDuration,
+    allowTriggerTimeouts: Boolean,
 )
 
 /** @param parallelism The number of submitSingleCommand invocations each trigger will attempt to execute in parallel.
@@ -74,6 +76,7 @@ object TriggerRunnerConfig {
         ruleEvaluationTimeout = maxSubmissionDuration * 3 / 2,
         // 50% extra on mean time between submission requests
         stepInterpreterTimeout = (maxSubmissionDuration / maxSubmissionRequests.toLong) * 3 / 2,
+        allowTriggerTimeouts = false,
       ),
     )
   }

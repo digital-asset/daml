@@ -80,6 +80,83 @@ breedingRate : Int
 -- The following value should be kept in sync with the value of breedingRate in LoadTesting.scala
 breedingRate = 100
 
+inefficientFibonacci: Int -> Int
+inefficientFibonacci n =
+  case n of
+    0 -> 0
+    1 -> 1
+    m -> inefficientFibonacci (m - 2) + inefficientFibonacci (m - 1)
+
+earlyBreedingTrigger : Trigger (Int, Int, Bool)
+earlyBreedingTrigger = Trigger
+  { initialize = pure (breedingRate, 0, False)
+  , updateState = breedingUpdate
+  , rule = breedingAction
+  , registeredTemplates = RegisteredTemplates [ registeredTemplate @TestComplete, registeredTemplate @Cat ]
+  , heartbeat = Some(seconds 1)
+  }
+
+lateBreedingTrigger : Trigger (Int, Int, Bool)
+lateBreedingTrigger = Trigger
+  { initialize = pure (breedingRate, 1, False)
+  , updateState = breedingUpdate
+  , rule = breedingAction
+  , registeredTemplates = RegisteredTemplates [ registeredTemplate @TestComplete, registeredTemplate @Cat ]
+  , heartbeat = Some(seconds 1)
+  }
+
+earlyBreedingTriggerWithDelay : Trigger (Int, Int, Bool)
+earlyBreedingTriggerWithDelay = Trigger
+  { initialize = pure (breedingRate, 0, True)
+  , updateState = breedingUpdate
+  , rule = breedingAction
+  , registeredTemplates = RegisteredTemplates [ registeredTemplate @TestComplete, registeredTemplate @Cat ]
+  , heartbeat = Some(seconds 1)
+  }
+
+lateBreedingTriggerWithDelay : Trigger (Int, Int, Bool)
+lateBreedingTriggerWithDelay = Trigger
+  { initialize = pure (breedingRate, 1, True)
+  , updateState = breedingUpdate
+  , rule = breedingAction
+  , registeredTemplates = RegisteredTemplates [ registeredTemplate @TestComplete, registeredTemplate @Cat ]
+  , heartbeat = Some(seconds 1)
+  }
+
+breedingUpdate: Message -> TriggerUpdateA (Int, Int, Bool) ()
+breedingUpdate msg = do
+  (breedCount, breedDelay, busyLoop) <- get
+  if breedDelay > 0 then
+    put (breedCount, breedDelay - 1, busyLoop)
+  else do
+    case msg of
+      MTransaction (Transaction _ _ [CreatedEvent (fromCreated @Cat -> Some catId)]) -> do
+        if breedDelay == 0 then
+          put (breedCount - 1, breedDelay - 1, busyLoop)
+        else
+          put (breedCount - 1, breedDelay, busyLoop)
+      _ -> do
+        if breedDelay == 0 then
+          put (breedCount, breedDelay - 1, busyLoop)
+        else
+          pure ()
+
+breedingAction: Party -> TriggerA (Int, Int, Bool) ()
+breedingAction party = do
+  (breedCount, breedDelay, busyLoop) <- get
+  if and [breedDelay <= 0, breedCount == 0] then
+    void $ emitCommands [createCmd (TestComplete party)] []
+  else if breedDelay == 0 then do
+    forA_ [1..breedingRate] \id -> do
+      void $ emitCommands [createCmd (Cat party id)] []
+  else if busyLoop then do
+    -- Waste time doing nothing!
+    let _ = inefficientFibonacci 40
+    do
+      pure ()
+  else
+    pure ()
+
 breedingTrigger : Trigger Int
 breedingTrigger = Trigger
   { initialize = pure breedingRate
