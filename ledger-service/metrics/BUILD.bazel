@@ -16,7 +16,7 @@ da_scala_library(
     ],
     runtime_deps = [],
     deps = [
-        "//ledger/ledger-resources",
+        "//libs-scala/ledger-resources",
         "//libs-scala/resources",
         "//libs-scala/resources-akka",
         "//libs-scala/resources-grpc",
