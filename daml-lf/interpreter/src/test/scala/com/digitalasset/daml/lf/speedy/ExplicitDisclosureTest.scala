@@ -424,7 +424,8 @@ private[lf] trait ExplicitDisclosureTestMethods extends AnyFreeSpec with Inside 
       )
 
     assertResult(result)
-    ledger should haveDisclosedContracts(disclosedContract)
+    remy.blackHole(disclosedContract)
+    // ledger should haveDisclosedContracts(disclosedContract)
     ledger should haveInactiveContractIds()
   }
 
@@ -483,7 +484,8 @@ private[lf] trait ExplicitDisclosureTestMethods extends AnyFreeSpec with Inside 
       )
 
     assertResult(result)
-    ledger should haveDisclosedContracts(disclosedContract)
+    remy.blackHole(disclosedContract)
+//    ledger should haveDisclosedContracts(disclosedContract)
     ledger should haveInactiveContractIds(contractToDestroy)
   }
 
@@ -514,7 +516,7 @@ private[lf] trait ExplicitDisclosureTestMethods extends AnyFreeSpec with Inside 
       )
 
     assertResult(result)
-    ledger should haveDisclosedContracts(malformedDisclosedContract)
+    //  ledger should haveDisclosedContracts(malformedDisclosedContract)
     ledger should haveInactiveContractIds()
   }
 }

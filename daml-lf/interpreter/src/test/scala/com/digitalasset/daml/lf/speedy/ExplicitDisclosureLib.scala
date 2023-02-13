@@ -351,14 +351,17 @@ object ExplicitDisclosureLib {
   }
 
   def haveDisclosedContracts(
-      disclosedContracts: DisclosedContract*
+      disclosedContracts: (ContractId, CachedContract)*
   ): Matcher[Speedy.UpdateMachine] =
     Matcher { machine =>
-      val expectedResult = ImmArray(disclosedContracts: _*)
-      val actualResult = machine.ptx.disclosedContracts
+      val expectedResult = disclosedContracts.map { case (coid, contract) =>
+        contract.toCreateNode(coid)
+      }
+      val actualResult = machine.disclosedCreateEvents.toSeq
+
       val debugMessage = Seq(
-        s"expected but missing contract IDs: ${expectedResult.filter(!actualResult.toSeq.contains(_)).map(_.contractId)}",
-        s"unexpected but found contract IDs: ${actualResult.filter(!expectedResult.toSeq.contains(_)).map(_.contractId)}",
+        s"expected but missing contract IDs: ${expectedResult.filter(!actualResult.contains(_)).map(_.coid)}",
+        s"unexpected but found contract IDs: ${actualResult.filter(!expectedResult.contains(_)).map(_.coid)}",
       ).mkString("\n  ", "\n  ", "")
 
       MatchResult(

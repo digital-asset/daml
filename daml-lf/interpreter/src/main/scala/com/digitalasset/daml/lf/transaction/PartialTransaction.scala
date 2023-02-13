@@ -190,7 +190,6 @@ private[lf] object PartialTransaction {
       contractKeyUniqueness: ContractKeyUniquenessMode,
       initialSeeds: InitialSeeding,
       committers: Set[Party],
-      disclosedContracts: ImmArray[DisclosedContract],
       authorizationChecker: AuthorizationChecker = DefaultAuthorizationChecker,
   ) = PartialTransaction(
     nextNodeIdx = 0,
@@ -199,7 +198,6 @@ private[lf] object PartialTransaction {
     context = Context(initialSeeds, committers),
     contractState = new ContractStateMachine[NodeId](contractKeyUniqueness).initial,
     actionNodeLocations = BackStack.empty,
-    disclosedContracts = disclosedContracts,
     authorizationChecker = authorizationChecker,
   )
 
@@ -234,14 +232,10 @@ private[speedy] case class PartialTransaction(
     context: PartialTransaction.Context,
     contractState: ContractStateMachine[NodeId]#State,
     actionNodeLocations: BackStack[Option[Location]],
-    disclosedContracts: ImmArray[DisclosedContract],
     authorizationChecker: AuthorizationChecker,
 ) {
 
   import PartialTransaction._
-
-  val disclosedContractIds: Set[Value.ContractId] =
-    disclosedContracts.map(_.contractId.value).toSeq.toSet
 
   def consumedByOrInactive(cid: Value.ContractId): Option[Either[NodeId, Unit]] = {
     contractState.consumedByOrInactive(cid)

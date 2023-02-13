@@ -5,7 +5,7 @@ package com.daml
 package lf
 package speedy
 
-import data.Ref.{PackageId, TypeConName}
+import data.Ref.PackageId
 import data.Time
 import SResult._
 import com.daml.lf.language.{Ast, PackageInterface}
@@ -163,7 +163,6 @@ private[speedy] object SpeedyTestLib {
           readAs = machine.readAs,
           commitLocation = machine.commitLocation,
           limits = machine.limits,
-          disclosureKeyTable = machine.disclosureKeyTable,
           iterationsBetweenInterruptions = machine.iterationsBetweenInterruptions,
         )
 
@@ -189,14 +188,11 @@ private[speedy] object SpeedyTestLib {
       }
 
       private[speedy] def withDisclosedContractKeys(
-          templateId: TypeConName,
-          disclosedContractKeys: (crypto.Hash, ContractId)*
+          disclosedContractKeys: (ContractId, CachedContract)*
       ): UpdateMachine = {
-        for {
-          entry <- disclosedContractKeys
-          (keyHash, contractId) = entry
-        } machine.disclosureKeyTable.addContractKey(templateId, keyHash, contractId)
-
+        disclosedContractKeys.foreach { case (contractId, contract) =>
+          machine.addDisclosedContracts(contractId, contract)
+        }
         machine
       }
     }
