@@ -73,7 +73,7 @@ lateBreedingTrigger = Trigger
 
 earlyBreedingTriggerWithDelay : Trigger (Int, Int, Bool)
 earlyBreedingTriggerWithDelay = Trigger
-  { initialize = pure (breedingRate, 0, True)
+  { initialize = pure (populationSize, 0, True)
   , updateState = breedingUpdate
   , rule = breedingAction
   , registeredTemplates = RegisteredTemplates [ registeredTemplate @TestComplete, registeredTemplate @Cat ]
@@ -82,7 +82,7 @@ earlyBreedingTriggerWithDelay = Trigger
 
 lateBreedingTriggerWithDelay : Trigger (Int, Int, Bool)
 lateBreedingTriggerWithDelay = Trigger
-  { initialize = pure (breedingRate, 1, True)
+  { initialize = pure (populationSize, 1, True)
   , updateState = breedingUpdate
   , rule = breedingAction
   , registeredTemplates = RegisteredTemplates [ registeredTemplate @TestComplete, registeredTemplate @Cat ]
