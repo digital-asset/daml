@@ -149,18 +149,67 @@ test = script do
     observers = [alice]
     price = 100.0
   -- Before we buy anything, Alice has 1000
-  ((_, alice_account)::_) <- query @Account alice
-  alice_account.amount === 1000.0
+  ((_, aliceAccount)::_) <- query @Account alice
+  aliceAccount.amount === 1000.0
   submit alice $ exerciseCmd shop (OrderItemTrusted alice)
-  -- This transfer happened, so balance is now 900
-  ((_, alice_account)::_) <- query @Account alice
-  alice_account.amount === 900.0
+  -- This transfer happened, so the balance is now 900
+  ((_, aliceAccount)::_) <- query @Account alice
+  aliceAccount.amount === 900.0
+  -- and there's an Iou from Alice's bank to the shop
+  [(_, bankIou)] <- query @Iou bank
+  bankIou === Iou with issuer = bank, owner = shopOwner, amount = 100.0
+  -- Now let's try to go over the limit
   submit alice $ exerciseCmd shop (OrderItemTrustedLimited alice)
-  -- This one didn't, so balance is still 900
-  ((_, alice_account)::_) <- query @Account alice
-  alice_account.amount === 900.0
+  -- This one doesn't pass, so the balance is still 900
+  ((_, aliceAccount)::_) <- query @Account alice
+  aliceAccount.amount === 900.0
+  -- and the newly created Iou is in Alice's name instead of her bank's
+  [(_, aliceIou)] <- query @Iou alice
+  [(_, bankIou)] <- query @Iou bank
+  aliceIou === Iou with issuer = alice, owner = shopOwner, amount = 100.0
+  bankIou === Iou with issuer = bank, owner = shopOwner, amount = 100.0
 
-  pure ()
+test2 = script do
+  bank <- allocateParty "Bank"
+  alice <- allocateParty "Alice"
+  shopOwner <- allocateParty "ShopOwner"
+
+  aliceAccountId <-
+    submitMulti [bank, alice] [] $ createCmd Account with
+      issuer = bank
+      owner = alice
+      amount = 1000.0
+
+  submitMulti [alice, shopOwner] [] $
+    createAndExerciseCmd
+      (TestThrewTransferLimitExceeded with
+        owner = alice
+        newOwner = shopOwner)
+      (TestThrewTransferLimitExceededChoice with
+        accountId = aliceAccountId)
+
+-- We define this through a helper contract so the `try-catch` happens entirely
+-- ledger-side.
+template TestThrewTransferLimitExceeded
+  with
+    owner : Party
+    newOwner : Party
+  where
+    signatory owner, newOwner
+    choice TestThrewTransferLimitExceededChoice : ()
+      with accountId : ContractId Account
+      controller owner, newOwner
+      do
+        threwTransferLimitExceeded <- do
+          try do
+            -- this must throw since `limit` is hardcoded to `50.0`
+            -- in `TransferLimited`
+            exercise accountId (TransferLimited newOwner 100.0)
+            pure False
+          catch
+            TransferLimitExceeded _ _ -> pure True
+        unless threwTransferLimitExceeded $
+          error "expected TransferLimitExceeded exception"
 
 -- CUSTOM_EXCEPTION_BEGIN
 exception TransferLimitExceeded
