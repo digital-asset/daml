@@ -41,10 +41,10 @@ da_scala_test_suite(
     deps = [
         ":cli-opts",
         "//ledger/ledger-api-auth",
-        "//test-common",
         "//libs-scala/fs-utils",
         "//libs-scala/jwt",
         "//libs-scala/resources",
+        "//test-common",
         "@maven//:com_auth0_java_jwt",
         "@maven//:io_grpc_grpc_api",
         "@maven//:org_bouncycastle_bcpkix_jdk15on",
