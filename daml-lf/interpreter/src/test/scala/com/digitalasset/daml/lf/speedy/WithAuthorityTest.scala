@@ -33,7 +33,7 @@ class WithAuthorityTest extends AnyFreeSpec with Inside {
   "Single" - {
 
     "single (auth changed): A->{B}->A [FAIL]" in {
-      inside(makeSingleCall(committers = Set(a), required = Set(b), signed = a)) { case Left(err) =>
+      inside(makeSingle(committers = Set(a), required = Set(b), signed = a)) { case Left(err) =>
         inside(err) { case SError.SErrorDamlException(FailedAuthorization(_, why)) =>
           inside(why) { case cma: CreateMissingAuthorization =>
             cma.authorizingParties shouldBe Set(b)
@@ -42,17 +42,15 @@ class WithAuthorityTest extends AnyFreeSpec with Inside {
         }
       }
     }
-
     "single (auth changed): A->{B}->B [OK]" in {
-      inside(makeSingleCall(committers = Set(a), required = Set(b), signed = b)) { case Right(tx) =>
+      inside(makeSingle(committers = Set(a), required = Set(b), signed = b)) { case Right(tx) =>
         val shape = shapeOfTransaction(tx)
         val expected = List(Authority(Set(b), List(Create(b))))
         shape shouldBe expected
       }
     }
-
     "single (auth restricted/extended) {A,B}->{B,C}->A [FAIL]" in {
-      inside(makeSingleCall(committers = Set(a, b), required = Set(b, c), signed = a)) {
+      inside(makeSingle(committers = Set(a, b), required = Set(b, c), signed = a)) {
         case Left(err) =>
           inside(err) { case SError.SErrorDamlException(FailedAuthorization(_, why)) =>
             inside(why) { case cma: CreateMissingAuthorization =>
@@ -62,49 +60,295 @@ class WithAuthorityTest extends AnyFreeSpec with Inside {
           }
       }
     }
-
     "single (auth restricted/extended) {A,B}->{B,C}->B [OK]" in {
-      inside(makeSingleCall(committers = Set(a, b), required = Set(b, c), signed = b)) {
+      inside(makeSingle(committers = Set(a, b), required = Set(b, c), signed = b)) {
         case Right(tx) =>
           val shape = shapeOfTransaction(tx)
           val expected = List(Authority(Set(b, c), List(Create(b))))
           shape shouldBe expected
       }
     }
-
     "single (auth restricted/extended) {A,B}->{B,C}->C [OK]" in {
-      inside(makeSingleCall(committers = Set(a, b), required = Set(b, c), signed = c)) {
+      inside(makeSingle(committers = Set(a, b), required = Set(b, c), signed = c)) {
         case Right(tx) =>
           val shape = shapeOfTransaction(tx)
           val expected = List(Authority(Set(b, c), List(Create(c))))
           shape shouldBe expected
       }
     }
-
     "single (auth unchanged) A->{A}->A [OK; no auth-node]" in {
-      inside(makeSingleCall(committers = Set(a), required = Set(a), signed = a)) { case Right(tx) =>
+      inside(makeSingle(committers = Set(a), required = Set(a), signed = a)) { case Right(tx) =>
         val shape = shapeOfTransaction(tx)
         val expected = List(Create(a))
         shape shouldBe expected
       }
     }
-
     "single (auth restricted) {A,B}->{B}->B [OK; no auth-node]" in {
-      inside(makeSingleCall(committers = Set(a, b), required = Set(b), signed = b)) {
-        case Right(tx) =>
-          val shape = shapeOfTransaction(tx)
-          val expected = List(Create(b))
-          shape shouldBe expected
+      inside(makeSingle(committers = Set(a, b), required = Set(b), signed = b)) { case Right(tx) =>
+        val shape = shapeOfTransaction(tx)
+        val expected = List(Create(b))
+        shape shouldBe expected
+      }
+    }
+    "single (auth restricted) {A,B}->{B}->A [FAIL]" in {
+      inside(makeSingle(committers = Set(a, b), required = Set(b), signed = a)) { case Left(err) =>
+        inside(err) { case SError.SErrorDamlException(FailedAuthorization(_, why)) =>
+          inside(why) { case cma: CreateMissingAuthorization =>
+            cma.authorizingParties shouldBe Set(b)
+            cma.requiredParties shouldBe Set(a)
+          }
+        }
+      }
+    }
+  }
+
+  "Sequence1" - {
+
+    "sequence1: A-> ( {B}->B ; ->A ) [OK]" in {
+      inside(
+        makeSequence1(
+          committers = Set(a),
+          required = Set(b),
+          signed1 = b,
+          signed2 = a,
+        )
+      ) { case Right(tx) =>
+        val shape = shapeOfTransaction(tx)
+        val expected = List[Shape](Authority(Set(b), List(Create(b))), Create(a))
+        shape shouldBe expected
+      }
+    }
+    "sequence1: A-> ( {B}->B ; ->B ) [FAIL]" in {
+      inside(
+        makeSequence1(
+          committers = Set(a),
+          required = Set(b),
+          signed1 = b,
+          signed2 = b,
+        )
+      ) { case Left(err) =>
+        inside(err) { case SError.SErrorDamlException(FailedAuthorization(_, why)) =>
+          inside(why) { case cma: CreateMissingAuthorization =>
+            cma.authorizingParties shouldBe Set(a)
+            cma.requiredParties shouldBe Set(b)
+          }
+        }
+      }
+    }
+    "sequence1: A-> ( {A}->A ; ->A ) [OK; no auth-node]" in {
+      inside(
+        makeSequence1(
+          committers = Set(a),
+          required = Set(a),
+          signed1 = a,
+          signed2 = a,
+        )
+      ) { case Right(tx) =>
+        val shape = shapeOfTransaction(tx)
+        val expected = List[Shape](Create(a), Create(a))
+        shape shouldBe expected
+      }
+    }
+    "sequence1: {A,B}-> ( {B}->B ; ->A ) [OK; no auth-node]" in {
+      inside(
+        makeSequence1(
+          committers = Set(a, b),
+          required = Set(b),
+          signed1 = b,
+          signed2 = a,
+        )
+      ) { case Right(tx) =>
+        val shape = shapeOfTransaction(tx)
+        val expected = List[Shape](Create(b), Create(a))
+        shape shouldBe expected
+      }
+    }
+    "sequence1: {A,B}-> ( {B}->B ; ->B ) [OK; no auth-node]" in {
+      inside(
+        makeSequence1(
+          committers = Set(a, b),
+          required = Set(b),
+          signed1 = b,
+          signed2 = b,
+        )
+      ) { case Right(tx) =>
+        val shape = shapeOfTransaction(tx)
+        val expected = List[Shape](Create(b), Create(b))
+        shape shouldBe expected
       }
     }
 
-    "single (auth restricted) {A,B}->{B}->A [FAIL]" in {
-      inside(makeSingleCall(committers = Set(a, b), required = Set(b), signed = a)) {
+  }
+
+  "Sequence2" - {
+
+    "sequence2: A-> ( {B}->B ; {C}->C ) [OK; 2 auth nodes]" in {
+      inside(
+        makeSequence2(
+          committers = Set(a),
+          required1 = Set(b),
+          signed1 = b,
+          required2 = Set(c),
+          signed2 = c,
+        )
+      ) { case Right(tx) =>
+        val shape = shapeOfTransaction(tx)
+        val expected = List(Authority(Set(b), List(Create(b))), Authority(Set(c), List(Create(c))))
+        shape shouldBe expected
+      }
+    }
+    "sequence2: A-> ( {B}->B ; {B}->B ) [OK; 2 auth nodes]" in {
+      inside(
+        makeSequence2(
+          committers = Set(a),
+          required1 = Set(b),
+          signed1 = b,
+          required2 = Set(b),
+          signed2 = b,
+        )
+      ) { case Right(tx) =>
+        val shape = shapeOfTransaction(tx)
+        val expected = List(Authority(Set(b), List(Create(b))), Authority(Set(b), List(Create(b))))
+        shape shouldBe expected
+      }
+    }
+    "sequence2: A-> ( {B}->B ; {A}->A ) [OK; only 1 auth node]" in {
+      inside(
+        makeSequence2(
+          committers = Set(a),
+          required1 = Set(b),
+          signed1 = b,
+          required2 = Set(a),
+          signed2 = a,
+        )
+      ) { case Right(tx) =>
+        val shape = shapeOfTransaction(tx)
+        val expected = List[Shape](Authority(Set(b), List(Create(b))), Create(a))
+        shape shouldBe expected
+      }
+    }
+    "sequence2: A-> ( {B}->B ; {C}->A ) [FAIL]" in {
+      inside(
+        makeSequence2(
+          committers = Set(a),
+          required1 = Set(b),
+          signed1 = b,
+          required2 = Set(c),
+          signed2 = a,
+        )
+      ) { case Left(err) =>
+        inside(err) { case SError.SErrorDamlException(FailedAuthorization(_, why)) =>
+          inside(why) { case cma: CreateMissingAuthorization =>
+            cma.authorizingParties shouldBe Set(c)
+            cma.requiredParties shouldBe Set(a)
+          }
+        }
+      }
+    }
+    "sequence2: A-> ( {B}->B ; {C}->B ) [FAIL]" in {
+      inside(
+        makeSequence2(
+          committers = Set(a),
+          required1 = Set(b),
+          signed1 = b,
+          required2 = Set(c),
+          signed2 = b,
+        )
+      ) { case Left(err) =>
+        inside(err) { case SError.SErrorDamlException(FailedAuthorization(_, why)) =>
+          inside(why) { case cma: CreateMissingAuthorization =>
+            cma.authorizingParties shouldBe Set(c)
+            cma.requiredParties shouldBe Set(b)
+          }
+        }
+      }
+    }
+  }
+
+  "Nested" - {
+
+    "nested: A->{B}->{C}->C [OK]" in {
+      inside(makeNested(committers = Set(a), outer = Set(b), inner = Set(c), signed = c)) {
+        case Right(tx) =>
+          val shape = shapeOfTransaction(tx)
+          val expected = List(Authority(Set(b), List(Authority(Set(c), List(Create(c))))))
+          shape shouldBe expected
+      }
+    }
+    "nested: A->{B}->{C}->A [FAIL]" in {
+      inside(makeNested(committers = Set(a), outer = Set(b), inner = Set(c), signed = a)) {
         case Left(err) =>
           inside(err) { case SError.SErrorDamlException(FailedAuthorization(_, why)) =>
             inside(why) { case cma: CreateMissingAuthorization =>
-              val _ = cma
-              cma.authorizingParties shouldBe Set(b)
+              cma.authorizingParties shouldBe Set(c)
+              cma.requiredParties shouldBe Set(a)
+            }
+          }
+      }
+    }
+    "nested: A->{B}->{C}->B [FAIL]" in {
+      inside(makeNested(committers = Set(a), outer = Set(b), inner = Set(c), signed = b)) {
+        case Left(err) =>
+          inside(err) { case SError.SErrorDamlException(FailedAuthorization(_, why)) =>
+            inside(why) { case cma: CreateMissingAuthorization =>
+              cma.authorizingParties shouldBe Set(c)
+              cma.requiredParties shouldBe Set(b)
+            }
+          }
+      }
+    }
+    "nested: A->{A}->{C}->C [OK; 1 auth-node]" in {
+      inside(makeNested(committers = Set(a), outer = Set(a), inner = Set(c), signed = c)) {
+        case Right(tx) =>
+          val shape = shapeOfTransaction(tx)
+          val expected = List(Authority(Set(c), List(Create(c))))
+          shape shouldBe expected
+      }
+    }
+    "nested: A->{A}->{C}->A [FAIL]" in {
+      inside(makeNested(committers = Set(a), outer = Set(a), inner = Set(c), signed = a)) {
+        case Left(err) =>
+          inside(err) { case SError.SErrorDamlException(FailedAuthorization(_, why)) =>
+            inside(why) { case cma: CreateMissingAuthorization =>
+              cma.authorizingParties shouldBe Set(c)
+              cma.requiredParties shouldBe Set(a)
+            }
+          }
+      }
+    }
+    "nested: A->{C}->{C}->C [OK; 1 auth-node]" in {
+      inside(makeNested(committers = Set(a), outer = Set(c), inner = Set(c), signed = c)) {
+        case Right(tx) =>
+          val shape = shapeOfTransaction(tx)
+          val expected = List(Authority(Set(c), List(Create(c))))
+          shape shouldBe expected
+      }
+    }
+    "nested: A->{C}->{C}->A [FAIL]" in {
+      inside(makeNested(committers = Set(a), outer = Set(c), inner = Set(c), signed = a)) {
+        case Left(err) =>
+          inside(err) { case SError.SErrorDamlException(FailedAuthorization(_, why)) =>
+            inside(why) { case cma: CreateMissingAuthorization =>
+              cma.authorizingParties shouldBe Set(c)
+              cma.requiredParties shouldBe Set(a)
+            }
+          }
+      }
+    }
+    "nested: A->{A,B}->{B,C}->C [OK]" in {
+      inside(makeNested(committers = Set(a), outer = Set(a, b), inner = Set(b, c), signed = c)) {
+        case Right(tx) =>
+          val shape = shapeOfTransaction(tx)
+          val expected = List(Authority(Set(a, b), List(Authority(Set(b, c), List(Create(c))))))
+          shape shouldBe expected
+      }
+    }
+    "nested: A->{A,B}->{B,C}->A [FAIL]" in {
+      inside(makeNested(committers = Set(a), outer = Set(a, b), inner = Set(b, c), signed = a)) {
+        case Left(err) =>
+          inside(err) { case SError.SErrorDamlException(FailedAuthorization(_, why)) =>
+            inside(why) { case cma: CreateMissingAuthorization =>
+              cma.authorizingParties shouldBe Set(b, c)
               cma.requiredParties shouldBe Set(a)
             }
           }
@@ -112,27 +356,6 @@ class WithAuthorityTest extends AnyFreeSpec with Inside {
     }
   }
 
-  "Nested" - {
-
-    "nest:A->{B}->{C}->C" in {
-      inside(makeNestCall(committers = Set(a), outer = Set(b), inner = Set(c), signed = c)) {
-        case Right(tx) =>
-          val shape = shapeOfTransaction(tx)
-          val expected = List(Authority(Set(b), List(Authority(Set(c), List(Create(c))))))
-          shape shouldBe expected
-      }
-    }
-    "nest:A->{A,B}->{B,C}->C" in {
-      inside(makeNestCall(committers = Set(a), outer = Set(a, b), inner = Set(b, c), signed = c)) {
-        case Right(tx) =>
-          val shape = shapeOfTransaction(tx)
-          val expected = List(Authority(Set(a, b), List(Authority(Set(b, c), List(Create(c))))))
-          shape shouldBe expected
-      }
-    }
-  }
-
-  // TODO #15882 -- Test that the authority gain or restriction is properly scoped
   // TODO #15882 -- test interaction between Authority and Exercise/Rollback nodes
 
 }
@@ -160,12 +383,35 @@ object WithAuthorityTest {
            (ubind x1: ContractId M:T1 <- create @M:T1 M:T1 { signed = signed, info = 100 }
             in upure @Unit ());
 
-        val nest : List Party -> List Party -> Party -> Update Unit =
+        val nested : List Party -> List Party -> Party -> Update Unit =
           \(outer: List Party) -> \(inner: List Party) -> \(signed: Party) ->
            WITH_AUTHORITY @Unit outer
            (WITH_AUTHORITY @Unit inner
             (ubind x1: ContractId M:T1 <- create @M:T1 M:T1 { signed = signed, info = 100 }
              in upure @Unit ()));
+
+        val sequence1 : List Party -> Party -> Party -> Update Unit =
+          \(required1: List Party) -> \(signed1: Party) -> \(signed2: Party) ->
+            ubind
+              u: Unit <-
+                WITH_AUTHORITY @Unit required1
+                 (ubind x1: ContractId M:T1 <- create @M:T1 M:T1 { signed = signed1, info = 100 }
+                   in upure @Unit ());
+              x2: ContractId M:T1 <- create @M:T1 M:T1 { signed = signed2, info = 100 }
+            in upure @Unit ();
+
+        val sequence2 : List Party -> Party -> List Party -> Party -> Update Unit =
+          \(required1: List Party) -> \(signed1: Party) -> \(required2: List Party) -> \(signed2: Party) ->
+            ubind
+              u: Unit <-
+                WITH_AUTHORITY @Unit required1
+                 (ubind x1: ContractId M:T1 <- create @M:T1 M:T1 { signed = signed1, info = 100 }
+                   in upure @Unit ());
+              u: Unit <-
+                WITH_AUTHORITY @Unit required2
+                 (ubind x2: ContractId M:T1 <- create @M:T1 M:T1 { signed = signed2, info = 100 }
+                   in upure @Unit ())
+            in upure @Unit ();
        }
       """)
 
@@ -173,7 +419,7 @@ object WithAuthorityTest {
     SList(FrontStack(set.toList.map(SParty(_)): _*))
   }
 
-  def makeSingleCall(
+  def makeSingle(
       committers: Set[Party],
       required: Set[Party],
       signed: Party,
@@ -185,7 +431,43 @@ object WithAuthorityTest {
     SpeedyTestLib.buildTransaction(machine)
   }
 
-  def makeNestCall(
+  def makeSequence1(
+      committers: Set[Party],
+      required: Set[Party],
+      signed1: Party,
+      signed2: Party,
+  ): Either[SError, SubmittedTransaction] = {
+    val requiredV = makeSetPartyValue(required)
+    val signed1V = SParty(signed1)
+    val signed2V = SParty(signed2)
+    val example = SEApp(
+      pkgs.compiler.unsafeCompile(e"M:sequence1"),
+      Array(requiredV, signed1V, signed2V),
+    )
+    val machine = Speedy.Machine.fromUpdateSExpr(pkgs, transactionSeed, example, committers)
+    SpeedyTestLib.buildTransaction(machine)
+  }
+
+  def makeSequence2(
+      committers: Set[Party],
+      required1: Set[Party],
+      signed1: Party,
+      required2: Set[Party],
+      signed2: Party,
+  ): Either[SError, SubmittedTransaction] = {
+    val required1V = makeSetPartyValue(required1)
+    val signed1V = SParty(signed1)
+    val required2V = makeSetPartyValue(required2)
+    val signed2V = SParty(signed2)
+    val example = SEApp(
+      pkgs.compiler.unsafeCompile(e"M:sequence2"),
+      Array(required1V, signed1V, required2V, signed2V),
+    )
+    val machine = Speedy.Machine.fromUpdateSExpr(pkgs, transactionSeed, example, committers)
+    SpeedyTestLib.buildTransaction(machine)
+  }
+
+  def makeNested(
       committers: Set[Party],
       outer: Set[Party],
       inner: Set[Party],
@@ -194,7 +476,7 @@ object WithAuthorityTest {
     val outerV = makeSetPartyValue(outer)
     val innerV = makeSetPartyValue(inner)
     val signedV = SParty(signed)
-    val example = SEApp(pkgs.compiler.unsafeCompile(e"M:nest"), Array(outerV, innerV, signedV))
+    val example = SEApp(pkgs.compiler.unsafeCompile(e"M:nested"), Array(outerV, innerV, signedV))
     val machine = Speedy.Machine.fromUpdateSExpr(pkgs, transactionSeed, example, committers)
     SpeedyTestLib.buildTransaction(machine)
   }
