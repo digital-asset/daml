@@ -338,10 +338,14 @@ object ExplicitDisclosureLib {
     machine =>
       val expectedResult = contractIds.toSet
       val actualResult = machine.ptx.contractState.activeState.consumedBy.keySet
-      val debugMessage = Seq(
-        s"expected but missing contract IDs: ${expectedResult.filter(!actualResult.toSeq.contains(_))}",
-        s"unexpected but found contract IDs: ${actualResult.filter(!expectedResult.toSeq.contains(_))}",
-      ).mkString("\n  ", "\n  ", "")
+      val debugMessage = {
+        val diff1 = expectedResult -- actualResult
+        val diff2 = actualResult -- expectedResult
+        if (diff1.nonEmpty)
+          s"expected but missing contract IDs: $diff1"
+        else
+          s"unexpected but found contract IDs: $diff2"
+      }
 
       MatchResult(
         expectedResult == actualResult,
@@ -351,18 +355,26 @@ object ExplicitDisclosureLib {
   }
 
   def haveDisclosedContracts(
-      disclosedContracts: (ContractId, CachedContract)*
+      disclosedContracts: DisclosedContract*
   ): Matcher[Speedy.UpdateMachine] =
     Matcher { machine =>
-      val expectedResult = disclosedContracts.map { case (coid, contract) =>
-        contract.toCreateNode(coid)
-      }
-      val actualResult = machine.disclosedCreateEvents.toSeq
+      val expectedResult = disclosedContracts.iterator
+        .map(c =>
+          c.contractId.value -> c.argument.toNormalizedValue(machine.tmplId2TxVersion(c.templateId))
+        )
+        .toMap
+      val actualResult = machine.disclosedContracts.transform((_, c) => c.arg)
 
-      val debugMessage = Seq(
-        s"expected but missing contract IDs: ${expectedResult.filter(!actualResult.contains(_)).map(_.coid)}",
-        s"unexpected but found contract IDs: ${actualResult.filter(!expectedResult.contains(_)).map(_.coid)}",
-      ).mkString("\n  ", "\n  ", "")
+      val debugMessage = {
+        val diff1 = expectedResult.keySet -- actualResult.keySet
+        val diff2 = actualResult.keySet -- expectedResult.keySet
+        if (diff1.nonEmpty)
+          s"expected but missing contract IDs: $diff1"
+        else if (diff2.nonEmpty)
+          s"unexpected but found contract IDs: $diff2"
+        else
+          ""
+      }
 
       MatchResult(
         expectedResult == actualResult,
