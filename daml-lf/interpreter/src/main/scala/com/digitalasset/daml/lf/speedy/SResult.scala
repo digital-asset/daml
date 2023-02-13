@@ -53,6 +53,12 @@ object Question {
         // Callback only when the request is granted
         callback: () => Unit,
     ) extends Update
+
+    final case class NeedPackageId(
+        module: ModuleName,
+        pid0: PackageId,
+        callback: PackageId => Unit,
+    ) extends Update
   }
 
   sealed abstract class Scenario extends Product with Serializable

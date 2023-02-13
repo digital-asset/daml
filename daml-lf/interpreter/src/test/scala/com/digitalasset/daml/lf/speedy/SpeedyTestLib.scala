@@ -133,6 +133,9 @@ private[speedy] object SpeedyTestLib {
         }
       case Question.Update.NeedKey(key, _, callback) =>
         discard(callback(getKey.lift(key)))
+      case Question.Update.NeedPackageId(_, _, _) =>
+        // TODO #dynamic-exercise
+        ???
     }
     runTxQ(onQuestion, machine) match {
       case Left(e) => Left(e)

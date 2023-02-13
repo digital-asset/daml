@@ -102,6 +102,9 @@ class HasExercise t c r | t c -> r where
   -- | Exercise a choice on the contract with the given contract ID.
   exercise : ContractId t -> c -> Update r
 
+class HasDynamicExercise t c r | t c -> r where
+  dynamicExercise : ContractId t -> c -> Update r
+
 -- | Exposes `choiceController` function. Part of the `Choice` constraint.
 class HasChoiceController t c where
   -- | HIDE

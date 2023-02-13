@@ -1339,6 +1339,8 @@ message Update {
     reserved 4; // Was actor
     // argument
     Expr arg = 5;
+
+    bool dynamic = 7;
   }
 
   // Interface Exercise Update

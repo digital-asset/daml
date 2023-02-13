@@ -2143,6 +2143,31 @@ private[lf] object SBuiltin {
     }
   }
 
+  /** $dynamicExercise[T, C, R] :: HasDynamicExercise T C R => ContractId T ->  C -> Update R */
+  final case class SBUDynamicExercise(
+      templateId: TypeConName,
+      choice: ChoiceName,
+  ) extends UpdateBuiltin(2) {
+    override protected def executeUpdate(
+        args: util.ArrayList[SValue],
+        machine: UpdateMachine,
+    ): Control[Question.Update] = {
+      Control.Question(
+        Question.Update.NeedPackageId(
+          module = templateId.qualifiedName.module,
+          pid0 = templateId.packageId,
+          callback = pid => {
+            val e = SEApp(
+              SEVal(TemplateChoiceDefRef(templateId.copy(packageId = pid), choice)),
+              args.toArray(Array.empty[SValue]),
+            )
+            machine.setControl(Control.Expression(e))
+          },
+        )
+      )
+    }
+  }
+
   private[speedy] def convTxError(err: Tx.TransactionError): IE = {
     err match {
       case Tx.AuthFailureDuringExecution(nid, fa) =>

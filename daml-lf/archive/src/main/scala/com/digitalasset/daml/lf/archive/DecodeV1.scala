@@ -1655,7 +1655,7 @@ private[archive] class DecodeV1(minor: LV.Minor) {
           )
           decodeExpr(exercise.getCid, definition) { cidE =>
             decodeExpr(exercise.getArg, definition) { argE =>
-              Ret(UpdateExercise(templateId, choice, cidE, argE))
+              Ret(UpdateExercise(templateId, choice, cidE, argE, exercise.getDynamic))
             }
           }
 

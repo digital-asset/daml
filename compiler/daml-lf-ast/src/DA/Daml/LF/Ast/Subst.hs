@@ -276,11 +276,12 @@ applySubstInUpdate subst = \case
     UCreateInterface interface e -> UCreateInterface
         interface
         (applySubstInExpr subst e)
-    UExercise templateName choiceName e1 e2 -> UExercise
+    UExercise templateName choiceName e1 e2 dyn -> UExercise
         templateName
         choiceName
         (applySubstInExpr subst e1)
         (applySubstInExpr subst e2)
+        dyn
     UExerciseInterface interface choiceName e1 e2 e3 -> UExerciseInterface
         interface
         choiceName

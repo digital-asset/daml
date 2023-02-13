@@ -475,6 +475,11 @@ private[lf] object ScenarioRunner {
             case Question.Update.NeedTime(callback) =>
               callback(ledger.currentTime)
               go()
+            case Question.Update.NeedPackageId(module @ _, pid0, callback) =>
+              // TODO #dynamic-exercise
+              // For now this just continues with the input package id
+              callback(pid0)
+              go()
             case res: Question.Update.NeedPackage =>
               throw Error.Internal(s"unexpected $res")
           }

@@ -426,6 +426,12 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
                 },
               )
 
+            case Question.Update.NeedPackageId(module @ _, pid0, callback) =>
+              // TODO #dynamic-exercise
+              // For now this just continues with the input package id
+              callback(pid0)
+              loop()
+
             case Question.Update.NeedTime(callback) =>
               callback(time)
               loop()

@@ -580,6 +580,7 @@ object Ast {
       choice: ChoiceName,
       cidE: Expr,
       argE: Expr,
+      dynamic: Boolean,
   ) extends Update
   final case class UpdateExerciseInterface(
       interfaceId: TypeConName,

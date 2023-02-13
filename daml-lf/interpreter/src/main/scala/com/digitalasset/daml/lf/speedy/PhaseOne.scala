@@ -742,10 +742,14 @@ private[lf] final class PhaseOne(
             }
           }
         }
-      case UpdateExercise(tmplId, chId, cid, arg) =>
+      case UpdateExercise(tmplId, chId, cid, arg, dynamic) =>
         compileExp(env, cid) { cid =>
           compileExp(env, arg) { arg =>
-            Return(t.TemplateChoiceDefRef(tmplId, chId)(cid, arg))
+            if (dynamic) {
+              Return(SBUDynamicExercise(tmplId, chId)(cid, arg))
+            } else {
+              Return(t.TemplateChoiceDefRef(tmplId, chId)(cid, arg))
+            }
           }
         }
       case UpdateExerciseInterface(ifaceId, chId, cid, arg, maybeGuard) =>

@@ -374,12 +374,13 @@ private[daml] class EncodeV1(minor: LV.Minor) {
           builder.setFetchInterface(
             PLF.Update.FetchInterface.newBuilder().setInterface(interface).setCid(contractId)
           )
-        case UpdateExercise(templateId, choice, cid, arg) =>
+        case UpdateExercise(templateId, choice, cid, arg, dynamic) =>
           val b = PLF.Update.Exercise.newBuilder()
           b.setTemplate(templateId)
           setString(choice, b.setChoiceStr, b.setChoiceInternedStr)
           b.setCid(cid)
           b.setArg(arg)
+          b.setDynamic(dynamic)
           builder.setExercise(b)
         case UpdateExerciseInterface(interface, choice, cid, arg, guard) =>
           val b = PLF.Update.ExerciseInterface.newBuilder()
