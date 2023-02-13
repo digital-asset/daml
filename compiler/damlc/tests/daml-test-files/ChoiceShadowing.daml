@@ -3,13 +3,18 @@
 
 -- Check that name shadowing is allowed in choices, and that the argument takes precedence over the template
 
+{-# OPTIONS_GHC -Wno-ambiguous-fields #-}
+
 module ChoiceShadowing where
+
+import DA.Assert
 
 template T with
     p : Party
     p2 : Party
   where
     signatory p
+    observer [p, p2]
 
     choice Call : ContractId T with
         p : Party
@@ -22,9 +27,10 @@ template T with
 test1 = scenario do
     alice <- getParty "Alice"
     bob <- getParty "Bob"
-    cid <- submit p do
-      createAndExercise
-        (T alice bob)
-        (Call bob)
-    newT <- queryContractId bob cid
-    newT === T bob bob
+    cid <- submit alice $ create (T alice bob)
+    submit bob do
+      cid2 <- exercise cid (Call bob)
+      newT <- fetch cid2
+      newT === T bob bob
+
+-- @ENABLE-SCENARIOS
