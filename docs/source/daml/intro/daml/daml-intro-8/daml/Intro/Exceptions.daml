@@ -7,6 +7,7 @@ module Intro.Exceptions where
 import DA.Action
 import Daml.Script
 import DA.Exception
+import DA.Assert ((===))
 
 -- IOU_BEGIN
 template Iou
@@ -104,7 +105,7 @@ template Shop
         shopper : Party
       controller shopper
       do try do
-           exerciseByKey @Account (bank, shopper) (Transfer owner price)
+           exerciseByKey @Account (bank, shopper) (TransferLimited owner price)
            pure ()
          catch
            PreconditionFailed _ -> do
@@ -140,16 +141,24 @@ test = script do
   submitMulti [bank, alice] [] $ createCmd Account with
     issuer = bank
     owner = alice
-    amount = 150.0
+    amount = 1000.0
 
   shop <- submit shopOwner $ createCmd Shop with
     owner = shopOwner
     bank = bank
     observers = [alice]
     price = 100.0
-
+  -- Before we buy anything, Alice has 1000
+  ((_, alice_account)::_) <- query @Account alice
+  alice_account.amount === 1000.0
   submit alice $ exerciseCmd shop (OrderItemTrusted alice)
-  submit alice $ exerciseCmd shop (OrderItemTrusted alice)
+  -- This transfer happened, so balance is now 900
+  ((_, alice_account)::_) <- query @Account alice
+  alice_account.amount === 900.0
+  submit alice $ exerciseCmd shop (OrderItemTrustedLimited alice)
+  -- This one didn't, so balance is still 900
+  ((_, alice_account)::_) <- query @Account alice
+  alice_account.amount === 900.0
 
   pure ()
 
