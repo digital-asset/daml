@@ -117,6 +117,43 @@ object ScenarioService {
     Status.NOT_FOUND.withDescription(s" context $id not found!").asRuntimeException
 }
 
+sealed trait ScriptStream {
+  def sendStatus(status: ScenarioStatus): Unit;
+  def sendFinalResponse(result: Either[ScenarioError, ScenarioResult]): Unit;
+  def sendError(t: Throwable): Unit;
+}
+
+final case class StreamWithoutStatus(internal: StreamObserver[RunScenarioResponse]) extends ScriptStream {
+  override def sendFinalResponse(finalResponse: Either[ScenarioError, ScenarioResult]): Unit = {
+    val message = finalResponse match {
+      case Left(error: ScenarioError) => RunScenarioResponse.newBuilder.setError(error).build
+      case Right(result: ScenarioResult) => RunScenarioResponse.newBuilder.setResult(result).build
+    }
+    internal.onNext(message)
+    internal.onCompleted()
+  }
+
+  override def sendStatus(status: ScenarioStatus): Unit = {}
+  override def sendError(t: Throwable): Unit = internal.onError(t)
+}
+
+final case class StreamWithStatus(internal: StreamObserver[RunScenarioResponseOrStatus]) extends ScriptStream {
+  override def sendFinalResponse(finalResponse: Either[ScenarioError, ScenarioResult]): Unit = {
+    val message = finalResponse match {
+      case Left(error: ScenarioError) => RunScenarioResponseOrStatus.newBuilder.setError(error).build
+      case Right(result: ScenarioResult) => RunScenarioResponseOrStatus.newBuilder.setResult(result).build
+    }
+    internal.onNext(message)
+    internal.onCompleted()
+  }
+
+  override def sendStatus(status: ScenarioStatus): Unit = {
+    val message = RunScenarioResponseOrStatus.newBuilder.setStatus(status).build
+    internal.onNext(message)
+  }
+  override def sendError(t: Throwable): Unit = internal.onError(t)
+}
+
 @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
 class ScenarioService(
     enableScenarios: Boolean
@@ -139,9 +176,9 @@ class ScenarioService(
       respObs: StreamObserver[RunScenarioResponse],
   ): Unit = {
     if (enableScenarios) {
-      run(
+      runLive(
         req,
-        respObs,
+        StreamWithoutStatus(respObs),
         { case (ctx, pkgId, name) =>
           Future.successful(ctx.interpretScenario(pkgId, name))
         },
@@ -155,17 +192,31 @@ class ScenarioService(
   override def runScript(
       req: RunScenarioRequest,
       respObs: StreamObserver[RunScenarioResponse],
-  ): Unit = run(req, respObs, { case (ctx, pkgId, name) => ctx.interpretScript(pkgId, name) })
+  ): Unit =
+    runLive(
+      req,
+      StreamWithoutStatus(respObs),
+      { case (ctx, pkgId, name) => ctx.interpretScript(pkgId, name) }
+    )
 
   override def runLiveScript(
       req: RunScenarioRequest,
       respObs: StreamObserver[RunScenarioResponseOrStatus],
+  ): Unit =
+    runLive(
+      req,
+      StreamWithStatus(respObs),
+      { case (ctx, pkgId, name) => ctx.interpretScript(pkgId, name) }
+    )
+
+  private def runLive(
+      req: RunScenarioRequest,
+      respStream: ScriptStream,
+      interpret: (Context, String, String) => Future[Option[ScenarioRunner.ScenarioResult]],
   ): Unit = {
-    val interpret: (Context, String, String) => Future[Option[ScenarioRunner.ScenarioResult]] =
-          { case (ctx, pkgId, name) => ctx.interpretScript(pkgId, name) }
     val scenarioId = req.getScenarioId
     val contextId = req.getContextId
-    val response: Future[Option[RunScenarioResponseOrStatus]] =
+    val response: Future[Option[Either[ScenarioError, ScenarioResult]]] =
       contexts
         .get(contextId)
         .traverse { context =>
@@ -182,35 +233,31 @@ class ScenarioService(
           interpret(context, packageId, scenarioId.getName)
             .map(_.map {
               case error: ScenarioRunner.ScenarioError =>
-                RunScenarioResponseOrStatus.newBuilder
-                  .setError(
-                    new Conversions(
-                      context.homePackageId,
-                      error.ledger,
-                      error.currentSubmission.map(_.ptx),
-                      error.traceLog,
-                      error.warningLog,
-                      error.currentSubmission.flatMap(_.commitLocation),
-                      error.stackTrace,
-                    )
-                      .convertScenarioError(error.error)
+                Left(
+                  new Conversions(
+                    context.homePackageId,
+                    error.ledger,
+                    error.currentSubmission.map(_.ptx),
+                    error.traceLog,
+                    error.warningLog,
+                    error.currentSubmission.flatMap(_.commitLocation),
+                    error.stackTrace,
                   )
-                  .build
+                    .convertScenarioError(error.error)
+                )
               case success: ScenarioRunner.ScenarioSuccess =>
-                RunScenarioResponseOrStatus.newBuilder
-                  .setResult(
-                    new Conversions(
-                      context.homePackageId,
-                      success.ledger,
-                      None,
-                      success.traceLog,
-                      success.warningLog,
-                      None,
-                      ImmArray.Empty,
-                    )
-                      .convertScenarioResult(success.resultValue)
+                Right(
+                  new Conversions(
+                    context.homePackageId,
+                    success.ledger,
+                    None,
+                    success.traceLog,
+                    success.warningLog,
+                    None,
+                    ImmArray.Empty,
                   )
-                  .build
+                    .convertScenarioResult(success.resultValue)
+                )
             })
         }
         .map(_.flatten)
@@ -219,13 +266,10 @@ class ScenarioService(
       for {
         () <- Future {
           Thread.sleep(1000)
-          respObs.onNext(RunScenarioResponseOrStatus.newBuilder
-            .setStatus(
-              ScenarioStatus.newBuilder
-                .setMessage("Hello, status here!")
-                .build
-            )
-            .build
+          respStream.sendStatus(
+            ScenarioStatus.newBuilder
+              .setMessage("Hello, status here!")
+              .build
           )
           Thread.sleep(1000)
         }
@@ -235,84 +279,12 @@ class ScenarioService(
     result.onComplete {
       case Success(None) =>
         log(s"runScript[$contextId]: $scenarioId not found")
-        respObs.onError(notFoundContextError(req.getContextId))
+        respStream.sendError(notFoundContextError(req.getContextId))
       case Success(Some(resp)) =>
-        respObs.onNext(resp)
-        respObs.onCompleted()
+        respStream.sendFinalResponse(resp)
       case Failure(err) =>
         System.err.println(err)
-        respObs.onError(err)
-    }
-  }
-
-
-  private def run(
-      req: RunScenarioRequest,
-      respObs: StreamObserver[RunScenarioResponse],
-      interpret: (Context, String, String) => Future[Option[ScenarioRunner.ScenarioResult]],
-  ): Unit = {
-    val scenarioId = req.getScenarioId
-    val contextId = req.getContextId
-    val response: Future[Option[RunScenarioResponse]] =
-      contexts
-        .get(contextId)
-        .traverse { context =>
-          val packageId = scenarioId.getPackage.getSumCase match {
-            case PackageIdentifier.SumCase.SELF =>
-              context.homePackageId
-            case PackageIdentifier.SumCase.PACKAGE_ID =>
-              scenarioId.getPackage.getPackageId
-            case PackageIdentifier.SumCase.SUM_NOT_SET =>
-              throw new RuntimeException(
-                s"Package id not set when running scenario, context id $contextId"
-              )
-          }
-          interpret(context, packageId, scenarioId.getName)
-            .map(_.map {
-              case error: ScenarioRunner.ScenarioError =>
-                RunScenarioResponse.newBuilder
-                  .setError(
-                    new Conversions(
-                      context.homePackageId,
-                      error.ledger,
-                      error.currentSubmission.map(_.ptx),
-                      error.traceLog,
-                      error.warningLog,
-                      error.currentSubmission.flatMap(_.commitLocation),
-                      error.stackTrace,
-                    )
-                      .convertScenarioError(error.error)
-                  )
-                  .build
-              case success: ScenarioRunner.ScenarioSuccess =>
-                RunScenarioResponse.newBuilder
-                  .setResult(
-                    new Conversions(
-                      context.homePackageId,
-                      success.ledger,
-                      None,
-                      success.traceLog,
-                      success.warningLog,
-                      None,
-                      ImmArray.Empty,
-                    )
-                      .convertScenarioResult(success.resultValue)
-                  )
-                  .build
-            })
-        }
-        .map(_.flatten)
-
-    response.onComplete {
-      case Success(None) =>
-        log(s"runScript[$contextId]: $scenarioId not found")
-        respObs.onError(notFoundContextError(req.getContextId))
-      case Success(Some(resp)) =>
-        respObs.onNext(resp)
-        respObs.onCompleted()
-      case Failure(err) =>
-        System.err.println(err)
-        respObs.onError(err)
+        respStream.sendError(err)
     }
   }
 
