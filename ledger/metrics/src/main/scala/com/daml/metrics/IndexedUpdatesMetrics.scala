@@ -14,6 +14,10 @@ class IndexedUpdatesMetrics(prefix: MetricName, metricFactory: MetricsFactory) {
     description = """Represents the number of events that will be included in the metering report.
         |This is an estimate of the total number and not a substitute for the metering report.""",
     qualification = Debug,
+    labelsWithDescription = Map(
+      "participant_id" -> "The id of the participant.",
+      "application_id" -> "The application generating the events.",
+    ),
   )
   val meteredEventsMeter: MetricHandle.Meter = metricFactory.meter(
     prefix :+ "metered_events",
@@ -24,6 +28,12 @@ class IndexedUpdatesMetrics(prefix: MetricName, metricFactory: MetricsFactory) {
     summary = "Updates processed by the indexer",
     description = "Represents the total number of updates processed, that are sent for indexing.",
     qualification = Debug,
+    labelsWithDescription = Map(
+      "participant_id" -> "The id of the participant.",
+      "application_id" -> "The application generating the events.",
+      "event_type" -> "The type of ledger event processed (transaction, package upload, party allocation, configuration change).",
+      "status" -> "Indicates if the transaction was accepted or not. Possible values accepted|rejected.",
+    ),
   )
   val eventsMeter: MetricHandle.Meter =
     metricFactory.meter(prefix :+ "events", "Number of events ingested by the indexer.")
