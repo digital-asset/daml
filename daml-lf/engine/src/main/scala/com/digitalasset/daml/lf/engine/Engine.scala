@@ -436,7 +436,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
           }
 
         case SResultInterruption =>
-          ResultInterruption(() => interpretLoop(machine, time))
+          ResultInterruption(() => interpretLoop(machine, time, disclosures))
 
         case _: SResultFinal =>
           finish
