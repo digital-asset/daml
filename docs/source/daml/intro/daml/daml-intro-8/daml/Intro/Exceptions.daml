@@ -149,32 +149,32 @@ test = script do
     observers = [alice]
     price = 100.0
   -- Before we buy anything, Alice has 1000
-  ((_, alice_account)::_) <- query @Account alice
-  alice_account.amount === 1000.0
+  ((_, aliceAccount)::_) <- query @Account alice
+  aliceAccount.amount === 1000.0
   submit alice $ exerciseCmd shop (OrderItemTrusted alice)
   -- This transfer happened, so balance is now 900
-  ((_, alice_account)::_) <- query @Account alice
-  alice_account.amount === 900.0
+  ((_, aliceAccount)::_) <- query @Account alice
+  aliceAccount.amount === 900.0
   -- and there's an Iou from Alice's bank to the shop
-  [(_, iou_bank)] <- query @Iou bank
-  iou_bank === Iou with issuer = bank, owner = shopOwner, amount = 100.0
+  [(_, bankIou)] <- query @Iou bank
+  bankIou === Iou with issuer = bank, owner = shopOwner, amount = 100.0
   -- Now let's try to go over the limit
   submit alice $ exerciseCmd shop (OrderItemTrustedLimited alice)
   -- This one doesn't pass, so balance is still 900
-  ((_, alice_account)::_) <- query @Account alice
-  alice_account.amount === 900.0
+  ((_, aliceAccount)::_) <- query @Account alice
+  aliceAccount.amount === 900.0
   -- and the newly created Iou is in Alice's name instead of her bank's
-  [(_, iou_alice)] <- query @Iou alice
-  [(_, iou_bank)] <- query @Iou bank
-  iou_bank === Iou with issuer = bank, owner = shopOwner, amount = 100.0
-  iou_alice === Iou with issuer = alice, owner = shopOwner, amount = 100.0
+  [(_, aliceIou)] <- query @Iou alice
+  [(_, bankIou)] <- query @Iou bank
+  aliceIou === Iou with issuer = alice, owner = shopOwner, amount = 100.0
+  bankIou === Iou with issuer = bank, owner = shopOwner, amount = 100.0
 
 test2 = script do
   bank <- allocateParty "Bank"
   alice <- allocateParty "Alice"
   shopOwner <- allocateParty "ShopOwner"
 
-  alice_account_id <-
+  aliceAccountId <-
     submitMulti [bank, alice] [] $ createCmd Account with
       issuer = bank
       owner = alice
@@ -186,7 +186,7 @@ test2 = script do
         owner = alice
         newOwner = shopOwner)
       (TestThrewTransferLimitExceededChoice with
-        accountId = alice_account_id)
+        accountId = aliceAccountId)
 
 -- We define this through a helper contract so the `try-catch` happens entirely
 -- ledger-side.
