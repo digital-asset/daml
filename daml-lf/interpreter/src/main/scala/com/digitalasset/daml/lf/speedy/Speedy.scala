@@ -420,6 +420,8 @@ private[lf] object Speedy {
 
   object UpdateMachine {
 
+    private val iterationsBetweenInterruptions: Long = 10000
+
     @throws[SErrorDamlException]
     def apply(
         compiledPackages: CompiledPackages,
@@ -429,7 +431,7 @@ private[lf] object Speedy {
         committers: Set[Party],
         readAs: Set[Party],
         authorizationChecker: AuthorizationChecker = DefaultAuthorizationChecker,
-        iterationsBetweenInterruptions: Long = 10000,
+        iterationsBetweenInterruptions: Long = UpdateMachine.iterationsBetweenInterruptions,
         validating: Boolean = false,
         traceLog: TraceLog = newTraceLog,
         warningLog: WarningLog = newWarningLog,
@@ -1175,7 +1177,7 @@ private[lf] object Speedy {
     @throws[PackageNotFound]
     @throws[CompilationError]
     // Construct a machine for running an update expression (testing -- avoiding scenarios)
-    def fromUpdateSExpr(
+    private[lf] def fromUpdateSExpr(
         compiledPackages: CompiledPackages,
         transactionSeed: crypto.Hash,
         updateSE: SExpr,
@@ -1196,6 +1198,7 @@ private[lf] object Speedy {
         traceLog = traceLog,
         disclosedContracts = disclosedContracts,
         authorizationChecker = authorizationChecker,
+        iterationsBetweenInterruptions = 10000,
       )
     }
 
@@ -1277,8 +1280,9 @@ private[lf] object Speedy {
     def runPureSExpr(
         expr: SExpr,
         compiledPackages: CompiledPackages = PureCompiledPackages.Empty,
+        iterationsBetweenInterruptions: Long = Long.MaxValue,
     )(implicit loggingContext: LoggingContext): Either[SError, SValue] =
-      fromPureSExpr(compiledPackages, expr).runPure()
+      fromPureSExpr(compiledPackages, expr, iterationsBetweenInterruptions).runPure()
 
   }
 
