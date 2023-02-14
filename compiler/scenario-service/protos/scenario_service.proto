@@ -460,7 +460,7 @@ message ScenarioResult {
 }
 
 message ScenarioStatus {
-  string message = 1;
+  uint64 millisecondsPassed = 1;
 }
 
 message ScenarioStep {

@@ -74,6 +74,7 @@ import qualified System.FilePath.Posix as FPP
 import System.IO
 import System.IO.Error
 import qualified Text.PrettyPrint.Annotated.HughesPJClass as HughesPJPretty
+import GHC.Word
 
 import qualified Network.HTTP.Types as HTTP.Types
 import qualified Network.URI as URI
@@ -1055,24 +1056,25 @@ virtualResourceProgressNotification = "daml/virtualResource/didProgress"
 data VirtualResourceProgressParams = VirtualResourceProgressParams
     { _vrppUri      :: !T.Text
       -- ^ The uri of the virtual resource.
-    , _vrppProgress :: !T.Text
+    , _vrppMilliseconds :: !Word64
       -- ^ The progress status of the virtual resource
     } deriving Show
 
 instance ToJSON VirtualResourceProgressParams where
     toJSON VirtualResourceProgressParams{..} =
-        object ["uri" .= _vrppUri, "progress" .= _vrppProgress ]
+        object ["uri" .= _vrppUri, "milliseconds" .= _vrppMilliseconds ]
 
 instance FromJSON VirtualResourceProgressParams where
     parseJSON = withObject "VirtualResourceProgressParams" $ \o ->
-        VirtualResourceProgressParams <$> o .: "uri" <*> o .: "progress"
+        VirtualResourceProgressParams <$> o .: "uri" <*> o .: "milliseconds"
 
-vrProgressNotification :: VirtualResource -> T.Text -> Action ()
-vrProgressNotification vr doc = do
-    ShakeExtras { lspEnv } <- getShakeExtras
-    liftIO $
-        sendNotification lspEnv (LSP.SCustomMethod virtualResourceProgressNotification) $
-        toJSON $ VirtualResourceProgressParams (virtualResourceToUri vr) doc
+vrProgressNotification :: ShakeLspEnv -> VirtualResource -> SS.ScenarioStatus -> IO ()
+vrProgressNotification lspEnv vr status = do
+    sendNotification lspEnv (LSP.SCustomMethod virtualResourceProgressNotification) $
+        toJSON $
+            VirtualResourceProgressParams
+                (virtualResourceToUri vr)
+                (SS.scenarioStatusMillisecondsPassed status)
 
 -- | Virtual resource note set notification
 -- This notification is sent by the server to the client when
@@ -1261,22 +1263,17 @@ formatScenarioResult world errOrRes =
 runScenario :: SS.Handle -> NormalizedFilePath -> SS.ContextId -> LF.ValueRef -> Action (VirtualResource, Either SS.Error SS.ScenarioResult)
 runScenario scenarioService file ctxId scenario = do
     ShakeExtras {lspEnv} <- getShakeExtras
-    res <- liftIO $ SS.runLiveScenario scenarioService ctxId scenario $ \status -> do
-        sendNotification lspEnv LSP.SWindowShowMessage $
-            LSP.ShowMessageParams LSP.MtInfo (TL.toStrict (SS.scenarioStatusMessage status))
     let scenarioName = LF.qualObject scenario
     let vr = VRScenario file (LF.unExprValName scenarioName)
+    res <- liftIO $ SS.runLiveScript scenarioService ctxId scenario $ vrProgressNotification lspEnv vr
     pure (vr, res)
 
 runScript :: SS.Handle -> NormalizedFilePath -> SS.ContextId -> LF.ValueRef -> Action (VirtualResource, Either SS.Error SS.ScenarioResult)
 runScript scenarioService file ctxId scenario = do
     ShakeExtras {lspEnv} <- getShakeExtras
-    res <- liftIO $ SS.runLiveScript scenarioService ctxId scenario $ \status -> do
-        sendNotification lspEnv LSP.SWindowShowMessage $
-            LSP.ShowMessageParams LSP.MtInfo (TL.toStrict (SS.scenarioStatusMessage status))
-        pure ()
     let scenarioName = LF.qualObject scenario
     let vr = VRScenario file (LF.unExprValName scenarioName)
+    res <- liftIO $ SS.runLiveScript scenarioService ctxId scenario $ vrProgressNotification lspEnv vr
     pure (vr, res)
 
 encodeModuleRule :: Options -> Rules ()

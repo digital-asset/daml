@@ -280,9 +280,12 @@ class ScenarioService(
         .map(_.flatten)
 
     Future {
-      var i = 0
+      var i: Long = 0
       while (!response.isCompleted) {
-        respStream.sendStatus(ScenarioStatus.newBuilder.setMessage(f"Heartbeat $i").build)
+        respStream.sendStatus(
+          ScenarioStatus.newBuilder
+            .setMillisecondsPassed(i)
+            .build)
         Thread.sleep(1000)
         i += 1
       }
