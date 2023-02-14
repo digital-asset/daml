@@ -123,6 +123,7 @@ object AuthServiceJWTCodec {
   private[this] final val propActAs: String = "actAs"
   private[this] final val propReadAs: String = "readAs"
   private[this] final val propExp: String = "exp"
+  private[this] final val propSub: String = "sub"
   private[this] final val propParty: String = "party" // Legacy JSON API payload
 
   // ------------------------------------------------------------------------------------------------------------------
@@ -156,8 +157,8 @@ object AuthServiceJWTCodec {
       JsObject(
         propIss -> writeOptionalString(v.issuer),
         propAud -> writeStringList(aud),
-        "sub" -> JsString(v.userId),
-        "exp" -> writeOptionalInstant(v.exp),
+        propSub -> JsString(v.userId),
+        propExp -> writeOptionalInstant(v.exp),
         "scope" -> JsString(scopeLedgerApiFull),
       )
     case v: StandardJWTPayload =>
@@ -170,8 +171,8 @@ object AuthServiceJWTCodec {
       JsObject(
         propIss -> writeOptionalString(v.issuer),
         propAud -> writeStringList(aud),
-        "sub" -> JsString(v.userId),
-        "exp" -> writeOptionalInstant(v.exp),
+        propSub -> JsString(v.userId),
+        propExp -> writeOptionalInstant(v.exp),
       )
   }
 
@@ -192,16 +193,16 @@ object AuthServiceJWTCodec {
       JsObject(
         propIss -> writeOptionalString(v.issuer),
         propAud -> writeStringList(v.audiences),
-        "sub" -> JsString(v.userId),
-        "exp" -> writeOptionalInstant(v.exp),
+        propSub -> JsString(v.userId),
+        propExp -> writeOptionalInstant(v.exp),
         "scope" -> JsString(scopeLedgerApiFull),
       )
     case v: StandardJWTPayload =>
       JsObject(
         propIss -> writeOptionalString(v.issuer),
         propAud -> writeStringList(v.audiences),
-        "sub" -> JsString(v.userId),
-        "exp" -> writeOptionalInstant(v.exp),
+        propSub -> JsString(v.userId),
+        propExp -> writeOptionalInstant(v.exp),
       )
   }
 
@@ -260,10 +261,10 @@ object AuthServiceJWTCodec {
           .filter(_.nonEmpty) match {
           case participantId :: Nil =>
             StandardJWTPayload(
-              issuer = readOptionalString("iss", fields),
+              issuer = readOptionalString(propIss, fields),
               participantId = Some(participantId),
-              userId = readOptionalString("sub", fields).get, // guarded by if-clause above
-              exp = readInstant("exp", fields),
+              userId = readOptionalString(propSub, fields).get, // guarded by if-clause above
+              exp = readInstant(propExp, fields),
               format = StandardJWTTokenFormat.ParticipantId,
               audiences = readOptionalStringOrArray(propAud, fields),
             )
@@ -290,10 +291,10 @@ object AuthServiceJWTCodec {
             )
         }
         StandardJWTPayload(
-          issuer = readOptionalString("iss", fields),
+          issuer = readOptionalString(propIss, fields),
           participantId = participantId,
-          userId = readOptionalString("sub", fields).get, // guarded by if-clause above
-          exp = readInstant("exp", fields),
+          userId = readOptionalString(propSub, fields).get, // guarded by if-clause above
+          exp = readInstant(propExp, fields),
           format = StandardJWTTokenFormat.Scope,
           audiences = readOptionalStringOrArray(propAud, fields),
         )
@@ -366,25 +367,6 @@ object AuthServiceJWTCodec {
       case Some(JsString(value)) => List(value)
       case Some(array: JsArray) =>
         readStringList(name, array.elements)
-      case Some(value) =>
-        deserializationError(s"Could not read ${value.prettyPrint} as string for $name")
-    }
-
-  private[this] def readOptionalStringOrArray(
-      name: String,
-      fields: Map[String, JsValue],
-  ): List[String] =
-    fields.get(name) match {
-      case None => List.empty
-      case Some(JsNull) => List.empty
-      case Some(JsString(value)) => List(value)
-      case Some(JsArray(Vector(JsString(value)))) => List(value)
-      case Some(JsArray(values)) =>
-        values.toList.map {
-          case JsString(value) => value
-          case value =>
-            deserializationError(s"Could not read ${value.prettyPrint} as string element for $name")
-        }
       case Some(value) =>
         deserializationError(s"Could not read ${value.prettyPrint} as string for $name")
     }

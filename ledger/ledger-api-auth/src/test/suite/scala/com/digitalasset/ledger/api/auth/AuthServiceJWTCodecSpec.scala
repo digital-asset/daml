@@ -363,6 +363,10 @@ class AuthServiceJWTCodecSpec
             userId = "someUserId",
             exp = Some(Instant.ofEpochSecond(100)),
             format = StandardJWTTokenFormat.ParticipantId,
+            audiences = List(
+              "https://example.com/non/related/audience",
+              "https://daml.com/jwt/aud/participant/someParticipantId",
+            ),
           )
         )
       }
