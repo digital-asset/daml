@@ -279,21 +279,7 @@ class ScenarioService(
         }
         .map(_.flatten)
 
-    val result =
-      for {
-        () <- Future {
-          Thread.sleep(1000)
-          respStream.sendStatus(
-            ScenarioStatus.newBuilder
-              .setMessage("Hello, status here!")
-              .build
-          )
-          Thread.sleep(1000)
-        }
-        result <- response
-      } yield result
-
-    result.onComplete {
+    response.onComplete {
       case Success(None) =>
         log(s"runScript[$contextId]: $scenarioId not found")
         respStream.sendError(notFoundContextError(req.getContextId))
