@@ -180,7 +180,7 @@ class ScenarioService(
         req,
         StreamWithoutStatus(respObs),
         { case (ctx, pkgId, name) =>
-          Future.successful(ctx.interpretScenario(pkgId, name))
+          Future(ctx.interpretScenario(pkgId, name))
         },
       )
     } else {
@@ -198,7 +198,7 @@ class ScenarioService(
       runLive(
         req,
         stream,
-        { case (ctx, pkgId, name) => Future.successful(ctx.interpretScenario(pkgId, name)) },
+        { case (ctx, pkgId, name) => Future(ctx.interpretScenario(pkgId, name)) },
       )
     } else {
       log("Rejected scenario gRPC request.")
@@ -278,6 +278,15 @@ class ScenarioService(
             })
         }
         .map(_.flatten)
+
+    Future {
+      var i = 0
+      while (!response.isCompleted) {
+        respStream.sendStatus(ScenarioStatus.newBuilder.setMessage(f"Heartbeat $i").build)
+        Thread.sleep(1000)
+        i += 1
+      }
+    }
 
     response.onComplete {
       case Success(None) =>
