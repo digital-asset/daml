@@ -193,18 +193,16 @@ class ScenarioService(
       req: RunScenarioRequest,
       respObs: StreamObserver[RunScenarioResponseOrStatus],
   ): Unit = {
+    val stream = StreamWithStatus(respObs)
     if (enableScenarios) {
-      val stream = StreamWithStatus(respObs)
       runLive(
         req,
         stream,
-        { case (ctx, pkgId, name) =>
-          Future.successful(ctx.interpretScenario(pkgId, name))
-        },
+        { case (ctx, pkgId, name) => Future.successful(ctx.interpretScenario(pkgId, name)) },
       )
     } else {
       log("Rejected scenario gRPC request.")
-      respObs.onError(new UnsupportedOperationException("Scenarios are disabled"))
+      stream.sendError(new UnsupportedOperationException("Scenarios are disabled"))
     }
   }
 
