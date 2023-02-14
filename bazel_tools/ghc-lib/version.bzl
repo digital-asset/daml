@@ -9,7 +9,7 @@ GHC_LIB_PATCHES = [
 ]
 
 GHC_REPO_URL = "https://github.com/digital-asset/ghc"
-GHC_REV = "5e6fd139c43d380ac0df7fc36b73899b47d63a22"
+GHC_REV = "d926f299680012b07270e11744d6e61ca4ff148b"
 GHC_PATCHES = [
 ]
 
