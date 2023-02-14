@@ -73,7 +73,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
   protected final val defaultWorkflowId = "default-workflow-id"
   protected final val someAgreement = "agreement"
 
-  // Note: *identifiers* and *values* defined below MUST correspond to //ledger/test-common/src/main/daml/model/Test.daml
+  // Note: *identifiers* and *values* defined below MUST correspond to //test-common/src/main/daml/model/Test.daml
   // This is because some tests request values in verbose mode, which requires filling in missing type information,
   // which in turn requires loading Daml-LF packages with valid Daml-LF types that correspond to the Daml-LF values.
   //

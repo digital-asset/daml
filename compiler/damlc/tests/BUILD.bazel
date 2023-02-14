@@ -621,7 +621,7 @@ da_haskell_test(
         "//compiler/damlc",
         "//daml-script/daml:daml-script.dar",
         "//ledger/sandbox-on-x:app",
-        "//ledger/test-common/test-certificates",
+        "//test-common/test-certificates",
     ],
     hackage_deps = [
         "aeson",
@@ -845,11 +845,11 @@ sh_test(
     args = [
         "$(rootpath //compiler/damlc)",
         "$(rootpath @jq_dev_env//:jq)",
-        "$(rootpath //ledger/test-common:model-tests-default.dar)",
+        "$(rootpath //test-common:model-tests-default.dar)",
     ],
     data = [
         "//compiler/damlc",
-        "//ledger/test-common:model-tests-default.dar",
+        "//test-common:model-tests-default.dar",
         "@jq_dev_env//:jq",
     ],
     toolchains = [
