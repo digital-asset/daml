@@ -50,6 +50,7 @@ private class JdbcLedgerDao(
     participantId: Ref.ParticipantId,
     readStorageBackend: ReadStorageBackend,
     parameterStorageBackend: ParameterStorageBackend,
+    ledgerEndCache: LedgerEndCache,
     completionsPageSize: Int,
     acsStreamsConfig: AcsStreamsConfig,
     transactionFlatStreamsConfig: TransactionFlatStreamsConfig,
@@ -549,6 +550,7 @@ private class JdbcLedgerDao(
       parameterStorageBackend,
       metrics,
       translation,
+      ledgerEndCache,
     )(
       servicesExecutionContext
     )
@@ -654,6 +656,7 @@ private[platform] object JdbcLedgerDao {
       readStorageBackend =
         dbSupport.storageBackendFactory.readStorageBackend(ledgerEndCache, stringInterning),
       parameterStorageBackend = dbSupport.storageBackendFactory.createParameterStorageBackend,
+      ledgerEndCache = ledgerEndCache,
       completionsPageSize = completionsPageSize,
       acsStreamsConfig = acsStreamsConfig,
       transactionFlatStreamsConfig = transactionFlatStreamsConfig,
@@ -688,6 +691,7 @@ private[platform] object JdbcLedgerDao {
       readStorageBackend =
         dbSupport.storageBackendFactory.readStorageBackend(ledgerEndCache, stringInterning),
       parameterStorageBackend = dbSupport.storageBackendFactory.createParameterStorageBackend,
+      ledgerEndCache = ledgerEndCache,
       completionsPageSize = completionsPageSize,
       acsStreamsConfig = acsStreamsConfig,
       transactionFlatStreamsConfig = transactionFlatStreamsConfig,
