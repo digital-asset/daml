@@ -728,22 +728,24 @@ prettyNodeNode nn = do
         case node_CreateContractInstance of
           Nothing -> text "<missing contract instance>"
           Just ContractInstance{..} ->
-            fcommasep (mapV prettyParty node_CreateSignatories)
+            let (parties, kw) = partiesAction node_CreateSignatories "creates" "create" in
+            parties
             <-> ( -- group to align "create" and "with"
-              (keyword_ "creates" <-> prettyMay "<TEMPLATE?>" (prettyDefName world) contractInstanceTemplateId)
+              (kw <-> prettyMay "<TEMPLATE?>" (prettyDefName world) contractInstanceTemplateId)
               $$ maybe
                     mempty
                     (\v ->
                       keyword_ "with" $$
                         nest 2 (prettyValue' False 0 world v))
                       contractInstanceValue
-            )
+              )
 
-    NodeNodeFetch Node_Fetch{..} ->
+    NodeNodeFetch Node_Fetch{..} -> do
+      let (parties, kw) = partiesAction node_FetchSignatories "fetches" "fetch"
       pure
-        $   fcommasep (mapV prettyParty node_FetchSignatories)
+        $   parties
         <-> (
-              keyword_ "fetches"
+              kw
           <-> prettyContractId node_FetchContractId
           <-> maybe mempty
                   (\tid -> parens (prettyDefName world tid))
@@ -759,10 +761,11 @@ prettyNodeNode nn = do
 
     NodeNodeExercise Node_Exercise{..} -> do
       ppChildren <- prettyChildren node_ExerciseChildren
+      let (parties, kw) = partiesAction node_ExerciseActingParties "exercises" "exercise"
       pure
-        $   fcommasep (mapV prettyParty node_ExerciseActingParties)
+        $   parties
         <-> ( -- group to align "exercises" and "with"
-              keyword_ "exercises"
+              kw
           <-> hsep
               [ prettyChoiceId world node_ExerciseTemplateId node_ExerciseChoiceId
               , keyword_ "on"
@@ -802,6 +805,18 @@ prettyNodeNode nn = do
     NodeNodeRollback Node_Rollback{..} -> do
         ppChildren <- prettyChildren node_RollbackChildren
         pure $ keyword_ "rollback" $$ ppChildren
+
+-- | Take a list of parties and the singular and multiple present tense verbs
+-- Depending on the count of parties, returns a prettified list of these elements, using @,@ and @and@, as well as the correct verb
+-- e.g. @[a, b, c] -> a, b and c@
+partiesAction :: V.Vector Party -> String -> String -> (Doc SyntaxClass, Doc SyntaxClass)
+partiesAction pv singular multiple = go $ mapV prettyParty pv
+  where
+    go [] = (text "No-one/unknown", keyword_ singular)
+    go [p] = (p, keyword_ singular)
+    go ps = (fcommasep init <-> keyword_ "and" <-> head last, keyword_ multiple)
+      where
+        (init, last) = splitAt (length ps - 1) ps
 
 isUnitValue :: Maybe Value -> Bool
 isUnitValue (Just (Value (Just ValueSumUnit{}))) = True
