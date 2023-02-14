@@ -274,4 +274,48 @@ class EventQueryServiceIT extends LedgerTestSuite {
     }
   })
 
+  test(
+    "TXEventsByContractKeyChained",
+    "Should not miss events where the choice recreates the key",
+    allocate(SingleParty),
+  )(implicit ec => { case Participants(Participant(ledger, party)) =>
+    val exercisedKey = "paging key"
+    val key = makeTextKeyKey(party, exercisedKey)
+
+    // (contract-id, continuation-token)
+    def getNextResult(
+        continuationToken: Option[String]
+    ): Future[(Option[String], Option[String])] = {
+      ledger
+        .getEventsByContractKey(
+          GetEventsByContractKeyRequest(
+            contractKey = Some(key),
+            templateId = Some(TextKey.id.unwrap),
+            requestingParties = Tag.unsubst(immutable.Seq(party)),
+            continuationToken = continuationToken.getOrElse(
+              GetEventsByContractKeyRequest.defaultInstance.continuationToken
+            ),
+          )
+        )
+        .map(r => (r.createEvent.map(_.contractId), toOption(r.continuationToken)))
+    }
+
+    for {
+      expected <- ledger.create(party, TextKey(party, exercisedKey, Nil))
+      _ <- ledger.submitAndWaitForTransaction(
+        ledger.submitAndWaitRequest(
+          party,
+          expected.exerciseTextKeyDisclose(tkNewDisclosedTo = immutable.Seq.empty).command,
+        )
+      )
+      (cId2, token2) <- getNextResult(None)
+      (cId1, token1) <- getNextResult(token2)
+      (cId0, _) <- getNextResult(token1)
+    } yield {
+      assertEquals("Expected the first offset to be empty", cId2.isDefined, true)
+      assertEquals("Expected the final offset to be empty", cId1, Some(expected))
+      assertEquals("Expected the final offset to be empty", cId0.isDefined, false)
+    }
+  })
+
 }
