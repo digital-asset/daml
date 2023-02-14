@@ -1492,6 +1492,7 @@ internalFunctions = listToUFM $ map (bimap mkModuleNameFS mkUniqSet)
         [ "mkInterfaceInstance"
         , "mkMethod"
         , "mkInterfaceView"
+        , "bypassReduceLambda"
         ])
     , ("GHC.Tuple.Check",
         [ "userWrittenTuple"
@@ -1533,6 +1534,9 @@ convertExpr env0 e = do
             pure $ ETmLam (v, TStruct fields) $ ERecCon tupleType $ zipWithFrom mkFieldProj (1 :: Int) fields
     go env (VarIn GHC_Types "primitive") (LType (isStrLitTy -> Just y) : LType t : args)
         = fmap (, args) $ convertPrim (envLfVersion env) (unpackFS y) =<< convertType env t
+    -- erase bypassReduceLambda calls and leave only the body.
+    go env (VarIn DA_Internal_Desugar "bypassReduceLambda") (LType _t : LExpr body : args)
+        = go env body args
     -- erase mkMethod calls and leave only the body.
     go env (VarIn DA_Internal_Desugar "mkMethod") (LType _parent : LType _iface : LType _tpl : LType _methodName : LType _methodTy : LExpr _implDict : LExpr _hasMethodDic : LExpr body : args)
         = go env body args
