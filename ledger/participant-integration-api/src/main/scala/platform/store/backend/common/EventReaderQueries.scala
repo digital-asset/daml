@@ -90,11 +90,15 @@ class EventReaderQueries(
       intRequestingParties: Set[Int],
       extRequestingParties: Set[String],
       lastExclusiveSeqId: EventSequentialId,
-  )(conn: Connection): Option[EventStorageBackend.Entry[FlatEvent.Created]] = {
+      maxIterations: Int,
+  )(
+      conn: Connection
+  ): (Option[EventStorageBackend.Entry[FlatEvent.Created]], Option[EventSequentialId]) = {
 
     @tailrec def go(
-        endExclusiveSeqId: EventSequentialId
-    ): Option[EventStorageBackend.Entry[FlatEvent.Created]] = {
+        endExclusiveSeqId: EventSequentialId,
+        iterations: Int,
+    ): (Option[EventStorageBackend.Entry[FlatEvent.Created]], Option[EventSequentialId]) = {
       val query =
         SQL"""
         WITH max_event AS (
@@ -112,12 +116,14 @@ class EventReaderQueries(
       query.as(createdFlatEventParser(intRequestingParties, stringInterning).singleOpt)(
         conn
       ) match {
-        case Some(c) if c.event.stakeholders.exists(extRequestingParties) => Some(c)
-        case Some(c) => go(c.eventSequentialId)
-        case None => None
+        case Some(c) if c.event.stakeholders.exists(extRequestingParties) =>
+          (Some(c), Some(c.eventSequentialId))
+        case Some(c) if iterations >= maxIterations => (None, Some(c.eventSequentialId))
+        case Some(c) => go(c.eventSequentialId, iterations + 1)
+        case None => (None, None)
       }
     }
-    go(lastExclusiveSeqId)
+    go(lastExclusiveSeqId, 1)
   }
 
   private def selectArchivedEvent(contractId: String, intRequestingParties: Set[Int])(
@@ -139,6 +145,7 @@ class EventReaderQueries(
       keyHash: String,
       requestingParties: Set[Party],
       endExclusiveSeqId: EventSequentialId,
+      maxIterations: Int,
   )(
       conn: Connection
   ): (Option[Raw.FlatEvent.Created], Option[Raw.FlatEvent.Archived], Option[EventSequentialId]) = {
@@ -146,17 +153,18 @@ class EventReaderQueries(
     val intRequestingParties =
       requestingParties.iterator.map(stringInterning.party.tryInternalize).flatMap(_.iterator).toSet
 
-    val createEvent = selectLatestKeyCreateEvent(
+    val (createEvent, continuationToken) = selectLatestKeyCreateEvent(
       keyHash,
       intRequestingParties,
       requestingParties.map(identity),
       endExclusiveSeqId,
+      maxIterations,
     )(conn)
     val archivedEvent = createEvent.flatMap(c =>
       selectArchivedEvent(c.event.partial.contractId, intRequestingParties)(conn)
     )
 
-    (createEvent.map(_.event), archivedEvent.map(_.event), createEvent.map(_.eventSequentialId))
+    (createEvent.map(_.event), archivedEvent.map(_.event), continuationToken)
   }
 
   private def eventParser(

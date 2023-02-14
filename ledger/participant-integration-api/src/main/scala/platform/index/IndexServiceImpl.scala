@@ -317,6 +317,7 @@ private[index] class IndexServiceImpl(
       templateId,
       requestingParties,
       endExclusiveSeqId,
+      maxIterations = 1000,
     )
   }
 

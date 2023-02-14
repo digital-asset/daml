@@ -80,6 +80,7 @@ private[dao] sealed class EventsReader(
       templateId: Ref.Identifier,
       requestingParties: Set[Party],
       endExclusiveSeqId: Option[EventSequentialId],
+      maxIterations: Int,
   )(implicit loggingContext: LoggingContext): Future[GetEventsByContractKeyResponse] = {
     val keyHash: String = platform.Key.assertBuild(templateId, contractKey).hash.bytes.toHexString
 
@@ -104,6 +105,7 @@ private[dao] sealed class EventsReader(
             keyHash,
             requestingParties,
             endExclusiveSeqId.getOrElse(ledgerEndCache()._2 + 1),
+            maxIterations,
           )(conn)
         }
 
