@@ -93,6 +93,7 @@ private[platform] trait LedgerDaoEventsReader {
       templateId: Ref.Identifier,
       requestingParties: Set[Party],
       endExclusiveSeqId: Option[Long],
+      maxIterations: Int,
   )(implicit loggingContext: LoggingContext): Future[GetEventsByContractKeyResponse]
 
 }
