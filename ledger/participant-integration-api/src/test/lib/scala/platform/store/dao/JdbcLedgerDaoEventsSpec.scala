@@ -3,12 +3,14 @@
 
 package com.daml.platform.store.dao
 
+import com.daml.lf.data.Ref.Party
 import com.daml.lf.transaction.{GlobalKey, GlobalKeyWithMaintainers}
 import com.daml.platform.store.cache.MutableCacheBackedContractStore.EventSequentialId
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.{Inside, LoneElement, OptionValues}
 
+import scala.collection.immutable.Set
 import scala.concurrent.Future
 
 private[dao] trait JdbcLedgerDaoEventsSpec extends LoneElement with Inside with OptionValues {
@@ -98,6 +100,7 @@ private[dao] trait JdbcLedgerDaoEventsSpec extends LoneElement with Inside with 
         templateId = someTemplateId,
         requestingParties = Set(alice),
         endExclusiveSeqId = None,
+        maxIterations = 1000,
       )
     } yield {
       val actual = result.createEvent.value
@@ -120,11 +123,21 @@ private[dao] trait JdbcLedgerDaoEventsSpec extends LoneElement with Inside with 
         templateId = someTemplateId,
         requestingParties = Set(alice),
         endExclusiveSeqId = None,
+        maxIterations = 1000,
       )
     } yield {
       val actual = result.archiveEvent.value
       actual shouldBe expected
     }
+  }
+
+  private def createAndExerciseKey(key: GlobalKeyWithMaintainers, signatories: Set[Party]) = {
+    for {
+      (_, tx) <- store(
+        singleCreate(cId => create(cId, signatories = signatories).copy(keyOpt = Some(key)))
+      )
+      (_, _) <- store(singleExercise(nonTransient(tx).loneElement))
+    } yield tx
   }
 
   it should "return the maximum create prior to the end-exclusive-seq-id" in {
@@ -140,33 +153,59 @@ private[dao] trait JdbcLedgerDaoEventsSpec extends LoneElement with Inside with 
           templateId = someTemplateId,
           requestingParties = Set(bob),
           endExclusiveSeqId = endExclusiveSeqId,
+          maxIterations = 1000,
         )
         .map(r => (r.createEvent.map(_.contractId), toOption(r.continuationToken).map(_.toLong)))
     }
 
     for {
-      (_, tx1) <- store(
-        singleCreate(cId => create(cId, signatories = Set(alice, bob)).copy(keyOpt = Some(key)))
-      )
-      (_, _) <- store(singleExercise(nonTransient(tx1).loneElement))
-      (_, tx2) <- store(
-        singleCreate(cId => create(cId, signatories = Set(alice)).copy(keyOpt = Some(key)))
-      )
-      (_, _) <- store(singleExercise(nonTransient(tx2).loneElement))
-      (_, tx3) <- store(
-        singleCreate(cId => create(cId, signatories = Set(alice, bob)).copy(keyOpt = Some(key)))
-      )
-
-      eventualTuple3 <- getNextResult(None)
-      (Some(cId3), Some(eventId3)) = eventualTuple3
-      // Event 2 should be skipped as bob has no visibility of it
-      eventualTuple1 <- getNextResult(Some(eventId3))
-      (Some(cId1), Some(eventId1)) = eventualTuple1
-      maybeEventId0 <- getNextResult(Some(eventId1))
+      tx1 <- createAndExerciseKey(key, Set(alice, bob))
+      _ <- createAndExerciseKey(key, Set(alice))
+      tx3 <- createAndExerciseKey(key, Set(alice, bob))
+      (cId3, eventId3) <- getNextResult(None)
+      (cId1, eventId1) <- getNextResult(eventId3) // event2 skipped
+      (cId0, eventId0) <- getNextResult(eventId1)
     } yield {
-      cId3 shouldBe nonTransient(tx3).loneElement.coid
-      cId1 shouldBe nonTransient(tx1).loneElement.coid
-      maybeEventId0 shouldBe (None, None)
+      (cId3, eventId3.isDefined) shouldBe (nonTransient(tx3).headOption.map(_.coid), true)
+      (cId1, eventId1.isDefined) shouldBe (nonTransient(tx1).headOption.map(_.coid), true)
+      (cId0, eventId0.isDefined) shouldBe (None, false)
+    }
+  }
+
+  it should "limit iterations when searching for contract key" in {
+    val key = globalKeyWithMaintainers("key6")
+
+    // (contract-defined, continuation-token)
+    def getNextImmediateResult(
+        endExclusiveSeqId: Option[EventSequentialId]
+    ): Future[(Boolean, Option[EventSequentialId])] = {
+      eventsReader
+        .getEventsByContractKey(
+          contractKey = key.value,
+          templateId = someTemplateId,
+          requestingParties = Set(bob),
+          endExclusiveSeqId = endExclusiveSeqId,
+          maxIterations = 1, // Only search ahead one iteration
+        )
+        .map(r => (r.createEvent.isDefined, toOption(r.continuationToken).map(_.toLong)))
+    }
+
+    for {
+      _ <- createAndExerciseKey(key, Set(alice, bob))
+      _ <- createAndExerciseKey(key, Set(alice))
+      _ <- createAndExerciseKey(key, Set(alice, bob))
+      (hasContract3, event3) <- getNextImmediateResult(None)
+      (hasContract2, event2) <- getNextImmediateResult(event3)
+      (hasContract1, event1) <- getNextImmediateResult(event2)
+      (hasContract0, event0) <- getNextImmediateResult(event1)
+    } yield {
+      (hasContract3, event3.isDefined) shouldBe (true, true)
+      (
+        hasContract2,
+        event2.isDefined,
+      ) shouldBe (false, true) // Contact not visible but still more results
+      (hasContract1, event1.isDefined) shouldBe (true, true)
+      (hasContract0, event0.isDefined) shouldBe (false, false) // No more contracts or results
     }
   }
 
