@@ -120,9 +120,9 @@ Each action can be visualized as a tree, where the action is the root node, and 
     │   consumed by: #2:0
     │   referenced by #2:0
     │   disclosed to (since): 'Alice' (0), 'Bob' (0)
-    └─> create Contact:Contact
-        with
-          owner = 'Alice'; party = 'Bob'; address = "1 Bobstreet"; telephone = "012 345 6789"
+    └─> 'Alice' creates Contact:Contact
+                with
+                  owner = 'Alice'; party = 'Bob'; address = "1 Bobstreet"; telephone = "012 345 6789"
 
     TX 1 1970-01-01T00:00:00Z
       mustFailAt actAs: {'Bob'} readAs: {} (Contact:55:3)
@@ -138,9 +138,9 @@ Each action can be visualized as a tree, where the action is the root node, and 
         │   consumed by: #3:0
         │   referenced by #3:0
         │   disclosed to (since): 'Alice' (2), 'Bob' (2)
-        └─> create Contact:Contact
-            with
-              owner = 'Alice'; party = 'Bob'; address = "1 Bobstreet"; telephone = "098 7654 321"
+        └─> 'Alice' create Contact:Contact
+                    with
+                      owner = 'Alice'; party = 'Bob'; address = "1 Bobstreet"; telephone = "098 7654 321"
 
     TX 3 1970-01-01T00:00:00Z (Contact:69:20)
     #3:0
@@ -151,12 +151,12 @@ Each action can be visualized as a tree, where the action is the root node, and 
         children:
         #3:1
         │   disclosed to (since): 'Alice' (3), 'Bob' (3)
-        └─> create Contact:Contact
-            with
-              owner = 'Alice';
-              party = 'Bob';
-              address = "1-10 Bobstreet";
-              telephone = "098 7654 321"
+        └─> 'Alice' creates Contact:Contact
+                    with
+                      owner = 'Alice';
+                      party = 'Bob';
+                      address = "1-10 Bobstreet";
+                      telephone = "098 7654 321"
 
   Active contracts:  #3:1
 

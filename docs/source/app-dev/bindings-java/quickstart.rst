@@ -398,90 +398,90 @@ In the transaction view, transaction ``6`` is of particular interest, as it show
 
 .. code-block:: none
 
-  TX 6 1970-01-01T00:00:00Z (Tests.Trade:71:14)
-  #6:0
-  │   disclosed to (since): 'Alice' (6), 'Bob' (6)
-  └─> 'Bob' exercises IouTrade_Accept on #5:0 (IouTrade:IouTrade)
-            with
-              quoteIouCid = #3:1
-      children:
-      #6:1
-      │   disclosed to (since): 'Alice' (6), 'Bob' (6), 'EUR_Bank' (6)
-      └─> fetch #4:1 (Iou:Iou)
-
-      #6:2
-      │   disclosed to (since): 'Alice' (6), 'Bob' (6), 'USD_Bank' (6)
-      └─> fetch #3:1 (Iou:Iou)
-
-      #6:3
-      │   disclosed to (since): 'Alice' (6), 'Bob' (6), 'USD_Bank' (6)
-      └─> 'Bob' exercises Iou_Transfer on #3:1 (Iou:Iou)
-                with
-                  newOwner = 'Alice'
-          children:
-          #6:4
-          │   consumed by: #6:5
-          │   referenced by #6:5
-          │   disclosed to (since): 'Alice' (6), 'Bob' (6), 'USD_Bank' (6)
-          └─> create Iou:IouTransfer
-              with
-                iou =
-                  (Iou:Iou with
-                     issuer = 'USD_Bank';
-                     owner = 'Bob';
-                     currency = "USD";
-                     amount = 110.0000000000;
-                     observers = []);
-                newOwner = 'Alice'
-
-      #6:5
-      │   disclosed to (since): 'Alice' (6), 'Bob' (6), 'USD_Bank' (6)
-      └─> 'Alice' exercises IouTransfer_Accept on #6:4 (Iou:IouTransfer)
-          children:
-          #6:6
-          │   disclosed to (since): 'Alice' (6), 'Bob' (6), 'USD_Bank' (6)
-          └─> create Iou:Iou
-              with
-                issuer = 'USD_Bank';
-                owner = 'Alice';
-                currency = "USD";
-                amount = 110.0000000000;
-                observers = []
-
-      #6:7
-      │   disclosed to (since): 'Alice' (6), 'Bob' (6), 'EUR_Bank' (6)
-      └─> 'Alice' exercises Iou_Transfer on #4:1 (Iou:Iou)
+   TX 6 1970-01-01T00:00:00Z (Tests.Trade:70:14)
+   #6:0
+   │   disclosed to (since): 'Alice' (6), 'Bob' (6)
+   └─> 'Bob' exercises IouTrade_Accept on #5:0 (IouTrade:IouTrade)
+               with
+               quoteIouCid = #3:1
+         children:
+         #6:1
+         │   disclosed to (since): 'Alice' (6), 'Bob' (6), 'EUR_Bank' (6)
+         └─> 'Alice', 'EUR_Bank' fetches #4:1 (Iou:Iou)
+         
+         #6:2
+         │   disclosed to (since): 'Alice' (6), 'Bob' (6), 'USD_Bank' (6)
+         └─> 'Bob', 'USD_Bank' fetches #3:1 (Iou:Iou)
+         
+         #6:3
+         │   disclosed to (since): 'Alice' (6), 'Bob' (6), 'USD_Bank' (6)
+         └─> 'Bob' exercises Iou_Transfer on #3:1 (Iou:Iou)
                   with
-                    newOwner = 'Bob'
-          children:
-          #6:8
-          │   consumed by: #6:9
-          │   referenced by #6:9
-          │   disclosed to (since): 'Alice' (6), 'Bob' (6), 'EUR_Bank' (6)
-          └─> create Iou:IouTransfer
-              with
-                iou =
-                  (Iou:Iou with
-                     issuer = 'EUR_Bank';
-                     owner = 'Alice';
-                     currency = "EUR";
-                     amount = 100.0000000000;
-                     observers = ['Bob']);
-                newOwner = 'Bob'
-
-      #6:9
-      │   disclosed to (since): 'Alice' (6), 'Bob' (6), 'EUR_Bank' (6)
-      └─> 'Bob' exercises IouTransfer_Accept on #6:8 (Iou:IouTransfer)
-          children:
-          #6:10
-          │   disclosed to (since): 'Alice' (6), 'Bob' (6), 'EUR_Bank' (6)
-          └─> create Iou:Iou
-              with
-                issuer = 'EUR_Bank';
-                owner = 'Bob';
-                currency = "EUR";
-                amount = 100.0000000000;
-                observers = []
+                     newOwner = 'Alice'
+            children:
+            #6:4
+            │   consumed by: #6:5
+            │   referenced by #6:5
+            │   disclosed to (since): 'Alice' (6), 'Bob' (6), 'USD_Bank' (6)
+            └─> 'Bob', 'USD_Bank' creates Iou:IouTransfer
+                                 with
+                                    iou =
+                                       (Iou:Iou with
+                                          issuer = 'USD_Bank';
+                                          owner = 'Bob';
+                                          currency = "USD";
+                                          amount = 110.0000000000;
+                                          observers = []);
+                                    newOwner = 'Alice'
+         
+         #6:5
+         │   disclosed to (since): 'Alice' (6), 'Bob' (6), 'USD_Bank' (6)
+         └─> 'Alice' exercises IouTransfer_Accept on #6:4 (Iou:IouTransfer)
+            children:
+            #6:6
+            │   disclosed to (since): 'Alice' (6), 'Bob' (6), 'USD_Bank' (6)
+            └─> 'Alice', 'USD_Bank' creates Iou:Iou
+                                    with
+                                       issuer = 'USD_Bank';
+                                       owner = 'Alice';
+                                       currency = "USD";
+                                       amount = 110.0000000000;
+                                       observers = []
+         
+         #6:7
+         │   disclosed to (since): 'Alice' (6), 'Bob' (6), 'EUR_Bank' (6)
+         └─> 'Alice' exercises Iou_Transfer on #4:1 (Iou:Iou)
+                     with
+                     newOwner = 'Bob'
+            children:
+            #6:8
+            │   consumed by: #6:9
+            │   referenced by #6:9
+            │   disclosed to (since): 'Alice' (6), 'Bob' (6), 'EUR_Bank' (6)
+            └─> 'Alice', 'EUR_Bank' creates Iou:IouTransfer
+                                    with
+                                       iou =
+                                       (Iou:Iou with
+                                          issuer = 'EUR_Bank';
+                                          owner = 'Alice';
+                                          currency = "EUR";
+                                          amount = 100.0000000000;
+                                          observers = ['Bob']);
+                                       newOwner = 'Bob'
+         
+         #6:9
+         │   disclosed to (since): 'Alice' (6), 'Bob' (6), 'EUR_Bank' (6)
+         └─> 'Bob' exercises IouTransfer_Accept on #6:8 (Iou:IouTransfer)
+            children:
+            #6:10
+            │   disclosed to (since): 'Alice' (6), 'Bob' (6), 'EUR_Bank' (6)
+            └─> 'Bob', 'EUR_Bank' creates Iou:Iou
+                                 with
+                                    issuer = 'EUR_Bank';
+                                    owner = 'Bob';
+                                    currency = "EUR";
+                                    amount = 100.0000000000;
+                                    observers = []
 
 The ``submit`` function used in this script tries to perform a transaction and fails if any of the ledger integrity rules are violated. There is also a ``submitMustFail`` function, which checks that certain transactions are not possible. This is used in ``daml/Tests/Iou.daml``, for example, to confirm that the ledger model prevents double spends.
 
