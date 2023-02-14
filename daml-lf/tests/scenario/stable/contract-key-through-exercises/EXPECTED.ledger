@@ -4,7 +4,7 @@ TX #0 1970-01-01T00:00:00Z [Test:48] version: 15
 │   archived by #1:0
 │   referenced by #1:0
 │   disclosed to (since): Alice (#0), Bob (#0)
-└─> create Test:KeyOps@XXXXXXXX
+└─> Alice creates Test:KeyOps@XXXXXXXX
     with: { signatories = DA.Set.Types:Set@XXXXXXXX{ map = GenMap('Alice' -> <unit>) }, counterParty = 'Bob' }
 
 TX #1 1970-01-01T00:00:00Z [Test:49] version: 15
@@ -16,7 +16,7 @@ TX #1 1970-01-01T00:00:00Z [Test:49] version: 15
     #1:1 version: 15
     │   referenced by #2:0, #3:0, #5:0
     │   disclosed to (since): Alice (#1), Bob (#1)
-    └─> create Test:KeyOps@XXXXXXXX
+    └─> Alice, Bob creates Test:KeyOps@XXXXXXXX
         with: { signatories = DA.Set.Types:Set@XXXXXXXX{ map = GenMap('Alice' -> <unit>, 'Bob' -> <unit>) }, counterParty = 'Bob' }
 
 TX #2 1970-01-01T00:00:00Z [Test:51] version: 15
@@ -47,7 +47,7 @@ TX #4 1970-01-01T00:00:00Z [Test:57] version: 15
 #4:0 version: 15
 │   referenced by #5:1
 │   disclosed to (since): Alice (#4)
-└─> create Test:BasicKey@XXXXXXXX
+└─> Alice creates Test:BasicKey@XXXXXXXX
     with: { owners = DA.Set.Types:Set@XXXXXXXX{ map = GenMap('Alice' -> <unit>) } }
 key { map = GenMap('Alice' -> <unit>) }
 

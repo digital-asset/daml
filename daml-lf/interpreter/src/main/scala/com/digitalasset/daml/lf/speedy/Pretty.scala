@@ -197,9 +197,13 @@ private[lf] object Pretty {
       case Node.Rollback(_) =>
         text("rollback")
       case create: Node.Create =>
-        "create" &: prettyContractInst(create.coinst)
+        intercalate(text(", "), create.signatories.map(p => text(p))) &
+          text("creates") &
+          prettyContractInst(create.coinst)
       case fetch: Node.Fetch =>
-        "fetch" &: prettyContractId(fetch.coid)
+        intercalate(text(", "), fetch.signatories.map(p => text(p))) &
+          text("fetches") &
+          prettyContractId(fetch.coid)
       case ex: Node.Exercise =>
         intercalate(text(", "), ex.actingParties.map(p => text(p))) &
           text("exercises") & text(ex.choiceId) + char(':') + prettyIdentifier(ex.templateId) &
@@ -289,13 +293,18 @@ private[lf] object Pretty {
       case Node.Rollback(children) =>
         text("rollback:") / stack(children.toList.map(prettyEventInfo(l, txId)))
       case create: Node.Create =>
-        val d = "create" &: prettyContractInst(create.coinst)
+        val d =
+          intercalate(text(", "), create.signatories.map(p => text(p))) &
+            text("creates") &
+            prettyContractInst(create.coinst)
         create.keyOpt match {
           case None => d
           case Some(key) => d / text("key") & prettyKeyWithMaintainers(key)
         }
       case ea: Node.Fetch =>
-        "ensure active" &: prettyContractId(ea.coid)
+        intercalate(text(", "), ea.signatories.map(p => text(p))) &
+          text("ensures active") &
+          prettyContractId(ea.coid)
       case ex: Node.Exercise =>
         val children =
           if (ex.children.nonEmpty)
