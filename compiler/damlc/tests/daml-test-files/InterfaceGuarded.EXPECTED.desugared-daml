@@ -486,7 +486,7 @@ instance DA.Internal.Record.HasField "m" GuardException Text where
   setField
     = DA.Internal.Record.setFieldPrim @"m" @GuardException @Text
 instance DA.Internal.Desugar.HasMessage GuardException where
-  message this@GuardException {..} = m
+  message this@GuardException {..} = let _ = this in m
 instance DA.Internal.Desugar.HasThrow GuardException where
   throwPure = GHC.Types.primitive @"EThrow"
 instance DA.Internal.Desugar.HasToAnyException GuardException where

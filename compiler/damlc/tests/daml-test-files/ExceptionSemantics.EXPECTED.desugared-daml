@@ -9,7 +9,7 @@ data DA.Internal.Desugar.DamlException => E
   = E {}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
 instance DA.Internal.Desugar.HasMessage E where
-  message this@E = "E"
+  message this@E = let _ = this in "E"
 instance DA.Internal.Desugar.HasThrow E where
   throwPure = GHC.Types.primitive @"EThrow"
 instance DA.Internal.Desugar.HasToAnyException E where
