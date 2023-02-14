@@ -22,6 +22,7 @@ module DA.Daml.LF.ScenarioServiceClient.LowLevel
   , runScenario
   , runScript
   , runLiveScript
+  , runLiveScenario
   , SS.ScenarioResult(..)
   , SS.ScenarioStatus(..)
   , SS.WarningMessage(..)
@@ -393,6 +394,38 @@ performRequest method timeoutSeconds payload = do
     ClientNormalResponse resp _ _ StatusOk _ -> return (Right resp)
     ClientNormalResponse _ _ _ status _ -> return (Left $ BErrorFail status)
     ClientErrorResponse err -> return (Left $ BErrorClient err)
+
+runLiveScenario
+  :: Handle -> ContextId -> LF.ValueRef -> (SS.ScenarioStatus -> IO ())
+  -> IO (Either Error SS.ScenarioResult)
+runLiveScenario Handle{..} (ContextId ctxId) name statusUpdateHandler = do
+  let req = SS.RunScenarioRequest ctxId (Just (toIdentifier name))
+  ior <- newIORef (Left (ExceptionError (error "runLiveScenario scenario")))
+  _ <-
+    SS.scenarioServiceRunLiveScenario hClient $
+      ClientReaderRequest req (fromIntegral (optGrpcTimeout hOptions)) mempty $ \_clientCall _meta streamRecv ->
+        let loop :: IO ()
+            loop = streamRecv >>= \case
+              Right (Just (SS.RunScenarioResponseOrStatus (Just resp))) ->
+                handle resp >>= \case
+                  Left err -> writeIORef ior (Left err)
+                  Right (Just result) -> writeIORef ior (Right result)
+                  Right Nothing -> loop
+              Right _ -> loop
+              Left _err -> writeIORef ior (Left (error "error here!"))
+
+            handle :: SS.RunScenarioResponseOrStatusResponse -> IO (Either Error (Maybe SS.ScenarioResult))
+            handle (SS.RunScenarioResponseOrStatusResponseError _err) =
+              pure (Left (error "handle error"))
+            handle (SS.RunScenarioResponseOrStatusResponseResult result) = do
+              putStrLn "got a response!"
+              pure (Right (Just result))
+            handle (SS.RunScenarioResponseOrStatusResponseStatus status) = do
+              statusUpdateHandler status
+              pure (Right Nothing)
+        in
+        loop
+  readIORef ior
 
 runLiveScript
   :: Handle -> ContextId -> LF.ValueRef -> (SS.ScenarioStatus -> IO ())

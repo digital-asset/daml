@@ -1260,7 +1260,10 @@ formatScenarioResult world errOrRes =
 
 runScenario :: SS.Handle -> NormalizedFilePath -> SS.ContextId -> LF.ValueRef -> Action (VirtualResource, Either SS.Error SS.ScenarioResult)
 runScenario scenarioService file ctxId scenario = do
-    res <- liftIO $ SS.runScenario scenarioService ctxId scenario
+    ShakeExtras {lspEnv} <- getShakeExtras
+    res <- liftIO $ SS.runLiveScenario scenarioService ctxId scenario $ \status -> do
+        sendNotification lspEnv LSP.SWindowShowMessage $
+            LSP.ShowMessageParams LSP.MtInfo (TL.toStrict (SS.scenarioStatusMessage status))
     let scenarioName = LF.qualObject scenario
     let vr = VRScenario file (LF.unExprValName scenarioName)
     pure (vr, res)

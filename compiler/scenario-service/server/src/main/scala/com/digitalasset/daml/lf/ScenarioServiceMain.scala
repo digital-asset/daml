@@ -189,6 +189,25 @@ class ScenarioService(
     }
   }
 
+  override def runLiveScenario(
+      req: RunScenarioRequest,
+      respObs: StreamObserver[RunScenarioResponseOrStatus],
+  ): Unit = {
+    if (enableScenarios) {
+      val stream = StreamWithStatus(respObs)
+      runLive(
+        req,
+        stream,
+        { case (ctx, pkgId, name) =>
+          Future.successful(ctx.interpretScenario(pkgId, name))
+        },
+      )
+    } else {
+      log("Rejected scenario gRPC request.")
+      respObs.onError(new UnsupportedOperationException("Scenarios are disabled"))
+    }
+  }
+
   override def runScript(
       req: RunScenarioRequest,
       respObs: StreamObserver[RunScenarioResponse],
