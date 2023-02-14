@@ -34,10 +34,10 @@ object AuthorizationError {
       s"Claims are only valid for participantId '$authorized', actual participantId is '$actual'"
   }
 
-  final case class InvalidTargetAudience(authorized: List[String], actual: String)
+  final case class InvalidTargetAudience(actual: List[String], authorized: String)
       extends AuthorizationError {
     override val reason =
-      s"Claims are only valid for audiences '${authorized.mkString(",")}', actual audience is '$actual'"
+      s"Claims are only intended for '$authorized', actual audiences are [${actual.mkString(",")}]"
   }
 
   final case class InvalidApplication(authorized: String, actual: String)

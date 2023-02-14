@@ -180,7 +180,9 @@ object AuthServiceJWTCodec {
   }
 
   /** Writes the given payload to a compact JSON string */
-  def compactPrint(v: AuthServiceJWTPayload): String = writePayload(v).compactPrint
+  def compactPrint(v: AuthServiceJWTPayload, audienceBasedToken: Boolean = false): String =
+    if (audienceBasedToken) writeAudienceBasedPayload(v).compactPrint
+    else writePayload(v).compactPrint
 
   private[this] def writeOptionalString(value: Option[String]): JsValue =
     value.fold[JsValue](JsNull)(JsString(_))
@@ -206,7 +208,7 @@ object AuthServiceJWTCodec {
       StandardJWTPayload(
         issuer = readOptionalString(propIss, fields),
         participantId = None,
-        userId = readOptionalString(propSub, fields).get,
+        userId = readString(propSub, fields),
         exp = readInstant(propExp, fields),
         format = StandardJWTTokenFormat.ParticipantId,
         audiences = readOptionalStringOrArray(propAud, fields),
@@ -267,7 +269,7 @@ object AuthServiceJWTCodec {
         StandardJWTPayload(
           issuer = readOptionalString(propIss, fields),
           participantId = participantId,
-          userId = readOptionalString(propSub, fields).get, // guarded by if-clause above
+          userId = readString(propSub, fields),
           exp = readInstant(propExp, fields),
           format = StandardJWTTokenFormat.Scope,
           audiences = List.empty, // we do not read or extract audience claims for Scope-based tokens
@@ -329,6 +331,15 @@ object AuthServiceJWTCodec {
       case Some(JsString(value)) => Some(value)
       case Some(value) =>
         deserializationError(s"Could not read ${value.prettyPrint} as string for $name")
+    }
+
+  private[this] def readString(name: String, fields: Map[String, JsValue]): String =
+    fields.get(name) match {
+      case Some(JsString(value)) => value
+      case Some(value) =>
+        deserializationError(s"Could not read ${value.prettyPrint} as string for $name")
+      case _ =>
+        deserializationError(s"Could not read value for $name")
     }
 
   private[this] def readOptionalStringOrArray(

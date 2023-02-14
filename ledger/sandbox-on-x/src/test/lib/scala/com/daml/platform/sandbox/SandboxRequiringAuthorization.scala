@@ -23,7 +23,7 @@ import scalaz.syntax.tag.ToTagOps
 
 trait SandboxRequiringAuthorizationFuns {
 
-  private val jwtHeader = """{"alg": "HS256", "typ": "JWT"}"""
+  protected val jwtHeader = """{"alg": "HS256", "typ": "JWT"}"""
   protected val jwtSecret: String = UUID.randomUUID.toString
 
   protected val emptyToken: CustomDamlJWTPayload = CustomDamlJWTPayload(
@@ -81,12 +81,23 @@ trait SandboxRequiringAuthorizationFuns {
   protected def forApplicationId(id: String, p: CustomDamlJWTPayload): CustomDamlJWTPayload =
     p.copy(applicationId = Some(id))
 
-  protected def toHeader(payload: AuthServiceJWTPayload, secret: String = jwtSecret): String =
-    signed(payload, secret)
+  protected def toHeader(
+      payload: AuthServiceJWTPayload,
+      secret: String = jwtSecret,
+      audienceBasedToken: Boolean = false,
+  ): String =
+    signed(payload, secret, audienceBasedToken)
 
-  private def signed(payload: AuthServiceJWTPayload, secret: String): String =
+  private def signed(
+      payload: AuthServiceJWTPayload,
+      secret: String,
+      audienceBasedToken: Boolean,
+  ): String =
     JwtSigner.HMAC256
-      .sign(DecodedJwt(jwtHeader, AuthServiceJWTCodec.compactPrint(payload)), secret)
+      .sign(
+        DecodedJwt(jwtHeader, AuthServiceJWTCodec.compactPrint(payload, audienceBasedToken)),
+        secret,
+      )
       .getOrElse(sys.error("Failed to generate token"))
       .value
 }
@@ -94,10 +105,12 @@ trait SandboxRequiringAuthorizationFuns {
 trait SandboxRequiringAuthorization extends SandboxRequiringAuthorizationFuns {
   self: Suite with AbstractSandboxFixture =>
 
+  def expectsAudienceBasedTokens: Boolean = false
+
   override protected def authService: Option[AuthService] = {
     val jwtVerifier =
       HMAC256Verifier(self.jwtSecret).getOrElse(sys.error("Failed to create HMAC256 verifier"))
-    Some(AuthServiceJWT(jwtVerifier, false))
+    Some(AuthServiceJWT(jwtVerifier, expectsAudienceBasedTokens))
   }
 
   override protected def idpJwtVerifierLoader: Option[JwtVerifierLoader] =

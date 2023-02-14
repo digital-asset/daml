@@ -44,16 +44,18 @@ class AuthServiceJWT(verifier: JwtVerifierBase, expectsAudienceBasedTokens: Bool
       token => payloadToClaims(token),
     )
 
-  private[this] def parsePayload(jwtPayload: String): Either[Error, AuthServiceJWTPayload] =
-    (if (expectsAudienceBasedTokens) {
-       Try(parseAudienceBasedPayload(jwtPayload))
-     } else {
-       Try(parseOldPayload(jwtPayload))
-     }).toEither.left.map(t =>
-      Error(Symbol("parsePayload"), "Could not parse JWT token: " + t.getMessage)
-    )
+  private[this] def parsePayload(jwtPayload: String): Either[Error, AuthServiceJWTPayload] = {
+    val parsed =
+      if (expectsAudienceBasedTokens)
+        Try(parseAudienceBasedPayload(jwtPayload))
+      else
+        Try(parseAuthServicePayload(jwtPayload))
 
-  private[this] def parseOldPayload(jwtPayload: String): AuthServiceJWTPayload = {
+    parsed.toEither.left
+      .map(t => Error(Symbol("parsePayload"), "Could not parse JWT token: " + t.getMessage))
+  }
+
+  private[this] def parseAuthServicePayload(jwtPayload: String): AuthServiceJWTPayload = {
     import AuthServiceJWTCodec.JsonImplicits._
     JsonParser(jwtPayload).convertTo[AuthServiceJWTPayload]
   }
