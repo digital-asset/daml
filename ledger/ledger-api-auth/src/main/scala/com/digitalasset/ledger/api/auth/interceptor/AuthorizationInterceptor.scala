@@ -124,7 +124,7 @@ final class AuthorizationInterceptor(
                   expiration = expiration,
                   resolvedFromUser = true,
                   identityProviderId = identityProviderId,
-                  payloadAudiences = payloadAudiences,
+                  audience = AudienceClaim.AudienceClaims(payloadAudiences),
                 )
               )
           }

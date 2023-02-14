@@ -81,6 +81,7 @@ object StandardJWTTokenFormat {
   *                       If set then the user is authenticated for the given participantId.
   *
   * @param exp            If set, the token is only valid before the given instant.
+  * @param audiences      If set, the token is only valid for the intended recipients.
   */
 final case class StandardJWTPayload(
     issuer: Option[String],
@@ -146,64 +147,36 @@ object AuthServiceJWTCodec {
         propExp -> writeOptionalInstant(v.exp),
       )
     case v: StandardJWTPayload if v.format == StandardJWTTokenFormat.Scope =>
-      val aud: List[String] = if (v.participantId.exists(v.audiences.contains)) {
-        v.audiences
-      } else {
-        v.participantId match {
-          case Some(participantId) => participantId :: v.audiences
-          case None => v.audiences
-        }
-      }
       JsObject(
         propIss -> writeOptionalString(v.issuer),
-        propAud -> writeStringList(aud),
+        propAud -> writeOptionalString(v.participantId),
         propSub -> JsString(v.userId),
         propExp -> writeOptionalInstant(v.exp),
         "scope" -> JsString(scopeLedgerApiFull),
       )
     case v: StandardJWTPayload =>
-      val audienceFromParticipantId = audPrefix + v.participantId.getOrElse("")
-      val aud = if (v.audiences.contains(audienceFromParticipantId)) {
-        v.audiences
-      } else {
-        audienceFromParticipantId :: v.audiences
-      }
       JsObject(
         propIss -> writeOptionalString(v.issuer),
-        propAud -> writeStringList(aud),
+        propAud -> JsString(audPrefix + v.participantId.getOrElse("")),
         propSub -> JsString(v.userId),
         propExp -> writeOptionalInstant(v.exp),
       )
   }
 
   def writeAudienceBasedPayload: AuthServiceJWTPayload => JsValue = {
-    case v: CustomDamlJWTPayload =>
-      JsObject(
-        oidcNamespace -> JsObject(
-          propLedgerId -> writeOptionalString(v.ledgerId),
-          propParticipantId -> writeOptionalString(v.participantId),
-          propApplicationId -> writeOptionalString(v.applicationId),
-          propAdmin -> JsBoolean(v.admin),
-          propActAs -> writeStringList(v.actAs),
-          propReadAs -> writeStringList(v.readAs),
-        ),
-        propExp -> writeOptionalInstant(v.exp),
-      )
-    case v: StandardJWTPayload if v.format == StandardJWTTokenFormat.Scope =>
-      JsObject(
-        propIss -> writeOptionalString(v.issuer),
-        propAud -> writeStringList(v.audiences),
-        propSub -> JsString(v.userId),
-        propExp -> writeOptionalInstant(v.exp),
-        "scope" -> JsString(scopeLedgerApiFull),
-      )
-    case v: StandardJWTPayload =>
+    case v: StandardJWTPayload if v.format == StandardJWTTokenFormat.ParticipantId =>
       JsObject(
         propIss -> writeOptionalString(v.issuer),
         propAud -> writeStringList(v.audiences),
         propSub -> JsString(v.userId),
         propExp -> writeOptionalInstant(v.exp),
       )
+    case _: StandardJWTPayload =>
+      serializationError(
+        s"Could not write StandardJWTPayload of Scope format as audience-based payload"
+      )
+    case _: CustomDamlJWTPayload =>
+      serializationError(s"Could not write CustomDamlJWTPayload as audience-based payload")
   }
 
   /** Writes the given payload to a compact JSON string */
@@ -231,10 +204,10 @@ object AuthServiceJWTCodec {
   def readAudienceBasedToken(value: JsValue): AuthServiceJWTPayload = value match {
     case JsObject(fields) =>
       StandardJWTPayload(
-        issuer = readOptionalString("iss", fields),
+        issuer = readOptionalString(propIss, fields),
         participantId = None,
-        userId = readOptionalString("sub", fields).get,
-        exp = readInstant("exp", fields),
+        userId = readOptionalString(propSub, fields).get,
+        exp = readInstant(propExp, fields),
         format = StandardJWTTokenFormat.ParticipantId,
         audiences = readOptionalStringOrArray(propAud, fields),
       )
@@ -266,7 +239,8 @@ object AuthServiceJWTCodec {
               userId = readOptionalString(propSub, fields).get, // guarded by if-clause above
               exp = readInstant(propExp, fields),
               format = StandardJWTTokenFormat.ParticipantId,
-              audiences = readOptionalStringOrArray(propAud, fields),
+              audiences =
+                List.empty, // we do not read or extract audience claims for ParticipantId-based tokens
             )
           case Nil =>
             deserializationError(
@@ -296,7 +270,7 @@ object AuthServiceJWTCodec {
           userId = readOptionalString(propSub, fields).get, // guarded by if-clause above
           exp = readInstant(propExp, fields),
           format = StandardJWTTokenFormat.Scope,
-          audiences = readOptionalStringOrArray(propAud, fields),
+          audiences = List.empty, // we do not read or extract audience claims for Scope-based tokens
         )
       } else {
         if (scope.nonEmpty)

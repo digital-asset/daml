@@ -19,25 +19,23 @@ class AuthServiceJWTCodecSpec
     with ScalaCheckDrivenPropertyChecks {
 
   /** Serializes a [[AuthServiceJWTPayload]] to JSON, then parses it back to a AuthServiceJWTPayload */
-  private def serializeAndParse(value: AuthServiceJWTPayload): Try[AuthServiceJWTPayload] = {
-    import AuthServiceJWTCodec.JsonImplicits._
-
+  private def serializeAndParse(
+      value: AuthServiceJWTPayload
+  )(implicit format: RootJsonFormat[AuthServiceJWTPayload]): Try[AuthServiceJWTPayload] =
     for {
       serialized <- Try(value.toJson.prettyPrint)
       json <- Try(serialized.parseJson)
       parsed <- Try(json.convertTo[AuthServiceJWTPayload])
     } yield parsed
-  }
 
   /** Parses a [[AuthServiceJWTPayload]] */
-  private def parse(serialized: String): Try[AuthServiceJWTPayload] = {
-    import AuthServiceJWTCodec.JsonImplicits._
-
+  private def parse(
+      serialized: String
+  )(implicit format: RootJsonFormat[AuthServiceJWTPayload]): Try[AuthServiceJWTPayload] =
     for {
       json <- Try(serialized.parseJson)
       parsed <- Try(json.convertTo[AuthServiceJWTPayload])
     } yield parsed
-  }
 
   private implicit val arbInstant: Arbitrary[Instant] = {
     Arbitrary {
@@ -58,12 +56,60 @@ class AuthServiceJWTCodecSpec
     )
 
   // participantId is mandatory for the format `StandardJWTTokenFormat.ParticipantId`
-  private val StandardJWTPayloadGen = Gen.resultOf(StandardJWTPayload).filterNot { payload =>
-    !payload.participantId
-      .exists(_.nonEmpty) && payload.format == StandardJWTTokenFormat.ParticipantId
+  private val StandardJWTPayloadGen = Gen
+    .resultOf(StandardJWTPayload)
+    .filterNot { payload =>
+      !payload.participantId
+        .exists(_.nonEmpty) && payload.format == StandardJWTTokenFormat.ParticipantId
+    }
+    // we do not fill audiences for Scope or ParticipantId based tokens
+    .map(payload => payload.copy(audiences = List.empty))
+
+  "Audience-Based AuthServiceJWTPayload codec" when {
+    import AuthServiceJWTCodec.AudienceBasedTokenJsonImplicits._
+
+    val PayloadGen = Gen
+      .resultOf(StandardJWTPayload)
+      .map(payload =>
+        payload.copy(participantId = None, format = StandardJWTTokenFormat.ParticipantId)
+      )
+
+    "serializing and parsing a value" should {
+      "work for arbitrary custom Daml token values" in forAll(
+        PayloadGen,
+        minSuccessful(100),
+      )(value => {
+        serializeAndParse(value) shouldBe Success(value)
+      })
+    }
+
+    "support multiple audiences with a single participant audience" in {
+      val serialized =
+        """{
+          |  "aud": ["https://example.com/non/related/audience",
+          |          "https://daml.com/jwt/aud/participant/someParticipantId"],
+          |  "sub": "someUserId",
+          |  "exp": 100
+          |}
+        """.stripMargin
+      parse(serialized) shouldBe Success(
+        StandardJWTPayload(
+          issuer = None,
+          participantId = None,
+          userId = "someUserId",
+          exp = Some(Instant.ofEpochSecond(100)),
+          format = StandardJWTTokenFormat.ParticipantId,
+          audiences = List(
+            "https://example.com/non/related/audience",
+            "https://daml.com/jwt/aud/participant/someParticipantId",
+          ),
+        )
+      )
+    }
   }
 
   "AuthServiceJWTPayload codec" when {
+    import AuthServiceJWTCodec.JsonImplicits._
 
     "serializing and parsing a value" should {
 
@@ -192,7 +238,7 @@ class AuthServiceJWTCodecSpec
           userId = "someUserId",
           exp = Some(Instant.ofEpochSecond(100)),
           format = StandardJWTTokenFormat.Scope,
-          audiences = List("someParticipantId"),
+          audiences = List.empty,
         )
         parse(serialized) shouldBe Success(expected)
       }
@@ -212,7 +258,7 @@ class AuthServiceJWTCodecSpec
           userId = "someUserId",
           exp = Some(Instant.ofEpochSecond(100)),
           format = StandardJWTTokenFormat.Scope,
-          audiences = List("someParticipantId"),
+          audiences = List.empty,
         )
         parse(serialized) shouldBe Success(expected)
       }
@@ -283,7 +329,7 @@ class AuthServiceJWTCodecSpec
           userId = "someUserId",
           exp = Some(Instant.ofEpochSecond(100)),
           format = StandardJWTTokenFormat.ParticipantId,
-          audiences = List("https://daml.com/jwt/aud/participant/someParticipantId"),
+          audiences = List.empty,
         )
         parse(serialized) shouldBe Success(expected)
       }
@@ -303,7 +349,7 @@ class AuthServiceJWTCodecSpec
             userId = "someUserId",
             exp = Some(Instant.ofEpochSecond(100)),
             format = StandardJWTTokenFormat.ParticipantId,
-            audiences = List("https://daml.com/jwt/aud/participant/someParticipantId"),
+            audiences = List.empty,
           )
         )
 
@@ -322,7 +368,7 @@ class AuthServiceJWTCodecSpec
             userId = "someUserId",
             exp = Some(Instant.ofEpochSecond(100)),
             format = StandardJWTTokenFormat.Scope,
-            audiences = List("someParticipantId"),
+            audiences = List.empty,
           )
         )
       }
@@ -342,7 +388,7 @@ class AuthServiceJWTCodecSpec
           userId = "someUserId",
           exp = Some(Instant.ofEpochSecond(100)),
           format = StandardJWTTokenFormat.ParticipantId,
-          audiences = List("https://daml.com/jwt/aud/participant/someParticipantId"),
+          audiences = List.empty,
         )
         parse(serialized) shouldBe Success(expected)
       }
@@ -350,7 +396,7 @@ class AuthServiceJWTCodecSpec
       "support multiple audiences with a single participant audience" in {
         val serialized =
           """{
-            |  "aud": ["https://example.com/non/related/audience", 
+            |  "aud": ["https://example.com/non/related/audience",
             |          "https://daml.com/jwt/aud/participant/someParticipantId"],
             |  "sub": "someUserId",
             |  "exp": 100
@@ -363,10 +409,7 @@ class AuthServiceJWTCodecSpec
             userId = "someUserId",
             exp = Some(Instant.ofEpochSecond(100)),
             format = StandardJWTTokenFormat.ParticipantId,
-            audiences = List(
-              "https://example.com/non/related/audience",
-              "https://daml.com/jwt/aud/participant/someParticipantId",
-            ),
+            audiences = List.empty,
           )
         )
       }
@@ -374,7 +417,7 @@ class AuthServiceJWTCodecSpec
       "reject the token of ParticipantId format with multiple participant audiences" in {
         val serialized =
           """{
-            |  "aud": ["https://daml.com/jwt/aud/participant/someParticipantId", 
+            |  "aud": ["https://daml.com/jwt/aud/participant/someParticipantId",
             |          "https://daml.com/jwt/aud/participant/someParticipantId2"],
             |  "sub": "someUserId",
             |  "exp": 100
@@ -388,7 +431,7 @@ class AuthServiceJWTCodecSpec
       "reject the token of Scope format with multiple audiences" in {
         val serialized =
           """{
-            |  "aud": ["someParticipantId", 
+            |  "aud": ["someParticipantId",
             |          "someParticipantId2"],
             |  "sub": "someUserId",
             |  "exp": 100,
