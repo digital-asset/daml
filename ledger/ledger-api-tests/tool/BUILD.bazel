@@ -103,7 +103,7 @@ conformance_test(
             cert-chain-file=$(rootpath //test-common/test-certificates:server.crt)
             trust-collection-file=$(rootpath //test-common/test-certificates:ca.crt)
             private-key-file=$(rootpath //test-common/test-certificates:server.pem.enc)
-            secrets-url="https://raw.githubusercontent.com/digital-asset/daml/main/test-common/files/server-pem-decryption-parameters.json"
+            secrets-url="https://raw.githubusercontent.com/digital-asset/daml/main/ledger/test-common/files/server-pem-decryption-parameters.json"
             minimum-server-protocol-version=TLSv1.3
           }
         }
@@ -140,7 +140,7 @@ conformance_test(
             cert-chain-file=$(rootpath //test-common/test-certificates:server.crt)
             trust-collection-file=$(rootpath //test-common/test-certificates:ca.crt)
             private-key-file=$(rootpath //test-common/test-certificates:server.pem.enc)
-            secrets-url="https://raw.githubusercontent.com/digital-asset/daml/main/test-common/files/server-pem-decryption-parameters.json"
+            secrets-url="https://raw.githubusercontent.com/digital-asset/daml/main/ledger/test-common/files/server-pem-decryption-parameters.json"
           }
         }
     """,
