@@ -16,6 +16,7 @@ import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform
 import com.daml.platform.store.backend.{EventStorageBackend, ParameterStorageBackend}
+import com.daml.platform.store.cache.LedgerEndCache
 import com.daml.platform.store.cache.MutableCacheBackedContractStore.EventSequentialId
 import com.daml.platform.store.dao.events.Raw.FlatEvent
 import com.daml.platform.store.dao.{DbDispatcher, EventProjectionProperties, LedgerDaoEventsReader}
@@ -28,6 +29,7 @@ private[dao] sealed class EventsReader(
     val parameterStorageBackend: ParameterStorageBackend,
     val metrics: Metrics,
     val lfValueTranslation: LfValueTranslation,
+    val ledgerEndCache: LedgerEndCache,
 )(implicit ec: ExecutionContext)
     extends LedgerDaoEventsReader {
 
@@ -51,6 +53,7 @@ private[dao] sealed class EventsReader(
         eventStorageBackend.eventReaderQueries.fetchContractIdEvents(
           contractId,
           requestingParties = requestingParties,
+          endEventSequentialId = ledgerEndCache()._2,
         )
       )
 
@@ -100,7 +103,7 @@ private[dao] sealed class EventsReader(
           eventStorageBackend.eventReaderQueries.fetchNextKeyEvents(
             keyHash,
             requestingParties,
-            endExclusiveSeqId.getOrElse(Long.MaxValue),
+            endExclusiveSeqId.getOrElse(ledgerEndCache()._2 + 1),
           )(conn)
         }
 
