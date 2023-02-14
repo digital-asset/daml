@@ -3,9 +3,8 @@
 
 package com.daml.platform.store.backend.common
 
-import anorm.{RowParser, SqlParser}
+import anorm.RowParser
 import com.daml.lf.data.Ref.Party
-import com.daml.lf.ledger.EventId
 import com.daml.lf.value.Value.ContractId
 import com.daml.platform.store.backend.EventStorageBackend
 import com.daml.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
@@ -27,7 +26,11 @@ class EventReaderQueries(
 
   case class SelectTable(tableName: String, selectColumns: String)
 
-  def fetchContractIdEvents(contractId: ContractId, requestingParties: Set[Party])(
+  def fetchContractIdEvents(
+      contractId: ContractId,
+      requestingParties: Set[Party],
+      endEventSequentialId: EventSequentialId,
+  )(
       connection: Connection
   ): Vector[EventStorageBackend.Entry[Raw.FlatEvent]] = {
 
@@ -59,12 +62,10 @@ class EventReaderQueries(
               #$selectColumns,
               #$witnessesColumn as event_witnesses,
               command_id
-            FROM
-              #$tableName
-            WHERE
-              contract_id = ${contractId.coid}
-            ORDER BY
-              event_sequential_id
+            FROM #$tableName
+            WHERE contract_id = ${contractId.coid}
+            AND event_sequential_id <=$endEventSequentialId
+            ORDER BY event_sequential_id
         ) x
       )
     """
@@ -82,20 +83,6 @@ class EventReaderQueries(
 
     query.asVectorOf(eventParser(requestingParties))(connection)
 
-  }
-
-  def resolveEventIdToSequentialId(
-      eventId: EventId
-  )(conn: Connection): Option[EventSequentialId] = {
-    val parser = SqlParser.get[EventSequentialId](1)
-    val query = SQL"""
-      SELECT c.event_sequential_id
-      FROM participant_transaction_meta m
-      JOIN participant_events_create c ON c.event_offset = m.event_offset
-      WHERE m.transaction_id = ${eventId.transactionId.toString}
-      AND c.event_id = ${eventId.toLedgerString.toString}
-    """
-    query.as(parser.singleOpt)(conn)
   }
 
   private def selectLatestKeyCreateEvent(
@@ -158,12 +145,11 @@ class EventReaderQueries(
 
     val intRequestingParties =
       requestingParties.iterator.map(stringInterning.party.tryInternalize).flatMap(_.iterator).toSet
-    val extRequestingParties = requestingParties.map(_.toString)
 
     val createEvent = selectLatestKeyCreateEvent(
       keyHash,
       intRequestingParties,
-      extRequestingParties,
+      requestingParties.map(identity),
       endExclusiveSeqId,
     )(conn)
     val archivedEvent = createEvent.flatMap(c =>
