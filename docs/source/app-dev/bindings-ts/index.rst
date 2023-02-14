@@ -15,7 +15,7 @@ The `@daml/types <ts-daml-types_>`_ library contains the TypeScript data types c
 Apart from its usefulness for TypeScript developers, the library can also be pulled in as a development-type dependency for JavaScript projects
 to take advantage of tooling integration with the TypeScript ecosystem, such as the availability of autocompletion on Visual Studio Code.
 
-The `@daml/ledger <ts-daml-ledger_>` library contains functions to interact with the endpoints exposed by HTTP JSON API service and forms
+The `@daml/ledger <ts-daml-ledger_>`_ library contains functions used to interact with the endpoints exposed by HTTP JSON API service and forms
 the basic layer of functionality. At this layer, you can easily query for active contracts from the ledger, create new ones or exercise
 choices. This layer is agnostic with regards to any specific framework required to build the frontend.
 
