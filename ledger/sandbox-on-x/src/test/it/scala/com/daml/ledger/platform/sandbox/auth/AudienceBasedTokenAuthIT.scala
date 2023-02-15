@@ -55,6 +55,9 @@ class AudienceBasedTokenAuthIT extends ServiceCallAuthTests with ErrorsAssertion
     expectedAudienceToken.copy(audiences = List(ExpectedAudience, "additionalAud"))
 
   val noAudienceWithExpectedToken: StandardJWTPayload =
+    expectedAudienceToken.copy(audiences = List())
+
+  val wrongAudienceWithExpectedToken: StandardJWTPayload =
     expectedAudienceToken.copy(audiences = List("aud1", "aud2"))
 
   val expiredToken: StandardJWTPayload =
@@ -62,6 +65,8 @@ class AudienceBasedTokenAuthIT extends ServiceCallAuthTests with ErrorsAssertion
 
   val unknownUserToken: StandardJWTPayload =
     expectedAudienceToken.copy(userId = "unknown_user")
+
+  val scopeToken = expectedAudienceToken.copy(format = StandardJWTTokenFormat.ParticipantId)
 
   it should "allow access to an endpoint with the token which is matching intended audience" taggedAs securityAsset
     .setHappyCase(
@@ -81,12 +86,27 @@ class AudienceBasedTokenAuthIT extends ServiceCallAuthTests with ErrorsAssertion
     }
   }
 
+  it should "allow access to an endpoint with the token which is matching intended audience and scope defined" taggedAs securityAsset
+    .setHappyCase(
+      "Ledger API client can make a call with a JWT with intended audience"
+    ) in {
+    expectSuccess(serviceCall(toContext(scopeToken)))
+  }
+
   it should "deny access with no intended audience" taggedAs securityAsset.setAttack(
     attackUnauthenticated(threat =
-      "Ledger API client can make a call with a JWT with no intended audience"
+      "Ledger API client cannot make a call with a JWT with no intended audience"
     )
   ) in {
     expectPermissionDenied(serviceCall(toContext(noAudienceWithExpectedToken)))
+  }
+
+  it should "deny access with wrong intended audience" taggedAs securityAsset.setAttack(
+    attackUnauthenticated(threat =
+      "Ledger API client cannot make a call with a JWT with wrong intended audience"
+    )
+  ) in {
+    expectPermissionDenied(serviceCall(toContext(wrongAudienceWithExpectedToken)))
   }
 
   it should "deny calls with user token for 'unknown_user' without expiration" taggedAs adminSecurityAsset

@@ -37,7 +37,7 @@ object AuthorizationError {
   final case class InvalidTargetAudience(actual: List[String], authorized: String)
       extends AuthorizationError {
     override val reason =
-      s"Claims are only intended for '$authorized', actual audiences are [${actual.mkString(",")}]"
+      s"Actual audiences [${actual.mkString(",")}] do not match the expected '$authorized'"
   }
 
   final case class InvalidApplication(authorized: String, actual: String)
