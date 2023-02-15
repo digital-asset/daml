@@ -363,10 +363,10 @@ This Daml fragment defines the parameterized type ``Attribute``, used by the ``B
 The Java codegen generates a Java file with a generic class for  the ``Attribute a`` data type:
 
 .. code-block:: java
-  :caption: com/acme/parametrizedtypes/Attribute.java
+  :caption: com/acme/parameterizedtypes/Attribute.java
   :emphasize-lines: 3,8,10
 
-  package com.acme.parametrizedtypes;
+  package com.acme.parameterizedtypes;
 
   public class Attribute<a> {
     public final a value;
