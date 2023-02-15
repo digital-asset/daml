@@ -67,7 +67,7 @@ Despite its simplicity, there are quite a few things to note in this script:
 - The ``import`` statements at the top import two packages from the Daml Standard Library, which contain all the date and time related functions we use here as well as the functions used in Daml Scripts. More on packages, imports and the standard library later.
 - Most of the variables are declared inside a ``let`` block.
 
-  That's because the ``script do`` block expects script actions like ``submit`` or ``Party``. An integer like ``123`` is not an action, it's a pure expression, something we can evaluate without any ledger. You can think of the ``let`` as turning variable declaration into an action.
+  That's because the ``script do`` block expects script actions like ``submit`` or ``allocateParty``. An integer like ``123`` is not an action, it's a pure expression, something we can evaluate without any ledger. You can think of the ``let`` as turning variable declaration into an action.
 - Most variables do not have annotations to say what type they are.
 
   That's because Daml is very good at *inferring* types. The compiler knows that ``123`` is an ``Int``, so if you declare ``my_int = 123``, it can infer that ``my_int`` is also an ``Int``. This means you don't have to write the type annotation ``my_int : Int = 123``.
