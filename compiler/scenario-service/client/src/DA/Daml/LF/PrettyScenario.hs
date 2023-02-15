@@ -1,7 +1,6 @@
 -- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 {-# LANGUAGE PatternSynonyms #-}
-{-# LANGUAGE ViewPatterns #-}
 
 -- | Pretty-printing of scenario results
 module DA.Daml.LF.PrettyScenario
@@ -812,11 +811,11 @@ prettyNodeNode nn = do
 -- Depending on the count of parties, returns a prettified list of these elements, using @,@ and @and@, as well as the correct verb
 -- e.g. @[a, b, c] -> a, b and c@
 partiesAction :: V.Vector Party -> String -> String -> (Doc SyntaxClass, Doc SyntaxClass)
-partiesAction pv singular multiple = 
-  case mapV prettyParty pv of
-    (unsnoc -> Just (init, last)) -> (fcommasep init <-> keyword_ "and" <-> last, keyword_ multiple)
-    [p]                           -> (p, keyword_ singular)
-    _                             -> (text "No-one/unknown", keyword_ singular)
+partiesAction pv singular multiple =
+  case unsnoc $ mapV prettyParty pv of
+    Just (init@(_:_), last) -> (fcommasep init <-> keyword_ "and" <-> last, keyword_ multiple)
+    Just (_, p) ->             (p, keyword_ singular)
+    Nothing ->                 (text "No-one/unknown", keyword_ singular)
 
 isUnitValue :: Maybe Value -> Bool
 isUnitValue (Just (Value (Just ValueSumUnit{}))) = True
