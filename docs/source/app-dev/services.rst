@@ -202,15 +202,15 @@ See :ref:`transaction-filter` above.
 Event Query Service (EXPERIMENTAL)
 ==================================
 
-Use the **event query service** to obtain a party-specific view of contract related events.
+Use the **event query service** to obtain a party-specific view of contract events.
 
-Contract events can be queried by contract-id or contract-key. If the events being queried are not visible to the requesting parties then an empty structure is returned. This service is will return consumed contracts up until the point they are pruned.
+Contract events can be queried by contract id or contract key. If the events being queried are not visible to the requesting parties, the service returns an empty structure. This service returns consumed contracts up until they are pruned.
 
-In the case of contract-keys a number of contracts may have used the contract-key over time. The latest contract will be returned first with earlier contracts being returned in subsequent calls with a populated continuation-token.
+In the case of contract keys, a number of contracts may have used the contract key over time. The latest contract is returned first, with earlier contracts being returned in subsequent calls with a populated continuation token.
 
 .. note::
 
-  When querying by contract-key the key value must be structured in a same way as the key returned in the create event.
+  When querying by contract key, the key value must be structured in the same way as the key returned in the create event.
 
 For full details, see :ref:`the proto documentation for the service <com.daml.ledger.api.v1.EventQueryService>`.
 
