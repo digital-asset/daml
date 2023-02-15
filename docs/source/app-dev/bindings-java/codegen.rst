@@ -358,7 +358,7 @@ This Daml fragment defines the parameterized type ``Attribute``, used by the ``B
    :language: daml
    :start-after: -- start snippet: parameterized types example
    :end-before: -- end snippet: parameterized types example
-   :caption: Com/Acme/ParametrizedTypes.daml
+   :caption: Com/Acme/ParameterizedTypes.daml
 
 The Java codegen generates a Java file with a generic class for  the ``Attribute a`` data type:
 
