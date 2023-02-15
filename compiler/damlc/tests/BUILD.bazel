@@ -216,6 +216,7 @@ da_haskell_library(
             "//compiler/scenario-service/server:scenario_service_jar",
             "//daml-script/daml:daml-script-{version}.dar".format(version = version),
             "@jq_dev_env//:jq",
+            ghc_pkg,
         ],
         hackage_deps = [
             "base",
