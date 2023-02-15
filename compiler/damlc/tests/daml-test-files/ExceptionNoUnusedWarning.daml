@@ -5,7 +5,8 @@
 
 {-# OPTIONS_GHC -fwarn-unused-matches #-}
 
-module ExceptionUnusedWarning where
+-- Regression test for https://github.com/digital-asset/daml/issues/11004
+module ExceptionNoUnusedWarning where
 
 exception MyException
     with
