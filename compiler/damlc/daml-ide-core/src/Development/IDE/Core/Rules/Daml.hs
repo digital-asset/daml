@@ -1058,15 +1058,17 @@ data VirtualResourceProgressParams = VirtualResourceProgressParams
       -- ^ The uri of the virtual resource.
     , _vrppMillisecondsPassed :: !Word64
       -- ^ The progress status of the virtual resource
+    , _vrppStartedAt :: !Word64
+      -- ^ When this status info started
     } deriving Show
 
 instance ToJSON VirtualResourceProgressParams where
     toJSON VirtualResourceProgressParams{..} =
-        object ["uri" .= _vrppUri, "millisecondsPassed" .= _vrppMillisecondsPassed ]
+        object ["uri" .= _vrppUri, "millisecondsPassed" .= _vrppMillisecondsPassed, "startedAt" .= _vrppStartedAt ]
 
 instance FromJSON VirtualResourceProgressParams where
     parseJSON = withObject "VirtualResourceProgressParams" $ \o ->
-        VirtualResourceProgressParams <$> o .: "uri" <*> o .: "millisecondsPassed"
+        VirtualResourceProgressParams <$> o .: "uri" <*> o .: "millisecondsPassed" <*> o .: "startedAt"
 
 vrProgressNotification :: ShakeLspEnv -> VirtualResource -> SS.ScenarioStatus -> IO ()
 vrProgressNotification lspEnv vr status = do
@@ -1075,6 +1077,7 @@ vrProgressNotification lspEnv vr status = do
             VirtualResourceProgressParams
                 (virtualResourceToUri vr)
                 (SS.scenarioStatusMillisecondsPassed status)
+                (SS.scenarioStatusStartedAt status)
 
 -- | Virtual resource note set notification
 -- This notification is sent by the server to the client when

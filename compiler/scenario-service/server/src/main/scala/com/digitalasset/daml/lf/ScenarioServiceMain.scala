@@ -22,6 +22,7 @@ import io.grpc.stub.StreamObserver
 import io.grpc.{Status, StatusRuntimeException}
 import io.grpc.netty.NettyServerBuilder
 
+import java.time.Instant
 import scala.util.Random
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Success, Failure}
@@ -281,6 +282,8 @@ class ScenarioService(
         .map(_.flatten)
 
     Future {
+      val startedAt = Instant.now.toEpochMilli
+
       var millisPassed: Long = 0
       def sleepRandom() = {
         val delta: Long = 300 + (Random.nextDouble() * 300).toLong
@@ -293,6 +296,7 @@ class ScenarioService(
         respStream.sendStatus(
           ScenarioStatus.newBuilder
             .setMillisecondsPassed(millisPassed)
+            .setStartedAt(startedAt)
             .build)
         sleepRandom()
       }

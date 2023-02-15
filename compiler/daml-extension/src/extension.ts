@@ -80,7 +80,7 @@ export async function activate(context: vscode.ExtensionContext) {
     );
     damlLanguageClient.onNotification(
       DamlVirtualResourceDidProgressNotification.type,
-      params => virtualResourceManager.setProgress(params.uri, params.millisecondsPassed),
+      params => virtualResourceManager.setProgress(params.uri, params.millisecondsPassed, params.startedAt),
     );
   });
 
@@ -414,8 +414,11 @@ interface VirtualResourceProgressedParams {
   /** The virtual resource uri */
   uri: string;
 
-  /** The note to set on the virtual resource */
+  /** Number of milliseconds passed since the resource started */
   millisecondsPassed: number;
+
+  /** Unix timestamp where the resource started running */
+  startedAt: number;
 }
 
 namespace DamlVirtualResourceDidProgressNotification {
@@ -447,6 +450,7 @@ class VirtualResourceManager {
   >();
   // Mapping from URIs to selected view
   private _panelViews: Map<UriString, View> = new Map<UriString, View>();
+  private _lastStatusUpdate: Map<UriString, number> = new Map<UriString, number>();
   private _client: LanguageClient;
   private _disposables: vscode.Disposable[] = [];
   private _webviewFiles: WebviewFiles;
@@ -530,11 +534,15 @@ class VirtualResourceManager {
       this._panelContents.get(uri) || "Loading virtual resource...";
   }
 
-  public setProgress(uri: UriString, millisecondsPassed: number) {
+  public setProgress(uri: UriString, millisecondsPassed: number, startedAt: number) {
     const panel = this._panels.get(uri);
-    if (panel != undefined) {
-      panel.webview.html = `Virtual resource has been running for ${millisecondsPassed} ms ` + "<!-- " + new Date() + " -->";
-    }
+    if (panel == undefined) return;
+    panel.webview.html = `Virtual resource has been running for ${millisecondsPassed} ms ` + "<!-- " + new Date() + " -->";
+    const updateTimestamp = this._lastStatusUpdate.get(uri);
+    const isOutOfDate = updateTimestamp != null && updateTimestamp > startedAt;
+    if (isOutOfDate) return;
+    this._lastStatusUpdate.set(uri, startedAt);
+    panel.webview.html = `Virtual resource has been running for ${millisecondsPassed} ms ` + "<!-- " + new Date() + " -->";
   }
 
   public setContent(uri: UriString, contents: ScenarioResult) {
@@ -554,6 +562,7 @@ class VirtualResourceManager {
         panel.webview.asWebviewUri(this._webviewFiles.css).toString(),
       );
       this._panelContents.set(uri, contents);
+      this._lastStatusUpdate.set(uri, Date.now());
       // append timestamp to force page reload (prevent using cache) as otherwise notes are not getting cleared
       panel.webview.html = contents + "<!-- " + new Date() + " -->";
       const panelView = this._panelViews.get(uri);

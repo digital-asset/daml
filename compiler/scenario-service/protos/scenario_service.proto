@@ -461,6 +461,7 @@ message ScenarioResult {
 
 message ScenarioStatus {
   uint64 millisecondsPassed = 1;
+  uint64 startedAt = 2;
 }
 
 message ScenarioStep {
