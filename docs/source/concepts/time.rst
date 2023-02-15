@@ -32,7 +32,7 @@ Record Time
 
 The *record time* ``rt_TX`` is another property of a transaction.
 It is a timestamp with microsecond resolution,
-and is assigned by the backing storage mechanism when the transaction is persisted.
+and it is assigned by the backing storage mechanism when the transaction is persisted.
 
 The record time should be an intuitive representation of "real time",
 but the Daml abstract ledger model does not prescribe exactly how to assign the record time.
