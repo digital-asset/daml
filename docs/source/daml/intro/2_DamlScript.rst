@@ -87,7 +87,7 @@ What this display means:
 
 - The remaining columns, labelled vertically, show which parties know about which contracts. In this simple script, the sole party "Alice" knows about the contract she created.
 
-To run the same test from the command line, save your module in a file ``Token_Test.daml`` and run ``daml damlc -- test --files Token_Test.daml``. If your file contains more than one script, all of them will be run.
+To run the same test from the command line, save your module in a file ``Token_Test.daml`` and run ``daml test --files Token_Test.daml``. If your file contains more than one script, all of them will be run.
 
 .. _intro_2_failure:
 
