@@ -477,7 +477,7 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
 
   test(
     "EDInconsistentSuperfluousDisclosedContracts",
-    "The ledger accepts superfluous disclosed contracts with mismatching payload",
+    "The ledger rejects superfluous disclosed contracts with mismatching payload",
     allocate(SingleParty, SingleParty),
     enabled = _.explicitDisclosure,
   )(implicit ec => {
@@ -494,17 +494,17 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
           transactionFilter = filterTxBy(owner, template = byTemplate, interface = None),
         )
 
-        _ <- ownerParticipant.create(owner, Dummy(owner))
-        dummyTxs <- ownerParticipant.flatTransactionsByTemplateId(Dummy.id, owner)
-        dummyCreate = createdEvents(dummyTxs(0)).head
-        dummyDisclosedContract = createEventToDisclosedContract(dummyCreate)
+        _ <- ownerParticipant.create(owner, WithKey(owner))
+        wihtKeyTxs <- ownerParticipant.flatTransactionsByTemplateId(WithKey.id, owner)
+        wihtKeyCreate = createdEvents(wihtKeyTxs(0)).head
+        wihtKeyDisclosedContract = createEventToDisclosedContract(wihtKeyCreate)
 
         // Exercise a choice using invalid explicit disclosure (bad contract key)
         _ <- testContext
           .exerciseFetchDelegated(
             testContext.disclosedContract,
             // Provide a superfluous disclosed contract with mismatching key hash
-            dummyDisclosedContract
+            wihtKeyDisclosedContract
               .update(
                 _.metadata.contractKeyHash := ByteString.copyFromUtf8(
                   "BadKeyBadKeyBadKeyBadKeyBadKey00"
@@ -517,7 +517,7 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
           .exerciseFetchDelegated(
             testContext.disclosedContract,
             // Provide a superfluous disclosed contract with mismatching createdAt
-            dummyDisclosedContract
+            wihtKeyDisclosedContract
               .update(_.metadata.createdAt := com.google.protobuf.timestamp.Timestamp.of(1, 0)),
           )
 
@@ -526,8 +526,8 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
           .exerciseFetchDelegated(
             testContext.disclosedContract,
             // Provide a superfluous disclosed contract with mismatching contract arguments
-            dummyDisclosedContract
-              .update(_.arguments := ProtoArguments.CreateArguments(Dummy(delegate).arguments)),
+            wihtKeyDisclosedContract
+              .update(_.arguments := ProtoArguments.CreateArguments(WithKey(delegate).arguments)),
           )
       } yield ()
   })
@@ -588,7 +588,7 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
           errorDuplicateContractId,
           LedgerApiErrors.CommandExecution.Preprocessing.PreprocessingFailed,
           Some(
-            s"Preprocessor encountered a duplicate disclosed contract ID ContractId(${testContext.disclosedContract.contractId})"
+            s"Duplicate disclosed contract ID ${testContext.disclosedContract.contractId}"
           ),
           checkDefiniteAnswerMetadata = true,
         )
@@ -606,7 +606,7 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
           LedgerApiErrors.CommandExecution.Preprocessing.PreprocessingFailed,
           Some(
             Pattern.compile(
-              s"Preprocessor encountered a duplicate disclosed contract key hash $expectedKeyHashString"
+              s"Duplicate disclosed contract key hash $expectedKeyHashString"
             )
           ),
           checkDefiniteAnswerMetadata = true,
