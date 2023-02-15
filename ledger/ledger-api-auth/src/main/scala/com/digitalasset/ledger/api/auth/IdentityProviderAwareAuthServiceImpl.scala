@@ -94,9 +94,9 @@ class IdentityProviderAwareAuthServiceImpl(
   private def parse(jwtPayload: String): AuthServiceJWTPayload = if (expectsAudienceBasedTokens)
     parseAudienceBasedPayload(jwtPayload)
   else
-    parseOldPayload(jwtPayload)
+    parseAuthServicePayload(jwtPayload)
 
-  private def parseOldPayload(jwtPayload: String): AuthServiceJWTPayload = {
+  private def parseAuthServicePayload(jwtPayload: String): AuthServiceJWTPayload = {
     import AuthServiceJWTCodec.JsonImplicits._
     JsonParser(jwtPayload).convertTo[AuthServiceJWTPayload]
   }

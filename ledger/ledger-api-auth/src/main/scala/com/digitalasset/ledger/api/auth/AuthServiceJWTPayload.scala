@@ -81,7 +81,8 @@ object StandardJWTTokenFormat {
   *                       If set then the user is authenticated for the given participantId.
   *
   * @param exp            If set, the token is only valid before the given instant.
-  * @param audiences      If set, the token is only valid for the intended recipients.
+  * @param audiences      If non-empty and it is an audience-based token,
+  *                       the token is only valid for the intended recipients.
   */
 final case class StandardJWTPayload(
     issuer: Option[String],
