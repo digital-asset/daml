@@ -805,7 +805,7 @@ abstract class EventStorageBackendTemplate(
      FROM
         participant_transaction_meta
      WHERE
-        event_offset > $untilInclusiveOffset
+        ${queryStrategy.offsetIsGreater("event_offset", untilInclusiveOffset)}
         AND event_offset <= ${ledgerEnd._1}
      ORDER BY
         event_offset

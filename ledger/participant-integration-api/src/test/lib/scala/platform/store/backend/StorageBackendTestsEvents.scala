@@ -3,6 +3,7 @@
 
 package com.daml.platform.store.backend
 
+import com.daml.ledger.offset.Offset
 import com.daml.lf.data.Ref
 import org.scalatest.Inside
 import org.scalatest.flatspec.AnyFlatSpec
@@ -343,6 +344,7 @@ private[backend] trait StorageBackendTestsEvents
           backend.event.maxEventSequentialId(offset(longOffset))
         )
 
+    executeSql(backend.event.maxEventSequentialId(Offset.beforeBegin)) shouldBe 999
     maxEventSequentialId(1) shouldBe 999
     maxEventSequentialId(2) shouldBe 999
     maxEventSequentialId(9) shouldBe 999

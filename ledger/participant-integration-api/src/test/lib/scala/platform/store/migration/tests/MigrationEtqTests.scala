@@ -19,6 +19,9 @@ abstract class MigrationEtqTests extends AnyFlatSpec with Matchers with DbConnec
 
   it should "migrate 1 - create, consuming, non-consuming and divulgence (w/ event offset) events; and distinct flat and tree witnesses" in {
     migrateTo(srcMigration)
+
+    insert(SchemaSrc.parameters, baseParameters)
+
     insertMany(
       SchemaSrc.createEvents ->
         // 1. a create event that matches a divulgence event by the contract id
@@ -106,6 +109,9 @@ abstract class MigrationEtqTests extends AnyFlatSpec with Matchers with DbConnec
 
   it should "migrate 2 - create, consuming and divulgence (w/o event offset) events; and identical flat and tree witnesses" in {
     migrateTo(srcMigration)
+
+    insert(SchemaSrc.parameters, baseParameters)
+
     insertMany(
       SchemaSrc.createEvents ->
         // 1. a create event that matches a divulgence event by the contract id
@@ -175,6 +181,9 @@ abstract class MigrationEtqTests extends AnyFlatSpec with Matchers with DbConnec
 
   it should "migrate 3 - divulgence events without corresponding create events; w/ and w/o event offset" in {
     migrateTo(srcMigration)
+
+    insert(SchemaSrc.parameters, baseParameters)
+
     insertMany(
       SchemaSrc.divulgenceEvents -> Seq(
         // 1. divulgence contract id not matching an create event
@@ -219,6 +228,9 @@ abstract class MigrationEtqTests extends AnyFlatSpec with Matchers with DbConnec
 
   it should "migrate 4 - id filter for event create stakeholders" in {
     migrateTo(srcMigration)
+
+    insert(SchemaSrc.parameters, baseParameters)
+
     insertMany(
       SchemaSrc.createEventsFilter -> Seq(
         createEventsFilter(
@@ -242,6 +254,9 @@ abstract class MigrationEtqTests extends AnyFlatSpec with Matchers with DbConnec
 
   it should "migrate 5 - two transactions" in {
     migrateTo(srcMigration)
+
+    insert(SchemaSrc.parameters, baseParameters)
+
     insertMany(
       SchemaSrc.createEvents ->
         Seq(
@@ -299,10 +314,248 @@ abstract class MigrationEtqTests extends AnyFlatSpec with Matchers with DbConnec
     )
   }
 
+  it should "migrate 6 - two transactions, with pruning offset before them" in {
+    migrateTo(srcMigration)
+
+    insert(
+      SchemaSrc.parameters,
+      baseParameters + ("participant_pruned_up_to_inclusive" -> Some("eventOffset500")),
+    )
+
+    insertMany(
+      SchemaSrc.createEvents ->
+        Seq(
+          newCreateEvent(
+            transaction_id = "txId501",
+            contract_id = "cId501",
+            event_offset = "eventOffset501",
+            event_sequential_id = 501L,
+            flat_event_witnesses = Vector.empty,
+            tree_event_witnesses = Vector.empty,
+            template_id = 0,
+          ),
+          newCreateEvent(
+            transaction_id = "txId502",
+            contract_id = "cId502",
+            event_offset = "eventOffset502",
+            event_sequential_id = 502L,
+            flat_event_witnesses = Vector.empty,
+            tree_event_witnesses = Vector.empty,
+            template_id = 0,
+          ),
+        )
+    )
+    migrateTo(dstMigration)
+    fetchTable(
+      SchemaDst.idFilterCreateStakeholder
+    ) shouldBe empty
+    fetchTable(
+      SchemaDst.idFilterCreateNonStakeholderInformee
+    ) shouldBe empty
+    fetchTable(
+      SchemaDst.idFilterNonConsumingInformee
+    ) shouldBe empty
+    fetchTable(
+      SchemaDst.idFilterConsumingStakeholder
+    ) shouldBe empty
+    fetchTable(
+      SchemaDst.idFilterConsumingNonStakeholderInformee
+    ) shouldBe empty
+    fetchTable(
+      SchemaDst.transactionMeta
+    ) shouldBe Seq(
+      row(
+        "transaction_id" -> "txId501",
+        "event_offset" -> "eventOffset501",
+        "event_sequential_id_first" -> 501L,
+        "event_sequential_id_last" -> 501L,
+      ),
+      row(
+        "transaction_id" -> "txId502",
+        "event_offset" -> "eventOffset502",
+        "event_sequential_id_first" -> 502L,
+        "event_sequential_id_last" -> 502L,
+      ),
+    )
+  }
+
+  it should "migrate 7 - two transactions, with pruning offset on the first" in {
+    migrateTo(srcMigration)
+
+    insert(
+      SchemaSrc.parameters,
+      baseParameters + ("participant_pruned_up_to_inclusive" -> Some("eventOffset501")),
+    )
+
+    insertMany(
+      SchemaSrc.createEvents ->
+        Seq(
+          newCreateEvent(
+            transaction_id = "txId501",
+            contract_id = "cId501",
+            event_offset = "eventOffset501",
+            event_sequential_id = 501L,
+            flat_event_witnesses = Vector.empty,
+            tree_event_witnesses = Vector.empty,
+            template_id = 0,
+          ),
+          newCreateEvent(
+            transaction_id = "txId502",
+            contract_id = "cId502",
+            event_offset = "eventOffset502",
+            event_sequential_id = 502L,
+            flat_event_witnesses = Vector.empty,
+            tree_event_witnesses = Vector.empty,
+            template_id = 0,
+          ),
+        )
+    )
+    migrateTo(dstMigration)
+    fetchTable(
+      SchemaDst.idFilterCreateStakeholder
+    ) shouldBe empty
+    fetchTable(
+      SchemaDst.idFilterCreateNonStakeholderInformee
+    ) shouldBe empty
+    fetchTable(
+      SchemaDst.idFilterNonConsumingInformee
+    ) shouldBe empty
+    fetchTable(
+      SchemaDst.idFilterConsumingStakeholder
+    ) shouldBe empty
+    fetchTable(
+      SchemaDst.idFilterConsumingNonStakeholderInformee
+    ) shouldBe empty
+    fetchTable(
+      SchemaDst.transactionMeta
+    ) shouldBe Seq(
+      row(
+        "transaction_id" -> "txId502",
+        "event_offset" -> "eventOffset502",
+        "event_sequential_id_first" -> 502L,
+        "event_sequential_id_last" -> 502L,
+      )
+    )
+  }
+
+  it should "migrate 8 - two transactions, with pruning offset on the second" in {
+    migrateTo(srcMigration)
+
+    insert(
+      SchemaSrc.parameters,
+      baseParameters + ("participant_pruned_up_to_inclusive" -> Some("eventOffset502")),
+    )
+
+    insertMany(
+      SchemaSrc.createEvents ->
+        Seq(
+          newCreateEvent(
+            transaction_id = "txId501",
+            contract_id = "cId501",
+            event_offset = "eventOffset501",
+            event_sequential_id = 501L,
+            flat_event_witnesses = Vector.empty,
+            tree_event_witnesses = Vector.empty,
+            template_id = 0,
+          ),
+          newCreateEvent(
+            transaction_id = "txId502",
+            contract_id = "cId502",
+            event_offset = "eventOffset502",
+            event_sequential_id = 502L,
+            flat_event_witnesses = Vector.empty,
+            tree_event_witnesses = Vector.empty,
+            template_id = 0,
+          ),
+        )
+    )
+    migrateTo(dstMigration)
+    fetchTable(
+      SchemaDst.idFilterCreateStakeholder
+    ) shouldBe empty
+    fetchTable(
+      SchemaDst.idFilterCreateNonStakeholderInformee
+    ) shouldBe empty
+    fetchTable(
+      SchemaDst.idFilterNonConsumingInformee
+    ) shouldBe empty
+    fetchTable(
+      SchemaDst.idFilterConsumingStakeholder
+    ) shouldBe empty
+    fetchTable(
+      SchemaDst.idFilterConsumingNonStakeholderInformee
+    ) shouldBe empty
+    fetchTable(
+      SchemaDst.transactionMeta
+    ) shouldBe empty
+  }
+
+  it should "migrate 9 - two transactions, with pruning offset after them" in {
+    migrateTo(srcMigration)
+
+    insert(
+      SchemaSrc.parameters,
+      baseParameters + ("participant_pruned_up_to_inclusive" -> Some("eventOffset510")),
+    )
+
+    insertMany(
+      SchemaSrc.createEvents ->
+        Seq(
+          newCreateEvent(
+            transaction_id = "txId501",
+            contract_id = "cId501",
+            event_offset = "eventOffset501",
+            event_sequential_id = 501L,
+            flat_event_witnesses = Vector.empty,
+            tree_event_witnesses = Vector.empty,
+            template_id = 0,
+          ),
+          newCreateEvent(
+            transaction_id = "txId502",
+            contract_id = "cId502",
+            event_offset = "eventOffset502",
+            event_sequential_id = 502L,
+            flat_event_witnesses = Vector.empty,
+            tree_event_witnesses = Vector.empty,
+            template_id = 0,
+          ),
+        )
+    )
+    migrateTo(dstMigration)
+    fetchTable(
+      SchemaDst.idFilterCreateStakeholder
+    ) shouldBe empty
+    fetchTable(
+      SchemaDst.idFilterCreateNonStakeholderInformee
+    ) shouldBe empty
+    fetchTable(
+      SchemaDst.idFilterNonConsumingInformee
+    ) shouldBe empty
+    fetchTable(
+      SchemaDst.idFilterConsumingStakeholder
+    ) shouldBe empty
+    fetchTable(
+      SchemaDst.idFilterConsumingNonStakeholderInformee
+    ) shouldBe empty
+    fetchTable(
+      SchemaDst.transactionMeta
+    ) shouldBe empty
+  }
+
   private val dbDataTypes = new DbDataTypes(dbType)
   object SchemaSrc {
     import com.daml.platform.store.migration.MigrationTestSupport._
     import dbDataTypes._
+
+    val parameters: TableSchema = TableSchema("parameters", "ledger_id")(
+      "ledger_id" -> Str,
+      "participant_id" -> Str,
+      "ledger_end" -> Str.optional,
+      "ledger_end_sequential_id" -> BigInt.optional,
+      "participant_pruned_up_to_inclusive" -> Str.optional,
+      "participant_all_divulged_contracts_pruned_up_to_inclusive" -> Str.optional,
+      "ledger_end_string_interning_id" -> Integer,
+    )
 
     private val commonEventsColumns: List[(String, DbDataType)] = List(
       "application_id" -> Str.optional,
@@ -438,6 +691,16 @@ abstract class MigrationEtqTests extends AnyFlatSpec with Matchers with DbConnec
 }
 
 private object MigrationEtqTests {
+
+  val baseParameters: Row = row(
+    "ledger_id" -> "lid",
+    "participant_id" -> "pid",
+    "ledger_end" -> Some("abcdefg"),
+    "ledger_end_sequential_id" -> Some(200L),
+    "participant_pruned_up_to_inclusive" -> None,
+    "participant_all_divulged_contracts_pruned_up_to_inclusive" -> None,
+    "ledger_end_string_interning_id" -> 15,
+  )
 
   val baseEvent: Row = row(
     "event_sequential_id" -> 0L,
