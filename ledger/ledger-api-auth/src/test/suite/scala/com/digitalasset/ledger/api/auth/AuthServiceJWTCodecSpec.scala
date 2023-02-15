@@ -62,6 +62,9 @@ class AuthServiceJWTCodecSpec
       !payload.participantId
         .exists(_.nonEmpty) && payload.format == StandardJWTTokenFormat.ParticipantId
     }
+    // we do not fill audiences for Scope or ParticipantId based tokens
+    .map(payload => payload.copy(audiences = List.empty))
+
 
   "Audience-Based AuthServiceJWTPayload codec" when {
     import AuthServiceJWTCodec.AudienceBasedTokenJsonImplicits._
