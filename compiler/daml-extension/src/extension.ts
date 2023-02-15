@@ -78,6 +78,10 @@ export async function activate(context: vscode.ExtensionContext) {
       DamlVirtualResourceNoteNotification.type,
       params => virtualResourceManager.setNote(params.uri, params.note),
     );
+    damlLanguageClient.onNotification(
+      DamlVirtualResourceDidProgressNotification.type,
+      params => virtualResourceManager.setProgress(params.uri, params.millisecondsPassed),
+    );
   });
 
   damlLanguageClient.start();
@@ -406,6 +410,20 @@ namespace DamlVirtualResourceNoteNotification {
   );
 }
 
+interface VirtualResourceProgressedParams {
+  /** The virtual resource uri */
+  uri: string;
+
+  /** The note to set on the virtual resource */
+  millisecondsPassed: number;
+}
+
+namespace DamlVirtualResourceDidProgressNotification {
+  export let type = new NotificationType<VirtualResourceProgressedParams>(
+    "daml/virtualResource/didProgress",
+  );
+}
+
 type UriString = string;
 type ScenarioResult = string;
 type View = {
@@ -512,8 +530,11 @@ class VirtualResourceManager {
       this._panelContents.get(uri) || "Loading virtual resource...";
   }
 
-  public setRenderingStarted(uri: UriString) {
+  public setProgress(uri: UriString, millisecondsPassed: number) {
     const panel = this._panels.get(uri);
+    if (panel != undefined) {
+      panel.webview.html = `Virtual resource has been running for ${millisecondsPassed} ms ` + "<!-- " + new Date() + " -->";
+    }
   }
 
   public setContent(uri: UriString, contents: ScenarioResult) {

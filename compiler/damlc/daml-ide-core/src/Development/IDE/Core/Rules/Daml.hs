@@ -1056,17 +1056,17 @@ virtualResourceProgressNotification = "daml/virtualResource/didProgress"
 data VirtualResourceProgressParams = VirtualResourceProgressParams
     { _vrppUri      :: !T.Text
       -- ^ The uri of the virtual resource.
-    , _vrppMilliseconds :: !Word64
+    , _vrppMillisecondsPassed :: !Word64
       -- ^ The progress status of the virtual resource
     } deriving Show
 
 instance ToJSON VirtualResourceProgressParams where
     toJSON VirtualResourceProgressParams{..} =
-        object ["uri" .= _vrppUri, "milliseconds" .= _vrppMilliseconds ]
+        object ["uri" .= _vrppUri, "millisecondsPassed" .= _vrppMillisecondsPassed ]
 
 instance FromJSON VirtualResourceProgressParams where
     parseJSON = withObject "VirtualResourceProgressParams" $ \o ->
-        VirtualResourceProgressParams <$> o .: "uri" <*> o .: "milliseconds"
+        VirtualResourceProgressParams <$> o .: "uri" <*> o .: "millisecondsPassed"
 
 vrProgressNotification :: ShakeLspEnv -> VirtualResource -> SS.ScenarioStatus -> IO ()
 vrProgressNotification lspEnv vr status = do
