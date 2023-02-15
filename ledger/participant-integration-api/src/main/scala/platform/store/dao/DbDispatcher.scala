@@ -144,7 +144,6 @@ object DbDispatcher {
               logger.error("Uncaught exception in the SQL executor.", e)
             )
             .build(),
-          metrics.registry,
           metrics.executorServiceMetrics,
         )
       )

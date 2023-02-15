@@ -279,8 +279,5 @@ class MainIndexDBMetrics(prefix: MetricName, factory: MetricsFactory)
 
     val connection: MetricName = prefix :+ "connection"
 
-    val instrumentedExecutorServiceForDocs = new InstrumentedExecutorServiceForDocs(
-      connection :+ "<server_role>"
-    )
   }
 }

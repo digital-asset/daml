@@ -6,18 +6,22 @@ package com.daml.metrics
 import java.util
 import java.util.concurrent.{Callable, ExecutorService, Future, TimeUnit}
 
-import com.daml.metrics.api.{MetricDoc, MetricsContext}
 import com.daml.metrics.api.MetricDoc.MetricQualification.Debug
-import com.daml.metrics.api.MetricHandle.{Counter, Factory, Meter, Timer}
+import com.daml.metrics.api.MetricHandle.{Counter, Meter, MetricsFactory, Timer}
+import com.daml.metrics.api.{MetricDoc, MetricsContext}
 
 import scala.jdk.CollectionConverters.{CollectionHasAsScala, SeqHasAsJava}
 
-class InstrumentedExecutorServiceMetrics(factory: Factory) {
+class InstrumentedExecutorServiceMetrics(factory: MetricsFactory) {
 
   @MetricDoc.Tag(
     summary = "The number of tasks submitted to an instrumented executor.",
     description = "Number of tasks that were submitted to the executor.",
     qualification = Debug,
+    labelsWithDescription = Map(
+      "name" -> "The name of the executor service.",
+      "type" -> "The type of the executor service. Can be `fork_join` or `thread_pool`.",
+    ),
   )
   val submitted: Meter =
     factory.meter(
@@ -29,6 +33,10 @@ class InstrumentedExecutorServiceMetrics(factory: Factory) {
     summary = "The number of tasks running in an instrumented executor.",
     description = "Currently running number of tasks.",
     qualification = Debug,
+    labelsWithDescription = Map(
+      "name" -> "The name of the executor service.",
+      "type" -> "The type of the executor service. Can be `fork_join` or `thread_pool`.",
+    ),
   )
   val running: Counter = factory.counter(
     InstrumentedExecutorServiceMetrics.Prefix :+ "running",
@@ -39,6 +47,10 @@ class InstrumentedExecutorServiceMetrics(factory: Factory) {
     summary = "The number of tasks completed in an instrumented executor.",
     description = "Number of tasks that were completed by the executor.",
     qualification = Debug,
+    labelsWithDescription = Map(
+      "name" -> "The name of the executor service.",
+      "type" -> "The type of the executor service. Can be `fork_join` or `thread_pool`.",
+    ),
   )
   val completed: Meter = factory.meter(
     InstrumentedExecutorServiceMetrics.Prefix :+ "completed",
@@ -50,6 +62,10 @@ class InstrumentedExecutorServiceMetrics(factory: Factory) {
     description =
       "A task is considered idle if it was submitted to the executor but it has not started execution yet.",
     qualification = Debug,
+    labelsWithDescription = Map(
+      "name" -> "The name of the executor service.",
+      "type" -> "The type of the executor service. Can be `fork_join` or `thread_pool`.",
+    ),
   )
   val idle: Timer = factory.timer(
     InstrumentedExecutorServiceMetrics.Prefix :+ "idle",
@@ -60,6 +76,10 @@ class InstrumentedExecutorServiceMetrics(factory: Factory) {
     summary = "The duration of a task is running in an instrumented executor.",
     description = "A task is considered running only after it has started execution.",
     qualification = Debug,
+    labelsWithDescription = Map(
+      "name" -> "The name of the executor service.",
+      "type" -> "The type of the executor service. Can be `fork_join` or `thread_pool`.",
+    ),
   )
   val duration: Timer = factory.timer(
     InstrumentedExecutorServiceMetrics.Prefix :+ "duration",
@@ -80,12 +100,8 @@ object InstrumentedExecutorServiceMetrics {
   class InstrumentedExecutorService(
       delegate: ExecutorService,
       metrics: InstrumentedExecutorServiceMetrics,
-      name: String,
-  ) extends ExecutorService {
-
-    private implicit val metricsContext: MetricsContext = MetricsContext(
-      ExecutorServiceMetrics.NameLabelKey -> name
-    )
+  )(implicit metricsContext: MetricsContext)
+      extends ExecutorService {
 
     override def shutdown(): Unit = delegate.shutdown()
 

@@ -48,7 +48,6 @@ object ParallelIndexerFactory {
         "input-mapping-pool",
         (
           metrics.daml.parallelIndexer.inputMapping.executor,
-          metrics.registry,
           metrics.executorServiceMetrics,
         ),
       )
@@ -57,7 +56,6 @@ object ParallelIndexerFactory {
         "batching-pool",
         (
           metrics.daml.parallelIndexer.batching.executor,
-          metrics.registry,
           metrics.executorServiceMetrics,
         ),
       )
@@ -71,7 +69,6 @@ object ParallelIndexerFactory {
                     "ha-coordinator",
                     1,
                     new ThreadFactoryBuilder().setNameFormat("ha-coordinator-%d").build,
-                    metrics.registry,
                     metrics.executorServiceMetrics,
                     throwable =>
                       ContextualizedLogger

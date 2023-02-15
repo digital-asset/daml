@@ -241,7 +241,6 @@ object SandboxOnXRunner {
         InstrumentedExecutors.newWorkStealingExecutor(
           metrics.daml.lapi.threadpool.apiServices,
           servicesThreadPoolSize,
-          metrics.registry,
           metrics.executorServiceMetrics,
         )
       )
