@@ -239,7 +239,7 @@ Since Daml is designed to run on distributed systems, you have to assume that th
 
 Instead of calling ``queryContractId`` to get the contract arguments associated with a given contract identifier, use ``queryContractKey``. ``queryContractKey`` takes a value of type ``AccountKey`` and returns an optional tuple. In this case, that optional tuple is of type ``Optional (ContractId Account, Account)``. After archiving the old account (to change the phone number), you can still fetch the account using the existing, unmodified ``balance``. Where the ``ContractId Account`` is different for the new account, the ``AccountKey`` is the same.
 
-Notice that when calling ``queryContractKey`` a single key type could be used as the key for multiple templates. Consequently, you need to tell the compiler what type of contract the key is referencing. You do that with a type annotation on the returned value.
+When calling ``queryContractKey`` a single key type could be used as the key for multiple templates. Consequently, you need to tell the compiler what type of contract the key is referencing. You can do that with a type annotation on the returned value.
 
 
 Next Up
