@@ -46,7 +46,7 @@ import Data.IORef
 import Data.Proxy
 import           Development.IDE.Types.Diagnostics
 import           Data.Maybe
-import           Development.Shake hiding (cmd, withResource)
+import           Development.Shake hiding (cmd, withResource, withTempDir)
 import           System.Directory.Extra
 import           System.Environment.Blank (setEnv)
 import           System.FilePath
@@ -76,6 +76,11 @@ import Test.Tasty.Providers
 import Test.Tasty.Providers.ConsoleFormat (noResultDetails)
 import Test.Tasty.Runners (Outcome(..), Result(..))
 
+import DA.Daml.Package.Config (PackageConfigFields (..), withPackageConfig)
+import DA.Cli.Damlc.DependencyDb (installDependencies)
+import DA.Cli.Damlc.Packaging (createProjectPackageDb)
+import DA.Daml.Project.Types (ProjectPath (..))
+
 -- Newtype to avoid mixing up the loging function and the one for registering TODOs.
 newtype TODO = TODO String
 
@@ -104,31 +109,62 @@ instance IsOption SkipValidationOpt where
 
 main :: IO ()
 main = do
- let scenarioConf = SS.defaultScenarioServiceConfig { SS.cnfJvmOptions = ["-Xmx200M"], SS.cnfEvaluationTimeout = Just 5 }
- -- This is a bit hacky, we want the LF version before we hand over to
- -- tasty. To achieve that we first pass with optparse-applicative ignoring
- -- everything apart from the LF version.
- LfVersionOpt lfVer <- do
-     let parser = optionCLParser <* many (strArgument @String mempty)
-     execParser (info parser forwardOptions)
- scenarioLogger <- Logger.newStderrLogger Logger.Warning "scenario"
- SS.withScenarioService lfVer scenarioLogger scenarioConf $ \scenarioService -> do
-  hSetEncoding stdout utf8
-  setEnv "TASTY_NUM_THREADS" "1" True
-  todoRef <- newIORef DList.empty
-  let registerTODO (TODO s) = modifyIORef todoRef (`DList.snoc` ("TODO: " ++ s))
-  integrationTests <- getIntegrationTests registerTODO scenarioService
-  let tests = testGroup "All" [parseRenderRangeTest, uniqueUniques, integrationTests]
-  defaultMainWithIngredients ingredients tests
-    `finally` (do
-    todos <- readIORef todoRef
-    putStr (unlines (DList.toList todos)))
-  where ingredients =
-          includingOptions
-            [ Option (Proxy @LfVersionOpt)
-            , Option (Proxy @SkipValidationOpt)
-            ] :
-          defaultIngredients
+  let scenarioConf = SS.defaultScenarioServiceConfig { SS.cnfJvmOptions = ["-Xmx200M"], SS.cnfEvaluationTimeout = Just 5 }
+  -- This is a bit hacky, we want the LF version before we hand over to
+  -- tasty. To achieve that we first pass with optparse-applicative ignoring
+  -- everything apart from the LF version.
+  LfVersionOpt lfVer <- do
+      let parser = optionCLParser <* many (strArgument @String mempty)
+      execParser (info parser forwardOptions)
+  scenarioLogger <- Logger.newStderrLogger Logger.Warning "scenario"
+ 
+  withTempDir $ \dir -> do
+    withCurrentDirectory dir $ do
+      let projDir = toNormalizedFilePath' dir
+          versionStr = renderVersion lfVer
+      
+      scriptDar <- locateRunfiles $ mainWorkspace </> "daml-script/daml/daml-script-" <> versionStr <> ".dar"
+
+      writeFileUTF8 "daml.yaml" $
+        unlines
+          [ "sdk-version: 0.0.0",
+            "name: script-service",
+            "version: 0.0.1",
+            "source: .",
+            "dependencies:",
+            "- daml-prim",
+            "- daml-stdlib",
+            "- " <> show scriptDar
+          ]
+      withPackageConfig (ProjectPath ".") $ \PackageConfigFields {..} -> do
+        installDependencies
+          projDir
+          (defaultOptions $ Just lfVer)
+          pSdkVersion
+          pDependencies
+          pDataDependencies
+        createProjectPackageDb
+          projDir
+          (defaultOptions $ Just lfVer)
+          pModulePrefixes
+ 
+      SS.withScenarioService lfVer scenarioLogger scenarioConf $ \scenarioService -> do
+        hSetEncoding stdout utf8
+        setEnv "TASTY_NUM_THREADS" "1" True
+        todoRef <- newIORef DList.empty
+        let registerTODO (TODO s) = modifyIORef todoRef (`DList.snoc` ("TODO: " ++ s))
+        integrationTests <- getIntegrationTests registerTODO scenarioService
+        let tests = testGroup "All" [parseRenderRangeTest, uniqueUniques, integrationTests]
+        defaultMainWithIngredients ingredients tests
+          `finally` (do
+          todos <- readIORef todoRef
+          putStr (unlines (DList.toList todos)))
+        where ingredients =
+                includingOptions
+                  [ Option (Proxy @LfVersionOpt)
+                  , Option (Proxy @SkipValidationOpt)
+                  ] :
+                defaultIngredients
 
 parseRenderRangeTest :: TestTree
 parseRenderRangeTest =
@@ -211,7 +247,9 @@ getIntegrationTests registerTODO scenarioService = do
                     , dlintHintFiles = NoDlintHintFiles
                     }
                 , optSkipScenarioValidation = SkipScenarioValidation skipValidation
+                -- , optPackageImports = [ExposePackage "--package daml-script (Daml.Script)" (UnitIdArg $ GHC.stringToUnitId "daml-script") (ModRenaming False [])]
                 }
+
               mkIde options = do
                 damlEnv <- mkDamlEnv options (Just scenarioService)
                 initialise
@@ -440,6 +478,7 @@ mainProj service outdir log file = do
             lf <- lfTypeCheck log file
             lfSave lf
             lfRunScenarios log file
+            lfRunScripts log file
             jsonSave lf
             pure lf
 
@@ -465,7 +504,10 @@ lfTypeCheck :: (String -> IO ()) -> NormalizedFilePath -> Action LF.Package
 lfTypeCheck log file = timed log "LF type check" $ unjust $ getDalf file
 
 lfRunScenarios :: (String -> IO ()) -> NormalizedFilePath -> Action ()
-lfRunScenarios log file = timed log "LF execution" $ void $ unjust $ runScenarios file
+lfRunScenarios log file = timed log "LF scenario execution" $ void $ unjust $ runScenarios file
+
+lfRunScripts :: (String -> IO ()) -> NormalizedFilePath -> Action ()
+lfRunScripts log file = timed log "LF scripts execution" $ void $ unjust $ runScripts file
 
 timed :: MonadIO m => (String -> IO ()) -> String -> m a -> m a
 timed log msg act = do
