@@ -73,7 +73,17 @@ object Raw {
         ec: ExecutionContext,
         loggingContext: LoggingContext,
     ): Future[E] =
-      lfValueTranslation.deserialize(this, eventProjectionProperties).map(wrapInEvent)
+      deserializeCreateEvent(lfValueTranslation, eventProjectionProperties).map(wrapInEvent)
+
+    def deserializeCreateEvent(
+        lfValueTranslation: LfValueTranslation,
+        eventProjectionProperties: EventProjectionProperties,
+    )(implicit
+        ec: ExecutionContext,
+        loggingContext: LoggingContext,
+    ): Future[PbCreatedEvent] =
+      lfValueTranslation.deserialize(this, eventProjectionProperties)
+
   }
 
   object Created {
@@ -131,6 +141,8 @@ object Raw {
         PbFlatEvent(PbFlatEvent.Event.Created(event))
 
       override def witnesses: Seq[String] = raw.witnessParties
+
+      def stakeholders: Set[String] = raw.signatories.toSet ++ raw.observers
     }
 
     object Created {
@@ -183,6 +195,8 @@ object Raw {
           loggingContext: LoggingContext,
       ): Future[PbFlatEvent] =
         Future.successful(PbFlatEvent(PbFlatEvent.Event.Archived(raw)))
+
+      def deserializedArchivedEvent(): PbArchivedEvent = raw
 
       override def witnesses: Seq[String] = raw.witnessParties
     }

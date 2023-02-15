@@ -144,6 +144,37 @@ object FieldValidations {
   ): Either[StatusRuntimeException, Ref.LedgerString] =
     requireNonEmptyParsedId(Ref.LedgerString.fromString)(s, fieldName)
 
+  def optionalLedgerString(
+      s: String,
+      fieldName: String,
+  )(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): Either[StatusRuntimeException, Option[Ref.LedgerString]] =
+    optionalString(s) { nes => requireLedgerString(nes, fieldName) }
+
+  def eventSequentialId(raw: String, fieldName: String, message: String)(implicit
+      errorLogger: ContextualizedErrorLogger
+  ): Either[StatusRuntimeException, Long] = {
+    Try {
+      raw.toLong
+    } match {
+      case Success(seqId) => Right(seqId)
+      case Failure(_) =>
+        // Do not mention event sequential id as this should be opaque externally
+        Left(invalidField(fieldName = fieldName, message))
+    }
+  }
+
+  def optionalEventSequentialId(
+      s: String,
+      fieldName: String,
+      message: String,
+  )(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): Either[StatusRuntimeException, Option[Long]] = optionalString(s) { s =>
+    eventSequentialId(s, fieldName, message)
+  }
+
   def requireIdentityProviderId(
       s: String,
       fieldName: String,
