@@ -348,7 +348,7 @@ Parameterized Types
 
 .. note::
 
-   This section is only included for completeness: we don't expect users to make use of the ``fromValue`` and ``toValue`` methods, because they would typically come from a template that doesn't have any unbound type parameters.
+   This section is only included for completeness. The ``fromValue`` and ``toValue`` methods would typically come from a template that doesn't have any unbound type parameters.
 
 The Java codegen uses Java Generic types to represent :ref:`Daml parameterized types <daml-ref-parameterized-types>`.
 
