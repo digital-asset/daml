@@ -73,7 +73,7 @@ Similarly, you can write a ``Redeem`` choice, which allows the ``owner`` to rede
   :start-after: -- REDEEM_CHOICE_BEGIN
   :end-before: -- REDEEM_CHOICE_END
 
-Notice in the above example, the time is taken apart into day of week and hour of day using standard library functions from ``DA.Date`` and ``DA.Time``. The hour of the day is checked to be in the range from 8 to 18. The day of week is checked to not be Saturday or Sunday.
+In the above example, the time is taken apart into day of week and hour of day using standard library functions from ``DA.Date`` and ``DA.Time``. The hour of the day is checked to be in the range from 8 to 18. The day of week is checked to not be Saturday or Sunday.
 
 Now let's look at how the ``Redeem`` choice is exercised in a script:
 
