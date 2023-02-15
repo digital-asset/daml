@@ -206,7 +206,7 @@ Use the **event query service** to obtain a party-specific view of contract rela
 
 Contract events can be queried by contract-id or contract-key. If the events being queried are not visible to the requesting parties then an empty structure is returned. This service is will return consumed contracts up until the point they are pruned.
 
-In the case of contract-keys a number of contracts may have used the contract-key over time. The latest contract will be returned first with earlier contracts be returned in subsequent calls with a populated continuation-token.
+In the case of contract-keys a number of contracts may have used the contract-key over time. The latest contract will be returned first with earlier contracts being returned in subsequent calls with a populated continuation-token.
 
 .. note::
 
