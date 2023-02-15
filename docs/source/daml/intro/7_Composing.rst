@@ -135,36 +135,35 @@ The resulting transaction, with its two nested levels of consequences, can be se
       children:
       #14:1
       │   disclosed to (since): 'Alice' (14), 'Bob' (14), 'USD_Bank' (14)
-      └─> 'Alice', 'USD_Bank' fetches #10:1 (Intro.Asset:Asset)
+      └─> 'Alice' and 'USD_Bank' fetch #10:1 (Intro.Asset:Asset)
 
       #14:2
       │   disclosed to (since): 'Alice' (14), 'Bob' (14), 'EUR_Bank' (14)
-      └─> 'Bob', 'EUR_Bank' fetches #9:1 (Intro.Asset:Asset)
+      └─> 'Bob' and 'EUR_Bank' fetch #9:1 (Intro.Asset:Asset)
 
       #14:3
       │   disclosed to (since): 'Alice' (14), 'Bob' (14), 'USD_Bank' (14)
-      └─> 'Alice',
-          'Bob' exercises TransferApproval_Transfer on #13:1 (Intro.Asset:TransferApproval)
-                with
-                  assetCid = #10:1
+      └─> 'Alice' and 'Bob' exercise TransferApproval_Transfer on #13:1 (Intro.Asset:TransferApproval)
+                            with
+                              assetCid = #10:1
           children:
           #14:4
           │   disclosed to (since): 'Alice' (14), 'Bob' (14), 'USD_Bank' (14)
-          └─> 'Alice', 'USD_Bank' fetches #10:1 (Intro.Asset:Asset)
+          └─> 'Alice' and 'USD_Bank' fetch #10:1 (Intro.Asset:Asset)
 
           #14:5
           │   disclosed to (since): 'Alice' (14), 'Bob' (14), 'USD_Bank' (14)
-          └─> 'Alice', 'USD_Bank' exercises Archive on #10:1 (Intro.Asset:Asset)
+          └─> 'Alice' and 'USD_Bank' exercise Archive on #10:1 (Intro.Asset:Asset)
 
           #14:6
           │   disclosed to (since): 'Alice' (14), 'Bob' (14), 'USD_Bank' (14)
-          └─> 'Bob', 'USD_Bank' creates Intro.Asset:Asset
-                                with
-                                  issuer = 'USD_Bank';
-                                  owner = 'Bob';
-                                  symbol = "USD";
-                                  quantity = 100.0000000000;
-                                  observers = []
+          └─> 'Bob' and 'USD_Bank' create Intro.Asset:Asset
+                                   with
+                                     issuer = 'USD_Bank';
+                                     owner = 'Bob';
+                                     symbol = "USD";
+                                     quantity = 100.0000000000;
+                                     observers = []
 
       #14:7
       │   disclosed to (since): 'Alice' (14), 'Bob' (14), 'EUR_Bank' (14)
@@ -175,21 +174,21 @@ The resulting transaction, with its two nested levels of consequences, can be se
           children:
           #14:8
           │   disclosed to (since): 'Alice' (14), 'Bob' (14), 'EUR_Bank' (14)
-          └─> 'Bob', 'EUR_Bank' fetches #9:1 (Intro.Asset:Asset)
+          └─> 'Bob' and 'EUR_Bank' fetch #9:1 (Intro.Asset:Asset)
 
           #14:9
           │   disclosed to (since): 'Alice' (14), 'Bob' (14), 'EUR_Bank' (14)
-          └─> 'Bob', 'EUR_Bank' exercises Archive on #9:1 (Intro.Asset:Asset)
+          └─> 'Bob' and 'EUR_Bank' exercise Archive on #9:1 (Intro.Asset:Asset)
 
           #14:10
           │   disclosed to (since): 'Alice' (14), 'Bob' (14), 'EUR_Bank' (14)
-          └─> 'Alice', 'EUR_Bank' creates Intro.Asset:Asset
-                                  with
-                                    issuer = 'EUR_Bank';
-                                    owner = 'Alice';
-                                    symbol = "EUR";
-                                    quantity = 90.0000000000;
-                                    observers = []
+          └─> 'Alice' and 'EUR_Bank' create Intro.Asset:Asset
+                                     with
+                                       issuer = 'EUR_Bank';
+                                       owner = 'Alice';
+                                       symbol = "EUR";
+                                       quantity = 90.0000000000;
+                                       observers = []
 
 Similar to choices, you can see how the scripts in this project are built up from each other:
 

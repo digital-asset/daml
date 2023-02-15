@@ -138,7 +138,7 @@ Each action can be visualized as a tree, where the action is the root node, and 
         │   consumed by: #3:0
         │   referenced by #3:0
         │   disclosed to (since): 'Alice' (2), 'Bob' (2)
-        └─> 'Alice' create Contact:Contact
+        └─> 'Alice' creates Contact:Contact
                     with
                       owner = 'Alice'; party = 'Bob'; address = "1 Bobstreet"; telephone = "098 7654 321"
 

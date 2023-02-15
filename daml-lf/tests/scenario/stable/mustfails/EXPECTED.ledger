@@ -43,7 +43,7 @@ TX #11 1969-12-31T23:58:20Z [Test:132] version: 15
     children:
     #11:1 version: 15
     │   disclosed to (since): Alice (#11), Bob (#11)
-    └─> Alice, Bob creates Test:TwoParties@XXXXXXXX
+    └─> Alice and Bob create Test:TwoParties@XXXXXXXX
         with: { p = 'Alice', p2 = 'Bob' }
 
 mustFailAt actAs: {'Bob'} readAs: {} [Test:133]

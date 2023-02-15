@@ -407,11 +407,11 @@ In the transaction view, transaction ``6`` is of particular interest, as it show
          children:
          #6:1
          │   disclosed to (since): 'Alice' (6), 'Bob' (6), 'EUR_Bank' (6)
-         └─> 'Alice', 'EUR_Bank' fetches #4:1 (Iou:Iou)
+         └─> 'Alice' and 'EUR_Bank' fetch #4:1 (Iou:Iou)
          
          #6:2
          │   disclosed to (since): 'Alice' (6), 'Bob' (6), 'USD_Bank' (6)
-         └─> 'Bob', 'USD_Bank' fetches #3:1 (Iou:Iou)
+         └─> 'Bob' and 'USD_Bank' fetch #3:1 (Iou:Iou)
          
          #6:3
          │   disclosed to (since): 'Alice' (6), 'Bob' (6), 'USD_Bank' (6)
@@ -423,16 +423,16 @@ In the transaction view, transaction ``6`` is of particular interest, as it show
             │   consumed by: #6:5
             │   referenced by #6:5
             │   disclosed to (since): 'Alice' (6), 'Bob' (6), 'USD_Bank' (6)
-            └─> 'Bob', 'USD_Bank' creates Iou:IouTransfer
-                                 with
-                                    iou =
-                                       (Iou:Iou with
-                                          issuer = 'USD_Bank';
-                                          owner = 'Bob';
-                                          currency = "USD";
-                                          amount = 110.0000000000;
-                                          observers = []);
-                                    newOwner = 'Alice'
+            └─> 'Bob' and 'USD_Bank' create Iou:IouTransfer
+                                     with
+                                        iou =
+                                           (Iou:Iou with
+                                              issuer = 'USD_Bank';
+                                              owner = 'Bob';
+                                              currency = "USD";
+                                              amount = 110.0000000000;
+                                              observers = []);
+                                        newOwner = 'Alice'
          
          #6:5
          │   disclosed to (since): 'Alice' (6), 'Bob' (6), 'USD_Bank' (6)
@@ -440,13 +440,13 @@ In the transaction view, transaction ``6`` is of particular interest, as it show
             children:
             #6:6
             │   disclosed to (since): 'Alice' (6), 'Bob' (6), 'USD_Bank' (6)
-            └─> 'Alice', 'USD_Bank' creates Iou:Iou
-                                    with
-                                       issuer = 'USD_Bank';
-                                       owner = 'Alice';
-                                       currency = "USD";
-                                       amount = 110.0000000000;
-                                       observers = []
+            └─> 'Alice' and 'USD_Bank' create Iou:Iou
+                                       with
+                                          issuer = 'USD_Bank';
+                                          owner = 'Alice';
+                                          currency = "USD";
+                                          amount = 110.0000000000;
+                                          observers = []
          
          #6:7
          │   disclosed to (since): 'Alice' (6), 'Bob' (6), 'EUR_Bank' (6)
@@ -458,16 +458,16 @@ In the transaction view, transaction ``6`` is of particular interest, as it show
             │   consumed by: #6:9
             │   referenced by #6:9
             │   disclosed to (since): 'Alice' (6), 'Bob' (6), 'EUR_Bank' (6)
-            └─> 'Alice', 'EUR_Bank' creates Iou:IouTransfer
-                                    with
-                                       iou =
-                                       (Iou:Iou with
-                                          issuer = 'EUR_Bank';
-                                          owner = 'Alice';
-                                          currency = "EUR";
-                                          amount = 100.0000000000;
-                                          observers = ['Bob']);
-                                       newOwner = 'Bob'
+            └─> 'Alice' and 'EUR_Bank' create Iou:IouTransfer
+                                       with
+                                          iou =
+                                          (Iou:Iou with
+                                             issuer = 'EUR_Bank';
+                                             owner = 'Alice';
+                                             currency = "EUR";
+                                             amount = 100.0000000000;
+                                             observers = ['Bob']);
+                                          newOwner = 'Bob'
          
          #6:9
          │   disclosed to (since): 'Alice' (6), 'Bob' (6), 'EUR_Bank' (6)
@@ -475,13 +475,13 @@ In the transaction view, transaction ``6`` is of particular interest, as it show
             children:
             #6:10
             │   disclosed to (since): 'Alice' (6), 'Bob' (6), 'EUR_Bank' (6)
-            └─> 'Bob', 'EUR_Bank' creates Iou:Iou
-                                 with
-                                    issuer = 'EUR_Bank';
-                                    owner = 'Bob';
-                                    currency = "EUR";
-                                    amount = 100.0000000000;
-                                    observers = []
+            └─> 'Bob' and 'EUR_Bank' create Iou:Iou
+                                     with
+                                        issuer = 'EUR_Bank';
+                                        owner = 'Bob';
+                                        currency = "EUR";
+                                        amount = 100.0000000000;
+                                        observers = []
 
 The ``submit`` function used in this script tries to perform a transaction and fails if any of the ledger integrity rules are violated. There is also a ``submitMustFail`` function, which checks that certain transactions are not possible. This is used in ``daml/Tests/Iou.daml``, for example, to confirm that the ledger model prevents double spends.
 

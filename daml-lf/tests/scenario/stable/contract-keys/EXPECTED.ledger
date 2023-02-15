@@ -24,7 +24,7 @@ found 00662af883a5ac96f706d6af9627078daf1d4f833adcb5c33d75426182437c7418
 TX #5 1970-01-01T00:00:00Z [Test:97] version: 15
 #5:0 version: 15
 │   disclosed to (since): Alice (#5)
-└─> Alice ensures active 00662af883a5ac96f706d6af9627078daf1d4f833adcb5c33d75426182437c7418
+└─> Alice fetches 00662af883a5ac96f706d6af9627078daf1d4f833adcb5c33d75426182437c7418
 
 TX #6 1970-01-01T00:00:00Z [Test:101] version: 15
 #6:0 version: 15
@@ -116,7 +116,7 @@ TX #14 1970-01-01T00:00:00Z [Test:141] version: 15
     found 00c81bd2d424f0b4a6e7d5a58e4661f971e2fbab837b9718d6a787700340c1db04
     #14:3 version: 15
     │   disclosed to (since): Alice (#14)
-    └─> Alice ensures active 00c81bd2d424f0b4a6e7d5a58e4661f971e2fbab837b9718d6a787700340c1db04
+    └─> Alice fetches 00c81bd2d424f0b4a6e7d5a58e4661f971e2fbab837b9718d6a787700340c1db04
 
 mustFailAt actAs: {'Alice'} readAs: {} [Test:144]
 
