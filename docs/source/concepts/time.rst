@@ -31,7 +31,7 @@ Record Time
 ***********
 
 The *record time* ``rt_TX`` is another property of a transaction.
-It is timestamp with microsecond resolution,
+It is a timestamp with microsecond resolution,
 and is assigned by the backing storage mechanism when the transaction is persisted.
 
 The record time should be an intuitive representation of "real time",
