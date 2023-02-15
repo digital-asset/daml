@@ -93,7 +93,7 @@ Each transaction on a Daml ledger has two timestamps:  the *ledger time (LT)* an
 
 **Record time (RT)** is the time assigned by the persistence layer. It represents the time that the transaction is “physically” recorded. For example, “The backing database ledger has assigned the timestamp of such-and-such time to this transaction.” The only purpose of the RT is to ensure that transactions are being recorded in a timely manner.
 
-Each Daml ledger has a policy on the allowed difference between LT and RT called the *skew*. A consistent zero-skew is not feasible given this is a distributed system. If it's too far off, the transaction will be rejected. This is the requirement known as “bounded skew.” The RT is not really relevant beyond this determination of skew.
+Each Daml ledger has a policy on the allowed difference between LT and RT called the *skew*. A consistent zero-skew is not feasible because this is a distributed system. If it is too far off, the transaction will be rejected. This is the requirement known as “bounded skew.” The RT is not relevant beyond this determination of skew.
 
 Returning to the theme of *business hours*, consider the following example: Suppose that the ledger had a skew of 10 seconds. At 17:59:55 just before the end of business hours, Alice submits a transaction to redeem an Iou. One second later, the transaction is assigned an LT of 17:59:56. However, there still may be a few seconds before the transaction is persisted to the underlying storage. For example, the transaction might be written in the underlying backing store at 18:00:06, *after business hours*. Because LT is within business hours and LT - RT <= 10 seconds, the transaction won't be rejected.
 
