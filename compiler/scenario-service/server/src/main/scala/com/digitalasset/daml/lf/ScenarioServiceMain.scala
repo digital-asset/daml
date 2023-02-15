@@ -125,7 +125,8 @@ sealed trait ScriptStream {
   def sendError(t: Throwable): Unit;
 }
 
-final case class StreamWithoutStatus(internal: StreamObserver[RunScenarioResponse]) extends ScriptStream {
+final case class StreamWithoutStatus(internal: StreamObserver[RunScenarioResponse])
+    extends ScriptStream {
   override def sendFinalResponse(finalResponse: Either[ScenarioError, ScenarioResult]): Unit = {
     val message = finalResponse match {
       case Left(error: ScenarioError) => RunScenarioResponse.newBuilder.setError(error).build
@@ -139,11 +140,14 @@ final case class StreamWithoutStatus(internal: StreamObserver[RunScenarioRespons
   override def sendError(t: Throwable): Unit = internal.onError(t)
 }
 
-final case class StreamWithStatus(internal: StreamObserver[RunScenarioResponseOrStatus]) extends ScriptStream {
+final case class StreamWithStatus(internal: StreamObserver[RunScenarioResponseOrStatus])
+    extends ScriptStream {
   override def sendFinalResponse(finalResponse: Either[ScenarioError, ScenarioResult]): Unit = {
     val message = finalResponse match {
-      case Left(error: ScenarioError) => RunScenarioResponseOrStatus.newBuilder.setError(error).build
-      case Right(result: ScenarioResult) => RunScenarioResponseOrStatus.newBuilder.setResult(result).build
+      case Left(error: ScenarioError) =>
+        RunScenarioResponseOrStatus.newBuilder.setError(error).build
+      case Right(result: ScenarioResult) =>
+        RunScenarioResponseOrStatus.newBuilder.setResult(result).build
     }
     internal.onNext(message)
     internal.onCompleted()
@@ -215,7 +219,7 @@ class ScenarioService(
     runLive(
       req,
       StreamWithoutStatus(respObs),
-      { case (ctx, pkgId, name) => ctx.interpretScript(pkgId, name) }
+      { case (ctx, pkgId, name) => ctx.interpretScript(pkgId, name) },
     )
 
   override def runLiveScript(
@@ -225,7 +229,7 @@ class ScenarioService(
     runLive(
       req,
       StreamWithStatus(respObs),
-      { case (ctx, pkgId, name) => ctx.interpretScript(pkgId, name) }
+      { case (ctx, pkgId, name) => ctx.interpretScript(pkgId, name) },
     )
 
   private def runLive(
@@ -297,7 +301,8 @@ class ScenarioService(
           ScenarioStatus.newBuilder
             .setMillisecondsPassed(millisPassed)
             .setStartedAt(startedAt)
-            .build)
+            .build
+        )
         sleepRandom()
       }
     }

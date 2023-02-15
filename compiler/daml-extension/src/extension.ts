@@ -80,7 +80,12 @@ export async function activate(context: vscode.ExtensionContext) {
     );
     damlLanguageClient.onNotification(
       DamlVirtualResourceDidProgressNotification.type,
-      params => virtualResourceManager.setProgress(params.uri, params.millisecondsPassed, params.startedAt),
+      params =>
+        virtualResourceManager.setProgress(
+          params.uri,
+          params.millisecondsPassed,
+          params.startedAt,
+        ),
     );
   });
 
@@ -450,7 +455,10 @@ class VirtualResourceManager {
   >();
   // Mapping from URIs to selected view
   private _panelViews: Map<UriString, View> = new Map<UriString, View>();
-  private _lastStatusUpdate: Map<UriString, number> = new Map<UriString, number>();
+  private _lastStatusUpdate: Map<UriString, number> = new Map<
+    UriString,
+    number
+  >();
   private _client: LanguageClient;
   private _disposables: vscode.Disposable[] = [];
   private _webviewFiles: WebviewFiles;
@@ -534,15 +542,27 @@ class VirtualResourceManager {
       this._panelContents.get(uri) || "Loading virtual resource...";
   }
 
-  public setProgress(uri: UriString, millisecondsPassed: number, startedAt: number) {
+  public setProgress(
+    uri: UriString,
+    millisecondsPassed: number,
+    startedAt: number,
+  ) {
     const panel = this._panels.get(uri);
     if (panel == undefined) return;
-    panel.webview.html = `Virtual resource has been running for ${millisecondsPassed} ms ` + "<!-- " + new Date() + " -->";
+    panel.webview.html =
+      `Virtual resource has been running for ${millisecondsPassed} ms ` +
+      "<!-- " +
+      new Date() +
+      " -->";
     const updateTimestamp = this._lastStatusUpdate.get(uri);
     const isOutOfDate = updateTimestamp != null && updateTimestamp > startedAt;
     if (isOutOfDate) return;
     this._lastStatusUpdate.set(uri, startedAt);
-    panel.webview.html = `Virtual resource has been running for ${millisecondsPassed} ms ` + "<!-- " + new Date() + " -->";
+    panel.webview.html =
+      `Virtual resource has been running for ${millisecondsPassed} ms ` +
+      "<!-- " +
+      new Date() +
+      " -->";
   }
 
   public setContent(uri: UriString, contents: ScenarioResult) {
