@@ -176,23 +176,23 @@ You can see the graph of this transaction in the transaction view of the IDE:
       children:
       #12:1
       │   disclosed to (since): 'Bob' (12), 'Charlie' (12), 'Alice' (12)
-      └─> fetch #11:3 (Parties:Iou)
+      └─> 'Alice' and 'Bob' fetch #11:3 (Parties:Iou)
 
       #12:2
       │   disclosed to (since): 'Bob' (12), 'Charlie' (12), 'Alice' (12)
-      └─> 'Bob', 'Charlie' exercises Mutual_Transfer on #11:3 (Parties:Iou)
-                           with
-                             newOwner = 'Charlie'
+      └─> 'Bob' and 'Charlie' exercise Mutual_Transfer on #11:3 (Parties:Iou)
+                              with
+                                newOwner = 'Charlie'
           children:
           #12:3
           │   disclosed to (since): 'Bob' (12), 'Charlie' (12), 'Alice' (12)
-          └─> create Parties:Iou
-              with
-                issuer = 'Alice';
-                owner = 'Charlie';
-                cash =
-                  (Parties:Cash with
-                     currency = "USD"; amount = 100.0000000000)
+          └─> 'Alice' and 'Charlie' create Parties:Iou
+                                    with
+                                      issuer = 'Alice';
+                                      owner = 'Charlie';
+                                      cash =
+                                        (Parties:Cash with
+                                          currency = "USD"; amount = 100.0000000000)
 
 Note that authority is not automatically transferred transitively.
 

@@ -274,7 +274,7 @@ in the contract, but not authorizing the create:
     Partial transaction:
       Sub-transactions:
          #0
-         └─> create CreateAuthFailure:Example
+         └─> Alice creates CreateAuthFailure:Example
              with
                party1 = 'Alice'; party2 = 'Bob'
 
@@ -319,9 +319,9 @@ choice 'Consume' of which he is not a controller
       TX #0 1970-01-01T00:00:00Z (unknown source)
       #0:0
       │   disclosed to (since): 'Alice' (#0), 'Bob' (#0)
-      └─> create ExerciseAuthFailure:Example
-          with
-            owner = 'Alice'; friend = 'Bob'
+      └─> 'Alice' creates ExerciseAuthFailure:Example
+                  with
+                    owner = 'Alice'; friend = 'Bob'
 
 From the error we can see that the parties authorizing the exercise ('Bob')
 is not a subset of the required controlling parties.
@@ -359,9 +359,9 @@ to exercise the contract the following error would occur:
       TX #0 1970-01-01T00:00:00Z (unknown source)
       #0:0
       │   disclosed to (since): 'Alice' (#0)
-      └─> create NotVisibleFailure:Example
-          with
-            owner = 'Alice'
+      └─> 'Alice' creates NotVisibleFailure:Example
+                  with
+                    owner = 'Alice'
 
 To fix this issue the party 'Bob' should be made a controlling party in one of the choices.
 

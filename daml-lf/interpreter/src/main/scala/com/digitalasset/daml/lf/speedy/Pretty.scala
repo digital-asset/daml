@@ -189,6 +189,17 @@ private[lf] object Pretty {
     }
   }
 
+  // Format a list of `a, b, c` as `a, b and c`, selects correctly tensed verb and postfixes
+  def partiesAction(parties: Set[Party], singular: String, multiple: String): Doc =
+    parties.toList.map(p => text(p)) match {
+      case p :: Nil => p & text(singular)
+      case init :+ last => intercalate(text(", "), init) & text("and") & last & text(multiple)
+      case _ => // Should match Nil, but scala isn't smart enough to realise the other cases are covered, so this avoids warning
+        text("No-one/unknown") & text(
+          singular
+        )
+    }
+
   // A minimal pretty-print of an update transaction node, without recursing into child nodes..
   def prettyPartialTransactionNode(node: Node): Doc =
     node match {
@@ -197,12 +208,14 @@ private[lf] object Pretty {
       case Node.Rollback(_) =>
         text("rollback")
       case create: Node.Create =>
-        "create" &: prettyContractInst(create.coinst)
+        partiesAction(create.signatories, "creates", "create") &
+          prettyContractInst(create.coinst)
       case fetch: Node.Fetch =>
-        "fetch" &: prettyContractId(fetch.coid)
+        partiesAction(fetch.signatories, "fetches", "fetch") &
+          prettyContractId(fetch.coid)
       case ex: Node.Exercise =>
-        intercalate(text(", "), ex.actingParties.map(p => text(p))) &
-          text("exercises") & text(ex.choiceId) + char(':') + prettyIdentifier(ex.templateId) &
+        partiesAction(ex.actingParties, "exercises", "exercise") &
+          text(ex.choiceId) + char(':') + prettyIdentifier(ex.templateId) &
           text("on") & prettyContractId(ex.targetCoid) /
           text("with") & prettyValue(false)(ex.chosenValue)
       case lbk: Node.LookupByKey =>
@@ -289,21 +302,23 @@ private[lf] object Pretty {
       case Node.Rollback(children) =>
         text("rollback:") / stack(children.toList.map(prettyEventInfo(l, txId)))
       case create: Node.Create =>
-        val d = "create" &: prettyContractInst(create.coinst)
+        val d =
+          partiesAction(create.signatories, "creates", "create") &
+            prettyContractInst(create.coinst)
         create.keyOpt match {
           case None => d
           case Some(key) => d / text("key") & prettyKeyWithMaintainers(key)
         }
       case ea: Node.Fetch =>
-        "ensure active" &: prettyContractId(ea.coid)
+        partiesAction(ea.signatories, "fetches", "fetch") &
+          prettyContractId(ea.coid)
       case ex: Node.Exercise =>
         val children =
           if (ex.children.nonEmpty)
             text("children:") / stack(ex.children.toList.map(prettyEventInfo(l, txId)))
           else
             Doc.empty
-        intercalate(text(", "), ex.actingParties.map(p => text(p))) &
-          text("exercises") &
+        partiesAction(ex.actingParties, "exercises", "exercise") &
           text(ex.choiceId) + char(':') +
           prettyIdentifier(ex.interfaceId.getOrElse(ex.templateId)) &
           text("on") & prettyContractId(ex.targetCoid) /
