@@ -30,7 +30,10 @@ object AuthServiceConfigCli {
           "[UNSAFE] Enables JWT-based authorization with shared secret HMAC256 signing: USE THIS EXCLUSIVELY FOR TESTING"
         )
         .action { (secret, config) =>
-          setAuthServiceConfig(AuthServiceConfig.UnsafeJwtHmac256(secret, targetAudience = None), config)
+          setAuthServiceConfig(
+            AuthServiceConfig.UnsafeJwtHmac256(secret, targetAudience = None),
+            config,
+          )
         },
       opt[String]("auth-jwt-rs256-crt")
         .optional()

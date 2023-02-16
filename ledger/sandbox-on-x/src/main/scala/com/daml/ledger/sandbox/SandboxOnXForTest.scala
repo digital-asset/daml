@@ -14,10 +14,7 @@ import com.daml.metrics.Metrics
 import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.apiserver.{AuthServiceConfig, ApiServerConfig => _ApiServerConfig}
 import com.daml.platform.config.MetricsConfig.MetricRegistryType
-import com.daml.platform.config.{
-  MetricsConfig,
-  ParticipantConfig => _ParticipantConfig,
-}
+import com.daml.platform.config.{MetricsConfig, ParticipantConfig => _ParticipantConfig}
 import com.daml.platform.configuration.InitialLedgerConfiguration
 import com.daml.platform.indexer.{IndexerConfig => _IndexerConfig}
 import com.daml.platform.localstore.UserManagementConfig

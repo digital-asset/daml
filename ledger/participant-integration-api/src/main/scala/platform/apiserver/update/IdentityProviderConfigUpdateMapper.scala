@@ -26,15 +26,34 @@ object IdentityProviderConfigUpdateMapper extends UpdateMapperBase {
       )
       issuerUpdate <- resolveIssuerUpdate(updateTrie, identityProviderConfig.issuerUpdate)
       jwksUrlUpdate <- resolveJwksUrlUpdate(updateTrie, identityProviderConfig.jwksUrlUpdate)
+      audienceUpdate <- resolveAudienceUpdate(
+        updateTrie,
+        identityProviderConfig.audienceUpdate,
+      )
     } yield {
       IdentityProviderConfigUpdate(
         identityProviderId = identityProviderConfig.identityProviderId,
         isDeactivatedUpdate = isDeactivatedUpdate,
         jwksUrlUpdate = jwksUrlUpdate,
         issuerUpdate = issuerUpdate,
+        audienceUpdate = audienceUpdate,
       )
     }
   }
+
+  def resolveAudienceUpdate(
+      updateTrie: UpdatePathsTrie,
+      newValue: Option[Option[String]],
+  ): Result[Option[Option[String]]] =
+    updateTrie
+      .findMatch(IdentityProviderConfigPaths.audience)
+      .fold(noUpdate[Option[String]])(updateMatch =>
+        makePrimitiveFieldUpdate[Option[String]](
+          updateMatch = updateMatch,
+          defaultValue = None,
+          newValue = newValue.flatten,
+        )
+      )
 
   def resolveIsDeactivatedUpdate(
       updateTrie: UpdatePathsTrie,

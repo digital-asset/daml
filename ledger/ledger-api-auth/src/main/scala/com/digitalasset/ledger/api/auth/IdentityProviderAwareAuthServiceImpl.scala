@@ -68,7 +68,9 @@ class IdentityProviderAwareAuthServiceImpl(
             keyId,
           )
           decodedJwt <- verifyToken(token, verifier)
-          payload <- Future(parse(decodedJwt.payload, targetAudience = identityProviderConfig.audience))
+          payload <- Future(
+            parse(decodedJwt.payload, targetAudience = identityProviderConfig.audience)
+          )
           _ <- checkAudience(payload, identityProviderConfig.audience)
           jwtPayload <- parsePayload(payload)
         } yield toAuthenticatedUser(jwtPayload, identityProviderConfig.identityProviderId)

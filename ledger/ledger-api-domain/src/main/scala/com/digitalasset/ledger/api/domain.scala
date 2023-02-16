@@ -405,7 +405,6 @@ object domain {
       isDeactivated: Boolean = false,
       jwksUrl: JwksUrl,
       issuer: String,
-  ) {
-    def audience: Option[String] = None //TODO AUD
-  }
+      audience: Option[String],
+  )
 }

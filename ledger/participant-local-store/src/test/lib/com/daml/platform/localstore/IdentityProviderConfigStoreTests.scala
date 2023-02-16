@@ -31,6 +31,7 @@ trait IdentityProviderConfigStoreTests extends IdentityProviderConfigStoreSpecBa
       isDeactivated = false,
       jwksUrl = JwksUrl.assertFromString("http://example.com/jwks.json"),
       issuer = UUID.randomUUID().toString,
+      audience = Some(UUID.randomUUID().toString),
     )
 
   def randomId() = {
@@ -264,6 +265,47 @@ trait IdentityProviderConfigStoreTests extends IdentityProviderConfigStoreSpecBa
       }
     }
 
+    "allows to update existing identity provider config's audience attribute" in {
+      testIt { tested =>
+        val cfg = config().copy(audience = Some("audience1"))
+        for {
+          _ <- tested.createIdentityProviderConfig(cfg)
+          res2 <- tested.updateIdentityProviderConfig(
+            IdentityProviderConfigUpdate(
+              identityProviderId = cfg.identityProviderId,
+              audienceUpdate = Some(Some("audience2")),
+            )
+          )
+          res3 <- tested.getIdentityProviderConfig(cfg.identityProviderId)
+          // no update
+          res4 <- tested.updateIdentityProviderConfig(
+            IdentityProviderConfigUpdate(
+              identityProviderId = cfg.identityProviderId,
+              audienceUpdate = None,
+            )
+          )
+          res5 <- tested.getIdentityProviderConfig(cfg.identityProviderId)
+          // unset the value
+          res6 <- tested.updateIdentityProviderConfig(
+            IdentityProviderConfigUpdate(
+              identityProviderId = cfg.identityProviderId,
+              audienceUpdate = Some(None),
+            )
+          )
+          res7 <- tested.getIdentityProviderConfig(cfg.identityProviderId)
+        } yield {
+          res2 shouldBe Right(cfg.copy(audience = Some("audience2")))
+          res3 shouldBe Right(cfg.copy(audience = Some("audience2")))
+
+          res4 shouldBe Right(cfg.copy(audience = Some("audience2")))
+          res5 shouldBe Right(cfg.copy(audience = Some("audience2")))
+
+          res6 shouldBe Right(cfg.copy(audience = None))
+          res7 shouldBe Right(cfg.copy(audience = None))
+        }
+      }
+    }
+
     "allows to update existing identity provider config's issuer attribute" in {
       testIt { tested =>
         val cfg = config().copy(issuer = "issuer1")
@@ -310,6 +352,7 @@ trait IdentityProviderConfigStoreTests extends IdentityProviderConfigStoreSpecBa
           isDeactivated = false,
           jwksUrl = JwksUrl.assertFromString("http://example.com/jwks.json"),
           issuer = UUID.randomUUID().toString,
+          audience = Some(UUID.randomUUID().toString),
         )
         for {
           _ <- tested.createIdentityProviderConfig(cfg)
@@ -319,6 +362,7 @@ trait IdentityProviderConfigStoreTests extends IdentityProviderConfigStoreSpecBa
               issuerUpdate = Some("issuer2"),
               jwksUrlUpdate = Some(JwksUrl.assertFromString("http://daml.com/jwks2.json")),
               isDeactivatedUpdate = Some(true),
+              audienceUpdate = Some(Some("aud2")),
             )
           )
           res3 <- tested.getIdentityProviderConfig(cfg.identityProviderId)
@@ -328,6 +372,7 @@ trait IdentityProviderConfigStoreTests extends IdentityProviderConfigStoreSpecBa
             isDeactivated = true,
             jwksUrl = JwksUrl.assertFromString("http://daml.com/jwks2.json"),
             issuer = "issuer2",
+            audience = Some("aud2"),
           )
           res shouldBe Right(expected)
           res3 shouldBe Right(expected)
