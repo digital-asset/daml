@@ -5,13 +5,17 @@
 -- defining the type that contains a contract id in a separate module, the
 -- runtime check is still performed.
 
--- @ERROR range=35:1-35:14; Contract IDs are not supported in contract key
--- @ERROR range=44:1-44:13; Contract IDs are not supported in contract key
--- @ERROR range=50:1-50:14; Contract IDs are not supported in contract key
--- @ERROR range=56:1-56:16; Contract IDs are not supported in contract key
+-- @ERROR range=39:1-39:14; Contract IDs are not supported in contract key
+-- Below should be `Contract IDs are not supported in contract key` however Scenario service does not return the error
+-- @TODO Make a ticket about this
+-- @ERROR range=48:1-48:13; Scenario service backend error
+-- @ERROR range=54:1-54:16; Contract IDs are not supported in contract key
+
+-- @TODO Test this within Update context, so in a template
 
 module ContractIdInContractKeySkipCheck where
 
+import Daml.Script
 import ContractIdInContractKeySkipCheckType (ContractId'(..))
 
 template Contract with
@@ -32,31 +36,23 @@ template ContractKeyWithCid with
     key (party, ContractId' cid) : (Party, ContractId' Contract)
     maintainer key._1
 
-createCrashes = scenario do
-    alice <- getParty "Alice"
+createCrashes = script do
+    alice <- allocateParty "Alice"
     cid <- submit alice $ do
-      create Contract with party = alice
+      createCmd Contract with party = alice
     submit alice $ do
-      create ContractKeyWithCid with
+      createCmd ContractKeyWithCid with
         party = alice
         cid = cid
 
-fetchCrashes = scenario do
-    alice <- getParty "Alice"
+fetchCrashes = script do
+    alice <- allocateParty "Alice"
     cid <- submit alice $ do
-          create Contract with party = alice
-    submit alice $ do fetchByKey @ContractKeyWithCid (alice, ContractId' cid)
+          createCmd Contract with party = alice
+    queryContractKey @ContractKeyWithCid alice (alice, ContractId' cid)
 
-lookupCrashes = scenario do
-    alice <- getParty "Alice"
+exerciseCrashes = script do
+    alice <- allocateParty "Alice"
     cid <- submit alice $ do
-          create Contract with party = alice
-    submit alice $ do lookupByKey @ContractKeyWithCid (alice, ContractId' cid)
-
-exerciseCrashes = scenario do
-    alice <- getParty "Alice"
-    cid <- submit alice $ do
-          create Contract with party = alice
-    submit alice $ do exerciseByKey @ContractKeyWithCid (alice, ContractId' cid) Noop
-
--- @ENABLE-SCENARIOS
+          createCmd Contract with party = alice
+    submit alice $ do exerciseByKeyCmd @ContractKeyWithCid (alice, ContractId' cid) Noop

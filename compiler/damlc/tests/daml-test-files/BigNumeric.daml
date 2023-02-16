@@ -5,29 +5,30 @@
 
 module BigNumeric where
 
+import Daml.Script
 import DA.Assert
 import DA.BigNumeric
 
-testShift = scenario do
+testShift = script do
      shiftRight 2 32.0 === 0.32
      shiftRight (-2) 32.0 === 3200.0
      shiftLeft 5 (-1.0) === -100000.0
      shiftLeft (-5) (-1.0) === -0.00001
 
-testPrecision = scenario do
+testPrecision = script do
      precision 0.0 === 1
      precision 1.0 === 1
      precision 1.1 === 2
      precision 1.10 === 2
 
-testScale = scenario do
+testScale = script do
     scale 0.0 === 0
     scale 1.0 === 0
     scale 1.1 === 1
     scale 1.1 === 1
     scale (shiftLeft (2^14) 1.0) === -2^14
 
-testRoundToNumeric = scenario do
+testRoundToNumeric = script do
      roundToNumeric RoundingUnnecessary 10.0 === (10.0 : Decimal)
      roundToNumeric RoundingHalfUp 0.123456789 === (0.0 : Numeric 0)
      roundToNumeric RoundingHalfUp 0.123456789 === (0.1 : Numeric 1)
@@ -51,5 +52,3 @@ testRoundToNumeric = scenario do
      roundToNumeric RoundingDown 0.123456789 === (0.12345678 : Numeric 8)
      roundToNumeric RoundingDown 0.123456789 === (0.123456789 : Numeric 9)
      roundToNumeric RoundingDown 0.123456789 === (0.123456789 : Numeric 10)
-
--- @ENABLE-SCENARIOS

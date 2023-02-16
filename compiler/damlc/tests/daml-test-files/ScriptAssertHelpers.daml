@@ -1,0 +1,22 @@
+-- Helper functions for making assertions on Scripts
+
+-- TODO: Consider some kind of TestHelpers directory for this
+module ScriptAssertHelpers where
+
+import Daml.Script
+import DA.Assert
+import DA.Functor (void)
+
+cantSee : (Show t, Eq t, Template t, HasAgreement t, IsParties p) => p -> ContractId t -> Script ()
+cantSee p cid = do
+  cArchived <- queryContractId p cid
+  cArchived === None
+
+canSee : (Show t, Eq t, Template t, HasAgreement t, IsParties p) => p -> ContractId t -> Script ()
+canSee p = void . queryAssertContractId p
+
+queryAssertContractId : forall t p. (Template t, HasAgreement t, IsParties p) => p -> ContractId t -> Script t
+queryAssertContractId p cid = do
+  queryContractId p cid >>= \case
+    Some c -> pure c
+    None -> assertFail $ "Couldn't see template with ID " <> show cid

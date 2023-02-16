@@ -7,10 +7,9 @@
 
 module BadCodePoint where
 
+import Daml.Script
 import DA.Text qualified as T
 
-test = scenario do
+test = script do
     let t = T.fromCodePoints [0x110000]
     pure ()
-
--- @ENABLE-SCENARIOS
