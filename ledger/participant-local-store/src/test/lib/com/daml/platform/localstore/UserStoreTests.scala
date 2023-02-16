@@ -49,7 +49,6 @@ trait UserStoreTests extends UserStoreSpecBase { self: AsyncFreeSpec =>
     isDeactivated = false,
     jwksUrl = JwksUrl("http://domain.com/"),
     issuer = "issuer",
-    audience = Some("audience"),
   )
 
   def newUser(

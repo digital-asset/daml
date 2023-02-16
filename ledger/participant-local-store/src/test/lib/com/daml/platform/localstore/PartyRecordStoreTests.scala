@@ -33,7 +33,6 @@ trait PartyRecordStoreTests extends PartyRecordStoreSpecBase { self: AsyncFreeSp
     isDeactivated = false,
     jwksUrl = JwksUrl("http://domain.com/"),
     issuer = "issuer",
-    audience = Some("audience"),
   )
 
   def newPartyRecord(

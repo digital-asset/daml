@@ -92,7 +92,6 @@ class PersistentIdentityProviderConfigStore(
         _ <- idpConfigByIssuerDoesNotExist(update.issuerUpdate, update.identityProviderId)
         _ <- updateIssuer(update)(connection)
         _ <- updateJwksUrl(update)(connection)
-        _ <- updateAudience(update)(connection)
         _ <- updateIsDeactivated(update)(connection)
         identityProviderConfig <- backend
           .getIdentityProviderConfig(id)(connection)
@@ -135,15 +134,6 @@ class PersistentIdentityProviderConfigStore(
   )(connection: Connection): Result[Unit] = {
     val execute = update.jwksUrlUpdate.forall(
       backend.updateJwksUrl(update.identityProviderId, _)(connection)
-    )
-    Either.cond(execute, (), IdentityProviderConfigNotFound(update.identityProviderId))
-  }
-
-  private def updateAudience(
-      update: IdentityProviderConfigUpdate
-  )(connection: Connection): Result[Unit] = {
-    val execute = update.audienceUpdate.forall(
-      backend.updateAudience(update.identityProviderId, _)(connection)
     )
     Either.cond(execute, (), IdentityProviderConfigNotFound(update.identityProviderId))
   }
