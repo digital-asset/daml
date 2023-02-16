@@ -1,7 +1,9 @@
--- @ERROR range=14:1-14:19; contract 0053db8d12a2aebf02e9d3c2dc653c7b8f61914eeef91b2d6e08b5b066925592a4 not effective, but we found its key!
+-- @ERROR range=16:1-16:19; Couldn't see template with key 'alice'
 module ContractKeyNotEffective where
 
+import Daml.Script
 import DA.Time
+import ScriptAssertHelpers
 
 template T
   with
@@ -11,10 +13,8 @@ template T
     key p : Party
     maintainer key
 
-fetchByKeyMustFail = scenario do
-  p <- getParty "alice"
-  submit p $ create (T p)
-  pass (- seconds 1)
-  submit p $ fetchByKey @T p
-
--- @ENABLE-SCENARIOS
+fetchByKeyMustFail = script do
+  p <- allocateParty "alice"
+  submit p $ createCmd (T p)
+  passTime (- seconds 1)
+  queryAssertContractKey @T p p
