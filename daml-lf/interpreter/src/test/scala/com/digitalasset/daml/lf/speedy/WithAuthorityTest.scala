@@ -29,6 +29,7 @@ class WithAuthorityTest extends AnyFreeSpec with Inside {
   val c = Party.assertFromString("Charlie")
 
   import WithAuthorityTest._
+  import SpeedyTestLib.AuthRequest
 
   "Single" - {
 
@@ -43,10 +44,12 @@ class WithAuthorityTest extends AnyFreeSpec with Inside {
       }
     }
     "single (auth changed): A->{B}->B [OK]" in {
-      inside(makeSingle(committers = Set(a), required = Set(b), signed = b)) { case Right(tx) =>
-        val shape = shapeOfTransaction(tx)
-        val expected = List(Authority(Set(b), List(Create(b))))
-        shape shouldBe expected
+      inside(makeSingle(committers = Set(a), required = Set(b), signed = b)) {
+        case Right((tx, ars)) =>
+          val shape = shapeOfTransaction(tx)
+          val expected = List(Authority(Set(b), List(Create(b))))
+          shape shouldBe expected
+          ars shouldBe List(AuthRequest(holding = Set(a), requesting = Set(b)))
       }
     }
     "single (auth restricted/extended) {A,B}->{B,C}->A [FAIL]" in {
@@ -62,32 +65,38 @@ class WithAuthorityTest extends AnyFreeSpec with Inside {
     }
     "single (auth restricted/extended) {A,B}->{B,C}->B [OK]" in {
       inside(makeSingle(committers = Set(a, b), required = Set(b, c), signed = b)) {
-        case Right(tx) =>
+        case Right((tx, ars)) =>
           val shape = shapeOfTransaction(tx)
           val expected = List(Authority(Set(b, c), List(Create(b))))
           shape shouldBe expected
+          ars shouldBe List(AuthRequest(holding = Set(a, b), requesting = Set(c)))
       }
     }
     "single (auth restricted/extended) {A,B}->{B,C}->C [OK]" in {
       inside(makeSingle(committers = Set(a, b), required = Set(b, c), signed = c)) {
-        case Right(tx) =>
+        case Right((tx, ars)) =>
           val shape = shapeOfTransaction(tx)
           val expected = List(Authority(Set(b, c), List(Create(c))))
           shape shouldBe expected
+          ars shouldBe List(AuthRequest(holding = Set(a, b), requesting = Set(c)))
       }
     }
     "single (auth unchanged) A->{A}->A [OK; no auth-node]" in {
-      inside(makeSingle(committers = Set(a), required = Set(a), signed = a)) { case Right(tx) =>
-        val shape = shapeOfTransaction(tx)
-        val expected = List(Create(a))
-        shape shouldBe expected
+      inside(makeSingle(committers = Set(a), required = Set(a), signed = a)) {
+        case Right((tx, ars)) =>
+          val shape = shapeOfTransaction(tx)
+          val expected = List(Create(a))
+          shape shouldBe expected
+          ars shouldBe List()
       }
     }
     "single (auth restricted) {A,B}->{B}->B [OK; no auth-node]" in {
-      inside(makeSingle(committers = Set(a, b), required = Set(b), signed = b)) { case Right(tx) =>
-        val shape = shapeOfTransaction(tx)
-        val expected = List(Create(b))
-        shape shouldBe expected
+      inside(makeSingle(committers = Set(a, b), required = Set(b), signed = b)) {
+        case Right((tx, ars)) =>
+          val shape = shapeOfTransaction(tx)
+          val expected = List(Create(b))
+          shape shouldBe expected
+          ars shouldBe List()
       }
     }
     "single (auth restricted) {A,B}->{B}->A [FAIL]" in {
@@ -112,10 +121,11 @@ class WithAuthorityTest extends AnyFreeSpec with Inside {
           signed1 = b,
           signed2 = a,
         )
-      ) { case Right(tx) =>
+      ) { case Right((tx, ars)) =>
         val shape = shapeOfTransaction(tx)
         val expected = List[Shape](Authority(Set(b), List(Create(b))), Create(a))
         shape shouldBe expected
+        ars shouldBe List(AuthRequest(holding = Set(a), requesting = Set(b)))
       }
     }
     "sequence1: A-> ( {B}->B ; ->B ) [FAIL]" in {
@@ -143,10 +153,11 @@ class WithAuthorityTest extends AnyFreeSpec with Inside {
           signed1 = a,
           signed2 = a,
         )
-      ) { case Right(tx) =>
+      ) { case Right((tx, ars)) =>
         val shape = shapeOfTransaction(tx)
         val expected = List[Shape](Create(a), Create(a))
         shape shouldBe expected
+        ars shouldBe List()
       }
     }
     "sequence1: {A,B}-> ( {B}->B ; ->A ) [OK; no auth-node]" in {
@@ -157,10 +168,11 @@ class WithAuthorityTest extends AnyFreeSpec with Inside {
           signed1 = b,
           signed2 = a,
         )
-      ) { case Right(tx) =>
+      ) { case Right((tx, ars)) =>
         val shape = shapeOfTransaction(tx)
         val expected = List[Shape](Create(b), Create(a))
         shape shouldBe expected
+        ars shouldBe List()
       }
     }
     "sequence1: {A,B}-> ( {B}->B ; ->B ) [OK; no auth-node]" in {
@@ -171,10 +183,11 @@ class WithAuthorityTest extends AnyFreeSpec with Inside {
           signed1 = b,
           signed2 = b,
         )
-      ) { case Right(tx) =>
+      ) { case Right((tx, ars)) =>
         val shape = shapeOfTransaction(tx)
         val expected = List[Shape](Create(b), Create(b))
         shape shouldBe expected
+        ars shouldBe List()
       }
     }
 
@@ -191,10 +204,14 @@ class WithAuthorityTest extends AnyFreeSpec with Inside {
           required2 = Set(c),
           signed2 = c,
         )
-      ) { case Right(tx) =>
+      ) { case Right((tx, ars)) =>
         val shape = shapeOfTransaction(tx)
         val expected = List(Authority(Set(b), List(Create(b))), Authority(Set(c), List(Create(c))))
         shape shouldBe expected
+        ars shouldBe List(
+          AuthRequest(holding = Set(a), requesting = Set(b)),
+          AuthRequest(holding = Set(a), requesting = Set(c)),
+        )
       }
     }
     "sequence2: A-> ( {B}->B ; {B}->B ) [OK; 2 auth nodes]" in {
@@ -206,10 +223,14 @@ class WithAuthorityTest extends AnyFreeSpec with Inside {
           required2 = Set(b),
           signed2 = b,
         )
-      ) { case Right(tx) =>
+      ) { case Right((tx, ars)) =>
         val shape = shapeOfTransaction(tx)
         val expected = List(Authority(Set(b), List(Create(b))), Authority(Set(b), List(Create(b))))
         shape shouldBe expected
+        ars shouldBe List(
+          AuthRequest(holding = Set(a), requesting = Set(b)),
+          AuthRequest(holding = Set(a), requesting = Set(b)),
+        )
       }
     }
     "sequence2: A-> ( {B}->B ; {A}->A ) [OK; only 1 auth node]" in {
@@ -221,10 +242,11 @@ class WithAuthorityTest extends AnyFreeSpec with Inside {
           required2 = Set(a),
           signed2 = a,
         )
-      ) { case Right(tx) =>
+      ) { case Right((tx, ars)) =>
         val shape = shapeOfTransaction(tx)
         val expected = List[Shape](Authority(Set(b), List(Create(b))), Create(a))
         shape shouldBe expected
+        ars shouldBe List(AuthRequest(holding = Set(a), requesting = Set(b)))
       }
     }
     "sequence2: A-> ( {B}->B ; {C}->A ) [FAIL]" in {
@@ -269,10 +291,14 @@ class WithAuthorityTest extends AnyFreeSpec with Inside {
 
     "nested: A->{B}->{C}->C [OK]" in {
       inside(makeNested(committers = Set(a), outer = Set(b), inner = Set(c), signed = c)) {
-        case Right(tx) =>
+        case Right((tx, ars)) =>
           val shape = shapeOfTransaction(tx)
           val expected = List(Authority(Set(b), List(Authority(Set(c), List(Create(c))))))
           shape shouldBe expected
+          ars shouldBe List(
+            AuthRequest(holding = Set(a), requesting = Set(b)),
+            AuthRequest(holding = Set(b), requesting = Set(c)),
+          )
       }
     }
     "nested: A->{B}->{C}->A [FAIL]" in {
@@ -299,10 +325,11 @@ class WithAuthorityTest extends AnyFreeSpec with Inside {
     }
     "nested: A->{A}->{C}->C [OK; 1 auth-node]" in {
       inside(makeNested(committers = Set(a), outer = Set(a), inner = Set(c), signed = c)) {
-        case Right(tx) =>
+        case Right((tx, ars)) =>
           val shape = shapeOfTransaction(tx)
           val expected = List(Authority(Set(c), List(Create(c))))
           shape shouldBe expected
+          ars shouldBe List(AuthRequest(holding = Set(a), requesting = Set(c)))
       }
     }
     "nested: A->{A}->{C}->A [FAIL]" in {
@@ -318,10 +345,11 @@ class WithAuthorityTest extends AnyFreeSpec with Inside {
     }
     "nested: A->{C}->{C}->C [OK; 1 auth-node]" in {
       inside(makeNested(committers = Set(a), outer = Set(c), inner = Set(c), signed = c)) {
-        case Right(tx) =>
+        case Right((tx, ars)) =>
           val shape = shapeOfTransaction(tx)
           val expected = List(Authority(Set(c), List(Create(c))))
           shape shouldBe expected
+          ars shouldBe List(AuthRequest(holding = Set(a), requesting = Set(c)))
       }
     }
     "nested: A->{C}->{C}->A [FAIL]" in {
@@ -337,10 +365,26 @@ class WithAuthorityTest extends AnyFreeSpec with Inside {
     }
     "nested: A->{A,B}->{B,C}->C [OK]" in {
       inside(makeNested(committers = Set(a), outer = Set(a, b), inner = Set(b, c), signed = c)) {
-        case Right(tx) =>
+        case Right((tx, ars)) =>
           val shape = shapeOfTransaction(tx)
           val expected = List(Authority(Set(a, b), List(Authority(Set(b, c), List(Create(c))))))
           shape shouldBe expected
+          ars shouldBe List(
+            AuthRequest(holding = Set(a), requesting = Set(b)),
+            AuthRequest(holding = Set(a, b), requesting = Set(c)),
+          )
+      }
+    }
+    "nested: A->{A,B}->{B,C}->B [OK]" in {
+      inside(makeNested(committers = Set(a), outer = Set(a, b), inner = Set(b, c), signed = b)) {
+        case Right((tx, ars)) =>
+          val shape = shapeOfTransaction(tx)
+          val expected = List(Authority(Set(a, b), List(Authority(Set(b, c), List(Create(b))))))
+          shape shouldBe expected
+          ars shouldBe List(
+            AuthRequest(holding = Set(a), requesting = Set(b)),
+            AuthRequest(holding = Set(a, b), requesting = Set(c)),
+          )
       }
     }
     "nested: A->{A,B}->{B,C}->A [FAIL]" in {
@@ -363,6 +407,7 @@ class WithAuthorityTest extends AnyFreeSpec with Inside {
 object WithAuthorityTest {
 
   import SpeedyTestLib.loggingContext
+  import SpeedyTestLib.AuthRequest
 
   val transactionSeed = crypto.Hash.hashPrivateKey("WithAuthorityTest.scala")
 
@@ -419,16 +464,18 @@ object WithAuthorityTest {
     SList(FrontStack(set.toList.map(SParty(_)): _*))
   }
 
+  type Success = (SubmittedTransaction, List[AuthRequest])
+
   def makeSingle(
       committers: Set[Party],
       required: Set[Party],
       signed: Party,
-  ): Either[SError, SubmittedTransaction] = {
+  ): Either[SError, Success] = {
     val requiredV = makeSetPartyValue(required)
     val signedV = SParty(signed)
     val example = SEApp(pkgs.compiler.unsafeCompile(e"M:single"), Array(requiredV, signedV))
     val machine = Speedy.Machine.fromUpdateSExpr(pkgs, transactionSeed, example, committers)
-    SpeedyTestLib.buildTransaction(machine)
+    SpeedyTestLib.buildTransactionCollectAuthRequests(machine)
   }
 
   def makeSequence1(
@@ -436,7 +483,7 @@ object WithAuthorityTest {
       required: Set[Party],
       signed1: Party,
       signed2: Party,
-  ): Either[SError, SubmittedTransaction] = {
+  ): Either[SError, Success] = {
     val requiredV = makeSetPartyValue(required)
     val signed1V = SParty(signed1)
     val signed2V = SParty(signed2)
@@ -445,7 +492,7 @@ object WithAuthorityTest {
       Array(requiredV, signed1V, signed2V),
     )
     val machine = Speedy.Machine.fromUpdateSExpr(pkgs, transactionSeed, example, committers)
-    SpeedyTestLib.buildTransaction(machine)
+    SpeedyTestLib.buildTransactionCollectAuthRequests(machine)
   }
 
   def makeSequence2(
@@ -454,7 +501,7 @@ object WithAuthorityTest {
       signed1: Party,
       required2: Set[Party],
       signed2: Party,
-  ): Either[SError, SubmittedTransaction] = {
+  ): Either[SError, Success] = {
     val required1V = makeSetPartyValue(required1)
     val signed1V = SParty(signed1)
     val required2V = makeSetPartyValue(required2)
@@ -464,7 +511,7 @@ object WithAuthorityTest {
       Array(required1V, signed1V, required2V, signed2V),
     )
     val machine = Speedy.Machine.fromUpdateSExpr(pkgs, transactionSeed, example, committers)
-    SpeedyTestLib.buildTransaction(machine)
+    SpeedyTestLib.buildTransactionCollectAuthRequests(machine)
   }
 
   def makeNested(
@@ -472,13 +519,13 @@ object WithAuthorityTest {
       outer: Set[Party],
       inner: Set[Party],
       signed: Party,
-  ): Either[SError, SubmittedTransaction] = {
+  ): Either[SError, Success] = {
     val outerV = makeSetPartyValue(outer)
     val innerV = makeSetPartyValue(inner)
     val signedV = SParty(signed)
     val example = SEApp(pkgs.compiler.unsafeCompile(e"M:nested"), Array(outerV, innerV, signedV))
     val machine = Speedy.Machine.fromUpdateSExpr(pkgs, transactionSeed, example, committers)
-    SpeedyTestLib.buildTransaction(machine)
+    SpeedyTestLib.buildTransactionCollectAuthRequests(machine)
   }
 
   sealed trait Shape // minimal transaction tree, for purposes of writing test expectation
