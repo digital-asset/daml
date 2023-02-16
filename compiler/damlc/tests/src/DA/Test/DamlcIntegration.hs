@@ -107,12 +107,14 @@ instance IsOption SkipValidationOpt where
   optionName = Tagged "skip-validation"
   optionHelp = Tagged "Skip package validation in scenario service (true|false)"
 
--- Creates a temp directory with daml script installed, gives the database db path
-withDamlScriptDep :: Version -> (FilePath -> IO ()) -> IO ()
+-- | Creates a temp directory with daml script installed, gives the database db path and package flag
+withDamlScriptDep :: Version -> ((FilePath, PackageFlag) -> IO ()) -> IO ()
 withDamlScriptDep lfVer cont = do
   withTempDir $ \dir -> do
     withCurrentDirectory dir $ do
       let projDir = toNormalizedFilePath' dir
+          -- Bring in daml-script-0.0.0 as previously installed by withDamlScriptDep, must include package db 
+          packageFlag = ExposePackage "--package daml-script-0.0.0 (Daml.Script)" (UnitIdArg $ stringToUnitId "daml-script-0.0.0") (ModRenaming True [])
       
       scriptDar <- locateRunfiles $ mainWorkspace </> "daml-script/daml/daml-script-" <> renderVersion lfVer <> ".dar"
 
@@ -126,8 +128,9 @@ withDamlScriptDep lfVer cont = do
         projDir
         (defaultOptions $ Just lfVer)
         mempty
+
       
-      cont $ dir </> projectPackageDatabase
+      cont (dir </> projectPackageDatabase, packageFlag)
 
 main :: IO ()
 main = do
@@ -140,13 +143,13 @@ main = do
       execParser (info parser forwardOptions)
   scenarioLogger <- Logger.newStderrLogger Logger.Warning "scenario"
  
-  withDamlScriptDep lfVer $ \packageDbPath ->
+  withDamlScriptDep lfVer $ \scriptPackageData ->
     SS.withScenarioService lfVer scenarioLogger scenarioConf $ \scenarioService -> do
       hSetEncoding stdout utf8
       setEnv "TASTY_NUM_THREADS" "1" True
       todoRef <- newIORef DList.empty
       let registerTODO (TODO s) = modifyIORef todoRef (`DList.snoc` ("TODO: " ++ s))
-      integrationTests <- getIntegrationTests registerTODO scenarioService packageDbPath
+      integrationTests <- getIntegrationTests registerTODO scenarioService scriptPackageData
       let tests = testGroup "All" [parseRenderRangeTest, uniqueUniques, integrationTests]
       defaultMainWithIngredients ingredients tests
         `finally` (do
@@ -209,8 +212,8 @@ getCantSkipPreprocessorTestFiles = do
     anns <- readFileAnns file
     pure [("cant-skip-preprocessor/DA/Internal/Hack.daml", file, anns)]
 
-getIntegrationTests :: (TODO -> IO ()) -> SS.Handle -> FilePath -> IO TestTree
-getIntegrationTests registerTODO scenarioService packageDbPath = do
+getIntegrationTests :: (TODO -> IO ()) -> SS.Handle -> (FilePath, PackageFlag) -> IO TestTree
+getIntegrationTests registerTODO scenarioService (packageDbPath, packageFlag) = do
     putStrLn $ "rtsSupportsBoundThreads: " ++ show rtsSupportsBoundThreads
     do n <- getNumCapabilities; putStrLn $ "getNumCapabilities: " ++ show n
 
@@ -241,8 +244,7 @@ getIntegrationTests registerTODO scenarioService packageDbPath = do
                     , dlintHintFiles = NoDlintHintFiles
                     }
                 , optSkipScenarioValidation = SkipScenarioValidation skipValidation
-                , -- | Bring in daml-script-0.0.0 as previously installed by withDamlScriptDep, must include package db 
-                  optPackageImports = [ExposePackage "--package daml-script-0.0.0 (Daml.Script)" (UnitIdArg $ stringToUnitId "daml-script-0.0.0") (ModRenaming True [])]
+                , optPackageImports = [packageFlag]
                 }
 
               mkIde options = do
