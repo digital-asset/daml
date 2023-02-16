@@ -489,11 +489,14 @@ private[lf] object SBuiltin {
         args: util.ArrayList[SValue],
         machine: Machine[Q],
     ): Control.Value = {
-      if (machine.isUpdateMachine) {
-        Control.Value(SValue.SValue.None)
-      } else {
-        val coid = getSContractId(args, 0).coid
-        Control.Value(SOptional(Some(SText(coid))))
+      val coid = getSContractId(args, 0).coid
+      machine match {
+        case _: PureMachine =>
+          Control.Value(SOptional(Some(SText(coid))))
+        case _: ScenarioMachine =>
+          Control.Value(SOptional(Some(SText(coid))))
+        case _: UpdateMachine =>
+          Control.Value(SValue.SValue.None)
       }
     }
   }
