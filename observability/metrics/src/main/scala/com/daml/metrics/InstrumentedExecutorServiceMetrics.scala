@@ -26,12 +26,12 @@ class InstrumentedExecutorServiceMetrics(factory: MetricsFactory) {
   val submitted: Meter =
     factory.meter(
       InstrumentedExecutorServiceMetrics.Prefix :+ "submitted",
-      "Number of tasks submitted to this executor",
+      "Number of tasks that were submitted to the executor",
     )
 
   @MetricDoc.Tag(
     summary = "The number of tasks running in an instrumented executor.",
-    description = "Currently running number of tasks.",
+    description = "The number of currently running tasks.",
     qualification = Debug,
     labelsWithDescription = Map(
       "name" -> "The name of the executor service.",
@@ -45,7 +45,7 @@ class InstrumentedExecutorServiceMetrics(factory: MetricsFactory) {
 
   @MetricDoc.Tag(
     summary = "The number of tasks completed in an instrumented executor.",
-    description = "Number of tasks that were completed by the executor.",
+    description = "The number of tasks completed by this executor",
     qualification = Debug,
     labelsWithDescription = Map(
       "name" -> "The name of the executor service.",
@@ -54,7 +54,7 @@ class InstrumentedExecutorServiceMetrics(factory: MetricsFactory) {
   )
   val completed: Meter = factory.meter(
     InstrumentedExecutorServiceMetrics.Prefix :+ "completed",
-    "Number of tasks completed by this executor",
+    "The number of tasks completed by this executor",
   )
 
   @MetricDoc.Tag(
@@ -69,7 +69,7 @@ class InstrumentedExecutorServiceMetrics(factory: MetricsFactory) {
   )
   val idle: Timer = factory.timer(
     InstrumentedExecutorServiceMetrics.Prefix :+ "idle",
-    "Time passed since the tasks was submitted to the executor until it started execution.",
+    "The time that a task is idle in an instrumented executor. A task is considered idle if it was submitted to the executor but it has not started execution yet.",
   )
 
   @MetricDoc.Tag(
@@ -83,7 +83,7 @@ class InstrumentedExecutorServiceMetrics(factory: MetricsFactory) {
   )
   val duration: Timer = factory.timer(
     InstrumentedExecutorServiceMetrics.Prefix :+ "duration",
-    "Time passed from the moment the task started execution until it has finished execution. Idle time is not considered as part of this timer.",
+    "The duration of a task is running in an instrumented executor. A task is considered running only after it has started execution.",
   )
 }
 object InstrumentedExecutorServiceMetrics {
