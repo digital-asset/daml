@@ -347,17 +347,19 @@ object SBuiltinInterfaceTest {
       getContract: PartialFunction[Value.ContractId, Value.VersionedContractInstance],
       getKey: PartialFunction[GlobalKeyWithMaintainers, Value.ContractId],
   ): Try[Either[SError, SValue]] = {
-    val machine =
-      if (onLedger)
+    if (onLedger) {
+      val machine =
         Speedy.Machine.fromUpdateSExpr(
           compiledBasePkgs,
           transactionSeed = crypto.Hash.hashPrivateKey("SBuiltinTest"),
           updateSE = SELet1(e, SEMakeClo(Array(SELocS(1)), 1, SELocF(0))),
           committers = Set(alice),
         )
-      else
-        Speedy.Machine.fromPureSExpr(compiledBasePkgs, e)
-    Try(SpeedyTestLib.run(machine, getPkg, getContract, getKey))
+      Try(SpeedyTestLib.run(machine, getPkg, getContract, getKey))
+    } else {
+      val machine = Speedy.Machine.fromPureSExpr(compiledBasePkgs, e)
+      Try(SpeedyTestLib.runPure(machine))
+    }
   }
 
 }

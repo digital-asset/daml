@@ -37,6 +37,22 @@ private[speedy] object SpeedyTestLib {
   implicit def loggingContext: LoggingContext = LoggingContext.ForTesting
 
   @throws[SError.SErrorCrash]
+  def runPure(machine: Speedy.Machine[Nothing]): Either[SError.SError, SValue] = {
+    runTxPure(machine) match {
+      case Left(e) => Left(e)
+      case Right(SResultFinal(v)) => Right(v)
+    }
+  }
+
+  @throws[SError.SErrorCrash]
+  def runTxPure(machine: Speedy.Machine[Nothing]): Either[SError.SError, SResultFinal] = {
+    def onQuestion[Q](q: Q) = {
+      sys.error(s"cannot happen: there are no questions in a pure machine: $q")
+    }
+    runTxQ(onQuestion, machine)
+  }
+
+  @throws[SError.SErrorCrash]
   def run(
       machine: Speedy.Machine[Question.Update],
       getPkg: PartialFunction[PackageId, CompiledPackages] = PartialFunction.empty,
@@ -60,40 +76,48 @@ private[speedy] object SpeedyTestLib {
       getKey: PartialFunction[GlobalKeyWithMaintainers, Value.ContractId] = PartialFunction.empty,
       getTime: PartialFunction[Unit, Time.Timestamp] = PartialFunction.empty,
   ): Either[SError.SError, SResultFinal] = {
+
+    def onQuestion(question: Question.Update): Unit = question match {
+      case _: Question.Update.NeedAuthority => ??? // TODO #15882
+      case Question.Update.NeedTime(callback) =>
+        getTime.lift(()) match {
+          case Some(value) =>
+            callback(value)
+          case None =>
+            throw UnexpectedSResultNeedTime
+        }
+      case Question.Update.NeedContract(contractId, _, callback) =>
+        getContract.lift(contractId) match {
+          case Some(value) =>
+            callback(value.unversioned)
+          case None =>
+            throw UnknownContract(contractId)
+        }
+
+      case Question.Update.NeedPackage(pkg, _, callback) =>
+        getPkg.lift(pkg) match {
+          case Some(value) =>
+            callback(value)
+          case None =>
+            throw UnknownPackage(pkg)
+        }
+      case Question.Update.NeedKey(key, _, callback) =>
+        discard(callback(getKey.lift(key)))
+    }
+    runTxQ(onQuestion, machine)
+  }
+
+  @throws[SError.SErrorCrash]
+  def runTxQ[Q](
+      onQuestion: Q => Unit,
+      machine: Speedy.Machine[Q],
+  ): Either[SError.SError, SResultFinal] = {
     @tailrec
     def loop: Either[SError.SError, SResultFinal] = {
       machine.run() match {
         case SResultQuestion(question) =>
-          question match {
-            case _: Question.Update.NeedAuthority => ??? // TODO #15882
-            case Question.Update.NeedTime(callback) =>
-              getTime.lift(()) match {
-                case Some(value) =>
-                  callback(value)
-                  loop
-                case None =>
-                  throw UnexpectedSResultNeedTime
-              }
-            case Question.Update.NeedContract(contractId, _, callback) =>
-              getContract.lift(contractId) match {
-                case Some(value) =>
-                  callback(value.unversioned)
-                  loop
-                case None =>
-                  throw UnknownContract(contractId)
-              }
-            case Question.Update.NeedPackage(pkg, _, callback) =>
-              getPkg.lift(pkg) match {
-                case Some(value) =>
-                  callback(value)
-                  loop
-                case None =>
-                  throw UnknownPackage(pkg)
-              }
-            case Question.Update.NeedKey(key, _, callback) =>
-              discard(callback(getKey.lift(key)))
-              loop
-          }
+          onQuestion(question)
+          loop
         case fv: SResultFinal =>
           Right(fv)
         case SResultInterruption =>
@@ -102,7 +126,6 @@ private[speedy] object SpeedyTestLib {
           Left(err)
       }
     }
-
     loop
   }
 

@@ -580,7 +580,7 @@ object SpeedyTest {
 
   def evalSExpr(e: SExpr, packages: PureCompiledPackages): Either[SError, SValue] = {
     val machine = Speedy.Machine.fromPureSExpr(packages, e)
-    SpeedyTestLib.run(machine)
+    SpeedyTestLib.runPure(machine)
   }
 
   def evalApp(

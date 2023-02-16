@@ -687,7 +687,7 @@ class ComparisonSBuiltinTest extends AnyWordSpec with Matchers with TableDrivenP
         compiledPackages,
         SEApp(sexpr, (parties ++ contractIds).toArray),
       )
-    SpeedyTestLib.run(machine)
+    SpeedyTestLib.runPure(machine)
   }
 
 }
