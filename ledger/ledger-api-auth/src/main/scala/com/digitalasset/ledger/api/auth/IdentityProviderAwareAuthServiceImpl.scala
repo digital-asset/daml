@@ -17,7 +17,6 @@ import scala.concurrent.{ExecutionContext, Future}
 class IdentityProviderAwareAuthServiceImpl(
     identityProviderConfigLoader: IdentityProviderConfigLoader,
     jwtVerifierLoader: JwtVerifierLoader,
-    expectsAudienceBasedTokens: Boolean = false,
 )(implicit
     executionContext: ExecutionContext,
     loggingContext: LoggingContext,
@@ -69,11 +68,27 @@ class IdentityProviderAwareAuthServiceImpl(
             keyId,
           )
           decodedJwt <- verifyToken(token, verifier)
-          payload <- Future(parse(decodedJwt.payload))
+          payload <- Future(
+            parse(decodedJwt.payload, targetAudience = identityProviderConfig.audience)
+          )
+          _ <- checkAudience(payload, identityProviderConfig.audience)
           jwtPayload <- parsePayload(payload)
         } yield toAuthenticatedUser(jwtPayload, identityProviderConfig.identityProviderId)
     }
   }
+
+  private def checkAudience(
+      payload: AuthServiceJWTPayload,
+      targetAudience: Option[String],
+  ): Future[Unit] =
+    (payload, targetAudience) match {
+      case (payload: StandardJWTPayload, Some(audience)) if payload.audiences.contains(audience) =>
+        Future.unit
+      case (_, None) =>
+        Future.unit
+      case _ =>
+        Future.failed(new Exception("Unexpected audience")) // TODO AUD change error
+    }
 
   private def verifyToken(token: String, verifier: JwtVerifier): Future[DecodedJwt[String]] =
     toFuture(verifier.verify(com.daml.jwt.domain.Jwt(token)).toEither)
@@ -91,10 +106,11 @@ class IdentityProviderAwareAuthServiceImpl(
         Future.successful(payload)
     }
 
-  private def parse(jwtPayload: String): AuthServiceJWTPayload = if (expectsAudienceBasedTokens)
-    parseAudienceBasedPayload(jwtPayload)
-  else
-    parseAuthServicePayload(jwtPayload)
+  private def parse(jwtPayload: String, targetAudience: Option[String]): AuthServiceJWTPayload =
+    if (targetAudience.isDefined)
+      parseAudienceBasedPayload(jwtPayload)
+    else
+      parseAuthServicePayload(jwtPayload)
 
   private def parseAuthServicePayload(jwtPayload: String): AuthServiceJWTPayload = {
     import AuthServiceJWTCodec.JsonImplicits._
@@ -114,6 +130,5 @@ class IdentityProviderAwareAuthServiceImpl(
       participantId = payload.participantId,
       userId = payload.userId,
       expiration = payload.exp,
-      payloadAudiences = payload.audiences,
     )
 }

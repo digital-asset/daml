@@ -53,7 +53,6 @@ final class LedgerServices(val ledgerId: String) {
       now = () => Clock.systemUTC().instant(),
       ledgerId = ledgerId,
       participantId = participantId,
-      targetAudience = None,
       userManagementStore = new InMemoryUserManagementStore(),
       ec = executionContext,
       userRightsCheckIntervalInSeconds = 1,

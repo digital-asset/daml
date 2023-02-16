@@ -6,9 +6,6 @@ package com.daml.platform.sandbox.auth
 import com.daml.error.ErrorsAssertions
 import com.daml.ledger.api.auth.{StandardJWTPayload, StandardJWTTokenFormat}
 import com.daml.ledger.api.v1.admin.package_management_service._
-import com.daml.ledger.runner.common.Config
-import com.daml.ledger.sandbox.SandboxOnXForTest.singleParticipant
-import com.daml.platform.config.JwtAudience
 import com.daml.platform.sandbox.auth.AudienceBasedTokenAuthIT.ExpectedAudience
 import com.daml.test.evidence.scalatest.ScalaTestSupport.Implicits._
 
@@ -17,13 +14,8 @@ import java.time.{Duration, Instant}
 import scala.concurrent.Future
 
 class AudienceBasedTokenAuthIT extends ServiceCallAuthTests with ErrorsAssertions {
-  override def config: Config = super.config.copy(
-    participants = singleParticipant(
-      jwtAudience = JwtAudience(enabled = true, audience = Some(ExpectedAudience))
-    )
-  )
 
-  override def expectsAudienceBasedTokens: Boolean = true
+  override def targetAudience: Option[String] = Some(ExpectedAudience)
 
   override def serviceCallName: String = ""
 
@@ -98,7 +90,7 @@ class AudienceBasedTokenAuthIT extends ServiceCallAuthTests with ErrorsAssertion
       "Ledger API client cannot make a call with a JWT with no intended audience"
     )
   ) in {
-    expectPermissionDenied(serviceCall(toContext(noAudienceWithExpectedToken)))
+    expectUnauthenticated(serviceCall(toContext(noAudienceWithExpectedToken)))
   }
 
   it should "deny access with wrong intended audience" taggedAs securityAsset.setAttack(
@@ -106,7 +98,7 @@ class AudienceBasedTokenAuthIT extends ServiceCallAuthTests with ErrorsAssertion
       "Ledger API client cannot make a call with a JWT with wrong intended audience"
     )
   ) in {
-    expectPermissionDenied(serviceCall(toContext(wrongAudienceWithExpectedToken)))
+    expectUnauthenticated(serviceCall(toContext(wrongAudienceWithExpectedToken)))
   }
 
   it should "deny calls with user token for 'unknown_user' without expiration" taggedAs adminSecurityAsset

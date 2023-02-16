@@ -165,7 +165,7 @@ trait AuthMiddlewareFixture
   self: Suite =>
 
   protected def authService: Option[auth.AuthService] = Some(
-    auth.AuthServiceJWT(authVerifier, false)
+    auth.AuthServiceJWT(authVerifier, None)
   )
 
   protected[this] override final def authToken(

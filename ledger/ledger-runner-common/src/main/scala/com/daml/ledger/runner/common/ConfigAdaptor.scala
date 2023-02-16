@@ -42,8 +42,7 @@ class ConfigAdaptor {
 
   def authService(participantConfig: ParticipantConfig): AuthService =
     participantConfig.authentication.create(
-      participantConfig.jwtTimestampLeeway,
-      participantConfig.jwtAudience.enabled,
+      participantConfig.jwtTimestampLeeway
     )
 
   def jwtVerifierLoader(

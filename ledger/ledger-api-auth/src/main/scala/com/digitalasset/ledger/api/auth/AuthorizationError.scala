@@ -34,12 +34,6 @@ object AuthorizationError {
       s"Claims are only valid for participantId '$authorized', actual participantId is '$actual'"
   }
 
-  final case class InvalidTargetAudience(actual: List[String], authorized: String)
-      extends AuthorizationError {
-    override val reason =
-      s"Actual audiences [${actual.mkString(",")}] do not match the expected '$authorized'"
-  }
-
   final case class InvalidApplication(authorized: String, actual: String)
       extends AuthorizationError {
     override val reason =

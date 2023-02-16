@@ -53,12 +53,6 @@ final case class ClaimActAsParty(name: Ref.Party) extends Claim
   */
 final case class ClaimReadAsParty(name: Ref.Party) extends Claim
 
-sealed trait AudienceClaim
-object AudienceClaim {
-  final case object Wildcard extends AudienceClaim
-  final case class AudienceClaims(audiences: List[String] = List.empty) extends AudienceClaim
-}
-
 sealed trait ClaimSet
 
 object ClaimSet {
@@ -89,19 +83,7 @@ object ClaimSet {
       expiration: Option[Instant],
       identityProviderId: IdentityProviderId,
       resolvedFromUser: Boolean,
-      audience: AudienceClaim,
   ) extends ClaimSet {
-
-    def validForTargetAudience(targetAudience: String): Either[AuthorizationError, Unit] =
-      audience match {
-        case AudienceClaim.Wildcard => Right(())
-        case AudienceClaim.AudienceClaims(audienceClaims) =>
-          Either.cond(
-            audienceClaims.contains(targetAudience),
-            (),
-            AuthorizationError.InvalidTargetAudience(audienceClaims, targetAudience),
-          )
-      }
 
     def validForLedger(id: String): Either[AuthorizationError, Unit] =
       Either.cond(ledgerId.forall(_ == id), (), AuthorizationError.InvalidLedger(ledgerId.get, id))
@@ -189,7 +171,6 @@ object ClaimSet {
       userId: String,
       participantId: Option[String],
       expiration: Option[Instant],
-      payloadAudiences: List[String],
   ) extends ClaimSet
 
   object Claims {
@@ -203,15 +184,11 @@ object ClaimSet {
       expiration = None,
       resolvedFromUser = false,
       identityProviderId = IdentityProviderId.Default,
-      audience = AudienceClaim.AudienceClaims(),
     )
 
     /** A set of [[Claims]] that has all possible authorizations */
     val Wildcard: Claims =
-      Empty.copy(
-        claims = List[Claim](ClaimPublic, ClaimAdmin, ClaimActAsAnyParty),
-        audience = AudienceClaim.Wildcard,
-      )
+      Empty.copy(claims = List[Claim](ClaimPublic, ClaimAdmin, ClaimActAsAnyParty))
 
   }
 

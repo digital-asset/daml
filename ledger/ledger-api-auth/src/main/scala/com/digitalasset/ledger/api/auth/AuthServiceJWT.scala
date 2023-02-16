@@ -19,7 +19,7 @@ import scala.util.Try
 /** An AuthService that reads a JWT token from a `Authorization: Bearer` HTTP header.
   * The token is expected to use the format as defined in [[AuthServiceJWTPayload]]:
   */
-class AuthServiceJWT(verifier: JwtVerifierBase, expectsAudienceBasedTokens: Boolean)
+class AuthServiceJWT(verifier: JwtVerifierBase, targetAudience: Option[String])
     extends AuthService {
 
   protected val logger: Logger = LoggerFactory.getLogger(AuthServiceJWT.getClass)
@@ -46,14 +46,25 @@ class AuthServiceJWT(verifier: JwtVerifierBase, expectsAudienceBasedTokens: Bool
 
   private[this] def parsePayload(jwtPayload: String): Either[Error, AuthServiceJWTPayload] = {
     val parsed =
-      if (expectsAudienceBasedTokens)
+      if (targetAudience.isDefined)
         Try(parseAudienceBasedPayload(jwtPayload))
       else
         Try(parseAuthServicePayload(jwtPayload))
 
     parsed.toEither.left
       .map(t => Error(Symbol("parsePayload"), "Could not parse JWT token: " + t.getMessage))
+      .flatMap(checkAudience)
   }
+
+  private def checkAudience(payload: AuthServiceJWTPayload): Either[Error, AuthServiceJWTPayload] =
+    (payload, targetAudience) match {
+      case (payload: StandardJWTPayload, Some(audience)) if payload.audiences.contains(audience) =>
+        Right(payload)
+      case (payload, None) =>
+        Right(payload)
+      case _ =>
+        Left(Error(Symbol("checkAudience"), "Could not check the audience"))
+    }
 
   private[this] def parseAuthServicePayload(jwtPayload: String): AuthServiceJWTPayload = {
     import AuthServiceJWTCodec.JsonImplicits._
@@ -102,7 +113,6 @@ class AuthServiceJWT(verifier: JwtVerifierBase, expectsAudienceBasedTokens: Bool
         expiration = payload.exp,
         resolvedFromUser = false,
         identityProviderId = IdentityProviderId.Default,
-        audience = AudienceClaim.AudienceClaims(),
       )
 
     case payload: StandardJWTPayload =>
@@ -111,7 +121,6 @@ class AuthServiceJWT(verifier: JwtVerifierBase, expectsAudienceBasedTokens: Bool
         participantId = payload.participantId,
         userId = payload.userId,
         expiration = payload.exp,
-        payloadAudiences = payload.audiences,
       )
   }
 }
@@ -119,10 +128,10 @@ class AuthServiceJWT(verifier: JwtVerifierBase, expectsAudienceBasedTokens: Bool
 object AuthServiceJWT {
   def apply(
       verifier: com.auth0.jwt.interfaces.JWTVerifier,
-      expectsAudienceBasedTokens: Boolean,
+      targetAudience: Option[String],
   ): AuthServiceJWT =
-    new AuthServiceJWT(new JwtVerifier(verifier), expectsAudienceBasedTokens)
+    new AuthServiceJWT(new JwtVerifier(verifier), targetAudience)
 
-  def apply(verifier: JwtVerifierBase, expectsAudienceBasedTokens: Boolean): AuthServiceJWT =
-    new AuthServiceJWT(verifier, expectsAudienceBasedTokens)
+  def apply(verifier: JwtVerifierBase, targetAudience: Option[String]): AuthServiceJWT =
+    new AuthServiceJWT(verifier, targetAudience)
 }

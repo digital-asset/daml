@@ -105,12 +105,12 @@ trait SandboxRequiringAuthorizationFuns {
 trait SandboxRequiringAuthorization extends SandboxRequiringAuthorizationFuns {
   self: Suite with AbstractSandboxFixture =>
 
-  def expectsAudienceBasedTokens: Boolean = false
+  def targetAudience: Option[String] = None
 
   override protected def authService: Option[AuthService] = {
     val jwtVerifier =
       HMAC256Verifier(self.jwtSecret).getOrElse(sys.error("Failed to create HMAC256 verifier"))
-    Some(AuthServiceJWT(jwtVerifier, expectsAudienceBasedTokens))
+    Some(AuthServiceJWT(jwtVerifier, targetAudience))
   }
 
   override protected def idpJwtVerifierLoader: Option[JwtVerifierLoader] =

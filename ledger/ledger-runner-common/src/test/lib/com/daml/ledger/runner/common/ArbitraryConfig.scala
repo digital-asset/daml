@@ -15,7 +15,7 @@ import com.daml.lf.data.Ref
 import com.daml.platform.apiserver.{ApiServerConfig, AuthServiceConfig}
 import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.apiserver.configuration.RateLimitingConfig
-import com.daml.platform.config.{JwtAudience, MetricsConfig, ParticipantConfig}
+import com.daml.platform.config.{MetricsConfig, ParticipantConfig}
 import com.daml.platform.config.MetricsConfig.MetricRegistryType
 import com.daml.platform.configuration.{
   AcsStreamsConfig,
@@ -44,11 +44,6 @@ import java.time.temporal.ChronoUnit
 import com.daml.metrics.api.reporters.MetricsReporter
 
 object ArbitraryConfig {
-  val jwtAudience: Gen[JwtAudience] = for {
-    enabled <- Gen.oneOf(true, false)
-    str <- Gen.option(Gen.alphaNumStr)
-  } yield JwtAudience(enabled, str)
-
   val duration: Gen[Duration] = for {
     value <- Gen.chooseNum(0, Int.MaxValue)
     unit <- Gen.oneOf(
@@ -212,23 +207,28 @@ object ArbitraryConfig {
 
   val UnsafeJwtHmac256 = for {
     secret <- Gen.alphaStr
-  } yield AuthServiceConfig.UnsafeJwtHmac256(secret)
+    aud <- Gen.option(Gen.alphaStr)
+  } yield AuthServiceConfig.UnsafeJwtHmac256(secret, aud)
 
   val JwtRs256Crt = for {
     certificate <- Gen.alphaStr
-  } yield AuthServiceConfig.JwtRs256(certificate)
+    aud <- Gen.option(Gen.alphaStr)
+  } yield AuthServiceConfig.JwtRs256(certificate, aud)
 
   val JwtEs256Crt = for {
     certificate <- Gen.alphaStr
-  } yield AuthServiceConfig.JwtEs256(certificate)
+    aud <- Gen.option(Gen.alphaStr)
+  } yield AuthServiceConfig.JwtEs256(certificate, aud)
 
   val JwtEs512Crt = for {
     certificate <- Gen.alphaStr
-  } yield AuthServiceConfig.JwtEs512(certificate)
+    aud <- Gen.option(Gen.alphaStr)
+  } yield AuthServiceConfig.JwtEs512(certificate, aud)
 
   val JwtRs256Jwks = for {
     url <- Gen.alphaStr
-  } yield AuthServiceConfig.JwtRs256Jwks(url)
+    aud <- Gen.option(Gen.alphaStr)
+  } yield AuthServiceConfig.JwtRs256Jwks(url, aud)
 
   val authServiceConfig = Gen.oneOf(
     Gen.const(AuthServiceConfig.Wildcard),

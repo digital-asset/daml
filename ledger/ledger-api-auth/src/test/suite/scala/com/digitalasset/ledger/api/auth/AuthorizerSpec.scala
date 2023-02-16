@@ -73,7 +73,6 @@ class AuthorizerSpec
     () => Instant.ofEpochSecond(1337L),
     "some-ledger-id",
     "participant-id",
-    None,
     mock[UserManagementStore],
     mock[ExecutionContext],
     userRightsCheckIntervalInSeconds = 1,

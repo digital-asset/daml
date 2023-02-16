@@ -35,6 +35,7 @@ private[backend] trait StorageBackendTestsUserManagement
     isDeactivated = false,
     jwksUrl = JwksUrl("http//identityprovider.domain/"),
     issuer = "issuer",
+    audience = Some("audience"),
   )
 
   private def tested = backend.userManagement

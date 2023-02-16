@@ -89,13 +89,7 @@ final class AuthorizationInterceptor(
 
   private[this] def resolveAuthenticatedUserRights(claimSet: ClaimSet): Future[ClaimSet] =
     claimSet match {
-      case ClaimSet.AuthenticatedUser(
-            identityProviderId,
-            userIdStr,
-            participantId,
-            expiration,
-            payloadAudiences,
-          ) =>
+      case ClaimSet.AuthenticatedUser(identityProviderId, userIdStr, participantId, expiration) =>
         for {
           userManagementStore <- getUserManagementStore(userManagementStoreO)
           userId <- getUserId(userIdStr)
@@ -124,7 +118,6 @@ final class AuthorizationInterceptor(
                   expiration = expiration,
                   resolvedFromUser = true,
                   identityProviderId = identityProviderId,
-                  audience = AudienceClaim.AudienceClaims(payloadAudiences),
                 )
               )
           }

@@ -16,7 +16,6 @@ final case class ParticipantConfig(
     apiServer: ApiServerConfig = ApiServerConfig(),
     authentication: AuthServiceConfig = AuthServiceConfig.Wildcard,
     jwtTimestampLeeway: Option[JwtTimestampLeeway] = None,
-    jwtAudience: JwtAudience = ParticipantConfig.DefaultJwtAudience,
     dataSourceProperties: DataSourceProperties = DataSourceProperties(
       connectionPool = ConnectionPoolConfig(
         connectionPoolSize = 16,
@@ -34,5 +33,4 @@ object ParticipantConfig {
     s"jdbc:h2:mem:$participantId;db_close_delay=-1;db_close_on_exit=false"
   val DefaultParticipantId: Ref.ParticipantId = Ref.ParticipantId.assertFromString("default")
   val DefaultServicesThreadPoolSize: Int = Runtime.getRuntime.availableProcessors()
-  val DefaultJwtAudience: JwtAudience = JwtAudience(false, None)
 }

@@ -107,7 +107,7 @@ trait JsonApiFixture
       ApiServerConfig.copy(
         timeProviderType = TimeProviderType.WallClock
       ),
-      authentication = UnsafeJwtHmac256(secret),
+      authentication = UnsafeJwtHmac256(secret, None),
     ),
   )
   def httpPort: Int = suiteResource.value._3.localAddress.getPort
