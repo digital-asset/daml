@@ -5,6 +5,7 @@
 
 module InterfaceGuarded where
 
+import Daml.Script
 import DA.Exception (GeneralError (..), throwPure)
 
 data EmptyInterfaceView = EmptyInterfaceView {}
@@ -61,8 +62,8 @@ exception GuardException
     where
         message m
 
-main = scenario do
-  p <- getParty "Alice"
+main = script do
+  p <- allocateParty "Alice"
   let
     assetAsTokenTpl =
       toInterface @Token $
@@ -111,5 +112,3 @@ main = scenario do
         pure $ toInterfaceContractId @Token assetAsToken
 
   pure ()
-
--- @ENABLE-SCENARIOS

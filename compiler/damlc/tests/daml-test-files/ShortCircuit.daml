@@ -6,12 +6,11 @@
 
 module ShortCircuit where
 
+import Daml.Script
 import DA.Action
 
-main = scenario do
+main = script do
   assert $ (True || error "disj")
   assert $ not (False && error "conj")
   when False (error "when")
   unless True (error "unless")
-
--- @ENABLE-SCENARIOS

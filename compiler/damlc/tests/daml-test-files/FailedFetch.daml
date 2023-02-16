@@ -1,6 +1,8 @@
 -- @ERROR range= 21:1-21:20; Attempt to fetch or exercise a contract not visible to the reading parties.
 module FailedFetch where
 
+import Daml.Script
+
 template T
   with
     p: Party
@@ -18,11 +20,9 @@ template Helper
       controller p
       do fetch @T id
 
-fetchNonStakeholder = scenario do
-  alice <- getParty "Alice"
-  bob <- getParty "Bob"
+fetchNonStakeholder = script do
+  alice <- allocateParty "Alice"
+  bob <- allocateParty "Bob"
   secret <- submit alice (create (T alice))
   submit bob (createAndExercise (Helper bob) (Fetch secret))
   return ()
-
--- @ENABLE-SCENARIOS

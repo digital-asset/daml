@@ -4,10 +4,10 @@
 
 module GetParty where
 
-main = scenario do
-    alice <- getParty "alice"
-    alice' <- getParty "alice"
-    bob <- getParty "bob"
-    assert $ alice == alice' && alice /= bob
+import Daml.Script
 
--- @ENABLE-SCENARIOS
+main = script do
+    alice <- allocateParty "alice"
+    alice' <- allocateParty "alice"
+    bob <- allocateParty "bob"
+    assert $ alice == alice' && alice /= bob

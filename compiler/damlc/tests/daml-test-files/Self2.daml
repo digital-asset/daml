@@ -4,6 +4,7 @@
 
 module Self2 where
 
+import Daml.Script
 import DA.Assert
 
 template Self2
@@ -24,8 +25,8 @@ template Self2
       controller p
       do exercise self Bar
 
-main = scenario do
-  alice <- getParty "Alice"
+main = script do
+  alice <- allocateParty "Alice"
 
   submitMustFail alice do
     cid <- create $ Self2 alice
@@ -35,5 +36,3 @@ main = scenario do
     cid <- create $ Self2 alice
     exercise cid Foo
   r === "ok"
-
--- @ENABLE-SCENARIOS

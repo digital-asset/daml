@@ -5,6 +5,8 @@
 -- A simple example, deliberately encoding in CRLF format
 module Simple where
 
+import Daml.Script
+
 template Person
   with
     person : Party
@@ -20,11 +22,9 @@ template Person
       controller person
       do return i
 
-main = scenario do
-    alice <- getParty "alice"
+main = script do
+    alice <- allocateParty "alice"
     submit alice do
         person <- create $ Person alice "Alice Liddel"
         exercise person $ Nap 10
         exercise person Sleep
-
--- @ENABLE-SCENARIOS

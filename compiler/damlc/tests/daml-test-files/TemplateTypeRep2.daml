@@ -4,11 +4,11 @@
 -- @SINCE-LF 1.7
 module TemplateTypeRep2 where
 
+import Daml.Script
+
 template T1
   with
     x : Int
     p : Party
   where
     signatory p
-
--- @ENABLE-SCENARIOS

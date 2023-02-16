@@ -8,6 +8,8 @@
 -- through a T2 contract id, via interface choices.
 module InterfaceTypeRepCheck where
 
+import Daml.Script
+
 data EmptyInterfaceView = EmptyInterfaceView {}
 
 interface I where
@@ -38,11 +40,9 @@ template T2
       view = EmptyInterfaceView
       getOwner = owner2
 
-main = scenario do
-    p <- getParty "Alice"
+main = script do
+    p <- allocateParty "Alice"
     submit p do
         cidT1 <- create (T1 p)
         let cidT2 = coerceContractId @T1 @T2 cidT1
         exercise cidT2 T2Choice
-
--- @ENABLE-SCENARIOS

@@ -5,8 +5,8 @@
 
 module GetPartyError where
 
-main = scenario do
-    _ <- getParty "#party"
-    pure ()
+import Daml.Script
 
--- @ENABLE-SCENARIOS
+main = script do
+    _ <- allocateParty "#party"
+    pure ()

@@ -8,10 +8,10 @@
 
 module PatError where
 
+import Daml.Script
+
 f x = case x of
   2 -> pure ()
 
-main = scenario do
+main = script do
   f 1
-
--- @ENABLE-SCENARIOS

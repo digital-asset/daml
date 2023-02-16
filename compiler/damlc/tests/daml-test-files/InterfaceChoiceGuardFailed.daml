@@ -3,6 +3,8 @@
 
 module InterfaceChoiceGuardFailed where
 
+import Daml.Script
+
 -- @SINCE-LF-FEATURE DAML_INTERFACE_EXTENDED
 data EmptyInterfaceView = EmptyInterfaceView {}
 
@@ -22,10 +24,9 @@ template T
       view = EmptyInterfaceView
       getController = party
 
--- @ENABLE-SCENARIOS
 -- @ERROR range=27:1-27:5; Attempt to exercise a choice with a failing guard
-main = do
-  alice <- getParty "alice"
+main = script do
+  alice <- allocateParty "alice"
   cidT <- alice `submit` create T with party = alice
   let cidI = toInterfaceContractId @I cidT
   alice `submit` exerciseGuarded (const False) cidI IChoice

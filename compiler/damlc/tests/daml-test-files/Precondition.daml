@@ -5,6 +5,7 @@
 
 module Precondition where
 
+import Daml.Script
 import DA.List
 
 template Confirmation with
@@ -19,11 +20,9 @@ template Confirmation with
       controller head pending
       do create this with pending = tail pending
 
-test = scenario do
-  alice <- getParty "Alice"
+test = script do
+  alice <- allocateParty "Alice"
   submit alice do
     create Confirmation with
       confirmed = [alice]
       pending = []
-
--- @ENABLE-SCENARIOS

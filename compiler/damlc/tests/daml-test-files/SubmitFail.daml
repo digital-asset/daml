@@ -1,18 +1,18 @@
 -- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
 -- All rights reserved.
 
--- Check that the submitted update is only evaluated when the scenario
+-- Check that the submitted update is only evaluated when the script
 -- is evaluated.
 
 module SubmitFail where
 
-main = scenario do
-  alice <- getParty "Alice"
+import Daml.Script
+
+main = script do
+  alice <- allocateParty "Alice"
 
   let _ = submit alice (error "submit-error" : Update ())
   let _ = submit alice (pure (error "submit-pure-error") : Update ())
 
   submitMustFail alice (error "fail-error" : Update ())
   submitMustFail alice (pure (error "fail-pure-error": ()))
-
--- @ENABLE-SCENARIOS

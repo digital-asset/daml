@@ -5,6 +5,8 @@
 
 module DisjunctionChoices where
 
+import Daml.Script
+
 template FeatureAssignment with
     employee: Party
     sponsor: Party
@@ -33,9 +35,9 @@ template FeatureSuggestion with
       do pure ()
 
 
-test = scenario do
-    drWho <- getParty "Dr Who"
-    founders@[eric, shaul, yuval] <- mapA getParty ["Eric", "Shaul", "Yuval"]
+test = script do
+    drWho <- allocateParty "Dr Who"
+    founders@[eric, shaul, yuval] <- mapA allocateParty ["Eric", "Shaul", "Yuval"]
 
     suggestion <- submit drWho do
         create FeatureSuggestion with
@@ -55,5 +57,3 @@ test = scenario do
 
     submit eric do
         exercise suggestion AcceptFeature with sponsor = eric
-
--- @ENABLE-SCENARIOS

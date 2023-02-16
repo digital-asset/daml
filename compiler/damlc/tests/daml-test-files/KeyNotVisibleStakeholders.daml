@@ -7,9 +7,11 @@
 -- @ERROR failed due to a missing authorization from 's'
 
 -- We make this a separate test since it’s annoying to assert
--- which scenario an error message belongs to
+-- which script an error message belongs to
 -- and here we sidestep this by having the same error for all tests.
 module KeyNotVisibleStakeholders where
+
+import Daml.Script
 
 template Keyed
   with
@@ -54,9 +56,9 @@ template Delegation
       do
         lookupByKey sig
 
-divulgeeFetch = scenario do
-  sig <- getParty "s" -- Signatory
-  divulgee <- getParty "d" -- Divulgee
+divulgeeFetch = script do
+  sig <- allocateParty "s" -- Signatory
+  divulgee <- allocateParty "d" -- Divulgee
   keyedCid <- submit sig do create Keyed with ..
   divulgercid <- submit divulgee do create Divulger with ..
   submit sig do exercise divulgercid DivulgeKeyed with ..
@@ -64,9 +66,9 @@ divulgeeFetch = scenario do
     _ <- createAndExercise (Delegation sig divulgee) FetchKeyed
     pure ()
 
-divulgeeLookup = scenario do
-  sig <- getParty "s" -- Signatory
-  divulgee <- getParty "d" -- Divulgee
+divulgeeLookup = script do
+  sig <- allocateParty "s" -- Signatory
+  divulgee <- allocateParty "d" -- Divulgee
   keyedCid <- submit sig do create Keyed with ..
   divulgercid <- submit divulgee do create Divulger with ..
   submit sig do exercise divulgercid DivulgeKeyed with ..
@@ -74,10 +76,10 @@ divulgeeLookup = scenario do
     _ <- createAndExercise (Delegation sig divulgee) LookupKeyed
     pure ()
 
-blindFetch = scenario do
-  sig <- getParty "s" -- Signatory
-  divulgee <- getParty "d" -- Divulgee
-  blind <- getParty "b" -- Blind
+blindFetch = script do
+  sig <- allocateParty "s" -- Signatory
+  divulgee <- allocateParty "d" -- Divulgee
+  blind <- allocateParty "b" -- Blind
   keyedCid <- submit sig do create Keyed with ..
   divulgercid <- submit divulgee do create Divulger with ..
   submit sig do exercise divulgercid DivulgeKeyed with ..
@@ -85,15 +87,13 @@ blindFetch = scenario do
     _ <- createAndExercise (Delegation sig blind) FetchKeyed
     pure ()
 
-blindLookup = scenario do
-  sig <- getParty "s" -- Signatory
-  divulgee <- getParty "d" -- Divulgee
-  blind <- getParty "b" -- Blind
+blindLookup = script do
+  sig <- allocateParty "s" -- Signatory
+  divulgee <- allocateParty "d" -- Divulgee
+  blind <- allocateParty "b" -- Blind
   keyedCid <- submit sig do create Keyed with ..
   divulgercid <- submit divulgee do create Divulger with ..
   submit sig do exercise divulgercid DivulgeKeyed with ..
   submit blind do
     _ <- createAndExercise (Delegation sig blind) LookupKeyed
     pure ()
-
--- @ENABLE-SCENARIOS

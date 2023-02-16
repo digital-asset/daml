@@ -3,6 +3,8 @@
 -- @ERROR range=26:1-26:18; Attempt to fetch, lookup or exercise a contract key with an empty set of maintainers
 module EmptyContractKeyMaintainers where
 
+import Daml.Script
+
 template NoMaintainer
   with
     sig: Party
@@ -11,22 +13,20 @@ template NoMaintainer
     key sig : Party
     maintainer [] @Party
 
-createNoMaintainer = scenario do
-  alice <- getParty "Alice"
+createNoMaintainer = script do
+  alice <- allocateParty "Alice"
 
   submit alice $ create NoMaintainer with sig = alice
   pure ()
 
-lookupNoMaintainer = scenario do
-  alice <- getParty "Alice"
+lookupNoMaintainer = script do
+  alice <- allocateParty "Alice"
 
   submit alice $ lookupByKey @NoMaintainer alice
   pure ()
 
-fetchNoMaintainer = scenario do
-  alice <- getParty "Alice"
+fetchNoMaintainer = script do
+  alice <- allocateParty "Alice"
 
   submit alice $ fetchByKey @NoMaintainer alice
   pure ()
-
--- @ENABLE-SCENARIOS

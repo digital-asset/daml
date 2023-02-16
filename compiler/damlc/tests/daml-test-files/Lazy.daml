@@ -6,10 +6,10 @@
 
 module Lazy where
 
-main = scenario do
+import Daml.Script
+
+main = script do
   lazy (error "Hello World!")
 
-lazy : a -> Scenario ()
+lazy : a -> Script ()
 lazy _ = return ()
-
--- @ENABLE-SCENARIOS

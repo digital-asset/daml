@@ -8,6 +8,7 @@
 -- This is the "sugared" counterpart to ExceptionDesugared.
 module ExceptionSyntax where
 
+import Daml.Script
 import DA.Exception (throw)
 import DA.Assert ((===))
 
@@ -17,8 +18,8 @@ exception MyException
     where
         message m
 
-tryCatchExample = scenario do
-    p <- getParty "Alice"
+tryCatchExample = script do
+    p <- allocateParty "Alice"
     x <- submit p do
         try do
             throw (MyException "ok")
@@ -26,5 +27,3 @@ tryCatchExample = scenario do
         catch
             MyException m -> pure m
     x === "ok"
-
--- @ENABLE-SCENARIOS

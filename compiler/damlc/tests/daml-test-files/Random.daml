@@ -4,12 +4,13 @@
 
 module Random where
 
+import Daml.Script
 import DA.Random
 
 d6 = fmap (+1) . minstd_rand 6
 
-main = scenario do
-  p <- getParty "p"
+main = script do
+  p <- allocateParty "p"
 
   submit p do
     rs <- minstd_initFromTime
@@ -19,5 +20,3 @@ main = scenario do
 
     let s = s1 + s2 + s3
     assert $ s >= 3 && s <= 18
-
--- @ENABLE-SCENARIOS

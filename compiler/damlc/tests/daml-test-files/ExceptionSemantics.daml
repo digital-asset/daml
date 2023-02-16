@@ -8,6 +8,7 @@
 -- @ERROR range=183:1-183:11; Attempt to exercise a consumed contract
 module ExceptionSemantics where
 
+import Daml.Script
 import DA.Exception
 import DA.Assert ((===))
 
@@ -123,38 +124,38 @@ template Fetcher
          catch
            E -> pure ()
 
-uncaughtUserException = scenario do
-  p <- getParty "p"
+uncaughtUserException = script do
+  p <- allocateParty "p"
   _ <- submitMustFail p $ createAndExercise (T p) Throw
   pure ()
 
-unhandledUserException = scenario do
-  p <- getParty "p"
+unhandledUserException = script do
+  p <- allocateParty "p"
   _ <- submit p $ createAndExercise (T p) Throw
   pure ()
 
-handledUserException = scenario do
-  p <- getParty "p"
+handledUserException = script do
+  p <- allocateParty "p"
   _ <- submit p $ createAndExercise (T p) Catch
   pure ()
 
-uncaughtArithmeticError = scenario do
-  p <- getParty "p"
+uncaughtArithmeticError = script do
+  p <- allocateParty "p"
   _ <- submitMustFail p $ createAndExercise (T p) ThrowArithmeticError
   pure ()
 
-unhandledArithmeticError = scenario do
-  p <- getParty "p"
+unhandledArithmeticError = script do
+  p <- allocateParty "p"
   _ <- submit p $ createAndExercise (T p) ThrowArithmeticError
   pure ()
 
-handledArithmeticError = scenario do
-  p <- getParty "p"
+handledArithmeticError = script do
+  p <- allocateParty "p"
   r <- submit p $ createAndExercise (T p) CatchArithmeticError
   r === 42
 
-duplicateKey = scenario do
-  p <- getParty "p"
+duplicateKey = script do
+  p <- allocateParty "p"
   -- transient duplicate key in rollback
   submitMustFail p $ createAndExercise (T p) (TransientDuplicate 0)
   submit p $ create (K p 1)
@@ -164,14 +165,14 @@ duplicateKey = scenario do
   submit p $ createAndExercise (T p) (RollbackKey 2)
   pure ()
 
-rollbackArchive = scenario do
-  p <- getParty "p"
+rollbackArchive = script do
+  p <- allocateParty "p"
   submit p $ createAndExercise (T p) (RollbackArchive 0)
   submitMustFail p $ createAndExercise (T p) (NonRollbackArchive 0)
 
-divulgence = scenario do
-  p1 <- getParty "p1"
-  p2 <- getParty "p2"
+divulgence = script do
+  p1 <- allocateParty "p1"
+  p2 <- allocateParty "p2"
   cid <- submit p1 $ create (K p1 0)
   divulger <- submit p2 $ create (Fetcher p2 p1)
   fetcher <- submit p1 $ create (Fetcher p1 p2)
@@ -180,13 +181,11 @@ divulgence = scenario do
   submit p2 $ exercise fetcher (Fetch cid)
   pure ()
 
-tryContext = scenario do
-  p <- getParty "p"
+tryContext = script do
+  p <- allocateParty "p"
   kCid <- submit p $ create (K p 0)
   submit p $ archive kCid
   c <- submit p $ create (T p)
   -- This will result in a partial transaction with ptx.context.info
   -- pointing to a TryContextInfo.
   submit p $ exercise c (UncatchableTry kCid)
-
--- @ENABLE-SCENARIOS

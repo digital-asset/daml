@@ -2,9 +2,9 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 -- @SINCE-LF-FEATURE DAML_INTERFACE
--- @ENABLE-SCENARIOS
-
 module InterfaceSyntax where
+
+import Daml.Script
 
 data EmptyInterfaceView = EmptyInterfaceView {}
 

@@ -11,9 +11,11 @@
 
 module PartyCompare where
 
-test = scenario do
-  alice <- getParty "Alice"
-  bob <- getParty "Bob"
+import Daml.Script
+
+test = script do
+  alice <- allocateParty "Alice"
+  bob <- allocateParty "Bob"
   assert $ alice < bob
   assert $ not (alice < alice)
   assert $ not (bob < alice)
@@ -26,5 +28,3 @@ test = scenario do
   assert $ bob > alice
   assert $ not (alice > bob)
   assert $ not (bob > bob)
-
--- @ENABLE-SCENARIOS

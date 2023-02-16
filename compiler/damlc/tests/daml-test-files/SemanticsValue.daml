@@ -11,7 +11,7 @@
 -- * term lambdas
 -- * type lambdas where the parameter has kind 'nat'
 -- * updates with 'bind' or 'embed_expr'
--- * scenarios with 'sbind' or 'sembed_expr'
+-- * scripts with 'sbind' or 'sembed_expr'
 --
 -- Where we can, we test this from Daml by using values with
 -- embedded error expressions. The value should evaluate without
@@ -24,26 +24,26 @@
 -- ValExpTyAbsNat case.
 module SemanticsValue where
 
-main = scenario do
+import Daml.Script
+
+main = script do
     let _ : Int -> Int = (\ (x : Int) -> error "ValExpAbs")
     -- ValExpTyAbsNat is tested in SemanticsValueSince17
     let _ : Update Int = do
         _ <- pure ()
         error "ValUpdateBind"
-    p <- getParty "Alice"
-    let _ : Scenario Int = submit p do
+    p <- allocateParty "Alice"
+    let _ : Script Int = submit p do
         error "ValUpdateEmbedExpr (1)"
-    let _ : Scenario () = submitMustFail p do
+    let _ : Script () = submitMustFail p do
         error "ValUpdateEmbedExpr (2)"
         -- ^ damlc uses 'embed_expr' when compiling a submit
         -- or a submitMustFail ... however, this may interact
         -- with the semantics of 'commit', so we should also
         -- implement a more direct test in the LF interpreter.
-    let _ : Scenario () = do
+    let _ : Script () = do
         _ <- pure ()
         error "ValScenarioBind"
     -- cannot test ValScenarioEmbedExpr from Daml, since
     -- the compiler does not generate it.
     pure ()
-
--- @ENABLE-SCENARIOS

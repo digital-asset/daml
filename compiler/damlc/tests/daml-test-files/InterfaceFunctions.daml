@@ -5,6 +5,7 @@
 -- | Check that `create`, `signatory`, `observer`, `interfaceTypeRep` work as expected on interface payloads.
 module InterfaceFunctions where
 
+import Daml.Script
 import DA.Assert ((===))
 
 data EmptyInterfaceView = EmptyInterfaceView {}
@@ -25,9 +26,9 @@ template Asset
       view = EmptyInterfaceView
       getAmount = amount
 
-main = scenario do
-    alice <- getParty "Alice"
-    bob <- getParty "Bob"
+main = script do
+    alice <- allocateParty "Alice"
+    bob <- allocateParty "Bob"
     let asset = Asset alice bob 15
     let token = toInterface @Token asset
     fromInterface token === Some asset
@@ -41,5 +42,3 @@ main = scenario do
       observer token === [bob, alice]
       assert (interfaceTypeRep token == templateTypeRep @Asset)
       assert (interfaceTypeRep token /= templateTypeRep @Token)
-
--- @ENABLE-SCENARIOS

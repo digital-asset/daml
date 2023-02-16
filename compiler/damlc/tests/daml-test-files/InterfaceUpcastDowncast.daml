@@ -6,6 +6,7 @@
 -- | Try out some upcasts and downcasts, checking that everything works.
 module InterfaceUpcastDowncast where
 
+import Daml.Script
 import DA.Assert ((===))
 import DA.Optional (isNone)
 import DA.Functor (void)
@@ -47,8 +48,8 @@ template T2
       view = EmptyInterfaceView
       getOwner = p2
 
-main = scenario do
-    p <- getParty "Alice"
+main = script do
+    p <- allocateParty "Alice"
     submit p do
         let t1 = T1 p
         let t2 = T2 p
@@ -98,5 +99,3 @@ main = scenario do
     submit p do useAction $ \_bcid -> pure ()
     submitMustFail p do useAction $ \bcid -> void (fetch bcid)
     submitMustFail p do useAction $ \bcid -> void (exercise bcid ChoiceB)
-
--- @ENABLE-SCENARIOS

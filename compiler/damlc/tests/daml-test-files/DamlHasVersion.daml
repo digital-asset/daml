@@ -12,9 +12,7 @@ template T
   where
     signatory p
 
-main : Scenario ()
-main = do
-  p <- getParty "p"
+main : Script ()
+main = script do
+  p <- allocateParty "p"
   void (submit p $ create T with p)
-
--- @ENABLE-SCENARIOS

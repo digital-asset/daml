@@ -8,13 +8,12 @@
 -- @WARN range=18:13-18:17; Just
 
 module MaybeCompat where
+import Daml.Script
 import DA.Assert
 import DA.Maybe
 
 type Foo = Maybe Int
 
-main = scenario do
+main = script do
   maybe 0 identity Nothing === 0
   fromJust (Just 1) === 1
-
--- @ENABLE-SCENARIOS

@@ -4,6 +4,8 @@
 
 module Divulgence where
 
+import Daml.Script
+
 template Secret
   with
     p : Party
@@ -46,9 +48,9 @@ template DisclosureDelegation
 
 -- @WARN range=84:3-85:20; Use of divulged contracts is deprecated
 -- @WARN range=88:3-89:46; Use of divulged contracts is deprecated
-main = scenario do
-  me <- getParty "Me"
-  spy <- getParty "Spy"
+main = script do
+  me <- allocateParty "Me"
+  spy <- allocateParty "Spy"
   secretCid <- submit me do
     create Secret with
            p = me
@@ -90,5 +92,3 @@ main = scenario do
 
 
 
-
--- @ENABLE-SCENARIOS

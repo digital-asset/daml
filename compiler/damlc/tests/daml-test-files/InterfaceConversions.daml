@@ -6,6 +6,7 @@
 -- | Test interface conversion functions specifically.
 module InterfaceConversions where
 
+import Daml.Script
 import DA.Assert ((===))
 import DA.Functor (void)
 
@@ -45,8 +46,8 @@ template Template2
             view = EmptyInterfaceView
             getOwner = owner2
 
-main = scenario do
-    p <- getParty "Alice"
+main = script do
+    p <- allocateParty "Alice"
     let template1 = Template1 p 10
         template2 = Template2 p "Hi"
         iface1 = toInterface @Iface template1
@@ -98,5 +99,3 @@ main = scenario do
     submitMustFail p do useAction $ \cid -> exercise cid MyChoice2
     submitMustFail p do useAction $ \cid -> void (fetch cid)
     submitMustFail p do useAction $ \cid -> archive cid
-
--- @ENABLE-SCENARIOS

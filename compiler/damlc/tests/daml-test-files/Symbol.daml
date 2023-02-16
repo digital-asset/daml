@@ -5,14 +5,14 @@
 
 module Symbol where
 
+import Daml.Script
+
 template Symbol with
     p : Party
   where
     signatory p
 
-test = scenario do
-  alice <- getParty "Alice"
+test = script do
+  alice <- allocateParty "Alice"
   submit alice do
     create Symbol with p = alice
-
--- @ENABLE-SCENARIOS

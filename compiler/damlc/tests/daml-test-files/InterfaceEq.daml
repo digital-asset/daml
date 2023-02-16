@@ -2,9 +2,9 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 -- @SINCE-LF-FEATURE DAML_INTERFACE
--- @ENABLE-SCENARIOS
-
 module InterfaceEq where
+
+import Daml.Script
 
 data EmptyInterfaceView = EmptyInterfaceView {}
 
@@ -29,9 +29,9 @@ template U
     interface instance I for U where
       view = EmptyInterfaceView
 
-main = scenario do
+main = script do
 
-  p <- getParty "p"
+  p <- allocateParty "p"
 
   -- Test Eq
   assertMsg "tpl x == tpl y && cts x == cts y ==> I x == I y" $

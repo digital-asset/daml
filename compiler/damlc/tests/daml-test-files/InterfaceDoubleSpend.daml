@@ -8,6 +8,8 @@
 -- @SINCE-LF-FEATURE DAML_INTERFACE
 module InterfaceDoubleSpend where
 
+import Daml.Script
+
 -- | An interface comment.
 data EmptyInterfaceView = EmptyInterfaceView {}
 
@@ -43,10 +45,10 @@ template Asset
         cid <- create this with owner = newOwner
         pure (toInterfaceContractId @Token cid)
 
-main = scenario do
-  alice <- getParty "Alice"
-  bob <- getParty "Bob"
-  charlie <- getParty "Charlie"
+main = script do
+  alice <- allocateParty "Alice"
+  bob <- allocateParty "Bob"
+  charlie <- allocateParty "Charlie"
   cidAsset1 <- alice `submit` do
     create Asset with
       issuer = alice
@@ -57,5 +59,3 @@ main = scenario do
     _ <- exercise (toInterfaceContractId @Token cidAsset1) (Transfer charlie)
     pure ()
   pure ()
-
--- @ENABLE-SCENARIOS

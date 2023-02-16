@@ -10,13 +10,12 @@
 
 module UseInteger where
 
+import Daml.Script
 import DA.Assert
 
 foo = 1
 bar = 9223372036854775807 -- maxBound :: Int64 (*)
 
-main = scenario do
+main = script do
   foo === 1
   0 - foo - bar === 0 - 2^62 - 2^62 -- minBound :: Int64
-
--- @ENABLE-SCENARIOS

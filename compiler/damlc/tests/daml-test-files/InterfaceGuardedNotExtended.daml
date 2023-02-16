@@ -7,6 +7,7 @@
 
 module InterfaceGuardedNotExtended where
 
+import Daml.Script
 import DA.Exception (GeneralError (..), throwPure)
 
 data EmptyInterfaceView = EmptyInterfaceView {}
@@ -58,8 +59,8 @@ exception GuardException
     where
         message m
 
-main = scenario do
-  p <- getParty "Alice"
+main = script do
+  p <- allocateParty "Alice"
   let
     assetTpl = Asset with
       issuer = p
@@ -113,5 +114,3 @@ main = scenario do
     exerciseGetRich (const True) anotherAsset
 
   pure ()
-
--- @ENABLE-SCENARIOS

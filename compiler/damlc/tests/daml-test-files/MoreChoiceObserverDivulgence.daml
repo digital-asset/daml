@@ -3,6 +3,7 @@
 
 module MoreChoiceObserverDivulgence where
 
+import Daml.Script
 import DA.Assert
 
 -- @SINCE-LF 1.11
@@ -33,10 +34,10 @@ template Divulger with
         pure ()
 
 -- @WARN range=49:15-49:67; Use of divulged contracts is deprecated
-test : Scenario ()
-test = scenario do
-    alice <- getParty "Alice"
-    bob <- getParty "Bob"
+test : Script ()
+test = script do
+    alice <- allocateParty "Alice"
+    bob <- allocateParty "Bob"
     -- (1) Alice creates a secret
     id <- submit alice do create Secret with owner = alice; text = "s3cr3t"
     -- (2) Bob cannot see the secret
@@ -49,5 +50,3 @@ test = scenario do
     secret <- submit bob do exercise id Reveal with receiver = bob
     secret === "s3cr3t"
     pure ()
-
--- @ENABLE-SCENARIOS
