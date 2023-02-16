@@ -91,11 +91,9 @@ object InstrumentedExecutorServiceMetrics {
   private val Prefix = ExecutorServiceMetrics.Prefix :+ "runtime"
 
   /** Provides instrumentation for all the submissions to the executor service.
-    * Note:
-    * - We might want to change in the future how instrumentation for the `invokeAll`/`invokeAny` is done.
-    *    Currently we treat all the tasks as individual tasks but from an executor point of view
-    *    we might want to monitor the different semantics that those methods have (eg: 1 submission but multiple tasks,
-    *    timing when the slowest finishes or when the fastest finishes..)
+    * Note that when instrumenting the `invokeAll`/`invokeAny` methods we
+    * currently treat all tasks as individual tasks and don't necessarily report a metric that makes sense semantically
+    * (e.g., in case of 1 transaction made up of multiple tasks).
     */
   class InstrumentedExecutorService(
       delegate: ExecutorService,
