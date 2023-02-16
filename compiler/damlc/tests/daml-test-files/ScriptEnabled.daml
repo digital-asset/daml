@@ -2,7 +2,7 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 -- This tests that Scripts do run by running a script that will fail, and ensuring the error is thrown
--- -- @ERROR Scenarios are no longer supported.
+-- @ERROR failed due to a missing authorization from 'bob'
 module ScriptEnabled where
 
 import Daml.Script
