@@ -37,22 +37,6 @@ private[speedy] object SpeedyTestLib {
   implicit def loggingContext: LoggingContext = LoggingContext.ForTesting
 
   @throws[SError.SErrorCrash]
-  def runPure(machine: Speedy.Machine[Nothing]): Either[SError.SError, SValue] = {
-    runTxPure(machine) match {
-      case Left(e) => Left(e)
-      case Right(SResultFinal(v)) => Right(v)
-    }
-  }
-
-  @throws[SError.SErrorCrash]
-  def runTxPure(machine: Speedy.Machine[Nothing]): Either[SError.SError, SResultFinal] = {
-    def onQuestion[Q](q: Q) = {
-      sys.error(s"cannot happen: there are no questions in a pure machine: $q")
-    }
-    runTxQ(onQuestion, machine)
-  }
-
-  @throws[SError.SErrorCrash]
   def run(
       machine: Speedy.Machine[Question.Update],
       getPkg: PartialFunction[PackageId, CompiledPackages] = PartialFunction.empty,
