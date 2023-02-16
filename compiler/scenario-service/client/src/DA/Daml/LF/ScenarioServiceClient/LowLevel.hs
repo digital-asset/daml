@@ -57,7 +57,7 @@ import Data.List.Split (splitOn)
 import qualified Data.Text as T
 import qualified Data.Text.Lazy as TL
 import qualified Data.Vector as V
-import Network.GRPC.HighLevel.Client (ClientError, ClientRequest(..), ClientResult(..), GRPCMethodType(..))
+import Network.GRPC.HighLevel.Client (ClientError(..), ClientRequest(..), ClientResult(..), GRPCMethodType(..))
 import Network.GRPC.HighLevel.Generated (withGRPCClient)
 import Network.GRPC.LowLevel (ClientConfig(..), Host(..), Port(..), StatusCode(..), Arg(MaxReceiveMessageLength))
 import qualified Proto3.Suite as Proto
@@ -404,7 +404,7 @@ runLive
 runLive runner Handle{..} (ContextId ctxId) name statusUpdateHandler = do
   let req = SS.RunScenarioRequest ctxId (Just (toIdentifier name))
   ior <- newIORef (Left (ExceptionError (error "runLiveScenario scenario")))
-  _ <-
+  response <-
     runner hClient $
       ClientReaderRequest req (fromIntegral (optGrpcTimeout hOptions)) mempty $ \_clientCall _meta streamRecv ->
         let loop :: IO ()
@@ -415,20 +415,22 @@ runLive runner Handle{..} (ContextId ctxId) name statusUpdateHandler = do
                   Right (Just result) -> writeIORef ior (Right result)
                   Right Nothing -> loop
               Right _ -> loop
-              Left _err -> writeIORef ior (Left (error "error here!"))
+              Left grpcIOErr -> writeIORef ior (Left (BackendError (BErrorClient (ClientIOError grpcIOErr))))
 
             handle :: SS.RunScenarioResponseOrStatusResponse -> IO (Either Error (Maybe SS.ScenarioResult))
-            handle (SS.RunScenarioResponseOrStatusResponseError _err) =
-              pure (Left (error "handle error"))
+            handle (SS.RunScenarioResponseOrStatusResponseError err) =
+              pure (Left (ScenarioError err))
             handle (SS.RunScenarioResponseOrStatusResponseResult result) = do
-              putStrLn "got a response!"
               pure (Right (Just result))
             handle (SS.RunScenarioResponseOrStatusResponseStatus status) = do
               statusUpdateHandler status
               pure (Right Nothing)
         in
         loop
-  readIORef ior
+  case response of
+    ClientReaderResponse _ StatusOk _ -> readIORef ior
+    ClientReaderResponse _ status _ -> pure (Left (BackendError (BErrorFail status)))
+    ClientErrorResponse err -> pure (Left (BackendError (BErrorClient err)))
 
 runLiveScenario
   :: Handle -> ContextId -> LF.ValueRef -> (SS.ScenarioStatus -> IO ())
