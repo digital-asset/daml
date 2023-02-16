@@ -36,6 +36,39 @@ private[speedy] object SpeedyTestLib {
 
   implicit def loggingContext: LoggingContext = LoggingContext.ForTesting
 
+  // NICK refactor with non-pure by abstracting function to answer question
+  @throws[SError.SErrorCrash]
+  def runPure(
+      machine: Speedy.Machine[Nothing]
+  ): Either[SError.SError, SValue] = {
+    runTxPure(machine) match {
+      case Left(e) => Left(e)
+      case Right(SResultFinal(v)) => Right(v)
+    }
+  }
+
+  @throws[SError.SErrorCrash]
+  def runTxPure(
+      machine: Speedy.Machine[Nothing]
+  ): Either[SError.SError, SResultFinal] = {
+
+    @tailrec
+    def loop: Either[SError.SError, SResultFinal] = {
+      machine.run() match {
+        case SResultQuestion(_) =>
+          sys.error("cannot happen: there are no questions in a pure machine")
+        case fv: SResultFinal =>
+          Right(fv)
+        case SResultInterruption =>
+          loop
+        case SResultError(err) =>
+          Left(err)
+      }
+    }
+
+    loop
+  }
+
   @throws[SError.SErrorCrash]
   def run(
       machine: Speedy.Machine[Question.Update],
