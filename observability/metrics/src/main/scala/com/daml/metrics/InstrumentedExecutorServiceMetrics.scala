@@ -7,12 +7,12 @@ import java.util
 import java.util.concurrent.{Callable, ExecutorService, Future, TimeUnit}
 
 import com.daml.metrics.api.MetricDoc.MetricQualification.Debug
-import com.daml.metrics.api.MetricHandle.{Counter, Meter, MetricsFactory, Timer}
+import com.daml.metrics.api.MetricHandle.{Counter, LabeledMetricsFactory, Meter, Timer}
 import com.daml.metrics.api.{MetricDoc, MetricsContext}
 
 import scala.jdk.CollectionConverters.{CollectionHasAsScala, SeqHasAsJava}
 
-class InstrumentedExecutorServiceMetrics(factory: MetricsFactory) {
+class InstrumentedExecutorServiceMetrics(factory: LabeledMetricsFactory) {
 
   @MetricDoc.Tag(
     summary = "The number of tasks submitted to an instrumented executor.",
