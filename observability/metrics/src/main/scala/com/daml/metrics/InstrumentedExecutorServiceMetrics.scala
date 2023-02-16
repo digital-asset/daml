@@ -20,7 +20,7 @@ class InstrumentedExecutorServiceMetrics(factory: MetricsFactory) {
     qualification = Debug,
     labelsWithDescription = Map(
       "name" -> "The name of the executor service.",
-      "type" -> "The type of the executor service. Can be `fork_join` or `thread_pool`.",
+      "type" -> "The type of the executor service: `fork_join` or `thread_pool`.",
     ),
   )
   val submitted: Meter =
