@@ -19,6 +19,7 @@ import com.daml.metrics.api.MetricHandle.{
   Timer,
 }
 import com.daml.metrics.api.opentelemetry.OpenTelemetryTimer.{
+  DurationSuffix,
   TimerUnit,
   TimerUnitAndSuffix,
   convertNanosecondsToSeconds,
@@ -43,7 +44,8 @@ class OpenTelemetryMetricsFactory(
   override def timer(name: MetricName, description: String)(implicit
       context: MetricsContext = MetricsContext.Empty
   ): MetricHandle.Timer = {
-    val nameWithSuffix = name :+ TimerUnitAndSuffix
+    val nameWithSuffix =
+      if (name.endsWith(DurationSuffix)) name :+ TimerUnit else name :+ TimerUnitAndSuffix
     OpenTelemetryTimer(
       nameWithSuffix,
       otelMeter
@@ -204,7 +206,9 @@ case class OpenTelemetryTimer(
 object OpenTelemetryTimer {
 
   private[opentelemetry] val TimerUnit: String = "seconds"
-  val TimerUnitAndSuffix: MetricName = MetricName("duration", TimerUnit)
+  private[opentelemetry] val DurationSuffix = "duration"
+
+  val TimerUnitAndSuffix: MetricName = MetricName(DurationSuffix, TimerUnit)
 
   private val NanosecondsInASecond = 1_000_000_000
 
