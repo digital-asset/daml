@@ -60,6 +60,7 @@ import qualified Data.Text as T
 import           System.Time.Extra
 import Development.IDE.Core.API
 import Development.IDE.Core.Rules.Daml
+import Development.IDE.Core.RuleTypes.Daml
 import qualified Development.IDE.Types.Diagnostics as D
 import Development.IDE.GHC.Util
 import           Data.Tagged                  (Tagged (..))
@@ -504,7 +505,12 @@ lfRunScenarios :: (String -> IO ()) -> NormalizedFilePath -> Action ()
 lfRunScenarios log file = timed log "LF scenario execution" $ void $ unjust $ runScenarios file
 
 lfRunScripts :: (String -> IO ()) -> NormalizedFilePath -> Action ()
-lfRunScripts log file = timed log "LF scripts execution" $ void $ unjust $ runScripts file
+lfRunScripts log file = timed log "LF scripts execution" $ scriptResults $ unjust $ runScripts file
+
+scriptResults :: Action [(VirtualResource, Either SS.Error SS.ScenarioResult)] -> Action ()
+scriptResults mRes = mRes >>= \res -> do
+  liftIO $ print $ snd <$> res
+  pure ()
 
 timed :: MonadIO m => (String -> IO ()) -> String -> m a -> m a
 timed log msg act = do

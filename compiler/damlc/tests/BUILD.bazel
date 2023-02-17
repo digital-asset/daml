@@ -181,6 +181,7 @@ da_haskell_library(
         "//compiler/damlc/daml-opts",
         "//compiler/damlc/daml-opts:daml-opts-types",
         "//compiler/damlc/daml-package-config",
+        "//compiler/damlc/daml-rule-types",
         "//compiler/scenario-service/client",
         "//daml-assistant:daml-project-config",
         "//daml-lf/archive:daml_lf_dev_archive_haskell_proto",

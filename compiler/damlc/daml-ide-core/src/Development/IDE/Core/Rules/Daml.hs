@@ -1351,13 +1351,21 @@ scenariosInModule m =
     [ (LF.Qualified LF.PRSelf (LF.moduleName m) (LF.dvalName val), LF.dvalLocation val)
     | val <- NM.toList (LF.moduleValues m), LF.getIsTest (LF.dvalIsTest val)]
 
+isScriptTest :: LF.Type -> Bool
+isScriptTest (LF.TConApp (LF.Qualified _ (LF.ModuleName ["Daml", "Script"]) (LF.TypeConName ["Script"])) _) = True
+-- Explicit matching for the `forall x. Script x` case, which arrises when no explicit type signature is given on a script that ends in `error` or `abort`.
+isScriptTest
+    (LF.TForall (name, _) (
+        LF.TConApp (LF.Qualified _ (LF.ModuleName ["Daml", "Script"]) (LF.TypeConName ["Script"])) [LF.TVar name']
+    )) | name == name' = True
+isScriptTest _ = False
 
 scriptsInModule :: LF.Module -> [(LF.ValueRef, Maybe LF.SourceLoc)]
 scriptsInModule m =
     [ (LF.Qualified LF.PRSelf (LF.moduleName m) (LF.dvalName val), LF.dvalLocation val)
     | val <- NM.toList (LF.moduleValues m)
     , T.head (LF.unExprValName (LF.dvalName val)) /= '$'
-    , LF.TConApp (LF.Qualified _ (LF.ModuleName ["Daml", "Script"]) (LF.TypeConName ["Script"])) _ <-  [LF.dvalType val]
+    , isScriptTest $ LF.dvalType val
     ]
 
 getDamlLfVersion :: Action LF.Version

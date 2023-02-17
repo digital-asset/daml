@@ -203,6 +203,10 @@ object Script {
         for {
           scriptIds <- getScriptIds(result)
         } yield Script.Function(scriptExpr, param, scriptIds)
+      case GenDValue(TForall(_, ty), _, _) =>
+        for {
+          scriptIds <- getScriptIds(ty)
+        } yield Script.Action(scriptExpr, scriptIds)
       case GenDValue(ty, _, _) =>
         for {
           scriptIds <- getScriptIds(ty)

@@ -1,0 +1,24 @@
+-- Ensures that scripts without explicit return types, e.g. those of the form `forall a. Script a`
+-- are still detected by the IDE and run as expected.
+-- Note that the type argument is not instantiated in the Runner, and instead runs untyped.
+
+{-# LANGUAGE ApplicativeDo #-}
+
+module PolymorphicScript where
+
+import Daml.Script
+
+-- @ERROR noActions
+noActions = script do
+    error "noActions"
+
+-- @ERROR preAction
+preAction = script do
+    allocateParty "alice"
+    error "preAction"
+
+-- @ERROR postAction OK
+preAction = script do
+    error "postAction OK"
+    allocateParty "dave"
+    error "postAction FAIL"
