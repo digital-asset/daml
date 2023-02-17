@@ -269,6 +269,7 @@ trait IdentityProviderConfigStoreTests extends IdentityProviderConfigStoreSpecBa
       testIt { tested =>
         val cfg = config().copy(audience = Some("audience1"))
         for {
+          _ <- tested.createIdentityProviderConfig(config())
           _ <- tested.createIdentityProviderConfig(cfg)
           res2 <- tested.updateIdentityProviderConfig(
             IdentityProviderConfigUpdate(
