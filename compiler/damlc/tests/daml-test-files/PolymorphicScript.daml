@@ -18,7 +18,7 @@ preAction = script do
     error "preAction"
 
 -- @ERROR postAction OK
-preAction = script do
+postAction = script do
     error "postAction OK"
     allocateParty "dave"
     error "postAction FAIL"
