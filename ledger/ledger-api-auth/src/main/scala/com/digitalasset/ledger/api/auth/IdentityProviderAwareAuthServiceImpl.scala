@@ -87,7 +87,7 @@ class IdentityProviderAwareAuthServiceImpl(
       case (_, None) =>
         Future.unit
       case _ =>
-        Future.failed(new Exception("Unexpected audience")) // TODO AUD change error
+        Future.failed(new Exception(s"JWT token has an audience which is not recognized"))
     }
 
   private def verifyToken(token: String, verifier: JwtVerifier): Future[DecodedJwt[String]] =
