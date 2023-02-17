@@ -358,9 +358,7 @@ class Endpoints(
           path("parties") apply toGetRoute(req, allParties),
           path("packages") apply toGetRouteLedgerId(req, listPackages),
           path("packages" / ".+".r)(packageId =>
-            extractRequest apply (req =>
-              toDownloadPackageRoute(req, packageId, downloadPackage)
-            )
+            extractRequest apply (req => toDownloadPackageRoute(req, packageId, downloadPackage))
           ),
         ),
       ),
