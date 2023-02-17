@@ -77,7 +77,7 @@ Summary of Ledger API Changes
        | Extend the Active Contract Service by adding `active_at_offset` field to the `GetActiveContractsRequest`. It defines an offset at which the snapshot of the active contracts will be computed.
        | Extend the Metering Report Service by adding a JSON schema that defines the format of the reports in `GetMeteringReportResponse`.
        | Extend the Transaction Service by adding a new `GetLatestPrunedOffsets` request. It allows querying for current pruning offsets.
-       | Introduce Event Query Service. It allows querying for events associated with a given `ContractId` and `ContractKey`.
+       | Introduce the Event Query Service. It allows querying for events associated with a given `ContractId` and `ContractKey`.
    * - 2.2
      - | Remove the inlined error documentation from gRPC calls in favor of rich error details documentation under :doc:`/app-dev/grpc/error-codes`.
        | Extend the User Management Service by adding is_deactivated and metadata fields to the User record and by providing an UpdateUser method allowing modifications of the existing users.
