@@ -438,23 +438,28 @@ private[lf] class Runner(
       Speedy.Machine.fromPureSExpr(
         extendedCompiledPackages,
         script.expr,
+        iterationsBetweenInterruptions = 1,
         traceLog = traceLog,
         warningLog = warningLog,
       )(Script.DummyLoggingContext)
 
     @scala.annotation.tailrec
     def stepToValue(): Either[RuntimeException, SValue] =
-      machine.run() match {
-        case _ if canceled() =>
-          Left(Runner.Canceled)
-        case SResultInterruption =>
-          stepToValue()
-        case SResultFinal(v) =>
-          Right(v)
-        case SResultError(err) =>
-          Left(Runner.InterpretationError(err))
-        case res =>
-          Left(new IllegalStateException(s"Internal error: Unexpected speedy result $res"))
+      if (canceled()) {
+        Left(Runner.Canceled)
+      } else {
+        machine.run() match {
+          case _ if canceled() =>
+            Left(Runner.Canceled)
+          case SResultInterruption =>
+            stepToValue()
+          case SResultFinal(v) =>
+            Right(v)
+          case SResultError(err) =>
+            Left(Runner.InterpretationError(err))
+          case res =>
+            Left(new IllegalStateException(s"Internal error: Unexpected speedy result $res"))
+        }
       }
 
     val env = new ScriptF.Env(
