@@ -43,6 +43,8 @@ The below lists with which Daml version a new Ledger API version was introduced.
 
    * - Ledger API Version
      - Daml Version
+   * - 2.3
+     - 2.6
    * - 2.2
      - 2.5
    * - 2.1
@@ -68,8 +70,14 @@ Summary of Ledger API Changes
 .. list-table::
    :header-rows: 1
 
-   * - Ledger API Version
+   * - Ledger API Versionga 
      - Changes
+   * - 2.3
+     - | Introduce the Identity Provider Config Service. It makes possible for participant node administrators to setup and manage additional identity providers at runtime. This allows using access tokens from identity providers unknown at deployment time. When an identity provider is configured, independent IDP administrators can manage their own set of parties and users.
+       | Extend the Active Contract Service by adding `active_at_offset` field to the GetActiveContractsRequest. It defines an offset at which the snapshot of the active contracts will be computed.
+       | Extend the Metering Report Service by adding a JSON schema that defines the format of the reports in `GetMeteringReportResponse`.
+       | Extend the Transaction Service by adding a new `GetLatestPrunedOffsets` request. It allows querying for current pruning offsets.
+       | Introduce EventQueryService. It allows querying for events associated with a given ContractId and ContractKey.
    * - 2.2
      - | Remove the inlined error documentation from gRPC calls in favor of rich error details documentation under :doc:`/app-dev/grpc/error-codes`.
        | Extend the User Management Service by adding is_deactivated and metadata fields to the User record and by providing an UpdateUser method allowing modifications of the existing users.
