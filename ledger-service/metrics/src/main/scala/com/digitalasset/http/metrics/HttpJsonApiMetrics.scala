@@ -50,22 +50,6 @@ class HttpJsonApiMetrics(
   val surrogateTemplateIdCache =
     new CacheMetrics(prefix :+ "surrogate_tpid_cache", defaultMetricsFactory)
 
-  // Meters how long processing of a command submission request takes
-  val commandSubmissionTimer: Timer =
-    defaultMetricsFactory.timer(prefix :+ "command_submission_timing")
-  // Meters how long processing of a query GET request takes
-  val queryAllTimer: Timer = defaultMetricsFactory.timer(prefix :+ "query_all_timing")
-  // Meters how long processing of a query POST request takes
-  val queryMatchingTimer: Timer = defaultMetricsFactory.timer(prefix :+ "query_matching_timing")
-  // Meters how long processing of a fetch request takes
-  val fetchTimer: Timer = defaultMetricsFactory.timer(prefix :+ "fetch_timing")
-  // Meters how long processing of a get party/parties request takes
-  val getPartyTimer: Timer = defaultMetricsFactory.timer(prefix :+ "get_party_timing")
-  // Meters how long processing of a party management request takes
-  val allocatePartyTimer: Timer = defaultMetricsFactory.timer(prefix :+ "allocate_party_timing")
-  // Meters how long processing of a package download request takes
-  val downloadPackageTimer: Timer =
-    defaultMetricsFactory.timer(prefix :+ "download_package_timing")
   // Meters how long processing of a package upload request takes
   val uploadPackageTimer: Timer = defaultMetricsFactory.timer(prefix :+ "upload_package_timing")
   // Meters how long parsing and decoding of an incoming json payload takes
