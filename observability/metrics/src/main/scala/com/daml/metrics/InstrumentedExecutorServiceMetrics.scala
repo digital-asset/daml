@@ -73,7 +73,7 @@ class InstrumentedExecutorServiceMetrics(factory: LabeledMetricsFactory) {
   )
 
   @MetricDoc.Tag(
-    summary = "The total time a task runs in an instrumented executor.",
+    summary = "The time a task runs in an instrumented executor.",
     description = "A task is considered running only after it has started execution.",
     qualification = Debug,
     labelsWithDescription = Map(
@@ -83,7 +83,7 @@ class InstrumentedExecutorServiceMetrics(factory: LabeledMetricsFactory) {
   )
   val duration: Timer = factory.timer(
     InstrumentedExecutorServiceMetrics.Prefix :+ "duration",
-    "The duration of a task is running in an instrumented executor. A task is considered running only after it has started execution.",
+    "The time a task runs in an instrumented executor. A task is considered running only after it has started execution.",
   )
 }
 object InstrumentedExecutorServiceMetrics {
