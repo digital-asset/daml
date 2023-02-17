@@ -60,7 +60,6 @@ import qualified Data.Text as T
 import           System.Time.Extra
 import Development.IDE.Core.API
 import Development.IDE.Core.Rules.Daml
-import Development.IDE.Core.RuleTypes.Daml
 import qualified Development.IDE.Types.Diagnostics as D
 import Development.IDE.GHC.Util
 import           Data.Tagged                  (Tagged (..))
