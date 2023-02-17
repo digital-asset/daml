@@ -178,14 +178,6 @@ private[lf] object Pretty {
             case Some(interfaceId) => text("by interface") & prettyTypeConName(interfaceId)
           })
       )
-
-      case DisclosurePreprocessing(err) =>
-        err match {
-          case DisclosurePreprocessing.DuplicateContractKeys(templateId, keyHash) =>
-            text(
-              s"Found duplicated contract keys in submitted disclosed contracts for template $templateId and key hash ${keyHash.toHexString}"
-            )
-        }
     }
   }
 

@@ -4,7 +4,7 @@
 package com.daml.lf
 package engine
 
-import com.daml.lf.command._
+import com.daml.lf.command.{ProcessedDisclosedContract => _, _}
 import com.daml.lf.data._
 import com.daml.lf.data.Ref.{Identifier, PackageId, ParticipantId, Party}
 import com.daml.lf.language.Ast._
@@ -14,6 +14,7 @@ import com.daml.lf.speedy.Speedy.{Machine, PureMachine, UpdateMachine}
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.transaction.{
   Node,
+  ProcessedDisclosedContract,
   SubmittedTransaction,
   Versioned,
   VersionedTransaction,
@@ -368,8 +369,17 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
     def finish: Result[(SubmittedTransaction, Tx.Metadata)] =
       machine.finish match {
         case Right(
-              UpdateMachine.Result(tx, _, nodeSeeds, globalKeyMapping, processedDisclosedContract)
+              UpdateMachine.Result(tx, _, nodeSeeds, globalKeyMapping, disclosedCreateEvents)
             ) =>
+          val disclosureMap = disclosures.iterator.map(c => c.contractId.value -> c).toMap
+          val processedDisclosedContracts = disclosedCreateEvents.map { create =>
+            val diclosedContract = disclosureMap(create.coid)
+            ProcessedDisclosedContract(
+              create,
+              diclosedContract.metadata.createdAt,
+              diclosedContract.metadata.driverMetadata,
+            )
+          }
           deps(tx).flatMap { deps =>
             val meta = Tx.Metadata(
               submissionSeed = None,
@@ -378,7 +388,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
               dependsOnTime = machine.getDependsOnTime,
               nodeSeeds = nodeSeeds,
               globalKeyMapping = globalKeyMapping,
-              processedDisclosedContracts = processedDisclosedContract,
+              processedDisclosedContracts = processedDisclosedContracts,
             )
             config.profileDir.foreach { dir =>
               val desc = Engine.profileDesc(tx)

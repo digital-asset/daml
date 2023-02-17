@@ -490,12 +490,6 @@ prettyScenarioErrorError (Just err) =  do
               (prettyDefName world)
               scenarioError_ContractDoesNotImplementRequiringInterfaceRequiringInterfaceId
         ]
-    ScenarioErrorErrorDisclosurePreprocessingDuplicateContractKeys(ScenarioError_DisclosurePreprocessingDuplicateContractKeys templateId keyHash) ->
-      pure $ vcat
-        [ "Found duplicate contract keys in submitted disclosed contracts"
-        , label_ "Template: " $ prettyMay "<missing template>" (prettyDefName world) templateId
-        , label_ "Key Hash: " $ ltext keyHash
-        ]
     ScenarioErrorErrorEvaluationTimeout timeout ->
       pure $ text $ T.pack $ "Evaluation timed out after " <> show timeout <> " seconds"
 

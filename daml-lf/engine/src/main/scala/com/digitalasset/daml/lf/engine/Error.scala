@@ -117,8 +117,10 @@ object Error {
       sealed abstract class Reason extends Serializable with Product {
         def details: String
       }
+
       case object NonSuffixV1ContractId extends Reason {
         def details = "non-suffixed V1 Contract IDs are forbidden"
+
         def apply(cid: Value.ContractId.V1): IllegalContractId = IllegalContractId(cid, this)
       }
     }
@@ -133,6 +135,11 @@ object Error {
     ) extends Error {
       override def message: String =
         s"Preprocessor encountered a duplicate disclosed contract ID $contractId for template $templateId"
+    }
+
+    final case class DuplicateDisclosedContractKey(keyHash: crypto.Hash) extends Error {
+      override def message: String =
+        s"Preprocessor encountered a duplicate disclosed contract key hash ${keyHash.toHexString}"
     }
   }
 
