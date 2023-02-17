@@ -82,7 +82,7 @@ message IdentityProviderConfig {
 
   // Specifies the audience of the JWT token.
   // When set, the callers using JWT tokens issued by this identity provider are allowed to get an access
-  // only if they "aud" claim includes the specified string
+  // only if the "aud" claim includes the string specified here
   // Optional,
   // Modifiable
   string audience = 5;
