@@ -505,12 +505,7 @@ lfRunScenarios :: (String -> IO ()) -> NormalizedFilePath -> Action ()
 lfRunScenarios log file = timed log "LF scenario execution" $ void $ unjust $ runScenarios file
 
 lfRunScripts :: (String -> IO ()) -> NormalizedFilePath -> Action ()
-lfRunScripts log file = timed log "LF scripts execution" $ scriptResults $ unjust $ runScripts file
-
-scriptResults :: Action [(VirtualResource, Either SS.Error SS.ScenarioResult)] -> Action ()
-scriptResults mRes = mRes >>= \res -> do
-  liftIO $ print $ snd <$> res
-  pure ()
+lfRunScripts log file = timed log "LF scripts execution" $ void $ unjust $ runScripts file
 
 timed :: MonadIO m => (String -> IO ()) -> String -> m a -> m a
 timed log msg act = do
