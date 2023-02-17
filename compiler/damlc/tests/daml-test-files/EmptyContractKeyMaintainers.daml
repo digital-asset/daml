@@ -16,7 +16,7 @@ template NoMaintainer
 createNoMaintainer = script do
   alice <- allocateParty "Alice"
 
-  submit alice $ create NoMaintainer with sig = alice
+  submit alice $ createCmd NoMaintainer with sig = alice
   pure ()
 
 lookupNoMaintainer = script do

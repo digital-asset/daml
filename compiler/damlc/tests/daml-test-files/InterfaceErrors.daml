@@ -26,7 +26,7 @@ template MyTemplate
 fetchBadContract = script do
     p <- allocateParty "Alice"
     p `submit` do
-        cid <- create (MyTemplate p)
+        cid <- createCmd (MyTemplate p)
         let cid' : ContractId MyInterface = coerceContractId cid
         fetch cid'
 
@@ -34,6 +34,6 @@ fetchBadContract = script do
 exerciseBadContract = script do
     p <- allocateParty "Alice"
     p `submit` do
-        cid <- create (MyTemplate p)
+        cid <- createCmd (MyTemplate p)
         let cid' : ContractId MyInterface = coerceContractId cid
-        exercise cid' MyVirtualChoice
+        exerciseCmd cid' MyVirtualChoice

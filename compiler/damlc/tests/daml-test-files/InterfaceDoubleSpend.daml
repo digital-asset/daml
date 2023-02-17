@@ -50,12 +50,12 @@ main = script do
   bob <- allocateParty "Bob"
   charlie <- allocateParty "Charlie"
   cidAsset1 <- alice `submit` do
-    create Asset with
+    createCmd Asset with
       issuer = alice
       owner = alice
       amount = 15
   _ <- alice `submitMustFail` do
-    _ <- exercise (toInterfaceContractId @Token cidAsset1) (Transfer bob)
-    _ <- exercise (toInterfaceContractId @Token cidAsset1) (Transfer charlie)
+    _ <- exerciseCmd (toInterfaceContractId @Token cidAsset1) (Transfer bob)
+    _ <- exerciseCmd (toInterfaceContractId @Token cidAsset1) (Transfer charlie)
     pure ()
   pure ()

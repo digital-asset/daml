@@ -43,6 +43,6 @@ template T2
 main = script do
     p <- allocateParty "Alice"
     submit p do
-        cidT1 <- create (T1 p)
+        cidT1 <- createCmd (T1 p)
         let cidT2 = coerceContractId @T1 @T2 cidT1
-        exercise cidT2 T2Choice
+        exerciseCmd cidT2 T2Choice

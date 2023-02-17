@@ -28,6 +28,6 @@ template Fetcher
 
 test = script do
   p <- allocateParty "p"
-  cid <- submit p $ create (T1 p)
+  cid <- submit p $ createCmd (T1 p)
   fetcher <- submit p $ createAndExercise (Fetcher p) (Fetch2 (coerceContractId cid))
   pure ()

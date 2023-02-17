@@ -25,6 +25,6 @@ template Person
 main = script do
     alice <- allocateParty "alice"
     submit alice do
-        person <- create $ Person alice "Alice Liddel"
-        exercise person $ Nap 10
-        exercise person Sleep
+        person <- createCmd $ Person alice "Alice Liddel"
+        exerciseCmd person $ Nap 10
+        exerciseCmd person Sleep

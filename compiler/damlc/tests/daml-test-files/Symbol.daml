@@ -15,4 +15,4 @@ template Symbol with
 test = script do
   alice <- allocateParty "Alice"
   submit alice do
-    create Symbol with p = alice
+    createCmd Symbol with p = alice

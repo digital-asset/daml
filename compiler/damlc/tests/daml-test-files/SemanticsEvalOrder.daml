@@ -199,7 +199,7 @@ template T
 
 -- @ERROR EvExpUpCreateErr OK
 evExpUpCreateErr = script do
-  let _ : Update (ContractId T) = create (error "EvExpUpCreateErr OK")
+  let _ : Update (ContractId T) = createCmd (error "EvExpUpCreateErr OK")
   pure ()
 
 -- @ERROR EvExpUpFetchErr OK
@@ -212,7 +212,7 @@ evExpUpFetchErr = script do
 -- @ERROR EvExpUpExerciseWithoutActorsErr1 OK
 evExpUpExerciseWithoutActorsErr1 = script do
   let _ : Update () =
-          exercise @T @Archive
+          exerciseCmd @T @Archive
               (error "EvExpUpExerciseWithoutActorsErr1 OK")
               (error "EvExpUpExerciseWithoutActorsErr1 failed")
   pure ()
@@ -220,8 +220,8 @@ evExpUpExerciseWithoutActorsErr1 = script do
 -- @ERROR EvExpUpExerciseWithoutActorsErr2 OK
 evExpUpExerciseWithoutActorsErr2 = script do
   p <- allocateParty "Alice"
-  t <- submit p $ create (T p)
-  let _ : Update () = exercise @T @Archive t (error "EvExpUpExerciseWithoutActorsErr2 OK")
+  t <- submit p $ createCmd (T p)
+  let _ : Update () = exerciseCmd @T @Archive t (error "EvExpUpExerciseWithoutActorsErr2 OK")
   pure ()
 
 template T2
@@ -271,7 +271,7 @@ evUpdBindErr1_2 = script do
 evUpdBindErr2 = script do
   p <- allocateParty "Alice"
   submit p do
-    create (T p)
+    createCmd (T p)
     error "EvUpdBindErr2 OK"
     abort "EvUpdBindErr2 failed"
 
@@ -279,7 +279,7 @@ evUpdBindErr2 = script do
 evUpdBindErr3 = script do
   p <- allocateParty "Alice"
   submit p do
-    create (T p)
+    createCmd (T p)
     abort "EvUpdBindErr3 OK"
     abort "EvUpdBindErr3 failed"
 
@@ -296,7 +296,7 @@ template T_EvUpdCreateErr1
 evUpdCreateErr1 = script do
   p <- allocateParty "Alice"
   submit p do
-    create (T_EvUpdCreateErr1 p)
+    createCmd (T_EvUpdCreateErr1 p)
     error "EvUpdCreateErr1 failed (4)"
 
 -- @ERROR range=310:1-310:16; Template precondition violated
@@ -312,7 +312,7 @@ template T_EvUpdCreateFail
 evUpdCreateFail = script do
   p <- allocateParty "Alice"
   submit p do
-    create (T_EvUpdCreateFail p)
+    createCmd (T_EvUpdCreateFail p)
     error "EvUpdCreateFail failed (4)"
 
 -- @ERROR EvUpdCreateErr2 OK
@@ -328,7 +328,7 @@ template T_EvUpdCreateErr2
 evUpdCreateErr2 = script do
   p <- allocateParty "Alice"
   submit p do
-    create (T_EvUpdCreateErr2 p)
+    createCmd (T_EvUpdCreateErr2 p)
     error "EvUpdCreateErr2 failed (3)"
 
 -- @ERROR EvUpdCreateErr3 OK
@@ -344,7 +344,7 @@ template T_EvUpdCreateErr3
 evUpdCreateErr3 = script do
   p <- allocateParty "Alice"
   submit p do
-    create (T_EvUpdCreateErr3 p)
+    createCmd (T_EvUpdCreateErr3 p)
     error "EvUpdCreateErr3 failed (2)"
 
 -- @ERROR EvUpdCreateErr4_1 OK
@@ -360,7 +360,7 @@ template T_EvUpdCreateErr4_1
 evUpdCreateErr4_1 = script do
   p <- allocateParty "Alice"
   submit p do
-    create (T_EvUpdCreateErr4_1 p)
+    createCmd (T_EvUpdCreateErr4_1 p)
     error "EvUpdCreateErr4_1 failed"
 
 -- @ERROR EvUpdCreateErr4_2 OK
@@ -378,7 +378,7 @@ template T_EvUpdCreateErr4_2
 evUpdCreateErr4_2 = script do
   p <- allocateParty "Alice"
   submit p do
-    create (T_EvUpdCreateErr4_2 p)
+    createCmd (T_EvUpdCreateErr4_2 p)
     error "EvUpdCreateErr4_2 failed"
 
 -- @ERROR EvUpdCreateWithKeyErr1 OK
@@ -396,7 +396,7 @@ template T_EvUpdCreateWithKeyErr1
 evUpdCreateWithKeyErr1 = script do
   p <- allocateParty "Alice"
   submit p do
-    create (T_EvUpdCreateWithKeyErr1 p)
+    createCmd (T_EvUpdCreateWithKeyErr1 p)
     error "EvUpdCreateWithKeyErr1 failed"
 
 -- @ERROR EvUpdCreateWithKeyErr2 OK
@@ -414,7 +414,7 @@ template T_EvUpdCreateWithKeyErr2
 evUpdCreateWithKeyErr2 = script do
   p <- allocateParty "Alice"
   submit p do
-    create (T_EvUpdCreateWithKeyErr2 p)
+    createCmd (T_EvUpdCreateWithKeyErr2 p)
     error "EvUpdCreateWithKeyErr2 failed"
 
 -- | `controller P can ...` syntax adds `P` to the observers,
@@ -436,7 +436,7 @@ template T_ControllerCanAddsObserver
 controllerCanAddsObserver = script do
   p <- allocateParty "Alice"
   submit p do
-    create (T_ControllerCanAddsObserver p)
+    createCmd (T_ControllerCanAddsObserver p)
     error "controllerCanAddsObserver failed"
 
 -- | `choice ... controller P ...` doesn't add `P` as observer.
@@ -454,7 +454,7 @@ template T_ChoiceControllerDoesntAddObserver
 choiceControllerDoesntAddObserver = script do
   p <- allocateParty "Alice"
   submit p do
-    create (T_ChoiceControllerDoesntAddObserver p)
+    createCmd (T_ChoiceControllerDoesntAddObserver p)
     error "choiceControllerDoesntAddObserver OK"
 
 -- | Verify that contract inactivity is checked before interpreting
@@ -469,7 +469,7 @@ template T_DoubleArchive
 doubleArchive = script do
   p <- allocateParty "Alice"
   submit p do
-    c <- create (T_DoubleArchive p)
+    c <- createCmd (T_DoubleArchive p)
     archive c
     archive c
     abort "doubleArchive failed"
@@ -491,8 +491,8 @@ template T_EvUpdExercConsumErr_1
 evUpdExercConsumErr_1 = script do
   p <- allocateParty "Alice"
   submit p do
-    c <- create (T_EvUpdExercConsumErr_1 p)
-    exercise c C_EvUpdExercConsumErr_1
+    c <- createCmd (T_EvUpdExercConsumErr_1 p)
+    exerciseCmd c C_EvUpdExercConsumErr_1
     abort "EvUpdExercConsumErr_1 failed (2)"
 
 
@@ -512,8 +512,8 @@ template T_EvUpdExercConsumErr_2
 evUpdExercConsumErr_2 = script do
   p <- allocateParty "Alice"
   submit p do
-    c <- create (T_EvUpdExercConsumErr_2 p)
-    exercise c C_EvUpdExercConsumErr_2
+    c <- createCmd (T_EvUpdExercConsumErr_2 p)
+    exerciseCmd c C_EvUpdExercConsumErr_2
     abort "EvUpdExercConsumErr_2 failed (2)"
 
 -- | Verify that a nonconsuming choice's update is interpreted with
@@ -533,8 +533,8 @@ template T_EvUpdExercNonConsumErr
 evUpdExercNonConsumErr = script do
   p <- allocateParty "Alice"
   submit p do
-    c <- create (T_EvUpdExercNonConsumErr p)
-    exercise c C_EvUpdExercNonConsumErr
+    c <- createCmd (T_EvUpdExercNonConsumErr p)
+    exerciseCmd c C_EvUpdExercNonConsumErr
     abort "EvUpdExercNonConsumErr failed"
 
 
@@ -553,9 +553,9 @@ template T_EvUpdExercWithoutActorsErr_2
 evUpdExercWithoutActorsErr_2 = script do
   p <- allocateParty "Alice"
   submit p do
-    c <- create (T_EvUpdExercWithoutActorsErr_2 p)
+    c <- createCmd (T_EvUpdExercWithoutActorsErr_2 p)
     archive c
-    exercise c C_EvUpdExercWithoutActorsErr_2
+    exerciseCmd c C_EvUpdExercWithoutActorsErr_2
     abort "EvUpdExercWithoutActorsErr_2 failed (3)"
 
 -- | Checks that an authorization / bad actor check occurs
@@ -576,8 +576,8 @@ badActorCheck = script do
   p1 <- allocateParty "Alice"
   p2 <- allocateParty "Bob"
   submit p1 do
-    c <- create (T_BadActorCheck p1 p2)
-    exercise c C_BadActorCheck
+    c <- createCmd (T_BadActorCheck p1 p2)
+    exerciseCmd c C_BadActorCheck
   error "BadActorCheck failed"
 
 -- @ERROR EvUpdFetchByKeyErr OK

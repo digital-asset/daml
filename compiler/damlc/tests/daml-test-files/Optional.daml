@@ -69,12 +69,12 @@ testMapOptional = script do
 
 testWhenSome = script do
   p <- allocateParty "p"
-  cid <- submit p (create Foo with p)
-  whenSome None (\x -> submit p $ exercise cid $ ConsumeIfPositive x cid)
+  cid <- submit p (createCmd Foo with p)
+  whenSome None (\x -> submit p $ exerciseCmd cid $ ConsumeIfPositive x cid)
   submit p (fetch cid)
-  whenSome (Some (-5)) (\x -> submit p $ exercise cid $ ConsumeIfPositive x cid)
+  whenSome (Some (-5)) (\x -> submit p $ exerciseCmd cid $ ConsumeIfPositive x cid)
   submit p (fetch cid)
-  whenSome (Some 5) (\x -> submit p $ exercise cid $ ConsumeIfPositive x cid)
+  whenSome (Some 5) (\x -> submit p $ exerciseCmd cid $ ConsumeIfPositive x cid)
   submitMustFail p (fetch cid)
 
 testFindOptional = script do

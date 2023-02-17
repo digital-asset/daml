@@ -23,6 +23,6 @@ template Helper
 fetchNonStakeholder = script do
   alice <- allocateParty "Alice"
   bob <- allocateParty "Bob"
-  secret <- submit alice (create (T alice))
+  secret <- submit alice (createCmd (T alice))
   submit bob (createAndExercise (Helper bob) (Fetch secret))
   return ()

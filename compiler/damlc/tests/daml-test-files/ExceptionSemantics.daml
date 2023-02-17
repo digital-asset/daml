@@ -158,7 +158,7 @@ duplicateKey = script do
   p <- allocateParty "p"
   -- transient duplicate key in rollback
   submitMustFail p $ createAndExercise (T p) (TransientDuplicate 0)
-  submit p $ create (K p 1)
+  submit p $ createCmd (K p 1)
   -- duplicate key error with contract created outside of rollback
   submitMustFail p $ createAndExercise (T p) (NonTransientDuplicate 1)
   -- no duplicate key error if key creation got rolled back
@@ -173,19 +173,19 @@ rollbackArchive = script do
 divulgence = script do
   p1 <- allocateParty "p1"
   p2 <- allocateParty "p2"
-  cid <- submit p1 $ create (K p1 0)
-  divulger <- submit p2 $ create (Fetcher p2 p1)
-  fetcher <- submit p1 $ create (Fetcher p1 p2)
-  submitMustFail p2 $ exercise fetcher (Fetch cid)
-  submit p1 $ exercise divulger (RollbackFetch cid)
-  submit p2 $ exercise fetcher (Fetch cid)
+  cid <- submit p1 $ createCmd (K p1 0)
+  divulger <- submit p2 $ createCmd (Fetcher p2 p1)
+  fetcher <- submit p1 $ createCmd (Fetcher p1 p2)
+  submitMustFail p2 $ exerciseCmd fetcher (Fetch cid)
+  submit p1 $ exerciseCmd divulger (RollbackFetch cid)
+  submit p2 $ exerciseCmd fetcher (Fetch cid)
   pure ()
 
 tryContext = script do
   p <- allocateParty "p"
-  kCid <- submit p $ create (K p 0)
+  kCid <- submit p $ createCmd (K p 0)
   submit p $ archive kCid
-  c <- submit p $ create (T p)
+  c <- submit p $ createCmd (T p)
   -- This will result in a partial transaction with ptx.context.info
   -- pointing to a TryContextInfo.
-  submit p $ exercise c (UncatchableTry kCid)
+  submit p $ exerciseCmd c (UncatchableTry kCid)

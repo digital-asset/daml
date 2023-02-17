@@ -29,10 +29,10 @@ main = script do
   alice <- allocateParty "Alice"
 
   submitMustFail alice do
-    cid <- create $ Self2 alice
-    exercise cid Baz -- Attempt to exercise a contract that was consumed in same transaction.
+    cid <- createCmd $ Self2 alice
+    exerciseCmd cid Baz -- Attempt to exerciseCmd a contract that was consumed in same transaction.
 
   r <- submit alice do
-    cid <- create $ Self2 alice
-    exercise cid Foo
+    cid <- createCmd $ Self2 alice
+    exerciseCmd cid Foo
   r === "ok"

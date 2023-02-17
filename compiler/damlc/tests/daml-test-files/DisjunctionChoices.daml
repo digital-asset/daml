@@ -40,20 +40,20 @@ test = script do
     founders@[eric, shaul, yuval] <- mapA allocateParty ["Eric", "Shaul", "Yuval"]
 
     suggestion <- submit drWho do
-        create FeatureSuggestion with
+        createCmd FeatureSuggestion with
             employee = drWho
             description = "Implement Splitwise on DaaS"
             founders
 
-    -- Despite being the CEO, Yuval can't exercise on Shaul's behalf
+    -- Despite being the CEO, Yuval can't exerciseCmd on Shaul's behalf
     -- due to a missing authorization.
     submitMustFail yuval do
-        exercise suggestion AcceptFeature with sponsor = shaul
+        exerciseCmd suggestion AcceptFeature with sponsor = shaul
 
     -- Dr. Who can't make themselves the sponsor of their own suggestion
     -- because they are not a founder.
     submitMustFail drWho do
-        exercise suggestion AcceptFeature with sponsor = drWho
+        exerciseCmd suggestion AcceptFeature with sponsor = drWho
 
     submit eric do
-        exercise suggestion AcceptFeature with sponsor = eric
+        exerciseCmd suggestion AcceptFeature with sponsor = eric

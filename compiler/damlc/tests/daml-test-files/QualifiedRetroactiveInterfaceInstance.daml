@@ -72,13 +72,13 @@ interface Token where
 main = script do
   p <- allocateParty "Alice"
   p `submit` do
-    cidAsset1 <- create Asset.Asset with
+    cidAsset1 <- createCmd Asset.Asset with
       issuer = p
       owner = p
       amount = 15
     let cidToken1 = toInterfaceContractId @Token cidAsset1
-    _ <- exercise cidToken1 (Noop ())
-    (cidToken2, cidToken3) <- exercise cidToken1 (Split 10)
+    _ <- exerciseCmd cidToken1 (Noop ())
+    (cidToken2, cidToken3) <- exerciseCmd cidToken1 (Split 10)
     token2 <- fetch cidToken2
     -- Party is duplicated because p is both observer & issuer
     signatory token2 === [p, p]
@@ -94,7 +94,7 @@ main = script do
       Some Asset.Asset {amount} ->
         amount === 5
 
-    cidToken4 <- exercise cidToken3 (GetRich 20)
+    cidToken4 <- exerciseCmd cidToken3 (GetRich 20)
     token4 <- fetch cidToken4
     (view token4).amount === 25
     case fromInterface token4 of

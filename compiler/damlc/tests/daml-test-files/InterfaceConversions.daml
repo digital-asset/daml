@@ -58,8 +58,8 @@ main = script do
     fromInterface @Template2 iface2 === Some template2
 
     p `submit` do
-        templateCid1 <- create template1
-        templateCid2 <- create template2
+        templateCid1 <- createCmd template1
+        templateCid2 <- createCmd template2
         let ifaceCid1 = toInterfaceContractId @Iface templateCid1
             ifaceCid2 = toInterfaceContractId @Iface templateCid2
 
@@ -82,7 +82,7 @@ main = script do
     -- for actions that make sense for the common interface Iface.
     let useAction : (ContractId Template2 -> Update ()) -> Update ()
         useAction action = do
-            cid <- create (toInterface @Iface (Template1 p 10))
+            cid <- createCmd (toInterface @Iface (Template1 p 10))
             action (fromInterfaceContractId @Template2 cid)
     submit p do useAction $ \_cid -> pure ()
     submitMustFail p do useAction $ \cid -> void (fetch cid)
@@ -93,9 +93,9 @@ main = script do
     -- id as if it were a Iface2 contract id will always fail.
     let useAction : (ContractId Iface2 -> Update ()) -> Update ()
         useAction action = do
-            cid <- create (toInterface @Iface (Template1 p 10))
+            cid <- createCmd (toInterface @Iface (Template1 p 10))
             action (coerceInterfaceContractId @Iface2 cid)
     submit p do useAction $ \_cid -> pure ()
-    submitMustFail p do useAction $ \cid -> exercise cid MyChoice2
+    submitMustFail p do useAction $ \cid -> exerciseCmd cid MyChoice2
     submitMustFail p do useAction $ \cid -> void (fetch cid)
     submitMustFail p do useAction $ \cid -> archive cid

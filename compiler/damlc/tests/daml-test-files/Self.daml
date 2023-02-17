@@ -20,5 +20,5 @@ template Self with
 main = script do
   alice <- allocateParty "Alice"
   submit alice do
-    cid1 <- create Self with p = alice
-    exercise cid1 Same with other = cid1
+    cid1 <- createCmd Self with p = alice
+    exerciseCmd cid1 Same with other = cid1

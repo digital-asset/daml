@@ -21,7 +21,7 @@ test = script do
     p <- allocateParty "Alice"
     m <- submit p do
         try do
-            create (MyTemplate p)
+            createCmd (MyTemplate p)
             pure ""
         catch
             PreconditionFailed msg ->

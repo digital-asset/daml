@@ -52,14 +52,14 @@ main = script do
   me <- allocateParty "Me"
   spy <- allocateParty "Spy"
   secretCid <- submit me do
-    create Secret with
+    createCmd Secret with
            p = me
            mySecret = "Password for my Swiss bank account is 874321"
 
   accCid <-
-    submit me do create DelegatedAccess with p = me; spy
+    submit me do createCmd DelegatedAccess with p = me; spy
 
-  submit spy do create RevealYourSecret with p = spy; secretCid = secretCid
+  submit spy do createCmd RevealYourSecret with p = spy; secretCid = secretCid
 
   -- me can fetch
   submit me do
@@ -71,12 +71,12 @@ main = script do
 
   -- spy cannot fetch even via delegation
   submitMustFail spy do
-    exercise accCid ReadSecret with secretCid
+    exerciseCmd accCid ReadSecret with secretCid
 
   -- lets divulge the secret with spy
   disCid <-
-    submit spy do create DisclosureDelegation with p = spy; actor = me
-  submit me do exercise disCid Disclose with secretCid
+    submit spy do createCmd DisclosureDelegation with p = spy; actor = me
+  submit me do exerciseCmd disCid Disclose with secretCid
 
   -- me can still fetch
   submit me do
@@ -88,7 +88,7 @@ main = script do
 
   -- now spy can fetch using delegation from me
   submit spy do
-    exercise accCid ReadSecret with secretCid
+    exerciseCmd accCid ReadSecret with secretCid
 
 
 

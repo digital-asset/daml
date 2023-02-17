@@ -23,6 +23,6 @@ template Confirmation with
 test = script do
   alice <- allocateParty "Alice"
   submit alice do
-    create Confirmation with
+    createCmd Confirmation with
       confirmed = [alice]
       pending = []

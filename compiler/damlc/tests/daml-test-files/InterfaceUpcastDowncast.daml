@@ -67,8 +67,8 @@ main = script do
         getCoolness t1b === 20
         getOwner t1a === p
 
-        cidt1 <- create t1
-        cidt2 <- create t2
+        cidt1 <- createCmd t1
+        cidt2 <- createCmd t2
 
         let cidt1b = toInterfaceContractId @B cidt1
         let cidt1a = toInterfaceContractId @A cidt1
@@ -83,8 +83,8 @@ main = script do
         assertMsg "fetchPair1 != Some (cidt1b, t1b)" (fetchPair1 == Some (cidt1b, t1b))
         assertMsg "fetchPair2 != None" (isNone fetchPair2)
 
-        exercise cidt1a ChoiceA
-        exercise cidt1b ChoiceB
+        exerciseCmd cidt1a ChoiceA
+        exerciseCmd cidt1b ChoiceB
 
         pure ()
 
@@ -94,8 +94,8 @@ main = script do
     -- will always fail, even for actions that make sense with A contracts.
     let useAction : (ContractId B -> Update ()) -> Update ()
         useAction action = do
-            cid <- create (toInterface @A (T2 p))
+            cid <- createCmd (toInterface @A (T2 p))
             action (fromInterfaceContractId @B cid)
     submit p do useAction $ \_bcid -> pure ()
     submitMustFail p do useAction $ \bcid -> void (fetch bcid)
-    submitMustFail p do useAction $ \bcid -> void (exercise bcid ChoiceB)
+    submitMustFail p do useAction $ \bcid -> void (exerciseCmd bcid ChoiceB)

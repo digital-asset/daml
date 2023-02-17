@@ -75,27 +75,27 @@ main = script do
 
   p `submit` do
     -- OK if guard returns True
-    assetAsToken <- create assetAsTokenTpl
+    assetAsToken <- createCmd assetAsTokenTpl
     exerciseGuarded (const True) assetAsToken getRich
 
   p `submitMustFail` do
     -- Fail if guard returns False
-    assetAsToken <- create assetAsTokenTpl
+    assetAsToken <- createCmd assetAsTokenTpl
     exerciseGuarded (const False) assetAsToken getRich
 
   p `submitMustFail` do
     -- Fail if guard throws exception
-    assetAsToken <- create assetAsTokenTpl
+    assetAsToken <- createCmd assetAsTokenTpl
     exerciseGuarded (\_ -> error "foo") assetAsToken getRich
 
   p `submitMustFail` do
     -- Fail if guard throws custom exception
-    assetAsToken <- create assetAsTokenTpl
+    assetAsToken <- createCmd assetAsTokenTpl
     exerciseGuarded (\_ -> throwPure (GuardException "bar")) assetAsToken getRich
 
   p `submitMustFail` do
     -- Fail if guard throws exception, even in `try-catch` block
-    assetAsToken <- create assetAsTokenTpl
+    assetAsToken <- createCmd assetAsTokenTpl
     try do
       exerciseGuarded (\_ -> error "foo") assetAsToken getRich
     catch
@@ -104,7 +104,7 @@ main = script do
 
   p `submitMustFail` do
     -- Fail if guard throws custom exception, even in `try-catch` block
-    assetAsToken <- create assetAsTokenTpl
+    assetAsToken <- createCmd assetAsTokenTpl
     try do
       exerciseGuarded (\_ -> throwPure (GuardException "bar")) assetAsToken getRich
     catch

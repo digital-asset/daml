@@ -29,15 +29,15 @@ template T
 -- @ERROR range=29:1-29:11; Attempt to use a contract via an interface that the contract does not implement
 testFromTo = script do
   alice <- allocateParty "alice"
-  cidT <- alice `submit` create T with party = alice
+  cidT <- alice `submit` createCmd T with party = alice
   let cidI = toInterfaceContractId @I cidT
       cidJ = fromInterfaceContractId @J cidI
-  alice `submit` exercise cidJ JChoice
+  alice `submit` exerciseCmd cidJ JChoice
 
 -- @ERROR range=37:1-37:11; Attempt to use a contract via an interface that the contract does not implement
 testCoerce = script do
   alice <- allocateParty "alice"
-  cidT <- alice `submit` create T with party = alice
+  cidT <- alice `submit` createCmd T with party = alice
   let cidI = toInterfaceContractId @I cidT
       cidJ = coerceInterfaceContractId @J cidI
-  alice `submit` exercise cidJ JChoice
+  alice `submit` exerciseCmd cidJ JChoice

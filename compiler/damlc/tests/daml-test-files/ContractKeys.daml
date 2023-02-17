@@ -35,9 +35,9 @@ test = script do
             accountNumber = ("CH", 123)
     let accountKey = key account
     invitationCid <- submit bank do
-        create AccountInvitation with account
+        createCmd AccountInvitation with account
     accountCid <- submit alice do
-        exercise invitationCid Accept
+        exerciseCmd invitationCid Accept
 
     accountCid' <- submit bank do
         lookupByKey accountKey

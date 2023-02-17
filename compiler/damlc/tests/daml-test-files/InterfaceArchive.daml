@@ -34,11 +34,11 @@ template Tplt
 
 main = script do
     alice <- allocateParty "alice"
-    tid <- alice `submit` create (Tplt alice)
-    alice `submit` exercise tid TChoiceNonconsuming
+    tid <- alice `submit` createCmd (Tplt alice)
+    alice `submit` exerciseCmd tid TChoiceNonconsuming
     let iid = toInterfaceContractId @Iface tid
     alice `submit` archive iid
-    alice `submitMustFail` exercise tid TChoiceNonconsuming
-    alice `submitMustFail` exercise tid TChoiceConsuming
+    alice `submitMustFail` exerciseCmd tid TChoiceNonconsuming
+    alice `submitMustFail` exerciseCmd tid TChoiceConsuming
     alice `submitMustFail` archive tid
     pure ()

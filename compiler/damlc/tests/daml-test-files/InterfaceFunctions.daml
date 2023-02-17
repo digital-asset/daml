@@ -34,7 +34,7 @@ main = script do
     fromInterface token === Some asset
     getAmount token === 15
     submit alice do
-      cid <- create token
+      cid <- createCmd token
       token' <- fetch cid
       fromInterface token' === Some asset
       getAmount token' === 15

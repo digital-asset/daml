@@ -14,6 +14,6 @@ data NestedT
 
 mangled' = script do
   alice <- allocateParty "Alice"
-  t' <- submit alice (create T' with p = alice)
-  submit alice (exercise t' Archive)
+  t' <- submit alice (createCmd T' with p = alice)
+  submit alice (exerciseCmd t' Archive)
   pure (T1 0)

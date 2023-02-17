@@ -39,14 +39,14 @@ test = script do
     alice <- allocateParty "Alice"
     bob <- allocateParty "Bob"
     -- (1) Alice creates a secret
-    id <- submit alice do create Secret with owner = alice; text = "s3cr3t"
+    id <- submit alice do createCmd Secret with owner = alice; text = "s3cr3t"
     -- (2) Bob cannot see the secret
-    submitMustFail bob do exercise id Reveal with receiver = bob
+    submitMustFail bob do exerciseCmd id Reveal with receiver = bob
     -- (3) Alice creates a divulger & uses it
     submit alice do
-      divulger <- create Divulger with owner = alice
-      exercise divulger Divulge with divulgee = bob; id
+      divulger <- createCmd Divulger with owner = alice
+      exerciseCmd divulger Divulge with divulgee = bob; id
     -- (4) Now Bob can see the secret
-    secret <- submit bob do exercise id Reveal with receiver = bob
+    secret <- submit bob do exerciseCmd id Reveal with receiver = bob
     secret === "s3cr3t"
     pure ()

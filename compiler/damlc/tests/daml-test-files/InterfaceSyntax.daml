@@ -4,8 +4,6 @@
 -- @SINCE-LF-FEATURE DAML_INTERFACE
 module InterfaceSyntax where
 
-import Daml.Script
-
 data EmptyInterfaceView = EmptyInterfaceView {}
 
 interface I where

@@ -47,11 +47,11 @@ example = script do
     scroogeMcDuck <- allocateParty "Scrooge McDuck"
     betinaBeackley <- allocateParty "Betina Beakley"
     offer <- submit scroogeMcDuck do
-      create RightOfUseOffer with
+      createCmd RightOfUseOffer with
         landlord = scroogeMcDuck
         tenant = betinaBeackley
         address = "McDuck Manor, Duckburg"
         expirationDate = datetime 2020 Jan 01 0 0 0
 
     -- Fails because it lacks Betina Beakley's authorization
-    submit scroogeMcDuck do exercise offer Accept
+    submit scroogeMcDuck do exerciseCmd offer Accept

@@ -31,12 +31,12 @@ test = script do
     alice <- allocateParty "Alice"
     bob <- allocateParty "Bob"
     -- (1) Alice creates a secret
-    id <- submit alice do create Secret with owner = alice; text = "s3cr3t"
+    id <- submit alice do createCmd Secret with owner = alice; text = "s3cr3t"
     -- (2) Bob cannot see the secret
-    submitMustFail bob do exercise id Reveal with receiver = bob
+    submitMustFail bob do exerciseCmd id Reveal with receiver = bob
     -- (3) Alice allows the Secret to be seen by Bob
-    submit alice do exercise id DiscloseTo with receiver = bob
+    submit alice do exerciseCmd id DiscloseTo with receiver = bob
     -- (4) Now Bob can see the secret
-    secret <- submit bob do exercise id Reveal with receiver = bob
+    secret <- submit bob do exerciseCmd id Reveal with receiver = bob
     secret === "s3cr3t"
     pure ()
