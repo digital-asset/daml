@@ -10,27 +10,40 @@ import Daml.Script
 loop : Int -> ()
 loop x = loop (x + 1) 
 
--- @ERROR range=14:1-14:25; Evaluation timed out after 5 seconds
-loop_in_scenario_machine = scenario do
-  alice <- getParty "p"
-  pure $ loop 1
-  
 template Helper
   with
     p : Party
   where
     signatory p
-    choice Go : ()
+    choice Loop : ()
       controller p
       do
         pure $ loop 1
 
--- @ERROR range=29:1-29:23; Evaluation timed out after 5 seconds
-loop_in_ledger_machine = scenario do
-   alice <- getParty "p"
-   alice `submit` createAndExercise (Helper alice) Go
+-- @ERROR range=24:1-24:16; Evaluation timed out after 1 seconds
+scenarioMachine = scenario do
+  pure $ loop 1
 
--- @ERROR range=34:1-34:15; Evaluation timed out after 5 seconds
-loop_in_script = script do
+-- @ERROR range=28:1-28:32; Evaluation timed out after 1 seconds
+ledgerMachineFromScenarioSubmit = scenario do
+   alice <- getParty "p"
+   alice `submit` createAndExercise (Helper alice) Loop
+
+-- @ERROR range=33:1-33:40; Evaluation timed out after 1 seconds
+ledgerMachineFromScenarioSubmitMustFail = scenario do
+   alice <- getParty "p"
+   alice `submitMustFail` createAndExercise (Helper alice) Loop
+
+-- @ERROR range=38:1-38:14; Evaluation timed out after 1 seconds
+scriptMachine = script do
+    pure $ loop 1
+
+-- @ERROR range=42:1-42:30; Evaluation timed out after 1 seconds
+ledgerMachineFromScriptSubmit = script do
    alice <- allocateParty "p"
-   alice `submit` createAndExerciseCmd (Helper alice) Go
+   alice `submit` createAndExerciseCmd (Helper alice) Loop
+
+-- @ERROR range=47:1-47:38; Evaluation timed out after 1 seconds
+ledgerMachineFromScriptSubmitMustFail= script do
+   alice <- allocateParty "p"
+   alice `submitMustFail` createAndExerciseCmd (Helper alice) Loop
