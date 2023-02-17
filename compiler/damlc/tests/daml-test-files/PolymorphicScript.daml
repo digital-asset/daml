@@ -22,3 +22,13 @@ postAction = script do
     error "postAction OK"
     allocateParty "dave"
     error "postAction FAIL"
+
+-- @ERROR explicitSingle
+explicitSingle : forall a. Script a
+explicitSingle = script do
+    error "explicitSingle"
+
+-- @ERROR explicitMany
+explicitMany : forall a b c. Script b
+explicitMany = script do
+    error "explicitMany"
