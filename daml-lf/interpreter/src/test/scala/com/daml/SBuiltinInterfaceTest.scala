@@ -71,7 +71,6 @@ class SBuiltinInterfaceTest
           evalApp(
             e"\(cid: ContractId Mod:Iface) -> fetch_interface @Mod:Iface cid",
             Array(SContractId(cid), SToken),
-            true,
             getContract = Map(
               cid -> Versioned(
                 TransactionVersion.StableVersions.max,
@@ -88,7 +87,6 @@ class SBuiltinInterfaceTest
           evalApp(
             e"\(cid: ContractId Mod:Iface) -> fetch_interface @Mod:Iface cid",
             Array(SContractId(cid), SToken),
-            true,
             getContract = Map(
               cid -> Versioned(
                 TransactionVersion.StableVersions.max,
@@ -105,7 +103,6 @@ class SBuiltinInterfaceTest
           evalApp(
             e"\(cid: ContractId Mod:Iface) -> fetch_interface @Mod:Iface cid",
             Array(SContractId(cid), SToken),
-            true,
             getContract = Map(
               cid -> Versioned(
                 TransactionVersion.StableVersions.max,
@@ -314,10 +311,9 @@ object SBuiltinInterfaceTest {
       ),
     )
 
-  private def eval(e: Expr, onLedger: Boolean = true): Try[Either[SError, SValue]] =
+  private def eval(e: Expr): Try[Either[SError, SValue]] =
     evalSExpr(
       compiledBasePkgs.compiler.unsafeCompile(e),
-      onLedger,
       PartialFunction.empty,
       PartialFunction.empty,
       PartialFunction.empty,
@@ -326,7 +322,6 @@ object SBuiltinInterfaceTest {
   def evalApp(
       e: Expr,
       args: Array[SValue],
-      onLedger: Boolean,
       getPkg: PartialFunction[Ref.PackageId, CompiledPackages] = PartialFunction.empty,
       getContract: PartialFunction[Value.ContractId, Value.VersionedContractInstance] =
         PartialFunction.empty,
@@ -334,7 +329,6 @@ object SBuiltinInterfaceTest {
   ): Try[Either[SError, SValue]] =
     evalSExpr(
       SEApp(compiledBasePkgs.compiler.unsafeCompile(e), args),
-      onLedger,
       getPkg,
       getContract,
       getKey,
@@ -342,24 +336,18 @@ object SBuiltinInterfaceTest {
 
   def evalSExpr(
       e: SExpr,
-      onLedger: Boolean,
       getPkg: PartialFunction[Ref.PackageId, CompiledPackages] = PartialFunction.empty,
       getContract: PartialFunction[Value.ContractId, Value.VersionedContractInstance],
       getKey: PartialFunction[GlobalKeyWithMaintainers, Value.ContractId],
   ): Try[Either[SError, SValue]] = {
-    if (onLedger) {
-      val machine =
-        Speedy.Machine.fromUpdateSExpr(
-          compiledBasePkgs,
-          transactionSeed = crypto.Hash.hashPrivateKey("SBuiltinTest"),
-          updateSE = SELet1(e, SEMakeClo(Array(SELocS(1)), 1, SELocF(0))),
-          committers = Set(alice),
-        )
-      Try(SpeedyTestLib.run(machine, getPkg, getContract, getKey))
-    } else {
-      val machine = Speedy.Machine.fromPureSExpr(compiledBasePkgs, e)
-      Try(SpeedyTestLib.runPure(machine))
-    }
+    val machine =
+      Speedy.Machine.fromUpdateSExpr(
+        compiledBasePkgs,
+        transactionSeed = crypto.Hash.hashPrivateKey("SBuiltinTest"),
+        updateSE = SELet1(e, SEMakeClo(Array(SELocS(1)), 1, SELocF(0))),
+        committers = Set(alice),
+      )
+    Try(SpeedyTestLib.run(machine, getPkg, getContract, getKey))
   }
 
 }
