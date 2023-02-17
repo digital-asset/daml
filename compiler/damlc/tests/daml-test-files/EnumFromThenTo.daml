@@ -1,7 +1,7 @@
 -- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
 -- All rights reserved.
 
--- @ERROR range=9:1-9:5; enumFromThenTo: from == then
+-- @ERROR range=11:1-11:5; enumFromThenTo: from == then
 
 module EnumFromThenTo where
 

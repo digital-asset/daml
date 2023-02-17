@@ -1,5 +1,5 @@
--- @ERROR range=30:1-30:11; Attempt to fetch or exercise by key
--- @ERROR range=34:1-34:11; Attempt to fetch or exercise by key
+-- @ERROR range=32:1-32:11; Attempt to fetch or exercise by key
+-- @ERROR range=36:1-36:11; Attempt to fetch or exercise by key
 module FetchByKey where
 
 import Daml.Script
@@ -31,13 +31,13 @@ template Helper
 
 failLedger = script do
   p <- allocateParty "p"
-  submit p $ createAndExercise (Helper p) Fail1
+  submit p $ createAndExerciseCmd (Helper p) Fail1
 
 failSpeedy = script do
   p <- allocateParty "p"
-  submit p $ createAndExercise (Helper p) Fail2
+  submit p $ createAndExerciseCmd (Helper p) Fail2
 
 mustFail = script do
   p <- allocateParty "p"
-  submitMustFail p $ createAndExercise (Helper p) Fail1
-  submitMustFail p $ createAndExercise (Helper p) Fail2
+  submitMustFail p $ createAndExerciseCmd (Helper p) Fail1
+  submitMustFail p $ createAndExerciseCmd (Helper p) Fail2

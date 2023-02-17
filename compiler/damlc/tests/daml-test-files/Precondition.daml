@@ -1,7 +1,7 @@
 -- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
 -- All rights reserved.
 
--- @ERROR range=22:1-22:5; Template precondition violated
+-- @ERROR range=23:1-23:5; Template precondition violated
 
 module Precondition where
 

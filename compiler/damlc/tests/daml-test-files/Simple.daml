@@ -1,6 +1,7 @@
 -- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
 -- All rights reserved.
 
+{-# LANGUAGE ApplicativeDo #-}
 
 -- A simple example, deliberately encoding in CRLF format
 module Simple where
@@ -24,7 +25,8 @@ template Person
 
 main = script do
     alice <- allocateParty "alice"
+    person <- submit alice do createCmd $ Person alice "Alice Liddel"
     submit alice do
-        person <- createCmd $ Person alice "Alice Liddel"
         exerciseCmd person $ Nap 10
         exerciseCmd person Sleep
+        pure ()

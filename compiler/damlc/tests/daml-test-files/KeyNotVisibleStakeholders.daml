@@ -63,7 +63,7 @@ divulgeeFetch = script do
   divulgercid <- submit divulgee do createCmd Divulger with ..
   submit sig do exerciseCmd divulgercid DivulgeKeyed with ..
   submit divulgee do
-    _ <- createAndExercise (Delegation sig divulgee) FetchKeyed
+    _ <- createAndExerciseCmd (Delegation sig divulgee) FetchKeyed
     pure ()
 
 divulgeeLookup = script do
@@ -73,7 +73,7 @@ divulgeeLookup = script do
   divulgercid <- submit divulgee do createCmd Divulger with ..
   submit sig do exerciseCmd divulgercid DivulgeKeyed with ..
   submit divulgee do
-    _ <- createAndExercise (Delegation sig divulgee) LookupKeyed
+    _ <- createAndExerciseCmd (Delegation sig divulgee) LookupKeyed
     pure ()
 
 blindFetch = script do
@@ -84,7 +84,7 @@ blindFetch = script do
   divulgercid <- submit divulgee do createCmd Divulger with ..
   submit sig do exerciseCmd divulgercid DivulgeKeyed with ..
   submit blind do
-    _ <- createAndExercise (Delegation sig blind) FetchKeyed
+    _ <- createAndExerciseCmd (Delegation sig blind) FetchKeyed
     pure ()
 
 blindLookup = script do
@@ -95,5 +95,5 @@ blindLookup = script do
   divulgercid <- submit divulgee do createCmd Divulger with ..
   submit sig do exerciseCmd divulgercid DivulgeKeyed with ..
   submit blind do
-    _ <- createAndExercise (Delegation sig blind) LookupKeyed
+    _ <- createAndExerciseCmd (Delegation sig blind) LookupKeyed
     pure ()

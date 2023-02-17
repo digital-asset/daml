@@ -24,7 +24,7 @@ template T
       view = EmptyInterfaceView
       getController = party
 
--- @ERROR range=27:1-27:5; Attempt to exercise a choice with a failing guard
+-- @ERROR range=28:1-28:5; Attempt to exercise a choice with a failing guard
 main = script do
   alice <- allocateParty "alice"
   cidT <- alice `submit` createCmd T with party = alice

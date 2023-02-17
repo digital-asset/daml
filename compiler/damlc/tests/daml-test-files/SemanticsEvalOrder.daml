@@ -11,10 +11,12 @@
 -- `evExpRecUpdErr1`, `evExpRecUpdErr2_1`, and `evExpRecUpdErr2_2`, for example.)
 
 {-# OPTIONS_GHC -Wno-controller-can #-}
+{-# LANGUAGE ApplicativeDo #-}
 
 module SemanticsEvalOrder where
 
 import Daml.Script
+import ScriptAssertHelpers
 
 -- @ERROR EvTyAbsErasableErr OK
 evTyAbsErasableErr = script do
@@ -197,19 +199,21 @@ template T
   with p : Party
   where signatory p
 
--- @ERROR EvExpUpCreateErr OK
+-- @TODO Reconsider the value of these tests with Script, as errors in commands are evaluated strictly
+{-
+--- @ERROR EvExpUpCreateErr OK
 evExpUpCreateErr = script do
   let _ : Update (ContractId T) = createCmd (error "EvExpUpCreateErr OK")
   pure ()
 
--- @ERROR EvExpUpFetchErr OK
+--- @ERROR EvExpUpFetchErr OK
 evExpUpFetchErr = script do
   let _ : Update T = fetch (error "EvExpUpFetchErr OK")
   pure ()
 
 -- "exercise with actors" is not testable from Daml.
 
--- @ERROR EvExpUpExerciseWithoutActorsErr1 OK
+--- @ERROR EvExpUpExerciseWithoutActorsErr1 OK
 evExpUpExerciseWithoutActorsErr1 = script do
   let _ : Update () =
           exerciseCmd @T @Archive
@@ -217,11 +221,11 @@ evExpUpExerciseWithoutActorsErr1 = script do
               (error "EvExpUpExerciseWithoutActorsErr1 failed")
   pure ()
 
--- @ERROR EvExpUpExerciseWithoutActorsErr2 OK
+--- @ERROR EvExpUpExerciseWithoutActorsErr2 OK
 evExpUpExerciseWithoutActorsErr2 = script do
   p <- allocateParty "Alice"
   t <- submit p $ createCmd (T p)
-  let _ : Update () = exerciseCmd @T @Archive t (error "EvExpUpExerciseWithoutActorsErr2 OK")
+  let _ : Commands () = exerciseCmd @T @Archive t (error "EvExpUpExerciseWithoutActorsErr2 OK")
   pure ()
 
 template T2
@@ -233,12 +237,12 @@ template T2
     key (p,k) : (Party, Int)
     maintainer key._1
 
--- @ERROR EvExpUpFetchByKeyErr OK
+--- @ERROR EvExpUpFetchByKeyErr OK
 evExpUpFetchByKeyErr = script do
   let _ = fetchByKey @T2 (error "EvExpUpFetchByKeyErr OK")
   pure ()
 
--- @ERROR EvExpUpLookupByKeyErr OK
+--- @ERROR EvExpUpLookupByKeyErr OK
 evExpUpLookupByKeyErr = script do
   let _ = lookupByKey @T2 (error "EvExpUpLookupByKeyErr OK")
   pure ()
@@ -247,27 +251,27 @@ abort1 = script do
   let _ : Update () = abort "abort1 failed"
   pure ()
 
--- @ERROR abort2 OK
+--- @ERROR abort2 OK
 abort2 = script do
   p <- allocateParty "Alice"
   submit p do
     abort "abort2 OK"
 
--- @ERROR EvUpdBindErr1_1 OK
+--- @ERROR EvUpdBindErr1_1 OK
 evUpdBindErr1_1 = script do
   p <- allocateParty "Alice"
   submit p do
     abort "EvUpdBindErr1_1 OK"
     abort "EvUpdBindErr1_1 failed"
 
--- @ERROR EvUpdBindErr1_2 OK
+--- @ERROR EvUpdBindErr1_2 OK
 evUpdBindErr1_2 = script do
   p <- allocateParty "Alice"
   submit p do
     abort "EvUpdBindErr1_2 OK"
     error "EvUpdBindErr1_2 failed"
 
--- @ERROR EvUpdBindErr2 OK
+--- @ERROR EvUpdBindErr2 OK
 evUpdBindErr2 = script do
   p <- allocateParty "Alice"
   submit p do
@@ -275,13 +279,15 @@ evUpdBindErr2 = script do
     error "EvUpdBindErr2 OK"
     abort "EvUpdBindErr2 failed"
 
--- @ERROR EvUpdBindErr3 OK
+--- @ERROR EvUpdBindErr3 OK
 evUpdBindErr3 = script do
   p <- allocateParty "Alice"
   submit p do
     createCmd (T p)
     abort "EvUpdBindErr3 OK"
     abort "EvUpdBindErr3 failed"
+
+-}
 
 -- @ERROR EvUpdCreateErr1 OK
 template T_EvUpdCreateErr1
@@ -297,9 +303,9 @@ evUpdCreateErr1 = script do
   p <- allocateParty "Alice"
   submit p do
     createCmd (T_EvUpdCreateErr1 p)
-    error "EvUpdCreateErr1 failed (4)"
+  abort "EvUpdCreateErr1 failed (4)"
 
--- @ERROR range=310:1-310:16; Template precondition violated
+-- @ERROR range=312:1-312:16; Template precondition violated
 template T_EvUpdCreateFail
   with
     p : Party
@@ -313,7 +319,7 @@ evUpdCreateFail = script do
   p <- allocateParty "Alice"
   submit p do
     createCmd (T_EvUpdCreateFail p)
-    error "EvUpdCreateFail failed (4)"
+  abort "EvUpdCreateFail failed (4)"
 
 -- @ERROR EvUpdCreateErr2 OK
 template T_EvUpdCreateErr2
@@ -329,7 +335,7 @@ evUpdCreateErr2 = script do
   p <- allocateParty "Alice"
   submit p do
     createCmd (T_EvUpdCreateErr2 p)
-    error "EvUpdCreateErr2 failed (3)"
+  abort "EvUpdCreateErr2 failed (3)"
 
 -- @ERROR EvUpdCreateErr3 OK
 template T_EvUpdCreateErr3
@@ -345,7 +351,7 @@ evUpdCreateErr3 = script do
   p <- allocateParty "Alice"
   submit p do
     createCmd (T_EvUpdCreateErr3 p)
-    error "EvUpdCreateErr3 failed (2)"
+  abort "EvUpdCreateErr3 failed (2)"
 
 -- @ERROR EvUpdCreateErr4_1 OK
 template T_EvUpdCreateErr4_1
@@ -361,7 +367,7 @@ evUpdCreateErr4_1 = script do
   p <- allocateParty "Alice"
   submit p do
     createCmd (T_EvUpdCreateErr4_1 p)
-    error "EvUpdCreateErr4_1 failed"
+  abort "EvUpdCreateErr4_1 failed"
 
 -- @ERROR EvUpdCreateErr4_2 OK
 template T_EvUpdCreateErr4_2
@@ -379,7 +385,7 @@ evUpdCreateErr4_2 = script do
   p <- allocateParty "Alice"
   submit p do
     createCmd (T_EvUpdCreateErr4_2 p)
-    error "EvUpdCreateErr4_2 failed"
+  abort "EvUpdCreateErr4_2 failed"
 
 -- @ERROR EvUpdCreateWithKeyErr1 OK
 template T_EvUpdCreateWithKeyErr1
@@ -397,7 +403,7 @@ evUpdCreateWithKeyErr1 = script do
   p <- allocateParty "Alice"
   submit p do
     createCmd (T_EvUpdCreateWithKeyErr1 p)
-    error "EvUpdCreateWithKeyErr1 failed"
+  abort "EvUpdCreateWithKeyErr1 failed"
 
 -- @ERROR EvUpdCreateWithKeyErr2 OK
 template T_EvUpdCreateWithKeyErr2
@@ -415,7 +421,7 @@ evUpdCreateWithKeyErr2 = script do
   p <- allocateParty "Alice"
   submit p do
     createCmd (T_EvUpdCreateWithKeyErr2 p)
-    error "EvUpdCreateWithKeyErr2 failed"
+  abort "EvUpdCreateWithKeyErr2 failed"
 
 -- | `controller P can ...` syntax adds `P` to the observers,
 -- so if `P` causes an error, this is triggered on create,
@@ -437,7 +443,7 @@ controllerCanAddsObserver = script do
   p <- allocateParty "Alice"
   submit p do
     createCmd (T_ControllerCanAddsObserver p)
-    error "controllerCanAddsObserver failed"
+  abort "controllerCanAddsObserver failed"
 
 -- | `choice ... controller P ...` doesn't add `P` as observer.
 -- This test is here to contrast with the previous.
@@ -455,7 +461,7 @@ choiceControllerDoesntAddObserver = script do
   p <- allocateParty "Alice"
   submit p do
     createCmd (T_ChoiceControllerDoesntAddObserver p)
-    error "choiceControllerDoesntAddObserver OK"
+  abort "choiceControllerDoesntAddObserver OK"
 
 -- | Verify that contract inactivity is checked before interpreting
 -- the rest of the update.
@@ -468,11 +474,12 @@ template T_DoubleArchive
 
 doubleArchive = script do
   p <- allocateParty "Alice"
+  c <- submit p do createCmd (T_DoubleArchive p)
   submit p do
-    c <- createCmd (T_DoubleArchive p)
-    archive c
-    archive c
-    abort "doubleArchive failed"
+    archiveCmd c
+    archiveCmd c
+    pure ()
+  abort "doubleArchive failed"
 
 -- | Verify that a consuming choice's update is interpreted with a
 -- ledger state where the template has already been consumed.
@@ -490,10 +497,9 @@ template T_EvUpdExercConsumErr_1
 
 evUpdExercConsumErr_1 = script do
   p <- allocateParty "Alice"
-  submit p do
-    c <- createCmd (T_EvUpdExercConsumErr_1 p)
-    exerciseCmd c C_EvUpdExercConsumErr_1
-    abort "EvUpdExercConsumErr_1 failed (2)"
+  c <- submit p do createCmd (T_EvUpdExercConsumErr_1 p)
+  submit p do exerciseCmd c C_EvUpdExercConsumErr_1
+  abort "EvUpdExercConsumErr_1 failed (2)"
 
 
 -- | Similar to `T_EvUpdExercConsumErr_1` but using fetch instead of archive.
@@ -511,10 +517,9 @@ template T_EvUpdExercConsumErr_2
 
 evUpdExercConsumErr_2 = script do
   p <- allocateParty "Alice"
-  submit p do
-    c <- createCmd (T_EvUpdExercConsumErr_2 p)
-    exerciseCmd c C_EvUpdExercConsumErr_2
-    abort "EvUpdExercConsumErr_2 failed (2)"
+  c <- submit p do createCmd (T_EvUpdExercConsumErr_2 p)
+  submit p do exerciseCmd c C_EvUpdExercConsumErr_2
+  abort "EvUpdExercConsumErr_2 failed (2)"
 
 -- | Verify that a nonconsuming choice's update is interpreted with
 -- the original ledger state (template hasn't been consumed).
@@ -530,12 +535,13 @@ template T_EvUpdExercNonConsumErr
           archive self
           error "EvUpdExercNonConsumErr OK"
 
+-- @TODO Is it safe to use createAndExerciseCmd here (and elsewhere in this file)? It'll make the create and exercise 1 transaction, instead of 2
+
 evUpdExercNonConsumErr = script do
   p <- allocateParty "Alice"
-  submit p do
-    c <- createCmd (T_EvUpdExercNonConsumErr p)
-    exerciseCmd c C_EvUpdExercNonConsumErr
-    abort "EvUpdExercNonConsumErr failed"
+  c <- submit p do createCmd (T_EvUpdExercNonConsumErr p)
+  submit p do exerciseCmd c C_EvUpdExercNonConsumErr
+  abort "EvUpdExercNonConsumErr failed"
 
 
 -- | Show that the exercising party is evaluated after
@@ -552,11 +558,12 @@ template T_EvUpdExercWithoutActorsErr_2
 
 evUpdExercWithoutActorsErr_2 = script do
   p <- allocateParty "Alice"
+  c <- submit p do createCmd (T_EvUpdExercWithoutActorsErr_2 p)
   submit p do
-    c <- createCmd (T_EvUpdExercWithoutActorsErr_2 p)
-    archive c
+    archiveCmd c
     exerciseCmd c C_EvUpdExercWithoutActorsErr_2
-    abort "EvUpdExercWithoutActorsErr_2 failed (3)"
+    pure ()
+  abort "EvUpdExercWithoutActorsErr_2 failed (3)"
 
 -- | Checks that an authorization / bad actor check occurs
 -- at some point during submission.
@@ -575,9 +582,8 @@ template T_BadActorCheck
 badActorCheck = script do
   p1 <- allocateParty "Alice"
   p2 <- allocateParty "Bob"
-  submit p1 do
-    c <- createCmd (T_BadActorCheck p1 p2)
-    exerciseCmd c C_BadActorCheck
+  c <- submit p1 do createCmd (T_BadActorCheck p1 p2)
+  submit p1 do exerciseCmd c C_BadActorCheck
   error "BadActorCheck failed"
 
 -- @ERROR EvUpdFetchByKeyErr OK
@@ -591,21 +597,5 @@ template T_EvUpdFetchByKeyErr
 
 evUpdFetchByKeyErr = script do
   p <- allocateParty "Alice"
-  submit p do
-    fetchByKey @T_EvUpdFetchByKeyErr ()
-    abort "EvUpdFetchByKeyErr failed"
-
--- @ERROR EvUpdLookupByKeyErr OK
-template T_EvUpdLookupByKeyErr
-  with
-    p : Party
-  where
-    signatory p
-    key () : ()
-    maintainer (error @Party "EvUpdLookupByKeyErr OK")
-
-evUpdLookupByKeyErr = script do
-  p <- allocateParty "Alice"
-  submit p do
-    fetchByKey @T_EvUpdLookupByKeyErr ()
-    abort "EvUpdLookupByKeyErr failed"
+  canSeeKey @T_EvUpdFetchByKeyErr p ()
+  abort "EvUpdFetchByKeyErr failed"

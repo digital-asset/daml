@@ -1,4 +1,4 @@
--- @ERROR range=27:1-27:5; Attempt to fetch or exercise a wrongly typed contract.
+-- @ERROR range=29:1-29:5; Attempt to fetch or exercise a wrongly typed contract.
 module WronglyTypedContract where
 
 import Daml.Script
@@ -29,5 +29,5 @@ template Fetcher
 test = script do
   p <- allocateParty "p"
   cid <- submit p $ createCmd (T1 p)
-  fetcher <- submit p $ createAndExercise (Fetcher p) (Fetch2 (coerceContractId cid))
+  fetcher <- submit p $ createAndExerciseCmd (Fetcher p) (Fetch2 (coerceContractId cid))
   pure ()
