@@ -173,8 +173,6 @@ private[lf] object Speedy {
   )(implicit loggingContext: LoggingContext)
       extends Machine[Question.Update] {
 
-    private[speedy] override def isUpdateMachine: Boolean = true // for: SBContractIdToText
-
     private[speedy] override def asUpdateMachine(location: String)(
         f: UpdateMachine => Control[Question.Update]
     ): Control[Question.Update] =
@@ -623,8 +621,6 @@ private[lf] object Speedy {
 
     @inline
     private[speedy] final def kontDepth(): Int = kontStack.size()
-
-    private[speedy] def isUpdateMachine: Boolean = false
 
     private[speedy] def asUpdateMachine(location: String)(
         f: UpdateMachine => Control[Question.Update]
