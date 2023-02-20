@@ -166,51 +166,57 @@ testRun h inFiles lfVersion (RunAllTests runAllTests) coverage color mbJUnitOutp
                     pure (file, map (second render) scenarioResults)
         writeFile junitOutput $ XML.showTopElement $ toJUnit res
 
-data NamedPath = NamedPath { name :: String, path :: FilePath }
+data NamedPath = NamedPath { np_name :: String, np_path :: FilePath }
     deriving (Show, Eq, Ord)
 
-outputTables :: TableOutputPath -> [(LF.World, NormalizedFilePath, LF.Module, Maybe [(VirtualResource, Either SSC.Error SS.ScenarioResult)])] -> IO ()
-outputTables (TableOutputPath (Just path)) results = do
-    dir <-
-        handleFileSystemErrors
-            ("Test table output directory '" ++ path ++ "'")
-            (createDirectoryIfMissing True path)
-    case dir of
-      Nothing -> pure ()
-      _ ->
-        let results' = [(world, vr, result) | (world, _, mod, Just results) <- results, (vr, Right result) <- results ]
-        in
-        forM_ results' $ \(world, vr, result) -> do
-            let activeContracts = SS.activeContractsFromScenarioResult result
-                tableView = SS.renderTableView world activeContracts (SS.scenarioResultNodes result)
-                tableSource = TL.toStrict $ Blaze.renderHtml $ fold tableView
-                outputFile = path </> ("table-" <> T.unpack (vrScenarioName vr) <> ".html")
-            _ <- handleFileSystemErrors
-                ("Test table output file '" <> outputFile <> "'")
-                (TIO.writeFile outputFile tableSource)
-            pure ()
+tryWithPath :: (FilePath -> IO a) -> NamedPath -> IO (Maybe a)
+tryWithPath action NamedPath {..} =
+    handleJust errorFilter handler (Just <$> action np_path)
     where
-        handleFileSystemErrors :: String -> IO a -> IO (Maybe a)
-        handleFileSystemErrors name action =
-            handleJust errorFilter (handler name) (Just <$> action)
-
         errorFilter :: IOError -> Maybe IOError
         errorFilter err = do
             guard $ isPermissionError err || isAlreadyExistsError err || isDoesNotExistError err
             pure err
 
-        handler :: String -> IOError -> IO (Maybe a)
-        handler name err
+        handler :: IOError -> IO (Maybe a)
+        handler err
           | isPermissionError err = do
-              hPutStrLn stderr $ name ++ " cannot be created because of unsufficient permissions."
+              hPutStrLn stderr $ np_name ++ " cannot be created because of unsufficient permissions."
               pure Nothing
           | isAlreadyExistsError err = do
-              hPutStrLn stderr $ name ++ " cannot be created because it already exists."
+              hPutStrLn stderr $ np_name ++ " cannot be created because it already exists."
               pure Nothing
           | isDoesNotExistError err = do
-              hPutStrLn stderr $ name ++ " cannot be created because its parent directory does not exist."
+              hPutStrLn stderr $ np_name ++ " cannot be created because its parent directory does not exist."
               pure Nothing
           | otherwise = throwIO err
+
+outputUnderDir :: NamedPath -> [(NamedPath, T.Text)] -> IO ()
+outputUnderDir dir paths = do
+    dirSuccess <- tryWithPath (createDirectoryIfMissing True) dir
+    case dirSuccess of
+      Nothing -> pure ()
+      Just _ ->
+          forM_ paths $ \(file, content) -> do
+            _ <- tryWithPath (flip TIO.writeFile content) file
+            pure ()
+
+outputTables :: TableOutputPath -> [(LF.World, NormalizedFilePath, LF.Module, Maybe [(VirtualResource, Either SSC.Error SS.ScenarioResult)])] -> IO ()
+outputTables (TableOutputPath (Just path)) results =
+    let outputs :: [(NamedPath, T.Text)]
+        outputs = do
+            (world, _, _, Just results) <- results
+            (vr, Right result) <- results
+            let activeContracts = SS.activeContractsFromScenarioResult result
+                tableView = SS.renderTableView world activeContracts (SS.scenarioResultNodes result)
+                tableSource = TL.toStrict $ Blaze.renderHtml $ fold tableView
+                outputFile = path </> ("table-" <> T.unpack (vrScenarioName vr) <> ".html")
+                outputFileName = "Test table output file '" <> outputFile <> "'"
+            pure (NamedPath outputFileName outputFile, tableSource)
+    in
+    outputUnderDir
+        (NamedPath ("Test table output directory '" ++ path ++ "'") path)
+        outputs
 outputTables _ _ = pure ()
 
 -- We didn't get scenario results, so we use the diagnostics as the error message for each scenario.
