@@ -85,7 +85,12 @@ inefficientFibonacci n =
   case n of
     0 -> 0
     1 -> 1
-    m -> inefficientFibonacci (m - 2) + inefficientFibonacci (m - 1)
+    m -> inefficientFibonacci(m - 2) + inefficientFibonacci(m - 1)
+
+simulateWorkload: () -> ()
+simulateWorkload _ =
+  case (inefficientFibonacci 10) of
+    _ -> ()
 
 earlyBreedingTrigger : Trigger (Int, Int, Bool)
 earlyBreedingTrigger = Trigger
@@ -149,12 +154,8 @@ breedingAction party = do
   else if breedDelay == 0 then do
     forA_ [1..breedingRate] \id -> do
       void $ emitCommands [createCmd (Cat party id)] []
-  else if busyLoop then do
-    -- Waste time doing nothing!
-    let _ = inefficientFibonacci 40
-    do
-      pure ()
-  else
+  else do
+    let _ = if busyLoop then simulateWorkload() else ()
     pure ()
 
 breedingTrigger : Trigger Int

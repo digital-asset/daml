@@ -348,9 +348,11 @@ final class TriggerRuleEvaluationTimeoutTesting extends LoadTesting {
 final class TriggerRuleStepInterpretationTimeoutTesting extends LoadTesting {
 
   override protected def triggerRunnerConfiguration: TriggerRunnerConfig =
-    super.triggerRunnerConfiguration.copy(hardLimit =
-      super.triggerRunnerConfiguration.hardLimit
-        .copy(allowTriggerTimeouts = true, stepInterpreterTimeout = 1.millisecond)
+    super.triggerRunnerConfiguration.copy(
+      maximumBatchSize = 1,
+      batchingDuration = 1.millisecond,
+      hardLimit = super.triggerRunnerConfiguration.hardLimit
+        .copy(allowTriggerTimeouts = true, stepInterpreterTimeout = 1.millisecond),
     )
 
   "Long running trigger initialization evaluation" should {

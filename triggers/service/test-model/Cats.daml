@@ -32,6 +32,11 @@ inefficientFibonacci n =
     1 -> 1
     m -> inefficientFibonacci (m - 2) + inefficientFibonacci (m - 1)
 
+simulateWorkload: () -> ()
+simulateWorkload _ = do
+  let _ = inefficientFibonacci 10
+  ()
+
 breedingTrigger : Trigger Int
 breedingTrigger = Trigger
   { initialize = pure populationSize
@@ -114,11 +119,7 @@ breedingAction party = do
     void $ emitCommands [createCmd (TestComplete party)] []
   else if breedDelay == 0 then do
     forA_ [1..populationSize] \id -> do
+      let _ = if busyLoop then simulateWorkload() else ()
       void $ emitCommands [createCmd (Cat party id)] []
-  else if busyLoop then do
-    -- Waste time doing nothing!
-    let _ = inefficientFibonacci 40
-    do
-      pure ()
   else
     pure ()
