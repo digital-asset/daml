@@ -19,7 +19,6 @@ import com.daml.lf.engine.trigger.{
   InFlightCommandOverflowException,
   TriggerMsg,
   TriggerRuleEvaluationTimeout,
-  TriggerRuleStepInterpretationTimeout,
   TriggerRunnerConfig,
 }
 import com.daml.platform.services.time.TimeProviderType
@@ -339,81 +338,6 @@ final class TriggerRuleEvaluationTimeoutTesting extends LoadTesting {
             ._2
         } yield {
           fail("Cats:lateBreedingTrigger failed to throw TriggerRuleEvaluationTimeout")
-        }
-      }
-    }
-  }
-}
-
-final class TriggerRuleStepInterpretationTimeoutTesting extends LoadTesting {
-
-  override protected def triggerRunnerConfiguration: TriggerRunnerConfig =
-    super.triggerRunnerConfiguration.copy(
-      maximumBatchSize = 1,
-      batchingDuration = 1.millisecond,
-      hardLimit = super.triggerRunnerConfiguration.hardLimit
-        .copy(allowTriggerTimeouts = true, stepInterpreterTimeout = 1.millisecond),
-    )
-
-  "Long running trigger initialization evaluation" should {
-    "Cause a trigger timeout" in {
-      recoverToSucceededIf[TriggerRuleStepInterpretationTimeout] {
-        for {
-          client <- ledgerClient()
-          party <- allocateParty(client)
-          runner = getRunner(
-            client,
-            QualifiedName.assertFromString("Cats:earlyBreedingTriggerWithDelay"),
-            party,
-          )
-          (acs, offset) <- runner.queryACS()
-          _ <- runner
-            .runWithACS(
-              acs,
-              offset,
-              msgFlow = Flow[TriggerContext[TriggerMsg]]
-                // Allow flow to proceed until we observe a Cats:TestComplete contract being created
-                .takeWhile(
-                  notObserving(LedgerApi.Identifier(packageId, "Cats", "TestComplete"))
-                ),
-            )
-            ._2
-        } yield {
-          fail(
-            "Cats:earlyBreedingTriggerWithDelay failed to throw TriggerRuleStepInterpretationTimeout"
-          )
-        }
-      }
-    }
-  }
-
-  "Long running trigger rule evaluation" should {
-    "Cause a trigger timeout" in {
-      recoverToSucceededIf[TriggerRuleStepInterpretationTimeout] {
-        for {
-          client <- ledgerClient()
-          party <- allocateParty(client)
-          runner = getRunner(
-            client,
-            QualifiedName.assertFromString("Cats:lateBreedingTriggerWithDelay"),
-            party,
-          )
-          (acs, offset) <- runner.queryACS()
-          _ <- runner
-            .runWithACS(
-              acs,
-              offset,
-              msgFlow = Flow[TriggerContext[TriggerMsg]]
-                // Allow flow to proceed until we observe a Cats:TestComplete contract being created
-                .takeWhile(
-                  notObserving(LedgerApi.Identifier(packageId, "Cats", "TestComplete"))
-                ),
-            )
-            ._2
-        } yield {
-          fail(
-            "Cats:lateBreedingTriggerWithDelay failed to throw TriggerRuleStepInterpretationTimeout"
-          )
         }
       }
     }

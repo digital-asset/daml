@@ -47,6 +47,7 @@ import com.daml.lf.engine.trigger.Runner.{
   numberOfPendingContracts,
   triggerUserState,
 }
+import com.daml.lf.engine.trigger.Runner.Implicits._
 import com.daml.lf.engine.trigger.ToLoggingContext._
 import com.daml.lf.engine.trigger.UnfoldState.{UnfoldStateShape, flatMapConcatNode, toSource}
 import com.daml.lf.language.Ast._
@@ -610,27 +611,6 @@ private[lf] class Runner private (
       )
 
       (commandUUID, SubmitRequest(commands = Some(commandsArg)))
-    }
-  }
-
-  // FIXME: place this code elsewhere!!!
-  implicit class DurationExtensions(duration: Long) {
-    def toHumanReadable: String = {
-      if (duration >= 24L * 60L * 60L * 1000L * 1000L * 1000L) {
-        s"${duration / (24L * 60L * 60L * 1000L * 1000L * 1000L)}days"
-      } else if (duration >= 60L * 60L * 1000L * 1000L * 1000L) {
-        s"${duration / (60L * 60L * 1000L * 1000L * 1000L)}hrs"
-      } else if (duration >= 60L * 1000L * 1000L * 1000L) {
-        s"${duration / (60L * 1000L * 1000L * 1000L)}mins"
-      } else if (duration >= 1000L * 1000L * 1000L) {
-        s"${duration / (1000L * 1000L * 1000L)}s"
-      } else if (duration >= 1000L * 1000L) {
-        s"${duration / (1000L * 1000L)}ms"
-      } else if (duration >= 1000L) {
-        s"${duration / 1000L}us"
-      } else {
-        s"${duration}ns"
-      }
     }
   }
 
@@ -1460,8 +1440,6 @@ private[lf] class Runner private (
 
 object Runner {
 
-  import Implicits._
-
   private[trigger] implicit val logger: ContextualizedLogger = ContextualizedLogger.get(getClass)
 
   type TriggerContext[+Value] = Ctx[TriggerLogContext, Value]
@@ -1869,6 +1847,26 @@ object Runner {
     }
 
   object Implicits {
+    implicit class DurationExtensions(duration: Long) {
+      def toHumanReadable: String = {
+        if (duration >= 24L * 60L * 60L * 1000L * 1000L * 1000L) {
+          s"${duration / (24L * 60L * 60L * 1000L * 1000L * 1000L)}days"
+        } else if (duration >= 60L * 60L * 1000L * 1000L * 1000L) {
+          s"${duration / (60L * 60L * 1000L * 1000L * 1000L)}hrs"
+        } else if (duration >= 60L * 1000L * 1000L * 1000L) {
+          s"${duration / (60L * 1000L * 1000L * 1000L)}mins"
+        } else if (duration >= 1000L * 1000L * 1000L) {
+          s"${duration / (1000L * 1000L * 1000L)}s"
+        } else if (duration >= 1000L * 1000L) {
+          s"${duration / (1000L * 1000L)}ms"
+        } else if (duration >= 1000L) {
+          s"${duration / 1000L}us"
+        } else {
+          s"${duration}ns"
+        }
+      }
+    }
+
     implicit class EnrichTriggerLoggingContextOf(logContext: LoggingContextOf[Trigger]) {
       def enrichTriggerContext(
           entry: LoggingEntry,
