@@ -17,6 +17,7 @@ module DA.Cli.Damlc.Test (
 import Control.Exception
 import Control.Monad.Except
 import Control.Monad.Extra
+import DA.Bazel.Runfiles
 import DA.Daml.Compiler.Output
 import qualified DA.Daml.LF.Ast as LF
 import qualified DA.Daml.LF.PrettyScenario as SS
@@ -53,6 +54,7 @@ import System.IO (hPutStrLn, stderr)
 import System.IO.Error (isPermissionError, isAlreadyExistsError, isDoesNotExistError)
 import qualified Text.XML.Light as XML
 import qualified Text.Blaze.Html.Renderer.Text as Blaze
+import qualified Text.Blaze.Html4.Strict as Blaze
 import Text.Printf
 
 
@@ -151,8 +153,13 @@ testRun h inFiles lfVersion (RunAllTests runAllTests) coverage color mbJUnitOutp
         allPackages
         allResults
 
-    outputTables tableOutputPath results
-    outputTransactions transactionsOutputPath results
+    extensionCss <- readFile =<< locateResource Resource
+      -- //compiler/daml-extension:stylesheet
+      { resourcesPath = "webview-stylesheet.css"
+      , runfilesPathPrefix = "//compiler/daml-extension:webview-stylesheet.css"
+      }
+    outputTables extensionCss tableOutputPath results
+    outputTransactions extensionCss transactionsOutputPath results
 
     whenJust mbJUnitOutput $ \junitOutput -> do
         createDirectoryIfMissing True $ takeDirectory junitOutput
@@ -202,15 +209,17 @@ outputUnderDir dir paths = do
             _ <- tryWithPath (flip TIO.writeFile content) file
             pure ()
 
-outputTables :: TableOutputPath -> [(LF.World, NormalizedFilePath, LF.Module, Maybe [(VirtualResource, Either SSC.Error SS.ScenarioResult)])] -> IO ()
-outputTables (TableOutputPath (Just path)) results =
+outputTables :: String -> TableOutputPath -> [(LF.World, NormalizedFilePath, LF.Module, Maybe [(VirtualResource, Either SSC.Error SS.ScenarioResult)])] -> IO ()
+outputTables cssSource (TableOutputPath (Just path)) results =
     let outputs :: [(NamedPath, T.Text)]
         outputs = do
             (world, _, _, Just results) <- results
             (vr, Right result) <- results
             let activeContracts = SS.activeContractsFromScenarioResult result
                 tableView = SS.renderTableView world activeContracts (SS.scenarioResultNodes result)
-                tableSource = TL.toStrict $ Blaze.renderHtml $ fold tableView
+                tableSource = TL.toStrict $ Blaze.renderHtml $ do
+                    Blaze.style $ Blaze.preEscapedToHtml cssSource
+                    fold tableView
                 outputFile = path </> ("table-" <> T.unpack (vrScenarioName vr) <> ".html")
                 outputFileName = "Test table output file '" <> outputFile <> "'"
             pure (NamedPath outputFileName outputFile, tableSource)
@@ -218,17 +227,19 @@ outputTables (TableOutputPath (Just path)) results =
     outputUnderDir
         (NamedPath ("Test table output directory '" ++ path ++ "'") path)
         outputs
-outputTables _ _ = pure ()
+outputTables _ _ _ = pure ()
 
-outputTransactions :: TransactionsOutputPath -> [(LF.World, NormalizedFilePath, LF.Module, Maybe [(VirtualResource, Either SSC.Error SS.ScenarioResult)])] -> IO ()
-outputTransactions (TransactionsOutputPath (Just path)) results =
+outputTransactions :: String -> TransactionsOutputPath -> [(LF.World, NormalizedFilePath, LF.Module, Maybe [(VirtualResource, Either SSC.Error SS.ScenarioResult)])] -> IO ()
+outputTransactions cssSource (TransactionsOutputPath (Just path)) results =
     let outputs :: [(NamedPath, T.Text)]
         outputs = do
             (world, _, _, Just results) <- results
             (vr, Right result) <- results
             let activeContracts = SS.activeContractsFromScenarioResult result
                 transView = SS.renderTransactionView world activeContracts result
-                transSource = TL.toStrict $ Blaze.renderHtml transView
+                transSource = TL.toStrict $ Blaze.renderHtml $ do
+                    Blaze.style $ Blaze.preEscapedToHtml cssSource
+                    transView
                 outputFile = path </> ("transaction-" <> T.unpack (vrScenarioName vr) <> ".html")
                 outputFileName = "Test transaction output file '" <> outputFile <> "'"
             pure (NamedPath outputFileName outputFile, transSource)
@@ -236,7 +247,7 @@ outputTransactions (TransactionsOutputPath (Just path)) results =
     outputUnderDir
         (NamedPath ("Test transaction output directory '" ++ path ++ "'") path)
         outputs
-outputTransactions _ _ = pure ()
+outputTransactions _ _ _ = pure ()
 
 -- We didn't get scenario results, so we use the diagnostics as the error message for each scenario.
 failedTestOutput :: IdeState -> NormalizedFilePath -> Action [(VirtualResource, Maybe T.Text)]

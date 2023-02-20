@@ -102,6 +102,7 @@ package_app(
         "//compiler/damlc/stable-packages",
         "//compiler/repl-service/server:repl_service_jar",
         "//compiler/scenario-service/server:scenario_service_jar",
+        "//compiler/daml-extension:webview-stylesheet.css",
         "@static_asset_d3plus//:js/d3.min.js",
         "@static_asset_d3plus//:js/d3plus.min.js",
     ],
