@@ -28,6 +28,8 @@ sealed trait Result[+A] extends Product with Serializable {
       ResultNeedPackage(pkgId, mbPkg => resume(mbPkg).map(f))
     case ResultNeedKey(gk, resume) =>
       ResultNeedKey(gk, mbAcoid => resume(mbAcoid).map(f))
+    case ResultNeedAuthority(holding, requesting, resume) =>
+      ResultNeedAuthority(holding, requesting, bool => resume(bool).map(f))
   }
 
   def flatMap[B](f: A => Result[B]): Result[B] = this match {
@@ -40,6 +42,8 @@ sealed trait Result[+A] extends Product with Serializable {
       ResultNeedPackage(pkgId, mbPkg => resume(mbPkg).flatMap(f))
     case ResultNeedKey(gk, resume) =>
       ResultNeedKey(gk, mbAcoid => resume(mbAcoid).flatMap(f))
+    case ResultNeedAuthority(holding, requesting, resume) =>
+      ResultNeedAuthority(holding, requesting, bool => resume(bool).flatMap(f))
   }
 
   private[lf] def consume(
@@ -56,6 +60,7 @@ sealed trait Result[+A] extends Product with Serializable {
         case ResultNeedContract(acoid, resume) => go(resume(pcs(acoid)))
         case ResultNeedPackage(pkgId, resume) => go(resume(packages(pkgId)))
         case ResultNeedKey(key, resume) => go(resume(keys(key)))
+        case ResultNeedAuthority(_, _, resume) => go(resume(true)) // grant every request
       }
     go(this)
   }
@@ -110,6 +115,12 @@ final case class ResultNeedKey[A](
     resume: Option[ContractId] => Result[A],
 ) extends Result[A]
 
+final case class ResultNeedAuthority[A](
+    holding: Set[Party],
+    requesting: Set[Party],
+    resume: Boolean => Result[A],
+) extends Result[A]
+
 object Result {
   // fails with ResultError if the package is not found
   private[lf] def needPackage[A](
@@ -154,6 +165,17 @@ object Result {
                 packageId,
                 pkg =>
                   resume(pkg).flatMap(x =>
+                    Result
+                      .sequence(results_)
+                      .map(otherResults => (okResults :+ x) :++ otherResults)
+                  ),
+              )
+            case ResultNeedAuthority(holding, requesting, resume) =>
+              ResultNeedAuthority(
+                holding,
+                requesting,
+                bool =>
+                  resume(bool).flatMap(x =>
                     Result
                       .sequence(results_)
                       .map(otherResults => (okResults :+ x) :++ otherResults)
