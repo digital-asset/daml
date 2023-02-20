@@ -33,7 +33,7 @@ template Divulger with
         _ <- fetch id
         pure ()
 
--- @WARN range=49:15-49:67; Use of divulged contracts is deprecated
+-- @WARN range=49:15-49:70; Use of divulged contracts is deprecated
 test : Script ()
 test = script do
     alice <- allocateParty "Alice"
@@ -44,8 +44,7 @@ test = script do
     submitMustFail bob do exerciseCmd id Reveal with receiver = bob
     -- (3) Alice creates a divulger & uses it
     submit alice do
-      divulger <- createCmd Divulger with owner = alice
-      exerciseCmd divulger Divulge with divulgee = bob; id
+      createAndExerciseCmd (Divulger with owner = alice) (Divulge with divulgee = bob; id)
     -- (4) Now Bob can see the secret
     secret <- submit bob do exerciseCmd id Reveal with receiver = bob
     secret === "s3cr3t"

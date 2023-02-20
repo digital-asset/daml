@@ -7,6 +7,7 @@ module Optional where
 import Daml.Script
 import DA.Optional
 import DA.Assert
+import ScriptAssertHelpers
 
 template Foo
   with
@@ -22,15 +23,15 @@ template Foo
            then archive cid
            else pure ()
 
-testFromSome = script do
+-- @ERROR range=27:1-27:13; fromSome: None
+testFromSome = script @(Optional ()) do
   "abc" === fromSome (Some "abc")
-  p <- allocateParty "p"
-  submitMustFail p (pure $ fromSome None)
+  pure $ fromSome None
 
-testFromSomeNote = script do
-  "abc" === fromSomeNote "error" (Some "abc")
-  p <- allocateParty "p"
-  submitMustFail p (pure $ fromSomeNote "error" None)
+-- @ERROR range=32:1-32:17; testFromSomeNoteError
+testFromSomeNote = script @(Optional ()) do
+  "abc" === fromSomeNote "testFromSomeNoteWrongError" (Some "abc")
+  pure $ fromSomeNote "testFromSomeNoteError" None
 
 testCatOptionals = script do
   [1, 2, 3] === catOptionals [None, Some 1, None, Some 2, None, None, Some 3, None]
@@ -71,11 +72,11 @@ testWhenSome = script do
   p <- allocateParty "p"
   cid <- submit p (createCmd Foo with p)
   whenSome None (\x -> submit p $ exerciseCmd cid $ ConsumeIfPositive x cid)
-  submit p (fetch cid)
+  p `canSee` cid
   whenSome (Some (-5)) (\x -> submit p $ exerciseCmd cid $ ConsumeIfPositive x cid)
-  submit p (fetch cid)
+  p `canSee` cid
   whenSome (Some 5) (\x -> submit p $ exerciseCmd cid $ ConsumeIfPositive x cid)
-  submitMustFail p (fetch cid)
+  p `cantSee` cid
 
 testFindOptional = script do
   findOptional toLeft [] === (None : Optional ())

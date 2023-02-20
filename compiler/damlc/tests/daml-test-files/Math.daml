@@ -1,8 +1,8 @@
 -- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
 -- All rights reserved.
 
--- @INFO range=47:22-47:32; Use sqrt
--- @INFO range=66:15-66:25; Use sqrt
+-- @INFO range=48:22-48:32; Use sqrt
+-- @INFO range=67:15-67:25; Use sqrt
 
 
 module Math where

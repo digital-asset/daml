@@ -41,8 +41,7 @@ template T2
       getOwner = owner2
 
 main = script do
-    p <- allocateParty "Alice"
-    submit p do
-        cidT1 <- createCmd (T1 p)
-        let cidT2 = coerceContractId @T1 @T2 cidT1
-        exerciseCmd cidT2 T2Choice
+  p <- allocateParty "Alice"
+  cidT1 <- p `submit` createCmd (T1 p)
+  let cidT2 = coerceContractId @T1 @T2 cidT1
+  p `submit` exerciseCmd cidT2 T2Choice

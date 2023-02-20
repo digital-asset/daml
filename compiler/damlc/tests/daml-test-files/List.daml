@@ -1,13 +1,19 @@
 -- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
 -- All rights reserved.
 
--- @INFO range=127:17-127:32; Use dedup
--- @INFO range=313:10-313:24; Evaluate
--- @INFO range=328:38-328:48; Use sum
--- @INFO range=329:43-329:53; Use sum
--- @INFO range=330:29-330:39; Use sum
--- @INFO range=333:3-333:23; Use head
--- @INFO range=338:29-338:36; Use head
+-- @INFO range=134:17-134:32; Use dedup
+-- @INFO range=320:10-320:24; Evaluate
+-- @INFO range=335:38-335:48; Use sum
+-- @INFO range=336:43-336:53; Use sum
+-- @INFO range=337:29-337:39; Use sum
+-- @INFO range=340:3-340:23; Use head
+-- @INFO range=350:10-350:17; Use head
+-- @ERROR range=300:1-300:9; head: empty list
+-- @ERROR range=306:1-306:9; tail: empty list
+-- @ERROR range=312:1-312:9; last: empty list
+-- @ERROR range=318:1-318:9; init: empty list
+-- @ERROR range=343:1-343:16; negative index
+-- @ERROR range=346:1-346:18; index too large
 
 module List where
 
@@ -291,29 +297,29 @@ testWordsBy = script do
   [] === wordsBy (const True) [1, 2, 3]
   [[1, 2, 3], [4], [5]] === wordsBy (==0) [0, 0, 1, 2, 3, 0, 0, 4, 0, 0, 0, 5, 0, 0]
 
-testHead = script do
+testHead = script @[()] do
   1 === head [1, 2, 3]
   "foo" === head ["foo"]
   p <- allocateParty "p"
-  submitMustFail p $ pure $ head []
+  pure $ head []
 
-testTail = script do
+testTail = script @[()] do
   [2, 3] === tail [1, 2, 3]
   [] === tail ["hello"]
   p <- allocateParty "p"
-  submitMustFail p $ pure $ tail []
+  pure $ tail []
 
-testLast = script do
+testLast = script @[()] do
   3 === last [1, 2, 3]
   "foo" === last ["foo"]
   p <- allocateParty "p"
-  submitMustFail p $ pure $ last []
+  pure $ last []
 
-testInit = script do
+testInit = script @[()] do
   [1, 2] === init [1, 2, 3]
   [] === init ["hello"]
   p <- allocateParty "p"
-  submitMustFail p $ pure $ init []
+  pure $ init []
 
 testFoldl1 = script do
   1.25 === foldl1 (/) ([10.0, 2.0, 4.0] : [Decimal])
@@ -333,10 +339,15 @@ testRepeatedly = script do
 testNth = script do
   1 === [1, 2, 3] !! 0
   3 === [1, 2, 3] !! 2
-  p <- allocateParty "p"
-  submitMustFail p $ pure $ [1, 2, 3] !! (-1)
-  submitMustFail p $ pure $ [1, 2, 3] !! 3
-  submitMustFail p $ pure $ [] !! 0
+
+testNthNegative = script do
+  pure $ [1, 2, 3] !! (-1)
+
+testNthOutOfRange = script do
+  pure $ [1, 2, 3] !! 3
+
+testNthOutOfRange0 = script do
+  pure $ [] !! 0
 
 testElemIndex = script do
   let x = [5, 4, 6, 7, 9, 4]
