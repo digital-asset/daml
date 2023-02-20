@@ -153,7 +153,7 @@ object ScriptStream {
       internal.onNext(message)
       internal.onCompleted()
     }
-  
+
     override def sendStatus(status: ScenarioStatus): Unit = {
       val message = RunScenarioResponseOrStatus.newBuilder.setStatus(status).build
       internal.onNext(message)
