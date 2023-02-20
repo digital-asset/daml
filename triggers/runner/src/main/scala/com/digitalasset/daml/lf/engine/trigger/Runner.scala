@@ -490,7 +490,7 @@ object Trigger {
 }
 
 private[lf] class Runner private (
-    compiledPackages: CompiledPackages,
+    private[trigger] val compiledPackages: CompiledPackages,
     trigger: Trigger,
     triggerConfig: TriggerRunnerConfig,
     client: LedgerClient,
