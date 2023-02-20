@@ -76,10 +76,10 @@ genrule(
 genrule(
     name = "webview-stylesheet.css",
     srcs = ["src/webview.css"],
+    outs = ["webview-stylesheet.css"],
     cmd = """
     cp "$(location src/webview.css)" "$@"
     """,
-    outs = ["webview-stylesheet.css"]
 )
 
 # This rule is not reproducible. `vsce package` generates a `.vsix` file which

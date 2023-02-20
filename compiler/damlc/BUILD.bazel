@@ -95,6 +95,7 @@ package_app(
     resources = [
         ":daml-base-anchors.json",
         ":ghc-pkg-dist",
+        "//compiler/daml-extension:webview-stylesheet.css",
         "//compiler/damlc:ghcversion",
         "//compiler/damlc:hpp-dist",
         "//compiler/damlc/daml-ide-core:dlint.yaml",
@@ -102,7 +103,6 @@ package_app(
         "//compiler/damlc/stable-packages",
         "//compiler/repl-service/server:repl_service_jar",
         "//compiler/scenario-service/server:scenario_service_jar",
-        "//compiler/daml-extension:webview-stylesheet.css",
         "@static_asset_d3plus//:js/d3.min.js",
         "@static_asset_d3plus//:js/d3plus.min.js",
     ],
