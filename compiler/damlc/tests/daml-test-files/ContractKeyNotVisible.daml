@@ -1,4 +1,4 @@
--- @ERROR range=18:1-18:8; Couldn't see template with key 'Bob'
+-- @ERROR range=18:1-18:8; Couldn't see contract with key 'Bob'
 -- @ERROR range=61:1-61:15; Attempt to fetch, lookup or exercise a key associated with a contract
 -- @ERROR range=78:1-78:12; Attempt to fetch, lookup or exercise a key associated with a contract
 module ContractKeyNotVisible where

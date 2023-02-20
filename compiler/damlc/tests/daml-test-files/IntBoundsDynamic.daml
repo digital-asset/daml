@@ -13,9 +13,14 @@ maxInt = 9223372036854775807
 
 minInt : Int
 minInt = -9223372036854775808
-
-test = script do
-    p <- allocateParty "p"
+    
+testMaxToMin = script do
     negate maxInt - 1 === minInt
-    submitMustFail p $ pure $ maxInt+1
-    submitMustFail p $ pure $ minInt-1
+
+testOverMax = script do
+    -- @ERROR ArithmeticError while evaluating (ADD_INT64
+    pure $ maxInt+1
+
+testUnderMin = script do
+    -- @ERROR ArithmeticError while evaluating (SUB_INT64
+    pure $ minInt-1

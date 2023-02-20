@@ -1,9 +1,10 @@
--- @ERROR range=16:1-16:19; Attempt to create a contract key with an empty set of maintainers
--- @ERROR range=22:1-22:19; Attempt to fetch, lookup or exercise a contract key with an empty set of maintainers
--- @ERROR range=28:1-28:18; Attempt to fetch, lookup or exercise a contract key with an empty set of maintainers
+-- @ERROR range=17:1-17:19; Attempt to create a contract key with an empty set of maintainers
+-- @TODO Query loses errors, ideally below is: Attempt to fetch, lookup or exercise a contract key with an empty set of maintainers
+-- @ERROR range=23:1-23:18; Couldn't see contract with key 'Alice'
 module EmptyContractKeyMaintainers where
 
 import Daml.Script
+import ScriptAssertHelpers
 
 template NoMaintainer
   with
@@ -19,14 +20,8 @@ createNoMaintainer = script do
   submit alice $ createCmd NoMaintainer with sig = alice
   pure ()
 
-lookupNoMaintainer = script do
+queryNoMaintainer = script do
   alice <- allocateParty "Alice"
 
-  submit alice $ lookupByKey @NoMaintainer alice
-  pure ()
-
-fetchNoMaintainer = script do
-  alice <- allocateParty "Alice"
-
-  submit alice $ fetchByKey @NoMaintainer alice
+  canSeeKey @NoMaintainer alice alice
   pure ()

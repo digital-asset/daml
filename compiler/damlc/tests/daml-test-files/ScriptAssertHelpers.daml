@@ -29,10 +29,10 @@ queryAssertContractId : forall t p. (Template t, HasAgreement t, IsParties p) =>
 queryAssertContractId p cid =
   queryContractId @t p cid >>= \case
     Some c -> pure c
-    None -> assertFail $ "Couldn't see template with ID " <> show cid
+    None -> assertFail $ "Couldn't see contract with ID " <> show cid
 
 queryAssertContractKey : forall t k p. (Show k, TemplateKey t k, IsParties p) => p -> k -> Script (ContractId t, t)
 queryAssertContractKey p k =
   queryContractKey @t p k >>= \case
     Some c -> pure c
-    None -> assertFail $ "Couldn't see template with key " <> show k
+    None -> assertFail $ "Couldn't see contract with key " <> show k

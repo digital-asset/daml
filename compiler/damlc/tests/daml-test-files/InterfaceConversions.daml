@@ -46,56 +46,99 @@ template Template2
             view = EmptyInterfaceView
             getOwner = owner2
 
+useActionFrom : Party -> (ContractId Template2 -> Update ()) -> Update ()
+useActionFrom p action = do
+    cid <- create (toInterface @Iface (Template1 p 10))
+    action (fromInterfaceContractId @Template2 cid)
+
+useActionCoerce : Party -> (ContractId Iface2 -> Update ()) -> Update ()
+useActionCoerce p action = do
+    cid <- create (toInterface @Iface (Template1 p 10))
+    action (coerceInterfaceContractId @Iface2 cid)
+
+template Test
+    with
+        party : Party
+    where
+        signatory party
+        nonconsuming choice Call1 : ()
+            controller party
+            do
+                let template1 = Template1 party 10
+                    template2 = Template2 party "Hi"
+                    iface1 = toInterface @Iface template1
+                    iface2 = toInterface @Iface template2
+                fromInterface @Template1 iface1 === Some template1
+                fromInterface @Template2 iface1 === None
+                fromInterface @Template1 iface2 === None
+                fromInterface @Template2 iface2 === Some template2
+                templateCid1 <- create template1
+                templateCid2 <- create template2
+                let ifaceCid1 = toInterfaceContractId @Iface templateCid1
+                    ifaceCid2 = toInterfaceContractId @Iface templateCid2
+
+                fromInterfaceContractId ifaceCid1 === templateCid1
+                fromInterfaceContractId ifaceCid2 === templateCid2
+
+                x1 <- fetchFromInterface @Template1 ifaceCid1
+                x2 <- fetchFromInterface @Template2 ifaceCid1
+                x3 <- fetchFromInterface @Template1 ifaceCid2
+                x4 <- fetchFromInterface @Template2 ifaceCid2
+
+                x1 === Some (templateCid1, template1)
+                x2 === None
+                x3 === None
+                x4 === Some (templateCid2, template2)
+
+        nonconsuming choice Call2 : ()
+            controller party
+            do useActionFrom party $ \_cid -> pure ()
+
+        nonconsuming choice Call3 : ()
+            controller party
+            do useActionFrom party $ \cid -> void (fetch cid)
+
+        nonconsuming choice Call4 : ()
+            controller party
+            do useActionFrom party $ \cid -> archive cid
+        
+        nonconsuming choice Call5 : ()
+            controller party
+            do useActionCoerce party $ \_cid -> pure ()
+
+        nonconsuming choice Call6 : ()
+            controller party
+            do useActionCoerce party $ \cid -> exercise cid MyChoice2
+
+        nonconsuming choice Call7 : ()
+            controller party
+            do useActionCoerce party $ \cid -> void (fetch cid)
+
+        nonconsuming choice Call8 : ()
+            controller party
+            do useActionCoerce party $ \cid -> archive cid
+
 main = script do
     p <- allocateParty "Alice"
-    let template1 = Template1 p 10
-        template2 = Template2 p "Hi"
-        iface1 = toInterface @Iface template1
-        iface2 = toInterface @Iface template2
-    fromInterface @Template1 iface1 === Some template1
-    fromInterface @Template2 iface1 === None
-    fromInterface @Template1 iface2 === None
-    fromInterface @Template2 iface2 === Some template2
 
-    p `submit` do
-        templateCid1 <- createCmd template1
-        templateCid2 <- createCmd template2
-        let ifaceCid1 = toInterfaceContractId @Iface templateCid1
-            ifaceCid2 = toInterfaceContractId @Iface templateCid2
+    testCid <- p `submit` createCmd (Test p)
 
-        fromInterfaceContractId ifaceCid1 === templateCid1
-        fromInterfaceContractId ifaceCid2 === templateCid2
-
-        x1 <- fetchFromInterface @Template1 ifaceCid1
-        x2 <- fetchFromInterface @Template2 ifaceCid1
-        x3 <- fetchFromInterface @Template1 ifaceCid2
-        x4 <- fetchFromInterface @Template2 ifaceCid2
-
-        x1 === Some (templateCid1, template1)
-        x2 === None
-        x3 === None
-        x4 === Some (templateCid2, template2)
+    p `submit` exerciseCmd testCid Call1
 
     -- Test that using fromInterfaceContractId incorrectly will result
     -- in failed fetch/exercise/archives. I.e. using a Template1 contract
     -- id as if it were a Template2 contract id will always fail, even
     -- for actions that make sense for the common interface Iface.
-    let useAction : (ContractId Template2 -> Update ()) -> Update ()
-        useAction action = do
-            cid <- createCmd (toInterface @Iface (Template1 p 10))
-            action (fromInterfaceContractId @Template2 cid)
-    submit p do useAction $ \_cid -> pure ()
-    submitMustFail p do useAction $ \cid -> void (fetch cid)
-    submitMustFail p do useAction $ \cid -> archiveCmd cid
+    -- See useActionFrom
+    p `submit` exerciseCmd testCid Call2
+    p `submitMustFail` exerciseCmd testCid Call3
+    p `submitMustFail` exerciseCmd testCid Call4
 
     -- Test that using coerceInterfaceContractId incorrectly will result
     -- in failed fetch/exercise/archives. I.e. using an Iface contract
     -- id as if it were a Iface2 contract id will always fail.
-    let useAction : (ContractId Iface2 -> Update ()) -> Update ()
-        useAction action = do
-            cid <- createCmd (toInterface @Iface (Template1 p 10))
-            action (coerceInterfaceContractId @Iface2 cid)
-    submit p do useAction $ \_cid -> pure ()
-    submitMustFail p do useAction $ \cid -> exerciseCmd cid MyChoice2
-    submitMustFail p do useAction $ \cid -> void (fetch cid)
-    submitMustFail p do useAction $ \cid -> archiveCmd cid
+    -- See useActionCoerce
+    p `submit` exerciseCmd testCid Call5
+    p `submitMustFail` exerciseCmd testCid Call6
+    p `submitMustFail` exerciseCmd testCid Call7
+    p `submitMustFail` exerciseCmd testCid Call8

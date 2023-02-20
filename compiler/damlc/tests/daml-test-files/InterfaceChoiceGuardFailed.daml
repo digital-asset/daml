@@ -24,9 +24,20 @@ template T
       view = EmptyInterfaceView
       getController = party
 
--- @ERROR range=28:1-28:5; Attempt to exercise a choice with a failing guard
+template Test
+  with
+    party : Party
+    cidI : ContractId I
+  where
+    signatory party
+    choice Call : ()
+      controller party
+      do
+        exerciseGuarded (const False) cidI IChoice
+
+-- @ERROR range=39:1-39:5; Attempt to exercise a choice with a failing guard
 main = script do
   alice <- allocateParty "alice"
   cidT <- alice `submit` createCmd T with party = alice
   let cidI = toInterfaceContractId @I cidT
-  alice `submit` exerciseGuarded (const False) cidI IChoice
+  alice `submit` createAndExerciseCmd (Test with party = alice, cidI = cidI) Call

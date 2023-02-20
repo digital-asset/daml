@@ -5,6 +5,7 @@ module ContractKeys where
 
 import Daml.Script
 import DA.Assert
+import ScriptAssertHelpers
 
 template AccountInvitation with
     account : Account
@@ -39,12 +40,7 @@ test = script do
     accountCid <- submit alice do
         exerciseCmd invitationCid Accept
 
-    accountCid' <- submit bank do
-        lookupByKey accountKey
-    accountCid' === Some accountCid
-
-    (accountCid', account') <- submit bank do
-        fetchByKey accountKey
+    (accountCid', account') <- queryAssertContractKey bank accountKey
     accountCid' === accountCid
     account' === account
 

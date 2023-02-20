@@ -11,29 +11,23 @@ import DA.Assert
 import DA.Exception
 
 test1 = script do
-    p <- allocateParty "Alice"
-    submit p do
-        try do
-            error "hello"
-        catch
-            GeneralError msg ->
-                msg === "hello"
+    try do
+        error "hello"
+    catch
+        GeneralError msg ->
+            msg === "hello"
 
 
 test2 = script do
-    p <- allocateParty "Alice"
-    submit p do
-        try do
-            abort "foo"
-        catch
-            GeneralError msg ->
-                msg === "foo"
+    try do
+        abort "foo"
+    catch
+        GeneralError msg ->
+            msg === "foo"
 
 test3 = script do
-    p <- allocateParty "Alice"
-    submit p do
-        try do
-            fail "bar"
-        catch
-            GeneralError msg ->
-                msg === "bar"
+    try do
+        fail "bar"
+    catch
+        GeneralError msg ->
+            msg === "bar"

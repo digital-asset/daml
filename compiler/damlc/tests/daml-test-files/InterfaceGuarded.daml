@@ -62,53 +62,84 @@ exception GuardException
     where
         message m
 
+template Test
+  with
+    p : Party
+  where
+    signatory p
+    let
+      assetAsTokenTpl =
+        toInterface @Token $
+          Asset with
+            issuer = p
+            owner = p
+            amount = 100
+      getRich = GetRich with byHowMuch = 1000000
+
+    nonconsuming choice Call1 : ()
+      controller p
+      do
+        assetAsToken <- create assetAsTokenTpl
+        exerciseGuarded (const True) assetAsToken getRich
+        pure ()
+
+    nonconsuming choice Call2 : ()
+      controller p
+      do
+        -- Fail if guard returns False
+        assetAsToken <- create assetAsTokenTpl
+        exerciseGuarded (const False) assetAsToken getRich
+        pure ()
+
+    nonconsuming choice Call3 : ()
+      controller p
+      do
+        -- Fail if guard throws exception
+        assetAsToken <- create assetAsTokenTpl
+        exerciseGuarded (\_ -> error "foo") assetAsToken getRich
+        pure ()
+
+    nonconsuming choice Call4 : ()
+      controller p
+      do
+        -- Fail if guard throws custom exception
+        assetAsToken <- create assetAsTokenTpl
+        exerciseGuarded (\_ -> throwPure (GuardException "bar")) assetAsToken getRich
+        pure ()
+
+    nonconsuming choice Call5 : ()
+      controller p
+      do
+        -- Fail if guard throws exception, even in `try-catch` block
+        assetAsToken <- create assetAsTokenTpl
+        try do
+          exerciseGuarded (\_ -> error "foo") assetAsToken getRich
+        catch
+          GeneralError {} ->
+            pure $ toInterfaceContractId @Token assetAsToken
+        pure ()
+
+    nonconsuming choice Call6 : ()
+      controller p
+      do
+        -- Fail if guard throws custom exception, even in `try-catch` block
+        assetAsToken <- create assetAsTokenTpl
+        try do
+          exerciseGuarded (\_ -> throwPure (GuardException "bar")) assetAsToken getRich
+        catch
+          GuardException {} ->
+            pure $ toInterfaceContractId @Token assetAsToken
+        pure ()
+
 main = script do
   p <- allocateParty "Alice"
-  let
-    assetAsTokenTpl =
-      toInterface @Token $
-        Asset with
-          issuer = p
-          owner = p
-          amount = 100
-    getRich = GetRich with byHowMuch = 1000000
+  testCid <- p `submit` createCmd (Test p)
 
-  p `submit` do
-    -- OK if guard returns True
-    assetAsToken <- createCmd assetAsTokenTpl
-    exerciseGuarded (const True) assetAsToken getRich
-
-  p `submitMustFail` do
-    -- Fail if guard returns False
-    assetAsToken <- createCmd assetAsTokenTpl
-    exerciseGuarded (const False) assetAsToken getRich
-
-  p `submitMustFail` do
-    -- Fail if guard throws exception
-    assetAsToken <- createCmd assetAsTokenTpl
-    exerciseGuarded (\_ -> error "foo") assetAsToken getRich
-
-  p `submitMustFail` do
-    -- Fail if guard throws custom exception
-    assetAsToken <- createCmd assetAsTokenTpl
-    exerciseGuarded (\_ -> throwPure (GuardException "bar")) assetAsToken getRich
-
-  p `submitMustFail` do
-    -- Fail if guard throws exception, even in `try-catch` block
-    assetAsToken <- createCmd assetAsTokenTpl
-    try do
-      exerciseGuarded (\_ -> error "foo") assetAsToken getRich
-    catch
-      GeneralError {} ->
-        pure $ toInterfaceContractId @Token assetAsToken
-
-  p `submitMustFail` do
-    -- Fail if guard throws custom exception, even in `try-catch` block
-    assetAsToken <- createCmd assetAsTokenTpl
-    try do
-      exerciseGuarded (\_ -> throwPure (GuardException "bar")) assetAsToken getRich
-    catch
-      GuardException {} ->
-        pure $ toInterfaceContractId @Token assetAsToken
+  p `submit` exerciseCmd testCid Call1
+  p `submitMustFail` exerciseCmd testCid Call2
+  p `submitMustFail` exerciseCmd testCid Call3
+  p `submitMustFail` exerciseCmd testCid Call4
+  p `submitMustFail` exerciseCmd testCid Call5
+  p `submitMustFail` exerciseCmd testCid Call6
 
   pure ()

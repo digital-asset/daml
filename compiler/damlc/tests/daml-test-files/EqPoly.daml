@@ -18,5 +18,4 @@ instance (Eq a, Eq b) => Eq (Foo a b) where
 eq a b = a == b
 
 main = script do
-    alice <- allocateParty "alice"
-    submit alice $ assert $ eq (Foo 1 2) (Foo 1 2)
+    assert $ eq (Foo 1 2) (Foo 1 2)

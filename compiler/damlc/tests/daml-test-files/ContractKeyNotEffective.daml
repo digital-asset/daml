@@ -1,4 +1,4 @@
--- @ERROR range=16:1-16:19; Couldn't see template with key 'alice'
+-- @ERROR range=16:1-16:19; Couldn't see contract with key 'alice'
 module ContractKeyNotEffective where
 
 import Daml.Script

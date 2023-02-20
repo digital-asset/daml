@@ -10,28 +10,22 @@ import Daml.Script
 import DA.Assert
 
 testAssert = script do
-    p <- allocateParty "Alice"
-    submit p do
-        try do
-            assert False
-        catch
-            AssertionFailed m ->
-                m === "Assertion failed"
+    try do
+        assert False
+    catch
+        AssertionFailed m ->
+            m === "Assertion failed"
 
 testAssertMsg = script do
-    p <- allocateParty "Alice"
-    submit p do
-        try do
-            assertMsg "My message" False
-        catch
-            AssertionFailed m ->
-                m === "My message"
+    try do
+        assertMsg "My message" False
+    catch
+        AssertionFailed m ->
+            m === "My message"
 
 testAssertEq = script do
-    p <- allocateParty "Alice"
-    submit p do
-        try do
-            10 === 20
-        catch
-            AssertionFailed m ->
-                m === "Failure, expected 10 == 20"
+    try do
+        10 === 20
+    catch
+        AssertionFailed m ->
+            m === "Failure, expected 10 == 20"

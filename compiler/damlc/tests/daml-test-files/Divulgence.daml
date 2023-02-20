@@ -5,6 +5,7 @@
 module Divulgence where
 
 import Daml.Script
+import ScriptAssertHelpers
 
 template Secret
   with
@@ -46,8 +47,9 @@ template DisclosureDelegation
       controller actor
       do fetch secretCid -- actor will divulge secretCid to p
 
--- @WARN range=84:3-85:20; Use of divulged contracts is deprecated
--- @WARN range=88:3-89:46; Use of divulged contracts is deprecated
+-- @TODO This warning isn't thrown anymore, because we don't use Updates, ensure this is okay
+-- -- @WARN range=84:3-85:20; Use of divulged contracts is deprecated
+-- @WARN range=88:3-89:49; Use of divulged contracts is deprecated
 main = script do
   me <- allocateParty "Me"
   spy <- allocateParty "Spy"
@@ -62,12 +64,10 @@ main = script do
   submit spy do createCmd RevealYourSecret with p = spy; secretCid = secretCid
 
   -- me can fetch
-  submit me do
-    fetch secretCid
+  me `canSee` secretCid
 
   -- spy cannot fetch
-  submitMustFail spy do
-    fetch secretCid
+  spy `cantSee` secretCid
 
   -- spy cannot fetch even via delegation
   submitMustFail spy do
@@ -79,12 +79,10 @@ main = script do
   submit me do exerciseCmd disCid Disclose with secretCid
 
   -- me can still fetch
-  submit me do
-    fetch secretCid
+  me `canSee` secretCid
 
   -- spy still cannot fetch
-  submitMustFail spy do
-    fetch secretCid
+  spy `cantSee` secretCid
 
   -- now spy can fetch using delegation from me
   submit spy do

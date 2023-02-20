@@ -36,6 +36,5 @@ main = script do
   [Sat, Wed .. Sat] === [Sat]
   [Sat, Wed .. Sun] === []
   enumerate === [Mon,Tue,Wed,Thu,Fri,Sat,Sun]
-  alice <- allocateParty "alice"
-  submitMustFail alice do
-    succ Sun === Mon
+  -- @ERROR range=13:1-13:5; succ{Days}: tried to take `succ' of last tag in enumeration
+  succ Sun === Mon

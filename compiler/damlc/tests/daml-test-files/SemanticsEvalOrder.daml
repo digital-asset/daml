@@ -19,12 +19,14 @@ import Daml.Script
 import ScriptAssertHelpers
 
 -- @ERROR EvTyAbsErasableErr OK
+evTyAbsErasableErr : Script ()
 evTyAbsErasableErr = script do
   let x : forall a. a
       x = error "EvTyAbsErasableErr OK"
   error "EvTyAbsErasable failed"
 
 -- @ERROR overApply OK
+overApply : Script ()
 overApply = script do
   let f x = error "overApply OK"
   let _ = f 1 (error "overApply Failed")
@@ -32,17 +34,20 @@ overApply = script do
   pure ()
 
 -- @ERROR EvExpAppErr1 OK
+evExpAppErr1 : Script ()
 evExpAppErr1 = script do
   let _ = (error "EvExpAppErr1 OK") (error "EvExpAppErr1 failed")
   pure ()
 
 -- @ERROR EvExpAppErr2 OK
+evExpAppErr2 : Script ()
 evExpAppErr2 = script do
   let f _ _ = error "EvExpAppErr2 failed"
   let _ = f 1 (error "EvExpAppErr2 OK")
   pure ()
 
 -- @ERROR EvExpLetErr OK
+evExpLetErr : Script ()
 evExpLetErr = script do
     let _ = error "EvExpLetErr OK"
     let _ = error "EvExpLetErr bad"
@@ -50,42 +55,49 @@ evExpLetErr = script do
 
 -- Regression test for issue #6788
 -- @ERROR multiLetEvalOrder OK
+multiLetEvalOrder : Script ()
 multiLetEvalOrder = script do
     let _ = error "multiLetEvalOrder OK"
         _ = error "multiLetEvalOrder failed"
     error "multiLetEvalOrder failed"
 
 -- @ERROR EvExpCaseErr OK
+evExpCaseErr : Script ()
 evExpCaseErr = script do
   case error "EvExpCaseErr OK" of
     None -> error "EvExpCaseErr failed"
     Some _ -> error "EvExpCaseErr failed"
 
 -- @ERROR EvExpCase_1 OK
+evExpCase_1 : Script ()
 evExpCase_1 = script do
   case None of
     None -> error "EvExpCase_1 OK"
     Some _ -> error "EvExpCase_1 failed"
 
 -- @ERROR EvExpCase_2 OK
+evExpCase_2 : Script ()
 evExpCase_2 = script do
   case Some 1 of
     None -> error "EvExpCase_2 failed"
     Some _ -> error "EvExpCase_2 OK"
 
 -- @ERROR EvExpConsErr1 OK
+evExpConsErr1 : Script [Int]
 evExpConsErr1 = script do
   pure ( error "EvExpConsErr1 OK"
       :: error "EvExpConsErr1 failed"
       :: error "EvExpConsErr1 failed")
 
 -- @ERROR EvExpConsErr2 OK
+evExpConsErr2 : Script [Int]
 evExpConsErr2 = script do
   pure ( 10
       :: error "EvExpConsErr2 OK"
       :: error "EvExpConsErr2 failed")
 
 -- @ERROR EvExpBuiltinErr OK
+evExpBuiltinErr : Script ()
 evExpBuiltinErr = script do
   let _ : Int = error "EvExpBuiltinErr OK" + error "EvExpBuiltinErr failed"
   pure ()
@@ -94,10 +106,12 @@ evExpBuiltinErr = script do
 data R1 = R1 { a: Int, b: Int }
 
 -- @ERROR EvExpRecConErr_1 OK
+evExpRecConErr_1 : Script R1
 evExpRecConErr_1 = script do
   pure R1 { a = error "EvExpRecConErr_1 OK", b = error "EvExpRecConErr_1 failed" }
 
 -- @ERROR EvExpRecConErr_2 OK
+evExpRecConErr_2 : Script R1
 evExpRecConErr_2 = script do
   pure R1 { b = error "EvExpRecConErr_2 failed", a = error "EvExpRecConErr_2 OK" }
 
@@ -106,24 +120,29 @@ data R2 = R2 { d: Int, c: Int }
   -- There should be a dependence on the definition order according to the LF spec.
 
 -- @ERROR EvExpRecConErr_3 OK
+evExpRecConErr_3 : Script R2
 evExpRecConErr_3 = script do
   pure R2 { d = error "EvExpRecConErr_3 OK", c = error "EvExpRecConErr_3 failed" }
 
 -- @ERROR EvExpRecConErr_4 OK
+evExpRecConErr_4 : Script R2
 evExpRecConErr_4 = script do
   pure R2 { c = error "EvExpRecConErr_4 failed", d = error "EvExpRecConErr_4 OK"  }
 
 -- @ERROR EvExpRecUpdErr1 OK
+evExpRecUpdErr1 : Script R1
 evExpRecUpdErr1 = script do
   pure (error "EvExpRecUpdErr1 OK" : R1)
     { a = error "EvExpRecUpdErr1 failed", b = error "EvExpRecUpdErr1 failed" }
 
 -- @ERROR EvExpRecUpdErr2_1 OK
+evExpRecUpdErr2_1 : Script R1
 evExpRecUpdErr2_1 = script do
   pure (R1 {a=0, b=0})
     { a = error "EvExpRecUpdErr2_1 OK", b = error "EvExpRecUpdErr2_1 failed" }
 
 -- @ERROR EvExpRecUpdErr2_2 OK
+evExpRecUpdErr2_2 : Script R1
 evExpRecUpdErr2_2 = script do
   pure (R1 {a=0, b=0})
     { b = error "EvExpRecUpdErr2_2 OK", a = error "EvExpRecUpdErr2_2 failed" }
@@ -133,6 +152,7 @@ evExpRecUpdErr2_2 = script do
 -- NOTE(MH): Make sure we don't swallow record field updates if a field is
 -- updated multiple times.
 -- @ERROR EvExpRecUpdErr2_3 OK
+evExpRecUpdErr2_3 : Script R1
 evExpRecUpdErr2_3 = script do
   pure (R1 {a=0, b=0})
     { a = error "EvExpRecUpdErr2_3 OK", a = error "EvExpRecUpdErr2_3 failed" }
@@ -142,6 +162,7 @@ evExpRecUpdErr2_3 = script do
 -- a way to construct LF structs directly.
 
 -- @ERROR EvExpFoldrErr1 OK
+evExpFoldrErr1 : Script Int
 evExpFoldrErr1 = script do
   pure (foldr f 0 [1, 2])
   where
@@ -149,6 +170,7 @@ evExpFoldrErr1 = script do
     f _ _ = error "EvExpFoldrErr1 failed"
 
 -- @ERROR EvExpFoldrErr2 OK
+evExpFoldrErr2 : Script Int
 evExpFoldrErr2 = script do
   pure (foldr f 0 [1, 2])
   where
@@ -156,6 +178,7 @@ evExpFoldrErr2 = script do
     f _ = error "EvExpFoldrErr2 failed"
 
 -- @ERROR EvExpFoldrErr3 OK
+evExpFoldrErr3 : Script Int
 evExpFoldrErr3 = script do
   pure (foldr f identity [1] (error "EvExpFoldrErr3 failed"))
   where
@@ -163,6 +186,7 @@ evExpFoldrErr3 = script do
     f _ _ = error "EvExpFoldrErr3 OK"
 
 -- @ERROR EvExpFoldlErr1 OK
+evExpFoldlErr1 : Script Int
 evExpFoldlErr1 = script do
   pure (foldl f 0 [1, 2])
   where
@@ -170,6 +194,7 @@ evExpFoldlErr1 = script do
     f _ _ = error "EvExpFoldlErr1 failed"
 
 -- @ERROR EvExpFoldlErr2 OK
+evExpFoldlErr2 : Script Int
 evExpFoldlErr2 = script do
   pure (foldl f 0 [1, 2])
   where
@@ -177,6 +202,7 @@ evExpFoldlErr2 = script do
     f _ = error "EvExpFoldlErr2 failed"
 
 -- @ERROR EvExpFoldlErr3 OK
+evExpFoldlErr3 : Script Int
 evExpFoldlErr3 = script do
   pure (foldl f identity [1] (error "EvExpFoldlErr3 failed"))
   where
@@ -184,11 +210,13 @@ evExpFoldlErr3 = script do
     f _ _ = error "EvExpFoldlErr3 OK"
 
 -- @ERROR EvExpUpPureErr OK
+evExpUpPureErr : Script ()
 evExpUpPureErr = script do
   let _ : Update () = pure (error "EvExpUpPureErr OK")
   pure ()
 
 -- @ERROR EvExpUpBindErr OK
+evExpUpBindErr : Script ()
 evExpUpBindErr = script do
   let _ : Update () = do
           error "EvExpUpBindErr OK"
@@ -202,11 +230,13 @@ template T
 -- @TODO Reconsider the value of these tests with Script, as errors in commands are evaluated strictly
 {-
 --- @ERROR EvExpUpCreateErr OK
+evExpUpCreateErr : Script ()
 evExpUpCreateErr = script do
   let _ : Update (ContractId T) = createCmd (error "EvExpUpCreateErr OK")
   pure ()
 
 --- @ERROR EvExpUpFetchErr OK
+evExpUpFetchErr : Script ()
 evExpUpFetchErr = script do
   let _ : Update T = fetch (error "EvExpUpFetchErr OK")
   pure ()
@@ -214,6 +244,7 @@ evExpUpFetchErr = script do
 -- "exercise with actors" is not testable from Daml.
 
 --- @ERROR EvExpUpExerciseWithoutActorsErr1 OK
+evExpUpExerciseWithoutActorsErr1 : Script ()
 evExpUpExerciseWithoutActorsErr1 = script do
   let _ : Update () =
           exerciseCmd @T @Archive
@@ -222,6 +253,7 @@ evExpUpExerciseWithoutActorsErr1 = script do
   pure ()
 
 --- @ERROR EvExpUpExerciseWithoutActorsErr2 OK
+evExpUpExerciseWithoutActorsErr2 : Script ()
 evExpUpExerciseWithoutActorsErr2 = script do
   p <- allocateParty "Alice"
   t <- submit p $ createCmd (T p)
@@ -238,26 +270,31 @@ template T2
     maintainer key._1
 
 --- @ERROR EvExpUpFetchByKeyErr OK
+evExpUpFetchByKeyErr : Script ()
 evExpUpFetchByKeyErr = script do
   let _ = fetchByKey @T2 (error "EvExpUpFetchByKeyErr OK")
   pure ()
 
 --- @ERROR EvExpUpLookupByKeyErr OK
+evExpUpLookupByKeyErr : Script ()
 evExpUpLookupByKeyErr = script do
   let _ = lookupByKey @T2 (error "EvExpUpLookupByKeyErr OK")
   pure ()
 
+abort1 : Script ()
 abort1 = script do
   let _ : Update () = abort "abort1 failed"
   pure ()
 
 --- @ERROR abort2 OK
+abort2 : Script ()
 abort2 = script do
   p <- allocateParty "Alice"
   submit p do
     abort "abort2 OK"
 
 --- @ERROR EvUpdBindErr1_1 OK
+evUpdBindErr1_1 : Script ()
 evUpdBindErr1_1 = script do
   p <- allocateParty "Alice"
   submit p do
@@ -265,6 +302,7 @@ evUpdBindErr1_1 = script do
     abort "EvUpdBindErr1_1 failed"
 
 --- @ERROR EvUpdBindErr1_2 OK
+evUpdBindErr1_2 : Script ()
 evUpdBindErr1_2 = script do
   p <- allocateParty "Alice"
   submit p do
@@ -272,6 +310,7 @@ evUpdBindErr1_2 = script do
     error "EvUpdBindErr1_2 failed"
 
 --- @ERROR EvUpdBindErr2 OK
+evUpdBindErr2 : Script ()
 evUpdBindErr2 = script do
   p <- allocateParty "Alice"
   submit p do
@@ -280,6 +319,7 @@ evUpdBindErr2 = script do
     abort "EvUpdBindErr2 failed"
 
 --- @ERROR EvUpdBindErr3 OK
+evUpdBindErr3 : Script ()
 evUpdBindErr3 = script do
   p <- allocateParty "Alice"
   submit p do
@@ -299,13 +339,14 @@ template T_EvUpdCreateErr1
     signatory (error @Party "EvUpdCreateErr1 failed (2)")
     observer (error @Party "EvUpdCreateErr1 failed (3)")
 
+evUpdCreateErr1 : Script ()
 evUpdCreateErr1 = script do
   p <- allocateParty "Alice"
   submit p do
     createCmd (T_EvUpdCreateErr1 p)
   abort "EvUpdCreateErr1 failed (4)"
 
--- @ERROR range=312:1-312:16; Template precondition violated
+-- @ERROR range=360:1-360:16; Template precondition violated
 template T_EvUpdCreateFail
   with
     p : Party
@@ -315,6 +356,7 @@ template T_EvUpdCreateFail
     signatory (error @Party "EvUpdCreateFail failed (2)")
     observer (error @Party "EvUpdCreateFail failed (3)")
 
+evUpdCreateFail : Script ()
 evUpdCreateFail = script do
   p <- allocateParty "Alice"
   submit p do
@@ -331,6 +373,7 @@ template T_EvUpdCreateErr2
     signatory (error @Party "EvUpdCreateErr2 failed (1)")
     observer (error @Party "EvUpdCreateErr2 failed (2)")
 
+evUpdCreateErr2 : Script ()
 evUpdCreateErr2 = script do
   p <- allocateParty "Alice"
   submit p do
@@ -347,6 +390,7 @@ template T_EvUpdCreateErr3
     signatory (error @Party "EvUpdCreateErr3 OK")
     observer (error @Party "EvUpdCreateErr3 failed (1)")
 
+evUpdCreateErr3 : Script ()
 evUpdCreateErr3 = script do
   p <- allocateParty "Alice"
   submit p do
@@ -363,6 +407,7 @@ template T_EvUpdCreateErr4_1
     signatory p
     observer (error @Party "EvUpdCreateErr4_1 OK")
 
+evUpdCreateErr4_1 : Script ()
 evUpdCreateErr4_1 = script do
   p <- allocateParty "Alice"
   submit p do
@@ -381,6 +426,7 @@ template T_EvUpdCreateErr4_2
     key error @Party "EvUpdCreateErr4_2 failed" : Party
     maintainer error @Party "EvUpdCreateErr4_2 failed"
 
+evUpdCreateErr4_2 : Script ()
 evUpdCreateErr4_2 = script do
   p <- allocateParty "Alice"
   submit p do
@@ -399,6 +445,7 @@ template T_EvUpdCreateWithKeyErr1
     key error @Party "EvUpdCreateWithKeyErr1 OK" : Party
     maintainer error @Party "EvUpdCreateWithKeyErr1 failed"
 
+evUpdCreateWithKeyErr1 : Script ()
 evUpdCreateWithKeyErr1 = script do
   p <- allocateParty "Alice"
   submit p do
@@ -417,6 +464,7 @@ template T_EvUpdCreateWithKeyErr2
     key p : Party
     maintainer error @Party "EvUpdCreateWithKeyErr2 OK"
 
+evUpdCreateWithKeyErr2 : Script ()
 evUpdCreateWithKeyErr2 = script do
   p <- allocateParty "Alice"
   submit p do
@@ -439,6 +487,7 @@ template T_ControllerCanAddsObserver
       C_ControllerCanAddsObserver: ()
         do pure ()
 
+controllerCanAddsObserver : Script ()
 controllerCanAddsObserver = script do
   p <- allocateParty "Alice"
   submit p do
@@ -457,6 +506,7 @@ template T_ChoiceControllerDoesntAddObserver
       controller (error @Party "choiceControllerDoesntAddObserver failed")
         do pure ()
 
+choiceControllerDoesntAddObserver : Script ()
 choiceControllerDoesntAddObserver = script do
   p <- allocateParty "Alice"
   submit p do
@@ -472,6 +522,7 @@ template T_DoubleArchive
   where
     signatory p
 
+doubleArchive : Script ()
 doubleArchive = script do
   p <- allocateParty "Alice"
   c <- submit p do createCmd (T_DoubleArchive p)
@@ -495,6 +546,7 @@ template T_EvUpdExercConsumErr_1
           archive self
           error "EvUpdExercConsumErr_1 failed (1)"
 
+evUpdExercConsumErr_1 : Script ()
 evUpdExercConsumErr_1 = script do
   p <- allocateParty "Alice"
   c <- submit p do createCmd (T_EvUpdExercConsumErr_1 p)
@@ -515,6 +567,7 @@ template T_EvUpdExercConsumErr_2
           fetch self
           error "EvUpdExercConsumErr_2 failed (1)"
 
+evUpdExercConsumErr_2 : Script ()
 evUpdExercConsumErr_2 = script do
   p <- allocateParty "Alice"
   c <- submit p do createCmd (T_EvUpdExercConsumErr_2 p)
@@ -537,6 +590,7 @@ template T_EvUpdExercNonConsumErr
 
 -- @TODO Is it safe to use createAndExerciseCmd here (and elsewhere in this file)? It'll make the create and exercise 1 transaction, instead of 2
 
+evUpdExercNonConsumErr : Script ()
 evUpdExercNonConsumErr = script do
   p <- allocateParty "Alice"
   c <- submit p do createCmd (T_EvUpdExercNonConsumErr p)
@@ -556,6 +610,7 @@ template T_EvUpdExercWithoutActorsErr_2
       controller (error @Party "EvUpdExercWithoutActorsErr_2 failed (1)")
         do abort "EvUpdExercWithoutActorsErr_2 failed (2)"
 
+evUpdExercWithoutActorsErr_2 : Script ()
 evUpdExercWithoutActorsErr_2 = script do
   p <- allocateParty "Alice"
   c <- submit p do createCmd (T_EvUpdExercWithoutActorsErr_2 p)
@@ -579,6 +634,7 @@ template T_BadActorCheck
       controller p2
       do pure ()
 
+badActorCheck : Script ()
 badActorCheck = script do
   p1 <- allocateParty "Alice"
   p2 <- allocateParty "Bob"
@@ -586,7 +642,8 @@ badActorCheck = script do
   submit p1 do exerciseCmd c C_BadActorCheck
   error "BadActorCheck failed"
 
--- @ERROR EvUpdFetchByKeyErr OK
+-- @TODO Query library throws away these errors, might be fixable, see also EmptyContractKeyMaintainers
+-- @ERROR Couldn't see contract with key ()
 template T_EvUpdFetchByKeyErr
   with
     p : Party
@@ -595,6 +652,7 @@ template T_EvUpdFetchByKeyErr
     key () : ()
     maintainer (error @Party "EvUpdFetchByKeyErr OK")
 
+evUpdFetchByKeyErr : Script ()
 evUpdFetchByKeyErr = script do
   p <- allocateParty "Alice"
   canSeeKey @T_EvUpdFetchByKeyErr p ()

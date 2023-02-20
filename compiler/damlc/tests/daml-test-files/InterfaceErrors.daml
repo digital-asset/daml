@@ -22,18 +22,33 @@ template MyTemplate
     where
         signatory p
 
--- @ERROR range=26:1-26:17; Attempt to use a contract via an interface that the contract does not implement
+template Test
+    with
+        p : Party
+    where
+        signatory p
+        choice Call1 : ()
+            controller p
+            do
+                cid <- create (MyTemplate p)
+                let cid' : ContractId MyInterface = coerceContractId cid
+                fetch cid'
+                pure ()
+
+        choice Call2 : ()
+            controller p
+            do
+                cid <- create (MyTemplate p)
+                let cid' : ContractId MyInterface = coerceContractId cid
+                exercise cid' MyVirtualChoice
+                pure ()
+
+-- @ERROR range=47:1-47:17; Attempt to use a contract via an interface that the contract does not implement
 fetchBadContract = script do
     p <- allocateParty "Alice"
-    p `submit` do
-        cid <- createCmd (MyTemplate p)
-        let cid' : ContractId MyInterface = coerceContractId cid
-        fetch cid'
+    p `submit` do createAndExerciseCmd (Test p) Call1
 
--- @ERROR range=34:1-34:20; Attempt to use a contract via an interface that the contract does not implement
+-- @ERROR range=52:1-52:20; Attempt to use a contract via an interface that the contract does not implement
 exerciseBadContract = script do
     p <- allocateParty "Alice"
-    p `submit` do
-        cid <- createCmd (MyTemplate p)
-        let cid' : ContractId MyInterface = coerceContractId cid
-        exerciseCmd cid' MyVirtualChoice
+    p `submit` do createAndExerciseCmd (Test p) Call2
