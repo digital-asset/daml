@@ -234,7 +234,6 @@ cmdTest numProcessors =
       <*> filesOpt
       <*> fmap RunAllTests runAllTests
       <*> fmap ShowCoverage showCoverageOpt
-      <*> fmap ShowCoverage showCoverageOpt
       <*> fmap UseColor colorOutput
       <*> junitOutput
       <*> optionsParser
