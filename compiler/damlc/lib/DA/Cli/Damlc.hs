@@ -234,6 +234,7 @@ cmdTest numProcessors =
       <*> filesOpt
       <*> fmap RunAllTests runAllTests
       <*> fmap ShowCoverage showCoverageOpt
+      <*> fmap ShowCoverage showCoverageOpt
       <*> fmap UseColor colorOutput
       <*> junitOutput
       <*> optionsParser
@@ -242,12 +243,16 @@ cmdTest numProcessors =
             optPackageName
             disabledDlintUsageParser
       <*> initPkgDbOpt
+      <*> fmap TableOutputPath tableOutputPathOpt
+      <*> fmap TransactionsOutputPath transactionsOutputPathOpt
     filesOpt = optional (flag' () (long "files" <> help filesDoc) *> many inputFileOpt)
     filesDoc = "Only run test declarations in the specified files."
     junitOutput = optional $ strOptionOnce $ long "junit" <> metavar "FILENAME" <> help "Filename of JUnit output file"
     colorOutput = switch $ long "color" <> help "Colored test results"
     showCoverageOpt = switch $ long "show-coverage" <> help "Show detailed test coverage"
     runAllTests = switch $ long "all" <> help "Run tests in current project as well as dependencies"
+    tableOutputPathOpt = optional $ strOptionOnce $ long "table-output" <> help "Filename to which table should be output"
+    transactionsOutputPathOpt = optional $ strOptionOnce $ long "transactions-output" <> help "Filename to which the transaction list should be output"
 
 runTestsInProjectOrFiles ::
        ProjectOpts
@@ -258,8 +263,10 @@ runTestsInProjectOrFiles ::
     -> Maybe FilePath
     -> Options
     -> InitPkgDb
+    -> TableOutputPath
+    -> TransactionsOutputPath
     -> Command
-runTestsInProjectOrFiles projectOpts Nothing allTests coverage color mbJUnitOutput cliOptions initPkgDb = Command Test (Just projectOpts) effect
+runTestsInProjectOrFiles projectOpts Nothing allTests coverage color mbJUnitOutput cliOptions initPkgDb tableOutputPath transactionsOutputPath = Command Test (Just projectOpts) effect
   where effect = withExpectProjectRoot (projectRoot projectOpts) "daml test" $ \pPath relativize -> do
         installDepsAndInitPackageDb cliOptions initPkgDb
         mbJUnitOutput <- traverse relativize mbJUnitOutput
@@ -269,13 +276,13 @@ runTestsInProjectOrFiles projectOpts Nothing allTests coverage color mbJUnitOutp
             -- Therefore we keep the behavior of only passing the root file
             -- if source points to a specific file.
             files <- getDamlRootFiles pSrc
-            execTest files allTests coverage color mbJUnitOutput cliOptions
-runTestsInProjectOrFiles projectOpts (Just inFiles) allTests coverage color mbJUnitOutput cliOptions initPkgDb = Command Test (Just projectOpts) effect
+            execTest files allTests coverage color mbJUnitOutput cliOptions tableOutputPath transactionsOutputPath
+runTestsInProjectOrFiles projectOpts (Just inFiles) allTests coverage color mbJUnitOutput cliOptions initPkgDb tableOutputPath transactionsOutputPath = Command Test (Just projectOpts) effect
   where effect = withProjectRoot' projectOpts $ \relativize -> do
         installDepsAndInitPackageDb cliOptions initPkgDb
         mbJUnitOutput <- traverse relativize mbJUnitOutput
         inFiles' <- mapM (fmap toNormalizedFilePath' . relativize) inFiles
-        execTest inFiles' allTests coverage color mbJUnitOutput cliOptions
+        execTest inFiles' allTests coverage color mbJUnitOutput cliOptions tableOutputPath transactionsOutputPath
 
 cmdInspect :: Mod CommandFields Command
 cmdInspect =

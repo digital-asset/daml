@@ -12,6 +12,7 @@ module DA.Cli.Damlc.Test (
     -- , Summarize(..)
     ) where
 
+import Control.Exception
 import Control.Monad.Except
 import Control.Monad.Extra
 import DA.Daml.Compiler.Output
@@ -22,12 +23,15 @@ import DA.Daml.Options.Types
 import qualified DA.Pretty
 import qualified DA.Pretty as Pretty
 import Data.Either
+import Data.Foldable (fold)
 import qualified Data.HashSet as HashSet
 import Data.List.Extra
 import qualified Data.Map.Strict as M
 import Data.Maybe
 import qualified Data.NameMap as NM
+import qualified Data.Set as S
 import qualified Data.Text as T
+import qualified Data.Text.IO as TIO
 import qualified Data.Text.Lazy as TL
 import Data.Tuple.Extra
 import qualified Data.Vector as V
@@ -44,20 +48,25 @@ import System.Console.ANSI (SGR(..), setSGRCode, Underlining(..), ConsoleIntensi
 import System.Directory (createDirectoryIfMissing)
 import System.Exit (exitFailure)
 import System.FilePath
+import System.IO (hPutStrLn, stderr)
+import System.IO.Error (isPermissionError, isAlreadyExistsError, isDoesNotExistError)
 import qualified Text.XML.Light as XML
+import qualified Text.Blaze.Html.Renderer.Text as Blaze
 import Text.Printf
 
 
 newtype UseColor = UseColor {getUseColor :: Bool}
 newtype ShowCoverage = ShowCoverage {getShowCoverage :: Bool}
 newtype RunAllTests = RunAllTests {getRunAllTests :: Bool}
+newtype TableOutputPath = TableOutputPath {getTableOutput :: Maybe String}
+newtype TransactionsOutputPath = TransactionsOutputPath {getTransactionsOutput :: Maybe String}
 
 -- | Test a Daml file.
-execTest :: [NormalizedFilePath] -> RunAllTests -> ShowCoverage -> UseColor -> Maybe FilePath -> Options -> IO ()
-execTest inFiles runAllTests coverage color mbJUnitOutput opts = do
+execTest :: [NormalizedFilePath] -> RunAllTests -> ShowCoverage -> UseColor -> Maybe FilePath -> Options -> TableOutputPath -> TransactionsOutputPath -> IO ()
+execTest inFiles runAllTests coverage color mbJUnitOutput opts tableOutputPath transactionsOutputPath = do
     loggerH <- getLogger opts "test"
     withDamlIdeState opts loggerH diagnosticsLogger $ \h -> do
-        testRun h inFiles (optDamlLfVersion opts) runAllTests coverage color mbJUnitOutput
+        testRun h inFiles (optDamlLfVersion opts) runAllTests coverage color mbJUnitOutput tableOutputPath transactionsOutputPath
         diags <- getDiagnostics h
         when (any (\(_, _, diag) -> Just DsError == _severity diag) diags) exitFailure
 
@@ -86,8 +95,10 @@ testRun ::
     -> ShowCoverage
     -> UseColor
     -> Maybe FilePath
+    -> TableOutputPath
+    -> TransactionsOutputPath
     -> IO ()
-testRun h inFiles lfVersion (RunAllTests runAllTests) coverage color mbJUnitOutput  = do
+testRun h inFiles lfVersion (RunAllTests runAllTests) coverage color mbJUnitOutput tableOutputPath transactionsOutputPath = do
     -- make sure none of the files disappear
     liftIO $ setFilesOfInterest h (HashSet.fromList inFiles)
 
@@ -102,11 +113,12 @@ testRun h inFiles lfVersion (RunAllTests runAllTests) coverage color mbJUnitOutp
 
     results <- runActionSync h $ do
         Shake.forP files $ \file -> do
+            world <- worldForFile file
             mod <- moduleForScenario file
             mbScenarioResults <- runScenarios file
             mbScriptResults <- runScripts file
             let mbResults = liftM2 (++) mbScenarioResults mbScriptResults
-            return (file, mod, mbResults)
+            return (world, file, mod, mbResults)
 
     extResults <-
         if runAllTests
@@ -121,12 +133,12 @@ testRun h inFiles lfVersion (RunAllTests runAllTests) coverage color mbJUnitOutp
 
     let -- All Packages / Modules mentioned somehow
         allPackages :: [LocalOrExternal]
-        allPackages = [Local mod | (_, mod, _) <- results] ++ map External extPkgs
+        allPackages = [Local mod | (_, _, mod, _) <- results] ++ map External extPkgs
 
         -- All results: subset of packages / modules that actually got scenarios run
         allResults :: [(LocalOrExternal, [(VirtualResource, Either SSC.Error SS.ScenarioResult)])]
         allResults =
-            [(Local mod, result) | (_file, mod, Just result) <- results]
+            [(Local mod, result) | (_world, _file, mod, Just result) <- results]
             ++ [(External pkg, result) | (pkg, Just result) <- extResults]
 
     -- print test summary after all tests have run
@@ -138,9 +150,12 @@ testRun h inFiles lfVersion (RunAllTests runAllTests) coverage color mbJUnitOutp
         allPackages
         allResults
 
+    outputTables tableOutputPath results
+    --outputTransactions transactionsOutputPath results
+
     whenJust mbJUnitOutput $ \junitOutput -> do
         createDirectoryIfMissing True $ takeDirectory junitOutput
-        res <- forM results $ \(file, _mod, resultM) -> do
+        res <- forM results $ \(_world, file, _mod, resultM) -> do
             case resultM of
                 Nothing -> fmap (file, ) $ runActionSync h $ failedTestOutput h file
                 Just scenarioResults -> do
@@ -151,6 +166,52 @@ testRun h inFiles lfVersion (RunAllTests runAllTests) coverage color mbJUnitOutp
                     pure (file, map (second render) scenarioResults)
         writeFile junitOutput $ XML.showTopElement $ toJUnit res
 
+data NamedPath = NamedPath { name :: String, path :: FilePath }
+    deriving (Show, Eq, Ord)
+
+outputTables :: TableOutputPath -> [(LF.World, NormalizedFilePath, LF.Module, Maybe [(VirtualResource, Either SSC.Error SS.ScenarioResult)])] -> IO ()
+outputTables (TableOutputPath (Just path)) results = do
+    dir <-
+        handleFileSystemErrors
+            ("Test table output directory '" ++ path ++ "'")
+            (createDirectoryIfMissing True path)
+    case dir of
+      Nothing -> pure ()
+      _ ->
+        let results' = [(world, vr, result) | (world, _, mod, Just results) <- results, (vr, Right result) <- results ]
+        in
+        forM_ results' $ \(world, vr, result) -> do
+            let activeContracts = SS.activeContractsFromScenarioResult result
+                tableView = SS.renderTableView world activeContracts (SS.scenarioResultNodes result)
+                tableSource = TL.toStrict $ Blaze.renderHtml $ fold tableView
+                outputFile = path </> ("table-" <> T.unpack (vrScenarioName vr) <> ".html")
+            _ <- handleFileSystemErrors
+                ("Test table output file '" <> outputFile <> "'")
+                (TIO.writeFile outputFile tableSource)
+            pure ()
+    where
+        handleFileSystemErrors :: String -> IO a -> IO (Maybe a)
+        handleFileSystemErrors name action =
+            handleJust errorFilter (handler name) (Just <$> action)
+
+        errorFilter :: IOError -> Maybe IOError
+        errorFilter err = do
+            guard $ isPermissionError err || isAlreadyExistsError err || isDoesNotExistError err
+            pure err
+
+        handler :: String -> IOError -> IO (Maybe a)
+        handler name err
+          | isPermissionError err = do
+              hPutStrLn stderr $ name ++ " cannot be created because of unsufficient permissions."
+              pure Nothing
+          | isAlreadyExistsError err = do
+              hPutStrLn stderr $ name ++ " cannot be created because it already exists."
+              pure Nothing
+          | isDoesNotExistError err = do
+              hPutStrLn stderr $ name ++ " cannot be created because its parent directory does not exist."
+              pure Nothing
+          | otherwise = throwIO err
+outputTables _ _ = pure ()
 
 -- We didn't get scenario results, so we use the diagnostics as the error message for each scenario.
 failedTestOutput :: IdeState -> NormalizedFilePath -> Action [(VirtualResource, Maybe T.Text)]

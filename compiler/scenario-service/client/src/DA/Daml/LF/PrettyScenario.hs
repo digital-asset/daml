@@ -11,6 +11,8 @@ module DA.Daml.LF.PrettyScenario
   , prettyWarningMessage
   , renderScenarioResult
   , renderScenarioError
+  , renderTableView
+  , renderTransactionView
   , lookupDefLocation
   , lookupLocationModule
   , scenarioNotInFileNote
