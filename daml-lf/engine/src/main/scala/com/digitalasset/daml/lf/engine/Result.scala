@@ -50,6 +50,7 @@ sealed trait Result[+A] extends Product with Serializable {
       pcs: ContractId => Option[VersionedContractInstance],
       packages: PackageId => Option[Package],
       keys: GlobalKeyWithMaintainers => Option[ContractId],
+      grantNeedAuthority: Boolean = false,
   ): Either[Error, A] = {
     @tailrec
     def go(res: Result[A]): Either[Error, A] =
@@ -60,7 +61,7 @@ sealed trait Result[+A] extends Product with Serializable {
         case ResultNeedContract(acoid, resume) => go(resume(pcs(acoid)))
         case ResultNeedPackage(pkgId, resume) => go(resume(packages(pkgId)))
         case ResultNeedKey(key, resume) => go(resume(keys(key)))
-        case ResultNeedAuthority(_, _, resume) => go(resume(true)) // grant every request
+        case ResultNeedAuthority(_, _, resume) => go(resume(grantNeedAuthority))
       }
     go(this)
   }
