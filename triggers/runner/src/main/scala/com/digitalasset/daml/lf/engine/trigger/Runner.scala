@@ -613,27 +613,6 @@ private[lf] class Runner private (
     }
   }
 
-  // FIXME: place this code elsewhere!!!
-  implicit class DurationExtensions(duration: Long) {
-    def toHumanReadable: String = {
-      if (duration >= 24L * 60L * 60L * 1000L * 1000L * 1000L) {
-        s"${duration / (24L * 60L * 60L * 1000L * 1000L * 1000L)}days"
-      } else if (duration >= 60L * 60L * 1000L * 1000L * 1000L) {
-        s"${duration / (60L * 60L * 1000L * 1000L * 1000L)}hrs"
-      } else if (duration >= 60L * 1000L * 1000L * 1000L) {
-        s"${duration / (60L * 1000L * 1000L * 1000L)}mins"
-      } else if (duration >= 1000L * 1000L * 1000L) {
-        s"${duration / (1000L * 1000L * 1000L)}s"
-      } else if (duration >= 1000L * 1000L) {
-        s"${duration / (1000L * 1000L)}ms"
-      } else if (duration >= 1000L) {
-        s"${duration / 1000L}us"
-      } else {
-        s"${duration}ns"
-      }
-    }
-  }
-
   private def freeTriggerSubmits(
       clientTime: Timestamp,
       v: SValue,
@@ -1845,6 +1824,26 @@ object Runner {
     }
 
   object Implicits {
+    implicit class DurationExtensions(duration: Long) {
+      def toHumanReadable: String = {
+        if (duration >= 24L * 60L * 60L * 1000L * 1000L * 1000L) {
+          s"${duration / (24L * 60L * 60L * 1000L * 1000L * 1000L)}days"
+        } else if (duration >= 60L * 60L * 1000L * 1000L * 1000L) {
+          s"${duration / (60L * 60L * 1000L * 1000L * 1000L)}hrs"
+        } else if (duration >= 60L * 1000L * 1000L * 1000L) {
+          s"${duration / (60L * 1000L * 1000L * 1000L)}mins"
+        } else if (duration >= 1000L * 1000L * 1000L) {
+          s"${duration / (1000L * 1000L * 1000L)}s"
+        } else if (duration >= 1000L * 1000L) {
+          s"${duration / (1000L * 1000L)}ms"
+        } else if (duration >= 1000L) {
+          s"${duration / 1000L}us"
+        } else {
+          s"${duration}ns"
+        }
+      }
+    }
+
     implicit class EnrichTriggerLoggingContextOf(logContext: LoggingContextOf[Trigger]) {
       def enrichTriggerContext(
           entry: LoggingEntry,
