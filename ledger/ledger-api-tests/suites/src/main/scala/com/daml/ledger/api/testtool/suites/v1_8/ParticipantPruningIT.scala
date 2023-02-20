@@ -5,25 +5,38 @@ package com.daml.ledger.api.testtool.suites.v1_8
 
 import java.util.regex.Pattern
 import com.daml.error.definitions.LedgerApiErrors
-import com.daml.ledger.api.testtool.infrastructure.Allocation._
+import com.daml.ledger.api.refinements.ApiTypes
+import com.daml.ledger.api.testtool.infrastructure.Allocation.{Participant, _}
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
-import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
+import com.daml.ledger.api.testtool.infrastructure.{FutureAssertions, LedgerTestSuite}
 import com.daml.ledger.api.testtool.infrastructure.Synchronize.synchronize
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.transaction.TransactionTree
-import com.daml.ledger.client.binding
+import com.daml.ledger.api.v1.event_query_service.{
+  GetEventsByContractIdRequest,
+  GetEventsByContractKeyRequest,
+}
+import com.daml.ledger.api.v1.value.{Record, RecordField, Value}
 import com.daml.ledger.client.binding.Primitive
 import com.daml.ledger.client.binding.Primitive.Party
-import com.daml.ledger.test.model.Test.Dummy
+import com.daml.ledger.test.model.Test.{Dummy, TextKey}
 import com.daml.ledger.test.semantic.DivulgenceTests._
+import com.daml.logging.LoggingContext
+import scalaz.Tag
+import scalaz.syntax.tag.ToTagOps
 
+import scala.collection.immutable
+import scala.concurrent.duration.DurationInt
 import scala.concurrent.{ExecutionContext, Future}
 
 class ParticipantPruningIT extends LedgerTestSuite {
 
-  private val batchesToPopulate =
-    74 // One point of populating the ledger with a lot of events is to help advance canton's safe-pruning offsets
+  private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
+
+  // One point of populating the ledger with a lot of events is to help advance canton's safe-pruning offsets
+  private val batchesToPopulate = 74
+
   private val lastItemToPruneIndex = batchesToPopulate
 
   test(
@@ -797,6 +810,80 @@ class ParticipantPruningIT extends LedgerTestSuite {
     } yield ()
   })
 
+  test(
+    "PREventsByContractIdPruned",
+    "Ensure that EventsByContractId works as expected with pruned data",
+    allocate(SingleParty),
+    runConcurrently = false,
+  )(implicit ec => { case Participants(Participant(participant, party)) =>
+    def getEvents(dummyCid: Primitive.ContractId[Dummy]): Future[Int] = {
+      val request = GetEventsByContractIdRequest(dummyCid.unwrap, immutable.Seq(party.unwrap))
+      participant
+        .getEventsByContractId(request)
+        .map(r => r.createEvent.fold(0)(_ => 1) + r.archiveEvent.fold(0)(_ => 1))
+    }
+
+    for {
+      dummyCid <- participant.create(party, Dummy(party))
+      end1 <- pruneToCurrentEnd(participant, party)
+      events1 <- getEvents(dummyCid)
+      exerciseCmd = participant.submitAndWaitRequest(party, dummyCid.exerciseDummyChoice1().command)
+      _ <- participant.submitAndWaitForTransactionTree(exerciseCmd)
+      events2 <- getEvents(dummyCid)
+      _ <- participant.prune(end1)
+      events3 <- getEvents(dummyCid)
+      _ <- pruneToCurrentEnd(participant, party) // TODO - This line causes the problem
+      events4 <- getEvents(dummyCid)
+    } yield {
+      assertEquals("Expected single create event after prune", events1, 1)
+      assertEquals("Expected create and consume event before prune", events2, 2)
+      assertEquals(
+        "Pruning to a point before create and consume does not remove events",
+        events3,
+        2,
+      )
+      assertEquals("Expected no events following prune", events4, 0)
+    }
+  })
+
+  test(
+    "PREventsByContractKey",
+    "Ensure that EventsByContractKey works as expected with pruned data",
+    allocate(SingleParty),
+    runConcurrently = false,
+  )(implicit ec => { case Participants(Participant(participant, party)) =>
+    val exercisedKey = "pruning test key"
+    val key = makeTextKeyKey(party, exercisedKey)
+
+    def getEvents: Future[Int] = participant
+      .getEventsByContractKey(
+        GetEventsByContractKeyRequest(
+          contractKey = Some(key),
+          templateId = Some(TextKey.id.unwrap),
+          requestingParties = Tag.unsubst(immutable.Seq(party)),
+        )
+      )
+      .map(r => r.createEvent.fold(0)(_ => 1) + r.archiveEvent.fold(0)(_ => 1))
+
+    for {
+      textKeyCid1 <- participant.create(party, TextKey(party, exercisedKey, Nil))
+      _ <- pruneToCurrentEnd(participant, party).map(_.getAbsolute)
+      events1 <- getEvents
+      exerciseCmd = participant.submitAndWaitRequest(
+        party,
+        textKeyCid1.exerciseTextKeyChoice().command,
+      )
+      _ <- participant.submitAndWaitForTransactionTree(exerciseCmd)
+      events2 <- getEvents
+      _ <- pruneToCurrentEnd(participant, party).map(_.getAbsolute)
+      events3 <- getEvents
+    } yield {
+      assertEquals("Expected single create event after prune", events1, 1)
+      assertEquals("Expected create and consume event before prune", events2, 2)
+      assertEquals("Expected no events following prune", events3, 0)
+    }
+  })
+
   private def createDivulgence(
       alice: Party,
       bob: Party,
@@ -815,7 +902,7 @@ class ParticipantPruningIT extends LedgerTestSuite {
       alpha: ParticipantTestContext,
       beta: ParticipantTestContext,
       contract: Primitive.ContractId[Contract],
-      divulgence: binding.Primitive.ContractId[Divulgence],
+      divulgence: Primitive.ContractId[Divulgence],
   )(implicit ec: ExecutionContext) =
     for {
       _ <- synchronize(alpha, beta)
@@ -941,4 +1028,55 @@ class ParticipantPruningIT extends LedgerTestSuite {
         s"Active contract set comparison before and after pruning failed: $acsBeforePruning vs $acsAfterPruning",
       )
     }
+
+  // Note that the Daml template must be inspected to establish the key type and fields
+  // For the TextKey template the key is: (tkParty, tkKey) : (Party, Text)
+  // When populating the Record identifiers are not required.
+  private def makeTextKeyKey(party: ApiTypes.Party, keyText: String) = {
+    Value(
+      Value.Sum.Record(
+        Record(fields =
+          Vector(
+            RecordField(value = Some(Value(Value.Sum.Party(party.unwrap)))),
+            RecordField(value = Some(Value(Value.Sum.Text(keyText)))),
+          )
+        )
+      )
+    )
+  }
+
+  /** Note that the ledger end returned will be that prior to the dummy contract creation/prune calls
+    * so will not represent the ledger end post pruning
+    */
+  private def pruneToCurrentEnd(participant: ParticipantTestContext, party: Party)(implicit
+      ec: ExecutionContext
+  ): Future[LedgerOffset] = {
+    for {
+      end <- participant.currentEnd()
+      _ <- pruneCantonSafe(participant, end, party)
+    } yield end
+  }
+
+  /** We are retrying a command submission + pruning to make this test compatible with Canton.
+    * That's because in Canton pruning will fail unless ACS commitments have been exchanged between participants.
+    * To this end, repeatedly submitting commands is prompting Canton to exchange ACS commitments
+    * and allows the pruning call to eventually succeed.
+    */
+  private def pruneCantonSafe(
+      ledger: ParticipantTestContext,
+      pruneUpTo: LedgerOffset,
+      party: Party,
+  )(implicit ec: ExecutionContext): Future[Unit] =
+    FutureAssertions.succeedsEventually(
+      retryDelay = 100.millis,
+      maxRetryDuration = 10.seconds,
+      ledger.delayMechanism,
+      "Pruning",
+    ) {
+      for {
+        _ <- ledger.submitAndWait(ledger.submitAndWaitRequest(party, Dummy(party).create.command))
+        _ <- ledger.prune(pruneUpTo = pruneUpTo, attempts = 1)
+      } yield ()
+    }
+
 }

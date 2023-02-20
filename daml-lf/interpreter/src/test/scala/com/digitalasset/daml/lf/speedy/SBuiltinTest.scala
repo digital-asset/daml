@@ -22,9 +22,8 @@ import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SValue.{SValue => _, _}
 import com.daml.lf.speedy.Speedy.{CachedContract, Machine, CachedKey}
 import com.daml.lf.testing.parser.Implicits._
-import com.daml.lf.transaction.{GlobalKeyWithMaintainers, TransactionVersion}
+import com.daml.lf.transaction.{GlobalKey, GlobalKeyWithMaintainers, TransactionVersion}
 import com.daml.lf.value.Value
-import com.daml.lf.value.Value.{ContractId, ValueArithmeticError, VersionedContractInstance}
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.freespec.AnyFreeSpec
@@ -1512,7 +1511,10 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
         inside(eval(SEAppAtomicSaturatedBuiltin(builtin, args.map(SEValue(_)).toArray))) {
           case Left(
                 SError.SErrorDamlException(
-                  IE.UnhandledException(ValueArithmeticError.typ, ValueArithmeticError(msg))
+                  IE.UnhandledException(
+                    Value.ValueArithmeticError.typ,
+                    Value.ValueArithmeticError(msg),
+                  )
                 )
               )
               if msg == s"ArithmeticError while evaluating ($name ${args.iterator.map(lit2string).mkString(" ")})." =>
@@ -1675,30 +1677,27 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
               SEAppAtomic(SEBuiltin(SBCacheDisclosedContract(contractId)), Array(SELocS(1))),
             ),
             getContract = Map(
-              contractId -> VersionedContractInstance(
+              contractId -> Value.VersionedContractInstance(
                 version,
                 templateId,
                 disclosedContract.argument.toUnnormalizedValue,
               )
             ),
           )
-        ) { case Right((SUnit, contractCache, disclosedContractKeys)) =>
-          contractCache shouldBe Map(
-            contractId -> cachedContract
-          )
-          disclosedContractKeys shouldBe Map.empty
+        ) { case Right((SUnit, contractCache, disclosedContracts, disclosedContractKeys)) =>
+          contractCache shouldBe empty
+          disclosedContracts shouldBe Map(contractId -> cachedContract)
+          disclosedContractKeys shouldBe empty
         }
       }
 
       "when template key is defined" in {
         val templateId = Ref.Identifier.assertFromString("-pkgId-:Mod:IouWithKey")
-        val (disclosedContract, Some((key, keyWithMaintainers, keyHash))) =
+        val (disclosedContract, Some((key, keyWithMaintainers))) =
           buildDisclosedContract(contractId, alice, alice, templateId, withKey = true)
-        val optionalKey = Some(
-          CachedKey(
-            GlobalKeyWithMaintainers.assertBuild(templateId, key.toUnnormalizedValue, Set(alice)),
-            key,
-          )
+        val cachedKey = CachedKey(
+          GlobalKeyWithMaintainers.assertBuild(templateId, key.toUnnormalizedValue, Set(alice)),
+          key,
         )
         val cachedContract = CachedContract(
           version = txVersion,
@@ -1707,7 +1706,7 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
           "agreement",
           Set(alice),
           Set.empty,
-          optionalKey,
+          Some(cachedKey),
         )
         val cachedContractSExpr = SBuildCachedContract(
           SEValue(STypeRep(TTyCon(templateId))),
@@ -1725,18 +1724,17 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
               SEAppAtomic(SEBuiltin(SBCacheDisclosedContract(contractId)), Array(SELocS(1))),
             ),
             getContract = Map(
-              contractId -> VersionedContractInstance(
+              contractId -> Value.VersionedContractInstance(
                 version,
                 templateId,
                 disclosedContract.argument.toUnnormalizedValue,
               )
             ),
           )
-        ) { case Right((SUnit, contractCache, disclosedContractKeys)) =>
-          contractCache shouldBe Map(
-            contractId -> cachedContract
-          )
-          disclosedContractKeys shouldBe Map(keyHash -> SValue.SContractId(contractId))
+        ) { case Right((SUnit, contractCache, disclosedContracts, disclosedContractKeys)) =>
+          contractCache shouldBe empty
+          disclosedContracts shouldBe Map(contractId -> cachedContract)
+          disclosedContractKeys shouldBe Map(cachedKey.globalKey -> contractId)
         }
       }
     }
@@ -1856,7 +1854,12 @@ object SBuiltinTest {
       getContract: PartialFunction[Value.ContractId, Value.VersionedContractInstance],
   ): Either[
     SError,
-    (SValue, Map[ContractId, CachedContract], Map[crypto.Hash, SValue.SContractId]),
+    (
+        SValue,
+        Map[Value.ContractId, CachedContract],
+        Map[Value.ContractId, CachedContract],
+        Map[GlobalKey, Value.ContractId],
+    ),
   ] = {
     val machine =
       Speedy.Machine.fromUpdateSExpr(
@@ -1868,7 +1871,7 @@ object SBuiltinTest {
 
     SpeedyTestLib
       .run(machine, getContract = getContract)
-      .map((_, machine.getCachedContracts, machine.disclosureKeyTable.toMap))
+      .map((_, machine.cachedContracts, machine.disclosedContracts, machine.disclosedContractKeys))
   }
 
   def intList(xs: Long*): String =
@@ -1892,12 +1895,12 @@ object SBuiltinTest {
     }
 
   def buildDisclosedContract(
-      contractId: ContractId,
+      contractId: Value.ContractId,
       owner: Party,
       maintainer: Party,
       templateId: Ref.Identifier,
       withKey: Boolean,
-  ): (DisclosedContract, Option[(SValue, SValue, crypto.Hash)]) = {
+  ): (DisclosedContract, Option[(SValue, SValue)]) = {
     val key = SValue.SRecord(
       templateId,
       ImmArray(
@@ -1950,6 +1953,6 @@ object SBuiltinTest {
       ContractMetadata(Time.Timestamp.now(), keyHash, Bytes.Empty),
     )
 
-    (disclosedContract, if (withKey) Some((key, keyWithMaintainers, keyHash.get)) else None)
+    (disclosedContract, if (withKey) Some((key, keyWithMaintainers)) else None)
   }
 }

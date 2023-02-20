@@ -33,6 +33,7 @@ import           DA.Pretty as Pretty
 import           Data.Either.Extra
 import           Data.Int
 import Data.List
+import Data.List.Extra (unsnoc)
 import Data.Maybe
 import qualified Data.NameMap               as NM
 import qualified Data.Map.Strict            as MS
@@ -489,12 +490,6 @@ prettyScenarioErrorError (Just err) =  do
               (prettyDefName world)
               scenarioError_ContractDoesNotImplementRequiringInterfaceRequiringInterfaceId
         ]
-    ScenarioErrorErrorDisclosurePreprocessingDuplicateContractKeys(ScenarioError_DisclosurePreprocessingDuplicateContractKeys templateId keyHash) ->
-      pure $ vcat
-        [ "Found duplicate contract keys in submitted disclosed contracts"
-        , label_ "Template: " $ prettyMay "<missing template>" (prettyDefName world) templateId
-        , label_ "Key Hash: " $ ltext keyHash
-        ]
     ScenarioErrorErrorEvaluationTimeout timeout ->
       pure $ text $ T.pack $ "Evaluation timed out after " <> show timeout <> " seconds"
 
@@ -728,35 +723,44 @@ prettyNodeNode nn = do
         case node_CreateContractInstance of
           Nothing -> text "<missing contract instance>"
           Just ContractInstance{..} ->
-             (keyword_ "create" <-> prettyMay "<TEMPLATE?>" (prettyDefName world) contractInstanceTemplateId)
-           $$ maybe
-                mempty
-                (\v ->
-                  keyword_ "with" $$
-                    nest 2 (prettyValue' False 0 world v))
-                  contractInstanceValue
+            let (parties, kw) = partiesAction node_CreateSignatories "creates" "create" in
+            parties
+            <-> ( -- group to align "create" and "with"
+              (kw <-> prettyMay "<TEMPLATE?>" (prettyDefName world) contractInstanceTemplateId)
+              $$ maybe
+                    mempty
+                    (\v ->
+                      keyword_ "with" $$
+                        nest 2 (prettyValue' False 0 world v))
+                      contractInstanceValue
+              )
 
-    NodeNodeFetch Node_Fetch{..} ->
-      pure $
-        keyword_ "fetch"
+    NodeNodeFetch Node_Fetch{..} -> do
+      let (parties, kw) = partiesAction node_FetchSignatories "fetches" "fetch"
+      pure
+        $   parties
+        <-> (
+              kw
           <-> prettyContractId node_FetchContractId
           <-> maybe mempty
                   (\tid -> parens (prettyDefName world tid))
                   node_FetchTemplateId
-         $$ foldMap
-            (\key ->
-                let prettyKey = prettyMay "<KEY?>" (prettyValue' False 0 world) $ keyWithMaintainersKey key
-                in
-                hsep [ keyword_ "by key", prettyKey ]
-            )
-            node_FetchFetchByKey
+           $$ foldMap
+              (\key ->
+                  let prettyKey = prettyMay "<KEY?>" (prettyValue' False 0 world) $ keyWithMaintainersKey key
+                  in
+                  hsep [ keyword_ "by key", prettyKey ]
+              )
+              node_FetchFetchByKey
+        )
 
     NodeNodeExercise Node_Exercise{..} -> do
       ppChildren <- prettyChildren node_ExerciseChildren
+      let (parties, kw) = partiesAction node_ExerciseActingParties "exercises" "exercise"
       pure
-        $   fcommasep (mapV prettyParty node_ExerciseActingParties)
+        $   parties
         <-> ( -- group to align "exercises" and "with"
-              keyword_ "exercises"
+              kw
           <-> hsep
               [ prettyChoiceId world node_ExerciseTemplateId node_ExerciseChoiceId
               , keyword_ "on"
@@ -796,6 +800,16 @@ prettyNodeNode nn = do
     NodeNodeRollback Node_Rollback{..} -> do
         ppChildren <- prettyChildren node_RollbackChildren
         pure $ keyword_ "rollback" $$ ppChildren
+
+-- | Take a list of parties and the singular and multiple present tense verbs
+-- Depending on the count of parties, returns a prettified list of these elements, using @,@ and @and@, as well as the correct verb
+-- e.g. @[a, b, c] -> a, b and c@
+partiesAction :: V.Vector Party -> String -> String -> (Doc SyntaxClass, Doc SyntaxClass)
+partiesAction pv singular multiple =
+  case unsnoc $ mapV prettyParty pv of
+    Just (init@(_:_), last) -> (fcommasep init <-> keyword_ "and" <-> last, keyword_ multiple)
+    Just (_, p) ->             (p, keyword_ singular)
+    Nothing ->                 (text "No-one/unknown", keyword_ singular)
 
 isUnitValue :: Maybe Value -> Bool
 isUnitValue (Just (Value (Just ValueSumUnit{}))) = True

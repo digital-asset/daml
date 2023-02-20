@@ -22,7 +22,6 @@ import com.daml.lf.transaction.{
   SubmittedTransaction,
   Node,
   ContractKeyUniquenessMode,
-  ProcessedDisclosedContract,
   NodeId,
   GlobalKey,
   IncompleteTransaction => IncompleteTx,
@@ -33,8 +32,7 @@ import com.daml.nameof.NameOf
 import com.daml.scalautil.Statement.discard
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 
-import scala.annotation.{tailrec, nowarn}
-import scala.collection.mutable
+import scala.annotation.{nowarn, tailrec}
 
 private[lf] object Speedy {
 
@@ -140,7 +138,7 @@ private[lf] object Speedy {
       Node.Create(
         coid = coid,
         templateId = templateId,
-        arg = value.toNormalizedValue(version),
+        arg = arg,
         agreementText = agreementText,
         signatories = signatories,
         stakeholders = stakeholders,
@@ -172,9 +170,10 @@ private[lf] object Speedy {
       /* Commit location, if a scenario commit is in progress. */
       val commitLocation: Option[Location],
       val limits: interpretation.Limits,
-      val disclosureKeyTable: DisclosedContractKeyTable,
   )(implicit loggingContext: LoggingContext)
       extends Machine[Question.Update] {
+
+    private[speedy] override def isUpdateMachine: Boolean = true // for: SBContractIdToText
 
     private[speedy] override def asUpdateMachine(location: String)(
         f: UpdateMachine => Control[Question.Update]
@@ -232,8 +231,27 @@ private[lf] object Speedy {
     /* Flag to trace usage of get_time builtins */
     private[this] var dependsOnTime: Boolean = false
     // global contract discriminators, that are discriminators from contract created in previous transactions
-    private[this] var cachedContracts: Map[V.ContractId, CachedContract] = Map.empty
+    private[this] var cachedContracts_ : Map[V.ContractId, CachedContract] = Map.empty
     private[this] var numInputContracts: Int = 0
+
+    private[this] var disclosedContracts_ = Map.empty[V.ContractId, CachedContract]
+    private[speedy] def disclosedContracts: Map[V.ContractId, CachedContract] = disclosedContracts_
+
+    private[this] var disclosedContractKeys_ = Map.empty[GlobalKey, V.ContractId]
+    private[speedy] def disclosedContractKeys: Map[GlobalKey, V.ContractId] = disclosedContractKeys_
+
+    private[speedy] def addDisclosedContracts(
+        contractId: V.ContractId,
+        contract: CachedContract,
+    ): Unit = {
+      disclosedContracts_ = disclosedContracts.updated(contractId, contract)
+      contract.keyOpt.foreach(key =>
+        disclosedContractKeys_ = disclosedContractKeys.updated(key.globalKey, contractId)
+      )
+    }
+
+    private[speedy] def isDisclosedContract(contractId: V.ContractId): Boolean =
+      disclosedContracts.isDefinedAt(contractId)
 
     private[speedy] def setDependsOnTime(): Unit =
       dependsOnTime = true
@@ -241,14 +259,8 @@ private[lf] object Speedy {
     def getDependsOnTime: Boolean =
       dependsOnTime
 
-    private[speedy] def getCachedContracts: Map[V.ContractId, CachedContract] =
-      cachedContracts
-
-    private[speedy] def getCachedContract(contractId: V.ContractId): Option[CachedContract] =
-      cachedContracts.get(contractId)
-
-    private[speedy] def hasCachedContract(contractId: V.ContractId): Boolean =
-      cachedContracts.contains(contractId)
+    private[speedy] def cachedContracts: Map[V.ContractId, CachedContract] =
+      cachedContracts_
 
     val visibleToStakeholders: Set[Party] => SVisibleToStakeholders =
       if (validating) { _ => SVisibleToStakeholders.Visible }
@@ -262,9 +274,6 @@ private[lf] object Speedy {
       ptx.contractState.locallyCreated.contains(contractId)
     }
 
-    private[speedy] def isDisclosedContract(contractId: V.ContractId): Boolean =
-      ptx.disclosedContractIds.contains(contractId)
-
     private[speedy] def updateCachedContracts(cid: V.ContractId, contract: CachedContract): Unit = {
       enforceLimit(
         contract.signatories.size,
@@ -273,7 +282,7 @@ private[lf] object Speedy {
           .ContractSignatories(
             cid,
             contract.templateId,
-            contract.value.toUnnormalizedValue,
+            contract.arg,
             contract.signatories,
             _,
           ),
@@ -285,12 +294,12 @@ private[lf] object Speedy {
           .ContractObservers(
             cid,
             contract.templateId,
-            contract.value.toUnnormalizedValue,
+            contract.arg,
             contract.observers,
             _,
           ),
       )
-      cachedContracts = cachedContracts.updated(cid, contract)
+      cachedContracts_ = cachedContracts_.updated(cid, contract)
     }
 
     private[speedy] def addGlobalContract(coid: V.ContractId, contract: CachedContract): Unit = {
@@ -329,30 +338,21 @@ private[lf] object Speedy {
         IError.Limit.ChoiceObservers(cid, templateId, choiceName, arg, observers, _),
       )
 
+    // The set of create events for the disclosed contracts that are used by the generated transaction.
+    def disclosedCreateEvents: ImmArray[Node.Create] =
+      disclosedContracts.iterator
+        .collect {
+          case (coid, contract) if cachedContracts_.isDefinedAt(coid) => contract.toCreateNode(coid)
+        }
+        .to(ImmArray)
+
     def finish: Either[SErrorCrash, UpdateMachine.Result] = ptx.finish.map { case (tx, seeds) =>
-      val inputContracts = tx.inputContracts
       UpdateMachine.Result(
         tx,
         ptx.locationInfo(),
         seeds zip ptx.actionNodeSeeds.toImmArray,
         ptx.contractState.globalKeyInputs.transform((_, v) => v.toKeyMapping),
-        // TODO(#15745) Improve test coverage for disclosed contracts with metadata extraction
-        ptx.disclosedContracts
-          .collect {
-            case disclosedContract if inputContracts(disclosedContract.contractId.value) =>
-              val lfContractId = disclosedContract.contractId.value
-              val cachedContract = getCachedContract(lfContractId).getOrElse(
-                throw SErrorCrash(
-                  NameOf.qualifiedNameOfCurrentFunc,
-                  s"contract ${lfContractId.coid} not in cachedContracts",
-                )
-              )
-              ProcessedDisclosedContract(
-                cachedContract.toCreateNode(disclosedContract.contractId.value),
-                createdAt = disclosedContract.metadata.createdAt,
-                driverMetadata = disclosedContract.metadata.driverMetadata,
-              )
-          },
+        disclosedCreateEvents,
       )
     }
 
@@ -394,7 +394,7 @@ private[lf] object Speedy {
       if (isLocalContract(coid) || isDisclosedContract(coid)) {
         handleKeyFound(coid)
       } else {
-        getCachedContract(coid) match {
+        cachedContracts.get(coid) match {
           case Some(cachedContract) =>
             val stakeholders = cachedContract.signatories union cachedContract.observers
             visibleToStakeholders(stakeholders) match {
@@ -452,7 +452,6 @@ private[lf] object Speedy {
             contractKeyUniqueness,
             initialSeeding,
             committers,
-            disclosedContracts,
             authorizationChecker,
           ),
         committers = committers,
@@ -460,7 +459,6 @@ private[lf] object Speedy {
         commitLocation = commitLocation,
         contractKeyUniqueness = contractKeyUniqueness,
         limits = limits,
-        disclosureKeyTable = new DisclosedContractKeyTable,
         traceLog = traceLog,
         warningLog = warningLog,
         profile = new Profile(),
@@ -474,45 +472,8 @@ private[lf] object Speedy {
         locationInfo: Map[NodeId, Location],
         seeds: NodeSeeds,
         globalKeyMapping: Map[GlobalKey, KeyMapping],
-        processedDisclosedContracts: ImmArray[ProcessedDisclosedContract],
+        disclosedCreateEvent: ImmArray[Node.Create],
     )
-  }
-
-  private[speedy] class DisclosedContractKeyTable {
-
-    private[this] val keyMap: mutable.Map[crypto.Hash, SValue.SContractId] = mutable.Map.empty
-
-    private[speedy] def addContractKey(
-        templateId: TypeConName,
-        keyHash: crypto.Hash,
-        contractId: V.ContractId,
-    ): Either[IError, Unit] = {
-      if (keyMap.contains(keyHash)) {
-        Left(
-          IError.DisclosurePreprocessing(
-            IError.DisclosurePreprocessing.DuplicateContractKeys(
-              templateId,
-              keyHash,
-            )
-          )
-        )
-      } else {
-        keyMap.update(keyHash, SValue.SContractId(contractId))
-        Right(())
-      }
-    }
-
-    private[speedy] def contractIdByKey(keyHash: crypto.Hash): Option[SValue.SContractId] =
-      keyMap.get(keyHash)
-
-    private[speedy] def isValidDisclosedContractKeyEntry(
-        key: GlobalKey,
-        contractId: V.ContractId,
-    ): Boolean = {
-      contractIdByKey(key.hash).map(_.value).contains(contractId)
-    }
-
-    private[speedy] def toMap: Map[crypto.Hash, SValue.SContractId] = keyMap.toMap
   }
 
   final class ScenarioMachine(
@@ -584,7 +545,7 @@ private[lf] object Speedy {
   }
 
   /** The speedy CEK machine. */
-  private[lf] sealed abstract class Machine[+Q](implicit val loggingContext: LoggingContext) {
+  private[lf] sealed abstract class Machine[Q](implicit val loggingContext: LoggingContext) {
 
     val sexpr: SExpr
     /* The trace log. */
@@ -662,6 +623,8 @@ private[lf] object Speedy {
 
     @inline
     private[speedy] final def kontDepth(): Int = kontStack.size()
+
+    private[speedy] def isUpdateMachine: Boolean = false
 
     private[speedy] def asUpdateMachine(location: String)(
         f: UpdateMachine => Control[Question.Update]
@@ -798,7 +761,7 @@ private[lf] object Speedy {
       track.reset()
     }
 
-    final def setControl(x: Control[Nothing]): Unit = {
+    final def setControl(x: Control[Q]): Unit = {
       control = x
     }
 

@@ -323,7 +323,7 @@ main =
                     , "Partial transaction:"
                     , "  Sub-transactions:"
                     , "     0"
-                    , ".*create Test:Helper.*"
+                    , ".*'p1' creates Test:Helper.*"
                     ]
                 expectScriptFailure rs (vr "testPartialSubmitMustFail") $ \r ->
                   matchRegex r $ T.unlines
@@ -335,7 +335,7 @@ main =
                     , "Partial transaction:"
                     , "  Sub-transactions:"
                     , "     0"
-                    , ".*create Test:Helper.*"
+                    , ".*'p2' creates Test:Helper.*"
                     ]
                 pure (),
               testCase "query" $

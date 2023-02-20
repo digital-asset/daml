@@ -4,6 +4,7 @@
 
 module Keys where
 
+import DA.Assert
 import Daml.Script
 
 -- KEY_TEST_BEGIN
@@ -86,19 +87,7 @@ id_ref_test = do
 
   -- Thanks to contract keys, the current account contract is fetched
   Some balance <- queryContractId accountant balanceCid
-  (cid, account) <- submit accountant do
-    createAndExerciseCmd (Helper accountant) (FetchAccountByKey balance.account)
-  assert (cid == new_accountCid)
-
--- Helper template to call `fetchByKey`.
-template Helper
-  with
-    p : Party
-  where
-    signatory p
-    choice FetchAccountByKey : (ContractId Account, Account)
-      with
-        accountKey : AccountKey
-      controller p
-      do fetchByKey @Account accountKey
+  Some (new_cid, new_account : Account) <- queryContractKey accountant balance.account 
+  new_cid === new_accountCid
+  new_account =/= account
 -- KEY_TEST_END

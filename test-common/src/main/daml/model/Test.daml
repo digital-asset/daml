@@ -328,6 +328,12 @@ template TextKey
       controller tkParty
       do return ()
 
+    choice TextKeyDisclose : ContractId TextKey
+      with
+        tkNewDisclosedTo : [Party]
+      controller tkParty
+      do create this with tkDisclosedTo = tkNewDisclosedTo
+
 template TextKeyOperations
   with
     tkoParty: Party

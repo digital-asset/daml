@@ -4,7 +4,6 @@
 package com.daml.lf
 package interpretation
 
-import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref.{ChoiceName, Location, Party, TypeConName}
 import com.daml.lf.transaction.{GlobalKey, NodeId}
 import com.daml.lf.language.Ast
@@ -152,12 +151,6 @@ object Error {
       choiceName: ChoiceName,
       byInterface: Option[TypeConName],
   ) extends Error
-
-  final case class DisclosurePreprocessing(error: DisclosurePreprocessing.Error) extends Error
-  object DisclosurePreprocessing {
-    sealed abstract class Error extends Serializable with Product
-    final case class DuplicateContractKeys(templateId: TypeConName, keyHash: Hash) extends Error
-  }
 
   final case class Limit(error: Limit.Error) extends Error
 

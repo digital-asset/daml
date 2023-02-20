@@ -24,7 +24,7 @@ complicating concerns including, but not limited to:
 For these and other features, use :doc:`the Ledger API </app-dev/ledger-api>` instead.
 The HTTP JSON API service is a "proxy", after a fashion, for that API; *there is literally nothing that HTTP JSON API service can do that your own application cannot do via gRPC*.
 
-If you are using this API from JavaScript or TypeScript, we strongly recommend using :doc:`the JavaScript bindings and code generator </app-dev/bindings-ts/index>` rather than invoking these endpoints directly.
+If you are using this API from JavaScript or TypeScript, we strongly recommend using `the JavaScript bindings and code generator </app-dev/bindings-ts/index.html>`_ rather than invoking these endpoints directly.
 This will both simplify access to the endpoints described here and (with TypeScript) help to provide the correct JavaScript value format for each of your contracts, choice arguments, and choice results.
 
 As suggested by those bindings, the primary target application for the HTTP JSON API service is a web application, where user actions translate to one or a few ledger operations.

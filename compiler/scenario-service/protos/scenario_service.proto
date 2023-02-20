@@ -241,11 +241,6 @@ message ScenarioError {
     Identifier requiring_interface_id = 2;
     Identifier required_interface_id = 3;
   }
-  
-  message DisclosurePreprocessingDuplicateContractKeys {
-    Identifier template_id = 1;
-    string key_hash = 2;
-  }
 
   // The state of the ledger at the time of the error
   repeated ScenarioStep scenario_steps = 1;
@@ -316,11 +311,9 @@ message ScenarioError {
     PartiesNotAllocated scenario_parties_not_allocated = 33;
     ChoiceGuardFailed choice_guard_failed = 34;
     ContractDoesNotImplementInterface contract_does_not_implement_interface = 35;
-    ContractDoesNotImplementRequiringInterface contract_does_not_implement_requiring_interface
-    = 36;
-    DisclosurePreprocessingDuplicateContractKeys disclosure_preprocessing_duplicate_contract_keys = 39;
-    DisclosedContractKeyHashingError disclosed_contract_key_hashing_error = 40;
-    int64 evaluationTimeout = 41;
+    ContractDoesNotImplementRequiringInterface contract_does_not_implement_requiring_interface = 36;
+    DisclosedContractKeyHashingError disclosed_contract_key_hashing_error = 39;
+    int64 evaluationTimeout = 40;
   }
 }
 
