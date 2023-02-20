@@ -49,7 +49,7 @@ class ApiIdentityProviderConfigService(
         )
         jwksUrl <- requireJwksUrl(config.jwksUrl, "jwks_url")
         issuer <- requireNonEmptyString(config.issuer, "issuer")
-        audience <- optionalString(config.audience)(requireNonEmptyString(_, "audience"))
+        audience <- optionalString(config.audience)(Right(_))
       } yield IdentityProviderConfig(
         identityProviderId,
         config.isDeactivated,
@@ -92,7 +92,7 @@ class ApiIdentityProviderConfigService(
           request.updateMask,
           "update_mask",
         )
-        audience <- optionalString(config.audience)(requireNonEmptyString(_, "audience"))
+        audience <- optionalString(config.audience)(Right(_))
       } yield (
         IdentityProviderConfigUpdate(
           identityProviderId,
