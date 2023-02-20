@@ -549,11 +549,6 @@ class VirtualResourceManager {
   ) {
     const panel = this._panels.get(uri);
     if (panel == undefined) return;
-    panel.webview.html =
-      `Virtual resource has been running for ${millisecondsPassed} ms ` +
-      "<!-- " +
-      new Date() +
-      " -->";
     const updateTimestamp = this._lastStatusUpdate.get(uri);
     const isOutOfDate = updateTimestamp != null && updateTimestamp > startedAt;
     if (isOutOfDate) return;
