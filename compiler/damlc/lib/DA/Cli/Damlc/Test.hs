@@ -9,6 +9,8 @@ module DA.Cli.Damlc.Test (
     , UseColor(..)
     , ShowCoverage(..)
     , RunAllTests(..)
+    , TableOutputPath(..)
+    , TransactionsOutputPath(..)
     -- , Summarize(..)
     ) where
 
