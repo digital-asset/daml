@@ -153,7 +153,7 @@ testRun h inFiles lfVersion (RunAllTests runAllTests) coverage color mbJUnitOutp
         allResults
 
     outputTables tableOutputPath results
-    --outputTransactions transactionsOutputPath results
+    outputTransactions transactionsOutputPath results
 
     whenJust mbJUnitOutput $ \junitOutput -> do
         createDirectoryIfMissing True $ takeDirectory junitOutput
@@ -220,6 +220,24 @@ outputTables (TableOutputPath (Just path)) results =
         (NamedPath ("Test table output directory '" ++ path ++ "'") path)
         outputs
 outputTables _ _ = pure ()
+
+outputTransactions :: TransactionsOutputPath -> [(LF.World, NormalizedFilePath, LF.Module, Maybe [(VirtualResource, Either SSC.Error SS.ScenarioResult)])] -> IO ()
+outputTransactions (TransactionsOutputPath (Just path)) results =
+    let outputs :: [(NamedPath, T.Text)]
+        outputs = do
+            (world, _, _, Just results) <- results
+            (vr, Right result) <- results
+            let activeContracts = SS.activeContractsFromScenarioResult result
+                transView = SS.renderTransactionView world activeContracts result
+                transSource = TL.toStrict $ Blaze.renderHtml transView
+                outputFile = path </> ("transaction-" <> T.unpack (vrScenarioName vr) <> ".html")
+                outputFileName = "Test transaction output file '" <> outputFile <> "'"
+            pure (NamedPath outputFileName outputFile, transSource)
+    in
+    outputUnderDir
+        (NamedPath ("Test transaction output directory '" ++ path ++ "'") path)
+        outputs
+outputTransactions _ _ = pure ()
 
 -- We didn't get scenario results, so we use the diagnostics as the error message for each scenario.
 failedTestOutput :: IdeState -> NormalizedFilePath -> Action [(VirtualResource, Maybe T.Text)]
