@@ -125,39 +125,41 @@ sealed trait ScriptStream {
   def sendError(t: Throwable): Unit;
 }
 
-final case class StreamWithoutStatus(internal: StreamObserver[RunScenarioResponse])
-    extends ScriptStream {
-  override def sendFinalResponse(finalResponse: Either[ScenarioError, ScenarioResult]): Unit = {
-    val message = finalResponse match {
-      case Left(error: ScenarioError) => RunScenarioResponse.newBuilder.setError(error).build
-      case Right(result: ScenarioResult) => RunScenarioResponse.newBuilder.setResult(result).build
+object ScriptStream {
+  final case class WithoutStatus(internal: StreamObserver[RunScenarioResponse])
+      extends ScriptStream {
+    override def sendFinalResponse(finalResponse: Either[ScenarioError, ScenarioResult]): Unit = {
+      val message = finalResponse match {
+        case Left(error: ScenarioError) => RunScenarioResponse.newBuilder.setError(error).build
+        case Right(result: ScenarioResult) => RunScenarioResponse.newBuilder.setResult(result).build
+      }
+      internal.onNext(message)
+      internal.onCompleted()
     }
-    internal.onNext(message)
-    internal.onCompleted()
+
+    override def sendStatus(status: ScenarioStatus): Unit = {}
+    override def sendError(t: Throwable): Unit = internal.onError(t)
   }
 
-  override def sendStatus(status: ScenarioStatus): Unit = {}
-  override def sendError(t: Throwable): Unit = internal.onError(t)
-}
-
-final case class StreamWithStatus(internal: StreamObserver[RunScenarioResponseOrStatus])
-    extends ScriptStream {
-  override def sendFinalResponse(finalResponse: Either[ScenarioError, ScenarioResult]): Unit = {
-    val message = finalResponse match {
-      case Left(error: ScenarioError) =>
-        RunScenarioResponseOrStatus.newBuilder.setError(error).build
-      case Right(result: ScenarioResult) =>
-        RunScenarioResponseOrStatus.newBuilder.setResult(result).build
+  final case class WithStatus(internal: StreamObserver[RunScenarioResponseOrStatus])
+      extends ScriptStream {
+    override def sendFinalResponse(finalResponse: Either[ScenarioError, ScenarioResult]): Unit = {
+      val message = finalResponse match {
+        case Left(error: ScenarioError) =>
+          RunScenarioResponseOrStatus.newBuilder.setError(error).build
+        case Right(result: ScenarioResult) =>
+          RunScenarioResponseOrStatus.newBuilder.setResult(result).build
+      }
+      internal.onNext(message)
+      internal.onCompleted()
     }
-    internal.onNext(message)
-    internal.onCompleted()
+  
+    override def sendStatus(status: ScenarioStatus): Unit = {
+      val message = RunScenarioResponseOrStatus.newBuilder.setStatus(status).build
+      internal.onNext(message)
+    }
+    override def sendError(t: Throwable): Unit = internal.onError(t)
   }
-
-  override def sendStatus(status: ScenarioStatus): Unit = {
-    val message = RunScenarioResponseOrStatus.newBuilder.setStatus(status).build
-    internal.onNext(message)
-  }
-  override def sendError(t: Throwable): Unit = internal.onError(t)
 }
 
 @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
@@ -184,7 +186,7 @@ class ScenarioService(
     if (enableScenarios) {
       runLive(
         req,
-        StreamWithoutStatus(respObs),
+        ScriptStream.WithoutStatus(respObs),
         { case (ctx, pkgId, name) =>
           Future(ctx.interpretScenario(pkgId, name))
         },
@@ -199,7 +201,7 @@ class ScenarioService(
       req: RunScenarioRequest,
       respObs: StreamObserver[RunScenarioResponseOrStatus],
   ): Unit = {
-    val stream = StreamWithStatus(respObs)
+    val stream = ScriptStream.WithStatus(respObs)
     if (enableScenarios) {
       runLive(
         req,
@@ -218,7 +220,7 @@ class ScenarioService(
   ): Unit =
     runLive(
       req,
-      StreamWithoutStatus(respObs),
+      ScriptStream.WithoutStatus(respObs),
       { case (ctx, pkgId, name) => ctx.interpretScript(pkgId, name) },
     )
 
@@ -228,7 +230,7 @@ class ScenarioService(
   ): Unit =
     runLive(
       req,
-      StreamWithStatus(respObs),
+      ScriptStream.WithStatus(respObs),
       { case (ctx, pkgId, name) => ctx.interpretScript(pkgId, name) },
     )
 
