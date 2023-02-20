@@ -47,8 +47,8 @@ import com.daml.lf.engine.trigger.Runner.{
   numberOfPendingContracts,
   triggerUserState,
 }
+import com.daml.lf.engine.trigger.Runner.Implicits._
 import com.daml.lf.engine.trigger.ToLoggingContext._
-import com.daml.lf.engine.trigger.UnfoldState.{UnfoldStateShape, flatMapConcatNode, toSource}
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.PackageInterface
 import com.daml.lf.language.Util._
@@ -936,10 +936,15 @@ private[lf] class Runner private (
       .merge(completionSource merge transactionSource merge heartbeatSource)
   }
 
-  private[this] def getTriggerInitialStateLambda(
+  private[this] def getInitialStateFreeAndUpdate(
       acs: Seq[CreatedEvent]
-  )(implicit machine: Speedy.PureMachine, triggerContext: TriggerLogContext): SValue = {
-    // Compile the trigger initialState LF function to a speedy expression
+  )(implicit triggerContext: TriggerLogContext): (SValue, SValue) = {
+    // Compile the trigger initialState and Update LF functions to
+    // speedy expressions.
+    val update: SExpr =
+      compiler.unsafeCompile(
+        ERecProj(trigger.defn.ty, Name.assertFromString("update"), trigger.defn.expr)
+      )
     val getInitialState: SExpr =
       compiler.unsafeCompile(
         ERecProj(trigger.defn.ty, Name.assertFromString("initialState"), trigger.defn.expr)
@@ -950,9 +955,12 @@ private[lf] class Runner private (
         getInitialState,
         trigger.initialStateArguments(parties, acs, triggerConfig, converter),
       )
-
+    // Prepare a speedy machine for evaluating expressions.
+    val machine: Speedy.PureMachine =
+      Speedy.Machine.fromPureSExpr(compiledPackages, initialState)
+    // Evaluate it.
     machine.setExpressionToEvaluate(initialState)
-    Machine
+    val initialStateFree = Machine
       .stepToValue(machine)
       .expect(
         "TriggerSetup",
@@ -961,20 +969,9 @@ private[lf] class Runner private (
         ),
       )
       .orConverterException
-  }
-
-  private[this] def getTriggerUpdateLambda()(implicit
-      machine: Speedy.PureMachine,
-      triggerContext: TriggerLogContext,
-  ): SValue = {
-    // Compile the trigger Update LF function to a speedy expression
-    val update: SExpr =
-      compiler.unsafeCompile(
-        ERecProj(trigger.defn.ty, Name.assertFromString("update"), trigger.defn.expr)
-      )
-
     machine.setExpressionToEvaluate(update)
-    Machine.stepToValue(machine)
+    val evaluatedUpdate: SValue = Machine.stepToValue(machine)
+    (initialStateFree, evaluatedUpdate)
   }
 
   private[this] def encodeMsgs: TriggerContextualFlow[TriggerMsg, SValue, NotUsed] =
@@ -1043,214 +1040,6 @@ private[lf] class Runner private (
     }
   }
 
-  private[trigger] def runInitialState(clientTime: Timestamp, killSwitch: KillSwitch)(
-      acs: Seq[CreatedEvent]
-  )(implicit
-      machine: Speedy.PureMachine,
-      materializer: Materializer,
-      triggerContext: TriggerLogContext,
-  ): Graph[SourceShape2[SValue, TriggerContext[SubmitRequest]], NotUsed] = {
-    val startState = getTriggerInitialStateLambda(acs)
-
-    toSource(
-      freeTriggerSubmits(clientTime, startState, killSwitch)
-        .leftMap { state =>
-          triggerContext.logDebug(
-            "Trigger rule initial state",
-            "state" -> triggerUserState(state, trigger.defn.level, trigger.defn.version),
-          )
-          if (trigger.defn.level == Trigger.Level.High) {
-            triggerContext.logTrace(
-              "Trigger rule initial state",
-              "state" -> state,
-            )
-          }
-          triggerContext.logInfo(
-            "Trigger rule initialization start",
-            "metrics" -> LoggingValue.Nested(
-              LoggingEntries(
-                "acs" -> LoggingValue.Nested(
-                  LoggingEntries(
-                    "active" -> acs.length,
-                    "pending" -> 0,
-                  )
-                ),
-                "in-flight" -> 0,
-              )
-            ),
-          )
-
-          val activeContracts = acs.length
-          if (activeContracts > triggerConfig.hardLimit.maximumActiveContracts) {
-            triggerContext.logError(
-              "Due to an excessive number of active contracts, stopping the trigger",
-              "active-contracts" -> activeContracts,
-              "active-contract-overflow-count" -> triggerConfig.hardLimit.maximumActiveContracts,
-            )
-            throw ACSOverflowException(
-              activeContracts,
-              triggerConfig.hardLimit.maximumActiveContracts,
-            )
-          }
-
-          triggerContext.logInfo(
-            "Trigger rule initialization end",
-            "metrics" -> LoggingValue.Nested(
-              LoggingEntries(
-                "acs" -> LoggingValue.Nested(
-                  LoggingEntries(
-                    "active" -> numberOfActiveContracts(
-                      state,
-                      trigger.defn.level,
-                      trigger.defn.version,
-                    ),
-                    "pending" -> numberOfPendingContracts(
-                      state,
-                      trigger.defn.level,
-                      trigger.defn.version,
-                    ),
-                  )
-                ),
-                "in-flight" -> numberOfInFlightCommands(
-                  state,
-                  trigger.defn.level,
-                  trigger.defn.version,
-                ),
-              )
-            ),
-          )
-
-          state
-        }
-    )
-  }
-
-  private[trigger] def runRuleOnMsgs(
-      killSwitch: KillSwitch
-  )(implicit
-      machine: Speedy.PureMachine,
-      materializer: Materializer,
-      triggerContext: TriggerLogContext,
-  ): Graph[
-    UnfoldStateShape[SValue, TriggerContext[SValue], TriggerContext[SubmitRequest]],
-    NotUsed,
-  ] = flatMapConcatNode { (state: SValue, messageVal: TriggerContext[SValue]) =>
-    val updateStateLambda = getTriggerUpdateLambda()
-
-    messageVal.context.enrichTriggerContext() { implicit triggerContext: TriggerLogContext =>
-      triggerContext.logDebug(
-        "Trigger rule evaluation",
-        "state" -> triggerUserState(state, trigger.defn.level, trigger.defn.version),
-        "message" -> messageVal.value,
-      )
-      if (trigger.defn.level == Trigger.Level.High) {
-        triggerContext.logInfo(
-          "Trigger rule evaluation start",
-          "metrics" -> LoggingValue.Nested(
-            LoggingEntries(
-              "in-flight" -> numberOfInFlightCommands(
-                state,
-                trigger.defn.level,
-                trigger.defn.version,
-              ),
-              "acs" -> LoggingValue.Nested(
-                LoggingEntries(
-                  "active" -> numberOfActiveContracts(
-                    state,
-                    trigger.defn.level,
-                    trigger.defn.version,
-                  ),
-                  "pending" -> numberOfPendingContracts(
-                    state,
-                    trigger.defn.level,
-                    trigger.defn.version,
-                  ),
-                )
-              ),
-            )
-          ),
-        )
-      }
-
-      val clientTime: Timestamp =
-        Timestamp.assertFromInstant(Runner.getTimeProvider(timeProviderType).getCurrentTime)
-      machine.setExpressionToEvaluate(makeAppD(updateStateLambda, messageVal.value))
-      val stateFun = Machine
-        .stepToValue(machine)
-        .expect(
-          "TriggerRule",
-          { case DamlAnyModuleRecord("TriggerRule", DamlAnyModuleRecord("StateT", fun)) =>
-            fun
-          }: @nowarn("msg=A repeated case parameter .* is not matched by a sequence wildcard"),
-        )
-        .orConverterException
-      machine.setExpressionToEvaluate(makeAppD(stateFun, state))
-      val updateWithNewState = Machine.stepToValue(machine)
-
-      freeTriggerSubmits(clientTime, v = updateWithNewState, killSwitch)
-        .leftMap(
-          _.expect(
-            "TriggerRule new state",
-            { case DamlTuple2(SUnit, newState) =>
-              triggerContext.logDebug(
-                "Trigger rule state updated",
-                "state" -> triggerUserState(state, trigger.defn.level, trigger.defn.version),
-              )
-              if (trigger.defn.level == Trigger.Level.High) {
-                triggerContext.logTrace(
-                  "Trigger rule state updated",
-                  "state" -> newState,
-                )
-                triggerContext.logInfo(
-                  "Trigger rule evaluation end",
-                  "metrics" -> LoggingValue.Nested(
-                    LoggingEntries(
-                      "in-flight" -> numberOfInFlightCommands(
-                        newState,
-                        trigger.defn.level,
-                        trigger.defn.version,
-                      ),
-                      "acs" -> LoggingValue.Nested(
-                        LoggingEntries(
-                          "active" -> numberOfActiveContracts(
-                            newState,
-                            trigger.defn.level,
-                            trigger.defn.version,
-                          ),
-                          "pending" -> numberOfPendingContracts(
-                            newState,
-                            trigger.defn.level,
-                            trigger.defn.version,
-                          ),
-                        )
-                      ),
-                    )
-                  ),
-                )
-              }
-
-              numberOfActiveContracts(newState, trigger.defn.level, trigger.defn.version) match {
-                case Some(activeContracts)
-                    if activeContracts > triggerConfig.hardLimit.maximumActiveContracts =>
-                  triggerContext.logError(
-                    "Due to an excessive number of active contracts, stopping the trigger",
-                    "active-contracts" -> activeContracts,
-                    "active-contract-overflow-count" -> triggerConfig.hardLimit.maximumActiveContracts,
-                  )
-                  throw ACSOverflowException(
-                    activeContracts,
-                    triggerConfig.hardLimit.maximumActiveContracts,
-                  )
-
-                case _ =>
-                  newState
-              }
-            },
-          ).orConverterException
-        )
-    }
-  }
-
   // A flow for trigger messages representing a process for the
   // accumulated state changes resulting from application of the
   // messages given the starting state represented by the ACS
@@ -1266,12 +1055,201 @@ private[lf] class Runner private (
     val clientTime: Timestamp =
       Timestamp.assertFromInstant(Runner.getTimeProvider(timeProviderType).getCurrentTime)
     val hardLimitKillSwitch = KillSwitches.shared("hard-limit")
-
-    // Prepare a speedy machine for evaluating expressions
-    implicit val machine: Speedy.PureMachine =
+    val (initialStateFree, evaluatedUpdate) = getInitialStateFreeAndUpdate(acs)
+    // Prepare another speedy machine for evaluating expressions.
+    val machine: Speedy.PureMachine =
       Speedy.Machine.fromPureSExpr(compiledPackages, SEValue(SUnit))
 
-    import UnfoldState.{flatMapConcatNodeOps, toSourceOps}
+    import UnfoldState.{flatMapConcatNode, flatMapConcatNodeOps, toSource, toSourceOps}
+
+    val runInitialState = {
+      toSource(
+        freeTriggerSubmits(clientTime, initialStateFree, hardLimitKillSwitch)
+          .leftMap { state =>
+            triggerContext.logDebug(
+              "Trigger rule initial state",
+              "state" -> triggerUserState(state, trigger.defn.level, trigger.defn.version),
+            )
+            if (trigger.defn.level == Trigger.Level.High) {
+              triggerContext.logTrace(
+                "Trigger rule initial state",
+                "state" -> state,
+              )
+            }
+            triggerContext.logInfo(
+              "Trigger rule initialization start",
+              "metrics" -> LoggingValue.Nested(
+                LoggingEntries(
+                  "acs" -> LoggingValue.Nested(
+                    LoggingEntries(
+                      "active" -> acs.length,
+                      "pending" -> 0,
+                    )
+                  ),
+                  "in-flight" -> 0,
+                )
+              ),
+            )
+
+            val activeContracts = acs.length
+            if (activeContracts > triggerConfig.hardLimit.maximumActiveContracts) {
+              triggerContext.logError(
+                "Due to an excessive number of active contracts, stopping the trigger",
+                "active-contracts" -> activeContracts,
+                "active-contract-overflow-count" -> triggerConfig.hardLimit.maximumActiveContracts,
+              )
+              throw ACSOverflowException(
+                activeContracts,
+                triggerConfig.hardLimit.maximumActiveContracts,
+              )
+            }
+
+            triggerContext.logInfo(
+              "Trigger rule initialization end",
+              "metrics" -> LoggingValue.Nested(
+                LoggingEntries(
+                  "acs" -> LoggingValue.Nested(
+                    LoggingEntries(
+                      "active" -> numberOfActiveContracts(
+                        state,
+                        trigger.defn.level,
+                        trigger.defn.version,
+                      ),
+                      "pending" -> numberOfPendingContracts(
+                        state,
+                        trigger.defn.level,
+                        trigger.defn.version,
+                      ),
+                    )
+                  ),
+                  "in-flight" -> numberOfInFlightCommands(
+                    state,
+                    trigger.defn.level,
+                    trigger.defn.version,
+                  ),
+                )
+              ),
+            )
+
+            state
+          }
+      )
+    }
+
+    val runRuleOnMsgs = flatMapConcatNode { (state: SValue, messageVal: TriggerContext[SValue]) =>
+      messageVal.context.enrichTriggerContext() { implicit triggerContext: TriggerLogContext =>
+        triggerContext.logDebug(
+          "Trigger rule evaluation",
+          "state" -> triggerUserState(state, trigger.defn.level, trigger.defn.version),
+          "message" -> messageVal.value,
+        )
+        if (trigger.defn.level == Trigger.Level.High) {
+          triggerContext.logInfo(
+            "Trigger rule evaluation start",
+            "metrics" -> LoggingValue.Nested(
+              LoggingEntries(
+                "in-flight" -> numberOfInFlightCommands(
+                  state,
+                  trigger.defn.level,
+                  trigger.defn.version,
+                ),
+                "acs" -> LoggingValue.Nested(
+                  LoggingEntries(
+                    "active" -> numberOfActiveContracts(
+                      state,
+                      trigger.defn.level,
+                      trigger.defn.version,
+                    ),
+                    "pending" -> numberOfPendingContracts(
+                      state,
+                      trigger.defn.level,
+                      trigger.defn.version,
+                    ),
+                  )
+                ),
+              )
+            ),
+          )
+        }
+
+        val clientTime: Timestamp =
+          Timestamp.assertFromInstant(Runner.getTimeProvider(timeProviderType).getCurrentTime)
+        machine.setExpressionToEvaluate(makeAppD(evaluatedUpdate, messageVal.value))
+        val stateFun = Machine
+          .stepToValue(machine)
+          .expect(
+            "TriggerRule",
+            { case DamlAnyModuleRecord("TriggerRule", DamlAnyModuleRecord("StateT", fun)) =>
+              fun
+            }: @nowarn("msg=A repeated case parameter .* is not matched by a sequence wildcard"),
+          )
+          .orConverterException
+        machine.setExpressionToEvaluate(makeAppD(stateFun, state))
+        val updateWithNewState = Machine.stepToValue(machine)
+
+        freeTriggerSubmits(clientTime, v = updateWithNewState, hardLimitKillSwitch)
+          .leftMap(
+            _.expect(
+              "TriggerRule new state",
+              { case DamlTuple2(SUnit, newState) =>
+                triggerContext.logDebug(
+                  "Trigger rule state updated",
+                  "state" -> triggerUserState(state, trigger.defn.level, trigger.defn.version),
+                )
+                if (trigger.defn.level == Trigger.Level.High) {
+                  triggerContext.logTrace(
+                    "Trigger rule state updated",
+                    "state" -> newState,
+                  )
+                  triggerContext.logInfo(
+                    "Trigger rule evaluation end",
+                    "metrics" -> LoggingValue.Nested(
+                      LoggingEntries(
+                        "in-flight" -> numberOfInFlightCommands(
+                          newState,
+                          trigger.defn.level,
+                          trigger.defn.version,
+                        ),
+                        "acs" -> LoggingValue.Nested(
+                          LoggingEntries(
+                            "active" -> numberOfActiveContracts(
+                              newState,
+                              trigger.defn.level,
+                              trigger.defn.version,
+                            ),
+                            "pending" -> numberOfPendingContracts(
+                              newState,
+                              trigger.defn.level,
+                              trigger.defn.version,
+                            ),
+                          )
+                        ),
+                      )
+                    ),
+                  )
+                }
+
+                numberOfActiveContracts(newState, trigger.defn.level, trigger.defn.version) match {
+                  case Some(activeContracts)
+                      if activeContracts > triggerConfig.hardLimit.maximumActiveContracts =>
+                    triggerContext.logError(
+                      "Due to an excessive number of active contracts, stopping the trigger",
+                      "active-contracts" -> activeContracts,
+                      "active-contract-overflow-count" -> triggerConfig.hardLimit.maximumActiveContracts,
+                    )
+                    throw ACSOverflowException(
+                      activeContracts,
+                      triggerConfig.hardLimit.maximumActiveContracts,
+                    )
+
+                  case _ =>
+                    newState
+                }
+              },
+            ).orConverterException
+          )
+      }
+    }
 
     // The flow that we return:
     //  - Maps incoming trigger messages to new trigger messages
@@ -1285,9 +1263,9 @@ private[lf] class Runner private (
       import GraphDSL.Implicits._
 
       val msgIn = gb add TriggerContextualFlow[TriggerMsg]
-      val initialState = gb add runInitialState(clientTime, hardLimitKillSwitch)(acs)
+      val initialState = gb add runInitialState
       val initialStateOut = gb add Broadcast[SValue](2)
-      val rule = gb add runRuleOnMsgs(hardLimitKillSwitch)
+      val rule = gb add runRuleOnMsgs
       val submissions = gb add Merge[TriggerContext[SubmitRequest]](2)
       val finalStateIn = gb add Concat[SValue](2)
       val killSwitch = gb add hardLimitKillSwitch.flow[TriggerContext[SValue]]
@@ -1459,8 +1437,6 @@ private[lf] class Runner private (
 }
 
 object Runner {
-
-  import Implicits._
 
   private[trigger] implicit val logger: ContextualizedLogger = ContextualizedLogger.get(getClass)
 
