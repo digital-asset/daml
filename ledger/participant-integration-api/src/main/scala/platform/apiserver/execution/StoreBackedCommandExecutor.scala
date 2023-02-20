@@ -15,6 +15,7 @@ import com.daml.lf.engine.{
   ResultDone,
   ResultError,
   ResultInterruption,
+  ResultNeedAuthority,
   ResultNeedContract,
   ResultNeedKey,
   ResultNeedPackage,
@@ -229,6 +230,9 @@ private[apiserver] final class StoreBackedCommandExecutor(
               trackSyncExecution(interpretationTimeNanos)(continue()),
             )
           )
+
+        case ResultNeedAuthority(holding @ _, requesting @ _, resume @ _) => ??? // TODO #15882
+
       }
 
     resolveStep(result).andThen { case _ =>
