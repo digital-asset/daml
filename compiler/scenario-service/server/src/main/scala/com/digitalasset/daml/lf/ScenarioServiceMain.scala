@@ -119,7 +119,7 @@ object ScenarioService {
     Status.NOT_FOUND.withDescription(s" context $id not found!").asRuntimeException
 }
 
-sealed trait ScriptStream {
+sealed abstract class ScriptStream {
   def sendStatus(status: ScenarioStatus): Unit;
   def sendFinalResponse(result: Either[ScenarioError, ScenarioResult]): Unit;
   def sendError(t: Throwable): Unit;
