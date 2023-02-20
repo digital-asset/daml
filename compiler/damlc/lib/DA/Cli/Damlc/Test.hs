@@ -31,7 +31,6 @@ import Data.List.Extra
 import qualified Data.Map.Strict as M
 import Data.Maybe
 import qualified Data.NameMap as NM
-import qualified Data.Set as S
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
 import qualified Data.Text.Lazy as TL
@@ -60,8 +59,8 @@ import Text.Printf
 newtype UseColor = UseColor {getUseColor :: Bool}
 newtype ShowCoverage = ShowCoverage {getShowCoverage :: Bool}
 newtype RunAllTests = RunAllTests {getRunAllTests :: Bool}
-newtype TableOutputPath = TableOutputPath {getTableOutput :: Maybe String}
-newtype TransactionsOutputPath = TransactionsOutputPath {getTransactionsOutput :: Maybe String}
+newtype TableOutputPath = TableOutputPath (Maybe String)
+newtype TransactionsOutputPath = TransactionsOutputPath (Maybe String)
 
 -- | Test a Daml file.
 execTest :: [NormalizedFilePath] -> RunAllTests -> ShowCoverage -> UseColor -> Maybe FilePath -> Options -> TableOutputPath -> TransactionsOutputPath -> IO ()
