@@ -8,7 +8,6 @@ import com.daml.metrics.{CacheMetrics, HealthMetrics}
 import com.daml.metrics.api.MetricHandle.{
   Counter,
   LabeledMetricsFactory,
-  Meter,
   MetricsFactory,
   Timer,
 }
@@ -50,8 +49,6 @@ class HttpJsonApiMetrics(
   val surrogateTemplateIdCache =
     new CacheMetrics(prefix :+ "surrogate_tpid_cache", defaultMetricsFactory)
 
-  // Meters how long processing of a package upload request takes
-  val uploadPackageTimer: Timer = defaultMetricsFactory.timer(prefix :+ "upload_package_timing")
   // Meters how long parsing and decoding of an incoming json payload takes
   val incomingJsonParsingAndValidationTimer: Timer =
     defaultMetricsFactory.timer(prefix :+ "incoming_json_parsing_and_validation_timing")
@@ -68,20 +65,9 @@ class HttpJsonApiMetrics(
   val commandSubmissionLedgerTimer: Timer =
     defaultMetricsFactory.timer(prefix :+ "command_submission_ledger_timing")
   // Meters http requests throughput
-  val httpRequestThroughput: Meter =
-    defaultMetricsFactory.meter(prefix :+ "http_request_throughput")
   // Meters how many websocket connections are currently active
   val websocketRequestCounter: Counter =
     defaultMetricsFactory.counter(prefix :+ "websocket_request_count")
-  // Meters command submissions throughput
-  val commandSubmissionThroughput: Meter =
-    defaultMetricsFactory.meter(prefix :+ "command_submission_throughput")
-  // Meters package uploads throughput
-  val uploadPackagesThroughput: Meter =
-    defaultMetricsFactory.meter(prefix :+ "upload_packages_throughput")
-  // Meters party allocation throughput
-  val allocatePartyThroughput: Meter =
-    defaultMetricsFactory.meter(prefix :+ "allocation_party_throughput")
 
   val http = new DamlHttpMetrics(labeledMetricsFactory, ComponentName)
   val websocket = new DamlWebSocketMetrics(labeledMetricsFactory, ComponentName)

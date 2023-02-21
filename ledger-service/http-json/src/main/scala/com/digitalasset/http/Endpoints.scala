@@ -318,7 +318,6 @@ class Endpoints(
       extendWithRequestIdLogCtx(identity)(lc0)
     val markThroughputAndLogProcessingTime: Directive0 = Directive { (fn: Unit => Route) =>
       val t0 = System.nanoTime
-      metrics.httpRequestThroughput.mark()
       fn(()).andThen { res =>
         res.onComplete(_ => logger.trace(s"Processed request after ${System.nanoTime() - t0}ns"))
         res
