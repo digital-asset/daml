@@ -73,8 +73,7 @@ Metrics Reference
 *****************
 
 The HTTP JSON API Service supports :doc:`common HTTP metrics </ops/common-metrics>`.
-In addition, see the following list of selected metrics that can be particularly
-important to track.
+In addition, see the following list of important metrics:
 
 ``daml.http_json_api.incoming_json_parsing_and_validation_timing``
 ==================================================================
