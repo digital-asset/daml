@@ -76,12 +76,6 @@ import Test.Tasty.Providers
 import Test.Tasty.Providers.ConsoleFormat (noResultDetails)
 import Test.Tasty.Runners (Outcome(..), Result(..))
 
-import DA.Daml.Package.Config (PackageSdkVersion (..))
-import DA.Cli.Damlc.DependencyDb (installDependencies)
-import DA.Cli.Damlc.Packaging (createProjectPackageDb)
-
-import Module (stringToUnitId)
-
 -- Newtype to avoid mixing up the loging function and the one for registering TODOs.
 newtype TODO = TODO String
 
@@ -107,31 +101,6 @@ instance IsOption SkipValidationOpt where
   optionName = Tagged "skip-validation"
   optionHelp = Tagged "Skip package validation in scenario service (true|false)"
 
--- | Creates a temp directory with daml script installed, gives the database db path and package flag
-withDamlScriptDep :: Version -> ((FilePath, PackageFlag) -> IO ()) -> IO ()
-withDamlScriptDep lfVer cont = do
-  withTempDir $ \dir -> do
-    withCurrentDirectory dir $ do
-      let projDir = toNormalizedFilePath' dir
-          -- Bring in daml-script-0.0.0 as previously installed by withDamlScriptDep, must include package db 
-          packageFlag = ExposePackage "--package daml-script-0.0.0 (Daml.Script)" (UnitIdArg $ stringToUnitId "daml-script-0.0.0") (ModRenaming True [])
-      
-      scriptDar <- locateRunfiles $ mainWorkspace </> "daml-script/daml/daml-script-" <> renderVersion lfVer <> ".dar"
-
-      installDependencies
-        projDir
-        (defaultOptions $ Just lfVer)
-        (PackageSdkVersion "0.0.0")
-        ["daml-prim", "daml-stdlib", scriptDar]
-        []
-      createProjectPackageDb
-        projDir
-        (defaultOptions $ Just lfVer)
-        mempty
-
-      
-      cont (dir </> projectPackageDatabase, packageFlag)
-
 main :: IO ()
 main = do
   let scenarioConf = SS.defaultScenarioServiceConfig { SS.cnfJvmOptions = ["-Xmx200M"], SS.cnfEvaluationTimeout = Just 1 }
@@ -143,24 +112,23 @@ main = do
       execParser (info parser forwardOptions)
   scenarioLogger <- Logger.newStderrLogger Logger.Warning "scenario"
  
-  withDamlScriptDep lfVer $ \scriptPackageData ->
-    SS.withScenarioService lfVer scenarioLogger scenarioConf $ \scenarioService -> do
-      hSetEncoding stdout utf8
-      setEnv "TASTY_NUM_THREADS" "1" True
-      todoRef <- newIORef DList.empty
-      let registerTODO (TODO s) = modifyIORef todoRef (`DList.snoc` ("TODO: " ++ s))
-      integrationTests <- getIntegrationTests registerTODO scenarioService scriptPackageData
-      let tests = testGroup "All" [parseRenderRangeTest, uniqueUniques, integrationTests]
-      defaultMainWithIngredients ingredients tests
-        `finally` (do
-        todos <- readIORef todoRef
-        putStr (unlines (DList.toList todos)))
-      where ingredients =
-              includingOptions
-                [ Option (Proxy @LfVersionOpt)
-                , Option (Proxy @SkipValidationOpt)
-                ] :
-              defaultIngredients
+  SS.withScenarioService lfVer scenarioLogger scenarioConf $ \scenarioService -> do
+    hSetEncoding stdout utf8
+    setEnv "TASTY_NUM_THREADS" "1" True
+    todoRef <- newIORef DList.empty
+    let registerTODO (TODO s) = modifyIORef todoRef (`DList.snoc` ("TODO: " ++ s))
+    integrationTests <- getIntegrationTests registerTODO scenarioService
+    let tests = testGroup "All" [parseRenderRangeTest, uniqueUniques, integrationTests]
+    defaultMainWithIngredients ingredients tests
+      `finally` (do
+      todos <- readIORef todoRef
+      putStr (unlines (DList.toList todos)))
+    where ingredients =
+            includingOptions
+              [ Option (Proxy @LfVersionOpt)
+              , Option (Proxy @SkipValidationOpt)
+              ] :
+            defaultIngredients
 
 parseRenderRangeTest :: TestTree
 parseRenderRangeTest =
@@ -212,8 +180,8 @@ getCantSkipPreprocessorTestFiles = do
     anns <- readFileAnns file
     pure [("cant-skip-preprocessor/DA/Internal/Hack.daml", file, anns)]
 
-getIntegrationTests :: (TODO -> IO ()) -> SS.Handle -> (FilePath, PackageFlag) -> IO TestTree
-getIntegrationTests registerTODO scenarioService (packageDbPath, packageFlag) = do
+getIntegrationTests :: (TODO -> IO ()) -> SS.Handle -> IO TestTree
+getIntegrationTests registerTODO scenarioService = do
     putStrLn $ "rtsSupportsBoundThreads: " ++ show rtsSupportsBoundThreads
     do n <- getNumCapabilities; putStrLn $ "getNumCapabilities: " ++ show n
 
@@ -236,15 +204,13 @@ getIntegrationTests registerTODO scenarioService (packageDbPath, packageFlag) = 
     let tree :: TestTree
         tree = askOption $ \(LfVersionOpt version) -> askOption $ \(SkipValidationOpt skipValidation) ->
           let opts = (defaultOptions (Just version))
-                { optPackageDbs = [packageDbPath]
-                , optThreads = 0
+                { optThreads = 0
                 , optCoreLinting = True
                 , optDlintUsage = DlintEnabled DlintOptions
                     { dlintRulesFile = DefaultDlintRulesFile
                     , dlintHintFiles = NoDlintHintFiles
                     }
                 , optSkipScenarioValidation = SkipScenarioValidation skipValidation
-                , optPackageImports = [packageFlag]
                 }
 
               mkIde options = do
