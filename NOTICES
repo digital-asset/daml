@@ -321,7 +321,7 @@ either 5.0.1.1 : BSD 3-clause "New" or "Revised" License
 ekmett/free v5.1.7 : BSD 3-clause "New" or "Revised" License
 ekmett/profunctors v5.6.2 : BSD 3-clause "New" or "Revised" License
 ekmett/void v0.7.3 : BSD 3-clause "New" or "Revised" License
-elliptic v6.5.4 : MIT License
+elliptic 6.5.4 : MIT License
 emoji-regex v8.0.0 : MIT License
 encodeurl 1.0.2 : MIT License
 end-of-stream 1.4.4 : MIT License
@@ -11990,7 +11990,7 @@ Permission is hereby granted, free of charge, to any person
 ---
 
 MIT License
-(elliptic v6.5.4, function-bind 1.1.1, isarray 1.0.0, isarray 2.0.5, nodeca-argparse 1.0.10, nodejs/string_decoder v1.3.0)
+(elliptic 6.5.4, function-bind 1.1.1, isarray 1.0.0, isarray 2.0.5, nodeca-argparse 1.0.10, nodejs/string_decoder v1.3.0)
 
 License: Expat
 
