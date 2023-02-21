@@ -76,46 +76,6 @@ The HTTP JSON API Service supports :doc:`common HTTP metrics </ops/common-metric
 In addition, see the following list of selected metrics that can be particularly
 important to track.
 
-``daml.http_json_api.command_submission_timing``
-================================================
-
-A timer. Measures latency (in milliseconds) for processing of a command submission request.
-
-``daml.http_json_api.query_all_timing``
-=======================================
-
-A timer. Measures latency (in milliseconds) for processing of a query GET request.
-
-``daml.http_json_api.query_matching_timing``
-============================================
-
-A timer. Measures latency (in milliseconds) for processing of a query POST request.
-
-``daml.http_json_api.fetch_timing``
-===================================
-
-A timer. Measures latency (in milliseconds) for processing of a fetch request.
-
-``daml.http_json_api.get_party_timing``
-=======================================
-
-A timer. Measures latency (in milliseconds) for processing of a get party/parties request.
-
-``daml.http_json_api.allocate_party_timing``
-============================================
-
-A timer. Measures latency (in milliseconds) for processing of a party management request.
-
-``daml.http_json_api.download_package_timing``
-==============================================
-
-A timer. Measures latency (in milliseconds) for processing of a package download request.
-
-``daml.http_json_api.upload_package_timing``
-============================================
-
-A timer. Measures latency (in milliseconds) for processing of a package upload request.
-
 ``daml.http_json_api.incoming_json_parsing_and_validation_timing``
 ==================================================================
 
@@ -141,27 +101,7 @@ A timer. Measures latency (in milliseconds) of the find by contract id database 
 
 A timer. Measures latency (in milliseconds) for processing the command submission requests on the ledger.
 
-``daml.http_json_api.http_request_throughput``
-==============================================
-
-A meter. Number of http requests
-
 ``daml.http_json_api.websocket_request_count``
 ==============================================
 
 A Counter. Count of active websocket connections
-
-``daml.http_json_api.command_submission_throughput``
-====================================================
-
-A meter. Number of command submissions
-
-``daml.http_json_api.upload_packages_throughput``
-=================================================
-
-A meter. Number of package uploads
-
-``daml.http_json_api.allocation_party_throughput``
-==================================================
-
-A meter. Number of party allocations
