@@ -28,6 +28,5 @@ da_scala_library(
         "@maven//:io_opentelemetry_opentelemetry_sdk_extension_autoconfigure_spi",
         "@maven//:io_opentelemetry_opentelemetry_sdk_metrics",
         "@maven//:io_opentelemetry_opentelemetry_sdk_trace",
-        "@maven//:io_prometheus_simpleclient",
     ],
 )

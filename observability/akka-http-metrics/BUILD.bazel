@@ -75,7 +75,6 @@ da_scala_test_suite(
         "@maven//:io_opentelemetry_opentelemetry_api",
         "@maven//:io_opentelemetry_opentelemetry_sdk_common",
         "@maven//:io_opentelemetry_opentelemetry_sdk_metrics",
-        "@maven//:io_opentelemetry_opentelemetry_sdk_metrics_testing",
         "@maven//:io_opentelemetry_opentelemetry_sdk_testing",
     ],
 )

@@ -87,7 +87,7 @@ object SandboxOnXRunner {
       )
 
       (participantId, dataSource, participantConfig) <- assertSingleParticipant(config)
-      metrics <- MetricsOwner(openTelemetry.getMeter("daml"), config.metrics, participantId)
+      metrics <- MetricsOwner(openTelemetry, config.metrics, participantId)
       timeServiceBackendO = configAdaptor.timeServiceBackend(participantConfig.apiServer)
       (stateUpdatesFeedSink, stateUpdatesSource) <- AkkaSubmissionsBridge()
 

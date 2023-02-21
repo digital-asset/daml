@@ -31,7 +31,7 @@ class MetricsOwner[Context: HasExecutionContext](interval: Duration)
             PeriodicMetricReader
               .builder(new Slf4jMetricExporter())
               .setInterval(interval.toMillis, TimeUnit.MILLISECONDS)
-              .newMetricReaderFactory()
+              .build()
           )
           .build()
       )

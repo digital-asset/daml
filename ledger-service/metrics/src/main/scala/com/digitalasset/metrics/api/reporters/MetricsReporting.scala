@@ -50,11 +50,8 @@ final class MetricsReporting[M](
         histograms,
       )
         .acquire()
-      _ = if (
-        registerGlobalOpenTelemetry
-      ) // if no global lib is registered there is no point in registering them
-        JvmMetricSet
-          .registerObservers() // has to be registered after opentelemetry is created as it uses the global lib
+      _ = JvmMetricSet
+        .registerObservers(openTelemetry)
       slf4JReporter <- acquire(newSlf4jReporter(registry))
       _ <- acquire(newJmxReporter(registry))
         .map(_.start())

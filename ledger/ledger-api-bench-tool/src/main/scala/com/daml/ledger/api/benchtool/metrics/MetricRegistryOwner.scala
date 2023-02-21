@@ -30,7 +30,7 @@ class MetricRegistryOwner(
     val loggingMetricReader = PeriodicMetricReader
       .builder(new Slf4jMetricExporter(logger))
       .setInterval(reportingInterval.toMillis, TimeUnit.MILLISECONDS)
-      .newMetricReaderFactory()
+      .build()
     val meterProviderBuilder = SdkMeterProvider
       .builder()
     reporter match {
@@ -43,7 +43,7 @@ class MetricRegistryOwner(
               .builder()
               .setHost(address.getHostString)
               .setPort(address.getPort)
-              .newMetricReaderFactory()
+              .build()
           )
       case _ => throw new IllegalArgumentException(s"Metric reporter $reporter not supported.")
     }

@@ -136,7 +136,7 @@ class IndexerBenchmark() {
         val openTelemetryFactory =
           new OpenTelemetryMetricsFactory(openTelemetry.getMeter("indexer-benchmark"))
         val inMemoryMetricFactory = new InMemoryMetricsFactory
-        JvmMetricSet.registerObservers()
+      JvmMetricSet.registerObservers(openTelemetry)
         registry.registerAll(new JvmMetricSet)
         val metrics = new Metrics(
           new ProxyMetricsFactory(
