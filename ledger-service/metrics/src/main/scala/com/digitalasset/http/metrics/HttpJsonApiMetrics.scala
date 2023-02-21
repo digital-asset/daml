@@ -5,12 +5,7 @@ package com.daml.http.metrics
 
 import com.codahale.metrics.MetricRegistry
 import com.daml.metrics.{CacheMetrics, HealthMetrics}
-import com.daml.metrics.api.MetricHandle.{
-  Counter,
-  LabeledMetricsFactory,
-  MetricsFactory,
-  Timer,
-}
+import com.daml.metrics.api.MetricHandle.{Counter, LabeledMetricsFactory, MetricsFactory, Timer}
 import com.daml.metrics.api.MetricName
 import com.daml.metrics.api.dropwizard.DropwizardMetricsFactory
 import com.daml.metrics.api.opentelemetry.OpenTelemetryMetricsFactory

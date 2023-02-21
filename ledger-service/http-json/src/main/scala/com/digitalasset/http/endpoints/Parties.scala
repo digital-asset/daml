@@ -32,7 +32,7 @@ private[http] final class Parties(partiesService: PartiesService)(implicit ec: E
     } yield partiesResponse(parties = ps._1.toList, unknownParties = ps._2.toList)
 
   def allocateParty(jwt: Jwt, request: domain.AllocatePartyRequest)(implicit
-      lc: LoggingContextOf[InstanceUUID with RequestID],
+      lc: LoggingContextOf[InstanceUUID with RequestID]
   ): ET[domain.SyncResponse[domain.PartyDetails]] =
     for {
       res <- eitherT(partiesService.allocate(jwt, request))
