@@ -1,6 +1,8 @@
 -- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
+{-# LANGUAGE ApplicativeDo #-}
+
 -- @SINCE-LF-FEATURE DAML_INTERFACE
 
 module QualifiedInterface where
@@ -8,6 +10,7 @@ module QualifiedInterface where
 import Daml.Script
 import qualified Interface
 import DA.Assert ((===))
+import ScriptAssertHelpers
 
 template Asset
   with
@@ -38,35 +41,31 @@ template Asset
 
 main = script do
   p <- allocateParty "Alice"
-  p `submit` do
-    cidAsset1 <- create Asset with
+  cidAsset1 <- p `submit` do
+    createCmd Asset with
       issuer = p
       owner = p
       amount = 15
-    let cidToken1 = toInterfaceContractId @Interface.Token cidAsset1
-    _ <- exercise cidToken1 (Interface.Noop ())
-    (cidToken2, cidToken3) <- exercise cidToken1 (Interface.Split 10)
-    token2 <- fetch cidToken2
-    -- Party is duplicated because p is both observer & issuer
-    signatory token2 === [p, p]
-    Interface.getAmount token2 === 10
-    case fromInterface token2 of
-      None -> abort "expected Asset"
-      Some Asset {amount} ->
-        amount === 10
-    token3 <- fetch cidToken3
-    Interface.getAmount token3 === 5
-    case fromInterface token3 of
-      None -> abort "expected Asset"
-      Some Asset {amount} ->
-        amount === 5
+  let cidToken1 = toInterfaceContractId @Interface.Token cidAsset1
+  (cidToken2, cidToken3) <- p `submit` do 
+    exerciseCmd cidToken1 (Interface.Noop ())
+    r <- exerciseCmd cidToken1 (Interface.Split 10)
+    pure r
 
-    cidToken4 <- exercise cidToken3 (Interface.GetRich 20)
-    token4 <- fetch cidToken4
-    Interface.getAmount token4 === 25
-    case fromInterface token4 of
-      None -> abort "expected Asset"
-      Some Asset {amount} ->
-        amount === 25
+  token2 <- queryAssertContractId p $ fromInterfaceContractId @Asset cidToken2
+  -- Party is duplicated because p is both observer & issuer
+  signatory token2 === [p, p]
+  Interface.getAmount (toInterface @Interface.Token token2) === 10
+  amount token2 === 10
 
-    pure ()
+  token3 <- queryAssertContractId p $ fromInterfaceContractId @Asset cidToken3
+  Interface.getAmount (toInterface @Interface.Token token3) === 5
+  amount token3 === 5
+
+  cidToken4 <- p `submit` do exerciseCmd cidToken3 (Interface.GetRich 20)
+
+  token4 <- queryAssertContractId p $ fromInterfaceContractId @Asset cidToken4
+  Interface.getAmount (toInterface @Interface.Token token4) === 25
+  amount token4 === 25
+
+  pure ()

@@ -9,14 +9,22 @@ import DA.Random
 
 d6 = fmap (+1) . minstd_rand 6
 
+template Test
+  with
+    p : Party
+  where
+    signatory p
+    choice Call : ()
+      controller p
+      do
+        rs <- minstd_initFromTime
+        (rs, s1) <- pure $ d6 rs
+        (rs, s2) <- pure $ d6 rs
+        (_, s3) <- pure $ d6 rs
+
+        let s = s1 + s2 + s3
+        assert $ s >= 3 && s <= 18
+
 main = script do
   p <- allocateParty "p"
-
-  submit p do
-    rs <- minstd_initFromTime
-    (rs, s1) <- pure $ d6 rs
-    (rs, s2) <- pure $ d6 rs
-    (_, s3) <- pure $ d6 rs
-
-    let s = s1 + s2 + s3
-    assert $ s >= 3 && s <= 18
+  p `submit` createAndExerciseCmd (Test p) Call

@@ -13,7 +13,7 @@ module QualifiedPrelude where
 import Daml.Script
 import Prelude qualified as P
 
-main = P.script do P.assert P.True
+main = script do P.assert P.True
 
 template T
   with

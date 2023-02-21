@@ -4,7 +4,7 @@
 {-# OPTIONS_GHC -Wno-incomplete-patterns #-}
 -- Make sure the error message is useful when the interpreter is face with
 -- an incomplete pattern match.
--- @ERROR range=14:1-14:5; Non-exhaustive patterns in case
+-- @ERROR range=16:1-16:5; Non-exhaustive patterns in case
 
 module PatError where
 

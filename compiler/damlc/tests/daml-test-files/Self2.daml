@@ -28,11 +28,9 @@ template Self2
 main = script do
   alice <- allocateParty "Alice"
 
-  submitMustFail alice do
-    cid <- createCmd $ Self2 alice
-    exerciseCmd cid Baz -- Attempt to exerciseCmd a contract that was consumed in same transaction.
+  -- Attempt to exerciseCmd a contract that was consumed in same transaction.
+  alice `submitMustFail` createAndExerciseCmd (Self2 alice) Baz
 
-  r <- submit alice do
-    cid <- createCmd $ Self2 alice
-    exerciseCmd cid Foo
+  r <- alice `submit` createAndExerciseCmd (Self2 alice) Foo
+
   r === "ok"
