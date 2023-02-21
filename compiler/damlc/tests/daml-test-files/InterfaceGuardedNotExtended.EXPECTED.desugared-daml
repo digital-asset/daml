@@ -3,6 +3,7 @@ import (implicit) qualified DA.Internal.Record
 import (implicit) qualified GHC.Types
 import (implicit) qualified DA.Internal.Desugar
 import (implicit) DA.Internal.RebindableSyntax
+import Daml.Script
 import DA.Exception ( GeneralError(..), throwPure )
 data EmptyInterfaceView = EmptyInterfaceView {}
 data GHC.Types.DamlInterface => Token = Token GHC.Types.Opaque
@@ -396,8 +397,8 @@ instance DA.Internal.Desugar.HasToAnyException GuardException where
 instance DA.Internal.Desugar.HasFromAnyException GuardException where
   fromAnyException = GHC.Types.primitive @"EFromAnyException"
 main
-  = scenario
-      do p <- getParty "Alice"
+  = script
+      do p <- allocateParty "Alice"
          let assetTpl = Asset {issuer = p, owner = p, amount = 100}
          let getRich = GetRich {byHowMuch = 1000000}
          let exerciseGetRich guard asset

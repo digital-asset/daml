@@ -3,6 +3,7 @@ import (implicit) qualified DA.Internal.Record
 import (implicit) qualified GHC.Types
 import (implicit) qualified DA.Internal.Desugar
 import (implicit) DA.Internal.RebindableSyntax
+import Daml.Script
 import DA.Assert
 data GHC.Types.DamlTemplate => T
   = T {p : Party, p2 : Party}
@@ -108,12 +109,10 @@ _choice$_TCall
                  let _ = this in let _ = arg in do create T {p = p, p2 = p2}, 
      DA.Internal.Desugar.Consuming, DA.Internal.Desugar.None)
 test1
-  = scenario
-      do alice <- getParty "Alice"
-         bob <- getParty "Bob"
-         cid <- submit alice $ create (T alice bob)
-         submit
-           bob
-           do cid2 <- exercise cid (Call bob)
-              newT <- fetch cid2
-              newT === T bob bob
+  = script
+      do alice <- allocateParty "Alice"
+         bob <- allocateParty "Bob"
+         cid <- submit alice $ createCmd (T alice bob)
+         cid2 <- submit bob $ exerciseCmd cid (Call bob)
+         newT <- queryContractId bob cid2
+         newT === Some (T bob bob)

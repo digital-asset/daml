@@ -3,8 +3,10 @@ import (implicit) qualified DA.Internal.Record
 import (implicit) qualified GHC.Types
 import (implicit) qualified DA.Internal.Desugar
 import (implicit) DA.Internal.RebindableSyntax
+import Daml.Script
 import Asset
 import DA.Assert ( (===) )
+import ScriptAssertHelpers
 data TokenView = TokenView {owner : Party, amount : Int}
 instance DA.Internal.Record.HasField "owner" TokenView Party where
   getField
@@ -388,28 +390,33 @@ instance DA.Internal.Desugar.HasFromInterface Asset Token where
   fromInterface = GHC.Types.primitive @"EFromInterface"
   unsafeFromInterface = GHC.Types.primitive @"EUnsafeFromInterface"
 main
-  = scenario
-      do p <- getParty "Alice"
-         p `submit`
-             do cidAsset1 <- create Asset {issuer = p, owner = p, amount = 15}
-                let cidToken1 = toInterfaceContractId @Token cidAsset1
-                _ <- exercise cidToken1 (Noop ())
-                (cidToken2, cidToken3) <- exercise cidToken1 (Split 10)
-                token2 <- fetch cidToken2
-                signatory token2 === [p, p]
-                (DA.Internal.Record.getField @"amount" (view token2)) === 10
-                case fromInterface token2 of
-                  None -> abort "expected Asset"
-                  Some Asset {amount} -> amount === 10
-                token3 <- fetch cidToken3
-                (DA.Internal.Record.getField @"amount" (view token3)) === 5
-                case fromInterface token3 of
-                  None -> abort "expected Asset"
-                  Some Asset {amount} -> amount === 5
-                cidToken4 <- exercise cidToken3 (GetRich 20)
-                token4 <- fetch cidToken4
-                (DA.Internal.Record.getField @"amount" (view token4)) === 25
-                case fromInterface token4 of
-                  None -> abort "expected Asset"
-                  Some Asset {amount} -> amount === 25
-                pure ()
+  = script
+      do p <- allocateParty "Alice"
+         cidAsset1 <- p `submit`
+                          do createCmd Asset {issuer = p, owner = p, amount = 15}
+         let cidToken1 = toInterfaceContractId @Token cidAsset1
+         (cidToken2, cidToken3) <- p `submit`
+                                       do exerciseCmd cidToken1 (Noop ())
+                                          r <- exerciseCmd cidToken1 (Split 10)
+                                          pure r
+         token2 <- queryAssertContractId p
+                     $ fromInterfaceContractId @Asset cidToken2
+         signatory token2 === [p, p]
+         (DA.Internal.Record.getField
+            @"amount" (view (toInterface @Token token2)))
+           === 10
+         Asset.amount token2 === 10
+         token3 <- queryAssertContractId p
+                     $ fromInterfaceContractId @Asset cidToken3
+         (DA.Internal.Record.getField
+            @"amount" (view (toInterface @Token token3)))
+           === 5
+         Asset.amount token3 === 5
+         cidToken4 <- p `submit` do exerciseCmd cidToken3 (GetRich 20)
+         token4 <- queryAssertContractId p
+                     $ fromInterfaceContractId @Asset cidToken4
+         (DA.Internal.Record.getField
+            @"amount" (view (toInterface @Token token4)))
+           === 25
+         Asset.amount token4 === 25
+         pure ()

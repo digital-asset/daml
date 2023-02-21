@@ -3,6 +3,7 @@ import (implicit) qualified DA.Internal.Record
 import (implicit) qualified GHC.Types
 import (implicit) qualified DA.Internal.Desugar
 import (implicit) DA.Internal.RebindableSyntax
+import Daml.Script
 data EmptyInterfaceView = EmptyInterfaceView {}
 data GHC.Types.DamlInterface => I = I GHC.Types.Opaque
 instance DA.Internal.Desugar.HasInterfaceTypeRep I where
@@ -272,14 +273,16 @@ instance DA.Internal.Desugar.HasFromInterface T I where
   fromInterface = GHC.Types.primitive @"EFromInterface"
   unsafeFromInterface = GHC.Types.primitive @"EUnsafeFromInterface"
 testFromTo
-  = do alice <- getParty "alice"
-       cidT <- alice `submit` create T {party = alice}
-       let cidI = toInterfaceContractId @I cidT
-       let cidJ = fromInterfaceContractId @J cidI
-       alice `submit` exercise cidJ JChoice
+  = script
+      do alice <- allocateParty "alice"
+         cidT <- alice `submit` createCmd T {party = alice}
+         let cidI = toInterfaceContractId @I cidT
+         let cidJ = fromInterfaceContractId @J cidI
+         alice `submit` exerciseCmd cidJ JChoice
 testCoerce
-  = do alice <- getParty "alice"
-       cidT <- alice `submit` create T {party = alice}
-       let cidI = toInterfaceContractId @I cidT
-       let cidJ = coerceInterfaceContractId @J cidI
-       alice `submit` exercise cidJ JChoice
+  = script
+      do alice <- allocateParty "alice"
+         cidT <- alice `submit` createCmd T {party = alice}
+         let cidI = toInterfaceContractId @I cidT
+         let cidJ = coerceInterfaceContractId @J cidI
+         alice `submit` exerciseCmd cidJ JChoice
