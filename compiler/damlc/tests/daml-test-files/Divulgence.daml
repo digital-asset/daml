@@ -47,9 +47,7 @@ template DisclosureDelegation
       controller actor
       do fetch secretCid -- actor will divulge secretCid to p
 
--- @TODO This warning isn't thrown anymore, because we don't use Updates, ensure this is okay
--- -- @WARN range=84:3-85:20; Use of divulged contracts is deprecated
--- @WARN range=88:3-89:49; Use of divulged contracts is deprecated
+-- @WARN range=86:3-87:49; Use of divulged contracts is deprecated
 main = script do
   me <- allocateParty "Me"
   spy <- allocateParty "Spy"

@@ -549,8 +549,7 @@ template T_EvUpdExercConsumErr_1
 evUpdExercConsumErr_1 : Script ()
 evUpdExercConsumErr_1 = script do
   p <- allocateParty "Alice"
-  c <- submit p do createCmd (T_EvUpdExercConsumErr_1 p)
-  submit p do exerciseCmd c C_EvUpdExercConsumErr_1
+  submit p do createAndExerciseCmd (T_EvUpdExercConsumErr_1 p) C_EvUpdExercConsumErr_1
   abort "EvUpdExercConsumErr_1 failed (2)"
 
 
@@ -570,8 +569,7 @@ template T_EvUpdExercConsumErr_2
 evUpdExercConsumErr_2 : Script ()
 evUpdExercConsumErr_2 = script do
   p <- allocateParty "Alice"
-  c <- submit p do createCmd (T_EvUpdExercConsumErr_2 p)
-  submit p do exerciseCmd c C_EvUpdExercConsumErr_2
+  submit p do createAndExerciseCmd (T_EvUpdExercConsumErr_2 p) C_EvUpdExercConsumErr_2
   abort "EvUpdExercConsumErr_2 failed (2)"
 
 -- | Verify that a nonconsuming choice's update is interpreted with
@@ -588,13 +586,10 @@ template T_EvUpdExercNonConsumErr
           archive self
           error "EvUpdExercNonConsumErr OK"
 
--- @TODO Is it safe to use createAndExerciseCmd here (and elsewhere in this file)? It'll make the create and exercise 1 transaction, instead of 2
-
 evUpdExercNonConsumErr : Script ()
 evUpdExercNonConsumErr = script do
   p <- allocateParty "Alice"
-  c <- submit p do createCmd (T_EvUpdExercNonConsumErr p)
-  submit p do exerciseCmd c C_EvUpdExercNonConsumErr
+  c <- submit p do createAndExerciseCmd (T_EvUpdExercNonConsumErr p) C_EvUpdExercNonConsumErr
   abort "EvUpdExercNonConsumErr failed"
 
 
@@ -638,11 +633,10 @@ badActorCheck : Script ()
 badActorCheck = script do
   p1 <- allocateParty "Alice"
   p2 <- allocateParty "Bob"
-  c <- submit p1 do createCmd (T_BadActorCheck p1 p2)
-  submit p1 do exerciseCmd c C_BadActorCheck
+  submit p1 do createAndExerciseCmd (T_BadActorCheck p1 p2) C_BadActorCheck
   error "BadActorCheck failed"
 
--- @TODO Query library throws away these errors, might be fixable, see also EmptyContractKeyMaintainers
+-- @TODO queryContractKey does not return errors, only failure. Exact expected error (EvUpdFetchByKeyErr OK) is not thrown
 -- @ERROR Couldn't see contract with key ()
 template T_EvUpdFetchByKeyErr
   with

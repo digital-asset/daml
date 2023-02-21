@@ -5,13 +5,14 @@
 -- defining the type that contains a contract id in a separate module, the
 -- runtime check is still performed.
 
--- @ERROR range=39:1-39:14; Contract IDs are not supported in contract key
--- Below should be `Contract IDs are not supported in contract key` however Scenario service does not return the error
--- @TODO Make a ticket about this
--- @ERROR range=48:1-48:13; Scenario service backend error
--- @ERROR range=54:1-54:16; Contract IDs are not supported in contract key
-
--- @TODO Test this within Update context, so in a template
+-- @ERROR range=40:1-40:17; Contract IDs are not supported in contract key
+-- @TODO Below should be `Contract IDs are not supported in contract key` however this error isn't networked over from the ledger
+-- @ERROR range=49:1-49:13; Scenario service backend error
+-- @ERROR range=55:1-55:19; Contract IDs are not supported in contract key
+-- @ERROR range=94:1-94:14; Contract IDs are not supported in contract key
+-- @ERROR range=98:1-98:13; Contract IDs are not supported in contract key
+-- @ERROR range=102:1-102:14; Contract IDs are not supported in contract key
+-- @ERROR range=106:1-106:16; Contract IDs are not supported in contract key
 
 module ContractIdInContractKeySkipCheck where
 
@@ -36,7 +37,7 @@ template ContractKeyWithCid with
     key (party, ContractId' cid) : (Party, ContractId' Contract)
     maintainer key._1
 
-createCrashes = script do
+createCmdCrashes = script do
     alice <- allocateParty "Alice"
     cid <- submit alice $ do
       createCmd Contract with party = alice
@@ -45,14 +46,63 @@ createCrashes = script do
         party = alice
         cid = cid
 
-fetchCrashes = script do
+queryCrashes = script do
     alice <- allocateParty "Alice"
     cid <- submit alice $ do
           createCmd Contract with party = alice
     queryContractKey @ContractKeyWithCid alice (alice, ContractId' cid)
 
-exerciseCrashes = script do
+exerciseCmdCrashes = script do
     alice <- allocateParty "Alice"
     cid <- submit alice $ do
           createCmd Contract with party = alice
     submit alice $ do exerciseByKeyCmd @ContractKeyWithCid (alice, ContractId' cid) Noop
+
+template Test
+  with
+    p : Party
+  where
+    signatory p
+    choice CreateCrash : ()
+      controller p
+      do
+        cid <- create $ Contract p
+        create $ ContractKeyWithCid p cid
+        pure ()
+    
+    choice FetchCrash : ()
+      controller p
+      do
+        cid <- create $ Contract p
+        fetchByKey @ContractKeyWithCid (p, ContractId' cid)
+        pure ()
+    
+    choice LookupCrash : ()
+      controller p
+      do
+        cid <- create $ Contract p
+        lookupByKey @ContractKeyWithCid (p, ContractId' cid)
+        pure ()
+    
+    choice ExerciseCrash : ()
+      controller p
+      do
+        cid <- create $ Contract p
+        exerciseByKey @ContractKeyWithCid (p, ContractId' cid) Noop
+        pure ()
+
+createCrashes = script do
+  alice <- allocateParty "Alice"
+  alice `submit` createAndExerciseCmd (Test alice) CreateCrash
+
+fetchCrashes = script do
+  alice <- allocateParty "Alice"
+  alice `submit` createAndExerciseCmd (Test alice) FetchCrash
+
+lookupCrashes = script do
+  alice <- allocateParty "Alice"
+  alice `submit` createAndExerciseCmd (Test alice) LookupCrash
+
+exerciseCrashes = script do
+  alice <- allocateParty "Alice"
+  alice `submit` createAndExerciseCmd (Test alice) ExerciseCrash

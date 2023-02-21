@@ -7,6 +7,8 @@
 --   This should be tested as part of evaluation order for FetchInterface
 --   Drop this test once it is done
 
+-- sw: The ticket is closed, but I dont think we should be removing tests?
+
 -- @SINCE-LF-FEATURE DAML_INTERFACE
 module InterfaceDoubleSpend where
 
