@@ -49,6 +49,7 @@ da_scala_library(
     srcs = glob(["src/test/**/*Lib.scala"]),
     scala_deps = [
         "@maven//:org_scalatest_scalatest_matchers_core",
+        "@maven//:org_scalaz_scalaz_core",
     ],
     scalacopts = lf_scalacopts_stricter,
     deps = [
@@ -113,7 +114,7 @@ da_scala_benchmark_jmh(
     name = "speedy-compilation-benchmark",
     srcs = glob(["src/bench/**/SpeedyCompilationBench.scala"]),
     data = [
-        "//ledger/test-common:model-tests-default.dar",
+        "//test-common:model-tests-default.dar",
     ],
     scala_deps = [
         "@maven//:org_scalaz_scalaz_core",
@@ -130,7 +131,7 @@ da_scala_benchmark_jmh(
         "//daml-lf/scenario-interpreter",
         "//daml-lf/transaction",
         "//daml-lf/validation",
-        "//ledger/test-common:dar-files-default-lib",
+        "//test-common:dar-files-default-lib",
         "@maven//:com_google_protobuf_protobuf_java",
     ],
 )

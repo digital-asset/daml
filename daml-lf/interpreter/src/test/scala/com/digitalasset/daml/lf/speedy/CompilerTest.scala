@@ -56,12 +56,16 @@ class CompilerTest extends AnyWordSpec with Matchers with Inside {
 
   "compileWithContractDisclosures" should {
     val version = TransactionVersion.minExplicitDisclosure
-    val contractId1 = Value.ContractId.V1(crypto.Hash.hashPrivateKey("test-contract-id-1"))
-    val contractId2 = Value.ContractId.V1(crypto.Hash.hashPrivateKey("test-contract-id-2"))
+    val cid1 = Value.ContractId.V1(crypto.Hash.hashPrivateKey("test-contract-id-1"))
+    val cid2 = Value.ContractId.V1(crypto.Hash.hashPrivateKey("test-contract-id-2"))
+    val disclosedCid1 =
+      Value.ContractId.V1(crypto.Hash.hashPrivateKey("disclosed-test-contract-id-1"))
+    val disclosedCid2 =
+      Value.ContractId.V1(crypto.Hash.hashPrivateKey("disclosed-test-contract-id-2"))
 
     "non-existent templates should crash compilation" in {
       val invalidTemplateId = Ref.Identifier.assertFromString("-pkgId-:Module:Invalid")
-      val invalidDisclosedContract = buildDisclosedContract(contractId1, alice, invalidTemplateId)
+      val invalidDisclosedContract = buildDisclosedContract(cid1, alice, invalidTemplateId)
       val invalidVersionedContract = VersionedContractInstance(
         version,
         invalidTemplateId,
@@ -72,7 +76,7 @@ class CompilerTest extends AnyWordSpec with Matchers with Inside {
         ImmArray(invalidDisclosedContract),
       )
 
-      inside(evalSExpr(sexpr, getContract = Map(contractId1 -> invalidVersionedContract))) {
+      inside(evalSExpr(sexpr, getContract = Map(cid1 -> invalidVersionedContract))) {
         case Left(SErrorCrash(_, message)) =>
           message should endWith(s"Template $invalidTemplateId does not exist and it should")
       }
@@ -81,14 +85,14 @@ class CompilerTest extends AnyWordSpec with Matchers with Inside {
     "using a template with preconditions" should {
       val templateId = Ref.Identifier.assertFromString("-pkgId-:Module:PreCondRecord")
       val disclosedContract1 =
-        buildDisclosedContractWithPreCond(contractId1, templateId, precondition = true)
+        buildDisclosedContractWithPreCond(disclosedCid1, templateId, precondition = true)
       val versionedContract1 = VersionedContractInstance(
         version,
         templateId,
         disclosedContract1.argument.toUnnormalizedValue,
       )
       val disclosedContract2 =
-        buildDisclosedContractWithPreCond(contractId2, templateId, precondition = false)
+        buildDisclosedContractWithPreCond(cid2, templateId, precondition = false)
       val versionedContract2 = VersionedContractInstance(
         version,
         templateId,
@@ -101,10 +105,10 @@ class CompilerTest extends AnyWordSpec with Matchers with Inside {
           ImmArray(disclosedContract1),
         )
 
-        inside(evalSExpr(sexpr, getContract = Map(contractId1 -> versionedContract1))) {
-          case Right((SValue.SUnit, contractCache, disclosedContractKeys)) =>
-            contractCache.keySet shouldBe Set(contractId1)
-            disclosedContractKeys shouldBe Map.empty
+        inside(evalSExpr(sexpr, getContract = Map(cid1 -> versionedContract1))) {
+          case Right((SValue.SUnit, contractCache, disclosedContracts)) =>
+            contractCache shouldBe empty
+            disclosedContracts.keySet shouldBe Set(disclosedCid1)
         }
       }
 
@@ -114,7 +118,7 @@ class CompilerTest extends AnyWordSpec with Matchers with Inside {
           ImmArray(disclosedContract2),
         )
 
-        inside(evalSExpr(sexpr, getContract = Map(contractId2 -> versionedContract2))) {
+        inside(evalSExpr(sexpr, getContract = Map(cid2 -> versionedContract2))) {
           case Left(
                 SErrorDamlException(TemplatePreconditionViolated(`templateId`, None, contract))
               ) =>
@@ -125,13 +129,13 @@ class CompilerTest extends AnyWordSpec with Matchers with Inside {
 
     "using a template with no key" should {
       val templateId = Ref.Identifier.assertFromString("-pkgId-:Module:Record")
-      val disclosedContract1 = buildDisclosedContract(contractId1, alice, templateId)
+      val disclosedContract1 = buildDisclosedContract(disclosedCid1, alice, templateId)
       val versionedContract1 = VersionedContractInstance(
         version,
         templateId,
         disclosedContract1.argument.toUnnormalizedValue,
       )
-      val disclosedContract2 = buildDisclosedContract(contractId2, alice, templateId)
+      val disclosedContract2 = buildDisclosedContract(disclosedCid2, alice, templateId)
       val versionedContract2 = VersionedContractInstance(
         version,
         templateId,
@@ -147,9 +151,9 @@ class CompilerTest extends AnyWordSpec with Matchers with Inside {
             )
 
           inside(evalSExpr(sexpr)) {
-            case Right((SValue.SUnit, contractCache, disclosedContractKeys)) =>
-              contractCache shouldBe Map.empty
-              disclosedContractKeys shouldBe Map.empty
+            case Right((SValue.SUnit, contractCache, disclosedContracts)) =>
+              contractCache.keySet shouldBe empty
+              disclosedContracts.keySet shouldBe empty
           }
         }
 
@@ -159,10 +163,10 @@ class CompilerTest extends AnyWordSpec with Matchers with Inside {
             ImmArray(disclosedContract1),
           )
 
-          inside(evalSExpr(sexpr, getContract = Map(contractId1 -> versionedContract1))) {
-            case Right((SValue.SUnit, contractCache, disclosedContractKeys)) =>
-              contractCache.keySet shouldBe Set(contractId1)
-              disclosedContractKeys shouldBe Map.empty
+          inside(evalSExpr(sexpr, getContract = Map(cid1 -> versionedContract1))) {
+            case Right((SValue.SUnit, contractCache, disclosedContracts)) =>
+              contractCache.keySet shouldBe empty
+              disclosedContracts.keySet shouldBe Set(disclosedCid1)
           }
         }
 
@@ -175,12 +179,11 @@ class CompilerTest extends AnyWordSpec with Matchers with Inside {
           inside(
             evalSExpr(
               sexpr,
-              getContract =
-                Map(contractId1 -> versionedContract1, contractId2 -> versionedContract2),
+              getContract = Map(cid1 -> versionedContract1, cid2 -> versionedContract2),
             )
-          ) { case Right((SValue.SUnit, contractCache, disclosedContractKeys)) =>
-            contractCache.keySet shouldBe Set(contractId1, contractId2)
-            disclosedContractKeys shouldBe Map.empty
+          ) { case Right((SValue.SUnit, contractCache, disclosedContracts)) =>
+            contractCache.keySet shouldBe empty
+            disclosedContracts.keySet shouldBe Set(disclosedCid1, disclosedCid2)
           }
         }
       }
@@ -195,9 +198,9 @@ class CompilerTest extends AnyWordSpec with Matchers with Inside {
           )
 
           inside(evalSExpr(sexpr, committers = Set(alice))) {
-            case Right((SValue.SUnit, contractCache, disclosedContractKeys)) =>
+            case Right((SValue.SUnit, contractCache, disclosedContracts)) =>
               contractCache.keySet.size shouldBe 1
-              disclosedContractKeys shouldBe Map.empty
+              disclosedContracts.keySet shouldBe empty
           }
         }
 
@@ -210,13 +213,13 @@ class CompilerTest extends AnyWordSpec with Matchers with Inside {
           inside(
             evalSExpr(
               sexpr,
-              getContract = Map(contractId1 -> versionedContract1),
+              getContract = Map(cid1 -> versionedContract1),
               committers = Set(alice),
             )
-          ) { case Right((SValue.SUnit, contractCache, disclosedContractKeys)) =>
-            contractCache.keySet.size shouldBe 2
-            contractCache.keySet should contain(contractId1)
-            disclosedContractKeys shouldBe Map.empty
+          ) { case Right((SValue.SUnit, contractCache, disclosedContracts)) =>
+            contractCache.keySet.size shouldBe 1
+            contractCache.keySet shouldNot contain(disclosedCid1)
+            disclosedContracts.keySet shouldBe Set(disclosedCid1)
           }
         }
 
@@ -229,15 +232,14 @@ class CompilerTest extends AnyWordSpec with Matchers with Inside {
           inside(
             evalSExpr(
               sexpr,
-              getContract =
-                Map(contractId1 -> versionedContract1, contractId2 -> versionedContract2),
+              getContract = Map(cid1 -> versionedContract1, cid2 -> versionedContract2),
               committers = Set(alice),
             )
-          ) { case Right((SValue.SUnit, contractCache, disclosedContractKeys)) =>
-            contractCache.keySet.size shouldBe 3
-            contractCache.keySet should contain(contractId1)
-            contractCache.keySet should contain(contractId2)
-            disclosedContractKeys shouldBe Map.empty
+          ) { case Right((SValue.SUnit, contractCache, disclosedContracts)) =>
+            contractCache.keySet.size shouldBe 1
+            contractCache.keySet shouldNot contain(disclosedCid1)
+            contractCache.keySet shouldNot contain(disclosedCid2)
+            disclosedContracts.keySet shouldBe Set(disclosedCid1, disclosedCid2)
           }
         }
       }
@@ -253,9 +255,9 @@ class CompilerTest extends AnyWordSpec with Matchers with Inside {
           )
 
           inside(evalSExpr(sexpr, committers = Set(alice))) {
-            case Right((SValue.SUnit, contractCache, disclosedContractKeys)) =>
+            case Right((SValue.SUnit, contractCache, disclosedContracts)) =>
               contractCache.keySet.size shouldBe 2
-              disclosedContractKeys shouldBe Map.empty
+              disclosedContracts.keySet shouldBe empty
           }
         }
 
@@ -268,13 +270,14 @@ class CompilerTest extends AnyWordSpec with Matchers with Inside {
           inside(
             evalSExpr(
               sexpr,
-              getContract = Map(contractId1 -> versionedContract1),
+              getContract = Map(cid1 -> versionedContract1),
               committers = Set(alice),
             )
-          ) { case Right((SValue.SUnit, contractCache, disclosedContractKeys)) =>
-            contractCache.keySet.size shouldBe 3
-            contractCache.keySet should contain(contractId1)
-            disclosedContractKeys shouldBe Map.empty
+          ) { case Right((SValue.SUnit, contractCache, disclosedContracts)) =>
+            contractCache.keySet.size shouldBe 2
+            contractCache.keySet shouldNot contain(disclosedCid1)
+            contractCache.keySet shouldNot contain(disclosedCid2)
+            disclosedContracts.keySet shouldBe Set(disclosedCid1)
           }
         }
 
@@ -287,15 +290,14 @@ class CompilerTest extends AnyWordSpec with Matchers with Inside {
           inside(
             evalSExpr(
               sexpr,
-              getContract =
-                Map(contractId1 -> versionedContract1, contractId2 -> versionedContract2),
+              getContract = Map(cid1 -> versionedContract1, cid2 -> versionedContract2),
               committers = Set(alice),
             )
-          ) { case Right((SValue.SUnit, contractCache, disclosedContractKeys)) =>
-            contractCache.keySet.size shouldBe 4
-            contractCache.keySet should contain(contractId1)
-            contractCache.keySet should contain(contractId2)
-            disclosedContractKeys shouldBe Map.empty
+          ) { case Right((SValue.SUnit, contractCache, disclosedContracts)) =>
+            contractCache.keySet.size shouldBe 2
+            contractCache.keySet shouldNot contain(disclosedCid1)
+            contractCache.keySet shouldNot contain(disclosedCid2)
+            disclosedContracts.keySet shouldBe Set(disclosedCid1, disclosedCid2)
           }
         }
       }
@@ -304,14 +306,14 @@ class CompilerTest extends AnyWordSpec with Matchers with Inside {
     "using a template with a key" should {
       val templateId = Ref.Identifier.assertFromString("-pkgId-:Module:RecordKey")
       val disclosedContract1 =
-        buildDisclosedContract(contractId1, alice, templateId, keyLabel = "test-label-1")
+        buildDisclosedContract(disclosedCid1, alice, templateId, keyLabel = "test-label-1")
       val versionedContract1 = VersionedContractInstance(
         version,
         templateId,
         disclosedContract1.argument.toUnnormalizedValue,
       )
       val disclosedContract2 =
-        buildDisclosedContract(contractId2, alice, templateId, keyLabel = "test-label-2")
+        buildDisclosedContract(disclosedCid2, alice, templateId, keyLabel = "test-label-2")
       val versionedContract2 = VersionedContractInstance(
         version,
         templateId,
@@ -327,9 +329,9 @@ class CompilerTest extends AnyWordSpec with Matchers with Inside {
             )
 
           inside(evalSExpr(sexpr)) {
-            case Right((SValue.SUnit, contractCache, disclosedContractKeys)) =>
-              contractCache shouldBe Map.empty
-              disclosedContractKeys shouldBe Map.empty
+            case Right((SValue.SUnit, contractCache, disclosedContracts)) =>
+              contractCache.keySet shouldBe empty
+              disclosedContracts.keySet shouldBe empty
           }
         }
 
@@ -339,10 +341,10 @@ class CompilerTest extends AnyWordSpec with Matchers with Inside {
             ImmArray(disclosedContract1),
           )
 
-          inside(evalSExpr(sexpr, getContract = Map(contractId1 -> versionedContract1))) {
-            case Right((SValue.SUnit, contractCache, disclosedContractKeys)) =>
-              contractCache.keySet shouldBe Set(contractId1)
-              disclosedContractKeys.values.map(_.value).toList.sorted shouldBe List(contractId1)
+          inside(evalSExpr(sexpr, getContract = Map(cid1 -> versionedContract1))) {
+            case Right((SValue.SUnit, contractCache, disclosedContracts)) =>
+              contractCache.keySet shouldBe empty
+              disclosedContracts.keySet shouldBe Set(disclosedCid1)
           }
         }
 
@@ -355,15 +357,11 @@ class CompilerTest extends AnyWordSpec with Matchers with Inside {
           inside(
             evalSExpr(
               sexpr,
-              getContract =
-                Map(contractId1 -> versionedContract1, contractId2 -> versionedContract2),
+              getContract = Map(cid1 -> versionedContract1, cid2 -> versionedContract2),
             )
-          ) { case Right((SValue.SUnit, contractCache, disclosedContractKeys)) =>
-            contractCache.keySet shouldBe Set(contractId1, contractId2)
-            disclosedContractKeys.values.map(_.value).toList.sorted shouldBe List(
-              contractId1,
-              contractId2,
-            ).sorted
+          ) { case Right((SValue.SUnit, contractCache, disclosedContracts)) =>
+            contractCache.keySet shouldBe empty
+            disclosedContracts.keySet shouldBe Set(disclosedCid1, disclosedCid2)
           }
         }
       }
@@ -378,9 +376,9 @@ class CompilerTest extends AnyWordSpec with Matchers with Inside {
           )
 
           inside(evalSExpr(sexpr, committers = Set(alice))) {
-            case Right((SValue.SUnit, contractCache, disclosedContractKeys)) =>
+            case Right((SValue.SUnit, contractCache, disclosedContracts)) =>
               contractCache.keySet.size shouldBe 1
-              disclosedContractKeys shouldBe Map.empty
+              disclosedContracts.keySet shouldBe empty
           }
         }
 
@@ -393,13 +391,13 @@ class CompilerTest extends AnyWordSpec with Matchers with Inside {
           inside(
             evalSExpr(
               sexpr,
-              getContract = Map(contractId1 -> versionedContract1),
+              getContract = Map(cid1 -> versionedContract1),
               committers = Set(alice),
             )
-          ) { case Right((SValue.SUnit, contractCache, disclosedContractKeys)) =>
-            contractCache.keySet.size shouldBe 2
-            contractCache.keySet should contain(contractId1)
-            disclosedContractKeys.values.map(_.value).toList.sorted shouldBe List(contractId1)
+          ) { case Right((SValue.SUnit, contractCache, disclosedContracts)) =>
+            contractCache.keySet.size shouldBe 1
+            contractCache.keySet shouldNot contain(disclosedCid1)
+            disclosedContracts.keySet shouldBe Set(disclosedCid1)
           }
         }
 
@@ -412,18 +410,14 @@ class CompilerTest extends AnyWordSpec with Matchers with Inside {
           inside(
             evalSExpr(
               sexpr,
-              getContract =
-                Map(contractId1 -> versionedContract1, contractId2 -> versionedContract2),
+              getContract = Map(cid1 -> versionedContract1, cid2 -> versionedContract2),
               committers = Set(alice),
             )
-          ) { case Right((SValue.SUnit, contractCache, disclosedContractKeys)) =>
-            contractCache.keySet.size shouldBe 3
-            contractCache.keySet should contain(contractId1)
-            contractCache.keySet should contain(contractId2)
-            disclosedContractKeys.values.map(_.value).toList.sorted shouldBe List(
-              contractId1,
-              contractId2,
-            ).sorted
+          ) { case Right((SValue.SUnit, contractCache, disclosedContracts)) =>
+            contractCache.keySet.size shouldBe 1
+            contractCache.keySet shouldNot contain(disclosedCid1)
+            contractCache.keySet shouldNot contain(disclosedCid2)
+            disclosedContracts.keySet shouldBe Set(disclosedCid1, disclosedCid2)
           }
         }
       }
@@ -439,9 +433,9 @@ class CompilerTest extends AnyWordSpec with Matchers with Inside {
           )
 
           inside(evalSExpr(sexpr, committers = Set(alice))) {
-            case Right((SValue.SUnit, contractCache, disclosedContractKeys)) =>
+            case Right((SValue.SUnit, contractCache, disclosedContracts)) =>
               contractCache.keySet.size shouldBe 2
-              disclosedContractKeys shouldBe Map.empty
+              disclosedContracts.keySet shouldBe empty
           }
         }
 
@@ -454,13 +448,13 @@ class CompilerTest extends AnyWordSpec with Matchers with Inside {
           inside(
             evalSExpr(
               sexpr,
-              getContract = Map(contractId1 -> versionedContract1),
+              getContract = Map(cid1 -> versionedContract1),
               committers = Set(alice),
             )
-          ) { case Right((SValue.SUnit, contractCache, disclosedContractKeys)) =>
-            contractCache.keySet.size shouldBe 3
-            contractCache.keySet should contain(contractId1)
-            disclosedContractKeys.values.map(_.value).toList.sorted shouldBe List(contractId1)
+          ) { case Right((SValue.SUnit, contractCache, disclosedContracts)) =>
+            contractCache.keySet.size shouldBe 2
+            contractCache.keySet shouldNot contain(disclosedCid1)
+            disclosedContracts.keySet shouldBe Set(disclosedCid1)
           }
         }
 
@@ -473,18 +467,14 @@ class CompilerTest extends AnyWordSpec with Matchers with Inside {
           inside(
             evalSExpr(
               sexpr,
-              getContract =
-                Map(contractId1 -> versionedContract1, contractId2 -> versionedContract2),
+              getContract = Map(cid1 -> versionedContract1, cid2 -> versionedContract2),
               committers = Set(alice),
             )
-          ) { case Right((SValue.SUnit, contractCache, disclosedContractKeys)) =>
-            contractCache.keySet.size shouldBe 4
-            contractCache.keySet should contain(contractId1)
-            contractCache.keySet should contain(contractId2)
-            disclosedContractKeys.values.map(_.value).toList.sorted shouldBe List(
-              contractId1,
-              contractId2,
-            ).sorted
+          ) { case Right((SValue.SUnit, contractCache, disclosedContracts)) =>
+            contractCache.keySet.size shouldBe 2
+            contractCache.keySet shouldNot contain(disclosedCid1)
+            contractCache.keySet shouldNot contain(disclosedCid2)
+            disclosedContracts.keySet shouldBe Set(disclosedCid1, disclosedCid2)
           }
         }
       }
@@ -563,7 +553,7 @@ object CompilerTest {
       committers: Set[Party] = Set.empty,
   ): Either[
     SError,
-    (SValue, Map[ContractId, CachedContract], Map[crypto.Hash, SValue.SContractId]),
+    (SValue, Map[ContractId, CachedContract], Map[ContractId, CachedContract]),
   ] = {
     val machine =
       Speedy.UpdateMachine(
@@ -578,9 +568,7 @@ object CompilerTest {
 
     SpeedyTestLib
       .run(machine, getContract = getContract)
-      .map(
-        (_, machine.getCachedContracts, machine.disclosureKeyTable.toMap)
-      )
+      .map((_, machine.cachedContracts, machine.disclosedContracts))
   }
 
   def buildDisclosedContract(

@@ -16,9 +16,8 @@ import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.v2._
 import com.daml.ledger.sandbox.bridge.{BridgeMetrics, LedgerBridge}
 import com.daml.ledger.sandbox.domain.{Rejection, Submission}
-import com.daml.lf.command.ProcessedDisclosedContract
 import com.daml.lf.data.{ImmArray, Ref, Time}
-import com.daml.lf.transaction.{GlobalKey, SubmittedTransaction, Versioned}
+import com.daml.lf.transaction.{GlobalKey, ProcessedDisclosedContract, SubmittedTransaction}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.InstrumentedGraph
 import com.daml.tracing.TelemetryContext
@@ -50,7 +49,7 @@ class BridgeWriteService(
       transaction: SubmittedTransaction,
       estimatedInterpretationCost: Long,
       globalKeyMapping: Map[GlobalKey, Option[Value.ContractId]],
-      explicitlyDisclosedContracts: ImmArray[Versioned[ProcessedDisclosedContract]],
+      processedDisclosedContracts: ImmArray[ProcessedDisclosedContract],
   )(implicit
       loggingContext: LoggingContext,
       telemetryContext: TelemetryContext,
@@ -65,7 +64,7 @@ class BridgeWriteService(
           transaction,
           estimatedInterpretationCost,
           deduplicationDuration,
-          explicitlyDisclosedContracts,
+          processedDisclosedContracts,
         )
       case DeduplicationPeriod.DeduplicationOffset(_) =>
         CompletableFuture.completedFuture(
@@ -165,7 +164,7 @@ class BridgeWriteService(
       transaction: SubmittedTransaction,
       estimatedInterpretationCost: Long,
       deduplicationDuration: Duration,
-      disclosedContracts: ImmArray[Versioned[ProcessedDisclosedContract]],
+      processedDisclosedContracts: ImmArray[ProcessedDisclosedContract],
   )(implicit errorLogger: ContextualizedErrorLogger): CompletionStage[SubmissionResult] = {
     val maxDeduplicationDuration = submitterInfo.ledgerConfiguration.maxDeduplicationDuration
     if (deduplicationDuration.compareTo(maxDeduplicationDuration) > 0)
@@ -187,7 +186,7 @@ class BridgeWriteService(
           transactionMeta = transactionMeta,
           transaction = transaction,
           estimatedInterpretationCost = estimatedInterpretationCost,
-          disclosedContracts = disclosedContracts,
+          processedDisclosedContracts = processedDisclosedContracts,
         )
       )
   }

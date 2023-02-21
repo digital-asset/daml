@@ -252,16 +252,6 @@ final class Conversions(
                   cgfBuilder.setByInterface(convertIdentifier(ifaceId))
                 )
                 builder.setChoiceGuardFailed(cgfBuilder.build)
-
-              case DisclosurePreprocessing(err) =>
-                err match {
-                  case DisclosurePreprocessing.DuplicateContractKeys(tid, keyHash) =>
-                    builder.setDisclosurePreprocessingDuplicateContractKeys(
-                      proto.ScenarioError.DisclosurePreprocessingDuplicateContractKeys.newBuilder
-                        .setTemplateId(convertIdentifier(tid))
-                        .setKeyHash(keyHash.toHexString)
-                    )
-                }
             }
         }
       case Error.ContractNotEffective(coid, tid, effectiveAt) =>

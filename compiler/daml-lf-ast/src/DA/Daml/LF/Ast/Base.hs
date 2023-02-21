@@ -953,6 +953,7 @@ data TemplateImplements = TemplateImplements
   { tpiInterface :: !(Qualified TypeConName)
     -- ^ Interface name for implementation.
   , tpiBody :: !InterfaceInstanceBody
+  , tpiLocation :: !(Maybe SourceLoc)
   }
   deriving (Eq, Data, Generic, NFData, Show)
 
@@ -1012,6 +1013,7 @@ data InterfaceMethod = InterfaceMethod
 data InterfaceCoImplements = InterfaceCoImplements
   { iciTemplate :: !(Qualified TypeConName)
   , iciBody :: !InterfaceInstanceBody
+  , iciLocation :: !(Maybe SourceLoc)
   }
   deriving (Eq, Data, Generic, NFData, Show)
 

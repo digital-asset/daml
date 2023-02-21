@@ -66,7 +66,7 @@ getSandboxProc SandboxConfig{..} portFile = do
     sandbox <- locateRunfiles (mainWorkspace </> "ledger" </> "sandbox-on-x" </> exe "app")
     tlsArgs <- if enableTls
         then do
-            certDir <- locateRunfiles (mainWorkspace </> "ledger" </> "test-common" </> "test-certificates")
+            certDir <- locateRunfiles (mainWorkspace </> "test-common" </> "test-certificates")
             pure
                 [ "--cacrt", certDir </> "ca.crt"
                 , "--pem", certDir </> "server.pem"

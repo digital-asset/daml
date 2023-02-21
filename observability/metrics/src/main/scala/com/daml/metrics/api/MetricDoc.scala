@@ -23,10 +23,15 @@ object MetricDoc {
   // The Tag can be defined to document a single metric. Its summary, description and
   // qualification will be present as a separate documentation entry unless a GroupTag is defined
   // for the class that may belongs.
+  // labelsWithDescription must contain the labels that can be attached to the metrics.
+  //    It must be represented as literal strings, as the documentation is built based on static annotations.
+  //    Example: Map("label" -> "description"). Even if the label is a constant, it cannot be referenced, therefore
+  //    this is not an acceptable use: Map(SomeObject.SomeConstant -> "description")
   case class Tag(
       summary: String,
       description: String,
       qualification: MetricQualification,
+      labelsWithDescription: Map[String, String] = Map.empty,
   ) extends StaticAnnotation
 
   // The GroupTag can be defined for metrics that belong in the same class, are used in multiple

@@ -227,7 +227,7 @@ private[backend] trait StorageBackendTestsPruning
       )
     )
 
-    def assertAllDataPresent(): Assertion = assertIndexDbDataSql(
+    def assertAllDataPresent(txMeta: Vector[TxMeta]): Assertion = assertIndexDbDataSql(
       create = Vector(EventCreate(1)),
       createFilterStakeholder = Vector(
         FilterCreateStakeholder(1, 2),
@@ -239,152 +239,23 @@ private[backend] trait StorageBackendTestsPruning
         FilterConsumingStakeholder(2, 2),
         FilterConsumingStakeholder(2, 3),
       ),
-      txMeta = Vector(TxMeta("00000010"), TxMeta("00000011")),
+      txMeta = txMeta,
     )
 
     executeSql(updateLedgerEnd(offset(2), 2L))
-    assertAllDataPresent()
+    assertAllDataPresent(
+      txMeta = Vector(TxMeta("00000010"), TxMeta("00000011"))
+    )
     // Prune at the offset of the create event
     pruneEventsSql(offset(10), pruneAllDivulgedContracts = true)
-    assertAllDataPresent()
+    assertAllDataPresent(
+      txMeta = Vector(TxMeta("00000011"))
+    )
     // Prune at the offset of the archive event
     pruneEventsSql(offset(11), pruneAllDivulgedContracts = true)
-    assertIndexDbDataSql()
-  }
-
-  it should "prune participant_transaction_meta table when all its contracts are archived" in {
-    // A transaction with two contracts
-    val create1 = dtoCreate(
-      offset = offset(10),
-      eventSequentialId = 1L,
-      contractId = hashCid("#1"),
-      signatory = signatoryParty,
-      observer = observerParty,
-      nonStakeholderInformees = Set(nonStakeholderInformeeParty),
-    )
-    val create2 = dtoCreate(
-      offset = offset(10),
-      eventSequentialId = 2L,
-      contractId = hashCid("#2"),
-      signatory = signatoryParty,
-      observer = observerParty,
-      nonStakeholderInformees = Set(nonStakeholderInformeeParty),
-    )
-    // A transaction with an archive of the first contract
-    val archive1 = dtoExercise(
-      offset = offset(11),
-      eventSequentialId = 3L,
-      consuming = true,
-      contractId = hashCid("#1"),
-      signatory = signatoryParty,
-    )
-    // A transaction with an archive of the second contract
-    val archive2 = dtoExercise(
-      offset = offset(12),
-      eventSequentialId = 4L,
-      consuming = true,
-      contractId = hashCid("#2"),
-      signatory = signatoryParty,
-    )
-    executeSql(backend.parameter.initializeParameters(someIdentityParams))
-    // Ingest a create and archive event
-    executeSql(
-      ingest(
-        Vector(
-          // Allocating parties so that the contracts we create later are not considered to be a case of immediate divulgence
-          dtoPartyEntry(offset(1), signatoryParty),
-          dtoPartyEntry(offset(2), observerParty),
-          dtoPartyEntry(offset(3), nonStakeholderInformeeParty),
-        ) ++
-          Vector(
-            // Transaction 1
-            create1,
-            DbDto.IdFilterCreateStakeholder(1L, someTemplateId.toString, signatoryParty),
-            DbDto.IdFilterCreateStakeholder(1L, someTemplateId.toString, observerParty),
-            DbDto.IdFilterCreateNonStakeholderInformee(1L, nonStakeholderInformeeParty),
-            create2,
-            DbDto.IdFilterCreateStakeholder(2L, someTemplateId.toString, signatoryParty),
-            DbDto.IdFilterCreateStakeholder(2L, someTemplateId.toString, observerParty),
-            DbDto.IdFilterCreateNonStakeholderInformee(2L, nonStakeholderInformeeParty),
-            DbDto.TransactionMeta(
-              transaction_id = dtoTransactionId(create1),
-              event_offset = create1.event_offset.get,
-              event_sequential_id_first = 1L,
-              event_sequential_id_last = 2L,
-            ),
-          ) ++
-          Vector(
-            // Transaction 2
-            archive1,
-            DbDto.IdFilterConsumingStakeholder(3L, someTemplateId.toString, signatoryParty),
-            DbDto.IdFilterConsumingStakeholder(3L, someTemplateId.toString, observerParty),
-            DbDto.TransactionMeta(
-              transaction_id = dtoTransactionId(archive1),
-              event_offset = archive1.event_offset.get,
-              event_sequential_id_first = 3L,
-              event_sequential_id_last = 3L,
-            ),
-          ) ++
-          Vector(
-            // Transaction 3
-            archive2,
-            DbDto.IdFilterConsumingStakeholder(4L, someTemplateId.toString, signatoryParty),
-            DbDto.IdFilterConsumingStakeholder(4L, someTemplateId.toString, observerParty),
-            DbDto.TransactionMeta(
-              transaction_id = dtoTransactionId(archive2),
-              event_offset = archive2.event_offset.get,
-              event_sequential_id_first = 4L,
-              event_sequential_id_last = 4L,
-            ),
-          ),
-        _,
-      )
-    )
-
-    def assertAllDataPresent(): Assertion = assertIndexDbDataSql(
-      create = Vector(EventCreate(1), EventCreate(2)),
-      createFilterStakeholder = Vector(
-        FilterCreateStakeholder(1, 2),
-        FilterCreateStakeholder(1, 3),
-        FilterCreateStakeholder(2, 2),
-        FilterCreateStakeholder(2, 3),
-      ),
-      createFilterNonStakeholder =
-        Vector(FilterCreateNonStakeholder(1, 4), FilterCreateNonStakeholder(2, 4)),
-      consuming = Vector(EventConsuming(3), EventConsuming(4)),
-      consumingFilterStakeholder = Vector(
-        FilterConsumingStakeholder(3, 2),
-        FilterConsumingStakeholder(3, 3),
-        FilterConsumingStakeholder(4, 2),
-        FilterConsumingStakeholder(4, 3),
-      ),
-      txMeta = Vector(TxMeta("00000010"), TxMeta("00000011"), TxMeta("00000012")),
-    )
-
-    executeSql(updateLedgerEnd(offset(3), 4L))
-    assertAllDataPresent()
-    // Prune at offset where there are no archives
-    pruneEventsSql(offset(10), pruneAllDivulgedContracts = true)
-    assertAllDataPresent()
-    // Prune at offset with the first archive
-    pruneEventsSql(offset(11), pruneAllDivulgedContracts = true)
     assertIndexDbDataSql(
-      create = Vector(EventCreate(2)),
-      createFilterStakeholder = Vector(
-        FilterCreateStakeholder(2, 2),
-        FilterCreateStakeholder(2, 3),
-      ),
-      createFilterNonStakeholder = Vector(FilterCreateNonStakeholder(2, 4)),
-      consuming = Vector(EventConsuming(4)),
-      consumingFilterStakeholder = Vector(
-        FilterConsumingStakeholder(4, 2),
-        FilterConsumingStakeholder(4, 3),
-      ),
-      txMeta = Vector(TxMeta("00000010"), TxMeta("00000012")),
+      txMeta = Vector.empty
     )
-    // Prune at offset with the second archive
-    pruneEventsSql(offset(12), pruneAllDivulgedContracts = true)
-    assertIndexDbDataSql()
   }
 
   it should "not prune an active contract" in {
@@ -417,20 +288,24 @@ private[backend] trait StorageBackendTestsPruning
       )
     )
 
-    def assertAllDataPresent(): Assertion = assertIndexDbDataSql(
+    def assertAllDataPresent(txMeta: Seq[TxMeta]): Assertion = assertIndexDbDataSql(
       create = Vector(EventCreate(1)),
       createFilterStakeholder = Vector(
         FilterCreateStakeholder(1, 2),
         FilterCreateStakeholder(1, 3),
       ),
       createFilterNonStakeholder = Vector(FilterCreateNonStakeholder(1, 4)),
-      txMeta = Vector(TxMeta("00000002")),
+      txMeta = txMeta,
     )
     executeSql(updateLedgerEnd(offset(2), 1L))
-    assertAllDataPresent()
+    assertAllDataPresent(
+      txMeta = Vector(TxMeta("00000002"))
+    )
     // Prune
     pruneEventsSql(offset(2), pruneAllDivulgedContracts = true)
-    assertAllDataPresent()
+    assertAllDataPresent(
+      txMeta = Vector.empty
+    )
   }
 
   it should "prune all retroactively and immediately divulged contracts (if pruneAllDivulgedContracts is set)" in {

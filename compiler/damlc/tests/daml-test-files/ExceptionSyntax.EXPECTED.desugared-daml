@@ -12,7 +12,7 @@ instance DA.Internal.Record.HasField "m" MyException Text where
   getField = DA.Internal.Record.getFieldPrim @"m" @MyException @Text
   setField = DA.Internal.Record.setFieldPrim @"m" @MyException @Text
 instance DA.Internal.Desugar.HasMessage MyException where
-  message this@MyException {..} = m
+  message this@MyException {..} = let _ = this in m
 instance DA.Internal.Desugar.HasThrow MyException where
   throwPure = GHC.Types.primitive @"EThrow"
 instance DA.Internal.Desugar.HasToAnyException MyException where

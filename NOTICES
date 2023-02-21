@@ -321,7 +321,7 @@ either 5.0.1.1 : BSD 3-clause "New" or "Revised" License
 ekmett/free v5.1.7 : BSD 3-clause "New" or "Revised" License
 ekmett/profunctors v5.6.2 : BSD 3-clause "New" or "Revised" License
 ekmett/void v0.7.3 : BSD 3-clause "New" or "Revised" License
-elliptic v6.5.4 : MIT License
+elliptic 6.5.4 : MIT License
 emoji-regex v8.0.0 : MIT License
 encodeurl 1.0.2 : MIT License
 end-of-stream 1.4.4 : MIT License
@@ -675,6 +675,8 @@ js-jquery 3.3.1 : MIT License
 js-tokens 4.0.0 : MIT License
 JS-YAML. Native JS port of PyYAML. 3.14.1 : MIT License
 jsesc v2.5.2 : MIT License
+JSHTTP's negotiator 0.6.2 : MIT License
+JSHTTP's negotiator 0.6.3 : MIT License
 jshttp/content-type 1.0.4 : MIT License
 jshttp/fresh 0.5.2 : MIT License
 jshttp/mime-types 2.1.29 : MIT License
@@ -788,8 +790,6 @@ ms.js 2.1.3 : MIT License
 munit 0.7.26 : Apache License 2.0
 mwitkow/go-proto-validators 20180403-snapshot-0950a799 : Apache License 2.0
 nearley 2.20.1 : MIT License
-Negotiator 0.6.2 : MIT License
-Negotiator 0.6.3 : MIT License
 Netty Project 4.1.58.Final : Apache License 2.0
 Netty Project 4.1.72.Final : Apache License 2.0
 Netty/TomcatNative [BoringSSL - Static] 2.0.46.Final : Apache License 2.0
@@ -920,7 +920,6 @@ parse-passwd 1.0.0 : MIT License
 parse5 6.0.1 : MIT License
 parser 1.0.0 : MIT License
 parser-combinators 1.3.0 : BSD 3-clause "New" or "Revised" License
-parseurl 1.3.3 : MIT License
 path 0.9.2 : BSD 3-clause "New" or "Revised" License
 path-browserify 1.0.1 : MIT License
 path-exists 4.0.0 : MIT License
@@ -939,6 +938,7 @@ performance-now 2.1.0 : MIT License
 phadej/cabal-doctest 1.0.9 : BSD 3-clause "New" or "Revised" License
 picomatch 2.2.3 : MIT License
 picomatch 2.3.0 : MIT License
+pillarjs/parseurl 1.3.3 : MIT License
 pip 21.2.4 : MIT License
 pip 22.2.2 : MIT License
 pkg/errors v0.8.1 : BSD 2-clause "Simplified" License
@@ -999,8 +999,8 @@ railroad-diagrams 1.0.0 : Creative Commons Zero v1.0 Universal
 RamdaJs v0.27.1 : MIT License
 randexp 0.4.6 : MIT License
 random 1.2.1 : BSD 3-clause "New" or "Revised" License
-randombytes 1.0.4 : MIT License
 randombytes 2.1.0 : MIT License
+randomfill 1.0.4 : MIT License
 range-parser v1.2.1 : MIT License
 range-set-list 0.1.3.1 : MIT License
 raw-body 1.1.7 : MIT License
@@ -1110,8 +1110,8 @@ semigroups 0.19.2 : BSD 3-clause "New" or "Revised" License
 semirings 0.6 : BSD 3-clause "New" or "Revised" License
 semver 0.4.0.1 : Mozilla Public License 2.0
 senchalabs / connect 3.7.0 : MIT License
-send 0.17.1 : MIT License
-send 0.18.0 : MIT License
+Send for Node.js 0.17.1 : MIT License
+Send for Node.js 0.18.0 : MIT License
 serve-index 1.9.1 : MIT License
 serve-static 1.15.0 : MIT License
 serve-static v1.14.1 : MIT License
@@ -7782,7 +7782,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE
 ---
 
 MIT License
-(send 0.18.0)
+(Send for Node.js 0.18.0)
 
 (The MIT License)
 
@@ -7898,7 +7898,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE
 ---
 
 MIT License
-(Negotiator 0.6.2, Negotiator 0.6.3)
+(JSHTTP's negotiator 0.6.2, JSHTTP's negotiator 0.6.3)
 
 (The MIT License)
 
@@ -11990,7 +11990,7 @@ Permission is hereby granted, free of charge, to any person
 ---
 
 MIT License
-(elliptic v6.5.4, function-bind 1.1.1, isarray 1.0.0, isarray 2.0.5, nodeca-argparse 1.0.10, nodejs/string_decoder v1.3.0)
+(elliptic 6.5.4, function-bind 1.1.1, isarray 1.0.0, isarray 2.0.5, nodeca-argparse 1.0.10, nodejs/string_decoder v1.3.0)
 
 License: Expat
 
@@ -12843,7 +12843,7 @@ SOFTWARE
 ---
 
 MIT License
-(randombytes 1.0.4, randombytes 2.1.0)
+(randombytes 2.1.0, randomfill 1.0.4)
 
 MIT License
 
@@ -17639,7 +17639,7 @@ Permission is hereby granted, free of charge, to any person
 ---
 
 MIT License
-(parseurl 1.3.3)
+(pillarjs/parseurl 1.3.3)
 
 Upstream-Contact: https://github.com/expressjs/parseurl/issues
 Source: https://github.com/expressjs/parseurl
@@ -18144,7 +18144,7 @@ Permission is hereby granted, free of charge, to any person
 ---
 
 MIT License
-(send 0.17.1)
+(Send for Node.js 0.17.1)
 
 Upstream-Contact: https://github.com/pillarjs/send/issues
 Source: https://github.com/pillarjs/send

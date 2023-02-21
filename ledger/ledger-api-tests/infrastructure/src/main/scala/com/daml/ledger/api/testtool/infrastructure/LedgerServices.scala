@@ -25,6 +25,8 @@ import com.daml.ledger.api.v1.command_service.CommandServiceGrpc
 import com.daml.ledger.api.v1.command_service.CommandServiceGrpc.CommandService
 import com.daml.ledger.api.v1.command_submission_service.CommandSubmissionServiceGrpc
 import com.daml.ledger.api.v1.command_submission_service.CommandSubmissionServiceGrpc.CommandSubmissionService
+import com.daml.ledger.api.v1.event_query_service.EventQueryServiceGrpc
+import com.daml.ledger.api.v1.event_query_service.EventQueryServiceGrpc.EventQueryService
 import com.daml.ledger.api.v1.ledger_configuration_service.LedgerConfigurationServiceGrpc
 import com.daml.ledger.api.v1.ledger_configuration_service.LedgerConfigurationServiceGrpc.LedgerConfigurationService
 import com.daml.ledger.api.v1.ledger_identity_service.LedgerIdentityServiceGrpc
@@ -91,6 +93,9 @@ private[infrastructure] final class LedgerServices(
 
   val transaction: TransactionService =
     TransactionServiceGrpc.stub(channel)
+
+  val eventQuery: EventQueryService =
+    EventQueryServiceGrpc.stub(channel)
 
   val time: TimeService =
     TimeServiceGrpc.stub(channel)

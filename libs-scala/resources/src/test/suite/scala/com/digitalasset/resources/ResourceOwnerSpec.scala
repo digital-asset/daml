@@ -11,7 +11,6 @@ import java.util.concurrent.{
   RejectedExecutionException,
 }
 import java.util.{Timer, TimerTask}
-
 import com.daml.resources.FailingResourceOwner.{
   FailingResourceFailedToOpen,
   TriedToReleaseAFailedResource,
@@ -22,8 +21,8 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.annotation.nowarn
-import scala.concurrent.duration.DurationInt
-import scala.concurrent.{ExecutionContext, ExecutionContextExecutorService, Future, Promise}
+import scala.concurrent.duration.{Duration, DurationInt}
+import scala.concurrent.{Await, ExecutionContext, ExecutionContextExecutorService, Future, Promise}
 import scala.jdk.CollectionConverters._
 import scala.util.{Failure, Success}
 
@@ -732,6 +731,56 @@ final class ResourceOwnerSpec extends AsyncWordSpec with Matchers {
           },
           0,
         )
+      }
+    }
+
+    "convert to a ResourceOwner, which ensures, that no TimerTask is running after the resource is released" in {
+      val finishLongTakingTask = Promise[Unit]()
+      val timerResource = Factories.forTimer(() => new Timer("test timer")).acquire()
+      for {
+        timer <- timerResource.asFuture
+        (timerReleased, extraTimerTaskStarted) = {
+          timer.schedule(
+            new TimerTask {
+              override def run(): Unit = {
+                Await.result(finishLongTakingTask.future, Duration(10, "seconds"))
+              }
+            },
+            0L,
+          )
+          info("As scheduled a long taking task")
+          val released = timerResource.release()
+          info("And as triggered release of the timer resource")
+          Thread.sleep(100)
+          info("And as waiting 100 millis")
+          released.isCompleted shouldBe false
+          info("The release should not be completed yet")
+          val extraTimerTaskStarted = Promise[Unit]()
+          timer.schedule(
+            new TimerTask {
+              override def run(): Unit = extraTimerTaskStarted.success(())
+            },
+            0L,
+          )
+          info("And scheduling a further task is still possible")
+          finishLongTakingTask.success(())
+          info("As completing the currently running timer task")
+          (released, extraTimerTaskStarted.future)
+        }
+        _ <- timerReleased
+      } yield {
+        info("Timer released")
+        an[IllegalStateException] should be thrownBy timer.schedule(
+          new TimerTask {
+            override def run(): Unit = ()
+          },
+          0,
+        )
+        info("And scheduling new task on the released timer, is not possible anymore")
+        Thread.sleep(100)
+        extraTimerTaskStarted.isCompleted shouldBe false
+        info("And after waiting 100 millis, the additional task is still not started")
+        succeed
       }
     }
   }

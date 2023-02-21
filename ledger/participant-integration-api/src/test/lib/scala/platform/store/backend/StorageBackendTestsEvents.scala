@@ -3,6 +3,7 @@
 
 package com.daml.platform.store.backend
 
+import com.daml.ledger.offset.Offset
 import com.daml.lf.data.Ref
 import org.scalatest.Inside
 import org.scalatest.flatspec.AnyFlatSpec
@@ -323,5 +324,45 @@ private[backend] trait StorageBackendTestsEvents
     result12L2 should contain theSameElementsAs Vector(2L)
     result02L1 should contain theSameElementsAs Vector(1L)
     result02L2 should contain theSameElementsAs Vector(1L, 2L)
+  }
+
+  it should "populate correct maxEventSequentialId based on transaction_meta entries" in {
+    val dtos = Vector(
+      dtoTransactionMeta(offset(10), 1000, 1099),
+      dtoTransactionMeta(offset(15), 1100, 1100),
+      dtoTransactionMeta(offset(20), 1101, 1110),
+      dtoTransactionMeta(offset(21), 1111, 1115),
+      dtoTransactionMeta(offset(1000), 1119, 1120),
+    )
+
+    executeSql(backend.parameter.initializeParameters(someIdentityParams))
+    executeSql(ingest(dtos, _))
+    executeSql(updateLedgerEnd(offset(25), 1115))
+    val maxEventSequentialId: Long => Long =
+      longOffset =>
+        executeSql(
+          backend.event.maxEventSequentialId(offset(longOffset))
+        )
+
+    executeSql(backend.event.maxEventSequentialId(Offset.beforeBegin)) shouldBe 999
+    maxEventSequentialId(1) shouldBe 999
+    maxEventSequentialId(2) shouldBe 999
+    maxEventSequentialId(9) shouldBe 999
+    maxEventSequentialId(10) shouldBe 1099
+    maxEventSequentialId(11) shouldBe 1099
+    maxEventSequentialId(14) shouldBe 1099
+    maxEventSequentialId(15) shouldBe 1100
+    maxEventSequentialId(16) shouldBe 1100
+    maxEventSequentialId(19) shouldBe 1100
+    maxEventSequentialId(20) shouldBe 1110
+    maxEventSequentialId(21) shouldBe 1115
+    maxEventSequentialId(22) shouldBe 1115
+    maxEventSequentialId(24) shouldBe 1115
+    maxEventSequentialId(25) shouldBe 1115
+    maxEventSequentialId(26) shouldBe 1115
+
+    executeSql(updateLedgerEnd(offset(20), 1110))
+    maxEventSequentialId(20) shouldBe 1110
+    maxEventSequentialId(21) shouldBe 1110
   }
 }

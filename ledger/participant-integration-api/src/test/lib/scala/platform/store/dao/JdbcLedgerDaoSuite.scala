@@ -73,7 +73,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
   protected final val defaultWorkflowId = "default-workflow-id"
   protected final val someAgreement = "agreement"
 
-  // Note: *identifiers* and *values* defined below MUST correspond to //ledger/test-common/src/main/daml/model/Test.daml
+  // Note: *identifiers* and *values* defined below MUST correspond to //test-common/src/main/daml/model/Test.daml
   // This is because some tests request values in verbose mode, which requires filling in missing type information,
   // which in turn requires loading Daml-LF packages with valid Daml-LF types that correspond to the Daml-LF values.
   //
@@ -201,8 +201,9 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
       signatories: Set[Party] = Set(alice, bob),
       templateId: Identifier = someTemplateId,
       contractArgument: LfValue = someContractArgument,
+      observers: Set[Party] = Set.empty,
   ): Node.Create =
-    createNode(absCid, signatories, signatories, None, templateId, contractArgument)
+    createNode(absCid, signatories, signatories ++ observers, None, templateId, contractArgument)
 
   protected final def createNode(
       absCid: ContractId,
@@ -446,7 +447,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
       workflowId = Some("workflowId"),
       ledgerEffectiveTime = let,
       recordedAt = let,
-      transaction = CommittedTransaction(txBuilder.buildCommitted()),
+      transaction = txBuilder.buildCommitted(),
       explicitDisclosure = Map(nid -> Set("Alice", "Bob")),
     )
   }
@@ -468,7 +469,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
       workflowId = Some("workflowId"),
       ledgerEffectiveTime = let,
       recordedAt = let,
-      transaction = CommittedTransaction(txBuilder.buildCommitted()),
+      transaction = txBuilder.buildCommitted(),
       explicitDisclosure = Map(nid -> Set(alice, bob)),
     )
   }
@@ -501,7 +502,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
     val txBuilder = newBuilder()
     val exerciseId = txBuilder.add(exerciseNode(targetCid))
     val childId = txBuilder.add(create(txBuilder.newCid), exerciseId)
-    val tx = CommittedTransaction(txBuilder.build())
+    val tx = txBuilder.buildCommitted()
     val offset = nextOffset()
     val id = offset.toLong
     val txId = s"trId$id"
@@ -515,7 +516,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
       workflowId = Some("workflowId"),
       ledgerEffectiveTime = let,
       recordedAt = let,
-      transaction = CommittedTransaction(tx),
+      transaction = tx,
       explicitDisclosure = Map(exerciseId -> Set("Alice", "Bob"), childId -> Set("Alice", "Bob")),
     )
   }

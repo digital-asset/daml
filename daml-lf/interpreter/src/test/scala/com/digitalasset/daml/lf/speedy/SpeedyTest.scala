@@ -580,7 +580,7 @@ object SpeedyTest {
 
   def evalSExpr(e: SExpr, packages: PureCompiledPackages): Either[SError, SValue] = {
     val machine = Speedy.Machine.fromPureSExpr(packages, e)
-    SpeedyTestLib.run(machine)
+    machine.runPure()
   }
 
   def evalApp(
@@ -639,12 +639,8 @@ object SpeedyTest {
       .withCachedContracts(
         localContractId -> localCachedContract,
         globalContractId -> globalCachedContract,
-        disclosedContractId -> disclosedCachedContract,
       )
       .withLocalContractKey(localContractId, localContractKey)
-      .withDisclosedContractKeys(
-        houseTemplateType,
-        disclosedContractKey.hash -> disclosedContractId,
-      )
+      .withDisclosedContractKeys(disclosedContractId -> disclosedCachedContract)
   }
 }

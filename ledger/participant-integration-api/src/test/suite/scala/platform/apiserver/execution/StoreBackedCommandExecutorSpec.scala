@@ -8,18 +8,18 @@ import com.daml.ledger.api.DeduplicationPeriod
 import com.daml.ledger.api.domain.{CommandId, Commands, LedgerId}
 import com.daml.ledger.configuration.{Configuration, LedgerTimeModel}
 import com.daml.ledger.participant.state.index.v2.{ContractStore, IndexPackagesService}
-import com.daml.lf.command.{
-  DisclosedContract,
-  EngineEnrichedContractMetadata,
-  ProcessedDisclosedContract,
-  ApiCommands => LfCommands,
-}
+import com.daml.lf.command.{DisclosedContract, ApiCommands => LfCommands}
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref.{Identifier, ParticipantId}
 import com.daml.lf.data.{Bytes, ImmArray, Ref, Time}
 import com.daml.lf.engine.{Engine, ResultDone}
 import com.daml.lf.transaction.test.TransactionBuilder
-import com.daml.lf.transaction.{SubmittedTransaction, Transaction, TransactionVersion, Versioned}
+import com.daml.lf.transaction.{
+  ProcessedDisclosedContract,
+  SubmittedTransaction,
+  Transaction,
+  TransactionVersion,
+}
 import com.daml.lf.value.Value
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
@@ -33,22 +33,18 @@ class StoreBackedCommandExecutorSpec
     with MockitoSugar
     with ArgumentMatchersSugar {
 
-  private val disclosedContracts = ImmArray(
-    Versioned(
-      TransactionVersion.V15,
-      ProcessedDisclosedContract(
-        templateId = Identifier.assertFromString("some:pkg:identifier"),
-        contractId = TransactionBuilder.newCid,
-        argument = Value.ValueNil,
-        metadata = EngineEnrichedContractMetadata(
-          createdAt = Time.Timestamp.Epoch,
-          driverMetadata = Bytes.Empty,
-          signatories = Set.empty,
-          stakeholders = Set.empty,
-          keyOpt = None,
-          agreementText = "some agreement text",
-        ),
-      ),
+  private val processedDisclosedContracts = ImmArray(
+    ProcessedDisclosedContract(
+      templateId = Identifier.assertFromString("some:pkg:identifier"),
+      contractId = TransactionBuilder.newCid,
+      argument = Value.ValueNil,
+      createdAt = Time.Timestamp.Epoch,
+      driverMetadata = Bytes.Empty,
+      signatories = Set.empty,
+      stakeholders = Set.empty,
+      keyOpt = None,
+      agreementText = "some agreement text",
+      version = TransactionVersion.V15,
     )
   )
 
@@ -59,7 +55,7 @@ class StoreBackedCommandExecutorSpec
     dependsOnTime = false,
     nodeSeeds = ImmArray.Empty,
     globalKeyMapping = Map.empty,
-    disclosures = disclosedContracts,
+    processedDisclosedContracts = processedDisclosedContracts,
   )
 
   "execute" should {
@@ -121,7 +117,7 @@ class StoreBackedCommandExecutorSpec
         instance.execute(commands, submissionSeed, configuration).map { actual =>
           actual.foreach { actualResult =>
             actualResult.interpretationTimeNanos should be > 0L
-            actualResult.usedDisclosedContracts shouldBe disclosedContracts
+            actualResult.processedDisclosedContracts shouldBe processedDisclosedContracts
           }
           succeed
         }

@@ -1,2 +1,2 @@
-**NOTE**: Decryption details in `ledger/test-common/files/server-pem-decryption-parameters.json` 
-must be kept in sync with the encryption command usd in `ledger/test-common/test-certificates/BUILD.bazel`
+**NOTE**: The server-pem-decryption-parameters.json file must not be deleted.
+Its stable GitHub location is used in the testing pipelines (including the historic ones).

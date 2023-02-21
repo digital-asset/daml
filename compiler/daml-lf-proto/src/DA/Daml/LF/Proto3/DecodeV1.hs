@@ -257,6 +257,7 @@ decodeInterfaceCoImplements :: LF1.DefInterface_CoImplements -> Decode Interface
 decodeInterfaceCoImplements LF1.DefInterface_CoImplements {..} = InterfaceCoImplements
   <$> mayDecode "defInterface_CoImplementsTemplate" defInterface_CoImplementsTemplate decodeTypeConName
   <*> mayDecode "defInterface_CoImplementsBody" defInterface_CoImplementsBody decodeInterfaceInstanceBody
+  <*> traverse decodeLocation defInterface_CoImplementsLocation
 
 decodeFeatureFlags :: LF1.FeatureFlags -> Decode FeatureFlags
 decodeFeatureFlags LF1.FeatureFlags{..} =
@@ -337,6 +338,7 @@ decodeDefTemplateImplements :: LF1.DefTemplate_Implements -> Decode TemplateImpl
 decodeDefTemplateImplements LF1.DefTemplate_Implements{..} = TemplateImplements
   <$> mayDecode "defTemplate_ImplementsInterface" defTemplate_ImplementsInterface decodeTypeConName
   <*> mayDecode "defTemplate_ImplementsBody" defTemplate_ImplementsBody decodeInterfaceInstanceBody
+  <*> traverse decodeLocation defTemplate_ImplementsLocation
 
 decodeInterfaceInstanceBody :: LF1.InterfaceInstanceBody -> Decode InterfaceInstanceBody
 decodeInterfaceInstanceBody LF1.InterfaceInstanceBody{..} = InterfaceInstanceBody

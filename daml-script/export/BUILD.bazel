@@ -56,7 +56,7 @@ da_scala_test(
     name = "tests",
     srcs = glob(["src/test/scala/**/*.scala"]),
     data = [
-        "//ledger/test-common/test-certificates",
+        "//test-common/test-certificates",
     ],
     scala_deps = [
         "@maven//:org_scalatest_scalatest_core",

@@ -69,7 +69,7 @@ abstract class BaseTlsServerIT(minimumServerProtocolVersion: Option[TlsVersion])
   }
 
   private def getFilePath(fileName: String) = new File(
-    rlocation("ledger/test-common/test-certificates/" + fileName)
+    rlocation("test-common/test-certificates/" + fileName)
   )
   lazy private val certChainFilePath = getFilePath("server.crt")
   lazy private val privateKeyFilePath = getFilePath("server.pem")

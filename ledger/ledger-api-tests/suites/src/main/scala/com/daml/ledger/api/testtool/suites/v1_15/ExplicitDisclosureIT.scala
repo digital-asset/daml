@@ -603,10 +603,10 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
         }
         assertGrpcErrorRegex(
           errorDuplicateKey,
-          LedgerApiErrors.CommandExecution.Interpreter.InvalidArgumentInterpretationError,
+          LedgerApiErrors.CommandExecution.Preprocessing.PreprocessingFailed,
           Some(
             Pattern.compile(
-              s"Found duplicated contract keys in submitted disclosed contracts .* $expectedKeyHashString"
+              s"Preprocessor encountered a duplicate disclosed contract key hash $expectedKeyHashString"
             )
           ),
           checkDefiniteAnswerMetadata = true,

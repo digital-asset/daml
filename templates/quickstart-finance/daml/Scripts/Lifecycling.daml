@@ -5,7 +5,7 @@ import DA.Set qualified as S (empty, fromList, singleton)
 import Daml.Script
 
 -- INTERFACE DEPENDENCIES --
-import Daml.Finance.Interface.Instrument.Base.Instrument qualified as Instrument (I, qty)
+import Daml.Finance.Interface.Instrument.Base.Instrument qualified as Instrument (I)
 import Daml.Finance.Interface.Lifecycle.Event qualified as Event (I)
 import Daml.Finance.Interface.Lifecycle.Rule.Claim qualified as Claim (ClaimEffect(..), I)
 import Daml.Finance.Interface.Lifecycle.Rule.Lifecycle qualified as Lifecycle (Evolve(..), I)
@@ -13,6 +13,7 @@ import Daml.Finance.Interface.Settlement.Batch qualified as Batch (Settle(..))
 import Daml.Finance.Interface.Settlement.Instruction qualified as Instruction (Allocate(..), Approve(..))
 import Daml.Finance.Interface.Settlement.Types (Allocation(..), Approval(..))
 import Daml.Finance.Interface.Types.Common.Types (Id(..))
+import Daml.Finance.Interface.Util.Common (qty)
 
 -- IMPLEMENTATION DEPENDENCIES --
 import Daml.Finance.Instrument.Token.Instrument (Instrument(..))
@@ -92,7 +93,7 @@ runLifecycling = do
       effectiveTime = now
       targetInstrument = tokenInstrument
       newInstrument = newTokenInstrument
-      perUnitDistribution = [Instrument.qty 0.02 usdInstrument]
+      perUnitDistribution = [qty 0.02 usdInstrument]
       observers = S.empty
   -- CREATE_EVENT_END
 

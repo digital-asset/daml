@@ -19,9 +19,12 @@ module DA.Daml.LF.ScenarioServiceClient
   , gcCtxs
   , runScenario
   , runScript
+  , runLiveScript
+  , runLiveScenario
   , LowLevel.BackendError(..)
   , LowLevel.Error(..)
   , LowLevel.ScenarioResult(..)
+  , LowLevel.ScenarioStatus(..)
   , LowLevel.WarningMessage(..)
   , LowLevel.Location(..)
   , Hash
@@ -229,6 +232,12 @@ runScenario h ctxId name = run (\h -> LowLevel.runScenario h ctxId name) h
 
 runScript :: Handle -> LowLevel.ContextId -> LF.ValueRef -> IO (Either LowLevel.Error LowLevel.ScenarioResult)
 runScript h ctxId name = run (\h -> LowLevel.runScript h ctxId name) h
+
+runLiveScenario :: Handle -> LowLevel.ContextId -> LF.ValueRef -> (LowLevel.ScenarioStatus -> IO ()) -> IO (Either LowLevel.Error LowLevel.ScenarioResult)
+runLiveScenario h ctxId name statusUpdateHandler = run (\h -> LowLevel.runLiveScenario h ctxId name statusUpdateHandler) h
+
+runLiveScript :: Handle -> LowLevel.ContextId -> LF.ValueRef -> (LowLevel.ScenarioStatus -> IO ()) -> IO (Either LowLevel.Error LowLevel.ScenarioResult)
+runLiveScript h ctxId name statusUpdateHandler = run (\h -> LowLevel.runLiveScript h ctxId name statusUpdateHandler) h
 
 run :: (LowLevel.Handle -> IO (Either LowLevel.Error r)) -> Handle -> IO (Either LowLevel.Error r)
 run f Handle{..} = do

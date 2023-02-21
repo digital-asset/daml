@@ -19,6 +19,7 @@ import scala.annotation.tailrec
   */
 sealed trait Result[+A] extends Product with Serializable {
   def map[B](f: A => B): Result[B] = this match {
+    case ResultInterruption(continue) => ResultInterruption(() => continue().map(f))
     case ResultDone(x) => ResultDone(f(x))
     case ResultError(err) => ResultError(err)
     case ResultNeedContract(acoid, resume) =>
@@ -27,9 +28,12 @@ sealed trait Result[+A] extends Product with Serializable {
       ResultNeedPackage(pkgId, mbPkg => resume(mbPkg).map(f))
     case ResultNeedKey(gk, resume) =>
       ResultNeedKey(gk, mbAcoid => resume(mbAcoid).map(f))
+    case ResultNeedAuthority(holding, requesting, resume) =>
+      ResultNeedAuthority(holding, requesting, bool => resume(bool).map(f))
   }
 
   def flatMap[B](f: A => Result[B]): Result[B] = this match {
+    case ResultInterruption(continue) => ResultInterruption(() => continue().flatMap(f))
     case ResultDone(x) => f(x)
     case ResultError(err) => ResultError(err)
     case ResultNeedContract(acoid, resume) =>
@@ -38,30 +42,38 @@ sealed trait Result[+A] extends Product with Serializable {
       ResultNeedPackage(pkgId, mbPkg => resume(mbPkg).flatMap(f))
     case ResultNeedKey(gk, resume) =>
       ResultNeedKey(gk, mbAcoid => resume(mbAcoid).flatMap(f))
+    case ResultNeedAuthority(holding, requesting, resume) =>
+      ResultNeedAuthority(holding, requesting, bool => resume(bool).flatMap(f))
   }
 
-  def consume(
+  private[lf] def consume(
       pcs: ContractId => Option[VersionedContractInstance],
       packages: PackageId => Option[Package],
       keys: GlobalKeyWithMaintainers => Option[ContractId],
+      grantNeedAuthority: Boolean = false,
   ): Either[Error, A] = {
     @tailrec
     def go(res: Result[A]): Either[Error, A] =
       res match {
         case ResultDone(x) => Right(x)
+        case ResultInterruption(continue) => go(continue())
         case ResultError(err) => Left(err)
         case ResultNeedContract(acoid, resume) => go(resume(pcs(acoid)))
         case ResultNeedPackage(pkgId, resume) => go(resume(packages(pkgId)))
         case ResultNeedKey(key, resume) => go(resume(keys(key)))
+        case ResultNeedAuthority(_, _, resume) => go(resume(grantNeedAuthority))
       }
     go(this)
   }
 }
 
+final case class ResultInterruption[A](continue: () => Result[A]) extends Result[A]
+
 final case class ResultDone[A](result: A) extends Result[A]
 object ResultDone {
   val Unit: ResultDone[Unit] = new ResultDone(())
 }
+
 final case class ResultError(err: Error) extends Result[Nothing]
 object ResultError {
   def apply(packageError: Error.Package.Error): ResultError =
@@ -102,6 +114,12 @@ final case class ResultNeedPackage[A](packageId: PackageId, resume: Option[Packa
 final case class ResultNeedKey[A](
     key: GlobalKeyWithMaintainers,
     resume: Option[ContractId] => Result[A],
+) extends Result[A]
+
+final case class ResultNeedAuthority[A](
+    holding: Set[Party],
+    requesting: Set[Party],
+    resume: Boolean => Result[A],
 ) extends Result[A]
 
 object Result {
@@ -153,6 +171,17 @@ object Result {
                       .map(otherResults => (okResults :+ x) :++ otherResults)
                   ),
               )
+            case ResultNeedAuthority(holding, requesting, resume) =>
+              ResultNeedAuthority(
+                holding,
+                requesting,
+                bool =>
+                  resume(bool).flatMap(x =>
+                    Result
+                      .sequence(results_)
+                      .map(otherResults => (okResults :+ x) :++ otherResults)
+                  ),
+              )
             case ResultNeedContract(acoid, resume) =>
               ResultNeedContract(
                 acoid,
@@ -172,6 +201,14 @@ object Result {
                       .sequence(results_)
                       .map(otherResults => (okResults :+ x) :++ otherResults)
                   ),
+              )
+            case ResultInterruption(continue) =>
+              ResultInterruption(() =>
+                continue().flatMap(x =>
+                  Result
+                    .sequence(results_)
+                    .map(otherResults => (okResults :+ x) :++ otherResults)
+                )
               )
           }
       }

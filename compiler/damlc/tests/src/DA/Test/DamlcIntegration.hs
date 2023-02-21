@@ -101,34 +101,34 @@ instance IsOption SkipValidationOpt where
   optionName = Tagged "skip-validation"
   optionHelp = Tagged "Skip package validation in scenario service (true|false)"
 
-
 main :: IO ()
 main = do
- let scenarioConf = SS.defaultScenarioServiceConfig { SS.cnfJvmOptions = ["-Xmx200M"], SS.cnfEvaluationTimeout = Just 5 }
- -- This is a bit hacky, we want the LF version before we hand over to
- -- tasty. To achieve that we first pass with optparse-applicative ignoring
- -- everything apart from the LF version.
- LfVersionOpt lfVer <- do
-     let parser = optionCLParser <* many (strArgument @String mempty)
-     execParser (info parser forwardOptions)
- scenarioLogger <- Logger.newStderrLogger Logger.Warning "scenario"
- SS.withScenarioService lfVer scenarioLogger scenarioConf $ \scenarioService -> do
-  hSetEncoding stdout utf8
-  setEnv "TASTY_NUM_THREADS" "1" True
-  todoRef <- newIORef DList.empty
-  let registerTODO (TODO s) = modifyIORef todoRef (`DList.snoc` ("TODO: " ++ s))
-  integrationTests <- getIntegrationTests registerTODO scenarioService
-  let tests = testGroup "All" [parseRenderRangeTest, uniqueUniques, integrationTests]
-  defaultMainWithIngredients ingredients tests
-    `finally` (do
-    todos <- readIORef todoRef
-    putStr (unlines (DList.toList todos)))
-  where ingredients =
-          includingOptions
-            [ Option (Proxy @LfVersionOpt)
-            , Option (Proxy @SkipValidationOpt)
-            ] :
-          defaultIngredients
+  let scenarioConf = SS.defaultScenarioServiceConfig { SS.cnfJvmOptions = ["-Xmx200M"], SS.cnfEvaluationTimeout = Just 1 }
+  -- This is a bit hacky, we want the LF version before we hand over to
+  -- tasty. To achieve that we first pass with optparse-applicative ignoring
+  -- everything apart from the LF version.
+  LfVersionOpt lfVer <- do
+      let parser = optionCLParser <* many (strArgument @String mempty)
+      execParser (info parser forwardOptions)
+  scenarioLogger <- Logger.newStderrLogger Logger.Warning "scenario"
+ 
+  SS.withScenarioService lfVer scenarioLogger scenarioConf $ \scenarioService -> do
+    hSetEncoding stdout utf8
+    setEnv "TASTY_NUM_THREADS" "1" True
+    todoRef <- newIORef DList.empty
+    let registerTODO (TODO s) = modifyIORef todoRef (`DList.snoc` ("TODO: " ++ s))
+    integrationTests <- getIntegrationTests registerTODO scenarioService
+    let tests = testGroup "All" [parseRenderRangeTest, uniqueUniques, integrationTests]
+    defaultMainWithIngredients ingredients tests
+      `finally` (do
+      todos <- readIORef todoRef
+      putStr (unlines (DList.toList todos)))
+    where ingredients =
+            includingOptions
+              [ Option (Proxy @LfVersionOpt)
+              , Option (Proxy @SkipValidationOpt)
+              ] :
+            defaultIngredients
 
 parseRenderRangeTest :: TestTree
 parseRenderRangeTest =
@@ -212,6 +212,7 @@ getIntegrationTests registerTODO scenarioService = do
                     }
                 , optSkipScenarioValidation = SkipScenarioValidation skipValidation
                 }
+
               mkIde options = do
                 damlEnv <- mkDamlEnv options (Just scenarioService)
                 initialise
@@ -465,7 +466,7 @@ lfTypeCheck :: (String -> IO ()) -> NormalizedFilePath -> Action LF.Package
 lfTypeCheck log file = timed log "LF type check" $ unjust $ getDalf file
 
 lfRunScenarios :: (String -> IO ()) -> NormalizedFilePath -> Action ()
-lfRunScenarios log file = timed log "LF execution" $ void $ unjust $ runScenarios file
+lfRunScenarios log file = timed log "LF scenario execution" $ void $ unjust $ runScenarios file
 
 timed :: MonadIO m => (String -> IO ()) -> String -> m a -> m a
 timed log msg act = do

@@ -99,7 +99,7 @@ da_haskell_test(
     data = [
         "daml-helper",
         "//ledger/sandbox-on-x:app",
-        "//ledger/test-common/test-certificates",
+        "//test-common/test-certificates",
     ],
     hackage_deps = [
         "base",
