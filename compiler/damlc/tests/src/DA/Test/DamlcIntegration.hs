@@ -46,7 +46,7 @@ import Data.IORef
 import Data.Proxy
 import           Development.IDE.Types.Diagnostics
 import           Data.Maybe
-import           Development.Shake hiding (cmd, withResource, withTempDir)
+import           Development.Shake hiding (cmd, withResource)
 import           System.Directory.Extra
 import           System.Environment.Blank (setEnv)
 import           System.FilePath
@@ -441,7 +441,6 @@ mainProj service outdir log file = do
             lf <- lfTypeCheck log file
             lfSave lf
             lfRunScenarios log file
-            lfRunScripts log file
             jsonSave lf
             pure lf
 
@@ -468,9 +467,6 @@ lfTypeCheck log file = timed log "LF type check" $ unjust $ getDalf file
 
 lfRunScenarios :: (String -> IO ()) -> NormalizedFilePath -> Action ()
 lfRunScenarios log file = timed log "LF scenario execution" $ void $ unjust $ runScenarios file
-
-lfRunScripts :: (String -> IO ()) -> NormalizedFilePath -> Action ()
-lfRunScripts log file = timed log "LF scripts execution" $ void $ unjust $ runScripts file
 
 timed :: MonadIO m => (String -> IO ()) -> String -> m a -> m a
 timed log msg act = do
