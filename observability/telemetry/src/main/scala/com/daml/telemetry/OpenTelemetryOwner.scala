@@ -12,11 +12,11 @@ import com.daml.metrics.api.reporters.MetricsReporter.Prometheus
 import com.daml.metrics.grpc.DamlGrpcServerMetrics
 import com.daml.telemetry.OpenTelemetryOwner.addViewsToProvider
 import io.opentelemetry.api.OpenTelemetry
-import io.opentelemetry.exporter.prometheus.PrometheusCollector
+import io.opentelemetry.contrib.metrics.prometheus.clientbridge.PrometheusCollector
 import io.opentelemetry.sdk.autoconfigure.AutoConfiguredOpenTelemetrySdk
 import io.opentelemetry.sdk.metrics.SdkMeterProviderBuilder
-import io.opentelemetry.sdk.metrics.common.InstrumentType
-import io.opentelemetry.sdk.metrics.view.{Aggregation, InstrumentSelector, View}
+import io.opentelemetry.sdk.metrics.InstrumentType
+import io.opentelemetry.sdk.metrics.{Aggregation, InstrumentSelector, View}
 
 import scala.annotation.nowarn
 import scala.concurrent.Future
@@ -135,7 +135,7 @@ object OpenTelemetryOwner {
   private def histogramSelectorWithRegex(regex: String) = InstrumentSelector
     .builder()
     .setType(InstrumentType.HISTOGRAM)
-    .setName((t: String) => t.matches(regex))
+    .setName(regex)
     .build()
 
   private def explicitHistogramBucketsView(buckets: Seq[Double]) = View
