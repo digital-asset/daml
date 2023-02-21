@@ -187,6 +187,7 @@ da_scala_library(
 [
     da_scala_test_suite(
         name = "trigger-failure-integration-tests" + suffix,
+        timeout = "moderate",
         srcs = [
             "src/test/scala/com/digitalasset/daml/lf/engine/trigger/test/LoadTesting.scala",
         ],
