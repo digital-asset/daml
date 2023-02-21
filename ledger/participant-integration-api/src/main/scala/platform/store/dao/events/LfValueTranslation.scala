@@ -469,6 +469,13 @@ final class LfValueTranslation(
               )
               .map(resume)
               .flatMap(goAsync)
+
+          case LfEngine.ResultInterruption(continue) =>
+            goAsync(continue())
+
+          case LfEngine.ResultNeedAuthority(_, _, _) =>
+            Future.failed(new IllegalStateException("View computation must be a pure function"))
+
         }
 
       Future(engine.computeInterfaceView(templateId, value, interfaceId))

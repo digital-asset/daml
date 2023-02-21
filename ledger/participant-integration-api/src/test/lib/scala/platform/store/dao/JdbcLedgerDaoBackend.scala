@@ -138,7 +138,7 @@ private[dao] trait JdbcLedgerDaoBackend extends AkkaBeforeAndAfterAll {
         _ = ledgerEndCache.set(initialLedgerEnd.lastOffset -> initialLedgerEnd.lastEventSeqId)
       } yield dao
     }
-    ledgerDao = Await.result(resource.asFuture, 30.seconds)
+    ledgerDao = Await.result(resource.asFuture, 180.seconds)
   }
 
   override protected def afterAll(): Unit = {

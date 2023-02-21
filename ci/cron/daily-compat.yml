@@ -116,7 +116,7 @@ jobs:
           artifactName: perf-speedy
 
   - job: check_releases
-    timeoutInMinutes: 480
+    timeoutInMinutes: 600
     pool:
       name: ubuntu_20_04
       demands: assignment -equals default
@@ -133,8 +133,9 @@ jobs:
           eval "$(dev-env/bin/dade assist)"
           source $(bash_lib)
 
-          bazel build //ci/cron:cron
-          wrap_gcloud "$GCRED" "bazel-bin/ci/cron/cron check --bash-lib $(bash_lib)"
+          export AUTH="$(get_gh_auth_header)"
+
+          wrap_gcloud "$GCRED" "ci/cron/check-releases.sh"
         displayName: check releases
         env:
           GCRED: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)

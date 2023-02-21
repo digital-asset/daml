@@ -6,7 +6,7 @@ load(
     "da_scala_library",
     "da_scala_test_suite",
 )
-load("//ledger/test-common:test-common.bzl", "da_scala_dar_resources_library")
+load("//test-common:test-common.bzl", "da_scala_dar_resources_library")
 
 da_scala_library(
     name = "participant-state",

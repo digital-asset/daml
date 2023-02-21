@@ -33,6 +33,8 @@ import com.daml.lf.transaction.ContractKeyUniquenessMode
   *     that do not (i.e. Sandboxes, KV, Corda).
   * @param checkAuthorization Whether to check authorization of transaction.
   *     A value of false is insecure and should be used for security testing only.
+  * @param iterationsBetweenInterruptions bound the maximal number of interpreter
+  *     steps needed to produce a Result.
   */
 final case class EngineConfig(
     allowedLanguageVersions: VersionRange[language.LanguageVersion],
@@ -44,6 +46,7 @@ final case class EngineConfig(
     requireSuffixedGlobalContractId: Boolean = false,
     limits: interpretation.Limits = interpretation.Limits.Lenient,
     checkAuthorization: Boolean = true,
+    iterationsBetweenInterruptions: Long = 10000,
 ) {
 
   private[lf] def getCompilerConfig: speedy.Compiler.Config =

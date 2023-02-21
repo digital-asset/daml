@@ -438,6 +438,7 @@ private[lf] class Runner(
       Speedy.Machine.fromPureSExpr(
         extendedCompiledPackages,
         script.expr,
+        iterationsBetweenInterruptions = 100000,
         traceLog = traceLog,
         warningLog = warningLog,
       )(Script.DummyLoggingContext)
@@ -521,6 +522,7 @@ private[lf] class Runner(
                     )
                   case cmd: ScriptF.Cmd =>
                     cmd.execute(env).transform {
+                      case f @ Failure(Runner.Canceled) => f
                       case Failure(exception) =>
                         Failure(new ScriptF.FailedCmd(cmd, exception))
                       case Success(value) =>

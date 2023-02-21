@@ -41,11 +41,6 @@ class TransactionPointwiseQueries(
             t.event_sequential_id_last
          FROM
             participant_transaction_meta t
-         JOIN parameters p
-         ON
-            p.participant_pruned_up_to_inclusive IS NULL
-            OR
-            t.event_offset > p.participant_pruned_up_to_inclusive
          WHERE
             t.transaction_id = $transactionId
             AND

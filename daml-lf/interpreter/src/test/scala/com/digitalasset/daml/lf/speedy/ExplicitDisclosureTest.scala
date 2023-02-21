@@ -6,7 +6,7 @@ package speedy
 
 import com.daml.lf.command.ContractMetadata
 import com.daml.lf.data.Ref.Party
-import com.daml.lf.data.{Bytes, ImmArray, Ref, Time}
+import com.daml.lf.data.{Bytes, Ref, ImmArray, Time}
 import com.daml.lf.interpretation.Error.{ContractKeyNotFound, ContractNotActive}
 import com.daml.lf.speedy.SExpr.SEValue
 import com.daml.lf.value.Value
@@ -14,9 +14,9 @@ import com.daml.lf.value.Value.ContractId
 import org.scalatest.{Assertion, Inside}
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
-import com.daml.lf.speedy.SBuiltin.{SBFetchAny, SBUFetchKey, SBULookupKey}
+import com.daml.lf.speedy.SBuiltin.{SBUFetchKey, SBFetchAny, SBULookupKey}
 import com.daml.lf.speedy.SValue.SContractId
-import com.daml.lf.transaction.{GlobalKey, GlobalKeyWithMaintainers}
+import com.daml.lf.transaction.{GlobalKeyWithMaintainers, GlobalKey}
 import com.daml.lf.testing.parser.Implicits._
 
 class ExplicitDisclosureTest extends ExplicitDisclosureTestMethods {
@@ -391,7 +391,7 @@ private[lf] trait ExplicitDisclosureTestMethods extends AnyFreeSpec with Inside 
         PartialFunction.empty,
       getKey: PartialFunction[GlobalKeyWithMaintainers, Value.ContractId] = PartialFunction.empty,
   )(assertResult: Either[SError.SError, SValue] => Assertion): Assertion = {
-    val (result, ledger) =
+    val (result, machine) =
       evaluateSExpr(
         sexpr,
         committers = committers,
@@ -401,8 +401,8 @@ private[lf] trait ExplicitDisclosureTestMethods extends AnyFreeSpec with Inside 
       )
 
     assertResult(result)
-    ledger should haveDisclosedContracts()
-    ledger should haveInactiveContractIds()
+    machine should haveDisclosedContracts()
+    machine should haveInactiveContractIds()
   }
 
   def disclosureTableQueriedWhenContractDisclosed(
@@ -414,7 +414,7 @@ private[lf] trait ExplicitDisclosureTestMethods extends AnyFreeSpec with Inside 
         PartialFunction.empty,
       getKey: PartialFunction[GlobalKeyWithMaintainers, Value.ContractId] = PartialFunction.empty,
   )(assertResult: Either[SError.SError, SValue] => Assertion): Assertion = {
-    val (result, ledger) =
+    val (result, machine) =
       evaluateSExpr(
         sexpr,
         committers = committers,
@@ -424,8 +424,8 @@ private[lf] trait ExplicitDisclosureTestMethods extends AnyFreeSpec with Inside 
       )
 
     assertResult(result)
-    ledger should haveDisclosedContracts(disclosedContract)
-    ledger should haveInactiveContractIds()
+    machine should haveDisclosedContracts(disclosedContract)
+    machine should haveInactiveContractIds()
   }
 
   def ledgerQueryFailsWhenContractNotDisclosed(
@@ -438,7 +438,7 @@ private[lf] trait ExplicitDisclosureTestMethods extends AnyFreeSpec with Inside 
         PartialFunction.empty,
       getKey: PartialFunction[GlobalKeyWithMaintainers, Value.ContractId] = PartialFunction.empty,
   )(assertResult: Either[SError.SError, SValue] => Assertion): Assertion = {
-    val (result, ledger) =
+    val (result, machine) =
       evaluateSExprWithSetup(
         e"""\(contractId: ContractId TestMod:House) ->
                           $action contractId
@@ -453,8 +453,8 @@ private[lf] trait ExplicitDisclosureTestMethods extends AnyFreeSpec with Inside 
       )
 
     assertResult(result)
-    ledger should haveDisclosedContracts()
-    ledger should haveInactiveContractIds(contractId)
+    machine should haveDisclosedContracts()
+    machine should haveInactiveContractIds(contractId)
   }
 
   def disclosureTableQueryFailsWhenContractDisclosed(
@@ -468,7 +468,7 @@ private[lf] trait ExplicitDisclosureTestMethods extends AnyFreeSpec with Inside 
         PartialFunction.empty,
       getKey: PartialFunction[GlobalKeyWithMaintainers, Value.ContractId] = PartialFunction.empty,
   )(assertResult: Either[SError.SError, SValue] => Assertion): Assertion = {
-    val (result, ledger) =
+    val (result, machine) =
       evaluateSExprWithSetup(
         e"""\(contractId: ContractId TestMod:House) ->
                           $action contractId
@@ -483,8 +483,8 @@ private[lf] trait ExplicitDisclosureTestMethods extends AnyFreeSpec with Inside 
       )
 
     assertResult(result)
-    ledger should haveDisclosedContracts(disclosedContract)
-    ledger should haveInactiveContractIds(contractToDestroy)
+    machine should haveDisclosedContracts(disclosedContract)
+    machine should haveInactiveContractIds(contractToDestroy)
   }
 
   def wronglyTypedDisclosedContractsRejected(
@@ -506,7 +506,7 @@ private[lf] trait ExplicitDisclosureTestMethods extends AnyFreeSpec with Inside 
         ),
         ContractMetadata(Time.Timestamp.now(), Some(houseContractKey.hash), Bytes.Empty),
       )
-    val (result, ledger) =
+    val (result, machine) =
       evaluateSExpr(
         sexpr,
         committers = Set(disclosureParty),
@@ -514,7 +514,7 @@ private[lf] trait ExplicitDisclosureTestMethods extends AnyFreeSpec with Inside 
       )
 
     assertResult(result)
-    ledger should haveDisclosedContracts(malformedDisclosedContract)
-    ledger should haveInactiveContractIds()
+    machine should haveDisclosedContracts(malformedDisclosedContract)
+    machine should haveInactiveContractIds()
   }
 }

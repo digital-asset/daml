@@ -718,13 +718,13 @@ Then we can define our kinds, types, and expressions::
   Updates
     u ::= 'pure' @τ e                               -- UpdatePure
        |  'bind' x₁ : τ₁ ← e₁ 'in' e₂               -- UpdateBlock
-       |  'create' @Mod:T e                         -- UpdateCreate
+  x     |  'create' @Mod:T e                         -- UpdateCreate
        |  'create_interface' @Mod:I e               -- UpdateCreateInterface [Daml-LF ≥ 1.dev]
        |  'fetch' @Mod:T e                          -- UpdateFetch
        |  'fetch_interface' @Mod:I e                -- UpdateFetchInterface [Daml-LF ≥ 1.dev]
-       |  'exercise' @Mod:T Ch e₁ e₂                -- UpdateExercise
-       |  'exercise_by_key' @Mod:T Ch e₁ e₂         -- UpdateExerciseByKey [Daml-LF ≥ 1.11]
-       |  'exercise_interface' @Mod:I Ch e₁ e₂ e₃   -- UpdateExerciseInterface [Daml-LF ≥ 1.dev]
+  x     |  'exercise' @Mod:T Ch e₁ e₂                -- UpdateExercise
+  x     |  'exercise_by_key' @Mod:T Ch e₁ e₂         -- UpdateExerciseByKey [Daml-LF ≥ 1.11]
+  x     |  'exercise_interface' @Mod:I Ch e₁ e₂ e₃   -- UpdateExerciseInterface [Daml-LF ≥ 1.dev]
        |  'get_time'                                -- UpdateGetTime
        |  'fetch_by_key' @τ e                       -- UpdateFecthByKey
        |  'lookup_by_key' @τ e                      -- UpdateLookUpByKey

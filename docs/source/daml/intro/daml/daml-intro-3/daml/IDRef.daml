@@ -64,12 +64,12 @@ id_ref_test = do
 
   -- Now the accountant updates the telephone number for the bank on the account
   Some account <- queryContractId accountant accountCid
-  new_account <- submit accountant do
+  new_accountCid <- submit accountant do
     archiveCmd accountCid
-    createCmd account with
+    cid <- createCmd account with
       bank = account.bank with
         telephone = "098 7654 321"
-    pure ()
+    pure cid
 
   -- The `account` field on the balance now refers to the archived
   -- contract, so this will fail.

@@ -39,7 +39,7 @@ main = do
     scriptDar <- locateRunfiles (mainWorkspace </> "daml-script" </> "daml" </> "daml-script.dar")
     testDar <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> "tests" </> "repl-test.dar")
     multiTestDar <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> "tests" </> "repl-multi-test.dar")
-    certDir <- locateRunfiles (mainWorkspace </> "ledger" </> "test-common" </> "test-certificates")
+    certDir <- locateRunfiles (mainWorkspace </> "test-common" </> "test-certificates")
     defaultMain $ withSandbox defaultSandboxConf
                   { dars = [testDar]
                   , mbLedgerId = Just testLedgerId

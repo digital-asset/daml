@@ -19,7 +19,7 @@ main :: IO ()
 main = do
     setEnv "TASTY_NUM_THREADS" "1" True
     damlHelper <- locateRunfiles (mainWorkspace </> "daml-assistant" </> "daml-helper" </> exe "daml-helper")
-    certDir <- locateRunfiles (mainWorkspace </> "ledger" </> "test-common" </> "test-certificates")
+    certDir <- locateRunfiles (mainWorkspace </> "test-common" </> "test-certificates")
     defaultMain $
         testGroup "TLS"
            [ withSandbox defaultSandboxConf { enableTls = True, mbClientAuth = Just None } $ \getSandboxPort ->

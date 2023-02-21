@@ -317,7 +317,7 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
 
   private val List(serverCrt, serverPem, caCrt, clientCrt, clientPem) = {
     List("server.crt", "server.pem", "ca.crt", "client.crt", "client.pem").map { src =>
-      Some(new File(rlocation("ledger/test-common/test-certificates/" + src)))
+      Some(new File(rlocation("test-common/test-certificates/" + src)))
     }
   }
 

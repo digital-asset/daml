@@ -17,6 +17,7 @@ import com.daml.ledger.api.v1.transaction_service.{
   GetTransactionTreesResponse,
   GetTransactionsResponse,
 }
+import com.daml.ledger.api.v1.event_query_service._
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2
@@ -33,6 +34,7 @@ import com.daml.lf.data.Ref.{ApplicationId, Party}
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value
+import com.daml.lf.value.Value.ContractId
 import com.daml.logging.LoggingContext
 import com.daml.metrics.{Metrics, Timed}
 
@@ -243,4 +245,30 @@ private[daml] final class TimedIndexService(delegate: IndexService, metrics: Met
       loggingContext: LoggingContext
   ): Future[(LedgerOffset.Absolute, LedgerOffset.Absolute)] =
     Timed.future(metrics.daml.services.index.latestPrunedOffsets, delegate.latestPrunedOffsets())
+
+  override def getEventsByContractId(
+      contractId: ContractId,
+      requestingParties: Set[Ref.Party],
+  )(implicit loggingContext: LoggingContext): Future[GetEventsByContractIdResponse] =
+    Timed.future(
+      metrics.daml.services.index.getEventsByContractId,
+      delegate.getEventsByContractId(contractId, requestingParties),
+    )
+
+  override def getEventsByContractKey(
+      contractKey: Value,
+      templateId: Ref.Identifier,
+      requestingParties: Set[Ref.Party],
+      endExclusiveSeqId: Option[Long],
+  )(implicit loggingContext: LoggingContext): Future[GetEventsByContractKeyResponse] =
+    Timed.future(
+      metrics.daml.services.index.getEventsByContractKey,
+      delegate.getEventsByContractKey(
+        contractKey,
+        templateId,
+        requestingParties,
+        endExclusiveSeqId,
+      ),
+    )
+
 }

@@ -3,14 +3,15 @@
 
 package com.daml.ledger.api.auth
 
+import java.time.Instant
+
 import org.scalacheck.{Arbitrary, Gen}
-import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
+import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 import spray.json._
 
-import java.time.Instant
-import scala.util.{Failure, Success, Try}
+import scala.util.{Success, Try}
 
 class AuthServiceJWTCodecSpec
     extends AnyWordSpec
@@ -338,7 +339,27 @@ class AuthServiceJWTCodecSpec
         parse(serialized) shouldBe Success(expected)
       }
 
-      "reject the token of ParticipantId format with multiple audiences" in {
+      "support multiple audiences with a single participant audience" in {
+        val serialized =
+          """{
+            |  "aud": ["https://example.com/non/related/audience", 
+            |          "https://daml.com/jwt/aud/participant/someParticipantId"],
+            |  "sub": "someUserId",
+            |  "exp": 100
+            |}
+          """.stripMargin
+        parse(serialized) shouldBe Success(
+          StandardJWTPayload(
+            issuer = None,
+            participantId = Some("someParticipantId"),
+            userId = "someUserId",
+            exp = Some(Instant.ofEpochSecond(100)),
+            format = StandardJWTTokenFormat.ParticipantId,
+          )
+        )
+      }
+
+      "reject the token of ParticipantId format with multiple participant audiences" in {
         val serialized =
           """{
             |  "aud": ["https://daml.com/jwt/aud/participant/someParticipantId", 
@@ -347,11 +368,8 @@ class AuthServiceJWTCodecSpec
             |  "exp": 100
             |}
           """.stripMargin
-        parse(serialized) shouldBe Failure(
-          DeserializationException(
-            "Could not read [\"https://daml.com/jwt/aud/participant/someParticipantId\", " +
-              "\"https://daml.com/jwt/aud/participant/someParticipantId2\"] as string for aud"
-          )
+        parse(serialized).failed.get.getMessage should include(
+          "must include a single participantId value prefixed by"
         )
       }
 
@@ -365,11 +383,8 @@ class AuthServiceJWTCodecSpec
             |  "scope": "daml_ledger_api"
             |}
           """.stripMargin
-        parse(serialized) shouldBe Failure(
-          DeserializationException(
-            "Could not read [\"someParticipantId\", " +
-              "\"someParticipantId2\"] as string for aud"
-          )
+        parse(serialized).failed.get.getMessage should include(
+          "`aud` must be empty or a single participantId."
         )
       }
 

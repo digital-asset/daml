@@ -48,10 +48,10 @@ object Question {
     ) extends Update
 
     final case class NeedAuthority(
-        using: Set[Party],
+        holding: Set[Party],
         requesting: Set[Party],
-        // Callback: the request is granted
-        callback: Boolean => Unit,
+        // Callback only when the request is granted
+        callback: () => Unit,
     ) extends Update
   }
 

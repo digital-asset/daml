@@ -213,7 +213,7 @@ private[apiserver] final class ApiSubmissionService private[services] (
         result.transaction,
         result.interpretationTimeNanos,
         result.globalKeyMapping,
-        result.usedDisclosedContracts,
+        result.processedDisclosedContracts,
       )
       .toScalaUnwrapped
   }

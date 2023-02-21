@@ -109,6 +109,6 @@ final class TlsCertificateRevocationCheckingSpec
 object TlsCertificateRevocationCheckingSpec {
 
   protected def resource(src: String) =
-    new File(rlocation("ledger/test-common/test-certificates/" + src))
+    new File(rlocation("test-common/test-certificates/" + src))
 
 }

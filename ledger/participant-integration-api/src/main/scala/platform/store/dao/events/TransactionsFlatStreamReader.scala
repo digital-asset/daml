@@ -52,18 +52,19 @@ class TransactionsFlatStreamReader(
     Ordering.by[EventStorageBackend.Entry[Raw.FlatEvent], Long](_.eventSequentialId)
 
   def streamFlatTransactions(
-      queryRange: EventsRange[(Offset, Long)],
+      queryRange: EventsRange,
       filteringConstraints: TemplatePartiesFilter,
       eventProjectionProperties: EventProjectionProperties,
   )(implicit loggingContext: LoggingContext): Source[(Offset, GetTransactionsResponse), NotUsed] = {
-    val startExclusiveOffset: Offset = queryRange.startExclusive._1
-    val endInclusiveOffset: Offset = queryRange.endInclusive._1
     val span =
-      Telemetry.Transactions.createSpan(startExclusiveOffset, endInclusiveOffset)(
+      Telemetry.Transactions.createSpan(
+        queryRange.startExclusiveOffset,
+        queryRange.endInclusiveOffset,
+      )(
         qualifiedNameOfCurrentFunc
       )
     logger.debug(
-      s"streamFlatTransactions($startExclusiveOffset, $endInclusiveOffset, $filteringConstraints, $eventProjectionProperties)"
+      s"streamFlatTransactions(${queryRange.startExclusiveOffset}, ${queryRange.endInclusiveOffset}, $filteringConstraints, $eventProjectionProperties)"
     )
     doStreamFlatTransactions(
       queryRange,
@@ -82,14 +83,10 @@ class TransactionsFlatStreamReader(
   }
 
   private def doStreamFlatTransactions(
-      queryRange: EventsRange[(Offset, Long)],
+      queryRange: EventsRange,
       filteringConstraints: TemplatePartiesFilter,
       eventProjectionProperties: EventProjectionProperties,
   )(implicit loggingContext: LoggingContext): Source[(Offset, GetTransactionsResponse), NotUsed] = {
-    val (startExclusiveOffset, startExclusiveEventSequentialId): (Offset, Long) =
-      queryRange.startExclusive
-    val (endInclusiveOffset, endInclusiveEventSequentialId): (Offset, Long) =
-      queryRange.endInclusive
     val createEventIdQueriesLimiter =
       new QueueBasedConcurrencyLimiter(maxParallelIdCreateQueries, executionContext)
     val consumingEventIdQueriesLimiter =
@@ -117,7 +114,7 @@ class TransactionsFlatStreamReader(
           PaginatingAsyncStream.streamIdsFromSeekPagination(
             idPageSizing = idPageSizing,
             idPageBufferSize = maxPagesPerIdPagesBuffer,
-            initialFromIdExclusive = startExclusiveEventSequentialId,
+            initialFromIdExclusive = queryRange.startExclusiveEventSeqId,
           )(
             fetchPage = (state: IdPaginationState) => {
               maxParallelIdQueriesLimiter.execute {
@@ -129,7 +126,7 @@ class TransactionsFlatStreamReader(
                       stakeholder = filter.party,
                       templateIdO = filter.templateId,
                       startExclusive = state.fromIdExclusive,
-                      endInclusive = endInclusiveEventSequentialId,
+                      endInclusive = queryRange.endInclusiveEventSeqId,
                       limit = state.pageSize,
                     )(connection)
                   }
@@ -167,9 +164,9 @@ class TransactionsFlatStreamReader(
                       eventSequentialIds = ids,
                       allFilterParties = filteringConstraints.allFilterParties,
                     )(connection),
-                  minOffsetExclusive = startExclusiveOffset,
+                  minOffsetExclusive = queryRange.startExclusiveOffset,
                   error = (prunedOffset: Offset) =>
-                    s"Transactions request from ${startExclusiveOffset.toHexString} to ${endInclusiveOffset.toHexString} precedes pruned offset ${prunedOffset.toHexString}",
+                    s"Transactions request from ${queryRange.startExclusiveOffset.toHexString} to ${queryRange.endInclusiveOffset.toHexString} precedes pruned offset ${prunedOffset.toHexString}",
                 )
               }
             }

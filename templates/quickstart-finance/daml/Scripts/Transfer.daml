@@ -145,6 +145,10 @@ runTransfer = do
     holdingFactoryCid
     newHoldingCid
 
--- | Creates a party given a hint
+-- | Creates a user + party given a hint
 createParty : Text -> Script Party
-createParty name = allocatePartyWithHint name $ PartyIdHint name
+createParty name = do
+  party <- allocatePartyWithHint name $ PartyIdHint name
+  userId <- validateUserId name
+  createUser (User userId (Some party)) [CanActAs party]
+  pure party

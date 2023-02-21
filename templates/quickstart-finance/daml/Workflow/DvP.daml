@@ -1,20 +1,19 @@
 module Workflow.DvP where
 
 import DA.Set (fromList, singleton)
-import Daml.Finance.Interface.Instrument.Base.Instrument qualified as Instrument (Q)
 import Daml.Finance.Interface.Settlement.Batch qualified as Batch (I)
-import Daml.Finance.Interface.Settlement.Factory qualified as Factory (I, Instruct(..))
+import Daml.Finance.Interface.Settlement.Factory qualified as Settlement (F, Instruct(..))
 import Daml.Finance.Interface.Settlement.Instruction qualified as Instruction (I)
 import Daml.Finance.Interface.Settlement.RouteProvider qualified as RouteProvider (I, Discover(..))
 import Daml.Finance.Interface.Settlement.Types (Step(..))
-import Daml.Finance.Interface.Types.Common.Types (Id(..))
+import Daml.Finance.Interface.Types.Common.Types (Id(..), InstrumentQuantity)
 
 -- | Initiate / Accept template to exchange two holdings.
 template Proposal
   with
-    recQuantity : Instrument.Q
+    recQuantity : InstrumentQuantity
       -- ^ The receiving leg (instrument and amount).
-    payQuantity : Instrument.Q
+    payQuantity : InstrumentQuantity
       -- ^ The pay leg (instrument and amount).
     proposer : Party
       -- ^ The party proposing the trade. They receive the receiving leg in exchange for the pay
@@ -23,7 +22,7 @@ template Proposal
       -- ^ The trade counterparty. They receive the pay leg in exchange for the receiving leg.
     routeProviderCid : ContractId RouteProvider.I
       -- ^ The route provider to discover settlement paths.
-    settlementFactoryCid : ContractId Factory.I
+    settlementFactoryCid : ContractId Settlement.F
       -- ^ The factory contract for the settlement batch.
     id : Text
       -- ^ A textual identifier.
@@ -51,7 +50,7 @@ template Proposal
 
         -- INSTRUCT_BEGIN
         (containerCid, [recInstructionCid, payInstructionCid]) <-
-          exercise settlementFactoryCid Factory.Instruct with
+          exercise settlementFactoryCid Settlement.Instruct with
             instructors = fromList [proposer, counterparty]
             settlers = singleton proposer
             id = Id id
@@ -59,7 +58,6 @@ template Proposal
             contextId = None
             routedSteps
             settlementTime = None -- i.e., immediate settlement
-
         -- INSTRUCT_END
 
         pure (containerCid, recInstructionCid, payInstructionCid)
