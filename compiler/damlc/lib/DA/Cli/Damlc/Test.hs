@@ -62,8 +62,8 @@ import Text.Printf
 newtype UseColor = UseColor {getUseColor :: Bool}
 newtype ShowCoverage = ShowCoverage {getShowCoverage :: Bool}
 newtype RunAllTests = RunAllTests {getRunAllTests :: Bool}
-newtype TableOutputPath = TableOutputPath (Maybe String)
-newtype TransactionsOutputPath = TransactionsOutputPath (Maybe String)
+newtype TableOutputPath = TableOutputPath {getTableOutputPath :: Maybe String}
+newtype TransactionsOutputPath = TransactionsOutputPath {getTransactionsOutputPath :: Maybe String}
 
 -- | Test a Daml file.
 execTest :: [NormalizedFilePath] -> RunAllTests -> ShowCoverage -> UseColor -> Maybe FilePath -> Options -> TableOutputPath -> TransactionsOutputPath -> IO ()
@@ -155,12 +155,23 @@ testRun h inFiles lfVersion (RunAllTests runAllTests) coverage color mbJUnitOutp
         allResults
 
     mbSdkPath <- getEnv sdkPathEnvVar
-    case mbSdkPath of
-      Nothing -> pure ()
-      Just sdkPath -> do
-        extensionCss <- readFile (sdkPath </> "studio/webview-stylesheet.css")
-        outputTables extensionCss tableOutputPath results
-        outputTransactions extensionCss transactionsOutputPath results
+    let doesOutputTablesOrTransactions =
+            isJust (getTableOutputPath tableOutputPath) ||
+            isJust (getTransactionsOutputPath transactionsOutputPath)
+    when doesOutputTablesOrTransactions $
+        case mbSdkPath of
+          Nothing -> pure ()
+          Just sdkPath -> do
+            let cssPath = sdkPath </> "studio/webview-stylesheet.css"
+            extensionCss <-
+                catchJust
+                    (guard . isDoesNotExistError)
+                    (Just <$> readFile cssPath)
+                    (const $ do
+                        hPutStrLn stderr $ "Warning: Could not open stylesheet '" <> cssPath <> "' for tables and transactions, will style plainly"
+                        pure Nothing)
+            outputTables extensionCss tableOutputPath results
+            outputTransactions extensionCss transactionsOutputPath results
 
     whenJust mbJUnitOutput $ \junitOutput -> do
         createDirectoryIfMissing True $ takeDirectory junitOutput
@@ -210,7 +221,7 @@ outputUnderDir dir paths = do
             _ <- tryWithPath (flip TIO.writeFile content) file
             pure ()
 
-outputTables :: String -> TableOutputPath -> [(LF.World, NormalizedFilePath, LF.Module, Maybe [(VirtualResource, Either SSC.Error SS.ScenarioResult)])] -> IO ()
+outputTables :: Maybe String -> TableOutputPath -> [(LF.World, NormalizedFilePath, LF.Module, Maybe [(VirtualResource, Either SSC.Error SS.ScenarioResult)])] -> IO ()
 outputTables cssSource (TableOutputPath (Just path)) results =
     let outputs :: [(NamedPath, T.Text)]
         outputs = do
@@ -219,7 +230,7 @@ outputTables cssSource (TableOutputPath (Just path)) results =
             let activeContracts = SS.activeContractsFromScenarioResult result
                 tableView = SS.renderTableView world activeContracts (SS.scenarioResultNodes result)
                 tableSource = TL.toStrict $ Blaze.renderHtml $ do
-                    Blaze.style $ Blaze.preEscapedToHtml cssSource
+                    foldMap (Blaze.style . Blaze.preEscapedToHtml) cssSource
                     fold tableView
                 outputFile = path </> ("table-" <> T.unpack (vrScenarioName vr) <> ".html")
                 outputFileName = "Test table output file '" <> outputFile <> "'"
@@ -230,7 +241,7 @@ outputTables cssSource (TableOutputPath (Just path)) results =
         outputs
 outputTables _ _ _ = pure ()
 
-outputTransactions :: String -> TransactionsOutputPath -> [(LF.World, NormalizedFilePath, LF.Module, Maybe [(VirtualResource, Either SSC.Error SS.ScenarioResult)])] -> IO ()
+outputTransactions :: Maybe String -> TransactionsOutputPath -> [(LF.World, NormalizedFilePath, LF.Module, Maybe [(VirtualResource, Either SSC.Error SS.ScenarioResult)])] -> IO ()
 outputTransactions cssSource (TransactionsOutputPath (Just path)) results =
     let outputs :: [(NamedPath, T.Text)]
         outputs = do
@@ -239,7 +250,7 @@ outputTransactions cssSource (TransactionsOutputPath (Just path)) results =
             let activeContracts = SS.activeContractsFromScenarioResult result
                 transView = SS.renderTransactionView world activeContracts result
                 transSource = TL.toStrict $ Blaze.renderHtml $ do
-                    Blaze.style $ Blaze.preEscapedToHtml cssSource
+                    foldMap (Blaze.style . Blaze.preEscapedToHtml) cssSource
                     transView
                 outputFile = path </> ("transaction-" <> T.unpack (vrScenarioName vr) <> ".html")
                 outputFileName = "Test transaction output file '" <> outputFile <> "'"
