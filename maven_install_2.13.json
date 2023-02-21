@@ -7529,128 +7529,251 @@
                 "url": "https://repo1.maven.org/maven2/io/netty/netty-transport/4.1.72.Final/netty-transport-4.1.72.Final-sources.jar"
             },
             {
-                "coord": "io.opentelemetry.instrumentation:opentelemetry-instrumentation-api:1.12.0-alpha",
+                "coord": "io.opentelemetry.contrib:opentelemetry-prometheus-client-bridge:1.22.0-alpha",
                 "dependencies": [
-                    "io.opentelemetry:opentelemetry-api:1.12.0",
-                    "io.opentelemetry:opentelemetry-context:1.12.0",
-                    "io.opentelemetry:opentelemetry-semconv:1.12.0-alpha",
-                    "org.slf4j:slf4j-api:2.0.6"
+                    "io.opentelemetry:opentelemetry-api:1.22.0",
+                    "io.opentelemetry:opentelemetry-context:1.22.0",
+                    "io.opentelemetry:opentelemetry-sdk-common:1.22.0",
+                    "io.opentelemetry:opentelemetry-sdk-metrics:1.22.0",
+                    "io.opentelemetry:opentelemetry-semconv:1.22.0-alpha",
+                    "io.prometheus:simpleclient:0.14.1"
                 ],
                 "directDependencies": [
-                    "io.opentelemetry:opentelemetry-api:1.12.0",
-                    "io.opentelemetry:opentelemetry-semconv:1.12.0-alpha",
-                    "org.slf4j:slf4j-api:2.0.6"
+                    "io.opentelemetry:opentelemetry-sdk-metrics:1.22.0",
+                    "io.prometheus:simpleclient:0.14.1"
+                ],
+                "file": "v1/https/repo1.maven.org/maven2/io/opentelemetry/contrib/opentelemetry-prometheus-client-bridge/1.22.0-alpha/opentelemetry-prometheus-client-bridge-1.22.0-alpha.jar",
+                "mirror_urls": [
+                    "https://repo1.maven.org/maven2/io/opentelemetry/contrib/opentelemetry-prometheus-client-bridge/1.22.0-alpha/opentelemetry-prometheus-client-bridge-1.22.0-alpha.jar"
+                ],
+                "packages": [
+                    "io.opentelemetry.contrib.metrics.prometheus.clientbridge"
+                ],
+                "sha256": "25a4af7db99c21e50313f7c2fb788a986987ebede00bf55e3ba58b095de73aa0",
+                "url": "https://repo1.maven.org/maven2/io/opentelemetry/contrib/opentelemetry-prometheus-client-bridge/1.22.0-alpha/opentelemetry-prometheus-client-bridge-1.22.0-alpha.jar"
+            },
+            {
+                "coord": "io.opentelemetry.contrib:opentelemetry-prometheus-client-bridge:jar:sources:1.22.0-alpha",
+                "dependencies": [
+                    "io.opentelemetry:opentelemetry-api:jar:sources:1.22.0",
+                    "io.opentelemetry:opentelemetry-context:jar:sources:1.22.0",
+                    "io.opentelemetry:opentelemetry-sdk-common:jar:sources:1.22.0",
+                    "io.opentelemetry:opentelemetry-sdk-metrics:jar:sources:1.22.0",
+                    "io.opentelemetry:opentelemetry-semconv:jar:sources:1.22.0-alpha",
+                    "io.prometheus:simpleclient:jar:sources:0.14.1"
+                ],
+                "directDependencies": [
+                    "io.opentelemetry:opentelemetry-sdk-metrics:jar:sources:1.22.0",
+                    "io.prometheus:simpleclient:jar:sources:0.14.1"
+                ],
+                "file": "v1/https/repo1.maven.org/maven2/io/opentelemetry/contrib/opentelemetry-prometheus-client-bridge/1.22.0-alpha/opentelemetry-prometheus-client-bridge-1.22.0-alpha-sources.jar",
+                "mirror_urls": [
+                    "https://repo1.maven.org/maven2/io/opentelemetry/contrib/opentelemetry-prometheus-client-bridge/1.22.0-alpha/opentelemetry-prometheus-client-bridge-1.22.0-alpha-sources.jar"
+                ],
+                "packages": [],
+                "sha256": "bb83812454910aaca92b2192ef3541ae8420af1055ebbc6482adaf4a268a1dc3",
+                "url": "https://repo1.maven.org/maven2/io/opentelemetry/contrib/opentelemetry-prometheus-client-bridge/1.22.0-alpha/opentelemetry-prometheus-client-bridge-1.22.0-alpha-sources.jar"
+            },
+            {
+                "coord": "io.opentelemetry.instrumentation:opentelemetry-instrumentation-api-semconv:1.22.0-alpha",
+                "dependencies": [
+                    "io.opentelemetry.instrumentation:opentelemetry-instrumentation-api:1.22.0",
+                    "io.opentelemetry:opentelemetry-api:1.22.0",
+                    "io.opentelemetry:opentelemetry-context:1.22.0",
+                    "io.opentelemetry:opentelemetry-semconv:1.22.0-alpha"
+                ],
+                "directDependencies": [
+                    "io.opentelemetry.instrumentation:opentelemetry-instrumentation-api:1.22.0",
+                    "io.opentelemetry:opentelemetry-semconv:1.22.0-alpha"
                 ],
                 "exclusions": [
                     "io.opentelemetry.instrumentation:opentelemetry-instrumentation-bom-alpha"
                 ],
-                "file": "v1/https/repo1.maven.org/maven2/io/opentelemetry/instrumentation/opentelemetry-instrumentation-api/1.12.0-alpha/opentelemetry-instrumentation-api-1.12.0-alpha.jar",
+                "file": "v1/https/repo1.maven.org/maven2/io/opentelemetry/instrumentation/opentelemetry-instrumentation-api-semconv/1.22.0-alpha/opentelemetry-instrumentation-api-semconv-1.22.0-alpha.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/io/opentelemetry/instrumentation/opentelemetry-instrumentation-api/1.12.0-alpha/opentelemetry-instrumentation-api-1.12.0-alpha.jar"
+                    "https://repo1.maven.org/maven2/io/opentelemetry/instrumentation/opentelemetry-instrumentation-api-semconv/1.22.0-alpha/opentelemetry-instrumentation-api-semconv-1.22.0-alpha.jar"
                 ],
                 "packages": [
-                    "io.opentelemetry.instrumentation.api",
-                    "io.opentelemetry.instrumentation.api.annotations",
-                    "io.opentelemetry.instrumentation.api.cache",
-                    "io.opentelemetry.instrumentation.api.cache.internal.concurrentlinkedhashmap",
-                    "io.opentelemetry.instrumentation.api.cache.internal.weaklockfree",
-                    "io.opentelemetry.instrumentation.api.config",
                     "io.opentelemetry.instrumentation.api.db",
-                    "io.opentelemetry.instrumentation.api.field",
-                    "io.opentelemetry.instrumentation.api.instrumenter",
                     "io.opentelemetry.instrumentation.api.instrumenter.code",
                     "io.opentelemetry.instrumentation.api.instrumenter.db",
                     "io.opentelemetry.instrumentation.api.instrumenter.http",
                     "io.opentelemetry.instrumentation.api.instrumenter.messaging",
                     "io.opentelemetry.instrumentation.api.instrumenter.net",
+                    "io.opentelemetry.instrumentation.api.instrumenter.net.internal",
                     "io.opentelemetry.instrumentation.api.instrumenter.rpc",
-                    "io.opentelemetry.instrumentation.api.internal",
+                    "io.opentelemetry.instrumentation.api.instrumenter.util",
                     "io.opentelemetry.instrumentation.api.log",
-                    "io.opentelemetry.instrumentation.api.server",
-                    "io.opentelemetry.instrumentation.api.util"
+                    "io.opentelemetry.instrumentation.api.metrics.db",
+                    "io.opentelemetry.instrumentation.api.server"
                 ],
-                "sha256": "ec65151e8ef4be1bdb1e6f6aa32c656272c921c361cd14169d37c31676530e5d",
-                "url": "https://repo1.maven.org/maven2/io/opentelemetry/instrumentation/opentelemetry-instrumentation-api/1.12.0-alpha/opentelemetry-instrumentation-api-1.12.0-alpha.jar"
+                "sha256": "19314017e440f24a11a832669b10574eaffd9f771bef67f6a3612672d044bd82",
+                "url": "https://repo1.maven.org/maven2/io/opentelemetry/instrumentation/opentelemetry-instrumentation-api-semconv/1.22.0-alpha/opentelemetry-instrumentation-api-semconv-1.22.0-alpha.jar"
             },
             {
-                "coord": "io.opentelemetry.instrumentation:opentelemetry-instrumentation-api:jar:sources:1.12.0-alpha",
+                "coord": "io.opentelemetry.instrumentation:opentelemetry-instrumentation-api-semconv:jar:sources:1.22.0-alpha",
                 "dependencies": [
-                    "io.opentelemetry:opentelemetry-api:jar:sources:1.12.0",
-                    "io.opentelemetry:opentelemetry-context:jar:sources:1.12.0",
-                    "io.opentelemetry:opentelemetry-semconv:jar:sources:1.12.0-alpha",
-                    "org.slf4j:slf4j-api:jar:sources:2.0.6"
+                    "io.opentelemetry.instrumentation:opentelemetry-instrumentation-api:jar:sources:1.22.0",
+                    "io.opentelemetry:opentelemetry-api:jar:sources:1.22.0",
+                    "io.opentelemetry:opentelemetry-context:jar:sources:1.22.0",
+                    "io.opentelemetry:opentelemetry-semconv:jar:sources:1.22.0-alpha"
                 ],
                 "directDependencies": [
-                    "io.opentelemetry:opentelemetry-api:jar:sources:1.12.0",
-                    "io.opentelemetry:opentelemetry-semconv:jar:sources:1.12.0-alpha",
-                    "org.slf4j:slf4j-api:jar:sources:2.0.6"
+                    "io.opentelemetry.instrumentation:opentelemetry-instrumentation-api:jar:sources:1.22.0",
+                    "io.opentelemetry:opentelemetry-semconv:jar:sources:1.22.0-alpha"
                 ],
                 "exclusions": [
                     "io.opentelemetry.instrumentation:opentelemetry-instrumentation-bom-alpha"
                 ],
-                "file": "v1/https/repo1.maven.org/maven2/io/opentelemetry/instrumentation/opentelemetry-instrumentation-api/1.12.0-alpha/opentelemetry-instrumentation-api-1.12.0-alpha-sources.jar",
+                "file": "v1/https/repo1.maven.org/maven2/io/opentelemetry/instrumentation/opentelemetry-instrumentation-api-semconv/1.22.0-alpha/opentelemetry-instrumentation-api-semconv-1.22.0-alpha-sources.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/io/opentelemetry/instrumentation/opentelemetry-instrumentation-api/1.12.0-alpha/opentelemetry-instrumentation-api-1.12.0-alpha-sources.jar"
+                    "https://repo1.maven.org/maven2/io/opentelemetry/instrumentation/opentelemetry-instrumentation-api-semconv/1.22.0-alpha/opentelemetry-instrumentation-api-semconv-1.22.0-alpha-sources.jar"
                 ],
                 "packages": [],
-                "sha256": "04c378a9fc88a9241363848cb6fe6275e002651b657fe7bc229c8c0515db1592",
-                "url": "https://repo1.maven.org/maven2/io/opentelemetry/instrumentation/opentelemetry-instrumentation-api/1.12.0-alpha/opentelemetry-instrumentation-api-1.12.0-alpha-sources.jar"
+                "sha256": "d478bde7b79e5439fe1355c4d8afac6a869b0a66659cfd898e32cb93601a17bb",
+                "url": "https://repo1.maven.org/maven2/io/opentelemetry/instrumentation/opentelemetry-instrumentation-api-semconv/1.22.0-alpha/opentelemetry-instrumentation-api-semconv-1.22.0-alpha-sources.jar"
             },
             {
-                "coord": "io.opentelemetry.instrumentation:opentelemetry-runtime-metrics:1.12.0-alpha",
+                "coord": "io.opentelemetry.instrumentation:opentelemetry-instrumentation-api:1.22.0",
                 "dependencies": [
-                    "io.opentelemetry.instrumentation:opentelemetry-instrumentation-api:1.12.0-alpha",
-                    "io.opentelemetry:opentelemetry-api:1.12.0",
-                    "io.opentelemetry:opentelemetry-context:1.12.0",
-                    "io.opentelemetry:opentelemetry-semconv:1.12.0-alpha",
-                    "org.slf4j:slf4j-api:2.0.6"
+                    "io.opentelemetry:opentelemetry-api:1.22.0",
+                    "io.opentelemetry:opentelemetry-context:1.22.0"
                 ],
                 "directDependencies": [
-                    "io.opentelemetry.instrumentation:opentelemetry-instrumentation-api:1.12.0-alpha",
-                    "io.opentelemetry:opentelemetry-api:1.12.0"
+                    "io.opentelemetry:opentelemetry-api:1.22.0"
                 ],
-                "file": "v1/https/repo1.maven.org/maven2/io/opentelemetry/instrumentation/opentelemetry-runtime-metrics/1.12.0-alpha/opentelemetry-runtime-metrics-1.12.0-alpha.jar",
+                "exclusions": [
+                    "io.opentelemetry.instrumentation:opentelemetry-instrumentation-bom-alpha"
+                ],
+                "file": "v1/https/repo1.maven.org/maven2/io/opentelemetry/instrumentation/opentelemetry-instrumentation-api/1.22.0/opentelemetry-instrumentation-api-1.22.0.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/io/opentelemetry/instrumentation/opentelemetry-runtime-metrics/1.12.0-alpha/opentelemetry-runtime-metrics-1.12.0-alpha.jar"
+                    "https://repo1.maven.org/maven2/io/opentelemetry/instrumentation/opentelemetry-instrumentation-api/1.22.0/opentelemetry-instrumentation-api-1.22.0.jar"
+                ],
+                "packages": [
+                    "io.opentelemetry.instrumentation.api",
+                    "io.opentelemetry.instrumentation.api.instrumenter",
+                    "io.opentelemetry.instrumentation.api.internal",
+                    "io.opentelemetry.instrumentation.api.internal.cache",
+                    "io.opentelemetry.instrumentation.api.internal.cache.concurrentlinkedhashmap",
+                    "io.opentelemetry.instrumentation.api.internal.cache.weaklockfree",
+                    "io.opentelemetry.instrumentation.api.util"
+                ],
+                "sha256": "177fc3109ac004eb4d370ed25cd4ce73de3b2fbb1f8de454d4cd1f19d089cb6a",
+                "url": "https://repo1.maven.org/maven2/io/opentelemetry/instrumentation/opentelemetry-instrumentation-api/1.22.0/opentelemetry-instrumentation-api-1.22.0.jar"
+            },
+            {
+                "coord": "io.opentelemetry.instrumentation:opentelemetry-instrumentation-api:jar:sources:1.22.0",
+                "dependencies": [
+                    "io.opentelemetry:opentelemetry-api:jar:sources:1.22.0",
+                    "io.opentelemetry:opentelemetry-context:jar:sources:1.22.0"
+                ],
+                "directDependencies": [
+                    "io.opentelemetry:opentelemetry-api:jar:sources:1.22.0"
+                ],
+                "exclusions": [
+                    "io.opentelemetry.instrumentation:opentelemetry-instrumentation-bom-alpha"
+                ],
+                "file": "v1/https/repo1.maven.org/maven2/io/opentelemetry/instrumentation/opentelemetry-instrumentation-api/1.22.0/opentelemetry-instrumentation-api-1.22.0-sources.jar",
+                "mirror_urls": [
+                    "https://repo1.maven.org/maven2/io/opentelemetry/instrumentation/opentelemetry-instrumentation-api/1.22.0/opentelemetry-instrumentation-api-1.22.0-sources.jar"
+                ],
+                "packages": [],
+                "sha256": "4174a1d8f40ae60fc6d174462db0c20adfe9f50020c621cb8071204d4603eb17",
+                "url": "https://repo1.maven.org/maven2/io/opentelemetry/instrumentation/opentelemetry-instrumentation-api/1.22.0/opentelemetry-instrumentation-api-1.22.0-sources.jar"
+            },
+            {
+                "coord": "io.opentelemetry.instrumentation:opentelemetry-runtime-metrics:1.22.0-alpha",
+                "dependencies": [
+                    "io.opentelemetry.instrumentation:opentelemetry-instrumentation-api-semconv:1.22.0-alpha",
+                    "io.opentelemetry.instrumentation:opentelemetry-instrumentation-api:1.22.0",
+                    "io.opentelemetry:opentelemetry-api:1.22.0",
+                    "io.opentelemetry:opentelemetry-context:1.22.0",
+                    "io.opentelemetry:opentelemetry-semconv:1.22.0-alpha"
+                ],
+                "directDependencies": [
+                    "io.opentelemetry.instrumentation:opentelemetry-instrumentation-api-semconv:1.22.0-alpha",
+                    "io.opentelemetry.instrumentation:opentelemetry-instrumentation-api:1.22.0",
+                    "io.opentelemetry:opentelemetry-api:1.22.0"
+                ],
+                "file": "v1/https/repo1.maven.org/maven2/io/opentelemetry/instrumentation/opentelemetry-runtime-metrics/1.22.0-alpha/opentelemetry-runtime-metrics-1.22.0-alpha.jar",
+                "mirror_urls": [
+                    "https://repo1.maven.org/maven2/io/opentelemetry/instrumentation/opentelemetry-runtime-metrics/1.22.0-alpha/opentelemetry-runtime-metrics-1.22.0-alpha.jar"
                 ],
                 "packages": [
                     "io.opentelemetry.instrumentation.runtimemetrics"
                 ],
-                "sha256": "e29d94d347d5309e691912ff6990d2663cc82fd0de09b269f05647ac3a310a7e",
-                "url": "https://repo1.maven.org/maven2/io/opentelemetry/instrumentation/opentelemetry-runtime-metrics/1.12.0-alpha/opentelemetry-runtime-metrics-1.12.0-alpha.jar"
+                "sha256": "0c068398dc1b829763b2de927d39791249ac8620a30ed9155e7f013eeaed4b87",
+                "url": "https://repo1.maven.org/maven2/io/opentelemetry/instrumentation/opentelemetry-runtime-metrics/1.22.0-alpha/opentelemetry-runtime-metrics-1.22.0-alpha.jar"
             },
             {
-                "coord": "io.opentelemetry.instrumentation:opentelemetry-runtime-metrics:jar:sources:1.12.0-alpha",
+                "coord": "io.opentelemetry.instrumentation:opentelemetry-runtime-metrics:jar:sources:1.22.0-alpha",
                 "dependencies": [
-                    "io.opentelemetry.instrumentation:opentelemetry-instrumentation-api:jar:sources:1.12.0-alpha",
-                    "io.opentelemetry:opentelemetry-api:jar:sources:1.12.0",
-                    "io.opentelemetry:opentelemetry-context:jar:sources:1.12.0",
-                    "io.opentelemetry:opentelemetry-semconv:jar:sources:1.12.0-alpha",
-                    "org.slf4j:slf4j-api:jar:sources:2.0.6"
+                    "io.opentelemetry.instrumentation:opentelemetry-instrumentation-api-semconv:jar:sources:1.22.0-alpha",
+                    "io.opentelemetry.instrumentation:opentelemetry-instrumentation-api:jar:sources:1.22.0",
+                    "io.opentelemetry:opentelemetry-api:jar:sources:1.22.0",
+                    "io.opentelemetry:opentelemetry-context:jar:sources:1.22.0",
+                    "io.opentelemetry:opentelemetry-semconv:jar:sources:1.22.0-alpha"
                 ],
                 "directDependencies": [
-                    "io.opentelemetry.instrumentation:opentelemetry-instrumentation-api:jar:sources:1.12.0-alpha",
-                    "io.opentelemetry:opentelemetry-api:jar:sources:1.12.0"
+                    "io.opentelemetry.instrumentation:opentelemetry-instrumentation-api-semconv:jar:sources:1.22.0-alpha",
+                    "io.opentelemetry.instrumentation:opentelemetry-instrumentation-api:jar:sources:1.22.0",
+                    "io.opentelemetry:opentelemetry-api:jar:sources:1.22.0"
                 ],
-                "file": "v1/https/repo1.maven.org/maven2/io/opentelemetry/instrumentation/opentelemetry-runtime-metrics/1.12.0-alpha/opentelemetry-runtime-metrics-1.12.0-alpha-sources.jar",
+                "file": "v1/https/repo1.maven.org/maven2/io/opentelemetry/instrumentation/opentelemetry-runtime-metrics/1.22.0-alpha/opentelemetry-runtime-metrics-1.22.0-alpha-sources.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/io/opentelemetry/instrumentation/opentelemetry-runtime-metrics/1.12.0-alpha/opentelemetry-runtime-metrics-1.12.0-alpha-sources.jar"
+                    "https://repo1.maven.org/maven2/io/opentelemetry/instrumentation/opentelemetry-runtime-metrics/1.22.0-alpha/opentelemetry-runtime-metrics-1.22.0-alpha-sources.jar"
                 ],
                 "packages": [],
-                "sha256": "5339c41ae5e81a8b3e7a9b0cb1b3386ba79d981728f6b2982bda29fd1625a3a7",
-                "url": "https://repo1.maven.org/maven2/io/opentelemetry/instrumentation/opentelemetry-runtime-metrics/1.12.0-alpha/opentelemetry-runtime-metrics-1.12.0-alpha-sources.jar"
+                "sha256": "45961779d84fff76d2b449849b464f4988fbc9dd5f32a0a9b01a96fb4eb2d8d2",
+                "url": "https://repo1.maven.org/maven2/io/opentelemetry/instrumentation/opentelemetry-runtime-metrics/1.22.0-alpha/opentelemetry-runtime-metrics-1.22.0-alpha-sources.jar"
             },
             {
-                "coord": "io.opentelemetry:opentelemetry-api:1.12.0",
+                "coord": "io.opentelemetry:opentelemetry-api-logs:1.22.0-alpha",
                 "dependencies": [
-                    "io.opentelemetry:opentelemetry-context:1.12.0"
+                    "io.opentelemetry:opentelemetry-api:1.22.0",
+                    "io.opentelemetry:opentelemetry-context:1.22.0"
                 ],
                 "directDependencies": [
-                    "io.opentelemetry:opentelemetry-context:1.12.0"
+                    "io.opentelemetry:opentelemetry-api:1.22.0"
                 ],
-                "file": "v1/https/repo1.maven.org/maven2/io/opentelemetry/opentelemetry-api/1.12.0/opentelemetry-api-1.12.0.jar",
+                "file": "v1/https/repo1.maven.org/maven2/io/opentelemetry/opentelemetry-api-logs/1.22.0-alpha/opentelemetry-api-logs-1.22.0-alpha.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/io/opentelemetry/opentelemetry-api/1.12.0/opentelemetry-api-1.12.0.jar"
+                    "https://repo1.maven.org/maven2/io/opentelemetry/opentelemetry-api-logs/1.22.0-alpha/opentelemetry-api-logs-1.22.0-alpha.jar"
+                ],
+                "packages": [
+                    "io.opentelemetry.api.logs"
+                ],
+                "sha256": "812177628764be64aaf9656711d2d133906ebf3ea15746ae5bad2f3b0368a30e",
+                "url": "https://repo1.maven.org/maven2/io/opentelemetry/opentelemetry-api-logs/1.22.0-alpha/opentelemetry-api-logs-1.22.0-alpha.jar"
+            },
+            {
+                "coord": "io.opentelemetry:opentelemetry-api-logs:jar:sources:1.22.0-alpha",
+                "dependencies": [
+                    "io.opentelemetry:opentelemetry-api:jar:sources:1.22.0",
+                    "io.opentelemetry:opentelemetry-context:jar:sources:1.22.0"
+                ],
+                "directDependencies": [
+                    "io.opentelemetry:opentelemetry-api:jar:sources:1.22.0"
+                ],
+                "file": "v1/https/repo1.maven.org/maven2/io/opentelemetry/opentelemetry-api-logs/1.22.0-alpha/opentelemetry-api-logs-1.22.0-alpha-sources.jar",
+                "mirror_urls": [
+                    "https://repo1.maven.org/maven2/io/opentelemetry/opentelemetry-api-logs/1.22.0-alpha/opentelemetry-api-logs-1.22.0-alpha-sources.jar"
+                ],
+                "packages": [],
+                "sha256": "70253aa53a5ead166c58f051ee36740fd24ee1bded0cffee4659cbde48782e1e",
+                "url": "https://repo1.maven.org/maven2/io/opentelemetry/opentelemetry-api-logs/1.22.0-alpha/opentelemetry-api-logs-1.22.0-alpha-sources.jar"
+            },
+            {
+                "coord": "io.opentelemetry:opentelemetry-api:1.22.0",
+                "dependencies": [
+                    "io.opentelemetry:opentelemetry-context:1.22.0"
+                ],
+                "directDependencies": [
+                    "io.opentelemetry:opentelemetry-context:1.22.0"
+                ],
+                "file": "v1/https/repo1.maven.org/maven2/io/opentelemetry/opentelemetry-api/1.22.0/opentelemetry-api-1.22.0.jar",
+                "mirror_urls": [
+                    "https://repo1.maven.org/maven2/io/opentelemetry/opentelemetry-api/1.22.0/opentelemetry-api-1.22.0.jar"
                 ],
                 "packages": [
                     "io.opentelemetry.api",
@@ -7663,123 +7786,122 @@
                     "io.opentelemetry.api.trace.propagation",
                     "io.opentelemetry.api.trace.propagation.internal"
                 ],
-                "sha256": "c7741e6374ae6d43b93990b80c74d39fd5247d83512b615547bad81c334ee7ee",
-                "url": "https://repo1.maven.org/maven2/io/opentelemetry/opentelemetry-api/1.12.0/opentelemetry-api-1.12.0.jar"
+                "sha256": "79192584022c83109b645530060a270899c4227a687a2d2ce587b19dcd30fa05",
+                "url": "https://repo1.maven.org/maven2/io/opentelemetry/opentelemetry-api/1.22.0/opentelemetry-api-1.22.0.jar"
             },
             {
-                "coord": "io.opentelemetry:opentelemetry-api:jar:sources:1.12.0",
+                "coord": "io.opentelemetry:opentelemetry-api:jar:sources:1.22.0",
                 "dependencies": [
-                    "io.opentelemetry:opentelemetry-context:jar:sources:1.12.0"
+                    "io.opentelemetry:opentelemetry-context:jar:sources:1.22.0"
                 ],
                 "directDependencies": [
-                    "io.opentelemetry:opentelemetry-context:jar:sources:1.12.0"
+                    "io.opentelemetry:opentelemetry-context:jar:sources:1.22.0"
                 ],
-                "file": "v1/https/repo1.maven.org/maven2/io/opentelemetry/opentelemetry-api/1.12.0/opentelemetry-api-1.12.0-sources.jar",
+                "file": "v1/https/repo1.maven.org/maven2/io/opentelemetry/opentelemetry-api/1.22.0/opentelemetry-api-1.22.0-sources.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/io/opentelemetry/opentelemetry-api/1.12.0/opentelemetry-api-1.12.0-sources.jar"
+                    "https://repo1.maven.org/maven2/io/opentelemetry/opentelemetry-api/1.22.0/opentelemetry-api-1.22.0-sources.jar"
                 ],
                 "packages": [],
-                "sha256": "419ec80f3967bb4bddbd56232eee9b59e9b3d2083a6200d7cd0a392f3f2bed5c",
-                "url": "https://repo1.maven.org/maven2/io/opentelemetry/opentelemetry-api/1.12.0/opentelemetry-api-1.12.0-sources.jar"
+                "sha256": "6224337d3d740d07b78033eb614acae804152f2c9e15cf167c207d4e65d97483",
+                "url": "https://repo1.maven.org/maven2/io/opentelemetry/opentelemetry-api/1.22.0/opentelemetry-api-1.22.0-sources.jar"
             },
             {
-                "coord": "io.opentelemetry:opentelemetry-context:1.12.0",
+                "coord": "io.opentelemetry:opentelemetry-context:1.22.0",
                 "dependencies": [],
                 "directDependencies": [],
-                "file": "v1/https/repo1.maven.org/maven2/io/opentelemetry/opentelemetry-context/1.12.0/opentelemetry-context-1.12.0.jar",
+                "file": "v1/https/repo1.maven.org/maven2/io/opentelemetry/opentelemetry-context/1.22.0/opentelemetry-context-1.22.0.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/io/opentelemetry/opentelemetry-context/1.12.0/opentelemetry-context-1.12.0.jar"
+                    "https://repo1.maven.org/maven2/io/opentelemetry/opentelemetry-context/1.22.0/opentelemetry-context-1.22.0.jar"
                 ],
                 "packages": [
                     "io.opentelemetry.context",
                     "io.opentelemetry.context.internal.shaded",
                     "io.opentelemetry.context.propagation"
                 ],
-                "sha256": "db93870a04c228bd62658a892e6b0fb4a4e9812fa67763a1741fc696e97429d9",
-                "url": "https://repo1.maven.org/maven2/io/opentelemetry/opentelemetry-context/1.12.0/opentelemetry-context-1.12.0.jar"
+                "sha256": "9d1ca9fb9590c4ae146dcc2e74e563fc9561892d183880c655e2377023bae0f4",
+                "url": "https://repo1.maven.org/maven2/io/opentelemetry/opentelemetry-context/1.22.0/opentelemetry-context-1.22.0.jar"
             },
             {
-                "coord": "io.opentelemetry:opentelemetry-context:jar:sources:1.12.0",
+                "coord": "io.opentelemetry:opentelemetry-context:jar:sources:1.22.0",
                 "dependencies": [],
                 "directDependencies": [],
-                "file": "v1/https/repo1.maven.org/maven2/io/opentelemetry/opentelemetry-context/1.12.0/opentelemetry-context-1.12.0-sources.jar",
+                "file": "v1/https/repo1.maven.org/maven2/io/opentelemetry/opentelemetry-context/1.22.0/opentelemetry-context-1.22.0-sources.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/io/opentelemetry/opentelemetry-context/1.12.0/opentelemetry-context-1.12.0-sources.jar"
+                    "https://repo1.maven.org/maven2/io/opentelemetry/opentelemetry-context/1.22.0/opentelemetry-context-1.22.0-sources.jar"
                 ],
                 "packages": [],
-                "sha256": "f4bfe23cf569e68bcd181eb27df3e05d789659c453b16689194e33419c8ae0c6",
-                "url": "https://repo1.maven.org/maven2/io/opentelemetry/opentelemetry-context/1.12.0/opentelemetry-context-1.12.0-sources.jar"
+                "sha256": "a95bf0f523195c3a951da2c9624bf56e56e32cb343ace24a34da4636ad8c1d70",
+                "url": "https://repo1.maven.org/maven2/io/opentelemetry/opentelemetry-context/1.22.0/opentelemetry-context-1.22.0-sources.jar"
             },
             {
-                "coord": "io.opentelemetry:opentelemetry-exporter-prometheus:1.12.0-alpha",
+                "coord": "io.opentelemetry:opentelemetry-exporter-prometheus:1.22.0-alpha",
                 "dependencies": [
-                    "io.opentelemetry:opentelemetry-api:1.12.0",
-                    "io.opentelemetry:opentelemetry-context:1.12.0",
-                    "io.opentelemetry:opentelemetry-sdk-common:1.12.0",
-                    "io.opentelemetry:opentelemetry-sdk-metrics:1.12.0-alpha",
-                    "io.opentelemetry:opentelemetry-semconv:1.12.0-alpha",
-                    "io.prometheus:simpleclient:0.14.1",
-                    "io.prometheus:simpleclient_common:0.14.1",
-                    "io.prometheus:simpleclient_tracer_common:0.14.1",
-                    "io.prometheus:simpleclient_tracer_otel:0.14.1",
-                    "io.prometheus:simpleclient_tracer_otel_agent:0.14.1"
+                    "io.opentelemetry:opentelemetry-api-logs:1.22.0-alpha",
+                    "io.opentelemetry:opentelemetry-api:1.22.0",
+                    "io.opentelemetry:opentelemetry-context:1.22.0",
+                    "io.opentelemetry:opentelemetry-sdk-common:1.22.0",
+                    "io.opentelemetry:opentelemetry-sdk-extension-autoconfigure-spi:1.22.0",
+                    "io.opentelemetry:opentelemetry-sdk-logs:1.22.0-alpha",
+                    "io.opentelemetry:opentelemetry-sdk-metrics:1.22.0",
+                    "io.opentelemetry:opentelemetry-sdk-trace:1.22.0",
+                    "io.opentelemetry:opentelemetry-sdk:1.22.0",
+                    "io.opentelemetry:opentelemetry-semconv:1.22.0-alpha"
                 ],
                 "directDependencies": [
-                    "io.opentelemetry:opentelemetry-sdk-metrics:1.12.0-alpha",
-                    "io.prometheus:simpleclient:0.14.1",
-                    "io.prometheus:simpleclient_common:0.14.1"
+                    "io.opentelemetry:opentelemetry-sdk-extension-autoconfigure-spi:1.22.0",
+                    "io.opentelemetry:opentelemetry-sdk-metrics:1.22.0"
                 ],
-                "file": "v1/https/repo1.maven.org/maven2/io/opentelemetry/opentelemetry-exporter-prometheus/1.12.0-alpha/opentelemetry-exporter-prometheus-1.12.0-alpha.jar",
+                "file": "v1/https/repo1.maven.org/maven2/io/opentelemetry/opentelemetry-exporter-prometheus/1.22.0-alpha/opentelemetry-exporter-prometheus-1.22.0-alpha.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/io/opentelemetry/opentelemetry-exporter-prometheus/1.12.0-alpha/opentelemetry-exporter-prometheus-1.12.0-alpha.jar"
+                    "https://repo1.maven.org/maven2/io/opentelemetry/opentelemetry-exporter-prometheus/1.22.0-alpha/opentelemetry-exporter-prometheus-1.22.0-alpha.jar"
                 ],
                 "packages": [
-                    "io.opentelemetry.exporter.prometheus"
+                    "io.opentelemetry.exporter.prometheus",
+                    "io.opentelemetry.exporter.prometheus.internal"
                 ],
-                "sha256": "db1f29ac3796a3619545e935c8077e373c3e1f891750ca6ce6638359c9ad0309",
-                "url": "https://repo1.maven.org/maven2/io/opentelemetry/opentelemetry-exporter-prometheus/1.12.0-alpha/opentelemetry-exporter-prometheus-1.12.0-alpha.jar"
+                "sha256": "f3c81de4efb812ee5f16f0dec8f7158d7b13afe7b33dd168201de10825b16d62",
+                "url": "https://repo1.maven.org/maven2/io/opentelemetry/opentelemetry-exporter-prometheus/1.22.0-alpha/opentelemetry-exporter-prometheus-1.22.0-alpha.jar"
             },
             {
-                "coord": "io.opentelemetry:opentelemetry-exporter-prometheus:jar:sources:1.12.0-alpha",
+                "coord": "io.opentelemetry:opentelemetry-exporter-prometheus:jar:sources:1.22.0-alpha",
                 "dependencies": [
-                    "io.opentelemetry:opentelemetry-api:jar:sources:1.12.0",
-                    "io.opentelemetry:opentelemetry-context:jar:sources:1.12.0",
-                    "io.opentelemetry:opentelemetry-sdk-common:jar:sources:1.12.0",
-                    "io.opentelemetry:opentelemetry-sdk-metrics:jar:sources:1.12.0-alpha",
-                    "io.opentelemetry:opentelemetry-semconv:jar:sources:1.12.0-alpha",
-                    "io.prometheus:simpleclient:jar:sources:0.14.1",
-                    "io.prometheus:simpleclient_common:jar:sources:0.14.1",
-                    "io.prometheus:simpleclient_tracer_common:jar:sources:0.14.1",
-                    "io.prometheus:simpleclient_tracer_otel:jar:sources:0.14.1",
-                    "io.prometheus:simpleclient_tracer_otel_agent:jar:sources:0.14.1"
+                    "io.opentelemetry:opentelemetry-api-logs:jar:sources:1.22.0-alpha",
+                    "io.opentelemetry:opentelemetry-api:jar:sources:1.22.0",
+                    "io.opentelemetry:opentelemetry-context:jar:sources:1.22.0",
+                    "io.opentelemetry:opentelemetry-sdk-common:jar:sources:1.22.0",
+                    "io.opentelemetry:opentelemetry-sdk-extension-autoconfigure-spi:jar:sources:1.22.0",
+                    "io.opentelemetry:opentelemetry-sdk-logs:jar:sources:1.22.0-alpha",
+                    "io.opentelemetry:opentelemetry-sdk-metrics:jar:sources:1.22.0",
+                    "io.opentelemetry:opentelemetry-sdk-trace:jar:sources:1.22.0",
+                    "io.opentelemetry:opentelemetry-sdk:jar:sources:1.22.0",
+                    "io.opentelemetry:opentelemetry-semconv:jar:sources:1.22.0-alpha"
                 ],
                 "directDependencies": [
-                    "io.opentelemetry:opentelemetry-sdk-metrics:jar:sources:1.12.0-alpha",
-                    "io.prometheus:simpleclient:jar:sources:0.14.1",
-                    "io.prometheus:simpleclient_common:jar:sources:0.14.1"
+                    "io.opentelemetry:opentelemetry-sdk-extension-autoconfigure-spi:jar:sources:1.22.0",
+                    "io.opentelemetry:opentelemetry-sdk-metrics:jar:sources:1.22.0"
                 ],
-                "file": "v1/https/repo1.maven.org/maven2/io/opentelemetry/opentelemetry-exporter-prometheus/1.12.0-alpha/opentelemetry-exporter-prometheus-1.12.0-alpha-sources.jar",
+                "file": "v1/https/repo1.maven.org/maven2/io/opentelemetry/opentelemetry-exporter-prometheus/1.22.0-alpha/opentelemetry-exporter-prometheus-1.22.0-alpha-sources.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/io/opentelemetry/opentelemetry-exporter-prometheus/1.12.0-alpha/opentelemetry-exporter-prometheus-1.12.0-alpha-sources.jar"
+                    "https://repo1.maven.org/maven2/io/opentelemetry/opentelemetry-exporter-prometheus/1.22.0-alpha/opentelemetry-exporter-prometheus-1.22.0-alpha-sources.jar"
                 ],
                 "packages": [],
-                "sha256": "d18b43cca4cb27bebe10d07ac188e3cd7577b5c14779de7cc3e7b1eb7c511c90",
-                "url": "https://repo1.maven.org/maven2/io/opentelemetry/opentelemetry-exporter-prometheus/1.12.0-alpha/opentelemetry-exporter-prometheus-1.12.0-alpha-sources.jar"
+                "sha256": "7f69d6ba21903b0dde44be02bc867571516c905cb771c744bf5f194f01421be0",
+                "url": "https://repo1.maven.org/maven2/io/opentelemetry/opentelemetry-exporter-prometheus/1.22.0-alpha/opentelemetry-exporter-prometheus-1.22.0-alpha-sources.jar"
             },
             {
-                "coord": "io.opentelemetry:opentelemetry-sdk-common:1.12.0",
+                "coord": "io.opentelemetry:opentelemetry-sdk-common:1.22.0",
                 "dependencies": [
-                    "io.opentelemetry:opentelemetry-api:1.12.0",
-                    "io.opentelemetry:opentelemetry-context:1.12.0",
-                    "io.opentelemetry:opentelemetry-semconv:1.12.0-alpha"
+                    "io.opentelemetry:opentelemetry-api:1.22.0",
+                    "io.opentelemetry:opentelemetry-context:1.22.0",
+                    "io.opentelemetry:opentelemetry-semconv:1.22.0-alpha"
                 ],
                 "directDependencies": [
-                    "io.opentelemetry:opentelemetry-api:1.12.0",
-                    "io.opentelemetry:opentelemetry-semconv:1.12.0-alpha"
+                    "io.opentelemetry:opentelemetry-api:1.22.0",
+                    "io.opentelemetry:opentelemetry-semconv:1.22.0-alpha"
                 ],
-                "file": "v1/https/repo1.maven.org/maven2/io/opentelemetry/opentelemetry-sdk-common/1.12.0/opentelemetry-sdk-common-1.12.0.jar",
+                "file": "v1/https/repo1.maven.org/maven2/io/opentelemetry/opentelemetry-sdk-common/1.22.0/opentelemetry-sdk-common-1.22.0.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/io/opentelemetry/opentelemetry-sdk-common/1.12.0/opentelemetry-sdk-common-1.12.0.jar"
+                    "https://repo1.maven.org/maven2/io/opentelemetry/opentelemetry-sdk-common/1.22.0/opentelemetry-sdk-common-1.22.0.jar"
                 ],
                 "packages": [
                     "io.opentelemetry.sdk.common",
@@ -7787,318 +7909,271 @@
                     "io.opentelemetry.sdk.internal",
                     "io.opentelemetry.sdk.resources"
                 ],
-                "sha256": "3f1bbf00f8c9f6e38e54206bba875a1643b1315135e79ec98a8315018c60949a",
-                "url": "https://repo1.maven.org/maven2/io/opentelemetry/opentelemetry-sdk-common/1.12.0/opentelemetry-sdk-common-1.12.0.jar"
+                "sha256": "c6341a76582f490599fce1f4ebed54e651c57b8a891646adf38b19a66f47605e",
+                "url": "https://repo1.maven.org/maven2/io/opentelemetry/opentelemetry-sdk-common/1.22.0/opentelemetry-sdk-common-1.22.0.jar"
             },
             {
-                "coord": "io.opentelemetry:opentelemetry-sdk-common:jar:sources:1.12.0",
+                "coord": "io.opentelemetry:opentelemetry-sdk-common:jar:sources:1.22.0",
                 "dependencies": [
-                    "io.opentelemetry:opentelemetry-api:jar:sources:1.12.0",
-                    "io.opentelemetry:opentelemetry-context:jar:sources:1.12.0",
-                    "io.opentelemetry:opentelemetry-semconv:jar:sources:1.12.0-alpha"
+                    "io.opentelemetry:opentelemetry-api:jar:sources:1.22.0",
+                    "io.opentelemetry:opentelemetry-context:jar:sources:1.22.0",
+                    "io.opentelemetry:opentelemetry-semconv:jar:sources:1.22.0-alpha"
                 ],
                 "directDependencies": [
-                    "io.opentelemetry:opentelemetry-api:jar:sources:1.12.0",
-                    "io.opentelemetry:opentelemetry-semconv:jar:sources:1.12.0-alpha"
+                    "io.opentelemetry:opentelemetry-api:jar:sources:1.22.0",
+                    "io.opentelemetry:opentelemetry-semconv:jar:sources:1.22.0-alpha"
                 ],
-                "file": "v1/https/repo1.maven.org/maven2/io/opentelemetry/opentelemetry-sdk-common/1.12.0/opentelemetry-sdk-common-1.12.0-sources.jar",
+                "file": "v1/https/repo1.maven.org/maven2/io/opentelemetry/opentelemetry-sdk-common/1.22.0/opentelemetry-sdk-common-1.22.0-sources.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/io/opentelemetry/opentelemetry-sdk-common/1.12.0/opentelemetry-sdk-common-1.12.0-sources.jar"
+                    "https://repo1.maven.org/maven2/io/opentelemetry/opentelemetry-sdk-common/1.22.0/opentelemetry-sdk-common-1.22.0-sources.jar"
                 ],
                 "packages": [
                     "io.opentelemetry.sdk.internal"
                 ],
-                "sha256": "014f38a4638724b23065aab6da389fec6e3bc5e27fd5aa98b9e902ff1162a1f2",
-                "url": "https://repo1.maven.org/maven2/io/opentelemetry/opentelemetry-sdk-common/1.12.0/opentelemetry-sdk-common-1.12.0-sources.jar"
+                "sha256": "d0c0306f41603adc4e1ba3cece93344bb9a0e8b9df9a35ef5b0b4ff9ad7762f4",
+                "url": "https://repo1.maven.org/maven2/io/opentelemetry/opentelemetry-sdk-common/1.22.0/opentelemetry-sdk-common-1.22.0-sources.jar"
             },
             {
-                "coord": "io.opentelemetry:opentelemetry-sdk-extension-autoconfigure-spi:1.12.0",
+                "coord": "io.opentelemetry:opentelemetry-sdk-extension-autoconfigure-spi:1.22.0",
                 "dependencies": [
-                    "io.opentelemetry:opentelemetry-api:1.12.0",
-                    "io.opentelemetry:opentelemetry-context:1.12.0",
-                    "io.opentelemetry:opentelemetry-sdk-common:1.12.0",
-                    "io.opentelemetry:opentelemetry-sdk-logs:1.12.0-alpha",
-                    "io.opentelemetry:opentelemetry-sdk-metrics:1.12.0-alpha",
-                    "io.opentelemetry:opentelemetry-sdk-trace:1.12.0",
-                    "io.opentelemetry:opentelemetry-sdk:1.12.0",
-                    "io.opentelemetry:opentelemetry-semconv:1.12.0-alpha"
+                    "io.opentelemetry:opentelemetry-api-logs:1.22.0-alpha",
+                    "io.opentelemetry:opentelemetry-api:1.22.0",
+                    "io.opentelemetry:opentelemetry-context:1.22.0",
+                    "io.opentelemetry:opentelemetry-sdk-common:1.22.0",
+                    "io.opentelemetry:opentelemetry-sdk-logs:1.22.0-alpha",
+                    "io.opentelemetry:opentelemetry-sdk-metrics:1.22.0",
+                    "io.opentelemetry:opentelemetry-sdk-trace:1.22.0",
+                    "io.opentelemetry:opentelemetry-sdk:1.22.0",
+                    "io.opentelemetry:opentelemetry-semconv:1.22.0-alpha"
                 ],
                 "directDependencies": [
-                    "io.opentelemetry:opentelemetry-sdk-logs:1.12.0-alpha",
-                    "io.opentelemetry:opentelemetry-sdk-metrics:1.12.0-alpha",
-                    "io.opentelemetry:opentelemetry-sdk:1.12.0"
+                    "io.opentelemetry:opentelemetry-sdk-logs:1.22.0-alpha",
+                    "io.opentelemetry:opentelemetry-sdk-metrics:1.22.0",
+                    "io.opentelemetry:opentelemetry-sdk:1.22.0"
                 ],
-                "file": "v1/https/repo1.maven.org/maven2/io/opentelemetry/opentelemetry-sdk-extension-autoconfigure-spi/1.12.0/opentelemetry-sdk-extension-autoconfigure-spi-1.12.0.jar",
+                "file": "v1/https/repo1.maven.org/maven2/io/opentelemetry/opentelemetry-sdk-extension-autoconfigure-spi/1.22.0/opentelemetry-sdk-extension-autoconfigure-spi-1.22.0.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/io/opentelemetry/opentelemetry-sdk-extension-autoconfigure-spi/1.12.0/opentelemetry-sdk-extension-autoconfigure-spi-1.12.0.jar"
+                    "https://repo1.maven.org/maven2/io/opentelemetry/opentelemetry-sdk-extension-autoconfigure-spi/1.22.0/opentelemetry-sdk-extension-autoconfigure-spi-1.22.0.jar"
                 ],
                 "packages": [
                     "io.opentelemetry.sdk.autoconfigure.spi",
+                    "io.opentelemetry.sdk.autoconfigure.spi.internal",
+                    "io.opentelemetry.sdk.autoconfigure.spi.logs",
+                    "io.opentelemetry.sdk.autoconfigure.spi.metrics",
                     "io.opentelemetry.sdk.autoconfigure.spi.traces"
                 ],
-                "sha256": "595e515ec5bc211b499127a35b1cbd7a54a854ccc57ab4a44851bc48d047b74a",
-                "url": "https://repo1.maven.org/maven2/io/opentelemetry/opentelemetry-sdk-extension-autoconfigure-spi/1.12.0/opentelemetry-sdk-extension-autoconfigure-spi-1.12.0.jar"
+                "sha256": "3c53ae3523a7516fcfdab146a75a05c825cdfde3cebea52fcebe028801f32e46",
+                "url": "https://repo1.maven.org/maven2/io/opentelemetry/opentelemetry-sdk-extension-autoconfigure-spi/1.22.0/opentelemetry-sdk-extension-autoconfigure-spi-1.22.0.jar"
             },
             {
-                "coord": "io.opentelemetry:opentelemetry-sdk-extension-autoconfigure-spi:jar:sources:1.12.0",
+                "coord": "io.opentelemetry:opentelemetry-sdk-extension-autoconfigure-spi:jar:sources:1.22.0",
                 "dependencies": [
-                    "io.opentelemetry:opentelemetry-api:jar:sources:1.12.0",
-                    "io.opentelemetry:opentelemetry-context:jar:sources:1.12.0",
-                    "io.opentelemetry:opentelemetry-sdk-common:jar:sources:1.12.0",
-                    "io.opentelemetry:opentelemetry-sdk-logs:jar:sources:1.12.0-alpha",
-                    "io.opentelemetry:opentelemetry-sdk-metrics:jar:sources:1.12.0-alpha",
-                    "io.opentelemetry:opentelemetry-sdk-trace:jar:sources:1.12.0",
-                    "io.opentelemetry:opentelemetry-sdk:jar:sources:1.12.0",
-                    "io.opentelemetry:opentelemetry-semconv:jar:sources:1.12.0-alpha"
+                    "io.opentelemetry:opentelemetry-api-logs:jar:sources:1.22.0-alpha",
+                    "io.opentelemetry:opentelemetry-api:jar:sources:1.22.0",
+                    "io.opentelemetry:opentelemetry-context:jar:sources:1.22.0",
+                    "io.opentelemetry:opentelemetry-sdk-common:jar:sources:1.22.0",
+                    "io.opentelemetry:opentelemetry-sdk-logs:jar:sources:1.22.0-alpha",
+                    "io.opentelemetry:opentelemetry-sdk-metrics:jar:sources:1.22.0",
+                    "io.opentelemetry:opentelemetry-sdk-trace:jar:sources:1.22.0",
+                    "io.opentelemetry:opentelemetry-sdk:jar:sources:1.22.0",
+                    "io.opentelemetry:opentelemetry-semconv:jar:sources:1.22.0-alpha"
                 ],
                 "directDependencies": [
-                    "io.opentelemetry:opentelemetry-sdk-logs:jar:sources:1.12.0-alpha",
-                    "io.opentelemetry:opentelemetry-sdk-metrics:jar:sources:1.12.0-alpha",
-                    "io.opentelemetry:opentelemetry-sdk:jar:sources:1.12.0"
+                    "io.opentelemetry:opentelemetry-sdk-logs:jar:sources:1.22.0-alpha",
+                    "io.opentelemetry:opentelemetry-sdk-metrics:jar:sources:1.22.0",
+                    "io.opentelemetry:opentelemetry-sdk:jar:sources:1.22.0"
                 ],
-                "file": "v1/https/repo1.maven.org/maven2/io/opentelemetry/opentelemetry-sdk-extension-autoconfigure-spi/1.12.0/opentelemetry-sdk-extension-autoconfigure-spi-1.12.0-sources.jar",
+                "file": "v1/https/repo1.maven.org/maven2/io/opentelemetry/opentelemetry-sdk-extension-autoconfigure-spi/1.22.0/opentelemetry-sdk-extension-autoconfigure-spi-1.22.0-sources.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/io/opentelemetry/opentelemetry-sdk-extension-autoconfigure-spi/1.12.0/opentelemetry-sdk-extension-autoconfigure-spi-1.12.0-sources.jar"
+                    "https://repo1.maven.org/maven2/io/opentelemetry/opentelemetry-sdk-extension-autoconfigure-spi/1.22.0/opentelemetry-sdk-extension-autoconfigure-spi-1.22.0-sources.jar"
                 ],
                 "packages": [],
-                "sha256": "7e46f1b5d468225022fa1a3cdae48e21dbb6808d5f8d4eba823503d0ad52c5ed",
-                "url": "https://repo1.maven.org/maven2/io/opentelemetry/opentelemetry-sdk-extension-autoconfigure-spi/1.12.0/opentelemetry-sdk-extension-autoconfigure-spi-1.12.0-sources.jar"
+                "sha256": "fe1acb1f2fd2c1104f1cb3384a9e0fcfe4a419da0469ae9fc263b7b5a28befee",
+                "url": "https://repo1.maven.org/maven2/io/opentelemetry/opentelemetry-sdk-extension-autoconfigure-spi/1.22.0/opentelemetry-sdk-extension-autoconfigure-spi-1.22.0-sources.jar"
             },
             {
-                "coord": "io.opentelemetry:opentelemetry-sdk-extension-autoconfigure:1.12.0-alpha",
+                "coord": "io.opentelemetry:opentelemetry-sdk-extension-autoconfigure:1.22.0-alpha",
                 "dependencies": [
-                    "io.opentelemetry:opentelemetry-api:1.12.0",
-                    "io.opentelemetry:opentelemetry-context:1.12.0",
-                    "io.opentelemetry:opentelemetry-sdk-common:1.12.0",
-                    "io.opentelemetry:opentelemetry-sdk-extension-autoconfigure-spi:1.12.0",
-                    "io.opentelemetry:opentelemetry-sdk-logs:1.12.0-alpha",
-                    "io.opentelemetry:opentelemetry-sdk-metrics:1.12.0-alpha",
-                    "io.opentelemetry:opentelemetry-sdk-trace:1.12.0",
-                    "io.opentelemetry:opentelemetry-sdk:1.12.0",
-                    "io.opentelemetry:opentelemetry-semconv:1.12.0-alpha"
+                    "io.opentelemetry:opentelemetry-api-logs:1.22.0-alpha",
+                    "io.opentelemetry:opentelemetry-api:1.22.0",
+                    "io.opentelemetry:opentelemetry-context:1.22.0",
+                    "io.opentelemetry:opentelemetry-sdk-common:1.22.0",
+                    "io.opentelemetry:opentelemetry-sdk-extension-autoconfigure-spi:1.22.0",
+                    "io.opentelemetry:opentelemetry-sdk-logs:1.22.0-alpha",
+                    "io.opentelemetry:opentelemetry-sdk-metrics:1.22.0",
+                    "io.opentelemetry:opentelemetry-sdk-trace:1.22.0",
+                    "io.opentelemetry:opentelemetry-sdk:1.22.0",
+                    "io.opentelemetry:opentelemetry-semconv:1.22.0-alpha"
                 ],
                 "directDependencies": [
-                    "io.opentelemetry:opentelemetry-sdk-extension-autoconfigure-spi:1.12.0",
-                    "io.opentelemetry:opentelemetry-sdk-logs:1.12.0-alpha",
-                    "io.opentelemetry:opentelemetry-sdk-metrics:1.12.0-alpha",
-                    "io.opentelemetry:opentelemetry-sdk:1.12.0",
-                    "io.opentelemetry:opentelemetry-semconv:1.12.0-alpha"
+                    "io.opentelemetry:opentelemetry-sdk-extension-autoconfigure-spi:1.22.0",
+                    "io.opentelemetry:opentelemetry-sdk-logs:1.22.0-alpha",
+                    "io.opentelemetry:opentelemetry-sdk-metrics:1.22.0",
+                    "io.opentelemetry:opentelemetry-sdk:1.22.0",
+                    "io.opentelemetry:opentelemetry-semconv:1.22.0-alpha"
                 ],
-                "file": "v1/https/repo1.maven.org/maven2/io/opentelemetry/opentelemetry-sdk-extension-autoconfigure/1.12.0-alpha/opentelemetry-sdk-extension-autoconfigure-1.12.0-alpha.jar",
+                "file": "v1/https/repo1.maven.org/maven2/io/opentelemetry/opentelemetry-sdk-extension-autoconfigure/1.22.0-alpha/opentelemetry-sdk-extension-autoconfigure-1.22.0-alpha.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/io/opentelemetry/opentelemetry-sdk-extension-autoconfigure/1.12.0-alpha/opentelemetry-sdk-extension-autoconfigure-1.12.0-alpha.jar"
+                    "https://repo1.maven.org/maven2/io/opentelemetry/opentelemetry-sdk-extension-autoconfigure/1.22.0-alpha/opentelemetry-sdk-extension-autoconfigure-1.22.0-alpha.jar"
                 ],
                 "packages": [
-                    "io.opentelemetry.sdk.autoconfigure",
-                    "io.opentelemetry.sdk.autoconfigure.spi.metrics"
+                    "io.opentelemetry.sdk.autoconfigure"
                 ],
-                "sha256": "34d6a37b943b205d9ca1ad78f7fc3b50b1da0df9697922e64865a70fe5d897e2",
-                "url": "https://repo1.maven.org/maven2/io/opentelemetry/opentelemetry-sdk-extension-autoconfigure/1.12.0-alpha/opentelemetry-sdk-extension-autoconfigure-1.12.0-alpha.jar"
+                "sha256": "2ab7e335ed0fa7cf7740dec5b98f644630416aae138c38353ac8395ea2cf8c46",
+                "url": "https://repo1.maven.org/maven2/io/opentelemetry/opentelemetry-sdk-extension-autoconfigure/1.22.0-alpha/opentelemetry-sdk-extension-autoconfigure-1.22.0-alpha.jar"
             },
             {
-                "coord": "io.opentelemetry:opentelemetry-sdk-extension-autoconfigure:jar:sources:1.12.0-alpha",
+                "coord": "io.opentelemetry:opentelemetry-sdk-extension-autoconfigure:jar:sources:1.22.0-alpha",
                 "dependencies": [
-                    "io.opentelemetry:opentelemetry-api:jar:sources:1.12.0",
-                    "io.opentelemetry:opentelemetry-context:jar:sources:1.12.0",
-                    "io.opentelemetry:opentelemetry-sdk-common:jar:sources:1.12.0",
-                    "io.opentelemetry:opentelemetry-sdk-extension-autoconfigure-spi:jar:sources:1.12.0",
-                    "io.opentelemetry:opentelemetry-sdk-logs:jar:sources:1.12.0-alpha",
-                    "io.opentelemetry:opentelemetry-sdk-metrics:jar:sources:1.12.0-alpha",
-                    "io.opentelemetry:opentelemetry-sdk-trace:jar:sources:1.12.0",
-                    "io.opentelemetry:opentelemetry-sdk:jar:sources:1.12.0",
-                    "io.opentelemetry:opentelemetry-semconv:jar:sources:1.12.0-alpha"
+                    "io.opentelemetry:opentelemetry-api-logs:jar:sources:1.22.0-alpha",
+                    "io.opentelemetry:opentelemetry-api:jar:sources:1.22.0",
+                    "io.opentelemetry:opentelemetry-context:jar:sources:1.22.0",
+                    "io.opentelemetry:opentelemetry-sdk-common:jar:sources:1.22.0",
+                    "io.opentelemetry:opentelemetry-sdk-extension-autoconfigure-spi:jar:sources:1.22.0",
+                    "io.opentelemetry:opentelemetry-sdk-logs:jar:sources:1.22.0-alpha",
+                    "io.opentelemetry:opentelemetry-sdk-metrics:jar:sources:1.22.0",
+                    "io.opentelemetry:opentelemetry-sdk-trace:jar:sources:1.22.0",
+                    "io.opentelemetry:opentelemetry-sdk:jar:sources:1.22.0",
+                    "io.opentelemetry:opentelemetry-semconv:jar:sources:1.22.0-alpha"
                 ],
                 "directDependencies": [
-                    "io.opentelemetry:opentelemetry-sdk-extension-autoconfigure-spi:jar:sources:1.12.0",
-                    "io.opentelemetry:opentelemetry-sdk-logs:jar:sources:1.12.0-alpha",
-                    "io.opentelemetry:opentelemetry-sdk-metrics:jar:sources:1.12.0-alpha",
-                    "io.opentelemetry:opentelemetry-sdk:jar:sources:1.12.0",
-                    "io.opentelemetry:opentelemetry-semconv:jar:sources:1.12.0-alpha"
+                    "io.opentelemetry:opentelemetry-sdk-extension-autoconfigure-spi:jar:sources:1.22.0",
+                    "io.opentelemetry:opentelemetry-sdk-logs:jar:sources:1.22.0-alpha",
+                    "io.opentelemetry:opentelemetry-sdk-metrics:jar:sources:1.22.0",
+                    "io.opentelemetry:opentelemetry-sdk:jar:sources:1.22.0",
+                    "io.opentelemetry:opentelemetry-semconv:jar:sources:1.22.0-alpha"
                 ],
-                "file": "v1/https/repo1.maven.org/maven2/io/opentelemetry/opentelemetry-sdk-extension-autoconfigure/1.12.0-alpha/opentelemetry-sdk-extension-autoconfigure-1.12.0-alpha-sources.jar",
+                "file": "v1/https/repo1.maven.org/maven2/io/opentelemetry/opentelemetry-sdk-extension-autoconfigure/1.22.0-alpha/opentelemetry-sdk-extension-autoconfigure-1.22.0-alpha-sources.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/io/opentelemetry/opentelemetry-sdk-extension-autoconfigure/1.12.0-alpha/opentelemetry-sdk-extension-autoconfigure-1.12.0-alpha-sources.jar"
+                    "https://repo1.maven.org/maven2/io/opentelemetry/opentelemetry-sdk-extension-autoconfigure/1.22.0-alpha/opentelemetry-sdk-extension-autoconfigure-1.22.0-alpha-sources.jar"
                 ],
                 "packages": [],
-                "sha256": "c695caac00fdedd747e3fd6dc387a655bf6fa0a42abd4ccbc81a521d996d676e",
-                "url": "https://repo1.maven.org/maven2/io/opentelemetry/opentelemetry-sdk-extension-autoconfigure/1.12.0-alpha/opentelemetry-sdk-extension-autoconfigure-1.12.0-alpha-sources.jar"
+                "sha256": "964cc8ee3ccf8a048d131e373a8eb88cc7928a075116635bb54f613c00b014f1",
+                "url": "https://repo1.maven.org/maven2/io/opentelemetry/opentelemetry-sdk-extension-autoconfigure/1.22.0-alpha/opentelemetry-sdk-extension-autoconfigure-1.22.0-alpha-sources.jar"
             },
             {
-                "coord": "io.opentelemetry:opentelemetry-sdk-logs:1.12.0-alpha",
+                "coord": "io.opentelemetry:opentelemetry-sdk-logs:1.22.0-alpha",
                 "dependencies": [
-                    "io.opentelemetry:opentelemetry-api:1.12.0",
-                    "io.opentelemetry:opentelemetry-context:1.12.0",
-                    "io.opentelemetry:opentelemetry-sdk-common:1.12.0",
-                    "io.opentelemetry:opentelemetry-semconv:1.12.0-alpha"
+                    "io.opentelemetry:opentelemetry-api-logs:1.22.0-alpha",
+                    "io.opentelemetry:opentelemetry-api:1.22.0",
+                    "io.opentelemetry:opentelemetry-context:1.22.0",
+                    "io.opentelemetry:opentelemetry-sdk-common:1.22.0",
+                    "io.opentelemetry:opentelemetry-semconv:1.22.0-alpha"
                 ],
                 "directDependencies": [
-                    "io.opentelemetry:opentelemetry-sdk-common:1.12.0"
+                    "io.opentelemetry:opentelemetry-api-logs:1.22.0-alpha",
+                    "io.opentelemetry:opentelemetry-sdk-common:1.22.0"
                 ],
-                "file": "v1/https/repo1.maven.org/maven2/io/opentelemetry/opentelemetry-sdk-logs/1.12.0-alpha/opentelemetry-sdk-logs-1.12.0-alpha.jar",
+                "file": "v1/https/repo1.maven.org/maven2/io/opentelemetry/opentelemetry-sdk-logs/1.22.0-alpha/opentelemetry-sdk-logs-1.22.0-alpha.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/io/opentelemetry/opentelemetry-sdk-logs/1.12.0-alpha/opentelemetry-sdk-logs-1.12.0-alpha.jar"
+                    "https://repo1.maven.org/maven2/io/opentelemetry/opentelemetry-sdk-logs/1.22.0-alpha/opentelemetry-sdk-logs-1.22.0-alpha.jar"
                 ],
                 "packages": [
                     "io.opentelemetry.sdk.logs",
                     "io.opentelemetry.sdk.logs.data",
                     "io.opentelemetry.sdk.logs.export"
                 ],
-                "sha256": "0ee34a34bfc7962043eef63695d321b72fe720c24892fcaac3450e7b353aa326",
-                "url": "https://repo1.maven.org/maven2/io/opentelemetry/opentelemetry-sdk-logs/1.12.0-alpha/opentelemetry-sdk-logs-1.12.0-alpha.jar"
+                "sha256": "aa625e0c30683e380e88695f22f58fa292cc0e1a43ed0a07569750b81775d9e7",
+                "url": "https://repo1.maven.org/maven2/io/opentelemetry/opentelemetry-sdk-logs/1.22.0-alpha/opentelemetry-sdk-logs-1.22.0-alpha.jar"
             },
             {
-                "coord": "io.opentelemetry:opentelemetry-sdk-logs:jar:sources:1.12.0-alpha",
+                "coord": "io.opentelemetry:opentelemetry-sdk-logs:jar:sources:1.22.0-alpha",
                 "dependencies": [
-                    "io.opentelemetry:opentelemetry-api:jar:sources:1.12.0",
-                    "io.opentelemetry:opentelemetry-context:jar:sources:1.12.0",
-                    "io.opentelemetry:opentelemetry-sdk-common:jar:sources:1.12.0",
-                    "io.opentelemetry:opentelemetry-semconv:jar:sources:1.12.0-alpha"
+                    "io.opentelemetry:opentelemetry-api-logs:jar:sources:1.22.0-alpha",
+                    "io.opentelemetry:opentelemetry-api:jar:sources:1.22.0",
+                    "io.opentelemetry:opentelemetry-context:jar:sources:1.22.0",
+                    "io.opentelemetry:opentelemetry-sdk-common:jar:sources:1.22.0",
+                    "io.opentelemetry:opentelemetry-semconv:jar:sources:1.22.0-alpha"
                 ],
                 "directDependencies": [
-                    "io.opentelemetry:opentelemetry-sdk-common:jar:sources:1.12.0"
+                    "io.opentelemetry:opentelemetry-api-logs:jar:sources:1.22.0-alpha",
+                    "io.opentelemetry:opentelemetry-sdk-common:jar:sources:1.22.0"
                 ],
-                "file": "v1/https/repo1.maven.org/maven2/io/opentelemetry/opentelemetry-sdk-logs/1.12.0-alpha/opentelemetry-sdk-logs-1.12.0-alpha-sources.jar",
+                "file": "v1/https/repo1.maven.org/maven2/io/opentelemetry/opentelemetry-sdk-logs/1.22.0-alpha/opentelemetry-sdk-logs-1.22.0-alpha-sources.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/io/opentelemetry/opentelemetry-sdk-logs/1.12.0-alpha/opentelemetry-sdk-logs-1.12.0-alpha-sources.jar"
+                    "https://repo1.maven.org/maven2/io/opentelemetry/opentelemetry-sdk-logs/1.22.0-alpha/opentelemetry-sdk-logs-1.22.0-alpha-sources.jar"
                 ],
                 "packages": [],
-                "sha256": "13d6a77b23367b1a9f3b08916410930c105925b59b165c8b13ffa967937f56af",
-                "url": "https://repo1.maven.org/maven2/io/opentelemetry/opentelemetry-sdk-logs/1.12.0-alpha/opentelemetry-sdk-logs-1.12.0-alpha-sources.jar"
+                "sha256": "6299e1a3db5a0846b4be51b6e8127cb3c4675de2e0289f9657e4373763048f4b",
+                "url": "https://repo1.maven.org/maven2/io/opentelemetry/opentelemetry-sdk-logs/1.22.0-alpha/opentelemetry-sdk-logs-1.22.0-alpha-sources.jar"
             },
             {
-                "coord": "io.opentelemetry:opentelemetry-sdk-metrics-testing:1.12.0-alpha",
+                "coord": "io.opentelemetry:opentelemetry-sdk-metrics:1.22.0",
                 "dependencies": [
-                    "io.opentelemetry:opentelemetry-api:1.12.0",
-                    "io.opentelemetry:opentelemetry-context:1.12.0",
-                    "io.opentelemetry:opentelemetry-sdk-common:1.12.0",
-                    "io.opentelemetry:opentelemetry-sdk-logs:1.12.0-alpha",
-                    "io.opentelemetry:opentelemetry-sdk-metrics:1.12.0-alpha",
-                    "io.opentelemetry:opentelemetry-sdk-testing:1.12.0",
-                    "io.opentelemetry:opentelemetry-sdk-trace:1.12.0",
-                    "io.opentelemetry:opentelemetry-sdk:1.12.0",
-                    "io.opentelemetry:opentelemetry-semconv:1.12.0-alpha"
+                    "io.opentelemetry:opentelemetry-api:1.22.0",
+                    "io.opentelemetry:opentelemetry-context:1.22.0",
+                    "io.opentelemetry:opentelemetry-sdk-common:1.22.0",
+                    "io.opentelemetry:opentelemetry-semconv:1.22.0-alpha"
                 ],
                 "directDependencies": [
-                    "io.opentelemetry:opentelemetry-api:1.12.0",
-                    "io.opentelemetry:opentelemetry-sdk-metrics:1.12.0-alpha",
-                    "io.opentelemetry:opentelemetry-sdk-testing:1.12.0",
-                    "io.opentelemetry:opentelemetry-sdk:1.12.0"
+                    "io.opentelemetry:opentelemetry-api:1.22.0",
+                    "io.opentelemetry:opentelemetry-sdk-common:1.22.0"
                 ],
-                "file": "v1/https/repo1.maven.org/maven2/io/opentelemetry/opentelemetry-sdk-metrics-testing/1.12.0-alpha/opentelemetry-sdk-metrics-testing-1.12.0-alpha.jar",
+                "file": "v1/https/repo1.maven.org/maven2/io/opentelemetry/opentelemetry-sdk-metrics/1.22.0/opentelemetry-sdk-metrics-1.22.0.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/io/opentelemetry/opentelemetry-sdk-metrics-testing/1.12.0-alpha/opentelemetry-sdk-metrics-testing-1.12.0-alpha.jar"
-                ],
-                "packages": [
-                    "io.opentelemetry.sdk.testing.assertj",
-                    "io.opentelemetry.sdk.testing.exporter"
-                ],
-                "sha256": "47258f915dd21577e698419d25a0eb5e7c1306e50a34517b58b456d262ca1d75",
-                "url": "https://repo1.maven.org/maven2/io/opentelemetry/opentelemetry-sdk-metrics-testing/1.12.0-alpha/opentelemetry-sdk-metrics-testing-1.12.0-alpha.jar"
-            },
-            {
-                "coord": "io.opentelemetry:opentelemetry-sdk-metrics-testing:jar:sources:1.12.0-alpha",
-                "dependencies": [
-                    "io.opentelemetry:opentelemetry-api:jar:sources:1.12.0",
-                    "io.opentelemetry:opentelemetry-context:jar:sources:1.12.0",
-                    "io.opentelemetry:opentelemetry-sdk-common:jar:sources:1.12.0",
-                    "io.opentelemetry:opentelemetry-sdk-logs:jar:sources:1.12.0-alpha",
-                    "io.opentelemetry:opentelemetry-sdk-metrics:jar:sources:1.12.0-alpha",
-                    "io.opentelemetry:opentelemetry-sdk-testing:jar:sources:1.12.0",
-                    "io.opentelemetry:opentelemetry-sdk-trace:jar:sources:1.12.0",
-                    "io.opentelemetry:opentelemetry-sdk:jar:sources:1.12.0",
-                    "io.opentelemetry:opentelemetry-semconv:jar:sources:1.12.0-alpha"
-                ],
-                "directDependencies": [
-                    "io.opentelemetry:opentelemetry-api:jar:sources:1.12.0",
-                    "io.opentelemetry:opentelemetry-sdk-metrics:jar:sources:1.12.0-alpha",
-                    "io.opentelemetry:opentelemetry-sdk-testing:jar:sources:1.12.0",
-                    "io.opentelemetry:opentelemetry-sdk:jar:sources:1.12.0"
-                ],
-                "file": "v1/https/repo1.maven.org/maven2/io/opentelemetry/opentelemetry-sdk-metrics-testing/1.12.0-alpha/opentelemetry-sdk-metrics-testing-1.12.0-alpha-sources.jar",
-                "mirror_urls": [
-                    "https://repo1.maven.org/maven2/io/opentelemetry/opentelemetry-sdk-metrics-testing/1.12.0-alpha/opentelemetry-sdk-metrics-testing-1.12.0-alpha-sources.jar"
-                ],
-                "packages": [],
-                "sha256": "fb4fa4c8b011a0163eed35ef7e11dfcf2d8ba7091bf65b750d6f3cf2a29564a3",
-                "url": "https://repo1.maven.org/maven2/io/opentelemetry/opentelemetry-sdk-metrics-testing/1.12.0-alpha/opentelemetry-sdk-metrics-testing-1.12.0-alpha-sources.jar"
-            },
-            {
-                "coord": "io.opentelemetry:opentelemetry-sdk-metrics:1.12.0-alpha",
-                "dependencies": [
-                    "io.opentelemetry:opentelemetry-api:1.12.0",
-                    "io.opentelemetry:opentelemetry-context:1.12.0",
-                    "io.opentelemetry:opentelemetry-sdk-common:1.12.0",
-                    "io.opentelemetry:opentelemetry-semconv:1.12.0-alpha"
-                ],
-                "directDependencies": [
-                    "io.opentelemetry:opentelemetry-api:1.12.0",
-                    "io.opentelemetry:opentelemetry-sdk-common:1.12.0"
-                ],
-                "file": "v1/https/repo1.maven.org/maven2/io/opentelemetry/opentelemetry-sdk-metrics/1.12.0-alpha/opentelemetry-sdk-metrics-1.12.0-alpha.jar",
-                "mirror_urls": [
-                    "https://repo1.maven.org/maven2/io/opentelemetry/opentelemetry-sdk-metrics/1.12.0-alpha/opentelemetry-sdk-metrics-1.12.0-alpha.jar"
+                    "https://repo1.maven.org/maven2/io/opentelemetry/opentelemetry-sdk-metrics/1.22.0/opentelemetry-sdk-metrics-1.22.0.jar"
                 ],
                 "packages": [
                     "io.opentelemetry.sdk.metrics",
-                    "io.opentelemetry.sdk.metrics.common",
                     "io.opentelemetry.sdk.metrics.data",
-                    "io.opentelemetry.sdk.metrics.exemplar",
                     "io.opentelemetry.sdk.metrics.export",
+                    "io.opentelemetry.sdk.metrics.internal",
                     "io.opentelemetry.sdk.metrics.internal.aggregator",
                     "io.opentelemetry.sdk.metrics.internal.concurrent",
                     "io.opentelemetry.sdk.metrics.internal.data",
                     "io.opentelemetry.sdk.metrics.internal.data.exponentialhistogram",
                     "io.opentelemetry.sdk.metrics.internal.debug",
                     "io.opentelemetry.sdk.metrics.internal.descriptor",
+                    "io.opentelemetry.sdk.metrics.internal.exemplar",
                     "io.opentelemetry.sdk.metrics.internal.export",
                     "io.opentelemetry.sdk.metrics.internal.instrument",
                     "io.opentelemetry.sdk.metrics.internal.state",
-                    "io.opentelemetry.sdk.metrics.internal.view",
-                    "io.opentelemetry.sdk.metrics.view"
+                    "io.opentelemetry.sdk.metrics.internal.view"
                 ],
-                "sha256": "b9890b2ec149e23092183b3ea2922ca0afdc30c2becdeefd625774993a3c8a7d",
-                "url": "https://repo1.maven.org/maven2/io/opentelemetry/opentelemetry-sdk-metrics/1.12.0-alpha/opentelemetry-sdk-metrics-1.12.0-alpha.jar"
+                "sha256": "d9e26a71571014a386cba0cf2bed95b3751db70d0d6f8999f8d475d840a59203",
+                "url": "https://repo1.maven.org/maven2/io/opentelemetry/opentelemetry-sdk-metrics/1.22.0/opentelemetry-sdk-metrics-1.22.0.jar"
             },
             {
-                "coord": "io.opentelemetry:opentelemetry-sdk-metrics:jar:sources:1.12.0-alpha",
+                "coord": "io.opentelemetry:opentelemetry-sdk-metrics:jar:sources:1.22.0",
                 "dependencies": [
-                    "io.opentelemetry:opentelemetry-api:jar:sources:1.12.0",
-                    "io.opentelemetry:opentelemetry-context:jar:sources:1.12.0",
-                    "io.opentelemetry:opentelemetry-sdk-common:jar:sources:1.12.0",
-                    "io.opentelemetry:opentelemetry-semconv:jar:sources:1.12.0-alpha"
+                    "io.opentelemetry:opentelemetry-api:jar:sources:1.22.0",
+                    "io.opentelemetry:opentelemetry-context:jar:sources:1.22.0",
+                    "io.opentelemetry:opentelemetry-sdk-common:jar:sources:1.22.0",
+                    "io.opentelemetry:opentelemetry-semconv:jar:sources:1.22.0-alpha"
                 ],
                 "directDependencies": [
-                    "io.opentelemetry:opentelemetry-api:jar:sources:1.12.0",
-                    "io.opentelemetry:opentelemetry-sdk-common:jar:sources:1.12.0"
+                    "io.opentelemetry:opentelemetry-api:jar:sources:1.22.0",
+                    "io.opentelemetry:opentelemetry-sdk-common:jar:sources:1.22.0"
                 ],
-                "file": "v1/https/repo1.maven.org/maven2/io/opentelemetry/opentelemetry-sdk-metrics/1.12.0-alpha/opentelemetry-sdk-metrics-1.12.0-alpha-sources.jar",
+                "file": "v1/https/repo1.maven.org/maven2/io/opentelemetry/opentelemetry-sdk-metrics/1.22.0/opentelemetry-sdk-metrics-1.22.0-sources.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/io/opentelemetry/opentelemetry-sdk-metrics/1.12.0-alpha/opentelemetry-sdk-metrics-1.12.0-alpha-sources.jar"
+                    "https://repo1.maven.org/maven2/io/opentelemetry/opentelemetry-sdk-metrics/1.22.0/opentelemetry-sdk-metrics-1.22.0-sources.jar"
                 ],
                 "packages": [],
-                "sha256": "c7125a50deee07ec218cbb6415e91dc5d96b64b696eaa7c99615032c968a4a41",
-                "url": "https://repo1.maven.org/maven2/io/opentelemetry/opentelemetry-sdk-metrics/1.12.0-alpha/opentelemetry-sdk-metrics-1.12.0-alpha-sources.jar"
+                "sha256": "85745a4e47572f6bc5413f199ac86e0f6afef91188b69063d414b9545ff93816",
+                "url": "https://repo1.maven.org/maven2/io/opentelemetry/opentelemetry-sdk-metrics/1.22.0/opentelemetry-sdk-metrics-1.22.0-sources.jar"
             },
             {
-                "coord": "io.opentelemetry:opentelemetry-sdk-testing:1.12.0",
+                "coord": "io.opentelemetry:opentelemetry-sdk-testing:1.22.0",
                 "dependencies": [
-                    "io.opentelemetry:opentelemetry-api:1.12.0",
-                    "io.opentelemetry:opentelemetry-context:1.12.0",
-                    "io.opentelemetry:opentelemetry-sdk-common:1.12.0",
-                    "io.opentelemetry:opentelemetry-sdk-logs:1.12.0-alpha",
-                    "io.opentelemetry:opentelemetry-sdk-metrics:1.12.0-alpha",
-                    "io.opentelemetry:opentelemetry-sdk-trace:1.12.0",
-                    "io.opentelemetry:opentelemetry-sdk:1.12.0",
-                    "io.opentelemetry:opentelemetry-semconv:1.12.0-alpha"
+                    "io.opentelemetry:opentelemetry-api-logs:1.22.0-alpha",
+                    "io.opentelemetry:opentelemetry-api:1.22.0",
+                    "io.opentelemetry:opentelemetry-context:1.22.0",
+                    "io.opentelemetry:opentelemetry-sdk-common:1.22.0",
+                    "io.opentelemetry:opentelemetry-sdk-logs:1.22.0-alpha",
+                    "io.opentelemetry:opentelemetry-sdk-metrics:1.22.0",
+                    "io.opentelemetry:opentelemetry-sdk-trace:1.22.0",
+                    "io.opentelemetry:opentelemetry-sdk:1.22.0",
+                    "io.opentelemetry:opentelemetry-semconv:1.22.0-alpha"
                 ],
                 "directDependencies": [
-                    "io.opentelemetry:opentelemetry-api:1.12.0",
-                    "io.opentelemetry:opentelemetry-sdk:1.12.0",
-                    "io.opentelemetry:opentelemetry-semconv:1.12.0-alpha"
+                    "io.opentelemetry:opentelemetry-api:1.22.0",
+                    "io.opentelemetry:opentelemetry-sdk:1.22.0",
+                    "io.opentelemetry:opentelemetry-semconv:1.22.0-alpha"
                 ],
-                "file": "v1/https/repo1.maven.org/maven2/io/opentelemetry/opentelemetry-sdk-testing/1.12.0/opentelemetry-sdk-testing-1.12.0.jar",
+                "file": "v1/https/repo1.maven.org/maven2/io/opentelemetry/opentelemetry-sdk-testing/1.22.0/opentelemetry-sdk-testing-1.22.0.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/io/opentelemetry/opentelemetry-sdk-testing/1.12.0/opentelemetry-sdk-testing-1.12.0.jar"
+                    "https://repo1.maven.org/maven2/io/opentelemetry/opentelemetry-sdk-testing/1.22.0/opentelemetry-sdk-testing-1.22.0.jar"
                 ],
                 "packages": [
                     "io.opentelemetry.sdk.testing.assertj",
@@ -8109,50 +8184,51 @@
                     "io.opentelemetry.sdk.testing.time",
                     "io.opentelemetry.sdk.testing.trace"
                 ],
-                "sha256": "69579dc151b8e73c4280321beeba1231d3eb1dea451296fea0971d5e0f712341",
-                "url": "https://repo1.maven.org/maven2/io/opentelemetry/opentelemetry-sdk-testing/1.12.0/opentelemetry-sdk-testing-1.12.0.jar"
+                "sha256": "20b16c6b53433dd9fc4fd606c70282fd3019550a6748083d0da6ef23bc48803d",
+                "url": "https://repo1.maven.org/maven2/io/opentelemetry/opentelemetry-sdk-testing/1.22.0/opentelemetry-sdk-testing-1.22.0.jar"
             },
             {
-                "coord": "io.opentelemetry:opentelemetry-sdk-testing:jar:sources:1.12.0",
+                "coord": "io.opentelemetry:opentelemetry-sdk-testing:jar:sources:1.22.0",
                 "dependencies": [
-                    "io.opentelemetry:opentelemetry-api:jar:sources:1.12.0",
-                    "io.opentelemetry:opentelemetry-context:jar:sources:1.12.0",
-                    "io.opentelemetry:opentelemetry-sdk-common:jar:sources:1.12.0",
-                    "io.opentelemetry:opentelemetry-sdk-logs:jar:sources:1.12.0-alpha",
-                    "io.opentelemetry:opentelemetry-sdk-metrics:jar:sources:1.12.0-alpha",
-                    "io.opentelemetry:opentelemetry-sdk-trace:jar:sources:1.12.0",
-                    "io.opentelemetry:opentelemetry-sdk:jar:sources:1.12.0",
-                    "io.opentelemetry:opentelemetry-semconv:jar:sources:1.12.0-alpha"
+                    "io.opentelemetry:opentelemetry-api-logs:jar:sources:1.22.0-alpha",
+                    "io.opentelemetry:opentelemetry-api:jar:sources:1.22.0",
+                    "io.opentelemetry:opentelemetry-context:jar:sources:1.22.0",
+                    "io.opentelemetry:opentelemetry-sdk-common:jar:sources:1.22.0",
+                    "io.opentelemetry:opentelemetry-sdk-logs:jar:sources:1.22.0-alpha",
+                    "io.opentelemetry:opentelemetry-sdk-metrics:jar:sources:1.22.0",
+                    "io.opentelemetry:opentelemetry-sdk-trace:jar:sources:1.22.0",
+                    "io.opentelemetry:opentelemetry-sdk:jar:sources:1.22.0",
+                    "io.opentelemetry:opentelemetry-semconv:jar:sources:1.22.0-alpha"
                 ],
                 "directDependencies": [
-                    "io.opentelemetry:opentelemetry-api:jar:sources:1.12.0",
-                    "io.opentelemetry:opentelemetry-sdk:jar:sources:1.12.0",
-                    "io.opentelemetry:opentelemetry-semconv:jar:sources:1.12.0-alpha"
+                    "io.opentelemetry:opentelemetry-api:jar:sources:1.22.0",
+                    "io.opentelemetry:opentelemetry-sdk:jar:sources:1.22.0",
+                    "io.opentelemetry:opentelemetry-semconv:jar:sources:1.22.0-alpha"
                 ],
-                "file": "v1/https/repo1.maven.org/maven2/io/opentelemetry/opentelemetry-sdk-testing/1.12.0/opentelemetry-sdk-testing-1.12.0-sources.jar",
+                "file": "v1/https/repo1.maven.org/maven2/io/opentelemetry/opentelemetry-sdk-testing/1.22.0/opentelemetry-sdk-testing-1.22.0-sources.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/io/opentelemetry/opentelemetry-sdk-testing/1.12.0/opentelemetry-sdk-testing-1.12.0-sources.jar"
+                    "https://repo1.maven.org/maven2/io/opentelemetry/opentelemetry-sdk-testing/1.22.0/opentelemetry-sdk-testing-1.22.0-sources.jar"
                 ],
                 "packages": [],
-                "sha256": "f9362ef36856c2bd9bf05adb26560f6c148ddb9bc9c2837196df9aad75053bcf",
-                "url": "https://repo1.maven.org/maven2/io/opentelemetry/opentelemetry-sdk-testing/1.12.0/opentelemetry-sdk-testing-1.12.0-sources.jar"
+                "sha256": "50ff05961232b9b3ea044e9fdb1a07a3d7e7e24c1c24e15010e53d8016ed6c3b",
+                "url": "https://repo1.maven.org/maven2/io/opentelemetry/opentelemetry-sdk-testing/1.22.0/opentelemetry-sdk-testing-1.22.0-sources.jar"
             },
             {
-                "coord": "io.opentelemetry:opentelemetry-sdk-trace:1.12.0",
+                "coord": "io.opentelemetry:opentelemetry-sdk-trace:1.22.0",
                 "dependencies": [
-                    "io.opentelemetry:opentelemetry-api:1.12.0",
-                    "io.opentelemetry:opentelemetry-context:1.12.0",
-                    "io.opentelemetry:opentelemetry-sdk-common:1.12.0",
-                    "io.opentelemetry:opentelemetry-semconv:1.12.0-alpha"
+                    "io.opentelemetry:opentelemetry-api:1.22.0",
+                    "io.opentelemetry:opentelemetry-context:1.22.0",
+                    "io.opentelemetry:opentelemetry-sdk-common:1.22.0",
+                    "io.opentelemetry:opentelemetry-semconv:1.22.0-alpha"
                 ],
                 "directDependencies": [
-                    "io.opentelemetry:opentelemetry-api:1.12.0",
-                    "io.opentelemetry:opentelemetry-sdk-common:1.12.0",
-                    "io.opentelemetry:opentelemetry-semconv:1.12.0-alpha"
+                    "io.opentelemetry:opentelemetry-api:1.22.0",
+                    "io.opentelemetry:opentelemetry-sdk-common:1.22.0",
+                    "io.opentelemetry:opentelemetry-semconv:1.22.0-alpha"
                 ],
-                "file": "v1/https/repo1.maven.org/maven2/io/opentelemetry/opentelemetry-sdk-trace/1.12.0/opentelemetry-sdk-trace-1.12.0.jar",
+                "file": "v1/https/repo1.maven.org/maven2/io/opentelemetry/opentelemetry-sdk-trace/1.22.0/opentelemetry-sdk-trace-1.22.0.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/io/opentelemetry/opentelemetry-sdk-trace/1.12.0/opentelemetry-sdk-trace-1.12.0.jar"
+                    "https://repo1.maven.org/maven2/io/opentelemetry/opentelemetry-sdk-trace/1.22.0/opentelemetry-sdk-trace-1.22.0.jar"
                 ],
                 "packages": [
                     "io.opentelemetry.internal.shaded.jctools.queues",
@@ -8161,122 +8237,125 @@
                     "io.opentelemetry.sdk.trace.data",
                     "io.opentelemetry.sdk.trace.export",
                     "io.opentelemetry.sdk.trace.internal",
+                    "io.opentelemetry.sdk.trace.internal.data",
                     "io.opentelemetry.sdk.trace.samplers"
                 ],
-                "sha256": "eb186e70a6cef114e5a08b4ef9f98fc4c3aac47ed248f24d251acd2673f75085",
-                "url": "https://repo1.maven.org/maven2/io/opentelemetry/opentelemetry-sdk-trace/1.12.0/opentelemetry-sdk-trace-1.12.0.jar"
+                "sha256": "cf2da87580ff5bfa5c7b061597abd8b9d5af0c89d1af2b98071ead1a93c41015",
+                "url": "https://repo1.maven.org/maven2/io/opentelemetry/opentelemetry-sdk-trace/1.22.0/opentelemetry-sdk-trace-1.22.0.jar"
             },
             {
-                "coord": "io.opentelemetry:opentelemetry-sdk-trace:jar:sources:1.12.0",
+                "coord": "io.opentelemetry:opentelemetry-sdk-trace:jar:sources:1.22.0",
                 "dependencies": [
-                    "io.opentelemetry:opentelemetry-api:jar:sources:1.12.0",
-                    "io.opentelemetry:opentelemetry-context:jar:sources:1.12.0",
-                    "io.opentelemetry:opentelemetry-sdk-common:jar:sources:1.12.0",
-                    "io.opentelemetry:opentelemetry-semconv:jar:sources:1.12.0-alpha"
+                    "io.opentelemetry:opentelemetry-api:jar:sources:1.22.0",
+                    "io.opentelemetry:opentelemetry-context:jar:sources:1.22.0",
+                    "io.opentelemetry:opentelemetry-sdk-common:jar:sources:1.22.0",
+                    "io.opentelemetry:opentelemetry-semconv:jar:sources:1.22.0-alpha"
                 ],
                 "directDependencies": [
-                    "io.opentelemetry:opentelemetry-api:jar:sources:1.12.0",
-                    "io.opentelemetry:opentelemetry-sdk-common:jar:sources:1.12.0",
-                    "io.opentelemetry:opentelemetry-semconv:jar:sources:1.12.0-alpha"
+                    "io.opentelemetry:opentelemetry-api:jar:sources:1.22.0",
+                    "io.opentelemetry:opentelemetry-sdk-common:jar:sources:1.22.0",
+                    "io.opentelemetry:opentelemetry-semconv:jar:sources:1.22.0-alpha"
                 ],
-                "file": "v1/https/repo1.maven.org/maven2/io/opentelemetry/opentelemetry-sdk-trace/1.12.0/opentelemetry-sdk-trace-1.12.0-sources.jar",
+                "file": "v1/https/repo1.maven.org/maven2/io/opentelemetry/opentelemetry-sdk-trace/1.22.0/opentelemetry-sdk-trace-1.22.0-sources.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/io/opentelemetry/opentelemetry-sdk-trace/1.12.0/opentelemetry-sdk-trace-1.12.0-sources.jar"
+                    "https://repo1.maven.org/maven2/io/opentelemetry/opentelemetry-sdk-trace/1.22.0/opentelemetry-sdk-trace-1.22.0-sources.jar"
                 ],
                 "packages": [],
-                "sha256": "e8b5d49b85bd7b7e33d2718a56997e1cb5f640d43194416041c2f3d119bc0502",
-                "url": "https://repo1.maven.org/maven2/io/opentelemetry/opentelemetry-sdk-trace/1.12.0/opentelemetry-sdk-trace-1.12.0-sources.jar"
+                "sha256": "fb0da17f1e8790e369369326b10f8b78878d9663f962efa0bb9671e9eb909ff6",
+                "url": "https://repo1.maven.org/maven2/io/opentelemetry/opentelemetry-sdk-trace/1.22.0/opentelemetry-sdk-trace-1.22.0-sources.jar"
             },
             {
-                "coord": "io.opentelemetry:opentelemetry-sdk:1.12.0",
+                "coord": "io.opentelemetry:opentelemetry-sdk:1.22.0",
                 "dependencies": [
-                    "io.opentelemetry:opentelemetry-api:1.12.0",
-                    "io.opentelemetry:opentelemetry-context:1.12.0",
-                    "io.opentelemetry:opentelemetry-sdk-common:1.12.0",
-                    "io.opentelemetry:opentelemetry-sdk-logs:1.12.0-alpha",
-                    "io.opentelemetry:opentelemetry-sdk-metrics:1.12.0-alpha",
-                    "io.opentelemetry:opentelemetry-sdk-trace:1.12.0",
-                    "io.opentelemetry:opentelemetry-semconv:1.12.0-alpha"
+                    "io.opentelemetry:opentelemetry-api-logs:1.22.0-alpha",
+                    "io.opentelemetry:opentelemetry-api:1.22.0",
+                    "io.opentelemetry:opentelemetry-context:1.22.0",
+                    "io.opentelemetry:opentelemetry-sdk-common:1.22.0",
+                    "io.opentelemetry:opentelemetry-sdk-logs:1.22.0-alpha",
+                    "io.opentelemetry:opentelemetry-sdk-metrics:1.22.0",
+                    "io.opentelemetry:opentelemetry-sdk-trace:1.22.0",
+                    "io.opentelemetry:opentelemetry-semconv:1.22.0-alpha"
                 ],
                 "directDependencies": [
-                    "io.opentelemetry:opentelemetry-api:1.12.0",
-                    "io.opentelemetry:opentelemetry-sdk-common:1.12.0",
-                    "io.opentelemetry:opentelemetry-sdk-logs:1.12.0-alpha",
-                    "io.opentelemetry:opentelemetry-sdk-metrics:1.12.0-alpha",
-                    "io.opentelemetry:opentelemetry-sdk-trace:1.12.0"
+                    "io.opentelemetry:opentelemetry-api:1.22.0",
+                    "io.opentelemetry:opentelemetry-sdk-common:1.22.0",
+                    "io.opentelemetry:opentelemetry-sdk-logs:1.22.0-alpha",
+                    "io.opentelemetry:opentelemetry-sdk-metrics:1.22.0",
+                    "io.opentelemetry:opentelemetry-sdk-trace:1.22.0"
                 ],
-                "file": "v1/https/repo1.maven.org/maven2/io/opentelemetry/opentelemetry-sdk/1.12.0/opentelemetry-sdk-1.12.0.jar",
+                "file": "v1/https/repo1.maven.org/maven2/io/opentelemetry/opentelemetry-sdk/1.22.0/opentelemetry-sdk-1.22.0.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/io/opentelemetry/opentelemetry-sdk/1.12.0/opentelemetry-sdk-1.12.0.jar"
+                    "https://repo1.maven.org/maven2/io/opentelemetry/opentelemetry-sdk/1.22.0/opentelemetry-sdk-1.22.0.jar"
                 ],
                 "packages": [
                     "io.opentelemetry.sdk"
                 ],
-                "sha256": "63960b47f5898a55c0bb7d6f11349074e42f0f8fcef269b33ac42ff8cf087102",
-                "url": "https://repo1.maven.org/maven2/io/opentelemetry/opentelemetry-sdk/1.12.0/opentelemetry-sdk-1.12.0.jar"
+                "sha256": "517f5ce4a2df678d2ea9dd0a253af86a02b7366de15a3e2420b904fe026600e6",
+                "url": "https://repo1.maven.org/maven2/io/opentelemetry/opentelemetry-sdk/1.22.0/opentelemetry-sdk-1.22.0.jar"
             },
             {
-                "coord": "io.opentelemetry:opentelemetry-sdk:jar:sources:1.12.0",
+                "coord": "io.opentelemetry:opentelemetry-sdk:jar:sources:1.22.0",
                 "dependencies": [
-                    "io.opentelemetry:opentelemetry-api:jar:sources:1.12.0",
-                    "io.opentelemetry:opentelemetry-context:jar:sources:1.12.0",
-                    "io.opentelemetry:opentelemetry-sdk-common:jar:sources:1.12.0",
-                    "io.opentelemetry:opentelemetry-sdk-logs:jar:sources:1.12.0-alpha",
-                    "io.opentelemetry:opentelemetry-sdk-metrics:jar:sources:1.12.0-alpha",
-                    "io.opentelemetry:opentelemetry-sdk-trace:jar:sources:1.12.0",
-                    "io.opentelemetry:opentelemetry-semconv:jar:sources:1.12.0-alpha"
+                    "io.opentelemetry:opentelemetry-api-logs:jar:sources:1.22.0-alpha",
+                    "io.opentelemetry:opentelemetry-api:jar:sources:1.22.0",
+                    "io.opentelemetry:opentelemetry-context:jar:sources:1.22.0",
+                    "io.opentelemetry:opentelemetry-sdk-common:jar:sources:1.22.0",
+                    "io.opentelemetry:opentelemetry-sdk-logs:jar:sources:1.22.0-alpha",
+                    "io.opentelemetry:opentelemetry-sdk-metrics:jar:sources:1.22.0",
+                    "io.opentelemetry:opentelemetry-sdk-trace:jar:sources:1.22.0",
+                    "io.opentelemetry:opentelemetry-semconv:jar:sources:1.22.0-alpha"
                 ],
                 "directDependencies": [
-                    "io.opentelemetry:opentelemetry-api:jar:sources:1.12.0",
-                    "io.opentelemetry:opentelemetry-sdk-common:jar:sources:1.12.0",
-                    "io.opentelemetry:opentelemetry-sdk-logs:jar:sources:1.12.0-alpha",
-                    "io.opentelemetry:opentelemetry-sdk-metrics:jar:sources:1.12.0-alpha",
-                    "io.opentelemetry:opentelemetry-sdk-trace:jar:sources:1.12.0"
+                    "io.opentelemetry:opentelemetry-api:jar:sources:1.22.0",
+                    "io.opentelemetry:opentelemetry-sdk-common:jar:sources:1.22.0",
+                    "io.opentelemetry:opentelemetry-sdk-logs:jar:sources:1.22.0-alpha",
+                    "io.opentelemetry:opentelemetry-sdk-metrics:jar:sources:1.22.0",
+                    "io.opentelemetry:opentelemetry-sdk-trace:jar:sources:1.22.0"
                 ],
-                "file": "v1/https/repo1.maven.org/maven2/io/opentelemetry/opentelemetry-sdk/1.12.0/opentelemetry-sdk-1.12.0-sources.jar",
+                "file": "v1/https/repo1.maven.org/maven2/io/opentelemetry/opentelemetry-sdk/1.22.0/opentelemetry-sdk-1.22.0-sources.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/io/opentelemetry/opentelemetry-sdk/1.12.0/opentelemetry-sdk-1.12.0-sources.jar"
+                    "https://repo1.maven.org/maven2/io/opentelemetry/opentelemetry-sdk/1.22.0/opentelemetry-sdk-1.22.0-sources.jar"
                 ],
                 "packages": [],
-                "sha256": "4cdca7e6e669d5b8dc51452f33eb399a6797863a01bf4fe9992fbabc23ec0f38",
-                "url": "https://repo1.maven.org/maven2/io/opentelemetry/opentelemetry-sdk/1.12.0/opentelemetry-sdk-1.12.0-sources.jar"
+                "sha256": "1237d62a5d8a31620cd8f622a55524a6ba18a5ab759eac9c34f0e08d570be8f5",
+                "url": "https://repo1.maven.org/maven2/io/opentelemetry/opentelemetry-sdk/1.22.0/opentelemetry-sdk-1.22.0-sources.jar"
             },
             {
-                "coord": "io.opentelemetry:opentelemetry-semconv:1.12.0-alpha",
+                "coord": "io.opentelemetry:opentelemetry-semconv:1.22.0-alpha",
                 "dependencies": [
-                    "io.opentelemetry:opentelemetry-api:1.12.0",
-                    "io.opentelemetry:opentelemetry-context:1.12.0"
+                    "io.opentelemetry:opentelemetry-api:1.22.0",
+                    "io.opentelemetry:opentelemetry-context:1.22.0"
                 ],
                 "directDependencies": [
-                    "io.opentelemetry:opentelemetry-api:1.12.0"
+                    "io.opentelemetry:opentelemetry-api:1.22.0"
                 ],
-                "file": "v1/https/repo1.maven.org/maven2/io/opentelemetry/opentelemetry-semconv/1.12.0-alpha/opentelemetry-semconv-1.12.0-alpha.jar",
+                "file": "v1/https/repo1.maven.org/maven2/io/opentelemetry/opentelemetry-semconv/1.22.0-alpha/opentelemetry-semconv-1.22.0-alpha.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/io/opentelemetry/opentelemetry-semconv/1.12.0-alpha/opentelemetry-semconv-1.12.0-alpha.jar"
+                    "https://repo1.maven.org/maven2/io/opentelemetry/opentelemetry-semconv/1.22.0-alpha/opentelemetry-semconv-1.22.0-alpha.jar"
                 ],
                 "packages": [
                     "io.opentelemetry.semconv.resource.attributes",
                     "io.opentelemetry.semconv.trace.attributes"
                 ],
-                "sha256": "1688e11399db60eddcafe099f9ee98387a5d4e37029d334d56dde04c4815efce",
-                "url": "https://repo1.maven.org/maven2/io/opentelemetry/opentelemetry-semconv/1.12.0-alpha/opentelemetry-semconv-1.12.0-alpha.jar"
+                "sha256": "44a566f1bcbeca8a84821f6369880727e90b1f92061304081ef9587b4d2fb446",
+                "url": "https://repo1.maven.org/maven2/io/opentelemetry/opentelemetry-semconv/1.22.0-alpha/opentelemetry-semconv-1.22.0-alpha.jar"
             },
             {
-                "coord": "io.opentelemetry:opentelemetry-semconv:jar:sources:1.12.0-alpha",
+                "coord": "io.opentelemetry:opentelemetry-semconv:jar:sources:1.22.0-alpha",
                 "dependencies": [
-                    "io.opentelemetry:opentelemetry-api:jar:sources:1.12.0",
-                    "io.opentelemetry:opentelemetry-context:jar:sources:1.12.0"
+                    "io.opentelemetry:opentelemetry-api:jar:sources:1.22.0",
+                    "io.opentelemetry:opentelemetry-context:jar:sources:1.22.0"
                 ],
                 "directDependencies": [
-                    "io.opentelemetry:opentelemetry-api:jar:sources:1.12.0"
+                    "io.opentelemetry:opentelemetry-api:jar:sources:1.22.0"
                 ],
-                "file": "v1/https/repo1.maven.org/maven2/io/opentelemetry/opentelemetry-semconv/1.12.0-alpha/opentelemetry-semconv-1.12.0-alpha-sources.jar",
+                "file": "v1/https/repo1.maven.org/maven2/io/opentelemetry/opentelemetry-semconv/1.22.0-alpha/opentelemetry-semconv-1.22.0-alpha-sources.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/io/opentelemetry/opentelemetry-semconv/1.12.0-alpha/opentelemetry-semconv-1.12.0-alpha-sources.jar"
+                    "https://repo1.maven.org/maven2/io/opentelemetry/opentelemetry-semconv/1.22.0-alpha/opentelemetry-semconv-1.22.0-alpha-sources.jar"
                 ],
                 "packages": [],
-                "sha256": "a92eff46c591a9be007aede60a0a2167b7afb33ba8a0d7e799f6fd9bc3d5e373",
-                "url": "https://repo1.maven.org/maven2/io/opentelemetry/opentelemetry-semconv/1.12.0-alpha/opentelemetry-semconv-1.12.0-alpha-sources.jar"
+                "sha256": "21ad0878b16a26a1c6571b3f79dbd9ac7413129ff7e884d2fbb77848abeab934",
+                "url": "https://repo1.maven.org/maven2/io/opentelemetry/opentelemetry-semconv/1.22.0-alpha/opentelemetry-semconv-1.22.0-alpha-sources.jar"
             },
             {
                 "coord": "io.pebbletemplates:pebble:3.1.4",

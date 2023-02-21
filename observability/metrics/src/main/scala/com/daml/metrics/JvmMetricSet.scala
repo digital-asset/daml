@@ -4,8 +4,14 @@
 package com.daml.metrics
 
 import java.util
-
-import io.opentelemetry.instrumentation.runtimemetrics.{GarbageCollector, MemoryPools}
+import io.opentelemetry.instrumentation.runtimemetrics.{
+  BufferPools,
+  Classes,
+  Cpu,
+  GarbageCollector,
+  MemoryPools,
+  Threads,
+}
 import com.codahale.metrics.jvm.{
   ClassLoadingGaugeSet,
   GarbageCollectorMetricSet,
@@ -16,6 +22,7 @@ import com.codahale.metrics.jvm.{
 import com.codahale.metrics.{Metric, MetricSet}
 import com.daml.metrics.JvmMetricSet._
 import com.daml.metrics.api.MetricName
+import io.opentelemetry.api.OpenTelemetry
 
 import scala.jdk.CollectionConverters._
 
@@ -40,12 +47,12 @@ class JvmMetricSet extends MetricSet {
 object JvmMetricSet {
   private val Prefix = MetricName("jvm")
 
-  def registerObservers(): Unit = {
-//    BufferPools.registerObservers(openTelemetry)
-//    Classes.registerObservers(openTelemetry)
-//    Cpu.registerObservers(openTelemetry)
-//    Threads.registerObservers(openTelemetry)
-    MemoryPools.registerObservers()
-    GarbageCollector.registerObservers()
+  def registerObservers(openTelemetry: OpenTelemetry): Unit = {
+    BufferPools.registerObservers(openTelemetry)
+    Classes.registerObservers(openTelemetry)
+    Cpu.registerObservers(openTelemetry)
+    Threads.registerObservers(openTelemetry)
+    MemoryPools.registerObservers(openTelemetry)
+    GarbageCollector.registerObservers(openTelemetry)
   }
 }
