@@ -103,4 +103,4 @@ A timer. Measures latency (in milliseconds) for processing the command submissio
 ``daml.http_json_api.websocket_request_count``
 ==============================================
 
-A Counter. Count of active websocket connections
+A Counter. Counts active websocket connections.
