@@ -679,7 +679,7 @@ trait AbstractTriggerServiceTest extends AbstractTriggerServiceTestHelper {
       DefaultTriggerRunnerConfig
         .copy(
           // As the trigger starts with the ACS pre-populated with 100 Cat contracts, we should overflow at startup using 10
-          maximumActiveContracts = 10
+          hardLimit = DefaultTriggerRunnerConfig.hardLimit.copy(maximumActiveContracts = 10)
         )
     ),
   ) { uri: Uri =>
@@ -722,7 +722,7 @@ trait AbstractTriggerServiceTest extends AbstractTriggerServiceTestHelper {
       DefaultTriggerRunnerConfig
         .copy(
           // As the trigger creates 100 Cat contracts, we should eventually overflow using 1
-          maximumActiveContracts = 1
+          hardLimit = DefaultTriggerRunnerConfig.hardLimit.copy(maximumActiveContracts = 1)
         )
     ),
   ) { uri: Uri =>
@@ -763,7 +763,7 @@ trait AbstractTriggerServiceTest extends AbstractTriggerServiceTestHelper {
         maxSubmissionDuration = 100.millis,
         // As our submission rate is faster than the ledger can manage and we are submitting 100 Cat create commands,
         // in-flights should overflow using 10
-        inFlightCommandOverflowCount = 10,
+        hardLimit = DefaultTriggerRunnerConfig.hardLimit.copy(inFlightCommandOverflowCount = 10),
       )
     ),
   ) { uri: Uri =>
@@ -792,6 +792,88 @@ trait AbstractTriggerServiceTest extends AbstractTriggerServiceTestHelper {
         _ should contain("[ERROR] Due to excessive in-flight commands, stopping the trigger"),
       )
     } yield succeed
+  }
+
+  it should "stop the trigger if the rule evaluator times out during initialization" inClaims withTriggerService(
+    List(dar),
+    triggerRunnerConfig = Some(
+      DefaultTriggerRunnerConfig.copy(
+        // As our submission rate takes longer than the allotted rule evaluation time, we should timeout
+        hardLimit = DefaultTriggerRunnerConfig.hardLimit
+          .copy(allowTriggerTimeouts = true, ruleEvaluationTimeout = 1.second)
+      )
+    ),
+  ) { uri: Uri =>
+    for {
+      client <- sandboxClient(
+        catsAppId,
+        actAs = List(ApiTypes.Party(alice.unwrap)),
+      )
+      _ <- getActiveContracts(client, alice, Identifier(testPkgId, "Cats", "Cat"))
+        .flatMap(events =>
+          Future.sequence(events.map { event =>
+            submitCmd(client, alice.unwrap, killCat(event.contractId))
+          })
+        )
+      // Wait until there are no Cat contracts
+      _ <- RetryStrategy.constant(20, 1.seconds) { (_, _) =>
+        getActiveContracts(client, alice, Identifier(testPkgId, "Cats", "Cat"))
+          .map(_ shouldBe Vector())
+      }
+      resp <- startTrigger(uri, s"$testPkgId:Cats:earlyBreedingTrigger", alice, Some(catsAppId))
+      catsTrigger <- parseTriggerId(resp)
+      _ <- assertTriggerIds(uri, alice, Vector(catsTrigger))
+      _ <- assertTriggerStatus(catsTrigger, _ should contain("stopped: runtime failure"))
+      _ <- assertTriggerRunnerStatus(
+        catsTrigger,
+        _ should contain(
+          "[ERROR] Stopping trigger as the rule evaluator has exceeded its allotted running time"
+        ),
+      )
+    } yield {
+      succeed
+    }
+  }
+
+  it should "stop the trigger if the rule evaluator times out at runtime" inClaims withTriggerService(
+    List(dar),
+    triggerRunnerConfig = Some(
+      DefaultTriggerRunnerConfig.copy(
+        // As our submission rate takes longer than the allotted rule evaluation time, we should timeout
+        hardLimit = DefaultTriggerRunnerConfig.hardLimit
+          .copy(allowTriggerTimeouts = true, ruleEvaluationTimeout = 1.second)
+      )
+    ),
+  ) { uri: Uri =>
+    for {
+      client <- sandboxClient(
+        catsAppId,
+        actAs = List(ApiTypes.Party(alice.unwrap)),
+      )
+      _ <- getActiveContracts(client, alice, Identifier(testPkgId, "Cats", "Cat"))
+        .flatMap(events =>
+          Future.sequence(events.map { event =>
+            submitCmd(client, alice.unwrap, killCat(event.contractId))
+          })
+        )
+      // Wait until there are no Cat contracts
+      _ <- RetryStrategy.constant(20, 1.seconds) { (_, _) =>
+        getActiveContracts(client, alice, Identifier(testPkgId, "Cats", "Cat"))
+          .map(_ shouldBe Vector())
+      }
+      resp <- startTrigger(uri, s"$testPkgId:Cats:lateBreedingTrigger", alice, Some(catsAppId))
+      catsTrigger <- parseTriggerId(resp)
+      _ <- assertTriggerIds(uri, alice, Vector(catsTrigger))
+      _ <- assertTriggerStatus(catsTrigger, _ should contain("stopped: runtime failure"))
+      _ <- assertTriggerRunnerStatus(
+        catsTrigger,
+        _ should contain(
+          "[ERROR] Stopping trigger as the rule evaluator has exceeded its allotted running time"
+        ),
+      )
+    } yield {
+      succeed
+    }
   }
 }
 

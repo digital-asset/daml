@@ -299,7 +299,7 @@ final class Converter(
     record(
       triggerConfigTy,
       "maxInFlightCommands" -> SValue.SInt64(triggerConfig.inFlightCommandBackPressureCount),
-      "maxActiveContracts" -> SValue.SInt64(triggerConfig.maximumActiveContracts),
+      "maxActiveContracts" -> SValue.SInt64(triggerConfig.hardLimit.maximumActiveContracts),
     )
 
   def fromTriggerSetupArguments(
