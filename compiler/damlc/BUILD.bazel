@@ -95,7 +95,6 @@ package_app(
     resources = [
         ":daml-base-anchors.json",
         ":ghc-pkg-dist",
-        "//compiler/daml-extension:webview-stylesheet.css",
         "//compiler/damlc:ghcversion",
         "//compiler/damlc:hpp-dist",
         "//compiler/damlc/daml-ide-core:dlint.yaml",

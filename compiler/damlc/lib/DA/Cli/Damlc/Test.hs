@@ -17,12 +17,12 @@ module DA.Cli.Damlc.Test (
 import Control.Exception
 import Control.Monad.Except
 import Control.Monad.Extra
-import DA.Bazel.Runfiles
 import DA.Daml.Compiler.Output
 import qualified DA.Daml.LF.Ast as LF
 import qualified DA.Daml.LF.PrettyScenario as SS
 import qualified DA.Daml.LF.ScenarioServiceClient as SSC
 import DA.Daml.Options.Types
+import DA.Daml.Project.Consts (sdkPathEnvVar)
 import qualified DA.Pretty
 import qualified DA.Pretty as Pretty
 import Data.Either
@@ -48,6 +48,7 @@ import Safe
 import qualified ScenarioService as SS
 import System.Console.ANSI (SGR(..), setSGRCode, Underlining(..), ConsoleIntensity(..))
 import System.Directory (createDirectoryIfMissing)
+import System.Environment.Blank
 import System.Exit (exitFailure)
 import System.FilePath
 import System.IO (hPutStrLn, stderr)
@@ -153,13 +154,13 @@ testRun h inFiles lfVersion (RunAllTests runAllTests) coverage color mbJUnitOutp
         allPackages
         allResults
 
-    extensionCss <- readFile =<< locateResource Resource
-      -- //compiler/daml-extension:stylesheet
-      { resourcesPath = "webview-stylesheet.css"
-      , runfilesPathPrefix = "//compiler/daml-extension:webview-stylesheet.css"
-      }
-    outputTables extensionCss tableOutputPath results
-    outputTransactions extensionCss transactionsOutputPath results
+    mbSdkPath <- getEnv sdkPathEnvVar
+    case mbSdkPath of
+      Nothing -> pure ()
+      Just sdkPath -> do
+        extensionCss <- readFile (sdkPath </> "studio/webview-stylesheet.css")
+        outputTables extensionCss tableOutputPath results
+        outputTransactions extensionCss transactionsOutputPath results
 
     whenJust mbJUnitOutput $ \junitOutput -> do
         createDirectoryIfMissing True $ takeDirectory junitOutput
