@@ -18,11 +18,9 @@ import io.opentelemetry.sdk.metrics.SdkMeterProviderBuilder
 import io.opentelemetry.sdk.metrics.InstrumentType
 import io.opentelemetry.sdk.metrics.{Aggregation, InstrumentSelector, View}
 
-import scala.annotation.nowarn
 import scala.concurrent.Future
 import scala.jdk.CollectionConverters.SeqHasAsJava
 
-@nowarn("msg=deprecated")
 case class OpenTelemetryOwner(
     setAsGlobal: Boolean,
     reporter: Option[MetricsReporter],
