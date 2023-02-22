@@ -6,6 +6,7 @@
 -- typecheck with LF, test it.  Test annotations are documented as 'Ann'.
 module DA.Test.DamlcIntegration
   ( main
+  , withDamlScriptDep
   ) where
 
 {- HLINT ignore "locateRunfiles/package_app" -}
@@ -108,7 +109,7 @@ instance IsOption SkipValidationOpt where
   optionHelp = Tagged "Skip package validation in scenario service (true|false)"
 
 -- | Creates a temp directory with daml script installed, gives the database db path and package flag
-withDamlScriptDep :: Version -> ((FilePath, PackageFlag) -> IO ()) -> IO ()
+withDamlScriptDep :: Version -> ((FilePath, PackageFlag) -> IO a) -> IO a
 withDamlScriptDep lfVer cont = do
   withTempDir $ \dir -> do
     withCurrentDirectory dir $ do
