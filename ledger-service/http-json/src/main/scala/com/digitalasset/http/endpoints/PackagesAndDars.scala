@@ -29,7 +29,6 @@ class PackagesAndDars(routeSetup: RouteSetup, packageManagementService: PackageM
   ): ET[domain.SyncResponse[Unit]] = {
     for {
       parseAndDecodeTimer <- getParseAndDecodeTimerCtx()
-      _ <- EitherT.pure(metrics.uploadPackagesThroughput.mark())
       t2 <- eitherT(routeSetup.inputSource(httpRequest))
       (jwt, payload, source) = t2
       _ <- EitherT.pure(parseAndDecodeTimer.stop())

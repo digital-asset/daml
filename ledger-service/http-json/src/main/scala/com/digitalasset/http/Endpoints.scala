@@ -37,7 +37,6 @@ import com.daml.jwt.domain.Jwt
 import com.daml.ledger.api.{domain => LedgerApiDomain}
 import com.daml.ledger.client.services.admin.UserManagementClient
 import com.daml.ledger.client.services.identity.LedgerIdentityClient
-import com.daml.metrics.api.MetricHandle.Timer
 import scalaz.EitherT.eitherT
 
 import scala.util.control.NonFatal
@@ -130,7 +129,7 @@ class Endpoints(
 
   private def toGetRoute[Res](
       httpRequest: HttpRequest,
-      fn: (Jwt) => ET[domain.SyncResponse[Res]],
+      fn: Jwt => ET[domain.SyncResponse[Res]],
   )(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID],
       mkHttpResponse: MkHttpResponse[ET[domain.SyncResponse[Res]]],
@@ -162,7 +161,7 @@ class Endpoints(
     responseToRoute(httpResponse(res))
   }
 
-  private def toDownloadPackageRoute[Res](
+  private def toDownloadPackageRoute(
       httpRequest: HttpRequest,
       packageId: String,
       fn: (Jwt, LedgerApiDomain.LedgerId, String) => Future[HttpResponse],
@@ -317,43 +316,33 @@ class Endpoints(
   ): Route = extractRequest apply { req =>
     implicit val lc: LoggingContextOf[InstanceUUID with RequestID] =
       extendWithRequestIdLogCtx(identity)(lc0)
-    import metrics._
     val markThroughputAndLogProcessingTime: Directive0 = Directive { (fn: Unit => Route) =>
       val t0 = System.nanoTime
-      metrics.httpRequestThroughput.mark()
       fn(()).andThen { res =>
         res.onComplete(_ => logger.trace(s"Processed request after ${System.nanoTime() - t0}ns"))
         res
       }
     }
-    // As futures are eager it is best to start the timer rather sooner than later
-    // to get accurate timings. This also consistent with the implementation above which
-    // logs the processing time.
-    def withTimer(timer: Timer) = Directive { (fn: Unit => Route) => ctx =>
-      Timed.future(timer, fn(())(ctx))
-    }
     def path[L](pm: PathMatcher[L]) =
       server.Directives.path(pm) & markThroughputAndLogProcessingTime & logRequestAndResult
-    val withCmdSubmitTimer: Directive0 = withTimer(commandSubmissionTimer)
-    val withFetchTimer: Directive0 = withTimer(fetchTimer)
     concat(
       pathPrefix("v1") apply concat(
         post apply concat(
-          path("create") & withCmdSubmitTimer apply toRoute(create(req)),
-          path("exercise") & withCmdSubmitTimer apply toRoute(exercise(req)),
-          path("create-and-exercise") & withCmdSubmitTimer apply toRoute(
+          path("create") apply toRoute(create(req)),
+          path("exercise") apply toRoute(exercise(req)),
+          path("create-and-exercise") apply toRoute(
             createAndExercise(req)
           ),
-          path("query") & withTimer(queryMatchingTimer) apply toRoute(query(req)),
-          path("fetch") & withFetchTimer apply toRoute(fetch(req)),
+          path("query") apply toRoute(query(req)),
+          path("fetch") apply toRoute(fetch(req)),
           path("user") apply toPostRoute(req, getUser),
           path("user" / "create") apply toPostRoute(req, createUser),
           path("user" / "delete") apply toPostRoute(req, deleteUser),
           path("user" / "rights") apply toPostRoute(req, listUserRights),
           path("user" / "rights" / "grant") apply toPostRoute(req, grantUserRights),
           path("user" / "rights" / "revoke") apply toPostRoute(req, revokeUserRights),
-          path("parties") & withFetchTimer apply toPostRoute(req, parties),
-          path("parties" / "allocate") & withTimer(allocatePartyTimer) apply toPostRoute(
+          path("parties") apply toPostRoute(req, parties),
+          path("parties" / "allocate") apply toPostRoute(
             req,
             allocateParty,
           ),
@@ -361,17 +350,14 @@ class Endpoints(
           path("metering-report") apply toPostRoute(req, meteringReportEndpoint.generateReport),
         ),
         get apply concat(
-          path("query") & withTimer(queryAllTimer) apply
-            toRoute(retrieveAll(req)),
+          path("query") apply toRoute(retrieveAll(req)),
           path("user") apply toGetRoute(req, getAuthenticatedUser),
           path("user" / "rights") apply toGetRoute(req, listAuthenticatedUserRights),
           path("users") apply toGetRoute(req, listUsers),
-          path("parties") & withTimer(getPartyTimer) apply toGetRoute(req, allParties),
+          path("parties") apply toGetRoute(req, allParties),
           path("packages") apply toGetRouteLedgerId(req, listPackages),
           path("packages" / ".+".r)(packageId =>
-            withTimer(downloadPackageTimer) & extractRequest apply (req =>
-              toDownloadPackageRoute(req, packageId, downloadPackage)
-            )
+            extractRequest apply (req => toDownloadPackageRoute(req, packageId, downloadPackage))
           ),
         ),
       ),
