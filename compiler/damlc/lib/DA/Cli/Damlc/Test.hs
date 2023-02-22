@@ -191,25 +191,23 @@ data NamedPath = NamedPath { np_name :: String, np_path :: FilePath }
 
 tryWithPath :: (FilePath -> IO a) -> NamedPath -> IO (Maybe a)
 tryWithPath action NamedPath {..} =
-    handleJust errorFilter handler (Just <$> action np_path)
+    handleJust select printer (Just <$> action np_path)
     where
-        errorFilter :: IOError -> Maybe IOError
-        errorFilter err = do
-            guard $ isPermissionError err || isAlreadyExistsError err || isDoesNotExistError err
-            pure err
+        printer :: String -> IO (Maybe a)
+        printer msg = do
+            hPutStrLn stderr msg
+            pure Nothing
 
-        handler :: IOError -> IO (Maybe a)
-        handler err
-          | isPermissionError err = do
-              hPutStrLn stderr $ np_name ++ " cannot be created because of unsufficient permissions."
-              pure Nothing
-          | isAlreadyExistsError err = do
-              hPutStrLn stderr $ np_name ++ " cannot be created because it already exists."
-              pure Nothing
-          | isDoesNotExistError err = do
-              hPutStrLn stderr $ np_name ++ " cannot be created because its parent directory does not exist."
-              pure Nothing
-          | otherwise = throwIO err
+        select :: IOError -> Maybe String
+        select err
+          | isPermissionError err =
+              Just $ np_name ++ " cannot be created because of unsufficient permissions."
+          | isAlreadyExistsError err =
+              Just $ np_name ++ " cannot be created because it already exists."
+          | isDoesNotExistError err =
+              Just $ np_name ++ " cannot be created because its parent directory does not exist."
+          | otherwise =
+              Nothing
 
 outputUnderDir :: NamedPath -> [(NamedPath, T.Text)] -> IO ()
 outputUnderDir dir paths = do
