@@ -489,11 +489,14 @@ private[lf] object SBuiltin {
         args: util.ArrayList[SValue],
         machine: Machine[Q],
     ): Control.Value = {
-      if (machine.isUpdateMachine) {
-        Control.Value(SValue.SValue.None)
-      } else {
-        val coid = getSContractId(args, 0).coid
-        Control.Value(SOptional(Some(SText(coid))))
+      val coid = getSContractId(args, 0).coid
+      machine match {
+        case _: PureMachine =>
+          Control.Value(SOptional(Some(SText(coid))))
+        case _: ScenarioMachine =>
+          Control.Value(SOptional(Some(SText(coid))))
+        case _: UpdateMachine =>
+          Control.Value(SValue.SValue.None)
       }
     }
   }
@@ -1836,8 +1839,9 @@ private[lf] object SBuiltin {
         // just run the body action
         machine.enterApplication(action, Array(SEValue(SToken)))
       } else {
-        val gaining = required.diff(machine.ptx.context.info.authorizers)
-        if (gaining.isEmpty) {
+        val holding = machine.ptx.context.info.authorizers
+        val requesting = required.diff(holding)
+        if (requesting.isEmpty) {
           // do scoped authority restriction; (TX) Node.Authority is *NOT* created
           machine.ptx.beginRestrictAuthority(
             required = required
@@ -1848,17 +1852,24 @@ private[lf] object SBuiltin {
               machine.enterApplication(action, Array(SEValue(SToken)))
           }
         } else {
-          // TODO #15882: check with ledger that required authority change is allowed
-
-          // do scoped authority change; (TX) Node.Authority *IS* created
-          machine.ptx.beginGainAuthority(
-            required = required
-          ) match {
-            case ptx =>
-              machine.ptx = ptx
-              machine.pushKont(KCloseGainAuthority)
-              machine.enterApplication(action, Array(SEValue(SToken)))
-          }
+          Control.Question[Question.Update](
+            Question.Update.NeedAuthority(
+              holding = holding,
+              requesting = requesting,
+              callback = { () =>
+                // do scoped authority change; (TX) Node.Authority *IS* created
+                machine.ptx.beginGainAuthority(
+                  required = required
+                ) match {
+                  case ptx =>
+                    machine.ptx = ptx
+                    machine.pushKont(KCloseGainAuthority)
+                    val c = machine.enterApplication(action, Array(SEValue(SToken)))
+                    machine.setControl(c)
+                }
+              },
+            )
+          )
         }
       }
     }

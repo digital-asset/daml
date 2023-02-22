@@ -8,6 +8,7 @@ package speedy
 import data.Ref.PackageId
 import data.Time
 import SResult._
+import com.daml.lf.data.Ref.Party
 import com.daml.lf.language.{Ast, PackageInterface}
 import com.daml.lf.speedy.Speedy.{CachedContract, UpdateMachine}
 import com.daml.lf.testing.parser.ParserParameters
@@ -45,24 +46,69 @@ private[speedy] object SpeedyTestLib {
       getKey: PartialFunction[GlobalKeyWithMaintainers, Value.ContractId] = PartialFunction.empty,
       getTime: PartialFunction[Unit, Time.Timestamp] = PartialFunction.empty,
   ): Either[SError.SError, SValue] = {
-    runTx(machine, getPkg, getContract, getKey, getTime) match {
+    runCollectAuthRequests(machine, getPkg, getContract, getKey, getTime) match {
       case Left(e) => Left(e)
-      case Right(SResultFinal(v)) => Right(v)
+      case Right((v, _)) => Right(v)
     }
   }
 
   @throws[SError.SErrorCrash]
-  def runTx(
-      machine: Speedy.Machine[Question.Update],
+  def buildTransaction(
+      machine: Speedy.UpdateMachine,
       getPkg: PartialFunction[PackageId, CompiledPackages] = PartialFunction.empty,
       getContract: PartialFunction[Value.ContractId, Value.VersionedContractInstance] =
         PartialFunction.empty,
       getKey: PartialFunction[GlobalKeyWithMaintainers, Value.ContractId] = PartialFunction.empty,
       getTime: PartialFunction[Unit, Time.Timestamp] = PartialFunction.empty,
-  ): Either[SError.SError, SResultFinal] = {
+  ): Either[SError.SError, SubmittedTransaction] =
+    buildTransactionCollectAuthRequests(machine, getPkg, getContract, getKey, getTime) match {
+      case Right((tx, _)) =>
+        Right(tx)
+      case Left(err) =>
+        Left(err)
+    }
+
+  case class AuthRequest(
+      holding: Set[Party],
+      requesting: Set[Party],
+  )
+
+  @throws[SError.SErrorCrash]
+  def buildTransactionCollectAuthRequests(
+      machine: Speedy.UpdateMachine,
+      getPkg: PartialFunction[PackageId, CompiledPackages] = PartialFunction.empty,
+      getContract: PartialFunction[Value.ContractId, Value.VersionedContractInstance] =
+        PartialFunction.empty,
+      getKey: PartialFunction[GlobalKeyWithMaintainers, Value.ContractId] = PartialFunction.empty,
+      getTime: PartialFunction[Unit, Time.Timestamp] = PartialFunction.empty,
+  ): Either[SError.SError, (SubmittedTransaction, List[AuthRequest])] =
+    runCollectAuthRequests(machine, getPkg, getContract, getKey, getTime) match {
+      case Right((_, authRequests)) =>
+        machine.finish.map(_.tx) match {
+          case Left(err) =>
+            Left(err)
+          case Right(tx) =>
+            Right((tx, authRequests))
+        }
+      case Left(err) =>
+        Left(err)
+    }
+
+  @throws[SError.SErrorCrash]
+  private def runCollectAuthRequests(
+      machine: Speedy.Machine[Question.Update],
+      getPkg: PartialFunction[PackageId, CompiledPackages],
+      getContract: PartialFunction[Value.ContractId, Value.VersionedContractInstance],
+      getKey: PartialFunction[GlobalKeyWithMaintainers, Value.ContractId],
+      getTime: PartialFunction[Unit, Time.Timestamp],
+  ): Either[SError.SError, (SValue, List[AuthRequest])] = {
+
+    var authRequests: List[AuthRequest] = List.empty
 
     def onQuestion(question: Question.Update): Unit = question match {
-      case _: Question.Update.NeedAuthority => ??? // TODO #15882
+      case Question.Update.NeedAuthority(holding @ _, requesting @ _, callback) =>
+        authRequests = AuthRequest(holding, requesting) :: authRequests
+        callback()
       case Question.Update.NeedTime(callback) =>
         getTime.lift(()) match {
           case Some(value) =>
@@ -88,22 +134,25 @@ private[speedy] object SpeedyTestLib {
       case Question.Update.NeedKey(key, _, callback) =>
         discard(callback(getKey.lift(key)))
     }
-    runTxQ(onQuestion, machine)
+    runTxQ(onQuestion, machine) match {
+      case Left(e) => Left(e)
+      case Right(fv) => Right((fv, authRequests.reverse))
+    }
   }
 
   @throws[SError.SErrorCrash]
   def runTxQ[Q](
       onQuestion: Q => Unit,
       machine: Speedy.Machine[Q],
-  ): Either[SError.SError, SResultFinal] = {
+  ): Either[SError.SError, SValue] = {
     @tailrec
-    def loop: Either[SError.SError, SResultFinal] = {
+    def loop: Either[SError.SError, SValue] = {
       machine.run() match {
         case SResultQuestion(question) =>
           onQuestion(question)
           loop
-        case fv: SResultFinal =>
-          Right(fv)
+        case SResultFinal(v) =>
+          Right(v)
         case SResultInterruption =>
           loop
         case SResultError(err) =>
@@ -112,22 +161,6 @@ private[speedy] object SpeedyTestLib {
     }
     loop
   }
-
-  @throws[SError.SErrorCrash]
-  def buildTransaction(
-      machine: Speedy.UpdateMachine,
-      getPkg: PartialFunction[PackageId, CompiledPackages] = PartialFunction.empty,
-      getContract: PartialFunction[Value.ContractId, Value.VersionedContractInstance] =
-        PartialFunction.empty,
-      getKey: PartialFunction[GlobalKeyWithMaintainers, Value.ContractId] = PartialFunction.empty,
-      getTime: PartialFunction[Unit, Time.Timestamp] = PartialFunction.empty,
-  ): Either[SError.SError, SubmittedTransaction] =
-    runTx(machine, getPkg, getContract, getKey, getTime) match {
-      case Right(SResultFinal(_)) =>
-        machine.finish.map(_.tx)
-      case Left(err) =>
-        Left(err)
-    }
 
   @throws[ValidationError]
   def typeAndCompile(pkgs: Map[PackageId, Ast.Package]): PureCompiledPackages = {

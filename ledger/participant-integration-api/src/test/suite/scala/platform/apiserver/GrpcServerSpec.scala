@@ -5,6 +5,7 @@ package com.daml.platform.apiserver
 
 import java.util.concurrent.Executors
 
+import com.codahale.metrics.MetricRegistry
 import com.daml.error.DamlContextualizedErrorLogger
 import com.daml.error.definitions.LedgerApiErrors
 import com.daml.grpc.sampleservice.implementations.HelloServiceReferenceImplementation
@@ -12,7 +13,8 @@ import com.daml.ledger.client.GrpcChannel
 import com.daml.ledger.client.configuration.LedgerClientChannelConfiguration
 import com.daml.ledger.resources.{ResourceOwner, TestResourceContext}
 import com.daml.metrics.Metrics
-import com.daml.metrics.api.testing.MetricValues
+import com.daml.metrics.api.testing.{InMemoryMetricsFactory, MetricValues}
+import com.daml.metrics.grpc.GrpcMetricsServerInterceptor
 import com.daml.platform.apiserver.GrpcServerSpec._
 import com.daml.platform.apiserver.configuration.RateLimitingConfig
 import com.daml.platform.apiserver.ratelimiting.{LimitResult, RateLimitingInterceptor}
@@ -92,7 +94,8 @@ final class GrpcServerSpec
     }
 
     "install rate limit interceptor" in {
-      val metrics = Metrics.ForTesting
+      val metricsFactory = new InMemoryMetricsFactory
+      val metrics = new Metrics(metricsFactory, metricsFactory, new MetricRegistry)
       val rateLimitingInterceptor = RateLimitingInterceptor(
         metrics,
         rateLimitingConfig,
@@ -113,9 +116,12 @@ final class GrpcServerSpec
         helloService.single(HelloRequest(7)).failed.map {
           case s: StatusRuntimeException =>
             s.getStatus.getCode shouldBe Status.Code.ABORTED
-            metrics.daml.lapi.return_status
-              .forCode(Status.Code.ABORTED.toString)
-              .value shouldBe 1
+            metrics.daml.grpc.callsHandled.valueFilteredOnLabels(
+              LabelFilter(
+                GrpcMetricsServerInterceptor.MetricsGrpcResponseCode,
+                Status.Code.ABORTED.toString,
+              )
+            ) shouldBe 1
           case o => fail(s"Expected StatusRuntimeException, not $o")
         }
       }

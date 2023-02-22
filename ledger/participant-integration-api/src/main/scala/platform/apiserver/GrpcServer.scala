@@ -51,7 +51,6 @@ private[apiserver] object GrpcServer {
     // NOTE: Interceptors run in the reverse order in which they were added.
     interceptors.foreach(builder.intercept)
     builder.intercept(new GrpcMetricsServerInterceptor(metrics.daml.grpc))
-    builder.intercept(new MetricsInterceptor(metrics))
     builder.intercept(new TruncatedStatusInterceptor(MaximumStatusDescriptionLength))
     builder.intercept(new ErrorInterceptor)
     services.foreach { service =>

@@ -408,7 +408,10 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
 
         case SResultQuestion(question) =>
           question match {
-            case _: Question.Update.NeedAuthority => ??? // TODO #15882
+            case Question.Update.NeedAuthority(holding @ _, requesting @ _, callback) =>
+              // TODO #15882 -- ask ledger using ResultNeedAuthority
+              callback()
+              loop()
 
             case Question.Update.NeedTime(callback) =>
               callback(time)

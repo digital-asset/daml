@@ -5,7 +5,7 @@ sdk-version: __VERSION__
 name: __PROJECT_NAME__
 source: daml
 init-script: Scripts.Transfer:runTransfer
-version: 0.0.1
+version: 0.0.2
 dependencies:
   - daml-prim
   - daml-stdlib
@@ -21,7 +21,6 @@ data-dependencies:
   - .lib/daml-finance-interface-util.dar
   # IMPLEMENTATION DEPENDENCIES
   - .lib/daml-finance-account.dar
-  - .lib/daml-finance-data.dar
   - .lib/daml-finance-holding.dar
   - .lib/daml-finance-instrument-token.dar
   - .lib/daml-finance-lifecycle.dar
@@ -37,6 +36,7 @@ data-dependencies:
   # - .lib/daml-finance-interface-types-date.dar
   # UNUSED IMPLEMENTATIONS DEPENDENCIES - UNCOMMENT TO ENABLE
   # - .lib/daml-finance-claims.dar
+  # - .lib/daml-finance-data.dar
   # - .lib/daml-finance-instrument-bond.dar
   # - .lib/daml-finance-instrument-equity.dar
   # - .lib/daml-finance-instrument-generic.dar
@@ -49,4 +49,3 @@ data-dependencies:
 start-navigator: no
 build-options:
   - --target=1.15
-

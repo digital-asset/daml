@@ -5,7 +5,7 @@
 
 module Loop where
 
-import Daml.Script
+-- import Daml.Script
 
 loop : Int -> ()
 loop x = loop (x + 1)
