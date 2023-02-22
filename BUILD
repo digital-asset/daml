@@ -114,6 +114,10 @@ sdkVersion = "{sdk}"
 mvnVersion :: String
 mvnVersion = "{mvn}"
 
+-- | SDK version with non numeric subversions removed. Used for daml-script and daml-triggers versions
+sdkPackageVersion :: String
+sdkPackageVersion = "{ghc}"
+
 damlStdlib :: UnitId
 damlStdlib = stringToUnitId ("daml-stdlib-" ++ "{ghc}")
 EOF
