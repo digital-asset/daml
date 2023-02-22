@@ -1,0 +1,5 @@
+module DamlDocsScriptImport where
+
+import Daml.Script
+
+main = script $ pure ()
