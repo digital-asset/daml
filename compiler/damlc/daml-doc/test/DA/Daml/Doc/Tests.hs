@@ -52,10 +52,10 @@ mkTestTree externalAnchors scriptPackageData = do
   let goldenSrcs = nubOrd $ map (flip replaceExtensions "daml") expectFiles
   goldenTests <- mapM (fileTest externalAnchors scriptPackageData . (testDir </>)) goldenSrcs
 
-  pure $ Tasty.testGroup "DA.Daml.Doc" $ unitTests scriptPackageData <> concat goldenTests
+  pure $ Tasty.testGroup "DA.Daml.Doc" $ unitTests <> concat goldenTests
 
-unitTests :: ScriptPackageData -> [Tasty.TestTree]
-unitTests scriptPackageData = ($ scriptPackageData) <$>
+unitTests :: [Tasty.TestTree]
+unitTests =
     [ damldocExpect
            Nothing
            "Empty module is OK"
@@ -369,15 +369,15 @@ emptyDocs name =
 
 -- | Compiles the given input string (in a tmp file) and checks generated doc.s
 -- using the predicate provided.
-damldocExpect :: Maybe FilePath -> String -> [T.Text] -> (ModuleDoc -> Assertion) -> ScriptPackageData -> Tasty.TestTree
-damldocExpect importPathM testname input check scriptPackageData =
+damldocExpect :: Maybe FilePath -> String -> [T.Text] -> (ModuleDoc -> Assertion) -> Tasty.TestTree
+damldocExpect importPathM testname input check =
   testCase testname $
   withTempDir $ \dir -> do
 
     let testfile = dir </> testModule <.> "daml"
     -- write input to a file
     T.writeFileUtf8 testfile (T.unlines input)
-    doc <- runDamldoc testfile importPathM scriptPackageData
+    doc <- runDamldoc testfile importPathM Nothing
     check doc
 
 damldocExpectMany ::
@@ -385,42 +385,41 @@ damldocExpectMany ::
   -> String
   -> [(String, [T.Text])]
   -> (Map Modulename ModuleDoc -> Assertion)
-  -> ScriptPackageData
   -> Tasty.TestTree
-damldocExpectMany importPathM testname input check scriptPackageData =
+damldocExpectMany importPathM testname input check =
   testCase testname $
   withTempDir $ \dir -> do
     testfiles <- forM input $ \(modName, content) -> do
       let testfile = dir </> modName <.> "daml"
       T.writeFileUtf8 testfile (T.unlines content)
       pure testfile
-    docs <- runDamldocMany testfiles importPathM scriptPackageData
+    docs <- runDamldocMany testfiles importPathM Nothing
     check docs
 
 -- | Generate the docs for a given input file and optional import directory.
-runDamldoc :: FilePath -> Maybe FilePath -> ScriptPackageData -> IO ModuleDoc
-runDamldoc testfile importPathM scriptPackageData = do
+runDamldoc :: FilePath -> Maybe FilePath -> Maybe ScriptPackageData -> IO ModuleDoc
+runDamldoc testfile importPathM mScriptPackageData = do
   -- The first module is the one we're testing
   (\(names, modMap) -> modMap Map.! head names)
-    <$> runDamldocMany' [testfile] importPathM scriptPackageData
+    <$> runDamldocMany' [testfile] importPathM mScriptPackageData
 
 -- | Generate the docs for a given list of input files and optional import directory.
-runDamldocMany :: [FilePath] -> Maybe FilePath -> ScriptPackageData -> IO (Map Modulename ModuleDoc)
-runDamldocMany testfiles importPathM scriptPackageData =
-  snd <$> runDamldocMany' testfiles importPathM scriptPackageData
+runDamldocMany :: [FilePath] -> Maybe FilePath -> Maybe ScriptPackageData -> IO (Map Modulename ModuleDoc)
+runDamldocMany testfiles importPathM mScriptPackageData =
+  snd <$> runDamldocMany' testfiles importPathM mScriptPackageData
 
 -- | Generate the docs for a given list of input files and optional import directory.
 -- The fst of the result has the names of Modulenames for each file path in the input.
 -- The snd has a map from all the modules (including imported ones) to their docs.
-runDamldocMany' :: [FilePath] -> Maybe FilePath -> ScriptPackageData -> IO ([Modulename], Map Modulename ModuleDoc)
-runDamldocMany' testfiles importPathM (packageDbPath, packageFlag) = do
+runDamldocMany' :: [FilePath] -> Maybe FilePath -> Maybe ScriptPackageData -> IO ([Modulename], Map Modulename ModuleDoc)
+runDamldocMany' testfiles importPathM mScriptPackageData = do
   let opts = (defaultOptions Nothing)
         { optHaddock = Haddock True
         , optScenarioService = EnableScenarioService False
         , optImportPath = maybeToList importPathM
         , optDamlLfVersion = versionDev
-        , optPackageDbs = [packageDbPath]
-        , optPackageImports = [packageFlag]
+        , optPackageDbs = maybeToList $ fst <$> mScriptPackageData
+        , optPackageImports = maybeToList $ snd <$> mScriptPackageData
         }
 
   -- run the doc generator on that file
@@ -462,7 +461,7 @@ fileTest externalAnchors scriptPackageData damlFile = do
   if null expectations
     then pure []
     else do
-      doc <- runDamldoc damlFile (Just $ takeDirectory damlFile) scriptPackageData
+      doc <- runDamldoc damlFile (Just $ takeDirectory damlFile) (Just scriptPackageData)
 
       pure $ flip map expectations $ \expectation ->
         goldenVsStringDiff ("File: " <> expectation) diff expectation $ pure $
