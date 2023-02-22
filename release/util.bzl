@@ -21,6 +21,7 @@ inputs = {
     "daml_helper_dist": "//daml-assistant/daml-helper:daml-helper-dist",
     "damlc_dist": "//compiler/damlc:damlc-dist",
     "daml_extension": "//compiler/daml-extension:vsix",
+    "daml_extension_stylesheet": "//compiler/daml-extension:webview-stylesheet.css",
     "daml2js_dist": "//language-support/ts/codegen:daml2js-dist",
     "templates": "//templates:templates-tarball.tar.gz",
     "trigger_dars": "//triggers/daml:daml-trigger-dars",
@@ -80,6 +81,7 @@ def sdk_tarball(name, version, config):
 
           mkdir -p $$OUT/studio
           cp $(location {daml_extension}) $$OUT/studio/daml-bundled.vsix
+          cp $(location {daml_extension_stylesheet}) $$OUT/studio/webview-stylesheet.css
 
           mkdir -p $$OUT/canton
           cp $(location {canton}) $$OUT/canton/canton.jar
