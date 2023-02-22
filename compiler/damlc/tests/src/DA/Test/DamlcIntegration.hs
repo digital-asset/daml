@@ -7,6 +7,7 @@
 module DA.Test.DamlcIntegration
   ( main
   , withDamlScriptDep
+  , ScriptPackageData
   ) where
 
 {- HLINT ignore "locateRunfiles/package_app" -}
@@ -108,8 +109,10 @@ instance IsOption SkipValidationOpt where
   optionName = Tagged "skip-validation"
   optionHelp = Tagged "Skip package validation in scenario service (true|false)"
 
+type ScriptPackageData = (FilePath, PackageFlag)
+
 -- | Creates a temp directory with daml script installed, gives the database db path and package flag
-withDamlScriptDep :: Version -> ((FilePath, PackageFlag) -> IO a) -> IO a
+withDamlScriptDep :: Version -> (ScriptPackageData -> IO a) -> IO a
 withDamlScriptDep lfVer cont = do
   withTempDir $ \dir -> do
     withCurrentDirectory dir $ do
@@ -213,7 +216,7 @@ getCantSkipPreprocessorTestFiles = do
     anns <- readFileAnns file
     pure [("cant-skip-preprocessor/DA/Internal/Hack.daml", file, anns)]
 
-getIntegrationTests :: (TODO -> IO ()) -> SS.Handle -> (FilePath, PackageFlag) -> IO TestTree
+getIntegrationTests :: (TODO -> IO ()) -> SS.Handle -> ScriptPackageData -> IO TestTree
 getIntegrationTests registerTODO scenarioService (packageDbPath, packageFlag) = do
     putStrLn $ "rtsSupportsBoundThreads: " ++ show rtsSupportsBoundThreads
     do n <- getNumCapabilities; putStrLn $ "getNumCapabilities: " ++ show n
