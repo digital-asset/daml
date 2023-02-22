@@ -2,11 +2,9 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 -- @SINCE-LF-FEATURE DAML_INTERFACE
--- @ERROR range=29:7-29:20; Multiple declarations of method ‘m0’
+-- @ERROR range=27:7-27:20; Multiple declarations of method ‘m0’
 
 module InterfaceMultipleMethodDeclsError where
-
-import Daml.Script
 
 data EmptyInterfaceView = EmptyInterfaceView {}
 
