@@ -490,7 +490,7 @@ object Trigger {
 }
 
 private[lf] class Runner private (
-    private[trigger] val compiledPackages: CompiledPackages,
+    compiledPackages: CompiledPackages,
     trigger: Trigger,
     triggerConfig: TriggerRunnerConfig,
     client: LedgerClient,
@@ -957,7 +957,7 @@ private[lf] class Runner private (
     Machine.stepToValue(machine)
   }
 
-  private[this] def encodeMsgs: TriggerContextualFlow[TriggerMsg, SValue, NotUsed] =
+  private[trigger] def encodeMsgs: TriggerContextualFlow[TriggerMsg, SValue, NotUsed] =
     Flow fromFunction {
       case ctx @ Ctx(_, TriggerMsg.Transaction(transaction), _) =>
         ctx.copy(value = converter.fromTransaction(transaction).orConverterException)
@@ -1860,7 +1860,7 @@ object Runner {
         } else if (duration >= 1000L * 1000L) {
           s"${duration / (1000L * 1000L)}ms"
         } else if (duration >= 1000L) {
-          s"${duration / 1000L}us"
+          s"${duration / 1000L}µs"
         } else {
           s"${duration}ns"
         }
