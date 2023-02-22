@@ -566,16 +566,16 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
         )
 
         _ <- ownerParticipant.create(owner, WithKey(owner))
-        wihtKeyTxs <- ownerParticipant.flatTransactionsByTemplateId(WithKey.id, owner)
-        wihtKeyCreate = createdEvents(wihtKeyTxs(0)).head
-        wihtKeyDisclosedContract = createEventToDisclosedContract(wihtKeyCreate)
+        whitKeyTxs <- ownerParticipant.flatTransactionsByTemplateId(WithKey.id, owner)
+        whitKeyCreate = createdEvents(whitKeyTxs(0)).head
+        whitKeyDisclosedContract = createEventToDisclosedContract(whitKeyCreate)
 
         // Exercise a choice using invalid explicit disclosure (bad contract key)
         _ <- testContext
           .exerciseFetchDelegated(
             testContext.disclosedContract,
             // Provide a superfluous disclosed contract with mismatching key hash
-            wihtKeyDisclosedContract
+            whitKeyDisclosedContract
               .update(
                 _.metadata.contractKeyHash := ByteString.copyFromUtf8(
                   "BadKeyBadKeyBadKeyBadKeyBadKey00"
@@ -588,7 +588,7 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
           .exerciseFetchDelegated(
             testContext.disclosedContract,
             // Provide a superfluous disclosed contract with mismatching createdAt
-            wihtKeyDisclosedContract
+            whitKeyDisclosedContract
               .update(_.metadata.createdAt := com.google.protobuf.timestamp.Timestamp.of(1, 0)),
           )
 
