@@ -4,6 +4,7 @@
 package com.daml.lf.engine.trigger
 
 import akka.NotUsed
+import akka.actor.Cancellable
 import akka.event.Logging
 import akka.stream._
 import akka.stream.scaladsl._
@@ -39,8 +40,8 @@ import com.daml.lf.engine.trigger.Runner.{
   isSubmissionSuccess,
   isTransaction,
   logger,
-  numberOfArchiveEvents,
   numberOfActiveContracts,
+  numberOfArchiveEvents,
   numberOfCreateEvents,
   numberOfInFlightCommands,
   numberOfPendingContracts,
@@ -48,6 +49,7 @@ import com.daml.lf.engine.trigger.Runner.{
 }
 import com.daml.lf.engine.trigger.Runner.Implicits._
 import com.daml.lf.engine.trigger.ToLoggingContext._
+import com.daml.lf.engine.trigger.UnfoldState.{UnfoldStateShape, flatMapConcatNode, toSource}
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.PackageInterface
 import com.daml.lf.language.Util._
@@ -139,16 +141,28 @@ private[lf] final case class Trigger(
 
 /** Throwing an instance of this exception will cause the trigger service to stop the runner
   */
-private sealed abstract class TriggerOverflowException(message: String) extends Exception(message)
+private sealed abstract class TriggerHardLimitException(message: String) extends Exception(message)
 
 private final case class InFlightCommandOverflowException(inFlightCommands: Int, overflowCount: Int)
-    extends TriggerOverflowException(
+    extends TriggerHardLimitException(
       s"$inFlightCommands in-flight commands exceed limit of $overflowCount"
     )
 
 private final case class ACSOverflowException(activeContracts: Int, overflowCount: Long)
-    extends TriggerOverflowException(
+    extends TriggerHardLimitException(
       s"$activeContracts active contracts exceed limit of $overflowCount"
+    )
+
+private final case class TriggerRuleEvaluationTimeout(
+    ruleTimeout: FiniteDuration
+) extends TriggerHardLimitException(
+      s"trigger rule evaluation duration exceeded the limit of $ruleTimeout"
+    )
+
+private final case class TriggerRuleStepInterpretationTimeout(
+    stepTimeout: FiniteDuration
+) extends TriggerHardLimitException(
+      s"trigger step interpretation duration exceeded the limit of $stepTimeout"
     )
 
 // Utilities for interacting with the speedy machine.
@@ -476,7 +490,7 @@ object Trigger {
 }
 
 private[lf] class Runner private (
-    compiledPackages: CompiledPackages,
+    private[trigger] val compiledPackages: CompiledPackages,
     trigger: Trigger,
     triggerConfig: TriggerRunnerConfig,
     client: LedgerClient,
@@ -603,22 +617,44 @@ private[lf] class Runner private (
   private def freeTriggerSubmits(
       clientTime: Timestamp,
       v: SValue,
+      hardLimitKillSwitch: KillSwitch,
   )(implicit
-      triggerContext: TriggerLogContext
+      materializer: Materializer,
+      triggerContext: TriggerLogContext,
   ): UnfoldState[SValue, TriggerContext[SubmitRequest]] = {
     var numberOfRuleEvaluations = 0
     var numberOfSubmissions = 0
+    var numberOfGetTimes = 0
     var numberOfCreates = 0
     var numberOfExercises = 0
     var numberOfCreateAndExercise = 0
     var numberOfExerciseByKey = 0
+    var totalStepIteratorTime = 0L
 
     val startTime = System.nanoTime()
+    val ruleEvaluationTimer = if (triggerConfig.hardLimit.allowTriggerTimeouts) {
+      materializer.scheduleOnce(
+        triggerConfig.hardLimit.ruleEvaluationTimeout,
+        () => {
+          triggerContext.logError(
+            "Stopping trigger as the rule evaluator has exceeded its allotted running time",
+            "rule-evaluation-timeout" -> triggerConfig.hardLimit.ruleEvaluationTimeout,
+          )
+
+          hardLimitKillSwitch.abort(
+            TriggerRuleEvaluationTimeout(triggerConfig.hardLimit.ruleEvaluationTimeout)
+          )
+        },
+      )
+    } else {
+      Cancellable.alreadyCancelled
+    }
 
     triggerContext.childSpan("step") { implicit triggerContext: TriggerLogContext =>
       def evaluate(se: SExpr): SValue = {
         val machine: Speedy.PureMachine =
           Speedy.Machine.fromPureSExpr(compiledPackages, se)
+
         // Evaluate it.
         machine.setExpressionToEvaluate(se)
         Machine.stepToValue(machine)
@@ -628,41 +664,81 @@ private[lf] class Runner private (
       @tailrec def go(v: SValue): Termination = {
         numberOfRuleEvaluations += 1
 
-        val resumed: Termination Either SValue = unrollFree(v) match {
-          case Right(Right(vvv @ (variant, vv))) =>
-            // Must be kept in-sync with the DAML code LowLevel#TriggerF
-            vvv.match2 {
-              case "GetTime" /*(Time -> a)*/ => { case DamlFun(timeA) =>
-                Right(evaluate(makeAppD(timeA, STimestamp(clientTime))))
-              }
-              case "Submit" /*([Command], Text -> a)*/ => {
-                case DamlTuple2(sCommands, DamlFun(textA)) =>
-                  numberOfSubmissions += 1
+        val startStepTime = System.nanoTime()
+        val stepIteratorTimer = if (triggerConfig.hardLimit.allowTriggerTimeouts) {
+          materializer.scheduleOnce(
+            triggerConfig.hardLimit.stepInterpreterTimeout,
+            () => {
+              triggerContext.logError(
+                "Stopping trigger as the rule step interpreter has exceeded its allotted running time",
+                "step-interpreter-timeout" -> triggerConfig.hardLimit.stepInterpreterTimeout,
+              )
 
-                  val commands = converter.toCommands(sCommands).orConverterException
-                  val (commandUUID, submitRequest) = handleCommands(commands)
-
-                  numberOfCreates += commands.count(_.command.isCreate)
-                  numberOfExercises += commands.count(_.command.isExercise)
-                  numberOfCreateAndExercise += commands.count(_.command.isCreateAndExercise)
-                  numberOfExerciseByKey += commands.count(_.command.isExerciseByKey)
-
-                  Left(
-                    \/-(
-                      (
-                        Ctx(triggerContext, submitRequest),
-                        evaluate(makeAppD(textA, SText((commandUUID: UUID).toString))),
-                      )
-                    ): Termination
-                  )
-              }
-              case _ =>
-                triggerContext.logError("Unrecognised TriggerF step", "variant" -> variant)
-                throw new ConverterException(s"unrecognized TriggerF step $variant")
-            }(fallback = throw new ConverterException(s"invalid contents for $variant: $vv"))
-          case Right(Left(newState)) => Left(-\/(newState))
-          case Left(e) => throw new ConverterException(e)
+              hardLimitKillSwitch.abort(
+                TriggerRuleStepInterpretationTimeout(
+                  triggerConfig.hardLimit.stepInterpreterTimeout
+                )
+              )
+            },
+          )
+        } else {
+          Cancellable.alreadyCancelled
         }
+        val resumed: Termination Either SValue =
+          unrollFree(v) match {
+            case Right(Right(vvv @ (variant, vv))) =>
+              try {
+                // Must be kept in-sync with the DAML code LowLevel#TriggerF
+                vvv.match2 {
+                  case "GetTime" /*(Time -> a)*/ => { case DamlFun(timeA) =>
+                    numberOfGetTimes += 1
+                    Right(evaluate(makeAppD(timeA, STimestamp(clientTime))))
+                  }
+                  case "Submit" /*([Command], Text -> a)*/ => {
+                    case DamlTuple2(sCommands, DamlFun(textA)) =>
+                      numberOfSubmissions += 1
+
+                      val commands = converter.toCommands(sCommands).orConverterException
+                      val (commandUUID, submitRequest) = handleCommands(commands)
+
+                      numberOfCreates += commands.count(_.command.isCreate)
+                      numberOfExercises += commands.count(_.command.isExercise)
+                      numberOfCreateAndExercise += commands.count(_.command.isCreateAndExercise)
+                      numberOfExerciseByKey += commands.count(_.command.isExerciseByKey)
+
+                      Left(
+                        \/-(
+                          (
+                            Ctx(triggerContext, submitRequest),
+                            evaluate(makeAppD(textA, SText((commandUUID: UUID).toString))),
+                          )
+                        ): Termination
+                      )
+                  }
+                  case _ =>
+                    triggerContext.logError("Unrecognised TriggerF step", "variant" -> variant)
+                    throw new ConverterException(s"unrecognized TriggerF step $variant")
+                }(fallback = throw new ConverterException(s"invalid contents for $variant: $vv"))
+              } finally {
+                val endStepTime = System.nanoTime()
+
+                discard(stepIteratorTimer.cancel())
+                totalStepIteratorTime += endStepTime - startStepTime
+              }
+
+            case Right(Left(newState)) =>
+              try {
+                Left(-\/(newState))
+              } finally {
+                val endStepTime = System.nanoTime()
+
+                discard(stepIteratorTimer.cancel())
+                totalStepIteratorTime += endStepTime - startStepTime
+              }
+
+            case Left(e) =>
+              throw new ConverterException(e)
+          }
 
         resumed match {
           case Left(newState) => newState
@@ -671,30 +747,50 @@ private[lf] class Runner private (
       }
 
       UnfoldState(v)({ state =>
-        numberOfRuleEvaluations += 1
-
         go(state) match {
           case next @ -\/(_) =>
-            val endTime = System.nanoTime()
-            triggerContext.logInfo(
-              "Trigger rule evaluation end",
-              "metrics" -> LoggingValue.Nested(
-                LoggingEntries(
-                  "steps" -> numberOfRuleEvaluations,
-                  "submissions" -> LoggingValue.Nested(
-                    LoggingEntries(
-                      "total" -> numberOfSubmissions,
-                      "create" -> numberOfCreates,
-                      "exercise" -> numberOfExercises,
-                      "createAndExercise" -> numberOfCreateAndExercise,
-                      "exerciseByKey" -> numberOfExerciseByKey,
-                    )
-                  ),
-                  "duration" -> s"${FiniteDuration(endTime - startTime, "nanos").toMillis}ms",
-                )
-              ),
-            )
-            next
+            try {
+              val endTime = System.nanoTime()
+              val ruleEvaluationTime = endTime - startTime
+              val stepIteratorMean = totalStepIteratorTime / numberOfRuleEvaluations
+              val stepIteratorDelayLogEntry = if (numberOfRuleEvaluations > 1) {
+                val stepIteratorDelayMean =
+                  (ruleEvaluationTime - totalStepIteratorTime) / (numberOfRuleEvaluations - 1)
+                // Metrics for mean step iterator delays have greatest meaning if there are multiple iteration steps
+                LoggingEntries("step-iterator-delay-mean" -> stepIteratorDelayMean.toHumanReadable)
+              } else {
+                LoggingEntries.empty
+              }
+
+              triggerContext.logInfo(
+                "Trigger rule evaluation end",
+                "metrics" -> LoggingValue.Nested(
+                  LoggingEntries(
+                    "steps" -> numberOfRuleEvaluations,
+                    "get-time" -> numberOfGetTimes,
+                    "submissions" -> LoggingValue.Nested(
+                      LoggingEntries(
+                        "total" -> numberOfSubmissions,
+                        "create" -> numberOfCreates,
+                        "exercise" -> numberOfExercises,
+                        "createAndExercise" -> numberOfCreateAndExercise,
+                        "exerciseByKey" -> numberOfExerciseByKey,
+                      )
+                    ),
+                    "duration" -> LoggingValue.Nested(
+                      LoggingEntries(
+                        "rule-evaluation" -> ruleEvaluationTime.toHumanReadable,
+                        "step-iterator-mean" -> stepIteratorMean.toHumanReadable,
+                      ) ++ stepIteratorDelayLogEntry
+                    ),
+                  )
+                ),
+              )
+
+              next
+            } finally {
+              discard(ruleEvaluationTimer.cancel())
+            }
 
           case next =>
             next
@@ -820,15 +916,10 @@ private[lf] class Runner private (
       .merge(completionSource merge transactionSource merge heartbeatSource)
   }
 
-  private[this] def getInitialStateFreeAndUpdate(
+  private[this] def getTriggerInitialStateLambda(
       acs: Seq[CreatedEvent]
-  )(implicit triggerContext: TriggerLogContext): (SValue, SValue) = {
-    // Compile the trigger initialState and Update LF functions to
-    // speedy expressions.
-    val update: SExpr =
-      compiler.unsafeCompile(
-        ERecProj(trigger.defn.ty, Name.assertFromString("update"), trigger.defn.expr)
-      )
+  )(implicit machine: Speedy.PureMachine, triggerContext: TriggerLogContext): SValue = {
+    // Compile the trigger initialState LF function to a speedy expression
     val getInitialState: SExpr =
       compiler.unsafeCompile(
         ERecProj(trigger.defn.ty, Name.assertFromString("initialState"), trigger.defn.expr)
@@ -839,12 +930,9 @@ private[lf] class Runner private (
         getInitialState,
         trigger.initialStateArguments(parties, acs, triggerConfig, converter),
       )
-    // Prepare a speedy machine for evaluating expressions.
-    val machine: Speedy.PureMachine =
-      Speedy.Machine.fromPureSExpr(compiledPackages, initialState)
-    // Evaluate it.
+
     machine.setExpressionToEvaluate(initialState)
-    val initialStateFree = Machine
+    Machine
       .stepToValue(machine)
       .expect(
         "TriggerSetup",
@@ -853,9 +941,20 @@ private[lf] class Runner private (
         ),
       )
       .orConverterException
+  }
+
+  private[this] def getTriggerUpdateLambda()(implicit
+      machine: Speedy.PureMachine,
+      triggerContext: TriggerLogContext,
+  ): SValue = {
+    // Compile the trigger Update LF function to a speedy expression
+    val update: SExpr =
+      compiler.unsafeCompile(
+        ERecProj(trigger.defn.ty, Name.assertFromString("update"), trigger.defn.expr)
+      )
+
     machine.setExpressionToEvaluate(update)
-    val evaluatedUpdate: SValue = Machine.stepToValue(machine)
-    (initialStateFree, evaluatedUpdate)
+    Machine.stepToValue(machine)
   }
 
   private[this] def encodeMsgs: TriggerContextualFlow[TriggerMsg, SValue, NotUsed] =
@@ -924,114 +1023,60 @@ private[lf] class Runner private (
     }
   }
 
-  // A flow for trigger messages representing a process for the
-  // accumulated state changes resulting from application of the
-  // messages given the starting state represented by the ACS
-  // argument.
-  private def getTriggerEvaluator(
+  private[trigger] def runInitialState(clientTime: Timestamp, killSwitch: KillSwitch)(
       acs: Seq[CreatedEvent]
   )(implicit
-      triggerContext: TriggerLogContext
-  ): TriggerContextualFlow[TriggerMsg, SubmitRequest, Future[SValue]] = {
-    triggerContext.logInfo("Trigger starting")
+      machine: Speedy.PureMachine,
+      materializer: Materializer,
+      triggerContext: TriggerLogContext,
+  ): Graph[SourceShape2[SValue, TriggerContext[SubmitRequest]], NotUsed] = {
+    val startState = getTriggerInitialStateLambda(acs)
 
-    val clientTime: Timestamp =
-      Timestamp.assertFromInstant(Runner.getTimeProvider(timeProviderType).getCurrentTime)
-    val (initialStateFree, evaluatedUpdate) = getInitialStateFreeAndUpdate(acs)
-    // Prepare another speedy machine for evaluating expressions.
-    val machine: Speedy.PureMachine =
-      Speedy.Machine.fromPureSExpr(compiledPackages, SEValue(SUnit))
-
-    import UnfoldState.{flatMapConcatNode, flatMapConcatNodeOps, toSource, toSourceOps}
-
-    val runInitialState = {
-      toSource(
-        freeTriggerSubmits(clientTime, initialStateFree)
-          .leftMap { state =>
-            triggerContext.logDebug(
+    toSource(
+      freeTriggerSubmits(clientTime, startState, killSwitch)
+        .leftMap { state =>
+          triggerContext.logDebug(
+            "Trigger rule initial state",
+            "state" -> triggerUserState(state, trigger.defn.level, trigger.defn.version),
+          )
+          if (trigger.defn.level == Trigger.Level.High) {
+            triggerContext.logTrace(
               "Trigger rule initial state",
-              "state" -> triggerUserState(state, trigger.defn.level, trigger.defn.version),
+              "state" -> state,
             )
-            if (trigger.defn.level == Trigger.Level.High) {
-              triggerContext.logTrace(
-                "Trigger rule initial state",
-                "state" -> state,
-              )
-            }
-            triggerContext.logInfo(
-              "Trigger rule initialization start",
-              "metrics" -> LoggingValue.Nested(
-                LoggingEntries(
-                  "acs" -> LoggingValue.Nested(
-                    LoggingEntries(
-                      "active" -> acs.length,
-                      "pending" -> 0,
-                    )
-                  ),
-                  "in-flight" -> 0,
-                )
-              ),
-            )
-
-            val activeContracts = acs.length
-            if (activeContracts > triggerConfig.maximumActiveContracts) {
-              triggerContext.logError(
-                "Due to an excessive number of active contracts, stopping the trigger",
-                "active-contracts" -> activeContracts,
-                "active-contract-overflow-count" -> triggerConfig.maximumActiveContracts,
-              )
-              throw ACSOverflowException(activeContracts, triggerConfig.maximumActiveContracts)
-            }
-
-            triggerContext.logInfo(
-              "Trigger rule initialization end",
-              "metrics" -> LoggingValue.Nested(
-                LoggingEntries(
-                  "acs" -> LoggingValue.Nested(
-                    LoggingEntries(
-                      "active" -> numberOfActiveContracts(
-                        state,
-                        trigger.defn.level,
-                        trigger.defn.version,
-                      ),
-                      "pending" -> numberOfPendingContracts(
-                        state,
-                        trigger.defn.level,
-                        trigger.defn.version,
-                      ),
-                    )
-                  ),
-                  "in-flight" -> numberOfInFlightCommands(
-                    state,
-                    trigger.defn.level,
-                    trigger.defn.version,
-                  ),
-                )
-              ),
-            )
-
-            state
           }
-      )
-    }
-
-    val runRuleOnMsgs = flatMapConcatNode { (state: SValue, messageVal: TriggerContext[SValue]) =>
-      messageVal.context.enrichTriggerContext() { implicit triggerContext: TriggerLogContext =>
-        triggerContext.logDebug(
-          "Trigger rule evaluation",
-          "state" -> triggerUserState(state, trigger.defn.level, trigger.defn.version),
-          "message" -> messageVal.value,
-        )
-        if (trigger.defn.level == Trigger.Level.High) {
           triggerContext.logInfo(
-            "Trigger rule evaluation start",
+            "Trigger rule initialization start",
             "metrics" -> LoggingValue.Nested(
               LoggingEntries(
-                "in-flight" -> numberOfInFlightCommands(
-                  state,
-                  trigger.defn.level,
-                  trigger.defn.version,
+                "acs" -> LoggingValue.Nested(
+                  LoggingEntries(
+                    "active" -> acs.length,
+                    "pending" -> 0,
+                  )
                 ),
+                "in-flight" -> 0,
+              )
+            ),
+          )
+
+          val activeContracts = acs.length
+          if (activeContracts > triggerConfig.hardLimit.maximumActiveContracts) {
+            triggerContext.logError(
+              "Due to an excessive number of active contracts, stopping the trigger",
+              "active-contracts" -> activeContracts,
+              "active-contract-overflow-count" -> triggerConfig.hardLimit.maximumActiveContracts,
+            )
+            throw ACSOverflowException(
+              activeContracts,
+              triggerConfig.hardLimit.maximumActiveContracts,
+            )
+          }
+
+          triggerContext.logInfo(
+            "Trigger rule initialization end",
+            "metrics" -> LoggingValue.Nested(
+              LoggingEntries(
                 "acs" -> LoggingValue.Nested(
                   LoggingEntries(
                     "active" -> numberOfActiveContracts(
@@ -1046,89 +1091,167 @@ private[lf] class Runner private (
                     ),
                   )
                 ),
+                "in-flight" -> numberOfInFlightCommands(
+                  state,
+                  trigger.defn.level,
+                  trigger.defn.version,
+                ),
               )
             ),
           )
+
+          state
         }
+    )
+  }
 
-        val clientTime: Timestamp =
-          Timestamp.assertFromInstant(Runner.getTimeProvider(timeProviderType).getCurrentTime)
-        machine.setExpressionToEvaluate(makeAppD(evaluatedUpdate, messageVal.value))
-        val stateFun = Machine
-          .stepToValue(machine)
-          .expect(
-            "TriggerRule",
-            { case DamlAnyModuleRecord("TriggerRule", DamlAnyModuleRecord("StateT", fun)) =>
-              fun
-            }: @nowarn("msg=A repeated case parameter .* is not matched by a sequence wildcard"),
-          )
-          .orConverterException
-        machine.setExpressionToEvaluate(makeAppD(stateFun, state))
-        val updateWithNewState = Machine.stepToValue(machine)
+  private[trigger] def runRuleOnMsgs(
+      killSwitch: KillSwitch
+  )(implicit
+      machine: Speedy.PureMachine,
+      materializer: Materializer,
+      triggerContext: TriggerLogContext,
+  ): Graph[
+    UnfoldStateShape[SValue, TriggerContext[SValue], TriggerContext[SubmitRequest]],
+    NotUsed,
+  ] = flatMapConcatNode { (state: SValue, messageVal: TriggerContext[SValue]) =>
+    val updateStateLambda = getTriggerUpdateLambda()
 
-        freeTriggerSubmits(clientTime, v = updateWithNewState)
-          .leftMap(
-            _.expect(
-              "TriggerRule new state",
-              { case DamlTuple2(SUnit, newState) =>
-                triggerContext.logDebug(
-                  "Trigger rule state updated",
-                  "state" -> triggerUserState(state, trigger.defn.level, trigger.defn.version),
+    messageVal.context.enrichTriggerContext() { implicit triggerContext: TriggerLogContext =>
+      triggerContext.logDebug(
+        "Trigger rule evaluation",
+        "state" -> triggerUserState(state, trigger.defn.level, trigger.defn.version),
+        "message" -> messageVal.value,
+      )
+      if (trigger.defn.level == Trigger.Level.High) {
+        triggerContext.logInfo(
+          "Trigger rule evaluation start",
+          "metrics" -> LoggingValue.Nested(
+            LoggingEntries(
+              "in-flight" -> numberOfInFlightCommands(
+                state,
+                trigger.defn.level,
+                trigger.defn.version,
+              ),
+              "acs" -> LoggingValue.Nested(
+                LoggingEntries(
+                  "active" -> numberOfActiveContracts(
+                    state,
+                    trigger.defn.level,
+                    trigger.defn.version,
+                  ),
+                  "pending" -> numberOfPendingContracts(
+                    state,
+                    trigger.defn.level,
+                    trigger.defn.version,
+                  ),
                 )
-                if (trigger.defn.level == Trigger.Level.High) {
-                  triggerContext.logTrace(
-                    "Trigger rule state updated",
-                    "state" -> newState,
-                  )
-                  triggerContext.logInfo(
-                    "Trigger rule evaluation end",
-                    "metrics" -> LoggingValue.Nested(
-                      LoggingEntries(
-                        "in-flight" -> numberOfInFlightCommands(
-                          newState,
-                          trigger.defn.level,
-                          trigger.defn.version,
-                        ),
-                        "acs" -> LoggingValue.Nested(
-                          LoggingEntries(
-                            "active" -> numberOfActiveContracts(
-                              newState,
-                              trigger.defn.level,
-                              trigger.defn.version,
-                            ),
-                            "pending" -> numberOfPendingContracts(
-                              newState,
-                              trigger.defn.level,
-                              trigger.defn.version,
-                            ),
-                          )
-                        ),
-                      )
-                    ),
-                  )
-                }
-
-                numberOfActiveContracts(newState, trigger.defn.level, trigger.defn.version) match {
-                  case Some(activeContracts)
-                      if activeContracts > triggerConfig.maximumActiveContracts =>
-                    triggerContext.logError(
-                      "Due to an excessive number of active contracts, stopping the trigger",
-                      "active-contracts" -> activeContracts,
-                      "active-contract-overflow-count" -> triggerConfig.maximumActiveContracts,
-                    )
-                    throw ACSOverflowException(
-                      activeContracts,
-                      triggerConfig.maximumActiveContracts,
-                    )
-
-                  case _ =>
-                    newState
-                }
-              },
-            ).orConverterException
-          )
+              ),
+            )
+          ),
+        )
       }
+
+      val clientTime: Timestamp =
+        Timestamp.assertFromInstant(Runner.getTimeProvider(timeProviderType).getCurrentTime)
+      machine.setExpressionToEvaluate(makeAppD(updateStateLambda, messageVal.value))
+      val stateFun = Machine
+        .stepToValue(machine)
+        .expect(
+          "TriggerRule",
+          { case DamlAnyModuleRecord("TriggerRule", DamlAnyModuleRecord("StateT", fun)) =>
+            fun
+          }: @nowarn("msg=A repeated case parameter .* is not matched by a sequence wildcard"),
+        )
+        .orConverterException
+      machine.setExpressionToEvaluate(makeAppD(stateFun, state))
+      val updateWithNewState = Machine.stepToValue(machine)
+
+      freeTriggerSubmits(clientTime, v = updateWithNewState, killSwitch)
+        .leftMap(
+          _.expect(
+            "TriggerRule new state",
+            { case DamlTuple2(SUnit, newState) =>
+              triggerContext.logDebug(
+                "Trigger rule state updated",
+                "state" -> triggerUserState(state, trigger.defn.level, trigger.defn.version),
+              )
+              if (trigger.defn.level == Trigger.Level.High) {
+                triggerContext.logTrace(
+                  "Trigger rule state updated",
+                  "state" -> newState,
+                )
+                triggerContext.logInfo(
+                  "Trigger rule evaluation end",
+                  "metrics" -> LoggingValue.Nested(
+                    LoggingEntries(
+                      "in-flight" -> numberOfInFlightCommands(
+                        newState,
+                        trigger.defn.level,
+                        trigger.defn.version,
+                      ),
+                      "acs" -> LoggingValue.Nested(
+                        LoggingEntries(
+                          "active" -> numberOfActiveContracts(
+                            newState,
+                            trigger.defn.level,
+                            trigger.defn.version,
+                          ),
+                          "pending" -> numberOfPendingContracts(
+                            newState,
+                            trigger.defn.level,
+                            trigger.defn.version,
+                          ),
+                        )
+                      ),
+                    )
+                  ),
+                )
+              }
+
+              numberOfActiveContracts(newState, trigger.defn.level, trigger.defn.version) match {
+                case Some(activeContracts)
+                    if activeContracts > triggerConfig.hardLimit.maximumActiveContracts =>
+                  triggerContext.logError(
+                    "Due to an excessive number of active contracts, stopping the trigger",
+                    "active-contracts" -> activeContracts,
+                    "active-contract-overflow-count" -> triggerConfig.hardLimit.maximumActiveContracts,
+                  )
+                  throw ACSOverflowException(
+                    activeContracts,
+                    triggerConfig.hardLimit.maximumActiveContracts,
+                  )
+
+                case _ =>
+                  newState
+              }
+            },
+          ).orConverterException
+        )
     }
+  }
+
+  // A flow for trigger messages representing a process for the
+  // accumulated state changes resulting from application of the
+  // messages given the starting state represented by the ACS
+  // argument.
+  private def getTriggerEvaluator(
+      acs: Seq[CreatedEvent]
+  )(implicit
+      materializer: Materializer,
+      triggerContext: TriggerLogContext,
+  ): TriggerContextualFlow[TriggerMsg, SubmitRequest, Future[SValue]] = {
+    triggerContext.logInfo("Trigger starting")
+
+    val clientTime: Timestamp =
+      Timestamp.assertFromInstant(Runner.getTimeProvider(timeProviderType).getCurrentTime)
+    val hardLimitKillSwitch = KillSwitches.shared("hard-limit")
+
+    // Prepare a speedy machine for evaluating expressions
+    implicit val machine: Speedy.PureMachine =
+      Speedy.Machine.fromPureSExpr(compiledPackages, SEValue(SUnit))
+
+    import UnfoldState.{flatMapConcatNodeOps, toSourceOps}
 
     // The flow that we return:
     //  - Maps incoming trigger messages to new trigger messages
@@ -1142,18 +1265,19 @@ private[lf] class Runner private (
       import GraphDSL.Implicits._
 
       val msgIn = gb add TriggerContextualFlow[TriggerMsg]
-      val initialState = gb add runInitialState
+      val initialState = gb add runInitialState(clientTime, hardLimitKillSwitch)(acs)
       val initialStateOut = gb add Broadcast[SValue](2)
-      val rule = gb add runRuleOnMsgs
+      val rule = gb add runRuleOnMsgs(hardLimitKillSwitch)
       val submissions = gb add Merge[TriggerContext[SubmitRequest]](2)
       val finalStateIn = gb add Concat[SValue](2)
+      val killSwitch = gb add hardLimitKillSwitch.flow[TriggerContext[SValue]]
       // format: off
-      initialState.finalState                    ~> initialStateOut                     ~> rule.initState
+      initialState.finalState                    ~> initialStateOut                                   ~> rule.initState
       initialState.elemsOut                          ~> submissions
-                          msgIn ~> hideIrrelevantMsgs ~> encodeMsgs ~> conflateMsgValue ~> rule.elemsIn
-                                                        submissions                     <~ rule.elemsOut
-                                                    initialStateOut                                         ~> finalStateIn
-                                                                                           rule.finalStates ~> finalStateIn ~> saveLastState
+                          msgIn ~> hideIrrelevantMsgs ~> encodeMsgs ~> conflateMsgValue ~> killSwitch ~> rule.elemsIn
+                                                        submissions                                   <~ rule.elemsOut
+                                                    initialStateOut                                                       ~> finalStateIn
+                                                                                                         rule.finalStates ~> finalStateIn ~> saveLastState
       // format: on
       new FlowShape(msgIn.in, submissions.out)
     }
@@ -1243,17 +1367,17 @@ private[lf] class Runner private (
       TriggerContextualFlow[SubmitRequest]
         .map {
           case Ctx(context, request, _)
-              if triggerConfig.allowInFlightCommandOverflows && inFlightCommands.count > triggerConfig.inFlightCommandOverflowCount =>
+              if triggerConfig.hardLimit.allowInFlightCommandOverflows && inFlightCommands.count > triggerConfig.hardLimit.inFlightCommandOverflowCount =>
             context.logError(
               "Due to excessive in-flight commands, stopping the trigger",
               "commandId" -> request.getCommands.commandId,
               "in-flight-commands" -> inFlightCommands.count,
-              "in-flight-command-overflow-count" -> triggerConfig.inFlightCommandOverflowCount,
+              "in-flight-command-overflow-count" -> triggerConfig.hardLimit.inFlightCommandOverflowCount,
             )
 
             throw InFlightCommandOverflowException(
               inFlightCommands.count,
-              triggerConfig.inFlightCommandOverflowCount,
+              triggerConfig.hardLimit.inFlightCommandOverflowCount,
             )
 
           case ctx =>
@@ -1315,8 +1439,6 @@ private[lf] class Runner private (
 }
 
 object Runner {
-
-  import Implicits._
 
   private[trigger] implicit val logger: ContextualizedLogger = ContextualizedLogger.get(getClass)
 
@@ -1725,6 +1847,26 @@ object Runner {
     }
 
   object Implicits {
+    implicit class DurationExtensions(duration: Long) {
+      def toHumanReadable: String = {
+        if (duration >= 24L * 60L * 60L * 1000L * 1000L * 1000L) {
+          s"${duration / (24L * 60L * 60L * 1000L * 1000L * 1000L)}days"
+        } else if (duration >= 60L * 60L * 1000L * 1000L * 1000L) {
+          s"${duration / (60L * 60L * 1000L * 1000L * 1000L)}hrs"
+        } else if (duration >= 60L * 1000L * 1000L * 1000L) {
+          s"${duration / (60L * 1000L * 1000L * 1000L)}mins"
+        } else if (duration >= 1000L * 1000L * 1000L) {
+          s"${duration / (1000L * 1000L * 1000L)}s"
+        } else if (duration >= 1000L * 1000L) {
+          s"${duration / (1000L * 1000L)}ms"
+        } else if (duration >= 1000L) {
+          s"${duration / 1000L}us"
+        } else {
+          s"${duration}ns"
+        }
+      }
+    }
+
     implicit class EnrichTriggerLoggingContextOf(logContext: LoggingContextOf[Trigger]) {
       def enrichTriggerContext(
           entry: LoggingEntry,
