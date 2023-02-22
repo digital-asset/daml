@@ -69,10 +69,10 @@ testsForDamlcLint damlc = testGroup "damlc test"
             assertBool
                 ("All project source files are linted: " <> show stderr)
                 (unlines
-                     [ "  Found:"
+                     [ "Found:"
                      , "  forA [] $ \\ _ -> create S {p}"
-                     , "  Perhaps:"
-                     , "  forA_ [] $ \\ _ -> create S {p}\ESC[0m"
+                     , "Perhaps:"
+                     , "  forA_ [] $ \\ _ -> create S {p}\n\ESC[0m"
                      ] `isSuffixOf` stderr) -- needs escape secenquence for blue output color.
     , testCase "Lint all project files -- no hints" $ do
         withTempDir $ \dir -> do
