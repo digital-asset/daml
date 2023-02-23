@@ -74,7 +74,6 @@ import qualified System.FilePath.Posix as FPP
 import System.IO
 import System.IO.Error
 import qualified Text.PrettyPrint.Annotated.HughesPJClass as HughesPJPretty
-import GHC.Word
 
 import qualified Network.HTTP.Types as HTTP.Types
 import qualified Network.URI as URI
@@ -882,7 +881,7 @@ runSingleScriptRule =
 
       scenarioResults <-
           forM scenarios $ \scenario -> do
-              (vr, res) <- runScript scenarioService file ctxId scenario
+              (vr, res) <- liftIO $ runScript scenarioService file ctxId scenario
               let scenarioName = LF.qualObject scenario
               let mbLoc = NM.lookup scenarioName (LF.moduleValues m) >>= LF.dvalLocation
               let range = maybe noRange sourceLocToRange mbLoc
@@ -911,7 +910,7 @@ runScenariosScriptsPkg projRoot extPkg pkgs = do
         scenarioResults <- forM scenarios $ \scenario ->
             runScenario scenarioService pkgName' ctxId scenario
         scriptResults <- forM scripts $ \script ->
-            runScript
+            liftIO $ runScript
                 scenarioService
                 pkgName'
                 ctxId
@@ -1048,36 +1047,6 @@ vrChangedNotification vr doc = do
     liftIO $
         sendNotification lspEnv (LSP.SCustomMethod virtualResourceChangedNotification) $
         toJSON $ VirtualResourceChangedParams (virtualResourceToUri vr) doc
-
-virtualResourceProgressNotification :: T.Text
-virtualResourceProgressNotification = "daml/virtualResource/didProgress"
-
--- | Parameters for the virtual resource progress notification
-data VirtualResourceProgressParams = VirtualResourceProgressParams
-    { _vrppUri      :: !T.Text
-      -- ^ The uri of the virtual resource.
-    , _vrppMillisecondsPassed :: !Word64
-      -- ^ The progress status of the virtual resource
-    , _vrppStartedAt :: !Word64
-      -- ^ When this status info started
-    } deriving Show
-
-instance ToJSON VirtualResourceProgressParams where
-    toJSON VirtualResourceProgressParams{..} =
-        object ["uri" .= _vrppUri, "millisecondsPassed" .= _vrppMillisecondsPassed, "startedAt" .= _vrppStartedAt ]
-
-instance FromJSON VirtualResourceProgressParams where
-    parseJSON = withObject "VirtualResourceProgressParams" $ \o ->
-        VirtualResourceProgressParams <$> o .: "uri" <*> o .: "millisecondsPassed" <*> o .: "startedAt"
-
-vrProgressNotification :: ShakeLspEnv -> VirtualResource -> SS.ScenarioStatus -> IO ()
-vrProgressNotification lspEnv vr status = do
-    sendNotification lspEnv (LSP.SCustomMethod virtualResourceProgressNotification) $
-        toJSON $
-            VirtualResourceProgressParams
-                (virtualResourceToUri vr)
-                (SS.scenarioStatusMillisecondsPassed status)
-                (SS.scenarioStatusStartedAt status)
 
 -- | Virtual resource note set notification
 -- This notification is sent by the server to the client when
@@ -1265,18 +1234,16 @@ formatScenarioResult world errOrRes =
 
 runScenario :: SS.Handle -> NormalizedFilePath -> SS.ContextId -> LF.ValueRef -> Action (VirtualResource, Either SS.Error SS.ScenarioResult)
 runScenario scenarioService file ctxId scenario = do
-    ShakeExtras {lspEnv} <- getShakeExtras
+    res <- liftIO $ SS.runScenario scenarioService ctxId scenario
     let scenarioName = LF.qualObject scenario
     let vr = VRScenario file (LF.unExprValName scenarioName)
-    res <- liftIO $ SS.runLiveScenario scenarioService ctxId scenario $ vrProgressNotification lspEnv vr
     pure (vr, res)
 
-runScript :: SS.Handle -> NormalizedFilePath -> SS.ContextId -> LF.ValueRef -> Action (VirtualResource, Either SS.Error SS.ScenarioResult)
+runScript :: SS.Handle -> NormalizedFilePath -> SS.ContextId -> LF.ValueRef -> IO (VirtualResource, Either SS.Error SS.ScenarioResult)
 runScript scenarioService file ctxId scenario = do
-    ShakeExtras {lspEnv} <- getShakeExtras
+    res <- SS.runScript scenarioService ctxId scenario
     let scenarioName = LF.qualObject scenario
     let vr = VRScenario file (LF.unExprValName scenarioName)
-    res <- liftIO $ SS.runLiveScript scenarioService ctxId scenario $ vrProgressNotification lspEnv vr
     pure (vr, res)
 
 encodeModuleRule :: Options -> Rules ()
