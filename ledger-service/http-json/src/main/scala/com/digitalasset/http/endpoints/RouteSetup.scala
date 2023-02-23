@@ -69,7 +69,6 @@ private[http] final class RouteSetup(
   ): ET[domain.SyncResponse[JsValue]] =
     for {
       parseAndDecodeTimerCtx <- getParseAndDecodeTimerCtx()
-      _ <- EitherT.pure(metrics.commandSubmissionThroughput.mark())
       t3 <- inputJsValAndJwtPayload(req): ET[(Jwt, JwtWritePayload, JsValue)]
       (jwt, jwtPayload, reqBody) = t3
       resp <- withJwtPayloadLoggingContext(jwtPayload)(

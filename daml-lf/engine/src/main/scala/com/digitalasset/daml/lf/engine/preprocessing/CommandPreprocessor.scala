@@ -27,7 +27,21 @@ private[lf] final class CommandPreprocessor(
   def unsafePreprocessDisclosedContract(
       disc: command.DisclosedContract
   ): speedy.DisclosedContract = {
-    discard(handleLookup(pkgInterface.lookupTemplate(disc.templateId)))
+    val tmpl = handleLookup(pkgInterface.lookupTemplate(disc.templateId))
+    (tmpl.key, disc.metadata.keyHash) match {
+      case (Some(_), None) =>
+        throw Error.Preprocessing.MissingDisclosedContractKeyHash(
+          disc.contractId,
+          disc.templateId,
+        )
+      case (None, Some(hash)) =>
+        throw Error.Preprocessing.UnexpectedDisclosedContractKeyHash(
+          disc.contractId,
+          disc.templateId,
+          hash,
+        )
+      case _ =>
+    }
     val arg = valueTranslator.unsafeTranslateValue(Ast.TTyCon(disc.templateId), disc.argument)
     val coid = valueTranslator.unsafeTranslateCid(disc.contractId)
     speedy.DisclosedContract(
@@ -219,10 +233,7 @@ private[lf] final class CommandPreprocessor(
 
     discs.map { disclosedContract =>
       if (contractIds.contains(disclosedContract.contractId))
-        throw Error.Preprocessing.DuplicateDisclosedContractId(
-          disclosedContract.contractId,
-          disclosedContract.templateId,
-        )
+        throw Error.Preprocessing.DuplicateDisclosedContractId(disclosedContract.contractId)
       contractIds += disclosedContract.contractId
       disclosedContract.metadata.keyHash.foreach { hash =>
         if (contractKeys.contains(hash))

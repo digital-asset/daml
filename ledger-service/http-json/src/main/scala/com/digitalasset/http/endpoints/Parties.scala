@@ -10,10 +10,9 @@ import util.Collections.toNonEmptySet
 import util.FutureUtil.eitherT
 import util.Logging.{InstanceUUID, RequestID}
 import scalaz.std.scalaFuture._
-import scalaz.{EitherT, NonEmptyList}
+import scalaz.NonEmptyList
 
 import scala.concurrent.ExecutionContext
-import com.daml.http.metrics.HttpJsonApiMetrics
 import com.daml.logging.LoggingContextOf
 
 private[http] final class Parties(partiesService: PartiesService)(implicit ec: ExecutionContext) {
@@ -33,11 +32,9 @@ private[http] final class Parties(partiesService: PartiesService)(implicit ec: E
     } yield partiesResponse(parties = ps._1.toList, unknownParties = ps._2.toList)
 
   def allocateParty(jwt: Jwt, request: domain.AllocatePartyRequest)(implicit
-      lc: LoggingContextOf[InstanceUUID with RequestID],
-      metrics: HttpJsonApiMetrics,
+      lc: LoggingContextOf[InstanceUUID with RequestID]
   ): ET[domain.SyncResponse[domain.PartyDetails]] =
     for {
-      _ <- EitherT.pure(metrics.allocatePartyThroughput.mark())
       res <- eitherT(partiesService.allocate(jwt, request))
     } yield domain.OkResponse(res)
 }

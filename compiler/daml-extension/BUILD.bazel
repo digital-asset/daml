@@ -73,6 +73,15 @@ genrule(
     tools = ["//bazel_tools/sh:mktgz"],
 )
 
+genrule(
+    name = "webview-stylesheet.css",
+    srcs = ["src/webview.css"],
+    outs = ["webview-stylesheet.css"],
+    cmd = """
+    cp "$(location src/webview.css)" "$@"
+    """,
+)
+
 # This rule is not reproducible. `vsce package` generates a `.vsix` file which
 # is just a zip archive. The order of entries in that archive is
 # non-deterministic and the individual entries contain non-reproducible
