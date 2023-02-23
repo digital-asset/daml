@@ -3,8 +3,6 @@
 
 jobs:
 
-- template: fix-bazel-cache.yml
-
 - job: git_sha
   pool:
     name: 'ubuntu_20_04'
