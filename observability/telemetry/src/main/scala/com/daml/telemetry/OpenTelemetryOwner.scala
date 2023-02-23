@@ -70,7 +70,15 @@ object OpenTelemetryOwner {
       builder: SdkMeterProviderBuilder,
       histograms: Seq[HistogramDefinition],
   ): SdkMeterProviderBuilder = {
-    val builderWithDefaultView = builder
+    // Only one view is going to be applied, and it's in the order of it's definition
+    // therefore the config views must be registered first to be able to override the code defined views
+    val builderWithCustomViews = histograms.foldRight(builder) { case (histogram, builder) =>
+      builder.registerView(
+        histogramSelectorWithRegex(histogram.nameRegex),
+        explicitHistogramBucketsView(histogram.buckets),
+      )
+    }
+    builderWithCustomViews
       .registerView(
         histogramSelectorWithRegex(s".*${OpenTelemetryTimer.TimerUnitAndSuffix}"),
         explicitHistogramBucketsView(
@@ -95,12 +103,6 @@ object OpenTelemetryOwner {
           )
         ),
       )
-    histograms.foldRight(builderWithDefaultView) { case (histogram, builder) =>
-      builder.registerView(
-        histogramSelectorWithRegex(histogram.nameRegex),
-        explicitHistogramBucketsView(histogram.buckets),
-      )
-    }
   }
 
   private def histogramSelectorWithRegex(regex: String) = InstrumentSelector
