@@ -18,6 +18,7 @@ import DA.Daml.Doc.Types
 import DA.Daml.Doc.Transform
 import DA.Daml.Doc.Anchor
 import DA.Daml.LF.Ast.Version
+import DA.Test.DamlcIntegration (ScriptPackageData)
 
 import Development.IDE.Types.Location
 
@@ -39,8 +40,8 @@ import           Test.Tasty.Golden
 import           Test.Tasty.HUnit
 import Data.Maybe
 
-mkTestTree :: AnchorMap -> IO Tasty.TestTree
-mkTestTree externalAnchors = do
+mkTestTree :: AnchorMap -> ScriptPackageData -> IO Tasty.TestTree
+mkTestTree externalAnchors scriptPackageData = do
 
   testDir <- locateRunfiles $ mainWorkspace </> "compiler/damlc/tests/daml-test-files"
 
@@ -49,7 +50,7 @@ mkTestTree externalAnchors = do
   expectFiles <- filter isExpectationFile <$> listDirectory testDir
 
   let goldenSrcs = nubOrd $ map (flip replaceExtensions "daml") expectFiles
-  goldenTests <- mapM (fileTest externalAnchors  . (testDir </>))  goldenSrcs
+  goldenTests <- mapM (fileTest externalAnchors scriptPackageData . (testDir </>)) goldenSrcs
 
   pure $ Tasty.testGroup "DA.Daml.Doc" $ unitTests <> concat goldenTests
 
@@ -376,7 +377,7 @@ damldocExpect importPathM testname input check =
     let testfile = dir </> testModule <.> "daml"
     -- write input to a file
     T.writeFileUtf8 testfile (T.unlines input)
-    doc <- runDamldoc testfile importPathM
+    doc <- runDamldoc testfile importPathM Nothing
     check doc
 
 damldocExpectMany ::
@@ -392,61 +393,63 @@ damldocExpectMany importPathM testname input check =
       let testfile = dir </> modName <.> "daml"
       T.writeFileUtf8 testfile (T.unlines content)
       pure testfile
-    docs <- runDamldocMany testfiles importPathM
+    docs <- runDamldocMany testfiles importPathM Nothing
     check docs
 
 -- | Generate the docs for a given input file and optional import directory.
-runDamldoc :: FilePath -> Maybe FilePath -> IO ModuleDoc
-runDamldoc testfile importPathM = do
+runDamldoc :: FilePath -> Maybe FilePath -> Maybe ScriptPackageData -> IO ModuleDoc
+runDamldoc testfile importPathM mScriptPackageData = do
   -- The first module is the one we're testing
   (\(names, modMap) -> modMap Map.! head names)
-    <$> runDamldocMany' [testfile] importPathM
+    <$> runDamldocMany' [testfile] importPathM mScriptPackageData
 
 -- | Generate the docs for a given list of input files and optional import directory.
-runDamldocMany :: [FilePath] -> Maybe FilePath -> IO (Map Modulename ModuleDoc)
-runDamldocMany testfiles importPathM =
-  snd <$> runDamldocMany' testfiles importPathM
+runDamldocMany :: [FilePath] -> Maybe FilePath -> Maybe ScriptPackageData -> IO (Map Modulename ModuleDoc)
+runDamldocMany testfiles importPathM mScriptPackageData =
+  snd <$> runDamldocMany' testfiles importPathM mScriptPackageData
 
 -- | Generate the docs for a given list of input files and optional import directory.
 -- The fst of the result has the names of Modulenames for each file path in the input.
 -- The snd has a map from all the modules (including imported ones) to their docs.
-runDamldocMany' :: [FilePath] -> Maybe FilePath -> IO ([Modulename], Map Modulename ModuleDoc)
-runDamldocMany' testfiles importPathM = do
-    let opts = (defaultOptions Nothing)
-          { optHaddock = Haddock True
-          , optScenarioService = EnableScenarioService False
-          , optImportPath = maybeToList importPathM
-          , optDamlLfVersion = versionDev
-          }
+runDamldocMany' :: [FilePath] -> Maybe FilePath -> Maybe ScriptPackageData -> IO ([Modulename], Map Modulename ModuleDoc)
+runDamldocMany' testfiles importPathM mScriptPackageData = do
+  let opts = (defaultOptions Nothing)
+        { optHaddock = Haddock True
+        , optScenarioService = EnableScenarioService False
+        , optImportPath = maybeToList importPathM
+        , optDamlLfVersion = versionDev
+        , optPackageDbs = maybeToList $ fst <$> mScriptPackageData
+        , optPackageImports = maybeToList $ snd <$> mScriptPackageData
+        }
 
-    -- run the doc generator on that file
-    mbResult <- runMaybeT $ extractDocs
-        defaultExtractOptions
-        diagnosticsLogger
-        opts
-        (toNormalizedFilePath' <$> testfiles)
+  -- run the doc generator on that file
+  mbResult <- runMaybeT $ extractDocs
+    defaultExtractOptions
+    diagnosticsLogger
+    opts
+    (toNormalizedFilePath' <$> testfiles)
 
-    case mbResult of
-      Nothing ->
-        assertFailure $ unlines
-          ["Parse error(s) for test file(s) " <> intercalate ", " testfiles]
+  case mbResult of
+    Nothing ->
+      assertFailure $ unlines
+        ["Parse error(s) for test file(s) " <> intercalate ", " testfiles]
 
-      Just docs -> do
-          let names = md_name <$> take (length testfiles) docs
-                -- extract names from docs since the front of docs matches testfiles
-              docs' = applyTransform defaultTransformOptions docs
-                -- apply transforms to get instance data
-              moduleMap = Map.fromList
-                [ (md_name docM, docM)
-                | docM <- docs'
-                ]
-          pure (names, moduleMap)
+    Just docs -> do
+      let names = md_name <$> take (length testfiles) docs
+            -- extract names from docs since the front of docs matches testfiles
+          docs' = applyTransform defaultTransformOptions docs
+            -- apply transforms to get instance data
+          moduleMap = Map.fromList
+            [ (md_name docM, docM)
+            | docM <- docs'
+            ]
+      pure (names, moduleMap)
 
 -- | For the given file <name>.daml (assumed), this test checks if any
 -- <name>.EXPECTED.<suffix> exists, and produces output according to <suffix>
 -- for all files found.
-fileTest :: AnchorMap -> FilePath -> IO [Tasty.TestTree]
-fileTest externalAnchors damlFile = do
+fileTest :: AnchorMap -> ScriptPackageData -> FilePath -> IO [Tasty.TestTree]
+fileTest externalAnchors scriptPackageData damlFile = do
 
   damlFileAbs <- makeAbsolute damlFile
   let basename = dropExtension damlFileAbs
@@ -458,7 +461,7 @@ fileTest externalAnchors damlFile = do
   if null expectations
     then pure []
     else do
-      doc <- runDamldoc damlFile (Just $ takeDirectory damlFile)
+      doc <- runDamldoc damlFile (Just $ takeDirectory damlFile) (Just scriptPackageData)
 
       pure $ flip map expectations $ \expectation ->
         goldenVsStringDiff ("File: " <> expectation) diff expectation $ pure $
