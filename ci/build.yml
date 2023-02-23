@@ -65,10 +65,6 @@ jobs:
         bazel build //release:release
         ./bazel-bin/release/release --release-dir "$(mktemp -d)"
       condition: and(succeeded(), ne(variables['is_release'], 'true'))
-    - task: PublishBuildArtifacts@1
-      inputs:
-        pathtoPublish: 'bazel-bin/docs/html.tar.gz'
-        artifactName: 'Docs bundle'
     - template: tell-slack-failed.yml
       parameters:
         trigger_sha: '$(trigger_sha)'

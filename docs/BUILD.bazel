@@ -311,110 +311,6 @@ genrule(
     ],
 ) if not is_windows else None
 
-[
-    genrule(
-        name = "sphinx-{}".format(name),
-        srcs = [
-            ":canton-refs.rst",
-            ":sphinx-source-tree",
-            ":scripts/check-closing-quotes.sh",
-            ":scripts/check-closing-quotes.sh.allow",
-        ] + (["@glibc_locales//:locale-archive"] if is_linux else []),
-        outs = ["sphinx-{}.tar.gz".format(name)],
-        cmd = ("""
-export LOCALE_ARCHIVE="$$PWD/$(location @glibc_locales//:locale-archive)"
-""" if is_linux else "") +
-              """
-    set -eou pipefail
-
-    DIR=$$(mktemp -d)
-    mkdir -p $$DIR/source $$DIR/target
-
-    tar xf $(location sphinx-source-tree) -C $$DIR/source --strip-components=1
-    mv $(location :canton-refs.rst) $$DIR/source/source
-
-    if ! docs/scripts/check-closing-quotes.sh $$DIR/source docs/scripts/check-closing-quotes.sh.allow; then
-        exit 1
-    fi
-
-    export LC_ALL=en_US.UTF-8
-    export LANG=en_US.UTF-8
-    SPHINX_BUILD_EXIT_CODE=0
-    # We hide the output unless we get a failure to make the builds less noisy.
-    SPHINX_BUILD_OUTPUT=$$($(location @sphinx_nix//:bin/sphinx-build) -W -b {target} -c $$DIR/source/configs/{name} $$DIR/source/source $$DIR/target 2>&1) || SPHINX_BUILD_EXIT_CODE=$$?
-
-    if [ "$$SPHINX_BUILD_EXIT_CODE" -ne 0 ]; then
-        >&2 echo "## SPHINX-BUILD OUTPUT:"
-        >&2 echo "$$SPHINX_BUILD_OUTPUT"
-        >&2 echo "## SPHINX-BUILD OUTPUT END"
-        exit 1
-    fi
-
-    MKTGZ=$$PWD/$(execpath //bazel_tools/sh:mktgz)
-    OUT_PATH=$$PWD/$@
-    cd $$DIR
-    $$MKTGZ $$OUT_PATH target
-  """.format(
-                  target = target,
-                  name = name,
-              ),
-        tools = [
-            "//bazel_tools/sh:mktgz",
-            "@sphinx_nix//:bin/sphinx-build",
-        ],
-    )
-    for (name, target) in [
-        ("html", "html"),
-        ("pdf", "latex"),
-    ]
-] if not is_windows else None
-
-genrule(
-    name = "pdf-docs",
-    srcs = [
-        ":sphinx-pdf",
-        ":pdf-fonts",
-    ],
-    outs = ["DigitalAssetSDK.pdf"],
-    cmd = """
-        set -euo pipefail
-        # Set up tools
-        export PATH="$$( cd "$$(dirname "$(location @imagemagick_nix//:bin/convert)")" ; pwd -P )":$$PATH
-
-        mkdir out
-        tar -zxf $(location sphinx-pdf) -C out --strip-components=1
-
-        # Copy in fonts and build with lualatex
-        cp -L $(locations :pdf-fonts) out/
-        cd out
-        # run twice to generate all references properly (this is a latex thing...)
-        ../$(location @texlive_nix//:bin/lualatex) -halt-on-error -interaction=batchmode --shell-escape *.tex
-        ../$(location @texlive_nix//:bin/lualatex) -halt-on-error -interaction=batchmode --shell-escape *.tex
-        # NOTE, if you get errors of the following form:
-        #
-        #   luaotfload | db : Font names database not found, generating new one.
-        #   luaotfload | db : This can take several minutes; please be patient.
-        #   luaotfload | db : Reload initiated (formats: otf,ttf,ttc); reason: "File not found: lmroman10-regular.".
-        #
-        # Then the error is most likely not font related. To debug the error
-        # run `bazel build` with `--sandbox_debug`, change into the sandbox
-        # directory and invoke lualatex from there. You will have to replicate
-        # the environment variable setup from above.
-        #
-        # In the past the following issues caused the error message above:
-        # - An update of sphinx in nixpkgs that had to be undone.
-        # - A missing texlive package that had to be added to the Nix derivation.
-
-        # Move output to target
-        mv DigitalAssetSDK.pdf ../$(location DigitalAssetSDK.pdf)""".format(sdk = sdk_version),
-    tags = ["pdfdocs"],
-    tools =
-        [
-            "@imagemagick_nix//:bin/convert",
-            "@texlive_nix//:bin/lualatex",
-        ],
-) if not is_windows else None
-
 filegroup(
     name = "pdf-fonts",
     srcs = glob(["configs/pdf/fonts/**"]) + ["@freefont//:fonts"],
@@ -478,26 +374,6 @@ genrule(
 ) if not is_windows else None
 
 genrule(
-    name = "docs-no-pdf",
-    srcs = [
-        ":sphinx-html",
-        ":non-sphinx-html-docs",
-    ],
-    outs = ["html-only.tar.gz"],
-    cmd = """
-        set -eou pipefail
-        mkdir -p build/html
-        tar xf $(location :sphinx-html) -C build/html --strip-components=1
-        tar xf $(location :non-sphinx-html-docs) -C build/html --strip-components=1
-        cd build
-        ../$(execpath //bazel_tools/sh:mktgz) ../$@ html
-        """.format(sdk = sdk_version),
-    tools = [
-        "//bazel_tools/sh:mktgz",
-    ],
-) if not is_windows else None
-
-genrule(
     name = "redirects",
     srcs = [
         "redirects.map",
@@ -520,42 +396,6 @@ genrule(
     """,
     tools = ["//bazel_tools/sh:mktgz"],
 )
-
-genrule(
-    name = "docs",
-    srcs = [
-        ":docs-no-pdf",
-        ":pdf-docs",
-    ],
-    outs = ["html.tar.gz"],
-    cmd = """
-        VERSION_DATE=1970-01-01
-        tar -zxf $(location :docs-no-pdf)
-        cd html
-        find . -name '*.html' | sort | sed -e 's,^\\./,https://docs.daml.com/,' > sitemap
-        SMHEAD="{head}"
-        SMITEM="{item}"
-        SMFOOT="{foot}"
-        echo $$SMHEAD > sitemap.xml
-        while read item; do
-            echo $$SMITEM | sed -e "s,%DATE%,$${{VERSION_DATE}}," | sed -e "s,%LOC%,$${{item}}," >> sitemap.xml
-        done < sitemap
-        rm sitemap
-        echo $$SMFOOT >> sitemap.xml
-        cd ..
-        cp -L $(location :pdf-docs) html/_downloads
-        # Remove Sphinx build products
-        rm -r html/.buildinfo html/.doctrees html/objects.inv
-        $(execpath //bazel_tools/sh:mktgz) $@ html
-    """.format(
-        head = """<?xml version='1.0' encoding='UTF-8'?><urlset xmlns='http://www.sitemaps.org/schemas/sitemap/0.9' xmlns:xsi='http://www.w3.org/2001/XMLSchema-instance' xsi:schemaLocation='http://www.sitemaps.org/schemas/sitemap/0.9 http://www.sitemaps.org/schemas/sitemap/0.9/sitemap.xsd'>""",
-        item = """<url><loc>%LOC%</loc><lastmod>%DATE%</lastmod><changefreq>daily</changefreq><priority>0.8</priority></url>""",
-        foot = """</urlset>""",
-        version = sdk_version,
-    ),
-    tags = ["pdfdocs"],
-    tools = ["//bazel_tools/sh:mktgz"],
-) if not is_windows else None
 
 filegroup(
     name = "daml-assistant-iou-setup",
