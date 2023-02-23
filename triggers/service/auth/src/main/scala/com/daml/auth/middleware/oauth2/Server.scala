@@ -331,6 +331,7 @@ object Server extends StrictLogging {
       config.metricsReporter,
       config.metricsReportingInterval,
       registerGlobalOpenTelemetry,
+      config.histograms
     )((_, otelMeter) => Oauth2MiddlewareMetrics(otelMeter))
     val metricsResource = metricsReporting.acquire()
 

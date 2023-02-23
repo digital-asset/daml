@@ -80,6 +80,7 @@ object ServiceMain {
           10 seconds,
           logTriggerStatus,
           registerGlobalOpenTelemetry = false,
+          histograms = Seq.empty
         ),
         "TriggerService",
       )
@@ -184,6 +185,7 @@ object ServiceMain {
               config.metricsReporter,
               config.metricsReportingInterval,
               registerGlobalOpenTelemetry = true,
+              histograms = config.histograms,
             ),
             "TriggerService",
           )

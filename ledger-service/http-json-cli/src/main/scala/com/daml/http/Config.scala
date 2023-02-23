@@ -15,12 +15,11 @@ import scalaz.Show
 import scalaz.StateT.liftM
 
 import scala.concurrent.duration._
-
 import ch.qos.logback.classic.{Level => LogLevel}
 import com.daml.cliopts.Logging.LogEncoder
 import com.daml.http.{WebsocketConfig => WSC}
 import com.daml.http.dbbackend.JdbcConfig
-import com.daml.metrics.MetricsConfig
+import com.daml.metrics.{HistogramDefinition, MetricsConfig}
 import com.daml.metrics.api.reporters.MetricsReporter
 
 // The internal transient scopt structure *and* StartSettings; external `start`
@@ -46,6 +45,7 @@ private[http] final case class Config(
     metricsReporter: Option[MetricsReporter] = None,
     metricsReportingInterval: FiniteDuration = MetricsConfig.DefaultMetricsReportingInterval,
     surrogateTpIdCacheMaxEntries: Option[Long] = None,
+    histograms: Seq[HistogramDefinition] = Seq.empty
 ) extends StartSettings
 
 private[http] object Config {

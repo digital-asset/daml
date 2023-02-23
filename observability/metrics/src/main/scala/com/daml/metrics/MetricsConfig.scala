@@ -8,7 +8,12 @@ import pureconfig.{ConfigReader, ConvertHelpers}
 import pureconfig.generic.semiauto.deriveReader
 import scala.concurrent.duration._
 
-final case class MetricsConfig(reporter: MetricsReporter, reportingInterval: FiniteDuration)
+final case class HistogramDefinition(nameRegex: String, buckets: Seq[Double])
+final case class MetricsConfig(
+    reporter: MetricsReporter,
+    reportingInterval: FiniteDuration,
+    histograms: Seq[HistogramDefinition],
+)
 
 object MetricsConfig {
 
@@ -19,6 +24,9 @@ object MetricsConfig {
       MetricsReporter.parseMetricsReporter(s.toLowerCase())
     })
   }
+
+  implicit val histogramDefinitionReader: ConfigReader[HistogramDefinition] =
+    deriveReader[HistogramDefinition]
 
   implicit val metricsConfigReader: ConfigReader[MetricsConfig] = deriveReader[MetricsConfig]
 }

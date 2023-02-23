@@ -4,6 +4,7 @@
 package com.daml.telemetry
 
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
+import com.daml.metrics.HistogramDefinition
 import com.daml.metrics.api.MetricHandle.Histogram
 import com.daml.metrics.api.opentelemetry.OpenTelemetryTimer
 import com.daml.metrics.api.reporters.MetricsReporter
@@ -21,8 +22,11 @@ import scala.concurrent.Future
 import scala.jdk.CollectionConverters.SeqHasAsJava
 
 @nowarn("msg=deprecated")
-case class OpenTelemetryOwner(setAsGlobal: Boolean, reporter: Option[MetricsReporter])
-    extends ResourceOwner[OpenTelemetry] {
+case class OpenTelemetryOwner(
+    setAsGlobal: Boolean,
+    reporter: Option[MetricsReporter],
+    histograms: Seq[HistogramDefinition],
+) extends ResourceOwner[OpenTelemetry] {
 
   override def acquire()(implicit
       context: ResourceContext
@@ -36,7 +40,7 @@ case class OpenTelemetryOwner(setAsGlobal: Boolean, reporter: Option[MetricsRepo
         AutoConfiguredOpenTelemetrySdk
           .builder()
           .addMeterProviderCustomizer { case (builder, _) =>
-            val meterProviderBuilder = addViewsToProvider(builder)
+            val meterProviderBuilder = addViewsToProvider(builder, histograms)
             /* To integrate with prometheus we're using the deprecated [[PrometheusCollector]].
              * More details about the deprecation here: https://github.com/open-telemetry/opentelemetry-java/issues/4284
              * This forces us to keep the current OpenTelemetry version (see ticket for potential paths forward).
@@ -62,10 +66,13 @@ case class OpenTelemetryOwner(setAsGlobal: Boolean, reporter: Option[MetricsRepo
 
 object OpenTelemetryOwner {
 
-  def addViewsToProvider(builder: SdkMeterProviderBuilder): SdkMeterProviderBuilder = {
-    builder
+  def addViewsToProvider(
+      builder: SdkMeterProviderBuilder,
+      histograms: Seq[HistogramDefinition],
+  ): SdkMeterProviderBuilder = {
+    val builderWithDefaultView = builder
       .registerView(
-        histogramSelectorEndingWith(OpenTelemetryTimer.TimerUnitAndSuffix),
+        histogramSelectorWithRegex(s".*${OpenTelemetryTimer.TimerUnitAndSuffix}"),
         explicitHistogramBucketsView(
           Seq(
             0.01d, 0.025d, 0.050d, 0.075d, 0.1d, 0.15d, 0.2d, 0.25d, 0.35d, 0.5d, 0.75d, 1d, 2.5d,
@@ -74,7 +81,7 @@ object OpenTelemetryOwner {
         ),
       )
       .registerView(
-        histogramSelectorEndingWith(Histogram.Bytes),
+        histogramSelectorWithRegex(s".*${Histogram.Bytes}"),
         explicitHistogramBucketsView(
           Seq(
             kilobytes(10),
@@ -88,12 +95,18 @@ object OpenTelemetryOwner {
           )
         ),
       )
+    histograms.foldRight(builderWithDefaultView) { case (histogram, builder) =>
+      builder.registerView(
+        histogramSelectorWithRegex(histogram.nameRegex),
+        explicitHistogramBucketsView(histogram.buckets),
+      )
+    }
   }
 
-  private def histogramSelectorEndingWith(endingWith: String) = InstrumentSelector
+  private def histogramSelectorWithRegex(regex: String) = InstrumentSelector
     .builder()
     .setType(InstrumentType.HISTOGRAM)
-    .setName((t: String) => t.endsWith(endingWith))
+    .setName((t: String) => t.matches(regex))
     .build()
 
   private def explicitHistogramBucketsView(buckets: Seq[Double]) = View

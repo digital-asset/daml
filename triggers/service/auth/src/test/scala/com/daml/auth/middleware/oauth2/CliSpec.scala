@@ -68,6 +68,7 @@ class CliSpec extends AsyncWordSpec with Matchers {
           MetricsConfig(
             MetricsReporter.Prometheus(new InetSocketAddress("0.0.0.0", 5104)),
             30.seconds,
+            Seq.empty
           )
         ),
       )

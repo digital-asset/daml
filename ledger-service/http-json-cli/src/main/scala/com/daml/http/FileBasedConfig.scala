@@ -90,6 +90,7 @@ private[http] final case class FileBasedConfig(
       metricsReportingInterval =
         metrics.map(_.reportingInterval).getOrElse(MetricsConfig.DefaultMetricsReportingInterval),
       surrogateTpIdCacheMaxEntries = maxTemplateIdCacheEntries,
+      histograms = metrics.toList.flatMap(_.histograms),
     )
   }
 }

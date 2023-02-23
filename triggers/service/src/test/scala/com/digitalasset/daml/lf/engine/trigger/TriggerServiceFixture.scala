@@ -269,6 +269,7 @@ trait AuthMiddlewareFixture
             clientId = "oauth-middleware-id",
             clientSecret = SecretString("oauth-middleware-secret"),
             tokenVerifier = authVerifier,
+            histograms = Seq.empty
           )
           middleware <- Resource(
             MiddlewareServer.start(middlewareConfig, registerGlobalOpenTelemetry = false)
