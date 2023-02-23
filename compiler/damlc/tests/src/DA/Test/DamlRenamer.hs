@@ -10,17 +10,15 @@ module DA.Test.DamlRenamer (main) where
 import Control.Monad (filterM)
 import DA.Bazel.Runfiles (exe, locateRunfiles, mainWorkspace)
 import Data.List.Extra (nubOrd)
-import Data.Text (Text)
 import System.Directory (doesFileExist, listDirectory, makeAbsolute)
 import System.Environment.Blank (setEnv)
 import System.Exit (ExitCode (..))
 import System.FilePath (dropExtension, replaceExtensions, takeExtensions, (<.>), (</>))
+import System.IO.Extra (withTempDir)
 import System.Process (readProcessWithExitCode)
 import Test.Tasty.Golden (goldenVsStringDiff)
 
 import qualified Data.ByteString.Lazy as BSL
-import qualified Data.Text as T
-import qualified Data.Text.Encoding as TE
 import qualified Test.Tasty.Extended as Tasty
 
 main :: IO ()
@@ -61,41 +59,33 @@ fileTest damlc damlFile = do
   if null expectations
     then pure []
     else do
-      renamed <- runDamlRename damlc damlFile
-
       pure $ flip map expectations $ \expectation ->
         goldenVsStringDiff ("File: " <> expectation) diff expectation $
-          pure $ BSL.fromStrict $ TE.encodeUtf8 renamed
+          runDamlRename damlc damlFile
   where
     diff ref new = [POSIX_DIFF, "--strip-trailing-cr", ref, new]
 
 -- | Shells out to @damlc@ to obtain the parsed, desugared and renamed output
 --   for the given @damlFile@.
-runDamlRename :: FilePath -> FilePath -> IO Text
+runDamlRename :: FilePath -> FilePath -> IO BSL.ByteString
 runDamlRename damlc damlFile = do
-  (exitCode, _stdout, stderr) <- readProcessWithExitCode
-    damlc
-    [ "compile"
-    , "--ghc-option=-ddump-rn"
-    , damlFile
-    ]
-    ""
-  case exitCode of
-    ExitSuccess -> pure $ extract stderr
-    _ -> error $ unlines
-      [ "The following command failed: "
-      , "\tdamlc compile --ghc-option=-ddump-rn " <> damlFile
-      , "stderr:"
-      , "\t" <> stderr
+  withTempDir $ \tempDir -> do
+    (exitCode, _stdout, stderr) <- readProcessWithExitCode
+      damlc
+      [ "compile"
+      , "--ghc-option=-ddump-to-file"
+      , "--ghc-option=-dumpdir=" <> tempDir
+      , "--ghc-option=-ddump-file-prefix=o."
+      , "--ghc-option=-ddump-rn"
+      , damlFile
       ]
-
-  where
-    -- This extracts the actual renamed code from the output,
-    -- dropping the shake warning header and terminal color formatting
-    extract
-      = T.unlines
-      . fmap (T.drop 2) -- the part we're interested in is indented with two spaces.
-      . T.lines
-      . fst . T.breakOn "\n  \ESC"
-      . snd . T.breakOnEnd "==================== Renamer ====================\n"
-      . T.pack
+      ""
+    let dumpFile = tempDir </> "o.dump-rn"
+    case exitCode of
+      ExitSuccess -> BSL.readFile dumpFile
+      _ -> error $ unlines
+        [ "The following command failed: "
+        , "\tdamlc compile --ghc-option=-ddump-rn " <> damlFile
+        , "stderr:"
+        , "\t" <> stderr
+        ]
