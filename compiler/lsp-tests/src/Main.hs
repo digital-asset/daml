@@ -253,7 +253,6 @@ diagnosticTests run runScenarios = testGroup "diagnostics"
               , "  alice <- getParty \"Alice\""
               , "  submit foo $ create $ Agree with p1 = foo, p2 = alice"
               ]
-          _ <- openScenario "Main.daml" "myScenario"
           expectDiagnostics
               [ ( "Main.daml"
                 , [(DsError, (3, 0), "missing authorization from 'Alice'")]
@@ -917,12 +916,10 @@ includePathTests damlc = testGroup "include-path"
           withCurrentDirectory dir $
             runSessionWithConfig conf (damlc <> " ide --scenarios=yes --enable-scenarios=yes") fullCaps' dir $ do
               _docB <- openDoc "src2/B.daml" "daml"
-              _ <- openScenario "src2/B.daml" "test"
               -- If we get a scenario result, we managed to build a DALF which
               -- is what we really want to check here.
               expectDiagnostics [ ("src2/B.daml", [(DsError, (3,0), "Assertion failed")]) ]
               _docRoot <- openDoc "src1/Root.daml" "daml"
-              _ <- openScenario "src1/Root.daml" "test"
               expectDiagnostics [ ("src1/Root.daml", [(DsError, (3,0), "Assertion failed")]) ]
     ]
 
