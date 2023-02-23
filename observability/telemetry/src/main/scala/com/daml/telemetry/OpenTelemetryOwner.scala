@@ -4,7 +4,7 @@
 package com.daml.telemetry
 
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
-import com.daml.metrics.HistogramDefinition
+import com.daml.metrics.{ExecutorServiceMetrics, HistogramDefinition}
 import com.daml.metrics.api.MetricHandle.Histogram
 import com.daml.metrics.api.opentelemetry.OpenTelemetryTimer
 import com.daml.metrics.api.reporters.MetricsReporter
@@ -79,6 +79,19 @@ object OpenTelemetryOwner {
       )
     }
     builderWithCustomViews
+      // use smaller buckets for the executor services (must be declared before the generic timing buckets
+      .registerView(
+        histogramSelectorWithRegex(
+          s"${ExecutorServiceMetrics.Prefix}.*${OpenTelemetryTimer.TimerUnitAndSuffix}"
+        ),
+        explicitHistogramBucketsView(
+          Seq(
+            0.0005d, 0.001d, 0.002d, 0.005d, 0.01d, 0.025d, 0.05d, 0.1d, 0.25d, 0.5d, 0.75d, 1d,
+            2.5d,
+          )
+        ),
+      )
+      // generic timing buckets
       .registerView(
         histogramSelectorWithRegex(s".*${OpenTelemetryTimer.TimerUnitAndSuffix}"),
         explicitHistogramBucketsView(
@@ -88,6 +101,7 @@ object OpenTelemetryOwner {
           )
         ),
       )
+      // use size specific buckets
       .registerView(
         histogramSelectorWithRegex(s".*${Histogram.Bytes}"),
         explicitHistogramBucketsView(
