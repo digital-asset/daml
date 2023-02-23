@@ -250,6 +250,8 @@ da_haskell_test(
         "//compiler/damlc:daml-base-anchors.json",
         "//compiler/damlc/pkg-db",
         "//compiler/damlc/stable-packages",
+        "//daml-script/daml:daml-script-1.dev.dar",
+        ghc_pkg,
     ],
     hackage_deps = [
         "base",
@@ -262,6 +264,8 @@ da_haskell_test(
     src_strip_prefix = "src",
     visibility = ["//visibility:public"],
     deps = [
+        ":integration-lib",
+        "//compiler/daml-lf-ast",
         "//compiler/damlc:damlc-lib",
         "//compiler/damlc/daml-doc",
         "//compiler/damlc/daml-doc:daml-doc-testing",
