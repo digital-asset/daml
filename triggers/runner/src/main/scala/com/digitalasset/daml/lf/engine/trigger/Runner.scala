@@ -1860,7 +1860,7 @@ object Runner {
         } else if (duration >= 1000L * 1000L) {
           s"${duration / (1000L * 1000L)}ms"
         } else if (duration >= 1000L) {
-          s"${duration / 1000L}µs"
+          s"${duration / 1000L}us"
         } else {
           s"${duration}ns"
         }
