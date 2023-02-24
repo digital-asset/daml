@@ -465,6 +465,8 @@ object Trigger {
 
   final class Version(protected val rank: Int) extends Ordered[Version] {
     override def compare(that: Version): Int = this.rank compare that.rank
+
+    override def toString: String = s"Version($rank)"
   }
   object Version {
     val `2.0.0` = new Version(0)
