@@ -73,7 +73,6 @@ import com.google.protobuf.empty.Empty
 import com.google.rpc.status.Status
 import io.grpc.StatusRuntimeException
 import scalaz.syntax.bifunctor._
-import scalaz.syntax.std.boolean._
 import scalaz.syntax.std.option._
 import scalaz.syntax.tag._
 import scalaz.{-\/, Tag, \/, \/-}
