@@ -1293,7 +1293,7 @@ private[lf] class Runner private (
 
   private[this] def hideIrrelevantMsgs: TriggerContextualFlow[TriggerMsg, TriggerMsg, NotUsed] =
     TriggerContextualFlow[TriggerMsg].mapConcat[TriggerContext[TriggerMsg]] {
-      case ctx @ Ctx(_, msg @ TriggerMsg.Completion(c), _) =>
+      case ctx @ Ctx(_, TriggerMsg.Completion(c), _) =>
         // This happens for invalid UUIDs which we might get for
         // completions not emitted by the trigger.
         val optUuid = catchIAE(UUID.fromString(c.commandId))
@@ -1305,7 +1305,7 @@ private[lf] class Runner private (
           }
         }
 
-      case ctx @ Ctx(_, msg @ TriggerMsg.Transaction(t), _) =>
+      case ctx @ Ctx(_, TriggerMsg.Transaction(t), _) =>
         // This happens for invalid UUIDs which we might get for
         // transactions not emitted by the trigger.
         val optUuid = catchIAE(UUID.fromString(t.commandId))
@@ -1319,7 +1319,7 @@ private[lf] class Runner private (
           }
         }
 
-      case ctx @ Ctx(_, msg @ TriggerMsg.Heartbeat, _) =>
+      case ctx @ Ctx(_, TriggerMsg.Heartbeat, _) =>
         List(ctx) // Heartbeats don't carry any information.
     }
 
