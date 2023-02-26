@@ -865,7 +865,7 @@ private[lf] class Runner private (
         .getTransactions(offset, None, filter)
         .map { transaction =>
           triggerContext.childSpan("update") { implicit triggerContext: TriggerLogContext =>
-            triggerContext.logDebug("Transaction source")
+            triggerContext.logDebug("Transaction source", "message" -> transaction)
 
             triggerContext.childSpan("evaluation") { implicit triggerContext: TriggerLogContext =>
               Ctx(triggerContext, TriggerMsg.Transaction(transaction))
