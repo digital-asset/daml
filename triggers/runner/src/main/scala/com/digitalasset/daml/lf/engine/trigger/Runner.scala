@@ -1296,18 +1296,27 @@ private[lf] class Runner private (
       case ctx @ Ctx(_, msg @ TriggerMsg.Completion(c), _) =>
         // This happens for invalid UUIDs which we might get for
         // completions not emitted by the trigger.
-        val ouuid = catchIAE(UUID.fromString(c.commandId))
-        ouuid.flatMap { uuid =>
-          useCommandId(uuid, SeenMsgs.Completion)(ctx.context) option ctx.copy(value = msg)
-        }.toList
+        val optUuid = catchIAE(UUID.fromString(c.commandId))
+        optUuid.fold(List.empty) { uuid =>
+          if (useCommandId(uuid, SeenMsgs.Completion)(ctx.context)) {
+            List(ctx.copy(value = msg))
+          } else {
+            List.empty
+          }
+        }
 
       case ctx @ Ctx(_, msg @ TriggerMsg.Transaction(t), _) =>
         // This happens for invalid UUIDs which we might get for
         // transactions not emitted by the trigger.
-        val ouuid = catchIAE(UUID.fromString(t.commandId))
-        List(ouuid flatMap { uuid =>
-          useCommandId(uuid, SeenMsgs.Transaction)(ctx.context) option ctx.copy(value = msg)
-        } getOrElse ctx.copy(value = TriggerMsg.Transaction(t.copy(commandId = ""))))
+        val optUuid = catchIAE(UUID.fromString(t.commandId))
+        val hiddenCmd = ctx.copy(value = TriggerMsg.Transaction(t.copy(commandId = "")))
+        optUuid.fold(List(hiddenCmd)) { uuid =>
+          if (useCommandId(uuid, SeenMsgs.Transaction)(ctx.context)) {
+            List(ctx.copy(value = msg))
+          } else {
+            List(hiddenCmd)
+          }
+        }
 
       case ctx @ Ctx(_, msg @ TriggerMsg.Heartbeat, _) =>
         List(ctx.copy(value = msg)) // Heartbeats don't carry any information.
