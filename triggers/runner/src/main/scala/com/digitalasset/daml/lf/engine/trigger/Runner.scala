@@ -1299,7 +1299,7 @@ private[lf] class Runner private (
         val optUuid = catchIAE(UUID.fromString(c.commandId))
         optUuid.fold(List.empty) { uuid =>
           if (useCommandId(uuid, SeenMsgs.Completion)(ctx.context)) {
-            List(ctx.copy(value = msg))
+            List(ctx)
           } else {
             List.empty
           }
@@ -1309,17 +1309,18 @@ private[lf] class Runner private (
         // This happens for invalid UUIDs which we might get for
         // transactions not emitted by the trigger.
         val optUuid = catchIAE(UUID.fromString(t.commandId))
-        val hiddenCmd = ctx.copy(value = TriggerMsg.Transaction(t.copy(commandId = "")))
+        val hiddenCmd: TriggerContext[TriggerMsg] =
+          ctx.copy(value = TriggerMsg.Transaction(t.copy(commandId = "")))
         optUuid.fold(List(hiddenCmd)) { uuid =>
           if (useCommandId(uuid, SeenMsgs.Transaction)(ctx.context)) {
-            List(ctx.copy(value = msg))
+            List(ctx)
           } else {
             List(hiddenCmd)
           }
         }
 
       case ctx @ Ctx(_, msg @ TriggerMsg.Heartbeat, _) =>
-        List(ctx.copy(value = msg)) // Heartbeats don't carry any information.
+        List(ctx) // Heartbeats don't carry any information.
     }
 
   def makeApp(func: SExpr, values: Array[SValue]): SExpr = {
