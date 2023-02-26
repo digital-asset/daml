@@ -1297,7 +1297,7 @@ private[lf] class Runner private (
         // This happens for invalid UUIDs which we might get for
         // completions not emitted by the trigger.
         val optUuid = catchIAE(UUID.fromString(c.commandId))
-        optUuid.fold(List.empty) { uuid =>
+        optUuid.fold(List.empty[TriggerContext[TriggerMsg]]) { uuid =>
           if (useCommandId(uuid, SeenMsgs.Completion)(ctx.context)) {
             List(ctx)
           } else {
