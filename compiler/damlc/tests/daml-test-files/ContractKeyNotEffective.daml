@@ -1,9 +1,8 @@
--- @ERROR range=16:1-16:19; Couldn't see contract with key 'alice'
+-- @ERROR range=26:1-26:19; contract 000fffe8781952ace1141fabd7d28d48c8a157788c53392a6e698a534f89ee2779 not effective, but we found its key!
 module ContractKeyNotEffective where
 
 import Daml.Script
 import DA.Time
-import ScriptAssertHelpers
 
 template T
   with
@@ -13,8 +12,19 @@ template T
     key p : Party
     maintainer key
 
+template FetchTBySelf
+  with
+    p : Party
+  where
+    signatory p
+    choice Call : ()
+      controller p
+      do
+        fetchByKey @T p
+        pure ()
+
 fetchByKeyMustFail = script do
   p <- allocateParty "alice"
-  submit p $ createCmd (T p)
+  p `submit` createCmd (T p)
   passTime (- seconds 1)
-  queryAssertContractKey @T p p
+  p `submit` createAndExerciseCmd (FetchTBySelf p) Call
