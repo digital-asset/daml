@@ -2,7 +2,7 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE NoImplicitPrelude #-}
-
+{-# OPTIONS -Wno-unused-binds #-}
 
 -- | MOVE Prelude A module containing all the standard types from the base libraries,
 --   so they have nice names when used from Java or similar.

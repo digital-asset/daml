@@ -7,6 +7,7 @@
 {-# LANGUAGE MagicHash #-}
 {-# LANGUAGE CPP #-}
 {-# OPTIONS -Wno-unused-binds #-} -- the opaque constructors are not exported
+{-# OPTIONS -Wno-unused-foralls #-}
 
 -- | MOVE Prelude
 module GHC.Types (

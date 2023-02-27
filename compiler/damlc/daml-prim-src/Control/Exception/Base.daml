@@ -2,6 +2,7 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE NoImplicitPrelude #-}
+{-# OPTIONS -Wno-unused-foralls #-}
 
 -- | HIDE
 module Control.Exception.Base
