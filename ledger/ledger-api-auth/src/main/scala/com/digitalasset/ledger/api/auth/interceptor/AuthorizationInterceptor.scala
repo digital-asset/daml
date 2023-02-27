@@ -153,7 +153,7 @@ final class AuthorizationInterceptor(
           Future.failed(
             LedgerApiErrors.AuthorizationChecks.PermissionDenied
               .Reject(
-                s"Could not resolve is_deactivated status for user '$userId' due to '$msg'"
+                s"Could not resolve is_deactivated status for user '$userId' and identity_provider_id '$identityProviderId' due to '$msg'"
               )(errorLogger)
               .asGrpcError
           )

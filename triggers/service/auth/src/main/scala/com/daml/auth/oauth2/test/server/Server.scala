@@ -107,6 +107,7 @@ class Server(config: Config) {
         participantId = None,
         exp = None,
         format = StandardJWTTokenFormat.Scope,
+        audiences = List.empty,
       )
     else
       CustomDamlJWTPayload(

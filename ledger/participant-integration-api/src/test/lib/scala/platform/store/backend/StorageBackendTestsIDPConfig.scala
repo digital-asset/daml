@@ -177,6 +177,7 @@ private[backend] trait StorageBackendTestsIDPConfig
       isDeactivated = false,
       jwksUrl = JwksUrl.assertFromString("http://example.com/jwks.json"),
       issuer = UUID.randomUUID().toString,
+      audience = Some(UUID.randomUUID().toString),
     )
   }
 
