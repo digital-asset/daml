@@ -37,7 +37,7 @@ jobs:
       - checkout: self
       - bash: ci/dev-env-install.sh
         displayName: 'Build/Install the Developer Environment'
-      - template: bash-lib.yml
+      - template: ci/bash-lib.yml
         parameters:
           var_name: bash-lib
       - bash: |
@@ -55,7 +55,7 @@ jobs:
           ./bazel-bin/ci/cron/cron bazel-cache --age 75 --delete --cache-suffix '**'
         env:
           GCRED: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
-      - template: tell-slack-failed.yml
+      - template: ci/tell-slack-failed.yml
 
   - job: docker_image
     timeoutInMinutes: 60
