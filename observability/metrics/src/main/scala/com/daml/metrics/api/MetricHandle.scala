@@ -131,9 +131,10 @@ object MetricHandle {
       * longer being updated vs. the value no longer existing (contrary to how meters, histograms work). Because of this reasoning
       * gauges have to be closed after usage.
       */
-    trait CloseableGauge extends AutoCloseable
+    trait CloseableGauge extends AutoCloseable with MetricHandle
 
-    case class SimpleCloseableGauge(delegate: AutoCloseable) extends CloseableGauge {
+    case class SimpleCloseableGauge(name: String, delegate: AutoCloseable) extends CloseableGauge {
+      override def metricType: String = "Gauge"
       override def close(): Unit = delegate.close()
     }
   }
