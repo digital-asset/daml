@@ -49,7 +49,7 @@ class SharedConfigReadersTest extends AsyncWordSpec with Matchers {
       |    histograms = [
       |       {
       |         name-regex = "test"
-      |         buckets = [ 2.1 ]
+      |         bucket-boundaries = [ 2.1 ]
       |       }
       |    ]
       |  }

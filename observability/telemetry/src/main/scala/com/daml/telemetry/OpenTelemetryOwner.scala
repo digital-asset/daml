@@ -75,7 +75,7 @@ object OpenTelemetryOwner {
     val builderWithCustomViews = histograms.foldRight(builder) { case (histogram, builder) =>
       builder.registerView(
         histogramSelectorWithRegex(histogram.nameRegex),
-        explicitHistogramBucketsView(histogram.buckets),
+        explicitHistogramBucketsView(histogram.bucketBoundaries),
       )
     }
     builderWithCustomViews

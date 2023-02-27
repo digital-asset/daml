@@ -8,7 +8,8 @@ import pureconfig.{ConfigReader, ConvertHelpers}
 import pureconfig.generic.semiauto.deriveReader
 import scala.concurrent.duration._
 
-final case class HistogramDefinition(nameRegex: String, buckets: Seq[Double])
+final case class HistogramDefinition(nameRegex: String, bucketBoundaries: Seq[Double])
+
 final case class MetricsConfig(
     reporter: MetricsReporter,
     reportingInterval: FiniteDuration,
