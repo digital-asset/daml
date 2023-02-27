@@ -340,13 +340,12 @@ wOptsSet =
 --  , Opt_WarnPrepositiveQualifiedModule
   , Opt_WarnOverlappingPatterns
   , Opt_WarnIncompletePatterns
--- Confirmed that nothing in template desugaring prevents us from
--- enabling these.
-  -- , Opt_WarnUnusedMatches
-  -- , Opt_WarnUnusedForalls
-  -- , Opt_WarnUnusedPatternBinds
-  -- , Opt_WarnUnusedTopBinds
-  -- , Opt_WarnUnusedTypePatterns
+-- Nothing in template desugaring prevents us from enabling these.
+  , Opt_WarnUnusedMatches
+  , Opt_WarnUnusedForalls
+  , Opt_WarnUnusedPatternBinds
+  , Opt_WarnUnusedTopBinds
+  , Opt_WarnUnusedTypePatterns
 -- Template desugaring in the presence of local binds will currently
 -- trigger this.
   -- , Opt_WarnUnusedLocalBinds
