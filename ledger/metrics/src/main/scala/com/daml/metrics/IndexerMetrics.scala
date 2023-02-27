@@ -7,7 +7,6 @@ import java.time.Instant
 
 import com.daml.metrics.api.MetricDoc.MetricQualification.Debug
 import com.daml.metrics.api.MetricHandle.{Gauge, MetricsFactory}
-import com.daml.metrics.api.noop.NoOpGauge
 import com.daml.metrics.api.{MetricDoc, MetricName, MetricsContext}
 
 class IndexerMetrics(prefix: MetricName, factory: MetricsFactory) {
@@ -44,10 +43,7 @@ class IndexerMetrics(prefix: MetricName, factory: MetricsFactory) {
                     |can be negative.""",
     qualification = Debug,
   )
-  val currentRecordTimeLagForDocs: Gauge[Long] =
-    NoOpGauge(prefix :+ "current_record_time_lag", 0)
-
-  factory.gaugeWithSupplier(
+  val _: Gauge.CloseableGauge = factory.gaugeWithSupplier(
     prefix :+ "current_record_time_lag",
     () => Instant.now().toEpochMilli - lastReceivedRecordTime.getValue,
   )(MetricsContext.Empty)
