@@ -26,8 +26,21 @@ template T
       view = EmptyInterfaceView
       getController = party
 
+template ExerciseGuarded
+  with
+    p : Party
+    cidI : ContractId I
+  where
+    signatory p
+    choice Call : ()
+      controller p
+      do
+        exerciseGuarded (const False) cidI IChoice
+        pure ()
+              
+
 main = script do
   alice <- allocateParty "alice"
-  cidT <- alice `submit` create T with party = alice
+  cidT <- alice `submit` createCmd T with party = alice
   let cidI = toInterfaceContractId @I cidT
-  alice `submit` exerciseGuarded (const False) cidI IChoice
+  alice `submit` createAndExerciseCmd (ExerciseGuarded alice cidI) Call
