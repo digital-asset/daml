@@ -409,9 +409,23 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
         case SResultQuestion(question) =>
           question match {
             case Question.Update.NeedAuthority(holding @ _, requesting @ _, callback) =>
-              // TODO #15882 -- ask ledger using ResultNeedAuthority
-              callback()
-              loop()
+              ResultNeedAuthority(
+                holding,
+                requesting,
+                { granted: Boolean =>
+                  if (granted) {
+                    callback()
+                    interpretLoop(machine, time, disclosures)
+                  } else {
+                    ResultError(
+                      Error.Interpretation.DamlException(
+                        interpretation.Error
+                          .RejectedAuthorityRequest(holding = holding, requesting = requesting)
+                      )
+                    )
+                  }
+                },
+              )
 
             case Question.Update.NeedTime(callback) =>
               callback(time)
