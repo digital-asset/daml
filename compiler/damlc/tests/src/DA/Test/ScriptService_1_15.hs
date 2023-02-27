@@ -262,6 +262,7 @@ runScripts service fileContent = bracket getIdeState shutdown $ \ideState -> do
       logger <- Logger.newStderrLogger Logger.Error "script-service"
       getDamlIdeState
         options
+        (StudioAutorunAllScenarios True)
         (Just service)
         logger
         noopDebouncer

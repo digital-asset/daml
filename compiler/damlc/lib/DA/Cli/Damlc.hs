@@ -139,6 +139,7 @@ cmdIde numProcessors =
         <$> telemetryOpt
         <*> debugOpt
         <*> enableScenarioServiceOpt
+        <*> studioAutorunAllScenariosOpt
         <*> optionsParser
               numProcessors
               (EnableScenarioService True)
@@ -525,9 +526,10 @@ execLicense =
 execIde :: Telemetry
         -> Debug
         -> EnableScenarioService
+        -> StudioAutorunAllScenarios
         -> Options
         -> Command
-execIde telemetry (Debug debug) enableScenarioService options =
+execIde telemetry (Debug debug) enableScenarioService autorunAllScenarios options =
     Command Ide Nothing effect
   where effect = NS.withSocketsDo $ do
           let threshold =
@@ -580,7 +582,7 @@ execIde telemetry (Debug debug) enableScenarioService options =
                   Logger.logInfo loggerH (T.pack $ "SDK version: " <> sdkVersion)
                   debouncer <- newAsyncDebouncer
                   runLanguageServer loggerH enabledPlugins Config $ \lspEnv vfs _ ->
-                      getDamlIdeState options mbScenarioService loggerH debouncer (RealLspEnv lspEnv) vfs
+                      getDamlIdeState options autorunAllScenarios mbScenarioService loggerH debouncer (RealLspEnv lspEnv) vfs
 
 
 -- | Whether we should write interface files during `damlc compile`.

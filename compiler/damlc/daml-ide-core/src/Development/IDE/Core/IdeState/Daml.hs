@@ -24,15 +24,16 @@ import qualified Language.LSP.Types as LSP
 
 getDamlIdeState
     :: Options
+    -> StudioAutorunAllScenarios
     -> Maybe Scenario.Handle
     -> Logger.Handle IO
     -> Debouncer LSP.NormalizedUri
     -> ShakeLspEnv
     -> VFSHandle
     -> IO IdeState
-getDamlIdeState compilerOpts mbScenarioService loggerH debouncer lspEnv vfs = do
+getDamlIdeState compilerOpts autorunAllScenarios mbScenarioService loggerH debouncer lspEnv vfs = do
     let rule = mainRule compilerOpts <> pluginRules enabledPlugins
-    damlEnv <- mkDamlEnv compilerOpts mbScenarioService
+    damlEnv <- mkDamlEnv compilerOpts autorunAllScenarios mbScenarioService
     initialise rule lspEnv (toIdeLogger loggerH) debouncer damlEnv (toCompileOpts compilerOpts) vfs
 
 enabledPlugins :: Plugin a
@@ -53,7 +54,7 @@ withDamlIdeState opts@Options{..} loggerH eventHandler f = do
     Scenario.withScenarioService' optScenarioService optEnableScenarios optDamlLfVersion loggerH scenarioServiceConfig $ \mbScenarioService -> do
         vfs <- makeVFSHandle
         bracket
-            (getDamlIdeState opts mbScenarioService loggerH noopDebouncer (DummyLspEnv eventHandler) vfs)
+            (getDamlIdeState opts (StudioAutorunAllScenarios True) mbScenarioService loggerH noopDebouncer (DummyLspEnv eventHandler) vfs)
             shutdown
             f
 

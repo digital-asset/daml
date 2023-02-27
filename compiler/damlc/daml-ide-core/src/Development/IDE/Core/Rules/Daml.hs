@@ -821,13 +821,23 @@ moduleForScenario file = do
 runScenariosRule :: Rules ()
 runScenariosRule =
     define $ \RunScenarios file -> do
-      m <- moduleForScenario file
-      testFilter <- envTestFilter <$> getDamlServiceEnv
-      let scenarios =  [sc | (sc, _scLoc) <- scenariosInModule m, testFilter $ LF.unExprValName $ LF.qualObject sc]
+      scenarios <- use_ GetScenarios file
       scenarioResults <-
           forM scenarios $ \scenario ->
-              use_ (RunSingleScenario (LF.unExprValName (LF.qualObject scenario))) file
+              use_ (RunSingleScenario (vrScenarioName scenario)) file
       pure ([], Just (concat scenarioResults))
+
+getScenariosRule :: Rules ()
+getScenariosRule =
+    define $ \GetScenarios file -> do
+      m <- moduleForScenario file
+      testFilter <- envTestFilter <$> getDamlServiceEnv
+      let scenarios =
+              [VRScenario file name
+              | (sc, _scLoc) <- scenariosInModule m
+              , let name = LF.unExprValName $ LF.qualObject sc
+              , testFilter name]
+      pure ([], Just scenarios)
 
 runSingleScenarioRule :: Rules ()
 runSingleScenarioRule =
@@ -857,13 +867,23 @@ runSingleScenarioRule =
 runScriptsRule :: Rules ()
 runScriptsRule =
     define $ \RunScripts file -> do
-      m <- moduleForScenario file
-      testFilter <- envTestFilter <$> getDamlServiceEnv
-      let scenarios =  [sc | (sc, _scLoc) <- scriptsInModule m, testFilter $ LF.unExprValName $ LF.qualObject sc]
+      scenarios <- use_ GetScripts file
       scenarioResults <-
           forM scenarios $ \scenario ->
-              use_ (RunSingleScript (LF.unExprValName (LF.qualObject scenario))) file
+              use_ (RunSingleScript (vrScenarioName scenario)) file
       pure ([], Just (concat scenarioResults))
+
+getScriptsRule :: Rules ()
+getScriptsRule =
+    define $ \GetScripts file -> do
+      m <- moduleForScenario file
+      testFilter <- envTestFilter <$> getDamlServiceEnv
+      let scripts =
+              [VRScenario file name
+              | (sc, _scLoc) <- scriptsInModule m
+              , let name = LF.unExprValName $ LF.qualObject sc
+              , testFilter name]
+      pure ([], Just scripts)
 
 runSingleScriptRule :: Rules ()
 runSingleScriptRule =
@@ -1145,13 +1165,21 @@ ofInterestRule = do
         -- Run any open scenarios to report their results
         let runScenarioActions =
                 if isJust envScenarioService -- only run scenarios when we have a service
-                    then map runScenario (HashSet.toList openVRs)
+                    then if getStudioAutorunAllScenarios envStudioAutorunAllScenarios
+                            then map runWholeFile (HashSet.toList allFiles)
+                            else map runScenario (HashSet.toList openVRs)
                     else []
 
         -- Run all in parallel
         _ <- parallel $ checkUncompilableFiles <> dlintActions <> runScenarioActions
         return ()
   where
+      -- Run all scenarios in a file, used when StudioAutorunAllScenarios flag is set
+      runWholeFile file = do
+          scenarios <- use GetScenarios file
+          scripts <- use GetScripts file
+          mapM_ runScenario (fromMaybe [] scenarios ++ fromMaybe [] scripts)
+
       -- Run a single scenario
       runScenario vr = do
           -- Extract file with world info
@@ -1452,8 +1480,10 @@ damlRule opts = do
     generatePackageDepsRule opts
     runScenariosRule
     runSingleScenarioRule
+    getScenariosRule
     runScriptsRule
     runSingleScriptRule
+    getScriptsRule
     getScenarioRootsRule
     getScenarioRootRule
     getDlintDiagnosticsRule

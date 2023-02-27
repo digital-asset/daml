@@ -216,6 +216,13 @@ enableScenarioServiceOpt = fmap EnableScenarioService $
             "Control whether to start the Scenario Service, \
             \enabling/disabling support for running Daml Scripts and scenarios"
 
+studioAutorunAllScenariosOpt :: Parser StudioAutorunAllScenarios
+studioAutorunAllScenariosOpt = fmap StudioAutorunAllScenarios $
+    flagYesNoAuto "studio-auto-run-all-scenarios" False desc idm
+    where
+        desc =
+            "Control whether Scenarios should automatically run on opening a file in Daml Studio."
+
 enableScenariosOpt :: Parser EnableScenarios
 enableScenariosOpt = EnableScenarios <$>
     flagYesNoAuto "enable-scenarios" False desc internal
