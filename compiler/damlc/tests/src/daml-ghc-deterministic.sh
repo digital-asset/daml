@@ -28,6 +28,9 @@ TESTS_DIR=$(dirname $(rlocation "$TEST_WORKSPACE/compiler/damlc/tests/daml-test-
 damlc=$(rlocation "$TEST_WORKSPACE/$1")
 protoc=$(rlocation "$TEST_WORKSPACE/$2")
 diff="$3"
+scriptdar=$(rlocation "$TEST_WORKSPACE/$4")
+SDK_VERSION=$5
+GHC_FRIENDLY_SDK_VERSION=$6
 scenarios="--enable-scenarios=yes" # TODO: https://github.com/digital-asset/daml/issues/11316
 
 # Check that Daml compilation is deterministic.
@@ -36,21 +39,38 @@ TMP_SRC2=$(mktemp -d)
 TMP_OUT=$(mktemp -d)
 PROJDIR=$(mktemp -d)
 
+damlyaml=$(cat <<EOF
+sdk-version: $SDK_VERSION
+name: proj
+version: 0.0.1
+source: .
+dependencies: [daml-prim, daml-stdlib, "$scriptdar"]
+EOF
+)
+importargs="--package-db=./.daml/package-database --package=daml-script-$GHC_FRIENDLY_SDK_VERSION"
+
 cleanup () {
     rm -rf "$TMP_SRC1" "$TMP_SRC2" "$TMP_OUT" "$PROJDIR"
 }
 trap cleanup EXIT
 
-cp -r $TESTS_DIR/* "$TMP_SRC1"
-cp -r $TESTS_DIR/* "$TMP_SRC2"
+# We use daml build without sourcecode to bring in daml script to .daml/dependencies and .daml/package-database
+# Note that we only do this once (copying from SRC1 to SRC2, rather than rebuilding in SRC2),
+# as this test is for compile determinism, not dependency db building determinism
+# The build determinism check is at the bottom of this file
+echo -e "$damlyaml" > "$TMP_SRC1/daml.yaml"
+(cd "$TMP_SRC1" && $damlc build)
 
-(cd "$TMP_SRC1" && $damlc compile $scenarios "Examples.daml" -o "$TMP_OUT/out_1")
-(cd "$TMP_SRC2" && $damlc compile $scenarios "Examples.daml" -o "$TMP_OUT/out_2")
+cp -a $TESTS_DIR/. "$TMP_SRC1"
+cp -a $TMP_SRC1/. "$TMP_SRC2"
+
+(cd "$TMP_SRC1" && DAML_PROJECT="$TMP_SRC1" $damlc compile $scenarios "Examples.daml" -o "$TMP_OUT/out_1" $importargs)
+(cd "$TMP_SRC2" && DAML_PROJECT="$TMP_SRC1" $damlc compile $scenarios "Examples.daml" -o "$TMP_OUT/out_2" $importargs)
 
 # When invoked with a project root (as set by the Daml assistant)
 # we should produce the same output regardless of the path with which we are invoked.
-(cd "/" && DAML_PROJECT="$TMP_SRC1" $damlc compile $scenarios "$TMP_SRC1/Examples.daml" -o "$TMP_OUT/out_proj_1")
-(cd "$TMP_SRC1" && DAML_PROJECT="$TMP_SRC1" $damlc compile $scenarios "Examples.daml" -o "$TMP_OUT/out_proj_2")
+(cd "/" && DAML_PROJECT="$TMP_SRC1" $damlc compile $scenarios "$TMP_SRC1/Examples.daml" -o "$TMP_OUT/out_proj_1" $importargs)
+(cd "$TMP_SRC1" && DAML_PROJECT="$TMP_SRC1" $damlc compile $scenarios "Examples.daml" -o "$TMP_OUT/out_proj_2" $importargs)
 
 $protoc --decode_raw < "$TMP_OUT/out_1" > "$TMP_OUT/decoded_out_1"
 $protoc --decode_raw < "$TMP_OUT/out_2" > "$TMP_OUT/decoded_out_2"
@@ -68,13 +88,7 @@ $diff -u "$TMP_OUT/out_proj_1" "$TMP_OUT/out_proj_2"
 # This includes things like the ZIP timestamps
 # in a DAR instead of just the package id.
 
-cat <<EOF > "$PROJDIR/daml.yaml"
-sdk-version: 0.0.0
-name: proj
-version: 0.0.1
-source: .
-dependencies: [daml-prim, daml-stdlib]
-EOF
+echo -e "$damlyaml" > "$PROJDIR/daml.yaml"
 
 cat <<EOF > "$PROJDIR/A.daml"
 module A where
