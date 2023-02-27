@@ -82,7 +82,7 @@ object SandboxOnXRunner {
       openTelemetry <- OpenTelemetryOwner(
         setAsGlobal = registerGlobalOpenTelemetry,
         Option.when(config.metrics.enabled)(config.metrics.reporter),
-        Seq.empty
+        Seq.empty,
       )
 
       (participantId, dataSource, participantConfig) <- assertSingleParticipant(config)

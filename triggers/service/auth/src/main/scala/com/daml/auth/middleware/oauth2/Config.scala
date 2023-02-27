@@ -42,7 +42,7 @@ final case class Config(
     tokenVerifier: JwtVerifierBase,
     metricsReporter: Option[MetricsReporter] = None,
     metricsReportingInterval: FiniteDuration = 10 seconds,
-    histograms: Seq[HistogramDefinition]
+    histograms: Seq[HistogramDefinition],
 ) {
   def validate(): Unit = {
     require(oauthToken != null, "Oauth token value on config cannot be null")
@@ -98,7 +98,7 @@ final case class FileConfig(
     metricsReporter = metrics.map(_.reporter),
     metricsReportingInterval =
       metrics.map(_.reportingInterval).getOrElse(MetricsConfig.DefaultMetricsReportingInterval),
-    histograms = metrics.toList.flatMap(_.histograms)
+    histograms = metrics.toList.flatMap(_.histograms),
   )
 }
 

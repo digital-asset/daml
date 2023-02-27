@@ -41,7 +41,11 @@ import com.daml.lf.engine.trigger.TriggerRunner._
 import com.daml.lf.engine.trigger.dao._
 import com.daml.lf.engine.trigger.metrics.TriggerServiceMetrics
 import com.daml.auth.middleware.api.Request.Claims
-import com.daml.auth.middleware.api.{Client => AuthClient, Request => AuthRequest, Response => AuthResponse}
+import com.daml.auth.middleware.api.{
+  Client => AuthClient,
+  Request => AuthRequest,
+  Response => AuthResponse,
+}
 import com.daml.lf.speedy.Compiler
 import com.daml.metrics.HistogramDefinition
 import com.daml.metrics.akkahttp.HttpMetricsInterceptor
@@ -542,7 +546,7 @@ object Server {
       metricsReportingInterval: FiniteDuration,
       logTriggerStatus: (UUID, String) => Unit = (_, _) => (),
       registerGlobalOpenTelemetry: Boolean,
-      histograms: Seq[HistogramDefinition]
+      histograms: Seq[HistogramDefinition],
   ): Behavior[Message] = Behaviors.setup { implicit ctx =>
     // Implicit boilerplate.
     // These are required to execute methods in the Server class and are passed
@@ -561,7 +565,7 @@ object Server {
       metricsReporter,
       metricsReportingInterval,
       registerGlobalOpenTelemetry,
-      histograms
+      histograms,
     )((_, otelMeter) => TriggerServiceMetrics(otelMeter))
     val metricsResource = metricsReporting.acquire()
 

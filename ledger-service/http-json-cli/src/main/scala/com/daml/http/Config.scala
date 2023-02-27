@@ -45,7 +45,7 @@ private[http] final case class Config(
     metricsReporter: Option[MetricsReporter] = None,
     metricsReportingInterval: FiniteDuration = MetricsConfig.DefaultMetricsReportingInterval,
     surrogateTpIdCacheMaxEntries: Option[Long] = None,
-    histograms: Seq[HistogramDefinition] = Seq.empty
+    histograms: Seq[HistogramDefinition] = Seq.empty,
 ) extends StartSettings
 
 private[http] object Config {

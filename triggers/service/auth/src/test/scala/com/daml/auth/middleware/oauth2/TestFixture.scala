@@ -114,7 +114,7 @@ trait TestFixture
                 .asInstanceOf[BaseVerification]
                 .build(clock)
             ),
-            histograms = Seq.empty
+            histograms = Seq.empty,
           )
         )
         authUri = Uri()

@@ -80,7 +80,7 @@ object ServiceMain {
           10 seconds,
           logTriggerStatus,
           registerGlobalOpenTelemetry = false,
-          histograms = Seq.empty
+          histograms = Seq.empty,
         ),
         "TriggerService",
       )
