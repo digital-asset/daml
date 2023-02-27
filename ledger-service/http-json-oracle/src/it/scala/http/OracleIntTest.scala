@@ -6,8 +6,11 @@ package com.daml.http
 import HttpServiceOracleInt.defaultJdbcConfig
 import dbbackend.JdbcConfig
 import com.daml.testing.oracle.OracleAroundAll
+
+import akka.stream.scaladsl.Source
 import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
+import scala.concurrent.Future
 
 class OracleIntTest
     extends AbstractDatabaseIntegrationTest
@@ -16,4 +19,17 @@ class OracleIntTest
     with Inside {
   override protected def jdbcConfig: JdbcConfig =
     defaultJdbcConfig(oracleJdbcUrlWithoutCredentials, oracleUserName, oracleUserPwd)
+
+  "fetchAndPersist" - {
+    import dao.{logHandler, jdbcDriver}, jdbcDriver.q.queries
+
+    "avoids class 61 errors under concurrent update" in {
+      val fetch = new ContractsFetch(
+        (_, _, _, _) => _ => Source.empty,
+        (_, _, _, _, _) => _ => Source.empty,
+        (_, _) => _ => Future successful None,
+      )
+      succeed
+    }
+  }
 }
