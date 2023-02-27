@@ -294,6 +294,9 @@ sealed abstract class Queries(tablePrefix: String, tpIdCacheMaxEntries: Long)(im
   protected[this] type DBContractKey
   protected[this] def toDBContractKey[CK: JsonWriter](ck: CK): DBContractKey
 
+  /** Whether strict determinism can be avoided by the contracts-fetch process. */
+  def allowDamlTransactionBatching: Boolean
+
   final def insertContracts[F[_]: cats.Foldable: Functor, CK: JsonWriter, PL: JsonWriter](
       dbcs: F[DBContract[SurrogateTpId, CK, PL, Seq[String]]]
   )(implicit log: LogHandler): ConnectionIO[Int] =
@@ -723,6 +726,8 @@ private final class PostgresQueries(tablePrefix: String, tpIdCacheMaxEntries: Lo
 
   protected[this] override def toDBContractKey[CK: JsonWriter](x: CK) = x.toJson
 
+  override def allowDamlTransactionBatching = true
+
   protected[this] override def primInsertContracts[F[_]: cats.Foldable: Functor](
       dbcs: F[DBContract[SurrogateTpId, DBContractKey, JsValue, Array[String]]]
   )(implicit log: LogHandler): ConnectionIO[Int] = {
@@ -889,6 +894,8 @@ private final class OracleQueries(
 
   protected[this] override def toDBContractKey[CK: JsonWriter](x: CK): DBContractKey =
     JsObject(Map("key" -> x.toJson))
+
+  override def allowDamlTransactionBatching = true
 
   protected[this] override def primInsertContracts[F[_]: cats.Foldable: Functor](
       dbcs: F[DBContract[SurrogateTpId, DBContractKey, JsValue, Array[String]]]
