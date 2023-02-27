@@ -258,7 +258,7 @@ sealed abstract class Queries(tablePrefix: String, tpIdCacheMaxEntries: Long)(im
   )(implicit log: LogHandler): ConnectionIO[Int] = {
     val (existingParties, newParties) = {
       import cats.syntax.foldable._
-      parties.toList.partition(p => lastOffsets.contains(p))
+      parties.toList.sorted.partition(p => lastOffsets.contains(p))
     }
     // If a concurrent transaction inserted an offset for a new party, the insert will fail.
     val insert =
