@@ -69,7 +69,7 @@ object TriggerRunnerConfig {
       maximumBatchSize = 1000,
       batchingDuration = 250.milliseconds,
       hardLimit = TriggerRunnerHardLimits(
-        maximumActiveContracts = 10000,
+        maximumActiveContracts = 20000,
         inFlightCommandOverflowCount = 10000,
         allowInFlightCommandOverflows = true,
         // 50% extra on the maxSubmissionDuration value
