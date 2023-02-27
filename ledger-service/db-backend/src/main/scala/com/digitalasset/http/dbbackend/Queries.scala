@@ -11,7 +11,7 @@ import nonempty.NonEmptyReturningOps._
 import doobie._
 import doobie.implicits._
 import scala.annotation.nowarn
-import scala.collection.immutable.{Seq => ISeq, SortedMap}
+import scala.collection.immutable.{Seq => ISeq, SortedMap, SortedSet}
 import scalaz.{@@, Cord, Functor, OneAnd, Tag, \/, -\/, \/-}
 import scalaz.Digit._0
 import scalaz.syntax.foldable._
@@ -308,7 +308,7 @@ sealed abstract class Queries(tablePrefix: String, tpIdCacheMaxEntries: Long)(im
   )(implicit log: LogHandler): ConnectionIO[Int] = {
     import cats.instances.vector._
     import nonempty.catsinstances._
-    cids match {
+    cids to SortedSet match {
       case NonEmpty(cids) =>
         val del = fr"DELETE FROM $contractTableName WHERE " ++ {
           val chunks =
