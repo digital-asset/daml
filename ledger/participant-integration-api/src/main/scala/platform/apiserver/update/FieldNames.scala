@@ -57,6 +57,10 @@ object FieldNames {
       resolveFieldName(admin.identity_provider_config_service.IdentityProviderConfig)(
         _.JWKS_URL_FIELD_NUMBER
       )
+    val audience =
+      resolveFieldName(admin.identity_provider_config_service.IdentityProviderConfig)(
+        _.AUDIENCE_FIELD_NUMBER
+      )
   }
 
   private def resolveFieldName[A <: GeneratedMessageCompanion[_]](

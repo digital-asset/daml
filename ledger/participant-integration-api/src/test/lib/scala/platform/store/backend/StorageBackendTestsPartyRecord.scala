@@ -81,6 +81,7 @@ private[backend] trait StorageBackendTestsPartyRecord
           identityProviderId = idpId,
           issuer = "issuer",
           jwksUrl = JwksUrl("http://daml.com/jwks.json"),
+          audience = None,
         )
       )
     )

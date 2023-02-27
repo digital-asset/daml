@@ -405,5 +405,6 @@ object domain {
       isDeactivated: Boolean = false,
       jwksUrl: JwksUrl,
       issuer: String,
+      audience: Option[String],
   )
 }
