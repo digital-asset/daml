@@ -2452,6 +2452,77 @@ class EngineTest
       }
     }
   }
+
+  "with authority" should {
+
+    val (pkgId, _, pkgs) = loadPackage("daml-lf/tests/WithAuthority.dar")
+    val lookupPackage = pkgs.get _
+    val tId = Identifier(pkgId, "WithAuthority:T")
+    val let = Time.Timestamp.now()
+    val submissionSeed = hash("WithAuthority")
+    val seeding = Engine.initialSeeding(submissionSeed, participant, let)
+
+    def run(cmd: ApiCommand, grantNeedAuthority: Boolean) = {
+      val submitters = Set(alice)
+      val Right(cmds) = preprocessor
+        .preprocessApiCommands(ImmArray(cmd))
+        .consume(
+          _ => None,
+          lookupPackage,
+          lookupKey,
+        )
+      suffixLenientEngine
+        .interpretCommands(
+          validating = false,
+          submitters = submitters,
+          readAs = Set.empty,
+          commands = cmds,
+          ledgerTime = let,
+          submissionTime = let,
+          seeding = seeding,
+        )
+        .consume(
+          _ => None,
+          lookupPackage,
+          lookupKey,
+          grantNeedAuthority = grantNeedAuthority,
+        )
+    }
+
+    def mkCommand(party1: Party, party2: Party) = {
+      ApiCommand.CreateAndExercise(
+        tId,
+        ValueRecord(None, ImmArray((None, ValueParty(party1)))),
+        "GainAuthority",
+        ValueRecord(None, ImmArray((None, ValueParty(party2)))),
+      )
+    }
+
+    "no authority required" in {
+      inside(run(mkCommand(party1 = alice, party2 = alice), grantNeedAuthority = false)) {
+        case Right((_, _)) =>
+      }
+    }
+
+    "authority required; not granted" in {
+      inside(run(mkCommand(party1 = alice, party2 = bob), grantNeedAuthority = false)) {
+        case Left(
+              Interpretation(
+                DamlException(interpretation.Error.RejectedAuthorityRequest(holding, requesting)),
+                _,
+              )
+            ) =>
+          holding shouldBe Set(alice)
+          requesting shouldBe Set(bob)
+      }
+    }
+
+    "authority required; granted" in {
+      inside(run(mkCommand(party1 = alice, party2 = bob), grantNeedAuthority = true)) {
+        case Right((_, _)) =>
+      }
+    }
+  }
 }
 
 object EngineTest {
