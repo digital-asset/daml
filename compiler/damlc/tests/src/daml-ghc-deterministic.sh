@@ -65,7 +65,7 @@ cp -a $TESTS_DIR/. "$TMP_SRC1"
 cp -a $TMP_SRC1/. "$TMP_SRC2"
 
 (cd "$TMP_SRC1" && DAML_PROJECT="$TMP_SRC1" $damlc compile $scenarios "Examples.daml" -o "$TMP_OUT/out_1" $importargs)
-(cd "$TMP_SRC2" && DAML_PROJECT="$TMP_SRC1" $damlc compile $scenarios "Examples.daml" -o "$TMP_OUT/out_2" $importargs)
+(cd "$TMP_SRC2" && DAML_PROJECT="$TMP_SRC2" $damlc compile $scenarios "Examples.daml" -o "$TMP_OUT/out_2" $importargs)
 
 # When invoked with a project root (as set by the Daml assistant)
 # we should produce the same output regardless of the path with which we are invoked.
