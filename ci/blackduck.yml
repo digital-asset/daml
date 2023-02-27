@@ -40,7 +40,7 @@ jobs:
       --detect.tools=BAZEL \
       --detect.bazel.target=//... \
       --detect.bazel.workspace.rules=${BAZEL_DEPENDENCY_TYPE} \
-      --detect.notices.report=true \
+      --detect.notices.report=false \
       --detect.code.location.name=digital-asset_daml_${BAZEL_DEPENDENCY_TYPE} \
       --detect.timeout=1500
     displayName: 'Blackduck Bazel Haskell Scan'
@@ -61,7 +61,7 @@ jobs:
       --detect.tools=BAZEL \
       --detect.bazel.target=//... \
       --detect.bazel.workspace.rules=${BAZEL_DEPENDENCY_TYPE} \
-      --detect.notices.report=true \
+      --detect.notices.report=false \
       --detect.code.location.name=digital-asset_daml_${BAZEL_DEPENDENCY_TYPE} \
       --detect.timeout=1500
     displayName: 'Blackduck Bazel JVM Scan'
@@ -103,7 +103,7 @@ jobs:
       --detect.excluded.directories=bazel-out,bazel-bin,.bazel-cache,bazel-testlogs,bazel-daml,bazel-s,node_modules,dev-env \
       --detect.blackduck.signature.scanner.exclusion.name.patterns=.bazel-out,bazel-bin,.bazel-cache,bazel-testlogs,bazel-daml,bazel-s,node_modules,dev-env \
       --detect.detector.search.exclusion.paths=bazel-out,bazel-bin,.bazel-cache,bazel-testlogs,bazel-daml,bazel-s,node_modules,dev-env \
-      --detect.notices.report=true \
+      --detect.notices.report=false \
       --detect.code.location.name=digital-asset_daml_python \
       --detect.timeout=1500
     displayName: 'Blackduck Python Scan'
@@ -122,6 +122,7 @@ jobs:
       --detect.go.path=$(bazel info execution_root)/external/go_sdk/bin/go \
       --detect.excluded.directories=bazel-out,bazel-bin,.bazel-cache,bazel-testlogs,bazel-daml,bazel-s,node_modules,dev-env \
       --detect.detector.search.exclusion.paths=bazel-out,bazel-bin,.bazel-cache,bazel-testlogs,bazel-daml,bazel-s,node_modules,dev-env \
+      --detect.notices.report=true \
       --detect.policy.check.fail.on.severities=MAJOR,CRITICAL,BLOCKER \
       --detect.code.location.name=digital-asset_daml_go \
       --detect.timeout=1500

@@ -45,14 +45,14 @@ version_specific = {
 # This effectively means all io.grpc:*, io.netty:*, and `com.google.protobuf:protobuf-java
 # need to be updated with careful consideration.
 
-netty_tcnative_version = "2.0.46.Final"
-netty_version = "4.1.72.Final"
-grpc_version = "1.44.0"
+netty_tcnative_version = "2.0.61.Final"
+netty_version = "4.1.93.Final"
+grpc_version = "1.57.1"
 protobuf_version = "3.19.6"
 akka_version = "2.6.21"
 akka_http_version = "10.2.10"
 gatling_version = "3.5.1"
-guava_version = "31.1-jre"
+guava_version = "32.1.2-jre"
 
 # observability libs
 # cannot update to 4.2.x because of https://github.com/dropwizard/metrics/issues/2920
@@ -71,8 +71,8 @@ def install_java_deps():
             "com.auth0:java-jwt:4.2.1",
             "com.auth0:jwks-rsa:0.21.2",
             "com.chuusai:shapeless_{}:2.3.3".format(scala_major_version),
-            "com.fasterxml.jackson.core:jackson-core:2.14.1",
-            "com.fasterxml.jackson.core:jackson-databind:2.14.1",
+            "com.fasterxml.jackson.core:jackson-core:2.15.2",
+            "com.fasterxml.jackson.core:jackson-databind:2.15.2",
             "com.github.ben-manes.caffeine:caffeine:3.1.2",
             "com.github.pathikrit:better-files_{}:3.9.1".format(scala_major_version),
             "com.github.pureconfig:pureconfig-core_{}:0.14.0".format(scala_major_version),
@@ -115,6 +115,7 @@ def install_java_deps():
             "com.typesafe.scala-logging:scala-logging_{}:3.9.5".format(scala_major_version),
             "com.zaxxer:HikariCP:3.2.0",
             "commons-io:commons-io:2.11.0",
+             "commons-codec:commons-codec:1.16.0",
             "eu.rekawek.toxiproxy:toxiproxy-java:2.1.7",
             "io.circe:circe-core_{}:{}".format(scala_major_version, circe_version),
             "io.circe:circe-generic-extras_{}:{}".format(scala_major_version, circe_version),
@@ -173,7 +174,7 @@ def install_java_deps():
             "org.bouncycastle:bcpkix-jdk15on:1.70",
             "org.bouncycastle:bcprov-jdk15on:1.70",
             "org.checkerframework:checker:3.28.0",
-            "org.codehaus.janino:janino:3.1.4",
+            "org.codehaus.janino:janino:3.1.10",
             "org.flywaydb:flyway-core:8.4.1",
             "org.freemarker:freemarker-gae:2.3.32",
             "org.jline:jline-reader:3.22.0",
@@ -200,12 +201,12 @@ def install_java_deps():
             "org.scalactic:scalactic_{}:3.2.9".format(scala_major_version),
             "org.scalameta:munit_{}:0.7.26".format(scala_major_version),
             "org.scalatest:scalatest_{}:3.2.9".format(scala_major_version),
-            "org.scalatestplus:scalacheck-1-15_{}:3.2.9.0".format(scala_major_version),
-            "org.scalatestplus:selenium-3-141_{}:3.2.9.0".format(scala_major_version),
-            "org.scalatestplus:testng-6-7_{}:3.2.9.0".format(scala_major_version),
+            "org.scalatestplus:scalacheck-1-15_{}:3.2.10.0".format(scala_major_version),
+            "org.scalatestplus:selenium-3-141_{}:3.2.10.0".format(scala_major_version),
+            "org.scalatestplus:testng-6-7_{}:3.2.10.0".format(scala_major_version),
             "org.scalaz:scalaz-core_{}:7.2.33".format(scala_major_version),
             "org.scalaz:scalaz-scalacheck-binding_{}:7.2.33-scalacheck-1.15".format(scala_major_version),
-            "org.seleniumhq.selenium:selenium-java:3.12.0",
+            "org.seleniumhq.selenium:selenium-java:3.141.59",
             "org.slf4j:slf4j-api:2.0.6",
             "org.slf4j:slf4j-simple:2.0.6",
             "org.tpolecat:doobie-core_{}:0.13.4".format(scala_major_version),
@@ -218,7 +219,7 @@ def install_java_deps():
             "org.typelevel:kind-projector_{}:0.13.2".format(scala_version),
             "org.typelevel:paiges-core_{}:0.4.2".format(scala_major_version),
             "org.wartremover:wartremover_{}:2.4.21".format(scala_version),
-            "org.xerial:sqlite-jdbc:3.36.0.1",
+            "org.xerial:sqlite-jdbc:3.43.0.0",
             maven.artifact("com.github.pureconfig", "pureconfig-macros_2.12", "0.14.0", neverlink = True),
             maven.artifact("io.dropwizard.metrics", "metrics-graphite", dropwizard_version, exclusions = ["com.rabbitmq:amqp-client"]),
         ],
