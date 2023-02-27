@@ -64,8 +64,8 @@ class DatabaseMetrics private[metrics] (
   @MetricDoc.Tag(
     summary = "The time needed to run the SQL query.",
     description = """This metric measures the time it takes to execute a block of code (on a
-                    |decidated executor) related to the <operation> that can issue multiple SQL
-                    |statements such that all run in a single DB transaction (either commtted or
+                    |dedicated executor) related to the <operation> that can issue multiple SQL
+                    |statements such that all run in a single DB transaction (either committed or
                     |aborted).""",
     qualification = Debug,
   )
