@@ -306,21 +306,25 @@ sealed abstract class Queries(tablePrefix: String, tpIdCacheMaxEntries: Long)(im
   final def deleteContracts(
       cids: Set[String]
   )(implicit log: LogHandler): ConnectionIO[Int] = {
-    import cats.data.NonEmptyVector
     import cats.instances.vector._
-    import cats.instances.int._
-    import cats.syntax.foldable._
-    NonEmptyVector.fromVector(cids.toVector) match {
-      case None =>
-        free.connection.pure(0)
-      case Some(cids) =>
-        val chunks = maxListSize.fold(Vector(cids))(size => cids.grouped(size).toVector)
-        chunks
-          .map(chunk =>
-            (fr"DELETE FROM $contractTableName WHERE " ++ Fragments
-              .in(fr"contract_id", chunk)).update.run
+    import nonempty.catsinstances._
+    cids match {
+      case NonEmpty(cids) =>
+        val del = fr"DELETE FROM $contractTableName WHERE " ++ {
+          val chunks =
+            maxListSize.fold(NonEmpty(Vector, cids)) { size =>
+              val NonEmpty(groups) =
+                cids.grouped(size).collect { case NonEmpty(group) => group }.toVector
+              groups
+            }
+          joinFragment(
+            chunks.map(cids => Fragments.in(fr"contract_id", cids.toVector.toNEF)),
+            fr" OR ",
           )
-          .foldA
+        }
+        del.update.run
+      case _ =>
+        free.connection.pure(0)
     }
   }
 
@@ -507,6 +511,10 @@ object Queries {
     case object GT extends OrderOperator
     case object GTEQ extends OrderOperator
   }
+
+  // XXX SC I'm pretty certain we can use NonEmpty all the way down
+  private[http] def joinFragment(xs: NonEmpty[Vector[Fragment]], sep: Fragment): Fragment =
+    concatFragment(intersperse(xs.toOneAnd, sep))
 
   private[http] def joinFragment(xs: OneAnd[Vector, Fragment], sep: Fragment): Fragment =
     concatFragment(intersperse(xs, sep))
