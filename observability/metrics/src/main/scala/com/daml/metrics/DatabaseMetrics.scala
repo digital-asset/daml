@@ -22,6 +22,9 @@ class DatabaseMetrics private[metrics] (
                     |it takes between creating the SQL statement corresponding to the <operation>
                     |and the point when it starts running on the dedicated executor.""",
     qualification = Debug,
+    labelsWithDescription = Map(
+      "name" -> "The operation/pool for which the metric is registered."
+    ),
   )
   val waitTimer: Timer = factory.timer(dbPrefix :+ "wait")
 
@@ -31,6 +34,9 @@ class DatabaseMetrics private[metrics] (
                     |Additionally it includes the time needed to obtain the DB connection,
                     |optionally roll it back and close the connection at the end.""",
     qualification = Debug,
+    labelsWithDescription = Map(
+      "name" -> "The operation/pool for which the metric is registered."
+    ),
   )
   val executionTimer: Timer = factory.timer(dbPrefix :+ "exec")
 
@@ -40,6 +46,9 @@ class DatabaseMetrics private[metrics] (
                     |Daml-LF translation step. For such queries this metric stands for the time it
                     |takes to turn the serialized Daml-LF values into in-memory representation.""",
     qualification = Debug,
+    labelsWithDescription = Map(
+      "name" -> "The operation/pool for which the metric is registered."
+    ),
   )
   val translationTimer: Timer = factory.timer(dbPrefix :+ "translation")
 
@@ -49,6 +58,9 @@ class DatabaseMetrics private[metrics] (
                     |step. For such queries this metric represents the time it takes to decompress
                     |contract arguments retrieved from the database.""",
     qualification = Debug,
+    labelsWithDescription = Map(
+      "name" -> "The operation/pool for which the metric is registered."
+    ),
   )
   val compressionTimer: Timer = factory.timer(dbPrefix :+ "compression")
 
@@ -58,6 +70,9 @@ class DatabaseMetrics private[metrics] (
                     |to the <operation>. It roughly corresponds to calling `commit()` on a DB
                     |connection.""",
     qualification = Debug,
+    labelsWithDescription = Map(
+      "name" -> "The operation/pool for which the metric is registered."
+    ),
   )
   val commitTimer: Timer = factory.timer(dbPrefix :+ "commit")
 
@@ -68,6 +83,9 @@ class DatabaseMetrics private[metrics] (
                     |statements such that all run in a single DB transaction (either committed or
                     |aborted).""",
     qualification = Debug,
+    labelsWithDescription = Map(
+      "name" -> "The operation/pool for which the metric is registered."
+    ),
   )
   val queryTimer: Timer = factory.timer(dbPrefix :+ "query")
 }
