@@ -146,6 +146,7 @@ class MainIndexDBMetrics(prefix: MetricName, factory: MetricsFactory)
   val storePackageEntryDbMetrics: DatabaseMetrics = createDbMetrics("store_package_entry")
   val loadPackageEntries: DatabaseMetrics = createDbMetrics("load_package_entries")
   val pruneDbMetrics: DatabaseMetrics = createDbMetrics("prune")
+  val fetchPruningOffsetsMetrics: DatabaseMetrics = createDbMetrics("fetch_pruning_offsets")
   val lookupActiveContractDbMetrics: DatabaseMetrics = createDbMetrics("lookup_active_contract")
   val lookupContractByKeyDbMetrics: DatabaseMetrics = createDbMetrics(
     "lookup_contract_by_key"
@@ -157,6 +158,8 @@ class MainIndexDBMetrics(prefix: MetricName, factory: MetricsFactory)
   val lookupTransactionTreeById: DatabaseMetrics = createDbMetrics(
     "lookup_transaction_tree_by_id"
   )
+  val getEventsByContractId: DatabaseMetrics = createDbMetrics("get_events_by_contract_id")
+  val getEventsByContractKey: DatabaseMetrics = createDbMetrics("get_events_by_contract_key")
   val getActiveContracts: DatabaseMetrics = createDbMetrics("get_active_contracts")
   val getActiveContractIds: DatabaseMetrics = createDbMetrics("get_active_contract_ids")
   val getActiveContractBatch: DatabaseMetrics = createDbMetrics("get_active_contract_batch")
@@ -276,8 +279,5 @@ class MainIndexDBMetrics(prefix: MetricName, factory: MetricsFactory)
 
     val connection: MetricName = prefix :+ "connection"
 
-    val instrumentedExecutorServiceForDocs = new InstrumentedExecutorServiceForDocs(
-      connection :+ "<server_role>"
-    )
   }
 }

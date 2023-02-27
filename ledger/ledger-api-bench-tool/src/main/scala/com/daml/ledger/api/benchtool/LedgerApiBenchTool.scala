@@ -6,7 +6,6 @@ package com.daml.ledger.api.benchtool
 import java.util.concurrent._
 
 import akka.actor.typed.{ActorSystem, SpawnProtocol}
-import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.api.benchtool.config.WorkflowConfig.{
   FibonacciSubmissionConfig,
   FooSubmissionConfig,
@@ -25,9 +24,12 @@ import com.daml.ledger.api.benchtool.submission.foo.RandomPartySelecting
 import com.daml.ledger.api.benchtool.util.TypedActorSystemResourceOwner
 import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
+import com.daml.metrics.api.MetricHandle.MetricsFactory
+import com.daml.metrics.api.opentelemetry.OpenTelemetryMetricsFactory
 import com.daml.platform.localstore.api.UserManagementStore
 import io.grpc.Channel
 import io.grpc.netty.{NegotiationType, NettyChannelBuilder}
+import io.opentelemetry.api.metrics.MeterProvider
 import org.slf4j.{Logger, LoggerFactory}
 
 import scala.concurrent.duration._
@@ -95,21 +97,24 @@ class LedgerApiBenchTool(
       (
           String => LedgerApiServices,
           ActorSystem[SpawnProtocol.Command],
-          MetricRegistry,
+          MeterProvider,
       )
     ] = for {
       servicesForUserId <- apiServicesOwner(config, authorizationHelper)
       system <- TypedActorSystemResourceOwner.owner()
-      metricRegistry <- new MetricRegistryOwner(
+      meterProvider <- new MetricRegistryOwner(
         reporter = config.metricsReporter,
         reportingInterval = config.reportingPeriod,
         logger = logger,
       )
-    } yield (servicesForUserId, system, metricRegistry)
+    } yield (servicesForUserId, system, meterProvider)
 
-    resources.use { case (servicesForUserId, actorSystem, metricRegistry) =>
+    resources.use { case (servicesForUserId, actorSystem, meterProvider) =>
       val adminServices = servicesForUserId(UserManagementStore.DefaultParticipantAdminUserId)
       val regularUserServices = servicesForUserId(names.benchtoolUserId)
+      val metricsFactory = new OpenTelemetryMetricsFactory(
+        meterProvider.meterBuilder("ledger-api-bench-tool").build()
+      )
 
       val partyAllocating = new PartyAllocating(
         names = names,
@@ -138,7 +143,7 @@ class LedgerApiBenchTool(
                 regularUserServices = regularUserServices,
                 adminServices = adminServices,
                 submissionConfig = submissionConfig,
-                metricRegistry = metricRegistry,
+                metricsFactory = metricsFactory,
                 partyAllocating = partyAllocating,
               )
                 .map(_ -> BenchtoolTestsPackageInfo.StaticDefault)
@@ -169,16 +174,26 @@ class LedgerApiBenchTool(
               regularUserServices = regularUserServices,
               adminServices = adminServices,
               submissionConfigO = config.workflow.submission,
-              metricRegistry = metricRegistry,
+              metricsFactory = metricsFactory,
               allocatedParties = allocatedParties,
               actorSystem = actorSystem,
               maxLatencyObjectiveMillis = config.maxLatencyObjectiveMillis,
+            )
+          } else if (config.workflow.pruning.isDefined) {
+            new PruningBenchmark(reportingPeriod = config.reportingPeriod).benchmarkPruning(
+              pruningConfig =
+                config.workflow.pruning.getOrElse(sys.error("Pruning config not defined!")),
+              regularUserServices = regularUserServices,
+              adminServices = adminServices,
+              actorSystem = actorSystem,
+              signatory = allocatedParties.signatory,
+              names = names,
             )
           } else {
             benchmarkStreams(
               regularUserServices = regularUserServices,
               streamConfigs = updatedStreamConfigs,
-              metricRegistry = metricRegistry,
+              metricsFactory = metricsFactory,
               actorSystem = actorSystem,
             )
           }
@@ -215,7 +230,7 @@ class LedgerApiBenchTool(
   private def benchmarkStreams(
       regularUserServices: LedgerApiServices,
       streamConfigs: List[WorkflowConfig.StreamConfig],
-      metricRegistry: MetricRegistry,
+      metricsFactory: MetricsFactory,
       actorSystem: ActorSystem[SpawnProtocol.Command],
   )(implicit ec: ExecutionContext): Future[Either[String, Unit]] =
     if (streamConfigs.isEmpty) {
@@ -227,7 +242,7 @@ class LedgerApiBenchTool(
           streamConfigs = streamConfigs,
           reportingPeriod = config.reportingPeriod,
           apiServices = regularUserServices,
-          metricRegistry = metricRegistry,
+          metricsFactory = metricsFactory,
           system = actorSystem,
         )
 
@@ -235,7 +250,7 @@ class LedgerApiBenchTool(
       regularUserServices: LedgerApiServices,
       adminServices: LedgerApiServices,
       submissionConfigO: Option[WorkflowConfig.SubmissionConfig],
-      metricRegistry: MetricRegistry,
+      metricsFactory: MetricsFactory,
       allocatedParties: AllocatedParties,
       actorSystem: ActorSystem[SpawnProtocol.Command],
       maxLatencyObjectiveMillis: Long,
@@ -252,14 +267,10 @@ class LedgerApiBenchTool(
             allocatedParties = allocatedParties,
             randomnessProvider = RandomnessProvider.Default,
           ),
-          contractDescriptionRandomnessProvider = RandomnessProvider.Default,
-          payloadRandomnessProvider = RandomnessProvider.Default,
-          consumingEventsRandomnessProvider = RandomnessProvider.Default,
-          nonConsumingEventsRandomnessProvider = RandomnessProvider.Default,
-          applicationIdRandomnessProvider = RandomnessProvider.Default,
+          randomnessProvider = RandomnessProvider.Default,
         )
         for {
-          metricsManager <- MetricsManager(
+          metricsManager <- MetricsManager.create(
             observedMetric = "submit-and-wait-latency",
             logInterval = config.reportingPeriod,
             metrics = List(LatencyMetric.empty(maxLatencyObjectiveMillis)),
@@ -269,7 +280,7 @@ class LedgerApiBenchTool(
             names = names,
             benchtoolUserServices = regularUserServices,
             adminServices = adminServices,
-            metricRegistry = metricRegistry,
+            metricsFactory = metricsFactory,
             metricsManager = metricsManager,
             waitForSubmission = true,
             partyAllocating = new PartyAllocating(
@@ -310,7 +321,7 @@ class LedgerApiBenchTool(
       regularUserServices: LedgerApiServices,
       adminServices: LedgerApiServices,
       submissionConfig: WorkflowConfig.SubmissionConfig,
-      metricRegistry: MetricRegistry,
+      metricsFactory: MetricsFactory,
       partyAllocating: PartyAllocating,
   )(implicit
       ec: ExecutionContext
@@ -320,7 +331,7 @@ class LedgerApiBenchTool(
       names = names,
       benchtoolUserServices = regularUserServices,
       adminServices = adminServices,
-      metricRegistry = metricRegistry,
+      metricsFactory = metricsFactory,
       metricsManager = NoOpMetricsManager(),
       waitForSubmission = submissionConfig.waitForSubmission,
       partyAllocating = partyAllocating,
@@ -336,16 +347,10 @@ class LedgerApiBenchTool(
               submitter = submitter,
               maxInFlightCommands = config.maxInFlightCommands,
               submissionBatchSize = config.submissionBatchSize,
-              submissionConfig = submissionConfig,
               allocatedParties = allocatedParties,
               names = names,
-              partySelectingRandomnessProvider = RandomnessProvider.Default,
-              payloadRandomnessProvider = RandomnessProvider.Default,
-              consumingEventsRandomnessProvider = RandomnessProvider.Default,
-              nonConsumingEventsRandomnessProvider = RandomnessProvider.Default,
-              applicationIdRandomnessProvider = RandomnessProvider.Default,
-              contractDescriptionRandomnessProvider = RandomnessProvider.Default,
-            ).performSubmission()
+              randomnessProvider = RandomnessProvider.Default,
+            ).performSubmission(submissionConfig)
           case submissionConfig: FibonacciSubmissionConfig =>
             val generator: CommandGenerator = new FibonacciCommandGenerator(
               signatory = allocatedParties.signatory,

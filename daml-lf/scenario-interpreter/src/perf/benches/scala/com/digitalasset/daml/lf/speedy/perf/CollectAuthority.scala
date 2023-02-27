@@ -24,8 +24,6 @@ import java.io.File
 import java.util.concurrent.TimeUnit
 import org.openjdk.jmh.annotations._
 
-import scala.concurrent.duration._
-
 private[lf] class CollectAuthority {
   @Benchmark @BenchmarkMode(Array(Mode.AverageTime)) @OutputTimeUnit(TimeUnit.MILLISECONDS)
   def bench(state: CollectAuthorityState): Unit = {
@@ -91,21 +89,22 @@ private[lf] class CollectAuthorityState {
         case SResultQuestion(Scenario.Submit(committers, commands, location, mustFail, callback)) =>
           assert(!mustFail)
           val api = new CannedLedgerApi(step, cachedContract)
-          ScenarioRunner.submit(
-            machine.compiledPackages,
-            api,
-            committers,
-            Set.empty,
-            SEValue(commands),
-            location,
-            crypto.Hash.hashPrivateKey(step.toString),
-            doEnrichment = false,
-            timeout = 1.minute,
-            deadlineInNanos = Long.MaxValue,
-          ) match {
-            case ScenarioRunner.Commit(_, value, _) =>
+          ScenarioRunner
+            .submit(
+              machine.compiledPackages,
+              api,
+              committers,
+              Set.empty,
+              SEValue(commands),
+              location,
+              crypto.Hash.hashPrivateKey(step.toString),
+              doEnrichment = false,
+            )
+            .resolve() match {
+            case Right(ScenarioRunner.Commit(_, value, _)) =>
               callback(value)
-            case ScenarioRunner.SubmissionError(err, _) => crash(s"Submission failed $err")
+            case Left(ScenarioRunner.SubmissionError(err, _)) =>
+              crash(s"Submission failed $err")
           }
         case SResultInterruption =>
         case SResultFinal(v) => finalValue = v
@@ -135,19 +134,19 @@ private[lf] class CollectAuthorityState {
         case SResultQuestion(Scenario.Submit(committers, commands, location, mustFail, callback)) =>
           assert(!mustFail)
           val api = new CachedLedgerApi(step, ledger)
-          ScenarioRunner.submit(
-            machine.compiledPackages,
-            api,
-            committers,
-            Set.empty,
-            SEValue(commands),
-            location,
-            crypto.Hash.hashPrivateKey(step.toString),
-            timeout = Duration.Inf,
-            deadlineInNanos = Long.MaxValue,
-          ) match {
-            case ScenarioRunner.SubmissionError(err, _) => crash(s"Submission failed $err")
-            case ScenarioRunner.Commit(result, value, _) =>
+          ScenarioRunner
+            .submit(
+              machine.compiledPackages,
+              api,
+              committers,
+              Set.empty,
+              SEValue(commands),
+              location,
+              crypto.Hash.hashPrivateKey(step.toString),
+            )
+            .resolve() match {
+            case Left(ScenarioRunner.SubmissionError(err, _)) => crash(s"Submission failed $err")
+            case Right(ScenarioRunner.Commit(result, value, _)) =>
               ledger = result.newLedger
               cachedCommit = cachedCommit + (step -> value)
               callback(value)

@@ -27,7 +27,6 @@ class PartialTransactionSpec extends AnyWordSpec with Matchers with Inside {
     ContractKeyUniquenessMode.Strict,
     InitialSeeding.TransactionSeed(transactionSeed),
     committers,
-    ImmArray.Empty,
   )
 
   private[this] def contractIdsInOrder(ptx: PartialTransaction): List[Value.ContractId] = {
@@ -42,12 +41,13 @@ class PartialTransactionSpec extends AnyWordSpec with Matchers with Inside {
   private[this] implicit class PartialTransactionExtra(val ptx: PartialTransaction) {
 
     val contract = CachedContract(
+      version = TransactionVersion.maxVersion,
       templateId = templateId,
       value = SValue.SUnit,
       agreementText = "agreement",
       signatories = Set(party),
       observers = Set.empty,
-      key = None,
+      keyOpt = None,
     )
 
     def insertCreate_ : PartialTransaction =
@@ -56,7 +56,6 @@ class PartialTransactionSpec extends AnyWordSpec with Matchers with Inside {
           submissionTime = data.Time.Timestamp.Epoch,
           contract = contract,
           optLocation = None,
-          version = TransactionVersion.maxVersion,
         )
         .toOption
         .get

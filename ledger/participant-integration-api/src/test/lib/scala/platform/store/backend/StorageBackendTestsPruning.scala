@@ -10,6 +10,9 @@ import org.scalatest.{Assertion, Checkpoints, OptionValues}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import java.sql.Connection
+import com.daml.ledger.offset.Offset
+import com.daml.logging.LoggingContext
+import com.daml.scalautil.Statement
 
 private[backend] trait StorageBackendTestsPruning
     extends Matchers
@@ -26,6 +29,13 @@ private[backend] trait StorageBackendTestsPruning
   private val observerParty = Ref.Party.assertFromString("observer")
   private val nonStakeholderInformeeParty = Ref.Party.assertFromString("nonstakeholderinformee")
   private val actorParty = Ref.Party.assertFromString("actor")
+
+  def pruneEventsSql(pruneUpToInclusive: Offset, pruneAllDivulgedContracts: Boolean)(implicit
+      loggingContext: LoggingContext
+  ): Unit =
+    executeSql(
+      backend.event.pruneEvents(pruneUpToInclusive, pruneAllDivulgedContracts)(_, loggingContext)
+    )
 
   it should "correctly update the pruning offset" in {
     val offset_1 = offset(3)
@@ -55,33 +65,28 @@ private[backend] trait StorageBackendTestsPruning
     val offset_1 = offset(3)
     val offset_2 = offset(2)
     val offset_3 = offset(4)
-
     executeSql(backend.parameter.initializeParameters(someIdentityParams))
     val initialPruningOffset = executeSql(
       backend.parameter.participantAllDivulgedContractsPrunedUpToInclusive
     )
-
     executeSql(
       backend.parameter.updatePrunedAllDivulgedContractsUpToInclusive(offset_1)
     )
     val updatedPruningOffset_1 = executeSql(
       backend.parameter.participantAllDivulgedContractsPrunedUpToInclusive
     )
-
     executeSql(
       backend.parameter.updatePrunedAllDivulgedContractsUpToInclusive(offset_2)
     )
     val updatedPruningOffset_2 = executeSql(
       backend.parameter.participantAllDivulgedContractsPrunedUpToInclusive
     )
-
     executeSql(
       backend.parameter.updatePrunedAllDivulgedContractsUpToInclusive(offset_3)
     )
     val updatedPruningOffset_3 = executeSql(
       backend.parameter.participantAllDivulgedContractsPrunedUpToInclusive
     )
-
     initialPruningOffset shouldBe empty
     updatedPruningOffset_1 shouldBe Some(offset_1)
     // The pruning offset is not updated if lower than the existing offset
@@ -90,170 +95,170 @@ private[backend] trait StorageBackendTestsPruning
   }
 
   it should "prune consuming and non-consuming events" in {
-    val nonConsuming = dtoExercise(
-      offset = offset(3),
-      eventSequentialId = 5L,
-      contractId = hashCid("#1"),
-      consuming = false,
-      signatory = signatoryParty,
-    )
-    val nonConsumingFilter1 = DbDto.IdFilterNonConsumingInformee(5L, signatoryParty)
-    val consuming = dtoExercise(
-      offset = offset(4),
-      eventSequentialId = 6L,
-      contractId = hashCid("#1"),
-      consuming = true,
-      signatory = signatoryParty,
-      actor = actorParty,
-    )
-    val consumingFilter1 =
-      DbDto.IdFilterConsumingStakeholder(6L, someTemplateId.toString, signatoryParty)
-    val consumingFilter2 = DbDto.IdFilterConsumingNonStakeholderInformee(6L, actorParty)
     executeSql(backend.parameter.initializeParameters(someIdentityParams))
     // Ingest a create and archive event
     executeSql(
       ingest(
         Vector(
-          nonConsuming,
-          nonConsumingFilter1,
-          consuming,
-          consumingFilter1,
-          consumingFilter2,
-        ),
+          dtoExercise(
+            offset = offset(3),
+            eventSequentialId = 5L,
+            contractId = hashCid("#1"),
+            consuming = false,
+            signatory = signatoryParty,
+          ),
+          DbDto.IdFilterNonConsumingInformee(5L, signatoryParty),
+          dtoExercise(
+            offset = offset(4),
+            eventSequentialId = 6L,
+            contractId = hashCid("#1"),
+            consuming = true,
+            signatory = signatoryParty,
+            actor = actorParty,
+          ),
+          DbDto.IdFilterConsumingStakeholder(6L, someTemplateId.toString, signatoryParty),
+          DbDto.IdFilterConsumingNonStakeholderInformee(6L, actorParty),
+        ) ++
+          Vector(
+            dtoExercise(
+              offset = offset(5),
+              eventSequentialId = 7L,
+              contractId = hashCid("#2"),
+              consuming = false,
+              signatory = signatoryParty,
+            ),
+            DbDto.IdFilterNonConsumingInformee(7L, signatoryParty),
+            dtoExercise(
+              offset = offset(6),
+              eventSequentialId = 8L,
+              contractId = hashCid("#2"),
+              consuming = true,
+              signatory = signatoryParty,
+              actor = actorParty,
+            ),
+            DbDto.IdFilterConsumingStakeholder(8L, someTemplateId.toString, signatoryParty),
+            DbDto.IdFilterConsumingNonStakeholderInformee(8L, actorParty),
+          ),
         _,
       )
     )
-    val endOffset = offset(4)
-    val endId = 6L
-    executeSql(updateLedgerEnd(endOffset, endId))
-    executeSql(
-      assertIndexDbData(
-        consuming = Vector(EventConsuming(6)),
-        consumingFilterStakeholder = Vector(FilterConsumingStakeholder(6, 3)),
-        consumingFilterNonStakeholder = Vector(FilterConsumingNonStakeholder(6, 1)),
-        nonConsuming = Vector(EventNonConsuming(5)),
-        nonConsumingFilter = Vector(FilterNonConsuming(5, 3)),
-      )
-    )
-    // Prune before the offset at which we ingested our events
-    executeSql(
-      backend.event.pruneEvents(offset(2), pruneAllDivulgedContracts = true)(
-        _,
-        loggingContext,
-      )
-    )
-    executeSql(backend.parameter.updatePrunedUptoInclusive(offset(2)))
-    executeSql(
-      assertIndexDbData(
-        consuming = Vector(EventConsuming(6)),
-        consumingFilterStakeholder = Vector(FilterConsumingStakeholder(6, 3)),
-        consumingFilterNonStakeholder = Vector(FilterConsumingNonStakeholder(6, 1)),
-        nonConsuming = Vector(EventNonConsuming(5)),
-        nonConsumingFilter = Vector(FilterNonConsuming(5, 3)),
-      )
+    val endOffset = offset(6)
+    val endId = 8L
+
+    def assertAllDataPresent(): Assertion = assertIndexDbDataSql(
+      consuming = Vector(EventConsuming(6), EventConsuming(8)),
+      consumingFilterStakeholder =
+        Vector(FilterConsumingStakeholder(6, 3), FilterConsumingStakeholder(8, 3)),
+      consumingFilterNonStakeholder =
+        Vector(FilterConsumingNonStakeholder(6, 1), FilterConsumingNonStakeholder(8, 1)),
+      nonConsuming = Vector(EventNonConsuming(5), EventNonConsuming(7)),
+      nonConsumingFilter = Vector(FilterNonConsuming(5, 3), FilterNonConsuming(7, 3)),
     )
 
-    // Prune at the ledger end
-    executeSql(
-      backend.event.pruneEvents(endOffset, pruneAllDivulgedContracts = true)(
-        _,
-        loggingContext,
-      )
+    executeSql(updateLedgerEnd(endOffset, endId))
+    assertAllDataPresent()
+    // Prune before the offset at which we ingested any events
+    pruneEventsSql(offset(2), pruneAllDivulgedContracts = true)
+    assertAllDataPresent()
+    // Prune at offset such that there are events ingested before and after
+    pruneEventsSql(offset(4), pruneAllDivulgedContracts = true)
+    assertIndexDbDataSql(
+      consuming = Vector(EventConsuming(8)),
+      consumingFilterStakeholder = Vector(FilterConsumingStakeholder(8, 3)),
+      consumingFilterNonStakeholder = Vector(FilterConsumingNonStakeholder(8, 1)),
+      nonConsuming = Vector(EventNonConsuming(7)),
+      nonConsumingFilter = Vector(FilterNonConsuming(7, 3)),
     )
-    executeSql(backend.parameter.updatePrunedUptoInclusive(endOffset))
-    executeSql(assertIndexDbData())
+    // Prune at the ledger end
+    pruneEventsSql(endOffset, pruneAllDivulgedContracts = true)
+    assertIndexDbDataSql()
   }
 
   it should "prune an archived contract" in {
     // a create event in its own transaction
     val create = dtoCreate(
-      offset = offset(1),
+      offset = offset(10),
       eventSequentialId = 1L,
       contractId = hashCid("#1"),
       signatory = signatoryParty,
       observer = observerParty,
       nonStakeholderInformees = Set(nonStakeholderInformeeParty),
     )
-    val createFilter1 = DbDto.IdFilterCreateStakeholder(1L, someTemplateId.toString, signatoryParty)
-    val createFilter2 = DbDto.IdFilterCreateStakeholder(1L, someTemplateId.toString, observerParty)
-    val createFilter3 = DbDto.IdFilterCreateNonStakeholderInformee(1L, nonStakeholderInformeeParty)
-    val createTxId = dtoTransactionId(create)
-    val createTxMeta = DbDto.TransactionMeta(
-      transaction_id = createTxId,
-      event_offset = create.event_offset.get,
-      event_sequential_id_first = create.event_sequential_id,
-      event_sequential_id_last = create.event_sequential_id,
-    )
     // a consuming event in its own transaction
     val archive = dtoExercise(
-      offset = offset(2),
+      offset = offset(11),
       eventSequentialId = 2L,
       consuming = true,
       contractId = hashCid("#1"),
       signatory = signatoryParty,
-    )
-    val archiveFilter1 =
-      DbDto.IdFilterConsumingStakeholder(2L, someTemplateId.toString, signatoryParty)
-    val archiveFilter2 =
-      DbDto.IdFilterConsumingStakeholder(2L, someTemplateId.toString, observerParty)
-    val archiveTxMeta = DbDto.TransactionMeta(
-      transaction_id = dtoTransactionId(archive),
-      event_offset = archive.event_offset.get,
-      event_sequential_id_first = archive.event_sequential_id,
-      event_sequential_id_last = archive.event_sequential_id,
     )
     executeSql(backend.parameter.initializeParameters(someIdentityParams))
     // Ingest a create and archive event
     executeSql(
       ingest(
         Vector(
-          create,
-          createFilter1,
-          createFilter2,
-          createFilter3,
-          createTxMeta,
-          archive,
-          archiveFilter1,
-          archiveFilter2,
-          archiveTxMeta,
-        ),
+          // Allocating parties so that the contracts we create later are not considered to be a case of immediate divulgence
+          dtoPartyEntry(offset(1), signatoryParty),
+          dtoPartyEntry(offset(2), observerParty),
+          dtoPartyEntry(offset(3), nonStakeholderInformeeParty),
+        ) ++
+          Vector(
+            create,
+            DbDto.IdFilterCreateStakeholder(1L, someTemplateId.toString, signatoryParty),
+            DbDto.IdFilterCreateStakeholder(1L, someTemplateId.toString, observerParty),
+            DbDto.IdFilterCreateNonStakeholderInformee(1L, nonStakeholderInformeeParty),
+            DbDto.TransactionMeta(
+              transaction_id = dtoTransactionId(create),
+              event_offset = create.event_offset.get,
+              event_sequential_id_first = create.event_sequential_id,
+              event_sequential_id_last = create.event_sequential_id,
+            ),
+            archive,
+            DbDto.IdFilterConsumingStakeholder(2L, someTemplateId.toString, signatoryParty),
+            DbDto.IdFilterConsumingStakeholder(2L, someTemplateId.toString, observerParty),
+            DbDto.TransactionMeta(
+              transaction_id = dtoTransactionId(archive),
+              event_offset = archive.event_offset.get,
+              event_sequential_id_first = archive.event_sequential_id,
+              event_sequential_id_last = archive.event_sequential_id,
+            ),
+          ),
         _,
       )
     )
+
+    def assertAllDataPresent(txMeta: Vector[TxMeta]): Assertion = assertIndexDbDataSql(
+      create = Vector(EventCreate(1)),
+      createFilterStakeholder = Vector(
+        FilterCreateStakeholder(1, 2),
+        FilterCreateStakeholder(1, 3),
+      ),
+      createFilterNonStakeholder = Vector(FilterCreateNonStakeholder(1, 4)),
+      consuming = Vector(EventConsuming(2)),
+      consumingFilterStakeholder = Vector(
+        FilterConsumingStakeholder(2, 2),
+        FilterConsumingStakeholder(2, 3),
+      ),
+      txMeta = txMeta,
+    )
+
     executeSql(updateLedgerEnd(offset(2), 2L))
-
-    // Make sure the entries related to the create event are visible
-    executeSql(
-      assertIndexDbData(
-        create = Vector(EventCreate(1)),
-        createFilterStakeholder = Vector(
-          FilterCreateStakeholder(1, 2),
-          FilterCreateStakeholder(1, 3),
-        ),
-        createFilterNonStakeholder = Vector(FilterCreateNonStakeholder(1, 4)),
-        consuming = Vector(EventConsuming(2)),
-        consumingFilterStakeholder = Vector(
-          FilterConsumingStakeholder(2, 2),
-          FilterConsumingStakeholder(2, 3),
-        ),
-        txMeta = Vector(TxMeta("00000001"), TxMeta("00000002")),
-      )
+    assertAllDataPresent(
+      txMeta = Vector(TxMeta("00000010"), TxMeta("00000011"))
     )
-
-    // Prune
-    executeSql(
-      backend.event.pruneEvents(offset(2), pruneAllDivulgedContracts = true)(
-        _,
-        loggingContext,
-      )
+    // Prune at the offset of the create event
+    pruneEventsSql(offset(10), pruneAllDivulgedContracts = true)
+    assertAllDataPresent(
+      txMeta = Vector(TxMeta("00000011"))
     )
-    executeSql(backend.parameter.updatePrunedUptoInclusive(offset(2)))
-    // Make sure the entries related to the create event are not visible anymore
-    executeSql(assertIndexDbData())
+    // Prune at the offset of the archive event
+    pruneEventsSql(offset(11), pruneAllDivulgedContracts = true)
+    assertIndexDbDataSql(
+      txMeta = Vector.empty
+    )
   }
 
   it should "not prune an active contract" in {
-    val partyEntry = dtoPartyEntry(offset(1), signatoryParty)
     val create = dtoCreate(
       offset = offset(2),
       eventSequentialId = 1L,
@@ -261,66 +266,45 @@ private[backend] trait StorageBackendTestsPruning
       signatory = signatoryParty,
       nonStakeholderInformees = Set(nonStakeholderInformeeParty),
     )
-    val createFilter1 = DbDto.IdFilterCreateStakeholder(1L, someTemplateId.toString, signatoryParty)
-    val createFilter2 = DbDto.IdFilterCreateStakeholder(1L, someTemplateId.toString, observerParty)
-    val createFilter3 = DbDto.IdFilterCreateNonStakeholderInformee(1L, nonStakeholderInformeeParty)
     val createTxId = dtoTransactionId(create)
-    val createTxMeta = DbDto.TransactionMeta(
-      transaction_id = createTxId,
-      event_offset = create.event_offset.get,
-      event_sequential_id_first = create.event_sequential_id,
-      event_sequential_id_last = create.event_sequential_id,
-    )
     executeSql(backend.parameter.initializeParameters(someIdentityParams))
     // Ingest a create and archive event
     executeSql(
       ingest(
         Vector(
-          partyEntry,
+          dtoPartyEntry(offset(1), signatoryParty),
           create,
-          createFilter1,
-          createFilter2,
-          createFilter3,
-          createTxMeta,
+          DbDto.IdFilterCreateStakeholder(1L, someTemplateId.toString, signatoryParty),
+          DbDto.IdFilterCreateStakeholder(1L, someTemplateId.toString, observerParty),
+          DbDto.IdFilterCreateNonStakeholderInformee(1L, nonStakeholderInformeeParty),
+          DbDto.TransactionMeta(
+            transaction_id = createTxId,
+            event_offset = create.event_offset.get,
+            event_sequential_id_first = create.event_sequential_id,
+            event_sequential_id_last = create.event_sequential_id,
+          ),
         ),
         _,
       )
+    )
+
+    def assertAllDataPresent(txMeta: Seq[TxMeta]): Assertion = assertIndexDbDataSql(
+      create = Vector(EventCreate(1)),
+      createFilterStakeholder = Vector(
+        FilterCreateStakeholder(1, 2),
+        FilterCreateStakeholder(1, 3),
+      ),
+      createFilterNonStakeholder = Vector(FilterCreateNonStakeholder(1, 4)),
+      txMeta = txMeta,
     )
     executeSql(updateLedgerEnd(offset(2), 1L))
-
-    // Make sure the entries relate to the create event are visible
-    executeSql(
-      assertIndexDbData(
-        create = Vector(EventCreate(1)),
-        createFilterStakeholder = Vector(
-          FilterCreateStakeholder(1, 2),
-          FilterCreateStakeholder(1, 3),
-        ),
-        createFilterNonStakeholder = Vector(FilterCreateNonStakeholder(1, 4)),
-        txMeta = Vector(TxMeta("00000002")),
-      )
+    assertAllDataPresent(
+      txMeta = Vector(TxMeta("00000002"))
     )
-
     // Prune
-    executeSql(
-      backend.event.pruneEvents(offset(2), pruneAllDivulgedContracts = true)(
-        _,
-        loggingContext,
-      )
-    )
-    executeSql(backend.parameter.updatePrunedUptoInclusive(offset(2)))
-
-    // Make sure the entries related to the create event are still visible - active contracts should not be pruned
-    executeSql(
-      assertIndexDbData(
-        create = Vector(EventCreate(1)),
-        createFilterStakeholder = Vector(
-          FilterCreateStakeholder(1, 2),
-          FilterCreateStakeholder(1, 3),
-        ),
-        createFilterNonStakeholder = Vector(FilterCreateNonStakeholder(1, 4)),
-        txMeta = Vector(TxMeta("00000002")),
-      )
+    pruneEventsSql(offset(2), pruneAllDivulgedContracts = true)
+    assertAllDataPresent(
+      txMeta = Vector.empty
     )
   }
 
@@ -329,7 +313,6 @@ private[backend] trait StorageBackendTestsPruning
     val divulgee = Ref.Party.assertFromString(partyName)
     val contract1_id = hashCid("#1")
     val contract2_id = hashCid("#2")
-
     val contract1_immediateDivulgence = dtoCreate(
       offset = offset(1),
       eventSequentialId = 1L,
@@ -350,9 +333,7 @@ private[backend] trait StorageBackendTestsPruning
         contractId = contract1_id,
         divulgee = partyName,
       )
-
     executeSql(backend.parameter.initializeParameters(someIdentityParams))
-
     // Ingest
     executeSql(
       ingest(
@@ -368,26 +349,16 @@ private[backend] trait StorageBackendTestsPruning
     executeSql(
       updateLedgerEnd(offset(4), 4L)
     )
-    executeSql(
-      assertIndexDbData(
-        create = Vector(EventCreate(1), EventCreate(2)),
-        divulgence = Vector(EventDivulgence(3)),
-      )
+    assertIndexDbDataSql(
+      create = Vector(EventCreate(1), EventCreate(2)),
+      divulgence = Vector(EventDivulgence(3)),
     )
-
-    executeSql(
-      backend.event.pruneEvents(offset(3), pruneAllDivulgedContracts = true)(
-        _,
-        loggingContext,
-      )
-    )
-    executeSql(
-      assertIndexDbData(
-        create = Vector(EventCreate(2)),
-        // Immediate divulgence for contract2 occurred after the associated party became locally hosted
-        // so it is not pruned
-        divulgence = Vector.empty,
-      )
+    pruneEventsSql(offset(3), pruneAllDivulgedContracts = true)
+    assertIndexDbDataSql(
+      create = Vector(EventCreate(2)),
+      // Immediate divulgence for contract2 occurred after the associated party became locally hosted
+      // so it is not pruned
+      divulgence = Vector.empty,
     )
   }
 
@@ -396,7 +367,6 @@ private[backend] trait StorageBackendTestsPruning
     val divulgee = Ref.Party.assertFromString("party")
     val contract1_id = hashCid("#1")
     val contract2_id = hashCid("#2")
-
     val contract1_create = dtoCreate(
       offset = offset(1),
       eventSequentialId = 1L,
@@ -438,35 +408,26 @@ private[backend] trait StorageBackendTestsPruning
     executeSql(
       updateLedgerEnd(offset(5), 5L)
     )
-    executeSql(
-      assertIndexDbData(
-        // Contract 1 appears as active tu `divulgee` before pruning
-        create = Seq(EventCreate(1)),
-        consuming = Seq(EventConsuming(3)),
-        divulgence = Seq(
-          EventDivulgence(2),
-          // Contract 2 appears as active tu `divulgee` before pruning
-          EventDivulgence(4),
-        ),
-      )
+    assertIndexDbDataSql(
+      // Contract 1 appears as active tu `divulgee` before pruning
+      create = Seq(EventCreate(1)),
+      consuming = Seq(EventConsuming(3)),
+      divulgence = Seq(
+        EventDivulgence(2),
+        // Contract 2 appears as active tu `divulgee` before pruning
+        EventDivulgence(4),
+      ),
     )
-    executeSql(
-      backend.event.pruneEvents(offset(4), pruneAllDivulgedContracts = false)(
-        _,
-        loggingContext,
-      )
-    )
-    executeSql(
-      assertIndexDbData(
-        // Contract 1 should not be visible anymore to `divulgee` after pruning
-        create = Seq.empty,
-        consuming = Seq.empty,
-        divulgence = Seq(
-          // Contract 2 did not have a locally stored exercise event
-          // hence its divulgence is not pruned - appears active to `divulgee`
-          EventDivulgence(4)
-        ),
-      )
+    pruneEventsSql(offset(4), pruneAllDivulgedContracts = false)
+    assertIndexDbDataSql(
+      // Contract 1 should not be visible anymore to `divulgee` after pruning
+      create = Seq.empty,
+      consuming = Seq.empty,
+      divulgence = Seq(
+        // Contract 2 did not have a locally stored exercise event
+        // hence its divulgence is not pruned - appears active to `divulgee`
+        EventDivulgence(4)
+      ),
     )
   }
 
@@ -476,36 +437,20 @@ private[backend] trait StorageBackendTestsPruning
       offset = offset(1),
       submitter = someParty,
     )
-
     executeSql(backend.parameter.initializeParameters(someIdentityParams))
-
     // Ingest a completion
     executeSql(ingest(Vector(completion), _))
     executeSql(updateLedgerEnd(offset(1), 1L))
-
-    // Make sure the completion is visible
-    executeSql(
-      assertIndexDbData(
-        completion = Seq(PruningDto.Completion("00000001"))
-      )
-    )
-
+    assertIndexDbDataSql(completion = Seq(PruningDto.Completion("00000001")))
     // Prune
     executeSql(backend.completion.pruneCompletions(offset(1))(_, loggingContext))
-    executeSql(backend.parameter.updatePrunedUptoInclusive(offset(1)))
-
-    // Make sure the completion is not visible anymore
-    executeSql(
-      assertIndexDbData(
-        completion = Seq.empty
-      )
-    )
+    assertIndexDbDataSql(completion = Seq.empty)
   }
 
   /** Asserts the content of the tables subject to pruning.
     * Be default asserts the tables are empty.
     */
-  def assertIndexDbData(
+  def assertIndexDbDataSql(
       create: Seq[EventCreate] = Seq.empty,
       createFilterStakeholder: Seq[FilterCreateStakeholder] = Seq.empty,
       createFilterNonStakeholder: Seq[FilterCreateNonStakeholder] = Seq.empty,
@@ -517,25 +462,29 @@ private[backend] trait StorageBackendTestsPruning
       divulgence: Seq[EventDivulgence] = Seq.empty,
       txMeta: Seq[TxMeta] = Seq.empty,
       completion: Seq[Completion] = Seq.empty,
-  )(c: Connection): Assertion = {
+  ): Assertion = executeSql { c: Connection =>
     implicit val _c: Connection = c
     val queries = backend.pruningDtoQueries
     val cp = new Checkpoint
     // create
-    queries.eventCreate shouldBe create
-    queries.filterCreateStakeholder shouldBe createFilterStakeholder
-    queries.filterCreateNonStakeholder shouldBe createFilterNonStakeholder
+    cp(Statement.discard(queries.eventCreate shouldBe create))
+    cp(Statement.discard(queries.filterCreateStakeholder shouldBe createFilterStakeholder))
+    cp(Statement.discard(queries.filterCreateNonStakeholder shouldBe createFilterNonStakeholder))
     // consuming
-    queries.eventConsuming shouldBe consuming
-    queries.filterConsumingStakeholder shouldBe consumingFilterStakeholder
-    queries.filterConsumingNonStakeholder shouldBe consumingFilterNonStakeholder
+    cp(Statement.discard(queries.eventConsuming shouldBe consuming))
+    cp(Statement.discard(queries.filterConsumingStakeholder shouldBe consumingFilterStakeholder))
+    cp(
+      Statement.discard(
+        queries.filterConsumingNonStakeholder shouldBe consumingFilterNonStakeholder
+      )
+    )
     // non-consuming
-    queries.eventNonConsuming shouldBe nonConsuming
-    queries.filterNonConsuming shouldBe nonConsumingFilter
+    cp(Statement.discard(queries.eventNonConsuming shouldBe nonConsuming))
+    cp(Statement.discard(queries.filterNonConsuming shouldBe nonConsumingFilter))
     // other
-    queries.eventDivulgence shouldBe divulgence
-    queries.txMeta shouldBe txMeta
-    queries.completions shouldBe completion
+    cp(Statement.discard(queries.eventDivulgence shouldBe divulgence))
+    cp(Statement.discard(queries.txMeta shouldBe txMeta))
+    cp(Statement.discard(queries.completions shouldBe completion))
     cp.reportAll()
     succeed
   }

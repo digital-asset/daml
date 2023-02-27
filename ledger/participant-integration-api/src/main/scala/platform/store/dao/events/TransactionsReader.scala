@@ -54,8 +54,6 @@ private[dao] final class TransactionsReader(
     extends LedgerDaoTransactionsReader {
 
   private val dbMetrics = metrics.daml.index.db
-  private val eventSeqIdReader =
-    new EventsRange.EventSeqIdReader(eventStorageBackend.maxEventSequentialIdOfAnObservableEvent)
 
   override def getFlatTransactions(
       startExclusive: Offset,
@@ -112,15 +110,14 @@ private[dao] final class TransactionsReader(
   )(implicit
       loggingContext: LoggingContext
   ): Source[(Offset, GetTransactionTreesResponse), NotUsed] = {
-    val requestedRangeF: Future[EventsRange[(Offset, Long)]] =
-      getEventSeqIdRange(startExclusive, endInclusive)
-    val futureSource = requestedRangeF.map(queryRange =>
-      treeTransactionsStreamReader.streamTreeTransaction(
-        queryRange = queryRange,
-        requestingParties = requestingParties,
-        eventProjectionProperties = eventProjectionProperties,
+    val futureSource = getEventSeqIdRange(startExclusive, endInclusive)
+      .map(queryRange =>
+        treeTransactionsStreamReader.streamTreeTransaction(
+          queryRange = queryRange,
+          requestingParties = requestingParties,
+          eventProjectionProperties = eventProjectionProperties,
+        )
       )
-    )
     Source
       .futureSource(futureSource)
       .mapMaterializedValue((_: Future[NotUsed]) => NotUsed)
@@ -131,12 +128,11 @@ private[dao] final class TransactionsReader(
       filter: TemplatePartiesFilter,
       eventProjectionProperties: EventProjectionProperties,
   )(implicit loggingContext: LoggingContext): Source[GetActiveContractsResponse, NotUsed] = {
-    val requestedRangeF: Future[EventsRange[(Offset, Long)]] = getAcsEventSeqIdRange(activeAt)
-    val futureSource = requestedRangeF
-      .map(requestedRange =>
+    val futureSource = getMaxAcsEventSeqId(activeAt)
+      .map(maxSeqId =>
         acsReader.streamActiveContracts(
           filter,
-          requestedRange.endInclusive,
+          activeAt -> maxSeqId,
           eventProjectionProperties,
         )
       )
@@ -145,47 +141,41 @@ private[dao] final class TransactionsReader(
       .mapMaterializedValue((_: Future[NotUsed]) => NotUsed)
   }
 
-  private def getAcsEventSeqIdRange(activeAt: Offset)(implicit
+  private def getMaxAcsEventSeqId(activeAt: Offset)(implicit
       loggingContext: LoggingContext
-  ): Future[EventsRange[(Offset, Long)]] =
+  ): Future[Long] =
     dispatcher
       .executeSql(dbMetrics.getAcsEventSeqIdRange)(implicit connection =>
         queryNonPruned.executeSql(
-          eventSeqIdReader.readEventSeqIdRange(activeAt)(connection),
-          activeAt,
-          pruned =>
+          query = eventStorageBackend.maxEventSequentialId(activeAt)(connection),
+          minOffsetExclusive = activeAt,
+          error = pruned =>
             ACSReader.acsBeforePruningErrorReason(
               acsOffset = activeAt.toHexString,
               prunedUpToOffset = pruned.toHexString,
             ),
         )
       )
-      .map { x =>
-        EventsRange(
-          startExclusive = (Offset.beforeBegin, 0),
-          endInclusive = (activeAt, x.endInclusive),
-        )
-      }
 
   private def getEventSeqIdRange(
       startExclusive: Offset,
       endInclusive: Offset,
-  )(implicit loggingContext: LoggingContext): Future[EventsRange[(Offset, Long)]] =
+  )(implicit loggingContext: LoggingContext): Future[EventsRange] =
     dispatcher
       .executeSql(dbMetrics.getEventSeqIdRange)(implicit connection =>
         queryNonPruned.executeSql(
-          eventSeqIdReader.readEventSeqIdRange(EventsRange(startExclusive, endInclusive))(
-            connection
+          EventsRange(
+            startExclusiveOffset = startExclusive,
+            startExclusiveEventSeqId = eventStorageBackend.maxEventSequentialId(
+              startExclusive
+            )(connection),
+            endInclusiveOffset = endInclusive,
+            endInclusiveEventSeqId =
+              eventStorageBackend.maxEventSequentialId(endInclusive)(connection),
           ),
           startExclusive,
           pruned =>
             s"Transactions request from ${startExclusive.toHexString} to ${endInclusive.toHexString} precedes pruned offset ${pruned.toHexString}",
-        )
-      )
-      .map(x =>
-        EventsRange(
-          startExclusive = (startExclusive, x.startExclusive),
-          endInclusive = (endInclusive, x.endInclusive),
         )
       )
 
@@ -199,7 +189,7 @@ private[dao] object TransactionsReader {
   def offsetFor(response: GetTransactionTreesResponse): Offset =
     ApiOffset.assertFromString(response.transactions.head.offset)
 
-  def endSpanOnTermination[Mat, Out](
+  def endSpanOnTermination[Mat](
       span: Span
   )(mat: Mat, done: Future[Done])(implicit ec: ExecutionContext): Mat = {
     done.onComplete {

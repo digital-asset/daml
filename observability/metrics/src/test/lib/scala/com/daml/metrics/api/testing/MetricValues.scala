@@ -111,14 +111,14 @@ trait MetricValues {
 
     def values: Seq[Long] = histogram match {
       case histogram: InMemoryHistogram =>
-        singleValueFromContexts(histogram.recordedValues.toMap.view.mapValues(_.toSeq).toMap)
+        singleValueFromContexts(histogram.recordedValues)
       case other =>
         throw new IllegalArgumentException(s"Values not supported for $other")
     }
 
     def valuesWithContext: Map[MetricsContext, Seq[Long]] = histogram match {
       case histogram: InMemoryHistogram =>
-        histogram.recordedValues.toMap.view.mapValues(_.toSeq).toMap
+        histogram.recordedValues
       case other =>
         throw new IllegalArgumentException(s"Values not supported for $other")
     }
@@ -138,28 +138,28 @@ trait MetricValues {
     def count: Long = timer match {
       case DropwizardTimer(_, metric) => metric.getCount
       case timer: InMemoryTimer =>
-        singleValueFromContexts(timer.data.recordedValues.toMap.view.mapValues(_.size.toLong).toMap)
+        singleValueFromContexts(timer.data.recordedValues.view.mapValues(_.size.toLong).toMap)
       case other =>
         throw new IllegalArgumentException(s"Count not supported for $other")
     }
 
     def countsWithContext: Map[MetricsContext, Long] = timer match {
       case timer: InMemoryTimer =>
-        timer.data.recordedValues.toMap.view.mapValues(_.size.toLong).toMap
+        timer.data.recordedValues.view.mapValues(_.size.toLong).toMap
       case other =>
         throw new IllegalArgumentException(s"Counts not supported for $other")
     }
 
     def values: Seq[Long] = timer match {
       case timer: InMemoryTimer =>
-        singleValueFromContexts(timer.data.recordedValues.toMap.view.mapValues(_.toSeq).toMap)
+        singleValueFromContexts(timer.data.recordedValues)
       case other =>
         throw new IllegalArgumentException(s"Count not supported for $other")
     }
 
     def valuesWithContext: Map[MetricsContext, Seq[Long]] = timer match {
       case timer: InMemoryTimer =>
-        timer.data.recordedValues.toMap.view.mapValues(_.toSeq).toMap
+        timer.data.recordedValues
       case other =>
         throw new IllegalArgumentException(s"Values not supported for $other")
     }
@@ -188,6 +188,8 @@ object MetricValues extends MetricValues {
   ): T = if (contextToValueMapping.size == 1)
     contextToValueMapping.head._2
   else
-    throw new IllegalArgumentException("Cannot get value with multi context metrics.")
+    throw new IllegalArgumentException(
+      s"Cannot get value with multi context metrics. All contexts: $contextToValueMapping"
+    )
 
 }

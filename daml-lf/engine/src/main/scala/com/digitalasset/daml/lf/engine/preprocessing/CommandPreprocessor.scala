@@ -6,12 +6,9 @@ package engine
 package preprocessing
 
 import com.daml.lf.data._
-import com.daml.lf.engine.Error.Preprocessing.DuplicateDisclosedContractId
 import com.daml.lf.language.Ast
 import com.daml.lf.value.Value
 import com.daml.scalautil.Statement.discard
-
-import scala.collection.mutable
 
 private[lf] final class CommandPreprocessor(
     pkgInterface: language.PackageInterface,
@@ -30,7 +27,21 @@ private[lf] final class CommandPreprocessor(
   def unsafePreprocessDisclosedContract(
       disc: command.DisclosedContract
   ): speedy.DisclosedContract = {
-    discard(handleLookup(pkgInterface.lookupTemplate(disc.templateId)))
+    val tmpl = handleLookup(pkgInterface.lookupTemplate(disc.templateId))
+    (tmpl.key, disc.metadata.keyHash) match {
+      case (Some(_), None) =>
+        throw Error.Preprocessing.MissingDisclosedContractKeyHash(
+          disc.contractId,
+          disc.templateId,
+        )
+      case (None, Some(hash)) =>
+        throw Error.Preprocessing.UnexpectedDisclosedContractKeyHash(
+          disc.contractId,
+          disc.templateId,
+          hash,
+        )
+      case _ =>
+    }
     val arg = valueTranslator.unsafeTranslateValue(Ast.TTyCon(disc.templateId), disc.argument)
     val coid = valueTranslator.unsafeTranslateCid(disc.contractId)
     speedy.DisclosedContract(
@@ -217,18 +228,19 @@ private[lf] final class CommandPreprocessor(
   def unsafePreprocessDisclosedContracts(
       discs: ImmArray[command.DisclosedContract]
   ): ImmArray[speedy.DisclosedContract] = {
-    val contractIds: mutable.Set[Value.ContractId] = mutable.Set.empty
+    var contractIds: Set[Value.ContractId] = Set.empty
+    var contractKeys: Set[crypto.Hash] = Set.empty
 
     discs.map { disclosedContract =>
-      if (contractIds.contains(disclosedContract.contractId)) {
-        throw DuplicateDisclosedContractId(
-          disclosedContract.contractId,
-          disclosedContract.templateId,
-        )
-      } else {
-        discard(contractIds += disclosedContract.contractId)
-        unsafePreprocessDisclosedContract(disclosedContract)
+      if (contractIds.contains(disclosedContract.contractId))
+        throw Error.Preprocessing.DuplicateDisclosedContractId(disclosedContract.contractId)
+      contractIds += disclosedContract.contractId
+      disclosedContract.metadata.keyHash.foreach { hash =>
+        if (contractKeys.contains(hash))
+          throw Error.Preprocessing.DuplicateDisclosedContractKey(hash)
+        contractKeys += hash
       }
+      unsafePreprocessDisclosedContract(disclosedContract)
     }
   }
 

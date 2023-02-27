@@ -44,4 +44,8 @@ trait IndexTransactionsService extends LedgerEndService {
       transactionId: TransactionId,
       requestingParties: Set[Ref.Party],
   )(implicit loggingContext: LoggingContext): Future[Option[GetTransactionResponse]]
+
+  def latestPrunedOffsets()(implicit
+      loggingContext: LoggingContext
+  ): Future[(LedgerOffset.Absolute, LedgerOffset.Absolute)]
 }

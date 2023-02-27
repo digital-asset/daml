@@ -70,7 +70,7 @@ private[apiserver] final class LedgerTimeAwareCommandExecutor(
             loop(c, submissionSeed, ledgerConfiguration, retriesLeft - 1)
           }
 
-          resolveMaximumLedgerTime(cer.usedDisclosedContracts.map(_.unversioned), usedContractIds)
+          resolveMaximumLedgerTime(cer.processedDisclosedContracts, usedContractIds)
             .transformWith {
               case Success(MaximumLedgerTime.NotAvailable) =>
                 success(cer)

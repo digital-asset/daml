@@ -34,9 +34,11 @@ class TreeEventsObserver(expectedTemplateNames: Set[String], logger: Logger)
       allEvents = transaction.eventsById.values
       event <- allEvents
     } {
-      event.kind.created.foreach(created => createEvents.addOne(ObservedCreateEvent(created)))
+      event.kind.created.foreach(created =>
+        createEvents.addOne(ObservedCreateEvent(created, offset = transaction.offset))
+      )
       event.kind.exercised.foreach(exercised =>
-        exerciseEvents.addOne(ObservedExerciseEvent(exercised))
+        exerciseEvents.addOne(ObservedExerciseEvent(exercised, offset = transaction.offset))
       )
     }
   }

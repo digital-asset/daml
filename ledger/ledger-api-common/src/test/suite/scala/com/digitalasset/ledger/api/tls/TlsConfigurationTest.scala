@@ -140,7 +140,7 @@ class TlsConfigurationTest extends AnyWordSpec with Matchers with BeforeAndAfter
 
   private def configWithProtocols(minTls: Option[TlsVersion]): Option[TlsConfiguration] = {
     List("server.crt", "server.pem", "ca.crt").map { src =>
-      new File(rlocation("ledger/test-common/test-certificates/" + src))
+      new File(rlocation("test-common/test-certificates/" + src))
     } match {
       case List(
             certChainFilePath,

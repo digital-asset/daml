@@ -12,6 +12,7 @@ module DA.Daml.LF.TypeChecker.Error(
     toDiagnostic,
     ) where
 
+import Control.Applicative
 import DA.Pretty
 import qualified Data.Text as T
 import Development.IDE.Types.Diagnostics
@@ -35,20 +36,20 @@ data Context
 
 data TemplatePart
   = TPWhole
-  | TPStakeholders
   | TPPrecondition
   | TPSignatories
   | TPObservers
   | TPAgreement
   | TPKey
+  -- ^ Specifically the `key` keyword, not maintainers
   | TPChoice TemplateChoice
-  | TPInterfaceInstance InterfaceInstanceHead
+  | TPInterfaceInstance InterfaceInstanceHead (Maybe SourceLoc)
 
 data InterfacePart
   = IPWhole
   | IPMethod InterfaceMethod
   | IPChoice TemplateChoice
-  | IPInterfaceInstance InterfaceInstanceHead
+  | IPInterfaceInstance InterfaceInstanceHead (Maybe SourceLoc)
 
 data SerializabilityRequirement
   = SRTemplateArg
@@ -164,13 +165,40 @@ data Error
 
 contextLocation :: Context -> Maybe SourceLoc
 contextLocation = \case
-  ContextNone            -> Nothing
-  ContextDefTypeSyn _ s  -> synLocation s
-  ContextDefDataType _ d -> dataLocation d
-  ContextTemplate _ t _  -> tplLocation t
-  ContextDefValue _ v    -> dvalLocation v
-  ContextDefException _ e -> exnLocation e
-  ContextDefInterface _ i _ -> intLocation i
+  ContextNone                -> Nothing
+  ContextDefTypeSyn _ s      -> synLocation s
+  ContextDefDataType _ d     -> dataLocation d
+  ContextTemplate _ t tp     -> templateLocation t tp <|> tplLocation t -- Fallback to template header location if other locations are missing
+  ContextDefValue _ v        -> dvalLocation v
+  ContextDefException _ e    -> exnLocation e
+  ContextDefInterface _ i ip -> interfaceLocation i ip <|> intLocation i -- Fallback to interface header location if other locations are missing
+
+templateLocation :: Template -> TemplatePart -> Maybe SourceLoc
+templateLocation t = \case
+  TPWhole -> tplLocation t
+  TPPrecondition -> extractExprSourceLoc $ tplPrecondition t
+  TPSignatories -> extractExprSourceLoc $ tplSignatories t
+  TPObservers -> extractExprSourceLoc $ tplObservers t 
+  TPAgreement -> extractExprSourceLoc $ tplAgreement t
+  TPKey -> tplKey t >>= extractExprSourceLoc . tplKeyBody
+  TPChoice tc -> chcLocation tc
+  TPInterfaceInstance _ loc -> loc
+
+-- This function is untested and difficult to test with current architecture. It is written as best effort, but any failure on its part simply falls back to
+-- template/interface header source location.
+-- This function isn't easily testable because GHC catches these errors before daml gets to them.
+extractExprSourceLoc :: Expr -> Maybe SourceLoc
+extractExprSourceLoc (ELocation loc _) = Just loc
+extractExprSourceLoc (ETmApp f _) = extractExprSourceLoc f -- All 4 of the Expr values in Template are wrapped in ($ this), so we match this out
+extractExprSourceLoc (ECase c _) = extractExprSourceLoc c -- Precondition wraps the bool in a case when featureExceptions is supported
+extractExprSourceLoc _ = Nothing
+
+interfaceLocation :: DefInterface -> InterfacePart -> Maybe SourceLoc
+interfaceLocation i = \case
+  IPWhole -> intLocation i
+  IPMethod im -> ifmLocation im
+  IPChoice tc -> chcLocation tc
+  IPInterfaceInstance _ loc -> loc
 
 errorLocation :: Error -> Maybe SourceLoc
 errorLocation = \case
@@ -196,21 +224,20 @@ instance Show Context where
 instance Show TemplatePart where
   show = \case
     TPWhole -> ""
-    TPStakeholders -> "stakeholders"
     TPPrecondition -> "precondition"
     TPSignatories -> "signatories"
     TPObservers -> "observers"
     TPAgreement -> "agreement"
     TPKey -> "key"
     TPChoice choice -> "choice " <> T.unpack (unChoiceName $ chcName choice)
-    TPInterfaceInstance iiHead -> renderPretty iiHead
+    TPInterfaceInstance iiHead _ -> renderPretty iiHead
 
 instance Show InterfacePart where
   show = \case
     IPWhole -> ""
     IPMethod method -> "method " <> T.unpack (unMethodName $ ifmName method)
     IPChoice choice -> "choice " <> T.unpack (unChoiceName $ chcName choice)
-    IPInterfaceInstance iiHead -> renderPretty iiHead
+    IPInterfaceInstance iiHead _ -> renderPretty iiHead
 
 instance Pretty SerializabilityRequirement where
   pPrint = \case
@@ -452,7 +479,7 @@ instance Pretty Error where
       "unsupported feature:" <-> pretty featureName
       <-> "only supported in Daml-LF version" <-> pretty featureMinVersion <-> "and later"
     EForbiddenNameCollision name names ->
-      "name collision between " <-> pretty name <-> " and " <-> pretty (T.intercalate ", " names)
+      "name collision between" <-> pretty name <-> "and" <-> pretty (T.intercalate ", " names)
     ESynAppWrongArity DefTypeSyn{synName,synParams} args ->
       vcat ["wrong arity in type synonym application: " <> pretty synName,
             "expected: " <> pretty (length synParams) <> ", found: " <> pretty (length args)]

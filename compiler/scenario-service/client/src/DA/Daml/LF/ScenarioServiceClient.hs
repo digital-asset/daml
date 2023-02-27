@@ -19,9 +19,12 @@ module DA.Daml.LF.ScenarioServiceClient
   , gcCtxs
   , runScenario
   , runScript
+  , runLiveScript
+  , runLiveScenario
   , LowLevel.BackendError(..)
   , LowLevel.Error(..)
   , LowLevel.ScenarioResult(..)
+  , LowLevel.ScenarioStatus(..)
   , LowLevel.WarningMessage(..)
   , LowLevel.Location(..)
   , Hash
@@ -66,7 +69,8 @@ toLowLevelOpts :: LF.Version -> Options -> LowLevel.Options
 toLowLevelOpts optDamlLfVersion Options{..} =
     LowLevel.Options{..}
     where
-        optRequestTimeout = fromMaybe 60 $ cnfGrpcTimeout optScenarioServiceConfig
+        optGrpcTimeout = fromMaybe 70 $ cnfGrpcTimeout optScenarioServiceConfig
+        optEvaluationTimeout = fromMaybe 60 $ cnfEvaluationTimeout optScenarioServiceConfig
         optGrpcMaxMessageSize = cnfGrpcMaxMessageSize optScenarioServiceConfig
         optJvmOptions = cnfJvmOptions optScenarioServiceConfig
 
@@ -134,6 +138,7 @@ withScenarioService' (EnableScenarioService enable) enableScenarios ver loggerH 
 data ScenarioServiceConfig = ScenarioServiceConfig
     { cnfGrpcMaxMessageSize :: Maybe Int -- In bytes
     , cnfGrpcTimeout :: Maybe LowLevel.TimeoutSeconds
+    , cnfEvaluationTimeout :: Maybe LowLevel.TimeoutSeconds
     , cnfJvmOptions :: [String]
     } deriving Show
 
@@ -141,6 +146,7 @@ defaultScenarioServiceConfig :: ScenarioServiceConfig
 defaultScenarioServiceConfig = ScenarioServiceConfig
     { cnfGrpcMaxMessageSize = Nothing
     , cnfGrpcTimeout = Nothing
+    , cnfEvaluationTimeout = Nothing
     , cnfJvmOptions = []
     }
 
@@ -157,6 +163,7 @@ parseScenarioServiceConfig :: ProjectConfig -> Either ConfigError ScenarioServic
 parseScenarioServiceConfig conf = do
     cnfGrpcMaxMessageSize <- queryOpt "grpc-max-message-size"
     cnfGrpcTimeout <- queryOpt "grpc-timeout"
+    cnfEvaluationTimeout <- queryOpt "evaluation-timeout"
     cnfJvmOptions <- fromMaybe [] <$> queryOpt "jvm-options"
     pure ScenarioServiceConfig {..}
   where queryOpt opt = do
@@ -225,6 +232,12 @@ runScenario h ctxId name = run (\h -> LowLevel.runScenario h ctxId name) h
 
 runScript :: Handle -> LowLevel.ContextId -> LF.ValueRef -> IO (Either LowLevel.Error LowLevel.ScenarioResult)
 runScript h ctxId name = run (\h -> LowLevel.runScript h ctxId name) h
+
+runLiveScenario :: Handle -> LowLevel.ContextId -> LF.ValueRef -> (LowLevel.ScenarioStatus -> IO ()) -> IO (Either LowLevel.Error LowLevel.ScenarioResult)
+runLiveScenario h ctxId name statusUpdateHandler = run (\h -> LowLevel.runLiveScenario h ctxId name statusUpdateHandler) h
+
+runLiveScript :: Handle -> LowLevel.ContextId -> LF.ValueRef -> (LowLevel.ScenarioStatus -> IO ()) -> IO (Either LowLevel.Error LowLevel.ScenarioResult)
+runLiveScript h ctxId name statusUpdateHandler = run (\h -> LowLevel.runLiveScript h ctxId name statusUpdateHandler) h
 
 run :: (LowLevel.Handle -> IO (Either LowLevel.Error r)) -> Handle -> IO (Either LowLevel.Error r)
 run f Handle{..} = do

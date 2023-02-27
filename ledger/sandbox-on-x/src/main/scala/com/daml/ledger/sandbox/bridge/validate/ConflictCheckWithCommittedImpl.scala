@@ -14,10 +14,12 @@ import com.daml.ledger.sandbox.bridge.validate.ConflictCheckingLedgerBridge._
 import com.daml.ledger.sandbox.domain.Rejection
 import com.daml.ledger.sandbox.domain.Rejection._
 import com.daml.ledger.sandbox.domain.Submission.Transaction
-import com.daml.lf.command.ProcessedDisclosedContract
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.data.{ImmArray, Ref}
-import com.daml.lf.transaction.{Versioned, Transaction => LfTransaction}
+import com.daml.lf.transaction.{
+  ProcessedDisclosedContract => LfProcessedDisclosedContract,
+  Transaction => LfTransaction,
+}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
@@ -68,7 +70,7 @@ private[validate] class ConflictCheckWithCommittedImpl(
     val eitherTF: EitherT[Future, Rejection, Unit] =
       for {
         _ <- validateExplicitDisclosure(
-          submission.disclosedContracts,
+          submission.processedDisclosedContracts,
           submission.submitterInfo.toCompletionInfo(),
         )
         _ <- validateCausalMonotonicity(
@@ -154,24 +156,24 @@ private[validate] class ConflictCheckWithCommittedImpl(
     }.invertToEitherT
 
   private def validateExplicitDisclosure(
-      disclosedContracts: ImmArray[Versioned[ProcessedDisclosedContract]],
+      processedDisclosedContracts: ImmArray[LfProcessedDisclosedContract],
       completionInfo: CompletionInfo,
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger,
       loggingContext: LoggingContext,
   ): EitherT[Future, Rejection, Unit] =
     // Validation fails fast on the first unknown/invalid contract.
-    disclosedContracts.toList.collectFirstSomeM { disclosedContract =>
+    processedDisclosedContracts.toList.collectFirstSomeM { processedDisclosedContract =>
       val validation = for {
-        _ <- validateDisclosedContractPayload(disclosedContract, completionInfo)
-        _ <- validateDriverMetadataContractId(completionInfo, disclosedContract)
+        _ <- validateDisclosedContractPayload(processedDisclosedContract, completionInfo)
+        _ <- validateDriverMetadataContractId(completionInfo, processedDisclosedContract)
       } yield ()
 
       validation.value.map(_.left.toOption)
     }.invertToEitherT
 
   private def validateDisclosedContractPayload(
-      provided: Versioned[ProcessedDisclosedContract],
+      provided: LfProcessedDisclosedContract,
       completionInfo: CompletionInfo,
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger,
@@ -179,61 +181,58 @@ private[validate] class ConflictCheckWithCommittedImpl(
   ): EitherT[Future, Rejection, Unit] =
     EitherT(
       indexService
-        .lookupContractStateWithoutDivulgence(provided.unversioned.contractId)
+        .lookupContractStateWithoutDivulgence(provided.contractId)
         .map {
           case ContractState.Archived | ContractState.NotFound =>
             // Disclosed contract was archived or never existed
-            Left(UnknownContracts(Set(provided.unversioned.contractId))(completionInfo))
+            Left(UnknownContracts(Set(provided.contractId))(completionInfo))
           case ContractState.Active(contractInstance, ledgerEffectiveTime) =>
             sameContractData(contractInstance, ledgerEffectiveTime, provided).left.map {
               errMessage =>
                 logger.info(errMessage)
-                DisclosedContractInvalid(provided.unversioned.contractId, completionInfo)
+                DisclosedContractInvalid(provided.contractId, completionInfo)
             }
         }
     )
 
   private def validateDriverMetadataContractId(
       completionInfo: CompletionInfo,
-      provided: Versioned[ProcessedDisclosedContract],
+      provided: LfProcessedDisclosedContract,
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): EitherT[Future, Rejection, Unit] =
     EitherT
       .fromEither[Future](
         ContractId.V1
-          .fromString(provided.unversioned.metadata.driverMetadata.toHexString)
+          .fromString(provided.driverMetadata.toHexString)
       )
-      .leftMap(_ =>
-        Rejection.DisclosedContractInvalid(provided.unversioned.contractId, completionInfo)
-      )
+      .leftMap(_ => Rejection.DisclosedContractInvalid(provided.contractId, completionInfo))
       .subflatMap(decodedCid =>
         Either.cond(
-          decodedCid == provided.unversioned.contractId,
+          decodedCid == provided.contractId,
           (),
           Rejection
-            .DisclosedContractInvalid(provided.unversioned.contractId, completionInfo),
+            .DisclosedContractInvalid(provided.contractId, completionInfo),
         )
       )
 
   private def sameContractData(
       actualContractInstance: Value.VersionedContractInstance,
       actualLedgerEffectiveTime: Timestamp,
-      provided: Versioned[ProcessedDisclosedContract],
+      provided: LfProcessedDisclosedContract,
   ): Either[String, Unit] = {
-    val providedContractId = provided.unversioned.contractId
+    val providedContractId = provided.contractId
 
     val actualTemplate = actualContractInstance.unversioned.template
-    val providedTemplate = provided.unversioned.templateId
+    val providedTemplate = provided.templateId
 
-    val actualArgument = actualContractInstance.unversioned.arg
-    val providedArgument = provided.unversioned.argument
+    val providedContractInstance = provided.create.versionedCoinst
 
-    val providedLet = provided.unversioned.metadata.createdAt
+    val providedLet = provided.createdAt
 
     if (actualTemplate != providedTemplate)
       Left(s"Disclosed contract $providedContractId has invalid template id")
-    else if (actualArgument != providedArgument)
+    else if (actualContractInstance != providedContractInstance)
       Left(s"Disclosed contract $providedContractId has invalid argument")
     else if (actualLedgerEffectiveTime != providedLet)
       Left(s"Disclosed contract $providedContractId has invalid ledgerEffectiveTime")

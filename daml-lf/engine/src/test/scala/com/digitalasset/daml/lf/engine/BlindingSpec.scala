@@ -101,7 +101,7 @@ class BlindingSpec extends AnyFreeSpec with Matchers {
       argument = ValueRecord(None, ImmArray.empty),
       signatories = Seq("Alice", "Bob"),
       observers = Seq("Carl"),
-      key = Some(ValueRecord(None, ImmArray.empty)),
+      keyOpt = Some(ValueRecord(None, ImmArray.empty)),
       maintainers = Seq("Alice"),
     )
     val lookup = builder.lookupByKey(create, true)
@@ -122,7 +122,7 @@ class BlindingSpec extends AnyFreeSpec with Matchers {
       argument = ValueRecord(None, ImmArray.empty),
       signatories = Seq("Alice", "Bob"),
       observers = Seq("Carl"),
-      key = Some(ValueRecord(None, ImmArray.empty)),
+      keyOpt = Some(ValueRecord(None, ImmArray.empty)),
       maintainers = Seq("Alice"),
     )
     val lookup = builder.lookupByKey(create, false)

@@ -43,6 +43,8 @@ class ServicesMetrics(
     @MetricDoc.FanInstanceTag
     val currentLedgerEnd: Timer = factory.timer(prefix :+ "current_ledger_end")
     @MetricDoc.FanInstanceTag
+    val latestPrunedOffsets: Timer = factory.timer(prefix :+ "latest_pruned_offsets")
+    @MetricDoc.FanInstanceTag
     val getCompletions: Timer = factory.timer(prefix :+ "get_completions")
     @MetricDoc.FanInstanceTag
     val getCompletionsLimited: Timer = factory.timer(prefix :+ "get_completions_limited")
@@ -64,6 +66,10 @@ class ServicesMetrics(
     )
     @MetricDoc.FanInstanceTag
     val lookupContractKey: Timer = factory.timer(prefix :+ "lookup_contract_key")
+    @MetricDoc.FanInstanceTag
+    val getEventsByContractId: Timer = factory.timer(prefix :+ "get_events_by_contract_id")
+    @MetricDoc.FanInstanceTag
+    val getEventsByContractKey: Timer = factory.timer(prefix :+ "get_events_by_contract_key")
     @MetricDoc.FanInstanceTag
     val lookupMaximumLedgerTime: Timer = factory.timer(prefix :+ "lookup_maximum_ledger_time")
     @MetricDoc.FanInstanceTag

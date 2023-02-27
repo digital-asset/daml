@@ -116,6 +116,8 @@ input2 AS (
     FROM input1
     GROUP BY t, o
 )
-SELECT t, o, first_i, last_i FROM input2;
+SELECT t, o, first_i, last_i FROM input2, parameters WHERE
+   parameters.participant_pruned_up_to_inclusive is null
+   or o > parameters.participant_pruned_up_to_inclusive;
 
 DROP FUNCTION etq_array_diff;

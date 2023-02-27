@@ -7,12 +7,12 @@ import akka.stream.Materializer
 import com.daml.api.util.DurationConversion._
 import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
 import com.daml.grpc.adapter.ExecutionSequencerFactory
-import com.daml.grpc.adapter.server.akka.StreamingServiceLifecycleManagement
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.v1.ledger_configuration_service._
 import com.daml.ledger.participant.state.index.v2.IndexConfigurationService
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.api.grpc.GrpcApiService
+import com.daml.platform.server.api.services.grpc.StreamingServiceLifecycleManagement
 import com.daml.platform.server.api.validation.LedgerConfigurationServiceValidation
 import io.grpc.stub.StreamObserver
 import io.grpc.{BindableService, ServerServiceDefinition}

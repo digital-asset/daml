@@ -7,7 +7,6 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
 import com.daml.grpc.adapter.ExecutionSequencerFactory
-import com.daml.grpc.adapter.server.akka.StreamingServiceLifecycleManagement
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.transaction_service._
@@ -96,7 +95,7 @@ final class GrpcTransactionService(
 
   override def getTransactionByEventId(
       request: GetTransactionByEventIdRequest
-  ): Future[GetTransactionResponse] = {
+  ): Future[GetTransactionResponse] =
     withEnrichedLoggingContext(traceId(telemetry.traceIdFromGrpcContext)) {
       implicit loggingContext =>
         getSingleTransaction(
@@ -105,11 +104,10 @@ final class GrpcTransactionService(
           service.getTransactionByEventId,
         )
     }
-  }
 
   override def getTransactionById(
       request: GetTransactionByIdRequest
-  ): Future[GetTransactionResponse] = {
+  ): Future[GetTransactionResponse] =
     withEnrichedLoggingContext(traceId(telemetry.traceIdFromGrpcContext)) {
       implicit loggingContext =>
         getSingleTransaction(
@@ -118,11 +116,10 @@ final class GrpcTransactionService(
           service.getTransactionById,
         )
     }
-  }
 
   override def getFlatTransactionByEventId(
       request: GetTransactionByEventIdRequest
-  ): Future[GetFlatTransactionResponse] = {
+  ): Future[GetFlatTransactionResponse] =
     withEnrichedLoggingContext(traceId(telemetry.traceIdFromGrpcContext)) {
       implicit loggingContext =>
         getSingleTransaction(
@@ -131,11 +128,10 @@ final class GrpcTransactionService(
           service.getFlatTransactionByEventId,
         )
     }
-  }
 
   override def getFlatTransactionById(
       request: GetTransactionByIdRequest
-  ): Future[GetFlatTransactionResponse] = {
+  ): Future[GetFlatTransactionResponse] =
     withEnrichedLoggingContext(traceId(telemetry.traceIdFromGrpcContext)) {
       implicit loggingContext =>
         getSingleTransaction(
@@ -144,7 +140,6 @@ final class GrpcTransactionService(
           service.getFlatTransactionById,
         )
     }
-  }
 
   override def getLedgerEnd(request: GetLedgerEndRequest): Future[GetLedgerEndResponse] = {
     val validation = validator.validateLedgerEnd(request)
@@ -163,4 +158,7 @@ final class GrpcTransactionService(
   override def bindService(): ServerServiceDefinition =
     TransactionServiceGrpc.bindService(this, executionContext)
 
+  override def getLatestPrunedOffsets(
+      request: GetLatestPrunedOffsetsRequest
+  ): Future[GetLatestPrunedOffsetsResponse] = service.getLatestPrunedOffsets
 }

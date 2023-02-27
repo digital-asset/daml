@@ -159,6 +159,7 @@ da_haskell_library(
         "base",
         "base64",
         "base64-bytestring",
+        "blaze-html",
         "bytestring",
         "containers",
         "cryptonite",

@@ -13,7 +13,12 @@ import com.daml.lf.ledger._
 import com.daml.lf.data.Ref._
 import com.daml.lf.scenario.ScenarioLedger.{TransactionId, Disclosure}
 import com.daml.lf.scenario._
-import com.daml.lf.transaction.{Node, NodeId, TransactionVersion => TxVersion}
+import com.daml.lf.transaction.{
+  GlobalKeyWithMaintainers,
+  Node,
+  NodeId,
+  TransactionVersion => TxVersion,
+}
 import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.speedy.SBuiltin._
@@ -62,6 +67,10 @@ private[lf] object Pretty {
           "Update failed due to fetch-by-key or exercise-by-key which did not find a contract with key"
         ) &
           prettyValue(false)(gk.key) & char('(') + prettyIdentifier(gk.templateId) + char(')')
+      case RejectedAuthorityRequest(holding, requesting) =>
+        text("Update failed due to rejected authority request") &
+          text("holding:") & intercalate(comma + space, holding.map(prettyParty)) &
+          text("requesting:") & intercalate(comma + space, requesting.map(prettyParty))
       case ContractKeyNotVisible(coid, gk, actAs, readAs, stakeholders) =>
         text(
           "Update failed due to a fetch, lookup or exercise by key of contract not visible to the reading parties"
@@ -173,16 +182,19 @@ private[lf] object Pretty {
             case Some(interfaceId) => text("by interface") & prettyTypeConName(interfaceId)
           })
       )
-
-      case DisclosurePreprocessing(err) =>
-        err match {
-          case DisclosurePreprocessing.DuplicateContractKeys(templateId, keyHash) =>
-            text(
-              s"Found duplicated contract keys in submitted disclosed contracts for template $templateId and key hash ${keyHash.toHexString}"
-            )
-        }
     }
   }
+
+  // Format a list of `a, b, c` as `a, b and c`, selects correctly tensed verb and postfixes
+  def partiesAction(parties: Set[Party], singular: String, multiple: String): Doc =
+    parties.toList.map(p => text(p)) match {
+      case p :: Nil => p & text(singular)
+      case init :+ last => intercalate(text(", "), init) & text("and") & last & text(multiple)
+      case _ => // Should match Nil, but scala isn't smart enough to realise the other cases are covered, so this avoids warning
+        text("No-one/unknown") & text(
+          singular
+        )
+    }
 
   // A minimal pretty-print of an update transaction node, without recursing into child nodes..
   def prettyPartialTransactionNode(node: Node): Doc =
@@ -192,12 +204,14 @@ private[lf] object Pretty {
       case Node.Rollback(_) =>
         text("rollback")
       case create: Node.Create =>
-        "create" &: prettyContractInst(create.coinst)
+        partiesAction(create.signatories, "creates", "create") &
+          prettyContractInst(create.coinst)
       case fetch: Node.Fetch =>
-        "fetch" &: prettyContractId(fetch.coid)
+        partiesAction(fetch.signatories, "fetches", "fetch") &
+          prettyContractId(fetch.coid)
       case ex: Node.Exercise =>
-        intercalate(text(", "), ex.actingParties.map(p => text(p))) &
-          text("exercises") & text(ex.choiceId) + char(':') + prettyIdentifier(ex.templateId) &
+        partiesAction(ex.actingParties, "exercises", "exercise") &
+          text(ex.choiceId) + char(':') + prettyIdentifier(ex.templateId) &
           text("on") & prettyContractId(ex.targetCoid) /
           text("with") & prettyValue(false)(ex.chosenValue)
       case lbk: Node.LookupByKey =>
@@ -269,13 +283,9 @@ private[lf] object Pretty {
           prettyLoc(amf.optLocation)
     }
 
-  def prettyKeyWithMaintainers(key: Node.KeyWithMaintainers): Doc =
+  def prettyKeyWithMaintainers(key: GlobalKeyWithMaintainers): Doc =
     // the maintainers are induced from the key -- so don't clutter
-    prettyValue(false)(key.key)
-
-  def prettyVersionedKeyWithMaintainers(key: Node.VersionedKeyWithMaintainers): Doc =
-    // the maintainers are induced from the key -- so don't clutter
-    prettyKeyWithMaintainers(key.unversioned)
+    prettyValue(false)(key.value)
 
   def prettyEventInfo(l: ScenarioLedger, txId: TransactionId)(nodeId: NodeId): Doc = {
     def arrowRight(d: Doc) = text("└─>") & d
@@ -288,21 +298,23 @@ private[lf] object Pretty {
       case Node.Rollback(children) =>
         text("rollback:") / stack(children.toList.map(prettyEventInfo(l, txId)))
       case create: Node.Create =>
-        val d = "create" &: prettyContractInst(create.coinst)
-        create.versionedKey match {
+        val d =
+          partiesAction(create.signatories, "creates", "create") &
+            prettyContractInst(create.coinst)
+        create.keyOpt match {
           case None => d
-          case Some(key) => d / text("key") & prettyVersionedKeyWithMaintainers(key)
+          case Some(key) => d / text("key") & prettyKeyWithMaintainers(key)
         }
       case ea: Node.Fetch =>
-        "ensure active" &: prettyContractId(ea.coid)
+        partiesAction(ea.signatories, "fetches", "fetch") &
+          prettyContractId(ea.coid)
       case ex: Node.Exercise =>
         val children =
           if (ex.children.nonEmpty)
             text("children:") / stack(ex.children.toList.map(prettyEventInfo(l, txId)))
           else
             Doc.empty
-        intercalate(text(", "), ex.actingParties.map(p => text(p))) &
-          text("exercises") &
+        partiesAction(ex.actingParties, "exercises", "exercise") &
           text(ex.choiceId) + char(':') +
           prettyIdentifier(ex.interfaceId.getOrElse(ex.templateId)) &
           text("on") & prettyContractId(ex.targetCoid) /
@@ -310,7 +322,7 @@ private[lf] object Pretty {
             .nested(4)
       case lbk: Node.LookupByKey =>
         text("lookup by key") & prettyIdentifier(lbk.templateId) /
-          text("key") & prettyVersionedKeyWithMaintainers(lbk.versionedKey) /
+          text("key") & prettyKeyWithMaintainers(lbk.key) /
           (lbk.result match {
             case None => text("not found")
             case Some(coid) => text("found") & prettyContractId(coid)

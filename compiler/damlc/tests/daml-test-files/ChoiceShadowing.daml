@@ -1,0 +1,36 @@
+-- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+-- Check that name shadowing is allowed in choices, and that the argument takes precedence over the template
+
+{-# OPTIONS_GHC -Wno-ambiguous-fields #-}
+
+module ChoiceShadowing where
+
+import DA.Assert
+
+template T with
+    p : Party
+    p2 : Party
+  where
+    signatory p
+    observer [p, p2]
+
+    choice Call : ContractId T with
+        p : Party
+      controller p2
+      do
+        create T with
+          p = p
+          p2 = p2
+
+test1 = scenario do
+    alice <- getParty "Alice"
+    bob <- getParty "Bob"
+    cid <- submit alice $ create (T alice bob)
+    submit bob do
+      cid2 <- exercise cid (Call bob)
+      newT <- fetch cid2
+      newT === T bob bob
+
+-- @ENABLE-SCENARIOS

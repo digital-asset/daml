@@ -39,7 +39,7 @@ main = do
     scriptDar <- locateRunfiles (mainWorkspace </> "daml-script" </> "daml" </> "daml-script.dar")
     testDar <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> "tests" </> "repl-test.dar")
     multiTestDar <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> "tests" </> "repl-multi-test.dar")
-    certDir <- locateRunfiles (mainWorkspace </> "ledger" </> "test-common" </> "test-certificates")
+    certDir <- locateRunfiles (mainWorkspace </> "test-common" </> "test-certificates")
     defaultMain $ withSandbox defaultSandboxConf
                   { dars = [testDar]
                   , mbLedgerId = Just testLedgerId
@@ -213,7 +213,7 @@ testImport damlc scriptDar testDar imports successful = do
     let regexString :: String
         regexString
           | successful = "^daml> daml> .*: T {proposer = '.*', accepter = '.*'}\ndaml> Goodbye.\n$"
-          | otherwise  = "^daml> daml> File: .*\nHidden: .*\nRange: .*\nSource: .*\nSeverity: DsError\nMessage: .*: error:Data constructor not in scope: T : Party -> Party -> .*\ndaml> Goodbye.\n$"
+          | otherwise  = "^daml> daml> File: .*\nHidden: .*\nRange: .*\nSource: .*\nSeverity: DsError\nMessage: \n.*: error:\n    Data constructor not in scope: T : Party -> Party -> .*\ndaml> Goodbye.\n$"
     let regex = makeRegexOpts defaultCompOpt { multiline = False } defaultExecOpt regexString
     unless (matchTest regex out) $
         assertFailure (show out <> " did not match " <> show regexString <> ".")

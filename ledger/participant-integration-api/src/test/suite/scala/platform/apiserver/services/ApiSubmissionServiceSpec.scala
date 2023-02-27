@@ -13,13 +13,7 @@ import com.daml.ledger.participant.state.index.v2.IndexPartyManagementService
 import com.daml.ledger.participant.state.v2.{SubmissionResult, SubmitterInfo, TransactionMeta}
 import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.lf
-import com.daml.lf.command.{
-  ContractMetadata,
-  DisclosedContract,
-  EngineEnrichedContractMetadata,
-  ProcessedDisclosedContract,
-  ApiCommands => LfCommands,
-}
+import com.daml.lf.command.{ContractMetadata, DisclosedContract, ApiCommands => LfCommands}
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref.Identifier
 import com.daml.lf.data.Time.Timestamp
@@ -209,18 +203,17 @@ class ApiSubmissionServiceSpec
         driverMetadata = Bytes.Empty,
       ),
     )
-    val engineEnrichedDisclosedContract = ProcessedDisclosedContract(
+    val processedDisclosedContract = ProcessedDisclosedContract(
       templateId = Identifier.assertFromString("some:pkg:identifier"),
       contractId = TransactionBuilder.newCid,
       argument = Value.ValueNil,
-      metadata = EngineEnrichedContractMetadata(
-        createdAt = Timestamp.Epoch,
-        driverMetadata = Bytes.Empty,
-        signatories = Set.empty,
-        stakeholders = Set.empty,
-        maybeKeyWithMaintainers = None,
-        agreementText = "",
-      ),
+      createdAt = Timestamp.Epoch,
+      driverMetadata = Bytes.Empty,
+      signatories = Set.empty,
+      stakeholders = Set.empty,
+      keyOpt = None,
+      agreementText = "",
+      version = TransactionVersion.StableVersions.max,
     )
     val commands = Commands(
       ledgerId = None,
@@ -263,8 +256,7 @@ class ApiSubmissionServiceSpec
       optByKeyNodes = None,
     )
     val estimatedInterpretationCost = 5L
-    val explicitlyDisclosedContracts =
-      ImmArray(Versioned(TransactionVersion.VDev, engineEnrichedDisclosedContract))
+    val processedDisclosedContracts = ImmArray(processedDisclosedContract)
     val commandExecutionResult = CommandExecutionResult(
       submitterInfo = submitterInfo,
       transactionMeta = transactionMeta,
@@ -272,7 +264,7 @@ class ApiSubmissionServiceSpec
       dependsOnLedgerTime = false,
       interpretationTimeNanos = estimatedInterpretationCost,
       globalKeyMapping = Map.empty,
-      usedDisclosedContracts = explicitlyDisclosedContracts,
+      processedDisclosedContracts = processedDisclosedContracts,
     )
 
     when(ledgerConfigurationSubscription.latestConfiguration())
@@ -290,7 +282,7 @@ class ApiSubmissionServiceSpec
         eqTo(transaction),
         eqTo(estimatedInterpretationCost),
         eqTo(Map.empty),
-        eqTo(explicitlyDisclosedContracts),
+        eqTo(processedDisclosedContracts),
       )(any[LoggingContext], any[TelemetryContext])
     ).thenReturn(CompletableFuture.completedFuture(SubmissionResult.Acknowledged))
 

@@ -117,22 +117,43 @@ object Error {
       sealed abstract class Reason extends Serializable with Product {
         def details: String
       }
+
       case object NonSuffixV1ContractId extends Reason {
         def details = "non-suffixed V1 Contract IDs are forbidden"
+
         def apply(cid: Value.ContractId.V1): IllegalContractId = IllegalContractId(cid, this)
       }
     }
 
     final case class RootNode(nodeId: NodeId, override val message: String) extends Error
 
-    final case class BadDisclosedContract(message: String) extends Error
-
-    final case class DuplicateDisclosedContractId(
+    final case class UnexpectedDisclosedContractKeyHash(
         contractId: Value.ContractId,
-        templateId: Ref.Identifier,
+        templateId: Ref.TypeConName,
+        hash: crypto.Hash,
     ) extends Error {
       override def message: String =
-        s"Preprocessor encountered a duplicate disclosed contract ID $contractId for template $templateId"
+        s"Unexpected contract key hash for the disclosed contract ${contractId.coid} ($templateId)"
+    }
+
+    final case class MissingDisclosedContractKeyHash(
+        contractId: Value.ContractId,
+        templateId: Ref.TypeConName,
+    ) extends Error {
+      override def message: String =
+        s"Missing contract key hash for the disclosed contract ${contractId.coid} ($templateId)"
+    }
+
+    final case class DuplicateDisclosedContractId(
+        contractId: Value.ContractId
+    ) extends Error {
+      override def message: String =
+        s"Duplicate disclosed contract ID ${contractId.coid}"
+    }
+
+    final case class DuplicateDisclosedContractKey(keyHash: crypto.Hash) extends Error {
+      override def message: String =
+        s"Duplicate disclosed contract key hash ${keyHash.toHexString}"
     }
   }
 

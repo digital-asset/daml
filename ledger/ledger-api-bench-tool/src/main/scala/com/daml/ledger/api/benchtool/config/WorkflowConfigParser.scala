@@ -273,6 +273,9 @@ object WorkflowConfigParser {
     implicit val fooSubmissionConfigDecoder: Decoder[FooSubmissionConfig] =
       (c: HCursor) => {
         for {
+          allowNonTransientContracts <- c
+            .downField("allow_non_transient_contracts")
+            .as[Option[Boolean]]
           numInstances <- c.downField("num_instances").as[Int]
           numObservers <- c.downField("num_observers").as[Int]
           uniqueObservers <- c.downField("unique_parties").as[Boolean]
@@ -293,17 +296,18 @@ object WorkflowConfigParser {
             .downField("observers_party_sets")
             .as[Option[List[FooSubmissionConfig.PartySet]]]
         } yield FooSubmissionConfig(
-          numInstances,
-          numObservers,
-          uniqueObservers,
-          instancesDistribution,
-          numberOfDivulgees.getOrElse(0),
-          numberOfExtraSubmitters.getOrElse(0),
-          nonConsumingExercises,
-          consumingExercises,
-          applicationIds.getOrElse(List.empty),
-          maybeWaitForSubmission,
-          observerPartySets.getOrElse(List.empty),
+          allowNonTransientContracts = allowNonTransientContracts.getOrElse(false),
+          numberOfInstances = numInstances,
+          numberOfObservers = numObservers,
+          uniqueParties = uniqueObservers,
+          instanceDistribution = instancesDistribution,
+          numberOfDivulgees = numberOfDivulgees.getOrElse(0),
+          numberOfExtraSubmitters = numberOfExtraSubmitters.getOrElse(0),
+          nonConsumingExercises = nonConsumingExercises,
+          consumingExercises = consumingExercises,
+          applicationIds = applicationIds.getOrElse(List.empty),
+          maybeWaitForSubmission = maybeWaitForSubmission,
+          observerPartySets = observerPartySets.getOrElse(List.empty),
         )
       }
 
@@ -324,6 +328,26 @@ object WorkflowConfigParser {
           case invalid => Decoder.failedWithMessage(s"Invalid submission type: $invalid")
         }
 
+    val pruningConfigInternal: Decoder[PruningConfig] = (c: HCursor) => {
+      for {
+        name <- c.downField("name").as[String]
+        pruneAllDivulgedContracts <- c.downField("prune_all_divulged_contracts").as[Boolean]
+        maxDurationObjective <- c.downField("max_duration_objective").as[FiniteDuration]
+      } yield PruningConfig(
+        name = name,
+        pruneAllDivulgedContracts = pruneAllDivulgedContracts,
+        maxDurationObjective = maxDurationObjective,
+      )
+    }
+
+    implicit val pruningConfig: Decoder[PruningConfig] =
+      Decoder
+        .forProduct1[String, String]("type")(identity)
+        .flatMap[PruningConfig] {
+          case "pruning" => pruningConfigInternal
+          case invalid => Decoder.failedWithMessage(s"Invalid submission type: $invalid")
+        }
+
     implicit val workflowConfigDecoder: Decoder[WorkflowConfig] =
       (c: HCursor) =>
         for {
@@ -332,7 +356,8 @@ object WorkflowConfigParser {
             .downField("streams")
             .as[Option[List[WorkflowConfig.StreamConfig]]]
             .map(_.getOrElse(Nil))
-        } yield WorkflowConfig(submission, streams)
+          unary <- c.downField("unary").as[Option[List[PruningConfig]]]
+        } yield WorkflowConfig(submission, streams, unary.toList.flatten.headOption)
   }
 
 }

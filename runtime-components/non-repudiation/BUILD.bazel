@@ -18,9 +18,12 @@ da_scala_library(
         "//libs-scala/grpc-reverse-proxy",
         "//libs-scala/grpc-utils",
         "//libs-scala/resources",
+        "//observability/metrics",
         "//runtime-components/non-repudiation-core",
         "@maven//:com_google_guava_guava",
-        "@maven//:io_dropwizard_metrics_metrics_core",
+        "@maven//:io_opentelemetry_opentelemetry_api",
+        "@maven//:io_opentelemetry_opentelemetry_sdk_common",
+        "@maven//:io_opentelemetry_opentelemetry_sdk_metrics",
         "@maven//:org_slf4j_slf4j_api",
     ],
 )
@@ -30,7 +33,7 @@ da_scala_test(
     srcs = glob(["src/test/scala/**/*.scala"]),
     resources = [
         "src/test/resources/logback-test.xml",
-        "//ledger/test-common:dar-files",
+        "//test-common:dar-files",
     ],
     runtime_deps = [
         "@maven//:ch_qos_logback_logback_classic",
@@ -39,6 +42,7 @@ da_scala_test(
         ":non-repudiation",
         "//libs-scala/grpc-test-utils",
         "//libs-scala/resources",
+        "//observability/metrics",
         "//runtime-components/non-repudiation-client",
         "//runtime-components/non-repudiation-testing",
         "@maven//:com_google_protobuf_protobuf_java",

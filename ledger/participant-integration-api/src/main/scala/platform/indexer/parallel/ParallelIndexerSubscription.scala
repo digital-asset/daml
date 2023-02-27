@@ -291,8 +291,6 @@ object ParallelIndexerSubscription {
                 .updateValue(lastBatch.lastSeqEventId)
               metrics.daml.indexer.lastReceivedRecordTime
                 .updateValue(lastBatch.lastRecordTime)
-              metrics.daml.indexer.lastReceivedOffset
-                .updateValue(lastBatch.lastOffset.toHexString)
               logger.info("Ledger end updated in IndexDB")
               batchOfBatches
             }

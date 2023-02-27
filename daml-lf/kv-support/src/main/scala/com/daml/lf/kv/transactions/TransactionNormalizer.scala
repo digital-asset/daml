@@ -11,22 +11,25 @@ object TransactionNormalizer {
   // KV specific normalization.
   // Drop Fetch, Lookup and Rollback nodes from a transaction, keeping Create and Exercise.
   // Also drop everything contained with a rollback node
+  // Ignore Authority node, but traverse them
   def normalize(
       tx: CommittedTransaction
   ): CommittedTransaction = {
 
     val keepNids: Set[NodeId] =
       tx.foldInExecutionOrder[Set[NodeId]](Set.empty)(
-        (acc, nid, _) => (acc + nid, ChildrenRecursion.DoRecurse),
-        (acc, _, _) => (acc, ChildrenRecursion.DoNotRecurse),
-        (acc, nid, node) =>
+        exerciseBegin = (acc, nid, _) => (acc + nid, ChildrenRecursion.DoRecurse),
+        rollbackBegin = (acc, _, _) => (acc, ChildrenRecursion.DoNotRecurse),
+        authorityBegin = (acc, _, _) => (acc, ChildrenRecursion.DoRecurse),
+        leaf = (acc, nid, node) =>
           node match {
             case _: Node.Create => acc + nid
             case _: Node.Fetch => acc
             case _: Node.LookupByKey => acc
           },
-        (acc, _, _) => acc,
-        (acc, _, _) => acc,
+        exerciseEnd = (acc, _, _) => acc,
+        rollbackEnd = (acc, _, _) => acc,
+        authorityEnd = (acc, _, _) => acc,
       )
     val filteredNodes =
       tx.nodes

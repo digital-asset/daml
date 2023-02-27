@@ -306,7 +306,7 @@ object NormalizeRollbackSpec {
       agreementText = "dummyAgreement",
       signatories = Set.empty,
       stakeholders = Set.empty,
-      key = None,
+      keyOpt = None,
       version = TransactionVersion.minVersion,
     )
 
@@ -338,7 +338,7 @@ object NormalizeRollbackSpec {
       choiceObservers = Set.empty,
       children = children,
       exerciseResult = None,
-      key = None,
+      keyOpt = None,
       byKey = false,
       version = TransactionVersion.minVersion,
     )

@@ -13,10 +13,14 @@ service ScenarioService {
   // Run a scenario, returning the scenario results or an error.
   rpc RunScenario (RunScenarioRequest) returns (RunScenarioResponse);
 
+  rpc RunLiveScenario (RunScenarioRequest) returns (stream RunScenarioResponseOrStatus);
+
   // Run a script, returning the results or an error.
   // Note that we reuse the request and response types from scenarios.
   // We might want to switch to a more generic name.
   rpc RunScript (RunScenarioRequest) returns (RunScenarioResponse);
+
+  rpc RunLiveScript (RunScenarioRequest) returns (stream RunScenarioResponseOrStatus);
 
   // Allocate a new scenario interpretation context.
   // The context essentially defines the state consisting of a set of
@@ -43,6 +47,7 @@ service ScenarioService {
 
 message NewContextRequest {
   string lf_minor = 1;
+  int64 evaluation_timeout = 2;
 }
 
 message NewContextResponse {
@@ -240,11 +245,6 @@ message ScenarioError {
     Identifier requiring_interface_id = 2;
     Identifier required_interface_id = 3;
   }
-  
-  message DisclosurePreprocessingDuplicateContractKeys {
-    Identifier template_id = 1;
-    string key_hash = 2;
-  }
 
   // The state of the ledger at the time of the error
   repeated ScenarioStep scenario_steps = 1;
@@ -315,10 +315,9 @@ message ScenarioError {
     PartiesNotAllocated scenario_parties_not_allocated = 33;
     ChoiceGuardFailed choice_guard_failed = 34;
     ContractDoesNotImplementInterface contract_does_not_implement_interface = 35;
-    ContractDoesNotImplementRequiringInterface contract_does_not_implement_requiring_interface
-    = 36;
-    DisclosurePreprocessingDuplicateContractKeys disclosure_preprocessing_duplicate_contract_keys = 39;
-    DisclosedContractKeyHashingError disclosed_contract_key_hashing_error = 40;
+    ContractDoesNotImplementRequiringInterface contract_does_not_implement_requiring_interface = 36;
+    DisclosedContractKeyHashingError disclosed_contract_key_hashing_error = 39;
+    int64 evaluationTimeout = 40;
   }
 }
 
@@ -423,6 +422,14 @@ message RunScenarioResponse {
   }
 }
 
+message RunScenarioResponseOrStatus {
+  oneof response {
+    ScenarioError error = 1;
+    ScenarioResult result = 2;
+    ScenarioStatus status = 3;
+  }
+}
+
 message TraceMessage {
   Location location = 1; // optional
   string message = 2;
@@ -443,6 +450,11 @@ message ScenarioResult {
   repeated TraceMessage trace_log = 5;
   repeated WarningMessage warnings = 6;
   repeated string active_contracts = 7;
+}
+
+message ScenarioStatus {
+  uint64 millisecondsPassed = 1;
+  uint64 startedAt = 2;
 }
 
 message ScenarioStep {

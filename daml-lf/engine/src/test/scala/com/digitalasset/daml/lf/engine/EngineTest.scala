@@ -16,10 +16,10 @@ import com.daml.lf.transaction.{
   Node,
   NodeId,
   Normalization,
+  ProcessedDisclosedContract,
   ReplayMismatch,
   SubmittedTransaction,
   Validation,
-  Versioned,
   VersionedTransaction,
   Transaction => Tx,
   TransactionVersion => TxVersions,
@@ -775,31 +775,21 @@ class EngineTest
         key = usedContractSKey,
       )
 
-      val transactionVersion = {
-        // TODO https://github.com/digital-asset/daml/issues/15745
-        //      Do not hard code the transaction version
-        TxVersions.V14
-      }
+      val transactionVersion = TxVersions.assignNodeVersion(basicTestsPkg.languageVersion)
       val expectedProcessedDisclosedContract = ProcessedDisclosedContract(
         templateId = usedDisclosedContract.templateId,
-        contractId = usedDisclosedContract.contractId.value,
-        argument = usedDisclosedContract.argument.toNormalizedValue(transactionVersion),
-        metadata = EngineEnrichedContractMetadata(
-          createdAt = usedDisclosedContract.metadata.createdAt,
-          driverMetadata = usedDisclosedContract.metadata.driverMetadata,
-          signatories = Set(alice),
-          stakeholders = Set(alice),
-          maybeKeyWithMaintainers = Some(
-            Versioned(
-              transactionVersion,
-              GlobalKeyWithMaintainers(
-                GlobalKey.assertBuild(usedDisclosedContract.templateId, usedContractKey),
-                Set(alice),
-              ),
-            )
-          ),
-          agreementText = "",
+        usedDisclosedContract.contractId.value,
+        usedDisclosedContract.argument.toNormalizedValue(transactionVersion),
+        createdAt = usedDisclosedContract.metadata.createdAt,
+        driverMetadata = usedDisclosedContract.metadata.driverMetadata,
+        signatories = Set(alice),
+        stakeholders = Set(alice),
+        keyOpt = Some(
+          GlobalKeyWithMaintainers
+            .assertBuild(usedDisclosedContract.templateId, usedContractKey, Set(alice))
         ),
+        agreementText = "",
+        version = transactionVersion,
       )
 
       ExplicitDisclosureTesting.unusedDisclosedContractsNotSavedToLedger(
@@ -1537,7 +1527,7 @@ class EngineTest
         newEngine()
           .reinterpret(
             submitters,
-            ReplayCommand.LookupByKey(lookupNode.templateId, lookupNode.key.key),
+            ReplayCommand.LookupByKey(lookupNode.templateId, lookupNode.key.value),
             nodeSeedMap.get(nid),
             txMeta.submissionTime,
             now,
@@ -1581,7 +1571,7 @@ class EngineTest
         newEngine()
           .reinterpret(
             submitters,
-            ReplayCommand.LookupByKey(lookupNode.templateId, lookupNode.key.key),
+            ReplayCommand.LookupByKey(lookupNode.templateId, lookupNode.key.value),
             nodeSeedMap.get(nid),
             txMeta.submissionTime,
             now,
@@ -1674,28 +1664,19 @@ class EngineTest
         contractKey = usedContractSKey,
       )
 
-      val transactionVersion =
-        TxVersions.V14 // TODO(#15745) Do not hard code the transaction version
+      val transactionVersion = TxVersions.assignNodeVersion(basicTestsPkg.languageVersion)
       val expectedProcessedDisclosedContract = ProcessedDisclosedContract(
         templateId = usedDisclosedContract.templateId,
         contractId = usedDisclosedContract.contractId.value,
         argument = usedDisclosedContract.argument.toNormalizedValue(transactionVersion),
-        metadata = EngineEnrichedContractMetadata(
-          createdAt = usedDisclosedContract.metadata.createdAt,
-          driverMetadata = usedDisclosedContract.metadata.driverMetadata,
-          signatories = Set(alice),
-          stakeholders = Set(alice),
-          maybeKeyWithMaintainers = Some(
-            Versioned(
-              transactionVersion,
-              GlobalKeyWithMaintainers(
-                GlobalKey.assertBuild(templateId, usedContractKey),
-                Set(alice),
-              ),
-            )
-          ),
-          agreementText = "",
-        ),
+        createdAt = usedDisclosedContract.metadata.createdAt,
+        driverMetadata = usedDisclosedContract.metadata.driverMetadata,
+        signatories = Set(alice),
+        stakeholders = Set(alice),
+        keyOpt =
+          Some(GlobalKeyWithMaintainers.assertBuild(templateId, usedContractKey, Set(alice))),
+        agreementText = "",
+        version = transactionVersion,
       )
 
       ExplicitDisclosureTesting.unusedDisclosedContractsNotSavedToLedger(
@@ -1736,20 +1717,18 @@ class EngineTest
         coid = usedDisclosedContract.contractId,
       )
 
-      val transactionVersion =
-        TxVersions.V14 // TODO(#15745) Do not hard code the transaction version
+      val transactionVersion = TxVersions.assignNodeVersion(basicTestsPkg.languageVersion)
       val expectedProcessedDisclosedContract = ProcessedDisclosedContract(
         templateId = usedDisclosedContract.templateId,
         contractId = usedDisclosedContract.contractId.value,
         argument = usedDisclosedContract.argument.toNormalizedValue(transactionVersion),
-        metadata = EngineEnrichedContractMetadata(
-          createdAt = usedDisclosedContract.metadata.createdAt,
-          driverMetadata = usedDisclosedContract.metadata.driverMetadata,
-          signatories = Set(alice),
-          stakeholders = Set(alice),
-          maybeKeyWithMaintainers = None,
-          agreementText = s"'$alice'", // agreement show party
-        ),
+        createdAt = usedDisclosedContract.metadata.createdAt,
+        driverMetadata = usedDisclosedContract.metadata.driverMetadata,
+        signatories = Set(alice),
+        stakeholders = Set(alice),
+        keyOpt = None,
+        agreementText = s"'$alice'", // agreement show party
+        version = transactionVersion,
       )
 
       ExplicitDisclosureTesting.unusedDisclosedContractsNotSavedToLedger(
@@ -1829,7 +1808,7 @@ class EngineTest
         case Some(Node.Fetch(_, _, _, _, _, key, _, _)) =>
           key match {
             // just test that the maintainers match here, getting the key out is a bit hairier
-            case Some(Node.KeyWithMaintainers(_, maintainers)) =>
+            case Some(GlobalKeyWithMaintainers(_, maintainers)) =>
               assert(maintainers == Set(alice))
             case None => fail("the recomputed fetch didn't have a key")
           }
@@ -1899,9 +1878,9 @@ class EngineTest
 
       tx.transaction.nodes
         .collectFirst { case (id, nf: Node.Fetch) =>
-          nf.key match {
+          nf.keyOpt match {
             // just test that the maintainers match here, getting the key out is a bit hairier
-            case Some(Node.KeyWithMaintainers(_, maintainers)) =>
+            case Some(GlobalKeyWithMaintainers(_, maintainers)) =>
               assert(maintainers == Set(alice))
             case None => fail("the recomputed fetch didn't have a key")
           }
@@ -2473,6 +2452,77 @@ class EngineTest
       }
     }
   }
+
+  "with authority" should {
+
+    val (pkgId, _, pkgs) = loadPackage("daml-lf/tests/WithAuthority.dar")
+    val lookupPackage = pkgs.get _
+    val tId = Identifier(pkgId, "WithAuthority:T")
+    val let = Time.Timestamp.now()
+    val submissionSeed = hash("WithAuthority")
+    val seeding = Engine.initialSeeding(submissionSeed, participant, let)
+
+    def run(cmd: ApiCommand, grantNeedAuthority: Boolean) = {
+      val submitters = Set(alice)
+      val Right(cmds) = preprocessor
+        .preprocessApiCommands(ImmArray(cmd))
+        .consume(
+          _ => None,
+          lookupPackage,
+          lookupKey,
+        )
+      suffixLenientEngine
+        .interpretCommands(
+          validating = false,
+          submitters = submitters,
+          readAs = Set.empty,
+          commands = cmds,
+          ledgerTime = let,
+          submissionTime = let,
+          seeding = seeding,
+        )
+        .consume(
+          _ => None,
+          lookupPackage,
+          lookupKey,
+          grantNeedAuthority = grantNeedAuthority,
+        )
+    }
+
+    def mkCommand(party1: Party, party2: Party) = {
+      ApiCommand.CreateAndExercise(
+        tId,
+        ValueRecord(None, ImmArray((None, ValueParty(party1)))),
+        "GainAuthority",
+        ValueRecord(None, ImmArray((None, ValueParty(party2)))),
+      )
+    }
+
+    "no authority required" in {
+      inside(run(mkCommand(party1 = alice, party2 = alice), grantNeedAuthority = false)) {
+        case Right((_, _)) =>
+      }
+    }
+
+    "authority required; not granted" in {
+      inside(run(mkCommand(party1 = alice, party2 = bob), grantNeedAuthority = false)) {
+        case Left(
+              Interpretation(
+                DamlException(interpretation.Error.RejectedAuthorityRequest(holding, requesting)),
+                _,
+              )
+            ) =>
+          holding shouldBe Set(alice)
+          requesting shouldBe Set(bob)
+      }
+    }
+
+    "authority required; granted" in {
+      inside(run(mkCommand(party1 = alice, party2 = bob), grantNeedAuthority = true)) {
+        case Right((_, _)) =>
+      }
+    }
+  }
 }
 
 object EngineTest {
@@ -2652,14 +2702,14 @@ object EngineTest {
               case create: Node.Create =>
                 ReplayCommand.Create(create.templateId, create.arg)
               case fetch: Node.Fetch if fetch.byKey =>
-                val key = fetch.key.getOrElse(sys.error("unexpected empty contract key")).key
+                val key = fetch.keyOpt.getOrElse(sys.error("unexpected empty contract key")).value
                 ReplayCommand.FetchByKey(fetch.templateId, key)
               case fetch: Node.Fetch =>
                 ReplayCommand.Fetch(fetch.templateId, fetch.coid)
               case lookup: Node.LookupByKey =>
-                ReplayCommand.LookupByKey(lookup.templateId, lookup.key.key)
+                ReplayCommand.LookupByKey(lookup.templateId, lookup.key.value)
               case exe: Node.Exercise if exe.byKey =>
-                val key = exe.key.getOrElse(sys.error("unexpected empty contract key")).key
+                val key = exe.keyOpt.getOrElse(sys.error("unexpected empty contract key")).value
                 ReplayCommand.ExerciseByKey(
                   exe.templateId,
                   key,
@@ -2715,7 +2765,7 @@ object EngineTest {
           dependsOnTime = state.dependsOnTime,
           nodeSeeds = state.nodeSeeds.toImmArray,
           globalKeyMapping = Map.empty,
-          disclosures = ImmArray.empty,
+          processedDisclosedContracts = ImmArray.empty,
         ),
       )
     )
@@ -2726,7 +2776,7 @@ object EngineTest {
         cmd: speedy.Command,
         unusedDisclosedContract: DisclosedContract,
         usedDisclosedContract: DisclosedContract,
-        expectedDisclosedContractMetadata: ProcessedDisclosedContract,
+        expectedProcessedDisclosedContract: ProcessedDisclosedContract,
     ): Assertion = {
       val result = suffixLenientEngine
         .interpretCommands(
@@ -2743,7 +2793,7 @@ object EngineTest {
 
       inside(result) { case Right((transaction, metadata)) =>
         transaction should haveDisclosedInputContracts(usedDisclosedContract)
-        metadata should haveDisclosedContracts(expectedDisclosedContractMetadata)
+        metadata should haveProcessedDisclosedContracts(expectedProcessedDisclosedContract)
       }
     }
 
@@ -2754,12 +2804,12 @@ object EngineTest {
         "org.wartremover.warts.Serializable",
       )
     )
-    def haveDisclosedContracts(
+    def haveProcessedDisclosedContracts(
         expectedProcessedDisclosedContracts: ProcessedDisclosedContract*
     ): Matcher[Tx.Metadata] =
       Matcher { metadata =>
         val expectedResult = ImmArray(expectedProcessedDisclosedContracts: _*)
-        val actualResult = metadata.disclosures.map(_.unversioned)
+        val actualResult = metadata.processedDisclosedContracts
 
         val debugMessage = Seq(
           s"expected but missing contract IDs: ${expectedResult.filter(!actualResult.toSeq.contains(_)).map(_.contractId)}",
@@ -2777,11 +2827,11 @@ object EngineTest {
         disclosedContracts: DisclosedContract*
     ): Matcher[VersionedTransaction] =
       Matcher { transaction =>
-        val expectedResult = Set(disclosedContracts: _*).map(_.contractId.value)
+        val expectedResult = disclosedContracts.map(_.contractId.value).toSet
         val actualResult = transaction.inputContracts
         val debugMessage = Seq(
-          s"expected but missing contract IDs: ${expectedResult.filter(!actualResult.toSeq.contains(_))}",
-          s"unexpected but found contract IDs: ${actualResult.filter(!expectedResult.toSeq.contains(_))}",
+          s"expected but missing contract IDs: ${expectedResult.filter(!actualResult.contains(_))}",
+          s"unexpected but found contract IDs: ${actualResult.filter(!expectedResult.contains(_))}",
         ).mkString("\n  ", "\n  ", "")
 
         MatchResult(
@@ -2810,8 +2860,8 @@ object EngineTest {
               create.coid,
               create.versionedCoinst,
             ),
-            create.key.fold(keys)(k =>
-              keys.updated(GlobalKey.assertBuild(create.templateId, k.key), create.coid)
+            create.keyOpt.fold(keys)(k =>
+              keys.updated(GlobalKey.assertBuild(create.templateId, k.value), create.coid)
             ),
           )
         case (acc, _) => acc

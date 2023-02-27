@@ -4,7 +4,7 @@
 # Only files explicitly mentioned are guarded by code owners (no * rule).
 
 CODEOWNERS   @gerolf-da @remyhaemmerle-da
-LATEST       @gerolf-da @bame-da @ray-roestenburg-da
+LATEST       @gerolf-da @bame-da
 
 # Build / CI / environment
 /ci/                @garyverhaegen-da
@@ -24,12 +24,12 @@ NOTICES     @garyverhaegen-da @dasormeter
 /compatibility/     @basvangijzel-DA @garyverhaegen-da @gerolf-da @remyhaemmerle-da
 
 # Language
-/daml-assistant/    @remyhaemmerle-da @ray-roestenburg-da
+/daml-assistant/    @remyhaemmerle-da @filmackay
 /daml-script/       @remyhaemmerle-da
 /triggers/          @remyhaemmerle-da
-/compiler/          @basvangijzel-DA @remyhaemmerle-da @akrmn @dylant-da
-/libs-haskell/      @basvangijzel-DA @remyhaemmerle-da @akrmn @dylant-da
-/ghc-lib/           @basvangijzel-DA @remyhaemmerle-da @akrmn @dylant-da
+/compiler/          @basvangijzel-DA @remyhaemmerle-da @akrmn @dylant-da @samuel-williams-da
+/libs-haskell/      @basvangijzel-DA @remyhaemmerle-da @akrmn @dylant-da @samuel-williams-da
+/ghc-lib/           @basvangijzel-DA @remyhaemmerle-da @akrmn @dylant-da @samuel-williams-da
 
 # Runtime
 /daml-lf/ @remyhaemmerle-da
@@ -68,15 +68,15 @@ NOTICES     @garyverhaegen-da @dasormeter
 
 # Ecosystems
 /language-support/hs/       @nickchapman-da @remyhaemmerle-da
-/language-support/java/     @ray-roestenburg-da
-/language-support/scala/    @ray-roestenburg-da
-/language-support/ts/       @garyverhaegen-da @ray-roestenburg-da
+/language-support/java/     @filmackay
+/language-support/scala/    @filmackay
+/language-support/ts/       @garyverhaegen-da @filmackay
 
 # Application Runtime
-/ledger-service/       @ray-roestenburg-da
-/navigator/            @ray-roestenburg-da
-/runtime-components/   @ray-roestenburg-da
-/triggers/service/     @ray-roestenburg-da
+/ledger-service/       @filmackay
+/navigator/            @filmackay
+/runtime-components/   @filmackay
+/triggers/service/     @filmackay
 
 # Misc
 /docs/              @digital-asset/daml-docs @hrischuk-da

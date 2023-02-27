@@ -3,7 +3,6 @@
 
 package com.daml.platform.indexer.parallel
 
-import com.codahale.metrics.MetricRegistry
 import com.daml.executors.InstrumentedExecutors
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
@@ -30,18 +29,17 @@ object AsyncSupport {
   def asyncPool(
       size: Int,
       namePrefix: String,
-      withMetric: (MetricName, MetricRegistry, ExecutorServiceMetrics),
+      withMetric: (MetricName, ExecutorServiceMetrics),
   )(implicit loggingContext: LoggingContext): ResourceOwner[Executor] =
     ResourceOwner
       .forExecutorService { () =>
-        val (executorName, metricRegistry, executorServiceMetrics) = withMetric
+        val (executorName, executorServiceMetrics) = withMetric
         InstrumentedExecutors.newFixedThreadPoolWithFactory(
           executorName,
           size,
           new ThreadFactoryBuilder()
             .setNameFormat(s"$namePrefix-%d")
             .build,
-          metricRegistry,
           executorServiceMetrics,
           throwable =>
             ContextualizedLogger

@@ -58,23 +58,10 @@ class WeightedApplicationIdsAndSubmittersITSpec
       ),
     )
     for {
-      (apiServices, names, submitter) <- benchtoolFixture()
-      allocatedParties <- submitter.prepare(submissionConfig)
-      tested = new FooSubmission(
-        submitter = submitter,
-        maxInFlightCommands = 1,
-        submissionBatchSize = 1,
-        submissionConfig = submissionConfig,
-        names = names,
-        allocatedParties = allocatedParties,
-        partySelectingRandomnessProvider = RandomnessProvider.forSeed(seed = 0),
-        payloadRandomnessProvider = RandomnessProvider.forSeed(seed = 0),
-        consumingEventsRandomnessProvider = RandomnessProvider.forSeed(seed = 0),
-        nonConsumingEventsRandomnessProvider = RandomnessProvider.forSeed(seed = 0),
-        applicationIdRandomnessProvider = RandomnessProvider.forSeed(seed = 0),
-        contractDescriptionRandomnessProvider = RandomnessProvider.forSeed(seed = 0),
+      (apiServices, allocatedParties, fooSubmission) <- benchtoolFooSubmissionFixture(
+        submissionConfig
       )
-      _ <- tested.performSubmission()
+      _ <- fooSubmission.performSubmission(submissionConfig = submissionConfig)
       completionsApp1 <- observeCompletions(
         parties = List(allocatedParties.signatory),
         apiServices = apiServices,
@@ -98,16 +85,16 @@ class WeightedApplicationIdsAndSubmittersITSpec
     } yield {
       val cp = new Checkpoint
       // App only filters
-      cp(discard(completionsApp1.completions.size shouldBe 85))
-      cp(discard(completionsApp2.completions.size shouldBe 15))
+      cp(discard(completionsApp1.completions.size shouldBe 91))
+      cp(discard(completionsApp2.completions.size shouldBe 9))
       // App and party filters
       cp(
         discard(
           completionsApp1Submitter0.completions.size shouldBe completionsApp1.completions.size
         )
       )
-      cp(discard(completionsApp1Submitter0.completions.size shouldBe 85))
-      cp(discard(completionsApp1Submitter1.completions.size shouldBe 12))
+      cp(discard(completionsApp1Submitter0.completions.size shouldBe 91))
+      cp(discard(completionsApp1Submitter1.completions.size shouldBe 9))
       cp.reportAll()
       succeed
     }

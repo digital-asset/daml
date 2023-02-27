@@ -17,6 +17,7 @@ object NonRepudiationProxy {
       certificateRepository: CertificateRepository.Read,
       signedPayloadRepository: SignedPayloadRepository.Write,
       timestampProvider: Clock,
+      metrics: Metrics,
       serviceName: String,
       serviceNames: String*
   )(implicit context: HasExecutionContext[Context]): AbstractResourceOwner[Context, Server] = {
@@ -26,6 +27,7 @@ object NonRepudiationProxy {
         certificateRepository,
         signedPayloadRepository,
         timestampProvider,
+        metrics,
       )
 
     ReverseProxy.owner(

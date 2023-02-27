@@ -44,7 +44,7 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
   // --[types]--
 
   private type Val = V
-  private type KWM = Node.KeyWithMaintainers
+  private type KWM = GlobalKeyWithMaintainers
   private type OKWM = Option[KWM]
   private type Exe = Node.Exercise
   private type VTX = VersionedTransaction
@@ -75,11 +75,14 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
   private val samParties4: Set[Party] = Set(samParty1, samParty2)
 
   private val samValue1: Val = V.ValueUnit
-  private val samValue2: Val = V.ValueContractId(samContractId1)
+  private val samValue2: Val = V.ValueText(samContractId1.coid)
 
-  private val samKWM1 = Node.KeyWithMaintainers(samValue1, samParties1)
-  private val samKWM2 = Node.KeyWithMaintainers(samValue1, samParties2)
-  private val samKWM3 = Node.KeyWithMaintainers(samValue2, samParties1)
+  private val samKWM1 =
+    GlobalKeyWithMaintainers.assertBuild(samTemplateId1, samValue1, samParties1)
+  private val samKWM2 =
+    GlobalKeyWithMaintainers.assertBuild(samTemplateId1, samValue1, samParties2)
+  private val samKWM3 =
+    GlobalKeyWithMaintainers.assertBuild(samTemplateId2, samValue2, samParties1)
 
   private val samVersion1: TransactionVersion = TransactionVersion.minVersion
   private val samVersion2: TransactionVersion = TransactionVersion.maxVersion
@@ -95,7 +98,7 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
       agreementText = samText1,
       signatories = samParties1,
       stakeholders = samParties2,
-      key = key,
+      keyOpt = key,
       version = version,
     )
 
@@ -110,7 +113,7 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
       actingParties = actingParties,
       signatories = samParties2,
       stakeholders = samParties3,
-      key = key,
+      keyOpt = key,
       byKey = samBool1,
       version = version,
     )
@@ -146,7 +149,7 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
       choiceObservers = samParties4,
       children = ImmArray.Empty,
       exerciseResult = exerciseResult,
-      key = key,
+      keyOpt = key,
       byKey = samBool2,
       version = version,
     )
@@ -267,7 +270,7 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
   }
   private def tweakCreateKey(tweakOptKeyMaintainers: Tweak[OKWM]) = Tweak[Node] {
     case nc: Node.Create =>
-      tweakOptKeyMaintainers.run(nc.key).map { x => nc.copy(key = x) }
+      tweakOptKeyMaintainers.run(nc.keyOpt).map { x => nc.copy(keyOpt = x) }
   }
   private val tweakCreateVersion = Tweak.single[Node] { case nc: Node.Create =>
     nc.copy(version = changeVersion(nc.version))
@@ -304,7 +307,7 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
   }
   private def tweakFetchKey(tweakOptKeyMaintainers: Tweak[OKWM]) = Tweak[Node] {
     case nf: Node.Fetch =>
-      tweakOptKeyMaintainers.run(nf.key).map { x => nf.copy(key = x) }
+      tweakOptKeyMaintainers.run(nf.keyOpt).map { x => nf.copy(keyOpt = x) }
   }
   private def tweakFetchByKey(whenVersion: TransactionVersion => Boolean) = Tweak.single[Node] {
     case nf: Node.Fetch if whenVersion(nf.version) =>
@@ -391,7 +394,7 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
 
   private def tweakExerciseKey(tweakOptKeyMaintainers: Tweak[OKWM]) = Tweak[Node] {
     case ne: Node.Exercise =>
-      tweakOptKeyMaintainers.run(ne.key).map { x => ne.copy(key = x) }
+      tweakOptKeyMaintainers.run(ne.keyOpt).map { x => ne.copy(keyOpt = x) }
   }
   private def tweakExerciseByKey(whenVersion: TransactionVersion => Boolean) = Tweak.single[Node] {
     case ne: Node.Exercise if whenVersion(ne.version) =>

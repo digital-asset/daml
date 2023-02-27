@@ -190,9 +190,11 @@ object UpdateToDbDto {
             exerciseBegin = (acc, nid, node) => ((nid -> node) :: acc, ChildrenRecursion.DoRecurse),
             // Rollback nodes are not included in the indexer
             rollbackBegin = (acc, _, _) => (acc, ChildrenRecursion.DoNotRecurse),
+            authorityBegin = (acc, _, _) => (acc, ChildrenRecursion.DoRecurse),
             leaf = (acc, nid, node) => (nid -> node) :: acc,
             exerciseEnd = (acc, _, _) => acc,
             rollbackEnd = (acc, _, _) => acc,
+            authorityEnd = (acc, _, _) => acc,
           )
           .reverse
 
@@ -234,8 +236,7 @@ object UpdateToDbDto {
                   create_agreement_text = Some(create.agreementText).filter(_.nonEmpty),
                   create_key_value = createKeyValue
                     .map(compressionStrategy.createKeyValueCompression.compress),
-                  create_key_hash = create.key
-                    .map(key => Key.assertBuild(create.templateId, key.key).hash.bytes.toHexString),
+                  create_key_hash = create.keyOpt.map(_.globalKey.hash.bytes.toHexString),
                   create_argument_compression = compressionStrategy.createArgumentCompression.id,
                   create_key_value_compression =
                     compressionStrategy.createKeyValueCompression.id.filter(_ =>

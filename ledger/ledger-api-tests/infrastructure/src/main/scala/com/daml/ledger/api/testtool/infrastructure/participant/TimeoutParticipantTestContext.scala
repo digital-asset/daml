@@ -56,6 +56,12 @@ import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.package_service.{GetPackageResponse, PackageStatus}
 import com.daml.ledger.api.v1.transaction.{Transaction, TransactionTree}
 import com.daml.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
+import com.daml.ledger.api.v1.event_query_service.{
+  GetEventsByContractIdRequest,
+  GetEventsByContractIdResponse,
+  GetEventsByContractKeyRequest,
+  GetEventsByContractKeyResponse,
+}
 import com.daml.ledger.api.v1.transaction_service.{
   GetTransactionByEventIdRequest,
   GetTransactionByIdRequest,
@@ -205,7 +211,7 @@ class TimeoutParticipantTestContext(timeoutScaleFactor: Double, delegate: Partic
       parties: Seq[Primitive.Party],
       templateIds: Seq[TemplateId] = Seq.empty,
       interfaceFilters: Seq[(TemplateId, IncludeInterfaceView)] = Seq.empty,
-  ) = delegate.transactionFilter(parties, templateIds, interfaceFilters)
+  ): TransactionFilter = delegate.transactionFilter(parties, templateIds, interfaceFilters)
   override def getTransactionsRequest(
       transactionFilter: TransactionFilter,
       begin: LedgerOffset,
@@ -322,6 +328,21 @@ class TimeoutParticipantTestContext(timeoutScaleFactor: Double, delegate: Partic
     s"Flat transaction by event id for event id $eventId and parties $parties",
     delegate.flatTransactionByEventId(eventId, parties: _*),
   )
+
+  override def getEventsByContractId(
+      request: GetEventsByContractIdRequest
+  ): Future[GetEventsByContractIdResponse] = withTimeout(
+    s"Get events by contract id for request $request",
+    delegate.getEventsByContractId(request),
+  )
+
+  override def getEventsByContractKey(
+      request: GetEventsByContractKeyRequest
+  ): Future[GetEventsByContractKeyResponse] = withTimeout(
+    s"Get events by contract key for request $request",
+    delegate.getEventsByContractKey(request),
+  )
+
   override def create[T](
       party: Primitive.Party,
       template: Template[T],
@@ -532,6 +553,14 @@ class TimeoutParticipantTestContext(timeoutScaleFactor: Double, delegate: Partic
     delegate.prune(pruneUpTo, attempts, pruneAllDivulgedContracts),
   )
 
+  override def pruneCantonSafe(
+      pruneUpTo: LedgerOffset,
+      party: Primitive.Party,
+      dummyCommand: Primitive.Party => Command,
+      pruneAllDivulgedContracts: Boolean = false,
+  )(implicit ec: ExecutionContext): Future[Unit] =
+    delegate.pruneCantonSafe(pruneUpTo, party, dummyCommand, pruneAllDivulgedContracts)
+
   private def withTimeout[T](hint: String, future: => Future[T]): Future[T] = {
     Future.firstCompletedOf(
       Seq(
@@ -549,4 +578,9 @@ class TimeoutParticipantTestContext(timeoutScaleFactor: Double, delegate: Partic
       templateIds: Seq[TemplateId],
       interfaceFilters: Seq[(TemplateId, IncludeInterfaceView)],
   ): Filters = delegate.filters(templateIds, interfaceFilters)
+
+  override def latestPrunedOffsets(): Future[(LedgerOffset, LedgerOffset)] = withTimeout(
+    "Requesting the latest pruned offsets",
+    delegate.latestPrunedOffsets(),
+  )
 }

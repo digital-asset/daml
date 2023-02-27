@@ -30,4 +30,6 @@ package object transaction {
   val CommittedTransaction = DiscriminatedSubtype[VersionedTransaction]
   type CommittedTransaction = CommittedTransaction.T
 
+  type VersionedGlobalKey = Versioned[GlobalKey]
+
 }

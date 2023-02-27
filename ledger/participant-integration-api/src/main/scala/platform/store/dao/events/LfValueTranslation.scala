@@ -123,7 +123,7 @@ final class LfValueTranslation(
   private def serializeNullableKeyOrThrow(c: Create): Option[Array[Byte]] =
     c.versionedKey.map(k =>
       ValueSerializer.serializeValue(
-        value = k.map(_.key),
+        value = k.map(_.value),
         errorContext = cantSerialize(attribute = "key", forContract = c.coid),
       )
     )
@@ -131,7 +131,7 @@ final class LfValueTranslation(
   private def serializeNullableKeyOrThrow(e: Exercise): Option[Array[Byte]] = {
     e.versionedKey.map(k =>
       ValueSerializer.serializeValue(
-        value = k.map(_.key),
+        value = k.map(_.value),
         errorContext = cantSerialize(attribute = "key", forContract = e.targetCoid),
       )
     )
@@ -469,6 +469,13 @@ final class LfValueTranslation(
               )
               .map(resume)
               .flatMap(goAsync)
+
+          case LfEngine.ResultInterruption(continue) =>
+            goAsync(continue())
+
+          case LfEngine.ResultNeedAuthority(_, _, _) =>
+            Future.failed(new IllegalStateException("View computation must be a pure function"))
+
         }
 
       Future(engine.computeInterfaceView(templateId, value, interfaceId))

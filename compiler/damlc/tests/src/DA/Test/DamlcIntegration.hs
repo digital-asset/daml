@@ -6,6 +6,8 @@
 -- typecheck with LF, test it.  Test annotations are documented as 'Ann'.
 module DA.Test.DamlcIntegration
   ( main
+  , withDamlScriptDep
+  , ScriptPackageData
   ) where
 
 {- HLINT ignore "locateRunfiles/package_app" -}
@@ -46,7 +48,7 @@ import Data.IORef
 import Data.Proxy
 import           Development.IDE.Types.Diagnostics
 import           Data.Maybe
-import           Development.Shake hiding (cmd, withResource)
+import           Development.Shake hiding (cmd, withResource, withTempDir)
 import           System.Directory.Extra
 import           System.Environment.Blank (setEnv)
 import           System.FilePath
@@ -76,6 +78,12 @@ import Test.Tasty.Providers
 import Test.Tasty.Providers.ConsoleFormat (noResultDetails)
 import Test.Tasty.Runners (Outcome(..), Result(..))
 
+import DA.Daml.Package.Config (PackageSdkVersion (..))
+import DA.Cli.Damlc.DependencyDb (installDependencies)
+import DA.Cli.Damlc.Packaging (createProjectPackageDb)
+import Module (stringToUnitId)
+import SdkVersion (sdkVersion, sdkPackageVersion)
+
 -- Newtype to avoid mixing up the loging function and the one for registering TODOs.
 newtype TODO = TODO String
 
@@ -101,34 +109,62 @@ instance IsOption SkipValidationOpt where
   optionName = Tagged "skip-validation"
   optionHelp = Tagged "Skip package validation in scenario service (true|false)"
 
+type ScriptPackageData = (FilePath, PackageFlag)
+
+-- | Creates a temp directory with daml script installed, gives the database db path and package flag
+withDamlScriptDep :: Version -> (ScriptPackageData -> IO a) -> IO a
+withDamlScriptDep lfVer cont = do
+  withTempDir $ \dir -> do
+    withCurrentDirectory dir $ do
+      let projDir = toNormalizedFilePath' dir
+          -- Bring in daml-script as previously installed by withDamlScriptDep, must include package db
+          -- daml-script and daml-triggers use the sdkPackageVersion for their versioning
+          packageFlag = ExposePackage ("--package daml-script-" <> sdkPackageVersion) (UnitIdArg $ stringToUnitId $ "daml-script-" <> sdkPackageVersion) (ModRenaming True [])
+
+      scriptDar <- locateRunfiles $ mainWorkspace </> "daml-script/daml/daml-script-" <> renderVersion lfVer <> ".dar"
+
+      installDependencies
+        projDir
+        (defaultOptions $ Just lfVer)
+        (PackageSdkVersion sdkVersion)
+        ["daml-prim", "daml-stdlib", scriptDar]
+        []
+      createProjectPackageDb
+        projDir
+        (defaultOptions $ Just lfVer)
+        mempty
+
+      cont (dir </> projectPackageDatabase, packageFlag)
 
 main :: IO ()
 main = do
- let scenarioConf = SS.defaultScenarioServiceConfig { SS.cnfJvmOptions = ["-Xmx200M"] }
- -- This is a bit hacky, we want the LF version before we hand over to
- -- tasty. To achieve that we first pass with optparse-applicative ignoring
- -- everything apart from the LF version.
- LfVersionOpt lfVer <- do
-     let parser = optionCLParser <* many (strArgument @String mempty)
-     execParser (info parser forwardOptions)
- scenarioLogger <- Logger.newStderrLogger Logger.Warning "scenario"
- SS.withScenarioService lfVer scenarioLogger scenarioConf $ \scenarioService -> do
-  hSetEncoding stdout utf8
-  setEnv "TASTY_NUM_THREADS" "1" True
-  todoRef <- newIORef DList.empty
-  let registerTODO (TODO s) = modifyIORef todoRef (`DList.snoc` ("TODO: " ++ s))
-  integrationTests <- getIntegrationTests registerTODO scenarioService
-  let tests = testGroup "All" [parseRenderRangeTest, uniqueUniques, integrationTests]
-  defaultMainWithIngredients ingredients tests
-    `finally` (do
-    todos <- readIORef todoRef
-    putStr (unlines (DList.toList todos)))
-  where ingredients =
-          includingOptions
-            [ Option (Proxy @LfVersionOpt)
-            , Option (Proxy @SkipValidationOpt)
-            ] :
-          defaultIngredients
+  let scenarioConf = SS.defaultScenarioServiceConfig { SS.cnfJvmOptions = ["-Xmx200M"], SS.cnfEvaluationTimeout = Just 1 }
+  -- This is a bit hacky, we want the LF version before we hand over to
+  -- tasty. To achieve that we first pass with optparse-applicative ignoring
+  -- everything apart from the LF version.
+  LfVersionOpt lfVer <- do
+      let parser = optionCLParser <* many (strArgument @String mempty)
+      execParser (info parser forwardOptions)
+  scenarioLogger <- Logger.newStderrLogger Logger.Warning "scenario"
+
+  withDamlScriptDep lfVer $ \scriptPackageData ->
+    SS.withScenarioService lfVer scenarioLogger scenarioConf $ \scenarioService -> do
+      hSetEncoding stdout utf8
+      setEnv "TASTY_NUM_THREADS" "1" True
+      todoRef <- newIORef DList.empty
+      let registerTODO (TODO s) = modifyIORef todoRef (`DList.snoc` ("TODO: " ++ s))
+      integrationTests <- getIntegrationTests registerTODO scenarioService scriptPackageData
+      let tests = testGroup "All" [parseRenderRangeTest, uniqueUniques, integrationTests]
+      defaultMainWithIngredients ingredients tests
+        `finally` (do
+        todos <- readIORef todoRef
+        putStr (unlines (DList.toList todos)))
+      where ingredients =
+              includingOptions
+                [ Option (Proxy @LfVersionOpt)
+                , Option (Proxy @SkipValidationOpt)
+                ] :
+              defaultIngredients
 
 parseRenderRangeTest :: TestTree
 parseRenderRangeTest =
@@ -180,8 +216,8 @@ getCantSkipPreprocessorTestFiles = do
     anns <- readFileAnns file
     pure [("cant-skip-preprocessor/DA/Internal/Hack.daml", file, anns)]
 
-getIntegrationTests :: (TODO -> IO ()) -> SS.Handle -> IO TestTree
-getIntegrationTests registerTODO scenarioService = do
+getIntegrationTests :: (TODO -> IO ()) -> SS.Handle -> ScriptPackageData -> IO TestTree
+getIntegrationTests registerTODO scenarioService (packageDbPath, packageFlag) = do
     putStrLn $ "rtsSupportsBoundThreads: " ++ show rtsSupportsBoundThreads
     do n <- getNumCapabilities; putStrLn $ "getNumCapabilities: " ++ show n
 
@@ -204,14 +240,17 @@ getIntegrationTests registerTODO scenarioService = do
     let tree :: TestTree
         tree = askOption $ \(LfVersionOpt version) -> askOption $ \(SkipValidationOpt skipValidation) ->
           let opts = (defaultOptions (Just version))
-                { optThreads = 0
+                { optPackageDbs = [packageDbPath]
+                , optThreads = 0
                 , optCoreLinting = True
                 , optDlintUsage = DlintEnabled DlintOptions
                     { dlintRulesFile = DefaultDlintRulesFile
                     , dlintHintFiles = NoDlintHintFiles
                     }
                 , optSkipScenarioValidation = SkipScenarioValidation skipValidation
+                , optPackageImports = [packageFlag]
                 }
+
               mkIde options = do
                 damlEnv <- mkDamlEnv options (Just scenarioService)
                 initialise
@@ -440,6 +479,7 @@ mainProj service outdir log file = do
             lf <- lfTypeCheck log file
             lfSave lf
             lfRunScenarios log file
+            lfRunScripts log file
             jsonSave lf
             pure lf
 
@@ -465,7 +505,10 @@ lfTypeCheck :: (String -> IO ()) -> NormalizedFilePath -> Action LF.Package
 lfTypeCheck log file = timed log "LF type check" $ unjust $ getDalf file
 
 lfRunScenarios :: (String -> IO ()) -> NormalizedFilePath -> Action ()
-lfRunScenarios log file = timed log "LF execution" $ void $ unjust $ runScenarios file
+lfRunScenarios log file = timed log "LF scenario execution" $ void $ unjust $ runScenarios file
+
+lfRunScripts :: (String -> IO ()) -> NormalizedFilePath -> Action ()
+lfRunScripts log file = timed log "LF scripts execution" $ void $ unjust $ runScripts file
 
 timed :: MonadIO m => (String -> IO ()) -> String -> m a -> m a
 timed log msg act = do

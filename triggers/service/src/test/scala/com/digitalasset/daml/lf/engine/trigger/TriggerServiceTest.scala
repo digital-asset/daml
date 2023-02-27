@@ -15,6 +15,9 @@ import java.io.File
 import java.time.{Duration => JDuration}
 import java.util.UUID
 import akka.http.scaladsl.model.Uri.Query
+import ch.qos.logback.classic.Logger
+import ch.qos.logback.classic.spi.ILoggingEvent
+import ch.qos.logback.core.read.ListAppender
 import org.scalactic.source
 import org.scalatest._
 import org.scalatest.flatspec.AsyncFlatSpec
@@ -40,6 +43,7 @@ import com.daml.ledger.api.v1.transaction_filter.{Filters, InclusiveFilters, Tra
 import com.daml.ledger.client.LedgerClient
 import com.daml.ledger.client.services.commands.CompletionStreamElement
 import com.daml.lf.data.Ref.PackageId
+import com.daml.lf.engine.trigger.TriggerRunnerConfig.DefaultTriggerRunnerConfig
 import com.daml.timer.RetryStrategy
 import com.daml.test.evidence.tag.Security.SecurityTest.Property.{
   Authenticity,
@@ -52,6 +56,7 @@ import com.daml.test.evidence.scalatest.ScalaTestSupport.Implicits._
 import com.google.protobuf.empty.Empty
 import com.typesafe.scalalogging.StrictLogging
 import org.scalatest.time.{Seconds, Span}
+import org.slf4j.LoggerFactory
 
 import java.nio.file.Files
 import scala.concurrent.duration._
@@ -85,6 +90,13 @@ trait AbstractTriggerServiceTestHelper
   protected lazy val dar: Dar[(PackageId, DamlLf.ArchivePayload)] =
     DarReader.assertReadArchiveFromFile(darPath).map(p => p.pkgId -> p.proto)
   protected lazy val testPkgId: PackageId = dar.main._1
+
+  private[this] val triggerRunnerLogAppender = new ListAppender[ILoggingEvent]()
+  private[this] val triggerRunnerLogger: Logger =
+    LoggerFactory.getLogger(classOf[Runner]).asInstanceOf[Logger]
+
+  triggerRunnerLogAppender.start()
+  triggerRunnerLogger.addAppender(triggerRunnerLogAppender)
 
   protected def submitCmd(client: LedgerClient, party: String, cmd: Command): Future[Empty] = {
     val req = SubmitAndWaitRequest(
@@ -272,6 +284,20 @@ trait AbstractTriggerServiceTestHelper
     eventually {
       pred(getTriggerStatus(triggerInstance).map(_._2))
     }
+
+  def assertTriggerRunnerStatus(
+      triggerInstance: UUID,
+      pred: Vector[String] => Assertion,
+  ): Assertion = {
+    val filterString = s"id: \"$triggerInstance\""
+
+    eventually {
+      pred(triggerRunnerLogAppender.list.toArray.toVector.collect {
+        case event: ILoggingEvent if event.getMarker.toString contains filterString =>
+          event.toString
+      })
+    }
+  }
 }
 
 // Tests for all trigger service configurations go here
@@ -615,6 +641,239 @@ trait AbstractTriggerServiceTest extends AbstractTriggerServiceTestHelper {
       _ <- fields.get("errors") shouldBe
         Some(JsArray(JsString(s"No trigger running with id $uuid")))
     } yield succeed
+  }
+
+  def breedCat(id: Long): Command = {
+    Command().withCreate(
+      CreateCommand(
+        templateId = Some(Identifier(testPkgId, "Cats", "Cat")),
+        createArguments = Some(
+          Record(
+            None,
+            Seq(
+              RecordField(value = Some(Value().withParty(alice.unwrap))),
+              RecordField(value = Some(Value().withInt64(id))),
+            ),
+          )
+        ),
+      )
+    )
+  }
+
+  def killCat(id: String): Command = {
+    Command().withExercise(
+      ExerciseCommand(
+        templateId = Some(Identifier(testPkgId, "Cats", "Cat")),
+        contractId = id,
+        choice = "Archive",
+        choiceArgument = Some(Value().withRecord(Record())),
+      )
+    )
+  }
+
+  val catsAppId: ApplicationId = ApiTypes.ApplicationId("cats-app-id")
+
+  it should "stop the trigger if the ACS is too large at initialization time" inClaims withTriggerService(
+    List(dar),
+    triggerRunnerConfig = Some(
+      DefaultTriggerRunnerConfig
+        .copy(
+          // As the trigger starts with the ACS pre-populated with 100 Cat contracts, we should overflow at startup using 10
+          hardLimit = DefaultTriggerRunnerConfig.hardLimit.copy(maximumActiveContracts = 10)
+        )
+    ),
+  ) { uri: Uri =>
+    for {
+      client <- sandboxClient(
+        catsAppId,
+        actAs = List(ApiTypes.Party(alice.unwrap)),
+      )
+      adminClient <- sandboxClient(catsAppId, admin = true)
+      _ <- adminClient.partyManagementClient.allocateParty(Some(alice.unwrap), None)
+      // Ensure there are no Cat contracts
+      _ <- getActiveContracts(client, alice, Identifier(testPkgId, "Cats", "Cat"))
+        .map(_ shouldBe Vector())
+      // Create 100 Cat contracts
+      _ <- Future.sequence(
+        (1 to 100).map(id => submitCmd(client, alice.unwrap, breedCat(id.toLong)))
+      )
+      // Wait for our Cat contracts to be created
+      _ <- RetryStrategy.constant(20, 1.seconds) { (_, _) =>
+        getActiveContracts(client, alice, Identifier(testPkgId, "Cats", "Cat"))
+          .map(_.length shouldBe 100)
+      }
+      // Now allow the trigger to start running
+      resp <- startTrigger(uri, s"$testPkgId:Cats:breedingTrigger", alice, Some(catsAppId))
+      catsTrigger <- parseTriggerId(resp)
+      _ <- assertTriggerIds(uri, alice, Vector(catsTrigger))
+      _ <- assertTriggerStatus(catsTrigger, _ should contain("stopped: runtime failure"))
+      _ <- assertTriggerRunnerStatus(
+        catsTrigger,
+        _ should contain(
+          "[ERROR] Due to an excessive number of active contracts, stopping the trigger"
+        ),
+      )
+    } yield succeed
+  }
+
+  it should "stop the trigger if the ACS overflows at runtime" inClaims withTriggerService(
+    List(dar),
+    triggerRunnerConfig = Some(
+      DefaultTriggerRunnerConfig
+        .copy(
+          // As the trigger creates 100 Cat contracts, we should eventually overflow using 1
+          hardLimit = DefaultTriggerRunnerConfig.hardLimit.copy(maximumActiveContracts = 1)
+        )
+    ),
+  ) { uri: Uri =>
+    for {
+      client <- sandboxClient(
+        catsAppId,
+        actAs = List(ApiTypes.Party(alice.unwrap)),
+      )
+      _ <- getActiveContracts(client, alice, Identifier(testPkgId, "Cats", "Cat"))
+        .flatMap(events =>
+          Future.sequence(events.map { event =>
+            submitCmd(client, alice.unwrap, killCat(event.contractId))
+          })
+        )
+      // Wait until there are no Cat contracts
+      _ <- RetryStrategy.constant(20, 1.seconds) { (_, _) =>
+        getActiveContracts(client, alice, Identifier(testPkgId, "Cats", "Cat"))
+          .map(_ shouldBe Vector())
+      }
+      resp <- startTrigger(uri, s"$testPkgId:Cats:breedingTrigger", alice, Some(catsAppId))
+      catsTrigger <- parseTriggerId(resp)
+      _ <- assertTriggerIds(uri, alice, Vector(catsTrigger))
+      _ <- assertTriggerStatus(catsTrigger, _ should contain("stopped: runtime failure"))
+      _ <- assertTriggerRunnerStatus(
+        catsTrigger,
+        _ should contain(
+          "[ERROR] Due to an excessive number of active contracts, stopping the trigger"
+        ),
+      )
+    } yield succeed
+  }
+
+  it should "stop the trigger if the in-flight commands overflow at runtime" inClaims withTriggerService(
+    List(dar),
+    triggerRunnerConfig = Some(
+      DefaultTriggerRunnerConfig.copy(
+        // Rate limit ledger submissions to 1 per millisecond
+        maxSubmissionDuration = 100.millis,
+        // As our submission rate is faster than the ledger can manage and we are submitting 100 Cat create commands,
+        // in-flights should overflow using 10
+        hardLimit = DefaultTriggerRunnerConfig.hardLimit.copy(inFlightCommandOverflowCount = 10),
+      )
+    ),
+  ) { uri: Uri =>
+    for {
+      client <- sandboxClient(
+        catsAppId,
+        actAs = List(ApiTypes.Party(alice.unwrap)),
+      )
+      _ <- getActiveContracts(client, alice, Identifier(testPkgId, "Cats", "Cat"))
+        .flatMap(events =>
+          Future.sequence(events.map { event =>
+            submitCmd(client, alice.unwrap, killCat(event.contractId))
+          })
+        )
+      // Wait until there are no Cat contracts
+      _ <- RetryStrategy.constant(20, 1.seconds) { (_, _) =>
+        getActiveContracts(client, alice, Identifier(testPkgId, "Cats", "Cat"))
+          .map(_ shouldBe Vector())
+      }
+      resp <- startTrigger(uri, s"$testPkgId:Cats:breedingTrigger", alice, Some(catsAppId))
+      catsTrigger <- parseTriggerId(resp)
+      _ <- assertTriggerIds(uri, alice, Vector(catsTrigger))
+      _ <- assertTriggerStatus(catsTrigger, _ should contain("stopped: runtime failure"))
+      _ <- assertTriggerRunnerStatus(
+        catsTrigger,
+        _ should contain("[ERROR] Due to excessive in-flight commands, stopping the trigger"),
+      )
+    } yield succeed
+  }
+
+  it should "stop the trigger if the rule evaluator times out during initialization" inClaims withTriggerService(
+    List(dar),
+    triggerRunnerConfig = Some(
+      DefaultTriggerRunnerConfig.copy(
+        // As our submission rate takes longer than the allotted rule evaluation time, we should timeout
+        hardLimit = DefaultTriggerRunnerConfig.hardLimit
+          .copy(allowTriggerTimeouts = true, ruleEvaluationTimeout = 1.second)
+      )
+    ),
+  ) { uri: Uri =>
+    for {
+      client <- sandboxClient(
+        catsAppId,
+        actAs = List(ApiTypes.Party(alice.unwrap)),
+      )
+      _ <- getActiveContracts(client, alice, Identifier(testPkgId, "Cats", "Cat"))
+        .flatMap(events =>
+          Future.sequence(events.map { event =>
+            submitCmd(client, alice.unwrap, killCat(event.contractId))
+          })
+        )
+      // Wait until there are no Cat contracts
+      _ <- RetryStrategy.constant(20, 1.seconds) { (_, _) =>
+        getActiveContracts(client, alice, Identifier(testPkgId, "Cats", "Cat"))
+          .map(_ shouldBe Vector())
+      }
+      resp <- startTrigger(uri, s"$testPkgId:Cats:earlyBreedingTrigger", alice, Some(catsAppId))
+      catsTrigger <- parseTriggerId(resp)
+      _ <- assertTriggerIds(uri, alice, Vector(catsTrigger))
+      _ <- assertTriggerStatus(catsTrigger, _ should contain("stopped: runtime failure"))
+      _ <- assertTriggerRunnerStatus(
+        catsTrigger,
+        _ should contain(
+          "[ERROR] Stopping trigger as the rule evaluator has exceeded its allotted running time"
+        ),
+      )
+    } yield {
+      succeed
+    }
+  }
+
+  it should "stop the trigger if the rule evaluator times out at runtime" inClaims withTriggerService(
+    List(dar),
+    triggerRunnerConfig = Some(
+      DefaultTriggerRunnerConfig.copy(
+        // As our submission rate takes longer than the allotted rule evaluation time, we should timeout
+        hardLimit = DefaultTriggerRunnerConfig.hardLimit
+          .copy(allowTriggerTimeouts = true, ruleEvaluationTimeout = 1.second)
+      )
+    ),
+  ) { uri: Uri =>
+    for {
+      client <- sandboxClient(
+        catsAppId,
+        actAs = List(ApiTypes.Party(alice.unwrap)),
+      )
+      _ <- getActiveContracts(client, alice, Identifier(testPkgId, "Cats", "Cat"))
+        .flatMap(events =>
+          Future.sequence(events.map { event =>
+            submitCmd(client, alice.unwrap, killCat(event.contractId))
+          })
+        )
+      // Wait until there are no Cat contracts
+      _ <- RetryStrategy.constant(20, 1.seconds) { (_, _) =>
+        getActiveContracts(client, alice, Identifier(testPkgId, "Cats", "Cat"))
+          .map(_ shouldBe Vector())
+      }
+      resp <- startTrigger(uri, s"$testPkgId:Cats:lateBreedingTrigger", alice, Some(catsAppId))
+      catsTrigger <- parseTriggerId(resp)
+      _ <- assertTriggerIds(uri, alice, Vector(catsTrigger))
+      _ <- assertTriggerStatus(catsTrigger, _ should contain("stopped: runtime failure"))
+      _ <- assertTriggerRunnerStatus(
+        catsTrigger,
+        _ should contain(
+          "[ERROR] Stopping trigger as the rule evaluator has exceeded its allotted running time"
+        ),
+      )
+    } yield {
+      succeed
+    }
   }
 }
 

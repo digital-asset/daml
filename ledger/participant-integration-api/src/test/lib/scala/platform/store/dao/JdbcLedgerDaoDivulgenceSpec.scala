@@ -7,8 +7,7 @@ import java.util.UUID
 
 import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.data.Time.Timestamp
-import com.daml.lf.transaction.Node
-import com.daml.lf.transaction.TransactionVersion
+import com.daml.lf.transaction.{GlobalKeyWithMaintainers, Node, TransactionVersion}
 import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.value.Value.{ValueParty, VersionedContractInstance}
 import com.daml.platform.store.entries.LedgerEntry
@@ -33,7 +32,7 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
           agreementText = someAgreement,
           signatories = Set(alice),
           stakeholders = Set(alice),
-          key = None,
+          keyOpt = None,
           version = TransactionVersion.minVersion,
         )
       )
@@ -50,8 +49,9 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
           someAgreement,
           signatories = Set(bob),
           stakeholders = Set(bob),
-          key = Some(
-            Node.KeyWithMaintainers(someContractKey(bob, "some key"), Set(bob))
+          keyOpt = Some(
+            GlobalKeyWithMaintainers
+              .assertBuild(someTemplateId, someContractKey(bob, "some key"), Set(bob))
           ),
           version = TransactionVersion.minVersion,
         )
@@ -74,7 +74,7 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
           choiceObservers = Set.empty,
           children = ImmArray.Empty,
           exerciseResult = Some(someChoiceResult),
-          key = None,
+          keyOpt = None,
           byKey = false,
           version = TransactionVersion.minVersion,
         )
@@ -86,8 +86,8 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
           actingParties = Set(bob),
           signatories = Set(bob),
           stakeholders = Set(bob),
-          key = Some(
-            Node.KeyWithMaintainers(ValueParty(bob), Set(bob))
+          keyOpt = Some(
+            GlobalKeyWithMaintainers.assertBuild(someTemplateId, ValueParty(bob), Set(bob))
           ),
           byKey = false,
           version = TransactionVersion.minVersion,
@@ -108,8 +108,9 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
           choiceObservers = Set.empty,
           children = ImmArray.Empty,
           exerciseResult = Some(someChoiceResult),
-          key = Some(
-            Node.KeyWithMaintainers(someContractKey(bob, "some key"), Set(bob))
+          keyOpt = Some(
+            GlobalKeyWithMaintainers
+              .assertBuild(someTemplateId, someContractKey(bob, "some key"), Set(bob))
           ),
           byKey = false,
           version = TransactionVersion.minVersion,
@@ -124,8 +125,9 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
           someAgreement,
           signatories = Set(bob),
           stakeholders = Set(alice, bob),
-          key = Some(
-            Node.KeyWithMaintainers(someContractKey(bob, "some key"), Set(bob))
+          keyOpt = Some(
+            GlobalKeyWithMaintainers
+              .assertBuild(someTemplateId, someContractKey(bob, "some key"), Set(bob))
           ),
           version = TransactionVersion.minVersion,
         ),

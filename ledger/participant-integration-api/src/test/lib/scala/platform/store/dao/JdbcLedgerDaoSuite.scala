@@ -73,7 +73,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
   protected final val defaultWorkflowId = "default-workflow-id"
   protected final val someAgreement = "agreement"
 
-  // Note: *identifiers* and *values* defined below MUST correspond to //ledger/test-common/src/main/daml/model/Test.daml
+  // Note: *identifiers* and *values* defined below MUST correspond to //test-common/src/main/daml/model/Test.daml
   // This is because some tests request values in verbose mode, which requires filling in missing type information,
   // which in turn requires loading Daml-LF packages with valid Daml-LF types that correspond to the Daml-LF values.
   //
@@ -201,14 +201,15 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
       signatories: Set[Party] = Set(alice, bob),
       templateId: Identifier = someTemplateId,
       contractArgument: LfValue = someContractArgument,
+      observers: Set[Party] = Set.empty,
   ): Node.Create =
-    createNode(absCid, signatories, signatories, None, templateId, contractArgument)
+    createNode(absCid, signatories, signatories ++ observers, None, templateId, contractArgument)
 
   protected final def createNode(
       absCid: ContractId,
       signatories: Set[Party],
       stakeholders: Set[Party],
-      key: Option[Node.KeyWithMaintainers] = None,
+      key: Option[GlobalKeyWithMaintainers] = None,
       templateId: Identifier = someTemplateId,
       contractArgument: LfValue = someContractArgument,
   ): Node.Create =
@@ -219,13 +220,13 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
       agreementText = someAgreement,
       signatories = signatories,
       stakeholders = stakeholders,
-      key = key,
+      keyOpt = key,
       version = txVersion,
     )
 
   protected final def exerciseNode(
       targetCid: ContractId,
-      key: Option[Node.KeyWithMaintainers] = None,
+      key: Option[GlobalKeyWithMaintainers] = None,
   ): Node.Exercise =
     Node.Exercise(
       targetCoid = targetCid,
@@ -240,7 +241,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
       choiceObservers = Set.empty,
       children = ImmArray.Empty,
       exerciseResult = Some(someChoiceResult),
-      key = key,
+      keyOpt = key,
       byKey = false,
       version = txVersion,
     )
@@ -339,18 +340,16 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
 
   protected final def createTestKey(
       maintainers: Set[Party]
-  ): (Node.KeyWithMaintainers, GlobalKey) = {
+  ): GlobalKeyWithMaintainers = {
     val aTextValue = ValueText(scala.util.Random.nextString(10))
-    val keyWithMaintainers = Node.KeyWithMaintainers(aTextValue, maintainers)
-    val globalKey = GlobalKey.assertBuild(someTemplateId, aTextValue)
-    (keyWithMaintainers, globalKey)
+    GlobalKeyWithMaintainers.assertBuild(someTemplateId, aTextValue, maintainers)
   }
 
   protected final def createAndStoreContract(
       submittingParties: Set[Party],
       signatories: Set[Party],
       stakeholders: Set[Party],
-      key: Option[Node.KeyWithMaintainers],
+      key: Option[GlobalKeyWithMaintainers],
       contractArgument: LfValue = someContractArgument,
   ): Future[(Offset, LedgerEntry.Transaction)] =
     store(
@@ -397,7 +396,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
         choiceObservers = Set.empty,
         children = ImmArray.Empty,
         exerciseResult = Some(someChoiceResult),
-        key = None,
+        keyOpt = None,
         byKey = false,
         version = txVersion,
       )
@@ -432,7 +431,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
 
   protected def singleExercise(
       targetCid: ContractId,
-      key: Option[Node.KeyWithMaintainers] = None,
+      key: Option[GlobalKeyWithMaintainers] = None,
   ): (Offset, LedgerEntry.Transaction) = {
     val txBuilder = newBuilder()
     val nid = txBuilder.add(exerciseNode(targetCid, key))
@@ -448,7 +447,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
       workflowId = Some("workflowId"),
       ledgerEffectiveTime = let,
       recordedAt = let,
-      transaction = CommittedTransaction(txBuilder.buildCommitted()),
+      transaction = txBuilder.buildCommitted(),
       explicitDisclosure = Map(nid -> Set("Alice", "Bob")),
     )
   }
@@ -470,7 +469,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
       workflowId = Some("workflowId"),
       ledgerEffectiveTime = let,
       recordedAt = let,
-      transaction = CommittedTransaction(txBuilder.buildCommitted()),
+      transaction = txBuilder.buildCommitted(),
       explicitDisclosure = Map(nid -> Set(alice, bob)),
     )
   }
@@ -503,7 +502,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
     val txBuilder = newBuilder()
     val exerciseId = txBuilder.add(exerciseNode(targetCid))
     val childId = txBuilder.add(create(txBuilder.newCid), exerciseId)
-    val tx = CommittedTransaction(txBuilder.build())
+    val tx = txBuilder.buildCommitted()
     val offset = nextOffset()
     val id = offset.toLong
     val txId = s"trId$id"
@@ -517,7 +516,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
       workflowId = Some("workflowId"),
       ledgerEffectiveTime = let,
       recordedAt = let,
-      transaction = CommittedTransaction(tx),
+      transaction = tx,
       explicitDisclosure = Map(exerciseId -> Set("Alice", "Bob"), childId -> Set("Alice", "Bob")),
     )
   }
@@ -731,7 +730,10 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
         agreementText = someAgreement,
         signatories = Set(party),
         stakeholders = Set(party),
-        key = Some(Node.KeyWithMaintainers(someContractKey(party, key), Set(party))),
+        keyOpt = Some(
+          GlobalKeyWithMaintainers
+            .assertBuild(someTemplateId, someContractKey(party, key), Set(party))
+        ),
         version = txVersion,
       )
     )
@@ -771,7 +773,10 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
         choiceObservers = Set.empty,
         children = ImmArray.Empty,
         exerciseResult = Some(LfValue.ValueUnit),
-        key = maybeKey.map(k => Node.KeyWithMaintainers(someContractKey(party, k), Set(party))),
+        keyOpt = maybeKey.map(k =>
+          GlobalKeyWithMaintainers
+            .assertBuild(someTemplateId, someContractKey(party, k), Set(party))
+        ),
         byKey = false,
         version = txVersion,
       )
@@ -800,7 +805,8 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
     val lookupByKeyNodeId = txBuilder.add(
       Node.LookupByKey(
         someTemplateId,
-        Node.KeyWithMaintainers(someContractKey(party, key), Set(party)),
+        GlobalKeyWithMaintainers
+          .assertBuild(someTemplateId, someContractKey(party, key), Set(party)),
         result,
         version = txVersion,
       )

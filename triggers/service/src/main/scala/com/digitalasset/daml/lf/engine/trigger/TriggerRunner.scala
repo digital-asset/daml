@@ -51,8 +51,8 @@ object TriggerRunner {
     config.withTriggerLogContext { implicit triggerContext =>
       Behaviors.setup { ctx =>
         // Spawn a trigger runner impl. Supervise it. Stop immediately on
-        // initialization halted exceptions, retry any initialization or
-        // execution failure exceptions.
+        // initialization halted and trigger overflow exceptions, retry
+        // any other initialization or execution failure exceptions.
         val runner =
           ctx.spawn(
             Behaviors
@@ -60,10 +60,14 @@ object TriggerRunner {
                 Behaviors
                   .supervise(
                     Behaviors
-                      .supervise(TriggerRunnerImpl(config))
-                      .onFailure[InitializationHalted](stop)
+                      .supervise(
+                        Behaviors
+                          .supervise(TriggerRunnerImpl(config))
+                          .onFailure[InitializationHalted](stop)
+                      )
+                      .onFailure[UnauthenticatedException](stop)
                   )
-                  .onFailure[UnauthenticatedException](stop)
+                  .onFailure[TriggerHardLimitException](stop)
               )
               .onFailure(
                 restartWithBackoff(

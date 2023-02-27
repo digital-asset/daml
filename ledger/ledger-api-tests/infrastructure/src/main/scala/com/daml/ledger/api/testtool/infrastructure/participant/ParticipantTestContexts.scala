@@ -58,6 +58,12 @@ import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.package_service.{GetPackageResponse, PackageStatus}
 import com.daml.ledger.api.v1.transaction.{Transaction, TransactionTree}
 import com.daml.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
+import com.daml.ledger.api.v1.event_query_service.{
+  GetEventsByContractIdRequest,
+  GetEventsByContractIdResponse,
+  GetEventsByContractKeyRequest,
+  GetEventsByContractKeyResponse,
+}
 import com.daml.ledger.api.v1.transaction_service.{
   GetTransactionByEventIdRequest,
   GetTransactionByIdRequest,
@@ -71,7 +77,7 @@ import com.google.protobuf.ByteString
 import io.grpc.health.v1.health.HealthCheckResponse
 import io.grpc.stub.StreamObserver
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 
 trait ParticipantTestContext extends UserManagementTestContext {
 
@@ -300,6 +306,15 @@ trait ParticipantTestContext extends UserManagementTestContext {
   /** Managed version of [[flatTransactionByEventId]], use this unless you need to tweak the request (i.e. to test low-level details)
     */
   def flatTransactionByEventId(eventId: String, parties: Primitive.Party*): Future[Transaction]
+
+  def getEventsByContractId(
+      request: GetEventsByContractIdRequest
+  ): Future[GetEventsByContractIdResponse]
+
+  def getEventsByContractKey(
+      request: GetEventsByContractKeyRequest
+  ): Future[GetEventsByContractKeyResponse]
+
   def create[T](
       party: Primitive.Party,
       template: Template[T],
@@ -422,6 +437,19 @@ trait ParticipantTestContext extends UserManagementTestContext {
       pruneAllDivulgedContracts: Boolean = false,
   ): Future[PruneResponse]
 
+  /** We are retrying a command submission + pruning to get a safe-to-prune offset for Canton.
+    * That's because in Canton pruning will fail unless ACS commitments have been exchanged between participants.
+    * To this end, repeatedly submitting commands is prompting Canton to exchange ACS commitments
+    * and allows the pruning call to eventually succeed.
+    */
+  def pruneCantonSafe(
+      pruneUpTo: LedgerOffset,
+      party: Primitive.Party,
+      dummyCommand: Primitive.Party => Command,
+      pruneAllDivulgedContracts: Boolean = false,
+  )(implicit ec: ExecutionContext): Future[Unit]
+
+  def latestPrunedOffsets(): Future[(LedgerOffset, LedgerOffset)]
 }
 
 object ParticipantTestContext {

@@ -12,7 +12,12 @@ import com.daml.ledger.api.testtool.infrastructure.TransactionHelpers.createdEve
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
 import com.daml.ledger.api.v1.command_service.SubmitAndWaitRequest
 import com.daml.ledger.api.v1.commands.DisclosedContract.{Arguments => ProtoArguments}
-import com.daml.ledger.api.v1.commands.{Command, DisclosedContract, ExerciseByKeyCommand}
+import com.daml.ledger.api.v1.commands.{
+  Command,
+  CreateCommand,
+  DisclosedContract,
+  ExerciseByKeyCommand,
+}
 import com.daml.ledger.api.v1.event.CreatedEvent
 import com.daml.ledger.api.v1.transaction.{Transaction, TransactionTree}
 import com.daml.ledger.api.v1.transaction_filter.{
@@ -29,7 +34,7 @@ import com.daml.ledger.client.binding
 import com.daml.ledger.client.binding.Primitive
 import com.daml.ledger.test.model.Test._
 import com.daml.ledger.test.modelext.TestExtension.IDelegated
-import com.daml.lf.crypto.Hash
+import com.daml.lf.crypto
 import com.daml.lf.data.Bytes
 import com.daml.lf.data.Ref.{DottedName, Identifier, PackageId, QualifiedName}
 import com.daml.lf.value.Value.{ContractId => LfContractId}
@@ -427,57 +432,123 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
           scala.Seq(RecordField("", Some(Value(Value.Sum.Bool(false))))),
         )
 
-        _ <- testContext
-          .exerciseFetchDelegated(
+        _ <- testContext.dummyCreate()
+
+        // invalid disclosed contract (specify a hash key for a template without key)
+        err <- testContext
+          .dummyCreate(
+            testContext.disclosedContract.update(
+              _.metadata.contractKeyHash := ByteString.EMPTY
+            )
+          )
+          .mustFail("using a contract hash for template that does not have one")
+        _ = assertGrpcError(
+          err,
+          LedgerApiErrors.CommandExecution.Preprocessing.PreprocessingFailed,
+          Some("Missing contract key hash for the disclosed contract"),
+          checkDefiniteAnswerMetadata = true,
+        )
+
+        // invalid disclosed contract (do not specify a hash key for a template with key)
+        err <- testContext
+          .dummyCreate(
+            testContext.disclosedContract
+              .update(_.templateId := Dummy.id.unwrap)
+              .update(_.arguments := ProtoArguments.CreateArguments(Dummy(delegate).arguments))
+          )
+          .mustFail("using a contract hash for template that does not have one")
+        _ = assertGrpcError(
+          err,
+          LedgerApiErrors.CommandExecution.Preprocessing.PreprocessingFailed,
+          Some(" Unexpected contract key hash for the disclosed contract"),
+          checkDefiniteAnswerMetadata = true,
+        )
+
+        err <- testContext
+          .dummyCreate(
             testContext.disclosedContract
               .update(_.arguments := ProtoArguments.CreateArguments(malformedArgument))
           )
           .mustFail("using a malformed contract argument")
+        _ = assertGrpcError(
+          err,
+          LedgerApiErrors.CommandExecution.Preprocessing.PreprocessingFailed,
+          Some("Expecting 2 field for record"),
+          checkDefiniteAnswerMetadata = true,
+        )
 
-        // Exercise a choice using an invalid disclosed contract (missing templateId)
-        _ <- testContext
-          .exerciseFetchDelegated(
+        //  invalid disclosed contract (missing templateId)
+        err <- testContext
+          .dummyCreate(
             testContext.disclosedContract
               .update(_.modify(_.clearTemplateId))
           )
           .mustFail("using a disclosed contract with missing templateId")
+        _ = assertGrpcError(
+          err,
+          LedgerApiErrors.RequestValidation.MissingField,
+          None,
+          checkDefiniteAnswerMetadata = true,
+        )
 
-        // Exercise a choice using an invalid disclosed contract (empty contractId)
-        _ <- testContext
-          .exerciseFetchDelegated(
+        // invalid disclosed contract (empty contractId)
+        err <- testContext
+          .dummyCreate(
             testContext.disclosedContract
               .update(_.contractId := "")
           )
           .mustFail("using a disclosed contract with empty contractId")
+        _ = assertGrpcError(
+          err,
+          LedgerApiErrors.RequestValidation.MissingField,
+          None,
+          checkDefiniteAnswerMetadata = true,
+        )
 
-        // Exercise a choice using an invalid disclosed contract (empty create arguments)
-        _ <- testContext
-          .exerciseFetchDelegated(
+        //  invalid disclosed contract (empty create arguments)
+        err <- testContext
+          .dummyCreate(
             testContext.disclosedContract.update(_.modify(_.clearArguments))
           )
           .mustFail("using a disclosed contract with empty arguments")
+        _ = assertGrpcError(
+          err,
+          LedgerApiErrors.RequestValidation.MissingField,
+          None,
+          checkDefiniteAnswerMetadata = true,
+        )
 
-        // Exercise a choice using an invalid disclosed contract (missing contract metadata)
-        _ <- testContext
-          .exerciseFetchDelegated(
+        //  invalid disclosed contract (missing contract metadata)
+        err <- testContext
+          .dummyCreate(
             testContext.disclosedContract.update(_.modify(_.clearMetadata))
           )
           .mustFail("using a disclosed contract with missing contract metadata")
+        _ = assertGrpcError(
+          err,
+          LedgerApiErrors.RequestValidation.MissingField,
+          None,
+          checkDefiniteAnswerMetadata = true,
+        )
 
-        // Exercise a choice using an invalid disclosed contract (missing createdAt in contract metadata)
-        _ <- testContext
-          .exerciseFetchDelegated(
+        // invalid disclosed contract (missing createdAt in contract metadata)
+        err <- testContext
+          .dummyCreate(
             testContext.disclosedContract.update(_.metadata.modify(_.clearCreatedAt))
           )
           .mustFail("using a disclosed contract with missing createdAt in contract metadata")
-      } yield {
-        // TODO ED: Assert specific error codes once Canton error codes can be accessible from these suites
-      }
+        _ = assertGrpcError(
+          err,
+          LedgerApiErrors.RequestValidation.MissingField,
+          None,
+          checkDefiniteAnswerMetadata = true,
+        )
+      } yield ()
   })
 
   test(
     "EDInconsistentSuperfluousDisclosedContracts",
-    "The ledger accepts superfluous disclosed contracts with mismatching payload",
+    "The ledger accepts superfluous disclosed contracts with mismatching meta data",
     allocate(SingleParty, SingleParty),
     enabled = _.explicitDisclosure,
   )(implicit ec => {
@@ -494,17 +565,17 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
           transactionFilter = filterTxBy(owner, template = byTemplate, interface = None),
         )
 
-        _ <- ownerParticipant.create(owner, Dummy(owner))
-        dummyTxs <- ownerParticipant.flatTransactionsByTemplateId(Dummy.id, owner)
-        dummyCreate = createdEvents(dummyTxs(0)).head
-        dummyDisclosedContract = createEventToDisclosedContract(dummyCreate)
+        _ <- ownerParticipant.create(owner, WithKey(owner))
+        whitKeyTxs <- ownerParticipant.flatTransactionsByTemplateId(WithKey.id, owner)
+        whitKeyCreate = createdEvents(whitKeyTxs(0)).head
+        whitKeyDisclosedContract = createEventToDisclosedContract(whitKeyCreate)
 
         // Exercise a choice using invalid explicit disclosure (bad contract key)
         _ <- testContext
           .exerciseFetchDelegated(
             testContext.disclosedContract,
             // Provide a superfluous disclosed contract with mismatching key hash
-            dummyDisclosedContract
+            whitKeyDisclosedContract
               .update(
                 _.metadata.contractKeyHash := ByteString.copyFromUtf8(
                   "BadKeyBadKeyBadKeyBadKeyBadKey00"
@@ -517,18 +588,10 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
           .exerciseFetchDelegated(
             testContext.disclosedContract,
             // Provide a superfluous disclosed contract with mismatching createdAt
-            dummyDisclosedContract
+            whitKeyDisclosedContract
               .update(_.metadata.createdAt := com.google.protobuf.timestamp.Timestamp.of(1, 0)),
           )
 
-        // Exercise a choice using invalid explicit disclosure (bad payload)
-        _ <- testContext
-          .exerciseFetchDelegated(
-            testContext.disclosedContract,
-            // Provide a superfluous disclosed contract with mismatching contract arguments
-            dummyDisclosedContract
-              .update(_.arguments := ProtoArguments.CreateArguments(Dummy(delegate).arguments)),
-          )
       } yield ()
   })
 
@@ -556,7 +619,7 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
 
         // Submission with disclosed contracts with the same contract id should be rejected
         errorDuplicateContractId <- testContext
-          .exerciseFetchDelegated(
+          .dummyCreate(
             testContext.disclosedContract,
             testContext.disclosedContract.update(
               // Set distinct key hash
@@ -567,7 +630,7 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
 
         // Submission with disclosed contracts with the same contract key hashes should be rejected
         errorDuplicateKey <- testContext
-          .exerciseFetchDelegated(
+          .dummyCreate(
             testContext.disclosedContract,
             testContext.disclosedContract.update(
               // Set distinct contract id
@@ -575,7 +638,7 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
                 val originalLfCid = LfContractId.V1.assertFromString(originalCid)
                 LfContractId
                   .V1(
-                    discriminator = Hash.hashPrivateKey("a distinct Contract ID"),
+                    discriminator = crypto.Hash.hashPrivateKey("a distinct Contract ID"),
                     originalLfCid.suffix, // Don't change the suffix so that Canton can still parse it
                   )
                   .coid
@@ -588,7 +651,7 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
           errorDuplicateContractId,
           LedgerApiErrors.CommandExecution.Preprocessing.PreprocessingFailed,
           Some(
-            s"Preprocessor encountered a duplicate disclosed contract ID ContractId(${testContext.disclosedContract.contractId})"
+            s"Duplicate disclosed contract ID ${testContext.disclosedContract.contractId}"
           ),
           checkDefiniteAnswerMetadata = true,
         )
@@ -599,14 +662,14 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
               .getOrElse(fail("metadata not present"))
               .contractKeyHash
           )
-          Hash.fromBytes(bytes).getOrElse(fail("Could not decode hash")).toHexString
+          crypto.Hash.fromBytes(bytes).getOrElse(fail("Could not decode hash")).toHexString
         }
         assertGrpcErrorRegex(
           errorDuplicateKey,
-          LedgerApiErrors.CommandExecution.Interpreter.InvalidArgumentInterpretationError,
+          LedgerApiErrors.CommandExecution.Preprocessing.PreprocessingFailed,
           Some(
             Pattern.compile(
-              s"Found duplicated contract keys in submitted disclosed contracts .* $expectedKeyHashString"
+              s"Duplicate disclosed contract key hash $expectedKeyHashString"
             )
           ),
           checkDefiniteAnswerMetadata = true,
@@ -818,9 +881,10 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
 
         create.contractKey
           .map { cKey =>
-            val actualKeyHash = Hash.assertFromByteArray(metadata.contractKeyHash.toByteArray)
+            val actualKeyHash =
+              crypto.Hash.assertFromBytes(Bytes.fromByteString(metadata.contractKeyHash))
             val expectedKeyHash =
-              Hash.assertHashContractKey(
+              crypto.Hash.assertHashContractKey(
                 fromApiIdentifier(Delegated.id.unwrap)
                   .fold(
                     errStr => fail(s"Failed converting from API to LF Identifier: $errStr"),
@@ -879,6 +943,24 @@ object ExplicitDisclosureIT {
         .update(_.commands.disclosedContracts := disclosedContracts)
       delegateParticipant.submitAndWait(request)
     }
+
+    def dummyCreate(disclosedContracts: DisclosedContract*): Future[Unit] = {
+      val request = delegateParticipant
+        .submitAndWaitRequest(
+          delegate,
+          Command.of(
+            Command.Command.Create(
+              CreateCommand(
+                Some(Dummy.id.unwrap),
+                Some(Dummy(delegate).arguments),
+              )
+            )
+          ),
+        )
+        .update(_.commands.disclosedContracts := disclosedContracts)
+      delegateParticipant.submitAndWait(request)
+    }
+
   }
 
   private def initializeTest(

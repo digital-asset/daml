@@ -1573,14 +1573,18 @@ object UpdateToDbDtoSpec {
 
     /** Returns (contract argument, contract key) */
     override def serialize(eventId: EventId, create: Create): (Array[Byte], Option[Array[Byte]]) =
-      (emptyArray, create.key.map(_ => emptyArray))
+      (emptyArray, create.keyOpt.map(_ => emptyArray))
 
     /** Returns (choice argument, exercise result, contract key) */
     override def serialize(
         eventId: EventId,
         exercise: Exercise,
     ): (Array[Byte], Option[Array[Byte]], Option[Array[Byte]]) =
-      (emptyArray, exercise.exerciseResult.map(_ => emptyArray), exercise.key.map(_ => emptyArray))
+      (
+        emptyArray,
+        exercise.exerciseResult.map(_ => emptyArray),
+        exercise.keyOpt.map(_ => emptyArray),
+      )
     override def deserialize[E](
         raw: Raw.Created[E],
         eventProjectionProperties: EventProjectionProperties,

@@ -59,6 +59,7 @@ If you’re not familiar, it’s really worth reading the [primer](http://www.sp
   """"""
   ```
 - For internal links, use the `doc` directive where you can. 
+- Before any lists in an .rst file, be sure to add an extra blank line. There should be two carriage returns between the text that comes before a list and the list itself. Otherwise, the list items will all be merged into a single paragraph.
 - For bullet points (unordered lists), use `-` (dashes).
 - For code blocks, use the `literalinclude` directive if you can: it's best to source code from files that we test whether they compile.
 

@@ -56,7 +56,7 @@ versions = struct(
 
 lf_version_configuration = {
     "legacy": "1.8",
-    "default": "1.14",
+    "default": "1.15",
     "latest": "1.15",
     #    "preview": "",
     "dev": "1.dev",

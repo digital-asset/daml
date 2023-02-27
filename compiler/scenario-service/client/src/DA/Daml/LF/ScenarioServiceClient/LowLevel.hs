@@ -21,7 +21,10 @@ module DA.Daml.LF.ScenarioServiceClient.LowLevel
   , updateCtx
   , runScenario
   , runScript
+  , runLiveScript
+  , runLiveScenario
   , SS.ScenarioResult(..)
+  , SS.ScenarioStatus(..)
   , SS.WarningMessage(..)
   , SS.Location(..)
   , encodeScenarioModule
@@ -54,7 +57,7 @@ import Data.List.Split (splitOn)
 import qualified Data.Text as T
 import qualified Data.Text.Lazy as TL
 import qualified Data.Vector as V
-import Network.GRPC.HighLevel.Client (ClientError, ClientRequest(..), ClientResult(..), GRPCMethodType(..))
+import Network.GRPC.HighLevel.Client (ClientError(..), ClientRequest(..), ClientResult(..), GRPCMethodType(..))
 import Network.GRPC.HighLevel.Generated (withGRPCClient)
 import Network.GRPC.LowLevel (ClientConfig(..), Host(..), Port(..), StatusCode(..), Arg(MaxReceiveMessageLength))
 import qualified Proto3.Suite as Proto
@@ -71,7 +74,8 @@ import qualified ScenarioService as SS
 data Options = Options
   { optServerJar :: FilePath
   , optJvmOptions :: [String]
-  , optRequestTimeout :: TimeoutSeconds
+  , optEvaluationTimeout :: TimeoutSeconds
+  , optGrpcTimeout :: TimeoutSeconds
   , optGrpcMaxMessageSize :: Maybe Int
   , optLogDebug :: String -> IO ()
   , optLogInfo :: String -> IO ()
@@ -80,7 +84,7 @@ data Options = Options
   , optEnableScenarios :: EnableScenarios
   }
 
-type TimeoutSeconds = Int
+type TimeoutSeconds = Int64
 
 data Handle = Handle
   { hClient :: SS.ScenarioService ClientRequest ClientResult
@@ -276,8 +280,11 @@ newCtx :: Handle -> IO (Either BackendError ContextId)
 newCtx Handle{..} = do
   res <- performRequest
       (SS.scenarioServiceNewContext hClient)
-      (optRequestTimeout hOptions)
-      (SS.NewContextRequest $ TL.pack $ LF.renderMinorVersion $ LF.versionMinor $ optDamlLfVersion hOptions)
+      (optGrpcTimeout hOptions)
+      (SS.NewContextRequest
+         (TL.pack $ LF.renderMinorVersion $ LF.versionMinor $ optDamlLfVersion hOptions)
+         (optEvaluationTimeout hOptions)
+      )
   pure (ContextId . SS.newContextResponseContextId <$> res)
 
 cloneCtx :: Handle -> ContextId -> IO (Either BackendError ContextId)
@@ -285,7 +292,7 @@ cloneCtx Handle{..} (ContextId ctxId) = do
   res <-
     performRequest
       (SS.scenarioServiceCloneContext hClient)
-      (optRequestTimeout hOptions)
+      (optGrpcTimeout hOptions)
       (SS.CloneContextRequest ctxId)
   pure (ContextId . SS.cloneContextResponseContextId <$> res)
 
@@ -294,7 +301,7 @@ deleteCtx Handle{..} (ContextId ctxId) = do
   res <-
     performRequest
       (SS.scenarioServiceDeleteContext hClient)
-      (optRequestTimeout hOptions)
+      (optGrpcTimeout hOptions)
       (SS.DeleteContextRequest ctxId)
   pure (void res)
 
@@ -303,7 +310,7 @@ gcCtxs Handle{..} ctxIds = do
     res <-
         performRequest
             (SS.scenarioServiceGCContexts hClient)
-            (optRequestTimeout hOptions)
+            (optGrpcTimeout hOptions)
             (SS.GCContextsRequest (V.fromList (map getContextId ctxIds)))
     pure (void res)
 
@@ -312,7 +319,7 @@ updateCtx Handle{..} (ContextId ctxId) ContextUpdate{..} = do
   res <-
     performRequest
       (SS.scenarioServiceUpdateContext hClient)
-      (optRequestTimeout hOptions) $
+      (optGrpcTimeout hOptions) $
       SS.UpdateContextRequest
           ctxId
           (Just updModules)
@@ -342,7 +349,7 @@ runScenario Handle{..} (ContextId ctxId) name = do
   res <-
     performRequest
       (SS.scenarioServiceRunScenario hClient)
-      (optRequestTimeout hOptions)
+      (optGrpcTimeout hOptions)
       (SS.RunScenarioRequest ctxId (Just (toIdentifier name)))
   pure $ case res of
     Left err -> Left (BackendError err)
@@ -369,7 +376,7 @@ runScript Handle{..} (ContextId ctxId) name = do
   res <-
     performRequest
       (SS.scenarioServiceRunScript hClient)
-      (optRequestTimeout hOptions)
+      (optGrpcTimeout hOptions)
       (SS.RunScenarioRequest ctxId (Just (toIdentifier name)))
   pure $ case res of
     Left err -> Left (BackendError err)
@@ -383,7 +390,54 @@ performRequest
   -> payload
   -> IO (Either BackendError response)
 performRequest method timeoutSeconds payload = do
-  method (ClientNormalRequest payload timeoutSeconds mempty) >>= \case
+  method (ClientNormalRequest payload (fromIntegral timeoutSeconds) mempty) >>= \case
     ClientNormalResponse resp _ _ StatusOk _ -> return (Right resp)
     ClientNormalResponse _ _ _ status _ -> return (Left $ BErrorFail status)
     ClientErrorResponse err -> return (Left $ BErrorClient err)
+
+runLive
+  :: (SS.ScenarioService ClientRequest ClientResult
+      -> ClientRequest 'ServerStreaming SS.RunScenarioRequest SS.RunScenarioResponseOrStatus
+      -> IO (ClientResult 'ServerStreaming SS.RunScenarioResponseOrStatus))
+  -> Handle -> ContextId -> LF.ValueRef -> (SS.ScenarioStatus -> IO ())
+  -> IO (Either Error SS.ScenarioResult)
+runLive runner Handle{..} (ContextId ctxId) name statusUpdateHandler = do
+  let req = SS.RunScenarioRequest ctxId (Just (toIdentifier name))
+  ior <- newIORef (Left (ExceptionError (error "runLiveScenario scenario")))
+  response <-
+    runner hClient $
+      ClientReaderRequest req (fromIntegral (optGrpcTimeout hOptions)) mempty $ \_clientCall _meta streamRecv ->
+        let loop :: IO ()
+            loop = streamRecv >>= \case
+              Right (Just (SS.RunScenarioResponseOrStatus (Just resp))) ->
+                handle resp >>= \case
+                  Left err -> writeIORef ior (Left err)
+                  Right (Just result) -> writeIORef ior (Right result)
+                  Right Nothing -> loop
+              Right _ -> loop
+              Left grpcIOErr -> writeIORef ior (Left (BackendError (BErrorClient (ClientIOError grpcIOErr))))
+
+            handle :: SS.RunScenarioResponseOrStatusResponse -> IO (Either Error (Maybe SS.ScenarioResult))
+            handle (SS.RunScenarioResponseOrStatusResponseError err) =
+              pure (Left (ScenarioError err))
+            handle (SS.RunScenarioResponseOrStatusResponseResult result) = do
+              pure (Right (Just result))
+            handle (SS.RunScenarioResponseOrStatusResponseStatus status) = do
+              statusUpdateHandler status
+              pure (Right Nothing)
+        in
+        loop
+  case response of
+    ClientReaderResponse _ StatusOk _ -> readIORef ior
+    ClientReaderResponse _ status _ -> pure (Left (BackendError (BErrorFail status)))
+    ClientErrorResponse err -> pure (Left (BackendError (BErrorClient err)))
+
+runLiveScenario
+  :: Handle -> ContextId -> LF.ValueRef -> (SS.ScenarioStatus -> IO ())
+  -> IO (Either Error SS.ScenarioResult)
+runLiveScenario = runLive SS.scenarioServiceRunLiveScenario
+
+runLiveScript
+  :: Handle -> ContextId -> LF.ValueRef -> (SS.ScenarioStatus -> IO ())
+  -> IO (Either Error SS.ScenarioResult)
+runLiveScript = runLive SS.scenarioServiceRunLiveScript

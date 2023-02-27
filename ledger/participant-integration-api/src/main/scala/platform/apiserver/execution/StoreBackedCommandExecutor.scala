@@ -14,6 +14,8 @@ import com.daml.lf.engine.{
   Result,
   ResultDone,
   ResultError,
+  ResultInterruption,
+  ResultNeedAuthority,
   ResultNeedContract,
   ResultNeedKey,
   ResultNeedPackage,
@@ -115,7 +117,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
       dependsOnLedgerTime = meta.dependsOnTime,
       interpretationTimeNanos = interpretationTimeNanos,
       globalKeyMapping = meta.globalKeyMapping,
-      usedDisclosedContracts = meta.disclosures,
+      processedDisclosedContracts = meta.processedDisclosedContracts,
     )
   }
 
@@ -220,6 +222,24 @@ private[apiserver] final class StoreBackedCommandExecutor(
                 )
               )
             }
+
+        case ResultInterruption(continue) =>
+          resolveStep(
+            Tracked.value(
+              metrics.daml.execution.engineRunning,
+              trackSyncExecution(interpretationTimeNanos)(continue()),
+            )
+          )
+
+        case ResultNeedAuthority(holding @ _, requesting @ _, resume) =>
+          val granted = true // TODO #15882
+          resolveStep(
+            Tracked.value(
+              metrics.daml.execution.engineRunning,
+              trackSyncExecution(interpretationTimeNanos)(resume(granted)),
+            )
+          )
+
       }
 
     resolveStep(result).andThen { case _ =>

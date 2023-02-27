@@ -30,7 +30,7 @@ class BridgeWriteServiceTest extends AnyFlatSpec with MockitoSugar with Matchers
     agreementText = "dummyAgreement",
     signatories = Set.empty,
     stakeholders = Set.empty,
-    key = None,
+    keyOpt = None,
     version = TransactionVersion.minVersion,
   )
 
@@ -63,7 +63,7 @@ class BridgeWriteServiceTest extends AnyFlatSpec with MockitoSugar with Matchers
     transactionMeta,
     transaction = tx,
     estimatedInterpretationCost = 0,
-    disclosedContracts = ImmArray.empty,
+    processedDisclosedContracts = ImmArray.empty,
   )(LoggingContext.ForTesting)
 
   "Success Mapper" should "add transaction statistics" in {

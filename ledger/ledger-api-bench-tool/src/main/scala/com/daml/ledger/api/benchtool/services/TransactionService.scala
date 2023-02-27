@@ -8,6 +8,7 @@ import com.daml.ledger.api.benchtool.config.WorkflowConfig
 import com.daml.ledger.api.benchtool.util.ObserverWithResult
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.transaction_service.{
+  GetLedgerEndRequest,
   GetTransactionTreesResponse,
   GetTransactionsRequest,
   GetTransactionsResponse,
@@ -16,7 +17,7 @@ import com.daml.ledger.api.v1.transaction_service.{
 import io.grpc.Channel
 import org.slf4j.LoggerFactory
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 
 final class TransactionService(
     channel: Channel,
@@ -26,6 +27,13 @@ final class TransactionService(
   private val logger = LoggerFactory.getLogger(getClass)
   private val service: TransactionServiceGrpc.TransactionServiceStub =
     AuthorizationHelper.maybeAuthedService(authorizationToken)(TransactionServiceGrpc.stub(channel))
+
+  def getLedgerEnd()(implicit ec: ExecutionContext): Future[String] = for {
+    response <- service.getLedgerEnd(new GetLedgerEndRequest())
+    ledgerOffset = response.offset.getOrElse(
+      sys.error("Ledger end offset response contained no offset")
+    )
+  } yield ledgerOffset.getAbsolute
 
   def transactions[Result](
       config: WorkflowConfig.StreamConfig.TransactionsStreamConfig,

@@ -13,7 +13,7 @@ da_scala_test(
     srcs = glob(["src/test/scala/**/*.scala"]),
     resources = [
         "src/test/resources/logback-test.xml",
-        "//ledger/test-common:dar-files-default",
+        "//test-common:dar-files-default",
     ],
     scala_deps = [
         "@maven//:org_tpolecat_doobie_core",
@@ -32,9 +32,9 @@ da_scala_test(
         "//ledger/ledger-api-tests/infrastructure",
         "//ledger/ledger-api-tests/suites",
         "//ledger/ledger-configuration",
-        "//ledger/ledger-resources",
         "//ledger/participant-integration-api",
         "//libs-scala/doobie-slf4j",
+        "//libs-scala/ledger-resources",
         "//libs-scala/ports",
         "//libs-scala/postgresql-testing",
         "//libs-scala/resources",

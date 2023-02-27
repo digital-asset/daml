@@ -11,6 +11,7 @@ import com.daml.lf.speedy.Speedy.{CachedContract, CachedKey}
 import com.daml.lf.transaction.ContractKeyUniquenessMode
 import com.daml.lf.transaction.{
   ContractStateMachine,
+  GlobalKeyWithMaintainers,
   Node,
   NodeId,
   SubmittedTransaction => SubmittedTx,
@@ -37,7 +38,7 @@ private[lf] object PartialTransaction {
 
   sealed abstract class ContextInfo {
     val actionChildSeed: Int => crypto.Hash
-    private[PartialTransaction] def authorizers: Set[Party]
+    private[lf] def authorizers: Set[Party]
   }
 
   sealed abstract class RootContextInfo extends ContextInfo {
@@ -93,7 +94,7 @@ private[lf] object PartialTransaction {
     def addActionChild(child: NodeId, version: TxVersion): Context = {
       Context(info, minChildVersion min version, children :+ child, nextActionChildIdx + 1)
     }
-    def addRollbackChild(child: NodeId, version: TxVersion, nextActionChildIdx: Int): Context =
+    def addNonActionChild(child: NodeId, version: TxVersion, nextActionChildIdx: Int): Context =
       Context(info, minChildVersion min version, children :+ child, nextActionChildIdx)
     // This function may be costly, it must be call at most once for each node.
     def nextActionChildSeed: crypto.Hash = info.actionChildSeed(nextActionChildIdx)
@@ -142,7 +143,7 @@ private[lf] object PartialTransaction {
       targetId: Value.ContractId,
       templateId: TypeConName,
       interfaceId: Option[TypeConName],
-      contractKey: Option[Node.KeyWithMaintainers],
+      contractKey: Option[GlobalKeyWithMaintainers],
       choiceId: ChoiceName,
       consuming: Boolean,
       actingParties: Set[Party],
@@ -170,11 +171,25 @@ private[lf] object PartialTransaction {
     val actionChildSeed: NodeIdx => crypto.Hash = parent.info.actionChildSeed
   }
 
+  final case class GainAuthorityContextInfo(
+      nodeId: NodeId,
+      parent: Context,
+      authorizers: Set[Party],
+  ) extends ContextInfo {
+    val actionChildSeed: NodeIdx => crypto.Hash = parent.info.actionChildSeed
+  }
+
+  final case class RestrictAuthorityContextInfo(
+      parent: Context,
+      authorizers: Set[Party],
+  ) extends ContextInfo {
+    val actionChildSeed: NodeIdx => crypto.Hash = parent.info.actionChildSeed
+  }
+
   def initial(
       contractKeyUniqueness: ContractKeyUniquenessMode,
       initialSeeds: InitialSeeding,
       committers: Set[Party],
-      disclosedContracts: ImmArray[DisclosedContract],
       authorizationChecker: AuthorizationChecker = DefaultAuthorizationChecker,
   ) = PartialTransaction(
     nextNodeIdx = 0,
@@ -183,7 +198,6 @@ private[lf] object PartialTransaction {
     context = Context(initialSeeds, committers),
     contractState = new ContractStateMachine[NodeId](contractKeyUniqueness).initial,
     actionNodeLocations = BackStack.empty,
-    disclosedContracts = disclosedContracts,
     authorizationChecker = authorizationChecker,
   )
 
@@ -218,14 +232,10 @@ private[speedy] case class PartialTransaction(
     context: PartialTransaction.Context,
     contractState: ContractStateMachine[NodeId]#State,
     actionNodeLocations: BackStack[Option[Location]],
-    disclosedContracts: ImmArray[DisclosedContract],
     authorizationChecker: AuthorizationChecker,
 ) {
 
   import PartialTransaction._
-
-  val disclosedContractIds: Set[Value.ContractId] =
-    disclosedContracts.map(_.contractId.value).toSeq.toSet
 
   def consumedByOrInactive(cid: Value.ContractId): Option[Either[NodeId, Unit]] = {
     contractState.consumedByOrInactive(cid)
@@ -339,28 +349,18 @@ private[speedy] case class PartialTransaction(
       submissionTime: Time.Timestamp,
       contract: CachedContract,
       optLocation: Option[Location],
-      version: TxVersion,
   ): Either[(PartialTransaction, Tx.TransactionError), (Value.ContractId, PartialTransaction)] = {
     val auth = Authorize(context.info.authorizers)
     val actionNodeSeed = context.nextActionChildSeed
     val discriminator =
       crypto.Hash.deriveContractDiscriminator(actionNodeSeed, submissionTime, contract.stakeholders)
     val cid = Value.ContractId.V1(discriminator)
-    val createNode = Node.Create(
-      cid,
-      contract.templateId,
-      contract.value.toNormalizedValue(version),
-      contract.agreementText,
-      contract.signatories,
-      contract.stakeholders,
-      contract.key.map(_.toNodeKey(version)),
-      version,
-    )
+    val createNode = contract.toCreateNode(cid)
     val nid = NodeId(nextNodeIdx)
     val ptx = copy(
       actionNodeLocations = actionNodeLocations :+ optLocation,
       nextNodeIdx = nextNodeIdx + 1,
-      context = context.addActionChild(nid, version),
+      context = context.addActionChild(nid, createNode.version),
       nodes = nodes.updated(nid, createNode),
       actionNodeSeeds = actionNodeSeeds :+ actionNodeSeed,
     )
@@ -369,7 +369,7 @@ private[speedy] case class PartialTransaction(
       case Nil =>
         ptx.contractState.visitCreate(
           cid,
-          contract.key.map(_.globalKey),
+          createNode.gkeyOpt,
         ) match {
           case Right(next) =>
             val nextPtx = ptx.copy(contractState = next)
@@ -397,7 +397,7 @@ private[speedy] case class PartialTransaction(
       actingParties,
       contract.signatories,
       contract.stakeholders,
-      contract.key.map(_.toNodeKey(version)),
+      contract.keyOpt.map(_.globalKeyWithMaintainers),
       normByKey(version, byKey),
       version,
     )
@@ -406,7 +406,7 @@ private[speedy] case class PartialTransaction(
         // evaluation order tests require visitFetch proceeds authorizeFetch
         contractState.visitFetch(
           coid,
-          contract.key.map(_.globalKey),
+          contract.gkeyOpt,
           byKey,
         )
       )
@@ -419,15 +419,19 @@ private[speedy] case class PartialTransaction(
   }
 
   def insertLookup(
-      templateId: TypeConName,
       optLocation: Option[Location],
       key: CachedKey,
       result: Option[Value.ContractId],
-      version: TxVersion,
+      keyVersion: TxVersion,
   ): Either[Tx.TransactionError, PartialTransaction] = {
     val auth = Authorize(context.info.authorizers)
     val nid = NodeId(nextNodeIdx)
-    val node = Node.LookupByKey(templateId, key.toNodeKey(version), result, version)
+    val node = Node.LookupByKey(
+      key.templateId,
+      key.globalKeyWithMaintainers,
+      result,
+      keyVersion,
+    )
     // This method is only called after we have already resolved the key in com.daml.lf.speedy.SBuiltin.SBUKeyBuiltin.execute
     // so the current state's global key inputs must resolve the key.
     val keyInput = contractState.globalKeyInputs(key.globalKey)
@@ -436,7 +440,7 @@ private[speedy] case class PartialTransaction(
     authorizationChecker.authorizeLookupByKey(optLocation, node)(auth) match {
       case fa :: _ => Left(Tx.AuthFailureDuringExecution(nid, fa))
       case Nil =>
-        Right(insertLeafNode(node, version, optLocation, newContractState))
+        Right(insertLeafNode(node, keyVersion, optLocation, newContractState))
     }
   }
 
@@ -463,7 +467,9 @@ private[speedy] case class PartialTransaction(
         targetId = targetId,
         templateId = contract.templateId,
         interfaceId = interfaceId,
-        contractKey = contract.key.map(_.toNodeKey(version)),
+        contractKey =
+          // We need to renormalize the key
+          contract.keyOpt.map(_.renormalizedGlobalKeyWithMaintainers(version)),
         choiceId = choiceId,
         consuming = consuming,
         actingParties = actingParties,
@@ -483,7 +489,7 @@ private[speedy] case class PartialTransaction(
         contractState.visitExercise(
           nid,
           targetId,
-          contract.key.map(_.globalKey),
+          contract.gkeyOpt,
           byKey,
           consuming,
         )
@@ -565,7 +571,7 @@ private[speedy] case class PartialTransaction(
       choiceObservers = ec.choiceObservers,
       children = ImmArray.Empty,
       exerciseResult = None,
-      key = ec.contractKey,
+      keyOpt = ec.contractKey,
       byKey = normByKey(ec.version, ec.byKey),
       version = ec.version,
     )
@@ -621,7 +627,7 @@ private[speedy] case class PartialTransaction(
         val rollbackNode = Node.Rollback(context.children.toImmArray)
         copy(
           context = info.parent
-            .addRollbackChild(info.nodeId, context.minChildVersion, context.nextActionChildIdx),
+            .addNonActionChild(info.nodeId, context.minChildVersion, context.nextActionChildIdx),
           nodes = nodes.updated(info.nodeId, rollbackNode),
           contractState = contractState.endRollback(),
         )
@@ -629,6 +635,66 @@ private[speedy] case class PartialTransaction(
         InternalError.runtimeException(
           NameOf.qualifiedNameOfCurrentFunc,
           "rollbackTry called in non-catch context",
+        )
+    }
+  }
+
+  /** Open an GainAuthority context. Must be closed by a `endGainAuthority` */
+  def beginGainAuthority(
+      required: Set[Party]
+  ): PartialTransaction = {
+    val nid = NodeId(nextNodeIdx)
+    val info = GainAuthorityContextInfo(nid, context, authorizers = required)
+    copy(
+      nextNodeIdx = nextNodeIdx + 1,
+      context = Context(info).copy(nextActionChildIdx = context.nextActionChildIdx),
+    )
+  }
+
+  def endGainAuthority: PartialTransaction = {
+    context.info match {
+      case info: GainAuthorityContextInfo =>
+        val authNode = Node.Authority(
+          obtained = info.authorizers,
+          children = context.children.toImmArray,
+        )
+        copy(
+          context = info.parent
+            .addNonActionChild(info.nodeId, context.minChildVersion, context.nextActionChildIdx),
+          nodes = nodes.updated(info.nodeId, authNode),
+        )
+      case _ =>
+        InternalError.runtimeException(
+          NameOf.qualifiedNameOfCurrentFunc,
+          "endGainAuthority called in non-authority context",
+        )
+    }
+  }
+
+  /** Open an RestrictAuthority context. Must be closed by a `endRestrictAuthority` */
+  def beginRestrictAuthority(
+      required: Set[Party]
+  ): PartialTransaction = {
+    val info = RestrictAuthorityContextInfo(context, authorizers = required)
+    copy(
+      context = Context(info).copy(nextActionChildIdx = context.nextActionChildIdx)
+    )
+  }
+
+  def endRestrictAuthority: PartialTransaction = {
+    context.info match {
+      case info: RestrictAuthorityContextInfo =>
+        copy(
+          context = info.parent.copy(
+            children = info.parent.children :++ context.children.toImmArray,
+            nextActionChildIdx = context.nextActionChildIdx,
+          )
+        )
+
+      case _ =>
+        InternalError.runtimeException(
+          NameOf.qualifiedNameOfCurrentFunc,
+          "endRestrictAuthority called in non-authority context",
         )
     }
   }
@@ -674,6 +740,8 @@ private[speedy] case class PartialTransaction(
     def go(ptx: PartialTransaction): PartialTransaction = ptx.context.info match {
       case _: PartialTransaction.ExercisesContextInfo => go(ptx.abortExercises)
       case _: PartialTransaction.TryContextInfo => go(ptx.endTry)
+      case _: PartialTransaction.GainAuthorityContextInfo => go(ptx.endGainAuthority)
+      case _: PartialTransaction.RestrictAuthorityContextInfo => go(ptx.endRestrictAuthority)
       case _: PartialTransaction.RootContextInfo => ptx
     }
     go(this)

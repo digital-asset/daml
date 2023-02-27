@@ -21,11 +21,13 @@ class IdentityProviderConfigUpdateMapperSpec extends AnyFreeSpec with Matchers w
       isDeactivatedUpdate: Option[Boolean] = None,
       jwksUrlUpdate: Option[JwksUrl] = None,
       issuerUpdate: Option[String] = None,
+      audienceUpdate: Option[Option[String]] = None,
   ): IdentityProviderConfigUpdate = IdentityProviderConfigUpdate(
     identityProviderId = identityProviderId,
     isDeactivatedUpdate = isDeactivatedUpdate,
     jwksUrlUpdate = jwksUrlUpdate,
     issuerUpdate = issuerUpdate,
+    audienceUpdate = audienceUpdate,
   )
 
   val emptyConfigUpdate: IdentityProviderConfigUpdate = makeConfigUpdate()
@@ -34,6 +36,7 @@ class IdentityProviderConfigUpdateMapperSpec extends AnyFreeSpec with Matchers w
     isDeactivatedUpdate = Some(false),
     jwksUrlUpdate = Some(JwksUrl("http://url.com/")),
     issuerUpdate = Some("issuer"),
+    audienceUpdate = Some(Some("audience")),
   )
 
   "map to idp updates" - {
@@ -43,14 +46,33 @@ class IdentityProviderConfigUpdateMapperSpec extends AnyFreeSpec with Matchers w
           .toUpdate(
             config,
             FieldMask(
-              Seq("is_deactivated", "issuer", "jwks_url")
+              Seq("is_deactivated", "issuer", "jwks_url", "audience")
             ),
           )
           .value shouldBe makeConfigUpdate(
           isDeactivatedUpdate = Some(false),
           jwksUrlUpdate = Some(JwksUrl("http://url.com/")),
           issuerUpdate = Some("issuer"),
+          audienceUpdate = Some(Some("audience")),
         )
+      }
+
+      "with audience" in {
+        IdentityProviderConfigUpdateMapper
+          .toUpdate(config, FieldMask(Seq("audience")))
+          .value shouldBe makeConfigUpdate(audienceUpdate = Some(Some("audience")))
+
+        IdentityProviderConfigUpdateMapper
+          .toUpdate(config.copy(audienceUpdate = None), FieldMask(Seq("audience")))
+          .value shouldBe makeConfigUpdate(audienceUpdate = Some(None))
+
+        IdentityProviderConfigUpdateMapper
+          .toUpdate(config.copy(audienceUpdate = Some(Some(""))), FieldMask(Seq("audience")))
+          .value shouldBe makeConfigUpdate(audienceUpdate = Some(Some("")))
+
+        IdentityProviderConfigUpdateMapper
+          .toUpdate(config.copy(audienceUpdate = Some(None)), FieldMask(Seq("audience")))
+          .value shouldBe makeConfigUpdate(audienceUpdate = Some(None))
       }
 
       "with is_deactivated" in {

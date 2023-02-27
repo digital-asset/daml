@@ -81,6 +81,8 @@ ansi-terminal 0.11.1 : BSD 3-clause "New" or "Revised" License
 ansi-wl-pprint 0.6.9 : BSD 3-clause "New" or "Revised" License
 anymatch 3.1.2 : ISC License
 aokoli/goutils v1.0.1 : Apache License 2.0
+Apache Commons Codec 1.14 : Apache License 2.0
+Apache Commons IO 2.5 : Apache License 2.0
 Apache Commons Lang 3.9 : Apache License 2.0
 Apache Commons Math 3.2 : Apache License 2.0
 Apache Commons Pool commons-pool-2.8.0 : Apache License 2.0
@@ -144,7 +146,6 @@ bos/attoparsec 0.14.4 : BSD 3-clause "New" or "Revised" License
 Bouncy Castle 1.70 : MIT License
 Bouncy Castle PKIX, CMS, EAC, TSP, PKCS, OCSP, CMP, and CRMF APIs 1.70 : MIT License
 brace-expansion 1.1.11 : MIT License
-braces 3.0.2 : MIT License
 brorand 1.1.0 : MIT License
 browser-pack 6.1.0 : MIT License
 browserify-aes 1.2.0 : MIT License
@@ -154,6 +155,7 @@ browserify-incremental 3.1.1 : MIT License
 browserify-rsa 4.1.0 : MIT License
 browserify-sign 4.2.1 : ISC License
 browserify-zlib 0.2.0 : MIT License
+browserify/detective   5.2.0 : MIT License
 browserify/resolve v1.20.0 : MIT License
 Buffer 5.2.1 : MIT License
 Buffer v5.7.1 : MIT License
@@ -226,8 +228,6 @@ Commander.js 7.2.0 : MIT License
 Commander.js v2.20.3 : MIT License
 commonjs-assert 1.4.1 : MIT License
 commonjs-assert v1.5.0 : MIT License
-Commons IO 2.5 : Apache License 2.0
-commons-codec 1.14 : Apache License 2.0
 comonad 5.0.8 : BSD 3-clause "New" or "Revised" License
 compilerPlugin 0.11.8 : Apache License 2.0
 concat-stream 1.6.2 : MIT License
@@ -290,7 +290,6 @@ des.js 1.0.1 : MIT License
 destroy 1.0.4 : MIT License
 destroy 1.2.0 : MIT License
 detect-file 1.0.0 : MIT License
-detective 5.2.0 : MIT License
 Diff 0.4.1 : BSD 3-clause "New" or "Revised" License
 diffie-hellman 5.0.3 : MIT License
 digest 0.0.1.3 : BSD 3-clause "New" or "Revised" License
@@ -322,7 +321,7 @@ either 5.0.1.1 : BSD 3-clause "New" or "Revised" License
 ekmett/free v5.1.7 : BSD 3-clause "New" or "Revised" License
 ekmett/profunctors v5.6.2 : BSD 3-clause "New" or "Revised" License
 ekmett/void v0.7.3 : BSD 3-clause "New" or "Revised" License
-elliptic v6.5.4 : MIT License
+elliptic 6.5.4 : MIT License
 emoji-regex v8.0.0 : MIT License
 encodeurl 1.0.2 : MIT License
 end-of-stream 1.4.4 : MIT License
@@ -351,8 +350,6 @@ expressjs/accepts 1.3.7 : MIT License
 expressjs/accepts 1.3.8 : MIT License
 expressjs/express 4.17.1 : MIT License
 expressjs/express 4.18.2 : MIT License
-expressjs/mime-types 2.1.29 : MIT License
-expressjs/mime-types 2.1.35 : MIT License
 expressjs/morgan 1.10.0 : MIT License
 extend 3.0.2 : MIT License
 extra 1.7.10 : BSD 3-clause "New" or "Revised" License
@@ -433,7 +430,7 @@ global-prefix 1.0.2 : MIT License
 Go Testify v1.6.1 : MIT License
 go-check-check 20171108-snapshot-20d25e28 : BSD 2-clause "Simplified" License
 go-spew v1.1.0 : ISC License
-gogo-protobuf v1.1.1 : BSD 3-clause "New" or "Revised" License
+golang protobuf v1.1.1 : BSD 3-clause "New" or "Revised" License
 golang protobuf v1.5.2 : BSD 3-clause "New" or "Revised" License
 golang.org/x/crypto 20200622-snapshot-75b28801 : BSD 3-clause "New" or "Revised" License
 golang.org/x/lint 20210508-snapshot-6edffad5 : BSD 3-clause "New" or "Revised" License
@@ -678,9 +675,13 @@ js-jquery 3.3.1 : MIT License
 js-tokens 4.0.0 : MIT License
 JS-YAML. Native JS port of PyYAML. 3.14.1 : MIT License
 jsesc v2.5.2 : MIT License
+JSHTTP's negotiator 0.6.2 : MIT License
+JSHTTP's negotiator 0.6.3 : MIT License
 jshttp/content-type 1.0.4 : MIT License
 jshttp/fresh 0.5.2 : MIT License
+jshttp/mime-types 2.1.29 : MIT License
 jshttp/mime-types 2.1.31 : MIT License
+jshttp/mime-types 2.1.35 : MIT License
 json4s-ast 3.6.11 : Apache License 2.0
 json4s-core 3.6.11 : Apache License 2.0
 json4s-jackson 3.6.11 : Apache License 2.0
@@ -753,6 +754,7 @@ Metrics Core 4.1.33 : Apache License 2.0
 Metrics Integration with JMX 4.1.33 : Apache License 2.0
 micromark 2.11.4 : MIT License
 micromatch 4.0.4 : MIT License
+micromatch/braces 3.0.2 : MIT License
 Microsoft/tslib 1.14.1 : BSD Zero Clause License
 Microsoft/tslib 2.2.0 : BSD Zero Clause License
 miller-rabin 4.0.1 : MIT License
@@ -788,8 +790,6 @@ ms.js 2.1.3 : MIT License
 munit 0.7.26 : Apache License 2.0
 mwitkow/go-proto-validators 20180403-snapshot-0950a799 : Apache License 2.0
 nearley 2.20.1 : MIT License
-Negotiator 0.6.2 : MIT License
-Negotiator 0.6.3 : MIT License
 Netty Project 4.1.58.Final : Apache License 2.0
 Netty Project 4.1.72.Final : Apache License 2.0
 Netty/TomcatNative [BoringSSL - Static] 2.0.46.Final : Apache License 2.0
@@ -920,7 +920,6 @@ parse-passwd 1.0.0 : MIT License
 parse5 6.0.1 : MIT License
 parser 1.0.0 : MIT License
 parser-combinators 1.3.0 : BSD 3-clause "New" or "Revised" License
-parseurl 1.3.3 : MIT License
 path 0.9.2 : BSD 3-clause "New" or "Revised" License
 path-browserify 1.0.1 : MIT License
 path-exists 4.0.0 : MIT License
@@ -939,6 +938,7 @@ performance-now 2.1.0 : MIT License
 phadej/cabal-doctest 1.0.9 : BSD 3-clause "New" or "Revised" License
 picomatch 2.2.3 : MIT License
 picomatch 2.3.0 : MIT License
+pillarjs/parseurl 1.3.3 : MIT License
 pip 21.2.4 : MIT License
 pip 22.2.2 : MIT License
 pkg/errors v0.8.1 : BSD 2-clause "Simplified" License
@@ -999,8 +999,8 @@ railroad-diagrams 1.0.0 : Creative Commons Zero v1.0 Universal
 RamdaJs v0.27.1 : MIT License
 randexp 0.4.6 : MIT License
 random 1.2.1 : BSD 3-clause "New" or "Revised" License
-randombytes 1.0.4 : MIT License
 randombytes 2.1.0 : MIT License
+randomfill 1.0.4 : MIT License
 range-parser v1.2.1 : MIT License
 range-set-list 0.1.3.1 : MIT License
 raw-body 1.1.7 : MIT License
@@ -1130,16 +1130,12 @@ shallowequal 1.1.0 : MIT License
 shama/gaze 1.1.3 : MIT License
 shasum-object 1.0.0 : Apache License 2.0
 side-channel 1.0.4 : MIT License
-signal-exit 3.0.7 : ISC License
 silently 1.2.5.2 : BSD 3-clause "New" or "Revised" License
 simonmar/async 2.2.4 : BSD 3-clause "New" or "Revised" License
 simple-concat 1.0.1 : MIT License
 simple-swizzle 0.2.2 : MIT License
 sindresorhus/globals 11.12.0 : MIT License
 sindresorhus/onetime v5.1.2 : MIT License
-sindresorhus/supports-color 2.0.0 : MIT License
-sindresorhus/supports-color 5.5.0 : MIT License
-sindresorhus/supports-color v7.2.0 : MIT License
 sjsonnet_2.13 0.3.0 : MIT License
 SLF4J API Module 1.7.26 : MIT License
 SnakeYAML 1.26 : Apache License 2.0
@@ -1188,12 +1184,16 @@ Strip ANSI 3.0.1 : MIT License
 Strip ANSI 6.0.1 : MIT License
 Styled Components 5.3.0 : MIT License
 subarg 1.0.0 : MIT License
+supports-color 2.0.0 : MIT License
+supports-color 5.5.0 : MIT License
+supports-color v7.2.0 : MIT License
 syb 0.7.2.1 : BSD 3-clause "New" or "Revised" License
 symbol-observable 2.0.3 : MIT License
 system-fileio 0.3.16.4 : MIT License
 system-filepath 0.4.14 : MIT License
 t-digest 3.1 : Apache License 2.0
 tagged v0.8.6.1 : BSD 3-clause "New" or "Revised" License
+tapjs/signal-exit 3.0.7 : ISC License
 tar-conduit 0.3.2 : MIT License
 tasty-ant-xml 1.1.8 : BSD 3-clause "New" or "Revised" License
 tasty-golden 2.3.5 : MIT License
@@ -1337,7 +1337,7 @@ zlib 1.2.11 : zlib License
 Licenses: 
 
 Apache License 2.0
-(Abseil 20211102.0, acorn-node 1.8.2, akka-actor 2.6.18, akka-actor-testkit-typed 2.6.18, akka-actor-typed 2.6.18, akka-http 10.2.8, akka-http-core 10.2.8, akka-http-spray-json 10.2.8, akka-http-testkit 10.2.8, akka-parsing 10.2.8, akka-protobuf-v3 2.6.18, akka-slf4j 2.6.18, akka-stream 2.6.18, akka-stream-testkit 2.6.18, akka-testkit 2.6.18, annotation 0.5.4, anorm 2.6.8, anorm-tokenizer 2.6.8, aokoli/goutils v1.0.1, Apache Commons Lang 3.9, Apache Commons Math 3.2, Apache Commons Pool commons-pool-2.8.0, Apache Commons Text 1.4, Awaitility 3.1.6, Bazel rules_go v0.29.0, bazelbuild/buildtools 4.0.0, bazelbuild/rules_nodejs 4.6.1, boopickle 1.3.3, Byte Buddy byte-buddy-1.10.18, byte-buddy-agent 1.10.18, Caffeine cache 3.0.5, cats-effect 2.5.1, census-instrumentation/opencensus-go v0.23.0, Circe core 0.13.0, Circe generic 0.13.0, Circe generic extras 0.13.0, Circe jawn 0.13.0, Circe numbers 0.13.0, Circe parser 0.13.0, circe-yaml 0.13.0, com.google.api.grpc:proto-google-common-protos 2.0.1, Commons IO 2.5, commons-codec 1.14, compilerPlugin 0.11.8, config - com.typesafe:config 1.4.1, core 2.3.3, dash-ast 1.0.0, doctrine v3.0.0, envoyproxy/protoc-gen-validate v0.6.2, error-prone annotations 2.10.0, FindBugs jsr305 3.0.2, flyway-core 8.4.1, gatling-app 3.5.1, gatling-charts 3.5.1, gatling-commons 3.5.1, gatling-commons-shared 3.5.1, gatling-commons-shared-unstable 3.5.1, gatling-core 3.5.1, gatling-graphite 3.5.1, gatling-http 3.5.1, gatling-http-client 3.5.1, gatling-jdbc 3.5.1, gatling-jms 3.5.1, gatling-jsonpath 3.5.1, gatling-netty-util 3.5.1, gatling-recorder 3.5.1, gatling-redis 3.5.1, get-assigned-identifiers 1.2.0, ghcide 0.1.0, golang/appengine v1.6.7, Google Android Annotations Library 4.1.1.4, Google Cloud Client Libraries for Go v0.94.1, google-gson 2.9.0, google/go-genproto 20210917-snapshot-b395a375, Graphite Integration for Metrics 4.1.33, groupcache 20200125-snapshot-8c9f03a8, grpc 1.44.0, grpc-go v1.40.0, Guava InternalFutureFailureAccess and InternalFutures 1.0.1, Guava ListenableFuture only 9999.0-empty-to-avoid-conflict-with-guava, Guava: Google Core Libraries for Java 31.0.1-jre, HikariCP 3.2.0, io.grpc:grpc-api 1.44.0, io.grpc:grpc-context 1.44.0, io.grpc:grpc-core 1.44.0, io.grpc:grpc-netty 1.44.0, io.grpc:grpc-protobuf 1.44.0, io.grpc:grpc-protobuf-lite 1.44.0, io.grpc:grpc-services 1.44.0, io.grpc:grpc-stub 1.44.0, J2ObjC Annotations 1.3, Jackson module: Paranamer 2.9.9, jackson-annotations jackson-annotations-2.12.0, jackson-core 2.12.0, jackson-databind 2.12.0, jackson-module-scala 2.9.9, JavaPoet 1.11.1, Javassist 3_26_0_ga, JCommander Library 1.12, Jetty :: Websocket :: API 9.4.27.v20200227, Jetty :: Websocket :: Client 9.4.27.v20200227, Jetty :: Websocket :: Common 9.4.27.v20200227, Jetty :: Websocket :: Server 9.4.18.v20190429, Jetty :: Websocket :: Servlet Interface 9.4.18.v20190429, Jetty: Java based HTTP/1.x, HTTP/2, Servlet, WebSocket Server 9.4.18.v20190429, Jetty: Java based HTTP/1.x, HTTP/2, Servlet, WebSocket Server 9.4.27.v20200227, Jetty: Java based HTTP/1.x, HTTP/2, Servlet, WebSocket Server jetty-9.4.18.v20190429, Jetty: Java based HTTP/1.x, HTTP/2, Servlet, WebSocket Server jetty-9.4.27.v20200227, Joda Convert v2.2.1, Joda Time v2.10.8, json4s-ast 3.6.11, json4s-core 3.6.11, json4s-jackson 3.6.11, json4s-scalap 3.6.11, JSONStream 0.10.0, JSONStream 1.3.5, junit 0.7.26, JVM Integration for Metrics 4.1.33, lenses 0.11.8, logstash-logback-encoder logstash-logback-encoder-6.6, lyft/protoc-gen-star v0.5.3, macro-visit 0.1.2, main-tester 0.2.0.1, Metrics Core 4.1.33, Metrics Integration with JMX 4.1.33, munit 0.7.26, mwitkow/go-proto-validators 20180403-snapshot-0950a799, Netty Project 4.1.58.Final, Netty Project 4.1.72.Final, Netty/TomcatNative [BoringSSL - Static] 2.0.46.Final, Netty/TomcatNative [OpenSSL - Classes] 2.0.46.Final, Netty/Transport/Native/Unix/Common 4.1.58.Final, objenesis 3.1, open-telemetry/opentelemetry-java 1.12.0, OpenTelemetry 1.12.0, OpenTelemetry Java 1.12.0, OpenTelemetry Java 1.12.0-alpha, OpenTelemetry Java - io.opentelemetry:opentelemetry-sdk-metrics 1.12.0-alpha, org.apiguardian:apiguardian-api 1.0.0, org.opentest4j:opentest4j 1.0.0, paiges-core 0.3.2, parboiled 2.1.8, perfmark:perfmark-api 0.23.0, Prometheus Java Simpleclient 0.14.1, Prometheus Java Simpleclient Common 0.14.1, Prometheus Java Simpleclient Dropwizard 0.14.1, Prometheus Java Simpleclient Httpserver 0.14.1, Prometheus Java Span Context Supplier - Common 0.14.1, Prometheus Java Span Context Supplier - OpenTelemetry 0.14.1, Prometheus Java Span Context Supplier - OpenTelemetry Agent 0.14.1, proto3-suite 0.4.2, proto3-wire 1.2.2, protoc-bridge 0.9.5, protoc-gen 0.9.5, quicklens 1.6.1, ReactiveX RxJS 6.6.7, RedisClient 3.30, rxjava 2.2.1, sangria 2.0.1, sangria-marshalling-api 1.0.4, sangria-streaming-api 1.0.1, scala-collection-compat 2.6.0, scala-csv 1.3.10, scala-java8-compat 1.0.0, scala-logging 3.9.2, scala-parallel-collections 1.0.0, scala-parser-combinators 1.1.2, scala-swing 3.0.0, scala-xml 1.3.0, scalacheck-1.15 3.2.9.0, scalactic 3.2.9, scalapb-json4s 0.11.1, scalapb-runtime 0.11.8, scalapb-runtime-grpc 0.11.8, scalatest 3.2.9, scalatest-compatible 3.2.9, scalatest-core 3.2.9, scalatest-diagrams 3.2.9, scalatest-featurespec 3.2.9, scalatest-flatspec 3.2.9, scalatest-freespec 3.2.9, scalatest-funspec 3.2.9, scalatest-funsuite 3.2.9, scalatest-matchers-core 3.2.9, scalatest-mustmatchers 3.2.9, scalatest-propspec 3.2.9, scalatest-refspec 3.2.9, scalatest-shouldmatchers 3.2.9, scalatest-wordspec 3.2.9, shasum-object 1.0.0, SnakeYAML 1.26, spark-java 2.9.1, spf13-afero v1.6.0, spray-json 1.3.5, spray-json-derived-codecs 2.3.4, ssl-config-core 0.4.2, t-digest 3.1, TestNG 6.7, testng-6.7 3.2.9.0, through 2.3.8, Toxiproxy Java Client 2.1.3, TypeScript 3.7.4, unbescape 1.1.6.RELEASE, undeclared-identifiers 1.1.3, uuidjs 4.2.8, wartremover 2.4.16, websocket-driver-node 0.7.4, websocket-extensions-node 0.1.4, Xerial SQLite JDBC 3.36.0.1, yaml for Go 20200512-snapshot-9f266ea9, yaml for Go v2.2.2)
+(Abseil 20211102.0, acorn-node 1.8.2, akka-actor 2.6.18, akka-actor-testkit-typed 2.6.18, akka-actor-typed 2.6.18, akka-http 10.2.8, akka-http-core 10.2.8, akka-http-spray-json 10.2.8, akka-http-testkit 10.2.8, akka-parsing 10.2.8, akka-protobuf-v3 2.6.18, akka-slf4j 2.6.18, akka-stream 2.6.18, akka-stream-testkit 2.6.18, akka-testkit 2.6.18, annotation 0.5.4, anorm 2.6.8, anorm-tokenizer 2.6.8, aokoli/goutils v1.0.1, Apache Commons Codec 1.14, Apache Commons IO 2.5, Apache Commons Lang 3.9, Apache Commons Math 3.2, Apache Commons Pool commons-pool-2.8.0, Apache Commons Text 1.4, Awaitility 3.1.6, Bazel rules_go v0.29.0, bazelbuild/buildtools 4.0.0, bazelbuild/rules_nodejs 4.6.1, boopickle 1.3.3, Byte Buddy byte-buddy-1.10.18, byte-buddy-agent 1.10.18, Caffeine cache 3.0.5, cats-effect 2.5.1, census-instrumentation/opencensus-go v0.23.0, Circe core 0.13.0, Circe generic 0.13.0, Circe generic extras 0.13.0, Circe jawn 0.13.0, Circe numbers 0.13.0, Circe parser 0.13.0, circe-yaml 0.13.0, com.google.api.grpc:proto-google-common-protos 2.0.1, compilerPlugin 0.11.8, config - com.typesafe:config 1.4.1, core 2.3.3, dash-ast 1.0.0, doctrine v3.0.0, envoyproxy/protoc-gen-validate v0.6.2, error-prone annotations 2.10.0, FindBugs jsr305 3.0.2, flyway-core 8.4.1, gatling-app 3.5.1, gatling-charts 3.5.1, gatling-commons 3.5.1, gatling-commons-shared 3.5.1, gatling-commons-shared-unstable 3.5.1, gatling-core 3.5.1, gatling-graphite 3.5.1, gatling-http 3.5.1, gatling-http-client 3.5.1, gatling-jdbc 3.5.1, gatling-jms 3.5.1, gatling-jsonpath 3.5.1, gatling-netty-util 3.5.1, gatling-recorder 3.5.1, gatling-redis 3.5.1, get-assigned-identifiers 1.2.0, ghcide 0.1.0, golang/appengine v1.6.7, Google Android Annotations Library 4.1.1.4, Google Cloud Client Libraries for Go v0.94.1, google-gson 2.9.0, google/go-genproto 20210917-snapshot-b395a375, Graphite Integration for Metrics 4.1.33, groupcache 20200125-snapshot-8c9f03a8, grpc 1.44.0, grpc-go v1.40.0, Guava InternalFutureFailureAccess and InternalFutures 1.0.1, Guava ListenableFuture only 9999.0-empty-to-avoid-conflict-with-guava, Guava: Google Core Libraries for Java 31.0.1-jre, HikariCP 3.2.0, io.grpc:grpc-api 1.44.0, io.grpc:grpc-context 1.44.0, io.grpc:grpc-core 1.44.0, io.grpc:grpc-netty 1.44.0, io.grpc:grpc-protobuf 1.44.0, io.grpc:grpc-protobuf-lite 1.44.0, io.grpc:grpc-services 1.44.0, io.grpc:grpc-stub 1.44.0, J2ObjC Annotations 1.3, Jackson module: Paranamer 2.9.9, jackson-annotations jackson-annotations-2.12.0, jackson-core 2.12.0, jackson-databind 2.12.0, jackson-module-scala 2.9.9, JavaPoet 1.11.1, Javassist 3_26_0_ga, JCommander Library 1.12, Jetty :: Websocket :: API 9.4.27.v20200227, Jetty :: Websocket :: Client 9.4.27.v20200227, Jetty :: Websocket :: Common 9.4.27.v20200227, Jetty :: Websocket :: Server 9.4.18.v20190429, Jetty :: Websocket :: Servlet Interface 9.4.18.v20190429, Jetty: Java based HTTP/1.x, HTTP/2, Servlet, WebSocket Server 9.4.18.v20190429, Jetty: Java based HTTP/1.x, HTTP/2, Servlet, WebSocket Server 9.4.27.v20200227, Jetty: Java based HTTP/1.x, HTTP/2, Servlet, WebSocket Server jetty-9.4.18.v20190429, Jetty: Java based HTTP/1.x, HTTP/2, Servlet, WebSocket Server jetty-9.4.27.v20200227, Joda Convert v2.2.1, Joda Time v2.10.8, json4s-ast 3.6.11, json4s-core 3.6.11, json4s-jackson 3.6.11, json4s-scalap 3.6.11, JSONStream 0.10.0, JSONStream 1.3.5, junit 0.7.26, JVM Integration for Metrics 4.1.33, lenses 0.11.8, logstash-logback-encoder logstash-logback-encoder-6.6, lyft/protoc-gen-star v0.5.3, macro-visit 0.1.2, main-tester 0.2.0.1, Metrics Core 4.1.33, Metrics Integration with JMX 4.1.33, munit 0.7.26, mwitkow/go-proto-validators 20180403-snapshot-0950a799, Netty Project 4.1.58.Final, Netty Project 4.1.72.Final, Netty/TomcatNative [BoringSSL - Static] 2.0.46.Final, Netty/TomcatNative [OpenSSL - Classes] 2.0.46.Final, Netty/Transport/Native/Unix/Common 4.1.58.Final, objenesis 3.1, open-telemetry/opentelemetry-java 1.12.0, OpenTelemetry 1.12.0, OpenTelemetry Java 1.12.0, OpenTelemetry Java 1.12.0-alpha, OpenTelemetry Java - io.opentelemetry:opentelemetry-sdk-metrics 1.12.0-alpha, org.apiguardian:apiguardian-api 1.0.0, org.opentest4j:opentest4j 1.0.0, paiges-core 0.3.2, parboiled 2.1.8, perfmark:perfmark-api 0.23.0, Prometheus Java Simpleclient 0.14.1, Prometheus Java Simpleclient Common 0.14.1, Prometheus Java Simpleclient Dropwizard 0.14.1, Prometheus Java Simpleclient Httpserver 0.14.1, Prometheus Java Span Context Supplier - Common 0.14.1, Prometheus Java Span Context Supplier - OpenTelemetry 0.14.1, Prometheus Java Span Context Supplier - OpenTelemetry Agent 0.14.1, proto3-suite 0.4.2, proto3-wire 1.2.2, protoc-bridge 0.9.5, protoc-gen 0.9.5, quicklens 1.6.1, ReactiveX RxJS 6.6.7, RedisClient 3.30, rxjava 2.2.1, sangria 2.0.1, sangria-marshalling-api 1.0.4, sangria-streaming-api 1.0.1, scala-collection-compat 2.6.0, scala-csv 1.3.10, scala-java8-compat 1.0.0, scala-logging 3.9.2, scala-parallel-collections 1.0.0, scala-parser-combinators 1.1.2, scala-swing 3.0.0, scala-xml 1.3.0, scalacheck-1.15 3.2.9.0, scalactic 3.2.9, scalapb-json4s 0.11.1, scalapb-runtime 0.11.8, scalapb-runtime-grpc 0.11.8, scalatest 3.2.9, scalatest-compatible 3.2.9, scalatest-core 3.2.9, scalatest-diagrams 3.2.9, scalatest-featurespec 3.2.9, scalatest-flatspec 3.2.9, scalatest-freespec 3.2.9, scalatest-funspec 3.2.9, scalatest-funsuite 3.2.9, scalatest-matchers-core 3.2.9, scalatest-mustmatchers 3.2.9, scalatest-propspec 3.2.9, scalatest-refspec 3.2.9, scalatest-shouldmatchers 3.2.9, scalatest-wordspec 3.2.9, shasum-object 1.0.0, SnakeYAML 1.26, spark-java 2.9.1, spf13-afero v1.6.0, spray-json 1.3.5, spray-json-derived-codecs 2.3.4, ssl-config-core 0.4.2, t-digest 3.1, TestNG 6.7, testng-6.7 3.2.9.0, through 2.3.8, Toxiproxy Java Client 2.1.3, TypeScript 3.7.4, unbescape 1.1.6.RELEASE, undeclared-identifiers 1.1.3, uuidjs 4.2.8, wartremover 2.4.16, websocket-driver-node 0.7.4, websocket-extensions-node 0.1.4, Xerial SQLite JDBC 3.36.0.1, yaml for Go 20200512-snapshot-9f266ea9, yaml for Go v2.2.2)
 
 Apache License
 Version 2.0, January 2004
@@ -3499,7 +3499,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE
 ---
 
 BSD 3-clause "New" or "Revised" License
-(gogo-protobuf v1.1.1)
+(golang protobuf v1.1.1)
 
 Copyright 2010 The Go Authors.  All rights reserved.
 https://github.com/golang/protobuf
@@ -7184,7 +7184,7 @@ IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE
 ---
 
 ISC License
-(signal-exit 3.0.7)
+(tapjs/signal-exit 3.0.7)
 
 The ISC License
 
@@ -7898,7 +7898,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE
 ---
 
 MIT License
-(Negotiator 0.6.2, Negotiator 0.6.3)
+(JSHTTP's negotiator 0.6.2, JSHTTP's negotiator 0.6.3)
 
 (The MIT License)
 
@@ -8188,7 +8188,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE
 ---
 
 MIT License
-(expressjs/accepts 1.3.7, expressjs/accepts 1.3.8, expressjs/mime-types 2.1.29)
+(expressjs/accepts 1.3.7, expressjs/accepts 1.3.8, jshttp/mime-types 2.1.29)
 
 (The MIT License)
 
@@ -8949,7 +8949,7 @@ Permission is hereby granted, free of charge, to any person
 ---
 
 MIT License
-(detective 5.2.0)
+(browserify/detective   5.2.0)
 
 2017 Josh Duff <me@JoshDuff.com>
 License: Expat
@@ -11990,7 +11990,7 @@ Permission is hereby granted, free of charge, to any person
 ---
 
 MIT License
-(elliptic v6.5.4, function-bind 1.1.1, isarray 1.0.0, isarray 2.0.5, nodeca-argparse 1.0.10, nodejs/string_decoder v1.3.0)
+(elliptic 6.5.4, function-bind 1.1.1, isarray 1.0.0, isarray 2.0.5, nodeca-argparse 1.0.10, nodejs/string_decoder v1.3.0)
 
 License: Expat
 
@@ -12218,7 +12218,7 @@ Permission is hereby granted, free of charge, to any person obtaining a copy
 ---
 
 MIT License
-(@types/node 15.12.2, @types/node-fetch 2.5.10, @types/react 17.0.5, @types/react-redux 7.1.16, @types/xml2js 0.4.8, @types/zen-observable 0.8.2, crypto-browserify/pbkdf2 v3.1.1, expressjs/mime-types 2.1.35)
+(@types/node 15.12.2, @types/node-fetch 2.5.10, @types/react 17.0.5, @types/react-redux 7.1.16, @types/xml2js 0.4.8, @types/zen-observable 0.8.2, crypto-browserify/pbkdf2 v3.1.1, jshttp/mime-types 2.1.35)
 
 MIT License
 
@@ -12843,7 +12843,7 @@ SOFTWARE
 ---
 
 MIT License
-(randombytes 1.0.4, randombytes 2.1.0)
+(randombytes 2.1.0, randomfill 1.0.4)
 
 MIT License
 
@@ -13373,7 +13373,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 ---
 
 MIT License
-(ansi-regex 5.0.1, ansi-styles 3.2.1, ansi-styles v4.3.0, camelcase 5.3.1, Chalk 4.1.2, cli-cursor v3.1.0, has-flag 3.0.0, has-flag 4.0.0, is-fullwidth-code-point 3.0.0, is-interactive 1.0.0, is-plain-obj 2.1.0, locate-path v5.0.0, mimic-fn 2.1.0, opn v5.5.0, p-limit 2.3.0, p-locate 4.1.0, p-try 2.2.0, path-exists 4.0.0, sindresorhus/supports-color 5.5.0, sindresorhus/supports-color v7.2.0, string-width 4.2.2, Strip ANSI 6.0.1, wrap-ansi v6.2.0)
+(ansi-regex 5.0.1, ansi-styles 3.2.1, ansi-styles v4.3.0, camelcase 5.3.1, Chalk 4.1.2, cli-cursor v3.1.0, has-flag 3.0.0, has-flag 4.0.0, is-fullwidth-code-point 3.0.0, is-interactive 1.0.0, is-plain-obj 2.1.0, locate-path v5.0.0, mimic-fn 2.1.0, opn v5.5.0, p-limit 2.3.0, p-locate 4.1.0, p-try 2.2.0, path-exists 4.0.0, string-width 4.2.2, Strip ANSI 6.0.1, supports-color 5.5.0, supports-color v7.2.0, wrap-ansi v6.2.0)
 
 MIT License
 
@@ -16971,7 +16971,7 @@ SOFTWARE
 ---
 
 MIT License
-(ansi-regex 2.1.1, ansi-styles 2.2.1, dargs 4.1.0, Decamelize 1.2.0, escape-string-regexp 1.0.5, figures 1.7.0, has-ansi 2.0.0, is-wsl 1.1.0, maxmin 2.1.0, number-is-nan 1.0.1, object-assign 3.0.0, os-homedir 1.0.2, os-tmpdir 1.0.2, path-is-absolute 1.0.1, pretty-bytes 3.0.1, sindresorhus/supports-color 2.0.0, Strip ANSI 3.0.1)
+(ansi-regex 2.1.1, ansi-styles 2.2.1, dargs 4.1.0, Decamelize 1.2.0, escape-string-regexp 1.0.5, figures 1.7.0, has-ansi 2.0.0, is-wsl 1.1.0, maxmin 2.1.0, number-is-nan 1.0.1, object-assign 3.0.0, os-homedir 1.0.2, os-tmpdir 1.0.2, path-is-absolute 1.0.1, pretty-bytes 3.0.1, Strip ANSI 3.0.1, supports-color 2.0.0)
 
 The MIT License (MIT)
 
@@ -17639,7 +17639,7 @@ Permission is hereby granted, free of charge, to any person
 ---
 
 MIT License
-(parseurl 1.3.3)
+(pillarjs/parseurl 1.3.3)
 
 Upstream-Contact: https://github.com/expressjs/parseurl/issues
 Source: https://github.com/expressjs/parseurl
@@ -17829,7 +17829,7 @@ Permission is hereby granted, free of charge, to any person
 ---
 
 MIT License
-(braces 3.0.2)
+(micromatch/braces 3.0.2)
 
 Upstream-Contact: https://github.com/jonschlinkert/braces/issues
 Source: https://github.com/jonschlinkert/braces

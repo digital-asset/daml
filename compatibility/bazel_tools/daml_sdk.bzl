@@ -4,6 +4,7 @@
 load("@os_info//:os_info.bzl", "is_windows", "os_name")
 load("@daml//bazel_tools/dev_env_tool:dev_env_tool.bzl", "dadew_tool_home", "dadew_where")
 load("@io_bazel_rules_scala//scala:scala_cross_version.bzl", "default_maven_server_urls")
+load("//bazel_tools:versions.bzl", "versions")
 
 runfiles_library = """
 # Copy-pasted from the Bazel Bash runfiles library v2.
@@ -85,13 +86,18 @@ def _daml_sdk_impl(ctx):
     else:
         fail("Must specify either test_tool or test_tool_sha256")
 
+    if versions.is_at_least("2.6.0", ctx.attr.version):
+        stripPrefix = "test-common"
+    else:
+        stripPrefix = "ledger/test-common"
+
     ctx.extract(
         "ledger-api-test-tool.jar",
         output = "extracted-test-tool",
         # We cannot fully extract the JAR because there are files
         # that clash on case insensitive file systems. Luckily, we only
         # need the DAR so this is not an issue.
-        stripPrefix = "ledger/test-common",
+        stripPrefix = stripPrefix,
     )
 
     if ctx.attr.create_daml_app_patch:

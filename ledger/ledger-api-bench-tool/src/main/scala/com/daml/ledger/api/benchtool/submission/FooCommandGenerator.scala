@@ -24,12 +24,11 @@ final class FooCommandGenerator(
     divulgeesToDivulgerKeyMap: Map[Set[Primitive.Party], Value],
     names: Names,
     partySelecting: RandomPartySelecting,
-    contractDescriptionRandomnessProvider: RandomnessProvider,
-    payloadRandomnessProvider: RandomnessProvider,
-    consumingEventsRandomnessProvider: RandomnessProvider,
-    nonConsumingEventsRandomnessProvider: RandomnessProvider,
-    applicationIdRandomnessProvider: RandomnessProvider,
+    randomnessProvider: RandomnessProvider,
 ) extends CommandGenerator {
+
+  private val activeContractKeysPool = new ActiveContractKeysPool(randomnessProvider)
+
   private val contractDescriptions = new Distribution[FooSubmissionConfig.ContractDescription](
     weights = config.instanceDistribution.map(_.weight),
     items = config.instanceDistribution.toIndexedSeq,
@@ -75,7 +74,7 @@ final class FooCommandGenerator(
       names.benchtoolApplicationId
     )(applicationIdsDistribution =>
       applicationIdsDistribution
-        .choose(applicationIdRandomnessProvider.randomDouble())
+        .choose(randomnessProvider.randomDouble())
         .applicationId
     )
   }
@@ -85,7 +84,7 @@ final class FooCommandGenerator(
   }
 
   private def pickContractDescription(): FooSubmissionConfig.ContractDescription =
-    contractDescriptions.choose(contractDescriptionRandomnessProvider.randomDouble())
+    contractDescriptions.choose(randomnessProvider.randomDouble())
 
   private def createCommands(
       templateDescriptor: FooTemplateDescriptor,
@@ -114,6 +113,9 @@ final class FooCommandGenerator(
           case "Foo3" => Foo3(signatory, observers, payload, keyId = fooKeyId).create.command
         }
     }
+    if (config.allowNonTransientContracts) {
+      activeContractKeysPool.addContractKey(templateDescriptor.name, fooContractKey)
+    }
     // Non-consuming events
     val nonconsumingExercises: Seq[Command] = makeNonConsumingExerciseCommands(
       templateDescriptor = templateDescriptor,
@@ -122,16 +124,25 @@ final class FooCommandGenerator(
     // Consuming events
     val consumingPayloadO: Option[String] = config.consumingExercises
       .flatMap(config =>
-        if (consumingEventsRandomnessProvider.randomDouble() <= config.probability) {
+        if (randomnessProvider.randomDouble() <= config.probability) {
           Some(randomPayload(config.payloadSizeBytes))
         } else None
       )
     val consumingExerciseO: Option[Command] = consumingPayloadO.map { payload =>
+      val selectedActiveFooContractKey = {
+        if (config.allowNonTransientContracts) {
+          // This can choose at random a key of any the previously generated contracts.
+          activeContractKeysPool.getAndRemoveContractKey(templateDescriptor.name)
+        } else {
+          // This is always the key of the contract created in this batch of commands.
+          fooContractKey
+        }
+      }
       divulgerContractKeyO match {
         case Some(divulgerContractKey) =>
           makeDivulgedConsumeExerciseCommand(
             templateDescriptor = templateDescriptor,
-            fooContractKey = fooContractKey,
+            fooContractKey = selectedActiveFooContractKey,
             payload = payload,
             divulgerContractKey = divulgerContractKey,
           )
@@ -146,7 +157,7 @@ final class FooCommandGenerator(
                 value = Some(Value(Value.Sum.Text(payload))),
               )
             ),
-          )(contractKey = fooContractKey)
+          )(contractKey = selectedActiveFooContractKey)
       }
     }
     Seq(createFooCmd) ++ nonconsumingExercises ++ consumingExerciseO.toList
@@ -185,7 +196,7 @@ final class FooCommandGenerator(
     val nonconsumingExercisePayloads: Seq[String] =
       config.nonConsumingExercises.fold(Seq.empty[String]) { config =>
         var f = config.probability.toInt
-        if (nonConsumingEventsRandomnessProvider.randomDouble() <= config.probability - f) {
+        if (randomnessProvider.randomDouble() <= config.probability - f) {
           f += 1
         }
         Seq.fill[String](f)(randomPayload(config.payloadSizeBytes))
@@ -271,7 +282,7 @@ final class FooCommandGenerator(
   }
 
   private def randomPayload(sizeBytes: Int): String =
-    FooCommandGenerator.randomPayload(payloadRandomnessProvider, sizeBytes)
+    FooCommandGenerator.randomPayload(randomnessProvider, sizeBytes)
 
 }
 

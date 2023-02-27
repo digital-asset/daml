@@ -6,13 +6,13 @@ package com.daml.ledger.api.benchtool.config
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
-
 import java.io.StringReader
-import com.daml.ledger.api.benchtool.config.WorkflowConfig.FooSubmissionConfig
+
+import com.daml.ledger.api.benchtool.config.WorkflowConfig.{FooSubmissionConfig, PruningConfig}
 import com.daml.ledger.api.benchtool.config.WorkflowConfig.FooSubmissionConfig.PartySet
 import com.daml.ledger.api.benchtool.config.WorkflowConfig.StreamConfig.PartyNamePrefixFilter
-
 import java.util.concurrent.TimeUnit
+
 import scala.concurrent.duration.Duration
 
 class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
@@ -32,6 +32,7 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
           |  num_divulgees: 5
           |  num_extra_submitters: 6
           |  unique_parties: true
+          |  allow_non_transient_contracts: true
           |  instance_distribution:
           |    - template: Foo1
           |      weight: 50
@@ -72,12 +73,19 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
           |    filters:
           |      - party: Obs-2
           |        templates:
-          |         - Foo1""".stripMargin
+          |         - Foo1
+          |unary:
+          | - type: pruning
+          |   name: pruning-123
+          |   prune_all_divulged_contracts: false
+          |   max_duration_objective: 56 ms
+          |""".stripMargin
 
       parseYaml(yaml) shouldBe Right(
         WorkflowConfig(
           submission = Some(
             WorkflowConfig.FooSubmissionConfig(
+              allowNonTransientContracts = true,
               numberOfInstances = 500,
               numberOfObservers = 4,
               numberOfDivulgees = 5,
@@ -147,6 +155,13 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
                 )
               ),
             ),
+          ),
+          pruning = Some(
+            PruningConfig(
+              name = "pruning-123",
+              pruneAllDivulgedContracts = false,
+              maxDurationObjective = Duration(56, TimeUnit.MILLISECONDS),
+            )
           ),
         )
       )

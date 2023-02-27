@@ -80,10 +80,10 @@ da_scala_library(
         "//ledger-service/pureconfig-utils",
         "//ledger/ledger-api-client",
         "//ledger/ledger-api-common",
-        "//ledger/ledger-resources",
         "//libs-scala/contextualized-logging",
         "//libs-scala/db-utils",
         "//libs-scala/doobie-slf4j",
+        "//libs-scala/ledger-resources",
         "//libs-scala/resources",
         "//libs-scala/scala-utils",
         "//observability/akka-http-metrics",
@@ -195,7 +195,6 @@ da_scala_library(
         "//ledger-api/testing-utils",
         "//ledger/ledger-api-auth",
         "//ledger/ledger-api-common",
-        "//ledger/ledger-resources",
         "//ledger/ledger-runner-common",
         "//ledger/participant-integration-api",
         "//ledger/participant-integration-api:participant-integration-api-tests-lib",
@@ -204,6 +203,7 @@ da_scala_library(
         "//libs-scala/adjustable-clock",
         "//libs-scala/db-utils",
         "//libs-scala/jwt",
+        "//libs-scala/ledger-resources",
         "//libs-scala/oracle-testing",
         "//libs-scala/ports",
         "//libs-scala/ports:ports-testing",
@@ -262,11 +262,11 @@ da_scala_test_suite(
         "//ledger-service/pureconfig-utils",
         "//ledger/ledger-api-auth",
         "//ledger/ledger-api-common",
-        "//ledger/ledger-resources",
         "//libs-scala/adjustable-clock",
         "//libs-scala/db-utils",
         "//libs-scala/flyway-testing",
         "//libs-scala/jwt",
+        "//libs-scala/ledger-resources",
         "//libs-scala/ports",
         "//libs-scala/postgresql-testing",
         "//libs-scala/resources",
@@ -307,16 +307,17 @@ da_scala_test_suite(
         "//ledger-api/testing-utils",
         "//ledger/ledger-api-auth",
         "//ledger/ledger-api-common",
-        "//ledger/ledger-resources",
         "//ledger/sandbox-on-x",
         "//ledger/sandbox-on-x:sandbox-on-x-test-lib",
         "//libs-scala/adjustable-clock",
         "//libs-scala/db-utils",
         "//libs-scala/jwt",
+        "//libs-scala/ledger-resources",
         "//libs-scala/oracle-testing",
         "//libs-scala/ports",
         "//libs-scala/resources",
         "//libs-scala/test-evidence/tag:test-evidence-tag",
+        "//triggers/runner:trigger-runner-lib",
         "//triggers/service/auth:oauth2-test-server",
         "@maven//:eu_rekawek_toxiproxy_toxiproxy_java_2_1_7",
         "@maven//:org_scalatest_scalatest_compatible",
@@ -341,6 +342,7 @@ da_scala_test_suite(
           cp -L $(location :test-model/ErrorTrigger.daml) $$TMP_DIR/daml
           cp -L $(location :test-model/LowLevelErrorTrigger.daml) $$TMP_DIR/daml
           cp -L $(location :test-model/ReadAs.daml) $$TMP_DIR/daml
+          cp -L $(location :test-model/Cats.daml) $$TMP_DIR/daml
           cp -L $(location {daml_trigger}) $$TMP_DIR/daml-trigger.dar
           cp -L $(location {daml_script}) $$TMP_DIR/daml-script.dar
           cat << EOF > $$TMP_DIR/daml.yaml

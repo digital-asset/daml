@@ -950,9 +950,9 @@ checkIface m iface = do
         checkTemplateChoice tcon choice
 
   -- check interface instances
-  forM_ (intCoImplements iface) \InterfaceCoImplements {iciTemplate, iciBody} -> do
+  forM_ (intCoImplements iface) \InterfaceCoImplements {iciTemplate, iciBody, iciLocation} -> do
     let iiHead = InterfaceInstanceHead tcon iciTemplate
-    withPart (IPInterfaceInstance iiHead) do
+    withPart (IPInterfaceInstance iiHead iciLocation) do
       checkInterfaceInstance (intParam iface) iiHead iciBody
 
   where
@@ -1015,9 +1015,9 @@ checkTemplate m t@(Template _loc tpl param precond signatories observers text ch
     withPart TPObservers $ checkExpr observers (TList TParty)
     withPart TPAgreement $ checkExpr text TText
     for_ choices $ \c -> withPart (TPChoice c) $ checkTemplateChoice tcon c
-  forM_ implements \TemplateImplements {tpiInterface, tpiBody} -> do
+  forM_ implements \TemplateImplements {tpiInterface, tpiBody, tpiLocation} -> do
     let iiHead = InterfaceInstanceHead tpiInterface tcon
-    withPart (TPInterfaceInstance iiHead) do
+    withPart (TPInterfaceInstance iiHead tpiLocation) do
       checkInterfaceInstance param iiHead tpiBody
   whenJust mbKey $ checkTemplateKey param tcon
 

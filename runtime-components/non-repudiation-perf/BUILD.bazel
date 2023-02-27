@@ -28,6 +28,7 @@ da_scala_benchmark_jmh(
         "//libs-scala/postgresql-testing",
         "//libs-scala/resources",
         "//libs-scala/resources-grpc",
+        "//observability/metrics",
         "//runtime-components/non-repudiation",
         "//runtime-components/non-repudiation-client",
         "//runtime-components/non-repudiation-postgresql",

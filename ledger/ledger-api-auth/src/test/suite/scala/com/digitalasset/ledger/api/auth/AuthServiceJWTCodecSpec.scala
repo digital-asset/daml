@@ -3,14 +3,15 @@
 
 package com.daml.ledger.api.auth
 
+import java.time.Instant
+
 import org.scalacheck.{Arbitrary, Gen}
-import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
+import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 import spray.json._
 
-import java.time.Instant
-import scala.util.{Failure, Success, Try}
+import scala.util.{Success, Try}
 
 class AuthServiceJWTCodecSpec
     extends AnyWordSpec
@@ -18,25 +19,23 @@ class AuthServiceJWTCodecSpec
     with ScalaCheckDrivenPropertyChecks {
 
   /** Serializes a [[AuthServiceJWTPayload]] to JSON, then parses it back to a AuthServiceJWTPayload */
-  private def serializeAndParse(value: AuthServiceJWTPayload): Try[AuthServiceJWTPayload] = {
-    import AuthServiceJWTCodec.JsonImplicits._
-
+  private def serializeAndParse(
+      value: AuthServiceJWTPayload
+  )(implicit format: RootJsonFormat[AuthServiceJWTPayload]): Try[AuthServiceJWTPayload] =
     for {
       serialized <- Try(value.toJson.prettyPrint)
       json <- Try(serialized.parseJson)
       parsed <- Try(json.convertTo[AuthServiceJWTPayload])
     } yield parsed
-  }
 
   /** Parses a [[AuthServiceJWTPayload]] */
-  private def parse(serialized: String): Try[AuthServiceJWTPayload] = {
-    import AuthServiceJWTCodec.JsonImplicits._
-
+  private def parse(
+      serialized: String
+  )(implicit format: RootJsonFormat[AuthServiceJWTPayload]): Try[AuthServiceJWTPayload] =
     for {
       json <- Try(serialized.parseJson)
       parsed <- Try(json.convertTo[AuthServiceJWTPayload])
     } yield parsed
-  }
 
   private implicit val arbInstant: Arbitrary[Instant] = {
     Arbitrary {
@@ -57,12 +56,60 @@ class AuthServiceJWTCodecSpec
     )
 
   // participantId is mandatory for the format `StandardJWTTokenFormat.ParticipantId`
-  private val StandardJWTPayloadGen = Gen.resultOf(StandardJWTPayload).filterNot { payload =>
-    !payload.participantId
-      .exists(_.nonEmpty) && payload.format == StandardJWTTokenFormat.ParticipantId
+  private val StandardJWTPayloadGen = Gen
+    .resultOf(StandardJWTPayload)
+    .filterNot { payload =>
+      !payload.participantId
+        .exists(_.nonEmpty) && payload.format == StandardJWTTokenFormat.ParticipantId
+    }
+    // we do not fill audiences for Scope or ParticipantId based tokens
+    .map(payload => payload.copy(audiences = List.empty))
+
+  "Audience-Based AuthServiceJWTPayload codec" when {
+    import AuthServiceJWTCodec.AudienceBasedTokenJsonImplicits._
+
+    val PayloadGen = Gen
+      .resultOf(StandardJWTPayload)
+      .map(payload =>
+        payload.copy(participantId = None, format = StandardJWTTokenFormat.ParticipantId)
+      )
+
+    "serializing and parsing a value" should {
+      "work for arbitrary custom Daml token values" in forAll(
+        PayloadGen,
+        minSuccessful(100),
+      )(value => {
+        serializeAndParse(value) shouldBe Success(value)
+      })
+    }
+
+    "support multiple audiences with a single participant audience" in {
+      val serialized =
+        """{
+          |  "aud": ["https://example.com/non/related/audience",
+          |          "https://daml.com/jwt/aud/participant/someParticipantId"],
+          |  "sub": "someUserId",
+          |  "exp": 100
+          |}
+        """.stripMargin
+      parse(serialized) shouldBe Success(
+        StandardJWTPayload(
+          issuer = None,
+          participantId = None,
+          userId = "someUserId",
+          exp = Some(Instant.ofEpochSecond(100)),
+          format = StandardJWTTokenFormat.ParticipantId,
+          audiences = List(
+            "https://example.com/non/related/audience",
+            "https://daml.com/jwt/aud/participant/someParticipantId",
+          ),
+        )
+      )
+    }
   }
 
   "AuthServiceJWTPayload codec" when {
+    import AuthServiceJWTCodec.JsonImplicits._
 
     "serializing and parsing a value" should {
 
@@ -191,6 +238,7 @@ class AuthServiceJWTCodecSpec
           userId = "someUserId",
           exp = Some(Instant.ofEpochSecond(100)),
           format = StandardJWTTokenFormat.Scope,
+          audiences = List.empty,
         )
         parse(serialized) shouldBe Success(expected)
       }
@@ -210,6 +258,7 @@ class AuthServiceJWTCodecSpec
           userId = "someUserId",
           exp = Some(Instant.ofEpochSecond(100)),
           format = StandardJWTTokenFormat.Scope,
+          audiences = List.empty,
         )
         parse(serialized) shouldBe Success(expected)
       }
@@ -228,6 +277,7 @@ class AuthServiceJWTCodecSpec
           userId = "someUserId",
           exp = None,
           format = StandardJWTTokenFormat.Scope,
+          audiences = List.empty,
         )
         parse(serialized) shouldBe Success(expected)
       }
@@ -245,6 +295,7 @@ class AuthServiceJWTCodecSpec
           userId = "someUserId",
           exp = None,
           format = StandardJWTTokenFormat.Scope,
+          audiences = List.empty,
         )
         parse(serialized) shouldBe Success(expected)
       }
@@ -278,6 +329,7 @@ class AuthServiceJWTCodecSpec
           userId = "someUserId",
           exp = Some(Instant.ofEpochSecond(100)),
           format = StandardJWTTokenFormat.ParticipantId,
+          audiences = List.empty,
         )
         parse(serialized) shouldBe Success(expected)
       }
@@ -297,6 +349,7 @@ class AuthServiceJWTCodecSpec
             userId = "someUserId",
             exp = Some(Instant.ofEpochSecond(100)),
             format = StandardJWTTokenFormat.ParticipantId,
+            audiences = List.empty,
           )
         )
 
@@ -315,6 +368,7 @@ class AuthServiceJWTCodecSpec
             userId = "someUserId",
             exp = Some(Instant.ofEpochSecond(100)),
             format = StandardJWTTokenFormat.Scope,
+            audiences = List.empty,
           )
         )
       }
@@ -334,42 +388,58 @@ class AuthServiceJWTCodecSpec
           userId = "someUserId",
           exp = Some(Instant.ofEpochSecond(100)),
           format = StandardJWTTokenFormat.ParticipantId,
+          audiences = List.empty,
         )
         parse(serialized) shouldBe Success(expected)
       }
 
-      "reject the token of ParticipantId format with multiple audiences" in {
+      "support multiple audiences with a single participant audience" in {
         val serialized =
           """{
-            |  "aud": ["https://daml.com/jwt/aud/participant/someParticipantId", 
+            |  "aud": ["https://example.com/non/related/audience",
+            |          "https://daml.com/jwt/aud/participant/someParticipantId"],
+            |  "sub": "someUserId",
+            |  "exp": 100
+            |}
+          """.stripMargin
+        parse(serialized) shouldBe Success(
+          StandardJWTPayload(
+            issuer = None,
+            participantId = Some("someParticipantId"),
+            userId = "someUserId",
+            exp = Some(Instant.ofEpochSecond(100)),
+            format = StandardJWTTokenFormat.ParticipantId,
+            audiences = List.empty,
+          )
+        )
+      }
+
+      "reject the token of ParticipantId format with multiple participant audiences" in {
+        val serialized =
+          """{
+            |  "aud": ["https://daml.com/jwt/aud/participant/someParticipantId",
             |          "https://daml.com/jwt/aud/participant/someParticipantId2"],
             |  "sub": "someUserId",
             |  "exp": 100
             |}
           """.stripMargin
-        parse(serialized) shouldBe Failure(
-          DeserializationException(
-            "Could not read [\"https://daml.com/jwt/aud/participant/someParticipantId\", " +
-              "\"https://daml.com/jwt/aud/participant/someParticipantId2\"] as string for aud"
-          )
+        parse(serialized).failed.get.getMessage should include(
+          "must include a single participantId value prefixed by"
         )
       }
 
       "reject the token of Scope format with multiple audiences" in {
         val serialized =
           """{
-            |  "aud": ["someParticipantId", 
+            |  "aud": ["someParticipantId",
             |          "someParticipantId2"],
             |  "sub": "someUserId",
             |  "exp": 100,
             |  "scope": "daml_ledger_api"
             |}
           """.stripMargin
-        parse(serialized) shouldBe Failure(
-          DeserializationException(
-            "Could not read [\"someParticipantId\", " +
-              "\"someParticipantId2\"] as string for aud"
-          )
+        parse(serialized).failed.get.getMessage should include(
+          "`aud` must be empty or a single participantId."
         )
       }
 

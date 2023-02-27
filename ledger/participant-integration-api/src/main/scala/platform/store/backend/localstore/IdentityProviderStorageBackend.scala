@@ -34,6 +34,10 @@ trait IdentityProviderStorageBackend {
       connection: Connection
   ): Boolean
 
+  def updateAudience(id: IdentityProviderId.Id, audience: Option[String])(
+      connection: Connection
+  ): Boolean
+
   def updateIsDeactivated(id: IdentityProviderId.Id, isDeactivated: Boolean)(
       connection: Connection
   ): Boolean

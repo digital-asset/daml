@@ -8,7 +8,13 @@ import com.daml.lf.data.{ImmArray, Numeric, Ref}
 import com.daml.lf.ledger.EventId
 import com.daml.lf.scenario.api.{v1 => proto}
 import com.daml.lf.speedy.{SError, SValue, TraceLog, Warning, WarningLog}
-import com.daml.lf.transaction.{GlobalKey, IncompleteTransaction, Node, NodeId}
+import com.daml.lf.transaction.{
+  GlobalKey,
+  GlobalKeyWithMaintainers,
+  IncompleteTransaction,
+  Node,
+  NodeId,
+}
 import com.daml.lf.ledger._
 import com.daml.lf.value.{Value => V}
 
@@ -107,6 +113,7 @@ final class Conversions(
           case SError.SErrorDamlException(interpretationError) =>
             import interpretation.Error._
             interpretationError match {
+              case RejectedAuthorityRequest(_, _) => ??? // TODO #15882
               case UnhandledException(_, value) =>
                 builder.setUnhandledException(convertValue(value))
               case UserError(msg) =>
@@ -246,16 +253,6 @@ final class Conversions(
                   cgfBuilder.setByInterface(convertIdentifier(ifaceId))
                 )
                 builder.setChoiceGuardFailed(cgfBuilder.build)
-
-              case DisclosurePreprocessing(err) =>
-                err match {
-                  case DisclosurePreprocessing.DuplicateContractKeys(tid, keyHash) =>
-                    builder.setDisclosurePreprocessingDuplicateContractKeys(
-                      proto.ScenarioError.DisclosurePreprocessingDuplicateContractKeys.newBuilder
-                        .setTemplateId(convertIdentifier(tid))
-                        .setKeyHash(keyHash.toHexString)
-                    )
-                }
             }
         }
       case Error.ContractNotEffective(coid, tid, effectiveAt) =>
@@ -313,10 +310,8 @@ final class Conversions(
             .addAllParties(parties.map(convertParty).asJava)
             .build
         )
-      case Error.Timeout(_) =>
-        // TODO https://github.com/digital-asset/daml/issues/13954
-        //  add proper support for evaluation timeout
-        builder.setCrash("timeout")
+      case Error.Timeout(timeout) =>
+        builder.setEvaluationTimeout(timeout.toSeconds)
     }
     builder.build
   }
@@ -590,7 +585,7 @@ final class Conversions(
             .addAllSignatories(fetch.signatories.map(convertParty).asJava)
             .addAllStakeholders(fetch.stakeholders.map(convertParty).asJava)
         if (fetch.byKey) {
-          fetch.versionedKey.foreach { key =>
+          fetch.keyOpt.foreach { key =>
             fetchBuilder.setFetchByKey(convertKeyWithMaintainers(key))
           }
         }
@@ -617,7 +612,7 @@ final class Conversions(
           exerciseBuilder.setExerciseResult(convertValue(result))
         }
         if (ex.byKey) {
-          ex.versionedKey.foreach { key =>
+          ex.keyOpt.foreach { key =>
             exerciseBuilder.setExerciseByKey(convertKeyWithMaintainers(key))
           }
         }
@@ -627,7 +622,7 @@ final class Conversions(
         nodeInfo.optLocation.foreach(loc => builder.setLocation(convertLocation(loc)))
         val lbkBuilder = proto.Node.LookupByKey.newBuilder
           .setTemplateId(convertIdentifier(lbk.templateId))
-          .setKeyWithMaintainers(convertKeyWithMaintainers(lbk.versionedKey))
+          .setKeyWithMaintainers(convertKeyWithMaintainers(lbk.key))
         lbk.result.foreach(cid => lbkBuilder.setContractId(coidToEventId(cid).toLedgerString))
         builder.setLookupByKey(lbkBuilder)
 
@@ -636,12 +631,12 @@ final class Conversions(
   }
 
   def convertKeyWithMaintainers(
-      key: Node.VersionedKeyWithMaintainers
+      key: GlobalKeyWithMaintainers
   ): proto.KeyWithMaintainers = {
     proto.KeyWithMaintainers
       .newBuilder()
-      .setKey(convertVersionedValue(key.map(_.key)))
-      .addAllMaintainers(key.unversioned.maintainers.map(convertParty).asJava)
+      .setKey(convertValue(key.value))
+      .addAllMaintainers(key.maintainers.map(convertParty).asJava)
       .build()
   }
 
@@ -677,7 +672,7 @@ final class Conversions(
             )
             .addAllSignatories(create.signatories.map(convertParty).asJava)
             .addAllStakeholders(create.stakeholders.map(convertParty).asJava)
-        create.versionedKey.foreach(key =>
+        create.keyOpt.foreach(key =>
           createBuilder.setKeyWithMaintainers(convertKeyWithMaintainers(key))
         )
         optLocation.map(loc => builder.setLocation(convertLocation(loc)))
@@ -716,7 +711,7 @@ final class Conversions(
         optLocation.map(loc => builder.setLocation(convertLocation(loc)))
         builder.setLookupByKey({
           val builder = proto.Node.LookupByKey.newBuilder
-            .setKeyWithMaintainers(convertKeyWithMaintainers(lookup.versionedKey))
+            .setKeyWithMaintainers(convertKeyWithMaintainers(lookup.key))
           lookup.result.foreach(cid => builder.setContractId(coidToEventId(cid).toLedgerString))
           builder.build
         })
@@ -751,9 +746,6 @@ final class Conversions(
       .build
 
   }
-
-  private def convertVersionedValue(value: V.VersionedValue): proto.Value =
-    convertValue(value.unversioned)
 
   def convertValue(value: V): proto.Value = {
     val builder = proto.Value.newBuilder

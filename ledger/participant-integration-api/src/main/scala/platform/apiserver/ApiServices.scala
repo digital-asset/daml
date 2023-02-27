@@ -32,7 +32,10 @@ import com.daml.platform.apiserver.execution.{
 import com.daml.platform.apiserver.meteringreport.MeteringReportKey
 import com.daml.platform.apiserver.services._
 import com.daml.platform.apiserver.services.admin._
-import com.daml.platform.apiserver.services.transaction.ApiTransactionService
+import com.daml.platform.apiserver.services.transaction.{
+  ApiEventQueryService,
+  ApiTransactionService,
+}
 import com.daml.platform.configuration.{CommandConfiguration, InitialLedgerConfiguration}
 import com.daml.platform.localstore.UserManagementConfig
 import com.daml.platform.localstore.api.{
@@ -106,6 +109,7 @@ private[daml] object ApiServices {
     private val packagesService: IndexPackagesService = indexService
     private val activeContractsService: IndexActiveContractsService = indexService
     private val transactionsService: IndexTransactionsService = indexService
+    private val eventQueryService: IndexEventQueryService = indexService
     private val contractStore: ContractStore = indexService
     private val maximumLedgerTimeService: MaximumLedgerTimeService = indexService
     private val completionsService: IndexCompletionsService = indexService
@@ -151,8 +155,12 @@ private[daml] object ApiServices {
         ledgerConfigurationSubscription: LedgerConfigurationSubscription,
         checkOverloaded: TelemetryContext => Option[state.SubmissionResult],
     )(implicit executionContext: ExecutionContext): List[BindableService] = {
+
       val apiTransactionService =
         ApiTransactionService.create(ledgerId, transactionsService, metrics, telemetry)
+
+      val apiEventQueryService =
+        ApiEventQueryService.create(ledgerId, eventQueryService, telemetry)
 
       val apiLedgerIdentityService =
         ApiLedgerIdentityService.create(ledgerId)
@@ -214,6 +222,7 @@ private[daml] object ApiServices {
               submissionIdGenerator = SubmissionIdGenerator.Random,
               identityProviderExists = new IdentityProviderExists(identityProviderConfigStore),
               partyRecordExist = new PartyRecordsExist(partyRecordStore),
+              indexPartyManagementService = partyManagementService,
             )
           val identityProvider =
             new ApiIdentityProviderConfigService(identityProviderConfigStore)
@@ -235,6 +244,7 @@ private[daml] object ApiServices {
           new PackageServiceAuthorization(apiPackageService, authorizer),
           new LedgerConfigurationServiceAuthorization(apiConfigurationService, authorizer),
           new TransactionServiceAuthorization(apiTransactionService, authorizer),
+          new EventQueryServiceAuthorization(apiEventQueryService, authorizer),
           new CommandCompletionServiceAuthorization(grpcCompletionService, authorizer),
           new ActiveContractsServiceAuthorization(apiActiveContractsService, authorizer),
           apiReflectionService,

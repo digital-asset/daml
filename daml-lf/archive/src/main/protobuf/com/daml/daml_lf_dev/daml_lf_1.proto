@@ -1592,6 +1592,7 @@ message DefTemplate {
   message Implements {
     TypeConName interface = 1;
     InterfaceInstanceBody body = 2;
+    Location location = 3;
   }
 
   // The type constructor for the template, acting as both
@@ -1664,6 +1665,7 @@ message DefInterface {
   message CoImplements {
     TypeConName template = 1;
     InterfaceInstanceBody body = 2;
+    Location location = 3;
   }
 
   Location location = 1;

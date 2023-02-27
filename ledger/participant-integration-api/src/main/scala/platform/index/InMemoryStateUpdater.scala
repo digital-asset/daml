@@ -11,7 +11,6 @@ import com.daml.ledger.api.DeduplicationPeriod.{DeduplicationDuration, Deduplica
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.v2.{CompletionInfo, Update}
 import com.daml.ledger.resources.ResourceOwner
-import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref.HexString
 import com.daml.lf.engine.Blinding
 import com.daml.lf.ledger.EventId
@@ -93,7 +92,6 @@ private[platform] object InMemoryStateUpdater {
       InstrumentedExecutors.newWorkStealingExecutor(
         metrics.daml.lapi.threadpool.indexBypass.prepareUpdates,
         prepareUpdatesParallelism,
-        metrics.registry,
         metrics.executorServiceMetrics,
       )
     )
@@ -101,7 +99,6 @@ private[platform] object InMemoryStateUpdater {
       InstrumentedExecutors.newFixedThreadPool(
         metrics.daml.lapi.threadpool.indexBypass.updateInMemoryState,
         1,
-        metrics.registry,
         metrics.executorServiceMetrics,
       )
     )
@@ -227,9 +224,11 @@ private[platform] object InMemoryStateUpdater {
         exerciseBegin = (acc, nid, node) => ((nid -> node) :: acc, ChildrenRecursion.DoRecurse),
         // Rollback nodes are not indexed
         rollbackBegin = (acc, _, _) => (acc, ChildrenRecursion.DoNotRecurse),
+        authorityBegin = (acc, _, _) => (acc, ChildrenRecursion.DoRecurse),
         leaf = (acc, nid, node) => (nid -> node) :: acc,
         exerciseEnd = (acc, _, _) => acc,
         rollbackEnd = (acc, _, _) => acc,
+        authorityEnd = (acc, _, _) => acc,
       )
       .reverseIterator
 
@@ -250,7 +249,7 @@ private[platform] object InMemoryStateUpdater {
           commandId = txAccepted.optCompletionInfo.map(_.commandId).getOrElse(""),
           workflowId = txAccepted.transactionMeta.workflowId.getOrElse(""),
           contractKey =
-            create.key.map(k => com.daml.lf.transaction.Versioned(create.version, k.key)),
+            create.keyOpt.map(k => com.daml.lf.transaction.Versioned(create.version, k.value)),
           treeEventWitnesses = blinding.disclosure.getOrElse(nodeId, Set.empty),
           flatEventWitnesses = create.stakeholders,
           submitters = txAccepted.optCompletionInfo
@@ -260,7 +259,7 @@ private[platform] object InMemoryStateUpdater {
           createSignatories = create.signatories,
           createObservers = create.stakeholders.diff(create.signatories),
           createAgreementText = Some(create.agreementText).filter(_.nonEmpty),
-          createKeyHash = create.key.map(_.key).map(Hash.safeHashContractKey(create.templateId, _)),
+          createKeyHash = create.keyOpt.map(_.globalKey.hash),
           driverMetadata = txAccepted.contractMetadata.get(create.coid),
         )
       case (nodeId, exercise: Exercise) =>
@@ -276,7 +275,7 @@ private[platform] object InMemoryStateUpdater {
           commandId = txAccepted.optCompletionInfo.map(_.commandId).getOrElse(""),
           workflowId = txAccepted.transactionMeta.workflowId.getOrElse(""),
           contractKey =
-            exercise.key.map(k => com.daml.lf.transaction.Versioned(exercise.version, k.key)),
+            exercise.keyOpt.map(k => com.daml.lf.transaction.Versioned(exercise.version, k.value)),
           treeEventWitnesses = blinding.disclosure.getOrElse(nodeId, Set.empty),
           flatEventWitnesses = if (exercise.consuming) exercise.stakeholders else Set.empty,
           submitters = txAccepted.optCompletionInfo

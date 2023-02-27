@@ -100,6 +100,8 @@ input2 AS (
     GROUP BY t, o
 )
 INSERT INTO participant_transaction_meta(transaction_id, event_offset, event_sequential_id_first, event_sequential_id_last)
-SELECT t, o, first_i, last_i FROM input2;
+SELECT t, o, first_i, last_i FROM input2,parameters WHERE
+          parameters.participant_pruned_up_to_inclusive is null
+          or o > parameters.participant_pruned_up_to_inclusive;
 
 DROP FUNCTION etq_array_diff;
