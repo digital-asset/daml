@@ -74,7 +74,6 @@ import qualified System.FilePath.Posix as FPP
 import System.IO
 import System.IO.Error
 import qualified Text.PrettyPrint.Annotated.HughesPJClass as HughesPJPretty
-import GHC.Word
 
 import qualified Network.HTTP.Types as HTTP.Types
 import qualified Network.URI as URI
@@ -822,30 +821,14 @@ runScenariosRule :: Rules ()
 runScenariosRule =
     define $ \RunScenarios file -> do
       m <- moduleForScenario file
+      world <- worldForFile file
+      Just scenarioService <- envScenarioService <$> getDamlServiceEnv
       testFilter <- envTestFilter <$> getDamlServiceEnv
       let scenarios =  [sc | (sc, _scLoc) <- scenariosInModule m, testFilter $ LF.unExprValName $ LF.qualObject sc]
-      scenarioResults <-
-          forM scenarios $ \scenario ->
-              use_ (RunSingleScenario (LF.unExprValName (LF.qualObject scenario))) file
-      pure ([], Just (concat scenarioResults))
-
-runSingleScenarioRule :: Rules ()
-runSingleScenarioRule =
-    define $ \(RunSingleScenario targetScenarioName) file -> do
-      m <- moduleForScenario file
-      world <- worldForFile file
-
-      Just scenarioService <- envScenarioService <$> getDamlServiceEnv
       ctxRoot <- use_ GetScenarioRoot file
       ctxId <- use_ CreateScenarioContext ctxRoot
-
-      let scenarios =
-            [ sc
-            | (sc, _scLoc) <- scenariosInModule m
-            , targetScenarioName == LF.unExprValName (LF.qualObject sc)]
-
       scenarioResults <-
-          forM scenarios $ \scenario -> do
+          liftIO $ forM scenarios $ \scenario -> do
               (vr, res) <- runScenario scenarioService file ctxId scenario
               let scenarioName = LF.qualObject scenario
               let mbLoc = NM.lookup scenarioName (LF.moduleValues m) >>= LF.dvalLocation
@@ -858,30 +841,14 @@ runScriptsRule :: Rules ()
 runScriptsRule =
     define $ \RunScripts file -> do
       m <- moduleForScenario file
-      testFilter <- envTestFilter <$> getDamlServiceEnv
-      let scenarios =  [sc | (sc, _scLoc) <- scriptsInModule m, testFilter $ LF.unExprValName $ LF.qualObject sc]
-      scenarioResults <-
-          forM scenarios $ \scenario ->
-              use_ (RunSingleScript (LF.unExprValName (LF.qualObject scenario))) file
-      pure ([], Just (concat scenarioResults))
-
-runSingleScriptRule :: Rules ()
-runSingleScriptRule =
-    define $ \(RunSingleScript targetScriptName) file -> do
-      m <- moduleForScenario file
       world <- worldForFile file
       Just scenarioService <- envScenarioService <$> getDamlServiceEnv
-
+      testFilter <- envTestFilter <$> getDamlServiceEnv
+      let scenarios =  [sc | (sc, _scLoc) <- scriptsInModule m, testFilter $ LF.unExprValName $ LF.qualObject sc]
       ctxRoot <- use_ GetScenarioRoot file
       ctxId <- use_ CreateScenarioContext ctxRoot
-
-      let scenarios =
-              [ sc
-              | (sc, _scLoc) <- scriptsInModule m
-              , targetScriptName == LF.unExprValName (LF.qualObject sc)]
-
       scenarioResults <-
-          forM scenarios $ \scenario -> do
+          liftIO $ forM scenarios $ \scenario -> do
               (vr, res) <- runScript scenarioService file ctxId scenario
               let scenarioName = LF.qualObject scenario
               let mbLoc = NM.lookup scenarioName (LF.moduleValues m) >>= LF.dvalLocation
@@ -907,19 +874,20 @@ runScenariosScriptsPkg projRoot extPkg pkgs = do
             ctxIdOrErr
     scenarioContextsVar <- envScenarioContexts <$> getDamlServiceEnv
     liftIO $ modifyMVar_ scenarioContextsVar $ pure . HashMap.insert projRoot ctxId
-    rs <- do
-        scenarioResults <- forM scenarios $ \scenario ->
-            runScenario scenarioService pkgName' ctxId scenario
-        scriptResults <- forM scripts $ \script ->
-            runScript
-                scenarioService
-                pkgName'
-                ctxId
-                script
-        pure $
-            [ (toDiagnostics world pkgName' noRange res, (vr, res))
-            | (vr, res) <- scenarioResults ++ scriptResults
-            ]
+    rs <-
+        liftIO $ do
+          scenarioResults <- forM scenarios $ \scenario ->
+              runScenario scenarioService pkgName' ctxId scenario
+          scriptResults <- forM scripts $ \script ->
+                  runScript
+                      scenarioService
+                      pkgName'
+                      ctxId
+                      script
+          pure $
+              [ (toDiagnostics world pkgName' noRange res, (vr, res))
+              | (vr, res) <- scenarioResults ++ scriptResults
+              ]
     let (diags, results) = unzip rs
     pure (concat diags, Just results)
   where
@@ -1049,36 +1017,6 @@ vrChangedNotification vr doc = do
         sendNotification lspEnv (LSP.SCustomMethod virtualResourceChangedNotification) $
         toJSON $ VirtualResourceChangedParams (virtualResourceToUri vr) doc
 
-virtualResourceProgressNotification :: T.Text
-virtualResourceProgressNotification = "daml/virtualResource/didProgress"
-
--- | Parameters for the virtual resource progress notification
-data VirtualResourceProgressParams = VirtualResourceProgressParams
-    { _vrppUri      :: !T.Text
-      -- ^ The uri of the virtual resource.
-    , _vrppMillisecondsPassed :: !Word64
-      -- ^ The progress status of the virtual resource
-    , _vrppStartedAt :: !Word64
-      -- ^ When this status info started
-    } deriving Show
-
-instance ToJSON VirtualResourceProgressParams where
-    toJSON VirtualResourceProgressParams{..} =
-        object ["uri" .= _vrppUri, "millisecondsPassed" .= _vrppMillisecondsPassed, "startedAt" .= _vrppStartedAt ]
-
-instance FromJSON VirtualResourceProgressParams where
-    parseJSON = withObject "VirtualResourceProgressParams" $ \o ->
-        VirtualResourceProgressParams <$> o .: "uri" <*> o .: "millisecondsPassed" <*> o .: "startedAt"
-
-vrProgressNotification :: ShakeLspEnv -> VirtualResource -> SS.ScenarioStatus -> IO ()
-vrProgressNotification lspEnv vr status = do
-    sendNotification lspEnv (LSP.SCustomMethod virtualResourceProgressNotification) $
-        toJSON $
-            VirtualResourceProgressParams
-                (virtualResourceToUri vr)
-                (SS.scenarioStatusMillisecondsPassed status)
-                (SS.scenarioStatusStartedAt status)
-
 -- | Virtual resource note set notification
 -- This notification is sent by the server to the client when
 -- an open virtual resource note is set.
@@ -1119,61 +1057,50 @@ ofInterestRule = do
     defineNoFile $ \OfInterest -> do
         setPriority priorityFilesOfInterest
         DamlEnv{..} <- getDamlServiceEnv
-
-        -- query for files of interest & open scripts/scenarios
-        files <- getFilesOfInterest
+        -- query for files of interest
+        files   <- getFilesOfInterest
         openVRs <- useNoFile_ GetOpenVirtualResources
-        let vrFiles =
-                HashMap.fromListWith (<>)
-                    (map (\vr -> (vrScenarioFile vr, [vr])) $ HashSet.toList openVRs)
+        let vrFiles = HashSet.map vrScenarioFile openVRs
+        -- We run scenarios for all files of interest to get diagnostics
+        -- and for the files for which we have open VRs so that they get
+        -- updated.
+        let scenarioFiles = files `HashSet.union` vrFiles
+        gc scenarioFiles
+        let openVRsByFile = HashMap.fromListWith (<>) (map (\vr -> (vrScenarioFile vr, [vr])) $ HashSet.toList openVRs)
+        -- compile and notify any errors
+        let runScenarios file = do
+                world <- worldForFile file
+                mbScenarioVrs <- use RunScenarios file
+                mbScriptVrs <- use RunScripts file
+                let vrs = fromMaybe [] mbScenarioVrs ++ fromMaybe [] mbScriptVrs
+                forM_ vrs $ \(vr, res) -> do
+                    let doc = formatScenarioResult world res
+                    when (vr `HashSet.member` openVRs) $
+                        vrChangedNotification vr doc
+                let vrScenarioNames = Set.fromList $ fmap (vrScenarioName . fst) vrs
+                forM_ (HashMap.lookupDefault [] file openVRsByFile) $ \ovr -> do
+                    when (not $ vrScenarioName ovr `Set.member` vrScenarioNames) $
+                        vrNoteSetNotification ovr $ LF.scenarioNotInFileNote $
+                        T.pack $ fromNormalizedFilePath file
 
-        -- determine all files
-        let allFiles = files `HashSet.union` HashMap.keysSet vrFiles
-        gc allFiles
+        -- We don’t always have a scenario service (e.g., damlc compile)
+        -- so only run scenarios if we have one.
+        let shouldRunScenarios = isJust envScenarioService
 
-        -- Check files that can't be compiled
-        let checkUncompilableFiles = flip map (HashSet.toList allFiles) $ \file -> do
+        let notifyOpenVrsOnGetDalfError file = do
             mbDalf <- getDalf file
             when (isNothing mbDalf) $ do
-                forM_ (HashMap.lookupDefault [] file vrFiles) $ \ovr ->
+                forM_ (HashMap.lookupDefault [] file openVRsByFile) $ \ovr ->
                     vrNoteSetNotification ovr $ LF.fileWScenarioNoLongerCompilesNote $ T.pack $
                         fromNormalizedFilePath file
 
-        -- Check diagnostics from Dlint
-        let dlintActions = map (use_ GetDlintDiagnostics) (HashSet.toList allFiles)
-
-        -- Run any open scenarios to report their results
-        let runScenarioActions =
-                if isJust envScenarioService -- only run scenarios when we have a service
-                    then map runScenario (HashSet.toList openVRs)
-                    else []
-
-        -- Run all in parallel
-        _ <- parallel $ checkUncompilableFiles <> dlintActions <> runScenarioActions
+        let files = HashSet.toList scenarioFiles
+        let dalfActions = [notifyOpenVrsOnGetDalfError f | f <- files]
+        let dlintActions = [use_ GetDlintDiagnostics f | f <- files]
+        let runScenarioActions = [runScenarios f | shouldRunScenarios, f <- files]
+        _ <- parallel $ dalfActions <> dlintActions <> runScenarioActions
         return ()
   where
-      -- Run a single scenario
-      runScenario vr = do
-          -- Extract file with world info
-          let file = vrScenarioFile vr
-          world <- worldForFile file
-
-          -- Run either the scenario or the script in the appropriate file
-          mbScenarioVrs <- use (RunSingleScenario (vrScenarioName vr)) file
-          mbScriptVrs <- use (RunSingleScript (vrScenarioName vr)) file
-          let vrResults = fromMaybe [] mbScenarioVrs ++ fromMaybe [] mbScriptVrs
-
-          -- Should be a singleton list, send results via LSP
-          forM_ vrResults $ \(vr, res) -> do
-              let doc = formatScenarioResult world res
-              vrChangedNotification vr doc
-
-          -- If the scenario name is not in the results, the scenario no
-          -- longer exists on this file - Notify the client via LSP
-          when (vrScenarioName vr `notElem` map (vrScenarioName . fst) vrResults) $
-              vrNoteSetNotification vr $ LF.scenarioNotInFileNote $
-              T.pack $ fromNormalizedFilePath file
-
       gc :: HashSet.HashSet NormalizedFilePath -> Action ()
       gc roots = do
         depInfoOrErr <- sequence <$> uses GetDependencyInformation (HashSet.toList roots)
@@ -1263,20 +1190,18 @@ formatScenarioResult world errOrRes =
         Right res ->
             LF.renderScenarioResult world res
 
-runScenario :: SS.Handle -> NormalizedFilePath -> SS.ContextId -> LF.ValueRef -> Action (VirtualResource, Either SS.Error SS.ScenarioResult)
+runScenario :: SS.Handle -> NormalizedFilePath -> SS.ContextId -> LF.ValueRef -> IO (VirtualResource, Either SS.Error SS.ScenarioResult)
 runScenario scenarioService file ctxId scenario = do
-    ShakeExtras {lspEnv} <- getShakeExtras
+    res <- SS.runScenario scenarioService ctxId scenario
     let scenarioName = LF.qualObject scenario
     let vr = VRScenario file (LF.unExprValName scenarioName)
-    res <- liftIO $ SS.runLiveScenario scenarioService ctxId scenario $ vrProgressNotification lspEnv vr
     pure (vr, res)
 
-runScript :: SS.Handle -> NormalizedFilePath -> SS.ContextId -> LF.ValueRef -> Action (VirtualResource, Either SS.Error SS.ScenarioResult)
+runScript :: SS.Handle -> NormalizedFilePath -> SS.ContextId -> LF.ValueRef -> IO (VirtualResource, Either SS.Error SS.ScenarioResult)
 runScript scenarioService file ctxId scenario = do
-    ShakeExtras {lspEnv} <- getShakeExtras
+    res <- SS.runScript scenarioService ctxId scenario
     let scenarioName = LF.qualObject scenario
     let vr = VRScenario file (LF.unExprValName scenarioName)
-    res <- liftIO $ SS.runLiveScript scenarioService ctxId scenario $ vrProgressNotification lspEnv vr
     pure (vr, res)
 
 encodeModuleRule :: Options -> Rules ()
@@ -1451,9 +1376,7 @@ damlRule opts = do
     generateRawPackageRule opts
     generatePackageDepsRule opts
     runScenariosRule
-    runSingleScenarioRule
     runScriptsRule
-    runSingleScriptRule
     getScenarioRootsRule
     getScenarioRootRule
     getDlintDiagnosticsRule
