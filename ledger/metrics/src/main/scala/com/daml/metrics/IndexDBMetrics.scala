@@ -4,11 +4,14 @@
 package com.daml.metrics
 
 import com.daml.metrics.api.MetricDoc.MetricQualification.Debug
-import com.daml.metrics.api.MetricHandle.{MetricsFactory, Histogram, Timer}
+import com.daml.metrics.api.MetricHandle.{Histogram, LabeledMetricsFactory, MetricsFactory, Timer}
 import com.daml.metrics.api.{MetricDoc, MetricName}
 
-class IndexDBMetrics(val prefix: MetricName, val factory: MetricsFactory)
-    extends MainIndexDBMetrics(prefix, factory)
+class IndexDBMetrics(
+    val prefix: MetricName,
+    val factory: MetricsFactory,
+    labeledMetricsFactory: LabeledMetricsFactory,
+) extends MainIndexDBMetrics(prefix, factory, labeledMetricsFactory)
     with TransactionStreamsDbMetrics {
   self =>
 }
@@ -18,10 +21,6 @@ trait TransactionStreamsDbMetrics {
   val prefix: MetricName
   val factory: MetricsFactory
 
-  @MetricDoc.GroupTag(
-    representative = "daml.index.db.flat_transactions_stream.<operation>",
-    groupableClass = classOf[DatabaseMetrics],
-  )
   object flatTxStream {
     val prefix: MetricName = self.prefix :+ "flat_transactions_stream"
 
@@ -45,10 +44,6 @@ trait TransactionStreamsDbMetrics {
     val translationTimer: Timer = factory.timer(prefix :+ "translation")
   }
 
-  @MetricDoc.GroupTag(
-    representative = "daml.index.db.tree_transactions_stream.<operation>",
-    groupableClass = classOf[DatabaseMetrics],
-  )
   object treeTxStream {
     val prefix: MetricName = self.prefix :+ "tree_transactions_stream"
 
@@ -86,12 +81,11 @@ trait TransactionStreamsDbMetrics {
 
 }
 
-@MetricDoc.GroupTag(
-  representative = "daml.index.db.<operation>",
-  groupableClass = classOf[DatabaseMetrics],
-)
-class MainIndexDBMetrics(prefix: MetricName, factory: MetricsFactory)
-    extends DatabaseMetricsFactory(prefix, factory) { self =>
+class MainIndexDBMetrics(
+    prefix: MetricName,
+    factory: MetricsFactory,
+    labeledMetricsFactory: LabeledMetricsFactory,
+) extends DatabaseMetricsFactory(prefix, labeledMetricsFactory) { self =>
 
   @MetricDoc.Tag(
     summary = "The time spent looking up a contract using its key.",

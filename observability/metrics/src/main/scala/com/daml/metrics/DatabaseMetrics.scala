@@ -3,18 +3,18 @@
 
 package com.daml.metrics
 
-import com.codahale.metrics.MetricRegistry
 import com.daml.metrics.api.MetricDoc.MetricQualification.Debug
-import com.daml.metrics.api.MetricHandle.{MetricsFactory, Timer}
-import com.daml.metrics.api.dropwizard.DropwizardMetricsFactory
-import com.daml.metrics.api.{MetricDoc, MetricName}
+import com.daml.metrics.api.MetricHandle.{LabeledMetricsFactory, Timer}
+import com.daml.metrics.api.noop.NoOpMetricsFactory
+import com.daml.metrics.api.{MetricDoc, MetricName, MetricsContext}
 
 class DatabaseMetrics private[metrics] (
-    val prefix: MetricName,
     val name: String,
-    val factory: MetricsFactory,
+    val factory: LabeledMetricsFactory,
 ) {
-  protected val dbPrefix: MetricName = prefix :+ name
+
+  private val dbPrefix: MetricName = MetricName.Daml :+ "db"
+  private implicit val mc: MetricsContext = MetricsContext("name" -> name)
 
   @MetricDoc.Tag(
     summary = "The time needed to acquire a connection to the database.",
@@ -76,8 +76,7 @@ object DatabaseMetrics {
 
   def ForTesting(metricsName: String): DatabaseMetrics =
     new DatabaseMetrics(
-      prefix = MetricName("ForTesting"),
       name = metricsName,
-      new DropwizardMetricsFactory(new MetricRegistry),
+      NoOpMetricsFactory,
     )
 }

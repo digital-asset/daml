@@ -3,17 +3,14 @@
 
 package com.daml.metrics
 
-import com.daml.metrics.api.MetricHandle.MetricsFactory
-import com.daml.metrics.api.{MetricDoc, MetricName}
+import com.daml.metrics.api.MetricHandle.{LabeledMetricsFactory, MetricsFactory}
+import com.daml.metrics.api.MetricName
 
-@MetricDoc.GroupTag(
-  representative = "daml.identity_provider_config_store.<operation>",
-  groupableClass = classOf[DatabaseMetrics],
-)
 class IdentityProviderConfigStoreMetrics(
     prefix: MetricName,
     factory: MetricsFactory,
-) extends DatabaseMetricsFactory(prefix, factory) {
+    labeledMetricsFactory: LabeledMetricsFactory,
+) extends DatabaseMetricsFactory(prefix, labeledMetricsFactory) {
 
   val idpConfigCache = new CacheMetrics(prefix :+ "idp_config_cache", factory)
   val verifierCache = new CacheMetrics(prefix :+ "verifier_cache", factory)

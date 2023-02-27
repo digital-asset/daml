@@ -39,12 +39,6 @@ final class Metrics(
 
   val executorServiceMetrics = new ExecutorServiceMetrics(labeledMetricsFactory)
 
-  object test {
-    private val prefix: MetricName = MetricName("test")
-
-    val db: DatabaseMetrics = new DatabaseMetrics(prefix, "db", defaultMetricsFactory)
-  }
-
   object daml {
     val prefix: MetricName = MetricName.Daml
 
@@ -55,25 +49,38 @@ final class Metrics(
     object lapi extends LAPIMetrics(prefix :+ "lapi", defaultMetricsFactory)
 
     object userManagement
-        extends UserManagementMetrics(prefix :+ "user_management", defaultMetricsFactory)
+        extends UserManagementMetrics(
+          prefix :+ "user_management",
+          defaultMetricsFactory,
+          labeledMetricsFactory,
+        )
 
     object partyRecordStore
-        extends PartyRecordStoreMetrics(prefix :+ "party_record_store", defaultMetricsFactory)
+        extends PartyRecordStoreMetrics(
+          prefix :+ "party_record_store",
+          labeledMetricsFactory,
+        )
 
     object identityProviderConfigStore
         extends IdentityProviderConfigStoreMetrics(
           prefix :+ "identity_provider_config_store",
           defaultMetricsFactory,
+          labeledMetricsFactory,
         )
 
-    object index extends IndexMetrics(prefix :+ "index", defaultMetricsFactory)
+    object index
+        extends IndexMetrics(prefix :+ "index", defaultMetricsFactory, labeledMetricsFactory)
 
     object indexer extends IndexerMetrics(prefix :+ "indexer", defaultMetricsFactory)
 
     object indexerEvents extends IndexedUpdatesMetrics(prefix :+ "indexer", labeledMetricsFactory)
 
     object parallelIndexer
-        extends ParallelIndexerMetrics(prefix :+ "parallel_indexer", defaultMetricsFactory)
+        extends ParallelIndexerMetrics(
+          prefix :+ "parallel_indexer",
+          defaultMetricsFactory,
+          labeledMetricsFactory,
+        )
 
     object services
         extends ServicesMetrics(prefix :+ "services", defaultMetricsFactory, labeledMetricsFactory)

@@ -3,15 +3,14 @@
 
 package com.daml.metrics
 
-import com.daml.metrics.api.MetricHandle.MetricsFactory
-import com.daml.metrics.api.{MetricDoc, MetricName}
+import com.daml.metrics.api.MetricHandle.{LabeledMetricsFactory, MetricsFactory}
+import com.daml.metrics.api.MetricName
 
-@MetricDoc.GroupTag(
-  representative = "daml.user_management.<operation>",
-  groupableClass = classOf[DatabaseMetrics],
-)
-class UserManagementMetrics(val prefix: MetricName, val factory: MetricsFactory)
-    extends DatabaseMetricsFactory(prefix, factory) {
+class UserManagementMetrics(
+    val prefix: MetricName,
+    val factory: MetricsFactory,
+    labeledFactory: LabeledMetricsFactory,
+) extends DatabaseMetricsFactory(prefix, labeledFactory) {
 
   val cache = new CacheMetrics(prefix :+ "cache", factory)
 
