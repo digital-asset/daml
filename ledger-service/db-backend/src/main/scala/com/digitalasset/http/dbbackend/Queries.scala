@@ -313,19 +313,24 @@ sealed abstract class Queries(tablePrefix: String, tpIdCacheMaxEntries: Long)(im
     import nonempty.catsinstances._
     cids to SortedSet match {
       case NonEmpty(cids) =>
-        val del = fr"DELETE FROM $contractTableName WHERE " ++ {
-          val chunks =
-            maxListSize.fold(NonEmpty(Vector, cids)) { size =>
-              val NonEmpty(groups) =
-                cids.grouped(size).collect { case NonEmpty(group) => group }.toVector
-              groups
-            }
-          joinFragment(
-            chunks.map(cids => Fragments.in(fr"contract_id", cids.toVector.toNEF)),
-            fr" OR ",
-          )
+        if (allowDamlTransactionBatching) {
+          val del = fr"DELETE FROM $contractTableName WHERE " ++ {
+            val chunks =
+              maxListSize.fold(NonEmpty(Vector, cids)) { size =>
+                val NonEmpty(groups) =
+                  cids.grouped(size).collect { case NonEmpty(group) => group }.toVector
+                groups
+              }
+            joinFragment(
+              chunks.map(cids => Fragments.in(fr"contract_id", cids.toVector.toNEF)),
+              fr" OR ",
+            )
+          }
+          del.update.run
+        } else {
+          Update[String](s"DELETE FROM $contractTableNameRaw WHERE contract_id = ?")
+            .updateMany(cids.toNEF)
         }
-        del.update.run
       case _ =>
         free.connection.pure(0)
     }
