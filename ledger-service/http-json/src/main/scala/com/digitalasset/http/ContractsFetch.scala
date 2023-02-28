@@ -291,68 +291,74 @@ private class ContractsFetch(
     import domain.Offset._, fetchContext.{jwt, ledgerId, parties}
     val startOffset = offsets.values.toList.minimum.cata(AbsoluteBookmark(_), LedgerBegin)
 
-    val graph = RunnableGraph.fromGraph(
-      GraphDSL.createGraph(
-        Sink.queue[ConnectionIO[Unit]](),
-        Sink.last[BeginBookmark[domain.Offset]],
-      )(Keep.both) { implicit builder => (acsSink, offsetSink) =>
-        import GraphDSL.Implicits._
+    // skip if *we don't use the acs* (which can read past absEnd) and current
+    // DB is already caught up to absEnd
+    if (startOffset == AbsoluteBookmark(absEnd.toDomain))
+      fconn.pure(startOffset)
+    else {
+      val graph = RunnableGraph.fromGraph(
+        GraphDSL.createGraph(
+          Sink.queue[ConnectionIO[Unit]](),
+          Sink.last[BeginBookmark[domain.Offset]],
+        )(Keep.both) { implicit builder => (acsSink, offsetSink) =>
+          import GraphDSL.Implicits._
 
-        val txnK = getCreatesAndArchivesSince(
-          jwt,
-          ledgerId,
-          transactionFilter(parties, List(templateId)),
-          _: lav1.ledger_offset.LedgerOffset,
-          absEnd,
-        )(lc)
+          val txnK = getCreatesAndArchivesSince(
+            jwt,
+            ledgerId,
+            transactionFilter(parties, List(templateId)),
+            _: lav1.ledger_offset.LedgerOffset,
+            absEnd,
+          )(lc)
 
-        // include ACS iff starting at LedgerBegin
-        val (idses, lastOff) = (startOffset, disableAcs) match {
-          case (LedgerBegin, false) =>
-            val stepsAndOffset = builder add acsFollowingAndBoundary(txnK)
-            stepsAndOffset.in <~ getActiveContracts(
-              jwt,
-              ledgerId,
-              transactionFilter(parties, List(templateId)),
-              true,
-            )(lc)
-            (stepsAndOffset.out0, stepsAndOffset.out1)
+          // include ACS iff starting at LedgerBegin
+          val (idses, lastOff) = (startOffset, disableAcs) match {
+            case (LedgerBegin, false) =>
+              val stepsAndOffset = builder add acsFollowingAndBoundary(txnK)
+              stepsAndOffset.in <~ getActiveContracts(
+                jwt,
+                ledgerId,
+                transactionFilter(parties, List(templateId)),
+                true,
+              )(lc)
+              (stepsAndOffset.out0, stepsAndOffset.out1)
 
-          case (AbsoluteBookmark(_), _) | (LedgerBegin, true) =>
-            val stepsAndOffset = builder add transactionsFollowingBoundary(txnK)
-            stepsAndOffset.in <~ Source.single(startOffset)
-            (
-              (stepsAndOffset: FanOutShape2[_, ContractStreamStep.LAV1, _]).out0,
-              stepsAndOffset.out1,
-            )
+            case (AbsoluteBookmark(_), _) | (LedgerBegin, true) =>
+              val stepsAndOffset = builder add transactionsFollowingBoundary(txnK)
+              stepsAndOffset.in <~ Source.single(startOffset)
+              (
+                (stepsAndOffset: FanOutShape2[_, ContractStreamStep.LAV1, _]).out0,
+                stepsAndOffset.out1,
+              )
+          }
+
+          val transactInsertsDeletes = Flow
+            .fromFunction(jsonifyInsertDeleteStep)
+            .via(if (sjd.q.queries.allowDamlTransactionBatching) conflation else Flow.apply)
+            .map(insertAndDelete)
+
+          idses.map(_.toInsertDelete) ~> transactInsertsDeletes ~> acsSink
+          lastOff ~> offsetSink
+
+          ClosedShape
         }
+      )
 
-        val transactInsertsDeletes = Flow
-          .fromFunction(jsonifyInsertDeleteStep)
-          .via(conflation)
-          .map(insertAndDelete)
+      val (acsQueue, lastOffsetFuture) = graph.run()
 
-        idses.map(_.toInsertDelete) ~> transactInsertsDeletes ~> acsSink
-        lastOff ~> offsetSink
-
-        ClosedShape
-      }
-    )
-
-    val (acsQueue, lastOffsetFuture) = graph.run()
-
-    for {
-      _ <- sinkCioSequence_(acsQueue)
-      offset0 <- connectionIOFuture(lastOffsetFuture)
-      offsetOrError <- offset0 max AbsoluteBookmark(absEnd.toDomain) match {
-        case ab @ AbsoluteBookmark(newOffset) =>
-          ContractDao
-            .updateOffset(parties, templateId, newOffset, offsets)
-            .map(_ => ab)
-        case LedgerBegin =>
-          fconn.pure(LedgerBegin)
-      }
-    } yield offsetOrError
+      for {
+        _ <- sinkCioSequence_(acsQueue)
+        offset0 <- connectionIOFuture(lastOffsetFuture)
+        offsetOrError <- offset0 max AbsoluteBookmark(absEnd.toDomain) match {
+          case ab @ AbsoluteBookmark(newOffset) =>
+            ContractDao
+              .updateOffset(parties, templateId, newOffset, offsets)
+              .map(_ => ab)
+          case LedgerBegin =>
+            fconn.pure(LedgerBegin)
+        }
+      } yield offsetOrError
+    }
   }
 }
 

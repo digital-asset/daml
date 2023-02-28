@@ -11,7 +11,7 @@ import nonempty.NonEmptyReturningOps._
 import doobie._
 import doobie.implicits._
 import scala.annotation.nowarn
-import scala.collection.immutable.{Seq => ISeq, SortedMap}
+import scala.collection.immutable.{Seq => ISeq, SortedMap, SortedSet}
 import scalaz.{@@, Cord, Functor, OneAnd, Tag, \/, -\/, \/-}
 import scalaz.Digit._0
 import scalaz.syntax.foldable._
@@ -258,7 +258,7 @@ sealed abstract class Queries(tablePrefix: String, tpIdCacheMaxEntries: Long)(im
   )(implicit log: LogHandler): ConnectionIO[Int] = {
     val (existingParties, newParties) = {
       import cats.syntax.foldable._
-      parties.toList.partition(p => lastOffsets.contains(p))
+      parties.toList.sorted.partition(p => lastOffsets.contains(p))
     }
     // If a concurrent transaction inserted an offset for a new party, the insert will fail.
     val insert =
@@ -294,6 +294,9 @@ sealed abstract class Queries(tablePrefix: String, tpIdCacheMaxEntries: Long)(im
   protected[this] type DBContractKey
   protected[this] def toDBContractKey[CK: JsonWriter](ck: CK): DBContractKey
 
+  /** Whether strict determinism can be avoided by the contracts-fetch process. */
+  def allowDamlTransactionBatching: Boolean
+
   final def insertContracts[F[_]: cats.Foldable: Functor, CK: JsonWriter, PL: JsonWriter](
       dbcs: F[DBContract[SurrogateTpId, CK, PL, Seq[String]]]
   )(implicit log: LogHandler): ConnectionIO[Int] =
@@ -306,21 +309,30 @@ sealed abstract class Queries(tablePrefix: String, tpIdCacheMaxEntries: Long)(im
   final def deleteContracts(
       cids: Set[String]
   )(implicit log: LogHandler): ConnectionIO[Int] = {
-    import cats.data.NonEmptyVector
     import cats.instances.vector._
-    import cats.instances.int._
-    import cats.syntax.foldable._
-    NonEmptyVector.fromVector(cids.toVector) match {
-      case None =>
+    import nonempty.catsinstances._
+    cids to SortedSet match {
+      case NonEmpty(cids) =>
+        if (allowDamlTransactionBatching) {
+          val del = fr"DELETE FROM $contractTableName WHERE " ++ {
+            val chunks =
+              maxListSize.fold(NonEmpty(Vector, cids)) { size =>
+                val NonEmpty(groups) =
+                  cids.grouped(size).collect { case NonEmpty(group) => group }.toVector
+                groups
+              }
+            joinFragment(
+              chunks.map(cids => Fragments.in(fr"contract_id", cids.toVector.toNEF)),
+              fr" OR ",
+            )
+          }
+          del.update.run
+        } else {
+          Update[String](s"DELETE FROM $contractTableNameRaw WHERE contract_id = ?")
+            .updateMany(cids.toNEF)
+        }
+      case _ =>
         free.connection.pure(0)
-      case Some(cids) =>
-        val chunks = maxListSize.fold(Vector(cids))(size => cids.grouped(size).toVector)
-        chunks
-          .map(chunk =>
-            (fr"DELETE FROM $contractTableName WHERE " ++ Fragments
-              .in(fr"contract_id", chunk)).update.run
-          )
-          .foldA
     }
   }
 
@@ -507,6 +519,10 @@ object Queries {
     case object GT extends OrderOperator
     case object GTEQ extends OrderOperator
   }
+
+  // XXX SC I'm pretty certain we can use NonEmpty all the way down
+  private[http] def joinFragment(xs: NonEmpty[Vector[Fragment]], sep: Fragment): Fragment =
+    concatFragment(intersperse(xs.toOneAnd, sep))
 
   private[http] def joinFragment(xs: OneAnd[Vector, Fragment], sep: Fragment): Fragment =
     concatFragment(intersperse(xs, sep))
@@ -715,6 +731,8 @@ private final class PostgresQueries(tablePrefix: String, tpIdCacheMaxEntries: Lo
 
   protected[this] override def toDBContractKey[CK: JsonWriter](x: CK) = x.toJson
 
+  override def allowDamlTransactionBatching = true
+
   protected[this] override def primInsertContracts[F[_]: cats.Foldable: Functor](
       dbcs: F[DBContract[SurrogateTpId, DBContractKey, JsValue, Array[String]]]
   )(implicit log: LogHandler): ConnectionIO[Int] = {
@@ -881,6 +899,8 @@ private final class OracleQueries(
 
   protected[this] override def toDBContractKey[CK: JsonWriter](x: CK): DBContractKey =
     JsObject(Map("key" -> x.toJson))
+
+  override def allowDamlTransactionBatching = true
 
   protected[this] override def primInsertContracts[F[_]: cats.Foldable: Functor](
       dbcs: F[DBContract[SurrogateTpId, DBContractKey, JsValue, Array[String]]]
