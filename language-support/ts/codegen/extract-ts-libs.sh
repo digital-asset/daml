@@ -13,3 +13,4 @@ fi
 bazel run //language-support/ts/daml-types:npm_package.pack -- --pack-destination $1
 bazel run //language-support/ts/daml-ledger:npm_package.pack -- --pack-destination $1/
 bazel run //language-support/ts/daml-lapi:npm_package.pack -- --pack-destination $1/
+bazel run //language-support/ts/daml-react:npm_package.pack -- --pack-destination $1/
