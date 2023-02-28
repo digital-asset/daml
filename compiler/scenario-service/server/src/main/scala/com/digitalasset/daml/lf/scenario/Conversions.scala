@@ -113,6 +113,7 @@ final class Conversions(
           case SError.SErrorDamlException(interpretationError) =>
             import interpretation.Error._
             interpretationError match {
+              case RejectedAuthorityRequest(_, _) => ??? // TODO #15882
               case UnhandledException(_, value) =>
                 builder.setUnhandledException(convertValue(value))
               case UserError(msg) =>

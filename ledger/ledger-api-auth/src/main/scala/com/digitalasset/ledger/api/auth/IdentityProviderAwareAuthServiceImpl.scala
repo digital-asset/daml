@@ -68,11 +68,27 @@ class IdentityProviderAwareAuthServiceImpl(
             keyId,
           )
           decodedJwt <- verifyToken(token, verifier)
-          payload <- Future(parse(decodedJwt.payload))
+          payload <- Future(
+            parse(decodedJwt.payload, targetAudience = identityProviderConfig.audience)
+          )
+          _ <- checkAudience(payload, identityProviderConfig.audience)
           jwtPayload <- parsePayload(payload)
         } yield toAuthenticatedUser(jwtPayload, identityProviderConfig.identityProviderId)
     }
   }
+
+  private def checkAudience(
+      payload: AuthServiceJWTPayload,
+      targetAudience: Option[String],
+  ): Future[Unit] =
+    (payload, targetAudience) match {
+      case (payload: StandardJWTPayload, Some(audience)) if payload.audiences.contains(audience) =>
+        Future.unit
+      case (_, None) =>
+        Future.unit
+      case _ =>
+        Future.failed(new Exception(s"JWT token has an audience which is not recognized"))
+    }
 
   private def verifyToken(token: String, verifier: JwtVerifier): Future[DecodedJwt[String]] =
     toFuture(verifier.verify(com.daml.jwt.domain.Jwt(token)).toEither)
@@ -90,8 +106,21 @@ class IdentityProviderAwareAuthServiceImpl(
         Future.successful(payload)
     }
 
-  private def parse(jwtPayload: String): AuthServiceJWTPayload = {
+  private def parse(jwtPayload: String, targetAudience: Option[String]): AuthServiceJWTPayload =
+    if (targetAudience.isDefined)
+      parseAudienceBasedPayload(jwtPayload)
+    else
+      parseAuthServicePayload(jwtPayload)
+
+  private def parseAuthServicePayload(jwtPayload: String): AuthServiceJWTPayload = {
     import AuthServiceJWTCodec.JsonImplicits._
+    JsonParser(jwtPayload).convertTo[AuthServiceJWTPayload]
+  }
+
+  private[this] def parseAudienceBasedPayload(
+      jwtPayload: String
+  ): AuthServiceJWTPayload = {
+    import AuthServiceJWTCodec.AudienceBasedTokenJsonImplicits._
     JsonParser(jwtPayload).convertTo[AuthServiceJWTPayload]
   }
 

@@ -3,6 +3,7 @@
 
 package com.daml.platform.sandbox.auth
 
+import com.daml.ledger.api.auth.StandardJWTTokenFormat
 import com.daml.ledger.api.v1.admin.identity_provider_config_service.{
   CreateIdentityProviderConfigResponse,
   IdentityProviderConfig,
@@ -47,6 +48,79 @@ trait AdminOrIDPAdminServiceCallAuthTests
           .getOrElse(sys.error("Failed to create idp config"))
         tokenIssuer = Some(identityProviderConfig.issuer)
         _ <- serviceCallWithIDPUser(idpAdminRights, toIdentityProviderId(response), tokenIssuer)
+      } yield ()
+    }
+  }
+
+  private def audienceBasedToken(
+      userId: String,
+      identityProviderConfig: IdentityProviderConfig,
+      audience: List[String],
+  ) =
+    Some(
+      toHeader(
+        standardToken(userId, issuer = Some(identityProviderConfig.issuer))
+          .copy(
+            audiences = audience,
+            format = StandardJWTTokenFormat.ParticipantId,
+          ),
+        secret = TestJwtVerifierLoader.secret1,
+        audienceBasedToken = true,
+      )
+    )
+
+  it should "allow calls with freshly created IDP Admin user within IDP and intended audience" taggedAs adminSecurityAsset
+    .setHappyCase(
+      "Ledger API client can make a call with freshly created IDP admin user"
+    ) in {
+    expectSuccess {
+      val userId = UUID.randomUUID().toString
+      val identityProviderConfig = IdentityProviderConfig(
+        identityProviderId = UUID.randomUUID().toString,
+        isDeactivated = false,
+        issuer = UUID.randomUUID().toString,
+        jwksUrl = TestJwtVerifierLoader.jwksUrl1.value,
+        audience = UUID.randomUUID().toString,
+      )
+      for {
+        _ <- createConfig(canReadAsAdminStandardJWT, identityProviderConfig)
+        (_, _) <- createUserByAdmin(
+          userId = userId,
+          rights = idpAdminRights.map(proto.Right(_)),
+          identityProviderId = identityProviderConfig.identityProviderId,
+        )
+        token = audienceBasedToken(
+          userId,
+          identityProviderConfig,
+          List(identityProviderConfig.audience),
+        )
+        context = ServiceCallContext(token, true, identityProviderConfig.identityProviderId)
+        _ <- serviceCall(context)
+      } yield ()
+    }
+  }
+
+  it should "deny calls with freshly created IDP Admin user within IDP and missing intended audience" taggedAs adminSecurityAsset
+    .setAttack(attackPermissionDenied(threat = "Present a JWT with a missing audience")) in {
+    expectUnauthenticated {
+      val userId = UUID.randomUUID().toString
+      val identityProviderConfig = IdentityProviderConfig(
+        identityProviderId = UUID.randomUUID().toString,
+        isDeactivated = false,
+        issuer = UUID.randomUUID().toString,
+        jwksUrl = TestJwtVerifierLoader.jwksUrl1.value,
+        audience = UUID.randomUUID().toString,
+      )
+      for {
+        _ <- createConfig(canReadAsAdminStandardJWT, identityProviderConfig)
+        (_, _) <- createUserByAdmin(
+          userId = userId,
+          rights = idpAdminRights.map(proto.Right(_)),
+          identityProviderId = identityProviderConfig.identityProviderId,
+        )
+        token = audienceBasedToken(userId, identityProviderConfig, audience = List.empty)
+        context = ServiceCallContext(token, true, identityProviderConfig.identityProviderId)
+        _ <- serviceCall(context)
       } yield ()
     }
   }

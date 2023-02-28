@@ -164,7 +164,9 @@ trait AuthMiddlewareFixture
     with AkkaBeforeAndAfterAll {
   self: Suite =>
 
-  protected def authService: Option[auth.AuthService] = Some(auth.AuthServiceJWT(authVerifier))
+  protected def authService: Option[auth.AuthService] = Some(
+    auth.AuthServiceJWT(authVerifier, None)
+  )
 
   protected[this] override final def authToken(
       admin: Boolean,
@@ -179,6 +181,7 @@ trait AuthMiddlewareFixture
           participantId = None,
           exp = None,
           format = StandardJWTTokenFormat.Scope,
+          audiences = List.empty,
         )
       else
         CustomDamlJWTPayload(

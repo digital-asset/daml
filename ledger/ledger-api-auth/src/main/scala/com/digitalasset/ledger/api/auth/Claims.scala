@@ -73,6 +73,7 @@ object ClaimSet {
     * @param expiration     If set, the claims will cease to be valid at the given time.
     * @param resolvedFromUser  If set, then the claims were resolved from a user in the user management service.
     * @param identityProviderId  If set, the claims will only be valid on the given Identity Provider configuration.
+    * @param audience  Claims which identifies the intended recipients.
     */
   final case class Claims(
       claims: Seq[Claim],
@@ -83,6 +84,7 @@ object ClaimSet {
       identityProviderId: IdentityProviderId,
       resolvedFromUser: Boolean,
   ) extends ClaimSet {
+
     def validForLedger(id: String): Either[AuthorizationError, Unit] =
       Either.cond(ledgerId.forall(_ == id), (), AuthorizationError.InvalidLedger(ledgerId.get, id))
 

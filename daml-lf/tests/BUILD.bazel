@@ -53,6 +53,13 @@ daml_compile(
 )
 
 daml_compile(
+    name = "WithAuthority",
+    srcs = ["WithAuthority.daml"],
+    target = "1.dev",
+    visibility = ["//daml-lf:__subpackages__"],
+)
+
+daml_compile(
     name = "Interfaces",
     srcs = ["Interfaces.daml"],
     target = "1.dev",

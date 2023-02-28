@@ -10,4 +10,5 @@ case class IdentityProviderConfigUpdate(
     isDeactivatedUpdate: Option[Boolean] = None,
     jwksUrlUpdate: Option[JwksUrl] = None,
     issuerUpdate: Option[String] = None,
+    audienceUpdate: Option[Option[String]] = None,
 )
