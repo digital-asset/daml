@@ -5,10 +5,13 @@ package com.daml.http
 
 import HttpServiceOracleInt.defaultJdbcConfig
 import dbbackend.JdbcConfig
+import util.Logging.instanceUUIDLogCtx
+import com.daml.fetchcontracts.util.AbsoluteBookmark
 import com.daml.fetchcontracts.util.IdentifierConverters.apiIdentifier
 import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.value.test.ValueGenerators.{coidGen, idGen, party}
 import com.daml.ledger.api.{domain => LedgerApiDomain}
+import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.nonempty.NonEmpty
 import com.daml.platform.participant.util.LfEngineToApi.lfValueToApiValue
 import com.daml.testing.oracle.OracleAroundAll
@@ -20,9 +23,11 @@ import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
 import scala.concurrent.Future
 
+@SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
 class OracleIntTest
     extends AbstractDatabaseIntegrationTest
     with OracleAroundAll
+    with AkkaBeforeAndAfterAll
     with Matchers
     with Inside {
   override protected def jdbcConfig: JdbcConfig =
@@ -49,48 +54,105 @@ class OracleIntTest
         onlyTemplateId.qualifiedName.name.dottedName,
       )
       val onlyStakeholder = assertGen(party)
-      val initialFetch = new ContractsFetch(
-        { (_, _, _, verbose) => _ =>
-          val onlyPayload = inside(
-            lfValueToApiValue(
-              verbose,
-              Value.ValueRecord(
-                Some(onlyTemplateId),
-                ImmArray(
-                  (Some(Ref.Name assertFromString "owner"), Value.ValueParty(onlyStakeholder))
-                ),
+
+      val permanentAcs: LedgerClientJwt.GetActiveContracts = { (_, _, _, verbose) => _ =>
+        val onlyPayload = inside(
+          lfValueToApiValue(
+            verbose,
+            Value.ValueRecord(
+              Some(onlyTemplateId),
+              ImmArray(
+                (Some(Ref.Name assertFromString "owner"), Value.ValueParty(onlyStakeholder))
               ),
-            )
-          ) { case Right(lav1.value.Value(lav1.value.Value.Sum.Record(rec))) => rec }
-          val onlyContract =
-            CreatedEvent(
-              "",
-              onlyContractId,
-              Some(apiIdentifier(onlyTemplateId)),
-              None,
-              Some(onlyPayload),
-            )
-          Source.fromIterator { () =>
+            ),
+          )
+        ) { case Right(lav1.value.Value(lav1.value.Value.Sum.Record(rec))) => rec }
+        val onlyContract =
+          CreatedEvent(
+            "",
+            onlyContractId,
+            Some(apiIdentifier(onlyTemplateId)),
+            None,
+            Some(onlyPayload),
+          )
+        Source.fromIterator { () =>
+          Seq(
+            GACR("", "", Seq(onlyContract)),
+            GACR(offsetBetweenSetupAndRuns, "", Seq.empty),
+          ).iterator
+        }
+      }
+
+      def terminates(off: String) = LedgerClientJwt.Terminates fromDomain domain.Offset(off)
+
+      def fixedEndOffset(off: String): LedgerClientJwt.GetTermination = { (_, _) => _ =>
+        Future successful Some(terminates(off))
+      }
+
+      val initialFetch = new ContractsFetch(
+        permanentAcs,
+        (_, _, _, _, _) => _ => Source.empty,
+        fixedEndOffset(offsetBetweenSetupAndRuns),
+      )
+      val fetchAfterwards = new ContractsFetch(
+        permanentAcs,
+        { (_, _, _, startOff, endOff) => _ =>
+          val deliverEverything =
+            inside(startOff.value) {
+              case lav1.ledger_offset.LedgerOffset.Value.Absolute(startAbs) =>
+                inside(startAbs) {
+                  case `offsetBetweenSetupAndRuns` => true
+                  case `laterEndOffset` => false
+                }
+            }
+          endOff should ===(terminates(laterEndOffset))
+          if (deliverEverything) Source.fromIterator { () =>
+            import lav1.event.{ArchivedEvent, Event}
+            import lav1.transaction.{Transaction => Tx}
             Seq(
-              GACR("", "", Seq(onlyContract)),
-              GACR(offsetBetweenSetupAndRuns, "", Seq.empty),
+              Tx(
+                "",
+                "",
+                "",
+                None,
+                Seq(
+                  Event(
+                    Event.Event.Archived(
+                      ArchivedEvent(
+                        "",
+                        onlyContractId,
+                        Some(apiIdentifier(onlyTemplateId)),
+                        Seq(onlyStakeholder),
+                      )
+                    )
+                  )
+                ),
+                laterEndOffset,
+              )
             ).iterator
           }
+          else Source.empty
         },
-        (_, _, _, _, _) => _ => Source.empty,
-        { (_, _) => _ =>
-          Future successful Some(
-            LedgerClientJwt.Terminates fromDomain domain.Offset(offsetBetweenSetupAndRuns)
-          )
-        },
+        fixedEndOffset(laterEndOffset),
       )
 
-      initialFetch.fetchAndPersist(
-        fakeJwt,
-        fakeLedgerId,
-        NonEmpty(Set, domain.Party(onlyStakeholder: String)),
-        List(onlyDomainTemplateId),
-      )
+      // get into the start state where fetch will use tx streams
+      instanceUUIDLogCtx { implicit lcx =>
+        for {
+          initialSetupResult <- dao
+            .transact(
+              initialFetch
+                .fetchAndPersist(
+                  fakeJwt,
+                  fakeLedgerId,
+                  NonEmpty(Set, domain.Party(onlyStakeholder: String)),
+                  List(onlyDomainTemplateId),
+                )
+                .map(_ should ===(AbsoluteBookmark(terminates(offsetBetweenSetupAndRuns))))
+            )
+            .unsafeToFuture()
+        } yield initialSetupResult
+      }
     }
   }
 
