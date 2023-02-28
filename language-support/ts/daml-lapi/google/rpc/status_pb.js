@@ -1,3 +1,6 @@
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * @fileoverview
  * @enhanceable
@@ -246,3 +249,4 @@ proto.google.rpc.Status.prototype.clearDetailsList = function() {
 
 
 goog.object.extend(exports, proto.google.rpc);
+

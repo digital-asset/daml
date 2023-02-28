@@ -1,3 +1,6 @@
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
 // source: com/daml/ledger/api/v1/value.proto
 /**
  * @fileoverview
@@ -3224,3 +3227,4 @@ proto.com.daml.ledger.api.v1.GenMap.prototype.clearEntriesList = function() {
 
 
 goog.object.extend(exports, proto.com.daml.ledger.api.v1);
+

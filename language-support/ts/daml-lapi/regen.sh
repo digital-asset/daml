@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
 
 set -eou pipefail
 
@@ -17,3 +20,4 @@ PROTOS="com/daml/ledger/api/v1/value.proto"
 protoc -I $PROTO_DIR $PROTOS \
        --js_out=import_style=commonjs:. \
        --grpc-web_out=import_style=typescript,mode=grpcwebtext:.
+
