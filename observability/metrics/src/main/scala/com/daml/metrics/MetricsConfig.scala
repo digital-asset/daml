@@ -6,6 +6,7 @@ package com.daml.metrics
 import com.daml.metrics.api.reporters.MetricsReporter
 import pureconfig.{ConfigReader, ConvertHelpers}
 import pureconfig.generic.semiauto.deriveReader
+
 import scala.concurrent.duration._
 
 final case class HistogramDefinition(nameRegex: String, bucketBoundaries: Seq[Double])
@@ -29,5 +30,14 @@ object MetricsConfig {
   implicit val histogramDefinitionReader: ConfigReader[HistogramDefinition] =
     deriveReader[HistogramDefinition]
 
-  implicit val metricsConfigReader: ConfigReader[MetricsConfig] = deriveReader[MetricsConfig]
+  implicit val metricsConfigReader: ConfigReader[MetricsConfig] =
+    ConfigReader.forProduct3[MetricsConfig, MetricsReporter, FiniteDuration, Option[
+      Seq[HistogramDefinition]
+    ]](
+      "reporter",
+      "reporting-interval",
+      "histograms",
+    ) { (reporter, reportingInterval, optionalHistograms) =>
+      MetricsConfig(reporter, reportingInterval, optionalHistograms.getOrElse(Seq.empty))
+    }
 }

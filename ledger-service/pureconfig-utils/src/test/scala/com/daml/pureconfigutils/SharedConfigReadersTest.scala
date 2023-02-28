@@ -74,6 +74,23 @@ class SharedConfigReadersTest extends AsyncWordSpec with Matchers {
     ConfigSource.string(conf).load[SampleServiceConfig] shouldBe Right(expectedConf)
   }
 
+  "should be able to parse minimal required metrics config" in {
+    val conf = """
+                 |{
+                 |  reporter = "console"
+                 |  reporting-interval = 10s
+                 |}
+                 |""".stripMargin
+
+    val expectedMetricsConfig = MetricsConfig(
+      MetricsReporter.Console,
+      10.seconds,
+      histograms = Seq.empty,
+    )
+
+    ConfigSource.string(conf).load[MetricsConfig] shouldBe Right(expectedMetricsConfig)
+  }
+
   "should fail on loading unknown tokenVerifiers" in {
     val conf = """
                  |{

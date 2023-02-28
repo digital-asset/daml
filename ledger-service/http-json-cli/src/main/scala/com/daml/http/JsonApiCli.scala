@@ -82,8 +82,7 @@ private[http] final case class JsonApiCli(
           )
         case Left(ex) =>
           logger.error(
-            s"Error loading json-api service config from file ${configFile}",
-            ex.prettyPrint(),
+            s"Error loading json-api service config from file ${configFile}. Failure: ${ex.prettyPrint()}"
           )
           None
       },
