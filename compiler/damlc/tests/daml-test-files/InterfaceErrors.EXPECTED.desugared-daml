@@ -191,11 +191,11 @@ data GHC.Types.DamlTemplate => Test
 instance DA.Internal.Record.HasField "p" Test Party where
   getField = DA.Internal.Record.getFieldPrim @"p" @Test @Party
   setField = DA.Internal.Record.setFieldPrim @"p" @Test @Party
-data Call1
-  = Call1 {}
+data CoercedFetch
+  = CoercedFetch {}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
-data Call2
-  = Call2 {}
+data CoercedExercise
+  = CoercedExercise {}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
 instance DA.Internal.Desugar.HasSignatory Test where
   signatory this@Test {..}
@@ -244,25 +244,25 @@ instance DA.Internal.Desugar.HasChoiceController Test DA.Internal.Desugar.Archiv
   _choiceController = GHC.Types.primitive @"EChoiceController"
 instance DA.Internal.Desugar.HasChoiceObserver Test DA.Internal.Desugar.Archive where
   _choiceObserver = GHC.Types.primitive @"EChoiceObserver"
-instance DA.Internal.Desugar.HasExercise Test Call1 (()) where
+instance DA.Internal.Desugar.HasExercise Test CoercedFetch (()) where
   exercise = GHC.Types.primitive @"UExercise"
-instance DA.Internal.Desugar.HasToAnyChoice Test Call1 (()) where
+instance DA.Internal.Desugar.HasToAnyChoice Test CoercedFetch (()) where
   _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
-instance DA.Internal.Desugar.HasFromAnyChoice Test Call1 (()) where
+instance DA.Internal.Desugar.HasFromAnyChoice Test CoercedFetch (()) where
   _fromAnyChoice = GHC.Types.primitive @"EFromAnyChoice"
-instance DA.Internal.Desugar.HasChoiceController Test Call1 where
+instance DA.Internal.Desugar.HasChoiceController Test CoercedFetch where
   _choiceController = GHC.Types.primitive @"EChoiceController"
-instance DA.Internal.Desugar.HasChoiceObserver Test Call1 where
+instance DA.Internal.Desugar.HasChoiceObserver Test CoercedFetch where
   _choiceObserver = GHC.Types.primitive @"EChoiceObserver"
-instance DA.Internal.Desugar.HasExercise Test Call2 (()) where
+instance DA.Internal.Desugar.HasExercise Test CoercedExercise (()) where
   exercise = GHC.Types.primitive @"UExercise"
-instance DA.Internal.Desugar.HasToAnyChoice Test Call2 (()) where
+instance DA.Internal.Desugar.HasToAnyChoice Test CoercedExercise (()) where
   _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
-instance DA.Internal.Desugar.HasFromAnyChoice Test Call2 (()) where
+instance DA.Internal.Desugar.HasFromAnyChoice Test CoercedExercise (()) where
   _fromAnyChoice = GHC.Types.primitive @"EFromAnyChoice"
-instance DA.Internal.Desugar.HasChoiceController Test Call2 where
+instance DA.Internal.Desugar.HasChoiceController Test CoercedExercise where
   _choiceController = GHC.Types.primitive @"EChoiceController"
-instance DA.Internal.Desugar.HasChoiceObserver Test Call2 where
+instance DA.Internal.Desugar.HasChoiceObserver Test CoercedExercise where
   _choiceObserver = GHC.Types.primitive @"EChoiceObserver"
 _choice$_TestArchive :
   (Test
@@ -277,18 +277,18 @@ _choice$_TestArchive
   = (\ this _ -> DA.Internal.Desugar.signatory this, 
      \ _ _ _ -> pure (), DA.Internal.Desugar.Consuming, 
      DA.Internal.Desugar.None)
-_choice$_TestCall1 :
-  (Test -> Call1 -> [DA.Internal.Desugar.Party],
+_choice$_TestCoercedFetch :
+  (Test -> CoercedFetch -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.ContractId Test
-   -> Test -> Call1 -> DA.Internal.Desugar.Update (()),
+   -> Test -> CoercedFetch -> DA.Internal.Desugar.Update (()),
    DA.Internal.Desugar.Consuming Test,
    DA.Internal.Desugar.Optional (Test
-                                 -> Call1 -> [DA.Internal.Desugar.Party]))
-_choice$_TestCall1
-  = (\ this@Test {..} arg@Call1
+                                 -> CoercedFetch -> [DA.Internal.Desugar.Party]))
+_choice$_TestCoercedFetch
+  = (\ this@Test {..} arg@CoercedFetch
        -> let _ = this in
           let _ = arg in DA.Internal.Desugar.toParties (p), 
-     \ self this@Test {..} arg@Call1
+     \ self this@Test {..} arg@CoercedFetch
        -> let _ = self in
           let _ = this in
           let _ = arg
@@ -298,18 +298,18 @@ _choice$_TestCall1
                fetch cid'
                pure (), 
      DA.Internal.Desugar.Consuming, DA.Internal.Desugar.None)
-_choice$_TestCall2 :
-  (Test -> Call2 -> [DA.Internal.Desugar.Party],
+_choice$_TestCoercedExercise :
+  (Test -> CoercedExercise -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.ContractId Test
-   -> Test -> Call2 -> DA.Internal.Desugar.Update (()),
+   -> Test -> CoercedExercise -> DA.Internal.Desugar.Update (()),
    DA.Internal.Desugar.Consuming Test,
    DA.Internal.Desugar.Optional (Test
-                                 -> Call2 -> [DA.Internal.Desugar.Party]))
-_choice$_TestCall2
-  = (\ this@Test {..} arg@Call2
+                                 -> CoercedExercise -> [DA.Internal.Desugar.Party]))
+_choice$_TestCoercedExercise
+  = (\ this@Test {..} arg@CoercedExercise
        -> let _ = this in
           let _ = arg in DA.Internal.Desugar.toParties (p), 
-     \ self this@Test {..} arg@Call2
+     \ self this@Test {..} arg@CoercedExercise
        -> let _ = self in
           let _ = this in
           let _ = arg
@@ -322,8 +322,8 @@ _choice$_TestCall2
 fetchBadContract
   = script
       do p <- allocateParty "Alice"
-         p `submit` do createAndExerciseCmd (Test p) Call1
+         p `submit` do createAndExerciseCmd (Test p) CoercedFetch
 exerciseBadContract
   = script
       do p <- allocateParty "Alice"
-         p `submit` do createAndExerciseCmd (Test p) Call2
+         p `submit` do createAndExerciseCmd (Test p) CoercedExercise

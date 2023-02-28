@@ -455,17 +455,17 @@ data GHC.Types.DamlTemplate => Test
 instance DA.Internal.Record.HasField "p" Test Party where
   getField = DA.Internal.Record.getFieldPrim @"p" @Test @Party
   setField = DA.Internal.Record.setFieldPrim @"p" @Test @Party
-data Call1
-  = Call1 {}
+data TemplateInterfaceMatching
+  = TemplateInterfaceMatching {}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
-data Call2
-  = Call2 {}
+data VoidUseAction
+  = VoidUseAction {}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
-data Call3
-  = Call3 {}
+data FetchUseAction
+  = FetchUseAction {}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
-data Call4
-  = Call4 {}
+data ExerciseUseAction
+  = ExerciseUseAction {}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
 instance DA.Internal.Desugar.HasSignatory Test where
   signatory this@Test {..}
@@ -514,45 +514,45 @@ instance DA.Internal.Desugar.HasChoiceController Test DA.Internal.Desugar.Archiv
   _choiceController = GHC.Types.primitive @"EChoiceController"
 instance DA.Internal.Desugar.HasChoiceObserver Test DA.Internal.Desugar.Archive where
   _choiceObserver = GHC.Types.primitive @"EChoiceObserver"
-instance DA.Internal.Desugar.HasExercise Test Call1 (()) where
+instance DA.Internal.Desugar.HasExercise Test TemplateInterfaceMatching (()) where
   exercise = GHC.Types.primitive @"UExercise"
-instance DA.Internal.Desugar.HasToAnyChoice Test Call1 (()) where
+instance DA.Internal.Desugar.HasToAnyChoice Test TemplateInterfaceMatching (()) where
   _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
-instance DA.Internal.Desugar.HasFromAnyChoice Test Call1 (()) where
+instance DA.Internal.Desugar.HasFromAnyChoice Test TemplateInterfaceMatching (()) where
   _fromAnyChoice = GHC.Types.primitive @"EFromAnyChoice"
-instance DA.Internal.Desugar.HasChoiceController Test Call1 where
+instance DA.Internal.Desugar.HasChoiceController Test TemplateInterfaceMatching where
   _choiceController = GHC.Types.primitive @"EChoiceController"
-instance DA.Internal.Desugar.HasChoiceObserver Test Call1 where
+instance DA.Internal.Desugar.HasChoiceObserver Test TemplateInterfaceMatching where
   _choiceObserver = GHC.Types.primitive @"EChoiceObserver"
-instance DA.Internal.Desugar.HasExercise Test Call2 (()) where
+instance DA.Internal.Desugar.HasExercise Test VoidUseAction (()) where
   exercise = GHC.Types.primitive @"UExercise"
-instance DA.Internal.Desugar.HasToAnyChoice Test Call2 (()) where
+instance DA.Internal.Desugar.HasToAnyChoice Test VoidUseAction (()) where
   _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
-instance DA.Internal.Desugar.HasFromAnyChoice Test Call2 (()) where
+instance DA.Internal.Desugar.HasFromAnyChoice Test VoidUseAction (()) where
   _fromAnyChoice = GHC.Types.primitive @"EFromAnyChoice"
-instance DA.Internal.Desugar.HasChoiceController Test Call2 where
+instance DA.Internal.Desugar.HasChoiceController Test VoidUseAction where
   _choiceController = GHC.Types.primitive @"EChoiceController"
-instance DA.Internal.Desugar.HasChoiceObserver Test Call2 where
+instance DA.Internal.Desugar.HasChoiceObserver Test VoidUseAction where
   _choiceObserver = GHC.Types.primitive @"EChoiceObserver"
-instance DA.Internal.Desugar.HasExercise Test Call3 (()) where
+instance DA.Internal.Desugar.HasExercise Test FetchUseAction (()) where
   exercise = GHC.Types.primitive @"UExercise"
-instance DA.Internal.Desugar.HasToAnyChoice Test Call3 (()) where
+instance DA.Internal.Desugar.HasToAnyChoice Test FetchUseAction (()) where
   _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
-instance DA.Internal.Desugar.HasFromAnyChoice Test Call3 (()) where
+instance DA.Internal.Desugar.HasFromAnyChoice Test FetchUseAction (()) where
   _fromAnyChoice = GHC.Types.primitive @"EFromAnyChoice"
-instance DA.Internal.Desugar.HasChoiceController Test Call3 where
+instance DA.Internal.Desugar.HasChoiceController Test FetchUseAction where
   _choiceController = GHC.Types.primitive @"EChoiceController"
-instance DA.Internal.Desugar.HasChoiceObserver Test Call3 where
+instance DA.Internal.Desugar.HasChoiceObserver Test FetchUseAction where
   _choiceObserver = GHC.Types.primitive @"EChoiceObserver"
-instance DA.Internal.Desugar.HasExercise Test Call4 (()) where
+instance DA.Internal.Desugar.HasExercise Test ExerciseUseAction (()) where
   exercise = GHC.Types.primitive @"UExercise"
-instance DA.Internal.Desugar.HasToAnyChoice Test Call4 (()) where
+instance DA.Internal.Desugar.HasToAnyChoice Test ExerciseUseAction (()) where
   _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
-instance DA.Internal.Desugar.HasFromAnyChoice Test Call4 (()) where
+instance DA.Internal.Desugar.HasFromAnyChoice Test ExerciseUseAction (()) where
   _fromAnyChoice = GHC.Types.primitive @"EFromAnyChoice"
-instance DA.Internal.Desugar.HasChoiceController Test Call4 where
+instance DA.Internal.Desugar.HasChoiceController Test ExerciseUseAction where
   _choiceController = GHC.Types.primitive @"EChoiceController"
-instance DA.Internal.Desugar.HasChoiceObserver Test Call4 where
+instance DA.Internal.Desugar.HasChoiceObserver Test ExerciseUseAction where
   _choiceObserver = GHC.Types.primitive @"EChoiceObserver"
 _choice$_TestArchive :
   (Test
@@ -567,18 +567,19 @@ _choice$_TestArchive
   = (\ this _ -> DA.Internal.Desugar.signatory this, 
      \ _ _ _ -> pure (), DA.Internal.Desugar.Consuming, 
      DA.Internal.Desugar.None)
-_choice$_TestCall1 :
-  (Test -> Call1 -> [DA.Internal.Desugar.Party],
+_choice$_TestTemplateInterfaceMatching :
+  (Test -> TemplateInterfaceMatching -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.ContractId Test
-   -> Test -> Call1 -> DA.Internal.Desugar.Update (()),
+   -> Test
+      -> TemplateInterfaceMatching -> DA.Internal.Desugar.Update (()),
    DA.Internal.Desugar.NonConsuming Test,
    DA.Internal.Desugar.Optional (Test
-                                 -> Call1 -> [DA.Internal.Desugar.Party]))
-_choice$_TestCall1
-  = (\ this@Test {..} arg@Call1
+                                 -> TemplateInterfaceMatching -> [DA.Internal.Desugar.Party]))
+_choice$_TestTemplateInterfaceMatching
+  = (\ this@Test {..} arg@TemplateInterfaceMatching
        -> let _ = this in
           let _ = arg in DA.Internal.Desugar.toParties (p), 
-     \ self this@Test {..} arg@Call1
+     \ self this@Test {..} arg@TemplateInterfaceMatching
        -> let _ = self in
           let _ = this in
           let _ = arg
@@ -612,60 +613,62 @@ _choice$_TestCall1
                exercise cidt1b ChoiceB
                pure (), 
      DA.Internal.Desugar.NonConsuming, DA.Internal.Desugar.None)
-_choice$_TestCall2 :
-  (Test -> Call2 -> [DA.Internal.Desugar.Party],
+_choice$_TestVoidUseAction :
+  (Test -> VoidUseAction -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.ContractId Test
-   -> Test -> Call2 -> DA.Internal.Desugar.Update (()),
+   -> Test -> VoidUseAction -> DA.Internal.Desugar.Update (()),
    DA.Internal.Desugar.NonConsuming Test,
    DA.Internal.Desugar.Optional (Test
-                                 -> Call2 -> [DA.Internal.Desugar.Party]))
-_choice$_TestCall2
-  = (\ this@Test {..} arg@Call2
+                                 -> VoidUseAction -> [DA.Internal.Desugar.Party]))
+_choice$_TestVoidUseAction
+  = (\ this@Test {..} arg@VoidUseAction
        -> let _ = this in
           let _ = arg in DA.Internal.Desugar.toParties (p), 
-     \ self this@Test {..} arg@Call2
+     \ self this@Test {..} arg@VoidUseAction
        -> let _ = self in
           let _ = this in
           let _ = arg in do useAction p $ \ _bcid -> pure (), 
      DA.Internal.Desugar.NonConsuming, DA.Internal.Desugar.None)
-_choice$_TestCall3 :
-  (Test -> Call3 -> [DA.Internal.Desugar.Party],
+_choice$_TestFetchUseAction :
+  (Test -> FetchUseAction -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.ContractId Test
-   -> Test -> Call3 -> DA.Internal.Desugar.Update (()),
+   -> Test -> FetchUseAction -> DA.Internal.Desugar.Update (()),
    DA.Internal.Desugar.NonConsuming Test,
    DA.Internal.Desugar.Optional (Test
-                                 -> Call3 -> [DA.Internal.Desugar.Party]))
-_choice$_TestCall3
-  = (\ this@Test {..} arg@Call3
+                                 -> FetchUseAction -> [DA.Internal.Desugar.Party]))
+_choice$_TestFetchUseAction
+  = (\ this@Test {..} arg@FetchUseAction
        -> let _ = this in
           let _ = arg in DA.Internal.Desugar.toParties (p), 
-     \ self this@Test {..} arg@Call3
+     \ self this@Test {..} arg@FetchUseAction
        -> let _ = self in
           let _ = this in
           let _ = arg in do useAction p $ \ bcid -> void (fetch bcid), 
      DA.Internal.Desugar.NonConsuming, DA.Internal.Desugar.None)
-_choice$_TestCall4 :
-  (Test -> Call4 -> [DA.Internal.Desugar.Party],
+_choice$_TestExerciseUseAction :
+  (Test -> ExerciseUseAction -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.ContractId Test
-   -> Test -> Call4 -> DA.Internal.Desugar.Update (()),
+   -> Test -> ExerciseUseAction -> DA.Internal.Desugar.Update (()),
    DA.Internal.Desugar.NonConsuming Test,
    DA.Internal.Desugar.Optional (Test
-                                 -> Call4 -> [DA.Internal.Desugar.Party]))
-_choice$_TestCall4
-  = (\ this@Test {..} arg@Call4
+                                 -> ExerciseUseAction -> [DA.Internal.Desugar.Party]))
+_choice$_TestExerciseUseAction
+  = (\ this@Test {..} arg@ExerciseUseAction
        -> let _ = this in
           let _ = arg in DA.Internal.Desugar.toParties (p), 
-     \ self this@Test {..} arg@Call4
+     \ self this@Test {..} arg@ExerciseUseAction
        -> let _ = self in
           let _ = this in
           let _ = arg
           in do useAction p $ \ bcid -> void (exercise bcid ChoiceB), 
      DA.Internal.Desugar.NonConsuming, DA.Internal.Desugar.None)
-main
+exerciseTest : Choice Test c () => c -> Script ()
+exerciseTest c
   = script
       do p <- allocateParty "Alice"
-         testCid <- p `submit` createCmd (Test p)
-         p `submit` exerciseCmd testCid Call1
-         p `submit` exerciseCmd testCid Call2
-         p `submitMustFail` exerciseCmd testCid Call3
-         p `submitMustFail` exerciseCmd testCid Call4
+         p `submit` createAndExerciseCmd (Test p) c
+         pure ()
+templateInterfaceMatching = exerciseTest TemplateInterfaceMatching
+voidUseAction = exerciseTest VoidUseAction
+fetchUseAction = exerciseTest FetchUseAction
+exerciseUseAction = exerciseTest ExerciseUseAction

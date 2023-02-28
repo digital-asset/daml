@@ -447,29 +447,29 @@ data GHC.Types.DamlTemplate => Test
 instance DA.Internal.Record.HasField "party" Test Party where
   getField = DA.Internal.Record.getFieldPrim @"party" @Test @Party
   setField = DA.Internal.Record.setFieldPrim @"party" @Test @Party
-data Call1
-  = Call1 {}
+data TemplateInterfaceMatching
+  = TemplateInterfaceMatching {}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
-data Call2
-  = Call2 {}
+data VoidFromInterface
+  = VoidFromInterface {}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
-data Call3
-  = Call3 {}
+data FetchFromInterface
+  = FetchFromInterface {}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
-data Call4
-  = Call4 {}
+data ArchiveFromInterface
+  = ArchiveFromInterface {}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
-data Call5
-  = Call5 {}
+data VoidCoerceInterface
+  = VoidCoerceInterface {}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
-data Call6
-  = Call6 {}
+data ExerciseCoerceInterface
+  = ExerciseCoerceInterface {}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
-data Call7
-  = Call7 {}
+data FetchCoerceInterface
+  = FetchCoerceInterface {}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
-data Call8
-  = Call8 {}
+data ArchiveCoerceInterface
+  = ArchiveCoerceInterface {}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
 instance DA.Internal.Desugar.HasSignatory Test where
   signatory this@Test {..}
@@ -518,85 +518,85 @@ instance DA.Internal.Desugar.HasChoiceController Test DA.Internal.Desugar.Archiv
   _choiceController = GHC.Types.primitive @"EChoiceController"
 instance DA.Internal.Desugar.HasChoiceObserver Test DA.Internal.Desugar.Archive where
   _choiceObserver = GHC.Types.primitive @"EChoiceObserver"
-instance DA.Internal.Desugar.HasExercise Test Call1 (()) where
+instance DA.Internal.Desugar.HasExercise Test TemplateInterfaceMatching (()) where
   exercise = GHC.Types.primitive @"UExercise"
-instance DA.Internal.Desugar.HasToAnyChoice Test Call1 (()) where
+instance DA.Internal.Desugar.HasToAnyChoice Test TemplateInterfaceMatching (()) where
   _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
-instance DA.Internal.Desugar.HasFromAnyChoice Test Call1 (()) where
+instance DA.Internal.Desugar.HasFromAnyChoice Test TemplateInterfaceMatching (()) where
   _fromAnyChoice = GHC.Types.primitive @"EFromAnyChoice"
-instance DA.Internal.Desugar.HasChoiceController Test Call1 where
+instance DA.Internal.Desugar.HasChoiceController Test TemplateInterfaceMatching where
   _choiceController = GHC.Types.primitive @"EChoiceController"
-instance DA.Internal.Desugar.HasChoiceObserver Test Call1 where
+instance DA.Internal.Desugar.HasChoiceObserver Test TemplateInterfaceMatching where
   _choiceObserver = GHC.Types.primitive @"EChoiceObserver"
-instance DA.Internal.Desugar.HasExercise Test Call2 (()) where
+instance DA.Internal.Desugar.HasExercise Test VoidFromInterface (()) where
   exercise = GHC.Types.primitive @"UExercise"
-instance DA.Internal.Desugar.HasToAnyChoice Test Call2 (()) where
+instance DA.Internal.Desugar.HasToAnyChoice Test VoidFromInterface (()) where
   _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
-instance DA.Internal.Desugar.HasFromAnyChoice Test Call2 (()) where
+instance DA.Internal.Desugar.HasFromAnyChoice Test VoidFromInterface (()) where
   _fromAnyChoice = GHC.Types.primitive @"EFromAnyChoice"
-instance DA.Internal.Desugar.HasChoiceController Test Call2 where
+instance DA.Internal.Desugar.HasChoiceController Test VoidFromInterface where
   _choiceController = GHC.Types.primitive @"EChoiceController"
-instance DA.Internal.Desugar.HasChoiceObserver Test Call2 where
+instance DA.Internal.Desugar.HasChoiceObserver Test VoidFromInterface where
   _choiceObserver = GHC.Types.primitive @"EChoiceObserver"
-instance DA.Internal.Desugar.HasExercise Test Call3 (()) where
+instance DA.Internal.Desugar.HasExercise Test FetchFromInterface (()) where
   exercise = GHC.Types.primitive @"UExercise"
-instance DA.Internal.Desugar.HasToAnyChoice Test Call3 (()) where
+instance DA.Internal.Desugar.HasToAnyChoice Test FetchFromInterface (()) where
   _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
-instance DA.Internal.Desugar.HasFromAnyChoice Test Call3 (()) where
+instance DA.Internal.Desugar.HasFromAnyChoice Test FetchFromInterface (()) where
   _fromAnyChoice = GHC.Types.primitive @"EFromAnyChoice"
-instance DA.Internal.Desugar.HasChoiceController Test Call3 where
+instance DA.Internal.Desugar.HasChoiceController Test FetchFromInterface where
   _choiceController = GHC.Types.primitive @"EChoiceController"
-instance DA.Internal.Desugar.HasChoiceObserver Test Call3 where
+instance DA.Internal.Desugar.HasChoiceObserver Test FetchFromInterface where
   _choiceObserver = GHC.Types.primitive @"EChoiceObserver"
-instance DA.Internal.Desugar.HasExercise Test Call4 (()) where
+instance DA.Internal.Desugar.HasExercise Test ArchiveFromInterface (()) where
   exercise = GHC.Types.primitive @"UExercise"
-instance DA.Internal.Desugar.HasToAnyChoice Test Call4 (()) where
+instance DA.Internal.Desugar.HasToAnyChoice Test ArchiveFromInterface (()) where
   _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
-instance DA.Internal.Desugar.HasFromAnyChoice Test Call4 (()) where
+instance DA.Internal.Desugar.HasFromAnyChoice Test ArchiveFromInterface (()) where
   _fromAnyChoice = GHC.Types.primitive @"EFromAnyChoice"
-instance DA.Internal.Desugar.HasChoiceController Test Call4 where
+instance DA.Internal.Desugar.HasChoiceController Test ArchiveFromInterface where
   _choiceController = GHC.Types.primitive @"EChoiceController"
-instance DA.Internal.Desugar.HasChoiceObserver Test Call4 where
+instance DA.Internal.Desugar.HasChoiceObserver Test ArchiveFromInterface where
   _choiceObserver = GHC.Types.primitive @"EChoiceObserver"
-instance DA.Internal.Desugar.HasExercise Test Call5 (()) where
+instance DA.Internal.Desugar.HasExercise Test VoidCoerceInterface (()) where
   exercise = GHC.Types.primitive @"UExercise"
-instance DA.Internal.Desugar.HasToAnyChoice Test Call5 (()) where
+instance DA.Internal.Desugar.HasToAnyChoice Test VoidCoerceInterface (()) where
   _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
-instance DA.Internal.Desugar.HasFromAnyChoice Test Call5 (()) where
+instance DA.Internal.Desugar.HasFromAnyChoice Test VoidCoerceInterface (()) where
   _fromAnyChoice = GHC.Types.primitive @"EFromAnyChoice"
-instance DA.Internal.Desugar.HasChoiceController Test Call5 where
+instance DA.Internal.Desugar.HasChoiceController Test VoidCoerceInterface where
   _choiceController = GHC.Types.primitive @"EChoiceController"
-instance DA.Internal.Desugar.HasChoiceObserver Test Call5 where
+instance DA.Internal.Desugar.HasChoiceObserver Test VoidCoerceInterface where
   _choiceObserver = GHC.Types.primitive @"EChoiceObserver"
-instance DA.Internal.Desugar.HasExercise Test Call6 (()) where
+instance DA.Internal.Desugar.HasExercise Test ExerciseCoerceInterface (()) where
   exercise = GHC.Types.primitive @"UExercise"
-instance DA.Internal.Desugar.HasToAnyChoice Test Call6 (()) where
+instance DA.Internal.Desugar.HasToAnyChoice Test ExerciseCoerceInterface (()) where
   _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
-instance DA.Internal.Desugar.HasFromAnyChoice Test Call6 (()) where
+instance DA.Internal.Desugar.HasFromAnyChoice Test ExerciseCoerceInterface (()) where
   _fromAnyChoice = GHC.Types.primitive @"EFromAnyChoice"
-instance DA.Internal.Desugar.HasChoiceController Test Call6 where
+instance DA.Internal.Desugar.HasChoiceController Test ExerciseCoerceInterface where
   _choiceController = GHC.Types.primitive @"EChoiceController"
-instance DA.Internal.Desugar.HasChoiceObserver Test Call6 where
+instance DA.Internal.Desugar.HasChoiceObserver Test ExerciseCoerceInterface where
   _choiceObserver = GHC.Types.primitive @"EChoiceObserver"
-instance DA.Internal.Desugar.HasExercise Test Call7 (()) where
+instance DA.Internal.Desugar.HasExercise Test FetchCoerceInterface (()) where
   exercise = GHC.Types.primitive @"UExercise"
-instance DA.Internal.Desugar.HasToAnyChoice Test Call7 (()) where
+instance DA.Internal.Desugar.HasToAnyChoice Test FetchCoerceInterface (()) where
   _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
-instance DA.Internal.Desugar.HasFromAnyChoice Test Call7 (()) where
+instance DA.Internal.Desugar.HasFromAnyChoice Test FetchCoerceInterface (()) where
   _fromAnyChoice = GHC.Types.primitive @"EFromAnyChoice"
-instance DA.Internal.Desugar.HasChoiceController Test Call7 where
+instance DA.Internal.Desugar.HasChoiceController Test FetchCoerceInterface where
   _choiceController = GHC.Types.primitive @"EChoiceController"
-instance DA.Internal.Desugar.HasChoiceObserver Test Call7 where
+instance DA.Internal.Desugar.HasChoiceObserver Test FetchCoerceInterface where
   _choiceObserver = GHC.Types.primitive @"EChoiceObserver"
-instance DA.Internal.Desugar.HasExercise Test Call8 (()) where
+instance DA.Internal.Desugar.HasExercise Test ArchiveCoerceInterface (()) where
   exercise = GHC.Types.primitive @"UExercise"
-instance DA.Internal.Desugar.HasToAnyChoice Test Call8 (()) where
+instance DA.Internal.Desugar.HasToAnyChoice Test ArchiveCoerceInterface (()) where
   _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
-instance DA.Internal.Desugar.HasFromAnyChoice Test Call8 (()) where
+instance DA.Internal.Desugar.HasFromAnyChoice Test ArchiveCoerceInterface (()) where
   _fromAnyChoice = GHC.Types.primitive @"EFromAnyChoice"
-instance DA.Internal.Desugar.HasChoiceController Test Call8 where
+instance DA.Internal.Desugar.HasChoiceController Test ArchiveCoerceInterface where
   _choiceController = GHC.Types.primitive @"EChoiceController"
-instance DA.Internal.Desugar.HasChoiceObserver Test Call8 where
+instance DA.Internal.Desugar.HasChoiceObserver Test ArchiveCoerceInterface where
   _choiceObserver = GHC.Types.primitive @"EChoiceObserver"
 _choice$_TestArchive :
   (Test
@@ -611,18 +611,19 @@ _choice$_TestArchive
   = (\ this _ -> DA.Internal.Desugar.signatory this, 
      \ _ _ _ -> pure (), DA.Internal.Desugar.Consuming, 
      DA.Internal.Desugar.None)
-_choice$_TestCall1 :
-  (Test -> Call1 -> [DA.Internal.Desugar.Party],
+_choice$_TestTemplateInterfaceMatching :
+  (Test -> TemplateInterfaceMatching -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.ContractId Test
-   -> Test -> Call1 -> DA.Internal.Desugar.Update (()),
+   -> Test
+      -> TemplateInterfaceMatching -> DA.Internal.Desugar.Update (()),
    DA.Internal.Desugar.NonConsuming Test,
    DA.Internal.Desugar.Optional (Test
-                                 -> Call1 -> [DA.Internal.Desugar.Party]))
-_choice$_TestCall1
-  = (\ this@Test {..} arg@Call1
+                                 -> TemplateInterfaceMatching -> [DA.Internal.Desugar.Party]))
+_choice$_TestTemplateInterfaceMatching
+  = (\ this@Test {..} arg@TemplateInterfaceMatching
        -> let _ = this in
           let _ = arg in DA.Internal.Desugar.toParties (party), 
-     \ self this@Test {..} arg@Call1
+     \ self this@Test {..} arg@TemplateInterfaceMatching
        -> let _ = self in
           let _ = this in
           let _ = arg
@@ -650,129 +651,134 @@ _choice$_TestCall1
                x3 === None
                x4 === Some userWrittenTuple (templateCid2, template2), 
      DA.Internal.Desugar.NonConsuming, DA.Internal.Desugar.None)
-_choice$_TestCall2 :
-  (Test -> Call2 -> [DA.Internal.Desugar.Party],
+_choice$_TestVoidFromInterface :
+  (Test -> VoidFromInterface -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.ContractId Test
-   -> Test -> Call2 -> DA.Internal.Desugar.Update (()),
+   -> Test -> VoidFromInterface -> DA.Internal.Desugar.Update (()),
    DA.Internal.Desugar.NonConsuming Test,
    DA.Internal.Desugar.Optional (Test
-                                 -> Call2 -> [DA.Internal.Desugar.Party]))
-_choice$_TestCall2
-  = (\ this@Test {..} arg@Call2
+                                 -> VoidFromInterface -> [DA.Internal.Desugar.Party]))
+_choice$_TestVoidFromInterface
+  = (\ this@Test {..} arg@VoidFromInterface
        -> let _ = this in
           let _ = arg in DA.Internal.Desugar.toParties (party), 
-     \ self this@Test {..} arg@Call2
+     \ self this@Test {..} arg@VoidFromInterface
        -> let _ = self in
           let _ = this in
           let _ = arg in do useActionFrom party $ \ _cid -> pure (), 
      DA.Internal.Desugar.NonConsuming, DA.Internal.Desugar.None)
-_choice$_TestCall3 :
-  (Test -> Call3 -> [DA.Internal.Desugar.Party],
+_choice$_TestFetchFromInterface :
+  (Test -> FetchFromInterface -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.ContractId Test
-   -> Test -> Call3 -> DA.Internal.Desugar.Update (()),
+   -> Test -> FetchFromInterface -> DA.Internal.Desugar.Update (()),
    DA.Internal.Desugar.NonConsuming Test,
    DA.Internal.Desugar.Optional (Test
-                                 -> Call3 -> [DA.Internal.Desugar.Party]))
-_choice$_TestCall3
-  = (\ this@Test {..} arg@Call3
+                                 -> FetchFromInterface -> [DA.Internal.Desugar.Party]))
+_choice$_TestFetchFromInterface
+  = (\ this@Test {..} arg@FetchFromInterface
        -> let _ = this in
           let _ = arg in DA.Internal.Desugar.toParties (party), 
-     \ self this@Test {..} arg@Call3
+     \ self this@Test {..} arg@FetchFromInterface
        -> let _ = self in
           let _ = this in
           let _ = arg in do useActionFrom party $ \ cid -> void (fetch cid), 
      DA.Internal.Desugar.NonConsuming, DA.Internal.Desugar.None)
-_choice$_TestCall4 :
-  (Test -> Call4 -> [DA.Internal.Desugar.Party],
+_choice$_TestArchiveFromInterface :
+  (Test -> ArchiveFromInterface -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.ContractId Test
-   -> Test -> Call4 -> DA.Internal.Desugar.Update (()),
+   -> Test -> ArchiveFromInterface -> DA.Internal.Desugar.Update (()),
    DA.Internal.Desugar.NonConsuming Test,
    DA.Internal.Desugar.Optional (Test
-                                 -> Call4 -> [DA.Internal.Desugar.Party]))
-_choice$_TestCall4
-  = (\ this@Test {..} arg@Call4
+                                 -> ArchiveFromInterface -> [DA.Internal.Desugar.Party]))
+_choice$_TestArchiveFromInterface
+  = (\ this@Test {..} arg@ArchiveFromInterface
        -> let _ = this in
           let _ = arg in DA.Internal.Desugar.toParties (party), 
-     \ self this@Test {..} arg@Call4
+     \ self this@Test {..} arg@ArchiveFromInterface
        -> let _ = self in
           let _ = this in
           let _ = arg in do useActionFrom party $ \ cid -> archive cid, 
      DA.Internal.Desugar.NonConsuming, DA.Internal.Desugar.None)
-_choice$_TestCall5 :
-  (Test -> Call5 -> [DA.Internal.Desugar.Party],
+_choice$_TestVoidCoerceInterface :
+  (Test -> VoidCoerceInterface -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.ContractId Test
-   -> Test -> Call5 -> DA.Internal.Desugar.Update (()),
+   -> Test -> VoidCoerceInterface -> DA.Internal.Desugar.Update (()),
    DA.Internal.Desugar.NonConsuming Test,
    DA.Internal.Desugar.Optional (Test
-                                 -> Call5 -> [DA.Internal.Desugar.Party]))
-_choice$_TestCall5
-  = (\ this@Test {..} arg@Call5
+                                 -> VoidCoerceInterface -> [DA.Internal.Desugar.Party]))
+_choice$_TestVoidCoerceInterface
+  = (\ this@Test {..} arg@VoidCoerceInterface
        -> let _ = this in
           let _ = arg in DA.Internal.Desugar.toParties (party), 
-     \ self this@Test {..} arg@Call5
+     \ self this@Test {..} arg@VoidCoerceInterface
        -> let _ = self in
           let _ = this in
           let _ = arg in do useActionCoerce party $ \ _cid -> pure (), 
      DA.Internal.Desugar.NonConsuming, DA.Internal.Desugar.None)
-_choice$_TestCall6 :
-  (Test -> Call6 -> [DA.Internal.Desugar.Party],
+_choice$_TestExerciseCoerceInterface :
+  (Test -> ExerciseCoerceInterface -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.ContractId Test
-   -> Test -> Call6 -> DA.Internal.Desugar.Update (()),
+   -> Test
+      -> ExerciseCoerceInterface -> DA.Internal.Desugar.Update (()),
    DA.Internal.Desugar.NonConsuming Test,
    DA.Internal.Desugar.Optional (Test
-                                 -> Call6 -> [DA.Internal.Desugar.Party]))
-_choice$_TestCall6
-  = (\ this@Test {..} arg@Call6
+                                 -> ExerciseCoerceInterface -> [DA.Internal.Desugar.Party]))
+_choice$_TestExerciseCoerceInterface
+  = (\ this@Test {..} arg@ExerciseCoerceInterface
        -> let _ = this in
           let _ = arg in DA.Internal.Desugar.toParties (party), 
-     \ self this@Test {..} arg@Call6
+     \ self this@Test {..} arg@ExerciseCoerceInterface
        -> let _ = self in
           let _ = this in
           let _ = arg
           in do useActionCoerce party $ \ cid -> exercise cid MyChoice2, 
      DA.Internal.Desugar.NonConsuming, DA.Internal.Desugar.None)
-_choice$_TestCall7 :
-  (Test -> Call7 -> [DA.Internal.Desugar.Party],
+_choice$_TestFetchCoerceInterface :
+  (Test -> FetchCoerceInterface -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.ContractId Test
-   -> Test -> Call7 -> DA.Internal.Desugar.Update (()),
+   -> Test -> FetchCoerceInterface -> DA.Internal.Desugar.Update (()),
    DA.Internal.Desugar.NonConsuming Test,
    DA.Internal.Desugar.Optional (Test
-                                 -> Call7 -> [DA.Internal.Desugar.Party]))
-_choice$_TestCall7
-  = (\ this@Test {..} arg@Call7
+                                 -> FetchCoerceInterface -> [DA.Internal.Desugar.Party]))
+_choice$_TestFetchCoerceInterface
+  = (\ this@Test {..} arg@FetchCoerceInterface
        -> let _ = this in
           let _ = arg in DA.Internal.Desugar.toParties (party), 
-     \ self this@Test {..} arg@Call7
+     \ self this@Test {..} arg@FetchCoerceInterface
        -> let _ = self in
           let _ = this in
           let _ = arg
           in do useActionCoerce party $ \ cid -> void (fetch cid), 
      DA.Internal.Desugar.NonConsuming, DA.Internal.Desugar.None)
-_choice$_TestCall8 :
-  (Test -> Call8 -> [DA.Internal.Desugar.Party],
+_choice$_TestArchiveCoerceInterface :
+  (Test -> ArchiveCoerceInterface -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.ContractId Test
-   -> Test -> Call8 -> DA.Internal.Desugar.Update (()),
+   -> Test
+      -> ArchiveCoerceInterface -> DA.Internal.Desugar.Update (()),
    DA.Internal.Desugar.NonConsuming Test,
    DA.Internal.Desugar.Optional (Test
-                                 -> Call8 -> [DA.Internal.Desugar.Party]))
-_choice$_TestCall8
-  = (\ this@Test {..} arg@Call8
+                                 -> ArchiveCoerceInterface -> [DA.Internal.Desugar.Party]))
+_choice$_TestArchiveCoerceInterface
+  = (\ this@Test {..} arg@ArchiveCoerceInterface
        -> let _ = this in
           let _ = arg in DA.Internal.Desugar.toParties (party), 
-     \ self this@Test {..} arg@Call8
+     \ self this@Test {..} arg@ArchiveCoerceInterface
        -> let _ = self in
           let _ = this in
           let _ = arg in do useActionCoerce party $ \ cid -> archive cid, 
      DA.Internal.Desugar.NonConsuming, DA.Internal.Desugar.None)
-main
+exerciseTest : Choice Test c () => c -> Script ()
+exerciseTest c
   = script
       do p <- allocateParty "Alice"
-         testCid <- p `submit` createCmd (Test p)
-         p `submit` exerciseCmd testCid Call1
-         p `submit` exerciseCmd testCid Call2
-         p `submitMustFail` exerciseCmd testCid Call3
-         p `submitMustFail` exerciseCmd testCid Call4
-         p `submit` exerciseCmd testCid Call5
-         p `submitMustFail` exerciseCmd testCid Call6
-         p `submitMustFail` exerciseCmd testCid Call7
-         p `submitMustFail` exerciseCmd testCid Call8
+         p `submit` createAndExerciseCmd (Test p) c
+         pure ()
+templateInterfaceMatchingTest
+  = exerciseTest TemplateInterfaceMatching
+voidFromInterfaceTest = exerciseTest VoidFromInterface
+fetchFromInterfaceTest = exerciseTest FetchFromInterface
+archiveFromInterfaceTest = exerciseTest ArchiveFromInterface
+voidCoerceInterfaceTest = exerciseTest VoidCoerceInterface
+exerciseCoerceInterfaceTest = exerciseTest ExerciseCoerceInterface
+fetchCoerceInterfaceTest = exerciseTest FetchCoerceInterface
+archiveCoerceInterfaceTest = exerciseTest ArchiveCoerceInterface

@@ -206,9 +206,117 @@ instance DA.Internal.Desugar.HasToInterface T I where
 instance DA.Internal.Desugar.HasFromInterface T I where
   fromInterface = GHC.Types.primitive @"EFromInterface"
   unsafeFromInterface = GHC.Types.primitive @"EUnsafeFromInterface"
+data GHC.Types.DamlTemplate => ExerciseGuarded
+  = ExerciseGuarded {p : Party, cidI : ContractId I}
+  deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
+instance DA.Internal.Record.HasField "p" ExerciseGuarded Party where
+  getField
+    = DA.Internal.Record.getFieldPrim @"p" @ExerciseGuarded @Party
+  setField
+    = DA.Internal.Record.setFieldPrim @"p" @ExerciseGuarded @Party
+instance DA.Internal.Record.HasField "cidI" ExerciseGuarded (ContractId I) where
+  getField
+    = DA.Internal.Record.getFieldPrim
+        @"cidI" @ExerciseGuarded @ContractId I
+  setField
+    = DA.Internal.Record.setFieldPrim
+        @"cidI" @ExerciseGuarded @ContractId I
+data Call
+  = Call {}
+  deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
+instance DA.Internal.Desugar.HasSignatory ExerciseGuarded where
+  signatory this@ExerciseGuarded {..}
+    = DA.Internal.Desugar.toParties (p)
+    where
+        _ = this
+instance DA.Internal.Desugar.HasObserver ExerciseGuarded where
+  observer this@ExerciseGuarded {..}
+    = []
+    where
+        _ = this
+instance DA.Internal.Desugar.HasEnsure ExerciseGuarded where
+  ensure this@ExerciseGuarded {..}
+    = DA.Internal.Desugar.True
+    where
+        _ = this
+instance DA.Internal.Desugar.HasAgreement ExerciseGuarded where
+  agreement this@ExerciseGuarded {..}
+    = ""
+    where
+        _ = this
+instance DA.Internal.Desugar.HasArchive ExerciseGuarded where
+  archive cid
+    = DA.Internal.Desugar.exercise cid DA.Internal.Desugar.Archive
+    where
+        _ = cid
+instance DA.Internal.Desugar.HasCreate ExerciseGuarded where
+  create = GHC.Types.primitive @"UCreate"
+instance DA.Internal.Desugar.HasFetch ExerciseGuarded where
+  fetch = GHC.Types.primitive @"UFetch"
+instance DA.Internal.Desugar.HasToAnyTemplate ExerciseGuarded where
+  _toAnyTemplate = GHC.Types.primitive @"EToAnyTemplate"
+instance DA.Internal.Desugar.HasFromAnyTemplate ExerciseGuarded where
+  _fromAnyTemplate = GHC.Types.primitive @"EFromAnyTemplate"
+instance DA.Internal.Desugar.HasTemplateTypeRep ExerciseGuarded where
+  _templateTypeRep = GHC.Types.primitive @"ETemplateTypeRep"
+instance DA.Internal.Desugar.HasIsInterfaceType ExerciseGuarded where
+  _isInterfaceType _ = DA.Internal.Desugar.False
+instance DA.Internal.Desugar.HasExercise ExerciseGuarded DA.Internal.Desugar.Archive (()) where
+  exercise = GHC.Types.primitive @"UExercise"
+instance DA.Internal.Desugar.HasToAnyChoice ExerciseGuarded DA.Internal.Desugar.Archive (()) where
+  _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
+instance DA.Internal.Desugar.HasFromAnyChoice ExerciseGuarded DA.Internal.Desugar.Archive (()) where
+  _fromAnyChoice = GHC.Types.primitive @"EFromAnyChoice"
+instance DA.Internal.Desugar.HasChoiceController ExerciseGuarded DA.Internal.Desugar.Archive where
+  _choiceController = GHC.Types.primitive @"EChoiceController"
+instance DA.Internal.Desugar.HasChoiceObserver ExerciseGuarded DA.Internal.Desugar.Archive where
+  _choiceObserver = GHC.Types.primitive @"EChoiceObserver"
+instance DA.Internal.Desugar.HasExercise ExerciseGuarded Call (()) where
+  exercise = GHC.Types.primitive @"UExercise"
+instance DA.Internal.Desugar.HasToAnyChoice ExerciseGuarded Call (()) where
+  _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
+instance DA.Internal.Desugar.HasFromAnyChoice ExerciseGuarded Call (()) where
+  _fromAnyChoice = GHC.Types.primitive @"EFromAnyChoice"
+instance DA.Internal.Desugar.HasChoiceController ExerciseGuarded Call where
+  _choiceController = GHC.Types.primitive @"EChoiceController"
+instance DA.Internal.Desugar.HasChoiceObserver ExerciseGuarded Call where
+  _choiceObserver = GHC.Types.primitive @"EChoiceObserver"
+_choice$_ExerciseGuardedArchive :
+  (ExerciseGuarded
+   -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party],
+   DA.Internal.Desugar.ContractId ExerciseGuarded
+   -> ExerciseGuarded
+      -> DA.Internal.Desugar.Archive -> DA.Internal.Desugar.Update (()),
+   DA.Internal.Desugar.Consuming ExerciseGuarded,
+   DA.Internal.Desugar.Optional (ExerciseGuarded
+                                 -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]))
+_choice$_ExerciseGuardedArchive
+  = (\ this _ -> DA.Internal.Desugar.signatory this, 
+     \ _ _ _ -> pure (), DA.Internal.Desugar.Consuming, 
+     DA.Internal.Desugar.None)
+_choice$_ExerciseGuardedCall :
+  (ExerciseGuarded -> Call -> [DA.Internal.Desugar.Party],
+   DA.Internal.Desugar.ContractId ExerciseGuarded
+   -> ExerciseGuarded -> Call -> DA.Internal.Desugar.Update (()),
+   DA.Internal.Desugar.Consuming ExerciseGuarded,
+   DA.Internal.Desugar.Optional (ExerciseGuarded
+                                 -> Call -> [DA.Internal.Desugar.Party]))
+_choice$_ExerciseGuardedCall
+  = (\ this@ExerciseGuarded {..} arg@Call
+       -> let _ = this in
+          let _ = arg in DA.Internal.Desugar.toParties (p), 
+     \ self this@ExerciseGuarded {..} arg@Call
+       -> let _ = self in
+          let _ = this in
+          let _ = arg
+          in
+            do exerciseGuarded (const False) cidI IChoice
+               pure (), 
+     DA.Internal.Desugar.Consuming, DA.Internal.Desugar.None)
 main
   = script
       do alice <- allocateParty "alice"
-         cidT <- alice `submit` create T {party = alice}
+         cidT <- alice `submit` createCmd T {party = alice}
          let cidI = toInterfaceContractId @I cidT
-         alice `submit` exerciseGuarded (const False) cidI IChoice
+         alice
+           `submit` createAndExerciseCmd (ExerciseGuarded alice cidI) Call

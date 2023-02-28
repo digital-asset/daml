@@ -500,23 +500,23 @@ data GHC.Types.DamlTemplate => Test
 instance DA.Internal.Record.HasField "p" Test Party where
   getField = DA.Internal.Record.getFieldPrim @"p" @Test @Party
   setField = DA.Internal.Record.setFieldPrim @"p" @Test @Party
-data Call1
-  = Call1 {}
+data TrueGuard
+  = TrueGuard {}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
-data Call2
-  = Call2 {}
+data FalseGuard
+  = FalseGuard {}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
-data Call3
-  = Call3 {}
+data ErrorGuard
+  = ErrorGuard {}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
-data Call4
-  = Call4 {}
+data CustomErrorGuard
+  = CustomErrorGuard {}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
-data Call5
-  = Call5 {}
+data TryErrorGuard
+  = TryErrorGuard {}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
-data Call6
-  = Call6 {}
+data TryCustomErrorGuard
+  = TryCustomErrorGuard {}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
 _templateLet_Test this@Test {..}
   = let
@@ -584,65 +584,65 @@ instance DA.Internal.Desugar.HasChoiceController Test DA.Internal.Desugar.Archiv
   _choiceController = GHC.Types.primitive @"EChoiceController"
 instance DA.Internal.Desugar.HasChoiceObserver Test DA.Internal.Desugar.Archive where
   _choiceObserver = GHC.Types.primitive @"EChoiceObserver"
-instance DA.Internal.Desugar.HasExercise Test Call1 (()) where
+instance DA.Internal.Desugar.HasExercise Test TrueGuard (()) where
   exercise = GHC.Types.primitive @"UExercise"
-instance DA.Internal.Desugar.HasToAnyChoice Test Call1 (()) where
+instance DA.Internal.Desugar.HasToAnyChoice Test TrueGuard (()) where
   _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
-instance DA.Internal.Desugar.HasFromAnyChoice Test Call1 (()) where
+instance DA.Internal.Desugar.HasFromAnyChoice Test TrueGuard (()) where
   _fromAnyChoice = GHC.Types.primitive @"EFromAnyChoice"
-instance DA.Internal.Desugar.HasChoiceController Test Call1 where
+instance DA.Internal.Desugar.HasChoiceController Test TrueGuard where
   _choiceController = GHC.Types.primitive @"EChoiceController"
-instance DA.Internal.Desugar.HasChoiceObserver Test Call1 where
+instance DA.Internal.Desugar.HasChoiceObserver Test TrueGuard where
   _choiceObserver = GHC.Types.primitive @"EChoiceObserver"
-instance DA.Internal.Desugar.HasExercise Test Call2 (()) where
+instance DA.Internal.Desugar.HasExercise Test FalseGuard (()) where
   exercise = GHC.Types.primitive @"UExercise"
-instance DA.Internal.Desugar.HasToAnyChoice Test Call2 (()) where
+instance DA.Internal.Desugar.HasToAnyChoice Test FalseGuard (()) where
   _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
-instance DA.Internal.Desugar.HasFromAnyChoice Test Call2 (()) where
+instance DA.Internal.Desugar.HasFromAnyChoice Test FalseGuard (()) where
   _fromAnyChoice = GHC.Types.primitive @"EFromAnyChoice"
-instance DA.Internal.Desugar.HasChoiceController Test Call2 where
+instance DA.Internal.Desugar.HasChoiceController Test FalseGuard where
   _choiceController = GHC.Types.primitive @"EChoiceController"
-instance DA.Internal.Desugar.HasChoiceObserver Test Call2 where
+instance DA.Internal.Desugar.HasChoiceObserver Test FalseGuard where
   _choiceObserver = GHC.Types.primitive @"EChoiceObserver"
-instance DA.Internal.Desugar.HasExercise Test Call3 (()) where
+instance DA.Internal.Desugar.HasExercise Test ErrorGuard (()) where
   exercise = GHC.Types.primitive @"UExercise"
-instance DA.Internal.Desugar.HasToAnyChoice Test Call3 (()) where
+instance DA.Internal.Desugar.HasToAnyChoice Test ErrorGuard (()) where
   _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
-instance DA.Internal.Desugar.HasFromAnyChoice Test Call3 (()) where
+instance DA.Internal.Desugar.HasFromAnyChoice Test ErrorGuard (()) where
   _fromAnyChoice = GHC.Types.primitive @"EFromAnyChoice"
-instance DA.Internal.Desugar.HasChoiceController Test Call3 where
+instance DA.Internal.Desugar.HasChoiceController Test ErrorGuard where
   _choiceController = GHC.Types.primitive @"EChoiceController"
-instance DA.Internal.Desugar.HasChoiceObserver Test Call3 where
+instance DA.Internal.Desugar.HasChoiceObserver Test ErrorGuard where
   _choiceObserver = GHC.Types.primitive @"EChoiceObserver"
-instance DA.Internal.Desugar.HasExercise Test Call4 (()) where
+instance DA.Internal.Desugar.HasExercise Test CustomErrorGuard (()) where
   exercise = GHC.Types.primitive @"UExercise"
-instance DA.Internal.Desugar.HasToAnyChoice Test Call4 (()) where
+instance DA.Internal.Desugar.HasToAnyChoice Test CustomErrorGuard (()) where
   _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
-instance DA.Internal.Desugar.HasFromAnyChoice Test Call4 (()) where
+instance DA.Internal.Desugar.HasFromAnyChoice Test CustomErrorGuard (()) where
   _fromAnyChoice = GHC.Types.primitive @"EFromAnyChoice"
-instance DA.Internal.Desugar.HasChoiceController Test Call4 where
+instance DA.Internal.Desugar.HasChoiceController Test CustomErrorGuard where
   _choiceController = GHC.Types.primitive @"EChoiceController"
-instance DA.Internal.Desugar.HasChoiceObserver Test Call4 where
+instance DA.Internal.Desugar.HasChoiceObserver Test CustomErrorGuard where
   _choiceObserver = GHC.Types.primitive @"EChoiceObserver"
-instance DA.Internal.Desugar.HasExercise Test Call5 (()) where
+instance DA.Internal.Desugar.HasExercise Test TryErrorGuard (()) where
   exercise = GHC.Types.primitive @"UExercise"
-instance DA.Internal.Desugar.HasToAnyChoice Test Call5 (()) where
+instance DA.Internal.Desugar.HasToAnyChoice Test TryErrorGuard (()) where
   _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
-instance DA.Internal.Desugar.HasFromAnyChoice Test Call5 (()) where
+instance DA.Internal.Desugar.HasFromAnyChoice Test TryErrorGuard (()) where
   _fromAnyChoice = GHC.Types.primitive @"EFromAnyChoice"
-instance DA.Internal.Desugar.HasChoiceController Test Call5 where
+instance DA.Internal.Desugar.HasChoiceController Test TryErrorGuard where
   _choiceController = GHC.Types.primitive @"EChoiceController"
-instance DA.Internal.Desugar.HasChoiceObserver Test Call5 where
+instance DA.Internal.Desugar.HasChoiceObserver Test TryErrorGuard where
   _choiceObserver = GHC.Types.primitive @"EChoiceObserver"
-instance DA.Internal.Desugar.HasExercise Test Call6 (()) where
+instance DA.Internal.Desugar.HasExercise Test TryCustomErrorGuard (()) where
   exercise = GHC.Types.primitive @"UExercise"
-instance DA.Internal.Desugar.HasToAnyChoice Test Call6 (()) where
+instance DA.Internal.Desugar.HasToAnyChoice Test TryCustomErrorGuard (()) where
   _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
-instance DA.Internal.Desugar.HasFromAnyChoice Test Call6 (()) where
+instance DA.Internal.Desugar.HasFromAnyChoice Test TryCustomErrorGuard (()) where
   _fromAnyChoice = GHC.Types.primitive @"EFromAnyChoice"
-instance DA.Internal.Desugar.HasChoiceController Test Call6 where
+instance DA.Internal.Desugar.HasChoiceController Test TryCustomErrorGuard where
   _choiceController = GHC.Types.primitive @"EChoiceController"
-instance DA.Internal.Desugar.HasChoiceObserver Test Call6 where
+instance DA.Internal.Desugar.HasChoiceObserver Test TryCustomErrorGuard where
   _choiceObserver = GHC.Types.primitive @"EChoiceObserver"
 _choice$_TestArchive :
   (Test
@@ -657,20 +657,20 @@ _choice$_TestArchive
   = (\ this _ -> DA.Internal.Desugar.signatory this, 
      \ _ _ _ -> pure (), DA.Internal.Desugar.Consuming, 
      DA.Internal.Desugar.None)
-_choice$_TestCall1 :
-  (Test -> Call1 -> [DA.Internal.Desugar.Party],
+_choice$_TestTrueGuard :
+  (Test -> TrueGuard -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.ContractId Test
-   -> Test -> Call1 -> DA.Internal.Desugar.Update (()),
+   -> Test -> TrueGuard -> DA.Internal.Desugar.Update (()),
    DA.Internal.Desugar.NonConsuming Test,
    DA.Internal.Desugar.Optional (Test
-                                 -> Call1 -> [DA.Internal.Desugar.Party]))
-_choice$_TestCall1
-  = (\ this@Test {..} arg@Call1
+                                 -> TrueGuard -> [DA.Internal.Desugar.Party]))
+_choice$_TestTrueGuard
+  = (\ this@Test {..} arg@TrueGuard
        -> let (assetAsTokenTpl, getRich) = _templateLet_Test this in
           let _ = assetAsTokenTpl in
           let _ = getRich in
           let _ = this in let _ = arg in DA.Internal.Desugar.toParties (p), 
-     \ self this@Test {..} arg@Call1
+     \ self this@Test {..} arg@TrueGuard
        -> let (assetAsTokenTpl, getRich) = _templateLet_Test this in
           let _ = assetAsTokenTpl in
           let _ = getRich in
@@ -682,20 +682,20 @@ _choice$_TestCall1
                exerciseGuarded (const True) assetAsToken getRich
                pure (), 
      DA.Internal.Desugar.NonConsuming, DA.Internal.Desugar.None)
-_choice$_TestCall2 :
-  (Test -> Call2 -> [DA.Internal.Desugar.Party],
+_choice$_TestFalseGuard :
+  (Test -> FalseGuard -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.ContractId Test
-   -> Test -> Call2 -> DA.Internal.Desugar.Update (()),
+   -> Test -> FalseGuard -> DA.Internal.Desugar.Update (()),
    DA.Internal.Desugar.NonConsuming Test,
    DA.Internal.Desugar.Optional (Test
-                                 -> Call2 -> [DA.Internal.Desugar.Party]))
-_choice$_TestCall2
-  = (\ this@Test {..} arg@Call2
+                                 -> FalseGuard -> [DA.Internal.Desugar.Party]))
+_choice$_TestFalseGuard
+  = (\ this@Test {..} arg@FalseGuard
        -> let (assetAsTokenTpl, getRich) = _templateLet_Test this in
           let _ = assetAsTokenTpl in
           let _ = getRich in
           let _ = this in let _ = arg in DA.Internal.Desugar.toParties (p), 
-     \ self this@Test {..} arg@Call2
+     \ self this@Test {..} arg@FalseGuard
        -> let (assetAsTokenTpl, getRich) = _templateLet_Test this in
           let _ = assetAsTokenTpl in
           let _ = getRich in
@@ -707,20 +707,20 @@ _choice$_TestCall2
                exerciseGuarded (const False) assetAsToken getRich
                pure (), 
      DA.Internal.Desugar.NonConsuming, DA.Internal.Desugar.None)
-_choice$_TestCall3 :
-  (Test -> Call3 -> [DA.Internal.Desugar.Party],
+_choice$_TestErrorGuard :
+  (Test -> ErrorGuard -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.ContractId Test
-   -> Test -> Call3 -> DA.Internal.Desugar.Update (()),
+   -> Test -> ErrorGuard -> DA.Internal.Desugar.Update (()),
    DA.Internal.Desugar.NonConsuming Test,
    DA.Internal.Desugar.Optional (Test
-                                 -> Call3 -> [DA.Internal.Desugar.Party]))
-_choice$_TestCall3
-  = (\ this@Test {..} arg@Call3
+                                 -> ErrorGuard -> [DA.Internal.Desugar.Party]))
+_choice$_TestErrorGuard
+  = (\ this@Test {..} arg@ErrorGuard
        -> let (assetAsTokenTpl, getRich) = _templateLet_Test this in
           let _ = assetAsTokenTpl in
           let _ = getRich in
           let _ = this in let _ = arg in DA.Internal.Desugar.toParties (p), 
-     \ self this@Test {..} arg@Call3
+     \ self this@Test {..} arg@ErrorGuard
        -> let (assetAsTokenTpl, getRich) = _templateLet_Test this in
           let _ = assetAsTokenTpl in
           let _ = getRich in
@@ -732,20 +732,20 @@ _choice$_TestCall3
                exerciseGuarded (\ _ -> error "foo") assetAsToken getRich
                pure (), 
      DA.Internal.Desugar.NonConsuming, DA.Internal.Desugar.None)
-_choice$_TestCall4 :
-  (Test -> Call4 -> [DA.Internal.Desugar.Party],
+_choice$_TestCustomErrorGuard :
+  (Test -> CustomErrorGuard -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.ContractId Test
-   -> Test -> Call4 -> DA.Internal.Desugar.Update (()),
+   -> Test -> CustomErrorGuard -> DA.Internal.Desugar.Update (()),
    DA.Internal.Desugar.NonConsuming Test,
    DA.Internal.Desugar.Optional (Test
-                                 -> Call4 -> [DA.Internal.Desugar.Party]))
-_choice$_TestCall4
-  = (\ this@Test {..} arg@Call4
+                                 -> CustomErrorGuard -> [DA.Internal.Desugar.Party]))
+_choice$_TestCustomErrorGuard
+  = (\ this@Test {..} arg@CustomErrorGuard
        -> let (assetAsTokenTpl, getRich) = _templateLet_Test this in
           let _ = assetAsTokenTpl in
           let _ = getRich in
           let _ = this in let _ = arg in DA.Internal.Desugar.toParties (p), 
-     \ self this@Test {..} arg@Call4
+     \ self this@Test {..} arg@CustomErrorGuard
        -> let (assetAsTokenTpl, getRich) = _templateLet_Test this in
           let _ = assetAsTokenTpl in
           let _ = getRich in
@@ -758,20 +758,20 @@ _choice$_TestCall4
                  (\ _ -> throwPure (GuardException "bar")) assetAsToken getRich
                pure (), 
      DA.Internal.Desugar.NonConsuming, DA.Internal.Desugar.None)
-_choice$_TestCall5 :
-  (Test -> Call5 -> [DA.Internal.Desugar.Party],
+_choice$_TestTryErrorGuard :
+  (Test -> TryErrorGuard -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.ContractId Test
-   -> Test -> Call5 -> DA.Internal.Desugar.Update (()),
+   -> Test -> TryErrorGuard -> DA.Internal.Desugar.Update (()),
    DA.Internal.Desugar.NonConsuming Test,
    DA.Internal.Desugar.Optional (Test
-                                 -> Call5 -> [DA.Internal.Desugar.Party]))
-_choice$_TestCall5
-  = (\ this@Test {..} arg@Call5
+                                 -> TryErrorGuard -> [DA.Internal.Desugar.Party]))
+_choice$_TestTryErrorGuard
+  = (\ this@Test {..} arg@TryErrorGuard
        -> let (assetAsTokenTpl, getRich) = _templateLet_Test this in
           let _ = assetAsTokenTpl in
           let _ = getRich in
           let _ = this in let _ = arg in DA.Internal.Desugar.toParties (p), 
-     \ self this@Test {..} arg@Call5
+     \ self this@Test {..} arg@TryErrorGuard
        -> let (assetAsTokenTpl, getRich) = _templateLet_Test this in
           let _ = assetAsTokenTpl in
           let _ = getRich in
@@ -789,20 +789,20 @@ _choice$_TestCall5
                    _ -> DA.Internal.Desugar.None
                pure (), 
      DA.Internal.Desugar.NonConsuming, DA.Internal.Desugar.None)
-_choice$_TestCall6 :
-  (Test -> Call6 -> [DA.Internal.Desugar.Party],
+_choice$_TestTryCustomErrorGuard :
+  (Test -> TryCustomErrorGuard -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.ContractId Test
-   -> Test -> Call6 -> DA.Internal.Desugar.Update (()),
+   -> Test -> TryCustomErrorGuard -> DA.Internal.Desugar.Update (()),
    DA.Internal.Desugar.NonConsuming Test,
    DA.Internal.Desugar.Optional (Test
-                                 -> Call6 -> [DA.Internal.Desugar.Party]))
-_choice$_TestCall6
-  = (\ this@Test {..} arg@Call6
+                                 -> TryCustomErrorGuard -> [DA.Internal.Desugar.Party]))
+_choice$_TestTryCustomErrorGuard
+  = (\ this@Test {..} arg@TryCustomErrorGuard
        -> let (assetAsTokenTpl, getRich) = _templateLet_Test this in
           let _ = assetAsTokenTpl in
           let _ = getRich in
           let _ = this in let _ = arg in DA.Internal.Desugar.toParties (p), 
-     \ self this@Test {..} arg@Call6
+     \ self this@Test {..} arg@TryCustomErrorGuard
        -> let (assetAsTokenTpl, getRich) = _templateLet_Test this in
           let _ = assetAsTokenTpl in
           let _ = getRich in
@@ -822,14 +822,15 @@ _choice$_TestCall6
                    _ -> DA.Internal.Desugar.None
                pure (), 
      DA.Internal.Desugar.NonConsuming, DA.Internal.Desugar.None)
-main
+exerciseTest : Choice Test c () => c -> Script ()
+exerciseTest c
   = script
       do p <- allocateParty "Alice"
-         testCid <- p `submit` createCmd (Test p)
-         p `submit` exerciseCmd testCid Call1
-         p `submitMustFail` exerciseCmd testCid Call2
-         p `submitMustFail` exerciseCmd testCid Call3
-         p `submitMustFail` exerciseCmd testCid Call4
-         p `submitMustFail` exerciseCmd testCid Call5
-         p `submitMustFail` exerciseCmd testCid Call6
+         p `submit` createAndExerciseCmd (Test p) c
          pure ()
+trueGuard = exerciseTest TrueGuard
+falseGuard = exerciseTest FalseGuard
+errorGuard = exerciseTest ErrorGuard
+customErrorGuard = exerciseTest CustomErrorGuard
+tryErrorGuard = exerciseTest TryErrorGuard
+tryCustomErrorGuard = exerciseTest TryCustomErrorGuard
