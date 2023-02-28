@@ -5,7 +5,7 @@ load("//bazel_tools:haskell.bzl", "da_haskell_binary", "da_haskell_library", "da
 load("@os_info//:os_info.bzl", "is_windows")
 load(":util.bzl", "damlc_compile_test")
 load("//rules_daml:daml.bzl", "daml_build_test", "daml_compile", "daml_compile_with_dalf", "daml_test")
-load("@build_environment//:configuration.bzl", "sdk_version")
+load("@build_environment//:configuration.bzl", "ghc_version", "sdk_version")
 load("//daml-lf/language:daml-lf.bzl", "COMPILER_LF_VERSIONS", "lf_version_configuration")
 load("//compiler/damlc:util.bzl", "ghc_pkg")
 
@@ -743,6 +743,7 @@ damlc_compile_test(
     name = "memory-examples",
     srcs = [":daml-test-files"],
     enable_scenarios = True,  # TODO: https://github.com/digital-asset/daml/issues/11316
+    enable_scripts = True,
     heap_limit = "200M",
     main = "daml-test-files/Examples.daml",
     stack_limit = "230K",
@@ -752,6 +753,7 @@ damlc_compile_test(
     name = "memory-bond-trading",
     srcs = [":bond-trading"],
     enable_scenarios = True,  # TODO: https://github.com/digital-asset/daml/issues/11316
+    enable_scripts = True,
     heap_limit = "200M" if is_windows else "100M",
     main = "bond-trading/Test.daml",
     stack_limit = "100K" if is_windows else "70K",
@@ -834,11 +836,15 @@ sh_test(
         "$(location //compiler/damlc)",
         "$(location @com_google_protobuf//:protoc)",
         "$(POSIX_DIFF)",
+        "$(location //daml-script/daml:daml-script.dar)",
+        sdk_version,
+        ghc_version,
     ],
     data = [
         ":daml-test-files",
         "//compiler/damlc",
         "//compiler/damlc/pkg-db",
+        "//daml-script/daml:daml-script.dar",
         "@com_google_protobuf//:protoc",
     ],
     toolchains = [

@@ -42,3 +42,5 @@ import List()
 import Either()
 import Tuple()
 import Self2()
+
+import ScriptEnabled()
