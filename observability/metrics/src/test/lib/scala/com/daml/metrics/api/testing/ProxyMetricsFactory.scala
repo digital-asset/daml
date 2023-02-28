@@ -51,7 +51,7 @@ class ProxyMetricsFactory(firstTarget: MetricsFactory, secondTarget: MetricsFact
       description: String,
   )(implicit context: MetricsContext): CloseableGauge = {
     val closingTargets = targets.map(_.gaugeWithSupplier(name, gaugeSupplier, description))
-    SimpleCloseableGauge(() => closingTargets.foreach(_.close()))
+    SimpleCloseableGauge(name, () => closingTargets.foreach(_.close()))
   }
 
   override def meter(

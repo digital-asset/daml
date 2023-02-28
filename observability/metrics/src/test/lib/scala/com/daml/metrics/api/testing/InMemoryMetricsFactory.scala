@@ -7,7 +7,7 @@ import java.time.Duration
 import java.util.concurrent.{ConcurrentLinkedQueue, TimeUnit}
 import java.util.concurrent.atomic.{AtomicBoolean, AtomicLong, AtomicReference}
 
-import com.daml.metrics.api.MetricHandle.Gauge.CloseableGauge
+import com.daml.metrics.api.MetricHandle.Gauge.{CloseableGauge, SimpleCloseableGauge}
 import com.daml.metrics.api.MetricHandle.{
   Counter,
   Gauge,
@@ -56,7 +56,10 @@ class InMemoryMetricsFactory extends LabeledMetricsFactory {
       description: String,
   )(implicit context: MetricsContext): CloseableGauge = {
     metrics.addAsyncGauge(name, context, gaugeSupplier)
-    () => discard { metrics.asyncGauges.get(name).foreach(_.remove(context)) }
+    SimpleCloseableGauge(
+      name,
+      () => discard { metrics.asyncGauges.get(name).foreach(_.remove(context)) },
+    )
   }
 
   override def meter(name: MetricName, description: String)(implicit

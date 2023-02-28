@@ -43,7 +43,7 @@ class IndexerMetrics(prefix: MetricName, factory: MetricsFactory) {
                     |can be negative.""",
     qualification = Debug,
   )
-  val _: Gauge.CloseableGauge = factory.gaugeWithSupplier(
+  val currentRecordTimeLag: Gauge.CloseableGauge = factory.gaugeWithSupplier(
     prefix :+ "current_record_time_lag",
     () => Instant.now().toEpochMilli - lastReceivedRecordTime.getValue,
   )(MetricsContext.Empty)
