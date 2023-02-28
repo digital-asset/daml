@@ -213,6 +213,7 @@ da_scala_library(
         "//libs-scala/test-evidence/scalatest:test-evidence-scalatest",
         "//libs-scala/test-evidence/tag:test-evidence-tag",
         "//libs-scala/timer-utils",
+        "//observability/metrics",
         "//triggers/runner:trigger-runner-lib",
         "//triggers/service/auth:middleware-api",
         "//triggers/service/auth:oauth2-middleware",

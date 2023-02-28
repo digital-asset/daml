@@ -4,15 +4,16 @@
 package com.daml.lf.engine.trigger
 
 import com.daml.lf.speedy.Compiler
-
 import java.nio.file.Path
 import java.time.Duration
+
 import scala.concurrent.duration._
 import akka.http.scaladsl.model.Uri
 import ch.qos.logback.classic.Level
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.auth.middleware.api.{Client => AuthClient}
 import com.daml.dbutils.JdbcConfig
+import com.daml.metrics.HistogramDefinition
 import com.daml.metrics.api.reporters.MetricsReporter
 
 import scala.concurrent.duration.FiniteDuration
@@ -49,4 +50,5 @@ private[trigger] final case class ServiceConfig(
     logEncoder: LogEncoder,
     metricsReporter: Option[MetricsReporter] = None,
     metricsReportingInterval: FiniteDuration = 10 seconds,
+    histograms: Seq[HistogramDefinition] = Seq.empty,
 )

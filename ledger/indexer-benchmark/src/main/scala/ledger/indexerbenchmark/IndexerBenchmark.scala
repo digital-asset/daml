@@ -129,29 +129,30 @@ class IndexerBenchmark() {
       .acquire()
 
   private def metricsResource(config: Config) = {
-    OpenTelemetryOwner(setAsGlobal = true, config.metricsReporter).flatMap { openTelemetry =>
-      val registry = new MetricRegistry
-      val dropwizardFactory = new DropwizardMetricsFactory(registry)
-      val openTelemetryFactory =
-        new OpenTelemetryMetricsFactory(openTelemetry.getMeter("indexer-benchmark"))
-      val inMemoryMetricFactory = new InMemoryMetricsFactory
-      JvmMetricSet.registerObservers()
-      registry.registerAll(new JvmMetricSet)
-      val metrics = new Metrics(
-        new ProxyMetricsFactory(
-          dropwizardFactory,
-          inMemoryMetricFactory,
-        ),
-        new ProxyMetricsFactory(openTelemetryFactory, inMemoryMetricFactory),
-        registry,
-      )
-      config.metricsReporter
-        .fold(ResourceOwner.unit)(reporter =>
-          ResourceOwner
-            .forCloseable(() => reporter.register(metrics.registry))
-            .map(_.start(config.metricsReportingInterval.getSeconds, TimeUnit.SECONDS))
+    OpenTelemetryOwner(setAsGlobal = true, config.metricsReporter, Seq.empty).flatMap {
+      openTelemetry =>
+        val registry = new MetricRegistry
+        val dropwizardFactory = new DropwizardMetricsFactory(registry)
+        val openTelemetryFactory =
+          new OpenTelemetryMetricsFactory(openTelemetry.getMeter("indexer-benchmark"))
+        val inMemoryMetricFactory = new InMemoryMetricsFactory
+        JvmMetricSet.registerObservers()
+        registry.registerAll(new JvmMetricSet)
+        val metrics = new Metrics(
+          new ProxyMetricsFactory(
+            dropwizardFactory,
+            inMemoryMetricFactory,
+          ),
+          new ProxyMetricsFactory(openTelemetryFactory, inMemoryMetricFactory),
+          registry,
         )
-        .map(_ => metrics)
+        config.metricsReporter
+          .fold(ResourceOwner.unit)(reporter =>
+            ResourceOwner
+              .forCloseable(() => reporter.register(metrics.registry))
+              .map(_.start(config.metricsReportingInterval.getSeconds, TimeUnit.SECONDS))
+          )
+          .map(_ => metrics)
     }
   }
 

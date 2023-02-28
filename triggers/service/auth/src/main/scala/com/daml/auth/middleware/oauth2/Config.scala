@@ -4,11 +4,12 @@
 package com.daml.auth.middleware.oauth2
 
 import java.nio.file.Path
+
 import akka.http.scaladsl.model.Uri
 import com.daml.auth.middleware.oauth2.Config._
 import com.daml.cliopts
 import com.daml.jwt.JwtVerifierBase
-import com.daml.metrics.MetricsConfig
+import com.daml.metrics.{HistogramDefinition, MetricsConfig}
 import com.daml.metrics.api.reporters.MetricsReporter
 import com.daml.pureconfigutils.SharedConfigReaders._
 import pureconfig.{ConfigReader, ConvertHelpers}
@@ -41,6 +42,7 @@ final case class Config(
     tokenVerifier: JwtVerifierBase,
     metricsReporter: Option[MetricsReporter] = None,
     metricsReportingInterval: FiniteDuration = 10 seconds,
+    histograms: Seq[HistogramDefinition],
 ) {
   def validate(): Unit = {
     require(oauthToken != null, "Oauth token value on config cannot be null")
@@ -96,6 +98,7 @@ final case class FileConfig(
     metricsReporter = metrics.map(_.reporter),
     metricsReportingInterval =
       metrics.map(_.reportingInterval).getOrElse(MetricsConfig.DefaultMetricsReportingInterval),
+    histograms = metrics.toList.flatMap(_.histograms),
   )
 }
 
