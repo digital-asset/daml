@@ -3,7 +3,7 @@
 
 package com.daml.metrics
 
-import com.daml.metrics.api.MetricDoc.MetricQualification.{Debug, Latency, Saturation, Traffic}
+import com.daml.metrics.api.MetricDoc.MetricQualification.{Debug, Saturation, Traffic}
 import com.daml.metrics.api.MetricHandle.{
   Counter,
   Histogram,
@@ -11,7 +11,6 @@ import com.daml.metrics.api.MetricHandle.{
   MetricsFactory,
   Timer,
 }
-import com.daml.metrics.api.dropwizard.DropwizardTimer
 import com.daml.metrics.api.{MetricDoc, MetricName}
 
 class ParallelIndexerMetrics(
@@ -88,15 +87,6 @@ class ParallelIndexerMetrics(
     )
     val duration: Timer = factory.timer(prefix :+ "duration")
   }
-
-  @MetricDoc.Tag(
-    summary = "The time needed to run the SQL query and read the result.",
-    description = """This metric encompasses the time measured by `query` and `commit` metrics.
-                    |Additionally it includes the time needed to obtain the DB connection,
-                    |optionally roll it back and close the connection at the end.""",
-    qualification = Latency,
-  )
-  val ingestionExecForDocs: Timer = DropwizardTimer(prefix :+ "ingestion" :+ "exec", null)
 
   // Ingestion stage
   // Parallel ingestion of prepared data into the database
