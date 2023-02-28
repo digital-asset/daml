@@ -49,6 +49,6 @@ private[trigger] final case class ServiceConfig(
     rootLoggingLevel: Option[Level],
     logEncoder: LogEncoder,
     metricsReporter: Option[MetricsReporter] = None,
-    metricsReportingInterval: FiniteDuration = 10 seconds,
+    metricsReportingInterval: FiniteDuration = 10.seconds,
     histograms: Seq[HistogramDefinition] = Seq.empty,
 )

@@ -41,7 +41,7 @@ final case class Config(
     // Token verification
     tokenVerifier: JwtVerifierBase,
     metricsReporter: Option[MetricsReporter] = None,
-    metricsReportingInterval: FiniteDuration = 10 seconds,
+    metricsReportingInterval: FiniteDuration = 10.seconds,
     histograms: Seq[HistogramDefinition],
 ) {
   def validate(): Unit = {

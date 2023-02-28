@@ -228,7 +228,7 @@ object Profile {
 
     // assumes -Xsource:2.13 in clients, which we should just do always,
     // this is in scope wherever the expected type is `Label`
-    @nowarn("msg=parameter value evidence.* is never used")
+    @nowarn("msg=evidence parameter evidence.* is never used")
     implicit def fromAllowed[T: Allowed](t: T with AnyRef): Label = Module(t)
 
     final class Allowed[-T] private ()

@@ -22,23 +22,13 @@ import com.daml.http.util.TestUtil.getResponseDataBytes
 import com.daml.http.util.{FutureUtil, NewBoolean}
 import com.daml.jwt.JwtSigner
 import com.daml.jwt.domain.{DecodedJwt, Jwt}
-import com.daml.ledger.api.auth.{
-  AuthService,
-  AuthServiceJWTCodec,
-  AuthServiceJWTPayload,
-  CustomDamlJWTPayload,
-}
+import com.daml.ledger.api.auth.{AuthService, AuthServiceJWTCodec, AuthServiceJWTPayload, CustomDamlJWTPayload}
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.daml.ledger.api.refinements.{ApiTypes => lar}
 import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.api.v1.{value => v}
-import com.daml.ledger.client.configuration.{
-  CommandClientConfiguration,
-  LedgerClientChannelConfiguration,
-  LedgerClientConfiguration,
-  LedgerIdRequirement,
-}
+import com.daml.ledger.client.configuration.{CommandClientConfiguration, LedgerClientChannelConfiguration, LedgerClientConfiguration, LedgerIdRequirement}
 import com.daml.ledger.client.withoutledgerid.{LedgerClient => DamlLedgerClient}
 import com.daml.ledger.resources.ResourceContext
 import com.daml.ledger.runner.common
@@ -59,10 +49,11 @@ import scalaz.syntax.show._
 import scalaz.syntax.tag._
 import scalaz.syntax.traverse._
 import spray.json._
-
 import java.io.File
 import java.nio.file.Files
 import java.time.Instant
+
+import scala.annotation.nowarn
 import scala.concurrent.duration.{DAYS, FiniteDuration}
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -149,7 +140,7 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
         }
         .fallbackTo(Future.unit)
         .transform(_ => ta)
-    }
+    }: @nowarn("cat=lint-infer-any")
   }
 
   def withLedger[A](

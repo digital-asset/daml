@@ -55,7 +55,7 @@ object HikariTransactorResourceOwner {
 
 }
 
-@nowarn("msg=parameter value evidence.* is never used")
+@nowarn("msg=evidence parameter evidence.* is never used")
 final class HikariTransactorResourceOwner[Context: HasExecutionContext] private (
     resourceOwner: ResourceOwnerFactories[Context]
 ) {
