@@ -17,6 +17,7 @@ import com.daml.platform.participant.util.LfEngineToApi.lfValueToApiValue
 import com.daml.testing.oracle.OracleAroundAll
 
 import akka.stream.scaladsl.Source
+import doobie.free.{connection => fconn}
 import org.scalacheck.Gen
 import org.scalactic.source
 import org.scalatest.Inside
@@ -138,20 +139,36 @@ class OracleIntTest
 
       // get into the start state where fetch will use tx streams
       instanceUUIDLogCtx { implicit lcx =>
-        for {
-          initialSetupResult <- dao
+        def runAFetch(fetch: ContractsFetch, expectedOffset: String) =
+          dao
             .transact(
-              initialFetch
+              fetch
                 .fetchAndPersist(
                   fakeJwt,
                   fakeLedgerId,
                   NonEmpty(Set, domain.Party(onlyStakeholder: String)),
                   List(onlyDomainTemplateId),
                 )
-                .map(_ should ===(AbsoluteBookmark(terminates(offsetBetweenSetupAndRuns))))
+                .map(_ should ===(AbsoluteBookmark(terminates(expectedOffset))))
             )
             .unsafeToFuture()
-        } yield initialSetupResult
+
+        for {
+          // prep the db
+          _ <- dao
+            .transact(for {
+              _ <- queries.dropAllTablesIfExist
+              _ <- queries.initDatabase
+              _ <- fconn.commit
+            } yield ())
+            .unsafeToFuture()
+          // prep the ACS
+          _ <- runAFetch(initialFetch, offsetBetweenSetupAndRuns)
+          // then use the transaction stream in parallel a bunch
+          _ <- Future.traverse(1 to 16) { _ =>
+            runAFetch(fetchAfterwards, laterEndOffset)
+          }
+        } yield succeed
       }
     }
   }
