@@ -1,5 +1,7 @@
-  SetFieldParens.foo : (Text -> (Int, Bool)) -> (Int, Bool)
-  SetFieldParens.foo mkTup
-    = (setField
-         @"_2" (not (getField @"_2" (mkTup "baz"))) (mkTup "bar"))
-  [0m
+
+==================== Renamer ====================
+SetFieldParens.foo : (Text -> (Int, Bool)) -> (Int, Bool)
+SetFieldParens.foo mkTup_aoK
+  = (setField
+       @"_2" (not (getField @"_2" (mkTup_aoK "baz"))) (mkTup_aoK "bar"))
+
