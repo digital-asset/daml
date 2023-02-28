@@ -61,7 +61,7 @@ template Test
         party : Party
     where
         signatory party
-        nonconsuming choice Call1 : ()
+        nonconsuming choice TemplateInterfaceMatching : ()
             controller party
             do
                 let template1 = Template1 party 10
@@ -90,55 +90,61 @@ template Test
                 x3 === None
                 x4 === Some (templateCid2, template2)
 
-        nonconsuming choice Call2 : ()
+        nonconsuming choice VoidFromInterface : ()
             controller party
             do useActionFrom party $ \_cid -> pure ()
 
-        nonconsuming choice Call3 : ()
+        nonconsuming choice FetchFromInterface : ()
             controller party
             do useActionFrom party $ \cid -> void (fetch cid)
 
-        nonconsuming choice Call4 : ()
+        nonconsuming choice ArchiveFromInterface : ()
             controller party
             do useActionFrom party $ \cid -> archive cid
         
-        nonconsuming choice Call5 : ()
+        nonconsuming choice VoidCoerceInterface : ()
             controller party
             do useActionCoerce party $ \_cid -> pure ()
 
-        nonconsuming choice Call6 : ()
+        nonconsuming choice ExerciseCoerceInterface : ()
             controller party
             do useActionCoerce party $ \cid -> exercise cid MyChoice2
 
-        nonconsuming choice Call7 : ()
+        nonconsuming choice FetchCoerceInterface : ()
             controller party
             do useActionCoerce party $ \cid -> void (fetch cid)
 
-        nonconsuming choice Call8 : ()
+        nonconsuming choice ArchiveCoerceInterface : ()
             controller party
             do useActionCoerce party $ \cid -> archive cid
 
-main = script do
-    p <- allocateParty "Alice"
+exerciseTest : Choice Test c () => c -> Script ()
+exerciseTest c = script do
+  p <- allocateParty "Alice"
+  p `submit` createAndExerciseCmd (Test p) c
+  pure ()
 
-    testCid <- p `submit` createCmd (Test p)
+templateInterfaceMatchingTest = exerciseTest TemplateInterfaceMatching
 
-    p `submit` exerciseCmd testCid Call1
+-- Test that using fromInterfaceContractId incorrectly will result
+-- in failed fetch/exercise/archives. I.e. using a Template1 contract
+-- id as if it were a Template2 contract id will always fail, even
+-- for actions that make sense for the common interface Iface.
+-- See useActionFrom
+voidFromInterfaceTest = exerciseTest VoidFromInterface
+-- @ERROR range=136:1-136:23; Attempt to fetch or exercise a wrongly typed contract.
+fetchFromInterfaceTest = exerciseTest FetchFromInterface
+-- @ERROR range=138:1-138:25; Attempt to fetch or exercise a wrongly typed contract.
+archiveFromInterfaceTest = exerciseTest ArchiveFromInterface
 
-    -- Test that using fromInterfaceContractId incorrectly will result
-    -- in failed fetch/exercise/archives. I.e. using a Template1 contract
-    -- id as if it were a Template2 contract id will always fail, even
-    -- for actions that make sense for the common interface Iface.
-    -- See useActionFrom
-    p `submit` exerciseCmd testCid Call2
-    p `submitMustFail` exerciseCmd testCid Call3
-    p `submitMustFail` exerciseCmd testCid Call4
-
-    -- Test that using coerceInterfaceContractId incorrectly will result
-    -- in failed fetch/exercise/archives. I.e. using an Iface contract
-    -- id as if it were a Iface2 contract id will always fail.
-    -- See useActionCoerce
-    p `submit` exerciseCmd testCid Call5
-    p `submitMustFail` exerciseCmd testCid Call6
-    p `submitMustFail` exerciseCmd testCid Call7
-    p `submitMustFail` exerciseCmd testCid Call8
+-- Test that using coerceInterfaceContractId incorrectly will result
+-- in failed fetch/exercise/archives. I.e. using an Iface contract
+-- id as if it were a Iface2 contract id will always fail.
+-- See useActionCoerce
+voidCoerceInterfaceTest = exerciseTest VoidCoerceInterface
+-- @ERROR range=146:1-146:28; Attempt to use a contract via an interface that the contract does not implement
+exerciseCoerceInterfaceTest = exerciseTest ExerciseCoerceInterface
+-- @ERROR range=148:1-148:25; Attempt to use a contract via an interface that the contract does not implement
+fetchCoerceInterfaceTest = exerciseTest FetchCoerceInterface
+-- @ERROR range=150:1-150:27; Attempt to use a contract via an interface that the contract does not implement
+archiveCoerceInterfaceTest = exerciseTest ArchiveCoerceInterface

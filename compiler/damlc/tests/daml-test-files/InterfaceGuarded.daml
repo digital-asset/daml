@@ -76,14 +76,14 @@ template Test
             amount = 100
       getRich = GetRich with byHowMuch = 1000000
 
-    nonconsuming choice Call1 : ()
+    nonconsuming choice TrueGuard : ()
       controller p
       do
         assetAsToken <- create assetAsTokenTpl
         exerciseGuarded (const True) assetAsToken getRich
         pure ()
 
-    nonconsuming choice Call2 : ()
+    nonconsuming choice FalseGuard : ()
       controller p
       do
         -- Fail if guard returns False
@@ -91,7 +91,7 @@ template Test
         exerciseGuarded (const False) assetAsToken getRich
         pure ()
 
-    nonconsuming choice Call3 : ()
+    nonconsuming choice ErrorGuard : ()
       controller p
       do
         -- Fail if guard throws exception
@@ -99,7 +99,7 @@ template Test
         exerciseGuarded (\_ -> error "foo") assetAsToken getRich
         pure ()
 
-    nonconsuming choice Call4 : ()
+    nonconsuming choice CustomErrorGuard : ()
       controller p
       do
         -- Fail if guard throws custom exception
@@ -107,7 +107,7 @@ template Test
         exerciseGuarded (\_ -> throwPure (GuardException "bar")) assetAsToken getRich
         pure ()
 
-    nonconsuming choice Call5 : ()
+    nonconsuming choice TryErrorGuard : ()
       controller p
       do
         -- Fail if guard throws exception, even in `try-catch` block
@@ -119,7 +119,7 @@ template Test
             pure $ toInterfaceContractId @Token assetAsToken
         pure ()
 
-    nonconsuming choice Call6 : ()
+    nonconsuming choice TryCustomErrorGuard : ()
       controller p
       do
         -- Fail if guard throws custom exception, even in `try-catch` block
@@ -131,15 +131,25 @@ template Test
             pure $ toInterfaceContractId @Token assetAsToken
         pure ()
 
-main = script do
+exerciseTest : Choice Test c () => c -> Script ()
+exerciseTest c = script do
   p <- allocateParty "Alice"
-  testCid <- p `submit` createCmd (Test p)
-
-  p `submit` exerciseCmd testCid Call1
-  p `submitMustFail` exerciseCmd testCid Call2
-  p `submitMustFail` exerciseCmd testCid Call3
-  p `submitMustFail` exerciseCmd testCid Call4
-  p `submitMustFail` exerciseCmd testCid Call5
-  p `submitMustFail` exerciseCmd testCid Call6
-
+  p `submit` createAndExerciseCmd (Test p) c
   pure ()
+
+trueGuard = exerciseTest TrueGuard
+
+-- @ERROR range=143:1-143:11; failing guard
+falseGuard = exerciseTest FalseGuard
+
+-- @ERROR range=146:1-146:11; failing guard
+errorGuard = exerciseTest ErrorGuard
+
+-- @ERROR range=149:1-149:17; failing guard
+customErrorGuard = exerciseTest CustomErrorGuard
+
+-- @ERROR range=152:1-152:14; failing guard
+tryErrorGuard = exerciseTest TryErrorGuard
+
+-- @ERROR range=155:1-155:20; failing guard
+tryCustomErrorGuard = exerciseTest TryCustomErrorGuard

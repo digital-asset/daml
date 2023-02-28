@@ -6,7 +6,7 @@
 
 -- @ERROR range=19:1-19:9; Invalid party name: #party
 
-module GetPartyError where
+module AllocatePartyError where
 
 import Daml.Script
 

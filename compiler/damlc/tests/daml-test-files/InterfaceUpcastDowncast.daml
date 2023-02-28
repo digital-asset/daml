@@ -58,7 +58,7 @@ template Test
     p : Party
   where
     signatory p
-    nonconsuming choice Call1 : ()
+    nonconsuming choice TemplateInterfaceMatching : ()
       controller p
       do
         let t1 = T1 p
@@ -98,29 +98,33 @@ template Test
 
         pure ()
 
-    nonconsuming choice Call2 : ()
+    nonconsuming choice VoidUseAction : ()
       controller p
       do useAction p $ \_bcid -> pure ()
 
-    nonconsuming choice Call3 : ()
+    nonconsuming choice FetchUseAction : ()
       controller p
       do useAction p $ \bcid -> void (fetch bcid)
 
-    nonconsuming choice Call4 : ()
+    nonconsuming choice ExerciseUseAction : ()
       controller p
       do useAction p $ \bcid -> void (exercise bcid ChoiceB)
 
-main = script do
-    p <- allocateParty "Alice"
-    testCid <- p `submit` createCmd (Test p)
+exerciseTest : Choice Test c () => c -> Script ()
+exerciseTest c = script do
+  p <- allocateParty "Alice"
+  p `submit` createAndExerciseCmd (Test p) c
+  pure ()
 
-    p `submit` exerciseCmd testCid Call1
+templateInterfaceMatching = exerciseTest TemplateInterfaceMatching
 
-    -- Test that using fromInterfaceContractId incorrectly will result
-    -- in failed fetch/exercise, across interface hierarchy.
-    -- I.e. Test that using a T2 contract id as if it were a B contract id
-    -- will always fail, even for actions that make sense with A contracts.
-    -- See useAction
-    p `submit` exerciseCmd testCid Call2
-    p `submitMustFail` exerciseCmd testCid Call3
-    p `submitMustFail` exerciseCmd testCid Call4
+-- Test that using fromInterfaceContractId incorrectly will result
+-- in failed fetch/exercise, across interface hierarchy.
+-- I.e. Test that using a T2 contract id as if it were a B contract id
+-- will always fail, even for actions that make sense with A contracts.
+-- See useAction
+voidUseAction = exerciseTest VoidUseAction
+-- @ERROR range=128:1-128:15; Attempt to use a contract via an interface that the contract does not implement
+fetchUseAction = exerciseTest FetchUseAction
+-- @ERROR range=130:1-130:18; Attempt to use a contract via an interface that the contract does not implement
+exerciseUseAction = exerciseTest ExerciseUseAction

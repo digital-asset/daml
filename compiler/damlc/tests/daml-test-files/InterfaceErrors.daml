@@ -27,7 +27,7 @@ template Test
         p : Party
     where
         signatory p
-        choice Call1 : ()
+        choice CoercedFetch : ()
             controller p
             do
                 cid <- create (MyTemplate p)
@@ -35,7 +35,7 @@ template Test
                 fetch cid'
                 pure ()
 
-        choice Call2 : ()
+        choice CoercedExercise : ()
             controller p
             do
                 cid <- create (MyTemplate p)
@@ -46,9 +46,9 @@ template Test
 -- @ERROR range=47:1-47:17; Attempt to use a contract via an interface that the contract does not implement
 fetchBadContract = script do
     p <- allocateParty "Alice"
-    p `submit` do createAndExerciseCmd (Test p) Call1
+    p `submit` do createAndExerciseCmd (Test p) CoercedFetch
 
 -- @ERROR range=52:1-52:20; Attempt to use a contract via an interface that the contract does not implement
 exerciseBadContract = script do
     p <- allocateParty "Alice"
-    p `submit` do createAndExerciseCmd (Test p) Call2
+    p `submit` do createAndExerciseCmd (Test p) CoercedExercise

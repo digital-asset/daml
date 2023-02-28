@@ -227,108 +227,6 @@ template T
   with p : Party
   where signatory p
 
--- @TODO Reconsider the value of these tests with Script, as errors in commands are evaluated strictly
-{-
---- @ERROR EvExpUpCreateErr OK
-evExpUpCreateErr : Script ()
-evExpUpCreateErr = script do
-  let _ : Update (ContractId T) = createCmd (error "EvExpUpCreateErr OK")
-  pure ()
-
---- @ERROR EvExpUpFetchErr OK
-evExpUpFetchErr : Script ()
-evExpUpFetchErr = script do
-  let _ : Update T = fetch (error "EvExpUpFetchErr OK")
-  pure ()
-
--- "exercise with actors" is not testable from Daml.
-
---- @ERROR EvExpUpExerciseWithoutActorsErr1 OK
-evExpUpExerciseWithoutActorsErr1 : Script ()
-evExpUpExerciseWithoutActorsErr1 = script do
-  let _ : Update () =
-          exerciseCmd @T @Archive
-              (error "EvExpUpExerciseWithoutActorsErr1 OK")
-              (error "EvExpUpExerciseWithoutActorsErr1 failed")
-  pure ()
-
---- @ERROR EvExpUpExerciseWithoutActorsErr2 OK
-evExpUpExerciseWithoutActorsErr2 : Script ()
-evExpUpExerciseWithoutActorsErr2 = script do
-  p <- allocateParty "Alice"
-  t <- submit p $ createCmd (T p)
-  let _ : Commands () = exerciseCmd @T @Archive t (error "EvExpUpExerciseWithoutActorsErr2 OK")
-  pure ()
-
-template T2
-  with
-    p : Party
-    k : Int
-  where
-    signatory p
-    key (p,k) : (Party, Int)
-    maintainer key._1
-
---- @ERROR EvExpUpFetchByKeyErr OK
-evExpUpFetchByKeyErr : Script ()
-evExpUpFetchByKeyErr = script do
-  let _ = fetchByKey @T2 (error "EvExpUpFetchByKeyErr OK")
-  pure ()
-
---- @ERROR EvExpUpLookupByKeyErr OK
-evExpUpLookupByKeyErr : Script ()
-evExpUpLookupByKeyErr = script do
-  let _ = lookupByKey @T2 (error "EvExpUpLookupByKeyErr OK")
-  pure ()
-
-abort1 : Script ()
-abort1 = script do
-  let _ : Update () = abort "abort1 failed"
-  pure ()
-
---- @ERROR abort2 OK
-abort2 : Script ()
-abort2 = script do
-  p <- allocateParty "Alice"
-  submit p do
-    abort "abort2 OK"
-
---- @ERROR EvUpdBindErr1_1 OK
-evUpdBindErr1_1 : Script ()
-evUpdBindErr1_1 = script do
-  p <- allocateParty "Alice"
-  submit p do
-    abort "EvUpdBindErr1_1 OK"
-    abort "EvUpdBindErr1_1 failed"
-
---- @ERROR EvUpdBindErr1_2 OK
-evUpdBindErr1_2 : Script ()
-evUpdBindErr1_2 = script do
-  p <- allocateParty "Alice"
-  submit p do
-    abort "EvUpdBindErr1_2 OK"
-    error "EvUpdBindErr1_2 failed"
-
---- @ERROR EvUpdBindErr2 OK
-evUpdBindErr2 : Script ()
-evUpdBindErr2 = script do
-  p <- allocateParty "Alice"
-  submit p do
-    createCmd (T p)
-    error "EvUpdBindErr2 OK"
-    abort "EvUpdBindErr2 failed"
-
---- @ERROR EvUpdBindErr3 OK
-evUpdBindErr3 : Script ()
-evUpdBindErr3 = script do
-  p <- allocateParty "Alice"
-  submit p do
-    createCmd (T p)
-    abort "EvUpdBindErr3 OK"
-    abort "EvUpdBindErr3 failed"
-
--}
-
 -- @ERROR EvUpdCreateErr1 OK
 template T_EvUpdCreateErr1
   with
@@ -346,7 +244,7 @@ evUpdCreateErr1 = script do
     createCmd (T_EvUpdCreateErr1 p)
   abort "EvUpdCreateErr1 failed (4)"
 
--- @ERROR range=360:1-360:16; Template precondition violated
+-- @ERROR range=258:1-258:16; Template precondition violated
 template T_EvUpdCreateFail
   with
     p : Party
@@ -636,7 +534,6 @@ badActorCheck = script do
   submit p1 do createAndExerciseCmd (T_BadActorCheck p1 p2) C_BadActorCheck
   error "BadActorCheck failed"
 
--- @TODO queryContractKey does not return errors, only failure. Exact expected error (EvUpdFetchByKeyErr OK) is not thrown
 -- @ERROR Couldn't see contract with key ()
 template T_EvUpdFetchByKeyErr
   with
@@ -651,3 +548,30 @@ evUpdFetchByKeyErr = script do
   p <- allocateParty "Alice"
   canSeeKey @T_EvUpdFetchByKeyErr p ()
   abort "EvUpdFetchByKeyErr failed"
+
+template T_EvUpdFetchByKeyErrContract
+  with
+    p : Party
+  where
+    signatory p
+    key () : ()
+    maintainer (error @Party "EvUpdFetchByKeyErrContract OK")
+
+-- Caller contract to ensure above follows correct evalation path
+-- @ERROR EvUpdFetchByKeyErrContract OK
+template T_EvUpdFetchByKeyErrCaller
+  with
+    p : Party
+  where
+    signatory p
+    choice DoFetch : ()
+      controller p
+      do
+        fetchByKey @T_EvUpdFetchByKeyErrContract ()
+        pure ()
+
+evUpdFetchByKeyErrContract : Script ()
+evUpdFetchByKeyErrContract = script do
+  p <- allocateParty "Alice"
+  p `submit` createAndExerciseCmd (T_EvUpdFetchByKeyErrCaller p) DoFetch
+  abort "EvUpdFetchByKeyErrContract failed"
