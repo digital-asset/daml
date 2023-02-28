@@ -5,12 +5,11 @@ package com.daml.platform.store.cache
 
 import java.util.concurrent.TimeUnit
 
-import com.codahale.metrics.MetricRegistry
 import com.daml.caching.{CaffeineCache, ConcurrentCache, SizedCache}
 import com.daml.ledger.offset.Offset
 import com.daml.logging.LoggingContext
 import com.daml.metrics.api.MetricName
-import com.daml.metrics.api.dropwizard.DropwizardMetricsFactory
+import com.daml.metrics.api.noop.NoOpMetricsFactory
 import com.daml.metrics.{CacheMetrics, Metrics}
 import com.github.benmanes.caffeine.cache.Caffeine
 import org.mockito.MockitoSugar
@@ -167,7 +166,7 @@ class StateCacheSpec extends AsyncFlatSpec with Matchers with MockitoSugar with 
           SizedCache.Configuration(2),
           new CacheMetrics(
             new MetricName(Vector("test")),
-            new DropwizardMetricsFactory(new MetricRegistry),
+            NoOpMetricsFactory,
           ),
         ),
         registerUpdateTimer = cacheUpdateTimer,
