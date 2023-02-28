@@ -20,11 +20,11 @@ let
       '';
     });
     scala_2_13 = pkgs.scala_2_13.overrideAttrs (oldAttrs: rec {
-      version = "2.13.8";
-      name = "scala-2.13.8";
+      version = "2.13.10";
+      name = "scala-2.13.10";
       src = pkgs.fetchurl {
         url = "https://www.scala-lang.org/files/archive/${name}.tgz";
-        sha256 = "1kql2gh9s6xy0r4zalk7f8qx0l35n0d7m0ww1sgq6lf6d621vcrc";
+        sha256 = "sha256-sBRhWZzQeGBCxktTN5D0XlG6u5HFLcRl2EaDjpcBnMQ=";
       };
     });
 

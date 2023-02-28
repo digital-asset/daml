@@ -8,6 +8,7 @@ import io.gatling.core.Predef._
 import io.gatling.core.structure.PopulationBuilder
 import io.gatling.http.Predef._
 
+import scala.annotation.nowarn
 import scala.concurrent.duration._
 
 private[scenario] trait HasRandomCurrency {
@@ -73,6 +74,7 @@ class MultiUserQueryScenario
   }
 }"""))
 
+  @nowarn("cat=lint-infer-any")
   private val writeScn = {
     val iter = msgIds.iterator
     scenario(s"WriteContracts_${numRecords}")
