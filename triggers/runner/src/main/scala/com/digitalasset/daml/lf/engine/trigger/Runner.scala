@@ -54,7 +54,6 @@ import com.daml.lf.language.Ast._
 import com.daml.lf.language.PackageInterface
 import com.daml.lf.language.Util._
 import com.daml.lf.speedy.SExpr._
-import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.speedy.{Compiler, Pretty, SValue, Speedy}
 import com.daml.lf.{CompiledPackages, PureCompiledPackages}
@@ -73,7 +72,6 @@ import com.google.protobuf.empty.Empty
 import com.google.rpc.status.Status
 import io.grpc.StatusRuntimeException
 import scalaz.syntax.bifunctor._
-import scalaz.syntax.std.boolean._
 import scalaz.syntax.std.option._
 import scalaz.syntax.tag._
 import scalaz.{-\/, Tag, \/, \/-}
@@ -170,19 +168,14 @@ private[lf] object Machine {
 
   // Run speedy until we arrive at a value.
   def stepToValue(
-      machine: Speedy.PureMachine
+      compiledPackages: CompiledPackages,
+      expr: SExpr,
   )(implicit triggerContext: TriggerLogContext): SValue = {
-    machine.run() match {
-      case SResultFinal(v) => v
-      case SResultError(err) => {
+    Speedy.Machine.runPureSExpr(expr, compiledPackages) match {
+      case Right(v) => v
+      case Left(err) =>
         triggerContext.logError(Pretty.prettyError(err).render(80))
         throw err
-      }
-      case res => {
-        val errMsg = s"Unexpected speedy result: $res"
-        triggerContext.logError(errMsg)
-        throw new RuntimeException(errMsg)
-      }
     }
   }
 }
@@ -378,8 +371,7 @@ object Trigger {
     val heartbeat = compiler.unsafeCompile(
       ERecProj(triggerDef.ty, Name.assertFromString("heartbeat"), triggerDef.expr)
     )
-    val machine = Speedy.Machine.fromPureSExpr(compiledPackages, heartbeat)
-    Machine.stepToValue(machine) match {
+    Machine.stepToValue(compiledPackages, heartbeat) match {
       case SOptional(None) => Right(None)
       case SOptional(Some(relTime)) => converter.toFiniteDuration(relTime).map(Some(_))
       case value => Left(s"Expected Optional but got $value.")
@@ -396,7 +388,6 @@ object Trigger {
     val registeredTemplates = compiler.unsafeCompile(
       ERecProj(triggerDef.ty, Name.assertFromString("registeredTemplates"), triggerDef.expr)
     )
-    val machine = Speedy.Machine.fromPureSExpr(compiledPackages, registeredTemplates)
     val packages = compiledPackages.packageIds
       .map(pkgId => (pkgId, compiledPackages.pkgInterface.lookupPackage(pkgId).toOption.get))
       .toSeq
@@ -426,7 +417,7 @@ object Trigger {
         })
       })
 
-    Machine.stepToValue(machine) match {
+    Machine.stepToValue(compiledPackages, registeredTemplates) match {
       case SVariant(_, "AllInDar", _, _) =>
         Right(
           Filters(
@@ -465,6 +456,8 @@ object Trigger {
 
   final class Version(protected val rank: Int) extends Ordered[Version] {
     override def compare(that: Version): Int = this.rank compare that.rank
+
+    override def toString: String = s"Version($rank)"
   }
   object Version {
     val `2.0.0` = new Version(0)
@@ -651,15 +644,6 @@ private[lf] class Runner private (
     }
 
     triggerContext.childSpan("step") { implicit triggerContext: TriggerLogContext =>
-      def evaluate(se: SExpr): SValue = {
-        val machine: Speedy.PureMachine =
-          Speedy.Machine.fromPureSExpr(compiledPackages, se)
-
-        // Evaluate it.
-        machine.setExpressionToEvaluate(se)
-        Machine.stepToValue(machine)
-      }
-
       type Termination = SValue \/ (TriggerContext[SubmitRequest], SValue)
       @tailrec def go(v: SValue): Termination = {
         numberOfRuleEvaluations += 1
@@ -692,7 +676,9 @@ private[lf] class Runner private (
                 vvv.match2 {
                   case "GetTime" /*(Time -> a)*/ => { case DamlFun(timeA) =>
                     numberOfGetTimes += 1
-                    Right(evaluate(makeAppD(timeA, STimestamp(clientTime))))
+                    Right(
+                      Machine.stepToValue(compiledPackages, makeAppD(timeA, STimestamp(clientTime)))
+                    )
                   }
                   case "Submit" /*([Command], Text -> a)*/ => {
                     case DamlTuple2(sCommands, DamlFun(textA)) =>
@@ -710,7 +696,10 @@ private[lf] class Runner private (
                         \/-(
                           (
                             Ctx(triggerContext, submitRequest),
-                            evaluate(makeAppD(textA, SText((commandUUID: UUID).toString))),
+                            Machine.stepToValue(
+                              compiledPackages,
+                              makeAppD(textA, SText((commandUUID: UUID).toString)),
+                            ),
                           )
                         ): Termination
                       )
@@ -863,7 +852,7 @@ private[lf] class Runner private (
         .getTransactions(offset, None, filter)
         .map { transaction =>
           triggerContext.childSpan("update") { implicit triggerContext: TriggerLogContext =>
-            triggerContext.logDebug("Transaction source")
+            triggerContext.logDebug("Transaction source", "message" -> transaction)
 
             triggerContext.childSpan("evaluation") { implicit triggerContext: TriggerLogContext =>
               Ctx(triggerContext, TriggerMsg.Transaction(transaction))
@@ -918,7 +907,7 @@ private[lf] class Runner private (
 
   private[this] def getTriggerInitialStateLambda(
       acs: Seq[CreatedEvent]
-  )(implicit machine: Speedy.PureMachine, triggerContext: TriggerLogContext): SValue = {
+  )(implicit triggerContext: TriggerLogContext): SValue = {
     // Compile the trigger initialState LF function to a speedy expression
     val getInitialState: SExpr =
       compiler.unsafeCompile(
@@ -931,9 +920,8 @@ private[lf] class Runner private (
         trigger.initialStateArguments(parties, acs, triggerConfig, converter),
       )
 
-    machine.setExpressionToEvaluate(initialState)
     Machine
-      .stepToValue(machine)
+      .stepToValue(compiledPackages, initialState)
       .expect(
         "TriggerSetup",
         { case DamlAnyModuleRecord("TriggerSetup", fts) => fts }: @nowarn(
@@ -944,8 +932,7 @@ private[lf] class Runner private (
   }
 
   private[this] def getTriggerUpdateLambda()(implicit
-      machine: Speedy.PureMachine,
-      triggerContext: TriggerLogContext,
+      triggerContext: TriggerLogContext
   ): SValue = {
     // Compile the trigger Update LF function to a speedy expression
     val update: SExpr =
@@ -953,8 +940,7 @@ private[lf] class Runner private (
         ERecProj(trigger.defn.ty, Name.assertFromString("update"), trigger.defn.expr)
       )
 
-    machine.setExpressionToEvaluate(update)
-    Machine.stepToValue(machine)
+    Machine.stepToValue(compiledPackages, update)
   }
 
   private[this] def encodeMsgs: TriggerContextualFlow[TriggerMsg, SValue, NotUsed] =
@@ -1026,7 +1012,6 @@ private[lf] class Runner private (
   private[trigger] def runInitialState(clientTime: Timestamp, killSwitch: KillSwitch)(
       acs: Seq[CreatedEvent]
   )(implicit
-      machine: Speedy.PureMachine,
       materializer: Materializer,
       triggerContext: TriggerLogContext,
   ): Graph[SourceShape2[SValue, TriggerContext[SubmitRequest]], NotUsed] = {
@@ -1108,7 +1093,6 @@ private[lf] class Runner private (
   private[trigger] def runRuleOnMsgs(
       killSwitch: KillSwitch
   )(implicit
-      machine: Speedy.PureMachine,
       materializer: Materializer,
       triggerContext: TriggerLogContext,
   ): Graph[
@@ -1154,9 +1138,8 @@ private[lf] class Runner private (
 
       val clientTime: Timestamp =
         Timestamp.assertFromInstant(Runner.getTimeProvider(timeProviderType).getCurrentTime)
-      machine.setExpressionToEvaluate(makeAppD(updateStateLambda, messageVal.value))
       val stateFun = Machine
-        .stepToValue(machine)
+        .stepToValue(compiledPackages, makeAppD(updateStateLambda, messageVal.value))
         .expect(
           "TriggerRule",
           { case DamlAnyModuleRecord("TriggerRule", DamlAnyModuleRecord("StateT", fun)) =>
@@ -1164,8 +1147,7 @@ private[lf] class Runner private (
           }: @nowarn("msg=A repeated case parameter .* is not matched by a sequence wildcard"),
         )
         .orConverterException
-      machine.setExpressionToEvaluate(makeAppD(stateFun, state))
-      val updateWithNewState = Machine.stepToValue(machine)
+      val updateWithNewState = Machine.stepToValue(compiledPackages, makeAppD(stateFun, state))
 
       freeTriggerSubmits(clientTime, v = updateWithNewState, killSwitch)
         .leftMap(
@@ -1247,10 +1229,6 @@ private[lf] class Runner private (
       Timestamp.assertFromInstant(Runner.getTimeProvider(timeProviderType).getCurrentTime)
     val hardLimitKillSwitch = KillSwitches.shared("hard-limit")
 
-    // Prepare a speedy machine for evaluating expressions
-    implicit val machine: Speedy.PureMachine =
-      Speedy.Machine.fromPureSExpr(compiledPackages, SEValue(SUnit))
-
     import UnfoldState.{flatMapConcatNodeOps, toSourceOps}
 
     // The flow that we return:
@@ -1291,24 +1269,34 @@ private[lf] class Runner private (
 
   private[this] def hideIrrelevantMsgs: TriggerContextualFlow[TriggerMsg, TriggerMsg, NotUsed] =
     TriggerContextualFlow[TriggerMsg].mapConcat[TriggerContext[TriggerMsg]] {
-      case ctx @ Ctx(_, msg @ TriggerMsg.Completion(c), _) =>
+      case ctx @ Ctx(_, TriggerMsg.Completion(c), _) =>
         // This happens for invalid UUIDs which we might get for
         // completions not emitted by the trigger.
-        val ouuid = catchIAE(UUID.fromString(c.commandId))
-        ouuid.flatMap { uuid =>
-          useCommandId(uuid, SeenMsgs.Completion)(ctx.context) option ctx.copy(value = msg)
-        }.toList
+        val optUuid = catchIAE(UUID.fromString(c.commandId))
+        optUuid.fold(List.empty[TriggerContext[TriggerMsg]]) { uuid =>
+          if (useCommandId(uuid, SeenMsgs.Completion)(ctx.context)) {
+            List(ctx)
+          } else {
+            List.empty
+          }
+        }
 
-      case ctx @ Ctx(_, msg @ TriggerMsg.Transaction(t), _) =>
+      case ctx @ Ctx(_, TriggerMsg.Transaction(t), _) =>
         // This happens for invalid UUIDs which we might get for
         // transactions not emitted by the trigger.
-        val ouuid = catchIAE(UUID.fromString(t.commandId))
-        List(ouuid flatMap { uuid =>
-          useCommandId(uuid, SeenMsgs.Transaction)(ctx.context) option ctx.copy(value = msg)
-        } getOrElse ctx.copy(value = TriggerMsg.Transaction(t.copy(commandId = ""))))
+        val optUuid = catchIAE(UUID.fromString(t.commandId))
+        val hiddenCmd: TriggerContext[TriggerMsg] =
+          ctx.copy(value = TriggerMsg.Transaction(t.copy(commandId = "")))
+        optUuid.fold(List(hiddenCmd)) { uuid =>
+          if (useCommandId(uuid, SeenMsgs.Transaction)(ctx.context)) {
+            List(ctx)
+          } else {
+            List(hiddenCmd)
+          }
+        }
 
-      case ctx @ Ctx(_, msg @ TriggerMsg.Heartbeat, _) =>
-        List(ctx.copy(value = msg)) // Heartbeats don't carry any information.
+      case ctx @ Ctx(_, TriggerMsg.Heartbeat, _) =>
+        List(ctx) // Heartbeats don't carry any information.
     }
 
   def makeApp(func: SExpr, values: Array[SValue]): SExpr = {
