@@ -12,20 +12,26 @@ load("//language-support/ts:typedoc.bzl", "ts_docs")
 load("@build_environment//:configuration.bzl", "sdk_version")
 load("@build_bazel_rules_nodejs//:index.bzl", "js_library")
 
-sources = glob(["**/*.ts", "**/*_pb.js"], exclude=["node_modules/**"])
+sources = glob(
+    [
+        "**/*.ts",
+        "**/*_pb.js",
+    ],
+    exclude = ["node_modules/**"],
+)
 
 js_library(
     name = "daml-lapi",
-    srcs = sources + ["package.json"],
     package_name = "@daml/ledger-api",
+    srcs = sources + ["package.json"],
+    visibility = ["//visibility:public"],
     deps = [
         "@language_support_ts_deps//@mojotech/json-type-validation",
+        "@language_support_ts_deps//@types/google-protobuf",
         "@language_support_ts_deps//@types/jest",
         "@language_support_ts_deps//@types/lodash",
-        "@language_support_ts_deps//@types/google-protobuf",
         "@language_support_ts_deps//google-protobuf",
     ],
-    visibility = ["//visibility:public"],
 ) if not is_windows else None
 
 genrule(
