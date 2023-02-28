@@ -112,11 +112,7 @@ class OracleIntTest
             import lav1.transaction.{Transaction => Tx}
             Seq(
               Tx(
-                "",
-                "",
-                "",
-                None,
-                Seq(
+                events = Seq(
                   Event(
                     Event.Event.Archived(
                       ArchivedEvent(
@@ -128,7 +124,7 @@ class OracleIntTest
                     )
                   )
                 ),
-                laterEndOffset,
+                offset = laterEndOffset,
               )
             ).iterator
           }
