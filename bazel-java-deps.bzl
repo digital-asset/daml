@@ -191,7 +191,7 @@ def install_java_deps():
             "org.mockito:mockito-inline:3.6.28",
             "org.mockito:mockito-scala_{}:1.16.3".format(scala_major_version),
             "org.pcollections:pcollections:4.0.1",
-            "org.postgresql:postgresql:42.2.25",
+            "org.postgresql:postgresql:42.3.8",
             "org.reactivestreams:reactive-streams:1.0.2",
             "org.reactivestreams:reactive-streams-tck:1.0.2",
             "org.reflections:reflections:0.9.12",
