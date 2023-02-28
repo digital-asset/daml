@@ -35,9 +35,10 @@ class OracleIntTest
       import com.daml.ledger.api.{v1 => lav1}
       import com.daml.lf.value.Value
       import lav1.event.CreatedEvent
-      import lav1.active_contracts_service.GetActiveContractsResponse
+      import lav1.active_contracts_service.{GetActiveContractsResponse => GACR}
 
       val offsetBetweenSetupAndRuns = "B"
+      val laterEndOffset = "D"
       val fakeJwt = com.daml.jwt.domain.Jwt("shouldn't matter")
       val fakeLedgerId = LedgerApiDomain.LedgerId("nonsense-ledger-id")
       val onlyContractId = assertGen(coidGen.map(_.coid))
@@ -69,10 +70,19 @@ class OracleIntTest
               None,
               Some(onlyPayload),
             )
-          Source single GetActiveContractsResponse(offsetBetweenSetupAndRuns, "", Seq(onlyContract))
+          Source.fromIterator { () =>
+            Seq(
+              GACR("", "", Seq(onlyContract)),
+              GACR(offsetBetweenSetupAndRuns, "", Seq.empty),
+            ).iterator
+          }
         },
         (_, _, _, _, _) => _ => Source.empty,
-        (_, _) => _ => Future successful None,
+        { (_, _) => _ =>
+          Future successful Some(
+            LedgerClientJwt.Terminates fromDomain domain.Offset(offsetBetweenSetupAndRuns)
+          )
+        },
       )
 
       initialFetch.fetchAndPersist(
