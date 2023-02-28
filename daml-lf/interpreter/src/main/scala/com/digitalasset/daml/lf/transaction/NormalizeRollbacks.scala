@@ -186,11 +186,9 @@ private[lf] object NormalizeRollbacks {
               }
             }
           case Norm.Aut(aut, subs) =>
-            s.pushSeedId(me) { s =>
-              pushNorms(s, subs) { (s, children) =>
-                val node = aut.copy(children = children.to(ImmArray))
-                s.push(me, node)(k)
-              }
+            pushNorms(s, subs) { (s, children) =>
+              val node = aut.copy(children = children.to(ImmArray))
+              s.push(me, node)(k)
             }
         }
       }
