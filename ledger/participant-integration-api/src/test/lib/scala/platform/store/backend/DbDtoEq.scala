@@ -5,11 +5,14 @@ package com.daml.platform.store.backend
 
 import org.scalatest.matchers.should.Matchers
 
+import scala.annotation.nowarn
+
 // DbDto case classes contain serialized values in Arrays (sometimes wrapped in Options),
 // because this representation can efficiently be passed to Jdbc.
 // Using Arrays means DbDto instances are not comparable, so we have to define a custom equality operator.
 object DbDtoEq extends Matchers {
 
+  @nowarn("cat=lint-infer-any")
   val DbDtoEq: org.scalactic.Equality[DbDto] = {
     case (a: DbDto, b: DbDto) =>
       (a.productPrefix === b.productPrefix) &&

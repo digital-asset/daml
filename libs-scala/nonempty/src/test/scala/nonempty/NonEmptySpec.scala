@@ -42,7 +42,6 @@ class NonEmptySpec extends AnyWordSpec with Matchers with WordSpecCheckLaws {
       object Foo
       object Bar
       import language.implicitConversions
-      @annotation.nowarn("cat=unused&msg=foo")
       implicit def foobar(foo: Foo.type): Bar.type = Bar
       illTyped(
         "NonEmpty(List, Foo, Foo): NonEmpty[List[Bar.type]]",

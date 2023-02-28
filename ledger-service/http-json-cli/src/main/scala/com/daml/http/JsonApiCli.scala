@@ -36,7 +36,7 @@ private[http] final case class JsonApiCli(
     logLevel: Option[LogLevel] = None, // the default is in logback.xml
     logEncoder: LogEncoder = LogEncoder.Plain,
     metricsReporter: Option[MetricsReporter] = None,
-    metricsReportingInterval: FiniteDuration = 10 seconds,
+    metricsReportingInterval: FiniteDuration = 10.seconds,
     surrogateTpIdCacheMaxEntries: Option[Long] = None,
 ) extends StartSettings
     with StrictLogging {

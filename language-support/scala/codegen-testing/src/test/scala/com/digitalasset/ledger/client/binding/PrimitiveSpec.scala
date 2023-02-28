@@ -12,7 +12,6 @@ import org.scalatest.wordspec.AnyWordSpec
 import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 import shapeless.test.illTyped
 
-import scala.annotation.nowarn
 import scala.collection.immutable.Map
 
 class PrimitiveSpec extends AnyWordSpec with Matchers with ScalaCheckDrivenPropertyChecks {
@@ -163,6 +162,5 @@ object PrimitiveSpec {
   private def ofType[T]: Proxy[T] = new Proxy(())
   // as a rule, the *singleton* type ac.type will not be ~ Ex; we are interested
   // in what expression `ac` infers to *absent context*.
-  @nowarn("msg=parameter value (ex|ac|ev) .* is never used")
   private def isExactly[Ac, Ex](ac: Ac, ex: Proxy[Ex])(implicit ev: Ac =:= Ex): Unit = ()
 }
