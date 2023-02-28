@@ -3,12 +3,12 @@
 
 package com.daml.metrics
 
-import com.daml.metrics.api.MetricHandle.MetricsFactory
+import com.daml.metrics.api.MetricHandle.LabeledMetricsFactory
 import com.daml.metrics.api.MetricName
 
-abstract class DatabaseMetricsFactory(prefix: MetricName, factory: MetricsFactory) {
+abstract class DatabaseMetricsFactory(prefix: MetricName, factory: LabeledMetricsFactory) {
 
   protected def createDbMetrics(name: String): DatabaseMetrics = {
-    new DatabaseMetrics(prefix, name, factory)
+    new DatabaseMetrics(prefix :+ name, factory)
   }
 }

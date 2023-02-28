@@ -4,10 +4,20 @@
 package com.daml.metrics
 
 import com.daml.metrics.api.MetricDoc.MetricQualification.{Debug, Saturation}
-import com.daml.metrics.api.MetricHandle.{Counter, MetricsFactory, Gauge, Timer}
+import com.daml.metrics.api.MetricHandle.{
+  Counter,
+  Gauge,
+  LabeledMetricsFactory,
+  MetricsFactory,
+  Timer,
+}
 import com.daml.metrics.api.{MetricDoc, MetricName, MetricsContext}
 
-class IndexMetrics(prefix: MetricName, factory: MetricsFactory) {
+class IndexMetrics(
+    prefix: MetricName,
+    factory: MetricsFactory,
+    labeledMetricsFactory: LabeledMetricsFactory,
+) {
 
   @MetricDoc.Tag(
     summary = "The buffer size for transaction trees requests.",
@@ -56,7 +66,7 @@ class IndexMetrics(prefix: MetricName, factory: MetricsFactory) {
   val completionsBufferSize: Counter =
     factory.counter(prefix :+ "completions_buffer_size")
 
-  object db extends IndexDBMetrics(prefix :+ "db", factory)
+  object db extends IndexDBMetrics(prefix :+ "db", factory, labeledMetricsFactory)
 
   @MetricDoc.Tag(
     summary = "The sequential id of the current ledger end kept in memory.",

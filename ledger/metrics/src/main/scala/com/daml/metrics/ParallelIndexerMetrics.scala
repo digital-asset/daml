@@ -4,16 +4,22 @@
 package com.daml.metrics
 
 import com.daml.metrics.api.MetricDoc.MetricQualification.{Debug, Latency, Saturation, Traffic}
-import com.daml.metrics.api.MetricHandle.{Counter, MetricsFactory, Histogram, Timer}
+import com.daml.metrics.api.MetricHandle.{
+  Counter,
+  Histogram,
+  LabeledMetricsFactory,
+  MetricsFactory,
+  Timer,
+}
 import com.daml.metrics.api.dropwizard.DropwizardTimer
 import com.daml.metrics.api.{MetricDoc, MetricName}
 
-@MetricDoc.GroupTag(
-  representative = "daml.parallel_indexer.<stage>",
-  groupableClass = classOf[DatabaseMetrics],
-)
-class ParallelIndexerMetrics(prefix: MetricName, factory: MetricsFactory) {
-  val initialization = new DatabaseMetrics(prefix, "initialization", factory)
+class ParallelIndexerMetrics(
+    prefix: MetricName,
+    factory: MetricsFactory,
+    labeledMetricsFactory: LabeledMetricsFactory,
+) {
+  val initialization = new DatabaseMetrics(prefix :+ "initialization", labeledMetricsFactory)
 
   // Number of state updates persisted to the database
   // (after the effect of the corresponding Update is persisted into the database,
@@ -94,9 +100,9 @@ class ParallelIndexerMetrics(prefix: MetricName, factory: MetricsFactory) {
 
   // Ingestion stage
   // Parallel ingestion of prepared data into the database
-  val ingestion = new DatabaseMetrics(prefix, "ingestion", factory)
+  val ingestion = new DatabaseMetrics(prefix :+ "ingestion", labeledMetricsFactory)
 
   // Tail ingestion stage
   // The throttled update of ledger end parameters
-  val tailIngestion = new DatabaseMetrics(prefix, "tail_ingestion", factory)
+  val tailIngestion = new DatabaseMetrics(prefix :+ "tail_ingestion", labeledMetricsFactory)
 }
