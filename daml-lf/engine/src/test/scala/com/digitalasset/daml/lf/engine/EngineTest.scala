@@ -11,7 +11,20 @@ import com.daml.lf.data.Ref._
 import com.daml.lf.data._
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.Util._
-import com.daml.lf.transaction.{GlobalKey, GlobalKeyWithMaintainers, Node, NodeId, Normalization, ProcessedDisclosedContract, ReplayMismatch, SubmittedTransaction, Validation, VersionedTransaction, Transaction => Tx, TransactionVersion => TxVersions}
+import com.daml.lf.transaction.{
+  GlobalKey,
+  GlobalKeyWithMaintainers,
+  Node,
+  NodeId,
+  Normalization,
+  ProcessedDisclosedContract,
+  ReplayMismatch,
+  SubmittedTransaction,
+  Validation,
+  VersionedTransaction,
+  Transaction => Tx,
+  TransactionVersion => TxVersions,
+}
 import com.daml.lf.value.Value
 import Value._
 import com.daml.bazeltools.BazelRunfiles.rlocation
@@ -27,7 +40,12 @@ import com.daml.lf.transaction.test.TransactionBuilder.assertAsVersionedContract
 import com.daml.logging.LoggingContext
 import com.daml.test.evidence.scalatest.ScalaTestSupport.Implicits.tagToContainer
 import com.daml.test.evidence.tag.Security.SecurityTest.Property.Authorization
-import com.daml.test.evidence.tag.Security.{Attack, SecurityTest, SecurityTestLayer, SecurityTestSuite}
+import com.daml.test.evidence.tag.Security.{
+  Attack,
+  SecurityTest,
+  SecurityTestLayer,
+  SecurityTestSuite,
+}
 import org.scalactic.Equality
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.{Assertion, EitherValues}
