@@ -169,7 +169,7 @@ runShakeTestOpts fOpts mbScenarioService (ShakeTest m) = do
             atomically $ modifyTVar' virtualResourcesNotes (Map.insert vr note)
         eventLogger _ _ = pure ()
     vfs <- API.makeVFSHandle
-    damlEnv <- mkDamlEnv options mbScenarioService
+    damlEnv <- mkDamlEnv options (StudioAutorunAllScenarios True) mbScenarioService
     service <- API.initialise (mainRule options) (DummyLspEnv $ NotificationHandler eventLogger) noLogging noopDebouncer damlEnv (toCompileOpts options) vfs
     result <- withSystemTempDirectory "shake-api-test" $ \testDirPath -> do
         let ste = ShakeTestEnv
