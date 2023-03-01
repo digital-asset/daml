@@ -17,7 +17,7 @@ EOF
     {
       name      = "ci-u2",
       disk_size = 400,
-      size      = 0,
+      size      = 10,
       extra     = <<EOF
 # Taken from https://cloud.google.com/logging/docs/agent/logging/installation
 curl -sSL https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add -
