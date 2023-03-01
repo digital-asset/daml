@@ -10,13 +10,7 @@ import com.daml.lf.data.Ref.Party
 import com.daml.lf.data.{Ref, _}
 import com.daml.lf.interpretation.{Error => IE}
 import com.daml.lf.language.Ast._
-import com.daml.lf.speedy.SBuiltin.{
-  SBCacheDisclosedContract,
-  SBCheckTemplate,
-  SBCheckTemplateKey,
-  SBCrash,
-  SBuildCachedContract,
-}
+import com.daml.lf.speedy.SBuiltin.{SBCacheDisclosedContract, SBCrash, SBuildCachedContract}
 import com.daml.lf.speedy.SError.{SError, SErrorCrash}
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SValue.{SValue => _, _}
@@ -1608,38 +1602,6 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
       s"""eval[$exp] --> "$res"""" in {
         eval(e"$exp") shouldBe Right(res)
       }
-    }
-  }
-
-  "SBCheckTemplate" - {
-    "detects templates that exist" in {
-      val templateId = Ref.Identifier.assertFromString("-pkgId-:Mod:Iou")
-      eval(
-        SEApp(SEBuiltin(SBCheckTemplate(templateId)), Array(SUnit))
-      ) shouldBe Right(SBool(true))
-    }
-
-    "detects non-existent templates" in {
-      val templateId = Ref.Identifier.assertFromString("-pkgId-:Mod:NonExistent")
-      eval(
-        SEApp(SEBuiltin(SBCheckTemplate(templateId)), Array(SUnit))
-      ) shouldBe Right(SBool(false))
-    }
-  }
-
-  "SBCheckTemplateKey" - {
-    "detects keys that exist for the template" in {
-      val templateId = Ref.Identifier.assertFromString("-pkgId-:Mod:IouWithKey")
-      eval(
-        SEApp(SEBuiltin(SBCheckTemplateKey(templateId)), Array(SUnit))
-      ) shouldBe Right(SBool(true))
-    }
-
-    "detects non-existent template keys" in {
-      val templateId = Ref.Identifier.assertFromString("-pkgId-:Mod:Iou")
-      eval(
-        SEApp(SEBuiltin(SBCheckTemplateKey(templateId)), Array(SUnit))
-      ) shouldBe Right(SBool(false))
     }
   }
 

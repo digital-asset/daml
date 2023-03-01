@@ -156,19 +156,22 @@ object ExplicitDisclosureLib {
     )
   }
 
-  def buildContractKey(maintainer: Party, label: String = testKeyName): GlobalKey =
-    GlobalKey.assertBuild(
-      houseTemplateType,
-      Value.ValueRecord(
-        None,
-        ImmArray(
-          None -> Value.ValueText(label),
-          None -> Value.ValueList(FrontStack.from(ImmArray(Value.ValueParty(maintainer)))),
-        ),
+  def buildContractKeyValue(maintainer: Party, label: String = testKeyName) =
+    Value.ValueRecord(
+      None,
+      ImmArray(
+        None -> Value.ValueText(label),
+        None -> Value.ValueList(FrontStack.from(ImmArray(Value.ValueParty(maintainer)))),
       ),
     )
 
-  def buildContractSKey(maintainer: Party): SValue =
+  def buildContractKey(maintainer: Party, label: String = testKeyName): GlobalKey =
+    GlobalKey.assertBuild(
+      houseTemplateType,
+      buildContractKeyValue(maintainer, label),
+    )
+
+  def buildContractSKey(maintainer: Party, label: String = testKeyName): SValue =
     SValue.SStruct(
       fieldNames =
         Struct.assertFromNameSeq(Seq("globalKey", "maintainers").map(Ref.Name.assertFromString)),
@@ -177,7 +180,7 @@ object ExplicitDisclosureLib {
           keyType,
           ImmArray("label", "maintainers").map(Ref.Name.assertFromString),
           ArrayList(
-            SValue.SText(testKeyName),
+            SValue.SText(label),
             SValue.SList(FrontStack.from(ImmArray(SValue.SParty(maintainer)))),
           ),
         ),

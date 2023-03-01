@@ -948,33 +948,6 @@ private[lf] object SBuiltin {
     }
   }
 
-  /** $checkTemplate[T] :: Unit -> bool */
-  private[speedy] final case class SBCheckTemplate(templateId: TypeConName) extends SBuiltin(1) {
-
-    override private[speedy] def execute[Q](
-        args: util.ArrayList[SValue],
-        machine: Machine[Q],
-    ): Control.Value = {
-      getSUnit(args, 0)
-      Control.Value(SBool(machine.compiledPackages.pkgInterface.lookupTemplate(templateId).isRight))
-    }
-  }
-
-  /** $checkTemplateKey[T] :: Unit -> bool */
-  private[speedy] final case class SBCheckTemplateKey(templateId: TypeConName) extends SBuiltin(1) {
-
-    override private[speedy] def execute[Q](
-        args: util.ArrayList[SValue],
-        machine: Machine[Q],
-    ): Control[Q] = {
-      getSUnit(args, 0)
-
-      Control.Value(
-        SBool(machine.compiledPackages.pkgInterface.lookupTemplateKey(templateId).isRight)
-      )
-    }
-  }
-
   /** $create
     *    :: Text (agreement text)
     *    -> CachedContract

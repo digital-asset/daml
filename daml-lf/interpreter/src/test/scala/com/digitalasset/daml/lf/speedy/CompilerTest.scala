@@ -9,7 +9,7 @@ import com.daml.lf.data.Ref.Party
 import com.daml.lf.data._
 import com.daml.lf.interpretation.Error.TemplatePreconditionViolated
 import com.daml.lf.language.Ast._
-import com.daml.lf.speedy.SError.{SError, SErrorCrash, SErrorDamlException}
+import com.daml.lf.speedy.SError.{SError, SErrorDamlException}
 import com.daml.lf.speedy.SExpr.SExpr
 import com.daml.lf.speedy.SValue.SContractId
 import com.daml.lf.speedy.Speedy.CachedContract
@@ -62,25 +62,6 @@ class CompilerTest extends AnyWordSpec with Matchers with Inside {
       Value.ContractId.V1(crypto.Hash.hashPrivateKey("disclosed-test-contract-id-1"))
     val disclosedCid2 =
       Value.ContractId.V1(crypto.Hash.hashPrivateKey("disclosed-test-contract-id-2"))
-
-    "non-existent templates should crash compilation" in {
-      val invalidTemplateId = Ref.Identifier.assertFromString("-pkgId-:Module:Invalid")
-      val invalidDisclosedContract = buildDisclosedContract(cid1, alice, invalidTemplateId)
-      val invalidVersionedContract = VersionedContractInstance(
-        version,
-        invalidTemplateId,
-        invalidDisclosedContract.argument.toUnnormalizedValue,
-      )
-      val sexpr = compiledPackages.compiler.unsafeCompileWithContractDisclosures(
-        tokenApp(compiledPackages.compiler.unsafeCompile(ImmArray.Empty)),
-        ImmArray(invalidDisclosedContract),
-      )
-
-      inside(evalSExpr(sexpr, getContract = Map(cid1 -> invalidVersionedContract))) {
-        case Left(SErrorCrash(_, message)) =>
-          message should endWith(s"Template $invalidTemplateId does not exist and it should")
-      }
-    }
 
     "using a template with preconditions" should {
       val templateId = Ref.Identifier.assertFromString("-pkgId-:Module:PreCondRecord")
