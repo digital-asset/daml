@@ -9,6 +9,7 @@ import java.util.concurrent.TimeUnit
 import com.daml.metrics.api.MetricHandle.Gauge.CloseableGauge
 import com.daml.metrics.api.MetricHandle.Timer.TimerHandle
 
+import scala.annotation.nowarn
 import scala.concurrent.{ExecutionContext, Future}
 
 trait MetricHandle {
@@ -18,6 +19,7 @@ trait MetricHandle {
 
 object MetricHandle {
 
+  @deprecated("Replaced by LabeledMetricsFactory, prefer it's usage", since = "2.7.0")
   trait MetricsFactory {
 
     /** A timer can be represented by either a summary or a histogram.
@@ -71,6 +73,7 @@ object MetricHandle {
 
   }
 
+  @nowarn("msg=deprecated")
   trait LabeledMetricsFactory extends MetricsFactory
 
   trait Timer extends MetricHandle {

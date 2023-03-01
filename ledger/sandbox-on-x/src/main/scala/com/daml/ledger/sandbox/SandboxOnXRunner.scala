@@ -45,6 +45,7 @@ import com.daml.ports.Port
 import com.daml.telemetry.OpenTelemetryOwner
 import com.daml.tracing.DefaultOpenTelemetry
 
+import scala.annotation.nowarn
 import scala.concurrent.ExecutionContextExecutorService
 import scala.util.Try
 
@@ -65,6 +66,7 @@ object SandboxOnXRunner {
           .acquire()
     }
 
+  @nowarn("cat=deprecation")
   def run(
       bridgeConfig: BridgeConfig,
       config: Config,
@@ -199,6 +201,7 @@ object SandboxOnXRunner {
     }
 
   // Builds the write service and uploads the initialization DARs
+  @nowarn("cat=deprecation")
   def buildWriteService(
       participantId: Ref.ParticipantId,
       feedSink: Sink[(Offset, Update), NotUsed],

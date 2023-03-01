@@ -12,6 +12,8 @@ import com.daml.metrics.grpc.DamlGrpcServerMetrics
 import io.opentelemetry.api.GlobalOpenTelemetry
 import io.opentelemetry.api.metrics.Meter
 
+import scala.annotation.nowarn
+
 object Metrics {
 
   def apply(registry: MetricRegistry, otelMeter: Meter) =
@@ -32,6 +34,8 @@ object Metrics {
 }
 
 final class Metrics(
+    @nowarn
+    @deprecated
     val defaultMetricsFactory: MetricsFactory,
     val labeledMetricsFactory: LabeledMetricsFactory,
     val registry: MetricRegistry,
@@ -42,8 +46,10 @@ final class Metrics(
   object daml {
     val prefix: MetricName = MetricName.Daml
 
+    @nowarn
     object commands extends CommandMetrics(prefix :+ "commands", defaultMetricsFactory)
 
+    @nowarn
     object execution
         extends ExecutionMetrics(
           prefix :+ "execution",
@@ -51,6 +57,7 @@ final class Metrics(
           labeledMetricsFactory,
         )
 
+    @nowarn
     object lapi extends LAPIMetrics(prefix :+ "lapi", defaultMetricsFactory)
 
     object userManagement
@@ -71,20 +78,23 @@ final class Metrics(
           labeledMetricsFactory,
         )
 
+    @nowarn
     object index
         extends IndexMetrics(prefix :+ "index", defaultMetricsFactory, labeledMetricsFactory)
 
+    @nowarn
     object indexer extends IndexerMetrics(prefix :+ "indexer", defaultMetricsFactory)
 
     object indexerEvents extends IndexedUpdatesMetrics(prefix :+ "indexer", labeledMetricsFactory)
 
+    @nowarn
     object parallelIndexer
         extends ParallelIndexerMetrics(
           prefix :+ "parallel_indexer",
           defaultMetricsFactory,
           labeledMetricsFactory,
         )
-
+    @nowarn
     object services
         extends ServicesMetrics(prefix :+ "services", defaultMetricsFactory, labeledMetricsFactory)
 

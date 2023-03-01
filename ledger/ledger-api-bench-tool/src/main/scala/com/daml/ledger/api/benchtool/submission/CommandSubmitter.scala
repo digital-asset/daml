@@ -21,11 +21,13 @@ import io.grpc.Status
 import org.slf4j.LoggerFactory
 import scalaz.syntax.tag._
 
+import scala.annotation.nowarn
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.chaining._
 import scala.util.control.NonFatal
 
+@nowarn("cat=deprecation")
 case class CommandSubmitter(
     names: Names,
     benchtoolUserServices: LedgerApiServices,

@@ -3,9 +3,12 @@
 
 package com.daml.ledger.sandbox.bridge
 
-import com.daml.metrics.api.MetricHandle.{Counter, MetricsFactory, Histogram, Timer}
+import com.daml.metrics.api.MetricHandle.{Counter, Histogram, MetricsFactory, Timer}
 import com.daml.metrics.api.MetricName
 
+import scala.annotation.nowarn
+
+@nowarn("cat=deprecation")
 class BridgeMetrics(factory: MetricsFactory) {
 
   val prefix: MetricName = MetricName.Daml :+ "sandbox_ledger_bridge"

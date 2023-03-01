@@ -8,9 +8,9 @@ import java.util.concurrent.TimeUnit
 import com.daml.caching.{CaffeineCache, ConcurrentCache, SizedCache}
 import com.daml.ledger.offset.Offset
 import com.daml.logging.LoggingContext
+import com.daml.metrics.CacheMetrics
 import com.daml.metrics.api.MetricName
-import com.daml.metrics.api.noop.NoOpMetricsFactory
-import com.daml.metrics.{CacheMetrics, Metrics}
+import com.daml.metrics.api.noop.{NoOpMetricsFactory, NoOpTimer}
 import com.github.benmanes.caffeine.cache.Caffeine
 import org.mockito.MockitoSugar
 import org.scalatest.Assertion
@@ -30,8 +30,7 @@ class StateCacheSpec extends AsyncFlatSpec with Matchers with MockitoSugar with 
   override implicit def executionContext: ExecutionContext =
     scala.concurrent.ExecutionContext.global
 
-  private val cacheUpdateTimer =
-    Metrics.ForTesting.defaultMetricsFactory.timer(MetricName("cache-update"))
+  private val cacheUpdateTimer = NoOpTimer("state_update")
 
   behavior of s"$className.putAsync"
 
