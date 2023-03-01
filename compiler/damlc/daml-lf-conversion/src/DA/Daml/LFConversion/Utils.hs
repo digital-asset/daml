@@ -3,8 +3,8 @@
 
 -- | Utils used by both LFConversion and warnings
 module DA.Daml.LFConversion.Utils (
-  convNameLoc
-  convRealSrcSpan
+  convNameLoc,
+  convRealSrcSpan,
 ) where
 
 import           "ghc-lib" GHC
