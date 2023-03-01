@@ -344,11 +344,12 @@ private[lf] object Speedy {
         }
         .to(ImmArray)
 
+    @throws[IllegalArgumentException]
     def zipSameLength[X, Y](xs: ImmArray[X], ys: ImmArray[Y]): ImmArray[(X, Y)] = {
       val n1 = xs.length
       val n2 = ys.length
       if (n1 != n2) {
-        sys.error(s"sameLengthZip, $n1 /= $n2")
+        throw new IllegalArgumentException(s"sameLengthZip, $n1 /= $n2")
       }
       xs.zip(ys)
     }
