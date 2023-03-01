@@ -252,7 +252,7 @@ getIntegrationTests registerTODO scenarioService (packageDbPath, packageFlag) = 
                 }
 
               mkIde options = do
-                damlEnv <- mkDamlEnv options (Just scenarioService)
+                damlEnv <- mkDamlEnv options (StudioAutorunAllScenarios True) (Just scenarioService)
                 initialise
                   (mainRule options)
                   (DummyLspEnv $ NotificationHandler $ \_ _ -> pure ())

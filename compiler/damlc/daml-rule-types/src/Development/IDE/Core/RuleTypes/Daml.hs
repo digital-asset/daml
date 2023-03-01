@@ -99,9 +99,13 @@ type instance RuleResult RunScenarios = [(VirtualResource, Either SS.Error SS.Sc
 -- be no test with that name
 type instance RuleResult RunSingleScenario = [(VirtualResource, Either SS.Error SS.ScenarioResult)]
 
+type instance RuleResult GetScenarios = [VirtualResource]
+
 type instance RuleResult RunScripts = [(VirtualResource, Either SS.Error SS.ScenarioResult)]
 
 type instance RuleResult RunSingleScript = [(VirtualResource, Either SS.Error SS.ScenarioResult)]
+
+type instance RuleResult GetScripts = [VirtualResource]
 
 -- | Encode a module and produce a hash of the module and all its transitive dependencies.
 -- The hash is used to decide if a module needs to be reloaded in the scenario service.
@@ -217,6 +221,12 @@ instance Binary   RunSingleScenario
 instance Hashable RunSingleScenario
 instance NFData   RunSingleScenario
 
+data GetScenarios = GetScenarios
+    deriving (Eq, Show, Typeable, Generic)
+instance Binary   GetScenarios
+instance Hashable GetScenarios
+instance NFData   GetScenarios
+
 data RunScripts = RunScripts
     deriving (Eq, Show, Typeable, Generic)
 instance Binary   RunScripts
@@ -228,6 +238,12 @@ data RunSingleScript = RunSingleScript T.Text
 instance Binary   RunSingleScript
 instance Hashable RunSingleScript
 instance NFData   RunSingleScript
+
+data GetScripts = GetScripts
+    deriving (Eq, Show, Typeable, Generic)
+instance Binary   GetScripts
+instance Hashable GetScripts
+instance NFData   GetScripts
 
 data EncodeModule = EncodeModule
     deriving (Eq, Show, Typeable, Generic)

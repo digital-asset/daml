@@ -304,6 +304,7 @@ export function createLanguageClient(
     ["debug", ["--debug"]],
     ["experimental", ["--experimental"]],
     ["profile", ["+RTS", "-h", "-RTS"]],
+    ["autorunAllTests", ["--studio-auto-run-all-scenarios=yes"]],
   ]);
 
   if (config.get("experimental")) {

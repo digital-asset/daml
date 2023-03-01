@@ -107,6 +107,11 @@
                     "default": "From consent popup",
                     "description": "Controls whether you send Daml usage data to Digital Asset"
                 },
+                "daml.autorunAllTests": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Run all tests in a file once it's opened, instead of waiting for the user to select individual tests."
+                },
                 "daml.extraArguments": {
                     "type": "string",
                     "default": "",
