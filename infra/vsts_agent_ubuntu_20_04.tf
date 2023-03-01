@@ -7,21 +7,11 @@ locals {
       name      = "ci-u1",
       disk_size = 400,
       size      = 30,
-      extra     = <<EOF
-# Taken from https://cloud.google.com/logging/docs/agent/logging/installation
-curl -sSL https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add -
-curl -sSL https://dl.google.com/cloudagents/add-logging-agent-repo.sh | bash -s -- --also-install
-EOF
     },
     {
       name      = "ci-u2",
       disk_size = 400,
       size      = 10,
-      extra     = <<EOF
-# Taken from https://cloud.google.com/logging/docs/agent/logging/installation
-curl -sSL https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add -
-curl -sSL https://dl.google.com/cloudagents/add-logging-agent-repo.sh | bash -s -- --also-install
-EOF
     },
   ]
 }
@@ -73,7 +63,6 @@ resource "google_compute_instance_template" "vsts-agent-ubuntu_20_04" {
       vsts_token   = secret_resource.vsts-token.value
       vsts_account = "digitalasset"
       vsts_pool    = "ubuntu_20_04"
-      extra        = local.ubuntu[count.index].extra
     })
 
     shutdown-script = nonsensitive("#!/usr/bin/env bash\nset -euo pipefail\ncd /home/vsts/agent\nsu vsts <<SHUTDOWN_AGENT\nexport VSTS_AGENT_INPUT_TOKEN='${secret_resource.vsts-token.value}'\n./config.sh remove --unattended --auth PAT\nSHUTDOWN_AGENT\n    ")
