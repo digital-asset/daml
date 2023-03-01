@@ -186,7 +186,10 @@ class RollbackTest extends AnyWordSpec with Matchers with TableDrivenPropertyChe
     ("create3throwAndCatch", List[Tree](R(List(C(100), C(200))), C(300))),
     ("create3throwAndOuterCatch", List[Tree](R(List(C(100), C(200))), C(300))),
     ("exer1", List[Tree](C(100), X(List(C(400), C(500))), C(200), C(300))),
-    ("exer2", List[Tree](C(100), R(List(X(List(C(400))))), C(300))),
+    (
+      "exer2", // TODO: this test fails if we add a _seeds length match_ assertion in Speedy.finish
+      List[Tree](C(100), R(List(X(List(C(400))))), C(300)),
+    ),
   )
 
   forEvery(testCases) { (exp: String, expected: List[Tree]) =>

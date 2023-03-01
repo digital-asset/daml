@@ -348,7 +348,7 @@ private[lf] object Speedy {
       UpdateMachine.Result(
         tx,
         ptx.locationInfo(),
-        seeds zip ptx.actionNodeSeeds.toImmArray,
+        seeds zip ptx.actionNodeSeeds.toImmArray, // TODO: assert same length before zip
         ptx.contractState.globalKeyInputs.transform((_, v) => v.toKeyMapping),
         disclosedCreateEvents,
       )
