@@ -5,6 +5,7 @@ package com.daml.lf
 package engine
 
 import java.io.File
+
 import com.daml.lf.archive.UniversalArchiveDecoder
 import com.daml.lf.data.Ref._
 import com.daml.lf.data._
@@ -53,6 +54,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.Inside._
 import org.scalatest.matchers.{MatchResult, Matcher}
 
+import scala.annotation.nowarn
 import scala.collection.immutable.HashMap
 import scala.language.implicitConversions
 
@@ -2037,8 +2039,11 @@ class EngineTest
             .map(_.message)
         } yield res
 
-      run(0).flatMap { case (tx, metaData) => validate(tx, metaData) } shouldBe Right(())
-      run(3).flatMap { case (tx, metaData) => validate(tx, metaData) } shouldBe Right(())
+      @nowarn("cat=lint-infer-any")
+      def assertRun(n: Int): Assertion =
+        run(n).flatMap { case (tx, metaData) => validate(tx, metaData) } shouldBe Right(())
+      assertRun(0)
+      assertRun(3)
     }
 
     "be partially reinterpretable" in {
@@ -2449,6 +2454,77 @@ class EngineTest
       } yield inside(eng.preloadPackage(pkgId, pkg)) {
         case ResultDone(_) => pkg.languageVersion shouldBe <=(lv)
         case ResultError(_) => pkg.languageVersion shouldBe >(lv)
+      }
+    }
+  }
+
+  "with authority" should {
+
+    val (pkgId, _, pkgs) = loadPackage("daml-lf/tests/WithAuthority.dar")
+    val lookupPackage = pkgs.get _
+    val tId = Identifier(pkgId, "WithAuthority:T")
+    val let = Time.Timestamp.now()
+    val submissionSeed = hash("WithAuthority")
+    val seeding = Engine.initialSeeding(submissionSeed, participant, let)
+
+    def run(cmd: ApiCommand, grantNeedAuthority: Boolean) = {
+      val submitters = Set(alice)
+      val Right(cmds) = preprocessor
+        .preprocessApiCommands(ImmArray(cmd))
+        .consume(
+          _ => None,
+          lookupPackage,
+          lookupKey,
+        )
+      suffixLenientEngine
+        .interpretCommands(
+          validating = false,
+          submitters = submitters,
+          readAs = Set.empty,
+          commands = cmds,
+          ledgerTime = let,
+          submissionTime = let,
+          seeding = seeding,
+        )
+        .consume(
+          _ => None,
+          lookupPackage,
+          lookupKey,
+          grantNeedAuthority = grantNeedAuthority,
+        )
+    }
+
+    def mkCommand(party1: Party, party2: Party) = {
+      ApiCommand.CreateAndExercise(
+        tId,
+        ValueRecord(None, ImmArray((None, ValueParty(party1)))),
+        "GainAuthority",
+        ValueRecord(None, ImmArray((None, ValueParty(party2)))),
+      )
+    }
+
+    "no authority required" in {
+      inside(run(mkCommand(party1 = alice, party2 = alice), grantNeedAuthority = false)) {
+        case Right((_, _)) =>
+      }
+    }
+
+    "authority required; not granted" in {
+      inside(run(mkCommand(party1 = alice, party2 = bob), grantNeedAuthority = false)) {
+        case Left(
+              Interpretation(
+                DamlException(interpretation.Error.RejectedAuthorityRequest(holding, requesting)),
+                _,
+              )
+            ) =>
+          holding shouldBe Set(alice)
+          requesting shouldBe Set(bob)
+      }
+    }
+
+    "authority required; granted" in {
+      inside(run(mkCommand(party1 = alice, party2 = bob), grantNeedAuthority = true)) {
+        case Right((_, _)) =>
       }
     }
   }

@@ -9,7 +9,7 @@ import com.daml.http.domain.ContractTypeId
 import com.daml.http.metrics.HttpJsonApiMetrics
 import com.daml.http.util.Logging.{InstanceUUID, instanceUUIDLogCtx}
 import com.daml.logging.LoggingContextOf
-import com.daml.metrics.api.testing.MetricValues
+import com.daml.metrics.api.testing.{InMemoryMetricsFactory, MetricValues}
 import doobie.util.log.LogHandler
 import doobie.free.{connection => fconn}
 import org.scalatest.freespec.AsyncFreeSpecLike
@@ -26,7 +26,8 @@ abstract class AbstractDatabaseIntegrationTest
   this: AsyncTestSuite with Matchers with Inside =>
 
   protected def jdbcConfig: JdbcConfig
-  protected implicit val metrics: HttpJsonApiMetrics = HttpJsonApiMetrics.ForTesting
+  protected implicit val metrics: HttpJsonApiMetrics =
+    new HttpJsonApiMetrics(new InMemoryMetricsFactory, new InMemoryMetricsFactory)
 
   // has to be lazy because jdbcConfig is NOT initialized yet
   protected lazy val dao = dbbackend.ContractDao(

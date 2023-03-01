@@ -14,6 +14,7 @@ import com.daml.ledger.client.binding.Primitive
 import com.daml.ledger.test.semantic.RaceTests._
 import com.daml.timer.Delayed
 
+import scala.annotation.nowarn
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Success
@@ -219,7 +220,7 @@ final class RaceConditionIT extends LedgerTestSuite {
         numberOfAttempts = 5,
         once = ledger.create(alice, ContractWithKey(alice)),
         repeated = ledger.exercise(alice, looker.exerciseLookupWrapper_Lookup()),
-      )
+      ): @nowarn("cat=lint-infer-any")
       transactions <- transactions(ledger, alice)
     } yield {
       import RaceConditionIT.TransactionUtil._

@@ -76,6 +76,7 @@ private[oauth2] final case class Cli(
       tokenVerifier,
       metricsReporter,
       metricsReportingInterval,
+      Seq.empty,
     )
     cfg.validate()
     cfg

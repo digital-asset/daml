@@ -13,6 +13,7 @@ import com.daml.ledger.api.v1.value.RecordField
 import com.daml.ledger.client.binding.Primitive
 import com.daml.ledger.test.semantic.ExceptionRaceTests._
 
+import scala.annotation.nowarn
 import scala.concurrent.{ExecutionContext, Future}
 
 final class ExceptionRaceConditionIT extends LedgerTestSuite {
@@ -150,7 +151,7 @@ final class ExceptionRaceConditionIT extends LedgerTestSuite {
         numberOfAttempts = 5,
         once = ledger.create(alice, ContractWithKey(alice)),
         repeated = ledger.exercise(alice, looker.exerciseLookupWrapper_Lookup()),
-      )
+      ): @nowarn("cat=lint-infer-any")
       transactions <- transactions(ledger, alice)
     } yield {
       import ExceptionRaceConditionIT.TransactionUtil._

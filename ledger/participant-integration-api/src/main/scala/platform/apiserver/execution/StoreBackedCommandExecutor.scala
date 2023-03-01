@@ -231,7 +231,14 @@ private[apiserver] final class StoreBackedCommandExecutor(
             )
           )
 
-        case ResultNeedAuthority(holding @ _, requesting @ _, resume @ _) => ??? // TODO #15882
+        case ResultNeedAuthority(holding @ _, requesting @ _, resume) =>
+          val granted = true // TODO #15882
+          resolveStep(
+            Tracked.value(
+              metrics.daml.execution.engineRunning,
+              trackSyncExecution(interpretationTimeNanos)(resume(granted)),
+            )
+          )
 
       }
 

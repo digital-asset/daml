@@ -68,6 +68,7 @@ class InMemoryIdentityProviderConfigStore(maxIdentityProviderConfigs: Int = 10)
         .copy(isDeactivated = update.isDeactivatedUpdate.getOrElse(currentState.isDeactivated))
         .copy(issuer = update.issuerUpdate.getOrElse(currentState.issuer))
         .copy(jwksUrl = update.jwksUrlUpdate.getOrElse(currentState.jwksUrl))
+        .copy(audience = update.audienceUpdate.getOrElse(currentState.audience))
       state.put(update.identityProviderId, updatedValue)
       updatedValue
     }

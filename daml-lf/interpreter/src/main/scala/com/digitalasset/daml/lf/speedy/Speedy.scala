@@ -532,6 +532,7 @@ private[lf] object Speedy {
       unhandledException(excep)
 
     @nowarn("msg=dead code following this construct")
+    @tailrec
     def runPure(): Either[SError, SValue] =
       run() match {
         case SResultError(err) => Left(err)

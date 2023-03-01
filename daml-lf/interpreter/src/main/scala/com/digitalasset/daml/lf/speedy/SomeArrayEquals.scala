@@ -3,7 +3,7 @@
 
 package com.daml.lf.speedy
 
-import scala.annotation.tailrec
+import scala.annotation.{nowarn, tailrec}
 import scala.util.hashing.MurmurHash3._
 
 trait SomeArrayEquals extends Product with Serializable {
@@ -12,7 +12,7 @@ trait SomeArrayEquals extends Product with Serializable {
     case oo: SomeArrayEquals
         if (this canEqual oo) && (oo canEqual this) && productArity == oo.productArity =>
       val arr = productArity
-      @SuppressWarnings(Array("org.wartremover.warts.Any"))
+      @nowarn("cat=lint-infer-any")
       @tailrec def lp(i: Int): Boolean =
         if (i >= arr) true
         else
@@ -52,7 +52,7 @@ trait SomeArrayEquals extends Product with Serializable {
 
 object SomeArrayEquals {
   private[speedy] final case class ComparableArray(a: Array[_]) {
-    @SuppressWarnings(Array("org.wartremover.warts.Any"))
+    @nowarn("cat=lint-infer-any")
     override def equals(o: Any): Boolean = o match {
       case oo: AnyRef if oo eq this => true
       case oo: ComparableArray if oo canEqual this =>

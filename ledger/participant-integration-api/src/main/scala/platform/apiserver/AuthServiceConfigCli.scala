@@ -30,7 +30,10 @@ object AuthServiceConfigCli {
           "[UNSAFE] Enables JWT-based authorization with shared secret HMAC256 signing: USE THIS EXCLUSIVELY FOR TESTING"
         )
         .action { (secret, config) =>
-          setAuthServiceConfig(AuthServiceConfig.UnsafeJwtHmac256(secret), config)
+          setAuthServiceConfig(
+            AuthServiceConfig.UnsafeJwtHmac256(secret, targetAudience = None),
+            config,
+          )
         },
       opt[String]("auth-jwt-rs256-crt")
         .optional()
@@ -41,7 +44,7 @@ object AuthServiceConfigCli {
           "Enables JWT-based authorization, where the JWT is signed by RSA256 with a public key loaded from the given X509 certificate file (.crt)"
         )
         .action { (path, config) =>
-          setAuthServiceConfig(AuthServiceConfig.JwtRs256(path), config)
+          setAuthServiceConfig(AuthServiceConfig.JwtRs256(path, targetAudience = None), config)
         },
       opt[String]("auth-jwt-es256-crt")
         .optional()
@@ -52,7 +55,7 @@ object AuthServiceConfigCli {
           "Enables JWT-based authorization, where the JWT is signed by ECDSA256 with a public key loaded from the given X509 certificate file (.crt)"
         )
         .action { (path, config) =>
-          setAuthServiceConfig(AuthServiceConfig.JwtEs256(path), config)
+          setAuthServiceConfig(AuthServiceConfig.JwtEs256(path, targetAudience = None), config)
         },
       opt[String]("auth-jwt-es512-crt")
         .optional()
@@ -63,7 +66,7 @@ object AuthServiceConfigCli {
           "Enables JWT-based authorization, where the JWT is signed by ECDSA512 with a public key loaded from the given X509 certificate file (.crt)"
         )
         .action { (path, config) =>
-          setAuthServiceConfig(AuthServiceConfig.JwtEs512(path), config)
+          setAuthServiceConfig(AuthServiceConfig.JwtEs512(path, targetAudience = None), config)
         },
       opt[String]("auth-jwt-rs256-jwks")
         .optional()
@@ -72,7 +75,7 @@ object AuthServiceConfigCli {
           "Enables JWT-based authorization, where the JWT is signed by RSA256 with a public key loaded from the given JWKS URL"
         )
         .action { (url, config) =>
-          setAuthServiceConfig(AuthServiceConfig.JwtRs256Jwks(url), config)
+          setAuthServiceConfig(AuthServiceConfig.JwtRs256Jwks(url, targetAudience = None), config)
         },
     )
   }

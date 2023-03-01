@@ -8,7 +8,6 @@ import com.daml.lf.command.ContractMetadata
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.data.{Bytes, FrontStack, ImmArray, Ref, Time}
-import com.daml.lf.engine.Error.Preprocessing.DuplicateDisclosedContractId
 import com.daml.lf.language.Ast
 import com.daml.lf.speedy.{ArrayList, DisclosedContract, SValue}
 import com.daml.lf.value.Value.{ContractId, ValueInt64, ValueList, ValueParty, ValueRecord}
@@ -28,7 +27,7 @@ class PreprocessorSpec extends AnyWordSpec with Inside with Matchers with Inspec
       val preprocessor = new preprocessing.Preprocessor(ConcurrentCompiledPackages())
       val intermediaryResult = preprocessor
         .translateValue(
-          Ast.TTyCon("Mod:Record"),
+          Ast.TTyCon("Mod:WithoutKey"),
           ValueRecord("", ImmArray("owners" -> parties, "data" -> ValueInt64(42))),
         )
       intermediaryResult shouldBe a[ResultNeedPackage[_]]
@@ -40,7 +39,7 @@ class PreprocessorSpec extends AnyWordSpec with Inside with Matchers with Inspec
       val preprocessor = new preprocessing.Preprocessor(ConcurrentCompiledPackages())
       val intermediaryResult = preprocessor
         .translateValue(
-          Ast.TTyCon("Mod:Record"),
+          Ast.TTyCon("Mod:WithoutKey"),
           ValueRecord(
             "",
             ImmArray("owners" -> parties, "wrong_field" -> ValueInt64(42)),
@@ -57,24 +56,23 @@ class PreprocessorSpec extends AnyWordSpec with Inside with Matchers with Inspec
       "normalized contracts" should {
         "accepted if fields are correctly ordered" in {
           val preprocessor = new preprocessing.Preprocessor(ConcurrentCompiledPackages())
-          val intermediaryResult =
-            preprocessor.preprocessDisclosedContracts(ImmArray(normalizedContract))
+          val normalizedContract =
+            buildDisclosedContract(withNormalization = true, withFieldsReversed = false)
 
-          intermediaryResult shouldBe a[ResultNeedPackage[_]]
-
-          val finalResult = intermediaryResult.consume(_ => None, pkgs.get, _ => None)
+          val finalResult = preprocessor
+            .preprocessDisclosedContracts(ImmArray(normalizedContract))
+            .consume(_ => None, pkgs.get, _ => None)
 
           acceptDisclosedContract(finalResult)
         }
 
         "rejected if fields are incorrectly ordered" in {
           val preprocessor = new preprocessing.Preprocessor(ConcurrentCompiledPackages())
-          val intermediaryResult =
-            preprocessor.preprocessDisclosedContracts(ImmArray(altNormalizedContract))
-
-          intermediaryResult shouldBe a[ResultNeedPackage[_]]
-
-          val finalResult = intermediaryResult.consume(_ => None, pkgs.get, _ => None)
+          val altNormalizedContract =
+            buildDisclosedContract(withNormalization = true, withFieldsReversed = true)
+          val finalResult = preprocessor
+            .preprocessDisclosedContracts(ImmArray(altNormalizedContract))
+            .consume(_ => None, pkgs.get, _ => None)
 
           inside(finalResult) { case Left(Error.Preprocessing(error)) =>
             error shouldBe a[Error.Preprocessing.TypeMismatch]
@@ -83,37 +81,102 @@ class PreprocessorSpec extends AnyWordSpec with Inside with Matchers with Inspec
       }
 
       "non-normalized contracts are accepted" in {
+        val nonNormalizedContract =
+          buildDisclosedContract(withNormalization = false, withFieldsReversed = false)
+        val altNonNormalizedContract =
+          buildDisclosedContract(withNormalization = false, withFieldsReversed = true)
         forAll(Seq(nonNormalizedContract, altNonNormalizedContract)) { contract =>
           val preprocessor = new preprocessing.Preprocessor(ConcurrentCompiledPackages())
-          val intermediaryResult =
-            preprocessor.preprocessDisclosedContracts(ImmArray(contract))
+          val result =
+            preprocessor
+              .preprocessDisclosedContracts(ImmArray(contract))
+              .consume(_ => None, pkgs.get, _ => None)
 
-          intermediaryResult shouldBe a[ResultNeedPackage[_]]
-
-          val finalResult = intermediaryResult.consume(_ => None, pkgs.get, _ => None)
-
-          acceptDisclosedContract(finalResult)
+          acceptDisclosedContract(result)
         }
       }
 
       "reject duplicate disclosed contract IDs" in {
         val preprocessor = new preprocessing.Preprocessor(ConcurrentCompiledPackages())
-        val intermediaryResult =
-          preprocessor.preprocessDisclosedContracts(
-            ImmArray(normalizedContract, nonNormalizedContract)
-          )
-
-        intermediaryResult shouldBe a[ResultNeedPackage[_]]
-
-        val finalResult = intermediaryResult.consume(_ => None, pkgs.get, _ => None)
+        val contract1 = buildDisclosedContract(contractId)
+        val contract2 =
+          buildDisclosedContract(contractId, templateId = withKeyTmplId, keyHash = Some(keyHash))
+        val finalResult = preprocessor
+          .preprocessDisclosedContracts(ImmArray(contract1, contract2))
+          .consume(_ => None, pkgs.get, _ => None)
 
         inside(finalResult) {
           case Left(
-                Error.Preprocessing(DuplicateDisclosedContractId(`contractId`, `templateId`))
+                Error.Preprocessing(Error.Preprocessing.DuplicateDisclosedContractId(`contractId`))
               ) =>
             succeed
         }
       }
+
+      "reject duplicate disclosed contract key hash" in {
+        val preprocessor = new preprocessing.Preprocessor(ConcurrentCompiledPackages())
+        val contract1 =
+          buildDisclosedContract(contractId, templateId = withKeyTmplId, keyHash = Some(keyHash))
+        val contractId2 =
+          Value.ContractId.V1.assertBuild(
+            crypto.Hash.hashPrivateKey("another-contract-id"),
+            Bytes.assertFromString("cafe"),
+          )
+        val contract2 =
+          buildDisclosedContract(contractId2, templateId = withKeyTmplId, keyHash = Some(keyHash))
+        val finalResult = preprocessor
+          .preprocessDisclosedContracts(ImmArray(contract1, contract2))
+          .consume(_ => None, pkgs.get, _ => None)
+
+        inside(finalResult) {
+          case Left(
+                Error.Preprocessing(Error.Preprocessing.DuplicateDisclosedContractKey(`keyHash`))
+              ) =>
+            succeed
+        }
+      }
+
+      "reject disclosed contract of a type without key but with a key hash " in {
+        val preprocessor = new preprocessing.Preprocessor(ConcurrentCompiledPackages())
+        val contract =
+          buildDisclosedContract(contractId, templateId = withoutKeyTmplId, keyHash = Some(keyHash))
+        val finalResult = preprocessor
+          .preprocessDisclosedContracts(ImmArray(contract))
+          .consume(_ => None, pkgs.get, _ => None)
+
+        inside(finalResult) {
+          case Left(
+                Error.Preprocessing(
+                  Error.Preprocessing.UnexpectedDisclosedContractKeyHash(
+                    `contractId`,
+                    `withoutKeyTmplId`,
+                    `keyHash`,
+                  )
+                )
+              ) =>
+            succeed
+        }
+      }
+
+      "reject disclosed contract of a type with key but without key hash " in {
+        val preprocessor = new preprocessing.Preprocessor(ConcurrentCompiledPackages())
+        val contract =
+          buildDisclosedContract(contractId, templateId = withKeyTmplId, keyHash = None)
+        val finalResult = preprocessor
+          .preprocessDisclosedContracts(ImmArray(contract))
+          .consume(_ => None, pkgs.get, _ => None)
+
+        inside(finalResult) {
+          case Left(
+                Error.Preprocessing(
+                  Error.Preprocessing
+                    .MissingDisclosedContractKeyHash(`contractId`, `withKeyTmplId`)
+                )
+              ) =>
+            succeed
+        }
+      }
+
     }
   }
 }
@@ -122,19 +185,29 @@ object PreprocessorSpec {
 
   implicit val defaultPackageId: Ref.PackageId = defaultParserParameters.defaultPackageId
 
-  val pkg =
+  lazy val pkg =
     p"""
         module Mod {
 
-          record @serializable Record = { owners: List Party, data : Int64 };
+          record @serializable WithoutKey = { owners: List Party, data : Int64 };
 
-          template (this : Record) = {
+          template (this : WithoutKey) = {
             precondition True;
-            signatories Mod:Record {owners} this;
-            observers Mod:Record {owners} this;
+            signatories Mod:WithoutKey {owners} this;
+            observers Mod:WithoutKey {owners} this;
             agreement "Agreement";
-            key @(List Party) (Mod:Record {owners} this) (\ (parties: List Party) -> parties);
           };
+
+         record @serializable WithKey = { owners: List Party, data : Int64 };
+
+          template (this : WithKey) = {
+            precondition True;
+            signatories Mod:WithKey {owners} this;
+            observers Mod:WithKey {owners} this;
+            agreement "Agreement";
+            key @(List Party) (Mod:WithKey {owners} this) (\ (parties: List Party) -> parties);
+          };
+
 
         }
     """
@@ -147,8 +220,8 @@ object PreprocessorSpec {
       crypto.Hash.hashPrivateKey("test-contract-id"),
       Bytes.assertFromString("deadbeef"),
     )
-  val templateId: Ref.Identifier = Ref.Identifier.assertFromString("-pkgId-:Mod:Record")
-  val templateType: Ref.TypeConName = Ref.TypeConName.assertFromString("-pkgId-:Mod:Record")
+  val withoutKeyTmplId: Ref.TypeConName = Ref.Identifier.assertFromString("-pkgId-:Mod:WithoutKey")
+  val withKeyTmplId: Ref.TypeConName = Ref.Identifier.assertFromString("-pkgId-:Mod:WithKey")
   val key: Value.ValueRecord = Value.ValueRecord(
     None,
     ImmArray(
@@ -156,20 +229,14 @@ object PreprocessorSpec {
       None -> Value.ValueList(FrontStack.from(ImmArray(ValueParty(alice)))),
     ),
   )
-  val keyHash: Hash = crypto.Hash.assertHashContractKey(templateType, key)
-  val normalizedContract: command.DisclosedContract =
-    buildDisclosedContract(keyHash, withNormalization = true, withFieldsReversed = false)
-  val nonNormalizedContract: command.DisclosedContract =
-    buildDisclosedContract(keyHash, withNormalization = false, withFieldsReversed = false)
-  val altNormalizedContract: command.DisclosedContract =
-    buildDisclosedContract(keyHash, withNormalization = true, withFieldsReversed = true)
-  val altNonNormalizedContract: command.DisclosedContract =
-    buildDisclosedContract(keyHash, withNormalization = false, withFieldsReversed = true)
+  val keyHash: Hash = crypto.Hash.assertHashContractKey(withKeyTmplId, key)
 
   def buildDisclosedContract(
-      keyHash: Hash,
-      withNormalization: Boolean,
-      withFieldsReversed: Boolean,
+      contractId: ContractId = contractId,
+      templateId: Ref.TypeConName = withoutKeyTmplId,
+      withNormalization: Boolean = true,
+      withFieldsReversed: Boolean = false,
+      keyHash: Option[Hash] = None,
   ): command.DisclosedContract = {
     val recordFields = ImmArray(
       (if (withNormalization) None else Some(Ref.Name.assertFromString("owners"))) -> parties,
@@ -183,7 +250,7 @@ object PreprocessorSpec {
         if (withNormalization) None else Some(templateId),
         if (withFieldsReversed) recordFields.reverse else recordFields,
       ),
-      ContractMetadata(Time.Timestamp.now(), Some(keyHash), Bytes.Empty),
+      ContractMetadata(Time.Timestamp.now(), keyHash, Bytes.Empty),
     )
   }
 
@@ -202,7 +269,7 @@ object PreprocessorSpec {
     inside(result) { case Right(disclosedContracts) =>
       forAll(disclosedContracts.toList) {
         _.argument match {
-          case SValue.SRecord(`templateId`, fields, values) =>
+          case SValue.SRecord(`withoutKeyTmplId`, fields, values) =>
             fields shouldBe ImmArray(
               Ref.Name.assertFromString("owners"),
               Ref.Name.assertFromString("data"),

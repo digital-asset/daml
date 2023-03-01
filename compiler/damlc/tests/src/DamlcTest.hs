@@ -309,13 +309,14 @@ testsForDamlcTest damlc scriptDar _ = testGroup "damlc test" $
               , "      c <- submit alice $ createCmd T with p = alice"
               , "      submit alice $ exerciseCmd c X"
               ]
-            (exitCode, stdout, _stderr) <-
+            (exitCode, stdout, stderr) <-
               readProcessWithExitCode
                 damlc
                 [ "test"
                 , "--project-root"
                 , dir ]
                 ""
+            stderr @?= ""
             exitCode @?= ExitSuccess
             let out = lines stdout
             assertBool ("test coverage is reported correctly: " <> stdout)
@@ -357,7 +358,7 @@ testsForDamlcTest damlc scriptDar _ = testGroup "damlc test" $
               , "      c <- submit alice $ createCmd T with p = alice"
               , "      submit alice $ exerciseCmd c X"
               ]
-            (exitCode, stdout, _stderr) <-
+            (exitCode, stdout, stderr) <-
               readProcessWithExitCode
                 damlc
                   [ "test"
@@ -365,6 +366,7 @@ testsForDamlcTest damlc scriptDar _ = testGroup "damlc test" $
                   , "--project-root"
                   , dir ]
                   ""
+            stderr @?= ""
             exitCode @?= ExitSuccess
             assertBool
                 ("template creation coverage is reported correctly: " <> stdout)
@@ -871,13 +873,14 @@ testsForDamlcTest damlc scriptDar _ = testGroup "damlc test" $
                   , "  submit a do"
                   , "    exerciseCmd c Catch"
                   ]
-            (exitCode, stdout, _stderr) <-
+            (exitCode, stdout, stderr) <-
               readProcessWithExitCode
                 damlc
                 [ "test"
                 , "--project-root"
                 , dir ]
                 ""
+            stderr @?= ""
             exitCode @?= ExitSuccess
             let out = lines stdout
             out!!3 @?= "./Main.daml:test: ok, 1 active contracts, 3 transactions."

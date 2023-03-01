@@ -1,0 +1,24 @@
+-- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module WithAuthority where
+
+template HaveAuthority
+  with
+    p : Party
+  where
+    signatory p
+
+template T
+  with
+    party1 : Party
+  where
+    signatory party1
+
+    nonconsuming choice GainAuthority: ()
+      with party2 : Party
+      controller party1
+      do
+        withAuthorityOf [party2] $ do
+          create (HaveAuthority party2)
+          pure ()

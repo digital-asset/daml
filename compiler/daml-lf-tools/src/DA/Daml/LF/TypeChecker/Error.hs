@@ -479,7 +479,7 @@ instance Pretty Error where
       "unsupported feature:" <-> pretty featureName
       <-> "only supported in Daml-LF version" <-> pretty featureMinVersion <-> "and later"
     EForbiddenNameCollision name names ->
-      "name collision between " <-> pretty name <-> " and " <-> pretty (T.intercalate ", " names)
+      "name collision between" <-> pretty name <-> "and" <-> pretty (T.intercalate ", " names)
     ESynAppWrongArity DefTypeSyn{synName,synParams} args ->
       vcat ["wrong arity in type synonym application: " <> pretty synName,
             "expected: " <> pretty (length synParams) <> ", found: " <> pretty (length args)]

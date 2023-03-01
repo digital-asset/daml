@@ -67,6 +67,10 @@ private[lf] object Pretty {
           "Update failed due to fetch-by-key or exercise-by-key which did not find a contract with key"
         ) &
           prettyValue(false)(gk.key) & char('(') + prettyIdentifier(gk.templateId) + char(')')
+      case RejectedAuthorityRequest(holding, requesting) =>
+        text("Update failed due to rejected authority request") &
+          text("holding:") & intercalate(comma + space, holding.map(prettyParty)) &
+          text("requesting:") & intercalate(comma + space, requesting.map(prettyParty))
       case ContractKeyNotVisible(coid, gk, actAs, readAs, stakeholders) =>
         text(
           "Update failed due to a fetch, lookup or exercise by key of contract not visible to the reading parties"

@@ -57,6 +57,7 @@ protected[update] object UpdateRequestsPaths {
     val isDeactivated: List[String] = List(FieldNames.IdentityProviderConfig.isDeactivated)
     val jwksUrl: List[String] = List(FieldNames.IdentityProviderConfig.jwksUrl)
     val issuer: List[String] = List(FieldNames.IdentityProviderConfig.issuer)
+    val audience: List[String] = List(FieldNames.IdentityProviderConfig.audience)
     val fullUpdateTrie: UpdatePathsTrie = UpdatePathsTrie
       .fromPaths(
         Seq(
@@ -64,6 +65,7 @@ protected[update] object UpdateRequestsPaths {
           isDeactivated,
           jwksUrl,
           issuer,
+          audience,
         )
       )
       .getOrElse(

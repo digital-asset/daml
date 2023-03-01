@@ -36,7 +36,7 @@ class DropwizardMetricsFactory(val registry: codahale.MetricRegistry) extends Me
       name,
       AsyncGauge(gaugeSupplier),
     )
-    SimpleCloseableGauge(() => discard(registry.remove(name)))
+    SimpleCloseableGauge(name, () => discard(registry.remove(name)))
   }
 
   override def meter(name: MetricName, description: String = "")(implicit

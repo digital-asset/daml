@@ -3,17 +3,22 @@
 
 package com.daml.metrics
 
-import com.daml.metrics.api.MetricDoc.MetricQualification.{Debug, Latency, Saturation, Traffic}
-import com.daml.metrics.api.MetricHandle.{Counter, MetricsFactory, Histogram, Timer}
-import com.daml.metrics.api.dropwizard.DropwizardTimer
+import com.daml.metrics.api.MetricDoc.MetricQualification.{Debug, Saturation, Traffic}
+import com.daml.metrics.api.MetricHandle.{
+  Counter,
+  Histogram,
+  LabeledMetricsFactory,
+  MetricsFactory,
+  Timer,
+}
 import com.daml.metrics.api.{MetricDoc, MetricName}
 
-@MetricDoc.GroupTag(
-  representative = "daml.parallel_indexer.<stage>",
-  groupableClass = classOf[DatabaseMetrics],
-)
-class ParallelIndexerMetrics(prefix: MetricName, factory: MetricsFactory) {
-  val initialization = new DatabaseMetrics(prefix, "initialization", factory)
+class ParallelIndexerMetrics(
+    prefix: MetricName,
+    factory: MetricsFactory,
+    labeledMetricsFactory: LabeledMetricsFactory,
+) {
+  val initialization = new DatabaseMetrics(prefix :+ "initialization", labeledMetricsFactory)
 
   // Number of state updates persisted to the database
   // (after the effect of the corresponding Update is persisted into the database,
@@ -83,20 +88,11 @@ class ParallelIndexerMetrics(prefix: MetricName, factory: MetricsFactory) {
     val duration: Timer = factory.timer(prefix :+ "duration")
   }
 
-  @MetricDoc.Tag(
-    summary = "The time needed to run the SQL query and read the result.",
-    description = """This metric encompasses the time measured by `query` and `commit` metrics.
-                    |Additionally it includes the time needed to obtain the DB connection,
-                    |optionally roll it back and close the connection at the end.""",
-    qualification = Latency,
-  )
-  val ingestionExecForDocs: Timer = DropwizardTimer(prefix :+ "ingestion" :+ "exec", null)
-
   // Ingestion stage
   // Parallel ingestion of prepared data into the database
-  val ingestion = new DatabaseMetrics(prefix, "ingestion", factory)
+  val ingestion = new DatabaseMetrics(prefix :+ "ingestion", labeledMetricsFactory)
 
   // Tail ingestion stage
   // The throttled update of ledger end parameters
-  val tailIngestion = new DatabaseMetrics(prefix, "tail_ingestion", factory)
+  val tailIngestion = new DatabaseMetrics(prefix :+ "tail_ingestion", labeledMetricsFactory)
 }
