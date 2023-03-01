@@ -137,7 +137,7 @@ safetyStep = \case
       BEExpInt64          -> Safe 1
       BEFoldl             -> Safe 2
       BEFoldr             -> Safe 2
-      BEWithAuthority     -> undefined -- TODO https://github.com/digital-asset/daml/issues/15882
+      BEWithAuthority     -> Safe 2 -- not reachable; so "undefined" would suffice
       BETextMapEmpty      -> Safe 0
       BETextMapInsert     -> Safe 3
       BETextMapLookup     -> Safe 2
