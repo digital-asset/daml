@@ -29,9 +29,6 @@ module SemanticsValue where
 
 import Daml.Script
 
--- @TODO Similar to SubmitFail, Script has different submission semantics, breaking this test
--- Convert to Script when possible
-
 template Test
   with
     p : Party
@@ -74,7 +71,7 @@ scriptAndUpdate = script do
 
   pure ()
 
--- @ERROR range=78:1-78:18; Evaluated error without creating
+-- @ERROR range=75:1-75:18; Evaluated error without creating
 commandsAreStrict = script do
   p <- allocateParty "Alice"
   let
