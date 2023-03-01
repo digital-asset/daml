@@ -89,7 +89,8 @@ object Blinding {
     val entries = blindingInfo.disclosure.view.flatMap { case (nodeId, parties) =>
       def toEntries(tyCon: Ref.TypeConName) = parties.view.map(_ -> tyCon.packageId)
       tx.nodes(nodeId) match {
-        case _: Node.Authority => ??? // TODO #15882 -- we are not sure. leave for now
+        case _: Node.Authority =>
+          Iterable.empty
         case action: Node.LeafOnlyAction =>
           toEntries(action.templateId)
         case exe: Node.Exercise =>
