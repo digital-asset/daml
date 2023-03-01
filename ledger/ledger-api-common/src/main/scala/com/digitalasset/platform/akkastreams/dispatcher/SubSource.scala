@@ -10,7 +10,7 @@ import scala.annotation.nowarn
 import scala.concurrent.{ExecutionContext, Future}
 
 /** Defines how the progress on the ledger should be mapped to look-up operations */
-@nowarn("msg=parameter value evidence.* is never used")
+@nowarn("msg=evidence parameter evidence.* is never used")
 sealed abstract class SubSource[Index: Ordering, T]
     extends ((Index, Index) => Source[(Index, T), NotUsed]) {
 

@@ -26,6 +26,7 @@ import com.daml.test.evidence.tag.EvidenceTag
 import com.daml.test.evidence.tag.Security.SecurityTest
 import com.daml.test.evidence.tag.Security.SecurityTest.Property.Privacy
 
+import scala.annotation.nowarn
 import scala.collection.immutable.Seq
 import scala.collection.mutable
 import scala.concurrent.{ExecutionContext, Future}
@@ -520,6 +521,7 @@ class TransactionServiceVisibilityIT extends LedgerTestSuite {
         s"Expected 2 new IOUs created, found: ${newIouList.length}",
       )
 
+      @nowarn("cat=lint-infer-any")
       val newAliceIou = newIouList
         .find(iou => iou.signatories.contains(alice) && iou.signatories.contains(bank))
         .map(_.contractId)
@@ -527,6 +529,7 @@ class TransactionServiceVisibilityIT extends LedgerTestSuite {
           fail(s"Not found an IOU owned by $alice")
         }
 
+      @nowarn("cat=lint-infer-any")
       val newBobIou = newIouList
         .find(iou => iou.signatories.contains(bob) && iou.signatories.contains(bank))
         .map(_.contractId)

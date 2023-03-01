@@ -18,11 +18,12 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 import org.scalacheck.Arbitrary
-import shapeless.{Coproduct => HSum, HNil}
+import shapeless.{HNil, Coproduct => HSum}
 import shapeless.record.{Record => HRecord}
 import spray.json._
 import scalaz.syntax.show._
 
+import scala.annotation.nowarn
 import scala.util.{Success, Try}
 import scala.util.Random.shuffle
 
@@ -259,6 +260,7 @@ class ApiCodecCompressedSpec
 
     val numCodec = ApiCodecCompressed.copy(false, false)
 
+    @nowarn("cat=lint-infer-any")
     val successes = Table(
       ("line#", "serialized", "serializedNumerically", "type", "parsed", "alternates"),
       c(

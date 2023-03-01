@@ -363,7 +363,7 @@ sealed abstract class Queries(tablePrefix: String, tpIdCacheMaxEntries: Long)(im
   ): Query0[DBContract[Mark, JsValue, JsValue, Vector[String]]]
 
   // implementation aid for selectContractsMultiTemplate
-  @nowarn("msg=parameter value evidence.* is never used")
+  @nowarn("msg=evidence parameter evidence.* is never used")
   protected[this] final def queryByCondition[Mark, Key: Read, SigsObs: Read, Agreement: Read](
       queries: NonEmpty[ISeq[(SurrogateTpId, Fragment)]],
       trackMatchIndices: MatchedQueryMarker[Mark],

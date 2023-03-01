@@ -59,10 +59,11 @@ import scalaz.syntax.show._
 import scalaz.syntax.tag._
 import scalaz.syntax.traverse._
 import spray.json._
-
 import java.io.File
 import java.nio.file.Files
 import java.time.Instant
+
+import scala.annotation.nowarn
 import scala.concurrent.duration.{DAYS, FiniteDuration}
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -149,7 +150,7 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
         }
         .fallbackTo(Future.unit)
         .transform(_ => ta)
-    }
+    }: @nowarn("cat=lint-infer-any")
   }
 
   def withLedger[A](

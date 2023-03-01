@@ -40,7 +40,7 @@ final case class Config(
     // Token verification
     tokenVerifier: JwtVerifierBase,
     metricsReporter: Option[MetricsReporter] = None,
-    metricsReportingInterval: FiniteDuration = 10 seconds,
+    metricsReportingInterval: FiniteDuration = 10.seconds,
 ) {
   def validate(): Unit = {
     require(oauthToken != null, "Oauth token value on config cannot be null")
