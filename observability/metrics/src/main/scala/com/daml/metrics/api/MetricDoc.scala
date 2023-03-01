@@ -34,6 +34,11 @@ object MetricDoc {
       labelsWithDescription: Map[String, String] = Map.empty,
   ) extends StaticAnnotation
 
+  // The GroupTag can be defined for metrics that belong in the same class, are used in multiple
+  // places and can be grouped using a wildcard (the representative). The metrics of the class
+  // should be annotated with a Tag.
+  case class GroupTag(representative: String, groupableClass: Class[_]) extends StaticAnnotation
+
   // The FanTag is used to define a documentation entry that will fan out and represent all the
   // metrics that are tagged with a FanInstanceTag and whose name matches the given representative
   // wildcard.
