@@ -3,7 +3,7 @@
 
 package com.daml.lf
 
-//import com.daml.bazeltools.BazelRunfiles
+import com.daml.bazeltools.BazelRunfiles
 import com.daml.lf.archive.UniversalArchiveDecoder
 import com.daml.lf.data.{Ref, ImmArray, Time}
 import com.daml.lf.engine.Engine
@@ -22,8 +22,7 @@ class NodeSeedsTest extends AnyWordSpec with Matchers {
 
   val (mainPkgId, packages) = {
     val packages = UniversalArchiveDecoder.assertReadFile(
-      //     new File(BazelRunfiles.rlocation("daml-lf/engine/Demonstrator.dar"))
-      new File("/tmp/Demonstrator.dar")
+      new File(BazelRunfiles.rlocation("daml-lf/engine/Demonstrator.dar"))
     )
     (packages.main._1, packages.all.toMap)
   }

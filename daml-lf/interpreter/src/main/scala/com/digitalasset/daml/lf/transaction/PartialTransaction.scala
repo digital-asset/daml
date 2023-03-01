@@ -302,6 +302,16 @@ private[speedy] case class PartialTransaction(
     }
   }
 
+  @throws[IllegalArgumentException]
+  private[this] def zipSameLength[X, Y](xs: ImmArray[X], ys: ImmArray[Y]): ImmArray[(X, Y)] = {
+    val n1 = xs.length
+    val n2 = ys.length
+    if (n1 != n2) {
+      throw new IllegalArgumentException(s"sameLengthZip, $n1 /= $n2")
+    }
+    xs.zip(ys)
+  }
+
   /** Finish building a transaction; i.e., try to extract a complete
     *  transaction from the given 'PartialTransaction'. This returns:
     * - a SubmittedTransaction in case of success ;
@@ -319,7 +329,7 @@ private[speedy] case class PartialTransaction(
         CompleteTransaction(
           SubmittedTransaction(TxVersion.asVersionedTransaction(tx)),
           locationInfo(),
-          seeds.zip(actionNodeSeeds.toImmArray),
+          zipSameLength(seeds, actionNodeSeeds.toImmArray),
           contractState.globalKeyInputs.transform((_, v) => v.toKeyMapping),
         )
       case _ =>
@@ -536,13 +546,10 @@ private[speedy] case class PartialTransaction(
       case ec: ExercisesContextInfo =>
         val exerciseNode = makeExNode(ec).copy(children = context.children.toImmArray)
         val nodeId = ec.nodeId
-        val actionNodeSeed = context.nextActionChildSeed
         copy(
           context =
             ec.parent.addActionChild(nodeId, exerciseNode.version min context.minChildVersion),
           nodes = nodes.updated(nodeId, exerciseNode),
-          actionNodeSeeds =
-            actionNodeSeeds :+ actionNodeSeed, // (NC) pushed by 'beginExercises'; why push again?
         )
       case _ =>
         InternalError.runtimeException(
