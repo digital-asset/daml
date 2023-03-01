@@ -51,7 +51,8 @@ class OracleIntTest
 
       val fakeJwt = com.daml.jwt.domain.Jwt("shouldn't matter")
       val fakeLedgerId = LedgerApiDomain.LedgerId("nonsense-ledger-id")
-      val contractIds = Iterator.continually(assertGen(coidGen.map(_.coid))).take(numContracts).toList
+      val contractIds =
+        Iterator.continually(assertGen(coidGen.map(_.coid))).take(numContracts).toList
       val onlyTemplateId = assertGen(idGen)
       val onlyDomainTemplateId = domain.TemplateId(
         onlyTemplateId.packageId,
@@ -72,13 +73,15 @@ class OracleIntTest
             ),
           )
         ) { case Right(lav1.value.Value(lav1.value.Value.Sum.Record(rec))) => rec }
-        val contracts = contractIds.map(cid => CreatedEvent(
-          "",
-          cid,
-          Some(apiIdentifier(onlyTemplateId)),
-          None,
-          Some(onlyPayload),
-        ))
+        val contracts = contractIds.map(cid =>
+          CreatedEvent(
+            "",
+            cid,
+            Some(apiIdentifier(onlyTemplateId)),
+            None,
+            Some(onlyPayload),
+          )
+        )
 
         Source.fromIterator { () =>
           Seq(
@@ -114,23 +117,25 @@ class OracleIntTest
           if (deliverEverything) Source.fromIterator { () =>
             import lav1.event.{ArchivedEvent, Event}
             import lav1.transaction.{Transaction => Tx}
-            Iterator.range(0, numContracts).map(i =>
-              Tx(
-                events = Seq(
-                  Event(
-                    Event.Event.Archived(
-                      ArchivedEvent(
-                        "",
-                        contractIds(i),
-                        Some(apiIdentifier(onlyTemplateId)),
-                        Seq(onlyStakeholder),
+            Iterator
+              .range(0, numContracts)
+              .map(i =>
+                Tx(
+                  events = Seq(
+                    Event(
+                      Event.Event.Archived(
+                        ArchivedEvent(
+                          "",
+                          contractIds(i),
+                          Some(apiIdentifier(onlyTemplateId)),
+                          Seq(onlyStakeholder),
+                        )
                       )
                     )
-                  )
-                ),
-                offset = padOffset(i.toString + numContracts.toString),
+                  ),
+                  offset = padOffset(i.toString + numContracts.toString),
+                )
               )
-            )
           }
           else Source.empty
         },
