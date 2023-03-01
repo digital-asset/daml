@@ -43,11 +43,15 @@ class OracleIntTest
       import lav1.event.CreatedEvent
       import lav1.active_contracts_service.{GetActiveContractsResponse => GACR}
 
-      val offsetBetweenSetupAndRuns = "B"
-      val laterEndOffset = "D"
+      val numContracts = 1000
+      val padOffset = (s: String) => s.reverse.padTo(10, '0').reverse
+
+      val offsetBetweenSetupAndRuns = padOffset(numContracts.toString)
+      val laterEndOffset = padOffset(numContracts.toString + numContracts.toString)
+
       val fakeJwt = com.daml.jwt.domain.Jwt("shouldn't matter")
       val fakeLedgerId = LedgerApiDomain.LedgerId("nonsense-ledger-id")
-      val onlyContractId = assertGen(coidGen.map(_.coid))
+      val contractIds = Iterator.continually(assertGen(coidGen.map(_.coid))).take(numContracts).toList
       val onlyTemplateId = assertGen(idGen)
       val onlyDomainTemplateId = domain.TemplateId(
         onlyTemplateId.packageId,
@@ -68,17 +72,17 @@ class OracleIntTest
             ),
           )
         ) { case Right(lav1.value.Value(lav1.value.Value.Sum.Record(rec))) => rec }
-        val onlyContract =
-          CreatedEvent(
-            "",
-            onlyContractId,
-            Some(apiIdentifier(onlyTemplateId)),
-            None,
-            Some(onlyPayload),
-          )
+        val contracts = contractIds.map(cid => CreatedEvent(
+          "",
+          cid,
+          Some(apiIdentifier(onlyTemplateId)),
+          None,
+          Some(onlyPayload),
+        ))
+
         Source.fromIterator { () =>
           Seq(
-            GACR("", "", Seq(onlyContract)),
+            GACR("", "", contracts.toSeq),
             GACR(offsetBetweenSetupAndRuns, "", Seq.empty),
           ).iterator
         }
@@ -110,23 +114,23 @@ class OracleIntTest
           if (deliverEverything) Source.fromIterator { () =>
             import lav1.event.{ArchivedEvent, Event}
             import lav1.transaction.{Transaction => Tx}
-            Seq(
+            Iterator.range(0, numContracts).map(i =>
               Tx(
                 events = Seq(
                   Event(
                     Event.Event.Archived(
                       ArchivedEvent(
                         "",
-                        onlyContractId,
+                        contractIds(i),
                         Some(apiIdentifier(onlyTemplateId)),
                         Seq(onlyStakeholder),
                       )
                     )
                   )
                 ),
-                offset = laterEndOffset,
+                offset = padOffset(i.toString + numContracts.toString),
               )
-            ).iterator
+            )
           }
           else Source.empty
         },
@@ -164,7 +168,7 @@ class OracleIntTest
           _ <- Future.traverse(1 to 16) { _ =>
             runAFetch(fetchAfterwards, laterEndOffset)
           }
-        } yield succeed
+        } yield fail()
       }
     }
   }
