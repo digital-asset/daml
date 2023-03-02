@@ -1,14 +1,19 @@
 -- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
+{-# LANGUAGE ApplicativeDo #-}
 
 module Setup where
 
+import Daml.Script
+
 import Bond
 import Cash
+import Dvp
 import Helper
 
 import DA.Date
+import DA.Foldable
 
 data MarketSetupEntry = MarketSetupEntry
   with
@@ -76,46 +81,46 @@ template HelperSetupJob
       controller party
       do create Helper with party
 
-marketSetupEntryExample party = do
-  party1 <- getParty party
+marketSetupEntryExample party = script do
+  party1 <- allocateParty party
   return MarketSetupEntry with
     party = party1
     bondEntries = [ BondEntry with isin = "1234"; amount = 100.0 ]
     cashEntries = [ CashEntry with currency = "USD"; amount = 100.0 ]
 
-marketSetupJobExample = do
-  acme <- getParty "Acme Bank"
+marketSetupJobExample acme = script do
   entries <- mapA marketSetupEntryExample ["party1", "party2", "party3", "party4", "party5"]
   return MarketSetupJob with
     issuer = acme
     entries
 
 
-setupExample = scenario do
-    passToDate $ date 2018 May 14
+setupExample = script do
+    setDate 2018 May 14
 
-    acme <- getParty "Acme Bank"
+    acme <- allocateParty "Acme Bank"
 
-    job <- marketSetupJobExample
-    submit acme do create job
+    job <- marketSetupJobExample acme
+    submit acme do createCmd job
 
     return ()
 
-setupExampleFull = scenario do
-    acme <- getParty "Acme Bank"
+setupExampleFull = script do
+    acme <- allocateParty "Acme Bank"
 
-    passToDate $ date 2018 May 14
+    setDate 2018 May 14
 
-    job <- marketSetupJobExample
-    jobCid <- submit acme do create job
+    job <- marketSetupJobExample acme
+    jobCid <- acme `submit` createCmd job
 
-    rs <- submit acme do exercise jobCid Process
+    rs <- acme `submit` exerciseCmd jobCid Process
 
     forA rs $ \r -> submit r.party do
-      exercise r.helperCid Process2
-      forA r.bondCids $ (flip exercise) Bond.Accept
-      forA r.cashCids $ (flip exercise) Cash.Accept
+      exerciseCmd r.helperCid Process2
+      forA_ r.bondCids $ (flip exerciseCmd) Bond.Accept
+      forA_ r.cashCids $ (flip exerciseCmd) Cash.Accept
+      pure ()
 
 
-main = scenario do
+main = script do
     setupExampleFull

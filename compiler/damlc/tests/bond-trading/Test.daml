@@ -2,10 +2,12 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 -- Check that the interning tables don't contain duplicates:
--- @QUERY-LF .interned_strings // [] | (unique | length == length)
--- @QUERY-LF .interned_dotted_names // [] | (unique | length == length)
+--- @QUERY-LF .interned_strings // [] | (unique | length == length)
+--- @QUERY-LF .interned_dotted_names // [] | (unique | length == length)
 
 module Test where
+
+import Daml.Script
 
 import Bond qualified
 import Cash qualified
@@ -13,11 +15,9 @@ import Dvp qualified
 import Helper qualified
 import Setup qualified
 
-main = scenario do
+main = script do
   Bond.main
   Cash.main
-  Setup.main
   Dvp.main
   Helper.main
-
--- @ENABLE-SCENARIOS
+  Setup.main

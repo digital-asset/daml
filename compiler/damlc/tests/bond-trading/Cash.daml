@@ -4,6 +4,9 @@
 
 module Cash where
 
+import Daml.Script
+
+import DA.Assert
 import DA.Optional
 import DA.Time
 
@@ -36,7 +39,7 @@ template Cash
 
     choice TransferToLocker : CashId
       controller owner
-      do assert $ locker /= owner
+      do locker =/= owner
          create this with owner = locker; lockMaturity = None
 
     choice Split : (CashId, CashId)
@@ -52,7 +55,7 @@ template Cash
       do assertUnlocked this
          c <- fetch otherCid
          assertUnlocked c
-         assert $ this == c with amount
+         this === c with amount
          exercise otherCid Archive
          create this with amount = amount + c.amount
 
@@ -112,82 +115,80 @@ template CashTransferRequest
 cashSplitMay : Party -> CashId -> Decimal -> Update (CashId, Optional CashId)
 cashSplitMay owner cashCid splitAmount = do
   cash <- fetch cashCid
-  assert $ cash.owner == owner
+  cash.owner === owner
   if cash.amount == splitAmount
     then return (cashCid, None)
     else do
       r <- exercise cashCid Split with splitAmount
       return (fst r, Some $ snd r)
 
-main = scenario do
-  acmeBank <- getParty "AcmeBank"
-  alice <- getParty "Alice"
-  bob <- getParty "Bob"
+main : Script ()
+main = script do
+  acmeBank <- allocateParty "AcmeBank"
+  alice <- allocateParty "Alice"
+  bob <- allocateParty "Bob"
 
-  today <- pass $ days 0
-
-  cashAlice1Cid <-
-    submit acmeBank do create CashTransferRequest with
-                              issuer = acmeBank
-                              owner = acmeBank
-                              receiver = alice
-                              currency = "USD"
-                              amount = 100.0
-                              locker = acmeBank
-                              lockMaturity = None
+  today <- getTime
 
   cashAlice1Cid <-
-    submit alice do exercise cashAlice1Cid Accept
+    acmeBank `submit` createCmd 
+      CashTransferRequest with
+        issuer = acmeBank
+        owner = acmeBank
+        receiver = alice
+        currency = "USD"
+        amount = 100.0
+        locker = acmeBank
+        lockMaturity = None
+
+  cashAlice1Cid <- alice `submit` exerciseCmd cashAlice1Cid Accept
 
   cashBob1Cid <-
-    submit acmeBank do create CashTransferRequest with
-                              issuer = acmeBank
-                              owner = acmeBank
-                              receiver = bob
-                              currency = "USD"
-                              amount = 20.0
-                              locker = acmeBank
-                              lockMaturity = None
+    acmeBank `submit` createCmd
+      CashTransferRequest with
+        issuer = acmeBank
+        owner = acmeBank
+        receiver = bob
+        currency = "USD"
+        amount = 20.0
+        locker = acmeBank
+        lockMaturity = None
 
   cashBob1Cid <-
-    submit bob do exercise cashBob1Cid Accept
+    bob `submit` exerciseCmd cashBob1Cid Accept
 
   (cashAlice1Cid, cashAlice2Cid) <-
-    submit alice do exercise cashAlice1Cid Split with splitAmount = 30.0
+    alice `submit` exerciseCmd cashAlice1Cid Split with splitAmount = 30.0
 
   cashBob2Cid <-
-    submit alice do exercise cashAlice1Cid Transfer with newOwner = bob
+    alice `submit` exerciseCmd cashAlice1Cid Transfer with newOwner = bob
 
   cashBob2Cid <-
-    submit bob do exercise cashBob2Cid Accept
+    bob `submit` exerciseCmd cashBob2Cid Accept
 
   cashBob2Cid <-
-    submit bob do exercise cashBob1Cid Merge with otherCid = cashBob2Cid
+    bob `submit` exerciseCmd cashBob1Cid Merge with otherCid = cashBob2Cid
 
-  submit alice do
-    c <- fetch cashAlice2Cid
-    assertMsg "unexpected issuer" $ c.issuer == acmeBank
-    assertMsg "unexpected owner" $ c.owner == alice
-    assertMsg "unexpected currency" $ c.currency == "USD"
-    assertMsg "unexpected amount" $ c.amount == 70.0
+  Some cashAlice2 <- queryContractId alice cashAlice2Cid
+  assertMsg "unexpected issuer" $ cashAlice2.issuer == acmeBank
+  assertMsg "unexpected owner" $ cashAlice2.owner == alice
+  assertMsg "unexpected currency" $ cashAlice2.currency == "USD"
+  assertMsg "unexpected amount" $ cashAlice2.amount == 70.0
 
-  submit bob do
-    c <- fetch cashBob2Cid
-    assertMsg "unexpected issuer" $ c.issuer == acmeBank
-    assertMsg "unexpected owner" $ c.owner == bob
-    assertMsg "unexpected currency" $ c.currency == "USD"
-    assertMsg "unexpected amount" $ c.amount == 50.0
+  Some cashBob2 <- queryContractId bob cashBob2Cid
+  assertMsg "unexpected issuer" $ cashBob2.issuer == acmeBank
+  assertMsg "unexpected owner" $ cashBob2.owner == bob
+  assertMsg "unexpected currency" $ cashBob2.currency == "USD"
+  assertMsg "unexpected amount" $ cashBob2.amount == 50.0
 
-  lid <- submit alice do create LockPoA with locker = alice; issuer = acmeBank; owner = bob
+  lid <- alice `submit` createCmd LockPoA with locker = alice; issuer = acmeBank; owner = bob
 
-  lockedCash <- submit bob do exercise cashBob2Cid Lock with lid; _lockMaturity = addRelTime today (days 1)
+  lockedCash <- bob `submit` exerciseCmd cashBob2Cid Lock with lid; _lockMaturity = addRelTime today (days 1)
 
-  cashAlice3Cid <- submit bob do exercise lockedCash TransferToLocker
+  cashAlice3Cid <- bob `submit` exerciseCmd lockedCash TransferToLocker
 
-  submit alice do
-    c <- fetch cashAlice3Cid
-    assertMsg "unexpected issuer" $ c.issuer == acmeBank
-    assertMsg "unexpected owner" $ c.owner == alice
-    assertMsg "unexpected currency" $ c.currency == "USD"
-    assertMsg "unexpected amount" $ c.amount == 50.0
-
+  Some cashAlice3 <- queryContractId alice cashAlice3Cid
+  assertMsg "unexpected issuer" $ cashAlice3.issuer == acmeBank
+  assertMsg "unexpected owner" $ cashAlice3.owner == alice
+  assertMsg "unexpected currency" $ cashAlice3.currency == "USD"
+  assertMsg "unexpected amount" $ cashAlice3.amount == 50.0
