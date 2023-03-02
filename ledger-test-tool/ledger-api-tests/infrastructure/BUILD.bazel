@@ -7,7 +7,7 @@ load(
     "lf_version_configuration",
     "lf_version_configuration_versions",
 )
-load("//ledger/ledger-api-tests:conformance.bzl", "testtool_lf_versions")
+load("//ledger-test-tool/ledger-api-tests:conformance.bzl", "testtool_lf_versions")
 
 [
     da_scala_library(
