@@ -123,25 +123,23 @@ class OracleIntTest
           if (deliverEverything) Source.fromIterator { () =>
             import lav1.event.{ArchivedEvent, Event}
             import lav1.transaction.{Transaction => Tx}
-            Iterator
-              .range(0, numContracts)
-              .map(i =>
-                Tx(
-                  events = Seq(
-                    Event(
-                      Event.Event.Archived(
-                        ArchivedEvent(
-                          "",
-                          contractIds(i),
-                          Some(apiIdentifier(onlyTemplateId)),
-                          Seq(onlyStakeholder),
-                        )
+            contractIds.view.zipWithIndex.map { case (cid, i) =>
+              Tx(
+                events = Seq(
+                  Event(
+                    Event.Event.Archived(
+                      ArchivedEvent(
+                        "",
+                        cid,
+                        Some(apiIdentifier(onlyTemplateId)),
+                        Seq(onlyStakeholder),
                       )
                     )
-                  ),
-                  offset = padOffset(i.toString + numContracts.toString),
-                )
+                  )
+                ),
+                offset = padOffset(i.toString + numContracts.toString),
               )
+            }.iterator
           }
           else Source.empty
         },
