@@ -900,7 +900,7 @@ private final class OracleQueries(
   protected[this] override def toDBContractKey[CK: JsonWriter](x: CK): DBContractKey =
     JsObject(Map("key" -> x.toJson))
 
-  override def allowDamlTransactionBatching = true
+  override def allowDamlTransactionBatching = false
 
   protected[this] override def primInsertContracts[F[_]: cats.Foldable: Functor](
       dbcs: F[DBContract[SurrogateTpId, DBContractKey, JsValue, Array[String]]]
