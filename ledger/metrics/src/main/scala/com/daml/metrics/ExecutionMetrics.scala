@@ -4,10 +4,21 @@
 package com.daml.metrics
 
 import com.daml.metrics.api.MetricDoc.MetricQualification.Debug
-import com.daml.metrics.api.MetricHandle.{Counter, MetricsFactory, Histogram, Meter, Timer}
+import com.daml.metrics.api.MetricHandle.{
+  Counter,
+  Histogram,
+  LabeledMetricsFactory,
+  Meter,
+  MetricsFactory,
+  Timer,
+}
 import com.daml.metrics.api.{MetricDoc, MetricName}
 
-class ExecutionMetrics(val prefix: MetricName, val factory: MetricsFactory) {
+class ExecutionMetrics(
+    prefix: MetricName,
+    factory: MetricsFactory,
+    labeledMetricsFactory: LabeledMetricsFactory,
+) {
 
   @MetricDoc.Tag(
     summary = "The time to lookup individual active contracts during interpretation.",
@@ -116,15 +127,11 @@ class ExecutionMetrics(val prefix: MetricName, val factory: MetricsFactory) {
   )
   val engineRunning: Counter = factory.counter(prefix :+ "engine_running")
 
-  @MetricDoc.GroupTag(
-    representative = "daml.execution.cache.<state_cache>",
-    groupableClass = classOf[CacheMetrics],
-  )
   object cache {
     val prefix: MetricName = ExecutionMetrics.this.prefix :+ "cache"
 
     object keyState {
-      val stateCache: CacheMetrics = new CacheMetrics(prefix :+ "key_state", factory)
+      val stateCache: CacheMetrics = new CacheMetrics(prefix :+ "key_state", labeledMetricsFactory)
 
       @MetricDoc.Tag(
         summary = "The time spent to update the cache.",
@@ -137,7 +144,8 @@ class ExecutionMetrics(val prefix: MetricName, val factory: MetricsFactory) {
     }
 
     object contractState {
-      val stateCache: CacheMetrics = new CacheMetrics(prefix :+ "contract_state", factory)
+      val stateCache: CacheMetrics =
+        new CacheMetrics(prefix :+ "contract_state", labeledMetricsFactory)
 
       @MetricDoc.Tag(
         summary = "The time spent to update the cache.",

@@ -39,7 +39,7 @@ class HttpJsonApiMetrics(
   }
 
   val surrogateTemplateIdCache =
-    new CacheMetrics(prefix :+ "surrogate_tpid_cache", defaultMetricsFactory)
+    new CacheMetrics(prefix :+ "surrogate_tpid_cache", labeledMetricsFactory)
 
   // Meters how long parsing and decoding of an incoming json payload takes
   val incomingJsonParsingAndValidationTimer: Timer =
