@@ -23,6 +23,7 @@ import org.scalactic.source
 import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
 import scala.concurrent.Future
+import scala.util.Random.shuffle
 
 @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
 class OracleIntTest
@@ -52,7 +53,11 @@ class OracleIntTest
       val fakeJwt = com.daml.jwt.domain.Jwt("shouldn't matter")
       val fakeLedgerId = LedgerApiDomain.LedgerId("nonsense-ledger-id")
       val contractIds =
-        assertGen(Gen.containerOfN[Set, String](numContracts, coidGen.map(_.coid)).map(_.toSeq))
+        assertGen(
+          Gen
+            .containerOfN[Set, String](numContracts, coidGen.map(_.coid))
+            .map(ids => shuffle(ids.toSeq))
+        )
       contractIds should have size numContracts.toLong
       val onlyTemplateId = assertGen(idGen)
       val onlyDomainTemplateId = domain.TemplateId(
