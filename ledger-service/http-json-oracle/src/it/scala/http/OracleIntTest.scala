@@ -179,7 +179,7 @@ class OracleIntTest
           _ <- Future.traverse(1 to 16) { _ =>
             runAFetch(fetchAfterwards, laterEndOffset)
           }
-        } yield fail()
+        } yield fail("got to end successfully")
       }
     }
   }
