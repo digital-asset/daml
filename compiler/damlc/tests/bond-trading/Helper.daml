@@ -4,11 +4,14 @@
 
 module Helper where
 
+import Daml.Script
+
 import Bond
 import Cash
 import Dvp
 import DvpTerms
 
+import DA.Assert
 import DA.Action
 import DA.Date
 
@@ -68,15 +71,15 @@ template Helper
          bondCid <- foldl1A (\cid otherCid -> exercise cid Bond.Merge with otherCid) bondCids
          foldrA settleDvp (HandleBondResult with restCid = Some bondCid; settleResults = []) dvpAllocatedCids
 
-main = scenario do
-  acmeBank <- getParty "Acme Bank"
-  alice <- getParty "Alice"
-  bob <- getParty "Bob"
+main = script do
+  acmeBank <- allocateParty "Acme Bank"
+  alice <- allocateParty "Alice"
+  bob <- allocateParty "Bob"
 
-  _ <- passToDate $ date 2018 May 14
+  setDate 2018 May 14
 
-  cashAlice1Cid <- submit acmeBank do
-    create CashTransferRequest with
+  cashAlice1Cid <- acmeBank `submit` createCmd
+    CashTransferRequest with
       issuer = acmeBank
       owner = acmeBank
       receiver = alice
@@ -85,8 +88,8 @@ main = scenario do
       locker = acmeBank
       lockMaturity = None
 
-  cashAlice2Cid <- submit acmeBank do
-    create CashTransferRequest with
+  cashAlice2Cid <- acmeBank `submit` createCmd
+    CashTransferRequest with
       issuer = acmeBank
       owner = acmeBank
       receiver = alice
@@ -95,30 +98,30 @@ main = scenario do
       locker = acmeBank
       lockMaturity = None
 
-  cashAlice1Cid <- submit alice do exercise cashAlice1Cid Cash.Accept
-  cashAlice2Cid <- submit alice do exercise cashAlice2Cid Cash.Accept
+  cashAlice1Cid <- alice `submit` exerciseCmd cashAlice1Cid Cash.Accept
+  cashAlice2Cid <- alice `submit` exerciseCmd cashAlice2Cid Cash.Accept
 
-  bondBob1Cid <- submit acmeBank do
-    create BondTransferRequest with
+  bondBob1Cid <- acmeBank `submit` createCmd
+    BondTransferRequest with
       issuer = acmeBank
       owner = acmeBank
       newOwner = bob
       isin = "1234"
       amount = 60.0
 
-  bondBob2Cid <- submit acmeBank do
-    create BondTransferRequest with
+  bondBob2Cid <- acmeBank `submit` createCmd
+    BondTransferRequest with
       issuer = acmeBank
       owner = acmeBank
       newOwner = bob
       isin = "1234"
       amount = 40.0
 
-  bondBob1Cid <- submit bob do exercise bondBob1Cid Bond.Accept
-  bondBob2Cid <- submit bob do exercise bondBob2Cid Bond.Accept
+  bondBob1Cid <- bob `submit` exerciseCmd bondBob1Cid Bond.Accept
+  bondBob2Cid <- bob `submit` exerciseCmd bondBob2Cid Bond.Accept
 
-  dvp1Cid <- submit alice do
-    create DvpProposal with
+  dvp1Cid <- alice `submit` createCmd
+    DvpProposal with
       c = DvpTerms with
         buyer = alice
         seller = bob
@@ -131,8 +134,8 @@ main = scenario do
         settleTime = datetime 2018 May 16 0 0 0
         dvpId = "abc"
 
-  dvp2Cid <- submit alice do
-    create DvpProposal with
+  dvp2Cid <- alice `submit` createCmd
+    DvpProposal with
       c = DvpTerms with
         buyer = alice
         seller = bob
@@ -145,60 +148,56 @@ main = scenario do
         settleTime = datetime 2018 May 16 0 0 0
         dvpId = "abc"
 
-  dvp1Cid <- submit bob do exercise dvp1Cid Dvp.Accept
-  dvp2Cid <- submit bob do exercise dvp2Cid Dvp.Accept
+  dvp1Cid <- bob `submit` exerciseCmd dvp1Cid Dvp.Accept
+  dvp2Cid <- bob `submit` exerciseCmd dvp2Cid Dvp.Accept
 
-  helperAliceCid <- submit alice do create Helper with party = alice
-  helperBobCid <- submit bob do create Helper with party = bob
+  helperAliceCid <- alice `submit` createCmd Helper with party = alice
+  helperBobCid <- bob `submit` createCmd Helper with party = bob
 
-  passToDate $ date 2018 May 16
+  setDate 2018 May 16
 
-  r <- submit alice do
-      exercise helperAliceCid HandleCash with
-          cashCids = [ cashAlice1Cid, cashAlice2Cid ]
-          dvpCids = [ dvp1Cid, dvp2Cid ]
+  r <- alice `submit` exerciseCmd helperAliceCid
+    HandleCash with
+      cashCids = [ cashAlice1Cid, cashAlice2Cid ]
+      dvpCids = [ dvp1Cid, dvp2Cid ]
 
-  submit alice do
-      c <- optional (fail "unexpected rest") fetch r.restCid
-      assert $ c.issuer == acmeBank
-      assert $ c.owner == alice
-      assert $ c.currency == "USD"
-      assert $ c.amount == 30.0
+  Some rest <- optional (fail "unexpected rest") (queryContractId alice) r.restCid
+  rest.issuer === acmeBank
+  rest.owner === alice
+  rest.currency === "USD"
+  rest.amount === 30.0
 
-  r <- submit bob do
-      exercise helperBobCid HandleBond with
-          bondCids = [ bondBob1Cid, bondBob2Cid ]
-          dvpAllocatedCids = r.dvpAllocatedCids
+  r <- bob `submit` exerciseCmd helperBobCid
+    HandleBond with
+      bondCids = [ bondBob1Cid, bondBob2Cid ]
+      dvpAllocatedCids = r.dvpAllocatedCids
 
-  submit bob do
-    c <- optional (fail "unexpected rest") fetch r.restCid
-    assert $ c.issuer == acmeBank
-    assert $ c.owner == bob
-    assert $ c.isin == "1234"
-    assert $ c.amount == 30.0
+  Some rest <- optional (fail "unexpected rest") (queryContractId bob) r.restCid
+  rest.issuer === acmeBank
+  rest.owner === bob
+  rest.isin === "1234"
+  rest.amount === 30.0
 
   let settleResults = r.settleResults
 
-  r <- submit alice do
-      exercise helperAliceCid HandleBond with
-        bondCids = map (\r -> r.bondCid) settleResults
-        dvpAllocatedCids = []
+  r <- alice `submit` exerciseCmd helperAliceCid
+    HandleBond with
+      bondCids = map (\r -> r.bondCid) settleResults
+      dvpAllocatedCids = []
 
-  submit alice do
-    c <- optional (fail "unexpected rest") fetch r.restCid
-    assert $ c.issuer == acmeBank
-    assert $ c.owner == alice
-    assert $ c.isin == "1234"
-    assert $ c.amount == 70.0
+  Some rest <- optional (fail "unexpected rest") (queryContractId alice) r.restCid
+  rest.issuer === acmeBank
+  rest.owner === alice
+  rest.isin === "1234"
+  rest.amount === 70.0
 
-  r <- submit bob do
-      exercise helperBobCid HandleCash with
-        cashCids = map (\r -> r.cashCid) settleResults
-        dvpCids = []
+  r <- bob `submit` exerciseCmd helperBobCid
+    HandleCash with
+      cashCids = map (\r -> r.cashCid) settleResults
+      dvpCids = []
 
-  submit bob do
-    c <- optional (fail "unexpected rest") fetch r.restCid
-    assert $ c.issuer == acmeBank
-    assert $ c.owner == bob
-    assert $ c.currency == "USD"
-    assert $ c.amount == 70.0
+  Some rest <- optional (fail "unexpected rest") (queryContractId bob) r.restCid
+  rest.issuer === acmeBank
+  rest.owner === bob
+  rest.currency === "USD"
+  rest.amount === 70.0
