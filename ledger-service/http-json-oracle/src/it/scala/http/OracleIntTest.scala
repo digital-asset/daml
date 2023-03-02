@@ -131,7 +131,8 @@ class OracleIntTest
           if (deliverEverything) Source.fromIterator { () =>
             import lav1.event.{ArchivedEvent, Event}
             import lav1.transaction.{Transaction => Tx}
-            contractIds.view.zipWithIndex.map { case (cid, i) =>
+            // TODO #16403 remove this shuffle; it invalidates the test
+            shuffle(contractIds).view.zipWithIndex.map { case (cid, i) =>
               Tx(
                 events = Seq(
                   Event(
