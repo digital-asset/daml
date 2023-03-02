@@ -48,7 +48,7 @@ import Data.IORef
 import Data.Proxy
 import           Development.IDE.Types.Diagnostics
 import           Data.Maybe
-import           Development.Shake hiding (cmd, withResource, withTempDir)
+import           Development.Shake hiding (cmd, withResource, withTempDir, doesFileExist)
 import           System.Directory.Extra
 import           System.Environment.Blank (setEnv)
 import           System.FilePath
@@ -326,17 +326,21 @@ testCase version getService outdir registerTODO (name, file, anns) = singleTest 
 runJqQuery :: (String -> IO ()) -> FilePath -> FilePath -> [String] -> IO [Maybe String]
 runJqQuery log outdir file qs = do
   let proj = takeBaseName file
-  forM qs $ \q -> do
-    log $ "running jq query: " ++ q
-    let jqKey = "external" </> "jq_dev_env" </> "bin" </> if isWindows then "jq.exe" else "jq"
-    jq <- locateRunfiles $ mainWorkspace </> jqKey
-    queryLfDir <- locateRunfiles $ mainWorkspace </> "compiler/damlc/tests/src"
-    let fullQuery = "import \"./query-lf\" as lf; . as $pkg | " ++ q
-    out <- readProcess jq ["-L", queryLfDir, fullQuery, outdir </> proj <.> "json"] ""
-    case trim out of
-      "true" -> pure Nothing
-      other -> pure $ Just $ "jq query failed: got " ++ other
-
+      jsonPath = outdir </> proj <.> "json"
+  jsonFileExists <- doesFileExist jsonPath
+  if jsonFileExists then
+    forM qs $ \q -> do
+      log $ "running jq query: " ++ q
+      let jqKey = "external" </> "jq_dev_env" </> "bin" </> if isWindows then "jq.exe" else "jq"
+      jq <- locateRunfiles $ mainWorkspace </> jqKey
+      queryLfDir <- locateRunfiles $ mainWorkspace </> "compiler/damlc/tests/src"
+      let fullQuery = "import \"./query-lf\" as lf; . as $pkg | " ++ q
+      out <- readProcess jq ["-L", queryLfDir, fullQuery, jsonPath] ""
+      case trim out of
+        "true" -> pure Nothing
+        other -> pure $ Just $ "jq query failed: got " ++ other
+  else
+    [Just "Couldn't run jq"] <$ when (not $ null qs) (log $ "jq query failed: " ++ show (length qs) ++ " queries failed to run as test errored")
 
 data DiagnosticField
   = DFilePath !FilePath
