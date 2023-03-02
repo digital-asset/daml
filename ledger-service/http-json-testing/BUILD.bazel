@@ -28,6 +28,7 @@ hj_scalacopts = lf_scalacopts + [
             "@maven//:org_scalactic_scalactic",
             "@maven//:org_scalatest_scalatest_core",
             "@maven//:org_scalatest_scalatest_matchers_core",
+            "@maven//:org_tpolecat_doobie_core",
             "@maven//:org_typelevel_cats_effect",
         ],
         scalacopts = hj_scalacopts,

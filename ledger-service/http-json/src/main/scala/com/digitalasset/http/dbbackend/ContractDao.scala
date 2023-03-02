@@ -40,12 +40,14 @@ class ContractDao private (
     ds: DataSource with Closeable,
     xa: ConnectionPool.T,
     dbAccessPool: ExecutorService,
+    // only for testing
+    setupLogHandler: log.LogHandler => log.LogHandler,
 )(implicit
     val jdbcDriver: SupportedJdbcDriver.TC
 ) extends Closeable {
 
   private val logger = LoggerFactory.getLogger(classOf[ContractDao])
-  implicit val logHandler: log.LogHandler = Slf4jLogHandler(logger)
+  implicit val logHandler: log.LogHandler = setupLogHandler(Slf4jLogHandler(logger))
 
   def transact[A](query: ConnectionIO[A]): IO[A] =
     query.transact(xa)
@@ -92,6 +94,7 @@ object ContractDao {
   def apply(
       cfg: JdbcConfig,
       tpIdCacheMaxEntries: Option[Long] = None,
+      setupLogHandler: log.LogHandler => log.LogHandler = identity,
   )(implicit
       ec: ExecutionContext,
       metrics: Metrics,
@@ -110,7 +113,7 @@ object ContractDao {
       val es = Executors.newWorkStealingPool(cfg.baseConfig.poolSize)
       val (ds, conn) =
         ConnectionPool.connect(cfg.baseConfig)(ExecutionContext.fromExecutor(es), cs)
-      new ContractDao(ds, conn, es)
+      new ContractDao(ds, conn, es, setupLogHandler)
     }
     setup.fold(msg => throw new IllegalArgumentException(msg), identity)
   }
