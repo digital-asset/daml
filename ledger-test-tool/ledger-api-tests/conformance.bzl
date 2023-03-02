@@ -41,7 +41,7 @@ def conformance_test(
                 runner = runner,
                 runner_args = ["%s" % port for port in ports] + extra_runner_args,
                 timeout = "long",
-                client = "//ledger/ledger-api-tests/tool:tool-%s" % lf_version,
+                client = "//ledger-test-tool/ledger-api-tests/tool:tool-%s" % lf_version,
                 client_args = test_tool_args + ["localhost:%s" % port for port in ports],
                 data = extra_data + hocon_data,
                 server = server,

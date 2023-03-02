@@ -27,10 +27,10 @@ da_scala_test(
     deps = [
         "//daml-lf/data",
         "//ledger-api/grpc-definitions:ledger_api_proto_scala",
+        "//ledger-test-tool/ledger-api-tests/infrastructure",
+        "//ledger-test-tool/ledger-api-tests/suites",
         "//ledger/caching",
         "//ledger/ledger-api-common",
-        "//ledger/ledger-api-tests/infrastructure",
-        "//ledger/ledger-api-tests/suites",
         "//ledger/ledger-configuration",
         "//ledger/participant-integration-api",
         "//libs-scala/doobie-slf4j",
