@@ -52,7 +52,8 @@ class OracleIntTest
       val fakeJwt = com.daml.jwt.domain.Jwt("shouldn't matter")
       val fakeLedgerId = LedgerApiDomain.LedgerId("nonsense-ledger-id")
       val contractIds =
-        Iterator.continually(assertGen(coidGen.map(_.coid))).take(numContracts).toList
+        assertGen(Gen.containerOfN[Set, String](numContracts, coidGen.map(_.coid)).map(_.toSeq))
+      contractIds should have size numContracts.toLong
       val onlyTemplateId = assertGen(idGen)
       val onlyDomainTemplateId = domain.TemplateId(
         onlyTemplateId.packageId,
@@ -85,7 +86,7 @@ class OracleIntTest
 
         Source.fromIterator { () =>
           Seq(
-            GACR("", "", contracts.toSeq),
+            GACR("", "", contracts),
             GACR(offsetBetweenSetupAndRuns, "", Seq.empty),
           ).iterator
         }
