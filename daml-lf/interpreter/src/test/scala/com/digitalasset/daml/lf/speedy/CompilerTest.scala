@@ -33,7 +33,7 @@ class CompilerTest extends AnyWordSpec with Matchers with Inside {
         .fill(10 * 1000)(Command.Create(recordCon, contract()))
         .toImmArray
 
-      compiledPackages.compiler.unsafeCompile(cmds) shouldBe a[SExpr]
+      compiledPackages.compiler.unsafeCompile(cmds, ImmArray.Empty) shouldBe a[SExpr]
     }
 
     "compile deeply nested lets" in {
@@ -81,9 +81,8 @@ class CompilerTest extends AnyWordSpec with Matchers with Inside {
       )
 
       "accept disclosed contracts with a valid precondition" in {
-        val sexpr = compiledPackages.compiler.unsafeCompileWithContractDisclosures(
-          tokenApp(compiledPackages.compiler.unsafeCompile(ImmArray.Empty)),
-          ImmArray(disclosedContract1),
+        val sexpr = tokenApp(
+          compiledPackages.compiler.unsafeCompile(ImmArray.Empty, ImmArray(disclosedContract1))
         )
 
         inside(evalSExpr(sexpr, getContract = Map(cid1 -> versionedContract1))) {
@@ -94,9 +93,8 @@ class CompilerTest extends AnyWordSpec with Matchers with Inside {
       }
 
       "reject disclosed contracts with an invalid precondition" in {
-        val sexpr = compiledPackages.compiler.unsafeCompileWithContractDisclosures(
-          tokenApp(compiledPackages.compiler.unsafeCompile(ImmArray.Empty)),
-          ImmArray(disclosedContract2),
+        val sexpr = tokenApp(
+          compiledPackages.compiler.unsafeCompile(ImmArray.Empty, ImmArray(disclosedContract2))
         )
 
         inside(evalSExpr(sexpr, getContract = Map(cid2 -> versionedContract2))) {
@@ -126,10 +124,7 @@ class CompilerTest extends AnyWordSpec with Matchers with Inside {
       "with no commands" should {
         "contract cache empty with no disclosures" in {
           val sexpr =
-            compiledPackages.compiler.unsafeCompileWithContractDisclosures(
-              tokenApp(compiledPackages.compiler.unsafeCompile(ImmArray.Empty)),
-              ImmArray.Empty,
-            )
+            tokenApp(compiledPackages.compiler.unsafeCompile(ImmArray.Empty, ImmArray.Empty))
 
           inside(evalSExpr(sexpr)) {
             case Right((SValue.SUnit, contractCache, disclosedContracts)) =>
@@ -139,9 +134,8 @@ class CompilerTest extends AnyWordSpec with Matchers with Inside {
         }
 
         "contract cache contains single disclosure" in {
-          val sexpr = compiledPackages.compiler.unsafeCompileWithContractDisclosures(
-            tokenApp(compiledPackages.compiler.unsafeCompile(ImmArray.Empty)),
-            ImmArray(disclosedContract1),
+          val sexpr = tokenApp(
+            compiledPackages.compiler.unsafeCompile(ImmArray.Empty, ImmArray(disclosedContract1))
           )
 
           inside(evalSExpr(sexpr, getContract = Map(cid1 -> versionedContract1))) {
@@ -152,9 +146,9 @@ class CompilerTest extends AnyWordSpec with Matchers with Inside {
         }
 
         "contract cache contains multiple disclosures" in {
-          val sexpr = compiledPackages.compiler.unsafeCompileWithContractDisclosures(
-            tokenApp(compiledPackages.compiler.unsafeCompile(ImmArray.Empty)),
-            ImmArray(disclosedContract1, disclosedContract2),
+          val sexpr = tokenApp(
+            compiledPackages.compiler
+              .unsafeCompile(ImmArray.Empty, ImmArray(disclosedContract1, disclosedContract2))
           )
 
           inside(
@@ -173,10 +167,8 @@ class CompilerTest extends AnyWordSpec with Matchers with Inside {
         val command = Command.Create(templateId, contract())
 
         "contract cache contains created contract with no disclosures" in {
-          val sexpr = compiledPackages.compiler.unsafeCompileWithContractDisclosures(
-            tokenApp(compiledPackages.compiler.unsafeCompile(ImmArray(command))),
-            ImmArray.Empty,
-          )
+          val sexpr =
+            tokenApp(compiledPackages.compiler.unsafeCompile(ImmArray(command), ImmArray.Empty))
 
           inside(evalSExpr(sexpr, committers = Set(alice))) {
             case Right((SValue.SUnit, contractCache, disclosedContracts)) =>
@@ -186,9 +178,8 @@ class CompilerTest extends AnyWordSpec with Matchers with Inside {
         }
 
         "contract cache contains created contract and single disclosure" in {
-          val sexpr = compiledPackages.compiler.unsafeCompileWithContractDisclosures(
-            tokenApp(compiledPackages.compiler.unsafeCompile(ImmArray(command))),
-            ImmArray(disclosedContract1),
+          val sexpr = tokenApp(
+            compiledPackages.compiler.unsafeCompile(ImmArray(command), ImmArray(disclosedContract1))
           )
 
           inside(
@@ -205,9 +196,9 @@ class CompilerTest extends AnyWordSpec with Matchers with Inside {
         }
 
         "contract cache contains created contract and multiple disclosures" in {
-          val sexpr = compiledPackages.compiler.unsafeCompileWithContractDisclosures(
-            tokenApp(compiledPackages.compiler.unsafeCompile(ImmArray(command))),
-            ImmArray(disclosedContract1, disclosedContract2),
+          val sexpr = tokenApp(
+            compiledPackages.compiler
+              .unsafeCompile(ImmArray(command), ImmArray(disclosedContract1, disclosedContract2))
           )
 
           inside(
@@ -230,9 +221,8 @@ class CompilerTest extends AnyWordSpec with Matchers with Inside {
         val command2 = Command.Create(templateId, contract())
 
         "contract cache contains all created contracts with no disclosures" in {
-          val sexpr = compiledPackages.compiler.unsafeCompileWithContractDisclosures(
-            tokenApp(compiledPackages.compiler.unsafeCompile(ImmArray(command1, command2))),
-            ImmArray.Empty,
+          val sexpr = tokenApp(
+            compiledPackages.compiler.unsafeCompile(ImmArray(command1, command2), ImmArray.Empty)
           )
 
           inside(evalSExpr(sexpr, committers = Set(alice))) {
@@ -243,9 +233,9 @@ class CompilerTest extends AnyWordSpec with Matchers with Inside {
         }
 
         "contract cache contains all created contracts and single disclosure" in {
-          val sexpr = compiledPackages.compiler.unsafeCompileWithContractDisclosures(
-            tokenApp(compiledPackages.compiler.unsafeCompile(ImmArray(command1, command2))),
-            ImmArray(disclosedContract1),
+          val sexpr = tokenApp(
+            compiledPackages.compiler
+              .unsafeCompile(ImmArray(command1, command2), ImmArray(disclosedContract1))
           )
 
           inside(
@@ -263,9 +253,11 @@ class CompilerTest extends AnyWordSpec with Matchers with Inside {
         }
 
         "contract cache contains all created contracts and multiple disclosures" in {
-          val sexpr = compiledPackages.compiler.unsafeCompileWithContractDisclosures(
-            tokenApp(compiledPackages.compiler.unsafeCompile(ImmArray(command1, command2))),
-            ImmArray(disclosedContract1, disclosedContract2),
+          val sexpr = tokenApp(
+            compiledPackages.compiler.unsafeCompile(
+              ImmArray(command1, command2),
+              ImmArray(disclosedContract1, disclosedContract2),
+            )
           )
 
           inside(
@@ -304,10 +296,7 @@ class CompilerTest extends AnyWordSpec with Matchers with Inside {
       "with no commands" should {
         "contract cache is empty with no disclosures" in {
           val sexpr =
-            compiledPackages.compiler.unsafeCompileWithContractDisclosures(
-              tokenApp(compiledPackages.compiler.unsafeCompile(ImmArray.Empty)),
-              ImmArray.Empty,
-            )
+            tokenApp(compiledPackages.compiler.unsafeCompile(ImmArray.Empty, ImmArray.Empty))
 
           inside(evalSExpr(sexpr)) {
             case Right((SValue.SUnit, contractCache, disclosedContracts)) =>
@@ -317,9 +306,8 @@ class CompilerTest extends AnyWordSpec with Matchers with Inside {
         }
 
         "contract cache contains single disclosure" in {
-          val sexpr = compiledPackages.compiler.unsafeCompileWithContractDisclosures(
-            tokenApp(compiledPackages.compiler.unsafeCompile(ImmArray.Empty)),
-            ImmArray(disclosedContract1),
+          val sexpr = tokenApp(
+            compiledPackages.compiler.unsafeCompile(ImmArray.Empty, ImmArray(disclosedContract1))
           )
 
           inside(evalSExpr(sexpr, getContract = Map(cid1 -> versionedContract1))) {
@@ -330,9 +318,9 @@ class CompilerTest extends AnyWordSpec with Matchers with Inside {
         }
 
         "contract cache contains multiple disclosures" in {
-          val sexpr = compiledPackages.compiler.unsafeCompileWithContractDisclosures(
-            tokenApp(compiledPackages.compiler.unsafeCompile(ImmArray.Empty)),
-            ImmArray(disclosedContract1, disclosedContract2),
+          val sexpr = tokenApp(
+            compiledPackages.compiler
+              .unsafeCompile(ImmArray.Empty, ImmArray(disclosedContract1, disclosedContract2))
           )
 
           inside(
@@ -351,10 +339,8 @@ class CompilerTest extends AnyWordSpec with Matchers with Inside {
         val command = Command.Create(templateId, contract("test-label"))
 
         "contract cache contains created contract with no disclosures" in {
-          val sexpr = compiledPackages.compiler.unsafeCompileWithContractDisclosures(
-            tokenApp(compiledPackages.compiler.unsafeCompile(ImmArray(command))),
-            ImmArray.Empty,
-          )
+          val sexpr =
+            tokenApp(compiledPackages.compiler.unsafeCompile(ImmArray(command), ImmArray.Empty))
 
           inside(evalSExpr(sexpr, committers = Set(alice))) {
             case Right((SValue.SUnit, contractCache, disclosedContracts)) =>
@@ -364,9 +350,8 @@ class CompilerTest extends AnyWordSpec with Matchers with Inside {
         }
 
         "contract cache contains created contract and single disclosure" in {
-          val sexpr = compiledPackages.compiler.unsafeCompileWithContractDisclosures(
-            tokenApp(compiledPackages.compiler.unsafeCompile(ImmArray(command))),
-            ImmArray(disclosedContract1),
+          val sexpr = tokenApp(
+            compiledPackages.compiler.unsafeCompile(ImmArray(command), ImmArray(disclosedContract1))
           )
 
           inside(
@@ -383,9 +368,9 @@ class CompilerTest extends AnyWordSpec with Matchers with Inside {
         }
 
         "contract cache contains created contract and multiple disclosures" in {
-          val sexpr = compiledPackages.compiler.unsafeCompileWithContractDisclosures(
-            tokenApp(compiledPackages.compiler.unsafeCompile(ImmArray(command))),
-            ImmArray(disclosedContract1, disclosedContract2),
+          val sexpr = tokenApp(
+            compiledPackages.compiler
+              .unsafeCompile(ImmArray(command), ImmArray(disclosedContract1, disclosedContract2))
           )
 
           inside(
@@ -408,9 +393,8 @@ class CompilerTest extends AnyWordSpec with Matchers with Inside {
         val command2 = Command.Create(templateId, contract("test-label-2"))
 
         "contract cache contains all created contracts with no disclosures" in {
-          val sexpr = compiledPackages.compiler.unsafeCompileWithContractDisclosures(
-            tokenApp(compiledPackages.compiler.unsafeCompile(ImmArray(command1, command2))),
-            ImmArray.Empty,
+          val sexpr = tokenApp(
+            compiledPackages.compiler.unsafeCompile(ImmArray(command1, command2), ImmArray.Empty)
           )
 
           inside(evalSExpr(sexpr, committers = Set(alice))) {
@@ -421,9 +405,9 @@ class CompilerTest extends AnyWordSpec with Matchers with Inside {
         }
 
         "contract cache contains all created contracts and single disclosure" in {
-          val sexpr = compiledPackages.compiler.unsafeCompileWithContractDisclosures(
-            tokenApp(compiledPackages.compiler.unsafeCompile(ImmArray(command1, command2))),
-            ImmArray(disclosedContract1),
+          val sexpr = tokenApp(
+            compiledPackages.compiler
+              .unsafeCompile(ImmArray(command1, command2), ImmArray(disclosedContract1))
           )
 
           inside(
@@ -440,9 +424,11 @@ class CompilerTest extends AnyWordSpec with Matchers with Inside {
         }
 
         "contract cache contains all created contracts and multiple disclosures" in {
-          val sexpr = compiledPackages.compiler.unsafeCompileWithContractDisclosures(
-            tokenApp(compiledPackages.compiler.unsafeCompile(ImmArray(command1, command2))),
-            ImmArray(disclosedContract1, disclosedContract2),
+          val sexpr = tokenApp(
+            compiledPackages.compiler.unsafeCompile(
+              ImmArray(command1, command2),
+              ImmArray(disclosedContract1, disclosedContract2),
+            )
           )
 
           inside(
@@ -543,7 +529,6 @@ object CompilerTest {
         initialSeeding = InitialSeeding.TransactionSeed(crypto.Hash.hashPrivateKey("CompilerTest")),
         expr = sexpr,
         committers = committers,
-        disclosedContracts = ImmArray.Empty,
         readAs = Set.empty,
       )
 

@@ -124,15 +124,8 @@ private[lf] final class Compiler(
 
   @throws[PackageNotFound]
   @throws[CompilationError]
-  def unsafeCompile(cmds: ImmArray[Command]): t.SExpr = compileCommands(cmds)
-
-  @throws[PackageNotFound]
-  @throws[CompilationError]
-  def unsafeCompileWithContractDisclosures(
-      compiledCommands: t.SExpr,
-      disclosures: ImmArray[DisclosedContract],
-  ): t.SExpr =
-    compileWithContractDisclosures(compiledCommands, disclosures)
+  def unsafeCompile(cmds: ImmArray[Command], disclosures: ImmArray[DisclosedContract]): t.SExpr =
+    compileCommands(cmds, disclosures)
 
   @throws[PackageNotFound]
   @throws[CompilationError]
@@ -332,21 +325,16 @@ private[lf] final class Compiler(
   private[this] def compileExp(expr: Expr): t.SExpr =
     pipeline(translateExp(Env.Empty, expr))
 
-  private[this] def compileCommands(cmds: ImmArray[Command]): t.SExpr =
-    pipeline(translateCommands(Env.Empty, cmds))
-
-  private[this] def compileWithContractDisclosures(
-      sexpr: t.SExpr,
+  private[this] def compileCommands(
+      cmds: ImmArray[Command],
       disclosures: ImmArray[DisclosedContract],
-  ): t.SExpr = {
-    val disclosuresExpr = pipeline(
-      translateContractDisclosures(Env.Empty, disclosures)
+  ): t.SExpr =
+    pipeline(
+      let(
+        Env.Empty,
+        translateContractDisclosures(Env.Empty, disclosures),
+      )((_, env) => translateCommands(env, cmds))
     )
-    t.SELet1(
-      disclosuresExpr,
-      sexpr,
-    )
-  }
 
   private[this] def compileCommandForReinterpretation(cmd: Command): t.SExpr =
     pipeline(translateCommandForReinterpretation(cmd))
