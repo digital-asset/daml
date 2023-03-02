@@ -105,9 +105,10 @@ class OracleIntTest
       }
 
       val (collectedIds, collectorHandler) = contractIdCollector
+      val (collectedDeadlocks, deadlockHandler) = deadlockDetectedCollector
       val loggedDao = dbbackend.ContractDao(
         jdbcConfig.copy(baseConfig = jdbcConfig.baseConfig.copy(tablePrefix = "sixtyone_")),
-        setupLogHandler = composite(_, collectorHandler),
+        setupLogHandler = core => composite(core, composite(collectorHandler, deadlockHandler)),
       )
       import loggedDao.{logHandler, jdbcDriver, transact}, jdbcDriver.q.queries
 
@@ -180,10 +181,11 @@ class OracleIntTest
           // prep the ACS, get into the start state where fetch will use tx streams
           _ <- runAFetch(initialFetch, offsetBetweenSetupAndRuns)
           // then use the transaction stream in parallel a bunch
-          _ <- Future.traverse(1 to 16) { _ =>
+          _ <- Future.traverse(1 to 2) { _ =>
             runAFetch(fetchAfterwards, laterEndOffset)
           }
         } yield {
+          collectedDeadlocks.result() shouldBe empty
           collectedIds.result().view.flatten.toSet should contain allElementsOf contractIds
           fail("got to end successfully")
         }
@@ -223,4 +225,11 @@ object OracleIntTest {
       NonEmpty from (args collect { case it: String => it })
     case _ => None
   }
+
+  private def deadlockDetectedCollector = collector {
+    case err @ dlog.ExecFailure(_, _, _, failure: java.sql.SQLException)
+        if (61000 until 62000) contains failure.getSQLState =>
+      err
+    case err @ dlog.ExecFailure(_, _, _, failure) if failure.getMessage contains "deadlock" => err
+  }(Seq)
 }
