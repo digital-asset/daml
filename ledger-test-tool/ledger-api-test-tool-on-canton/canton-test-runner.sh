@@ -8,14 +8,14 @@ set -o pipefail
 
 JAVA="$(rlocation local_jdk/bin/java)"
 
-command=("$(rlocation com_github_digital_asset_daml/ledger/ledger-api-test-tool-on-canton/canton_deploy.jar)" daemon "$@")
+command=("$(rlocation com_github_digital_asset_daml/ledger-test-tool/ledger-api-test-tool-on-canton/canton_deploy.jar)" daemon "$@")
 
 # Change HOME since Canton uses ammonite in the default configuration, which tries to write to
 # ~/.ammonite/cache, which is read-only when sandboxing is enabled.
 HOME="$(mktemp -d)"
 export HOME
 # ammonite calls `System.getProperty('user.home')` which does not read $HOME.
-JVM_FLAGS=(-Duser.home="$HOME" -Dlogback.configurationFile="$(rlocation com_github_digital_asset_daml/ledger/ledger-api-test-tool-on-canton/logback-debug.xml)")
+JVM_FLAGS=(-Duser.home="$HOME" -Dlogback.configurationFile="$(rlocation com_github_digital_asset_daml/ledger-test-tool/ledger-api-test-tool-on-canton/logback-debug.xml)")
 
 echo >&2 'Starting Canton...'
 $JAVA "${JVM_FLAGS[@]}" -jar "${command[@]}" &
