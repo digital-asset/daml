@@ -339,8 +339,11 @@ runJqQuery log outdir file qs = do
       case trim out of
         "true" -> pure Nothing
         other -> pure $ Just $ "jq query failed: got " ++ other
+  else if not $ null qs then do
+    log $ "jq query failed: " ++ show (length qs) ++ " queries failed to run as test errored"
+    pure [Just "Couldn't run jq"]
   else
-    [Just "Couldn't run jq"] <$ when (not $ null qs) (log $ "jq query failed: " ++ show (length qs) ++ " queries failed to run as test errored")
+    pure []
 
 data DiagnosticField
   = DFilePath !FilePath
