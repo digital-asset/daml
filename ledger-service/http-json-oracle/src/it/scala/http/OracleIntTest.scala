@@ -32,11 +32,12 @@ class OracleIntTest
     with AkkaBeforeAndAfterAll
     with Matchers
     with Inside {
+  import OracleIntTest._
+
   override protected def jdbcConfig: JdbcConfig =
     defaultJdbcConfig(oracleJdbcUrlWithoutCredentials, oracleUserName, oracleUserPwd)
 
   "fetchAndPersist" - {
-    import dao.{logHandler, jdbcDriver}, jdbcDriver.q.queries
 
     "avoids class 61 errors under concurrent update" in {
       import com.daml.ledger.api.{v1 => lav1}
@@ -103,6 +104,13 @@ class OracleIntTest
         Future successful Some(terminates(off))
       }
 
+      val (collectedIds, collectorHandler) = contractIdCollector
+      val loggedDao = dbbackend.ContractDao(
+        jdbcConfig.copy(baseConfig = jdbcConfig.baseConfig.copy(tablePrefix = "sixtyone_")),
+        setupLogHandler = composite(_, collectorHandler),
+      )
+      import loggedDao.{logHandler, jdbcDriver, transact}, jdbcDriver.q.queries
+
       val initialFetch = new ContractsFetch(
         permanentAcs,
         (_, _, _, _, _) => _ => Source.empty,
@@ -146,42 +154,72 @@ class OracleIntTest
         fixedEndOffset(laterEndOffset),
       )
 
-      // get into the start state where fetch will use tx streams
-      instanceUUIDLogCtx { implicit lcx =>
+      val runningTest = instanceUUIDLogCtx { implicit lcx =>
         def runAFetch(fetch: ContractsFetch, expectedOffset: String) =
-          dao
-            .transact(
-              fetch
-                .fetchAndPersist(
-                  fakeJwt,
-                  fakeLedgerId,
-                  NonEmpty(Set, domain.Party(onlyStakeholder: String)),
-                  List(onlyDomainTemplateId),
-                )
-                .map(_ should ===(AbsoluteBookmark(terminates(expectedOffset))))
-            )
+          transact(
+            fetch
+              .fetchAndPersist(
+                fakeJwt,
+                fakeLedgerId,
+                NonEmpty(Set, domain.Party(onlyStakeholder: String)),
+                List(onlyDomainTemplateId),
+              )
+              .map(_ should ===(AbsoluteBookmark(terminates(expectedOffset))))
+          )
             .unsafeToFuture()
 
         for {
           // prep the db
-          _ <- dao
-            .transact(for {
-              _ <- queries.dropAllTablesIfExist
-              _ <- queries.initDatabase
-              _ <- fconn.commit
-            } yield ())
+          _ <- transact(for {
+            _ <- queries.dropAllTablesIfExist
+            _ <- queries.initDatabase
+            _ <- fconn.commit
+          } yield ())
             .unsafeToFuture()
-          // prep the ACS
+          // prep the ACS, get into the start state where fetch will use tx streams
           _ <- runAFetch(initialFetch, offsetBetweenSetupAndRuns)
           // then use the transaction stream in parallel a bunch
           _ <- Future.traverse(1 to 16) { _ =>
             runAFetch(fetchAfterwards, laterEndOffset)
           }
-        } yield fail("got to end successfully")
+        } yield {
+          collectedIds.result().view.flatten.toSet should contain allElementsOf contractIds
+          fail("got to end successfully")
+        }
+      }
+      complete(runningTest) lastly {
+        loggedDao.close()
       }
     }
   }
 
   private[this] def assertGen[A](ga: Gen[A])(implicit loc: source.Position): A =
     ga.sample getOrElse fail("can't generate random value")
+}
+
+object OracleIntTest {
+  import doobie.util.{log => dlog}
+
+  private def composite(first: dlog.LogHandler, second: dlog.LogHandler): dlog.LogHandler =
+    dlog.LogHandler { ev =>
+      first.unsafeRun(ev)
+      second.unsafeRun(ev)
+    }
+
+  private def collector[A, C](
+      filter: dlog.LogEvent PartialFunction A
+  )(into: collection.Factory[A, C]): (collection.mutable.Builder[Nothing, C], dlog.LogHandler) = {
+    val sink = into.newBuilder
+    val fun = filter.lift
+    (sink, dlog.LogHandler(fun(_).foreach(sink.+=)))
+  }
+
+  // just making sure this log analysis tactic works
+  private def contractIdCollector = collector(Function unlift possibleContractIds)(Vector)
+
+  private def possibleContractIds(ev: dlog.LogEvent): Option[NonEmpty[List[String]]] = ev match {
+    case dlog.Success(sql, args, _, _) if (sql contains "DELETE") && (sql contains "contract_id") =>
+      NonEmpty from (args collect { case it: String => it })
+    case _ => None
+  }
 }
