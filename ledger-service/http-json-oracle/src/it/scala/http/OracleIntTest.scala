@@ -16,6 +16,7 @@ import com.daml.nonempty.NonEmpty
 import com.daml.platform.participant.util.LfEngineToApi.lfValueToApiValue
 import com.daml.testing.oracle.OracleAroundAll
 
+import akka.stream.DelayOverflowStrategy.backpressure
 import akka.stream.scaladsl.Source
 import doobie.free.{connection => fconn}
 import org.scalacheck.Gen
@@ -23,6 +24,7 @@ import org.scalactic.source
 import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
 import scala.concurrent.Future
+import scala.concurrent.duration.DurationInt
 import scala.util.Random.shuffle
 
 @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
@@ -129,28 +131,31 @@ class OracleIntTest
                 }
             }
           endOff should ===(terminates(laterEndOffset))
-          if (deliverEverything) Source.fromIterator { () =>
-            import lav1.event.{ArchivedEvent, Event}
-            import lav1.transaction.{Transaction => Tx}
-            // TODO #16403 remove this shuffle; it invalidates the test
-            shuffle(contractIds).view.zipWithIndex.map { case (cid, i) =>
-              Tx(
-                events = Seq(
-                  Event(
-                    Event.Event.Archived(
-                      ArchivedEvent(
-                        "",
-                        cid,
-                        Some(apiIdentifier(onlyTemplateId)),
-                        Seq(onlyStakeholder),
+          if (deliverEverything)
+            Source
+              .fromIterator { () =>
+                import lav1.event.{ArchivedEvent, Event}
+                import lav1.transaction.{Transaction => Tx}
+                // TODO #16403 remove this shuffle; it invalidates the test
+                shuffle(contractIds).view.zipWithIndex.map { case (cid, i) =>
+                  Tx(
+                    events = Seq(
+                      Event(
+                        Event.Event.Archived(
+                          ArchivedEvent(
+                            "",
+                            cid,
+                            Some(apiIdentifier(onlyTemplateId)),
+                            Seq(onlyStakeholder),
+                          )
+                        )
                       )
-                    )
+                    ),
+                    offset = padOffset(i.toString + numContracts.toString),
                   )
-                ),
-                offset = padOffset(i.toString + numContracts.toString),
-              )
-            }.iterator
-          }
+                }.iterator
+              }
+              .delayWith(() => _ => assertGen(Gen.choose(0.millis, 50.millis)), backpressure)
           else Source.empty
         },
         fixedEndOffset(laterEndOffset),
