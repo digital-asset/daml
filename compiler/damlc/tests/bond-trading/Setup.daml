@@ -96,31 +96,31 @@ marketSetupJobExample acme = script do
 
 
 setupExample = script do
-    setDate 2018 May 14
+  setDate 2018 May 14
 
-    acme <- allocateParty "Acme Bank"
+  acme <- allocateParty "Acme Bank"
 
-    job <- marketSetupJobExample acme
-    submit acme do createCmd job
+  job <- marketSetupJobExample acme
+  acme `submit` createCmd job
 
-    return ()
+  return ()
 
 setupExampleFull = script do
-    acme <- allocateParty "Acme Bank"
+  acme <- allocateParty "Acme Bank"
 
-    setDate 2018 May 14
+  setDate 2018 May 14
 
-    job <- marketSetupJobExample acme
-    jobCid <- acme `submit` createCmd job
+  job <- marketSetupJobExample acme
+  jobCid <- acme `submit` createCmd job
 
-    rs <- acme `submit` exerciseCmd jobCid Process
+  rs <- acme `submit` exerciseCmd jobCid Process
 
-    forA rs $ \r -> submit r.party do
-      exerciseCmd r.helperCid Process2
-      forA_ r.bondCids $ (flip exerciseCmd) Bond.Accept
-      forA_ r.cashCids $ (flip exerciseCmd) Cash.Accept
-      pure ()
+  forA rs $ \r -> r.party `submit` do
+    exerciseCmd r.helperCid Process2
+    forA_ r.bondCids $ (flip exerciseCmd) Bond.Accept
+    forA_ r.cashCids $ (flip exerciseCmd) Cash.Accept
+    pure ()
 
 
 main = script do
-    setupExampleFull
+  setupExampleFull
