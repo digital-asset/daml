@@ -42,13 +42,14 @@ import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy.Char8 as BSL
 import           Data.Char
 import qualified Data.DList as DList
+import           Data.Either.Extra (eitherToMaybe)
 import Data.Foldable
 import           Data.List.Extra
 import Data.IORef
 import Data.Proxy
 import           Development.IDE.Types.Diagnostics
 import           Data.Maybe
-import           Development.Shake hiding (cmd, withResource, withTempDir)
+import           Development.Shake hiding (cmd, withResource, withTempDir, doesFileExist)
 import           System.Directory.Extra
 import           System.Environment.Blank (setEnv)
 import           System.FilePath
@@ -306,12 +307,12 @@ testCase version getService outdir registerTODO (name, file, anns) = singleTest 
     else do
       -- FIXME: Use of unsafeClearDiagnostics is only because we don't naturally lose them when we change setFilesOfInterest
       unsafeClearDiagnostics service
-      ex <- try $ mainProj service outdir log (toNormalizedFilePath' file) :: IO (Either SomeException Package)
+      ex <- try $ mainProj service outdir log (toNormalizedFilePath' file) :: IO (Either SomeException (Package, FilePath))
       diags <- getDiagnostics service
       for_ [file ++ ", " ++ x | Todo x <- anns] (registerTODO . TODO)
       resDiag <- checkDiagnostics log [fields | DiagnosticFields fields <- anns] $
         [ideErrorText "" $ T.pack $ show e | Left e <- [ex], not $ "_IGNORE_" `isInfixOf` show e] ++ diags
-      resQueries <- runJqQuery log outdir file [q | QueryLF q <- anns]
+      resQueries <- runJqQuery log (eitherToMaybe $ snd <$> ex) [q | QueryLF q <- anns]
       let failures = catMaybes $ resDiag : resQueries
       case failures of
         err : _others -> pure $ testFailed err
@@ -323,20 +324,24 @@ testCase version getService outdir registerTODO (name, file, anns) = singleTest 
       UntilLF maxVersion -> version >= maxVersion
       _ -> False
 
-runJqQuery :: (String -> IO ()) -> FilePath -> FilePath -> [String] -> IO [Maybe String]
-runJqQuery log outdir file qs = do
-  let proj = takeBaseName file
-  forM qs $ \q -> do
-    log $ "running jq query: " ++ q
-    let jqKey = "external" </> "jq_dev_env" </> "bin" </> if isWindows then "jq.exe" else "jq"
-    jq <- locateRunfiles $ mainWorkspace </> jqKey
-    queryLfDir <- locateRunfiles $ mainWorkspace </> "compiler/damlc/tests/src"
-    let fullQuery = "import \"./query-lf\" as lf; . as $pkg | " ++ q
-    out <- readProcess jq ["-L", queryLfDir, fullQuery, outdir </> proj <.> "json"] ""
-    case trim out of
-      "true" -> pure Nothing
-      other -> pure $ Just $ "jq query failed: got " ++ other
-
+runJqQuery :: (String -> IO ()) -> Maybe FilePath -> [String] -> IO [Maybe String]
+runJqQuery log mJsonFile qs = do
+  case mJsonFile of
+    Just jsonPath ->
+      forM qs $ \q -> do
+        log $ "running jq query: " ++ q
+        let jqKey = "external" </> "jq_dev_env" </> "bin" </> if isWindows then "jq.exe" else "jq"
+        jq <- locateRunfiles $ mainWorkspace </> jqKey
+        queryLfDir <- locateRunfiles $ mainWorkspace </> "compiler/damlc/tests/src"
+        let fullQuery = "import \"./query-lf\" as lf; . as $pkg | " ++ q
+        out <- readProcess jq ["-L", queryLfDir, fullQuery, jsonPath] ""
+        case trim out of
+          "true" -> pure Nothing
+          other -> pure $ Just $ "jq query failed: got " ++ other
+    _ | not $ null qs -> do
+      log $ "jq query failed: " ++ show (length qs) ++ " queries failed to run as test errored"
+      pure [Just "Couldn't run jq"]
+    _ -> pure []
 
 data DiagnosticField
   = DFilePath !FilePath
@@ -456,7 +461,7 @@ parseRange s =
         (Position (rowEnd - 1) (colEnd - 1))
     _ -> error $ "Failed to parse range, got " ++ s
 
-mainProj :: IdeState -> FilePath -> (String -> IO ()) -> NormalizedFilePath -> IO LF.Package
+mainProj :: IdeState -> FilePath -> (String -> IO ()) -> NormalizedFilePath -> IO (LF.Package, FilePath)
 mainProj service outdir log file = do
     let proj = takeBaseName (fromNormalizedFilePath file)
 
@@ -465,9 +470,10 @@ mainProj service outdir log file = do
     let corePrettyPrint = timed log "Core pretty-printing" . liftIO . writeFile (outdir </> proj <.> "core") . showSDoc fakeDynFlags . ppr
     let lfSave = timed log "LF saving" . liftIO . BS.writeFile (outdir </> proj <.> "dalf") . Archive.encodeArchive
     let lfPrettyPrint = timed log "LF pretty-printing" . liftIO . writeFile (outdir </> proj <.> "pdalf") . renderPretty
+    let jsonPath = outdir </> proj <.> "json"
     let jsonSave pkg =
             let json = A.encodePretty $ JSONPB.toJSONPB (encodePackage pkg) JSONPB.jsonPBOptions
-            in timed log "JSON saving" . liftIO . BSL.writeFile (outdir </> proj <.> "json") $ json
+            in timed log "JSON saving" . liftIO . BSL.writeFile jsonPath $ json
 
     setFilesOfInterest service (HashSet.singleton file)
     runActionSync service $ do
@@ -481,7 +487,7 @@ mainProj service outdir log file = do
             lfRunScenarios log file
             lfRunScripts log file
             jsonSave lf
-            pure lf
+            pure (lf, jsonPath)
 
 unjust :: Action (Maybe b) -> Action b
 unjust act = do
