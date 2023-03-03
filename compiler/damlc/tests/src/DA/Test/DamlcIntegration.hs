@@ -312,7 +312,7 @@ testCase version getService outdir registerTODO (name, file, anns) = singleTest 
       for_ [file ++ ", " ++ x | Todo x <- anns] (registerTODO . TODO)
       resDiag <- checkDiagnostics log [fields | DiagnosticFields fields <- anns] $
         [ideErrorText "" $ T.pack $ show e | Left e <- [ex], not $ "_IGNORE_" `isInfixOf` show e] ++ diags
-      resQueries <- runJqQuery log (eitherToMaybe $ snd <$> ex) [q | QueryLF q <- anns]
+      resQueries <- runJqQuery log (eitherToMaybe $ snd <$> ex) [(q, isStream) | QueryLF q isStream <- anns]
       let failures = catMaybes $ resDiag : resQueries
       case failures of
         err : _others -> pure $ testFailed err
@@ -324,17 +324,18 @@ testCase version getService outdir registerTODO (name, file, anns) = singleTest 
       UntilLF maxVersion -> version >= maxVersion
       _ -> False
 
-runJqQuery :: (String -> IO ()) -> Maybe FilePath -> [String] -> IO [Maybe String]
+runJqQuery :: (String -> IO ()) -> Maybe FilePath -> [(String, Bool)] -> IO [Maybe String]
 runJqQuery log mJsonFile qs = do
   case mJsonFile of
     Just jsonPath ->
-      forM qs $ \q -> do
+      forM qs $ \(q, isStream) -> do
         log $ "running jq query: " ++ q
         let jqKey = "external" </> "jq_dev_env" </> "bin" </> if isWindows then "jq.exe" else "jq"
         jq <- locateRunfiles $ mainWorkspace </> jqKey
         queryLfDir <- locateRunfiles $ mainWorkspace </> "compiler/damlc/tests/src"
         let fullQuery = "import \"./query-lf\" as lf; . as $pkg | " ++ q
-        out <- readProcess jq ["-L", queryLfDir, fullQuery, jsonPath] ""
+            streamFlags = if isStream then ["--stream", "-n"] else []
+        out <- readProcess jq (streamFlags <> ["-L", queryLfDir, fullQuery, jsonPath]) ""
         case trim out of
           "true" -> pure Nothing
           other -> pure $ Just $ "jq query failed: got " ++ other
@@ -400,7 +401,7 @@ data Ann
     | SinceLF LF.Version                 -- Only run this test since the given Daml-LF version (inclusive)
     | UntilLF LF.Version                 -- Only run this test until the given Daml-LF version (exclusive)
     | DiagnosticFields [DiagnosticField] -- I expect a diagnostic that has the given fields
-    | QueryLF String                     -- The jq query against the produced Daml-LF returns "true"
+    | QueryLF String Bool                -- The jq query against the produced Daml-LF returns "true". Includes a boolean for is stream
     | Todo String                        -- Just a note that is printed out
     | EnableScenariosYes                 -- Run this test with --enable-scenarios=yes
 
@@ -425,7 +426,8 @@ readFileAnns file = do
             ("ERROR",x) -> Just (DiagnosticFields (DSeverity DsError : parseFields x))
             ("WARN",x) -> Just (DiagnosticFields (DSeverity DsWarning : parseFields x))
             ("INFO",x) -> Just (DiagnosticFields (DSeverity DsInfo : parseFields x))
-            ("QUERY-LF", x) -> Just $ QueryLF x
+            ("QUERY-LF", x) -> Just $ QueryLF x False
+            ("QUERY-LF-STREAM", x) -> Just $ QueryLF x True
             ("TODO",x) -> Just $ Todo x
             _ -> error $ "Can't understand test annotation in " ++ show file ++ ", got " ++ show x
         f _ = Nothing
