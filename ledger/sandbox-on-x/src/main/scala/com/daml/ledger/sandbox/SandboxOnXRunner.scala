@@ -66,7 +66,6 @@ object SandboxOnXRunner {
           .acquire()
     }
 
-  @nowarn("cat=deprecation")
   def run(
       bridgeConfig: BridgeConfig,
       config: Config,
@@ -101,7 +100,9 @@ object SandboxOnXRunner {
         bridgeConfig = bridgeConfig,
         materializer = materializer,
         loggingContext = loggingContext,
-        metricsFactory = metrics.defaultMetricsFactory,
+        metricsFactory = {
+          metrics.defaultMetricsFactory: @nowarn
+        },
         servicesThreadPoolSize = servicesThreadPoolSize,
         servicesExecutionContext = servicesExecutionContext,
         timeServiceBackendO = timeServiceBackendO,
@@ -201,14 +202,13 @@ object SandboxOnXRunner {
     }
 
   // Builds the write service and uploads the initialization DARs
-  @nowarn("cat=deprecation")
   def buildWriteService(
       participantId: Ref.ParticipantId,
       feedSink: Sink[(Offset, Update), NotUsed],
       bridgeConfig: BridgeConfig,
       materializer: Materializer,
       loggingContext: LoggingContext,
-      metricsFactory: MetricsFactory,
+      @nowarn metricsFactory: MetricsFactory,
       servicesThreadPoolSize: Int,
       servicesExecutionContext: ExecutionContextExecutorService,
       timeServiceBackendO: Option[TimeServiceBackend],

@@ -73,7 +73,7 @@ object MetricHandle {
 
   }
 
-  @nowarn("msg=deprecated")
+  @nowarn("cat=deprecation")
   trait LabeledMetricsFactory extends MetricsFactory
 
   trait Timer extends MetricHandle {
