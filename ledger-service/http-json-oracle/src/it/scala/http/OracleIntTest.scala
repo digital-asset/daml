@@ -117,6 +117,13 @@ class OracleIntTest
         (_, _, _, _, _) => _ => Source.empty,
         fixedEndOffset(offsetBetweenSetupAndRuns),
       )
+
+      val contractsPerPartition = 30;
+      val contractPartition = shuffle(List.range(0, numContracts))
+        .slice(0, numContracts / contractsPerPartition)
+        .sorted
+        .appended(numContracts);
+
       val fetchAfterwards = new ContractsFetch(
         permanentAcs,
         { (_, _, _, startOff, endOff) => _ =>
@@ -133,23 +140,29 @@ class OracleIntTest
             import lav1.event.{ArchivedEvent, Event}
             import lav1.transaction.{Transaction => Tx}
             // TODO #16403 remove this shuffle; it invalidates the test
-            shuffle(contractIds).view.zipWithIndex.map { case (cid, i) =>
-              Tx(
-                events = Seq(
-                  Event(
-                    Event.Event.Archived(
-                      ArchivedEvent(
-                        "",
-                        cid,
-                        Some(apiIdentifier(onlyTemplateId)),
-                        Seq(onlyStakeholder),
+            contractPartition
+              .zip(contractPartition.tail)
+              .map { case (start, end) =>
+                Tx(
+                  events = contractIds
+                    .slice(start, end)
+                    .map(cid =>
+                      Event(
+                        Event.Event.Archived(
+                          ArchivedEvent(
+                            "",
+                            cid,
+                            Some(apiIdentifier(onlyTemplateId)),
+                            Seq(onlyStakeholder),
+                          )
+                        )
                       )
                     )
-                  )
-                ),
-                offset = padOffset(i.toString + numContracts.toString),
-              )
-            }.iterator
+                    .toSeq,
+                  offset = padOffset(end.toString + numContracts.toString),
+                )
+              }
+              .iterator
           }
           else Source.empty
         },
