@@ -298,12 +298,13 @@ prettyScenarioErrorError (Just err) =  do
                   (prettyContractRef world)
                   scenarioError_ContractNotActiveContractRef
         ]
-    ScenarioErrorErrorDisclosedContractKeyHashingError(ScenarioError_DisclosedContractKeyHashingError contractId templateId reason) ->
+    ScenarioErrorErrorDisclosedContractKeyHashingError(ScenarioError_DisclosedContractKeyHashingError contractId key computedHash declaredHash) ->
       pure $ vcat
-        [ "Failed to cache disclosed contract key"
+        [ "Mismatched disclosed contract key hash for contract"
         , label_ "Contract:" $ prettyMay "<missing contract>" (prettyContractRef world) contractId
-        , label_ "Template:" $ prettyMay "<missing template id>" (prettyDefName world) templateId
-        , label_ "Reason:" $ ltext reason
+        , label_ "key:" $ prettyMay "<missing key>" (prettyValue' False 0 world) key
+        , label_ "computed hash:" $ ltext computedHash
+        , label_ "declared hash:" $ ltext declaredHash    
         ]
     ScenarioErrorErrorCreateEmptyContractKeyMaintainers ScenarioError_CreateEmptyContractKeyMaintainers{..} ->
       pure $ vcat
