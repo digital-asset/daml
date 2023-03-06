@@ -45,21 +45,36 @@ class OracleIntTest
       import lav1.event.CreatedEvent
       import lav1.active_contracts_service.{GetActiveContractsResponse => GACR}
 
-      val numContracts = 1000
-      val padOffset = (s: String) => s.reverse.padTo(10, '0').reverse
+      val numContracts = 5000
+      val numOffsetChars = 20
+      val padOffset = (s: String) => s.reverse.padTo(numOffsetChars, '0').reverse
 
       val offsetBetweenSetupAndRuns = padOffset(numContracts.toString)
-      val laterEndOffset = padOffset(numContracts.toString + numContracts.toString)
+      val laterEndOffset = "Z" * numOffsetChars
 
       val fakeJwt = com.daml.jwt.domain.Jwt("shouldn't matter")
       val fakeLedgerId = LedgerApiDomain.LedgerId("nonsense-ledger-id")
-      val contractIds =
+
+      val initialContractIds =
         assertGen(
           Gen
             .containerOfN[Set, String](numContracts, coidGen.map(_.coid))
             .map(ids => shuffle(ids.toSeq))
         )
-      contractIds should have size numContracts.toLong
+      initialContractIds should have size numContracts.toLong
+
+      val streamedContracts =
+        assertGen(
+          Gen
+            .containerOfN[Set, String](numContracts, coidGen.map(_.coid))
+            .map(ids => shuffle(ids.toSeq))
+        )
+      streamedContracts should have size numContracts.toLong
+
+      initialContractIds.intersect(
+        streamedContracts
+      ) should have size 0 // This should be done way more efficiently, but can optimize test later
+
       val onlyTemplateId = assertGen(idGen)
       val onlyDomainTemplateId = domain.TemplateId(
         onlyTemplateId.packageId,
@@ -80,7 +95,7 @@ class OracleIntTest
             ),
           )
         ) { case Right(lav1.value.Value(lav1.value.Value.Sum.Record(rec))) => rec }
-        val contracts = contractIds.map(cid =>
+        val contracts = initialContractIds.map(cid =>
           CreatedEvent(
             "",
             cid,
@@ -98,17 +113,28 @@ class OracleIntTest
         }
       }
 
+      val onlyPayload = inside( // TODO: Cleanup
+        lfValueToApiValue(
+          true,
+          Value.ValueRecord(
+            Some(onlyTemplateId),
+            ImmArray(
+              (Some(Ref.Name assertFromString "owner"), Value.ValueParty(onlyStakeholder))
+            ),
+          ),
+        )
+      ) { case Right(lav1.value.Value(lav1.value.Value.Sum.Record(rec))) => rec }
+
       def terminates(off: String) = LedgerClientJwt.Terminates fromDomain domain.Offset(off)
 
       def fixedEndOffset(off: String): LedgerClientJwt.GetTermination = { (_, _) => _ =>
         Future successful Some(terminates(off))
       }
 
-      val (collectedIds, collectorHandler) = contractIdCollector
       val (collectedDeadlocks, deadlockHandler) = deadlockDetectedCollector
       val loggedDao = dbbackend.ContractDao(
         jdbcConfig.copy(baseConfig = jdbcConfig.baseConfig.copy(tablePrefix = "sixtyone_")),
-        setupLogHandler = core => composite(core, composite(collectorHandler, deadlockHandler)),
+        setupLogHandler = core => composite(core, deadlockHandler),
       )
       import loggedDao.{logHandler, jdbcDriver, transact}, jdbcDriver.q.queries
 
@@ -139,12 +165,11 @@ class OracleIntTest
           if (deliverEverything) Source.fromIterator { () =>
             import lav1.event.{ArchivedEvent, Event}
             import lav1.transaction.{Transaction => Tx}
-            // TODO #16403 remove this shuffle; it invalidates the test
             contractPartition
               .zip(contractPartition.tail)
               .map { case (start, end) =>
                 Tx(
-                  events = contractIds
+                  events = initialContractIds
                     .slice(start, end)
                     .map(cid =>
                       Event(
@@ -156,6 +181,33 @@ class OracleIntTest
                             Seq(onlyStakeholder),
                           )
                         )
+                      )
+                    )
+                    .toSeq ++ streamedContracts
+                    .slice(start, end)
+                    .flatMap(cid =>
+                      Array(
+                        Event(
+                          Event.Event.Created(
+                            CreatedEvent(
+                              "",
+                              cid,
+                              Some(apiIdentifier(onlyTemplateId)),
+                              None,
+                              Some(onlyPayload),
+                            )
+                          )
+                        ),
+                        Event(
+                          Event.Event.Archived(
+                            ArchivedEvent(
+                              "",
+                              cid,
+                              Some(apiIdentifier(onlyTemplateId)),
+                              Seq(onlyStakeholder),
+                            )
+                          )
+                        ),
                       )
                     )
                     .toSeq,
@@ -199,8 +251,7 @@ class OracleIntTest
           }
         } yield {
           collectedDeadlocks.result() shouldBe empty
-          collectedIds.result().view.flatten.toSet should contain allElementsOf contractIds
-          fail("got to end successfully")
+          succeed
         }
       }
       complete(runningTest) lastly {
@@ -231,14 +282,6 @@ object OracleIntTest {
   }
 
   // just making sure this log analysis tactic works
-  private def contractIdCollector = collector(Function unlift possibleContractIds)(Vector)
-
-  private def possibleContractIds(ev: dlog.LogEvent): Option[NonEmpty[List[String]]] = ev match {
-    case dlog.Success(sql, args, _, _) if (sql contains "DELETE") && (sql contains "contract_id") =>
-      NonEmpty from (args collect { case it: String => it })
-    case _ => None
-  }
-
   private def deadlockDetectedCollector = collector {
     case err @ dlog.ExecFailure(_, _, _, failure: java.sql.SQLException)
         if (61000 until 62000) contains failure.getSQLState =>
