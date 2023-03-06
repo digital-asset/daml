@@ -330,6 +330,13 @@ private class ContractsFetch(
         val transactInsertsDeletes = Flow
           .fromFunction(jsonifyInsertDeleteStep)
           .via(conflation)
+          .delayWith(
+            { () => _ =>
+              import concurrent.duration.DurationInt
+              scala.util.Random.between(0, 20).millis
+            },
+            akka.stream.DelayOverflowStrategy.backpressure,
+          )
           .map(insertAndDelete)
 
         idses.map(_.toInsertDelete) ~> transactInsertsDeletes ~> acsSink
