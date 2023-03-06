@@ -1468,7 +1468,7 @@ object Runner {
     smap.expect("SMap", { case SMap(_, values) => values.size }).orConverterException
   }
 
-  private def numberOfActiveContracts(
+  private[trigger] def numberOfActiveContracts(
       svalue: SValue,
       level: Trigger.Level,
       version: Trigger.Version,
@@ -1497,7 +1497,7 @@ object Runner {
     }
   }
 
-  private def numberOfPendingContracts(
+  private[trigger] def numberOfPendingContracts(
       svalue: SValue,
       level: Trigger.Level,
       version: Trigger.Version,
@@ -1529,7 +1529,7 @@ object Runner {
     }
   }
 
-  private def numberOfInFlightCommands(
+  private[trigger] def numberOfInFlightCommands(
       svalue: SValue,
       level: Trigger.Level,
       version: Trigger.Version,

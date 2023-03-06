@@ -11,14 +11,12 @@ import ch.qos.logback.classic.spi.ILoggingEvent
 import ch.qos.logback.core.read.ListAppender
 import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
 import com.daml.ledger.api.v1.event.CreatedEvent
-import com.daml.lf.CompiledPackages
 import com.daml.lf.data.FrontStack
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.trigger.Runner.{TriggerContext, TriggerContextualFlow}
 import com.daml.lf.engine.trigger.UnfoldState.{flatMapConcatNodeOps, toSourceOps}
-import com.daml.lf.speedy.SExpr.SEValue
-import com.daml.lf.speedy.SValue.{SList, SUnit}
-import com.daml.lf.speedy.{SValue, Speedy}
+import com.daml.lf.speedy.SValue.SList
+import com.daml.lf.speedy.SValue
 import com.daml.logging.LoggingContextOf
 import com.daml.scalautil.Statement.discard
 import com.daml.script.converter.Converter.Implicits._
@@ -31,16 +29,18 @@ import scala.concurrent.{ExecutionContext, Future}
 import spray.json._
 
 import java.util.UUID
+import scala.collection.mutable
 import scala.util.control.NonFatal
 
 private class TriggerRuleMetrics {
 
-  private[this] var metricCountData = Map.empty[UUID, Map[String, Long]]
-  private[this] var metricTimingData = Map.empty[UUID, Map[String, FiniteDuration]]
+  private[this] var metricCountData = mutable.Map.empty[UUID, Map[String, Long]]
+  private[this] var metricTimingData = mutable.Map.empty[UUID, Map[String, FiniteDuration]]
 
   def addLogEntry(logEntry: JsObject): Unit = {
     addSteps(logEntry)
     addSubmissions(logEntry)
+    addGetTimes(logEntry)
     addACSActiveStart(logEntry)
     addACSActiveEnd(logEntry)
     addACSPendingStart(logEntry)
@@ -53,8 +53,8 @@ private class TriggerRuleMetrics {
   }
 
   def clearMetrics(): Unit = {
-    metricCountData = Map.empty
-    metricTimingData = Map.empty
+    metricCountData = mutable.Map.empty
+    metricTimingData = mutable.Map.empty
   }
 
   def getMetrics: TriggerRuleMetrics.RuleMetrics = {
@@ -71,6 +71,7 @@ private class TriggerRuleMetrics {
         "in-flight-start",
         "in-flight-end",
         "steps",
+        "get-times",
         "submission-total",
         "submission-create",
         "submission-exercise",
@@ -99,12 +100,13 @@ private class TriggerRuleMetrics {
     RuleMetrics(
       evaluation = EvaluationMetrics(
         steps = metricCountData(uuid)("steps"),
+        submissions = metricCountData(uuid)("submission-total"),
+        getTimes = metricCountData(uuid)("get-times"),
         ruleEvaluation = metricTimingData(uuid)("rule-evaluation"),
         stepIteratorMean = metricTimingData(uuid)("step-iterator-mean"),
         stepIteratorDelayMean = metricTimingData(uuid).get("step-iterator-delay-mean"),
       ),
       submission = SubmissionMetrics(
-        submissions = metricCountData(uuid)("submission-total"),
         creates = metricCountData(uuid)("submission-create"),
         exercises = metricCountData(uuid)("submission-exercise"),
         createAndExercises = metricCountData(uuid)("submission-create-and-exercise"),
@@ -275,6 +277,24 @@ private class TriggerRuleMetrics {
     addSubmissionExercise(logEntry)
     addSubmissionCreateAndExercise(logEntry)
     addSubmissionExerciseByKey(logEntry)
+  }
+
+  private def addGetTimes(logEntry: JsObject): Unit = {
+    try {
+      val count = getMetrics(logEntry)
+        .fields("get-times")
+        .expect(
+          "JsNumber",
+          { case JsNumber(value) =>
+            value.longValue
+          },
+        )
+        .orConverterException
+
+      metricCountData(getSpanParentId(logEntry)) += ("get-times" -> count)
+    } catch {
+      case NonFatal(_) =>
+    }
   }
 
   private def addSubmissionTotal(logEntry: JsObject): Unit = {
@@ -485,6 +505,8 @@ private class TriggerRuleMetrics {
 object TriggerRuleMetrics {
   final case class EvaluationMetrics(
       steps: Long,
+      submissions: Long,
+      getTimes: Long,
       ruleEvaluation: FiniteDuration,
       stepIteratorMean: FiniteDuration,
       stepIteratorDelayMean: Option[FiniteDuration],
@@ -500,7 +522,6 @@ object TriggerRuleMetrics {
   )
 
   final case class SubmissionMetrics(
-      submissions: Long,
       creates: Long,
       exercises: Long,
       createAndExercises: Long,
@@ -520,8 +541,7 @@ object TriggerRuleMetrics {
   )
 }
 
-final class TriggerRuleSimulationLib[UserState](
-    compiledPackages: CompiledPackages,
+final class TriggerRuleSimulationLib(
     triggerConfig: TriggerRunnerConfig,
     level: Trigger.Level,
     version: Trigger.Version,
@@ -547,8 +567,6 @@ final class TriggerRuleSimulationLib[UserState](
   private[this] implicit val executionContext: ExecutionContext = materializer.executionContext
   private[this] implicit val triggerContext: TriggerLogContext =
     TriggerLogContext.newRootSpan("simulation")(identity)(loggingContext)
-  private[this] implicit val machine: Speedy.PureMachine =
-    Speedy.Machine.fromPureSExpr(compiledPackages, SEValue(SUnit))(loggingContext)
 
   @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
   def initialStateLambda(

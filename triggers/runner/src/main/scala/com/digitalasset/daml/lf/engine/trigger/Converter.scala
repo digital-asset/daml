@@ -17,7 +17,7 @@ import com.daml.lf.speedy.{ArrayList, SValue}
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.value.Value.ContractId
 import com.daml.ledger.api.v1.commands.{
-  Command,
+  Command => ApiCommand,
   CreateAndExerciseCommand,
   CreateCommand,
   ExerciseByKeyCommand,
@@ -29,6 +29,7 @@ import com.daml.ledger.api.v1.transaction.Transaction
 import com.daml.ledger.api.v1.value
 import com.daml.ledger.api.validation.NoLoggingValueValidator
 import com.daml.lf.language.StablePackage.DA
+import com.daml.lf.speedy.Command
 import com.daml.lf.value.Value
 import com.daml.platform.participant.util.LfEngineToApi.{
   lfValueToApiRecord,
@@ -67,6 +68,7 @@ final class Converter(
   private[this] val triggerConfigTy = triggerIds.damlTriggerLowLevel("TriggerConfig")
   private[this] val triggerSetupArgumentsTy =
     triggerIds.damlTriggerLowLevel("TriggerSetupArguments")
+  private[this] val triggerStateTy = triggerIds.damlTriggerLowLevel("TriggerState")
   private[this] val anyContractIdTy = triggerIds.damlTriggerLowLevel("AnyContractId")
   private[this] val archivedTy = triggerIds.damlTriggerLowLevel("Archived")
   private[this] val commandIdTy = triggerIds.damlTriggerLowLevel("CommandId")
@@ -79,6 +81,11 @@ final class Converter(
   private[this] val succeedTy = triggerIds.damlTriggerLowLevel("CompletionStatus.Succeeded")
   private[this] val transactionIdTy = triggerIds.damlTriggerLowLevel("TransactionId")
   private[this] val transactionTy = triggerIds.damlTriggerLowLevel("Transaction")
+  private[this] val createCommandTy = triggerIds.damlTriggerLowLevel("CreateCommand")
+  private[this] val exerciseCommandTy = triggerIds.damlTriggerLowLevel("ExerciseCommand")
+  private[this] val createAndExerciseCommandTy =
+    triggerIds.damlTriggerLowLevel("CreateAndExerciseCommand")
+  private[this] val exerciseByKeyCommandTy = triggerIds.damlTriggerLowLevel("ExerciseByKeyCommand")
 
   private[this] def fromIdentifier(identifier: value.Identifier) =
     for {
@@ -322,6 +329,84 @@ final class Converter(
       "config" -> config,
     )
 
+  def fromCommand(command: Command): SValue = command match {
+    case Command.Create(templateId, argument) =>
+      record(
+        createCommandTy,
+        "templateArg" -> fromAnyTemplate(
+          TTyCon(templateId),
+          argument,
+        ),
+      )
+
+    case Command.ExerciseTemplate(_, contractId, _, choiceArg) =>
+      record(
+        exerciseCommandTy,
+        "contractId" -> contractId,
+        "choiceArg" -> choiceArg,
+      )
+
+    case Command.ExerciseInterface(_, contractId, _, choiceArg) =>
+      record(
+        exerciseCommandTy,
+        "contractId" -> contractId,
+        "choiceArg" -> choiceArg,
+      )
+
+    case Command.CreateAndExercise(templateId, createArg, _, choiceArg) =>
+      record(
+        createAndExerciseCommandTy,
+        "templateArg" -> fromAnyTemplate(TTyCon(templateId), createArg),
+        "choiceArg" -> choiceArg,
+      )
+
+    case Command.ExerciseByKey(templateId, contractKey, _, choiceArg) =>
+      record(
+        exerciseByKeyCommandTy,
+        "tplTypeRep" -> SValue.STypeRep(TTyCon(templateId)),
+        "contractKey" -> contractKey,
+        "choiceArg" -> choiceArg,
+      )
+
+    case _ =>
+      // FIXME:
+      throw new RuntimeException("FIXME: this case was not expected!")
+  }
+
+  def fromCommands(commands: Seq[Command]): SValue = {
+    SList(commands.map(fromCommand).to(FrontStack))
+  }
+
+  def fromTriggerUpdateState(
+      createdEvents: Seq[CreatedEvent],
+      userState: SValue,
+      commandsInFlight: Map[String, Seq[Command]] = Map.empty,
+      parties: TriggerParties,
+      triggerConfig: TriggerRunnerConfig,
+  ): Either[String, SValue] = {
+    for {
+      acs <- fromACS(createdEvents)
+      actAs = SParty(Ref.Party.assertFromString(parties.actAs.unwrap))
+      readAs = SList(
+        parties.readAs.map(p => SParty(Ref.Party.assertFromString(p.unwrap))).to(FrontStack)
+      )
+      config = fromTriggerConfig(triggerConfig)
+    } yield record(
+      triggerStateTy,
+      "acs" -> acs,
+      "actAs" -> actAs,
+      "readAs" -> readAs,
+      "userState" -> userState,
+      "commandsInFlight" -> SMap(
+        isTextMap = false,
+        commandsInFlight.iterator.map { case (cmdId, cmds) =>
+          (fromCommandId(cmdId), fromCommands(cmds))
+        },
+      ),
+      "config" -> config,
+    )
+  }
+
   def toFiniteDuration(value: SValue): Either[String, FiniteDuration] =
     value.expect(
       "RelTime",
@@ -468,29 +553,29 @@ final class Converter(
       },
     )
 
-  private[this] def toCommand(v: SValue): Either[String, Command] = {
+  private[this] def toCommand(v: SValue): Either[String, ApiCommand] = {
     v match {
       case SVariant(_, "CreateCommand", _, createVal) =>
         for {
           create <- toCreate(createVal)
-        } yield Command().withCreate(create)
+        } yield ApiCommand().withCreate(create)
       case SVariant(_, "ExerciseCommand", _, exerciseVal) =>
         for {
           exercise <- toExercise(exerciseVal)
-        } yield Command().withExercise(exercise)
+        } yield ApiCommand().withExercise(exercise)
       case SVariant(_, "ExerciseByKeyCommand", _, exerciseByKeyVal) =>
         for {
           exerciseByKey <- toExerciseByKey(exerciseByKeyVal)
-        } yield Command().withExerciseByKey(exerciseByKey)
+        } yield ApiCommand().withExerciseByKey(exerciseByKey)
       case SVariant(_, "CreateAndExerciseCommand", _, createAndExerciseVal) =>
         for {
           createAndExercise <- toCreateAndExercise(createAndExerciseVal)
-        } yield Command().withCreateAndExercise(createAndExercise)
+        } yield ApiCommand().withCreateAndExercise(createAndExercise)
       case _ => Left(s"Expected a Command but got $v")
     }
   }
 
-  def toCommands(v: SValue): Either[String, Seq[Command]] =
+  def toCommands(v: SValue): Either[String, Seq[ApiCommand]] =
     for {
       cmdValues <- v.expect(
         "[Command]",
