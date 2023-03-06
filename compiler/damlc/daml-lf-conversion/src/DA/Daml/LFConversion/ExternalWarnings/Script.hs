@@ -6,19 +6,15 @@
 -- | For compiler level warnings on Daml.Script
 module DA.Daml.LFConversion.ExternalWarnings.Script (topLevelWarnings) where
 
+import qualified Data.Text as T
 import DA.Daml.UtilGHC
 import DA.Daml.LFConversion.ConvertM
 import DA.Daml.LFConversion.Utils
 import "ghc-lib" GhcPlugins as GHC hiding ((<>))
 import "ghc-lib" TyCoRep
-import SdkVersion (sdkPackageVersion)
-
--- Identifying the Daml.Script module
-damlScriptUnitId :: GHC.UnitId
-damlScriptUnitId = fsToUnitId (fsLit $ "daml-script-" <> sdkPackageVersion)
 
 pattern DamlScriptPackage :: GHC.UnitId
-pattern DamlScriptPackage <- ((== damlScriptUnitId) -> True)
+pattern DamlScriptPackage <- (T.stripPrefix "daml-script-" . fsToText . unitIdFS -> Just _)
 pattern DamlScriptModule :: GHC.Module
 pattern DamlScriptModule <- ModuleIn DamlScriptPackage "Daml.Script"
 
