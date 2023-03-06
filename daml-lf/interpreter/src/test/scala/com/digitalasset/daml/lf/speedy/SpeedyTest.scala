@@ -620,8 +620,8 @@ object SpeedyTest {
       buildHouseCachedContract(alice, alice, label = "global-label")
     val disclosedContractId: ContractId =
       ContractId.V1(crypto.Hash.hashPrivateKey("test-disclosed-contract-id"))
-    val disclosedContract: DisclosedContract =
-      buildDisclosedHouseContract(disclosedContractId, alice, alice, label = "disclosed-label")
+    val disclosedContract: CachedContract =
+      buildDisclosedHouseContract(alice, alice, label = "disclosed-label")
     val disclosedContractKey: GlobalKey = buildContractKey(alice, "disclosed-label")
     val disclosedCachedContract: CachedContract =
       buildHouseCachedContract(alice, alice, label = "disclosed-label")
@@ -633,7 +633,7 @@ object SpeedyTest {
         SEValue(SUnit),
         // As committers is empty, our readers will be empty and so contracts and contract keys will *always* be non-visible to stakeholders
         committers = Set.empty,
-        disclosedContracts = ImmArray(disclosedContract),
+//        disclosedContracts = ImmArray(disclosedContract),
       )
       .withWarningLog(testLogger)
       .withCachedContracts(

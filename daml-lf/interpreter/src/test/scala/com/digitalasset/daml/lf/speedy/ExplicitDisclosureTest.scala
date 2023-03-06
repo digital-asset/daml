@@ -4,9 +4,7 @@
 package com.daml.lf
 package speedy
 
-import com.daml.lf.command.ContractMetadata
 import com.daml.lf.data.Ref.Party
-import com.daml.lf.data.{Bytes, Ref, ImmArray, Time}
 import com.daml.lf.interpretation.Error.{ContractKeyNotFound, ContractNotActive}
 import com.daml.lf.speedy.SExpr.SEValue
 import com.daml.lf.value.Value
@@ -16,7 +14,8 @@ import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
 import com.daml.lf.speedy.SBuiltin.{SBUFetchKey, SBFetchAny, SBULookupKey}
 import com.daml.lf.speedy.SValue.SContractId
-import com.daml.lf.transaction.{GlobalKeyWithMaintainers, GlobalKey}
+import com.daml.lf.speedy.Speedy.CachedContract
+import com.daml.lf.transaction.GlobalKeyWithMaintainers
 import com.daml.lf.testing.parser.Implicits._
 
 class ExplicitDisclosureTest extends ExplicitDisclosureTestMethods {
@@ -30,8 +29,9 @@ class ExplicitDisclosureTest extends ExplicitDisclosureTestMethods {
         ledgerParty should not be maintainerParty
         disclosureParty should not be maintainerParty
         getOwner(ledgerCaveContract.unversioned.arg) shouldBe Some(ledgerParty)
-        disclosedCaveContract.contractId shouldBe SContractId(contractId)
-        getOwner(disclosedCaveContract.argument.toUnnormalizedValue) shouldBe Some(disclosureParty)
+        inside(disclosedCaveContract) { case (`contractId`, contract) =>
+          getOwner(contract.arg) shouldBe Some(disclosureParty)
+        }
       }
 
       "ledger queried when contract ID is not disclosed" in {
@@ -51,7 +51,7 @@ class ExplicitDisclosureTest extends ExplicitDisclosureTestMethods {
           disclosureTableQueriedWhenContractDisclosed(
             SBFetchAny(SEValue(SContractId(contractId)), SEValue.None),
             disclosedCaveContract,
-            disclosedContracts = ImmArray(disclosedCaveContract),
+            disclosures = List(disclosedCaveContract),
           )(result =>
             inside(result) {
               case Right(SValue.SAny(_, contract @ SValue.SRecord(`caveTemplateId`, _, _))) =>
@@ -65,7 +65,7 @@ class ExplicitDisclosureTest extends ExplicitDisclosureTestMethods {
             SBFetchAny(SEValue(SContractId(contractId)), SEValue.None),
             disclosedCaveContract,
             getContract = Map(contractId -> ledgerCaveContract),
-            disclosedContracts = ImmArray(disclosedCaveContract),
+            disclosures = List(disclosedCaveContract),
           )(result =>
             inside(result) {
               case Right(SValue.SAny(_, contract @ SValue.SRecord(`caveTemplateId`, _, _))) =>
@@ -101,7 +101,7 @@ class ExplicitDisclosureTest extends ExplicitDisclosureTestMethods {
               contractId,
               "TestMod:destroyCave",
               committers = Set(disclosureParty),
-              disclosedContracts = ImmArray(disclosedCaveContract),
+              disclosures = List(disclosedCaveContract),
             )(result =>
               inside(result) {
                 case Left(
@@ -122,7 +122,7 @@ class ExplicitDisclosureTest extends ExplicitDisclosureTestMethods {
               "TestMod:destroyCave",
               committers = Set(disclosureParty, ledgerParty),
               getContract = Map(contractId -> ledgerCaveContract),
-              disclosedContracts = ImmArray(disclosedCaveContract),
+              disclosures = List(disclosedCaveContract),
             )(result =>
               inside(result) {
                 case Left(
@@ -144,16 +144,15 @@ class ExplicitDisclosureTest extends ExplicitDisclosureTestMethods {
         ledgerParty should not be maintainerParty
         disclosureParty should not be maintainerParty
         ledgerContractId should not be disclosureContractId
-        disclosedHouseContract.contractId shouldBe SContractId(disclosureContractId)
-        getOwner(disclosedHouseContract.argument.toUnnormalizedValue) shouldBe Some(disclosureParty)
-        getMaintainer(disclosedHouseContract.argument.toUnnormalizedValue) shouldBe Some(
-          maintainerParty
-        )
+        inside(disclosedHouseContract) { case (`disclosureContractId`, contract) =>
+          getOwner(contract.arg) shouldBe Some(disclosureParty)
+          getMaintainer(contract.arg) shouldBe Some(maintainerParty)
+        }
       }
 
       "ledger queried when contract key is not disclosed" in {
         ledgerQueriedWhenContractNotDisclosed(
-          SBUFetchKey(houseTemplateId)(SEValue(contractSKey)),
+          SBUFetchKey(houseTemplateId)(SEValue(contractSStructKey)),
           committers = Set(ledgerParty),
           getKey = Map(
             GlobalKeyWithMaintainers(contractKey, Set(maintainerParty)) -> ledgerContractId
@@ -165,23 +164,23 @@ class ExplicitDisclosureTest extends ExplicitDisclosureTestMethods {
       "disclosure table queried when contract key is disclosed" - {
         "contract key in disclosure table only" in {
           disclosureTableQueriedWhenContractDisclosed(
-            SBUFetchKey(houseTemplateId)(SEValue(contractSKey)),
+            SBUFetchKey(houseTemplateId)(SEValue(contractSStructKey)),
             disclosedHouseContract,
             committers = Set(disclosureParty),
-            disclosedContracts = ImmArray(disclosedHouseContract),
+            disclosures = List(disclosedHouseContract),
           )(_ shouldBe Right(SValue.SContractId(disclosureContractId)))
         }
 
         "contract key in ledger and disclosure table" in {
           disclosureTableQueriedWhenContractDisclosed(
-            SBUFetchKey(houseTemplateId)(SEValue(contractSKey)),
+            SBUFetchKey(houseTemplateId)(SEValue(contractSStructKey)),
             disclosedHouseContract,
             committers = Set(disclosureParty, ledgerParty),
             getKey = Map(
               GlobalKeyWithMaintainers(contractKey, Set(maintainerParty)) -> ledgerContractId
             ),
             getContract = Map(ledgerContractId -> ledgerHouseContract),
-            disclosedContracts = ImmArray(disclosedHouseContract),
+            disclosures = List(disclosedHouseContract),
           )(_ shouldBe Right(SValue.SContractId(disclosureContractId)))
         }
       }
@@ -189,7 +188,7 @@ class ExplicitDisclosureTest extends ExplicitDisclosureTestMethods {
       "disclosed contract keys that are inactive" - {
         "ledger query fails when contract key is not disclosed" in {
           ledgerQueryFailsWhenContractNotDisclosed(
-            SBUFetchKey(houseTemplateId)(SEValue(contractSKey)),
+            SBUFetchKey(houseTemplateId)(SEValue(contractSStructKey)),
             ledgerContractId,
             "TestMod:destroyHouse",
             committers = Set(ledgerParty),
@@ -208,12 +207,12 @@ class ExplicitDisclosureTest extends ExplicitDisclosureTestMethods {
         "disclosure table query fails when contract key is disclosed" - {
           "contract key in disclosure table only" in {
             disclosureTableQueryFailsWhenContractDisclosed(
-              SBUFetchKey(houseTemplateId)(SEValue(contractSKey)),
+              SBUFetchKey(houseTemplateId)(SEValue(contractSStructKey)),
               disclosedHouseContract,
               disclosureContractId,
               "TestMod:destroyHouse",
               committers = Set(disclosureParty, maintainerParty),
-              disclosedContracts = ImmArray(disclosedHouseContract),
+              disclosures = List(disclosedHouseContract),
             )(result =>
               inside(result) {
                 case Left(SError.SErrorDamlException(ContractKeyNotFound(`contractKey`))) =>
@@ -226,7 +225,7 @@ class ExplicitDisclosureTest extends ExplicitDisclosureTestMethods {
             for (contractIdToBurn <- Set(ledgerContractId, disclosureContractId)) {
               // Exercising a single contract ID is sufficient to make the key inactive
               disclosureTableQueryFailsWhenContractDisclosed(
-                SBUFetchKey(houseTemplateId)(SEValue(contractSKey)),
+                SBUFetchKey(houseTemplateId)(SEValue(contractSStructKey)),
                 disclosedHouseContract,
                 contractIdToBurn,
                 "TestMod:destroyHouse",
@@ -238,7 +237,7 @@ class ExplicitDisclosureTest extends ExplicitDisclosureTestMethods {
                   ) -> ledgerContractId
                 ),
                 getContract = Map(ledgerContractId -> ledgerHouseContract),
-                disclosedContracts = ImmArray(disclosedHouseContract),
+                disclosures = List(disclosedHouseContract),
               )(result =>
                 inside(result) {
                   case Left(SError.SErrorDamlException(ContractKeyNotFound(`contractKey`))) =>
@@ -246,16 +245,6 @@ class ExplicitDisclosureTest extends ExplicitDisclosureTestMethods {
                 }
               )
             }
-          }
-        }
-      }
-
-      "wrongly typed contract disclosures are not found" in {
-        wronglyTypedDisclosedContractsRejected(
-          SBUFetchKey(houseTemplateType)(SEValue(contractSKey))
-        ) { result =>
-          inside(result) { case Left(SError.SErrorDamlException(ContractKeyNotFound(_))) =>
-            succeed
           }
         }
       }
@@ -267,16 +256,15 @@ class ExplicitDisclosureTest extends ExplicitDisclosureTestMethods {
         ledgerParty should not be maintainerParty
         disclosureParty should not be maintainerParty
         ledgerContractId should not be disclosureContractId
-        disclosedHouseContract.contractId shouldBe SContractId(disclosureContractId)
-        getOwner(disclosedHouseContract.argument.toUnnormalizedValue) shouldBe Some(disclosureParty)
-        getMaintainer(disclosedHouseContract.argument.toUnnormalizedValue) shouldBe Some(
-          maintainerParty
-        )
+        inside(disclosedHouseContract) { case (`disclosureContractId`, contract) =>
+          getOwner(contract.arg) shouldBe Some(disclosureParty)
+          getMaintainer(contract.arg) shouldBe Some(maintainerParty)
+        }
       }
 
       "ledger queried when contract key is not disclosed" in {
         ledgerQueriedWhenContractNotDisclosed(
-          SBULookupKey(houseTemplateId)(SEValue(contractSKey)),
+          SBULookupKey(houseTemplateId)(SEValue(contractSStructKey)),
           committers = Set(ledgerParty),
           getKey = Map(
             GlobalKeyWithMaintainers(contractKey, Set(maintainerParty)) -> ledgerContractId
@@ -288,23 +276,23 @@ class ExplicitDisclosureTest extends ExplicitDisclosureTestMethods {
       "disclosure table queried when contract key is disclosed" - {
         "contract key in disclosure table only" in {
           disclosureTableQueriedWhenContractDisclosed(
-            SBULookupKey(houseTemplateId)(SEValue(contractSKey)),
+            SBULookupKey(houseTemplateId)(SEValue(contractSStructKey)),
             disclosedHouseContract,
             committers = Set(disclosureParty),
-            disclosedContracts = ImmArray(disclosedHouseContract),
+            disclosures = List(disclosedHouseContract),
           )(_ shouldBe Right(SValue.SOptional(Some(SValue.SContractId(disclosureContractId)))))
         }
 
         "contract key in ledger and disclosure table" in {
           disclosureTableQueriedWhenContractDisclosed(
-            SBULookupKey(houseTemplateId)(SEValue(contractSKey)),
+            SBULookupKey(houseTemplateId)(SEValue(contractSStructKey)),
             disclosedHouseContract,
             committers = Set(disclosureParty, ledgerParty),
             getKey = Map(
               GlobalKeyWithMaintainers(contractKey, Set(maintainerParty)) -> ledgerContractId
             ),
             getContract = Map(ledgerContractId -> ledgerHouseContract),
-            disclosedContracts = ImmArray(disclosedHouseContract),
+            disclosures = List(disclosedHouseContract),
           )(_ shouldBe Right(SValue.SOptional(Some(SValue.SContractId(disclosureContractId)))))
         }
       }
@@ -312,7 +300,7 @@ class ExplicitDisclosureTest extends ExplicitDisclosureTestMethods {
       "disclosed contract keys that are inactive" - {
         "ledger query fails when contract key is not disclosed" in {
           ledgerQueryFailsWhenContractNotDisclosed(
-            SBULookupKey(houseTemplateId)(SEValue(contractSKey)),
+            SBULookupKey(houseTemplateId)(SEValue(contractSStructKey)),
             ledgerContractId,
             "TestMod:destroyHouse",
             committers = Set(ledgerParty),
@@ -330,12 +318,12 @@ class ExplicitDisclosureTest extends ExplicitDisclosureTestMethods {
         "disclosure table query fails when contract key is disclosed" - {
           "contract key in disclosure table only" in {
             disclosureTableQueryFailsWhenContractDisclosed(
-              SBULookupKey(houseTemplateId)(SEValue(contractSKey)),
+              SBULookupKey(houseTemplateId)(SEValue(contractSStructKey)),
               disclosedHouseContract,
               disclosureContractId,
               "TestMod:destroyHouse",
               committers = Set(disclosureParty, maintainerParty),
-              disclosedContracts = ImmArray(disclosedHouseContract),
+              disclosures = List(disclosedHouseContract),
             )(result =>
               inside(result) { case Right(SValue.SOptional(None)) =>
                 succeed
@@ -347,7 +335,7 @@ class ExplicitDisclosureTest extends ExplicitDisclosureTestMethods {
             for (contractIdToBurn <- Set(ledgerContractId, disclosureContractId)) {
               // Exercising a single contract ID is sufficient to make the key inactive
               disclosureTableQueryFailsWhenContractDisclosed(
-                SBULookupKey(houseTemplateId)(SEValue(contractSKey)),
+                SBULookupKey(houseTemplateId)(SEValue(contractSStructKey)),
                 disclosedHouseContract,
                 contractIdToBurn,
                 "TestMod:destroyHouse",
@@ -359,7 +347,7 @@ class ExplicitDisclosureTest extends ExplicitDisclosureTestMethods {
                   ) -> ledgerContractId
                 ),
                 getContract = Map(ledgerContractId -> ledgerHouseContract),
-                disclosedContracts = ImmArray(disclosedHouseContract),
+                disclosures = List(disclosedHouseContract),
               )(result =>
                 inside(result) { case Right(SValue.SOptional(None)) =>
                   succeed
@@ -368,12 +356,6 @@ class ExplicitDisclosureTest extends ExplicitDisclosureTestMethods {
             }
           }
         }
-      }
-
-      "wrongly typed contract disclosures are not found" in {
-        wronglyTypedDisclosedContractsRejected(
-          SBULookupKey(houseTemplateType)(SEValue(contractSKey))
-        )(_ shouldBe Right(SValue.SOptional(None)))
       }
     }
   }
@@ -386,7 +368,7 @@ private[lf] trait ExplicitDisclosureTestMethods extends AnyFreeSpec with Inside 
   def ledgerQueriedWhenContractNotDisclosed(
       sexpr: SExpr.SExpr,
       committers: Set[Party] = Set.empty,
-      disclosedContracts: ImmArray[DisclosedContract] = ImmArray.Empty,
+      disclosures: Iterable[(Value.ContractId, CachedContract)] = Iterable.empty,
       getContract: PartialFunction[Value.ContractId, Value.VersionedContractInstance] =
         PartialFunction.empty,
       getKey: PartialFunction[GlobalKeyWithMaintainers, Value.ContractId] = PartialFunction.empty,
@@ -395,7 +377,7 @@ private[lf] trait ExplicitDisclosureTestMethods extends AnyFreeSpec with Inside 
       evaluateSExpr(
         sexpr,
         committers = committers,
-        disclosedContracts = disclosedContracts,
+        disclosures = disclosures,
         getContract = getContract,
         getKey = getKey,
       )
@@ -407,9 +389,9 @@ private[lf] trait ExplicitDisclosureTestMethods extends AnyFreeSpec with Inside 
 
   def disclosureTableQueriedWhenContractDisclosed(
       sexpr: SExpr.SExpr,
-      disclosedContract: DisclosedContract,
+      disclosedContract: (Value.ContractId, CachedContract),
       committers: Set[Party] = Set.empty,
-      disclosedContracts: ImmArray[DisclosedContract] = ImmArray.Empty,
+      disclosures: Iterable[(Value.ContractId, CachedContract)] = Iterable.empty,
       getContract: PartialFunction[Value.ContractId, Value.VersionedContractInstance] =
         PartialFunction.empty,
       getKey: PartialFunction[GlobalKeyWithMaintainers, Value.ContractId] = PartialFunction.empty,
@@ -418,7 +400,7 @@ private[lf] trait ExplicitDisclosureTestMethods extends AnyFreeSpec with Inside 
       evaluateSExpr(
         sexpr,
         committers = committers,
-        disclosedContracts = disclosedContracts,
+        disclosures = disclosures,
         getContract = getContract,
         getKey = getKey,
       )
@@ -433,7 +415,7 @@ private[lf] trait ExplicitDisclosureTestMethods extends AnyFreeSpec with Inside 
       contractId: ContractId,
       action: String,
       committers: Set[Party] = Set.empty,
-      disclosedContracts: ImmArray[DisclosedContract] = ImmArray.Empty,
+      disclosures: Iterable[(Value.ContractId, CachedContract)] = Iterable.empty,
       getContract: PartialFunction[Value.ContractId, Value.VersionedContractInstance] =
         PartialFunction.empty,
       getKey: PartialFunction[GlobalKeyWithMaintainers, Value.ContractId] = PartialFunction.empty,
@@ -447,7 +429,7 @@ private[lf] trait ExplicitDisclosureTestMethods extends AnyFreeSpec with Inside 
       )(
         sexpr,
         committers = committers,
-        disclosedContracts = disclosedContracts,
+        disclosures = disclosures,
         getContract = getContract,
         getKey = getKey,
       )
@@ -459,11 +441,11 @@ private[lf] trait ExplicitDisclosureTestMethods extends AnyFreeSpec with Inside 
 
   def disclosureTableQueryFailsWhenContractDisclosed(
       sexpr: SExpr.SExpr,
-      disclosedContract: DisclosedContract,
+      disclosedContract: (Value.ContractId, CachedContract),
       contractToDestroy: ContractId,
       action: String,
       committers: Set[Party] = Set.empty,
-      disclosedContracts: ImmArray[DisclosedContract] = ImmArray.Empty,
+      disclosures: Iterable[(Value.ContractId, CachedContract)],
       getContract: PartialFunction[Value.ContractId, Value.VersionedContractInstance] =
         PartialFunction.empty,
       getKey: PartialFunction[GlobalKeyWithMaintainers, Value.ContractId] = PartialFunction.empty,
@@ -477,7 +459,7 @@ private[lf] trait ExplicitDisclosureTestMethods extends AnyFreeSpec with Inside 
       )(
         sexpr,
         committers = committers,
-        disclosedContracts = disclosedContracts,
+        disclosures = disclosures,
         getContract = getContract,
         getKey = getKey,
       )
@@ -485,36 +467,5 @@ private[lf] trait ExplicitDisclosureTestMethods extends AnyFreeSpec with Inside 
     assertResult(result)
     machine should haveDisclosedContracts(disclosedContract)
     machine should haveInactiveContractIds(contractToDestroy)
-  }
-
-  def wronglyTypedDisclosedContractsRejected(
-      sexpr: SExpr.SExpr
-  )(assertResult: Either[SError.SError, SValue] => Assertion): Assertion = {
-    val houseContractKey: GlobalKey = buildContractKey(maintainerParty)
-    // Here the disclosed contract has a caveTemplateType, but its key has a houseTemplateType
-    val malformedDisclosedContract: DisclosedContract =
-      DisclosedContract(
-        caveTemplateType,
-        SContractId(disclosureContractId),
-        SValue.SRecord(
-          caveTemplateType,
-          ImmArray(
-            Ref.Name.assertFromString("owner"),
-            Ref.Name.assertFromString("key_maintainer"),
-          ),
-          ArrayList(SValue.SParty(disclosureParty), SValue.SParty(maintainerParty)),
-        ),
-        ContractMetadata(Time.Timestamp.now(), Some(houseContractKey.hash), Bytes.Empty),
-      )
-    val (result, machine) =
-      evaluateSExpr(
-        sexpr,
-        committers = Set(disclosureParty),
-        disclosedContracts = ImmArray(malformedDisclosedContract),
-      )
-
-    assertResult(result)
-    machine should haveDisclosedContracts(malformedDisclosedContract)
-    machine should haveInactiveContractIds()
   }
 }

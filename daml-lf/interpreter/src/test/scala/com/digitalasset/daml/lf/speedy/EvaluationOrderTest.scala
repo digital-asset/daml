@@ -4,8 +4,7 @@
 package com.daml.lf
 package speedy
 
-import com.daml.lf.command.ContractMetadata
-import com.daml.lf.data.{Bytes, FrontStack, ImmArray, Ref, Time}
+import com.daml.lf.data.{FrontStack, ImmArray, Ref}
 import com.daml.lf.data.Ref.{Location, Party}
 import com.daml.lf.interpretation.{Error => IE}
 import com.daml.lf.language.Ast._
@@ -349,20 +348,24 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
       ),
     )
 
-  private[this] def buildDisclosedContract(signatory: Party): Versioned[DisclosedContract] =
-    Versioned(
-      TransactionVersion.minExplicitDisclosure,
-      DisclosedContract(
-        Dummy,
-        SContractId(cId),
-        SRecord(
+  private[this] def buildDisclosedContract(
+      signatory: Party
+  ): (Value.ContractId, Speedy.CachedContract) = {
+    cId ->
+      Speedy.CachedContract(
+        version = TransactionVersion.minExplicitDisclosure,
+        templateId = Dummy,
+        value = SRecord(
           Dummy,
           ImmArray(Ref.Name.assertFromString("signatory")),
           ArrayList(SParty(signatory)),
         ),
-        ContractMetadata(Time.Timestamp.now(), None, Bytes.Empty),
-      ),
-    )
+        agreementText = "",
+        signatories = Set(signatory),
+        observers = Set.empty,
+        keyOpt = None,
+      )
+  }
 
   private[this] val visibleContract = buildContract(bob)
   private[this] val nonVisibleContract = buildContract(alice)
@@ -418,24 +421,27 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
       e: Expr,
       args: Array[SValue],
       parties: Set[Party],
-      disclosedContracts: ImmArray[Versioned[DisclosedContract]] = ImmArray.Empty,
+      disclosedContracts: Iterable[(Value.ContractId, Speedy.CachedContract)] = Iterable.empty,
       getContract: PartialFunction[Value.ContractId, Value.VersionedContractInstance] =
         PartialFunction.empty,
       getKey: PartialFunction[GlobalKeyWithMaintainers, Value.ContractId] = PartialFunction.empty,
   ): (Try[Either[SError, SValue]], Seq[String]) = {
     val se = pkgs.compiler.unsafeCompile(e)
     val traceLog = new TestTraceLog()
+    val machine = Speedy.Machine
+      .fromUpdateSExpr(
+        pkgs,
+        seed,
+        if (args.isEmpty) se else SEApp(se, args),
+        parties,
+        traceLog = traceLog,
+      )
+    disclosedContracts.foreach { case (cid, contract) =>
+      machine.addDisclosedContracts(cid, contract)
+    }
     val res = Try(
       SpeedyTestLib.run(
-        Speedy.Machine
-          .fromUpdateSExpr(
-            pkgs,
-            seed,
-            if (args.isEmpty) se else SEApp(se, args),
-            parties,
-            disclosedContracts = disclosedContracts.map(_.unversioned),
-            traceLog = traceLog,
-          ),
+        machine,
         getContract = traceLog.tracePF("queries contract", getContract),
         getKey = traceLog.tracePF("queries key", getKey),
       )
@@ -2214,7 +2220,7 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
              in Test:fetch_by_id fetchingParty cId2""",
             Array(SParty(alice), SParty(alice), SContractId(cId)),
             Set(alice),
-            disclosedContracts = ImmArray(buildDisclosedContract(alice)),
+            disclosedContracts = List(buildDisclosedContract(alice)),
           )
 
           inside(result) {

@@ -446,13 +446,9 @@ private[lf] object Speedy {
         contractKeyUniqueness: ContractKeyUniquenessMode = ContractKeyUniquenessMode.Strict,
         commitLocation: Option[Location] = None,
         limits: interpretation.Limits = interpretation.Limits.Lenient,
-        disclosedContracts: ImmArray[speedy.DisclosedContract],
-    )(implicit loggingContext: LoggingContext): UpdateMachine = {
-      val exprWithDisclosures =
-        compiledPackages.compiler.unsafeCompileWithContractDisclosures(expr, disclosedContracts)
-
+    )(implicit loggingContext: LoggingContext): UpdateMachine =
       new UpdateMachine(
-        sexpr = exprWithDisclosures,
+        sexpr = expr,
         validating = validating,
         submissionTime = submissionTime,
         ptx = PartialTransaction
@@ -473,7 +469,6 @@ private[lf] object Speedy {
         iterationsBetweenInterruptions = iterationsBetweenInterruptions,
         compiledPackages = compiledPackages,
       )
-    }
 
     private[lf] final case class Result(
         tx: SubmittedTransaction,
@@ -1129,7 +1124,6 @@ private[lf] object Speedy {
         updateE: Expr,
         committers: Set[Party],
         authorizationChecker: AuthorizationChecker = DefaultAuthorizationChecker,
-        disclosedContracts: ImmArray[speedy.DisclosedContract] = ImmArray.Empty,
         limits: interpretation.Limits = interpretation.Limits.Lenient,
     )(implicit loggingContext: LoggingContext): UpdateMachine = {
       val updateSE: SExpr = compiledPackages.compiler.unsafeCompile(updateE)
@@ -1139,7 +1133,6 @@ private[lf] object Speedy {
         updateSE,
         committers,
         authorizationChecker,
-        disclosedContracts,
         limits,
       )
     }
@@ -1153,7 +1146,6 @@ private[lf] object Speedy {
         updateSE: SExpr,
         committers: Set[Party],
         authorizationChecker: AuthorizationChecker = DefaultAuthorizationChecker,
-        disclosedContracts: ImmArray[speedy.DisclosedContract] = ImmArray.Empty,
         limits: interpretation.Limits = interpretation.Limits.Lenient,
         traceLog: TraceLog = newTraceLog,
     )(implicit loggingContext: LoggingContext): UpdateMachine = {
@@ -1166,7 +1158,6 @@ private[lf] object Speedy {
         readAs = Set.empty,
         limits = limits,
         traceLog = traceLog,
-        disclosedContracts = disclosedContracts,
         authorizationChecker = authorizationChecker,
         iterationsBetweenInterruptions = 10000,
       )
