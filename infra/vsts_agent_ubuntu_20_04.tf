@@ -5,7 +5,7 @@ locals {
   ubuntu = [
     {
       name      = "ci-u1",
-      disk_size = 200,
+      disk_size = 400,
       size      = 30,
     },
     {

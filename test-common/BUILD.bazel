@@ -17,7 +17,7 @@ load(
     "lf_version_configuration_versions",
     "versions",
 )
-load("//ledger/ledger-api-tests:conformance.bzl", "testtool_lf_versions")
+load("//ledger-test-tool/ledger-api-tests:conformance.bzl", "testtool_lf_versions")
 load("//test-common:test-common.bzl", "da_scala_dar_resources_library")
 
 alias(

@@ -102,3 +102,12 @@ def norm_fixity_info(pkg):
     { "name": .[0] | norm_occ_name(pkg)
     , "fixity": .[1] | norm_fixity(pkg)
     };
+
+# Stream utils
+
+# Gets the value at a field, but lazily (will work for deep packages). Returns a non-stream.
+def top_level_field_stream($field): fromstream(1|truncate_stream(inputs | select(.[0][0] == $field)));
+
+def interned_strings_stream: top_level_field_stream("interned_strings");
+
+def interned_dotted_names_stream: top_level_field_stream("interned_dotted_names");

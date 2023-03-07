@@ -91,8 +91,7 @@ _choice$_IArchive :
    DA.Internal.Desugar.Optional (I
                                  -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]))
 _choice$_IArchive
-  = (\ this arg@DA.Internal.Desugar.Archive
-       -> DA.Internal.Desugar.signatory this, 
+  = (\ this _ -> DA.Internal.Desugar.signatory this, 
      \ _ _ _ -> pure (), DA.Internal.Desugar.Consuming, 
      DA.Internal.Desugar.None)
 _choice$_IIChoice :

@@ -222,3 +222,44 @@ of an affected failed build.
 Note that, due to the sheer number of files, wiping the cache for the PRs build
 can take upwards of 15 hours, during which the machine on which the command is
 run must be turned on and connected to the internet.
+
+## Azure Pipelines token
+
+The Azure Pipelines PAT ("personal access token") that our machines use to
+connect to Azure Pipelines is stored directly in the Terraform state. The state
+itself is stored in a GCS bucket as defined in the `main.tf` file.
+
+The state bucket needs to exist before any Terraform command is run, and thus
+has been created outside Terraform when setting up the project, and remains
+unmanaged by Terraform.
+
+In order to update the secret, one needs to use the Terraform commands to
+directly manipulate the state. Specifically:
+
+- The `terraform state rm` command allows one to delete one resource from the
+  Terraform state.
+- The `terraform import` command allows one to add a resource entry to the
+  Terraform state.
+
+The sortest way to update th key is to run, from the `infra` folder:
+
+```bash
+terraform state rm secret_resource.vsts-token
+terraform import secret_resource.vsts-token $NEW_TOKEN
+terraform apply
+```
+
+The first line deletes the existing entry, the second line adds the new value,
+and the last line will reapply the Terraform configuration, which, if the toke
+has changed, will result in new instance templates being generated for the CI
+node instance group managers.
+
+Note that switching the template used by an instance group results in an
+immediate release of that template, i.e. all existing machines will be shut
+down and new machines using the new template will be started. The above is
+therefore a disruptive operation best run on weekends or other low-utilization
+times.
+
+It is possible to roll out a new secret without down time by first creating a
+new secret to import the new key, adding that key to the dormant groups, etc.
+See the [Zero-downtime deployments](#zero-downtime-deployments) section above.

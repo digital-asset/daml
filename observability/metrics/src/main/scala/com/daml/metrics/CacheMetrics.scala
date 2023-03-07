@@ -4,17 +4,22 @@
 package com.daml.metrics
 
 import com.daml.metrics.api.MetricDoc.MetricQualification.Debug
-import com.daml.metrics.api.MetricHandle.{Counter, MetricsFactory}
+import com.daml.metrics.api.MetricHandle.{Counter, LabeledMetricsFactory}
 import com.daml.metrics.api.{MetricDoc, MetricName, MetricsContext}
 import com.daml.scalautil.Statement.discard
 
-final class CacheMetrics(val prefix: MetricName, val factory: MetricsFactory) {
+final class CacheMetrics(name: String, factory: LabeledMetricsFactory) {
+
+  private val prefix = MetricName.Daml :+ "cache"
+
+  private implicit val mc: MetricsContext = MetricsContext("name" -> name)
 
   @MetricDoc.Tag(
     summary = "The number of cache hits.",
     description = """When a cache lookup encounters an existing cache entry, the counter is
                     |incremented.""",
     qualification = Debug,
+    labelsWithDescription = Map("name" -> "The cache for which the metrics are registered."),
   )
   val hitCount: Counter = factory.counter(prefix :+ "hits")
 
@@ -23,6 +28,7 @@ final class CacheMetrics(val prefix: MetricName, val factory: MetricsFactory) {
     description = """When a cache lookup first encounters a missing cache entry, the counter is
                     |incremented.""",
     qualification = Debug,
+    labelsWithDescription = Map("name" -> "The cache for which the metrics are registered."),
   )
   val missCount: Counter = factory.counter(prefix :+ "misses")
 
@@ -30,6 +36,7 @@ final class CacheMetrics(val prefix: MetricName, val factory: MetricsFactory) {
     summary = "The number of the evicted cache entries.",
     description = "When an entry is evicted from the cache, the counter is incremented.",
     qualification = Debug,
+    labelsWithDescription = Map("name" -> "The cache for which the metrics are registered."),
   )
   val evictionCount: Counter = factory.counter(prefix :+ "evictions")
 
@@ -37,6 +44,7 @@ final class CacheMetrics(val prefix: MetricName, val factory: MetricsFactory) {
     summary = "The sum of weights of cache entries evicted.",
     description = "The total weight of the entries evicted from the cache.",
     qualification = Debug,
+    labelsWithDescription = Map("name" -> "The cache for which the metrics are registered."),
   )
   val evictionWeight: Counter = factory.counter(prefix :+ "evicted_weight")
 

@@ -264,7 +264,7 @@ class IdeLedgerClient(
     } else {
 
       val speedyCommands = preprocessor.unsafePreprocessApiCommands(commands.to(ImmArray))
-      val translated = compiledPackages.compiler.unsafeCompile(speedyCommands)
+      val translated = compiledPackages.compiler.unsafeCompile(speedyCommands, ImmArray.empty)
 
       val ledgerApi = ScenarioRunner.ScenarioLedgerApi(ledger)
       val result =

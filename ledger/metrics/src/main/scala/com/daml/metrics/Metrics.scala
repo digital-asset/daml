@@ -44,14 +44,18 @@ final class Metrics(
 
     object commands extends CommandMetrics(prefix :+ "commands", defaultMetricsFactory)
 
-    object execution extends ExecutionMetrics(prefix :+ "execution", defaultMetricsFactory)
+    object execution
+        extends ExecutionMetrics(
+          prefix :+ "execution",
+          defaultMetricsFactory,
+          labeledMetricsFactory,
+        )
 
     object lapi extends LAPIMetrics(prefix :+ "lapi", defaultMetricsFactory)
 
     object userManagement
         extends UserManagementMetrics(
           prefix :+ "user_management",
-          defaultMetricsFactory,
           labeledMetricsFactory,
         )
 
@@ -64,7 +68,6 @@ final class Metrics(
     object identityProviderConfigStore
         extends IdentityProviderConfigStoreMetrics(
           prefix :+ "identity_provider_config_store",
-          defaultMetricsFactory,
           labeledMetricsFactory,
         )
 

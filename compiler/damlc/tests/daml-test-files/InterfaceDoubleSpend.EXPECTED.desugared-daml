@@ -107,8 +107,7 @@ _choice$_TokenArchive :
    DA.Internal.Desugar.Optional (Token
                                  -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]))
 _choice$_TokenArchive
-  = (\ this arg@DA.Internal.Desugar.Archive
-       -> DA.Internal.Desugar.signatory this, 
+  = (\ this _ -> DA.Internal.Desugar.signatory this, 
      \ _ _ _ -> pure (), DA.Internal.Desugar.Consuming, 
      DA.Internal.Desugar.None)
 _choice$_TokenTransfer :

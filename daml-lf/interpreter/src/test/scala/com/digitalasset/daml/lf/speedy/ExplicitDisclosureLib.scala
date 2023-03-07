@@ -4,13 +4,11 @@
 package com.daml.lf
 package speedy
 
-import com.daml.lf.command.ContractMetadata
-import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref.{IdString, Party}
-import com.daml.lf.data.{Bytes, FrontStack, ImmArray, Ref, Struct, Time}
+import com.daml.lf.data.{FrontStack, ImmArray, Ref, Struct}
 import com.daml.lf.language.Ast
 import com.daml.lf.speedy.SExpr.SEMakeClo
-import com.daml.lf.speedy.SValue.{SContractId, SToken}
+import com.daml.lf.speedy.SValue.SToken
 import com.daml.lf.speedy.Speedy.{CachedContract, CachedKey}
 import com.daml.lf.transaction.{GlobalKey, GlobalKeyWithMaintainers, TransactionVersion, Versioned}
 import com.daml.lf.value.Value
@@ -96,91 +94,100 @@ object ExplicitDisclosureLib {
   val caveTemplateType: Ref.TypeConName = Ref.TypeConName.assertFromString("-pkgId-:TestMod:Cave")
   val keyType: Ref.TypeConName = Ref.TypeConName.assertFromString("-pkgId-:TestMod:Key")
   val contractKey: GlobalKey = buildContractKey(maintainerParty)
-  val contractSKey: SValue = buildContractSKey(maintainerParty)
+  val contractSStructKey: SValue =
+    SValue.SStruct(
+      fieldNames =
+        Struct.assertFromNameSeq(Seq("globalKey", "maintainers").map(Ref.Name.assertFromString)),
+      values = ArrayList(
+        buildContractSKey(maintainerParty),
+        SValue.SList(FrontStack.from(ImmArray(SValue.SParty(maintainerParty)))),
+      ),
+    )
   val ledgerContractKey: GlobalKey = buildContractKey(ledgerParty)
   val ledgerHouseContract: Value.VersionedContractInstance =
     buildContract(ledgerParty, maintainerParty)
   val ledgerCaveContract: Value.VersionedContractInstance =
     buildContract(ledgerParty, maintainerParty, caveTemplateId)
-  val disclosedCaveContractNoHash: DisclosedContract =
-    buildDisclosedCaveContract(contractId, disclosureParty)
-  val disclosedHouseContract: DisclosedContract =
-    buildDisclosedHouseContract(disclosureContractId, disclosureParty, maintainerParty)
-  val disclosedCaveContract: DisclosedContract =
-    buildDisclosedCaveContract(contractId, disclosureParty)
+  val disclosedCaveContractNoHash: (Value.ContractId, Speedy.CachedContract) =
+    contractId -> buildDisclosedCaveContract(disclosureParty)
+  val disclosedHouseContract: (Value.ContractId, Speedy.CachedContract) =
+    disclosureContractId -> buildDisclosedHouseContract(disclosureParty, maintainerParty)
+  val disclosedCaveContract: (Value.ContractId, Speedy.CachedContract) =
+    contractId -> buildDisclosedCaveContract(disclosureParty)
 
   def buildDisclosedHouseContract(
-      contractId: ContractId,
       owner: Party,
       maintainer: Party,
       templateId: Ref.Identifier = houseTemplateId,
-      withHash: Boolean = true,
+      withKey: Boolean = true,
       label: String = testKeyName,
-  ): DisclosedContract = {
-    val key = Value.ValueRecord(
+  ): Speedy.CachedContract = {
+    val cachedKey: Option[Speedy.CachedKey] =
+      if (withKey)
+        Some(
+          Speedy.CachedKey(
+            globalKeyWithMaintainers =
+              GlobalKeyWithMaintainers(buildContractKey(maintainer, label), Set(maintainer)),
+            key = buildContractSKey(maintainer),
+          )
+        )
+      else
+        None
+    Speedy.CachedContract(
+      version = TransactionVersion.maxVersion,
+      templateId = templateId,
+      value = SValue.SRecord(
+        templateId,
+        ImmArray(Ref.Name.assertFromString("owner"), Ref.Name.assertFromString("key_maintainer")),
+        ArrayList(SValue.SParty(owner), SValue.SParty(maintainer)),
+      ),
+      agreementText = "",
+      signatories = Set(owner, maintainer),
+      observers = Set.empty,
+      keyOpt = cachedKey,
+    )
+  }
+
+  def buildDisclosedCaveContract(
+      owner: Party,
+      templateId: Ref.Identifier = caveTemplateId,
+  ): Speedy.CachedContract = {
+    Speedy.CachedContract(
+      version = TransactionVersion.maxVersion,
+      templateId = templateId,
+      value = SValue.SRecord(
+        templateId,
+        ImmArray(Ref.Name.assertFromString("owner")),
+        ArrayList(SValue.SParty(owner)),
+      ),
+      agreementText = "",
+      signatories = Set(owner),
+      observers = Set.empty,
+      keyOpt = None,
+    )
+  }
+
+  def buildContractKeyValue(maintainer: Party, label: String = testKeyName) =
+    Value.ValueRecord(
       None,
       ImmArray(
         None -> Value.ValueText(label),
         None -> Value.ValueList(FrontStack.from(ImmArray(Value.ValueParty(maintainer)))),
       ),
     )
-    val keyHash: Option[Hash] =
-      if (withHash) Some(crypto.Hash.assertHashContractKey(houseTemplateType, key)) else None
-
-    DisclosedContract(
-      templateId,
-      SContractId(contractId),
-      SValue.SRecord(
-        templateId,
-        ImmArray(Ref.Name.assertFromString("owner"), Ref.Name.assertFromString("key_maintainer")),
-        ArrayList(SValue.SParty(owner), SValue.SParty(maintainer)),
-      ),
-      ContractMetadata(Time.Timestamp.now(), keyHash, Bytes.Empty),
-    )
-  }
-
-  def buildDisclosedCaveContract(
-      contractId: ContractId,
-      owner: Party,
-      templateId: Ref.Identifier = caveTemplateId,
-  ): DisclosedContract = {
-    DisclosedContract(
-      templateId,
-      SContractId(contractId),
-      SValue.SRecord(
-        templateId,
-        ImmArray(Ref.Name.assertFromString("owner")),
-        ArrayList(SValue.SParty(owner)),
-      ),
-      ContractMetadata(Time.Timestamp.now(), None, Bytes.Empty),
-    )
-  }
 
   def buildContractKey(maintainer: Party, label: String = testKeyName): GlobalKey =
     GlobalKey.assertBuild(
       houseTemplateType,
-      Value.ValueRecord(
-        None,
-        ImmArray(
-          None -> Value.ValueText(label),
-          None -> Value.ValueList(FrontStack.from(ImmArray(Value.ValueParty(maintainer)))),
-        ),
-      ),
+      buildContractKeyValue(maintainer, label),
     )
 
-  def buildContractSKey(maintainer: Party): SValue =
-    SValue.SStruct(
-      fieldNames =
-        Struct.assertFromNameSeq(Seq("globalKey", "maintainers").map(Ref.Name.assertFromString)),
-      values = ArrayList(
-        SValue.SRecord(
-          keyType,
-          ImmArray("label", "maintainers").map(Ref.Name.assertFromString),
-          ArrayList(
-            SValue.SText(testKeyName),
-            SValue.SList(FrontStack.from(ImmArray(SValue.SParty(maintainer)))),
-          ),
-        ),
+  def buildContractSKey(maintainer: Party, label: String = testKeyName): SValue =
+    SValue.SRecord(
+      keyType,
+      ImmArray("label", "maintainers").map(Ref.Name.assertFromString),
+      ArrayList(
+        SValue.SText(label),
         SValue.SList(FrontStack.from(ImmArray(SValue.SParty(maintainer)))),
       ),
     )
@@ -269,7 +276,7 @@ object ExplicitDisclosureLib {
   )(
       sexpr: SExpr.SExpr,
       committers: Set[Party] = Set.empty,
-      disclosedContracts: ImmArray[DisclosedContract] = ImmArray.Empty,
+      disclosures: Iterable[(Value.ContractId, CachedContract)] = Iterable.empty,
       getContract: PartialFunction[Value.ContractId, Value.VersionedContractInstance] =
         PartialFunction.empty,
       getKey: PartialFunction[GlobalKeyWithMaintainers, Value.ContractId] = PartialFunction.empty,
@@ -286,16 +293,21 @@ object ExplicitDisclosureLib {
           if (setupArgs.isEmpty) contextSExpr
           else SExpr.SEApp(contextSExpr, setupArgs),
         committers = committers,
-        disclosedContracts = disclosedContracts,
       )
+    disclosures.foreach { case (cid, contract) => machine.addDisclosedContracts(cid, contract) }
     val setupResult = SpeedyTestLib.run(
       machine = machine,
       getContract = getContract,
       getKey = getKey,
     )
 
-    assert(setupResult.isRight)
-
+    setupResult match {
+      case Right(_) => ()
+      case Left(SError.SErrorCrash(loc, err)) =>
+        throw new Exception(s"$loc: $err")
+      case Left(SError.SErrorDamlException(error)) =>
+        throw new Exception(s"$error")
+    }
     machine.setExpressionToEvaluate(SExpr.SEApp(runUpdateSExpr(sexpr), Array(SToken)))
 
     val result = SpeedyTestLib.run(
@@ -310,7 +322,7 @@ object ExplicitDisclosureLib {
   def evaluateSExpr(
       sexpr: SExpr.SExpr,
       committers: Set[Party] = Set.empty,
-      disclosedContracts: ImmArray[DisclosedContract] = ImmArray.Empty,
+      disclosures: Iterable[(Value.ContractId, CachedContract)] = Iterable.empty,
       getContract: PartialFunction[Value.ContractId, Value.VersionedContractInstance] =
         PartialFunction.empty,
       getKey: PartialFunction[GlobalKeyWithMaintainers, Value.ContractId] = PartialFunction.empty,
@@ -323,8 +335,8 @@ object ExplicitDisclosureLib {
         transactionSeed = crypto.Hash.hashPrivateKey("ExplicitDisclosureLib"),
         updateSE = runUpdateSExpr(sexpr),
         committers = committers,
-        disclosedContracts = disclosedContracts,
       )
+    disclosures.foreach { case (cid, contract) => machine.addDisclosedContracts(cid, contract) }
     val result = SpeedyTestLib.run(
       machine = machine,
       getContract = getContract,
@@ -355,14 +367,12 @@ object ExplicitDisclosureLib {
   }
 
   def haveDisclosedContracts(
-      disclosedContracts: DisclosedContract*
+      disclosures: (Value.ContractId, CachedContract)*
   ): Matcher[Speedy.UpdateMachine] =
     Matcher { machine =>
-      val expectedResult = disclosedContracts.iterator
-        .map(c =>
-          c.contractId.value -> c.argument.toNormalizedValue(machine.tmplId2TxVersion(c.templateId))
-        )
-        .toMap
+      val expectedResult = disclosures.iterator.map { case (coid, contract) =>
+        coid -> contract.arg
+      }.toMap
       val actualResult = machine.disclosedContracts.transform((_, c) => c.arg)
 
       val debugMessage = {
