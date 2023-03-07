@@ -403,8 +403,9 @@ class Endpoints(
     }
 
   private def searchHttpResponse(
-                                  searchResult: SearchResult[Error \/ JsValue]
-                                )(implicit lc: LoggingContextOf[RequestID]): HttpResponse = {    import json.JsonProtocol._
+      searchResult: SearchResult[Error \/ JsValue]
+  )(implicit lc: LoggingContextOf[RequestID]): HttpResponse = {
+    import json.JsonProtocol._
 
     val response: Source[ByteString, NotUsed] = searchResult match {
       case domain.OkResponse(result, warnings, _) =>
@@ -423,8 +424,8 @@ class Endpoints(
   }
 
   private[this] def filterStreamErrors[A](implicit
-                                          lc: LoggingContextOf[RequestID]
-                                         ): Flow[Error \/ A, Error \/ A, NotUsed] =
+      lc: LoggingContextOf[RequestID]
+  ): Flow[Error \/ A, Error \/ A, NotUsed] =
     Flow[Error \/ A].map {
       case -\/(ServerError(t)) =>
         val hideMsg = "internal server error"
