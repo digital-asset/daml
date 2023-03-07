@@ -55,11 +55,6 @@ renderDocs ro@RenderOptions{..} mods = do
         templateText = fromMaybe (defaultTemplate ro_format) ro_template
         renderMap = Map.fromList [(md_name mod, renderModule mod) | mod <- mods]
         externalAnchors = ro_externalAnchors
-        extension =
-            case ro_format of
-                Markdown -> "md"
-                Rst -> "rst"
-                Html -> "html"
 
     template <- compileTemplate "template" templateText
 
@@ -73,7 +68,12 @@ renderDocs ro@RenderOptions{..} mods = do
                 $ fold renderMap
 
         RenderToFolder path -> do
-            let (outputIndex, outputMap) = renderFolder formatter externalAnchors extension renderMap
+            let (outputIndex, outputMap) = renderFolder formatter externalAnchors ro_globalInternalExt renderMap
+                extension =
+                    case ro_format of
+                        Markdown -> "md"
+                        Rst -> "rst"
+                        Html -> "html"
 
                 outputPath mod = path </> moduleNameToFileName mod <.> extension
 
@@ -94,7 +94,7 @@ renderDocs ro@RenderOptions{..} mods = do
                 . postProcessing
                 $ outputIndex
 
-    let anchorTable = buildAnchorTable ro extension renderMap
+    let anchorTable = buildAnchorTable ro renderMap
     whenJust ro_anchorPath $ \anchorPath -> do
         A.encodeFile anchorPath anchorTable
     whenJust ro_hooglePath $ \hooglePath -> do

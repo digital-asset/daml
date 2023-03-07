@@ -144,12 +144,12 @@ renderFolder ::
     -> String
     -> Map.Map Modulename RenderOut
     -> (T.Text, Map.Map Modulename T.Text)
-renderFolder formatter externalAnchors globalInternalFileExt fileMap =
+renderFolder formatter externalAnchors globalInternalExt fileMap =
     let moduleAnchors = Map.map getRenderAnchors fileMap
         re_externalAnchors = externalAnchors
         re_separateModules = True
         re_globalAnchors = Map.fromList
-            [ (anchor, moduleNameToFileName moduleName <.> globalInternalFileExt)
+            [ (anchor, moduleNameToFileName moduleName <.> globalInternalExt)
             | (moduleName, anchors) <- Map.toList moduleAnchors
             , anchor <- Set.toList anchors
             ]
@@ -168,8 +168,8 @@ moduleNameToFileName :: Modulename -> FilePath
 moduleNameToFileName =
     T.unpack . T.replace "." "-" . unModulename
 
-buildAnchorTable :: RenderOptions -> String -> Map.Map Modulename RenderOut -> HMS.HashMap Anchor T.Text
-buildAnchorTable RenderOptions{..} globalInternalFileExt outputs
+buildAnchorTable :: RenderOptions -> Map.Map Modulename RenderOut -> HMS.HashMap Anchor T.Text
+buildAnchorTable RenderOptions{..} outputs
     | Just baseURL <- ro_baseURL
     = HMS.fromList
         [ (anchor, buildURL baseURL moduleName anchor)
@@ -196,9 +196,9 @@ buildAnchorTable RenderOptions{..} globalInternalFileExt outputs
         buildFolderURL baseURL moduleName anchor = T.concat
             [ stripTrailingSlash baseURL
             , "/"
-            , T.pack (moduleNameToFileName moduleName <.> globalInternalFileExt)
+            , T.pack (moduleNameToFileName moduleName <.> ro_globalInternalExt)
             , "#"
             , unAnchor anchor
             ]
 
-buildAnchorTable _ _ _ = HMS.empty
+buildAnchorTable _ _ = HMS.empty
