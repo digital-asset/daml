@@ -168,8 +168,8 @@ moduleNameToFileName :: Modulename -> FilePath
 moduleNameToFileName =
     T.unpack . T.replace "." "-" . unModulename
 
-buildAnchorTable :: RenderOptions -> Map.Map Modulename RenderOut -> HMS.HashMap Anchor T.Text
-buildAnchorTable RenderOptions{..} outputs
+buildAnchorTable :: RenderOptions -> String -> Map.Map Modulename RenderOut -> HMS.HashMap Anchor T.Text
+buildAnchorTable RenderOptions{..} globalInternalFileExt outputs
     | Just baseURL <- ro_baseURL
     = HMS.fromList
         [ (anchor, buildURL baseURL moduleName anchor)
@@ -196,7 +196,7 @@ buildAnchorTable RenderOptions{..} outputs
         buildFolderURL baseURL moduleName anchor = T.concat
             [ stripTrailingSlash baseURL
             , "/"
-            , T.pack (moduleNameToFileName moduleName <.> "html")
+            , T.pack (moduleNameToFileName moduleName <.> globalInternalFileExt)
             , "#"
             , unAnchor anchor
             ]
