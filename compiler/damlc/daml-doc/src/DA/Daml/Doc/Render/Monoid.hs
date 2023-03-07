@@ -141,14 +141,15 @@ renderPage formatter externalAnchors output =
 renderFolder ::
     RenderFormatter
     -> AnchorMap
+    -> String
     -> Map.Map Modulename RenderOut
     -> (T.Text, Map.Map Modulename T.Text)
-renderFolder formatter externalAnchors fileMap =
+renderFolder formatter externalAnchors globalInternalFileExt fileMap =
     let moduleAnchors = Map.map getRenderAnchors fileMap
         re_externalAnchors = externalAnchors
         re_separateModules = True
         re_globalAnchors = Map.fromList
-            [ (anchor, moduleNameToFileName moduleName <.> "html")
+            [ (anchor, moduleNameToFileName moduleName <.> globalInternalFileExt)
             | (moduleName, anchors) <- Map.toList moduleAnchors
             , anchor <- Set.toList anchors
             ]

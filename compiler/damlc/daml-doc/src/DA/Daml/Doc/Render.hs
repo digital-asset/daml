@@ -69,12 +69,12 @@ renderDocs ro@RenderOptions{..} mods = do
 
         RenderToFolder path -> do
             let
-                (outputIndex, outputMap) = renderFolder formatter externalAnchors renderMap
                 extension =
                     case ro_format of
                         Markdown -> "md"
                         Rst -> "rst"
                         Html -> "html"
+                (outputIndex, outputMap) = renderFolder formatter externalAnchors extension renderMap
 
                 outputPath mod = path </> moduleNameToFileName mod <.> extension
 

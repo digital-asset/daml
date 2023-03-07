@@ -423,8 +423,8 @@ renderFolderTest format externalAnchors (name, input) expected =
     (expectIndex, expectModules) = strip expected
 
     renderer = case format of
-      Rst -> renderFolder renderRst externalAnchors . renderMap
-      Markdown -> renderFolder renderMd externalAnchors . renderMap
+      Rst -> renderFolder renderRst externalAnchors "rst" . renderMap
+      Markdown -> renderFolder renderMd externalAnchors "md" . renderMap
       Html -> error "HTML testing not supported (use Markdown)"
 
     renderMap mods = Map.fromList
