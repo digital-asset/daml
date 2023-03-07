@@ -1,9 +1,0 @@
--- @ERROR range=7:5-7:9; `self' is a prohibited field name, please use something else.
-
-module RestrictedNameTemplateSelf where
-
--- Breaking change, if no choice is defined, this would previously have been valid
-template Self with
-    self : Party
-  where
-    signatory self
