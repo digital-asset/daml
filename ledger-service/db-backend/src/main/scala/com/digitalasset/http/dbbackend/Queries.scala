@@ -340,8 +340,11 @@ sealed abstract class Queries(tablePrefix: String, tpIdCacheMaxEntries: Long)(im
           free.connection.pure(0)
       }
     } else {
-      Update[String](s"DELETE FROM $contractTableNameRaw WHERE contract_id = ?")
-        .updateMany(cids.values.flatten.toSeq.sorted)
+      import cats.instances.seq._
+      Update[(SurrogateTpId, String)](
+        s"DELETE FROM $contractTableNameRaw WHERE tpid = ? AND contract_id = ?"
+      )
+        .updateMany(deterministicDeleteOrder(cids))
     }
   }
 
@@ -623,6 +626,17 @@ object Queries {
       }
     }
   }
+
+  private[dbbackend] def deterministicDeleteOrder[TpId: Ordering, Cid: Ordering](
+      cids: Map[TpId, Set[Cid]]
+  ): Seq[(TpId, Cid)] =
+    cids
+      .to(SortedMap)
+      .view
+      .flatMap { case (tpid, cids) =>
+        cids.toSeq.sorted map ((tpid, _))
+      }
+      .toSeq
 
   import doobie.util.invariant.InvalidValue
 
