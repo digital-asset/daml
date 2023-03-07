@@ -343,7 +343,7 @@ private class ContractsFetch(
                 templateId,
               )
             )
-            .via(conflation)
+            .via(if (sjd.q.queries.allowDamlTransactionBatching) conflation else Flow.apply)
             .map(insertAndDelete)
 
           idses.map(_.toInsertDelete) ~> transactInsertsDeletes ~> acsSink
