@@ -68,3 +68,47 @@ The following metrics were added:
 The following metrics were removed:
 - daml_index_db_get_flat_transactions*
 - daml_index_db_get_transaction_trees*
+
+## Daml Script
+
+#### New features:
+
+    trigger now always batches messages (previously batching only occurred under back pressure)
+    trigger configurable hard limits for (N.B. if any of these are exceeded, the trigger service will stop the trigger instance):
+
+    ACS size has an upper bound defined (enabled and set to 20,000 active contracts by default) - Daml user code may check maxActiveContracts for warnings
+    in-flight commands have an upper limit (enabled and set to 10,000 by default) - Daml user code may check maxInFlightCommands for warnings
+    period of time a rule evaluation may take (disabled and set to 7.5s by default)
+    period of time it takes for a rule step to be performed (disabled and set to 75ms by default)
+
+    trigger logging context now include rule evaluation metric information (at INFO level and in a .trigger.metrics blocks) for:
+
+    number of submissions a rule emits (with a breakdown by number of creates, exercises, etc.)
+    time a rule evaluation takes
+    number of steps in each rule evaluation (along with period of time each step took)
+    number of get time calls made in a rule evaluation
+    number of active and pending contracts at start and end of a rule evaluation
+    number of in-flight commands at start and end of a rule evaluation
+    size of a message batch for rule evaluation (with a breakdown by number of completion successes, completion failures, transaction creates, transaction archives and heartbeats)
+
+    trigger TRACE logging now logs the full trigger state and the full message batch (this can be very noisy)
+
+#### Bug fixes:
+
+    release logback.xml now logs context and trigger logging is INFO by default
+    potential trigger OOM issue in converter
+    trigger context now correctly logged with Daml calls to debugRaw
+    transaction sources now always DEBUG log the message they have received
+
+### Compiler
+
+#### New
+
+    Daml-LF 1.15 is the default ouput of the compiler
+
+    Interface: add support for requires construct
+
+
+### IDE
+
+    interpretation of script running for more than 60s are interrupted (no more cray java process running in background)
