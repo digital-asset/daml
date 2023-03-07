@@ -139,7 +139,7 @@ withDamlScriptDep lfVer cont = do
 
 main :: IO ()
 main = do
-  let scenarioConf = SS.defaultScenarioServiceConfig { SS.cnfJvmOptions = ["-Xmx200M"], SS.cnfEvaluationTimeout = Just 1 }
+  let scenarioConf = SS.defaultScenarioServiceConfig { SS.cnfJvmOptions = ["-Xmx200M"], SS.cnfEvaluationTimeout = Just 3 }
   -- This is a bit hacky, we want the LF version before we hand over to
   -- tasty. To achieve that we first pass with optparse-applicative ignoring
   -- everything apart from the LF version.
