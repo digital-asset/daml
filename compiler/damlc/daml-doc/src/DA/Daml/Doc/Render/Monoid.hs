@@ -201,4 +201,4 @@ buildAnchorTable RenderOptions{..} globalInternalFileExt outputs
             , unAnchor anchor
             ]
 
-buildAnchorTable _ _ = HMS.empty
+buildAnchorTable _ _ _ = HMS.empty
