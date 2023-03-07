@@ -359,7 +359,10 @@ jobs:
     demands: assignment -equals default
   steps:
     - checkout: self
-    - bash: ci/check-protobuf-stability.sh
+    - bash: |
+        set -euo pipefail
+        git fetch
+        ci/check-protobuf-stability.sh
     - template: tell-slack-failed.yml
 
 - job: collect_build_data
