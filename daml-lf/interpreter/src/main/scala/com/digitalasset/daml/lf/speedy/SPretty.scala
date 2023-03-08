@@ -19,9 +19,18 @@ import com.daml.lf.language.Ast
 
 private[lf] object SPretty {
 
+  // Entry points...
+
   def pp0(exp: S0.SExpr): String = {
     docExp0(lev = 0)(exp).indent(4).render(1)
   }
+
+  def pp1(exp: S1.SExpr): String = {
+    docExp1(lev = 0)(exp).indent(4).render(1)
+  }
+
+  // ----------------------------------------------------------------------
+  // SEXpr0...
 
   private def docExp0(lev: Int)(exp: S0.SExpr): Doc = {
 
@@ -54,8 +63,9 @@ private[lf] object SPretty {
         docExp0(lev)(fun) + text(" @") + docExp0List(lev)(args)
 
       case S0.SECase(scrut, alts) =>
-        (text("case") + space + docExp0(lev)(scrut) + space + text("of")) / docCaseAlt0List(lev)(
-          alts
+        (text("case") + space + docExp0(lev)(scrut) + space + text("of")) / intercalate(
+          line,
+          alts.map(docCaseAlt0(lev)),
         ).indent(2)
 
       case S0.SELet(boundS0, body) =>
@@ -86,8 +96,10 @@ private[lf] object SPretty {
     }
   }
 
-  private def docCaseAlt0List(lev: Int)(alts: List[S0.SCaseAlt]): Doc = {
-    intercalate(line, alts.map(docCaseAlt0(lev)))
+  private def docExp0List(lev: Int)(exps: List[S0.SExpr]): Doc = {
+    char('(') +
+      intercalate(comma + space, exps.map(docExp0(lev))) +
+      char(')')
   }
 
   private def docCaseAlt0(lev: Int)(alt: S0.SCaseAlt): Doc = {
@@ -98,65 +110,8 @@ private[lf] object SPretty {
     }
   }
 
-  private def docCasePat(prefix: String, lev: Int)(pat: S.SCasePat): Doc = {
-    pat match {
-      case S.SCPPrimCon(Ast.PCTrue) => text("True")
-      case S.SCPPrimCon(Ast.PCFalse) => text("False")
-      case S.SCPNil => text("Nil")
-      case S.SCPCons => text(s"Cons($prefix$lev,$prefix${lev + 1})")
-      case S.SCPDefault => text("default")
-      case _ => text(s"[PAT:$pat]")
-    }
-  }
-
-  private def docExp0List(lev: Int)(exps: List[S0.SExpr]): Doc = {
-    char('(') +
-      intercalate(comma + space, exps.map(docExp0(lev))) +
-      char(')')
-  }
-
-  private def docSDefinitionRef(sd: S.SDefinitionRef): Doc = {
-    sd match {
-      case S.LfDefRef(ref) =>
-        text(ref.qualifiedName.toString)
-      case _ =>
-        ???
-    }
-  }
-
-  private def docSValue(v: SValue): Doc = {
-    v match {
-      case V.SBool(true) => text("true")
-      case V.SBool(false) => text("false")
-      case V.SInt64(n) => str(n)
-      case V.SList(fs) =>
-        text("[") +
-          intercalate(comma + space, fs.iterator.toList.map(docSValue(_))) +
-          text("]")
-      case V.SText(s) =>
-        char('"') + text(s) + char('"')
-      case _ =>
-        text(s"[VALUE:$v)]")
-    }
-  }
-
-  private def docSBuiltin(b: SBuiltin): Doc = {
-    b match {
-      //case B.SBSubInt64 => text("[SUB]")
-      //case B.SBAddInt64 => text("[ADD]")
-      //case B.SBEqual => text("[EQUAL]")
-      //case B.SBCons => text("[CONS]")
-      case B.SBRecCon(id, _) => text(id.qualifiedName.toString)
-      case B.SBRecProj(id, field) => text(s"[SBRecProj(${id.qualifiedName}, $field]")
-      case _ => text(s"[$b]")
-    }
-  }
-
-  // --[s1]--------------------------------------------------------------------
-
-  def pp1(exp: S1.SExpr): String = {
-    docExp1(lev = 0)(exp).indent(4).render(1)
-  }
+  // ----------------------------------------------------------------------
+  // SEXpr1...
 
   private def docLoc(loc: S1.SELoc): Doc = {
     loc match {
@@ -202,8 +157,9 @@ private[lf] object SPretty {
         docExp1(lev)(fun) + text(" @") + docExp1List(lev)(args)
 
       case S1.SECase(scrut, alts) =>
-        (text("case") + space + docExp1(lev)(scrut) + space + text("of")) / docCaseAlt1List(lev)(
-          alts
+        (text("case") + space + docExp1(lev)(scrut) + space + text("of")) / intercalate(
+          line,
+          alts.map(docCaseAlt1(lev)),
         ).indent(2)
 
       case S1.SELet(boundS1, body) =>
@@ -244,10 +200,6 @@ private[lf] object SPretty {
       char(')')
   }
 
-  private def docCaseAlt1List(lev: Int)(alts: List[S1.SCaseAlt]): Doc = {
-    intercalate(line, alts.map(docCaseAlt1(lev)))
-  }
-
   private def docCaseAlt1(lev: Int)(alt: S1.SCaseAlt): Doc = {
     alt match {
       case S1.SCaseAlt(pat, body) =>
@@ -257,4 +209,54 @@ private[lf] object SPretty {
     }
   }
 
+  // ----------------------------------------------------------------------
+  // common: def-ref, value, builtin, pattern
+
+  private def docSDefinitionRef(sd: S.SDefinitionRef): Doc = {
+    sd match {
+      case S.LfDefRef(ref) =>
+        text(ref.qualifiedName.toString)
+      case _ =>
+        ???
+    }
+  }
+
+  private def docSValue(v: SValue): Doc = {
+    v match {
+      case V.SBool(true) => text("true")
+      case V.SBool(false) => text("false")
+      case V.SInt64(n) => str(n)
+      case V.SList(fs) =>
+        text("[") +
+          intercalate(comma + space, fs.iterator.toList.map(docSValue(_))) +
+          text("]")
+      case V.SText(s) =>
+        char('"') + text(s) + char('"')
+      case _ =>
+        text(s"[VALUE:$v)]")
+    }
+  }
+
+  private def docSBuiltin(b: SBuiltin): Doc = {
+    b match {
+      // case B.SBSubInt64 => text("[SUB]")
+      // case B.SBAddInt64 => text("[ADD]")
+      // case B.SBEqual => text("[EQUAL]")
+      // case B.SBCons => text("[CONS]")
+      case B.SBRecCon(id, _) => text(id.qualifiedName.toString)
+      case B.SBRecProj(id, field) => text(s"[SBRecProj(${id.qualifiedName}, $field]")
+      case _ => text(s"[$b]")
+    }
+  }
+
+  private def docCasePat(prefix: String, lev: Int)(pat: S.SCasePat): Doc = {
+    pat match {
+      case S.SCPPrimCon(Ast.PCTrue) => text("True")
+      case S.SCPPrimCon(Ast.PCFalse) => text("False")
+      case S.SCPNil => text("Nil")
+      case S.SCPCons => text(s"Cons($prefix$lev,$prefix${lev + 1})")
+      case S.SCPDefault => text("default")
+      case _ => text(s"[PAT:$pat]")
+    }
+  }
 }
