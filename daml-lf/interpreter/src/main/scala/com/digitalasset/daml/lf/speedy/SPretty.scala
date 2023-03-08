@@ -262,7 +262,7 @@ private[lf] object SPretty {
           ) + char(')') + text("->") / docExp2(lev)(body).indent(2) // NOTE: dont add arity to lev!
 
       case S2.SEAppAtomicGeneral(fun, args) =>
-        docExp2(lev)(fun) + text(" @GG") + docExp2List(lev)(args.toList)
+        docExp2(lev)(fun) + text(" @A") + docExp2List(lev)(args.toList)
 
       case S2.SEAppAtomicSaturatedBuiltin(builtin, args) =>
         docSBuiltin(builtin) + text(" @B") + docExp2List(lev)(args.toList)
@@ -355,10 +355,6 @@ private[lf] object SPretty {
 
   private def docSBuiltin(b: SBuiltin): Doc = {
     b match {
-      // case B.SBSubInt64 => text("[SUB]")
-      // case B.SBAddInt64 => text("[ADD]")
-      // case B.SBEqual => text("[EQUAL]")
-      // case B.SBCons => text("[CONS]")
       case B.SBRecCon(id, _) => text(id.qualifiedName.toString)
       case B.SBRecProj(id, field) => text(s"[SBRecProj(${id.qualifiedName}, $field]")
       case _ => text(s"[$b]")
