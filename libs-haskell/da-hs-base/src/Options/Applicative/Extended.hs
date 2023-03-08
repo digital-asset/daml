@@ -75,7 +75,7 @@ optionOnce' :: String -> ReadM a -> Mod OptionFields a -> Parser a
 optionOnce' errMsg reader options = const <$> actualParser <*> errorIfTwiceParser
     where
     actualParser = option reader options
-    errorIfTwiceParser = option (readerError errMsg) (options <> hidden <> value (error "optionOnce: should not happen"))
+    errorIfTwiceParser = option (readerError errMsg) (options <> internal <> value (error "optionOnce: should not happen"))
 
 strOptionOnce :: IsString a => Mod OptionFields a -> Parser a
 strOptionOnce = optionOnce str
