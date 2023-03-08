@@ -47,4 +47,4 @@ useThriceC q = do
   (thrice decrement 100, thrice decrement 200)
 
 cpsStyle one two k =
-  one (\a -> two (\b -> k a b))
+  one 11 (\a -> two 22 (\b -> k a b))

@@ -348,17 +348,18 @@ private[lf] final class Compiler(
     debug match {
       case None => flattenToAnf(closureConvert(se0))
       case Some(who) =>
-        println("======================================================================")
+        println("\n======================================================================")
         println(s"Speedy compilation pipeline: $who")
         println("======================================================================")
 
-        println("[Phase1]")
+        println("\nPhase1:")
         // println(s"$se0")
         println(SPretty.pp0(se0))
 
         val se1: s1.SExpr = closureConvert(se0)
-        // println("[CC]")
+        println("\nCC:")
         // println(s"$se1")
+        println(SPretty.pp1(se1))
 
         val se2: t.SExpr = flattenToAnf(se1)
         // println("[ANF]")

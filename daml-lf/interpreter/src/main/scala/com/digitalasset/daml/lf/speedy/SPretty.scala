@@ -10,6 +10,7 @@ import org.typelevel.paiges.Doc.{line, str, char, text, comma, space, intercalat
 import com.daml.lf.speedy.{SBuiltin => B}
 import com.daml.lf.speedy.{SExpr => S}
 import com.daml.lf.speedy.{SExpr0 => S0}
+import com.daml.lf.speedy.{SExpr1 => S1}
 import com.daml.lf.speedy.{SValue => V}
 
 import com.daml.lf.language.Ast
@@ -18,14 +19,16 @@ import com.daml.lf.language.Ast
 private[lf] object SPretty {
 
   def pp0(exp: S0.SExpr): String = {
-    docExp0(lev = 0)(exp).render(1)
+    docExp0(lev = 0)(exp).indent(4).render(1)
   }
 
   private def docExp0(lev: Int)(exp: S0.SExpr): Doc = {
 
+    val varNamePrefix = "x"
+
     exp match {
       case S0.SEVarLevel(n) =>
-        text(s"x$n")
+        text(s"$varNamePrefix$n")
 
       case S0.SEVal(sd) =>
         docSDefinitionRef(sd)
@@ -43,11 +46,11 @@ private[lf] object SPretty {
       case S0.SEAbs(arity, body) =>
         char('\\') + char('(') + intercalate(
           comma,
-          (0 until arity).map { i => text(s"x${lev + i}") },
+          (0 until arity).map { i => text(s"$varNamePrefix${lev + i}") },
         ) + char(')') + text("->") / docExp0(lev + arity)(body).indent(2)
 
       case S0.SEApp(fun, args) =>
-        docExp0(lev)(fun) + char('@') + docExp0List(lev)(args)
+        docExp0(lev)(fun) + text(" @") + docExp0List(lev)(args)
 
       case S0.SECase(scrut, alts) =>
         (text("case") + space + docExp0(lev)(scrut) + space + text("of")) / docCaseAlt0List(lev)(
@@ -91,18 +94,17 @@ private[lf] object SPretty {
     alt match {
       case S0.SCaseAlt(pat, body) =>
         val n = pat.numArgs
-        (docCasePat(lev)(pat) + space + text("->") + space) / docExp0(lev + n)(body).indent(2)
+        (docCasePat("x", lev)(pat) + space + text("->") + space) / docExp0(lev + n)(body).indent(2)
     }
   }
 //  final case class SCaseAlt(pattern: SCasePat, body: SExpr)
 
-  private def docCasePat(lev: Int)(pat: S.SCasePat): Doc = {
-    val _ = lev
+  private def docCasePat(prefix: String, lev: Int)(pat: S.SCasePat): Doc = {
     pat match {
       case S.SCPPrimCon(Ast.PCTrue) => text("true")
       case S.SCPPrimCon(Ast.PCFalse) => text("false")
       case S.SCPNil => text("[]")
-      case S.SCPCons => text(s"x$lev:x${lev + 1}")
+      case S.SCPCons => text(s"$prefix$lev:$prefix${lev + 1}")
       case S.SCPDefault => text("default")
 
       case _ =>
@@ -177,6 +179,112 @@ private[lf] object SPretty {
       case _ =>
         // ??? // NICK
         text(s"[BUILTIN:$b]")
+    }
+  }
+
+  // --[s1]--------------------------------------------------------------------
+
+  def pp1(exp: S1.SExpr): String = {
+    docExp1(lev = 0)(exp).indent(4).render(1)
+  }
+
+  private def docLoc(loc: S1.SELoc): Doc = {
+    loc match {
+      case S1.SELocAbsoluteS(n) => text(s"stack$n")
+      case S1.SELocA(n) => text(s"arg$n")
+      case S1.SELocF(n) => text(s"free$n")
+    }
+  }
+
+  private def docExp1(lev: Int)(exp: S1.SExpr): Doc = {
+
+    exp match {
+
+      case loc: S1.SELoc => docLoc(loc)
+
+      case S1.SEVal(sd) =>
+        docSDefinitionRef(sd)
+
+      case S1.SEBuiltin(b) =>
+        docSBuiltin(b)
+
+      case S1.SEValue(v) =>
+        docSValue(v)
+
+      case S1.SELocation(loc, body) =>
+        val _ = (loc, body)
+        ???
+
+      case S1.SEMakeClo(fvs, arity, body) =>
+        val _ = (fvs, arity, body)
+        text("CLOSE{") + intercalate(
+          comma,
+          fvs.zipWithIndex.map { case (loc, i) =>
+            text(s"free$i=") + docLoc(loc)
+          },
+        ) + char('}') +
+          char('\\') + char('(') + intercalate(
+            comma,
+            (0 until arity).map { i => text(s"arg${lev + i}") },
+          ) + char(')') + text("->") / docExp1(lev)(body).indent(2) // NOTE: dont add arity to lev!
+
+      case S1.SEApp(fun, args) =>
+        docExp1(lev)(fun) + text(" @") + docExp1List(lev)(args)
+
+      case S1.SECase(scrut, alts) =>
+        (text("case") + space + docExp1(lev)(scrut) + space + text("of")) / docCaseAlt1List(lev)(
+          alts
+        ).indent(2)
+
+      case S1.SELet(boundS1, body) =>
+        def loop(lev: Int)(bounds: List[S1.SExpr]): Doc = {
+          bounds match {
+            case Nil => docExp1(lev)(body)
+            case boundExp :: bounds =>
+              text(s"let x$lev = ") + docExp1(lev)(boundExp) / loop(lev + 1)(bounds)
+          }
+        }
+        loop(lev)(boundS1).indent(2)
+
+      case S1.SETryCatch(body, handler) =>
+        val _ = (body, handler)
+        ???
+
+      case S1.SEScopeExercise(body) =>
+        val _ = body
+        ???
+
+      case S1.SEPreventCatch(body) =>
+        val _ = body
+        ???
+
+      case S1.SELabelClosure(label, expr) =>
+        val _ = (label, expr)
+        ???
+
+      case S1.SELet1General(rhs, body) =>
+        val _ = (rhs, body)
+        ???
+
+    }
+  }
+
+  private def docExp1List(lev: Int)(exps: List[S1.SExpr]): Doc = {
+    char('(') +
+      intercalate(comma + space, exps.map(docExp1(lev))) +
+      char(')')
+  }
+
+  private def docCaseAlt1List(lev: Int)(alts: List[S1.SCaseAlt]): Doc = {
+    intercalate(line, alts.map(docCaseAlt1(lev)))
+  }
+
+  private def docCaseAlt1(lev: Int)(alt: S1.SCaseAlt): Doc = {
+    alt match {
+      case S1.SCaseAlt(pat, body) =>
+        val n = pat.numArgs
+        (docCasePat("stack", lev)(pat) + space + text("->") + space) / docExp1(lev + n)(body)
+          .indent(2)
     }
   }
 
