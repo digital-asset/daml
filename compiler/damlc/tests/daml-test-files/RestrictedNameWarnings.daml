@@ -1,7 +1,7 @@
--- @WARN range=9:5-9:9; `self' is a prohibited field name, please use something else.
--- @WARN range=14:5-14:8; `arg' is a prohibited field name, please use something else.
--- @WARN range=19:5-19:9; `self' is a prohibited field name, please use something else.
--- @WARN range=24:5-24:8; `arg' is a prohibited field name, please use something else.
+-- @WARN range=9:5-9:9; `self' is an unsupported field name, and may break without warning in future versions. Please use something else.
+-- @WARN range=14:5-14:8; `arg' is an unsupported field name, and may break without warning in future versions. Please use something else.
+-- @WARN range=19:5-19:9; `self' is an unsupported field name, and may break without warning in future versions. Please use something else.
+-- @WARN range=24:5-24:8; `arg' is an unsupported field name, and may break without warning in future versions. Please use something else.
 
 module RestrictedNameWarnings where
 
