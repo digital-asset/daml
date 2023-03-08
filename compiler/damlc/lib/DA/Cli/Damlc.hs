@@ -1056,10 +1056,10 @@ main = do
     -- Note: need to parse given args first to decide whether we need to add
     -- args from daml.yaml.
     Command cmd mbProjectOpts _ <- handleParseResult tempParseResult
-    damlYamlArgs <- cliArgsFromDamlYaml mbProjectOpts
-    let args = if cmd `elem` cmdUseDamlYamlArgs
-               then cliArgs ++ damlYamlArgs
-               else cliArgs
+    damlYamlArgs <- if cmd `elem` cmdUseDamlYamlArgs
+      then cliArgsFromDamlYaml mbProjectOpts
+      else pure []
+    let args = cliArgs ++ damlYamlArgs
         (errMsgs, parseResult) = parse args
     Command _ _ io <- handleParseResult parseResult
     forM_ errMsgs $ \msg -> do
