@@ -6,50 +6,57 @@ package com.daml.lf.engine.trigger
 import akka.actor.ActorSystem
 import akka.stream.{FlowShape, KillSwitches, Materializer, SourceShape}
 import akka.stream.scaladsl.{Flow, GraphDSL, Keep, Sink, Source}
-import ch.qos.logback.classic.Logger
-import ch.qos.logback.classic.spi.ILoggingEvent
-import ch.qos.logback.core.read.ListAppender
+import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId, Party}
 import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
 import com.daml.ledger.api.v1.event.CreatedEvent
+import com.daml.ledger.client.LedgerClient
+import com.daml.lf.PureCompiledPackages
 import com.daml.lf.data.FrontStack
+import com.daml.lf.data.Ref.{Identifier, PackageId, QualifiedName}
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.trigger.Runner.{TriggerContext, TriggerContextualFlow}
 import com.daml.lf.engine.trigger.UnfoldState.{flatMapConcatNodeOps, toSourceOps}
 import com.daml.lf.speedy.SValue.SList
 import com.daml.lf.speedy.SValue
-import com.daml.logging.LoggingContextOf
+import com.daml.logging.entries.LoggingValue
+import com.daml.logging.entries.LoggingValue.{Nested, OfInt, OfLong, OfString}
+import com.daml.platform.services.time.TimeProviderType
 import com.daml.scalautil.Statement.discard
 import com.daml.script.converter.Converter.Implicits._
 import com.daml.util.Ctx
-import org.slf4j.LoggerFactory
 
-import scala.jdk.CollectionConverters._
 import scala.concurrent.duration.{Duration, FiniteDuration}
 import scala.concurrent.{ExecutionContext, Future}
-import spray.json._
-
 import java.util.UUID
 import scala.collection.mutable
-import scala.util.control.NonFatal
+import scala.util.Try
 
+@SuppressWarnings(
+  Array(
+    "org.wartremover.warts.JavaSerializable",
+    "org.wartremover.warts.Product",
+    "org.wartremover.warts.Serializable",
+  )
+)
 private class TriggerRuleMetrics {
 
-  private[this] var metricCountData = mutable.Map.empty[UUID, Map[String, Long]]
-  private[this] var metricTimingData = mutable.Map.empty[UUID, Map[String, FiniteDuration]]
+  private[this] var metricCountData = mutable.Map.empty[Set[UUID], mutable.Map[String, Long]]
+  private[this] var metricTimingData =
+    mutable.Map.empty[Set[UUID], mutable.Map[String, FiniteDuration]]
 
-  def addLogEntry(logEntry: JsObject): Unit = {
-    addSteps(logEntry)
-    addSubmissions(logEntry)
-    addGetTimes(logEntry)
-    addACSActiveStart(logEntry)
-    addACSActiveEnd(logEntry)
-    addACSPendingStart(logEntry)
-    addACSPendingEnd(logEntry)
-    addInFlightStart(logEntry)
-    addInFlightEnd(logEntry)
-    addRuleEvaluation(logEntry)
-    addStepIteratorMean(logEntry)
-    addStepIteratorDelayMean(logEntry)
+  def addLogEntry(msg: String, context: TriggerLogContext): Unit = {
+    addSteps(context)
+    addSubmissions(context)
+    addGetTime(context)
+    addACSActiveStart(msg, context)
+    addACSActiveEnd(msg, context)
+    addACSPendingStart(msg, context)
+    addACSPendingEnd(msg, context)
+    addInFlightStart(msg, context)
+    addInFlightEnd(msg, context)
+    addRuleEvaluation(context)
+    addStepIteratorMean(context)
+    addStepIteratorDelayMean(context)
   }
 
   def clearMetrics(): Unit = {
@@ -60,10 +67,22 @@ private class TriggerRuleMetrics {
   def getMetrics: TriggerRuleMetrics.RuleMetrics = {
     import TriggerRuleMetrics._
 
-    require(metricCountData.keys.size == 1)
-    require(metricTimingData.keys == metricCountData.keys)
     require(
-      metricCountData.head._2.keySet == Set(
+      metricCountData.keys.toSet.size == 1,
+      s"Metric count data was associated with multiple spans: ${metricCountData.keys.toSet}",
+    )
+
+    val (spanId, countMetrics) = metricCountData.head
+
+    require(
+      metricTimingData.keys.toSet == metricCountData.keys.toSet,
+      s"Timing metric data was associated with different spans to count metric data: for span ID $spanId found the keys ${metricTimingData.keys.toSet}",
+    )
+
+    val timingMetrics = metricTimingData(spanId)
+
+    require(
+      countMetrics.keys.toSet == Set(
         "acs-active-start",
         "acs-active-end",
         "acs-pending-start",
@@ -71,434 +90,560 @@ private class TriggerRuleMetrics {
         "in-flight-start",
         "in-flight-end",
         "steps",
-        "get-times",
+        "get-time",
         "submission-total",
         "submission-create",
         "submission-exercise",
         "submission-create-and-exercise",
         "submission-exercise-by-key",
-      )
+      ),
+      s"Count metric data did not contain all the expected values: for span ID $spanId found the keys ${countMetrics.keys.toSet}",
     )
     require(
-      metricTimingData.head._2.keySet.subsetOf(
-        Set(
-          "rule-evaluation",
-          "step-iterator-mean",
-          "step-iterator-delay-mean",
-        )
-      )
+      timingMetrics.keys.toSet
+        .subsetOf(
+          Set(
+            "rule-evaluation",
+            "step-iterator-mean",
+            "step-iterator-delay-mean",
+          )
+        ),
+      s"Timing metric data contained unexpected values: for span ID $spanId found the keys ${timingMetrics.keys.toSet}",
     )
     require(
       Set(
         "rule-evaluation",
         "step-iterator-mean",
-      ).subsetOf(metricTimingData.head._2.keySet)
+      ).subsetOf(timingMetrics.keys.toSet),
+      s"Timing metric data was missing expected values: for span ID $spanId found the keys ${timingMetrics.keys.toSet}",
     )
-
-    val uuid = metricCountData.head._1
 
     RuleMetrics(
       evaluation = EvaluationMetrics(
-        steps = metricCountData(uuid)("steps"),
-        submissions = metricCountData(uuid)("submission-total"),
-        getTimes = metricCountData(uuid)("get-times"),
-        ruleEvaluation = metricTimingData(uuid)("rule-evaluation"),
-        stepIteratorMean = metricTimingData(uuid)("step-iterator-mean"),
-        stepIteratorDelayMean = metricTimingData(uuid).get("step-iterator-delay-mean"),
+        steps = countMetrics("steps"),
+        submissions = countMetrics("submission-total"),
+        getTimes = countMetrics("get-time"),
+        ruleEvaluation = timingMetrics("rule-evaluation"),
+        stepIteratorMean = timingMetrics("step-iterator-mean"),
+        stepIteratorDelayMean = timingMetrics.get("step-iterator-delay-mean"),
       ),
       submission = SubmissionMetrics(
-        creates = metricCountData(uuid)("submission-create"),
-        exercises = metricCountData(uuid)("submission-exercise"),
-        createAndExercises = metricCountData(uuid)("submission-create-and-exercise"),
-        exerciseByKeys = metricCountData(uuid)("submission-exercise-by-key"),
+        creates = countMetrics("submission-create"),
+        exercises = countMetrics("submission-exercise"),
+        createAndExercises = countMetrics("submission-create-and-exercise"),
+        exerciseByKeys = countMetrics("submission-exercise-by-key"),
       ),
       startState = InternalStateMetrics(
         acs = ACSMetrics(
-          activeContracts = metricCountData(uuid)("acs-active-start"),
-          pendingContracts = metricCountData(uuid)("acs-pending-start"),
+          activeContracts = countMetrics("acs-active-start"),
+          pendingContracts = countMetrics("acs-pending-start"),
         ),
         inFlight = InFlightMetrics(
-          commands = metricCountData(uuid)("in-flight-start")
+          commands = countMetrics("in-flight-start")
         ),
       ),
       endState = InternalStateMetrics(
         acs = ACSMetrics(
-          activeContracts = metricCountData(uuid)("acs-active-end"),
-          pendingContracts = metricCountData(uuid)("acs-pending-end"),
+          activeContracts = countMetrics("acs-active-end"),
+          pendingContracts = countMetrics("acs-pending-end"),
         ),
         inFlight = InFlightMetrics(
-          commands = metricCountData(uuid)("in-flight-end")
+          commands = countMetrics("in-flight-end")
         ),
       ),
     )
   }
 
-  private def addACSActiveStart(logEntry: JsObject): Unit = {
-    try {
-      require("Trigger rule .+ start".r.matches(getMessage(logEntry)))
-
-      metricCountData(getSpanId(logEntry)) += ("acs-active-start" -> getACSActive(logEntry))
-    } catch {
-      case NonFatal(_) =>
+  private def addACSActiveStart(msg: String, context: TriggerLogContext): Unit = discard {
+    if ("Trigger rule .+ start".r.matches(msg)) {
+      for {
+        count <- getACSActive(context)
+      } yield {
+        metricCountData.getOrElseUpdate(
+          Set(context.span.id),
+          mutable.Map.empty,
+        ) += ("acs-active-start" -> count)
+      }
     }
   }
 
-  private def addACSActiveEnd(logEntry: JsObject): Unit = {
-    try {
-      require("Trigger rule .+ end".r.matches(getMessage(logEntry)))
-
-      metricCountData(getSpanId(logEntry)) += ("acs-active-end" -> getACSActive(logEntry))
-    } catch {
-      case NonFatal(_) =>
+  private def addACSActiveEnd(msg: String, context: TriggerLogContext): Unit = discard {
+    if ("Trigger rule .+ end".r.matches(msg)) {
+      for {
+        count <- getACSActive(context)
+      } yield {
+        metricCountData.getOrElseUpdate(
+          Set(context.span.id),
+          mutable.Map.empty,
+        ) += ("acs-active-end" -> count)
+      }
     }
   }
 
-  private def addACSPendingStart(logEntry: JsObject): Unit = {
-    try {
-      require("Trigger rule .+ start".r.matches(getMessage(logEntry)))
-
-      metricCountData(getSpanId(logEntry)) += ("acs-pending-start" -> getACSPending(logEntry))
-    } catch {
-      case NonFatal(_) =>
+  private def addACSPendingStart(msg: String, context: TriggerLogContext): Unit = discard {
+    if ("Trigger rule .+ start".r.matches(msg)) {
+      for {
+        count <- getACSPending(context)
+      } yield {
+        metricCountData.getOrElseUpdate(
+          Set(context.span.id),
+          mutable.Map.empty,
+        ) += ("acs-pending-start" -> count)
+      }
     }
   }
 
-  private def addACSPendingEnd(logEntry: JsObject): Unit = {
-    try {
-      require("Trigger rule .+ end".r.matches(getMessage(logEntry)))
-
-      metricCountData(getSpanId(logEntry)) += ("acs-pending-end" -> getACSPending(logEntry))
-    } catch {
-      case NonFatal(_) =>
+  private def addACSPendingEnd(msg: String, context: TriggerLogContext): Unit = discard {
+    if ("Trigger rule .+ end".r.matches(msg)) {
+      for {
+        count <- getACSPending(context)
+      } yield {
+        metricCountData.getOrElseUpdate(
+          Set(context.span.id),
+          mutable.Map.empty,
+        ) += ("acs-pending-end" -> count)
+      }
     }
   }
 
-  private def addInFlightStart(logEntry: JsObject): Unit = {
-    try {
-      require("Trigger rule .+ start".r.matches(getMessage(logEntry)))
-
-      metricCountData(getSpanId(logEntry)) += ("in-flight-start" -> getInFlight(logEntry))
-    } catch {
-      case NonFatal(_) =>
+  private def addInFlightStart(msg: String, context: TriggerLogContext): Unit = discard {
+    if ("Trigger rule .+ start".r.matches(msg)) {
+      for {
+        count <- getInFlight(context)
+      } yield {
+        metricCountData.getOrElseUpdate(
+          Set(context.span.id),
+          mutable.Map.empty,
+        ) += ("in-flight-start" -> count)
+      }
     }
   }
 
-  private def addInFlightEnd(logEntry: JsObject): Unit = {
-    try {
-      require("Trigger rule .+ end".r.matches(getMessage(logEntry)))
-
-      metricCountData(getSpanId(logEntry)) += ("in-flight-end" -> getInFlight(logEntry))
-    } catch {
-      case NonFatal(_) =>
+  private def addInFlightEnd(msg: String, context: TriggerLogContext): Unit = discard {
+    if ("Trigger rule .+ end".r.matches(msg)) {
+      for {
+        count <- getInFlight(context)
+      } yield {
+        metricCountData.getOrElseUpdate(
+          Set(context.span.id),
+          mutable.Map.empty,
+        ) += ("in-flight-end" -> count)
+      }
     }
   }
 
-  private def addSteps(logEntry: JsObject): Unit = {
-    try {
-      val count = getMetrics(logEntry)
-        .fields("steps")
+  private def addSteps(context: TriggerLogContext): Unit = discard {
+    for {
+      metrics <- getMetrics(context)
+      steps <- metrics
         .expect(
-          "JsNumber",
-          { case JsNumber(value) =>
-            value.longValue
+          "LoggingValue.Nested",
+          {
+            case Nested(entries) if entries.contents.contains("steps") => entries.contents("steps")
           },
         )
-        .orConverterException
-
-      metricCountData(getSpanParentId(logEntry)) += ("steps" -> count)
-    } catch {
-      case NonFatal(_) =>
-    }
-  }
-
-  private def addRuleEvaluation(logEntry: JsObject): Unit = {
-    try {
-      val timing = getMetrics(logEntry)
-        .fields("duration")
-        .asJsObject
-        .fields("rule-evaluation")
+      count <- steps
         .expect(
-          "JsString",
-          { case JsString(value) =>
-            Duration(value.replace('u', 'µ')).asInstanceOf[FiniteDuration]
+          "LoggingValue.OfNumeric",
+          {
+            case OfInt(value) => value.toLong
+            case OfLong(value) => value
           },
         )
-        .orConverterException
-
-      metricTimingData(getSpanParentId(logEntry)) += ("rule-evaluation" -> timing)
-    } catch {
-      case NonFatal(_) =>
+    } yield {
+      metricCountData.getOrElseUpdate(
+        context.span.parent,
+        mutable.Map.empty,
+      ) += ("steps" -> count)
     }
   }
 
-  private def addStepIteratorMean(logEntry: JsObject): Unit = {
-    try {
-      val timing = getMetrics(logEntry)
-        .fields("duration")
-        .asJsObject
-        .fields("step-iterator-mean")
+  private def addRuleEvaluation(context: TriggerLogContext): Unit = discard {
+    for {
+      metrics <- getMetrics(context)
+      duration <- metrics
         .expect(
-          "JsString",
-          { case JsString(value) =>
-            Duration(value.replace('u', 'µ')).asInstanceOf[FiniteDuration]
+          "LoggingValue.Nested",
+          {
+            case Nested(entries) if entries.contents.contains("duration") =>
+              entries.contents("duration")
           },
         )
-        .orConverterException
-
-      metricTimingData(getSpanParentId(logEntry)) += ("step-iterator-mean" -> timing)
-    } catch {
-      case NonFatal(_) =>
-    }
-  }
-
-  private def addStepIteratorDelayMean(logEntry: JsObject): Unit = {
-    try {
-      val timing = getMetrics(logEntry)
-        .fields("duration")
-        .asJsObject
-        .fields("step-iterator-delay-mean")
+      ruleEval <- duration
         .expect(
-          "JsString",
-          { case JsString(value) =>
-            Duration(value.replace('u', 'µ')).asInstanceOf[FiniteDuration]
+          "LoggingValue.Nested",
+          {
+            case Nested(entries) if entries.contents.contains("rule-evaluation") =>
+              entries.contents("rule-evaluation")
           },
         )
-        .orConverterException
-
-      metricTimingData(getSpanParentId(logEntry)) += ("step-iterator-delay-mean" -> timing)
-    } catch {
-      case NonFatal(_) =>
+      value <- ruleEval
+        .expect("LoggingValue.OfString", { case OfString(value) => value })
+      timing <- Try(
+        Duration(value.replace('u', 'µ')).asInstanceOf[FiniteDuration]
+      ).toEither
+    } yield {
+      metricTimingData.getOrElseUpdate(
+        context.span.parent,
+        mutable.Map.empty,
+      ) += ("rule-evaluation" -> timing)
     }
   }
 
-  private def addSubmissions(logEntry: JsObject): Unit = {
-    addSubmissionTotal(logEntry)
-    addSubmissionCreate(logEntry)
-    addSubmissionExercise(logEntry)
-    addSubmissionCreateAndExercise(logEntry)
-    addSubmissionExerciseByKey(logEntry)
-  }
-
-  private def addGetTimes(logEntry: JsObject): Unit = {
-    try {
-      val count = getMetrics(logEntry)
-        .fields("get-times")
+  private def addStepIteratorMean(context: TriggerLogContext): Unit = discard {
+    for {
+      metrics <- getMetrics(context)
+      duration <- metrics
         .expect(
-          "JsNumber",
-          { case JsNumber(value) =>
-            value.longValue
+          "LoggingValue.Nested",
+          {
+            case Nested(entries) if entries.contents.contains("duration") =>
+              entries.contents("duration")
           },
         )
-        .orConverterException
-
-      metricCountData(getSpanParentId(logEntry)) += ("get-times" -> count)
-    } catch {
-      case NonFatal(_) =>
-    }
-  }
-
-  private def addSubmissionTotal(logEntry: JsObject): Unit = {
-    try {
-      val count = getMetrics(logEntry)
-        .fields("submissions")
-        .asJsObject
-        .fields("total")
+      ruleEval <- duration
         .expect(
-          "JsNumber",
-          { case JsNumber(value) =>
-            value.longValue
+          "LoggingValue.Nested",
+          {
+            case Nested(entries) if entries.contents.contains("step-iterator-mean") =>
+              entries.contents("step-iterator-mean")
           },
         )
-        .orConverterException
-
-      metricCountData(getSpanParentId(logEntry)) += ("submission-total" -> count)
-    } catch {
-      case NonFatal(_) =>
+      value <- ruleEval
+        .expect("LoggingValue.OfString", { case OfString(value) => value })
+      timing <- Try(
+        Duration(value.replace('u', 'µ')).asInstanceOf[FiniteDuration]
+      ).toEither
+    } yield {
+      metricTimingData.getOrElseUpdate(
+        context.span.parent,
+        mutable.Map.empty,
+      ) += ("step-iterator-mean" -> timing)
     }
   }
 
-  private def addSubmissionCreate(logEntry: JsObject): Unit = {
-    try {
-      val count = getMetrics(logEntry)
-        .fields("submissions")
-        .asJsObject
-        .fields("create")
+  private def addStepIteratorDelayMean(context: TriggerLogContext): Unit = discard {
+    for {
+      metrics <- getMetrics(context)
+      duration <- metrics
         .expect(
-          "JsNumber",
-          { case JsNumber(value) =>
-            value.longValue
+          "LoggingValue.Nested",
+          {
+            case Nested(entries) if entries.contents.contains("duration") =>
+              entries.contents("duration")
           },
         )
-        .orConverterException
-
-      metricCountData(getSpanParentId(logEntry)) += ("submission-create" -> count)
-    } catch {
-      case NonFatal(_) =>
-    }
-  }
-
-  private def addSubmissionExercise(logEntry: JsObject): Unit = {
-    try {
-      val count = getMetrics(logEntry)
-        .fields("submissions")
-        .asJsObject
-        .fields("exercise")
+      ruleEval <- duration
         .expect(
-          "JsNumber",
-          { case JsNumber(value) =>
-            value.longValue
+          "LoggingValue.Nested",
+          {
+            case Nested(entries) if entries.contents.contains("step-iterator-delay-mean") =>
+              entries.contents("step-iterator-delay-mean")
           },
         )
-        .orConverterException
-
-      metricCountData(getSpanParentId(logEntry)) += ("submission-exercise" -> count)
-    } catch {
-      case NonFatal(_) =>
+      value <- ruleEval
+        .expect("LoggingValue.OfString", { case OfString(value) => value })
+      timing <- Try(
+        Duration(value.replace('u', 'µ')).asInstanceOf[FiniteDuration]
+      ).toEither
+    } yield {
+      metricTimingData.getOrElseUpdate(
+        context.span.parent,
+        mutable.Map.empty,
+      ) += ("step-iterator-delay-mean" -> timing)
     }
   }
 
-  private def addSubmissionCreateAndExercise(logEntry: JsObject): Unit = {
-    try {
-      val count = getMetrics(logEntry)
-        .fields("submissions")
-        .asJsObject
-        .fields("createAndExercise")
+  private def addSubmissions(context: TriggerLogContext): Unit = {
+    addSubmissionTotal(context)
+    addSubmissionCreate(context)
+    addSubmissionExercise(context)
+    addSubmissionCreateAndExercise(context)
+    addSubmissionExerciseByKey(context)
+  }
+
+  private def addGetTime(context: TriggerLogContext): Unit = discard {
+    for {
+      metrics <- getMetrics(context)
+      getTimes <- metrics
         .expect(
-          "JsNumber",
-          { case JsNumber(value) =>
-            value.longValue
+          "LoggingValue.Nested",
+          {
+            case Nested(entries) if entries.contents.contains("get-time") =>
+              entries.contents("get-time")
           },
         )
-        .orConverterException
-
-      metricCountData(getSpanParentId(logEntry)) += ("submission-create-and-exercise" -> count)
-    } catch {
-      case NonFatal(_) =>
-    }
-  }
-
-  private def addSubmissionExerciseByKey(logEntry: JsObject): Unit = {
-    try {
-      val count = getMetrics(logEntry)
-        .fields("submissions")
-        .asJsObject
-        .fields("exerciseByKey")
+      count <- getTimes
         .expect(
-          "JsNumber",
-          { case JsNumber(value) =>
-            value.longValue
+          "LoggingValue.OfNumeric",
+          {
+            case OfInt(value) => value.toLong
+            case OfLong(value) => value
           },
         )
-        .orConverterException
-
-      metricCountData(getSpanParentId(logEntry)) += ("submission-exercise-by-key" -> count)
-    } catch {
-      case NonFatal(_) =>
+    } yield {
+      metricCountData.getOrElseUpdate(
+        context.span.parent,
+        mutable.Map.empty,
+      ) += ("get-time" -> count)
     }
   }
 
-  private def getMessage(logEntry: JsObject): String = {
-    val value = logEntry
-      .fields("contents")
-      .asJsObject
-      .fields("trigger")
-      .asJsObject
-      .fields("message")
-      .expect(
-        "JsString",
-        { case JsString(value) =>
-          value
-        },
-      )
-      .orConverterException
-
-    value
+  private def addSubmissionTotal(context: TriggerLogContext): Unit = discard {
+    for {
+      metrics <- getMetrics(context)
+      submissions <- metrics
+        .expect(
+          "LoggingValue.Nested",
+          {
+            case Nested(entries) if entries.contents.contains("submissions") =>
+              entries.contents("submissions")
+          },
+        )
+      total <- submissions
+        .expect(
+          "LoggingValue.Nested",
+          {
+            case Nested(entries) if entries.contents.contains("total") => entries.contents("total")
+          },
+        )
+      count <- total
+        .expect(
+          "LoggingValue.OfNumeric",
+          {
+            case OfInt(value) => value.toLong
+            case OfLong(value) => value
+          },
+        )
+    } yield {
+      metricCountData.getOrElseUpdate(
+        context.span.parent,
+        mutable.Map.empty,
+      ) += ("submission-total" -> count)
+    }
   }
 
-  private def getMetrics(logEntry: JsObject): JsObject = {
-    logEntry
-      .fields("contents")
-      .asJsObject
-      .fields("trigger")
-      .asJsObject
-      .fields("metrics")
-      .asJsObject
+  private def addSubmissionCreate(context: TriggerLogContext): Unit = discard {
+    for {
+      metrics <- getMetrics(context)
+      submissions <- metrics
+        .expect(
+          "LoggingValue.Nested",
+          {
+            case Nested(entries) if entries.contents.contains("submissions") =>
+              entries.contents("submissions")
+          },
+        )
+      create <- submissions
+        .expect(
+          "LoggingValue.Nested",
+          {
+            case Nested(entries) if entries.contents.contains("create") =>
+              entries.contents("create")
+          },
+        )
+      count <- create
+        .expect(
+          "LoggingValue.OfNumeric",
+          {
+            case OfInt(value) => value.toLong
+            case OfLong(value) => value
+          },
+        )
+    } yield {
+      metricCountData.getOrElseUpdate(
+        context.span.parent,
+        mutable.Map.empty,
+      ) += ("submission-create" -> count)
+    }
   }
 
-  private def getACSActive(logEntry: JsObject): Long = {
-    getMetrics(logEntry)
-      .fields("acs")
-      .asJsObject
-      .fields("active")
-      .expect(
-        "JsNumber",
-        { case JsNumber(value) =>
-          value.longValue
-        },
-      )
-      .orConverterException
+  private def addSubmissionExercise(context: TriggerLogContext): Unit = discard {
+    for {
+      metrics <- getMetrics(context)
+      submissions <- metrics
+        .expect(
+          "LoggingValue.Nested",
+          {
+            case Nested(entries) if entries.contents.contains("submissions") =>
+              entries.contents("submissions")
+          },
+        )
+      exercise <- submissions
+        .expect(
+          "LoggingValue.Nested",
+          {
+            case Nested(entries) if entries.contents.contains("exercise") =>
+              entries.contents("exercise")
+          },
+        )
+      count <- exercise
+        .expect(
+          "LoggingValue.OfNumeric",
+          {
+            case OfInt(value) => value.toLong
+            case OfLong(value) => value
+          },
+        )
+    } yield {
+      metricCountData.getOrElseUpdate(
+        context.span.parent,
+        mutable.Map.empty,
+      ) += ("submission-exercise" -> count)
+    }
   }
 
-  private def getACSPending(logEntry: JsObject): Long = {
-    getMetrics(logEntry)
-      .fields("acs")
-      .asJsObject
-      .fields("pending")
-      .expect(
-        "JsNumber",
-        { case JsNumber(value) =>
-          value.longValue
-        },
-      )
-      .orConverterException
+  private def addSubmissionCreateAndExercise(context: TriggerLogContext): Unit = discard {
+    for {
+      metrics <- getMetrics(context)
+      submissions <- metrics
+        .expect(
+          "LoggingValue.Nested",
+          {
+            case Nested(entries) if entries.contents.contains("submissions") =>
+              entries.contents("submissions")
+          },
+        )
+      createAndExercise <- submissions
+        .expect(
+          "LoggingValue.Nested",
+          {
+            case Nested(entries) if entries.contents.contains("createAndExercise") =>
+              entries.contents("createAndExercise")
+          },
+        )
+      count <- createAndExercise
+        .expect(
+          "LoggingValue.OfNumeric",
+          {
+            case OfInt(value) => value.toLong
+            case OfLong(value) => value
+          },
+        )
+    } yield {
+      metricCountData.getOrElseUpdate(
+        context.span.parent,
+        mutable.Map.empty,
+      ) += ("submission-create-and-exercise" -> count)
+    }
   }
 
-  private def getInFlight(logEntry: JsObject): Long = {
-    getMetrics(logEntry)
-      .fields("in-flight")
-      .expect(
-        "JsNumber",
-        { case JsNumber(value) =>
-          value.longValue
-        },
-      )
-      .orConverterException
+  private def addSubmissionExerciseByKey(context: TriggerLogContext): Unit = discard {
+    for {
+      metrics <- getMetrics(context)
+      submissions <- metrics
+        .expect(
+          "LoggingValue.Nested",
+          {
+            case Nested(entries) if entries.contents.contains("submissions") =>
+              entries.contents("submissions")
+          },
+        )
+      exerciseByKey <- submissions
+        .expect(
+          "LoggingValue.Nested",
+          {
+            case Nested(entries) if entries.contents.contains("exerciseByKey") =>
+              entries.contents("exerciseByKey")
+          },
+        )
+      count <- exerciseByKey
+        .expect(
+          "LoggingValue.OfNumeric",
+          {
+            case OfInt(value) => value.toLong
+            case OfLong(value) => value
+          },
+        )
+    } yield {
+      metricCountData.getOrElseUpdate(
+        context.span.parent,
+        mutable.Map.empty,
+      ) += ("submission-exercise-by-key" -> count)
+    }
   }
 
-  private def getSpanId(logEntry: JsObject): UUID = {
-    logEntry
-      .fields("contents")
-      .asJsObject
-      .fields("trigger")
-      .asJsObject
-      .fields("span")
-      .asJsObject
-      .fields("id")
-      .expect(
-        "JsString",
-        { case JsString(value) =>
-          UUID.fromString(value)
-        },
-      )
-      .orConverterException
+  private def getMetrics(context: TriggerLogContext): Either[String, LoggingValue] = {
+    context.entries
+      .find(_._1 == "metrics")
+      .map(_._2)
+      .toRight("Trigger logging context did not have a metrics block")
   }
 
-  private def getSpanParentId(logEntry: JsObject): UUID = {
-    logEntry
-      .fields("contents")
-      .asJsObject
-      .fields("trigger")
-      .asJsObject
-      .fields("span")
-      .asJsObject
-      .fields("parent")
-      .expect(
-        "JsString",
-        { case JsString(value) =>
-          UUID.fromString(value)
-        },
-      )
-      .orConverterException
+  private def getACSActive(context: TriggerLogContext): Either[String, Long] = {
+    for {
+      metrics <- getMetrics(context)
+      acs <- metrics
+        .expect(
+          "LoggingValue.Nested",
+          { case Nested(entries) if entries.contents.contains("acs") => entries.contents("acs") },
+        )
+      active <- acs
+        .expect(
+          "LoggingValue.Nested",
+          {
+            case Nested(entries) if entries.contents.contains("active") =>
+              entries.contents("active")
+          },
+        )
+      result <- active
+        .expect(
+          "LoggingValue.OfNumeric",
+          {
+            case OfInt(value) => value.toLong
+            case OfLong(value) => value
+          },
+        )
+    } yield result
+  }
+
+  private def getACSPending(context: TriggerLogContext): Either[String, Long] = {
+    for {
+      metrics <- getMetrics(context)
+      acs <- metrics
+        .expect(
+          "LoggingValue.Nested",
+          { case Nested(entries) if entries.contents.contains("acs") => entries.contents("acs") },
+        )
+      pending <- acs
+        .expect(
+          "LoggingValue.Nested",
+          {
+            case Nested(entries) if entries.contents.contains("pending") =>
+              entries.contents("pending")
+          },
+        )
+      result <- pending
+        .expect(
+          "LoggingValue.OfNumeric",
+          {
+            case OfInt(value) => value.toLong
+            case OfLong(value) => value
+          },
+        )
+    } yield result
+  }
+
+  private def getInFlight(context: TriggerLogContext): Either[String, Long] = {
+    for {
+      metrics <- getMetrics(context)
+      inFlight <- metrics
+        .expect(
+          "LoggingValue.Nested",
+          {
+            case Nested(entries) if entries.contents.contains("in-flight") =>
+              entries.contents("in-flight")
+          },
+        )
+      result <- inFlight
+        .expect(
+          "LoggingValue.OfNumeric",
+          {
+            case OfInt(value) => value.toLong
+            case OfLong(value) => value
+          },
+        )
+    } yield result
   }
 }
 
@@ -541,47 +686,60 @@ object TriggerRuleMetrics {
   )
 }
 
-final class TriggerRuleSimulationLib(
+final class TriggerRuleSimulationLib private (
+    compiledPackages: PureCompiledPackages,
+    trigger: Trigger,
     triggerConfig: TriggerRunnerConfig,
-    level: Trigger.Level,
-    version: Trigger.Version,
-    runner: Runner,
-) {
+    client: LedgerClient,
+    timeProviderType: TimeProviderType,
+    applicationId: ApplicationId,
+    triggerParties: TriggerParties,
+)(implicit triggerContext: TriggerLogContext) {
 
   // We only perform rule simulation for recent high level triggers
-  require(level == Trigger.Level.High)
-  require(version > Trigger.Version.`2.0.0`)
+  require(trigger.defn.level == Trigger.Level.High)
+  require(trigger.defn.version > Trigger.Version.`2.0.0`)
   // For rule simulations, trigger runners should be configured with all hard limits enabled
   require(triggerConfig.hardLimit.allowTriggerTimeouts)
   require(triggerConfig.hardLimit.allowInFlightCommandOverflows)
-
-  private[this] val loggingContext: LoggingContextOf[Trigger] =
-    LoggingContextOf.newLoggingContext(LoggingContextOf.label[Trigger])(identity)
-  private[this] val triggerRunnerLogger: Logger =
-    LoggerFactory.getLogger(classOf[Runner]).asInstanceOf[Logger]
-  private val ruleMetrics = new TriggerRuleMetrics
 
   private[this] implicit val materializer: Materializer = Materializer(
     ActorSystem("TriggerRuleSimulator")
   )
   private[this] implicit val executionContext: ExecutionContext = materializer.executionContext
-  private[this] implicit val triggerContext: TriggerLogContext =
-    TriggerLogContext.newRootSpan("simulation")(identity)(loggingContext)
+
+  private[this] val ruleMetrics = new TriggerRuleMetrics
+  private[this] val logObserver: (String, TriggerLogContext) => Unit = { (msg, context) =>
+    ruleMetrics.addLogEntry(msg, context)
+  }
+
+  triggerContext.setCallback(logObserver)
+
+  private[this] val runner = Runner(
+    compiledPackages,
+    trigger,
+    triggerConfig,
+    client,
+    timeProviderType,
+    applicationId,
+    triggerParties,
+  )
 
   @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
   def initialStateLambda(
       acs: Seq[CreatedEvent]
   ): Future[(Seq[SubmitRequest], TriggerRuleMetrics.RuleMetrics, SValue)] = {
-    val logAppender = setupTriggerMetricsLogging()
-    try {
-      val clientTime: Timestamp =
-        Timestamp.assertFromInstant(
-          Runner.getTimeProvider(RunnerConfig.DefaultTimeProviderType).getCurrentTime
-        )
-      val killSwitch = KillSwitches.shared("init-state-simulation")
-      val initStateGraph = GraphDSL.createGraph(Sink.last[SValue]) { implicit gb => saveLastState =>
+    ruleMetrics.clearMetrics()
+
+    triggerContext.childSpan("initialStateLambda") { implicit triggerContext: TriggerLogContext =>
+      def initStateGraph = GraphDSL.createGraph(Sink.last[SValue]) { implicit gb => saveLastState =>
         import GraphDSL.Implicits._
 
+        val clientTime: Timestamp =
+          Timestamp.assertFromInstant(
+            Runner.getTimeProvider(RunnerConfig.DefaultTimeProviderType).getCurrentTime
+          )
+        val killSwitch = KillSwitches.shared("init-state-simulation")
         val initialState = gb add runner.runInitialState(clientTime, killSwitch)(acs)
         val submissions = gb add Flow[TriggerContext[SubmitRequest]]
 
@@ -590,17 +748,14 @@ final class TriggerRuleSimulationLib(
 
         new SourceShape(submissions.out)
       }
-      val initStateSimulation = Source.fromGraph(initStateGraph)
+      def initStateSimulation = Source.fromGraph(initStateGraph)
+
       val submissions = initStateSimulation.runWith(Sink.seq)
       val initState = initStateSimulation.toMat(Sink.ignore)(Keep.left).run()
 
-      submissions.map(_.map(_.value)).zip(initState).map { case (submissions, state) =>
-        parseLoggedMetrics(logAppender)
-        (submissions, ruleMetrics.getMetrics, state)
+      submissions.map(_.map(_.value)).zip(initState).map { case (requests, state) =>
+        (requests, ruleMetrics.getMetrics, state)
       }
-    } finally {
-      removeTriggerMetricsLogging(logAppender)
-      ruleMetrics.clearMetrics()
     }
   }
 
@@ -609,13 +764,14 @@ final class TriggerRuleSimulationLib(
       state: SValue,
       message: TriggerMsg,
   ): Future[(Seq[SubmitRequest], TriggerRuleMetrics.RuleMetrics, SValue)] = {
-    val logAppender = setupTriggerMetricsLogging()
-    try {
-      val lambdaKillSwitch = KillSwitches.shared("update-state-simulation")
-      val updateStateGraph = GraphDSL.createGraph(Sink.last[SValue]) {
+    ruleMetrics.clearMetrics()
+
+    triggerContext.childSpan("updateStateLambda") { implicit triggerContext: TriggerLogContext =>
+      def updateStateGraph = GraphDSL.createGraph(Sink.last[SValue]) {
         implicit gb => saveLastState =>
           import GraphDSL.Implicits._
 
+          val lambdaKillSwitch = KillSwitches.shared("update-state-simulation")
           val msgIn = gb add TriggerContextualFlow[TriggerMsg]
           val encodeMsg =
             gb add runner.encodeMsgs.map(ctx => ctx.copy(value = SList(FrontStack(ctx.value))))
@@ -624,52 +780,69 @@ final class TriggerRuleSimulationLib(
           val killSwitch = gb add lambdaKillSwitch.flow[TriggerContext[SValue]]
           val submissions = gb add Flow[TriggerContext[SubmitRequest]]
 
-          // format: off
-          stateOut                         ~> rule.initState
-          msgIn ~> encodeMsg ~> killSwitch ~> rule.elemsIn
-          submissions                      <~ rule.elemsOut
-                                              rule.finalStates ~> saveLastState
-          // format: on
+              // format: off
+              stateOut ~> rule.initState
+              msgIn ~> encodeMsg ~> killSwitch ~> rule.elemsIn
+              submissions <~ rule.elemsOut
+              rule.finalStates ~> saveLastState
+              // format: on
 
           new FlowShape(msgIn.in, submissions.out)
       }
-      val updateStateSimulation = Source
+      def updateStateSimulation = Source
         .single(Ctx(triggerContext, message))
         .viaMat(Flow.fromGraph(updateStateGraph))(Keep.right)
+
       val submissions = updateStateSimulation.runWith(Sink.seq)
       val nextState = updateStateSimulation.toMat(Sink.ignore)(Keep.left).run()
 
-      submissions.map(_.map(_.value)).zip(nextState).map { case (submissions, state) =>
-        parseLoggedMetrics(logAppender)
-        (submissions, ruleMetrics.getMetrics, state)
+      submissions.map(_.map(_.value)).zip(nextState).map { case (requests, state) =>
+        (requests, ruleMetrics.getMetrics, state)
       }
-    } finally {
-      removeTriggerMetricsLogging(logAppender)
-      ruleMetrics.clearMetrics()
     }
   }
+}
 
-  private def setupTriggerMetricsLogging(): ListAppender[ILoggingEvent] = {
-    val triggerRunnerLogAppender = new ListAppender[ILoggingEvent]()
+object TriggerRuleSimulationLib {
+  def getSimulator(
+      client: LedgerClient,
+      name: QualifiedName,
+      packageId: PackageId,
+      applicationId: ApplicationId,
+      compiledPackages: PureCompiledPackages,
+      timeProviderType: TimeProviderType,
+      triggerConfig: TriggerRunnerConfig,
+      actAs: String,
+      readAs: Set[String] = Set.empty,
+  ): (TriggerDefinition, TriggerRuleSimulationLib) = {
+    val triggerId = Identifier(packageId, name)
 
-    triggerRunnerLogAppender.start()
-    triggerRunnerLogger.addAppender(triggerRunnerLogAppender)
+    Trigger.newTriggerLogContext(
+      triggerId,
+      Party(actAs),
+      Party.subst(readAs),
+      triggerId.toString,
+      applicationId,
+    ) { implicit triggerContext: TriggerLogContext =>
+      triggerContext.childSpan("simulation") { implicit triggerContext: TriggerLogContext =>
+        val trigger = Trigger.fromIdentifier(compiledPackages, triggerId).toOption.get
 
-    triggerRunnerLogAppender
-  }
-
-  private def removeTriggerMetricsLogging(logAppender: ListAppender[ILoggingEvent]): Unit = {
-    discard(triggerRunnerLogger.detachAppender(logAppender))
-  }
-
-  private def parseLoggedMetrics(triggerRunnerLogAppender: ListAppender[ILoggingEvent]): Unit = {
-    triggerRunnerLogAppender.list.toArray.toVector.foreach {
-      case event: ILoggingEvent =>
-        event.getMarkerList.asScala.foreach { marker =>
-          ruleMetrics.addLogEntry(marker.toString.parseJson.asJsObject)
-        }
-
-      case _ =>
+        (
+          trigger.defn,
+          new TriggerRuleSimulationLib(
+            compiledPackages,
+            trigger,
+            triggerConfig,
+            client,
+            timeProviderType,
+            applicationId,
+            TriggerParties(
+              actAs = Party(actAs),
+              readAs = Party.subst(readAs),
+            ),
+          ),
+        )
+      }
     }
   }
 }

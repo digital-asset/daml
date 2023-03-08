@@ -89,7 +89,6 @@ da_scala_library(
     ],
     scala_deps = [
         "@maven//:com_typesafe_akka_akka_stream",
-        "@maven//:io_spray_spray_json",
         "@maven//:org_scalactic_scalactic",
         "@maven//:org_scalatest_scalatest_core",
         "@maven//:org_scalatest_scalatest_matchers_core",
@@ -253,7 +252,7 @@ da_scala_test_suite(
         ":acs-1.dev.dar",
         "//test-common/test-certificates",
     ],
-    #    resources = ["src/test/resources/simulation-logback.xml"],
+    #    resources = ["//triggers/tests:src/test/resources/simulation-logback.xml"],
     resources = ["//triggers/runner:src/main/resources/logback.xml"],
     scala_deps = [
         "@maven//:com_typesafe_akka_akka_stream",

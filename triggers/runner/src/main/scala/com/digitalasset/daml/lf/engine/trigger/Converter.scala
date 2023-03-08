@@ -17,11 +17,11 @@ import com.daml.lf.speedy.{ArrayList, SValue}
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.value.Value.ContractId
 import com.daml.ledger.api.v1.commands.{
-  Command => ApiCommand,
   CreateAndExerciseCommand,
   CreateCommand,
   ExerciseByKeyCommand,
   ExerciseCommand,
+  Command => ApiCommand,
 }
 import com.daml.ledger.api.v1.completion.Completion
 import com.daml.ledger.api.v1.event.{ArchivedEvent, CreatedEvent, Event, InterfaceView}
@@ -36,6 +36,7 @@ import com.daml.platform.participant.util.LfEngineToApi.{
   lfValueToApiValue,
   toApiIdentifier,
 }
+import com.daml.script.converter.ConverterException
 
 import scala.concurrent.duration.{FiniteDuration, MICROSECONDS}
 
@@ -68,7 +69,7 @@ final class Converter(
   private[this] val triggerConfigTy = triggerIds.damlTriggerLowLevel("TriggerConfig")
   private[this] val triggerSetupArgumentsTy =
     triggerIds.damlTriggerLowLevel("TriggerSetupArguments")
-  private[this] val triggerStateTy = triggerIds.damlTriggerLowLevel("TriggerState")
+  private[this] val triggerStateTy = triggerIds.damlTriggerInternal("TriggerState")
   private[this] val anyContractIdTy = triggerIds.damlTriggerLowLevel("AnyContractId")
   private[this] val archivedTy = triggerIds.damlTriggerLowLevel("Archived")
   private[this] val commandIdTy = triggerIds.damlTriggerLowLevel("CommandId")
@@ -86,6 +87,7 @@ final class Converter(
   private[this] val createAndExerciseCommandTy =
     triggerIds.damlTriggerLowLevel("CreateAndExerciseCommand")
   private[this] val exerciseByKeyCommandTy = triggerIds.damlTriggerLowLevel("ExerciseByKeyCommand")
+  private[this] val acsTy = triggerIds.damlTriggerInternal("ACS")
 
   private[this] def fromIdentifier(identifier: value.Identifier) =
     for {
@@ -294,7 +296,7 @@ final class Converter(
       SUnit,
     )
 
-  def fromACS(createdEvents: Seq[CreatedEvent]): Either[String, SValue] =
+  def fromActiveContracts(createdEvents: Seq[CreatedEvent]): Either[String, SValue] =
     for {
       events <- createdEvents
         .to(ImmArray)
@@ -315,7 +317,7 @@ final class Converter(
       triggerConfig: TriggerRunnerConfig,
   ): Either[String, SValue] =
     for {
-      acs <- fromACS(createdEvents)
+      acs <- fromActiveContracts(createdEvents)
       actAs = SParty(Ref.Party.assertFromString(parties.actAs.unwrap))
       readAs = SList(
         parties.readAs.map(p => SParty(Ref.Party.assertFromString(p.unwrap))).to(FrontStack)
@@ -370,11 +372,35 @@ final class Converter(
 
     case _ =>
       // FIXME:
-      throw new RuntimeException("FIXME: this case was not expected!")
+      throw new ConverterException("FIXME: this case was not expected!")
   }
 
   def fromCommands(commands: Seq[Command]): SValue = {
     SList(commands.map(fromCommand).to(FrontStack))
+  }
+
+  def fromACS(activeContracts: Seq[CreatedEvent]): SValue = {
+    record(
+      acsTy,
+      "activeContracts" -> SMap(
+        isTextMap = false,
+        activeContracts.groupBy(_.getTemplateId).iterator.map { case (templateId, creates) =>
+          fromTemplateTypeRep(templateId) -> SMap(
+            isTextMap = false,
+            creates.iterator.map { event =>
+              val templateType = TTyCon(fromIdentifier(templateId).orConverterException)
+              val template = fromAnyTemplate(
+                templateType,
+                fromRecord(templateType, event.getCreateArguments).orConverterException,
+              )
+
+              fromAnyContractId(templateId, event.contractId) -> template
+            },
+          )
+        },
+      ),
+      "pendingContracts" -> SMap(isTextMap = false),
+    )
   }
 
   def fromTriggerUpdateState(
@@ -383,15 +409,15 @@ final class Converter(
       commandsInFlight: Map[String, Seq[Command]] = Map.empty,
       parties: TriggerParties,
       triggerConfig: TriggerRunnerConfig,
-  ): Either[String, SValue] = {
-    for {
-      acs <- fromACS(createdEvents)
-      actAs = SParty(Ref.Party.assertFromString(parties.actAs.unwrap))
-      readAs = SList(
-        parties.readAs.map(p => SParty(Ref.Party.assertFromString(p.unwrap))).to(FrontStack)
-      )
-      config = fromTriggerConfig(triggerConfig)
-    } yield record(
+  ): SValue = {
+    val acs = fromACS(createdEvents)
+    val actAs = SParty(Ref.Party.assertFromString(parties.actAs.unwrap))
+    val readAs = SList(
+      parties.readAs.map(p => SParty(Ref.Party.assertFromString(p.unwrap))).to(FrontStack)
+    )
+    val config = fromTriggerConfig(triggerConfig)
+
+    record(
       triggerStateTy,
       "acs" -> acs,
       "actAs" -> actAs,

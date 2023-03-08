@@ -120,7 +120,7 @@ private[lf] final case class Trigger(
     if (defn.version >= Trigger.Version.`2.5.1`) {
       Array(converter.fromTriggerSetupArguments(parties, acs, triggerConfig).orConverterException)
     } else {
-      val createdValue: SValue = converter.fromACS(acs).orConverterException
+      val createdValue: SValue = converter.fromActiveContracts(acs).orConverterException
       val partyArg = SParty(Ref.Party.assertFromString(parties.actAs.unwrap))
 
       if (hasReadAs) {

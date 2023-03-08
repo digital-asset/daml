@@ -3,13 +3,13 @@
 
 package com.daml.lf.engine.trigger
 
-import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId, Party}
+import akka.stream.scaladsl.{Sink, Source}
+import com.daml.ledger.api.refinements.ApiTypes.Party
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.daml.ledger.api.v1.event.CreatedEvent
-import com.daml.ledger.client.LedgerClient
 import com.daml.ledger.runner.common.Config
 import com.daml.ledger.sandbox.SandboxOnXForTest.{ApiServerConfig, ParticipantId, singleParticipant}
-import com.daml.lf.data.Ref.{Identifier, QualifiedName}
+import com.daml.lf.data.Ref.QualifiedName
 import com.daml.lf.engine.trigger.Runner.{
   numberOfActiveContracts,
   numberOfInFlightCommands,
@@ -18,14 +18,12 @@ import com.daml.lf.engine.trigger.Runner.{
 import com.daml.lf.engine.trigger.test.AbstractTriggerTest
 import com.daml.lf.speedy.SValue
 import com.daml.platform.services.time.TimeProviderType
-import com.daml.script.converter.Converter.Implicits._
 import org.scalacheck.Gen
-import org.scalatest.concurrent.ScalaFutures
-import org.scalatest.{Inside, TryValues}
+import org.scalatest.{Assertion, Inside, TryValues}
 import org.scalatest.matchers.should.Matchers
-import org.scalatest.time.{Seconds, Span}
 import org.scalatest.wordspec.AsyncWordSpec
-import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
+
+import scala.concurrent.Future
 
 class TriggerRuleSimulationLibTest
     extends AsyncWordSpec
@@ -33,17 +31,10 @@ class TriggerRuleSimulationLibTest
     with Matchers
     with Inside
     with SuiteResourceManagementAroundAll
-    with TryValues
-    with ScalaCheckPropertyChecks
-    with ScalaFutures {
+    with TryValues {
 
+  import TriggerRuleSimulationLib._
   import TriggerRuleSimulationLibTest._
-
-  implicit override val generatorDrivenConfig: PropertyCheckConfiguration =
-    PropertyCheckConfiguration(minSuccessful = 1000)
-
-  implicit override val patienceConfig: PatienceConfig =
-    super.patienceConfig.copy(timeout = scaled(Span(30, Seconds)))
 
   override protected def config: Config = super.config.copy(
     participants = singleParticipant(
@@ -53,62 +44,43 @@ class TriggerRuleSimulationLibTest
     )
   )
 
-  def getSimulator(
-      client: LedgerClient,
-      name: QualifiedName,
-      actAs: String,
-      readAs: Set[String] = Set.empty,
-  ): (TriggerDefinition, TriggerRuleSimulationLib) = {
-    val triggerId = Identifier(packageId, name)
+  override protected def triggerRunnerConfiguration: TriggerRunnerConfig =
+    super.triggerRunnerConfiguration.copy(hardLimit =
+      super.triggerRunnerConfiguration.hardLimit
+        .copy(allowTriggerTimeouts = true, allowInFlightCommandOverflows = true)
+    )
 
-    Trigger.newTriggerLogContext(
-      triggerId,
-      Party(actAs),
-      Party.subst(readAs),
-      "trigger-simulation",
-      ApplicationId("trigger-simulation-app"),
-    ) { implicit triggerContext: TriggerLogContext =>
-      val trigger = Trigger.fromIdentifier(compiledPackages, triggerId).toOption.get
-      val runner = Runner(
-        compiledPackages,
-        trigger,
-        triggerRunnerConfiguration,
-        client,
-        config.participants(ParticipantId).apiServer.timeProviderType,
-        applicationId,
-        TriggerParties(
-          actAs = Party(actAs),
-          readAs = Party.subst(readAs),
-        ),
-      )
-
-      (
-        trigger.defn,
-        new TriggerRuleSimulationLib(
-          triggerRunnerConfiguration,
-          trigger.defn.level,
-          trigger.defn.version,
-          runner,
-        ),
-      )
-    }
+  def forAll[T](gen: Gen[T], sampleSize: Int = 100, parallelism: Int = 1)(
+      test: T => Future[Assertion]
+  ): Future[Assertion] = {
+    Source(0 to sampleSize)
+      .map(_ => gen.sample)
+      .collect { case Some(data) => data }
+      .mapAsync(parallelism) { data =>
+        test(data)
+      }
+      .takeWhile(_ == succeed, inclusive = true)
+      .runWith(Sink.last)
   }
 
   "Trigger rule simulation" should {
     "correctly log metrics for initState lambda" in {
       forAll(initState) { acs =>
-        val result = for {
+        for {
           client <- ledgerClient()
           party <- allocateParty(client)
           (trigger, simulator) = getSimulator(
             client,
             QualifiedName.assertFromString("Cats:feedingTrigger"),
+            packageId,
+            applicationId,
+            compiledPackages,
+            config.participants(ParticipantId).apiServer.timeProviderType,
+            triggerRunnerConfiguration,
             party,
           )
           (submissions, metrics, state) <- simulator.initialStateLambda(acs)
-        } yield (trigger, submissions, metrics, state)
-
-        whenReady(result) { case (trigger, submissions, metrics, state) =>
+        } yield {
           metrics.evaluation.submissions should be(submissions.size)
           // TODO: submission breakdown counts
           metrics.evaluation.steps should be(
@@ -116,14 +88,14 @@ class TriggerRuleSimulationLibTest
           )
           metrics.startState.acs.activeContracts should be(acs.size)
           metrics.startState.acs.pendingContracts should be(0)
-          metrics.startState.inFlight should be(0)
-          metrics.endState.acs.activeContracts should be(
+          metrics.startState.inFlight.commands should be(0)
+          Some(metrics.endState.acs.activeContracts) should be(
             numberOfActiveContracts(state, trigger.level, trigger.version)
           )
-          metrics.endState.acs.pendingContracts should be(
+          Some(metrics.endState.acs.pendingContracts) should be(
             numberOfPendingContracts(state, trigger.level, trigger.version)
           )
-          metrics.endState.inFlight should be(
+          Some(metrics.endState.inFlight.commands) should be(
             numberOfInFlightCommands(state, trigger.level, trigger.version)
           )
         }
@@ -132,12 +104,17 @@ class TriggerRuleSimulationLibTest
 
     "correctly log metrics for updateState lambda" in {
       forAll(updateState) { case (acs, userState, msg) =>
-        val result = for {
+        for {
           client <- ledgerClient()
           party <- allocateParty(client)
           (trigger, simulator) = getSimulator(
             client,
             QualifiedName.assertFromString("Cats:feedingTrigger"),
+            packageId,
+            applicationId,
+            compiledPackages,
+            config.participants(ParticipantId).apiServer.timeProviderType,
+            triggerRunnerConfiguration,
             party,
           )
           converter = new Converter(compiledPackages, trigger)
@@ -149,32 +126,29 @@ class TriggerRuleSimulationLibTest
               TriggerParties(Party(party), Set.empty),
               triggerRunnerConfiguration,
             )
-            .orConverterException
           (submissions, metrics, endState) <- simulator.updateStateLambda(startState, msg)
-        } yield (trigger, submissions, metrics, startState, endState)
-
-        whenReady(result) { case (trigger, submissions, metrics, startState, endState) =>
+        } yield {
           metrics.evaluation.submissions should be(submissions.size)
           // TODO: submission breakdown counts
           metrics.evaluation.steps should be(
             metrics.evaluation.getTimes + metrics.evaluation.submissions + 1
           )
-          metrics.startState.acs.activeContracts should be(
+          Some(metrics.startState.acs.activeContracts) should be(
             numberOfActiveContracts(startState, trigger.level, trigger.version)
           )
-          metrics.startState.acs.pendingContracts should be(
+          Some(metrics.startState.acs.pendingContracts) should be(
             numberOfPendingContracts(startState, trigger.level, trigger.version)
           )
-          metrics.startState.inFlight should be(
+          Some(metrics.startState.inFlight.commands) should be(
             numberOfInFlightCommands(startState, trigger.level, trigger.version)
           )
-          metrics.endState.acs.activeContracts should be(
+          Some(metrics.endState.acs.activeContracts) should be(
             numberOfActiveContracts(endState, trigger.level, trigger.version)
           )
-          metrics.endState.acs.pendingContracts should be(
+          Some(metrics.endState.acs.pendingContracts) should be(
             numberOfPendingContracts(endState, trigger.level, trigger.version)
           )
-          metrics.endState.inFlight should be(
+          Some(metrics.endState.inFlight.commands) should be(
             numberOfInFlightCommands(endState, trigger.level, trigger.version)
           )
           msg match {
@@ -212,7 +186,7 @@ object TriggerRuleSimulationLibTest {
   // TODO: extract the following generators from user specified Daml code
   private val acsGen: Gen[Seq[CreatedEvent]] = Gen.const(Seq.empty)
 
-  private val userStateGen: Gen[SValue] = Gen.choose(1L, 10L).map(SValue.SInt64(_))
+  private val userStateGen: Gen[SValue] = Gen.choose(1L, 10L).map(SValue.SInt64)
 
   private val msgGen: Gen[TriggerMsg] = Gen.const(TriggerMsg.Heartbeat)
 
