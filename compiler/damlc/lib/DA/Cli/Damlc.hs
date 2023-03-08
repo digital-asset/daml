@@ -1073,6 +1073,7 @@ cmdUseDamlYamlArgs =
   , Compile
   , Desugar
   , Ide
+  , Init
   , DebugIdeSpanInfo
   , Test
   , DamlDoc
