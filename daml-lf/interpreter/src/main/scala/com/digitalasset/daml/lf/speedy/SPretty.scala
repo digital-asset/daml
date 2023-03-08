@@ -357,7 +357,7 @@ private[lf] object SPretty {
     b match {
       case B.SBRecCon(id, _) => text(id.qualifiedName.toString)
       case B.SBRecProj(id, field) => text(s"[SBRecProj(${id.qualifiedName}, $field]")
-      case _ => text(s"[$b]")
+      case _ => text(s"$b")
     }
   }
 
@@ -368,7 +368,7 @@ private[lf] object SPretty {
       case S.SCPNil => text("Nil")
       case S.SCPCons => text(s"Cons($prefix$lev,$prefix${lev + 1})")
       case S.SCPDefault => text("default")
-      case _ => text(s"[PAT:$pat]")
+      case _ => text(s"PAT:$pat")
     }
   }
 }
