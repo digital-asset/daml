@@ -362,8 +362,9 @@ private[lf] final class Compiler(
         println(SPretty.pp1(se1))
 
         val se2: t.SExpr = flattenToAnf(se1)
-        // println("[ANF]")
+        println("ANF:")
         // println(s"$se2")
+        println(SPretty.pp2(se2))
         se2
     }
   }
