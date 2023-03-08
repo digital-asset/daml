@@ -3,16 +3,19 @@
 
 module Examples where
 
-nfib 0 = 1
-nfib 1 = 1
-nfib n = nfib (n-1) + nfib (n-2) + 1
-
 triangle 0 = 0
 triangle n = n + triangle (n-1)
 
 triangleTR = triangleTR_acc 0
 triangleTR_acc acc 0 = acc
 triangleTR_acc acc n = triangleTR_acc (acc+n) (n-1)
+
+altTriangleTR n = altTriangleTR_acc (0,n)
+altTriangleTR_acc (acc,n) = if n == 0 then acc else altTriangleTR_acc (acc+n, n-1)
+
+nfib 0 = 1
+nfib 1 = 1
+nfib n = nfib (n-1) + nfib (n-2) + 1
 
 decrement : Int -> Int
 decrement n = n - 1

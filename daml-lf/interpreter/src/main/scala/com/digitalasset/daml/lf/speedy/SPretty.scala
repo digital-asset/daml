@@ -15,7 +15,8 @@ import com.daml.lf.speedy.{SValue => V}
 
 import com.daml.lf.language.Ast
 
-// Pretty-printer for speedy expressions...
+// Pretty-printer for speedy expression forms: SExpr0, SExpr1, SExpr
+
 private[lf] object SPretty {
 
   def pp0(exp: S0.SExpr): String = {
@@ -82,7 +83,6 @@ private[lf] object SPretty {
       case S0.SELabelClosure(label, expr) =>
         val _ = (label, expr)
         ???
-
     }
   }
 
@@ -94,42 +94,19 @@ private[lf] object SPretty {
     alt match {
       case S0.SCaseAlt(pat, body) =>
         val n = pat.numArgs
-        (docCasePat("x", lev)(pat) + space + text("->") + space) / docExp0(lev + n)(body).indent(2)
+        (docCasePat("x", lev)(pat) + space + text("->")) / docExp0(lev + n)(body).indent(2)
     }
   }
-//  final case class SCaseAlt(pattern: SCasePat, body: SExpr)
 
   private def docCasePat(prefix: String, lev: Int)(pat: S.SCasePat): Doc = {
     pat match {
-      case S.SCPPrimCon(Ast.PCTrue) => text("true")
-      case S.SCPPrimCon(Ast.PCFalse) => text("false")
-      case S.SCPNil => text("[]")
-      case S.SCPCons => text(s"$prefix$lev:$prefix${lev + 1}")
+      case S.SCPPrimCon(Ast.PCTrue) => text("True")
+      case S.SCPPrimCon(Ast.PCFalse) => text("False")
+      case S.SCPNil => text("Nil")
+      case S.SCPCons => text(s"Cons($prefix$lev,$prefix${lev + 1})")
       case S.SCPDefault => text("default")
-
-      case _ =>
-        ???
-      // text(s"[PAT:$pat]")
-
-      /*
-        case SCPNil => (text("nil"), index)
-        case SCPCons => (text("cons"), index + 2)
-        case SCPVariant(_, v, _) =>
-          (text("var") + char('(') + str(v) + char(')'), index + 1)
-        case SCPEnum(_, v, _) =>
-          (text("enum") + char('(') + str(v) + char(')'), index)
-        case SCPPrimCon(pc) =>
-          pc match {
-            case PCTrue => (text("true"), index)
-            case PCFalse => (text("false"), index)
-            case PCUnit => (text("()"), index)
-          }
-        case SCPNone => (text("none"), index)
-        case SCPSome => (text("some"), index + 1)
-       */
-
+      case _ => text(s"[PAT:$pat]")
     }
-
   }
 
   private def docExp0List(lev: Int)(exps: List[S0.SExpr]): Doc = {
@@ -141,8 +118,7 @@ private[lf] object SPretty {
   private def docSDefinitionRef(sd: S.SDefinitionRef): Doc = {
     sd match {
       case S.LfDefRef(ref) =>
-        text(ref.qualifiedName.name.toString)
-      // text(ref.qualifiedName.toString) // more verbose
+        text(ref.qualifiedName.toString)
       case _ =>
         ???
     }
@@ -160,25 +136,19 @@ private[lf] object SPretty {
       case V.SText(s) =>
         char('"') + text(s) + char('"')
       case _ =>
-        // ??? // NICK
         text(s"[VALUE:$v)]")
     }
   }
 
   private def docSBuiltin(b: SBuiltin): Doc = {
     b match {
-      case B.SBSubInt64 => text("(-)")
-      case B.SBAddInt64 => text("(+)")
-      case B.SBEqual => text("(==)")
-      case B.SBCons => text("(:)")
-
-      case B.SBRecCon(id, _) =>
-        text(id.qualifiedName.name.toString)
-      // text(id.qualifiedName.toString) //more verbose
-
-      case _ =>
-        // ??? // NICK
-        text(s"[BUILTIN:$b]")
+      //case B.SBSubInt64 => text("[SUB]")
+      //case B.SBAddInt64 => text("[ADD]")
+      //case B.SBEqual => text("[EQUAL]")
+      //case B.SBCons => text("[CONS]")
+      case B.SBRecCon(id, _) => text(id.qualifiedName.toString)
+      case B.SBRecProj(id, field) => text(s"[SBRecProj(${id.qualifiedName}, $field]")
+      case _ => text(s"[$b]")
     }
   }
 
@@ -265,7 +235,6 @@ private[lf] object SPretty {
       case S1.SELet1General(rhs, body) =>
         val _ = (rhs, body)
         ???
-
     }
   }
 
@@ -283,7 +252,7 @@ private[lf] object SPretty {
     alt match {
       case S1.SCaseAlt(pat, body) =>
         val n = pat.numArgs
-        (docCasePat("stack", lev)(pat) + space + text("->") + space) / docExp1(lev + n)(body)
+        (docCasePat("stack", lev)(pat) + space + text("->")) / docExp1(lev + n)(body)
           .indent(2)
     }
   }
