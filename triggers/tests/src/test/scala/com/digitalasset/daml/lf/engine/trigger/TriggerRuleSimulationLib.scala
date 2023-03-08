@@ -845,4 +845,20 @@ object TriggerRuleSimulationLib {
       }
     }
   }
+
+  def numberOfCreateCommands(request: SubmitRequest): Int = {
+    request.getCommands.commands.count(_.command.isCreate)
+  }
+
+  def numberOfCreateAndExerciseCommands(request: SubmitRequest): Int = {
+    request.getCommands.commands.count(_.command.isCreateAndExercise)
+  }
+
+  def numberOfExerciseCommands(request: SubmitRequest): Int = {
+    request.getCommands.commands.count(_.command.isExercise)
+  }
+
+  def numberOfExerciseByKeyCommands(request: SubmitRequest): Int = {
+    request.getCommands.commands.count(_.command.isExerciseByKey)
+  }
 }

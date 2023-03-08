@@ -82,7 +82,14 @@ class TriggerRuleSimulationLibTest
           (submissions, metrics, state) <- simulator.initialStateLambda(acs)
         } yield {
           metrics.evaluation.submissions should be(submissions.size)
-          // TODO: submission breakdown counts
+          metrics.submission.creates should be(submissions.map(numberOfCreateCommands).sum)
+          metrics.submission.createAndExercises should be(
+            submissions.map(numberOfCreateAndExerciseCommands).sum
+          )
+          metrics.submission.exercises should be(submissions.map(numberOfExerciseCommands).sum)
+          metrics.submission.exerciseByKeys should be(
+            submissions.map(numberOfExerciseByKeyCommands).sum
+          )
           metrics.evaluation.steps should be(
             metrics.evaluation.getTimes + metrics.evaluation.submissions + 1
           )
@@ -129,7 +136,14 @@ class TriggerRuleSimulationLibTest
           (submissions, metrics, endState) <- simulator.updateStateLambda(startState, msg)
         } yield {
           metrics.evaluation.submissions should be(submissions.size)
-          // TODO: submission breakdown counts
+          metrics.submission.creates should be(submissions.map(numberOfCreateCommands).sum)
+          metrics.submission.createAndExercises should be(
+            submissions.map(numberOfCreateAndExerciseCommands).sum
+          )
+          metrics.submission.exercises should be(submissions.map(numberOfExerciseCommands).sum)
+          metrics.submission.exerciseByKeys should be(
+            submissions.map(numberOfExerciseByKeyCommands).sum
+          )
           metrics.evaluation.steps should be(
             metrics.evaluation.getTimes + metrics.evaluation.submissions + 1
           )
@@ -183,7 +197,7 @@ class TriggerRuleSimulationLibTest
 }
 
 object TriggerRuleSimulationLibTest {
-  // TODO: extract the following generators from user specified Daml code
+  // TODO: extract the following 3 generators from user specified Daml code
   private val acsGen: Gen[Seq[CreatedEvent]] = Gen.const(Seq.empty)
 
   private val userStateGen: Gen[SValue] = Gen.choose(1L, 10L).map(SValue.SInt64)
