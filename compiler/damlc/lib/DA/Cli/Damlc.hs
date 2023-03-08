@@ -1057,7 +1057,7 @@ main = do
     -- args from daml.yaml.
     Command cmd mbProjectOpts _ <- handleParseResult tempParseResult
     damlYamlArgs <- cliArgsFromDamlYaml mbProjectOpts
-    let args = if cmd `elem` [Build, Compile, Desugar, Ide, DebugIdeSpanInfo, Test, DamlDoc, Repl]
+    let args = if cmd `elem` cmdUseDamlYamlArgs
                then cliArgs ++ damlYamlArgs
                else cliArgs
         (errMsgs, parseResult) = parse args
@@ -1065,6 +1065,19 @@ main = do
     forM_ errMsgs $ \msg -> do
         hPutStrLn stderr msg
     withProgName "damlc" io
+
+-- | Commands for which we add the args from daml.yaml build-options.
+cmdUseDamlYamlArgs :: [CommandName]
+cmdUseDamlYamlArgs =
+  [ Build
+  , Compile
+  , Desugar
+  , Ide
+  , DebugIdeSpanInfo
+  , Test
+  , DamlDoc
+  , Repl
+  ]
 
 withProjectRoot' :: ProjectOpts -> ((FilePath -> IO FilePath) -> IO a) -> IO a
 withProjectRoot' ProjectOpts{..} act =
