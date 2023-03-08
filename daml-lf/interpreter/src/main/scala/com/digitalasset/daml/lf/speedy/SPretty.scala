@@ -41,13 +41,10 @@ private[lf] object SPretty {
         ???
 
       case S0.SEAbs(arity, body) =>
-        val formal =
-          arity match {
-            case 1 => s"(x$lev)"
-            case 2 => s"(x$lev,x${lev + 1})"
-            case _ => ???
-          }
-        text(s"\\$formal ->") / docExp0(lev + arity)(body).indent(2)
+        char('\\') + char('(') + intercalate(
+          comma,
+          (0 until arity).map { i => text(s"x${lev + i}") },
+        ) + char(')') + text("->") / docExp0(lev + arity)(body).indent(2)
 
       case S0.SEApp(fun, args) =>
         docExp0(lev)(fun) + char('@') + docExp0List(lev)(args)

@@ -45,3 +45,6 @@ useThriceC q = do
   let thrice f x = f (f (f x)) +q
   let decrement x = x-1 +q
   (thrice decrement 100, thrice decrement 200)
+
+cpsStyle one two k =
+  one (\a -> two (\b -> k a b))
