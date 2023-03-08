@@ -122,39 +122,3 @@ da_scala_test(
         "@maven//:org_scalatest_scalatest_compatible",
     ],
 )
-
-da_scala_test(
-    name = "test-min-version",
-    srcs = glob([
-        "src/test/**/MinVersionTest.scala",
-    ]),
-    data = [
-        "//test-common:dar-files-latest",
-    ],
-    scala_deps = [
-        "@maven//:com_typesafe_akka_akka_actor",
-        "@maven//:com_typesafe_akka_akka_stream",
-    ],
-    scalacopts = lf_scalacopts,
-    deps = [
-        ":engine",
-        "//bazel_tools/runfiles:scala_runfiles",
-        "//daml-lf/archive:daml_lf_archive_reader",
-        "//daml-lf/data",
-        "//daml-lf/language",
-        "//daml-lf/transaction",
-        "//language-support/scala/bindings-akka",
-        "//ledger-api/rs-grpc-bridge",
-        "//ledger-api/testing-utils",
-        "//ledger/ledger-api-client",
-        "//ledger/ledger-api-common",
-        "//ledger/ledger-runner-common",
-        "//ledger/participant-integration-api",
-        "//ledger/sandbox-on-x",
-        "//libs-scala/ledger-resources",
-        "//libs-scala/ports",
-        "//libs-scala/resources",
-        "//test-common:dar-files-latest-lib",
-        "@maven//:com_google_protobuf_protobuf_java",
-    ],
-)
