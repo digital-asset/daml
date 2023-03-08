@@ -70,6 +70,7 @@ private[lf] object Compiler {
       packageValidation: PackageValidationMode,
       profiling: ProfilingMode,
       stacktracing: StackTraceMode,
+      debug: (DottedName, DottedName) => Option[String] = { (_, _) => None },
   )
 
   object Config {
@@ -102,7 +103,7 @@ private[lf] object Compiler {
     try {
       Right(packages.foldLeft(Map.empty[t.SDefinitionRef, SDefinition]) {
         case (acc, (pkgId, pkg)) =>
-          acc ++ compiler.compilePackage(pkgId, pkg)
+          acc ++ compiler.compilePackage(pkgId, pkg, compilerConfig.debug)
       })
     } catch {
       case CompilationError(msg) => Left(s"Compilation Error: $msg")
@@ -135,11 +136,11 @@ private[lf] final class Compiler(
 
   @throws[PackageNotFound]
   @throws[CompilationError]
-  def unsafeCompile(expr: Expr): t.SExpr = compileExpDebug(expr, "unsafeCompile")
+  def unsafeCompile(expr: Expr): t.SExpr = compileExp(expr)
 
   @throws[PackageNotFound]
   @throws[CompilationError]
-  def unsafeClosureConvert(sexpr: s.SExpr): t.SExpr = pipelineDebug(sexpr)
+  def unsafeClosureConvert(sexpr: s.SExpr): t.SExpr = pipeline(sexpr)
 
   @throws[PackageNotFound]
   @throws[CompilationError]
@@ -154,7 +155,8 @@ private[lf] final class Compiler(
   def unsafeCompileModule( // called by scenario-service
       pkgId: PackageId,
       module: Module,
-  ): Iterable[(t.SDefinitionRef, SDefinition)] = compileModule(pkgId, module)
+      debug: (DottedName, DottedName) => Option[String] = { (_, _) => None },
+  ): Iterable[(t.SDefinitionRef, SDefinition)] = compileModule(pkgId, module, debug)
 
   @throws[PackageNotFound]
   @throws[CompilationError]
@@ -163,7 +165,7 @@ private[lf] final class Compiler(
       s.SEBuiltin(SBViewInterface(view.interfaceId)),
       List(s.SEApp(s.SEBuiltin(SBToAnyContract(view.templateId)), List(s.SEValue(view.argument)))),
     )
-    pipelineDebug(e0)
+    pipeline(e0)
   }
 
   private[this] val stablePackageIds = StablePackage.ids(config.allowedLanguageVersions)
@@ -253,7 +255,7 @@ private[lf] final class Compiler(
   private[this] def topLevelFunction[SDefRef <: t.SDefinitionRef: LabelModule.Allowed](
       ref: SDefRef
   )(body: s.SExpr): (SDefRef, SDefinition) =
-    ref -> SDefinition(pipelineDebug(withLabelS(ref, body)))
+    ref -> SDefinition(pipeline(withLabelS(ref, body)))
 
   private val Pos1 = Env.Empty.nextPosition
   private val Env1 = Env.Empty.pushVar
@@ -286,7 +288,7 @@ private[lf] final class Compiler(
   private[this] def unlabelledTopLevelFunction2(ref: t.SDefinitionRef)(
       body: (Position, Position, Env) => s.SExpr
   ): (t.SDefinitionRef, SDefinition) =
-    ref -> SDefinition(pipelineDebug(fun2(body)))
+    ref -> SDefinition(pipeline(fun2(body)))
 
   private[this] def topLevelFunction2[SDefRef <: t.SDefinitionRef: LabelModule.Allowed](
       ref: SDefRef
@@ -323,24 +325,14 @@ private[lf] final class Compiler(
   private[this] def translateExp(env: Env, expr0: Expr): s.SExpr =
     phaseOne.translateFromLF(env, expr0)
 
-  private[this] def compileExpDebug(expr: Expr, who: String): t.SExpr = {
-    if (who != "") {
-      println("======================================================================")
-      println(s"compileExpDebug: $who")
-      println("======================================================================")
-      // println(s"$expr")
-      val res = pipelineDebug(translateExp(Env.Empty, expr), who)
-      res
-    } else {
-      pipelineDebug(translateExp(Env.Empty, expr), who)
-    }
-  }
+  private[this] def compileExp(expr: Expr, debug: Option[String] = None): t.SExpr =
+    pipeline(translateExp(Env.Empty, expr), debug)
 
   private[this] def compileCommands(
       cmds: ImmArray[Command],
       disclosures: ImmArray[DisclosedContract],
   ): t.SExpr =
-    pipelineDebug(
+    pipeline(
       let(
         Env.Empty,
         translateContractDisclosures(Env.Empty, disclosures),
@@ -348,53 +340,52 @@ private[lf] final class Compiler(
     )
 
   private[this] def compileCommandForReinterpretation(cmd: Command): t.SExpr =
-    pipelineDebug(translateCommandForReinterpretation(cmd))
+    pipeline(translateCommandForReinterpretation(cmd))
 
   // speedy compilation phases 2,3 (i.e post translate-from-LF)
-  private[this] def pipelineDebug(sexpr: s.SExpr, who: String = ""): t.SExpr = {
-    if (who != "") {
+  private[this] def pipeline(se0: s.SExpr, debug: Option[String] = None): t.SExpr = {
+    // Print debug for speedy-compilation pipeline if `debug` is `Some(...)
+    debug match {
+      case None => flattenToAnf(closureConvert(se0))
+      case Some(who) =>
+        println("======================================================================")
+        println(s"Speedy compilation pipeline: $who")
+        println("======================================================================")
 
-      println("--[after phase1]------------------------------------------------")
-      // println(s"$sexpr")
-      // println("--[sexp0(pretty)]------------------------------------------------")
-      println(SPretty.pp0(sexpr))
+        println("[Phase1]")
+        // println(s"$se0")
+        println(SPretty.pp0(se0))
 
-      // println("--[after CC]------------------------------------------------")
-      // def xxx : Int = ???
-      // val _ = xxx
+        val se1: s1.SExpr = closureConvert(se0)
+        // println("[CC]")
+        // println(s"$se1")
 
-      val se1: s1.SExpr = closureConvert(sexpr)
-      // println(s"$se1")
-      // println("--[after ANF]------------------------------------------------")
-      val se2: t.SExpr = flattenToAnf(se1)
-      // println(s"$se2")
-      se2
-    } else {
-      flattenToAnf(closureConvert(sexpr))
+        val se2: t.SExpr = flattenToAnf(se1)
+        // println("[ANF]")
+        // println(s"$se2")
+        se2
     }
   }
 
   private[this] def compileModule(
       pkgId: PackageId,
       module: Module,
+      debug: (DottedName, DottedName) => Option[String],
   ): Iterable[(t.SDefinitionRef, SDefinition)] = {
     val builder = Iterable.newBuilder[(t.SDefinitionRef, SDefinition)]
     def addDef(binding: (t.SDefinitionRef, SDefinition)): Unit = discard(builder += binding)
 
     module.exceptions.foreach { case (defName, GenDefException(message)) =>
       val ref = t.ExceptionMessageDefRef(Identifier(pkgId, QualifiedName(module.name, defName)))
-      builder += (ref -> SDefinition(withLabelT(ref, compileExpDebug(message, ""))))
+      builder += (ref -> SDefinition(withLabelT(ref, compileExp(message))))
     }
 
     module.definitions.foreach {
       case (defName, DValue(_, body, _)) =>
-        val who = if (module.name.toString == "Examples" && defName.toString != "$$$$imports") {
-          s"${defName}"
-        } else {
-          ""
-        }
         val ref = t.LfDefRef(Identifier(pkgId, QualifiedName(module.name, defName)))
-        builder += (ref -> SDefinition(withLabelT(ref, compileExpDebug(body, who))))
+        builder += (ref -> SDefinition(
+          withLabelT(ref, compileExp(body, debug(module.name, defName)))
+        ))
       case _ =>
     }
 
@@ -465,6 +456,7 @@ private[lf] final class Compiler(
   private def compilePackage(
       pkgId: PackageId,
       pkg: Package,
+      debug: (DottedName, DottedName) => Option[String] = { (_, _) => None },
   ): Iterable[(t.SDefinitionRef, SDefinition)] = {
     logger.trace(s"compilePackage: Compiling $pkgId...")
 
@@ -486,7 +478,7 @@ private[lf] final class Compiler(
 
     val t1 = Time.Timestamp.now()
 
-    val result = pkg.modules.values.flatMap(compileModule(pkgId, _))
+    val result = pkg.modules.values.flatMap(compileModule(pkgId, _, debug))
 
     val t2 = Time.Timestamp.now()
     logger.trace(

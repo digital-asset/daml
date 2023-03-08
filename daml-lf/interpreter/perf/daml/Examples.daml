@@ -3,12 +3,6 @@
 
 module Examples where
 
-decrement : Int -> Int
-decrement n = n - 1
-
-mysub : Int -> Int -> Int
-mysub a b = a - b
-
 nfib 0 = 1
 nfib 1 = 1
 nfib n = nfib (n-1) + nfib (n-2) + 1
@@ -20,6 +14,12 @@ triangleTR = triangleTR_acc 0
 triangleTR_acc acc 0 = acc
 triangleTR_acc acc n = triangleTR_acc (acc+n) (n-1)
 
+decrement : Int -> Int
+decrement n = n - 1
+
+mysub : Int -> Int -> Int
+mysub a b = a - b
+
 thrice : (a -> a) -> a -> a
 thrice f x = f (f (f x))
 
@@ -28,7 +28,6 @@ useThriceA = thrice decrement 100
 
 useThriceB : Int
 useThriceB = thrice thrice decrement 100
-
 
 mymap : (a -> b) -> [a] -> [b]
 mymap f [] = []
@@ -41,7 +40,6 @@ myzip [] _ = []
 
 upto : Int -> Int -> [Int]
 upto a b = if a <= b then a :: upto (a+1) b else []
-
 
 useThriceC q = do
   let thrice f x = f (f (f x)) +q

@@ -54,6 +54,29 @@ da_scala_binary(
 )
 
 da_scala_binary(
+    name = "explore-speedy-compile",
+    srcs = glob(["src/main/**/ExploreSpeedyCompile.scala"]),
+    data = [
+        ":Examples.dar",
+        ":Examples.dar.pp",
+    ],
+    main_class = "com.daml.lf.speedy.explore.ExploreSpeedyCompile",
+    scala_deps = [
+        "@maven//:org_scalaz_scalaz_core",
+    ],
+    runtime_deps = [
+        "@maven//:ch_qos_logback_logback_classic",
+    ],
+    deps = [
+        "//bazel_tools/runfiles:scala_runfiles",
+        "//daml-lf/archive:daml_lf_archive_reader",
+        "//daml-lf/data",
+        "//daml-lf/interpreter",
+        "//daml-lf/language",
+    ],
+)
+
+da_scala_binary(
     name = "speed-nfib",
     srcs = glob([
         "src/main/**/LoadDarFunction.scala",

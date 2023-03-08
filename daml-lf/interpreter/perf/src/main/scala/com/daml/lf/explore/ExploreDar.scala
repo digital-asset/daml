@@ -33,7 +33,7 @@ object PlaySpeedy {
 
   def parseArgs(args0: List[String]): Config = {
     var moduleName: String = "Examples"
-    var funcName: String = "decrement" // "triangle"
+    var funcName: String = "triangle"
     var argValue: Long = 10
     var stacktracing: Compiler.StackTraceMode = Compiler.NoStackTrace
     def loop(args: List[String]): Unit = args match {
@@ -66,16 +66,16 @@ object PlaySpeedy {
 
   def main(args0: List[String]) = {
 
-    // println("Start...")
+    println("Start...")
     val config = parseArgs(args0)
     val base = config.moduleName
     val dar = s"daml-lf/interpreter/perf/${base}.dar"
     val darFile = new File(rlocation(dar))
 
-    // println("Loading dar...")
+    println("Loading dar...")
     val packages = UniversalArchiveDecoder.assertReadFile(darFile)
 
-    // println(s"Compiling packages... ${config.stacktracing}")
+    println(s"Compiling packages... ${config.stacktracing}")
     val compilerConfig = Compiler.Config.Default.copy(stacktracing = config.stacktracing)
     val compiledPackages =
       PureCompiledPackages.build(packages.all.toMap, compilerConfig) match {
@@ -85,7 +85,7 @@ object PlaySpeedy {
       }
 
     val machine: PureMachine = {
-      // println(s"Setup machine for: ${config.funcName}(${config.argValue})")
+      println(s"Setup machine for: ${config.funcName}(${config.argValue})")
       val expr = {
         val ref: DefinitionRef =
           Identifier(
@@ -99,10 +99,9 @@ object PlaySpeedy {
       Machine.fromPureSExpr(compiledPackages, expr)
     }
 
-    // println("Run...")
+    println("Run...")
     val result = machine.runPure().toTry.get
-    val _ = result
-    // println(s"Final-value: $result")
+    println(s"Final-value: $result")
   }
 
   final case class MachineProblem(s: String) extends RuntimeException(s, null, false, false)
