@@ -30,4 +30,5 @@ data RenderOptions = RenderOptions
     , ro_hooglePath :: Maybe FilePath -- ^ path to output hoogle database
     , ro_anchorPath :: Maybe FilePath -- ^ path to output anchor table
     , ro_externalAnchors :: AnchorMap -- ^ external input anchor table
+    , ro_globalInternalExt :: String -- ^ File extension for internal links
     }

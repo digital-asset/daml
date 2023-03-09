@@ -77,6 +77,7 @@ runDamlRename damlc damlFile = do
       , "--ghc-option=-dumpdir=" <> tempDir
       , "--ghc-option=-ddump-file-prefix=o."
       , "--ghc-option=-ddump-rn"
+      , "--ghc-option=-dsuppress-uniques"
       , damlFile
       ]
       ""
