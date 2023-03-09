@@ -12,11 +12,12 @@ import com.daml.ledger.api.domain.{IdentityProviderId, ObjectMeta, PartyDetails,
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{ImmArray, Ref, Time}
 import com.daml.lf.engine.preprocessing.ValueTranslator
+import com.daml.lf.interpretation.Error.ContractIdInContractKey
 import com.daml.lf.language.Ast
 import com.daml.lf.language.Ast.TTyCon
 import com.daml.lf.scenario.{ScenarioLedger, ScenarioRunner}
 import com.daml.lf.speedy.Speedy.Machine
-import com.daml.lf.speedy.{SValue, TraceLog, WarningLog}
+import com.daml.lf.speedy.{SValue, TraceLog, WarningLog, SError}
 import com.daml.lf.transaction.{
   GlobalKey,
   IncompleteTransaction,
@@ -226,14 +227,18 @@ class IdeLedgerClient(
       ec: ExecutionContext,
       mat: Materializer,
   ): Future[Option[ScriptLedgerClient.ActiveContract]] = {
+    val keyValue = key.toUnnormalizedValue
+    // TODO: Can this be any smarter? Are we able to update the exception thrown by Hash? Should we instead check this ourselves
+    // Alternatively, can we assume that the only error `GlobalKey.build` might give is the contractId exception?
+    def keyBuilderError(err: String): Future[GlobalKey] =
+      Future.failed(
+        if (err == "Contract IDs are not supported in contract keys.")
+          SError.SErrorDamlException(ContractIdInContractKey(keyValue))
+        else new ConverterException(err)
+      )
     GlobalKey
-      .build(templateId, key.toUnnormalizedValue)
-      // TODO: Work out what to do here
-      // "Contract IDs are not supported in contract keys." error gets wrapped here
-      // Ideally, specifically for that case, we should use scenario.Error, but theres no error there for this.
-      // Scenario encodes it as SError.ContractIdInContractKey, which comes from extractKey from SBuiltin. This assumes we have a Value.
-      // We have an SValue, so we can either convert and use that error, or add a case to scenario.Error and use that.
-      .fold(err => Future.failed(new ConverterException(err)), Future.successful(_))
+      .build(templateId, keyValue)
+      .fold(keyBuilderError(_), Future.successful(_))
       .flatMap { gkey =>
         ledger.ledgerData.activeKeys.get(gkey) match {
           case None => Future.successful(None)
