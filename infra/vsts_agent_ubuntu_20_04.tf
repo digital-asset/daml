@@ -4,14 +4,16 @@
 locals {
   ubuntu = [
     {
-      name      = "ci-u1",
-      disk_size = 400,
-      size      = 30,
+      name       = "ci-u1",
+      disk_size  = 400,
+      size       = 30,
+      trunc_size = 200,
     },
     {
-      name      = "ci-u2",
-      disk_size = 400,
-      size      = 0,
+      name       = "ci-u2",
+      disk_size  = 400,
+      size       = 0,
+      trunc_size = 200,
     },
   ]
 }
@@ -63,6 +65,7 @@ resource "google_compute_instance_template" "vsts-agent-ubuntu_20_04" {
       vsts_token   = secret_resource.vsts-token.value
       vsts_account = "digitalasset"
       vsts_pool    = "ubuntu_20_04"
+      size         = local.ubuntu[count.index].trunc_size
     })
 
     shutdown-script = nonsensitive("#!/usr/bin/env bash\nset -euo pipefail\ncd /home/vsts/agent\nsu vsts <<SHUTDOWN_AGENT\nexport VSTS_AGENT_INPUT_TOKEN='${secret_resource.vsts-token.value}'\n./config.sh remove --unattended --auth PAT\nSHUTDOWN_AGENT\n    ")
