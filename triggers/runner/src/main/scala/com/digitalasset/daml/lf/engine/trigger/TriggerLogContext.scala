@@ -51,24 +51,44 @@ final class TriggerLogContext private (
 
   import ToLoggingContext._
 
+  private[this] var callback: (String, TriggerLogContext) => Unit = (_, _) => ()
+
+  private[trigger] def setCallback(callback: (String, TriggerLogContext) => Unit): Unit = {
+    this.callback = callback
+  }
+
   def enrichTriggerContext[A](
       additionalEntries: (String, LoggingValue)*
   )(f: TriggerLogContext => A): A = {
-    f(new TriggerLogContext(loggingContext, entries ++ additionalEntries, span))
+    val context = new TriggerLogContext(loggingContext, entries ++ additionalEntries, span)
+
+    context.setCallback(callback)
+
+    f(context)
   }
 
   def nextSpan[A](
       name: String,
       additionalEntries: (String, LoggingValue)*
   )(f: TriggerLogContext => A): A = {
-    f(new TriggerLogContext(loggingContext, entries ++ additionalEntries, span.nextSpan(name)))
+    val context =
+      new TriggerLogContext(loggingContext, entries ++ additionalEntries, span.nextSpan(name))
+
+    context.setCallback(callback)
+
+    f(context)
   }
 
   def childSpan[A](
       name: String,
       additionalEntries: (String, LoggingValue)*
   )(f: TriggerLogContext => A): A = {
-    f(new TriggerLogContext(loggingContext, entries ++ additionalEntries, span.childSpan(name)))
+    val context =
+      new TriggerLogContext(loggingContext, entries ++ additionalEntries, span.childSpan(name))
+
+    context.setCallback(callback)
+
+    f(context)
   }
 
   def groupWith(contexts: TriggerLogContext*): TriggerLogContext = {
@@ -78,14 +98,18 @@ final class TriggerLogContext private (
     val groupSpans = contexts.foldLeft(span) { case (span, context) =>
       span.groupWith(context.span)
     }
+    val context = new TriggerLogContext(loggingContext, groupEntries.toSeq, groupSpans)
 
-    new TriggerLogContext(loggingContext, groupEntries.toSeq, groupSpans)
+    context.setCallback(callback)
+
+    context
   }
 
   def logError(message: String, additionalEntries: (String, LoggingValue)*)(implicit
       logger: ContextualizedLogger
   ): Unit = {
     enrichTriggerContext(additionalEntries: _*) { implicit triggerContext: TriggerLogContext =>
+      callback(message, triggerContext)
       logger.error(message)
     }
   }
@@ -94,6 +118,7 @@ final class TriggerLogContext private (
       logger: ContextualizedLogger
   ): Unit = {
     enrichTriggerContext(additionalEntries: _*) { implicit triggerContext: TriggerLogContext =>
+      callback(message, triggerContext)
       logger.warn(message)
     }
   }
@@ -102,6 +127,7 @@ final class TriggerLogContext private (
       logger: ContextualizedLogger
   ): Unit = {
     enrichTriggerContext(additionalEntries: _*) { implicit triggerContext: TriggerLogContext =>
+      callback(message, triggerContext)
       logger.info(message)
     }
   }
@@ -110,6 +136,7 @@ final class TriggerLogContext private (
       logger: ContextualizedLogger
   ): Unit = {
     enrichTriggerContext(additionalEntries: _*) { implicit triggerContext: TriggerLogContext =>
+      callback(message, triggerContext)
       logger.debug(message)
     }
   }
@@ -118,6 +145,7 @@ final class TriggerLogContext private (
       logger: ContextualizedLogger
   ): Unit = {
     enrichTriggerContext(additionalEntries: _*) { implicit triggerContext: TriggerLogContext =>
+      callback(message, triggerContext)
       logger.trace(message)
     }
   }
