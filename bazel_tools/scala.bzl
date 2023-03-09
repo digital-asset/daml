@@ -48,7 +48,6 @@ common_scalacopts = version_specific.get(scala_major_version, []) + [
     # doesn't allow advance features of the language without explict import
     # (higherkinds, implicits)
     "-feature",
-    "-target:jvm-1.8",
     "-encoding",
     "UTF-8",
     # more detailed type errors

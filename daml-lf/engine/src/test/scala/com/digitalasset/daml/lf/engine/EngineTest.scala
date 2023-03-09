@@ -5,6 +5,7 @@ package com.daml.lf
 package engine
 
 import java.io.File
+
 import com.daml.lf.archive.UniversalArchiveDecoder
 import com.daml.lf.data.Ref._
 import com.daml.lf.data._
@@ -53,6 +54,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.Inside._
 import org.scalatest.matchers.{MatchResult, Matcher}
 
+import scala.annotation.nowarn
 import scala.collection.immutable.HashMap
 import scala.language.implicitConversions
 
@@ -2037,8 +2039,11 @@ class EngineTest
             .map(_.message)
         } yield res
 
-      run(0).flatMap { case (tx, metaData) => validate(tx, metaData) } shouldBe Right(())
-      run(3).flatMap { case (tx, metaData) => validate(tx, metaData) } shouldBe Right(())
+      @nowarn("cat=lint-infer-any")
+      def assertRun(n: Int): Assertion =
+        run(n).flatMap { case (tx, metaData) => validate(tx, metaData) } shouldBe Right(())
+      assertRun(0)
+      assertRun(3)
     }
 
     "be partially reinterpretable" in {

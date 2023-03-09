@@ -3,20 +3,17 @@
 
 package com.daml.http.metrics
 
-import com.codahale.metrics.MetricRegistry
-import com.daml.metrics.{CacheMetrics, HealthMetrics}
 import com.daml.metrics.api.MetricHandle.{Counter, LabeledMetricsFactory, MetricsFactory, Timer}
 import com.daml.metrics.api.MetricName
-import com.daml.metrics.api.dropwizard.DropwizardMetricsFactory
-import com.daml.metrics.api.opentelemetry.OpenTelemetryMetricsFactory
+import com.daml.metrics.api.noop.NoOpMetricsFactory
 import com.daml.metrics.http.{DamlHttpMetrics, DamlWebSocketMetrics}
-import io.opentelemetry.api.GlobalOpenTelemetry
+import com.daml.metrics.{CacheMetrics, HealthMetrics}
 
 object HttpJsonApiMetrics {
   lazy val ForTesting =
     new HttpJsonApiMetrics(
-      new DropwizardMetricsFactory(new MetricRegistry),
-      new OpenTelemetryMetricsFactory(GlobalOpenTelemetry.getMeter("test")),
+      NoOpMetricsFactory,
+      NoOpMetricsFactory,
     )
 
   final val ComponentName = "json_api"
@@ -42,7 +39,7 @@ class HttpJsonApiMetrics(
   }
 
   val surrogateTemplateIdCache =
-    new CacheMetrics(prefix :+ "surrogate_tpid_cache", defaultMetricsFactory)
+    new CacheMetrics(prefix :+ "surrogate_tpid_cache", labeledMetricsFactory)
 
   // Meters how long parsing and decoding of an incoming json payload takes
   val incomingJsonParsingAndValidationTimer: Timer =

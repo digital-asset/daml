@@ -61,6 +61,7 @@ data DamldocOptions = DamldocOptions
     , do_hooglePath :: Maybe FilePath -- ^ hoogle database output path
     , do_anchorPath :: Maybe FilePath -- ^ anchor table output path
     , do_externalAnchorPath :: ExternalAnchorPath -- ^ external anchor table input path
+    , do_globalInternalExt :: String -- ^ File extension for internal links
     }
 
 data InputFormat = InputJson | InputDaml
@@ -170,5 +171,6 @@ renderDocData DamldocOptions{..} docData = do
                         , ro_hooglePath = do_hooglePath
                         , ro_anchorPath = do_anchorPath
                         , ro_externalAnchors = externalAnchors
+                        , ro_globalInternalExt = do_globalInternalExt
                         }
                 renderDocs renderOptions docData

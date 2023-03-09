@@ -3,16 +3,15 @@
 
 package com.daml.metrics
 
-import com.daml.metrics.api.MetricHandle.{LabeledMetricsFactory, MetricsFactory}
+import com.daml.metrics.api.MetricHandle.LabeledMetricsFactory
 import com.daml.metrics.api.MetricName
 
 class UserManagementMetrics(
-    val prefix: MetricName,
-    val factory: MetricsFactory,
+    prefix: MetricName,
     labeledFactory: LabeledMetricsFactory,
 ) extends DatabaseMetricsFactory(prefix, labeledFactory) {
 
-  val cache = new CacheMetrics(prefix :+ "cache", factory)
+  val cache = new CacheMetrics(prefix :+ "cache", labeledFactory)
 
   val getUserInfo: DatabaseMetrics = createDbMetrics("get_user_info")
   val createUser: DatabaseMetrics = createDbMetrics("create_user")

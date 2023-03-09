@@ -108,7 +108,7 @@ class OpenTelemetryMetricsFactory(
             val value = valueSupplier()
             consumer.record(value.asInstanceOf[Int].toLong, attributes)
           }
-        SimpleCloseableGauge(gaugeHandle)
+        SimpleCloseableGauge(name, gaugeHandle)
       case _: Long =>
         val gaugeHandle = otelMeter
           .gaugeBuilder(name)
@@ -118,7 +118,7 @@ class OpenTelemetryMetricsFactory(
             val value = valueSupplier()
             consumer.record(value.asInstanceOf[Long], attributes)
           }
-        SimpleCloseableGauge(gaugeHandle)
+        SimpleCloseableGauge(name, gaugeHandle)
       case _: Double =>
         val gaugeHandle = otelMeter
           .gaugeBuilder(name)
@@ -127,7 +127,7 @@ class OpenTelemetryMetricsFactory(
             val value = valueSupplier()
             consumer.record(value.asInstanceOf[Double], attributes)
           }
-        SimpleCloseableGauge(gaugeHandle)
+        SimpleCloseableGauge(name, gaugeHandle)
       case _ =>
         throw new IllegalArgumentException("Gauges support only numeric values.")
     }
@@ -212,7 +212,7 @@ object OpenTelemetryTimer {
 
   private val NanosecondsInASecond = 1_000_000_000
 
-  private def convertNanosecondsToSeconds[T](nanoseconds: Long): Double = {
+  private def convertNanosecondsToSeconds(nanoseconds: Long): Double = {
     nanoseconds.toDouble / NanosecondsInASecond
   }
 }

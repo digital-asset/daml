@@ -61,7 +61,6 @@ da_scala_library(
         "//daml-lf/validation",
         "//libs-scala/contextualized-logging",
         "//libs-scala/scala-utils",
-        "@maven//:com_google_protobuf_protobuf_java",
     ],
 )
 

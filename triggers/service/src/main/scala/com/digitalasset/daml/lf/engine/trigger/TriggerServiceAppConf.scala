@@ -149,6 +149,7 @@ private[trigger] final case class TriggerServiceAppConf(
       metricsReporter = metrics.map(_.reporter),
       metricsReportingInterval =
         metrics.map(_.reportingInterval).getOrElse(MetricsConfig.DefaultMetricsReportingInterval),
+      histograms = metrics.toList.flatMap(_.histograms),
     )
   }
 }

@@ -2,22 +2,23 @@
 # SPDX-License-Identifier: Apache-2.0
 
 # Keep the Scala versions in sync with /nix/nixpkgs.nix and /release/src/Options.hs.
+# When upgrading download the libraries from maven and then use the sha256sum to generate the checksum.
 
-default_scala_version = "2.13.8"
+default_scala_version = "2.13.10"
 
 scala_artifacts = {
-    "2.13.8": {
+    "2.13.10": {
         "io_bazel_rules_scala_scala_compiler": {
-            "artifact": "org.scala-lang:scala-compiler:2.13.8",
-            "sha256": "b248cb6f390ee8bceb912af3da471146fdf003702a173d750f986b1d4a3362e6",
+            "artifact": "org.scala-lang:scala-compiler:2.13.10",
+            "sha256": "2cd4a964ea48e78c91a2a7b19c4fc67a9868728ace5ee966b1d498270b3c3aa7",
         },
         "io_bazel_rules_scala_scala_library": {
-            "artifact": "org.scala-lang:scala-library:2.13.8",
-            "sha256": "a0882b82514190c2bac7d1a459872a75f005fc0f3e88b2bc0390367146e35db7",
+            "artifact": "org.scala-lang:scala-library:2.13.10",
+            "sha256": "e6ca607c3fce03e8fa38af3374ce1f8bb098e316e8bf6f6d27331360feddb1c1",
         },
         "io_bazel_rules_scala_scala_reflect": {
-            "artifact": "org.scala-lang:scala-reflect:2.13.8",
-            "sha256": "fdfbcc92e87f424578b303bcb47e0f55fee990c4b6da0006c9e75879d1e442e4",
+            "artifact": "org.scala-lang:scala-reflect:2.13.10",
+            "sha256": "62bd7a7198193c5373a992c122990279e413af3307162472a5d3cbb8ecadb35e",
         },
     },
 }

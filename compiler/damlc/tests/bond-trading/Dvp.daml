@@ -4,6 +4,8 @@
 
 module Dvp where
 
+import Daml.Script
+
 import Bond hiding (Withdraw, Reject, Accept)
 import Bond qualified
 import Cash hiding (Withdraw, Reject, Accept)
@@ -12,6 +14,7 @@ import DvpTerms
 import DvpNotification hiding (Accept)
 import DvpNotification qualified
 
+import DA.Assert
 import DA.Date
 
 template DvpProposal
@@ -48,9 +51,9 @@ template Dvp
       controller c.buyer
       do cash <- fetch cashCid
          assert $ not $ isLocked cash
-         assert $ cash.amount == c.cashAmount
-         assert $ cash.issuer == c.cashIssuer
-         assert $ cash.currency == c.cashCurrency
+         cash.amount === c.cashAmount
+         cash.issuer === c.cashIssuer
+         cash.currency === c.cashCurrency
          lid <- create LockPoA with locker = c.seller; issuer = cash.issuer; owner = cash.owner
          cashCid <- exercise cashCid Lock with lid; _lockMaturity = c.settleTime
          alloc <- create DvpAllocated with c=c; cashCid
@@ -73,20 +76,20 @@ template DvpAllocated
       do assertAfter c.settleTime
 
          bond <- fetch bondCid
-         assert $ bond.amount == c.bondAmount
-         assert $ bond.issuer == c.bondIssuer
-         assert $ bond.isin == c.bondIsin
-         assert $ bond.owner == c.seller
+         bond.amount === c.bondAmount
+         bond.issuer === c.bondIssuer
+         bond.isin === c.bondIsin
+         bond.owner === c.seller
          _ <- create DvpAllocated with c; cashCid
          bondCid <- exercise bondCid Bond.Transfer with newOwner = c.buyer
          bondCid <- exercise bondCid Bond.Accept
 
          cash <- fetch cashCid
          assert $ isLocked cash
-         assert $ cash.amount == c.cashAmount
-         assert $ cash.issuer == c.cashIssuer
-         assert $ cash.currency == c.cashCurrency
-         assert $ cash.owner == c.buyer
+         cash.amount === c.cashAmount
+         cash.issuer === c.cashIssuer
+         cash.currency === c.cashCurrency
+         cash.owner === c.buyer
          cashCid <- exercise cashCid Cash.TransferToLocker
 
          notificationCid <- create DvpNotification with c = c
@@ -98,76 +101,75 @@ data SettleResult = SettleResult
     cashCid : CashId
     notificationCid : DvpNotificationId
 
-main = scenario do
-  _ <- passToDate $ date 2018 May 14
+setDate : Int -> Month -> Int -> Script ()
+setDate year month day = setTime $ datetime year month day 0 0 0
+
+main = script do
+  setDate 2018 May 14
 
    --2018-05-14T00:00Z
-  acmeBank <- getParty "AcmeBank"
-  alice <- getParty "Alice"
-  bob <- getParty "Bob"
+  acmeBank <- allocateParty "AcmeBank"
+  alice <- allocateParty "Alice"
+  bob <- allocateParty "Bob"
+
+  cashAliceCid <- acmeBank `submit` createCmd
+    CashTransferRequest with
+      issuer = acmeBank
+      owner = acmeBank
+      receiver = alice
+      currency = "USD"
+      amount = 100.0
+      locker = acmeBank
+      lockMaturity = None
 
   cashAliceCid <-
-    submit acmeBank do
-      create CashTransferRequest with
-        issuer = acmeBank
-        owner = acmeBank
-        receiver = alice
-        currency = "USD"
-        amount = 100.0
-        locker = acmeBank
-        lockMaturity = None
+    alice `submit` exerciseCmd cashAliceCid Cash.Accept
 
-  cashAliceCid <-
-    submit alice do exercise cashAliceCid Cash.Accept
+  bondBobCid <- acmeBank `submit` createCmd
+    BondTransferRequest with
+      issuer = acmeBank
+      owner = acmeBank
+      newOwner = bob
+      isin = "1234"
+      amount = 100.0
 
-  bondBobCid <-
-    submit acmeBank do create BondTransferRequest with issuer = acmeBank
-                                                       owner = acmeBank
-                                                       newOwner = bob
-                                                       isin = "1234"
-                                                       amount = 100.0
+  bondBobCid <- bob `submit` exerciseCmd bondBobCid Bond.Accept
 
-  bondBobCid <-
-    submit bob do exercise bondBobCid Bond.Accept
-
-  dvpProposalCid <-
-    submit alice do
-      create DvpProposal with
-        c = DvpTerms with
-          buyer = alice
-          seller = bob
-          bondIssuer = acmeBank
-          bondIsin = "1234"
-          bondAmount = 100.0
-          cashIssuer = acmeBank
-          cashCurrency = "USD"
-          cashAmount = 100.0
-          settleTime = datetime 2018 Aug 14 0 0 0
-          dvpId = "abc"
+  dvpProposalCid <- alice `submit` createCmd
+    DvpProposal with
+      c = DvpTerms with
+        buyer = alice
+        seller = bob
+        bondIssuer = acmeBank
+        bondIsin = "1234"
+        bondAmount = 100.0
+        cashIssuer = acmeBank
+        cashCurrency = "USD"
+        cashAmount = 100.0
+        settleTime = datetime 2018 Aug 14 0 0 0
+        dvpId = "abc"
 
 
-  dvpCid <- submit bob do exercise dvpProposalCid Accept
+  dvpCid <- bob `submit` exerciseCmd dvpProposalCid Accept
 
-  passToDate $ date 2018 Aug 14
+  setDate 2018 Aug 14
 
   (dvpAllocatedCid, _) <-
-    submit alice do exercise dvpCid Allocate with cashCid = cashAliceCid
+    alice `submit` exerciseCmd dvpCid Allocate with cashCid = cashAliceCid
 
   r <-
-    submit bob do exercise dvpAllocatedCid Settle with bondCid = bondBobCid
+    bob `submit` exerciseCmd dvpAllocatedCid Settle with bondCid = bondBobCid
 
-  submit alice do exercise r.notificationCid DvpNotification.Accept
+  alice `submit` exerciseCmd r.notificationCid DvpNotification.Accept
 
-  submit alice do
-    c <- fetch r.bondCid
-    assertMsg "unexpected issuer" $ c.issuer == acmeBank
-    assertMsg "unexpected owner" $ c.owner == alice
-    assertMsg "unexpected isin" $ c.isin == "1234"
-    assertMsg "unexpected amount" $ c.amount == 100.0
+  Some bond <- queryContractId alice r.bondCid
+  assertMsg "unexpected issuer" $ bond.issuer == acmeBank
+  assertMsg "unexpected owner" $ bond.owner == alice
+  assertMsg "unexpected isin" $ bond.isin == "1234"
+  assertMsg "unexpected amount" $ bond.amount == 100.0
 
-  submit bob do
-    c <- fetch r.cashCid
-    assertMsg "unexpected issuer" $ c.issuer == acmeBank
-    assertMsg "unexpected owner" $ c.owner == bob
-    assertMsg "unexpected currency" $ c.currency == "USD"
-    assertMsg "unexpected amount" $ c.amount == 100.0
+  Some cash <- queryContractId bob r.cashCid
+  assertMsg "unexpected issuer" $ cash.issuer == acmeBank
+  assertMsg "unexpected owner" $ cash.owner == bob
+  assertMsg "unexpected currency" $ cash.currency == "USD"
+  assertMsg "unexpected amount" $ cash.amount == 100.0

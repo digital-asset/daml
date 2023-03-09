@@ -51,7 +51,6 @@ NOTICES     @garyverhaegen-da @dasormeter
 /ledger/ledger-api-common/              @digital-asset/kv-participant @digital-asset/kv-committer
 /ledger/ledger-api-domain/              @digital-asset/kv-participant @digital-asset/kv-committer
 /ledger/ledger-api-health/              @digital-asset/kv-participant @digital-asset/kv-committer
-/ledger/ledger-api-tests/               @digital-asset/kv-participant @digital-asset/kv-committer
 /ledger/ledger-configuration/           @digital-asset/kv-participant @digital-asset/kv-committer
 /ledger/ledger-offset/                  @digital-asset/kv-participant @digital-asset/kv-committer
 /ledger/participant-state/              @digital-asset/kv-participant @digital-asset/kv-committer
@@ -59,12 +58,13 @@ NOTICES     @garyverhaegen-da @dasormeter
 /ledger/participant-state-kv-errors/    @digital-asset/kv-participant @digital-asset/kv-committer
 /ledger/participant-state-metrics/      @digital-asset/kv-participant @digital-asset/kv-committer
 /ledger/sandbox/                        @digital-asset/kv-participant @digital-asset/kv-committer
+/ledger-test-tool/ledger-api-tests/     @digital-asset/kv-participant @digital-asset/kv-committer
 
 # KV Participant
 /ledger/participant-integration-api/    @digital-asset/kv-participant
 
 # Conformance test on canton
-/ledger/ledger-api-test-tool-on-canton @remyhaemmerle-da @rgugliel-da
+/ledger-test-tool/ledger-api-test-tool-on-canton @remyhaemmerle-da @rgugliel-da
 
 # Ecosystems
 /language-support/hs/       @nickchapman-da @remyhaemmerle-da

@@ -279,7 +279,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
     for {
       sexpr <- runCompilerSafely(
         NameOf.qualifiedNameOfCurrentFunc,
-        compiledPackages.compiler.unsafeCompile(commands),
+        compiledPackages.compiler.unsafeCompile(commands, disclosures),
       )
       result <- interpretExpression(
         validating,
@@ -322,7 +322,6 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
       validating = validating,
       contractKeyUniqueness = config.contractKeyUniqueness,
       limits = config.limits,
-      disclosedContracts = disclosures,
     )
     interpretLoop(machine, ledgerTime, disclosures)
   }

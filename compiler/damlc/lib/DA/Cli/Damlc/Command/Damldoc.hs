@@ -4,6 +4,7 @@
 
 module DA.Cli.Damlc.Command.Damldoc(cmd, exec) where
 
+import Control.Monad (when)
 import DA.Cli.Options
 import DA.Daml.Compiler.Output
 import DA.Daml.Doc.Driver
@@ -52,6 +53,7 @@ documentation numProcessors = Damldoc
     <*> optHooglePath
     <*> optAnchorPath
     <*> optExternalAnchorPath
+    <*> optGlobalInternalExt
     <*> argMainFiles
   where
     optInputFormat :: Parser InputFormat
@@ -151,7 +153,7 @@ documentation numProcessors = Damldoc
     optOutputFormat =
         option readOutputFormat $
             metavar "FORMAT"
-            <> help "Output format. Valid format names: rst, md, markdown, html, hoogle, json (Default: markdown)."
+            <> help "Output format. Valid format names: rst, md, markdown, html, json (Default: markdown)."
             <> short 'f'
             <> long "format"
             <> value (OutputDocs Markdown)
@@ -242,11 +244,28 @@ documentation numProcessors = Damldoc
                 "never" -> Right QualifyTypesNever
                 _ -> Left "Unknown mode for --qualify-types. Expected \"always\", \"never\", or \"inpackage\"."
 
+    optGlobalInternalExt :: Parser String
+    optGlobalInternalExt = option readGlobalInternalExt $
+        long "doc-ext"
+        <> metavar "EXT"
+        <> help 
+            ("Defines the file extension used for internal (but not module-local) links between documentation pages. "
+            <> "For \"html\" and \"md\", you'll typically want to match this option to the --format flag. "
+            <> "Defaults to \"html\".")
+        <> value "html"
+
+    readGlobalInternalExt =
+        eitherReader $ \arg ->
+            if arg `elem` ["html", "md", "rst"]
+                then Right arg
+                else Left "Invalid file extension for --doc-ext. Expected \"html\", \"md\", or \"rst\"."
+
     optSimplifyQualifiedTypes :: Parser Bool
     optSimplifyQualifiedTypes = switch $
         long "simplify-qualified-types"
         <> help "Simplify qualified types by dropping the common module prefix. See --qualify-types option."
         <> internal
+
 
 ------------------------------------------------------------
 
@@ -273,11 +292,17 @@ data CmdArgs = Damldoc
     , cHooglePath :: Maybe FilePath
     , cAnchorPath :: Maybe FilePath
     , cExternalAnchorPath :: ExternalAnchorPath
+    , cGlobalInternalExt :: String
     , cMainFiles :: [FilePath]
     }
 
 exec :: CmdArgs -> IO ()
 exec Damldoc{..} = do
+    when (cOutputFormat == OutputDocs Markdown && cGlobalInternalExt /= "md") $
+        putStrLn $ 
+            "Warning: Output format of `md' is being used with a default `--doc-ext' of `html'. "
+            <> "The generated `md` docs (and hoogle database) will contain non-existant `html' references. "
+            <> "Include `--doc-ext md' to use the correct file extensions."
     runDamlDoc DamldocOptions
         { do_compileOptions = cOptions
             { optHaddock = Haddock True
@@ -299,6 +324,7 @@ exec Damldoc{..} = do
         , do_hooglePath = cHooglePath
         , do_anchorPath = cAnchorPath
         , do_externalAnchorPath = cExternalAnchorPath
+        , do_globalInternalExt = cGlobalInternalExt
         }
 
   where

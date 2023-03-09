@@ -102,6 +102,7 @@ object Main {
       config.metricsReporter,
       config.metricsReportingInterval,
       registerGlobalOpenTelemetry = true,
+      config.histograms,
     )((registry, otelMeter) =>
       new HttpJsonApiMetrics(
         new DropwizardMetricsFactory(registry),

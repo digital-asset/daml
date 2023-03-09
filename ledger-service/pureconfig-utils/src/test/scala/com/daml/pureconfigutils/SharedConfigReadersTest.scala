@@ -4,16 +4,17 @@
 package com.daml.pureconfigutils
 
 import com.daml.jwt.JwtVerifierBase
-import com.daml.metrics.MetricsConfig
+import com.daml.metrics.{HistogramDefinition, MetricsConfig}
 import org.scalatest.Inside.inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 import pureconfig.error.{ConfigReaderFailures, ConvertFailure}
 import pureconfig.generic.semiauto.deriveReader
 import pureconfig.{ConfigReader, ConfigSource}
-
 import java.nio.file.Paths
+
 import com.daml.metrics.api.reporters.MetricsReporter
+
 import scala.concurrent.duration._
 
 class SharedConfigReadersTest extends AsyncWordSpec with Matchers {
@@ -45,6 +46,12 @@ class SharedConfigReadersTest extends AsyncWordSpec with Matchers {
       |  metrics {
       |    reporter = "console"
       |    reporting-interval = 10s
+      |    histograms = [
+      |       {
+      |         name-regex = "test"
+      |         bucket-boundaries = [ 2.1 ]
+      |       }
+      |    ]
       |  }
       |}
       |""".stripMargin
@@ -52,10 +59,36 @@ class SharedConfigReadersTest extends AsyncWordSpec with Matchers {
     val expectedConf = SampleServiceConfig(
       HttpServerConfig("127.0.0.1", 8890, Some(Paths.get("port-file"))),
       LedgerApiConfig("127.0.0.1", 8098),
-      MetricsConfig(MetricsReporter.Console, 10.seconds),
+      MetricsConfig(
+        MetricsReporter.Console,
+        10.seconds,
+        histograms = Seq(
+          HistogramDefinition(
+            "test",
+            Seq(2.1d),
+          )
+        ),
+      ),
     )
 
     ConfigSource.string(conf).load[SampleServiceConfig] shouldBe Right(expectedConf)
+  }
+
+  "should be able to parse minimal required metrics config" in {
+    val conf = """
+                 |{
+                 |  reporter = "console"
+                 |  reporting-interval = 10s
+                 |}
+                 |""".stripMargin
+
+    val expectedMetricsConfig = MetricsConfig(
+      MetricsReporter.Console,
+      10.seconds,
+      histograms = Seq.empty,
+    )
+
+    ConfigSource.string(conf).load[MetricsConfig] shouldBe Right(expectedMetricsConfig)
   }
 
   "should fail on loading unknown tokenVerifiers" in {

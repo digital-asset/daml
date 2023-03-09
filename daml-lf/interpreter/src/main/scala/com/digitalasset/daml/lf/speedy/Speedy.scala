@@ -344,11 +344,21 @@ private[lf] object Speedy {
         }
         .to(ImmArray)
 
+    @throws[IllegalArgumentException]
+    def zipSameLength[X, Y](xs: ImmArray[X], ys: ImmArray[Y]): ImmArray[(X, Y)] = {
+      val n1 = xs.length
+      val n2 = ys.length
+      if (n1 != n2) {
+        throw new IllegalArgumentException(s"sameLengthZip, $n1 /= $n2")
+      }
+      xs.zip(ys)
+    }
+
     def finish: Either[SErrorCrash, UpdateMachine.Result] = ptx.finish.map { case (tx, seeds) =>
       UpdateMachine.Result(
         tx,
         ptx.locationInfo(),
-        seeds zip ptx.actionNodeSeeds.toImmArray,
+        zipSameLength(seeds, ptx.actionNodeSeeds.toImmArray),
         ptx.contractState.globalKeyInputs.transform((_, v) => v.toKeyMapping),
         disclosedCreateEvents,
       )
@@ -436,13 +446,9 @@ private[lf] object Speedy {
         contractKeyUniqueness: ContractKeyUniquenessMode = ContractKeyUniquenessMode.Strict,
         commitLocation: Option[Location] = None,
         limits: interpretation.Limits = interpretation.Limits.Lenient,
-        disclosedContracts: ImmArray[speedy.DisclosedContract],
-    )(implicit loggingContext: LoggingContext): UpdateMachine = {
-      val exprWithDisclosures =
-        compiledPackages.compiler.unsafeCompileWithContractDisclosures(expr, disclosedContracts)
-
+    )(implicit loggingContext: LoggingContext): UpdateMachine =
       new UpdateMachine(
-        sexpr = exprWithDisclosures,
+        sexpr = expr,
         validating = validating,
         submissionTime = submissionTime,
         ptx = PartialTransaction
@@ -463,7 +469,6 @@ private[lf] object Speedy {
         iterationsBetweenInterruptions = iterationsBetweenInterruptions,
         compiledPackages = compiledPackages,
       )
-    }
 
     private[lf] final case class Result(
         tx: SubmittedTransaction,
@@ -532,6 +537,7 @@ private[lf] object Speedy {
       unhandledException(excep)
 
     @nowarn("msg=dead code following this construct")
+    @tailrec
     def runPure(): Either[SError, SValue] =
       run() match {
         case SResultError(err) => Left(err)
@@ -1118,7 +1124,6 @@ private[lf] object Speedy {
         updateE: Expr,
         committers: Set[Party],
         authorizationChecker: AuthorizationChecker = DefaultAuthorizationChecker,
-        disclosedContracts: ImmArray[speedy.DisclosedContract] = ImmArray.Empty,
         limits: interpretation.Limits = interpretation.Limits.Lenient,
     )(implicit loggingContext: LoggingContext): UpdateMachine = {
       val updateSE: SExpr = compiledPackages.compiler.unsafeCompile(updateE)
@@ -1128,7 +1133,6 @@ private[lf] object Speedy {
         updateSE,
         committers,
         authorizationChecker,
-        disclosedContracts,
         limits,
       )
     }
@@ -1142,7 +1146,6 @@ private[lf] object Speedy {
         updateSE: SExpr,
         committers: Set[Party],
         authorizationChecker: AuthorizationChecker = DefaultAuthorizationChecker,
-        disclosedContracts: ImmArray[speedy.DisclosedContract] = ImmArray.Empty,
         limits: interpretation.Limits = interpretation.Limits.Lenient,
         traceLog: TraceLog = newTraceLog,
     )(implicit loggingContext: LoggingContext): UpdateMachine = {
@@ -1155,7 +1158,6 @@ private[lf] object Speedy {
         readAs = Set.empty,
         limits = limits,
         traceLog = traceLog,
-        disclosedContracts = disclosedContracts,
         authorizationChecker = authorizationChecker,
         iterationsBetweenInterruptions = 10000,
       )

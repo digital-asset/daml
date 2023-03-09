@@ -4,6 +4,10 @@
 
 module Bond where
 
+import Daml.Script
+
+import DA.Assert
+
 type BondId = ContractId Bond
 
 template Bond
@@ -32,7 +36,7 @@ template Bond
       with otherCid : BondId
       controller owner
       do otherBond <- fetch otherCid
-         assert $ this == otherBond with amount
+         this === otherBond with amount
          archive otherCid
          create this with amount = amount + otherBond.amount
 
@@ -66,64 +70,58 @@ template BondTransferRequest
 bondSplitMay : Party -> BondId -> Decimal -> Update (BondId, Optional BondId)
 bondSplitMay owner bondCid splitAmount = do
   bond <- fetch bondCid
-  assert $ bond.owner == owner
+  bond.owner === owner
   if bond.amount == splitAmount
     then return (bondCid, None)
     else do
       r <- exercise bondCid Split with splitAmount
       return (fst r, Some $ snd r)
 
-main = scenario do
-  acmeBank <- getParty "AcmeBank"
-  alice <- getParty "Alice"
-  bob <- getParty "Bob"
+main = script do
+  acmeBank <- allocateParty "AcmeBank"
+  alice <- allocateParty "Alice"
+  bob <- allocateParty "Bob"
 
-  bondAlice1Cid <-
-    submit acmeBank do
-      create BondTransferRequest with
-        issuer = acmeBank
-        owner = acmeBank
-        newOwner = alice
-        isin = "1234"
-        amount = 100.0
+  bondAlice1Cid <- acmeBank `submit` createCmd
+    BondTransferRequest with
+      issuer = acmeBank
+      owner = acmeBank
+      newOwner = alice
+      isin = "1234"
+      amount = 100.0
 
-  bondAlice1Cid <-
-    submit alice do exercise bondAlice1Cid Accept
+  bondAlice1Cid <- alice `submit` exerciseCmd bondAlice1Cid Accept
 
-  bondBob1Cid <-
-    submit acmeBank do
-      create BondTransferRequest with
-        issuer = acmeBank
-        owner = acmeBank
-        newOwner = bob
-        isin = "1234"
-        amount = 20.0
+  bondBob1Cid <- acmeBank `submit` createCmd
+    BondTransferRequest with
+      issuer = acmeBank
+      owner = acmeBank
+      newOwner = bob
+      isin = "1234"
+      amount = 20.0
 
-  bondBob1Cid <-
-    submit bob do exercise bondBob1Cid Accept
+  bondBob1Cid <- bob `submit` exerciseCmd bondBob1Cid Accept
 
   (bondAlice1Cid, bondAlice2Cid) <-
-    submit alice do exercise bondAlice1Cid Split with splitAmount = 30.0
+    alice `submit` exerciseCmd bondAlice1Cid Split with splitAmount = 30.0
 
   bondBob2Cid <-
-    submit alice do exercise bondAlice1Cid Transfer with newOwner = bob
+    alice `submit` exerciseCmd bondAlice1Cid Transfer with newOwner = bob
 
   bondBob2Cid <-
-    submit bob do exercise bondBob2Cid Accept
+    bob `submit` exerciseCmd bondBob2Cid Accept
 
   bondBob2Cid <-
-    submit bob do exercise bondBob1Cid Merge with otherCid = bondBob2Cid
+    bob `submit` exerciseCmd bondBob1Cid Merge with otherCid = bondBob2Cid
 
-  submit alice do
-    c <- fetch bondAlice2Cid
-    assertMsg "unexpected issuer" $ c.issuer == acmeBank
-    assertMsg "unexpected owner" $ c.owner == alice
-    assertMsg "unexpected isin" $ c.isin == "1234"
-    assertMsg "unexpected amount" $ c.amount == 70.0
+  Some bondAlice2 <- queryContractId alice bondAlice2Cid
+  assertMsg "unexpected issuer" $ bondAlice2.issuer == acmeBank
+  assertMsg "unexpected owner" $ bondAlice2.owner == alice
+  assertMsg "unexpected isin" $ bondAlice2.isin == "1234"
+  assertMsg "unexpected amount" $ bondAlice2.amount == 70.0
 
-  submit bob do
-    c <- fetch bondBob2Cid
-    assertMsg "unexpected issuer" $ c.issuer == acmeBank
-    assertMsg "unexpected owner" $ c.owner == bob
-    assertMsg "unexpected isin" $ c.isin == "1234"
-    assertMsg "unexpected amount" $ c.amount == 50.0
+  Some bondBob2 <- queryContractId bob bondBob2Cid
+  assertMsg "unexpected issuer" $ bondBob2.issuer == acmeBank
+  assertMsg "unexpected owner" $ bondBob2.owner == bob
+  assertMsg "unexpected isin" $ bondBob2.isin == "1234"
+  assertMsg "unexpected amount" $ bondBob2.amount == 50.0

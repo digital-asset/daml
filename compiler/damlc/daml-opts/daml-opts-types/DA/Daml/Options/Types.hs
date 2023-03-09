@@ -9,6 +9,7 @@ module DA.Daml.Options.Types
     , EnableScenarioService(..)
     , EnableScenarios(..)
     , AllowLargeTuples(..)
+    , StudioAutorunAllScenarios(..)
     , SkipScenarioValidation(..)
     , DlintRulesFile(..)
     , DlintHintFiles(.., NoDlintHintFiles)
@@ -179,6 +180,9 @@ newtype EnableScenarios = EnableScenarios { getEnableScenarios :: Bool }
     deriving Show
 
 newtype AllowLargeTuples = AllowLargeTuples { getAllowLargeTuples :: Bool }
+    deriving Show
+
+newtype StudioAutorunAllScenarios = StudioAutorunAllScenarios { getStudioAutorunAllScenarios :: Bool }
     deriving Show
 
 damlArtifactDir :: FilePath

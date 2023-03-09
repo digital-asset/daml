@@ -438,7 +438,6 @@ private[lf] object ScenarioRunner {
       warningLog = warningLog,
       commitLocation = location,
       limits = interpretation.Limits.Lenient,
-      disclosedContracts = ImmArray.Empty,
     )
     // TODO (drsk) validate and propagate errors back to submitter
     // https://github.com/digital-asset/daml/issues/14108

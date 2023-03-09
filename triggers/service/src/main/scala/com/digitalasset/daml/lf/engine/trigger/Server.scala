@@ -47,6 +47,7 @@ import com.daml.auth.middleware.api.{
   Response => AuthResponse,
 }
 import com.daml.lf.speedy.Compiler
+import com.daml.metrics.HistogramDefinition
 import com.daml.metrics.akkahttp.HttpMetricsInterceptor
 import com.daml.metrics.api.reporters.{MetricsReporter, MetricsReporting}
 import com.daml.scalautil.Statement.discard
@@ -545,6 +546,7 @@ object Server {
       metricsReportingInterval: FiniteDuration,
       logTriggerStatus: (UUID, String) => Unit = (_, _) => (),
       registerGlobalOpenTelemetry: Boolean,
+      histograms: Seq[HistogramDefinition],
   ): Behavior[Message] = Behaviors.setup { implicit ctx =>
     // Implicit boilerplate.
     // These are required to execute methods in the Server class and are passed
@@ -563,6 +565,7 @@ object Server {
       metricsReporter,
       metricsReportingInterval,
       registerGlobalOpenTelemetry,
+      histograms,
     )((_, otelMeter) => TriggerServiceMetrics(otelMeter))
     val metricsResource = metricsReporting.acquire()
 

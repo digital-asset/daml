@@ -56,13 +56,14 @@ data DamlEnv = DamlEnv
   , envSkipScenarioValidation :: SkipScenarioValidation
   , envEnableScenarios :: EnableScenarios
   , envAllowLargeTuples :: AllowLargeTuples
+  , envStudioAutorunAllScenarios :: StudioAutorunAllScenarios
   , envTestFilter :: T.Text -> Bool
   }
 
 instance IsIdeGlobal DamlEnv
 
-mkDamlEnv :: Options -> Maybe SS.Handle -> IO DamlEnv
-mkDamlEnv opts scenarioService = do
+mkDamlEnv :: Options -> StudioAutorunAllScenarios -> Maybe SS.Handle -> IO DamlEnv
+mkDamlEnv opts autorunAllScenarios scenarioService = do
     openVRsVar <- newVar HashSet.empty
     scenarioContextsVar <- newMVar HashMap.empty
     previousScenarioContextsVar <- newMVar []
@@ -75,6 +76,7 @@ mkDamlEnv opts scenarioService = do
         , envSkipScenarioValidation = optSkipScenarioValidation opts
         , envEnableScenarios = optEnableScenarios opts
         , envAllowLargeTuples = optAllowLargeTuples opts
+        , envStudioAutorunAllScenarios = autorunAllScenarios
         , envTestFilter = optTestFilter opts
         }
 
