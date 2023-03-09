@@ -1078,6 +1078,8 @@ cmdUseDamlYamlArgs =
   , Test
   , DamlDoc
   , Repl
+  , DocTest
+  , Lint
   ]
 
 withProjectRoot' :: ProjectOpts -> ((FilePath -> IO FilePath) -> IO a) -> IO a
