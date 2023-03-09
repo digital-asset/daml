@@ -106,7 +106,7 @@ trait MultiParticipantFixture
               ).run()
             )
 
-            _ <- RetryStrategy.constant(attempts = 240, waitTime = 1.seconds) { (_, _) =>
+            _ <- RetryStrategy.constant(attempts = 240, waitTime = 1.second) { (_, _) =>
               Future(Files.size(portFile))
             }
           } yield (p1LedgerApi.port, p2LedgerApi.port, proc)
