@@ -7,7 +7,7 @@ locals {
       name       = "ci-u1",
       disk_size  = 400,
       size       = 30,
-      trunc_size = 200,
+      trunc_size = 400,
     },
     {
       name       = "ci-u2",
