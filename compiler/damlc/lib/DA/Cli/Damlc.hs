@@ -111,8 +111,6 @@ data CommandName =
   | DebugIdeSpanInfo
   | Desugar
   | DocTest
-  | GenerateSrc
-  | GenerateGenerics
   | Ide
   | Init
   | Inspect
