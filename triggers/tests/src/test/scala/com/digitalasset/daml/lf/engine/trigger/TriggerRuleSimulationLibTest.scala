@@ -13,6 +13,7 @@ import com.daml.lf.data.Ref.QualifiedName
 import com.daml.lf.engine.trigger.Runner.{
   numberOfActiveContracts,
   numberOfInFlightCommands,
+  numberOfInFlightCreateCommands,
   numberOfPendingContracts,
 }
 import com.daml.lf.engine.trigger.test.AbstractTriggerTest
@@ -53,6 +54,7 @@ class TriggerRuleSimulationLibTest
   def forAll[T](gen: Gen[T], sampleSize: Int = 100, parallelism: Int = 1)(
       test: T => Future[Assertion]
   ): Future[Assertion] = {
+    // TODO: ????: use results (e.g. submissions and ACS/inflight changes) of simulator runs to infer additional events
     Source(0 to sampleSize)
       .map(_ => gen.sample)
       .collect { case Some(data) => data }
@@ -165,30 +167,77 @@ class TriggerRuleSimulationLibTest
           Some(metrics.endState.inFlight.commands) should be(
             numberOfInFlightCommands(endState, trigger.level, trigger.version)
           )
+          val pendingContractSubmissions = submissions
+            .map(request =>
+              numberOfCreateCommands(request) + numberOfCreateAndExerciseCommands(request)
+            )
+            .sum
           msg match {
-            case TriggerMsg.Completion(completion) if completion.getStatus.code == 0 =>
+            case TriggerMsg.Completion(completion)
+                if completion.getStatus.code == 0 && completion.commandId.nonEmpty =>
+              // Completion success for a request this trigger produced
               metrics.startState.acs.activeContracts should be(metrics.endState.acs.activeContracts)
-              // FIXME: use submissions to determine pending counts
               metrics.startState.acs.pendingContracts should be(
-                metrics.endState.acs.pendingContracts
+                metrics.endState.acs.pendingContracts + pendingContractSubmissions
               )
-              metrics.startState.inFlight should be(metrics.endState.inFlight)
+              metrics.startState.inFlight.commands should be(
+                metrics.endState.inFlight.commands + submissions.size
+              )
 
-            case TriggerMsg.Completion(_) =>
+            case TriggerMsg.Completion(completion)
+                if completion.getStatus.code != 0 && completion.commandId.nonEmpty =>
+              // Completion failure for a request this trigger produced
+              val completionFailureSubmissions = numberOfInFlightCreateCommands(
+                completion.commandId,
+                endState,
+                trigger.level,
+                trigger.version,
+              )
               metrics.startState.acs.activeContracts should be(metrics.endState.acs.activeContracts)
-              // FIXME: account for failures!!
               metrics.startState.acs.pendingContracts should be(
-                metrics.endState.acs.pendingContracts
+                metrics.endState.acs.pendingContracts + pendingContractSubmissions - completionFailureSubmissions
+                  .getOrElse(0)
               )
-              metrics.startState.inFlight should be(metrics.endState.inFlight)
+              metrics.startState.inFlight.commands should be(
+                metrics.endState.inFlight.commands + submissions.size - 1
+              )
 
-            case TriggerMsg.Transaction(_) =>
-              // FIXME: ACS/in-flight change counts
-              succeed
+            case TriggerMsg.Transaction(transaction) if transaction.commandId.nonEmpty =>
+              // Transaction events are related to a command this trigger produced
+              val transactionCreates = transaction.events.count(_.event.isCreated)
+              val transactionArchives = transaction.events.count(_.event.isArchived)
+              metrics.endState.acs.activeContracts should be(
+                metrics.startState.acs.activeContracts + transactionCreates - transactionArchives
+              )
+              metrics.startState.acs.pendingContracts should be(
+                metrics.endState.acs.pendingContracts + pendingContractSubmissions - (transactionCreates + transactionArchives)
+              )
+              metrics.startState.inFlight.commands should be(
+                metrics.endState.inFlight.commands + submissions.size - 1
+              )
 
-            case TriggerMsg.Heartbeat =>
+            case TriggerMsg.Transaction(transaction) =>
+              // Transaction events are related to events this trigger subscribed to, but not to commands produced by this trigger
+              val transactionCreates = transaction.events.count(_.event.isCreated)
+              val transactionArchives = transaction.events.count(_.event.isArchived)
+              metrics.endState.acs.activeContracts should be(
+                metrics.startState.acs.activeContracts + transactionCreates - transactionArchives
+              )
+              metrics.startState.acs.pendingContracts should be(
+                metrics.endState.acs.pendingContracts + pendingContractSubmissions
+              )
+              metrics.startState.inFlight.commands should be(
+                metrics.endState.inFlight.commands + submissions.size
+              )
+
+            case _ =>
               metrics.startState.acs.activeContracts should be(metrics.endState.acs.activeContracts)
-            // FIXME: use submissions to determine pending counts
+              metrics.startState.acs.pendingContracts should be(
+                metrics.endState.acs.pendingContracts + pendingContractSubmissions
+              )
+              metrics.startState.inFlight.commands should be(
+                metrics.endState.inFlight.commands + submissions.size
+              )
           }
         }
       }
@@ -197,17 +246,17 @@ class TriggerRuleSimulationLibTest
 }
 
 object TriggerRuleSimulationLibTest {
-  // TODO: extract the following 3 generators from user specified Daml code
+  // TODO: ????: extract the following 3 generators from user specified Daml code
   private val acsGen: Gen[Seq[CreatedEvent]] = Gen.const(Seq.empty)
 
   private val userStateGen: Gen[SValue] = Gen.choose(1L, 10L).map(SValue.SInt64)
 
   private val msgGen: Gen[TriggerMsg] = Gen.const(TriggerMsg.Heartbeat)
 
-  // TODO: use results (e.g. submissions and ACS/inflight changes) of simulator runs to infer initialization events
+  // TODO: ????: use results (e.g. submissions and ACS/inflight changes) of simulator runs to infer initialization events
   val initState: Gen[Seq[CreatedEvent]] = acsGen
 
-  // TODO: use results (e.g. submissions and ACS/inflight changes) of simulator runs to infer update events
+  // TODO: ????: use results (e.g. submissions and ACS/inflight changes) of simulator runs to infer update events
   val updateState: Gen[(Seq[CreatedEvent], SValue, TriggerMsg)] =
     for {
       acs <- acsGen
