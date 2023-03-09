@@ -114,6 +114,21 @@ class QueriesSpec extends AnyWordSpec with Matchers with TableDrivenPropertyChec
       }
     }
   }
+
+  "deterministicDeleteOrder" should {
+    import Queries.deterministicDeleteOrder
+    import util.Random.shuffle
+    import collection.immutable.{ListMap, ListSet}
+
+    implicit val generatorDrivenConfig: STSC.PropertyCheckConfiguration =
+      STSC.generatorDrivenConfig.copy(minSuccessful = 1000)
+
+    "give the same sequence for any map/set order" in scForAll { m: Map[Int, Set[Int]] =>
+      deterministicDeleteOrder(shuffle(m.toSeq) map { case (k, v) =>
+        (k, shuffle(v.toSeq) to ListSet)
+      } to ListMap) should ===(deterministicDeleteOrder(m))
+    }
+  }
 }
 
 object QueriesSpec {
