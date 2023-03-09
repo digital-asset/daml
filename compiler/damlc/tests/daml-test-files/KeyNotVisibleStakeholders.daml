@@ -1,15 +1,19 @@
 -- Copyright (c) 2022, Digital Asset (Switzerland) GmbH and/or its affiliates.
 -- All rights reserved.
 
+{-# LANGUAGE ApplicativeDo #-}
+
 -- @ERROR failed due to a missing authorization from 's'
 -- @ERROR failed due to a missing authorization from 's'
 -- @ERROR failed due to a missing authorization from 's'
 -- @ERROR failed due to a missing authorization from 's'
 
 -- We make this a separate test since it’s annoying to assert
--- which scenario an error message belongs to
+-- which script an error message belongs to
 -- and here we sidestep this by having the same error for all tests.
 module KeyNotVisibleStakeholders where
+
+import Daml.Script
 
 template Keyed
   with
@@ -54,46 +58,44 @@ template Delegation
       do
         lookupByKey sig
 
-divulgeeFetch = scenario do
-  sig <- getParty "s" -- Signatory
-  divulgee <- getParty "d" -- Divulgee
-  keyedCid <- submit sig do create Keyed with ..
-  divulgercid <- submit divulgee do create Divulger with ..
-  submit sig do exercise divulgercid DivulgeKeyed with ..
+divulgeeFetch = script do
+  sig <- allocateParty "s" -- Signatory
+  divulgee <- allocateParty "d" -- Divulgee
+  keyedCid <- submit sig do createCmd Keyed with ..
+  divulgercid <- submit divulgee do createCmd Divulger with ..
+  submit sig do exerciseCmd divulgercid DivulgeKeyed with ..
   submit divulgee do
-    _ <- createAndExercise (Delegation sig divulgee) FetchKeyed
+    _ <- createAndExerciseCmd (Delegation sig divulgee) FetchKeyed
     pure ()
 
-divulgeeLookup = scenario do
-  sig <- getParty "s" -- Signatory
-  divulgee <- getParty "d" -- Divulgee
-  keyedCid <- submit sig do create Keyed with ..
-  divulgercid <- submit divulgee do create Divulger with ..
-  submit sig do exercise divulgercid DivulgeKeyed with ..
+divulgeeLookup = script do
+  sig <- allocateParty "s" -- Signatory
+  divulgee <- allocateParty "d" -- Divulgee
+  keyedCid <- submit sig do createCmd Keyed with ..
+  divulgercid <- submit divulgee do createCmd Divulger with ..
+  submit sig do exerciseCmd divulgercid DivulgeKeyed with ..
   submit divulgee do
-    _ <- createAndExercise (Delegation sig divulgee) LookupKeyed
+    _ <- createAndExerciseCmd (Delegation sig divulgee) LookupKeyed
     pure ()
 
-blindFetch = scenario do
-  sig <- getParty "s" -- Signatory
-  divulgee <- getParty "d" -- Divulgee
-  blind <- getParty "b" -- Blind
-  keyedCid <- submit sig do create Keyed with ..
-  divulgercid <- submit divulgee do create Divulger with ..
-  submit sig do exercise divulgercid DivulgeKeyed with ..
+blindFetch = script do
+  sig <- allocateParty "s" -- Signatory
+  divulgee <- allocateParty "d" -- Divulgee
+  blind <- allocateParty "b" -- Blind
+  keyedCid <- submit sig do createCmd Keyed with ..
+  divulgercid <- submit divulgee do createCmd Divulger with ..
+  submit sig do exerciseCmd divulgercid DivulgeKeyed with ..
   submit blind do
-    _ <- createAndExercise (Delegation sig blind) FetchKeyed
+    _ <- createAndExerciseCmd (Delegation sig blind) FetchKeyed
     pure ()
 
-blindLookup = scenario do
-  sig <- getParty "s" -- Signatory
-  divulgee <- getParty "d" -- Divulgee
-  blind <- getParty "b" -- Blind
-  keyedCid <- submit sig do create Keyed with ..
-  divulgercid <- submit divulgee do create Divulger with ..
-  submit sig do exercise divulgercid DivulgeKeyed with ..
+blindLookup = script do
+  sig <- allocateParty "s" -- Signatory
+  divulgee <- allocateParty "d" -- Divulgee
+  blind <- allocateParty "b" -- Blind
+  keyedCid <- submit sig do createCmd Keyed with ..
+  divulgercid <- submit divulgee do createCmd Divulger with ..
+  submit sig do exerciseCmd divulgercid DivulgeKeyed with ..
   submit blind do
-    _ <- createAndExercise (Delegation sig blind) LookupKeyed
+    _ <- createAndExerciseCmd (Delegation sig blind) LookupKeyed
     pure ()
-
--- @ENABLE-SCENARIOS

@@ -3,6 +3,7 @@ import (implicit) qualified DA.Internal.Record
 import (implicit) qualified GHC.Types
 import (implicit) qualified DA.Internal.Desugar
 import (implicit) DA.Internal.RebindableSyntax
+import Daml.Script
 data EmptyInterfaceView = EmptyInterfaceView {}
 data GHC.Types.DamlInterface => I = I GHC.Types.Opaque
 instance DA.Internal.Desugar.HasInterfaceTypeRep I where
@@ -242,8 +243,8 @@ instance DA.Internal.Desugar.HasFromInterface U I where
   fromInterface = GHC.Types.primitive @"EFromInterface"
   unsafeFromInterface = GHC.Types.primitive @"EUnsafeFromInterface"
 main
-  = scenario
-      do p <- getParty "p"
+  = script
+      do p <- allocateParty "p"
          assertMsg "tpl x == tpl y && cts x == cts y ==> I x == I y"
            $ toInterface @I (T p 0)
            == toInterface @I (T p 0)

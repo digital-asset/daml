@@ -5,6 +5,7 @@
 
 module InterfaceGuarded where
 
+import Daml.Script
 import DA.Exception (GeneralError (..), throwPure)
 
 data EmptyInterfaceView = EmptyInterfaceView {}
@@ -61,55 +62,94 @@ exception GuardException
     where
         message m
 
-main = scenario do
-  p <- getParty "Alice"
-  let
-    assetAsTokenTpl =
-      toInterface @Token $
-        Asset with
-          issuer = p
-          owner = p
-          amount = 100
-    getRich = GetRich with byHowMuch = 1000000
+template Test
+  with
+    p : Party
+  where
+    signatory p
+    let
+      assetAsTokenTpl =
+        toInterface @Token $
+          Asset with
+            issuer = p
+            owner = p
+            amount = 100
+      getRich = GetRich with byHowMuch = 1000000
 
-  p `submit` do
-    -- OK if guard returns True
-    assetAsToken <- create assetAsTokenTpl
-    exerciseGuarded (const True) assetAsToken getRich
+    nonconsuming choice TrueGuard : ()
+      controller p
+      do
+        assetAsToken <- create assetAsTokenTpl
+        exerciseGuarded (const True) assetAsToken getRich
+        pure ()
 
-  p `submitMustFail` do
-    -- Fail if guard returns False
-    assetAsToken <- create assetAsTokenTpl
-    exerciseGuarded (const False) assetAsToken getRich
+    nonconsuming choice FalseGuard : ()
+      controller p
+      do
+        -- Fail if guard returns False
+        assetAsToken <- create assetAsTokenTpl
+        exerciseGuarded (const False) assetAsToken getRich
+        pure ()
 
-  p `submitMustFail` do
-    -- Fail if guard throws exception
-    assetAsToken <- create assetAsTokenTpl
-    exerciseGuarded (\_ -> error "foo") assetAsToken getRich
+    nonconsuming choice ErrorGuard : ()
+      controller p
+      do
+        -- Fail if guard throws exception
+        assetAsToken <- create assetAsTokenTpl
+        exerciseGuarded (\_ -> error "foo") assetAsToken getRich
+        pure ()
 
-  p `submitMustFail` do
-    -- Fail if guard throws custom exception
-    assetAsToken <- create assetAsTokenTpl
-    exerciseGuarded (\_ -> throwPure (GuardException "bar")) assetAsToken getRich
+    nonconsuming choice CustomErrorGuard : ()
+      controller p
+      do
+        -- Fail if guard throws custom exception
+        assetAsToken <- create assetAsTokenTpl
+        exerciseGuarded (\_ -> throwPure (GuardException "bar")) assetAsToken getRich
+        pure ()
 
-  p `submitMustFail` do
-    -- Fail if guard throws exception, even in `try-catch` block
-    assetAsToken <- create assetAsTokenTpl
-    try do
-      exerciseGuarded (\_ -> error "foo") assetAsToken getRich
-    catch
-      GeneralError {} ->
-        pure $ toInterfaceContractId @Token assetAsToken
+    nonconsuming choice TryErrorGuard : ()
+      controller p
+      do
+        -- Fail if guard throws exception, even in `try-catch` block
+        assetAsToken <- create assetAsTokenTpl
+        try do
+          exerciseGuarded (\_ -> error "foo") assetAsToken getRich
+        catch
+          GeneralError {} ->
+            pure $ toInterfaceContractId @Token assetAsToken
+        pure ()
 
-  p `submitMustFail` do
-    -- Fail if guard throws custom exception, even in `try-catch` block
-    assetAsToken <- create assetAsTokenTpl
-    try do
-      exerciseGuarded (\_ -> throwPure (GuardException "bar")) assetAsToken getRich
-    catch
-      GuardException {} ->
-        pure $ toInterfaceContractId @Token assetAsToken
+    nonconsuming choice TryCustomErrorGuard : ()
+      controller p
+      do
+        -- Fail if guard throws custom exception, even in `try-catch` block
+        assetAsToken <- create assetAsTokenTpl
+        try do
+          exerciseGuarded (\_ -> throwPure (GuardException "bar")) assetAsToken getRich
+        catch
+          GuardException {} ->
+            pure $ toInterfaceContractId @Token assetAsToken
+        pure ()
 
+exerciseTest : Choice Test c () => c -> Script ()
+exerciseTest c = script do
+  p <- allocateParty "Alice"
+  p `submit` createAndExerciseCmd (Test p) c
   pure ()
 
--- @ENABLE-SCENARIOS
+trueGuard = exerciseTest TrueGuard
+
+-- @ERROR range=143:1-143:11; failing guard
+falseGuard = exerciseTest FalseGuard
+
+-- @ERROR range=146:1-146:11; failing guard
+errorGuard = exerciseTest ErrorGuard
+
+-- @ERROR range=149:1-149:17; failing guard
+customErrorGuard = exerciseTest CustomErrorGuard
+
+-- @ERROR range=152:1-152:14; failing guard
+tryErrorGuard = exerciseTest TryErrorGuard
+
+-- @ERROR range=155:1-155:20; failing guard
+tryCustomErrorGuard = exerciseTest TryCustomErrorGuard

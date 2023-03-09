@@ -5,6 +5,7 @@
 
 module AnyEqOrd where
 
+import Daml.Script
 import DA.Action
 
 template T1
@@ -42,8 +43,8 @@ template T2
 assertBool : CanAbort m => Text -> Bool -> m ()
 assertBool err success = unless success $ abort ("Failure: " <> show err)
 
-main = scenario do
-  p <- getParty "alice"
+main = script do
+  p <- allocateParty "alice"
   let t1A = T1 0 p
   let t1B = T1 1 p
   let t1'A = T1' 0 p
@@ -65,5 +66,3 @@ main = scenario do
 
   assertBool ("T1, T1'" <> show (p, p)) (toAnyContractKey @T1 p <= toAnyContractKey @T1' p)
   assertBool ("T1, T1'" <> show (p, p)) (toAnyContractKey @T1' p > toAnyContractKey @T1 p)
-
--- @ENABLE-SCENARIOS

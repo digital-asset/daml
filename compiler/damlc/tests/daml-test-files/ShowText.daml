@@ -1,16 +1,15 @@
 -- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
--- @ENABLE-SCENARIOS
-
 module ShowText where
 
+import Daml.Script
 import DA.Foldable (forA_)
 import DA.Text (explode, fromCodePoints, implode, toCodePoints, unlines)
 
 -- # Setup
 
-testCase : Text -> Text -> Scenario ()
+testCase : Text -> Text -> Script ()
 testCase input expectedOutput = do
   let actualOutput = show input
   if expectedOutput == actualOutput
@@ -26,7 +25,7 @@ testCase input expectedOutput = do
       ]
 
 infix 2 ==>
-(==>) : Text -> Text -> Scenario ()
+(==>) : Text -> Text -> Script ()
 (==>) = testCase
 
 longStringSize : Int
@@ -43,7 +42,7 @@ empty_string =
 double_quote =
   "\"" ==> "\"\\\"\""
 
-beyond_ascii = do
+beyond_ascii = script do
   "é" ==> "\"\\233\""
   "éx" ==> "\"\\233x\""
   "é" <> "x" ==> "\"\\233x\""
@@ -94,42 +93,42 @@ control_ENQ =
 control_ACK =
   "\ACK" ==> "\"\\ACK\""
 
-control_BEL = do
+control_BEL = script do
   -- Note portable representation!
   "\a" ==> "\"\\a\""
   "\BEL" ==> "\"\\a\""
 
-control_BS = do
+control_BS = script do
   -- Note portable representation!
   "\b" ==> "\"\\b\""
   "\BS" ==> "\"\\b\""
 
-control_HT = do
+control_HT = script do
   -- Note portable representation!
   "\t" ==> "\"\\t\""
   "\HT" ==> "\"\\t\""
 
-control_LF = do
+control_LF = script do
   -- Note portable representation!
   "\n" ==> "\"\\n\""
   "\LF" ==> "\"\\n\""
 
-control_VT = do
+control_VT = script do
   -- Note portable representation!
   "\v" ==> "\"\\v\""
   "\VT" ==> "\"\\v\""
 
-control_FF = do
+control_FF = script do
   -- Note portable representation!
   "\f" ==> "\"\\f\""
   "\FF" ==> "\"\\f\""
 
-control_CR = do
+control_CR = script do
   -- Note portable representation!
   "\r" ==> "\"\\r\""
   "\CR" ==> "\"\\r\""
 
-control_SO = do
+control_SO = script do
   "\SO" ==> "\"\\SO\""
   "\SOh" ==> "\"\\SOh\""
   "\SO\&h" ==> "\"\\SOh\""
@@ -193,7 +192,7 @@ control_RS =
 control_US =
   "\US" ==> "\"\\US\""
 
-exhaustive = scenario do
+exhaustive = script do
   forA_ [0..255] \i -> do
     debugRaw ("exhaustive [" <> show i <> "/255]")
     debugRaw (show (fromCodePoints [i]))

@@ -1,16 +1,17 @@
 -- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
 -- All rights reserved.
 
--- @INFO range=47:22-47:32; Use sqrt
--- @INFO range=66:15-66:25; Use sqrt
+-- @INFO range=48:22-48:32; Use sqrt
+-- @INFO range=67:15-67:25; Use sqrt
 
 
 module Math where
 
+import Daml.Script
 import DA.Math
 import DA.Assert
 
-expTest = scenario do
+expTest = script do
   let
     e = 2.7182818285 : Decimal
     exp60 = 114200738981568428366295718.3144765630 : Decimal
@@ -24,7 +25,7 @@ expTest = scenario do
   expm20 === exp (negate 20.0)
   assert(abs(exp60 - exp 60.0) < 0.00000001)
 
-logTest = scenario do
+logTest = script do
   let
     log05 = -0.6931471806 : Decimal
     log15 = 0.4054651081 : Decimal
@@ -41,7 +42,7 @@ logTest = scenario do
   assert(abs(log10em9 - log (10.0 ^ negate 9)) <= 0.000000001)
   assert(abs(25.0 - logBase 10.0 (10.0 ^ 25)) <= 0.0000000001)
 
-powerTest = scenario do
+powerTest = script do
   let
     sqrt2 = 1.4142135623 : Decimal
   assert(abs(sqrt2 - 2.0 ** 0.5) <= 0.0000000001)
@@ -49,13 +50,13 @@ powerTest = scenario do
   0.0 ** 1.0 === 0.0
   42.0 ** 0.0 === 1.0
 
-sqrtTest = scenario do
+sqrtTest = script do
   let
     sqrt2 = 1.4142135623 : Decimal
   assert(abs(sqrt2 - sqrt 2.0) <= 0.0000000001)
   sqrt 0.0 === 0.0
 
-trigTest = scenario do
+trigTest = script do
   let
     delta = 10.0 ^ (-10) : Decimal
   assert (abs(sin (pi / 4.0) - cos (pi / 4.0)) <= 3.0 * delta)
@@ -67,5 +68,3 @@ trigTest = scenario do
 
   assert (cos (15.0 * pi / 2.0) <= delta)
   assert (abs(0.5 - cos (pi / 3.0)) <= 4.0 * delta)
-
--- @ENABLE-SCENARIOS

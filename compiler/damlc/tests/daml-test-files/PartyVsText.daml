@@ -2,13 +2,12 @@
 
 module PartyVsText where
 
+import Daml.Script
 import DA.Assert
 
-test = scenario do
-  p <- getParty "alice"
+test = script do
+  p <- allocateParty "alice"
   show p === "'alice'"
   partyToText p === "alice"
   partyFromText "alice" === Some p
   partyFromText "bad$character" === None
-
--- @ENABLE-SCENARIOS

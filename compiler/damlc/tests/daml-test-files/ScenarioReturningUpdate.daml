@@ -4,11 +4,13 @@
 
 module ScenarioReturningUpdate where
 
+import Daml.Script
+
 template T
   with p : Party
   where signatory p
 
-f : Party -> Scenario (Update (Optional (ContractId T)))
+f : Party -> Script (Update (Optional (ContractId T)))
 f p = do
   let
     umt = do
@@ -16,8 +18,6 @@ f p = do
       return $ Some t
   submit p $ return umt
 
-s = scenario do
-  p <- getParty "P"
+s = script do
+  p <- allocateParty "P"
   f p
-
--- @ENABLE-SCENARIOS

@@ -1,11 +1,11 @@
 -- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
 -- All rights reserved.
 
--- @INFO range=9:3-9:18; Use ===
+-- @INFO range=11:3-11:18; Use ===
 
 module Assert where
 
-test = scenario do
-  assert (1 == 1)
+import Daml.Script
 
--- @ENABLE-SCENARIOS
+test = script do
+  assert (1 == 1)

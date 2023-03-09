@@ -4,47 +4,46 @@
 
 module Either where
 
+import Daml.Script
 import DA.Either
 import DA.Assert
 
-testLefts = scenario do
+testLefts = script do
   ["a", "b", "c"] === lefts [Right 1, Left "a", Left "b", Right 2, Left "c"]
   [] === lefts ([] : [Either Int Text])
   [] === lefts ([Right 1.0] : [Either Bool Decimal])
 
-testRights = scenario do
+testRights = script do
   [1, 2] === rights [Right 1, Left "a", Left "b", Right 2, Left "c"]
   [] === rights ([] : [Either Int Text])
   [] === rights ([Left False] : [Either Bool Decimal])
 
-testPartitionEithers = scenario do
+testPartitionEithers = script do
   (["a", "b", "c"], [1, 2]) === partitionEithers [Right 1, Left "a", Left "b", Right 2, Left "c"]
   ([], []) === partitionEithers ([] : [Either Int Text])
   ([], [False, False]) === partitionEithers ([Right False, Right False] : [Either Int Bool])
   ([1], []) === partitionEithers ([Left 1] : [Either Int Bool])
 
-testIsLeft = scenario do
+testIsLeft = script do
   True === isLeft (Left 1.0 : Either Decimal Int)
   False === isLeft (Right 1 : Either Decimal Int)
 
-testIsRight = scenario do
+testIsRight = script do
   False === isRight (Left 1.0 : Either Decimal Int)
   True === isRight (Right 1 : Either Decimal Int)
 
-testFromLeft = scenario do
+testFromLeft = script do
   2 === fromLeft 1 (Left 2)
   1 === fromLeft 1 (Right "a")
 
-testFromRight = scenario do
+testFromRight = script do
   "b" === fromRight "b" (Left 2)
   "a" === fromRight "b" (Right "a")
 
-testOptionalToEither = scenario do
+testOptionalToEither = script do
   Right 1 === optionalToEither "a" (Some 1)
   Left "a" === optionalToEither "a" (None : Optional Int)
 
-testEitherToOptional = scenario do
+testEitherToOptional = script do
   Some 1 === eitherToOptional (Right 1)
   None === eitherToOptional (Left "a" : Either Text Int)
-
--- @ENABLE-SCENARIOS

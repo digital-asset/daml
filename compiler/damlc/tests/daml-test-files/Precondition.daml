@@ -1,10 +1,11 @@
 -- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
 -- All rights reserved.
 
--- @ERROR range=22:1-22:5; Template precondition violated
+-- @ERROR range=23:1-23:5; Template precondition violated
 
 module Precondition where
 
+import Daml.Script
 import DA.List
 
 template Confirmation with
@@ -19,11 +20,9 @@ template Confirmation with
       controller head pending
       do create this with pending = tail pending
 
-test = scenario do
-  alice <- getParty "Alice"
+test = script do
+  alice <- allocateParty "Alice"
   submit alice do
-    create Confirmation with
+    createCmd Confirmation with
       confirmed = [alice]
       pending = []
-
--- @ENABLE-SCENARIOS

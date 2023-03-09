@@ -9,6 +9,7 @@
 
 module SugarUnit where
 
+import Daml.Script
 import DA.Assert
 
 data Foo a = Foo a
@@ -19,7 +20,5 @@ joinFoo ffx =
     let Foo (Foo x) = ffx
     in Foo x
 
-test = scenario do
+test = script do
     joinFoo (Foo (Foo 1)) === Foo 1
-
--- @ENABLE-SCENARIOS

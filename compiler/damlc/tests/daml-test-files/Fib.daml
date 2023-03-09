@@ -4,6 +4,7 @@
 
 module Fib where
 
+import Daml.Script
 import DA.Assert
 
 fib : Int -> Int
@@ -11,7 +12,5 @@ fib 0 = 0
 fib 1 = 1
 fib n = fib (n-1) + fib (n-2)
 
-main = scenario do
+main = script do
   fib 10 === 55
-
--- @ENABLE-SCENARIOS
