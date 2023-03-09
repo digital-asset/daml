@@ -63,8 +63,8 @@ private[lf] object SPretty {
       case S0.SEAbs(arity, body) =>
         char('\\') + char('(') + intercalate(
           comma,
-          (0 until arity).map { i => text(s"$varNamePrefix${lev + i}") },
-        ) + char(')') + text("->") / docExp0(lev + arity)(body).indent(2)
+          (0 until arity).map { i => text(s"$varNamePrefix${lev + i}") }, // NOTE: lev
+        ) + char(')') + text("->") / docExp0(lev + arity)(body).indent(2) // NOTE: lev
 
       case S0.SEApp(fun, args) =>
         docExp0(lev)(fun) + text(" @") + docExp0List(lev)(args)
@@ -157,8 +157,8 @@ private[lf] object SPretty {
         ) + char('}') +
           char('\\') + char('(') + intercalate(
             comma,
-            (0 until arity).map { i => text(s"arg${lev + i}") },
-          ) + char(')') + text("->") / docExp1(lev)(body).indent(2) // NOTE: dont add arity to lev!
+            (0 until arity).map { i => text(s"arg$i") }, // NOTE: ignore lev here
+          ) + char(')') + text("->") / docExp1(0)(body).indent(2) // NOTE: and here
 
       case S1.SEApp(fun, args) =>
         docExp1(lev)(fun) + text(" @") + docExp1List(lev)(args)
@@ -258,8 +258,8 @@ private[lf] object SPretty {
         ) + char('}') +
           char('\\') + char('(') + intercalate(
             comma,
-            (0 until arity).map { i => text(s"arg${lev + i}") },
-          ) + char(')') + text("->") / docExp2(lev)(body).indent(2) // NOTE: dont add arity to lev!
+            (0 until arity).map { i => text(s"arg$i") }, // NOTE: ignore lev here
+          ) + char(')') + text("->") / docExp2(0)(body).indent(2) // NOTE: and here
 
       case S2.SEAppAtomicGeneral(fun, args) =>
         docExp2(lev)(fun) + text(" @A") + docExp2List(lev)(args.toList)

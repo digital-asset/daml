@@ -2,7 +2,7 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 module Examples where
-
+{-
 triangle 0 = 0
 triangle n = n + triangle (n-1)
 
@@ -67,3 +67,38 @@ nbeExamplePreventLL = \zero arg -> do
   let twice f x = f (f x) + zero
   let increase q x = dub x + q
   twice (increase (arg+1)) 3
+-}
+
+----------------------------------------------------------------------
+
+identity x = x
+
+absdiff : Int -> Int -> Int
+absdiff x y =
+  if x > y then x - y else y - x
+
+manhattan (a,b) (c,d) =
+  absdiff a c + absdiff b d
+
+thrice : (a -> a) -> a -> a
+thrice func arg =
+  func (func (func arg))
+
+useThrice : Int -> Int
+useThrice a =
+  let decrease = \x -> x - a in
+  thrice decrease 100
+
+factorial : Int -> Int
+factorial n =
+  if n <= 1 then 1 else n * factorial (n-1)
+
+factorialAcc : Int -> Int -> Int
+factorialAcc n acc =
+  if n <= 1 then acc else factorialAcc (n-1) (n*acc)
+
+myMap : (a -> b) -> [a] -> [b]
+myMap f [] = []
+myMap f (x::xs) = f x :: myMap f xs
+
+--myMap f xs = case xs of [] -> []; x::xs -> f x :: myMap f xs -- same!
