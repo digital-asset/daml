@@ -51,7 +51,7 @@ listKnownPartiesTest = do
   p1 <- allocatePartyOn "p1" (ParticipantName "one")
   -- Synchronize by submitting transactions in both directions. This matches
   -- what the ledger API test tool uses for synchronization.
-  -- note that since p2 is allocated before p1 torught he ledger API,
+  -- note that since p2 is allocated before p1 trough the ledger API,
   -- we are guarantee that that one will know about p2 before p1
   proposalCid <- submit p1 $ createCmd (TProposal p1 p2)
   waitForCid tries p2 proposalCid
