@@ -2145,7 +2145,12 @@ private[lf] object SBuiltin {
           Control.Error(IE.DisclosedContractKeyHashingError(contractId, key.globalKey, hash))
         case _ =>
           // Command preprocessing should enforce the following invariant
-          assert(keyHash.isDefined == cachedContract.keyOpt.isDefined)
+          val invariant = (keyHash.isDefined == cachedContract.keyOpt.isDefined)
+          if (!invariant)
+            InternalError.assertionException(
+              NameOf.qualifiedNameOfCurrentFunc,
+              "unexpected mismatching contract key",
+            )
           machine.addDisclosedContracts(contractId, cachedContract)
           Control.Value(SUnit)
       }
