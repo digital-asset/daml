@@ -44,6 +44,7 @@ trait MultiParticipantFixture
     Files.delete(cantonConfigPath)
     discard(Files.deleteIfExists(portFile))
     Files.delete(tmpDir)
+    super.afterAll()
   }
 
   private def canton(): ResourceOwner[(Port, Port)] =
