@@ -16,7 +16,7 @@ class BufferingObserver[T](limit: Option[Int] = None) extends StreamObserver[T] 
   val size = new AtomicInteger(0)
   def resultsF = promise.future
 
-  override def onError(t: Throwable): Unit = promise.failure(t)
+  override def onError(t: Throwable): Unit = promise.tryFailure(t)
 
   override def onCompleted(): Unit = {
     val vec = Vector.newBuilder[T]
