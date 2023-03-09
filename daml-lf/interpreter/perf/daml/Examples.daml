@@ -29,6 +29,9 @@ factorialAcc : Int -> Int -> Int
 factorialAcc n acc =
   if n <= 1 then acc else factorialAcc (n-1) (n*acc)
 
+fib : Int -> Int
+fib n = if n < 2 then n else fib (n-1) + fib (n-2)
+
 myMap : (a -> b) -> [a] -> [b]
 myMap f [] = []
 myMap f (x::xs) = f x :: myMap f xs
