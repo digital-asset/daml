@@ -12,11 +12,12 @@ import com.daml.ledger.api.domain.{IdentityProviderId, ObjectMeta, PartyDetails,
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{ImmArray, Ref, Time}
 import com.daml.lf.engine.preprocessing.ValueTranslator
+import com.daml.lf.interpretation.Error.ContractIdInContractKey
 import com.daml.lf.language.Ast
 import com.daml.lf.language.Ast.TTyCon
 import com.daml.lf.scenario.{ScenarioLedger, ScenarioRunner}
 import com.daml.lf.speedy.Speedy.Machine
-import com.daml.lf.speedy.{SValue, TraceLog, WarningLog}
+import com.daml.lf.speedy.{SValue, TraceLog, WarningLog, SError}
 import com.daml.lf.transaction.{
   GlobalKey,
   IncompleteTransaction,
@@ -226,9 +227,18 @@ class IdeLedgerClient(
       ec: ExecutionContext,
       mat: Materializer,
   ): Future[Option[ScriptLedgerClient.ActiveContract]] = {
+    val keyValue = key.toUnnormalizedValue
+    // TODO: Can this be any smarter? Are we able to update the exception thrown by Hash? Should we instead check this ourselves
+    // Alternatively, can we assume that the only error `GlobalKey.build` might give is the contractId exception?
+    def keyBuilderError(err: String): Future[GlobalKey] =
+      Future.failed(
+        if (err == "Contract IDs are not supported in contract keys.")
+          SError.SErrorDamlException(ContractIdInContractKey(keyValue))
+        else new ConverterException(err)
+      )
     GlobalKey
-      .build(templateId, key.toUnnormalizedValue)
-      .fold(err => Future.failed(new ConverterException(err)), Future.successful(_))
+      .build(templateId, keyValue)
+      .fold(keyBuilderError(_), Future.successful(_))
       .flatMap { gkey =>
         ledger.ledgerData.activeKeys.get(gkey) match {
           case None => Future.successful(None)
@@ -427,9 +437,13 @@ class IdeLedgerClient(
           val candidates = namePrefix #:: LazyList.from(1).map(namePrefix + _.toString())
           Success(candidates.find(s => !(usedNames contains s)).get)
         }
+      party <- Ref.Party
+        .fromString(name)
+        .fold(msg => Failure(scenario.Error.InvalidPartyName(name, msg)), Success(_))
+
       // Create and store the new party.
       partyDetails = PartyDetails(
-        party = Ref.Party.assertFromString(name),
+        party = party,
         displayName = Some(displayName),
         isLocal = true,
         metadata = ObjectMeta.empty,

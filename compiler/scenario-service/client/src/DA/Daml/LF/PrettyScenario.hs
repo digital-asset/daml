@@ -380,9 +380,9 @@ prettyScenarioErrorError (Just err) =  do
     ScenarioErrorErrorScenarioMustfailSucceeded _ ->
       pure "A must-fail commit succeeded."
     ScenarioErrorErrorScenarioInvalidPartyName name ->
-      pure $ "Invalid party name: " <-> ltext name
+      pure $ "Invalid party name:" <-> ltext name
     ScenarioErrorErrorScenarioPartyAlreadyExists name ->
-      pure $ "Tried to allocate a party that already exists: " <-> ltext name
+      pure $ "Tried to allocate a party that already exists:" <-> ltext name
 
     ScenarioErrorErrorScenarioContractNotVisible ScenarioError_ContractNotVisible{..} ->
       pure $ vcat
@@ -435,7 +435,7 @@ prettyScenarioErrorError (Just err) =  do
             $ prettyMay "<missing template id>" (prettyDefName world) scenarioError_WronglyTypedContractExpected
         ]
     ScenarioErrorErrorContractIdInContractKey ScenarioError_ContractIdInContractKey{..} ->
-      pure $ "Contract IDs are not supported in contract key: " <->
+      pure $ "Contract IDs are not supported in contract key:" <->
         prettyMay "<missing contract key>"
           (prettyValue' False 0 world)
           scenarioError_ContractIdInContractKeyKey
