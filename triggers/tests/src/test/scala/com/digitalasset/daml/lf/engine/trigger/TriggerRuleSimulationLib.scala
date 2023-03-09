@@ -26,7 +26,7 @@ import com.daml.script.converter.Converter.Implicits._
 import com.daml.util.Ctx
 
 import scala.concurrent.duration.{Duration, FiniteDuration}
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.Future
 import java.util.UUID
 import scala.collection.mutable
 import scala.util.Try
@@ -757,8 +757,6 @@ final class TriggerRuleSimulationLib private (
       val msgIn = gb add TriggerContextualFlow[SValue].map(ctx =>
         ctx.copy(value = SList(FrontStack(ctx.value)))
       )
-      val encodeMsg =
-        gb add runner.encodeMsgs.map(ctx => ctx.copy(value = SList(FrontStack(ctx.value))))
       val stateOut = gb add Source.single(state)
       val rule = gb add runner.runRuleOnMsgs(lambdaKillSwitch)
       val killSwitch = gb add lambdaKillSwitch.flow[TriggerContext[SValue]]
