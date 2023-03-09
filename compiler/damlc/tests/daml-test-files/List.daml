@@ -1,19 +1,20 @@
 -- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
 -- All rights reserved.
 
--- @INFO range=134:17-134:32; Use dedup
--- @INFO range=320:10-320:24; Evaluate
--- @INFO range=335:38-335:48; Use sum
--- @INFO range=336:43-336:53; Use sum
--- @INFO range=337:29-337:39; Use sum
--- @INFO range=340:3-340:23; Use head
--- @INFO range=350:10-350:17; Use head
--- @ERROR range=300:1-300:9; head: empty list
--- @ERROR range=306:1-306:9; tail: empty list
--- @ERROR range=312:1-312:9; last: empty list
--- @ERROR range=318:1-318:9; init: empty list
--- @ERROR range=343:1-343:16; negative index
--- @ERROR range=346:1-346:18; index too large
+-- @INFO range=135:17-135:32; Use dedup
+-- @INFO range=321:10-321:24; Evaluate
+-- @INFO range=336:38-336:48; Use sum
+-- @INFO range=337:43-337:53; Use sum
+-- @INFO range=338:29-338:39; Use sum
+-- @INFO range=341:3-341:23; Use head
+-- @INFO range=351:10-351:17; Use head
+-- @ERROR range=301:1-301:9; head: empty list
+-- @ERROR range=307:1-307:9; tail: empty list
+-- @ERROR range=313:1-313:9; last: empty list
+-- @ERROR range=319:1-319:9; init: empty list
+-- @ERROR range=344:1-344:16; negative index
+-- @ERROR range=347:1-347:18; index too large
+-- @ERROR range=350:1-350:19; index too large
 
 module List where
 
@@ -346,7 +347,7 @@ testNthNegative = script do
 testNthOutOfRange = script do
   pure $ [1, 2, 3] !! 3
 
-testNthOutOfRange0 = script do
+testNthOutOfRange0 = script @[Int] do
   pure $ [] !! 0
 
 testElemIndex = script do
