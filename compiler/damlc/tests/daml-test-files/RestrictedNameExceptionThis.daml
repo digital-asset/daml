@@ -1,0 +1,8 @@
+-- @ERROR range=6:5-6:9; `this' is a prohibited field name, please use something else.
+
+module RestrictedNameExceptionThis where
+
+exception Arg with
+    this : Text
+  where
+    message this
