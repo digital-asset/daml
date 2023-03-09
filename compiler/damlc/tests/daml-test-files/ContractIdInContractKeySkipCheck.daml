@@ -6,8 +6,8 @@
 -- runtime check is still performed.
 
 -- @ERROR range=40:1-40:17; Contract IDs are not supported in contract key
--- @TODO Below should be `Contract IDs are not supported in contract key` however this error isn't networked over from the ledger
--- @ERROR range=49:1-49:13; Scenario service backend error
+-- @TODO Below should not be a CRASH, error isn't being piped correctly.
+-- @ERROR range=49:1-49:13; CRASH: ScriptF.FailedCmd unexpected cause: Contract IDs are not supported in contract keys.
 -- @ERROR range=55:1-55:19; Contract IDs are not supported in contract key
 -- @ERROR range=94:1-94:14; Contract IDs are not supported in contract key
 -- @ERROR range=98:1-98:13; Contract IDs are not supported in contract key

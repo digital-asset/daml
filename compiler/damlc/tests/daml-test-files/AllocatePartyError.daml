@@ -1,10 +1,7 @@
 -- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
 -- All rights reserved.
 
--- @TODO Scenario service consumes this error: Invalid party name: #party
--- @ERROR range=13:1-13:5; Scenario service backend error
-
--- @ERROR range=19:1-19:9; Invalid party name: #party
+-- @ERROR range=10:1-10:5; Invalid party name: #party
 
 module AllocatePartyError where
 
@@ -12,10 +9,4 @@ import Daml.Script
 
 main = script do
     _ <- allocateParty "#party"
-    pure ()
-
--- @ENABLE-SCENARIOS
-
-mainScen = scenario do
-    _ <- getParty "#party"
     pure ()

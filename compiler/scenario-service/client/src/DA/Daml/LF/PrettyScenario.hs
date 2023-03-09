@@ -380,9 +380,9 @@ prettyScenarioErrorError (Just err) =  do
     ScenarioErrorErrorScenarioMustfailSucceeded _ ->
       pure "A must-fail commit succeeded."
     ScenarioErrorErrorScenarioInvalidPartyName name ->
-      pure $ "Invalid party name: " <-> ltext name
+      pure $ "Invalid party name:" <-> ltext name
     ScenarioErrorErrorScenarioPartyAlreadyExists name ->
-      pure $ "Tried to allocate a party that already exists: " <-> ltext name
+      pure $ "Tried to allocate a party that already exists:" <-> ltext name
 
     ScenarioErrorErrorScenarioContractNotVisible ScenarioError_ContractNotVisible{..} ->
       pure $ vcat

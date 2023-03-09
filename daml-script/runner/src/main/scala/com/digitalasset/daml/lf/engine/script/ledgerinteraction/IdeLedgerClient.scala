@@ -228,6 +228,11 @@ class IdeLedgerClient(
   ): Future[Option[ScriptLedgerClient.ActiveContract]] = {
     GlobalKey
       .build(templateId, key.toUnnormalizedValue)
+      // TODO: Work out what to do here
+      // "Contract IDs are not supported in contract keys." error gets wrapped here
+      // Ideally, specifically for that case, we should use scenario.Error, but theres no error there for this.
+      // Scenario encodes it as SError.ContractIdInContractKey, which comes from extractKey from SBuiltin. This assumes we have a Value.
+      // We have an SValue, so we can either convert and use that error, or add a case to scenario.Error and use that.
       .fold(err => Future.failed(new ConverterException(err)), Future.successful(_))
       .flatMap { gkey =>
         ledger.ledgerData.activeKeys.get(gkey) match {
@@ -427,9 +432,13 @@ class IdeLedgerClient(
           val candidates = namePrefix #:: LazyList.from(1).map(namePrefix + _.toString())
           Success(candidates.find(s => !(usedNames contains s)).get)
         }
+      party <- Ref.Party
+        .fromString(name)
+        .fold(msg => Failure(scenario.Error.InvalidPartyName(name, msg)), Success(_))
+
       // Create and store the new party.
       partyDetails = PartyDetails(
-        party = Ref.Party.assertFromString(name),
+        party = party,
         displayName = Some(displayName),
         isLocal = true,
         metadata = ObjectMeta.empty,
