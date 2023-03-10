@@ -4,6 +4,7 @@
 
 module Self where
 
+import Daml.Script
 import DA.Assert
 
 template Self with
@@ -16,10 +17,7 @@ template Self with
     controller p
     do self === other
 
-main = scenario do
-  alice <- getParty "Alice"
-  submit alice do
-    cid1 <- create Self with p = alice
-    exercise cid1 Same with other = cid1
-
--- @ENABLE-SCENARIOS
+main = script do
+  alice <- allocateParty "Alice"
+  cid1 <- alice `submit` createCmd Self with p = alice
+  alice `submit` exerciseCmd cid1 Same with other = cid1

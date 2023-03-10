@@ -10,9 +10,10 @@
 
 module QualifiedPrelude where
 
+import Daml.Script
 import Prelude qualified as P
 
-main = P.scenario do P.assert P.True
+main = script do P.assert P.True
 
 template T
   with
@@ -28,5 +29,3 @@ foo a b f = do
   x <- a
   y <- b
   f x y
-
--- @ENABLE-SCENARIOS

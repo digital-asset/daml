@@ -6,6 +6,7 @@
 -- | Test that rounding mode order matches the order in GHC.Types
 module RoundingModeOrder where
 
+import Daml.Script
 import DA.Assert ((===))
 import qualified DA.List
 import qualified DA.List.BuiltinOrder
@@ -21,10 +22,8 @@ roundingModes =
     , RoundingUnnecessary
     ]
 
-test1 = scenario do
+test1 = script do
     roundingModes === DA.List.sort roundingModes
 
-test2 = scenario do
+test2 = script do
     roundingModes === DA.List.BuiltinOrder.sort roundingModes
-
--- @ENABLE-SCENARIOS

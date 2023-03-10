@@ -6,6 +6,7 @@
 -- | Try out some upcasts and downcasts, checking that everything works.
 module InterfaceUpcastDowncast where
 
+import Daml.Script
 import DA.Assert ((===))
 import DA.Optional (isNone)
 import DA.Functor (void)
@@ -47,14 +48,24 @@ template T2
       view = EmptyInterfaceView
       getOwner = p2
 
-main = scenario do
-    p <- getParty "Alice"
-    submit p do
+useAction : Party -> (ContractId B -> Update ()) -> Update ()
+useAction p action = do
+  cid <- create (toInterface @A (T2 p))
+  action (fromInterfaceContractId @B cid)
+
+template Test
+  with
+    p : Party
+  where
+    signatory p
+    nonconsuming choice TemplateInterfaceMatching : ()
+      controller p
+      do
         let t1 = T1 p
-        let t2 = T2 p
-        let t1b = toInterface @B t1
-        let t1a = toInterface @A t1b
-        let t2a = toInterface @A t2
+            t2 = T2 p
+            t1b = toInterface @B t1
+            t1a = toInterface @A t1b
+            t2a = toInterface @A t2
 
         Some t1 === fromInterface @T1 t1b
         Some t1 === fromInterface @T1 t1a
@@ -70,7 +81,7 @@ main = scenario do
         cidt2 <- create t2
 
         let cidt1b = toInterfaceContractId @B cidt1
-        let cidt1a = toInterfaceContractId @A cidt1
+            cidt1a = toInterfaceContractId @A cidt1
         cidt1a === toInterfaceContractId @A cidt1b
 
         let cidt2a = toInterfaceContractId @A cidt2
@@ -87,16 +98,33 @@ main = scenario do
 
         pure ()
 
-    -- Test that using fromInterfaceContractId incorrectly will result
-    -- in failed fetch/exercise, across interface hierarchy.
-    -- I.e. Test that using a T2 contract id as if it were a B contract id
-    -- will always fail, even for actions that make sense with A contracts.
-    let useAction : (ContractId B -> Update ()) -> Update ()
-        useAction action = do
-            cid <- create (toInterface @A (T2 p))
-            action (fromInterfaceContractId @B cid)
-    submit p do useAction $ \_bcid -> pure ()
-    submitMustFail p do useAction $ \bcid -> void (fetch bcid)
-    submitMustFail p do useAction $ \bcid -> void (exercise bcid ChoiceB)
+    nonconsuming choice VoidUseAction : ()
+      controller p
+      do useAction p $ \_bcid -> pure ()
 
--- @ENABLE-SCENARIOS
+    nonconsuming choice FetchUseAction : ()
+      controller p
+      do useAction p $ \bcid -> void (fetch bcid)
+
+    nonconsuming choice ExerciseUseAction : ()
+      controller p
+      do useAction p $ \bcid -> void (exercise bcid ChoiceB)
+
+exerciseTest : Choice Test c () => c -> Script ()
+exerciseTest c = script do
+  p <- allocateParty "Alice"
+  p `submit` createAndExerciseCmd (Test p) c
+  pure ()
+
+templateInterfaceMatching = exerciseTest TemplateInterfaceMatching
+
+-- Test that using fromInterfaceContractId incorrectly will result
+-- in failed fetch/exercise, across interface hierarchy.
+-- I.e. Test that using a T2 contract id as if it were a B contract id
+-- will always fail, even for actions that make sense with A contracts.
+-- See useAction
+voidUseAction = exerciseTest VoidUseAction
+-- @ERROR range=128:1-128:15; Attempt to use a contract via an interface that the contract does not implement
+fetchUseAction = exerciseTest FetchUseAction
+-- @ERROR range=130:1-130:18; Attempt to use a contract via an interface that the contract does not implement
+exerciseUseAction = exerciseTest ExerciseUseAction
