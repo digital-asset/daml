@@ -2,7 +2,7 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 -- @SINCE-LF-FEATURE DAML_EXCEPTIONS
--- @QUERY-LF [ .modules[].exceptions[] ] | length == 1
+-- @QUERY-LF [ $pkg.modules[].exceptions[] ] | length == 1
 
 -- | Test that exception syntax is correctly handled.
 -- This is the "sugared" counterpart to ExceptionDesugared.

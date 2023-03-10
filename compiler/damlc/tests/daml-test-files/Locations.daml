@@ -1,7 +1,7 @@
 -- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
 -- All rights reserved.
 
--- @QUERY-LF .modules[] | .templates[] | select(lf::get_template_name($pkg) == ["A"]) | .location.range | (.start_line == 8 and .start_col == 9)
+-- @QUERY-LF $pkg | .modules[] | .templates[] | select(lf::get_template_name($pkg) == ["A"]) | .location.range | (.start_line == 8 and .start_col == 9)
 
 
 module Locations where
