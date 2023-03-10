@@ -5,7 +5,6 @@ package com.daml.navigator.model.converter
 
 import java.time.Instant
 import com.daml.lf.data.Ref
-import com.daml.lf.data.LawlessTraversals._
 import com.daml.lf.typesig
 import com.daml.lf.value.{Value => V}
 import com.daml.ledger.api.{v1 => V1}
@@ -286,7 +285,7 @@ case object LedgerApiV1 {
         case typesig.Variant(_) | typesig.Enum(_) =>
           Left(GenericConversionError(s"Record expected"))
       }
-      fields <- value.fields.toSeq zip dt.fields traverseEitherStrictly {
+      fields <- value.fields zip dt.fields.toImmArray traverseU {
         case ((von, vv), (tn, fieldType)) =>
           for {
             _ <- von.cata(
@@ -301,7 +300,7 @@ case object LedgerApiV1 {
             newVv <- fillInTypeInfo(vv, fieldType, ctx)
           } yield (Some(tn), newVv)
       }
-    } yield V.ValueRecord(Some(typeCon.name.identifier), fields.toImmArray)
+    } yield V.ValueRecord(Some(typeCon.name.identifier), fields)
 
   private def fillInListTI(
       list: Model.ApiList,
