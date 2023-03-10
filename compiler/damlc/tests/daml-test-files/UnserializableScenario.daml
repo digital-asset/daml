@@ -5,6 +5,8 @@
 
 module UnserializableScenario where
 
+import Daml.Script
+
 template T
   with
     p : Party
@@ -12,8 +14,6 @@ template T
     signatory p
 
 
-run : Scenario TemplateTypeRep
-run = scenario do
+run : Script TemplateTypeRep
+run = script do
   pure $ templateTypeRep @T
-
--- @ENABLE-SCENARIOS

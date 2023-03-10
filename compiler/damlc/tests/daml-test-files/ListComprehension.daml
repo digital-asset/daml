@@ -4,9 +4,8 @@
 
 module ListComprehension where
 
+import Daml.Script
 import DA.Assert
 
-test = scenario do
+test = script do
   [n | n <- [1..10], n % 2 == 0] === [2*n | n <- [1..5]]
-
--- @ENABLE-SCENARIOS

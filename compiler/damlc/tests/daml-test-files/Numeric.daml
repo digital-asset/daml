@@ -4,11 +4,10 @@
 -- @SINCE-LF 1.7
 module Numeric where
 
+import Daml.Script
 import DA.Assert
 import DA.Numeric
 
-testShift = scenario do
+testShift = script do
   shift @1 @2 1.0 === 10.0
   shift @2 @1 1.0 === 0.1
-
--- @ENABLE-SCENARIOS

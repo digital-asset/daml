@@ -4,15 +4,14 @@
 
 module MonoidTest where
 
+import Daml.Script
 import DA.Assert
 import DA.Monoid
 
-testSum = scenario do
+testSum = script do
   Sum (1 : Int) <> Sum 2 === Sum (1 + 2)
   mempty === Sum (aunit : Int)
 
-testProduct = scenario do
+testProduct = script do
   Product (2 : Int) <> Product 3 === Product (2 * 3)
   mempty === Product (munit : Int)
-
--- @ENABLE-SCENARIOS

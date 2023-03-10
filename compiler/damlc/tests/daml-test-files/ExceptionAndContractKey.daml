@@ -1,10 +1,10 @@
 --- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
  -- SPDX-License-Identifier: Apache-2.0
- -- @ENABLE-SCENARIOS
 
  -- regression test for https://github.com/digital-asset/daml/pull/14080
 module ExceptionAndContractKey where
 
+import Daml.Script
 import DA.Exception
 
 template K
@@ -44,14 +44,14 @@ template Op
         _ <- create (K sig)
         pure ()
 
-testLookup = scenario do
-  alice <- getParty "alice"
-  cid <- submit alice $ create (K alice)
-  op <- submit alice $ createAndExercise (Op alice) (OpLookup cid)
+testLookup = script do
+  alice <- allocateParty "alice"
+  cid <- submit alice $ createCmd (K alice)
+  op <- submit alice $ createAndExerciseCmd (Op alice) (OpLookup cid)
   pure ()
 
-testCreate = scenario do
-  alice <- getParty "alice"
-  cid <- submit alice $ create (K alice)
-  op <- submit alice $ createAndExercise (Op alice) (OpCreate cid)
+testCreate = script do
+  alice <- allocateParty "alice"
+  cid <- submit alice $ createCmd (K alice)
+  op <- submit alice $ createAndExerciseCmd (Op alice) (OpCreate cid)
   pure ()

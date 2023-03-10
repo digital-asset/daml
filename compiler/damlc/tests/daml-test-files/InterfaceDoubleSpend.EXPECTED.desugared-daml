@@ -3,6 +3,7 @@ import (implicit) qualified DA.Internal.Record
 import (implicit) qualified GHC.Types
 import (implicit) qualified DA.Internal.Desugar
 import (implicit) DA.Internal.RebindableSyntax
+import Daml.Script
 data EmptyInterfaceView = EmptyInterfaceView {}
 data GHC.Types.DamlInterface => Token = Token GHC.Types.Opaque
 instance DA.Internal.Desugar.HasInterfaceTypeRep Token where
@@ -266,18 +267,18 @@ instance DA.Internal.Desugar.HasFromInterface Asset Token where
   fromInterface = GHC.Types.primitive @"EFromInterface"
   unsafeFromInterface = GHC.Types.primitive @"EUnsafeFromInterface"
 main
-  = scenario
-      do alice <- getParty "Alice"
-         bob <- getParty "Bob"
-         charlie <- getParty "Charlie"
+  = script
+      do alice <- allocateParty "Alice"
+         bob <- allocateParty "Bob"
+         charlie <- allocateParty "Charlie"
          cidAsset1 <- alice
                         `submit`
-                          do create Asset {issuer = alice, owner = alice, amount = 15}
+                          do createCmd Asset {issuer = alice, owner = alice, amount = 15}
          _ <- alice
                 `submitMustFail`
-                  do _ <- exercise
+                  do _ <- exerciseCmd
                             (toInterfaceContractId @Token cidAsset1) (Transfer bob)
-                     _ <- exercise
+                     _ <- exerciseCmd
                             (toInterfaceContractId @Token cidAsset1) (Transfer charlie)
                      pure ()
          pure ()

@@ -4,6 +4,7 @@
 
 module RecordsMore where
 
+import Daml.Script
 import DA.Assert
 
 -- Tests for 'HasField' record preprocessor rewrites.
@@ -12,7 +13,7 @@ data A = A with x: Int deriving (Eq, Show)
 data B = B with y: A; z: A deriving (Eq, Show)
 data C = C {a : Int, b : Int} deriving (Eq, Show)
 
-main = scenario do
+main = script do
 
   f <- return $ \ x y z -> x {a = y, b = z}
   f C{a = 1, b = 2} 3 4 === C{a = 3, b = 4}
@@ -35,5 +36,3 @@ main = scenario do
   f [A 1, A 2, A 3] === [1, 2, 3]
   f <- return $ \ l -> map (.y.x) l
   f [B (A 1) (A 2), B (A 2) (A 3), B (A 3) (A 4)] === [1, 2, 3]
-
--- @ENABLE-SCENARIOS
