@@ -4,12 +4,12 @@
 
 -- This test checks that we produce annotations in LF for the various overlap modes.
 
--- @QUERY-LF [ .modules[] | .values[] | select(.name_with_type | lf::get_value_name($pkg) == ["$$fFooOptional0"]) ] | length == 1
--- @QUERY-LF [ .modules[] | .values[] | select(.name_with_type | lf::get_value_name($pkg) == ["$$$$om$$fFooOptional0"]) ] == []
--- @QUERY-LF .modules[] | .values[] | .name_with_type | select(lf::get_value_name($pkg) == ["$$$$om$$fFooOptional"]) | .type | lf::norm_ty($pkg) | .struct.fields[0] | lf::get_field($pkg) == "OVERLAPPING"
--- @QUERY-LF .modules[] | .values[] | .name_with_type | select(lf::get_value_name($pkg) == ["$$$$om$$fFoof"]) | .type | lf::norm_ty($pkg) | .struct.fields[0] | lf::get_field($pkg) == "OVERLAPPABLE"
--- @QUERY-LF .modules[] | .values[] | .name_with_type | select(lf::get_value_name($pkg) == ["$$$$om$$fFoox"]) | .type | lf::norm_ty($pkg) | .struct.fields[0] | lf::get_field($pkg) == "OVERLAPS"
--- @QUERY-LF .modules[] | .values[] | .name_with_type | select(lf::get_value_name($pkg) == ["$$$$om$$fFooBool"]) | .type | lf::norm_ty($pkg) | .struct.fields[0] | lf::get_field($pkg) == "INCOHERENT"
+-- @QUERY-LF [ $pkg | .modules[] | .values[] | select(.name_with_type | lf::get_value_name($pkg) == ["$$fFooOptional0"]) ] | length == 1
+-- @QUERY-LF [ $pkg | .modules[] | .values[] | select(.name_with_type | lf::get_value_name($pkg) == ["$$$$om$$fFooOptional0"]) ] == []
+-- @QUERY-LF $pkg | .modules[] | .values[] | .name_with_type | select(lf::get_value_name($pkg) == ["$$$$om$$fFooOptional"]) | .type | lf::norm_ty($pkg) | .struct.fields[0] | lf::get_field($pkg) == "OVERLAPPING"
+-- @QUERY-LF $pkg | .modules[] | .values[] | .name_with_type | select(lf::get_value_name($pkg) == ["$$$$om$$fFoof"]) | .type | lf::norm_ty($pkg) | .struct.fields[0] | lf::get_field($pkg) == "OVERLAPPABLE"
+-- @QUERY-LF $pkg | .modules[] | .values[] | .name_with_type | select(lf::get_value_name($pkg) == ["$$$$om$$fFoox"]) | .type | lf::norm_ty($pkg) | .struct.fields[0] | lf::get_field($pkg) == "OVERLAPS"
+-- @QUERY-LF $pkg | .modules[] | .values[] | .name_with_type | select(lf::get_value_name($pkg) == ["$$$$om$$fFooBool"]) | .type | lf::norm_ty($pkg) | .struct.fields[0] | lf::get_field($pkg) == "INCOHERENT"
 
 module OverlapPragmas where
 
