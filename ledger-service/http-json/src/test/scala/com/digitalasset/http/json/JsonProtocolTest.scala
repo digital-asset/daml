@@ -26,6 +26,7 @@ import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 import org.scalatest.{Inside, Succeeded}
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
+import scalaz.syntax.bifunctor._
 import scalaz.syntax.functor._
 import scalaz.syntax.std.option._
 import scalaz.syntax.tag._
@@ -254,11 +255,23 @@ class JsonProtocolTest
   }
 
   "domain.DisclosedContract" - {
-    type DC = domain.DisclosedContract[Int, Int]
+    import domain.DisclosedContract
+    type DC = DisclosedContract[Int, Int]
 
     "roundtrips" in forAll { a: DC =>
       val b = a.toJson.convertTo[DC]
       b should ===(a)
+    }
+
+    "doesn't confuse blob and JSON contracts" in forAll { a: DisclosedContract[Int, Int] =>
+      val blobLookingRecord = a.arguments match {
+        case DisclosedContract.Arguments.Blob(b) =>
+          a.copy(arguments = DisclosedContract.Arguments.Record(b.toJson))
+        case _ => a.rightMap(_.toJson)
+      }
+      blobLookingRecord.toJson.convertTo[DisclosedContract[Int, JsValue]] should ===(
+        blobLookingRecord
+      )
     }
   }
 }
