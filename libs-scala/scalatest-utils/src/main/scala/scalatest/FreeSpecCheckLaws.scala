@@ -27,6 +27,9 @@ trait FreeSpecCheckLaws extends Checkers { this: AnyFreeSpec =>
       generatorDrivenConfig: PropertyCheckConfiguration,
       prettifier: Prettifier,
       pos: source.Position,
-  ): Unit =
-    props.properties foreach { case (s, p) => s in check(p) }
+  ): Unit = {
+    // FreeSpec can't deal with duplicate test names; a duplicate name
+    // means test reached by diamond inheritance twice anyway so just skip it
+    props.properties.distinctBy(_._1) foreach { case (s, p) => s in check(p) }
+  }
 }

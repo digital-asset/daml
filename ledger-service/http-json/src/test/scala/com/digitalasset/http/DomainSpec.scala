@@ -48,6 +48,6 @@ final class DomainSpec extends AnyFreeSpec with Matchers with FreeSpecCheckLaws 
 object DomainSpec {
   import scalaz.Equal
 
-  implicit def eqDisclosedContract: Equal[DisclosedContract[Int, Int]] =
+  implicit val eqDisclosedContract: Equal[DisclosedContract[Int, Int]] =
     Equal.equalA
 }

@@ -420,9 +420,9 @@ object JsonProtocol extends JsonProtocolLow {
       : JsonFormat[domain.DisclosedContract.Metadata] =
     jsonFormat3(domain.DisclosedContract.Metadata)
 
-  implicit val DisclosedContractFormat
-      : JsonReader[domain.DisclosedContract[domain.ContractTypeId.Template.OptionalPkg, JsValue]] =
-    jsonFormat4(domain.DisclosedContract.apply[domain.ContractTypeId.Template.OptionalPkg, JsValue])
+  implicit def DisclosedContractFormat[TmplId: JsonFormat, LfV: JsonFormat]
+      : JsonFormat[domain.DisclosedContract[TmplId, LfV]] =
+    jsonFormat4(domain.DisclosedContract.apply[TmplId, LfV])
 
   implicit val hexStringFormat: JsonFormat[HexString] =
     xemapStringJsonFormat(HexString.fromString)(identity)
