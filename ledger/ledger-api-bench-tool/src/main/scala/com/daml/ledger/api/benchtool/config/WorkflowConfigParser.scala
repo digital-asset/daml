@@ -4,11 +4,6 @@
 package com.daml.ledger.api.benchtool.config
 
 import cats.syntax.functor._
-import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
-import io.circe.yaml.parser
-import io.circe.{Decoder, HCursor}
-import java.io.Reader
-
 import com.daml.ledger.api.benchtool.config.WorkflowConfig.FooSubmissionConfig.{
   ConsumingExercises,
   NonconsumingExercises,
@@ -17,7 +12,11 @@ import com.daml.ledger.api.benchtool.config.WorkflowConfig.StreamConfig.{
   PartyFilter,
   PartyNamePrefixFilter,
 }
+import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
+import io.circe.yaml.Parser
+import io.circe.{Decoder, HCursor}
 
+import java.io.Reader
 import scala.concurrent.duration.{Duration, FiniteDuration}
 import scala.util.{Failure, Success, Try}
 
@@ -26,7 +25,7 @@ object WorkflowConfigParser {
   import WorkflowConfig._
 
   def parse(reader: Reader): Either[ParserError, WorkflowConfig] =
-    parser
+    Parser.default
       .parse(reader)
       .flatMap(_.as[WorkflowConfig])
       .left
