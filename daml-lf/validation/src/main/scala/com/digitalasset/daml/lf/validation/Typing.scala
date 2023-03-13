@@ -1316,7 +1316,9 @@ private[validation] object Typing {
         typeOfCreate(tpl, arg)
       case UpdateCreateInterface(iface, arg) =>
         typeOfCreateInterface(iface, arg)
-      case UpdateExercise(tpl, choice, cid, arg, dynamic @ _) =>
+      case UpdateExercise(tpl, choice, cid, arg) =>
+        typeOfExercise(tpl, choice, cid, arg)
+      case UpdateDynamicExercise(tpl, choice, cid, arg) =>
         typeOfExercise(tpl, choice, cid, arg)
       case UpdateExerciseInterface(tpl, choice, cid, arg, guard) =>
         typeOfExerciseInterface(tpl, choice, cid, arg, guard)

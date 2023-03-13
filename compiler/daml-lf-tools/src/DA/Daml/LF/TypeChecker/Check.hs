@@ -670,7 +670,8 @@ typeOfUpdate = \case
   UBind binding body -> typeOfBind binding body
   UCreate tpl arg -> checkCreate tpl arg $> TUpdate (TContractId (TCon tpl))
   UCreateInterface iface arg -> checkCreateInterface iface arg $> TUpdate (TContractId (TCon iface))
-  UExercise tpl choice cid arg _dyn -> typeOfExercise tpl choice cid arg
+  UExercise tpl choice cid arg -> typeOfExercise tpl choice cid arg
+  UDynamicExercise tpl choice cid arg -> typeOfExercise tpl choice cid arg
   UExerciseInterface tpl choice cid arg guard ->
     typeOfExerciseInterface tpl choice cid arg guard
   UExerciseByKey tpl choice key arg -> typeOfExerciseByKey tpl choice key arg

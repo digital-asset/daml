@@ -786,8 +786,13 @@ encodeUpdate = fmap (P.Update . Just) . \case
         update_ExerciseChoice <- encodeName unChoiceName exeChoice
         update_ExerciseCid <- encodeExpr exeContractId
         update_ExerciseArg <- encodeExpr exeArg
-        let update_ExerciseDynamic = exeDynamic
         pure $ P.UpdateSumExercise P.Update_Exercise{..}
+    UDynamicExercise{..} -> do
+        update_DynamicExerciseTemplate <- encodeQualTypeConName exeTemplate
+        update_DynamicExerciseChoiceInternedStr <- encodeNameId unChoiceName exeChoice
+        update_DynamicExerciseCid <- encodeExpr exeContractId
+        update_DynamicExerciseArg <- encodeExpr exeArg
+        pure $ P.UpdateSumDynamicExercise P.Update_DynamicExercise{..}
     UExerciseInterface{..} -> do
         update_ExerciseInterfaceInterface <- encodeQualTypeConName exeInterface
         update_ExerciseInterfaceChoiceInternedStr <- encodeNameId unChoiceName exeChoice

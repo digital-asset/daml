@@ -717,8 +717,17 @@ data Update
       -- ^ Contract id of the contract template instance to exercise choice on.
     , exeArg        :: !Expr
       -- ^ Argument for the choice.
-    , exeDynamic    :: !Bool
-      -- ^ is the exercise dynamic?
+    }
+  -- | Exercise choice on a contract given a contract ID, dynamically.
+  | UDynamicExercise
+    { exeTemplate   :: !(Qualified TypeConName)
+      -- ^ Qualified type constructor corresponding to the contract template.
+    , exeChoice     :: !ChoiceName
+      -- ^ Choice to exercise.
+    , exeContractId :: !Expr
+      -- ^ Contract id of the contract template instance to exercise choice on.
+    , exeArg        :: !Expr
+      -- ^ Argument for the choice.
     }
   -- | Exercise choice on a contract of an interface given a contract ID.
   | UExerciseInterface

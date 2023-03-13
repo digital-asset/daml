@@ -403,9 +403,13 @@ instance Pretty Update where
       pPrintAppKeyword lvl prec "create" [tplArg tpl, TmArg arg]
     UCreateInterface interface arg ->
       pPrintAppKeyword lvl prec "create_interface" [interfaceArg interface, TmArg arg]
-    UExercise tpl choice cid arg dyn ->
+    UExercise tpl choice cid arg ->
       -- NOTE(MH): Converting the choice name into a variable is a bit of a hack.
-      pPrintAppKeyword lvl prec (if dyn then "dynamic_exercise" else "exercise")
+      pPrintAppKeyword lvl prec "exercise"
+      [tplArg tpl, TmArg (EVar (ExprVarName (unChoiceName choice))), TmArg cid, TmArg arg]
+    UDynamicExercise tpl choice cid arg ->
+      -- NOTE(MH): Converting the choice name into a variable is a bit of a hack.
+      pPrintAppKeyword lvl prec "dynamic_exercise"
       [tplArg tpl, TmArg (EVar (ExprVarName (unChoiceName choice))), TmArg cid, TmArg arg]
     UExerciseInterface interface choice cid arg guard ->
       let -- We distinguish guarded and unguarded exercises by Just/Nothing in guard

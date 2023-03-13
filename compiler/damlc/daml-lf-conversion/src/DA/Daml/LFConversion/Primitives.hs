@@ -285,7 +285,7 @@ convertPrim _ "UExercise"
     pure $
     ETmLam (mkVar "this", TContractId (TCon template)) $
     ETmLam (mkVar "arg", TCon choice) $
-    EUpdate $ UExercise template choiceName (EVar (mkVar "this")) (EVar (mkVar "arg")) False
+    EUpdate $ UExercise template choiceName (EVar (mkVar "this")) (EVar (mkVar "arg"))
   where
     choiceName = ChoiceName (T.intercalate "." $ unTypeConName $ qualObject choice)
 
@@ -295,7 +295,7 @@ convertPrim version "UDynamicExercise"
     whenRuntimeSupports version featureDynamicExercise ty $
     ETmLam (mkVar "this", TContractId (TCon template)) $
     ETmLam (mkVar "arg", TCon choice) $
-    EUpdate $ UExercise template choiceName (EVar (mkVar "this")) (EVar (mkVar "arg")) True
+    EUpdate $ UDynamicExercise template choiceName (EVar (mkVar "this")) (EVar (mkVar "arg"))
   where
     choiceName = ChoiceName (T.intercalate "." $ unTypeConName $ qualObject choice)
 

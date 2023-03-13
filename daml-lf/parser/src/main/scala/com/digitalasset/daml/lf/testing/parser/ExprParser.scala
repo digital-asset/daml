@@ -485,13 +485,13 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
 
   private lazy val updateExercise =
     Id("exercise") ~! `@` ~> fullIdentifier ~ id ~ expr0 ~ expr0 ^^ { case t ~ choice ~ cid ~ arg =>
-      UpdateExercise(t, choice, cid, arg, dynamic = false)
+      UpdateExercise(t, choice, cid, arg)
     }
 
   private lazy val updateDynamicExercise =
     Id("dynamic_exercise") ~! `@` ~> fullIdentifier ~ id ~ expr0 ~ expr0 ^^ {
       case t ~ choice ~ cid ~ arg =>
-        UpdateExercise(t, choice, cid, arg, dynamic = true)
+        UpdateDynamicExercise(t, choice, cid, arg)
     }
 
   private lazy val updateExerciseInterface =
