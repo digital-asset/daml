@@ -299,8 +299,10 @@ package domain {
       }
     }
     object Arguments {
-      final case class Blob(blob: PbAny) extends Arguments[Nothing]
+      final case class Blob(payloadBlob: PbAny) extends Arguments[Nothing]
       final case class Record[+LfV](payload: LfV) extends Arguments[LfV]
+      private[http] val blobKey = "payloadBlob"
+      private[http] val recordKey = "payload"
 
       implicit val covariant: Traverse[Arguments] = new Traverse[Arguments] {
         override def traverseImpl[G[_]: Applicative, A, B](

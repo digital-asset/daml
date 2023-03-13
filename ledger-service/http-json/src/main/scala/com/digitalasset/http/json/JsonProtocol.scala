@@ -402,16 +402,30 @@ object JsonProtocol extends JsonProtocolLow {
   private implicit def DisclosedContractArgumentsFormat[LfV: JsonFormat]
       : JsonFormat[domain.DisclosedContract.Arguments[LfV]] = {
     import domain.DisclosedContract.{Arguments => A}
+
+    implicit val jfBlob: JsonFormat[A.Blob] = jsonFormat1(A.Blob)
+    implicit val jfRecord: JsonFormat[A.Record[LfV]] = jsonFormat1(A.Record.apply[LfV])
+
     new JsonFormat[A[LfV]] {
       override def write(obj: A[LfV]): JsValue = obj match {
-        case A.Blob(b) => b.toJson
-        case A.Record(r) => r.toJson
+        case b @ A.Blob(_) => jfBlob write b
+        case r @ A.Record(_) => jfRecord write r
       }
 
       override def read(json: JsValue): A[LfV] = json match {
-        case JsObject(fields) if fields contains domain.PbAny.discriminator =>
-          A.Blob(json.convertTo[domain.PbAny])
-        case _ => A.Record(json.convertTo[LfV])
+        case JsObject(fields) =>
+          (fields contains A.blobKey, fields contains A.recordKey) match {
+            case (true, false) => jfBlob read json
+            case (false, true) => jfRecord read json
+            case (true, true) =>
+              deserializationError(
+                s"both ${A.blobKey} and ${A.recordKey} were specified; only one is allowed"
+              )
+            case (false, false) =>
+              deserializationError(s"neither ${A.blobKey} nor ${A.recordKey} was specified")
+          }
+        case _ =>
+          deserializationError(s"$json must be an object with ${A.blobKey} or ${A.recordKey} field")
       }
     }
   }
@@ -421,8 +435,22 @@ object JsonProtocol extends JsonProtocolLow {
     jsonFormat3(domain.DisclosedContract.Metadata)
 
   implicit def DisclosedContractFormat[TmplId: JsonFormat, LfV: JsonFormat]
-      : JsonFormat[domain.DisclosedContract[TmplId, LfV]] =
-    jsonFormat4(domain.DisclosedContract.apply[TmplId, LfV])
+      : JsonFormat[domain.DisclosedContract[TmplId, LfV]] = {
+    import domain.{DisclosedContract => DC}
+    final case class DisclosedContractMinusArgs(
+        contractId: domain.ContractId,
+        templateId: TmplId,
+        metadata: DC.Metadata,
+    )
+    implicit val dcmaFormat: JsonFormat[DisclosedContractMinusArgs] =
+      jsonFormat3(DisclosedContractMinusArgs)
+
+    fanoutJsonFormat { (dcma: DisclosedContractMinusArgs, args: DC.Arguments[LfV]) =>
+      DC(dcma.contractId, dcma.templateId, args, dcma.metadata)
+    } { dc =>
+      (DisclosedContractMinusArgs(dc.contractId, dc.templateId, dc.metadata), dc.arguments)
+    }
+  }
 
   implicit val hexStringFormat: JsonFormat[HexString] =
     xemapStringJsonFormat(HexString.fromString)(identity)
@@ -620,6 +648,24 @@ object JsonProtocol extends JsonProtocolLow {
     override def read(json: JsValue): A =
       readFn(base.read(json)).fold(deserializationError(_), identity)
   }
+
+  private[this] def fanoutJsonFormat[A: JsonFormat, B: JsonFormat, C](
+      readCombine: (A, B) => C
+  )(writeSplit: C => (A, B)): JsonFormat[C] =
+    new JsonFormat[C] {
+      override def write(obj: C): JsValue = {
+        val (a, b) = writeSplit(obj)
+        (a.toJson, b.toJson) match {
+          case (JsObject(aFields), JsObject(bFields)) => JsObject(aFields ++ bFields)
+          case (ja, JsNull) => ja
+          case (JsNull, jb) => jb
+          case (ja, jb) => serializationError(s"cannot combine $ja and $jb")
+        }
+      }
+
+      override def read(json: JsValue): C =
+        readCombine(json.convertTo[A], json.convertTo[B])
+    }
 }
 
 sealed abstract class JsonProtocolLow extends DefaultJsonProtocol with ExtraFormats {
