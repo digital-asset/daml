@@ -96,7 +96,7 @@ resource "azurerm_network_security_group" "my_terraform_nsg" {
     protocol                   = "Tcp"
     source_port_range          = "*"
     destination_port_range     = "3389"
-    source_address_prefixes    = ["172.85.43.2/32", "35.194.81.56/32"]
+    source_address_prefixes    = ["35.198.147.95/32", "35.194.81.56/32"]
     destination_address_prefix = "*"
   }
 

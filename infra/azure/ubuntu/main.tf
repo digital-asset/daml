@@ -47,6 +47,18 @@ resource "azurerm_network_security_group" "my_terraform_nsg" {
     source_address_prefixes    = ["35.198.147.95/32", "35.194.81.56/32"]  # Frankfurt and NV 
     destination_address_prefix = "*"
   }
+  security_rule {
+    name                       = "Deny_subnet_traffic"
+    priority                   = 1002
+    direction                  = "Inbound"
+    access                     = "Deny"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_range     = "*"
+    source_address_prefix      = azurerm_subnet.my_terraform_subnet.address_prefixes[0]
+    destination_address_prefix = azurerm_subnet.my_terraform_subnet.address_prefixes[0]
+  }
+
 }
 
 # Create (and display) an SSH key
@@ -73,6 +85,7 @@ resource "azurerm_linux_virtual_machine_scale_set" "deployment" {
     vsts_token=  secret_resource.vsts-token.value     
     vsts_account = "digitalasset"
     vsts_pool    = "test-ubuntu-pool"
+    size         = 400
     }))
 
  admin_ssh_key {
