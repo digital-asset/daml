@@ -28,3 +28,5 @@ We now throw an error (or warning) early in those cases on the field name itself
 
 *Note: Exception as well as templates without any choices did not previously throw errors for both `self` and `arg`. While using these names is discouraged, we only throw a warning here to avoid a breaking change. We may promote this to an error in future.*
 
+### Dynamic Exercise
+As part of extending the language to support evolving template definitions, we've added a new function `dynamicExercise : HasDynamicExercise t c r => ContractId t -> c -> Update r`, only available when targetting Daml LF version `1.dev`. Currently, it operates just like `exercise`, but at a later stage it will instead use the most recent definition of template `t` choice `c` vetter by all stakeholders.
