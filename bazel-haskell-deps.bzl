@@ -141,7 +141,7 @@ haskell_cabal_library(
 """,
         sha256 = GHC_LIB_SHA256,
         strip_prefix = "ghc-lib-%s" % GHC_LIB_VERSION,
-        urls = ["https://daml-binaries.da-ext.net/da-ghc-lib/ghc-lib-%s.tar.gz" % GHC_LIB_REV],
+        urls = ["https://storage.googleapis.com/daml-binaries/da-ghc-lib/ghc-lib-%s.tar.gz" % GHC_LIB_REV],
     )
 
     http_archive(
@@ -162,7 +162,7 @@ haskell_cabal_library(
 """,
         sha256 = GHC_LIB_PARSER_SHA256,
         strip_prefix = "ghc-lib-parser-%s" % GHC_LIB_PARSER_VERSION,
-        urls = ["https://daml-binaries.da-ext.net/da-ghc-lib/ghc-lib-parser-%s.tar.gz" % GHC_LIB_PARSER_REV],
+        urls = ["https://storage.googleapis.com/daml-binaries/da-ghc-lib/ghc-lib-parser-%s.tar.gz" % GHC_LIB_PARSER_REV],
     )
 
     http_archive(
