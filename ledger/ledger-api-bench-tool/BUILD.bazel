@@ -43,6 +43,7 @@ da_scala_library(
         "@maven//:com_typesafe_akka_akka_stream",
         "@maven//:io_circe_circe_core",
         "@maven//:io_circe_circe_yaml",
+        "@maven//:io_circe_circe_yaml_common",
         "@maven//:org_typelevel_cats_core",
     ],
     visibility = ["//visibility:public"],
