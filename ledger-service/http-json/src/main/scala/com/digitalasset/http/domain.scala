@@ -4,18 +4,22 @@
 package com.daml.http
 
 import akka.http.scaladsl.model.{StatusCode, StatusCodes}
+import com.daml.fetchcontracts.util.IdentifierConverters.apiIdentifier
 import com.daml.ledger.api.domain.User
+import com.daml.lf.data.Time
 import com.daml.lf.typesig
 import com.daml.ledger.api.refinements.{ApiTypes => lar}
 import com.daml.ledger.api.{v1 => lav1}
 import com.daml.nonempty.NonEmpty
 import com.daml.nonempty.NonEmptyReturningOps._
+import com.google.protobuf.ByteString
 import scalaz.Isomorphism.{<~>, IsoFunctorTemplate}
 import scalaz.std.list._
 import scalaz.std.option._
 import scalaz.std.vector._
 import scalaz.syntax.apply.^
 import scalaz.syntax.show._
+import scalaz.syntax.std.option._
 import scalaz.syntax.traverse._
 import scalaz.{-\/, Applicative, Bitraverse, Functor, NonEmptyList, Traverse, \/, \/-}
 import spray.json.JsValue
@@ -57,6 +61,9 @@ package object domain extends com.daml.fetchcontracts.domain.Aliases {
 
   type CompletionOffset = String @@ CompletionOffsetTag
   val CompletionOffset = Tag.of[CompletionOffsetTag]
+
+  type Base64 = ByteString @@ Base64Tag
+  val Base64 = Tag.of[Base64Tag]
 }
 
 package domain {
@@ -68,6 +75,8 @@ package domain {
   sealed trait SubmissionIdTag
 
   sealed trait CompletionOffsetTag
+
+  sealed trait Base64Tag
 
   trait JwtPayloadTag
 
@@ -250,6 +259,84 @@ package domain {
   object DeduplicationPeriod {
     final case class Duration(durationInMillis: Long) extends domain.DeduplicationPeriod
     final case class Offset(offset: HexString) extends domain.DeduplicationPeriod
+  }
+
+  final case class PbAny(typeUrl: String, value: Base64) {
+    import com.google.protobuf.any
+    def toLedgerApi: any.Any = any.Any(typeUrl, Base64 unwrap value)
+  }
+
+  object PbAny {
+    val discriminator: String = "typeUrl"
+  }
+
+  final case class DisclosedContract[+TmplId, +LfV](
+      contractId: ContractId,
+      templateId: TmplId,
+      arguments: DisclosedContract.Arguments[LfV],
+      metadata: DisclosedContract.Metadata,
+  ) {
+    def toLedgerApi(implicit
+        TmplId: TmplId <:< ContractTypeId.Template.RequiredPkg,
+        LfV: LfV <:< lav1.value.Record,
+    ): lav1.commands.DisclosedContract =
+      lav1.commands.DisclosedContract(
+        templateId = Some(apiIdentifier(templateId)),
+        contractId = ContractId unwrap contractId,
+        arguments = arguments.toLedgerApi,
+        metadata = Some(metadata.toLedgerApi),
+      )
+  }
+
+  object DisclosedContract {
+    sealed abstract class Arguments[+LfV] extends Product with Serializable {
+      import lav1.commands.DisclosedContract.Arguments.{CreateArguments, CreateArgumentsBlob}
+      def toLedgerApi(implicit
+          LfV: LfV <:< lav1.value.Record
+      ): lav1.commands.DisclosedContract.Arguments = this match {
+        case Arguments.Blob(blob) => CreateArgumentsBlob(blob.toLedgerApi)
+        case Arguments.Record(payload) => CreateArguments(payload)
+      }
+    }
+    object Arguments {
+      final case class Blob(blob: PbAny) extends Arguments[Nothing]
+      final case class Record[+LfV](payload: LfV) extends Arguments[LfV]
+
+      implicit val covariant: Traverse[Arguments] = new Traverse[Arguments] {
+        override def traverseImpl[G[_]: Applicative, A, B](
+            fa: Arguments[A]
+        )(f: A => G[B]): G[Arguments[B]] =
+          fa match {
+            case b @ Blob(_) => Applicative[G] point b
+            case Record(payload) => f(payload) map (Record(_))
+          }
+      }
+    }
+
+    final case class Metadata(
+        createdAt: Time.Timestamp,
+        contractKeyHash: Option[Base64],
+        driverMetadata: Option[Base64],
+    ) {
+      import com.daml.api.util.TimestampConversion.{fromLf => timestampLfToProto}
+
+      def toLedgerApi: lav1.contract_metadata.ContractMetadata =
+        lav1.contract_metadata.ContractMetadata(
+          createdAt = Some(timestampLfToProto(createdAt)),
+          contractKeyHash = contractKeyHash.cata(Base64.unwrap, ByteString.EMPTY),
+          driverMetadata = driverMetadata.cata(Base64.unwrap, ByteString.EMPTY),
+        )
+    }
+
+    implicit val covariant: Bitraverse[DisclosedContract] =
+      new Bitraverse[DisclosedContract] {
+        override def bitraverseImpl[G[_]: Applicative, A, B, C, D](
+            fab: DisclosedContract[A, B]
+        )(f: A => G[C], g: B => G[D]): G[DisclosedContract[C, D]] =
+          ^(f(fab.templateId), fab.arguments traverse g) { (templateId, arguments) =>
+            fab.copy(templateId = templateId, arguments = arguments)
+          }
+      }
   }
 
   final case class CommandMeta(

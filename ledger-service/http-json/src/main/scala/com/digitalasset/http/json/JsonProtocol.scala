@@ -8,6 +8,7 @@ import com.daml.http.domain
 import com.daml.http.domain.ContractTypeId
 import com.daml.ledger.api.refinements.{ApiTypes => lar}
 import com.daml.lf.data.Ref.HexString
+import com.daml.lf.data.Time
 import com.daml.lf.value.Value.ContractId
 import com.daml.lf.value.json.ApiCodecCompressed
 import com.daml.nonempty.NonEmpty
@@ -51,6 +52,9 @@ object JsonProtocol extends JsonProtocolLow {
   implicit val OffsetFormat: JsonFormat[domain.Offset] =
     taggedJsonFormat
 
+  private implicit val TimestampFormat: JsonFormat[Time.Timestamp] =
+    xemapStringJsonFormat(Time.Timestamp.fromString)(_.toString)
+
   implicit def NonEmptyListFormat[A: JsonReader: JsonWriter]: JsonFormat[NonEmptyList[A]] =
     jsonFormatFromReaderWriter(NonEmptyListReader, NonEmptyListWriter)
 
@@ -78,6 +82,20 @@ object JsonProtocol extends JsonProtocolLow {
   }
 
   implicit def `List reader only`[A: JsonReader]: JsonReaderList[A] = new JsonReaderList
+
+  implicit val Base64Format: JsonFormat[domain.Base64] = {
+    import com.google.protobuf.ByteString
+    import java.util.Base64.{getUrlDecoder, getUrlEncoder}
+    domain.Base64 subst xemapStringJsonFormat { s =>
+      for {
+        arr <-
+          try Right(getUrlDecoder decode s)
+          catch { case e: IllegalArgumentException => Left(e.getMessage) }
+      } yield ByteString copyFrom arr
+    } { b64 => getUrlEncoder encodeToString b64.toByteArray }
+  }
+
+  implicit val PbAnyFormat: JsonFormat[domain.PbAny] = jsonFormat2(domain.PbAny.apply)
 
   implicit val userDetails: JsonFormat[domain.UserDetails] =
     jsonFormat2(domain.UserDetails.apply)
@@ -380,6 +398,33 @@ object JsonProtocol extends JsonProtocolLow {
     case single =>
       domain.SearchForeverRequest(NonEmptyList((single.convertTo[domain.SearchForeverQuery], 0)))
   }
+
+  private implicit def DisclosedContractArgumentsFormat[LfV: JsonFormat]
+      : JsonFormat[domain.DisclosedContract.Arguments[LfV]] = {
+    import domain.DisclosedContract.{Arguments => A}
+    implicit val jfBlob: JsonFormat[A.Blob] = jsonFormat1(A.Blob)
+    implicit val jfRecord: JsonFormat[A.Record[LfV]] = jsonFormat1(A.Record.apply[LfV])
+    new JsonFormat[A[LfV]] {
+      override def write(obj: A[LfV]): JsValue = obj match {
+        case b @ A.Blob(_) => jfBlob write b
+        case r @ A.Record(_) => jfRecord write r
+      }
+
+      override def read(json: JsValue): A[LfV] = json match {
+        case JsObject(fields) if fields contains domain.PbAny.discriminator =>
+          jfBlob read json
+        case _ => jfRecord read json
+      }
+    }
+  }
+
+  private implicit val DisclosedContractMetadataFormat
+      : JsonFormat[domain.DisclosedContract.Metadata] =
+    jsonFormat3(domain.DisclosedContract.Metadata)
+
+  implicit val DisclosedContractFormat
+      : JsonReader[domain.DisclosedContract[domain.ContractTypeId.Template.OptionalPkg, JsValue]] =
+    jsonFormat4(domain.DisclosedContract.apply[domain.ContractTypeId.Template.OptionalPkg, JsValue])
 
   implicit val hexStringFormat: JsonFormat[HexString] =
     xemapStringJsonFormat(HexString.fromString)(identity)
