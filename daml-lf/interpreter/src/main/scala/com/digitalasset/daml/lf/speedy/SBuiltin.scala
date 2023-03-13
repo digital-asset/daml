@@ -2159,7 +2159,7 @@ private[lf] object SBuiltin {
           callback = pid => {
             val e = SEApp(
               SEVal(TemplateChoiceDefRef(templateId.copy(packageId = pid), choice)),
-              args.toArray(Array.empty[SValue]),
+              args.asScala.toArray,
             )
             machine.setControl(Control.Expression(e))
           },
