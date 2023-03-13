@@ -134,7 +134,7 @@ private[speedy] object SpeedyTestLib {
       case Question.Update.NeedKey(key, _, callback) =>
         discard(callback(getKey.lift(key)))
       case Question.Update.NeedPackageId(_, _, _) =>
-        // TODO #dynamic-exercise
+        // TODO https://github.com/digital-asset/daml/issues/16154 (dynamic-exercise)
         ???
     }
     runTxQ(onQuestion, machine) match {

@@ -476,7 +476,7 @@ private[lf] object ScenarioRunner {
               callback(ledger.currentTime)
               go()
             case Question.Update.NeedPackageId(module @ _, pid0, callback) =>
-              // TODO #dynamic-exercise
+              // TODO https://github.com/digital-asset/daml/issues/16154 (dynamic-exercise)
               // For now this just continues with the input package id
               callback(pid0)
               go()
