@@ -348,7 +348,7 @@ class IdeLedgerClient(
                 exercise.choiceId,
                 exercise.exerciseResult.get,
               )
-            case _: Node.Fetch | _: Node.LookupByKey | _: Node.Rollback | _: Node.Authority =>
+            case _: Node.Fetch | _: Node.LookupByKey | _: Node.Rollback =>
               throw new IllegalArgumentException(s"Invalid root node: $node")
           }
         }
@@ -403,7 +403,7 @@ class IdeLedgerClient(
                   exercise.children.collect(Function.unlift(convEvent(_))).toList,
                 )
               )
-            case _: Node.Fetch | _: Node.LookupByKey | _: Node.Rollback | _: Node.Authority => None
+            case _: Node.Fetch | _: Node.LookupByKey | _: Node.Rollback => None
           }
         ScriptLedgerClient.TransactionTree(
           transaction.roots.collect(Function.unlift(convEvent(_))).toList

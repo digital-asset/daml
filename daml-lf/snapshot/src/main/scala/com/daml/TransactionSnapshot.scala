@@ -147,14 +147,12 @@ private[snapshot] object TransactionSnapshot {
           ChildrenRecursion.DoRecurse
         },
         rollbackBegin = (_, _) => ChildrenRecursion.DoNotRecurse,
-        authorityBegin = (_, _) => ChildrenRecursion.DoRecurse,
         leaf = {
           case (_, create: Node.Create) => activeCreates += (create.coid -> create)
           case (_, _) =>
         },
         exerciseEnd = (_, _) => (),
         rollbackEnd = (_, _) => (),
-        authorityEnd = (_, _) => (),
       )
 
     def updateWithArchive(archive: ByteString) =

@@ -20,7 +20,6 @@ object TransactionNormalizer {
       tx.foldInExecutionOrder[Set[NodeId]](Set.empty)(
         exerciseBegin = (acc, nid, _) => (acc + nid, ChildrenRecursion.DoRecurse),
         rollbackBegin = (acc, _, _) => (acc, ChildrenRecursion.DoNotRecurse),
-        authorityBegin = (acc, _, _) => (acc, ChildrenRecursion.DoRecurse),
         leaf = (acc, nid, node) =>
           node match {
             case _: Node.Create => acc + nid
@@ -29,7 +28,6 @@ object TransactionNormalizer {
           },
         exerciseEnd = (acc, _, _) => acc,
         rollbackEnd = (acc, _, _) => acc,
-        authorityEnd = (acc, _, _) => acc,
       )
     val filteredNodes =
       tx.nodes

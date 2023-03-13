@@ -143,9 +143,6 @@ object TransactionNodeStatistics {
         rollbackDepth += 1
         Transaction.ChildrenRecursion.DoRecurse
       },
-      authorityBegin = { (_, _) =>
-        Transaction.ChildrenRecursion.DoRecurse
-      },
       leaf = { (_, node) =>
         val idx = node match {
           case _: Node.Create =>
@@ -162,7 +159,6 @@ object TransactionNodeStatistics {
       },
       exerciseEnd = (_, _) => (),
       rollbackEnd = (_, _) => rollbackDepth -= 1,
-      authorityEnd = (_, _) => (),
     )
 
     TransactionNodeStatistics(build(committed), build(rolledBack))
