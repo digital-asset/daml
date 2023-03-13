@@ -402,18 +402,16 @@ object JsonProtocol extends JsonProtocolLow {
   private implicit def DisclosedContractArgumentsFormat[LfV: JsonFormat]
       : JsonFormat[domain.DisclosedContract.Arguments[LfV]] = {
     import domain.DisclosedContract.{Arguments => A}
-    implicit val jfBlob: JsonFormat[A.Blob] = jsonFormat1(A.Blob)
-    implicit val jfRecord: JsonFormat[A.Record[LfV]] = jsonFormat1(A.Record.apply[LfV])
     new JsonFormat[A[LfV]] {
       override def write(obj: A[LfV]): JsValue = obj match {
-        case b @ A.Blob(_) => jfBlob write b
-        case r @ A.Record(_) => jfRecord write r
+        case A.Blob(b) => b.toJson
+        case A.Record(r) => r.toJson
       }
 
       override def read(json: JsValue): A[LfV] = json match {
         case JsObject(fields) if fields contains domain.PbAny.discriminator =>
-          jfBlob read json
-        case _ => jfRecord read json
+          A.Blob(json.convertTo[domain.PbAny])
+        case _ => A.Record(json.convertTo[LfV])
       }
     }
   }
