@@ -6,11 +6,11 @@
 
 module SameNameConstructor where
 
+import Daml.Script
+
 data X = X | Y
 
-test = scenario do
+test = script do
   assert $ case X of
     X -> True
     Y -> False
-
--- @ENABLE-SCENARIOS

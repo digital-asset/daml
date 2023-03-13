@@ -8,6 +8,7 @@
 
 module NewtypeHigherKinded where
 
+import Daml.Script
 import DA.Assert
 
 newtype App f a = App (f a)
@@ -20,7 +21,5 @@ wrap xs = App (fmap Wrap xs)
 unwrap : Functor f => App f (Wrap a) -> f a
 unwrap (App xs) = fmap (\(Wrap x) -> x) xs
 
-main = scenario do
+main = script do
   unwrap (wrap [1]) === [1]
-
--- @ENABLE-SCENARIOS

@@ -8,7 +8,6 @@ import java.time.Instant
 import com.daml.ledger.api.v1.event.{ArchivedEvent, CreatedEvent, Event, ExercisedEvent}
 import com.daml.ledger.api.v1.transaction.TreeEvent
 import com.daml.ledger.api.v1.{value => api}
-import com.daml.lf.data.LawlessTraversals._
 import com.daml.lf.data.Ref.Identifier
 import com.daml.lf.data.{Numeric, Ref}
 import com.daml.lf.ledger.EventId
@@ -16,6 +15,10 @@ import com.daml.lf.transaction.{GlobalKeyWithMaintainers, Node, NodeId}
 import com.daml.lf.value.{Value => Lf}
 import com.google.protobuf.empty.Empty
 import com.google.protobuf.timestamp.Timestamp
+
+import scalaz.std.either._
+import scalaz.std.list._
+import scalaz.syntax.traverse._
 
 /** Translates [[com.daml.lf.value.Value]] values to [[com.daml.ledger.api.v1.value]] values.
   *
@@ -119,7 +122,7 @@ object LfEngineToApi {
           }
           .map(list => api.Value(api.Value.Sum.GenMap(api.GenMap(list))))
       case Lf.ValueList(vs) =>
-        vs.toImmArray.toSeq.traverseEitherStrictly(lfValueToApiValue(verbose, _)) map { xs =>
+        vs.toImmArray.toList.traverseU(lfValueToApiValue(verbose, _)) map { xs =>
           api.Value(api.Value.Sum.List(api.List(xs)))
         }
       case Lf.ValueVariant(tycon, variant, v) =>
@@ -146,7 +149,7 @@ object LfEngineToApi {
           )
         )
       case Lf.ValueRecord(tycon, fields) =>
-        fields.toSeq.traverseEitherStrictly { field =>
+        fields.toList.traverseU { field =>
           lfValueToApiValue(verbose, field._2) map { x =>
             api.RecordField(
               if (verbose)

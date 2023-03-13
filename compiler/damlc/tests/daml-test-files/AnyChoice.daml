@@ -4,6 +4,7 @@
 -- @SINCE-LF 1.7
 module AnyChoice where
 
+import Daml.Script
 import DA.Assert
 
 template T1
@@ -29,7 +30,7 @@ template T2
       controller p
       do pure ()
 
-main = scenario do
+main = script do
   let c1 = C1
   let c1' = C1'
   let c2 = C2
@@ -39,5 +40,3 @@ main = scenario do
   fromAnyChoice @T2 @C2 (toAnyChoice @T2 c2) === Some c2
   fromAnyChoice @T1 @Archive (toAnyChoice @T2 Archive) === None
   fromAnyChoice @T2 @Archive (toAnyChoice @T2 Archive) === Some Archive
-
--- @ENABLE-SCENARIOS

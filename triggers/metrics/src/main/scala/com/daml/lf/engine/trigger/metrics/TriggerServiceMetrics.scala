@@ -11,6 +11,6 @@ case class TriggerServiceMetrics(otelMeter: OtelMeter) {
 
   val openTelemetryFactory = new OpenTelemetryMetricsFactory(otelMeter)
 
-  val http = new DamlHttpMetrics(openTelemetryFactory, "trigger-service")
+  val http = new DamlHttpMetrics(openTelemetryFactory, "trigger_service")
 
 }

@@ -3,6 +3,7 @@
 
 module Nat where
 
+import Daml.Script
 import DA.Assert
 
 data Nat = Z | S Nat
@@ -13,7 +14,5 @@ add : Nat -> Nat -> Nat
 add Z x = x
 add (S x) y = add x (S y)
 
-main = scenario do
+main = script do
     add (S (S Z)) (S Z) === S (S (S Z))
-
--- @ENABLE-SCENARIOS

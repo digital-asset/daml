@@ -6,7 +6,7 @@
 -- @ERROR Guarded exercises are only available with --target=1.dev
 
 module InterfaceGuardedNotExtended where
-
+import Daml.Script
 import DA.Exception (GeneralError (..), throwPure)
 
 data EmptyInterfaceView = EmptyInterfaceView {}
@@ -25,6 +25,9 @@ interface Token where
     do
         assert (byHowMuch > 0)
         create $ setAmount this (getAmount this + byHowMuch)
+
+interface SubToken requires Token where
+  viewtype EmptyInterfaceView
 
 template Asset
   with
@@ -51,6 +54,8 @@ template AnotherAsset
       getOwner = owner
       getAmount = amount
       setAmount x = toInterface @Token (this with amount = x)
+    interface instance SubToken for AnotherAsset where
+      view = EmptyInterfaceView
 
 exception GuardException
     with
@@ -58,60 +63,84 @@ exception GuardException
     where
         message m
 
-main = scenario do
-  p <- getParty "Alice"
-  let
-    assetTpl = Asset with
-      issuer = p
-      owner = p
-      amount = 100
-    getRich = GetRich with byHowMuch = 1000000
-    exerciseGetRich guard asset =
-      exerciseGuarded guard (toInterfaceContractId @Token asset) getRich
+template Test
+  with
+    p : Party
+  where
+    signatory p
+    let
+      assetAsTokenTpl =
+        toInterface @Token $
+          Asset with
+            issuer = p
+            owner = p
+            amount = 100
+      getRich = GetRich with byHowMuch = 1000000
 
-  p `submit` do
-    -- OK if guard returns True
-    asset <- create assetTpl
-    exerciseGetRich (const True) asset
+    nonconsuming choice TrueGuard : ()
+      controller p
+      do
+        assetAsToken <- create assetAsTokenTpl
+        exerciseGuarded (const True) assetAsToken getRich
+        pure ()
 
-  p `submitMustFail` do
-    -- Fail if guard returns False
-    asset <- create assetTpl
-    exerciseGetRich (const False) asset
+    nonconsuming choice FalseGuard : ()
+      controller p
+      do
+        -- Fail if guard returns False
+        assetAsToken <- create assetAsTokenTpl
+        exerciseGuarded (const False) assetAsToken getRich
+        pure ()
 
-  p `submitMustFail` do
-    -- Fail if guard throws exception
-    asset <- create assetTpl
-    exerciseGetRich (\_ -> error "foo") asset
+    nonconsuming choice ErrorGuard : ()
+      controller p
+      do
+        -- Fail if guard throws exception
+        assetAsToken <- create assetAsTokenTpl
+        exerciseGuarded (\_ -> error "foo") assetAsToken getRich
+        pure ()
 
-  p `submitMustFail` do
-    -- Fail if guard throws custom exception
-    asset <- create assetTpl
-    exerciseGetRich (\_ -> throwPure (GuardException "bar")) asset
+    nonconsuming choice CustomErrorGuard : ()
+      controller p
+      do
+        -- Fail if guard throws custom exception
+        assetAsToken <- create assetAsTokenTpl
+        exerciseGuarded (\_ -> throwPure (GuardException "bar")) assetAsToken getRich
+        pure ()
 
-  p `submitMustFail` do
-    -- Fail if guard throws exception, even in `try-catch` block
-    asset <- create assetTpl
-    try do
-      exerciseGetRich (\_ -> error "foo") asset
-    catch
-      GeneralError {} ->
-        pure $ toInterfaceContractId @Token asset
+    nonconsuming choice TryErrorGuard : ()
+      controller p
+      do
+        -- Fail if guard throws exception, even in `try-catch` block
+        assetAsToken <- create assetAsTokenTpl
+        try do
+          exerciseGuarded (\_ -> error "foo") assetAsToken getRich
+        catch
+          GeneralError {} ->
+            pure $ toInterfaceContractId @Token assetAsToken
+        pure ()
 
-  p `submitMustFail` do
-    -- Fail if guard throws custom exception, even in `try-catch` block
-    asset <- create assetTpl
-    try do
-      exerciseGetRich (\_ -> throwPure (GuardException "bar")) asset
-    catch
-      GuardException {} ->
-        pure $ toInterfaceContractId @Token asset
+    nonconsuming choice TryCustomErrorGuard : ()
+      controller p
+      do
+        -- Fail if guard throws custom exception, even in `try-catch` block
+        assetAsToken <- create assetAsTokenTpl
+        try do
+          exerciseGuarded (\_ -> throwPure (GuardException "bar")) assetAsToken getRich
+        catch
+          GuardException {} ->
+            pure $ toInterfaceContractId @Token assetAsToken
+        pure ()
 
-  p `submitMustFail` do
-    -- Fail if predicate doesn't match underlying template type
-    anotherAsset <- coerceContractId @_ @AnotherAsset <$> create assetTpl
-    exerciseGetRich (const True) anotherAsset
-
+exerciseTest : Choice Test c () => c -> Script ()
+exerciseTest c = script do
+  p <- allocateParty "Alice"
+  p `submit` createAndExerciseCmd (Test p) c
   pure ()
 
--- @ENABLE-SCENARIOS
+trueGuard = exerciseTest TrueGuard
+falseGuard = exerciseTest FalseGuard
+errorGuard = exerciseTest ErrorGuard
+customErrorGuard = exerciseTest CustomErrorGuard
+tryErrorGuard = exerciseTest TryErrorGuard
+tryCustomErrorGuard = exerciseTest TryCustomErrorGuard

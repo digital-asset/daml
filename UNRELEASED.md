@@ -11,3 +11,20 @@ Of course, perfect write-ups are very welcome.
 You need to update this file whenever you commit something of significance. Reviewers need to check your PR 
 and ensure that the release notes and documentation has been included as part of the PR.
 
+### Minor Script warning
+As part of the ongoing efforts to improve Scripts and the testing story around them, we've added a small warning for a test case that non-obviously doesn't run.
+Consider the following test:
+```hs
+myTest = script do
+    ...
+    error "Got here, and shouldn't have"
+```
+This test will not run, as it is implicitly polymorphic. Take a look at the type of [`error`](https://docs.daml.com/daml/stdlib/Prelude.html#function-ghc-err-error-7998), it returns `a`, and as such, so does `myTest`. We cannot "run" this without making `a` a concrete type, so this cannot be run.
+We provide a warning in this case so a user may rectify this issue either by providing an explicit type signature, or by bounding the value of `a` in the call to `script`, via `script @()`.
+
+### Restricted name warnings
+Attempting to use the names `this`, `self` or `arg` in template, interface or exception fields will often result in confusing errors, mismatches with the underlying desugared code.  
+We now throw an error (or warning) early in those cases on the field name itself to make this more clear.
+
+*Note: Exception as well as templates without any choices did not previously throw errors for both `self` and `arg`. While using these names is discouraged, we only throw a warning here to avoid a breaking change. We may promote this to an error in future.*
+

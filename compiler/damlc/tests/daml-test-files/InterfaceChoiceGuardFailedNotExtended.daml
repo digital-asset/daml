@@ -3,6 +3,8 @@
 
 module InterfaceChoiceGuardFailedNotExtended where
 
+import Daml.Script
+
 -- @SINCE-LF-FEATURE DAML_INTERFACE
 -- @UNTIL-LF-FEATURE DAML_INTERFACE_EXTENDED
 -- @ERROR Guarded exercises are only available with --target=1.dev
@@ -24,9 +26,21 @@ template T
       view = EmptyInterfaceView
       getController = party
 
--- @ENABLE-SCENARIOS
-main = do
-  alice <- getParty "alice"
-  cidT <- alice `submit` create T with party = alice
+template ExerciseGuarded
+  with
+    p : Party
+    cidI : ContractId I
+  where
+    signatory p
+    choice Call : ()
+      controller p
+      do
+        exerciseGuarded (const False) cidI IChoice
+        pure ()
+              
+
+main = script do
+  alice <- allocateParty "alice"
+  cidT <- alice `submit` createCmd T with party = alice
   let cidI = toInterfaceContractId @I cidT
-  alice `submit` exerciseGuarded (const False) cidI IChoice
+  alice `submit` createAndExerciseCmd (ExerciseGuarded alice cidI) Call

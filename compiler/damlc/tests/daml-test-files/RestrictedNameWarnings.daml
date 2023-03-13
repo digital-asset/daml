@@ -1,0 +1,26 @@
+-- @WARN range=9:5-9:9; `self' is an unsupported field name, and may break without warning in future versions. Please use something else.
+-- @WARN range=14:5-14:8; `arg' is an unsupported field name, and may break without warning in future versions. Please use something else.
+-- @WARN range=19:5-19:9; `self' is an unsupported field name, and may break without warning in future versions. Please use something else.
+-- @WARN range=24:5-24:8; `arg' is an unsupported field name, and may break without warning in future versions. Please use something else.
+
+module RestrictedNameWarnings where
+
+template TSelf with
+    self : Party
+  where
+    signatory self
+
+template TArg with
+    arg : Party
+  where
+    signatory arg
+
+exception ESelf with
+    self : Text
+  where
+    message self
+
+exception EArg with
+    arg : Text
+  where
+    message arg

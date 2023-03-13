@@ -84,6 +84,8 @@ module DA.Daml.LFConversion
 import           DA.Daml.LFConversion.Primitives
 import           DA.Daml.LFConversion.MetadataEncoding
 import           DA.Daml.LFConversion.ConvertM
+import           DA.Daml.LFConversion.ExternalWarnings (topLevelWarnings)
+import           DA.Daml.LFConversion.Utils
 import           DA.Daml.Preprocessor (isInternal)
 import           DA.Daml.UtilGHC
 import           DA.Daml.UtilLF
@@ -1293,7 +1295,7 @@ convertChoice env tbinds (ChoiceData ty expr) = do
 
 convertBinds :: Env -> ModuleContents -> ConvertM [Definition]
 convertBinds env mc =
-  concatMapM (\bind -> resetFreshVarCounters >> convertBind env mc bind) (mcBinds mc)
+  concatMapM (\bind -> resetFreshVarCounters >> topLevelWarnings bind >> convertBind env mc bind) (mcBinds mc)
 
 convertBind :: Env -> ModuleContents -> (Var, GHC.Expr Var) -> ConvertM [Definition]
 convertBind env mc (name, x)
@@ -2577,22 +2579,6 @@ convertKind x@(TypeCon t ts)
             _ -> pure (KArrow k1 k2)
 convertKind (TyVarTy x) = convertKind $ tyVarKind x
 convertKind x = unhandled "Kind" x
-
-convNameLoc :: NamedThing a => a -> Maybe LF.SourceLoc
-convNameLoc n = case nameSrcSpan (getName n) of
-  -- NOTE(MH): Locations are 1-based in GHC and 0-based in Daml-LF.
-  -- Hence all the @- 1@s below.
-  RealSrcSpan srcSpan -> Just (convRealSrcSpan srcSpan)
-  UnhelpfulSpan{} -> Nothing
-
-convRealSrcSpan :: RealSrcSpan -> LF.SourceLoc
-convRealSrcSpan srcSpan = SourceLoc
-    { slocModuleRef = Nothing
-    , slocStartLine = srcSpanStartLine srcSpan - 1
-    , slocStartCol = srcSpanStartCol srcSpan - 1
-    , slocEndLine = srcSpanEndLine srcSpan - 1
-    , slocEndCol = srcSpanEndCol srcSpan - 1
-    }
 
 ---------------------------------------------------------------------
 -- SMART CONSTRUCTORS

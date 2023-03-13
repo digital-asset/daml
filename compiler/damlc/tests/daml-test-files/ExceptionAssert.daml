@@ -6,33 +6,26 @@
 -- | Test that DA.Assert throws AssertionFailed on failure.
 module ExceptionAssert where
 
+import Daml.Script
 import DA.Assert
 
-testAssert = scenario do
-    p <- getParty "Alice"
-    submit p do
-        try do
-            assert False
-        catch
-            AssertionFailed m ->
-                m === "Assertion failed"
+testAssert = script do
+    try do
+        assert False
+    catch
+        AssertionFailed m ->
+            m === "Assertion failed"
 
-testAssertMsg = scenario do
-    p <- getParty "Alice"
-    submit p do
-        try do
-            assertMsg "My message" False
-        catch
-            AssertionFailed m ->
-                m === "My message"
+testAssertMsg = script do
+    try do
+        assertMsg "My message" False
+    catch
+        AssertionFailed m ->
+            m === "My message"
 
-testAssertEq = scenario do
-    p <- getParty "Alice"
-    submit p do
-        try do
-            10 === 20
-        catch
-            AssertionFailed m ->
-                m === "Failure, expected 10 == 20"
-
--- @ENABLE-SCENARIOS
+testAssertEq = script do
+    try do
+        10 === 20
+    catch
+        AssertionFailed m ->
+            m === "Failure, expected 10 == 20"

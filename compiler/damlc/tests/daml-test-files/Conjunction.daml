@@ -4,6 +4,8 @@
 
 module Conjunction where
 
+import Daml.Script
+
 template Foo
   with
     p : Party
@@ -48,25 +50,23 @@ template Bar
       controller q
       do exercise cid Call3
 
-main = scenario do
+main = script do
 
-  p <- getParty "p"
-  q <- getParty "q"
+  p <- allocateParty "p"
+  q <- allocateParty "q"
 
-  fooCid <- submit p $ create Foo with p; q; ps = [p, q]
-  barCid <- submit p $ create Bar with p; q
+  fooCid <- submit p $ createCmd Foo with p; q; ps = [p, q]
+  barCid <- submit p $ createCmd Bar with p; q
 
-  submitMustFail p $ exercise fooCid Call1
-  submitMustFail q $ exercise fooCid Call1
-  submitMustFail p $ exercise fooCid Call2
-  submitMustFail q $ exercise fooCid Call2
-  submitMustFail p $ exercise fooCid Call3
-  submitMustFail q $ exercise fooCid Call3
+  submitMustFail p $ exerciseCmd fooCid Call1
+  submitMustFail q $ exerciseCmd fooCid Call1
+  submitMustFail p $ exerciseCmd fooCid Call2
+  submitMustFail q $ exerciseCmd fooCid Call2
+  submitMustFail p $ exerciseCmd fooCid Call3
+  submitMustFail q $ exerciseCmd fooCid Call3
 
-  41 <- submit q $ exercise barCid DelegatedCall1 with cid = fooCid
-  42 <- submit q $ exercise barCid DelegatedCall2 with cid = fooCid
-  43 <- submit q $ exercise barCid DelegatedCall3 with cid = fooCid
+  41 <- submit q $ exerciseCmd barCid DelegatedCall1 with cid = fooCid
+  42 <- submit q $ exerciseCmd barCid DelegatedCall2 with cid = fooCid
+  43 <- submit q $ exerciseCmd barCid DelegatedCall3 with cid = fooCid
 
   return ()
-
--- @ENABLE-SCENARIOS

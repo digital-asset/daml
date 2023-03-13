@@ -1,10 +1,12 @@
 -- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
 -- All rights reserved.
 
--- @INFO range=22:14-22:52; Use if
+-- @INFO range=24:14-24:52; Use if
 
 
 module NoCaseOfCase where
+
+import Daml.Script
 
 -- GHC's case-of-case transformation would turn this into something like
 --
@@ -23,7 +25,5 @@ f x y = case case x of { True -> None; False -> y } of
   None -> error "this should not happen"
   Some z -> z
 
-main = scenario do
+main = script do
   pure (f False (Some 0))
-
--- @ENABLE-SCENARIOS

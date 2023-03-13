@@ -1,6 +1,8 @@
--- @ERROR range=14:1-14:19; contract 0053db8d12a2aebf02e9d3c2dc653c7b8f61914eeef91b2d6e08b5b066925592a4 not effective, but we found its key!
+-- Error typically prefixed with `contract 000fffe8781952ace1141fabd7d28d48c8a157788c53392a6e698a534f89ee2779`, where the hash may change
+-- @ERROR range=27:1-27:19; not effective, but we found its key!
 module ContractKeyNotEffective where
 
+import Daml.Script
 import DA.Time
 
 template T
@@ -11,10 +13,19 @@ template T
     key p : Party
     maintainer key
 
-fetchByKeyMustFail = scenario do
-  p <- getParty "alice"
-  submit p $ create (T p)
-  pass (- seconds 1)
-  submit p $ fetchByKey @T p
+template FetchTBySelf
+  with
+    p : Party
+  where
+    signatory p
+    choice Call : ()
+      controller p
+      do
+        fetchByKey @T p
+        pure ()
 
--- @ENABLE-SCENARIOS
+fetchByKeyMustFail = script do
+  p <- allocateParty "alice"
+  p `submit` createCmd (T p)
+  passTime (- seconds 1)
+  p `submit` createAndExerciseCmd (FetchTBySelf p) Call
