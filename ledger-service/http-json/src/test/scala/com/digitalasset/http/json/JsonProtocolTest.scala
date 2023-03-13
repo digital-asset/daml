@@ -7,6 +7,7 @@ import akka.http.scaladsl.model.StatusCodes
 import com.daml.http.Generators.{
   OptionalPackageIdGen,
   contractGen,
+  contractIdGen,
   contractLocatorGen,
   exerciseCmdGen,
   genDomainTemplateId,
@@ -18,9 +19,9 @@ import com.daml.http.Generators.{
 }
 import com.daml.scalautil.Statement.discard
 import com.daml.http.domain
-import com.daml.lf.data.Ref
-import org.scalacheck.Arbitrary.arbitrary
-import org.scalacheck.Gen.{identifier, listOf}
+import com.daml.lf.data.{Ref, Time}
+import org.scalacheck.Arbitrary, Arbitrary.arbitrary
+import org.scalacheck.Gen, Gen.{identifier, listOf}
 import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 import org.scalatest.{Inside, Succeeded}
 import org.scalatest.freespec.AnyFreeSpec
@@ -36,6 +37,7 @@ class JsonProtocolTest
     with Inside
     with ScalaCheckDrivenPropertyChecks {
 
+  import JsonProtocolTest._
   import JsonProtocol._
   import spray.json._
 
@@ -249,5 +251,50 @@ class JsonProtocolTest
       val b = a.toJson.convertTo[domain.ExerciseCommand[JsValue, domain.ContractLocator[JsValue]]]
       b should ===(a)
     }
+  }
+
+  "domain.DisclosedContract" - {
+    type DC = domain.DisclosedContract[Int, Int]
+
+    "roundtrips" in forAll { a: DC =>
+      val b = a.toJson.convertTo[DC]
+      b should ===(a)
+    }
+  }
+}
+
+object JsonProtocolTest {
+  // like Arbitrary(arbitrary[T].map(f)) but with inferred `T`
+  private[this] def arbArg[T: Arbitrary, R](f: T => R): Arbitrary[R] =
+    Arbitrary(arbitrary[T] map f)
+
+  private[this] implicit val arbBase64: Arbitrary[domain.Base64] =
+    domain.Base64 subst arbArg(com.google.protobuf.ByteString.copyFrom(_: Array[Byte]))
+
+  private[this] implicit val arbTime: Arbitrary[Time.Timestamp] =
+    Arbitrary(
+      Gen
+        .choose(Time.Timestamp.MinValue.micros, Time.Timestamp.MaxValue.micros)
+        .map(Time.Timestamp.assertFromLong)
+    )
+
+  private[this] implicit val arbCid: Arbitrary[domain.ContractId] =
+    Arbitrary(contractIdGen)
+
+  private[this] implicit val arbPbAny: Arbitrary[domain.PbAny] =
+    arbArg((domain.PbAny.apply _).tupled)
+
+  private[http] implicit def arbDisclosedCt[TpId: Arbitrary, LfV: Arbitrary]
+      : Arbitrary[domain.DisclosedContract[TpId, LfV]] = {
+    import domain.DisclosedContract.{Arguments, Metadata}
+
+    implicit val args: Arbitrary[Arguments[LfV]] =
+      Arbitrary(
+        arbitrary[Either[domain.PbAny, LfV]].map(_.fold(Arguments.Blob, Arguments.Record(_)))
+      )
+
+    implicit val metadata: Arbitrary[Metadata] = arbArg(Metadata.tupled)
+
+    arbArg((domain.DisclosedContract.apply[TpId, LfV] _).tupled)
   }
 }

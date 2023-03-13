@@ -5,11 +5,14 @@ package com.daml.http
 
 import domain._
 import com.daml.nonempty.NonEmpty
+import com.daml.scalatest.FreeSpecCheckLaws
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
 import scalaz.NonEmptyList
 
-final class DomainSpec extends AnyFreeSpec with Matchers {
+final class DomainSpec extends AnyFreeSpec with Matchers with FreeSpecCheckLaws {
+  import DomainSpec._
+
   private val ledgerId = LedgerId("myledger")
   private val appId = ApplicationId("myAppId")
   private val alice = Party("Alice")
@@ -31,4 +34,20 @@ final class DomainSpec extends AnyFreeSpec with Matchers {
       payload shouldBe None
     }
   }
+
+  "DisclosedContract" - {
+    import json.JsonProtocolTest._
+    import scalaz.scalacheck.{ScalazProperties => SZP}
+
+    "bitraverse" - {
+      checkLaws(SZP.bitraverse.laws[DisclosedContract])
+    }
+  }
+}
+
+object DomainSpec {
+  import scalaz.Equal
+
+  implicit def eqDisclosedContract: Equal[DisclosedContract[Int, Int]] =
+    Equal.equalA
 }
