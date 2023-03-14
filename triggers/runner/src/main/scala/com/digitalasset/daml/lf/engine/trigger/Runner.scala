@@ -1592,7 +1592,7 @@ object Runner {
   }
 
   private[trigger] def numberOfInFlightCreateCommands(
-      commandId: String,
+      commandId: SValue,
       svalue: SValue,
       level: Trigger.Level,
       version: Trigger.Version,
@@ -1606,13 +1606,13 @@ object Runner {
       case Trigger.Level.High =>
         val result = for {
           inFlightCommands <- getInFlightCommands(svalue)
-          commands <- mapLookup(SText(commandId), inFlightCommands)
+          commands <- mapLookup(commandId, inFlightCommands)
           entries <- commands.expect("SList", { case SList(entries) => entries })
         } yield entries.toImmArray.toSeq.count { cmd =>
           isCreateCommand(cmd) || isCreateAndExerciseCommand(cmd)
         }
 
-        Some(result.orConverterException)
+        Some(result.getOrElse(0))
 
       case Trigger.Level.Low =>
         None
