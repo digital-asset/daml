@@ -137,7 +137,7 @@ reset_cache() {
     fi
 
     rm -f $file
-    truncate -s 200g $file
+    truncate -s ${size}g $file
     mkfs.ext2 -E root_owner=$(id -u):$(id -g) $file
     mkdir -p $mount_point
     mount $mount_point

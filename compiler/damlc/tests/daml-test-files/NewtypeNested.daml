@@ -4,6 +4,7 @@
 
 module NewtypeNested where
 
+import Daml.Script
 import DA.Assert
 import Newtype
 
@@ -15,7 +16,5 @@ mkNat' = Nat'
 unNat' : Nat' -> Nat
 unNat' (Nat' n) = n
 
-main = scenario do
+main = script do
   unNat (unNat' (mkNat' (mkNat 1))) === 1
-
--- @ENABLE-SCENARIOS

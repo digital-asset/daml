@@ -1,6 +1,7 @@
 
 module FunRetTypeSig where
 
+import Daml.Script
 import DA.Assert
 
 -- Test parsing of function return type signature syntax
@@ -22,9 +23,7 @@ mymap (f : a -> b) (xs : [a]) : [b] = case xs of
     x::xs -> f x::mymap f xs
 
 -- Test that the rewriting in the compiler works.
-testFact = scenario do
+testFact = script do
   mysucc 12 === 13
   fact 5 === 120
   mymap show [1, 2] === ["1", "2"]
-
--- @ENABLE-SCENARIOS

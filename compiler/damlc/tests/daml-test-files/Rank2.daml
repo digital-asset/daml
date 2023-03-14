@@ -7,12 +7,11 @@
 
 module Rank2 where
 
+import Daml.Script
 import DA.Assert
 
 applyBoth : (forall c . [c] -> [c]) -> ([a], [b]) -> ([a], [b])
 applyBoth f (a,b) = (f a, f b)
 
-main = scenario do
+main = script do
   applyBoth reverse ([1,2,3],["a","b"]) === ([3,2,1],["b","a"])
-
--- @ENABLE-SCENARIOS

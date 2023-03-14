@@ -6,6 +6,8 @@
 
 module EqPoly where
 
+import Daml.Script
+
 data Foo a b = Foo {a : a, b : b}
 
 instance (Eq a, Eq b) => Eq (Foo a b) where
@@ -15,8 +17,5 @@ instance (Eq a, Eq b) => Eq (Foo a b) where
 {-# NOINLINE eq #-}
 eq a b = a == b
 
-main = scenario do
-    alice <- getParty "alice"
-    submit alice $ assert $ eq (Foo 1 2) (Foo 1 2)
-
--- @ENABLE-SCENARIOS
+main = script do
+    assert $ eq (Foo 1 2) (Foo 1 2)

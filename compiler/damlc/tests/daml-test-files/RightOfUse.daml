@@ -1,11 +1,12 @@
 -- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
 -- All rights reserved.
 
--- @ERROR range=44:1-44:8; Script execution failed on commit at RightOfUse:56:5:
+-- @ERROR range=45:1-45:8; Script execution failed on commit at RightOfUse:57:5:
 
 
 module RightOfUse where
 
+import Daml.Script
 import DA.Date
 
 template RightOfUseAgreement
@@ -41,18 +42,16 @@ template RightOfUseOffer
            address
            expirationDate
 
-example = scenario do
+example = script do
     -- Scrooge McDuck offers Betina Beakley room at McDuck Manor
-    scroogeMcDuck <- getParty "Scrooge McDuck"
-    betinaBeackley <- getParty "Betina Beakley"
+    scroogeMcDuck <- allocateParty "Scrooge McDuck"
+    betinaBeackley <- allocateParty "Betina Beakley"
     offer <- submit scroogeMcDuck do
-      create RightOfUseOffer with
+      createCmd RightOfUseOffer with
         landlord = scroogeMcDuck
         tenant = betinaBeackley
         address = "McDuck Manor, Duckburg"
         expirationDate = datetime 2020 Jan 01 0 0 0
 
     -- Fails because it lacks Betina Beakley's authorization
-    submit scroogeMcDuck do exercise offer Accept
-
--- @ENABLE-SCENARIOS
+    submit scroogeMcDuck do exerciseCmd offer Accept

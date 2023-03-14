@@ -4,8 +4,8 @@
 
 module OrdOptional where
 
--- NOTE(MH): This used to loop indefinitely.
-main = scenario do
-  assert (None < Some 1)
+import Daml.Script
 
--- @ENABLE-SCENARIOS
+-- NOTE(MH): This used to loop indefinitely.
+main = script do
+  assert (None < Some 1)

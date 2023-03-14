@@ -3,54 +3,53 @@
 
 module List_Total where
 
+import Daml.Script
 import DA.List.Total
 import DA.Assert
 
 intNil : [Int]
 intNil = []
 
-testHead = scenario do
+testHead = script do
   None === head intNil
   Some 1 === head [1, 2, 3]
 
-testTail = scenario do
+testTail = script do
   None === tail intNil
   Some [2, 3] === tail [1, 2, 3]
 
-testInit = scenario do
+testInit = script do
   None === init intNil
   Some [1, 2] === init [1, 2, 3]
 
-testDoubleBang = scenario do
+testDoubleBang = script do
   None === [1, 2, 3] !! 4
   Some 2 === [1, 2, 3] !! 1
 
-testFoldl1 = scenario do
+testFoldl1 = script do
   None === foldl1 (-) intNil
   Some (-4) === foldl1 (-) [1, 2, 3]
 
-testFoldr1 = scenario do
+testFoldr1 = script do
   None === foldr1 (-) intNil
   Some 2 === foldr1 (-) [1, 2, 3]
 
-testFoldBalanced1 = scenario do
+testFoldBalanced1 = script do
   None === foldBalanced1 (+) intNil
   Some 6 === foldBalanced1 (+) [1, 2, 3]
 
-testMinimumOn = scenario do
+testMinimumOn = script do
   None === minimumOn negate intNil
   Some 3 === minimumOn negate [1, 2, 3]
 
-testMaximumOn = scenario do
+testMaximumOn = script do
   None === maximumOn negate intNil
   Some 1 === maximumOn negate [1, 2, 3]
 
-testBy = scenario do
+testBy = script do
   let cmp = (\x y -> compare (fst x) (fst y))
   let ls = [(2, 3), (4, 1), (1, 4)]
   None === minimumBy @(Int,Int) cmp []
   None === maximumBy @(Int,Int) cmp []
   Some (1, 4) === minimumBy cmp ls
   Some (4, 1) === maximumBy cmp ls
-
--- @ENABLE-SCENARIOS

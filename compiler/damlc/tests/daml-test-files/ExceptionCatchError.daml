@@ -6,35 +6,28 @@
 -- | Test that error (and related primitives) throw a GeneralError.
 module ExceptionCatchError where
 
+import Daml.Script
 import DA.Assert
 import DA.Exception
 
-test1 = scenario do
-    p <- getParty "Alice"
-    submit p do
-        try do
-            error "hello"
-        catch
-            GeneralError msg ->
-                msg === "hello"
+test1 = script do
+    try do
+        error "hello"
+    catch
+        GeneralError msg ->
+            msg === "hello"
 
 
-test2 = scenario do
-    p <- getParty "Alice"
-    submit p do
-        try do
-            abort "foo"
-        catch
-            GeneralError msg ->
-                msg === "foo"
+test2 = script do
+    try do
+        abort "foo"
+    catch
+        GeneralError msg ->
+            msg === "foo"
 
-test3 = scenario do
-    p <- getParty "Alice"
-    submit p do
-        try do
-            fail "bar"
-        catch
-            GeneralError msg ->
-                msg === "bar"
-
--- @ENABLE-SCENARIOS
+test3 = script do
+    try do
+        fail "bar"
+    catch
+        GeneralError msg ->
+            msg === "bar"
