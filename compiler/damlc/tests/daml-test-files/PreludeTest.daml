@@ -17,7 +17,6 @@
 -- @INFO range=118:13-118:38; Use &&
 -- @INFO range=120:13-120:37; Use &&
 -- @INFO range=121:12-121:28; Use &&
-
 -- @INFO range=157:13-157:27; Use $>
 -- @INFO range=163:10-163:56; Evaluate
 -- @INFO range=164:10-164:59; Evaluate
@@ -39,46 +38,47 @@
 
 module PreludeTest where
 
+import Daml.Script
 import DA.List as L
 import DA.Text qualified as T
 import DA.Assert
 import DA.Date
 
-testDollar = scenario do
+testDollar = script do
     let x1 = (+) 3 $ (*) 2 10
     23 === 23
 
-testCurry = scenario do
+testCurry = script do
     23 === curry (\(x, y) -> x + y) 20 3
 
-testUncurry = scenario do
+testUncurry = script do
     23 === uncurry (+) (20, 3)
 
-testPow = scenario do
+testPow = script do
     256 === 2^8
     2^2^2^2 === 65536
 
-testRemainder = scenario do
+testRemainder = script do
   1 === 6 % 5
   -1 === -1 % 2
 
-testId = scenario do
+testId = script do
   1 === identity 1
   "abc" === identity "abc"
   [1.0, 2.0, 3.0] === identity ([1.0, 2.0, 3.0] : [Decimal])
 
-testFoldl = scenario do
+testFoldl = script do
   2.5 === foldl (/) 150.0 ([5.0, 4.0, 3.0] : [Decimal])
   "abc" === foldl (<>) "" ["a", "b", "c"]
   -6 === foldl (-) 0 [1, 2, 3]
 
-testFoldr = scenario do
+testFoldr = script do
   6.0 === foldr (/) 3.0 ([36.0,  300.0, 150.0] : [Decimal])
   "abc" === foldr (<>) "" ["a", "b", "c"]
   [1, 2, 3] === foldr (::) [] [1, 2, 3]
   2 === foldr (-) 0 [1, 2, 3]
 
-testFind = scenario do
+testFind = script do
   None === find (==1) [2, 3, 4]
   None === find (==1) []
   Some 3 === find (==3) [2, 3, 4]
@@ -86,11 +86,11 @@ testFind = scenario do
   None === find (const False) [0, 1, 2]
   Some 0 === find (const True) [0, 1, 2]
 
-testLength = scenario do
+testLength = script do
   0 === length []
   10 === length [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
 
-testAny = scenario do
+testAny = script do
   False === any (==1) [2, 3, 4]
   False === any (==1) []
   True=== any (==3) [2, 3, 4]
@@ -99,7 +99,7 @@ testAny = scenario do
   True === any (const True) [0, 1, 2]
   True === any (\x -> if x == 0 then True else error "boom") [0, 1]
 
-testAll = scenario do
+testAll = script do
   False === all (==1) [2, 3, 4]
   True === all (==1) []
   True === all (>0) [2, 3, 4]
@@ -108,29 +108,29 @@ testAll = scenario do
   True === all (const True) [0, 1, 2]
   False === all (\x -> if x == 0 then False else error "boom") [0, 1]
 
-testOr = scenario do
+testOr = script do
   False === or [False, False, False]
   False === or []
   True === or [False, False, True]
   True === or [True, True]
 
-testAnd = scenario do
+testAnd = script do
   False === and [False, False, False]
   True === and []
   False === and [False, False, True]
   True === and [True, True]
 
-testElem = scenario do
+testElem = script do
   True === elem 1.0 ([1.0, 2.0, 3.0] : [Decimal])
   False === elem 4 [1, 2, 3]
   False === elem "" []
 
-testNotElem = scenario do
+testNotElem = script do
   False === notElem 1.0 ([1.0, 2.0, 3.0] : [Decimal])
   True === notElem 4 [1, 2, 3]
   True === notElem "" []
 
-testFmap = scenario do
+testFmap = script do
   [1, 4, 9] === fmap (\x -> x * x) [1, 2, 3]
   [1, 2, 3] === fmap T.length ["a", "ab", "abc"]
   [] === fmap T.length []
@@ -141,7 +141,7 @@ testFmap = scenario do
   Left "a" === fmap (+10) (Left "a")
   (1, 3) === fmap T.length (1, "abc")
 
-testOptional = scenario do
+testOptional = script do
   Some 11 === fmap (+10) (Some 1)
   None === fmap (+10) None
   Some 11 === ((+10) <$> Some 1)
@@ -159,119 +159,119 @@ testOptional = scenario do
   5 === optional 5 T.length None
   5 === optional 5 T.length (Some "12345")
 
-testEither = scenario do
+testEither = script do
   11 === either (+1) (floor : Decimal -> Int) (Left 10)
   11 === either (+1) (floor : Decimal -> Int) (Right 11.5)
 
-testAppend = scenario do
+testAppend = script do
   "abc123" === "abc" <> "123"
   "efg" === "efg" <> ""
   "xyz" === "" <> "xyz"
 
-testPlusPlus = scenario do
+testPlusPlus = script do
   [1, 2, 3, 4] === [1, 2] ++ [3, 4]
   ["a", "b", "c"] === [] ++ ["a", "b", "c"]
   [1, 2, 3] === [1, 2, 3] ++ []
 
-testConcat = scenario do
+testConcat = script do
   [1, 2, 3] === concat [[1,2], [3]]
   ["a", "b", "c"] === concat [[], ["a"], [], ["b", "c"]]
 
-testFlip = scenario do
+testFlip = script do
   5 === flip (/) 4 20
   Some 10 === flip fmap (Some 2) (*5)
 
-testReverse = scenario do
+testReverse = script do
   ([] : [Int]) === reverse []
   [3, 2, 1] === reverse [1, 2, 3]
   ["abc", "def"] === reverse ["def", "abc"]
 
-testMapA = scenario do
+testMapA = script do
  Some [1, 2] === mapA (\x -> if x > 0 then pure x else fail "") [1, 2]
  [[1, 2]] === mapA (\x -> if x > 0 then pure x else fail "") [1, 2]
  None === mapA (\x -> if x > 0 then pure x else fail "") [1, 2, 0]
  [] === mapA (\x -> if x > 0 then pure x else fail "") [1, 2, 0]
 
-testForA = scenario do
+testForA = script do
   Some [1, 2] === forA [1, 2] (\x -> if x > 0 then pure x else fail "")
   None === forA [1, 2, 0] (\x -> if x > 0 then pure x else fail "")
 
-testSequence = scenario do
+testSequence = script do
   Some [1, 2] === sequence [Some 1, Some 2]
   [[1, 2]] === sequence [[1], [2]]
   None === sequence [Some 1, Some 2, None]
   Left "foo" === sequence [Right 1, Right 2, Left "foo", Left "bar"]
   Right [1, 2] === sequence [Right 1, Right 2 : Either Text Int]
 
-testRbind = scenario do
+testRbind = script do
   Some 1 === (Some . floor =<< Some (1.9 : Decimal))
   None === (Some . (floor : Decimal -> Int) =<< None)
   (None : Optional Int) === (const None =<< Some (1.9 : Decimal))
 
-testConcatMap = scenario do
+testConcatMap = script do
   ["a", "b", "c", "d"] === concatMap T.explode ["a", "bcd"]
 
 
-testReplicate = scenario do
+testReplicate = script do
   [1, 1, 1, 1] === replicate 4 1
   [] === replicate 0 "foo"
 
-testTake = scenario do
+testTake = script do
   [] === take 0 [1, 2, 3, 4]
   [1, 1, 1] === take 3 (replicate 10 1)
   ["abc"] === take 2 ["abc"]
 
-testDrop = scenario do
+testDrop = script do
   [] === drop 100 [1, 2, 3]
   [] === drop 0 ([] : [Int])
   [4, 5, 6] === drop 3 [1, 2, 3, 4, 5, 6]
 
-testSplitAt = scenario do
+testSplitAt = script do
   ([], [1, 2, 3]) === splitAt 0 [1, 2, 3]
   ([], [1, 2, 3]) === splitAt (-100) [1, 2, 3]
   ([1, 2], [3]) === splitAt 2 [1, 2, 3]
   ([1, 2, 3], []) === splitAt 3 [1, 2, 3]
   ([1, 2, 3], []) === splitAt 100 [1, 2, 3]
 
-testTakeWhile = scenario do
+testTakeWhile = script do
   [1, 2] === takeWhile (<3) [1, 2, 3, 2, 1]
   [] === takeWhile (const True) ([] : [Text])
   [1, 2, 3, 2, 1] === takeWhile (const True) [1, 2, 3, 2, 1]
   [0, 0] === takeWhile (==0) [0, 0, 1, 1, 0, 0]
 
-testDropWhile = scenario do
+testDropWhile = script do
   [3, 2, 1] === dropWhile (<3) [1, 2, 3, 2, 1]
   [] === dropWhile (const True) ([] : [Text])
   [1, 2, 3, 2, 1] === dropWhile (const False) [1, 2, 3, 2, 1]
   [1, 1, 0, 0] === dropWhile (==0) [0, 0, 1, 1, 0, 0]
 
-testSpan = scenario do
+testSpan = script do
   ([1,2], [3, 2, 1]) === span (<3) [1, 2, 3, 2, 1]
   ([], []) === span (const True) ([] : [Text])
   ([], [1, 2, 3, 2, 1]) === span (const False) [1, 2, 3, 2, 1]
   ([0, 0], [1, 1, 0, 0]) === span (==0) [0, 0, 1, 1, 0, 0]
 
-testPartition: Scenario ()
-testPartition = scenario do
+testPartition: Script ()
+testPartition = script do
   ([], []) === partition (const True) ([] : [Text])
   ([], []) === partition (const False) ([] : [Text])
   ([1, 2], []) === partition (const True) [1,2]
   ([], [1, 2]) === partition (const False) [1,2]
   ([-2, -3, -5], [1, 4, 6]) === partition (<0) [1, -2, -3, 4, -5, 6]
 
-testBreak = scenario do
+testBreak = script do
   ([1,2], [3, 2, 1]) === break (>=3) [1, 2, 3, 2, 1]
   ([], []) === break (const False) ([] : [Text])
   ([], [1, 2, 3, 2, 1]) === break (const True) [1, 2, 3, 2, 1]
   ([0, 0], [1, 1, 0, 0]) === break (/=0) [0, 0, 1, 1, 0, 0]
 
-testLookup = scenario do
+testLookup = script do
   None === lookup 0 ([] : [(Int, Text)])
   None === lookup 0 [(1, "A"), (2, "B")]
   Some "B" === lookup 2 [(1, "A"), (2, "B")]
   Some "C" === lookup 0 [(1, "A"), (2, "B"), (0, "C")]
 
-testZip = scenario do
+testZip = script do
   [] === zip ([] : [Int]) ([] : [Text])
   [] === zip  [1, 2, 3] ([] : [Text])
   [] === zip ([] : [Int]) ["A", "B", "C"]
@@ -279,7 +279,7 @@ testZip = scenario do
   [(1, "A"), (2, "B")] === zip [1, 2] ["A", "B", "C", "D"]
   [(1, "A"), (2, "B"), (0, "C")] === zip [1, 2, 0] ["A", "B", "C", "D"]
 
-testZip3 = scenario do
+testZip3 = script do
   [] === zip3 ([] : [Int]) ([] : [Text]) ([] : [Decimal])
   [] === zip3  [1, 2, 3] ([] : [Text]) ([] : [Decimal])
   [] === zip3 ([] : [Int]) ["A", "B", "C"] ([] : [Decimal])
@@ -288,59 +288,59 @@ testZip3 = scenario do
   [(1, "A", 2.0), (2, "B", 1.0)] === zip3 [1, 2] ["A", "B", "C", "D"] ([2.0, 1.0, 3.0] : [Decimal])
   [(1, "A", 2.0), (2, "B", 1.0), (0, "C", 3.0)] === zip3 [1, 2, 0, 5] ["A", "B", "C", "D"] ([2.0, 1.0, 3.0] : [Decimal])
 
-testZipWith = scenario do
+testZipWith = script do
   [(1, "A"), (2, "B")] === zipWith (,) [1, 2] ["A", "B", "C", "D"]
   [(1, "A"), (2, "B"), (0, "C")] === zipWith (,) [1, 2, 0, 4, 9] ["A", "B", "C"]
   [11, 25, 33] === zipWith ((+) . floor) ([1.9, 5.4, 3.2] : [Decimal]) [10, 20, 30, 40]
 
-testZipWith3 = scenario do
+testZipWith3 = script do
   [(1, "A", 2.2), (2, "B", 1.1)] === zipWith3 (,,) [1, 2] ["A", "B", "C", "D"] ([2.2, 1.1, 3.3] : [Decimal])
   [(1, "A", 2.2), (2, "B", 1.1), (0, "C", 3.3)] === zipWith3 (,,) [1, 2, 0, 4, 9] ["A", "B", "C"] ([2.2, 1.1, 3.3] : [Decimal])
   [11, 21, 31] === zipWith3 (\x y z -> floor x + y - T.length z) ([1.9, 5.4, 3.2] : [Decimal]) [10, 20, 30, 40] ["", "....", ".."]
 
-testUnzip = scenario do
+testUnzip = script do
   ([], []) === unzip ([] : [(Int, Text)])
   ([1, 2, 3], ["A", "B", "C"]) === unzip [(1, "A"), (2, "B"), (3, "C")]
 
-testUnzip3 = scenario do
+testUnzip3 = script do
   ([], [], []) === unzip3 ([] : [(Int, Text, Decimal)])
   ([1, 2, 3], ["A", "B", "C"], [2.0, 1.0, 9.0]) === unzip3 [(1, "A", 2.0), (2, "B", 1.0), (3, "C", (9.0 : Decimal))]
 
-testNull = scenario do
+testNull = script do
   False === null [1]
   True  === null []
 
-testFilter = scenario do
+testFilter = script do
   [] === filter (>3) [1, 2, 3]
   [1, 3, 5] === filter (\x -> x%2 == 1) [1, 2, 3, 4, 5, 6]
 
-testFixedpoint = scenario do
+testFixedpoint = script do
   89 === fixedpoint (\f x -> if x < 2 then 1 else f (x-1) + f (x-2)) 10
 
-testIntToDecimal = scenario do
+testIntToDecimal = script do
     intToDecimal 1 === 1.0
     intToDecimal (-7) === (-7.0)
     intToDecimal 0 === 0.0
 
-testTruncate = scenario do
+testTruncate = script do
     truncate (14.9 : Decimal) === 14
     truncate (15.0 : Decimal) === 15
     truncate ((-9.3) : Decimal) === (-9)
     truncate (0.0 : Decimal) === 0
 
-testCeiling = scenario do
+testCeiling = script do
     ceiling (14.9 : Decimal) === 15
     ceiling (15.0 : Decimal) === 15
     ceiling ((-9.3) : Decimal) === (-9)
     ceiling (0.0 : Decimal) === 0
 
-testFloor = scenario do
+testFloor = script do
     floor (14.9 : Decimal) === 14
     floor (15.0 : Decimal) === 15
     floor ((-9.3) : Decimal) === (-10)
     floor (0.0 : Decimal) === 0
 
-testRound = scenario do
+testRound = script do
     roundCommercial 0 10.5 === (11.0 : Decimal)
     roundCommercial 2 22.105 === (22.110 : Decimal)
     roundBankers 0 10.5 === (10.0 : Decimal)
@@ -350,12 +350,12 @@ testRound = scenario do
     roundBankers 0 (-10.5) === (-10.0 : Decimal)
     roundBankers 2 (-22.105) === (-22.100 : Decimal)
 
-testNth = scenario do
+testNth = script do
     let l = [1, 5, 10]
     let v = l !! 1
     v === 5
 
-testDiv = scenario do
+testDiv = script do
     10.0 / 2.0 === (5.0 : Decimal)
     13.2 / 5.0 === (2.64 : Decimal)
 
@@ -370,39 +370,37 @@ testDiv = scenario do
     -3 / (-3) === 1
     5 / (-3) === -1
 
-testDayOfWeek = scenario do
+testDayOfWeek = script do
     dayOfWeek (date 1900 Jan 01) === Monday
     dayOfWeek (date 2018 Jan 17) === Wednesday
     dayOfWeek (date 2020 Feb 29) === Saturday
 
-testDateOverflow = scenario do
+testDateOverflow = script do
     pure $ date 2100 Feb 29
       -- 2100 is not a leap year!
 
-testDateUnderflow = scenario do
+testDateUnderflow = script do
     pure $ date 2000 Jan 0
 
-testDateRange = scenario do
+testDateRange = script do
     length [date 2019 Jan 1 .. date 2020 Dec 31] === 731
     [date 1 Jan 6, date 1 Jan 4 ..] === [date 1 Jan 6, date 1 Jan 4, date 1 Jan 2]
     [date 9999 Dec 24, date 9999 Dec 27 ..] === [date 9999 Dec 24, date 9999 Dec 27, date 9999 Dec 30]
     [date 9999 Dec 30 ..] === [date 9999 Dec 30, date 9999 Dec 31]
 
-testDateMinBound = scenario do
+testDateMinBound = script do
     fromEnum (minBound : Date) === 0
 
-testDateMaxBound = scenario do
+testDateMaxBound = script do
     fromEnum (maxBound : Date) === 3652058
 
-testDateMinBoundPred : Scenario Date = do
+testDateMinBoundPred : Script Date = do
     return (pred minBound)
 
-testDateMaxBoundSucc : Scenario Date = do
+testDateMaxBoundSucc : Script Date = do
     return (succ maxBound)
 
 -- Only check that they are properly exposed & typecheck.
-testTypeCheckTrace = scenario do
+testTypeCheckTrace = script do
   debug 1
   debugRaw "abc"
-
--- @ENABLE-SCENARIOS

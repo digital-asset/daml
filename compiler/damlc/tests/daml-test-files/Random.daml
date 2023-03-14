@@ -4,20 +4,27 @@
 
 module Random where
 
+import Daml.Script
 import DA.Random
 
 d6 = fmap (+1) . minstd_rand 6
 
-main = scenario do
-  p <- getParty "p"
+template Test
+  with
+    p : Party
+  where
+    signatory p
+    choice Call : ()
+      controller p
+      do
+        rs <- minstd_initFromTime
+        (rs, s1) <- pure $ d6 rs
+        (rs, s2) <- pure $ d6 rs
+        (_, s3) <- pure $ d6 rs
 
-  submit p do
-    rs <- minstd_initFromTime
-    (rs, s1) <- pure $ d6 rs
-    (rs, s2) <- pure $ d6 rs
-    (_, s3) <- pure $ d6 rs
+        let s = s1 + s2 + s3
+        assert $ s >= 3 && s <= 18
 
-    let s = s1 + s2 + s3
-    assert $ s >= 3 && s <= 18
-
--- @ENABLE-SCENARIOS
+main = script do
+  p <- allocateParty "p"
+  p `submit` createAndExerciseCmd (Test p) Call

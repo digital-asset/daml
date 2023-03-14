@@ -18,4 +18,4 @@ Testing the daml version header.
 
 <a name="function-damlhasversion-main-19130"></a>[main](#function-damlhasversion-main-19130)
 
-> : [Scenario](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-scenario-98127) ()
+> : Script ()

@@ -1,6 +1,8 @@
--- @ERROR range=25:1-25:32; no contract with that key was found
--- @ERROR range=35:1-35:29; consumed in same transaction
+-- @ERROR range=27:1-27:32; no contract with that key was found
+-- @ERROR range=37:1-37:29; consumed in same transaction
 module ConsumedContractKey where
+
+import Daml.Script
 
 template Foo
   with
@@ -22,19 +24,17 @@ template Foo
       controller signer
       do fetch self
 
-testFetchKeyFromConsumingChoice = do
-  alice <- getParty "Alice"
-  fooId <- alice `submit` create Foo with signer = alice
-  alice `submit` exercise fooId FetchKey
+testFetchKeyFromConsumingChoice = script do
+  alice <- allocateParty "Alice"
+  fooId <- alice `submit` createCmd Foo with signer = alice
+  alice `submit` exerciseCmd fooId FetchKey
 
-testLookupKeyFromConsumingChoice = do
-  alice <- getParty "Alice"
-  fooId <- alice `submit` create Foo with signer = alice
-  alice `submit` exercise fooId LookupKey
+testLookupKeyFromConsumingChoice = script do
+  alice <- allocateParty "Alice"
+  fooId <- alice `submit` createCmd Foo with signer = alice
+  alice `submit` exerciseCmd fooId LookupKey
 
-testFetchFromConsumingChoice = do
-  alice <- getParty "Alice"
-  fooId <- alice `submit` create Foo with signer = alice
-  alice `submit` exercise fooId Fetch
-
--- @ENABLE-SCENARIOS
+testFetchFromConsumingChoice = script do
+  alice <- allocateParty "Alice"
+  fooId <- alice `submit` createCmd Foo with signer = alice
+  alice `submit` exerciseCmd fooId Fetch

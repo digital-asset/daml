@@ -1,10 +1,9 @@
 -- Copyright (c) 2022, Digital Asset (Switzerland) GmbH and/or its affiliates.
 -- All rights reserved.
 
--- @ENABLE-SCENARIOS
-
 module SrcLocFields where
 
+import Daml.Script
 import DA.Assert
 import DA.Stack
 
@@ -28,7 +27,7 @@ myData = Data
     }
   }
 
-main = scenario do
+main = script do
   myData.srcLoc.srcLocPackage === "1"
   myData.srcLoc.srcLocModule === "2"
   myData.srcLoc.srcLocFile === "3"

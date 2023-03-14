@@ -4,6 +4,7 @@
 
 module Show where
 
+import Daml.Script
 import DA.Assert
 
 data Color = Red | Green | Blue | Dbl {dbl1 : Int, dbl2 : Int}
@@ -21,8 +22,8 @@ data Ones = Zero | One Ones
 data Fields a = Field1 {foo : Foo, color : Optional Color} | Field2 [a]
   deriving Show
 
-main = scenario do
-  p <- getParty "alice"
+main = script do
+  p <- allocateParty "alice"
   show p === "'alice'"
   show Bar === "bar"
   show Green === "Green"
@@ -39,5 +40,3 @@ main = scenario do
   show (True, 1) === "(True,1)"
   show [1,2] === "[1,2]"
   show (Dbl 42 109) === "Dbl {dbl1 = 42, dbl2 = 109}"
-
--- @ENABLE-SCENARIOS

@@ -4,27 +4,28 @@
 -- @SINCE-LF 1.dev
 module UnstableText where
 
+import Daml.Script
 import DA.Text as T
 import DA.Assert
 
-testUnstableDrop : Scenario ()
-testUnstableDrop = do
+testUnstableDrop : Script ()
+testUnstableDrop = script do
   T.unstableDrop 0 "abc" === "abc"
   T.unstableDrop 1 "abc" === "bc"
   T.unstableDrop 2 "abc" === "c"
   T.unstableDrop 3 "abc" === ""
   T.unstableDrop 4 "abc" === ""
 
-testUnstableTake : Scenario ()
-testUnstableTake = do
+testUnstableTake : Script ()
+testUnstableTake = script do
   T.unstableTake 0 "abc" === ""
   T.unstableTake 1 "abc" === "a"
   T.unstableTake 2 "abc" === "ab"
   T.unstableTake 3 "abc" === "abc"
   T.unstableTake 4 "abc" === "abc"
 
-testBreakOn : Scenario ()
-testBreakOn = do
+testBreakOn : Script ()
+testBreakOn = script do
   T.unstableBreakOn "|" "|"     === ("", "|")
   T.unstableBreakOn "|" "|b"    === ("", "|b")
   T.unstableBreakOn "|" "a|"    === ("a", "|")
@@ -32,8 +33,8 @@ testBreakOn = do
   T.unstableBreakOn "|" "a|b|c" === ("a", "|b|c")
   T.unstableBreakOn "|" "ab"    === ("ab", "")
 
-testUnstableStripInfix : Scenario ()
-testUnstableStripInfix = do
+testUnstableStripInfix : Script ()
+testUnstableStripInfix = script do
   T.unstableStripInfix "|" "|"     === Some ("", "")
   T.unstableStripInfix "|" "|b"    === Some ("", "b")
   T.unstableStripInfix "|" "a|"    === Some ("a", "")
@@ -41,7 +42,7 @@ testUnstableStripInfix = do
   T.unstableStripInfix "|" "a|b|c" === Some ("a", "b|c")
   T.unstableStripInfix "|" "ab"    === None
 
-testUnstableSplitOn = scenario do
+testUnstableSplitOn = script do
   T.unstableSplitOn "" ""                 === [ "" ]
   T.unstableSplitOn "" " "                === [ " " ]
   T.unstableSplitOn " " ""                === [ "" ]
@@ -57,5 +58,3 @@ testUnstableSplitOn = scenario do
   T.unstableSplitOn "\\." "4."            === [ "4." ]
   T.unstableSplitOn "\\." "4.0"           === [ "4.0" ]
   T.unstableSplitOn "\\." "4.3.2.1."      === [ "4.3.2.1." ]
-
--- @ENABLE-SCENARIOS

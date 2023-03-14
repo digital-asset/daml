@@ -333,9 +333,8 @@ runJqQuery log mJsonFile qs = do
         let jqKey = "external" </> "jq_dev_env" </> "bin" </> if isWindows then "jq.exe" else "jq"
         jq <- locateRunfiles $ mainWorkspace </> jqKey
         queryLfDir <- locateRunfiles $ mainWorkspace </> "compiler/damlc/tests/src"
-        let fullQuery = "import \"./query-lf\" as lf; . as $pkg | " ++ q
-            streamFlags = if isStream then ["--stream", "-n"] else []
-        out <- readProcess jq (streamFlags <> ["-L", queryLfDir, fullQuery, jsonPath]) ""
+        let fullQuery = "import \"./query-lf\" as lf; inputs as $pkg | " ++ q
+        out <- readProcess jq (["--stream" | isStream] <> ["-n", "-L", queryLfDir, fullQuery, jsonPath]) ""
         case trim out of
           "true" -> pure Nothing
           other -> pure $ Just $ "jq query failed: got " ++ other

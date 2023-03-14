@@ -4,6 +4,9 @@
 
 module Divulgence where
 
+import Daml.Script
+import ScriptAssertHelpers
+
 template Secret
   with
     p : Party
@@ -44,51 +47,44 @@ template DisclosureDelegation
       controller actor
       do fetch secretCid -- actor will divulge secretCid to p
 
--- @WARN range=84:3-85:20; Use of divulged contracts is deprecated
--- @WARN range=88:3-89:46; Use of divulged contracts is deprecated
-main = scenario do
-  me <- getParty "Me"
-  spy <- getParty "Spy"
+-- @WARN range=86:3-87:49; Use of divulged contracts is deprecated
+main = script do
+  me <- allocateParty "Me"
+  spy <- allocateParty "Spy"
   secretCid <- submit me do
-    create Secret with
+    createCmd Secret with
            p = me
            mySecret = "Password for my Swiss bank account is 874321"
 
   accCid <-
-    submit me do create DelegatedAccess with p = me; spy
+    submit me do createCmd DelegatedAccess with p = me; spy
 
-  submit spy do create RevealYourSecret with p = spy; secretCid = secretCid
+  submit spy do createCmd RevealYourSecret with p = spy; secretCid = secretCid
 
   -- me can fetch
-  submit me do
-    fetch secretCid
+  me `canSee` secretCid
 
   -- spy cannot fetch
-  submitMustFail spy do
-    fetch secretCid
+  spy `cantSee` secretCid
 
   -- spy cannot fetch even via delegation
   submitMustFail spy do
-    exercise accCid ReadSecret with secretCid
+    exerciseCmd accCid ReadSecret with secretCid
 
   -- lets divulge the secret with spy
   disCid <-
-    submit spy do create DisclosureDelegation with p = spy; actor = me
-  submit me do exercise disCid Disclose with secretCid
+    submit spy do createCmd DisclosureDelegation with p = spy; actor = me
+  submit me do exerciseCmd disCid Disclose with secretCid
 
   -- me can still fetch
-  submit me do
-    fetch secretCid
+  me `canSee` secretCid
 
   -- spy still cannot fetch
-  submitMustFail spy do
-    fetch secretCid
+  spy `cantSee` secretCid
 
   -- now spy can fetch using delegation from me
   submit spy do
-    exercise accCid ReadSecret with secretCid
+    exerciseCmd accCid ReadSecret with secretCid
 
 
 
-
--- @ENABLE-SCENARIOS

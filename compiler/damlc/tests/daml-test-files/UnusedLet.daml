@@ -5,8 +5,8 @@
 
 module UnusedLet where
 
-main = scenario do
+import Daml.Script
+
+main = script do
   let _ = error "BOOM"
   pure ()
-
--- @ENABLE-SCENARIOS

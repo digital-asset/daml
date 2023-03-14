@@ -4,6 +4,7 @@
 
 module Self2 where
 
+import Daml.Script
 import DA.Assert
 
 template Self2
@@ -24,16 +25,12 @@ template Self2
       controller p
       do exercise self Bar
 
-main = scenario do
-  alice <- getParty "Alice"
+main = script do
+  alice <- allocateParty "Alice"
 
-  submitMustFail alice do
-    cid <- create $ Self2 alice
-    exercise cid Baz -- Attempt to exercise a contract that was consumed in same transaction.
+  -- Attempt to exerciseCmd a contract that was consumed in same transaction.
+  alice `submitMustFail` createAndExerciseCmd (Self2 alice) Baz
 
-  r <- submit alice do
-    cid <- create $ Self2 alice
-    exercise cid Foo
+  r <- alice `submit` createAndExerciseCmd (Self2 alice) Foo
+
   r === "ok"
-
--- @ENABLE-SCENARIOS

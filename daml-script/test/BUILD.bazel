@@ -257,7 +257,6 @@ da_scala_test(
         "//test-common/test-certificates",
         "@canton//:lib",
     ],
-    flaky = is_windows,
     resources = glob(["src/main/resources/**/*"]),
     scala_deps = ["@maven//:io_spray_spray_json"],
     deps = [
