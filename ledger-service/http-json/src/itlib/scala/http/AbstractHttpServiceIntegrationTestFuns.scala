@@ -492,7 +492,7 @@ trait AbstractHttpServiceIntegrationTestFuns
   protected def iouExerciseTransferCommand(
       contractId: lar.ContractId,
       partyName: domain.Party,
-  ): domain.ExerciseCommand[v.Value, domain.EnrichedContractId] = {
+  ): domain.ExerciseCommand[Nothing, v.Value, domain.EnrichedContractId] = {
     val reference = domain.EnrichedContractId(Some(TpId.Iou.Iou), contractId)
     val party = Ref.Party assertFromString partyName.unwrap
     val arg =
@@ -631,7 +631,9 @@ trait AbstractHttpServiceIntegrationTestFuns
       decoder: DomainJsonDecoder,
       jwt: Jwt,
       ledgerId: LedgerApiDomain.LedgerId,
-  )(jsVal: JsValue): Future[domain.ExerciseCommand[v.Value, domain.EnrichedContractId]] =
+  )(
+      jsVal: JsValue
+  ): Future[domain.ExerciseCommand.RequiredPkg[v.Value, domain.EnrichedContractId]] =
     instanceUUIDLogCtx { implicit lc =>
       import scalaz.syntax.bifunctor._
       val cmd =
@@ -658,7 +660,7 @@ trait AbstractHttpServiceIntegrationTestFuns
       decoder: DomainJsonDecoder,
       actual: domain.ActiveContract.ResolvedCtTyId[JsValue],
       create: domain.CreateCommand[v.Record, domain.ContractTypeId.Template.OptionalPkg],
-      exercise: domain.ExerciseCommand[v.Value, _],
+      exercise: domain.ExerciseCommand[Any, v.Value, _],
       ledgerId: LedgerId,
   ): Future[Assertion] = {
     import domain.ActiveContractExtras._

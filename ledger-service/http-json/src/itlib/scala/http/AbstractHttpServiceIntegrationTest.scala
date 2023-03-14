@@ -665,8 +665,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
         create = iouCreateCommand(alice)
         res <- postCreateCommand(create, fixture, headers)
         _ <- inside(res) { case domain.OkResponse(createResult, _, StatusCodes.OK) =>
-          val exercise: domain.ExerciseCommand[v.Value, domain.EnrichedContractId] =
-            iouExerciseTransferCommand(createResult.contractId, bob)
+          val exercise = iouExerciseTransferCommand(createResult.contractId, bob)
           val exerciseJson: JsValue = encodeExercise(encoder)(exercise)
 
           fixture
@@ -759,8 +758,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
           TpId.Account.Account,
           v.Value(v.Value.Sum.Record(keyRecord)),
         )
-        val archive: domain.ExerciseCommand[v.Value, domain.EnrichedContractKey[v.Value]] =
-          archiveCommand(locator)
+        val archive = archiveCommand(locator)
         val archiveJson: JsValue = encodeExercise(encoder)(archive)
 
         postCreateCommand(create, fixture, headers).flatMap(inside(_) {
@@ -779,7 +777,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
   private def assertExerciseResponseNewActiveContract(
       exerciseResponse: domain.ExerciseResponse[JsValue],
       createCmd: domain.CreateCommand[v.Record, domain.ContractTypeId.Template.OptionalPkg],
-      exerciseCmd: domain.ExerciseCommand[v.Value, domain.EnrichedContractId],
+      exerciseCmd: domain.ExerciseCommand[Any, v.Value, domain.EnrichedContractId],
       fixture: HttpServiceTestFixtureData,
       headers: List[HttpHeader],
   ): Future[Assertion] = {
@@ -1171,7 +1169,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
       def userExerciseFollowCommand(
           contractId: lar.ContractId,
           toFollow: domain.Party,
-      ): domain.ExerciseCommand[v.Value, domain.EnrichedContractId] = {
+      ): domain.ExerciseCommand[Nothing, v.Value, domain.EnrichedContractId] = {
         val reference = domain.EnrichedContractId(Some(TpId.User.User), contractId)
         val arg = recordFromFields(ShRecord(userToFollow = v.Value.Sum.Party(toFollow.unwrap)))
         val choice = lar.Choice("Follow")
@@ -1180,8 +1178,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
       }
 
       def followUser(contractId: lar.ContractId, actAs: domain.Party, toFollow: domain.Party) = {
-        val exercise: domain.ExerciseCommand[v.Value, domain.EnrichedContractId] =
-          userExerciseFollowCommand(contractId, toFollow)
+        val exercise = userExerciseFollowCommand(contractId, toFollow)
         val exerciseJson: JsValue = encodeExercise(encoder)(exercise)
 
         fixture

@@ -379,12 +379,13 @@ package domain {
       Bitraverse[CreateCommand].leftTraverse[TmplId0].traverse(this)(f)
   }
 
-  final case class ExerciseCommand[+LfV, +Ref](
+  final case class ExerciseCommand[+PkgId, +LfV, +Ref](
       reference: Ref,
       choice: domain.Choice,
       argument: LfV,
       // passing a template ID is allowed; we distinguish internally
-      choiceInterfaceId: Option[ContractTypeId.OptionalPkg],
+      choiceInterfaceId: Option[ContractTypeId[PkgId]],
+      // TODO #14260 Option[CommandMeta[ContractTypeId.Template[PkgId], LfV]],
       meta: Option[CommandMeta.NoDisclosed],
   )
 
@@ -629,7 +630,9 @@ package domain {
       HasTemplateId.by[ContractKeyStreamRequest[Off, *]](_.ekey)
   }
 
-  trait HasTemplateId[F[_]] {
+  trait HasTemplateId[-F[_]] {
+    protected[this] type FHuh = F[_] // how to pronounce "F[?]" or "F huh?"
+
     def templateId(fa: F[_]): ContractTypeId.OptionalPkg
 
     type TypeFromCtId
@@ -644,8 +647,8 @@ package domain {
   }
 
   object HasTemplateId {
-    type Compat[F[_]] = Aux[F, LfType]
-    type Aux[F[_], TFC0] = HasTemplateId[F] { type TypeFromCtId = TFC0 }
+    type Compat[-F[_]] = Aux[F, LfType]
+    type Aux[-F[_], TFC0] = HasTemplateId[F] { type TypeFromCtId = TFC0 }
 
     def by[F[_]]: By[F] = new By[F](0)
 
@@ -680,26 +683,27 @@ package domain {
   }
 
   object ExerciseCommand {
-    implicit val bitraverseInstance: Bitraverse[ExerciseCommand] = new Bitraverse[ExerciseCommand] {
-      override def bitraverseImpl[G[_]: Applicative, A, B, C, D](
-          fab: ExerciseCommand[A, B]
-      )(f: A => G[C], g: B => G[D]): G[ExerciseCommand[C, D]] = {
-        ^(f(fab.argument), g(fab.reference))((c, d) => fab.copy(argument = c, reference = d))
+    type OptionalPkg[+LfV, +Ref] = ExerciseCommand[Option[String], LfV, Ref]
+    type RequiredPkg[+LfV, +Ref] = ExerciseCommand[String, LfV, Ref]
+
+    implicit def bitraverseInstance[PkgId]: Bitraverse[ExerciseCommand[PkgId, *, *]] =
+      new Bitraverse[ExerciseCommand[PkgId, *, *]] {
+        override def bitraverseImpl[G[_]: Applicative, A, B, C, D](
+            fab: ExerciseCommand[PkgId, A, B]
+        )(f: A => G[C], g: B => G[D]): G[ExerciseCommand[PkgId, C, D]] = {
+          ^(f(fab.argument), g(fab.reference))((c, d) => fab.copy(argument = c, reference = d))
+        }
       }
-    }
 
-    implicit val leftTraverseInstance: Traverse[ExerciseCommand[+*, Nothing]] =
-      bitraverseInstance.leftTraverse
+    implicit val leftTraverseInstance: Traverse[OptionalPkg[+*, Nothing]] =
+      bitraverseInstance[Option[String]].leftTraverse
 
-    implicit val hasTemplateId: HasTemplateId.Aux[ExerciseCommand[
+    implicit val hasTemplateId: HasTemplateId.Aux[OptionalPkg[
       +*,
       domain.ContractLocator[_],
     ], (Option[domain.ContractTypeId.Interface.Resolved], LfType)] =
-      new HasTemplateId[ExerciseCommand[+*, domain.ContractLocator[_]]] {
-
-        override def templateId(
-            fab: ExerciseCommand[_, domain.ContractLocator[_]]
-        ): ContractTypeId.OptionalPkg =
+      new HasTemplateId[OptionalPkg[+*, domain.ContractLocator[_]]] {
+        override def templateId(fab: FHuh): ContractTypeId.OptionalPkg =
           fab.choiceInterfaceId getOrElse (fab.reference match {
             case EnrichedContractKey(templateId, _) => templateId
             case EnrichedContractId(Some(templateId), _) => templateId
@@ -712,7 +716,7 @@ package domain {
         type TypeFromCtId = (Option[domain.ContractTypeId.Interface.Resolved], LfType)
 
         override def lfType(
-            fa: ExerciseCommand[_, domain.ContractLocator[_]],
+            fa: FHuh,
             templateId: ContractTypeId.Resolved,
             f: PackageService.ResolveTemplateRecordType,
             g: PackageService.ResolveChoiceArgType,

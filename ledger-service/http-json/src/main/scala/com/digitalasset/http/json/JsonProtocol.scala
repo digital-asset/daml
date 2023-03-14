@@ -476,11 +476,14 @@ object JsonProtocol extends JsonProtocolLow {
       domain.CreateCommand[JsValue, domain.ContractTypeId.Template.OptionalPkg]
     )
 
-  implicit val ExerciseCommandFormat
-      : RootJsonFormat[domain.ExerciseCommand[JsValue, domain.ContractLocator[JsValue]]] =
-    new RootJsonFormat[domain.ExerciseCommand[JsValue, domain.ContractLocator[JsValue]]] {
+  implicit val ExerciseCommandFormat: RootJsonFormat[
+    domain.ExerciseCommand.OptionalPkg[JsValue, domain.ContractLocator[JsValue]]
+  ] =
+    new RootJsonFormat[
+      domain.ExerciseCommand.OptionalPkg[JsValue, domain.ContractLocator[JsValue]]
+    ] {
       override def write(
-          obj: domain.ExerciseCommand[JsValue, domain.ContractLocator[JsValue]]
+          obj: domain.ExerciseCommand.OptionalPkg[JsValue, domain.ContractLocator[JsValue]]
       ): JsValue = {
 
         val reference: JsObject =
@@ -499,7 +502,7 @@ object JsonProtocol extends JsonProtocolLow {
 
       override def read(
           json: JsValue
-      ): domain.ExerciseCommand[JsValue, domain.ContractLocator[JsValue]] = {
+      ): domain.ExerciseCommand.OptionalPkg[JsValue, domain.ContractLocator[JsValue]] = {
         val reference = ContractLocatorFormat.read(json)
         val choice = fromField[domain.Choice](json, "choice")
         val argument = fromField[JsValue](json, "argument")

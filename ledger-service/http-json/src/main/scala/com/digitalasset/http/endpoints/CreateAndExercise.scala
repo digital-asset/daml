@@ -73,7 +73,7 @@ private[http] final class CreateAndExercise(
           decoder
             .decodeExerciseCommand(reqBody, jwt, toLedgerId(jwtPayload.ledgerId))
             .liftErr(InvalidUserInput): ET[
-            domain.ExerciseCommand[LfValue, domain.ContractLocator[LfValue]]
+            domain.ExerciseCommand.RequiredPkg[LfValue, domain.ContractLocator[LfValue]]
           ]
         _ <- EitherT.pure(parseAndDecodeTimer.stop())
         resolvedRef <- eitherT(

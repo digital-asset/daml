@@ -122,18 +122,22 @@ class DomainJsonDecoder(
     }
 
   def decodeExerciseCommand(a: JsValue, jwt: Jwt, ledgerId: LedgerApiDomain.LedgerId)(implicit
-      ev1: JsonReader[domain.ExerciseCommand[JsValue, domain.ContractLocator[JsValue]]],
+      ev1: JsonReader[domain.ExerciseCommand.OptionalPkg[JsValue, domain.ContractLocator[JsValue]]],
       ec: ExecutionContext,
       lc: LoggingContextOf[InstanceUUID],
-  ): ET[domain.ExerciseCommand[domain.LfValue, domain.ContractLocator[domain.LfValue]]] =
+  ): ET[
+    domain.ExerciseCommand.RequiredPkg[domain.LfValue, domain.ContractLocator[domain.LfValue]]
+  ] =
     for {
       cmd0 <- either(
         SprayJson
-          .decode[domain.ExerciseCommand[JsValue, domain.ContractLocator[JsValue]]](a)
+          .decode[domain.ExerciseCommand.OptionalPkg[JsValue, domain.ContractLocator[JsValue]]](a)
           .liftErrS("DomainJsonDecoder_decodeExerciseCommand")(JsonError)
       )
 
-      ifIdlfType <- lookupLfType[domain.ExerciseCommand[+*, domain.ContractLocator[_]]](
+      ifIdlfType <- lookupLfType[
+        domain.ExerciseCommand.OptionalPkg[+*, domain.ContractLocator[_]]
+      ](
         cmd0,
         jwt,
         ledgerId,
@@ -141,10 +145,9 @@ class DomainJsonDecoder(
       (oIfaceId, lfType) = ifIdlfType
       // treat an inferred iface ID as a user-specified one
       choiceIfaceOverride <-
-        (if (oIfaceId.isDefined)
-           (oIfaceId: Option[domain.ContractTypeId.Interface.RequiredPkg]).pure[ET]
-         else cmd0.choiceInterfaceId.traverse(templateId_(_, jwt, ledgerId)))
-          .map(_ map ((_: domain.ContractTypeId.RequiredPkg) map some))
+        if (oIfaceId.isDefined)
+          (oIfaceId: Option[domain.ContractTypeId.Interface.RequiredPkg]).pure[ET]
+        else cmd0.choiceInterfaceId.traverse(templateId_(_, jwt, ledgerId))
 
       cmd1 <-
         cmd0
@@ -152,7 +155,7 @@ class DomainJsonDecoder(
           .bitraverse(
             arg => either(jsValueToLfValue(lfType, arg)),
             ref => decodeContractLocatorKey(ref, jwt, ledgerId),
-          ): ET[domain.ExerciseCommand[domain.LfValue, domain.ContractLocator[
+          ): ET[domain.ExerciseCommand.RequiredPkg[domain.LfValue, domain.ContractLocator[
           domain.LfValue
         ]]]
 

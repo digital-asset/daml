@@ -498,7 +498,7 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
       (status, body.parseJson)
     }
 
-  def archiveCommand[Ref](reference: Ref): domain.ExerciseCommand[v.Value, Ref] = {
+  def archiveCommand[Ref](reference: Ref): domain.ExerciseCommand[Nothing, v.Value, Ref] = {
     val arg: v.Record = v.Record()
     val choice = lar.Choice("Archive")
     domain.ExerciseCommand(reference, choice, boxedRecord(arg), None, None)

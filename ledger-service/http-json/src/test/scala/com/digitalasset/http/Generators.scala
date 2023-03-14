@@ -124,7 +124,8 @@ object Generators {
       contractId <- contractIdGen
     } yield domain.EnrichedContractId(templateId, contractId)
 
-  def exerciseCmdGen: Gen[domain.ExerciseCommand[JsValue, domain.ContractLocator[JsValue]]] =
+  def exerciseCmdGen
+      : Gen[domain.ExerciseCommand.OptionalPkg[JsValue, domain.ContractLocator[JsValue]]] =
     for {
       ref <- contractLocatorGen
       arg <- genJsObj
