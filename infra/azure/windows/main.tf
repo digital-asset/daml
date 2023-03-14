@@ -125,7 +125,7 @@ resource "azurerm_windows_virtual_machine_scale_set" "deployment" {
   instances              = 1 #instance count to begin with
   overprovision          = false
   single_placement_group = false
-  sku                    = "Standard_DS1_v2"
+  sku                    = "Standard_DS1_v2" #Standard_F16s_v2 to match current setup on GCP
 
 
   admin_username = "adminuser"
@@ -145,11 +145,18 @@ resource "azurerm_windows_virtual_machine_scale_set" "deployment" {
   }
 
   os_disk {
-    storage_account_type = "Standard_LRS"
+    storage_account_type = "StandardSSD_LRS"
     caching              = "ReadOnly"
-    #disk_size_gb         = 40
+    disk_size_gb         = 256
 
   }
+  /*data_disk {
+    storage_account_type = "StandardSSD_LRS"
+    create_option       = "Empty"
+    caching              = "ReadWrite"
+    lun                  = 0
+    disk_size_gb         = 400
+  }*/
 
   network_interface {
     name        = "external"
@@ -203,7 +210,7 @@ resource "azurerm_windows_virtual_machine_scale_set" "deployment" {
   protected_settings = <<PROTECTED_SETTINGS
     {
       "fileUris": [
-          "hhttps://github.com/asangeethada/daml/tree/infra-add-azure/infra/azure/windows/startup.ps1"
+          "https://github.com/asangeethada/daml/blob/infra-add-azure/infra/azure/windows/startup.ps1"
         ],
       "commandToExecute": "powershell.exe -ExecutionPolicy Unrestricted -Command \"./startup.ps1 -vsts_token \"${secret_resource.vsts-token.value}\"; exit 0;\""
     }

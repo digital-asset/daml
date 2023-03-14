@@ -71,7 +71,7 @@ resource "azurerm_linux_virtual_machine_scale_set" "deployment" {
   name                = "buildagent-vmss"
   resource_group_name = azurerm_resource_group.rg.name
   location            = azurerm_resource_group.rg.location
-  sku                 = "Standard_DS1_v2"
+  sku                 = "Standard_DS1_v2" #Standard_F16s_v2 to match current setup on GCP
   instances           = 1 //var.numberOfWorkerNodes # number of instances
 
   overprovision          = false
@@ -109,6 +109,13 @@ resource "azurerm_linux_virtual_machine_scale_set" "deployment" {
     diff_disk_settings {
       option = "Local"
     }
+  }
+  data_disk {
+    storage_account_type = "StandardSSD_LRS"
+    create_option       = "Empty"
+    caching              = "ReadWrite"
+    lun                  = 0
+    disk_size_gb         = 400
   }
 
     network_interface {
