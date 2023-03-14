@@ -1393,6 +1393,7 @@ abstract class AbstractHttpServiceIntegrationTestQueryStoreIndependent
                 readAs = None,
                 submissionId = Some(submissionId),
                 deduplicationPeriod = Some(domain.DeduplicationPeriod.Duration(10000L)),
+                disclosedContracts = None,
               )
             ),
           )

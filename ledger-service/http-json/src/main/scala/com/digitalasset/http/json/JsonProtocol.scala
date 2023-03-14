@@ -460,9 +460,14 @@ object JsonProtocol extends JsonProtocolLow {
 
   implicit val SubmissionIdFormat: JsonFormat[domain.SubmissionId] = taggedJsonFormat
 
-  implicit val CommandMetaFormat: RootJsonFormat[domain.CommandMeta] = jsonFormat5(
-    domain.CommandMeta
-  )
+  implicit val CommandMetaFormat: RootJsonFormat[domain.CommandMeta] = {
+    implicit val noDisclosed
+        : JsonFormatFromFuns[Option[List[domain.DisclosedContract[Nothing, Nothing]]]] =
+      new JsonFormatFromFuns(_ => Option.empty[List[domain.DisclosedContract[Nothing, Nothing]]])(
+        _ => JsNull
+      )
+    jsonFormat6(domain.CommandMeta.apply)
+  }
 
   implicit val CreateCommandFormat: RootJsonFormat[
     domain.CreateCommand[JsValue, domain.ContractTypeId.Template.OptionalPkg]
@@ -666,6 +671,13 @@ object JsonProtocol extends JsonProtocolLow {
       override def read(json: JsValue): C =
         readCombine(json.convertTo[A], json.convertTo[B])
     }
+
+  private final class JsonFormatFromFuns[A](read0: JsValue => A)(write0: A => JsValue)
+      extends JsonFormat[A] {
+    override def write(obj: A): JsValue = write0(obj)
+
+    override def read(json: JsValue): A = read0(json)
+  }
 }
 
 sealed abstract class JsonProtocolLow extends DefaultJsonProtocol with ExtraFormats {

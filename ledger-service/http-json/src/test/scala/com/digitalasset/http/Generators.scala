@@ -142,7 +142,7 @@ object Generators {
   def metaGen: Gen[domain.CommandMeta] =
     for {
       commandId <- Gen.option(Gen.identifier.map(domain.CommandId(_)))
-    } yield domain.CommandMeta(commandId, None, None, None, None)
+    } yield domain.CommandMeta(commandId, None, None, None, None, None)
 
   private def genJsObj: Gen[JsObject] =
     Gen.listOf(genJsValPair).map(xs => JsObject(xs.toMap))

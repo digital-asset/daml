@@ -347,7 +347,12 @@ package domain {
       readAs: Option[List[Party]],
       submissionId: Option[SubmissionId],
       deduplicationPeriod: Option[domain.DeduplicationPeriod],
+      disclosedContracts: Option[List[domain.DisclosedContract[Nothing, Nothing]]],
   )
+
+  object CommandMeta {
+    type NoDisclosed = CommandMeta
+  }
 
   final case class CreateCommand[+LfV, +TmplId](
       templateId: TmplId,

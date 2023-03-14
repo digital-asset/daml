@@ -156,6 +156,7 @@ class HttpServiceIntegrationTestUserManagementNoAuth
           None,
           submissionId = None,
           deduplicationPeriod = None,
+          disclosedContracts = None,
         )
         command = iouCreateCommand(alice, meta = Some(meta))
         input: JsValue = encoder.encodeCreateCommand(command).valueOr(e => fail(e.shows))
