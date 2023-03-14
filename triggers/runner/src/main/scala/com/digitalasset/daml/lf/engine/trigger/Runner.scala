@@ -943,7 +943,7 @@ private[lf] class Runner private (
     Machine.stepToValue(compiledPackages, update)
   }
 
-  private[this] def encodeMsgs: TriggerContextualFlow[TriggerMsg, SValue, NotUsed] =
+  private[trigger] def encodeMsgs: TriggerContextualFlow[TriggerMsg, SValue, NotUsed] =
     Flow fromFunction {
       case ctx @ Ctx(_, TriggerMsg.Transaction(transaction), _) =>
         ctx.copy(value = converter.fromTransaction(transaction).orConverterException)
@@ -1468,7 +1468,11 @@ object Runner {
     smap.expect("SMap", { case SMap(_, values) => values.size }).orConverterException
   }
 
-  private def numberOfActiveContracts(
+  private def mapLookup(key: SValue, smap: SValue): Either[String, SValue] = {
+    smap.expect("SMap", { case SMap(_, entries) if entries.contains(key) => entries(key) })
+  }
+
+  private[trigger] def numberOfActiveContracts(
       svalue: SValue,
       level: Trigger.Level,
       version: Trigger.Version,
@@ -1497,7 +1501,7 @@ object Runner {
     }
   }
 
-  private def numberOfPendingContracts(
+  private[trigger] def numberOfPendingContracts(
       svalue: SValue,
       level: Trigger.Level,
       version: Trigger.Version,
@@ -1529,25 +1533,84 @@ object Runner {
     }
   }
 
-  private def numberOfInFlightCommands(
+  private[trigger] def getInFlightCommands(svalue: SValue): Either[String, SValue] = {
+    // The following code should be kept in sync with the TriggerState record type in Internal.daml
+    // svalue: TriggerState s
+    for {
+      inFlightCommands <- svalue.expect(
+        "SRecord",
+        { case SRecord(_, _, values) if values.size() >= 4 => values.get(4) },
+      )
+    } yield inFlightCommands
+  }
+
+  private[trigger] def numberOfInFlightCommands(
       svalue: SValue,
       level: Trigger.Level,
       version: Trigger.Version,
   ): Option[Int] = {
+    // svalue: TriggerState s
     level match {
       case Trigger.Level.High if version <= Trigger.Version.`2.0.0` =>
         // For older trigger code, we do not support extracting commands that are in-flight
         None
 
       case Trigger.Level.High =>
-        // The following code should be kept in sync with the TriggerState record type in Internal.daml
-        // svalue: TriggerState s
         val result = for {
-          inFlightCommands <- svalue.expect(
-            "SRecord",
-            { case SRecord(_, _, values) if values.size() >= 4 => values.get(4) },
-          )
+          inFlightCommands <- getInFlightCommands(svalue)
         } yield mapSize(inFlightCommands)
+
+        Some(result.orConverterException)
+
+      case Trigger.Level.Low =>
+        None
+    }
+  }
+
+  private def isCreateCommand(svalue: SValue): Boolean = {
+    svalue
+      .expect(
+        "SVariant",
+        {
+          case SVariant(_, "CreateCommand", _, _) => true
+          case SVariant(_, _, _, _) => false
+        },
+      )
+      .orConverterException
+  }
+
+  private def isCreateAndExerciseCommand(svalue: SValue): Boolean = {
+    svalue
+      .expect(
+        "SVariant",
+        {
+          case SVariant(_, "CreateAndExerciseCommand", _, _) => true
+          case SVariant(_, _, _, _) => false
+        },
+      )
+      .orConverterException
+  }
+
+  private[trigger] def numberOfInFlightCreateCommands(
+      commandId: String,
+      svalue: SValue,
+      level: Trigger.Level,
+      version: Trigger.Version,
+  ): Option[Int] = {
+    // svalue: TriggerState s
+    level match {
+      case Trigger.Level.High if version <= Trigger.Version.`2.0.0` =>
+        // For older trigger code, we do not support extracting commands that are in-flight
+        None
+
+      case Trigger.Level.High =>
+        val result = for {
+          inFlightCommands <- getInFlightCommands(svalue)
+          commands <- mapLookup(SText(commandId), inFlightCommands)
+          entries <- commands.expect("SList", { case SList(entries) => entries })
+        } yield entries.toImmArray.toSeq.count { cmd =>
+          isCreateCommand(cmd) || isCreateAndExerciseCommand(cmd)
+        }
 
         Some(result.orConverterException)
 
@@ -1561,13 +1624,13 @@ object Runner {
       level: Trigger.Level,
       version: Trigger.Version,
   ): SValue = {
+    // state: TriggerState s
     level match {
       case Trigger.Level.High if version <= Trigger.Version.`2.0.0` =>
         // For old trigger code, we do not support extracting the user state
         state
 
       case Trigger.Level.High =>
-        // state: TriggerState s
         state
           .expect(
             "SRecord",

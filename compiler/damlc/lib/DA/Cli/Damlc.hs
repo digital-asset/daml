@@ -111,8 +111,6 @@ data CommandName =
   | DebugIdeSpanInfo
   | Desugar
   | DocTest
-  | GenerateSrc
-  | GenerateGenerics
   | Ide
   | Init
   | Inspect
@@ -1056,15 +1054,38 @@ main = do
     -- Note: need to parse given args first to decide whether we need to add
     -- args from daml.yaml.
     Command cmd mbProjectOpts _ <- handleParseResult tempParseResult
-    damlYamlArgs <- cliArgsFromDamlYaml mbProjectOpts
-    let args = if cmd `elem` [Build, Compile, Desugar, Ide, DebugIdeSpanInfo, Test, DamlDoc, Repl]
-               then cliArgs ++ damlYamlArgs
-               else cliArgs
+    damlYamlArgs <- if cmdUseDamlYamlArgs cmd
+      then cliArgsFromDamlYaml mbProjectOpts
+      else pure []
+    let args = cliArgs ++ damlYamlArgs
         (errMsgs, parseResult) = parse args
     Command _ _ io <- handleParseResult parseResult
     forM_ errMsgs $ \msg -> do
         hPutStrLn stderr msg
     withProgName "damlc" io
+
+-- | Commands for which we add the args from daml.yaml build-options.
+cmdUseDamlYamlArgs :: CommandName -> Bool
+cmdUseDamlYamlArgs = \case
+  Build -> True
+  Clean -> False -- don't need any flags to remove files
+  Compile -> True
+  DamlDoc -> True
+  DebugIdeSpanInfo -> True
+  Desugar -> True
+  DocTest -> True
+  Ide -> True
+  Init -> True
+  Inspect -> False -- just reads the dalf
+  InspectDar -> False -- just reads the dar
+  ValidateDar -> False -- just reads the dar
+  License -> False -- just prints the license
+  Lint -> True
+  MergeDars -> False -- just reads the dars
+  Package -> False -- deprecated
+  Test -> True
+  Visual -> False -- just reads the dar
+  Repl -> True
 
 withProjectRoot' :: ProjectOpts -> ((FilePath -> IO FilePath) -> IO a) -> IO a
 withProjectRoot' ProjectOpts{..} act =

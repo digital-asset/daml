@@ -15,6 +15,7 @@ da_scala_library(
     scala_deps = [
         "@maven//:io_circe_circe_core",
         "@maven//:io_circe_circe_yaml",
+        "@maven//:io_circe_circe_yaml_common",
         "@maven//:org_typelevel_cats_core",
     ],
     tags = ["maven_coordinates=com.daml:daml-sdk-project-config:__VERSION__"],
