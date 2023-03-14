@@ -48,7 +48,7 @@
 
 <a name="function-iou12-main-28537"></a>[main](#function-iou12-main-28537)
 
-> : [Scenario](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-scenario-98127) ()
+> : Script ()
 >
 > A single test scenario covering all functionality that `Iou` implements.
 > This description contains [a link](http://example.com), some bogus <inline html>,

@@ -47,48 +47,43 @@ final class TriggerLogContext private (
     private[trigger] val loggingContext: LoggingContextOf[Trigger],
     private[trigger] val entries: Seq[(String, LoggingValue)],
     private[trigger] val span: TriggerLogSpan,
+    private[trigger] val callback: (String, TriggerLogContext) => Unit,
 ) extends NoCopy {
 
   import ToLoggingContext._
 
-  private[this] var callback: (String, TriggerLogContext) => Unit = (_, _) => ()
-
-  private[trigger] def setCallback(callback: (String, TriggerLogContext) => Unit): Unit = {
-    this.callback = callback
-  }
-
   def enrichTriggerContext[A](
       additionalEntries: (String, LoggingValue)*
   )(f: TriggerLogContext => A): A = {
-    val context = new TriggerLogContext(loggingContext, entries ++ additionalEntries, span)
-
-    context.setCallback(callback)
-
-    f(context)
+    f(new TriggerLogContext(loggingContext, entries ++ additionalEntries, span, callback))
   }
 
   def nextSpan[A](
       name: String,
       additionalEntries: (String, LoggingValue)*
   )(f: TriggerLogContext => A): A = {
-    val context =
-      new TriggerLogContext(loggingContext, entries ++ additionalEntries, span.nextSpan(name))
-
-    context.setCallback(callback)
-
-    f(context)
+    f(
+      new TriggerLogContext(
+        loggingContext,
+        entries ++ additionalEntries,
+        span.nextSpan(name),
+        callback,
+      )
+    )
   }
 
   def childSpan[A](
       name: String,
       additionalEntries: (String, LoggingValue)*
   )(f: TriggerLogContext => A): A = {
-    val context =
-      new TriggerLogContext(loggingContext, entries ++ additionalEntries, span.childSpan(name))
-
-    context.setCallback(callback)
-
-    f(context)
+    f(
+      new TriggerLogContext(
+        loggingContext,
+        entries ++ additionalEntries,
+        span.childSpan(name),
+        callback,
+      )
+    )
   }
 
   def groupWith(contexts: TriggerLogContext*): TriggerLogContext = {
@@ -98,11 +93,8 @@ final class TriggerLogContext private (
     val groupSpans = contexts.foldLeft(span) { case (span, context) =>
       span.groupWith(context.span)
     }
-    val context = new TriggerLogContext(loggingContext, groupEntries.toSeq, groupSpans)
 
-    context.setCallback(callback)
-
-    context
+    new TriggerLogContext(loggingContext, groupEntries.toSeq, groupSpans, callback)
   }
 
   def logError(message: String, additionalEntries: (String, LoggingValue)*)(implicit
@@ -160,6 +152,20 @@ object TriggerLogContext {
       loggingContext,
       entries,
       TriggerLogSpan(BackStack(span)),
+      (_, _) => (),
+    ).enrichTriggerContext()(f)
+  }
+
+  private[trigger] def newRootSpanWithCallback[A](
+      span: String,
+      callback: (String, TriggerLogContext) => Unit,
+      entries: (String, LoggingValue)*
+  )(f: TriggerLogContext => A)(implicit loggingContext: LoggingContextOf[Trigger]): A = {
+    new TriggerLogContext(
+      loggingContext,
+      entries,
+      TriggerLogSpan(BackStack(span)),
+      callback,
     ).enrichTriggerContext()(f)
   }
 

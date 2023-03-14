@@ -6,12 +6,12 @@
 
 module AliasCompression where
 
+import Daml.Script
+
 f : a -> a
 f x0 =
   let x1 = x0 in
   let x2 = x1 in
   x2
 
-main = scenario do f (pure ())
-
--- @ENABLE-SCENARIOS
+main = script do f (pure ())

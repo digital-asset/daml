@@ -4,10 +4,11 @@
 
 module LogicTest where
 
+import Daml.Script
 import DA.Logic
 import DA.Assert
 
-propositionTest = scenario do
+propositionTest = script do
   let
     p = Proposition 1
     q = Proposition 2
@@ -34,12 +35,10 @@ propositionTest = scenario do
   Left r === interpret truth (q ||| r)
   interpret truth ( p &&& r) === Left r
 
-dnfTest = scenario do
+dnfTest = script do
   Disjunction [Conjunction[Proposition 1]] === toDNF (Proposition 1)
   Disjunction [Conjunction[Proposition 1]] === toDNF (Conjunction[Proposition 1])
   Disjunction [Conjunction[Negation $ Proposition 1]] === toDNF (Negation . Proposition $ 1)
   Disjunction [Conjunction[Negation $ Proposition 1]] === toDNF (Conjunction [Negation . Proposition $ 1])
   (toDNF . neg . Conjunction $ Proposition <$> [1, 2, 3]) ===
     Disjunction (Conjunction . (:: []) . Negation . Proposition <$> [1,2,3])
-
--- @ENABLE-SCENARIOS

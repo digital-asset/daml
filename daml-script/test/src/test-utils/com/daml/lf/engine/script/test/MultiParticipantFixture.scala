@@ -22,6 +22,7 @@ import com.daml.timer.RetryStrategy
 import com.google.protobuf.ByteString
 import io.grpc.ManagedChannelBuilder
 import org.scalatest.Suite
+import spray.json.JsString
 
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{ExecutionContext, Future}
@@ -37,11 +38,13 @@ trait MultiParticipantFixture
 
   private val tmpDir = Files.createTempDirectory("testMultiParticipantFixture")
   private val cantonConfigPath = tmpDir.resolve("participant.config")
+  private val portFile = tmpDir.resolve("portfile")
 
   override protected def afterAll(): Unit = {
     Files.delete(cantonConfigPath)
+    discard(Files.deleteIfExists(portFile))
+    Files.delete(tmpDir)
     super.afterAll()
-
   }
 
   private def canton(): ResourceOwner[(Port, Port)] =
@@ -61,6 +64,9 @@ trait MultiParticipantFixture
           val java = s"${System.getenv("JAVA_HOME")}/bin/java${exe}"
           val cantonConfig = s"""
           | canton {
+          |   parameters {
+          |     ports-file = ${JsString(portFile.toString).toString()}
+          |   }
           |   domains {
           |     local {
           |       storage.type = memory
@@ -99,13 +105,10 @@ trait MultiParticipantFixture
                 )
               ).run()
             )
-            _ <- Future.traverse(
-              Seq(p1LedgerApi, p2LedgerApi, p1AdminApi, p2AdminApi, domainPublicApi, domainAdminApi)
-            )(p =>
-              RetryStrategy.constant(attempts = 120, waitTime = 1.seconds)((_, _) =>
-                Future(p.testAndUnlock(InetAddress.getLoopbackAddress))
-              )
-            )
+
+            _ <- RetryStrategy.constant(attempts = 240, waitTime = 1.second) { (_, _) =>
+              Future(Files.size(portFile))
+            }
           } yield (p1LedgerApi.port, p2LedgerApi.port, proc)
         }
         def stop(r: (Port, Port, Process)): Future[Unit] = {

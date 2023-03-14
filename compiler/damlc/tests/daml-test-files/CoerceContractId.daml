@@ -6,7 +6,9 @@
 
 module CoerceContractId where
 
+import Daml.Script
 import DA.Assert
+import ScriptAssertHelpers
 
 template Foo with
     sign : Party
@@ -19,15 +21,13 @@ template Bar with
   where
     signatory sign
 
-test = scenario do
-  sign <- getParty "Sign"
+test = script do
+  sign <- allocateParty "Sign"
   let foo = Foo with sign
-  fooId <- submit sign do create foo
-  barId <- submit sign do create Bar with sign; cid = coerceContractId fooId
-  bar <- submit sign do fetch barId
+  fooId <- submit sign do createCmd foo
+  barId <- submit sign do createCmd Bar with sign; cid = coerceContractId fooId
+  bar <- queryAssertContractId sign barId
   let fooId' = coerceContractId bar.cid
   fooId' === fooId
-  foo' <- submit sign do fetch fooId'
+  foo' <- queryAssertContractId sign fooId'
   foo' === foo
-
--- @ENABLE-SCENARIOS

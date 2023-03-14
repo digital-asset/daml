@@ -6,6 +6,7 @@
 -- | Test that pattern matching for RoundingMode works.
 module RoundingModeMatch where
 
+import Daml.Script
 import DA.Assert ((===))
 
 foo : RoundingMode -> Int
@@ -19,7 +20,7 @@ foo = \case
     RoundingHalfEven -> 7
     RoundingUnnecessary -> 8
 
-test = scenario do
+test = script do
     foo RoundingUp === 1
     foo RoundingDown === 2
     foo RoundingCeiling === 3
@@ -28,5 +29,3 @@ test = scenario do
     foo RoundingHalfDown === 6
     foo RoundingHalfEven === 7
     foo RoundingUnnecessary === 8
-
--- @ENABLE-SCENARIOS

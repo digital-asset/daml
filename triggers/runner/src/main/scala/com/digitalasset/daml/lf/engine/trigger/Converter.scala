@@ -124,7 +124,7 @@ final class Converter(
   private[this] def fromEventId(eventId: String): SValue =
     record(eventIdTy, "unpack" -> SText(eventId))
 
-  private[this] def fromCommandId(commandId: String): SValue =
+  private[trigger] def fromCommandId(commandId: String): SValue =
     record(commandIdTy, "unpack" -> SText(commandId))
 
   private[this] def fromOptionalCommandId(commandId: String): SValue =
@@ -371,8 +371,9 @@ final class Converter(
       )
 
     case _ =>
-      // FIXME:
-      throw new ConverterException("FIXME: this case was not expected!")
+      throw new ConverterException(
+        s"${command.getClass.getSimpleName} is an unexpected command type"
+      )
   }
 
   def fromCommands(commands: Seq[Command]): SValue = {

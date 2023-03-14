@@ -4,11 +4,10 @@
 
 module SemigroupTest where
 
+import Daml.Script
 import DA.Assert
 import DA.Semigroup
 
-test = scenario do
+test = script do
   Min (23 : Int) <> Min 42 === Min 23
   Max (23 : Int) <> Max 42 === Max 42
-
--- @ENABLE-SCENARIOS

@@ -4,14 +4,13 @@
 
 module NewtypeDerive where
 
+import Daml.Script
 import DA.Assert
 
 newtype New a = New a deriving (Eq, Ord, Show, Functor)
 
-main = scenario do
+main = script do
   New "x" === New "x"
   assert $ New 1 < New 2
   show (New 1) === "New 1"
   fmap (+1) (New 1) === New 2
-
--- @ENABLE-SCENARIOS

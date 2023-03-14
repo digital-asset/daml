@@ -1,16 +1,24 @@
 -- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
 -- All rights reserved.
 
--- @INFO range=127:17-127:32; Use dedup
--- @INFO range=313:10-313:24; Evaluate
--- @INFO range=328:38-328:48; Use sum
--- @INFO range=329:43-329:53; Use sum
--- @INFO range=330:29-330:39; Use sum
--- @INFO range=333:3-333:23; Use head
--- @INFO range=338:29-338:36; Use head
+-- @INFO range=135:17-135:32; Use dedup
+-- @INFO range=321:10-321:24; Evaluate
+-- @INFO range=336:38-336:48; Use sum
+-- @INFO range=337:43-337:53; Use sum
+-- @INFO range=338:29-338:39; Use sum
+-- @INFO range=341:3-341:23; Use head
+-- @INFO range=351:10-351:17; Use head
+-- @ERROR range=301:1-301:9; head: empty list
+-- @ERROR range=307:1-307:9; tail: empty list
+-- @ERROR range=313:1-313:9; last: empty list
+-- @ERROR range=319:1-319:9; init: empty list
+-- @ERROR range=344:1-344:16; negative index
+-- @ERROR range=347:1-347:18; index too large
+-- @ERROR range=350:1-350:19; index too large
 
 module List where
 
+import Daml.Script
 import DA.List
 import DA.Assert
 import DA.Optional
@@ -18,7 +26,7 @@ import DA.Optional
 data Foo = Foo with x : Int; y : Text
   deriving (Eq, Show)
 
-testSort6 = scenario do
+testSort6 = script do
   let l = [ Foo 42 "a"
           , Foo 10 "c"
           , Foo 15 "c"
@@ -36,13 +44,13 @@ check45 n m = do
     let o = map (\(_, f) -> f ()) m
     o === ["A", "B", "C", "D", "E"]
 
-testSort5 = scenario do
+testSort5 = script do
     let l = [ (2, const "D"), (1, const "A"), (1, const "B"), (3, const "E"), (1, const "C") ]
     let m = sortOn fst l
     let n = map fst m
     check45 n m
 
-testSort4 = scenario do
+testSort4 = script do
     let l = [ (2, const "D"), (1, const "A"), (1, const "B"), (3, const "E"), (1, const "C") ]
     let cmp = \x y -> compare (fst x) (fst y)
     let m = sortBy cmp l
@@ -52,29 +60,29 @@ testSort4 = scenario do
     check (minimumBy cmp l) === check (head m)
     check (maximumBy cmp l) === check (last m)
 
-testSort3 = scenario do
+testSort3 = script do
     let l = [ "C", "A", "E", "D", "B" ]
     let m = sort l
     m === ["A", "B", "C", "D", "E"]
 
-testSort2 = scenario do
+testSort2 = script do
     let l = [ 4, 5, 6, 3, 9, 2, 1, 8, 7 ]
     let m = sortBy (\x y -> compare y x) l
     m === reverse [1, 2, 3, 4, 5, 6, 7, 8, 9]
     minimumBy (flip compare) l === head m
     maximumBy (flip compare) l === last m
 
-testSort1 = scenario do
+testSort1 = script do
     let l = [ 4, 5, 6, 3, 9, 2, 1, 8, 7 ]
     let m = sort l
     m === [1, 2, 3, 4, 5, 6, 7, 8, 9]
 
-testSortEmpty = scenario do
+testSortEmpty = script do
     let l = [] : [Int]
     let m = sort l
     m === l
 
-testSortIsStable = scenario do
+testSortIsStable = script do
     let l = [(1, 3), (1,2), (1,1), (1,1), (1,4)]
     let cmp = (compare `on` fst)
     let m = sortBy cmp l
@@ -83,17 +91,17 @@ testSortIsStable = scenario do
     maximumBy cmp l === head m -- all `EQ`, returning first
        where on cmp f x y = cmp (f x) (f y)
 
-testGroupOn = scenario do
+testGroupOn = script do
     let l = [(1, 3), (1,2), (1,1), (1,1), (1,4)]
     let m = groupOn ( (== 1) . snd ) l
     m === [[(1, 3), (1,2)], [(1,1), (1,1)], [(1,4)]]
 
-testDedup = scenario do
+testDedup = script do
     let l = [4,7,2,1,3,5,7,2,4,2,3,4,7,2,4,2,3,4,4,5,7,7,2]
     let m = dedup l
     m === [4,7,2,1,3,5]
 
-testUnique = scenario do
+testUnique = script do
     unique [1, 3, 4] === True
     unique [1, 3, 4, 3] === False
     unique ([] : [Int]) === True
@@ -102,149 +110,149 @@ testUnique = scenario do
 data Employee = Employee with employeeNo : Int; surname : Text; forename : Text
     deriving (Eq, Show)
 
-testUniqueOn = scenario do
+testUniqueOn = script do
     uniqueOn (.employeeNo) [ Employee 1 "Monday" "Jo", Employee 1 "Tuesday" "Bo" ] === False
     uniqueOn (.employeeNo) [ Employee 1 "Monday" "Jo", Employee 2 "Monday" "Jo", Employee 3 "Tuesday" "Bo"  ] === True
     uniqueOn (.employeeNo) ([] : [Employee]) === True
 
-testDedupOn = scenario do
+testDedupOn = script do
     dedupOn (.employeeNo) [ Employee 1 "Monday" "Jo", Employee 1 "Tuesday" "Bo" ] === [ Employee 1 "Monday" "Jo" ]
     dedupOn (.employeeNo) [ Employee 1 "Monday" "Jo", Employee 2 "Monday" "Jo", Employee 3 "Tuesday" "Bo"  ] === [ Employee 1 "Monday" "Jo", Employee 2 "Monday" "Jo", Employee 3 "Tuesday" "Bo"  ]
     assert $ null $ dedupOn (.employeeNo) ([] : [Employee])
 
-testUniqueBy = scenario do
+testUniqueBy = script do
     let cmp = \x y -> compare x.surname y.surname
     uniqueBy cmp [ Employee 1 "Monday" "Jo", Employee 1 "Tuesday" "Bo" ] === True
     uniqueBy cmp [ Employee 1 "Monday" "Jo", Employee 2 "Monday" "Jo", Employee 3 "Tuesday" "Bo"  ] === False
     uniqueBy cmp ([] : [Employee]) === True
 
-testDedupSort = scenario do
+testDedupSort = script do
     let l = [4,7,2,1,3,5,7,2,4,2,3,4,7,2,4,2,3,4,4,5,7,7,2]
     let m = dedupSort l
     m === [1,2,3,4,5,7]
 
-testDedupBy = scenario do
+testDedupBy = script do
   [2, 1, 3] === dedupBy compare [2, 1, 3, 2, 1]
   [3, 1, 9, 10, 2] === dedupBy (\x y -> compare (x % 5) (y % 5)) [3, 1, 6, 9, 6, 4, 10, 1, 2]
 
-testDedupSortBy = scenario do
+testDedupSortBy = script do
   [1, 2, 3] === dedupSortBy compare [2, 1, 3, 2, 1]
   [10, 1, 2, 3, 9] === dedupSortBy (\x y -> compare (x % 5) (y % 5)) [3, 1, 6, 9, 6, 4, 10, 1, 2]
 
-testMergeBy = scenario do
+testMergeBy = script do
   [1, 3, 5, 2, 4, 6] === mergeBy (const $ const EQ) [1, 3, 5] [2, 4, 6]
   [1, 2, 3, 4, 5, 6] === mergeBy compare [1, 3, 5] [2, 4, 6]
   [5, 1, 3, 6, 7] === mergeBy (\x _ -> compare (x % 5) (x % 5)) [5, 1, 3] [6, 7]
 
-testCombinePairs = scenario do
+testCombinePairs = script do
   [] === combinePairs (+) ([] : [Int])
   [42] === combinePairs (-) [42]
   [2, 12, 5] === combinePairs (*) [1, 2, 3, 4, 5]
   [16, 2, 2] === combinePairs (/) [256, 16, 4, 2, 2]
 
-testDropPrefix = scenario do
+testDropPrefix = script do
   [] === dropPrefix [] ([] : [Int])
   [1, 2, 3] === dropPrefix [] [1, 2, 3]
   [] === dropPrefix [1, 2, 3] []
   [3, 4] === dropPrefix [1, 2] [1, 2, 3, 4]
   [1, 2, 3, 4] === dropPrefix [3, 4] [1, 2, 3, 4]
 
-testDropSuffix = scenario do
+testDropSuffix = script do
   [] === dropSuffix [] ([] : [Int])
   [1, 2, 3] === dropSuffix [] [1, 2, 3]
   [] === dropSuffix [1, 2, 3] []
   [1, 2, 3, 4] === dropSuffix [1, 2] [1, 2, 3, 4]
   [1, 2] === dropSuffix [3, 4] [1, 2, 3, 4]
 
-testfoldBalanced1 = scenario do
+testfoldBalanced1 = script do
   15 === foldBalanced1 (+) [1, 2, 3, 4, 5]
   "abcde" === foldBalanced1 (<>) ["a", "b", "c", "d", "e"]
   5 === foldBalanced1 (-) [16, 8, 4, 2, 1]
 
-testGroup = scenario do
+testGroup = script do
   [] === group ([] : [Int])
   [[1, 1], [2, 2], [1]] === group [1, 1, 2, 2, 1]
 
-testGroupBy = scenario do
+testGroupBy = script do
   [] === groupBy (const $ const True) ([] : [Int])
   [["a", "b", "c"]] === groupBy (const $ const True) ["a", "b", "c"]
   [[1, 6], [2], [8, 3]] === groupBy (\x y -> x % 5 == y % 5) [1, 6, 2, 8, 3]
 
-testInits = scenario do
+testInits = script do
   [[], [1], [1, 3], [1, 3, 2]] === inits [1, 3, 2]
   [[], ["a"]] === inits ["a"]
   [[]] === inits ([] : [Int])
 
-testReplace = scenario do
+testReplace = script do
   [] === replace [] [] ([] : [Int])
   [] === replace [] [1] []
   [] === replace [1] [] []
   [1, 0, 5] === replace [2..4] [0] [1..5]
   [0, 2, 0, 2, 0] === replace [1, 0, 1] [2] [0, 1, 0, 1, 0, 1, 0, 1, 0]
 
-testStripPrefix = scenario do
+testStripPrefix = script do
   Some [] === stripPrefix [] ([] : [Int])
   Some [1, 2, 3] === stripPrefix [] [1, 2, 3]
   None === stripPrefix [1, 2, 3] []
   Some [3, 4] === stripPrefix [1, 2] [1, 2, 3, 4]
   None === stripPrefix [3, 4] [1, 2, 3, 4]
 
-testStripSuffix = scenario do
+testStripSuffix = script do
   Some [] === stripSuffix [] ([] : [Int])
   Some [1, 2, 3] === stripSuffix [] [1, 2, 3]
   None === stripSuffix [1, 2, 3] []
   None === stripSuffix [1, 2] [1, 2, 3, 4]
   Some [1, 2] === stripSuffix [3, 4] [1, 2, 3, 4]
 
-testIsPrefixOf = scenario do
+testIsPrefixOf = script do
   True === isPrefixOf [] ([] : [Int])
   False === isPrefixOf [1] []
   False === isPrefixOf [1..3] [2..5]
   True === isPrefixOf [1..3] [1..5]
 
-testIsSuffixOf = scenario do
+testIsSuffixOf = script do
   True === isSuffixOf [] ([] : [Int])
   False === isSuffixOf [1] []
   False === isSuffixOf [3..4] [2..5]
   True === isSuffixOf [3..5] [1..5]
 
-testIsInfixOf = scenario do
+testIsInfixOf = script do
   True === isInfixOf [] ([] : [Int])
   False === isInfixOf [1] []
   True === isInfixOf [3..4] [2..5]
   True === isInfixOf [3..5] [1..5]
   False === isInfixOf [2, 1] [1..5]
 
-testMapAccumL = scenario do
+testMapAccumL = script do
   (6, [0,1,3]) === mapAccumL (\a x -> (a+x, a)) 0 [1, 2, 3]
   (7.1, [1,3,7]) === mapAccumL (\a x -> (a + x, floor (a + x))) 0.0 ([1.2, 2.5, 3.4] : [Decimal])
   (42, []) === mapAccumL (\a x -> (a*x, a)) 42 []
 
-testIntersperse = scenario do
+testIntersperse = script do
   [] === intersperse 0 []
   [1] === intersperse 0 [1]
   [1, 0, 2] === intersperse 0 [1, 2]
   [1, 0, 2, 0, 3, 0, 4, 0, 5] === intersperse 0 [1..5]
 
-testIntercalate = scenario do
+testIntercalate = script do
   [] === intercalate [1] []
   [1, 2] === intercalate [] [[1], [2]]
   [1, 3, 2] === intercalate [] [[1, 3], [2]]
   [1, 3, 0, 0, 2, 0, 0] === intercalate [0, 0] [[1, 3], [2], []]
 
-testTails = scenario do
+testTails = script do
   [[1, 2, 3], [2, 3], [3], []] === tails [1, 2, 3]
   [[]] === tails ([] : [Text])
 
-testDropWhileEnd = scenario do
+testDropWhileEnd = script do
   [5, 1, 2, 3] === dropWhileEnd (>3) [5, 1, 2, 3, 4, 5]
   [] === dropWhileEnd (>3) []
 
-testTakeWhileEnd = scenario do
+testTakeWhileEnd = script do
   [4, 5] === takeWhileEnd (>3) [5, 1, 2, 3, 4, 5]
   [] === takeWhileEnd (>3) []
 
-testTranspose = scenario do
+testTranspose = script do
   [] === transpose ([[]] : [[Int]])
   [] === transpose ([] : [[Int]])
   [[1], [2]] === transpose [[1, 2]]
@@ -256,121 +264,124 @@ testTranspose = scenario do
   [[1, 3], [2, 4], [5]] === transpose [[1, 2, 5], [3, 4]]
   [[1, 3, 5], [2, 4]] === transpose [[1, 2], [3, 4], [5]]
 
-testBreakEnd = scenario do
+testBreakEnd = script do
   ([1,2, 3], [2, 1]) === breakEnd (>=3) [1, 2, 3, 2, 1]
   ([], []) === breakEnd (const False) ([] : [Text])
   ([1, 2, 3, 2, 1], []) === breakEnd (const True) [1, 2, 3, 2, 1]
   ([0, 0, 1, 1], [0, 0]) === breakEnd (/=0) [0, 0, 1, 1, 0, 0]
 
-testBreakOn = scenario do
+testBreakOn = script do
   ([1,2], [3, 2, 1]) === breakOn [3, 2] [1, 2, 3, 2, 1]
   ([1,2], [3, 2, 3, 2, 1]) === breakOn [3, 2] [1, 2, 3, 2, 3, 2, 1]
   ([], []) === breakOn [1] []
   ([1, 2, 3, 2, 1], []) === breakOn [4] [1, 2, 3, 2, 1]
   ([], [1..5]) === breakOn [] [1..5]
 
-testBreakOnEnd = scenario do
+testBreakOnEnd = script do
   ([1, 2, 3, 2], [1]) === breakOnEnd [3, 2] [1, 2, 3, 2, 1]
   ([1, 2, 3, 2, 3, 2], [1, 2]) === breakOnEnd [3, 2] [1, 2, 3, 2, 3, 2, 1, 2]
   ([], []) === breakOnEnd [1] []
   ([], [1, 2, 3, 2, 1]) === breakOnEnd [4] [1, 2, 3, 2, 1]
   ([1..5], []) === breakOnEnd [] [1..5]
 
-testLinesBy = scenario do
+testLinesBy = script do
   [[1, 2, 3], [4], [5]] === linesBy (==0) [1, 2, 3, 0, 4, 0, 5]
   [[1, 2, 3], [4], [5]] === linesBy (==0) [1, 2, 3, 0, 4, 0, 5, 0]
   [] === linesBy (==0) []
   [[], [], []] === linesBy (const True) [1, 2, 3]
   [[], [], [1, 2, 3], [], [4], [], [], [5], []] === linesBy (==0) [0, 0, 1, 2, 3, 0, 0, 4, 0, 0, 0, 5, 0, 0]
 
-testWordsBy = scenario do
+testWordsBy = script do
   [[1, 2, 3], [4], [5]] === wordsBy (==0) [1, 2, 3, 0, 4, 0, 5]
   [[1, 2, 3], [4], [5]] === wordsBy (==0) [1, 2, 3, 0, 4, 0, 5, 0]
   [] === wordsBy (==0) []
   [] === wordsBy (const True) [1, 2, 3]
   [[1, 2, 3], [4], [5]] === wordsBy (==0) [0, 0, 1, 2, 3, 0, 0, 4, 0, 0, 0, 5, 0, 0]
 
-testHead = scenario do
+testHead = script @[()] do
   1 === head [1, 2, 3]
   "foo" === head ["foo"]
-  p <- getParty "p"
-  submitMustFail p $ pure $ head []
+  p <- allocateParty "p"
+  pure $ head []
 
-testTail = scenario do
+testTail = script @[()] do
   [2, 3] === tail [1, 2, 3]
   [] === tail ["hello"]
-  p <- getParty "p"
-  submitMustFail p $ pure $ tail []
+  p <- allocateParty "p"
+  pure $ tail []
 
-testLast = scenario do
+testLast = script @[()] do
   3 === last [1, 2, 3]
   "foo" === last ["foo"]
-  p <- getParty "p"
-  submitMustFail p $ pure $ last []
+  p <- allocateParty "p"
+  pure $ last []
 
-testInit = scenario do
+testInit = script @[()] do
   [1, 2] === init [1, 2, 3]
   [] === init ["hello"]
-  p <- getParty "p"
-  submitMustFail p $ pure $ init []
+  p <- allocateParty "p"
+  pure $ init []
 
-testFoldl1 = scenario do
+testFoldl1 = script do
   1.25 === foldl1 (/) ([10.0, 2.0, 4.0] : [Decimal])
   "abc" === foldl1 (<>) ["a", "b", "c"]
   -4 === foldl1 (-) [1, 2, 3]
 
-testFoldr1 = scenario do
+testFoldr1 = script do
   3.0 === foldr1 (/) ([9.0, 150.0, 50.0] : [Decimal])
   "abc" === foldr1 (<>) ["a", "b", "c"]
   2 === foldr1 (-) [1, 2, 3]
 
-testRepeatedly = scenario do
+testRepeatedly = script do
   [15, 12, 5] === repeatedly (\x -> (foldl1 (+) x, drop 2 x)) [1..5]
   [10, 22, 34, 10] === repeatedly (\x -> (foldl1 (+) (take 4 x), drop 3 x)) [1..10]
   [] === repeatedly (\x -> (foldl1 (+) (take 2 x), drop 2 x)) ([] : [Int])
 
-testNth = scenario do
+testNth = script do
   1 === [1, 2, 3] !! 0
   3 === [1, 2, 3] !! 2
-  p <- getParty "p"
-  submitMustFail p $ pure $ [1, 2, 3] !! (-1)
-  submitMustFail p $ pure $ [1, 2, 3] !! 3
-  submitMustFail p $ pure $ [] !! 0
 
-testElemIndex = scenario do
+testNthNegative = script do
+  pure $ [1, 2, 3] !! (-1)
+
+testNthOutOfRange = script do
+  pure $ [1, 2, 3] !! 3
+
+testNthOutOfRange0 = script @[Int] do
+  pure $ [] !! 0
+
+testElemIndex = script do
   let x = [5, 4, 6, 7, 9, 4]
   elemIndex 7 x === Some 3
   elemIndex 5 x === Some 0
   elemIndex 4 x === Some 1
   assert $ isNone $ elemIndex 10 x
 
-testFindIndex = scenario do
+testFindIndex = script do
   let x = [5, 4, 6, 7, 9, 4]
   findIndex (>6) x === Some 3
   findIndex (>0) x === Some 0
   findIndex (<5) x === Some 1
   assert $ isNone $ findIndex (>10) x
 
-testSum = scenario do
+testSum = script do
   sum [1, 2, 3] === 6
   sum [] === 0
   sum [] === (0.0 : Decimal)
   sum [40.0, 2.0] === (42.0 : Decimal)
 
-testProduct = scenario do
+testProduct = script do
   product [1, 2, 3] === 6
   product [] === 1
   product [] === (1.0 : Decimal)
   product [21.0, 2.0] === (42.0 : Decimal)
 
-testDelete = scenario do
+testDelete = script do
   delete "a" ["b","a","n","a","n","a"] === ["b","n","a","n","a"]
   deleteBy (<=) 4 [1..10] === [1,2,3,5,6,7,8,9,10]
   [1,2,3,3] \\ [2,2,3] === [1,3]
 
-testChunksOf = scenario do
+testChunksOf = script do
   [[1, 2, 3], [4, 5, 6], [7, 8, 9], [10]] === chunksOf 3 [1..10]
   [[1, 2]] === chunksOf 2 [1, 2]
   [] === chunksOf 3 ([] : [Int])
-
--- @ENABLE-SCENARIOS
