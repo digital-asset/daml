@@ -147,6 +147,7 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
       stakeholders = samParties2,
       signatories = samParties3,
       choiceObservers = samParties4,
+      authorizers = Set.empty,
       children = ImmArray.Empty,
       exerciseResult = exerciseResult,
       keyOpt = key,

@@ -1047,6 +1047,7 @@ object TransactionSpec {
       stakeholders = Set.empty,
       signatories = Set.empty,
       choiceObservers = Set.empty,
+      authorizers = Set.empty,
       children = children,
       exerciseResult = if (hasExerciseResult) Some(V.ValueUnit) else None,
       keyOpt = None,

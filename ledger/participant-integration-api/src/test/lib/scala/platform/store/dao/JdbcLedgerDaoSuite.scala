@@ -239,6 +239,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
       stakeholders = Set(alice, bob),
       signatories = Set(alice, bob),
       choiceObservers = Set.empty,
+      authorizers = Set.empty,
       children = ImmArray.Empty,
       exerciseResult = Some(someChoiceResult),
       keyOpt = key,
@@ -394,6 +395,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
         stakeholders = divulgees,
         signatories = divulgees,
         choiceObservers = Set.empty,
+        authorizers = Set.empty,
         children = ImmArray.Empty,
         exerciseResult = Some(someChoiceResult),
         keyOpt = None,
@@ -771,6 +773,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
         stakeholders = Set(party),
         signatories = Set(party),
         choiceObservers = Set.empty,
+        authorizers = Set.empty,
         children = ImmArray.Empty,
         exerciseResult = Some(LfValue.ValueUnit),
         keyOpt = maybeKey.map(k =>

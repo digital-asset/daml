@@ -72,6 +72,7 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
           stakeholders = Set(alice, bob),
           signatories = Set(alice),
           choiceObservers = Set.empty,
+          authorizers = Set.empty,
           children = ImmArray.Empty,
           exerciseResult = Some(someChoiceResult),
           keyOpt = None,
@@ -106,6 +107,7 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
           stakeholders = Set(bob),
           signatories = Set(bob),
           choiceObservers = Set.empty,
+          authorizers = Set.empty,
           children = ImmArray.Empty,
           exerciseResult = Some(someChoiceResult),
           keyOpt = Some(
