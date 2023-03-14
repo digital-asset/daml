@@ -47,6 +47,7 @@
   },
   "devDependencies": {
     "@types/jest": "^26.0.23",
+    "@types/prettier": "2.6.0",
     "@types/lodash": "4.14.161",
     "@types/node": "^12.12.14",
     "@types/wait-on": "^3.2.0",
