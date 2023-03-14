@@ -777,8 +777,6 @@ final class TriggerRuleSimulationLib private (
             val msgIn = gb add TriggerContextualFlow[SValue].map(ctx =>
               ctx.copy(value = SList(FrontStack(ctx.value)))
             )
-            val encodeMsg =
-              gb add runner.encodeMsgs.map(ctx => ctx.copy(value = SList(FrontStack(ctx.value))))
             val stateOut = gb add Source.single(state)
             val rule = gb add runner.runRuleOnMsgs(lambdaKillSwitch)
             val killSwitch = gb add lambdaKillSwitch.flow[TriggerContext[SValue]]
