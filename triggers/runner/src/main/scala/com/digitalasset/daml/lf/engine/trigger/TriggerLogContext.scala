@@ -61,29 +61,43 @@ final class TriggerLogContext private (
   def nextSpan[A](
       name: String,
       additionalEntries: (String, LoggingValue)*
-  )(f: TriggerLogContext => A): A = {
-    f(
-      new TriggerLogContext(
-        loggingContext,
-        entries ++ additionalEntries,
-        span.nextSpan(name),
-        callback,
-      )
+  )(f: TriggerLogContext => A)(implicit
+      logger: ContextualizedLogger
+  ): A = {
+    val context = new TriggerLogContext(
+      loggingContext,
+      entries ++ additionalEntries,
+      span.nextSpan(name),
+      callback,
     )
+
+    try {
+      context.logInfo("span start")
+      f(context)
+    } finally {
+      context.logInfo("span end")
+    }
   }
 
   def childSpan[A](
       name: String,
       additionalEntries: (String, LoggingValue)*
-  )(f: TriggerLogContext => A): A = {
-    f(
-      new TriggerLogContext(
-        loggingContext,
-        entries ++ additionalEntries,
-        span.childSpan(name),
-        callback,
-      )
+  )(f: TriggerLogContext => A)(implicit
+      logger: ContextualizedLogger
+  ): A = {
+    val context = new TriggerLogContext(
+      loggingContext,
+      entries ++ additionalEntries,
+      span.childSpan(name),
+      callback,
     )
+
+    try {
+      context.logInfo("span start")
+      f(context)
+    } finally {
+      context.logInfo("span end")
+    }
   }
 
   def groupWith(contexts: TriggerLogContext*): TriggerLogContext = {
