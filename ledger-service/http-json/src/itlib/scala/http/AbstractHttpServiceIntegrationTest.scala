@@ -873,7 +873,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
 
   private def assertExerciseResponseArchivedContract(
       exerciseResponse: domain.ExerciseResponse[JsValue],
-      exercise: domain.ExerciseCommand[v.Value, domain.EnrichedContractId],
+      exercise: domain.ExerciseCommand.OptionalPkg[v.Value, domain.EnrichedContractId],
   ): Assertion =
     inside(exerciseResponse) { case domain.ExerciseResponse(exerciseResult, List(contract1), _) =>
       exerciseResult shouldBe JsObject()

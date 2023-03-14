@@ -623,7 +623,7 @@ trait AbstractHttpServiceIntegrationTestFuns
   }
 
   protected def encodeExercise(encoder: DomainJsonEncoder)(
-      exercise: domain.ExerciseCommand[v.Value, domain.ContractLocator[v.Value]]
+      exercise: domain.ExerciseCommand.OptionalPkg[v.Value, domain.ContractLocator[v.Value]]
   ): JsValue =
     encoder.encodeExerciseCommand(exercise).getOrElse(fail(s"Cannot encode: $exercise"))
 
