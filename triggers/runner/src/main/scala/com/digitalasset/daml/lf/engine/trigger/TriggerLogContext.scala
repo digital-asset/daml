@@ -72,10 +72,10 @@ final class TriggerLogContext private (
     )
 
     try {
-      context.logInfo("span start")
+      context.logInfo("span entry")
       f(context)
     } finally {
-      context.logInfo("span end")
+      context.logInfo("span exit")
     }
   }
 
@@ -93,10 +93,10 @@ final class TriggerLogContext private (
     )
 
     try {
-      context.logInfo("span start")
+      context.logInfo("span entry")
       f(context)
     } finally {
-      context.logInfo("span end")
+      context.logInfo("span exit")
     }
   }
 
