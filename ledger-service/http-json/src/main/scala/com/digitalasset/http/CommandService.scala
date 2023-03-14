@@ -224,7 +224,7 @@ class CommandService(
 
   private def submitAndWaitRequest(
       jwtPayload: JwtWritePayload,
-      meta: Option[domain.CommandMeta],
+      meta: Option[domain.CommandMeta.NoDisclosed],
       command: lav1.commands.Command.Command,
       commandKind: String,
   )(implicit

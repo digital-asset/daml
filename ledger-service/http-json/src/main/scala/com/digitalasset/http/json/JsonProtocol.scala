@@ -460,7 +460,7 @@ object JsonProtocol extends JsonProtocolLow {
 
   implicit val SubmissionIdFormat: JsonFormat[domain.SubmissionId] = taggedJsonFormat
 
-  implicit val CommandMetaFormat: RootJsonFormat[domain.CommandMeta] = {
+  implicit val CommandMetaFormat: RootJsonFormat[domain.CommandMeta.NoDisclosed] = {
     implicit val noDisclosed
         : JsonFormatFromFuns[Option[List[domain.DisclosedContract[Nothing, Nothing]]]] =
       new JsonFormatFromFuns(_ => Option.empty[List[domain.DisclosedContract[Nothing, Nothing]]])(
@@ -503,7 +503,7 @@ object JsonProtocol extends JsonProtocolLow {
         val reference = ContractLocatorFormat.read(json)
         val choice = fromField[domain.Choice](json, "choice")
         val argument = fromField[JsValue](json, "argument")
-        val meta = fromField[Option[domain.CommandMeta]](json, "meta")
+        val meta = fromField[Option[domain.CommandMeta.NoDisclosed]](json, "meta")
 
         domain.ExerciseCommand(
           reference = reference,

@@ -455,7 +455,7 @@ trait AbstractHttpServiceIntegrationTestFuns
       amount: String = "999.9900000000",
       currency: String = "USD",
       observers: Vector[domain.Party] = Vector.empty,
-      meta: Option[domain.CommandMeta] = None,
+      meta: Option[domain.CommandMeta.NoDisclosed] = None,
   ): domain.CreateCommand[v.Record, domain.ContractTypeId.Template.OptionalPkg] = {
     val arg = argToApi(iouVA)(
       ShRecord(
@@ -507,7 +507,7 @@ trait AbstractHttpServiceIntegrationTestFuns
       target: domain.Party,
       amount: String = "999.9900000000",
       currency: String = "USD",
-      meta: Option[domain.CommandMeta] = None,
+      meta: Option[domain.CommandMeta.NoDisclosed] = None,
   ): domain.CreateAndExerciseCommand[
     v.Record,
     v.Value,

@@ -357,7 +357,7 @@ package domain {
   final case class CreateCommand[+LfV, +TmplId](
       templateId: TmplId,
       payload: LfV,
-      meta: Option[CommandMeta],
+      meta: Option[CommandMeta.NoDisclosed],
   ) {
     def traversePayload[G[_]: Applicative, LfVB, TmplId0 >: TmplId](
         f: LfV => G[LfVB]
@@ -371,7 +371,7 @@ package domain {
       argument: LfV,
       // passing a template ID is allowed; we distinguish internally
       choiceInterfaceId: Option[ContractTypeId.OptionalPkg],
-      meta: Option[CommandMeta],
+      meta: Option[CommandMeta.NoDisclosed],
   )
 
   final case class CreateAndExerciseCommand[+Payload, +Arg, +TmplId, +IfceId](
@@ -381,7 +381,7 @@ package domain {
       argument: Arg,
       // passing a template ID is allowed; we distinguish internally
       choiceInterfaceId: Option[IfceId],
-      meta: Option[CommandMeta],
+      meta: Option[CommandMeta.NoDisclosed],
   )
 
   final case class CreateCommandResponse[+LfV](

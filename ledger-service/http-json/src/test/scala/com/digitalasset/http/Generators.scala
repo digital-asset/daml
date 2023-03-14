@@ -139,7 +139,7 @@ object Generators {
       meta = meta,
     )
 
-  def metaGen: Gen[domain.CommandMeta] =
+  def metaGen: Gen[domain.CommandMeta.NoDisclosed] =
     for {
       commandId <- Gen.option(Gen.identifier.map(domain.CommandId(_)))
     } yield domain.CommandMeta(commandId, None, None, None, None, None)
