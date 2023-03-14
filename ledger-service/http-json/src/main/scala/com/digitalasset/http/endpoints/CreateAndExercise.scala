@@ -124,7 +124,7 @@ private[http] final class CreateAndExercise(
   private def resolveReference(
       jwt: Jwt,
       jwtPayload: JwtWritePayload,
-      meta: Option[domain.CommandMeta],
+      meta: Option[domain.CommandMeta.IgnoreDisclosed],
       reference: domain.ContractLocator[LfValue],
   )(implicit
       lc: LoggingContextOf[JwtPayloadTag with InstanceUUID with RequestID],

@@ -18,6 +18,7 @@ import scalaz.std.list._
 import scalaz.std.option._
 import scalaz.std.vector._
 import scalaz.syntax.apply.^
+import scalaz.syntax.bitraverse._
 import scalaz.syntax.show._
 import scalaz.syntax.std.option._
 import scalaz.syntax.traverse._
@@ -341,17 +342,30 @@ package domain {
       }
   }
 
-  final case class CommandMeta(
+  /** @tparam TmplId disclosed contracts' template ID
+    * @tparam LfV disclosed contracts' payload encoding
+    */
+  final case class CommandMeta[+TmplId, +LfV](
       commandId: Option[CommandId],
       actAs: Option[NonEmptyList[Party]],
       readAs: Option[List[Party]],
       submissionId: Option[SubmissionId],
       deduplicationPeriod: Option[domain.DeduplicationPeriod],
-      disclosedContracts: Option[List[domain.DisclosedContract[Nothing, Nothing]]],
+      disclosedContracts: Option[List[domain.DisclosedContract[TmplId, LfV]]],
   )
 
   object CommandMeta {
-    type NoDisclosed = CommandMeta
+    type NoDisclosed = CommandMeta[Nothing, Nothing]
+    type IgnoreDisclosed = CommandMeta[Any, Any]
+
+    implicit val covariant: Bitraverse[CommandMeta] = new Bitraverse[CommandMeta] {
+      override def bitraverseImpl[G[_]: Applicative, A, B, C, D](
+          fab: CommandMeta[A, B]
+      )(f: A => G[C], g: B => G[D]): G[CommandMeta[C, D]] =
+        fab.disclosedContracts
+          .traverse(_.traverse(_.bitraverse(f, g)))
+          .map(dc => fab.copy(disclosedContracts = dc))
+    }
   }
 
   final case class CreateCommand[+LfV, +TmplId](

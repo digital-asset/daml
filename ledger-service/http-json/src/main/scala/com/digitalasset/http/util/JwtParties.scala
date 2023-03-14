@@ -32,7 +32,7 @@ private[http] object JwtParties {
   private[util] val EnsureReadAsDisallowedError = "Queried parties not allowed by given JWT token"
 
   def resolveRefParties(
-      meta: Option[domain.CommandMeta],
+      meta: Option[domain.CommandMeta.IgnoreDisclosed],
       jwtPayload: JwtWritePayload,
   ): domain.PartySet = {
     val actAs = meta.flatMap(_.actAs) getOrElse jwtPayload.submitter
