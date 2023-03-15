@@ -164,103 +164,24 @@ jobs:
           set -euo pipefail
           eval "$(dev-env/bin/dade-assist)"
 
-          #needs to be specified since blackduck can not scan all bazel
-          #dependency types in one go, haskell has to be scanned separatey and
-          #code location name uniquely identified to avoid stomping
-          BAZEL_DEPENDENCY_TYPE="haskell_cabal_library"
-
           bash <(curl -s https://raw.githubusercontent.com/DACH-NY/security-blackduck/master/synopsys-detect) \
           ci-build digital-asset_daml $(Build.SourceBranchName) \
           --logging.level.com.synopsys.integration=DEBUG \
-          --detect.tools=BAZEL \
-          --detect.bazel.target=//... \
-          --detect.bazel.workspace.rules=${BAZEL_DEPENDENCY_TYPE} \
-          --detect.notices.report=true \
-          --detect.code.location.name=digital-asset_daml_${BAZEL_DEPENDENCY_TYPE} \
-          --detect.timeout=1500
-        displayName: 'Blackduck Bazel Haskell Scan'
-        env:
-          BLACKDUCK_HUBDETECT_TOKEN: $(BLACKDUCK_HUBDETECT_TOKEN)
-      - bash: |
-          set -euo pipefail
-          eval "$(dev-env/bin/dade-assist)"
-
-          #needs to be specified since blackduck can not scan all bazel
-          #dependency types in one go, java has to be scanned separatey and
-          #code location name uniquely identified to avoid stomping
-          BAZEL_DEPENDENCY_TYPE="maven_install"
-
-          bash <(curl -s https://raw.githubusercontent.com/DACH-NY/security-blackduck/master/synopsys-detect) \
-          ci-build digital-asset_daml local-main-maven \
-          --logging.level.com.synopsys.integration=DEBUG \
-          --detect.tools=BAZEL \
-          --detect.bazel.target=//... \
-          --detect.bazel.workspace.rules=${BAZEL_DEPENDENCY_TYPE} \
-          --detect.notices.report=true \
-          --detect.code.location.name=digital-asset_daml_${BAZEL_DEPENDENCY_TYPE} \
-          --detect.timeout=1500
-        displayName: 'Blackduck Bazel JVM Scan'
-        env:
-          BLACKDUCK_HUBDETECT_TOKEN: $(BLACKDUCK_HUBDETECT_TOKEN)
-      - bash: |
-          set -euo pipefail
-          eval "$(dev-env/bin/dade-assist)"
-
-          (cd language-support/ts && yarn install)
-
-          bash <(curl -s https://raw.githubusercontent.com/DACH-NY/security-blackduck/master/synopsys-detect) \
-          ci-build digital-asset_daml $(Build.SourceBranchName) \
-          --logging.level.com.synopsys.integration=DEBUG \
-          --detect.tools=DETECTOR \
-          --detect.included.detector.types=YARN,NPM,CLANG \
+          --detect.tools=BAZEL,DETECTOR \
+          --detect.included.detector.types=YARN,NPM,CLANG,PIP,POETRY,GIT,GO_MOD,GO_DEP,GO_VNDR,GO_VENDOR,GO_GRADLE \
+          --detect.go.path=$(bazel info execution_root)/external/go_sdk/bin/go \
+          --detect.follow.symbolic.links=false \
           --detect.npm.dependency.types.excluded=DEV \
           --detect.yarn.dependency.types.excluded=NON_PRODUCTION \
-          --detect.follow.symbolic.links=false \
+          --detect.bazel.target=//... \
+          --detect.bazel.workspace.rules=ALL \
           --detect.excluded.directories=language-support/ts/daml-ledger,language-support/ts/daml-types,language-support/ts/daml-react,language-support/ts/codegen/tests/ts,bazel-out,bazel-bin,.bazel-cache,bazel-testlogs,bazel-daml,bazel-s,node_modules,dev-env,result-*\
           --detect.blackduck.signature.scanner.exclusion.name.patterns=language-support/ts/daml-ledger,language-support/ts/daml-types,language-support/ts/daml-react.bazel-out,bazel-bin,.bazel-cache,bazel-testlogs,bazel-daml,bazel-s,node_modules,dev-env,result-* \
           --detect.detector.search.exclusion.paths=language-support/ts/daml-ledger,language-support/ts/daml-types,language-support/ts/daml-react,bazel-out,bazel-bin,.bazel-cache,bazel-testlogs,bazel-daml,bazel-s,node_modules,dev-env,result-* \
           --detect.notices.report=true \
-          --detect.code.location.name=digital-asset_daml_npm \
-          --detect.timeout=1500
-        displayName: 'Blackduck Npm Scan'
-        env:
-          BLACKDUCK_HUBDETECT_TOKEN: $(BLACKDUCK_HUBDETECT_TOKEN)
-      - bash: |
-          set -euo pipefail
-          eval "$(dev-env/bin/dade-assist)"
-
-          bash <(curl -s https://raw.githubusercontent.com/DACH-NY/security-blackduck/master/synopsys-detect) \
-          ci-build digital-asset_daml $(Build.SourceBranchName) \
-          --logging.level.com.synopsys.integration=DEBUG \
-          --detect.tools=DETECTOR \
-          --detect.included.detector.types=PIP,POETRY \
-          --detect.follow.symbolic.links=false \
-          --detect.excluded.directories=bazel-out,bazel-bin,.bazel-cache,bazel-testlogs,bazel-daml,bazel-s,node_modules,dev-env,result-* \
-          --detect.blackduck.signature.scanner.exclusion.name.patterns=.bazel-out,bazel-bin,.bazel-cache,bazel-testlogs,bazel-daml,bazel-s,node_modules,dev-env,result-*,*_bazel_vsts* \
-          --detect.detector.search.exclusion.paths=bazel-out,bazel-bin,.bazel-cache,bazel-testlogs,bazel-daml,bazel-s,node_modules,dev-env,result-*,*_bazel_vsts* \
-          --detect.notices.report=true \
-          --detect.code.location.name=digital-asset_daml_python \
-          --detect.timeout=1500
-        displayName: 'Blackduck Python Scan'
-        env:
-          BLACKDUCK_HUBDETECT_TOKEN: $(BLACKDUCK_HUBDETECT_TOKEN)
-      - bash: |
-          set -euo pipefail
-          eval "$(dev-env/bin/dade-assist)"
-
-          bash <(curl -s https://raw.githubusercontent.com/DACH-NY/security-blackduck/master/synopsys-detect) \
-          ci-build digital-asset_daml $(Build.SourceBranchName) \
-          --logging.level.com.synopsys.integration=DEBUG \
-          --detect.tools=DETECTOR \
-          --detect.included.detector.types=GIT,GO_MOD,GO_DEP,GO_VNDR,GO_VENDOR,GO_GRADLE \
-          --detect.follow.symbolic.links=false \
-          --detect.go.path=$(bazel info execution_root)/external/go_sdk/bin/go \
-          --detect.excluded.directories=bazel-out,bazel-bin,.bazel-cache,bazel-testlogs,bazel-daml,bazel-s,node_modules,dev-env,result-* \
-          --detect.detector.search.exclusion.paths=bazel-out,bazel-bin,.bazel-cache,bazel-testlogs,bazel-daml,bazel-s,node_modules,dev-env,result-*\
           --detect.policy.check.fail.on.severities=MAJOR,CRITICAL,BLOCKER \
-          --detect.code.location.name=digital-asset_daml_go \
           --detect.timeout=1500
-        displayName: 'Blackduck Go Scan'
+        displayName: 'Blackduck Full Scan of all Languages'
         env:
           BLACKDUCK_HUBDETECT_TOKEN: $(BLACKDUCK_HUBDETECT_TOKEN)
       - template: ../bash-lib.yml
