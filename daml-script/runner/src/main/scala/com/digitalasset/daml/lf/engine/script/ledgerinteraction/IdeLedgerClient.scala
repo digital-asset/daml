@@ -30,7 +30,6 @@ import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 import com.daml.logging.LoggingContext
 import com.daml.platform.localstore.InMemoryUserManagementStore
-import com.daml.script.converter.ConverterException
 import io.grpc.StatusRuntimeException
 import scalaz.OneAnd
 import scalaz.OneAnd._
@@ -228,13 +227,12 @@ class IdeLedgerClient(
       mat: Materializer,
   ): Future[Option[ScriptLedgerClient.ActiveContract]] = {
     val keyValue = key.toUnnormalizedValue
-    // TODO: Can this be any smarter? Are we able to update the exception thrown by Hash? Should we instead check this ourselves
-    // Alternatively, can we assume that the only error `GlobalKey.build` might give is the contractId exception?
-    def keyBuilderError(err: String): Future[GlobalKey] =
+    def keyBuilderError(err: crypto.Hash.HashingError): Future[GlobalKey] =
       Future.failed(
-        if (err == "Contract IDs are not supported in contract keys.")
-          SError.SErrorDamlException(ContractIdInContractKey(keyValue))
-        else new ConverterException(err)
+        err match {
+          case crypto.Hash.HashingError.ForbiddenContractId() =>
+            SError.SErrorDamlException(ContractIdInContractKey(keyValue))
+        }
       )
     GlobalKey
       .build(templateId, keyValue)

@@ -28,13 +28,13 @@ final class GlobalKey private (
 object GlobalKey {
 
   // Will fail if key contains contract ids
-  def build(templateId: Ref.TypeConName, key: Value): Either[String, GlobalKey] =
+  def build(templateId: Ref.TypeConName, key: Value): Either[crypto.Hash.HashingError, GlobalKey] =
     crypto.Hash.hashContractKey(templateId, key).map(new GlobalKey(templateId, key, _))
 
   // Like `build` but,  in case of error, throws an exception instead of returning a message.
   @throws[IllegalArgumentException]
   def assertBuild(templateId: Ref.TypeConName, key: Value): GlobalKey =
-    data.assertRight(build(templateId, key))
+    data.assertRight(build(templateId, key).left.map(_.msg))
 }
 
 final case class GlobalKeyWithMaintainers(
