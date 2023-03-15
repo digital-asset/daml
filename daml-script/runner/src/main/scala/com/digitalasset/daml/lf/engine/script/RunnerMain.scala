@@ -27,7 +27,7 @@ import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFact
 import com.daml.auth.TokenHolder
 import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.lf.data.NoCopy
-import com.daml.lf.engine.script.ledgerinteraction.{IdeLedgerClient,ScriptTimeMode}
+import com.daml.lf.engine.script.ledgerinteraction.{IdeLedgerClient, ScriptTimeMode}
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 
 import java.io.File
