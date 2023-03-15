@@ -21,8 +21,9 @@ class RunnerMainTest extends AnyFreeSpec with Matchers with Inspectors {
 
   "RunnerMain should not crash" - {
     "with given configurations" in {
-      forAll(Seq(configLedgerParticipant, configNodeParticipants)) { clientConfig =>
-        RunnerMain.RunnerConfig(clientConfig) shouldBe Symbol("success")
+      forAll(Seq(configLedgerParticipant, configNodeParticipants, configIdeLedgerParticipant)) {
+        clientConfig =>
+          RunnerMain.RunnerConfig(clientConfig) shouldBe Symbol("success")
       }
     }
   }
@@ -41,9 +42,7 @@ object RunnerMainTest {
   val configLedgerParticipant: RunnerCliConfig = RunnerCliConfig(
     darPath = darFilePath.toFile,
     scriptIdentifier = "Main:setup",
-    ledgerHost = Some(localHost),
-    ledgerPort = Some(ledgerPort),
-    participantConfig = None,
+    ledgerMode = LedgerMode.LedgerAddress(localHost, ledgerPort),
     timeMode = ScriptConfig.DefaultTimeMode,
     inputFile = None,
     outputFile = None,
@@ -56,9 +55,20 @@ object RunnerMainTest {
   val configNodeParticipants: RunnerCliConfig = RunnerCliConfig(
     darPath = darFilePath.toFile,
     scriptIdentifier = "Main:setup",
-    ledgerHost = None,
-    ledgerPort = None,
-    participantConfig = Some(participantConfigPath.toFile),
+    ledgerMode = LedgerMode.ParticipantConfig(participantConfigPath.toFile),
+    timeMode = ScriptConfig.DefaultTimeMode,
+    inputFile = None,
+    outputFile = None,
+    accessTokenFile = None,
+    tlsConfig = TlsConfiguration(enabled = false, None, None, None),
+    jsonApi = false,
+    maxInboundMessageSize = ScriptConfig.DefaultMaxInboundMessageSize,
+    applicationId = None,
+  )
+  val configIdeLedgerParticipant: RunnerCliConfig = RunnerCliConfig(
+    darPath = darFilePath.toFile,
+    scriptIdentifier = "Main:setup",
+    ledgerMode = LedgerMode.IdeLedger(),
     timeMode = ScriptConfig.DefaultTimeMode,
     inputFile = None,
     outputFile = None,

@@ -12,7 +12,7 @@ import com.daml.fs.Utils.deleteRecursively
 import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.daml.ledger.api.refinements.ApiTypes.Party
 import com.daml.ledger.api.tls.TlsConfiguration
-import com.daml.lf.engine.script.{RunnerCliConfig, RunnerMain, ScriptConfig}
+import com.daml.lf.engine.script.{RunnerCliConfig, RunnerMain, ScriptConfig, LedgerMode}
 import com.daml.ledger.client.configuration.{
   CommandClientConfiguration,
   LedgerClientChannelConfiguration,
@@ -116,13 +116,13 @@ object ExampleExportClient {
     implicit val sequencer: ExecutionSequencerFactory =
       new AkkaExecutionSequencerPool("ScriptRunnerPool")(system)
     implicit val ec: ExecutionContext = system.dispatcher
+    val hostIp = "localhost"
+    val port = clientConfig.targetPort
 
     val config = RunnerCliConfig(
       darPath = clientConfig.darPath,
       scriptIdentifier = clientConfig.scriptIdentifier,
-      ledgerHost = Some("localhost"),
-      ledgerPort = Some(clientConfig.targetPort),
-      participantConfig = None,
+      ledgerMode = LedgerMode.LedgerAddress(hostIp, port),
       timeMode = ScriptConfig.DefaultTimeMode,
       inputFile = None,
       outputFile = None,
@@ -133,8 +133,8 @@ object ExampleExportClient {
       applicationId = None,
     )
     val adminClient = LedgerClient.singleHost(
-      hostIp = config.ledgerHost.get,
-      port = config.ledgerPort.get,
+      hostIp,
+      port,
       configuration = LedgerClientConfiguration(
         applicationId = "admin-client",
         ledgerIdRequirement = LedgerIdRequirement.none,
