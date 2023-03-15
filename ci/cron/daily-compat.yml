@@ -174,7 +174,7 @@ jobs:
           --logging.level.com.synopsys.integration=DEBUG \
           --detect.tools=BAZEL \
           --detect.bazel.target=//... \
-          --detect.bazel.dependency.type=${BAZEL_DEPENDENCY_TYPE} \
+          --detect.bazel.workspace.rules=${BAZEL_DEPENDENCY_TYPE} \
           --detect.notices.report=true \
           --detect.code.location.name=digital-asset_daml_${BAZEL_DEPENDENCY_TYPE} \
           --detect.timeout=1500
@@ -191,11 +191,11 @@ jobs:
           BAZEL_DEPENDENCY_TYPE="maven_install"
 
           bash <(curl -s https://raw.githubusercontent.com/DACH-NY/security-blackduck/master/synopsys-detect) \
-          ci-build digital-asset_daml $(Build.SourceBranchName) \
+          ci-build digital-asset_daml local-main-maven \
           --logging.level.com.synopsys.integration=DEBUG \
           --detect.tools=BAZEL \
           --detect.bazel.target=//... \
-          --detect.bazel.dependency.type=${BAZEL_DEPENDENCY_TYPE} \
+          --detect.bazel.workspace.rules=${BAZEL_DEPENDENCY_TYPE} \
           --detect.notices.report=true \
           --detect.code.location.name=digital-asset_daml_${BAZEL_DEPENDENCY_TYPE} \
           --detect.timeout=1500
