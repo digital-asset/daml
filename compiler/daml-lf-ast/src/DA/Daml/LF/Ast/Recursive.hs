@@ -75,6 +75,7 @@ data UpdateF expr
   | UCreateF   !(Qualified TypeConName) !expr
   | UCreateInterfaceF !(Qualified TypeConName) !expr
   | UExerciseF !(Qualified TypeConName) !ChoiceName !expr !expr
+  | UDynamicExerciseF !(Qualified TypeConName) !ChoiceName !expr !expr
   | UExerciseInterfaceF !(Qualified TypeConName) !ChoiceName !expr !expr !(Maybe expr)
   | UExerciseByKeyF !(Qualified TypeConName) !ChoiceName !expr !expr
   | UFetchF    !(Qualified TypeConName) !expr
@@ -124,6 +125,7 @@ projectUpdate = \case
   UCreate a b -> UCreateF a b
   UCreateInterface a b -> UCreateInterfaceF a b
   UExercise a b c d -> UExerciseF a b c d
+  UDynamicExercise a b c d -> UDynamicExerciseF a b c d
   UExerciseInterface a b c d e -> UExerciseInterfaceF a b c d e
   UExerciseByKey a b c d -> UExerciseByKeyF a b c d
   UFetch a b -> UFetchF a b
@@ -144,6 +146,7 @@ embedUpdate = \case
   UCreateF a b -> UCreate a b
   UCreateInterfaceF a b -> UCreateInterface a b
   UExerciseF a b c d -> UExercise a b c d
+  UDynamicExerciseF a b c d -> UDynamicExercise a b c d
   UExerciseInterfaceF a b c d e -> UExerciseInterface a b c d e
   UExerciseByKeyF a b c d -> UExerciseByKey a b c d
   UFetchF a b -> UFetch a b

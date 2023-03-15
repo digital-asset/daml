@@ -488,6 +488,12 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
       UpdateExercise(t, choice, cid, arg)
     }
 
+  private lazy val updateDynamicExercise =
+    Id("dynamic_exercise") ~! `@` ~> fullIdentifier ~ id ~ expr0 ~ expr0 ^^ {
+      case t ~ choice ~ cid ~ arg =>
+        UpdateDynamicExercise(t, choice, cid, arg)
+    }
+
   private lazy val updateExerciseInterface =
     Id("exercise_interface") ~! `@` ~> fullIdentifier ~ id ~ expr0 ~ expr0 ^^ {
       case iface ~ choice ~ cid ~ arg =>
@@ -538,6 +544,7 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
       updateFetch |
       updateFetchInterface |
       updateExercise |
+      updateDynamicExercise |
       updateExerciseInterface |
       updateExerciseInterfaceWithGuard |
       updateExerciseByKey |
