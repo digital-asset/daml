@@ -3,25 +3,31 @@
 
 package com.daml.lf.engine.script.test
 
-import java.io.File
-
 import com.daml.bazeltools.BazelRunfiles._
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.daml.lf.data.FrontStack
 import com.daml.lf.data.Ref._
+import com.daml.lf.engine.script.ledgerinteraction.ScriptTimeMode
 import com.daml.lf.speedy.SValue._
 import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
+import java.io.File
+
 final class MultiParticipantIT
     extends AsyncWordSpec
     with Inside
-    with MultiParticipantFixture
+    with CantonFixture
     with Matchers
     with SuiteResourceManagementAroundAll {
   private def darFile = new File(rlocation("daml-script/test/script-test.dar"))
   val (dar, envIface) = readDar(darFile)
+
+  protected override def darFiles = List(darFile)
+  protected override val devMode = true
+  protected override val nParticipants = 2
+  protected override def timeMode = ScriptTimeMode.WallClock
 
   "Multi-participant Daml Script" can {
     "multiTest" should {
