@@ -63,20 +63,6 @@ class TriggerRuleSimulationLibTest
         .copy(allowTriggerTimeouts = true, allowInFlightCommandOverflows = true)
     )
 
-  def forAll[T](gen: Gen[T], sampleSize: Int = 100, parallelism: Int = 1)(
-      test: T => Future[Assertion]
-  ): Future[Assertion] = {
-    // TODO: ????: use results (e.g. submissions and ACS/inflight changes) of simulator runs to infer additional events
-    Source(0 to sampleSize)
-      .map(_ => gen.sample)
-      .collect { case Some(data) => data }
-      .mapAsync(parallelism) { data =>
-        test(data)
-      }
-      .takeWhile(_ == succeed, inclusive = true)
-      .runWith(Sink.last)
-  }
-
   "Trigger rule simulation" should {
     "correctly log metrics for initState lambda" in {
       for {

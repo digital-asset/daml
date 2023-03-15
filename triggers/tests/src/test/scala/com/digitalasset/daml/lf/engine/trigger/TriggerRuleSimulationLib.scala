@@ -26,6 +26,8 @@ import com.daml.scalautil.Statement.discard
 import com.daml.script.converter.Converter.Implicits._
 import com.daml.util.Ctx
 import org.scalacheck.Gen
+import org.scalatest.Assertion
+import org.scalatest.Assertions.succeed
 
 import scala.concurrent.duration.{Duration, FiniteDuration}
 import scala.concurrent.{ExecutionContext, Future}
@@ -835,6 +837,20 @@ object TriggerRuleSimulationLib {
         inFlightCmds <- inFlightCmdGen
         msg <- msgGen
       } yield (acs, userState, inFlightCmds, msg)
+  }
+
+  def forAll[T](gen: Gen[T], sampleSize: Int = 100, parallelism: Int = 1)(
+      test: T => Future[Assertion]
+  )(implicit materializer: Materializer): Future[Assertion] = {
+    // TODO: ????: use results (e.g. submissions and ACS/inflight changes) of simulator runs to infer additional events
+    Source(0 to sampleSize)
+      .map(_ => gen.sample)
+      .collect { case Some(data) => data }
+      .mapAsync(parallelism) { data =>
+        test(data)
+      }
+      .takeWhile(_ == succeed, inclusive = true)
+      .runWith(Sink.last)
   }
 
   def getSimulator(
