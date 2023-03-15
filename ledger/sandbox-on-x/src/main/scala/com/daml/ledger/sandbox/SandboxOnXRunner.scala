@@ -45,6 +45,7 @@ import com.daml.ports.Port
 import com.daml.telemetry.OpenTelemetryOwner
 import com.daml.tracing.DefaultOpenTelemetry
 
+import scala.annotation.nowarn
 import scala.concurrent.ExecutionContextExecutorService
 import scala.util.Try
 
@@ -99,7 +100,9 @@ object SandboxOnXRunner {
         bridgeConfig = bridgeConfig,
         materializer = materializer,
         loggingContext = loggingContext,
-        metricsFactory = metrics.defaultMetricsFactory,
+        metricsFactory = {
+          metrics.defaultMetricsFactory: @nowarn
+        },
         servicesThreadPoolSize = servicesThreadPoolSize,
         servicesExecutionContext = servicesExecutionContext,
         timeServiceBackendO = timeServiceBackendO,
@@ -205,7 +208,7 @@ object SandboxOnXRunner {
       bridgeConfig: BridgeConfig,
       materializer: Materializer,
       loggingContext: LoggingContext,
-      metricsFactory: MetricsFactory,
+      @nowarn metricsFactory: MetricsFactory,
       servicesThreadPoolSize: Int,
       servicesExecutionContext: ExecutionContextExecutorService,
       timeServiceBackendO: Option[TimeServiceBackend],

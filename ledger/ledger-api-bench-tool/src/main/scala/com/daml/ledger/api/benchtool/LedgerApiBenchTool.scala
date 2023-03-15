@@ -32,6 +32,7 @@ import io.grpc.netty.{NegotiationType, NettyChannelBuilder}
 import io.opentelemetry.api.metrics.MeterProvider
 import org.slf4j.{Logger, LoggerFactory}
 
+import scala.annotation.nowarn
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.util.control.NonFatal
@@ -230,7 +231,7 @@ class LedgerApiBenchTool(
   private def benchmarkStreams(
       regularUserServices: LedgerApiServices,
       streamConfigs: List[WorkflowConfig.StreamConfig],
-      metricsFactory: MetricsFactory,
+      @nowarn metricsFactory: MetricsFactory,
       actorSystem: ActorSystem[SpawnProtocol.Command],
   )(implicit ec: ExecutionContext): Future[Either[String, Unit]] =
     if (streamConfigs.isEmpty) {
@@ -250,7 +251,7 @@ class LedgerApiBenchTool(
       regularUserServices: LedgerApiServices,
       adminServices: LedgerApiServices,
       submissionConfigO: Option[WorkflowConfig.SubmissionConfig],
-      metricsFactory: MetricsFactory,
+      @nowarn metricsFactory: MetricsFactory,
       allocatedParties: AllocatedParties,
       actorSystem: ActorSystem[SpawnProtocol.Command],
       maxLatencyObjectiveMillis: Long,
@@ -321,7 +322,7 @@ class LedgerApiBenchTool(
       regularUserServices: LedgerApiServices,
       adminServices: LedgerApiServices,
       submissionConfig: WorkflowConfig.SubmissionConfig,
-      metricsFactory: MetricsFactory,
+      @nowarn metricsFactory: MetricsFactory,
       partyAllocating: PartyAllocating,
   )(implicit
       ec: ExecutionContext
