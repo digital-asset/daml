@@ -22,7 +22,7 @@ jobs:
       CACHE_KEY="$(find ci/da-ghc-lib -type f -print0 | sort -z | xargs -r0 md5sum | md5sum | awk '{print $1}')"
       LIB="da-ghc-lib/ghc-lib-$CACHE_KEY.tar.gz"
       PARSER="da-ghc-lib/ghc-lib-parser-$CACHE_KEY.tar.gz"
-      URL_BASE="https://storage.googleapis.com/daml-binaries/"
+      URL_BASE="https://storage.googleapis.com/daml-binaries"
       LIB_STATUS="$(curl -Is "$URL_BASE/$LIB" | head -1 | awk '{print $2}')"
       PARSER_STATUS="$(curl -Is "$URL_BASE/$PARSER" | head -1 | awk '{print $2}')"
       if [ "200" = "$LIB_STATUS" ] && [ "200" = "$PARSER_STATUS" ]; then
