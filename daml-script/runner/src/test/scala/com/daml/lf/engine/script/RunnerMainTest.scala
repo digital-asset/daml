@@ -42,7 +42,7 @@ object RunnerMainTest {
   val configLedgerParticipant: RunnerCliConfig = RunnerCliConfig(
     darPath = darFilePath.toFile,
     scriptIdentifier = "Main:setup",
-    ledgerMode = LedgerMode.LedgerAddress(localHost, ledgerPort),
+    participantMode = ParticipantMode.RemoteParticipantHost(localHost, ledgerPort),
     timeMode = ScriptConfig.DefaultTimeMode,
     inputFile = None,
     outputFile = None,
@@ -55,7 +55,7 @@ object RunnerMainTest {
   val configNodeParticipants: RunnerCliConfig = RunnerCliConfig(
     darPath = darFilePath.toFile,
     scriptIdentifier = "Main:setup",
-    ledgerMode = LedgerMode.ParticipantConfig(participantConfigPath.toFile),
+    participantMode = ParticipantMode.RemoteParticipantConfig(participantConfigPath.toFile),
     timeMode = ScriptConfig.DefaultTimeMode,
     inputFile = None,
     outputFile = None,
@@ -68,7 +68,7 @@ object RunnerMainTest {
   val configIdeLedgerParticipant: RunnerCliConfig = RunnerCliConfig(
     darPath = darFilePath.toFile,
     scriptIdentifier = "Main:setup",
-    ledgerMode = LedgerMode.IdeLedger(),
+    participantMode = ParticipantMode.IdeLedgerParticipant(),
     timeMode = ScriptConfig.DefaultTimeMode,
     inputFile = None,
     outputFile = None,

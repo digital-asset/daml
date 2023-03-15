@@ -80,12 +80,12 @@ object TestMain extends StrictLogging {
     val warningLog: WarningLog = Speedy.Machine.newWarningLog
 
     val eParticipantParams: Either[Participants[ApiParameters], Participants[IdeLedgerClient]] =
-      config.ledgerMode match {
-        case LedgerMode.ParticipantConfig(file) =>
+      config.participantMode match {
+        case ParticipantMode.RemoteParticipantConfig(file) =>
           val jsVal = java.nio.file.Files.readString(file.toPath).parseJson
           import ParticipantsJsonProtocol._
           Left(jsVal.convertTo[Participants[ApiParameters]])
-        case LedgerMode.LedgerAddress(host, port) =>
+        case ParticipantMode.RemoteParticipantHost(host, port) =>
           Left(
             Participants(
               default_participant = Some(ApiParameters(host, port, None, None)),
@@ -93,7 +93,7 @@ object TestMain extends StrictLogging {
               party_participants = Map.empty,
             )
           )
-        case LedgerMode.IdeLedger() =>
+        case ParticipantMode.IdeLedgerParticipant() =>
           Right(
             Participants(
               default_participant =

@@ -9,7 +9,7 @@ import com.daml.lf.engine.script.ledgerinteraction.ScriptTimeMode
 
 case class TestConfig(
     darPath: File,
-    ledgerMode: LedgerMode,
+    participantMode: ParticipantMode,
     timeMode: ScriptTimeMode,
     maxInboundMessageSize: Int,
 )

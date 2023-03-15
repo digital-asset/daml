@@ -148,8 +148,8 @@ object RunnerMain {
           }
         fileContent.parseJson
       })
-      val oParticipantParams = config.ledgerMode match {
-        case LedgerMode.ParticipantConfig(file) =>
+      val oParticipantParams = config.participantMode match {
+        case ParticipantMode.RemoteParticipantConfig(file) =>
           // We allow specifying --access-token-file/--application-id together with
           // --participant-config and use the values as the default for
           // all participants that do not specify an explicit token.
@@ -173,7 +173,7 @@ object RunnerMain {
               )
           )
 
-        case LedgerMode.LedgerAddress(host, port) =>
+        case ParticipantMode.RemoteParticipantHost(host, port) =>
           Some(
             Participants(
               default_participant = Some(ApiParameters(host, port, token, config.applicationId)),
@@ -181,7 +181,7 @@ object RunnerMain {
               party_participants = Map.empty,
             )
           )
-        case LedgerMode.IdeLedger() => None
+        case ParticipantMode.IdeLedgerParticipant() => None
       }
 
       new RunnerConfig(

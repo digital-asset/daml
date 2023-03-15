@@ -47,7 +47,7 @@ case class ScriptConfig(
   def toCommand(): Either[String, ScriptCommand] =
     for {
       mode <- mode.toRight("Either --script-name or --all must be specified")
-      ledgerMode = this.getLedgerMode
+      participantMode = this.getLedgerMode
       resolvedTimeMode = timeMode.getOrElse(ScriptConfig.DefaultTimeMode)
       conf <- mode match {
         case CliMode.RunOne(id) =>
@@ -55,7 +55,7 @@ case class ScriptConfig(
             ScriptCommand.RunOne(
               RunnerCliConfig(
                 darPath = darPath,
-                ledgerMode = ledgerMode,
+                participantMode = participantMode,
                 timeMode = resolvedTimeMode,
                 inputFile = inputFile,
                 outputFile = outputFile,
@@ -79,7 +79,7 @@ case class ScriptConfig(
           } yield ScriptCommand.RunAll(
             TestConfig(
               darPath = darPath,
-              ledgerMode = ledgerMode,
+              participantMode = participantMode,
               timeMode = resolvedTimeMode,
               maxInboundMessageSize = maxInboundMessageSize,
             )
@@ -87,12 +87,13 @@ case class ScriptConfig(
       }
     } yield conf
 
-  private def getLedgerMode: LedgerMode =
+  private def getLedgerMode: ParticipantMode =
     (ledgerHost, ledgerPort, participantConfig, isIdeLedger) match {
-      case (Some(host), Some(port), None, false) => LedgerMode.LedgerAddress(host, port)
+      case (Some(host), Some(port), None, false) =>
+        ParticipantMode.RemoteParticipantHost(host, port)
       case (None, None, Some(participantConfig), false) =>
-        LedgerMode.ParticipantConfig(participantConfig)
-      case (None, None, None, true) => LedgerMode.IdeLedger()
+        ParticipantMode.RemoteParticipantConfig(participantConfig)
+      case (None, None, None, true) => ParticipantMode.IdeLedgerParticipant()
       case _ => throw new IllegalStateException("Unsupported combination of ledger modes")
     }
 }
