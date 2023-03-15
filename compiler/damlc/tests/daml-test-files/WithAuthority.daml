@@ -29,3 +29,6 @@ template ProposeConsortiumAuthority
         withAuthorityOf accepted $ do
           withAuthorityOf [consortiumParty] $ do
             create HasConsortiumAutority with consortiumParty
+
+withAuthorityOf : [Party] -> Update a -> Update a
+withAuthorityOf _ u = u -- TODO #15882 -- require rework

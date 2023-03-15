@@ -2509,8 +2509,8 @@ class EngineTest
         case Right((_, _)) =>
       }
     }
-
-    "authority required; not granted" in {
+    /*
+    "authority required; not granted" in { // TODO #15882 -- rework required
       inside(run(mkCommand(party1 = alice, party2 = bob), grantNeedAuthority = false)) {
         case Left(
               Interpretation(
@@ -2523,11 +2523,12 @@ class EngineTest
       }
     }
 
-    "authority required; granted" in {
+    "authority required; granted" in { // TODO #15882 -- rework required
       inside(run(mkCommand(party1 = alice, party2 = bob), grantNeedAuthority = true)) {
         case Right((_, _)) =>
       }
     }
+     */
   }
 }
 

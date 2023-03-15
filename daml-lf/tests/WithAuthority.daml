@@ -22,3 +22,7 @@ template T
         withAuthorityOf [party2] $ do
           create (HaveAuthority party2)
           pure ()
+
+
+withAuthorityOf : [Party] -> Update a -> Update a
+withAuthorityOf _ u = u -- TODO #15882 -- require rework

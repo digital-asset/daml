@@ -573,7 +573,7 @@ enum BuiltinFunction {
 
   WITH_AUTHORITY = 149; // *Available in versions >= 1.dev*
 
-  // Next id is 150.
+  // Next id is 149.
 
   // EXPERIMENTAL TEXT PRIMITIVES -- these do not yet have stable numbers.
   TEXT_TO_UPPER = 9901; // *Available in versions >= 1.dev*
