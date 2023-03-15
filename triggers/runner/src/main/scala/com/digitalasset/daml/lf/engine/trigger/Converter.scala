@@ -10,7 +10,7 @@ import scalaz.std.list._
 import scalaz.std.option._
 import scalaz.syntax.tag._
 import scalaz.syntax.traverse._
-import com.daml.lf.data.{FrontStack, ImmArray, Ref}
+import com.daml.lf.data.{BackStack, FrontStack, ImmArray, Ref}
 import com.daml.lf.data.Ref._
 import com.daml.lf.language.Ast._
 import com.daml.lf.speedy.{ArrayList, SValue}
@@ -38,6 +38,7 @@ import com.daml.platform.participant.util.LfEngineToApi.{
 }
 import com.daml.script.converter.ConverterException
 
+import scala.collection.mutable
 import scala.concurrent.duration.{FiniteDuration, MICROSECONDS}
 
 // Convert from a Ledger API transaction to an SValue corresponding to a Message from the Daml.Trigger module
@@ -380,14 +381,22 @@ final class Converter(
   }
 
   def fromACS(activeContracts: Seq[CreatedEvent]): SValue = {
+    val createMapByTemplateId = mutable.HashMap.empty[value.Identifier, BackStack[CreatedEvent]]
+    for (create <- activeContracts) {
+      createMapByTemplateId += (create.getTemplateId -> (createMapByTemplateId.getOrElse(
+        create.getTemplateId,
+        BackStack.empty,
+      ) :+ create))
+    }
+
     record(
       acsTy,
       "activeContracts" -> SMap(
         isTextMap = false,
-        activeContracts.groupBy(_.getTemplateId).iterator.map { case (templateId, creates) =>
+        createMapByTemplateId.iterator.map { case (templateId, creates) =>
           fromTemplateTypeRep(templateId) -> SMap(
             isTextMap = false,
-            creates.iterator.map { event =>
+            creates.reverseIterator.map { event =>
               val templateType = TTyCon(fromIdentifier(templateId).orConverterException)
               val template = fromAnyTemplate(
                 templateType,

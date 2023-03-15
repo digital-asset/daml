@@ -476,7 +476,7 @@ trait CatGenerators {
     TriggerExperiment(
       acsGen = Gen.const(Seq.empty),
       userStateGen = userStateGen,
-      inFlightCmdGen = Gen.mapOf(inFlightCmdGen),
+      inFlightCmdGen = Gen.mapOfN(maxNumOfCats.toInt, inFlightCmdGen),
       msgGen = for {
         party <- partyGen
         numOfCats <- Gen.choose(0, maxNumOfCats)
@@ -523,7 +523,7 @@ trait CatGenerators {
     TriggerExperiment(
       acsGen = Gen.const(Seq.empty),
       userStateGen = userStateGen,
-      inFlightCmdGen = Gen.mapOf(inFlightCmdGen),
+      inFlightCmdGen = Gen.mapOfN(maxNumOfCats.toInt, inFlightCmdGen),
       msgGen = for {
         party <- partyGen
         completion <- Gen.frequency(
