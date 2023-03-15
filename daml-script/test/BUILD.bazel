@@ -176,7 +176,7 @@ MultiParticipantIT = "src/com/digitalasset/daml/lf/engine/script/test/MultiParti
 
 da_scala_test_suite(
     name = "test",
-    srcs = glob(["src/com/**/Func*.scala"]),
+    srcs = glob(["src/com/**/*.scala"]),
     data = [
         ":script-test.dar",
         ":script-test-1.dev.dar",
@@ -241,22 +241,22 @@ da_scala_test_suite(
     ],
 )
 
-#sh_test(
-#    name = "test_daml_script_test_runner",
-#    srcs = [":daml-script-test-runner.sh"],
-#    args = [
-#        "$(rootpath //daml-script/runner:daml-script-binary)",
-#        "$(rootpath :script-test.dar)",
-#        "$(POSIX_DIFF)",
-#        "$(POSIX_GREP)",
-#        "$(POSIX_SED)",
-#        "$(rootpath //ledger/sandbox-on-x:app)",
-#    ],
-#    data = [
-#        ":script-test.dar",
-#        "//daml-script/runner:daml-script-binary",
-#        "//ledger/sandbox-on-x:app",
-#    ],
-#    toolchains = ["@rules_sh//sh/posix:make_variables"],
-#    deps = ["@bazel_tools//tools/bash/runfiles"],
-#)
+sh_test(
+    name = "test_daml_script_test_runner",
+    srcs = [":daml-script-test-runner.sh"],
+    args = [
+        "$(rootpath //daml-script/runner:daml-script-binary)",
+        "$(rootpath :script-test.dar)",
+        "$(POSIX_DIFF)",
+        "$(POSIX_GREP)",
+        "$(POSIX_SED)",
+        "$(rootpath //ledger/sandbox-on-x:app)",
+    ],
+    data = [
+        ":script-test.dar",
+        "//daml-script/runner:daml-script-binary",
+        "//ledger/sandbox-on-x:app",
+    ],
+    toolchains = ["@rules_sh//sh/posix:make_variables"],
+    deps = ["@bazel_tools//tools/bash/runfiles"],
+)
