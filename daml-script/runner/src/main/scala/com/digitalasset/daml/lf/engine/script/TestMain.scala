@@ -83,14 +83,7 @@ object TestMain extends StrictLogging {
     val eParticipantParams: Either[Participants[ApiParameters], Participants[IdeLedgerClient]] =
       config.ledgerMode match {
         case LedgerMode.ParticipantConfig(file) =>
-          val source = Source.fromFile(file)
-          val fileContent =
-            try {
-              source.mkString
-            } finally {
-              source.close
-            }
-          val jsVal = fileContent.parseJson
+          val jsVal = java.nio.file.Files.readString(file.toPath).parseJson
           import ParticipantsJsonProtocol._
           Left(jsVal.convertTo[Participants[ApiParameters]])
         case LedgerMode.LedgerAddress(host, port) =>
