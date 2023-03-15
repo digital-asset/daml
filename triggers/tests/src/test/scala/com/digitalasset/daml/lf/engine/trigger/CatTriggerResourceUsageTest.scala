@@ -40,8 +40,20 @@ class CatTriggerResourceUsageTest
     )
 
   "Trigger rule simulation" should {
-    "identify that number of submissions is dependent on ACS size" in {
-      succeed // TODO:
+    "single/one shot trigger rule evaluation" should {
+      "identify that number of submissions is dependent on ACS size" should {
+        "for Cats:feedingTrigger" in {
+          fail("TODO")
+        }
+      }
+    }
+
+    "sequenced/chained trigger rule evaluation" should {
+      "identify that duplicate command submissions are generated" should {
+        "for Cats:feedingTrigger" in {
+          fail("TODO")
+        }
+      }
     }
   }
 }
