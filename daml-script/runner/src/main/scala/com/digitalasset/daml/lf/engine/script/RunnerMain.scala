@@ -15,15 +15,19 @@ import scala.io.Source
 import scalaz.\/-
 import scalaz.syntax.traverse._
 import spray.json._
+import com.daml.lf.PureCompiledPackages
+import com.daml.lf.speedy.Speedy
 import com.daml.lf.archive.{Dar, DarDecoder}
 import com.daml.lf.data.Ref.{Identifier, PackageId, QualifiedName}
 import com.daml.lf.language.Ast.Package
+import com.daml.lf.language.Ast.Type
 import com.daml.lf.typesig.EnvironmentSignature
 import com.daml.lf.typesig.reader.SignatureReader
 import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.daml.auth.TokenHolder
 import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.lf.data.NoCopy
+import com.daml.lf.engine.script.ledgerinteraction.IdeLedgerClient
 import com.daml.lf.engine.script.ledgerinteraction.ScriptTimeMode
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 
@@ -42,17 +46,55 @@ object RunnerMain {
 
     val flow: Future[Unit] = for {
       config <- Future.fromTry(RunnerConfig(runnerConfig))
-      clients <-
-        if (config.jsonApi) {
-          val ifaceDar =
-            config.dar.map(pkg => SignatureReader.readPackageSignature(() => \/-(pkg))._2)
-          val envSig = EnvironmentSignature.fromPackageSignatures(ifaceDar)
-          // TODO (#13973) resolve envSig, or not, depending on whether inherited choices are needed
-          Runner.jsonClients(config.participantParams, envSig)
-        } else {
-          Runner.connect(config.participantParams, config.tlsConfig, config.maxInboundMessageSize)
-        }
-      result <- Runner.run(config.dar, config.scriptId, config.inputValue, clients, config.timeMode)
+
+      darMap = config.dar.all.toMap
+      compiledPackages = PureCompiledPackages.assertBuild(darMap, Runner.compilerConfig)
+      ifaceDar =
+        config.dar.map(pkg => SignatureReader.readPackageSignature(() => \/-(pkg))._2)
+      envIface = EnvironmentSignature.fromPackageSignatures(ifaceDar)
+
+      traceLog = Speedy.Machine.newTraceLog
+      warningLog = Speedy.Machine.newWarningLog
+
+      converter = (json: JsValue, typ: Type) =>
+        Converter.fromJsonValue(
+          config.scriptId.qualifiedName,
+          envIface,
+          compiledPackages,
+          typ,
+          json,
+        )
+
+      clients <- config.oParticipantParams match {
+        case Some(participantParams) =>
+          if (config.jsonApi) {
+            // TODO (#13973) resolve envIface, or not, depending on whether inherited choices are needed
+            Runner.jsonClients(participantParams, envIface)
+          } else {
+            Runner.connect(participantParams, config.tlsConfig, config.maxInboundMessageSize)
+          }
+        case None =>
+          Future.successful(
+            Participants(
+              default_participant =
+                Some(new IdeLedgerClient(compiledPackages, traceLog, warningLog, () => false)),
+              participants = Map.empty,
+              party_participants = Map.empty,
+            )
+          )
+      }
+      result <- Runner
+        .run(
+          compiledPackages,
+          config.scriptId,
+          Some(converter),
+          config.inputValue,
+          clients,
+          config.timeMode,
+          traceLog,
+          warningLog,
+        )
+        ._2
       _ <- Future {
         config.outputFile.foreach { outputFile =>
           val jsVal = LfValueCodec.apiValueToJsValue(result.toUnnormalizedValue)
@@ -78,7 +120,9 @@ object RunnerMain {
   final case class RunnerConfig private (
       dar: Dar[(PackageId, Package)],
       scriptId: Identifier,
-      participantParams: Participants[ApiParameters],
+      oParticipantParams: Option[
+        Participants[ApiParameters]
+      ], // No params signifies that a LedgerIdeClient should be created when able
       timeMode: ScriptTimeMode,
       inputValue: Option[JsValue],
       outputFile: Option[File],
@@ -105,8 +149,8 @@ object RunnerMain {
           }
         fileContent.parseJson
       })
-      val participantParams: Participants[ApiParameters] = config.participantConfig match {
-        case Some(file) =>
+      val oParticipantParams = config.ledgerMode match {
+        case LedgerMode.ParticipantConfig(file) =>
           // We allow specifying --access-token-file/--application-id together with
           // --participant-config and use the values as the default for
           // all participants that do not specify an explicit token.
@@ -119,34 +163,32 @@ object RunnerMain {
             }
           val jsVal = fileContent.parseJson
           import ParticipantsJsonProtocol._
-          jsVal
-            .convertTo[Participants[ApiParameters]]
-            .map(params =>
-              params.copy(
-                access_token = params.access_token.orElse(token),
-                application_id = params.application_id.orElse(config.applicationId),
+          Some(
+            jsVal
+              .convertTo[Participants[ApiParameters]]
+              .map(params =>
+                params.copy(
+                  access_token = params.access_token.orElse(token),
+                  application_id = params.application_id.orElse(config.applicationId),
+                )
               )
-            )
-
-        case None =>
-          Participants(
-            default_participant = Some(
-              ApiParameters(
-                config.ledgerHost.get,
-                config.ledgerPort.get,
-                token,
-                config.applicationId,
-              )
-            ),
-            participants = Map.empty,
-            party_participants = Map.empty,
           )
+
+        case LedgerMode.LedgerAddress(host, port) =>
+          Some(
+            Participants(
+              default_participant = Some(ApiParameters(host, port, token, config.applicationId)),
+              participants = Map.empty,
+              party_participants = Map.empty,
+            )
+          )
+        case LedgerMode.IdeLedger() => None
       }
 
       new RunnerConfig(
         dar,
         scriptId,
-        participantParams,
+        oParticipantParams,
         config.timeMode,
         inputValue,
         config.outputFile,

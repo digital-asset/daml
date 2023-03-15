@@ -30,6 +30,7 @@ case class ScriptConfig(
     ledgerHost: Option[String],
     ledgerPort: Option[Int],
     participantConfig: Option[File],
+    isIdeLedger: Boolean,
     // optional so we can detect if both --static-time and --wall-clock-time are passed.
     timeMode: Option[ScriptTimeMode],
     inputFile: Option[File],
@@ -46,6 +47,7 @@ case class ScriptConfig(
   def toCommand(): Either[String, ScriptCommand] =
     for {
       mode <- mode.toRight("Either --script-name or --all must be specified")
+      ledgerMode = this.getLedgerMode
       resolvedTimeMode = timeMode.getOrElse(ScriptConfig.DefaultTimeMode)
       conf <- mode match {
         case CliMode.RunOne(id) =>
@@ -53,9 +55,7 @@ case class ScriptConfig(
             ScriptCommand.RunOne(
               RunnerCliConfig(
                 darPath = darPath,
-                ledgerHost = ledgerHost,
-                ledgerPort = ledgerPort,
-                participantConfig = participantConfig,
+                ledgerMode = ledgerMode,
                 timeMode = resolvedTimeMode,
                 inputFile = inputFile,
                 outputFile = outputFile,
@@ -76,19 +76,25 @@ case class ScriptConfig(
             _ <- incompatible("output-file", outputFile.isEmpty)
             _ <- incompatible("application-id", applicationId.isEmpty)
             _ <- incompatible("json-api", !jsonApi)
-            _ <- Either.cond(outputFile.isEmpty, (), "--output-file is incompatible with --all")
           } yield ScriptCommand.RunAll(
             TestConfig(
               darPath = darPath,
-              ledgerHost = ledgerHost,
-              ledgerPort = ledgerPort,
-              participantConfig = participantConfig,
+              ledgerMode = ledgerMode,
               timeMode = resolvedTimeMode,
               maxInboundMessageSize = maxInboundMessageSize,
             )
           )
       }
     } yield conf
+
+  private def getLedgerMode: LedgerMode =
+    (ledgerHost, ledgerPort, participantConfig, isIdeLedger) match {
+      case (Some(host), Some(port), None, false) => LedgerMode.LedgerAddress(host, port)
+      case (None, None, Some(participantConfig), false) =>
+        LedgerMode.ParticipantConfig(participantConfig)
+      case (None, None, None, true) => LedgerMode.IdeLedger()
+      case _ => throw new IllegalStateException("Unsupported combination of ledger modes")
+    }
 }
 
 object ScriptConfig {
@@ -133,6 +139,10 @@ object ScriptConfig {
       .optional()
       .action((t, c) => c.copy(participantConfig = Some(t)))
       .text("File containing the participant configuration in JSON format")
+
+    opt[Unit]("ide-ledger")
+      .action((_, c) => c.copy(isIdeLedger = true))
+      .text("Runs the script(s) in a simulated ledger.")
 
     opt[Unit]('w', "wall-clock-time")
       .action { (_, c) =>
@@ -197,10 +207,15 @@ object ScriptConfig {
     checkConfig(c => {
       if (c.ledgerHost.isDefined != c.ledgerPort.isDefined) {
         failure("Must specify both --ledger-host and --ledger-port")
-      } else if (c.ledgerHost.isDefined && c.participantConfig.isDefined) {
-        failure("Cannot specify both --ledger-host and --participant-config")
-      } else if (c.ledgerHost.isEmpty && c.participantConfig.isEmpty) {
-        failure("Must specify either --ledger-host or --participant-config")
+      } else if (
+        List(c.ledgerHost.isDefined, c.participantConfig.isDefined, c.isIdeLedger)
+          .count(identity) != 1
+      ) {
+        failure(
+          "Must specify one and only one of --ledger-host, --participant-config, --ide-ledger"
+        )
+      } else if (c.isIdeLedger && c.jsonApi) {
+        failure("Cannot specify --json-api with --ide-ledger, as ide-ledger is run locally.")
       } else {
         success
       }
@@ -241,6 +256,7 @@ object ScriptConfig {
         ledgerHost = None,
         ledgerPort = None,
         participantConfig = None,
+        isIdeLedger = false,
         timeMode = None,
         inputFile = None,
         outputFile = None,

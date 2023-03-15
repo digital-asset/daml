@@ -13,9 +13,7 @@ import com.daml.lf.engine.script.ledgerinteraction.ScriptTimeMode
 case class RunnerCliConfig(
     darPath: File,
     scriptIdentifier: String,
-    ledgerHost: Option[String],
-    ledgerPort: Option[Int],
-    participantConfig: Option[File],
+    ledgerMode: LedgerMode,
     timeMode: ScriptTimeMode,
     inputFile: Option[File],
     outputFile: Option[File],

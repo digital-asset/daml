@@ -23,6 +23,10 @@ import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.io.Source
 import scala.util.{Failure, Success}
+import com.daml.lf.speedy.{Speedy, TraceLog, WarningLog}
+import com.daml.lf.engine.script.ledgerinteraction.IdeLedgerClient
+import com.daml.lf.engine.script.ledgerinteraction.GrpcLedgerClient
+import com.daml.lf.engine.script.ledgerinteraction.ScriptLedgerClient
 
 object TestMain extends StrictLogging {
 
@@ -39,6 +43,28 @@ object TestMain extends StrictLogging {
       acc.flatMap(bs => f(nxt).map(b => bs :+ b))
     }
 
+  def connectApiParticipant(
+      config: TestConfig,
+      participantParams: Participants[ApiParameters],
+  )(implicit
+      executionContext: ExecutionContext,
+      sequencer: ExecutionSequencerFactory,
+  ): Future[Participants[GrpcLedgerClient]] = {
+    for {
+      clients <- Runner.connect(
+        participantParams,
+        TlsConfiguration(false, None, None, None),
+        config.maxInboundMessageSize,
+      )
+      _ <- clients.getParticipant(None) match {
+        case Left(err) => throw new RuntimeException(err)
+        case Right(client) =>
+          client.grpcClient.packageManagementClient
+            .uploadDarFile(ByteString.readFrom(new FileInputStream(config.darPath)))
+      }
+    } yield clients
+  }
+
   def main(config: TestConfig): Unit = {
 
     val dar: Dar[(PackageId, Package)] = DarDecoder.assertReadArchiveFromFile(config.darPath)
@@ -49,36 +75,43 @@ object TestMain extends StrictLogging {
     implicit val materializer: Materializer = Materializer(system)
     implicit val executionContext: ExecutionContext = system.dispatcher
 
-    val (participantParams, participantCleanup) = config.participantConfig match {
-      case Some(file) =>
-        val source = Source.fromFile(file)
-        val fileContent =
-          try {
-            source.mkString
-          } finally {
-            source.close
-          }
-        val jsVal = fileContent.parseJson
-        import ParticipantsJsonProtocol._
-        (jsVal.convertTo[Participants[ApiParameters]], () => Future.unit)
-      case None =>
-        val (apiParameters, cleanup) =
-          (
-            ApiParameters(config.ledgerHost.get, config.ledgerPort.get, None, None),
-            () => Future.unit,
-          )
-        (
-          Participants(
-            default_participant = Some(apiParameters),
-            participants = Map.empty,
-            party_participants = Map.empty,
-          ),
-          cleanup,
-        )
-    }
-
     val darMap = dar.all.toMap
     val compiledPackages = PureCompiledPackages.assertBuild(darMap, Runner.compilerConfig)
+    val traceLog: TraceLog = Speedy.Machine.newTraceLog
+    val warningLog: WarningLog = Speedy.Machine.newWarningLog
+
+    val eParticipantParams: Either[Participants[ApiParameters], Participants[IdeLedgerClient]] =
+      config.ledgerMode match {
+        case LedgerMode.ParticipantConfig(file) =>
+          val source = Source.fromFile(file)
+          val fileContent =
+            try {
+              source.mkString
+            } finally {
+              source.close
+            }
+          val jsVal = fileContent.parseJson
+          import ParticipantsJsonProtocol._
+          Left(jsVal.convertTo[Participants[ApiParameters]])
+        case LedgerMode.LedgerAddress(host, port) =>
+          Left(
+            Participants(
+              default_participant = Some(ApiParameters(host, port, None, None)),
+              participants = Map.empty,
+              party_participants = Map.empty,
+            )
+          )
+        case LedgerMode.IdeLedger() =>
+          Right(
+            Participants(
+              default_participant =
+                Some(new IdeLedgerClient(compiledPackages, traceLog, warningLog, () => false)),
+              participants = Map.empty,
+              party_participants = Map.empty,
+            )
+          )
+      }
+
     val testScripts: Map[Ref.Identifier, Script.Action] = dar.main._2.modules.flatMap {
       case (moduleName, module) =>
         module.definitions.collect(Function.unlift { case (name, _) =>
@@ -93,24 +126,19 @@ object TestMain extends StrictLogging {
     }
 
     val flow: Future[Boolean] = for {
-      clients <- Runner.connect(
-        participantParams,
-        TlsConfiguration(false, None, None, None),
-        config.maxInboundMessageSize,
-      )
-      _ <- clients.getParticipant(None) match {
-        case Left(err) => throw new RuntimeException(err)
-        case Right(client) =>
-          client.grpcClient.packageManagementClient
-            .uploadDarFile(ByteString.readFrom(new FileInputStream(config.darPath)))
-      }
+      clients: Participants[ScriptLedgerClient] <- (eParticipantParams match {
+        case Left(participantParams) => connectApiParticipant(config, participantParams)
+        case Right(ideLedgerParticipant) => Future.successful(ideLedgerParticipant)
+      })
+
       success = new AtomicBoolean(true)
       // Sort in case scripts depend on each other.
       _ <- sequentialTraverse(testScripts.toList.sortBy({ case (id, _) => id })) {
         case (id, script) =>
           val runner =
             new Runner(compiledPackages, script, config.timeMode)
-          val testRun: Future[Unit] = runner.runWithClients(clients)._2.map(_ => ())
+          val testRun: Future[Unit] =
+            runner.runWithClients(clients, traceLog, warningLog)._2.map(_ => ())
           // Print test result and remember failure.
           testRun
             .andThen {
@@ -128,7 +156,6 @@ object TestMain extends StrictLogging {
     } yield success.get()
 
     flow.onComplete { _ =>
-      Await.result(participantCleanup(), Duration.Inf)
       system.terminate()
     }
 
