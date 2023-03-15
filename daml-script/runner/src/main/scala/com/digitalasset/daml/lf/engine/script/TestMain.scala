@@ -21,7 +21,6 @@ import spray.json._
 
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext, Future}
-import scala.io.Source
 import scala.util.{Failure, Success}
 import com.daml.lf.speedy.{Speedy, TraceLog, WarningLog}
 import com.daml.lf.engine.script.ledgerinteraction.IdeLedgerClient
