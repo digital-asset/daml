@@ -1,7 +1,7 @@
 {
     "homepage": "http://msys2.github.io",
     "version": "20220118",
-    "url": [
+    "_url": [
         "https://github.com/msys2/msys2-installer/releases/download/2022-01-28/msys2-base-x86_64-20220128.tar.xz",
         "https://repo.msys2.org/mingw/x86_64/mingw-w64-x86_64-jq-1.6-4-any.pkg.tar.zst#/jq.msys2",
         "https://repo.msys2.org/msys/x86_64/gnu-netcat-0.7.1-1-x86_64.pkg.tar.xz#/netcat.msys2",
@@ -9,6 +9,15 @@
         "https://repo.msys2.org/mingw/x86_64/mingw-w64-x86_64-openssl-1.1.1.j-1-any.pkg.tar.zst#/openssl.msys2",
         "https://repo.msys2.org/mingw/x86_64/mingw-w64-x86_64-python-3.8.8-2-any.pkg.tar.zst#/python.msys2",
         "https://repo.msys2.org/mingw/x86_64/mingw-w64-x86_64-postgresql-12.4-1-any.pkg.tar.zst#/pgsql.msys2"
+    ],
+    "url": [
+        "https://storage.googleapis.com/daml-binaries/dev-env/windows/20221021/msys2-base-x86_64-20220128.tar.xz",
+        "https://storage.googleapis.com/daml-binaries/dev-env/windows/20221021/mingw-w64-x86_64-jq-1.6-4-any.pkg.tar.zst#/jq.msys2",
+        "https://storage.googleapis.com/daml-binaries/dev-env/windows/20221021/gnu-netcat-0.7.1-1-x86_64.pkg.tar.xz#/netcat.msys2",
+        "https://storage.googleapis.com/daml-binaries/dev-env/windows/20221021/patch-2.7.6-1-x86_64.pkg.tar.xz#/patch.msys2",
+        "https://storage.googleapis.com/daml-binaries/dev-env/windows/20221021/mingw-w64-x86_64-openssl-1.1.1.j-1-any.pkg.tar.zst#/openssl.msys2",
+        "https://storage.googleapis.com/daml-binaries/dev-env/windows/20221021/mingw-w64-x86_64-python-3.8.8-2-any.pkg.tar.zst#/python.msys2",
+        "https://storage.googleapis.com/daml-binaries/dev-env/windows/20221021/mingw-w64-x86_64-postgresql-12.4-1-any.pkg.tar.zst#/pgsql.msys2"
     ],
     "hash": [
         "b667a7ec3840c0437c718d6851c93794bd8a6837ba642fd90702e8769febad6a",
