@@ -79,69 +79,71 @@ class TriggerRuleSimulationLibTest
 
   "Trigger rule simulation" should {
     "correctly log metrics for initState lambda" in {
-      forAll(initState) { acs =>
-        for {
-          client <- ledgerClient()
-          party <- allocateParty(client)
-          (trigger, simulator) = getSimulator(
-            client,
-            QualifiedName.assertFromString("Cats:feedingTrigger"),
-            packageId,
-            applicationId,
-            compiledPackages,
-            config.participants(ParticipantId).apiServer.timeProviderType,
-            triggerRunnerConfiguration,
-            party,
-          )
-          (submissions, metrics, state) <- simulator.initialStateLambda(acs)
-        } yield {
-          withClue((acs, state, submissions, metrics)) {
-            metrics.evaluation.submissions should be(submissions.size)
-            metrics.submission.creates should be(submissions.map(numberOfCreateCommands).sum)
-            metrics.submission.createAndExercises should be(
-              submissions.map(numberOfCreateAndExerciseCommands).sum
-            )
-            metrics.submission.exercises should be(submissions.map(numberOfExerciseCommands).sum)
-            metrics.submission.exerciseByKeys should be(
-              submissions.map(numberOfExerciseByKeyCommands).sum
-            )
-            metrics.evaluation.steps should be(
-              metrics.evaluation.getTimes + metrics.evaluation.submissions + 1
-            )
-            metrics.startState.acs.activeContracts should be(acs.size)
-            metrics.startState.acs.pendingContracts should be(0)
-            metrics.startState.inFlight.commands should be(0)
-            Some(metrics.endState.acs.activeContracts) should be(
-              numberOfActiveContracts(state, trigger.level, trigger.version)
-            )
-            Some(metrics.endState.acs.pendingContracts) should be(
-              numberOfPendingContracts(state, trigger.level, trigger.version)
-            )
-            Some(metrics.endState.inFlight.commands) should be(
-              numberOfInFlightCommands(state, trigger.level, trigger.version)
-            )
+      for {
+        client <- ledgerClient()
+        party <- allocateParty(client)
+        (trigger, simulator) = getSimulator(
+          client,
+          QualifiedName.assertFromString("Cats:feedingTrigger"),
+          packageId,
+          applicationId,
+          compiledPackages,
+          config.participants(ParticipantId).apiServer.timeProviderType,
+          triggerRunnerConfiguration,
+          party,
+        )
+        result <- forAll(initState) { acs =>
+          for {
+            (submissions, metrics, state) <- simulator.initialStateLambda(acs)
+          } yield {
+            withClue((acs, state, submissions, metrics)) {
+              metrics.evaluation.submissions should be(submissions.size)
+              metrics.submission.creates should be(submissions.map(numberOfCreateCommands).sum)
+              metrics.submission.createAndExercises should be(
+                submissions.map(numberOfCreateAndExerciseCommands).sum
+              )
+              metrics.submission.exercises should be(submissions.map(numberOfExerciseCommands).sum)
+              metrics.submission.exerciseByKeys should be(
+                submissions.map(numberOfExerciseByKeyCommands).sum
+              )
+              metrics.evaluation.steps should be(
+                metrics.evaluation.getTimes + metrics.evaluation.submissions + 1
+              )
+              metrics.startState.acs.activeContracts should be(acs.size)
+              metrics.startState.acs.pendingContracts should be(0)
+              metrics.startState.inFlight.commands should be(0)
+              Some(metrics.endState.acs.activeContracts) should be(
+                numberOfActiveContracts(state, trigger.level, trigger.version)
+              )
+              Some(metrics.endState.acs.pendingContracts) should be(
+                numberOfPendingContracts(state, trigger.level, trigger.version)
+              )
+              Some(metrics.endState.inFlight.commands) should be(
+                numberOfInFlightCommands(state, trigger.level, trigger.version)
+              )
+            }
           }
         }
-      }
+      } yield result
     }
 
     "correctly log metrics for updateState lambda" in {
-      forAll(updateState) { case (acs, userState, inFlightCmds, msg) =>
-        for {
-          client <- ledgerClient()
-          party <- allocateParty(client)
-          (trigger, simulator) = getSimulator(
-            client,
-            QualifiedName.assertFromString("Cats:feedingTrigger"),
-            packageId,
-            applicationId,
-            compiledPackages,
-            config.participants(ParticipantId).apiServer.timeProviderType,
-            triggerRunnerConfiguration,
-            party,
-          )
-          converter = new Converter(compiledPackages, trigger)
-          startState = converter
+      for {
+        client <- ledgerClient()
+        party <- allocateParty(client)
+        (trigger, simulator) = getSimulator(
+          client,
+          QualifiedName.assertFromString("Cats:feedingTrigger"),
+          packageId,
+          applicationId,
+          compiledPackages,
+          config.participants(ParticipantId).apiServer.timeProviderType,
+          triggerRunnerConfiguration,
+          party,
+        )
+        converter = new Converter(compiledPackages, trigger)
+        result <- forAll(updateState) { case (acs, userState, inFlightCmds, msg) =>
+          val startState = converter
             .fromTriggerUpdateState(
               acs,
               userState,
@@ -149,124 +151,127 @@ class TriggerRuleSimulationLibTest
               TriggerParties(Party(party), Set.empty),
               triggerRunnerConfiguration,
             )
-          (submissions, metrics, endState) <- simulator.updateStateLambda(startState, msg)
-        } yield {
-          withClue((startState, msg, endState, submissions, metrics)) {
-            metrics.evaluation.submissions should be(submissions.size)
-            metrics.submission.creates should be(submissions.map(numberOfCreateCommands).sum)
-            metrics.submission.createAndExercises should be(
-              submissions.map(numberOfCreateAndExerciseCommands).sum
-            )
-            metrics.submission.exercises should be(submissions.map(numberOfExerciseCommands).sum)
-            metrics.submission.exerciseByKeys should be(
-              submissions.map(numberOfExerciseByKeyCommands).sum
-            )
-            metrics.evaluation.steps should be(
-              metrics.evaluation.getTimes + metrics.evaluation.submissions + 1
-            )
-            Some(metrics.startState.acs.activeContracts) should be(
-              numberOfActiveContracts(startState, trigger.level, trigger.version)
-            )
-            Some(metrics.startState.acs.pendingContracts) should be(
-              numberOfPendingContracts(startState, trigger.level, trigger.version)
-            )
-            Some(metrics.startState.inFlight.commands) should be(
-              numberOfInFlightCommands(startState, trigger.level, trigger.version)
-            )
-            Some(metrics.endState.acs.activeContracts) should be(
-              numberOfActiveContracts(endState, trigger.level, trigger.version)
-            )
-            Some(metrics.endState.acs.pendingContracts) should be(
-              numberOfPendingContracts(endState, trigger.level, trigger.version)
-            )
-            Some(metrics.endState.inFlight.commands) should be(
-              numberOfInFlightCommands(endState, trigger.level, trigger.version)
-            )
-            val pendingContractSubmissions = submissions
-              .map(request =>
-                numberOfCreateCommands(request) + numberOfCreateAndExerciseCommands(
-                  request
-                ) + numberOfExerciseCommands(request) + numberOfExerciseByKeyCommands(request)
+
+          for {
+            (submissions, metrics, endState) <- simulator.updateStateLambda(startState, msg)
+          } yield {
+            withClue((startState, msg, endState, submissions, metrics)) {
+              metrics.evaluation.submissions should be(submissions.size)
+              metrics.submission.creates should be(submissions.map(numberOfCreateCommands).sum)
+              metrics.submission.createAndExercises should be(
+                submissions.map(numberOfCreateAndExerciseCommands).sum
               )
-              .sum
-            msg match {
-              case TriggerMsg.Completion(completion)
-                  if completion.getStatus.code == 0 && completion.commandId.nonEmpty =>
-                // Completion success for a request this trigger (should have) produced
-                metrics.startState.acs.activeContracts should be(
-                  metrics.endState.acs.activeContracts
+              metrics.submission.exercises should be(submissions.map(numberOfExerciseCommands).sum)
+              metrics.submission.exerciseByKeys should be(
+                submissions.map(numberOfExerciseByKeyCommands).sum
+              )
+              metrics.evaluation.steps should be(
+                metrics.evaluation.getTimes + metrics.evaluation.submissions + 1
+              )
+              Some(metrics.startState.acs.activeContracts) should be(
+                numberOfActiveContracts(startState, trigger.level, trigger.version)
+              )
+              Some(metrics.startState.acs.pendingContracts) should be(
+                numberOfPendingContracts(startState, trigger.level, trigger.version)
+              )
+              Some(metrics.startState.inFlight.commands) should be(
+                numberOfInFlightCommands(startState, trigger.level, trigger.version)
+              )
+              Some(metrics.endState.acs.activeContracts) should be(
+                numberOfActiveContracts(endState, trigger.level, trigger.version)
+              )
+              Some(metrics.endState.acs.pendingContracts) should be(
+                numberOfPendingContracts(endState, trigger.level, trigger.version)
+              )
+              Some(metrics.endState.inFlight.commands) should be(
+                numberOfInFlightCommands(endState, trigger.level, trigger.version)
+              )
+              val pendingContractSubmissions = submissions
+                .map(request =>
+                  numberOfCreateCommands(request) + numberOfCreateAndExerciseCommands(
+                    request
+                  ) + numberOfExerciseCommands(request) + numberOfExerciseByKeyCommands(request)
                 )
-                metrics.endState.acs.pendingContracts should be(
-                  metrics.startState.acs.pendingContracts + pendingContractSubmissions
-                )
-                metrics.endState.inFlight.commands should be(
-                  metrics.startState.inFlight.commands + submissions.size
-                )
+                .sum
+              msg match {
+                case TriggerMsg.Completion(completion)
+                    if completion.getStatus.code == 0 && completion.commandId.nonEmpty =>
+                  // Completion success for a request this trigger (should have) produced
+                  metrics.startState.acs.activeContracts should be(
+                    metrics.endState.acs.activeContracts
+                  )
+                  metrics.endState.acs.pendingContracts should be(
+                    metrics.startState.acs.pendingContracts + pendingContractSubmissions
+                  )
+                  metrics.endState.inFlight.commands should be(
+                    metrics.startState.inFlight.commands + submissions.size
+                  )
 
-              case TriggerMsg.Completion(completion)
-                  if completion.getStatus.code != 0 && completion.commandId.nonEmpty =>
-                // Completion failure for a request this trigger (should have) produced
-                val completionFailureSubmissions = numberOfInFlightCreateCommands(
-                  converter.fromCommandId(completion.commandId),
-                  endState,
-                  trigger.level,
-                  trigger.version,
-                )
-                val submissionDelta = if (inFlightCmds.contains(completion.commandId)) 1 else 0
-                metrics.startState.acs.activeContracts should be(
-                  metrics.endState.acs.activeContracts
-                )
-                metrics.endState.acs.pendingContracts should be(
-                  metrics.startState.acs.pendingContracts + pendingContractSubmissions - completionFailureSubmissions
-                    .getOrElse(0)
-                )
-                metrics.endState.inFlight.commands should be(
-                  metrics.startState.inFlight.commands + submissions.size - submissionDelta
-                )
+                case TriggerMsg.Completion(completion)
+                    if completion.getStatus.code != 0 && completion.commandId.nonEmpty =>
+                  // Completion failure for a request this trigger (should have) produced
+                  val completionFailureSubmissions = numberOfInFlightCreateCommands(
+                    converter.fromCommandId(completion.commandId),
+                    endState,
+                    trigger.level,
+                    trigger.version,
+                  )
+                  val submissionDelta = if (inFlightCmds.contains(completion.commandId)) 1 else 0
+                  metrics.startState.acs.activeContracts should be(
+                    metrics.endState.acs.activeContracts
+                  )
+                  metrics.endState.acs.pendingContracts should be(
+                    metrics.startState.acs.pendingContracts + pendingContractSubmissions - completionFailureSubmissions
+                      .getOrElse(0)
+                  )
+                  metrics.endState.inFlight.commands should be(
+                    metrics.startState.inFlight.commands + submissions.size - submissionDelta
+                  )
 
-              case TriggerMsg.Transaction(transaction) if transaction.commandId.nonEmpty =>
-                // Transaction events are related to a command this trigger (should have) produced
-                val transactionCreates = transaction.events.count(_.event.isCreated)
-                val transactionArchives = transaction.events.count(_.event.isArchived)
-                val submissionDelta = if (inFlightCmds.contains(transaction.commandId)) 1 else 0
-                metrics.endState.acs.activeContracts should be(
-                  metrics.startState.acs.activeContracts + transactionCreates - transactionArchives
-                )
-                metrics.endState.acs.pendingContracts should be(
-                  metrics.startState.acs.pendingContracts + pendingContractSubmissions // - (transactionCreates + transactionArchives)
-                )
-                metrics.endState.inFlight.commands should be(
-                  metrics.startState.inFlight.commands + submissions.size - submissionDelta
-                )
+                case TriggerMsg.Transaction(transaction) if transaction.commandId.nonEmpty =>
+                  // Transaction events are related to a command this trigger (should have) produced
+                  val transactionCreates = transaction.events.count(_.event.isCreated)
+                  val transactionArchives = transaction.events.count(_.event.isArchived)
+                  val submissionDelta = if (inFlightCmds.contains(transaction.commandId)) 1 else 0
+                  metrics.endState.acs.activeContracts should be(
+                    metrics.startState.acs.activeContracts + transactionCreates - transactionArchives
+                  )
+                  metrics.endState.acs.pendingContracts should be(
+                    metrics.startState.acs.pendingContracts + pendingContractSubmissions // - (transactionCreates + transactionArchives)
+                  )
+                  metrics.endState.inFlight.commands should be(
+                    metrics.startState.inFlight.commands + submissions.size - submissionDelta
+                  )
 
-              case TriggerMsg.Transaction(transaction) =>
-                // Transaction events are related to events this trigger subscribed to, but not to commands produced by this trigger
-                val transactionCreates = transaction.events.count(_.event.isCreated)
-                val transactionArchives = transaction.events.count(_.event.isArchived)
-                metrics.endState.acs.activeContracts should be(
-                  metrics.startState.acs.activeContracts + transactionCreates - transactionArchives
-                )
-                metrics.endState.acs.pendingContracts should be(
-                  metrics.startState.acs.pendingContracts + pendingContractSubmissions
-                )
-                metrics.endState.inFlight.commands should be(
-                  metrics.startState.inFlight.commands + submissions.size
-                )
+                case TriggerMsg.Transaction(transaction) =>
+                  // Transaction events are related to events this trigger subscribed to, but not to commands produced by this trigger
+                  val transactionCreates = transaction.events.count(_.event.isCreated)
+                  val transactionArchives = transaction.events.count(_.event.isArchived)
+                  metrics.endState.acs.activeContracts should be(
+                    metrics.startState.acs.activeContracts + transactionCreates - transactionArchives
+                  )
+                  metrics.endState.acs.pendingContracts should be(
+                    metrics.startState.acs.pendingContracts + pendingContractSubmissions
+                  )
+                  metrics.endState.inFlight.commands should be(
+                    metrics.startState.inFlight.commands + submissions.size
+                  )
 
-              case _ =>
-                metrics.startState.acs.activeContracts should be(
-                  metrics.endState.acs.activeContracts
-                )
-                metrics.endState.acs.pendingContracts should be(
-                  metrics.startState.acs.pendingContracts + pendingContractSubmissions
-                )
-                metrics.endState.inFlight.commands should be(
-                  metrics.startState.inFlight.commands + submissions.size
-                )
+                case _ =>
+                  metrics.startState.acs.activeContracts should be(
+                    metrics.endState.acs.activeContracts
+                  )
+                  metrics.endState.acs.pendingContracts should be(
+                    metrics.startState.acs.pendingContracts + pendingContractSubmissions
+                  )
+                  metrics.endState.inFlight.commands should be(
+                    metrics.startState.inFlight.commands + submissions.size
+                  )
+              }
             }
           }
         }
-      }
+      } yield result
     }
   }
 }
