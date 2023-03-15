@@ -1852,31 +1852,17 @@ private[lf] object SBuiltin {
         val holding = machine.ptx.context.info.authorizers
         val requesting = required.diff(holding)
         if (requesting.isEmpty) {
-          // do scoped authority restriction; (TX) Node.Authority is *NOT* created
-          machine.ptx.beginRestrictAuthority(
-            required = required
-          ) match {
-            case ptx =>
-              machine.ptx = ptx
-              machine.pushKont(KCloseRestrictAuthority)
-              machine.enterApplication(action, Array(SEValue(SToken)))
-          }
+          // do scoped authority restriction; TODO #15882 -- rework required
+          machine.enterApplication(action, Array(SEValue(SToken)))
         } else {
           Control.Question[Question.Update](
             Question.Update.NeedAuthority(
               holding = holding,
               requesting = requesting,
               callback = { () =>
-                // do scoped authority change; (TX) Node.Authority *IS* created
-                machine.ptx.beginGainAuthority(
-                  required = required
-                ) match {
-                  case ptx =>
-                    machine.ptx = ptx
-                    machine.pushKont(KCloseGainAuthority)
-                    val c = machine.enterApplication(action, Array(SEValue(SToken)))
-                    machine.setControl(c)
-                }
+                // do scoped authority change; TODO #15882 -- rework required
+                val c = machine.enterApplication(action, Array(SEValue(SToken)))
+                machine.setControl(c)
               },
             )
           )
