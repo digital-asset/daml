@@ -22,7 +22,6 @@ import System.Environment.Blank
 import System.FilePath
 import System.Info.Extra
 import System.IO.Extra
-import System.Process
 import Test.Tasty
 import Test.Tasty.HUnit
 
@@ -32,6 +31,7 @@ main :: IO ()
 main = do
     setEnv "TASTY_NUM_THREADS" "3" True
     damlc <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> exe "damlc")
+    scriptDar1dev <- locateRunfiles (mainWorkspace </> "daml-script" </> "daml" </> "daml-script-1.dev.dar")
     damlcLegacy <- locateRunfiles ("damlc_legacy" </> exe "damlc_legacy")
     oldProjDar <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> "tests" </> "dars" </> "old-proj-0.13.55-snapshot.20200309.3401.0.6f8c3ad8-1.8.dar")
     let validate dar = callProcessSilent damlc ["validate-dar", dar]
@@ -40,8 +40,14 @@ main = do
 data Tools = Tools -- and places
   { damlc :: FilePath
   , damlcLegacy :: FilePath
+  , scriptDar1dev :: FilePath
   , validate :: FilePath -> IO ()
   , oldProjDar :: FilePath
+  }
+
+data DataDependenciesTestOptions = DataDependenciesTestOptions
+  { buildOptions :: [String]
+  , extraDeps :: [FilePath]
   }
 
 damlcForTarget :: Tools -> LF.Version -> FilePath
@@ -120,12 +126,12 @@ tests tools = testGroup "Data Dependencies" $
               , "f : X"
               , "f = X"
 
-              , "test = scenario do"
-              , "  alice <- getParty \"Alice\""
+              , "test : Party -> Update ()"
+              , "test alice = do"
               , "  let t = T alice"
               , "  signatoryT t === [alice]"
-              , "  cid <- submit alice $ createT t"
-              , "  submit alice $ archiveT cid"
+              , "  cid <- createT t"
+              , "  archiveT cid"
               ]
           writeFileUTF8 (projb </> "daml.yaml") $ unlines
               [ "sdk-version: " <> sdkVersion
@@ -137,7 +143,6 @@ tests tools = testGroup "Data Dependencies" $
               ]
           callProcessSilent damlc
             [ "build"
-            , "--enable-scenarios=yes" -- TODO: https://github.com/digital-asset/daml/issues/11316
             , "--project-root", projb
             , "--target", LF.renderVersion targetLfVer
             , "-o", projb </> "projb.dar" ]
@@ -649,12 +654,13 @@ tests tools = testGroup "Data Dependencies" $
           , "name: proj"
           , "version: 0.1.0"
           , "source: ."
-          , "dependencies: [daml-prim, daml-stdlib]"
+          , "dependencies: [daml-prim, daml-stdlib, " <> show scriptDar1dev <> "]"
           , "data-dependencies: [simple-dalf-1.0.0.dalf]"
           , "build-options: [--package=simple-dalf-1.0.0]"
           ]
         writeFileUTF8 (projDir </> "A.daml") $ unlines
             [ "module A where"
+            , "import Daml.Script"
             , "import DA.Assert"
             , "import qualified \"simple-dalf\" Module"
             , "swapParties : Module.Template -> Module.Template"
@@ -663,9 +669,9 @@ tests tools = testGroup "Data Dependencies" $
             , "getThis (Module.Template this _) = this"
             , "getArg : Module.Template -> Party"
             , "getArg (Module.Template _ arg) = arg"
-            , "test_methods = scenario do"
-            , "  alice <- getParty \"Alice\""
-            , "  bob <- getParty \"Bob\""
+            , "test_methods = script do"
+            , "  alice <- allocateParty \"Alice\""
+            , "  bob <- allocateParty \"Bob\""
             , "  let t = Module.Template alice bob"
             , "  getThis (Module.Template alice bob) === alice"
             , "  getArg (Module.Template alice bob) === bob"
@@ -690,9 +696,8 @@ tests tools = testGroup "Data Dependencies" $
         callProcessSilent genSimpleDalf $
             ["--with-archive-choice" | withArchiveChoice ] <>
             [projDir </> "simple-dalf-1.0.0.dalf"]
-        callProcess damlc
+        callProcessSilent damlc
             [ "build"
-            , "--enable-scenarios=yes" -- TODO: https://github.com/digital-asset/daml/issues/11316
             , "--project-root", projDir
             , "--target=1.dev"
             , "--generated-src" ]
@@ -700,7 +705,6 @@ tests tools = testGroup "Data Dependencies" $
         assertFileExists dar
         callProcessSilent damlc
             [ "test"
-            , "--enable-scenarios=yes" -- TODO: https://github.com/digital-asset/daml/issues/11316
             , "--target=1.dev"
             , "--project-root"
             , projDir
@@ -817,36 +821,40 @@ tests tools = testGroup "Data Dependencies" $
               , "usingFooIndirectly : T"
               , "usingFooIndirectly = usingFoo"
               -- test imported function constrained by newer Eq class
-              , "testConstrainedFn = scenario do"
+              , "testConstrainedFn : Update ()"
+              , "testConstrainedFn = do"
               , "  usingEq 10 10 === True"
               -- test instance imports
-              , "testInstanceImport = scenario do"
+              , "testInstanceImport : Update ()"
+              , "testInstanceImport = do"
               , "  foo 10 === 10" -- Foo Int
               , "  bar 20 === 20" -- Bar Int
               , "  foo 10 === (10, 10)" -- Foo (a, b)
               , "  Q1 === Q1" -- (Eq Q, Show Q)
               , "  (Q1 <= Q2) === True" -- Ord Q
               -- test importing of HasField instances
-              , "testHasFieldInstanceImport = scenario do"
+              , "testHasFieldInstanceImport : Update ()"
+              , "testHasFieldInstanceImport = do"
               , "  let x = RR 100"
               , "  getField @\"rrfoo\" x === 100"
               -- test importing of template typeclass instance
-              , "test = scenario do"
-              , "  alice <- getParty \"Alice\""
+              , "test : Party -> Update ()"
+              , "test alice = do"
               , "  let t = P alice"
               , "  signatory t === [alice]"
-              , "  cid <- submit alice $ create t"
-              , "  submit alice $ archive cid"
+              , "  cid <- create t"
+              , "  archive cid"
               -- references to DA.Internal.Any
-              , "testAny = scenario do"
-              , "  p <- getParty \"p\""
+              , "testAny : Party -> Update ()"
+              , "testAny p = do"
               , "  let t = P p"
               , "  fromAnyTemplate (AnyWrapper $ toAnyTemplate t).getAnyWrapper === Some t"
               -- reference to T
               , "foobar : FunT Int Text"
               , "foobar = FunT show"
               -- ActionTrans
-              , "trans = scenario do"
+              , "trans : Update ()"
+              , "trans = do"
               , "  runOptionalT (lift [0]) === [Just 0]"
               -- type-level string test
               , "usesHasFieldIndirectly : HasField \"a_field\" a b => a -> b"
@@ -880,7 +888,6 @@ tests tools = testGroup "Data Dependencies" $
               ]
           callProcessSilent damlc
               [ "build"
-              , "--enable-scenarios=yes" -- TODO: https://github.com/digital-asset/daml/issues/11316
               , "--project-root", projb
               , "--target=" <> LF.renderVersion targetLfVer
               , "-o", projb </> "projb.dar" ]
@@ -1332,11 +1339,12 @@ tests tools = testGroup "Data Dependencies" $
             ]
         writeFileUTF8 (tmpDir </> "dep" </> "Foo.daml") $ unlines
             [ "module Foo where"
-            , "f : Scenario ()"
-            , "f = scenario do"
-            , "  p <- getParty \"p\""
-            , "  submit p $ pure ()"
-            , "  submit p $ pure ()"
+            , "f : Update ()"
+            , "f = do"
+            , "  _ <- pure ()"
+            , "  _ <- getTime"
+            , "  _ <- getTime"
+            , "  pure ()"
             -- This will produce two implicit instances.
             -- GHC occasionally seems to inline those instances and I don’t understand
             -- how to reliably stop it from doing this therefore,
@@ -1344,13 +1352,14 @@ tests tools = testGroup "Data Dependencies" $
             ]
         callProcessSilent damlc
             [ "build"
-            , "--enable-scenarios=yes" -- TODO: https://github.com/digital-asset/daml/issues/11316
             , "--project-root", tmpDir </> "dep"
             , "-o", tmpDir </> "dep" </> "dep.dar" ]
         Right Dalfs{..} <- readDalfs . Zip.toArchive <$> BSL.readFile (tmpDir </> "dep" </> "dep.dar")
         (_pkgId, pkg) <- either (fail . show) pure (LFArchive.decodeArchive LFArchive.DecodeAsMain (BSL.toStrict mainDalf))
 
         Just mod <- pure $ NM.lookup (LF.ModuleName ["Foo"]) (LF.packageModules pkg)
+        -- let _f x = (fst $ LF.dvalBinder x, LF.dvalBody x)
+        -- mapM_ print $ LF.dvalBinder <$> NM.toList (LF.moduleValues mod)
         let callStackInstances = do
                 v@LF.DefValue{dvalBinder = (_, ty)} <- NM.toList (LF.moduleValues mod)
                 LF.TSynApp
@@ -1364,7 +1373,7 @@ tests tools = testGroup "Data Dependencies" $
                       )
                   ] <- pure ty
                 pure v
-        assertEqual "Expected two implicit CallStack" (length callStackInstances) 2
+        assertEqual "Expected two implicit CallStack" 2 (length callStackInstances)
 
         step "building project that uses it via data-dependencies"
         createDirectoryIfMissing True (tmpDir </> "proj")
@@ -1384,7 +1393,6 @@ tests tools = testGroup "Data Dependencies" $
             ]
         callProcessSilent damlc
             [ "build"
-            , "--enable-scenarios=yes" -- TODO: https://github.com/digital-asset/daml/issues/11316
             , "--project-root"
             , tmpDir </> "proj" ]
 
@@ -1412,7 +1420,8 @@ tests tools = testGroup "Data Dependencies" $
             [ "module Main where"
             , "import Type"
             , "import Wrapper ()"
-            , "test = scenario do"
+            , "test : Update ()"
+            , "test = do"
             , "  debug (show T)"
             -- If orphan instances were not imported transitively,
             -- we'd get a missing instance error from GHC.
@@ -1654,7 +1663,7 @@ tests tools = testGroup "Data Dependencies" $
         ]
 
     , simpleImportTestOptions "No 'inaccessible RHS' when pattern matching on interface"
-        [ "--target=1.dev" ]
+        options1Dev
         [ "module Lib where"
 
         , "data EmptyInterfaceView = EmptyInterfaceView {}"
@@ -1693,7 +1702,7 @@ tests tools = testGroup "Data Dependencies" $
         ]
 
     , dataDependenciesTestOptions "Homonymous interface doesn't trigger 'ambiguous occurrence' error"
-        [ "--target=1.dev" ]
+        options1Dev
         [   (,) "A.daml"
             [ "module A where"
             , "data Instrument = Instrument {}"
@@ -1715,7 +1724,7 @@ tests tools = testGroup "Data Dependencies" $
         ]
 
     , dataDependenciesTestOptions "implement interface from data-dependency"
-        [ "--target=1.dev" ]
+        options1DevScript
         [   (,) "Lib.daml"
             [ "module Lib where"
 
@@ -1762,9 +1771,12 @@ tests tools = testGroup "Data Dependencies" $
         ]
         [
             (,) "Main.daml"
-            [ "module Main where"
+            [ "{-# LANGUAGE ApplicativeDo #-}" -- Required for daml.script
+            , "module Main where"
+            , "import Daml.Script"
             , "import Lib"
             , "import DA.Assert"
+            , "import DA.Optional"
 
             , "template Asset"
             , "  with"
@@ -1793,50 +1805,56 @@ tests tools = testGroup "Data Dependencies" $
             , "        [1] === [1] -- make sure `mkMethod` calls are properly erased in the presence of polymorphism."
             , "        pure ()"
 
-            , "main = scenario do"
-            , "  p <- getParty \"Alice\""
-            , "  p `submitMustFail` do"
-            , "    create Asset with"
+            , "main = script do"
+            , "  p <- allocateParty \"Alice\""
+            , "  p `submitMustFail`"
+            , "    createCmd Asset with"
             , "      issuer = p"
             , "      owner = p"
             , "      amount = -1"
-            , "  p `submit` do"
-            , "    cidAsset1 <- create Asset with"
+            , "  cidAsset1 <- p `submit`"
+            , "    createCmd Asset with"
             , "      issuer = p"
             , "      owner = p"
             , "      amount = 15"
-            , "    let cidToken1 = toInterfaceContractId @Token cidAsset1"
-            , "    _ <- exercise cidToken1 (Noop ())"
-            , "    (cidToken2, cidToken3) <- exercise cidToken1 (Split 10)"
-            , "    token2 <- fetch cidToken2"
-            , "    -- Party is duplicated because p is both observer & issuer"
-            , "    signatory token2 === [p, p]"
-            , "    getAmount token2 === 10"
-            , "    case fromInterface token2 of"
-            , "      None -> abort \"expected Asset\""
-            , "      Some Asset {amount} ->"
-            , "        amount === 10"
-            , "    token3 <- fetch cidToken3"
-            , "    getAmount token3 === 5"
-            , "    case fromInterface token3 of"
-            , "      None -> abort \"expected Asset\""
-            , "      Some Asset {amount} ->"
-            , "        amount === 5"
+            , "  let cidToken1 = toInterfaceContractId @Token cidAsset1"
+            , "  (cidToken2, cidToken3) <- p `submit` do"
+            , "    exerciseCmd cidToken1 (Noop ())"
+            , "    r <- exerciseCmd cidToken1 (Split 10)"
+            , "    pure r"
+                 -- Equililent to `fetch` when passing in an interface contract id.
+            , "  let queryAssert cid = toInterface . fromSome <$> queryContractId p (fromInterfaceContractId @Asset cid)"
 
-            , "    cidToken4 <- exercise cidToken3 (GetRich 20)"
-            , "    token4 <- fetch cidToken4"
-            , "    getAmount token4 === 25"
-            , "    case fromInterface token4 of"
-            , "      None -> abort \"expected Asset\""
-            , "      Some Asset {amount} ->"
-            , "        amount === 25"
+            , "  token2 <- queryAssert cidToken2"
+            , "  -- Party is duplicated because p is both observer & issuer"
+            , "  signatory token2 === [p, p]"
+            , "  getAmount token2 === 10"
+            , "  case fromInterface token2 of"
+            , "    None -> abort \"expected Asset\""
+            , "    Some Asset {amount} ->"
+            , "      amount === 10"
 
-            , "    pure ()"
+            , "  token3 <- queryAssert cidToken3"
+            , "  getAmount token3 === 5"
+            , "  case fromInterface token3 of"
+            , "    None -> abort \"expected Asset\""
+            , "    Some Asset {amount} ->"
+            , "      amount === 5"
+
+            , "  cidToken4 <- p `submit` exerciseCmd cidToken3 (GetRich 20)"
+
+            , "  token4 <- queryAssert cidToken4"
+            , "  getAmount token4 === 25"
+            , "  case fromInterface token4 of"
+            , "    None -> abort \"expected Asset\""
+            , "    Some Asset {amount} ->"
+            , "      amount === 25"
+            , "  pure ()"
             ]
         ]
 
     , dataDependenciesTestOptions "use interface from data-dependency"
-        [ "--target=1.dev" ]
+        options1DevScript
         [   (,) "Lib.daml"
             [ "module Lib where"
             , "import DA.Assert"
@@ -1911,54 +1929,62 @@ tests tools = testGroup "Data Dependencies" $
         ]
         [
             (,) "Main.daml"
-            [ "module Main where"
+            [ "{-# LANGUAGE ApplicativeDo #-}"
+            , "module Main where"
+            , "import Daml.Script"
             , "import Lib"
             , "import DA.Assert"
+            , "import DA.Optional"
 
-            , "main = scenario do"
-            , "  p <- getParty \"Alice\""
-            , "  p `submitMustFail` do"
-            , "    create Asset with"
+            , "main = script do"
+            , "  p <- allocateParty \"Alice\""
+            , "  p `submitMustFail`"
+            , "    createCmd Asset with"
             , "      issuer = p"
             , "      owner = p"
             , "      amount = -1"
-            , "  p `submit` do"
-            , "    cidAsset1 <- create Asset with"
+            , "  cidAsset1 <- p `submit`"
+            , "    createCmd Asset with"
             , "      issuer = p"
             , "      owner = p"
             , "      amount = 15"
-            , "    let cidToken1 = toInterfaceContractId @Token cidAsset1"
-            , "    _ <- exercise cidToken1 (Noop ())"
-            , "    (cidToken2, cidToken3) <- exercise cidToken1 (Split 10)"
-            , "    token2 <- fetch cidToken2"
-            , "    -- Party is duplicated because p is both observer & issuer"
-            , "    signatory token2 === [p, p]"
-            , "    getAmount token2 === 10"
-            , "    case fromInterface token2 of"
-            , "      None -> abort \"expected Asset\""
-            , "      Some Asset {amount} ->"
-            , "        amount === 10"
-            , "    token3 <- fetch cidToken3"
-            , "    getAmount token3 === 5"
-            , "    case fromInterface token3 of"
-            , "      None -> abort \"expected Asset\""
-            , "      Some Asset {amount} ->"
-            , "        amount === 5"
+            , "  let cidToken1 = toInterfaceContractId @Token cidAsset1"
+            , "  (cidToken2, cidToken3) <- p `submit` do"
+            , "    _ <- exerciseCmd cidToken1 (Noop ())"
+            , "    r <- exerciseCmd cidToken1 (Split 10)"
+            , "    pure r"
 
-            , "    cidToken4 <- exercise cidToken3 (GetRich 20)"
-            , "    token4 <- fetch cidToken4"
-            , "    getAmount token4 === 25"
-            , "    case fromInterface token4 of"
-            , "      None -> abort \"expected Asset\""
-            , "      Some Asset {amount} ->"
-            , "        amount === 25"
+            , "  let queryAssert cid = toInterface . fromSome <$> queryContractId p (fromInterfaceContractId @Asset cid)"
 
-            , "    pure ()"
+            , "  token2 <- queryAssert cidToken2"
+            , "  -- Party is duplicated because p is both observer & issuer"
+            , "  signatory token2 === [p, p]"
+            , "  getAmount token2 === 10"
+            , "  case fromInterface token2 of"
+            , "    None -> abort \"expected Asset\""
+            , "    Some Asset {amount} ->"
+            , "      amount === 10"
+            , "  token3 <- queryAssert cidToken3"
+            , "  getAmount token3 === 5"
+            , "  case fromInterface token3 of"
+            , "    None -> abort \"expected Asset\""
+            , "    Some Asset {amount} ->"
+            , "      amount === 5"
+
+            , "  cidToken4 <- p `submit` exerciseCmd cidToken3 (GetRich 20)"
+            , "  token4 <- queryAssert cidToken4"
+            , "  getAmount token4 === 25"
+            , "  case fromInterface token4 of"
+            , "    None -> abort \"expected Asset\""
+            , "    Some Asset {amount} ->"
+            , "      amount === 25"
+
+            , "  pure ()"
             ]
         ]
 
     , dataDependenciesTestOptions "require interface from data-dependency"
-        [ "--target=1.dev" ]
+        options1DevScript
         [   (,) "Lib.daml"
             [ "module Lib where"
 
@@ -1997,9 +2023,12 @@ tests tools = testGroup "Data Dependencies" $
         ]
         [
             (,) "Main.daml"
-            [ "module Main where"
+            [ "{-# LANGUAGE ApplicativeDo #-}"
+            , "module Main where"
+            , "import Daml.Script"
             , "import Lib"
             , "import DA.Assert"
+            , "import DA.Optional"
 
             , "interface FancyToken requires Token where"
             , "  viewtype EmptyInterfaceView"
@@ -2045,45 +2074,50 @@ tests tools = testGroup "Data Dependencies" $
             , "      view = EmptyInterfaceView"
             , "      multiplier = 5"
 
-            , "main = scenario do"
-            , "  p <- getParty \"Alice\""
-            , "  p `submitMustFail` do"
-            , "    create Asset with"
+            , "main = script do"
+            , "  p <- allocateParty \"Alice\""
+            , "  p `submitMustFail`"
+            , "    createCmd Asset with"
             , "      issuer = p"
             , "      owner = p"
             , "      amount = -1"
-            , "  p `submit` do"
-            , "    cidAsset1 <- create Asset with"
+            , "  cidAsset1 <- p `submit`"
+            , "    createCmd Asset with"
             , "      issuer = p"
             , "      owner = p"
             , "      amount = 15"
-            , "    let cidToken1 = toInterfaceContractId @Token cidAsset1"
-            , "    _ <- exercise cidToken1 (Noop ())"
-            , "    (cidToken2, cidToken3) <- exercise cidToken1 (Split 10)"
-            , "    token2 <- fetch cidToken2"
-            , "    -- Party is duplicated because p is both observer & issuer"
-            , "    signatory token2 === [p, p]"
-            , "    getAmount token2 === 10"
-            , "    case fromInterface token2 of"
-            , "      None -> abort \"expected Asset\""
-            , "      Some Asset {amount} ->"
-            , "        amount === 10"
-            , "    token3 <- fetch cidToken3"
-            , "    getAmount token3 === 5"
-            , "    case fromInterface token3 of"
-            , "      None -> abort \"expected Asset\""
-            , "      Some Asset {amount} ->"
-            , "        amount === 5"
+            , "  let cidToken1 = toInterfaceContractId @Token cidAsset1"
+            , "  (cidToken2, cidToken3) <- p `submit` do"
+            , "    _ <- exerciseCmd cidToken1 (Noop ())"
+            , "    r <- exerciseCmd cidToken1 (Split 10)"
+            , "    pure r"
 
-            , "    cidToken4 <- exercise (fromInterfaceContractId @FancyToken cidToken3) (GetRich 20)"
-            , "    token4 <- fetch cidToken4"
-            , "    getAmount token4 === 125"
-            , "    case fromInterface token4 of"
-            , "      None -> abort \"expected Asset\""
-            , "      Some Asset {amount} ->"
-            , "        amount === 125"
+            , "  let queryAssert cid = toInterface . fromSome <$> queryContractId p (fromInterfaceContractId @Asset cid)"
 
-            , "    pure ()"
+            , "  token2 <- queryAssert cidToken2"
+            , "  -- Party is duplicated because p is both observer & issuer"
+            , "  signatory token2 === [p, p]"
+            , "  getAmount token2 === 10"
+            , "  case fromInterface token2 of"
+            , "    None -> abort \"expected Asset\""
+            , "    Some Asset {amount} ->"
+            , "      amount === 10"
+            , "  token3 <- queryAssert cidToken3"
+            , "  getAmount token3 === 5"
+            , "  case fromInterface token3 of"
+            , "    None -> abort \"expected Asset\""
+            , "    Some Asset {amount} ->"
+            , "      amount === 5"
+
+            , "  cidToken4 <- p `submit` exerciseCmd (fromInterfaceContractId @FancyToken cidToken3) (GetRich 20)"
+            , "  token4 <- queryAssert cidToken4"
+            , "  getAmount token4 === 125"
+            , "  case fromInterface token4 of"
+            , "    None -> abort \"expected Asset\""
+            , "    Some Asset {amount} ->"
+            , "      amount === 125"
+
+            , "  pure ()"
             ]
         ]
 
@@ -2172,19 +2206,19 @@ tests tools = testGroup "Data Dependencies" $
           dar proj = path proj </> proj <.> "dar"
           step proj = step' ("building '" <> proj <> "' project")
 
-          damlYamlBody name dataDeps = unlines
+          damlYamlBody name useScript dataDeps = unlines
             [ "sdk-version: " <> sdkVersion
             , "name: " <> name
             , "build-options: [--target=1.dev]"
             , "source: ."
             , "version: 0.1.0"
-            , "dependencies: [daml-prim, daml-stdlib]"
+            , "dependencies: [daml-prim, daml-stdlib" <> (if useScript then ", " <> show scriptDar1dev else "") <> "]"
             , "data-dependencies: [" <> intercalate ", " (fmap dar dataDeps) <> "]"
             ]
 
         step tokenProj >> do
           createDirectoryIfMissing True (path tokenProj)
-          writeFileUTF8 (damlYaml tokenProj) $ damlYamlBody tokenProj []
+          writeFileUTF8 (damlYaml tokenProj) $ damlYamlBody tokenProj False []
           writeFileUTF8 (damlMod tokenProj "Token") $ unlines
             [ "module Token where"
 
@@ -2228,7 +2262,7 @@ tests tools = testGroup "Data Dependencies" $
 
         step fancyTokenProj >> do
           createDirectoryIfMissing True (path fancyTokenProj)
-          writeFileUTF8 (damlYaml fancyTokenProj) $ damlYamlBody fancyTokenProj
+          writeFileUTF8 (damlYaml fancyTokenProj) $ damlYamlBody fancyTokenProj False
             [ tokenProj
             ]
           writeFileUTF8 (damlMod fancyTokenProj "FancyToken") $ unlines
@@ -2256,7 +2290,7 @@ tests tools = testGroup "Data Dependencies" $
 
         step assetProj >> do
           createDirectoryIfMissing True (path assetProj)
-          writeFileUTF8 (damlYaml assetProj) $ damlYamlBody assetProj
+          writeFileUTF8 (damlYaml assetProj) $ damlYamlBody assetProj False
             [ tokenProj
             , fancyTokenProj
             ]
@@ -2306,67 +2340,74 @@ tests tools = testGroup "Data Dependencies" $
 
         step mainProj >> do
           createDirectoryIfMissing True (path mainProj)
-          writeFileUTF8 (damlYaml mainProj) $ damlYamlBody mainProj
+          writeFileUTF8 (damlYaml mainProj) $ damlYamlBody mainProj True
             [ tokenProj
             , fancyTokenProj
             , assetProj
             ]
           writeFileUTF8 (damlMod mainProj "Main") $ unlines
-            [ "module Main where"
+            [ "{-# LANGUAGE ApplicativeDo #-}"
+            , "module Main where"
+            , "import Daml.Script"
             , "import Token"
             , "import FancyToken"
             , "import Asset"
 
             , "import DA.Assert"
+            , "import DA.Optional"
 
-            , "main = scenario do"
-            , "  p <- getParty \"Alice\""
-            , "  p `submitMustFail` do"
-            , "    create Asset with"
+            , "main = script do"
+            , "  p <- allocateParty \"Alice\""
+            , "  p `submitMustFail`"
+            , "    createCmd Asset with"
             , "      issuer = p"
             , "      owner = p"
             , "      amount = -1"
-            , "  p `submit` do"
-            , "    cidAsset1 <- create Asset with"
+            , "  cidAsset1 <- p `submit`"
+            , "    createCmd Asset with"
             , "      issuer = p"
             , "      owner = p"
             , "      amount = 15"
-            , "    let cidToken1 = toInterfaceContractId @Token cidAsset1"
-            , "    _ <- exercise cidToken1 (Noop ())"
-            , "    (cidToken2, cidToken3) <- exercise cidToken1 (Split 10)"
-            , "    token2 <- fetch cidToken2"
-            , "    -- Party is duplicated because p is both observer & issuer"
-            , "    signatory token2 === [p, p]"
-            , "    getAmount token2 === 10"
-            , "    case fromInterface token2 of"
-            , "      None -> abort \"expected Asset\""
-            , "      Some Asset {amount} ->"
-            , "        amount === 10"
-            , "    token3 <- fetch cidToken3"
-            , "    getAmount token3 === 5"
-            , "    case fromInterface token3 of"
-            , "      None -> abort \"expected Asset\""
-            , "      Some Asset {amount} ->"
-            , "        amount === 5"
+            , "  let cidToken1 = toInterfaceContractId @Token cidAsset1"
+            , "  (cidToken2, cidToken3) <- p `submit` do"
+            , "    _ <- exerciseCmd cidToken1 (Noop ())"
+            , "    r <- exerciseCmd cidToken1 (Split 10)"
+            , "    pure r"
 
-            , "    cidToken4 <- exercise (fromInterfaceContractId @FancyToken cidToken3) (GetRich 20)"
-            , "    token4 <- fetch cidToken4"
-            , "    getAmount token4 === 125"
-            , "    case fromInterface token4 of"
-            , "      None -> abort \"expected Asset\""
-            , "      Some Asset {amount} ->"
-            , "        amount === 125"
+            , "  let queryAssert cid = toInterface . fromSome <$> queryContractId p (fromInterfaceContractId @Asset cid)"
 
-            , "    pure ()"
+            , "  token2 <- queryAssert cidToken2"
+            , "  -- Party is duplicated because p is both observer & issuer"
+            , "  signatory token2 === [p, p]"
+            , "  getAmount token2 === 10"
+            , "  case fromInterface token2 of"
+            , "    None -> abort \"expected Asset\""
+            , "    Some Asset {amount} ->"
+            , "      amount === 10"
+            , "  token3 <- queryAssert cidToken3"
+            , "  getAmount token3 === 5"
+            , "  case fromInterface token3 of"
+            , "    None -> abort \"expected Asset\""
+            , "    Some Asset {amount} ->"
+            , "      amount === 5"
+
+            , "  cidToken4 <- p `submit` exerciseCmd (fromInterfaceContractId @FancyToken cidToken3) (GetRich 20)"
+            , "  token4 <- queryAssert cidToken4"
+            , "  getAmount token4 === 125"
+            , "  case fromInterface token4 of"
+            , "    None -> abort \"expected Asset\""
+            , "    Some Asset {amount} ->"
+            , "      amount === 125"
+
+            , "  pure ()"
             ]
           callProcessSilent damlc
             [ "build"
-            , "--enable-scenarios=yes" -- TODO: https://github.com/digital-asset/daml/issues/11316
             , "--project-root", path mainProj
             ]
 
     , simpleImportTestOptions "retroactive interface instance of template from data-dependency"
-        [ "--target=1.dev" ]
+        options1Dev
         [ "module Lib where"
 
         , "template T with"
@@ -2389,7 +2430,7 @@ tests tools = testGroup "Data Dependencies" $
         ]
 
     , simpleImportTestOptions "retroactive interface instance of qualified template from data-dependency"
-        [ "--target=1.dev" ]
+        options1Dev
         [ "module Lib where"
 
         , "template T with"
@@ -2591,13 +2632,13 @@ tests tools = testGroup "Data Dependencies" $
             , "name: main"
             , "source: ."
             , "version: 0.1.0"
-            , "dependencies: [daml-prim, daml-stdlib]"
+            , "dependencies: [daml-prim, daml-stdlib, " <> show scriptDar1dev <> "]"
             , "data-dependencies: "
             , "  - " <> (tmpDir </> "lib" </> "lib.dar")
             ]
         writeFileUTF8 (tmpDir </> "main" </> "Main.daml") $ unlines
             [ "module Main where"
-            , "import DA.Assert"
+            , "import Daml.Script"
             , "import DA.Exception"
             , "import Lib"
             , "template TMain"
@@ -2625,30 +2666,41 @@ tests tools = testGroup "Data Dependencies" $
             , "mainFnThatCatchesPreconditionFailed : (() -> Update ()) -> Update ()"
             , "mainFnThatCatchesPreconditionFailed m = try m () catch (e: PreconditionFailed) -> pure ()"
             , ""
-            , "mkScenario : ((() -> Update ()) -> Update ()) -> (Party -> Update ()) -> Scenario ()"
-            , "mkScenario catcher thrower = scenario do"
-            , "    p <- getParty \"Alice\""
-            , "    submit p (catcher (\\() -> thrower p))"
+            , "template Test with"
+            , "    p : Party"
+            , "  where"
+            , "    signatory p"
+            , "    choice Call : ()"
+            , "      controller p"
+            , "      do"
+            , "        let"
+            , "          mkUpdate : ((() -> Update ()) -> Update ()) -> (Party -> Update ()) -> Update ()"
+            , "          mkUpdate catcher thrower = catcher (\\() -> thrower p)"
             , ""
-            , "libThrow1 = mkScenario mainFnThatCatchesGeneralError libFnThatThrowsGeneralError"
-            , "libThrow2 = mkScenario mainFnThatCatchesArithmeticError libFnThatThrowsArithmeticError"
-            , "libThrow3 = mkScenario mainFnThatCatchesAssertionFailed libFnThatThrowsAssertionFailed"
-            , "libThrow4 = mkScenario mainFnThatCatchesPreconditionFailed libFnThatThrowsPreconditionFailed"
+            , "        -- lib throws"
+            , "        mkUpdate mainFnThatCatchesGeneralError libFnThatThrowsGeneralError"
+            , "        mkUpdate mainFnThatCatchesArithmeticError libFnThatThrowsArithmeticError"
+            , "        mkUpdate mainFnThatCatchesAssertionFailed libFnThatThrowsAssertionFailed"
+            , "        mkUpdate mainFnThatCatchesPreconditionFailed libFnThatThrowsPreconditionFailed"
             , ""
-            , "libCatch1 = mkScenario libFnThatCatchesGeneralError mainFnThatThrowsGeneralError"
-            , "libCatch2 = mkScenario libFnThatCatchesArithmeticError mainFnThatThrowsArithmeticError"
-            , "libCatch3 = mkScenario libFnThatCatchesAssertionFailed mainFnThatThrowsAssertionFailed"
-            , "libCatch4 = mkScenario libFnThatCatchesPreconditionFailed mainFnThatThrowsPreconditionFailed"
+            , "        -- lib catches"
+            , "        mkUpdate libFnThatCatchesGeneralError mainFnThatThrowsGeneralError"
+            , "        mkUpdate libFnThatCatchesArithmeticError mainFnThatThrowsArithmeticError"
+            , "        mkUpdate libFnThatCatchesAssertionFailed mainFnThatThrowsAssertionFailed"
+            , "        mkUpdate libFnThatCatchesPreconditionFailed mainFnThatThrowsPreconditionFailed"
+            , ""
+            , "callTest : Script ()"
+            , "callTest = do"
+            , "  p <- allocateParty \"Alice\""
+            , "  p `submit` createAndExerciseCmd (Test p) Call"
            ]
         callProcessSilent damlc
             [ "build"
-            , "--enable-scenarios=yes" -- TODO: https://github.com/digital-asset/daml/issues/11316
             , "--project-root", tmpDir </> "main"
             , "--target", LF.renderVersion LF.versionDev ]
         step "running damlc test"
         callProcessSilent damlc
             [ "test"
-            , "--enable-scenarios=yes" -- TODO: https://github.com/digital-asset/daml/issues/11316
             , "--project-root", tmpDir </> "main"
             , "--target", LF.renderVersion LF.versionDev ]
     ]
@@ -2657,36 +2709,46 @@ tests tools = testGroup "Data Dependencies" $
       { damlc
       , validate
       , oldProjDar
+      , scriptDar1dev
       } = tools
 
-    simpleImportTest :: String -> [String] -> [String] -> TestTree
-    simpleImportTest title = simpleImportTestOptions title []
+    defTestOptions :: DataDependenciesTestOptions
+    defTestOptions = DataDependenciesTestOptions [] []
 
-    simpleImportTestOptions :: String -> [String] -> [String] -> [String] -> TestTree
+    options1Dev :: DataDependenciesTestOptions
+    options1Dev = defTestOptions {buildOptions = ["--target=1.dev"]}
+
+    options1DevScript :: DataDependenciesTestOptions
+    options1DevScript = defTestOptions {buildOptions = ["--target=1.dev"], extraDeps = [scriptDar1dev]}
+
+    simpleImportTest :: String -> [String] -> [String] -> TestTree
+    simpleImportTest title = simpleImportTestOptions title defTestOptions
+
+    simpleImportTestOptions :: String -> DataDependenciesTestOptions -> [String] -> [String] -> TestTree
     simpleImportTestOptions title options lib main =
         dataDependenciesTestOptions title options [("Lib.daml", lib)] [("Main.daml", main)]
 
     dataDependenciesTest :: String -> [(FilePath, [String])] -> [(FilePath, [String])] -> TestTree
-    dataDependenciesTest title = dataDependenciesTestOptions title []
+    dataDependenciesTest title = dataDependenciesTestOptions title defTestOptions
 
-    dataDependenciesTestOptions :: String -> [String] -> [(FilePath, [String])] -> [(FilePath, [String])] -> TestTree
-    dataDependenciesTestOptions title buildOptions libModules mainModules =
+    dataDependenciesTestOptions :: String -> DataDependenciesTestOptions -> [(FilePath, [String])] -> [(FilePath, [String])] -> TestTree
+    dataDependenciesTestOptions title (DataDependenciesTestOptions buildOptions extraDeps) libModules mainModules =
         testCaseSteps title $ \step -> withTempDir $ \tmpDir -> do
             step "building project to be imported via data-dependencies"
             createDirectoryIfMissing True (tmpDir </> "lib")
+            let deps = ["daml-prim", "daml-stdlib"] <> fmap show extraDeps
             writeFileUTF8 (tmpDir </> "lib" </> "daml.yaml") $ unlines
                 [ "sdk-version: " <> sdkVersion
                 , "name: lib"
                 , "build-options: [" <> intercalate ", " buildOptions <> "]"
                 , "source: ."
                 , "version: 0.1.0"
-                , "dependencies: [daml-prim, daml-stdlib]"
+                , "dependencies: [" <> intercalate ", " deps <> "]"
                 ]
             forM_ libModules $ \(path, contents) ->
                 writeFileUTF8 (tmpDir </> "lib" </> path) $ unlines contents
             callProcessSilent damlc
                 [ "build"
-                , "--enable-scenarios=yes" -- TODO: https://github.com/digital-asset/daml/issues/11316
                 , "--project-root", tmpDir </> "lib"
                 , "-o", tmpDir </> "lib" </> "lib.dar" ]
 
@@ -2698,7 +2760,7 @@ tests tools = testGroup "Data Dependencies" $
                 , "build-options: [" <> intercalate ", " buildOptions <> "]"
                 , "source: ."
                 , "version: 0.1.0"
-                , "dependencies: [daml-prim, daml-stdlib]"
+                , "dependencies: [" <> intercalate ", " deps <> "]"
                 , "data-dependencies: "
                 , "  - " <> (tmpDir </> "lib" </> "lib.dar")
                 ]
@@ -2706,6 +2768,5 @@ tests tools = testGroup "Data Dependencies" $
                 writeFileUTF8 (tmpDir </> "main" </> path) $ unlines contents
             callProcessSilent damlc
                 [ "build"
-                , "--enable-scenarios=yes" -- TODO: https://github.com/digital-asset/daml/issues/11316
                 , "--project-root"
                 , tmpDir </> "main" ]
