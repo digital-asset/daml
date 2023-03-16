@@ -84,6 +84,7 @@ def install_java_deps():
             "com.google.code.gson:gson:2.10",
             "com.google.guava:guava:{}".format(guava_version),
             "com.google.protobuf:protobuf-java:{}".format(protobuf_version),
+            "com.google.protobuf:protobuf-java-util:{}".format(protobuf_version),
             "com.h2database:h2:2.1.210",
             "com.lihaoyi:pprint_{}:0.8.1".format(scala_major_version),
             "com.lihaoyi:sjsonnet_{}:0.3.0".format(scala_major_version),
