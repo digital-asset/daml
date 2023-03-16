@@ -396,6 +396,53 @@ performRequest method timeoutSeconds payload = do
     ClientNormalResponse _ _ _ status _ -> return (Left $ BErrorFail status)
     ClientErrorResponse err -> return (Left $ BErrorClient err)
 
+runBiDiLive
+  :: (SS.ScenarioService ClientRequest ClientResult
+      -> ClientRequest 'BiDiStreaming SS.RunScenarioRequest SS.RunScenarioResponseOrStatus
+      -> IO (ClientResult 'BiDiStreaming SS.RunScenarioResponseOrStatus))
+  -> Handle -> ContextId -> LF.ValueRef -> (SS.ScenarioStatus -> IO ())
+  -> IO (Either Error SS.ScenarioResult)
+runBiDiLive runner Handle{..} (ContextId ctxId) name statusUpdateHandler = do
+  let req = SS.RunScenarioRequest ctxId (Just (toIdentifier name))
+  ior <- newIORef (Left (ExceptionError (error "runLiveScenario scenario")))
+  response <-
+    runner hClient $
+      ClientBiDiRequest (fromIntegral (optGrpcTimeout hOptions)) mempty $ \_clientCall _meta streamRecv sendReq _writesDone -> do
+        let handleGrpcIOErr grpcIOErr = writeIORef ior (Left (BackendError (BErrorClient (ClientIOError grpcIOErr))))
+
+            loop :: IO ()
+            loop = streamRecv >>= \case
+              Right (Just (SS.RunScenarioResponseOrStatus (Just resp))) ->
+                handle resp >>= \case
+                  Left err -> writeIORef ior (Left err)
+                  Right (Just result) -> writeIORef ior (Right result)
+                  Right Nothing -> loop
+              Right _ -> loop
+              Left grpcIOErr -> handleGrpcIOErr grpcIOErr
+
+            handle :: SS.RunScenarioResponseOrStatusResponse -> IO (Either Error (Maybe SS.ScenarioResult))
+            handle (SS.RunScenarioResponseOrStatusResponseError err) =
+              pure (Left (ScenarioError err))
+            handle (SS.RunScenarioResponseOrStatusResponseResult result) = do
+              pure (Right (Just result))
+            handle (SS.RunScenarioResponseOrStatusResponseStatus status) = do
+              statusUpdateHandler status
+              pure (Right Nothing)
+
+        didReqError <- sendReq req
+        case didReqError of
+          Left grpcIOErr -> handleGrpcIOErr grpcIOErr
+          Right () -> loop
+  case response of
+    ClientBiDiResponse _ StatusOk _ -> readIORef ior
+    ClientBiDiResponse _ status _ -> pure (Left (BackendError (BErrorFail status)))
+    ClientErrorResponse err -> pure (Left (BackendError (BErrorClient err)))
+
+runLiveScenario
+  :: Handle -> ContextId -> LF.ValueRef -> (SS.ScenarioStatus -> IO ())
+  -> IO (Either Error SS.ScenarioResult)
+runLiveScenario = runBiDiLive SS.scenarioServiceRunLiveScenario
+
 runLive
   :: (SS.ScenarioService ClientRequest ClientResult
       -> ClientRequest 'ServerStreaming SS.RunScenarioRequest SS.RunScenarioResponseOrStatus
@@ -432,11 +479,6 @@ runLive runner Handle{..} (ContextId ctxId) name statusUpdateHandler = do
     ClientReaderResponse _ StatusOk _ -> readIORef ior
     ClientReaderResponse _ status _ -> pure (Left (BackendError (BErrorFail status)))
     ClientErrorResponse err -> pure (Left (BackendError (BErrorClient err)))
-
-runLiveScenario
-  :: Handle -> ContextId -> LF.ValueRef -> (SS.ScenarioStatus -> IO ())
-  -> IO (Either Error SS.ScenarioResult)
-runLiveScenario = runLive SS.scenarioServiceRunLiveScenario
 
 runLiveScript
   :: Handle -> ContextId -> LF.ValueRef -> (SS.ScenarioStatus -> IO ())

@@ -202,19 +202,31 @@ class ScenarioService(
   }
 
   override def runLiveScenario(
-      req: RunScenarioRequest,
-      respObs: StreamObserver[RunScenarioResponseOrStatus],
-  ): Unit = {
-    val stream = ScriptStream.WithStatus(respObs)
-    if (enableScenarios) {
-      runLive(
-        req,
-        stream,
-        { case (ctx, pkgId, name) => Future(ctx.interpretScenario(pkgId, name)) },
-      )
-    } else {
-      log("Rejected scenario gRPC request.")
-      stream.sendError(new UnsupportedOperationException("Scenarios are disabled"))
+      respObs: StreamObserver[RunScenarioResponseOrStatus]
+  ): StreamObserver[RunScenarioRequest] = {
+    new StreamObserver[RunScenarioRequest] {
+      override def onNext(req: RunScenarioRequest): Unit = {
+        val stream = ScriptStream.WithStatus(respObs)
+        if (enableScenarios) {
+          runLive(
+            req,
+            stream,
+            { case (ctx, pkgId, name) => Future(ctx.interpretScenario(pkgId, name)) },
+          )
+        } else {
+          log("Rejected scenario gRPC request.")
+          stream.sendError(new UnsupportedOperationException("Scenarios are disabled"))
+        }
+      }
+
+      override def onError(t: Throwable): Unit = {
+        println("Custom onError Received ERROR")
+      }
+
+      override def onCompleted(): Unit = {
+        println("Completed on client side!")
+        respObs.onCompleted()
+      }
     }
   }
 
