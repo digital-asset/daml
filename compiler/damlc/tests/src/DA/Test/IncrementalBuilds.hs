@@ -18,6 +18,7 @@ import System.IO.Extra
 import DA.Test.Process
 import Test.Tasty
 import Test.Tasty.HUnit
+import SdkVersion
 
 main :: IO ()
 main = do
@@ -150,7 +151,7 @@ tests damlc damlScript scriptDar = testGroup "Incremental builds"
       test :: String -> [(FilePath, String)] -> [(FilePath, String)] -> [FilePath] -> ShouldSucceed -> TestTree
       test name initial modification expectedRebuilds (ShouldSucceed shouldSucceed) = testCase name $ withTempDir $ \dir -> do
           writeFileUTF8 (dir </> "daml.yaml") $ unlines
-            [ "sdk-version: 0.0.0"
+            [ "sdk-version: " <> sdkVersion
             , "name: test-project"
             , "source: daml"
             , "version: 0.0.1"

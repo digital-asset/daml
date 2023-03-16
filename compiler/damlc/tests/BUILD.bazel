@@ -365,8 +365,8 @@ da_haskell_test(
     srcs = ["src/DA/Test/IncrementalBuilds.hs"],
     data = [
         "//compiler/damlc",
-        "//daml-script/runner:daml-script-binary",
         "//daml-script/daml:daml-script.dar",
+        "//daml-script/runner:daml-script-binary",
     ],
     hackage_deps = [
         "base",
@@ -382,6 +382,7 @@ da_haskell_test(
     src_strip_prefix = "src",
     visibility = ["//visibility:public"],
     deps = [
+        "//:sdk-version-hs-lib",
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/test-utils",
     ],
