@@ -3,18 +3,12 @@
 
 package com.daml.lf.engine.trigger
 
-import akka.stream.scaladsl.{Sink, Source}
 import com.daml.ledger.api.refinements.ApiTypes.Party
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
-import com.daml.ledger.api.v1.completion.Completion
-import com.daml.ledger.api.v1.event.{ArchivedEvent, CreatedEvent, Event}
-import com.daml.ledger.api.v1.transaction.Transaction
-import com.daml.ledger.api.v1.{value => LedgerApi}
+import com.daml.ledger.api.v1.event.CreatedEvent
 import com.daml.ledger.runner.common.Config
 import com.daml.ledger.sandbox.SandboxOnXForTest.{ApiServerConfig, ParticipantId, singleParticipant}
-import com.daml.lf.crypto
-import com.daml.lf.data.{Bytes, Ref}
-import com.daml.lf.data.Ref.{Identifier, PackageId, QualifiedName}
+import com.daml.lf.data.Ref.QualifiedName
 import com.daml.lf.engine.trigger.Runner.{
   numberOfActiveContracts,
   numberOfInFlightCommands,
@@ -22,21 +16,14 @@ import com.daml.lf.engine.trigger.Runner.{
   numberOfPendingContracts,
 }
 import com.daml.lf.engine.trigger.test.AbstractTriggerTest
-import com.daml.lf.speedy.SValue.{SContractId, SInt64, SParty}
-import com.daml.lf.speedy.{Command, SValue}
-import com.daml.lf.value.Value.ContractId
+import com.daml.lf.speedy.SValue
 import com.daml.platform.services.time.TimeProviderType
-import com.daml.script.converter.Converter.record
-import com.google.rpc.status.Status
-import io.grpc.Status.Code
-import io.grpc.Status.Code.OK
 import org.scalacheck.Gen
-import org.scalatest.{Assertion, Inside, TryValues}
+import org.scalatest.{Inside, TryValues}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
 import java.util.UUID
-import scala.concurrent.Future
 
 class TriggerRuleSimulationLibTest
     extends AsyncWordSpec
@@ -45,7 +32,7 @@ class TriggerRuleSimulationLibTest
     with Inside
     with SuiteResourceManagementAroundAll
     with TryValues
-    with CatGenerators {
+    with TriggerRuleSimulationLibTestGenerators {
 
   import TriggerRuleSimulationLib._
 
@@ -262,162 +249,11 @@ class TriggerRuleSimulationLibTest
   }
 }
 
-trait CatGenerators {
+trait TriggerRuleSimulationLibTestGenerators extends CatGenerators {
+
   import TriggerRuleSimulationLib.{CommandsInFlight, TriggerExperiment}
 
-  protected def packageId: PackageId
-
-  def toContractId(s: String): ContractId =
-    ContractId.V1.assertBuild(crypto.Hash.hashPrivateKey(s), Bytes.assertFromString("00"))
-
-  def create(template: String, owner: String, i: Long): CreatedEvent =
-    CreatedEvent(
-      contractId = toContractId(s"$template:$i").coid,
-      templateId = Some(LedgerApi.Identifier(packageId, "Cats", template)),
-      createArguments = Some(
-        LedgerApi.Record(fields =
-          Seq(
-            LedgerApi.RecordField("owner", Some(LedgerApi.Value().withParty(owner))),
-            template match {
-              case "TestControl" =>
-                LedgerApi.RecordField("size", Some(LedgerApi.Value().withInt64(i)))
-              case _ =>
-                LedgerApi.RecordField("isin", Some(LedgerApi.Value().withInt64(i)))
-            },
-          )
-        )
-      ),
-    )
-
-  def archive(template: String, owner: String, i: Long): ArchivedEvent =
-    ArchivedEvent(
-      contractId = toContractId(s"$template:$i").coid,
-      templateId = Some(LedgerApi.Identifier(packageId, "Cats", template)),
-      witnessParties = Seq(owner),
-    )
-
-  def createCat(owner: String, i: Long): CreatedEvent = create("Cat", owner, i)
-
-  def archivedCat(owner: String, i: Long): ArchivedEvent = archive("Cat", owner, i)
-
-  def createFood(owner: String, i: Long): CreatedEvent = create("Food", owner, i)
-
-  def archivedFood(owner: String, i: Long): ArchivedEvent = archive("Food", owner, i)
-
-  def createCommandGen: Gen[Command.Create] =
-    for {
-      party <- partyGen
-      templateId <- Gen.frequency(
-        1 -> Identifier(packageId, QualifiedName.assertFromString("Cats:Cat")),
-        1 -> Identifier(packageId, QualifiedName.assertFromString("Cats:Food")),
-      )
-      n <- Gen.choose(0, maxNumOfCats)
-      arguments = record(
-        templateId,
-        "owner" -> SParty(Ref.Party.assertFromString(party)),
-        "isin" -> SInt64(n),
-      )
-    } yield Command.Create(templateId, arguments)
-
-  def exerciseCommandGen: Gen[Command.ExerciseTemplate] =
-    for {
-      n <- Gen.choose(0L, maxNumOfCats)
-      templateId = Identifier(packageId, QualifiedName.assertFromString("Cats:Cat"))
-      contractId = SContractId(toContractId(s"Cat:$n"))
-      foodCid = SContractId(toContractId(s"Food:$n"))
-      choiceId <- Gen.const("Feed")
-      argument = record(templateId, "foodCid" -> foodCid)
-    } yield Command.ExerciseTemplate(
-      templateId,
-      contractId,
-      Ref.ChoiceName.assertFromString(choiceId),
-      argument,
-    )
-
-  def commandGen: Gen[Command] = Gen.frequency(
-    1 -> createCommandGen,
-    9 -> exerciseCommandGen,
-  )
-
-  def transactionGen(
-      owner: String,
-      numOfCats: Long = 0,
-      amountOfFood: Long = 0,
-      catsKilled: Long = 0,
-      foodEaten: Long = 0,
-      knownCmdId: String = UUID.randomUUID().toString,
-  ): Gen[Transaction] =
-    for {
-      id <- Gen.numStr
-      cmdId <- Gen.frequency(
-        1 -> Gen.const(""),
-        9 -> Gen.frequency(
-          1 -> Gen.uuid.map(_.toString),
-          9 -> Gen.const(knownCmdId),
-        ),
-      )
-      cats = (0L to numOfCats)
-        .map(i => createCat(owner, i))
-        .map(event => Event(Event.Event.Created(event)))
-      deadCats = (0L to catsKilled)
-        .map(i => archivedCat(owner, i))
-        .map(event => Event(Event.Event.Archived(event)))
-      food = (0L to amountOfFood)
-        .map(i => createFood(owner, i))
-        .map(event => Event(Event.Event.Created(event)))
-      eatenFood = (0L to foodEaten)
-        .map(i => archivedFood(owner, i))
-        .map(event => Event(Event.Event.Archived(event)))
-    } yield Transaction(
-      transactionId = id,
-      commandId = cmdId,
-      events = cats ++ food ++ deadCats ++ eatenFood,
-    )
-
-  def successfulCompletionGen(
-      owner: String,
-      knownCmdId: String = UUID.randomUUID().toString,
-  ): Gen[Completion] =
-    for {
-      id <- Gen.numStr
-      cmdId <- Gen.frequency(
-        1 -> Gen.const(""),
-        9 -> Gen.frequency(
-          1 -> Gen.uuid.map(_.toString),
-          9 -> Gen.const(knownCmdId),
-        ),
-      )
-    } yield Completion(
-      commandId = cmdId,
-      status = Some(Status(OK.value(), "")),
-      transactionId = id,
-      actAs = Seq(owner),
-    )
-
-  def failingCompletionGen(
-      owner: String,
-      knownCmdId: String = UUID.randomUUID().toString,
-  ): Gen[Completion] =
-    for {
-      id <- Gen.numStr
-      cmdId <- Gen.frequency(
-        1 -> Gen.const(""),
-        9 -> Gen.frequency(
-          1 -> Gen.uuid.map(_.toString),
-          9 -> Gen.const(knownCmdId),
-        ),
-      )
-      code <- Gen.choose(1, Code.values().length)
-    } yield Completion(
-      commandId = cmdId,
-      status = Some(Status(code, "simulated-failure")),
-      transactionId = id,
-      actAs = Seq(owner),
-    )
-
   private val maxNumOfCats = 10L
-
-  private val partyGen: Gen[String] = Gen.const("alice")
 
   private val userStateGen: Gen[SValue] = Gen.choose(0L, maxNumOfCats).map(SValue.SInt64)
 
@@ -456,7 +292,7 @@ trait CatGenerators {
   private val transactionInFlightTesting = {
     val cmdId = UUID.randomUUID().toString
     val inFlightCmdGen = for {
-      cmds <- Gen.listOfN(maxNumOfCats.toInt, commandGen)
+      cmds <- Gen.listOfN(maxNumOfCats.toInt, commandGen(maxNumOfCats))
     } yield (cmdId, cmds)
 
     TriggerExperiment(
@@ -503,7 +339,7 @@ trait CatGenerators {
   private val completionInFlightTesting = {
     val cmdId = UUID.randomUUID().toString
     val inFlightCmdGen = for {
-      cmds <- Gen.listOfN(maxNumOfCats.toInt, commandGen)
+      cmds <- Gen.listOfN(maxNumOfCats.toInt, commandGen(maxNumOfCats))
     } yield (cmdId, cmds)
 
     TriggerExperiment(

@@ -228,5 +228,4 @@ breedingOverflow: Party -> TriggerA Int ()
 breedingOverflow party = do
   breedCount <- get
   forA_ [1..breedingRate] \offset -> do
-    debug ("DEBUGGY " <> (show (breedCount + offset)))
     void $ emitCommands [createCmd (Cat party (breedCount + offset))] []

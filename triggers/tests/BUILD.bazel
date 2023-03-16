@@ -83,13 +83,11 @@ EOF
 da_scala_library(
     name = "test-utils",
     srcs = [
-        "src/test/scala/com/digitalasset/daml/lf/engine/trigger/TriggerRuleSimulationLib.scala",
         "src/test/scala/com/digitalasset/daml/lf/engine/trigger/test/AbstractFuncTests.scala",
         "src/test/scala/com/digitalasset/daml/lf/engine/trigger/test/AbstractTriggerTest.scala",
     ],
     scala_deps = [
         "@maven//:com_typesafe_akka_akka_stream",
-        "@maven//:org_scalacheck_scalacheck",
         "@maven//:org_scalactic_scalactic",
         "@maven//:org_scalatest_scalatest_core",
         "@maven//:org_scalatest_scalatest_matchers_core",
@@ -104,7 +102,6 @@ da_scala_library(
         "//daml-lf/interpreter",
         "//daml-lf/language",
         "//daml-lf/transaction",
-        "//daml-script/converter",
         "//language-support/scala/bindings",
         "//language-support/scala/bindings-akka",
         "//ledger-api/rs-grpc-bridge",
@@ -116,13 +113,9 @@ da_scala_library(
         "//ledger/participant-integration-api",
         "//ledger/sandbox-on-x",
         "//ledger/sandbox-on-x:sandbox-on-x-test-lib",
-        "//libs-scala/contextualized-logging",
         "//libs-scala/ledger-resources",
-        "//libs-scala/logging-entries",
         "//libs-scala/ports",
         "//libs-scala/resources",
-        "//libs-scala/scala-utils",
-        "//observability/tracing",
         "//test-common",
         "//triggers/runner:trigger-runner-lib",
         "@maven//:org_scalatest_scalatest_compatible",
@@ -246,10 +239,41 @@ da_scala_library(
     for suffix in [("-" + lf_version) if lf_version else ""]
 ]
 
+da_scala_library(
+    name = "trigger-simulation-lib",
+    srcs = [
+        "src/test/scala/com/digitalasset/daml/lf/engine/trigger/CatGenerators.scala",
+        "src/test/scala/com/digitalasset/daml/lf/engine/trigger/TriggerRuleSimulationLib.scala",
+    ],
+    scala_deps = [
+        "@maven//:com_typesafe_akka_akka_stream",
+        "@maven//:org_scalacheck_scalacheck",
+        "@maven//:org_scalactic_scalactic",
+        "@maven//:org_scalatest_scalatest_core",
+        "@maven//:org_scalaz_scalaz_core",
+    ],
+    deps = [
+        "//daml-lf/data",
+        "//daml-lf/interpreter",
+        "//daml-lf/transaction",
+        "//daml-script/converter",
+        "//language-support/scala/bindings",
+        "//language-support/scala/bindings-akka",
+        "//ledger/ledger-api-common",
+        "//ledger/participant-integration-api",
+        "//libs-scala/contextualized-logging",
+        "//libs-scala/logging-entries",
+        "//libs-scala/scala-utils",
+        "//observability/tracing",
+        "//triggers/runner:trigger-runner-lib",
+        "@maven//:org_scalatest_scalatest_compatible",
+    ],
+)
+
 da_scala_test_suite(
     name = "trigger-simulation-lib-tests",
-    timeout = "medium",
-    srcs = glob(["src/test/scala/com/digitalasset/daml/lf/engine/trigger/*.scala"]),
+    timeout = "moderate",
+    srcs = glob(["src/test/scala/com/digitalasset/daml/lf/engine/trigger/*Test.scala"]),
     data = [
         ":acs-1.dev.dar",
         "//test-common/test-certificates",
@@ -264,6 +288,7 @@ da_scala_test_suite(
     ],
     deps = [
         ":test-utils",
+        ":trigger-simulation-lib",
         "//bazel_tools/runfiles:scala_runfiles",
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/data",

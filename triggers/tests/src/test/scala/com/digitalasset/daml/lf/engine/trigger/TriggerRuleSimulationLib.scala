@@ -793,12 +793,12 @@ final class TriggerRuleSimulationLib private (
             val killSwitch = gb add lambdaKillSwitch.flow[TriggerContext[SValue]]
             val submissions = gb add Flow[TriggerContext[SubmitRequest]]
 
-                  // format: off
-                  stateOut ~> rule.initState
-                  msgIn ~> encodeMsg ~> killSwitch ~> rule.elemsIn
-                  submissions <~ rule.elemsOut
-                  rule.finalStates ~> saveLastState
-                  // format: on
+            // format: off
+            stateOut                         ~> rule.initState
+            msgIn ~> encodeMsg ~> killSwitch ~> rule.elemsIn
+            submissions                      <~ rule.elemsOut
+                                                rule.finalStates ~> saveLastState
+            // format: on
 
             new FlowShape(msgIn.in, submissions.out)
         }
@@ -842,11 +842,22 @@ object TriggerRuleSimulationLib {
   def forAll[T](gen: Gen[T], sampleSize: Int = 100, parallelism: Int = 1)(
       test: T => Future[Assertion]
   )(implicit materializer: Materializer): Future[Assertion] = {
-    // TODO: ????: use results (e.g. submissions and ACS/inflight changes) of simulator runs to infer additional events
     Source(0 to sampleSize)
       .map(_ => gen.sample)
       .collect { case Some(data) => data }
       .mapAsync(parallelism) { data =>
+        test(data)
+      }
+      .takeWhile(_ == succeed, inclusive = true)
+      .runWith(Sink.last)
+  }
+
+  def forAll[T](gen: Iterator[T])(
+      test: T => Future[Assertion]
+  )(implicit materializer: Materializer): Future[Assertion] = {
+    Source
+      .fromIterator(() => gen)
+      .mapAsync(parallelism = 1) { data =>
         test(data)
       }
       .takeWhile(_ == succeed, inclusive = true)
