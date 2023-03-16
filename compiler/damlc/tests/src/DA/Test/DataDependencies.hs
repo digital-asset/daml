@@ -1358,8 +1358,6 @@ tests tools = testGroup "Data Dependencies" $
         (_pkgId, pkg) <- either (fail . show) pure (LFArchive.decodeArchive LFArchive.DecodeAsMain (BSL.toStrict mainDalf))
 
         Just mod <- pure $ NM.lookup (LF.ModuleName ["Foo"]) (LF.packageModules pkg)
-        -- let _f x = (fst $ LF.dvalBinder x, LF.dvalBody x)
-        -- mapM_ print $ LF.dvalBinder <$> NM.toList (LF.moduleValues mod)
         let callStackInstances = do
                 v@LF.DefValue{dvalBinder = (_, ty)} <- NM.toList (LF.moduleValues mod)
                 LF.TSynApp
@@ -1822,7 +1820,7 @@ tests tools = testGroup "Data Dependencies" $
             , "    exerciseCmd cidToken1 (Noop ())"
             , "    r <- exerciseCmd cidToken1 (Split 10)"
             , "    pure r"
-                 -- Equililent to `fetch` when passing in an interface contract id.
+                 -- Equivalent to `fetch` when passing in an interface contract id.
             , "  let queryAssert cid = toInterface . fromSome <$> queryContractId p (fromInterfaceContractId @Asset cid)"
 
             , "  token2 <- queryAssert cidToken2"
