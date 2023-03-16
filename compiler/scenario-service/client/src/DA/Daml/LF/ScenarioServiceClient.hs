@@ -86,6 +86,7 @@ data Handle = Handle
   , hContextId :: IORef LowLevel.ContextId
   -- ^ The root context id, this is mutable so that rather than mutating the context
   -- we can clone it and update the clone which allows us to safely interrupt a context update.
+  , hRunningHandlers :: MVar (MS.Map RunOptions ThreadId)
   }
 
 withSem :: QSemN -> IO a -> IO a
@@ -106,6 +107,7 @@ withScenarioService'' optEnableScenarios ver loggerH scenarioConfig f = do
              hConcurrencySem <- liftIO $ newQSemN (optMaxConcurrency hOptions)
              hContextLock <- liftIO newLock
              hContextId <- liftIO $ newIORef rootCtxId
+             hRunningHandlers <- liftIO newEmptyMVar
              f Handle {..} `finally`
                  -- Wait for gRPC requests to exit, otherwise gRPC gets very unhappy.
                  liftIO (waitQSemN hConcurrencySem $ optMaxConcurrency hOptions)
@@ -227,20 +229,41 @@ encodeModule :: LF.Version -> LF.Module -> (Hash, BS.ByteString)
 encodeModule v m = (Hash $ hash m', m')
   where m' = LowLevel.encodeScenarioModule v m
 
+-- Reify name * live/unlive * scenario/script
+data RunOptions = RunOptions
+  { name :: LF.ValueRef
+  , live :: Maybe LiveHandler
+  , scenarioOrScript :: ScenarioOrScript
+  }
+  deriving (Show, Eq, Ord)
+data ScenarioOrScript = IsScenario | IsScript
+  deriving (Show, Eq, Ord)
+newtype LiveHandler = LiveHandler (LowLevel.ScenarioStatus -> IO ())
+instance Show LiveHandler where
+  show _ = "LiveHandler"
+instance Eq LiveHandler where
+  (==) _ _ = True
+instance Ord LiveHandler where
+  compare _ _ = EQ
+
 runScenario :: Handle -> LowLevel.ContextId -> LF.ValueRef -> IO (Either LowLevel.Error LowLevel.ScenarioResult)
-runScenario h ctxId name = run (\h -> LowLevel.runScenario h ctxId name) h
+runScenario h ctxId name = runWithOptions (RunOptions name Nothing IsScenario) h ctxId
 
 runScript :: Handle -> LowLevel.ContextId -> LF.ValueRef -> IO (Either LowLevel.Error LowLevel.ScenarioResult)
-runScript h ctxId name = run (\h -> LowLevel.runScript h ctxId name) h
+runScript h ctxId name = runWithOptions (RunOptions name Nothing IsScript) h ctxId
 
 runLiveScenario :: Handle -> LowLevel.ContextId -> LF.ValueRef -> (LowLevel.ScenarioStatus -> IO ()) -> IO (Either LowLevel.Error LowLevel.ScenarioResult)
-runLiveScenario h ctxId name statusUpdateHandler = run (\h -> LowLevel.runLiveScenario h ctxId name statusUpdateHandler) h
+runLiveScenario h ctxId name statusUpdateHandler = runWithOptions (RunOptions name (Just (LiveHandler statusUpdateHandler)) IsScenario) h ctxId
 
 runLiveScript :: Handle -> LowLevel.ContextId -> LF.ValueRef -> (LowLevel.ScenarioStatus -> IO ()) -> IO (Either LowLevel.Error LowLevel.ScenarioResult)
-runLiveScript h ctxId name statusUpdateHandler = run (\h -> LowLevel.runLiveScript h ctxId name statusUpdateHandler) h
+runLiveScript h ctxId name statusUpdateHandler = runWithOptions (RunOptions name (Just (LiveHandler statusUpdateHandler)) IsScript) h ctxId
 
-run :: (LowLevel.Handle -> IO (Either LowLevel.Error r)) -> Handle -> IO (Either LowLevel.Error r)
-run f Handle{..} = do
+data StopOldScenarioThread = StopOldScenarioThread
+  deriving (Show, Eq)
+instance Exception StopOldScenarioThread
+
+runWithOptions :: RunOptions -> Handle -> LowLevel.ContextId -> IO (Either LowLevel.Error LowLevel.ScenarioResult)
+runWithOptions options Handle{..} ctxId = do
   resVar <- newEmptyMVar
   -- When a scenario/script execution is aborted, we would like to be able to return
   -- immediately. However, we cannot cancel the actual execution of the scenario/script.
@@ -250,19 +273,39 @@ run f Handle{..} = do
   -- and ensures that we track the actual number of running executions rather
   -- than the number of calls to `run` that have not been canceled.
   _ <- mask $ \restore -> do
-      -- Rather than using a bracket in the new thread
-      -- we can be a bit more clever and don’t even
-      -- launch the new thread until we acquire the
-      -- semaphore.
-      waitQSemN hConcurrencySem 1
-      _ <- forkIO $ do
-        r <- try $ restore $ f hLowLevelHandle
-        case r of
-            Left ex -> putMVar resVar (Left $ LowLevel.ExceptionError ex)
-            Right r -> putMVar resVar r
-        signalQSemN hConcurrencySem 1
+      modifyMVar_ hRunningHandlers $ \runningHandlers -> do
+        handlerThread <- forkIO $ do
+          -- Catch async exceptions so we can respond in the MVar if necessary
+          r <- try $ withSem hConcurrencySem (restore $ optionsToLowLevel options hLowLevelHandle ctxId)
+          case r of
+              Left ex
+                | Just StopOldScenarioThread <- fromException ex
+                -> putMVar resVar (Left LowLevel.StopOldScenarioThreadError)
+                | otherwise
+                -> putMVar resVar (Left $ LowLevel.ExceptionError ex)
+              Right r -> putMVar resVar r
+
+        -- Store the new thread into runningHandlers
+        let insertLookup kx x t = MS.insertLookupWithKey (\_ a _ -> a) kx x t
+        let (mbOldThread, newRunningHandlers) = insertLookup options handlerThread runningHandlers
+
+        -- If there was an old thread handling the same scenario in the same way, kill it
+        case mbOldThread of
+          Just oldThread -> oldThread `throwTo` StopOldScenarioThread
+          _ -> pure ()
+
+        -- Return updated runningHandlers
+        pure newRunningHandlers
       pure ()
   takeMVar resVar
+
+optionsToLowLevel :: RunOptions -> LowLevel.Handle -> LowLevel.ContextId -> IO (Either LowLevel.Error LowLevel.ScenarioResult)
+optionsToLowLevel RunOptions{..} h ctxId =
+  case (live, scenarioOrScript) of
+    (Just (LiveHandler handler), IsScript)   -> LowLevel.runLiveScript h ctxId name handler
+    (Just (LiveHandler handler), IsScenario) -> LowLevel.runLiveScenario h ctxId name handler
+    (Nothing,                    IsScript)   -> LowLevel.runScript h ctxId name
+    (Nothing,                    IsScenario) -> LowLevel.runScenario h ctxId name
 
 newtype Hash = Hash Int deriving (Eq, Ord, NFData, Show)
 

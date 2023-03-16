@@ -1276,12 +1276,15 @@ formatHtmlScenarioError world  err = case err of
     SS.ScenarioError err -> LF.renderScenarioError world err
     SS.ExceptionError err ->
         Pretty.renderHtmlDocumentText 128 $ Pretty.pretty $ "Exception during scenario execution: " <> show err
+    SS.StopOldScenarioThreadError ->
+        Pretty.renderHtmlDocumentText 128 $ Pretty.pretty ("Scenario execution cancelled due to restart." :: String)
 
 formatScenarioError :: LF.World -> SS.Error -> Pretty.Doc Pretty.SyntaxClass
 formatScenarioError world  err = case err of
     SS.BackendError err -> Pretty.pretty $ "Scenario service backend error: " <> show err
     SS.ScenarioError err -> LF.prettyScenarioError world err
     SS.ExceptionError err -> Pretty.pretty $ "Exception during scenario execution: " <> show err
+    SS.StopOldScenarioThreadError -> Pretty.pretty ("Scenario execution cancelled due to restart." :: String)
 
 formatScenarioResult :: LF.World -> Either SS.Error SS.ScenarioResult -> T.Text
 formatScenarioResult world errOrRes =

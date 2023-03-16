@@ -118,6 +118,7 @@ data BackendError
 data Error
   = ScenarioError SS.ScenarioError
   | BackendError BackendError
+  | StopOldScenarioThreadError
   | ExceptionError SomeException
   deriving (Generic, Show)
 
