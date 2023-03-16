@@ -1,8 +1,6 @@
 -- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-{-# OPTIONS_GHC -w #-}
-
 module DA.Test.IncrementalBuilds (main) where
 
 {- HLINT ignore "locateRunfiles/package_app" -}
