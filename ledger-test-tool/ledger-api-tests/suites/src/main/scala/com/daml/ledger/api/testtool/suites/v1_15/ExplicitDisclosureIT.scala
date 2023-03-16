@@ -505,6 +505,23 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
           checkDefiniteAnswerMetadata = true,
         )
 
+        // invalid disclosed contract (bad contract key)
+        err <- testContext
+          .dummyCreate(
+            testContext.disclosedContract.update(
+              _.metadata.contractKeyHash := ByteString.copyFromUtf8(
+                "BadKeyBadKeyBadKeyBadKeyBadKey00"
+              )
+            )
+          )
+          .mustFail("using a disclosed contract with missing createdAt in contract metadata")
+        _ = assertGrpcError(
+          err,
+          LedgerApiErrors.CommandExecution.Interpreter.GenericInterpretationError,
+          None,
+          checkDefiniteAnswerMetadata = true,
+        )
+
         //  invalid disclosed contract (missing templateId)
         err <- testContext
           .dummyCreate(
@@ -575,8 +592,8 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
   })
 
   test(
-    "EDInconsistentSuperfluousDisclosedContracts",
-    "The ledger accepts superfluous disclosed contracts with mismatching meta data",
+    "EDInconsistentCreateTimeSuperfluousDisclosedContracts",
+    "The ledger reject superfluous disclosed contracts with mismatching create time",
     allocate(SingleParty, SingleParty),
     enabled = _.explicitDisclosure,
   )(implicit ec => {
@@ -600,19 +617,6 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
 
         // Ensure participants are synchronized
         _ <- synchronize(ownerParticipant, delegateParticipant)
-
-        // Exercise a choice using invalid explicit disclosure (bad contract key)
-        _ <- testContext
-          .exerciseFetchDelegated(
-            testContext.disclosedContract,
-            // Provide a superfluous disclosed contract with mismatching key hash
-            whitKeyDisclosedContract
-              .update(
-                _.metadata.contractKeyHash := ByteString.copyFromUtf8(
-                  "BadKeyBadKeyBadKeyBadKeyBadKey00"
-                )
-              ),
-          )
 
         // Exercise a choice using invalid explicit disclosure (bad ledger time)
         _ <- testContext

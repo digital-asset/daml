@@ -370,7 +370,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
         case Right(
               UpdateMachine.Result(tx, _, nodeSeeds, globalKeyMapping, disclosedCreateEvents)
             ) =>
-          val disclosureMap = disclosures.iterator.map(c => c.contractId.value -> c).toMap
+          val disclosureMap = disclosures.iterator.map(c => c.contractId -> c).toMap
           val processedDisclosedContracts = disclosedCreateEvents.map { create =>
             val diclosedContract = disclosureMap(create.coid)
             ProcessedDisclosedContract(
