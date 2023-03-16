@@ -69,11 +69,15 @@ sealed trait Result[+A] extends Product with Serializable {
 
 final case class ResultInterruption[A](continue: () => Result[A]) extends Result[A]
 
+/** Indicates that the command (re)interpretation was successful.
+  */
 final case class ResultDone[A](result: A) extends Result[A]
 object ResultDone {
   val Unit: ResultDone[Unit] = new ResultDone(())
 }
 
+/** Indicates that the command (re)interpretation has failed.
+  */
 final case class ResultError(err: Error) extends Result[Nothing]
 object ResultError {
   def apply(packageError: Error.Package.Error): ResultError =
@@ -93,8 +97,12 @@ object ResultError {
   * To resume the computation, the caller must invoke `resume` with the following argument:
   * <ul>
   * <li>`Some(contractInstance)`, if the caller can dereference `acoid` to `contractInstance`</li>
-  * <li>`None`, if the caller is unable to dereference `acoid`
+  * <li>`None`, if the caller is unable to dereference `acoid`</li>
   * </ul>
+  *
+  * The caller of `resume` has to ensure that the contract instance passed to `resume` is a contract instance that
+  * has previously been associated with `acoid` by the engine.
+  * The engine does not validate the given contract instance.
   */
 final case class ResultNeedContract[A](
     acoid: ContractId,
@@ -105,17 +113,35 @@ final case class ResultNeedContract[A](
   * To resume the computation, the caller must invoke `resume` with the following argument:
   * <ul>
   * <li>`Some(package)`, if the caller can dereference `packageId` to `package`</li>
-  * <li>`None`, if the caller is unable to dereference `packageId`
+  * <li>`None`, if the caller is unable to dereference `packageId`</li>
   * </ul>
+  *
+  * It depends on the engine configuration whether the engine will validate the package provided to `resume`.
+  * If validation is switched off, it is the callers responsibility to provide a valid package corresponding to `packageId`.
   */
 final case class ResultNeedPackage[A](packageId: PackageId, resume: Option[Package] => Result[A])
     extends Result[A]
 
+/** Intermediate result indicating that the contract id corresponding to a key is required to complete the computation.
+  * To resume the computation, the caller must invoke `resume` with the following argument:
+  * <ul>
+  * <li>`Some(contractId)`, if `key` is currently assigned to `contractId`</li>
+  * <li>`None`, if `key` is unassigned</li>
+  * </ul>
+  *
+  * The caller of `resume` has to ensure that any contract id passed to `resume` has previously been associated with
+  * a contract with `key` as a key.
+  *
+  * TODO: may `contractId` refer to an archived contract?
+  * TODO: may `resume` be called with `None` even when the key is assigned?
+  */
 final case class ResultNeedKey[A](
     key: GlobalKeyWithMaintainers,
     resume: Option[ContractId] => Result[A],
 ) extends Result[A]
 
+/** TODO: I think this deserves a comment, but don't know what to write.
+  */
 final case class ResultNeedAuthority[A](
     holding: Set[Party],
     requesting: Set[Party],
