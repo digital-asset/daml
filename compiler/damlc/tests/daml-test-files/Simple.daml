@@ -1,9 +1,12 @@
 -- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
 -- All rights reserved.
 
+{-# LANGUAGE ApplicativeDo #-}
 
 -- A simple example, deliberately encoding in CRLF format
 module Simple where
+
+import Daml.Script
 
 template Person
   with
@@ -20,11 +23,10 @@ template Person
       controller person
       do return i
 
-main = scenario do
-    alice <- getParty "alice"
+main = script do
+    alice <- allocateParty "alice"
+    person <- submit alice do createCmd $ Person alice "Alice Liddel"
     submit alice do
-        person <- create $ Person alice "Alice Liddel"
-        exercise person $ Nap 10
-        exercise person Sleep
-
--- @ENABLE-SCENARIOS
+        exerciseCmd person $ Nap 10
+        exerciseCmd person Sleep
+        pure ()

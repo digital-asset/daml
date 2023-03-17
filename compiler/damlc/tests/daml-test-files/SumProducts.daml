@@ -4,6 +4,7 @@
 
 module SumProducts where
 
+import Daml.Script
 import DA.Assert
 
 data SumOfProducts
@@ -13,7 +14,7 @@ data SumOfProducts
     | Sum4 Int
       deriving (Eq,Ord, Show)
 
-main = scenario do
+main = script do
     let sum1 = Sum1 3 "test"
     let sum3 = Sum3 3 None True
     let sum4 = Sum4 5
@@ -22,5 +23,3 @@ main = scenario do
     assert $ sum1 < Sum2
     assert $ sum3 < sum4
     sum1.field1 === sum3.field1
-
--- @ENABLE-SCENARIOS

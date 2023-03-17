@@ -2,12 +2,13 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 -- @SINCE-LF-FEATURE DAML_EXCEPTIONS
--- @QUERY-LF [ .modules[].exceptions[] ] | length == 1
+-- @QUERY-LF [ $pkg.modules[].exceptions[] ] | length == 1
 
 -- | Test that exception syntax is correctly handled.
 -- This is the "sugared" counterpart to ExceptionDesugared.
 module ExceptionSyntax where
 
+import Daml.Script
 import DA.Exception (throw)
 import DA.Assert ((===))
 
@@ -17,14 +18,22 @@ exception MyException
     where
         message m
 
-tryCatchExample = scenario do
-    p <- getParty "Alice"
-    x <- submit p do
-        try do
-            throw (MyException "ok")
-            pure "err"
-        catch
-            MyException m -> pure m
-    x === "ok"
+template Test
+    with
+        p : Party
+    where
+        signatory p
+        choice Call : ()
+            controller p
+            do
+                x <-
+                    try do
+                        throw (MyException "ok")
+                        pure "err"
+                    catch
+                        MyException m -> pure m
+                x === "ok"
 
--- @ENABLE-SCENARIOS
+tryCatchExample = script do
+    p <- allocateParty "Alice"
+    p `submit` createAndExerciseCmd (Test p) Call

@@ -13,9 +13,11 @@ import com.daml.metrics.api.MetricHandle.{
 }
 import com.daml.metrics.api.{MetricDoc, MetricName, MetricsContext}
 
+import scala.annotation.nowarn
+
 class IndexMetrics(
     prefix: MetricName,
-    factory: MetricsFactory,
+    @nowarn @deprecated factory: MetricsFactory,
     labeledMetricsFactory: LabeledMetricsFactory,
 ) {
 
@@ -27,6 +29,7 @@ class IndexMetrics(
                     |size of the buffer for queries requesting transaction trees.""",
     qualification = Saturation,
   )
+  @nowarn
   val transactionTreesBufferSize: Counter =
     factory.counter(prefix :+ "transaction_trees_buffer_size")
 
@@ -39,6 +42,7 @@ class IndexMetrics(
                     |period of time that satisfy a given predicate.""",
     qualification = Saturation,
   )
+  @nowarn
   val flatTransactionsBufferSize: Counter =
     factory.counter(prefix :+ "flat_transactions_buffer_size")
 
@@ -51,6 +55,7 @@ class IndexMetrics(
                     |satisfying a given predicate.""",
     qualification = Saturation,
   )
+  @nowarn
   val activeContractsBufferSize: Counter =
     factory.counter(prefix :+ "active_contracts_buffer_size")
 
@@ -63,9 +68,11 @@ class IndexMetrics(
                     |period of time.""",
     qualification = Saturation,
   )
+  @nowarn
   val completionsBufferSize: Counter =
     factory.counter(prefix :+ "completions_buffer_size")
 
+  @nowarn
   object db extends IndexDBMetrics(prefix :+ "db", factory, labeledMetricsFactory)
 
   @MetricDoc.Tag(
@@ -80,6 +87,7 @@ class IndexMetrics(
                     |in-memory data set.""",
     qualification = Debug,
   )
+  @nowarn
   val ledgerEndSequentialId: Gauge[Long] =
     factory.gauge(prefix :+ "ledger_end_sequential_id", 0L)(MetricsContext.Empty)
 
@@ -93,6 +101,7 @@ class IndexMetrics(
                       |the latency. This metric represents the time for each such computation.""",
       qualification = Debug,
     )
+    @nowarn
     val computeInterfaceView: Timer = factory.timer(prefix :+ "compute_interface_view")
   }
 
@@ -105,6 +114,7 @@ class IndexMetrics(
                       |interfaces and corresponding templates.""",
       qualification = Debug,
     )
+    @nowarn
     val decodeArchive: Timer = factory.timer(prefix :+ "decode_archive")
 
     @MetricDoc.Tag(
@@ -114,6 +124,7 @@ class IndexMetrics(
                       |uploaded and scanning them to extract metadata information.""",
       qualification = Debug,
     )
+    @nowarn
     val viewInitialisation: Timer = factory.timer(prefix :+ "view_init")
   }
 }

@@ -1,6 +1,7 @@
 
 module LazyDo where
 
+import Daml.Script
 import DA.Assert
 
 none: Optional a
@@ -18,10 +19,8 @@ left = do
   Left ()
   error "either"
 
-main = scenario do
+main = script do
   none === (None @Int)
   none === (None @Text)
   empty === []
   left === Left ()
-
--- @ENABLE-SCENARIOS

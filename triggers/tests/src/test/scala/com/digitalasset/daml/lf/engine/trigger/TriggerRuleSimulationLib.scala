@@ -18,7 +18,7 @@ import com.daml.lf.engine.trigger.Runner.{TriggerContext, TriggerContextualFlow}
 import com.daml.lf.engine.trigger.UnfoldState.{flatMapConcatNodeOps, toSourceOps}
 import com.daml.lf.speedy.SValue.SList
 import com.daml.lf.speedy.{Command, SValue}
-import com.daml.logging.LoggingContextOf
+import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 import com.daml.logging.entries.LoggingValue
 import com.daml.logging.entries.LoggingValue.{Nested, OfInt, OfLong, OfString}
 import com.daml.platform.services.time.TimeProviderType
@@ -27,10 +27,10 @@ import com.daml.script.converter.Converter.Implicits._
 import com.daml.util.Ctx
 import org.scalacheck.Gen
 
-import scala.concurrent.duration.{Duration, FiniteDuration}
-import scala.concurrent.{ExecutionContext, Future}
 import java.util.UUID
 import scala.collection.mutable
+import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.duration.{Duration, FiniteDuration}
 import scala.util.Try
 
 @SuppressWarnings(
@@ -703,6 +703,8 @@ final class TriggerRuleSimulationLib private (
     ruleMetrics.addLogEntry(msg, context)
   }
 
+  private[this] implicit val logger: ContextualizedLogger =
+    ContextualizedLogger.get(classOf[Runner])
   private[this] implicit val materializer: Materializer = Materializer(
     ActorSystem("TriggerRuleSimulator")
   )
@@ -791,12 +793,12 @@ final class TriggerRuleSimulationLib private (
             val killSwitch = gb add lambdaKillSwitch.flow[TriggerContext[SValue]]
             val submissions = gb add Flow[TriggerContext[SubmitRequest]]
 
-                  // format: off
-                  stateOut ~> rule.initState
-                  msgIn ~> encodeMsg ~> killSwitch ~> rule.elemsIn
-                  submissions <~ rule.elemsOut
-                  rule.finalStates ~> saveLastState
-                  // format: on
+            // format: off
+            stateOut                         ~> rule.initState
+            msgIn ~> encodeMsg ~> killSwitch ~> rule.elemsIn
+            submissions                      <~ rule.elemsOut
+                                                rule.finalStates ~> saveLastState
+            // format: on
 
             new FlowShape(msgIn.in, submissions.out)
         }

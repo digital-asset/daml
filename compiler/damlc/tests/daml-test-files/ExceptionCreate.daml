@@ -6,6 +6,7 @@
 -- | Test that create throws a PreconditionFailed when the precondition is violated.
 module ExceptionCreate where
 
+import Daml.Script
 import DA.Assert
 import DA.Exception
 
@@ -16,15 +17,23 @@ template MyTemplate
         signatory p
         ensure False
 
-test = scenario do
-    p <- getParty "Alice"
-    m <- submit p do
-        try do
-            create (MyTemplate p)
-            pure ""
-        catch
-            PreconditionFailed msg ->
-                pure msg
-    m === "Template precondition violated: MyTemplate {p = 'Alice'}"
+template Test
+    with
+        p : Party
+    where
+        signatory p
+        choice Call : ()
+            controller p
+            do
+                m <-
+                    try do
+                        create (MyTemplate p)
+                        pure ""
+                    catch
+                        PreconditionFailed msg ->
+                            pure msg
+                m === "Template precondition violated: MyTemplate {p = 'Alice'}"
 
--- @ENABLE-SCENARIOS
+test = script do
+    p <- allocateParty "Alice"
+    p `submit` createAndExerciseCmd (Test p) Call

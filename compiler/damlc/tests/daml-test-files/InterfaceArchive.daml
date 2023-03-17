@@ -1,10 +1,11 @@
 -- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
--- @ENABLE-SCENARIOS
 -- @SINCE-LF-FEATURE DAML_INTERFACE
 
 module InterfaceArchive where
+
+import Daml.Script
 
 data EmptyInterfaceView = EmptyInterfaceView {}
 
@@ -31,13 +32,13 @@ template Tplt
       view = EmptyInterfaceView
       getOwner = owner
 
-main = scenario do
-    alice <- getParty "alice"
-    tid <- alice `submit` create (Tplt alice)
-    alice `submit` exercise tid TChoiceNonconsuming
+main = script do
+    alice <- allocateParty "alice"
+    tid <- alice `submit` createCmd (Tplt alice)
+    alice `submit` exerciseCmd tid TChoiceNonconsuming
     let iid = toInterfaceContractId @Iface tid
-    alice `submit` archive iid
-    alice `submitMustFail` exercise tid TChoiceNonconsuming
-    alice `submitMustFail` exercise tid TChoiceConsuming
-    alice `submitMustFail` archive tid
+    alice `submit` archiveCmd iid
+    alice `submitMustFail` exerciseCmd tid TChoiceNonconsuming
+    alice `submitMustFail` exerciseCmd tid TChoiceConsuming
+    alice `submitMustFail` archiveCmd tid
     pure ()

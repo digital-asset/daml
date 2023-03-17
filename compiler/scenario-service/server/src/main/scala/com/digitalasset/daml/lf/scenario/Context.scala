@@ -233,9 +233,16 @@ class Context(
         e.cause match {
           case e: Error => handleFailure(e)
           case e: speedy.SError.SError => handleFailure(Error.RunnerException(e))
-          case _ => Failure(e)
+          case e => {
+            // We can't send _everything_ over without changing internal, nicer to put a print here.
+            e.printStackTrace
+            handleFailure(Error.Internal("ScriptF.FailedCmd unexpected cause: " + e.getMessage))
+          }
         }
-      case Failure(e) => Failure(e)
+      case Failure(e) => {
+        e.printStackTrace
+        handleFailure(Error.Internal("Unexpected error type from script runner: " + e.getMessage))
+      }
     }
   }
 }

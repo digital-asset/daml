@@ -1,10 +1,9 @@
 -- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
 -- All rights reserved.
 
--- @ENABLE-SCENARIOS
-
 module Foldable where
 
+import Daml.Script
 import Prelude hiding (concat, foldl1, foldl, foldr, foldr1)
 
 --import qualified DA.List as L
@@ -25,7 +24,7 @@ instance Foldable LList where
   foldl f z (LC t h) = f (foldl f z t) h
   foldMap f = foldl (\z x -> z <> f x)  mempty
 
-testFoldl = scenario do
+testFoldl = script do
    27 === foldl1 (\a b -> (a + (2 * b))) ll
    23 === foldl1 (\a b -> (a + (2 * b))) rll
    41 === foldr1 (\a b -> (a + (2 * b))) ll
@@ -40,7 +39,7 @@ testFoldl = scenario do
    rl = LC (LC (LC LN 3) 5) 7
    rrl = LC (LC (LC LN 7) 5) 3
 
-testToList = scenario do
+testToList = script do
   []  === toList (RN @())
   [0] === toList (RC 0 RN)
   [0, 1, 2] === toList (RC 0 (RC 1 (RC 2 RN)))
@@ -48,7 +47,7 @@ testToList = scenario do
   [0] === toList (LC LN 0)
   [0, 1, 2] === toList (LC (LC (LC LN 0) 1) 2)
 
-testConcat = scenario do
+testConcat = script do
   [] === concat (RN @[()])
   [] === concat (RC [] (RN @[()]))
   [0] === concat (RC [0] RN)

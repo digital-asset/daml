@@ -10,8 +10,10 @@ import com.daml.metrics.api.MetricHandle.{Counter, Gauge, Histogram, Meter, Metr
 import com.daml.metrics.api.{Gauges, MetricName, MetricsContext}
 import com.daml.scalautil.Statement.discard
 
+import scala.annotation.nowarn
 import scala.concurrent.blocking
 
+@nowarn("cat=deprecation")
 class DropwizardMetricsFactory(val registry: codahale.MetricRegistry) extends MetricsFactory {
 
   override def timer(name: MetricName, description: String = "")(implicit

@@ -13,8 +13,12 @@ import com.daml.metrics.api.MetricHandle.{
 }
 import com.daml.metrics.api.{MetricDoc, MetricName}
 
+import scala.annotation.nowarn
+
 class ParallelIndexerMetrics(
     prefix: MetricName,
+    @nowarn
+    @deprecated
     factory: MetricsFactory,
     labeledMetricsFactory: LabeledMetricsFactory,
 ) {
@@ -30,6 +34,7 @@ class ParallelIndexerMetrics(
                     |party allocations, rejections, etc.""",
     qualification = Traffic,
   )
+  @nowarn
   val updates: Counter = factory.counter(prefix :+ "updates")
 
   @MetricDoc.Tag(
@@ -38,6 +43,7 @@ class ParallelIndexerMetrics(
                     |batch formation during the database ingestion.""",
     qualification = Saturation,
   )
+  @nowarn
   val inputBufferLength: Counter = factory.counter(prefix :+ "input_buffer_length")
 
   @MetricDoc.Tag(
@@ -47,6 +53,7 @@ class ParallelIndexerMetrics(
                     |downstream stages of the flow.""",
     qualification = Debug,
   )
+  @nowarn
   val outputBatchedBufferLength: Counter = factory.counter(prefix :+ "output_batched_buffer_length")
 
   // Input mapping stage
@@ -63,6 +70,7 @@ class ParallelIndexerMetrics(
                       |database submission.""",
       qualification = Debug,
     )
+    @nowarn
     val batchSize: Histogram = factory.histogram(prefix :+ "batch_size")
   }
 
@@ -85,6 +93,7 @@ class ParallelIndexerMetrics(
                       |indexer.""",
       qualification = Debug,
     )
+    @nowarn
     val duration: Timer = factory.timer(prefix :+ "duration")
   }
 

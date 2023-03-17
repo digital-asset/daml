@@ -4,25 +4,26 @@
 
 module Tuple where
 
+import Daml.Script
 import DA.Tuple
 import DA.Assert
 
-testFirst = scenario do
+testFirst = script do
   (12, "abc") === first (*4) (3, "abc")
   (3, "abc") === first length ([1,2,3], "abc")
 
-testSecond = scenario do
+testSecond = script do
   (5.0, 12) === second (*4) ((5.0 : Decimal), 3)
   (5.0, 3) === second length ((5.0 : Decimal), [1,2,3])
 
-testBoth = scenario do
+testBoth = script do
   (3, 1) === both length ([1,2,3], [1])
   (12, 9) === both (*3) (4, 3)
 
-testSwap = scenario do
+testSwap = script do
   (12, "abc") === swap ("abc", 12)
 
-testTuple = scenario do
+testTuple = script do
   let [a,b,c,d] = f 4
   (a,b,c,d) === (4,3,2,1)
 
@@ -30,22 +31,20 @@ f : Int -> [Int]
 f 0 = []
 f i = i :: f (i-1)
 
-testDupe = scenario do
+testDupe = script do
   ("a", "a") === dupe "a"
 
-testFst3 = scenario do
+testFst3 = script do
   1 === fst3 (1, "A", True)
 
-testSnd3 = scenario do
+testSnd3 = script do
   "A" === snd3 (1, "A", True)
 
-testThd3 = scenario do
+testThd3 = script do
   True === thd3 (1, "A", True)
 
-testCurry3 = scenario do
+testCurry3 = script do
     123 === curry3 (\(x, y, z) -> x + y + z) 20 3 100
 
-testUncurry3 = scenario do
+testUncurry3 = script do
     123 === uncurry3 (\x y z -> x + y + z) (20, 3, 100)
-
--- @ENABLE-SCENARIOS

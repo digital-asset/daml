@@ -2,12 +2,13 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 -- @SINCE-LF-FEATURE DAML_EXCEPTIONS
--- @ERROR range=131:1-131:23; Unhandled exception: ExceptionSemantics:E
--- @ERROR range=146:1-146:25; Unhandled exception: DA.Exception.ArithmeticError:ArithmeticError@cb0552debf219cc909f51cbb5c3b41e9981d39f8f645b1f35e2ef5be2e0b858a with message = "ArithmeticError while evaluating (DIV_INT64 1 0)."
--- @WARN range=180:3-180:43; Use of divulged contracts is deprecated
--- @ERROR range=183:1-183:11; Attempt to exercise a consumed contract
+-- @ERROR range=132:1-132:23; Unhandled exception: ExceptionSemantics:E
+-- @ERROR range=147:1-147:25; Unhandled exception: DA.Exception.ArithmeticError:ArithmeticError@cb0552debf219cc909f51cbb5c3b41e9981d39f8f645b1f35e2ef5be2e0b858a with message = "ArithmeticError while evaluating (DIV_INT64 1 0)."
+-- @WARN range=181:3-181:12; Use of divulged contracts is deprecated
+-- @ERROR range=184:1-184:11; Attempt to exercise a consumed contract
 module ExceptionSemantics where
 
+import Daml.Script
 import DA.Exception
 import DA.Assert ((===))
 
@@ -123,70 +124,68 @@ template Fetcher
          catch
            E -> pure ()
 
-uncaughtUserException = scenario do
-  p <- getParty "p"
-  _ <- submitMustFail p $ createAndExercise (T p) Throw
+uncaughtUserException = script do
+  p <- allocateParty "p"
+  _ <- submitMustFail p $ createAndExerciseCmd (T p) Throw
   pure ()
 
-unhandledUserException = scenario do
-  p <- getParty "p"
-  _ <- submit p $ createAndExercise (T p) Throw
+unhandledUserException = script do
+  p <- allocateParty "p"
+  _ <- submit p $ createAndExerciseCmd (T p) Throw
   pure ()
 
-handledUserException = scenario do
-  p <- getParty "p"
-  _ <- submit p $ createAndExercise (T p) Catch
+handledUserException = script do
+  p <- allocateParty "p"
+  _ <- submit p $ createAndExerciseCmd (T p) Catch
   pure ()
 
-uncaughtArithmeticError = scenario do
-  p <- getParty "p"
-  _ <- submitMustFail p $ createAndExercise (T p) ThrowArithmeticError
+uncaughtArithmeticError = script do
+  p <- allocateParty "p"
+  _ <- submitMustFail p $ createAndExerciseCmd (T p) ThrowArithmeticError
   pure ()
 
-unhandledArithmeticError = scenario do
-  p <- getParty "p"
-  _ <- submit p $ createAndExercise (T p) ThrowArithmeticError
+unhandledArithmeticError = script do
+  p <- allocateParty "p"
+  _ <- submit p $ createAndExerciseCmd (T p) ThrowArithmeticError
   pure ()
 
-handledArithmeticError = scenario do
-  p <- getParty "p"
-  r <- submit p $ createAndExercise (T p) CatchArithmeticError
+handledArithmeticError = script do
+  p <- allocateParty "p"
+  r <- submit p $ createAndExerciseCmd (T p) CatchArithmeticError
   r === 42
 
-duplicateKey = scenario do
-  p <- getParty "p"
+duplicateKey = script do
+  p <- allocateParty "p"
   -- transient duplicate key in rollback
-  submitMustFail p $ createAndExercise (T p) (TransientDuplicate 0)
-  submit p $ create (K p 1)
+  submitMustFail p $ createAndExerciseCmd (T p) (TransientDuplicate 0)
+  submit p $ createCmd (K p 1)
   -- duplicate key error with contract created outside of rollback
-  submitMustFail p $ createAndExercise (T p) (NonTransientDuplicate 1)
+  submitMustFail p $ createAndExerciseCmd (T p) (NonTransientDuplicate 1)
   -- no duplicate key error if key creation got rolled back
-  submit p $ createAndExercise (T p) (RollbackKey 2)
+  submit p $ createAndExerciseCmd (T p) (RollbackKey 2)
   pure ()
 
-rollbackArchive = scenario do
-  p <- getParty "p"
-  submit p $ createAndExercise (T p) (RollbackArchive 0)
-  submitMustFail p $ createAndExercise (T p) (NonRollbackArchive 0)
+rollbackArchive = script do
+  p <- allocateParty "p"
+  submit p $ createAndExerciseCmd (T p) (RollbackArchive 0)
+  submitMustFail p $ createAndExerciseCmd (T p) (NonRollbackArchive 0)
 
-divulgence = scenario do
-  p1 <- getParty "p1"
-  p2 <- getParty "p2"
-  cid <- submit p1 $ create (K p1 0)
-  divulger <- submit p2 $ create (Fetcher p2 p1)
-  fetcher <- submit p1 $ create (Fetcher p1 p2)
-  submitMustFail p2 $ exercise fetcher (Fetch cid)
-  submit p1 $ exercise divulger (RollbackFetch cid)
-  submit p2 $ exercise fetcher (Fetch cid)
+divulgence = script do
+  p1 <- allocateParty "p1"
+  p2 <- allocateParty "p2"
+  cid <- submit p1 $ createCmd (K p1 0)
+  divulger <- submit p2 $ createCmd (Fetcher p2 p1)
+  fetcher <- submit p1 $ createCmd (Fetcher p1 p2)
+  submitMustFail p2 $ exerciseCmd fetcher (Fetch cid)
+  submit p1 $ exerciseCmd divulger (RollbackFetch cid)
+  submit p2 $ exerciseCmd fetcher (Fetch cid)
   pure ()
 
-tryContext = scenario do
-  p <- getParty "p"
-  kCid <- submit p $ create (K p 0)
-  submit p $ archive kCid
-  c <- submit p $ create (T p)
+tryContext = script do
+  p <- allocateParty "p"
+  kCid <- submit p $ createCmd (K p 0)
+  submit p $ archiveCmd kCid
+  c <- submit p $ createCmd (T p)
   -- This will result in a partial transaction with ptx.context.info
   -- pointing to a TryContextInfo.
-  submit p $ exercise c (UncatchableTry kCid)
-
--- @ENABLE-SCENARIOS
+  submit p $ exerciseCmd c (UncatchableTry kCid)

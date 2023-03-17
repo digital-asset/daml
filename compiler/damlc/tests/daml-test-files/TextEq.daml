@@ -3,6 +3,7 @@
 
 
 module TextEq where -- test of DEL-3881
+import Daml.Script
 import DA.Assert
 
 stringEdit x = case x of
@@ -10,9 +11,7 @@ stringEdit x = case x of
   "JPY" -> "USD"
   x -> x
 
-main = scenario do
+main = script do
     stringEdit "USD" === "JPY"
     stringEdit "JPY" === "USD"
     stringEdit "Daml" === "Daml"
-
--- @ENABLE-SCENARIOS

@@ -5,6 +5,7 @@
 -- big records (3 fields or more) use primitives for set/update, as per DEL-5490
 module RecordBig where
 
+import Daml.Script
 import DA.Assert
 
 data Foo = Foo with
@@ -16,8 +17,6 @@ data Foo = Foo with
     foo6 : Int
   deriving Show
 
-main = scenario do
+main = script do
   let x = Foo 1 2 3 4 5 6
   (x with foo4 = 42).foo4 === 42
-
--- @ENABLE-SCENARIOS

@@ -4,6 +4,7 @@ daml 1.2
 -- | Testing the daml version header.
 module DamlHasVersion(T, main) where
 
+import Daml.Script
 import DA.Functor
 
 template T
@@ -12,9 +13,7 @@ template T
   where
     signatory p
 
-main : Scenario ()
-main = do
-  p <- getParty "p"
-  void (submit p $ create T with p)
-
--- @ENABLE-SCENARIOS
+main : Script ()
+main = script do
+  p <- allocateParty "p"
+  void (submit p $ createCmd T with p)

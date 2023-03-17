@@ -2,11 +2,10 @@
 -- All rights reserved.
 
 module Trace where
+import Daml.Script
 import DA.Assert
 
-main = scenario do
-  debug "using traceA in a scenario"
-  alice <- traceId <$> getParty "Alice"
+main = script do
+  debug "using traceA in a script"
+  alice <- traceId <$> allocateParty "Alice"
   traceId 1 === trace "custom trace message" 1
-
--- @ENABLE-SCENARIOS

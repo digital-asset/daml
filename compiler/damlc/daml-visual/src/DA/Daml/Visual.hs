@@ -139,6 +139,9 @@ startFromUpdate seen world update = case update of
     LF.UCreateInterface{} ->
       error "Interfaces are not supported"
     LF.UExercise tpl choice _ _ -> Set.singleton (AExercise tpl choice)
+    LF.UDynamicExercise {} ->
+      -- TODO https://github.com/digital-asset/daml/issues/16154 (dynamic-exercise)
+      error "Dynamic exercise is not supported"
     LF.UExerciseInterface{} ->
       -- TODO https://github.com/digital-asset/daml/issues/12051
       error "Interfaces are not supported"

@@ -16,14 +16,21 @@ private[lf] object InternalError {
   @throws[IllegalArgumentException]
   def illegalArgumentException(location: String, message: String): Nothing = {
     log(location, message)
-    throw new IllegalArgumentException(message)
+    throw new IllegalArgumentException(location + ": " + message)
+  }
+
+  @throws[IllegalStateException]
+  def assertionException(location: String, message: String): Nothing = {
+    log(location, message)
+    throw new AssertionError(location + ": " + message)
   }
 
   @throws[RuntimeException]
   def runtimeException(location: String, message: String): Nothing = {
     log(location, message)
-    throw new RuntimeException(message)
+    throw new RuntimeException(location + ": " + message)
   }
+
 }
 
 trait InternalError {

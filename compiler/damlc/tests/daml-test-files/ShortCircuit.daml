@@ -1,17 +1,16 @@
 -- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
 -- All rights reserved.
 
--- @INFO range=12:13-12:33; Evaluate
--- @INFO range=13:17-13:38; Evaluate
+-- @INFO range=13:13-13:33; Evaluate
+-- @INFO range=14:17-14:38; Evaluate
 
 module ShortCircuit where
 
+import Daml.Script
 import DA.Action
 
-main = scenario do
+main = script do
   assert $ (True || error "disj")
   assert $ not (False && error "conj")
   when False (error "when")
   unless True (error "unless")
-
--- @ENABLE-SCENARIOS
