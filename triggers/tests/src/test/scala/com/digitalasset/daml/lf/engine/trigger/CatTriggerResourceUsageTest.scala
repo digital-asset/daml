@@ -5,7 +5,7 @@ package com.daml.lf.engine.trigger
 
 import akka.NotUsed
 import akka.stream.scaladsl.{Sink, Source}
-import com.daml.ledger.api.refinements.ApiTypes.Party
+import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId, Party}
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
 import com.daml.ledger.api.v1.commands.Command.Command
@@ -49,9 +49,10 @@ class CatTriggerResourceUsageTest
 
   "Trigger rule simulation" should {
     "with single/one shot trigger rule evaluation" should {
-      def traceSizeGen = ((0L to 10L) ++ (1L to 5L).map(_ * 20L)).iterator
-
       "identify that the number of submissions is dependent on ACS size of the starting state" should {
+        def stateSizeGen =
+          ((0L to 10L) ++ (20L to 100L by 20L) ++ (200L to 400L by 100L)).iterator
+
         "for Cats:feedingTrigger initState lambda" in {
           for {
             client <- ledgerClient()
@@ -60,13 +61,13 @@ class CatTriggerResourceUsageTest
               client,
               QualifiedName.assertFromString("Cats:feedingTrigger"),
               packageId,
-              applicationId,
+              ApplicationId("submissions-and-acs"),
               compiledPackages,
               config.participants(ParticipantId).apiServer.timeProviderType,
               triggerRunnerConfiguration,
               party,
             )
-            result <- forAll(monotonicACS(party, traceSizeGen)) { acs =>
+            result <- forAll(monotonicACS(party, stateSizeGen)) { acs =>
               for {
                 (submissions, metrics, state) <- simulator.initialStateLambda(acs)
               } yield {
@@ -86,7 +87,7 @@ class CatTriggerResourceUsageTest
               client,
               QualifiedName.assertFromString("Cats:feedingTrigger"),
               packageId,
-              applicationId,
+              ApplicationId("submissions-and-acs"),
               compiledPackages,
               config.participants(ParticipantId).apiServer.timeProviderType,
               triggerRunnerConfiguration,
@@ -95,7 +96,7 @@ class CatTriggerResourceUsageTest
             converter = new Converter(compiledPackages, trigger)
             userState = SValue.SInt64(400L)
             msg = TriggerMsg.Heartbeat
-            result <- forAll(monotonicACS(party, traceSizeGen)) { acs =>
+            result <- forAll(monotonicACS(party, stateSizeGen)) { acs =>
               val startState = converter
                 .fromTriggerUpdateState(
                   acs,
@@ -116,7 +117,10 @@ class CatTriggerResourceUsageTest
         }
       }
 
-      "identify that the number of submissions is dependent on the users starting state" should {
+      "identify that ACS size has linear growth" should {
+        val growthRate = 100L
+        val userStateGen = (0L to 1000L by growthRate).iterator
+
         "for Cats:overflowTrigger updateState lambda" in {
           for {
             client <- ledgerClient()
@@ -125,7 +129,7 @@ class CatTriggerResourceUsageTest
               client,
               QualifiedName.assertFromString("Cats:overflowTrigger"),
               packageId,
-              applicationId,
+              ApplicationId("acs-constant-growth"),
               compiledPackages,
               config.participants(ParticipantId).apiServer.timeProviderType,
               triggerRunnerConfiguration,
@@ -134,21 +138,20 @@ class CatTriggerResourceUsageTest
             converter = new Converter(compiledPackages, trigger)
             acs = Seq.empty
             msg = TriggerMsg.Heartbeat
-            result <- forAll(monotonicUserState(traceSizeGen)) { case (userStateSize, userState) =>
+            result <- forAll(userStateGen) { userState =>
               val startState = converter
                 .fromTriggerUpdateState(
                   acs,
-                  userState,
+                  SValue.SInt64(userState),
                   parties = TriggerParties(Party(party), Set.empty),
                   triggerConfig = triggerRunnerConfiguration,
                 )
 
               for {
-                (submissions, metrics, endState) <- simulator.updateStateLambda(startState, msg)
+                (submissions, _, _) <- simulator.updateStateLambda(startState, msg)
               } yield {
-                withClue((startState, msg, endState, submissions, metrics)) {
-                  userStateSize should be <= submissions.size.toLong
-                }
+                // TODO: validate that all submissions are unique (and not just the same ones!)
+                submissions.size shouldBe growthRate
               }
             }
           } yield result
@@ -164,8 +167,10 @@ class CatTriggerResourceUsageTest
     }
 
     "with sequenced/chained trigger rule evaluation" should {
-      "identify that duplicate command submissions are generated" should {
-        "for Cats:feedingTrigger updateState lambda" in {
+      // Daml query statements filter out contracts that have command submissions operating on them (c.f. pending
+      // contracts being locally "locked"), and so repeated trigger rule evaluations can not produce the same submissions
+      "duplicate command submissions are **not** generated" should {
+        "using Cats:feedingTrigger updateState lambda" in {
           for {
             client <- ledgerClient()
             party <- allocateParty(client)
@@ -173,7 +178,7 @@ class CatTriggerResourceUsageTest
               client,
               QualifiedName.assertFromString("Cats:feedingTrigger"),
               packageId,
-              applicationId,
+              ApplicationId("no-duplicate-command-submissions"),
               compiledPackages,
               config.participants(ParticipantId).apiServer.timeProviderType,
               triggerRunnerConfiguration,
@@ -193,9 +198,10 @@ class CatTriggerResourceUsageTest
             result <- triggerIterator(simulator, startState)
               .take(3)
               .findDuplicateCommandRequests
-              .runWith(Sink.last)
+              .runWith(Sink.seq)
           } yield {
             result should not be empty
+            all(result) shouldBe empty
           }
         }
       }
@@ -210,9 +216,6 @@ trait CatTriggerResourceUsageTestGenerators extends CatGenerators {
 
   def monotonicACS(owner: String, sizeGen: Iterator[Long]): Iterator[Seq[CreatedEvent]] =
     sizeGen.map(acsGen(owner, _))
-
-  def monotonicUserState(sizeGen: Iterator[Long]): Iterator[(Long, SValue)] =
-    sizeGen.map(n => (n, SValue.SInt64(n)))
 
   def triggerIterator(simulator: TriggerRuleSimulationLib, startState: SValue)(implicit
       ec: ExecutionContext

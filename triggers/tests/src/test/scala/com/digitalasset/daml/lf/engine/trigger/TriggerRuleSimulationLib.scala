@@ -28,6 +28,8 @@ import com.daml.util.Ctx
 import org.scalacheck.Gen
 import org.scalatest.Assertion
 import org.scalatest.Assertions.succeed
+import scalaz.Tag
+import scalaz.syntax.tag._
 
 import java.util.UUID
 import scala.collection.mutable
@@ -714,7 +716,15 @@ final class TriggerRuleSimulationLib private (
   private[this] implicit val loggingContext: LoggingContextOf[Trigger] =
     LoggingContextOf.newLoggingContext(LoggingContextOf.label[Trigger])(identity)
   private[this] implicit val triggerContext: TriggerLogContext =
-    TriggerLogContext.newRootSpanWithCallback("trigger", logObserver)(identity)
+    TriggerLogContext.newRootSpanWithCallback(
+      "trigger",
+      logObserver,
+      "id" -> triggerId.toString,
+      "applicationId" -> applicationId.unwrap,
+      "definition" -> triggerId.toString,
+      "readAs" -> Tag.unsubst(triggerParties.readAs),
+      "actAs" -> Tag.unwrap(triggerParties.actAs),
+    )(identity)
 
   private val trigger = Trigger.fromIdentifier(compiledPackages, triggerId).toOption.get
 

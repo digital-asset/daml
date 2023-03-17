@@ -3,7 +3,7 @@
 
 package com.daml.lf.engine.trigger
 
-import com.daml.ledger.api.refinements.ApiTypes.Party
+import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId, Party}
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.daml.ledger.api.v1.event.CreatedEvent
 import com.daml.ledger.runner.common.Config
@@ -59,7 +59,7 @@ class TriggerRuleSimulationLibTest
           client,
           QualifiedName.assertFromString("Cats:feedingTrigger"),
           packageId,
-          applicationId,
+          ApplicationId("metric-logging-init-state"),
           compiledPackages,
           config.participants(ParticipantId).apiServer.timeProviderType,
           triggerRunnerConfiguration,
@@ -108,7 +108,7 @@ class TriggerRuleSimulationLibTest
           client,
           QualifiedName.assertFromString("Cats:feedingTrigger"),
           packageId,
-          applicationId,
+          ApplicationId("metric-logging-update-state"),
           compiledPackages,
           config.participants(ParticipantId).apiServer.timeProviderType,
           triggerRunnerConfiguration,
