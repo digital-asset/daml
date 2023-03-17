@@ -2204,19 +2204,20 @@ tests tools = testGroup "Data Dependencies" $
           dar proj = path proj </> proj <.> "dar"
           step proj = step' ("building '" <> proj <> "' project")
 
-          damlYamlBody name useScript dataDeps = unlines
+          damlYamlBody :: String -> [FilePath] -> [String] -> String
+          damlYamlBody name extraDeps dataDeps = unlines
             [ "sdk-version: " <> sdkVersion
             , "name: " <> name
             , "build-options: [--target=1.dev]"
             , "source: ."
             , "version: 0.1.0"
-            , "dependencies: [daml-prim, daml-stdlib" <> (if useScript then ", " <> show scriptDar1dev else "") <> "]"
+            , "dependencies: [" <> intercalate ", " (["daml-prim", "daml-stdlib"] <> fmap show extraDeps) <> "]"
             , "data-dependencies: [" <> intercalate ", " (fmap dar dataDeps) <> "]"
             ]
 
         step tokenProj >> do
           createDirectoryIfMissing True (path tokenProj)
-          writeFileUTF8 (damlYaml tokenProj) $ damlYamlBody tokenProj False []
+          writeFileUTF8 (damlYaml tokenProj) $ damlYamlBody tokenProj [] []
           writeFileUTF8 (damlMod tokenProj "Token") $ unlines
             [ "module Token where"
 
@@ -2260,7 +2261,7 @@ tests tools = testGroup "Data Dependencies" $
 
         step fancyTokenProj >> do
           createDirectoryIfMissing True (path fancyTokenProj)
-          writeFileUTF8 (damlYaml fancyTokenProj) $ damlYamlBody fancyTokenProj False
+          writeFileUTF8 (damlYaml fancyTokenProj) $ damlYamlBody fancyTokenProj []
             [ tokenProj
             ]
           writeFileUTF8 (damlMod fancyTokenProj "FancyToken") $ unlines
@@ -2288,7 +2289,7 @@ tests tools = testGroup "Data Dependencies" $
 
         step assetProj >> do
           createDirectoryIfMissing True (path assetProj)
-          writeFileUTF8 (damlYaml assetProj) $ damlYamlBody assetProj False
+          writeFileUTF8 (damlYaml assetProj) $ damlYamlBody assetProj []
             [ tokenProj
             , fancyTokenProj
             ]
@@ -2338,7 +2339,7 @@ tests tools = testGroup "Data Dependencies" $
 
         step mainProj >> do
           createDirectoryIfMissing True (path mainProj)
-          writeFileUTF8 (damlYaml mainProj) $ damlYamlBody mainProj True
+          writeFileUTF8 (damlYaml mainProj) $ damlYamlBody mainProj [scriptDar1dev]
             [ tokenProj
             , fancyTokenProj
             , assetProj
