@@ -7,9 +7,11 @@ import com.daml.metrics.api.MetricDoc.MetricQualification.Debug
 import com.daml.metrics.api.MetricHandle.{Histogram, LabeledMetricsFactory, MetricsFactory, Timer}
 import com.daml.metrics.api.{MetricDoc, MetricName}
 
+import scala.annotation.nowarn
+
 class IndexDBMetrics(
     val prefix: MetricName,
-    val factory: MetricsFactory,
+    @deprecated @nowarn val factory: MetricsFactory,
     labeledMetricsFactory: LabeledMetricsFactory,
 ) extends MainIndexDBMetrics(prefix, factory, labeledMetricsFactory)
     with TransactionStreamsDbMetrics {
@@ -19,6 +21,7 @@ class IndexDBMetrics(
 trait TransactionStreamsDbMetrics {
   self: DatabaseMetricsFactory =>
   val prefix: MetricName
+  @deprecated("Use LabeledMetricsFactory", since = "2.7.0")
   val factory: MetricsFactory
 
   object flatTxStream {
@@ -41,6 +44,7 @@ trait TransactionStreamsDbMetrics {
                       |takes to turn the serialized Daml-LF values into in-memory representation.""",
       qualification = Debug,
     )
+    @nowarn
     val translationTimer: Timer = factory.timer(prefix :+ "translation")
   }
 
@@ -76,6 +80,7 @@ trait TransactionStreamsDbMetrics {
                       |takes to turn the serialized Daml-LF values into in-memory representation.""",
       qualification = Debug,
     )
+    @nowarn
     val translationTimer: Timer = factory.timer(prefix :+ "translation")
   }
 
@@ -83,7 +88,7 @@ trait TransactionStreamsDbMetrics {
 
 class MainIndexDBMetrics(
     prefix: MetricName,
-    factory: MetricsFactory,
+    @nowarn @deprecated factory: MetricsFactory,
     labeledMetricsFactory: LabeledMetricsFactory,
 ) extends DatabaseMetricsFactory(prefix, labeledMetricsFactory) { self =>
 
@@ -94,6 +99,7 @@ class MainIndexDBMetrics(
                     |into a transaction.""",
     qualification = Debug,
   )
+  @nowarn
   val lookupKey: Timer = factory.timer(prefix :+ "lookup_key")
 
   @MetricDoc.Tag(
@@ -103,6 +109,7 @@ class MainIndexDBMetrics(
                     |into a transaction.""",
     qualification = Debug,
   )
+  @nowarn
   val lookupActiveContract: Timer = factory.timer(prefix :+ "lookup_active_contract")
 
   private val overall = createDbMetrics("all")
@@ -179,6 +186,7 @@ class MainIndexDBMetrics(
                       |representation. This metric represents time necessary to do that.""",
       qualification = Debug,
     )
+    @nowarn
     val getLfPackage: Timer = factory.timer(prefix :+ "get_lf_package")
   }
 
@@ -192,6 +200,7 @@ class MainIndexDBMetrics(
                       |arguments of a create event.""",
       qualification = Debug,
     )
+    @nowarn
     val createArgumentCompressed: Histogram =
       factory.histogram(prefix :+ "create_argument_compressed")
 
@@ -202,6 +211,7 @@ class MainIndexDBMetrics(
                       |arguments of a create event.""",
       qualification = Debug,
     )
+    @nowarn
     val createArgumentUncompressed: Histogram =
       factory.histogram(prefix :+ "create_argument_uncompressed")
 
@@ -212,6 +222,7 @@ class MainIndexDBMetrics(
                       |value of a create event.""",
       qualification = Debug,
     )
+    @nowarn
     val createKeyValueCompressed: Histogram =
       factory.histogram(prefix :+ "create_key_value_compressed")
 
@@ -222,6 +233,7 @@ class MainIndexDBMetrics(
                       |value of a create event.""",
       qualification = Debug,
     )
+    @nowarn
     val createKeyValueUncompressed: Histogram = factory.histogram(
       prefix :+ "create_key_value_uncompressed"
     )
@@ -233,6 +245,7 @@ class MainIndexDBMetrics(
                       |arguments of an exercise event.""",
       qualification = Debug,
     )
+    @nowarn
     val exerciseArgumentCompressed: Histogram =
       factory.histogram(prefix :+ "exercise_argument_compressed")
 
@@ -243,6 +256,7 @@ class MainIndexDBMetrics(
                       |arguments of an exercise event.""",
       qualification = Debug,
     )
+    @nowarn
     val exerciseArgumentUncompressed: Histogram = factory.histogram(
       prefix :+ "exercise_argument_uncompressed"
     )
@@ -254,6 +268,7 @@ class MainIndexDBMetrics(
                       |result of an exercise event.""",
       qualification = Debug,
     )
+    @nowarn
     val exerciseResultCompressed: Histogram =
       factory.histogram(prefix :+ "exercise_result_compressed")
 
@@ -264,6 +279,7 @@ class MainIndexDBMetrics(
                       |result of an exercise event.""",
       qualification = Debug,
     )
+    @nowarn
     val exerciseResultUncompressed: Histogram =
       factory.histogram(prefix :+ "exercise_result_uncompressed")
   }

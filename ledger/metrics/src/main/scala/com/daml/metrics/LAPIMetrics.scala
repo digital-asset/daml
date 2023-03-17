@@ -7,7 +7,9 @@ import com.daml.metrics.api.MetricDoc.MetricQualification.{Debug, Traffic}
 import com.daml.metrics.api.MetricHandle.{Counter, MetricsFactory}
 import com.daml.metrics.api.{MetricDoc, MetricHandle, MetricName, MetricsContext}
 
-class LAPIMetrics(val prefix: MetricName, val factory: MetricsFactory) {
+import scala.annotation.nowarn
+
+class LAPIMetrics(val prefix: MetricName, @deprecated @nowarn val factory: MetricsFactory) {
 
   object threadpool {
     private val prefix: MetricName = LAPIMetrics.this.prefix :+ "threadpool"
@@ -32,6 +34,7 @@ class LAPIMetrics(val prefix: MetricName, val factory: MetricsFactory) {
                       |to all clients.""",
       qualification = Traffic,
     )
+    @nowarn
     val transactionTrees: Counter = factory.counter(prefix :+ "transaction_trees_sent")
 
     @MetricDoc.Tag(
@@ -40,6 +43,7 @@ class LAPIMetrics(val prefix: MetricName, val factory: MetricsFactory) {
                       |all clients.""",
       qualification = Traffic,
     )
+    @nowarn
     val transactions: Counter = factory.counter(prefix :+ "transactions_sent")
 
     @MetricDoc.Tag(
@@ -48,6 +52,7 @@ class LAPIMetrics(val prefix: MetricName, val factory: MetricsFactory) {
                       |clients.""",
       qualification = Traffic,
     )
+    @nowarn
     val completions: Counter = factory.counter(prefix :+ "completions_sent")
 
     @MetricDoc.Tag(
@@ -56,6 +61,7 @@ class LAPIMetrics(val prefix: MetricName, val factory: MetricsFactory) {
                       |clients.""",
       qualification = Traffic,
     )
+    @nowarn
     val acs: Counter = factory.counter(prefix :+ "acs_sent")
 
     val activeName: MetricName = prefix :+ "active"
@@ -65,6 +71,7 @@ class LAPIMetrics(val prefix: MetricName, val factory: MetricsFactory) {
       description = "The number of ledger api streams currently being served to all clients.",
       qualification = Debug,
     )
+    @nowarn
     val active: MetricHandle.Gauge[Int] =
       factory.gauge(
         activeName,

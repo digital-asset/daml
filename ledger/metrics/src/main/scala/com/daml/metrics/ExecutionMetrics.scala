@@ -14,9 +14,11 @@ import com.daml.metrics.api.MetricHandle.{
 }
 import com.daml.metrics.api.{MetricDoc, MetricName}
 
+import scala.annotation.nowarn
+
 class ExecutionMetrics(
     prefix: MetricName,
-    factory: MetricsFactory,
+    @nowarn @deprecated factory: MetricsFactory,
     labeledMetricsFactory: LabeledMetricsFactory,
 ) {
 
@@ -27,6 +29,7 @@ class ExecutionMetrics(
                     |individual active contracts.""",
     qualification = Debug,
   )
+  @nowarn
   val lookupActiveContract: Timer = factory.timer(prefix :+ "lookup_active_contract")
 
   @MetricDoc.Tag(
@@ -36,6 +39,7 @@ class ExecutionMetrics(
                     |lookup all the active contracts in a single Daml command.""",
     qualification = Debug,
   )
+  @nowarn
   val lookupActiveContractPerExecution: Timer =
     factory.timer(prefix :+ "lookup_active_contract_per_execution")
 
@@ -46,6 +50,7 @@ class ExecutionMetrics(
                     |contracts that must be looked up to process a Daml command.""",
     qualification = Debug,
   )
+  @nowarn
   val lookupActiveContractCountPerExecution: Histogram =
     factory.histogram(prefix :+ "lookup_active_contract_count_per_execution")
 
@@ -56,6 +61,7 @@ class ExecutionMetrics(
                     |individual contract keys.""",
     qualification = Debug,
   )
+  @nowarn
   val lookupContractKey: Timer = factory.timer(prefix :+ "lookup_contract_key")
 
   @MetricDoc.Tag(
@@ -65,6 +71,7 @@ class ExecutionMetrics(
                     |to lookup all the contract keys in a single Daml command.""",
     qualification = Debug,
   )
+  @nowarn
   val lookupContractKeyPerExecution: Timer =
     factory.timer(prefix :+ "lookup_contract_key_per_execution")
 
@@ -75,6 +82,7 @@ class ExecutionMetrics(
                     |keys that must be looked up to process a Daml command.""",
     qualification = Debug,
   )
+  @nowarn
   val lookupContractKeyCountPerExecution: Histogram =
     factory.histogram(prefix :+ "lookup_contract_key_count_per_execution")
 
@@ -85,6 +93,7 @@ class ExecutionMetrics(
                     |the packages that are necessary for interpretation.""",
     qualification = Debug,
   )
+  @nowarn
   val getLfPackage: Timer = factory.timer(prefix :+ "get_lf_package")
 
   @MetricDoc.Tag(
@@ -93,6 +102,7 @@ class ExecutionMetrics(
                     |effective time in this ledger api server process.""",
     qualification = Debug,
   )
+  @nowarn
   val retry: Meter = factory.meter(prefix :+ "retry")
 
   @MetricDoc.Tag(
@@ -101,6 +111,7 @@ class ExecutionMetrics(
                     |executing Daml and fetching data).""",
     qualification = Debug,
   )
+  @nowarn
   val total: Timer = factory.timer(prefix :+ "total")
 
   @MetricDoc.Tag(
@@ -109,6 +120,7 @@ class ExecutionMetrics(
                     |executing Daml code and fetching data).""",
     qualification = Debug,
   )
+  @nowarn
   val totalRunning: Counter = factory.counter(prefix :+ "total_running")
 
   @MetricDoc.Tag(
@@ -117,6 +129,7 @@ class ExecutionMetrics(
                     |data).""",
     qualification = Debug,
   )
+  @nowarn
   val engine: Timer = factory.timer(prefix :+ "engine")
 
   @MetricDoc.Tag(
@@ -125,6 +138,7 @@ class ExecutionMetrics(
                     |engine (excluding fetching data).""",
     qualification = Debug,
   )
+  @nowarn
   val engineRunning: Counter = factory.counter(prefix :+ "engine_running")
 
   object cache {
@@ -140,6 +154,7 @@ class ExecutionMetrics(
                         |updating logic. This metric is created with debugging purposes in mind.""",
         qualification = Debug,
       )
+      @nowarn
       val registerCacheUpdate: Timer = factory.timer(prefix :+ "key_state" :+ "register_update")
     }
 
@@ -154,6 +169,7 @@ class ExecutionMetrics(
                         |updating logic. This metric is created with debugging purposes in mind.""",
         qualification = Debug,
       )
+      @nowarn
       val registerCacheUpdate: Timer =
         factory.timer(prefix :+ "contract_state" :+ "register_update")
     }
@@ -167,6 +183,7 @@ class ExecutionMetrics(
                       |lookups, this counter is incremented.""",
       qualification = Debug,
     )
+    @nowarn
     val resolveDivulgenceLookup: Counter =
       factory.counter(prefix :+ "resolve_divulgence_lookup")
 
@@ -179,6 +196,7 @@ class ExecutionMetrics(
                       |performed against the Index database. On such lookups, this counter is incremented.""",
       qualification = Debug,
     )
+    @nowarn
     val resolveFullLookup: Counter =
       factory.counter(prefix :+ "resolve_full_lookup")
 
@@ -190,6 +208,7 @@ class ExecutionMetrics(
           |incrmented.""",
       qualification = Debug,
     )
+    @nowarn
     val readThroughNotFound: Counter = factory.counter(prefix :+ "read_through_not_found")
   }
 }

@@ -28,3 +28,8 @@ We now throw an error (or warning) early in those cases on the field name itself
 
 *Note: Exception as well as templates without any choices did not previously throw errors for both `self` and `arg`. While using these names is discouraged, we only throw a warning here to avoid a breaking change. We may promote this to an error in future.*
 
+### Dynamic Exercise
+As part of extending the language to support evolving template definitions, we've added a new function `dynamicExercise : HasDynamicExercise t c r => ContractId t -> c -> Update r`, only available when targetting Daml LF version `1.dev`. Currently, it operates just like `exercise`, but at a later stage it will instead use the most recent definition of template `t` choice `c` vetter by all stakeholders.
+
+### `daml script --ide-ledger`
+In an effort to unify some of our internal and external tools, we now support the `--ide-ledger` option in `daml script`, allowing a user to directly invoke scripts within a `dar` file on their local machine, without a separate ledger running. Note the difference here with `daml test` being that `daml script` will not attempt to recompile or read the source code directly. This option cannot be used with `--ledger-host`, `--participant-config` or `--json-api`.

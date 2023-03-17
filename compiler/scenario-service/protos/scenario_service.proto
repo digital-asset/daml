@@ -187,8 +187,9 @@ message ScenarioError {
 
   message DisclosedContractKeyHashingError {
       ContractRef contract_ref = 1;
-      Identifier template_id = 2;
-      string reason = 3;
+      Value key = 2;
+      string computed_hash = 3;
+      string declared_hash = 4;
   }
 
   message ContractNotVisible {

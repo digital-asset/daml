@@ -59,9 +59,10 @@ private[lf] object Pretty {
         text("Update failed due to fetch of an inactive contract") & prettyContractId(coid) &
           char('(') + (prettyTypeConName(tid)) + text(").") /
           text(s"The contract had been consumed in sub-transaction #$consumedBy:")
-      case DisclosedContractKeyHashingError(coid, tid, reason) =>
-        text("Failed to cache disclosed contract key for contract") & prettyContractId(coid) &
-          char('(') + (prettyTypeConName(tid)) + text(").") / text(reason)
+      case DisclosedContractKeyHashingError(coid, gkey, declaredHash) =>
+        text("Mismatched disclosed contract key hash for contract") & prettyContractId(coid) &
+          char('(') + prettyTypeConName(gkey.templateId) + text(").") / text("declared hash:") &
+          text(declaredHash.toHexString) & text("found hash:") & text(gkey.hash.toHexString)
       case ContractKeyNotFound(gk) =>
         text(
           "Update failed due to fetch-by-key or exercise-by-key which did not find a contract with key"

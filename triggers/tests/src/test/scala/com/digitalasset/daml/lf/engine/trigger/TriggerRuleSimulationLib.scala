@@ -18,7 +18,7 @@ import com.daml.lf.engine.trigger.Runner.{TriggerContext, TriggerContextualFlow}
 import com.daml.lf.engine.trigger.UnfoldState.{flatMapConcatNodeOps, toSourceOps}
 import com.daml.lf.speedy.SValue.SList
 import com.daml.lf.speedy.{Command, SValue}
-import com.daml.logging.LoggingContextOf
+import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 import com.daml.logging.entries.LoggingValue
 import com.daml.logging.entries.LoggingValue.{Nested, OfInt, OfLong, OfString}
 import com.daml.platform.services.time.TimeProviderType
@@ -703,6 +703,8 @@ final class TriggerRuleSimulationLib private (
     ruleMetrics.addLogEntry(msg, context)
   }
 
+  private[this] implicit val logger: ContextualizedLogger =
+    ContextualizedLogger.get(classOf[Runner])
   private[this] implicit val materializer: Materializer = Materializer(
     ActorSystem("TriggerRuleSimulator")
   )

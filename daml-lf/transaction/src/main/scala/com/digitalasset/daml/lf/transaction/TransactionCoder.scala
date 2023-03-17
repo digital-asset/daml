@@ -414,7 +414,7 @@ object TransactionCoder {
         keyWithMaintainers.getKeyVersioned,
         keyWithMaintainers.getKeyUnversioned,
       )
-      gkey <- GlobalKey.build(templateId, value).left.map(DecodeError)
+      gkey <- GlobalKey.build(templateId, value).left.map(hashErr => DecodeError(hashErr.msg))
     } yield GlobalKeyWithMaintainers(gkey, maintainers)
   }
 
@@ -907,7 +907,7 @@ object TransactionCoder {
     for {
       tmplId <- ValueCoder.decodeIdentifier(rawTmplId)
       value <- ValueCoder.decodeValue(ValueCoder.NoCidDecoder, nodeVersion, rawKey)
-      key <- GlobalKey.build(tmplId, value).left.map(DecodeError)
+      key <- GlobalKey.build(tmplId, value).left.map(hashErr => DecodeError(hashErr.msg))
     } yield key
 
   /*

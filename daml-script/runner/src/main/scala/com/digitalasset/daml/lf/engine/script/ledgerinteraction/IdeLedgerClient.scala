@@ -12,11 +12,12 @@ import com.daml.ledger.api.domain.{IdentityProviderId, ObjectMeta, PartyDetails,
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{ImmArray, Ref, Time}
 import com.daml.lf.engine.preprocessing.ValueTranslator
+import com.daml.lf.interpretation.Error.ContractIdInContractKey
 import com.daml.lf.language.Ast
 import com.daml.lf.language.Ast.TTyCon
 import com.daml.lf.scenario.{ScenarioLedger, ScenarioRunner}
 import com.daml.lf.speedy.Speedy.Machine
-import com.daml.lf.speedy.{SValue, TraceLog, WarningLog}
+import com.daml.lf.speedy.{SValue, TraceLog, WarningLog, SError}
 import com.daml.lf.transaction.{
   GlobalKey,
   IncompleteTransaction,
@@ -29,7 +30,6 @@ import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 import com.daml.logging.LoggingContext
 import com.daml.platform.localstore.InMemoryUserManagementStore
-import com.daml.script.converter.ConverterException
 import io.grpc.StatusRuntimeException
 import scalaz.OneAnd
 import scalaz.OneAnd._
@@ -226,9 +226,17 @@ class IdeLedgerClient(
       ec: ExecutionContext,
       mat: Materializer,
   ): Future[Option[ScriptLedgerClient.ActiveContract]] = {
+    val keyValue = key.toUnnormalizedValue
+    def keyBuilderError(err: crypto.Hash.HashingError): Future[GlobalKey] =
+      Future.failed(
+        err match {
+          case crypto.Hash.HashingError.ForbiddenContractId() =>
+            SError.SErrorDamlException(ContractIdInContractKey(keyValue))
+        }
+      )
     GlobalKey
-      .build(templateId, key.toUnnormalizedValue)
-      .fold(err => Future.failed(new ConverterException(err)), Future.successful(_))
+      .build(templateId, keyValue)
+      .fold(keyBuilderError(_), Future.successful(_))
       .flatMap { gkey =>
         ledger.ledgerData.activeKeys.get(gkey) match {
           case None => Future.successful(None)
@@ -427,9 +435,13 @@ class IdeLedgerClient(
           val candidates = namePrefix #:: LazyList.from(1).map(namePrefix + _.toString())
           Success(candidates.find(s => !(usedNames contains s)).get)
         }
+      party <- Ref.Party
+        .fromString(name)
+        .fold(msg => Failure(scenario.Error.InvalidPartyName(name, msg)), Success(_))
+
       // Create and store the new party.
       partyDetails = PartyDetails(
-        party = Ref.Party.assertFromString(name),
+        party = party,
         displayName = Some(displayName),
         isLocal = true,
         metadata = ObjectMeta.empty,

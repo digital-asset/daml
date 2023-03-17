@@ -3,24 +3,17 @@
 
 package com.daml.nonrepudiation
 
-import com.daml.metrics.api.MetricHandle.{Meter, MetricsFactory, Timer}
+import com.daml.metrics.api.MetricHandle.{LabeledMetricsFactory, Meter, Timer}
 import com.daml.metrics.api.MetricName
 import com.daml.resources.HasExecutionContext
 
 import scala.concurrent.duration.Duration
 
-class Metrics(metricsFactory: MetricsFactory) {
+class Metrics(metricsFactory: LabeledMetricsFactory) {
 
   private val Prefix = MetricName("daml", "nonrepudiation")
 
   private def name(suffix: String) = Prefix :+ suffix
-
-  // For further details on the metrics below, see: https://metrics.dropwizard.io/4.1.2/manual/core.html
-  // Quick reference:
-  // - meters track rates, keeping both historical mean and exponentially-weighted
-  //   moving average over the last 1, 5 and 15 minutes
-  // - timers act as meters and also keep an histogram of the time for the
-  //   measured action, giving exponentially more weight to more recent data
 
   // daml.nonrepudiation.processing
   // Overall time taken from interception to forwarding to the participant (or rejecting)

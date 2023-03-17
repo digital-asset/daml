@@ -4,10 +4,10 @@
 package com.daml.metrics
 
 import com.daml.metrics.api.MetricDoc.MetricQualification.Debug
-import com.daml.metrics.api.MetricHandle.MetricsFactory
+import com.daml.metrics.api.MetricHandle.LabeledMetricsFactory
 import com.daml.metrics.api.{MetricDoc, MetricHandle, MetricName}
 
-class IndexedUpdatesMetrics(prefix: MetricName, metricFactory: MetricsFactory) {
+class IndexedUpdatesMetrics(prefix: MetricName, metricFactory: LabeledMetricsFactory) {
 
   @MetricDoc.Tag(
     summary = "Number of ledger events that are metered.",

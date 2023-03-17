@@ -41,21 +41,18 @@ private[lf] final class ValueTranslator(
     go(fields.toFrontStack, Map.empty)
   }
 
-  private[this] val unsafeTranslateV1Cid: ContractId.V1 => SValue.SContractId =
-    if (requireV1ContractIdSuffix)
-      cid =>
-        if (cid.suffix.isEmpty)
-          throw Error.Preprocessing.IllegalContractId.NonSuffixV1ContractId(cid)
-        else
-          SValue.SContractId(cid)
-    else
-      SValue.SContractId(_)
+  val validateCid: ContractId => Unit =
+    if (requireV1ContractIdSuffix) { case cid: ContractId.V1 =>
+      if (cid.suffix.isEmpty)
+        throw Error.Preprocessing.IllegalContractId.NonSuffixV1ContractId(cid)
+    }
+    else { _ => () }
 
   @throws[Error.Preprocessing.Error]
-  private[preprocessing] def unsafeTranslateCid(cid: ContractId): SValue.SContractId =
-    cid match {
-      case cid1: ContractId.V1 => unsafeTranslateV1Cid(cid1)
-    }
+  private[preprocessing] def unsafeTranslateCid(cid: ContractId): SValue.SContractId = {
+    validateCid(cid)
+    SValue.SContractId(cid)
+  }
 
   // For efficient reason we do not produce here the monad Result[SValue] but rather throw
   // exception in case of error or package missing.

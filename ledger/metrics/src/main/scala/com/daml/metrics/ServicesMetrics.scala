@@ -14,8 +14,12 @@ import com.daml.metrics.api.MetricHandle.{
 import com.daml.metrics.api.dropwizard.DropwizardTimer
 import com.daml.metrics.api.{MetricDoc, MetricName}
 
+import scala.annotation.nowarn
+
 class ServicesMetrics(
     prefix: MetricName,
+    @nowarn("cat=deprecation")
+    @deprecated("Use LabeledMetricsFactory", since = "2.7.0")
     factory: MetricsFactory,
     labeledMetricsFactory: LabeledMetricsFactory,
 ) {
@@ -29,6 +33,7 @@ class ServicesMetrics(
                     |time statistics of such operations.""",
     qualification = Debug,
   )
+  @nowarn("cat=deprecation")
   object index {
     val prefix: MetricName = ServicesMetrics.this.prefix :+ "index"
 
@@ -89,6 +94,7 @@ class ServicesMetrics(
     @MetricDoc.FanInstanceTag
     val getTransactionMetering: Timer = factory.timer(prefix :+ "get_transaction_metering")
 
+    @nowarn("cat=deprecation")
     object InMemoryFanoutBuffer {
       val prefix: MetricName = index.prefix :+ "in_memory_fan_out_buffer"
 
@@ -191,6 +197,7 @@ class ServicesMetrics(
                     |each operation.""",
     qualification = Debug,
   )
+  @nowarn("cat=deprecation")
   object read {
     val prefix: MetricName = ServicesMetrics.this.prefix :+ "read"
 
@@ -209,6 +216,7 @@ class ServicesMetrics(
                     |exposes the time needed to execute each operation.""",
     qualification = Debug,
   )
+  @nowarn("cat=deprecation")
   object write {
     val prefix: MetricName = ServicesMetrics.this.prefix :+ "write"
 

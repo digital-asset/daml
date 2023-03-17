@@ -3,6 +3,7 @@
 
 package com.daml.lf.engine.script.test
 
+import com.daml.bazeltools.BazelRunfiles.rlocation
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{FrontStack, FrontStackCons, Numeric}
@@ -16,17 +17,26 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 import spray.json.{JsNumber, JsObject, JsString}
 
+import java.io.File
 import scala.annotation.nowarn
 
 @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
 abstract class AbstractFuncIT
     extends AsyncWordSpec
-    with SandboxParticipantFixture
+    with CantonFixture
     with Matchers
     with Inside
     with SuiteResourceManagementAroundAll {
-  val (stableDar, stableEnvIface) = readDar(stableDarFile)
-  val (devDar, devDarEnvIface) = readDar(devDarFile)
+
+  val stableDarPath = new File(rlocation("daml-script/test/script-test.dar"))
+  val devDarPath = new File(rlocation("daml-script/test/script-test-1.dev.dar"))
+
+  val (stableDar, stableEnvIface) = readDar(stableDarPath)
+  val (devDar, devDarEnvIface) = readDar(devDarPath)
+
+  protected override val devMode = true
+  protected override def darFiles: List[File] = List(stableDarPath, devDarPath)
+  protected override val nParticipants = 1
 
   def assertSTimestamp(v: SValue) =
     v match {
@@ -183,8 +193,18 @@ abstract class AbstractFuncIT
           )
         } yield {
           assert(vals.size == 2)
-          assert(vals.get(0) == SParty(Party.assertFromString("carol")))
-          assert(vals.get(1) == SParty(Party.assertFromString("dan")))
+          inside(vals.get(0)) { case SParty(partyId) =>
+            inside(partyId.split("::")) { case Array(prefix, suffix) =>
+              prefix shouldBe "carol"
+              suffix.length shouldBe 68
+            }
+          }
+          inside(vals.get(1)) { case SParty(partyId) =>
+            inside(partyId.split("::")) { case Array(prefix, suffix) =>
+              prefix shouldBe "dan"
+              suffix.length shouldBe 68
+            }
+          }
         }
       }
     }
@@ -428,8 +448,10 @@ abstract class AbstractFuncIT
         }
       }
     }
+    // TODO https://github.com/digital-asset/daml/issues/15882
+    //  reactive when canton supports consortium party
     "WithAuthority:test" should {
-      "succeed" in {
+      "succeed" ignore {
         for {
           clients <- participantClients()
           v <- run(

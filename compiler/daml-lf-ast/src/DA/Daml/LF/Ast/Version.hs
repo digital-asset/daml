@@ -148,6 +148,13 @@ featureChoiceFuncs = Feature
     , featureCppFlag = Just "DAML_CHOICE_FUNCS"
     }
 
+featureDynamicExercise :: Feature
+featureDynamicExercise = Feature
+    { featureName = "dynamicExercise function"
+    , featureMinVersion = versionDev
+    , featureCppFlag = Just "DAML_DYNAMIC_EXERCISE"
+    }
+
 featureExperimental :: Feature
 featureExperimental = Feature
     { featureName = "Daml Experimental"
@@ -168,6 +175,7 @@ allFeatures =
     , featureUnstable
     , featureExperimental
     , featureWithAuthority
+    , featureDynamicExercise
     ]
 
 featureVersionMap :: MS.Map T.Text Version

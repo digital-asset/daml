@@ -4,10 +4,12 @@
 package com.daml.metrics
 
 import com.daml.metrics.api.MetricDoc.MetricQualification.{Debug, Latency}
-import com.daml.metrics.api.MetricHandle.{Counter, MetricsFactory, Meter, Timer}
+import com.daml.metrics.api.MetricHandle.{Counter, Meter, MetricsFactory, Timer}
 import com.daml.metrics.api.{MetricDoc, MetricName}
 
-class CommandMetrics(val prefix: MetricName, val factory: MetricsFactory) {
+import scala.annotation.nowarn
+
+class CommandMetrics(prefix: MetricName, @nowarn @deprecated factory: MetricsFactory) {
 
   @MetricDoc.Tag(
     summary = "The time to validate a Daml command.",
@@ -15,6 +17,7 @@ class CommandMetrics(val prefix: MetricName, val factory: MetricsFactory) {
                     |interpreter.""",
     qualification = Debug,
   )
+  @nowarn
   val validation: Timer = factory.timer(prefix :+ "validation")
 
   @MetricDoc.Tag(
@@ -23,6 +26,7 @@ class CommandMetrics(val prefix: MetricName, val factory: MetricsFactory) {
                     |synchronization services to be finalized (either committed or rejected).""",
     qualification = Latency,
   )
+  @nowarn
   val submissions: Timer = factory.timer(prefix :+ "submissions")
 
   @MetricDoc.Tag(
@@ -33,6 +37,7 @@ class CommandMetrics(val prefix: MetricName, val factory: MetricsFactory) {
                     |over to the synchronization services).""",
     qualification = Debug,
   )
+  @nowarn
   val submissionsRunning: Counter = factory.counter(prefix :+ "submissions_running")
 
   @MetricDoc.Tag(
@@ -41,6 +46,7 @@ class CommandMetrics(val prefix: MetricName, val factory: MetricsFactory) {
                     |(e.g. badly authorized action).""",
     qualification = Debug,
   )
+  @nowarn
   val failedCommandInterpretations: Meter =
     factory.meter(prefix :+ "failed_command_interpretations")
 
@@ -51,6 +57,7 @@ class CommandMetrics(val prefix: MetricName, val factory: MetricsFactory) {
                     |expected latency.""",
     qualification = Debug,
   )
+  @nowarn
   val delayedSubmissions: Meter = factory.meter(prefix :+ "delayed_submissions")
 
   @MetricDoc.Tag(
@@ -59,6 +66,7 @@ class CommandMetrics(val prefix: MetricName, val factory: MetricsFactory) {
                     |sent to interpretation in this ledger api server process.""",
     qualification = Debug,
   )
+  @nowarn
   val validSubmissions: Meter = factory.meter(prefix :+ "valid_submissions")
 
   @MetricDoc.Tag(
@@ -66,6 +74,7 @@ class CommandMetrics(val prefix: MetricName, val factory: MetricsFactory) {
     description = "The number of the currently pending Daml Commands in the Command Service.",
     qualification = Debug,
   )
+  @nowarn
   val inputBufferLength: Counter = factory.counter(prefix :+ "input_buffer_length")
 
   @MetricDoc.Tag(
@@ -74,6 +83,7 @@ class CommandMetrics(val prefix: MetricName, val factory: MetricsFactory) {
                     |in the Command Service.""",
     qualification = Debug,
   )
+  @nowarn
   val inputBufferCapacity: Counter = factory.counter(prefix :+ "input_buffer_capacity")
 
   @MetricDoc.Tag(
@@ -81,6 +91,7 @@ class CommandMetrics(val prefix: MetricName, val factory: MetricsFactory) {
     description = "The queuing delay for the pending Daml commands in the Command Service.",
     qualification = Debug,
   )
+  @nowarn
   val inputBufferDelay: Timer = factory.timer(prefix :+ "input_buffer_delay")
 
   @MetricDoc.Tag(
@@ -89,6 +100,7 @@ class CommandMetrics(val prefix: MetricName, val factory: MetricsFactory) {
       "The number of the currently Daml commands awaiting completion in the Command Service.",
     qualification = Debug,
   )
+  @nowarn
   val maxInFlightLength: Counter = factory.counter(prefix :+ "max_in_flight_length")
 
   @MetricDoc.Tag(
@@ -97,5 +109,6 @@ class CommandMetrics(val prefix: MetricName, val factory: MetricsFactory) {
       "The maximum number of Daml commands that can await completion in the Command Service.",
     qualification = Debug,
   )
+  @nowarn
   val maxInFlightCapacity: Counter = factory.counter(prefix :+ "max_in_flight_capacity")
 }

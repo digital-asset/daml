@@ -43,10 +43,10 @@ private[lf] final class CommandPreprocessor(
       case _ =>
     }
     val arg = valueTranslator.unsafeTranslateValue(Ast.TTyCon(disc.templateId), disc.argument)
-    val coid = valueTranslator.unsafeTranslateCid(disc.contractId)
+    valueTranslator.validateCid(disc.contractId)
     speedy.DisclosedContract(
       templateId = disc.templateId,
-      contractId = coid,
+      contractId = disc.contractId,
       argument = arg,
       metadata = disc.metadata,
     )
