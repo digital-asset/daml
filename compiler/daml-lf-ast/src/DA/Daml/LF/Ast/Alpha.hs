@@ -369,6 +369,12 @@ alphaUpdate env = \case
             && alphaExpr' env e1a e2a
             && alphaExpr' env e1b e2b
         _ -> False
+    UDynamicExercise t1 c1 e1a e1b -> \case
+        UDynamicExercise t2 c2 e2a e2b -> alphaTypeCon t1 t2
+            && c1 == c2
+            && alphaExpr' env e1a e2a
+            && alphaExpr' env e1b e2b
+        _ -> False
     UExerciseInterface i1 c1 e1a e1b e1c -> \case
         UExerciseInterface i2 c2 e2a e2b e2c ->
             let eqMaybe1 f (Just a) (Just b) = f a b

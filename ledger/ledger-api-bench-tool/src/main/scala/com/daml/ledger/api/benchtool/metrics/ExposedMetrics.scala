@@ -10,6 +10,8 @@ import com.daml.metrics.api.MetricHandle.{Counter, Gauge, Histogram, MetricsFact
 import com.daml.metrics.api.{MetricName, MetricsContext}
 import com.google.protobuf.timestamp.Timestamp
 
+import scala.annotation.nowarn
+
 final class ExposedMetrics[T](
     counterMetric: ExposedMetrics.CounterMetric[T],
     bytesProcessedMetric: ExposedMetrics.BytesProcessedMetric[T],
@@ -54,7 +56,7 @@ object ExposedMetrics {
 
   def apply[T](
       streamName: String,
-      factory: MetricsFactory,
+      @nowarn factory: MetricsFactory,
       countingFunction: T => Long,
       sizingFunction: T => Long,
       recordTimeFunction: Option[T => Seq[Timestamp]],

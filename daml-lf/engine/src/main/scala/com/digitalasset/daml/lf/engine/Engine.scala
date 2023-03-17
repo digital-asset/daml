@@ -370,7 +370,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
         case Right(
               UpdateMachine.Result(tx, _, nodeSeeds, globalKeyMapping, disclosedCreateEvents)
             ) =>
-          val disclosureMap = disclosures.iterator.map(c => c.contractId.value -> c).toMap
+          val disclosureMap = disclosures.iterator.map(c => c.contractId -> c).toMap
           val processedDisclosedContracts = disclosedCreateEvents.map { create =>
             val diclosedContract = disclosureMap(create.coid)
             ProcessedDisclosedContract(
@@ -425,6 +425,12 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
                   }
                 },
               )
+
+            case Question.Update.NeedPackageId(module @ _, pid0, callback) =>
+              // TODO https://github.com/digital-asset/daml/issues/16154 (dynamic-exercise)
+              // For now this just continues with the input package id
+              callback(pid0)
+              loop()
 
             case Question.Update.NeedTime(callback) =>
               callback(time)

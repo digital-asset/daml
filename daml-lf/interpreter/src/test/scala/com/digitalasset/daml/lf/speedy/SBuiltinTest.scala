@@ -1636,7 +1636,7 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
           evalOnLedger(
             SELet1(
               cachedContractSExpr,
-              SEAppAtomic(SEBuiltin(SBCacheDisclosedContract(contractId)), Array(SELocS(1))),
+              SEAppAtomic(SEBuiltin(SBCacheDisclosedContract(contractId, None)), Array(SELocS(1))),
             ),
             getContract = Map(
               contractId -> Value.VersionedContractInstance(
@@ -1683,7 +1683,10 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
           evalOnLedger(
             SELet1(
               cachedContractSExpr,
-              SEAppAtomic(SEBuiltin(SBCacheDisclosedContract(contractId)), Array(SELocS(1))),
+              SEAppAtomic(
+                SEBuiltin(SBCacheDisclosedContract(contractId, Some(cachedKey.globalKey.hash))),
+                Array(SELocS(1)),
+              ),
             ),
             getContract = Map(
               contractId -> Value.VersionedContractInstance(
@@ -1906,7 +1909,7 @@ object SBuiltinTest {
       }
     val disclosedContract = DisclosedContract(
       templateId,
-      SContractId(contractId),
+      contractId,
       SValue.SRecord(
         templateId,
         fields.map(Ref.Name.assertFromString),

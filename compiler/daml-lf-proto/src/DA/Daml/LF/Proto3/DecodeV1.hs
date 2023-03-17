@@ -749,6 +749,12 @@ decodeUpdate LF1.Update{..} = mayDecode "updateSum" updateSum $ \case
       <*> decodeName ChoiceName update_ExerciseChoice
       <*> mayDecode "update_ExerciseCid" update_ExerciseCid decodeExpr
       <*> mayDecode "update_ExerciseArg" update_ExerciseArg decodeExpr
+  LF1.UpdateSumDynamicExercise LF1.Update_DynamicExercise{..} ->
+    fmap EUpdate $ UDynamicExercise
+      <$> mayDecode "update_DynamicExerciseTemplate" update_DynamicExerciseTemplate decodeTypeConName
+      <*> decodeNameId ChoiceName update_DynamicExerciseChoiceInternedStr
+      <*> mayDecode "update_DynamicExerciseCid" update_DynamicExerciseCid decodeExpr
+      <*> mayDecode "update_DynamicExerciseArg" update_DynamicExerciseArg decodeExpr
   LF1.UpdateSumExerciseInterface LF1.Update_ExerciseInterface{..} ->
     fmap EUpdate $ UExerciseInterface
       <$> mayDecode "update_ExerciseInterfaceInterface" update_ExerciseInterfaceInterface decodeTypeConName

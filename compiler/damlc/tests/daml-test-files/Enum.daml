@@ -4,12 +4,13 @@
 
 module Enum where
 
+import Daml.Script
 import DA.Assert
 
 data Days = Mon | Tue | Wed | Thu | Fri | Sat | Sun
   deriving (Eq,Bounded,Enum,Show)
 
-main = scenario do
+main = script do
   show (minBound : Int) === "-9223372036854775808"
   show (maxBound : Int) === "9223372036854775807"
   minBound === Mon
@@ -35,8 +36,5 @@ main = scenario do
   [Sat, Wed .. Sat] === [Sat]
   [Sat, Wed .. Sun] === []
   enumerate === [Mon,Tue,Wed,Thu,Fri,Sat,Sun]
-  alice <- getParty "alice"
-  submitMustFail alice do
-    succ Sun === Mon
-
--- @ENABLE-SCENARIOS
+  -- @ERROR range=13:1-13:5; succ{Days}: tried to take `succ' of last tag in enumeration
+  succ Sun === Mon

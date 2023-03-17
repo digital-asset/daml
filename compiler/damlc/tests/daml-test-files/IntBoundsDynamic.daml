@@ -5,6 +5,7 @@
 
 module IntBoundsDynamic where
 
+import Daml.Script
 import DA.Assert
 
 maxInt : Int
@@ -12,11 +13,14 @@ maxInt = 9223372036854775807
 
 minInt : Int
 minInt = -9223372036854775808
-
-test = scenario do
-    p <- getParty "p"
+    
+testMaxToMin = script do
     negate maxInt - 1 === minInt
-    submitMustFail p $ pure $ maxInt+1
-    submitMustFail p $ pure $ minInt-1
 
--- @ENABLE-SCENARIOS
+testOverMax = script do
+    -- @ERROR ArithmeticError while evaluating (ADD_INT64 9223372036854775807 1)
+    pure $ maxInt+1
+
+testUnderMin = script do
+    -- @ERROR ArithmeticError while evaluating (SUB_INT64 -9223372036854775808 1)
+    pure $ minInt-1

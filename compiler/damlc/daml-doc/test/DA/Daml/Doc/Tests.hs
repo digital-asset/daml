@@ -39,6 +39,7 @@ import qualified Test.Tasty.Extended as Tasty
 import           Test.Tasty.Golden
 import           Test.Tasty.HUnit
 import Data.Maybe
+import SdkVersion (sdkPackageVersion)
 
 mkTestTree :: AnchorMap -> ScriptPackageData -> IO Tasty.TestTree
 mkTestTree externalAnchors scriptPackageData = do
@@ -468,7 +469,15 @@ fileTest externalAnchors scriptPackageData damlFile = do
           case takeExtension expectation of
             ".rst" -> TL.encodeUtf8 $ TL.fromStrict $ renderPage renderRst externalAnchors $ renderModule doc
             ".md" -> TL.encodeUtf8 $ TL.fromStrict $ renderPage renderMd externalAnchors $ renderModule doc
-            ".json" -> AP.encodePretty' jsonConf doc
+            ".json" -> replaceSdkPackages $ AP.encodePretty' jsonConf doc
             other -> error $ "Unsupported file extension " <> other
   where
     diff ref new = [POSIX_DIFF, "--strip-trailing-cr", ref, new]
+    -- In cases where daml-script/daml-trigger is used, the version of the package is embedded in the json.
+    -- When we release, this version changes, which would break the golden file test.
+    -- Instead, we omit daml-script/daml-trigger versions from .EXPECTED.json files in golden tests.
+    replaceSdkPackages = 
+      TL.encodeUtf8
+      . TL.replace (TL.pack $ "daml-script-" <> sdkPackageVersion) "daml-script-UNVERSIONED"
+      . TL.replace (TL.pack $ "daml-trigger-" <> sdkPackageVersion) "daml-trigger-UNVERSIONED"
+      . TL.decodeUtf8

@@ -1,10 +1,11 @@
 -- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
 -- All rights reserved.
 
--- @INFO range=11:22-11:39; Use catOptionals
+-- @INFO range=12:22-12:39; Use catOptionals
 
 module ActionFail where
 
+import Daml.Script
 import DA.Assert
 
 catOptionalsComp : [Optional a] -> [a]
@@ -15,8 +16,6 @@ catOptionalsMonad l = do
   Some x <- l
   return x
 
-main = scenario do
+main = script do
   catOptionalsComp [None,Some 1,Some 2] === [1,2]
   catOptionalsMonad [None,Some 1,Some 2] === [1,2]
-
--- @ENABLE-SCENARIOS

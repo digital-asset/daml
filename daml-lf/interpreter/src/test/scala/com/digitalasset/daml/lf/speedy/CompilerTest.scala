@@ -11,7 +11,6 @@ import com.daml.lf.interpretation.Error.TemplatePreconditionViolated
 import com.daml.lf.language.Ast._
 import com.daml.lf.speedy.SError.{SError, SErrorDamlException}
 import com.daml.lf.speedy.SExpr.SExpr
-import com.daml.lf.speedy.SValue.SContractId
 import com.daml.lf.speedy.Speedy.CachedContract
 import com.daml.lf.testing.parser.Implicits._
 import com.daml.lf.transaction.{GlobalKey, GlobalKeyWithMaintainers, TransactionVersion}
@@ -552,7 +551,7 @@ object CompilerTest {
       ),
       ArrayList(
         SValue.SText(keyLabel),
-        SValue.SList(FrontStack(SValue.SParty(maintainer))),
+        SValue.SParty(maintainer),
       ),
     )
     val globalKey =
@@ -569,8 +568,8 @@ object CompilerTest {
     val keyHash = globalKey.map(_.globalKey.hash)
     val disclosedContract = DisclosedContract(
       templateId,
-      SContractId(contractId),
-      contract(keyLabel),
+      contractId,
+      key,
       ContractMetadata(Time.Timestamp.now(), keyHash, Bytes.Empty),
     )
 
@@ -584,7 +583,7 @@ object CompilerTest {
   ): DisclosedContract = {
     DisclosedContract(
       templateId,
-      SContractId(contractId),
+      contractId,
       preCondContract(precondition = precondition),
       ContractMetadata(Time.Timestamp.now(), None, Bytes.Empty),
     )

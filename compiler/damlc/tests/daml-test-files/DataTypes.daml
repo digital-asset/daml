@@ -7,6 +7,7 @@
 
 module DataTypes where
 
+import Daml.Script
 import DA.Assert
 
 data Rec = Rec with x: Int
@@ -39,7 +40,7 @@ eval = \case
   Plus x y -> x+y
 
 
-main = scenario do
+main = script do
   (Rec with x = 5).x === 5
 
   (RecNT with x = 7).x === 7
@@ -54,5 +55,3 @@ main = scenario do
   eval (Num1 13) === 13
   eval (Num2 with x = 17) === 17
   eval (Plus with x = 19; y = 23) === 42
-
--- @ENABLE-SCENARIOS

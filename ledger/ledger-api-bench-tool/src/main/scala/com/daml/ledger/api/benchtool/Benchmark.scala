@@ -18,6 +18,7 @@ import com.daml.metrics.api.MetricHandle.MetricsFactory
 import com.daml.timer.Delayed
 import org.slf4j.LoggerFactory
 
+import scala.annotation.nowarn
 import scala.concurrent.duration.{Duration, FiniteDuration}
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -28,7 +29,7 @@ object Benchmark {
       streamConfigs: List[StreamConfig],
       reportingPeriod: FiniteDuration,
       apiServices: LedgerApiServices,
-      metricsFactory: MetricsFactory,
+      @nowarn metricsFactory: MetricsFactory,
       system: ActorSystem[SpawnProtocol.Command],
   )(implicit ec: ExecutionContext): Future[Either[String, Unit]] =
     Future

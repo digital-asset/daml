@@ -1,14 +1,16 @@
 -- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
--- @SINCE-LF-FEATURE DAML_INTERFACE
--- @ENABLE-SCENARIOS
+{-# LANGUAGE ApplicativeDo #-}
 
+-- @SINCE-LF-FEATURE DAML_INTERFACE
 module QualifiedRetroactiveInterfaceInstance where
 
+import Daml.Script
 import qualified Asset
 
 import DA.Assert ((===))
+import ScriptAssertHelpers
 
 data TokenView = TokenView with
   owner : Party
@@ -70,37 +72,33 @@ interface Token where
       [1] === [1] -- make sure `mkMethod` calls are properly erased in the presence of polymorphism.
       pure ()
 
-main = scenario do
-  p <- getParty "Alice"
-  p `submit` do
-    cidAsset1 <- create Asset.Asset with
+main = script do
+  p <- allocateParty "Alice"
+  cidAsset1 <- p `submit` do
+    createCmd Asset.Asset with
       issuer = p
       owner = p
       amount = 15
-    let cidToken1 = toInterfaceContractId @Token cidAsset1
-    _ <- exercise cidToken1 (Noop ())
-    (cidToken2, cidToken3) <- exercise cidToken1 (Split 10)
-    token2 <- fetch cidToken2
-    -- Party is duplicated because p is both observer & issuer
-    signatory token2 === [p, p]
-    (view token2).amount === 10
-    case fromInterface token2 of
-      None -> abort "expected Asset"
-      Some Asset.Asset {amount} ->
-        amount === 10
-    token3 <- fetch cidToken3
-    (view token3).amount === 5
-    case fromInterface token3 of
-      None -> abort "expected Asset"
-      Some Asset.Asset {amount} ->
-        amount === 5
+  let cidToken1 = toInterfaceContractId @Token cidAsset1
+  (cidToken2, cidToken3) <- p `submit` do 
+    exerciseCmd cidToken1 (Noop ())
+    r <- exerciseCmd cidToken1 (Split 10)
+    pure r
 
-    cidToken4 <- exercise cidToken3 (GetRich 20)
-    token4 <- fetch cidToken4
-    (view token4).amount === 25
-    case fromInterface token4 of
-      None -> abort "expected Asset"
-      Some Asset.Asset {amount} ->
-        amount === 25
+  token2 <- queryAssertContractId p $ fromInterfaceContractId @Asset.Asset cidToken2
+  -- Party is duplicated because p is both observer & issuer
+  signatory token2 === [p, p]
+  (view (toInterface @Token token2)).amount === 10
+  Asset.amount token2 === 10
 
-    pure ()
+  token3 <- queryAssertContractId p $ fromInterfaceContractId @Asset.Asset cidToken3
+  (view (toInterface @Token token3)).amount === 5
+  Asset.amount token3 === 5
+
+  cidToken4 <- p `submit` do exerciseCmd cidToken3 (GetRich 20)
+
+  token4 <- queryAssertContractId p $ fromInterfaceContractId @Asset.Asset cidToken4
+  (view (toInterface @Token token4)).amount === 25
+  Asset.amount token4 === 25
+
+  pure ()

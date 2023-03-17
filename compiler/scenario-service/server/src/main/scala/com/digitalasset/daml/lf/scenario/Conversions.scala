@@ -143,12 +143,13 @@ final class Conversions(
                     .setConsumedBy(proto.NodeId.newBuilder.setId(consumedBy.toString).build)
                     .build
                 )
-              case DisclosedContractKeyHashingError(contractId, templateId, reason) =>
+              case DisclosedContractKeyHashingError(contractId, globalKey, hash) =>
                 builder.setDisclosedContractKeyHashingError(
                   proto.ScenarioError.DisclosedContractKeyHashingError.newBuilder
-                    .setContractRef(mkContractRef(contractId, templateId))
-                    .setTemplateId(convertIdentifier(templateId))
-                    .setReason(reason)
+                    .setContractRef(mkContractRef(contractId, globalKey.templateId))
+                    .setKey(convertValue(globalKey.key))
+                    .setComputedHash(globalKey.hash.toHexString)
+                    .setDeclaredHash(hash.toHexString)
                     .build
                 )
               case ContractKeyNotVisible(coid, gk, actAs, readAs, stakeholders) =>

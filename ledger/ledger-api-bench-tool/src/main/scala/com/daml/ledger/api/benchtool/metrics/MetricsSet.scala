@@ -17,6 +17,7 @@ import com.daml.ledger.api.v1.transaction_service.{
 import com.daml.metrics.api.MetricHandle.MetricsFactory
 import com.google.protobuf.timestamp.Timestamp
 
+import scala.annotation.nowarn
 import scala.concurrent.duration.FiniteDuration
 
 object MetricsSet {
@@ -35,7 +36,7 @@ object MetricsSet {
 
   def transactionExposedMetrics(
       streamName: String,
-      metricsFactory: MetricsFactory,
+      @nowarn metricsFactory: MetricsFactory,
   ): ExposedMetrics[GetTransactionsResponse] =
     ExposedMetrics[GetTransactionsResponse](
       streamName = streamName,
@@ -61,7 +62,7 @@ object MetricsSet {
 
   def transactionTreesExposedMetrics(
       streamName: String,
-      metricsFactory: MetricsFactory,
+      @nowarn metricsFactory: MetricsFactory,
   ): ExposedMetrics[GetTransactionTreesResponse] =
     ExposedMetrics[GetTransactionTreesResponse](
       streamName = streamName,
@@ -93,6 +94,7 @@ object MetricsSet {
       ),
     ) ++ optionalMaxDurationMetrics(configO)
 
+  @nowarn("cat=deprecation")
   def activeContractsExposedMetrics(
       streamName: String,
       metricsFactory: MetricsFactory,
@@ -125,6 +127,7 @@ object MetricsSet {
       ),
     ) ++ optionalMaxDurationMetrics(configO)
 
+  @nowarn("cat=deprecation")
   def completionsExposedMetrics(
       streamName: String,
       metricsFactory: MetricsFactory,

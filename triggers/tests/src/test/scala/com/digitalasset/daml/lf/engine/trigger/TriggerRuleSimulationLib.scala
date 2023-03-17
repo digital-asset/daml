@@ -18,7 +18,7 @@ import com.daml.lf.engine.trigger.Runner.{TriggerContext, TriggerContextualFlow}
 import com.daml.lf.engine.trigger.UnfoldState.{flatMapConcatNodeOps, toSourceOps}
 import com.daml.lf.speedy.SValue.SList
 import com.daml.lf.speedy.{Command, SValue}
-import com.daml.logging.LoggingContextOf
+import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 import com.daml.logging.entries.LoggingValue
 import com.daml.logging.entries.LoggingValue.{Nested, OfInt, OfLong, OfString}
 import com.daml.platform.services.time.TimeProviderType
@@ -29,10 +29,10 @@ import org.scalacheck.Gen
 import org.scalatest.Assertion
 import org.scalatest.Assertions.succeed
 
-import scala.concurrent.duration.{Duration, FiniteDuration}
-import scala.concurrent.{ExecutionContext, Future}
 import java.util.UUID
 import scala.collection.mutable
+import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.duration.{Duration, FiniteDuration}
 import scala.util.Try
 
 @SuppressWarnings(
@@ -705,6 +705,8 @@ final class TriggerRuleSimulationLib private (
     ruleMetrics.addLogEntry(msg, context)
   }
 
+  private[this] implicit val logger: ContextualizedLogger =
+    ContextualizedLogger.get(classOf[Runner])
   private[this] implicit val materializer: Materializer = Materializer(
     ActorSystem("TriggerRuleSimulator")
   )

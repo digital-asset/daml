@@ -1,7 +1,14 @@
--- @ERROR range=14:1-14:19; Attempt to create a contract key with an empty set of maintainers
--- @ERROR range=20:1-20:19; Attempt to fetch, lookup or exercise a contract key with an empty set of maintainers
--- @ERROR range=26:1-26:18; Attempt to fetch, lookup or exercise a contract key with an empty set of maintainers
+-- @ERROR range=44:1-44:22; Attempt to create a contract key with an empty set of maintainers
+-- @TODO queryContractKey loses errors, ideally below is: Attempt to fetch, lookup or exercise a contract key with an empty set of maintainers
+-- @ERROR range=48:1-48:18; Couldn't see contract with key 'Alice'
+-- @ERROR range=52:1-52:19; Attempt to create a contract key with an empty set of maintainers
+-- @ERROR range=56:1-56:18; Attempt to fetch, lookup or exercise a contract key with an empty set of maintainers
+-- @ERROR range=60:1-60:19; Attempt to fetch, lookup or exercise a contract key with an empty set of maintainers
+
 module EmptyContractKeyMaintainers where
+
+import Daml.Script
+import ScriptAssertHelpers
 
 template NoMaintainer
   with
@@ -11,22 +18,45 @@ template NoMaintainer
     key sig : Party
     maintainer [] @Party
 
-createNoMaintainer = scenario do
-  alice <- getParty "Alice"
+template Test
+  with
+    p : Party
+  where
+    signatory p
+    choice CreateTest : ()
+      controller p
+      do
+        create NoMaintainer with sig = p
+        pure ()
+    
+    choice FetchTest : ()
+      controller p
+      do
+        fetchByKey @NoMaintainer p
+        pure ()
+    
+    choice LookupTest : ()
+      controller p
+      do
+        lookupByKey @NoMaintainer p
+        pure ()
 
-  submit alice $ create NoMaintainer with sig = alice
-  pure ()
+createCmdNoMaintainer = script do
+  alice <- allocateParty "Alice"
+  alice `submit` createCmd NoMaintainer with sig = alice
 
-lookupNoMaintainer = scenario do
-  alice <- getParty "Alice"
+queryNoMaintainer = script do
+  alice <- allocateParty "Alice"
+  canSeeKey @NoMaintainer alice alice
 
-  submit alice $ lookupByKey @NoMaintainer alice
-  pure ()
+createNoMaintainer = script do
+  alice <- allocateParty "Alice"
+  alice `submit` createAndExerciseCmd (Test alice) CreateTest
 
-fetchNoMaintainer = scenario do
-  alice <- getParty "Alice"
+fetchNoMaintainer = script do
+  alice <- allocateParty "Alice"
+  alice `submit` createAndExerciseCmd (Test alice) FetchTest
 
-  submit alice $ fetchByKey @NoMaintainer alice
-  pure ()
-
--- @ENABLE-SCENARIOS
+lookupNoMaintainer = script do
+  alice <- allocateParty "Alice"
+  alice `submit` createAndExerciseCmd (Test alice) LookupTest

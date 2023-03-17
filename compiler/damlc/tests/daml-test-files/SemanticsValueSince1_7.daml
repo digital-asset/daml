@@ -4,9 +4,9 @@
 -- @SINCE-LF 1.7
 module SemanticsValueSince1_7 where
 
-main = scenario do
+import Daml.Script
+
+main = script do
     let x : forall (n:GHC.Types.Nat). Numeric n
         x = error "ValExpTyAbsNat"
     pure ()
-
--- @ENABLE-SCENARIOS

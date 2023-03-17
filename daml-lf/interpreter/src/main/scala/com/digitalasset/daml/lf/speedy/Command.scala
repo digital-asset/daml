@@ -3,9 +3,10 @@
 
 package com.daml.lf.speedy
 
-import com.daml.lf.data.Ref.{ChoiceName, Identifier}
+import com.daml.lf.data.Ref.{Identifier, ChoiceName}
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.command.ContractMetadata
+import com.daml.lf.value.Value.ContractId
 
 // ---------------------
 // Preprocessed commands
@@ -78,7 +79,7 @@ private[lf] object Command {
 
 final case class DisclosedContract(
     templateId: Identifier,
-    contractId: SContractId,
+    contractId: ContractId,
     argument: SValue,
     metadata: ContractMetadata,
 )
