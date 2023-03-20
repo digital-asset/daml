@@ -13,7 +13,6 @@ import com.daml.lf.engine.script.{Runner, Participants}
 import com.daml.lf.language.Ast
 import com.daml.lf.language.StablePackage.DA
 import com.daml.lf.speedy.{SValue, ArrayList}
-import com.daml.lf.speedy.SValue.SRecord
 import com.daml.lf.value.Value
 import org.scalatest.Suite
 
@@ -60,11 +59,4 @@ trait AbstractScriptTest extends AkkaBeforeAndAfterAll {
       .run(dar.compiledPackages, scriptId, Some(converter(_, _)), inputValue, clients, timeMode)
       ._2
   }
-
-  def tuple(a: SValue, b: SValue) =
-    SRecord(
-      id = DA.Types.Tuple2,
-      fields = ImmArray(Ref.Name.assertFromString("_1"), Ref.Name.assertFromString("_2")),
-      values = ArrayList(a, b),
-    )
 }

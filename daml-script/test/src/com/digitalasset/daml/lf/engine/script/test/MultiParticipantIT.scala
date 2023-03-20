@@ -21,6 +21,8 @@ final class MultiParticipantIT
     with CantonFixture
     with Matchers
     with SuiteResourceManagementAroundAll {
+  import AbstractScriptTest._
+
   private def darFile = new File(rlocation("daml-script/test/script-test.dar"))
   val dar = AbstractScriptTest.readDar(darFile)
 
