@@ -509,6 +509,10 @@ cmdDocTest numProcessors =
               disabledDlintUsageParser
         <*> strOptionOnce (long "script-lib" <> value "daml-script" <> internal)
             -- This is useful for tests and `bazel run`.
+        <*> switch (long "no-source" <> internal)
+            -- We need this when generating docs for stdlib, as we do not want to directly provide the source here,
+            -- instead we use the already provided stdlib in the env. The reason for this is that Daml.Script relies on stdlib,
+            -- and recompiling it alongside Daml.Script causes issues with missing interface files
         <*> many inputFileOpt
 
 --------------------------------------------------------------------------------
@@ -961,8 +965,8 @@ execMergeDars darFp1 darFp2 mbOutFp =
         pure $ ZipArchive.toEntry manifestPath 0 $ BSLC.unlines $
             map (\(k, v) -> breakAt72Bytes $ BSL.fromStrict $ k <> ": " <> v) attrs1
 
-execDocTest :: Options -> FilePath -> [FilePath] -> Command
-execDocTest opts scriptDar files =
+execDocTest :: Options -> FilePath -> Bool -> [FilePath] -> Command
+execDocTest opts scriptDar noSource files =
   Command DocTest Nothing effect
   where
     effect = do
@@ -983,17 +987,22 @@ execDocTest opts scriptDar files =
       opts <- pure opts
         { optPackageDbs = projectPackageDatabase : optPackageDbs opts
         , optPackageImports = packageFlag : optPackageImports opts
+        -- Drop version information to avoid package clashes (specifically when generating for internal packages)
+        , optMbPackageVersion = Nothing
         }
 
       -- We don’t add a logger here since we will otherwise emit logging messages twice.
       importPaths <-
-          withDamlIdeState opts { optScenarioService = EnableScenarioService False }
-            logger (NotificationHandler $ \_ _ -> pure ()) $
-            \ideState -> runActionSync ideState $ do
-              pmS <- catMaybes <$> uses GetParsedModule files'
-              -- This is horrible but we do not have a way to change the import paths in a running
-              -- IdeState at the moment.
-              pure $ nubOrd $ mapMaybe (uncurry moduleImportPath) (zip files' pmS)
+        if noSource
+          then pure []
+          else
+            withDamlIdeState opts { optScenarioService = EnableScenarioService False }
+              logger (NotificationHandler $ \_ _ -> pure ()) $
+              \ideState -> runActionSync ideState $ do
+                pmS <- catMaybes <$> uses GetParsedModule files'
+                -- This is horrible but we do not have a way to change the import paths in a running
+                -- IdeState at the moment.
+                pure $ nubOrd $ mapMaybe (uncurry moduleImportPath) (zip files' pmS)
       opts <- pure opts
         { optImportPath = importPaths <> optImportPath opts
         , optHaddock = Haddock True

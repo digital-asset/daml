@@ -18,8 +18,6 @@ import System.Directory
 import System.Exit
 import System.FilePath
 
-import Control.Concurrent
-
 -- We might want merge the logic for `damlc doctest` and `damlc test`
 -- at some point but the requirements are slightly different (e.g., we
 -- will eventually want to remap source locations in `damlc doctest`
@@ -36,10 +34,7 @@ docTest ideState files = do
     forM_ msWithPaths $ \(m, path) -> do
         createDirectoryIfMissing True (takeDirectory $ fromNormalizedFilePath path)
         T.writeFileUtf8 (fromNormalizedFilePath path) (genModuleContent m)
-    d <- getCurrentDirectory
-    print d
     setFilesOfInterest ideState (HashSet.fromList $ map snd msWithPaths)
-    threadDelay 1000000000
 
     runActionSync ideState $ do
         void $ Shake.forP msWithPaths $ \(_, path) -> use_ RunScripts path
