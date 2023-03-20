@@ -141,9 +141,9 @@ final case class ResultNeedKey[A](
 ) extends Result[A]
 
 /** TODO: https://github.com/digital-asset/daml/issues/15882
- *   add ScalaDoc explaining the impact of the answers and the responsibilities of the caller.
- *   (Similarly as for the other subclasses of Result.)
- */
+  *   add ScalaDoc explaining the impact of the answers and the responsibilities of the caller.
+  *   (Similarly as for the other subclasses of Result.)
+  */
 final case class ResultNeedAuthority[A](
     holding: Set[Party],
     requesting: Set[Party],
