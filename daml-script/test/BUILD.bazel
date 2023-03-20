@@ -140,8 +140,6 @@ da_scala_library(
     visibility = ["//visibility:public"],
     deps = [
         "//bazel_tools/runfiles:scala_runfiles",
-        "//daml-lf/api-type-signature",
-        "//daml-lf/archive:daml_lf_1.dev_archive_proto_java",
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/data",
         "//daml-lf/engine",
