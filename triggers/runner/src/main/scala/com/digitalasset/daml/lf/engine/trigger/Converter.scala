@@ -124,7 +124,7 @@ final class Converter(
   private[this] def fromEventId(eventId: String): SValue =
     record(eventIdTy, "unpack" -> SText(eventId))
 
-  private[this] def fromCommandId(commandId: String): SValue =
+  private[trigger] def fromCommandId(commandId: String): SValue =
     record(commandIdTy, "unpack" -> SText(commandId))
 
   private[this] def fromOptionalCommandId(commandId: String): SValue =
