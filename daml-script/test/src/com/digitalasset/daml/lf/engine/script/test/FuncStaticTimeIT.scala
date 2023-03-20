@@ -9,6 +9,8 @@ import com.daml.lf.engine.script.ledgerinteraction.ScriptTimeMode
 import com.daml.lf.speedy.SValue.SRecord
 
 final class FuncStaticTimeIT extends AbstractFuncIT {
+  import AbstractScriptTest._
+
   protected override def timeMode = ScriptTimeMode.Static
 
   "testSetTime" should {
