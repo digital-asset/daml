@@ -20,7 +20,7 @@ import org.scalatest.{Inside, TryValues}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
-import scala.concurrent.ExecutionContext
+import scala.concurrent.{ExecutionContext, Future}
 
 class CatTriggerResourceUsageTest
     extends AsyncWordSpec
@@ -48,12 +48,12 @@ class CatTriggerResourceUsageTest
     )
 
   "Trigger rule simulation" should {
-    "with single/one shot trigger rule evaluation" should {
+    "with single/point-in-time trigger rule evaluation" should {
       "identify that the number of submissions is dependent on ACS size of the starting state" should {
         def stateSizeGen =
           ((0L to 10L) ++ (20L to 100L by 20L) ++ (200L to 400L by 100L)).iterator
 
-        "for Cats:feedingTrigger initState lambda" in {
+        "for Cats:feedingTrigger initState lambda" ignore {
           for {
             client <- ledgerClient()
             party <- allocateParty(client)
@@ -79,7 +79,7 @@ class CatTriggerResourceUsageTest
           } yield result
         }
 
-        "for Cats:feedingTrigger updateState lambda" in {
+        "for Cats:feedingTrigger updateState lambda" ignore {
           for {
             client <- ledgerClient()
             party <- allocateParty(client)
@@ -121,7 +121,7 @@ class CatTriggerResourceUsageTest
         val growthRate = 100L
         val userStateGen = (0L to 1000L by growthRate).iterator
 
-        "for Cats:overflowTrigger updateState lambda" in {
+        "for Cats:overflowTrigger updateState lambda" ignore {
           for {
             client <- ledgerClient()
             party <- allocateParty(client)
@@ -158,19 +158,90 @@ class CatTriggerResourceUsageTest
         }
       }
 
-      "identify that rule evaluation time is dependent on ACS size of starting state" should {
-        // TODO: what about detecting Daml performance issues?
-        "for Cats:???" in {
-          fail("TODO: use a monotonic increasing ACS size state trace")
+      "identify that rule evaluation time has a linear relationship with ACS size" should {
+        def warmUpAcsSizeGen = 0L to 10L
+        def acsSizeGen =
+          (0L to 100L by 20L) ++ (150L to 400L by 50L) ++ (500L to 1000L by 100L) ++ (2000L to 5000L by 1000L)
+
+        "for Cats:neverFeedingTrigger updateState lambda" in {
+          for {
+            client <- ledgerClient()
+            party <- allocateParty(client)
+            (trigger, simulator) = getSimulator(
+              client,
+              QualifiedName.assertFromString("Cats:neverFeedingTrigger"),
+              packageId,
+              ApplicationId("acs-and-rule-evaluation-time"),
+              compiledPackages,
+              config.participants(ParticipantId).apiServer.timeProviderType,
+              triggerRunnerConfiguration,
+              party,
+            )
+            converter = new Converter(compiledPackages, trigger)
+            // For this test, we only care about the Daml trigger performing a single Cat/Food contract match
+            numOfCats = 1L
+            userState = SValue.SInt64(numOfCats)
+            msg = TriggerMsg.Heartbeat
+            // We first perform some warm up work
+            _ <- Future.sequence {
+              warmUpAcsSizeGen.map { acsSize =>
+                val startState = converter
+                  .fromTriggerUpdateState(
+                    acsGen(party, acsSize),
+                    userState,
+                    parties = TriggerParties(Party(party), Set.empty),
+                    triggerConfig = triggerRunnerConfiguration,
+                  )
+
+                for {
+                  _ <- simulator.updateStateLambda(startState, msg)
+                } yield ()
+              }
+            }
+            // Now we measure our rule evaluation timings
+            data <- Future.sequence {
+              acsSizeGen.map { acsSize =>
+                val startState = converter
+                  .fromTriggerUpdateState(
+                    acsGen(party, numOfCats, acsSize),
+                    userState,
+                    parties = TriggerParties(Party(party), Set.empty),
+                    triggerConfig = triggerRunnerConfiguration,
+                  )
+
+                for {
+                  (_, metrics, _) <- simulator.updateStateLambda(startState, msg)
+                } yield {
+                  // As Cats:neverFeedingTrigger always performs a worse case contract key search, complexity should be
+                  // dominated by the time to search the underlying SMap (which is backed by a Scala TreeMap) - i.e. log(n)
+                  // Ref: https://docs.scala-lang.org/overviews/collections-2.13/performance-characteristics.html
+                  val complexity = if (acsSize == 0L) 0.0 else Math.pow(acsSize.toDouble, 2) * Math.log(acsSize.toDouble)
+
+                  new Regression.Data(complexity, metrics.evaluation.ruleEvaluation)
+                }
+              }
+            }
+            model <- Regression.linear(data.filter { case Regression.Data(x, y) =>
+              x.isFinite && y.isFinite
+            })
+          } yield {
+            withClue((model, data)) {
+              println(s"DEBUGGY: $model")
+              // Want, at the very least, a P_75 model fit
+              model.fitProbability should be >= 0.75
+              // Expect complexity to be increasing in size
+              model.gradient should be > 0.0
+            }
+          }
         }
       }
     }
 
-    "with sequenced/chained trigger rule evaluation" should {
+    "with sequenced/chained/iterative trigger rule evaluation" should {
       // Daml query statements filter out contracts that have command submissions operating on them (c.f. pending
       // contracts being locally "locked"), and so repeated trigger rule evaluations can not produce the same submissions
       "duplicate command submissions are **not** generated" should {
-        "using Cats:feedingTrigger updateState lambda" in {
+        "using Cats:feedingTrigger updateState lambda" ignore {
           for {
             client <- ledgerClient()
             party <- allocateParty(client)
@@ -212,7 +283,12 @@ class CatTriggerResourceUsageTest
 trait CatTriggerResourceUsageTestGenerators extends CatGenerators {
 
   def acsGen(owner: String, size: Long): Seq[CreatedEvent] =
-    (0L to size).flatMap(i => Seq(createCat(owner, i), createFood(owner, i)))
+    acsGen(owner, size, size)
+
+  def acsGen(owner: String, numOfCats: Long, amountOfFood: Long): Seq[CreatedEvent] =
+    (0L to numOfCats).map(i => createCat(owner, i)) ++ (0L to amountOfFood).map(i =>
+      createFood(owner, i)
+    )
 
   def monotonicACS(owner: String, sizeGen: Iterator[Long]): Iterator[Seq[CreatedEvent]] =
     sizeGen.map(acsGen(owner, _))

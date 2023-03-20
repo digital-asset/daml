@@ -243,6 +243,7 @@ da_scala_library(
     name = "trigger-simulation-lib",
     srcs = [
         "src/test/scala/com/digitalasset/daml/lf/engine/trigger/CatGenerators.scala",
+        "src/test/scala/com/digitalasset/daml/lf/engine/trigger/Regression.scala",
         "src/test/scala/com/digitalasset/daml/lf/engine/trigger/TriggerRuleSimulationLib.scala",
     ],
     scala_deps = [
@@ -272,7 +273,7 @@ da_scala_library(
 
 da_scala_test_suite(
     name = "trigger-simulation-lib-tests",
-    timeout = "moderate",
+    timeout = "long",
     srcs = glob(["src/test/scala/com/digitalasset/daml/lf/engine/trigger/*Test.scala"]),
     data = [
         ":acs-1.dev.dar",

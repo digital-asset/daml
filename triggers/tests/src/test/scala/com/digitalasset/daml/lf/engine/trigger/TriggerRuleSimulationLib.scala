@@ -751,9 +751,9 @@ final class TriggerRuleSimulationLib private (
   ): Future[(Seq[SubmitRequest], TriggerRuleMetrics.RuleMetrics, SValue)] = {
     ruleMetrics.clearMetrics()
 
-    triggerContext.childSpan("simulation") { implicit triggerContext: TriggerLogContext =>
+    val initStateGraph = triggerContext.childSpan("simulation") { implicit triggerContext: TriggerLogContext =>
       triggerContext.childSpan("initialStateLambda") { implicit triggerContext: TriggerLogContext =>
-        def initStateGraph = GraphDSL.createGraph(Sink.last[SValue]) {
+        GraphDSL.createGraph(Sink.last[SValue]) {
           implicit gb => saveLastState =>
             import GraphDSL.Implicits._
 
@@ -770,16 +770,13 @@ final class TriggerRuleSimulationLib private (
 
             new SourceShape(submissions.out)
         }
-
-        def initStateSimulation = Source.fromGraph(initStateGraph)
-
-        val submissions = initStateSimulation.runWith(Sink.seq)
-        val initState = initStateSimulation.toMat(Sink.ignore)(Keep.left).run()
-
-        submissions.map(_.map(_.value)).zip(initState).map { case (requests, state) =>
-          (requests, ruleMetrics.getMetrics, state)
-        }
       }
+    }
+    val initStateSimulation = Source.fromGraph(initStateGraph)
+    val (initState, submissions) = initStateSimulation.toMat(Sink.seq)(Keep.both).run()
+
+    submissions.map(_.map(_.value)).zip(initState).map { case (requests, state) =>
+      (requests, ruleMetrics.getMetrics, state)
     }
   }
 
@@ -790,9 +787,9 @@ final class TriggerRuleSimulationLib private (
   ): Future[(Seq[SubmitRequest], TriggerRuleMetrics.RuleMetrics, SValue)] = {
     ruleMetrics.clearMetrics()
 
-    triggerContext.childSpan("simulation") { implicit triggerContext: TriggerLogContext =>
+    val updateStateGraph = triggerContext.childSpan("simulation") { implicit triggerContext: TriggerLogContext =>
       triggerContext.childSpan("updateStateLambda") { implicit triggerContext: TriggerLogContext =>
-        def updateStateGraph = GraphDSL.createGraph(Sink.last[SValue]) {
+        GraphDSL.createGraph(Sink.last[SValue]) {
           implicit gb => saveLastState =>
             import GraphDSL.Implicits._
 
@@ -814,18 +811,15 @@ final class TriggerRuleSimulationLib private (
 
             new FlowShape(msgIn.in, submissions.out)
         }
-
-        def updateStateSimulation = Source
-          .single(Ctx(triggerContext, message))
-          .viaMat(Flow.fromGraph(updateStateGraph))(Keep.right)
-
-        val submissions = updateStateSimulation.runWith(Sink.seq)
-        val nextState = updateStateSimulation.toMat(Sink.ignore)(Keep.left).run()
-
-        submissions.map(_.map(_.value)).zip(nextState).map { case (requests, state) =>
-          (requests, ruleMetrics.getMetrics, state)
-        }
       }
+    }
+    val updateStateSimulation = Source
+      .single(Ctx(triggerContext, message))
+      .viaMat(Flow.fromGraph(updateStateGraph))(Keep.right)
+    val (nextState, submissions) = updateStateSimulation.toMat(Sink.seq)(Keep.both).run()
+
+    submissions.map(_.map(_.value)).zip(nextState).map { case (requests, state) =>
+      (requests, ruleMetrics.getMetrics, state)
     }
   }
 }
@@ -864,16 +858,22 @@ object TriggerRuleSimulationLib {
       .runWith(Sink.last)
   }
 
-  def forAll[T](gen: Iterator[T])(
+  def forAll[T](gen: Iterator[T], parallelism: Int)(
       test: T => Future[Assertion]
   )(implicit materializer: Materializer): Future[Assertion] = {
     Source
       .fromIterator(() => gen)
-      .mapAsync(parallelism = 1) { data =>
+      .mapAsync(parallelism = parallelism) { data =>
         test(data)
       }
       .takeWhile(_ == succeed, inclusive = true)
       .runWith(Sink.last)
+  }
+
+  def forAll[T](gen: Iterator[T])(
+      test: T => Future[Assertion]
+  )(implicit materializer: Materializer): Future[Assertion] = {
+    forAll[T](gen, 1)(test)
   }
 
   def getSimulator(
