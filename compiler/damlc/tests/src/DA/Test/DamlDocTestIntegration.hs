@@ -17,10 +17,11 @@ import Test.Tasty.HUnit
 main :: IO ()
 main = do
     damlcPath <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> exe "damlc")
-    defaultMain $ tests damlcPath
+    scriptDar <- locateRunfiles (mainWorkspace </> "daml-script" </> "daml" </> "daml-script.dar")
+    defaultMain $ tests damlcPath scriptDar
 
-tests :: FilePath -> TestTree
-tests damlcPath = testGroup "doctest integration tests"
+tests :: FilePath -> FilePath -> TestTree
+tests damlcPath scriptDar = testGroup "doctest integration tests"
     [ testCase "failing doctest" $
           withTempDir $ \tmpDir -> do
               let f = tmpDir </> "Main.daml"
@@ -61,6 +62,8 @@ tests damlcPath = testGroup "doctest integration tests"
     docTestProc dir f =
         let p = proc damlcPath
                 [ "doctest"
+                , "--script-lib"
+                , scriptDar
                 , f
                 ]
         in p { cwd = Just dir }

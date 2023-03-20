@@ -314,7 +314,10 @@ da_haskell_test(
 da_haskell_test(
     name = "daml-doctest-integration",
     srcs = ["src/DA/Test/DamlDocTestIntegration.hs"],
-    data = ["//compiler/damlc"],
+    data = [
+        "//compiler/damlc",
+        "//daml-script/daml:daml-script.dar",
+    ],
     hackage_deps = [
         "base",
         "extra",
