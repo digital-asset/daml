@@ -248,8 +248,8 @@ da_scala_library(
 
 da_scala_test_suite(
     name = "trigger-simulation-lib-tests",
-    timeout = "moderate",
-    srcs = glob(["src/test/scala/com/digitalasset/daml/lf/engine/trigger/*.scala"]),
+    timeout = "long",
+    srcs = glob(["src/test/scala/com/digitalasset/daml/lf/engine/trigger/*Test.scala"]),
     data = [
         ":acs-1.dev.dar",
         "//test-common/test-certificates",
