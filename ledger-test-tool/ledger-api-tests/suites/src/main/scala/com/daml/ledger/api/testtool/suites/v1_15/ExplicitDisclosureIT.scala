@@ -35,21 +35,122 @@ import com.daml.ledger.client.binding
 import com.daml.ledger.client.binding.Primitive
 import com.daml.ledger.test.model.Test._
 import com.daml.ledger.test.modelext.TestExtension.IDelegated
+import com.daml.ledger.test.semantic.StockExchange.{IOU, Offer, PriceQuotation, Stock}
 import com.daml.lf.crypto
 import com.daml.lf.data.Bytes
 import com.daml.lf.data.Ref.{DottedName, Identifier, PackageId, QualifiedName}
 import com.daml.lf.value.Value.{ContractId => LfContractId}
 import com.google.protobuf.ByteString
 import com.google.protobuf.timestamp.Timestamp
+import scalapb.json4s.JsonFormat
 import scalaz.syntax.tag._
 
 import java.time.temporal.ChronoUnit
 import java.util.regex.Pattern
 import scala.concurrent.{ExecutionContext, Future}
+import scala.reflect.ClassTag
 import scala.util.{Success, Try}
+
+import scala.util.chaining._
 
 final class ExplicitDisclosureIT extends LedgerTestSuite {
   import ExplicitDisclosureIT._
+
+  test(
+    "EDDocsExample",
+    "Submission is successful if the correct disclosure is provided",
+    allocate(Parties(4)),
+    enabled = _.explicitDisclosure,
+  )(implicit ec => {
+    case Participants(
+          Participant(participant, bank, stockExchange, seller, buyer)
+        ) =>
+      for {
+        iouCid <- debugCid(participant.create(bank, IOU(bank, buyer, 10L)))
+        stockName = "company stock"
+        stockCid <- debugCid(
+          participant.create(stockExchange, Stock(stockExchange, seller, stockName))
+        )
+        offerCid <- debugCid(participant.create(seller, Offer(seller, stockExchange, stockCid)))
+        priceQuotationCid <- debugCid(
+          participant.create(
+            party = stockExchange,
+            template = PriceQuotation(stockExchange, stockName, 3L),
+          )
+        )
+
+        stockDisclosedContract <- getFirstCreateAsDisclosedContract(
+          participant = participant,
+          reader = stockExchange.unwrap,
+          template = Stock.id.unwrap,
+        )
+        offerDisclosedContract <- getFirstCreateAsDisclosedContract(
+          participant = participant,
+          reader = seller.unwrap,
+          template = Offer.id.unwrap,
+        )
+        priceQuotationDisclosedContract <- getFirstCreateAsDisclosedContract(
+          participant = participant,
+          reader = stockExchange.unwrap,
+          template = PriceQuotation.id.unwrap,
+        )
+
+        _ <- participant.submitAndWait(
+          participant
+            .submitAndWaitRequest(
+              buyer,
+              offerCid.exerciseOffer_Accept(priceQuotationCid, buyer, iouCid).command,
+            )
+            .update(
+              _.commands.disclosedContracts := Seq(
+                stockDisclosedContract,
+                offerDisclosedContract,
+                priceQuotationDisclosedContract,
+              )
+            )
+            .tap(req => println(s"SubmitAndWaitRequest:\n${JsonFormat.toJsonString(req)}"))
+        )
+      } yield ()
+  })
+
+  private def debugCid[T: ClassTag](
+      cid: Future[Primitive.ContractId[T]]
+  )(implicit ec: ExecutionContext): Future[Primitive.ContractId[T]] =
+    cid.map { cid =>
+      println(s"${implicitly[ClassTag[T]].runtimeClass.getSimpleName}: ${cid.unwrap}")
+      cid
+    }
+
+  private def getFirstCreateAsDisclosedContract(
+      participant: ParticipantTestContext,
+      reader: String,
+      template: value.Identifier,
+  )(implicit ec: ExecutionContext): Future[DisclosedContract] = {
+    val getTransactionsRequest = participant.getTransactionsRequest(
+      new TransactionFilter(
+        Map(
+          reader -> new Filters(
+            Some(
+              InclusiveFilters(
+                List(template),
+                List.empty,
+              )
+            )
+          )
+        )
+      )
+    )
+
+    println(s"GetTransactionsRequest:\n${JsonFormat.toJsonString(getTransactionsRequest)}")
+    participant
+      .flatTransactions(
+        getTransactionsRequest
+      )
+      .map { txs =>
+        val createDelegatedEvent = createdEvents(txs.head).head
+        createEventToDisclosedContract(createDelegatedEvent)
+      }
+  }
 
   test(
     "EDCorrectDisclosure",

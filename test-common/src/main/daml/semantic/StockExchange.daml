@@ -1,0 +1,93 @@
+-- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module StockExchange where
+
+import DA.Assert
+import DA.Action
+
+template IOU
+  with
+    issuer: Party
+    owner: Party
+    value: Int
+  where
+    signatory issuer
+    observer owner
+
+    choice IOU_Transfer: ()
+      with
+        target: Party
+        amount: Int
+      controller owner
+      do
+        assert (value >= amount)
+        create this with issuer = issuer, owner = target, value = amount
+        if value == amount then pure ()
+        else void $ create this with issuer = issuer, owner = owner, value = value - amount
+        pure ()
+
+template Stock
+  with
+    issuer: Party
+    owner: Party
+    stockName: Text
+  where
+    signatory issuer
+    observer owner
+
+    choice Stock_Transfer: ()
+      with
+        newOwner: Party
+        amount: Int
+      controller owner
+      do
+        create this with owner = newOwner
+        pure ()
+
+template PriceQuotation
+  with
+    issuer: Party
+    stockName: Text
+    value: Int
+  where
+    signatory issuer
+
+    nonconsuming choice PriceQuotation_Fetch: PriceQuotation
+      with fetcher: Party
+      controller fetcher
+      do pure this
+
+template Offer
+  with
+    seller: Party
+    quotationProducer: Party
+    offeredAssetCid: ContractId Stock
+  where
+    signatory seller
+
+    choice Offer_Accept: ()
+      with
+        priceQuotationCid: ContractId PriceQuotation
+        buyer: Party
+        buyerIou: ContractId IOU
+      controller buyer
+      do
+        priceQuotation <- exercise
+          priceQuotationCid PriceQuotation_Fetch with
+            fetcher = buyer
+        asset <- fetch offeredAssetCid
+
+        -- Assert the quotation issuer and asset name
+        priceQuotation.issuer === quotationProducer
+        priceQuotation.stockName === asset.stockName
+
+        _ <- exercise
+          offeredAssetCid Stock_Transfer with
+            newOwner = buyer
+            amount = 1
+
+        _ <- exercise
+          buyerIou IOU_Transfer with target = seller, amount = priceQuotation.value
+        pure ()
+

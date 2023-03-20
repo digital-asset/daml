@@ -58,6 +58,7 @@ versions = {
         srcs = config["entrypoints"] + config["srcs"],
         scala_deps = [
             "@maven//:com_lihaoyi_sourcecode",
+            "@maven//:com_thesamet_scalapb_scalapb_json4s",
         ],
         tags = ["maven_coordinates=com.daml:ledger-api-tests-suites-%s:__VERSION__" % lf_version],
         visibility = ["//:__subpackages__"],
