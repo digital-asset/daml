@@ -23,7 +23,8 @@ object Regression {
   final case class Model(gradient: Double, intercept: Double, fitProbability: Double) {
     def apply(value: Double): Double = gradient * value + intercept
 
-    override def toString: String = s"gradient: $gradient, intercept: $intercept, R^2: $fitProbability"
+    override def toString: String =
+      s"gradient: $gradient, intercept: $intercept, R^2: $fitProbability"
   }
 
   def linear(pairs: Seq[Data])(implicit ec: ExecutionContext): Future[Model] = for {

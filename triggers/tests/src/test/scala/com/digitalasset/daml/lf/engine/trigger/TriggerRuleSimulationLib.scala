@@ -751,26 +751,27 @@ final class TriggerRuleSimulationLib private (
   ): Future[(Seq[SubmitRequest], TriggerRuleMetrics.RuleMetrics, SValue)] = {
     ruleMetrics.clearMetrics()
 
-    val initStateGraph = triggerContext.childSpan("simulation") { implicit triggerContext: TriggerLogContext =>
-      triggerContext.childSpan("initialStateLambda") { implicit triggerContext: TriggerLogContext =>
-        GraphDSL.createGraph(Sink.last[SValue]) {
-          implicit gb => saveLastState =>
-            import GraphDSL.Implicits._
+    val initStateGraph = triggerContext.childSpan("simulation") {
+      implicit triggerContext: TriggerLogContext =>
+        triggerContext.childSpan("initialStateLambda") {
+          implicit triggerContext: TriggerLogContext =>
+            GraphDSL.createGraph(Sink.last[SValue]) { implicit gb => saveLastState =>
+              import GraphDSL.Implicits._
 
-            val clientTime: Timestamp =
-              Timestamp.assertFromInstant(
-                Runner.getTimeProvider(RunnerConfig.DefaultTimeProviderType).getCurrentTime
-              )
-            val killSwitch = KillSwitches.shared("init-state-simulation")
-            val initialState = gb add runner.runInitialState(clientTime, killSwitch)(acs)
-            val submissions = gb add Flow[TriggerContext[SubmitRequest]]
+              val clientTime: Timestamp =
+                Timestamp.assertFromInstant(
+                  Runner.getTimeProvider(RunnerConfig.DefaultTimeProviderType).getCurrentTime
+                )
+              val killSwitch = KillSwitches.shared("init-state-simulation")
+              val initialState = gb add runner.runInitialState(clientTime, killSwitch)(acs)
+              val submissions = gb add Flow[TriggerContext[SubmitRequest]]
 
-            initialState.finalState ~> saveLastState
-            initialState.elemsOut ~> submissions
+              initialState.finalState ~> saveLastState
+              initialState.elemsOut ~> submissions
 
-            new SourceShape(submissions.out)
+              new SourceShape(submissions.out)
+            }
         }
-      }
     }
     val initStateSimulation = Source.fromGraph(initStateGraph)
     val (initState, submissions) = initStateSimulation.toMat(Sink.seq)(Keep.both).run()
@@ -787,20 +788,21 @@ final class TriggerRuleSimulationLib private (
   ): Future[(Seq[SubmitRequest], TriggerRuleMetrics.RuleMetrics, SValue)] = {
     ruleMetrics.clearMetrics()
 
-    val updateStateGraph = triggerContext.childSpan("simulation") { implicit triggerContext: TriggerLogContext =>
-      triggerContext.childSpan("updateStateLambda") { implicit triggerContext: TriggerLogContext =>
-        GraphDSL.createGraph(Sink.last[SValue]) {
-          implicit gb => saveLastState =>
-            import GraphDSL.Implicits._
+    val updateStateGraph = triggerContext.childSpan("simulation") {
+      implicit triggerContext: TriggerLogContext =>
+        triggerContext.childSpan("updateStateLambda") {
+          implicit triggerContext: TriggerLogContext =>
+            GraphDSL.createGraph(Sink.last[SValue]) { implicit gb => saveLastState =>
+              import GraphDSL.Implicits._
 
-            val lambdaKillSwitch = KillSwitches.shared("update-state-simulation")
-            val msgIn = gb add TriggerContextualFlow[TriggerMsg]
-            val encodeMsg =
-              gb add runner.encodeMsgs.map(ctx => ctx.copy(value = SList(FrontStack(ctx.value))))
-            val stateOut = gb add Source.single(state)
-            val rule = gb add runner.runRuleOnMsgs(lambdaKillSwitch)
-            val killSwitch = gb add lambdaKillSwitch.flow[TriggerContext[SValue]]
-            val submissions = gb add Flow[TriggerContext[SubmitRequest]]
+              val lambdaKillSwitch = KillSwitches.shared("update-state-simulation")
+              val msgIn = gb add TriggerContextualFlow[TriggerMsg]
+              val encodeMsg =
+                gb add runner.encodeMsgs.map(ctx => ctx.copy(value = SList(FrontStack(ctx.value))))
+              val stateOut = gb add Source.single(state)
+              val rule = gb add runner.runRuleOnMsgs(lambdaKillSwitch)
+              val killSwitch = gb add lambdaKillSwitch.flow[TriggerContext[SValue]]
+              val submissions = gb add Flow[TriggerContext[SubmitRequest]]
 
             // format: off
             stateOut                         ~> rule.initState
@@ -809,9 +811,9 @@ final class TriggerRuleSimulationLib private (
                                                 rule.finalStates ~> saveLastState
             // format: on
 
-            new FlowShape(msgIn.in, submissions.out)
+              new FlowShape(msgIn.in, submissions.out)
+            }
         }
-      }
     }
     val updateStateSimulation = Source
       .single(Ctx(triggerContext, message))
