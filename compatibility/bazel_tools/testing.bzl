@@ -942,6 +942,23 @@ excluded_test_tool_tests = [
             },
         ],
     },
+    {
+        # The explicit disclosure feature is in alpha version
+        # Hence, disable testing ExplicitDisclosureIT since the suite's introduction
+        # for all platform versions UNTIL the 2.7.0 test tool (when it should be considered stable)
+        "start": "2.5.0-snapshot.20220912.10598.0.f801cd46",
+        # The first 2.7.0 snapshot is v2.7.0-snapshot.20230302.11525.0.15e10bbc
+        # so use a semantically lower version to ensure
+        # exclusion for full 2.6.x release line
+        "end": "2.7.0-snapshot.20230302.0",
+        "platform_ranges": [
+            {
+                "exclusions": [
+                    "ExplicitDisclosureIT",
+                ],
+            },
+        ],
+    },
 ]
 
 def in_range(version, range):
