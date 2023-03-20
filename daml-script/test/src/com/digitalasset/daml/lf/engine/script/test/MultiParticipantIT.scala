@@ -22,7 +22,7 @@ final class MultiParticipantIT
     with Matchers
     with SuiteResourceManagementAroundAll {
   private def darFile = new File(rlocation("daml-script/test/script-test.dar"))
-  val (dar, envIface) = readDar(darFile)
+  val dar = AbstractScriptTest.readDar(darFile)
 
   protected override def darFiles = List(darFile)
   protected override val devMode = true

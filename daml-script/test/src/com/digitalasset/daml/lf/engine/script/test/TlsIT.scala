@@ -19,7 +19,7 @@ final class TlsIT
     with SandboxParticipantFixture
     with Matchers
     with SuiteResourceManagementAroundAll {
-  val (dar, envIface) = readDar(stableDarFile)
+  val dar = AbstractScriptTest.readDar(stableDarFile)
 
   val List(serverCrt, serverPem, caCrt, clientCrt, clientPem) = {
     List("server.crt", "server.pem", "ca.crt", "client.crt", "client.pem").map { src =>

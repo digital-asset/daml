@@ -39,7 +39,7 @@ trait CantonFixture
   protected def darFiles: List[File]
   protected def nParticipants: Int
   protected def devMode: Boolean
-  protected override def timeMode: ScriptTimeMode
+  protected def timeMode: ScriptTimeMode
 
   private val tmpDir = Files.createTempDirectory("testMultiParticipantFixture")
   private val cantonConfigPath = tmpDir.resolve("participant.config")
