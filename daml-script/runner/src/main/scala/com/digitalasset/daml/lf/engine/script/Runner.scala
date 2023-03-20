@@ -335,7 +335,7 @@ object Runner {
     run(
       compiledPackages,
       scriptId,
-      Some(converter),
+      Some(converter(_, _)),
       inputValue,
       initialClients,
       timeMode,
@@ -347,11 +347,11 @@ object Runner {
   // Looks for the script in the given compiledPackages, applies the input
   // value as an argument if provided together with a conversion function,
   // and runs the script with the given participants.
-  def run(
+  def run[X](
       compiledPackages: PureCompiledPackages,
       scriptId: Identifier,
-      convertInputValue: Option[(JsValue, Type) => Either[String, SValue]],
-      inputValue: Option[JsValue],
+      convertInputValue: Option[(X, Type) => Either[String, SValue]],
+      inputValue: Option[X],
       initialClients: Participants[ScriptLedgerClient],
       timeMode: ScriptTimeMode,
       traceLog: TraceLog = Speedy.Machine.newTraceLog,
@@ -365,10 +365,10 @@ object Runner {
     val script = data.assertRight(Script.fromIdentifier(compiledPackages, scriptId))
     val scriptAction: Script.Action = (script, inputValue) match {
       case (script: Script.Action, None) => script
-      case (script: Script.Function, Some(inputJson)) =>
+      case (script: Script.Function, Some(input)) =>
         convertInputValue match {
           case Some(f) =>
-            f(inputJson, script.param) match {
+            f(input, script.param) match {
               case Left(msg) => throw new ConverterException(msg)
               case Right(arg) => script.apply(arg)
             }
