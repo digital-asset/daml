@@ -507,6 +507,8 @@ cmdDocTest numProcessors =
               (EnableScenarioService True)
               optPackageName
               disabledDlintUsageParser
+        <*> strOptionOnce (long "script-lib" <> value "daml-script" <> internal)
+            -- This is useful for tests and `bazel run`.
         <*> many inputFileOpt
 
 --------------------------------------------------------------------------------
@@ -959,25 +961,44 @@ execMergeDars darFp1 darFp2 mbOutFp =
         pure $ ZipArchive.toEntry manifestPath 0 $ BSLC.unlines $
             map (\(k, v) -> breakAt72Bytes $ BSL.fromStrict $ k <> ": " <> v) attrs1
 
-execDocTest :: Options -> [FilePath] -> Command
-execDocTest opts files =
+execDocTest :: Options -> FilePath -> [FilePath] -> Command
+execDocTest opts scriptDar files =
   Command DocTest Nothing effect
   where
     effect = do
       let files' = map toNormalizedFilePath' files
+          packageFlag =
+            ExposePackage
+              ("--package daml-script-" <> SdkVersion.sdkPackageVersion)
+              (UnitIdArg $ stringToUnitId $ "daml-script-" <> SdkVersion.sdkPackageVersion)
+              (ModRenaming True [])
+
       logger <- getLogger opts "doctest"
+
+      -- Install daml-script in their project and update the package db
+      -- TODO: Should this be "."?
+      installDependencies "." opts (PackageSdkVersion SdkVersion.sdkVersion) [scriptDar] []
+      createProjectPackageDb "." opts mempty
+
+      opts <- pure opts
+        { optPackageDbs = projectPackageDatabase : optPackageDbs opts
+        , optPackageImports = packageFlag : optPackageImports opts
+        }
+
       -- We don’t add a logger here since we will otherwise emit logging messages twice.
       importPaths <-
           withDamlIdeState opts { optScenarioService = EnableScenarioService False }
-              logger (NotificationHandler $ \_ _ -> pure ()) $ \ideState -> runActionSync ideState $ do
-          pmS <- catMaybes <$> uses GetParsedModule files'
-          -- This is horrible but we do not have a way to change the import paths in a running
-          -- IdeState at the moment.
-          pure $ nubOrd $ mapMaybe (uncurry moduleImportPath) (zip files' pmS)
+            logger (NotificationHandler $ \_ _ -> pure ()) $
+            \ideState -> runActionSync ideState $ do
+              pmS <- catMaybes <$> uses GetParsedModule files'
+              -- This is horrible but we do not have a way to change the import paths in a running
+              -- IdeState at the moment.
+              pure $ nubOrd $ mapMaybe (uncurry moduleImportPath) (zip files' pmS)
       opts <- pure opts
         { optImportPath = importPaths <> optImportPath opts
         , optHaddock = Haddock True
-        , optEnableScenarios = EnableScenarios True }
+        }
+
       withDamlIdeState opts logger diagnosticsLogger $ \ideState ->
           docTest ideState files'
 
