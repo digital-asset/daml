@@ -1,4 +1,4 @@
-Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All Rights Reserved.
+Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All Rights Reserved.
 SPDX-License-Identifier: (Apache-2.0 OR BSD-3-Clause)
 
 # Working on `ghc-lib`
@@ -21,7 +21,7 @@ git remote add da-fork git@github.com:digital-asset/ghc.git
 git fetch da-fork
 ```
 
-3. Checkout the version of interest and update the submodules:
+3. Checkout the version of interest (usually `da-master-8.8.1`, which should match `GHC_REV` from [`$DAML_REPO/bazel_tools/ghc-lib/version.bzl`](https://github.com/digital-asset/daml/blob/main/bazel_tools/ghc-lib/version.bzl)) and update the submodules:
 ```
 git checkout da-master-8.8.1
 git submodule update --init --recursive
@@ -31,54 +31,52 @@ git submodule update --init --recursive
 
 Working locally in a branch from `da-master-8.8.1`, there are two files which generally need changing to update syntax and desugaring:
 
-- [`compiler/parser/Parser.y`](https://github.com/digital-asset/ghc/blob/da-master-8.8.1/compiler/parser/Parser.y)
+- [`$GHC_REPO/compiler/parser/Parser.y`](https://github.com/digital-asset/ghc/blob/da-master-8.8.1/compiler/parser/Parser.y)
 
-- [`compiler/parser/RdrHsSyn.hs`](https://github.com/digital-asset/ghc/blob/da-master-8.8.1/compiler/parser/RdrHsSyn.hs)
-
+- [`$GHC_REPO/compiler/parser/RdrHsSyn.hs`](https://github.com/digital-asset/ghc/blob/da-master-8.8.1/compiler/parser/RdrHsSyn.hs)
 
 The quickest way to build and test is:
 
-1. `hadrian/build.sh --configure --flavour=quickest -j`
+1. `cd $GHC_REPO`
 
-2. `./_build/stage1/bin/ghc ./Example.hs -ddump-parsed | tee desugar.out`
+2. Enter the dev environment defined in `.envrc` using `direnv allow`. For help installing direnv, see [direnv](https://direnv.net). This should only be necessary the first time.
 
-Step 1 gives immediate feedback on build failures, but takes about 2-3 minutes when successful. For Step 2 you need a Daml example file. The input file must end in `.hs` suffix. It must begin with the pragma: `{-# LANGUAGE DamlSyntax #-}`
+3. `hadrian/build.sh --configure --flavour=quickest -j`
+
+4. `./_build/stage1/bin/ghc ./Example.hs -ddump-parsed | tee desugar.out`
+
+Step 3 gives immediate feedback on build failures, but takes about 2-3 minutes when successful. For Step 4 you need a Daml example file. The input file must end in `.hs` suffix. It must begin with the pragma: `{-# LANGUAGE DamlSyntax #-}`.
 
 
 ### Interactive development workflow
 
-While working on GHC, you can integrate your changes directly into the `daml` project as follows.
+While working on GHC, you can integrate your changes directly into the `daml` project as follows, making sure to replace `$DAML_REPO` (resp. `$GHC_REPO`) with the path to the Daml (resp. GHC) repository on your machine:
 
-1. Make initial clone from the main ghc gitlab repo:
+1. Add `BUILD` file:
    ```
-   git clone --recurse-submodules https://gitlab.haskell.org/ghc/ghc.git
-   cd ghc
-   ```
-
-2. Add the DA fork as a remote
-   ```
-   git remote add da-fork git@github.com:digital-asset/ghc.git
-   git fetch da-fork
+   ln -S $DAML_REPO/bazel_tools/ghc-lib/BUILD.ghc BUILD
    ```
 
-3. Checkout the version of interest (usually `GHC_REV` from [`/bazel_tools/ghc-lib/version.bzl`]) and update the submodules:
+2. Make changes... 🛠️
+
+3. Build referencing your local checkout of GHC:
    ```
-   git checkout da-master-8.8.1
-   git submodule update --init --recursive
+   cd $DAML_REPO
+   bazel build --override_repository=da-ghc="$( cd $GHC_REPO ; pwd )" //...
    ```
 
-4. Add `WORKSPACE` and `BUILD` file:
-   ```
-   cp ../daml/bazel_tools/ghc-lib/BUILD.ghc BUILD
-   touch WORKSPACE
-   ```
+### Pull request workflow
 
-5. Make changes...  
+After you are satisfied with your changes,
 
-6. Build referencing your local checkout of GHC:
-   ```
-   cd ../daml
-   bazel build --override_repository=da-ghc="$( cd ../ghc ; pwd )" //...
-   ```
+1. Open a PR on the GHC repository from branch e.g. `my-ghc-changes`.
 
-After you are satisfied with your changes, just open a PR on the GHC repository and after it is merged update the SHA value in `GHC_REV` in [`/bazel_tools/ghc-lib/version.bzl`] and create a PR for the `daml` project.
+2. Open a PR on the Daml repository from branch e.g. `my-daml-changes`, making sure that the SHA value in `GHC_REV` in [`$DAML_REPO/bazel_tools/ghc-lib/version.bzl`](https://github.com/digital-asset/daml/blob/main/bazel_tools/ghc-lib/version.bzl) corresponds to the latest commit in `my-ghc-changes`.
+
+3. To help your reviewers, please update the description of both PRs with a link to each other.
+
+4. Once CI has passed on the Daml PR, you may merge the GHC PR.
+
+5. Update the Daml PR so `GHC_REV` now points to the GHC PR **merge commit**.
+
+6. Once CI has passed a second time, you may merge the Daml PR.
