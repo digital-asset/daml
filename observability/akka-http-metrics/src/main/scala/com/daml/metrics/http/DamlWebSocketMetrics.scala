@@ -3,10 +3,10 @@
 
 package com.daml.metrics.http
 
-import com.daml.metrics.api.MetricHandle.{MetricsFactory, Histogram, Meter}
+import com.daml.metrics.api.MetricHandle.{Histogram, LabeledMetricsFactory, Meter}
 import com.daml.metrics.api.{MetricName, MetricsContext}
 
-class DamlWebSocketMetrics(metricsFactory: MetricsFactory, component: String)
+class DamlWebSocketMetrics(metricsFactory: LabeledMetricsFactory, component: String)
     extends WebSocketMetrics {
 
   private val httpMetricsPrefix = MetricName.Daml :+ "http"

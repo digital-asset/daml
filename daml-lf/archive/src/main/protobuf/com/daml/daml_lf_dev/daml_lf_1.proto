@@ -1341,6 +1341,22 @@ message Update {
     Expr arg = 5;
   }
 
+  // Dynamic Exercise Update
+  // *Available in versions >= 1.dev*
+  message DynamicExercise {
+    // Template type
+    TypeConName template = 1;
+
+    // name of the exercised template choice
+    // *Must be a valid interned identifier*
+    int32 choice_interned_str = 2;
+
+    // contract id
+    Expr cid = 3;
+    // argument
+    Expr arg = 4;
+  }
+
   // Interface Exercise Update
   // *Available in versions >= 1.15*
   message ExerciseInterface {
@@ -1431,6 +1447,7 @@ message Update {
     CreateInterface create_interface = 12; // *Available in versions >= 1.15*
     ExerciseInterface exercise_interface = 13; // *Available in versions >= 1.15*
     FetchInterface fetch_interface = 14; // *Available in versions >= 1.15*
+    DynamicExercise dynamic_exercise = 15; // *Available in versions >= 1.dev*
   }
 }
 

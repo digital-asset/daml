@@ -36,16 +36,17 @@ object Hash {
   val version = 0.toByte
   val underlyingHashLength = 32
 
-  private case class HashingError(msg: String) extends Exception with NoStackTrace
+  sealed abstract class HashingError(val msg: String) extends Exception with NoStackTrace
+  object HashingError {
+    final case class ForbiddenContractId()
+        extends HashingError("Contract IDs are not supported in contract keys.")
+  }
 
-  private def error(msg: String): Nothing =
-    throw HashingError(msg)
-
-  private def handleError[X](x: => X): Either[String, X] =
+  private def handleError[X](x: => X): Either[HashingError, X] =
     try {
       Right(x)
     } catch {
-      case HashingError(msg) => Left(msg)
+      case e: HashingError => Left(e)
     }
 
   def fromBytes(bs: Bytes): Either[String, Hash] =
@@ -82,7 +83,7 @@ object Hash {
   }
 
   private[lf] val noCid2String: Value.ContractId => Nothing =
-    _ => error("Contract IDs are not supported in contract keys.")
+    _ => throw HashingError.ForbiddenContractId()
 
   private[crypto] sealed abstract class Builder(cid2Bytes: Value.ContractId => Bytes) {
 
@@ -307,7 +308,7 @@ object Hash {
   def hashContractKey(
       templateId: Ref.Identifier,
       key: Value,
-  ): Either[String, Hash] =
+  ): Either[HashingError, Hash] =
     handleError(assertHashContractKey(templateId, key))
 
   // This function assumes that `arg` is well typed, i.e. :
@@ -324,7 +325,7 @@ object Hash {
   def hashContractInstance(
       templateId: Ref.Identifier,
       arg: Value,
-  ): Either[String, Hash] =
+  ): Either[HashingError, Hash] =
     handleError(assertHashContractInstance(templateId, arg))
 
   def hashChangeId(

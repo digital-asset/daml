@@ -4,13 +4,12 @@
 package com.daml.lf.engine.script.test
 
 import java.time.Duration
-
 import com.daml.lf.data.Ref.QualifiedName
 import com.daml.lf.engine.script.ledgerinteraction.ScriptTimeMode
 import com.daml.lf.speedy.SValue.SRecord
 
 final class FuncWallClockIT extends AbstractFuncIT {
-  override def timeMode = ScriptTimeMode.WallClock
+  protected override val timeMode = ScriptTimeMode.WallClock
 
   "testSleep" should {
     "sleep for specified duration" in {

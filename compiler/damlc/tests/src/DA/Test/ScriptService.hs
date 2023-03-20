@@ -578,7 +578,7 @@ main =
                 expectScriptSuccess rs (vr "partyManagement") $ \r ->
                   matchRegex r "Active contracts:  #0:0\n\nReturn value: {}\n\n$"
                 expectScriptFailure rs (vr "duplicateAllocateWithHint") $ \r ->
-                  matchRegex r "Tried to allocate a party that already exists:  alice"
+                  matchRegex r "Tried to allocate a party that already exists: alice"
                 expectScriptSuccess rs (vr "partyWithEmptyDisplayName") $ \r ->
                   matchRegex r "Active contracts:  #0:0\n\nReturn value: {}\n\n$"
             , testCase "queryContractId/Key" $ do

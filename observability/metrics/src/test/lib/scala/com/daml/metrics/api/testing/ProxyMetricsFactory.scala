@@ -17,6 +17,9 @@ import com.daml.metrics.api.testing.ProxyMetricsFactory.{
 }
 import com.daml.metrics.api.{MetricHandle, MetricName, MetricsContext}
 
+import scala.annotation.nowarn
+
+@nowarn("cat=deprecation")
 class ProxyMetricsFactory(firstTarget: MetricsFactory, secondTarget: MetricsFactory)
     extends LabeledMetricsFactory {
 
