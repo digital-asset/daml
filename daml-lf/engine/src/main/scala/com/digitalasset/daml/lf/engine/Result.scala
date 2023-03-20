@@ -131,17 +131,19 @@ final case class ResultNeedPackage[A](packageId: PackageId, resume: Option[Packa
   *
   * The caller of `resume` has to ensure that any contract id passed to `resume` has previously been associated with
   * a contract with `key` as a key.
-  *
-  * TODO: may `contractId` refer to an archived contract?
-  * TODO: may `resume` be called with `None` even when the key is assigned?
+  * Other than that, the caller does not need to validate the data passed to `resume`. In particular, it may pass
+  * the id of an archived contract to `resume`.
+  * It may also provide `None` to `resume` when the `key` is actually assigned.
   */
 final case class ResultNeedKey[A](
     key: GlobalKeyWithMaintainers,
     resume: Option[ContractId] => Result[A],
 ) extends Result[A]
 
-/** TODO: I think this deserves a comment, but don't know what to write.
-  */
+/** TODO: https://github.com/digital-asset/daml/issues/15882
+ *   add ScalaDoc explaining the impact of the answers and the responsibilities of the caller.
+ *   (Similarly as for the other subclasses of Result.)
+ */
 final case class ResultNeedAuthority[A](
     holding: Set[Party],
     requesting: Set[Party],
