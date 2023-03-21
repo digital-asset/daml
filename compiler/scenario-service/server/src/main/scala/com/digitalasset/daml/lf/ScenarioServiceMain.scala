@@ -204,33 +204,21 @@ class ScenarioService(
   }
 
   override def runLiveScenario(
-      respObs: StreamObserver[RunScenarioResponseOrStatus]
-  ): StreamObserver[RunScenarioRequest] = {
-    new StreamObserver[RunScenarioRequest] {
-      override def onNext(req: RunScenarioRequest): Unit = {
-        val stream = ScriptStream.WithStatus(respObs)
-        if (enableScenarios) {
-          if (req.hasStart) {
-            runLive(
-              req.getStart,
-              stream,
-              { case (ctx, pkgId, name) => Future(ctx.interpretScenario(pkgId, name)) },
-            )
-          }
-        } else {
-          log("Rejected scenario gRPC request.")
-          stream.sendError(new UnsupportedOperationException("Scenarios are disabled"))
-        }
+      req: RunScenarioRequest,
+      respObs: StreamObserver[RunScenarioResponseOrStatus],
+  ): Unit = {
+    val stream = ScriptStream.WithStatus(respObs)
+    if (enableScenarios) {
+      if (req.hasStart) {
+        runLive(
+          req.getStart,
+          stream,
+          { case (ctx, pkgId, name) => Future(ctx.interpretScenario(pkgId, name)) },
+        )
       }
-
-      override def onError(t: Throwable): Unit = {
-        println("Custom onError Received ERROR")
-      }
-
-      override def onCompleted(): Unit = {
-        println("Completed on client side!")
-        respObs.onCompleted()
-      }
+    } else {
+      log("Rejected scenario gRPC request.")
+      stream.sendError(new UnsupportedOperationException("Scenarios are disabled"))
     }
   }
 
@@ -247,18 +235,30 @@ class ScenarioService(
     }
 
   override def runLiveScript(
-      req: RunScenarioRequest,
       respObs: StreamObserver[RunScenarioResponseOrStatus],
-  ): Unit = {
+  ): StreamObserver[RunScenarioRequest] = {
     var cancelled = false
-    if (req.hasCancel) {
-      cancelled = true
-    } else if (req.hasStart) {
-      runLive(
-        req.getStart,
-        ScriptStream.WithStatus(respObs),
-        { case (ctx, pkgId, name) => ctx.interpretScript(pkgId, name, () => cancelled) },
-      )
+    new StreamObserver[RunScenarioRequest] {
+      override def onNext(req: RunScenarioRequest): Unit = {
+        if (req.hasCancel) {
+          cancelled = true
+        } else if (req.hasStart) {
+          runLive(
+            req.getStart,
+            ScriptStream.WithStatus(respObs),
+            { case (ctx, pkgId, name) => ctx.interpretScript(pkgId, name, () => cancelled) },
+          )
+        }
+      }
+
+      override def onError(t: Throwable): Unit = {
+        println("Custom onError Received ERROR")
+      }
+
+      override def onCompleted(): Unit = {
+        println("Completed on client side!")
+        respObs.onCompleted()
+      }
     }
   }
 

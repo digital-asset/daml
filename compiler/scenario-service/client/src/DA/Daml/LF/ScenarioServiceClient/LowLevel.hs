@@ -408,7 +408,7 @@ runBiDiLive runner Handle{..} (ContextId ctxId) name statusUpdateHandler = do
   let req =
         SS.RunScenarioRequest $ Just $ SS.RunScenarioRequestSumStart $
           SS.RunScenarioStart ctxId (Just (toIdentifier name))
-  ior <- newIORef (Left (ExceptionError (error "runLiveScenario scenario")))
+  ior <- newIORef (Left (ExceptionError (error "runBiDiLive")))
   response <-
     runner hClient $
       ClientBiDiRequest (fromIntegral (optGrpcTimeout hOptions)) mempty $ \_clientCall _meta streamRecv sendReq _writesDone -> do
@@ -445,7 +445,7 @@ runBiDiLive runner Handle{..} (ContextId ctxId) name statusUpdateHandler = do
 runLiveScenario
   :: Handle -> ContextId -> LF.ValueRef -> (SS.ScenarioStatus -> IO ())
   -> IO (Either Error SS.ScenarioResult)
-runLiveScenario = runBiDiLive SS.scenarioServiceRunLiveScenario
+runLiveScenario = runLive SS.scenarioServiceRunLiveScenario
 
 runLive
   :: (SS.ScenarioService ClientRequest ClientResult
@@ -489,4 +489,4 @@ runLive runner Handle{..} (ContextId ctxId) name statusUpdateHandler = do
 runLiveScript
   :: Handle -> ContextId -> LF.ValueRef -> (SS.ScenarioStatus -> IO ())
   -> IO (Either Error SS.ScenarioResult)
-runLiveScript = runLive SS.scenarioServiceRunLiveScript
+runLiveScript = runBiDiLive SS.scenarioServiceRunLiveScript
