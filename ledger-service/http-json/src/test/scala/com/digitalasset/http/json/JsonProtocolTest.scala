@@ -265,7 +265,7 @@ class JsonProtocolTest
       b should ===(a)
     }
 
-    "doesn't confuse blob and JSON contracts" in forAll { a: DisclosedContract[Int, Int] =>
+    "doesn't confuse blob and JSON contracts" in forAll { a: DC =>
       val blobLookingRecord = a.arguments match {
         case DisclosedContract.Arguments.Blob(b) =>
           a.copy(arguments = DisclosedContract.Arguments.Record(b.toJson))
