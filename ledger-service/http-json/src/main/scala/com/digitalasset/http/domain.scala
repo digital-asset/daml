@@ -17,7 +17,7 @@ import scalaz.Isomorphism.{<~>, IsoFunctorTemplate}
 import scalaz.std.list._
 import scalaz.std.option._
 import scalaz.std.vector._
-import scalaz.syntax.apply.^
+import scalaz.syntax.apply.{^, ^^}
 import scalaz.syntax.bitraverse._
 import scalaz.syntax.show._
 import scalaz.syntax.std.option._
@@ -290,6 +290,8 @@ package domain {
   }
 
   object DisclosedContract {
+    type LAV = DisclosedContract[ContractTypeId.Template.RequiredPkg, lav1.value.Record]
+
     sealed abstract class Arguments[+LfV] extends Product with Serializable {
       import lav1.commands.DisclosedContract.Arguments.{CreateArguments, CreateArgumentsBlob}
       def toLedgerApi(implicit
@@ -351,12 +353,22 @@ package domain {
       readAs: Option[List[Party]],
       submissionId: Option[SubmissionId],
       deduplicationPeriod: Option[domain.DeduplicationPeriod],
-      disclosedContracts: Option[List[domain.DisclosedContract[TmplId, LfV]]],
+      disclosedContracts: Option[List[DisclosedContract[TmplId, LfV]]],
   )
 
   object CommandMeta {
     type NoDisclosed = CommandMeta[Nothing, Nothing]
     type IgnoreDisclosed = CommandMeta[Any, Any]
+    type LAV = CommandMeta[ContractTypeId.Template.RequiredPkg, lav1.value.Record]
+
+    private[http] implicit final class `ensureDisclosedAreRecords op`[L](
+        private val self: CommandMeta[L, lav1.value.Value]
+    ) extends AnyVal {
+      def ensureDisclosedAreRecords: Error \/ CommandMeta[L, lav1.value.Record] =
+        self traverse json.JsValueToApiValueConverter.mustBeApiRecord leftMap { e =>
+          Error(Symbol("ensureDisclosedAreRecords"), e.message)
+        }
+    }
 
     implicit val covariant: Bitraverse[CommandMeta] = new Bitraverse[CommandMeta] {
       override def bitraverseImpl[G[_]: Applicative, A, B, C, D](
@@ -366,6 +378,9 @@ package domain {
           .traverse(_.traverse(_.bitraverse(f, g)))
           .map(dc => fab.copy(disclosedContracts = dc))
     }
+
+    implicit def rightCovariant[L]: Traverse[CommandMeta[L, *]] =
+      covariant.rightTraverse
   }
 
   final case class CreateCommand[+LfV, +TmplId](
@@ -385,8 +400,7 @@ package domain {
       argument: LfV,
       // passing a template ID is allowed; we distinguish internally
       choiceInterfaceId: Option[ContractTypeId[PkgId]],
-      // TODO #14260 Option[CommandMeta[ContractTypeId.Template[PkgId], LfV]],
-      meta: Option[CommandMeta.NoDisclosed],
+      meta: Option[CommandMeta[ContractTypeId.Template[PkgId], LfV]],
   )
 
   final case class CreateAndExerciseCommand[+Payload, +Arg, +TmplId, +IfceId](
@@ -691,7 +705,14 @@ package domain {
         override def bitraverseImpl[G[_]: Applicative, A, B, C, D](
             fab: ExerciseCommand[PkgId, A, B]
         )(f: A => G[C], g: B => G[D]): G[ExerciseCommand[PkgId, C, D]] = {
-          ^(f(fab.argument), g(fab.reference))((c, d) => fab.copy(argument = c, reference = d))
+          ^^(f(fab.argument), g(fab.reference), fab.meta traverse (_ traverse f))(
+            (argument, reference, meta) =>
+              fab.copy(
+                argument = argument,
+                reference = reference,
+                meta = meta,
+              )
+          )
         }
       }
 

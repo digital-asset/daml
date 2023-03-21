@@ -18,6 +18,7 @@ import com.daml.jwt.domain.Jwt
 import com.daml.ledger.api.{v1 => lav1}
 import lav1.value.{Value => ApiValue, Record => ApiRecord}
 import scalaz.std.scalaFuture._
+import scalaz.syntax.traverse._
 import scalaz.syntax.std.option._
 import scalaz.{-\/, EitherT, \/, \/-}
 import spray.json._
@@ -82,7 +83,12 @@ private[http] final class CreateAndExercise(
 
         apiArg <- either(lfValueToApiValue(cmd.argument)): ET[ApiValue]
 
-        resolvedCmd = cmd.copy(argument = apiArg, reference = resolvedRef)
+        apiMeta <- either {
+          import scalaz.std.option._
+          cmd.meta traverse (_ traverse lfValueToApiValue)
+        }
+
+        resolvedCmd = cmd.copy(argument = apiArg, reference = resolvedRef, meta = apiMeta)
 
         resp <- eitherT(
           Timed.future(

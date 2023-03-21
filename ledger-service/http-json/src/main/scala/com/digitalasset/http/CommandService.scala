@@ -28,6 +28,7 @@ import com.daml.ledger.api.{v1 => lav1}
 import com.daml.ledger.service.Grpc.StatusEnvelope
 import com.daml.logging.LoggingContextOf.{label, withEnrichedLoggingContext}
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
+import scalaz.std.option._
 import scalaz.std.scalaFuture._
 import scalaz.syntax.show._
 import scalaz.syntax.std.option._
@@ -105,18 +106,22 @@ class CommandService(
         .run { implicit lc =>
           logger.trace("sending exercise command to ledger")
           val command = exerciseCommand(input)
-          val request = submitAndWaitRequest(jwtPayload, input.meta, command, "exercise")
 
-          val et: ET[ExerciseResponse[lav1.value.Value]] = for {
-            response <-
-              logResult(Symbol("exercise"), submitAndWaitForTransactionTree(jwt, request)(lc))
-            exerciseResult <- either(exerciseResult(response))
-            contracts <- either(contracts(response))
-          } yield ExerciseResponse(
-            exerciseResult,
-            contracts,
-            domain.CompletionOffset(response.completionOffset),
-          )
+          val et: ET[ExerciseResponse[lav1.value.Value]] =
+            for {
+              meta <- either(input.meta traverse (_.ensureDisclosedAreRecords) leftMap {
+                case domain.Error(sym, msg) => InternalError(Some(sym), msg): Error
+              })
+              request = submitAndWaitRequest(jwtPayload, meta, command, "exercise")
+              response <-
+                logResult(Symbol("exercise"), submitAndWaitForTransactionTree(jwt, request)(lc))
+              exerciseResult <- either(exerciseResult(response))
+              contracts <- either(contracts(response))
+            } yield ExerciseResponse(
+              exerciseResult,
+              contracts,
+              domain.CompletionOffset(response.completionOffset),
+            )
 
           et.run
         }
@@ -220,7 +225,7 @@ class CommandService(
 
   private def submitAndWaitRequest(
       jwtPayload: JwtWritePayload,
-      meta: Option[domain.CommandMeta.NoDisclosed],
+      meta: Option[domain.CommandMeta.LAV],
       command: lav1.commands.Command.Command,
       commandKind: String,
   )(implicit
@@ -249,6 +254,7 @@ class CommandService(
             .map(_.toProto)
             .getOrElse(DeduplicationPeriod.Empty),
           submissionId = meta.flatMap(_.submissionId),
+          meta.flatMap(_.disclosedContracts) getOrElse Seq.empty,
         )
       }
   }
