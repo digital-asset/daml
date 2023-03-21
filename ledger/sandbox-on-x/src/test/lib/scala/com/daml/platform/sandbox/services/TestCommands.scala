@@ -27,9 +27,9 @@ trait TestCommands {
 
   protected def darFile: File
 
-  protected def packageId: PackageId = DarReader.assertReadArchiveFromFile(darFile).main.pkgId
+  protected lazy val packageId: PackageId = DarReader.assertReadArchiveFromFile(darFile).main.pkgId
 
-  protected def templateIds = new TestTemplateIdentifiers(packageId)
+  protected lazy val templateIds = new TestTemplateIdentifiers(packageId)
 
   protected def buildRequest(
       ledgerId: domain.LedgerId,
