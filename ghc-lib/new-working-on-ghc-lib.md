@@ -66,9 +66,9 @@ While working on GHC, you can integrate your changes directly into the `daml` pr
 
 After you are satisfied with your changes,
 
-1. Open a PR on the GHC repository from branch e.g. `my-ghc-changes`.
+1. Open a PR on the (DA) GHC repository.
 
-2. Open a PR on the Daml repository from branch e.g. `my-daml-changes`, making sure that the SHA value in `GHC_REV` in [`$DAML_REPO/bazel_tools/ghc-lib/version.bzl`](https://github.com/digital-asset/daml/blob/main/bazel_tools/ghc-lib/version.bzl) corresponds to the latest commit in `my-ghc-changes`.
+2. Open a PR on the Daml repository, making sure that the SHA value in `GHC_REV` in [`$DAML_REPO/bazel_tools/ghc-lib/version.bzl`](https://github.com/digital-asset/daml/blob/main/bazel_tools/ghc-lib/version.bzl) corresponds to the last commit in the GHC PR.
 
 3. To help your reviewers, please update the description of both PRs with a link to each other.
 
