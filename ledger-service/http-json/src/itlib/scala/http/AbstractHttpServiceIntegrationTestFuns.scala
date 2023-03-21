@@ -219,10 +219,16 @@ trait AbstractHttpServiceIntegrationTestFuns
 
     def getUniquePartyAndAuthHeaders(
         name: String
-    ): Future[(domain.Party, List[HttpHeader])] = {
+    ): Future[(domain.Party, List[HttpHeader])] =
+      self.getUniquePartyTokenAndAuthHeaders(name).map { case (p, _, h) => (p, h) }
+
+    def getUniquePartyTokenAndAuthHeaders(
+        name: String
+    ): Future[(domain.Party, Any, List[HttpHeader])] = {
       val party = getUniqueParty(name)
       for {
-        headers <- headersWithPartyAuth(List(party), List.empty, "")
+        jwt <- jwtForParties(uri)(List(party), List.empty, "", false, false)
+        headers = authorizationHeader(jwt)
         request = domain.AllocatePartyRequest(
           Some(party),
           None,
@@ -233,7 +239,7 @@ trait AbstractHttpServiceIntegrationTestFuns
           json = json,
           headers = headersWithAdminAuth,
         )
-      } yield (party, headers)
+      } yield (party, jwt, headers)
     }
 
     def headersWithAuth(implicit ec: ExecutionContext): Future[List[Authorization]] =
