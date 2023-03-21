@@ -50,7 +50,7 @@ ideTests mbScenarioService scriptPackageData =
           basicTests mbScenarioService scriptPackageData
         , minimalRebuildTests mbScenarioService
         , goToDefinitionTests mbScenarioService scriptPackageData
-        , onHoverTests mbScenarioService
+        , onHoverTests mbScenarioService scriptPackageData
         , dlintSmokeTests mbScenarioService
         , scriptTests mbScenarioService scriptPackageData
         , visualDamlTests
@@ -236,7 +236,7 @@ basicTests mbScenarioService scriptPackageData = Tasty.testGroup "Basic tests"
             setFilesOfInterest [a, b]
             expectNoErrors
 
-    ,   testCase' "Run two scenarios with the same name DEL-7175" $ do
+    ,   testCase' "Run two Scripts with the same name DEL-7175" $ do
             a <- makeFile "foo/Test.daml" "module Test where; import Daml.Script; main = script $ return \"foo\""
             b <- makeFile "bar/Test.daml" "module Test where; import Daml.Script; main = script $ return \"bar\""
             setFilesOfInterest [a, b]
@@ -248,7 +248,7 @@ basicTests mbScenarioService scriptPackageData = Tasty.testGroup "Basic tests"
             expectVirtualResource vb "Return value: &quot;bar&quot;"
 
     -- Todo, the ' in the module name causes error in either Script runner or Scenario Service, unclear which.
-    , testCaseFails' "Scenario with mangled names (Ticket #16585)" $ do
+    , testCaseFails' "Script with mangled names (Ticket #16585)" $ do
             a <- makeFile "foo/MangledScript'.daml" $ T.unlines
                 [ "module MangledScript' where"
                 , "import Daml.Script"
@@ -798,8 +798,8 @@ goToDefinitionTests mbScenarioService scriptPackageData = Tasty.testGroup "Go to
         testCase' = testCase mbScenarioService (Just scriptPackageData)
         testCaseFails' = testCaseFails mbScenarioService (Just scriptPackageData)
 
-onHoverTests :: Maybe SS.Handle -> Tasty.TestTree
-onHoverTests mbScenarioService = Tasty.testGroup "On hover tests"
+onHoverTests :: Maybe SS.Handle -> ScriptPackageData -> Tasty.TestTree
+onHoverTests mbScenarioService scriptPackageData = Tasty.testGroup "On hover tests"
     [ testCase' "Type for uses but not for definitions" $ do
         f <- makeFile "F.daml" $ T.unlines
             [ "module F where"
@@ -834,12 +834,13 @@ onHoverTests mbScenarioService = Tasty.testGroup "On hover tests"
 
     , testCase' "Type of party" $ do
         f <- makeModule "F"
-            [ "s = scenario $ do"
-            , "  alice <- getParty \"Alice\""
+            [ "import Daml.Script"
+            , "s = script $ do"
+            , "  alice <- allocateParty \"Alice\""
             , "  submit alice $ pure ()"
             ]
         setFilesOfInterest [f]
-        expectTextOnHover (f,3,[9..13]) $ HasType "Party" -- use of alice
+        expectTextOnHover (f,4,[9..13]) $ HasType "Party" -- use of alice
 
     , testCaseFails' "Type of signatories" $ do
         f <- makeModule "F"
@@ -913,11 +914,11 @@ onHoverTests mbScenarioService = Tasty.testGroup "On hover tests"
         expectTextOnHover (f,3,[0]) $ Contains "Important docs"
     ]
     where
-        testCase' = testCase mbScenarioService Nothing
-        testCaseFails' = testCaseFails mbScenarioService Nothing
+        testCase' = testCase mbScenarioService (Just scriptPackageData)
+        testCaseFails' = testCaseFails mbScenarioService (Just scriptPackageData)
 
 scriptTests :: Maybe SS.Handle -> ScriptPackageData -> Tasty.TestTree
-scriptTests mbScenarioService scriptPackageData = Tasty.testGroup "Scenario tests"
+scriptTests mbScenarioService scriptPackageData = Tasty.testGroup "Script tests"
     [ testCase' "Run an empty script" $ do
           let fooContent = T.unlines
                   [ "module Foo where"
@@ -1098,7 +1099,7 @@ scriptTests mbScenarioService scriptPackageData = Tasty.testGroup "Scenario test
           let vr = VRScenario foo "v"
           setFilesOfInterest [foo]
           setOpenVirtualResources []
-          -- We expect to get no diagnostics because the scenario is never run
+          -- We expect to get no diagnostics because the script is never run
           expectNoErrors
           expectNoVirtualResource vr
     , testCase' "Script opened but not in files of interest" $ do
