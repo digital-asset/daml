@@ -2,7 +2,7 @@
 -- All rights reserved.
 
 
-module ScenarioReturningUpdate where
+module ScriptReturningUpdate where
 
 import Daml.Script
 

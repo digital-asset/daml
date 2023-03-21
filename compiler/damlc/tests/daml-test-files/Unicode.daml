@@ -2,9 +2,9 @@
 -- All rights reserved.
 
 -- @ERROR range=9:1-9:5; ⛄ ¯\_(ツ)_/¯
-
-
 module Unicode where
 
-main = scenario do
+import Daml.Script
+
+main = script @() do
   fail "⛄ ¯\\_(ツ)_/¯"
