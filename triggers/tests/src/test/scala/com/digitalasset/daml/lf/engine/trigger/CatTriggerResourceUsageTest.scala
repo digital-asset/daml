@@ -4,6 +4,8 @@
 package com.daml.lf.engine.trigger
 
 import akka.NotUsed
+import akka.actor.ActorSystem
+import akka.stream.Materializer
 import akka.stream.scaladsl.{Sink, Source}
 import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId, Party}
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
@@ -46,6 +48,10 @@ class CatTriggerResourceUsageTest
       super.triggerRunnerConfiguration.hardLimit
         .copy(allowTriggerTimeouts = true, allowInFlightCommandOverflows = true)
     )
+
+  override implicit lazy val materializer: Materializer = Materializer(ActorSystem("Simulation"))
+
+  override implicit val executionContext: ExecutionContext = materializer.executionContext
 
   "Trigger rule simulation" should {
     "with single/point-in-time trigger rule evaluation" should {
@@ -159,9 +165,8 @@ class CatTriggerResourceUsageTest
       }
 
       "identify that rule evaluation time has a linear relationship with ACS size" should {
-        def warmUpAcsSizeGen = 0L to 10L
-        def acsSizeGen =
-          (0L to 100L by 20L) ++ (150L to 400L by 50L) ++ (500L to 1000L by 100L) ++ (2000L to 5000L by 1000L)
+        def acsSizeGen = 0L to 5000L
+//          (0L to 100L by 20L) ++ (150L to 400L by 50L) ++ (500L to 1000L by 100L) ++ (2000L to 5000L by 1000L)
 
         "for Cats:neverFeedingTrigger updateState lambda" in {
           for {
@@ -182,23 +187,6 @@ class CatTriggerResourceUsageTest
             numOfCats = 1L
             userState = SValue.SInt64(numOfCats)
             msg = TriggerMsg.Heartbeat
-            // We first perform some warm up work
-            _ <- Future.sequence {
-              warmUpAcsSizeGen.map { acsSize =>
-                val startState = converter
-                  .fromTriggerUpdateState(
-                    acsGen(party, acsSize),
-                    userState,
-                    parties = TriggerParties(Party(party), Set.empty),
-                    triggerConfig = triggerRunnerConfiguration,
-                  )
-
-                for {
-                  _ <- simulator.updateStateLambda(startState, msg)
-                } yield ()
-              }
-            }
-            // Now we measure our rule evaluation timings
             data <- Future.sequence {
               acsSizeGen.map { acsSize =>
                 val startState = converter
@@ -217,7 +205,7 @@ class CatTriggerResourceUsageTest
                   // Ref: https://docs.scala-lang.org/overviews/collections-2.13/performance-characteristics.html
                   val complexity =
                     if (acsSize == 0L) 0.0
-                    else Math.pow(acsSize.toDouble, 2) * Math.log(acsSize.toDouble)
+                    else acsSize.toDouble
 
                   new Regression.Data(complexity, metrics.evaluation.ruleEvaluation)
                 }
