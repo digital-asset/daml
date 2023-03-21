@@ -37,7 +37,7 @@ trait CantonFixture
   protected def nParticipants: Int
   protected def devMode: Boolean
   protected def timeMode: ScriptTimeMode
-  protected def tslEnable: Boolean
+  protected def tlsEnable: Boolean
 
   private val tmpDir = Files.createTempDirectory("testMultiParticipantFixture")
   private val cantonConfigPath = tmpDir.resolve("participant.config")
@@ -57,7 +57,7 @@ trait CantonFixture
 
   lazy val tlsConfig =
     TlsConfiguration(
-      enabled = tslEnable,
+      enabled = tlsEnable,
       certChainFile = Some(clientCrt.toFile),
       privateKeyFile = Some(clientPem.toFile),
       trustCollectionFile = Some(caCrt.toFile),
@@ -84,7 +84,7 @@ trait CantonFixture
             case ScriptTimeMode.WallClock => (None, None)
           }
           val tslConfig =
-            if (tslEnable)
+            if (tlsEnable)
               s"""tls {
                |          cert-chain-file = ${toJson(serverCrt)}
                |          private-key-file = ${toJson(serverPem)}

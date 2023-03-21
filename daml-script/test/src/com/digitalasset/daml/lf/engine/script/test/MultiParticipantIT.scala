@@ -30,7 +30,7 @@ final class MultiParticipantIT
   protected override val devMode = true
   protected override val nParticipants = 2
   protected override def timeMode = ScriptTimeMode.WallClock
-  protected override def tslEnable = false
+  protected override def tlsEnable = false
 
   "Multi-participant Daml Script" can {
     "multiTest" should {

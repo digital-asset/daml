@@ -33,7 +33,7 @@ abstract class AbstractFuncIT
   protected override val devMode = true
   protected override def darFiles: List[File] = List(stableDarPath, devDarPath)
   protected override val nParticipants = 1
-  protected override def tslEnable = false
+  protected override def tlsEnable = false
 
   def assertSTimestamp(v: SValue) =
     v match {

@@ -40,5 +40,5 @@ final class TlsIT
   override protected def darFiles: List[File] = List(stableDarPath)
   override protected def nParticipants: Int = 1
   override protected def devMode: Boolean = false
-  override protected def tslEnable: Boolean = true
+  override protected def tlsEnable: Boolean = true
 }

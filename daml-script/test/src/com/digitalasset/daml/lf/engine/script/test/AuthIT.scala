@@ -57,5 +57,5 @@ final class AuthIT
   override protected def darFiles: List[File] = List(stableDarPath)
   override protected def nParticipants: Int = 1
   override protected def devMode: Boolean = false
-  override protected def tslEnable: Boolean = false
+  override protected def tlsEnable: Boolean = false
 }
