@@ -4,52 +4,59 @@
 package com.daml.lf.engine.script.test
 
 import java.io.File
-
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
-import com.daml.lf.archive.{Dar, DarDecoder}
-import com.daml.lf.data.ImmArray
-import com.daml.lf.data.Ref.{Identifier, Name, PackageId, QualifiedName}
+import com.daml.lf.PureCompiledPackages
+import com.daml.lf.archive.DarDecoder
+import com.daml.lf.data.{Ref, ImmArray}
 import com.daml.lf.engine.script.ledgerinteraction.{ScriptLedgerClient, ScriptTimeMode}
-import com.daml.lf.engine.script.{Participants, Runner}
-import com.daml.lf.typesig.EnvironmentSignature
-import com.daml.lf.typesig.reader.SignatureReader
-import com.daml.lf.language.Ast.Package
+import com.daml.lf.engine.script.{Runner, Participants}
+import com.daml.lf.language.Ast
 import com.daml.lf.language.StablePackage.DA
-import com.daml.lf.speedy.{ArrayList, SValue}
-import com.daml.lf.speedy.SValue.SRecord
+import com.daml.lf.speedy.{SValue, ArrayList}
+import com.daml.lf.value.Value
 import org.scalatest.Suite
-import scalaz.\/-
-import scalaz.syntax.traverse._
-import spray.json.JsValue
 
 import scala.concurrent.{ExecutionContext, Future}
+
+case class CompiledDar(
+    mainPkg: Ref.PackageId,
+    compiledPackages: PureCompiledPackages,
+)
+
+object AbstractScriptTest {
+  def readDar(file: File): CompiledDar = {
+    val dar = DarDecoder.assertReadArchiveFromFile(file)
+    val pkgs = PureCompiledPackages.assertBuild(dar.all.toMap, Runner.compilerConfig)
+    CompiledDar(dar.main._1, pkgs)
+  }
+
+  def tuple(a: SValue, b: SValue) =
+    SValue.SRecord(
+      id = DA.Types.Tuple2,
+      fields = ImmArray(Ref.Name.assertFromString("_1"), Ref.Name.assertFromString("_2")),
+      values = ArrayList(a, b),
+    )
+}
 
 // Fixture for a set of participants used in Daml Script tests
 trait AbstractScriptTest extends AkkaBeforeAndAfterAll {
   self: Suite =>
   protected def timeMode: ScriptTimeMode
 
-  protected def readDar(file: File): (Dar[(PackageId, Package)], EnvironmentSignature) = {
-    val dar = DarDecoder.assertReadArchiveFromFile(file)
-    val ifaceDar = dar.map(pkg => SignatureReader.readPackageSignature(() => \/-(pkg))._2)
-    val envIface = EnvironmentSignature.fromPackageSignatures(ifaceDar)
-    (dar, envIface)
-  }
-
   protected def run(
       clients: Participants[ScriptLedgerClient],
-      name: QualifiedName,
-      inputValue: Option[JsValue] = None,
-      dar: Dar[(PackageId, Package)],
+      name: Ref.QualifiedName,
+      inputValue: Option[Value] = None,
+      dar: CompiledDar,
   )(implicit ec: ExecutionContext): Future[SValue] = {
-    val scriptId = Identifier(dar.main._1, name)
-    Runner.run(dar, scriptId, inputValue, clients, timeMode)
+    val scriptId = Ref.Identifier(dar.mainPkg, name)
+    def converter(input: Value, typ: Ast.Type) =
+      new com.daml.lf.engine.preprocessing.ValueTranslator(dar.compiledPackages.pkgInterface, false)
+        .translateValue(typ, input)
+        .left
+        .map(_.message)
+    Runner
+      .run(dar.compiledPackages, scriptId, Some(converter(_, _)), inputValue, clients, timeMode)
+      ._2
   }
-
-  def tuple(a: SValue, b: SValue) =
-    SRecord(
-      id = DA.Types.Tuple2,
-      fields = ImmArray(Name.assertFromString("_1"), Name.assertFromString("_2")),
-      values = ArrayList(a, b),
-    )
 }

@@ -3,7 +3,7 @@
 
 -- @SINCE-LF 1.7
 
-module UnserializableScenario where
+module UnserializableScript where
 
 import Daml.Script
 

@@ -248,7 +248,8 @@ da_scala_library(
 
 da_scala_test_suite(
     name = "trigger-simulation-lib-tests",
-    srcs = glob(["src/test/scala/com/digitalasset/daml/lf/engine/trigger/*.scala"]),
+    timeout = "long",
+    srcs = glob(["src/test/scala/com/digitalasset/daml/lf/engine/trigger/*Test.scala"]),
     data = [
         ":acs-1.dev.dar",
         "//test-common/test-certificates",
@@ -269,6 +270,7 @@ da_scala_test_suite(
         "//daml-lf/engine",
         "//daml-lf/interpreter",
         "//daml-lf/language",
+        "//daml-lf/transaction",
         "//daml-script/converter",
         "//language-support/scala/bindings",
         "//language-support/scala/bindings-akka",

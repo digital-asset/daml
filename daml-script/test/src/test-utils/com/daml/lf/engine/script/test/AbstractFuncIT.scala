@@ -5,20 +5,29 @@ package com.daml.lf.engine.script.test
 
 import com.daml.bazeltools.BazelRunfiles.rlocation
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
+import com.daml.lf.data.ImmArray
 import com.daml.lf.data.Ref._
-import com.daml.lf.data.{FrontStack, FrontStackCons, Numeric}
-import com.daml.lf.engine.script.{ScriptF, StackTrace}
+import com.daml.lf.data.{Numeric, FrontStack, FrontStackCons}
+import com.daml.lf.engine.script.{StackTrace, ScriptF}
 import com.daml.lf.engine.script.Runner.InterpretationError
 import com.daml.lf.speedy.SValue
 import com.daml.lf.speedy.SValue._
+import com.daml.lf.value.Value
 import io.grpc.{Status, StatusRuntimeException}
 import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
-import spray.json.{JsNumber, JsObject, JsString}
 
 import java.io.File
 import scala.annotation.nowarn
+
+object AbstractFuncIT {
+  import AbstractScriptTest._
+  val stableDarPath = new File(rlocation("daml-script/test/script-test.dar"))
+  val devDarPath = new File(rlocation("daml-script/test/script-test-1.dev.dar"))
+  val stableDar = readDar(stableDarPath)
+  val devDar = readDar(devDarPath)
+}
 
 @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
 abstract class AbstractFuncIT
@@ -28,14 +37,12 @@ abstract class AbstractFuncIT
     with Inside
     with SuiteResourceManagementAroundAll {
 
-  val stableDarPath = new File(rlocation("daml-script/test/script-test.dar"))
-  val devDarPath = new File(rlocation("daml-script/test/script-test-1.dev.dar"))
-
-  val (stableDar, stableEnvIface) = readDar(stableDarPath)
-  val (devDar, devDarEnvIface) = readDar(devDarPath)
+  protected val stableDar = AbstractFuncIT.stableDar
+  protected val devDar = AbstractFuncIT.devDar
 
   protected override val devMode = true
-  protected override def darFiles: List[File] = List(stableDarPath, devDarPath)
+  protected override def darFiles: List[File] =
+    List(AbstractFuncIT.stableDarPath, AbstractFuncIT.devDarPath)
   protected override val nParticipants = 1
 
   def assertSTimestamp(v: SValue) =
@@ -101,7 +108,15 @@ abstract class AbstractFuncIT
             clients,
             QualifiedName.assertFromString("ScriptTest:test2"),
             dar = stableDar,
-            inputValue = Some(JsObject(("p", JsString("Alice")), ("v", JsNumber(42)))),
+            inputValue = Some(
+              Value.ValueRecord(
+                None,
+                ImmArray(
+                  None -> Value.ValueParty(Party.assertFromString("Alice")),
+                  None -> Value.ValueInt64(42),
+                ),
+              )
+            ),
           )
         } yield {
           assert(v == SInt64(42))
@@ -233,7 +248,11 @@ abstract class AbstractFuncIT
       "not stackoverflow" in {
         for {
           clients <- participantClients()
-          v <- run(clients, QualifiedName.assertFromString("ScriptTest:testStack"), dar = stableDar)
+          v <- run(
+            clients,
+            QualifiedName.assertFromString("ScriptTest:testStack"),
+            dar = stableDar,
+          )
         } yield {
           assert(v == SUnit)
         }
@@ -515,7 +534,7 @@ abstract class AbstractFuncIT
       } yield {
         val m = ModuleName.assertFromString("ScriptTest")
         def loc(d: String, start: (Int, Int), end: (Int, Int)) = Location(
-          stableDar.main._1,
+          stableDar.mainPkg,
           m,
           d,
           start,

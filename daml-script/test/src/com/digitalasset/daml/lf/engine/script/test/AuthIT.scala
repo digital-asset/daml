@@ -4,15 +4,15 @@
 package com.daml.lf.engine.script.test
 
 import java.io.File
-
 import com.daml.bazeltools.BazelRunfiles._
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
+import com.daml.lf.data.ImmArray
 import com.daml.lf.data.Ref._
 import com.daml.lf.engine.script.ledgerinteraction.GrpcLedgerClient
+import com.daml.lf.value.Value
 import com.daml.lf.speedy.SValue._
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
-import spray.json.{JsObject, JsString}
 
 import scala.concurrent.Future
 
@@ -22,7 +22,8 @@ final class AuthIT
     with Matchers
     with SuiteResourceManagementAroundAll {
   override def darFile = new File(rlocation("daml-script/test/script-test.dar"))
-  val (dar, envIface) = readDar(darFile)
+
+  val dar = AbstractScriptTest.readDar(darFile)
   val parties = List("Alice", "Bob")
 
   "Daml Script against authorized ledger" can {
@@ -41,8 +42,15 @@ final class AuthIT
           r <- run(
             clients,
             QualifiedName.assertFromString("ScriptTest:auth"),
-            inputValue =
-              Some(JsObject(("_1", JsString(parties.head)), ("_2", JsString(parties.tail.head)))),
+            inputValue = Some(
+              Value.ValueRecord(
+                None,
+                ImmArray(
+                  None -> Value.ValueParty(Party.assertFromString(parties.head)),
+                  None -> Value.ValueParty(Party.assertFromString(parties.tail.head)),
+                ),
+              )
+            ),
             dar = dar,
           )
         } yield assert(
