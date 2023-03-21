@@ -226,16 +226,12 @@ class DomainJsonDecoder(
       import scalaz.std.list._
       either(meta.disclosedContracts traverse (_ traverse { dc =>
         val tpid = tpidToResolved(dc.templateId)
-        import domain.DisclosedContract.Arguments.{Blob, Record}
-        val arguments = dc.arguments match {
-          case a @ Blob(_) => \/.right(a)
-          case Record(jsrec) =>
-            for {
-              ty <- resolveTemplateRecordType(tpid) liftErr JsonError
-              lfrec <- jsValueToLfValue(ty, jsrec)
-            } yield Record(lfrec)
-        }
-        arguments.map(args => dc.copy(templateId = tpid, arguments = args))
+        dc.bitraverse(
+          _ => \/.right(tpid),
+          jsrec =>
+            resolveTemplateRecordType(tpid) liftErr JsonError
+              flatMap (jsValueToLfValue(_, jsrec)),
+        )
       }))
     }
   } yield meta.copy(disclosedContracts = disclosedContracts)
