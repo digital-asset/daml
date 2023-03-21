@@ -39,14 +39,11 @@ The quickest way to build and test is:
 
 1. `cd $GHC_REPO`
 
-2. Enter the dev environment defined in `.envrc` using `direnv allow`. For help installing direnv, see [direnv](https://direnv.net). This should only be necessary the first time.
+2. `direnv allow`, to enter the dev environment defined in `.envrc`. For help installing direnv, see [direnv](https://direnv.net). This should only be necessary the first time.
 
-3. `hadrian/build.sh --configure --flavour=quickest -j`
+3. `hadrian/build.sh --configure --flavour=quickest -j`. This will give immediate feedback on build failures, but it takes about 2-3 minutes when successful.
 
-4. `./_build/stage1/bin/ghc ./Example.hs -ddump-parsed | tee desugar.out`
-
-Step 3 gives immediate feedback on build failures, but takes about 2-3 minutes when successful. For Step 4 you need a Daml example file. The input file must end in `.hs` suffix. It must begin with the pragma: `{-# LANGUAGE DamlSyntax #-}`.
-
+4. `./_build/stage1/bin/ghc <EXAMPLE_FILE> -ddump-parsed | tee desugar.out`. `<EXAMPLE_FILE>` must be a file with extension `.hs`, which must begin with the pragma `{-# LANGUAGE DamlSyntax #-}`. A typical starting point is [`$GHC_REPO/Example.hs`](https://github.com/digital-asset/ghc/blob/da-master-8.8.1/Example.hs).
 
 ### Interactive development workflow
 
