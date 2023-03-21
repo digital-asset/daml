@@ -95,7 +95,7 @@ object JsonProtocol extends JsonProtocolLow {
     } { b64 => getUrlEncoder encodeToString b64.toByteArray }
   }
 
-  implicit val PbAnyFormat: JsonFormat[domain.PbAny] = jsonFormat2(domain.PbAny.apply)
+  implicit val PbAnyFormat: JsonFormat[domain.PbAny] = jsonFormat2(domain.PbAny)
 
   implicit val userDetails: JsonFormat[domain.UserDetails] =
     jsonFormat2(domain.UserDetails.apply)

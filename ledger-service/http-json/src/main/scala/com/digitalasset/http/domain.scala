@@ -267,10 +267,6 @@ package domain {
     def toLedgerApi: any.Any = any.Any(typeUrl, Base64 unwrap value)
   }
 
-  object PbAny {
-    val discriminator: String = "typeUrl"
-  }
-
   final case class DisclosedContract[+TmplId, +LfV](
       contractId: ContractId,
       templateId: TmplId,

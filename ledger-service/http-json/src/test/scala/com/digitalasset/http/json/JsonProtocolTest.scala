@@ -367,7 +367,7 @@ object JsonProtocolTest {
     Arbitrary(contractIdGen)
 
   private[this] implicit val arbPbAny: Arbitrary[domain.PbAny] =
-    arbArg((domain.PbAny.apply _).tupled)
+    arbArg(domain.PbAny.tupled)
 
   private[http] implicit def arbDisclosedCt[TpId: Arbitrary, LfV: Arbitrary]
       : Arbitrary[domain.DisclosedContract[TpId, LfV]] = {
