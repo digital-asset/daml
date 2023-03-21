@@ -19,10 +19,11 @@ import com.daml.http.Generators.{
 }
 import com.daml.scalautil.Statement.discard
 import com.daml.http.domain
-import com.daml.lf.data.{Ref, Time}
+import com.daml.lf.data.{ImmArray, Ref, Time}
 import org.scalacheck.Arbitrary, Arbitrary.arbitrary
 import org.scalacheck.Gen, Gen.{identifier, listOf}
 import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
+import org.scalatest.prop.TableDrivenPropertyChecks.{forAll => tForAll, Table}
 import org.scalatest.{Inside, Succeeded}
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
@@ -275,35 +276,66 @@ class JsonProtocolTest
       )
     }
 
-    "decodes a hand-written sample" in {
+    "decodes a hand-written sample" in tForAll(
+      Table(
+        ("argumentsDecoded", "argumentsJsonField"),
+        (
+          DisclosedContract.Arguments.Record("""{"owner":"Alice"}""".parseJson),
+          """"payload": {"owner": "Alice"}""",
+        ),
+        (
+          DisclosedContract.Arguments.Blob {
+            import com.google.protobuf.any.Any.pack, com.daml.lf.value.Value,
+            com.daml.platform.participant.util.LfEngineToApi.lfValueToApiRecord
+            inside(
+              lfValueToApiRecord(
+                true,
+                Value.ValueRecord(
+                  None,
+                  ImmArray(
+                    Some(Ref.Name assertFromString "owner") ->
+                      Value.ValueParty(Ref.Party assertFromString "Bob")
+                  ),
+                ),
+              )
+            ) { case Right(apiRecord) =>
+              val pbAny = pack(apiRecord)
+              domain.PbAny(pbAny.typeUrl, domain.Base64(pbAny.value))
+            }
+          },
+          """"payloadBlob": {
+            "typeUrl": "type.googleapis.com/com.daml.ledger.api.v1.Record",
+            "value": "Eg4KBW93bmVyEgVaA0JvYg=="
+          }""",
+        ),
+      )
+    ) { (argumentsDecoded, argumentsJsonField) =>
       import com.google.protobuf.ByteString
       val utf8 = java.nio.charset.Charset forName "UTF-8"
       val expected = DisclosedContract(
         domain.ContractId("abcd"),
-        domain.ContractTypeId.Template(None, "Mod", "Tmpl"),
-        DisclosedContract.Arguments.Record("""{"owner":"Alice"}""".parseJson),
+        domain.ContractTypeId.Template(Option.empty[String], "Mod", "Tmpl"),
+        argumentsDecoded,
         DisclosedContract.Metadata(
           Time.Timestamp.assertFromString("2023-03-21T18:00:33.246813Z"),
           Some(domain.Base64(ByteString.copyFrom("well hello", utf8))),
           Some(domain.Base64(ByteString.copyFrom("there reader", utf8))),
         ),
       )
-      val encoded = """{
+      val encoded = s"""{
         "contractId": "abcd",
         "templateId": "Mod:Tmpl",
-        "payload": {
-          "owner": "Alice"
-        },
+        $argumentsJsonField,
         "metadata": {
           "createdAt": "2023-03-21T18:00:33.246813Z",
           "contractKeyHash": "d2VsbCBoZWxsbw==",
           "driverMetadata": "dGhlcmUgcmVhZGVy"
         }
       }""".parseJson
+      val _ = expected.toJson should ===(encoded)
       val decoded =
         encoded.convertTo[DisclosedContract[domain.ContractTypeId.Template.OptionalPkg, JsValue]]
-      val _ = decoded should ===(expected)
-      decoded.toJson should ===(encoded)
+      decoded should ===(expected)
     }
   }
 }
