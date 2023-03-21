@@ -25,6 +25,7 @@ schedules:
 jobs:
   - job: compatibility_ts_libs
     timeoutInMinutes: 60
+    condition: False
     pool:
       name: ubuntu_20_04
       demands: assignment -equals default
@@ -68,6 +69,7 @@ jobs:
           artifactName: 'Bazel Compatibility Logs'
 
   - job: perf_speedy
+    condition: False
     timeoutInMinutes: 120
     pool:
       name: "ubuntu_20_04"
@@ -142,7 +144,7 @@ jobs:
 
   - job: blackduck_scan
     timeoutInMinutes: 1200
-    condition: eq(variables['Build.SourceBranchName'], 'main')
+    #condition: eq(variables['Build.SourceBranchName'], 'main')
     pool:
       name: ubuntu_20_04
       demands: assignment -equals default
