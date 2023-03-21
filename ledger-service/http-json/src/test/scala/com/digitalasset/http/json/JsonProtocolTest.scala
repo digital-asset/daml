@@ -256,6 +256,14 @@ class JsonProtocolTest
     }
   }
 
+  "domain.CommandMeta" - {
+    "is entirely optional" in {
+      "{}".parseJson.convertTo[domain.CommandMeta[JsValue, JsValue]] should ===(
+        domain.CommandMeta(None, None, None, None, None, None)
+      )
+    }
+  }
+
   "domain.DisclosedContract" - {
     import domain.DisclosedContract
     type DC = DisclosedContract[Int, Int]
