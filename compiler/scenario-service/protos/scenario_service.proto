@@ -120,8 +120,18 @@ message UpdateContextResponse {
 
 
 message RunScenarioRequest {
+  oneof sum {
+    RunScenarioStart start = 1;
+    RunScenarioCancel cancel = 2;
+  }
+}
+
+message RunScenarioStart {
   int64 context_id = 1;
   Identifier scenario_id = 2;
+}
+
+message RunScenarioCancel {
 }
 
 //

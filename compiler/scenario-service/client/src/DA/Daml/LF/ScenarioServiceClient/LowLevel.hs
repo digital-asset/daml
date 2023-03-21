@@ -351,7 +351,8 @@ runScenario Handle{..} (ContextId ctxId) name = do
     performRequest
       (SS.scenarioServiceRunScenario hClient)
       (optGrpcTimeout hOptions)
-      (SS.RunScenarioRequest ctxId (Just (toIdentifier name)))
+      (SS.RunScenarioRequest $ Just $ SS.RunScenarioRequestSumStart $
+        SS.RunScenarioStart ctxId (Just (toIdentifier name)))
   pure $ case res of
     Left err -> Left (BackendError err)
     Right (SS.RunScenarioResponse (Just (SS.RunScenarioResponseResponseError err))) -> Left (ScenarioError err)
@@ -378,7 +379,8 @@ runScript Handle{..} (ContextId ctxId) name = do
     performRequest
       (SS.scenarioServiceRunScript hClient)
       (optGrpcTimeout hOptions)
-      (SS.RunScenarioRequest ctxId (Just (toIdentifier name)))
+      (SS.RunScenarioRequest $ Just $ SS.RunScenarioRequestSumStart $
+        SS.RunScenarioStart ctxId (Just (toIdentifier name)))
   pure $ case res of
     Left err -> Left (BackendError err)
     Right (SS.RunScenarioResponse (Just (SS.RunScenarioResponseResponseError err))) -> Left (ScenarioError err)
@@ -403,7 +405,9 @@ runBiDiLive
   -> Handle -> ContextId -> LF.ValueRef -> (SS.ScenarioStatus -> IO ())
   -> IO (Either Error SS.ScenarioResult)
 runBiDiLive runner Handle{..} (ContextId ctxId) name statusUpdateHandler = do
-  let req = SS.RunScenarioRequest ctxId (Just (toIdentifier name))
+  let req =
+        SS.RunScenarioRequest $ Just $ SS.RunScenarioRequestSumStart $
+          SS.RunScenarioStart ctxId (Just (toIdentifier name))
   ior <- newIORef (Left (ExceptionError (error "runLiveScenario scenario")))
   response <-
     runner hClient $
@@ -450,7 +454,9 @@ runLive
   -> Handle -> ContextId -> LF.ValueRef -> (SS.ScenarioStatus -> IO ())
   -> IO (Either Error SS.ScenarioResult)
 runLive runner Handle{..} (ContextId ctxId) name statusUpdateHandler = do
-  let req = SS.RunScenarioRequest ctxId (Just (toIdentifier name))
+  let req =
+        SS.RunScenarioRequest $ Just $ SS.RunScenarioRequestSumStart $
+          SS.RunScenarioStart ctxId (Just (toIdentifier name))
   ior <- newIORef (Left (ExceptionError (error "runLiveScenario scenario")))
   response <-
     runner hClient $

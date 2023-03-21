@@ -164,6 +164,7 @@ class Context(
   def interpretScript(
       pkgId: String,
       name: String,
+      canceled: () => Boolean = () => false,
   )(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
@@ -179,6 +180,7 @@ class Context(
     val isOverdue = timeBomb.hasExploded
     val ledgerClient = new IdeLedgerClient(compiledPackages, traceLog, warningLog, isOverdue)
     val participants = Participants(Some(ledgerClient), Map.empty, Map.empty)
+    val timeBombCanceller = timeBomb.start()
     val (clientMachine, resultF) = Runner.run(
       compiledPackages = compiledPackages,
       scriptId = scriptId,
@@ -188,7 +190,7 @@ class Context(
       timeMode = ScriptTimeMode.Static,
       traceLog = traceLog,
       warningLog = warningLog,
-      canceled = timeBomb.start(),
+      canceled = () => { timeBombCanceller() || canceled() },
     )
 
     def handleFailure(e: Error) =
