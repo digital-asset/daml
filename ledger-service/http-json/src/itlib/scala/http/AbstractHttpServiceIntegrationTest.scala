@@ -12,7 +12,7 @@ import com.daml.http.domain.ContractId
 import com.daml.http.endpoints.MeteringReportEndpoint.MeteringReportDateRequest
 import com.daml.http.json.SprayJson.objectField
 import com.daml.http.json._
-import com.daml.http.util.ClientUtil.{boxedRecord, uniqueId}
+import com.daml.http.util.ClientUtil.{boxedRecord, uniqueCommandId, uniqueId}
 import com.daml.jwt.domain.Jwt
 import com.daml.ledger.api.refinements.{ApiTypes => lar}
 import com.daml.ledger.api.v1.{value => v}
@@ -774,22 +774,50 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
     }
 
     "passes along disclosed contracts" - {
+      import util.IdentifierConverters.{lfIdentifier, refApiIdentifier}
+      // we assume Disclosed is in the main dalf
+      lazy val inferredPkgId = {
+        import com.daml.lf.{archive, typesig}
+        val dar =
+          archive.UniversalArchiveReader.assertReadFile(AbstractHttpServiceIntegrationTestFuns.dar2)
+        typesig.PackageSignature.read(dar.main)._2.packageId
+      }
+
+      def inDar2Main(
+          tid: domain.ContractTypeId.Template.OptionalPkg
+      ): domain.ContractTypeId.Template.RequiredPkg =
+        tid.copy(packageId = inferredPkgId)
+
+      lazy val ToDisclose = inDar2Main(TpId.Disclosure.ToDisclose)
+
+      lazy val (_, toDiscloseVA) =
+        VA.record(lfIdentifier(ToDisclose), ShRecord(owner = VAx.partyDomain, junk = VA.text))
+
       "using decoded payload" in withHttpService { fixture =>
         import fixture.client
         import com.daml.ledger.api.{v1 => lav1}
         import lav1.command_service.SubmitAndWaitRequest
-        import lav1.commands.Commands
+        import lav1.commands.{Commands, Command}
         for {
           (alice, jwt, aliceHeaders) <- fixture.getUniquePartyTokenAndAuthHeaders("Alice")
           // we're using the ledger API for the initial create because timestamp
           // is required in the metadata
+          createCommand = util.Commands.create(
+            refApiIdentifier(ToDisclose),
+            argToApi(toDiscloseVA)(ShRecord(owner = alice, junk = s"some test junk ${uniqueId()}")),
+          )
           initialCreate = SubmitAndWaitRequest(
-            Some(Commands(commandId = util.ClientUtil.uniqueCommandId().unwrap))
+            Some(
+              Commands(commandId = uniqueCommandId().unwrap, commands = Seq(Command(createCommand)))
+            )
           )
-          _ <- client.commandServiceClient.submitAndWaitForTransaction(
-            initialCreate,
-            Some(jwt.value),
-          )
+          createResp <- client.commandServiceClient
+            .submitAndWaitForTransaction(initialCreate, Some(jwt.value))
+          createTimestamp = inside(createResp.transaction) { case Some(tx) =>
+            inside(tx.effectiveAt) { case Some(eff) =>
+              eff
+            }
+          }
         } yield succeed
       }
     }
