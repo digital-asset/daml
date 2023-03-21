@@ -772,6 +772,27 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
         }): Future[Assertion]
       }
     }
+
+    "passes along disclosed contracts" - {
+      "using decoded payload" in withHttpService { fixture =>
+        import fixture.client
+        import com.daml.ledger.api.{v1 => lav1}
+        import lav1.command_service.SubmitAndWaitRequest
+        import lav1.commands.Commands
+        for {
+          (alice, jwt, aliceHeaders) <- fixture.getUniquePartyTokenAndAuthHeaders("Alice")
+          // we're using the ledger API for the initial create because timestamp
+          // is required in the metadata
+          initialCreate = SubmitAndWaitRequest(
+            Some(Commands(commandId = util.ClientUtil.uniqueCommandId().unwrap))
+          )
+          _ <- client.commandServiceClient.submitAndWaitForTransaction(
+            initialCreate,
+            Some(jwt.value),
+          )
+        } yield succeed
+      }
+    }
   }
 
   private def assertExerciseResponseNewActiveContract(

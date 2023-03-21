@@ -224,7 +224,7 @@ trait AbstractHttpServiceIntegrationTestFuns
 
     def getUniquePartyTokenAndAuthHeaders(
         name: String
-    ): Future[(domain.Party, Any, List[HttpHeader])] = {
+    ): Future[(domain.Party, Jwt, List[HttpHeader])] = {
       val party = getUniqueParty(name)
       for {
         jwt <- jwtForParties(uri)(List(party), List.empty, "", false, false)
