@@ -18,7 +18,7 @@ import scalaz.syntax.show._
 import scalaz.syntax.applicative.{ToFunctorOps => _, _}
 import scalaz.syntax.std.option._
 import scalaz.syntax.traverse._
-import scalaz.{-\/, \/, EitherT, Traverse}
+import scalaz.{-\/, \/, Bifoldable, EitherT, Traverse}
 import scalaz.EitherT.eitherT
 import spray.json.{JsValue, JsonReader}
 
@@ -142,18 +142,21 @@ class DomainJsonDecoder(
         jwt,
         ledgerId,
       )
-      (oIfaceId, lfType) = ifIdlfType
+      (oIfaceId, argLfType) = ifIdlfType
       // treat an inferred iface ID as a user-specified one
       choiceIfaceOverride <-
         if (oIfaceId.isDefined)
           (oIfaceId: Option[domain.ContractTypeId.Interface.RequiredPkg]).pure[ET]
         else cmd0.choiceInterfaceId.traverse(templateId_(_, jwt, ledgerId))
 
+      lfArgument <- either(jsValueToLfValue(argLfType, cmd0.argument))
+      lfMeta <- cmd0.meta traverse (decodeMeta(_, jwt, ledgerId))
+
       cmd1 <-
         cmd0
-          .copy(choiceInterfaceId = choiceIfaceOverride)
+          .copy(argument = lfArgument, choiceInterfaceId = choiceIfaceOverride, meta = lfMeta)
           .bitraverse(
-            arg => either(jsValueToLfValue(lfType, arg)),
+            _.point[ET],
             ref => decodeContractLocatorKey(ref, jwt, ledgerId),
           ): ET[domain.ExerciseCommand.RequiredPkg[domain.LfValue, domain.ContractLocator[
           domain.LfValue
@@ -203,6 +206,39 @@ class DomainJsonDecoder(
       choiceInterfaceId = oIfaceId orElse fjj.choiceInterfaceId,
     )
   }
+
+  private[this] def decodeMeta(
+      meta: domain.CommandMeta[ContractTypeId.Template.OptionalPkg, JsValue],
+      jwt: Jwt,
+      ledgerId: LedgerApiDomain.LedgerId,
+  )(implicit
+      ec: ExecutionContext,
+      lc: LoggingContextOf[InstanceUUID],
+  ): ET[domain.CommandMeta[ContractTypeId.Template.Resolved, domain.LfValue]] = for {
+    tpidToResolved <- {
+      import scalaz.std.vector._
+      val inputTpids = Bifoldable[domain.CommandMeta].leftFoldable[Any].toSet(meta)
+      inputTpids.toVector
+        .traverse { ot => templateId_(ot, jwt, ledgerId) strengthL ot }
+        .map(_.toMap)
+    }
+    disclosedContracts <- {
+      import scalaz.std.list._
+      either(meta.disclosedContracts traverse (_ traverse { dc =>
+        val tpid = tpidToResolved(dc.templateId)
+        import domain.DisclosedContract.Arguments.{Blob, Record}
+        val arguments = dc.arguments match {
+          case a @ Blob(_) => \/.right(a)
+          case Record(jsrec) =>
+            for {
+              ty <- resolveTemplateRecordType(tpid) liftErr JsonError
+              lfrec <- jsValueToLfValue(ty, jsrec)
+            } yield Record(lfrec)
+        }
+        arguments.map(args => dc.copy(templateId = tpid, arguments = args))
+      }))
+    }
+  } yield meta.copy(disclosedContracts = disclosedContracts)
 
   private def templateId_[U, R](
       id: U with domain.ContractTypeId.OptionalPkg,
