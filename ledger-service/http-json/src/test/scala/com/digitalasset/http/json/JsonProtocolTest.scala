@@ -274,6 +274,37 @@ class JsonProtocolTest
         blobLookingRecord
       )
     }
+
+    "decodes a hand-written sample" in {
+      import com.google.protobuf.ByteString
+      val utf8 = java.nio.charset.Charset forName "UTF-8"
+      val expected = DisclosedContract(
+        domain.ContractId("abcd"),
+        domain.ContractTypeId.Template(None, "Mod", "Tmpl"),
+        DisclosedContract.Arguments.Record("""{"owner":"Alice"}""".parseJson),
+        DisclosedContract.Metadata(
+          Time.Timestamp.assertFromString("2023-03-21T18:00:33.246813Z"),
+          Some(domain.Base64(ByteString.copyFrom("well hello", utf8))),
+          Some(domain.Base64(ByteString.copyFrom("there reader", utf8))),
+        ),
+      )
+      val encoded = """{
+        "contractId": "abcd",
+        "templateId": "Mod:Tmpl",
+        "payload": {
+          "owner": "Alice"
+        },
+        "metadata": {
+          "createdAt": "2023-03-21T18:00:33.246813Z",
+          "contractKeyHash": "d2VsbCBoZWxsbw==",
+          "driverMetadata": "dGhlcmUgcmVhZGVy"
+        }
+      }""".parseJson
+      val decoded =
+        encoded.convertTo[DisclosedContract[domain.ContractTypeId.Template.OptionalPkg, JsValue]]
+      val _ = decoded should ===(expected)
+      decoded.toJson should ===(encoded)
+    }
   }
 }
 
