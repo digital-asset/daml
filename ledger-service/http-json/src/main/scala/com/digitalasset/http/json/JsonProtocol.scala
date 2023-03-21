@@ -659,12 +659,7 @@ object JsonProtocol extends JsonProtocolLow {
   // xmap with an error case for StringJsonFormat
   private[http] def xemapStringJsonFormat[A](readFn: String => Either[String, A])(
       writeFn: A => String
-  ): RootJsonFormat[A] = new RootJsonFormat[A] {
-    private[this] val base = implicitly[JsonFormat[String]]
-    override def write(obj: A): JsValue = base.write(writeFn(obj))
-    override def read(json: JsValue): A =
-      readFn(base.read(json)).fold(deserializationError(_), identity)
-  }
+  ): RootJsonFormat[A] = new XemappedJsonFormat(readFn)(writeFn)
 
   private[this] def fanoutJsonFormat[A: JsonFormat, B: JsonFormat, C](
       readCombine: (A, B) => C
@@ -683,6 +678,17 @@ object JsonProtocol extends JsonProtocolLow {
       override def read(json: JsValue): C =
         readCombine(json.convertTo[A], json.convertTo[B])
     }
+
+  // xmap with an error case
+  private[this] final class XemappedJsonFormat[U, A](readFn: U => Either[String, A])(
+      writeFn: A => U
+  )(implicit base: JsonFormat[U])
+      extends RootJsonFormat[A] {
+    override def write(obj: A): JsValue = base.write(writeFn(obj))
+
+    override def read(json: JsValue): A =
+      readFn(base.read(json)).fold(deserializationError(_), identity)
+  }
 
   private final class JsonFormatFromFuns[A](read0: JsValue => A)(write0: A => JsValue)
       extends JsonFormat[A] {
