@@ -107,7 +107,7 @@ withScenarioService'' optEnableScenarios ver loggerH scenarioConfig f = do
              hConcurrencySem <- liftIO $ newQSemN (optMaxConcurrency hOptions)
              hContextLock <- liftIO newLock
              hContextId <- liftIO $ newIORef rootCtxId
-             hRunningHandlers <- liftIO newEmptyMVar
+             hRunningHandlers <- liftIO $ newMVar MS.empty
              f Handle {..} `finally`
                  -- Wait for gRPC requests to exit, otherwise gRPC gets very unhappy.
                  liftIO (waitQSemN hConcurrencySem $ optMaxConcurrency hOptions)
