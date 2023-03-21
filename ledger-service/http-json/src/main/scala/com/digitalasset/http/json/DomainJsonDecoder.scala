@@ -215,6 +215,7 @@ class DomainJsonDecoder(
       ec: ExecutionContext,
       lc: LoggingContextOf[InstanceUUID],
   ): ET[domain.CommandMeta[ContractTypeId.Template.Resolved, domain.LfValue]] = for {
+    // resolve as few template IDs as possible
     tpidToResolved <- {
       import scalaz.std.vector._
       val inputTpids = Bifoldable[domain.CommandMeta].leftFoldable[Any].toSet(meta)
@@ -222,9 +223,10 @@ class DomainJsonDecoder(
         .traverse { ot => templateId_(ot, jwt, ledgerId) strengthL ot }
         .map(_.toMap)
     }
-    disclosedContracts <- {
+    // then use all the resolved template IDs for the disclosed contracts
+    disclosedContracts <- either {
       import scalaz.std.list._
-      either(meta.disclosedContracts traverse (_ traverse { dc =>
+      meta.disclosedContracts traverse (_ traverse { dc =>
         val tpid = tpidToResolved(dc.templateId)
         dc.bitraverse(
           _ => \/.right(tpid),
@@ -232,7 +234,7 @@ class DomainJsonDecoder(
             resolveTemplateRecordType(tpid) liftErr JsonError
               flatMap (jsValueToLfValue(_, jsrec)),
         )
-      }))
+      })
     }
   } yield meta.copy(disclosedContracts = disclosedContracts)
 
