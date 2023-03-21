@@ -14,6 +14,7 @@ import org.scalatest.wordspec.AsyncWordSpec
 
 import java.io.File
 import scala.concurrent.Future
+import scala.util.{Failure, Success}
 
 final class AuthIT
     extends AsyncWordSpec
@@ -22,6 +23,8 @@ final class AuthIT
     with SuiteResourceManagementAroundAll {
   import AbstractScriptTest._
 
+  // TODO: https://github.com/digital-asset/daml/issues/16539
+  //  The test is broken, the commented `transform` called in the for construct
   "Daml Script against authorized ledger" can {
     "auth" should {
       "create and accept Proposal" in {
@@ -31,19 +34,30 @@ final class AuthIT
           parties <- Future.sequence(
             List.fill(2)(grpcClient.allocateParty("", ""))
           )
+          value = Some(
+            Value.ValueRecord(
+              None,
+              ImmArray(
+                None -> Value.ValueParty(Party.assertFromString(parties.head)),
+                None -> Value.ValueParty(Party.assertFromString(parties.tail.head)),
+              ),
+            )
+          )
+          _ <- run(
+            nonAuthenticatedClients,
+            QualifiedName.assertFromString("ScriptTest:auth"),
+            inputValue = value,
+            dar = stableDar,
+          )
+          //  .transform {
+          //    case Failure(_) => Success(())
+          //    case Success(_) => Failure(new Exception("unexpected success"))
+          //  }
           authenticatedClients <- participantClients(Some(parties))
           r <- run(
             authenticatedClients,
             QualifiedName.assertFromString("ScriptTest:auth"),
-            inputValue = Some(
-              Value.ValueRecord(
-                None,
-                ImmArray(
-                  None -> Value.ValueParty(Party.assertFromString(parties.head)),
-                  None -> Value.ValueParty(Party.assertFromString(parties.tail.head)),
-                ),
-              )
-            ),
+            inputValue = value,
             dar = stableDar,
           )
         } yield assert(
