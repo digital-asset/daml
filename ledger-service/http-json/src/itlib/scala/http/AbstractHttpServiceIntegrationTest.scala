@@ -807,6 +807,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
 
       "using decoded payload" in withHttpService { fixture =>
         import fixture.{client, encoder}
+        import domain.{DisclosedContract => DC}
         import com.daml.ledger.api.{v1 => lav1}
         import lav1.command_service.SubmitAndWaitRequest
         import lav1.commands.{Commands, Command}
@@ -815,9 +816,8 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
           (alice, jwt, _) <- fixture.getUniquePartyTokenAndAuthHeaders("Alice")
           // we're using the ledger API for the initial create because timestamp
           // is required in the metadata
-          toDisclosePayload = argToApi(toDiscloseVA)(
-            ShRecord(owner = alice, junk = s"some test junk ${uniqueId()}")
-          )
+          junkMessage = s"some test junk ${uniqueId()}"
+          toDisclosePayload = argToApi(toDiscloseVA)(ShRecord(owner = alice, junk = junkMessage))
           createCommand = util.Commands.create(
             refApiIdentifier(ToDisclose),
             toDisclosePayload,
@@ -834,15 +834,15 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
           )
           createResp <- client.commandServiceClient
             .submitAndWaitForTransaction(initialCreate, Some(jwt.value))
-          (toDiscloseCid, createTimestamp) = inside(createResp.transaction) { case Some(tx) =>
-            val cid = inside(tx.events) {
-              case Seq(lav1.event.Event(lav1.event.Event.Event.Created(ce))) =>
-                domain.ContractId(ce.contractId)
+          (toDiscloseCid, ctMetadata) = inside(createResp.transaction) { case Some(tx) =>
+            inside(tx.events) { case Seq(lav1.event.Event(lav1.event.Event.Event.Created(ce))) =>
+              (
+                domain.ContractId(ce.contractId),
+                inside(ce.metadata map DC.Metadata.fromLedgerApi) { case Some(\/-(metadata)) =>
+                  metadata
+                },
+              )
             }
-            val eff = inside(tx.effectiveAt) { case Some(eff) =>
-              TimestampConversion.toLf(eff, TimestampConversion.ConversionMode.Exact)
-            }
-            (cid, eff)
           }
 
           // next, onboard bob to try to interact with the disclosed contract
@@ -877,6 +877,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
                 )
                 .parseResponse[domain.ExerciseResponse[JsValue]]
           }
+
           // ensure that bob can't interact with alice's contract unless it's disclosed
           _ <- checkVisibility(None)
             .map(inside(_) {
@@ -889,16 +890,15 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
                 lapiCode should ===(com.google.rpc.Code.NOT_FOUND_VALUE)
                 errorMessage should include(toDiscloseCid.unwrap)
             })
+
           // ensure that the above works when we disclose the contract
-          disclosureEnvelope = {
-            import domain.{DisclosedContract => DC}
+          disclosureEnvelope =
             DC(
               toDiscloseCid,
               TpId.Disclosure.ToDisclose,
               DC.Arguments.Record(boxedRecord(toDisclosePayload)),
-              DC.Metadata(createdAt = createTimestamp, None, None),
+              ctMetadata,
             )
-          }
           _ <- checkVisibility(
             Some(
               domain.CommandMeta(
@@ -910,7 +910,10 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
                 disclosedContracts = Some(List(disclosureEnvelope)),
               )
             )
-          ).map(inside(_) { case domain.OkResponse(_, _, _) if false => })
+          ).map(inside(_) {
+            case domain.OkResponse(domain.ExerciseResponse(JsString(exResp), _, _), _, _) =>
+              exResp should ===(s"'$bob' can see from '$alice': $junkMessage")
+          })
         } yield succeed
       }
     }

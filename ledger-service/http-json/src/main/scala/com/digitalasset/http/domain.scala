@@ -329,6 +329,24 @@ package domain {
         )
     }
 
+    object Metadata extends ((Time.Timestamp, Option[Base64], Option[Base64]) => Metadata) {
+      // meant only for testing
+      private[http] def fromLedgerApi(
+          la: lav1.contract_metadata.ContractMetadata
+      ): Error \/ Metadata = {
+        import com.daml.api.util.{TimestampConversion => TSC}
+        def boxIfNE(bs: ByteString) = if (bs.isEmpty) None else Some(Base64(bs))
+        for {
+          createdAt <- (la.createdAt toRightDisjunction
+            Error(Symbol("Metadata.fromLedgerApi"), "missing createdAt field"))
+        } yield Metadata(
+          TSC.toLf(createdAt, TSC.ConversionMode.Exact),
+          boxIfNE(la.contractKeyHash),
+          boxIfNE(la.driverMetadata),
+        )
+      }
+    }
+
     implicit val covariant: Bitraverse[DisclosedContract] =
       new Bitraverse[DisclosedContract] {
         override def bitraverseImpl[G[_]: Applicative, A, B, C, D](
