@@ -80,6 +80,37 @@ private[http] final class UserManagement(
     } yield emptyObjectResponse
   }
 
+  def updateUser(
+      jwt: Jwt,
+      updateUserRequest: domain.UpdateUserRequest,
+  ): ET[domain.SyncResponse[spray.json.JsObject]] = {
+    import scalaz.std.option._
+    import scalaz.syntax.traverse._
+    import scalaz.syntax.std.either._
+    import com.daml.lf.data.Ref
+    val input =
+      for {
+        id <- UserId.fromString(updateUserRequest.user.id).disjunction
+        primaryParty <- updateUserRequest.user.primaryParty.traverse(it =>
+          Ref.Party.fromString(it).disjunction
+        )
+      } yield (id, primaryParty, updateUserRequest.user)
+    for {
+      info <- EitherT.either(input.leftMap(InvalidUserInput)): ET[
+        (UserId, Option[Ref.Party], User)
+      ]
+      (id, primaryParty, user) = info
+      _ <- EitherT.rightT(
+        userManagementClient.updateUser(
+          User(id, primaryParty, user.isDeactivated, user.metadata, user.identityProviderId),
+          Some(jwt.value),
+          Some(updateUserRequest.updateMask),
+        )
+      )
+      // TODO BH: return proper update user object
+    } yield emptyObjectResponse
+  }
+
   def listUserRights(
       jwt: Jwt,
       listUserRightsRequest: domain.ListUserRightsRequest,

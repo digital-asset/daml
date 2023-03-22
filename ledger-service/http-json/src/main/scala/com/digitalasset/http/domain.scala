@@ -62,8 +62,11 @@ package object domain extends com.daml.fetchcontracts.domain.Aliases {
 package domain {
 
   import com.daml.fetchcontracts.domain.`fc domain ErrorOps`
+  import com.daml.ledger.api.domain.{IdentityProviderId, ObjectMeta}
   import com.daml.ledger.api.v1.commands.Commands
+  import com.daml.lf.data.Ref
   import com.daml.lf.data.Ref.HexString
+  import com.google.protobuf.field_mask.FieldMask
 
   sealed trait SubmissionIdTag
 
@@ -205,15 +208,30 @@ package domain {
 
   final case class UserDetails(userId: String, primaryParty: Option[String])
 
+  final case class FullUserDetails(userId: String,
+                                   primaryParty: Option[String],
+                                   isDeactivated: Boolean = false,
+                                   metadata: Map[String, String],
+                                   identityProviderId: String)
+
   object UserDetails {
     def fromUser(user: User) =
       UserDetails(user.id, user.primaryParty)
   }
 
+  object FullUserDetails {
+    def fromUser(user: User) =
+      FullUserDetails(user.id, user.primaryParty, user.isDeactivated, user.metadata.annotations, user.identityProviderId.toRequestString)
+  }
   final case class CreateUserRequest(
       userId: String,
       primaryParty: Option[String],
       rights: Option[List[UserRight]],
+  )
+
+  final case class UpdateUserRequest(
+      user: User,
+      updateMask: List[String],
   )
 
   final case class ListUserRightsRequest(userId: String)

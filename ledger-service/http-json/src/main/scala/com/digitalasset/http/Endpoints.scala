@@ -338,6 +338,7 @@ class Endpoints(
           path("user") apply toPostRoute(req, getUser),
           path("user" / "create") apply toPostRoute(req, createUser),
           path("user" / "delete") apply toPostRoute(req, deleteUser),
+          path("user" / "update") apply toPostRoute(req, updateUser),
           path("user" / "rights") apply toPostRoute(req, listUserRights),
           path("user" / "rights" / "grant") apply toPostRoute(req, grantUserRights),
           path("user" / "rights" / "revoke") apply toPostRoute(req, revokeUserRights),
