@@ -89,11 +89,10 @@ object AbstractHttpServiceIntegrationTestFuns {
     val partyDomain: VA.Aux[domain.Party] = domain.Party.subst[VA.Aux, String](partyStr)
 
     val contractIdDomain: VA.Aux[domain.ContractId] = {
-      import org.scalacheck.Arbitrary, com.daml.lf.value, value.Value,
-      value.test.ValueGenerators.coidGen
-      implicit val arbCid: Arbitrary[Value.ContractId] = Arbitrary(coidGen)
+      import org.scalacheck.Arbitrary, lfv.test.ValueGenerators.coidGen
+      implicit val arbCid: Arbitrary[lfv.Value.ContractId] = Arbitrary(coidGen)
       domain.ContractId subst VA.contractId.xmap(_.coid: String)(
-        Value.ContractId.fromString(_).fold(sys.error, identity)
+        lfv.Value.ContractId.fromString(_).fold(sys.error, identity)
       )
     }
   }
