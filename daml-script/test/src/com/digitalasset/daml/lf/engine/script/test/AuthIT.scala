@@ -38,7 +38,7 @@ final class AuthIT
       "create and accept Proposal" in {
         for {
           adminClient <- defaultLedgerClient(getToken(adminUserId))
-          userId = Ref.UserId.assertFromString(CantonFixture.freshName("user"))
+          userId = Ref.UserId.assertFromString(freshUserId())
           partyDetails <- Future.sequence(
             List.fill(2)(adminClient.partyManagementClient.allocateParty(None, None))
           )

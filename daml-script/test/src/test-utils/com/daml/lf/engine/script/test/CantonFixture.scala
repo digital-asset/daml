@@ -65,12 +65,12 @@ trait CantonFixture
   //  If `true`
   //   - temporary file are not deleted
   //   - some debug info are logged.
-  private val debugMode = false
+  protected val cantonFixtureDebugMode = false
 
   private val logger = org.slf4j.LoggerFactory.getLogger(getClass)
 
   protected def info(msg: String): Unit =
-    if (debugMode) logger.info(msg)
+    if (cantonFixtureDebugMode) logger.info(msg)
 
   info(
     s"""CantonFixture parameters:
@@ -90,7 +90,7 @@ trait CantonFixture
   private val files = List(cantonConfigPath, portFile)
 
   override protected def afterAll(): Unit = {
-    if (debugMode)
+    if (cantonFixtureDebugMode)
       info(s"The temporary files are located in ${tmpDir}")
     else {
       files.foreach(file => discard(Files.deleteIfExists(file)))
