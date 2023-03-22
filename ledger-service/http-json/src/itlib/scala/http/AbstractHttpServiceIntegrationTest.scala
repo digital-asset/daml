@@ -845,7 +845,33 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
             }
           }
 
-          // next, onboard bob to try to interact with the disclosed contract
+          /* TODO #14260 needed?
+          // next, find the full contract metadata in the transaction stream
+          _ <- client.transactionClient
+            .getTransactions(
+              lav1.ledger_offset.LedgerOffset.Value
+                .Boundary(lav1.ledger_offset.LedgerOffset.LedgerBoundary.LEDGER_BEGIN),
+              None,
+              lav1.transaction_filter.TransactionFilter(
+                Map(
+                  alice.unwrap -> lav1.transaction_filter.Filters(
+                    Some(lav1.transaction_filter.InclusiveFilters(Seq(ToDisclose)))
+                  )
+                )
+              ),
+              domain.LedgerId(""),
+            )
+            .collect(Function unlift { tx =>
+              tx.events.collectFirst {
+                case lav1.event.Event(lav1.event.Event.Event.Created(ce))
+                    if ce.contractId == toDiscloseCid =>
+                  ce.createArgumentsBlob should not be None
+              }
+            })
+            .runWith(Sink.head)
+           */
+
+          // then, onboard bob to try to interact with the disclosed contract
           (bob, bobHeaders) <- fixture.getUniquePartyAndAuthHeaders("Bob")
           viewportCid <- postCreateCommand(
             domain
