@@ -208,11 +208,13 @@ package domain {
 
   final case class UserDetails(userId: String, primaryParty: Option[String])
 
-  final case class FullUserDetails(userId: String,
-                                   primaryParty: Option[String],
-                                   isDeactivated: Boolean = false,
-                                   metadata: Map[String, String],
-                                   identityProviderId: String)
+  final case class FullUserDetails(
+      userId: String,
+      primaryParty: Option[String],
+      isDeactivated: Boolean = false,
+      metadata: Map[String, String],
+      identityProviderId: String,
+  )
 
   object UserDetails {
     def fromUser(user: User) =
@@ -221,7 +223,13 @@ package domain {
 
   object FullUserDetails {
     def fromUser(user: User) =
-      FullUserDetails(user.id, user.primaryParty, user.isDeactivated, user.metadata.annotations, user.identityProviderId.toRequestString)
+      FullUserDetails(
+        user.id,
+        user.primaryParty,
+        user.isDeactivated,
+        user.metadata.annotations,
+        user.identityProviderId.toRequestString,
+      )
   }
   final case class CreateUserRequest(
       userId: String,
