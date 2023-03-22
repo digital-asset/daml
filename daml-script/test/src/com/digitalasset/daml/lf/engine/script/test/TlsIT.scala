@@ -10,22 +10,20 @@ import com.daml.lf.engine.script.ledgerinteraction.ScriptTimeMode
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
-import java.io.File
-
 final class TlsIT
     extends AsyncWordSpec
-    with CantonFixture
+    with AbstractScriptTest
     with Matchers
     with SuiteResourceManagementAroundAll {
 
   import AbstractScriptTest._
 
   override protected lazy val authSecret = None
-  override protected lazy val darFiles: List[File] = List(stableDarPath)
-  override protected lazy val devMode: Boolean = false
-  override protected lazy val nParticipants: Int = 1
-  override protected lazy val timeMode = ScriptTimeMode.WallClock
-  override protected lazy val tlsEnable: Boolean = true
+  override protected lazy val darFiles = List(stableDarPath)
+  override protected lazy val devMode = false
+  override protected lazy val nParticipants = 1
+  override protected lazy val scriptTimeMode = ScriptTimeMode.WallClock
+  override protected lazy val tlsEnable = true
 
   "Daml Script against ledger with TLS" can {
     "test0" should {

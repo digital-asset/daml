@@ -11,7 +11,7 @@ import com.daml.lf.speedy.SValue.SRecord
 final class FuncWallClockIT extends AbstractFuncIT {
   import AbstractScriptTest._
 
-  protected override val timeMode = ScriptTimeMode.WallClock
+  protected override lazy val scriptTimeMode = ScriptTimeMode.WallClock
 
   "testSleep" should {
     "sleep for specified duration" in {

@@ -18,13 +18,12 @@ import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
-import java.io.File
 import scala.annotation.nowarn
 
 @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
 abstract class AbstractFuncIT
     extends AsyncWordSpec
-    with CantonFixture
+    with AbstractScriptTest
     with Matchers
     with Inside
     with SuiteResourceManagementAroundAll {
@@ -32,7 +31,7 @@ abstract class AbstractFuncIT
   import AbstractScriptTest._
 
   override protected lazy val authSecret = None
-  protected override lazy val darFiles: List[File] = List(stableDarPath, devDarPath)
+  protected override lazy val darFiles = List(stableDarPath, devDarPath)
   protected override lazy val devMode = true
   protected override lazy val nParticipants = 1
   protected override lazy val tlsEnable = false
