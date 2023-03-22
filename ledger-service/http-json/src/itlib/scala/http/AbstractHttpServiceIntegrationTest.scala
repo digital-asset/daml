@@ -868,6 +868,17 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
               ),
               bobHeaders,
             )
+            .parseResponse[domain.ExerciseResponse[JsValue]]
+            .map(inside(_) {
+              case domain.ErrorResponse(
+                    _,
+                    _,
+                    StatusCodes.NotFound,
+                    Some(domain.LedgerApiError(lapiCode, errorMessage, _)),
+                  ) =>
+                lapiCode should ===(com.google.rpc.Code.NOT_FOUND_VALUE)
+                errorMessage should include(toDiscloseCid.unwrap)
+            })
         } yield succeed
       }
     }
