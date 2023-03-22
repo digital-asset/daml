@@ -808,7 +808,12 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
           )
           initialCreate = SubmitAndWaitRequest(
             Some(
-              Commands(commandId = uniqueCommandId().unwrap, commands = Seq(Command(createCommand)))
+              Commands(
+                commandId = uniqueCommandId().unwrap,
+                applicationId = "test",
+                actAs = domain.Party unsubst Seq(alice),
+                commands = Seq(Command(createCommand)),
+              )
             )
           )
           createResp <- client.commandServiceClient
