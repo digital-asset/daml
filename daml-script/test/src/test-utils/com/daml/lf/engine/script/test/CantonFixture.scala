@@ -65,7 +65,7 @@ trait CantonFixture
   //  If `true`
   //   - temporary file are not deleted
   //   - some debug info are logged.
-  private val debugMode = true
+  private val debugMode = false
 
   private val logger = org.slf4j.LoggerFactory.getLogger(getClass)
 
