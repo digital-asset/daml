@@ -235,7 +235,7 @@ class ScenarioService(
     }
 
   override def runLiveScript(
-      respObs: StreamObserver[RunScenarioResponseOrStatus],
+      respObs: StreamObserver[RunScenarioResponseOrStatus]
   ): StreamObserver[RunScenarioRequest] = {
     var cancelled = false
     new StreamObserver[RunScenarioRequest] {
