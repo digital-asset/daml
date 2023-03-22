@@ -5,7 +5,6 @@ package com.daml.lf.engine.trigger
 package test
 
 import java.nio.file.Paths
-
 import com.daml.ledger.api.domain.{ObjectMeta, User, UserRight}
 import com.daml.ledger.api.refinements.ApiTypes.Party
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
@@ -18,6 +17,7 @@ import com.daml.ledger.client.configuration.{
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.UserId
 import com.daml.platform.sandbox.fixture.SandboxFixture
+import com.google.protobuf.field_mask.FieldMask
 import io.grpc.StatusRuntimeException
 import io.grpc.Status.Code
 import org.scalatest.matchers.should.Matchers
@@ -146,6 +146,30 @@ class ConfigSpec
           UserSpecification(userId).resolveClaims(client)
         )
       } yield ex.getMessage should include("no actAs claims")
+    }
+    "succeed for user after primaryParty update" in {
+      for {
+        client <- LedgerClient(channel, clientConfig)
+        userId = randomUserId()
+        _ <- client.partyManagementClient.allocateParty(hint = Some("primary"), None, None)
+        _ <- client.partyManagementClient.allocateParty(hint = Some("alice"), None, None)
+        _ <- client.partyManagementClient.allocateParty(hint = Some("bob"), None, None)
+        _ <- client.userManagementClient.createUser(
+          User(userId, Some("primary"), isDeactivated = false, metadata = ObjectMeta.empty),
+          Seq(
+            UserRight.CanActAs("primary"),
+            UserRight.CanActAs("alice"),
+            UserRight.CanReadAs("bob"),
+          ),
+        )
+        _ <- client.userManagementClient.updateUser(
+          User(userId, Some("alice"), isDeactivated = false, metadata = ObjectMeta.empty),
+          Some(FieldMask(Seq("primary_party"))),
+          None,
+        )
+
+        r <- UserSpecification(userId).resolveClaims(client)
+      } yield r shouldBe TriggerParties("alice", Set("bob", "primary"))
     }
   }
 }
