@@ -815,9 +815,12 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
           (alice, jwt, _) <- fixture.getUniquePartyTokenAndAuthHeaders("Alice")
           // we're using the ledger API for the initial create because timestamp
           // is required in the metadata
+          toDisclosePayload = argToApi(toDiscloseVA)(
+            ShRecord(owner = alice, junk = s"some test junk ${uniqueId()}")
+          )
           createCommand = util.Commands.create(
             refApiIdentifier(ToDisclose),
-            argToApi(toDiscloseVA)(ShRecord(owner = alice, junk = s"some test junk ${uniqueId()}")),
+            toDisclosePayload,
           )
           initialCreate = SubmitAndWaitRequest(
             Some(
@@ -837,10 +840,11 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
                 domain.ContractId(ce.contractId)
             }
             val eff = inside(tx.effectiveAt) { case Some(eff) =>
-              eff
+              TimestampConversion.toLf(eff, TimestampConversion.ConversionMode.Exact)
             }
             (cid, eff)
           }
+
           // next, onboard bob to try to interact with the disclosed contract
           (bob, bobHeaders) <- fixture.getUniquePartyAndAuthHeaders("Bob")
           viewportCid <- postCreateCommand(
@@ -853,7 +857,6 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
             fixture,
             bobHeaders,
           ) map resultContractId
-          // ensure that bob can't interact with alice's contract unless it's disclosed
           checkVisibility = {
             meta: Option[
               domain.CommandMeta[domain.ContractTypeId.Template.OptionalPkg, lav1.value.Value]
@@ -874,6 +877,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
                 )
                 .parseResponse[domain.ExerciseResponse[JsValue]]
           }
+          // ensure that bob can't interact with alice's contract unless it's disclosed
           _ <- checkVisibility(None)
             .map(inside(_) {
               case domain.ErrorResponse(
@@ -885,6 +889,28 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
                 lapiCode should ===(com.google.rpc.Code.NOT_FOUND_VALUE)
                 errorMessage should include(toDiscloseCid.unwrap)
             })
+          // ensure that the above works when we disclose the contract
+          disclosureEnvelope = {
+            import domain.{DisclosedContract => DC}
+            DC(
+              toDiscloseCid,
+              TpId.Disclosure.ToDisclose,
+              DC.Arguments.Record(boxedRecord(toDisclosePayload)),
+              DC.Metadata(createdAt = createTimestamp, None, None),
+            )
+          }
+          _ <- checkVisibility(
+            Some(
+              domain.CommandMeta(
+                None,
+                None,
+                None,
+                None,
+                None,
+                disclosedContracts = Some(List(disclosureEnvelope)),
+              )
+            )
+          ).map(inside(_) { case domain.OkResponse(_, _, _) if false => })
         } yield succeed
       }
     }
