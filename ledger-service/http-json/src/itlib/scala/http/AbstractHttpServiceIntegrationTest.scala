@@ -854,21 +854,27 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
             bobHeaders,
           ) map resultContractId
           // ensure that bob can't interact with alice's contract unless it's disclosed
-          _ <- fixture
-            .postJsonRequest(
-              Uri.Path("/v1/exercise"),
-              encodeExercise(encoder)(
-                domain.ExerciseCommand(
-                  domain.EnrichedContractId(Some(TpId.Disclosure.Viewport), viewportCid),
-                  domain.Choice("CheckVisibility"),
-                  boxedRecord(argToApi(checkVisibilityVA)(ShRecord(disclosed = toDiscloseCid))),
-                  None,
-                  None,
+          checkVisibility = {
+            meta: Option[
+              domain.CommandMeta[domain.ContractTypeId.Template.OptionalPkg, lav1.value.Value]
+            ] =>
+              fixture
+                .postJsonRequest(
+                  Uri.Path("/v1/exercise"),
+                  encodeExercise(encoder)(
+                    domain.ExerciseCommand(
+                      domain.EnrichedContractId(Some(TpId.Disclosure.Viewport), viewportCid),
+                      domain.Choice("CheckVisibility"),
+                      boxedRecord(argToApi(checkVisibilityVA)(ShRecord(disclosed = toDiscloseCid))),
+                      None,
+                      meta,
+                    )
+                  ),
+                  bobHeaders,
                 )
-              ),
-              bobHeaders,
-            )
-            .parseResponse[domain.ExerciseResponse[JsValue]]
+                .parseResponse[domain.ExerciseResponse[JsValue]]
+          }
+          _ <- checkVisibility(None)
             .map(inside(_) {
               case domain.ErrorResponse(
                     _,
