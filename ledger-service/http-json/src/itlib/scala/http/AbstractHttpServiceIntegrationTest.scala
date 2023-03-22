@@ -793,13 +793,26 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
       lazy val (_, toDiscloseVA) =
         VA.record(lfIdentifier(ToDisclose), ShRecord(owner = VAx.partyDomain, junk = VA.text))
 
+      val (_, viewportVA) =
+        VA.record(
+          lfIdentifier(TpId.Disclosure.Viewport.copy(packageId = "ignored")),
+          ShRecord(owner = VAx.partyDomain),
+        )
+
+      val (_, checkVisibilityVA) =
+        VA.record(
+          Ref.Identifier assertFromString "ignored:Disclosure:CheckVisibility",
+          ShRecord(disclosed = VAx.contractIdDomain),
+        )
+
       "using decoded payload" in withHttpService { fixture =>
-        import fixture.client
+        import fixture.{client, encoder}
         import com.daml.ledger.api.{v1 => lav1}
         import lav1.command_service.SubmitAndWaitRequest
         import lav1.commands.{Commands, Command}
         for {
-          (alice, jwt, aliceHeaders) <- fixture.getUniquePartyTokenAndAuthHeaders("Alice")
+          // first, set up something for alice to disclose to bob
+          (alice, jwt, _) <- fixture.getUniquePartyTokenAndAuthHeaders("Alice")
           // we're using the ledger API for the initial create because timestamp
           // is required in the metadata
           createCommand = util.Commands.create(
@@ -818,11 +831,43 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
           )
           createResp <- client.commandServiceClient
             .submitAndWaitForTransaction(initialCreate, Some(jwt.value))
-          createTimestamp = inside(createResp.transaction) { case Some(tx) =>
-            inside(tx.effectiveAt) { case Some(eff) =>
+          (toDiscloseCid, createTimestamp) = inside(createResp.transaction) { case Some(tx) =>
+            val cid = inside(tx.events) {
+              case Seq(lav1.event.Event(lav1.event.Event.Event.Created(ce))) =>
+                domain.ContractId(ce.contractId)
+            }
+            val eff = inside(tx.effectiveAt) { case Some(eff) =>
               eff
             }
+            (cid, eff)
           }
+          // next, onboard bob to try to interact with the disclosed contract
+          (bob, bobHeaders) <- fixture.getUniquePartyAndAuthHeaders("Bob")
+          viewportCid <- postCreateCommand(
+            domain
+              .CreateCommand(
+                TpId.Disclosure.Viewport,
+                argToApi(viewportVA)(ShRecord(owner = bob)),
+                None,
+              ),
+            fixture,
+            bobHeaders,
+          ) map resultContractId
+          // ensure that bob can't interact with alice's contract unless it's disclosed
+          _ <- fixture
+            .postJsonRequest(
+              Uri.Path("/v1/exercise"),
+              encodeExercise(encoder)(
+                domain.ExerciseCommand(
+                  domain.EnrichedContractId(Some(TpId.Disclosure.Viewport), viewportCid),
+                  domain.Choice("CheckVisibility"),
+                  boxedRecord(argToApi(checkVisibilityVA)(ShRecord(disclosed = toDiscloseCid))),
+                  None,
+                  None,
+                )
+              ),
+              bobHeaders,
+            )
         } yield succeed
       }
     }

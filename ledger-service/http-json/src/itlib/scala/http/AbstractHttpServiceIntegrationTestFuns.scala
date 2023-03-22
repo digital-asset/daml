@@ -87,6 +87,15 @@ object AbstractHttpServiceIntegrationTestFuns {
     val partyStr: VA.Aux[String] = VA.party.xmap(identity[String])(Ref.Party.assertFromString)
 
     val partyDomain: VA.Aux[domain.Party] = domain.Party.subst[VA.Aux, String](partyStr)
+
+    val contractIdDomain: VA.Aux[domain.ContractId] = {
+      import org.scalacheck.Arbitrary, com.daml.lf.value, value.Value,
+      value.test.ValueGenerators.coidGen
+      implicit val arbCid: Arbitrary[Value.ContractId] = Arbitrary(coidGen)
+      domain.ContractId subst VA.contractId.xmap(_.coid: String)(
+        Value.ContractId.fromString(_).fold(sys.error, identity)
+      )
+    }
   }
 
   private[http] trait UriFixture {
@@ -439,6 +448,7 @@ trait AbstractHttpServiceIntegrationTestFuns
     }
     object Disclosure {
       val ToDisclose: TId = CtId.Template(None, "Disclosure", "ToDisclose")
+      val Viewport: TId = CtId.Template(None, "Disclosure", "Viewport")
     }
     object User {
       val User: TId = CtId.Template(None, "User", "User")

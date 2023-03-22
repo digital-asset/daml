@@ -8,3 +8,14 @@ template ToDisclose with
     junk: Text
   where
     signatory owner
+
+template Viewport with
+    owner: Party
+  where
+    signatory owner
+    nonconsuming choice CheckVisibility: Text with
+        disclosed: ContractId ToDisclose
+      controller owner
+      do
+        td <- fetch disclosed
+        pure $ show owner <> " can see from " <> show td.owner <> ": " <> td.junk
