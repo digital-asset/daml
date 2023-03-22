@@ -3,55 +3,61 @@
 
 package com.daml.lf.engine.script.test
 
-import java.io.File
-import com.daml.bazeltools.BazelRunfiles._
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.daml.lf.data.ImmArray
 import com.daml.lf.data.Ref._
-import com.daml.lf.engine.script.ledgerinteraction.GrpcLedgerClient
+import com.daml.lf.engine.script.ledgerinteraction.ScriptTimeMode
 import com.daml.lf.value.Value
 import com.daml.lf.speedy.SValue._
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
+import java.io.File
 import scala.concurrent.Future
 
 final class AuthIT
     extends AsyncWordSpec
-    with SandboxAuthParticipantFixture
+    with CantonFixture
     with Matchers
     with SuiteResourceManagementAroundAll {
-  override def darFile = new File(rlocation("daml-script/test/script-test.dar"))
+  import AbstractScriptTest._
 
-  val dar = AbstractScriptTest.readDar(darFile)
-  val parties = List("Alice", "Bob")
-
+  // TODO: https://github.com/digital-asset/daml/issues/16539
+  //  The test is broken, the commented `transform` called in the for construct
   "Daml Script against authorized ledger" can {
     "auth" should {
       "create and accept Proposal" in {
         for {
-          clients <- participantClients(parties, false)
-          grpcClient <- clients.default_participant.fold(
-            Future.failed[GrpcLedgerClient](
-              new IllegalStateException("Missing default GrpcLedgerClient")
-            )
-          )(Future.successful[GrpcLedgerClient])
-          _ <- Future.sequence(
-            parties.map(p => grpcClient.allocateParty(p, ""))
+          nonAuthenticatedClients <- participantClients()
+          grpcClient = nonAuthenticatedClients.default_participant.get
+          parties <- Future.sequence(
+            List.fill(2)(grpcClient.allocateParty("", ""))
           )
-          r <- run(
-            clients,
+          value = Some(
+            Value.ValueRecord(
+              None,
+              ImmArray(
+                None -> Value.ValueParty(Party.assertFromString(parties.head)),
+                None -> Value.ValueParty(Party.assertFromString(parties.tail.head)),
+              ),
+            )
+          )
+          _ <- run(
+            nonAuthenticatedClients,
             QualifiedName.assertFromString("ScriptTest:auth"),
-            inputValue = Some(
-              Value.ValueRecord(
-                None,
-                ImmArray(
-                  None -> Value.ValueParty(Party.assertFromString(parties.head)),
-                  None -> Value.ValueParty(Party.assertFromString(parties.tail.head)),
-                ),
-              )
-            ),
-            dar = dar,
+            inputValue = value,
+            dar = stableDar,
+          )
+          //  .transform {
+          //    case Failure(_) => Success(())
+          //    case Success(_) => Failure(new Exception("unexpected success"))
+          //  }
+          authenticatedClients <- participantClients(Some(parties))
+          r <- run(
+            authenticatedClients,
+            QualifiedName.assertFromString("ScriptTest:auth"),
+            inputValue = value,
+            dar = stableDar,
           )
         } yield assert(
           r == SUnit
@@ -59,4 +65,10 @@ final class AuthIT
       }
     }
   }
+
+  override protected val timeMode: ScriptTimeMode = ScriptTimeMode.WallClock
+  override protected def darFiles: List[File] = List(stableDarPath)
+  override protected def nParticipants: Int = 1
+  override protected def devMode: Boolean = false
+  override protected def tlsEnable: Boolean = false
 }

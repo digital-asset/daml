@@ -3,7 +3,6 @@
 
 package com.daml.lf.engine.script.test
 
-import com.daml.bazeltools.BazelRunfiles.rlocation
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.daml.lf.data.ImmArray
 import com.daml.lf.data.Ref._
@@ -21,14 +20,6 @@ import org.scalatest.wordspec.AsyncWordSpec
 import java.io.File
 import scala.annotation.nowarn
 
-object AbstractFuncIT {
-  import AbstractScriptTest._
-  val stableDarPath = new File(rlocation("daml-script/test/script-test.dar"))
-  val devDarPath = new File(rlocation("daml-script/test/script-test-1.dev.dar"))
-  val stableDar = readDar(stableDarPath)
-  val devDar = readDar(devDarPath)
-}
-
 @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
 abstract class AbstractFuncIT
     extends AsyncWordSpec
@@ -37,13 +28,12 @@ abstract class AbstractFuncIT
     with Inside
     with SuiteResourceManagementAroundAll {
 
-  protected val stableDar = AbstractFuncIT.stableDar
-  protected val devDar = AbstractFuncIT.devDar
+  import AbstractScriptTest._
 
   protected override val devMode = true
-  protected override def darFiles: List[File] =
-    List(AbstractFuncIT.stableDarPath, AbstractFuncIT.devDarPath)
+  protected override def darFiles: List[File] = List(stableDarPath, devDarPath)
   protected override val nParticipants = 1
+  protected override def tlsEnable = false
 
   def assertSTimestamp(v: SValue) =
     v match {
