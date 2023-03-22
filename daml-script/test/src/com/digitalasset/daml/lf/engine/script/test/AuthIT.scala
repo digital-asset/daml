@@ -14,7 +14,6 @@ import org.scalatest.wordspec.AsyncWordSpec
 
 import java.io.File
 import scala.concurrent.Future
-import scala.util.{Failure, Success}
 
 final class AuthIT
     extends AsyncWordSpec
