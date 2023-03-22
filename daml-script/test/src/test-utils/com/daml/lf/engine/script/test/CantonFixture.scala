@@ -5,9 +5,11 @@ package com.daml.lf.engine.script.test
 
 import java.io.File
 import java.nio.charset.StandardCharsets
-import java.nio.file.{Files, Path, Paths}
-
+import java.nio.file.{Path, Paths, Files}
 import com.daml.bazeltools.BazelRunfiles._
+import com.daml.jwt.JwtSigner
+import com.daml.jwt.domain.DecodedJwt
+import com.daml.ledger.api.auth
 import com.daml.ledger.api.testing.utils.{AkkaBeforeAndAfterAll, OwnedResource, SuiteResource}
 import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.client.{configuration => clientConfig, LedgerClient}
@@ -26,6 +28,23 @@ import scala.concurrent.duration.DurationInt
 import scala.concurrent.{ExecutionContext, Future}
 import scala.sys.process.Process
 
+object CantonFixture {
+
+  private val counter = new java.util.concurrent.atomic.AtomicLong()
+
+  def freshLong() = counter.getAndIncrement()
+
+  def freshName(prefix: String): String = {
+    assert(!prefix.contains('_'))
+    prefix + "__" + freshLong().toString
+  }
+
+  def freshUserId() = Ref.UserId.assertFromString(freshName("user"))
+
+  val adminUserId = Ref.UserId.assertFromString("participant_admin")
+
+}
+
 @scala.annotation.nowarn("msg=match may not be exhaustive")
 trait CantonFixture
     extends AbstractScriptTest
@@ -33,20 +52,50 @@ trait CantonFixture
     with AkkaBeforeAndAfterAll {
   self: Suite =>
 
+  import CantonFixture._
+
+  protected def authSecret: Option[String]
   protected def darFiles: List[File]
-  protected def nParticipants: Int
   protected def devMode: Boolean
+  protected def nParticipants: Int
   protected def timeMode: ScriptTimeMode
   protected def tlsEnable: Boolean
+
+  // This flag setup some behavior to ease debugging tests.
+  //  If `true`
+  //   - temporary file are not deleted
+  //   - some debug info are logged.
+  private val debugMode = true
+
+  private val logger = org.slf4j.LoggerFactory.getLogger(getClass)
+
+  protected def info(msg: String): Unit =
+    if (debugMode) logger.info(msg)
+
+  info(
+    s"""CantonFixture parameters:
+       |  authSecret = ${authSecret}
+       |  darFiles = ${darFiles}
+       |  devMode = ${devMode}
+       |  nParticipants = ${nParticipants}
+       |  timeMode = ${timeMode}
+       |  tlsEnable = ${tlsEnable}
+       |""".stripMargin
+  )
 
   private val tmpDir = Files.createTempDirectory("testMultiParticipantFixture")
   private val cantonConfigPath = tmpDir.resolve("participant.config")
   private val portFile = tmpDir.resolve("portfile")
 
+  private val files = List(cantonConfigPath, portFile)
+
   override protected def afterAll(): Unit = {
-    Files.delete(cantonConfigPath)
-    discard(Files.deleteIfExists(portFile))
-    Files.delete(tmpDir)
+    if (debugMode)
+      info(s"The temporary files are located in ${tmpDir}")
+    else {
+      files.foreach(file => discard(Files.deleteIfExists(file)))
+      Files.delete(tmpDir)
+    }
     super.afterAll()
   }
 
@@ -63,7 +112,8 @@ trait CantonFixture
       trustCollectionFile = Some(caCrt.toFile),
     )
 
-  private def toJson(path: Path): String = JsString(path.toString).toString()
+  private def toJson(s: String): String = JsString(s).toString()
+  private def toJson(path: Path): String = toJson(path.toString)
 
   private def canton(): ResourceOwner[Vector[Port]] =
     new ResourceOwner[Vector[Port]] {
@@ -83,6 +133,11 @@ trait CantonFixture
             case ScriptTimeMode.Static => (Some("monotonic-time"), Some("sim-clock"))
             case ScriptTimeMode.WallClock => (None, None)
           }
+          val authConfig = authSecret.fold("")(secret => s"""auth-services = [{
+               |          type = unsafe-jwt-hmac-256
+               |          secret = "${toJson(secret)}"
+               |        }]
+               |""".stripMargin)
           val tslConfig =
             if (tlsEnable)
               s"""tls {
@@ -98,6 +153,7 @@ trait CantonFixture
                |      admin-api.port = ${adminPort.port}
                |      ledger-api{
                |        port = ${ledgerApiPort.port}
+               |        ${authConfig}
                |        ${tslConfig}
                |      }
                |      storage.type = memory
@@ -106,7 +162,7 @@ trait CantonFixture
                |    }""".stripMargin
           }
           val participantsConfig =
-            (0 until nParticipants).map(participantConfig(_)).mkString("", "\n", "")
+            (0 until nParticipants).map(participantConfig(_)).mkString("\n")
           val cantonConfig =
             s"""canton {
                |  parameters.non-standard-config = yes
@@ -144,9 +200,11 @@ trait CantonFixture
                 )
               ).run()
             )
-            _ <- RetryStrategy.constant(attempts = 240, waitTime = 1.seconds)((_, _) =>
+            _ <- RetryStrategy.constant(attempts = 240, waitTime = 1.seconds) { (_, _) =>
+              info(s"waiting for Canton to start")
               Future(Files.size(portFile))
-            )
+            }
+            _ = info("Canton started")
           } yield (ports.map(_._2.port), proc)
         }
         def stop(r: (Vector[Port], Process)): Future[Unit] = {
@@ -167,54 +225,101 @@ trait CantonFixture
         _ <- ResourceOwner.forFuture { () =>
           Future.traverse(ports) { port =>
             for {
-              client <- LedgerClient.singleHost(
-                hostIp = "localhost",
-                port = port.value,
-                configuration = clientConfig.LedgerClientConfiguration(
-                  applicationId = "daml-script",
-                  ledgerIdRequirement = clientConfig.LedgerIdRequirement.none,
-                  commandClient = clientConfig.CommandClientConfiguration.default,
-                ),
-                channelConfig =
-                  clientConfig.LedgerClientChannelConfiguration(sslContext = tlsConfig.client()),
-              )
-              _ <- Future.traverse(darFiles)(file =>
+              client <- ledgerClient(port, adminToken)
+              _ <- Future.traverse(darFiles) { file =>
                 client.packageManagementClient.uploadDarFile(
                   ByteString.copyFrom(Files.readAllBytes(file.toPath))
                 )
-              )
+              }
             } yield ()
           }
         }
+        _ = info(s"${darFiles.size} packages loaded to ${ports.size} participants")
       } yield ports,
       acquisitionTimeout = 2.minute,
       releaseTimeout = 2.minute,
     )
   }
 
-  def participantClients(
-      authenticatedParties: Option[List[Ref.Party]] = None,
+  final protected def scriptClients(
+      token: Option[String] = None,
       maxInboundMessageSize: Int = ScriptConfig.DefaultMaxInboundMessageSize,
   ): Future[Participants[GrpcLedgerClient]] = {
     implicit val ec: ExecutionContext = system.dispatcher
     val participants = suiteResource.value.zipWithIndex.map { case (port, i) =>
       Participant(s"participant$i") -> ApiParameters(
-        "localhost",
-        port.value,
-        authenticatedParties.map(AbstractScriptTest.getToken(_, false)),
-        application_id = Some(AbstractScriptTest.appId),
+        host = "localhost",
+        port = port.value,
+        access_token = token,
+        application_id = None,
       )
     }
     val params = Participants(
-      participants.headOption.map(_._2),
-      participants.toMap,
-      Map.empty,
+      default_participant = participants.headOption.map(_._2),
+      participants = participants.toMap,
+      party_participants = Map.empty,
     )
     Runner.connect(
-      params,
+      participantParams = params,
       tlsConfig = tlsConfig,
       maxInboundMessageSize = maxInboundMessageSize,
     )
   }
+
+  final protected val adminToken: Option[String] = getToken(adminUserId)
+
+  final protected def getToken(
+      userId: String,
+      authSecret: Option[String] = authSecret,
+  ): Option[String] = authSecret.map { secret =>
+    val payload = auth.StandardJWTPayload(
+      issuer = None,
+      userId = userId,
+      participantId = None,
+      exp = None,
+      format = auth.StandardJWTTokenFormat.Scope,
+      audiences = List.empty,
+    )
+    val header = """{"alg": "HS256", "typ": "JWT"}"""
+    val jwt = DecodedJwt[String](header, auth.AuthServiceJWTCodec.writeToString(payload))
+    JwtSigner.HMAC256.sign(jwt, secret).toEither match {
+      case Right(a) => a.value
+      case Left(e) => throw new IllegalStateException(e.toString)
+    }
+  }
+
+  final protected def defaultLedgerClient(
+      token: Option[String] = None,
+      maxInboundMessageSize: Int = 64 * 1024 * 1024,
+  )(implicit ec: ExecutionContext): Future[LedgerClient] =
+    ledgerClient(suiteResource.value.head, token, maxInboundMessageSize)
+
+  final protected def ledgerClients(
+      token: Option[String] = None,
+      maxInboundMessageSize: Int = 64 * 1024 * 1024,
+  )(implicit ec: ExecutionContext) =
+    Future.traverse(suiteResource.value)(
+      ledgerClient(_, token, maxInboundMessageSize)
+    )
+
+  private def ledgerClient(
+      port: Port,
+      token: Option[String],
+      maxInboundMessageSize: Int = 64 * 1024 * 1024,
+  )(implicit ec: ExecutionContext): Future[LedgerClient] =
+    LedgerClient.singleHost(
+      hostIp = "localhost",
+      port = port.value,
+      configuration = clientConfig.LedgerClientConfiguration(
+        applicationId = token.fold("daml-script")(_ => ""),
+        ledgerIdRequirement = clientConfig.LedgerIdRequirement.none,
+        commandClient = clientConfig.CommandClientConfiguration.default,
+        token = token,
+      ),
+      channelConfig = clientConfig.LedgerClientChannelConfiguration(
+        sslContext = tlsConfig.client(),
+        maxInboundMessageSize = maxInboundMessageSize,
+      ),
+    )
 
 }
