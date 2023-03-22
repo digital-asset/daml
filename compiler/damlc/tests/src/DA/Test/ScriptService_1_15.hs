@@ -255,6 +255,7 @@ runScripts service fileContent = bracket getIdeState shutdown $ \ideState -> do
       SS.BackendError err -> assertFailure $ "Unexpected result " <> show err
       SS.ExceptionError err -> assertFailure $ "Unexpected result " <> show err
       SS.ScenarioError err -> pure $ Left $ renderPlain (prettyScenarioError world err)
+      SS.StopOldScenarioThreadError -> pure $ Left $ renderPlain "Scenario execution cancelled due to restart."
     prettyResult world (Right r) = pure $ Right $ renderPlain (prettyScenarioResult world (S.fromList (V.toList (SS.scenarioResultActiveContracts r))) r)
     file = toNormalizedFilePath' "Test.daml"
     getIdeState = do
