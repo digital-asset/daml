@@ -9,7 +9,11 @@ import com.daml.ledger.api.domain.{ObjectMeta, User, UserRight}
 import com.daml.ledger.api.refinements.ApiTypes.Party
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.daml.ledger.client.LedgerClient
-import com.daml.ledger.client.configuration.{CommandClientConfiguration, LedgerClientConfiguration, LedgerIdRequirement}
+import com.daml.ledger.client.configuration.{
+  CommandClientConfiguration,
+  LedgerClientConfiguration,
+  LedgerIdRequirement,
+}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.UserId
 import com.daml.platform.sandbox.fixture.SandboxFixture
