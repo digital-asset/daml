@@ -11,6 +11,7 @@ import com.daml.ledger.api.v1.{admin => admin_proto}
 import com.daml.ledger.client.LedgerClient
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.{Party, UserId}
+import com.google.protobuf.field_mask.FieldMask
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -31,6 +32,21 @@ final class UserManagementClient(service: UserManagementServiceStub)(implicit
     LedgerClient
       .stub(service, token)
       .createUser(request)
+      .map(res => fromProtoUser(res.user.get))
+  }
+
+  def updateUser(
+      user: User,
+      updateMask: Option[FieldMask],
+      token: Option[String] = None,
+  ): Future[User] = {
+    val request = proto.UpdateUserRequest(
+      Some(UserManagementClient.toProtoUser(user)),
+      updateMask,
+    )
+    LedgerClient
+      .stub(service, token)
+      .updateUser(request)
       .map(res => fromProtoUser(res.user.get))
   }
 
