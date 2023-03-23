@@ -6,10 +6,6 @@ package com.daml.lf.engine.script.test
 import com.daml.bazeltools.BazelRunfiles.rlocation
 
 import java.io.File
-import com.daml.jwt.JwtSigner
-import com.daml.jwt.domain.DecodedJwt
-import com.daml.ledger.api.auth.{AuthServiceJWTCodec, CustomDamlJWTPayload}
-import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.lf.PureCompiledPackages
 import com.daml.lf.archive.DarDecoder
@@ -21,8 +17,6 @@ import com.daml.lf.language.StablePackage.DA
 import com.daml.lf.speedy.{SValue, ArrayList}
 import com.daml.lf.value.Value
 import org.scalatest.Suite
-import scalaz.syntax.tag._
-import scalaz.{-\/, \/-}
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -45,28 +39,6 @@ object AbstractScriptTest {
       fields = ImmArray(Ref.Name.assertFromString("_1"), Ref.Name.assertFromString("_2")),
       values = ArrayList(a, b),
     )
-
-  val appId = ApplicationId("daml-script-test")
-  private val secret = "secret"
-
-  def getToken(parties: List[String], admin: Boolean): String = {
-    val payload = CustomDamlJWTPayload(
-      ledgerId = None,
-      participantId = None,
-      exp = None,
-      // Set the application id to make sure it is set correctly.
-      applicationId = Some(appId.unwrap),
-      actAs = parties,
-      admin = admin,
-      readAs = List(),
-    )
-    val header = """{"alg": "HS256", "typ": "JWT"}"""
-    val jwt = DecodedJwt[String](header, AuthServiceJWTCodec.writeToString(payload))
-    JwtSigner.HMAC256.sign(jwt, secret) match {
-      case -\/(e) => throw new IllegalStateException(e.toString)
-      case \/-(a) => a.value
-    }
-  }
 
   val stableDarPath = new File(rlocation("daml-script/test/script-test.dar"))
   val devDarPath = new File(rlocation("daml-script/test/script-test-1.dev.dar"))

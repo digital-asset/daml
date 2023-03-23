@@ -1,74 +1,77 @@
 // Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.engine.script.test
+package com.daml.lf.engine.script
+package test
 
+import com.daml.ledger.api.domain
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
-import com.daml.lf.data.ImmArray
-import com.daml.lf.data.Ref._
+import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.engine.script.ledgerinteraction.ScriptTimeMode
 import com.daml.lf.value.Value
-import com.daml.lf.speedy.SValue._
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
 import java.io.File
 import scala.concurrent.Future
+import scala.util.{Failure, Success}
 
 final class AuthIT
     extends AsyncWordSpec
     with CantonFixture
     with Matchers
     with SuiteResourceManagementAroundAll {
+  import CantonFixture._
   import AbstractScriptTest._
 
-  // TODO: https://github.com/digital-asset/daml/issues/16539
-  //  The test is broken, the commented `transform` called in the for construct
+  lazy val secret = "secret"
+
+  override protected lazy val authSecret = Some(secret)
+  override protected lazy val darFiles: List[File] = List(stableDarPath)
+  override protected lazy val devMode: Boolean = false
+  override protected lazy val nParticipants: Int = 1
+  override protected lazy val timeMode = ScriptTimeMode.WallClock
+  override protected lazy val tlsEnable: Boolean = false
+
   "Daml Script against authorized ledger" can {
     "auth" should {
       "create and accept Proposal" in {
         for {
-          nonAuthenticatedClients <- participantClients()
-          grpcClient = nonAuthenticatedClients.default_participant.get
-          parties <- Future.sequence(
-            List.fill(2)(grpcClient.allocateParty("", ""))
+          adminClient <- defaultLedgerClient(getToken(adminUserId))
+          userId = Ref.UserId.assertFromString(freshUserId())
+          partyDetails <- Future.sequence(
+            List.fill(2)(adminClient.partyManagementClient.allocateParty(None, None))
           )
-          value = Some(
-            Value.ValueRecord(
-              None,
-              ImmArray(
-                None -> Value.ValueParty(Party.assertFromString(parties.head)),
-                None -> Value.ValueParty(Party.assertFromString(parties.tail.head)),
-              ),
-            )
-          )
+          parties = partyDetails.map(_.party)
+          user = domain.User(userId, None)
+          rights = parties.map(domain.UserRight.CanActAs(_))
+          _ <- adminClient.userManagementClient.createUser(user, rights)
+          // we double check authentification is on
+          wrongToken = getToken(userId, Some("not secret"))
+          err <- scriptClients(token = wrongToken).transform {
+            case Failure(err) => Success(err)
+            case Success(_) => Failure(new Exception("unexpected success"))
+          }
+          _ = info(s"client creation with wrong token fails with $err")
+          goodToken = getToken(userId)
+          clients <- scriptClients(token = goodToken)
+          _ = info(s"client creation with valid token succeeds")
           _ <- run(
-            nonAuthenticatedClients,
-            QualifiedName.assertFromString("ScriptTest:auth"),
-            inputValue = value,
+            clients,
+            Ref.QualifiedName.assertFromString("ScriptTest:auth"),
+            inputValue = Some(
+              Value.ValueRecord(
+                None,
+                ImmArray(
+                  None -> Value.ValueParty(Ref.Party.assertFromString(parties.head)),
+                  None -> Value.ValueParty(Ref.Party.assertFromString(parties.tail.head)),
+                ),
+              )
+            ),
             dar = stableDar,
           )
-          //  .transform {
-          //    case Failure(_) => Success(())
-          //    case Success(_) => Failure(new Exception("unexpected success"))
-          //  }
-          authenticatedClients <- participantClients(Some(parties))
-          r <- run(
-            authenticatedClients,
-            QualifiedName.assertFromString("ScriptTest:auth"),
-            inputValue = value,
-            dar = stableDar,
-          )
-        } yield assert(
-          r == SUnit
-        ) // Boring assertion, we just want to see that we do not get an authorization error
+        } yield succeed
       }
     }
   }
-
-  override protected val timeMode: ScriptTimeMode = ScriptTimeMode.WallClock
-  override protected def darFiles: List[File] = List(stableDarPath)
-  override protected def nParticipants: Int = 1
-  override protected def devMode: Boolean = false
-  override protected def tlsEnable: Boolean = false
 }
