@@ -198,7 +198,7 @@ trait CantonFixture extends SuiteResource[Vector[Port]] with AkkaBeforeAndAfterA
           """.stripMargin
           discard(Files.write(cantonConfigFile, cantonConfig.getBytes(StandardCharsets.UTF_8)))
           val debugOptions =
-            if (debugMode) List("--log-file-name", cantonLogFile.toString)
+            if (cantonFixtureDebugMode) List("--log-file-name", cantonLogFile.toString)
             else List.empty
           for {
             proc <- Future(
