@@ -5,7 +5,6 @@ package com.daml.lf.engine.trigger
 package test
 
 import java.nio.file.Paths
-
 import com.daml.ledger.api.domain.{ObjectMeta, User, UserRight}
 import com.daml.ledger.api.refinements.ApiTypes.Party
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
@@ -18,11 +17,13 @@ import com.daml.ledger.client.configuration.{
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.UserId
 import com.daml.platform.sandbox.fixture.SandboxFixture
+import com.google.protobuf.field_mask.FieldMask
 import io.grpc.StatusRuntimeException
 import io.grpc.Status.Code
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
+import java.io.File
 import scala.language.implicitConversions
 
 class ConfigSpec
@@ -38,7 +39,7 @@ class ConfigSpec
     token = None,
   )
 
-  override protected val packageFiles = List.empty
+  override protected val packageFiles: List[File] = List.empty
 
   private implicit def toParty(s: String): Party =
     Party(s)
@@ -103,7 +104,7 @@ class ConfigSpec
         _ <- client.partyManagementClient.allocateParty(hint = Some("alice"), None, None)
         _ <- client.partyManagementClient.allocateParty(hint = Some("bob"), None, None)
         _ <- client.userManagementClient.createUser(
-          User(userId, Some("primary"), isDeactivated = false, metadata = ObjectMeta.empty),
+          User(userId, Some("primary"), metadata = ObjectMeta.empty),
           Seq(
             UserRight.CanActAs("primary"),
             UserRight.CanActAs("alice"),
@@ -126,7 +127,7 @@ class ConfigSpec
         client <- LedgerClient(channel, clientConfig)
         userId = randomUserId()
         _ <- client.userManagementClient.createUser(
-          User(userId, None, false, ObjectMeta.empty),
+          User(userId, None, metadata = ObjectMeta.empty),
           Seq.empty,
         )
         ex <- recoverToExceptionIf[IllegalArgumentException](
@@ -139,13 +140,37 @@ class ConfigSpec
         client <- LedgerClient(channel, clientConfig)
         userId = randomUserId()
         _ <- client.userManagementClient.createUser(
-          User(userId, Some("primary"), false, ObjectMeta.empty),
+          User(userId, Some("primary"), isDeactivated = false, ObjectMeta.empty),
           Seq.empty,
         )
         ex <- recoverToExceptionIf[IllegalArgumentException](
           UserSpecification(userId).resolveClaims(client)
         )
       } yield ex.getMessage should include("no actAs claims")
+    }
+    "succeed for user after primaryParty update" in {
+      for {
+        client <- LedgerClient(channel, clientConfig)
+        userId = randomUserId()
+        _ <- client.partyManagementClient.allocateParty(hint = Some("original"), None, None)
+        _ <- client.partyManagementClient.allocateParty(hint = Some("updated"), None, None)
+        _ <- client.partyManagementClient.allocateParty(hint = Some("other"), None, None)
+        _ <- client.userManagementClient.createUser(
+          User(userId, Some("original"), metadata = ObjectMeta.empty),
+          Seq(
+            UserRight.CanActAs("original"),
+            UserRight.CanActAs("updated"),
+            UserRight.CanReadAs("other"),
+          ),
+        )
+        _ <- client.userManagementClient.updateUser(
+          User(userId, Some("updated"), metadata = ObjectMeta.empty),
+          Some(FieldMask(Seq("primary_party"))),
+          None,
+        )
+
+        r <- UserSpecification(userId).resolveClaims(client)
+      } yield r shouldBe TriggerParties("updated", Set("other", "original"))
     }
   }
 }
