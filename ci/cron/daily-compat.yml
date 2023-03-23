@@ -273,6 +273,8 @@ jobs:
 
           branch="notices-update-$(Build.BuildId)"
 
+          ls
+
           tr -d '\015' <*_Black_Duck_Notices_Report.txt | grep -v digital-asset_daml >NOTICES
           if git diff --exit-code -- NOTICES; then
               echo "NOTICES file already up-to-date."
