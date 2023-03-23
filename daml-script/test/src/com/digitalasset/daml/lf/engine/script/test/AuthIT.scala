@@ -25,10 +25,10 @@ final class AuthIT
   import AbstractScriptTest._
 
   override protected lazy val authSecret = Some("secret")
-  override protected lazy val scriptTimeMode = ScriptTimeMode.WallClock
   override protected lazy val darFiles = List(stableDarPath)
-  override protected lazy val nParticipants = 1
   override protected lazy val devMode = false
+  override protected lazy val nParticipants = 1
+  override protected lazy val timeMode = ScriptTimeMode.WallClock
   override protected lazy val tlsEnable = false
 
   "Daml Script against authorized ledger" can {

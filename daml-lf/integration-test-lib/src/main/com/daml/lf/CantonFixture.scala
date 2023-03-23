@@ -76,7 +76,7 @@ trait CantonFixture extends SuiteResource[Vector[Port]] with AkkaBeforeAndAfterA
   protected def darFiles: List[Path]
   protected def devMode: Boolean
   protected def nParticipants: Int
-  protected def timeMode: TimeProviderType
+  protected def timeProviderType: TimeProviderType
   protected def tlsEnable: Boolean
 
   // This flag setup some behavior to ease debugging tests.
@@ -96,7 +96,7 @@ trait CantonFixture extends SuiteResource[Vector[Port]] with AkkaBeforeAndAfterA
        |  darFiles = ${darFiles}
        |  devMode = ${devMode}
        |  nParticipants = ${nParticipants}
-       |  timeMode = ${timeMode}
+       |  timeProviderType = ${timeProviderType}
        |  tlsEnable = ${tlsEnable}
        |""".stripMargin
   )
@@ -140,7 +140,7 @@ trait CantonFixture extends SuiteResource[Vector[Port]] with AkkaBeforeAndAfterA
           )
           val exe = if (sys.props("os.name").toLowerCase.contains("windows")) ".exe" else ""
           val java = s"${System.getenv("JAVA_HOME")}/bin/java${exe}"
-          val (timeType, clockType) = timeMode match {
+          val (timeType, clockType) = timeProviderType match {
             case TimeProviderType.Static => (Some("monotonic-time"), Some("sim-clock"))
             case TimeProviderType.WallClock => (None, None)
           }

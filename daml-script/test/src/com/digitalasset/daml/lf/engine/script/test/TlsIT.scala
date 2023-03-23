@@ -22,7 +22,7 @@ final class TlsIT
   override protected lazy val darFiles = List(stableDarPath)
   override protected lazy val devMode = false
   override protected lazy val nParticipants = 1
-  override protected lazy val scriptTimeMode = ScriptTimeMode.WallClock
+  override protected lazy val timeMode = ScriptTimeMode.WallClock
   override protected lazy val tlsEnable = true
 
   "Daml Script against ledger with TLS" can {

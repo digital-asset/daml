@@ -42,7 +42,7 @@ abstract class AbstractFuncIT
       case _ => fail(s"Expected STimestamp but got $v")
     }
 
-  s"Daml Script func tests: ${timeMode}" can {
+  s"Daml Script func tests: ${timeProviderType}" can {
     "test0" should {
       "create two accepted proposals" in {
         for {

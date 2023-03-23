@@ -45,8 +45,8 @@ object AbstractScriptTest {
 trait AbstractScriptTest extends CantonFixture with AkkaBeforeAndAfterAll {
   self: Suite =>
 
-  protected def scriptTimeMode: ScriptTimeMode
-  final override protected lazy val timeMode = scriptTimeMode match {
+  protected def timeMode: ScriptTimeMode
+  final override protected lazy val timeProviderType = timeMode match {
     case ScriptTimeMode.Static => TimeProviderType.Static
     case ScriptTimeMode.WallClock => TimeProviderType.WallClock
   }
@@ -72,7 +72,7 @@ trait AbstractScriptTest extends CantonFixture with AkkaBeforeAndAfterAll {
         Some(converter(_, _)),
         inputValue,
         clients,
-        scriptTimeMode,
+        timeMode,
       )
       ._2
   }

@@ -27,7 +27,7 @@ final class MultiParticipantIT
   override protected lazy val darFiles = List(stableDarPath)
   override protected lazy val devMode = true
   override protected lazy val nParticipants = 2
-  override protected lazy val scriptTimeMode = ScriptTimeMode.WallClock
+  override protected lazy val timeMode = ScriptTimeMode.WallClock
   override protected lazy val tlsEnable = false
 
   "Multi-participant Daml Script" can {
