@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 canton = {
-    "sha": "f15c5058267630524d72404062ed4c02a457c535ca9416c57d81e09745d5b597",
+    "sha": "32935ea19a31d4f5154bd756e9195e2bffa2b2b21211b321a0ce3cd4979bdb36",
     "prefix": "canton-open-source-2.7.0-SNAPSHOT",
-    "url": "https://www.canton.io/releases/canton-open-source-20230322.tar.gz",
+    "url": "https://www.canton.io/releases/canton-open-source-20230324.tar.gz",
 }
