@@ -250,7 +250,7 @@ da_haskell_test(
         "//compiler/damlc:daml-base-anchors.json",
         "//compiler/damlc/pkg-db",
         "//compiler/damlc/stable-packages",
-        "//daml-script/daml:daml-script-1.dev.dar",
+        "//daml-script/daml:daml-script.dar",
         ghc_pkg,
     ],
     hackage_deps = [
@@ -281,7 +281,7 @@ da_haskell_test(
     data = [
         "//compiler/damlc/pkg-db",
         "//compiler/damlc/stable-packages",
-        "//daml-script/daml:daml-script-1.dev.dar",
+        "//daml-script/daml:daml-script.dar",
         ghc_pkg,
     ],
     hackage_deps = [
@@ -345,7 +345,7 @@ da_haskell_test(
         "//compiler/damlc/pkg-db",
         "//compiler/damlc/stable-packages",
         "//compiler/scenario-service/server:scenario_service_jar",
-        "//daml-script/daml:daml-script-1.15.dar",
+        "//daml-script/daml:daml-script.dar",
         ghc_pkg,
     ],
     hackage_deps = [

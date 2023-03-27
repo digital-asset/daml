@@ -30,7 +30,6 @@ import Development.IDE.Core.API.Testing
 import Development.IDE.Core.Service.Daml(VirtualResource(..))
 
 import DA.Test.DamlcIntegration (ScriptPackageData, withDamlScriptDep)
-import DA.Daml.LF.Ast.Version (versionDefault)
 
 main :: IO ()
 main = SS.withScenarioService LF.versionDefault Logger.makeNopHandle scenarioConfig $ \scenarioService -> do
@@ -39,7 +38,7 @@ main = SS.withScenarioService LF.versionDefault Logger.makeNopHandle scenarioCon
   -- The startup of each scenario service is fairly expensive so instead of launching a separate
   -- service for each test, we launch a single service that is shared across all tests on the same LF version.
   
-  withDamlScriptDep versionDefault $ \scriptPackageData ->
+  withDamlScriptDep Nothing $ \scriptPackageData ->
     Tasty.deterministicMain $ ideTests (Just scenarioService) scriptPackageData
   where scenarioConfig = SS.defaultScenarioServiceConfig { SS.cnfJvmOptions = ["-Xmx200M"] }
 

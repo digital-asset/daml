@@ -9,7 +9,6 @@ import Test.Tasty.HUnit
 
 import DA.Daml.DocTest
 import DA.Daml.Options.Types
-import DA.Daml.LF.Ast.Version (versionDev)
 import qualified DA.Service.Logger.Impl.Pure as Logger
 import DA.Test.DamlcIntegration (withDamlScriptDep, ScriptPackageData)
 import Development.IDE.Core.IdeState.Daml
@@ -19,7 +18,7 @@ import Development.IDE.Core.Shake
 import Development.IDE.Types.Location
 
 main :: IO ()
-main = withDamlScriptDep versionDev $ \scriptPackageData -> -- Install Daml.Script once at the start of the suite, rather than for each case
+main = withDamlScriptDep Nothing $ \scriptPackageData -> -- Install Daml.Script once at the start of the suite, rather than for each case
     defaultMain $ testGroup "daml-doctest"
         [ generateTests scriptPackageData
         ]
@@ -91,7 +90,7 @@ generateTests scriptPackageData = testGroup "generate doctest module"
             let moduleName = "Case_" <> T.replace " " "" name
                 tmpFile = T.unpack moduleName <> ".daml"
             T.writeFileUtf8 tmpFile $ T.unlines $ testModuleHeader moduleName <> input
-            let opts = (defaultOptions (Just versionDev))
+            let opts = (defaultOptions Nothing)
                     { optHaddock = Haddock True
                     , optScenarioService = EnableScenarioService False
                     , optPackageDbs = [fst scriptPackageData]

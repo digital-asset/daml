@@ -10,7 +10,6 @@ import DA.Daml.Doc.Types
 import qualified DA.Daml.Doc.Tests as Damldoc
 import qualified DA.Daml.Doc.Render.Tests as Render
 import qualified Test.Tasty.Extended as Tasty
-import DA.Daml.LF.Ast.Version (versionDev)
 import DA.Test.DamlcIntegration (ScriptPackageData, withDamlScriptDep)
 import System.Environment.Blank
 
@@ -18,7 +17,7 @@ main :: IO ()
 main = do
   setEnv "TASTY_NUM_THREADS" "1" True
   anchors <- loadExternalAnchors DefaultExternalAnchorPath
-  withDamlScriptDep versionDev $ Tasty.deterministicMain <=< allTests anchors
+  withDamlScriptDep Nothing $ Tasty.deterministicMain <=< allTests anchors
 
 allTests :: AnchorMap -> ScriptPackageData -> IO Tasty.TestTree
 allTests externalAnchors scriptPackageData = Tasty.testGroup "All Daml GHC tests using Tasty" <$> sequence
