@@ -28,6 +28,7 @@ import scalaz.std.list._
 import scalaz.std.vector._
 import scalaz.std.scalaFuture._
 import scalaz.syntax.apply._
+import scalaz.syntax.bifunctor._
 import scalaz.syntax.show._
 import scalaz.syntax.tag._
 import scalaz.syntax.traverse._
@@ -860,7 +861,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
               Setup,
               ContractToDisclose,
               Option[
-                domain.CommandMeta[domain.ContractTypeId.Template.OptionalPkg, lav1.value.Value]
+                domain.CommandMeta[domain.ContractTypeId.Template.OptionalPkg, lav1.value.Record]
               ],
           ) => JsValue
       ): Future[Assertion] = {
@@ -875,7 +876,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
           setup <- setupBob(bob, bobHeaders)
 
           // exercise CheckVisibility with different disclosure options
-          checkVisibility = { disclosure: Option[DC.Arguments[lav1.value.Value]] =>
+          checkVisibility = { disclosure: Option[DC.Arguments[lav1.value.Record]] =>
             val meta = disclosure map { oneDc =>
               val disclosureEnvelope =
                 DC(
@@ -915,31 +916,11 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
                 errorMessage should include(toDiscloseCid.unwrap)
             })
 
-          _ <- checkVisibility(Some(DC.Arguments.Record(boxedRecord(toDisclosePayload))))
+          _ <- checkVisibility(Some(DC.Arguments.Record(toDisclosePayload)))
             .map(inside(_) {
               case domain.OkResponse(domain.ExerciseResponse(JsString(exResp), _, _), _, _) =>
                 exResp should ===(s"'$bob' can see from '$alice': $junkMessage")
             })
-
-          // ensure that bob can create-and-exercise to combine the above
-          /*
-          caeCmd = encoder
-            .encodeCreateAndExerciseCommand(
-              domain.CreateAndExerciseCommand(
-                TpId.Disclosure.Viewport,
-                viewportPayload,
-                checkVisibilityChoice,
-                checkVisibilityArgument,
-                None,
-                None,
-              )
-            )
-            .valueOr(e => fail(e.shows))
-          _ <- fixture
-            .postJsonRequest(Uri.Path("/v1/create-and-exercise"), caeCmd, bobHeaders)
-            .parseResponse[JsValue]
-            .map(inside(_) { case domain.OkResponse(_, _, _) => succeed })
-           */
         } yield succeed
       }
 
@@ -970,9 +951,35 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
                   argToApi(checkVisibilityVA)(ShRecord(disclosed = toDisclose.toDiscloseCid))
                 ),
                 None,
-                meta,
+                meta map (_ rightMap boxedRecord),
               )
             )
+          }
+        }
+      }
+
+      "create-and-exercise" - {
+        "using decoded payload" in withHttpService { fixture =>
+          runDisclosureTestCase(fixture)(
+            Uri.Path("/v1/create-and-exercise"),
+            { (bob, _) =>
+              Future successful bob
+            },
+          ) { (bob, toDisclose, meta) =>
+            fixture.encoder
+              .encodeCreateAndExerciseCommand(
+                domain.CreateAndExerciseCommand(
+                  TpId.Disclosure.Viewport,
+                  argToApi(viewportVA)(ShRecord(owner = bob)),
+                  checkVisibilityChoice,
+                  boxedRecord(
+                    argToApi(checkVisibilityVA)(ShRecord(disclosed = toDisclose.toDiscloseCid))
+                  ),
+                  None,
+                  meta,
+                )
+              )
+              .valueOr(e => fail(e.shows))
           }
         }
       }
