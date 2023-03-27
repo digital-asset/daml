@@ -810,11 +810,17 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
           ShRecord(disclosed = VAx.contractIdDomain),
         )
 
-      def contractToDisclose(fixture: HttpServiceTestFixtureData) = for {
+      final case class ContractToDisclose(
+          alice: domain.Party,
+          toDiscloseCid: domain.ContractId,
+          toDisclosePayload: lav1.value.Record,
+          ctMetadata: DC.Metadata,
+      )
+
+      def contractToDisclose(fixture: HttpServiceTestFixtureData, junkMessage: String) = for {
         (alice, jwt, _) <- fixture.getUniquePartyTokenAndAuthHeaders("Alice")
         // we're using the ledger API for the initial create because timestamp
         // is required in the metadata
-        junkMessage = s"some test junk ${uniqueId()}"
         toDisclosePayload = argToApi(toDiscloseVA)(ShRecord(owner = alice, junk = junkMessage))
         createCommand = util.Commands.create(
           refApiIdentifier(ToDisclose),
@@ -842,14 +848,15 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
             )
           }
         }
-      } yield (alice, junkMessage, toDiscloseCid, toDisclosePayload, ctMetadata)
+      } yield ContractToDisclose(alice, toDiscloseCid, toDisclosePayload, ctMetadata)
 
       "using decoded payload" in withHttpService { fixture =>
         import fixture.encoder
+        val junkMessage = s"some test junk ${uniqueId()}"
         for {
           // first, set up something for alice to disclose to bob
-          (alice, junkMessage, toDiscloseCid, toDisclosePayload, ctMetadata) <-
-            contractToDisclose(fixture)
+          ContractToDisclose(alice, toDiscloseCid, toDisclosePayload, ctMetadata) <-
+            contractToDisclose(fixture, junkMessage)
 
           // next, onboard bob to try to interact with the disclosed contract
           (bob, bobHeaders) <- fixture.getUniquePartyAndAuthHeaders("Bob")
