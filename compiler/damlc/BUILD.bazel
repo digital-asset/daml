@@ -340,7 +340,7 @@ daml_doc_test(
     srcs = ["//compiler/damlc/daml-stdlib-src"],
     flags = [
         "--no-dflags-check",
-        "--no-source",
+        "--import-source=no",
     ],
     ignored_srcs = [
         "LibraryModules.daml",

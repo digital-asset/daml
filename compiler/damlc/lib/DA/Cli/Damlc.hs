@@ -509,7 +509,7 @@ cmdDocTest numProcessors =
               disabledDlintUsageParser
         <*> strOptionOnce (long "script-lib" <> value "daml-script" <> internal)
             -- This is useful for tests and `bazel run`.
-        <*> switch (long "no-source" <> internal)
+        <*> (ImportSource <$> flagYesNoAuto "import-source" True "Should source code directory be directly imported" internal)
             -- We need this when generating docs for stdlib, as we do not want to directly provide the source here,
             -- instead we use the already provided stdlib in the env. The reason for this is that Daml.Script relies on stdlib,
             -- and recompiling it alongside Daml.Script causes issues with missing interface files
@@ -965,8 +965,11 @@ execMergeDars darFp1 darFp2 mbOutFp =
         pure $ ZipArchive.toEntry manifestPath 0 $ BSLC.unlines $
             map (\(k, v) -> breakAt72Bytes $ BSL.fromStrict $ k <> ": " <> v) attrs1
 
-execDocTest :: Options -> FilePath -> Bool -> [FilePath] -> Command
-execDocTest opts scriptDar noSource files =
+-- | Should source files for doc test be imported into the test project (default yes)
+newtype ImportSource = ImportSource Bool
+
+execDocTest :: Options -> FilePath -> ImportSource -> [FilePath] -> Command
+execDocTest opts scriptDar (ImportSource importSource) files =
   Command DocTest Nothing effect
   where
     effect = do
@@ -980,7 +983,10 @@ execDocTest opts scriptDar noSource files =
       logger <- getLogger opts "doctest"
 
       -- Install daml-script in their project and update the package db
-      -- TODO: Should this be "."?
+      -- Note this installs directly to the users dependency database, giving this command side effects.
+      -- An approach of copying out the deps into a temporary location to build/run the tests has been considered
+      -- but the effort to build this, combined with the low number of users of this feature, as well as most projects
+      -- already using daml-script has led us to leave this as is. We'll fix this if someone is affected and notifies us.
       installDependencies "." opts (PackageSdkVersion SdkVersion.sdkVersion) [scriptDar] []
       createProjectPackageDb "." opts mempty
 
@@ -993,9 +999,8 @@ execDocTest opts scriptDar noSource files =
 
       -- We don’t add a logger here since we will otherwise emit logging messages twice.
       importPaths <-
-        if noSource
-          then pure []
-          else
+        if importSource
+          then
             withDamlIdeState opts { optScenarioService = EnableScenarioService False }
               logger (NotificationHandler $ \_ _ -> pure ()) $
               \ideState -> runActionSync ideState $ do
@@ -1003,6 +1008,7 @@ execDocTest opts scriptDar noSource files =
                 -- This is horrible but we do not have a way to change the import paths in a running
                 -- IdeState at the moment.
                 pure $ nubOrd $ mapMaybe (uncurry moduleImportPath) (zip files' pmS)
+          else pure []
       opts <- pure opts
         { optImportPath = importPaths <> optImportPath opts
         , optHaddock = Haddock True

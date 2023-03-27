@@ -24,6 +24,8 @@ main = withDamlScriptDep versionDev $ \scriptPackageData -> -- Install Daml.Scri
         [ generateTests scriptPackageData
         ]
 
+-- These test names are converted to module names by removing spaces
+-- Do not use any characters that wouldn't be accepted as a haskell module name (e.g. '-', '.', etc.)
 generateTests :: ScriptPackageData -> TestTree
 generateTests scriptPackageData = testGroup "generate doctest module"
     [ shouldGenerateCase "empty module" [] []
