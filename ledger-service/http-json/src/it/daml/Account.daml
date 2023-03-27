@@ -46,6 +46,16 @@ template KeyedByVariantAndRecord with
     key (party, fooVariant, bazRecord): (Party, Foo, BazRecord)
     maintainer key._1
 
+type Amount = Numeric 6
+
+template KeyedByDecimal with
+    party: Party
+    amount: Amount
+  where
+    signatory party
+    key (party, amount): (Party, Amount)
+    maintainer key._1
+
 template Helper
   with
     owner : Party

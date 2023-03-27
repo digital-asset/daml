@@ -1,53 +1,76 @@
 // Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.engine.script.test
+package com.daml.lf.engine.script
+package test
 
-import java.io.File
-
-import com.daml.bazeltools.BazelRunfiles._
+import com.daml.ledger.api.domain
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
-import com.daml.lf.data.Ref._
-import com.daml.lf.engine.script.ledgerinteraction.GrpcLedgerClient
-import com.daml.lf.speedy.SValue._
+import com.daml.lf.data.{ImmArray, Ref}
+import com.daml.lf.engine.script.ledgerinteraction.ScriptTimeMode
+import com.daml.lf.value.Value
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
-import spray.json.{JsObject, JsString}
 
+import java.io.File
 import scala.concurrent.Future
+import scala.util.{Failure, Success}
 
 final class AuthIT
     extends AsyncWordSpec
-    with SandboxAuthParticipantFixture
+    with CantonFixture
     with Matchers
     with SuiteResourceManagementAroundAll {
-  override def darFile = new File(rlocation("daml-script/test/script-test.dar"))
-  val (dar, envIface) = readDar(darFile)
-  val parties = List("Alice", "Bob")
+  import CantonFixture._
+  import AbstractScriptTest._
+
+  lazy val secret = "secret"
+
+  override protected lazy val authSecret = Some(secret)
+  override protected lazy val darFiles: List[File] = List(stableDarPath)
+  override protected lazy val devMode: Boolean = false
+  override protected lazy val nParticipants: Int = 1
+  override protected lazy val timeMode = ScriptTimeMode.WallClock
+  override protected lazy val tlsEnable: Boolean = false
 
   "Daml Script against authorized ledger" can {
     "auth" should {
       "create and accept Proposal" in {
         for {
-          clients <- participantClients(parties, false)
-          grpcClient <- clients.default_participant.fold(
-            Future.failed[GrpcLedgerClient](
-              new IllegalStateException("Missing default GrpcLedgerClient")
-            )
-          )(Future.successful[GrpcLedgerClient])
-          _ <- Future.sequence(
-            parties.map(p => grpcClient.allocateParty(p, ""))
+          adminClient <- defaultLedgerClient(getToken(adminUserId))
+          userId = Ref.UserId.assertFromString(freshUserId())
+          partyDetails <- Future.sequence(
+            List.fill(2)(adminClient.partyManagementClient.allocateParty(None, None))
           )
-          r <- run(
+          parties = partyDetails.map(_.party)
+          user = domain.User(userId, None)
+          rights = parties.map(domain.UserRight.CanActAs(_))
+          _ <- adminClient.userManagementClient.createUser(user, rights)
+          // we double check authentification is on
+          wrongToken = getToken(userId, Some("not secret"))
+          err <- scriptClients(token = wrongToken).transform {
+            case Failure(err) => Success(err)
+            case Success(_) => Failure(new Exception("unexpected success"))
+          }
+          _ = info(s"client creation with wrong token fails with $err")
+          goodToken = getToken(userId)
+          clients <- scriptClients(token = goodToken)
+          _ = info(s"client creation with valid token succeeds")
+          _ <- run(
             clients,
-            QualifiedName.assertFromString("ScriptTest:auth"),
-            inputValue =
-              Some(JsObject(("_1", JsString(parties.head)), ("_2", JsString(parties.tail.head)))),
-            dar = dar,
+            Ref.QualifiedName.assertFromString("ScriptTest:auth"),
+            inputValue = Some(
+              Value.ValueRecord(
+                None,
+                ImmArray(
+                  None -> Value.ValueParty(Ref.Party.assertFromString(parties.head)),
+                  None -> Value.ValueParty(Ref.Party.assertFromString(parties.tail.head)),
+                ),
+              )
+            ),
+            dar = stableDar,
           )
-        } yield assert(
-          r == SUnit
-        ) // Boring assertion, we just want to see that we do not get an authorization error
+        } yield succeed
       }
     }
   }

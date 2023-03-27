@@ -157,7 +157,6 @@ runShakeTestOpts fOpts mbScenarioService (ShakeTest m) = do
                 , dlintHintFiles = NoDlintHintFiles
                 }
             , optEnableOfInterestRule = True
-            , optEnableScenarios = EnableScenarios True
             }
     virtualResources <- newTVarIO Map.empty
     virtualResourcesNotes <- newTVarIO Map.empty

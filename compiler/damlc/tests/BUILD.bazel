@@ -345,6 +345,8 @@ da_haskell_test(
         "//compiler/damlc/pkg-db",
         "//compiler/damlc/stable-packages",
         "//compiler/scenario-service/server:scenario_service_jar",
+        "//daml-script/daml:daml-script-1.15.dar",
+        ghc_pkg,
     ],
     hackage_deps = [
         "base",
@@ -358,6 +360,7 @@ da_haskell_test(
     src_strip_prefix = "src",
     visibility = ["//visibility:public"],
     deps = [
+        ":integration-lib",
         "//compiler/daml-lf-ast",
         "//compiler/damlc/daml-compiler",
         "//compiler/damlc/daml-ide-core",
