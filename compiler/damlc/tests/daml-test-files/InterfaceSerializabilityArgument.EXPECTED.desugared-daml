@@ -101,16 +101,20 @@ _choice$_IArchive :
       -> DA.Internal.Desugar.Archive -> DA.Internal.Desugar.Update (()),
    DA.Internal.Desugar.Consuming I,
    DA.Internal.Desugar.Optional (I
+                                 -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]),
+   DA.Internal.Desugar.Optional (I
                                  -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]))
 _choice$_IArchive
   = (\ this _ -> DA.Internal.Desugar.signatory this, 
      \ _ _ _ -> pure (), DA.Internal.Desugar.Consuming, 
-     DA.Internal.Desugar.None)
+     DA.Internal.Desugar.None, DA.Internal.Desugar.None)
 _choice$_INonSerializableArgument :
   (I -> NonSerializableArgument -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.ContractId I
    -> I -> NonSerializableArgument -> DA.Internal.Desugar.Update (()),
    DA.Internal.Desugar.Consuming I,
+   DA.Internal.Desugar.Optional (I
+                                 -> NonSerializableArgument -> [DA.Internal.Desugar.Party]),
    DA.Internal.Desugar.Optional (I
                                  -> NonSerializableArgument -> [DA.Internal.Desugar.Party]))
 _choice$_INonSerializableArgument
@@ -119,7 +123,8 @@ _choice$_INonSerializableArgument
           let _ = arg in DA.Internal.Desugar.toParties (p this), 
      \ self this arg@NonSerializableArgument {..}
        -> let _ = self in let _ = this in let _ = arg in do pure (), 
-     DA.Internal.Desugar.Consuming, DA.Internal.Desugar.None)
+     DA.Internal.Desugar.Consuming, DA.Internal.Desugar.None, 
+     DA.Internal.Desugar.None)
 instance DA.Internal.Desugar.HasInterfaceView I EmptyInterfaceView where
   _view = GHC.Types.primitive @"EViewInterface"
 instance DA.Internal.Desugar.HasFromAnyView I EmptyInterfaceView where

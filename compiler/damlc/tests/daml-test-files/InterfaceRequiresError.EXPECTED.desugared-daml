@@ -62,11 +62,13 @@ _choice$_AArchive :
       -> DA.Internal.Desugar.Archive -> DA.Internal.Desugar.Update (()),
    DA.Internal.Desugar.Consuming A,
    DA.Internal.Desugar.Optional (A
+                                 -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]),
+   DA.Internal.Desugar.Optional (A
                                  -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]))
 _choice$_AArchive
   = (\ this _ -> DA.Internal.Desugar.signatory this, 
      \ _ _ _ -> pure (), DA.Internal.Desugar.Consuming, 
-     DA.Internal.Desugar.None)
+     DA.Internal.Desugar.None, DA.Internal.Desugar.None)
 instance DA.Internal.Desugar.HasInterfaceView A EmptyInterfaceView where
   _view = GHC.Types.primitive @"EViewInterface"
 instance DA.Internal.Desugar.HasFromAnyView A EmptyInterfaceView where
@@ -137,11 +139,13 @@ _choice$_BArchive :
       -> DA.Internal.Desugar.Archive -> DA.Internal.Desugar.Update (()),
    DA.Internal.Desugar.Consuming B,
    DA.Internal.Desugar.Optional (B
+                                 -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]),
+   DA.Internal.Desugar.Optional (B
                                  -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]))
 _choice$_BArchive
   = (\ this _ -> DA.Internal.Desugar.signatory this, 
      \ _ _ _ -> pure (), DA.Internal.Desugar.Consuming, 
-     DA.Internal.Desugar.None)
+     DA.Internal.Desugar.None, DA.Internal.Desugar.None)
 instance DA.Internal.Desugar.HasInterfaceView B EmptyInterfaceView where
   _view = GHC.Types.primitive @"EViewInterface"
 instance DA.Internal.Desugar.HasFromAnyView B EmptyInterfaceView where
@@ -206,11 +210,13 @@ _choice$_TArchive :
       -> DA.Internal.Desugar.Archive -> DA.Internal.Desugar.Update (()),
    DA.Internal.Desugar.Consuming T,
    DA.Internal.Desugar.Optional (T
+                                 -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]),
+   DA.Internal.Desugar.Optional (T
                                  -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]))
 _choice$_TArchive
   = (\ this _ -> DA.Internal.Desugar.signatory this, 
      \ _ _ _ -> pure (), DA.Internal.Desugar.Consuming, 
-     DA.Internal.Desugar.None)
+     DA.Internal.Desugar.None, DA.Internal.Desugar.None)
 _interface_instance$_T_B_T :
   DA.Internal.Desugar.InterfaceInstance T B T
 _interface_instance$_T_B_T

@@ -64,11 +64,13 @@ _choice$_AArchive :
       -> DA.Internal.Desugar.Archive -> DA.Internal.Desugar.Update (()),
    DA.Internal.Desugar.Consuming A,
    DA.Internal.Desugar.Optional (A
+                                 -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]),
+   DA.Internal.Desugar.Optional (A
                                  -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]))
 _choice$_AArchive
   = (\ this _ -> DA.Internal.Desugar.signatory this, 
      \ _ _ _ -> pure (), DA.Internal.Desugar.Consuming, 
-     DA.Internal.Desugar.None)
+     DA.Internal.Desugar.None, DA.Internal.Desugar.None)
 instance DA.Internal.Desugar.HasInterfaceView A EmptyInterfaceView where
   _view = GHC.Types.primitive @"EViewInterface"
 instance DA.Internal.Desugar.HasFromAnyView A EmptyInterfaceView where

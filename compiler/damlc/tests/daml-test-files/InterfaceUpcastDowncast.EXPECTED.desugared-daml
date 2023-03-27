@@ -93,16 +93,20 @@ _choice$_AArchive :
       -> DA.Internal.Desugar.Archive -> DA.Internal.Desugar.Update (()),
    DA.Internal.Desugar.Consuming A,
    DA.Internal.Desugar.Optional (A
+                                 -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]),
+   DA.Internal.Desugar.Optional (A
                                  -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]))
 _choice$_AArchive
   = (\ this _ -> DA.Internal.Desugar.signatory this, 
      \ _ _ _ -> pure (), DA.Internal.Desugar.Consuming, 
-     DA.Internal.Desugar.None)
+     DA.Internal.Desugar.None, DA.Internal.Desugar.None)
 _choice$_AChoiceA :
   (A -> ChoiceA -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.ContractId A
    -> A -> ChoiceA -> DA.Internal.Desugar.Update (Int),
    DA.Internal.Desugar.NonConsuming A,
+   DA.Internal.Desugar.Optional (A
+                                 -> ChoiceA -> [DA.Internal.Desugar.Party]),
    DA.Internal.Desugar.Optional (A
                                  -> ChoiceA -> [DA.Internal.Desugar.Party]))
 _choice$_AChoiceA
@@ -111,7 +115,8 @@ _choice$_AChoiceA
           let _ = arg in DA.Internal.Desugar.toParties (getOwner this), 
      \ self this arg@ChoiceA
        -> let _ = self in let _ = this in let _ = arg in do pure 10, 
-     DA.Internal.Desugar.NonConsuming, DA.Internal.Desugar.None)
+     DA.Internal.Desugar.NonConsuming, DA.Internal.Desugar.None, 
+     DA.Internal.Desugar.None)
 instance DA.Internal.Desugar.HasInterfaceView A EmptyInterfaceView where
   _view = GHC.Types.primitive @"EViewInterface"
 instance DA.Internal.Desugar.HasFromAnyView A EmptyInterfaceView where
@@ -209,16 +214,20 @@ _choice$_BArchive :
       -> DA.Internal.Desugar.Archive -> DA.Internal.Desugar.Update (()),
    DA.Internal.Desugar.Consuming B,
    DA.Internal.Desugar.Optional (B
+                                 -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]),
+   DA.Internal.Desugar.Optional (B
                                  -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]))
 _choice$_BArchive
   = (\ this _ -> DA.Internal.Desugar.signatory this, 
      \ _ _ _ -> pure (), DA.Internal.Desugar.Consuming, 
-     DA.Internal.Desugar.None)
+     DA.Internal.Desugar.None, DA.Internal.Desugar.None)
 _choice$_BChoiceB :
   (B -> ChoiceB -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.ContractId B
    -> B -> ChoiceB -> DA.Internal.Desugar.Update (Int),
    DA.Internal.Desugar.NonConsuming B,
+   DA.Internal.Desugar.Optional (B
+                                 -> ChoiceB -> [DA.Internal.Desugar.Party]),
    DA.Internal.Desugar.Optional (B
                                  -> ChoiceB -> [DA.Internal.Desugar.Party]))
 _choice$_BChoiceB
@@ -229,7 +238,8 @@ _choice$_BChoiceB
      \ self this arg@ChoiceB
        -> let _ = self in
           let _ = this in let _ = arg in do pure (getCoolness this), 
-     DA.Internal.Desugar.NonConsuming, DA.Internal.Desugar.None)
+     DA.Internal.Desugar.NonConsuming, DA.Internal.Desugar.None, 
+     DA.Internal.Desugar.None)
 instance DA.Internal.Desugar.HasInterfaceView B EmptyInterfaceView where
   _view = GHC.Types.primitive @"EViewInterface"
 instance DA.Internal.Desugar.HasFromAnyView B EmptyInterfaceView where
@@ -294,11 +304,13 @@ _choice$_T1Archive :
       -> DA.Internal.Desugar.Archive -> DA.Internal.Desugar.Update (()),
    DA.Internal.Desugar.Consuming T1,
    DA.Internal.Desugar.Optional (T1
+                                 -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]),
+   DA.Internal.Desugar.Optional (T1
                                  -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]))
 _choice$_T1Archive
   = (\ this _ -> DA.Internal.Desugar.signatory this, 
      \ _ _ _ -> pure (), DA.Internal.Desugar.Consuming, 
-     DA.Internal.Desugar.None)
+     DA.Internal.Desugar.None, DA.Internal.Desugar.None)
 _interface_instance$_T1_A_T1 :
   DA.Internal.Desugar.InterfaceInstance T1 A T1
 _interface_instance$_T1_A_T1
@@ -412,11 +424,13 @@ _choice$_T2Archive :
       -> DA.Internal.Desugar.Archive -> DA.Internal.Desugar.Update (()),
    DA.Internal.Desugar.Consuming T2,
    DA.Internal.Desugar.Optional (T2
+                                 -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]),
+   DA.Internal.Desugar.Optional (T2
                                  -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]))
 _choice$_T2Archive
   = (\ this _ -> DA.Internal.Desugar.signatory this, 
      \ _ _ _ -> pure (), DA.Internal.Desugar.Consuming, 
-     DA.Internal.Desugar.None)
+     DA.Internal.Desugar.None, DA.Internal.Desugar.None)
 _interface_instance$_T2_A_T2 :
   DA.Internal.Desugar.InterfaceInstance T2 A T2
 _interface_instance$_T2_A_T2
@@ -560,17 +574,21 @@ _choice$_TestArchive :
       -> DA.Internal.Desugar.Archive -> DA.Internal.Desugar.Update (()),
    DA.Internal.Desugar.Consuming Test,
    DA.Internal.Desugar.Optional (Test
+                                 -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]),
+   DA.Internal.Desugar.Optional (Test
                                  -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]))
 _choice$_TestArchive
   = (\ this _ -> DA.Internal.Desugar.signatory this, 
      \ _ _ _ -> pure (), DA.Internal.Desugar.Consuming, 
-     DA.Internal.Desugar.None)
+     DA.Internal.Desugar.None, DA.Internal.Desugar.None)
 _choice$_TestTemplateInterfaceMatching :
   (Test -> TemplateInterfaceMatching -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.ContractId Test
    -> Test
       -> TemplateInterfaceMatching -> DA.Internal.Desugar.Update (()),
    DA.Internal.Desugar.NonConsuming Test,
+   DA.Internal.Desugar.Optional (Test
+                                 -> TemplateInterfaceMatching -> [DA.Internal.Desugar.Party]),
    DA.Internal.Desugar.Optional (Test
                                  -> TemplateInterfaceMatching -> [DA.Internal.Desugar.Party]))
 _choice$_TestTemplateInterfaceMatching
@@ -610,12 +628,15 @@ _choice$_TestTemplateInterfaceMatching
                exercise cidt1a ChoiceA
                exercise cidt1b ChoiceB
                pure (), 
-     DA.Internal.Desugar.NonConsuming, DA.Internal.Desugar.None)
+     DA.Internal.Desugar.NonConsuming, DA.Internal.Desugar.None, 
+     DA.Internal.Desugar.None)
 _choice$_TestVoidUseAction :
   (Test -> VoidUseAction -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.ContractId Test
    -> Test -> VoidUseAction -> DA.Internal.Desugar.Update (()),
    DA.Internal.Desugar.NonConsuming Test,
+   DA.Internal.Desugar.Optional (Test
+                                 -> VoidUseAction -> [DA.Internal.Desugar.Party]),
    DA.Internal.Desugar.Optional (Test
                                  -> VoidUseAction -> [DA.Internal.Desugar.Party]))
 _choice$_TestVoidUseAction
@@ -626,12 +647,15 @@ _choice$_TestVoidUseAction
        -> let _ = self in
           let _ = this in
           let _ = arg in do useAction p $ \ _bcid -> pure (), 
-     DA.Internal.Desugar.NonConsuming, DA.Internal.Desugar.None)
+     DA.Internal.Desugar.NonConsuming, DA.Internal.Desugar.None, 
+     DA.Internal.Desugar.None)
 _choice$_TestFetchUseAction :
   (Test -> FetchUseAction -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.ContractId Test
    -> Test -> FetchUseAction -> DA.Internal.Desugar.Update (()),
    DA.Internal.Desugar.NonConsuming Test,
+   DA.Internal.Desugar.Optional (Test
+                                 -> FetchUseAction -> [DA.Internal.Desugar.Party]),
    DA.Internal.Desugar.Optional (Test
                                  -> FetchUseAction -> [DA.Internal.Desugar.Party]))
 _choice$_TestFetchUseAction
@@ -642,12 +666,15 @@ _choice$_TestFetchUseAction
        -> let _ = self in
           let _ = this in
           let _ = arg in do useAction p $ \ bcid -> void (fetch bcid), 
-     DA.Internal.Desugar.NonConsuming, DA.Internal.Desugar.None)
+     DA.Internal.Desugar.NonConsuming, DA.Internal.Desugar.None, 
+     DA.Internal.Desugar.None)
 _choice$_TestExerciseUseAction :
   (Test -> ExerciseUseAction -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.ContractId Test
    -> Test -> ExerciseUseAction -> DA.Internal.Desugar.Update (()),
    DA.Internal.Desugar.NonConsuming Test,
+   DA.Internal.Desugar.Optional (Test
+                                 -> ExerciseUseAction -> [DA.Internal.Desugar.Party]),
    DA.Internal.Desugar.Optional (Test
                                  -> ExerciseUseAction -> [DA.Internal.Desugar.Party]))
 _choice$_TestExerciseUseAction
@@ -659,7 +686,8 @@ _choice$_TestExerciseUseAction
           let _ = this in
           let _ = arg
           in do useAction p $ \ bcid -> void (exercise bcid ChoiceB), 
-     DA.Internal.Desugar.NonConsuming, DA.Internal.Desugar.None)
+     DA.Internal.Desugar.NonConsuming, DA.Internal.Desugar.None, 
+     DA.Internal.Desugar.None)
 exerciseTest : Choice Test c () => c -> Script ()
 exerciseTest c
   = script

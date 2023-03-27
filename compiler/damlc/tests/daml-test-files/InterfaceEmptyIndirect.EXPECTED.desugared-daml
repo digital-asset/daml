@@ -64,11 +64,13 @@ _choice$_TArchive :
       -> DA.Internal.Desugar.Archive -> DA.Internal.Desugar.Update (()),
    DA.Internal.Desugar.Consuming T,
    DA.Internal.Desugar.Optional (T
+                                 -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]),
+   DA.Internal.Desugar.Optional (T
                                  -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]))
 _choice$_TArchive
   = (\ this _ -> DA.Internal.Desugar.signatory this, 
      \ _ _ _ -> pure (), DA.Internal.Desugar.Consuming, 
-     DA.Internal.Desugar.None)
+     DA.Internal.Desugar.None, DA.Internal.Desugar.None)
 _interface_instance$_T_I_T :
   DA.Internal.Desugar.InterfaceInstance T I T
 _interface_instance$_T_I_T

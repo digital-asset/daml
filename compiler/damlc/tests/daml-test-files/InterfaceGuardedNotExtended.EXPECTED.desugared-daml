@@ -104,17 +104,21 @@ _choice$_TokenArchive :
       -> DA.Internal.Desugar.Archive -> DA.Internal.Desugar.Update (()),
    DA.Internal.Desugar.Consuming Token,
    DA.Internal.Desugar.Optional (Token
+                                 -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]),
+   DA.Internal.Desugar.Optional (Token
                                  -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]))
 _choice$_TokenArchive
   = (\ this _ -> DA.Internal.Desugar.signatory this, 
      \ _ _ _ -> pure (), DA.Internal.Desugar.Consuming, 
-     DA.Internal.Desugar.None)
+     DA.Internal.Desugar.None, DA.Internal.Desugar.None)
 _choice$_TokenGetRich :
   (Token -> GetRich -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.ContractId Token
    -> Token
       -> GetRich -> DA.Internal.Desugar.Update (ContractId Token),
    DA.Internal.Desugar.Consuming Token,
+   DA.Internal.Desugar.Optional (Token
+                                 -> GetRich -> [DA.Internal.Desugar.Party]),
    DA.Internal.Desugar.Optional (Token
                                  -> GetRich -> [DA.Internal.Desugar.Party]))
 _choice$_TokenGetRich
@@ -128,7 +132,8 @@ _choice$_TokenGetRich
           in
             do assert (byHowMuch > 0)
                create $ setAmount this (getAmount this + byHowMuch), 
-     DA.Internal.Desugar.Consuming, DA.Internal.Desugar.None)
+     DA.Internal.Desugar.Consuming, DA.Internal.Desugar.None, 
+     DA.Internal.Desugar.None)
 instance DA.Internal.Desugar.HasInterfaceView Token EmptyInterfaceView where
   _view = GHC.Types.primitive @"EViewInterface"
 instance DA.Internal.Desugar.HasFromAnyView Token EmptyInterfaceView where
@@ -202,11 +207,13 @@ _choice$_SubTokenArchive :
       -> DA.Internal.Desugar.Archive -> DA.Internal.Desugar.Update (()),
    DA.Internal.Desugar.Consuming SubToken,
    DA.Internal.Desugar.Optional (SubToken
+                                 -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]),
+   DA.Internal.Desugar.Optional (SubToken
                                  -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]))
 _choice$_SubTokenArchive
   = (\ this _ -> DA.Internal.Desugar.signatory this, 
      \ _ _ _ -> pure (), DA.Internal.Desugar.Consuming, 
-     DA.Internal.Desugar.None)
+     DA.Internal.Desugar.None, DA.Internal.Desugar.None)
 instance DA.Internal.Desugar.HasInterfaceView SubToken EmptyInterfaceView where
   _view = GHC.Types.primitive @"EViewInterface"
 instance DA.Internal.Desugar.HasFromAnyView SubToken EmptyInterfaceView where
@@ -278,11 +285,13 @@ _choice$_AssetArchive :
       -> DA.Internal.Desugar.Archive -> DA.Internal.Desugar.Update (()),
    DA.Internal.Desugar.Consuming Asset,
    DA.Internal.Desugar.Optional (Asset
+                                 -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]),
+   DA.Internal.Desugar.Optional (Asset
                                  -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]))
 _choice$_AssetArchive
   = (\ this _ -> DA.Internal.Desugar.signatory this, 
      \ _ _ _ -> pure (), DA.Internal.Desugar.Consuming, 
-     DA.Internal.Desugar.None)
+     DA.Internal.Desugar.None, DA.Internal.Desugar.None)
 _interface_instance$_Asset_Token_Asset :
   DA.Internal.Desugar.InterfaceInstance Asset Token Asset
 _interface_instance$_Asset_Token_Asset
@@ -401,11 +410,13 @@ _choice$_AnotherAssetArchive :
       -> DA.Internal.Desugar.Archive -> DA.Internal.Desugar.Update (()),
    DA.Internal.Desugar.Consuming AnotherAsset,
    DA.Internal.Desugar.Optional (AnotherAsset
+                                 -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]),
+   DA.Internal.Desugar.Optional (AnotherAsset
                                  -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]))
 _choice$_AnotherAssetArchive
   = (\ this _ -> DA.Internal.Desugar.signatory this, 
      \ _ _ _ -> pure (), DA.Internal.Desugar.Consuming, 
-     DA.Internal.Desugar.None)
+     DA.Internal.Desugar.None, DA.Internal.Desugar.None)
 _interface_instance$_AnotherAsset_Token_AnotherAsset :
   DA.Internal.Desugar.InterfaceInstance AnotherAsset Token AnotherAsset
 _interface_instance$_AnotherAsset_Token_AnotherAsset
@@ -650,16 +661,20 @@ _choice$_TestArchive :
       -> DA.Internal.Desugar.Archive -> DA.Internal.Desugar.Update (()),
    DA.Internal.Desugar.Consuming Test,
    DA.Internal.Desugar.Optional (Test
+                                 -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]),
+   DA.Internal.Desugar.Optional (Test
                                  -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]))
 _choice$_TestArchive
   = (\ this _ -> DA.Internal.Desugar.signatory this, 
      \ _ _ _ -> pure (), DA.Internal.Desugar.Consuming, 
-     DA.Internal.Desugar.None)
+     DA.Internal.Desugar.None, DA.Internal.Desugar.None)
 _choice$_TestTrueGuard :
   (Test -> TrueGuard -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.ContractId Test
    -> Test -> TrueGuard -> DA.Internal.Desugar.Update (()),
    DA.Internal.Desugar.NonConsuming Test,
+   DA.Internal.Desugar.Optional (Test
+                                 -> TrueGuard -> [DA.Internal.Desugar.Party]),
    DA.Internal.Desugar.Optional (Test
                                  -> TrueGuard -> [DA.Internal.Desugar.Party]))
 _choice$_TestTrueGuard
@@ -679,12 +694,15 @@ _choice$_TestTrueGuard
             do assetAsToken <- create assetAsTokenTpl
                exerciseGuarded (const True) assetAsToken getRich
                pure (), 
-     DA.Internal.Desugar.NonConsuming, DA.Internal.Desugar.None)
+     DA.Internal.Desugar.NonConsuming, DA.Internal.Desugar.None, 
+     DA.Internal.Desugar.None)
 _choice$_TestFalseGuard :
   (Test -> FalseGuard -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.ContractId Test
    -> Test -> FalseGuard -> DA.Internal.Desugar.Update (()),
    DA.Internal.Desugar.NonConsuming Test,
+   DA.Internal.Desugar.Optional (Test
+                                 -> FalseGuard -> [DA.Internal.Desugar.Party]),
    DA.Internal.Desugar.Optional (Test
                                  -> FalseGuard -> [DA.Internal.Desugar.Party]))
 _choice$_TestFalseGuard
@@ -704,12 +722,15 @@ _choice$_TestFalseGuard
             do assetAsToken <- create assetAsTokenTpl
                exerciseGuarded (const False) assetAsToken getRich
                pure (), 
-     DA.Internal.Desugar.NonConsuming, DA.Internal.Desugar.None)
+     DA.Internal.Desugar.NonConsuming, DA.Internal.Desugar.None, 
+     DA.Internal.Desugar.None)
 _choice$_TestErrorGuard :
   (Test -> ErrorGuard -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.ContractId Test
    -> Test -> ErrorGuard -> DA.Internal.Desugar.Update (()),
    DA.Internal.Desugar.NonConsuming Test,
+   DA.Internal.Desugar.Optional (Test
+                                 -> ErrorGuard -> [DA.Internal.Desugar.Party]),
    DA.Internal.Desugar.Optional (Test
                                  -> ErrorGuard -> [DA.Internal.Desugar.Party]))
 _choice$_TestErrorGuard
@@ -729,12 +750,15 @@ _choice$_TestErrorGuard
             do assetAsToken <- create assetAsTokenTpl
                exerciseGuarded (\ _ -> error "foo") assetAsToken getRich
                pure (), 
-     DA.Internal.Desugar.NonConsuming, DA.Internal.Desugar.None)
+     DA.Internal.Desugar.NonConsuming, DA.Internal.Desugar.None, 
+     DA.Internal.Desugar.None)
 _choice$_TestCustomErrorGuard :
   (Test -> CustomErrorGuard -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.ContractId Test
    -> Test -> CustomErrorGuard -> DA.Internal.Desugar.Update (()),
    DA.Internal.Desugar.NonConsuming Test,
+   DA.Internal.Desugar.Optional (Test
+                                 -> CustomErrorGuard -> [DA.Internal.Desugar.Party]),
    DA.Internal.Desugar.Optional (Test
                                  -> CustomErrorGuard -> [DA.Internal.Desugar.Party]))
 _choice$_TestCustomErrorGuard
@@ -755,12 +779,15 @@ _choice$_TestCustomErrorGuard
                exerciseGuarded
                  (\ _ -> throwPure (GuardException "bar")) assetAsToken getRich
                pure (), 
-     DA.Internal.Desugar.NonConsuming, DA.Internal.Desugar.None)
+     DA.Internal.Desugar.NonConsuming, DA.Internal.Desugar.None, 
+     DA.Internal.Desugar.None)
 _choice$_TestTryErrorGuard :
   (Test -> TryErrorGuard -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.ContractId Test
    -> Test -> TryErrorGuard -> DA.Internal.Desugar.Update (()),
    DA.Internal.Desugar.NonConsuming Test,
+   DA.Internal.Desugar.Optional (Test
+                                 -> TryErrorGuard -> [DA.Internal.Desugar.Party]),
    DA.Internal.Desugar.Optional (Test
                                  -> TryErrorGuard -> [DA.Internal.Desugar.Party]))
 _choice$_TestTryErrorGuard
@@ -786,12 +813,15 @@ _choice$_TestTryErrorGuard
                           pure $ toInterfaceContractId @Token assetAsToken
                    _ -> DA.Internal.Desugar.None
                pure (), 
-     DA.Internal.Desugar.NonConsuming, DA.Internal.Desugar.None)
+     DA.Internal.Desugar.NonConsuming, DA.Internal.Desugar.None, 
+     DA.Internal.Desugar.None)
 _choice$_TestTryCustomErrorGuard :
   (Test -> TryCustomErrorGuard -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.ContractId Test
    -> Test -> TryCustomErrorGuard -> DA.Internal.Desugar.Update (()),
    DA.Internal.Desugar.NonConsuming Test,
+   DA.Internal.Desugar.Optional (Test
+                                 -> TryCustomErrorGuard -> [DA.Internal.Desugar.Party]),
    DA.Internal.Desugar.Optional (Test
                                  -> TryCustomErrorGuard -> [DA.Internal.Desugar.Party]))
 _choice$_TestTryCustomErrorGuard
@@ -819,7 +849,8 @@ _choice$_TestTryCustomErrorGuard
                           pure $ toInterfaceContractId @Token assetAsToken
                    _ -> DA.Internal.Desugar.None
                pure (), 
-     DA.Internal.Desugar.NonConsuming, DA.Internal.Desugar.None)
+     DA.Internal.Desugar.NonConsuming, DA.Internal.Desugar.None, 
+     DA.Internal.Desugar.None)
 exerciseTest : Choice Test c () => c -> Script ()
 exerciseTest c
   = script
