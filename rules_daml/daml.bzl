@@ -432,14 +432,16 @@ def daml_doc_test(
         flags = [],
         cpp = "@stackage-exe//hpp",
         damlc = "//compiler/damlc:damlc",
+        script_dar = "//daml-script/daml:daml-script.dar",
         **kwargs):
     sh_inline_test(
         name = name,
-        data = [cpp, damlc] + srcs,
+        data = [cpp, damlc, script_dar] + srcs,
         cmd = """\
 set -eou pipefail
 CPP=$$(canonicalize_rlocation $(rootpath {cpp}))
 DAMLC=$$(canonicalize_rlocation $(rootpath {damlc}))
+SCRIPT_DAR=$$(canonicalize_rlocation $(rootpath {script_dar}))
 FILES=($$(
   for file in {files}; do
     IGNORED=false
@@ -454,11 +456,11 @@ FILES=($$(
     fi
   done
 ))
-
-$$DAMLC doctest {flags} --cpp $$CPP --package-name {package_name}-{version} "$${{FILES[@]}}"
+$$DAMLC doctest {flags} --script-lib $$SCRIPT_DAR --cpp $$CPP --package-name {package_name}-{version} "$${{FILES[@]}}"
 """.format(
             cpp = cpp,
             damlc = damlc,
+            script_dar = script_dar,
             package_name = package_name,
             flags = " ".join(flags),
             version = ghc_version,
