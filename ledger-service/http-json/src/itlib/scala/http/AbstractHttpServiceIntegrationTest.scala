@@ -773,7 +773,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
       }
     }
 
-    "passes along disclosed contracts" - {
+    "passes along disclosed contracts in" - {
       import util.IdentifierConverters.{lfIdentifier, refApiIdentifier}
       import com.daml.ledger.api.{v1 => lav1}
       import lav1.command_service.SubmitAndWaitRequest
@@ -872,14 +872,9 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
 
           // next, onboard bob to try to interact with the disclosed contract
           (bob, bobHeaders) <- fixture.getUniquePartyAndAuthHeaders("Bob")
-          viewportPayload = argToApi(viewportVA)(ShRecord(owner = bob))
           setup <- setupBob(bob, bobHeaders)
 
           // exercise CheckVisibility with different disclosure options
-          checkVisibilityChoice = domain.Choice("CheckVisibility")
-          checkVisibilityArgument = boxedRecord(
-            argToApi(checkVisibilityVA)(ShRecord(disclosed = toDiscloseCid))
-          )
           checkVisibility = { disclosure: Option[DC.Arguments[lav1.value.Value]] =>
             val meta = disclosure map { oneDc =>
               val disclosureEnvelope =
@@ -950,33 +945,35 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
 
       val checkVisibilityChoice = domain.Choice("CheckVisibility")
 
-      "using decoded payload" in withHttpService { fixture =>
-        runDisclosureTestCase(fixture)(
-          Uri.Path("/v1/exercise"),
-          { (bob, bobHeaders) =>
-            postCreateCommand(
-              domain
-                .CreateCommand(
-                  TpId.Disclosure.Viewport,
-                  argToApi(viewportVA)(ShRecord(owner = bob)),
-                  None,
+      "exercise" - {
+        "using decoded payload" in withHttpService { fixture =>
+          runDisclosureTestCase(fixture)(
+            Uri.Path("/v1/exercise"),
+            { (bob, bobHeaders) =>
+              postCreateCommand(
+                domain
+                  .CreateCommand(
+                    TpId.Disclosure.Viewport,
+                    argToApi(viewportVA)(ShRecord(owner = bob)),
+                    None,
+                  ),
+                fixture,
+                bobHeaders,
+              ) map resultContractId
+            },
+          ) { (viewportCid, toDisclose, meta) =>
+            encodeExercise(fixture.encoder)(
+              domain.ExerciseCommand(
+                domain.EnrichedContractId(Some(TpId.Disclosure.Viewport), viewportCid),
+                checkVisibilityChoice,
+                boxedRecord(
+                  argToApi(checkVisibilityVA)(ShRecord(disclosed = toDisclose.toDiscloseCid))
                 ),
-              fixture,
-              bobHeaders,
-            ) map resultContractId
-          },
-        ) { (viewportCid, toDisclose, meta) =>
-          encodeExercise(fixture.encoder)(
-            domain.ExerciseCommand(
-              domain.EnrichedContractId(Some(TpId.Disclosure.Viewport), viewportCid),
-              checkVisibilityChoice,
-              boxedRecord(
-                argToApi(checkVisibilityVA)(ShRecord(disclosed = toDisclose.toDiscloseCid))
-              ),
-              None,
-              meta,
+                None,
+                meta,
+              )
             )
-          )
+          }
         }
       }
     }
