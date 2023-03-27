@@ -775,6 +775,11 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
 
     "passes along disclosed contracts" - {
       import util.IdentifierConverters.{lfIdentifier, refApiIdentifier}
+      import com.daml.ledger.api.{v1 => lav1}
+      import lav1.command_service.SubmitAndWaitRequest
+      import lav1.commands.{Commands, Command}
+      import domain.{DisclosedContract => DC}
+
       // we assume Disclosed is in the main dalf
       lazy val inferredPkgId = {
         import com.daml.lf.{archive, typesig}
@@ -805,45 +810,46 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
           ShRecord(disclosed = VAx.contractIdDomain),
         )
 
-      "using decoded payload" in withHttpService { fixture =>
-        import fixture.{client, encoder}
-        import domain.{DisclosedContract => DC}
-        import com.daml.ledger.api.{v1 => lav1}
-        import lav1.command_service.SubmitAndWaitRequest
-        import lav1.commands.{Commands, Command}
-        for {
-          // first, set up something for alice to disclose to bob
-          (alice, jwt, _) <- fixture.getUniquePartyTokenAndAuthHeaders("Alice")
-          // we're using the ledger API for the initial create because timestamp
-          // is required in the metadata
-          junkMessage = s"some test junk ${uniqueId()}"
-          toDisclosePayload = argToApi(toDiscloseVA)(ShRecord(owner = alice, junk = junkMessage))
-          createCommand = util.Commands.create(
-            refApiIdentifier(ToDisclose),
-            toDisclosePayload,
-          )
-          initialCreate = SubmitAndWaitRequest(
-            Some(
-              Commands(
-                commandId = uniqueCommandId().unwrap,
-                applicationId = "test",
-                actAs = domain.Party unsubst Seq(alice),
-                commands = Seq(Command(createCommand)),
-              )
+      def contractToDisclose(fixture: HttpServiceTestFixtureData) = for {
+        (alice, jwt, _) <- fixture.getUniquePartyTokenAndAuthHeaders("Alice")
+        // we're using the ledger API for the initial create because timestamp
+        // is required in the metadata
+        junkMessage = s"some test junk ${uniqueId()}"
+        toDisclosePayload = argToApi(toDiscloseVA)(ShRecord(owner = alice, junk = junkMessage))
+        createCommand = util.Commands.create(
+          refApiIdentifier(ToDisclose),
+          toDisclosePayload,
+        )
+        initialCreate = SubmitAndWaitRequest(
+          Some(
+            Commands(
+              commandId = uniqueCommandId().unwrap,
+              applicationId = "test",
+              actAs = domain.Party unsubst Seq(alice),
+              commands = Seq(Command(createCommand)),
             )
           )
-          createResp <- client.commandServiceClient
-            .submitAndWaitForTransaction(initialCreate, Some(jwt.value))
-          (toDiscloseCid, ctMetadata) = inside(createResp.transaction) { case Some(tx) =>
-            inside(tx.events) { case Seq(lav1.event.Event(lav1.event.Event.Event.Created(ce))) =>
-              (
-                domain.ContractId(ce.contractId),
-                inside(ce.metadata map DC.Metadata.fromLedgerApi) { case Some(\/-(metadata)) =>
-                  metadata
-                },
-              )
-            }
+        )
+        createResp <- fixture.client.commandServiceClient
+          .submitAndWaitForTransaction(initialCreate, Some(jwt.value))
+        (toDiscloseCid, ctMetadata) = inside(createResp.transaction) { case Some(tx) =>
+          inside(tx.events) { case Seq(lav1.event.Event(lav1.event.Event.Event.Created(ce))) =>
+            (
+              domain.ContractId(ce.contractId),
+              inside(ce.metadata map DC.Metadata.fromLedgerApi) { case Some(\/-(metadata)) =>
+                metadata
+              },
+            )
           }
+        }
+      } yield (alice, junkMessage, toDiscloseCid, toDisclosePayload, ctMetadata)
+
+      "using decoded payload" in withHttpService { fixture =>
+        import fixture.encoder
+        for {
+          // first, set up something for alice to disclose to bob
+          (alice, junkMessage, toDiscloseCid, toDisclosePayload, ctMetadata) <-
+            contractToDisclose(fixture)
 
           // next, onboard bob to try to interact with the disclosed contract
           (bob, bobHeaders) <- fixture.getUniquePartyAndAuthHeaders("Bob")
@@ -857,25 +863,41 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
             fixture,
             bobHeaders,
           ) map resultContractId
-          checkVisibility = {
-            meta: Option[
-              domain.CommandMeta[domain.ContractTypeId.Template.OptionalPkg, lav1.value.Value]
-            ] =>
-              fixture
-                .postJsonRequest(
-                  Uri.Path("/v1/exercise"),
-                  encodeExercise(encoder)(
-                    domain.ExerciseCommand(
-                      domain.EnrichedContractId(Some(TpId.Disclosure.Viewport), viewportCid),
-                      domain.Choice("CheckVisibility"),
-                      boxedRecord(argToApi(checkVisibilityVA)(ShRecord(disclosed = toDiscloseCid))),
-                      None,
-                      meta,
-                    )
-                  ),
-                  bobHeaders,
+
+          // exercise CheckVisibility with different disclosure options
+          checkVisibility = { disclosure: Option[DC.Arguments[lav1.value.Value]] =>
+            val meta = disclosure map { oneDc =>
+              val disclosureEnvelope =
+                DC(
+                  toDiscloseCid,
+                  TpId.Disclosure.ToDisclose,
+                  oneDc,
+                  ctMetadata,
                 )
-                .parseResponse[domain.ExerciseResponse[JsValue]]
+              domain.CommandMeta(
+                None,
+                None,
+                None,
+                None,
+                None,
+                disclosedContracts = Some(List(disclosureEnvelope)),
+              )
+            }
+            fixture
+              .postJsonRequest(
+                Uri.Path("/v1/exercise"),
+                encodeExercise(encoder)(
+                  domain.ExerciseCommand(
+                    domain.EnrichedContractId(Some(TpId.Disclosure.Viewport), viewportCid),
+                    domain.Choice("CheckVisibility"),
+                    boxedRecord(argToApi(checkVisibilityVA)(ShRecord(disclosed = toDiscloseCid))),
+                    None,
+                    meta,
+                  )
+                ),
+                bobHeaders,
+              )
+              .parseResponse[domain.ExerciseResponse[JsValue]]
           }
 
           // ensure that bob can't interact with alice's contract unless it's disclosed
@@ -892,28 +914,11 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
             })
 
           // ensure that the above works when we disclose the contract
-          disclosureEnvelope =
-            DC(
-              toDiscloseCid,
-              TpId.Disclosure.ToDisclose,
-              DC.Arguments.Record(boxedRecord(toDisclosePayload)),
-              ctMetadata,
-            )
-          _ <- checkVisibility(
-            Some(
-              domain.CommandMeta(
-                None,
-                None,
-                None,
-                None,
-                None,
-                disclosedContracts = Some(List(disclosureEnvelope)),
-              )
-            )
-          ).map(inside(_) {
-            case domain.OkResponse(domain.ExerciseResponse(JsString(exResp), _, _), _, _) =>
-              exResp should ===(s"'$bob' can see from '$alice': $junkMessage")
-          })
+          _ <- checkVisibility(Some(DC.Arguments.Record(boxedRecord(toDisclosePayload))))
+            .map(inside(_) {
+              case domain.OkResponse(domain.ExerciseResponse(JsString(exResp), _, _), _, _) =>
+                exResp should ===(s"'$bob' can see from '$alice': $junkMessage")
+            })
         } yield succeed
       }
     }
