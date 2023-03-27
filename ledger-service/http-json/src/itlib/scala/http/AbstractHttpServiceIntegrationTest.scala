@@ -1163,6 +1163,51 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
         }
       }
     }
+
+    "containing a decimal " - {
+      Seq(
+        "300000",
+        "300000.0",
+        "300000.000001",
+        "300000.00000000000001", // Note this is more than the 6 decimal places allowed by the type
+      ).foreach { numStr =>
+        s"with value $numStr" in withHttpService { fixture =>
+          fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, headers) =>
+            testCreateAndFetchDecimalKey(fixture, numStr, alice, headers)
+          }
+        }
+      }
+    }
+  }
+
+  private def testCreateAndFetchDecimalKey(
+      fixture: UriFixture,
+      decimal: String,
+      party: domain.Party,
+      headers: List[HttpHeader],
+  ) = {
+    val createCommand = jsObject(s"""{
+      "templateId": "Account:KeyedByDecimal",
+      "payload": { "party": "$party", "amount": "$decimal" }
+    }""")
+    val fetchRequest = jsObject(s"""{
+      "templateId": "Account:KeyedByDecimal",
+      "key": [ "$party", "$decimal" ]
+    }""")
+
+    fixture
+      .postJsonRequest(Uri.Path("/v1/create"), createCommand, headers)
+      .parseResponse[domain.ActiveContract.ResolvedCtTyId[JsValue]]
+      .flatMap(inside(_) {
+        case domain.OkResponse(created, _, StatusCodes.OK) => {
+          fixture
+            .postJsonRequest(Uri.Path("/v1/fetch"), fetchRequest, headers)
+            .parseResponse[domain.ActiveContract.ResolvedCtTyId[JsValue]]
+            .flatMap(inside(_) { case domain.OkResponse(fetched, _, StatusCodes.OK) =>
+              created.contractId shouldBe fetched.contractId
+            })
+        }
+      }): Future[Assertion]
   }
 
   private def testFetchByCompositeKey(

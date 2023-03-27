@@ -1,9 +1,9 @@
 // Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.engine.script.test
+package com.daml.lf.engine.script
+package test
 
-import com.daml.bazeltools.BazelRunfiles.rlocation
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.daml.lf.data.ImmArray
 import com.daml.lf.data.Ref._
@@ -21,14 +21,6 @@ import org.scalatest.wordspec.AsyncWordSpec
 import java.io.File
 import scala.annotation.nowarn
 
-object AbstractFuncIT {
-  import AbstractScriptTest._
-  val stableDarPath = new File(rlocation("daml-script/test/script-test.dar"))
-  val devDarPath = new File(rlocation("daml-script/test/script-test-1.dev.dar"))
-  val stableDar = readDar(stableDarPath)
-  val devDar = readDar(devDarPath)
-}
-
 @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
 abstract class AbstractFuncIT
     extends AsyncWordSpec
@@ -37,13 +29,13 @@ abstract class AbstractFuncIT
     with Inside
     with SuiteResourceManagementAroundAll {
 
-  protected val stableDar = AbstractFuncIT.stableDar
-  protected val devDar = AbstractFuncIT.devDar
+  import AbstractScriptTest._
 
-  protected override val devMode = true
-  protected override def darFiles: List[File] =
-    List(AbstractFuncIT.stableDarPath, AbstractFuncIT.devDarPath)
-  protected override val nParticipants = 1
+  override protected lazy val authSecret = None
+  protected override lazy val darFiles: List[File] = List(stableDarPath, devDarPath)
+  protected override lazy val devMode = true
+  protected override lazy val nParticipants = 1
+  protected override lazy val tlsEnable = false
 
   def assertSTimestamp(v: SValue) =
     v match {
@@ -55,7 +47,7 @@ abstract class AbstractFuncIT
     "test0" should {
       "create two accepted proposals" in {
         for {
-          clients <- participantClients()
+          clients <- scriptClients()
           SRecord(_, _, vals) <- run(
             clients,
             QualifiedName.assertFromString("ScriptTest:test0"),
@@ -93,7 +85,7 @@ abstract class AbstractFuncIT
     "test1" should {
       "handle numerics correctly" in {
         for {
-          clients <- participantClients()
+          clients <- scriptClients()
           v <- run(clients, QualifiedName.assertFromString("ScriptTest:test1"), dar = stableDar)
         } yield {
           assert(v == SNumeric(Numeric.assertFromString("2.12000000000")))
@@ -103,7 +95,7 @@ abstract class AbstractFuncIT
     "test2" should {
       "extract value from input" in {
         for {
-          clients <- participantClients()
+          clients <- scriptClients()
           v <- run(
             clients,
             QualifiedName.assertFromString("ScriptTest:test2"),
@@ -126,7 +118,7 @@ abstract class AbstractFuncIT
     "test3" should {
       "support submitMustFail" in {
         for {
-          clients <- participantClients()
+          clients <- scriptClients()
           v <- run(clients, QualifiedName.assertFromString("ScriptTest:test3"), dar = stableDar)
         } yield {
           assert(v == SUnit)
@@ -136,7 +128,7 @@ abstract class AbstractFuncIT
     "test4" should {
       "return new contract in query" in {
         for {
-          clients <- participantClients()
+          clients <- scriptClients()
           SRecord(_, _, vals) <- run(
             clients,
             QualifiedName.assertFromString("ScriptTest:test4"),
@@ -151,7 +143,7 @@ abstract class AbstractFuncIT
     "testKey" should {
       "support exerciseByKeyCmd" in {
         for {
-          clients <- participantClients()
+          clients <- scriptClients()
           SRecord(_, _, vals) <- run(
             clients,
             QualifiedName.assertFromString("ScriptTest:testKey"),
@@ -166,7 +158,7 @@ abstract class AbstractFuncIT
     "testCreateAndExercise" should {
       "support createAndExerciseCmd" in {
         for {
-          clients <- participantClients()
+          clients <- scriptClients()
           v <- run(
             clients,
             QualifiedName.assertFromString("ScriptTest:testCreateAndExercise"),
@@ -180,7 +172,7 @@ abstract class AbstractFuncIT
     "testGetTime" should {
       "not go backwards in time" in {
         for {
-          clients <- participantClients()
+          clients <- scriptClients()
           SRecord(_, _, vals) <- run(
             clients,
             QualifiedName.assertFromString("ScriptTest:testGetTime"),
@@ -200,7 +192,7 @@ abstract class AbstractFuncIT
     "testPartyIdHint" should {
       "allocate a party with the given hint" in {
         for {
-          clients <- participantClients()
+          clients <- scriptClients()
           SRecord(_, _, vals) <- run(
             clients,
             QualifiedName.assertFromString("ScriptTest:partyIdHintTest"),
@@ -226,7 +218,7 @@ abstract class AbstractFuncIT
     "testListKnownParties" should {
       "list newly allocated parties" in {
         for {
-          clients <- participantClients()
+          clients <- scriptClients()
           SRecord(_, _, vals) <- run(
             clients,
             QualifiedName.assertFromString("ScriptTest:listKnownPartiesTest"),
@@ -247,7 +239,7 @@ abstract class AbstractFuncIT
     "testStack" should {
       "not stackoverflow" in {
         for {
-          clients <- participantClients()
+          clients <- scriptClients()
           v <- run(
             clients,
             QualifiedName.assertFromString("ScriptTest:testStack"),
@@ -261,7 +253,7 @@ abstract class AbstractFuncIT
     "testMaxInboundMessageSize" should {
       "succeed despite large message" in {
         for {
-          clients <- participantClients(
+          clients <- scriptClients(
             // Reduce maxInboundMessageSize until we get an error
             maxInboundMessageSize = 500
           )
@@ -282,7 +274,7 @@ abstract class AbstractFuncIT
     "ScriptExample" should {
       "succeed" in {
         for {
-          clients <- participantClients()
+          clients <- scriptClients()
           v <- run(clients, QualifiedName.assertFromString("ScriptExample:test"), dar = stableDar)
         } yield {
           assert(v == SUnit)
@@ -292,7 +284,7 @@ abstract class AbstractFuncIT
     "testQueryContractId" should {
       "support queryContractId" in {
         for {
-          clients <- participantClients()
+          clients <- scriptClients()
           v <- run(
             clients,
             QualifiedName.assertFromString("ScriptTest:testQueryContractId"),
@@ -306,7 +298,7 @@ abstract class AbstractFuncIT
     "testQueryContractKey" should {
       "support queryContractKey" in {
         for {
-          clients <- participantClients()
+          clients <- scriptClients()
           v <- run(
             clients,
             QualifiedName.assertFromString("ScriptTest:testQueryContractKey"),
@@ -324,7 +316,7 @@ abstract class AbstractFuncIT
           case msgRegex(msg_) => msg_
         }
         for {
-          clients <- participantClients()
+          clients <- scriptClients()
           _ = LogCollector.clear()
           v <- run(
             clients,
@@ -341,7 +333,7 @@ abstract class AbstractFuncIT
     "testContractId" should {
       "convert ContractId to Text" in {
         for {
-          clients <- participantClients()
+          clients <- scriptClients()
           SRecord(_, _, vals) <- run(
             clients,
             QualifiedName.assertFromString("TestContractId:testContractId"),
@@ -360,7 +352,7 @@ abstract class AbstractFuncIT
     "Exceptions:test" should {
       "succeed" in {
         for {
-          clients <- participantClients()
+          clients <- scriptClients()
           v <- run(
             clients,
             QualifiedName.assertFromString("TestExceptions:test"),
@@ -374,7 +366,7 @@ abstract class AbstractFuncIT
     "Exceptions:try_catch_then_error" should {
       "fail" in {
         for {
-          clients <- participantClients()
+          clients <- scriptClients()
           exception <- recoverToExceptionIf[InterpretationError](
             run(
               clients,
@@ -392,7 +384,7 @@ abstract class AbstractFuncIT
     "Exceptions:try_catch_then_fail" should {
       "fail" in {
         for {
-          clients <- participantClients()
+          clients <- scriptClients()
           exception <- recoverToExceptionIf[InterpretationError](
             run(
               clients,
@@ -410,7 +402,7 @@ abstract class AbstractFuncIT
     "Exceptions:try_catch_then_abort" should {
       "fail" in {
         for {
-          clients <- participantClients()
+          clients <- scriptClients()
           exception <- recoverToExceptionIf[InterpretationError](
             run(
               clients,
@@ -428,7 +420,7 @@ abstract class AbstractFuncIT
     "Exceptions:try_catch_recover" should {
       "succeed" in {
         for {
-          clients <- participantClients()
+          clients <- scriptClients()
           v <- run(
             clients,
             QualifiedName.assertFromString("TestExceptions:try_catch_recover"),
@@ -442,7 +434,7 @@ abstract class AbstractFuncIT
     "Interface:test_queryInterface" should {
       "succeed" in {
         for {
-          clients <- participantClients()
+          clients <- scriptClients()
           v <- run(
             clients,
             QualifiedName.assertFromString("TestInterfaces:test_queryInterface"),
@@ -456,7 +448,7 @@ abstract class AbstractFuncIT
     "Interface:test" should {
       "succeed" in {
         for {
-          clients <- participantClients()
+          clients <- scriptClients()
           v <- run(
             clients,
             QualifiedName.assertFromString("TestInterfaces:test"),
@@ -472,7 +464,7 @@ abstract class AbstractFuncIT
     "WithAuthority:test" should {
       "succeed" ignore {
         for {
-          clients <- participantClients()
+          clients <- scriptClients()
           v <- run(
             clients,
             QualifiedName.assertFromString("TestWithAuthority:test"),
@@ -486,7 +478,7 @@ abstract class AbstractFuncIT
     "testMultiPartyQuery" should {
       "should return contracts for all listed parties" in {
         for {
-          clients <- participantClients()
+          clients <- scriptClients()
           v <- run(
             clients,
             QualifiedName.assertFromString("ScriptTest:testMultiPartyQueries"),
@@ -499,7 +491,7 @@ abstract class AbstractFuncIT
     }
     "multiparty command submission" in {
       for {
-        clients <- participantClients()
+        clients <- scriptClients()
         v <- run(
           clients,
           QualifiedName.assertFromString("ScriptTest:multiPartySubmission"),
@@ -511,7 +503,7 @@ abstract class AbstractFuncIT
     }
     "tuple key" in {
       for {
-        clients <- participantClients()
+        clients <- scriptClients()
         v <- run(
           clients,
           QualifiedName.assertFromString("ScriptTest:tupleKey"),
@@ -523,7 +515,7 @@ abstract class AbstractFuncIT
     }
     "stack trace" in {
       for {
-        clients <- participantClients()
+        clients <- scriptClients()
         e <- recoverToExceptionIf[ScriptF.FailedCmd](
           run(
             clients,
@@ -548,7 +540,7 @@ abstract class AbstractFuncIT
 
     "testUserManagement should succeed" in {
       for {
-        clients <- participantClients()
+        clients <- scriptClients()
         r <-
           run(
             clients,
@@ -560,7 +552,7 @@ abstract class AbstractFuncIT
 
     "testUserRightManagement should succeed" in {
       for {
-        clients <- participantClients()
+        clients <- scriptClients()
         r <-
           run(
             clients,

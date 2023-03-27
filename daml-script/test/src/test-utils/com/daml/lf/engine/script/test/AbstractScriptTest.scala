@@ -3,6 +3,8 @@
 
 package com.daml.lf.engine.script.test
 
+import com.daml.bazeltools.BazelRunfiles.rlocation
+
 import java.io.File
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.lf.PureCompiledPackages
@@ -24,6 +26,7 @@ case class CompiledDar(
 )
 
 object AbstractScriptTest {
+
   def readDar(file: File): CompiledDar = {
     val dar = DarDecoder.assertReadArchiveFromFile(file)
     val pkgs = PureCompiledPackages.assertBuild(dar.all.toMap, Runner.compilerConfig)
@@ -36,6 +39,11 @@ object AbstractScriptTest {
       fields = ImmArray(Ref.Name.assertFromString("_1"), Ref.Name.assertFromString("_2")),
       values = ArrayList(a, b),
     )
+
+  val stableDarPath = new File(rlocation("daml-script/test/script-test.dar"))
+  val devDarPath = new File(rlocation("daml-script/test/script-test-1.dev.dar"))
+  val stableDar = readDar(stableDarPath)
+  val devDar = readDar(devDarPath)
 }
 
 // Fixture for a set of participants used in Daml Script tests
