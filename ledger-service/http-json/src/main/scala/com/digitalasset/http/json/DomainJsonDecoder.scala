@@ -198,14 +198,19 @@ class DomainJsonDecoder(
       oIfIdArgT <- either(resolveChoiceArgType(ciId getOrElse tId, fjj.choice).liftErr(JsonError))
       (oIfaceId, argT) = oIfIdArgT
 
-      payload <- either(jsValueToApiValue(payloadT, fjj.payload).flatMap(mustBeApiRecord))
+      payload <- either(jsValueToApiRecord(payloadT, fjj.payload))
       argument <- either(jsValueToApiValue(argT, fjj.argument))
+      meta <- fjj.meta traverse (decodeMetaPayloads(_, jsValueToApiRecord))
     } yield fjj.copy(
       payload = payload,
       argument = argument,
       choiceInterfaceId = oIfaceId orElse fjj.choiceInterfaceId,
+      meta = meta,
     )
   }
+
+  private[this] def jsValueToApiRecord(t: domain.LfType, v: JsValue) =
+    jsValueToApiValue(t, v) flatMap mustBeApiRecord
 
   private[this] def decodeMeta(
       meta: domain.CommandMeta[ContractTypeId.Template.OptionalPkg, JsValue],
@@ -215,6 +220,20 @@ class DomainJsonDecoder(
       ec: ExecutionContext,
       lc: LoggingContextOf[InstanceUUID],
   ): ET[domain.CommandMeta[ContractTypeId.Template.Resolved, domain.LfValue]] = for {
+    resolved <- resolveMetaTemplateIds(meta, jwt, ledgerId)
+    // then use all the resolved template IDs for the disclosed contracts
+    decoded <- decodeMetaPayloads(resolved)
+  } yield decoded
+
+  private[this] def resolveMetaTemplateIds[U, R, LfV](
+      meta: domain.CommandMeta[U with ContractTypeId.OptionalPkg, LfV],
+      jwt: Jwt,
+      ledgerId: LedgerApiDomain.LedgerId,
+  )(implicit
+      ec: ExecutionContext,
+      lc: LoggingContextOf[InstanceUUID],
+      resolveOverload: PackageService.ResolveContractTypeId.Overload[U, R],
+  ): ET[domain.CommandMeta[R, LfV]] = for {
     // resolve as few template IDs as possible
     tpidToResolved <- {
       import scalaz.std.vector._
@@ -223,16 +242,21 @@ class DomainJsonDecoder(
         .traverse { ot => templateId_(ot, jwt, ledgerId) strengthL ot }
         .map(_.toMap)
     }
-    // then use all the resolved template IDs for the disclosed contracts
+  } yield meta leftMap tpidToResolved
+
+  private[this] def decodeMetaPayloads[R](
+      meta: domain.CommandMeta[ContractTypeId.Template.Resolved, JsValue],
+      decode: (domain.LfType, JsValue) => JsonError \/ R = jsValueToLfValue,
+  )(implicit
+      ec: ExecutionContext
+  ): ET[domain.CommandMeta[ContractTypeId.Template.Resolved, R]] = for {
     disclosedContracts <- either {
       import scalaz.std.list._
       meta.disclosedContracts traverse (_ traverse { dc =>
-        val tpid = tpidToResolved(dc.templateId)
-        dc.bitraverse(
-          _ => \/.right(tpid),
-          jsrec =>
-            resolveTemplateRecordType(tpid) liftErr JsonError
-              flatMap (jsValueToLfValue(_, jsrec)),
+        val tpid = dc.templateId
+        dc.traverse(jsrec =>
+          resolveTemplateRecordType(tpid) liftErr JsonError
+            flatMap (decode(_, jsrec))
         )
       })
     }
