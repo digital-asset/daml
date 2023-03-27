@@ -43,13 +43,17 @@ provider "secret" {
 }
 
 provider "azurerm" {
-  feature {
+  features {
     virtual_machine {
       graceful_shutdown = true
     }
   }
   subscription_id = "9114f3e0-9963-4368-9a0a-117bcdbf0055"
-  use_cli         = true
+}
+
+resource "azurerm_resource_group" "daml-ci" {
+  name     = "daml-ci"
+  location = "East US"
 }
 
 data "google_project" "current" {
