@@ -106,7 +106,7 @@ trait CantonFixture extends SuiteResource[Vector[Port]] with AkkaBeforeAndAfterA
   private val cantonLogFile = tmpDir.resolve("canton.log")
   private val portFile = tmpDir.resolve("portfile")
 
-  private val files = List(cantonConfigFile, portFile)
+  private val files = List(cantonConfigFile, portFile, cantonLogFile)
 
   override protected def afterAll(): Unit = {
     if (cantonFixtureDebugMode)
