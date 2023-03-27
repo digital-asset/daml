@@ -817,8 +817,11 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
           ctMetadata: DC.Metadata,
       )
 
-      def contractToDisclose(fixture: HttpServiceTestFixtureData, junkMessage: String) = for {
-        (alice, jwt, _) <- fixture.getUniquePartyTokenAndAuthHeaders("Alice")
+      def contractToDisclose(
+          fixture: HttpServiceTestFixtureData,
+          junkMessage: String,
+      ): Future[ContractToDisclose] = for {
+        (alice, jwt, applicationId, _) <- fixture.getUniquePartyTokenAppIdAndAuthHeaders("Alice")
         // we're using the ledger API for the initial create because timestamp
         // is required in the metadata
         toDisclosePayload = argToApi(toDiscloseVA)(ShRecord(owner = alice, junk = junkMessage))
@@ -830,7 +833,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
           Some(
             Commands(
               commandId = uniqueCommandId().unwrap,
-              applicationId = "test",
+              applicationId = applicationId.unwrap,
               actAs = domain.Party unsubst Seq(alice),
               commands = Seq(Command(createCommand)),
             )
