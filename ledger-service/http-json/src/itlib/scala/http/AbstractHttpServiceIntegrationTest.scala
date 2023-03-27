@@ -853,28 +853,33 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
         }
       } yield ContractToDisclose(alice, toDiscloseCid, toDisclosePayload, ctMetadata)
 
-      "using decoded payload" in withHttpService { fixture =>
-        import fixture.encoder
+      def runDisclosureTestCase[Setup](
+          fixture: HttpServiceTestFixtureData
+      )(exerciseEndpoint: Uri.Path, setupBob: (domain.Party, List[HttpHeader]) => Future[Setup])(
+          exerciseVaryingOnlyMeta: (
+              Setup,
+              ContractToDisclose,
+              Option[
+                domain.CommandMeta[domain.ContractTypeId.Template.OptionalPkg, lav1.value.Value]
+              ],
+          ) => JsValue
+      ): Future[Assertion] = {
         val junkMessage = s"some test junk ${uniqueId()}"
         for {
           // first, set up something for alice to disclose to bob
-          ContractToDisclose(alice, toDiscloseCid, toDisclosePayload, ctMetadata) <-
+          toDisclose @ ContractToDisclose(alice, toDiscloseCid, toDisclosePayload, ctMetadata) <-
             contractToDisclose(fixture, junkMessage)
 
           // next, onboard bob to try to interact with the disclosed contract
           (bob, bobHeaders) <- fixture.getUniquePartyAndAuthHeaders("Bob")
-          viewportCid <- postCreateCommand(
-            domain
-              .CreateCommand(
-                TpId.Disclosure.Viewport,
-                argToApi(viewportVA)(ShRecord(owner = bob)),
-                None,
-              ),
-            fixture,
-            bobHeaders,
-          ) map resultContractId
+          viewportPayload = argToApi(viewportVA)(ShRecord(owner = bob))
+          setup <- setupBob(bob, bobHeaders)
 
           // exercise CheckVisibility with different disclosure options
+          checkVisibilityChoice = domain.Choice("CheckVisibility")
+          checkVisibilityArgument = boxedRecord(
+            argToApi(checkVisibilityVA)(ShRecord(disclosed = toDiscloseCid))
+          )
           checkVisibility = { disclosure: Option[DC.Arguments[lav1.value.Value]] =>
             val meta = disclosure map { oneDc =>
               val disclosureEnvelope =
@@ -895,16 +900,8 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
             }
             fixture
               .postJsonRequest(
-                Uri.Path("/v1/exercise"),
-                encodeExercise(encoder)(
-                  domain.ExerciseCommand(
-                    domain.EnrichedContractId(Some(TpId.Disclosure.Viewport), viewportCid),
-                    domain.Choice("CheckVisibility"),
-                    boxedRecord(argToApi(checkVisibilityVA)(ShRecord(disclosed = toDiscloseCid))),
-                    None,
-                    meta,
-                  )
-                ),
+                exerciseEndpoint,
+                exerciseVaryingOnlyMeta(setup, toDisclose, meta),
                 bobHeaders,
               )
               .parseResponse[domain.ExerciseResponse[JsValue]]
@@ -923,13 +920,64 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
                 errorMessage should include(toDiscloseCid.unwrap)
             })
 
-          // ensure that the above works when we disclose the contract
           _ <- checkVisibility(Some(DC.Arguments.Record(boxedRecord(toDisclosePayload))))
             .map(inside(_) {
               case domain.OkResponse(domain.ExerciseResponse(JsString(exResp), _, _), _, _) =>
                 exResp should ===(s"'$bob' can see from '$alice': $junkMessage")
             })
+
+          // ensure that bob can create-and-exercise to combine the above
+          /*
+          caeCmd = encoder
+            .encodeCreateAndExerciseCommand(
+              domain.CreateAndExerciseCommand(
+                TpId.Disclosure.Viewport,
+                viewportPayload,
+                checkVisibilityChoice,
+                checkVisibilityArgument,
+                None,
+                None,
+              )
+            )
+            .valueOr(e => fail(e.shows))
+          _ <- fixture
+            .postJsonRequest(Uri.Path("/v1/create-and-exercise"), caeCmd, bobHeaders)
+            .parseResponse[JsValue]
+            .map(inside(_) { case domain.OkResponse(_, _, _) => succeed })
+           */
         } yield succeed
+      }
+
+      val checkVisibilityChoice = domain.Choice("CheckVisibility")
+
+      "using decoded payload" in withHttpService { fixture =>
+        runDisclosureTestCase(fixture)(
+          Uri.Path("/v1/exercise"),
+          { (bob, bobHeaders) =>
+            postCreateCommand(
+              domain
+                .CreateCommand(
+                  TpId.Disclosure.Viewport,
+                  argToApi(viewportVA)(ShRecord(owner = bob)),
+                  None,
+                ),
+              fixture,
+              bobHeaders,
+            ) map resultContractId
+          },
+        ) { (viewportCid, toDisclose, meta) =>
+          encodeExercise(fixture.encoder)(
+            domain.ExerciseCommand(
+              domain.EnrichedContractId(Some(TpId.Disclosure.Viewport), viewportCid),
+              checkVisibilityChoice,
+              boxedRecord(
+                argToApi(checkVisibilityVA)(ShRecord(disclosed = toDisclose.toDiscloseCid))
+              ),
+              None,
+              meta,
+            )
+          )
+        }
       }
     }
   }
