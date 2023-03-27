@@ -20,6 +20,10 @@ terraform {
       source  = "hashicorp/google-beta"
       version = "4.43.0"
     }
+    azurerm = {
+      source  = "hashicorp/azurerm"
+      version = "3.31.0"
+    }
   }
 }
 
