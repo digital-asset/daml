@@ -326,6 +326,8 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
   final val clientTlsConfig = TlsConfiguration(enabled = true, clientCrt, clientPem, caCrt)
   private val noTlsConfig = TlsConfiguration(enabled = false, None, None, None)
 
+  private[http] val applicationId: domain.ApplicationId = domain.ApplicationId("test")
+
   def jwtForParties(
       actAs: List[domain.Party],
       readAs: List[domain.Party],
@@ -338,7 +340,7 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
       val customJwtPayload: AuthServiceJWTPayload =
         CustomDamlJWTPayload(
           ledgerId = ledgerId,
-          applicationId = Some("test"),
+          applicationId = Some(applicationId.unwrap),
           actAs = domain.Party unsubst actAs,
           participantId = None,
           exp = None,
