@@ -464,13 +464,19 @@ object JsonProtocol extends JsonProtocolLow {
       : JsonFormat[domain.CommandMeta[TmplId, LfV]] =
     jsonFormat6(domain.CommandMeta.apply[TmplId, LfV])
 
-  private implicit val CommandMetaNoDisclosedFormat
+  // exposed for testing
+  private[json] implicit val CommandMetaNoDisclosedFormat
       : RootJsonFormat[domain.CommandMeta.NoDisclosed] = {
-    implicit val noDisclosed
-        : JsonFormatFromFuns[Option[List[domain.DisclosedContract[Nothing, Nothing]]]] =
-      new JsonFormatFromFuns(_ => Option.empty[List[domain.DisclosedContract[Nothing, Nothing]]])(
-        _ => JsNull
-      )
+    type NeverDC = domain.DisclosedContract[Nothing, Nothing]
+    implicit object alwaysEmptyList extends JsonFormat[List[NeverDC]] {
+      override def write(obj: List[NeverDC]): JsValue = JsArray()
+      override def read(json: JsValue): List[NeverDC] = List.empty
+    }
+    implicit object noDisclosed extends OptionFormat[List[NeverDC]] {
+      override def write(obj: Option[List[NeverDC]]): JsValue = JsNull
+      override def read(json: JsValue): Option[List[NeverDC]] = None
+      override def readSome(value: JsValue): Some[List[NeverDC]] = Some(List.empty)
+    }
     jsonFormat6(domain.CommandMeta.apply)
   }
 
@@ -683,13 +689,6 @@ object JsonProtocol extends JsonProtocolLow {
       override def read(json: JsValue): C =
         readCombine(json.convertTo[A], json.convertTo[B])
     }
-
-  private final class JsonFormatFromFuns[A](read0: JsValue => A)(write0: A => JsValue)
-      extends JsonFormat[A] {
-    override def write(obj: A): JsValue = write0(obj)
-
-    override def read(json: JsValue): A = read0(json)
-  }
 }
 
 sealed abstract class JsonProtocolLow extends DefaultJsonProtocol with ExtraFormats {

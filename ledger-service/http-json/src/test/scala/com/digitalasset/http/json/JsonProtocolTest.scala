@@ -262,6 +262,12 @@ class JsonProtocolTest
         domain.CommandMeta(None, None, None, None, None, None)
       )
     }
+
+    "is entirely optional when NoDisclosed" in {
+      "{}".parseJson.convertTo[domain.CommandMeta.NoDisclosed] should ===(
+        domain.CommandMeta(None, None, None, None, None, None)
+      )
+    }
   }
 
   "domain.DisclosedContract" - {
