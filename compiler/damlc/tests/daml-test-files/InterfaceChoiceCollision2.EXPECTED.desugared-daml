@@ -95,37 +95,38 @@ data MyArchive
   = MyArchive {}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
 _choice$_InterfaceArchive :
-  (Interface
+  (DA.Internal.Desugar.Consuming Interface,
+   Interface
    -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party],
-   DA.Internal.Desugar.ContractId Interface
-   -> Interface
-      -> DA.Internal.Desugar.Archive -> DA.Internal.Desugar.Update (()),
-   DA.Internal.Desugar.Consuming Interface,
    DA.Internal.Desugar.Optional (Interface
                                  -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]),
    DA.Internal.Desugar.Optional (Interface
-                                 -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]))
-_choice$_InterfaceArchive
-  = (\ this _ -> DA.Internal.Desugar.signatory this, 
-     \ _ _ _ -> pure (), DA.Internal.Desugar.Consuming, 
-     DA.Internal.Desugar.None, DA.Internal.Desugar.None)
-_choice$_InterfaceMyArchive :
-  (Interface -> MyArchive -> [DA.Internal.Desugar.Party],
+                                 -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]),
    DA.Internal.Desugar.ContractId Interface
-   -> Interface -> MyArchive -> DA.Internal.Desugar.Update (()),
-   DA.Internal.Desugar.Consuming Interface,
+   -> Interface
+      -> DA.Internal.Desugar.Archive -> DA.Internal.Desugar.Update (()))
+_choice$_InterfaceArchive
+  = (DA.Internal.Desugar.Consuming, 
+     \ this _ -> DA.Internal.Desugar.signatory this, 
+     DA.Internal.Desugar.None, DA.Internal.Desugar.None, 
+     \ _ _ _ -> pure ())
+_choice$_InterfaceMyArchive :
+  (DA.Internal.Desugar.Consuming Interface,
+   Interface -> MyArchive -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.Optional (Interface
                                  -> MyArchive -> [DA.Internal.Desugar.Party]),
    DA.Internal.Desugar.Optional (Interface
-                                 -> MyArchive -> [DA.Internal.Desugar.Party]))
+                                 -> MyArchive -> [DA.Internal.Desugar.Party]),
+   DA.Internal.Desugar.ContractId Interface
+   -> Interface -> MyArchive -> DA.Internal.Desugar.Update (()))
 _choice$_InterfaceMyArchive
-  = (\ this arg@MyArchive
+  = (DA.Internal.Desugar.Consuming, 
+     \ this arg@MyArchive
        -> let _ = this in
           let _ = arg in DA.Internal.Desugar.toParties (getOwner this), 
+     DA.Internal.Desugar.None, DA.Internal.Desugar.None, 
      \ self this arg@MyArchive
-       -> let _ = self in let _ = this in let _ = arg in do pure (), 
-     DA.Internal.Desugar.Consuming, DA.Internal.Desugar.None, 
-     DA.Internal.Desugar.None)
+       -> let _ = self in let _ = this in let _ = arg in do pure ())
 instance DA.Internal.Desugar.HasInterfaceView Interface EmptyInterfaceView where
   _view = GHC.Types.primitive @"EViewInterface"
 instance DA.Internal.Desugar.HasFromAnyView Interface EmptyInterfaceView where

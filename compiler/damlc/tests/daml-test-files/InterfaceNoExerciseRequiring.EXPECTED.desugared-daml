@@ -95,43 +95,44 @@ instance DA.Internal.Record.HasField "byHowMuch" GetRich Int where
   setField
     = DA.Internal.Record.setFieldPrim @"byHowMuch" @GetRich @Int
 _choice$_TokenArchive :
-  (Token
+  (DA.Internal.Desugar.Consuming Token,
+   Token
    -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party],
-   DA.Internal.Desugar.ContractId Token
-   -> Token
-      -> DA.Internal.Desugar.Archive -> DA.Internal.Desugar.Update (()),
-   DA.Internal.Desugar.Consuming Token,
    DA.Internal.Desugar.Optional (Token
                                  -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]),
    DA.Internal.Desugar.Optional (Token
-                                 -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]))
-_choice$_TokenArchive
-  = (\ this _ -> DA.Internal.Desugar.signatory this, 
-     \ _ _ _ -> pure (), DA.Internal.Desugar.Consuming, 
-     DA.Internal.Desugar.None, DA.Internal.Desugar.None)
-_choice$_TokenGetRich :
-  (Token -> GetRich -> [DA.Internal.Desugar.Party],
+                                 -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]),
    DA.Internal.Desugar.ContractId Token
    -> Token
-      -> GetRich -> DA.Internal.Desugar.Update (ContractId Token),
-   DA.Internal.Desugar.Consuming Token,
+      -> DA.Internal.Desugar.Archive -> DA.Internal.Desugar.Update (()))
+_choice$_TokenArchive
+  = (DA.Internal.Desugar.Consuming, 
+     \ this _ -> DA.Internal.Desugar.signatory this, 
+     DA.Internal.Desugar.None, DA.Internal.Desugar.None, 
+     \ _ _ _ -> pure ())
+_choice$_TokenGetRich :
+  (DA.Internal.Desugar.Consuming Token,
+   Token -> GetRich -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.Optional (Token
                                  -> GetRich -> [DA.Internal.Desugar.Party]),
    DA.Internal.Desugar.Optional (Token
-                                 -> GetRich -> [DA.Internal.Desugar.Party]))
+                                 -> GetRich -> [DA.Internal.Desugar.Party]),
+   DA.Internal.Desugar.ContractId Token
+   -> Token
+      -> GetRich -> DA.Internal.Desugar.Update (ContractId Token))
 _choice$_TokenGetRich
-  = (\ this arg@GetRich {..}
+  = (DA.Internal.Desugar.Consuming, 
+     \ this arg@GetRich {..}
        -> let _ = this in
           let _ = arg in DA.Internal.Desugar.toParties (getOwner this), 
+     DA.Internal.Desugar.None, DA.Internal.Desugar.None, 
      \ self this arg@GetRich {..}
        -> let _ = self in
           let _ = this in
           let _ = arg
           in
             do assert (byHowMuch > 0)
-               create $ setAmount this (getAmount this + byHowMuch), 
-     DA.Internal.Desugar.Consuming, DA.Internal.Desugar.None, 
-     DA.Internal.Desugar.None)
+               create $ setAmount this (getAmount this + byHowMuch))
 instance DA.Internal.Desugar.HasInterfaceView Token EmptyInterfaceView where
   _view = GHC.Types.primitive @"EViewInterface"
 instance DA.Internal.Desugar.HasFromAnyView Token EmptyInterfaceView where
@@ -198,20 +199,21 @@ instance DA.Internal.Desugar.HasChoiceController SubToken DA.Internal.Desugar.Ar
 instance DA.Internal.Desugar.HasChoiceObserver SubToken DA.Internal.Desugar.Archive where
   _choiceObserver = GHC.Types.primitive @"EChoiceObserver"
 _choice$_SubTokenArchive :
-  (SubToken
+  (DA.Internal.Desugar.Consuming SubToken,
+   SubToken
    -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party],
-   DA.Internal.Desugar.ContractId SubToken
-   -> SubToken
-      -> DA.Internal.Desugar.Archive -> DA.Internal.Desugar.Update (()),
-   DA.Internal.Desugar.Consuming SubToken,
    DA.Internal.Desugar.Optional (SubToken
                                  -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]),
    DA.Internal.Desugar.Optional (SubToken
-                                 -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]))
+                                 -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]),
+   DA.Internal.Desugar.ContractId SubToken
+   -> SubToken
+      -> DA.Internal.Desugar.Archive -> DA.Internal.Desugar.Update (()))
 _choice$_SubTokenArchive
-  = (\ this _ -> DA.Internal.Desugar.signatory this, 
-     \ _ _ _ -> pure (), DA.Internal.Desugar.Consuming, 
-     DA.Internal.Desugar.None, DA.Internal.Desugar.None)
+  = (DA.Internal.Desugar.Consuming, 
+     \ this _ -> DA.Internal.Desugar.signatory this, 
+     DA.Internal.Desugar.None, DA.Internal.Desugar.None, 
+     \ _ _ _ -> pure ())
 instance DA.Internal.Desugar.HasInterfaceView SubToken EmptyInterfaceView where
   _view = GHC.Types.primitive @"EViewInterface"
 instance DA.Internal.Desugar.HasFromAnyView SubToken EmptyInterfaceView where

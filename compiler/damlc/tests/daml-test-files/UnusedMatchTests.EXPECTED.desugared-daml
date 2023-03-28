@@ -114,30 +114,32 @@ instance DA.Internal.Desugar.HasChoiceController T Revoke where
 instance DA.Internal.Desugar.HasChoiceObserver T Revoke where
   _choiceObserver = GHC.Types.primitive @"EChoiceObserver"
 _choice$_TArchive :
-  (T -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party],
-   DA.Internal.Desugar.ContractId T
-   -> T
-      -> DA.Internal.Desugar.Archive -> DA.Internal.Desugar.Update (()),
-   DA.Internal.Desugar.Consuming T,
+  (DA.Internal.Desugar.Consuming T,
+   T -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.Optional (T
                                  -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]),
    DA.Internal.Desugar.Optional (T
-                                 -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]))
-_choice$_TArchive
-  = (\ this _ -> DA.Internal.Desugar.signatory this, 
-     \ _ _ _ -> pure (), DA.Internal.Desugar.Consuming, 
-     DA.Internal.Desugar.None, DA.Internal.Desugar.None)
-_choice$_TRevoke :
-  (T -> Revoke -> [DA.Internal.Desugar.Party],
+                                 -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]),
    DA.Internal.Desugar.ContractId T
-   -> T -> Revoke -> DA.Internal.Desugar.Update (()),
-   DA.Internal.Desugar.Consuming T,
+   -> T
+      -> DA.Internal.Desugar.Archive -> DA.Internal.Desugar.Update (()))
+_choice$_TArchive
+  = (DA.Internal.Desugar.Consuming, 
+     \ this _ -> DA.Internal.Desugar.signatory this, 
+     DA.Internal.Desugar.None, DA.Internal.Desugar.None, 
+     \ _ _ _ -> pure ())
+_choice$_TRevoke :
+  (DA.Internal.Desugar.Consuming T,
+   T -> Revoke -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.Optional (T
                                  -> Revoke -> [DA.Internal.Desugar.Party]),
    DA.Internal.Desugar.Optional (T
-                                 -> Revoke -> [DA.Internal.Desugar.Party]))
+                                 -> Revoke -> [DA.Internal.Desugar.Party]),
+   DA.Internal.Desugar.ContractId T
+   -> T -> Revoke -> DA.Internal.Desugar.Update (()))
 _choice$_TRevoke
-  = (\ this@T {..} arg@Revoke
+  = (DA.Internal.Desugar.Consuming, 
+     \ this@T {..} arg@Revoke
        -> let
             (revokeRetVal, sig, obs, assertion, plainEnglish, ident)
               = _templateLet_T this in
@@ -148,6 +150,7 @@ _choice$_TRevoke
           let _ = plainEnglish in
           let _ = ident in
           let _ = this in let _ = arg in DA.Internal.Desugar.toParties (p), 
+     DA.Internal.Desugar.None, DA.Internal.Desugar.None, 
      \ self this@T {..} arg@Revoke
        -> let
             (revokeRetVal, sig, obs, assertion, plainEnglish, ident)
@@ -159,9 +162,7 @@ _choice$_TRevoke
           let _ = plainEnglish in
           let _ = ident in
           let _ = self in
-          let _ = this in let _ = arg in do pure revokeRetVal, 
-     DA.Internal.Desugar.Consuming, DA.Internal.Desugar.None, 
-     DA.Internal.Desugar.None)
+          let _ = this in let _ = arg in do pure revokeRetVal)
 instance DA.Internal.Desugar.HasExerciseByKey T (Party,
                                                  Text) DA.Internal.Desugar.Archive (()) where
   _exerciseByKey = GHC.Types.primitive @"UExerciseByKey"

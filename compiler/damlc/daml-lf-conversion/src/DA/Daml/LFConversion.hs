@@ -259,7 +259,13 @@ extractModuleContents env@Env{..} coreModule modIface details = do
         [ (mkTypeCon [getOccText tplTy], [ChoiceData ty v])
         | (name, v) <- mcBinds
         , "_choice$_" `T.isPrefixOf` getOccText name
-        , ty@(TypeCon _ [_, _, TypeCon _ [TypeCon tplTy _], _, _fifth]) <- [varType name]
+        , ty@(TypeCon _
+               [TypeCon _ [TypeCon tplTy _]
+               , _controller
+               , _observer
+               , _authority
+               , _action --tupleElem5
+               ]) <- [varType name]
         ]
     mcTemplateBinds = scrapeTemplateBinds mcBinds
     mcExceptionBinds
@@ -1250,15 +1256,22 @@ convertChoice env tbinds (ChoiceData ty expr) = do
     -- The desuaged representation of a Daml Choice is a five tuple.
     -- Constructed by mkChoiceDecls in RdrHsSyn.hs in the ghc repo.
     -- We match against that 5-tuple expression or type in 3 places in this file.
-    -- Two in ths function (see _fidthType and _fifthExpr).
-    -- And one above in extractModuleContents (see _fifth)
-    TConApp _ [_, _ :-> _ :-> choiceTy@(TConApp choiceTyCon _) :-> TUpdate choiceRetTy, consumingTy, _, _fifthType] <- convertType env ty
+    -- search for string "tupleElem5"
+
+    TConApp _ [ consumingTy
+              , _controller
+              , _observer
+              , _authority
+              , _ :-> _ :-> choiceTy@(TConApp choiceTyCon _) :-> TUpdate choiceRetTy -- tupleElem5
+              ] <- convertType env ty
+
     let choiceName = ChoiceName (T.intercalate "." $ unTypeConName $ qualObject choiceTyCon)
-    ERecCon _ [ (_, controllers)
-              , (_, action)
-              , _
+
+    ERecCon _ [ _consum
+              , (_, controllers)
               , (_, optObservers)
-              , _fifthExpr
+              , (_, _optAuthority) -- TODO #15882 -- feed this through the compiler pipeline
+              , (_, action) -- tupleElem5
               ] <- removeLocations <$> convertExpr env expr
 
     mbObservers <-

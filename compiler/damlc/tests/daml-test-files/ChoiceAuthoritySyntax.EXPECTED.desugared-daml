@@ -234,219 +234,215 @@ instance DA.Internal.Desugar.HasChoiceController TrySyntax X_new_authority_contr
 instance DA.Internal.Desugar.HasChoiceObserver TrySyntax X_new_authority_controller_observer where
   _choiceObserver = GHC.Types.primitive @"EChoiceObserver"
 _choice$_TrySyntaxArchive :
-  (TrySyntax
+  (DA.Internal.Desugar.Consuming TrySyntax,
+   TrySyntax
    -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party],
-   DA.Internal.Desugar.ContractId TrySyntax
-   -> TrySyntax
-      -> DA.Internal.Desugar.Archive -> DA.Internal.Desugar.Update (()),
-   DA.Internal.Desugar.Consuming TrySyntax,
    DA.Internal.Desugar.Optional (TrySyntax
                                  -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]),
    DA.Internal.Desugar.Optional (TrySyntax
-                                 -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]))
-_choice$_TrySyntaxArchive
-  = (\ this _ -> DA.Internal.Desugar.signatory this, 
-     \ _ _ _ -> pure (), DA.Internal.Desugar.Consuming, 
-     DA.Internal.Desugar.None, DA.Internal.Desugar.None)
-_choice$_TrySyntaxX_old_just_controller :
-  (TrySyntax -> X_old_just_controller -> [DA.Internal.Desugar.Party],
+                                 -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]),
    DA.Internal.Desugar.ContractId TrySyntax
    -> TrySyntax
-      -> X_old_just_controller -> DA.Internal.Desugar.Update (()),
-   DA.Internal.Desugar.Consuming TrySyntax,
+      -> DA.Internal.Desugar.Archive -> DA.Internal.Desugar.Update (()))
+_choice$_TrySyntaxArchive
+  = (DA.Internal.Desugar.Consuming, 
+     \ this _ -> DA.Internal.Desugar.signatory this, 
+     DA.Internal.Desugar.None, DA.Internal.Desugar.None, 
+     \ _ _ _ -> pure ())
+_choice$_TrySyntaxX_old_just_controller :
+  (DA.Internal.Desugar.Consuming TrySyntax,
+   TrySyntax -> X_old_just_controller -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.Optional (TrySyntax
                                  -> X_old_just_controller -> [DA.Internal.Desugar.Party]),
    DA.Internal.Desugar.Optional (TrySyntax
-                                 -> X_old_just_controller -> [DA.Internal.Desugar.Party]))
-_choice$_TrySyntaxX_old_just_controller
-  = (\ this@TrySyntax {..} arg@X_old_just_controller
-       -> let _ = this in
-          let _ = arg in DA.Internal.Desugar.toParties (_CONTROLLER), 
-     \ self this@TrySyntax {..} arg@X_old_just_controller
-       -> let _ = self in let _ = this in let _ = arg in do _BODY, 
-     DA.Internal.Desugar.Consuming, DA.Internal.Desugar.None, 
-     DA.Internal.Desugar.None)
-_choice$_TrySyntaxX_old_observer_and_controller :
-  (TrySyntax
-   -> X_old_observer_and_controller -> [DA.Internal.Desugar.Party],
+                                 -> X_old_just_controller -> [DA.Internal.Desugar.Party]),
    DA.Internal.Desugar.ContractId TrySyntax
    -> TrySyntax
-      -> X_old_observer_and_controller
-         -> DA.Internal.Desugar.Update (()),
-   DA.Internal.Desugar.Consuming TrySyntax,
+      -> X_old_just_controller -> DA.Internal.Desugar.Update (()))
+_choice$_TrySyntaxX_old_just_controller
+  = (DA.Internal.Desugar.Consuming, 
+     \ this@TrySyntax {..} arg@X_old_just_controller
+       -> let _ = this in
+          let _ = arg in DA.Internal.Desugar.toParties (_CONTROLLER), 
+     DA.Internal.Desugar.None, DA.Internal.Desugar.None, 
+     \ self this@TrySyntax {..} arg@X_old_just_controller
+       -> let _ = self in let _ = this in let _ = arg in do _BODY)
+_choice$_TrySyntaxX_old_observer_and_controller :
+  (DA.Internal.Desugar.Consuming TrySyntax,
+   TrySyntax
+   -> X_old_observer_and_controller -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.Optional (TrySyntax
                                  -> X_old_observer_and_controller -> [DA.Internal.Desugar.Party]),
    DA.Internal.Desugar.Optional (TrySyntax
-                                 -> X_old_observer_and_controller -> [DA.Internal.Desugar.Party]))
+                                 -> X_old_observer_and_controller -> [DA.Internal.Desugar.Party]),
+   DA.Internal.Desugar.ContractId TrySyntax
+   -> TrySyntax
+      -> X_old_observer_and_controller
+         -> DA.Internal.Desugar.Update (()))
 _choice$_TrySyntaxX_old_observer_and_controller
-  = (\ this@TrySyntax {..} arg@X_old_observer_and_controller
+  = (DA.Internal.Desugar.Consuming, 
+     \ this@TrySyntax {..} arg@X_old_observer_and_controller
        -> let _ = this in
           let _ = arg in DA.Internal.Desugar.toParties (_CONTROLLER), 
-     \ self this@TrySyntax {..} arg@X_old_observer_and_controller
-       -> let _ = self in let _ = this in let _ = arg in do _BODY, 
-     DA.Internal.Desugar.Consuming, 
      DA.Internal.Desugar.Some
        \ this@TrySyntax {..} arg@X_old_observer_and_controller
          -> let _ = this in
             let _ = arg in DA.Internal.Desugar.toParties (_OBSERVER), 
-     DA.Internal.Desugar.None)
+     DA.Internal.Desugar.None, 
+     \ self this@TrySyntax {..} arg@X_old_observer_and_controller
+       -> let _ = self in let _ = this in let _ = arg in do _BODY)
 _choice$_TrySyntaxX_new_just_controllerX :
-  (TrySyntax
-   -> X_new_just_controllerX -> [DA.Internal.Desugar.Party],
-   DA.Internal.Desugar.ContractId TrySyntax
-   -> TrySyntax
-      -> X_new_just_controllerX -> DA.Internal.Desugar.Update (()),
-   DA.Internal.Desugar.Consuming TrySyntax,
+  (DA.Internal.Desugar.Consuming TrySyntax,
+   TrySyntax -> X_new_just_controllerX -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.Optional (TrySyntax
                                  -> X_new_just_controllerX -> [DA.Internal.Desugar.Party]),
    DA.Internal.Desugar.Optional (TrySyntax
-                                 -> X_new_just_controllerX -> [DA.Internal.Desugar.Party]))
-_choice$_TrySyntaxX_new_just_controllerX
-  = (\ this@TrySyntax {..} arg@X_new_just_controllerX
-       -> let _ = this in
-          let _ = arg in DA.Internal.Desugar.toParties (_CONTROLLER), 
-     \ self this@TrySyntax {..} arg@X_new_just_controllerX
-       -> let _ = self in let _ = this in let _ = arg in do _BODY, 
-     DA.Internal.Desugar.Consuming, DA.Internal.Desugar.None, 
-     DA.Internal.Desugar.None)
-_choice$_TrySyntaxX_new_just_controller :
-  (TrySyntax -> X_new_just_controller -> [DA.Internal.Desugar.Party],
+                                 -> X_new_just_controllerX -> [DA.Internal.Desugar.Party]),
    DA.Internal.Desugar.ContractId TrySyntax
    -> TrySyntax
-      -> X_new_just_controller -> DA.Internal.Desugar.Update (()),
-   DA.Internal.Desugar.Consuming TrySyntax,
+      -> X_new_just_controllerX -> DA.Internal.Desugar.Update (()))
+_choice$_TrySyntaxX_new_just_controllerX
+  = (DA.Internal.Desugar.Consuming, 
+     \ this@TrySyntax {..} arg@X_new_just_controllerX
+       -> let _ = this in
+          let _ = arg in DA.Internal.Desugar.toParties (_CONTROLLER), 
+     DA.Internal.Desugar.None, DA.Internal.Desugar.None, 
+     \ self this@TrySyntax {..} arg@X_new_just_controllerX
+       -> let _ = self in let _ = this in let _ = arg in do _BODY)
+_choice$_TrySyntaxX_new_just_controller :
+  (DA.Internal.Desugar.Consuming TrySyntax,
+   TrySyntax -> X_new_just_controller -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.Optional (TrySyntax
                                  -> X_new_just_controller -> [DA.Internal.Desugar.Party]),
    DA.Internal.Desugar.Optional (TrySyntax
-                                 -> X_new_just_controller -> [DA.Internal.Desugar.Party]))
-_choice$_TrySyntaxX_new_just_controller
-  = (\ this@TrySyntax {..} arg@X_new_just_controller
-       -> let _ = this in
-          let _ = arg in DA.Internal.Desugar.toParties (_CONTROLLER), 
-     \ self this@TrySyntax {..} arg@X_new_just_controller
-       -> let _ = self in let _ = this in let _ = arg in do _BODY, 
-     DA.Internal.Desugar.Consuming, DA.Internal.Desugar.None, 
-     DA.Internal.Desugar.None)
-_choice$_TrySyntaxX_new_observer_and_controllerX :
-  (TrySyntax
-   -> X_new_observer_and_controllerX -> [DA.Internal.Desugar.Party],
+                                 -> X_new_just_controller -> [DA.Internal.Desugar.Party]),
    DA.Internal.Desugar.ContractId TrySyntax
    -> TrySyntax
-      -> X_new_observer_and_controllerX
-         -> DA.Internal.Desugar.Update (()),
-   DA.Internal.Desugar.Consuming TrySyntax,
+      -> X_new_just_controller -> DA.Internal.Desugar.Update (()))
+_choice$_TrySyntaxX_new_just_controller
+  = (DA.Internal.Desugar.Consuming, 
+     \ this@TrySyntax {..} arg@X_new_just_controller
+       -> let _ = this in
+          let _ = arg in DA.Internal.Desugar.toParties (_CONTROLLER), 
+     DA.Internal.Desugar.None, DA.Internal.Desugar.None, 
+     \ self this@TrySyntax {..} arg@X_new_just_controller
+       -> let _ = self in let _ = this in let _ = arg in do _BODY)
+_choice$_TrySyntaxX_new_observer_and_controllerX :
+  (DA.Internal.Desugar.Consuming TrySyntax,
+   TrySyntax
+   -> X_new_observer_and_controllerX -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.Optional (TrySyntax
                                  -> X_new_observer_and_controllerX -> [DA.Internal.Desugar.Party]),
    DA.Internal.Desugar.Optional (TrySyntax
-                                 -> X_new_observer_and_controllerX -> [DA.Internal.Desugar.Party]))
+                                 -> X_new_observer_and_controllerX -> [DA.Internal.Desugar.Party]),
+   DA.Internal.Desugar.ContractId TrySyntax
+   -> TrySyntax
+      -> X_new_observer_and_controllerX
+         -> DA.Internal.Desugar.Update (()))
 _choice$_TrySyntaxX_new_observer_and_controllerX
-  = (\ this@TrySyntax {..} arg@X_new_observer_and_controllerX
+  = (DA.Internal.Desugar.Consuming, 
+     \ this@TrySyntax {..} arg@X_new_observer_and_controllerX
        -> let _ = this in
           let _ = arg in DA.Internal.Desugar.toParties (_CONTROLLER), 
-     \ self this@TrySyntax {..} arg@X_new_observer_and_controllerX
-       -> let _ = self in let _ = this in let _ = arg in do _BODY, 
-     DA.Internal.Desugar.Consuming, 
      DA.Internal.Desugar.Some
        \ this@TrySyntax {..} arg@X_new_observer_and_controllerX
          -> let _ = this in
             let _ = arg in DA.Internal.Desugar.toParties (_OBSERVER), 
-     DA.Internal.Desugar.None)
+     DA.Internal.Desugar.None, 
+     \ self this@TrySyntax {..} arg@X_new_observer_and_controllerX
+       -> let _ = self in let _ = this in let _ = arg in do _BODY)
 _choice$_TrySyntaxX_new_observer_and_controller :
-  (TrySyntax
+  (DA.Internal.Desugar.Consuming TrySyntax,
+   TrySyntax
    -> X_new_observer_and_controller -> [DA.Internal.Desugar.Party],
-   DA.Internal.Desugar.ContractId TrySyntax
-   -> TrySyntax
-      -> X_new_observer_and_controller
-         -> DA.Internal.Desugar.Update (()),
-   DA.Internal.Desugar.Consuming TrySyntax,
    DA.Internal.Desugar.Optional (TrySyntax
                                  -> X_new_observer_and_controller -> [DA.Internal.Desugar.Party]),
    DA.Internal.Desugar.Optional (TrySyntax
-                                 -> X_new_observer_and_controller -> [DA.Internal.Desugar.Party]))
+                                 -> X_new_observer_and_controller -> [DA.Internal.Desugar.Party]),
+   DA.Internal.Desugar.ContractId TrySyntax
+   -> TrySyntax
+      -> X_new_observer_and_controller
+         -> DA.Internal.Desugar.Update (()))
 _choice$_TrySyntaxX_new_observer_and_controller
-  = (\ this@TrySyntax {..} arg@X_new_observer_and_controller
+  = (DA.Internal.Desugar.Consuming, 
+     \ this@TrySyntax {..} arg@X_new_observer_and_controller
        -> let _ = this in
           let _ = arg in DA.Internal.Desugar.toParties (_CONTROLLER), 
-     \ self this@TrySyntax {..} arg@X_new_observer_and_controller
-       -> let _ = self in let _ = this in let _ = arg in do _BODY, 
-     DA.Internal.Desugar.Consuming, 
      DA.Internal.Desugar.Some
        \ this@TrySyntax {..} arg@X_new_observer_and_controller
          -> let _ = this in
             let _ = arg in DA.Internal.Desugar.toParties (_OBSERVER), 
-     DA.Internal.Desugar.None)
+     DA.Internal.Desugar.None, 
+     \ self this@TrySyntax {..} arg@X_new_observer_and_controller
+       -> let _ = self in let _ = this in let _ = arg in do _BODY)
 _choice$_TrySyntaxX_new_controller_and_observer :
-  (TrySyntax
+  (DA.Internal.Desugar.Consuming TrySyntax,
+   TrySyntax
    -> X_new_controller_and_observer -> [DA.Internal.Desugar.Party],
-   DA.Internal.Desugar.ContractId TrySyntax
-   -> TrySyntax
-      -> X_new_controller_and_observer
-         -> DA.Internal.Desugar.Update (()),
-   DA.Internal.Desugar.Consuming TrySyntax,
    DA.Internal.Desugar.Optional (TrySyntax
                                  -> X_new_controller_and_observer -> [DA.Internal.Desugar.Party]),
    DA.Internal.Desugar.Optional (TrySyntax
-                                 -> X_new_controller_and_observer -> [DA.Internal.Desugar.Party]))
+                                 -> X_new_controller_and_observer -> [DA.Internal.Desugar.Party]),
+   DA.Internal.Desugar.ContractId TrySyntax
+   -> TrySyntax
+      -> X_new_controller_and_observer
+         -> DA.Internal.Desugar.Update (()))
 _choice$_TrySyntaxX_new_controller_and_observer
-  = (\ this@TrySyntax {..} arg@X_new_controller_and_observer
+  = (DA.Internal.Desugar.Consuming, 
+     \ this@TrySyntax {..} arg@X_new_controller_and_observer
        -> let _ = this in
           let _ = arg in DA.Internal.Desugar.toParties (_CONTROLLER), 
-     \ self this@TrySyntax {..} arg@X_new_controller_and_observer
-       -> let _ = self in let _ = this in let _ = arg in do _BODY, 
-     DA.Internal.Desugar.Consuming, 
      DA.Internal.Desugar.Some
        \ this@TrySyntax {..} arg@X_new_controller_and_observer
          -> let _ = this in
             let _ = arg in DA.Internal.Desugar.toParties (_OBSERVER), 
-     DA.Internal.Desugar.None)
+     DA.Internal.Desugar.None, 
+     \ self this@TrySyntax {..} arg@X_new_controller_and_observer
+       -> let _ = self in let _ = this in let _ = arg in do _BODY)
 _choice$_TrySyntaxX_new_authority_and_controller :
-  (TrySyntax
+  (DA.Internal.Desugar.Consuming TrySyntax,
+   TrySyntax
    -> X_new_authority_and_controller -> [DA.Internal.Desugar.Party],
-   DA.Internal.Desugar.ContractId TrySyntax
-   -> TrySyntax
-      -> X_new_authority_and_controller
-         -> DA.Internal.Desugar.Update (()),
-   DA.Internal.Desugar.Consuming TrySyntax,
    DA.Internal.Desugar.Optional (TrySyntax
                                  -> X_new_authority_and_controller -> [DA.Internal.Desugar.Party]),
    DA.Internal.Desugar.Optional (TrySyntax
-                                 -> X_new_authority_and_controller -> [DA.Internal.Desugar.Party]))
+                                 -> X_new_authority_and_controller -> [DA.Internal.Desugar.Party]),
+   DA.Internal.Desugar.ContractId TrySyntax
+   -> TrySyntax
+      -> X_new_authority_and_controller
+         -> DA.Internal.Desugar.Update (()))
 _choice$_TrySyntaxX_new_authority_and_controller
-  = (\ this@TrySyntax {..} arg@X_new_authority_and_controller
+  = (DA.Internal.Desugar.Consuming, 
+     \ this@TrySyntax {..} arg@X_new_authority_and_controller
        -> let _ = this in
           let _ = arg in DA.Internal.Desugar.toParties (_CONTROLLER), 
-     \ self this@TrySyntax {..} arg@X_new_authority_and_controller
-       -> let _ = self in let _ = this in let _ = arg in do _BODY, 
-     DA.Internal.Desugar.Consuming, DA.Internal.Desugar.None, 
+     DA.Internal.Desugar.None, 
      DA.Internal.Desugar.Some
        \ this@TrySyntax {..} arg@X_new_authority_and_controller
          -> let _ = this in
-            let _ = arg in DA.Internal.Desugar.toParties (_AUTHORITY))
+            let _ = arg in DA.Internal.Desugar.toParties (_AUTHORITY), 
+     \ self this@TrySyntax {..} arg@X_new_authority_and_controller
+       -> let _ = self in let _ = this in let _ = arg in do _BODY)
 _choice$_TrySyntaxX_new_observer_authority_and_controllerX :
-  (TrySyntax
+  (DA.Internal.Desugar.Consuming TrySyntax,
+   TrySyntax
    -> X_new_observer_authority_and_controllerX
       -> [DA.Internal.Desugar.Party],
+   DA.Internal.Desugar.Optional (TrySyntax
+                                 -> X_new_observer_authority_and_controllerX
+                                    -> [DA.Internal.Desugar.Party]),
+   DA.Internal.Desugar.Optional (TrySyntax
+                                 -> X_new_observer_authority_and_controllerX
+                                    -> [DA.Internal.Desugar.Party]),
    DA.Internal.Desugar.ContractId TrySyntax
    -> TrySyntax
       -> X_new_observer_authority_and_controllerX
-         -> DA.Internal.Desugar.Update (()),
-   DA.Internal.Desugar.Consuming TrySyntax,
-   DA.Internal.Desugar.Optional (TrySyntax
-                                 -> X_new_observer_authority_and_controllerX
-                                    -> [DA.Internal.Desugar.Party]),
-   DA.Internal.Desugar.Optional (TrySyntax
-                                 -> X_new_observer_authority_and_controllerX
-                                    -> [DA.Internal.Desugar.Party]))
+         -> DA.Internal.Desugar.Update (()))
 _choice$_TrySyntaxX_new_observer_authority_and_controllerX
-  = (\ this@TrySyntax {..}
-       arg@X_new_observer_authority_and_controllerX
+  = (DA.Internal.Desugar.Consuming, 
+     \ this@TrySyntax {..} arg@X_new_observer_authority_and_controllerX
        -> let _ = this in
           let _ = arg in DA.Internal.Desugar.toParties (_CONTROLLER), 
-     \ self
-       this@TrySyntax {..}
-       arg@X_new_observer_authority_and_controllerX
-       -> let _ = self in let _ = this in let _ = arg in do _BODY, 
-     DA.Internal.Desugar.Consuming, 
      DA.Internal.Desugar.Some
        \ this@TrySyntax {..} arg@X_new_observer_authority_and_controllerX
          -> let _ = this in
@@ -454,32 +450,31 @@ _choice$_TrySyntaxX_new_observer_authority_and_controllerX
      DA.Internal.Desugar.Some
        \ this@TrySyntax {..} arg@X_new_observer_authority_and_controllerX
          -> let _ = this in
-            let _ = arg in DA.Internal.Desugar.toParties (_AUTHORITY))
+            let _ = arg in DA.Internal.Desugar.toParties (_AUTHORITY), 
+     \ self
+       this@TrySyntax {..}
+       arg@X_new_observer_authority_and_controllerX
+       -> let _ = self in let _ = this in let _ = arg in do _BODY)
 _choice$_TrySyntaxX_new_observer_authority_and_controller :
-  (TrySyntax
+  (DA.Internal.Desugar.Consuming TrySyntax,
+   TrySyntax
    -> X_new_observer_authority_and_controller
       -> [DA.Internal.Desugar.Party],
+   DA.Internal.Desugar.Optional (TrySyntax
+                                 -> X_new_observer_authority_and_controller
+                                    -> [DA.Internal.Desugar.Party]),
+   DA.Internal.Desugar.Optional (TrySyntax
+                                 -> X_new_observer_authority_and_controller
+                                    -> [DA.Internal.Desugar.Party]),
    DA.Internal.Desugar.ContractId TrySyntax
    -> TrySyntax
       -> X_new_observer_authority_and_controller
-         -> DA.Internal.Desugar.Update (()),
-   DA.Internal.Desugar.Consuming TrySyntax,
-   DA.Internal.Desugar.Optional (TrySyntax
-                                 -> X_new_observer_authority_and_controller
-                                    -> [DA.Internal.Desugar.Party]),
-   DA.Internal.Desugar.Optional (TrySyntax
-                                 -> X_new_observer_authority_and_controller
-                                    -> [DA.Internal.Desugar.Party]))
+         -> DA.Internal.Desugar.Update (()))
 _choice$_TrySyntaxX_new_observer_authority_and_controller
-  = (\ this@TrySyntax {..}
-       arg@X_new_observer_authority_and_controller
+  = (DA.Internal.Desugar.Consuming, 
+     \ this@TrySyntax {..} arg@X_new_observer_authority_and_controller
        -> let _ = this in
           let _ = arg in DA.Internal.Desugar.toParties (_CONTROLLER), 
-     \ self
-       this@TrySyntax {..}
-       arg@X_new_observer_authority_and_controller
-       -> let _ = self in let _ = this in let _ = arg in do _BODY, 
-     DA.Internal.Desugar.Consuming, 
      DA.Internal.Desugar.Some
        \ this@TrySyntax {..} arg@X_new_observer_authority_and_controller
          -> let _ = this in
@@ -487,62 +482,63 @@ _choice$_TrySyntaxX_new_observer_authority_and_controller
      DA.Internal.Desugar.Some
        \ this@TrySyntax {..} arg@X_new_observer_authority_and_controller
          -> let _ = this in
-            let _ = arg in DA.Internal.Desugar.toParties (_AUTHORITY))
+            let _ = arg in DA.Internal.Desugar.toParties (_AUTHORITY), 
+     \ self
+       this@TrySyntax {..}
+       arg@X_new_observer_authority_and_controller
+       -> let _ = self in let _ = this in let _ = arg in do _BODY)
 _choice$_TrySyntaxX_new_authority_observer_and_controller :
-  (TrySyntax
+  (DA.Internal.Desugar.Consuming TrySyntax,
+   TrySyntax
    -> X_new_authority_observer_and_controller
       -> [DA.Internal.Desugar.Party],
+   DA.Internal.Desugar.Optional (TrySyntax
+                                 -> X_new_authority_observer_and_controller
+                                    -> [DA.Internal.Desugar.Party]),
+   DA.Internal.Desugar.Optional (TrySyntax
+                                 -> X_new_authority_observer_and_controller
+                                    -> [DA.Internal.Desugar.Party]),
    DA.Internal.Desugar.ContractId TrySyntax
    -> TrySyntax
       -> X_new_authority_observer_and_controller
-         -> DA.Internal.Desugar.Update (()),
-   DA.Internal.Desugar.Consuming TrySyntax,
-   DA.Internal.Desugar.Optional (TrySyntax
-                                 -> X_new_authority_observer_and_controller
-                                    -> [DA.Internal.Desugar.Party]),
-   DA.Internal.Desugar.Optional (TrySyntax
-                                 -> X_new_authority_observer_and_controller
-                                    -> [DA.Internal.Desugar.Party]))
+         -> DA.Internal.Desugar.Update (()))
 _choice$_TrySyntaxX_new_authority_observer_and_controller
-  = (\ this@TrySyntax {..}
-       arg@X_new_authority_observer_and_controller
+  = (DA.Internal.Desugar.Consuming, 
+     \ this@TrySyntax {..} arg@X_new_authority_observer_and_controller
        -> let _ = this in
           let _ = arg in DA.Internal.Desugar.toParties (_CONTROLLER), 
+     DA.Internal.Desugar.Some
+       \ this@TrySyntax {..} arg@X_new_authority_observer_and_controller
+         -> let _ = this in
+            let _ = arg in DA.Internal.Desugar.toParties (_OBSERVER), 
+     DA.Internal.Desugar.Some
+       \ this@TrySyntax {..} arg@X_new_authority_observer_and_controller
+         -> let _ = this in
+            let _ = arg in DA.Internal.Desugar.toParties (_AUTHORITY), 
      \ self
        this@TrySyntax {..}
        arg@X_new_authority_observer_and_controller
-       -> let _ = self in let _ = this in let _ = arg in do _BODY, 
-     DA.Internal.Desugar.Consuming, 
-     DA.Internal.Desugar.Some
-       \ this@TrySyntax {..} arg@X_new_authority_observer_and_controller
-         -> let _ = this in
-            let _ = arg in DA.Internal.Desugar.toParties (_OBSERVER), 
-     DA.Internal.Desugar.Some
-       \ this@TrySyntax {..} arg@X_new_authority_observer_and_controller
-         -> let _ = this in
-            let _ = arg in DA.Internal.Desugar.toParties (_AUTHORITY))
+       -> let _ = self in let _ = this in let _ = arg in do _BODY)
 _choice$_TrySyntaxX_new_controller_authority_observer :
-  (TrySyntax
+  (DA.Internal.Desugar.Consuming TrySyntax,
+   TrySyntax
    -> X_new_controller_authority_observer
       -> [DA.Internal.Desugar.Party],
+   DA.Internal.Desugar.Optional (TrySyntax
+                                 -> X_new_controller_authority_observer
+                                    -> [DA.Internal.Desugar.Party]),
+   DA.Internal.Desugar.Optional (TrySyntax
+                                 -> X_new_controller_authority_observer
+                                    -> [DA.Internal.Desugar.Party]),
    DA.Internal.Desugar.ContractId TrySyntax
    -> TrySyntax
       -> X_new_controller_authority_observer
-         -> DA.Internal.Desugar.Update (()),
-   DA.Internal.Desugar.Consuming TrySyntax,
-   DA.Internal.Desugar.Optional (TrySyntax
-                                 -> X_new_controller_authority_observer
-                                    -> [DA.Internal.Desugar.Party]),
-   DA.Internal.Desugar.Optional (TrySyntax
-                                 -> X_new_controller_authority_observer
-                                    -> [DA.Internal.Desugar.Party]))
+         -> DA.Internal.Desugar.Update (()))
 _choice$_TrySyntaxX_new_controller_authority_observer
-  = (\ this@TrySyntax {..} arg@X_new_controller_authority_observer
+  = (DA.Internal.Desugar.Consuming, 
+     \ this@TrySyntax {..} arg@X_new_controller_authority_observer
        -> let _ = this in
           let _ = arg in DA.Internal.Desugar.toParties (_CONTROLLER), 
-     \ self this@TrySyntax {..} arg@X_new_controller_authority_observer
-       -> let _ = self in let _ = this in let _ = arg in do _BODY, 
-     DA.Internal.Desugar.Consuming, 
      DA.Internal.Desugar.Some
        \ this@TrySyntax {..} arg@X_new_controller_authority_observer
          -> let _ = this in
@@ -550,29 +546,29 @@ _choice$_TrySyntaxX_new_controller_authority_observer
      DA.Internal.Desugar.Some
        \ this@TrySyntax {..} arg@X_new_controller_authority_observer
          -> let _ = this in
-            let _ = arg in DA.Internal.Desugar.toParties (_AUTHORITY))
+            let _ = arg in DA.Internal.Desugar.toParties (_AUTHORITY), 
+     \ self this@TrySyntax {..} arg@X_new_controller_authority_observer
+       -> let _ = self in let _ = this in let _ = arg in do _BODY)
 _choice$_TrySyntaxX_new_authority_controller_observer :
-  (TrySyntax
+  (DA.Internal.Desugar.Consuming TrySyntax,
+   TrySyntax
    -> X_new_authority_controller_observer
       -> [DA.Internal.Desugar.Party],
+   DA.Internal.Desugar.Optional (TrySyntax
+                                 -> X_new_authority_controller_observer
+                                    -> [DA.Internal.Desugar.Party]),
+   DA.Internal.Desugar.Optional (TrySyntax
+                                 -> X_new_authority_controller_observer
+                                    -> [DA.Internal.Desugar.Party]),
    DA.Internal.Desugar.ContractId TrySyntax
    -> TrySyntax
       -> X_new_authority_controller_observer
-         -> DA.Internal.Desugar.Update (()),
-   DA.Internal.Desugar.Consuming TrySyntax,
-   DA.Internal.Desugar.Optional (TrySyntax
-                                 -> X_new_authority_controller_observer
-                                    -> [DA.Internal.Desugar.Party]),
-   DA.Internal.Desugar.Optional (TrySyntax
-                                 -> X_new_authority_controller_observer
-                                    -> [DA.Internal.Desugar.Party]))
+         -> DA.Internal.Desugar.Update (()))
 _choice$_TrySyntaxX_new_authority_controller_observer
-  = (\ this@TrySyntax {..} arg@X_new_authority_controller_observer
+  = (DA.Internal.Desugar.Consuming, 
+     \ this@TrySyntax {..} arg@X_new_authority_controller_observer
        -> let _ = this in
           let _ = arg in DA.Internal.Desugar.toParties (_CONTROLLER), 
-     \ self this@TrySyntax {..} arg@X_new_authority_controller_observer
-       -> let _ = self in let _ = this in let _ = arg in do _BODY, 
-     DA.Internal.Desugar.Consuming, 
      DA.Internal.Desugar.Some
        \ this@TrySyntax {..} arg@X_new_authority_controller_observer
          -> let _ = this in
@@ -580,4 +576,6 @@ _choice$_TrySyntaxX_new_authority_controller_observer
      DA.Internal.Desugar.Some
        \ this@TrySyntax {..} arg@X_new_authority_controller_observer
          -> let _ = this in
-            let _ = arg in DA.Internal.Desugar.toParties (_AUTHORITY))
+            let _ = arg in DA.Internal.Desugar.toParties (_AUTHORITY), 
+     \ self this@TrySyntax {..} arg@X_new_authority_controller_observer
+       -> let _ = self in let _ = this in let _ = arg in do _BODY)

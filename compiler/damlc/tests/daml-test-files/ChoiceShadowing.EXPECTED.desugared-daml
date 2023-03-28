@@ -78,41 +78,42 @@ instance DA.Internal.Desugar.HasChoiceController T Call where
 instance DA.Internal.Desugar.HasChoiceObserver T Call where
   _choiceObserver = GHC.Types.primitive @"EChoiceObserver"
 _choice$_TArchive :
-  (T -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party],
-   DA.Internal.Desugar.ContractId T
-   -> T
-      -> DA.Internal.Desugar.Archive -> DA.Internal.Desugar.Update (()),
-   DA.Internal.Desugar.Consuming T,
+  (DA.Internal.Desugar.Consuming T,
+   T -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.Optional (T
                                  -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]),
    DA.Internal.Desugar.Optional (T
-                                 -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]))
-_choice$_TArchive
-  = (\ this _ -> DA.Internal.Desugar.signatory this, 
-     \ _ _ _ -> pure (), DA.Internal.Desugar.Consuming, 
-     DA.Internal.Desugar.None, DA.Internal.Desugar.None)
-_choice$_TCall :
-  (T -> Call -> [DA.Internal.Desugar.Party],
+                                 -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]),
    DA.Internal.Desugar.ContractId T
-   -> T -> Call -> DA.Internal.Desugar.Update (ContractId T),
-   DA.Internal.Desugar.Consuming T,
+   -> T
+      -> DA.Internal.Desugar.Archive -> DA.Internal.Desugar.Update (()))
+_choice$_TArchive
+  = (DA.Internal.Desugar.Consuming, 
+     \ this _ -> DA.Internal.Desugar.signatory this, 
+     DA.Internal.Desugar.None, DA.Internal.Desugar.None, 
+     \ _ _ _ -> pure ())
+_choice$_TCall :
+  (DA.Internal.Desugar.Consuming T,
+   T -> Call -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.Optional (T
                                  -> Call -> [DA.Internal.Desugar.Party]),
    DA.Internal.Desugar.Optional (T
-                                 -> Call -> [DA.Internal.Desugar.Party]))
+                                 -> Call -> [DA.Internal.Desugar.Party]),
+   DA.Internal.Desugar.ContractId T
+   -> T -> Call -> DA.Internal.Desugar.Update (ContractId T))
 _choice$_TCall
-  = (\ this@T {..}
+  = (DA.Internal.Desugar.Consuming, 
+     \ this@T {..}
        -> DA.Internal.Desugar.bypassReduceLambda
             \ arg@Call {..}
               -> let _ = this in
                  let _ = arg in DA.Internal.Desugar.toParties (p2), 
+     DA.Internal.Desugar.None, DA.Internal.Desugar.None, 
      \ self this@T {..}
        -> DA.Internal.Desugar.bypassReduceLambda
             \ arg@Call {..}
               -> let _ = self in
-                 let _ = this in let _ = arg in do create T {p = p, p2 = p2}, 
-     DA.Internal.Desugar.Consuming, DA.Internal.Desugar.None, 
-     DA.Internal.Desugar.None)
+                 let _ = this in let _ = arg in do create T {p = p, p2 = p2})
 test1
   = script
       do alice <- allocateParty "Alice"

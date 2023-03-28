@@ -99,39 +99,40 @@ instance DA.Internal.Record.HasField "newOwner" Transfer Party where
   setField
     = DA.Internal.Record.setFieldPrim @"newOwner" @Transfer @Party
 _choice$_TokenArchive :
-  (Token
+  (DA.Internal.Desugar.Consuming Token,
+   Token
    -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party],
-   DA.Internal.Desugar.ContractId Token
-   -> Token
-      -> DA.Internal.Desugar.Archive -> DA.Internal.Desugar.Update (()),
-   DA.Internal.Desugar.Consuming Token,
    DA.Internal.Desugar.Optional (Token
                                  -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]),
    DA.Internal.Desugar.Optional (Token
-                                 -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]))
-_choice$_TokenArchive
-  = (\ this _ -> DA.Internal.Desugar.signatory this, 
-     \ _ _ _ -> pure (), DA.Internal.Desugar.Consuming, 
-     DA.Internal.Desugar.None, DA.Internal.Desugar.None)
-_choice$_TokenTransfer :
-  (Token -> Transfer -> [DA.Internal.Desugar.Party],
+                                 -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]),
    DA.Internal.Desugar.ContractId Token
    -> Token
-      -> Transfer -> DA.Internal.Desugar.Update (ContractId Token),
-   DA.Internal.Desugar.Consuming Token,
+      -> DA.Internal.Desugar.Archive -> DA.Internal.Desugar.Update (()))
+_choice$_TokenArchive
+  = (DA.Internal.Desugar.Consuming, 
+     \ this _ -> DA.Internal.Desugar.signatory this, 
+     DA.Internal.Desugar.None, DA.Internal.Desugar.None, 
+     \ _ _ _ -> pure ())
+_choice$_TokenTransfer :
+  (DA.Internal.Desugar.Consuming Token,
+   Token -> Transfer -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.Optional (Token
                                  -> Transfer -> [DA.Internal.Desugar.Party]),
    DA.Internal.Desugar.Optional (Token
-                                 -> Transfer -> [DA.Internal.Desugar.Party]))
+                                 -> Transfer -> [DA.Internal.Desugar.Party]),
+   DA.Internal.Desugar.ContractId Token
+   -> Token
+      -> Transfer -> DA.Internal.Desugar.Update (ContractId Token))
 _choice$_TokenTransfer
-  = (\ this arg@Transfer {..}
+  = (DA.Internal.Desugar.Consuming, 
+     \ this arg@Transfer {..}
        -> let _ = this in
           let _ = arg in DA.Internal.Desugar.toParties (getIssuer this), 
+     DA.Internal.Desugar.None, DA.Internal.Desugar.None, 
      \ self this arg@Transfer {..}
        -> let _ = self in
-          let _ = this in let _ = arg in do transferImpl this newOwner, 
-     DA.Internal.Desugar.Consuming, DA.Internal.Desugar.None, 
-     DA.Internal.Desugar.None)
+          let _ = this in let _ = arg in do transferImpl this newOwner)
 instance DA.Internal.Desugar.HasInterfaceView Token EmptyInterfaceView where
   _view = GHC.Types.primitive @"EViewInterface"
 instance DA.Internal.Desugar.HasFromAnyView Token EmptyInterfaceView where
@@ -196,20 +197,21 @@ instance DA.Internal.Desugar.HasChoiceController Asset DA.Internal.Desugar.Archi
 instance DA.Internal.Desugar.HasChoiceObserver Asset DA.Internal.Desugar.Archive where
   _choiceObserver = GHC.Types.primitive @"EChoiceObserver"
 _choice$_AssetArchive :
-  (Asset
+  (DA.Internal.Desugar.Consuming Asset,
+   Asset
    -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party],
-   DA.Internal.Desugar.ContractId Asset
-   -> Asset
-      -> DA.Internal.Desugar.Archive -> DA.Internal.Desugar.Update (()),
-   DA.Internal.Desugar.Consuming Asset,
    DA.Internal.Desugar.Optional (Asset
                                  -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]),
    DA.Internal.Desugar.Optional (Asset
-                                 -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]))
+                                 -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]),
+   DA.Internal.Desugar.ContractId Asset
+   -> Asset
+      -> DA.Internal.Desugar.Archive -> DA.Internal.Desugar.Update (()))
 _choice$_AssetArchive
-  = (\ this _ -> DA.Internal.Desugar.signatory this, 
-     \ _ _ _ -> pure (), DA.Internal.Desugar.Consuming, 
-     DA.Internal.Desugar.None, DA.Internal.Desugar.None)
+  = (DA.Internal.Desugar.Consuming, 
+     \ this _ -> DA.Internal.Desugar.signatory this, 
+     DA.Internal.Desugar.None, DA.Internal.Desugar.None, 
+     \ _ _ _ -> pure ())
 _interface_instance$_Asset_Token_Asset :
   DA.Internal.Desugar.InterfaceInstance Asset Token Asset
 _interface_instance$_Asset_Token_Asset

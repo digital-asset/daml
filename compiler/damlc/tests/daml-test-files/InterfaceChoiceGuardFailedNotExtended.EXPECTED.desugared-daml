@@ -84,36 +84,37 @@ data IChoice
   = IChoice {}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
 _choice$_IArchive :
-  (I -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party],
-   DA.Internal.Desugar.ContractId I
-   -> I
-      -> DA.Internal.Desugar.Archive -> DA.Internal.Desugar.Update (()),
-   DA.Internal.Desugar.Consuming I,
+  (DA.Internal.Desugar.Consuming I,
+   I -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.Optional (I
                                  -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]),
    DA.Internal.Desugar.Optional (I
-                                 -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]))
-_choice$_IArchive
-  = (\ this _ -> DA.Internal.Desugar.signatory this, 
-     \ _ _ _ -> pure (), DA.Internal.Desugar.Consuming, 
-     DA.Internal.Desugar.None, DA.Internal.Desugar.None)
-_choice$_IIChoice :
-  (I -> IChoice -> [DA.Internal.Desugar.Party],
+                                 -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]),
    DA.Internal.Desugar.ContractId I
-   -> I -> IChoice -> DA.Internal.Desugar.Update (()),
-   DA.Internal.Desugar.Consuming I,
+   -> I
+      -> DA.Internal.Desugar.Archive -> DA.Internal.Desugar.Update (()))
+_choice$_IArchive
+  = (DA.Internal.Desugar.Consuming, 
+     \ this _ -> DA.Internal.Desugar.signatory this, 
+     DA.Internal.Desugar.None, DA.Internal.Desugar.None, 
+     \ _ _ _ -> pure ())
+_choice$_IIChoice :
+  (DA.Internal.Desugar.Consuming I,
+   I -> IChoice -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.Optional (I
                                  -> IChoice -> [DA.Internal.Desugar.Party]),
    DA.Internal.Desugar.Optional (I
-                                 -> IChoice -> [DA.Internal.Desugar.Party]))
+                                 -> IChoice -> [DA.Internal.Desugar.Party]),
+   DA.Internal.Desugar.ContractId I
+   -> I -> IChoice -> DA.Internal.Desugar.Update (()))
 _choice$_IIChoice
-  = (\ this arg@IChoice
+  = (DA.Internal.Desugar.Consuming, 
+     \ this arg@IChoice
        -> let _ = this in
           let _ = arg in DA.Internal.Desugar.toParties (getController this), 
+     DA.Internal.Desugar.None, DA.Internal.Desugar.None, 
      \ self this arg@IChoice
-       -> let _ = self in let _ = this in let _ = arg in do pure (), 
-     DA.Internal.Desugar.Consuming, DA.Internal.Desugar.None, 
-     DA.Internal.Desugar.None)
+       -> let _ = self in let _ = this in let _ = arg in do pure ())
 instance DA.Internal.Desugar.HasInterfaceView I EmptyInterfaceView where
   _view = GHC.Types.primitive @"EViewInterface"
 instance DA.Internal.Desugar.HasFromAnyView I EmptyInterfaceView where
@@ -172,19 +173,20 @@ instance DA.Internal.Desugar.HasChoiceController T DA.Internal.Desugar.Archive w
 instance DA.Internal.Desugar.HasChoiceObserver T DA.Internal.Desugar.Archive where
   _choiceObserver = GHC.Types.primitive @"EChoiceObserver"
 _choice$_TArchive :
-  (T -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party],
-   DA.Internal.Desugar.ContractId T
-   -> T
-      -> DA.Internal.Desugar.Archive -> DA.Internal.Desugar.Update (()),
-   DA.Internal.Desugar.Consuming T,
+  (DA.Internal.Desugar.Consuming T,
+   T -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.Optional (T
                                  -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]),
    DA.Internal.Desugar.Optional (T
-                                 -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]))
+                                 -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]),
+   DA.Internal.Desugar.ContractId T
+   -> T
+      -> DA.Internal.Desugar.Archive -> DA.Internal.Desugar.Update (()))
 _choice$_TArchive
-  = (\ this _ -> DA.Internal.Desugar.signatory this, 
-     \ _ _ _ -> pure (), DA.Internal.Desugar.Consuming, 
-     DA.Internal.Desugar.None, DA.Internal.Desugar.None)
+  = (DA.Internal.Desugar.Consuming, 
+     \ this _ -> DA.Internal.Desugar.signatory this, 
+     DA.Internal.Desugar.None, DA.Internal.Desugar.None, 
+     \ _ _ _ -> pure ())
 _interface_instance$_T_I_T :
   DA.Internal.Desugar.InterfaceInstance T I T
 _interface_instance$_T_I_T
@@ -288,42 +290,43 @@ instance DA.Internal.Desugar.HasChoiceController ExerciseGuarded Call where
 instance DA.Internal.Desugar.HasChoiceObserver ExerciseGuarded Call where
   _choiceObserver = GHC.Types.primitive @"EChoiceObserver"
 _choice$_ExerciseGuardedArchive :
-  (ExerciseGuarded
+  (DA.Internal.Desugar.Consuming ExerciseGuarded,
+   ExerciseGuarded
    -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party],
-   DA.Internal.Desugar.ContractId ExerciseGuarded
-   -> ExerciseGuarded
-      -> DA.Internal.Desugar.Archive -> DA.Internal.Desugar.Update (()),
-   DA.Internal.Desugar.Consuming ExerciseGuarded,
    DA.Internal.Desugar.Optional (ExerciseGuarded
                                  -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]),
    DA.Internal.Desugar.Optional (ExerciseGuarded
-                                 -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]))
-_choice$_ExerciseGuardedArchive
-  = (\ this _ -> DA.Internal.Desugar.signatory this, 
-     \ _ _ _ -> pure (), DA.Internal.Desugar.Consuming, 
-     DA.Internal.Desugar.None, DA.Internal.Desugar.None)
-_choice$_ExerciseGuardedCall :
-  (ExerciseGuarded -> Call -> [DA.Internal.Desugar.Party],
+                                 -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]),
    DA.Internal.Desugar.ContractId ExerciseGuarded
-   -> ExerciseGuarded -> Call -> DA.Internal.Desugar.Update (()),
-   DA.Internal.Desugar.Consuming ExerciseGuarded,
+   -> ExerciseGuarded
+      -> DA.Internal.Desugar.Archive -> DA.Internal.Desugar.Update (()))
+_choice$_ExerciseGuardedArchive
+  = (DA.Internal.Desugar.Consuming, 
+     \ this _ -> DA.Internal.Desugar.signatory this, 
+     DA.Internal.Desugar.None, DA.Internal.Desugar.None, 
+     \ _ _ _ -> pure ())
+_choice$_ExerciseGuardedCall :
+  (DA.Internal.Desugar.Consuming ExerciseGuarded,
+   ExerciseGuarded -> Call -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.Optional (ExerciseGuarded
                                  -> Call -> [DA.Internal.Desugar.Party]),
    DA.Internal.Desugar.Optional (ExerciseGuarded
-                                 -> Call -> [DA.Internal.Desugar.Party]))
+                                 -> Call -> [DA.Internal.Desugar.Party]),
+   DA.Internal.Desugar.ContractId ExerciseGuarded
+   -> ExerciseGuarded -> Call -> DA.Internal.Desugar.Update (()))
 _choice$_ExerciseGuardedCall
-  = (\ this@ExerciseGuarded {..} arg@Call
+  = (DA.Internal.Desugar.Consuming, 
+     \ this@ExerciseGuarded {..} arg@Call
        -> let _ = this in
           let _ = arg in DA.Internal.Desugar.toParties (p), 
+     DA.Internal.Desugar.None, DA.Internal.Desugar.None, 
      \ self this@ExerciseGuarded {..} arg@Call
        -> let _ = self in
           let _ = this in
           let _ = arg
           in
             do exerciseGuarded (const False) cidI IChoice
-               pure (), 
-     DA.Internal.Desugar.Consuming, DA.Internal.Desugar.None, 
-     DA.Internal.Desugar.None)
+               pure ())
 main
   = script
       do alice <- allocateParty "alice"
