@@ -40,7 +40,7 @@ resource "azurerm_linux_virtual_machine_scale_set" "ubuntu" {
   os_disk {
     caching              = "ReadOnly"
     storage_account_type = "Standard_LRS"
-    disk_size_gb         = 400
+    disk_size_gb         = local.ubuntu.azure[count.index].disk_size
   }
 
   network_interface {
