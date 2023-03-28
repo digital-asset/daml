@@ -5,7 +5,7 @@ resource "azurerm_linux_virtual_machine_scale_set" "ubuntu" {
   name                = "ubuntu"
   resource_group_name = azurerm_resource_group.daml-ci.name
   location            = azurerm_resource_group.daml-ci.location
-  sku                 = "Standard_DS1_v2"
+  sku                 = "Standard_D4_v2"
   instances           = 1
 
   admin_username                  = "adminuser"
