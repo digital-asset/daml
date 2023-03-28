@@ -10,8 +10,8 @@ To deploy the infrastructure changes, you will to get access to the
 `da-dev-gcp-daml-language` Google project from DA IT. Then run
 `gcloud auth login` to configure the local credentials.
 
-You also need access to the `TODO` subscription on Azure. To authenticate with
-Azure, run:
+You also need access to the `9114f3e0-9963-4368-9a0a-117bcdbf0055` subscription
+on Azure. To authenticate with Azure, run:
 
 ```
 az login
@@ -22,7 +22,7 @@ able to inspect your Terraform state through the CLI, you may want to select
 that subspription as the default using:
 
 ```
-az account set --subscription TODO
+az account set --subscription 9114f3e0-9963-4368-9a0a-117bcdbf0055
 ```
 
 Remember, though, that the goal is for the Terraform files to exactly describe
