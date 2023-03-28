@@ -21,12 +21,6 @@ resource "azurerm_linux_virtual_machine_scale_set" "ubuntu" {
   # save a bit of energy for the planet
   overprovision = false
 
-  #  custom_data = base64encode(templatefile("startup.sh", {
-  #    vsts_token   = secret_resource.vsts-token.value
-  #    vsts_account = "digitalasset"
-  #    vsts_pool    = "ubuntu_20_04"
-  #    size         = 400
-  #  }))
   custom_data = base64encode(templatefile("${path.module}/ubuntu_startup.sh", {
     vsts_token   = secret_resource.vsts-token.value
     vsts_account = "digitalasset"
