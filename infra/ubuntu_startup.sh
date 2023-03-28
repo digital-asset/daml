@@ -72,10 +72,7 @@ apt-get install -qy \
     xdg-utils \
     wget
 
-# Taken from https://cloud.google.com/logging/docs/agent/logging/installation
-curl -sSL https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add -
-curl -sSL https://dl.google.com/cloudagents/add-logging-agent-repo.sh | bash -s -- --also-install
-
+${gcp_logging}
 #install docker
 # BEGIN Installing Docker per https://docs.docker.com/engine/install/ubuntu/
 apt-get -y install apt-transport-https \
@@ -159,7 +156,7 @@ VSTS_TOKEN=${vsts_token}
 
 mkdir -p ~/agent
 cd ~/agent
-echo 'assignment=default' > .capabilities
+echo 'assignment=${assignment}' > .capabilities
 
 echo Determining matching VSTS agent...
 VSTS_AGENT_RESPONSE=$(curl -sSfL \
