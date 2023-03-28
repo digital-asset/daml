@@ -286,13 +286,6 @@ EOF
   os_disk {
     caching              = "ReadOnly"
     storage_account_type = "Standard_LRS"
-  }
-
-  data_disk {
-    storage_account_type = "StandardSSD_LRS"
-    create_option        = "Empty"
-    caching              = "ReadWrite"
-    lun                  = 0
     disk_size_gb         = 400
   }
 
