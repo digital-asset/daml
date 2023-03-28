@@ -101,10 +101,10 @@ trait CantonFixture extends SuiteResource[Vector[Port]] with AkkaBeforeAndAfterA
        |""".stripMargin
   )
 
-  private val tmpDir = Files.createTempDirectory("CantonFixture")
-  private val cantonConfigFile = tmpDir.resolve("participant.config")
-  private val cantonLogFile = tmpDir.resolve("canton.log")
-  private val portFile = tmpDir.resolve("portfile")
+  protected val tmpDir = Files.createTempDirectory("CantonFixture")
+  protected val cantonConfigFile = tmpDir.resolve("participant.config")
+  protected val cantonLogFile = tmpDir.resolve("canton.log")
+  protected val portFile = tmpDir.resolve("portfile")
 
   private val files = List(cantonConfigFile, portFile, cantonLogFile)
 
@@ -168,7 +168,10 @@ trait CantonFixture extends SuiteResource[Vector[Port]] with AkkaBeforeAndAfterA
                |        ${tslConfig}
                |      }
                |      storage.type = memory
-               |      parameters.dev-version-support = ${devMode}
+               |      parameters = {
+               |        enable-engine-stack-traces = true
+               |        dev-version-support = ${devMode}
+               |      }
                |      ${timeType.fold("")(x => "testing-time.type = " + x)}
                |    }""".stripMargin
           }
