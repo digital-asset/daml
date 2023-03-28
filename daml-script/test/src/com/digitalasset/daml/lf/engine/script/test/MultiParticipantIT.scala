@@ -4,7 +4,6 @@
 package com.daml.lf.engine.script
 package test
 
-import com.daml.bazeltools.BazelRunfiles._
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.daml.lf.data.FrontStack
 import com.daml.lf.data.Ref._
@@ -14,21 +13,18 @@ import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
-import java.io.File
-
 final class MultiParticipantIT
     extends AsyncWordSpec
+    with AbstractScriptTest
     with Inside
-    with CantonFixture
     with Matchers
     with SuiteResourceManagementAroundAll {
   import AbstractScriptTest._
 
-  private def darFile = new File(rlocation("daml-script/test/script-test.dar"))
-  val dar = AbstractScriptTest.readDar(darFile)
+  val dar = stableDar
 
   override protected lazy val authSecret = None
-  override protected lazy val darFiles = List(darFile)
+  override protected lazy val darFiles = List(stableDarPath)
   override protected lazy val devMode = true
   override protected lazy val nParticipants = 2
   override protected lazy val timeMode = ScriptTimeMode.WallClock

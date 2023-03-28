@@ -8,30 +8,28 @@ import com.daml.ledger.api.domain
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.engine.script.ledgerinteraction.ScriptTimeMode
+import com.daml.lf.integrationtest.CantonFixture
 import com.daml.lf.value.Value
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
-import java.io.File
 import scala.concurrent.Future
 import scala.util.{Failure, Success}
 
 final class AuthIT
     extends AsyncWordSpec
-    with CantonFixture
+    with AbstractScriptTest
     with Matchers
     with SuiteResourceManagementAroundAll {
   import CantonFixture._
   import AbstractScriptTest._
 
-  lazy val secret = "secret"
-
-  override protected lazy val authSecret = Some(secret)
-  override protected lazy val darFiles: List[File] = List(stableDarPath)
-  override protected lazy val devMode: Boolean = false
-  override protected lazy val nParticipants: Int = 1
+  override protected lazy val authSecret = Some("secret")
+  override protected lazy val darFiles = List(stableDarPath)
+  override protected lazy val devMode = false
+  override protected lazy val nParticipants = 1
   override protected lazy val timeMode = ScriptTimeMode.WallClock
-  override protected lazy val tlsEnable: Boolean = false
+  override protected lazy val tlsEnable = false
 
   "Daml Script against authorized ledger" can {
     "auth" should {
