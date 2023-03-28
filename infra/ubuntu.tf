@@ -7,7 +7,7 @@ locals {
       {
         name       = "ci-u1",
         disk_size  = 400,
-        size       = 30,
+        size       = 20,
         assignment = "default",
       },
       {
@@ -19,10 +19,16 @@ locals {
     ],
     azure = [
       {
-        name       = "ubuntu",
+        name       = "du1",
         disk_size  = 400,
-        size       = 1,
-        assignment = "azure",
+        size       = 5,
+        assignment = "default",
+      },
+      {
+        name       = "du2",
+        disk_size  = 400,
+        size       = 0,
+        assignment = "default",
       },
     ]
   }
