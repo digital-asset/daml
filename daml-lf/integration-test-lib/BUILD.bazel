@@ -37,7 +37,6 @@ da_scala_library(
         "//libs-scala/jwt",
         "//libs-scala/ledger-resources",
         "//libs-scala/ports",
-        "//libs-scala/ports:ports-testing",
         "//libs-scala/resources",
         "//libs-scala/resources-akka",
         "//libs-scala/resources-grpc",

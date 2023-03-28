@@ -16,12 +16,13 @@ import com.daml.ledger.client.LedgerClient
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.data.Ref
 import com.daml.platform.services.time.TimeProviderType
-import com.daml.ports.{LockedFreePort, Port}
+import com.daml.ports.Port
 import com.daml.scalautil.Statement.discard
 import com.daml.timer.RetryStrategy
 import com.google.protobuf.ByteString
 import org.scalatest.Suite
-import spray.json.JsString
+import spray.json._
+import DefaultJsonProtocol._
 
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{ExecutionContext, Future}
@@ -82,6 +83,7 @@ trait CantonFixture extends SuiteResource[Vector[Port]] with AkkaBeforeAndAfterA
   // This flag setup some behavior to ease debugging tests.
   //  If `true`
   //   - temporary file are not deleted
+  //   - canton starts in debug mod
   //   - some debug info are logged.
   protected val cantonFixtureDebugMode = false
 
@@ -130,10 +132,6 @@ trait CantonFixture extends SuiteResource[Vector[Port]] with AkkaBeforeAndAfterA
     new ResourceOwner[Vector[Port]] {
       override def acquire()(implicit context: ResourceContext): Resource[Vector[Port]] = {
         def start(): Future[(Vector[Port], Process)] = {
-          val ports =
-            Vector.fill(nParticipants)(LockedFreePort.find() -> LockedFreePort.find())
-          val domainPublicApi = LockedFreePort.find()
-          val domainAdminApi = LockedFreePort.find()
 
           val cantonPath = rlocation(
             "external/canton/lib/canton-open-source-2.7.0-SNAPSHOT.jar"
@@ -158,12 +156,9 @@ trait CantonFixture extends SuiteResource[Vector[Port]] with AkkaBeforeAndAfterA
                |        }""".stripMargin
             else
               ""
-          def participantConfig(i: Int) = {
-            val (adminPort, ledgerApiPort) = ports(i)
+          def participantConfig(i: Int) =
             s"""participant${i} {
-               |      admin-api.port = ${adminPort.port}
                |      ledger-api{
-               |        port = ${ledgerApiPort.port}
                |        ${authConfig}
                |        ${tslConfig}
                |      }
@@ -171,7 +166,6 @@ trait CantonFixture extends SuiteResource[Vector[Port]] with AkkaBeforeAndAfterA
                |      parameters.dev-version-support = ${devMode}
                |      ${timeType.fold("")(x => "testing-time.type = " + x)}
                |    }""".stripMargin
-          }
           val participantsConfig =
             (0 until nParticipants).map(participantConfig(_)).mkString("\n")
           val cantonConfig =
@@ -186,8 +180,6 @@ trait CantonFixture extends SuiteResource[Vector[Port]] with AkkaBeforeAndAfterA
                |  domains {
                |    local {
                |      storage.type = memory
-               |      public-api.port = ${domainPublicApi.port}
-               |      admin-api.port = ${domainAdminApi.port}
                |      init.domain-parameters.protocol-version = ${if (devMode) Int.MaxValue else 4}
                |    }
                |  }
@@ -213,12 +205,18 @@ trait CantonFixture extends SuiteResource[Vector[Port]] with AkkaBeforeAndAfterA
                   debugOptions
               ).run()
             )
-            _ <- RetryStrategy.constant(attempts = 240, waitTime = 1.seconds) { (_, _) =>
+            json <- RetryStrategy.constant(attempts = 240, waitTime = 1.seconds) { (_, _) =>
               info(s"waiting for Canton to start")
-              Future(Files.size(portFile))
+              Future(Files.readString(portFile))
             }
+            portsConfig <- Future(JsonParser(json).convertTo[Map[String, Map[String, Int]]])
+            ports <- Future(
+              (0 until nParticipants).map(i =>
+                Port(portsConfig.get(s"participant${i}").get("ledgerApi"))
+              )
+            )
             _ = info("Canton started")
-          } yield (ports.map(_._2.port), proc)
+          } yield (ports.toVector, proc)
         }
         def stop(r: (Vector[Port], Process)): Future[Unit] = {
           r._2.destroy()
