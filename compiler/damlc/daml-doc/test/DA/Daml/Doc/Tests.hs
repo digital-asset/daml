@@ -17,7 +17,6 @@ import DA.Daml.Doc.Render
 import DA.Daml.Doc.Types
 import DA.Daml.Doc.Transform
 import DA.Daml.Doc.Anchor
-import DA.Daml.LF.Ast.Version
 import DA.Test.DamlcIntegration (ScriptPackageData)
 
 import Development.IDE.Types.Location
@@ -418,7 +417,6 @@ runDamldocMany' testfiles importPathM mScriptPackageData = do
         { optHaddock = Haddock True
         , optScenarioService = EnableScenarioService False
         , optImportPath = maybeToList importPathM
-        , optDamlLfVersion = versionDev
         , optPackageDbs = maybeToList $ fst <$> mScriptPackageData
         , optPackageImports = maybeToList $ snd <$> mScriptPackageData
         }
