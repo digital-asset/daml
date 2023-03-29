@@ -1,0 +1,108 @@
+module InterfaceSubscriptions where
+
+interface FooView where
+  _view : FooData
+
+data FooData = FooData
+  with
+    signatory : Party
+    observers : [Party]
+    payload : Text
+    keyId: Text
+    templateName: Text
+  deriving (Eq, Show)
+
+-- These templates are duplicated from Foo.daml.
+-- We need to compile that module in Daml 1.14 so we cannot use interfaces
+-- and because we do not (yet) have retroactive interface implementations
+-- we cannot only define the implementations here.
+
+template Foo1
+  with
+    signatory : Party
+    observers : [Party]
+    payload : Text
+    keyId: Text
+  where
+    signatory signatory
+    observer observers
+    key (signatory, keyId): (Party, Text)
+    maintainer key._1
+
+    implements FooView where
+      _view = FooData with templateName = "Foo1", ..
+
+    nonconsuming choice Foo1_NonconsumingChoice: ()
+      with
+        exercisePayload: Text
+      observer observers
+      controller signatory
+      do
+        return ()
+
+    choice Foo1_ConsumingChoice: ()
+      with
+          exercisePayload: Text
+      controller signatory
+      do
+          return ()
+
+template Foo2
+  with
+    signatory : Party
+    observers : [Party]
+    payload : Text
+    keyId: Text
+  where
+    signatory signatory
+    observer observers
+    key (signatory, keyId): (Party, Text)
+    maintainer key._1
+
+    implements FooView where
+      _view = FooData with templateName = "Foo2", ..
+
+    nonconsuming choice Foo2_NonconsumingChoice: ()
+      with
+        exercisePayload: Text
+      observer observers
+      controller signatory
+      do
+        return ()
+
+    choice Foo2_ConsumingChoice: ()
+      with
+         exercisePayload: Text
+      controller signatory
+      do
+         return ()
+
+template Foo3
+  with
+    signatory : Party
+    observers : [Party]
+    payload : Text
+    keyId: Text
+  where
+    signatory signatory
+    observer observers
+    key (signatory, keyId): (Party, Text)
+    maintainer key._1
+
+    implements FooView where
+      _view = FooData with templateName = "Foo3", ..
+
+    nonconsuming choice Foo3_NonconsumingChoice: ()
+      with
+        exercisePayload: Text
+      observer observers
+      controller signatory
+      do
+        return ()
+
+    choice Foo3_ConsumingChoice: ()
+      with
+          exercisePayload: Text
+      controller signatory
+      do
+          return ()
