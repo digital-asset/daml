@@ -28,6 +28,7 @@ da_haskell_library(
         "process",
         "proto3-suite",
         "proto3-wire",
+        "random",
         "split",
         "stm",
         "text",

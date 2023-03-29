@@ -1,6 +1,7 @@
 -- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
+{-# LANGUAGE RankNTypes #-}
 module DA.Daml.LF.ScenarioServiceClient
   ( Options(..)
   , ScenarioServiceConfig(..)
@@ -43,6 +44,7 @@ import Data.Maybe
 import qualified Data.Set as S
 import qualified Data.Text as T
 import System.Directory
+import System.Random (randomIO)
 
 import DA.Daml.Options.Types (EnableScenarioService(..), EnableScenarios(..))
 import DA.Daml.Project.Config
@@ -86,7 +88,7 @@ data Handle = Handle
   , hContextId :: IORef LowLevel.ContextId
   -- ^ The root context id, this is mutable so that rather than mutating the context
   -- we can clone it and update the clone which allows us to safely interrupt a context update.
-  , hRunningHandlers :: MVar (MS.Map RunOptions ThreadId)
+  , hRunningHandlers :: MVar (MS.Map RunOptions (ThreadId, MVar Bool))
   }
 
 withSem :: QSemN -> IO a -> IO a
@@ -258,10 +260,6 @@ runLiveScenario h ctxId name statusUpdateHandler = runWithOptions (RunOptions na
 runLiveScript :: Handle -> LowLevel.ContextId -> LF.ValueRef -> (LowLevel.ScenarioStatus -> IO ()) -> IO (Either LowLevel.Error LowLevel.ScenarioResult)
 runLiveScript h ctxId name statusUpdateHandler = runWithOptions (RunOptions name (Just (LiveHandler statusUpdateHandler)) IsScript) h ctxId
 
-data StopOldScenarioThread = StopOldScenarioThread
-  deriving (Show, Eq)
-instance Exception StopOldScenarioThread
-
 runWithOptions :: RunOptions -> Handle -> LowLevel.ContextId -> IO (Either LowLevel.Error LowLevel.ScenarioResult)
 runWithOptions options Handle{..} ctxId = do
   resVar <- newEmptyMVar
@@ -272,37 +270,46 @@ runWithOptions options Handle{..} ctxId = do
   -- even if `runScenario` was aborted (we cannot abort the FFI calls anyway)
   -- and ensures that we track the actual number of running executions rather
   -- than the number of calls to `run` that have not been canceled.
-  _ <- mask $ \restore -> do
-      modifyMVar_ hRunningHandlers $ \runningHandlers -> do
-        handlerThread <- forkIO $ do
-          -- Catch async exceptions so we can respond in the MVar if necessary
-          r <- try $ withSem hConcurrencySem (restore $ optionsToLowLevel options hLowLevelHandle ctxId)
-          case r of
-              Left ex
-                | Just StopOldScenarioThread <- fromException ex
-                -> putMVar resVar (Left LowLevel.StopOldScenarioThreadError)
-                | otherwise
-                -> putMVar resVar (Left $ LowLevel.ExceptionError ex)
-              Right r -> putMVar resVar r
+  preId <- randomIO :: IO Int
+  let append :: Int -> String -> IO ()
+      append i msg = appendFile ("/home/dylan-thinnes/root/daml-script-in-ide/log-output-" ++ show i) (show preId ++ " " ++ msg ++ "\n")
+  mask $ \restore ->
+    modifyMVar_ hRunningHandlers $ \runningHandlers -> do
+      stopSemaphore <- newEmptyMVar
+      handlerThread <- forkIO $ withSem hConcurrencySem $ do
+        append 5 "start thread"
+        -- Catch async exceptions so we can respond in the MVar if necessary
+        r <- try $ restore (optionsToLowLevel options hLowLevelHandle ctxId stopSemaphore)
+        case r of
+          Left ex -> putMVar resVar (Left $ LowLevel.ExceptionError ex)
+          Right r -> putMVar resVar r
+        append 5 "stop thread"
+        _ <- tryPutMVar stopSemaphore False
+        pure ()
 
-        -- Store the new thread into runningHandlers
-        let insertLookup kx x t = MS.insertLookupWithKey (\_ a _ -> a) kx x t
-        let (mbOldThread, newRunningHandlers) = insertLookup options handlerThread runningHandlers
+      -- Store the new thread into runningHandlers
+      let insertLookup kx x t = MS.insertLookupWithKey (\_ a _ -> a) kx x t
+      let (mbOldThread, newRunningHandlers) = insertLookup options (handlerThread, stopSemaphore) runningHandlers
 
-        -- If there was an old thread handling the same scenario in the same way, kill it
-        case mbOldThread of
-          Just oldThread -> oldThread `throwTo` StopOldScenarioThread
-          _ -> pure ()
+      -- If there was an old thread handling the same scenario in the same way, kill it
+      case mbOldThread of
+        Just (oldThread, oldThreadSemaphore) -> do
+          append 2 ("throw to start: " ++ show oldThread)
+          --oldThread `throwTo` LowLevel.StopOldScenarioThread
+          _ <- tryPutMVar oldThreadSemaphore True
+          append 2 ("throw to done: " ++ show oldThread)
+        _ -> pure ()
 
-        -- Return updated runningHandlers
-        pure newRunningHandlers
-      pure ()
-  takeMVar resVar
+      -- Return updated runningHandlers
+      pure newRunningHandlers
+  res <- takeMVar resVar
+  append 3 (show (preId, res))
+  pure res
 
-optionsToLowLevel :: RunOptions -> LowLevel.Handle -> LowLevel.ContextId -> IO (Either LowLevel.Error LowLevel.ScenarioResult)
-optionsToLowLevel RunOptions{..} h ctxId =
+optionsToLowLevel :: RunOptions -> LowLevel.Handle -> LowLevel.ContextId -> MVar Bool -> IO (Either LowLevel.Error LowLevel.ScenarioResult)
+optionsToLowLevel RunOptions{..} h ctxId mask =
   case (live, scenarioOrScript) of
-    (Just (LiveHandler handler), IsScript)   -> LowLevel.runLiveScript h ctxId name handler
+    (Just (LiveHandler handler), IsScript)   -> LowLevel.runLiveScript h ctxId name mask handler
     (Just (LiveHandler handler), IsScenario) -> LowLevel.runLiveScenario h ctxId name handler
     (Nothing,                    IsScript)   -> LowLevel.runScript h ctxId name
     (Nothing,                    IsScenario) -> LowLevel.runScenario h ctxId name

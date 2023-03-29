@@ -3,8 +3,10 @@
 
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE GADTs #-}
+{-# LANGUAGE RankNTypes #-}
 module DA.Daml.LF.ScenarioServiceClient.LowLevel
   ( Options(..)
+  , StopOldScenarioThread(..)
   , TimeoutSeconds
   , findServerJar
   , Handle
@@ -40,6 +42,7 @@ import GHC.Generics
 import Text.Read
 import Control.Concurrent.Async
 import Control.Concurrent.MVar
+import Control.Concurrent
 import Control.DeepSeq
 import Control.Exception
 import Control.Monad
@@ -83,6 +86,10 @@ data Options = Options
   , optDamlLfVersion :: LF.Version
   , optEnableScenarios :: EnableScenarios
   }
+
+data StopOldScenarioThread = StopOldScenarioThread
+  deriving (Show, Eq)
+instance Exception StopOldScenarioThread
 
 type TimeoutSeconds = Int64
 
@@ -402,12 +409,13 @@ runBiDiLive
   :: (SS.ScenarioService ClientRequest ClientResult
       -> ClientRequest 'BiDiStreaming SS.RunScenarioRequest SS.RunScenarioResponseOrStatus
       -> IO (ClientResult 'BiDiStreaming SS.RunScenarioResponseOrStatus))
-  -> Handle -> ContextId -> LF.ValueRef -> (SS.ScenarioStatus -> IO ())
+  -> Handle -> ContextId -> LF.ValueRef -> MVar Bool -> (SS.ScenarioStatus -> IO ())
   -> IO (Either Error SS.ScenarioResult)
-runBiDiLive runner Handle{..} (ContextId ctxId) name statusUpdateHandler = do
-  let req =
+runBiDiLive runner Handle{..} (ContextId ctxId) name stopSemaphore statusUpdateHandler = do
+  let startReq =
         SS.RunScenarioRequest $ Just $ SS.RunScenarioRequestSumStart $
           SS.RunScenarioStart ctxId (Just (toIdentifier name))
+  let cancelReq = SS.RunScenarioRequest $ Just $ SS.RunScenarioRequestSumCancel SS.RunScenarioCancel
   ior <- newIORef (Left (ExceptionError (error "runBiDiLive")))
   response <-
     runner hClient $
@@ -415,14 +423,16 @@ runBiDiLive runner Handle{..} (ContextId ctxId) name statusUpdateHandler = do
         let handleGrpcIOErr grpcIOErr = writeIORef ior (Left (BackendError (BErrorClient (ClientIOError grpcIOErr))))
 
             loop :: IO ()
-            loop = streamRecv >>= \case
-              Right (Just (SS.RunScenarioResponseOrStatus (Just resp))) ->
-                handle resp >>= \case
-                  Left err -> writeIORef ior (Left err)
-                  Right (Just result) -> writeIORef ior (Right result)
-                  Right Nothing -> loop
-              Right _ -> loop
-              Left grpcIOErr -> handleGrpcIOErr grpcIOErr
+            loop = do
+              recv <- streamRecv
+              case recv of
+                Right (Just (SS.RunScenarioResponseOrStatus (Just resp))) ->
+                  handle resp >>= \case
+                    Left err -> writeIORef ior (Left err)
+                    Right (Just result) -> writeIORef ior (Right result)
+                    Right Nothing -> loop
+                Right _ -> loop
+                Left grpcIOErr -> handleGrpcIOErr grpcIOErr
 
             handle :: SS.RunScenarioResponseOrStatusResponse -> IO (Either Error (Maybe SS.ScenarioResult))
             handle (SS.RunScenarioResponseOrStatusResponseError err) =
@@ -433,7 +443,21 @@ runBiDiLive runner Handle{..} (ContextId ctxId) name statusUpdateHandler = do
               statusUpdateHandler status
               pure (Right Nothing)
 
-        didReqError <- sendReq req
+        let preId = 0 :: Int
+        let append :: Int -> String -> IO ()
+            append i msg = appendFile ("/home/dylan-thinnes/root/daml-script-in-ide/log-output-" ++ show i) (show preId ++ " " ++ msg ++ "\n")
+        _ <- forkIO $ do
+          append 4 "Forked semaphore watcher"
+          shouldCancel <- takeMVar stopSemaphore
+          append 4 $ "shouldCancel: " ++ show shouldCancel
+          when shouldCancel $ do
+            didReqError <- sendReq cancelReq
+            case didReqError of
+              Left grpcIOErr -> handleGrpcIOErr grpcIOErr
+              Right () -> do
+                writeIORef ior (Left StopOldScenarioThreadError)
+
+        didReqError <- sendReq startReq
         case didReqError of
           Left grpcIOErr -> handleGrpcIOErr grpcIOErr
           Right () -> loop
@@ -487,6 +511,6 @@ runLive runner Handle{..} (ContextId ctxId) name statusUpdateHandler = do
     ClientErrorResponse err -> pure (Left (BackendError (BErrorClient err)))
 
 runLiveScript
-  :: Handle -> ContextId -> LF.ValueRef -> (SS.ScenarioStatus -> IO ())
+  :: Handle -> ContextId -> LF.ValueRef -> MVar Bool -> (SS.ScenarioStatus -> IO ())
   -> IO (Either Error SS.ScenarioResult)
 runLiveScript = runBiDiLive SS.scenarioServiceRunLiveScript

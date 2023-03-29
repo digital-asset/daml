@@ -446,8 +446,9 @@ private[lf] class Runner(
     @scala.annotation.tailrec
     def stepToValue(): Either[RuntimeException, SValue] =
       machine.run() match {
-        case _ if canceled() =>
+        case _ if canceled() => {
           Left(Runner.Canceled)
+        }
         case SResultInterruption =>
           stepToValue()
         case SResultFinal(v) =>

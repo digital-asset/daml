@@ -234,19 +234,40 @@ class ScenarioService(
       )
     }
 
+  import java.io._
   override def runLiveScript(
       respObs: StreamObserver[RunScenarioResponseOrStatus]
   ): StreamObserver[RunScenarioRequest] = {
+    val id: Int = Random.nextInt()
+    def append(idx: Int, msg: String): Unit = {
+      val file = new File(f"""/home/dylan-thinnes/root/daml-script-in-ide/log-output-$idx""")
+      val fw = new BufferedWriter(new FileWriter(file, true))
+      try fw.write(f"""$id $msg\n""")
+      finally fw.close()
+    }
+
+    append(6, "runLiveScript called")
     var cancelled = false
     new StreamObserver[RunScenarioRequest] {
       override def onNext(req: RunScenarioRequest): Unit = {
         if (req.hasCancel) {
+          append(6, "cancel called")
           cancelled = true
         } else if (req.hasStart) {
+          append(6, "next called")
           runLive(
             req.getStart,
             ScriptStream.WithStatus(respObs),
-            { case (ctx, pkgId, name) => ctx.interpretScript(pkgId, name, () => cancelled) },
+            { case (ctx, pkgId, name) =>
+                ctx.interpretScript(
+                  pkgId,
+                  name,
+                  () => {
+                    if (cancelled) append(6, "cancel function called, cancelling")
+                    cancelled
+                  }
+                )
+            },
           )
         }
       }
