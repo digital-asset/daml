@@ -1,7 +1,6 @@
 -- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-{-# LANGUAGE RankNTypes #-}
 module DA.Daml.LF.ScenarioServiceClient
   ( Options(..)
   , ScenarioServiceConfig(..)
@@ -44,7 +43,6 @@ import Data.Maybe
 import qualified Data.Set as S
 import qualified Data.Text as T
 import System.Directory
-import System.Random (randomIO)
 
 import DA.Daml.Options.Types (EnableScenarioService(..), EnableScenarios(..))
 import DA.Daml.Project.Config
@@ -270,20 +268,15 @@ runWithOptions options Handle{..} ctxId = do
   -- even if `runScenario` was aborted (we cannot abort the FFI calls anyway)
   -- and ensures that we track the actual number of running executions rather
   -- than the number of calls to `run` that have not been canceled.
-  preId <- randomIO :: IO Int
-  let append :: Int -> String -> IO ()
-      append i msg = appendFile ("/home/dylan-thinnes/root/daml-script-in-ide/log-output-" ++ show i) (show preId ++ " " ++ msg ++ "\n")
   mask $ \restore ->
     modifyMVar_ hRunningHandlers $ \runningHandlers -> do
       stopSemaphore <- newEmptyMVar
       handlerThread <- forkIO $ withSem hConcurrencySem $ do
-        append 5 "start thread"
         -- Catch async exceptions so we can respond in the MVar if necessary
         r <- try $ restore (optionsToLowLevel options hLowLevelHandle ctxId stopSemaphore)
         case r of
           Left ex -> putMVar resVar (Left $ LowLevel.ExceptionError ex)
           Right r -> putMVar resVar r
-        append 5 "stop thread"
         _ <- tryPutMVar stopSemaphore False
         pure ()
 
@@ -294,16 +287,13 @@ runWithOptions options Handle{..} ctxId = do
       -- If there was an old thread handling the same scenario in the same way, kill it
       case mbOldThread of
         Just (oldThread, oldThreadSemaphore) -> do
-          append 2 ("throw to start: " ++ show oldThread)
-          --oldThread `throwTo` LowLevel.StopOldScenarioThread
           _ <- tryPutMVar oldThreadSemaphore True
-          append 2 ("throw to done: " ++ show oldThread)
+          pure ()
         _ -> pure ()
 
       -- Return updated runningHandlers
       pure newRunningHandlers
   res <- takeMVar resVar
-  append 3 (show (preId, res))
   pure res
 
 optionsToLowLevel :: RunOptions -> LowLevel.Handle -> LowLevel.ContextId -> MVar Bool -> IO (Either LowLevel.Error LowLevel.ScenarioResult)

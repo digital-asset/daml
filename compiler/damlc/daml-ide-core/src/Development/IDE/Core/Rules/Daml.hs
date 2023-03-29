@@ -1300,9 +1300,6 @@ runScenario scenarioService file ctxId scenario = do
     let scenarioName = LF.qualObject scenario
     let vr = VRScenario file (LF.unExprValName scenarioName)
     res <- liftIO $ SS.runLiveScenario scenarioService ctxId scenario $ vrProgressNotification lspEnv vr
-    case res of
-      Left SS.StopOldScenarioThreadError -> error "BOOM!"
-      _ -> pure ()
     pure (vr, res)
 
 runScript :: SS.Handle -> NormalizedFilePath -> SS.ContextId -> LF.ValueRef -> Action (VirtualResource, Either SS.Error SS.ScenarioResult)

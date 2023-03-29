@@ -6,7 +6,6 @@
 {-# LANGUAGE RankNTypes #-}
 module DA.Daml.LF.ScenarioServiceClient.LowLevel
   ( Options(..)
-  , StopOldScenarioThread(..)
   , TimeoutSeconds
   , findServerJar
   , Handle
@@ -86,10 +85,6 @@ data Options = Options
   , optDamlLfVersion :: LF.Version
   , optEnableScenarios :: EnableScenarios
   }
-
-data StopOldScenarioThread = StopOldScenarioThread
-  deriving (Show, Eq)
-instance Exception StopOldScenarioThread
 
 type TimeoutSeconds = Int64
 
@@ -423,16 +418,14 @@ runBiDiLive runner Handle{..} (ContextId ctxId) name stopSemaphore statusUpdateH
         let handleGrpcIOErr grpcIOErr = writeIORef ior (Left (BackendError (BErrorClient (ClientIOError grpcIOErr))))
 
             loop :: IO ()
-            loop = do
-              recv <- streamRecv
-              case recv of
-                Right (Just (SS.RunScenarioResponseOrStatus (Just resp))) ->
-                  handle resp >>= \case
-                    Left err -> writeIORef ior (Left err)
-                    Right (Just result) -> writeIORef ior (Right result)
-                    Right Nothing -> loop
-                Right _ -> loop
-                Left grpcIOErr -> handleGrpcIOErr grpcIOErr
+            loop = streamRecv >>= \case
+              Right (Just (SS.RunScenarioResponseOrStatus (Just resp))) ->
+                handle resp >>= \case
+                  Left err -> writeIORef ior (Left err)
+                  Right (Just result) -> writeIORef ior (Right result)
+                  Right Nothing -> loop
+              Right _ -> loop
+              Left grpcIOErr -> handleGrpcIOErr grpcIOErr
 
             handle :: SS.RunScenarioResponseOrStatusResponse -> IO (Either Error (Maybe SS.ScenarioResult))
             handle (SS.RunScenarioResponseOrStatusResponseError err) =
@@ -443,13 +436,8 @@ runBiDiLive runner Handle{..} (ContextId ctxId) name stopSemaphore statusUpdateH
               statusUpdateHandler status
               pure (Right Nothing)
 
-        let preId = 0 :: Int
-        let append :: Int -> String -> IO ()
-            append i msg = appendFile ("/home/dylan-thinnes/root/daml-script-in-ide/log-output-" ++ show i) (show preId ++ " " ++ msg ++ "\n")
         _ <- forkIO $ do
-          append 4 "Forked semaphore watcher"
           shouldCancel <- takeMVar stopSemaphore
-          append 4 $ "shouldCancel: " ++ show shouldCancel
           when shouldCancel $ do
             didReqError <- sendReq cancelReq
             case didReqError of
