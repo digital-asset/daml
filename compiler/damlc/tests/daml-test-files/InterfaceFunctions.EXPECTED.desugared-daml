@@ -61,18 +61,21 @@ instance DA.Internal.Desugar.HasChoiceController Token DA.Internal.Desugar.Archi
 instance DA.Internal.Desugar.HasChoiceObserver Token DA.Internal.Desugar.Archive where
   _choiceObserver = GHC.Types.primitive @"EChoiceObserver"
 _choice$_TokenArchive :
-  (Token
+  (DA.Internal.Desugar.Consuming Token,
+   Token
    -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party],
+   DA.Internal.Desugar.Optional (Token
+                                 -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]),
+   DA.Internal.Desugar.Optional (Token
+                                 -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]),
    DA.Internal.Desugar.ContractId Token
    -> Token
-      -> DA.Internal.Desugar.Archive -> DA.Internal.Desugar.Update (()),
-   DA.Internal.Desugar.Consuming Token,
-   DA.Internal.Desugar.Optional (Token
-                                 -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]))
+      -> DA.Internal.Desugar.Archive -> DA.Internal.Desugar.Update (()))
 _choice$_TokenArchive
-  = (\ this _ -> DA.Internal.Desugar.signatory this, 
-     \ _ _ _ -> pure (), DA.Internal.Desugar.Consuming, 
-     DA.Internal.Desugar.None)
+  = (DA.Internal.Desugar.Consuming, 
+     \ this _ -> DA.Internal.Desugar.signatory this, 
+     DA.Internal.Desugar.None, DA.Internal.Desugar.None, 
+     \ _ _ _ -> pure ())
 instance DA.Internal.Desugar.HasInterfaceView Token EmptyInterfaceView where
   _view = GHC.Types.primitive @"EViewInterface"
 instance DA.Internal.Desugar.HasFromAnyView Token EmptyInterfaceView where
@@ -139,18 +142,21 @@ instance DA.Internal.Desugar.HasChoiceController Asset DA.Internal.Desugar.Archi
 instance DA.Internal.Desugar.HasChoiceObserver Asset DA.Internal.Desugar.Archive where
   _choiceObserver = GHC.Types.primitive @"EChoiceObserver"
 _choice$_AssetArchive :
-  (Asset
+  (DA.Internal.Desugar.Consuming Asset,
+   Asset
    -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party],
+   DA.Internal.Desugar.Optional (Asset
+                                 -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]),
+   DA.Internal.Desugar.Optional (Asset
+                                 -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]),
    DA.Internal.Desugar.ContractId Asset
    -> Asset
-      -> DA.Internal.Desugar.Archive -> DA.Internal.Desugar.Update (()),
-   DA.Internal.Desugar.Consuming Asset,
-   DA.Internal.Desugar.Optional (Asset
-                                 -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]))
+      -> DA.Internal.Desugar.Archive -> DA.Internal.Desugar.Update (()))
 _choice$_AssetArchive
-  = (\ this _ -> DA.Internal.Desugar.signatory this, 
-     \ _ _ _ -> pure (), DA.Internal.Desugar.Consuming, 
-     DA.Internal.Desugar.None)
+  = (DA.Internal.Desugar.Consuming, 
+     \ this _ -> DA.Internal.Desugar.signatory this, 
+     DA.Internal.Desugar.None, DA.Internal.Desugar.None, 
+     \ _ _ _ -> pure ())
 _interface_instance$_Asset_Token_Asset :
   DA.Internal.Desugar.InterfaceInstance Asset Token Asset
 _interface_instance$_Asset_Token_Asset
@@ -249,29 +255,35 @@ instance DA.Internal.Desugar.HasChoiceController Test Call where
 instance DA.Internal.Desugar.HasChoiceObserver Test Call where
   _choiceObserver = GHC.Types.primitive @"EChoiceObserver"
 _choice$_TestArchive :
-  (Test
-   -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party],
+  (DA.Internal.Desugar.Consuming Test,
+   Test -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party],
+   DA.Internal.Desugar.Optional (Test
+                                 -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]),
+   DA.Internal.Desugar.Optional (Test
+                                 -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]),
    DA.Internal.Desugar.ContractId Test
    -> Test
-      -> DA.Internal.Desugar.Archive -> DA.Internal.Desugar.Update (()),
-   DA.Internal.Desugar.Consuming Test,
-   DA.Internal.Desugar.Optional (Test
-                                 -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]))
+      -> DA.Internal.Desugar.Archive -> DA.Internal.Desugar.Update (()))
 _choice$_TestArchive
-  = (\ this _ -> DA.Internal.Desugar.signatory this, 
-     \ _ _ _ -> pure (), DA.Internal.Desugar.Consuming, 
-     DA.Internal.Desugar.None)
+  = (DA.Internal.Desugar.Consuming, 
+     \ this _ -> DA.Internal.Desugar.signatory this, 
+     DA.Internal.Desugar.None, DA.Internal.Desugar.None, 
+     \ _ _ _ -> pure ())
 _choice$_TestCall :
-  (Test -> Call -> [DA.Internal.Desugar.Party],
-   DA.Internal.Desugar.ContractId Test
-   -> Test -> Call -> DA.Internal.Desugar.Update (()),
-   DA.Internal.Desugar.Consuming Test,
+  (DA.Internal.Desugar.Consuming Test,
+   Test -> Call -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.Optional (Test
-                                 -> Call -> [DA.Internal.Desugar.Party]))
+                                 -> Call -> [DA.Internal.Desugar.Party]),
+   DA.Internal.Desugar.Optional (Test
+                                 -> Call -> [DA.Internal.Desugar.Party]),
+   DA.Internal.Desugar.ContractId Test
+   -> Test -> Call -> DA.Internal.Desugar.Update (()))
 _choice$_TestCall
-  = (\ this@Test {..} arg@Call
+  = (DA.Internal.Desugar.Consuming, 
+     \ this@Test {..} arg@Call
        -> let _ = this in
           let _ = arg in DA.Internal.Desugar.toParties (alice), 
+     DA.Internal.Desugar.None, DA.Internal.Desugar.None, 
      \ self this@Test {..} arg@Call
        -> let _ = self in
           let _ = this in
@@ -288,8 +300,7 @@ _choice$_TestCall
                signatory token === [alice]
                observer token === [bob, alice]
                assert (interfaceTypeRep token == templateTypeRep @Asset)
-               assert (interfaceTypeRep token /= templateTypeRep @Token), 
-     DA.Internal.Desugar.Consuming, DA.Internal.Desugar.None)
+               assert (interfaceTypeRep token /= templateTypeRep @Token))
 main
   = script
       do alice <- allocateParty "Alice"
