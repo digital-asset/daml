@@ -37,6 +37,8 @@ import com.daml.platform.participant.util.LfEngineToApi.{
   toApiIdentifier,
 }
 import com.daml.script.converter.ConverterException
+import com.daml.script.converter.Converter._
+import com.daml.script.converter.Converter.Implicits._
 
 import scala.collection.mutable
 import scala.concurrent.duration.{FiniteDuration, MICROSECONDS}
@@ -48,7 +50,6 @@ final class Converter(
 ) {
 
   import Converter._
-  import com.daml.script.converter.Converter._, Implicits._
 
   private[this] val valueTranslator = new preprocessing.ValueTranslator(
     compiledPackages.pkgInterface,
@@ -89,19 +90,6 @@ final class Converter(
     triggerIds.damlTriggerLowLevel("CreateAndExerciseCommand")
   private[this] val exerciseByKeyCommandTy = triggerIds.damlTriggerLowLevel("ExerciseByKeyCommand")
   private[this] val acsTy = triggerIds.damlTriggerInternal("ACS")
-
-  private[this] def fromIdentifier(identifier: value.Identifier) =
-    for {
-      pkgId <- PackageId.fromString(identifier.packageId)
-      mod <- DottedName.fromString(identifier.moduleName)
-      name <- DottedName.fromString(identifier.entityName)
-    } yield Identifier(pkgId, QualifiedName(mod, name))
-
-  private[this] def toLedgerRecord(v: SValue): Either[String, value.Record] =
-    lfValueToApiRecord(verbose = true, v.toUnnormalizedValue)
-
-  private[this] def toLedgerValue(v: SValue): Either[String, value.Value] =
-    lfValueToApiValue(verbose = true, v.toUnnormalizedValue)
 
   private[this] def fromTemplateTypeRep(tyCon: value.Identifier): SValue =
     record(
@@ -442,192 +430,12 @@ final class Converter(
       "config" -> config,
     )
   }
-
-  def toFiniteDuration(value: SValue): Either[String, FiniteDuration] =
-    value.expect(
-      "RelTime",
-      { case SRecord(_, _, ArrayList(SInt64(microseconds))) =>
-        FiniteDuration(microseconds, MICROSECONDS)
-      },
-    )
-
-  private[this] def toIdentifier(v: SValue): Either[String, Identifier] =
-    v.expect(
-      "STypeRep",
-      { case STypeRep(TTyCon(id)) =>
-        id
-      },
-    )
-
-  private[this] def toTemplateTypeRep(v: SValue): Either[String, Identifier] =
-    v.expectE(
-      "TemplateTypeRep",
-      { case SRecord(_, _, ArrayList(id)) =>
-        toIdentifier(id)
-      },
-    )
-
-  private[this] def toRegisteredTemplate(v: SValue): Either[String, Identifier] =
-    v.expectE(
-      "RegisteredTemplate",
-      { case SRecord(_, _, ArrayList(sttr)) =>
-        toTemplateTypeRep(sttr)
-      },
-    )
-
-  def toRegisteredTemplates(v: SValue): Either[String, Seq[Identifier]] =
-    v.expectE(
-      "list of RegisteredTemplate",
-      { case SList(tpls) =>
-        tpls.traverse(toRegisteredTemplate).map(_.toImmArray.toSeq)
-      },
-    )
-
-  private[this] def toAnyContractId(v: SValue): Either[String, AnyContractId] =
-    v.expectE(
-      "AnyContractId",
-      { case SRecord(_, _, ArrayList(stid, scid)) =>
-        for {
-          templateId <- toTemplateTypeRep(stid)
-          contractId <- toContractId(scid)
-        } yield AnyContractId(templateId, contractId)
-      },
-    )
-
-  private[this] def toAnyTemplate(v: SValue): Either[String, AnyTemplate] =
-    v match {
-      case SRecord(_, _, ArrayList(SAny(TTyCon(tmplId), value))) =>
-        Right(AnyTemplate(tmplId, value))
-      case _ => Left(s"Expected AnyTemplate but got $v")
-    }
-
-  private[this] def choiceArgTypeToChoiceName(choiceCons: TypeConName) = {
-    // This exploits the fact that in Daml, choice argument type names
-    // and choice names match up.
-    assert(choiceCons.qualifiedName.name.segments.length == 1)
-    choiceCons.qualifiedName.name.segments.head
-  }
-
-  private[this] def toAnyChoice(v: SValue): Either[String, AnyChoice] =
-    v match {
-      case SRecord(_, _, ArrayList(SAny(TTyCon(choiceCons), choiceVal), _)) =>
-        Right(AnyChoice(choiceArgTypeToChoiceName(choiceCons), choiceVal))
-      case _ =>
-        Left(s"Expected AnyChoice but got $v")
-    }
-
-  private[this] def toAnyContractKey(v: SValue): Either[String, AnyContractKey] =
-    v.expect(
-      "AnyContractKey",
-      { case SRecord(_, _, ArrayList(SAny(_, v), _)) =>
-        AnyContractKey(v)
-      },
-    )
-
-  private[this] def toCreate(v: SValue): Either[String, CreateCommand] =
-    v.expectE(
-      "CreateCommand",
-      { case SRecord(_, _, ArrayList(sTpl)) =>
-        for {
-          anyTmpl <- toAnyTemplate(sTpl)
-          templateArg <- toLedgerRecord(anyTmpl.arg)
-        } yield CreateCommand(Some(toApiIdentifier(anyTmpl.ty)), Some(templateArg))
-      },
-    )
-
-  private[this] def toExercise(v: SValue): Either[String, ExerciseCommand] =
-    v.expectE(
-      "ExerciseCommand",
-      { case SRecord(_, _, ArrayList(sAnyContractId, sChoiceVal)) =>
-        for {
-          anyContractId <- toAnyContractId(sAnyContractId)
-          anyChoice <- toAnyChoice(sChoiceVal)
-          choiceArg <- toLedgerValue(anyChoice.arg)
-        } yield ExerciseCommand(
-          Some(toApiIdentifier(anyContractId.templateId)),
-          anyContractId.contractId.coid,
-          anyChoice.name,
-          Some(choiceArg),
-        )
-      },
-    )
-
-  private[this] def toExerciseByKey(v: SValue): Either[String, ExerciseByKeyCommand] =
-    v.expectE(
-      "ExerciseByKeyCommand",
-      { case SRecord(_, _, ArrayList(stplId, skeyVal, sChoiceVal)) =>
-        for {
-          tplId <- toTemplateTypeRep(stplId)
-          keyVal <- toAnyContractKey(skeyVal)
-          keyArg <- toLedgerValue(keyVal.key)
-          anyChoice <- toAnyChoice(sChoiceVal)
-          choiceArg <- toLedgerValue(anyChoice.arg)
-        } yield ExerciseByKeyCommand(
-          Some(toApiIdentifier(tplId)),
-          Some(keyArg),
-          anyChoice.name,
-          Some(choiceArg),
-        )
-      },
-    )
-
-  private[this] def toCreateAndExercise(v: SValue): Either[String, CreateAndExerciseCommand] =
-    v.expectE(
-      "CreateAndExerciseCommand",
-      { case SRecord(_, _, ArrayList(sTpl, sChoiceVal)) =>
-        for {
-          anyTmpl <- toAnyTemplate(sTpl)
-          templateArg <- toLedgerRecord(anyTmpl.arg)
-          anyChoice <- toAnyChoice(sChoiceVal)
-          choiceArg <- toLedgerValue(anyChoice.arg)
-        } yield CreateAndExerciseCommand(
-          Some(toApiIdentifier(anyTmpl.ty)),
-          Some(templateArg),
-          anyChoice.name,
-          Some(choiceArg),
-        )
-      },
-    )
-
-  private[this] def toCommand(v: SValue): Either[String, ApiCommand] = {
-    v match {
-      case SVariant(_, "CreateCommand", _, createVal) =>
-        for {
-          create <- toCreate(createVal)
-        } yield ApiCommand().withCreate(create)
-      case SVariant(_, "ExerciseCommand", _, exerciseVal) =>
-        for {
-          exercise <- toExercise(exerciseVal)
-        } yield ApiCommand().withExercise(exercise)
-      case SVariant(_, "ExerciseByKeyCommand", _, exerciseByKeyVal) =>
-        for {
-          exerciseByKey <- toExerciseByKey(exerciseByKeyVal)
-        } yield ApiCommand().withExerciseByKey(exerciseByKey)
-      case SVariant(_, "CreateAndExerciseCommand", _, createAndExerciseVal) =>
-        for {
-          createAndExercise <- toCreateAndExercise(createAndExerciseVal)
-        } yield ApiCommand().withCreateAndExercise(createAndExercise)
-      case _ => Left(s"Expected a Command but got $v")
-    }
-  }
-
-  def toCommands(v: SValue): Either[String, Seq[ApiCommand]] =
-    for {
-      cmdValues <- v.expect(
-        "[Command]",
-        { case SList(cmdValues) =>
-          cmdValues
-        },
-      )
-      commands <- cmdValues.traverse(toCommand)
-    } yield commands.toImmArray.toSeq
-
 }
 
 object Converter {
 
-  private final case class AnyContractId(templateId: Identifier, contractId: ContractId)
-  private final case class AnyTemplate(ty: Identifier, arg: SValue)
+  final case class AnyContractId(templateId: Identifier, contractId: ContractId)
+  final case class AnyTemplate(ty: Identifier, arg: SValue)
 
   private final case class AnyChoice(name: ChoiceName, arg: SValue)
   private final case class AnyContractKey(key: SValue)
@@ -660,16 +468,209 @@ object Converter {
     val SucceedVariantConstructor = Name.assertFromString("Succeeded")
     val SucceedVariantConstrcutor = 1
   }
+
+  private def toLedgerRecord(v: SValue): Either[String, value.Record] =
+    lfValueToApiRecord(verbose = true, v.toUnnormalizedValue)
+
+  private def toLedgerValue(v: SValue): Either[String, value.Value] =
+    lfValueToApiValue(verbose = true, v.toUnnormalizedValue)
+
+  def fromIdentifier(identifier: value.Identifier): Either[String, Identifier] =
+    for {
+      pkgId <- PackageId.fromString(identifier.packageId)
+      mod <- DottedName.fromString(identifier.moduleName)
+      name <- DottedName.fromString(identifier.entityName)
+    } yield Identifier(pkgId, QualifiedName(mod, name))
+
+  def toIdentifier(v: SValue): Either[String, Identifier] =
+    v.expect(
+      "STypeRep",
+      { case STypeRep(TTyCon(id)) =>
+        id
+      },
+    )
+
+  def toAnyContractId(v: SValue): Either[String, AnyContractId] =
+    v.expectE(
+      "AnyContractId",
+      { case SRecord(_, _, ArrayList(stid, scid)) =>
+        for {
+          templateId <- toTemplateTypeRep(stid)
+          contractId <- toContractId(scid)
+        } yield AnyContractId(templateId, contractId)
+      },
+    )
+
+  def toTemplateTypeRep(v: SValue): Either[String, Identifier] =
+    v.expectE(
+      "TemplateTypeRep",
+      { case SRecord(_, _, ArrayList(id)) =>
+        toIdentifier(id)
+      },
+    )
+
+  def toFiniteDuration(value: SValue): Either[String, FiniteDuration] =
+    value.expect(
+      "RelTime",
+      { case SRecord(_, _, ArrayList(SInt64(microseconds))) =>
+        FiniteDuration(microseconds, MICROSECONDS)
+      },
+    )
+
+  private def toRegisteredTemplate(v: SValue): Either[String, Identifier] =
+    v.expectE(
+      "RegisteredTemplate",
+      { case SRecord(_, _, ArrayList(sttr)) =>
+        toTemplateTypeRep(sttr)
+      },
+    )
+
+  def toRegisteredTemplates(v: SValue): Either[String, Seq[Identifier]] =
+    v.expectE(
+      "list of RegisteredTemplate",
+      { case SList(tpls) =>
+        tpls.traverse(toRegisteredTemplate).map(_.toImmArray.toSeq)
+      },
+    )
+
+  def toAnyTemplate(v: SValue): Either[String, AnyTemplate] =
+    v match {
+      case SRecord(_, _, ArrayList(SAny(TTyCon(tmplId), value))) =>
+        Right(AnyTemplate(tmplId, value))
+      case _ => Left(s"Expected AnyTemplate but got $v")
+    }
+
+  private def choiceArgTypeToChoiceName(choiceCons: TypeConName) = {
+    // This exploits the fact that in Daml, choice argument type names
+    // and choice names match up.
+    assert(choiceCons.qualifiedName.name.segments.length == 1)
+    choiceCons.qualifiedName.name.segments.head
+  }
+
+  private def toAnyChoice(v: SValue): Either[String, AnyChoice] =
+    v match {
+      case SRecord(_, _, ArrayList(SAny(TTyCon(choiceCons), choiceVal), _)) =>
+        Right(AnyChoice(choiceArgTypeToChoiceName(choiceCons), choiceVal))
+      case _ =>
+        Left(s"Expected AnyChoice but got $v")
+    }
+
+  private def toAnyContractKey(v: SValue): Either[String, AnyContractKey] =
+    v.expect(
+      "AnyContractKey",
+      { case SRecord(_, _, ArrayList(SAny(_, v), _)) =>
+        AnyContractKey(v)
+      },
+    )
+
+  private def toCreate(v: SValue): Either[String, CreateCommand] =
+    v.expectE(
+      "CreateCommand",
+      { case SRecord(_, _, ArrayList(sTpl)) =>
+        for {
+          anyTmpl <- toAnyTemplate(sTpl)
+          templateArg <- toLedgerRecord(anyTmpl.arg)
+        } yield CreateCommand(Some(toApiIdentifier(anyTmpl.ty)), Some(templateArg))
+      },
+    )
+
+  private def toExercise(v: SValue): Either[String, ExerciseCommand] =
+    v.expectE(
+      "ExerciseCommand",
+      { case SRecord(_, _, ArrayList(sAnyContractId, sChoiceVal)) =>
+        for {
+          anyContractId <- toAnyContractId(sAnyContractId)
+          anyChoice <- toAnyChoice(sChoiceVal)
+          choiceArg <- toLedgerValue(anyChoice.arg)
+        } yield ExerciseCommand(
+          Some(toApiIdentifier(anyContractId.templateId)),
+          anyContractId.contractId.coid,
+          anyChoice.name,
+          Some(choiceArg),
+        )
+      },
+    )
+
+  private def toExerciseByKey(v: SValue): Either[String, ExerciseByKeyCommand] =
+    v.expectE(
+      "ExerciseByKeyCommand",
+      { case SRecord(_, _, ArrayList(stplId, skeyVal, sChoiceVal)) =>
+        for {
+          tplId <- toTemplateTypeRep(stplId)
+          keyVal <- toAnyContractKey(skeyVal)
+          keyArg <- toLedgerValue(keyVal.key)
+          anyChoice <- toAnyChoice(sChoiceVal)
+          choiceArg <- toLedgerValue(anyChoice.arg)
+        } yield ExerciseByKeyCommand(
+          Some(toApiIdentifier(tplId)),
+          Some(keyArg),
+          anyChoice.name,
+          Some(choiceArg),
+        )
+      },
+    )
+
+  private def toCreateAndExercise(v: SValue): Either[String, CreateAndExerciseCommand] =
+    v.expectE(
+      "CreateAndExerciseCommand",
+      { case SRecord(_, _, ArrayList(sTpl, sChoiceVal)) =>
+        for {
+          anyTmpl <- toAnyTemplate(sTpl)
+          templateArg <- toLedgerRecord(anyTmpl.arg)
+          anyChoice <- toAnyChoice(sChoiceVal)
+          choiceArg <- toLedgerValue(anyChoice.arg)
+        } yield CreateAndExerciseCommand(
+          Some(toApiIdentifier(anyTmpl.ty)),
+          Some(templateArg),
+          anyChoice.name,
+          Some(choiceArg),
+        )
+      },
+    )
+
+  private def toCommand(v: SValue): Either[String, ApiCommand] = {
+    v match {
+      case SVariant(_, "CreateCommand", _, createVal) =>
+        for {
+          create <- toCreate(createVal)
+        } yield ApiCommand().withCreate(create)
+      case SVariant(_, "ExerciseCommand", _, exerciseVal) =>
+        for {
+          exercise <- toExercise(exerciseVal)
+        } yield ApiCommand().withExercise(exercise)
+      case SVariant(_, "ExerciseByKeyCommand", _, exerciseByKeyVal) =>
+        for {
+          exerciseByKey <- toExerciseByKey(exerciseByKeyVal)
+        } yield ApiCommand().withExerciseByKey(exerciseByKey)
+      case SVariant(_, "CreateAndExerciseCommand", _, createAndExerciseVal) =>
+        for {
+          createAndExercise <- toCreateAndExercise(createAndExerciseVal)
+        } yield ApiCommand().withCreateAndExercise(createAndExercise)
+      case _ => Left(s"Expected a Command but got $v")
+    }
+  }
+
+  def toCommands(v: SValue): Either[String, Seq[ApiCommand]] =
+    for {
+      cmdValues <- v.expect(
+        "[Command]",
+        { case SList(cmdValues) =>
+          cmdValues
+        },
+      )
+      commands <- cmdValues.traverse(toCommand)
+    } yield commands.toImmArray.toSeq
 }
 
 // Helper to create identifiers pointing to the Daml.Trigger module
-final case class TriggerIds(val triggerPackageId: PackageId) {
-  def damlTrigger(s: String) =
+final case class TriggerIds(triggerPackageId: PackageId) {
+  def damlTrigger(s: String): Identifier =
     Identifier(
       triggerPackageId,
       QualifiedName(ModuleName.assertFromString("Daml.Trigger"), DottedName.assertFromString(s)),
     )
-  def damlTriggerLowLevel(s: String) =
+
+  def damlTriggerLowLevel(s: String): Identifier =
     Identifier(
       triggerPackageId,
       QualifiedName(
@@ -677,7 +678,8 @@ final case class TriggerIds(val triggerPackageId: PackageId) {
         DottedName.assertFromString(s),
       ),
     )
-  def damlTriggerInternal(s: String) =
+
+  def damlTriggerInternal(s: String): Identifier =
     Identifier(
       triggerPackageId,
       QualifiedName(

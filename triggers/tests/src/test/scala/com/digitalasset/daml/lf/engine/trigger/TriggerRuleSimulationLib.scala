@@ -686,7 +686,7 @@ object TriggerRuleMetrics {
   )
 }
 
-final class TriggerRuleSimulationLib private (
+final class TriggerRuleSimulationLib private[trigger] (
     compiledPackages: PureCompiledPackages,
     triggerId: Identifier,
     triggerConfig: TriggerRunnerConfig,
@@ -702,7 +702,7 @@ final class TriggerRuleSimulationLib private (
   private[this] implicit val loggingContext: LoggingContextOf[Trigger] =
     LoggingContextOf.newLoggingContext(LoggingContextOf.label[Trigger])(identity)
 
-  private val trigger = Trigger
+  private[trigger] val trigger = Trigger
     .fromIdentifier(compiledPackages, triggerId)(
       TriggerLogContext.newRootSpan(
         "trigger",

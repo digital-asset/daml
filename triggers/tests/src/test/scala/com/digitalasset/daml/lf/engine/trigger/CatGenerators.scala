@@ -3,6 +3,10 @@
 
 package com.daml.lf.engine.trigger
 
+import akka.NotUsed
+import akka.stream.scaladsl.Source
+import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
+import com.daml.ledger.api.v1.commands.Command.{Command => ApiCommand}
 import com.daml.ledger.api.v1.completion.Completion
 import com.daml.ledger.api.v1.event.{ArchivedEvent, CreatedEvent, Event}
 import com.daml.ledger.api.v1.transaction.Transaction
@@ -10,7 +14,7 @@ import com.daml.ledger.api.v1.{value => LedgerApi}
 import com.daml.lf.crypto
 import com.daml.lf.data.{Bytes, Ref}
 import com.daml.lf.data.Ref.{Identifier, PackageId, QualifiedName}
-import com.daml.lf.speedy.Command
+import com.daml.lf.speedy.{Command, SValue}
 import com.daml.lf.speedy.SValue.{SContractId, SInt64, SParty}
 import com.daml.lf.value.Value.ContractId
 import com.daml.script.converter.Converter.record
@@ -20,6 +24,7 @@ import io.grpc.Status.Code.OK
 import org.scalacheck.Gen
 
 import java.util.UUID
+import scala.concurrent.ExecutionContext
 
 trait CatGenerators {
 
@@ -174,4 +179,49 @@ trait CatGenerators {
       transactionId = id,
       actAs = Seq(owner),
     )
+}
+
+trait CatTriggerResourceUsageTestGenerators extends CatGenerators {
+
+  def acsGen(owner: String, size: Long): Seq[CreatedEvent] =
+    acsGen(owner, size, size)
+
+  def acsGen(owner: String, numOfCats: Long, amountOfFood: Long): Seq[CreatedEvent] =
+    (0L to numOfCats).map(i => createCat(owner, i)) ++ (0L to amountOfFood).map(i =>
+      createFood(owner, i)
+    )
+
+  def monotonicACS(owner: String, sizeGen: Iterator[Long]): Iterator[Seq[CreatedEvent]] =
+    sizeGen.map(acsGen(owner, _))
+
+  def triggerIterator(simulator: TriggerRuleSimulationLib, startState: SValue)(implicit
+      ec: ExecutionContext
+  ): Source[(Seq[SubmitRequest], TriggerRuleMetrics.RuleMetrics, SValue), NotUsed] = {
+    Source
+      .repeat(TriggerMsg.Heartbeat)
+      .scanAsync[(Seq[SubmitRequest], Option[TriggerRuleMetrics.RuleMetrics], SValue)](
+        (Seq.empty, None, startState)
+      ) { case ((_, _, state), msg) =>
+        for {
+          (submissions, metrics, nextState) <- simulator.updateStateLambda(state, msg)
+        } yield (submissions, Some(metrics), nextState)
+      }
+      .collect { case (submissions, Some(metrics), state) => (submissions, metrics, state) }
+  }
+
+  implicit class TriggerRuleSimulationHelpers(
+      source: Source[(Seq[SubmitRequest], TriggerRuleMetrics.RuleMetrics, SValue), NotUsed]
+  ) {
+    def findDuplicateCommandRequests: Source[Set[ApiCommand], NotUsed] = {
+      source
+        .scan[(Set[ApiCommand], Set[ApiCommand])]((Set.empty, Set.empty)) {
+          case ((observations, _), (submissions, _, _)) =>
+            val newObservations = submissions.flatMap(_.getCommands.commands.map(_.command)).toSet
+            val newDuplicates = newObservations.intersect(observations)
+
+            (observations ++ newObservations, newDuplicates)
+        }
+        .map(_._2)
+    }
+  }
 }

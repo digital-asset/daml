@@ -131,7 +131,7 @@ trait AbstractTriggerTest
   protected def allocateParty(client: LedgerClient)(implicit ec: ExecutionContext): Future[String] =
     client.partyManagementClient.allocateParty(None, None).map(_.party)
 
-  protected def create(client: LedgerClient, party: String, cmd: CreateCommand)(implicit
+  def create(client: LedgerClient, party: String, cmd: CreateCommand)(implicit
       ec: ExecutionContext
   ): Future[String] = {
     val commands = Seq(Command().withCreate(cmd))
@@ -151,7 +151,7 @@ trait AbstractTriggerTest
     } yield response.getTransaction.events.head.getCreated.contractId
   }
 
-  protected def exercise(
+  def exercise(
       client: LedgerClient,
       party: String,
       templateId: LedgerApi.Identifier,
@@ -185,7 +185,7 @@ trait AbstractTriggerTest
     } yield ()
   }
 
-  protected def archive(
+  def archive(
       client: LedgerClient,
       party: String,
       templateId: LedgerApi.Identifier,
