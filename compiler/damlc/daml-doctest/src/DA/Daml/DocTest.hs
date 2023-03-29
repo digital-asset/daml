@@ -143,13 +143,14 @@ renderDocTestModule DocTestModule{..} = rendered
             , ""
             , "import " <> dtModuleName
             , "import DA.Assert"
+            , "import Daml.Script"
             , ""
             ] <>
             intercalate [""] (map (uncurry renderDocTest) testsWithIds)
 
 renderDocTest :: DocTestId -> Located DocTest -> [Text]
 renderDocTest (DocTestId i) (unLoc -> DocTest{..}) =
-    [ "doctest_" <> T.pack (show i) <> " = " <> "scenario do"
+    [ "doctest_" <> T.pack (show i) <> " = " <> "script do"
     , "  (===) (" <> dtExpr <> ") $"
     ] <>
     map (indent 4) dtExpectedResult

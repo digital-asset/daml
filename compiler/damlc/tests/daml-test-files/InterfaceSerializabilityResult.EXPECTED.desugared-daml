@@ -88,34 +88,40 @@ data NonSerializableResult
   = NonSerializableResult {}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
 _choice$_IArchive :
-  (I -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party],
+  (DA.Internal.Desugar.Consuming I,
+   I -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party],
+   DA.Internal.Desugar.Optional (I
+                                 -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]),
+   DA.Internal.Desugar.Optional (I
+                                 -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]),
    DA.Internal.Desugar.ContractId I
    -> I
-      -> DA.Internal.Desugar.Archive -> DA.Internal.Desugar.Update (()),
-   DA.Internal.Desugar.Consuming I,
-   DA.Internal.Desugar.Optional (I
-                                 -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]))
+      -> DA.Internal.Desugar.Archive -> DA.Internal.Desugar.Update (()))
 _choice$_IArchive
-  = (\ this _ -> DA.Internal.Desugar.signatory this, 
-     \ _ _ _ -> pure (), DA.Internal.Desugar.Consuming, 
-     DA.Internal.Desugar.None)
+  = (DA.Internal.Desugar.Consuming, 
+     \ this _ -> DA.Internal.Desugar.signatory this, 
+     DA.Internal.Desugar.None, DA.Internal.Desugar.None, 
+     \ _ _ _ -> pure ())
 _choice$_INonSerializableResult :
-  (I -> NonSerializableResult -> [DA.Internal.Desugar.Party],
+  (DA.Internal.Desugar.Consuming I,
+   I -> NonSerializableResult -> [DA.Internal.Desugar.Party],
+   DA.Internal.Desugar.Optional (I
+                                 -> NonSerializableResult -> [DA.Internal.Desugar.Party]),
+   DA.Internal.Desugar.Optional (I
+                                 -> NonSerializableResult -> [DA.Internal.Desugar.Party]),
    DA.Internal.Desugar.ContractId I
    -> I
       -> NonSerializableResult
-         -> DA.Internal.Desugar.Update (NonSerializable),
-   DA.Internal.Desugar.Consuming I,
-   DA.Internal.Desugar.Optional (I
-                                 -> NonSerializableResult -> [DA.Internal.Desugar.Party]))
+         -> DA.Internal.Desugar.Update (NonSerializable))
 _choice$_INonSerializableResult
-  = (\ this arg@NonSerializableResult
+  = (DA.Internal.Desugar.Consuming, 
+     \ this arg@NonSerializableResult
        -> let _ = this in
           let _ = arg in DA.Internal.Desugar.toParties (p this), 
+     DA.Internal.Desugar.None, DA.Internal.Desugar.None, 
      \ self this arg@NonSerializableResult
        -> let _ = self in
-          let _ = this in let _ = arg in do pure (NonSerializable identity), 
-     DA.Internal.Desugar.Consuming, DA.Internal.Desugar.None)
+          let _ = this in let _ = arg in do pure (NonSerializable identity))
 instance DA.Internal.Desugar.HasInterfaceView I EmptyInterfaceView where
   _view = GHC.Types.primitive @"EViewInterface"
 instance DA.Internal.Desugar.HasFromAnyView I EmptyInterfaceView where

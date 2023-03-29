@@ -35,7 +35,8 @@ docTest ideState files = do
         createDirectoryIfMissing True (takeDirectory $ fromNormalizedFilePath path)
         T.writeFileUtf8 (fromNormalizedFilePath path) (genModuleContent m)
     setFilesOfInterest ideState (HashSet.fromList $ map snd msWithPaths)
+
     runActionSync ideState $ do
-        void $ Shake.forP msWithPaths $ \(_, path) -> use_ RunScenarios path
+        void $ Shake.forP msWithPaths $ \(_, path) -> use_ RunScripts path
     diags <- getDiagnostics ideState
     when (any (\(_, _, diag) -> Just DsError == _severity diag) diags) exitFailure

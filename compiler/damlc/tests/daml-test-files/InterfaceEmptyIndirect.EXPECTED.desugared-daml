@@ -58,17 +58,20 @@ instance DA.Internal.Desugar.HasChoiceController T DA.Internal.Desugar.Archive w
 instance DA.Internal.Desugar.HasChoiceObserver T DA.Internal.Desugar.Archive where
   _choiceObserver = GHC.Types.primitive @"EChoiceObserver"
 _choice$_TArchive :
-  (T -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party],
+  (DA.Internal.Desugar.Consuming T,
+   T -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party],
+   DA.Internal.Desugar.Optional (T
+                                 -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]),
+   DA.Internal.Desugar.Optional (T
+                                 -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]),
    DA.Internal.Desugar.ContractId T
    -> T
-      -> DA.Internal.Desugar.Archive -> DA.Internal.Desugar.Update (()),
-   DA.Internal.Desugar.Consuming T,
-   DA.Internal.Desugar.Optional (T
-                                 -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]))
+      -> DA.Internal.Desugar.Archive -> DA.Internal.Desugar.Update (()))
 _choice$_TArchive
-  = (\ this _ -> DA.Internal.Desugar.signatory this, 
-     \ _ _ _ -> pure (), DA.Internal.Desugar.Consuming, 
-     DA.Internal.Desugar.None)
+  = (DA.Internal.Desugar.Consuming, 
+     \ this _ -> DA.Internal.Desugar.signatory this, 
+     DA.Internal.Desugar.None, DA.Internal.Desugar.None, 
+     \ _ _ _ -> pure ())
 _interface_instance$_T_I_T :
   DA.Internal.Desugar.InterfaceInstance T I T
 _interface_instance$_T_I_T

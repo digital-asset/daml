@@ -11,7 +11,7 @@ import com.daml.lf.speedy.SValue.SRecord
 final class FuncStaticTimeIT extends AbstractFuncIT {
   import AbstractScriptTest._
 
-  protected override def timeMode = ScriptTimeMode.Static
+  protected override lazy val timeMode = ScriptTimeMode.Static
 
   "testSetTime" should {
     "change time and reflect the change in getTime" in {

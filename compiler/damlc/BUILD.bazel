@@ -338,7 +338,10 @@ daml_doc_test(
     name = "daml-stdlib-doctest",
     package_name = "daml-stdlib",
     srcs = ["//compiler/damlc/daml-stdlib-src"],
-    flags = ["--no-dflags-check"],
+    flags = [
+        "--no-dflags-check",
+        "--import-source=no",
+    ],
     ignored_srcs = [
         "LibraryModules.daml",
         "DA/Experimental/*.daml",

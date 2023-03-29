@@ -250,7 +250,7 @@ da_haskell_test(
         "//compiler/damlc:daml-base-anchors.json",
         "//compiler/damlc/pkg-db",
         "//compiler/damlc/stable-packages",
-        "//daml-script/daml:daml-script-1.dev.dar",
+        "//daml-script/daml:daml-script.dar",
         ghc_pkg,
     ],
     hackage_deps = [
@@ -278,7 +278,12 @@ da_haskell_test(
 da_haskell_test(
     name = "daml-doctest",
     srcs = ["src/DA/Test/DamlDocTest.hs"],
-    data = ["//compiler/damlc/pkg-db"],
+    data = [
+        "//compiler/damlc/pkg-db",
+        "//compiler/damlc/stable-packages",
+        "//daml-script/daml:daml-script.dar",
+        ghc_pkg,
+    ],
     hackage_deps = [
         "base",
         "data-default",
@@ -294,6 +299,8 @@ da_haskell_test(
     src_strip_prefix = "src",
     visibility = ["//visibility:public"],
     deps = [
+        ":integration-lib",
+        "//compiler/daml-lf-ast",
         "//compiler/damlc:damlc-lib",
         "//compiler/damlc/daml-doctest",
         "//compiler/damlc/daml-ide-core",
@@ -307,7 +314,10 @@ da_haskell_test(
 da_haskell_test(
     name = "daml-doctest-integration",
     srcs = ["src/DA/Test/DamlDocTestIntegration.hs"],
-    data = ["//compiler/damlc"],
+    data = [
+        "//compiler/damlc",
+        "//daml-script/daml:daml-script.dar",
+    ],
     hackage_deps = [
         "base",
         "extra",
@@ -335,7 +345,7 @@ da_haskell_test(
         "//compiler/damlc/pkg-db",
         "//compiler/damlc/stable-packages",
         "//compiler/scenario-service/server:scenario_service_jar",
-        "//daml-script/daml:daml-script-1.15.dar",
+        "//daml-script/daml:daml-script.dar",
         ghc_pkg,
     ],
     hackage_deps = [
