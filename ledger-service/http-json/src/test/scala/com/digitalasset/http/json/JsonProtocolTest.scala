@@ -77,6 +77,16 @@ class JsonProtocolTest
     }
   }
 
+  "domain.Base16" - {
+    "is case-insensitive" in forAll { b16: domain.Base16 =>
+      val str = b16.toJson.convertTo[String]
+      all(
+        Seq(str.toUpperCase, str.toLowerCase)
+          .map(_.toJson.convertTo[domain.Base16])
+      ) should ===(b16)
+    }
+  }
+
   "domain.Contract" - {
     "can be serialized to JSON" in forAll(contractGen) { contract =>
       inside(SprayJson.encode(contract)) { case \/-(JsObject(fields)) =>
