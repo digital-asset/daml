@@ -12,9 +12,10 @@ import com.daml.lf.data.Time
 import com.daml.lf.value.Value.ContractId
 import com.daml.lf.value.json.ApiCodecCompressed
 import com.daml.nonempty.NonEmpty
+import com.google.protobuf.ByteString
 import com.google.protobuf.struct.Struct
 import scalaz.syntax.std.option._
-import scalaz.{-\/, NonEmptyList, \/-}
+import scalaz.{@@, -\/, \/-, NonEmptyList, Tag}
 import spray.json._
 import spray.json.derived.Discriminator
 import scalaz.syntax.tag._
@@ -83,16 +84,29 @@ object JsonProtocol extends JsonProtocolLow {
 
   implicit def `List reader only`[A: JsonReader]: JsonReaderList[A] = new JsonReaderList
 
-  implicit val Base64Format: JsonFormat[domain.Base64] = {
-    import com.google.protobuf.ByteString
-    import java.util.Base64.{getUrlDecoder, getUrlEncoder}
-    domain.Base64 subst xemapStringJsonFormat { s =>
+  private[this] def baseNFormat[Tag](
+      strToBytesThrowsIAE: String => Array[Byte],
+      bytesToStrTotal: Array[Byte] => String,
+  ): JsonFormat[ByteString @@ Tag] =
+    Tag subst xemapStringJsonFormat { s =>
       for {
         arr <-
-          try Right(getUrlDecoder decode s)
-          catch { case e: IllegalArgumentException => Left(e.getMessage) }
+          try Right(strToBytesThrowsIAE(s))
+          catch {
+            case e: IllegalArgumentException => Left(e.getMessage)
+          }
       } yield ByteString copyFrom arr
-    } { b64 => getUrlEncoder encodeToString b64.toByteArray }
+    } { bytes => bytesToStrTotal(bytes.toByteArray) }
+
+  implicit val Base64Format: JsonFormat[domain.Base64] = {
+    import java.util.Base64.{getUrlDecoder, getUrlEncoder}
+    baseNFormat(getUrlDecoder.decode, getUrlEncoder.encodeToString)
+  }
+
+  implicit val Base16Format: JsonFormat[domain.Base16] = {
+    import com.google.common.io.BaseEncoding.base16
+    import java.util.Locale.US
+    baseNFormat(s => base16.decode(s toUpperCase US), ba => base16.encode(ba) toLowerCase US)
   }
 
   implicit val PbAnyFormat: JsonFormat[domain.PbAny] = jsonFormat2(domain.PbAny)

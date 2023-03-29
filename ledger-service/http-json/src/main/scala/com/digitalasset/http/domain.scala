@@ -22,7 +22,7 @@ import scalaz.syntax.bitraverse._
 import scalaz.syntax.show._
 import scalaz.syntax.std.option._
 import scalaz.syntax.traverse._
-import scalaz.{-\/, Applicative, Bitraverse, Functor, NonEmptyList, Traverse, \/, \/-}
+import scalaz.{@@, -\/, Applicative, Bitraverse, Functor, NonEmptyList, Tag, Traverse, \/, \/-}
 import spray.json.JsValue
 import scalaz.syntax.tag._
 
@@ -65,6 +65,9 @@ package object domain extends com.daml.fetchcontracts.domain.Aliases {
 
   type Base64 = ByteString @@ Base64Tag
   val Base64 = Tag.of[Base64Tag]
+
+  type Base16 = ByteString @@ Base16Tag
+  val Base16 = Tag.of[Base16Tag]
 }
 
 package domain {
@@ -78,6 +81,7 @@ package domain {
   sealed trait CompletionOffsetTag
 
   sealed trait Base64Tag
+  sealed trait Base16Tag
 
   trait JwtPayloadTag
 
@@ -316,7 +320,7 @@ package domain {
 
     final case class Metadata(
         createdAt: Time.Timestamp,
-        contractKeyHash: Option[Base64],
+        contractKeyHash: Option[Base16],
         driverMetadata: Option[Base64],
     ) {
       import com.daml.api.util.TimestampConversion.{fromLf => timestampLfToProto}
@@ -324,18 +328,19 @@ package domain {
       def toLedgerApi: lav1.contract_metadata.ContractMetadata =
         lav1.contract_metadata.ContractMetadata(
           createdAt = Some(timestampLfToProto(createdAt)),
-          contractKeyHash = contractKeyHash.cata(Base64.unwrap, ByteString.EMPTY),
-          driverMetadata = driverMetadata.cata(Base64.unwrap, ByteString.EMPTY),
+          contractKeyHash = Base16 unsubst contractKeyHash getOrElse ByteString.EMPTY,
+          driverMetadata = Base64 unsubst driverMetadata getOrElse ByteString.EMPTY,
         )
     }
 
-    object Metadata extends ((Time.Timestamp, Option[Base64], Option[Base64]) => Metadata) {
+    object Metadata extends ((Time.Timestamp, Option[Base16], Option[Base64]) => Metadata) {
       // meant only for testing
       private[http] def fromLedgerApi(
           la: lav1.contract_metadata.ContractMetadata
       ): Error \/ Metadata = {
         import com.daml.api.util.{TimestampConversion => TSC}
-        def boxIfNE(bs: ByteString) = if (bs.isEmpty) None else Some(Base64(bs))
+        def boxIfNE[Tag](bs: ByteString): Option[ByteString @@ Tag] =
+          if (bs.isEmpty) None else Some(Tag(bs))
         for {
           createdAt <- (la.createdAt toRightDisjunction
             Error(Symbol("Metadata.fromLedgerApi"), "missing createdAt field"))

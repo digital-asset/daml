@@ -332,7 +332,7 @@ class JsonProtocolTest
         argumentsDecoded,
         DisclosedContract.Metadata(
           Time.Timestamp.assertFromString("2023-03-21T18:00:33.246813Z"),
-          Some(domain.Base64(ByteString.copyFrom("well hello", utf8))),
+          Some(domain.Base16(ByteString.copyFrom("well hello", utf8))),
           Some(domain.Base64(ByteString.copyFrom("there reader", utf8))),
         ),
       )
@@ -342,7 +342,7 @@ class JsonProtocolTest
         $argumentsJsonField,
         "metadata": {
           "createdAt": "2023-03-21T18:00:33.246813Z",
-          "contractKeyHash": "d2VsbCBoZWxsbw==",
+          "contractKeyHash": "77656c6c2068656c6c6f",
           "driverMetadata": "dGhlcmUgcmVhZGVy"
         }
       }""".parseJson
@@ -361,6 +361,9 @@ object JsonProtocolTest {
 
   private[this] implicit val arbBase64: Arbitrary[domain.Base64] =
     domain.Base64 subst arbArg(com.google.protobuf.ByteString.copyFrom(_: Array[Byte]))
+
+  private implicit val arbBase16: Arbitrary[domain.Base16] =
+    domain.Base16 subst arbArg(com.google.protobuf.ByteString.copyFrom(_: Array[Byte]))
 
   private[this] implicit val arbTime: Arbitrary[Time.Timestamp] =
     Arbitrary(
