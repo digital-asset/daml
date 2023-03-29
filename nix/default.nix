@@ -204,6 +204,7 @@ in rec {
     # used to set up the webide CI pipeline in azure-cron.yml
     docker-credential-gcr = pkgs.docker-credential-gcr;
     terraform = pkgs.terraform_1.withPlugins (p: with p; [
+      azurerm
       google
       google-beta
       secret
