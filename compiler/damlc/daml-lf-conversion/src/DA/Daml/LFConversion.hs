@@ -264,7 +264,7 @@ extractModuleContents env@Env{..} coreModule modIface details = do
                , _controller
                , _observer
                , _authority
-               , _action --tupleElem5
+               , _action -- choiceTupleExpr
                ]) <- [varType name]
         ]
     mcTemplateBinds = scrapeTemplateBinds mcBinds
@@ -1256,13 +1256,13 @@ convertChoice env tbinds (ChoiceData ty expr) = do
     -- The desuaged representation of a Daml Choice is a five tuple.
     -- Constructed by mkChoiceDecls in RdrHsSyn.hs in the ghc repo.
     -- We match against that 5-tuple expression or type in 3 places in this file.
-    -- search for string "tupleElem5"
+    -- search for string "choiceTupleExpr"
 
     TConApp _ [ consumingTy
               , _controller
               , _observer
               , _authority
-              , _ :-> _ :-> choiceTy@(TConApp choiceTyCon _) :-> TUpdate choiceRetTy -- tupleElem5
+              , _ :-> _ :-> choiceTy@(TConApp choiceTyCon _) :-> TUpdate choiceRetTy -- choiceTupleExpr
               ] <- convertType env ty
 
     let choiceName = ChoiceName (T.intercalate "." $ unTypeConName $ qualObject choiceTyCon)
@@ -1271,7 +1271,7 @@ convertChoice env tbinds (ChoiceData ty expr) = do
               , (_, controllers)
               , (_, optObservers)
               , (_, _optAuthority) -- TODO #15882 -- feed this through the compiler pipeline
-              , (_, action) -- tupleElem5
+              , (_, action) -- choiceTupleExpr
               ] <- removeLocations <$> convertExpr env expr
 
     mbObservers <-
