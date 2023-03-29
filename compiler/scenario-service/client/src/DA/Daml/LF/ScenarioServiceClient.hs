@@ -293,8 +293,7 @@ runWithOptions options Handle{..} ctxId = do
 
       -- Return updated runningHandlers
       pure newRunningHandlers
-  res <- takeMVar resVar
-  pure res
+  takeMVar resVar
 
 optionsToLowLevel :: RunOptions -> LowLevel.Handle -> LowLevel.ContextId -> MVar Bool -> IO (Either LowLevel.Error LowLevel.ScenarioResult)
 optionsToLowLevel RunOptions{..} h ctxId mask =
