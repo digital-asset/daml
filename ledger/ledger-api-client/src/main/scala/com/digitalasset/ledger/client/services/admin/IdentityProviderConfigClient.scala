@@ -63,6 +63,17 @@ final class IdentityProviderConfigClient(service: IdentityProviderConfigServiceS
       .listIdentityProviderConfigs(request)
       .map(res => res.identityProviderConfigs.map(fromProtoConfig))
   }
+
+  def deleteIdentityProviderConfig(
+      identityProviderId: IdentityProviderId.Id,
+      token: Option[String],
+  ): Future[Unit] = {
+    val request = proto.DeleteIdentityProviderConfigRequest(identityProviderId.toRequestString)
+    LedgerClient
+      .stub(service, token)
+      .deleteIdentityProviderConfig(request)
+      .map(_ => ())
+  }
 }
 
 object IdentityProviderConfigClient {

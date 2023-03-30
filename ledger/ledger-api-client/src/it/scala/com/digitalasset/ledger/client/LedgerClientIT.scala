@@ -144,6 +144,21 @@ final class LedgerClientIT
           respConfig.toSet should contain theSameElementsAs (Set(config2, config1))
         }
       }
+
+      "delete identity provider" in {
+        for {
+          client <- LedgerClient(channel, ClientConfiguration)
+          config1 <- client.identityProviderConfigClient.createIdentityProviderConfig(config, None)
+          _ <- client.identityProviderConfigClient.deleteIdentityProviderConfig(
+            config1.identityProviderId,
+            None,
+          )
+          respConfig <- client.identityProviderConfigClient.listIdentityProviderConfigs(None)
+        } yield {
+          respConfig.toSet should be(Set.empty)
+        }
+      }
+
     }
 
     "shut down the channel when closed" in {
