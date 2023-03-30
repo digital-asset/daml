@@ -8,6 +8,7 @@ import com.daml.ledger.api.v1.admin.identity_provider_config_service.IdentityPro
 import com.daml.ledger.api.v1.admin.{identity_provider_config_service => proto}
 import com.daml.ledger.client.LedgerClient
 import com.daml.lf.data.Ref
+import com.google.protobuf.field_mask.FieldMask
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -26,7 +27,7 @@ final class IdentityProviderConfigClient(service: IdentityProviderConfigServiceS
     LedgerClient
       .stub(service, token)
       .createIdentityProviderConfig(request)
-      .map(res => fromProtoConfig(res.identityProviderConfig.get))
+      .map(res => fromProtoConfig(res.getIdentityProviderConfig))
   }
 
   def getIdentityProviderConfig(
@@ -38,6 +39,29 @@ final class IdentityProviderConfigClient(service: IdentityProviderConfigServiceS
       .stub(service, token)
       .getIdentityProviderConfig(request)
       .map(res => fromProtoConfig(res.getIdentityProviderConfig))
+  }
+
+  def updateIdentityProviderConfig(
+      config: IdentityProviderConfig,
+      updateMask: FieldMask,
+      token: Option[String],
+  ): Future[IdentityProviderConfig] = {
+    val request = proto.UpdateIdentityProviderConfigRequest(
+      Some(IdentityProviderConfigClient.toProtoConfig(config)),
+      Some(updateMask),
+    )
+    LedgerClient
+      .stub(service, token)
+      .updateIdentityProviderConfig(request)
+      .map(res => fromProtoConfig(res.getIdentityProviderConfig))
+  }
+
+  def listIdentityProviderConfigs(token: Option[String]): Future[Seq[IdentityProviderConfig]] = {
+    val request = proto.ListIdentityProviderConfigsRequest()
+    LedgerClient
+      .stub(service, token)
+      .listIdentityProviderConfigs(request)
+      .map(res => res.identityProviderConfigs.map(fromProtoConfig))
   }
 }
 

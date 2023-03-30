@@ -14,6 +14,7 @@ import com.daml.ledger.client.configuration.{
 import com.daml.ledger.runner.common.Config
 import com.daml.lf.data.Ref
 import com.daml.platform.sandbox.fixture.SandboxFixture
+import com.google.protobuf.field_mask.FieldMask
 import io.grpc.ManagedChannel
 import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
@@ -79,11 +80,17 @@ final class LedgerClientIT
     "identity provider config" should {
       val config = IdentityProviderConfig(
         IdentityProviderId.Id(Ref.LedgerString.assertFromString("abcd")),
-        false,
+        isDeactivated = false,
         JwksUrl.assertFromString("http://jwks.some.domain:9999/jwks"),
         "SomeUser",
-        None,
+        None, // setting this to any value does not appear to work
       )
+
+      val updatedConfig = config.copy(
+        isDeactivated = true,
+        jwksUrl = JwksUrl("http://someotherurl"),
+        issuer = "ANewIssuer",
+      ) // updating audience value does not appear to work
 
       "create an identity provider" in {
         for {
@@ -106,6 +113,35 @@ final class LedgerClientIT
           )
         } yield {
           respConfig should be(config)
+        }
+      }
+      "update an identity provider" in {
+        for {
+          client <- LedgerClient(channel, ClientConfiguration)
+          _ <- client.identityProviderConfigClient.createIdentityProviderConfig(config, None)
+          respConfig <- client.identityProviderConfigClient.updateIdentityProviderConfig(
+            updatedConfig,
+            FieldMask(Seq("is_deactivated", "jwks_url", "issuer")),
+            None,
+          )
+        } yield {
+          respConfig should be(updatedConfig)
+        }
+      }
+
+      "list identity providers" in {
+        for {
+          client <- LedgerClient(channel, ClientConfiguration)
+          config1 <- client.identityProviderConfigClient.createIdentityProviderConfig(config, None)
+          config2 <- client.identityProviderConfigClient.createIdentityProviderConfig(
+            updatedConfig.copy(identityProviderId =
+              IdentityProviderId.Id(Ref.LedgerString.assertFromString("AnotherIdentityProvider"))
+            ),
+            None,
+          )
+          respConfig <- client.identityProviderConfigClient.listIdentityProviderConfigs(None)
+        } yield {
+          respConfig.toSet should contain theSameElementsAs (Set(config2, config1))
         }
       }
     }
