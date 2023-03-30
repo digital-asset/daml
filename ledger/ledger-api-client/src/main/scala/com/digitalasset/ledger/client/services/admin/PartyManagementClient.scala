@@ -12,32 +12,62 @@ import com.daml.ledger.api.v1.admin.party_management_service.{
   GetParticipantIdRequest,
   GetPartiesRequest,
   ListKnownPartiesRequest,
+  UpdatePartyDetailsRequest,
   PartyDetails => ApiPartyDetails,
 }
+import com.daml.ledger.api.v1.admin.object_meta.{ObjectMeta => ApiObjectMeta}
 import com.daml.ledger.client.LedgerClient
+import com.google.protobuf.field_mask.FieldMask
 import scalaz.OneAnd
 
 import scala.concurrent.{ExecutionContext, Future}
 
 object PartyManagementClient {
 
-  private def details(d: ApiPartyDetails): PartyDetails =
+  private def details(proto: ApiPartyDetails): PartyDetails =
     PartyDetails(
-      Party.assertFromString(d.party),
-      if (d.displayName.isEmpty) None else Some(d.displayName),
-      d.isLocal,
-      ObjectMeta.empty,
-      IdentityProviderId(d.identityProviderId),
+      Party.assertFromString(proto.party),
+      if (proto.displayName.isEmpty) None else Some(proto.displayName),
+      proto.isLocal,
+      fromProtoObjectMeta(proto.localMetadata),
+      IdentityProviderId(proto.identityProviderId),
+    )
+
+  private def toProtoPartyDetails(domain: PartyDetails): ApiPartyDetails =
+    ApiPartyDetails(
+      domain.party,
+      domain.displayName.getOrElse(""),
+      domain.isLocal,
+      toProtoObjectMeta(domain.metadata),
+      domain.identityProviderId.toRequestString,
     )
 
   private val getParticipantIdRequest = GetParticipantIdRequest()
 
-  private val listKnownPartiesRequest = ListKnownPartiesRequest()
+  private def fromProtoObjectMeta(protoObjectMeta: Option[ApiObjectMeta]): ObjectMeta = {
+    protoObjectMeta match {
+      case None => ObjectMeta.empty
+      case Some(ApiObjectMeta("", _)) => ObjectMeta.empty
+      case Some(ApiObjectMeta(resourceVersion, annotations)) =>
+        ObjectMeta(Some(resourceVersion.toLong), annotations)
+    }
+  }
 
-  private def getPartiesRequest(parties: OneAnd[Set, Ref.Party]) = {
+  private def toProtoObjectMeta(objectMeta: ObjectMeta): Option[ApiObjectMeta] = {
+    objectMeta match {
+      case ObjectMeta(None, annotations) => Some(ApiObjectMeta("", annotations))
+      case ObjectMeta(Some(resourceVersion), annotations) =>
+        Some(ApiObjectMeta(resourceVersion.toString, annotations))
+    }
+  }
+
+  private def getPartiesRequest(
+      parties: OneAnd[Set, Ref.Party],
+      identityProviderId: IdentityProviderId,
+  ) = {
     import scalaz.std.iterable._
     import scalaz.syntax.foldable._
-    GetPartiesRequest(parties.toList)
+    GetPartiesRequest(parties.toList, identityProviderId.toRequestString)
   }
 }
 
@@ -51,29 +81,56 @@ final class PartyManagementClient(service: PartyManagementServiceStub)(implicit
       .getParticipantId(PartyManagementClient.getParticipantIdRequest)
       .map(r => ParticipantId(Ref.ParticipantId.assertFromString(r.participantId)))
 
-  def listKnownParties(token: Option[String] = None): Future[List[PartyDetails]] =
+  def listKnownParties(
+      token: Option[String] = None,
+      identityProviderId: IdentityProviderId = IdentityProviderId.Default,
+  ): Future[List[PartyDetails]] =
     LedgerClient
       .stub(service, token)
-      .listKnownParties(PartyManagementClient.listKnownPartiesRequest)
+      .listKnownParties(ListKnownPartiesRequest(identityProviderId.toRequestString))
       .map(_.partyDetails.view.map(PartyManagementClient.details).toList)
 
   def getParties(
       parties: OneAnd[Set, Ref.Party],
+      identityProviderId: IdentityProviderId = IdentityProviderId.Default,
       token: Option[String] = None,
   ): Future[List[PartyDetails]] =
     LedgerClient
       .stub(service, token)
-      .getParties(PartyManagementClient.getPartiesRequest(parties))
+      .getParties(PartyManagementClient.getPartiesRequest(parties, identityProviderId))
       .map(_.partyDetails.view.map(PartyManagementClient.details).toList)
 
   def allocateParty(
       hint: Option[String],
       displayName: Option[String],
       token: Option[String] = None,
+      identityProviderId: IdentityProviderId = IdentityProviderId.Default,
   ): Future[PartyDetails] =
     LedgerClient
       .stub(service, token)
-      .allocateParty(new AllocatePartyRequest(hint.getOrElse(""), displayName.getOrElse("")))
+      .allocateParty(
+        new AllocatePartyRequest(
+          partyIdHint = hint.getOrElse(""),
+          displayName = displayName.getOrElse(""),
+          identityProviderId = identityProviderId.toRequestString,
+        )
+      )
+      .map(_.partyDetails.getOrElse(sys.error("No PartyDetails in response.")))
+      .map(PartyManagementClient.details)
+
+  def updatePartyDetails(
+      partyDetails: Option[PartyDetails],
+      updateMask: Option[FieldMask],
+      token: Option[String] = None,
+  ): Future[PartyDetails] =
+    LedgerClient
+      .stub(service, token)
+      .updatePartyDetails(
+        UpdatePartyDetailsRequest(
+          partyDetails = partyDetails.map(PartyManagementClient.toProtoPartyDetails),
+          updateMask,
+        )
+      )
       .map(_.partyDetails.getOrElse(sys.error("No PartyDetails in response.")))
       .map(PartyManagementClient.details)
 }

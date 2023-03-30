@@ -4,7 +4,7 @@
 package com.daml.ledger.client.services.admin
 
 import com.daml.ledger.api.domain
-import com.daml.ledger.api.domain.{ObjectMeta, User, UserRight}
+import com.daml.ledger.api.domain.{IdentityProviderId, ObjectMeta, User, UserRight}
 import com.daml.ledger.api.v1.admin.user_management_service.UserManagementServiceGrpc.UserManagementServiceStub
 import com.daml.ledger.api.v1.admin.{user_management_service => proto}
 import com.daml.ledger.api.v1.{admin => admin_proto}
@@ -50,10 +50,14 @@ final class UserManagementClient(service: UserManagementServiceStub)(implicit
       .map(res => fromProtoUser(res.user.get))
   }
 
-  def getUser(userId: UserId, token: Option[String] = None): Future[User] =
+  def getUser(
+      userId: UserId,
+      identityProviderId: IdentityProviderId = IdentityProviderId.Default,
+      token: Option[String] = None,
+  ): Future[User] =
     LedgerClient
       .stub(service, token)
-      .getUser(proto.GetUserRequest(userId.toString))
+      .getUser(proto.GetUserRequest(userId.toString, identityProviderId.toRequestString))
       .map(res => fromProtoUser(res.user.get))
 
   /** Retrieve the User information for the user authenticated by the token(s) on the call . */
@@ -63,49 +67,80 @@ final class UserManagementClient(service: UserManagementServiceStub)(implicit
       .getUser(proto.GetUserRequest())
       .map(res => fromProtoUser(res.user.get))
 
-  def deleteUser(userId: UserId, token: Option[String] = None): Future[Unit] =
+  def deleteUser(
+      userId: UserId,
+      identityProviderId: IdentityProviderId = IdentityProviderId.Default,
+      token: Option[String] = None,
+  ): Future[Unit] =
     LedgerClient
       .stub(service, token)
-      .deleteUser(proto.DeleteUserRequest(userId.toString))
+      .deleteUser(proto.DeleteUserRequest(userId.toString, identityProviderId.toRequestString))
       .map(_ => ())
 
   def listUsers(
       token: Option[String] = None,
       pageToken: String,
       pageSize: Int,
+      identityProviderId: IdentityProviderId = IdentityProviderId.Default,
   ): Future[(Seq[User], String)] =
     LedgerClient
       .stub(service, token)
-      .listUsers(proto.ListUsersRequest(pageToken = pageToken, pageSize = pageSize))
+      .listUsers(
+        proto.ListUsersRequest(
+          pageToken = pageToken,
+          pageSize = pageSize,
+          identityProviderId.toRequestString,
+        )
+      )
       .map(res => res.users.view.map(fromProtoUser).toSeq -> res.nextPageToken)
 
   def grantUserRights(
       userId: UserId,
       rights: Seq[UserRight],
       token: Option[String] = None,
+      identityProviderId: IdentityProviderId = IdentityProviderId.Default,
   ): Future[Seq[UserRight]] =
     LedgerClient
       .stub(service, token)
-      .grantUserRights(proto.GrantUserRightsRequest(userId.toString, rights.map(toProtoRight)))
+      .grantUserRights(
+        proto.GrantUserRightsRequest(
+          userId.toString,
+          rights.map(toProtoRight),
+          identityProviderId.toRequestString,
+        )
+      )
       .map(_.newlyGrantedRights.view.collect(fromProtoRight.unlift).toSeq)
 
   def revokeUserRights(
       userId: UserId,
       rights: Seq[UserRight],
       token: Option[String] = None,
+      identityProviderId: IdentityProviderId = IdentityProviderId.Default,
   ): Future[Seq[UserRight]] =
     LedgerClient
       .stub(service, token)
-      .revokeUserRights(proto.RevokeUserRightsRequest(userId.toString, rights.map(toProtoRight)))
+      .revokeUserRights(
+        proto.RevokeUserRightsRequest(
+          userId.toString,
+          rights.map(toProtoRight),
+          identityProviderId.toRequestString,
+        )
+      )
       .map(_.newlyRevokedRights.view.collect(fromProtoRight.unlift).toSeq)
 
   /** List the rights of the given user.
     * Unknown rights are ignored.
     */
-  def listUserRights(userId: UserId, token: Option[String] = None): Future[Seq[UserRight]] =
+  def listUserRights(
+      userId: UserId,
+      identityProviderId: IdentityProviderId = IdentityProviderId.Default,
+      token: Option[String] = None,
+  ): Future[Seq[UserRight]] =
     LedgerClient
       .stub(service, token)
-      .listUserRights(proto.ListUserRightsRequest(userId.toString))
+      .listUserRights(
+        proto.ListUserRightsRequest(userId.toString, identityProviderId.toRequestString)
+      )
       .map(_.rights.view.collect(fromProtoRight.unlift).toSeq)
 
   /** Retrieve the rights of the user authenticated by the token(s) on the call .
@@ -126,6 +161,8 @@ object UserManagementClient {
         Option.unless(user.primaryParty.isEmpty)(Party.assertFromString(user.primaryParty)),
       isDeactivated = user.isDeactivated,
       metadata = user.metadata.fold(domain.ObjectMeta.empty)(fromProtoMetadata),
+      identityProviderId =
+        IdentityProviderId.Id(Ref.LedgerString.assertFromString(user.identityProviderId)),
     )
 
   private def fromProtoMetadata(
@@ -145,6 +182,7 @@ object UserManagementClient {
       primaryParty = user.primaryParty.fold("")(_.toString),
       isDeactivated = user.isDeactivated,
       metadata = Some(toProtoObjectMeta(user.metadata)),
+      identityProviderId = user.identityProviderId.toRequestString,
     )
 
   private def toProtoObjectMeta(meta: ObjectMeta): admin_proto.object_meta.ObjectMeta =
