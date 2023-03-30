@@ -55,7 +55,7 @@ object PartyManagementClient {
 
   private def toProtoObjectMeta(objectMeta: ObjectMeta): Option[ApiObjectMeta] = {
     objectMeta match {
-      case ObjectMeta(None, annotations) => Some(ApiObjectMeta("", annotations))
+      case ObjectMeta(None, _) => None
       case ObjectMeta(Some(resourceVersion), annotations) =>
         Some(ApiObjectMeta(resourceVersion.toString, annotations))
     }
