@@ -161,8 +161,7 @@ object UserManagementClient {
         Option.unless(user.primaryParty.isEmpty)(Party.assertFromString(user.primaryParty)),
       isDeactivated = user.isDeactivated,
       metadata = user.metadata.fold(domain.ObjectMeta.empty)(fromProtoMetadata),
-      identityProviderId =
-        IdentityProviderId.Id(Ref.LedgerString.assertFromString(user.identityProviderId)),
+      identityProviderId = IdentityProviderId(user.identityProviderId),
     )
 
   private def fromProtoMetadata(
