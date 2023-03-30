@@ -98,7 +98,7 @@ class DamlScriptTestRunner
         .filter(s => List("SUCCESS", "FAILURE").exists(s.contains))
         .mkString("", f"%n", f"%n")
         // ignore partial transactions as parties, cids, and package Ids are pretty unpredictable
-        .replaceAll("partial transaction: [^\n]+", "partial transaction: ...")
+        .replaceAll("partial transaction: .*", "partial transaction: ...")
         .replaceAll(
           """DAML_INTERPRETATION_ERROR\((\d+),\w{8}\)""",
           "DAML_INTERPRETATION_ERROR($1,XXXXXXXX)",
