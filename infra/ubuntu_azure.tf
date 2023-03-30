@@ -3,7 +3,7 @@
 
 resource "azurerm_linux_virtual_machine_scale_set" "ubuntu" {
   count               = length(local.ubuntu.azure)
-  name                = "ubuntu"
+  name                = local.ubuntu.azure[count.index].name
   resource_group_name = azurerm_resource_group.daml-ci.name
   location            = azurerm_resource_group.daml-ci.location
   sku                 = "Standard_D4_v2"
