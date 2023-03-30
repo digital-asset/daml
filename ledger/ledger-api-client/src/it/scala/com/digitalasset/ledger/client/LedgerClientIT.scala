@@ -83,14 +83,15 @@ final class LedgerClientIT
         isDeactivated = false,
         JwksUrl.assertFromString("http://jwks.some.domain:9999/jwks"),
         "SomeUser",
-        None, // setting this to any value does not appear to work
+        Some("SomeAudience"),
       )
 
       val updatedConfig = config.copy(
         isDeactivated = true,
         jwksUrl = JwksUrl("http://someotherurl"),
         issuer = "ANewIssuer",
-      ) // updating audience value does not appear to work
+        audience = Some("ChangedAudience"),
+      )
 
       "create an identity provider" in {
         for {
@@ -121,11 +122,16 @@ final class LedgerClientIT
           _ <- client.identityProviderConfigClient.createIdentityProviderConfig(config, None)
           respConfig <- client.identityProviderConfigClient.updateIdentityProviderConfig(
             updatedConfig,
-            FieldMask(Seq("is_deactivated", "jwks_url", "issuer")),
+            FieldMask(Seq("is_deactivated", "jwks_url", "issuer", "audience")),
+            None,
+          )
+          queriedConfig <- client.identityProviderConfigClient.getIdentityProviderConfig(
+            config.identityProviderId,
             None,
           )
         } yield {
           respConfig should be(updatedConfig)
+          queriedConfig should be(updatedConfig)
         }
       }
 
