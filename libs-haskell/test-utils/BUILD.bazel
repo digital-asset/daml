@@ -4,6 +4,7 @@
 load(
     "//bazel_tools:haskell.bzl",
     "da_haskell_library",
+    "da_haskell_binary",
 )
 
 da_haskell_library(
@@ -16,10 +17,12 @@ da_haskell_library(
         "containers",
         "directory",
         "extra",
+        "filelock",
         "filepath",
         "jwt",
         "network",
         "process",
+        "QuickCheck",
         "safe-exceptions",
         "tasty",
         "tasty-hunit",
