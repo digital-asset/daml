@@ -795,9 +795,13 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
         tid.copy(packageId = inferredPkgId)
 
       lazy val ToDisclose = inDar2Main(TpId.Disclosure.ToDisclose)
+      lazy val AnotherToDisclose = inDar2Main(TpId.Disclosure.AnotherToDisclose)
 
       lazy val (_, toDiscloseVA) =
         VA.record(lfIdentifier(ToDisclose), ShRecord(owner = VAx.partyDomain, junk = VA.text))
+
+      lazy val (_, anotherToDiscloseVA) =
+        VA.record(lfIdentifier(ToDisclose), ShRecord(owner = VAx.partyDomain, garbage = VA.text))
 
       val (_, viewportVA) =
         VA.record(

@@ -446,6 +446,7 @@ trait AbstractHttpServiceIntegrationTestFuns
       val KeyedByVariantAndRecord: TId = CtId.Template(None, "Account", "KeyedByVariantAndRecord")
     }
     object Disclosure {
+      val AnotherToDisclose: TId = CtId.Template(None, "Disclosure", "AnotherToDisclose")
       val ToDisclose: TId = CtId.Template(None, "Disclosure", "ToDisclose")
       val Viewport: TId = CtId.Template(None, "Disclosure", "Viewport")
     }

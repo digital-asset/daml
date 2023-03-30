@@ -14,6 +14,17 @@ template ToDisclose with
       controller p
       do pure this
 
+template AnotherToDisclose with
+    owner: Party
+    garbage: Text
+  where
+    signatory owner
+
+    nonconsuming choice Another_Open_Fetch: AnotherToDisclose with
+        p : Party
+      controller p
+      do pure this
+
 template Viewport with
     owner: Party
   where
