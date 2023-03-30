@@ -18,7 +18,7 @@ import scalaz.syntax.show._
 import scalaz.syntax.applicative.{ToFunctorOps => _, _}
 import scalaz.syntax.std.option._
 import scalaz.syntax.traverse._
-import scalaz.{-\/, \/, EitherT, Traverse}
+import scalaz.{-\/, \/, Bifoldable, EitherT, Traverse}
 import scalaz.EitherT.eitherT
 import spray.json.{JsValue, JsonReader}
 
@@ -122,37 +122,43 @@ class DomainJsonDecoder(
     }
 
   def decodeExerciseCommand(a: JsValue, jwt: Jwt, ledgerId: LedgerApiDomain.LedgerId)(implicit
-      ev1: JsonReader[domain.ExerciseCommand[JsValue, domain.ContractLocator[JsValue]]],
+      ev1: JsonReader[domain.ExerciseCommand.OptionalPkg[JsValue, domain.ContractLocator[JsValue]]],
       ec: ExecutionContext,
       lc: LoggingContextOf[InstanceUUID],
-  ): ET[domain.ExerciseCommand[domain.LfValue, domain.ContractLocator[domain.LfValue]]] =
+  ): ET[
+    domain.ExerciseCommand.RequiredPkg[domain.LfValue, domain.ContractLocator[domain.LfValue]]
+  ] =
     for {
       cmd0 <- either(
         SprayJson
-          .decode[domain.ExerciseCommand[JsValue, domain.ContractLocator[JsValue]]](a)
+          .decode[domain.ExerciseCommand.OptionalPkg[JsValue, domain.ContractLocator[JsValue]]](a)
           .liftErrS("DomainJsonDecoder_decodeExerciseCommand")(JsonError)
       )
 
-      ifIdlfType <- lookupLfType[domain.ExerciseCommand[+*, domain.ContractLocator[_]]](
+      ifIdlfType <- lookupLfType[
+        domain.ExerciseCommand.OptionalPkg[+*, domain.ContractLocator[_]]
+      ](
         cmd0,
         jwt,
         ledgerId,
       )
-      (oIfaceId, lfType) = ifIdlfType
+      (oIfaceId, argLfType) = ifIdlfType
       // treat an inferred iface ID as a user-specified one
       choiceIfaceOverride <-
-        (if (oIfaceId.isDefined)
-           (oIfaceId: Option[domain.ContractTypeId.Interface.RequiredPkg]).pure[ET]
-         else cmd0.choiceInterfaceId.traverse(templateId_(_, jwt, ledgerId)))
-          .map(_ map ((_: domain.ContractTypeId.RequiredPkg) map some))
+        if (oIfaceId.isDefined)
+          (oIfaceId: Option[domain.ContractTypeId.Interface.RequiredPkg]).pure[ET]
+        else cmd0.choiceInterfaceId.traverse(templateId_(_, jwt, ledgerId))
+
+      lfArgument <- either(jsValueToLfValue(argLfType, cmd0.argument))
+      lfMeta <- cmd0.meta traverse (decodeMeta(_, jwt, ledgerId))
 
       cmd1 <-
         cmd0
-          .copy(choiceInterfaceId = choiceIfaceOverride)
+          .copy(argument = lfArgument, choiceInterfaceId = choiceIfaceOverride, meta = lfMeta)
           .bitraverse(
-            arg => either(jsValueToLfValue(lfType, arg)),
+            _.point[ET],
             ref => decodeContractLocatorKey(ref, jwt, ledgerId),
-          ): ET[domain.ExerciseCommand[domain.LfValue, domain.ContractLocator[
+          ): ET[domain.ExerciseCommand.RequiredPkg[domain.LfValue, domain.ContractLocator[
           domain.LfValue
         ]]]
 
@@ -200,6 +206,37 @@ class DomainJsonDecoder(
       choiceInterfaceId = oIfaceId orElse fjj.choiceInterfaceId,
     )
   }
+
+  private[this] def decodeMeta(
+      meta: domain.CommandMeta[ContractTypeId.Template.OptionalPkg, JsValue],
+      jwt: Jwt,
+      ledgerId: LedgerApiDomain.LedgerId,
+  )(implicit
+      ec: ExecutionContext,
+      lc: LoggingContextOf[InstanceUUID],
+  ): ET[domain.CommandMeta[ContractTypeId.Template.Resolved, domain.LfValue]] = for {
+    // resolve as few template IDs as possible
+    tpidToResolved <- {
+      import scalaz.std.vector._
+      val inputTpids = Bifoldable[domain.CommandMeta].leftFoldable[Any].toSet(meta)
+      inputTpids.toVector
+        .traverse { ot => templateId_(ot, jwt, ledgerId) strengthL ot }
+        .map(_.toMap)
+    }
+    // then use all the resolved template IDs for the disclosed contracts
+    disclosedContracts <- either {
+      import scalaz.std.list._
+      meta.disclosedContracts traverse (_ traverse { dc =>
+        val tpid = tpidToResolved(dc.templateId)
+        dc.bitraverse(
+          _ => \/.right(tpid),
+          jsrec =>
+            resolveTemplateRecordType(tpid) liftErr JsonError
+              flatMap (jsValueToLfValue(_, jsrec)),
+        )
+      })
+    }
+  } yield meta.copy(disclosedContracts = disclosedContracts)
 
   private def templateId_[U, R](
       id: U with domain.ContractTypeId.OptionalPkg,

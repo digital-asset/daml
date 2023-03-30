@@ -1,0 +1,26 @@
+-- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module Disclosure where
+
+template ToDisclose with
+    owner: Party
+    junk: Text
+  where
+    signatory owner
+
+    nonconsuming choice Open_Fetch: ToDisclose with
+        p : Party
+      controller p
+      do pure this
+
+template Viewport with
+    owner: Party
+  where
+    signatory owner
+    nonconsuming choice CheckVisibility: Text with
+        disclosed: ContractId ToDisclose
+      controller owner
+      do
+        td <- exercise disclosed $ Open_Fetch owner
+        pure $ show owner <> " can see from " <> show td.owner <> ": " <> td.junk

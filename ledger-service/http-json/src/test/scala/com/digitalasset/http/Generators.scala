@@ -124,7 +124,8 @@ object Generators {
       contractId <- contractIdGen
     } yield domain.EnrichedContractId(templateId, contractId)
 
-  def exerciseCmdGen: Gen[domain.ExerciseCommand[JsValue, domain.ContractLocator[JsValue]]] =
+  def exerciseCmdGen
+      : Gen[domain.ExerciseCommand.OptionalPkg[JsValue, domain.ContractLocator[JsValue]]] =
     for {
       ref <- contractLocatorGen
       arg <- genJsObj
@@ -139,10 +140,10 @@ object Generators {
       meta = meta,
     )
 
-  def metaGen: Gen[domain.CommandMeta] =
+  def metaGen: Gen[domain.CommandMeta.NoDisclosed] =
     for {
       commandId <- Gen.option(Gen.identifier.map(domain.CommandId(_)))
-    } yield domain.CommandMeta(commandId, None, None, None, None)
+    } yield domain.CommandMeta(commandId, None, None, None, None, None)
 
   private def genJsObj: Gen[JsObject] =
     Gen.listOf(genJsValPair).map(xs => JsObject(xs.toMap))
