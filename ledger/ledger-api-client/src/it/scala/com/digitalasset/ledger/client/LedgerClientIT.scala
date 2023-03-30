@@ -4,6 +4,7 @@
 package com.daml.ledger.client
 
 import com.daml.ledger.api.domain
+import com.daml.ledger.api.domain.{IdentityProviderConfig, IdentityProviderId, JwksUrl}
 import com.daml.ledger.api.testing.utils.{AkkaBeforeAndAfterAll, SuiteResourceManagementAroundEach}
 import com.daml.ledger.client.configuration.{
   CommandClientConfiguration,
@@ -72,6 +73,26 @@ final class LedgerClientIT
         version <- client.versionClient.getApiVersion()
       } yield {
         version should fullyMatch regex semVerRegex
+      }
+    }
+
+    "create an identity provider" in {
+      val config = IdentityProviderConfig(
+        IdentityProviderId.Id(Ref.LedgerString.assertFromString("abcd")),
+        false,
+        JwksUrl.assertFromString("http://jwks.some.domain:9999/jwks"),
+        "SomeUser",
+        None,
+      )
+
+      for {
+        client <- LedgerClient(channel, ClientConfiguration)
+        identityProviderConfig <- client.identityProviderConfigClient.createIdentityProviderConfig(
+          config,
+          None,
+        )
+      } yield {
+        identityProviderConfig should be(config)
       }
     }
 
