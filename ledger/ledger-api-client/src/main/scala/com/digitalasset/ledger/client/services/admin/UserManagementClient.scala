@@ -52,8 +52,8 @@ final class UserManagementClient(service: UserManagementServiceStub)(implicit
 
   def getUser(
       userId: UserId,
-      identityProviderId: IdentityProviderId = IdentityProviderId.Default,
       token: Option[String] = None,
+      identityProviderId: IdentityProviderId = IdentityProviderId.Default,
   ): Future[User] =
     LedgerClient
       .stub(service, token)
@@ -69,8 +69,8 @@ final class UserManagementClient(service: UserManagementServiceStub)(implicit
 
   def deleteUser(
       userId: UserId,
-      identityProviderId: IdentityProviderId = IdentityProviderId.Default,
       token: Option[String] = None,
+      identityProviderId: IdentityProviderId = IdentityProviderId.Default,
   ): Future[Unit] =
     LedgerClient
       .stub(service, token)
@@ -133,8 +133,8 @@ final class UserManagementClient(service: UserManagementServiceStub)(implicit
     */
   def listUserRights(
       userId: UserId,
-      identityProviderId: IdentityProviderId = IdentityProviderId.Default,
       token: Option[String] = None,
+      identityProviderId: IdentityProviderId = IdentityProviderId.Default,
   ): Future[Seq[UserRight]] =
     LedgerClient
       .stub(service, token)

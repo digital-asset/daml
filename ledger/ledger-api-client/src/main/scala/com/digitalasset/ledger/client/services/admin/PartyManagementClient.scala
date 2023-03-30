@@ -92,8 +92,8 @@ final class PartyManagementClient(service: PartyManagementServiceStub)(implicit
 
   def getParties(
       parties: OneAnd[Set, Ref.Party],
-      identityProviderId: IdentityProviderId = IdentityProviderId.Default,
       token: Option[String] = None,
+      identityProviderId: IdentityProviderId = IdentityProviderId.Default,
   ): Future[List[PartyDetails]] =
     LedgerClient
       .stub(service, token)
