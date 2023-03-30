@@ -496,8 +496,8 @@ class PureConfigReaderWriterSpec
   it should "be isomorphic and support redaction" in forAll(ArbitraryConfig.authServiceConfig) {
     generatedValue =>
       val redacted = generatedValue match {
-        case AuthServiceConfig.UnsafeJwtHmac256(_) =>
-          AuthServiceConfig.UnsafeJwtHmac256("<REDACTED>")
+        case AuthServiceConfig.UnsafeJwtHmac256(_, targetAudience) =>
+          AuthServiceConfig.UnsafeJwtHmac256("<REDACTED>", targetAudience)
         case _ => generatedValue
       }
       val insecureWriter = new PureConfigReaderWriter(false)
@@ -519,30 +519,30 @@ class PureConfigReaderWriterSpec
     compare("type = wildcard", AuthServiceConfig.Wildcard)
     compare(
       "type = unsafe-jwt-hmac-256\nsecret=mysecret",
-      AuthServiceConfig.UnsafeJwtHmac256("mysecret"),
+      AuthServiceConfig.UnsafeJwtHmac256("mysecret", None),
     )
     compare(
       "type = unsafe-jwt-hmac-256\nsecret=mysecret2",
-      AuthServiceConfig.UnsafeJwtHmac256("mysecret2"),
+      AuthServiceConfig.UnsafeJwtHmac256("mysecret2", None),
     )
     compare(
       "type = jwt-rs-256\ncertificate=certfile",
-      AuthServiceConfig.JwtRs256("certfile"),
+      AuthServiceConfig.JwtRs256("certfile", None),
     )
     compare(
       "type = jwt-es-256\ncertificate=certfile3",
-      AuthServiceConfig.JwtEs256("certfile3"),
+      AuthServiceConfig.JwtEs256("certfile3", None),
     )
     compare(
       "type = jwt-es-512\ncertificate=certfile4",
-      AuthServiceConfig.JwtEs512("certfile4"),
+      AuthServiceConfig.JwtEs512("certfile4", None),
     )
     compare(
       """
         |type = jwt-rs-256-jwks
         |url="https://daml.com/jwks.json"
         |""".stripMargin,
-      AuthServiceConfig.JwtRs256Jwks("https://daml.com/jwks.json"),
+      AuthServiceConfig.JwtRs256Jwks("https://daml.com/jwks.json", None),
     )
   }
 

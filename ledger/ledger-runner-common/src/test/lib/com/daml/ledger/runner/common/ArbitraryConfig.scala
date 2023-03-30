@@ -35,12 +35,12 @@ import com.daml.platform.store.backend.postgresql.PostgresDataSourceConfig
 import com.daml.platform.store.backend.postgresql.PostgresDataSourceConfig.SynchronousCommitValue
 import com.daml.ports.Port
 import io.netty.handler.ssl.ClientAuth
+
 import java.io.File
 import java.net.InetSocketAddress
 import java.nio.file.Paths
 import java.time.Duration
 import java.time.temporal.ChronoUnit
-
 import com.daml.metrics.api.reporters.MetricsReporter
 
 object ArbitraryConfig {
@@ -207,23 +207,28 @@ object ArbitraryConfig {
 
   val UnsafeJwtHmac256 = for {
     secret <- Gen.alphaStr
-  } yield AuthServiceConfig.UnsafeJwtHmac256(secret)
+    aud <- Gen.option(Gen.alphaStr)
+  } yield AuthServiceConfig.UnsafeJwtHmac256(secret, aud)
 
   val JwtRs256Crt = for {
     certificate <- Gen.alphaStr
-  } yield AuthServiceConfig.JwtRs256(certificate)
+    aud <- Gen.option(Gen.alphaStr)
+  } yield AuthServiceConfig.JwtRs256(certificate, aud)
 
   val JwtEs256Crt = for {
     certificate <- Gen.alphaStr
-  } yield AuthServiceConfig.JwtEs256(certificate)
+    aud <- Gen.option(Gen.alphaStr)
+  } yield AuthServiceConfig.JwtEs256(certificate, aud)
 
   val JwtEs512Crt = for {
     certificate <- Gen.alphaStr
-  } yield AuthServiceConfig.JwtEs512(certificate)
+    aud <- Gen.option(Gen.alphaStr)
+  } yield AuthServiceConfig.JwtEs512(certificate, aud)
 
   val JwtRs256Jwks = for {
     url <- Gen.alphaStr
-  } yield AuthServiceConfig.JwtRs256Jwks(url)
+    aud <- Gen.option(Gen.alphaStr)
+  } yield AuthServiceConfig.JwtRs256Jwks(url, aud)
 
   val authServiceConfig = Gen.oneOf(
     Gen.const(AuthServiceConfig.Wildcard),
