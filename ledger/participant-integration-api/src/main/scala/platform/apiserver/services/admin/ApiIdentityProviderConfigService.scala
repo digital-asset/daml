@@ -213,6 +213,7 @@ object ApiIdentityProviderConfigService {
       isDeactivated = identityProviderConfig.isDeactivated,
       jwksUrl = identityProviderConfig.jwksUrl.value,
       issuer = identityProviderConfig.issuer,
+      audience = identityProviderConfig.audience.getOrElse(""),
     )
 
 }
