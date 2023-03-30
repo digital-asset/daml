@@ -76,7 +76,7 @@ final class LedgerClientIT
       }
     }
 
-    "create an identity provider" in {
+    "identity provider config" should {
       val config = IdentityProviderConfig(
         IdentityProviderId.Id(Ref.LedgerString.assertFromString("abcd")),
         false,
@@ -85,14 +85,28 @@ final class LedgerClientIT
         None,
       )
 
-      for {
-        client <- LedgerClient(channel, ClientConfiguration)
-        identityProviderConfig <- client.identityProviderConfigClient.createIdentityProviderConfig(
-          config,
-          None,
-        )
-      } yield {
-        identityProviderConfig should be(config)
+      "create an identity provider" in {
+        for {
+          client <- LedgerClient(channel, ClientConfiguration)
+          createdConfig <- client.identityProviderConfigClient.createIdentityProviderConfig(
+            config,
+            None,
+          )
+        } yield {
+          createdConfig should be(config)
+        }
+      }
+      "get an identity provider" in {
+        for {
+          client <- LedgerClient(channel, ClientConfiguration)
+          _ <- client.identityProviderConfigClient.createIdentityProviderConfig(config, None)
+          respConfig <- client.identityProviderConfigClient.getIdentityProviderConfig(
+            config.identityProviderId,
+            None,
+          )
+        } yield {
+          respConfig should be(config)
+        }
       }
     }
 

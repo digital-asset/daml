@@ -28,10 +28,21 @@ final class IdentityProviderConfigClient(service: IdentityProviderConfigServiceS
       .createIdentityProviderConfig(request)
       .map(res => fromProtoConfig(res.identityProviderConfig.get))
   }
+
+  def getIdentityProviderConfig(
+      identityProviderId: IdentityProviderId.Id,
+      token: Option[String],
+  ): Future[IdentityProviderConfig] = {
+    val request = proto.GetIdentityProviderConfigRequest(identityProviderId.toRequestString)
+    LedgerClient
+      .stub(service, token)
+      .getIdentityProviderConfig(request)
+      .map(res => fromProtoConfig(res.getIdentityProviderConfig))
+  }
 }
 
 object IdentityProviderConfigClient {
-  private def toProtoConfig(config: IdentityProviderConfig) =
+  private def toProtoConfig(config: IdentityProviderConfig): proto.IdentityProviderConfig =
     proto.IdentityProviderConfig(
       config.identityProviderId.toRequestString,
       config.isDeactivated,
