@@ -17,6 +17,7 @@ import scalaz.Isomorphism.{<~>, IsoFunctorTemplate}
 import scalaz.std.list._
 import scalaz.std.option._
 import scalaz.std.vector._
+import scalaz.syntax.applicative.ApplicativeIdV
 import scalaz.syntax.apply.{^, ^^}
 import scalaz.syntax.bitraverse._
 import scalaz.syntax.show._
@@ -361,6 +362,9 @@ package domain {
             fab.copy(templateId = templateId, arguments = arguments)
           }
       }
+
+    implicit def rightCovariant[TmplId]: Traverse[DisclosedContract[TmplId, *]] =
+      covariant.rightTraverse
   }
 
   /** @tparam TmplId disclosed contracts' template ID
@@ -429,7 +433,7 @@ package domain {
       argument: Arg,
       // passing a template ID is allowed; we distinguish internally
       choiceInterfaceId: Option[IfceId],
-      meta: Option[CommandMeta.NoDisclosed],
+      meta: Option[CommandMeta[TmplId, Payload]],
   )
 
   final case class CreateCommandResponse[+LfV](
@@ -782,13 +786,29 @@ package domain {
       domain.ContractTypeId.RequiredPkg,
     ]
 
+    implicit final class `CAEC traversePayloadArg`[P, Ar, T, I](
+        private val self: CreateAndExerciseCommand[P, Ar, T, I]
+    ) extends AnyVal {
+      private[http] def traversePayloadsAndArgument[G[_]: Applicative, P2, Ar2](
+          f: P => G[P2],
+          g: Ar => G[Ar2],
+      ): G[CreateAndExerciseCommand[P2, Ar2, T, I]] =
+        ^^(f(self.payload), g(self.argument), self.meta traverse (_ traverse f)) { (p, a, m) =>
+          self.copy(payload = p, argument = a, meta = m)
+        }
+    }
+
     implicit def covariant[P, Ar]: Bitraverse[CreateAndExerciseCommand[P, Ar, *, *]] =
       new Bitraverse[CreateAndExerciseCommand[P, Ar, *, *]] {
         override def bitraverseImpl[G[_]: Applicative, A, B, C, D](
             fa: CreateAndExerciseCommand[P, Ar, A, B]
         )(f: A => G[C], g: B => G[D]): G[CreateAndExerciseCommand[P, Ar, C, D]] =
-          ^(f(fa.templateId), fa.choiceInterfaceId traverse g) { (tId, ciId) =>
-            fa.copy(templateId = tId, choiceInterfaceId = ciId)
+          ^^(
+            f(fa.templateId),
+            fa.choiceInterfaceId traverse g,
+            fa.meta traverse (_.bitraverse(f, _.pure[G])),
+          ) { (tId, ciId, meta) =>
+            fa.copy(templateId = tId, choiceInterfaceId = ciId, meta = meta)
           }
       }
   }

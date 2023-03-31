@@ -59,9 +59,10 @@ class DomainJsonEncoder(
       ev: JsonWriter[domain.CreateAndExerciseCommand[JsValue, JsValue, CtId, IfceId]]
   ): JsonError \/ JsValue =
     for {
-      payload <- apiRecordToJsObject(cmd.payload): JsonError \/ JsValue
-      argument <- apiValueToJsValue(cmd.argument)
-      y <- SprayJson.encode(cmd.copy(payload = payload, argument = argument)).liftErr(JsonError)
+      jsCmd <- cmd.traversePayloadsAndArgument(apiRecordToJsObject, apiValueToJsValue)
+      y <- SprayJson
+        .encode(jsCmd: domain.CreateAndExerciseCommand[JsValue, JsValue, CtId, IfceId])
+        .liftErr(JsonError)
 
     } yield y
 

@@ -28,6 +28,7 @@ import scalaz.std.list._
 import scalaz.std.vector._
 import scalaz.std.scalaFuture._
 import scalaz.syntax.apply._
+import scalaz.syntax.bifunctor._
 import scalaz.syntax.show._
 import scalaz.syntax.tag._
 import scalaz.syntax.traverse._
@@ -773,7 +774,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
       }
     }
 
-    "passes along disclosed contracts" - {
+    "passes along disclosed contracts in" - {
       import util.IdentifierConverters.{lfIdentifier, refApiIdentifier}
       import com.daml.ledger.api.{v1 => lav1}
       import lav1.command_service.SubmitAndWaitRequest
@@ -853,29 +854,29 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
         }
       } yield ContractToDisclose(alice, toDiscloseCid, toDisclosePayload, ctMetadata)
 
-      "using decoded payload" in withHttpService { fixture =>
-        import fixture.encoder
+      def runDisclosureTestCase[Setup](
+          fixture: HttpServiceTestFixtureData
+      )(exerciseEndpoint: Uri.Path, setupBob: (domain.Party, List[HttpHeader]) => Future[Setup])(
+          exerciseVaryingOnlyMeta: (
+              Setup,
+              ContractToDisclose,
+              Option[
+                domain.CommandMeta[domain.ContractTypeId.Template.OptionalPkg, lav1.value.Record]
+              ],
+          ) => JsValue
+      ): Future[Assertion] = {
         val junkMessage = s"some test junk ${uniqueId()}"
         for {
           // first, set up something for alice to disclose to bob
-          ContractToDisclose(alice, toDiscloseCid, toDisclosePayload, ctMetadata) <-
+          toDisclose @ ContractToDisclose(alice, toDiscloseCid, toDisclosePayload, ctMetadata) <-
             contractToDisclose(fixture, junkMessage)
 
           // next, onboard bob to try to interact with the disclosed contract
           (bob, bobHeaders) <- fixture.getUniquePartyAndAuthHeaders("Bob")
-          viewportCid <- postCreateCommand(
-            domain
-              .CreateCommand(
-                TpId.Disclosure.Viewport,
-                argToApi(viewportVA)(ShRecord(owner = bob)),
-                None,
-              ),
-            fixture,
-            bobHeaders,
-          ) map resultContractId
+          setup <- setupBob(bob, bobHeaders)
 
           // exercise CheckVisibility with different disclosure options
-          checkVisibility = { disclosure: Option[DC.Arguments[lav1.value.Value]] =>
+          checkVisibility = { disclosure: Option[DC.Arguments[lav1.value.Record]] =>
             val meta = disclosure map { oneDc =>
               val disclosureEnvelope =
                 DC(
@@ -895,16 +896,8 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
             }
             fixture
               .postJsonRequest(
-                Uri.Path("/v1/exercise"),
-                encodeExercise(encoder)(
-                  domain.ExerciseCommand(
-                    domain.EnrichedContractId(Some(TpId.Disclosure.Viewport), viewportCid),
-                    domain.Choice("CheckVisibility"),
-                    boxedRecord(argToApi(checkVisibilityVA)(ShRecord(disclosed = toDiscloseCid))),
-                    None,
-                    meta,
-                  )
-                ),
+                exerciseEndpoint,
+                exerciseVaryingOnlyMeta(setup, toDisclose, meta),
                 bobHeaders,
               )
               .parseResponse[domain.ExerciseResponse[JsValue]]
@@ -923,13 +916,72 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
                 errorMessage should include(toDiscloseCid.unwrap)
             })
 
-          // ensure that the above works when we disclose the contract
-          _ <- checkVisibility(Some(DC.Arguments.Record(boxedRecord(toDisclosePayload))))
+          _ <- checkVisibility(Some(DC.Arguments.Record(toDisclosePayload)))
             .map(inside(_) {
               case domain.OkResponse(domain.ExerciseResponse(JsString(exResp), _, _), _, _) =>
                 exResp should ===(s"'$bob' can see from '$alice': $junkMessage")
             })
         } yield succeed
+      }
+
+      val checkVisibilityChoice = domain.Choice("CheckVisibility")
+
+      "exercise" - {
+        "using decoded payload" in withHttpService { fixture =>
+          runDisclosureTestCase(fixture)(
+            Uri.Path("/v1/exercise"),
+            { (bob, bobHeaders) =>
+              postCreateCommand(
+                domain
+                  .CreateCommand(
+                    TpId.Disclosure.Viewport,
+                    argToApi(viewportVA)(ShRecord(owner = bob)),
+                    None,
+                  ),
+                fixture,
+                bobHeaders,
+              ) map resultContractId
+            },
+          ) { (viewportCid, toDisclose, meta) =>
+            encodeExercise(fixture.encoder)(
+              domain.ExerciseCommand(
+                domain.EnrichedContractId(Some(TpId.Disclosure.Viewport), viewportCid),
+                checkVisibilityChoice,
+                boxedRecord(
+                  argToApi(checkVisibilityVA)(ShRecord(disclosed = toDisclose.toDiscloseCid))
+                ),
+                None,
+                meta map (_ rightMap boxedRecord),
+              )
+            )
+          }
+        }
+      }
+
+      "create-and-exercise" - {
+        "using decoded payload" in withHttpService { fixture =>
+          runDisclosureTestCase(fixture)(
+            Uri.Path("/v1/create-and-exercise"),
+            { (bob, _) =>
+              Future successful bob
+            },
+          ) { (bob, toDisclose, meta) =>
+            fixture.encoder
+              .encodeCreateAndExerciseCommand(
+                domain.CreateAndExerciseCommand(
+                  TpId.Disclosure.Viewport,
+                  argToApi(viewportVA)(ShRecord(owner = bob)),
+                  checkVisibilityChoice,
+                  boxedRecord(
+                    argToApi(checkVisibilityVA)(ShRecord(disclosed = toDisclose.toDiscloseCid))
+                  ),
+                  None,
+                  meta,
+                )
+              )
+              .valueOr(e => fail(e.shows))
+          }
+        }
       }
     }
   }
