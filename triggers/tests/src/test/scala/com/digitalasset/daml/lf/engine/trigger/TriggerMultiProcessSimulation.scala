@@ -25,7 +25,7 @@ import com.daml.lf.engine.trigger.test.AbstractTriggerTest
 import com.daml.lf.speedy.SValue
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.scalautil.Statement.discard
-import org.scalacheck.Gen
+import com.google.rpc.status.{Status => GrpcStatus}
 import org.scalatest.wordspec.AsyncWordSpec
 import scalaz.syntax.tag._
 
@@ -74,6 +74,13 @@ abstract class TriggerMultiProcessSimulation
     } yield succeed
   }
 
+  /** User simulation need to (at least) override this method in order to define a trigger multi-process simulation. If
+    * the user implementation continues as the `super.triggerMultiProcessSimulation` behavior, then simulations will be
+    * bounded using time durations from the simulation configuration. If they do not continue with this behaviour, then
+    * their runtime will be bounded by the duration of the test (i.e. configured using bazel).
+    *
+    * @return trigger multi-process actor system
+    */
   protected def triggerMultiProcessSimulation: Behavior[Unit] = {
     Behaviors.receive { (context, _) =>
       context.log.info(s"Simulation timed out after: ${simulationConfig.simulationDuration}")
@@ -118,9 +125,10 @@ object TriggerMultiProcessSimulation {
       simulationDuration: FiniteDuration = 5.minutes,
       ledgerSubmissionTimeout: FiniteDuration = 30.seconds,
       ledgerRegistrationTimeout: FiniteDuration = 30.seconds,
-      externalLedgerInteractionPeriod: FiniteDuration = 5.seconds,
-      triggerDataFile: String = "trigger-simulation-data.csv",
-      acsDataFile: String = "trigger-simulation-acs-data.csv",
+      ledgerWorkloadTimeout: FiniteDuration = 1.second,
+      // FIXME:
+      triggerDataFile: String = "/tmp/trigger-simulation-data.csv",
+      acsDataFile: String = "/tmp/trigger-simulation-acs-data.csv",
   )
 
   final case class TriggerSimulationFailure(cause: Throwable) extends Exception
@@ -140,26 +148,26 @@ object TriggerMultiProcessSimulation {
     sealed abstract class LedgerManagement extends Product with Serializable
     // Used by TriggerProcess
     private[TriggerMultiProcessSimulation] final case class LedgerRegistration(
-        triggerId: Identifier,
+        triggerId: UUID,
         trigger: ActorRef[TriggerProcess.Message],
         actAs: Party,
         filter: TransactionFilter,
         replyTo: ActorRef[LedgerApi],
     ) extends LedgerManagement
-    // Used by CreateContractProcess
-    private[TriggerMultiProcessSimulation] final case class CreateContract(
+    // Used by CreateContractProcess and external code
+    final case class CreateContract(
         create: CreatedEvent,
         party: Party,
     ) extends LedgerManagement
-    // Used by ArchiveContractProcess
-    private[TriggerMultiProcessSimulation] final case class ArchiveContract(
+    // Used by ArchiveContractProcess and external code
+    final case class ArchiveContract(
         archive: ArchivedEvent,
         party: Party,
     ) extends LedgerManagement
     // Used by ReportingProcess
     private[TriggerMultiProcessSimulation] final case class GetTriggerACSDiff(
         reportingId: UUID,
-        triggerId: Identifier,
+        triggerId: UUID,
         triggerACSView: Map[String, Identifier],
     ) extends LedgerManagement
 
@@ -179,7 +187,7 @@ object TriggerMultiProcessSimulation {
         val report = context.spawn(ReportingProcess.create(context.self), "reporting")
         val api = context.spawn(run(client), "ledger-api")
         // Map[TriggerId, Map[ContractId, TemplateId]]
-        val ledgerACSView: TrieMap[Identifier, TrieMap[String, Identifier]] = TrieMap.empty
+        val ledgerACSView: TrieMap[UUID, TrieMap[String, Identifier]] = TrieMap.empty
 
         context.watch(report)
         context.watch(api)
@@ -243,7 +251,7 @@ object TriggerMultiProcessSimulation {
               discard(
                 Await.result(
                   testSuite.create(client, party.unwrap, createCommand),
-                  config.externalLedgerInteractionPeriod,
+                  config.ledgerWorkloadTimeout,
                 )
               )
             } catch {
@@ -262,7 +270,7 @@ object TriggerMultiProcessSimulation {
               discard(
                 Await.result(
                   testSuite.archive(client, party.unwrap, event.getTemplateId, event.contractId),
-                  config.externalLedgerInteractionPeriod,
+                  config.ledgerWorkloadTimeout,
                 )
               )
             } catch {
@@ -389,18 +397,20 @@ object TriggerMultiProcessSimulation {
     sealed abstract class Message extends Product with Serializable
     // Used by TriggerProcess
     private[TriggerMultiProcessSimulation] final case class TriggerUpdate(
-        triggerId: Identifier,
+        triggerId: UUID,
+        triggerType: Identifier,
         submissions: Seq[SubmitRequest],
         metrics: TriggerRuleMetrics.RuleMetrics,
         acsView: TreeMap[String, Identifier],
         percentageHeapUsed: Double,
         gcTime: Long,
         gcCount: Long,
+        completionStatus: Option[GrpcStatus],
     ) extends Message
     // Used by LedgerProcess
     private[TriggerMultiProcessSimulation] final case class TriggerACSDiff(
         reportingId: UUID,
-        triggerId: Identifier,
+        triggerId: UUID,
         diff: ACSDiff,
     ) extends Message
 
@@ -410,7 +420,7 @@ object TriggerMultiProcessSimulation {
       Behaviors.setup { _ =>
         val triggerDataFile = Files.newOutputStream(Paths.get(config.triggerDataFile))
         val triggerDataFileCsvHeader =
-          "reporting-id,trigger-id,submissions,evaluation-steps,evaluation-get-times,rule-evaluation-time,active-contracts,pending-contracts,in-flight-commands,percentage-heap-used,gc-time,gc-count\n"
+          "reporting-id,trigger-name,trigger-id,submissions,evaluation-steps,evaluation-get-times,rule-evaluation-time,active-contracts,pending-contracts,in-flight-commands,percentage-heap-used,gc-time,gc-count,completion-status-code\n"
         val acsDataFile = Files.newOutputStream(Paths.get(config.acsDataFile))
         val acsDataFileCsvHeader =
           "reporting-id,trigger-id,template-id,contract-additions,contract-deletions\n"
@@ -421,16 +431,19 @@ object TriggerMultiProcessSimulation {
           .receiveMessage[Message] {
             case TriggerUpdate(
                   triggerId,
+                  triggerType,
                   submissions,
                   metrics,
                   triggerACSView,
                   percentageHeapUsed,
                   gcTime,
                   gcCount,
+                  completionStatus,
                 ) =>
               val reportingId = UUID.randomUUID()
               val csvData: String =
-                s"$reportingId,$triggerId,${submissions.size},${metrics.evaluation.steps},${metrics.evaluation.getTimes},${metrics.evaluation.ruleEvaluation.toNanos},${metrics.endState.acs.activeContracts},${metrics.endState.acs.pendingContracts},${metrics.endState.inFlight.commands},$percentageHeapUsed,$gcTime,$gcCount\n"
+                s"$reportingId,$triggerId,$triggerType,${submissions.size},${metrics.evaluation.steps},${metrics.evaluation.getTimes},${metrics.evaluation.ruleEvaluation.toNanos},${metrics.endState.acs.activeContracts},${metrics.endState.acs.pendingContracts},${metrics.endState.inFlight.commands},$percentageHeapUsed,$gcTime,$gcCount,${completionStatus
+                    .fold("")(_.code.toString)}\n"
               triggerDataFile.write(csvData.getBytes)
               ledger ! LedgerProcess.GetTriggerACSDiff(reportingId, triggerId, triggerACSView)
               Behaviors.same
@@ -481,14 +494,15 @@ object TriggerMultiProcessSimulation {
 
     import TriggerProcess._
 
-    private[this] val triggerId = Identifier(packageId, QualifiedName.assertFromString(name))
+    private[this] val triggerId = UUID.randomUUID()
+    private[this] val triggerType = Identifier(packageId, QualifiedName.assertFromString(name))
     private[this] val triggerParties = TriggerParties(
       actAs = actAs,
       readAs = readAs,
     )
     private[this] val simulator = new TriggerRuleSimulationLib(
       compiledPackages,
-      triggerId,
+      triggerType,
       triggerConfig,
       client,
       timeProviderType,
@@ -557,7 +571,7 @@ object TriggerMultiProcessSimulation {
             .getActiveContracts(state, trigger.level, trigger.version)
             .getOrElse(
               throw TriggerSimulationFailure(
-                s"Failed to extract active contracts from the internal state for trigger: $triggerId"
+                s"Failed to extract active contracts from the internal state for trigger: $triggerType"
               )
             )
           val triggerACSView: TreeMap[String, Identifier] = acs.flatMap { case (_, smap) =>
@@ -569,18 +583,26 @@ object TriggerMultiProcessSimulation {
             memBean.getHeapMemoryUsage.getUsed / memBean.getHeapMemoryUsage.getMax.toDouble
           val gcTime = gcBeans.asScala.map(_.getCollectionTime).sum
           val gcCount = gcBeans.asScala.map(_.getCollectionCount).sum
+          val completionStatus = msg match {
+            case TriggerMsg.Completion(completion) =>
+              Some(completion.getStatus)
+            case _ =>
+              None
+          }
 
           submissions.foreach { request =>
             ledgerApi ! LedgerProcess.CommandSubmission(request)
           }
           report ! ReportingProcess.TriggerUpdate(
             triggerId,
+            triggerType,
             submissions,
             metrics,
             triggerACSView,
             percentageHeapUsed,
             gcTime,
             gcCount,
+            completionStatus,
           )
 
           run(ledgerApi, report, state = nextState)
@@ -610,54 +632,6 @@ object TriggerMultiProcessSimulation {
           throw TriggerSimulationFailure(s"Failed to convert template ID given SValue: $v")
         )
         .ty
-    }
-  }
-
-  object CreateContractProcess {
-    sealed abstract class Message extends Product with Serializable
-    private case object CreateContract extends Message
-
-    def create(
-        gen: Gen[CreatedEvent],
-        ledger: ActorRef[LedgerProcess.LedgerManagement],
-        party: Party,
-    )(implicit
-        config: TriggerSimulationConfig
-    ): Behavior[Message] = {
-      Behaviors.withTimers[Message] { timer =>
-        timer.startTimerAtFixedRate(CreateContract, config.externalLedgerInteractionPeriod)
-
-        Behaviors.receiveMessage { case CreateContract =>
-          gen.sample.foreach { event =>
-            ledger ! LedgerProcess.CreateContract(event, party)
-          }
-          Behaviors.same
-        }
-      }
-    }
-  }
-
-  object ArchiveContractProcess {
-    sealed abstract class Message extends Product with Serializable
-    private case object ArchiveContract extends Message
-
-    def create(
-        gen: Gen[ArchivedEvent],
-        ledger: ActorRef[LedgerProcess.LedgerManagement],
-        party: Party,
-    )(implicit
-        config: TriggerSimulationConfig
-    ): Behavior[Message] = {
-      Behaviors.withTimers[Message] { timer =>
-        timer.startTimerAtFixedRate(ArchiveContract, config.externalLedgerInteractionPeriod)
-
-        Behaviors.receiveMessage { case ArchiveContract =>
-          gen.sample.foreach { event =>
-            ledger ! LedgerProcess.ArchiveContract(event, party)
-          }
-          Behaviors.same
-        }
-      }
     }
   }
 }
