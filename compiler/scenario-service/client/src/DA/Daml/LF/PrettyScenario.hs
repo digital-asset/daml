@@ -496,7 +496,7 @@ prettyScenarioErrorError (Just err) =  do
     ScenarioErrorErrorEvaluationTimeout timeout ->
       pure $ text $ T.pack $ "Evaluation timed out after " <> show timeout <> " seconds"
     ScenarioErrorErrorCancelledByRequest _ ->
-      pure $ text $ T.pack $ "Evaluation was cancelled because the test was changed and rerun in a new thread."
+      pure $ text $ T.pack "Evaluation was cancelled because the test was changed and rerun in a new thread."
 
 partyDifference :: V.Vector Party -> V.Vector Party -> Doc SyntaxClass
 partyDifference with without =
