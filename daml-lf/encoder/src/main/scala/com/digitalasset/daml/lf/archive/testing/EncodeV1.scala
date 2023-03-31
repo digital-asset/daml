@@ -907,6 +907,12 @@ private[daml] class EncodeV1(minor: LV.Minor) {
           b.setObservers(ENil(AstUtil.TParty))
         case _ =>
       }
+      choice.choiceAuthorizers match {
+        case Some(value) =>
+          assertSince(LV.Features.choiceAuthority, "TemplateChoice.authority")
+          b.setAuthorizers(value)
+        case None =>
+      }
       b.setArgBinder(choice.argBinder._1 -> choice.argBinder._2)
       b.setRetType(choice.returnType)
       b.setUpdate(choice.update)

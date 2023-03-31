@@ -202,6 +202,7 @@ private[parser] class ModParser[P](parameters: ParserParameters[P]) {
             !choiceTags(nonConsumingTag),
             controllers,
             choiceObservers,
+            None, // TODO #15882 -- support dev-syntax for choice authority
             self,
             param,
             retTyp,

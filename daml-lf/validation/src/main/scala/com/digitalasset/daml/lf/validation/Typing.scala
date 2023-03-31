@@ -490,7 +490,8 @@ private[validation] object Typing {
               name @ _,
               consuming @ _,
               controllers,
-              choiceObservers @ _,
+              choiceObservers,
+              choiceAuthorizers,
               selfBinder,
               (param, paramType),
               returnType,
@@ -500,6 +501,9 @@ private[validation] object Typing {
           checkType(returnType, KStar)
           introExprVar(param, paramType).checkTopExpr(controllers, TParties)
           choiceObservers.foreach(
+            introExprVar(param, paramType).checkTopExpr(_, TParties)
+          )
+          choiceAuthorizers.foreach(
             introExprVar(param, paramType).checkTopExpr(_, TParties)
           )
           introExprVar(selfBinder, TContractId(TTyCon(tplName)))

@@ -1002,12 +1002,18 @@ encodeChoiceObservers :: Maybe Expr -> Encode (Just P.Expr)
 encodeChoiceObservers chcObservers =
   encodeExpr (fromMaybe (ENil TParty) chcObservers)
 
+encodeChoiceAuthorizers :: Maybe Expr -> Encode (Just P.Expr)
+encodeChoiceAuthorizers = \case
+  Nothing -> pure Nothing -- dont add field to proto
+  Just xs -> encodeExpr xs
+
 encodeTemplateChoice :: TemplateChoice -> Encode P.TemplateChoice
 encodeTemplateChoice TemplateChoice{..} = do
     templateChoiceName <- encodeName unChoiceName chcName
     let templateChoiceConsuming = chcConsuming
     templateChoiceControllers <- encodeExpr chcControllers
     templateChoiceObservers <- encodeChoiceObservers chcObservers
+    templateChoiceAuthorizers <- encodeChoiceAuthorizers chcAuthorizers
     templateChoiceSelfBinder <- encodeName unExprVarName chcSelfBinder
     templateChoiceArgBinder <- Just <$> encodeExprVarWithType chcArgBinder
     templateChoiceRetType <- encodeType chcReturnType
