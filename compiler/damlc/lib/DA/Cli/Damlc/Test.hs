@@ -598,7 +598,6 @@ prettyErr lfVersion err = case err of
           (LF.initWorld [] lfVersion)
           serr
     SSC.ExceptionError e -> DA.Pretty.string $ show e
-    SSC.StopOldScenarioThreadError -> DA.Pretty.string ("Scenario execution cancelled due to restart." :: String)
 
 
 prettyResult :: SS.ScenarioResult -> DA.Pretty.Doc Pretty.SyntaxClass

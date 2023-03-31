@@ -216,7 +216,7 @@ object Runner {
   final case class InterpretationError(error: SError.SError)
       extends RuntimeException(s"${Pretty.prettyError(error).render(80)}")
 
-  final case object Canceled extends RuntimeException
+  final case class Canceled(wasTimeout: Boolean) extends RuntimeException
 
   private[script] val compilerConfig = {
     import Compiler._
@@ -356,7 +356,7 @@ object Runner {
       timeMode: ScriptTimeMode,
       traceLog: TraceLog = Speedy.Machine.newTraceLog,
       warningLog: WarningLog = Speedy.Machine.newWarningLog,
-      canceled: () => Boolean = () => false,
+      canceled: () => Option[Boolean] = () => None,
   )(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
@@ -428,7 +428,7 @@ private[lf] class Runner(
       initialClients: Participants[ScriptLedgerClient],
       traceLog: TraceLog = Speedy.Machine.newTraceLog,
       warningLog: WarningLog = Speedy.Machine.newWarningLog,
-      canceled: () => Boolean = () => false,
+      canceled: () => Option[Boolean] = () => None,
   )(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
@@ -444,19 +444,23 @@ private[lf] class Runner(
       )(Script.DummyLoggingContext)
 
     @scala.annotation.tailrec
-    def stepToValue(): Either[RuntimeException, SValue] =
-      machine.run() match {
-        case _ if canceled() =>
-          Left(Runner.Canceled)
-        case SResultInterruption =>
-          stepToValue()
-        case SResultFinal(v) =>
-          Right(v)
-        case SResultError(err) =>
-          Left(Runner.InterpretationError(err))
-        case res =>
-          Left(new IllegalStateException(s"Internal error: Unexpected speedy result $res"))
+    def stepToValue(): Either[RuntimeException, SValue] = {
+      val result = machine.run()
+      canceled() match {
+        case Some(wasTimeout) => Left(Runner.Canceled(wasTimeout))
+        case None =>
+          result match {
+            case SResultInterruption =>
+              stepToValue()
+            case SResultFinal(v) =>
+              Right(v)
+            case SResultError(err) =>
+              Left(Runner.InterpretationError(err))
+            case res =>
+              Left(new IllegalStateException(s"Internal error: Unexpected speedy result $res"))
+          }
       }
+    }
 
     val env = new ScriptF.Env(
       script.scriptIds,
@@ -522,7 +526,7 @@ private[lf] class Runner(
                     )
                   case cmd: ScriptF.Cmd =>
                     cmd.execute(env).transform {
-                      case f @ Failure(Runner.Canceled) => f
+                      case f @ Failure(Runner.Canceled(_)) => f
                       case Failure(exception) =>
                         Failure(new ScriptF.FailedCmd(cmd, exception))
                       case Success(value) =>

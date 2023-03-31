@@ -164,7 +164,7 @@ class Context(
   def interpretScript(
       pkgId: String,
       name: String,
-      canceled: () => Boolean = () => false,
+      canceledByRequest: () => Boolean = () => false,
   )(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
@@ -190,7 +190,11 @@ class Context(
       timeMode = ScriptTimeMode.Static,
       traceLog = traceLog,
       warningLog = warningLog,
-      canceled = () => { timeBombCanceller() || canceled() },
+      canceled = () => {
+        if (timeBombCanceller()) Some(true)
+        else if (canceledByRequest()) Some(false)
+        else None
+      },
     )
 
     def handleFailure(e: Error) =
@@ -229,7 +233,8 @@ class Context(
           )
         )
       case Failure(e: Error) => handleFailure(e)
-      case Failure(Runner.Canceled) => handleFailure(Error.Timeout(timeout))
+      case Failure(Runner.Canceled(wasTimeout)) =>
+        handleFailure(if (wasTimeout) Error.Timeout(timeout) else Error.CanceledByRequest())
       case Failure(e: Runner.InterpretationError) => handleFailure(Error.RunnerException(e.error))
       case Failure(e: ScriptF.FailedCmd) =>
         e.cause match {

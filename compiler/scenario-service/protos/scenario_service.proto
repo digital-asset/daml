@@ -329,6 +329,7 @@ message ScenarioError {
     ContractDoesNotImplementRequiringInterface contract_does_not_implement_requiring_interface = 36;
     DisclosedContractKeyHashingError disclosed_contract_key_hashing_error = 39;
     int64 evaluationTimeout = 40;
+    Empty cancelledByRequest = 41;
   }
 }
 

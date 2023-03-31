@@ -286,7 +286,7 @@ runWithOptions options Handle{..} ctxId = do
 
       -- If there was an old thread handling the same scenario in the same way, kill it
       case mbOldThread of
-        Just (oldThread, oldThreadSemaphore) -> do
+        Just (_, oldThreadSemaphore) -> do
           _ <- tryPutMVar oldThreadSemaphore True
           pure ()
         _ -> pure ()

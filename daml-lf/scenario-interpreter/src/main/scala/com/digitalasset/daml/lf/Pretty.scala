@@ -77,6 +77,9 @@ private[lf] object Pretty {
 
       case Error.Timeout(timeout) =>
         text(s"Timeout: evaluation needed more that ${timeout.toSeconds}s to complete")
+
+      case Error.CanceledByRequest() =>
+        text("Evaluation was cancelled because the test was changed and rerun in a new thread.")
     }
 
 }

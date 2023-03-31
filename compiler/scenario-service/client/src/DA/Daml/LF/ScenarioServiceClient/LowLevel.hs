@@ -60,7 +60,7 @@ import qualified Data.Text as T
 import qualified Data.Text.Lazy as TL
 import qualified Data.Vector as V
 import Network.GRPC.HighLevel.Client (ClientError(..), ClientRequest(..), ClientResult(..), GRPCMethodType(..))
-import Network.GRPC.HighLevel.Generated (withGRPCClient)
+import Network.GRPC.HighLevel.Generated (withGRPCClient, GRPCIOError)
 import Network.GRPC.LowLevel (ClientConfig(..), Host(..), Port(..), StatusCode(..), Arg(MaxReceiveMessageLength))
 import qualified Proto3.Suite as Proto
 import System.Directory
@@ -120,7 +120,6 @@ data BackendError
 data Error
   = ScenarioError SS.ScenarioError
   | BackendError BackendError
-  | StopOldScenarioThreadError
   | ExceptionError SomeException
   deriving (Generic, Show)
 
@@ -411,21 +410,38 @@ runBiDiLive runner Handle{..} (ContextId ctxId) name stopSemaphore statusUpdateH
         SS.RunScenarioRequest $ Just $ SS.RunScenarioRequestSumStart $
           SS.RunScenarioStart ctxId (Just (toIdentifier name))
   let cancelReq = SS.RunScenarioRequest $ Just $ SS.RunScenarioRequestSumCancel SS.RunScenarioCancel
-  ior <- newIORef (Left (ExceptionError (error "runBiDiLive")))
+
+  finalResponse <- newIORef (Left (ExceptionError (error "runBiDiLive")))
+  -- Preserve existing errors in the finalResponse
+  let setFinalResponse r =
+        atomicModifyIORef finalResponse $ \old ->
+          let err =
+                case old of
+                  Left e -> Left e
+                  _ -> r
+          in
+          (err, ())
+
   response <-
     runner hClient $
       ClientBiDiRequest (fromIntegral (optGrpcTimeout hOptions)) mempty $ \_clientCall _meta streamRecv sendReq _writesDone -> do
-        let handleGrpcIOErr grpcIOErr = writeIORef ior (Left (BackendError (BErrorClient (ClientIOError grpcIOErr))))
+        let handleGrpcIOErr :: IO (Either GRPCIOError a) -> (a -> IO ()) -> IO ()
+            handleGrpcIOErr action continue = do
+              mbGrpcIOErr <- action
+              case mbGrpcIOErr of
+                Left grpcIOErr ->
+                  setFinalResponse (Left (BackendError (BErrorClient (ClientIOError grpcIOErr))))
+                Right a ->
+                  continue a
 
             loop :: IO ()
-            loop = streamRecv >>= \case
-              Right (Just (SS.RunScenarioResponseOrStatus (Just resp))) ->
+            loop = handleGrpcIOErr streamRecv $ \case
+              Just (SS.RunScenarioResponseOrStatus (Just resp)) ->
                 handle resp >>= \case
-                  Left err -> writeIORef ior (Left err)
-                  Right (Just result) -> writeIORef ior (Right result)
+                  Left err -> setFinalResponse (Left err)
+                  Right (Just result) -> setFinalResponse (Right result)
                   Right Nothing -> loop
-              Right _ -> loop
-              Left grpcIOErr -> handleGrpcIOErr grpcIOErr
+              _ -> loop
 
             handle :: SS.RunScenarioResponseOrStatusResponse -> IO (Either Error (Maybe SS.ScenarioResult))
             handle (SS.RunScenarioResponseOrStatusResponseError err) =
@@ -438,19 +454,11 @@ runBiDiLive runner Handle{..} (ContextId ctxId) name stopSemaphore statusUpdateH
 
         _ <- forkIO $ do
           shouldCancel <- takeMVar stopSemaphore
-          when shouldCancel $ do
-            didReqError <- sendReq cancelReq
-            case didReqError of
-              Left grpcIOErr -> handleGrpcIOErr grpcIOErr
-              Right () -> do
-                writeIORef ior (Left StopOldScenarioThreadError)
+          when shouldCancel $ handleGrpcIOErr (sendReq cancelReq) pure
 
-        didReqError <- sendReq startReq
-        case didReqError of
-          Left grpcIOErr -> handleGrpcIOErr grpcIOErr
-          Right () -> loop
+        handleGrpcIOErr (sendReq startReq) $ \() -> loop
   case response of
-    ClientBiDiResponse _ StatusOk _ -> readIORef ior
+    ClientBiDiResponse _ StatusOk _ -> readIORef finalResponse
     ClientBiDiResponse _ status _ -> pure (Left (BackendError (BErrorFail status)))
     ClientErrorResponse err -> pure (Left (BackendError (BErrorClient err)))
 
