@@ -170,6 +170,7 @@ da_scala_test_suite(
         ":script-test.dar",
         ":script-test-1.dev.dar",
         ":script-test-no-ledger.dar",
+        "//daml-script/runner:daml-script-binary",
         "//test-common/test-certificates",
         "@canton//:lib",
     ],
@@ -224,29 +225,10 @@ da_scala_test_suite(
         "//libs-scala/resources",
         "//libs-scala/resources-akka",
         "//libs-scala/resources-grpc",
+        "//libs-scala/scala-utils",
         "//observability/metrics",
         "//test-common",
         "@maven//:com_auth0_java_jwt",
         "@maven//:io_dropwizard_metrics_metrics_core",
     ],
-)
-
-sh_test(
-    name = "test_daml_script_test_runner",
-    srcs = [":daml-script-test-runner.sh"],
-    args = [
-        "$(rootpath //daml-script/runner:daml-script-binary)",
-        "$(rootpath :script-test.dar)",
-        "$(POSIX_DIFF)",
-        "$(POSIX_GREP)",
-        "$(POSIX_SED)",
-        "$(rootpath //ledger/sandbox-on-x:app)",
-    ],
-    data = [
-        ":script-test.dar",
-        "//daml-script/runner:daml-script-binary",
-        "//ledger/sandbox-on-x:app",
-    ],
-    toolchains = ["@rules_sh//sh/posix:make_variables"],
-    deps = ["@bazel_tools//tools/bash/runfiles"],
 )
