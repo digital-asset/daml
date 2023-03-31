@@ -9,6 +9,7 @@ import Type.Reflection (Typeable)
 data FreePortError
   = DynamicRangeFileReadError IOError
   | DynamicRangeInvalidFormatError String
+  | DynamicRangeShellFailure IOError
   | NoPortsAvailableError
   deriving (Show, Typeable)
 instance Exception FreePortError

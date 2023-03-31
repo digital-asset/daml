@@ -8,9 +8,11 @@ import DA.Test.FreePort.Error (FreePortError (..))
 import DA.Test.FreePort.OS (os, OS (..))
 import Test.QuickCheck(Gen, chooseInt)
 import Text.Read (readMaybe)
+import Text.Regex.TDFA
+import Safe (tailMay)
 
-newtype PortRange = PortRange (Int, Int) -- The main port range
-newtype DynamicPortRange = DynamicPortRange (Int, Int) -- Port range to exclude from main port range
+newtype PortRange = PortRange (Int, Int) deriving Show -- The main port range
+newtype DynamicPortRange = DynamicPortRange (Int, Int) deriving Show -- Port range to exclude from main port range
 
 defPortRange :: PortRange
 defPortRange = PortRange (1024, 65536)
@@ -56,7 +58,12 @@ getLinuxDynamicPortRange = do
     _ -> throwIO $ DynamicRangeInvalidFormatError $ "Expected 2 ports, got " <> rangeStr
 
 getWindowsDynamicPortRange :: IO DynamicPortRange
-getWindowsDynamicPortRange = undefined -- TODO
+getWindowsDynamicPortRange = do
+  portData <- mapException DynamicRangeShellFailure $ readProcess "netsh" ["int", "ipv4", "show", "dynamicport", "tcp"] ""
+  let ports :: [String] = getAllTextSubmatches (portData =~ ("Start Port *: ([0-9]+)\nNumber of Ports *: ([0-9]+)" :: String))
+  case tailMay ports >>= traverse readMaybe of
+    Just [min, count] -> pure $ DynamicPortRange (min, min + count)
+    _ -> throwIO $ DynamicRangeInvalidFormatError "Malformed response from netsh"
 
 getMacOSDynamicPortRange :: IO DynamicPortRange
 getMacOSDynamicPortRange = undefined -- TODO

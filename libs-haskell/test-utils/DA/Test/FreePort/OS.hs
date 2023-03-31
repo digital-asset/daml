@@ -5,7 +5,7 @@
 
 module DA.Test.FreePort.OS (OS (..), os) where
 
-import System.Info.Extra
+import System.Info.Extra (isWindows, isMac)
 
 data OS
   = Windows
