@@ -646,8 +646,8 @@ da_haskell_test(
         ":repl-test.dar",
         "//compiler/damlc",
         "//daml-script/daml:daml-script.dar",
-        "//ledger/sandbox-on-x:app",
         "//test-common/test-certificates",
+        "@canton//:lib",
     ],
     hackage_deps = [
         "aeson",
@@ -689,7 +689,7 @@ da_haskell_test(
         "//compiler/damlc/stable-packages",
         "//compiler/repl-service/server:repl_service_jar",
         "//daml-script/daml:daml-script.dar",
-        "//ledger/sandbox-on-x:app",
+        "@canton//:lib",
     ],
     hackage_deps = [
         "async",
@@ -1007,7 +1007,7 @@ da_haskell_test(
     data = [
         ":pkg-manager-test.dar",
         "//compiler/damlc",
-        "//ledger/sandbox-on-x:app",
+        "@canton//:lib",
     ],
     hackage_deps = [
         "base",

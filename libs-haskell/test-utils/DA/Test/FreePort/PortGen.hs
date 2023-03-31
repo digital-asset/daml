@@ -1,3 +1,6 @@
+-- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
 module DA.Test.FreePort.PortGen (getPortGen) where
 
 import Control.Exception (mapException, throwIO)
@@ -57,3 +60,4 @@ getWindowsDynamicPortRange = undefined -- TODO
 
 getMacOSDynamicPortRange :: IO DynamicPortRange
 getMacOSDynamicPortRange = undefined -- TODO
+

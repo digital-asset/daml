@@ -1,9 +1,14 @@
-module DA.Test.FreePort (withAvailablePort) where
+-- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module DA.Test.FreePort (getAvailablePort, LockedPort (..)) where
 
 import Control.Exception (bracket, throwIO)
 import DA.Test.FreePort.Error
 import DA.Test.FreePort.PortGen
 import DA.Test.FreePort.PortLock
+import System.FileLock (FileLock, unlockFile)
+import Data.Bifunctor (second)
 import Data.Either (isRight)
 import Data.Foldable.Extra (firstJustM)
 import UnliftIO.Exception (tryIO)
@@ -14,18 +19,26 @@ import Network.Socket
 maxAttempts :: Int
 maxAttempts = 100
 
-withAvailablePort :: (Int -> IO a) -> IO a
-withAvailablePort k = do
+data LockedPort = LockedPort
+  { port :: Int
+  , unlock :: IO ()
+  }
+
+getAvailablePort :: IO LockedPort
+getAvailablePort = do
   portGen <- getPortGen
   ports <- generate $ vectorOf maxAttempts portGen
-  mRes <- firstJustM (tryPort k) ports
-  maybe (throwIO NoPortsAvailableError) pure mRes
+  mPortData <- firstJustM tryPort ports
 
-tryPort :: (Int -> IO a) -> Int -> IO (Maybe a)
-tryPort k port = do
+  maybe (throwIO NoPortsAvailableError) (pure . uncurry LockedPort . second unlockFile) mPortData
+
+tryPort :: Int -> IO (Maybe (Int, FileLock))
+tryPort port = do
   available <- portAvailable port
   if available
-    then withPortLock port (k port)
+    then do
+      mFileLock <- lockPort port
+      pure $ (port,) <$> mFileLock
     else pure Nothing
 
 portAvailable :: Int -> IO Bool
@@ -39,3 +52,4 @@ portAvailable port = do
 
   addr : _ <- getAddrInfo (Just hints) (Just "127.0.0.1") (Just $ show port)
   isRight <$> tryIO (checkConnection addr)
+
