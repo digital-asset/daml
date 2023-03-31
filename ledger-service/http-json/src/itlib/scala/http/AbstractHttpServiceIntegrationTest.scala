@@ -825,14 +825,24 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
       def contractToDisclose(
           fixture: HttpServiceTestFixtureData,
           junkMessage: String,
+          garbageMessage: String,
       ): Future[ContractToDisclose] = for {
         (alice, jwt, applicationId, _) <- fixture.getUniquePartyTokenAppIdAndAuthHeaders("Alice")
         // we're using the ledger API for the initial create because timestamp
         // is required in the metadata
         toDisclosePayload = argToApi(toDiscloseVA)(ShRecord(owner = alice, junk = junkMessage))
-        createCommand = util.Commands.create(
-          refApiIdentifier(ToDisclose),
-          toDisclosePayload,
+        anotherToDisclosePayload = argToApi(anotherToDiscloseVA)(
+          ShRecord(owner = alice, garbage = garbageMessage)
+        )
+        createCommands = Seq(
+          util.Commands.create(
+            refApiIdentifier(ToDisclose),
+            toDisclosePayload,
+          ),
+          util.Commands.create(
+            refApiIdentifier(AnotherToDisclose),
+            anotherToDisclosePayload,
+          ),
         )
         initialCreate = SubmitAndWaitRequest(
           Some(
@@ -840,7 +850,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
               commandId = uniqueCommandId().unwrap,
               applicationId = applicationId.unwrap,
               actAs = domain.Party unsubst Seq(alice),
-              commands = Seq(Command(createCommand)),
+              commands = createCommands map (Command(_)),
             )
           )
         )
@@ -870,6 +880,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
           ) => JsValue
       ): Future[Assertion] = {
         val junkMessage = s"some test junk ${uniqueId()}"
+        val garbageMessage = s"some test garbage ${uniqueId()}"
         for {
           // first, set up something for alice to disclose to bob
           toDisclose @ ContractToDisclose(alice, toDiscloseCid, toDisclosePayload, ctMetadata) <-
