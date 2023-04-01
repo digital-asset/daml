@@ -66,7 +66,21 @@ private class TriggerRuleMetrics {
     metricTimingData = mutable.Map.empty
   }
 
-  def getMetrics: TriggerRuleMetrics.RuleMetrics = {
+  def getMetrics(
+      retries: Int = 5
+  )(implicit materializer: Materializer): Future[TriggerRuleMetrics.RuleMetrics] = {
+    Source
+      .single(getMetrics)
+      .recoverWithRetries(
+        retries,
+        { case _: IllegalArgumentException =>
+          Source.single(getMetrics)
+        },
+      )
+      .runWith(Sink.head)
+  }
+
+  private[this] def getMetrics: TriggerRuleMetrics.RuleMetrics = {
     import TriggerRuleMetrics._
 
     require(
@@ -764,8 +778,8 @@ final class TriggerRuleSimulationLib private (
         val submissions = initStateSimulation.runWith(Sink.seq)
         val initState = initStateSimulation.toMat(Sink.ignore)(Keep.left).run()
 
-        submissions.map(_.map(_.value)).zip(initState).map { case (requests, state) =>
-          (requests, ruleMetrics.getMetrics, state)
+        submissions.map(_.map(_.value)).zip(initState).flatMap { case (requests, state) =>
+          ruleMetrics.getMetrics().map((requests, _, state))
         }
       }
     }
@@ -810,8 +824,8 @@ final class TriggerRuleSimulationLib private (
         val submissions = updateStateSimulation.runWith(Sink.seq)
         val nextState = updateStateSimulation.toMat(Sink.ignore)(Keep.left).run()
 
-        submissions.map(_.map(_.value)).zip(nextState).map { case (requests, state) =>
-          (requests, ruleMetrics.getMetrics, state)
+        submissions.map(_.map(_.value)).zip(nextState).flatMap { case (requests, state) =>
+          ruleMetrics.getMetrics().map((requests, _, state))
         }
       }
     }
