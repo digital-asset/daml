@@ -4,8 +4,8 @@
 package com.daml.lf.engine.trigger
 
 import akka.actor.ActorSystem
-import akka.stream.{FlowShape, KillSwitches, Materializer, SourceShape}
-import akka.stream.scaladsl.{Flow, GraphDSL, Keep, Sink, Source}
+import akka.stream.{FlowShape, KillSwitches, Materializer, RestartSettings, SourceShape}
+import akka.stream.scaladsl.{Flow, GraphDSL, Keep, RestartSource, Sink, Source}
 import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId, Party}
 import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
 import com.daml.ledger.api.v1.event.CreatedEvent
@@ -69,14 +69,17 @@ private class TriggerRuleMetrics {
   def getMetrics(
       retries: Int = 5
   )(implicit materializer: Materializer): Future[TriggerRuleMetrics.RuleMetrics] = {
-    Source
-      .single(getMetrics)
-      .recoverWithRetries(
-        retries,
-        { case _: IllegalArgumentException =>
-          Source.single(getMetrics).initialDelay(50.milliseconds)
-        },
-      )
+    val backoff = 50.milliseconds
+    val timeLimit = backoff * retries
+    val restartSettings =
+      RestartSettings(minBackoff = backoff, maxBackoff = 1.second, randomFactor = 0.1)
+        .withMaxRestarts(retries, timeLimit)
+
+    RestartSource
+      .withBackoff(restartSettings) { () =>
+        Source.single(getMetrics)
+      }
+      .initialTimeout(retries.seconds)
       .runWith(Sink.head)
   }
 
