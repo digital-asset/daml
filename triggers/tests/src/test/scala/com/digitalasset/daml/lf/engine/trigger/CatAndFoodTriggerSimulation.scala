@@ -39,11 +39,11 @@ class CatAndFoodTriggerSimulation
             batchSize = 2000,
             maxNumOfCats = 1000L,
             workloadFrequency = 1.second,
-            catDelay = 0.seconds,
-            foodDelay = 10.seconds,
-            jitter = 5.seconds,
+            catDelay = 2.seconds,
+            foodDelay = 2.seconds,
+            jitter = 2.seconds,
           ),
-          "contracts",
+          "workload",
         )
       context.watch(ledger)
       context.watch(trigger)
@@ -70,18 +70,18 @@ class CatAndFoodTriggerSimulation
             Gen
               .zip(
                 Gen.chooseNum(1L, maxNumOfCats),
-                Gen.choose(-jitter, jitter),
-                Gen.choose(-jitter, jitter),
+                Gen.choose(catDelay - jitter, catDelay + jitter),
+                Gen.choose(foodDelay - jitter, foodDelay + jitter),
               )
               .sample
-              .foreach { case (isin, catJitter, foodJitter) =>
+              .foreach { case (isin, catCreateDelay, foodCreateDelay) =>
                 timer.startSingleTimer(
                   ContractProcess.CreateContract(createCat(owner.unwrap, isin)),
-                  catDelay + catJitter,
+                  catCreateDelay,
                 )
                 timer.startSingleTimer(
                   ContractProcess.CreateContract(createFood(owner.unwrap, isin)),
-                  foodDelay + foodJitter,
+                  foodCreateDelay,
                 )
               }
           }
