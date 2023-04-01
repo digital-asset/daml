@@ -58,7 +58,7 @@ class CatTriggerResourceUsageTest
         def stateSizeGen =
           ((0L to 10L) ++ (20L to 100L by 20L) ++ (200L to 400L by 100L)).iterator
 
-        "for Cats:feedingTrigger initState lambda" ignore {
+        "for Cats:feedingTrigger initState lambda" in {
           for {
             client <- ledgerClient()
             party <- allocateParty(client)
@@ -84,7 +84,7 @@ class CatTriggerResourceUsageTest
           } yield result
         }
 
-        "for Cats:feedingTrigger updateState lambda" ignore {
+        "for Cats:feedingTrigger updateState lambda" in {
           for {
             client <- ledgerClient()
             party <- allocateParty(client)
@@ -126,7 +126,7 @@ class CatTriggerResourceUsageTest
         val growthRate = 100L
         val userStateGen = (0L to 1000L by growthRate).iterator
 
-        "for Cats:overflowTrigger updateState lambda" ignore {
+        "for Cats:overflowTrigger updateState lambda" in {
           for {
             client <- ledgerClient()
             party <- allocateParty(client)
@@ -155,7 +155,6 @@ class CatTriggerResourceUsageTest
               for {
                 (submissions, _, _) <- simulator.updateStateLambda(startState, msg)
               } yield {
-                // TODO: validate that all submissions are unique (and not just the same ones!)
                 submissions.size shouldBe growthRate
               }
             }
@@ -167,7 +166,7 @@ class CatTriggerResourceUsageTest
         // Daml query statements filter out contracts that have command submissions operating on them (c.f. pending
         // contracts being locally "locked"), and so repeated trigger rule evaluations can not produce the same submissions
         "duplicate command submissions are **not** generated" should {
-          "using Cats:feedingTrigger updateState lambda" ignore {
+          "using Cats:feedingTrigger updateState lambda" in {
             for {
               client <- ledgerClient()
               party <- allocateParty(client)
