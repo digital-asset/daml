@@ -70,7 +70,7 @@ private class TriggerRuleMetrics {
       retries: Int = 5
   )(implicit materializer: Materializer): Future[TriggerRuleMetrics.RuleMetrics] = {
     val backoff = 50.milliseconds
-    val timeLimit = backoff * retries
+    val timeLimit = backoff * (1 to retries).sum
     val restartSettings =
       RestartSettings(minBackoff = backoff, maxBackoff = 1.second, randomFactor = 0.1)
         .withMaxRestarts(retries, timeLimit)
@@ -79,7 +79,7 @@ private class TriggerRuleMetrics {
       .withBackoff(restartSettings) { () =>
         Source.single(getMetrics)
       }
-      .initialTimeout(retries.seconds)
+      .initialTimeout(timeLimit)
       .runWith(Sink.head)
   }
 
