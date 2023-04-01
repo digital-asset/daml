@@ -3,7 +3,6 @@
 
 package com.daml.lf.engine.trigger
 
-import akka.actor.ActorSystem
 import akka.stream.{FlowShape, KillSwitches, Materializer, SourceShape}
 import akka.stream.scaladsl.{Flow, GraphDSL, Keep, Sink, Source}
 import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId, Party}
@@ -26,6 +25,10 @@ import com.daml.scalautil.Statement.discard
 import com.daml.script.converter.Converter.Implicits._
 import com.daml.util.Ctx
 import org.scalacheck.Gen
+import org.scalatest.Assertion
+import org.scalatest.Assertions.succeed
+import scalaz.Tag
+import scalaz.syntax.tag._
 
 import java.util.UUID
 import scala.collection.mutable
@@ -42,8 +45,8 @@ import scala.util.Try
 )
 private class TriggerRuleMetrics {
 
-  private[this] var metricCountData = mutable.Map.empty[Set[UUID], mutable.Map[String, Long]]
-  private[this] var metricTimingData =
+  private[this] val metricCountData = mutable.Map.empty[Set[UUID], mutable.Map[String, Long]]
+  private[this] val metricTimingData =
     mutable.Map.empty[Set[UUID], mutable.Map[String, FiniteDuration]]
 
   def addLogEntry(msg: String, context: TriggerLogContext): Unit = {
@@ -59,11 +62,6 @@ private class TriggerRuleMetrics {
     addRuleEvaluation(context)
     addStepIteratorMean(context)
     addStepIteratorDelayMean(context)
-  }
-
-  def clearMetrics(): Unit = {
-    metricCountData = mutable.Map.empty
-    metricTimingData = mutable.Map.empty
   }
 
   def getMetrics: TriggerRuleMetrics.RuleMetrics = {
@@ -688,7 +686,7 @@ object TriggerRuleMetrics {
   )
 }
 
-final class TriggerRuleSimulationLib private (
+final class TriggerRuleSimulationLib private[trigger] (
     compiledPackages: PureCompiledPackages,
     triggerId: Identifier,
     triggerConfig: TriggerRunnerConfig,
@@ -696,25 +694,27 @@ final class TriggerRuleSimulationLib private (
     timeProviderType: TimeProviderType,
     applicationId: ApplicationId,
     triggerParties: TriggerParties,
-) {
-
-  private[this] val ruleMetrics = new TriggerRuleMetrics
-  private[this] val logObserver: (String, TriggerLogContext) => Unit = { (msg, context) =>
-    ruleMetrics.addLogEntry(msg, context)
-  }
+)(implicit materializer: Materializer) {
 
   private[this] implicit val logger: ContextualizedLogger =
     ContextualizedLogger.get(classOf[Runner])
-  private[this] implicit val materializer: Materializer = Materializer(
-    ActorSystem("TriggerRuleSimulator")
-  )
   private[this] implicit val executionContext: ExecutionContext = materializer.executionContext
   private[this] implicit val loggingContext: LoggingContextOf[Trigger] =
     LoggingContextOf.newLoggingContext(LoggingContextOf.label[Trigger])(identity)
-  private[this] implicit val triggerContext: TriggerLogContext =
-    TriggerLogContext.newRootSpanWithCallback("trigger", logObserver)(identity)
 
-  private val trigger = Trigger.fromIdentifier(compiledPackages, triggerId).toOption.get
+  private[trigger] val trigger = Trigger
+    .fromIdentifier(compiledPackages, triggerId)(
+      TriggerLogContext.newRootSpan(
+        "trigger",
+        "id" -> triggerId.toString,
+        "applicationId" -> applicationId.unwrap,
+        "definition" -> triggerId.toString,
+        "readAs" -> Tag.unsubst(triggerParties.readAs),
+        "actAs" -> Tag.unwrap(triggerParties.actAs),
+      )(identity)
+    )
+    .toOption
+    .get
 
   // We only perform rule simulation for recent high level triggers
   require(trigger.defn.level == Trigger.Level.High)
@@ -723,51 +723,66 @@ final class TriggerRuleSimulationLib private (
   require(triggerConfig.hardLimit.allowTriggerTimeouts)
   require(triggerConfig.hardLimit.allowInFlightCommandOverflows)
 
-  private[this] val runner = Runner(
-    compiledPackages,
-    trigger,
-    triggerConfig,
-    client,
-    timeProviderType,
-    applicationId,
-    triggerParties,
-  )
+  class SimulationContext {
+    private[trigger] val ruleMetrics = new TriggerRuleMetrics
+    private[this] val logObserver: (String, TriggerLogContext) => Unit = { (msg, context) =>
+      ruleMetrics.addLogEntry(msg, context)
+    }
+
+    private[trigger] implicit val triggerContext: TriggerLogContext =
+      TriggerLogContext.newRootSpanWithCallback(
+        "trigger",
+        logObserver,
+        "id" -> triggerId.toString,
+        "applicationId" -> applicationId.unwrap,
+        "definition" -> triggerId.toString,
+        "readAs" -> Tag.unsubst(triggerParties.readAs),
+        "actAs" -> Tag.unwrap(triggerParties.actAs),
+      )(identity)
+
+    private[trigger] val runner = Runner(
+      compiledPackages,
+      trigger,
+      triggerConfig,
+      client,
+      timeProviderType,
+      applicationId,
+      triggerParties,
+    )
+  }
 
   @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
   def initialStateLambda(
       acs: Seq[CreatedEvent]
   ): Future[(Seq[SubmitRequest], TriggerRuleMetrics.RuleMetrics, SValue)] = {
-    ruleMetrics.clearMetrics()
+    val context = new SimulationContext
+    val initStateGraph = context.triggerContext.childSpan("simulation") {
+      implicit triggerContext: TriggerLogContext =>
+        triggerContext.childSpan("initialStateLambda") {
+          implicit triggerContext: TriggerLogContext =>
+            GraphDSL.createGraph(Sink.last[SValue]) { implicit gb => saveLastState =>
+              import GraphDSL.Implicits._
 
-    triggerContext.childSpan("simulation") { implicit triggerContext: TriggerLogContext =>
-      triggerContext.childSpan("initialStateLambda") { implicit triggerContext: TriggerLogContext =>
-        def initStateGraph = GraphDSL.createGraph(Sink.last[SValue]) {
-          implicit gb => saveLastState =>
-            import GraphDSL.Implicits._
+              val clientTime: Timestamp =
+                Timestamp.assertFromInstant(
+                  Runner.getTimeProvider(RunnerConfig.DefaultTimeProviderType).getCurrentTime
+                )
+              val killSwitch = KillSwitches.shared("init-state-simulation")
+              val initialState = gb add context.runner.runInitialState(clientTime, killSwitch)(acs)
+              val submissions = gb add Flow[TriggerContext[SubmitRequest]]
 
-            val clientTime: Timestamp =
-              Timestamp.assertFromInstant(
-                Runner.getTimeProvider(RunnerConfig.DefaultTimeProviderType).getCurrentTime
-              )
-            val killSwitch = KillSwitches.shared("init-state-simulation")
-            val initialState = gb add runner.runInitialState(clientTime, killSwitch)(acs)
-            val submissions = gb add Flow[TriggerContext[SubmitRequest]]
+              initialState.finalState ~> saveLastState
+              initialState.elemsOut ~> submissions
 
-            initialState.finalState ~> saveLastState
-            initialState.elemsOut ~> submissions
-
-            new SourceShape(submissions.out)
+              new SourceShape(submissions.out)
+            }
         }
+    }
+    val initStateSimulation = Source.fromGraph(initStateGraph)
+    val (initState, submissions) = initStateSimulation.toMat(Sink.seq)(Keep.both).run()
 
-        def initStateSimulation = Source.fromGraph(initStateGraph)
-
-        val submissions = initStateSimulation.runWith(Sink.seq)
-        val initState = initStateSimulation.toMat(Sink.ignore)(Keep.left).run()
-
-        submissions.map(_.map(_.value)).zip(initState).map { case (requests, state) =>
-          (requests, ruleMetrics.getMetrics, state)
-        }
-      }
+    submissions.map(_.map(_.value)).zip(initState).map { case (requests, state) =>
+      (requests, context.ruleMetrics.getMetrics, state)
     }
   }
 
@@ -776,22 +791,24 @@ final class TriggerRuleSimulationLib private (
       state: SValue,
       message: TriggerMsg,
   ): Future[(Seq[SubmitRequest], TriggerRuleMetrics.RuleMetrics, SValue)] = {
-    ruleMetrics.clearMetrics()
+    val context = new SimulationContext
+    val updateStateGraph = context.triggerContext.childSpan("simulation") {
+      implicit triggerContext: TriggerLogContext =>
+        triggerContext.childSpan("updateStateLambda") {
+          implicit triggerContext: TriggerLogContext =>
+            GraphDSL.createGraph(Sink.last[SValue]) { implicit gb => saveLastState =>
+              import GraphDSL.Implicits._
 
-    triggerContext.childSpan("simulation") { implicit triggerContext: TriggerLogContext =>
-      triggerContext.childSpan("updateStateLambda") { implicit triggerContext: TriggerLogContext =>
-        def updateStateGraph = GraphDSL.createGraph(Sink.last[SValue]) {
-          implicit gb => saveLastState =>
-            import GraphDSL.Implicits._
-
-            val lambdaKillSwitch = KillSwitches.shared("update-state-simulation")
-            val msgIn = gb add TriggerContextualFlow[TriggerMsg]
-            val encodeMsg =
-              gb add runner.encodeMsgs.map(ctx => ctx.copy(value = SList(FrontStack(ctx.value))))
-            val stateOut = gb add Source.single(state)
-            val rule = gb add runner.runRuleOnMsgs(lambdaKillSwitch)
-            val killSwitch = gb add lambdaKillSwitch.flow[TriggerContext[SValue]]
-            val submissions = gb add Flow[TriggerContext[SubmitRequest]]
+              val lambdaKillSwitch = KillSwitches.shared("update-state-simulation")
+              val msgIn = gb add TriggerContextualFlow[TriggerMsg]
+              val encodeMsg =
+                gb add context.runner.encodeMsgs.map(ctx =>
+                  ctx.copy(value = SList(FrontStack(ctx.value)))
+                )
+              val stateOut = gb add Source.single(state)
+              val rule = gb add context.runner.runRuleOnMsgs(lambdaKillSwitch)
+              val killSwitch = gb add lambdaKillSwitch.flow[TriggerContext[SValue]]
+              val submissions = gb add Flow[TriggerContext[SubmitRequest]]
 
             // format: off
             stateOut                         ~> rule.initState
@@ -800,20 +817,17 @@ final class TriggerRuleSimulationLib private (
                                                 rule.finalStates ~> saveLastState
             // format: on
 
-            new FlowShape(msgIn.in, submissions.out)
+              new FlowShape(msgIn.in, submissions.out)
+            }
         }
+    }
+    val updateStateSimulation = Source
+      .single(Ctx(context.triggerContext, message))
+      .viaMat(Flow.fromGraph(updateStateGraph))(Keep.right)
+    val (nextState, submissions) = updateStateSimulation.toMat(Sink.seq)(Keep.both).run()
 
-        def updateStateSimulation = Source
-          .single(Ctx(triggerContext, message))
-          .viaMat(Flow.fromGraph(updateStateGraph))(Keep.right)
-
-        val submissions = updateStateSimulation.runWith(Sink.seq)
-        val nextState = updateStateSimulation.toMat(Sink.ignore)(Keep.left).run()
-
-        submissions.map(_.map(_.value)).zip(nextState).map { case (requests, state) =>
-          (requests, ruleMetrics.getMetrics, state)
-        }
-      }
+    submissions.map(_.map(_.value)).zip(nextState).map { case (requests, state) =>
+      (requests, context.ruleMetrics.getMetrics, state)
     }
   }
 }
@@ -839,6 +853,37 @@ object TriggerRuleSimulationLib {
       } yield (acs, userState, inFlightCmds, msg)
   }
 
+  def forAll[T](gen: Gen[T], sampleSize: Int = 100, parallelism: Int = 1)(
+      test: T => Future[Assertion]
+  )(implicit materializer: Materializer): Future[Assertion] = {
+    Source(0 to sampleSize)
+      .map(_ => gen.sample)
+      .collect { case Some(data) => data }
+      .mapAsync(parallelism) { data =>
+        test(data)
+      }
+      .takeWhile(_ == succeed, inclusive = true)
+      .runWith(Sink.last)
+  }
+
+  def forAll[T](gen: Iterator[T], parallelism: Int)(
+      test: T => Future[Assertion]
+  )(implicit materializer: Materializer): Future[Assertion] = {
+    Source
+      .fromIterator(() => gen)
+      .mapAsync(parallelism = parallelism) { data =>
+        test(data)
+      }
+      .takeWhile(_ == succeed, inclusive = true)
+      .runWith(Sink.last)
+  }
+
+  def forAll[T](gen: Iterator[T])(
+      test: T => Future[Assertion]
+  )(implicit materializer: Materializer): Future[Assertion] = {
+    forAll[T](gen, 1)(test)
+  }
+
   def getSimulator(
       client: LedgerClient,
       name: QualifiedName,
@@ -849,7 +894,7 @@ object TriggerRuleSimulationLib {
       triggerConfig: TriggerRunnerConfig,
       actAs: String,
       readAs: Set[String] = Set.empty,
-  ): (TriggerDefinition, TriggerRuleSimulationLib) = {
+  )(implicit materializer: Materializer): (TriggerDefinition, TriggerRuleSimulationLib) = {
     val triggerId = Identifier(packageId, name)
     val simulator = new TriggerRuleSimulationLib(
       compiledPackages,
