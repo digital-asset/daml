@@ -30,7 +30,7 @@ import org.scalacheck.Gen
 import java.util.UUID
 import scala.collection.mutable
 import scala.concurrent.{ExecutionContext, Future}
-import scala.concurrent.duration.{Duration, FiniteDuration}
+import scala.concurrent.duration._
 import scala.util.Try
 
 @SuppressWarnings(
@@ -74,7 +74,7 @@ private class TriggerRuleMetrics {
       .recoverWithRetries(
         retries,
         { case _: IllegalArgumentException =>
-          Source.single(getMetrics)
+          Source.single(getMetrics).initialDelay(50.milliseconds)
         },
       )
       .runWith(Sink.head)
