@@ -87,11 +87,15 @@ final class BaseLoadTesting extends LoadTesting {
           party <- allocateParty(client)
           _ <- Future.sequence(
             (0 until contractPairings).map { i =>
+              // Waiting here ensures that the participant does not try and back pressure during our ACS setup
+              Thread.sleep(20)
               create(client, party, cat(party, i))
             }
           )
           _ <- Future.sequence(
             (0 until contractPairings).map { i =>
+              // Waiting here ensures that the participant does not try and back pressure during our ACS setup
+              Thread.sleep(20)
               create(client, party, food(party, i))
             }
           )
