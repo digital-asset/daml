@@ -4,14 +4,11 @@
 package com.daml.lf.engine.trigger.test
 
 import akka.stream.scaladsl.Flow
-import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.daml.ledger.api.v1.commands.CreateCommand
 import com.daml.ledger.api.v1.event.Event.Event.Created
 import com.daml.ledger.api.v1.event.{Event => ApiEvent}
 import com.daml.ledger.api.v1.transaction.{Transaction => ApiTransaction}
 import com.daml.ledger.api.v1.{value => LedgerApi}
-import com.daml.ledger.runner.common.Config
-import com.daml.ledger.sandbox.SandboxOnXForTest.{ApiServerConfig, singleParticipant}
 import com.daml.lf.data.Ref.QualifiedName
 import com.daml.lf.engine.trigger.Runner.TriggerContext
 import com.daml.lf.engine.trigger.{
@@ -21,7 +18,6 @@ import com.daml.lf.engine.trigger.{
   TriggerRuleEvaluationTimeout,
   TriggerRunnerConfig,
 }
-import com.daml.platform.services.time.TimeProviderType
 import com.daml.util.Ctx
 import org.scalatest.{Inside, TryValues}
 import org.scalatest.matchers.should.Matchers
@@ -32,24 +28,15 @@ import scala.concurrent.Future
 
 abstract class LoadTesting
     extends AsyncWordSpec
-    with AbstractTriggerTest
+    with AbstractTriggerTestWithCanton
     with Matchers
     with Inside
-    with SuiteResourceManagementAroundAll
     with TryValues {
 
   // The following value should be kept in sync with the value of contractPairings in Cats.daml
   val contractPairings: Int = 400
   // The following value should be kept in sync with the value of breedingRate in Cats.daml
   val breedingRate: Int = 100
-
-  override protected def config: Config = super.config.copy(
-    participants = singleParticipant(
-      ApiServerConfig.copy(
-        timeProviderType = TimeProviderType.Static
-      )
-    )
-  )
 
   def command(template: String, owner: String, i: Int): CreateCommand =
     CreateCommand(
@@ -96,7 +83,7 @@ final class BaseLoadTesting extends LoadTesting {
     "Contracts are already created" should {
       "Process all contract pairings successfully" in {
         for {
-          client <- ledgerClient()
+          client <- defaultLedgerClient()
           party <- allocateParty(client)
           _ <- Future.sequence(
             (0 until contractPairings).map { i =>
@@ -133,7 +120,7 @@ final class BaseLoadTesting extends LoadTesting {
       "Contracts are created by the trigger" should {
         "Process all contract pairings successfully" in {
           for {
-            client <- ledgerClient()
+            client <- defaultLedgerClient()
             party <- allocateParty(client)
             runner = getRunner(
               client,
@@ -175,7 +162,7 @@ final class InFlightLoadTesting extends LoadTesting {
     "Eventually cause a trigger overflow" in {
       recoverToSucceededIf[InFlightCommandOverflowException] {
         for {
-          client <- ledgerClient()
+          client <- defaultLedgerClient()
           party <- allocateParty(client)
           runner = getRunner(
             client,
@@ -218,7 +205,7 @@ final class ACSLoadTesting extends LoadTesting {
     "Cause a trigger overflow" in {
       recoverToSucceededIf[ACSOverflowException] {
         for {
-          client <- ledgerClient()
+          client <- defaultLedgerClient()
           party <- allocateParty(client)
           _ <- Future.sequence(
             (0 until breedingRate).map { i =>
@@ -248,7 +235,7 @@ final class ACSLoadTesting extends LoadTesting {
     "Cause a trigger overflow" in {
       recoverToSucceededIf[ACSOverflowException] {
         for {
-          client <- ledgerClient()
+          client <- defaultLedgerClient()
           party <- allocateParty(client)
           runner = getRunner(
             client,
@@ -287,7 +274,7 @@ final class TriggerRuleEvaluationTimeoutTesting extends LoadTesting {
     "Cause a trigger timeout" in {
       recoverToSucceededIf[TriggerRuleEvaluationTimeout] {
         for {
-          client <- ledgerClient()
+          client <- defaultLedgerClient()
           party <- allocateParty(client)
           runner = getRunner(
             client,
@@ -317,7 +304,7 @@ final class TriggerRuleEvaluationTimeoutTesting extends LoadTesting {
     "Cause a trigger timeout" in {
       recoverToSucceededIf[TriggerRuleEvaluationTimeout] {
         for {
-          client <- ledgerClient()
+          client <- defaultLedgerClient()
           party <- allocateParty(client)
           runner = getRunner(
             client,

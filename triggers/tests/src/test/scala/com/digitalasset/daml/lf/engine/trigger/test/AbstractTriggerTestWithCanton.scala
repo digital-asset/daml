@@ -17,7 +17,12 @@ import com.daml.ledger.api.v1.event.CreatedEvent
 import com.daml.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
 import com.daml.ledger.api.v1.{value => LedgerApi}
 import com.daml.ledger.client.LedgerClient
-import com.daml.ledger.client.configuration.{CommandClientConfiguration, LedgerClientChannelConfiguration, LedgerClientConfiguration, LedgerIdRequirement}
+import com.daml.ledger.client.configuration.{
+  CommandClientConfiguration,
+  LedgerClientChannelConfiguration,
+  LedgerClientConfiguration,
+  LedgerIdRequirement,
+}
 import com.daml.lf.data.Ref._
 import com.daml.lf.engine.trigger.TriggerRunnerConfig.DefaultTriggerRunnerConfig
 import com.daml.lf.integrationtest.CantonFixture
@@ -31,9 +36,7 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
 // TODO: once test migration work has completed, rename this trait to AbstractTriggerTest
-trait AbstractTriggerTestWithCanton
-  extends CantonFixture
-  with SuiteResourceManagementAroundAll {
+trait AbstractTriggerTestWithCanton extends CantonFixture with SuiteResourceManagementAroundAll {
   self: Suite =>
 
   import CantonFixture._
@@ -77,14 +80,15 @@ trait AbstractTriggerTestWithCanton
 
   protected def triggerRunnerConfiguration: TriggerRunnerConfig = DefaultTriggerRunnerConfig
 
-  protected val CompiledDar(packageId, compiledPackages) = readDar(darFile.toPath, speedy.Compiler.Config.Dev)
+  protected val CompiledDar(packageId, compiledPackages) =
+    readDar(darFile.toPath, speedy.Compiler.Config.Dev)
 
   protected def getRunner(
-                           client: LedgerClient,
-                           name: QualifiedName,
-                           party: String,
-                           readAs: Set[String] = Set.empty,
-                         ): Runner = {
+      client: LedgerClient,
+      name: QualifiedName,
+      party: String,
+      readAs: Set[String] = Set.empty,
+  ): Runner = {
     val triggerId = Identifier(packageId, name)
 
     Trigger.newTriggerLogContext(
@@ -115,7 +119,7 @@ trait AbstractTriggerTestWithCanton
     client.partyManagementClient.allocateParty(None, None).map(_.party)
 
   protected def create(client: LedgerClient, party: String, cmd: CreateCommand)(implicit
-                                                                                ec: ExecutionContext
+      ec: ExecutionContext
   ): Future[String] = {
     val commands = Seq(Command().withCreate(cmd))
     val request = SubmitAndWaitRequest(
@@ -135,13 +139,13 @@ trait AbstractTriggerTestWithCanton
   }
 
   protected def exercise(
-                          client: LedgerClient,
-                          party: String,
-                          templateId: LedgerApi.Identifier,
-                          contractId: String,
-                          choice: String,
-                          choiceArgument: LedgerApi.Value,
-                        )(implicit ec: ExecutionContext): Future[Unit] = {
+      client: LedgerClient,
+      party: String,
+      templateId: LedgerApi.Identifier,
+      contractId: String,
+      choice: String,
+      choiceArgument: LedgerApi.Value,
+  )(implicit ec: ExecutionContext): Future[Unit] = {
     val commands = Seq(
       Command().withExercise(
         ExerciseCommand(
@@ -169,11 +173,11 @@ trait AbstractTriggerTestWithCanton
   }
 
   protected def archive(
-                         client: LedgerClient,
-                         party: String,
-                         templateId: LedgerApi.Identifier,
-                         contractId: String,
-                       )(implicit ec: ExecutionContext): Future[Unit] = {
+      client: LedgerClient,
+      party: String,
+      templateId: LedgerApi.Identifier,
+      contractId: String,
+  )(implicit ec: ExecutionContext): Future[Unit] = {
     exercise(
       client,
       party,
@@ -185,7 +189,7 @@ trait AbstractTriggerTestWithCanton
   }
 
   protected def queryACS(client: LedgerClient, party: String)(implicit
-                                                              ec: ExecutionContext
+      ec: ExecutionContext
   ): Future[Map[LedgerApi.Identifier, Seq[LedgerApi.Record]]] = {
     val filter = TransactionFilter(List((party, Filters.defaultInstance)).toMap)
     val contractsF: Future[Seq[CreatedEvent]] = client.activeContractSetClient
@@ -206,11 +210,11 @@ trait AbstractTriggerTestWithCanton
 
 object AbstractTriggerTestWithCanton {
   final case class HighLevelResult(
-                                    acs: SValue,
-                                    party: SValue,
-                                    readAs: SValue,
-                                    state: SValue,
-                                    commandsInFlight: SValue,
-                                    config: SValue,
-                                  )
+      acs: SValue,
+      party: SValue,
+      readAs: SValue,
+      state: SValue,
+      commandsInFlight: SValue,
+      config: SValue,
+  )
 }

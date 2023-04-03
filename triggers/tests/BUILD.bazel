@@ -86,6 +86,7 @@ da_scala_library(
         "src/test/scala/com/digitalasset/daml/lf/engine/trigger/TriggerRuleSimulationLib.scala",
         "src/test/scala/com/digitalasset/daml/lf/engine/trigger/test/AbstractFuncTests.scala",
         "src/test/scala/com/digitalasset/daml/lf/engine/trigger/test/AbstractTriggerTest.scala",
+        "src/test/scala/com/digitalasset/daml/lf/engine/trigger/test/AbstractTriggerTestWithCanton.scala",
     ],
     scala_deps = [
         "@maven//:com_typesafe_akka_akka_stream",
@@ -101,6 +102,7 @@ da_scala_library(
         "//bazel_tools/runfiles:scala_runfiles",
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/data",
+        "//daml-lf/integration-test-lib",
         "//daml-lf/interpreter",
         "//daml-lf/language",
         "//daml-lf/transaction",
