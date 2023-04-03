@@ -1513,6 +1513,10 @@ message TemplateChoice {
   // The additional informees of the choice. They have type `List Party`.
   Expr observers = 11; // *Available in versions >= 1.11*
 
+  // The optional authorizers of the choice. When present they have type `List Party`.
+  // When missing, we assume the default value: template-signatories + choice-cotrollers.
+  Expr authorizers = 12; // *Available in versions >= 1.dev*
+
   // Name to which the choice argument is bound and its type.
   VarWithType arg_binder = 4;
 

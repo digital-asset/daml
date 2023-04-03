@@ -3,8 +3,8 @@
 
 package com.daml.lf.engine.trigger
 
-import akka.stream.{FlowShape, KillSwitches, Materializer, SourceShape}
-import akka.stream.scaladsl.{Flow, GraphDSL, Keep, Sink, Source}
+import akka.stream.{FlowShape, KillSwitches, Materializer, RestartSettings, SourceShape}
+import akka.stream.scaladsl.{Flow, GraphDSL, Keep, RestartSource, Sink, Source}
 import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId, Party}
 import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
 import com.daml.ledger.api.v1.event.CreatedEvent
@@ -33,7 +33,7 @@ import scalaz.syntax.tag._
 import java.util.UUID
 import scala.collection.mutable
 import scala.concurrent.{ExecutionContext, Future}
-import scala.concurrent.duration.{Duration, FiniteDuration}
+import scala.concurrent.duration._
 import scala.util.Try
 
 @SuppressWarnings(
@@ -64,7 +64,24 @@ private class TriggerRuleMetrics {
     addStepIteratorDelayMean(context)
   }
 
-  def getMetrics: TriggerRuleMetrics.RuleMetrics = {
+  def getMetrics(
+      retries: Int = 5
+  )(implicit materializer: Materializer): Future[TriggerRuleMetrics.RuleMetrics] = {
+    val backoff = 50.milliseconds
+    val timeLimit = backoff * (1L to retries.toLong).sum
+    val restartSettings =
+      RestartSettings(minBackoff = backoff, maxBackoff = 1.second, randomFactor = 0.1)
+        .withMaxRestarts(retries, timeLimit)
+
+    RestartSource
+      .withBackoff(restartSettings) { () =>
+        Source.single(getMetrics)
+      }
+      .initialTimeout(timeLimit)
+      .runWith(Sink.head)
+  }
+
+  private[this] def getMetrics: TriggerRuleMetrics.RuleMetrics = {
     import TriggerRuleMetrics._
 
     require(
@@ -781,8 +798,8 @@ final class TriggerRuleSimulationLib private[trigger] (
     val initStateSimulation = Source.fromGraph(initStateGraph)
     val (initState, submissions) = initStateSimulation.toMat(Sink.seq)(Keep.both).run()
 
-    submissions.map(_.map(_.value)).zip(initState).map { case (requests, state) =>
-      (requests, context.ruleMetrics.getMetrics, state)
+    submissions.map(_.map(_.value)).zip(initState).flatMap { case (requests, state) =>
+      context.ruleMetrics.getMetrics().map((requests, _, state))
     }
   }
 
@@ -826,8 +843,8 @@ final class TriggerRuleSimulationLib private[trigger] (
       .viaMat(Flow.fromGraph(updateStateGraph))(Keep.right)
     val (nextState, submissions) = updateStateSimulation.toMat(Sink.seq)(Keep.both).run()
 
-    submissions.map(_.map(_.value)).zip(nextState).map { case (requests, state) =>
-      (requests, context.ruleMetrics.getMetrics, state)
+    submissions.map(_.map(_.value)).zip(nextState).flatMap { case (requests, state) =>
+      context.ruleMetrics.getMetrics().map((requests, _, state))
     }
   }
 }

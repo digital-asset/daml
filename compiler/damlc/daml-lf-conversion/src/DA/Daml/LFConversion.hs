@@ -1270,7 +1270,7 @@ convertChoice env tbinds (ChoiceData ty expr) = do
     ERecCon _ [ _consum
               , (_, controllers)
               , (_, optObservers)
-              , (_, _optAuthority) -- TODO #15882 -- feed this through the compiler pipeline
+              , (_, optAuthorizers)
               , (_, action) -- choiceTupleExpr
               ] <- removeLocations <$> convertExpr env expr
 
@@ -1279,6 +1279,12 @@ convertChoice env tbinds (ChoiceData ty expr) = do
         ENone{} -> pure Nothing
         ESome{someBody} -> pure $ Just someBody
         _ -> unhandled "choice observers function" optObservers
+
+    mbAuthorizers <-
+      case optAuthorizers of
+        ENone{} -> pure Nothing
+        ESome{someBody} -> pure $ Just someBody
+        _ -> unhandled "choice authorizers function" optAuthorizers
 
     consuming <- convertConsuming consumingTy
     let update = action `ETmApp` EVar self `ETmApp` EVar this `ETmApp` EVar arg
@@ -1304,6 +1310,7 @@ convertChoice env tbinds (ChoiceData ty expr) = do
         , chcConsuming = consuming == Consuming
         , chcControllers = applyThisAndArg controllers
         , chcObservers = applyThisAndArg <$> mbObservers
+        , chcAuthorizers = applyThisAndArg <$> mbAuthorizers
         , chcSelfBinder = self
         , chcArgBinder = (arg, choiceTy)
         , chcReturnType = choiceRetTy

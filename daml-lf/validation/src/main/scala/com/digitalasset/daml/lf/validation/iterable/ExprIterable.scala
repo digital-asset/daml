@@ -181,6 +181,7 @@ private[validation] object ExprIterable {
             consuming @ _,
             controllers,
             observers,
+            authorizers,
             selfBinder @ _,
             binder @ _,
             returnType @ _,
@@ -188,6 +189,7 @@ private[validation] object ExprIterable {
           ) =>
         Iterator(controllers) ++
           observers.iterator ++
+          authorizers.iterator ++
           Iterator(update)
     }
 
