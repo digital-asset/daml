@@ -6,10 +6,11 @@ module DA.Test.FreePort.PortGen (getPortGen) where
 {- HLINT ignore "locateRunfiles/package_app" -}
 
 import Control.Exception (mapException, throwIO)
-import DA.Bazel.Runfiles
+import DA.Bazel.Runfiles (locateRunfiles, mainWorkspace)
 import DA.Test.FreePort.Error (FreePortError (..))
 import DA.Test.FreePort.OS (os, OS (..))
 import Safe (tailMay)
+import System.FilePath ((</>))
 import System.Process (readProcess)
 import Test.QuickCheck(Gen, chooseInt)
 import Text.Read (readMaybe)
@@ -71,7 +72,7 @@ getWindowsDynamicPortRange = do
 
 getMacOSDynamicPortRange :: IO DynamicPortRange
 getMacOSDynamicPortRange = do
-  sysctl <- locateRunfiles "external/sysctl_nix/bin/sysctl"
+  sysctl <- locateRunfiles $ mainWorkspace </> "external" </> "sysctl_nix" </> "bin" </> "sysctl"
   portData <- mapException DynamicRangeShellFailure $ readProcess sysctl
     [ "net.inet.ip.portrange.first"
     , "net.inet.ip.portrange.last"
