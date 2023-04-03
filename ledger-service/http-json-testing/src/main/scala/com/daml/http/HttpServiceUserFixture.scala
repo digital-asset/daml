@@ -25,13 +25,24 @@ trait HttpServiceUserFixture extends AkkaBeforeAndAfterAll { this: Suite =>
   implicit val `AHS ec`: ExecutionContext with ImplicitPreference[this.type] =
     ImplicitPreference[ExecutionContext, this.type](system.dispatcher)
 
-  def jwtForParties(uri: Uri)(
+  protected[this] def jwtAppIdForParties(uri: Uri)(
       actAs: List[domain.Party],
       readAs: List[domain.Party],
       ledgerId: String,
-      withoutNamespace: Boolean = false,
+      withoutNamespace: Boolean,
+      admin: Boolean,
+  )(implicit ec: ExecutionContext): Future[(Jwt, domain.ApplicationId)]
+
+  protected[this] def defaultWithoutNamespace = false
+
+  final def jwtForParties(uri: Uri)(
+      actAs: List[domain.Party],
+      readAs: List[domain.Party],
+      ledgerId: String,
+      withoutNamespace: Boolean = defaultWithoutNamespace,
       admin: Boolean = false,
-  )(implicit ec: ExecutionContext): Future[Jwt]
+  )(implicit ec: ExecutionContext): Future[Jwt] =
+    jwtAppIdForParties(uri)(actAs, readAs, ledgerId, withoutNamespace, admin)(ec) map (_._1)
 
   protected def jwtAdminNoParty: Jwt
 
@@ -54,15 +65,18 @@ object HttpServiceUserFixture {
         .fold(e => fail(s"cannot sign a JWT: ${e.shows}"), identity)
     }
 
-    override final def jwtForParties(uri: Uri)(
+    protected[this] override final def jwtAppIdForParties(uri: Uri)(
         actAs: List[domain.Party],
         readAs: List[domain.Party],
         ledgerId: String,
-        withoutNamespace: Boolean = false,
-        admin: Boolean = false,
-    )(implicit ec: ExecutionContext): Future[Jwt] =
+        withoutNamespace: Boolean,
+        admin: Boolean,
+    )(implicit ec: ExecutionContext): Future[(Jwt, domain.ApplicationId)] =
       Future.successful(
-        HttpServiceTestFixture.jwtForParties(actAs, readAs, Some(ledgerId), withoutNamespace)
+        (
+          HttpServiceTestFixture.jwtForParties(actAs, readAs, Some(ledgerId), withoutNamespace),
+          HttpServiceTestFixture.applicationId,
+        )
       )
   }
 
@@ -85,17 +99,19 @@ object HttpServiceUserFixture {
       )
     }
 
-    override final def jwtForParties(
+    protected[this] override final def defaultWithoutNamespace = true
+
+    protected[this] override final def jwtAppIdForParties(
         uri: Uri
     )(
         actAs: List[domain.Party],
         readAs: List[domain.Party],
-        ledgerId: String = "",
-        withoutNamespace: Boolean = true,
-        admin: Boolean = false,
+        ledgerId: String,
+        withoutNamespace: Boolean,
+        admin: Boolean,
     )(implicit
         ec: ExecutionContext
-    ): Future[Jwt] = {
+    ): Future[(Jwt, domain.ApplicationId)] = {
       val username = getUniqueUserName("test")
       val createUserRequest = domain.CreateUserRequest(
         username,
@@ -117,7 +133,7 @@ object HttpServiceUserFixture {
           headers = headersWithAdminAuth,
         )
         jwt = jwtForUser(username)
-      } yield jwt
+      } yield (jwt, domain.ApplicationId(username))
     }
 
     protected final def getUniqueUserName(name: String): String = getUniqueParty(name).unwrap

@@ -1637,7 +1637,7 @@ class DecodeV1Spec
       }
     }
 
-    "reject choice with observers if 1.7 < lf version < 1.dev" in {
+    "reject choice with observers if 1.7 < lf version < 1.dev" in { // TODO #15882 add similar test for choice authority version support
       val protoChoiceWithoutObservers = DamlLf1.TemplateChoice
         .newBuilder()
         .setNameInternedStr(0)

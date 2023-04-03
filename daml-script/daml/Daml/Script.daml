@@ -320,8 +320,8 @@ data SetTimePayload a = SetTimePayload
 
 -- | Set the time via the time service.
 --
--- This is only supported in static time mode when running over the gRPC API
--- and in Daml Studio.
+-- This is only supported in Daml Studio and `daml test` as well as
+-- when running over the gRPC API against a ledger in static time mode.
 --
 -- Note that the ledger time service does not support going backwards in time.
 -- However, you can go back in time in Daml Studio.
@@ -333,8 +333,9 @@ setTime time = lift $ Free $ SetTime $ SetTimePayload with
 
 -- | Advance ledger time by the given interval.
 --
--- Only supported in static time mode when running over the gRPC API
--- and in Daml Studio. Note that this is not an atomic operation over the
+-- This is only supported in Daml Studio and `daml test` as well as
+-- when running over the gRPC API against a ledger in static time mode.
+-- Note that this is not an atomic operation over the
 -- gRPC API so no other clients should try to change time while this is
 -- running.
 --

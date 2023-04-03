@@ -38,7 +38,7 @@ class HttpServiceIntegrationTestUserManagementNoAuth
   this: AsyncTestSuite with Matchers with Inside =>
 
   override def jwt(uri: Uri)(implicit ec: ExecutionContext): Future[Jwt] =
-    jwtForParties(uri)(domain.Party subst List("Alice"), List())
+    jwtForParties(uri)(domain.Party subst List("Alice"), List(), ledgerId = "")
 
   def createUser(ledgerClient: DamlLedgerClient)(
       userId: Ref.UserId,
@@ -156,6 +156,7 @@ class HttpServiceIntegrationTestUserManagementNoAuth
           None,
           submissionId = None,
           deduplicationPeriod = None,
+          disclosedContracts = None,
         )
         command = iouCreateCommand(alice, meta = Some(meta))
         input: JsValue = encoder.encodeCreateCommand(command).valueOr(e => fail(e.shows))

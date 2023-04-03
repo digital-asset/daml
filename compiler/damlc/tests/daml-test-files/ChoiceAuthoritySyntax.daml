@@ -1,0 +1,87 @@
+-- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+module ChoiceAuthoritySyntax where
+
+_CONTROLLER : [Party]
+_CONTROLLER = undefined
+_OBSERVER : [Party]
+_OBSERVER = undefined
+_AUTHORITY : [Party]
+_AUTHORITY = undefined
+
+_BODY : Update ()
+_BODY = undefined
+
+template TrySyntax
+  with
+    p: Party
+  where
+    signatory p
+
+    choice X_old_just_controller : ()
+      controller _CONTROLLER
+      do _BODY
+
+    choice X_old_observer_and_controller : ()
+      observer _OBSERVER
+      controller _CONTROLLER
+      do _BODY
+
+    choice X_new_just_controllerX : () where { controller _CONTROLLER } do _BODY
+
+    choice X_new_just_controller : ()
+      where
+        controller _CONTROLLER
+      do _BODY
+
+    choice X_new_observer_and_controllerX : () where { observer _OBSERVER; controller _CONTROLLER } do _BODY
+
+    choice X_new_observer_and_controller : ()
+      where
+        observer _OBSERVER
+        controller _CONTROLLER
+      do _BODY
+
+    choice X_new_controller_and_observer : ()
+      where
+        controller _CONTROLLER
+        observer _OBSERVER
+      do _BODY
+
+    choice X_new_authority_and_controller : ()
+      where
+        authority _AUTHORITY
+        controller _CONTROLLER
+      do _BODY
+
+    choice X_new_observer_authority_and_controllerX : ()
+      where { observer _OBSERVER; authority _AUTHORITY; controller _CONTROLLER } do _BODY
+
+    choice X_new_observer_authority_and_controller : ()
+      where
+        observer _OBSERVER
+        authority _AUTHORITY
+        controller _CONTROLLER
+      do _BODY
+
+    choice X_new_authority_observer_and_controller : ()
+      where
+        authority _AUTHORITY
+        observer _OBSERVER
+        controller _CONTROLLER
+      do _BODY
+
+    choice X_new_controller_authority_observer : ()
+      where
+        controller _CONTROLLER
+        authority _AUTHORITY
+        observer _OBSERVER
+      do _BODY
+
+    choice X_new_authority_controller_observer : ()
+      where
+        authority _AUTHORITY
+        controller _CONTROLLER
+        observer _OBSERVER
+      do _BODY

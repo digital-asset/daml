@@ -942,6 +942,20 @@ excluded_test_tool_tests = [
             },
         ],
     },
+    {
+        # The explicit disclosure feature is in alpha version,
+        # hence disable testing ExplicitDisclosureIT since it was moved into LF 1.15 suite
+        # (and discoverable, implicitly, in the 1.15 stable version of the test tool)
+        # TODO ED: Bound the exclusion range once the feature is deemed stable.
+        "start": "2.6.0-snapshot.20230123.11292.0.b3f84bfc",
+        "platform_ranges": [
+            {
+                "exclusions": [
+                    "ExplicitDisclosureIT",
+                ],
+            },
+        ],
+    },
 ]
 
 def in_range(version, range):

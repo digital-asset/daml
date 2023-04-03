@@ -259,7 +259,13 @@ extractModuleContents env@Env{..} coreModule modIface details = do
         [ (mkTypeCon [getOccText tplTy], [ChoiceData ty v])
         | (name, v) <- mcBinds
         , "_choice$_" `T.isPrefixOf` getOccText name
-        , ty@(TypeCon _ [_, _, TypeCon _ [TypeCon tplTy _], _]) <- [varType name]
+        , ty@(TypeCon _
+               [TypeCon _ [TypeCon tplTy _]
+               , _controller
+               , _observer
+               , _authority
+               , _action -- choiceTupleExpr
+               ]) <- [varType name]
         ]
     mcTemplateBinds = scrapeTemplateBinds mcBinds
     mcExceptionBinds
@@ -1247,12 +1253,25 @@ convertChoices env mc tplTypeCon tbinds =
 
 convertChoice :: Env -> TemplateBinds -> ChoiceData -> ConvertM TemplateChoice
 convertChoice env tbinds (ChoiceData ty expr) = do
-    TConApp _ [_, _ :-> _ :-> choiceTy@(TConApp choiceTyCon _) :-> TUpdate choiceRetTy, consumingTy, _] <- convertType env ty
+    -- The desuaged representation of a Daml Choice is a five tuple.
+    -- Constructed by mkChoiceDecls in RdrHsSyn.hs in the ghc repo.
+    -- We match against that 5-tuple expression or type in 3 places in this file.
+    -- search for string "choiceTupleExpr"
+
+    TConApp _ [ consumingTy
+              , _controller
+              , _observer
+              , _authority
+              , _ :-> _ :-> choiceTy@(TConApp choiceTyCon _) :-> TUpdate choiceRetTy -- choiceTupleExpr
+              ] <- convertType env ty
+
     let choiceName = ChoiceName (T.intercalate "." $ unTypeConName $ qualObject choiceTyCon)
-    ERecCon _ [ (_, controllers)
-              , (_, action)
-              , _
+
+    ERecCon _ [ _consum
+              , (_, controllers)
               , (_, optObservers)
+              , (_, optAuthorizers)
+              , (_, action) -- choiceTupleExpr
               ] <- removeLocations <$> convertExpr env expr
 
     mbObservers <-
@@ -1260,6 +1279,12 @@ convertChoice env tbinds (ChoiceData ty expr) = do
         ENone{} -> pure Nothing
         ESome{someBody} -> pure $ Just someBody
         _ -> unhandled "choice observers function" optObservers
+
+    mbAuthorizers <-
+      case optAuthorizers of
+        ENone{} -> pure Nothing
+        ESome{someBody} -> pure $ Just someBody
+        _ -> unhandled "choice authorizers function" optAuthorizers
 
     consuming <- convertConsuming consumingTy
     let update = action `ETmApp` EVar self `ETmApp` EVar this `ETmApp` EVar arg
@@ -1285,6 +1310,7 @@ convertChoice env tbinds (ChoiceData ty expr) = do
         , chcConsuming = consuming == Consuming
         , chcControllers = applyThisAndArg controllers
         , chcObservers = applyThisAndArg <$> mbObservers
+        , chcAuthorizers = applyThisAndArg <$> mbAuthorizers
         , chcSelfBinder = self
         , chcArgBinder = (arg, choiceTy)
         , chcReturnType = choiceRetTy

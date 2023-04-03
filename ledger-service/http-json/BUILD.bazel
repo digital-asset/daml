@@ -80,6 +80,7 @@ load("//ledger-service/utils:scalaopts.bzl", "hj_scalacopts")
             "//libs-scala/struct-json/struct-spray-json",
             "//observability/akka-http-metrics",
             "//observability/metrics",
+            "@maven//:com_google_guava_guava",
             "@maven//:io_dropwizard_metrics_metrics_core",
             "@maven//:io_opentelemetry_opentelemetry_api",
         ],
@@ -189,6 +190,7 @@ daml_compile(
     srcs = ["src/it/daml/%s.daml" % m for m in [
         "Account",
         "IAccount",
+        "Disclosure",
     ]],
     target = lf_version_configuration.get("latest"),  # TODO(SC #13296) remove when interfaces in default
     visibility = ["//ledger-service:__subpackages__"],
@@ -329,6 +331,8 @@ alias(
             ":http-json-{}".format(edition),
             "//bazel_tools/runfiles:scala_runfiles",
             "//daml-lf/api-type-signature",
+            "//daml-lf/archive:daml_lf_1.dev_archive_proto_java",
+            "//daml-lf/archive:daml_lf_archive_reader",
             "//daml-lf/data",
             "//daml-lf/transaction",
             "//daml-lf/transaction-test-lib",

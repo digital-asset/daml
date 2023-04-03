@@ -495,6 +495,7 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
     consuming = true,
     controllers = eParties,
     choiceObservers = None,
+    choiceAuthorizers = None,
     selfBinder = Name.assertFromString("self"),
     argBinder = Name.assertFromString("arg") -> TUnit,
     returnType = TUnit,

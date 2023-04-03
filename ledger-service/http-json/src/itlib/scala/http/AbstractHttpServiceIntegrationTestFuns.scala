@@ -87,6 +87,14 @@ object AbstractHttpServiceIntegrationTestFuns {
     val partyStr: VA.Aux[String] = VA.party.xmap(identity[String])(Ref.Party.assertFromString)
 
     val partyDomain: VA.Aux[domain.Party] = domain.Party.subst[VA.Aux, String](partyStr)
+
+    val contractIdDomain: VA.Aux[domain.ContractId] = {
+      import org.scalacheck.Arbitrary, lfv.test.ValueGenerators.coidGen
+      implicit val arbCid: Arbitrary[lfv.Value.ContractId] = Arbitrary(coidGen)
+      domain.ContractId subst VA.contractId.xmap(_.coid: String)(
+        lfv.Value.ContractId.fromString(_).fold(sys.error, identity)
+      )
+    }
   }
 
   private[http] trait UriFixture {
@@ -219,10 +227,16 @@ trait AbstractHttpServiceIntegrationTestFuns
 
     def getUniquePartyAndAuthHeaders(
         name: String
-    ): Future[(domain.Party, List[HttpHeader])] = {
+    ): Future[(domain.Party, List[HttpHeader])] =
+      self.getUniquePartyTokenAppIdAndAuthHeaders(name).map { case (p, _, _, h) => (p, h) }
+
+    def getUniquePartyTokenAppIdAndAuthHeaders(
+        name: String
+    ): Future[(domain.Party, Jwt, domain.ApplicationId, List[HttpHeader])] = {
       val party = getUniqueParty(name)
       for {
-        headers <- headersWithPartyAuth(List(party), List.empty, "")
+        (jwt, appId) <- jwtAppIdForParties(uri)(List(party), List.empty, "", false, false)
+        headers = authorizationHeader(jwt)
         request = domain.AllocatePartyRequest(
           Some(party),
           None,
@@ -233,7 +247,7 @@ trait AbstractHttpServiceIntegrationTestFuns
           json = json,
           headers = headersWithAdminAuth,
         )
-      } yield (party, headers)
+      } yield (party, jwt, appId, headers)
     }
 
     def headersWithAuth(implicit ec: ExecutionContext): Future[List[Authorization]] =
@@ -431,6 +445,10 @@ trait AbstractHttpServiceIntegrationTestFuns
       val Account: TId = CtId.Template(None, "Account", "Account")
       val KeyedByVariantAndRecord: TId = CtId.Template(None, "Account", "KeyedByVariantAndRecord")
     }
+    object Disclosure {
+      val ToDisclose: TId = CtId.Template(None, "Disclosure", "ToDisclose")
+      val Viewport: TId = CtId.Template(None, "Disclosure", "Viewport")
+    }
     object User {
       val User: TId = CtId.Template(None, "User", "User")
     }
@@ -455,7 +473,7 @@ trait AbstractHttpServiceIntegrationTestFuns
       amount: String = "999.9900000000",
       currency: String = "USD",
       observers: Vector[domain.Party] = Vector.empty,
-      meta: Option[domain.CommandMeta] = None,
+      meta: Option[domain.CommandMeta.NoDisclosed] = None,
   ): domain.CreateCommand[v.Record, domain.ContractTypeId.Template.OptionalPkg] = {
     val arg = argToApi(iouVA)(
       ShRecord(
@@ -492,7 +510,7 @@ trait AbstractHttpServiceIntegrationTestFuns
   protected def iouExerciseTransferCommand(
       contractId: lar.ContractId,
       partyName: domain.Party,
-  ): domain.ExerciseCommand[v.Value, domain.EnrichedContractId] = {
+  ): domain.ExerciseCommand[Nothing, v.Value, domain.EnrichedContractId] = {
     val reference = domain.EnrichedContractId(Some(TpId.Iou.Iou), contractId)
     val party = Ref.Party assertFromString partyName.unwrap
     val arg =
@@ -507,7 +525,7 @@ trait AbstractHttpServiceIntegrationTestFuns
       target: domain.Party,
       amount: String = "999.9900000000",
       currency: String = "USD",
-      meta: Option[domain.CommandMeta] = None,
+      meta: Option[domain.CommandMeta.NoDisclosed] = None,
   ): domain.CreateAndExerciseCommand[
     v.Record,
     v.Value,
@@ -623,7 +641,7 @@ trait AbstractHttpServiceIntegrationTestFuns
   }
 
   protected def encodeExercise(encoder: DomainJsonEncoder)(
-      exercise: domain.ExerciseCommand[v.Value, domain.ContractLocator[v.Value]]
+      exercise: domain.ExerciseCommand.OptionalPkg[v.Value, domain.ContractLocator[v.Value]]
   ): JsValue =
     encoder.encodeExerciseCommand(exercise).getOrElse(fail(s"Cannot encode: $exercise"))
 
@@ -631,7 +649,9 @@ trait AbstractHttpServiceIntegrationTestFuns
       decoder: DomainJsonDecoder,
       jwt: Jwt,
       ledgerId: LedgerApiDomain.LedgerId,
-  )(jsVal: JsValue): Future[domain.ExerciseCommand[v.Value, domain.EnrichedContractId]] =
+  )(
+      jsVal: JsValue
+  ): Future[domain.ExerciseCommand.RequiredPkg[v.Value, domain.EnrichedContractId]] =
     instanceUUIDLogCtx { implicit lc =>
       import scalaz.syntax.bifunctor._
       val cmd =
@@ -658,7 +678,7 @@ trait AbstractHttpServiceIntegrationTestFuns
       decoder: DomainJsonDecoder,
       actual: domain.ActiveContract.ResolvedCtTyId[JsValue],
       create: domain.CreateCommand[v.Record, domain.ContractTypeId.Template.OptionalPkg],
-      exercise: domain.ExerciseCommand[v.Value, _],
+      exercise: domain.ExerciseCommand[Any, v.Value, _],
       ledgerId: LedgerId,
   ): Future[Assertion] = {
     import domain.ActiveContractExtras._

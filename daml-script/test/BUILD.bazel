@@ -70,6 +70,7 @@ genrule(
       cp -L $(location :daml/TestExceptions.daml) $$TMP_DIR/daml
       cp -L $(location :daml/TestInterfaces.daml) $$TMP_DIR/daml
       cp -L $(location :daml/TestWithAuthority.daml) $$TMP_DIR/daml
+      cp -L $(location :daml/TestChoiceAuthority.daml) $$TMP_DIR/daml
       cp -L $(location //daml-script/daml:daml-script-1.dev.dar) $$TMP_DIR/
       cat << EOF > $$TMP_DIR/daml.yaml
 sdk-version: {sdk}
@@ -143,6 +144,7 @@ da_scala_library(
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/data",
         "//daml-lf/engine",
+        "//daml-lf/integration-test-lib",
         "//daml-lf/interpreter",
         "//daml-lf/language",
         "//daml-lf/transaction",
@@ -151,21 +153,11 @@ da_scala_library(
         "//language-support/scala/bindings-akka",
         "//ledger-api/rs-grpc-bridge",
         "//ledger-api/testing-utils",
-        "//ledger/ledger-api-auth",
         "//ledger/ledger-api-common",
-        "//ledger/ledger-runner-common",
-        "//ledger/participant-integration-api",
-        "//ledger/sandbox-on-x",
-        "//ledger/sandbox-on-x:sandbox-on-x-test-lib",
-        "//libs-scala/jwt",
         "//libs-scala/ledger-resources",
         "//libs-scala/ports",
-        "//libs-scala/ports:ports-testing",
         "//libs-scala/resources",
-        "//libs-scala/resources-akka",
-        "//libs-scala/resources-grpc",
         "//libs-scala/scala-utils",
-        "//libs-scala/timer-utils",
         "@maven//:org_scalatest_scalatest_compatible",
     ],
 )
@@ -179,6 +171,7 @@ da_scala_test_suite(
         ":script-test.dar",
         ":script-test-1.dev.dar",
         ":script-test-no-ledger.dar",
+        "//daml-script/runner:daml-script-binary",
         "//test-common/test-certificates",
         "@canton//:lib",
     ],
@@ -198,6 +191,7 @@ da_scala_test_suite(
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/data",
         "//daml-lf/engine",
+        "//daml-lf/integration-test-lib",
         "//daml-lf/interpreter",
         "//daml-lf/language",
         "//daml-lf/transaction",
@@ -232,29 +226,10 @@ da_scala_test_suite(
         "//libs-scala/resources",
         "//libs-scala/resources-akka",
         "//libs-scala/resources-grpc",
+        "//libs-scala/scala-utils",
         "//observability/metrics",
         "//test-common",
         "@maven//:com_auth0_java_jwt",
         "@maven//:io_dropwizard_metrics_metrics_core",
     ],
-)
-
-sh_test(
-    name = "test_daml_script_test_runner",
-    srcs = [":daml-script-test-runner.sh"],
-    args = [
-        "$(rootpath //daml-script/runner:daml-script-binary)",
-        "$(rootpath :script-test.dar)",
-        "$(POSIX_DIFF)",
-        "$(POSIX_GREP)",
-        "$(POSIX_SED)",
-        "$(rootpath //ledger/sandbox-on-x:app)",
-    ],
-    data = [
-        ":script-test.dar",
-        "//daml-script/runner:daml-script-binary",
-        "//ledger/sandbox-on-x:app",
-    ],
-    toolchains = ["@rules_sh//sh/posix:make_variables"],
-    deps = ["@bazel_tools//tools/bash/runfiles"],
 )

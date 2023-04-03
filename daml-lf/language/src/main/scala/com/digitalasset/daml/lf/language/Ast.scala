@@ -937,6 +937,7 @@ object Ast {
       consuming: Boolean, // Flag indicating whether exercising the choice consumes the contract.
       controllers: E, // Parties that can exercise the choice.
       choiceObservers: Option[E], // Additional informees for the choice.
+      choiceAuthorizers: Option[E], // Non-default authorizers for the choice.
       selfBinder: ExprVarName, // Self ContractId binder.
       argBinder: (ExprVarName, Type), // Choice argument binder.
       returnType: Type, // Return type of the choice follow-up.
@@ -949,6 +950,7 @@ object Ast {
         consuming: Boolean,
         controllers: E,
         choiceObservers: Option[E],
+        choiceAuthorizers: Option[E],
         selfBinder: ExprVarName,
         argBinder: (ExprVarName, Type),
         returnType: Type,
@@ -959,6 +961,7 @@ object Ast {
         consuming = consuming,
         controllers = controllers,
         choiceObservers = choiceObservers,
+        choiceAuthorizers = choiceAuthorizers,
         selfBinder = selfBinder,
         argBinder = argBinder,
         returnType = returnType,
@@ -967,13 +970,16 @@ object Ast {
 
     def unapply(
         arg: GenTemplateChoice[E]
-    ): Some[(ChoiceName, Boolean, E, Option[E], ExprVarName, (ExprVarName, Type), Type, E)] =
+    ): Some[
+      (ChoiceName, Boolean, E, Option[E], Option[E], ExprVarName, (ExprVarName, Type), Type, E)
+    ] =
       Some(
         (
           arg.name,
           arg.consuming,
           arg.controllers,
           arg.choiceObservers,
+          arg.choiceAuthorizers,
           arg.selfBinder,
           arg.argBinder,
           arg.returnType,

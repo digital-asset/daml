@@ -59,7 +59,7 @@ scriptAndUpdate = script do
   let 
     _ : Script () = do
       _ <- pure ()
-      error "ValScenarioBind"
+      error "ValScriptBind"
 
   p <- allocateParty "Alice"
 

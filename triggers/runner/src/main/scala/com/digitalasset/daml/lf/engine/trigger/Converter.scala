@@ -246,7 +246,7 @@ final class Converter(
         SVariant(
           triggerIds.damlTriggerLowLevel("CompletionStatus"),
           CompletionStatusVariant.SucceedVariantConstructor,
-          CompletionStatusVariant.SucceedVariantConstrcutor,
+          CompletionStatusVariant.SucceedVariantConstructorRank,
           record(
             succeedTy,
             "transactionId" -> fromTransactionId(c.transactionId),
@@ -466,14 +466,8 @@ object Converter {
     val FailVariantConstructor = Name.assertFromString("Failed")
     val FailVariantConstructorRank = 0
     val SucceedVariantConstructor = Name.assertFromString("Succeeded")
-    val SucceedVariantConstrcutor = 1
+    val SucceedVariantConstructorRank = 1
   }
-
-  private def toLedgerRecord(v: SValue): Either[String, value.Record] =
-    lfValueToApiRecord(verbose = true, v.toUnnormalizedValue)
-
-  private def toLedgerValue(v: SValue): Either[String, value.Value] =
-    lfValueToApiValue(verbose = true, v.toUnnormalizedValue)
 
   def fromIdentifier(identifier: value.Identifier): Either[String, Identifier] =
     for {
@@ -482,7 +476,13 @@ object Converter {
       name <- DottedName.fromString(identifier.entityName)
     } yield Identifier(pkgId, QualifiedName(mod, name))
 
-  def toIdentifier(v: SValue): Either[String, Identifier] =
+  private def toLedgerRecord(v: SValue): Either[String, value.Record] =
+    lfValueToApiRecord(verbose = true, v.toUnnormalizedValue)
+
+  private def toLedgerValue(v: SValue): Either[String, value.Value] =
+    lfValueToApiValue(verbose = true, v.toUnnormalizedValue)
+
+  private def toIdentifier(v: SValue): Either[String, Identifier] =
     v.expect(
       "STypeRep",
       { case STypeRep(TTyCon(id)) =>
@@ -501,7 +501,7 @@ object Converter {
       },
     )
 
-  def toTemplateTypeRep(v: SValue): Either[String, Identifier] =
+  private def toTemplateTypeRep(v: SValue): Either[String, Identifier] =
     v.expectE(
       "TemplateTypeRep",
       { case SRecord(_, _, ArrayList(id)) =>

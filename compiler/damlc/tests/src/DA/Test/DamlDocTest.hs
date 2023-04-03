@@ -4,14 +4,13 @@
 module DA.Test.DamlDocTest (main) where
 
 import qualified Data.Text.Extended as T
-import System.FilePath
-import System.IO.Extra
 import Test.Tasty
 import Test.Tasty.HUnit
 
 import DA.Daml.DocTest
 import DA.Daml.Options.Types
 import qualified DA.Service.Logger.Impl.Pure as Logger
+import DA.Test.DamlcIntegration (withDamlScriptDep, ScriptPackageData)
 import Development.IDE.Core.IdeState.Daml
 import Development.IDE.Core.Rules
 import Development.IDE.Core.Service
@@ -19,63 +18,65 @@ import Development.IDE.Core.Shake
 import Development.IDE.Types.Location
 
 main :: IO ()
-main = defaultMain $ testGroup "daml-doctest"
-    [ generateTests
-    ]
+main = withDamlScriptDep Nothing $ \scriptPackageData -> -- Install Daml.Script once at the start of the suite, rather than for each case
+    defaultMain $ testGroup "daml-doctest"
+        [ generateTests scriptPackageData
+        ]
 
-generateTests :: TestTree
-generateTests = testGroup "generate doctest module"
-    [ testCase "empty module" $
-          [] `shouldGenerate` []
-    , testCase "example in doc comment" $
+-- These test names are converted to module names by removing spaces
+-- Do not use any characters that wouldn't be accepted as a haskell module name (e.g. '-', '.', etc.)
+generateTests :: ScriptPackageData -> TestTree
+generateTests scriptPackageData = testGroup "generate doctest module"
+    [ shouldGenerateCase "empty module" [] []
+    , shouldGenerateCase "example in doc comment"
           [ "-- |"
           , "-- >>> 1 + 1"
           , "-- 2"
-          ] `shouldGenerate`
-          [ "doctest_0 = scenario do"
+          ]
+          [ "doctest_0 = script do"
           , "  (===) (1 + 1) $"
           , "     2"
           ]
-    , testCase "example in non-doc comment" $
+    , shouldGenerateCase "example in nondoc comment"
           [ "-- >>> 1 + 1"
           , "-- 2"
-          ] `shouldGenerate`
+          ]
           []
-    , testCase "multiple examples in one comment" $
+    , shouldGenerateCase "multiple examples in one comment"
           [ "-- |"
           , "-- >>> 1 + 1"
           , "-- 2"
           , "-- >>> 2 + 2"
           , "-- 4"
-          ] `shouldGenerate`
-          [ "doctest_0 = scenario do"
+          ]
+          [ "doctest_0 = script do"
           , "  (===) (1 + 1) $"
           , "     2"
           , ""
-          , "doctest_1 = scenario do"
+          , "doctest_1 = script do"
           , "  (===) (2 + 2) $"
           , "     4"
           ]
-    , testCase "example in code block" $
+    , shouldGenerateCase "example in code block"
           [ "-- |"
           , "-- ```"
           , "-- >>> 1 + 1"
           , "-- 2"
           , "-- ```"
-          ] `shouldGenerate`
-          [ "doctest_0 = scenario do"
+          ]
+          [ "doctest_0 = script do"
           , "  (===) (1 + 1) $"
           , "     2"
           ]
-    , testCase "multiline result" $
+    , shouldGenerateCase "multiline result"
           [ "-- |"
           , "-- >>> map (+1) [1,2,3]"
           , "-- [ 2"
           , "-- , 3"
           , "-- , 4"
           , "-- ]"
-          ] `shouldGenerate`
-          [ "doctest_0 = scenario do"
+          ]
+          [ "doctest_0 = script do"
           , "  (===) (map (+1) [1,2,3]) $"
           , "     [ 2"
           , "     , 3"
@@ -83,27 +84,35 @@ generateTests = testGroup "generate doctest module"
           , "     ]"
           ]
     ]
+    where
+        shouldGenerateCase :: T.Text -> [T.Text] -> [T.Text] -> TestTree
+        shouldGenerateCase name input expected = testCase (T.unpack name) $ do
+            let moduleName = "Case_" <> T.replace " " "" name
+                tmpFile = T.unpack moduleName <> ".daml"
+            T.writeFileUtf8 tmpFile $ T.unlines $ testModuleHeader moduleName <> input
+            let opts = (defaultOptions Nothing)
+                    { optHaddock = Haddock True
+                    , optScenarioService = EnableScenarioService False
+                    , optPackageDbs = [fst scriptPackageData]
+                    , optPackageImports = [snd scriptPackageData]
+                    }
+            withDamlIdeState opts Logger.makeNopHandle (NotificationHandler $ \_ _ -> pure ()) $ \ideState -> do
+                Just pm <- runActionSync ideState $ use GetParsedModule $ toNormalizedFilePath' tmpFile
+                genModuleContent (getDocTestModule pm) @?= T.unlines (doctestHeader moduleName <> expected)
 
-testModuleHeader :: [T.Text]
-testModuleHeader =
-    [ "module Test where"
+testModuleHeader :: T.Text -> [T.Text]
+testModuleHeader moduleName =
+    [ "module " <> moduleName <> " where"
     ]
 
-doctestHeader :: [T.Text]
-doctestHeader =
+doctestHeader :: T.Text -> [T.Text]
+doctestHeader moduleName =
     [ "{-# OPTIONS_GHC -Wno-unused-imports #-}"
-    , "module Test_doctest where"
+    , "module " <> moduleName <> "_doctest where"
     , ""
-    , "import Test"
+    , "import " <> moduleName
     , "import DA.Assert"
+    , "import Daml.Script"
     , ""
     ]
 
-shouldGenerate :: [T.Text] -> [T.Text] -> Assertion
-shouldGenerate input expected = withTempDir $ \tmpDir -> do
-    let tmpFile = tmpDir </> "Test.daml"
-    T.writeFileUtf8 tmpFile $ T.unlines $ testModuleHeader <> input
-    let opts = (defaultOptions Nothing) {optHaddock=Haddock True, optScenarioService = EnableScenarioService False}
-    withDamlIdeState opts Logger.makeNopHandle (NotificationHandler $ \_ _ -> pure ()) $ \ideState -> do
-        Just pm <- runActionSync ideState $ use GetParsedModule $ toNormalizedFilePath' tmpFile
-        genModuleContent (getDocTestModule pm) @?= T.unlines (doctestHeader <> expected)

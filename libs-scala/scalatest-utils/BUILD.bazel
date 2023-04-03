@@ -20,6 +20,7 @@ da_scala_library(
         "@maven//:org_scalactic_scalactic",
         "@maven//:org_scalatest_scalatest_core",
         "@maven//:org_scalatest_scalatest_flatspec",
+        "@maven//:org_scalatest_scalatest_freespec",
         "@maven//:org_scalatest_scalatest_matchers_core",
         "@maven//:org_scalatest_scalatest_shouldmatchers",
         "@maven//:org_scalatest_scalatest_wordspec",

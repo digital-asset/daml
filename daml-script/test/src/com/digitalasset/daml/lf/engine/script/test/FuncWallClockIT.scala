@@ -9,12 +9,14 @@ import com.daml.lf.engine.script.ledgerinteraction.ScriptTimeMode
 import com.daml.lf.speedy.SValue.SRecord
 
 final class FuncWallClockIT extends AbstractFuncIT {
-  protected override val timeMode = ScriptTimeMode.WallClock
+  import AbstractScriptTest._
+
+  protected override lazy val timeMode = ScriptTimeMode.WallClock
 
   "testSleep" should {
     "sleep for specified duration" in {
       for {
-        clients <- participantClients()
+        clients <- scriptClients()
         SRecord(_, _, vals) <- run(
           clients,
           QualifiedName.assertFromString("ScriptTest:sleepTest"),

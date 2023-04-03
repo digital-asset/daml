@@ -4,6 +4,7 @@
 package com.daml.ledger.client
 
 import com.daml.ledger.api.domain
+import com.daml.ledger.api.domain.{IdentityProviderConfig, IdentityProviderId, JwksUrl}
 import com.daml.ledger.api.testing.utils.{AkkaBeforeAndAfterAll, SuiteResourceManagementAroundEach}
 import com.daml.ledger.client.configuration.{
   CommandClientConfiguration,
@@ -13,6 +14,7 @@ import com.daml.ledger.client.configuration.{
 import com.daml.ledger.runner.common.Config
 import com.daml.lf.data.Ref
 import com.daml.platform.sandbox.fixture.SandboxFixture
+import com.google.protobuf.field_mask.FieldMask
 import io.grpc.ManagedChannel
 import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
@@ -73,6 +75,96 @@ final class LedgerClientIT
       } yield {
         version should fullyMatch regex semVerRegex
       }
+    }
+
+    "identity provider config" should {
+      val config = IdentityProviderConfig(
+        IdentityProviderId.Id(Ref.LedgerString.assertFromString("abcd")),
+        isDeactivated = false,
+        JwksUrl.assertFromString("http://jwks.some.domain:9999/jwks"),
+        "SomeUser",
+        Some("SomeAudience"),
+      )
+
+      val updatedConfig = config.copy(
+        isDeactivated = true,
+        jwksUrl = JwksUrl("http://someotherurl"),
+        issuer = "ANewIssuer",
+        audience = Some("ChangedAudience"),
+      )
+
+      "create an identity provider" in {
+        for {
+          client <- LedgerClient(channel, ClientConfiguration)
+          createdConfig <- client.identityProviderConfigClient.createIdentityProviderConfig(
+            config,
+            None,
+          )
+        } yield {
+          createdConfig should be(config)
+        }
+      }
+      "get an identity provider" in {
+        for {
+          client <- LedgerClient(channel, ClientConfiguration)
+          _ <- client.identityProviderConfigClient.createIdentityProviderConfig(config, None)
+          respConfig <- client.identityProviderConfigClient.getIdentityProviderConfig(
+            config.identityProviderId,
+            None,
+          )
+        } yield {
+          respConfig should be(config)
+        }
+      }
+      "update an identity provider" in {
+        for {
+          client <- LedgerClient(channel, ClientConfiguration)
+          _ <- client.identityProviderConfigClient.createIdentityProviderConfig(config, None)
+          respConfig <- client.identityProviderConfigClient.updateIdentityProviderConfig(
+            updatedConfig,
+            FieldMask(Seq("is_deactivated", "jwks_url", "issuer", "audience")),
+            None,
+          )
+          queriedConfig <- client.identityProviderConfigClient.getIdentityProviderConfig(
+            config.identityProviderId,
+            None,
+          )
+        } yield {
+          respConfig should be(updatedConfig)
+          queriedConfig should be(updatedConfig)
+        }
+      }
+
+      "list identity providers" in {
+        for {
+          client <- LedgerClient(channel, ClientConfiguration)
+          config1 <- client.identityProviderConfigClient.createIdentityProviderConfig(config, None)
+          config2 <- client.identityProviderConfigClient.createIdentityProviderConfig(
+            updatedConfig.copy(identityProviderId =
+              IdentityProviderId.Id(Ref.LedgerString.assertFromString("AnotherIdentityProvider"))
+            ),
+            None,
+          )
+          respConfig <- client.identityProviderConfigClient.listIdentityProviderConfigs(None)
+        } yield {
+          respConfig.toSet should contain theSameElementsAs (Set(config2, config1))
+        }
+      }
+
+      "delete identity provider" in {
+        for {
+          client <- LedgerClient(channel, ClientConfiguration)
+          config1 <- client.identityProviderConfigClient.createIdentityProviderConfig(config, None)
+          _ <- client.identityProviderConfigClient.deleteIdentityProviderConfig(
+            config1.identityProviderId,
+            None,
+          )
+          respConfig <- client.identityProviderConfigClient.listIdentityProviderConfigs(None)
+        } yield {
+          respConfig.toSet should be(Set.empty)
+        }
+      }
+
     }
 
     "shut down the channel when closed" in {

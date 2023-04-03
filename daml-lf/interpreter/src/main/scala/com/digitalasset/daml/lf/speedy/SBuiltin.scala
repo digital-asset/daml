@@ -1004,7 +1004,7 @@ private[lf] object SBuiltin {
       choiceId: ChoiceName,
       consuming: Boolean,
       byKey: Boolean,
-  ) extends UpdateBuiltin(4) {
+  ) extends UpdateBuiltin(4) { // TODO #15882 - take additional arg for choice-authorizers
 
     override protected def executeUpdate(
         args: util.ArrayList[SValue],

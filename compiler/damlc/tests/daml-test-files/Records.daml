@@ -1,10 +1,11 @@
 -- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
 -- All rights reserved.
 
--- @ ERROR B's Company is run by B and they are 3 years old
+-- @ERROR B's Company is run by B and they are 3 years old
 
 module Records where
 
+import Daml.Script
 import DA.Record -- for type annotations using HasField
 import DA.Assert
 import Prelude hiding (view)
@@ -36,11 +37,10 @@ sumAges' = sum . map (.field.owner.age)
 ageL : Lens Person Int
 ageL = (getField @"age", setField @"age")
 
-main = scenario do
-    alice <- getParty "alice"
+main = script @() do
     sumAges (map Record [c,c,c]) === 9
     sumAges' (map Record [c,c,c]) === 9
     view ageL p === p.age
-    submit alice $ abort $ display $ namePunning $ nameAfterOwner c
+    abort $ display $ namePunning $ nameAfterOwner c
     where c = Company "A" p
           p = Person "B" 3

@@ -3,6 +3,8 @@
 
 module MissingSignatories where
 
+import Daml.Script
+
 template TheContract
   with
     ss : [Party]
@@ -10,8 +12,8 @@ template TheContract
     signatory ss
 
 -- @ERROR failed due missing signatories
-test__NoSignatories = scenario do
-  ivy <- getParty "Ivy"
+test__NoSignatories = script @() do
+  ivy <- allocateParty "Ivy"
   submit ivy $ do
-    create (TheContract with ss = [])
-    abort "finished"
+    createCmd (TheContract with ss = [])
+  abort "finished"
