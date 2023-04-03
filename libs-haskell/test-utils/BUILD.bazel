@@ -40,5 +40,6 @@ da_haskell_library(
         "//language-support/hs/bindings:hs-ledger",
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
+        "@rules_haskell//tools/runfiles",
     ],
 )
