@@ -1,0 +1,76 @@
+-- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module TestChoiceAuthority where
+
+import Daml.Script
+
+
+
+template HasAuthority
+  with
+    party: Party
+  where
+    signatory party
+
+
+template ProposeConsortiumAuthority
+  with
+    proposer: Party
+    accepted: [Party]
+    obs: [Party]
+    consortiumParty: Party
+  where
+    signatory proposer, accepted
+    observer obs
+
+    choice Accept : ContractId ProposeConsortiumAuthority
+      with
+        who: Party
+      where
+        controller who
+      do
+        create this with accepted = who :: accepted
+
+    nonconsuming choice Ratify : ContractId HasAuthority
+      where
+        controller proposer
+      do
+        exercise self Ratify1
+
+    nonconsuming choice Ratify1 : ContractId HasAuthority
+      where
+        controller proposer
+        authority accepted -- restrict authority
+      do
+        exercise self Ratify2
+
+    choice Ratify2 : ContractId HasAuthority
+      where
+        controller accepted
+        authority consortiumParty -- gain authority
+      do
+        create HasAuthority with party = consortiumParty
+
+
+test : Script ()
+test = do
+  alice <- allocateParty "Alice"
+  bob <- allocateParty "Bob"
+  charlie <- allocateParty "Charlie"
+
+  org <- allocateParty "TheOrg"
+
+  prop <- submit alice do
+    createCmd ProposeConsortiumAuthority with
+      proposer = alice
+      accepted = []
+      obs = [bob,charlie]
+      consortiumParty = alice -- TODO #15882 replace "alice" with "org" for real test
+
+  prop <- submit bob do exerciseCmd prop Accept with who = bob
+  prop <- submit charlie do exerciseCmd prop Accept with who = charlie
+
+  submit alice do exerciseCmd prop Ratify
+
+  pure ()
