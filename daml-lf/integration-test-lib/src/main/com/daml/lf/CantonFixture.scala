@@ -30,7 +30,7 @@ import scala.sys.process.Process
 @scala.annotation.nowarn("msg=match may not be exhaustive")
 object CantonFixture {
 
-  case class CompiledDar(
+  final case class CompiledDar(
       mainPkg: Ref.PackageId,
       compiledPackages: PureCompiledPackages,
   )
