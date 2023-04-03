@@ -4,6 +4,7 @@
 module DA.Test.FreePort.PortGen (getPortGen) where
 
 import Control.Exception (mapException, throwIO)
+import DA.Bazel.Runfiles
 import DA.Test.FreePort.Error (FreePortError (..))
 import DA.Test.FreePort.OS (os, OS (..))
 import Safe (tailMay)
@@ -12,7 +13,6 @@ import Test.QuickCheck(Gen, chooseInt)
 import Text.Read (readMaybe)
 import Text.Regex.TDFA
 
-import qualified Bazel.Runfiles
 
 newtype PortRange = PortRange (Int, Int) deriving Show -- The main port range
 newtype DynamicPortRange = DynamicPortRange (Int, Int) deriving Show -- Port range to exclude from main port range
@@ -70,8 +70,7 @@ getWindowsDynamicPortRange = do
 
 getMacOSDynamicPortRange :: IO DynamicPortRange
 getMacOSDynamicPortRange = do
-  runFiles <- Bazel.Runfiles.create
-  let sysctl = Bazel.Runfiles.rlocation runFiles "external/sysctl_nix/bin/sysctl"
+  sysctl <- locateRunfiles "external/sysctl_nix/bin/sysctl"
   portData <- mapException DynamicRangeShellFailure $ readProcess sysctl
     [ "net.inet.ip.portrange.first"
     , "net.inet.ip.portrange.last"
