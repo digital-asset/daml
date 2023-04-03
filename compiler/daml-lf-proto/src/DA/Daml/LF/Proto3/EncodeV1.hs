@@ -1002,7 +1002,7 @@ encodeChoiceObservers :: Maybe Expr -> Encode (Just P.Expr)
 encodeChoiceObservers chcObservers =
   encodeExpr (fromMaybe (ENil TParty) chcObservers)
 
-encodeChoiceAuthorizers :: Maybe Expr -> Encode (Just P.Expr)
+encodeChoiceAuthorizers :: Maybe Expr -> Encode (Maybe P.Expr)
 encodeChoiceAuthorizers = \case
   Nothing -> pure Nothing -- dont add field to proto
   Just xs -> encodeExpr xs
