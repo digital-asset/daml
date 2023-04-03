@@ -769,20 +769,33 @@ private[archive] class DecodeV1(minor: LV.Minor) {
               Ret(None)
             }
           ) { choiceObservers =>
-            decodeType(lfChoice.getRetType) { returnType =>
-              decodeExpr(lfChoice.getUpdate, s"$tpl:$chName:choice") { update =>
-                Ret(
-                  TemplateChoice(
-                    name = chName,
-                    consuming = lfChoice.getConsuming,
-                    controllers,
-                    choiceObservers,
-                    selfBinder = selfBinder,
-                    argBinder = v -> t,
-                    returnType,
-                    update,
+            bindWork(
+              if (lfChoice.hasAuthorizers) {
+                assertSince(LV.Features.choiceAuthority, "TemplateChoice.authorizers")
+                decodeExpr(lfChoice.getAuthorizers, s"$tpl:$chName:authorizers") { authorizers =>
+                  Ret(Some(authorizers))
+                }
+              } else {
+                // authorizers are optional post LV.Features.choiceAuthority
+                Ret(None)
+              }
+            ) { choiceAuthorizers =>
+              decodeType(lfChoice.getRetType) { returnType =>
+                decodeExpr(lfChoice.getUpdate, s"$tpl:$chName:choice") { update =>
+                  Ret(
+                    TemplateChoice(
+                      name = chName,
+                      consuming = lfChoice.getConsuming,
+                      controllers,
+                      choiceObservers,
+                      choiceAuthorizers,
+                      selfBinder = selfBinder,
+                      argBinder = v -> t,
+                      returnType,
+                      update,
+                    )
                   )
-                )
+                }
               }
             }
           }
