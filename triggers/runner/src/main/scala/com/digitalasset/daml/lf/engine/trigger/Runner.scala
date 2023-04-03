@@ -55,6 +55,7 @@ import com.daml.lf.language.PackageInterface
 import com.daml.lf.language.Util._
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SValue._
+import com.daml.lf.speedy.SValue.SMap.`SMap Ordering`
 import com.daml.lf.speedy.{Compiler, Pretty, SValue, Speedy}
 import com.daml.lf.{CompiledPackages, PureCompiledPackages}
 import com.daml.logging.LoggingContextOf.label
@@ -81,6 +82,7 @@ import java.util.UUID
 import java.util.concurrent.atomic.AtomicLong
 import scala.annotation.{nowarn, tailrec}
 import scala.collection.concurrent.TrieMap
+import scala.collection.immutable.TreeMap
 import scala.concurrent.duration.{FiniteDuration, _}
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -1469,11 +1471,11 @@ object Runner {
     smap.expect("SMap", { case SMap(_, entries) if entries.contains(key) => entries(key) })
   }
 
-  private[trigger] def numberOfActiveContracts(
+  private[trigger] def getActiveContracts(
       svalue: SValue,
       level: Trigger.Level,
       version: Trigger.Version,
-  ): Option[Int] = {
+  ): Option[TreeMap[SValue, TreeMap[SValue, SValue]]] = {
     level match {
       case Trigger.Level.High if version <= Trigger.Version.`2.0.0` =>
         // For older trigger code, we do not support extracting active contracts from the ACS
@@ -1485,17 +1487,38 @@ object Runner {
         val result = for {
           acs <- svalue.expect("SRecord", { case SRecord(_, _, values) => values.get(0) })
           activeContracts <- acs.expect("SRecord", { case SRecord(_, _, values) => values.get(0) })
-          size <- activeContracts.expect(
+          templateMap <- activeContracts.expect(
             "SMap",
-            { case SMap(_, values) => values.values.map(mapSize).sum },
+            { case SMap(_, values) => values },
           )
-        } yield size
+          contractMap = templateMap.map { case (templateId, smap) =>
+            smap.expect("SMap", { case SMap(_, values) => (templateId, values) })
+          }
+          resultMap <- contractMap
+            .foldRight[Either[String, TreeMap[SValue, TreeMap[SValue, SValue]]]](
+              Right(TreeMap.empty)
+            ) { case (value, result) =>
+              for {
+                entry <- value
+                res <- result
+                (tid, tmap) = entry
+              } yield res + (tid -> tmap)
+            }
+        } yield resultMap
 
         Some(result.orConverterException)
 
       case Trigger.Level.Low =>
         None
     }
+  }
+
+  private[trigger] def numberOfActiveContracts(
+      svalue: SValue,
+      level: Trigger.Level,
+      version: Trigger.Version,
+  ): Option[Int] = {
+    getActiveContracts(svalue, level, version).map(_.values.map(_.values.size).sum)
   }
 
   private[trigger] def numberOfPendingContracts(
