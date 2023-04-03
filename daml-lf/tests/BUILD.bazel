@@ -62,7 +62,6 @@ daml_compile(
 daml_compile(
     name = "Interfaces",
     srcs = ["Interfaces.daml"],
-    target = "1.dev",
     visibility = ["//daml-lf:__subpackages__"],
 )
 
@@ -78,7 +77,6 @@ daml_build_test(
 daml_compile(
     name = "InterfaceViews",
     srcs = ["InterfaceViews.daml"],
-    target = "1.dev",
     visibility = ["//daml-lf:__subpackages__"],
 )
 

@@ -4,8 +4,6 @@
 sdk-version: 0.0.0
 name: interface-retro
 version: 1.0.0
-build-options:
-  - --target=1.dev
 dependencies:
   - daml-prim
   - daml-stdlib
