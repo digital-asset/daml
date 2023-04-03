@@ -6,10 +6,11 @@ module DA.Test.FreePort.PortGen (getPortGen) where
 import Control.Exception (mapException, throwIO)
 import DA.Test.FreePort.Error (FreePortError (..))
 import DA.Test.FreePort.OS (os, OS (..))
+import Safe (tailMay)
+import System.Process (readProcess)
 import Test.QuickCheck(Gen, chooseInt)
 import Text.Read (readMaybe)
 import Text.Regex.TDFA
-import Safe (tailMay)
 
 newtype PortRange = PortRange (Int, Int) deriving Show -- The main port range
 newtype DynamicPortRange = DynamicPortRange (Int, Int) deriving Show -- Port range to exclude from main port range
