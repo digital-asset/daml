@@ -203,6 +203,7 @@ da_scala_library(
         data = [
             ":acs%s.dar" % suffix,
             "//test-common/test-certificates",
+            "@canton//:lib",
         ],
         resources = ["//triggers/runner:src/main/resources/logback.xml"],
         scala_deps = [
