@@ -8,7 +8,7 @@ import akka.actor.typed.{ActorRef, Behavior}
 import akka.actor.typed.scaladsl.Behaviors
 import akka.stream.Materializer
 import akka.stream.scaladsl.Sink
-import com.daml.ledger.api.refinements.ApiTypes.Party
+import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId, Party}
 import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
 import com.daml.ledger.api.v1.commands.CreateCommand
 import com.daml.ledger.api.v1.event.{ArchivedEvent, CreatedEvent, Event}
@@ -72,9 +72,10 @@ object LedgerProcess {
       report: ActorRef[ReportingProcess.Message],
   )
 
-  def create(client: LedgerClient, testSuite: AbstractTriggerTest)(implicit
+  def create(client: LedgerClient)(implicit
       materializer: Materializer,
       config: TriggerSimulationConfig,
+      applicationId: ApplicationId,
   ): Behavior[LedgerManagement] = {
     implicit val ec: ExecutionContext = materializer.executionContext
 
@@ -145,7 +146,7 @@ object LedgerProcess {
           try {
             discard(
               Await.result(
-                testSuite.create(client, party.unwrap, createCommand),
+                AbstractTriggerTest.create(client, party.unwrap, createCommand),
                 config.ledgerWorkloadTimeout,
               )
             )
@@ -164,7 +165,8 @@ object LedgerProcess {
           try {
             discard(
               Await.result(
-                testSuite.archive(client, party.unwrap, event.getTemplateId, event.contractId),
+                AbstractTriggerTest
+                  .archive(client, party.unwrap, event.getTemplateId, event.contractId),
                 config.ledgerWorkloadTimeout,
               )
             )

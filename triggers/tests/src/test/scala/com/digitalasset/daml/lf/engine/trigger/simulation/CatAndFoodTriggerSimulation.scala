@@ -8,6 +8,7 @@ import akka.actor.typed.scaladsl.Behaviors
 import com.daml.ledger.api.v1.event.CreatedEvent
 import com.daml.ledger.api.refinements.ApiTypes.Party
 import com.daml.lf.engine.trigger.simulation.process.{LedgerProcess, TriggerProcessFactory}
+import com.daml.lf.engine.trigger.test.AbstractTriggerTest
 import com.daml.lf.speedy.SValue
 import org.scalacheck.Gen
 import scalaz.syntax.tag._
@@ -19,6 +20,7 @@ class CatAndFoodTriggerSimulation
     extends TriggerMultiProcessSimulation
     with CatTriggerResourceUsageTestGenerators {
 
+  import AbstractTriggerTest._
   import CatAndFoodTriggerSimulation._
 
   override protected def triggerMultiProcessSimulation: Behavior[Unit] = {
@@ -28,7 +30,7 @@ class CatAndFoodTriggerSimulation
         party <- allocateParty(client)
       } yield (client, Party(party))
       val (client, actAs) = Await.result(setup, simulationConfig.simulationSetupTimeout)
-      val ledger = context.spawn(LedgerProcess.create(client, this), "ledger")
+      val ledger = context.spawn(LedgerProcess.create(client), "ledger")
       val triggerFactory: TriggerProcessFactory =
         triggerProcessFactory(client, ledger, "Cats:feedingTrigger", actAs)
       // With a negative start state, Cats:feedingTrigger will have a behaviour that is dependent on Cat and Food contract generators
@@ -60,12 +62,12 @@ class CatAndFoodTriggerSimulation
       catDelay: FiniteDuration,
       foodDelay: FiniteDuration,
       jitter: FiniteDuration,
-  ): Behavior[ContractProcess.Message] = {
-    Behaviors.withTimers[ContractProcess.Message] { timer =>
-      timer.startTimerAtFixedRate(ContractProcess.ScheduleWorkload, workloadFrequency)
+  ): Behavior[WorkloadProcess.Message] = {
+    Behaviors.withTimers[WorkloadProcess.Message] { timer =>
+      timer.startTimerAtFixedRate(WorkloadProcess.ScheduleWorkload, workloadFrequency)
 
       Behaviors.receiveMessage {
-        case ContractProcess.ScheduleWorkload =>
+        case WorkloadProcess.ScheduleWorkload =>
           for (_ <- 1 to batchSize) {
             Gen
               .zip(
@@ -76,18 +78,18 @@ class CatAndFoodTriggerSimulation
               .sample
               .foreach { case (isin, catCreateDelay, foodCreateDelay) =>
                 timer.startSingleTimer(
-                  ContractProcess.CreateContract(createCat(owner.unwrap, isin)),
+                  WorkloadProcess.CreateContract(createCat(owner.unwrap, isin)),
                   catCreateDelay,
                 )
                 timer.startSingleTimer(
-                  ContractProcess.CreateContract(createFood(owner.unwrap, isin)),
+                  WorkloadProcess.CreateContract(createFood(owner.unwrap, isin)),
                   foodCreateDelay,
                 )
               }
           }
           Behaviors.same
 
-        case ContractProcess.CreateContract(event) =>
+        case WorkloadProcess.CreateContract(event) =>
           ledger ! LedgerProcess.CreateContract(event, owner)
           Behaviors.same
       }
@@ -96,7 +98,7 @@ class CatAndFoodTriggerSimulation
 }
 
 object CatAndFoodTriggerSimulation {
-  object ContractProcess {
+  object WorkloadProcess {
     sealed abstract class Message extends Product with Serializable
     case object ScheduleWorkload extends Message
     final case class CreateContract(event: CreatedEvent) extends Message

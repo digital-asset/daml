@@ -36,7 +36,7 @@ abstract class TriggerMultiProcessSimulation
 
   override implicit lazy val executionContext: ExecutionContext = materializer.executionContext
 
-  override protected val applicationId: ApplicationId = ApplicationId(
+  override protected implicit val applicationId: ApplicationId = ApplicationId(
     "trigger-multi-process-simulation"
   )
 

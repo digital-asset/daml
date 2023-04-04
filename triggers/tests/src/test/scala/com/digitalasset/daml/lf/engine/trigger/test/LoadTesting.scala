@@ -92,6 +92,8 @@ abstract class LoadTesting
 
 final class BaseLoadTesting extends LoadTesting {
 
+  import AbstractTriggerTest._
+
   s"With $contractPairings contract pairings" should {
     "Contracts are already created" should {
       "Process all contract pairings successfully" in {
@@ -163,6 +165,8 @@ final class BaseLoadTesting extends LoadTesting {
 
 final class InFlightLoadTesting extends LoadTesting {
 
+  import AbstractTriggerTest._
+
   override protected def triggerRunnerConfiguration: TriggerRunnerConfig =
     super.triggerRunnerConfiguration
       .copy(
@@ -208,6 +212,8 @@ final class InFlightLoadTesting extends LoadTesting {
 }
 
 final class ACSLoadTesting extends LoadTesting {
+
+  import AbstractTriggerTest._
 
   override protected def triggerRunnerConfiguration: TriggerRunnerConfig =
     super.triggerRunnerConfiguration.copy(hardLimit =
@@ -276,6 +282,8 @@ final class ACSLoadTesting extends LoadTesting {
 }
 
 final class TriggerRuleEvaluationTimeoutTesting extends LoadTesting {
+
+  import AbstractTriggerTest._
 
   override protected def triggerRunnerConfiguration: TriggerRunnerConfig =
     super.triggerRunnerConfiguration.copy(hardLimit =

@@ -29,6 +29,7 @@ class DevOnly
     with TryValues {
   self: Suite =>
 
+  import AbstractTriggerTest._
   import DevOnly._
 
   this.getClass.getSimpleName can {

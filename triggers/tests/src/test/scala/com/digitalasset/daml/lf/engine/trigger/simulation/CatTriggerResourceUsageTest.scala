@@ -34,6 +34,7 @@ class CatTriggerResourceUsageTest
     with TryValues
     with CatTriggerResourceUsageTestGenerators {
 
+  import AbstractTriggerTest._
   import TriggerRuleSimulationLib._
 
   // Used to control degree of parallelism in mapAsync streaming operations
