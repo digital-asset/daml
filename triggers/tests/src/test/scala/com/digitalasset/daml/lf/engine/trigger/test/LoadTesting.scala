@@ -3,12 +3,13 @@
 
 package com.daml.lf.engine.trigger.test
 
-import akka.stream.scaladsl.Flow
+import akka.stream.scaladsl.{Flow, Source}
 import com.daml.ledger.api.v1.commands.CreateCommand
 import com.daml.ledger.api.v1.event.Event.Event.Created
 import com.daml.ledger.api.v1.event.{Event => ApiEvent}
 import com.daml.ledger.api.v1.transaction.{Transaction => ApiTransaction}
 import com.daml.ledger.api.v1.{value => LedgerApi}
+import com.daml.ledger.client.LedgerClient
 import com.daml.lf.data.Ref.QualifiedName
 import com.daml.lf.engine.trigger.Runner.TriggerContext
 import com.daml.lf.engine.trigger.{
@@ -85,20 +86,8 @@ final class BaseLoadTesting extends LoadTesting {
         for {
           client <- defaultLedgerClient()
           party <- allocateParty(client)
-          _ <- Future.sequence(
-            (0 until contractPairings).map { i =>
-              // Waiting here ensures that the participant does not try and back pressure during our ACS setup
-              Thread.sleep(20)
-              create(client, party, cat(party, i))
-            }
-          )
-          _ <- Future.sequence(
-            (0 until contractPairings).map { i =>
-              // Waiting here ensures that the participant does not try and back pressure during our ACS setup
-              Thread.sleep(20)
-              create(client, party, food(party, i))
-            }
-          )
+          _ <- create(client, party, (0 until contractPairings).map(i => cat(party, i)))
+          _ <- create(client, party, (0 until contractPairings).map(i => food(party, i)))
           runner = getRunner(
             client,
             QualifiedName.assertFromString("Cats:feedingTrigger"),
@@ -211,20 +200,8 @@ final class ACSLoadTesting extends LoadTesting {
         for {
           client <- defaultLedgerClient()
           party <- allocateParty(client)
-          _ <- Future.sequence(
-            (0 until breedingRate).map { i =>
-              // Waiting here ensures that the participant does not try and back pressure during our ACS setup
-              Thread.sleep(20)
-              create(client, party, cat(party, i))
-            }
-          )
-          _ <- Future.sequence(
-            (0 until breedingRate).map { i =>
-              // Waiting here ensures that the participant does not try and back pressure during our ACS setup
-              Thread.sleep(20)
-              create(client, party, food(party, i))
-            }
-          )
+          _ <- create(client, party, (0 until breedingRate).map(i => cat(party, i)))
+          _ <- create(client, party, (0 until breedingRate).map(i => food(party, i)))
           runner = getRunner(
             client,
             QualifiedName.assertFromString("Cats:feedingTrigger"),

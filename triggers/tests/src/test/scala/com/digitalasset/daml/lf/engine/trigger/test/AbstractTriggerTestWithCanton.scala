@@ -7,7 +7,7 @@ package trigger
 package test
 
 import java.util.UUID
-import akka.stream.scaladsl.Sink
+import akka.stream.scaladsl.{Sink, Source}
 import com.daml.bazeltools.BazelRunfiles
 import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId, Party}
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
@@ -32,6 +32,7 @@ import com.daml.platform.services.time.TimeProviderType
 import org.scalatest._
 import scalaz.syntax.tag._
 
+import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
@@ -139,6 +140,22 @@ trait AbstractTriggerTestWithCanton extends CantonFixture with SuiteResourceMana
     for {
       response <- client.commandServiceClient.submitAndWaitForTransaction(request)
     } yield response.getTransaction.events.head.getCreated.contractId
+  }
+
+  protected def create(
+      client: LedgerClient,
+      party: String,
+      commands: Seq[CreateCommand],
+      elements: Int = 50,
+      per: FiniteDuration = 1.second,
+  )(implicit ec: ExecutionContext): Future[Unit] = {
+    Source(commands)
+      .mapAsync(8) { cmd =>
+        create(client, party, cmd)
+      }
+      .throttle(elements, per)
+      .run()
+      .map(_ => ())
   }
 
   protected def exercise(
