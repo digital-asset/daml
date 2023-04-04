@@ -3,13 +3,12 @@
 
 package com.daml.lf.engine.trigger.test
 
-import akka.stream.scaladsl.{Flow, Source}
+import akka.stream.scaladsl.Flow
 import com.daml.ledger.api.v1.commands.CreateCommand
 import com.daml.ledger.api.v1.event.Event.Event.Created
 import com.daml.ledger.api.v1.event.{Event => ApiEvent}
 import com.daml.ledger.api.v1.transaction.{Transaction => ApiTransaction}
 import com.daml.ledger.api.v1.{value => LedgerApi}
-import com.daml.ledger.client.LedgerClient
 import com.daml.lf.data.Ref.QualifiedName
 import com.daml.lf.engine.trigger.Runner.TriggerContext
 import com.daml.lf.engine.trigger.{
@@ -25,7 +24,6 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.concurrent.duration._
-import scala.concurrent.Future
 
 abstract class LoadTesting
     extends AsyncWordSpec
