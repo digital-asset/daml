@@ -1,7 +1,7 @@
 // Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.engine.trigger
+package com.daml.lf.engine.trigger.simulation
 
 import akka.actor.ActorSystem
 import akka.stream.Materializer
@@ -11,6 +11,7 @@ import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.daml.ledger.runner.common.Config
 import com.daml.ledger.sandbox.SandboxOnXForTest.{ApiServerConfig, ParticipantId, singleParticipant}
 import com.daml.lf.data.Ref.QualifiedName
+import com.daml.lf.engine.trigger.{Converter, TriggerMsg, TriggerParties, TriggerRunnerConfig}
 import com.daml.lf.engine.trigger.test.AbstractTriggerTest
 import com.daml.lf.speedy.SValue
 import com.daml.platform.services.time.TimeProviderType

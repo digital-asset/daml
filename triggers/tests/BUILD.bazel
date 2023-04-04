@@ -242,9 +242,14 @@ da_scala_library(
 da_scala_library(
     name = "trigger-simulation-lib",
     srcs = [
-        "src/test/scala/com/digitalasset/daml/lf/engine/trigger/CatGenerators.scala",
-        "src/test/scala/com/digitalasset/daml/lf/engine/trigger/TriggerMultiProcessSimulation.scala",
-        "src/test/scala/com/digitalasset/daml/lf/engine/trigger/TriggerRuleSimulationLib.scala",
+        "src/test/scala/com/digitalasset/daml/lf/engine/trigger/simulation/CatGenerators.scala",
+        "src/test/scala/com/digitalasset/daml/lf/engine/trigger/simulation/TriggerMultiProcessSimulation.scala",
+        "src/test/scala/com/digitalasset/daml/lf/engine/trigger/simulation/TriggerRuleSimulationLib.scala",
+        "src/test/scala/com/digitalasset/daml/lf/engine/trigger/simulation/process/AllowFiltering.scala",
+        "src/test/scala/com/digitalasset/daml/lf/engine/trigger/simulation/process/AllowHeartbeats.scala",
+        "src/test/scala/com/digitalasset/daml/lf/engine/trigger/simulation/process/LedgerProcess.scala",
+        "src/test/scala/com/digitalasset/daml/lf/engine/trigger/simulation/process/ReportingProcess.scala",
+        "src/test/scala/com/digitalasset/daml/lf/engine/trigger/simulation/process/TriggerProcess.scala",
     ],
     scala_deps = [
         "@maven//:com_typesafe_akka_akka_stream",
@@ -289,7 +294,7 @@ da_scala_library(
 da_scala_test_suite(
     name = "trigger-simulation-lib-tests",
     timeout = "long",
-    srcs = glob(["src/test/scala/com/digitalasset/daml/lf/engine/trigger/*Test.scala"]),
+    srcs = glob(["src/test/scala/com/digitalasset/daml/lf/engine/trigger/simulation/*Test.scala"]),
     data = [
         ":acs-1.dev.dar",
         "//test-common/test-certificates",
@@ -342,7 +347,7 @@ da_scala_test_suite(
 da_scala_test_suite(
     name = "trigger-multi-process-simulation-tests",
     timeout = "eternal",
-    srcs = ["src/test/scala/com/digitalasset/daml/lf/engine/trigger/CatAndFoodTriggerSimulation.scala"],
+    srcs = ["src/test/scala/com/digitalasset/daml/lf/engine/trigger/simulation/CatAndFoodTriggerSimulation.scala"],
     data = [
         ":acs-1.dev.dar",
         "//test-common/test-certificates",

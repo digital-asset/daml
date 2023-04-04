@@ -1,12 +1,13 @@
 // Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.engine.trigger
+package com.daml.lf.engine.trigger.simulation
 
 import akka.actor.typed.{ActorRef, Behavior}
 import akka.actor.typed.scaladsl.Behaviors
 import com.daml.ledger.api.v1.event.CreatedEvent
 import com.daml.ledger.api.refinements.ApiTypes.Party
+import com.daml.lf.engine.trigger.simulation.process.{LedgerProcess, TriggerProcessFactory}
 import com.daml.lf.speedy.SValue
 import org.scalacheck.Gen
 import scalaz.syntax.tag._
@@ -18,7 +19,6 @@ class CatAndFoodTriggerSimulation
     extends TriggerMultiProcessSimulation
     with CatTriggerResourceUsageTestGenerators {
 
-  import TriggerMultiProcessSimulation._
   import CatAndFoodTriggerSimulation._
 
   override protected def triggerMultiProcessSimulation: Behavior[Unit] = {

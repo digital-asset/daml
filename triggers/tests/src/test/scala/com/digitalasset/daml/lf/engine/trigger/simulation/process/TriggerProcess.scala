@@ -1,0 +1,205 @@
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+package com.daml.lf.engine.trigger.simulation
+package process
+
+import akka.actor.typed.{ActorRef, Behavior}
+import akka.actor.typed.scaladsl.Behaviors
+import akka.stream.Materializer
+import akka.util.Timeout
+import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId, Party}
+import com.daml.ledger.api.v1.event.CreatedEvent
+import com.daml.ledger.api.v1.transaction_filter.TransactionFilter
+import com.daml.ledger.client.LedgerClient
+import com.daml.lf.PureCompiledPackages
+import com.daml.lf.data.Ref.{Identifier, PackageId, QualifiedName}
+import com.daml.lf.engine.trigger.simulation.TriggerMultiProcessSimulation.{
+  TriggerSimulationConfig,
+  TriggerSimulationFailure,
+}
+import com.daml.lf.engine.trigger.{
+  Converter,
+  Runner,
+  TriggerMsg,
+  TriggerParties,
+  TriggerRunnerConfig,
+}
+import com.daml.lf.speedy.SValue
+import com.daml.platform.services.time.TimeProviderType
+
+import java.lang.management.ManagementFactory
+import java.util.UUID
+import scala.collection.immutable.TreeMap
+import scala.concurrent.Await
+import scala.util.{Failure, Success}
+import scalaz.syntax.tag._
+
+import scala.jdk.CollectionConverters._
+
+object TriggerProcess {
+  sealed abstract class Message extends Product with Serializable
+  // Used by LedgerProcess
+  private[process] final case class LedgerResponse(
+      api: ActorRef[LedgerProcess.Message],
+      report: ActorRef[ReportingProcess.Message],
+  ) extends Message
+  // Used by all processes
+  private[process] final case class MessageWrapper(msg: TriggerMsg) extends Message
+}
+
+final class TriggerProcessFactory private[simulation] (
+    client: LedgerClient,
+    ledger: ActorRef[LedgerProcess.LedgerManagement],
+    name: String,
+    packageId: PackageId,
+    applicationId: ApplicationId,
+    compiledPackages: PureCompiledPackages,
+    timeProviderType: TimeProviderType,
+    triggerConfig: TriggerRunnerConfig,
+    actAs: Party,
+    readAs: Set[Party] = Set.empty,
+)(implicit materializer: Materializer) {
+
+  import TriggerProcess._
+
+  private[this] val triggerId = UUID.randomUUID()
+  private[this] val triggerType = Identifier(packageId, QualifiedName.assertFromString(name))
+  private[this] val triggerParties = TriggerParties(
+    actAs = actAs,
+    readAs = readAs,
+  )
+  private[this] val simulator = new TriggerRuleSimulationLib(
+    compiledPackages,
+    triggerType,
+    triggerConfig,
+    client,
+    timeProviderType,
+    applicationId,
+    triggerParties,
+  )
+  private[this] val trigger = simulator.trigger.defn
+  private[this] val memBean = ManagementFactory.getMemoryMXBean
+  private[this] val gcBeans = ManagementFactory.getGarbageCollectorMXBeans
+
+  def create(userState: SValue, acs: Seq[CreatedEvent] = Seq.empty)(implicit
+      config: TriggerSimulationConfig
+  ): Behavior[Message] = {
+    val converter = new Converter(compiledPackages, trigger)
+    val startState = converter
+      .fromTriggerUpdateState(
+        acs,
+        userState,
+        parties = triggerParties,
+        triggerConfig = triggerConfig,
+      )
+    val transactionFilter =
+      TransactionFilter(
+        triggerParties.readers.map(p => (p.unwrap, simulator.trigger.filters)).toMap
+      )
+
+    implicit val ledgerResponseTimeout: Timeout = Timeout(config.ledgerRegistrationTimeout)
+
+    Behaviors.setup { context =>
+      context.ask(
+        ledger,
+        LedgerProcess.LedgerRegistration(triggerId, context.self, actAs, transactionFilter, _),
+      ) {
+        case Success(LedgerProcess.LedgerApi(api, report)) =>
+          LedgerResponse(api, report)
+
+        case Failure(exn) =>
+          throw TriggerSimulationFailure(exn)
+      }
+
+      Behaviors.receiveMessage {
+        case LedgerResponse(api, report) =>
+          run(api, report, startState)
+
+        case msg: MessageWrapper =>
+          context.log.error(
+            s"Whilst waiting for a ledger response during trigger registration, we received an unexpected message: $msg"
+          )
+          Behaviors.stopped
+      }
+    }
+  }
+
+  private[this] def run(
+      ledgerApi: ActorRef[LedgerProcess.Message],
+      report: ActorRef[ReportingProcess.Message],
+      state: SValue,
+  )(implicit config: TriggerSimulationConfig): Behavior[Message] = {
+    Behaviors.receive {
+      case (_, MessageWrapper(msg)) =>
+        val (submissions, metrics, nextState) = Await.result(
+          simulator.updateStateLambda(state, msg),
+          triggerConfig.hardLimit.ruleEvaluationTimeout,
+        )
+        val acs = Runner
+          .getActiveContracts(state, trigger.level, trigger.version)
+          .getOrElse(
+            throw TriggerSimulationFailure(
+              s"Failed to extract active contracts from the internal state for trigger: $triggerType"
+            )
+          )
+        val triggerACSView: TreeMap[String, Identifier] = acs.flatMap { case (_, smap) =>
+          smap.map { case (anyContractId, anyTemplate) =>
+            (toContractId(anyContractId), toTemplateId(anyTemplate))
+          }
+        }
+        val percentageHeapUsed =
+          memBean.getHeapMemoryUsage.getUsed / memBean.getHeapMemoryUsage.getMax.toDouble
+        val gcTime = gcBeans.asScala.map(_.getCollectionTime).sum
+        val gcCount = gcBeans.asScala.map(_.getCollectionCount).sum
+        val completionStatus = msg match {
+          case TriggerMsg.Completion(completion) =>
+            Some(completion.getStatus)
+          case _ =>
+            None
+        }
+
+        submissions.foreach { request =>
+          ledgerApi ! LedgerProcess.CommandSubmission(request)
+        }
+        report ! ReportingProcess.TriggerUpdate(
+          triggerId,
+          triggerType,
+          submissions,
+          metrics,
+          triggerACSView,
+          percentageHeapUsed,
+          gcTime,
+          gcCount,
+          completionStatus,
+        )
+
+        run(ledgerApi, report, state = nextState)
+
+      case (context, response: LedgerResponse) =>
+        context.log.error(
+          s"Having registered with the ledger, we received an unexpected registration response: $response"
+        )
+        Behaviors.stopped
+    }
+  }
+
+  private[this] def toContractId(v: SValue): String = {
+    Converter
+      .toAnyContractId(v)
+      .getOrElse(
+        throw TriggerSimulationFailure(s"Failed to convert contract ID given SValue: $v")
+      )
+      .contractId
+      .coid
+  }
+
+  private[this] def toTemplateId(v: SValue): Identifier = {
+    Converter
+      .toAnyTemplate(v)
+      .getOrElse(
+        throw TriggerSimulationFailure(s"Failed to convert template ID given SValue: $v")
+      )
+      .ty
+  }
+}
