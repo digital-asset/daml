@@ -53,9 +53,6 @@ trait AbstractTriggerTestWithCanton extends CantonFixture with SuiteResourceMana
   override protected def timeProviderType = TimeProviderType.Static
   override protected def tlsEnable = false
 
-  // TODO: remove debugging cruft
-  override protected val cantonFixtureDebugMode = true
-
   protected def toHighLevelResult(s: SValue) = s match {
     case SRecord(_, _, values) if values.size == 6 =>
       AbstractTriggerTestWithCanton.HighLevelResult(
