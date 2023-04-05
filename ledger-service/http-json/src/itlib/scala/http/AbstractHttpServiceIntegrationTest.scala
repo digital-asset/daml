@@ -27,6 +27,7 @@ import org.scalatest.matchers.should.Matchers
 import scalaz.std.list._
 import scalaz.std.vector._
 import scalaz.std.scalaFuture._
+import scalaz.std.tuple._
 import scalaz.syntax.apply._
 import scalaz.syntax.bifunctor._
 import scalaz.syntax.show._
@@ -819,7 +820,9 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
           alice: domain.Party,
           toDiscloseCid: domain.ContractId,
           toDisclosePayload: lav1.value.Record,
-          ctMetadata: DC.Metadata,
+          tdCtMetadata: DC.Metadata,
+          anotherToDiscloseCid: domain.ContractId,
+          atdCtMetadata: DC.Metadata,
       )
 
       def contractToDisclose(
@@ -856,17 +859,35 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
         )
         createResp <- fixture.client.commandServiceClient
           .submitAndWaitForTransaction(initialCreate, Some(jwt.value))
-        (toDiscloseCid, ctMetadata) = inside(createResp.transaction) { case Some(tx) =>
-          inside(tx.events) { case Seq(lav1.event.Event(lav1.event.Event.Event.Created(ce))) =>
-            (
-              domain.ContractId(ce.contractId),
-              inside(ce.metadata map DC.Metadata.fromLedgerApi) { case Some(\/-(metadata)) =>
-                metadata
-              },
-            )
-          }
+        // fetch what we can from the command service transaction
+        ((toDiscloseCid, tdCtMetadata), (atdCid, atdCtMetadata)) = inside(createResp.transaction) {
+          case Some(tx) =>
+            import lav1.event.Event, Event.Event.Created
+            inside(tx.events) { case Seq(Event(Created(ce0)), Event(Created(ce1))) =>
+              val EntityTD = ToDisclose.entityName
+              val EntityATD = AnotherToDisclose.entityName
+              val orderedCes = inside((ce0, ce1) umap (_.templateId.map(_.entityName))) {
+                case (Some(EntityTD), Some(EntityATD)) => (ce0, ce1)
+                case (Some(EntityATD), Some(EntityTD)) => (ce1, ce0)
+              }
+              orderedCes umap { ce =>
+                (
+                  domain.ContractId(ce.contractId),
+                  inside(ce.metadata map DC.Metadata.fromLedgerApi) { case Some(\/-(metadata)) =>
+                    metadata
+                  },
+                )
+              }
+            }
         }
-      } yield ContractToDisclose(alice, toDiscloseCid, toDisclosePayload, ctMetadata)
+      } yield ContractToDisclose(
+        alice,
+        toDiscloseCid,
+        toDisclosePayload,
+        tdCtMetadata,
+        atdCid,
+        atdCtMetadata,
+      )
 
       def runDisclosureTestCase[Setup](
           fixture: HttpServiceTestFixtureData
@@ -883,8 +904,8 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
         val garbageMessage = s"some test garbage ${uniqueId()}"
         for {
           // first, set up something for alice to disclose to bob
-          toDisclose @ ContractToDisclose(alice, toDiscloseCid, toDisclosePayload, ctMetadata) <-
-            contractToDisclose(fixture, junkMessage)
+          toDisclose @ ContractToDisclose(alice, toDiscloseCid, toDisclosePayload, tdCtMetadata, anotherToDiscloseCid, _) <-
+            contractToDisclose(fixture, junkMessage, garbageMessage)
 
           // next, onboard bob to try to interact with the disclosed contract
           (bob, bobHeaders) <- fixture.getUniquePartyAndAuthHeaders("Bob")
@@ -898,7 +919,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
                   toDiscloseCid,
                   TpId.Disclosure.ToDisclose,
                   oneDc,
-                  ctMetadata,
+                  tdCtMetadata,
                 )
               domain.CommandMeta(
                 None,
