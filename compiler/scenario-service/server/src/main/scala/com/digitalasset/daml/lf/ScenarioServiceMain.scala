@@ -312,16 +312,16 @@ class ScenarioService(
       }
     }
 
-    response.onComplete {
+    respStream.synchronized(response.onComplete {
       case Success(None) =>
         log(s"runScript[$contextId]: $scenarioId not found")
-        respStream.synchronized(respStream.sendError(notFoundContextError(req.getContextId)))
+        respStream.sendError(notFoundContextError(req.getContextId))
       case Success(Some(resp)) =>
-        respStream.synchronized(respStream.sendFinalResponse(resp))
+        respStream.sendFinalResponse(resp)
       case Failure(err) =>
         System.err.println(err)
-        respStream.synchronized(respStream.sendError(err))
-    }
+        respStream.sendError(err)
+    })
   }
 
   override def newContext(
