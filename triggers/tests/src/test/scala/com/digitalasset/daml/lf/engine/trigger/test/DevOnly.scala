@@ -25,9 +25,10 @@ class DevOnly
     with Matchers
     with Inside
     with TryValues {
-  self: Suite =>
 
   import DevOnly._
+
+  override protected val cantonFixtureDebugMode = true
 
   this.getClass.getSimpleName can {
     "InterfaceTest" should {
@@ -68,8 +69,7 @@ class DevOnly
           runner = getRunner(client, triggerId, party)
 
           // Determine current ledger offset
-          queryResult <- runner.queryACS()
-          (_, offset) = queryResult
+          (_, offset) <- runner.queryACS()
 
           _ <- create(
             client,
@@ -103,11 +103,8 @@ class DevOnly
           )
 
           // Determine ACS for this test run's setup
-          queryResult <- runner.queryACS()
-          (acs, _) = queryResult
+          (acs, _) <- runner.queryACS()
 
-          // 1 for ledger create command completion
-          // 1 for ledger create command completion
           // 1 for transactional create of template A
           // 1 for transactional create of template B
           _ <- runner
@@ -121,13 +118,14 @@ class DevOnly
                   case _ =>
                   // No evidence to collect
                 }
-                .take(4),
+                .take(2),
             )
             ._2
         } yield {
           transactionEvents.size shouldBe 2
-          val Seq(templateATransactionId, templateBTransactionId) =
-            transactionEvents.keys.toSeq.sorted
+          val templateATransactionId = transactionEvents.transactionIdFor(templateA)
+          val templateBTransactionId = transactionEvents.transactionIdFor(templateB)
+          templateATransactionId should not equal templateBTransactionId
           transactionEvents(templateATransactionId) shouldHaveCreateArgumentsFor templateA
           transactionEvents(templateATransactionId) shouldHaveViewValues (0, visibleViaAllInDar)
           transactionEvents(templateBTransactionId) shouldHaveCreateArgumentsFor templateB
@@ -145,8 +143,7 @@ class DevOnly
           runner = getRunner(client, triggerId, party)
 
           // Determine current ledger offset
-          queryResult <- runner.queryACS()
-          (_, offset) = queryResult
+          (_, offset) <- runner.queryACS()
 
           _ <- create(
             client,
@@ -186,11 +183,8 @@ class DevOnly
           )
 
           // Determine ACS for this test run's setup
-          queryResult <- runner.queryACS()
-          (acs, _) = queryResult
+          (acs, _) <- runner.queryACS()
 
-          // 1 for ledger create command completion
-          // 1 for ledger create command completion
           // 1 for transactional create of template A
           // 1 for transactional create of template B, via interface I
           _ <- runner
@@ -204,13 +198,14 @@ class DevOnly
                   case _ =>
                   // No evidence to collect
                 }
-                .take(4),
+                .take(2),
             )
             ._2
         } yield {
           transactionEvents.size shouldBe 2
-          val Seq(templateATransactionId, templateBTransactionId) =
-            transactionEvents.keys.toSeq.sorted
+          val templateATransactionId = transactionEvents.transactionIdFor(templateA)
+          val templateBTransactionId = transactionEvents.transactionIdFor(templateB)
+          templateATransactionId should not equal templateBTransactionId
           transactionEvents(templateATransactionId) shouldHaveCreateArgumentsFor templateA
           transactionEvents(templateATransactionId) shouldHaveViewValues (0, visibleViaTemplateA)
           transactionEvents(templateBTransactionId) shouldHaveNoCreateArgumentsFor templateB
@@ -228,8 +223,7 @@ class DevOnly
           runner = getRunner(client, triggerId, party)
 
           // Determine current ledger offset
-          queryResult <- runner.queryACS()
-          (_, offset) = queryResult
+          (_, offset) <- runner.queryACS()
 
           _ <- create(
             client,
@@ -269,11 +263,8 @@ class DevOnly
           )
 
           // Determine ACS for this test run's setup
-          queryResult <- runner.queryACS()
-          (acs, _) = queryResult
+          (acs, _) <- runner.queryACS()
 
-          // 1 for ledger create command completion
-          // 1 for ledger create command completion
           // 1 for transactional create of template A, via interface I
           // 1 for transactional create of template B, via interface I
           _ <- runner
@@ -287,13 +278,14 @@ class DevOnly
                   case _ =>
                   // No evidence to collect
                 }
-                .take(4),
+                .take(2),
             )
             ._2
         } yield {
           transactionEvents.size shouldBe 2
-          val Seq(templateATransactionId, templateBTransactionId) =
-            transactionEvents.keys.toSeq.sorted
+          val templateATransactionId = transactionEvents.transactionIdFor(templateA)
+          val templateBTransactionId = transactionEvents.transactionIdFor(templateB)
+          templateATransactionId should not equal templateBTransactionId
           transactionEvents(templateATransactionId) shouldHaveNoCreateArgumentsFor templateA
           transactionEvents(templateATransactionId) shouldHaveViewValues (0, visibleViaInterfaceI)
           transactionEvents(templateBTransactionId) shouldHaveNoCreateArgumentsFor templateB
@@ -305,6 +297,22 @@ class DevOnly
 }
 
 object DevOnly extends Matchers with Inside {
+
+  implicit class TransactionEventsHelper(events: TrieMap[String, Seq[Event]]) {
+    def transactionIdFor(templateId: Identifier): String = {
+      events.collect {
+        case (
+              transactionId,
+              Seq(
+                Event(
+                  Created(CreatedEvent(_, _, Some(`templateId`), _, _, _, _, _, _, _, _, _))
+                )
+              ),
+            ) =>
+          transactionId
+      }.head
+    }
+  }
 
   implicit class TriggerMsgTestHelper(events: Seq[Event]) {
     def shouldHaveNoCreateArgumentsFor(templateId: Identifier): Assertion =

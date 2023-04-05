@@ -81,7 +81,7 @@ trait CantonFixture extends SuiteResource[Vector[Port]] with AkkaBeforeAndAfterA
 
   // This flag setup some behavior to ease debugging tests.
   //  If `true`
-  //   - temporary file are not deleted
+  //   - temporary file are not deleted (this requires "--test_tmpdir=/tmp/" or similar for bazel builds)
   //   - some debug info are logged.
   protected val cantonFixtureDebugMode = false
 
@@ -303,6 +303,7 @@ trait CantonFixture extends SuiteResource[Vector[Port]] with AkkaBeforeAndAfterA
       hostIp = "localhost",
       port = port.value,
       configuration = LedgerClientConfiguration(
+        // FIXME: should this be daml-script? Maybe daml-test?
         applicationId = token.fold("daml-script")(_ => ""),
         ledgerIdRequirement = LedgerIdRequirement.none,
         commandClient = CommandClientConfiguration.default,
