@@ -838,22 +838,18 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
           ShRecord(owner = alice, garbage = garbageMessage)
         )
         createCommands = Seq(
-          util.Commands.create(
-            refApiIdentifier(ToDisclose),
-            toDisclosePayload,
-          ),
-          util.Commands.create(
-            refApiIdentifier(AnotherToDisclose),
-            anotherToDisclosePayload,
-          ),
-        )
+          (ToDisclose, toDisclosePayload),
+          (AnotherToDisclose, anotherToDisclosePayload),
+        ) map { case (tpid, payload) =>
+          Command(util.Commands.create(refApiIdentifier(tpid), payload))
+        }
         initialCreate = SubmitAndWaitRequest(
           Some(
             Commands(
               commandId = uniqueCommandId().unwrap,
               applicationId = applicationId.unwrap,
               actAs = domain.Party unsubst Seq(alice),
-              commands = createCommands map (Command(_)),
+              commands = createCommands,
             )
           )
         )
@@ -904,7 +900,14 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
         val garbageMessage = s"some test garbage ${uniqueId()}"
         for {
           // first, set up something for alice to disclose to bob
-          toDisclose @ ContractToDisclose(alice, toDiscloseCid, toDisclosePayload, tdCtMetadata, anotherToDiscloseCid, _) <-
+          toDisclose @ ContractToDisclose(
+            alice,
+            toDiscloseCid,
+            toDisclosePayload,
+            tdCtMetadata,
+            anotherToDiscloseCid,
+            _,
+          ) <-
             contractToDisclose(fixture, junkMessage, garbageMessage)
 
           // next, onboard bob to try to interact with the disclosed contract
