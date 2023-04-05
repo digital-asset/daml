@@ -73,6 +73,8 @@ if ($env:SKIP_TESTS -ceq "False") {
     ./ci/remap-scala-test-short-names.ps1 `
       | Out-File -Encoding UTF8 -NoNewline scala-test-suite-name-map.json
 
+    bazel test -t --runs_per_test 100 //compiler/damlc/tests:damlc-test
+
     bazel test //... `
       `-`-profile test-profile.json `
       `-`-experimental_profile_include_target_label `

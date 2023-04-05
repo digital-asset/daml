@@ -299,11 +299,14 @@ class ScenarioService(
 
       sleepRandom()
       while (!response.isCompleted) {
-        respStream.sendStatus(
-          ScenarioStatus.newBuilder
-            .setMillisecondsPassed(millisPassed)
-            .setStartedAt(startedAt)
-            .build
+        // Must synchronize this with the response, as its possible a script/scenario will complete/error at the same time as a status update
+        respStream.synchronized(
+          respStream.sendStatus(
+            ScenarioStatus.newBuilder
+              .setMillisecondsPassed(millisPassed)
+              .setStartedAt(startedAt)
+              .build
+          )
         )
         sleepRandom()
       }
@@ -312,12 +315,12 @@ class ScenarioService(
     response.onComplete {
       case Success(None) =>
         log(s"runScript[$contextId]: $scenarioId not found")
-        respStream.sendError(notFoundContextError(req.getContextId))
+        respStream.synchronized(respStream.sendError(notFoundContextError(req.getContextId)))
       case Success(Some(resp)) =>
-        respStream.sendFinalResponse(resp)
+        respStream.synchronized(respStream.sendFinalResponse(resp))
       case Failure(err) =>
         System.err.println(err)
-        respStream.sendError(err)
+        respStream.synchronized(respStream.sendError(err))
     }
   }
 
