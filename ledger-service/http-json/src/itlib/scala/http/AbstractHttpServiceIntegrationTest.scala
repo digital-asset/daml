@@ -815,7 +815,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
       val (_, checkVisibilityVA) =
         VA.record(
           Ref.Identifier assertFromString "ignored:Disclosure:CheckVisibility",
-          ShRecord(disclosed = VAx.contractIdDomain),
+          ShRecord(disclosed = VAx.contractIdDomain, ifaceDisclosed = VAx.contractIdDomain),
         )
 
       final case class ContractToDisclose(
@@ -1035,7 +1035,12 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
                 domain.EnrichedContractId(Some(TpId.Disclosure.Viewport), viewportCid),
                 checkVisibilityChoice,
                 boxedRecord(
-                  argToApi(checkVisibilityVA)(ShRecord(disclosed = toDisclose.toDiscloseCid))
+                  argToApi(checkVisibilityVA)(
+                    ShRecord(
+                      disclosed = toDisclose.toDiscloseCid,
+                      ifaceDisclosed = toDisclose.anotherToDiscloseCid,
+                    )
+                  )
                 ),
                 None,
                 meta map (_ rightMap boxedRecord),
@@ -1060,7 +1065,12 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
                   argToApi(viewportVA)(ShRecord(owner = bob)),
                   checkVisibilityChoice,
                   boxedRecord(
-                    argToApi(checkVisibilityVA)(ShRecord(disclosed = toDisclose.toDiscloseCid))
+                    argToApi(checkVisibilityVA)(
+                      ShRecord(
+                        disclosed = toDisclose.toDiscloseCid,
+                        ifaceDisclosed = toDisclose.anotherToDiscloseCid,
+                      )
+                    )
                   ),
                   None,
                   meta,

@@ -44,7 +44,9 @@ template Viewport with
     signatory owner
     nonconsuming choice CheckVisibility: Text with
         disclosed: ContractId ToDisclose
+        ifaceDisclosed: ContractId HasGarbage
       controller owner
       do
         td <- exercise disclosed $ Open_Fetch owner
-        pure $ show owner <> " can see from " <> show td.owner <> ": " <> td.junk
+        atd <- exercise ifaceDisclosed $ G_Open_Fetch owner
+        pure $ show owner <> " can see from " <> show td.owner <> ": " <> td.junk <> ", " <> atd.garbage
