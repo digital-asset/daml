@@ -5,7 +5,6 @@ package com.daml.lf.engine.trigger.test
 
 import akka.stream.scaladsl.Flow
 import com.daml.lf.data.Ref._
-import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.daml.ledger.api.v1.commands.CreateCommand
 import com.daml.ledger.api.v1.event.{CreatedEvent, Event}
 import com.daml.ledger.api.v1.event.Event.Event.Created
@@ -22,10 +21,9 @@ import scala.collection.concurrent.TrieMap
 
 class DevOnly
     extends AsyncWordSpec
-    with AbstractTriggerTest
+    with AbstractTriggerTestWithCanton
     with Matchers
     with Inside
-    with SuiteResourceManagementAroundAll
     with TryValues {
   self: Suite =>
 
@@ -37,7 +35,7 @@ class DevOnly
       val tId = LedgerApi.Identifier(packageId, "Interface", "Asset")
       "1 transfer" in {
         for {
-          client <- ledgerClient()
+          client <- defaultLedgerClient()
           party <- allocateParty(client)
           runner = getRunner(client, triggerId, party)
           (acs, offset) <- runner.queryACS()
@@ -65,7 +63,7 @@ class DevOnly
         val transactionEvents = TrieMap.empty[String, Seq[Event]]
 
         for {
-          client <- ledgerClient()
+          client <- defaultLedgerClient()
           party <- allocateParty(client)
           runner = getRunner(client, triggerId, party)
 
@@ -142,7 +140,7 @@ class DevOnly
         val transactionEvents = TrieMap.empty[String, Seq[Event]]
 
         for {
-          client <- ledgerClient()
+          client <- defaultLedgerClient()
           party <- allocateParty(client)
           runner = getRunner(client, triggerId, party)
 
@@ -225,7 +223,7 @@ class DevOnly
         val transactionEvents = TrieMap.empty[String, Seq[Event]]
 
         for {
-          client <- ledgerClient()
+          client <- defaultLedgerClient()
           party <- allocateParty(client)
           runner = getRunner(client, triggerId, party)
 
