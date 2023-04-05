@@ -16,7 +16,7 @@ import com.daml.ledger.client.configuration.{
 }
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.UserId
-import com.daml.platform.sandbox.fixture.SandboxFixture
+import com.daml.lf.integrationtest.CantonFixture
 import com.google.protobuf.field_mask.FieldMask
 import io.grpc.StatusRuntimeException
 import io.grpc.Status.Code
@@ -29,7 +29,7 @@ import scala.language.implicitConversions
 class ConfigSpec
     extends AsyncWordSpec
     with Matchers
-    with SandboxFixture
+    with CantonFixture
     with SuiteResourceManagementAroundAll {
 
   private val clientConfig = LedgerClientConfiguration(

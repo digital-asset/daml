@@ -5,7 +5,6 @@ package com.daml.lf.engine.trigger.test
 
 import akka.stream.scaladsl.Flow
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
-import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.daml.ledger.api.v1.commands.CreateCommand
 import com.daml.ledger.api.v1.{value => LedgerApi}
 import com.daml.ledger.client.configuration.LedgerClientConfiguration
@@ -20,11 +19,10 @@ import org.scalatest.wordspec.AsyncWordSpec
 
 class Jwt
     extends AsyncWordSpec
-    with AbstractTriggerTest
+    with AbstractTriggerTestWithCanton
     with SandboxFixture
     with SandboxRequiringAuthorization
     with Matchers
-    with SuiteResourceManagementAroundAll
     with TryValues {
   self: Suite =>
 
@@ -54,7 +52,7 @@ class Jwt
       )
     "1 create" in {
       for {
-        adminClient <- ledgerClient(config =
+        adminClient <- defaultLedgerClient(config =
           Some(
             ledgerClientConfiguration.copy(
               token = Some(toHeader(forApplicationId("custom app id", adminToken)))
@@ -62,7 +60,7 @@ class Jwt
           )
         )
         _ <- adminClient.partyManagementClient.allocateParty(Some(party), None)
-        client <- ledgerClient()
+        client <- defaultLedgerClient()
         runner = getRunner(client, QualifiedName.assertFromString("ACS:test"), party)
         (acs, offset) <- runner.queryACS()
         // Start the future here

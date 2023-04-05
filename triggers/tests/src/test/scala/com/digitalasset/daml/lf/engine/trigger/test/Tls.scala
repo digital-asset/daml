@@ -5,7 +5,6 @@ package com.daml.lf.engine.trigger.test
 
 import akka.stream.scaladsl.Flow
 import com.daml.bazeltools.BazelRunfiles._
-import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.api.v1.commands.CreateCommand
 import com.daml.ledger.api.v1.{value => LedgerApi}
@@ -20,12 +19,7 @@ import org.scalatest.wordspec.AsyncWordSpec
 
 import java.io.File
 
-class Tls
-    extends AsyncWordSpec
-    with AbstractTriggerTest
-    with Matchers
-    with SuiteResourceManagementAroundAll
-    with TryValues {
+class Tls extends AsyncWordSpec with AbstractTriggerTestWithCanton with Matchers with TryValues {
   self: Suite =>
 
   val List(serverCrt, serverPem, caCrt, clientCrt, clientPem) = {
@@ -63,7 +57,7 @@ class Tls
       )
     "1 create" in {
       for {
-        client <- ledgerClient()
+        client <- defaultLedgerClient()
         party <- allocateParty(client)
         runner = getRunner(client, QualifiedName.assertFromString("ACS:test"), party)
         (acs, offset) <- runner.queryACS()
