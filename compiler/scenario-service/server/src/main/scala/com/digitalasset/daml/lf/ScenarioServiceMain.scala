@@ -125,40 +125,44 @@ sealed abstract class ScriptStream {
   def sendError(t: Throwable): Unit;
 }
 
+// All methods that call to `internal` MUST synchronize over the response, otherwise we risk calling it in multiple threads and throwing a netty error.
 object ScriptStream {
   final case class WithoutStatus(internal: StreamObserver[RunScenarioResponse])
       extends ScriptStream {
-    override def sendFinalResponse(finalResponse: Either[ScenarioError, ScenarioResult]): Unit = {
-      val message = finalResponse match {
-        case Left(error: ScenarioError) => RunScenarioResponse.newBuilder.setError(error).build
-        case Right(result: ScenarioResult) => RunScenarioResponse.newBuilder.setResult(result).build
+    override def sendFinalResponse(finalResponse: Either[ScenarioError, ScenarioResult]): Unit =
+      internal.synchronized {
+        val message = finalResponse match {
+          case Left(error: ScenarioError) => RunScenarioResponse.newBuilder.setError(error).build
+          case Right(result: ScenarioResult) =>
+            RunScenarioResponse.newBuilder.setResult(result).build
+        }
+        internal.onNext(message)
+        internal.onCompleted()
       }
-      internal.onNext(message)
-      internal.onCompleted()
-    }
 
     override def sendStatus(status: ScenarioStatus): Unit = {}
-    override def sendError(t: Throwable): Unit = internal.onError(t)
+    override def sendError(t: Throwable): Unit = internal.synchronized(internal.onError(t))
   }
 
   final case class WithStatus(internal: StreamObserver[RunScenarioResponseOrStatus])
       extends ScriptStream {
-    override def sendFinalResponse(finalResponse: Either[ScenarioError, ScenarioResult]): Unit = {
-      val message = finalResponse match {
-        case Left(error: ScenarioError) =>
-          RunScenarioResponseOrStatus.newBuilder.setError(error).build
-        case Right(result: ScenarioResult) =>
-          RunScenarioResponseOrStatus.newBuilder.setResult(result).build
+    override def sendFinalResponse(finalResponse: Either[ScenarioError, ScenarioResult]): Unit =
+      internal.synchronized {
+        val message = finalResponse match {
+          case Left(error: ScenarioError) =>
+            RunScenarioResponseOrStatus.newBuilder.setError(error).build
+          case Right(result: ScenarioResult) =>
+            RunScenarioResponseOrStatus.newBuilder.setResult(result).build
+        }
+        internal.onNext(message)
+        internal.onCompleted()
       }
-      internal.onNext(message)
-      internal.onCompleted()
-    }
 
-    override def sendStatus(status: ScenarioStatus): Unit = {
+    override def sendStatus(status: ScenarioStatus): Unit = internal.synchronized {
       val message = RunScenarioResponseOrStatus.newBuilder.setStatus(status).build
       internal.onNext(message)
     }
-    override def sendError(t: Throwable): Unit = internal.onError(t)
+    override def sendError(t: Throwable): Unit = internal.synchronized(internal.onError(t))
   }
 }
 
@@ -299,20 +303,17 @@ class ScenarioService(
 
       sleepRandom()
       while (!response.isCompleted) {
-        // Must synchronize this with the response, as its possible a script/scenario will complete/error at the same time as a status update
-        respStream.synchronized(
-          respStream.sendStatus(
-            ScenarioStatus.newBuilder
-              .setMillisecondsPassed(millisPassed)
-              .setStartedAt(startedAt)
-              .build
-          )
+        respStream.sendStatus(
+          ScenarioStatus.newBuilder
+            .setMillisecondsPassed(millisPassed)
+            .setStartedAt(startedAt)
+            .build
         )
         sleepRandom()
       }
     }
 
-    respStream.synchronized(response.onComplete {
+    response.onComplete {
       case Success(None) =>
         log(s"runScript[$contextId]: $scenarioId not found")
         respStream.sendError(notFoundContextError(req.getContextId))
@@ -321,7 +322,7 @@ class ScenarioService(
       case Failure(err) =>
         System.err.println(err)
         respStream.sendError(err)
-    })
+    }
   }
 
   override def newContext(
