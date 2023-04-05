@@ -910,6 +910,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
                 )
               ),
               com.daml.ledger.api.domain.LedgerId(""),
+              token = Some(jwt.value),
             )
             .collect(Function unlift { tx =>
               import lav1.event.Event, Event.Event.Created
