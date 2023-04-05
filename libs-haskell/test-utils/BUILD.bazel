@@ -3,7 +3,6 @@
 
 load(
     "//bazel_tools:haskell.bzl",
-    "da_haskell_binary",
     "da_haskell_library",
 )
 

@@ -59,7 +59,7 @@ getLinuxDynamicPortRange = do
   rangeStr <- mapException DynamicRangeFileReadError $ readFile "/proc/sys/net/ipv4/ip_local_port_range"
   let ports = traverse readMaybe $ words rangeStr
   case ports of
-    Just [min, max] -> pure $ DynamicPortRange (min, max)
+    Just [minPort, maxPort] -> pure $ DynamicPortRange (minPort, maxPort)
     _ -> throwIO $ DynamicRangeInvalidFormatError $ "Expected 2 ports, got " <> rangeStr
 
 getWindowsDynamicPortRange :: IO DynamicPortRange
@@ -67,7 +67,7 @@ getWindowsDynamicPortRange = do
   portData <- mapException DynamicRangeShellFailure $ readProcess "netsh" ["int", "ipv4", "show", "dynamicport", "tcp"] ""
   let ports :: [String] = getAllTextSubmatches (portData =~ ("Start Port *: ([0-9]+)\nNumber of Ports *: ([0-9]+)" :: String))
   case tailMay ports >>= traverse readMaybe of
-    Just [min, count] -> pure $ DynamicPortRange (min, min + count)
+    Just [minPort, portCount] -> pure $ DynamicPortRange (minPort, minPort + portCount)
     _ -> throwIO $ DynamicRangeInvalidFormatError "Malformed response from netsh"
 
 getMacOSDynamicPortRange :: IO DynamicPortRange
@@ -78,5 +78,7 @@ getMacOSDynamicPortRange = do
     , "net.inet.ip.portrange.last"
     ]
     ""
-  error $ show portData
-
+  let ports :: [String] = getAllTextSubmatches (portData =~ ("net.inet.ip.portrange.first: ([0-9]+)\nnet.inet.ip.portrange.last: ([0-9]+)" :: String))
+  case tailMay ports >>= traverse readMaybe of
+    Just [minPort, maxPort] -> pure $ DynamicPortRange (minPort, maxPort)
+    _ -> throwIO $ DynamicRangeInvalidFormatError "Malformed response from sysctl"
