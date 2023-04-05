@@ -32,6 +32,7 @@ import com.daml.platform.services.time.TimeProviderType
 import org.scalatest._
 import scalaz.syntax.tag._
 
+import java.nio.file.Path
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
@@ -46,12 +47,12 @@ trait AbstractTriggerTestWithCanton extends CantonFixture with SuiteResourceMana
     Try(BazelRunfiles.requiredResource("triggers/tests/acs.dar"))
       .getOrElse(BazelRunfiles.requiredResource("triggers/tests/acs-1.dev.dar"))
 
-  override protected def authSecret = None
-  override protected def darFiles = List(darFile.toPath)
-  override protected def devMode = true
-  override protected def nParticipants = 1
-  override protected def timeProviderType = TimeProviderType.Static
-  override protected def tlsEnable = false
+  override protected def authSecret: Option[String] = None
+  override protected def darFiles: List[Path] = List(darFile.toPath)
+  override protected def devMode: Boolean = true
+  override protected def nParticipants: Int = 1
+  override protected def timeProviderType: TimeProviderType = TimeProviderType.Static
+  override protected def tlsEnable: Boolean = false
 
   protected def toHighLevelResult(s: SValue) = s match {
     case SRecord(_, _, values) if values.size == 6 =>
