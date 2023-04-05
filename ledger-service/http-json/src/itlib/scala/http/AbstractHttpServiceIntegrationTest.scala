@@ -1021,26 +1021,53 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
 
       val checkVisibilityChoice = domain.Choice("CheckVisibility")
 
-      "exercise" - {
-        "using decoded payload" in withHttpService { fixture =>
-          runDisclosureTestCase(fixture)(
-            Uri.Path("/v1/exercise"),
-            { (bob, bobHeaders) =>
-              postCreateCommand(
-                domain
-                  .CreateCommand(
-                    TpId.Disclosure.Viewport,
-                    argToApi(viewportVA)(ShRecord(owner = bob)),
-                    None,
-                  ),
-                fixture,
-                bobHeaders,
-              ) map resultContractId
-            },
-          ) { (viewportCid, toDisclose, meta) =>
-            encodeExercise(fixture.encoder)(
-              domain.ExerciseCommand(
-                domain.EnrichedContractId(Some(TpId.Disclosure.Viewport), viewportCid),
+      "exercise" in withHttpService { fixture =>
+        runDisclosureTestCase(fixture)(
+          Uri.Path("/v1/exercise"),
+          { (bob, bobHeaders) =>
+            postCreateCommand(
+              domain
+                .CreateCommand(
+                  TpId.Disclosure.Viewport,
+                  argToApi(viewportVA)(ShRecord(owner = bob)),
+                  None,
+                ),
+              fixture,
+              bobHeaders,
+            ) map resultContractId
+          },
+        ) { (viewportCid, toDisclose, meta) =>
+          encodeExercise(fixture.encoder)(
+            domain.ExerciseCommand(
+              domain.EnrichedContractId(Some(TpId.Disclosure.Viewport), viewportCid),
+              checkVisibilityChoice,
+              boxedRecord(
+                argToApi(checkVisibilityVA)(
+                  ShRecord(
+                    disclosed = toDisclose.toDiscloseCid,
+                    ifaceDisclosed = toDisclose.anotherToDiscloseCid,
+                  )
+                )
+              ),
+              None,
+              meta map (_ rightMap boxedRecord),
+            )
+          )
+        }
+      }
+
+      "create-and-exercise" in withHttpService { fixture =>
+        runDisclosureTestCase(fixture)(
+          Uri.Path("/v1/create-and-exercise"),
+          { (bob, _) =>
+            Future successful bob
+          },
+        ) { (bob, toDisclose, meta) =>
+          fixture.encoder
+            .encodeCreateAndExerciseCommand(
+              domain.CreateAndExerciseCommand(
+                TpId.Disclosure.Viewport,
+                argToApi(viewportVA)(ShRecord(owner = bob)),
                 checkVisibilityChoice,
                 boxedRecord(
                   argToApi(checkVisibilityVA)(
@@ -1051,41 +1078,10 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
                   )
                 ),
                 None,
-                meta map (_ rightMap boxedRecord),
+                meta,
               )
             )
-          }
-        }
-      }
-
-      "create-and-exercise" - {
-        "using decoded payload" in withHttpService { fixture =>
-          runDisclosureTestCase(fixture)(
-            Uri.Path("/v1/create-and-exercise"),
-            { (bob, _) =>
-              Future successful bob
-            },
-          ) { (bob, toDisclose, meta) =>
-            fixture.encoder
-              .encodeCreateAndExerciseCommand(
-                domain.CreateAndExerciseCommand(
-                  TpId.Disclosure.Viewport,
-                  argToApi(viewportVA)(ShRecord(owner = bob)),
-                  checkVisibilityChoice,
-                  boxedRecord(
-                    argToApi(checkVisibilityVA)(
-                      ShRecord(
-                        disclosed = toDisclose.toDiscloseCid,
-                        ifaceDisclosed = toDisclose.anotherToDiscloseCid,
-                      )
-                    )
-                  ),
-                  None,
-                  meta,
-                )
-              )
-              .valueOr(e => fail(e.shows))
-          }
+            .valueOr(e => fail(e.shows))
         }
       }
     }
