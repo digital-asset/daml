@@ -34,6 +34,7 @@ import scalaz.syntax.bifunctor._
 import scalaz.syntax.show._
 import scalaz.syntax.tag._
 import scalaz.syntax.traverse._
+import scalaz.syntax.std.boolean._
 import scalaz.{-\/, \/-}
 import shapeless.record.{Record => ShRecord}
 import spray.json._
@@ -963,35 +964,27 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
           setup <- setupBob(bob, bobHeaders)
 
           // exercise CheckVisibility with different disclosure options
-          checkVisibility = { disclosure: Option[DC.Arguments[lav1.value.Record]] =>
-            val meta = disclosure map { oneDc =>
-              val disclosureEnvelope =
-                DC(
-                  toDiscloseCid,
-                  TpId.Disclosure.ToDisclose,
-                  oneDc,
-                  tdCtMetadata,
+          checkVisibility = {
+            disclosure: List[DC[domain.ContractTypeId.Template.OptionalPkg, lav1.value.Record]] =>
+              val meta = disclosure.nonEmpty option domain.CommandMeta(
+                None,
+                None,
+                None,
+                None,
+                None,
+                disclosedContracts = Some(disclosure),
+              )
+              fixture
+                .postJsonRequest(
+                  exerciseEndpoint,
+                  exerciseVaryingOnlyMeta(setup, toDisclose, meta),
+                  bobHeaders,
                 )
-              domain.CommandMeta(
-                None,
-                None,
-                None,
-                None,
-                None,
-                disclosedContracts = Some(List(disclosureEnvelope)),
-              )
-            }
-            fixture
-              .postJsonRequest(
-                exerciseEndpoint,
-                exerciseVaryingOnlyMeta(setup, toDisclose, meta),
-                bobHeaders,
-              )
-              .parseResponse[domain.ExerciseResponse[JsValue]]
+                .parseResponse[domain.ExerciseResponse[JsValue]]
           }
 
           // ensure that bob can't interact with alice's contract unless it's disclosed
-          _ <- checkVisibility(None)
+          _ <- checkVisibility(List.empty)
             .map(inside(_) {
               case domain.ErrorResponse(
                     _,
@@ -1003,10 +996,25 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
                 errorMessage should include(toDiscloseCid.unwrap)
             })
 
-          _ <- checkVisibility(Some(DC.Arguments.Record(toDisclosePayload)))
+          _ <- checkVisibility(
+            List(
+              DC(
+                toDiscloseCid,
+                TpId.Disclosure.ToDisclose,
+                DC.Arguments.Record(toDisclosePayload),
+                tdCtMetadata,
+              ),
+              DC(
+                anotherToDiscloseCid,
+                TpId.Disclosure.AnotherToDisclose,
+                DC.Arguments.Blob(anotherToDiscloseBlob),
+                atdCtMetadata,
+              ),
+            )
+          )
             .map(inside(_) {
               case domain.OkResponse(domain.ExerciseResponse(JsString(exResp), _, _), _, _) =>
-                exResp should ===(s"'$bob' can see from '$alice': $junkMessage")
+                exResp should ===(s"'$bob' can see from '$alice': $junkMessage, $garbageMessage")
             })
         } yield succeed
       }
