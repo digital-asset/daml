@@ -819,7 +819,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
           ShRecord(disclosed = VAx.contractIdDomain, ifaceDisclosed = VAx.contractIdDomain),
         )
 
-      final case class ContractToDisclose(
+      final case class ContractsToDisclose(
           alice: domain.Party,
           toDiscloseCid: domain.ContractId,
           toDisclosePayload: lav1.value.Record,
@@ -829,11 +829,11 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
           atdCtMetadata: DC.Metadata,
       )
 
-      def contractToDisclose(
+      def contractsToDisclose(
           fixture: HttpServiceTestFixtureData,
           junkMessage: String,
           garbageMessage: String,
-      ): Future[ContractToDisclose] = for {
+      ): Future[ContractsToDisclose] = for {
         (alice, jwt, applicationId, _) <- fixture.getUniquePartyTokenAppIdAndAuthHeaders("Alice")
         // we're using the ledger API for the initial create because timestamp
         // is required in the metadata
@@ -924,7 +924,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
             })
             .runWith(Sink.head)
         }
-      } yield ContractToDisclose(
+      } yield ContractsToDisclose(
         alice,
         toDiscloseCid,
         toDisclosePayload,
@@ -939,7 +939,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
       )(exerciseEndpoint: Uri.Path, setupBob: (domain.Party, List[HttpHeader]) => Future[Setup])(
           exerciseVaryingOnlyMeta: (
               Setup,
-              ContractToDisclose,
+              ContractsToDisclose,
               Option[
                 domain.CommandMeta[domain.ContractTypeId.Template.OptionalPkg, lav1.value.Record]
               ],
@@ -949,7 +949,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
         val garbageMessage = s"some test garbage ${uniqueId()}"
         for {
           // first, set up something for alice to disclose to bob
-          toDisclose @ ContractToDisclose(
+          toDisclose @ ContractsToDisclose(
             alice,
             toDiscloseCid,
             toDisclosePayload,
@@ -958,7 +958,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
             anotherToDiscloseBlob,
             atdCtMetadata,
           ) <-
-            contractToDisclose(fixture, junkMessage, garbageMessage)
+            contractsToDisclose(fixture, junkMessage, garbageMessage)
 
           // next, onboard bob to try to interact with the disclosed contract
           (bob, bobHeaders) <- fixture.getUniquePartyAndAuthHeaders("Bob")
