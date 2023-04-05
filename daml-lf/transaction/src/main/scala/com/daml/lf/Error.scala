@@ -199,6 +199,15 @@ object Error {
         limit: Int,
     ) extends Error
 
+    final case class ChoiceAuthorizers(
+        cid: Value.ContractId,
+        templateId: TypeConName,
+        choiceName: ChoiceName,
+        arg: Value,
+        observers: Set[Party],
+        limit: Int,
+    ) extends Error
+
     final case class TransactionInputContracts(limit: Int) extends Error
   }
 

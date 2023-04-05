@@ -439,6 +439,8 @@ final class Conversions(
           optLocation.map(loc => ncBuilder.setLocation(convertLocation(loc)))
           faBuilder.setNoControllers(ncBuilder.build)
 
+        case _: FailedAuthorization.NoAuthorizers => ??? // TODO #15882
+
         case FailedAuthorization.LookupByKeyMissingAuthorization(
               templateId,
               optLocation,

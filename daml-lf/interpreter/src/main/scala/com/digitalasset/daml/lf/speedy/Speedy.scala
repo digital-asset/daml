@@ -336,6 +336,19 @@ private[lf] object Speedy {
         IError.Limit.ChoiceObservers(cid, templateId, choiceName, arg, observers, _),
       )
 
+    private[speedy] def enforceChoiceAuthorizersLimit(
+        authorizers: Set[Party],
+        cid: V.ContractId,
+        templateId: TypeConName,
+        choiceName: ChoiceName,
+        arg: V,
+    ): Unit =
+      enforceLimit(
+        authorizers.size,
+        limits.choiceAuthorizers,
+        IError.Limit.ChoiceAuthorizers(cid, templateId, choiceName, arg, authorizers, _),
+      )
+
     // The set of create events for the disclosed contracts that are used by the generated transaction.
     def disclosedCreateEvents: ImmArray[Node.Create] =
       disclosedContracts.iterator

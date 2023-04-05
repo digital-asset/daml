@@ -5,13 +5,21 @@ package com.daml.lf
 package interpretation
 
 case class Limits(
-    contractSignatories: Int = Int.MaxValue,
-    contractObservers: Int = Int.MaxValue,
-    choiceControllers: Int = Int.MaxValue,
-    choiceObservers: Int = Int.MaxValue,
-    transactionInputContracts: Int = Int.MaxValue,
+    contractSignatories: Int,
+    contractObservers: Int,
+    choiceControllers: Int,
+    choiceObservers: Int,
+    choiceAuthorizers: Int,
+    transactionInputContracts: Int,
 )
 
 object Limits {
-  val Lenient = Limits()
+  val Lenient = Limits(
+    contractSignatories = Int.MaxValue,
+    contractObservers = Int.MaxValue,
+    choiceControllers = Int.MaxValue,
+    choiceObservers = Int.MaxValue,
+    choiceAuthorizers = Int.MaxValue,
+    transactionInputContracts = Int.MaxValue,
+  )
 }
