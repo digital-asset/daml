@@ -791,13 +791,14 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
         typesig.PackageSignature.read(dar.main)._2.packageId
       }
 
-      def inDar2Main(
-          tid: domain.ContractTypeId.Template.OptionalPkg
-      ): domain.ContractTypeId.Template.RequiredPkg =
+      def inDar2Main[CtId[P] <: domain.ContractTypeId.Ops[CtId, P]](
+          tid: CtId[Option[String]]
+      ): CtId[String] =
         tid.copy(packageId = inferredPkgId)
 
       lazy val ToDisclose = inDar2Main(TpId.Disclosure.ToDisclose)
       lazy val AnotherToDisclose = inDar2Main(TpId.Disclosure.AnotherToDisclose)
+      lazy val HasGarbage = inDar2Main(TpId.Disclosure.HasGarbage)
 
       lazy val (_, toDiscloseVA) =
         VA.record(lfIdentifier(ToDisclose), ShRecord(owner = VAx.partyDomain, junk = VA.text))
@@ -857,16 +858,19 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
         createResp <- fixture.client.commandServiceClient
           .submitAndWaitForTransaction(initialCreate, Some(jwt.value))
         // fetch what we can from the command service transaction
-        ((toDiscloseCid, tdCtMetadata), (atdCid, atdCtMetadata)) = inside(createResp.transaction) {
-          case Some(tx) =>
-            import lav1.event.Event, Event.Event.Created
-            inside(tx.events) { case Seq(Event(Created(ce0)), Event(Created(ce1))) =>
-              val EntityTD = ToDisclose.entityName
-              val EntityATD = AnotherToDisclose.entityName
-              val orderedCes = inside((ce0, ce1) umap (_.templateId.map(_.entityName))) {
-                case (Some(EntityTD), Some(EntityATD)) => (ce0, ce1)
-                case (Some(EntityATD), Some(EntityTD)) => (ce1, ce0)
-              }
+        (ceAtOffset, ((toDiscloseCid, tdCtMetadata), (atdCid, atdCtMetadata))) = inside(
+          createResp.transaction
+        ) { case Some(tx) =>
+          import lav1.event.Event, Event.Event.Created
+          inside(tx.events) { case Seq(Event(Created(ce0)), Event(Created(ce1))) =>
+            val EntityTD = ToDisclose.entityName
+            val EntityATD = AnotherToDisclose.entityName
+            val orderedCes = inside((ce0, ce1) umap (_.templateId.map(_.entityName))) {
+              case (Some(EntityTD), Some(EntityATD)) => (ce0, ce1)
+              case (Some(EntityATD), Some(EntityTD)) => (ce1, ce0)
+            }
+            (
+              tx.offset,
               orderedCes umap { ce =>
                 (
                   domain.ContractId(ce.contractId),
@@ -874,21 +878,32 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
                     metadata
                   },
                 )
-              }
-            }
+              },
+            )
+          }
         }
         // use the transaction service to get the blob, which submit-and-wait
         // doesn't include in the response
         _ <- {
           import lav1.transaction_filter._
+          import com.daml.fetchcontracts.util.{LedgerBegin, AbsoluteBookmark}
           fixture.client.transactionClient
             .getTransactions(
-              com.daml.fetchcontracts.util.LedgerBegin.toLedgerApi,
-              None,
+              LedgerBegin.toLedgerApi,
+              Some(AbsoluteBookmark(domain.Offset(ceAtOffset)).toLedgerApi),
               TransactionFilter(
                 Map(
                   alice.unwrap -> Filters(
-                    Some(InclusiveFilters(Seq(refApiIdentifier(ToDisclose).unwrap)))
+                    Some(
+                      InclusiveFilters(interfaceFilters =
+                        Seq(
+                          InterfaceFilter(
+                            Some(refApiIdentifier(HasGarbage).unwrap),
+                            includeCreateArgumentsBlob = true,
+                          )
+                        )
+                      )
+                    )
                   )
                 )
               ),
@@ -897,7 +912,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
             .collect(Function unlift { tx =>
               import lav1.event.Event, Event.Event.Created
               tx.events.collectFirst {
-                case Event(Created(ce)) if ce.contractId == toDiscloseCid =>
+                case Event(Created(ce)) if ce.contractId == atdCid =>
                   ce.createArgumentsBlob should not be None
               }
             })
