@@ -234,7 +234,7 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
         "GREATER_EQ" -> BGreaterEq,
         "COERCE_CONTRACT_ID" -> BCoerceContractId,
         "ANY_EXCEPTION_MESSAGE" -> BAnyExceptionMessage,
-        "TYPEREP_TYCON_NAME" -> BTypeRepTyConName,
+        "TYPE_REP_TYCON_NAME" -> BTypeRepTyConName,
       )
 
       forEvery(testCases)((stringToParse, expectedBuiltin) =>

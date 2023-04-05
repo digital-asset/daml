@@ -300,7 +300,7 @@ instance Pretty BuiltinExpr where
     BETextToCodePoints -> "TEXT_TO_CODE_POINTS"
     BECodePointsToText -> "CODE_POINTS_TO_TEXT"
     BECoerceContractId -> "COERCE_CONTRACT_ID"
-    BETypeRepTyConName -> "TYPEREP_TYCON_NAME"
+    BETypeRepTyConName -> "TYPE_REP_TYCON_NAME"
     BETextToUpper -> "TEXT_TO_UPPER"
     BETextToLower -> "TEXT_TO_LOWER"
     BETextSlice -> "TEXT_SLICE"

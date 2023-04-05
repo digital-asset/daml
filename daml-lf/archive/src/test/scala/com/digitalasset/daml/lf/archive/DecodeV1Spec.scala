@@ -1122,7 +1122,7 @@ class DecodeV1Spec
         val typeRepTyConName = DamlLf1.Expr
           .newBuilder()
           .setBuiltin(
-            DamlLf1.BuiltinFunction.TYPEREP_TYCON_NAME
+            DamlLf1.BuiltinFunction.TYPE_REP_TYCON_NAME
           )
           .build()
 
