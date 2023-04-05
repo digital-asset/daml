@@ -28,8 +28,6 @@ class DevOnly
 
   import DevOnly._
 
-  override protected val cantonFixtureDebugMode = true
-
   this.getClass.getSimpleName can {
     "InterfaceTest" should {
       val triggerId = QualifiedName.assertFromString("Interface:test")
@@ -105,6 +103,8 @@ class DevOnly
           // Determine ACS for this test run's setup
           (acs, _) <- runner.queryACS()
 
+          // 1 for ledger create command completion
+          // 1 for ledger create command completion
           // 1 for transactional create of template A
           // 1 for transactional create of template B
           _ <- runner
@@ -118,7 +118,7 @@ class DevOnly
                   case _ =>
                   // No evidence to collect
                 }
-                .take(2),
+                .take(4),
             )
             ._2
         } yield {
@@ -185,6 +185,8 @@ class DevOnly
           // Determine ACS for this test run's setup
           (acs, _) <- runner.queryACS()
 
+          // 1 for ledger create command completion
+          // 1 for ledger create command completion
           // 1 for transactional create of template A
           // 1 for transactional create of template B, via interface I
           _ <- runner
@@ -198,7 +200,7 @@ class DevOnly
                   case _ =>
                   // No evidence to collect
                 }
-                .take(2),
+                .take(4),
             )
             ._2
         } yield {
@@ -265,6 +267,8 @@ class DevOnly
           // Determine ACS for this test run's setup
           (acs, _) <- runner.queryACS()
 
+          // 1 for ledger create command completion
+          // 1 for ledger create command completion
           // 1 for transactional create of template A, via interface I
           // 1 for transactional create of template B, via interface I
           _ <- runner
@@ -278,7 +282,7 @@ class DevOnly
                   case _ =>
                   // No evidence to collect
                 }
-                .take(2),
+                .take(4),
             )
             ._2
         } yield {

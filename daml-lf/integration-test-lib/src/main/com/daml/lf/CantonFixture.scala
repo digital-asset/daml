@@ -303,7 +303,6 @@ trait CantonFixture extends SuiteResource[Vector[Port]] with AkkaBeforeAndAfterA
       hostIp = "localhost",
       port = port.value,
       configuration = LedgerClientConfiguration(
-        // FIXME: should this be daml-script? Maybe daml-test?
         applicationId = token.fold("daml-script")(_ => ""),
         ledgerIdRequirement = LedgerIdRequirement.none,
         commandClient = CommandClientConfiguration.default,
