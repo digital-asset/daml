@@ -6,6 +6,7 @@ package com.daml.http
 import java.time.{Instant, LocalDate}
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.model._
+import akka.stream.scaladsl.Sink
 import com.daml.api.util.TimestampConversion
 import com.daml.lf.data.Ref
 import com.daml.http.domain.ContractId
@@ -875,6 +876,32 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
                 )
               }
             }
+        }
+        // use the transaction service to get the blob, which submit-and-wait
+        // doesn't include in the response
+        _ <- {
+          import lav1.transaction_filter._
+          fixture.client.transactionClient
+            .getTransactions(
+              com.daml.fetchcontracts.util.LedgerBegin.toLedgerApi,
+              None,
+              TransactionFilter(
+                Map(
+                  alice.unwrap -> Filters(
+                    Some(InclusiveFilters(Seq(refApiIdentifier(ToDisclose).unwrap)))
+                  )
+                )
+              ),
+              com.daml.ledger.api.domain.LedgerId(""),
+            )
+            .collect(Function unlift { tx =>
+              import lav1.event.Event, Event.Event.Created
+              tx.events.collectFirst {
+                case Event(Created(ce)) if ce.contractId == toDiscloseCid =>
+                  ce.createArgumentsBlob should not be None
+              }
+            })
+            .runWith(Sink.head)
         }
       } yield ContractToDisclose(
         alice,
