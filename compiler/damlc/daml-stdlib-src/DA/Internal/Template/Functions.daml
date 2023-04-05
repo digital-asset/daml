@@ -288,7 +288,7 @@ instance Eq TemplateTypeRep where
 
 deriving instance Ord TemplateTypeRep
 
-#ifdef DAML_EXPERIMENTAL
+#ifdef DAML_TEMPLATE_TYPEREP_TO_TEXT
 
 -- | (experimental, 1.dev only) Get the template id (or interface id)
 -- represented by a TemplateTypeRep, as a string.
@@ -301,7 +301,7 @@ templateTypeRepToText (TemplateTypeRep x) =
 instance Show TemplateTypeRep where
   show = templateTypeRepToText
 
-#endif
+#endif -- DAML_TEMPLATE_TYPEREP_TO_TEXT
 
 -- | Wrap the template in `AnyTemplate`.
 --

@@ -148,6 +148,13 @@ featureChoiceFuncs = Feature
     , featureCppFlag = Just "DAML_CHOICE_FUNCS"
     }
 
+featureTemplateTypeRepToText :: Feature
+featureTemplateTypeRepToText = Feature
+    { featureName = "templateTypeRepToText function"
+    , featureMinVersion = versionDev
+    , featureCppFlag = Just "DAML_TEMPLATE_TYPEREP_TO_TEXT"
+    }
+
 featureDynamicExercise :: Feature
 featureDynamicExercise = Feature
     { featureName = "dynamicExercise function"
@@ -172,6 +179,7 @@ allFeatures =
     , featureSimpleInterfaces
     , featureExtendedInterfaces
     , featureChoiceFuncs
+    , featureTemplateTypeRepToText
     , featureUnstable
     , featureExperimental
     , featureWithAuthority
