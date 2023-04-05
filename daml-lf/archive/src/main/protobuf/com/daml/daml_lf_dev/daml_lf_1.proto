@@ -570,7 +570,7 @@ enum BuiltinFunction {
   NUMERIC_TO_BIGNUMERIC = 145; // *Available in versions >= 1.13*
   BIGNUMERIC_TO_TEXT = 146; // *Available in versions >= 1.13*
 
-  TYPEREP_TYCON_NAME = 148; // *Available in versions >= 1.15*
+  TYPEREP_TYCON_NAME = 148; // *Available in versions >= 1.dev*
 
   // Next id is 150.
 
