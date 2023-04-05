@@ -179,9 +179,9 @@ trait CantonFixture extends SuiteResource[Vector[Port]] with AkkaBeforeAndAfterA
             (0 until nParticipants).map(participantConfig(_)).mkString("\n")
           val cantonConfig =
             s"""canton {
-               |  parameters.non-standard-config = yes
-               |  
-               |  parameters {
+               |  parameters{
+               |    non-standard-config = yes
+               |    dev-version-support = yes
                |    ports-file = ${toJson(portFile)}
                |    ${clockType.fold("")(x => "clock.type = " + x)}
                |  }
