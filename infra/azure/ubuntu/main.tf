@@ -189,3 +189,70 @@ resource "azurerm_monitor_autoscale_setting" "example" {
 data "local_file" "startup" {
     filename = "${path.module}/startup.sh"
 }
+
+# Config for periodic Killer
+data "azurerm_subscription" "current" {}
+
+
+# Create network interface
+resource "azurerm_network_interface" "my_vm_nic" {
+  name                = "myNIC"
+  location            = azurerm_resource_group.rg.location
+  resource_group_name = azurerm_resource_group.rg.name
+
+  ip_configuration {
+    name                          = "periodic_killer_nic"
+    subnet_id                     = azurerm_subnet.my_terraform_subnet.id
+    private_ip_address_allocation = "Dynamic"
+    //public_ip_address_id          = azurerm_public_ip.my_vm_public_ip.id
+  }
+}
+
+
+
+resource "azurerm_linux_virtual_machine" "my_terraform_vm" {
+  name                  = "myVM"
+  location              = azurerm_resource_group.rg.location
+  resource_group_name   = azurerm_resource_group.rg.name
+  network_interface_ids = [azurerm_network_interface.my_vm_nic.id]
+  size                  = "Standard_DS1_v2"
+
+  os_disk {
+    name                 = "myOsDisk"
+    caching              = "ReadWrite"
+    storage_account_type = "Premium_LRS"
+  }
+
+  source_image_reference {
+    publisher = "Canonical"
+    offer     = "0001-com-ubuntu-server-focal"
+    sku       = "20_04-lts-gen2"
+    version   = "latest"
+  }
+
+   custom_data = filebase64("startup-killer.sh")
+
+  computer_name                   = "myvm"
+  admin_username                  = "azureuser"
+  disable_password_authentication = true
+
+  admin_ssh_key {
+    username   = "azureuser"
+    public_key = file("~/.ssh/id_rsa.pub")
+  }
+  //custom_data = filebase64("startup.sh")
+  identity {
+    type = "SystemAssigned"
+  }
+}
+
+//Can be set to any Azure role
+data "azurerm_role_definition" "contributor" { 
+  name = "Contributor"
+}
+
+resource "azurerm_role_assignment" "example" {
+  scope              = data.azurerm_subscription.current.id
+  role_definition_id = "${data.azurerm_subscription.current.id}${data.azurerm_role_definition.contributor.id}"
+  principal_id       = azurerm_linux_virtual_machine.my_terraform_vm.identity[0].principal_id
+}
