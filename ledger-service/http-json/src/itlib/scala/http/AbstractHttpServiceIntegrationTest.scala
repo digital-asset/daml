@@ -824,6 +824,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
           toDisclosePayload: lav1.value.Record,
           tdCtMetadata: DC.Metadata,
           anotherToDiscloseCid: domain.ContractId,
+          atdBlob: domain.PbAny,
           atdCtMetadata: DC.Metadata,
       )
 
@@ -884,7 +885,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
         }
         // use the transaction service to get the blob, which submit-and-wait
         // doesn't include in the response
-        _ <- {
+        atdBlob <- {
           import lav1.transaction_filter._
           import com.daml.fetchcontracts.util.{LedgerBegin, AbsoluteBookmark}
           fixture.client.transactionClient
@@ -913,7 +914,10 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
               import lav1.event.Event, Event.Event.Created
               tx.events.collectFirst {
                 case Event(Created(ce)) if ce.contractId == atdCid =>
-                  ce.createArgumentsBlob should not be None
+                  import com.google.protobuf.any
+                  inside(ce.createArgumentsBlob) { case Some(any.Any(typeUrl, value, _)) =>
+                    domain.PbAny(typeUrl, domain.Base64(value))
+                  }
               }
             })
             .runWith(Sink.head)
@@ -924,6 +928,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
         toDisclosePayload,
         tdCtMetadata,
         atdCid,
+        atdBlob,
         atdCtMetadata,
       )
 
@@ -948,7 +953,8 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
             toDisclosePayload,
             tdCtMetadata,
             anotherToDiscloseCid,
-            _,
+            anotherToDiscloseBlob,
+            atdCtMetadata,
           ) <-
             contractToDisclose(fixture, junkMessage, garbageMessage)
 
