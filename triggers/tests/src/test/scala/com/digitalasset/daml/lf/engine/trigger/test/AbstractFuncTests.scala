@@ -11,7 +11,6 @@ import com.daml.lf.value.Value.ContractId
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.daml.ledger.api.v1.commands.CreateCommand
 import com.daml.ledger.api.v1.{value => LedgerApi}
-import com.daml.ledger.sandbox.SandboxOnXForTest.ParticipantId
 import com.daml.lf.engine.trigger.Runner.TriggerContext
 import com.daml.platform.services.time.TimeProviderType
 import io.grpc.{Status => grpcStatus, StatusRuntimeException}
@@ -27,7 +26,7 @@ import java.util.UUID
 
 abstract class AbstractFuncTests
     extends AsyncWordSpec
-    with AbstractTriggerTest
+    with AbstractTriggerTestWithCanton
     with Matchers
     with Inside
     with SuiteResourceManagementAroundAll
@@ -42,7 +41,7 @@ abstract class AbstractFuncTests
 
       "process and track contract creation, exercise and archive" in {
         for {
-          client <- ledgerClient()
+          client <- defaultLedgerClient()
           party <- allocateParty(client)
           runner = getRunner(client, triggerId, party)
           (acs, offset) <- runner.queryACS()
@@ -100,7 +99,7 @@ abstract class AbstractFuncTests
 
       "1 create" in {
         for {
-          client <- ledgerClient()
+          client <- defaultLedgerClient()
           party <- allocateParty(client)
           runner = getRunner(client, QualifiedName.assertFromString("ACS:test"), party)
           (acs, offset) <- runner.queryACS()
@@ -125,7 +124,7 @@ abstract class AbstractFuncTests
 
       "2 creates" in {
         for {
-          client <- ledgerClient()
+          client <- defaultLedgerClient()
           party <- allocateParty(client)
           runner = getRunner(client, QualifiedName.assertFromString("ACS:test"), party)
           (acs, offset) <- runner.queryACS()
@@ -154,7 +153,7 @@ abstract class AbstractFuncTests
 
       "2 creates and 2 archives" in {
         for {
-          client <- ledgerClient()
+          client <- defaultLedgerClient()
           party <- allocateParty(client)
           runner = getRunner(client, QualifiedName.assertFromString("ACS:test"), party)
           (acs, offset) <- runner.queryACS()
@@ -221,7 +220,7 @@ abstract class AbstractFuncTests
 
       "1 original, 0 subscriber" in {
         for {
-          client <- ledgerClient()
+          client <- defaultLedgerClient()
           party <- allocateParty(client)
           runner = getRunner(client, triggerId, party)
           (acs, offset) <- runner.queryACS()
@@ -242,7 +241,7 @@ abstract class AbstractFuncTests
 
       "1 original, 1 subscriber" in {
         for {
-          client <- ledgerClient()
+          client <- defaultLedgerClient()
           party <- allocateParty(client)
           runner = getRunner(client, triggerId, party)
           (acs, offset) <- runner.queryACS()
@@ -267,7 +266,7 @@ abstract class AbstractFuncTests
 
       "2 original, 1 subscriber" in {
         for {
-          client <- ledgerClient()
+          client <- defaultLedgerClient()
           party <- allocateParty(client)
           runner = getRunner(client, triggerId, party)
           (acs, offset) <- runner.queryACS()
@@ -298,7 +297,7 @@ abstract class AbstractFuncTests
 
       "3 retries" in {
         for {
-          client <- ledgerClient()
+          client <- defaultLedgerClient()
           party <- allocateParty(client)
           runner = getRunner(client, triggerId, party)
           (acs, offset) <- runner.queryACS()
@@ -323,7 +322,7 @@ abstract class AbstractFuncTests
 
       "1 exerciseByKey" in {
         for {
-          client <- ledgerClient()
+          client <- defaultLedgerClient()
           party <- allocateParty(client)
           runner = getRunner(client, triggerId, party)
           (acs, offset) <- runner.queryACS()
@@ -347,7 +346,7 @@ abstract class AbstractFuncTests
 
       "createAndExercise" in {
         for {
-          client <- ledgerClient()
+          client <- defaultLedgerClient()
           party <- allocateParty(client)
           runner = getRunner(client, triggerId, party)
           (acs, offset) <- runner.queryACS()
@@ -368,12 +367,14 @@ abstract class AbstractFuncTests
 
       "fail" in {
         for {
-          client <- ledgerClient(
+          // We use 2 ledger clients to avoid the allocateParty call triggering a GRPC RESOURCE_EXHAUSTED exception
+          goodClient <- defaultLedgerClient()
+          badClient <- defaultLedgerClient(
             // Sufficiently low that the transaction is larger than the max inbound message size
             maxInboundMessageSize = 100
           )
-          party <- allocateParty(client)
-          runner = getRunner(client, triggerId, party)
+          party <- allocateParty(goodClient)
+          runner = getRunner(badClient, triggerId, party)
           (acs, offset) <- runner.queryACS()
           // 1 for create and exercise
           // 1 for completion
@@ -393,7 +394,7 @@ abstract class AbstractFuncTests
 
       "numeric" in {
         for {
-          client <- ledgerClient()
+          client <- defaultLedgerClient()
           party <- allocateParty(client)
           runner = getRunner(client, triggerId, party)
           (acs, offset) <- runner.queryACS()
@@ -415,7 +416,7 @@ abstract class AbstractFuncTests
 
       "command-id" in {
         for {
-          client <- ledgerClient()
+          client <- defaultLedgerClient()
           party <- allocateParty(client)
           runner = getRunner(client, triggerId, party)
           (acs, offset) <- runner.queryACS()
@@ -446,7 +447,7 @@ abstract class AbstractFuncTests
 
       "pending set" in {
         for {
-          client <- ledgerClient()
+          client <- defaultLedgerClient()
           party <- allocateParty(client)
           runner = getRunner(client, triggerId, party)
           (acs, offset) <- runner.queryACS()
@@ -492,7 +493,7 @@ abstract class AbstractFuncTests
 
       "filter to One" in {
         for {
-          client <- ledgerClient()
+          client <- defaultLedgerClient()
           party <- allocateParty(client)
           runner = getRunner(
             client,
@@ -514,7 +515,7 @@ abstract class AbstractFuncTests
 
       "filter to Two" in {
         for {
-          client <- ledgerClient()
+          client <- defaultLedgerClient()
           party <- allocateParty(client)
           runner = getRunner(
             client,
@@ -540,7 +541,7 @@ abstract class AbstractFuncTests
 
       "test" in {
         for {
-          client <- ledgerClient()
+          client <- defaultLedgerClient()
           party <- allocateParty(client)
           runner = getRunner(client, triggerId, party)
           (acs, offset) <- runner.queryACS()
@@ -557,7 +558,7 @@ abstract class AbstractFuncTests
     "TimeTests" should {
       "test" in {
         for {
-          client <- ledgerClient()
+          client <- defaultLedgerClient()
           party <- allocateParty(client)
           runner = getRunner(client, QualifiedName.assertFromString("Time:test"), party)
           (acs, offset) <- runner.queryACS()
@@ -571,10 +572,7 @@ abstract class AbstractFuncTests
                 case SList(items) if items.length == 2 =>
                   val t0 = items.slowApply(0).asInstanceOf[STimestamp].value
                   val t1 = items.slowApply(1).asInstanceOf[STimestamp].value
-                  config
-                    .participants(ParticipantId)
-                    .apiServer
-                    .timeProviderType match {
+                  timeProviderType match {
                     case TimeProviderType.WallClock =>
                       // Given the limited resolution it can happen that t0 == t1
                       t0 should be >= t1
@@ -603,7 +601,7 @@ abstract class AbstractFuncTests
 
       "respected by trigger runner" in {
         for {
-          client <- ledgerClient()
+          client <- defaultLedgerClient()
           public <- allocateParty(client)
           party <- allocateParty(client)
           _ <- create(client, public, visibleToPublic(public))
@@ -628,7 +626,7 @@ abstract class AbstractFuncTests
     "getActAs" should {
       "produce a consistent party" in {
         for {
-          client <- ledgerClient()
+          client <- defaultLedgerClient()
           party <- allocateParty(client)
           runner = getRunner(
             client,
@@ -656,7 +654,7 @@ abstract class AbstractFuncTests
     "queryFilter" should {
       "return contracts matching predicates" in {
         for {
-          client <- ledgerClient()
+          client <- defaultLedgerClient()
           party <- allocateParty(client)
           runner = getRunner(
             client,

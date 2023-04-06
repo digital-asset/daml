@@ -1,8 +1,6 @@
 -- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
--- @SINCE-LF 1.dev
-
 -- | Test that error (and related primitives) throw a GeneralError.
 module ExceptionCatchError where
 

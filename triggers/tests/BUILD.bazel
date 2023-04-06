@@ -85,6 +85,7 @@ da_scala_library(
     srcs = [
         "src/test/scala/com/digitalasset/daml/lf/engine/trigger/test/AbstractFuncTests.scala",
         "src/test/scala/com/digitalasset/daml/lf/engine/trigger/test/AbstractTriggerTest.scala",
+        "src/test/scala/com/digitalasset/daml/lf/engine/trigger/test/AbstractTriggerTestWithCanton.scala",
     ],
     scala_deps = [
         "@maven//:com_typesafe_akka_akka_stream",
@@ -99,6 +100,7 @@ da_scala_library(
         "//bazel_tools/runfiles:scala_runfiles",
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/data",
+        "//daml-lf/integration-test-lib",
         "//daml-lf/interpreter",
         "//daml-lf/language",
         "//daml-lf/transaction",
@@ -140,6 +142,7 @@ da_scala_library(
         data = [
             ":acs%s.dar" % suffix,
             "//test-common/test-certificates",
+            "@canton//:lib",
         ],
         resources = ["//triggers/runner:src/main/resources/logback.xml"],
         scala_deps = [
@@ -154,6 +157,7 @@ da_scala_library(
             "//daml-lf/archive:daml_lf_archive_reader",
             "//daml-lf/data",
             "//daml-lf/engine",
+            "//daml-lf/integration-test-lib",
             "//daml-lf/interpreter",
             "//daml-lf/language",
             "//language-support/scala/bindings",
@@ -194,6 +198,7 @@ da_scala_library(
         data = [
             ":acs%s.dar" % suffix,
             "//test-common/test-certificates",
+            "@canton//:lib",
         ],
         resources = ["//triggers/runner:src/main/resources/logback.xml"],
         scala_deps = [
@@ -209,6 +214,7 @@ da_scala_library(
             "//daml-lf/archive:daml_lf_archive_reader",
             "//daml-lf/data",
             "//daml-lf/engine",
+            "//daml-lf/integration-test-lib",
             "//daml-lf/interpreter",
             "//daml-lf/language",
             "//language-support/scala/bindings",
@@ -222,8 +228,6 @@ da_scala_library(
             "//ledger/ledger-configuration",
             "//ledger/ledger-runner-common",
             "//ledger/participant-integration-api",
-            "//ledger/sandbox-on-x",
-            "//ledger/sandbox-on-x:sandbox-on-x-test-lib",
             "//libs-scala/contextualized-logging",
             "//libs-scala/ledger-resources",
             "//libs-scala/logging-entries",
