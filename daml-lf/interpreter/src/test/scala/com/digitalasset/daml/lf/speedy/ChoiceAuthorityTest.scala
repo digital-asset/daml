@@ -7,7 +7,7 @@ package speedy
 import com.daml.lf.data.FrontStack
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.interpretation.Error.FailedAuthorization
-import com.daml.lf.ledger.FailedAuthorization.CreateMissingAuthorization
+import com.daml.lf.ledger.FailedAuthorization.{CreateMissingAuthorization, NoAuthorizers}
 import com.daml.lf.speedy.SError.SError
 import com.daml.lf.speedy.SExpr.SEApp
 import com.daml.lf.speedy.SValue.{SList, SParty}
@@ -115,8 +115,7 @@ class ChoiceAuthorityTest extends AnyFreeSpec with Inside {
     "restrict authority to empty, fail" in {
       inside(runExample(theAut = Set(), theGoal = alice)) { case Left(err) =>
         inside(err) { case SError.SErrorDamlException(FailedAuthorization(_, why)) =>
-          inside(why) {
-            case _: CreateMissingAuthorization => // TODO #15882 - should be NoAuthorizers
+          inside(why) { case _: NoAuthorizers =>
           }
         }
       }

@@ -133,10 +133,13 @@ private[lf] object DefaultAuthorizationChecker extends AuthorizationChecker {
       passIf = ex.actingParties.nonEmpty,
       failWith = FailedAuthorization.NoControllers(ex.templateId, ex.choiceId, optLocation),
     ) ++
-      /*authorize(
-      passIf = ex.authorizers.nonEmpty, // TODO #15882 (when PR #16541 is merged)
-      failWith = FailedAuthorization.NoAuthorizers(ex.templateId, ex.choiceId, optLocation),
-    ) ++ */
+      authorize(
+        passIf = ex.choiceAuthorizers match {
+          case None => true
+          case Some(explicitAuthorizers) => explicitAuthorizers.nonEmpty
+        },
+        failWith = FailedAuthorization.NoAuthorizers(ex.templateId, ex.choiceId, optLocation),
+      ) ++
       authorize(
         passIf = ex.actingParties subsetOf auth.authParties,
         failWith = FailedAuthorization.ExerciseMissingAuthorization(
