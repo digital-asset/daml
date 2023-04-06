@@ -365,12 +365,14 @@ abstract class AbstractFuncTests
 
       "fail" in {
         for {
-          client <- defaultLedgerClient(
+          // We use 2 ledger clients to avoid the allocateParty call triggering a GRPC RESOURCE_EXHAUSTED exception
+          goodClient <- defaultLedgerClient()
+          badClient <- defaultLedgerClient(
             // Sufficiently low that the transaction is larger than the max inbound message size
             maxInboundMessageSize = 100
           )
-          party <- allocateParty(client)
-          runner = getRunner(client, triggerId, party)
+          party <- allocateParty(goodClient)
+          runner = getRunner(badClient, triggerId, party)
           (acs, offset) <- runner.queryACS()
           // 1 for create and exercise
           // 1 for completion

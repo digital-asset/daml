@@ -53,6 +53,7 @@ trait AbstractTriggerTestWithCanton extends CantonFixture with SuiteResourceMana
   override protected def nParticipants: Int = 1
   override protected def timeProviderType: TimeProviderType = TimeProviderType.Static
   override protected def tlsEnable: Boolean = false
+  override protected def applicationId: ApplicationId = RunnerConfig.DefaultApplicationId
 
   protected def toHighLevelResult(s: SValue) = s match {
     case SRecord(_, _, values) if values.size == 6 =>
@@ -67,11 +68,9 @@ trait AbstractTriggerTestWithCanton extends CantonFixture with SuiteResourceMana
     case _ => throw new IllegalArgumentException(s"Expected record with 6 fields but got $s")
   }
 
-  protected val applicationId: ApplicationId = RunnerConfig.DefaultApplicationId
-
   protected def ledgerClientConfiguration: LedgerClientConfiguration =
     LedgerClientConfiguration(
-      applicationId = ApplicationId.unwrap(applicationId),
+      applicationId = applicationId.unwrap,
       ledgerIdRequirement = LedgerIdRequirement.none,
       commandClient = CommandClientConfiguration.default,
       token = None,
@@ -98,7 +97,7 @@ trait AbstractTriggerTestWithCanton extends CantonFixture with SuiteResourceMana
       Party(party),
       Party.subst(readAs),
       "test-trigger",
-      ApplicationId("test-trigger-app"),
+      applicationId,
     ) { implicit triggerContext: TriggerLogContext =>
       val trigger = Trigger.fromIdentifier(compiledPackages, triggerId).toOption.get
 
@@ -130,7 +129,7 @@ trait AbstractTriggerTestWithCanton extends CantonFixture with SuiteResourceMana
           party = party,
           commands = commands,
           ledgerId = client.ledgerId.unwrap,
-          applicationId = ApplicationId.unwrap(applicationId),
+          applicationId = applicationId.unwrap,
           commandId = UUID.randomUUID.toString,
         )
       )
@@ -180,7 +179,7 @@ trait AbstractTriggerTestWithCanton extends CantonFixture with SuiteResourceMana
           party = party,
           commands = commands,
           ledgerId = client.ledgerId.unwrap,
-          applicationId = ApplicationId.unwrap(applicationId),
+          applicationId = applicationId.unwrap,
           commandId = UUID.randomUUID.toString,
         )
       )

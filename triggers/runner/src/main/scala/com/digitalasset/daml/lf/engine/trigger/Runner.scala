@@ -1408,19 +1408,20 @@ private[lf] class Runner private (
       materializer: Materializer,
       executionContext: ExecutionContext,
   ): (T, Future[SValue]) = {
-    triggerContext.nextSpan("rule") { implicit triggerContext: TriggerLogContext =>
-      val source = msgSource(client, offset, trigger.heartbeat, parties, transactionFilter)
-      val triggerRuleEvaluator = triggerContext.childSpan("initialization") {
-        implicit triggerContext: TriggerLogContext =>
-          getTriggerEvaluator(acs)
-      }
+    triggerContext.nextSpan("rule", "ledger-offset" -> offset.toString) {
+      implicit triggerContext: TriggerLogContext =>
+        val source = msgSource(client, offset, trigger.heartbeat, parties, transactionFilter)
+        val triggerRuleEvaluator = triggerContext.childSpan("initialization") {
+          implicit triggerContext: TriggerLogContext =>
+            getTriggerEvaluator(acs)
+        }
 
-      Flow
-        .fromGraph(msgFlow)
-        .viaMat(triggerRuleEvaluator)(Keep.both)
-        .via(submitOrFail)
-        .join(source)
-        .run()
+        Flow
+          .fromGraph(msgFlow)
+          .viaMat(triggerRuleEvaluator)(Keep.both)
+          .via(submitOrFail)
+          .join(source)
+          .run()
     }
   }
 }

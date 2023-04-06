@@ -5,10 +5,10 @@ package com.daml.lf.engine.script
 package test
 
 import java.nio.file.{Path, Paths}
-
 import com.daml.bazeltools.BazelRunfiles.rlocation
+import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
-import com.daml.lf.data.{Ref, ImmArray}
+import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.engine.script.ledgerinteraction.{
   GrpcLedgerClient,
   ScriptLedgerClient,
@@ -17,7 +17,7 @@ import com.daml.lf.engine.script.ledgerinteraction.{
 import com.daml.lf.integrationtest.CantonFixture
 import com.daml.lf.language.Ast
 import com.daml.lf.language.StablePackage.DA
-import com.daml.lf.speedy.{SValue, ArrayList}
+import com.daml.lf.speedy.{ArrayList, SValue}
 import com.daml.lf.value.Value
 import com.daml.platform.services.time.TimeProviderType
 import org.scalatest.Suite
@@ -44,6 +44,8 @@ object AbstractScriptTest {
 // Fixture for a set of participants used in Daml Script tests
 trait AbstractScriptTest extends CantonFixture with AkkaBeforeAndAfterAll {
   self: Suite =>
+
+  override protected def applicationId: ApplicationId = ApplicationId("daml-script")
 
   protected def timeMode: ScriptTimeMode
   final override protected lazy val timeProviderType = timeMode match {
