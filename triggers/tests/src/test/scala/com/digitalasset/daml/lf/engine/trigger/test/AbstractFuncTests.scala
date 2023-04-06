@@ -33,8 +33,6 @@ abstract class AbstractFuncTests
     with TryValues {
   self: Suite =>
 
-  import AbstractTriggerTest._
-
   this.getClass.getSimpleName can {
     "Batch trigger" should {
       val triggerId = QualifiedName.assertFromString("BatchTrigger:test")

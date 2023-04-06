@@ -26,7 +26,6 @@ class DevOnly
     with Inside
     with TryValues {
 
-  import AbstractTriggerTest._
   import DevOnly._
 
   this.getClass.getSimpleName can {

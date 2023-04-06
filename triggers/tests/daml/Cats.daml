@@ -8,7 +8,6 @@ import Daml.Trigger
 import DA.Foldable (forA_)
 import DA.Time (seconds)
 import DA.Functor (void)
-import DA.List (head)
 
 
 template Cat
@@ -72,34 +71,6 @@ feedTheCats party = do
   else do
     forA_ cats \(catCid, Cat{..}) -> do
       queryContractKey @Food (Food owner isin) >>= \case
-        Some (foodCid, _) -> do
-          void $ emitCommands [exerciseCmd catCid (Feed foodCid)] [toAnyContractId catCid, toAnyContractId foodCid]
-        None ->
-          pure ()
-
-neverFeedingTrigger : Trigger Int
-neverFeedingTrigger = Trigger
-  { initialize = pure 1
-  , updateState = \msg -> case msg of
-      MTransaction (Transaction _ _ [ArchivedEvent (fromArchived @Cat -> Some (_, catId)), ArchivedEvent (fromArchived @Food -> Some (_, foodId))]) -> do
-        modify (subtract 1)
-      _ -> pure ()
-  , rule = neverFeedTheCats
-  , registeredTemplates = RegisteredTemplates [ registeredTemplate @TestComplete, registeredTemplate @Cat, registeredTemplate @Food ]
-  , heartbeat = Some (seconds 1)
-  }
-
-neverFeedTheCats: Party -> TriggerA Int ()
-neverFeedTheCats party = do
-  cats <- query @Cat
-  pendingCount <- get
-  if pendingCount == 0 then
-    void $ emitCommands [createCmd (TestComplete party)] []
-  else do
-    let catCid = fst(head cats)
-    do
-      -- for worst case search complexity, we query for an "isin" value that (normally) does not exist
-      queryContractKey @Food (Food party (-1)) >>= \case
         Some (foodCid, _) -> do
           void $ emitCommands [exerciseCmd catCid (Feed foodCid)] [toAnyContractId catCid, toAnyContractId foodCid]
         None ->
