@@ -1,7 +1,7 @@
 // Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.engine.trigger
+package com.daml.lf.engine.trigger.simulation
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
@@ -14,6 +14,7 @@ import com.daml.ledger.api.v1.{value => LedgerApi}
 import com.daml.lf.crypto
 import com.daml.lf.data.{Bytes, Ref}
 import com.daml.lf.data.Ref.{Identifier, PackageId, QualifiedName}
+import com.daml.lf.engine.trigger.TriggerMsg
 import com.daml.lf.speedy.{Command, SValue}
 import com.daml.lf.speedy.SValue.{SContractId, SInt64, SParty}
 import com.daml.lf.value.Value.ContractId
