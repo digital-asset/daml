@@ -990,12 +990,8 @@ private[lf] object SBuiltin {
   /** $beginExercise
     *    :: arg                                           0 (choice argument)
     *    -> ContractId arg                                1 (contract to exercise)
-    *    -> List Party                                    2 (actors)
-    *    -> List Party                                    3 (signatories)
-    *    -> List Party                                    4 (template observers)
-    *    -> List Party                                    5 (choice controllers)
-    *    -> List Party                                    6 (choice observers)
-    *    -> Optional {key: key, maintainers: List Party}  7 (template key, if present)
+    *    -> List Party                                    2 (controllers)
+    *    -> List Party                                    3 (observers)
     *    -> ()
     */
   final case class SBUBeginExercise(
@@ -1004,14 +1000,14 @@ private[lf] object SBuiltin {
       choiceId: ChoiceName,
       consuming: Boolean,
       byKey: Boolean,
-  ) extends UpdateBuiltin(4) { // TODO #15882 - take additional arg for choice-authorizers
+  ) extends UpdateBuiltin(4) {
 
     override protected def executeUpdate(
         args: util.ArrayList[SValue],
         machine: UpdateMachine,
     ): Control[Nothing] = {
       val coid = getSContractId(args, 1)
-      val cached = machine.cachedContracts.getOrElse(
+      val contract = machine.cachedContracts.getOrElse(
         coid,
         crash(s"Contract ${coid.coid} is missing from cache"),
       )
@@ -1027,13 +1023,14 @@ private[lf] object SBuiltin {
       machine.ptx
         .beginExercises(
           targetId = coid,
-          contract = cached,
+          contract = contract,
           interfaceId = interfaceId,
           choiceId = choiceId,
           optLocation = machine.getLastLocation,
           consuming = consuming,
           actingParties = ctrls,
           choiceObservers = obsrs,
+          choiceAuthorizers = None,
           byKey = byKey,
           chosenValue = chosenValue,
           version = exerciseVersion,
