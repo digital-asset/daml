@@ -11,7 +11,7 @@ import com.daml.lf.data.Ref.Identifier
 import com.daml.lf.engine.trigger.simulation.TriggerMultiProcessSimulation.TriggerSimulationConfig
 import com.google.rpc.status.{Status => GrpcStatus}
 
-import java.nio.file.{Files, Paths}
+import java.nio.file.Files
 import java.util.UUID
 import scala.collection.immutable.TreeMap
 
@@ -44,10 +44,10 @@ private[simulation] object ReportingProcess {
       ledger: ActorRef[LedgerProcess.LedgerManagement]
   )(implicit config: TriggerSimulationConfig): Behavior[Message] = {
     Behaviors.setup { _ =>
-      val triggerDataFile = Files.newOutputStream(Paths.get(config.triggerDataFile))
+      val triggerDataFile = Files.newOutputStream(config.triggerDataFile)
       val triggerDataFileCsvHeader =
         "reporting-id,trigger-name,trigger-id,submissions,evaluation-steps,evaluation-get-times,rule-evaluation-time,active-contracts,pending-contracts,in-flight-commands,percentage-heap-used,gc-time,gc-count,completion-status-code\n"
-      val acsDataFile = Files.newOutputStream(Paths.get(config.acsDataFile))
+      val acsDataFile = Files.newOutputStream(config.acsDataFile)
       val acsDataFileCsvHeader =
         "reporting-id,trigger-id,template-id,contract-additions,contract-deletions\n"
       triggerDataFile.write(triggerDataFileCsvHeader.getBytes)

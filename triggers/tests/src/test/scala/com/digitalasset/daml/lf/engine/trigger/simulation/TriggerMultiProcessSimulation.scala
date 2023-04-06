@@ -15,6 +15,7 @@ import com.daml.lf.engine.trigger.simulation.process.{LedgerProcess, TriggerProc
 import com.daml.lf.engine.trigger.test.AbstractTriggerTest
 import org.scalatest.wordspec.AsyncWordSpec
 
+import java.nio.file.{Files, Path}
 import scala.concurrent.duration._
 import scala.concurrent.ExecutionContext
 
@@ -25,7 +26,7 @@ abstract class TriggerMultiProcessSimulation
 
   import TriggerMultiProcessSimulation._
 
-  // FIXME: changed default value for test debugging
+  // For demonstration purposes, we only run for 30 seconds
   protected implicit lazy val simulationConfig: TriggerSimulationConfig =
     TriggerSimulationConfig(simulationDuration = 30.seconds)
 
@@ -98,15 +99,18 @@ abstract class TriggerMultiProcessSimulation
 
 object TriggerMultiProcessSimulation {
 
+  // If simulation CSV data is to be kept, then we need to run our bazel tests with "--test_tmpdir=/tmp/" or similar
+  // (otherwise bazel will remove the directory holding the saved CSV data)
+  private val tmpDir = Files.createTempDirectory("TriggerSimulation")
+
   final case class TriggerSimulationConfig(
       simulationSetupTimeout: FiniteDuration = 30.seconds,
       simulationDuration: FiniteDuration = 5.minutes,
       ledgerSubmissionTimeout: FiniteDuration = 30.seconds,
       ledgerRegistrationTimeout: FiniteDuration = 30.seconds,
       ledgerWorkloadTimeout: FiniteDuration = 1.second,
-      // FIXME:
-      triggerDataFile: String = "/tmp/trigger-simulation-data.csv",
-      acsDataFile: String = "/tmp/trigger-simulation-acs-data.csv",
+      triggerDataFile: Path = tmpDir.resolve("trigger-simulation-data.csv"),
+      acsDataFile: Path = tmpDir.resolve("trigger-simulation-acs-data.csv"),
   )
 
   final case class TriggerSimulationFailure(cause: Throwable) extends Exception
