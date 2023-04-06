@@ -17,16 +17,13 @@ import org.scalatest.wordspec.AsyncWordSpec
 import java.util.UUID
 
 class Jwt extends AsyncWordSpec with AbstractTriggerTestWithCanton with Matchers with TryValues {
-  self: Suite =>
 
-  protected val jwtSecret: String = UUID.randomUUID.toString
+  private val jwtSecret: String = UUID.randomUUID.toString
+  private val party = s"AliceAuth-${UUID.randomUUID()}"
 
-  override protected def authSecret: Option[String] = Some(jwtSecret)
-
+  override protected val authSecret: Option[String] = Some(jwtSecret)
   // Override to make sure we set it correctly.
   override protected val applicationId: ApplicationId = ApplicationId("custom app id")
-
-  private val party = s"AliceAuth-${UUID.randomUUID()}"
 
   "Jwt" can {
     // We just need something simple to test the connection.

@@ -260,7 +260,7 @@ trait CantonFixture extends SuiteResource[Vector[Port]] with AkkaBeforeAndAfterA
     )
   }
 
-  final protected val adminToken: Option[String] = getToken(adminUserId)
+  final protected lazy val adminToken: Option[String] = getToken(adminUserId)
 
   final protected def getToken(
       userId: String,

@@ -14,7 +14,6 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
 class Tls extends AsyncWordSpec with AbstractTriggerTestWithCanton with Matchers with TryValues {
-  self: Suite =>
 
   override protected def tlsEnable: Boolean = true
 

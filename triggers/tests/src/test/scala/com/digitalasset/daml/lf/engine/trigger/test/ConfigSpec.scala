@@ -92,6 +92,7 @@ class ConfigSpec
   }
 
   "resolveClaims" should {
+    // FIXME: fails
     "succeed for user with primary party & actAs and readAs claims" in {
       for {
         client <- defaultLedgerClient()
@@ -145,6 +146,7 @@ class ConfigSpec
         )
       } yield ex.getMessage should include("no actAs claims")
     }
+    // FIXME: fails
     "succeed for user after primaryParty update" in {
       for {
         client <- defaultLedgerClient()
