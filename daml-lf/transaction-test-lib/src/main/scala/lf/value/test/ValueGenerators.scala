@@ -401,7 +401,7 @@ object ValueGenerators {
       stakeholders = stakeholders,
       signatories = signatories,
       choiceObservers = choiceObservers,
-      authorizers = Set.empty,
+      choiceAuthorizers = None,
       children = children,
       exerciseResult = exerciseResult,
       keyOpt = key,

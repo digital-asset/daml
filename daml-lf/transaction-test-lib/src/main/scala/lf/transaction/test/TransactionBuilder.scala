@@ -135,7 +135,7 @@ final class TransactionBuilder(pkgTxVersion: Ref.PackageId => TransactionVersion
   ): Node.Exercise =
     Node.Exercise(
       choiceObservers = choiceObservers,
-      authorizers = Set.empty,
+      choiceAuthorizers = None,
       targetCoid = contract.coid,
       templateId = contract.templateId,
       interfaceId = interfaceId,

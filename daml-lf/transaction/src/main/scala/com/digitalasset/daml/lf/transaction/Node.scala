@@ -147,7 +147,7 @@ object Node {
       stakeholders: Set[Party],
       signatories: Set[Party],
       choiceObservers: Set[Party],
-      authorizers: Set[Party],
+      choiceAuthorizers: Option[Set[Party]],
       children: ImmArray[NodeId],
       exerciseResult: Option[Value],
       keyOpt: Option[GlobalKeyWithMaintainers],

@@ -1000,7 +1000,7 @@ private[lf] object SBuiltin {
       choiceId: ChoiceName,
       consuming: Boolean,
       byKey: Boolean,
-  ) extends UpdateBuiltin(4) { // TODO #15882 - take additional arg for choice-authorizers
+  ) extends UpdateBuiltin(4) {
 
     override protected def executeUpdate(
         args: util.ArrayList[SValue],
@@ -1020,9 +1020,6 @@ private[lf] object SBuiltin {
       val obsrs = extractParties(NameOf.qualifiedNameOfCurrentFunc, args.get(3))
       machine.enforceChoiceObserversLimit(obsrs, coid, templateId, choiceId, chosenValue)
 
-      // TODO #15882 - new Daml syntax will allow this default to be overriden
-      val authorizers = ctrls union contract.signatories
-
       machine.ptx
         .beginExercises(
           targetId = coid,
@@ -1033,7 +1030,7 @@ private[lf] object SBuiltin {
           consuming = consuming,
           actingParties = ctrls,
           choiceObservers = obsrs,
-          authorizers = authorizers,
+          choiceAuthorizers = None,
           byKey = byKey,
           chosenValue = chosenValue,
           version = exerciseVersion,

@@ -339,7 +339,7 @@ object TransactionCoder {
               ne.signatories.foreach(builder.addSignatories)
               ne.stakeholders.foreach(builder.addStakeholders)
               ne.choiceObservers.foreach(builder.addObservers)
-              // ne.authorizers.foreach... // TODO #15882
+              // ne.choiceAuthorizers.foreach... // TODO #15882
               if (nodeVersion >= TransactionVersion.minByKey) {
                 discard(builder.setByKey(ne.byKey))
               }
@@ -618,7 +618,7 @@ object TransactionCoder {
           stakeholders = stakeholders,
           signatories = signatories,
           choiceObservers = choiceObservers,
-          authorizers = Set.empty, // TODO #15882
+          choiceAuthorizers = None, // TODO #15882
           children = children,
           exerciseResult = rvOpt,
           keyOpt = keyWithMaintainers,

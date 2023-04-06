@@ -72,7 +72,7 @@ class PartialTransactionSpec extends AnyWordSpec with Matchers with Inside {
           consuming = false,
           actingParties = Set(party),
           choiceObservers = Set.empty,
-          authorizers = Set(party),
+          choiceAuthorizers = None,
           byKey = false,
           chosenValue = Value.ValueUnit,
           version = TransactionVersion.maxVersion,
