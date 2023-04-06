@@ -28,8 +28,6 @@ class DevOnly
 
   import DevOnly._
 
-  override protected val cantonFixtureDebugMode = true
-
   this.getClass.getSimpleName can {
     "InterfaceTest" should {
       val triggerId = QualifiedName.assertFromString("Interface:test")
