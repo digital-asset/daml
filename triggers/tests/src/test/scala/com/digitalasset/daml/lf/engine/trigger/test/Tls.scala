@@ -28,6 +28,8 @@ class Tls
     with TryValues {
   self: Suite =>
 
+  import AbstractTriggerTest._
+
   val List(serverCrt, serverPem, caCrt, clientCrt, clientPem) = {
     List("server.crt", "server.pem", "ca.crt", "client.crt", "client.pem").map { src =>
       Some(new File(rlocation("test-common/test-certificates/" + src)))

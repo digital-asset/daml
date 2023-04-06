@@ -35,6 +35,7 @@ class TriggerRuleSimulationLibTest
     with TryValues
     with TriggerRuleSimulationLibTestGenerators {
 
+  import AbstractTriggerTest._
   import TriggerRuleSimulationLib._
 
   override protected def config: Config = super.config.copy(

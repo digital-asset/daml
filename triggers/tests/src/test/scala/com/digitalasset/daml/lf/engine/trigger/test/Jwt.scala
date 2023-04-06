@@ -28,8 +28,10 @@ class Jwt
     with TryValues {
   self: Suite =>
 
+  import AbstractTriggerTest._
+
   // Override to make sure we set it correctly.
-  override protected val applicationId: ApplicationId = ApplicationId("custom app id")
+  override protected implicit val applicationId: ApplicationId = ApplicationId("custom app id")
 
   override protected def ledgerClientConfiguration: LedgerClientConfiguration =
     super.ledgerClientConfiguration.copy(
