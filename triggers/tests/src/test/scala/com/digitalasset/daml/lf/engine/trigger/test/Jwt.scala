@@ -7,34 +7,26 @@ import akka.stream.scaladsl.Flow
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.daml.ledger.api.v1.commands.CreateCommand
 import com.daml.ledger.api.v1.{value => LedgerApi}
-import com.daml.ledger.client.configuration.LedgerClientConfiguration
 import com.daml.lf.data.Ref._
 import com.daml.lf.engine.trigger.Runner.TriggerContext
 import com.daml.lf.engine.trigger.TriggerMsg
-import com.daml.platform.sandbox.SandboxRequiringAuthorization
-import com.daml.platform.sandbox.fixture.SandboxFixture
 import org.scalatest._
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
-class Jwt
-    extends AsyncWordSpec
-    with AbstractTriggerTestWithCanton
-    with SandboxFixture
-    with SandboxRequiringAuthorization
-    with Matchers
-    with TryValues {
+import java.util.UUID
+
+class Jwt extends AsyncWordSpec with AbstractTriggerTestWithCanton with Matchers with TryValues {
   self: Suite =>
+
+  protected val jwtSecret: String = UUID.randomUUID.toString
+
+  override protected def authSecret: Option[String] = Some(jwtSecret)
 
   // Override to make sure we set it correctly.
   override protected val applicationId: ApplicationId = ApplicationId("custom app id")
 
-  override protected def ledgerClientConfiguration: LedgerClientConfiguration =
-    super.ledgerClientConfiguration.copy(
-      token = Some(toHeader(forApplicationId("custom app id", readWriteToken(party))))
-    )
-
-  private val party = "AliceAuth"
+  private val party = s"AliceAuth-${UUID.randomUUID()}"
 
   "Jwt" can {
     // We just need something simple to test the connection.
@@ -52,13 +44,7 @@ class Jwt
       )
     "1 create" in {
       for {
-        adminClient <- defaultLedgerClient(config =
-          Some(
-            ledgerClientConfiguration.copy(
-              token = Some(toHeader(forApplicationId("custom app id", adminToken)))
-            )
-          )
-        )
+        adminClient <- defaultLedgerClient(token = adminToken)
         _ <- adminClient.partyManagementClient.allocateParty(Some(party), None)
         client <- defaultLedgerClient()
         runner = getRunner(client, QualifiedName.assertFromString("ACS:test"), party)

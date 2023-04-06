@@ -4,26 +4,21 @@
 package com.daml.lf.engine.trigger
 package test
 
-import java.nio.file.Paths
+import java.nio.file.{Path, Paths}
 import com.daml.ledger.api.domain.{ObjectMeta, User, UserRight}
-import com.daml.ledger.api.refinements.ApiTypes.Party
+import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId, Party}
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
-import com.daml.ledger.client.LedgerClient
-import com.daml.ledger.client.configuration.{
-  CommandClientConfiguration,
-  LedgerClientConfiguration,
-  LedgerIdRequirement,
-}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.UserId
 import com.daml.lf.integrationtest.CantonFixture
+import com.daml.platform.services.time.TimeProviderType
 import com.google.protobuf.field_mask.FieldMask
 import io.grpc.StatusRuntimeException
 import io.grpc.Status.Code
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
-import java.io.File
+import java.util.UUID
 import scala.language.implicitConversions
 
 class ConfigSpec
@@ -32,14 +27,13 @@ class ConfigSpec
     with CantonFixture
     with SuiteResourceManagementAroundAll {
 
-  private val clientConfig = LedgerClientConfiguration(
-    applicationId = "myappid",
-    ledgerIdRequirement = LedgerIdRequirement.none,
-    commandClient = CommandClientConfiguration.default,
-    token = None,
-  )
-
-  override protected val packageFiles: List[File] = List.empty
+  override protected def authSecret: Option[String] = None
+  override protected def darFiles: List[Path] = List.empty
+  override protected def devMode: Boolean = true
+  override protected def nParticipants: Int = 1
+  override protected def timeProviderType: TimeProviderType = TimeProviderType.Static
+  override protected def tlsEnable: Boolean = false
+  override protected def applicationId: ApplicationId = ApplicationId("myappid")
 
   private implicit def toParty(s: String): Party =
     Party(s)
@@ -47,6 +41,8 @@ class ConfigSpec
     Ref.Party.assertFromString(s)
   private implicit def toUserId(s: String): UserId =
     UserId.assertFromString(s)
+
+  private def randomUserId(): String = UUID.randomUUID().toString
 
   "CLI" should {
     val defaultArgs = Array(
@@ -98,7 +94,7 @@ class ConfigSpec
   "resolveClaims" should {
     "succeed for user with primary party & actAs and readAs claims" in {
       for {
-        client <- LedgerClient(channel, clientConfig)
+        client <- defaultLedgerClient()
         userId = randomUserId()
         _ <- client.partyManagementClient.allocateParty(hint = Some("primary"), None, None)
         _ <- client.partyManagementClient.allocateParty(hint = Some("alice"), None, None)
@@ -116,15 +112,16 @@ class ConfigSpec
     }
     "fail for non-existent user" in {
       for {
-        client <- LedgerClient(channel, clientConfig)
+        client <- defaultLedgerClient()
+        userId = randomUserId()
         ex <- recoverToExceptionIf[StatusRuntimeException](
-          UserSpecification(randomUserId()).resolveClaims(client)
+          UserSpecification(userId).resolveClaims(client)
         )
       } yield ex.getStatus.getCode shouldBe Code.NOT_FOUND
     }
     "fail for user with no primary party" in {
       for {
-        client <- LedgerClient(channel, clientConfig)
+        client <- defaultLedgerClient()
         userId = randomUserId()
         _ <- client.userManagementClient.createUser(
           User(userId, None, metadata = ObjectMeta.empty),
@@ -137,7 +134,7 @@ class ConfigSpec
     }
     "fail for user with no actAs claims for primary party" in {
       for {
-        client <- LedgerClient(channel, clientConfig)
+        client <- defaultLedgerClient()
         userId = randomUserId()
         _ <- client.userManagementClient.createUser(
           User(userId, Some("primary"), isDeactivated = false, ObjectMeta.empty),
@@ -150,7 +147,7 @@ class ConfigSpec
     }
     "succeed for user after primaryParty update" in {
       for {
-        client <- LedgerClient(channel, clientConfig)
+        client <- defaultLedgerClient()
         userId = randomUserId()
         _ <- client.partyManagementClient.allocateParty(hint = Some("original"), None, None)
         _ <- client.partyManagementClient.allocateParty(hint = Some("updated"), None, None)
