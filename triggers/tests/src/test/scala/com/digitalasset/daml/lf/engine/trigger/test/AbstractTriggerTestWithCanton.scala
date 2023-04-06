@@ -32,6 +32,7 @@ import com.daml.platform.services.time.TimeProviderType
 import org.scalatest._
 import scalaz.syntax.tag._
 
+import java.nio.file.Path
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
@@ -46,12 +47,13 @@ trait AbstractTriggerTestWithCanton extends CantonFixture with SuiteResourceMana
     Try(BazelRunfiles.requiredResource("triggers/tests/acs.dar"))
       .getOrElse(BazelRunfiles.requiredResource("triggers/tests/acs-1.dev.dar"))
 
-  override protected def authSecret = None
-  override protected def darFiles = List(darFile.toPath)
-  override protected def devMode = true
-  override protected def nParticipants = 1
-  override protected def timeProviderType = TimeProviderType.Static
-  override protected def tlsEnable = false
+  override protected def authSecret: Option[String] = None
+  override protected def darFiles: List[Path] = List(darFile.toPath)
+  override protected def devMode: Boolean = true
+  override protected def nParticipants: Int = 1
+  override protected def timeProviderType: TimeProviderType = TimeProviderType.Static
+  override protected def tlsEnable: Boolean = false
+  override protected def applicationId: ApplicationId = RunnerConfig.DefaultApplicationId
 
   protected def toHighLevelResult(s: SValue) = s match {
     case SRecord(_, _, values) if values.size == 6 =>
@@ -66,11 +68,9 @@ trait AbstractTriggerTestWithCanton extends CantonFixture with SuiteResourceMana
     case _ => throw new IllegalArgumentException(s"Expected record with 6 fields but got $s")
   }
 
-  protected val applicationId: ApplicationId = RunnerConfig.DefaultApplicationId
-
   protected def ledgerClientConfiguration: LedgerClientConfiguration =
     LedgerClientConfiguration(
-      applicationId = ApplicationId.unwrap(applicationId),
+      applicationId = applicationId.unwrap,
       ledgerIdRequirement = LedgerIdRequirement.none,
       commandClient = CommandClientConfiguration.default,
       token = None,
@@ -97,7 +97,7 @@ trait AbstractTriggerTestWithCanton extends CantonFixture with SuiteResourceMana
       Party(party),
       Party.subst(readAs),
       "test-trigger",
-      ApplicationId("test-trigger-app"),
+      applicationId,
     ) { implicit triggerContext: TriggerLogContext =>
       val trigger = Trigger.fromIdentifier(compiledPackages, triggerId).toOption.get
 
@@ -129,7 +129,7 @@ trait AbstractTriggerTestWithCanton extends CantonFixture with SuiteResourceMana
           party = party,
           commands = commands,
           ledgerId = client.ledgerId.unwrap,
-          applicationId = ApplicationId.unwrap(applicationId),
+          applicationId = applicationId.unwrap,
           commandId = UUID.randomUUID.toString,
         )
       )
@@ -179,7 +179,7 @@ trait AbstractTriggerTestWithCanton extends CantonFixture with SuiteResourceMana
           party = party,
           commands = commands,
           ledgerId = client.ledgerId.unwrap,
-          applicationId = ApplicationId.unwrap(applicationId),
+          applicationId = applicationId.unwrap,
           commandId = UUID.randomUUID.toString,
         )
       )

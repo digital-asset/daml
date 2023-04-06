@@ -5,11 +5,12 @@ package com.daml.lf
 package integrationtest
 
 import java.nio.charset.StandardCharsets
-import java.nio.file.{Path, Paths, Files}
+import java.nio.file.{Files, Path, Paths}
 import com.daml.bazeltools.BazelRunfiles._
 import com.daml.jwt.JwtSigner
 import com.daml.jwt.domain.DecodedJwt
 import com.daml.ledger.api.auth
+import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.daml.ledger.api.testing.utils.{AkkaBeforeAndAfterAll, OwnedResource, SuiteResource}
 import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.client.LedgerClient
@@ -22,6 +23,7 @@ import com.daml.timer.RetryStrategy
 import com.google.protobuf.ByteString
 import org.scalatest.Suite
 import spray.json.JsString
+import scalaz.syntax.tag._
 
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{ExecutionContext, Future}
@@ -78,10 +80,11 @@ trait CantonFixture extends SuiteResource[Vector[Port]] with AkkaBeforeAndAfterA
   protected def nParticipants: Int
   protected def timeProviderType: TimeProviderType
   protected def tlsEnable: Boolean
+  protected def applicationId: ApplicationId
 
   // This flag setup some behavior to ease debugging tests.
   //  If `true`
-  //   - temporary file are not deleted
+  //   - temporary file are not deleted (this requires "--test_tmpdir=/tmp/" or similar for bazel builds)
   //   - some debug info are logged.
   protected val cantonFixtureDebugMode = false
 
@@ -136,7 +139,7 @@ trait CantonFixture extends SuiteResource[Vector[Port]] with AkkaBeforeAndAfterA
           val domainAdminApi = LockedFreePort.find()
 
           val cantonPath = rlocation(
-            "external/canton/lib/canton-open-source-2.7.0-SNAPSHOT.jar"
+            "external/canton/lib/canton-open-source-2.7.0-SNAPSHOT.jar" // FIXME: remove hard coded version!!
           )
           val exe = if (sys.props("os.name").toLowerCase.contains("windows")) ".exe" else ""
           val java = s"${System.getenv("JAVA_HOME")}/bin/java${exe}"
@@ -176,7 +179,7 @@ trait CantonFixture extends SuiteResource[Vector[Port]] with AkkaBeforeAndAfterA
                |    }""".stripMargin
           }
           val participantsConfig =
-            (0 until nParticipants).map(participantConfig(_)).mkString("\n")
+            (0 until nParticipants).map(participantConfig).mkString("\n")
           val cantonConfig =
             s"""canton {
                |  parameters.non-standard-config = yes
@@ -201,7 +204,7 @@ trait CantonFixture extends SuiteResource[Vector[Port]] with AkkaBeforeAndAfterA
           """.stripMargin
           discard(Files.write(cantonConfigFile, cantonConfig.getBytes(StandardCharsets.UTF_8)))
           val debugOptions =
-            if (cantonFixtureDebugMode) List("--log-file-name", cantonLogFile.toString)
+            if (cantonFixtureDebugMode) List("--log-file-name", cantonLogFile.toString, "--verbose")
             else List.empty
           for {
             proc <- Future(
@@ -217,7 +220,7 @@ trait CantonFixture extends SuiteResource[Vector[Port]] with AkkaBeforeAndAfterA
               ).run()
             )
             _ <- RetryStrategy.constant(attempts = 240, waitTime = 1.seconds) { (_, _) =>
-              info(s"waiting for Canton to start")
+              info("waiting for Canton to start")
               Future(Files.size(portFile))
             }
             _ = info("Canton started")
@@ -303,7 +306,7 @@ trait CantonFixture extends SuiteResource[Vector[Port]] with AkkaBeforeAndAfterA
       hostIp = "localhost",
       port = port.value,
       configuration = LedgerClientConfiguration(
-        applicationId = token.fold("daml-script")(_ => ""),
+        applicationId = token.fold(applicationId.unwrap)(_ => ""),
         ledgerIdRequirement = LedgerIdRequirement.none,
         commandClient = CommandClientConfiguration.default,
         token = token,
