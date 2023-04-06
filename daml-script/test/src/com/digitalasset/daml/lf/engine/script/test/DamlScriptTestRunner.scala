@@ -4,6 +4,7 @@
 package com.daml.lf.engine.script
 
 import com.daml.bazeltools.BazelRunfiles
+import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.daml.lf.integrationtest.CantonFixture
 import com.daml.platform.services.time.TimeProviderType
@@ -27,6 +28,7 @@ class DamlScriptTestRunner
   override protected def nParticipants = 1
   override protected def timeProviderType = TimeProviderType.Static
   override protected def tlsEnable = false
+  override protected def applicationId: ApplicationId = ApplicationId("daml-script")
 
   private val exe = if (sys.props("os.name").toLowerCase.contains("windows")) ".exe" else ""
   val scriptPath = BazelRunfiles.rlocation("daml-script/runner/daml-script-binary" + exe)
