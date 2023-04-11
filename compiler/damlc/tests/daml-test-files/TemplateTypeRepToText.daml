@@ -1,7 +1,7 @@
 -- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
 -- All rights reserved.
 
--- @SINCE-LF-FEATURE DAML_EXPERIMENTAL
+-- @SINCE-LF-FEATURE DAML_TEMPLATE_TYPEREP_TO_TEXT
 module TemplateTypeRepToText where
 
 import Daml.Script
