@@ -4,26 +4,19 @@
 package com.daml.lf.engine.trigger.test
 
 import akka.stream.scaladsl.Flow
-import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
+import com.daml.ledger.api.domain
 import com.daml.ledger.api.v1.commands.CreateCommand
 import com.daml.ledger.api.v1.{value => LedgerApi}
+import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref._
 import com.daml.lf.engine.trigger.Runner.TriggerContext
 import com.daml.lf.engine.trigger.TriggerMsg
+import com.daml.lf.integrationtest.CantonFixture.{adminUserId, freshUserId}
 import org.scalatest._
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
-import java.util.UUID
-
 class Jwt extends AsyncWordSpec with AbstractTriggerTestWithCanton with Matchers with TryValues {
-
-  private val jwtSecret: String = UUID.randomUUID.toString
-  private val party = s"AliceAuth-${UUID.randomUUID()}"
-
-  override protected val authSecret: Option[String] = Some(jwtSecret)
-  // Override to make sure we set it correctly.
-  override protected val applicationId: ApplicationId = ApplicationId("custom app id")
 
   "Jwt" can {
     // We just need something simple to test the connection.
@@ -41,9 +34,14 @@ class Jwt extends AsyncWordSpec with AbstractTriggerTestWithCanton with Matchers
       )
     "1 create" in {
       for {
-        adminClient <- defaultLedgerClient(token = adminToken)
-        _ <- adminClient.partyManagementClient.allocateParty(Some(party), None)
-        client <- defaultLedgerClient()
+        adminClient <- defaultLedgerClient(getToken(adminUserId))
+        userId = Ref.UserId.assertFromString(freshUserId())
+        partyDetails <- adminClient.partyManagementClient.allocateParty(None, None)
+        party = partyDetails.party
+        user = domain.User(userId, None)
+        rights = Seq(domain.UserRight.CanActAs(party))
+        _ <- adminClient.userManagementClient.createUser(user, rights)
+        client <- defaultLedgerClient(getToken(userId))
         runner = getRunner(client, QualifiedName.assertFromString("ACS:test"), party)
         (acs, offset) <- runner.queryACS()
         // Start the future here
