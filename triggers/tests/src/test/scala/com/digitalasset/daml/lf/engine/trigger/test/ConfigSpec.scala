@@ -11,6 +11,7 @@ import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.UserId
 import com.daml.lf.integrationtest.CantonFixture
+import com.daml.lf.integrationtest.CantonFixture.{adminUserId, freshUserId}
 import com.daml.platform.services.time.TimeProviderType
 import com.google.protobuf.field_mask.FieldMask
 import io.grpc.StatusRuntimeException
@@ -18,7 +19,6 @@ import io.grpc.Status.Code
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
-import java.util.UUID
 import scala.language.implicitConversions
 
 class ConfigSpec
@@ -41,8 +41,6 @@ class ConfigSpec
     Ref.Party.assertFromString(s)
   private implicit def toUserId(s: String): UserId =
     UserId.assertFromString(s)
-
-  private def randomUserId(): String = UUID.randomUUID().toString
 
   "CLI" should {
     val defaultArgs = Array(
@@ -92,84 +90,94 @@ class ConfigSpec
   }
 
   "resolveClaims" should {
-    // FIXME: fails
     "succeed for user with primary party & actAs and readAs claims" in {
       for {
-        client <- defaultLedgerClient()
-        userId = randomUserId()
-        _ <- client.partyManagementClient.allocateParty(hint = Some("primary"), None, None)
-        _ <- client.partyManagementClient.allocateParty(hint = Some("alice"), None, None)
-        _ <- client.partyManagementClient.allocateParty(hint = Some("bob"), None, None)
-        _ <- client.userManagementClient.createUser(
-          User(userId, Some("primary"), metadata = ObjectMeta.empty),
+        adminClient <- defaultLedgerClient(getToken(adminUserId))
+        userId = Ref.UserId.assertFromString(freshUserId())
+        primary <- adminClient.partyManagementClient.allocateParty(
+          hint = Some("primary"),
+          None,
+          None,
+        )
+        alice <- adminClient.partyManagementClient.allocateParty(hint = Some("alice"), None, None)
+        bob <- adminClient.partyManagementClient.allocateParty(hint = Some("bob"), None, None)
+        _ <- adminClient.userManagementClient.createUser(
+          User(userId, Some(primary.party), metadata = ObjectMeta.empty),
           Seq(
-            UserRight.CanActAs("primary"),
-            UserRight.CanActAs("alice"),
-            UserRight.CanReadAs("bob"),
+            UserRight.CanActAs(primary.party),
+            UserRight.CanActAs(alice.party),
+            UserRight.CanReadAs(bob.party),
           ),
         )
-        r <- UserSpecification(userId).resolveClaims(client)
-      } yield r shouldBe TriggerParties("primary", Set("alice", "bob"))
+        r <- UserSpecification(userId).resolveClaims(adminClient)
+      } yield r shouldBe TriggerParties(primary.party, Set(alice.party, bob.party))
     }
     "fail for non-existent user" in {
       for {
-        client <- defaultLedgerClient()
-        userId = randomUserId()
+        adminClient <- defaultLedgerClient(getToken(adminUserId))
+        userId = Ref.UserId.assertFromString(freshUserId())
         ex <- recoverToExceptionIf[StatusRuntimeException](
-          UserSpecification(userId).resolveClaims(client)
+          UserSpecification(userId).resolveClaims(adminClient)
         )
       } yield ex.getStatus.getCode shouldBe Code.NOT_FOUND
     }
     "fail for user with no primary party" in {
       for {
-        client <- defaultLedgerClient()
-        userId = randomUserId()
-        _ <- client.userManagementClient.createUser(
+        adminClient <- defaultLedgerClient(getToken(adminUserId))
+        userId = Ref.UserId.assertFromString(freshUserId())
+        _ <- adminClient.userManagementClient.createUser(
           User(userId, None, metadata = ObjectMeta.empty),
           Seq.empty,
         )
         ex <- recoverToExceptionIf[IllegalArgumentException](
-          UserSpecification(userId).resolveClaims(client)
+          UserSpecification(userId).resolveClaims(adminClient)
         )
       } yield ex.getMessage should include("has no primary party")
     }
     "fail for user with no actAs claims for primary party" in {
       for {
-        client <- defaultLedgerClient()
-        userId = randomUserId()
-        _ <- client.userManagementClient.createUser(
+        adminClient <- defaultLedgerClient(getToken(adminUserId))
+        userId = Ref.UserId.assertFromString(freshUserId())
+        _ <- adminClient.userManagementClient.createUser(
           User(userId, Some("primary"), isDeactivated = false, ObjectMeta.empty),
           Seq.empty,
         )
         ex <- recoverToExceptionIf[IllegalArgumentException](
-          UserSpecification(userId).resolveClaims(client)
+          UserSpecification(userId).resolveClaims(adminClient)
         )
       } yield ex.getMessage should include("no actAs claims")
     }
-    // FIXME: fails
     "succeed for user after primaryParty update" in {
       for {
-        client <- defaultLedgerClient()
-        userId = randomUserId()
-        _ <- client.partyManagementClient.allocateParty(hint = Some("original"), None, None)
-        _ <- client.partyManagementClient.allocateParty(hint = Some("updated"), None, None)
-        _ <- client.partyManagementClient.allocateParty(hint = Some("other"), None, None)
-        _ <- client.userManagementClient.createUser(
-          User(userId, Some("original"), metadata = ObjectMeta.empty),
+        adminClient <- defaultLedgerClient(getToken(adminUserId))
+        userId = Ref.UserId.assertFromString(freshUserId())
+        original <- adminClient.partyManagementClient.allocateParty(
+          hint = Some("original"),
+          None,
+          None,
+        )
+        updated <- adminClient.partyManagementClient.allocateParty(
+          hint = Some("updated"),
+          None,
+          None,
+        )
+        other <- adminClient.partyManagementClient.allocateParty(hint = Some("other"), None, None)
+        _ <- adminClient.userManagementClient.createUser(
+          User(userId, Some(original.party), metadata = ObjectMeta.empty),
           Seq(
-            UserRight.CanActAs("original"),
-            UserRight.CanActAs("updated"),
-            UserRight.CanReadAs("other"),
+            UserRight.CanActAs(original.party),
+            UserRight.CanActAs(updated.party),
+            UserRight.CanReadAs(other.party),
           ),
         )
-        _ <- client.userManagementClient.updateUser(
-          User(userId, Some("updated"), metadata = ObjectMeta.empty),
+        _ <- adminClient.userManagementClient.updateUser(
+          User(userId, Some(updated.party), metadata = ObjectMeta.empty),
           Some(FieldMask(Seq("primary_party"))),
           None,
         )
 
-        r <- UserSpecification(userId).resolveClaims(client)
-      } yield r shouldBe TriggerParties("updated", Set("other", "original"))
+        r <- UserSpecification(userId).resolveClaims(adminClient)
+      } yield r shouldBe TriggerParties(updated.party, Set(other.party, original.party))
     }
   }
 }
