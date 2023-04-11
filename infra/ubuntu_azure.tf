@@ -162,20 +162,20 @@ cat <<'CRON' > /root/daily-reset.sh
 set -euo pipefail
 echo "$(date -Is -u) start"
 
-ss='${jsonencode(local.ubuntu.azure)}'
+scale_sets='${jsonencode(local.ubuntu.azure)}'
 
-for ss in $(echo $ss | jq -r '.[] | .name'); do
-  echo "$(date -Is -u) Setting scale set $ss size to 0"
-  az vmss scale -n $ss --new-capacity 0
+for set in $(echo $scale_sets | jq -r '.[] | .name'); do
+  echo "$(date -Is -u) Setting scale set $set size to 0"
+  az vmss scale -n $set --new-capacity 0
 done
 
 echo "$(date -Is -u) Waiting for scale sets to adapt"
 sleep 300
 
-for ss in $(echo $ss | jq -r '.[] | .name'); do
-  size=$(echo $ss | jq --arg ss $ss -r '.[] | select (.name == $ss) | .size')
-  echo "$(date -Is -u) Setting scale set $ss size back to $size"
-  az vmss scale -n $ss --new-capacity $size
+for set $(echo $scale_sets | jq -r '.[] | .name'); do
+  size=$(echo $scale_sets | jq --arg set $set -r '.[] | select (.name == $set) | .size')
+  echo "$(date -Is -u) Setting scale set $set size back to $size"
+  az vmss scale -n $set --new-capacity $size
 done
 
 echo "$(date -Is -u) end"
