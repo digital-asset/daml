@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.engine.trigger
+package simulation
 
 import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId, Party}
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
@@ -34,6 +35,7 @@ class TriggerRuleSimulationLibTest
     with TryValues
     with TriggerRuleSimulationLibTestGenerators {
 
+  import AbstractTriggerTest._
   import TriggerRuleSimulationLib._
 
   override protected def config: Config = super.config.copy(

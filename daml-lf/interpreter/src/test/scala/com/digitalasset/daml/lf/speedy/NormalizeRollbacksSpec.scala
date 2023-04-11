@@ -336,6 +336,7 @@ object NormalizeRollbackSpec {
       stakeholders = Set.empty,
       signatories = Set.empty,
       choiceObservers = Set.empty,
+      choiceAuthorizers = None,
       children = children,
       exerciseResult = None,
       keyOpt = None,

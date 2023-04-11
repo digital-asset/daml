@@ -45,7 +45,8 @@ provider "secret" {
 provider "azurerm" {
   features {
     virtual_machine {
-      graceful_shutdown = true
+      graceful_shutdown          = true
+      delete_os_disk_on_deletion = true
     }
   }
   subscription_id = "9114f3e0-9963-4368-9a0a-117bcdbf0055"

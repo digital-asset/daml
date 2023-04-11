@@ -107,6 +107,7 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
       stakeholders = aliceS,
       signatories = aliceS,
       choiceObservers = Set.empty,
+      choiceAuthorizers = None,
       children = ImmArray.Empty,
       exerciseResult = None,
       keyOpt = toOptKeyWithMaintainers(templateId, key),

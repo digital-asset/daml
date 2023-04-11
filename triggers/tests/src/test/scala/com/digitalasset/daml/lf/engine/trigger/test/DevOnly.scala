@@ -5,7 +5,6 @@ package com.daml.lf.engine.trigger.test
 
 import akka.stream.scaladsl.Flow
 import com.daml.lf.data.Ref._
-import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.daml.ledger.api.v1.commands.CreateCommand
 import com.daml.ledger.api.v1.event.{CreatedEvent, Event}
 import com.daml.ledger.api.v1.event.Event.Event.Created
@@ -22,12 +21,10 @@ import scala.collection.concurrent.TrieMap
 
 class DevOnly
     extends AsyncWordSpec
-    with AbstractTriggerTest
+    with AbstractTriggerTestWithCanton
     with Matchers
     with Inside
-    with SuiteResourceManagementAroundAll
     with TryValues {
-  self: Suite =>
 
   import DevOnly._
 
@@ -37,7 +34,7 @@ class DevOnly
       val tId = LedgerApi.Identifier(packageId, "Interface", "Asset")
       "1 transfer" in {
         for {
-          client <- ledgerClient()
+          client <- defaultLedgerClient()
           party <- allocateParty(client)
           runner = getRunner(client, triggerId, party)
           (acs, offset) <- runner.queryACS()
@@ -65,13 +62,12 @@ class DevOnly
         val transactionEvents = TrieMap.empty[String, Seq[Event]]
 
         for {
-          client <- ledgerClient()
+          client <- defaultLedgerClient()
           party <- allocateParty(client)
           runner = getRunner(client, triggerId, party)
 
           // Determine current ledger offset
-          queryResult <- runner.queryACS()
-          (_, offset) = queryResult
+          (_, offset) <- runner.queryACS()
 
           _ <- create(
             client,
@@ -105,8 +101,7 @@ class DevOnly
           )
 
           // Determine ACS for this test run's setup
-          queryResult <- runner.queryACS()
-          (acs, _) = queryResult
+          (acs, _) <- runner.queryACS()
 
           // 1 for ledger create command completion
           // 1 for ledger create command completion
@@ -128,8 +123,9 @@ class DevOnly
             ._2
         } yield {
           transactionEvents.size shouldBe 2
-          val Seq(templateATransactionId, templateBTransactionId) =
-            transactionEvents.keys.toSeq.sorted
+          val templateATransactionId = transactionEvents.transactionIdFor(templateA)
+          val templateBTransactionId = transactionEvents.transactionIdFor(templateB)
+          templateATransactionId should not equal templateBTransactionId
           transactionEvents(templateATransactionId) shouldHaveCreateArgumentsFor templateA
           transactionEvents(templateATransactionId) shouldHaveViewValues (0, visibleViaAllInDar)
           transactionEvents(templateBTransactionId) shouldHaveCreateArgumentsFor templateB
@@ -142,13 +138,12 @@ class DevOnly
         val transactionEvents = TrieMap.empty[String, Seq[Event]]
 
         for {
-          client <- ledgerClient()
+          client <- defaultLedgerClient()
           party <- allocateParty(client)
           runner = getRunner(client, triggerId, party)
 
           // Determine current ledger offset
-          queryResult <- runner.queryACS()
-          (_, offset) = queryResult
+          (_, offset) <- runner.queryACS()
 
           _ <- create(
             client,
@@ -188,8 +183,7 @@ class DevOnly
           )
 
           // Determine ACS for this test run's setup
-          queryResult <- runner.queryACS()
-          (acs, _) = queryResult
+          (acs, _) <- runner.queryACS()
 
           // 1 for ledger create command completion
           // 1 for ledger create command completion
@@ -211,8 +205,9 @@ class DevOnly
             ._2
         } yield {
           transactionEvents.size shouldBe 2
-          val Seq(templateATransactionId, templateBTransactionId) =
-            transactionEvents.keys.toSeq.sorted
+          val templateATransactionId = transactionEvents.transactionIdFor(templateA)
+          val templateBTransactionId = transactionEvents.transactionIdFor(templateB)
+          templateATransactionId should not equal templateBTransactionId
           transactionEvents(templateATransactionId) shouldHaveCreateArgumentsFor templateA
           transactionEvents(templateATransactionId) shouldHaveViewValues (0, visibleViaTemplateA)
           transactionEvents(templateBTransactionId) shouldHaveNoCreateArgumentsFor templateB
@@ -225,13 +220,12 @@ class DevOnly
         val transactionEvents = TrieMap.empty[String, Seq[Event]]
 
         for {
-          client <- ledgerClient()
+          client <- defaultLedgerClient()
           party <- allocateParty(client)
           runner = getRunner(client, triggerId, party)
 
           // Determine current ledger offset
-          queryResult <- runner.queryACS()
-          (_, offset) = queryResult
+          (_, offset) <- runner.queryACS()
 
           _ <- create(
             client,
@@ -271,8 +265,7 @@ class DevOnly
           )
 
           // Determine ACS for this test run's setup
-          queryResult <- runner.queryACS()
-          (acs, _) = queryResult
+          (acs, _) <- runner.queryACS()
 
           // 1 for ledger create command completion
           // 1 for ledger create command completion
@@ -294,8 +287,9 @@ class DevOnly
             ._2
         } yield {
           transactionEvents.size shouldBe 2
-          val Seq(templateATransactionId, templateBTransactionId) =
-            transactionEvents.keys.toSeq.sorted
+          val templateATransactionId = transactionEvents.transactionIdFor(templateA)
+          val templateBTransactionId = transactionEvents.transactionIdFor(templateB)
+          templateATransactionId should not equal templateBTransactionId
           transactionEvents(templateATransactionId) shouldHaveNoCreateArgumentsFor templateA
           transactionEvents(templateATransactionId) shouldHaveViewValues (0, visibleViaInterfaceI)
           transactionEvents(templateBTransactionId) shouldHaveNoCreateArgumentsFor templateB
@@ -307,6 +301,22 @@ class DevOnly
 }
 
 object DevOnly extends Matchers with Inside {
+
+  implicit class TransactionEventsHelper(events: TrieMap[String, Seq[Event]]) {
+    def transactionIdFor(templateId: Identifier): String = {
+      events.collect {
+        case (
+              transactionId,
+              Seq(
+                Event(
+                  Created(CreatedEvent(_, _, Some(`templateId`), _, _, _, _, _, _, _, _, _))
+                )
+              ),
+            ) =>
+          transactionId
+      }.head
+    }
+  }
 
   implicit class TriggerMsgTestHelper(events: Seq[Event]) {
     def shouldHaveNoCreateArgumentsFor(templateId: Identifier): Assertion =

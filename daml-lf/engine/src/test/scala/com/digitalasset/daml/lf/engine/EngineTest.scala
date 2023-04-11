@@ -1161,6 +1161,7 @@ class EngineTest
               _,
               _,
               _,
+              _,
               children,
               _,
               _,
@@ -2051,7 +2052,7 @@ class EngineTest
       val stx = suffix(tx)
 
       val ImmArray(_, exeNode1) = tx.transaction.roots
-      val Node.Exercise(_, _, _, _, _, _, _, _, _, _, children, _, _, _, _) =
+      val Node.Exercise(_, _, _, _, _, _, _, _, _, _, _, children, _, _, _, _) =
         tx.transaction.nodes(exeNode1)
       val nids = children.toSeq.take(2).toImmArray
 

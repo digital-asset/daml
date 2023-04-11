@@ -42,7 +42,7 @@ tests damlc dar =
 testsForRemoteDataDependencies :: FilePath -> FilePath -> TestTree
 testsForRemoteDataDependencies damlc dar =
     testGroup "Remote dependencies"
-    [ withSandbox defaultSandboxConf {dars = [dar]} $ \getSandboxPort -> do
+    [ withCantonSandbox defaultSandboxConf {dars = [dar]} $ \getSandboxPort -> do
           testGroup
               "un-authenticated"
               [ testCase "Package id data-dependency" $
@@ -156,7 +156,7 @@ testsForRemoteDataDependencies damlc dar =
                   -- only the main package needs to be downloaded, while the direct dependencies are
                   -- already present.
               ]
-    , withSandbox defaultSandboxConf {mbSharedSecret = Just "secret", dars = [dar]} $ \getSandboxPort
+    , withCantonSandbox defaultSandboxConf {mbSharedSecret = Just "secret", dars = [dar]} $ \getSandboxPort
     -- run the sandbox with authentication to check that we can access it given an authentication
     -- token.
        -> do

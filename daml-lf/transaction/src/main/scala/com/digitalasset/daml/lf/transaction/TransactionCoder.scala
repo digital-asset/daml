@@ -325,7 +325,7 @@ object TransactionCoder {
                 )
               } yield nodeBuilder.setFetch(builder).build()
 
-            case ne @ Node.Exercise(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
+            case ne @ Node.Exercise(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
               val builder = TransactionOuterClass.NodeExercise.newBuilder()
               discard(
                 builder
@@ -339,6 +339,7 @@ object TransactionCoder {
               ne.signatories.foreach(builder.addSignatories)
               ne.stakeholders.foreach(builder.addStakeholders)
               ne.choiceObservers.foreach(builder.addObservers)
+              // ne.choiceAuthorizers.foreach... // TODO #15882
               if (nodeVersion >= TransactionVersion.minByKey) {
                 discard(builder.setByKey(ne.byKey))
               }
@@ -617,6 +618,7 @@ object TransactionCoder {
           stakeholders = stakeholders,
           signatories = signatories,
           choiceObservers = choiceObservers,
+          choiceAuthorizers = None, // TODO #15882
           children = children,
           exerciseResult = rvOpt,
           keyOpt = keyWithMaintainers,

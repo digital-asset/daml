@@ -570,7 +570,7 @@ enum BuiltinFunction {
   NUMERIC_TO_BIGNUMERIC = 145; // *Available in versions >= 1.13*
   BIGNUMERIC_TO_TEXT = 146; // *Available in versions >= 1.13*
 
-  TYPEREP_TYCON_NAME = 148; // *Available in versions >= 1.dev*
+  TYPE_REP_TYCON_NAME = 148; // *Available in versions >= 1.dev*
 
   // Next id is 150.
 
@@ -967,7 +967,7 @@ message Expr {
 
 
   // Convert an interface back to a template payload, or raises WronglyTypedContract if not possible.
-  // *Available in versions >= 1.dev*
+  // *Available in versions >= 1.15*
   message UnsafeFromInterface {
     TypeConName interface_type = 1;
     TypeConName template_type = 2;
@@ -1704,7 +1704,7 @@ message DefInterface {
   // View type for this interface
   Type view = 8;
 
-  repeated TypeConName requires = 9;  // *Available in versions >= 1.dev*
+  repeated TypeConName requires = 9;  // *Available in versions >= 1.15*
 }
 
 // Exception definition

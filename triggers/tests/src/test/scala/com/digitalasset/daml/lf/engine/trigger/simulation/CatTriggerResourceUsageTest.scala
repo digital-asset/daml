@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.engine.trigger
+package simulation
 
 import akka.actor.ActorSystem
 import akka.stream.Materializer
@@ -29,6 +30,7 @@ class CatTriggerResourceUsageTest
     with TryValues
     with CatTriggerResourceUsageTestGenerators {
 
+  import AbstractTriggerTest._
   import TriggerRuleSimulationLib._
 
   // Used to control degree of parallelism in mapAsync streaming operations

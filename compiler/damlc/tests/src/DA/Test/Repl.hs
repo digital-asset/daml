@@ -40,19 +40,18 @@ main = do
     testDar <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> "tests" </> "repl-test.dar")
     multiTestDar <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> "tests" </> "repl-multi-test.dar")
     certDir <- locateRunfiles (mainWorkspace </> "test-common" </> "test-certificates")
-    defaultMain $ withSandbox defaultSandboxConf
+    defaultMain $ withCantonSandbox defaultSandboxConf
                   { dars = [testDar]
-                  , mbLedgerId = Just testLedgerId
                   , timeMode = Static
                   } $ \getSandboxPort ->
         testGroup "repl"
-            [ withSandbox defaultSandboxConf
+            [ withCantonSandbox defaultSandboxConf
                   { mbSharedSecret = Just testSecret
                   , mbLedgerId = Just testLedgerId
                   } $ \getSandboxPort ->
               withTokenFile $ \getTokenFile ->
               authTests damlc scriptDar getSandboxPort getTokenFile
-            , withSandbox defaultSandboxConf
+            , withCantonSandbox defaultSandboxConf
                   { enableTls = True
                   , mbClientAuth = Just None
                   } $ \getSandboxPort ->
@@ -118,7 +117,7 @@ testConnection damlc scriptDar ledgerPort mbTokenFile mbCaCrt = do
         [ "alice <- allocatePartyWithHint \"Alice\" (PartyIdHint \"Alice\")"
         , "debug alice"
         ]
-    let regexString = "^.*daml>.*: 'Alice'\ndaml> Goodbye.\n$" :: String
+    let regexString = "^.*daml>.*: 'Alice::[a-f0-9]+'\ndaml> Goodbye.\n$" :: String
     let regex = makeRegexOpts defaultCompOpt { multiline = False } defaultExecOpt regexString
     unless (matchTest regex out) $
         assertFailure (show out <> " did not match " <> show regexString <> ".")

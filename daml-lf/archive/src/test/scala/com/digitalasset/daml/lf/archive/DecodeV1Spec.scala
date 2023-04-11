@@ -351,7 +351,7 @@ class DecodeV1Spec
 
   "decodeType" should {
 
-    "reject non interned type for LF >= 1.dev" in {
+    "reject non interned type for LF >= 1.11" in {
 
       val stringTable = ImmArraySeq("pkgId", "x")
       val dottedNameTable = ImmArraySeq("Mod", "T", "S").map(Ref.DottedName.assertFromString)
@@ -1122,7 +1122,7 @@ class DecodeV1Spec
         val typeRepTyConName = DamlLf1.Expr
           .newBuilder()
           .setBuiltin(
-            DamlLf1.BuiltinFunction.TYPEREP_TYCON_NAME
+            DamlLf1.BuiltinFunction.TYPE_REP_TYCON_NAME
           )
           .build()
 
@@ -1637,7 +1637,7 @@ class DecodeV1Spec
       }
     }
 
-    "reject choice with observers if 1.7 < lf version < 1.dev" in { // TODO #15882 add similar test for choice authority version support
+    "reject choice with observers if 1.7 < lf version < 1.11" in { // TODO #15882 add similar test for choice authority version support
       val protoChoiceWithoutObservers = DamlLf1.TemplateChoice
         .newBuilder()
         .setNameInternedStr(0)
@@ -1669,7 +1669,7 @@ class DecodeV1Spec
       }
     }
 
-    "reject choice without observers if lv version >= 1.dev" in {
+    "reject choice without observers if lv version >= 1.11" in {
 
       val protoChoiceWithoutObservers = DamlLf1.TemplateChoice
         .newBuilder()
@@ -1710,7 +1710,7 @@ class DecodeV1Spec
         .build()
     }
 
-    "reject interned types if lf version < 1.dev" in {
+    "reject interned types if lf version < 1.11" in {
       forEveryVersionSuchThat(_ < LV.Features.internedTypes) { version =>
         val decoder = new DecodeV1(version.minor)
         val env = decoder.Env(

@@ -151,6 +151,7 @@ private[lf] object PartialTransaction {
       signatories: Set[Party],
       stakeholders: Set[Party],
       choiceObservers: Set[Party],
+      choiceAuthorizers: Option[Set[Party]],
       nodeId: NodeId,
       parent: Context,
       byKey: Boolean,
@@ -158,7 +159,13 @@ private[lf] object PartialTransaction {
   ) extends ContextInfo {
     val actionNodeSeed = parent.nextActionChildSeed
     val actionChildSeed = crypto.Hash.deriveNodeSeed(actionNodeSeed, _)
-    override val authorizers: Set[Party] = actingParties union signatories
+
+    override val authorizers: Set[Party] =
+      choiceAuthorizers match {
+        case None => actingParties union signatories
+        case Some(explicitAuthorizers) => explicitAuthorizers
+      }
+
   }
 
   final case class TryContextInfo(
@@ -456,6 +463,7 @@ private[speedy] case class PartialTransaction(
       consuming: Boolean,
       actingParties: Set[Party],
       choiceObservers: Set[Party],
+      choiceAuthorizers: Option[Set[Party]],
       byKey: Boolean,
       chosenValue: Value,
       version: TxVersion,
@@ -477,6 +485,7 @@ private[speedy] case class PartialTransaction(
         signatories = contract.signatories,
         stakeholders = contract.stakeholders,
         choiceObservers = choiceObservers,
+        choiceAuthorizers = choiceAuthorizers,
         nodeId = nid,
         parent = context,
         byKey = byKey,
@@ -566,6 +575,7 @@ private[speedy] case class PartialTransaction(
       stakeholders = ec.stakeholders,
       signatories = ec.signatories,
       choiceObservers = ec.choiceObservers,
+      choiceAuthorizers = ec.choiceAuthorizers,
       children = ImmArray.Empty,
       exerciseResult = None,
       keyOpt = ec.contractKey,

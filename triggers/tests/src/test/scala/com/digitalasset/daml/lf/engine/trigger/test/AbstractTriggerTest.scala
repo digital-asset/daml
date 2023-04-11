@@ -6,7 +6,7 @@ package engine
 package trigger
 package test
 
-import java.util.UUID
+import akka.stream.Materializer
 import akka.stream.scaladsl.Sink
 import com.daml.bazeltools.BazelRunfiles
 import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId, Party}
@@ -34,6 +34,7 @@ import org.scalatest._
 import scalaz.syntax.tag._
 import com.daml.platform.sandbox.fixture.SandboxFixture
 
+import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
@@ -43,6 +44,8 @@ trait AbstractTriggerTest
     with TestCommands
     with SandboxRequiringAuthorizationFuns {
   self: Suite =>
+
+  protected implicit val applicationId: ApplicationId = RunnerConfig.DefaultApplicationId
 
   protected def toHighLevelResult(s: SValue) = s match {
     case SRecord(_, _, values) if values.size == 6 =>
@@ -56,8 +59,6 @@ trait AbstractTriggerTest
       )
     case _ => throw new IllegalArgumentException(s"Expected record with 6 fields but got $s")
   }
-
-  protected val applicationId = RunnerConfig.DefaultApplicationId
 
   protected def ledgerClientConfiguration =
     LedgerClientConfiguration(
@@ -127,12 +128,43 @@ trait AbstractTriggerTest
       )
     }
   }
+}
 
-  protected def allocateParty(client: LedgerClient)(implicit ec: ExecutionContext): Future[String] =
+object AbstractTriggerTest {
+  final case class HighLevelResult(
+      acs: SValue,
+      party: SValue,
+      readAs: SValue,
+      state: SValue,
+      commandsInFlight: SValue,
+      config: SValue,
+  )
+
+  def allocateParty(client: LedgerClient)(implicit ec: ExecutionContext): Future[String] =
     client.partyManagementClient.allocateParty(None, None).map(_.party)
 
-  protected def create(client: LedgerClient, party: String, cmd: CreateCommand)(implicit
-      ec: ExecutionContext
+  def queryACS(client: LedgerClient, party: String)(implicit
+      ec: ExecutionContext,
+      materializer: Materializer,
+  ): Future[Map[LedgerApi.Identifier, Seq[LedgerApi.Record]]] = {
+    val filter = TransactionFilter(List((party, Filters.defaultInstance)).toMap)
+    val contractsF: Future[Seq[CreatedEvent]] = client.activeContractSetClient
+      .getActiveContracts(filter, verbose = true)
+      .runWith(Sink.seq)
+      .map(_.flatMap(x => x.activeContracts))
+    contractsF.map(contracts =>
+      contracts
+        .map(created => (created.getTemplateId, created.getCreateArguments))
+        .groupBy(_._1)
+        .view
+        .mapValues(cs => cs.map(_._2))
+        .toMap
+    )
+  }
+
+  def create(client: LedgerClient, party: String, cmd: CreateCommand)(implicit
+      ec: ExecutionContext,
+      applicationId: ApplicationId,
   ): Future[String] = {
     val commands = Seq(Command().withCreate(cmd))
     val request = SubmitAndWaitRequest(
@@ -151,14 +183,14 @@ trait AbstractTriggerTest
     } yield response.getTransaction.events.head.getCreated.contractId
   }
 
-  protected def exercise(
+  def exercise(
       client: LedgerClient,
       party: String,
       templateId: LedgerApi.Identifier,
       contractId: String,
       choice: String,
       choiceArgument: LedgerApi.Value,
-  )(implicit ec: ExecutionContext): Future[Unit] = {
+  )(implicit ec: ExecutionContext, applicationId: ApplicationId): Future[Unit] = {
     val commands = Seq(
       Command().withExercise(
         ExerciseCommand(
@@ -185,12 +217,12 @@ trait AbstractTriggerTest
     } yield ()
   }
 
-  protected def archive(
+  def archive(
       client: LedgerClient,
       party: String,
       templateId: LedgerApi.Identifier,
       contractId: String,
-  )(implicit ec: ExecutionContext): Future[Unit] = {
+  )(implicit ec: ExecutionContext, applicationId: ApplicationId): Future[Unit] = {
     exercise(
       client,
       party,
@@ -200,34 +232,4 @@ trait AbstractTriggerTest
       LedgerApi.Value().withRecord(LedgerApi.Record()),
     )
   }
-
-  protected def queryACS(client: LedgerClient, party: String)(implicit
-      ec: ExecutionContext
-  ): Future[Map[LedgerApi.Identifier, Seq[LedgerApi.Record]]] = {
-    val filter = TransactionFilter(List((party, Filters.defaultInstance)).toMap)
-    val contractsF: Future[Seq[CreatedEvent]] = client.activeContractSetClient
-      .getActiveContracts(filter, verbose = true)
-      .runWith(Sink.seq)
-      .map(_.flatMap(x => x.activeContracts))
-    contractsF.map(contracts =>
-      contracts
-        .map(created => (created.getTemplateId, created.getCreateArguments))
-        .groupBy(_._1)
-        .view
-        .mapValues(cs => cs.map(_._2))
-        .toMap
-    )
-  }
-
-}
-
-object AbstractTriggerTest {
-  final case class HighLevelResult(
-      acs: SValue,
-      party: SValue,
-      readAs: SValue,
-      state: SValue,
-      commandsInFlight: SValue,
-      config: SValue,
-  )
 }
