@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.engine.trigger
+package simulation
 
 import akka.actor.ActorSystem
 import akka.stream.Materializer

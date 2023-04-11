@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.engine.trigger
+package simulation
 
 import akka.stream.{FlowShape, KillSwitches, Materializer, RestartSettings, SourceShape}
 import akka.stream.scaladsl.{Flow, GraphDSL, Keep, RestartSource, Sink, Source}
@@ -703,7 +704,7 @@ object TriggerRuleMetrics {
   )
 }
 
-final class TriggerRuleSimulationLib private[trigger] (
+final class TriggerRuleSimulationLib private[simulation] (
     compiledPackages: PureCompiledPackages,
     triggerId: Identifier,
     triggerConfig: TriggerRunnerConfig,
@@ -719,7 +720,7 @@ final class TriggerRuleSimulationLib private[trigger] (
   private[this] implicit val loggingContext: LoggingContextOf[Trigger] =
     LoggingContextOf.newLoggingContext(LoggingContextOf.label[Trigger])(identity)
 
-  private[trigger] val trigger = Trigger
+  private[simulation] val trigger = Trigger
     .fromIdentifier(compiledPackages, triggerId)(
       TriggerLogContext.newRootSpan(
         "trigger",
@@ -741,12 +742,12 @@ final class TriggerRuleSimulationLib private[trigger] (
   require(triggerConfig.hardLimit.allowInFlightCommandOverflows)
 
   class SimulationContext {
-    private[trigger] val ruleMetrics = new TriggerRuleMetrics
+    private[simulation] val ruleMetrics = new TriggerRuleMetrics
     private[this] val logObserver: (String, TriggerLogContext) => Unit = { (msg, context) =>
       ruleMetrics.addLogEntry(msg, context)
     }
 
-    private[trigger] implicit val triggerContext: TriggerLogContext =
+    private[simulation] implicit val triggerContext: TriggerLogContext =
       TriggerLogContext.newRootSpanWithCallback(
         "trigger",
         logObserver,
@@ -757,7 +758,7 @@ final class TriggerRuleSimulationLib private[trigger] (
         "actAs" -> Tag.unwrap(triggerParties.actAs),
       )(identity)
 
-    private[trigger] val runner = Runner(
+    private[simulation] val runner = Runner(
       compiledPackages,
       trigger,
       triggerConfig,
