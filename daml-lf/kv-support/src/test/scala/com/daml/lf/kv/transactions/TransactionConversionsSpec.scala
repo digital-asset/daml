@@ -535,6 +535,7 @@ object TransactionConversionsSpec {
       stakeholders = Set.empty,
       signatories = Set.empty,
       choiceObservers = choiceObservers,
+      choiceAuthorizers = None,
       children = children,
       exerciseResult = None,
       keyOpt = None,
