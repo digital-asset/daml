@@ -6,15 +6,14 @@ package com.daml.auth.middleware.oauth2
 import java.io._
 import java.nio.file.Path
 import java.util.UUID
-
 import akka.http.scaladsl.model.Uri
 import com.daml.auth.middleware.api.Request.Claims
 import com.daml.auth.middleware.api.Tagged.RefreshToken
 import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId, Party}
 import com.daml.scalautil.Statement.discard
-import org.scalatest._
-import org.scalatest.wordspec._
-import matchers.should._
+import org.scalatest.{PartialFunctionValues, TryValues}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
 class TestRequestTemplates
     extends AnyWordSpec

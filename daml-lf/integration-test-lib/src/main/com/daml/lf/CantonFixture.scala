@@ -139,7 +139,7 @@ trait CantonFixture extends SuiteResource[Vector[Port]] with AkkaBeforeAndAfterA
           val domainAdminApi = LockedFreePort.find()
 
           val cantonPath = rlocation(
-            "external/canton/lib/canton-open-source-2.7.0-SNAPSHOT.jar"
+            "external/canton/lib/canton-open-source-2.7.0-SNAPSHOT.jar" // FIXME: remove hard coded version!!
           )
           val exe = if (sys.props("os.name").toLowerCase.contains("windows")) ".exe" else ""
           val java = s"${System.getenv("JAVA_HOME")}/bin/java${exe}"
@@ -260,7 +260,7 @@ trait CantonFixture extends SuiteResource[Vector[Port]] with AkkaBeforeAndAfterA
     )
   }
 
-  final protected val adminToken: Option[String] = getToken(adminUserId)
+  final protected lazy val adminToken: Option[String] = getToken(adminUserId)
 
   final protected def getToken(
       userId: String,
