@@ -23,6 +23,7 @@ import com.daml.lf.engine.trigger.simulation.TriggerMultiProcessSimulation.{
   TriggerSimulationConfig,
   TriggerSimulationFailure,
 }
+import com.daml.lf.engine.trigger.simulation.process.report.ACSReporting
 import com.daml.lf.engine.trigger.test.AbstractTriggerTest
 import com.daml.scalautil.Statement.discard
 
@@ -203,17 +204,19 @@ object LedgerProcess {
           val diff = templates.map { templateId =>
             (
               templateId,
-              ReportingProcess.ACSTemplateDiff(
+              ACSReporting.ACSTemplateDiff(
                 additions.getOrElse(templateId, Set.empty).size,
                 deletions.getOrElse(templateId, Set.empty).size,
                 common.getOrElse(templateId, Set.empty).size,
               ),
             )
           }
-          report ! ReportingProcess.TriggerACSDiff(
-            reportingId,
-            triggerId,
-            ReportingProcess.ACSDiff(diff.toMap),
+          report ! ReportingProcess.ACSUpdate(
+            ACSReporting.TriggerACSDiff(
+              reportingId,
+              triggerId,
+              ACSReporting.ACSDiff(diff.toMap),
+            )
           )
           Behaviors.same
       }

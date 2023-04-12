@@ -2,23 +2,24 @@
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.engine.trigger.simulation.process
+package wrapper
 
 import akka.actor.typed.{ActorRef, Behavior}
 import akka.actor.typed.scaladsl.Behaviors
 import com.daml.lf.engine.trigger.TriggerMsg
 
-import scala.concurrent.duration.FiniteDuration
-
-object AllowHeartbeats {
+object TriggerFilter {
   def apply(
-      duration: FiniteDuration
+      filter: TriggerMsg.Transaction => Boolean
   )(consumer: ActorRef[TriggerProcess.Message]): Behavior[TriggerProcess.Message] = {
-    Behaviors.withTimers[TriggerProcess.Message] { timer =>
-      timer.startTimerAtFixedRate(TriggerProcess.MessageWrapper(TriggerMsg.Heartbeat), duration)
+    Behaviors.setup { _ =>
+      Behaviors.receiveMessage {
+        case TriggerProcess.MessageWrapper(msg: TriggerMsg.Transaction) if !filter(msg) =>
+          Behaviors.same
 
-      Behaviors.receiveMessage { msg =>
-        consumer ! msg
-        Behaviors.same
+        case msg =>
+          consumer ! msg
+          Behaviors.same
       }
     }
   }

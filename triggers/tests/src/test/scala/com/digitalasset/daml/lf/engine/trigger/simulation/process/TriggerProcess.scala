@@ -18,6 +18,7 @@ import com.daml.lf.engine.trigger.simulation.TriggerMultiProcessSimulation.{
   TriggerSimulationConfig,
   TriggerSimulationFailure,
 }
+import com.daml.lf.engine.trigger.simulation.process.report.{ACSReporting, MetricsReporting}
 import com.daml.lf.engine.trigger.{
   Converter,
   Runner,
@@ -158,20 +159,26 @@ final class TriggerProcessFactory private[simulation] (
           case _ =>
             None
         }
+        val reportId = UUID.randomUUID()
 
         submissions.foreach { request =>
           ledgerApi ! LedgerProcess.CommandSubmission(request)
         }
-        report ! ReportingProcess.TriggerUpdate(
-          triggerId,
-          triggerType,
-          submissions,
-          metrics,
-          triggerACSView,
-          percentageHeapUsed,
-          gcTime,
-          gcCount,
-          completionStatus,
+        report ! ReportingProcess.MetricsUpdate(
+          MetricsReporting.TriggerMetricsUpdate(
+            reportId,
+            triggerId,
+            triggerType,
+            submissions,
+            metrics,
+            percentageHeapUsed,
+            gcTime,
+            gcCount,
+            completionStatus,
+          )
+        )
+        report ! ReportingProcess.ACSUpdate(
+          ACSReporting.TriggerACSUpdate(reportId, triggerId, triggerACSView)
         )
 
         run(ledgerApi, report, state = nextState)
