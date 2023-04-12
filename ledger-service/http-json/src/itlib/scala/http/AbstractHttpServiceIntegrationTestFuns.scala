@@ -429,6 +429,7 @@ trait AbstractHttpServiceIntegrationTestFuns
     }
     object Account {
       val Account: TId = CtId.Template(None, "Account", "Account")
+      val PubSub: TId = CtId.Template(None, "Account", "PubSub")
       val KeyedByVariantAndRecord: TId = CtId.Template(None, "Account", "KeyedByVariantAndRecord")
     }
     object User {
@@ -487,6 +488,23 @@ trait AbstractHttpServiceIntegrationTestFuns
       )
     )
     domain.CreateCommand(templateId, iouT, None)
+  }
+
+  protected def pubSubCreateCommand(
+      publisher: domain.Party,
+      subscribers: Seq[domain.Party],
+  ) = {
+    val payload = recordFromFields(
+      ShRecord(
+        publisher = v.Value.Sum.Party(Ref.Party assertFromString publisher.unwrap),
+        subscribers = lfToApi(VAx.seq(VAx.partyDomain).inj(subscribers)).sum,
+      )
+    )
+    domain.CreateCommand(
+      templateId = TpId.Account.PubSub,
+      payload = payload,
+      meta = None,
+    )
   }
 
   protected def iouExerciseTransferCommand(
@@ -835,5 +853,13 @@ trait AbstractHttpServiceIntegrationTestFuns
       ok.result
     case err: domain.ErrorResponse =>
       fail(s"Expected OK response, got: $err")
+  }
+
+  protected def randomTextN(n: Int) = {
+    import org.scalacheck.Gen
+    Gen
+      .buildableOfN[String, Char](n, Gen.alphaNumChar)
+      .sample
+      .getOrElse(sys.error(s"can't generate ${n}b string"))
   }
 }
