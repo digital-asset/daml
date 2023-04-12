@@ -15,7 +15,9 @@ import com.daml.ledger.api.v1.transaction.{Transaction, TransactionTree}
 import com.daml.ledger.api.v1.transaction_filter.{Filters, InclusiveFilters, TransactionFilter}
 import com.daml.ledger.api.v1.value.{Identifier, Record, Value}
 import com.daml.ledger.client.LedgerClient
+import com.daml.lf.data.Ref
 import com.daml.platform.participant.util.ValueConversions._
+import scalaz.OneAnd
 import scalaz.syntax.tag._
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -177,6 +179,20 @@ object Application {
           verbose = true,
         )
         .runWith(Sink.seq[Transaction])
+    }
+
+    def getOrCreateParty: Future[Ref.Party] =
+      client.partyManagementClient
+        .getParties(OneAnd(Ref.Party.assertFromString(name), Set.empty))
+        .map(_.headOption.map(_.party).toFuture)
+        .flatten
+        .recoverWith(_ => client.partyManagementClient.allocateParty(Some(name), None).map(_.party))
+
+    private[this] implicit class OptionOps[A](option: Option[A]) {
+      def toFuture: Future[A] =
+        option.fold(Future.failed[A](new IllegalStateException("Empty option")))(a =>
+          Future.successful(a)
+        )
     }
 
   }

@@ -103,6 +103,8 @@ final class ProposeAccept(
       proposer = new Application.Party(proposerName, client, ProposeAccept.ApplicationId)
       accepter = new Application.Party(accepterName, client, ProposeAccept.ApplicationId)
       model = new ProposeAccept.Model(packageId)
+      _ <- proposer.getOrCreateParty
+      _ <- accepter.getOrCreateParty
       oldTransactions <- proposer.transactions(Seq(model.ProposeDeal, model.Deal))
       oldProposals <- proposer.activeContracts(model.ProposeDeal)
       oldAccepted <- proposer.activeContracts(model.Deal)

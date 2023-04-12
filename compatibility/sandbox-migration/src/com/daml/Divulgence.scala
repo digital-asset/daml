@@ -123,6 +123,7 @@ final class Divulgence(
       owner = new Application.Party(ownerName, client, KeyTransfer.ApplicationId)
       divulgee = new Application.Party(divulgeeName, client, KeyTransfer.ApplicationId)
       model = new Divulgence.Model(packageId)
+      _ <- divulgee.getOrCreateParty
       divulgence <- model.createAssetDivulgence(owner, divulgee)
       oldAssets <- owner.activeContracts(model.Asset)
       oldDivulgeeAssets <- Future.traverse(oldAssets.collect(divulged))(

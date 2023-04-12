@@ -93,6 +93,8 @@ final class KeyTransfer(
       owner = new Application.Party(ownerName, client, KeyTransfer.ApplicationId)
       receiver = new Application.Party(receiverName, client, KeyTransfer.ApplicationId)
       model = new KeyTransfer.Model(packageId)
+      _ <- owner.getOrCreateParty
+      _ <- receiver.getOrCreateParty
       oldTransactions <- owner.transactions(Seq(model.Asset))
       oldAssets <- owner.activeContracts(model.Asset)
       _ <- model.createAsset(owner, receiver, s"keep-$suffix")
