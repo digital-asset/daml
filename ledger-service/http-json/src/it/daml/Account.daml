@@ -56,6 +56,13 @@ template KeyedByDecimal with
     key (party, amount): (Party, Amount)
     maintainer key._1
 
+template PubSub with
+    publisher: Party
+    subscribers: [Party]
+  where
+    signatory publisher
+    observer subscribers
+
 template Helper
   with
     owner : Party

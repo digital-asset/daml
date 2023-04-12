@@ -409,14 +409,6 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
   }
 
   "query record contains handles" onlyIfLargeQueries_- {
-    def randomTextN(n: Int) = {
-      import org.scalacheck.Gen
-      Gen
-        .buildableOfN[String, Char](n, Gen.alphaNumChar)
-        .sample
-        .getOrElse(sys.error(s"can't generate ${n}b string"))
-    }
-
     Seq(
       "& " -> "& bar",
       "1kb of data" -> randomTextN(1000),
@@ -440,6 +432,37 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
           ).map(inside(_) { case Seq(domain.ActiveContract(_, _, _, JsObject(fields), _, _, _)) =>
             fields.get("currency") should ===(Some(JsString(testCurrency)))
           })
+        }
+      }
+    }
+  }
+
+  "query multiple observers:" - {
+    Seq(
+      0 -> 1,
+      1 -> 5,
+      10 -> 75,
+      50 -> 76, // Allows space to encode content into a JSON array of strings within 4k limit.
+      50 -> 80, // The content is the exact 4k limit, no additional room for JSON array syntax.
+      200 -> 150,
+    ).foreach { case (numSubs, partySize) =>
+      (s"$numSubs observers of $partySize chars") in withHttpService { fixture =>
+        val subscribers = (1 to numSubs).map(_ => domain.Party(randomTextN(partySize))).toList
+        for {
+          (publisher, headers) <- fixture.getUniquePartyAndAuthHeaders("Alice")
+          _ <- subscribers.traverse { p =>
+            fixture.client.partyManagementClient.allocateParty(Some(p.unwrap), Some(s"${p} & Co"))
+          }
+          found <- searchExpectOk(
+            List(pubSubCreateCommand(publisher, subscribers)),
+            jsObject(
+              s"""{"templateIds": ["Account:PubSub"], "query": {"publisher": "$publisher"}}"""
+            ),
+            fixture,
+            headers,
+          )
+        } yield {
+          found.size shouldBe 1
         }
       }
     }

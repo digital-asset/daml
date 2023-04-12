@@ -896,7 +896,7 @@ private final class OracleQueries(
     sql"""CREATE MATERIALIZED VIEW $contractStakeholdersViewName
           BUILD IMMEDIATE REFRESH FAST ON STATEMENT AS
           SELECT contract_id, tpid, stakeholder FROM $contractTableName,
-                 json_table(json_array(signatories, observers), '$$[*][*]'
+                 json_table(json_array(signatories, observers RETURNING CLOB), '$$[*][*]'
                     columns (stakeholder $partyType path '$$'))""",
   )
   private[this] val stakeholdersIndexName = Fragment.const0(s"${tablePrefix}stakeholder_idx")
