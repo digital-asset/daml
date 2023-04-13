@@ -8,6 +8,7 @@ import akka.actor.typed.{ActorRef, Behavior, PostStop}
 import akka.actor.typed.scaladsl.Behaviors
 import com.daml.lf.data.Ref.Identifier
 import com.daml.lf.engine.trigger.simulation.TriggerMultiProcessSimulation.TriggerSimulationConfig
+import com.daml.lf.engine.trigger.simulation.process.ledger.LedgerProcess
 
 import java.nio.file.Files
 import java.util.UUID
@@ -33,12 +34,13 @@ private[simulation] object ACSReporting {
   ) extends Message
 
   def create(
-      ledger: ActorRef[LedgerProcess.LedgerManagement]
+      ledger: ActorRef[LedgerProcess.Message]
   )(implicit config: TriggerSimulationConfig): Behavior[Message] = {
     Behaviors.setup { _ =>
       val acsDataFile = Files.newOutputStream(config.acsDataFile)
       val acsDataFileCsvHeader =
-        "reporting-id,trigger-id,template-id,contract-additions,contract-deletions\n"
+        Seq("reporting-id", "trigger-id", "template-id", "contract-additions", "contract-deletions")
+          .mkString("", ",", "\n")
       acsDataFile.write(acsDataFileCsvHeader.getBytes)
 
       Behaviors
@@ -54,7 +56,8 @@ private[simulation] object ACSReporting {
           case TriggerACSDiff(reportingId, triggerId, acs) =>
             acs.diff.foreach { case (templateId, contracts) =>
               val csvData: String =
-                s"$reportingId,$triggerId,$templateId,${contracts.additions},${contracts.deletions}\n"
+                Seq(reportingId, triggerId, templateId, contracts.additions, contracts.deletions)
+                  .mkString("", ",", "\n")
               acsDataFile.write(csvData.getBytes)
             }
             Behaviors.same

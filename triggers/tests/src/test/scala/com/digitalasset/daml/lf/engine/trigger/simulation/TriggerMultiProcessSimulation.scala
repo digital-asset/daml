@@ -11,7 +11,8 @@ import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId, Party}
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.daml.ledger.client.LedgerClient
 import com.daml.ledger.sandbox.SandboxOnXForTest.ParticipantId
-import com.daml.lf.engine.trigger.simulation.process.{LedgerProcess, TriggerProcessFactory}
+import com.daml.lf.engine.trigger.simulation.process.TriggerProcessFactory
+import com.daml.lf.engine.trigger.simulation.process.ledger.LedgerProcess
 import com.daml.lf.engine.trigger.test.AbstractTriggerTest
 import org.scalatest.wordspec.AsyncWordSpec
 
@@ -28,7 +29,7 @@ abstract class TriggerMultiProcessSimulation
 
   // For demonstration purposes, we only run for 30 seconds
   protected implicit lazy val simulationConfig: TriggerSimulationConfig =
-    TriggerSimulationConfig(simulationDuration = 30.seconds)
+    TriggerSimulationConfig()
 
   protected implicit lazy val simulation: ActorSystem[Unit] =
     ActorSystem(triggerMultiProcessSimulationWithTimeout, "cat-and-food-simulation")
@@ -79,7 +80,7 @@ abstract class TriggerMultiProcessSimulation
 
   protected def triggerProcessFactory(
       client: LedgerClient,
-      ledger: ActorRef[LedgerProcess.LedgerManagement],
+      ledger: ActorRef[LedgerProcess.Message],
       name: String,
       actAs: Party,
   ): TriggerProcessFactory = {

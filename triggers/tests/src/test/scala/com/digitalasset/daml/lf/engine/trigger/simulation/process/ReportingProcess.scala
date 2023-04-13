@@ -6,7 +6,7 @@ package com.daml.lf.engine.trigger.simulation
 import akka.actor.typed.{ActorRef, Behavior}
 import akka.actor.typed.scaladsl.Behaviors
 import com.daml.lf.engine.trigger.simulation.TriggerMultiProcessSimulation.TriggerSimulationConfig
-import com.daml.lf.engine.trigger.simulation.process.LedgerProcess
+import com.daml.lf.engine.trigger.simulation.process.ledger.LedgerProcess
 import com.daml.lf.engine.trigger.simulation.process.report.{ACSReporting, MetricsReporting}
 
 private[simulation] final case class ReportingProcess private (
@@ -20,7 +20,7 @@ private[simulation] object ReportingProcess {
   final case class ACSUpdate(update: ACSReporting.Message) extends Message
 
   def create(
-      ledgerApi: ActorRef[LedgerProcess.LedgerManagement]
+      ledgerApi: ActorRef[LedgerProcess.Message]
   )(implicit config: TriggerSimulationConfig): Behavior[Message] = {
     Behaviors.setup { context =>
       val metrics = context.spawn(MetricsReporting.create(), "metrics-reporting")

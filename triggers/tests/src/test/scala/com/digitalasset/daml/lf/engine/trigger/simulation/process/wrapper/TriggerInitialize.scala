@@ -6,21 +6,18 @@ package wrapper
 
 import akka.actor.typed.{ActorRef, Behavior}
 import akka.actor.typed.scaladsl.Behaviors
-import com.daml.lf.engine.trigger.TriggerMsg
+import com.daml.lf.speedy.SValue
 
-object TriggerFilter {
-  def apply(
-      filter: TriggerMsg.Transaction => Boolean
+object TriggerInitialize {
+  def create(
+      userState: SValue
   )(consumer: ActorRef[TriggerProcess.Message]): Behavior[TriggerProcess.Message] = {
     Behaviors.setup { _ =>
-      Behaviors.receiveMessage {
-        case msg @ TriggerProcess.MessageWrapper(transaction: TriggerMsg.Transaction)
-            if filter(transaction) =>
-          consumer ! msg
-          Behaviors.same
+      consumer ! TriggerProcess.Initialize(userState)
 
-        case _ =>
-          Behaviors.same
+      Behaviors.receiveMessage { msg =>
+        consumer ! msg
+        Behaviors.same
       }
     }
   }

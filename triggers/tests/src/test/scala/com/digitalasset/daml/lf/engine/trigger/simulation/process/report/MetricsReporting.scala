@@ -33,8 +33,22 @@ private[simulation] object MetricsReporting {
   def create()(implicit config: TriggerSimulationConfig): Behavior[Message] = {
     Behaviors.setup { _ =>
       val triggerDataFile = Files.newOutputStream(config.triggerDataFile)
-      val triggerDataFileCsvHeader =
-        "reporting-id,trigger-name,trigger-id,submissions,evaluation-steps,evaluation-get-times,rule-evaluation-time,active-contracts,pending-contracts,in-flight-commands,percentage-heap-used,gc-time,gc-count,completion-status-code\n"
+      val triggerDataFileCsvHeader = Seq(
+        "reporting-id",
+        "trigger-name",
+        "trigger-id",
+        "submissions",
+        "evaluation-steps",
+        "evaluation-get-times",
+        "rule-evaluation-time",
+        "active-contracts",
+        "pending-contracts",
+        "in-flight-commands",
+        "percentage-heap-used",
+        "gc-time",
+        "gc-count",
+        "completion-status-code",
+      ).mkString("", ",", "\n")
       triggerDataFile.write(triggerDataFileCsvHeader.getBytes)
 
       Behaviors
@@ -50,9 +64,23 @@ private[simulation] object MetricsReporting {
                 gcCount,
                 completionStatus,
               ) =>
-            val csvData: String =
-              s"$reportingId,$triggerId,$triggerType,${submissions.size},${metrics.evaluation.steps},${metrics.evaluation.getTimes},${metrics.evaluation.ruleEvaluation.toNanos},${metrics.endState.acs.activeContracts},${metrics.endState.acs.pendingContracts},${metrics.endState.inFlight.commands},$percentageHeapUsed,$gcTime,$gcCount,${completionStatus
-                  .fold("")(_.code.toString)}\n"
+            val csvData: String = Seq(
+              reportingId,
+              triggerId,
+              triggerType,
+              submissions.size,
+              metrics.evaluation.steps,
+              metrics.evaluation.getTimes,
+              metrics.evaluation.ruleEvaluation.toNanos,
+              metrics.endState.acs.activeContracts,
+              metrics.endState.acs.pendingContracts,
+              metrics.endState.inFlight.commands,
+              percentageHeapUsed,
+              gcTime,
+              gcCount,
+              completionStatus
+                .fold("")(_.code.toString),
+            ).mkString("", ",", "\n")
             triggerDataFile.write(csvData.getBytes)
             Behaviors.same
         }

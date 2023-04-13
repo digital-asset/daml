@@ -13,11 +13,14 @@ import com.daml.ledger.api.v1.event.CreatedEvent
 import com.daml.ledger.api.v1.transaction_filter.TransactionFilter
 import com.daml.ledger.client.LedgerClient
 import com.daml.lf.PureCompiledPackages
+import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.{Identifier, PackageId, QualifiedName}
 import com.daml.lf.engine.trigger.simulation.TriggerMultiProcessSimulation.{
   TriggerSimulationConfig,
   TriggerSimulationFailure,
 }
+import com.daml.lf.engine.trigger.simulation.ledger.LedgerApiClient
+import com.daml.lf.engine.trigger.simulation.process.ledger.{LedgerProcess, LedgerRegistration}
 import com.daml.lf.engine.trigger.simulation.process.report.{ACSReporting, MetricsReporting}
 import com.daml.lf.engine.trigger.{
   Converter,
@@ -42,16 +45,18 @@ object TriggerProcess {
   sealed abstract class Message extends Product with Serializable
   // Used by LedgerProcess
   private[process] final case class LedgerResponse(
-      api: ActorRef[LedgerProcess.Message],
+      api: ActorRef[LedgerApiClient.Message],
       report: ActorRef[ReportingProcess.Message],
   ) extends Message
   // Used by all processes
   private[process] final case class MessageWrapper(msg: TriggerMsg) extends Message
+  // Used by TriggerInitialize wrapper process
+  private[process] final case class Initialize(userState: SValue) extends Message
 }
 
 final class TriggerProcessFactory private[simulation] (
     client: LedgerClient,
-    ledger: ActorRef[LedgerProcess.LedgerManagement],
+    ledger: ActorRef[LedgerProcess.Message],
     name: String,
     packageId: PackageId,
     applicationId: ApplicationId,
@@ -65,14 +70,15 @@ final class TriggerProcessFactory private[simulation] (
   import TriggerProcess._
 
   private[this] val triggerId = UUID.randomUUID()
-  private[this] val triggerType = Identifier(packageId, QualifiedName.assertFromString(name))
+  private[this] val triggerDefRef =
+    Ref.DefinitionRef(packageId, QualifiedName.assertFromString(name))
   private[this] val triggerParties = TriggerParties(
     actAs = actAs,
     readAs = readAs,
   )
   private[this] val simulator = new TriggerRuleSimulationLib(
     compiledPackages,
-    triggerType,
+    triggerDefRef,
     triggerConfig,
     client,
     timeProviderType,
@@ -82,6 +88,19 @@ final class TriggerProcessFactory private[simulation] (
   private[this] val trigger = simulator.trigger.defn
   private[this] val memBean = ManagementFactory.getMemoryMXBean
   private[this] val gcBeans = ManagementFactory.getGarbageCollectorMXBeans
+
+  def create(acs: Seq[CreatedEvent] = Seq.empty)(implicit
+      config: TriggerSimulationConfig
+  ): Behavior[Message] = {
+    Behaviors.receive {
+      case (_, Initialize(userState)) =>
+        create(userState, acs)
+
+      case (context, msg) =>
+        context.log.error(s"Trigger process received $msg without receiving an Initialize message")
+        Behaviors.stopped
+    }
+  }
 
   def create(userState: SValue, acs: Seq[CreatedEvent] = Seq.empty)(implicit
       config: TriggerSimulationConfig
@@ -104,9 +123,9 @@ final class TriggerProcessFactory private[simulation] (
     Behaviors.setup { context =>
       context.ask(
         ledger,
-        LedgerProcess.LedgerRegistration(triggerId, context.self, actAs, transactionFilter, _),
+        LedgerRegistration.LedgerRegistration(triggerId, context.self, actAs, transactionFilter, _),
       ) {
-        case Success(LedgerProcess.LedgerApi(api, report)) =>
+        case Success(LedgerRegistration.LedgerApi(api, report)) =>
           LedgerResponse(api, report)
 
         case Failure(exn) =>
@@ -127,7 +146,7 @@ final class TriggerProcessFactory private[simulation] (
   }
 
   private[this] def run(
-      ledgerApi: ActorRef[LedgerProcess.Message],
+      ledgerApi: ActorRef[LedgerApiClient.Message],
       report: ActorRef[ReportingProcess.Message],
       state: SValue,
   )(implicit config: TriggerSimulationConfig): Behavior[Message] = {
@@ -141,7 +160,7 @@ final class TriggerProcessFactory private[simulation] (
           .getActiveContracts(state, trigger.level, trigger.version)
           .getOrElse(
             throw TriggerSimulationFailure(
-              s"Failed to extract active contracts from the internal state for trigger: $triggerType"
+              s"Failed to extract active contracts from the internal state for trigger: $triggerDefRef"
             )
           )
         val triggerACSView: TreeMap[String, Identifier] = acs.flatMap { case (_, smap) =>
@@ -162,13 +181,13 @@ final class TriggerProcessFactory private[simulation] (
         val reportId = UUID.randomUUID()
 
         submissions.foreach { request =>
-          ledgerApi ! LedgerProcess.CommandSubmission(request)
+          ledgerApi ! LedgerApiClient.CommandSubmission(request)
         }
         report ! ReportingProcess.MetricsUpdate(
           MetricsReporting.TriggerMetricsUpdate(
             reportId,
             triggerId,
-            triggerType,
+            triggerDefRef,
             submissions,
             metrics,
             percentageHeapUsed,

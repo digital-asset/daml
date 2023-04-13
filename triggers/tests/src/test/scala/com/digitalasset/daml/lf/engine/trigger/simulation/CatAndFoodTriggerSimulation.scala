@@ -7,7 +7,9 @@ import akka.actor.typed.{ActorRef, Behavior}
 import akka.actor.typed.scaladsl.Behaviors
 import com.daml.ledger.api.v1.event.CreatedEvent
 import com.daml.ledger.api.refinements.ApiTypes.Party
-import com.daml.lf.engine.trigger.simulation.process.{LedgerProcess, TriggerProcessFactory}
+import com.daml.lf.engine.trigger.simulation.TriggerMultiProcessSimulation.TriggerSimulationConfig
+import com.daml.lf.engine.trigger.simulation.process.ledger.{LedgerExternalAction, LedgerProcess}
+import com.daml.lf.engine.trigger.simulation.process.TriggerProcessFactory
 import com.daml.lf.engine.trigger.test.AbstractTriggerTest
 import com.daml.lf.speedy.SValue
 import org.scalacheck.Gen
@@ -22,6 +24,10 @@ class CatAndFoodTriggerSimulation
 
   import AbstractTriggerTest._
   import CatAndFoodTriggerSimulation._
+
+  // For demonstration purposes, we only run for 30 seconds
+  override protected implicit lazy val simulationConfig: TriggerSimulationConfig =
+    TriggerSimulationConfig(simulationDuration = 30.seconds)
 
   override protected def triggerMultiProcessSimulation: Behavior[Unit] = {
     Behaviors.setup { context =>
@@ -55,7 +61,7 @@ class CatAndFoodTriggerSimulation
     }
   }
 
-  def workloadProcess(ledger: ActorRef[LedgerProcess.LedgerManagement], owner: Party)(
+  def workloadProcess(ledger: ActorRef[LedgerProcess.Message], owner: Party)(
       batchSize: Int,
       maxNumOfCats: Long,
       workloadFrequency: FiniteDuration,
@@ -90,7 +96,7 @@ class CatAndFoodTriggerSimulation
           Behaviors.same
 
         case WorkloadProcess.CreateContract(event) =>
-          ledger ! LedgerProcess.CreateContract(event, owner)
+          ledger ! LedgerProcess.ExternalAction(LedgerExternalAction.CreateContract(event, owner))
           Behaviors.same
       }
     }
