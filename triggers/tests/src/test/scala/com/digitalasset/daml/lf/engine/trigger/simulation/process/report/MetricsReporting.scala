@@ -64,7 +64,7 @@ private[simulation] object MetricsReporting {
                 gcCount,
                 completionStatus,
               ) =>
-            val csvData: String = Seq(
+            val csvData: String = Seq[Any](
               reportingId,
               triggerId,
               triggerType,

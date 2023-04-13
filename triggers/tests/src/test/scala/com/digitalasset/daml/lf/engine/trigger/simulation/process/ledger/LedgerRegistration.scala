@@ -17,8 +17,10 @@ import com.daml.ledger.client.LedgerClient
 import com.daml.ledger.client.services.commands.CompletionStreamElement.CompletionElement
 import com.daml.lf.data.Ref.Identifier
 import com.daml.lf.engine.trigger.simulation.ReportingProcess
-import com.daml.lf.engine.trigger.simulation.TriggerMultiProcessSimulation.{TriggerSimulationConfig, TriggerSimulationFailure}
-import com.daml.lf.engine.trigger.simulation.ledger.{LedgerACSDiff, LedgerApiClient}
+import com.daml.lf.engine.trigger.simulation.TriggerMultiProcessSimulation.{
+  TriggerSimulationConfig,
+  TriggerSimulationFailure,
+}
 import com.daml.lf.engine.trigger.simulation.process.report.ACSReporting
 import com.daml.lf.engine.trigger.{Converter, TriggerMsg}
 import scalaz.syntax.tag._
@@ -47,7 +49,7 @@ final class LedgerRegistration(client: LedgerClient)(implicit
       val ledgerACSView: TrieMap[UUID, TrieMap[String, Identifier]] = TrieMap.empty
 
       Behaviors.receiveMessage {
-        case LedgerRegistration(triggerId, trigger, actAs, filter, replyTo)
+        case Registration(triggerId, trigger, actAs, filter, replyTo)
             if !ledgerACSView.contains(triggerId) =>
           val offset =
             Await.result(getLedgerOffset(client, filter), config.simulationSetupTimeout)
@@ -93,7 +95,7 @@ final class LedgerRegistration(client: LedgerClient)(implicit
           replyTo ! LedgerApi(consumer, report)
           Behaviors.same
 
-        case LedgerRegistration(triggerId, _, _, _, _) =>
+        case Registration(triggerId, _, _, _, _) =>
           context.log.error(
             s"Following trigger registration, received another LedgerRegistration message for trigger: $triggerId"
           )
@@ -145,7 +147,7 @@ final class LedgerRegistration(client: LedgerClient)(implicit
 object LedgerRegistration {
   sealed abstract class Message extends Product with Serializable
   // Used by TriggerProcess (via LedgerProcess)
-  private[process] final case class LedgerRegistration(
+  private[process] final case class Registration(
       triggerId: UUID,
       trigger: ActorRef[TriggerProcess.Message],
       actAs: Party,
@@ -154,10 +156,10 @@ object LedgerRegistration {
   ) extends Message
   final case class APIMessage(triggerId: UUID, message: LedgerApiClient.Message) extends Message
   final case class GetTriggerACSDiff(
-                                      reportID: UUID,
-                                      triggerId: UUID,
-                                      triggerACSView: TreeMap[String, Identifier],
-                                    ) extends Message
+      reportID: UUID,
+      triggerId: UUID,
+      triggerACSView: TreeMap[String, Identifier],
+  ) extends Message
 
   // Used by TriggerProcess
   private[process] final case class LedgerApi(

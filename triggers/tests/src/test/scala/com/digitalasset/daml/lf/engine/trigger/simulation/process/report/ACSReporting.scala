@@ -8,7 +8,7 @@ import akka.actor.typed.{ActorRef, Behavior, PostStop}
 import akka.actor.typed.scaladsl.Behaviors
 import com.daml.lf.data.Ref.Identifier
 import com.daml.lf.engine.trigger.simulation.TriggerMultiProcessSimulation.TriggerSimulationConfig
-import com.daml.lf.engine.trigger.simulation.process.ledger.LedgerProcess
+import com.daml.lf.engine.trigger.simulation.process.ledger.{LedgerProcess, LedgerRegistration}
 
 import java.nio.file.Files
 import java.util.UUID
@@ -50,13 +50,21 @@ private[simulation] object ACSReporting {
                 triggerId,
                 triggerACSView,
               ) =>
-            ledger ! LedgerProcess.GetTriggerACSDiff(reportingId, triggerId, triggerACSView)
+            ledger ! LedgerProcess.GetTriggerACSDiff(
+              LedgerRegistration.GetTriggerACSDiff(reportingId, triggerId, triggerACSView)
+            )
             Behaviors.same
 
           case TriggerACSDiff(reportingId, triggerId, acs) =>
             acs.diff.foreach { case (templateId, contracts) =>
               val csvData: String =
-                Seq(reportingId, triggerId, templateId, contracts.additions, contracts.deletions)
+                Seq[Any](
+                  reportingId,
+                  triggerId,
+                  templateId,
+                  contracts.additions,
+                  contracts.deletions,
+                )
                   .mkString("", ",", "\n")
               acsDataFile.write(csvData.getBytes)
             }

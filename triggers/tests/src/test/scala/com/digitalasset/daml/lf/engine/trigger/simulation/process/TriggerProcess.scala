@@ -19,8 +19,11 @@ import com.daml.lf.engine.trigger.simulation.TriggerMultiProcessSimulation.{
   TriggerSimulationConfig,
   TriggerSimulationFailure,
 }
-import com.daml.lf.engine.trigger.simulation.ledger.LedgerApiClient
-import com.daml.lf.engine.trigger.simulation.process.ledger.{LedgerProcess, LedgerRegistration}
+import com.daml.lf.engine.trigger.simulation.process.ledger.{
+  LedgerApiClient,
+  LedgerProcess,
+  LedgerRegistration,
+}
 import com.daml.lf.engine.trigger.simulation.process.report.{ACSReporting, MetricsReporting}
 import com.daml.lf.engine.trigger.{
   Converter,
@@ -89,7 +92,7 @@ final class TriggerProcessFactory private[simulation] (
   private[this] val memBean = ManagementFactory.getMemoryMXBean
   private[this] val gcBeans = ManagementFactory.getGarbageCollectorMXBeans
 
-  def create(acs: Seq[CreatedEvent] = Seq.empty)(implicit
+  def create(acs: Seq[CreatedEvent])(implicit
       config: TriggerSimulationConfig
   ): Behavior[Message] = {
     Behaviors.receive {
@@ -123,7 +126,10 @@ final class TriggerProcessFactory private[simulation] (
     Behaviors.setup { context =>
       context.ask(
         ledger,
-        LedgerRegistration.LedgerRegistration(triggerId, context.self, actAs, transactionFilter, _),
+        (ref: ActorRef[LedgerRegistration.LedgerApi]) =>
+          LedgerProcess.TriggerRegistration(
+            LedgerRegistration.Registration(triggerId, context.self, actAs, transactionFilter, ref)
+          ),
       ) {
         case Success(LedgerRegistration.LedgerApi(api, report)) =>
           LedgerResponse(api, report)
@@ -136,7 +142,7 @@ final class TriggerProcessFactory private[simulation] (
         case LedgerResponse(api, report) =>
           run(api, report, startState)
 
-        case msg: MessageWrapper =>
+        case msg =>
           context.log.error(
             s"Whilst waiting for a ledger response during trigger registration, we received an unexpected message: $msg"
           )
@@ -202,9 +208,9 @@ final class TriggerProcessFactory private[simulation] (
 
         run(ledgerApi, report, state = nextState)
 
-      case (context, response: LedgerResponse) =>
+      case (context, msg) =>
         context.log.error(
-          s"Having registered with the ledger, we received an unexpected registration response: $response"
+          s"Having registered with the ledger, we received an unexpected message: $msg"
         )
         Behaviors.stopped
     }

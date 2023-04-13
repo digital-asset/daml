@@ -11,16 +11,12 @@ import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.daml.ledger.client.LedgerClient
 import com.daml.lf.engine.trigger.simulation.ReportingProcess
 import com.daml.lf.engine.trigger.simulation.TriggerMultiProcessSimulation.TriggerSimulationConfig
-import com.daml.lf.engine.trigger.simulation.ledger.{LedgerACSDiff, LedgerApiClient}
-import com.daml.lf.engine.trigger.simulation.process.report.ACSReporting
-
-import scala.collection.concurrent.TrieMap
 
 object LedgerProcess {
   sealed abstract class Message extends Product with Serializable
   // Used by TriggerProcess
   private[process] final case class TriggerRegistration(
-      registration: LedgerRegistration.LedgerRegistration
+      registration: LedgerRegistration.Registration
   ) extends Message
   // Used by ReportingProcess
   private[process] final case class GetTriggerACSDiff(
