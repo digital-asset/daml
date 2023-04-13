@@ -10,7 +10,6 @@ import com.daml.ledger.api.refinements.ApiTypes.Party
 import com.daml.lf.engine.trigger.simulation.TriggerMultiProcessSimulation.TriggerSimulationConfig
 import com.daml.lf.engine.trigger.simulation.process.ledger.{LedgerExternalAction, LedgerProcess}
 import com.daml.lf.engine.trigger.simulation.process.TriggerProcessFactory
-import com.daml.lf.engine.trigger.test.AbstractTriggerTest
 import com.daml.lf.speedy.SValue
 import org.scalacheck.Gen
 import scalaz.syntax.tag._
@@ -22,7 +21,6 @@ class CatAndFoodTriggerSimulation
     extends TriggerMultiProcessSimulation
     with CatTriggerResourceUsageTestGenerators {
 
-  import AbstractTriggerTest._
   import CatAndFoodTriggerSimulation._
 
   // For demonstration purposes, we only run for 30 seconds
@@ -32,7 +30,7 @@ class CatAndFoodTriggerSimulation
   override protected def triggerMultiProcessSimulation: Behavior[Unit] = {
     Behaviors.setup { context =>
       val setup = for {
-        client <- ledgerClient()
+        client <- defaultLedgerClient()
         party <- allocateParty(client)
       } yield (client, Party(party))
       val (client, actAs) = Await.result(setup, simulationConfig.simulationSetupTimeout)
