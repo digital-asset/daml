@@ -172,7 +172,7 @@ done
 echo "$(date -Is -u) Waiting for scale sets to adapt"
 sleep 300
 
-for set $(echo $scale_sets | jq -r '.[] | .name'); do
+for set in $(echo $scale_sets | jq -r '.[] | .name'); do
   size=$(echo $scale_sets | jq --arg set $set -r '.[] | select (.name == $set) | .size')
   echo "$(date -Is -u) Setting scale set $set size back to $size"
   az vmss scale -n $set --new-capacity $size
