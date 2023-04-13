@@ -7,7 +7,7 @@ locals {
       {
         name       = "ci-u1",
         disk_size  = 400,
-        size       = 20,
+        size       = 0,
         assignment = "default",
       },
       {
@@ -21,7 +21,7 @@ locals {
       {
         name       = "du1",
         disk_size  = 400,
-        size       = 5,
+        size       = 15,
         assignment = "default",
       },
       {
