@@ -91,13 +91,6 @@ final class Converter(
   private[this] val exerciseByKeyCommandTy = triggerIds.damlTriggerLowLevel("ExerciseByKeyCommand")
   private[this] val acsTy = triggerIds.damlTriggerInternal("ACS")
 
-  private[this] def fromIdentifier(identifier: value.Identifier) =
-    for {
-      pkgId <- PackageId.fromString(identifier.packageId)
-      mod <- DottedName.fromString(identifier.moduleName)
-      name <- DottedName.fromString(identifier.entityName)
-    } yield Identifier(pkgId, QualifiedName(mod, name))
-
   private[this] def fromTemplateTypeRep(tyCon: value.Identifier): SValue =
     record(
       templateTypeRepTyCon,
@@ -253,7 +246,7 @@ final class Converter(
         SVariant(
           triggerIds.damlTriggerLowLevel("CompletionStatus"),
           CompletionStatusVariant.SucceedVariantConstructor,
-          CompletionStatusVariant.SucceedVariantConstrcutor,
+          CompletionStatusVariant.SucceedVariantConstructorRank,
           record(
             succeedTy,
             "transactionId" -> fromTransactionId(c.transactionId),
@@ -473,8 +466,15 @@ object Converter {
     val FailVariantConstructor = Name.assertFromString("Failed")
     val FailVariantConstructorRank = 0
     val SucceedVariantConstructor = Name.assertFromString("Succeeded")
-    val SucceedVariantConstrcutor = 1
+    val SucceedVariantConstructorRank = 1
   }
+
+  def fromIdentifier(identifier: value.Identifier): Either[String, Identifier] =
+    for {
+      pkgId <- PackageId.fromString(identifier.packageId)
+      mod <- DottedName.fromString(identifier.moduleName)
+      name <- DottedName.fromString(identifier.entityName)
+    } yield Identifier(pkgId, QualifiedName(mod, name))
 
   private def toLedgerRecord(v: SValue): Either[String, value.Record] =
     lfValueToApiRecord(verbose = true, v.toUnnormalizedValue)
@@ -490,7 +490,7 @@ object Converter {
       },
     )
 
-  private def toAnyContractId(v: SValue): Either[String, AnyContractId] =
+  def toAnyContractId(v: SValue): Either[String, AnyContractId] =
     v.expectE(
       "AnyContractId",
       { case SRecord(_, _, ArrayList(stid, scid)) =>
@@ -533,7 +533,7 @@ object Converter {
       },
     )
 
-  private def toAnyTemplate(v: SValue): Either[String, AnyTemplate] =
+  def toAnyTemplate(v: SValue): Either[String, AnyTemplate] =
     v match {
       case SRecord(_, _, ArrayList(SAny(TTyCon(tmplId), value))) =>
         Right(AnyTemplate(tmplId, value))
