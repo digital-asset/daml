@@ -8,8 +8,8 @@ load("@os_info//:os_info.bzl", "is_windows")
 
 genrule(
     name = "LICENSE",
-    outs = ["LICENSE.txt"],
     srcs = [":ee-license.txt"],
+    outs = ["LICENSE.txt"],
     cmd = """
     cp $(location :ee-license.txt) $@
     """,
@@ -17,8 +17,8 @@ genrule(
 
 java_library(
     name = "ee-license",
-    resources = [":LICENSE.txt"],
     resource_strip_prefix = "release/",
+    resources = [":LICENSE.txt"],
     visibility = ["//visibility:public"],
 )
 
