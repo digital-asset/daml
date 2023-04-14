@@ -998,12 +998,16 @@ class Ledger {
       decodeLedgerResponse.run(json),
     );
     if (!(ledgerResponse.status >= 200 && ledgerResponse.status <= 299)) {
-      console.error(`Request to ${endpoint} returned status ${ledgerResponse.status} with response body: ${JSON.stringify(json)}.`);
+      console.error(
+        `Request to ${endpoint} returned status ${
+          ledgerResponse.status
+        } with response body: ${JSON.stringify(json)}.`,
+      );
       throw decode(decodeLedgerError, json);
     }
     if (ledgerResponse.warnings) {
       console.warn(ledgerResponse.warnings);
-    }  
+    }
     return ledgerResponse.result;
   }
 
