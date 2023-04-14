@@ -120,6 +120,8 @@ object TriggerMultiProcessSimulation {
   // (otherwise bazel will remove the directory holding the saved CSV data)
   private val tmpDir = Files.createTempDirectory("TriggerSimulation")
 
+  println(s"Trigger simulation reporting data is located in $tmpDir")
+
   final case class TriggerSimulationConfig(
       simulationSetupTimeout: FiniteDuration = 30.seconds,
       simulationDuration: FiniteDuration = 5.minutes,

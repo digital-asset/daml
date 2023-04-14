@@ -161,7 +161,7 @@ final class TriggerProcessFactory private[simulation] (
       state: SValue,
   )(implicit config: TriggerSimulationConfig): Behavior[Message] = {
     Behaviors.receive {
-      case (_, MessageWrapper(msg)) =>
+      case (context, MessageWrapper(msg)) =>
         val (submissions, metrics, nextState) = Await.result(
           simulator.updateStateLambda(state, msg),
           triggerConfig.hardLimit.ruleEvaluationTimeout,
@@ -191,7 +191,7 @@ final class TriggerProcessFactory private[simulation] (
         val reportId = UUID.randomUUID()
 
         submissions.foreach { request =>
-          ledgerApi ! LedgerApiClient.CommandSubmission(request)
+          ledgerApi ! LedgerApiClient.CommandSubmission(request, context.self)
         }
         report ! ReportingProcess.MetricsUpdate(
           MetricsReporting.TriggerMetricsUpdate(
