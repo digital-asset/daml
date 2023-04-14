@@ -66,7 +66,8 @@ final class LedgerRegistration(client: LedgerClient)(implicit
                     create.getTemplateId
                   ))
 
-                case Event(Event.Event.Archived(archive)) =>
+                case Event(Event.Event.Archived(archive))
+                    if ledgerACSView(triggerId).contains(archive.contractId) =>
                   ledgerACSView(triggerId) -= archive.contractId
 
                 case Event(_) =>

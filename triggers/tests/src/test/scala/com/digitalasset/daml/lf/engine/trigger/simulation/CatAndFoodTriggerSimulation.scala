@@ -7,7 +7,7 @@ import akka.actor.typed.{ActorRef, Behavior}
 import akka.actor.typed.scaladsl.Behaviors
 import com.daml.ledger.api.v1.event.CreatedEvent
 import com.daml.ledger.api.refinements.ApiTypes.Party
-import com.daml.lf.engine.trigger.simulation.TriggerMultiProcessSimulation.TriggerSimulationConfig
+//import com.daml.lf.engine.trigger.simulation.TriggerMultiProcessSimulation.TriggerSimulationConfig
 import com.daml.lf.engine.trigger.simulation.process.ledger.{LedgerExternalAction, LedgerProcess}
 import com.daml.lf.engine.trigger.simulation.process.TriggerProcessFactory
 import com.daml.lf.speedy.SValue
@@ -24,8 +24,8 @@ class CatAndFoodTriggerSimulation
   import CatAndFoodTriggerSimulation._
 
   // For demonstration purposes, we only run the simulation for 30 seconds
-  override protected implicit lazy val simulationConfig: TriggerSimulationConfig =
-    TriggerSimulationConfig(simulationDuration = 30.seconds)
+//  override protected implicit lazy val simulationConfig: TriggerSimulationConfig =
+//    TriggerSimulationConfig(simulationDuration = 30.seconds)
   // For demonstration purposes, we enable saving Canton logging
   override protected val cantonFixtureDebugMode: Boolean = true
 

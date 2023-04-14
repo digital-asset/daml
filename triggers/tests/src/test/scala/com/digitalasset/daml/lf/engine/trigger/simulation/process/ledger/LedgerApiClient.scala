@@ -12,6 +12,7 @@ import com.daml.lf.engine.trigger.simulation.TriggerMultiProcessSimulation.Trigg
 import com.daml.scalautil.Statement.discard
 
 import scala.concurrent.Await
+import scala.util.control.NonFatal
 
 object LedgerApiClient {
   sealed abstract class Message extends Product with Serializable
@@ -24,13 +25,18 @@ object LedgerApiClient {
   def create(
       client: LedgerClient
   )(implicit config: TriggerSimulationConfig): Behavior[Message] = {
-    Behaviors.receiveMessage { case CommandSubmission(request) =>
-      discard(
-        Await.result(
-          client.commandClient.submitSingleCommand(request),
-          config.ledgerSubmissionTimeout,
+    Behaviors.receive { case (context, CommandSubmission(request)) =>
+      try {
+        discard(
+          Await.result(
+            client.commandClient.submitSingleCommand(request),
+            config.ledgerSubmissionTimeout,
+          )
         )
-      )
+      } catch {
+        case NonFatal(exn) =>
+          context.log.warn("Ledger API encountered a command submission failure", exn)
+      }
       Behaviors.same
     }
   }
