@@ -108,7 +108,7 @@ scala_binary_deps = [
     "@maven//:org_scalaz_scalaz_core",
 ]
 
-binary_deps = [
+common_binary_deps = [
     ":trigger-service",
     "//daml-lf/archive:daml_lf_archive_reader",
     "//daml-lf/archive:daml_lf_1.dev_archive_proto_java",
@@ -126,6 +126,11 @@ binary_deps = [
     "@maven//:ch_qos_logback_logback_classic",
 ]
 
+binary_deps = {
+    "ce": common_binary_deps,
+    "ee": common_binary_deps + ["//release:ee-license"],
+}
+
 trigger_service_runtime_deps = {
     "ce": [],
     "ee": ["@maven//:com_oracle_database_jdbc_ojdbc8"],
@@ -142,7 +147,7 @@ trigger_service_runtime_deps = {
         scalacopts = lf_scalacopts_stricter,
         visibility = ["//visibility:public"],
         runtime_deps = trigger_service_runtime_deps.get(edition),
-        deps = binary_deps + [
+        deps = binary_deps.get(edition) + [
             "//observability/metrics",
             "//runtime-components/jdbc-drivers:jdbc-drivers-{}".format(edition),
         ],

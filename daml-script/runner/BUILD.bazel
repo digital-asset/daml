@@ -87,7 +87,10 @@ da_scala_binary(
     runtime_deps = [
         "@maven//:ch_qos_logback_logback_classic",
     ],
-    deps = [":script-runner-lib"],
+    deps = [
+        ":script-runner-lib",
+        "//release:ee-license",
+    ],
 )
 
 exports_files(["src/main/resources/logback.xml"])

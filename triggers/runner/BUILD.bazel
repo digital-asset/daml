@@ -47,7 +47,10 @@ da_scala_binary(
     resources = ["src/main/resources/logback.xml"],
     scalacopts = lf_scalacopts_stricter,
     visibility = ["//visibility:public"],
-    deps = [":trigger-runner-lib"],
+    deps = [
+        ":trigger-runner-lib",
+        "//release:ee-license",
+    ],
 )
 
 exports_files(["src/main/resources/logback.xml"])

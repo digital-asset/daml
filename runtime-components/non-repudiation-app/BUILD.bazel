@@ -35,6 +35,7 @@ da_scala_binary(
         "@maven//:io_grpc_grpc_core",
         "@maven//:io_grpc_grpc_netty",
         "@maven//:org_slf4j_slf4j_api",
+        "//release:ee-license",
     ],
 )
 
