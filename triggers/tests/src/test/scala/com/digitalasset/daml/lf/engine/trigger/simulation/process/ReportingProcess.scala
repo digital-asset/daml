@@ -22,23 +22,21 @@ private[simulation] object ReportingProcess {
   def create(
       ledgerApi: ActorRef[LedgerProcess.Message]
   )(implicit config: TriggerSimulationConfig): Behavior[Message] = {
-    Behaviors.logMessages {
-      Behaviors.setup { context =>
-        val metrics = context.spawn(MetricsReporting.create(), "metrics-reporting")
-        val acs = context.spawn(ACSReporting.create(ledgerApi), "acs-reporting")
+    Behaviors.setup { context =>
+      val metrics = context.spawn(MetricsReporting.create(), "metrics-reporting")
+      val acs = context.spawn(ACSReporting.create(ledgerApi), "acs-reporting")
 
-        context.watch(metrics)
-        context.watch(acs)
+      context.watch(metrics)
+      context.watch(acs)
 
-        Behaviors.receiveMessage {
-          case MetricsUpdate(update) =>
-            metrics ! update
-            Behaviors.same
+      Behaviors.receiveMessage {
+        case MetricsUpdate(update) =>
+          metrics ! update
+          Behaviors.same
 
-          case ACSUpdate(update) =>
-            acs ! update
-            Behaviors.same
-        }
+        case ACSUpdate(update) =>
+          acs ! update
+          Behaviors.same
       }
     }
   }
