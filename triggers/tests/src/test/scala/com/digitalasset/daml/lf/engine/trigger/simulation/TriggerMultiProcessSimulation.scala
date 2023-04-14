@@ -8,12 +8,10 @@ import akka.actor.typed.{ActorRef, ActorSystem, Behavior, SupervisorStrategy}
 import akka.actor.typed.scaladsl.Behaviors
 import akka.stream.Materializer
 import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId, Party}
-import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.daml.ledger.client.LedgerClient
-import com.daml.ledger.sandbox.SandboxOnXForTest.ParticipantId
 import com.daml.lf.engine.trigger.simulation.process.TriggerProcessFactory
 import com.daml.lf.engine.trigger.simulation.process.ledger.LedgerProcess
-import com.daml.lf.engine.trigger.test.AbstractTriggerTest
+import com.daml.lf.engine.trigger.test.AbstractTriggerTestWithCanton
 import org.scalatest.wordspec.AsyncWordSpec
 
 import java.nio.file.{Files, Path}
@@ -22,8 +20,7 @@ import scala.concurrent.ExecutionContext
 
 abstract class TriggerMultiProcessSimulation
     extends AsyncWordSpec
-    with SuiteResourceManagementAroundAll
-    with AbstractTriggerTest {
+    with AbstractTriggerTestWithCanton {
 
   import TriggerMultiProcessSimulation._
 
@@ -91,7 +88,7 @@ abstract class TriggerMultiProcessSimulation
       packageId,
       applicationId,
       compiledPackages,
-      config.participants(ParticipantId).apiServer.timeProviderType,
+      timeProviderType,
       triggerRunnerConfiguration,
       actAs,
     )

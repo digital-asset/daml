@@ -7,14 +7,10 @@ package simulation
 import akka.actor.ActorSystem
 import akka.stream.Materializer
 import akka.stream.scaladsl.Sink
-import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId, Party}
-import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
-import com.daml.ledger.runner.common.Config
-import com.daml.ledger.sandbox.SandboxOnXForTest.{ApiServerConfig, ParticipantId, singleParticipant}
+import com.daml.ledger.api.refinements.ApiTypes.Party
 import com.daml.lf.data.Ref.QualifiedName
-import com.daml.lf.engine.trigger.test.AbstractTriggerTest
+import com.daml.lf.engine.trigger.test.AbstractTriggerTestWithCanton
 import com.daml.lf.speedy.SValue
-import com.daml.platform.services.time.TimeProviderType
 import org.scalatest.{Inside, TryValues}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
@@ -23,26 +19,16 @@ import scala.concurrent.ExecutionContext
 
 class CatTriggerResourceUsageTest
     extends AsyncWordSpec
-    with AbstractTriggerTest
+    with AbstractTriggerTestWithCanton
     with Matchers
     with Inside
-    with SuiteResourceManagementAroundAll
     with TryValues
     with CatTriggerResourceUsageTestGenerators {
 
-  import AbstractTriggerTest._
   import TriggerRuleSimulationLib._
 
   // Used to control degree of parallelism in mapAsync streaming operations
   private[this] val parallelism = 8
-
-  override protected def config: Config = super.config.copy(
-    participants = singleParticipant(
-      ApiServerConfig.copy(
-        timeProviderType = TimeProviderType.Static
-      )
-    )
-  )
 
   override protected def triggerRunnerConfiguration: TriggerRunnerConfig =
     super.triggerRunnerConfiguration.copy(hardLimit =
@@ -62,15 +48,15 @@ class CatTriggerResourceUsageTest
 
         "for Cats:feedingTrigger initState lambda" in {
           for {
-            client <- ledgerClient()
+            client <- defaultLedgerClient()
             party <- allocateParty(client)
             (_, simulator) = getSimulator(
               client,
               QualifiedName.assertFromString("Cats:feedingTrigger"),
               packageId,
-              ApplicationId("submissions-and-acs"),
+              applicationId,
               compiledPackages,
-              config.participants(ParticipantId).apiServer.timeProviderType,
+              timeProviderType,
               triggerRunnerConfiguration,
               party,
             )
@@ -88,15 +74,15 @@ class CatTriggerResourceUsageTest
 
         "for Cats:feedingTrigger updateState lambda" in {
           for {
-            client <- ledgerClient()
+            client <- defaultLedgerClient()
             party <- allocateParty(client)
             (trigger, simulator) = getSimulator(
               client,
               QualifiedName.assertFromString("Cats:feedingTrigger"),
               packageId,
-              ApplicationId("submissions-and-acs"),
+              applicationId,
               compiledPackages,
-              config.participants(ParticipantId).apiServer.timeProviderType,
+              timeProviderType,
               triggerRunnerConfiguration,
               party,
             )
@@ -130,15 +116,15 @@ class CatTriggerResourceUsageTest
 
         "for Cats:overflowTrigger updateState lambda" in {
           for {
-            client <- ledgerClient()
+            client <- defaultLedgerClient()
             party <- allocateParty(client)
             (trigger, simulator) = getSimulator(
               client,
               QualifiedName.assertFromString("Cats:overflowTrigger"),
               packageId,
-              ApplicationId("acs-constant-growth"),
+              applicationId,
               compiledPackages,
-              config.participants(ParticipantId).apiServer.timeProviderType,
+              timeProviderType,
               triggerRunnerConfiguration,
               party,
             )
@@ -170,15 +156,15 @@ class CatTriggerResourceUsageTest
         "duplicate command submissions are **not** generated" should {
           "using Cats:feedingTrigger updateState lambda" in {
             for {
-              client <- ledgerClient()
+              client <- defaultLedgerClient()
               party <- allocateParty(client)
               (trigger, simulator) = getSimulator(
                 client,
                 QualifiedName.assertFromString("Cats:feedingTrigger"),
                 packageId,
-                ApplicationId("no-duplicate-command-submissions"),
+                applicationId,
                 compiledPackages,
-                config.participants(ParticipantId).apiServer.timeProviderType,
+                timeProviderType,
                 triggerRunnerConfiguration,
                 party,
               )

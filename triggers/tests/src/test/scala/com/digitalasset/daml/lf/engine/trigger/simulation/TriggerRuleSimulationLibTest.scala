@@ -4,11 +4,8 @@
 package com.daml.lf.engine.trigger
 package simulation
 
-import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId, Party}
-import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
+import com.daml.ledger.api.refinements.ApiTypes.Party
 import com.daml.ledger.api.v1.event.CreatedEvent
-import com.daml.ledger.runner.common.Config
-import com.daml.ledger.sandbox.SandboxOnXForTest.{ApiServerConfig, ParticipantId, singleParticipant}
 import com.daml.lf.data.Ref.QualifiedName
 import com.daml.lf.engine.trigger.Runner.{
   numberOfActiveContracts,
@@ -16,9 +13,8 @@ import com.daml.lf.engine.trigger.Runner.{
   numberOfInFlightCreateCommands,
   numberOfPendingContracts,
 }
-import com.daml.lf.engine.trigger.test.AbstractTriggerTest
+import com.daml.lf.engine.trigger.test.AbstractTriggerTestWithCanton
 import com.daml.lf.speedy.SValue
-import com.daml.platform.services.time.TimeProviderType
 import org.scalacheck.Gen
 import org.scalatest.{Inside, TryValues}
 import org.scalatest.matchers.should.Matchers
@@ -28,23 +24,13 @@ import java.util.UUID
 
 class TriggerRuleSimulationLibTest
     extends AsyncWordSpec
-    with AbstractTriggerTest
+    with AbstractTriggerTestWithCanton
     with Matchers
     with Inside
-    with SuiteResourceManagementAroundAll
     with TryValues
     with TriggerRuleSimulationLibTestGenerators {
 
-  import AbstractTriggerTest._
   import TriggerRuleSimulationLib._
-
-  override protected def config: Config = super.config.copy(
-    participants = singleParticipant(
-      ApiServerConfig.copy(
-        timeProviderType = TimeProviderType.Static
-      )
-    )
-  )
 
   override protected def triggerRunnerConfiguration: TriggerRunnerConfig =
     super.triggerRunnerConfiguration.copy(hardLimit =
@@ -55,15 +41,15 @@ class TriggerRuleSimulationLibTest
   "Trigger rule simulation" should {
     "correctly log metrics for initState lambda" in {
       for {
-        client <- ledgerClient()
+        client <- defaultLedgerClient()
         party <- allocateParty(client)
         (trigger, simulator) = getSimulator(
           client,
           QualifiedName.assertFromString("Cats:feedingTrigger"),
           packageId,
-          ApplicationId("metric-logging-init-state"),
+          applicationId,
           compiledPackages,
-          config.participants(ParticipantId).apiServer.timeProviderType,
+          timeProviderType,
           triggerRunnerConfiguration,
           party,
         )
@@ -104,15 +90,15 @@ class TriggerRuleSimulationLibTest
 
     "correctly log metrics for updateState lambda" in {
       for {
-        client <- ledgerClient()
+        client <- defaultLedgerClient()
         party <- allocateParty(client)
         (trigger, simulator) = getSimulator(
           client,
           QualifiedName.assertFromString("Cats:feedingTrigger"),
           packageId,
-          ApplicationId("metric-logging-update-state"),
+          applicationId,
           compiledPackages,
-          config.participants(ParticipantId).apiServer.timeProviderType,
+          timeProviderType,
           triggerRunnerConfiguration,
           party,
         )
