@@ -128,7 +128,7 @@ object TriggerMultiProcessSimulation {
       ledgerSubmissionTimeout: FiniteDuration = 30.seconds,
       ledgerRegistrationTimeout: FiniteDuration = 30.seconds,
       ledgerWorkloadTimeout: FiniteDuration = 5.seconds,
-      triggerDataFile: Path = tmpDir.resolve("trigger-simulation-data.csv"),
+      triggerDataFile: Path = tmpDir.resolve("trigger-simulation-metrics-data.csv"),
       acsDataFile: Path = tmpDir.resolve("trigger-simulation-acs-data.csv"),
   )
 
