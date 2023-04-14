@@ -998,7 +998,7 @@ class Ledger {
       decodeLedgerResponse.run(json),
     );
     if (!(ledgerResponse.status >= 200 && ledgerResponse.status <= 299)) {
-      console.error(
+      console.log(
         `Request to ${endpoint} returned status ${
           ledgerResponse.status
         } with response body: ${JSON.stringify(json)}.`,
