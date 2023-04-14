@@ -72,7 +72,6 @@ final class TriggerProcessFactory private[simulation] (
 
   import TriggerProcess._
 
-  private[this] val triggerId = UUID.randomUUID()
   private[this] val triggerDefRef =
     Ref.DefinitionRef(packageId, QualifiedName.assertFromString(name))
   private[this] val triggerParties = TriggerParties(
@@ -108,6 +107,7 @@ final class TriggerProcessFactory private[simulation] (
   def create(userState: SValue, acs: Seq[CreatedEvent] = Seq.empty)(implicit
       config: TriggerSimulationConfig
   ): Behavior[Message] = {
+    val triggerId = UUID.randomUUID()
     val converter = new Converter(compiledPackages, trigger)
     val startState = converter
       .fromTriggerUpdateState(
@@ -123,35 +123,39 @@ final class TriggerProcessFactory private[simulation] (
 
     implicit val ledgerResponseTimeout: Timeout = Timeout(config.ledgerRegistrationTimeout)
 
-    Behaviors.setup { context =>
-      context.ask(
-        ledger,
-        (ref: ActorRef[LedgerRegistration.LedgerApi]) =>
-          LedgerProcess.TriggerRegistration(
-            LedgerRegistration.Registration(triggerId, context.self, actAs, transactionFilter, ref)
-          ),
-      ) {
-        case Success(LedgerRegistration.LedgerApi(api, report)) =>
-          LedgerResponse(api, report)
+    Behaviors.logMessages {
+      Behaviors.setup { context =>
+        context.ask(
+          ledger,
+          (ref: ActorRef[LedgerRegistration.LedgerApi]) =>
+            LedgerProcess.TriggerRegistration(
+              LedgerRegistration
+                .Registration(triggerId, context.self, actAs, transactionFilter, ref)
+            ),
+        ) {
+          case Success(LedgerRegistration.LedgerApi(api, report)) =>
+            LedgerResponse(api, report)
 
-        case Failure(exn) =>
-          throw TriggerSimulationFailure(exn)
-      }
+          case Failure(exn) =>
+            throw TriggerSimulationFailure(exn)
+        }
 
-      Behaviors.receiveMessage {
-        case LedgerResponse(api, report) =>
-          run(api, report, startState)
+        Behaviors.receiveMessage {
+          case LedgerResponse(api, report) =>
+            run(triggerId, api, report, startState)
 
-        case msg =>
-          context.log.error(
-            s"Whilst waiting for a ledger response during trigger registration, we received an unexpected message: $msg"
-          )
-          Behaviors.stopped
+          case msg =>
+            context.log.error(
+              s"Whilst waiting for a ledger response during trigger registration, we received an unexpected message: $msg"
+            )
+            Behaviors.stopped
+        }
       }
     }
   }
 
   private[this] def run(
+      triggerId: UUID,
       ledgerApi: ActorRef[LedgerApiClient.Message],
       report: ActorRef[ReportingProcess.Message],
       state: SValue,
@@ -206,7 +210,7 @@ final class TriggerProcessFactory private[simulation] (
           ACSReporting.TriggerACSUpdate(reportId, triggerId, triggerACSView)
         )
 
-        run(ledgerApi, report, state = nextState)
+        run(triggerId, ledgerApi, report, state = nextState)
 
       case (context, msg) =>
         context.log.error(

@@ -24,11 +24,10 @@ abstract class TriggerMultiProcessSimulation
 
   import TriggerMultiProcessSimulation._
 
-  // For demonstration purposes, we only run for 30 seconds
   protected implicit lazy val simulationConfig: TriggerSimulationConfig =
     TriggerSimulationConfig()
 
-  protected implicit lazy val simulation: ActorSystem[Unit] =
+  protected implicit lazy val simulation: ActorSystem[Message] =
     ActorSystem(triggerMultiProcessSimulationWithTimeout, "cat-and-food-simulation")
 
   override implicit lazy val materializer: Materializer = Materializer(simulation)
@@ -51,26 +50,33 @@ abstract class TriggerMultiProcessSimulation
     } yield succeed
   }
 
-  /** User simulation need to (at least) override this method in order to define a trigger multi-process simulation. If
-    * the user implementation continues as the `super.triggerMultiProcessSimulation` behavior, then simulations will be
-    * bounded using time durations from the simulation configuration. If they do not continue with this behaviour, then
-    * their runtime will be bounded by the duration of the test (i.e. configured using bazel).
+  /** User simulations need to (at least) override this method in order to define a trigger multi-process simulation.
     *
     * @return trigger multi-process actor system
     */
-  protected def triggerMultiProcessSimulation: Behavior[Unit] = {
-    Behaviors.receive { (context, _) =>
-      context.log.info(s"Simulation timed out after: ${simulationConfig.simulationDuration}")
-      Behaviors.stopped
-    }
-  }
+  protected def triggerMultiProcessSimulation: Behavior[Unit]
 
-  private[this] def triggerMultiProcessSimulationWithTimeout: Behavior[Unit] = {
-    Behaviors.withTimers[Unit] { timer =>
-      timer.startSingleTimer((), simulationConfig.simulationDuration)
+  private[this] def triggerMultiProcessSimulationWithTimeout: Behavior[Message] = {
+    Behaviors.withTimers[Message] { timer =>
+      timer.startSingleTimer(StopSimulation, simulationConfig.simulationDuration)
 
       Behaviors
-        .supervise(triggerMultiProcessSimulation)
+        .supervise[Message] {
+          Behaviors.setup { context =>
+            context.log.info(s"Simulation will run for ${simulationConfig.simulationDuration}")
+            context.self ! StartSimulation
+
+            Behaviors.logMessages {
+              Behaviors.receiveMessage {
+                case StartSimulation =>
+                  triggerMultiProcessSimulation.transformMessages { case StartSimulation => () }
+
+                case StopSimulation =>
+                  Behaviors.stopped
+              }
+            }
+          }
+        }
         .onFailure[Throwable](SupervisorStrategy.stop)
     }
   }
@@ -106,7 +112,7 @@ object TriggerMultiProcessSimulation {
       simulationDuration: FiniteDuration = 5.minutes,
       ledgerSubmissionTimeout: FiniteDuration = 30.seconds,
       ledgerRegistrationTimeout: FiniteDuration = 30.seconds,
-      ledgerWorkloadTimeout: FiniteDuration = 1.second,
+      ledgerWorkloadTimeout: FiniteDuration = 5.seconds,
       triggerDataFile: Path = tmpDir.resolve("trigger-simulation-data.csv"),
       acsDataFile: Path = tmpDir.resolve("trigger-simulation-acs-data.csv"),
   )
@@ -117,4 +123,8 @@ object TriggerMultiProcessSimulation {
     def apply(reason: String): TriggerSimulationFailure =
       TriggerSimulationFailure(new RuntimeException(reason))
   }
+
+  abstract class Message extends Product with Serializable
+  private case object StartSimulation extends Message
+  private case object StopSimulation extends Message
 }
