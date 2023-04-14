@@ -2,7 +2,7 @@
 
 Please read this document carefully.
 
-At a high level, a releas goes through the following steps. All releases must
+At a high level, a release goes through the following steps. All releases must
 use the same version number for stable releases; there is more leeway for
 snapshots and RCs.
 
