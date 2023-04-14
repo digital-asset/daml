@@ -43,7 +43,7 @@ when this step happens, and there may be a few days between repos.
 
 In the [daml] repo, the release branch for minor version `A.B` must be named
 `release/A.B.x`, e.g.  `release/2.7.x`. In the [canton] repo, the release
-branch is names `release-line-A.B`, e.g. `release-line-2.7`. In both repos, we
+branch is named `release-line-A.B`, e.g. `release-line-2.7`. In both repos, we
 have special "branch protection rules" set up in GitHub for branches with those
 names.
 
