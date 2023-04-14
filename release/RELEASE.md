@@ -65,7 +65,7 @@ the RC is accepted and we create a new release from the same code base.
 RC version strings in the [daml] repo are indistinguishable from snapshot
 names. In the [canton] repo, snapshots are usually names by their date of
 production (e.g. `20230401`) whereas RCs contain an explicit `rc` market (e.g.
-`2.6.0-rc2`). this can create some confusion, but is hard to change at this
+`2.6.0-rc2`). This can create some confusion, but is hard to change at this
 time.
 
 > **When you create the release branch in the [daml] repo, make a PR to `main`
