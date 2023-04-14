@@ -31,6 +31,7 @@ inputs = {
         "ce": "//daml-assistant/daml-sdk:sdk_deploy.jar",
         "ee": "//daml-assistant/daml-sdk:sdk_ee_deploy.jar",
     },
+    "license": ":ee-license.txt",
 }
 
 def input_target(config, name):
@@ -54,6 +55,10 @@ def sdk_tarball(name, version, config):
           trap "rm -rf $$DIR" EXIT
           OUT=$$DIR/sdk-$$VERSION
           mkdir -p $$OUT
+
+          if [ "{config}" = "ee" ]; then
+            cp $(location {license}) $$OUT/LICENSE.txt
+          fi
 
           cp $(location {NOTICES}) $$OUT/NOTICES
 
@@ -107,6 +112,7 @@ def sdk_tarball(name, version, config):
           $$MKTGZ $$OUT_PATH $$(basename $$OUT)
         """.format(
             version = version,
+            config = config,
             **kwargs
         ),
         visibility = ["//visibility:public"],

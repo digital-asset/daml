@@ -1,0 +1,19 @@
+The Software contained in this code repository is licensed to You pursuant
+to the Master Product Agreement, Evaluation Agreement, or other similar software
+license agreement (the “License Agreement”) signed between You and Digital Asset
+and which remains in effect as of the date You access the Software. Any use of
+this Software outside of the scope of Your License Agreement is strictly
+prohibited. If You have not signed a License Agreement with Digital Asset or Your
+License Agreement with Digital Asset is no longer in effect, You are not
+authorized to access or use the Software.
+
+“You” or “Your” means the individual or legal entity that signed the License
+Agreement and is accessing Software through this code repository.
+
+“Digital Asset” means Digital Asset Holdings, LLC, a Delaware Limited Liability
+Company with offices at 4 World Trade Center, 150 Greenwich St., 47th Floor,
+New York, NY 10007, or any of its subsidiaries or affiliates.
+
+“Software” means any goods, licensed materials, documentation, or software
+(including object and/or source code) made available for download by Digital
+Asset via this code repository.
