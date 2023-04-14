@@ -16,7 +16,7 @@ import org.scalatest.wordspec.AsyncWordSpec
 
 import java.nio.file.{Files, Path}
 import scala.concurrent.duration._
-import scala.concurrent.ExecutionContext
+import scala.concurrent.{ExecutionContext, TimeoutException}
 
 abstract class TriggerMultiProcessSimulation
     extends AsyncWordSpec
@@ -69,10 +69,23 @@ abstract class TriggerMultiProcessSimulation
             Behaviors.logMessages {
               Behaviors.receiveMessage {
                 case StartSimulation =>
-                  triggerMultiProcessSimulation.transformMessages { case StartSimulation => () }
+                  triggerMultiProcessSimulation.transformMessages {
+                    case StartSimulation =>
+                      ()
+                    case StopSimulation =>
+                      throw TriggerSimulationFailure(
+                        new TimeoutException(
+                          s"Simulation stopped after ${simulationConfig.simulationDuration}"
+                        )
+                      )
+                  }
 
                 case StopSimulation =>
-                  Behaviors.stopped
+                  throw TriggerSimulationFailure(
+                    new TimeoutException(
+                      s"Simulation stopped after ${simulationConfig.simulationDuration}"
+                    )
+                  )
               }
             }
           }
