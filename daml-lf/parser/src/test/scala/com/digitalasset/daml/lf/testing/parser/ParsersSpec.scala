@@ -606,6 +606,7 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
             choice @nonConsuming PowerNap (self) (i : Int64): Int64
               , controllers Cons @Party [person] (Nil @Party)
               , observers Cons @Party [person] (Nil @Party)
+              , authorizers Cons @Party [person] (Nil @Party)
               to upure @Int64 i;
             implements Mod1:Human {
               view = Mod1:HumanView { name = "Foo B. Baz" };
@@ -636,7 +637,7 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
                 name = n"Sleep",
                 consuming = true,
                 controllers = e"Cons @Party [person] (Nil @Party)",
-                choiceObservers = None, // TODO #15882 add test for choice-authority dev-syntax
+                choiceObservers = None,
                 choiceAuthorizers = None,
                 selfBinder = n"self",
                 argBinder = n"u" -> TUnit,
@@ -661,7 +662,7 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
                 consuming = false,
                 controllers = e"Cons @Party [person] (Nil @Party)",
                 choiceObservers = Some(e"Cons @Party [person] (Nil @Party)"),
-                choiceAuthorizers = None,
+                choiceAuthorizers = Some(e"Cons @Party [person] (Nil @Party)"),
                 selfBinder = n"self",
                 argBinder = n"i" -> TInt64,
                 returnType = t"Int64",

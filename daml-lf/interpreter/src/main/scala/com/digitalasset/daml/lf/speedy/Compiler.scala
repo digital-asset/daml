@@ -385,7 +385,6 @@ private[lf] final class Compiler(
         addDef(compileTemplateChoice(tmplId, tmpl, choice))
         addDef(compileChoiceController(tmplId, tmpl.param, choice))
         addDef(compileChoiceObserver(tmplId, tmpl.param, choice))
-      // addDef(compileChoiceAuthority(tmplId, tmpl.param, choice)) // TODO #15882
       }
 
       tmpl.key.foreach { tmplKey =>
@@ -405,7 +404,6 @@ private[lf] final class Compiler(
         addDef(compileInterfaceChoice(ifaceId, iface.param, choice))
         addDef(compileChoiceController(ifaceId, iface.param, choice))
         addDef(compileChoiceObserver(ifaceId, iface.param, choice))
-      // addDef(compileChoiceAuthority(ifaceId, iface.param, choice)) // TODO #15882
       }
       iface.coImplements.values.foreach { coimpl =>
         compileInterfaceInstance(
@@ -507,6 +505,7 @@ private[lf] final class Compiler(
           choiceId = choice.name,
           consuming = choice.consuming,
           byKey = mbKey.isDefined,
+          explicitChoiceAuthority = choice.choiceAuthorizers.isDefined,
         )(
           env.toSEVar(choiceArgPos),
           env.toSEVar(cidPos),
@@ -515,7 +514,10 @@ private[lf] final class Compiler(
             case Some(observers) => s.SEPreventCatch(translateExp(env, observers))
             case None => s.SEValue.EmptyList
           },
-          // TODO #15882 -- pass choice.choiceAuthorizers to SBUBeginExercise
+          choice.choiceAuthorizers match {
+            case Some(authorizers) => s.SEPreventCatch(translateExp(env, authorizers))
+            case None => s.SEValue.EmptyList
+          },
         ),
       ) { (_, _env) =>
         val env = _env.bindExprVar(choice.selfBinder, cidPos)
@@ -565,6 +567,7 @@ private[lf] final class Compiler(
               choiceName = choice.name,
               consuming = choice.consuming,
               byKey = false,
+              explicitChoiceAuthority = choice.choiceAuthorizers.isDefined,
             )(
               env.toSEVar(payloadPos),
               env.toSEVar(choiceArgPos),
@@ -574,7 +577,10 @@ private[lf] final class Compiler(
                 case Some(observers) => s.SEPreventCatch(translateExp(env, observers))
                 case None => s.SEValue.EmptyList
               },
-              // TODO #15882 -- pass choice.choiceAuthorizers to SBResolveSBUBeginExercise ?
+              choice.choiceAuthorizers match {
+                case Some(authorizers) => s.SEPreventCatch(translateExp(env, authorizers))
+                case None => s.SEValue.EmptyList
+              },
             ),
           ) { (_, _env) =>
             val env = _env.bindExprVar(choice.selfBinder, cidPos)

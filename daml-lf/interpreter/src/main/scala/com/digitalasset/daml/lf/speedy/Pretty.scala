@@ -170,6 +170,17 @@ private[lf] object Pretty {
             text(
               s"Exercise the choice $templateId:$choiceName with ${observers.size} observers but the limit is $limit"
             )
+          case Limit.ChoiceAuthorizers(
+                cid @ _,
+                templateId,
+                choiceName,
+                arg @ _,
+                authorizers,
+                limit,
+              ) =>
+            text(
+              s"Exercise the choice $templateId:$choiceName with ${authorizers.size} authorizers but the limit is $limit"
+            )
           case Limit.TransactionInputContracts(limit) =>
             text(s"Transaction exceeds maximum input contract number of $limit")
         }
@@ -228,6 +239,8 @@ private[lf] object Pretty {
     failure match {
       case nc: FailedAuthorization.NoControllers =>
         s"node $id (${nc.templateId}) has no controllers"
+      case nc: FailedAuthorization.NoAuthorizers =>
+        s"node $id (${nc.templateId}) has no authorizers"
       case ma: FailedAuthorization.CreateMissingAuthorization =>
         s"node $id (${ma.templateId}) requires authorizers ${ma.requiredParties
             .mkString(",")}, but only ${ma.authorizingParties.mkString(",")} were given"

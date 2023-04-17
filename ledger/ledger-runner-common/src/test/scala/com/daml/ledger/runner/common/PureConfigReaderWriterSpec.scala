@@ -228,12 +228,13 @@ class PureConfigReaderWriterSpec
     """
       |      choice-controllers = 2147483647
       |      choice-observers = 2147483647
+      |      choice-authorizers = 2147483647
       |      contract-observers = 2147483647
       |      contract-signatories = 2147483647
       |      transaction-input-contracts = 2147483647""".stripMargin
 
   it should "support current defaults" in {
-    convert(interpretationLimitsConvert, validLimits).value shouldBe Limits()
+    convert(interpretationLimitsConvert, validLimits).value shouldBe Limits.Lenient
   }
 
   it should "validate against odd values" in {
@@ -255,6 +256,7 @@ class PureConfigReaderWriterSpec
         |      contract-observers = 345
         |      contract-signatories = 456
         |      transaction-input-contracts = 567
+        |      choice-authorizers = 678
         |""".stripMargin
       )
 
@@ -264,6 +266,7 @@ class PureConfigReaderWriterSpec
       contractObservers = 345,
       contractSignatories = 456,
       transactionInputContracts = 567,
+      choiceAuthorizers = 678,
     )
     val source = ConfigSource.fromConfig(value).cursor().value
     interpretationLimitsConvert.from(source).value shouldBe expectedValue
@@ -291,6 +294,7 @@ class PureConfigReaderWriterSpec
       |limits {
       |  choice-controllers = 2147483647
       |  choice-observers = 2147483647
+      |  choice-authorizers = 2147483647
       |  contract-observers = 2147483647
       |  contract-signatories = 2147483647
       |  transaction-input-contracts = 2147483647

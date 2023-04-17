@@ -165,7 +165,6 @@ private[lf] object PartialTransaction {
         case None => actingParties union signatories
         case Some(explicitAuthorizers) => explicitAuthorizers
       }
-
   }
 
   final case class TryContextInfo(

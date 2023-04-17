@@ -990,8 +990,9 @@ private[lf] object SBuiltin {
   /** $beginExercise
     *    :: arg                                           0 (choice argument)
     *    -> ContractId arg                                1 (contract to exercise)
-    *    -> List Party                                    2 (controllers)
-    *    -> List Party                                    3 (observers)
+    *    -> List Party                                    2 (choice controllers)
+    *    -> List Party                                    3 (choice observers)
+    *    -> List Party                                    4 (choice authorizers)
     *    -> ()
     */
   final case class SBUBeginExercise(
@@ -1000,12 +1001,13 @@ private[lf] object SBuiltin {
       choiceId: ChoiceName,
       consuming: Boolean,
       byKey: Boolean,
-  ) extends UpdateBuiltin(4) {
+      explicitChoiceAuthority: Boolean,
+  ) extends UpdateBuiltin(5) {
 
     override protected def executeUpdate(
         args: util.ArrayList[SValue],
         machine: UpdateMachine,
-    ): Control[Nothing] = {
+    ): Control[Question.Update] = {
       val coid = getSContractId(args, 1)
       val contract = machine.cachedContracts.getOrElse(
         coid,
@@ -1019,28 +1021,64 @@ private[lf] object SBuiltin {
       machine.enforceChoiceControllersLimit(ctrls, coid, templateId, choiceId, chosenValue)
       val obsrs = extractParties(NameOf.qualifiedNameOfCurrentFunc, args.get(3))
       machine.enforceChoiceObserversLimit(obsrs, coid, templateId, choiceId, chosenValue)
+      val authorizersWhenExplicit = extractParties(NameOf.qualifiedNameOfCurrentFunc, args.get(4))
+      machine.enforceChoiceAuthorizersLimit(
+        authorizersWhenExplicit,
+        coid,
+        templateId,
+        choiceId,
+        chosenValue,
+      )
 
-      machine.ptx
-        .beginExercises(
-          targetId = coid,
-          contract = contract,
-          interfaceId = interfaceId,
-          choiceId = choiceId,
-          optLocation = machine.getLastLocation,
-          consuming = consuming,
-          actingParties = ctrls,
-          choiceObservers = obsrs,
-          choiceAuthorizers = None,
-          byKey = byKey,
-          chosenValue = chosenValue,
-          version = exerciseVersion,
-        ) match {
-        case Right(ptx) =>
-          machine.ptx = ptx
-          Control.Value(SUnit)
-        case Left(err) =>
-          Control.Error(convTxError(err))
+      def doExe(choiceAuthorizers: Option[Set[Party]]): Control[Nothing] = {
+        machine.ptx
+          .beginExercises(
+            targetId = coid,
+            contract = contract,
+            interfaceId = interfaceId,
+            choiceId = choiceId,
+            optLocation = machine.getLastLocation,
+            consuming = consuming,
+            actingParties = ctrls,
+            choiceObservers = obsrs,
+            choiceAuthorizers = choiceAuthorizers,
+            byKey = byKey,
+            chosenValue = chosenValue,
+            version = exerciseVersion,
+          ) match {
+          case Right(ptx) =>
+            machine.ptx = ptx
+            Control.Value(SUnit)
+          case Left(err) =>
+            Control.Error(convTxError(err))
+        }
       }
+
+      if (explicitChoiceAuthority) {
+        val authorizers = authorizersWhenExplicit
+        val holding = machine.ptx.context.info.authorizers
+        val requesting = authorizers.diff(holding)
+        if (requesting.isEmpty) {
+          // authority restriction -- no need to ask ledger
+          doExe(Some(authorizers))
+        } else {
+          // authority change -- ask ledger
+          Control.Question[Question.Update](
+            Question.Update.NeedAuthority(
+              holding = holding,
+              requesting = requesting,
+              callback = { () =>
+                val control = doExe(Some(authorizers))
+                machine.setControl(control)
+              },
+            )
+          )
+        }
+      } else {
+        // use default authorizers
+        doExe(None)
+      }
+
     }
   }
 
@@ -1233,6 +1271,7 @@ private[lf] object SBuiltin {
       choiceName: ChoiceName,
       consuming: Boolean,
       byKey: Boolean,
+      explicitChoiceAuthority: Boolean,
   ) extends SBuiltin(1) {
     override private[speedy] def execute[Q](
         args: util.ArrayList[SValue],
@@ -1245,6 +1284,7 @@ private[lf] object SBuiltin {
           choiceId = choiceName,
           consuming = consuming,
           byKey = false,
+          explicitChoiceAuthority = explicitChoiceAuthority,
         )
       )
       Control.Expression(e)
