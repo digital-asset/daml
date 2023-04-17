@@ -64,7 +64,7 @@ make_snapshot() {
     commit_date=$(git log -n1 --format=%cd --date=format:%Y%m%d $sha)
     number_of_commits=$(git rev-list --count $sha)
     commit_sha_8=$(git log -n1 --format=%h --abbrev=8 $sha)
-    echo "$1 $2-snapshot.$commit_date.$number_of_commits.0.$commit_sha_8"
+    echo "$1 $2-snapshot.$commit_date.$number_of_commits.0.$commit_sha_8 SPLIT_RELEASE"
 }
 
 display_help() {
@@ -76,7 +76,7 @@ $0 snapshot SHA PREFIX
         version PREFIX. For example:
 
         $ $0 snapshot cc880e2 0.1.2
-        cc880e290b2311d0bf05d58c7d75c50784c0131c 0.1.2-snapshot.20200513.4174.0.cc880e29
+        cc880e290b2311d0bf05d58c7d75c50784c0131c 0.1.2-snapshot.20200513.4174.0.cc880e29 SPLIT_RELEASE
 
         Any non-ambiguous git commit reference can be given as SHA.
 
@@ -84,6 +84,8 @@ $0 new snapshot
         Updates LATEST to add current commit as a new snapshot. Figures out
         prefix version by keeping the same if the first line in LATEST is a
         snapshot, and incrementing minor if the first line is stable.
+
+        YOU PROBABLY DO NOT WANT TO DO THIS. Use the above command instead.
 
 $0 check
         Checks that each line of the LATEST file is well-formed.
