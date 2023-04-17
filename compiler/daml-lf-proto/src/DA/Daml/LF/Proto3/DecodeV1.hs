@@ -476,7 +476,6 @@ decodeBuiltinFunction = \case
 
   LF1.BuiltinFunctionFOLDL          -> pure BEFoldl
   LF1.BuiltinFunctionFOLDR          -> pure BEFoldr
-  LF1.BuiltinFunctionWITH_AUTHORITY -> pure BEWithAuthority
   LF1.BuiltinFunctionEQUAL_LIST     -> pure BEEqualList
   LF1.BuiltinFunctionAPPEND_TEXT    -> pure BEAppendText
 

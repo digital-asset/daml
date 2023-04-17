@@ -267,7 +267,6 @@ instance Pretty BuiltinExpr where
     BEExpInt64 -> "EXP_INT64"
     BEFoldl -> "FOLDL"
     BEFoldr -> "FOLDR"
-    BEWithAuthority -> "WITH_AUTHORITY"
     BETextMapEmpty -> "TEXTMAP_EMPTY"
     BETextMapInsert -> "TEXTMAP_INSERT"
     BETextMapLookup -> "TEXTMAP_LOOKUP"

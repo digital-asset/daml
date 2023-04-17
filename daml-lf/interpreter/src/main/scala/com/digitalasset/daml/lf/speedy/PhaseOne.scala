@@ -472,9 +472,6 @@ private[lf] final class PhaseOne(
           case BFoldr => SBFoldr
           case BEqualList => SBEqualList
 
-          // Authority functions
-          case BWithAuthority => SBWithAuthority
-
           // Errors
           case BError => SBUserError
 

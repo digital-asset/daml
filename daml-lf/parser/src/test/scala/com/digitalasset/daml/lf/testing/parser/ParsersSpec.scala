@@ -209,7 +209,6 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
         "UNIX_MICROSECONDS_TO_TIMESTAMP" -> BUnixMicrosecondsToTimestamp,
         "FOLDL" -> BFoldl,
         "FOLDR" -> BFoldr,
-        "WITH_AUTHORITY" -> BWithAuthority,
         "EXPLODE_TEXT" -> BExplodeText,
         "IMPLODE_TEXT" -> BImplodeText,
         "APPEND_TEXT" -> BAppendText,

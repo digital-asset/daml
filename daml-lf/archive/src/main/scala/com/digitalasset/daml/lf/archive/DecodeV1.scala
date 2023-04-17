@@ -2099,7 +2099,6 @@ private[archive] object DecodeV1 {
       BuiltinFunctionInfo(NUMERIC_TO_INT64, BNumericToInt64, minVersion = numeric),
       BuiltinFunctionInfo(FOLDL, BFoldl),
       BuiltinFunctionInfo(FOLDR, BFoldr),
-      BuiltinFunctionInfo(WITH_AUTHORITY, BWithAuthority),
       BuiltinFunctionInfo(TEXTMAP_EMPTY, BTextMapEmpty),
       BuiltinFunctionInfo(TEXTMAP_INSERT, BTextMapInsert),
       BuiltinFunctionInfo(TEXTMAP_LOOKUP, BTextMapLookup),

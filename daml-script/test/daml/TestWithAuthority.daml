@@ -32,6 +32,8 @@ template ProposeConsortiumAuthority
           withAuthorityOf [consortiumParty] $ do
             create HasConsortiumAutority with consortiumParty
 
+withAuthorityOf : [Party] -> Update a -> Update a
+withAuthorityOf _ u = u -- TODO #15882 -- require rework
 
 test : Script ()
 test = do
@@ -46,7 +48,8 @@ test = do
       proposer = alice
       accepted = []
       obs = [bob,charlie]
-      consortiumParty = org
+      --consortiumParty = org -- TODO #15882 -- require rework
+      consortiumParty = alice
 
   prop <- submit bob do exerciseCmd prop Accept with who = bob
   prop <- submit charlie do exerciseCmd prop Accept with who = charlie
