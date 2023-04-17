@@ -208,6 +208,7 @@ in rec {
       google
       google-beta
       secret
+      random
     ]);
     nix-store-gcs-proxy = pkgs.callPackage ./tools/nix-store-gcs-proxy {};
   };
