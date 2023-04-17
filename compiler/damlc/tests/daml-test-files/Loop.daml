@@ -18,16 +18,16 @@ template Helper
       do
         pure $ loop 1
 
--- @ERROR range=38:1-38:14; Evaluation timed out after 3 seconds
+-- @ERROR range=22:1-22:14; Evaluation timed out after 3 seconds
 scriptMachine = script do
   pure $ loop 1
 
--- @ERROR range=42:1-42:30; Evaluation timed out after 3 seconds
+-- @ERROR range=26:1-26:30; Evaluation timed out after 3 seconds
 ledgerMachineFromScriptSubmit = script do
   alice <- allocateParty "p"
   alice `submit` createAndExerciseCmd (Helper alice) Loop
 
--- @ERROR range=47:1-47:38; Evaluation timed out after 3 seconds
+-- @ERROR range=31:1-31:38; Evaluation timed out after 3 seconds
 ledgerMachineFromScriptSubmitMustFail= script do
   alice <- allocateParty "p"
   alice `submitMustFail` createAndExerciseCmd (Helper alice) Loop
