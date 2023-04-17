@@ -571,8 +571,6 @@ enum BuiltinFunction {
 
   TYPE_REP_TYCON_NAME = 148; // *Available in versions >= 1.dev*
 
-  WITH_AUTHORITY = 149; // *Available in versions >= 1.dev*
-
   // Next id is 149.
 
   // EXPERIMENTAL TEXT PRIMITIVES -- these do not yet have stable numbers.
