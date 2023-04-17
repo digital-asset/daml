@@ -1,7 +1,11 @@
 -- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
 -- All rights reserved.
 
+-- Convert to script + lift logic into contracts/Update
+
 module AuthEvalOrder where
+
+import Daml.Script
 
 template TheContract
   with
@@ -12,21 +16,39 @@ template TheContract
 -- t1/t2 are a pair of similar tests, except t2 is badly authorized.
 -- In the well-authorized t1, execution reaches the `error` function
 -- In the badly-authorized t2, the auth failure prevent the error from being reached.
+template T1_create_success
+  with
+    ivy : Party
+  where
+    signatory ivy
+    choice T1Call : ()
+      controller ivy
+      do
+        create (TheContract with party = ivy)
+        abort "t1 finished with no authorization failure"
 
 -- @ERROR t1 finished with no authorization failure
-t1_create_success = scenario do
-  ivy <- getParty "Ivy-t1"
-  submit ivy $ do
-    create (TheContract with party = ivy)
-    abort "t1 finished with no authorization failure"
+t1_create_success = script do
+  ivy <- allocateParty "Ivy-t1"
+  ivy `submit` createAndExerciseCmd (T1_create_success ivy) T1Call
+
+template T2_create_success
+  with
+    ivy : Party
+    mach : Party
+  where
+    signatory mach
+    choice T2Call : ()
+      controller mach
+      do
+        create (TheContract with party = ivy)
+        abort "t2 Finished"
 
 -- @ERROR failed due to a missing authorization from 'Ivy-t2'
-t2_create_badlyAuthorized = scenario do
-  mach <- getParty "Mach-t1"
-  ivy <- getParty "Ivy-t2"
-  submit mach $ do
-    create (TheContract with party = ivy)
-    abort "t2 Finished"
+t2_create_badlyAuthorized = script do
+  mach <- allocateParty "Mach-t1"
+  ivy <- allocateParty "Ivy-t2"
+  mach `submit` createAndExerciseCmd (T2_create_success ivy mach) T2Call
 
 template TheContractBuilder
   with
@@ -44,24 +66,44 @@ template TheContractBuilder
 -- It is the 2nd submit which is of interest here, where mach exercises the `builder` contract created in the first submit, to contract signed by Ivy. This is possible in t3 because `builder` is signed by Ivy, but it is not well authorized in t4.
 -- Only in the well-authorized case will execution reach the `error` function.
 
+template T3_createViaExerice_success
+  with
+    builder : ContractId TheContractBuilder
+    ivy : Party
+    mach : Party
+  where
+    signatory mach
+    choice T3Call : ()
+      controller mach
+      do
+        exercise builder TheChoice with party = ivy
+        abort "t3 finished with no authorization failure"
+
 -- @ERROR t3 finished with no authorization failure
-t3_createViaExerice_success = scenario do
-  ivy <- getParty "Ivy-t3"
-  mach <- getParty "Mach-t3"
+t3_createViaExerice_success = script do
+  ivy <- allocateParty "Ivy-t3"
+  mach <- allocateParty "Mach-t3"
   builder <-
-    submit ivy $ do
-      create (TheContractBuilder with p1 = ivy; p2 = mach)
-  submit mach $ do
-    exercise builder TheChoice with party = ivy
-    abort "t3 finished with no authorization failure"
+    ivy `submit` createCmd (TheContractBuilder with p1 = ivy; p2 = mach)
+  mach `submit` createAndExerciseCmd (T3_createViaExerice_success builder ivy mach) T3Call
+
+template T4_createViaExerice_success
+  with
+    builder : ContractId TheContractBuilder
+    ivy : Party
+    mach : Party
+  where
+    signatory mach
+    choice T4Call : ()
+      controller mach
+      do
+        exercise builder TheChoice with party = ivy
+        abort "t4 finished with no authorization failure"
 
 -- @ERROR failed due to a missing authorization from 'Ivy-t4'
-t4_createViaExerice_badlyAuthorized = scenario do
-  ivy <- getParty "Ivy-t4"
-  mach <- getParty "Mach-t4"
+t4_createViaExerice_badlyAuthorized = script do
+  ivy <- allocateParty "Ivy-t4"
+  mach <- allocateParty "Mach-t4"
   builder <-
-    submit mach $ do
-      create (TheContractBuilder with p1 = mach; p2 = mach)
-  submit mach $ do
-    exercise builder TheChoice with party = ivy
-    abort "t4 finished with no authorization failure"
+    mach `submit` createCmd (TheContractBuilder with p1 = mach; p2 = mach)
+  mach `submit` createAndExerciseCmd (T4_createViaExerice_success builder ivy mach) T4Call
