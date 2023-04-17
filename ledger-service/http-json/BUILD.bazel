@@ -148,6 +148,7 @@ json_deps = {
         "//ledger-service/http-json-cli:ee",
         "//ledger-service/http-json-ledger-client:ee",
         "@maven//:com_oracle_database_jdbc_ojdbc8",
+        "//release:ee-license",
     ],
 }
 

@@ -28,6 +28,7 @@ da_scala_binary(
         "//libs-scala/doobie-slf4j",
         "//libs-scala/resources",
         "//libs-scala/resources-akka",
+        "//release:ee-license",
         "//runtime-components/non-repudiation",
         "//runtime-components/non-repudiation-api",
         "//runtime-components/non-repudiation-postgresql",
