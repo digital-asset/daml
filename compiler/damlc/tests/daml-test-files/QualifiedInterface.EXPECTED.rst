@@ -29,6 +29,8 @@ Templates
 
   + **Choice Archive**
 
+    Returns\: ()
+
     (no fields)
 
   + **interface instance** Token **for** `Asset <type-qualifiedinterface-asset-82061_>`_

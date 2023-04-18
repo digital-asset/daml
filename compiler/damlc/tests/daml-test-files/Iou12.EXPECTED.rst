@@ -35,15 +35,21 @@ Templates
 
   + **Choice Archive**
 
+    Returns\: ()
+
     (no fields)
 
   + **Choice DoNothing**
+
+    Returns\: ()
 
     (no fields)
 
   + **Choice Merge**
 
     merges two \"compatible\" ``Iou``s
+
+    Returns\: `ContractId <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-contractid-95282>`_ `Iou <type-iou12-iou-72962_>`_
 
     .. list-table::
        :widths: 15 10 30
@@ -60,6 +66,8 @@ Templates
 
     splits into two ``Iou``s with smaller amounts
 
+    Returns\: (`ContractId <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-contractid-95282>`_ `Iou <type-iou12-iou-72962_>`_, `ContractId <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-contractid-95282>`_ `Iou <type-iou12-iou-72962_>`_)
+
     .. list-table::
        :widths: 15 10 30
        :header-rows: 1
@@ -74,6 +82,8 @@ Templates
   + **Choice Transfer**
 
     changes the owner
+
+    Returns\: `ContractId <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-contractid-95282>`_ `Iou <type-iou12-iou-72962_>`_
 
     .. list-table::
        :widths: 15 10 30
