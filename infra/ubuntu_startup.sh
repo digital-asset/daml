@@ -247,10 +247,4 @@ web-server() {
 web-server &
 
 # Start the VSTS agent
-su --login vsts <<RUN
-cd /home/vsts/agent
-
-trap "./config.sh remove --auth PAT --unattended --token {vsts_token}" EXIT
-
-./run.sh
-RUN
+${start_agent}

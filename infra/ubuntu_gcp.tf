@@ -55,6 +55,7 @@ curl -sSL https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add -
 curl -sSL https://dl.google.com/cloudagents/add-logging-agent-repo.sh | bash -s -- --also-install
 EOF
       assignment   = local.ubuntu.gcp[count.index].assignment
+      start_agent  = local.ubuntu.gcp[count.index].start_agent
     })
 
     shutdown-script = nonsensitive("#!/usr/bin/env bash\nset -euo pipefail\ncd /home/vsts/agent\nsu vsts <<SHUTDOWN_AGENT\nexport VSTS_AGENT_INPUT_TOKEN='${secret_resource.vsts-token.value}'\n./config.sh remove --unattended --auth PAT\nSHUTDOWN_AGENT\n    ")
