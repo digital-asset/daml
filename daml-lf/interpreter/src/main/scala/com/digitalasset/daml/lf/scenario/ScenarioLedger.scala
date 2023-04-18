@@ -633,8 +633,7 @@ final case class ScenarioLedger(
                 create.stakeholders,
               )
 
-          case _: Node.Exercise | _: Node.Fetch | _: Node.LookupByKey | _: Node.Rollback |
-              _: Node.Authority =>
+          case _: Node.Exercise | _: Node.Fetch | _: Node.LookupByKey | _: Node.Rollback =>
             LookupContractNotFound(coid)
         }
     }

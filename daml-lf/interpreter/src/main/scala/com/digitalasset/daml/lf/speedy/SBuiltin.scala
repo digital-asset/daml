@@ -1836,41 +1836,6 @@ private[lf] object SBuiltin {
     }
   }
 
-  final case object SBWithAuthority extends UpdateBuiltin(3) {
-    override protected def executeUpdate(
-        args: util.ArrayList[SValue],
-        machine: UpdateMachine,
-    ): Control[Question.Update] = {
-      val required = extractParties(NameOf.qualifiedNameOfCurrentFunc, args.get(0))
-      val action = args.get(1)
-      checkToken(args, 2)
-      val current = machine.ptx.context.info.authorizers
-      if (required == current) {
-        // just run the body action
-        machine.enterApplication(action, Array(SEValue(SToken)))
-      } else {
-        val holding = machine.ptx.context.info.authorizers
-        val requesting = required.diff(holding)
-        if (requesting.isEmpty) {
-          // do scoped authority restriction; TODO #15882 -- rework required
-          machine.enterApplication(action, Array(SEValue(SToken)))
-        } else {
-          Control.Question[Question.Update](
-            Question.Update.NeedAuthority(
-              holding = holding,
-              requesting = requesting,
-              callback = { () =>
-                // do scoped authority change; TODO #15882 -- rework required
-                val c = machine.enterApplication(action, Array(SEValue(SToken)))
-                machine.setControl(c)
-              },
-            )
-          )
-        }
-      }
-    }
-  }
-
   /** $any-exception-message :: AnyException -> Text */
   final case object SBAnyExceptionMessage extends SBuiltin(1) {
     override private[speedy] def execute[Q](

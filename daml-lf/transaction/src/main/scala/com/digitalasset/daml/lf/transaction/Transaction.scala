@@ -104,16 +104,6 @@ final case class Transaction(
               go(newErrors + NotWellFormedError(nid, DanglingNodeId), newVisited, nids)
             case Some(node) =>
               node match {
-                case na: Node.Authority =>
-                  go(
-                    newErrors,
-                    newVisited,
-                    if (alreadyVisited) {
-                      nids
-                    } else {
-                      na.children ++: nids
-                    },
-                  )
                 case nr: Node.Rollback =>
                   go(
                     newErrors,
@@ -163,18 +153,6 @@ final case class Transaction(
           val node1 = nodes(nid1)
           val node2 = other.nodes(nid2)
           node1 match {
-            case na1: Node.Authority =>
-              node2 match {
-                case na2: Node.Authority =>
-                  val blankedNa1: Node.Authority =
-                    na1.copy(children = ImmArray.Empty)
-                  val blankedNa2: Node.Authority =
-                    na2.copy(children = ImmArray.Empty)
-                  compare(blankedNa1, blankedNa2) &&
-                  na1.children.length == na2.children.length &&
-                  go(na1.children.zip(na2.children) ++: rest)
-                case _ => false
-              }
             case nr1: Node.Rollback => // TODO: can this be Node.Rollback ?
               node2 match {
                 case nr2: Node.Rollback => // TODO: and here
@@ -230,8 +208,6 @@ final case class Transaction(
   def serializable(f: Value => ImmArray[String]): ImmArray[String] = {
     fold(BackStack.empty[String]) { case (errs, (_, node)) =>
       node match {
-        case _: Node.Authority =>
-          errs
         case Node.Rollback(_) =>
           errs
         case _: Node.Fetch => errs
@@ -250,8 +226,6 @@ final case class Transaction(
   def foldValues[Z](z: Z)(f: (Z, Value) => Z): Z =
     fold(z) { case (z, (_, n)) =>
       n match {
-        case _: Node.Authority =>
-          z
         case Node.Rollback(_) =>
           z
         case c: Node.Create =>
@@ -286,7 +260,6 @@ sealed abstract class HasTxNodes {
     nodes.values.foldLeft(Set.empty[Ref.Party]) {
       case (acc, node: Node.Action) => acc | node.informeesOfNode
       case (acc, _: Node.Rollback) => acc
-      case (acc, _: Node.Authority) => acc
     }
 
   // We assume that rollback node cannot be a root of a transaction.
@@ -302,10 +275,6 @@ sealed abstract class HasTxNodes {
         case _: Node.Rollback =>
           throw new IllegalArgumentException(
             s"invalid transaction, root refers to a Rollback node $nid"
-          )
-        case _: Node.Authority =>
-          throw new IllegalArgumentException(
-            s"invalid transaction, root refers to an Authority node $nid"
           )
       }
     )
@@ -323,7 +292,6 @@ sealed abstract class HasTxNodes {
         val node = nodes(nodeId)
         f(nodeId, node)
         node match {
-          case na: Node.Authority => go(na.children ++: toVisit)
           case nr: Node.Rollback => go(nr.children ++: toVisit)
           case _: Node.LeafOnlyAction => go(toVisit)
           case ne: Node.Exercise => go(ne.children ++: toVisit)
@@ -362,8 +330,6 @@ sealed abstract class HasTxNodes {
         val (globalState1, newPathState) = op(globalState, pathState, nodeId, node)
         globalState = globalState1
         node match {
-          case na: Node.Authority =>
-            go(na.children.map(_ -> newPathState) ++: toVisit)
           case nr: Node.Rollback =>
             go(nr.children.map(_ -> newPathState) ++: toVisit)
           case _: Node.LeafOnlyAction => go(toVisit)
@@ -394,11 +360,9 @@ sealed abstract class HasTxNodes {
         else { (acc, ChildrenRecursion.DoRecurse) }
       },
       rollbackBegin = (acc, _, _) => (acc, ChildrenRecursion.DoNotRecurse),
-      authorityBegin = (acc, _, _) => (acc, ChildrenRecursion.DoRecurse),
       leaf = (acc, _, _) => acc,
       exerciseEnd = (acc, _, _) => acc,
       rollbackEnd = (acc, _, _) => acc,
-      authorityEnd = (acc, _, _) => acc,
     )
 
   /** Local and global contracts that are inactive at the end of the transaction.
@@ -466,10 +430,6 @@ sealed abstract class HasTxNodes {
           case c: Node.Create => acc.create(c.coid)
           case _ => acc
         },
-      authorityBegin = (acc, _, _) => {
-        (acc, ChildrenRecursion.DoRecurse)
-      },
-      authorityEnd = (acc, _, _) => acc,
     ).currentState.inactiveCids
   }
 
@@ -494,7 +454,7 @@ sealed abstract class HasTxNodes {
     fold(Set.empty[GlobalKey]) {
       case (acc, (_, node: Node.Action)) =>
         node.gkeyOpt.fold(acc)(acc + _)
-      case (acc, (_, (_: Node.Authority | _: Node.Rollback))) =>
+      case (acc, (_, (_: Node.Rollback))) =>
         acc
     }
   }
@@ -516,13 +476,9 @@ sealed abstract class HasTxNodes {
       rollbackBegin = (consumedByMap, _, _) => {
         (consumedByMap, ChildrenRecursion.DoNotRecurse)
       },
-      authorityBegin = (consumedByMap, _, _) => {
-        (consumedByMap, ChildrenRecursion.DoRecurse)
-      },
       leaf = (consumedByMap, _, _) => consumedByMap,
       exerciseEnd = (consumedByMap, _, _) => consumedByMap,
       rollbackEnd = (consumedByMap, _, _) => consumedByMap,
-      authorityEnd = (consumedByMap, _, _) => consumedByMap,
     )
 
   /** Return the expected contract key inputs (i.e. the state before the transaction)
@@ -551,8 +507,6 @@ sealed abstract class HasTxNodes {
       rollbackBegin =
         (acc, _, _) => (acc.map(_.beginRollback()), Transaction.ChildrenRecursion.DoRecurse),
       rollbackEnd = (acc, _, _) => acc.map(_.endRollback()),
-      authorityBegin = (acc, _, _) => (acc, Transaction.ChildrenRecursion.DoRecurse),
-      authorityEnd = (acc, _, _) => acc,
       leaf = (
           acc,
           nid,
@@ -579,7 +533,6 @@ sealed abstract class HasTxNodes {
         case (acc, _, _) => (acc, ChildrenRecursion.DoRecurse)
       },
       rollbackBegin = (acc, _, _) => (acc, ChildrenRecursion.DoNotRecurse),
-      authorityBegin = (acc, _, _) => (acc, ChildrenRecursion.DoRecurse),
       leaf = {
         case (acc, _, create: Node.Create) =>
           create.gkeyOpt.fold(acc)(acc.updated(_, Some(create.coid)))
@@ -587,7 +540,6 @@ sealed abstract class HasTxNodes {
       },
       exerciseEnd = (acc, _, _) => acc,
       rollbackEnd = (acc, _, _) => acc,
-      authorityEnd = (acc, _, _) => acc,
     )
   }
 
@@ -597,17 +549,14 @@ sealed abstract class HasTxNodes {
   final def foreachInExecutionOrder(
       exerciseBegin: (NodeId, Node.Exercise) => ChildrenRecursion,
       rollbackBegin: (NodeId, Node.Rollback) => ChildrenRecursion,
-      authorityBegin: (NodeId, Node.Authority) => ChildrenRecursion,
       leaf: (NodeId, Node.LeafOnlyAction) => Unit,
       exerciseEnd: (NodeId, Node.Exercise) => Unit,
       rollbackEnd: (NodeId, Node.Rollback) => Unit,
-      authorityEnd: (NodeId, Node.Authority) => Unit,
   ): Unit = {
     sealed abstract class StackItem
     object SI {
       final case class Rollback(x: Node.Rollback) extends StackItem
       final case class Exercise(y: Node.Exercise) extends StackItem
-      final case class Authority(y: Node.Authority) extends StackItem
     }
     @tailrec
     def loop(
@@ -617,13 +566,6 @@ sealed abstract class HasTxNodes {
       currNodes.pop match {
         case Some((nid, rest)) =>
           nodes(nid) match {
-            case au: Node.Authority =>
-              authorityBegin(nid, au) match {
-                case ChildrenRecursion.DoRecurse =>
-                  loop(au.children.toFrontStack, ((nid, SI.Authority(au)), rest) +: stack)
-                case ChildrenRecursion.DoNotRecurse =>
-                  loop(rest, stack)
-              }
             case rb: Node.Rollback =>
               rollbackBegin(nid, rb) match {
                 case ChildrenRecursion.DoRecurse =>
@@ -652,9 +594,6 @@ sealed abstract class HasTxNodes {
                 case SI.Exercise(exe) =>
                   exerciseEnd(nid, exe)
                   loop(brothers, rest)
-                case SI.Authority(exe) =>
-                  authorityEnd(nid, exe)
-                  loop(brothers, rest)
               }
             case None =>
           }
@@ -668,11 +607,9 @@ sealed abstract class HasTxNodes {
   final def foldInExecutionOrder[A](z: A)(
       exerciseBegin: (A, NodeId, Node.Exercise) => (A, ChildrenRecursion),
       rollbackBegin: (A, NodeId, Node.Rollback) => (A, ChildrenRecursion),
-      authorityBegin: (A, NodeId, Node.Authority) => (A, ChildrenRecursion),
       leaf: (A, NodeId, Node.LeafOnlyAction) => A,
       exerciseEnd: (A, NodeId, Node.Exercise) => A,
       rollbackEnd: (A, NodeId, Node.Rollback) => A,
-      authorityEnd: (A, NodeId, Node.Authority) => A,
   ): A = {
     var acc = z
     foreachInExecutionOrder(
@@ -686,15 +623,9 @@ sealed abstract class HasTxNodes {
         acc = acc2
         bool
       },
-      authorityBegin = (nid, node) => {
-        val (acc2, bool) = authorityBegin(acc, nid, node)
-        acc = acc2
-        bool
-      },
       leaf = (nid, node) => acc = leaf(acc, nid, node),
       exerciseEnd = (nid, node) => acc = exerciseEnd(acc, nid, node),
       rollbackEnd = (nid, node) => acc = rollbackEnd(acc, nid, node),
-      authorityEnd = (nid, node) => acc = authorityEnd(acc, nid, node),
     )
     acc
   }
@@ -704,11 +635,9 @@ sealed abstract class HasTxNodes {
     foldInExecutionOrder[Set[NodeId]](Set.empty)(
       exerciseBegin = (acc, nid, _) => (acc + nid, ChildrenRecursion.DoRecurse),
       rollbackBegin = (acc, nid, _) => (acc + nid, ChildrenRecursion.DoRecurse),
-      authorityBegin = (acc, nid, _) => (acc + nid, ChildrenRecursion.DoRecurse),
       leaf = (acc, nid, _) => acc + nid,
       exerciseEnd = (acc, _, _) => acc,
       rollbackEnd = (acc, _, _) => acc,
-      authorityEnd = (acc, _, _) => acc,
     )
   }
 
