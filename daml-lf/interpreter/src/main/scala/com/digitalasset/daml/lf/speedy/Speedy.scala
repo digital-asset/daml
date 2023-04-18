@@ -1704,24 +1704,6 @@ private[lf] object Speedy {
       }
   }
 
-  private[speedy] final case object KCloseGainAuthority extends Kont {
-
-    override def execute[Q](machine: Machine[Q], result: SValue): Control[Q] =
-      machine.asUpdateMachine(productPrefix) { machine =>
-        machine.ptx = machine.ptx.endGainAuthority
-        Control.Value(result)
-      }
-  }
-
-  private[speedy] final case object KCloseRestrictAuthority extends Kont {
-
-    override def execute[Q](machine: Machine[Q], result: SValue): Control[Q] =
-      machine.asUpdateMachine(productPrefix) { machine =>
-        machine.ptx = machine.ptx.endRestrictAuthority
-        Control.Value(result)
-      }
-  }
-
   /** KTryCatchHandler marks the kont-stack to allow unwinding when throw is executed. If
     * the continuation is entered normally, the environment is restored but the handler is
     * not executed.  When a throw is executed, the kont-stack is unwound to the nearest
