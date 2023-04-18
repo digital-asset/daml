@@ -41,7 +41,15 @@ AGENT
         disk_size   = 400,
         size        = 15,
         assignment  = "default",
-        start_agent = "su --login --command \"cd /home/vsts/agent && exec ./run.sh\" - vsts"
+        start_agent = <<AGENT
+su --login vsts <<RUN
+cd /home/vsts/agent
+
+trap "./config.sh remove --auth PAT --unattended --token {vsts_token}" EXIT
+
+./run.sh
+RUN
+AGENT
       },
       {
         name        = "du2",
