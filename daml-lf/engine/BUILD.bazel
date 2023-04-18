@@ -56,7 +56,6 @@ da_scala_test_suite(
         "//daml-lf/tests:MultiKeys.dar",
         "//daml-lf/tests:Optional.dar",
         "//daml-lf/tests:ReinterpretTests.dar",
-        "//daml-lf/tests:WithAuthority.dar",
     ],
     scala_deps = [
         "@maven//:com_storm_enroute_scalameter_core",

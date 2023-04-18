@@ -458,22 +458,6 @@ abstract class AbstractFuncIT
         }
       }
     }
-    // TODO https://github.com/digital-asset/daml/issues/15882
-    //  reactive when canton supports consortium party
-    "WithAuthority:test" should {
-      "succeed" ignore {
-        for {
-          clients <- scriptClients()
-          v <- run(
-            clients,
-            QualifiedName.assertFromString("TestWithAuthority:test"),
-            dar = devDar,
-          )
-        } yield {
-          v shouldBe (SUnit)
-        }
-      }
-    }
     "ChoiceAuthority:test" should {
       "succeed" in {
         for {
