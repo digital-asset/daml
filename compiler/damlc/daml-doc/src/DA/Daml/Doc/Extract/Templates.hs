@@ -33,8 +33,10 @@ getTemplateDocs ::
       -- ^ maps type names to their ADT docs
     -> MS.Map Typename (Set.Set InterfaceInstanceDoc)
       -- ^ maps type names to the interface instances contained in their declaration.
+    -> MS.Map Typename DDoc.Type
+      -- ^ maps choice names to their return types
     -> [TemplateDoc]
-getTemplateDocs DocCtx{..} typeMap interfaceInstanceMap =
+getTemplateDocs DocCtx{..} typeMap interfaceInstanceMap choiceTypeMap =
     map mkTemplateDoc $ Set.toList dc_templates
   where
     -- The following functions use the type map and choice map in scope, so
@@ -46,7 +48,7 @@ getTemplateDocs DocCtx{..} typeMap interfaceInstanceMap =
       , td_descr = ad_descr tmplADT
       , td_payload = getFields tmplADT
       -- assumes exactly one record constructor (syntactic, template syntax)
-      , td_choices = map (mkChoiceDoc typeMap) choices
+      , td_choices = map (mkChoiceDoc typeMap choiceTypeMap) choices
       , td_interfaceInstances =
           Set.toList (MS.findWithDefault mempty name interfaceInstanceMap)
      }
@@ -61,8 +63,10 @@ getInterfaceDocs :: DocCtx
         -- ^ maps type names to their ADT docs
     -> MS.Map Typename (Set.Set InterfaceInstanceDoc)
         -- ^ maps type names to the interface instances contained in their declaration.
+    -> MS.Map Typename DDoc.Type
+        -- ^ maps choice names to their return types
     -> [InterfaceDoc]
-getInterfaceDocs DocCtx{..} typeMap interfaceInstanceMap =
+getInterfaceDocs DocCtx{..} typeMap interfaceInstanceMap choiceTypeMap =
     map mkInterfaceDoc $ Set.toList dc_interfaces
   where
     -- The following functions use the type map and choice map in scope, so
@@ -72,7 +76,7 @@ getInterfaceDocs DocCtx{..} typeMap interfaceInstanceMap =
       { if_anchor = ad_anchor ifADT
       , if_name = ad_name ifADT
       , if_descr = ad_descr ifADT
-      , if_choices = map (mkChoiceDoc typeMap) choices
+      , if_choices = map (mkChoiceDoc typeMap choiceTypeMap) choices
       , if_methods = [] -- filled by distributeInstanceDocs
       , if_interfaceInstances =
           Set.toList (MS.findWithDefault mempty name interfaceInstanceMap)
@@ -191,14 +195,15 @@ getFields adt =
     [] -> [] -- catching the dummy case here, see above
     _other -> error "getFields: found multiple constructors"
 
-mkChoiceDoc :: MS.Map Typename ADTDoc -> Typename -> ChoiceDoc
-mkChoiceDoc typeMap name =
+mkChoiceDoc :: MS.Map Typename ADTDoc -> MS.Map Typename DDoc.Type -> Typename -> ChoiceDoc
+mkChoiceDoc typeMap choiceTypeMap name =
   ChoiceDoc
     { cd_name = ad_name choiceADT
     , cd_descr = ad_descr choiceADT
   -- assumes exactly one constructor (syntactic in the template syntax), or
   -- uses a dummy value otherwise.
     , cd_fields = getFields choiceADT
+    , cd_type = fromMaybe (error "huh") $ MS.lookup name choiceTypeMap
     }
   where
     choiceADT = asADT typeMap name

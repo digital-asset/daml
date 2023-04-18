@@ -235,6 +235,7 @@ data ChoiceDoc = ChoiceDoc
   { cd_name   :: Typename
   , cd_descr  :: Maybe DocText
   , cd_fields :: [FieldDoc]
+  , cd_type   :: Type
   }
   deriving (Eq, Show, Generic)
 

@@ -58,7 +58,7 @@ data DocCtx = DocCtx
     , dc_templates :: Set.Set Typename
         -- ^ Daml templates defined in this module
     , dc_choices :: MS.Map Typename (Set.Set Typename)
-        -- ^ choices per Daml template defined in this module
+        -- ^ choices (as ADT name + return type) per Daml template defined in this module
     , dc_extractOptions :: ExtractOptions
         -- ^ command line options that affect the doc extractor
     , dc_exports :: ExportSet

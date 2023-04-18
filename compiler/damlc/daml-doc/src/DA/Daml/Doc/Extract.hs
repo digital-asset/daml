@@ -35,6 +35,7 @@ import qualified Development.IDE.Core.OfInterest as Service
 import Development.IDE.Types.Location
 
 import "ghc-lib" GHC
+import "ghc-lib-parser" Name
 import "ghc-lib-parser" TyCon
 import "ghc-lib-parser" ConLike
 import "ghc-lib-parser" DataCon
@@ -43,6 +44,7 @@ import "ghc-lib-parser" BasicTypes
 import "ghc-lib-parser" Bag (bagToList)
 import "ghc-lib-parser" RdrHsSyn (isDamlGenerated)
 import "ghc-lib-parser" RdrName (rdrNameOcc)
+import "ghc-lib-parser" InstEnv (ClsInst (..))
 
 import Control.Monad
 import Control.Monad.IO.Class
@@ -81,12 +83,13 @@ extractDocs extractOpts diagsLogger ideOpts fp = do
             md_classes = mapMaybe (getClsDocs ctx) dc_decls
 
             interfaceInstanceMap = getInterfaceInstanceMap ctx dc_decls
+            choiceTypeMap = getChoiceTypeMap ctx dc_insts
 
             md_name = dc_modname
             md_anchor = Just (moduleAnchor md_name)
             md_descr = modDoc tcmod
-            md_templates = getTemplateDocs ctx typeMap interfaceInstanceMap
-            md_interfaces = getInterfaceDocs ctx typeMap interfaceInstanceMap
+            md_templates = getTemplateDocs ctx typeMap interfaceInstanceMap choiceTypeMap
+            md_interfaces = getInterfaceDocs ctx typeMap interfaceInstanceMap choiceTypeMap
             md_functions = mapMaybe (getFctDocs ctx) dc_decls
             md_instances = map (getInstanceDocs ctx) dc_insts
 
@@ -214,6 +217,16 @@ getInterfaceInstanceMap ctx@DocCtx{..} decls =
             , interface
             , template
             ] <- [typeToType ctx $ idType id]
+        ]
+
+getChoiceTypeMap :: DocCtx -> [ClsInst] -> MS.Map Typename DDoc.Type
+getChoiceTypeMap ctx insts =
+    MS.fromList
+        [ (choiceName, typeToType ctx retType)
+        | inst <- insts
+        , "HasExercise" <- [occNameString . occName . is_cls_nm $ inst]
+        , [_, choiceType, retType] <- [is_tys inst]
+        , TypeApp _ choiceName _ <- [typeToType ctx choiceType]
         ]
 
 -- | Extracts the documentation of a function. Comments are either
