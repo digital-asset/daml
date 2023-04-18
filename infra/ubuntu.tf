@@ -46,7 +46,7 @@ AGENT
       {
         name        = "du2",
         disk_size   = 400,
-        size        = 0,
+        size        = 15,
         assignment  = "default",
         start_agent = <<AGENT
 su --login vsts <<RUN
