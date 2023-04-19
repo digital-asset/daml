@@ -7,7 +7,7 @@ locals {
       {
         name       = "ci-u1",
         disk_size  = 400,
-        size       = 1,
+        size       = 0,
         assignment = "default",
       },
       {
