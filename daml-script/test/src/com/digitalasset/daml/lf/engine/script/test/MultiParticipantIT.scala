@@ -1,14 +1,13 @@
 // Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.engine.script.test
+package com.daml.lf.engine.script
+package test
 
-import java.io.File
-
-import com.daml.bazeltools.BazelRunfiles._
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.daml.lf.data.FrontStack
 import com.daml.lf.data.Ref._
+import com.daml.lf.engine.script.ledgerinteraction.ScriptTimeMode
 import com.daml.lf.speedy.SValue._
 import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
@@ -16,18 +15,26 @@ import org.scalatest.wordspec.AsyncWordSpec
 
 final class MultiParticipantIT
     extends AsyncWordSpec
+    with AbstractScriptTest
     with Inside
-    with MultiParticipantFixture
     with Matchers
     with SuiteResourceManagementAroundAll {
-  private def darFile = new File(rlocation("daml-script/test/script-test.dar"))
-  val (dar, envIface) = readDar(darFile)
+  import AbstractScriptTest._
+
+  val dar = stableDar
+
+  override protected lazy val authSecret = None
+  override protected lazy val darFiles = List(stableDarPath)
+  override protected lazy val devMode = true
+  override protected lazy val nParticipants = 2
+  override protected lazy val timeMode = ScriptTimeMode.WallClock
+  override protected lazy val tlsEnable = false
 
   "Multi-participant Daml Script" can {
     "multiTest" should {
       "return 42" in {
         for {
-          clients <- participantClients()
+          clients <- scriptClients()
           r <- run(clients, QualifiedName.assertFromString("MultiTest:multiTest"), dar = dar)
         } yield assert(r == SInt64(42))
       }
@@ -35,7 +42,7 @@ final class MultiParticipantIT
     "partyIdHintTest" should {
       "respect party id hints" in {
         for {
-          clients <- participantClients()
+          clients <- scriptClients()
           SRecord(_, _, vals) <- run(
             clients,
             QualifiedName.assertFromString("MultiTest:partyIdHintTest"),
@@ -55,7 +62,7 @@ final class MultiParticipantIT
     "listKnownPartiesTest" should {
       "list parties on both participants" in {
         for {
-          clients <- participantClients()
+          clients <- scriptClients()
           SRecord(_, _, vals) <- run(
             clients,
             QualifiedName.assertFromString("MultiTest:listKnownPartiesTest"),

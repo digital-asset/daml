@@ -103,7 +103,7 @@ class TransactionSpec
 
   }
 
-  "foldInExecutionOrder" - { // TODO #15882 -- extend test for Node.Authority
+  "foldInExecutionOrder" - {
     "should traverse the transaction in execution order" in {
 
       val tx = mkTransaction(
@@ -123,12 +123,9 @@ class TransactionSpec
           (acc, nid, _) => (s"exerciseBegin(${nid.index})" :: acc, ChildrenRecursion.DoRecurse),
         rollbackBegin =
           (acc, nid, _) => (s"rollbackBegin(${nid.index})" :: acc, ChildrenRecursion.DoRecurse),
-        authorityBegin =
-          (acc, nid, _) => (s"authorityBegin(${nid.index})" :: acc, ChildrenRecursion.DoRecurse),
         leaf = (acc, nid, _) => s"leaf(${nid.index})" :: acc,
         exerciseEnd = (acc, nid, _) => s"exerciseEnd(${nid.index})" :: acc,
         rollbackEnd = (acc, nid, _) => s"rollbackEnd(${nid.index})" :: acc,
-        authorityEnd = (acc, nid, _) => s"authorityEnd(${nid.index})" :: acc,
       )
 
       result.reverse.mkString(", ") shouldBe
@@ -198,8 +195,6 @@ class TransactionSpec
       for {
         entry <- danglingRefGenNode
         node = entry match {
-          case (_, na: Node.Authority) =>
-            na.copy(children = ImmArray.Empty)
           case (_, nr: Node.Rollback) =>
             nr.copy(children = ImmArray.Empty)
           case (_, n: Node.LeafOnlyAction) => n
@@ -224,7 +219,6 @@ class TransactionSpec
       forAll(genEmptyNode, minSuccessful(10)) { n =>
         val version = n.optVersion.getOrElse(TransactionVersion.minExceptions)
         n match {
-          case _: Node.Authority => ()
           case _: Node.Rollback => ()
           case n: Node.Action =>
             val m = n.updateVersion(diffVersion(version))
@@ -1047,6 +1041,7 @@ object TransactionSpec {
       stakeholders = Set.empty,
       signatories = Set.empty,
       choiceObservers = Set.empty,
+      choiceAuthorizers = None,
       children = children,
       exerciseResult = if (hasExerciseResult) Some(V.ValueUnit) else None,
       keyOpt = None,

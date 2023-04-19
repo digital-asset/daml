@@ -336,6 +336,19 @@ private[lf] object Speedy {
         IError.Limit.ChoiceObservers(cid, templateId, choiceName, arg, observers, _),
       )
 
+    private[speedy] def enforceChoiceAuthorizersLimit(
+        authorizers: Set[Party],
+        cid: V.ContractId,
+        templateId: TypeConName,
+        choiceName: ChoiceName,
+        arg: V,
+    ): Unit =
+      enforceLimit(
+        authorizers.size,
+        limits.choiceAuthorizers,
+        IError.Limit.ChoiceAuthorizers(cid, templateId, choiceName, arg, authorizers, _),
+      )
+
     // The set of create events for the disclosed contracts that are used by the generated transaction.
     def disclosedCreateEvents: ImmArray[Node.Create] =
       disclosedContracts.iterator
@@ -1688,24 +1701,6 @@ private[lf] object Speedy {
       machine.asUpdateMachine(productPrefix) { machine =>
         machine.ptx = machine.ptx.endExercises(exerciseResult.toNormalizedValue)
         Control.Value(exerciseResult)
-      }
-  }
-
-  private[speedy] final case object KCloseGainAuthority extends Kont {
-
-    override def execute[Q](machine: Machine[Q], result: SValue): Control[Q] =
-      machine.asUpdateMachine(productPrefix) { machine =>
-        machine.ptx = machine.ptx.endGainAuthority
-        Control.Value(result)
-      }
-  }
-
-  private[speedy] final case object KCloseRestrictAuthority extends Kont {
-
-    override def execute[Q](machine: Machine[Q], result: SValue): Control[Q] =
-      machine.asUpdateMachine(productPrefix) { machine =>
-        machine.ptx = machine.ptx.endRestrictAuthority
-        Control.Value(result)
       }
   }
 

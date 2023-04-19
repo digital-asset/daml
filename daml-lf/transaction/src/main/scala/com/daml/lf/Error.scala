@@ -53,8 +53,8 @@ object Error {
   /** When caching a disclosed contract key, hashing the contract key generated an error. */
   final case class DisclosedContractKeyHashingError(
       coid: ContractId,
-      templateId: TypeConName,
-      reason: String,
+      key: GlobalKey,
+      declaredHash: crypto.Hash,
   ) extends Error
 
   final case class ContractKeyNotVisible(
@@ -191,6 +191,15 @@ object Error {
     ) extends Error
 
     final case class ChoiceObservers(
+        cid: Value.ContractId,
+        templateId: TypeConName,
+        choiceName: ChoiceName,
+        arg: Value,
+        observers: Set[Party],
+        limit: Int,
+    ) extends Error
+
+    final case class ChoiceAuthorizers(
         cid: Value.ContractId,
         templateId: TypeConName,
         choiceName: ChoiceName,

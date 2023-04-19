@@ -997,6 +997,14 @@ class Ledger {
     const ledgerResponse = jtv.Result.withException(
       decodeLedgerResponse.run(json),
     );
+    if (!(ledgerResponse.status >= 200 && ledgerResponse.status <= 299)) {
+      console.log(
+        `Request to ${endpoint} returned status ${
+          ledgerResponse.status
+        } with response body: ${JSON.stringify(json)}.`,
+      );
+      throw decode(decodeLedgerError, json);
+    }
     if (ledgerResponse.warnings) {
       console.warn(ledgerResponse.warnings);
     }

@@ -301,9 +301,6 @@ data BuiltinExpr
   | BEFoldr                      -- :: ∀a b. (a -> b -> b) -> b -> List a -> b
   | BEEqualList                  -- :: ∀a. (a -> a -> Bool) -> List a -> List a -> Bool
 
-  -- Authority operations
-  | BEWithAuthority              -- :: ∀ a. List Party -> Update a -> Update a
-
   -- Map operations
   | BETextMapEmpty               -- :: ∀ a. TextMap a
   | BETextMapInsert              -- :: ∀ a. Text -> a -> TextMap a -> TextMap a
@@ -718,6 +715,17 @@ data Update
     , exeArg        :: !Expr
       -- ^ Argument for the choice.
     }
+  -- | Exercise choice on a contract given a contract ID, dynamically.
+  | UDynamicExercise
+    { exeTemplate   :: !(Qualified TypeConName)
+      -- ^ Qualified type constructor corresponding to the contract template.
+    , exeChoice     :: !ChoiceName
+      -- ^ Choice to exercise.
+    , exeContractId :: !Expr
+      -- ^ Contract id of the contract template instance to exercise choice on.
+    , exeArg        :: !Expr
+      -- ^ Argument for the choice.
+    }
   -- | Exercise choice on a contract of an interface given a contract ID.
   | UExerciseInterface
     { exeInterface   :: !(Qualified TypeConName)
@@ -1031,6 +1039,8 @@ data TemplateChoice = TemplateChoice
     -- template parameter in scope, and (since 1.2) also the choice parameter.
   , chcObservers :: !(Maybe Expr)
     -- ^ The observers of the choice. When they are present, they have type @List Party@.
+  , chcAuthorizers :: !(Maybe Expr)
+    -- ^ The authorizers of the choice. When they are present, they have type @List Party@.
   , chcSelfBinder :: !ExprVarName
     -- ^ Variable to bind the ContractId of the contract this choice is
     -- exercised on to.

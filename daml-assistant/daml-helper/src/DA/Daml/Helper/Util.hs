@@ -28,6 +28,7 @@ module DA.Daml.Helper.Util
   , SandboxPorts(..)
   , defaultSandboxPorts
   , CantonOptions(..)
+  , decodeCantonPort
   , decodeCantonSandboxPort
   , CantonReplApi(..)
   , CantonReplParticipant(..)
@@ -339,11 +340,14 @@ cantonConfig CantonOptions{..} =
     port p = Aeson.object [ "port" Aeson..= p ]
     storage = "storage" Aeson..= Aeson.object [ "type" Aeson..= ("memory" :: T.Text) ]
 
-decodeCantonSandboxPort :: String -> Maybe Int
-decodeCantonSandboxPort json = do
+decodeCantonPort :: String -> String -> Maybe Int
+decodeCantonPort participantName json = do
     participants :: Map.Map String (Map.Map String Int) <- Aeson.decode (BSL8.pack json)
-    ports <- Map.lookup "sandbox" participants
+    ports <- Map.lookup participantName participants
     Map.lookup "ledgerApi" ports
+
+decodeCantonSandboxPort :: String -> Maybe Int
+decodeCantonSandboxPort = decodeCantonPort "sandbox"
 
 data CantonReplApi = CantonReplApi
     { craHost :: String

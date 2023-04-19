@@ -4,6 +4,7 @@ module CallStack where
 -- Main test case is in the Shake test suite. This just makes sure
 -- that core linting and dlint which do not run there work.
 
+import Daml.Script
 import DA.Stack
 
 a : HasCallStack => () -> ()
@@ -15,7 +16,5 @@ b () = c ()
 c : HasCallStack => () -> ()
 c () = error (prettyCallStack callStack)
 
-f = scenario do
+f = script do
   pure $ a ()
-
--- @ENABLE-SCENARIOS

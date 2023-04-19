@@ -1,6 +1,6 @@
 # Daml
 
-This is the terraform code used by the Daml repository to deploy supporting
+This is the Terraform code used by the Daml repository to deploy supporting
 infrastructure such as the Bazel caches, Nix caches and Azure Pipeline (VSTS)
 Agents.
 
@@ -9,6 +9,25 @@ Agents.
 To deploy the infrastructure changes, you will to get access to the
 `da-dev-gcp-daml-language` Google project from DA IT. Then run
 `gcloud auth login` to configure the local credentials.
+
+You also need access to the `9114f3e0-9963-4368-9a0a-117bcdbf0055` subscription
+on Azure. To authenticate with Azure, run:
+
+```
+az login
+```
+
+Terraform will use the appropriate subscription by default. If you want to be
+able to inspect your Terraform state through the CLI, you may want to select
+that subspription as the default using:
+
+```
+az account set --subscription 9114f3e0-9963-4368-9a0a-117bcdbf0055
+```
+
+Remember, though, that the goal is for the Terraform files to exactly describe
+the state of the resources in the cloud, so please refrain from making any
+manual changes using the CLI.
 
 ## Deployment
 

@@ -37,7 +37,7 @@ class CommandServiceTest extends AsyncWordSpec with Matchers with Inside {
       val (cs, txns, trees) = simpleCommand()
       val specialActAs = NonEmptyList("bar")
       val specialReadAs = List("quux")
-      def create(meta: Option[domain.CommandMeta]) =
+      def create(meta: Option[domain.CommandMeta.NoDisclosed]) =
         domain.CreateCommand(tplId, lav1.value.Record(), meta)
       for {
         normal <- cs.create(multiPartyJwt, multiPartyJwp, create(None))
@@ -46,12 +46,9 @@ class CommandServiceTest extends AsyncWordSpec with Matchers with Inside {
           multiPartyJwp,
           create(
             Some(
-              domain.CommandMeta(
-                None,
-                actAs = Some(domain.Party subst specialActAs),
-                readAs = Some(domain.Party subst specialReadAs),
-                submissionId = None,
-                deduplicationPeriod = None,
+              util.JwtPartiesTest.partiesOnlyMeta(
+                actAs = domain.Party subst specialActAs,
+                readAs = domain.Party subst specialReadAs,
               )
             )
           ),

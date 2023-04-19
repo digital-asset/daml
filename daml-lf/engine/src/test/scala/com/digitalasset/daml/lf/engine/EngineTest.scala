@@ -746,7 +746,7 @@ class EngineTest
       )
       val usedDisclosedContract = DisclosedContract(
         templateId,
-        SValue.SContractId(toContractId("BasicTests:WithKey:1")),
+        toContractId("BasicTests:WithKey:1"),
         SValue.SRecord(
           templateId,
           ImmArray(Ref.Name.assertFromString("p"), Ref.Name.assertFromString("k")),
@@ -760,7 +760,7 @@ class EngineTest
       )
       val unusedDisclosedContract = DisclosedContract(
         templateId,
-        SValue.SContractId(toContractId("BasicTests:WithKey:2")),
+        toContractId("BasicTests:WithKey:2"),
         SValue.SRecord(
           templateId,
           ImmArray(Ref.Name.assertFromString("p"), Ref.Name.assertFromString("k")),
@@ -780,7 +780,7 @@ class EngineTest
       val transactionVersion = TxVersions.assignNodeVersion(basicTestsPkg.languageVersion)
       val expectedProcessedDisclosedContract = ProcessedDisclosedContract(
         templateId = usedDisclosedContract.templateId,
-        usedDisclosedContract.contractId.value,
+        usedDisclosedContract.contractId,
         usedDisclosedContract.argument.toNormalizedValue(transactionVersion),
         createdAt = usedDisclosedContract.metadata.createdAt,
         driverMetadata = usedDisclosedContract.metadata.driverMetadata,
@@ -1157,6 +1157,7 @@ class EngineTest
               choice,
               consuming,
               actingParties,
+              _,
               _,
               _,
               _,
@@ -1635,7 +1636,7 @@ class EngineTest
       )
       val usedDisclosedContract = DisclosedContract(
         templateId,
-        SValue.SContractId(toContractId("BasicTests:WithKey:1")),
+        toContractId("BasicTests:WithKey:1"),
         SValue.SRecord(
           templateId,
           ImmArray(Ref.Name.assertFromString("p"), Ref.Name.assertFromString("k")),
@@ -1649,7 +1650,7 @@ class EngineTest
       )
       val unusedDisclosedContract = DisclosedContract(
         templateId,
-        SValue.SContractId(toContractId("BasicTests:WithKey:2")),
+        toContractId("BasicTests:WithKey:2"),
         SValue.SRecord(
           templateId,
           ImmArray(Ref.Name.assertFromString("p"), Ref.Name.assertFromString("k")),
@@ -1669,7 +1670,7 @@ class EngineTest
       val transactionVersion = TxVersions.assignNodeVersion(basicTestsPkg.languageVersion)
       val expectedProcessedDisclosedContract = ProcessedDisclosedContract(
         templateId = usedDisclosedContract.templateId,
-        contractId = usedDisclosedContract.contractId.value,
+        contractId = usedDisclosedContract.contractId,
         argument = usedDisclosedContract.argument.toNormalizedValue(transactionVersion),
         createdAt = usedDisclosedContract.metadata.createdAt,
         driverMetadata = usedDisclosedContract.metadata.driverMetadata,
@@ -1694,7 +1695,7 @@ class EngineTest
     val templateId = Identifier(basicTestsPkgId, "BasicTests:Simple")
     val usedDisclosedContract = DisclosedContract(
       templateId,
-      SValue.SContractId(toContractId("BasicTests:Simple:1")),
+      toContractId("BasicTests:Simple:1"),
       SValue.SRecord(
         templateId,
         ImmArray(Ref.Name.assertFromString("p")),
@@ -1704,7 +1705,7 @@ class EngineTest
     )
     val unusedDisclosedContract = DisclosedContract(
       templateId,
-      SValue.SContractId(toContractId("BasicTests:Simple:2")),
+      toContractId("BasicTests:Simple:2"),
       SValue.SRecord(
         templateId,
         ImmArray(Ref.Name.assertFromString("p")),
@@ -1716,13 +1717,13 @@ class EngineTest
     "unused disclosed contracts not saved to ledger" in {
       val fetchTemplateCommand = speedy.Command.FetchTemplate(
         templateId = templateId,
-        coid = usedDisclosedContract.contractId,
+        coid = SContractId(usedDisclosedContract.contractId),
       )
 
       val transactionVersion = TxVersions.assignNodeVersion(basicTestsPkg.languageVersion)
       val expectedProcessedDisclosedContract = ProcessedDisclosedContract(
         templateId = usedDisclosedContract.templateId,
-        contractId = usedDisclosedContract.contractId.value,
+        contractId = usedDisclosedContract.contractId,
         argument = usedDisclosedContract.argument.toNormalizedValue(transactionVersion),
         createdAt = usedDisclosedContract.metadata.createdAt,
         driverMetadata = usedDisclosedContract.metadata.driverMetadata,
@@ -2051,7 +2052,7 @@ class EngineTest
       val stx = suffix(tx)
 
       val ImmArray(_, exeNode1) = tx.transaction.roots
-      val Node.Exercise(_, _, _, _, _, _, _, _, _, _, children, _, _, _, _) =
+      val Node.Exercise(_, _, _, _, _, _, _, _, _, _, _, children, _, _, _, _) =
         tx.transaction.nodes(exeNode1)
       val nids = children.toSeq.take(2).toImmArray
 
@@ -2508,8 +2509,8 @@ class EngineTest
         case Right((_, _)) =>
       }
     }
-
-    "authority required; not granted" in {
+    /*
+    "authority required; not granted" in { // TODO #15882 -- rework required
       inside(run(mkCommand(party1 = alice, party2 = bob), grantNeedAuthority = false)) {
         case Left(
               Interpretation(
@@ -2522,11 +2523,12 @@ class EngineTest
       }
     }
 
-    "authority required; granted" in {
+    "authority required; granted" in { // TODO #15882 -- rework required
       inside(run(mkCommand(party1 = alice, party2 = bob), grantNeedAuthority = true)) {
         case Right((_, _)) =>
       }
     }
+     */
   }
 }
 
@@ -2729,8 +2731,6 @@ object EngineTest {
                   exe.choiceId,
                   exe.chosenValue,
                 )
-              case _: Node.Authority =>
-                sys.error("unexpected authority node")
               case _: Node.Rollback =>
                 sys.error("unexpected rollback node")
             }
@@ -2832,7 +2832,7 @@ object EngineTest {
         disclosedContracts: DisclosedContract*
     ): Matcher[VersionedTransaction] =
       Matcher { transaction =>
-        val expectedResult = disclosedContracts.map(_.contractId.value).toSet
+        val expectedResult = disclosedContracts.map(_.contractId).toSet
         val actualResult = transaction.inputContracts
         val debugMessage = Seq(
           s"expected but missing contract IDs: ${expectedResult.filter(!actualResult.contains(_))}",

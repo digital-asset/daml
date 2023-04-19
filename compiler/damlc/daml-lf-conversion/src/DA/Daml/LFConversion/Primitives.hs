@@ -88,10 +88,6 @@ convertPrim _ "BEFoldl" ((b1 :-> a1 :-> b2) :-> b3 :-> TList a2 :-> b4) | a1 == 
 convertPrim _ "BEFoldr" ((a1 :-> b1 :-> b2) :-> b3 :-> TList a2 :-> b4) | a1 == a2, b1 == b2, b2 == b3, b3 == b4 =
     pure $ EBuiltin BEFoldr `ETyApp` a1 `ETyApp` b1
 
--- Authority operations
-convertPrim _ "BEWithAuthority" (TList TParty :-> TUpdate a1 :-> TUpdate a2) | a1 == a2 =
-    pure $ EBuiltin BEWithAuthority `ETyApp` a1
-
 -- Error
 convertPrim _ "BEError" (TText :-> t2) =
     pure $ ETyApp (EBuiltin BEError) t2
@@ -286,6 +282,16 @@ convertPrim _ "UExercise"
     ETmLam (mkVar "this", TContractId (TCon template)) $
     ETmLam (mkVar "arg", TCon choice) $
     EUpdate $ UExercise template choiceName (EVar (mkVar "this")) (EVar (mkVar "arg"))
+  where
+    choiceName = ChoiceName (T.intercalate "." $ unTypeConName $ qualObject choice)
+
+convertPrim version "UDynamicExercise"
+    ty@(TContractId (TCon template) :-> TCon choice :-> TUpdate _returnTy) =
+    pure $
+    whenRuntimeSupports version featureDynamicExercise ty $
+    ETmLam (mkVar "this", TContractId (TCon template)) $
+    ETmLam (mkVar "arg", TCon choice) $
+    EUpdate $ UDynamicExercise template choiceName (EVar (mkVar "this")) (EVar (mkVar "arg"))
   where
     choiceName = ChoiceName (T.intercalate "." $ unTypeConName $ qualObject choice)
 

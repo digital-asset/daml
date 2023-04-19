@@ -64,10 +64,8 @@ main = do
     -- allocate the resources before handing over to tasty and accept that
     -- it will spin up sandbox and the repl client.
     withTempDir $ \tmpDir ->
-        let portFile = tmpDir </> "sandbox-portfile"
-        in
         withBinaryFile nullDevice WriteMode $ \devNull ->
-        bracket (createSandbox portFile devNull defaultSandboxConf { dars = testDars }) destroySandbox $ \SandboxResource{sandboxPort} ->
+        bracket (createCantonSandbox tmpDir devNull defaultSandboxConf { dars = testDars }) destroySandbox $ \SandboxResource{sandboxPort} ->
         ReplClient.withReplClient (ReplClient.Options replJar (Just ("localhost", show sandboxPort)) Nothing Nothing Nothing Nothing ReplClient.ReplWallClock CreatePipe) $ \replHandle ->
         -- TODO We could share some of this setup with the actual repl code in damlc.
         withTempDir $ \dir ->
@@ -199,7 +197,7 @@ functionalTests replClient replLogger serviceOut options ideState = describe "re
     , testInteraction' "server error"
           [ input "alice <- allocatePartyWithHint \"Alice\" (PartyIdHint \"alice_doubly_allocated\")"
           , input "alice <- allocatePartyWithHint \"Alice\" (PartyIdHint \"alice_doubly_allocated\")"
-          , matchOutput "^.*INVALID_ARGUMENT\\(8,alice_do\\): The submitted command has invalid arguments: Party already exists$"
+          , matchOutput "^.*INVALID_ARGUMENT\\(8,alice_do\\): The submitted command has invalid arguments: Party already exists.*$"
           , input "debug 1"
           , matchServiceOutput "^.*: 1"
           ]
@@ -278,18 +276,18 @@ functionalTests replClient replLogger serviceOut options ideState = describe "re
           , input "bob <- allocatePartyWithHint \"Bob\" (PartyIdHint \"bob\")"
           , input "proposal <- pure (T alice bob)"
           , input "debug proposal.proposer"
-          , matchServiceOutput "'alice'"
+          , matchServiceOutput "'alice::[a-f0-9]+'"
           , input "debug proposal.accepter"
-          , matchServiceOutput "'bob'"
+          , matchServiceOutput "'bob::[a-f0-9]+'"
           ]
     , testInteraction' "symbols from different DARs"
           [ input "party <- allocatePartyWithHint \"Party\" (PartyIdHint \"two_dars_party\")"
           , input "proposal <- pure (T party party)"
           , input "debug proposal"
-          , matchServiceOutput "^.*: T {proposer = 'two_dars_party', accepter = 'two_dars_party'}"
+          , matchServiceOutput "^.*: T {proposer = 'two_dars_party::[a-f0-9]+', accepter = 'two_dars_party::[a-f0-9]+'}"
           , input "t2 <- pure (T2 party)"
           , input "debug t2"
-          , matchServiceOutput "^.*: T2 {owner = 'two_dars_party'}"
+          , matchServiceOutput "^.*: T2 {owner = 'two_dars_party::[a-f0-9]+'}"
           ]
     , testInteraction' "repl output"
           [ input "pure ()" -- no output

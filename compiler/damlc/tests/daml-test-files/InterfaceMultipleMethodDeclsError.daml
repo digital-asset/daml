@@ -2,8 +2,7 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 -- @SINCE-LF-FEATURE DAML_INTERFACE
--- @ENABLE-SCENARIOS
--- @ERROR range=28:7-28:20; Multiple declarations of method ‘m0’
+-- @ERROR range=27:7-27:20; Multiple declarations of method ‘m0’
 
 module InterfaceMultipleMethodDeclsError where
 

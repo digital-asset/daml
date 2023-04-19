@@ -27,8 +27,6 @@ final class Adapter(
   // drop value version and children
   private[this] def adapt(node: Node): Node =
     node match {
-      case authority: Node.Authority =>
-        authority.copy(children = ImmArray.Empty)
       case rollback: Node.Rollback =>
         rollback.copy(children = ImmArray.Empty)
       case create: Node.Create =>

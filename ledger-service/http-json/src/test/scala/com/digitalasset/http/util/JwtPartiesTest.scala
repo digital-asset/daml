@@ -56,7 +56,10 @@ class JwtPartiesTest
     // ensures compatibility with old behavior
     "use Jwt if explicit spec is absent" in forAll { jwp: JwtWritePayload =>
       discard(resolveRefParties(None, jwp) should ===(jwp.parties))
-      resolveRefParties(Some(domain.CommandMeta(None, None, None, None, None)), jwp) should ===(
+      resolveRefParties(
+        Some(domain.CommandMeta(None, None, None, None, None, None)),
+        jwp,
+      ) should ===(
         jwp.parties
       )
     }
@@ -64,15 +67,7 @@ class JwtPartiesTest
     "ignore Jwt if full explicit spec is present" in forAll {
       (actAs: NonEmptyList[domain.Party], readAs: List[domain.Party], jwp: JwtWritePayload) =>
         resolveRefParties(
-          Some(
-            domain.CommandMeta(
-              None,
-              actAs = Some(actAs),
-              readAs = Some(readAs),
-              submissionId = None,
-              deduplicationPeriod = None,
-            )
-          ),
+          Some(partiesOnlyMeta(actAs = actAs, readAs = readAs)),
           jwp,
         ) should ===(actAs.toSet1 ++ readAs)
     }
@@ -110,5 +105,15 @@ object JwtPartiesTest {
           readAs = readAs,
         )
       }
+    )
+
+  private[http] def partiesOnlyMeta(actAs: NonEmptyList[domain.Party], readAs: List[domain.Party]) =
+    domain.CommandMeta(
+      None,
+      actAs = Some(actAs),
+      readAs = Some(readAs),
+      submissionId = None,
+      deduplicationPeriod = None,
+      disclosedContracts = None,
     )
 }

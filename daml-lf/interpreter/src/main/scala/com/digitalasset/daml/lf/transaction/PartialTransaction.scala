@@ -151,6 +151,7 @@ private[lf] object PartialTransaction {
       signatories: Set[Party],
       stakeholders: Set[Party],
       choiceObservers: Set[Party],
+      choiceAuthorizers: Option[Set[Party]],
       nodeId: NodeId,
       parent: Context,
       byKey: Boolean,
@@ -158,7 +159,12 @@ private[lf] object PartialTransaction {
   ) extends ContextInfo {
     val actionNodeSeed = parent.nextActionChildSeed
     val actionChildSeed = crypto.Hash.deriveNodeSeed(actionNodeSeed, _)
-    override val authorizers: Set[Party] = actingParties union signatories
+
+    override val authorizers: Set[Party] =
+      choiceAuthorizers match {
+        case None => actingParties union signatories
+        case Some(explicitAuthorizers) => explicitAuthorizers
+      }
   }
 
   final case class TryContextInfo(
@@ -166,21 +172,6 @@ private[lf] object PartialTransaction {
       parent: Context,
       // Set to the authorizers (the union of signatories & actors) of the nearest
       // parent exercise or the submitters if there is no parent exercise.
-      authorizers: Set[Party],
-  ) extends ContextInfo {
-    val actionChildSeed: NodeIdx => crypto.Hash = parent.info.actionChildSeed
-  }
-
-  final case class GainAuthorityContextInfo(
-      nodeId: NodeId,
-      parent: Context,
-      authorizers: Set[Party],
-  ) extends ContextInfo {
-    val actionChildSeed: NodeIdx => crypto.Hash = parent.info.actionChildSeed
-  }
-
-  final case class RestrictAuthorityContextInfo(
-      parent: Context,
       authorizers: Set[Party],
   ) extends ContextInfo {
     val actionChildSeed: NodeIdx => crypto.Hash = parent.info.actionChildSeed
@@ -269,7 +260,6 @@ private[speedy] case class PartialTransaction(
       // so we need to compute them.
       val rootNodes = {
         val allChildNodeIds: Set[NodeId] = nodes.values.iterator.flatMap {
-          case au: Node.Authority => au.children.toSeq
           case rb: Node.Rollback => rb.children.toSeq
           case _: Node.LeafOnlyAction => Nil
           case ex: Node.Exercise => ex.children.toSeq
@@ -456,6 +446,7 @@ private[speedy] case class PartialTransaction(
       consuming: Boolean,
       actingParties: Set[Party],
       choiceObservers: Set[Party],
+      choiceAuthorizers: Option[Set[Party]],
       byKey: Boolean,
       chosenValue: Value,
       version: TxVersion,
@@ -477,6 +468,7 @@ private[speedy] case class PartialTransaction(
         signatories = contract.signatories,
         stakeholders = contract.stakeholders,
         choiceObservers = choiceObservers,
+        choiceAuthorizers = choiceAuthorizers,
         nodeId = nid,
         parent = context,
         byKey = byKey,
@@ -566,6 +558,7 @@ private[speedy] case class PartialTransaction(
       stakeholders = ec.stakeholders,
       signatories = ec.signatories,
       choiceObservers = ec.choiceObservers,
+      choiceAuthorizers = ec.choiceAuthorizers,
       children = ImmArray.Empty,
       exerciseResult = None,
       keyOpt = ec.contractKey,
@@ -636,66 +629,6 @@ private[speedy] case class PartialTransaction(
     }
   }
 
-  /** Open an GainAuthority context. Must be closed by a `endGainAuthority` */
-  def beginGainAuthority(
-      required: Set[Party]
-  ): PartialTransaction = {
-    val nid = NodeId(nextNodeIdx)
-    val info = GainAuthorityContextInfo(nid, context, authorizers = required)
-    copy(
-      nextNodeIdx = nextNodeIdx + 1,
-      context = Context(info).copy(nextActionChildIdx = context.nextActionChildIdx),
-    )
-  }
-
-  def endGainAuthority: PartialTransaction = {
-    context.info match {
-      case info: GainAuthorityContextInfo =>
-        val authNode = Node.Authority(
-          obtained = info.authorizers,
-          children = context.children.toImmArray,
-        )
-        copy(
-          context = info.parent
-            .addNonActionChild(info.nodeId, context.minChildVersion, context.nextActionChildIdx),
-          nodes = nodes.updated(info.nodeId, authNode),
-        )
-      case _ =>
-        InternalError.runtimeException(
-          NameOf.qualifiedNameOfCurrentFunc,
-          "endGainAuthority called in non-authority context",
-        )
-    }
-  }
-
-  /** Open an RestrictAuthority context. Must be closed by a `endRestrictAuthority` */
-  def beginRestrictAuthority(
-      required: Set[Party]
-  ): PartialTransaction = {
-    val info = RestrictAuthorityContextInfo(context, authorizers = required)
-    copy(
-      context = Context(info).copy(nextActionChildIdx = context.nextActionChildIdx)
-    )
-  }
-
-  def endRestrictAuthority: PartialTransaction = {
-    context.info match {
-      case info: RestrictAuthorityContextInfo =>
-        copy(
-          context = info.parent.copy(
-            children = info.parent.children :++ context.children.toImmArray,
-            nextActionChildIdx = context.nextActionChildIdx,
-          )
-        )
-
-      case _ =>
-        InternalError.runtimeException(
-          NameOf.qualifiedNameOfCurrentFunc,
-          "endRestrictAuthority called in non-authority context",
-        )
-    }
-  }
-
   /** Double check the execution of a step with the unconsumedness of a
     * `ContractId`.
     */
@@ -737,8 +670,6 @@ private[speedy] case class PartialTransaction(
     def go(ptx: PartialTransaction): PartialTransaction = ptx.context.info match {
       case _: PartialTransaction.ExercisesContextInfo => go(ptx.abortExercises)
       case _: PartialTransaction.TryContextInfo => go(ptx.endTry)
-      case _: PartialTransaction.GainAuthorityContextInfo => go(ptx.endGainAuthority)
-      case _: PartialTransaction.RestrictAuthorityContextInfo => go(ptx.endRestrictAuthority)
       case _: PartialTransaction.RootContextInfo => ptx
     }
     go(this)

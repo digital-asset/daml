@@ -7,6 +7,7 @@ import akka.http.scaladsl.model.StatusCodes
 import com.daml.http.Generators.{
   OptionalPackageIdGen,
   contractGen,
+  contractIdGen,
   contractLocatorGen,
   exerciseCmdGen,
   genDomainTemplateId,
@@ -18,13 +19,15 @@ import com.daml.http.Generators.{
 }
 import com.daml.scalautil.Statement.discard
 import com.daml.http.domain
-import com.daml.lf.data.Ref
-import org.scalacheck.Arbitrary.arbitrary
-import org.scalacheck.Gen.{identifier, listOf}
+import com.daml.lf.data.{ImmArray, Ref, Time}
+import org.scalacheck.Arbitrary, Arbitrary.arbitrary
+import org.scalacheck.Gen, Gen.{identifier, listOf}
 import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
+import org.scalatest.prop.TableDrivenPropertyChecks.{forAll => tForAll, Table}
 import org.scalatest.{Inside, Succeeded}
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
+import scalaz.syntax.bifunctor._
 import scalaz.syntax.functor._
 import scalaz.syntax.std.option._
 import scalaz.syntax.tag._
@@ -36,6 +39,7 @@ class JsonProtocolTest
     with Inside
     with ScalaCheckDrivenPropertyChecks {
 
+  import JsonProtocolTest._
   import JsonProtocol._
   import spray.json._
 
@@ -70,6 +74,16 @@ class JsonProtocolTest
     "roundtrips" in forAll(genDomainTemplateIdO) { a: domain.ContractTypeId.OptionalPkg =>
       val b = a.toJson.convertTo[domain.ContractTypeId.OptionalPkg]
       b should ===(a)
+    }
+  }
+
+  "domain.Base16" - {
+    "is case-insensitive" in forAll { b16: domain.Base16 =>
+      val str = b16.toJson.convertTo[String]
+      all(
+        Seq(str.toUpperCase, str.toLowerCase)
+          .map(_.toJson.convertTo[domain.Base16])
+      ) should ===(b16)
     }
   }
 
@@ -246,8 +260,145 @@ class JsonProtocolTest
     }
 
     "roundtrips" in forAll(exerciseCmdGen) { a =>
-      val b = a.toJson.convertTo[domain.ExerciseCommand[JsValue, domain.ContractLocator[JsValue]]]
+      val b = a.toJson
+        .convertTo[domain.ExerciseCommand.OptionalPkg[JsValue, domain.ContractLocator[JsValue]]]
       b should ===(a)
     }
+  }
+
+  "domain.CommandMeta" - {
+    "is entirely optional" in {
+      "{}".parseJson.convertTo[domain.CommandMeta[JsValue, JsValue]] should ===(
+        domain.CommandMeta(None, None, None, None, None, None)
+      )
+    }
+
+    "is entirely optional when NoDisclosed" in {
+      "{}".parseJson.convertTo[domain.CommandMeta.NoDisclosed] should ===(
+        domain.CommandMeta(None, None, None, None, None, None)
+      )
+    }
+  }
+
+  "domain.DisclosedContract" - {
+    import domain.DisclosedContract
+    type DC = DisclosedContract[Int, Int]
+
+    "roundtrips" in forAll { a: DC =>
+      val b = a.toJson.convertTo[DC]
+      b should ===(a)
+    }
+
+    "doesn't confuse blob and JSON contracts" in forAll { a: DC =>
+      val blobLookingRecord = a.arguments match {
+        case DisclosedContract.Arguments.Blob(b) =>
+          a.copy(arguments = DisclosedContract.Arguments.Record(b.toJson))
+        case _ => a.rightMap(_.toJson)
+      }
+      blobLookingRecord.toJson.convertTo[DisclosedContract[Int, JsValue]] should ===(
+        blobLookingRecord
+      )
+    }
+
+    "decodes a hand-written sample" in tForAll(
+      Table(
+        ("argumentsDecoded", "argumentsJsonField"),
+        (
+          DisclosedContract.Arguments.Record("""{"owner":"Alice"}""".parseJson),
+          """"payload": {"owner": "Alice"}""",
+        ),
+        (
+          DisclosedContract.Arguments.Blob {
+            import com.google.protobuf.any.Any.pack, com.daml.lf.value.Value,
+            com.daml.platform.participant.util.LfEngineToApi.lfValueToApiRecord
+            inside(
+              lfValueToApiRecord(
+                true,
+                Value.ValueRecord(
+                  None,
+                  ImmArray(
+                    Some(Ref.Name assertFromString "owner") ->
+                      Value.ValueParty(Ref.Party assertFromString "Bob")
+                  ),
+                ),
+              )
+            ) { case Right(apiRecord) =>
+              val pbAny = pack(apiRecord)
+              domain.PbAny(pbAny.typeUrl, domain.Base64(pbAny.value))
+            }
+          },
+          """"payloadBlob": {
+            "typeUrl": "type.googleapis.com/com.daml.ledger.api.v1.Record",
+            "value": "Eg4KBW93bmVyEgVaA0JvYg=="
+          }""",
+        ),
+      )
+    ) { (argumentsDecoded, argumentsJsonField) =>
+      import com.google.protobuf.ByteString
+      val utf8 = java.nio.charset.Charset forName "UTF-8"
+      val expected = DisclosedContract(
+        domain.ContractId("abcd"),
+        domain.ContractTypeId.Template(Option.empty[String], "Mod", "Tmpl"),
+        argumentsDecoded,
+        DisclosedContract.Metadata(
+          Time.Timestamp.assertFromString("2023-03-21T18:00:33.246813Z"),
+          Some(domain.Base16(ByteString.copyFrom("well hello", utf8))),
+          Some(domain.Base64(ByteString.copyFrom("there reader", utf8))),
+        ),
+      )
+      val encoded = s"""{
+        "contractId": "abcd",
+        "templateId": "Mod:Tmpl",
+        $argumentsJsonField,
+        "metadata": {
+          "createdAt": "2023-03-21T18:00:33.246813Z",
+          "contractKeyHash": "77656c6c2068656c6c6f",
+          "driverMetadata": "dGhlcmUgcmVhZGVy"
+        }
+      }""".parseJson
+      val _ = expected.toJson should ===(encoded)
+      val decoded =
+        encoded.convertTo[DisclosedContract[domain.ContractTypeId.Template.OptionalPkg, JsValue]]
+      decoded should ===(expected)
+    }
+  }
+}
+
+object JsonProtocolTest {
+  // like Arbitrary(arbitrary[T].map(f)) but with inferred `T`
+  private[this] def arbArg[T: Arbitrary, R](f: T => R): Arbitrary[R] =
+    Arbitrary(arbitrary[T] map f)
+
+  private[this] implicit val arbBase64: Arbitrary[domain.Base64] =
+    domain.Base64 subst arbArg(com.google.protobuf.ByteString.copyFrom(_: Array[Byte]))
+
+  private implicit val arbBase16: Arbitrary[domain.Base16] =
+    domain.Base16 subst arbArg(com.google.protobuf.ByteString.copyFrom(_: Array[Byte]))
+
+  private[this] implicit val arbTime: Arbitrary[Time.Timestamp] =
+    Arbitrary(
+      Gen
+        .choose(Time.Timestamp.MinValue.micros, Time.Timestamp.MaxValue.micros)
+        .map(Time.Timestamp.assertFromLong)
+    )
+
+  private[this] implicit val arbCid: Arbitrary[domain.ContractId] =
+    Arbitrary(contractIdGen)
+
+  private[this] implicit val arbPbAny: Arbitrary[domain.PbAny] =
+    arbArg(domain.PbAny.tupled)
+
+  private[http] implicit def arbDisclosedCt[TpId: Arbitrary, LfV: Arbitrary]
+      : Arbitrary[domain.DisclosedContract[TpId, LfV]] = {
+    import domain.DisclosedContract.{Arguments, Metadata}
+
+    implicit val args: Arbitrary[Arguments[LfV]] =
+      Arbitrary(
+        arbitrary[Either[domain.PbAny, LfV]].map(_.fold(Arguments.Blob, Arguments.Record(_)))
+      )
+
+    implicit val metadata: Arbitrary[Metadata] = arbArg(Metadata.tupled)
+
+    arbArg((domain.DisclosedContract.apply[TpId, LfV] _).tupled)
   }
 }

@@ -450,7 +450,6 @@ enum BuiltinFunction {
 
   FOLDL = 20;
   FOLDR = 21;
-  WITH_AUTHORITY = 149;
 
   TEXTMAP_EMPTY = 96;
   TEXTMAP_INSERT = 97;
@@ -570,9 +569,9 @@ enum BuiltinFunction {
   NUMERIC_TO_BIGNUMERIC = 145; // *Available in versions >= 1.13*
   BIGNUMERIC_TO_TEXT = 146; // *Available in versions >= 1.13*
 
-  TYPEREP_TYCON_NAME = 148; // *Available in versions >= 1.dev*
+  TYPE_REP_TYCON_NAME = 148; // *Available in versions >= 1.dev*
 
-  // Next id is 150.
+  // Next id is 149.
 
   // EXPERIMENTAL TEXT PRIMITIVES -- these do not yet have stable numbers.
   TEXT_TO_UPPER = 9901; // *Available in versions >= 1.dev*
@@ -967,7 +966,7 @@ message Expr {
 
 
   // Convert an interface back to a template payload, or raises WronglyTypedContract if not possible.
-  // *Available in versions >= 1.dev*
+  // *Available in versions >= 1.15*
   message UnsafeFromInterface {
     TypeConName interface_type = 1;
     TypeConName template_type = 2;
@@ -1341,6 +1340,22 @@ message Update {
     Expr arg = 5;
   }
 
+  // Dynamic Exercise Update
+  // *Available in versions >= 1.dev*
+  message DynamicExercise {
+    // Template type
+    TypeConName template = 1;
+
+    // name of the exercised template choice
+    // *Must be a valid interned identifier*
+    int32 choice_interned_str = 2;
+
+    // contract id
+    Expr cid = 3;
+    // argument
+    Expr arg = 4;
+  }
+
   // Interface Exercise Update
   // *Available in versions >= 1.15*
   message ExerciseInterface {
@@ -1431,6 +1446,7 @@ message Update {
     CreateInterface create_interface = 12; // *Available in versions >= 1.15*
     ExerciseInterface exercise_interface = 13; // *Available in versions >= 1.15*
     FetchInterface fetch_interface = 14; // *Available in versions >= 1.15*
+    DynamicExercise dynamic_exercise = 15; // *Available in versions >= 1.dev*
   }
 }
 
@@ -1495,6 +1511,10 @@ message TemplateChoice {
 
   // The additional informees of the choice. They have type `List Party`.
   Expr observers = 11; // *Available in versions >= 1.11*
+
+  // The optional authorizers of the choice. When present they have type `List Party`.
+  // When missing, we assume the default value: template-signatories + choice-cotrollers.
+  Expr authorizers = 12; // *Available in versions >= 1.dev*
 
   // Name to which the choice argument is bound and its type.
   VarWithType arg_binder = 4;
@@ -1683,7 +1703,7 @@ message DefInterface {
   // View type for this interface
   Type view = 8;
 
-  repeated TypeConName requires = 9;  // *Available in versions >= 1.dev*
+  repeated TypeConName requires = 9;  // *Available in versions >= 1.15*
 }
 
 // Exception definition

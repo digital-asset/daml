@@ -195,13 +195,15 @@ private[parser] class ModParser[P](parameters: ParserParameters[P]) {
       (`:` ~> typ) ~
       (`,` ~> Id("controllers") ~> expr) ~
       opt(`,` ~> Id("observers") ~> expr) ~
+      opt(`,` ~> Id("authorizers") ~> expr) ~
       (`to` ~> expr) ^^ {
-        case choiceTags ~ name ~ self ~ param ~ retTyp ~ controllers ~ choiceObservers ~ update =>
+        case choiceTags ~ name ~ self ~ param ~ retTyp ~ controllers ~ optObservers ~ optAuthorizers ~ update =>
           TemplateChoice(
             name,
             !choiceTags(nonConsumingTag),
             controllers,
-            choiceObservers,
+            optObservers,
+            optAuthorizers,
             self,
             param,
             retTyp,

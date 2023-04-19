@@ -6,13 +6,14 @@ package com.daml.http
 import java.time.{Instant, LocalDate}
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.model._
+import akka.stream.scaladsl.Sink
 import com.daml.api.util.TimestampConversion
 import com.daml.lf.data.Ref
 import com.daml.http.domain.ContractId
 import com.daml.http.endpoints.MeteringReportEndpoint.MeteringReportDateRequest
 import com.daml.http.json.SprayJson.objectField
 import com.daml.http.json._
-import com.daml.http.util.ClientUtil.{boxedRecord, uniqueId}
+import com.daml.http.util.ClientUtil.{boxedRecord, uniqueCommandId, uniqueId}
 import com.daml.jwt.domain.Jwt
 import com.daml.ledger.api.refinements.{ApiTypes => lar}
 import com.daml.ledger.api.v1.{value => v}
@@ -27,10 +28,13 @@ import org.scalatest.matchers.should.Matchers
 import scalaz.std.list._
 import scalaz.std.vector._
 import scalaz.std.scalaFuture._
+import scalaz.std.tuple._
 import scalaz.syntax.apply._
+import scalaz.syntax.bifunctor._
 import scalaz.syntax.show._
 import scalaz.syntax.tag._
 import scalaz.syntax.traverse._
+import scalaz.syntax.std.boolean._
 import scalaz.{-\/, \/-}
 import shapeless.record.{Record => ShRecord}
 import spray.json._
@@ -405,14 +409,6 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
   }
 
   "query record contains handles" onlyIfLargeQueries_- {
-    def randomTextN(n: Int) = {
-      import org.scalacheck.Gen
-      Gen
-        .buildableOfN[String, Char](n, Gen.alphaNumChar)
-        .sample
-        .getOrElse(sys.error(s"can't generate ${n}b string"))
-    }
-
     Seq(
       "& " -> "& bar",
       "1kb of data" -> randomTextN(1000),
@@ -436,6 +432,37 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
           ).map(inside(_) { case Seq(domain.ActiveContract(_, _, _, JsObject(fields), _, _, _)) =>
             fields.get("currency") should ===(Some(JsString(testCurrency)))
           })
+        }
+      }
+    }
+  }
+
+  "query multiple observers:" - {
+    Seq(
+      0 -> 1,
+      1 -> 5,
+      10 -> 75,
+      50 -> 76, // Allows space to encode content into a JSON array of strings within 4k limit.
+      50 -> 80, // The content is the exact 4k limit, no additional room for JSON array syntax.
+      200 -> 150,
+    ).foreach { case (numSubs, partySize) =>
+      (s"$numSubs observers of $partySize chars") in withHttpService { fixture =>
+        val subscribers = (1 to numSubs).map(_ => domain.Party(randomTextN(partySize))).toList
+        for {
+          (publisher, headers) <- fixture.getUniquePartyAndAuthHeaders("Alice")
+          _ <- subscribers.traverse { p =>
+            fixture.client.partyManagementClient.allocateParty(Some(p.unwrap), Some(s"${p} & Co"))
+          }
+          found <- searchExpectOk(
+            List(pubSubCreateCommand(publisher, subscribers)),
+            jsObject(
+              s"""{"templateIds": ["Account:PubSub"], "query": {"publisher": "$publisher"}}"""
+            ),
+            fixture,
+            headers,
+          )
+        } yield {
+          found.size shouldBe 1
         }
       }
     }
@@ -665,8 +692,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
         create = iouCreateCommand(alice)
         res <- postCreateCommand(create, fixture, headers)
         _ <- inside(res) { case domain.OkResponse(createResult, _, StatusCodes.OK) =>
-          val exercise: domain.ExerciseCommand[v.Value, domain.EnrichedContractId] =
-            iouExerciseTransferCommand(createResult.contractId, bob)
+          val exercise = iouExerciseTransferCommand(createResult.contractId, bob)
           val exerciseJson: JsValue = encodeExercise(encoder)(exercise)
 
           fixture
@@ -759,8 +785,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
           TpId.Account.Account,
           v.Value(v.Value.Sum.Record(keyRecord)),
         )
-        val archive: domain.ExerciseCommand[v.Value, domain.EnrichedContractKey[v.Value]] =
-          archiveCommand(locator)
+        val archive = archiveCommand(locator)
         val archiveJson: JsValue = encodeExercise(encoder)(archive)
 
         postCreateCommand(create, fixture, headers).flatMap(inside(_) {
@@ -774,12 +799,322 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
         }): Future[Assertion]
       }
     }
+
+    "passes along disclosed contracts in" - {
+      import util.IdentifierConverters.{lfIdentifier, refApiIdentifier}
+      import com.daml.ledger.api.{v1 => lav1}
+      import lav1.command_service.SubmitAndWaitRequest
+      import lav1.commands.{Commands, Command}
+      import domain.{DisclosedContract => DC}
+
+      // we assume Disclosed is in the main dalf
+      lazy val inferredPkgId = {
+        import com.daml.lf.{archive, typesig}
+        val dar =
+          archive.UniversalArchiveReader.assertReadFile(AbstractHttpServiceIntegrationTestFuns.dar2)
+        typesig.PackageSignature.read(dar.main)._2.packageId
+      }
+
+      def inDar2Main[CtId[P] <: domain.ContractTypeId.Ops[CtId, P]](
+          tid: CtId[Option[String]]
+      ): CtId[String] =
+        tid.copy(packageId = inferredPkgId)
+
+      lazy val ToDisclose = inDar2Main(TpId.Disclosure.ToDisclose)
+      lazy val AnotherToDisclose = inDar2Main(TpId.Disclosure.AnotherToDisclose)
+      lazy val HasGarbage = inDar2Main(TpId.Disclosure.HasGarbage)
+
+      lazy val (_, toDiscloseVA) =
+        VA.record(lfIdentifier(ToDisclose), ShRecord(owner = VAx.partyDomain, junk = VA.text))
+
+      lazy val (_, anotherToDiscloseVA) =
+        VA.record(lfIdentifier(ToDisclose), ShRecord(owner = VAx.partyDomain, garbage = VA.text))
+
+      val (_, viewportVA) =
+        VA.record(
+          lfIdentifier(TpId.Disclosure.Viewport.copy(packageId = "ignored")),
+          ShRecord(owner = VAx.partyDomain),
+        )
+
+      val (_, checkVisibilityVA) =
+        VA.record(
+          Ref.Identifier assertFromString "ignored:Disclosure:CheckVisibility",
+          ShRecord(disclosed = VAx.contractIdDomain, ifaceDisclosed = VAx.contractIdDomain),
+        )
+
+      final case class ContractsToDisclose(
+          alice: domain.Party,
+          toDiscloseCid: domain.ContractId,
+          toDisclosePayload: lav1.value.Record,
+          tdCtMetadata: DC.Metadata,
+          anotherToDiscloseCid: domain.ContractId,
+          atdBlob: domain.PbAny,
+          atdCtMetadata: DC.Metadata,
+      )
+
+      def contractsToDisclose(
+          fixture: HttpServiceTestFixtureData,
+          junkMessage: String,
+          garbageMessage: String,
+      ): Future[ContractsToDisclose] = for {
+        (alice, jwt, applicationId, _) <- fixture.getUniquePartyTokenAppIdAndAuthHeaders("Alice")
+        // we're using the ledger API for the initial create because timestamp
+        // is required in the metadata
+        toDisclosePayload = argToApi(toDiscloseVA)(ShRecord(owner = alice, junk = junkMessage))
+        anotherToDisclosePayload = argToApi(anotherToDiscloseVA)(
+          ShRecord(owner = alice, garbage = garbageMessage)
+        )
+        createCommands = Seq(
+          (ToDisclose, toDisclosePayload),
+          (AnotherToDisclose, anotherToDisclosePayload),
+        ) map { case (tpid, payload) =>
+          Command(util.Commands.create(refApiIdentifier(tpid), payload))
+        }
+        initialCreate = SubmitAndWaitRequest(
+          Some(
+            Commands(
+              commandId = uniqueCommandId().unwrap,
+              applicationId = applicationId.unwrap,
+              actAs = domain.Party unsubst Seq(alice),
+              commands = createCommands,
+            )
+          )
+        )
+        createResp <- fixture.client.commandServiceClient
+          .submitAndWaitForTransaction(initialCreate, Some(jwt.value))
+        // fetch what we can from the command service transaction
+        (ceAtOffset, ((toDiscloseCid, tdCtMetadata), (atdCid, atdCtMetadata))) = inside(
+          createResp.transaction
+        ) { case Some(tx) =>
+          import lav1.event.Event, Event.Event.Created
+          inside(tx.events) { case Seq(Event(Created(ce0)), Event(Created(ce1))) =>
+            val EntityTD = ToDisclose.entityName
+            val EntityATD = AnotherToDisclose.entityName
+            val orderedCes = inside((ce0, ce1) umap (_.templateId.map(_.entityName))) {
+              case (Some(EntityTD), Some(EntityATD)) => (ce0, ce1)
+              case (Some(EntityATD), Some(EntityTD)) => (ce1, ce0)
+            }
+            (
+              tx.offset,
+              orderedCes umap { ce =>
+                (
+                  domain.ContractId(ce.contractId),
+                  inside(ce.metadata map DC.Metadata.fromLedgerApi) { case Some(\/-(metadata)) =>
+                    metadata
+                  },
+                )
+              },
+            )
+          }
+        }
+        // use the transaction service to get the blob, which submit-and-wait
+        // doesn't include in the response
+        atdBlob <- {
+          import lav1.transaction_filter._
+          import com.daml.fetchcontracts.util.{LedgerBegin, AbsoluteBookmark}
+          fixture.client.transactionClient
+            .getTransactions(
+              LedgerBegin.toLedgerApi,
+              Some(AbsoluteBookmark(domain.Offset(ceAtOffset)).toLedgerApi),
+              TransactionFilter(
+                Map(
+                  alice.unwrap -> Filters(
+                    Some(
+                      InclusiveFilters(interfaceFilters =
+                        Seq(
+                          InterfaceFilter(
+                            Some(refApiIdentifier(HasGarbage).unwrap),
+                            includeCreateArgumentsBlob = true,
+                          )
+                        )
+                      )
+                    )
+                  )
+                )
+              ),
+              com.daml.ledger.api.domain.LedgerId(""),
+              token = Some(jwt.value),
+            )
+            .collect(Function unlift { tx =>
+              import lav1.event.Event, Event.Event.Created
+              tx.events.collectFirst {
+                case Event(Created(ce)) if ce.contractId == atdCid =>
+                  import com.google.protobuf.any
+                  inside(ce.createArgumentsBlob) { case Some(any.Any(typeUrl, value, _)) =>
+                    domain.PbAny(typeUrl, domain.Base64(value))
+                  }
+              }
+            })
+            .runWith(Sink.head)
+        }
+      } yield ContractsToDisclose(
+        alice,
+        toDiscloseCid,
+        toDisclosePayload,
+        tdCtMetadata,
+        atdCid,
+        atdBlob,
+        atdCtMetadata,
+      )
+
+      def runDisclosureTestCase[Setup](
+          fixture: HttpServiceTestFixtureData
+      )(exerciseEndpoint: Uri.Path, setupBob: (domain.Party, List[HttpHeader]) => Future[Setup])(
+          exerciseVaryingOnlyMeta: (
+              Setup,
+              ContractsToDisclose,
+              Option[
+                domain.CommandMeta[domain.ContractTypeId.Template.OptionalPkg, lav1.value.Record]
+              ],
+          ) => JsValue
+      ): Future[Assertion] = {
+        val junkMessage = s"some test junk ${uniqueId()}"
+        val garbageMessage = s"some test garbage ${uniqueId()}"
+        for {
+          // first, set up something for alice to disclose to bob
+          toDisclose @ ContractsToDisclose(
+            alice,
+            toDiscloseCid,
+            toDisclosePayload,
+            tdCtMetadata,
+            anotherToDiscloseCid,
+            anotherToDiscloseBlob,
+            atdCtMetadata,
+          ) <-
+            contractsToDisclose(fixture, junkMessage, garbageMessage)
+
+          // next, onboard bob to try to interact with the disclosed contract
+          (bob, bobHeaders) <- fixture.getUniquePartyAndAuthHeaders("Bob")
+          setup <- setupBob(bob, bobHeaders)
+
+          // exercise CheckVisibility with different disclosure options
+          checkVisibility = {
+            disclosure: List[DC[domain.ContractTypeId.Template.OptionalPkg, lav1.value.Record]] =>
+              val meta = disclosure.nonEmpty option domain.CommandMeta(
+                None,
+                None,
+                None,
+                None,
+                None,
+                disclosedContracts = Some(disclosure),
+              )
+              fixture
+                .postJsonRequest(
+                  exerciseEndpoint,
+                  exerciseVaryingOnlyMeta(setup, toDisclose, meta),
+                  bobHeaders,
+                )
+                .parseResponse[domain.ExerciseResponse[JsValue]]
+          }
+
+          // ensure that bob can't interact with alice's contract unless it's disclosed
+          _ <- checkVisibility(List.empty)
+            .map(inside(_) {
+              case domain.ErrorResponse(
+                    _,
+                    _,
+                    StatusCodes.NotFound,
+                    Some(domain.LedgerApiError(lapiCode, errorMessage, _)),
+                  ) =>
+                lapiCode should ===(com.google.rpc.Code.NOT_FOUND_VALUE)
+                errorMessage should include(toDiscloseCid.unwrap)
+            })
+
+          _ <- checkVisibility(
+            List(
+              DC(
+                toDiscloseCid,
+                TpId.Disclosure.ToDisclose,
+                DC.Arguments.Record(toDisclosePayload),
+                tdCtMetadata,
+              ),
+              DC(
+                anotherToDiscloseCid,
+                TpId.Disclosure.AnotherToDisclose,
+                DC.Arguments.Blob(anotherToDiscloseBlob),
+                atdCtMetadata,
+              ),
+            )
+          )
+            .map(inside(_) {
+              case domain.OkResponse(domain.ExerciseResponse(JsString(exResp), _, _), _, _) =>
+                exResp should ===(s"'$bob' can see from '$alice': $junkMessage, $garbageMessage")
+            })
+        } yield succeed
+      }
+
+      val checkVisibilityChoice = domain.Choice("CheckVisibility")
+
+      "exercise" in withHttpService { fixture =>
+        runDisclosureTestCase(fixture)(
+          Uri.Path("/v1/exercise"),
+          { (bob, bobHeaders) =>
+            postCreateCommand(
+              domain
+                .CreateCommand(
+                  TpId.Disclosure.Viewport,
+                  argToApi(viewportVA)(ShRecord(owner = bob)),
+                  None,
+                ),
+              fixture,
+              bobHeaders,
+            ) map resultContractId
+          },
+        ) { (viewportCid, toDisclose, meta) =>
+          encodeExercise(fixture.encoder)(
+            domain.ExerciseCommand(
+              domain.EnrichedContractId(Some(TpId.Disclosure.Viewport), viewportCid),
+              checkVisibilityChoice,
+              boxedRecord(
+                argToApi(checkVisibilityVA)(
+                  ShRecord(
+                    disclosed = toDisclose.toDiscloseCid,
+                    ifaceDisclosed = toDisclose.anotherToDiscloseCid,
+                  )
+                )
+              ),
+              None,
+              meta map (_ rightMap boxedRecord),
+            )
+          )
+        }
+      }
+
+      "create-and-exercise" in withHttpService { fixture =>
+        runDisclosureTestCase(fixture)(
+          Uri.Path("/v1/create-and-exercise"),
+          { (bob, _) =>
+            Future successful bob
+          },
+        ) { (bob, toDisclose, meta) =>
+          fixture.encoder
+            .encodeCreateAndExerciseCommand(
+              domain.CreateAndExerciseCommand(
+                TpId.Disclosure.Viewport,
+                argToApi(viewportVA)(ShRecord(owner = bob)),
+                checkVisibilityChoice,
+                boxedRecord(
+                  argToApi(checkVisibilityVA)(
+                    ShRecord(
+                      disclosed = toDisclose.toDiscloseCid,
+                      ifaceDisclosed = toDisclose.anotherToDiscloseCid,
+                    )
+                  )
+                ),
+                None,
+                meta,
+              )
+            )
+            .valueOr(e => fail(e.shows))
+        }
+      }
+    }
   }
 
   private def assertExerciseResponseNewActiveContract(
       exerciseResponse: domain.ExerciseResponse[JsValue],
       createCmd: domain.CreateCommand[v.Record, domain.ContractTypeId.Template.OptionalPkg],
-      exerciseCmd: domain.ExerciseCommand[v.Value, domain.EnrichedContractId],
+      exerciseCmd: domain.ExerciseCommand[Any, v.Value, domain.EnrichedContractId],
       fixture: HttpServiceTestFixtureData,
       headers: List[HttpHeader],
   ): Future[Assertion] = {
@@ -875,7 +1210,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
 
   private def assertExerciseResponseArchivedContract(
       exerciseResponse: domain.ExerciseResponse[JsValue],
-      exercise: domain.ExerciseCommand[v.Value, domain.EnrichedContractId],
+      exercise: domain.ExerciseCommand.OptionalPkg[v.Value, domain.EnrichedContractId],
   ): Assertion =
     inside(exerciseResponse) { case domain.ExerciseResponse(exerciseResult, List(contract1), _) =>
       exerciseResult shouldBe JsObject()
@@ -1020,6 +1355,51 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
         }
       }
     }
+
+    "containing a decimal " - {
+      Seq(
+        "300000",
+        "300000.0",
+        "300000.000001",
+        "300000.00000000000001", // Note this is more than the 6 decimal places allowed by the type
+      ).foreach { numStr =>
+        s"with value $numStr" in withHttpService { fixture =>
+          fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, headers) =>
+            testCreateAndFetchDecimalKey(fixture, numStr, alice, headers)
+          }
+        }
+      }
+    }
+  }
+
+  private def testCreateAndFetchDecimalKey(
+      fixture: UriFixture,
+      decimal: String,
+      party: domain.Party,
+      headers: List[HttpHeader],
+  ) = {
+    val createCommand = jsObject(s"""{
+      "templateId": "Account:KeyedByDecimal",
+      "payload": { "party": "$party", "amount": "$decimal" }
+    }""")
+    val fetchRequest = jsObject(s"""{
+      "templateId": "Account:KeyedByDecimal",
+      "key": [ "$party", "$decimal" ]
+    }""")
+
+    fixture
+      .postJsonRequest(Uri.Path("/v1/create"), createCommand, headers)
+      .parseResponse[domain.ActiveContract.ResolvedCtTyId[JsValue]]
+      .flatMap(inside(_) {
+        case domain.OkResponse(created, _, StatusCodes.OK) => {
+          fixture
+            .postJsonRequest(Uri.Path("/v1/fetch"), fetchRequest, headers)
+            .parseResponse[domain.ActiveContract.ResolvedCtTyId[JsValue]]
+            .flatMap(inside(_) { case domain.OkResponse(fetched, _, StatusCodes.OK) =>
+              created.contractId shouldBe fetched.contractId
+            })
+        }
+      }): Future[Assertion]
   }
 
   private def testFetchByCompositeKey(
@@ -1171,7 +1551,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
       def userExerciseFollowCommand(
           contractId: lar.ContractId,
           toFollow: domain.Party,
-      ): domain.ExerciseCommand[v.Value, domain.EnrichedContractId] = {
+      ): domain.ExerciseCommand[Nothing, v.Value, domain.EnrichedContractId] = {
         val reference = domain.EnrichedContractId(Some(TpId.User.User), contractId)
         val arg = recordFromFields(ShRecord(userToFollow = v.Value.Sum.Party(toFollow.unwrap)))
         val choice = lar.Choice("Follow")
@@ -1180,8 +1560,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
       }
 
       def followUser(contractId: lar.ContractId, actAs: domain.Party, toFollow: domain.Party) = {
-        val exercise: domain.ExerciseCommand[v.Value, domain.EnrichedContractId] =
-          userExerciseFollowCommand(contractId, toFollow)
+        val exercise = userExerciseFollowCommand(contractId, toFollow)
         val exerciseJson: JsValue = encodeExercise(encoder)(exercise)
 
         fixture
@@ -1393,6 +1772,7 @@ abstract class AbstractHttpServiceIntegrationTestQueryStoreIndependent
                 readAs = None,
                 submissionId = Some(submissionId),
                 deduplicationPeriod = Some(domain.DeduplicationPeriod.Duration(10000L)),
+                disclosedContracts = None,
               )
             ),
           )

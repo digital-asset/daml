@@ -92,8 +92,8 @@ Functions
 .. _function-iou12-main-28537:
 
 `main <function-iou12-main-28537_>`_
-  \: `Scenario <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-scenario-98127>`_ ()
+  \: Script ()
 
-  A single test scenario covering all functionality that ``Iou`` implements\.
+  A single test case covering all functionality that ``Iou`` implements\.
   This description contains a link(http://example.com), some bogus \<inline html\>,
   and words\_ with\_ underscore, to test damldoc capabilities\.

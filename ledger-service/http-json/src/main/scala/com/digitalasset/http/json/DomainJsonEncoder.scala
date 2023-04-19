@@ -19,15 +19,17 @@ class DomainJsonEncoder(
   import com.daml.http.util.ErrorOps._
 
   def encodeExerciseCommand(
-      cmd: domain.ExerciseCommand[lav1.value.Value, domain.ContractLocator[lav1.value.Value]]
+      cmd: domain.ExerciseCommand.OptionalPkg[lav1.value.Value, domain.ContractLocator[
+        lav1.value.Value
+      ]]
   )(implicit
-      ev: JsonWriter[domain.ExerciseCommand[JsValue, domain.ContractLocator[JsValue]]]
+      ev: JsonWriter[domain.ExerciseCommand.OptionalPkg[JsValue, domain.ContractLocator[JsValue]]]
   ): JsonError \/ JsValue =
     for {
       x <- cmd.bitraverse(
         arg => apiValueToJsValue(arg),
         ref => ref.traverse(a => apiValueToJsValue(a)),
-      ): JsonError \/ domain.ExerciseCommand[JsValue, domain.ContractLocator[JsValue]]
+      ): JsonError \/ domain.ExerciseCommand.OptionalPkg[JsValue, domain.ContractLocator[JsValue]]
 
       y <- SprayJson.encode(x).liftErr(JsonError)
 
@@ -57,9 +59,10 @@ class DomainJsonEncoder(
       ev: JsonWriter[domain.CreateAndExerciseCommand[JsValue, JsValue, CtId, IfceId]]
   ): JsonError \/ JsValue =
     for {
-      payload <- apiRecordToJsObject(cmd.payload): JsonError \/ JsValue
-      argument <- apiValueToJsValue(cmd.argument)
-      y <- SprayJson.encode(cmd.copy(payload = payload, argument = argument)).liftErr(JsonError)
+      jsCmd <- cmd.traversePayloadsAndArgument(apiRecordToJsObject, apiValueToJsValue)
+      y <- SprayJson
+        .encode(jsCmd: domain.CreateAndExerciseCommand[JsValue, JsValue, CtId, IfceId])
+        .liftErr(JsonError)
 
     } yield y
 

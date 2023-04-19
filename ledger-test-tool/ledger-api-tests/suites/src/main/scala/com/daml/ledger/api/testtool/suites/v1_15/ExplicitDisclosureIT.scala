@@ -8,6 +8,7 @@ import com.daml.ledger.api.refinements.ApiTypes.Party
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
+import com.daml.ledger.api.testtool.infrastructure.Synchronize.synchronize
 import com.daml.ledger.api.testtool.infrastructure.TransactionHelpers.createdEvents
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
 import com.daml.ledger.api.v1.command_service.SubmitAndWaitRequest
@@ -69,6 +70,9 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
           transactionFilter = filterTxBy(owner, template = byTemplate, interface = None),
         )
 
+        // Ensure participants are synchronized
+        _ <- synchronize(ownerParticipant, delegateParticipant)
+
         // Exercise a choice on the Delegation that fetches the Delegated contract
         // Fails because the submitter doesn't see the contract being fetched
         exerciseFetchError <- testContext
@@ -109,6 +113,9 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
             interface = byInterface(includeCreateArgumentsBlob = true),
           ),
         )
+
+        // Ensure participants are synchronized
+        _ <- synchronize(ownerParticipant, delegateParticipant)
 
         // Exercise a choice on the Delegation that fetches the Delegated contract
         // Fails because the submitter doesn't see the contract being fetched
@@ -154,6 +161,9 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
         dummyCreate = createdEvents(dummyTxs(0)).head
         dummyDisclosedContract = createEventToDisclosedContract(dummyCreate)
 
+        // Ensure participants are synchronized
+        _ <- synchronize(ownerParticipant, delegateParticipant)
+
         // Exercise works with provided disclosed contract
         _ <- testContext.exerciseFetchDelegated(testContext.disclosedContract)
         // Exercise works with the Dummy contract as a superfluous disclosed contract
@@ -164,6 +174,9 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
 
         // Archive the Dummy contract
         _ <- ownerParticipant.exercise(owner, dummyCid.exerciseArchive())
+
+        // Ensure participants are synchronized
+        _ <- synchronize(ownerParticipant, delegateParticipant)
 
         // Exercise works with the archived superfluous disclosed contract
         _ <- testContext.exerciseFetchDelegated(
@@ -195,6 +208,10 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
           )
           withKeyCreate = createdEvents(withKeyCreationTx).head
           withKeyDisclosedContract = createEventToDisclosedContract(withKeyCreate)
+
+          // Ensure participants are synchronized
+          _ <- synchronize(ownerParticipant, divulgeeParticipant)
+
           exerciseByKeyError <- divulgeeParticipant
             .submitAndWait(
               exerciseWithKey_byKey_request(divulgeeParticipant, owner, divulgee, None)
@@ -298,6 +315,9 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
         // Archive the disclosed contract
         _ <- ownerParticipant.exercise(owner, testContext.delegatedCid.exerciseArchive())
 
+        // Ensure participants are synchronized
+        _ <- synchronize(ownerParticipant, delegateParticipant)
+
         // Exercise the choice using the now inactive disclosed contract
         _ <- testContext
           .exerciseFetchDelegated(testContext.disclosedContract)
@@ -329,6 +349,8 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
 
               // Submit concurrently two consuming exercise choices (with and without disclosed contract)
               party1_exerciseF = ledger1.exercise(party1, contractId.exerciseArchive())
+              // Ensure participants are synchronized
+              _ <- synchronize(ledger1, ledger2)
               party2_exerciseWithDisclosureF =
                 ledger2.submitAndWait(
                   ledger2
@@ -381,6 +403,9 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
         //        )
         //        .mustFail("using a mismatching contract key hash in metadata")
 
+        // Ensure participants are synchronized
+        _ <- synchronize(ownerParticipant, delegateParticipant)
+
         // Exercise a choice using invalid explicit disclosure (bad ledger time)
         _ <- testContext
           .exerciseFetchDelegated(
@@ -432,6 +457,9 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
           scala.Seq(RecordField("", Some(Value(Value.Sum.Bool(false))))),
         )
 
+        // Ensure participants are synchronized
+        _ <- synchronize(ownerParticipant, delegateParticipant)
+
         _ <- testContext.dummyCreate()
 
         // invalid disclosed contract (specify a hash key for a template without key)
@@ -474,6 +502,23 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
           err,
           LedgerApiErrors.CommandExecution.Preprocessing.PreprocessingFailed,
           Some("Expecting 2 field for record"),
+          checkDefiniteAnswerMetadata = true,
+        )
+
+        // invalid disclosed contract (bad contract key)
+        err <- testContext
+          .dummyCreate(
+            testContext.disclosedContract.update(
+              _.metadata.contractKeyHash := ByteString.copyFromUtf8(
+                "BadKeyBadKeyBadKeyBadKeyBadKey00"
+              )
+            )
+          )
+          .mustFail("using a disclosed contract with missing createdAt in contract metadata")
+        _ = assertGrpcError(
+          err,
+          LedgerApiErrors.CommandExecution.Interpreter.GenericInterpretationError,
+          None,
           checkDefiniteAnswerMetadata = true,
         )
 
@@ -547,8 +592,8 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
   })
 
   test(
-    "EDInconsistentSuperfluousDisclosedContracts",
-    "The ledger accepts superfluous disclosed contracts with mismatching meta data",
+    "EDInconsistentCreateTimeSuperfluousDisclosedContracts",
+    "The ledger reject superfluous disclosed contracts with mismatching create time",
     allocate(SingleParty, SingleParty),
     enabled = _.explicitDisclosure,
   )(implicit ec => {
@@ -570,18 +615,8 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
         whitKeyCreate = createdEvents(whitKeyTxs(0)).head
         whitKeyDisclosedContract = createEventToDisclosedContract(whitKeyCreate)
 
-        // Exercise a choice using invalid explicit disclosure (bad contract key)
-        _ <- testContext
-          .exerciseFetchDelegated(
-            testContext.disclosedContract,
-            // Provide a superfluous disclosed contract with mismatching key hash
-            whitKeyDisclosedContract
-              .update(
-                _.metadata.contractKeyHash := ByteString.copyFromUtf8(
-                  "BadKeyBadKeyBadKeyBadKeyBadKey00"
-                )
-              ),
-          )
+        // Ensure participants are synchronized
+        _ <- synchronize(ownerParticipant, delegateParticipant)
 
         // Exercise a choice using invalid explicit disclosure (bad ledger time)
         _ <- testContext
@@ -613,6 +648,9 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
           delegate = delegate,
           transactionFilter = filterTxBy(owner, template = byTemplate, interface = None),
         )
+
+        // Ensure participants are synchronized
+        _ <- synchronize(ownerParticipant, delegateParticipant)
 
         // Exercise a choice with a disclosed contract
         _ <- testContext.exerciseFetchDelegated(testContext.disclosedContract)
@@ -725,6 +763,9 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
           transactionFilter = filterTxBy(owner, template = byTemplate, interface = None),
         )
 
+        // Ensure participants are synchronized
+        _ <- synchronize(ownerParticipant, delegateParticipant)
+
         exerciseFetchError <- testContext
           .exerciseFetchDelegated(testContext.disclosedContract)
           .mustFail("explicit disclosure feature is disabled")
@@ -812,6 +853,9 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
           delegate = delegate,
           transactionFilter = filterTxBy(owner, template = byTemplate, interface = None),
         )
+
+        // Ensure participants are synchronized
+        _ <- synchronize(ownerParticipant, delegateParticipant)
 
         _ <- testContext
           .exerciseFetchDelegated(

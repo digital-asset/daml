@@ -32,7 +32,7 @@ private[http] final class UserManagement(
   def getUser(jwt: Jwt, req: domain.GetUserRequest): ET[domain.SyncResponse[domain.UserDetails]] =
     for {
       userId <- parseUserId(req.userId)
-      user <- EitherT.rightT(userManagementClient.getUser(userId, Some(jwt.value)))
+      user <- EitherT.rightT(userManagementClient.getUser(userId = userId, token = Some(jwt.value)))
     } yield domain.OkResponse(
       domain.UserDetails(user.id, user.primaryParty)
     ): domain.SyncResponse[domain.UserDetails]
@@ -76,7 +76,7 @@ private[http] final class UserManagement(
   ): ET[domain.SyncResponse[spray.json.JsObject]] = {
     for {
       userId <- parseUserId(deleteUserRequest.userId)
-      _ <- EitherT.rightT(userManagementClient.deleteUser(userId, Some(jwt.value)))
+      _ <- EitherT.rightT(userManagementClient.deleteUser(userId = userId, token = Some(jwt.value)))
     } yield emptyObjectResponse
   }
 
@@ -87,7 +87,7 @@ private[http] final class UserManagement(
     for {
       userId <- parseUserId(listUserRightsRequest.userId)
       rights <- EitherT.rightT(
-        userManagementClient.listUserRights(userId, Some(jwt.value))
+        userManagementClient.listUserRights(userId = userId, token = Some(jwt.value))
       )
     } yield domain
       .OkResponse(domain.UserRights.fromLedgerUserRights(rights)): domain.SyncResponse[List[
@@ -105,7 +105,11 @@ private[http] final class UserManagement(
         domain.UserRights.toLedgerUserRights(grantUserRightsRequest.rights)
       ).leftMap(InvalidUserInput): ET[List[UserRight]]
       grantedUserRights <- EitherT.rightT(
-        userManagementClient.grantUserRights(userId, rights, Some(jwt.value))
+        userManagementClient.grantUserRights(
+          userId = userId,
+          rights = rights,
+          token = Some(jwt.value),
+        )
       )
     } yield domain.OkResponse(
       domain.UserRights.fromLedgerUserRights(grantedUserRights)
@@ -122,7 +126,11 @@ private[http] final class UserManagement(
         domain.UserRights.toLedgerUserRights(revokeUserRightsRequest.rights)
       ).leftMap(InvalidUserInput): ET[List[UserRight]]
       revokedUserRights <- EitherT.rightT(
-        userManagementClient.revokeUserRights(userId, rights, Some(jwt.value))
+        userManagementClient.revokeUserRights(
+          userId = userId,
+          rights = rights,
+          token = Some(jwt.value),
+        )
       )
     } yield domain.OkResponse(
       domain.UserRights.fromLedgerUserRights(revokedUserRights)
@@ -132,14 +140,14 @@ private[http] final class UserManagement(
   def getAuthenticatedUser(jwt: Jwt): ET[domain.SyncResponse[domain.UserDetails]] =
     for {
       userId <- getUserIdFromToken(jwt)
-      user <- EitherT.rightT(userManagementClient.getUser(userId, Some(jwt.value)))
+      user <- EitherT.rightT(userManagementClient.getUser(userId = userId, token = Some(jwt.value)))
     } yield domain.OkResponse(domain.UserDetails(user.id, user.primaryParty))
 
   def listAuthenticatedUserRights(jwt: Jwt): ET[domain.SyncResponse[List[domain.UserRight]]] = {
     for {
       userId <- getUserIdFromToken(jwt)
       rights <- EitherT.rightT(
-        userManagementClient.listUserRights(userId, Some(jwt.value))
+        userManagementClient.listUserRights(userId = userId, token = Some(jwt.value))
       )
     } yield domain
       .OkResponse(domain.UserRights.fromLedgerUserRights(rights)): domain.SyncResponse[List[
@@ -163,7 +171,7 @@ private[http] final class UserManagement(
     Source.unfoldAsync(some("")) {
       _ traverse { pageToken =>
         userManagementClient
-          .listUsers(token, pageToken, pageSize)
+          .listUsers(token = token, pageToken = pageToken, pageSize = pageSize)
           .map {
             case (users, "") => (None, \/-(users))
             case (users, pageToken) => (Some(pageToken), \/-(users))

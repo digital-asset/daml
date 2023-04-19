@@ -107,6 +107,7 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
       stakeholders = aliceS,
       signatories = aliceS,
       choiceObservers = Set.empty,
+      choiceAuthorizers = None,
       children = ImmArray.Empty,
       exerciseResult = None,
       keyOpt = toOptKeyWithMaintainers(templateId, key),
@@ -631,7 +632,6 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
     case _: Node.Create | _: Node.Fetch | _: Node.LookupByKey => ImmArray.empty[NodeId]
     case exercise: Node.Exercise => exercise.children
     case rollback: Node.Rollback => rollback.children
-    case authority: Node.Authority => authority.children
   }
 
   /** Visits the `root` node and all its children in execution order and updates the `state` accordingly,
@@ -661,8 +661,6 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
     val node = nodes(root)
     for {
       next <- node match {
-        case _: Node.Authority =>
-          ??? // TODO #15882 -- treat like exercise with no keys. recurse directly on children
         case actionNode: Node.Action =>
           state.handleNode((), actionNode, actionNode.gkeyOpt.flatMap(resolver))
         case _: Node.Rollback =>
@@ -672,7 +670,6 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
         visitSubtrees(ksm)(nodes, children(node).toSeq, resolver, next)
       }
       exited = node match {
-        case _: Node.Authority => ??? // TODO #15882
         case _: Node.Rollback => afterChildren.endRollback()
         case _ => afterChildren
       }
@@ -764,8 +761,6 @@ object ContractStateMachineSpec {
         },
       rollbackBegin = (s, _, _) => s -> ChildrenRecursion.DoRecurse,
       rollbackEnd = (s, _, _) => s,
-      authorityBegin = (s, _, _) => s -> ChildrenRecursion.DoRecurse,
-      authorityEnd = (s, _, _) => s,
     )
   }
 

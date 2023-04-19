@@ -80,11 +80,6 @@ conformance_test_tool_args = [
         "CommandDeduplicationPeriodValidationIT:OffsetPruned",  # requires pruning not available in canton community
         "ActiveContractsServiceIT:AcsBeforePruningOffsetIsDisallowed",  # requires pruning not available in canton community
         "ActiveContractsServiceIT:AcsAtPruningOffsetIsAllowed",  # requires pruning not available in canton community
-        # TODO pruning: Disable the exclusions below once the round-trip is finished
-        "ParticipantPruningIT:PRQueryLatestPrunedOffsets",
-        "ParticipantPruningIT:PREventsByContractIdPruned",
-        "ParticipantPruningIT:PREventsByContractKey",
-        "EventQueryServiceIT",
     ]),
 ]
 

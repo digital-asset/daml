@@ -52,6 +52,12 @@ object FailedAuthorization {
       optLocation: Option[Location],
   ) extends FailedAuthorization
 
+  final case class NoAuthorizers(
+      templateId: Identifier,
+      choiceid: ChoiceName,
+      optLocation: Option[Location],
+  ) extends FailedAuthorization
+
   final case class LookupByKeyMissingAuthorization(
       templateId: Identifier,
       optLocation: Option[Location],

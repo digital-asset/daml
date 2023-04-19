@@ -4,6 +4,7 @@
 -- @SINCE-LF 1.7
 module TemplateTypeRep where
 
+import Daml.Script
 import DA.Action
 import qualified TemplateTypeRep2
 
@@ -30,11 +31,9 @@ assertTypeRepNeq a b =
   unless (a /= b) $ abort "TypeReps are equal"
 
 
-main = scenario do
+main = script do
   assertTypeRepEq (templateTypeRep @T1) (templateTypeRep @T1)
   assertTypeRepEq (templateTypeRep @T2) (templateTypeRep @T2)
 
   assertTypeRepNeq (templateTypeRep @T1) (templateTypeRep @T2)
   assertTypeRepNeq (templateTypeRep @T1) (templateTypeRep @TemplateTypeRep2.T1)
-
--- @ENABLE-SCENARIOS

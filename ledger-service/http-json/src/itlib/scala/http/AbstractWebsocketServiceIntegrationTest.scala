@@ -310,7 +310,7 @@ abstract class AbstractWebsocketServiceIntegrationTest(val integration: String)
               ecid,
               choice = domain.Choice("ChangeAmount"),
               argument = Map("newAmount" -> "abcxx").toJson,
-              None,
+              Option.empty[domain.ContractTypeId.OptionalPkg],
               None,
             )
             .toJson
@@ -512,7 +512,7 @@ abstract class AbstractWebsocketServiceIntegrationTest(val integration: String)
         domain.EnrichedContractId(Some(TpId.Iou.Iou), cid): domain.ContractLocator[JsValue],
         domain.Choice("Iou_Split"),
         Map("splitAmount" -> amount).toJson,
-        None,
+        Option.empty[domain.ContractTypeId.OptionalPkg],
         None,
       )
       .toJson

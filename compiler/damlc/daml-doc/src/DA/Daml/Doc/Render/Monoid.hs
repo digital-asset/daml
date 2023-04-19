@@ -141,14 +141,15 @@ renderPage formatter externalAnchors output =
 renderFolder ::
     RenderFormatter
     -> AnchorMap
+    -> String
     -> Map.Map Modulename RenderOut
     -> (T.Text, Map.Map Modulename T.Text)
-renderFolder formatter externalAnchors fileMap =
+renderFolder formatter externalAnchors globalInternalExt fileMap =
     let moduleAnchors = Map.map getRenderAnchors fileMap
         re_externalAnchors = externalAnchors
         re_separateModules = True
         re_globalAnchors = Map.fromList
-            [ (anchor, moduleNameToFileName moduleName <.> "html")
+            [ (anchor, moduleNameToFileName moduleName <.> globalInternalExt)
             | (moduleName, anchors) <- Map.toList moduleAnchors
             , anchor <- Set.toList anchors
             ]
@@ -195,7 +196,7 @@ buildAnchorTable RenderOptions{..} outputs
         buildFolderURL baseURL moduleName anchor = T.concat
             [ stripTrailingSlash baseURL
             , "/"
-            , T.pack (moduleNameToFileName moduleName <.> "html")
+            , T.pack (moduleNameToFileName moduleName <.> ro_globalInternalExt)
             , "#"
             , unAnchor anchor
             ]

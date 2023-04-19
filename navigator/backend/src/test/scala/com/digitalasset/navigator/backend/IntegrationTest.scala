@@ -26,6 +26,7 @@ import org.scalatest._
 import org.scalatest.freespec.AsyncFreeSpec
 import org.scalatest.matchers.should.Matchers
 import com.daml.timer.RetryStrategy
+import com.google.protobuf.field_mask.FieldMask
 import org.slf4j.LoggerFactory
 
 import java.util.UUID
@@ -142,6 +143,16 @@ class IntegrationTest
       )
   }
 
+  private def updateUser(userName: String, primaryParty: Ref.Party)(implicit
+      client: LedgerClient
+  ): Future[domain.User] = {
+    client.userManagementClient
+      .updateUser(
+        domain.User(UserId.assertFromString(userName), Some(primaryParty)),
+        Some(FieldMask(Seq("primary_party"))),
+      )
+  }
+
   private def createUser(userName: String)(implicit client: LedgerClient): Future[domain.User] = {
     client.userManagementClient
       .createUser(
@@ -198,6 +209,10 @@ class IntegrationTest
           _ <- createUser("user-name-1", partyDetails.party)
           partyDetails2 <- allocateParty("primary-party2")
           _ <- createUser("user-name-2", partyDetails2.party)
+          _ <- okSessionBody(
+            """{"method":{"type":"select","users":["user-name-1","user-name-2"]},"type":"sign-in"}"""
+          )
+          _ <- updateUser("user-name-2", partyDetails.party)
           _ <- okSessionBody(
             """{"method":{"type":"select","users":["user-name-1","user-name-2"]},"type":"sign-in"}"""
           )

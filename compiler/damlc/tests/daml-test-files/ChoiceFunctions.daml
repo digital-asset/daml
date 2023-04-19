@@ -2,10 +2,10 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 -- @SINCE-LF-FEATURE DAML_CHOICE_FUNCS
--- @ENABLE-SCENARIOS
 
 module ChoiceFunctions where
 
+import Daml.Script
 import DA.Assert ((===))
 
 data EmptyInterfaceView = EmptyInterfaceView {}
@@ -45,11 +45,11 @@ interface I where
     view = EmptyInterfaceView
     pi = p
 
-main = scenario do
-  a <- getParty "a"
-  b <- getParty "b"
-  c <- getParty "c"
-  d <- getParty "d"
+main = script do
+  a <- allocateParty "a"
+  b <- allocateParty "b"
+  c <- allocateParty "c"
+  d <- allocateParty "d"
 
   choiceController (T a) C1 === [a]
   choiceObserver (T a) C1 === []

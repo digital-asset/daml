@@ -113,8 +113,8 @@ instance IsOption SkipValidationOpt where
 type ScriptPackageData = (FilePath, PackageFlag)
 
 -- | Creates a temp directory with daml script installed, gives the database db path and package flag
-withDamlScriptDep :: Version -> (ScriptPackageData -> IO a) -> IO a
-withDamlScriptDep lfVer cont = do
+withDamlScriptDep :: Maybe Version -> (ScriptPackageData -> IO a) -> IO a
+withDamlScriptDep mLfVer cont = do
   withTempDir $ \dir -> do
     withCurrentDirectory dir $ do
       let projDir = toNormalizedFilePath' dir
@@ -122,17 +122,18 @@ withDamlScriptDep lfVer cont = do
           -- daml-script and daml-triggers use the sdkPackageVersion for their versioning
           packageFlag = ExposePackage ("--package daml-script-" <> sdkPackageVersion) (UnitIdArg $ stringToUnitId $ "daml-script-" <> sdkPackageVersion) (ModRenaming True [])
 
-      scriptDar <- locateRunfiles $ mainWorkspace </> "daml-script/daml/daml-script-" <> renderVersion lfVer <> ".dar"
+      let lfVerStr = maybe "" (\lfVer -> "-" <> renderVersion lfVer) mLfVer
+      scriptDar <- locateRunfiles $ mainWorkspace </> "daml-script/daml/daml-script" <> lfVerStr <> ".dar"
 
       installDependencies
         projDir
-        (defaultOptions $ Just lfVer)
+        (defaultOptions mLfVer)
         (PackageSdkVersion sdkVersion)
         ["daml-prim", "daml-stdlib", scriptDar]
         []
       createProjectPackageDb
         projDir
-        (defaultOptions $ Just lfVer)
+        (defaultOptions mLfVer)
         mempty
 
       cont (dir </> projectPackageDatabase, packageFlag)
@@ -148,7 +149,7 @@ main = do
       execParser (info parser forwardOptions)
   scenarioLogger <- Logger.newStderrLogger Logger.Warning "scenario"
 
-  withDamlScriptDep lfVer $ \scriptPackageData ->
+  withDamlScriptDep (Just lfVer) $ \scriptPackageData ->
     SS.withScenarioService lfVer scenarioLogger scenarioConf $ \scenarioService -> do
       hSetEncoding stdout utf8
       setEnv "TASTY_NUM_THREADS" "1" True
@@ -333,9 +334,8 @@ runJqQuery log mJsonFile qs = do
         let jqKey = "external" </> "jq_dev_env" </> "bin" </> if isWindows then "jq.exe" else "jq"
         jq <- locateRunfiles $ mainWorkspace </> jqKey
         queryLfDir <- locateRunfiles $ mainWorkspace </> "compiler/damlc/tests/src"
-        let fullQuery = "import \"./query-lf\" as lf; . as $pkg | " ++ q
-            streamFlags = if isStream then ["--stream", "-n"] else []
-        out <- readProcess jq (streamFlags <> ["-L", queryLfDir, fullQuery, jsonPath]) ""
+        let fullQuery = "import \"./query-lf\" as lf; inputs as $pkg | " ++ q
+        out <- readProcess jq (["--stream" | isStream] <> ["-n", "-L", queryLfDir, fullQuery, jsonPath]) ""
         case trim out of
           "true" -> pure Nothing
           other -> pure $ Just $ "jq query failed: got " ++ other

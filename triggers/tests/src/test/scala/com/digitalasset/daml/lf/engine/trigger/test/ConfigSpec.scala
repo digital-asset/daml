@@ -4,20 +4,16 @@
 package com.daml.lf.engine.trigger
 package test
 
-import java.nio.file.Paths
-
+import java.nio.file.{Path, Paths}
 import com.daml.ledger.api.domain.{ObjectMeta, User, UserRight}
-import com.daml.ledger.api.refinements.ApiTypes.Party
+import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId, Party}
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
-import com.daml.ledger.client.LedgerClient
-import com.daml.ledger.client.configuration.{
-  CommandClientConfiguration,
-  LedgerClientConfiguration,
-  LedgerIdRequirement,
-}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.UserId
-import com.daml.platform.sandbox.fixture.SandboxFixture
+import com.daml.lf.integrationtest.CantonFixture
+import com.daml.lf.integrationtest.CantonFixture.{adminUserId, freshUserId}
+import com.daml.platform.services.time.TimeProviderType
+import com.google.protobuf.field_mask.FieldMask
 import io.grpc.StatusRuntimeException
 import io.grpc.Status.Code
 import org.scalatest.matchers.should.Matchers
@@ -28,17 +24,16 @@ import scala.language.implicitConversions
 class ConfigSpec
     extends AsyncWordSpec
     with Matchers
-    with SandboxFixture
+    with CantonFixture
     with SuiteResourceManagementAroundAll {
 
-  private val clientConfig = LedgerClientConfiguration(
-    applicationId = "myappid",
-    ledgerIdRequirement = LedgerIdRequirement.none,
-    commandClient = CommandClientConfiguration.default,
-    token = None,
-  )
-
-  override protected val packageFiles = List.empty
+  override protected def authSecret: Option[String] = None
+  override protected def darFiles: List[Path] = List.empty
+  override protected def devMode: Boolean = true
+  override protected def nParticipants: Int = 1
+  override protected def timeProviderType: TimeProviderType = TimeProviderType.Static
+  override protected def tlsEnable: Boolean = false
+  override protected def applicationId: ApplicationId = ApplicationId("myappid")
 
   private implicit def toParty(s: String): Party =
     Party(s)
@@ -97,55 +92,92 @@ class ConfigSpec
   "resolveClaims" should {
     "succeed for user with primary party & actAs and readAs claims" in {
       for {
-        client <- LedgerClient(channel, clientConfig)
-        userId = randomUserId()
-        _ <- client.partyManagementClient.allocateParty(hint = Some("primary"), None, None)
-        _ <- client.partyManagementClient.allocateParty(hint = Some("alice"), None, None)
-        _ <- client.partyManagementClient.allocateParty(hint = Some("bob"), None, None)
-        _ <- client.userManagementClient.createUser(
-          User(userId, Some("primary"), isDeactivated = false, metadata = ObjectMeta.empty),
+        adminClient <- defaultLedgerClient(getToken(adminUserId))
+        userId = Ref.UserId.assertFromString(freshUserId())
+        primary <- adminClient.partyManagementClient.allocateParty(
+          hint = Some("primary"),
+          None,
+          None,
+        )
+        alice <- adminClient.partyManagementClient.allocateParty(hint = Some("alice"), None, None)
+        bob <- adminClient.partyManagementClient.allocateParty(hint = Some("bob"), None, None)
+        _ <- adminClient.userManagementClient.createUser(
+          User(userId, Some(primary.party), metadata = ObjectMeta.empty),
           Seq(
-            UserRight.CanActAs("primary"),
-            UserRight.CanActAs("alice"),
-            UserRight.CanReadAs("bob"),
+            UserRight.CanActAs(primary.party),
+            UserRight.CanActAs(alice.party),
+            UserRight.CanReadAs(bob.party),
           ),
         )
-        r <- UserSpecification(userId).resolveClaims(client)
-      } yield r shouldBe TriggerParties("primary", Set("alice", "bob"))
+        r <- UserSpecification(userId).resolveClaims(adminClient)
+      } yield r shouldBe TriggerParties(primary.party, Set(alice.party, bob.party))
     }
     "fail for non-existent user" in {
       for {
-        client <- LedgerClient(channel, clientConfig)
+        adminClient <- defaultLedgerClient(getToken(adminUserId))
+        userId = Ref.UserId.assertFromString(freshUserId())
         ex <- recoverToExceptionIf[StatusRuntimeException](
-          UserSpecification(randomUserId()).resolveClaims(client)
+          UserSpecification(userId).resolveClaims(adminClient)
         )
       } yield ex.getStatus.getCode shouldBe Code.NOT_FOUND
     }
     "fail for user with no primary party" in {
       for {
-        client <- LedgerClient(channel, clientConfig)
-        userId = randomUserId()
-        _ <- client.userManagementClient.createUser(
-          User(userId, None, false, ObjectMeta.empty),
+        adminClient <- defaultLedgerClient(getToken(adminUserId))
+        userId = Ref.UserId.assertFromString(freshUserId())
+        _ <- adminClient.userManagementClient.createUser(
+          User(userId, None, metadata = ObjectMeta.empty),
           Seq.empty,
         )
         ex <- recoverToExceptionIf[IllegalArgumentException](
-          UserSpecification(userId).resolveClaims(client)
+          UserSpecification(userId).resolveClaims(adminClient)
         )
       } yield ex.getMessage should include("has no primary party")
     }
     "fail for user with no actAs claims for primary party" in {
       for {
-        client <- LedgerClient(channel, clientConfig)
-        userId = randomUserId()
-        _ <- client.userManagementClient.createUser(
-          User(userId, Some("primary"), false, ObjectMeta.empty),
+        adminClient <- defaultLedgerClient(getToken(adminUserId))
+        userId = Ref.UserId.assertFromString(freshUserId())
+        _ <- adminClient.userManagementClient.createUser(
+          User(userId, Some("primary"), isDeactivated = false, ObjectMeta.empty),
           Seq.empty,
         )
         ex <- recoverToExceptionIf[IllegalArgumentException](
-          UserSpecification(userId).resolveClaims(client)
+          UserSpecification(userId).resolveClaims(adminClient)
         )
       } yield ex.getMessage should include("no actAs claims")
+    }
+    "succeed for user after primaryParty update" in {
+      for {
+        adminClient <- defaultLedgerClient(getToken(adminUserId))
+        userId = Ref.UserId.assertFromString(freshUserId())
+        original <- adminClient.partyManagementClient.allocateParty(
+          hint = Some("original"),
+          None,
+          None,
+        )
+        updated <- adminClient.partyManagementClient.allocateParty(
+          hint = Some("updated"),
+          None,
+          None,
+        )
+        other <- adminClient.partyManagementClient.allocateParty(hint = Some("other"), None, None)
+        _ <- adminClient.userManagementClient.createUser(
+          User(userId, Some(original.party), metadata = ObjectMeta.empty),
+          Seq(
+            UserRight.CanActAs(original.party),
+            UserRight.CanActAs(updated.party),
+            UserRight.CanReadAs(other.party),
+          ),
+        )
+        _ <- adminClient.userManagementClient.updateUser(
+          User(userId, Some(updated.party), metadata = ObjectMeta.empty),
+          Some(FieldMask(Seq("primary_party"))),
+          None,
+        )
+
+        r <- UserSpecification(userId).resolveClaims(adminClient)
+      } yield r shouldBe TriggerParties(updated.party, Set(other.party, original.party))
     }
   }
 }

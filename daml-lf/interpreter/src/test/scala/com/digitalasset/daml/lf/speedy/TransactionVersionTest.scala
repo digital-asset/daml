@@ -302,6 +302,7 @@ object TransactionVersionTest {
     val speedyControllers =
       SExpr.SEValue(SValue.SList(FrontStack.from(controllers.map(SValue.SParty))))
     val speedyObservers = SExpr.SEValue(SValue.SList(FrontStack.Empty))
+    val speedyAuthorizers = SExpr.SEValue(SValue.SList(FrontStack.Empty))
     val machine =
       Speedy.Machine.fromUpdateSExpr(
         pkgs,
@@ -318,7 +319,8 @@ object TransactionVersionTest {
                 choiceName,
                 consuming = true,
                 byKey = false,
-              )(choiceArg, speedyContractId, speedyControllers, speedyObservers)
+                explicitChoiceAuthority = false,
+              )(choiceArg, speedyContractId, speedyControllers, speedyObservers, speedyAuthorizers)
             ),
           ),
         ),

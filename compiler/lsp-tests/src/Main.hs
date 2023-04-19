@@ -48,27 +48,40 @@ main = do
         mainWorkspace </> "compiler" </> "damlc" </> exe "damlc"
     scriptDarPath <- locateRunfiles $
         mainWorkspace </> "daml-script" </> "daml" </> "daml-script.dar"
-    let run s = withTempDir $ \dir -> runSessionWithConfig conf (damlcPath <> " ide --scenarios=no --enable-scenarios=yes") fullCaps' dir s
-        runScenarios s
+    let run s = withTempDir $ \dir -> runSessionWithConfig conf (damlcPath <> " ide") fullCaps' dir s
+        runScripts s 
             -- We are currently seeing issues with GRPC FFI calls which make everything
             -- that uses the scenario service extremely flaky and forces us to disable it on
             -- CI. Once https://github.com/digital-asset/daml/issues/1354 is fixed we can
-            -- also run scenario tests on Windows.
+            -- also run these tests on Windows.
             | isWindows = pure ()
-            | otherwise = withTempDir $ \dir -> runSessionWithConfig conf (damlcPath <> " ide --scenarios=yes --enable-scenarios=yes") fullCaps' dir s
+            | otherwise = withTempDir $ \dir -> do
+                copyFile scriptDarPath (dir </> "daml-script.dar")
+                writeFileUTF8 (dir </> "daml.yaml") $ unlines
+                    [ "sdk-version: " <> sdkVersion
+                    , "name: script-test"
+                    , "version: 0.0.1"
+                    , "source: ."
+                    , "dependencies:"
+                    , "- daml-prim"
+                    , "- daml-stdlib"
+                    , "- daml-script.dar"
+                    ]
+                withCurrentDirectory dir $
+                    runSessionWithConfig conf (damlcPath <> " ide") fullCaps' dir s
+
     defaultMain $ testGroup "LSP"
         [ symbolsTests run
-        , diagnosticTests run runScenarios
-        , requestTests run runScenarios
-        , scenarioTests runScenarios
-        , scriptTests damlcPath scriptDarPath
-        , stressTests run runScenarios
-        , executeCommandTests run runScenarios
-        , regressionTests run runScenarios
-        , includePathTests damlcPath
-        , multiPackageTests damlcPath
-        , completionTests run runScenarios
-        , raceTests run
+        , diagnosticTests run runScripts
+        , requestTests run runScripts
+        , scriptTests runScripts
+        , stressTests run
+        , executeCommandTests run
+        , regressionTests run
+        , includePathTests damlcPath scriptDarPath
+        , multiPackageTests damlcPath scriptDarPath
+        , completionTests run
+        , raceTests runScripts
         ]
 
 conf :: SessionConfig
@@ -79,10 +92,10 @@ conf = defaultConfig
     -- { logMessages = True, logColor = False, logStdErr = True }
 
 diagnosticTests
-    :: (forall a. Session a -> IO a)
+    :: (Session () -> IO ())
     -> (Session () -> IO ())
     -> TestTree
-diagnosticTests run runScenarios = testGroup "diagnostics"
+diagnosticTests run runScripts = testGroup "diagnostics"
     [ testCase "diagnostics disappear after error is fixed" $ run $ do
           test <- openDoc' "Test.daml" damlId $ T.unlines
               [ "module Test where"
@@ -243,20 +256,21 @@ diagnosticTests run runScenarios = testGroup "diagnostics"
                 )
               ]
           closeDoc main'
-    , testCase "scenario error" $ runScenarios $ do
+    , testCase "script error" $ runScripts $ do
           main' <- openDoc' "Main.daml" damlId $ T.unlines
               [ "module Main where"
+              , "import Daml.Script"
               , "template Agree with p1 : Party; p2 : Party where"
               , "  signatory [p1, p2]"
-              , "myScenario = scenario do"
-              , "  foo <- getParty \"Foo\""
-              , "  alice <- getParty \"Alice\""
-              , "  submit foo $ create $ Agree with p1 = foo, p2 = alice"
+              , "myScript = script do"
+              , "  foo <- allocateParty \"Foo\""
+              , "  alice <- allocateParty \"Alice\""
+              , "  submit foo $ createCmd $ Agree with p1 = foo, p2 = alice"
               ]
-          _ <- openScenario "Main.daml" "myScenario"
+          _ <- openScript "Main.daml" "myScript"
           expectDiagnostics
               [ ( "Main.daml"
-                , [(DsError, (3, 0), "missing authorization from 'Alice'")]
+                , [(DsError, (4, 0), "missing authorization from 'Alice'")]
                 )
               ]
           closeDoc main'
@@ -264,27 +278,28 @@ diagnosticTests run runScenarios = testGroup "diagnostics"
 
 
 requestTests
-    :: (forall a. Session a -> IO a)
+    :: (Session () -> IO ())
     -> (Session () -> IO ())
     -> TestTree
-requestTests run _runScenarios = testGroup "requests"
-    [ testCase "code-lenses" $ run $ do
+requestTests run runScripts = testGroup "requests"
+    [ testCase "code-lenses" $ runScripts $ do
           main' <- openDoc' "Main.daml" damlId $ T.unlines
               [ "module Main where"
-              , "single : Scenario ()"
-              , "single = scenario do"
+              , "import Daml.Script"
+              , "single : Script ()"
+              , "single = script do"
               , "  assert (True == True)"
               ]
           lenses <- getCodeLenses main'
           Just escapedFp <- pure $ escapeURIString isUnescapedInURIComponent <$> uriToFilePath (main' ^. uri)
           liftIO $ lenses @?=
               [ CodeLens
-                    { _range = Range (Position 2 0) (Position 2 6)
+                    { _range = Range (Position 3 0) (Position 3 6)
                     , _command = Just $ Command
-                          { _title = "Scenario results"
+                          { _title = "Script results"
                           , _command = "daml.showResource"
                           , _arguments = Just $ List
-                              [ "Scenario: single"
+                              [ "Script: single"
                               ,  toJSON $ "daml://compiler?file=" <> escapedFp <> "&top-level-decl=single"
                               ]
                           }
@@ -293,11 +308,12 @@ requestTests run _runScenarios = testGroup "requests"
               ]
 
           closeDoc main'
-    , testCase "stale code-lenses" $ run $ do
+    , testCase "stale code-lenses" $ runScripts $ do
           main' <- openDoc' "Main.daml" damlId $ T.unlines
               [ "module Main where"
-              , "single : Scenario ()"
-              , "single = scenario do"
+              , "import Daml.Script"
+              , "single : Script ()"
+              , "single = script do"
               , "  assert True"
               ]
           lenses <- getCodeLenses main'
@@ -306,24 +322,24 @@ requestTests run _runScenarios = testGroup "requests"
                   CodeLens
                     { _range = range
                     , _command = Just $ Command
-                          { _title = "Scenario results"
+                          { _title = "Script results"
                           , _command = "daml.showResource"
                           , _arguments = Just $ List
-                              [ "Scenario: single"
+                              [ "Script: single"
                               ,  toJSON $ "daml://compiler?file=" <> escapedFp <> "&top-level-decl=single"
                               ]
                           }
                     , _xdata = Nothing
                     }
-          liftIO $ lenses @?= [codeLens (Range (Position 2 0) (Position 2 6))]
-          changeDoc main' [TextDocumentContentChangeEvent (Just (Range (Position 3 23) (Position 3 23))) Nothing "+"]
-          expectDiagnostics [("Main.daml", [(DsError, (4, 0), "Parse error")])]
+          liftIO $ lenses @?= [codeLens (Range (Position 3 0) (Position 3 6))]
+          changeDoc main' [TextDocumentContentChangeEvent (Just (Range (Position 4 23) (Position 4 23))) Nothing "+"]
+          expectDiagnostics [("Main.daml", [(DsError, (5, 0), "Parse error")])]
           lenses <- getCodeLenses main'
-          liftIO $ lenses @?= [codeLens (Range (Position 2 0) (Position 2 6))]
+          liftIO $ lenses @?= [codeLens (Range (Position 3 0) (Position 3 6))]
           -- Shift code lenses down
           changeDoc main' [TextDocumentContentChangeEvent (Just (Range (Position 0 0) (Position 0 0))) Nothing "\n\n"]
           lenses <- getCodeLenses main'
-          liftIO $ lenses @?= [codeLens (Range (Position 4 0) (Position 4 6))]
+          liftIO $ lenses @?= [codeLens (Range (Position 5 0) (Position 5 6))]
           closeDoc main'
     , testCase "add type signature code lens shows unqualified HasField" $ run $ do
           main' <- openDoc' "Main.daml" damlId $ T.unlines
@@ -462,70 +478,9 @@ requestTests run _runScenarios = testGroup "requests"
           closeDoc test
     ]
 
-scenarioTests :: (Session () -> IO ()) -> TestTree
-scenarioTests run = testGroup "scenarios"
-    [ testCase "opening codelens produces a notification" $ run $ do
-          main' <- openDoc' "Main.daml" damlId $ T.unlines
-              [ "module Main where"
-              , "main : Scenario ()"
-              , "main = scenario $ assert (True == True)"
-              ]
-          lenses <- getCodeLenses main'
-          uri <- scenarioUri "Main.daml" "main"
-          liftIO $ lenses @?=
-              [ CodeLens
-                    { _range = Range (Position 2 0) (Position 2 4)
-                    , _command = Just $ Command
-                          { _title = "Scenario results"
-                          , _command = "daml.showResource"
-                          , _arguments = Just $ List
-                              [ "Scenario: main"
-                              ,  toJSON uri
-                              ]
-                          }
-                    , _xdata = Nothing
-                    }
-              ]
-          mainScenario <- openScenario "Main.daml" "main"
-          _ <- waitForScenarioDidChange
-          closeDoc mainScenario
-    , testCase "scenario ok" $ run $ do
-          main' <- openDoc' "Main.daml" damlId $ T.unlines
-              [ "module Main where"
-              , "main = scenario $ pure \"ok\""
-              ]
-          scenario <- openScenario "Main.daml" "main"
-          expectScenarioContent "Return value: &quot;ok&quot"
-          closeDoc scenario
-          closeDoc main'
-    , testCase "spaces in path" $ run $ do
-          main' <- openDoc' "spaces in path/Main.daml" damlId $ T.unlines
-              [ "module Main where"
-              , "main = scenario $ pure \"ok\""
-              ]
-          scenario <- openScenario "spaces in path/Main.daml" "main"
-          expectScenarioContent "Return value: &quot;ok&quot"
-          closeDoc scenario
-          closeDoc main'
-    , testCase "submit location" $ run $ do
-          main' <- openDoc' "Main.daml" damlId $ T.unlines
-              [ "module Main where"
-              , "template T with party : Party where signatory party"
-              , "main = scenario $ do"
-              , "  alice <- getParty \"Alice\""
-              , "  submit alice do create (T alice)"
-              , "  submitCreateT alice"
-              , "submitCreateT party = submit party do create (T party)"
-              ]
-          script <- openScenario "Main.daml" "main"
-          expectScenarioContentMatch "title=\"Main:5:3\">Main:5:3</a>.*title=\"Main:7:1\">Main:7:1</a>"
-          closeDoc script
-          closeDoc main'
-    ]
-
-scriptTests :: FilePath -> FilePath -> TestTree
-scriptTests damlcPath scriptDarPath = testGroup "scripts"
-    [ testCase "opening codelens produces a notification" $ run $ do
+scriptTests :: (Session () -> IO ()) -> TestTree
+scriptTests runScripts = testGroup "scripts"
+    [ testCase "opening codelens produces a notification" $ runScripts $ do
           main' <- openDoc' "Main.daml" damlId $ T.unlines
               [ "{-# LANGUAGE ApplicativeDo #-}"
               , "module Main where"
@@ -552,7 +507,7 @@ scriptTests damlcPath scriptDarPath = testGroup "scripts"
           mainScript <- openScript "Main.daml" "main"
           _ <- waitForScriptDidChange
           closeDoc mainScript
-    , testCase "script ok" $ run $ do
+    , testCase "script ok" $ runScripts $ do
           main' <- openDoc' "Main.daml" damlId $ T.unlines
               [ "{-# LANGUAGE ApplicativeDo #-}"
               , "module Main where"
@@ -564,7 +519,7 @@ scriptTests damlcPath scriptDarPath = testGroup "scripts"
           expectScriptContent "Return value: &quot;ok&quot"
           closeDoc script
           closeDoc main'
-    , testCase "spaces in path" $ run $ do
+    , testCase "spaces in path" $ runScripts $ do
           main' <- openDoc' "spaces in path/Main.daml" damlId $ T.unlines
               [ "{-# LANGUAGE ApplicativeDo #-}"
               , "module Main where"
@@ -576,7 +531,7 @@ scriptTests damlcPath scriptDarPath = testGroup "scripts"
           expectScriptContent "Return value: &quot;ok&quot"
           closeDoc script
           closeDoc main'
-    , testCase "submit location" $ run $ do
+    , testCase "submit location" $ runScripts $ do
           main' <- openDoc' "Main.daml" damlId $ T.unlines
               [ "{-# LANGUAGE ApplicativeDo #-}"
               , "module Main where"
@@ -594,25 +549,11 @@ scriptTests damlcPath scriptDarPath = testGroup "scripts"
           closeDoc script
           closeDoc main'
     ]
-  where
-    run s | isWindows = pure ()
-          | otherwise = withTempDir $ \dir -> do
-        copyFile scriptDarPath (dir </> "daml-script.dar")
-        writeFileUTF8 (dir </> "daml.yaml") $ unlines
-            [ "sdk-version: " <> sdkVersion
-            , "name: script-test"
-            , "version: 0.0.1"
-            , "source: ."
-            , "dependencies:"
-            , "- daml-prim"
-            , "- daml-stdlib"
-            , "- daml-script.dar"
-            ]
-        withCurrentDirectory dir $
-            runSessionWithConfig conf (damlcPath <> " ide") fullCaps' dir s
 
-executeCommandTests :: (forall a. Session a -> IO a) -> (Session () -> IO ()) -> TestTree
-executeCommandTests run _ = testGroup "execute command"
+executeCommandTests
+    :: (Session () -> IO ())
+    -> TestTree
+executeCommandTests run = testGroup "execute command"
     [ testCase "execute commands" $ run $ do
         main' <- openDoc' "Coin.daml" damlId $ T.unlines
             [ "module Coin where"
@@ -648,10 +589,9 @@ executeCommandTests run _ = testGroup "execute command"
 
 -- | Do extreme things to the compiler service.
 stressTests
-  :: (forall a. Session a -> IO a)
-  -> (Session () -> IO ())
+  :: (Session () -> IO ())
   -> TestTree
-stressTests run _runScenarios = testGroup "Stress tests"
+stressTests run = testGroup "Stress tests"
   [ testCase "Modify a file 2000 times" $ run $ do
 
         let fooValue :: Int -> T.Text
@@ -745,9 +685,8 @@ stressTests run _runScenarios = testGroup "Stress tests"
 
 regressionTests
     :: (Session () -> IO ())
-    -> (Session () -> IO ())
     -> TestTree
-regressionTests run _runScenarios = testGroup "regression"
+regressionTests run = testGroup "regression"
   [ testCase "completion on stale file" $ run $ do
         -- This used to produce "cannot continue after interface file error"
         -- since we used a function from GHCi in ghcide.
@@ -799,9 +738,8 @@ symbolsTests run =
 
 completionTests
     :: (Session () -> IO ())
-    -> (Session () -> IO ())
     -> TestTree
-completionTests run _runScenarios = testGroup "completion"
+completionTests run = testGroup "completion"
     [ testCase "type signature" $ run $ do
           foo <- openDoc' "Foo.daml" damlId $ T.unlines
               [ "module Foo where"
@@ -883,17 +821,18 @@ mkKeywordCompletion label =
     defaultCompletion label &
     kind ?~ CiKeyword
 
-includePathTests :: FilePath -> TestTree
-includePathTests damlc = testGroup "include-path"
+includePathTests :: FilePath -> FilePath -> TestTree
+includePathTests damlc scriptDarPath = testGroup "include-path"
     [ testCase "IDE in root directory" $ withTempDir $ \dir -> do
           createDirectory (dir </> "src1")
           createDirectory (dir </> "src2")
+          copyFile scriptDarPath (dir </> "daml-script.dar")
           writeFileUTF8 (dir </> "daml.yaml") $ unlines
               [ "sdk-version: " <> sdkVersion
               , "name: a"
               , "version: 0.0.1"
               , "source: src1/Root.daml"
-              , "dependencies: [daml-prim, daml-stdlib]"
+              , "dependencies: [daml-prim, daml-stdlib, daml-script.dar]"
               , "build-options:"
               , "- --include=src1/"
               , "- --include=src2/"
@@ -904,30 +843,32 @@ includePathTests damlc = testGroup "include-path"
               ]
           writeFileUTF8 (dir </> "src2" </> "B.daml") $ unlines
               [ "module B where"
+              , "import Daml.Script"
               , "import A"
               , "a = A \"abc\""
-              , "test = scenario $ assert False"
+              , "test = script $ assert False"
               ]
           writeFileUTF8 (dir </> "src1" </> "Root.daml") $ unlines
               [ "module Root where"
+              , "import Daml.Script"
               , "import A ()"
               , "import B ()"
-              , "test = scenario $ assert False"
+              , "test = script $ assert False"
               ]
           withCurrentDirectory dir $
-            runSessionWithConfig conf (damlc <> " ide --scenarios=yes --enable-scenarios=yes") fullCaps' dir $ do
+            runSessionWithConfig conf (damlc <> " ide") fullCaps' dir $ do
               _docB <- openDoc "src2/B.daml" "daml"
-              _ <- openScenario "src2/B.daml" "test"
-              -- If we get a scenario result, we managed to build a DALF which
+              _ <- openScript "src2/B.daml" "test"
+              -- If we get a script result, we managed to build a DALF which
               -- is what we really want to check here.
-              expectDiagnostics [ ("src2/B.daml", [(DsError, (3,0), "Assertion failed")]) ]
+              expectDiagnostics [ ("src2/B.daml", [(DsError, (4,0), "Assertion failed")]) ]
               _docRoot <- openDoc "src1/Root.daml" "daml"
-              _ <- openScenario "src1/Root.daml" "test"
-              expectDiagnostics [ ("src1/Root.daml", [(DsError, (3,0), "Assertion failed")]) ]
+              _ <- openScript "src1/Root.daml" "test"
+              expectDiagnostics [ ("src1/Root.daml", [(DsError, (4,0), "Assertion failed")]) ]
     ]
 
-multiPackageTests :: FilePath -> TestTree
-multiPackageTests damlc
+multiPackageTests :: FilePath -> FilePath -> TestTree
+multiPackageTests damlc scriptDarPath
   | isWindows = testGroup "multi-package (skipped)" [] -- see issue #4904
   | otherwise = testGroup "multi-package"
     [ testCaseSteps "IDE in root directory" $ \step -> withTempDir $ \dir -> do
@@ -948,25 +889,27 @@ multiPackageTests damlc
           withCurrentDirectory (dir </> "a") $ callProcess damlc ["build", "-o", dir </> "a" </> "a.dar"]
           step "build b"
           createDirectoryIfMissing True (dir </> "b")
+          copyFile scriptDarPath (dir </> "b" </> "daml-script.dar")
           writeFileUTF8 (dir </> "b" </> "daml.yaml") $ unlines
               [ "sdk-version: " <> sdkVersion
               , "name: b"
               , "version: 0.0.1"
               , "source: ."
-              , "dependencies: [daml-prim, daml-stdlib, " <> show (".." </> "a" </> "a.dar") <> "]"
+              , "dependencies: [daml-prim, daml-stdlib, daml-script.dar, " <> show (".." </> "a" </> "a.dar") <> "]"
               ]
           writeFileUTF8 (dir </> "b" </> "B.daml") $ unlines
               [ "module B where"
+              , "import Daml.Script"
               , "import A"
-              , "f : Scenario A"
+              , "f : Script A"
               , "f = pure a"
               ]
-          withCurrentDirectory (dir </> "b") $ callProcess damlc ["build", "--enable-scenarios=yes", "-o", dir </> "b" </> "b.dar"]
+          withCurrentDirectory (dir </> "b") $ callProcess damlc ["build", "-o", dir </> "b" </> "b.dar"]
           step "run language server"
           writeFileUTF8 (dir </> "daml.yaml") $ unlines
               [ "sdk-version: " <> sdkVersion
               ]
-          withCurrentDirectory dir $ runSessionWithConfig conf (damlc <> " ide --scenarios=yes --enable-scenarios=yes") fullCaps' dir $ do
+          withCurrentDirectory dir $ runSessionWithConfig conf (damlc <> " ide") fullCaps' dir $ do
               docA <- openDoc ("a" </> "A.daml") "daml"
               Just fpA <- pure $ uriToFilePath (docA ^. uri)
               r <- getHover docA (Position 2 0)
@@ -987,12 +930,12 @@ multiPackageTests damlc
               r <- getCodeLenses docB
               liftIO $ r @?=
                   [ CodeLens
-                        { _range = Range (Position 3 0) (Position 3 1)
+                        { _range = Range (Position 4 0) (Position 4 1)
                         , _command = Just $ Command
-                              { _title = "Scenario results"
+                              { _title = "Script results"
                               , _command = "daml.showResource"
                               , _arguments = Just $ List
-                                  [ "Scenario: f"
+                                  [ "Script: f"
                                   , toJSON $ "daml://compiler?file=" <> escapedFpB <> "&top-level-decl=f"
                                   ]
                               }
@@ -1017,23 +960,25 @@ multiPackageTests damlc
           withCurrentDirectory (dir </> "a") $ callProcess damlc ["build", "-o", dir </> "a" </> "a.dar"]
           step "create b"
           createDirectoryIfMissing True (dir </> "b")
+          copyFile scriptDarPath (dir </> "b" </> "daml-script.dar")
           writeFileUTF8 (dir </> "b" </> "daml.yaml") $ unlines
               [ "sdk-version: " <> sdkVersion
               , "name: b"
               , "version: 0.0.1"
               , "source: ."
-              , "dependencies: [daml-prim, daml-stdlib, " <> show (".." </> "a" </> "a.dar") <> "]"
+              , "dependencies: [daml-prim, daml-stdlib, daml-script.dar, " <> show (".." </> "a" </> "a.dar") <> "]"
               ]
           writeFileUTF8 (dir </> "b" </> "B.daml") $ unlines
               [ "module B where"
+              , "import Daml.Script"
               , "import A"
-              , "f : Scenario A"
+              , "f : Script A"
               , "f = pure a"
               ]
           -- When run in the project directory, the IDE will take care of initializing
           -- the package db so we do not need to build.
           step "run language server"
-          withCurrentDirectory (dir </> "b") $ runSessionWithConfig conf (damlc <> " ide --scenarios=yes --enable-scenarios=yes") fullCaps' (dir </> "b") $ do
+          withCurrentDirectory (dir </> "b") $ runSessionWithConfig conf (damlc <> " ide") fullCaps' (dir </> "b") $ do
               -- We cannot open files in a here but we can open files in b
               docB <- openDoc "B.daml" "daml"
               Just escapedFpB <- pure $ escapeURIString isUnescapedInURIComponent <$> uriToFilePath (docB ^. uri)
@@ -1041,12 +986,12 @@ multiPackageTests damlc
               r <- getCodeLenses docB
               liftIO $ r @?=
                   [ CodeLens
-                        { _range = Range (Position 3 0) (Position 3 1)
+                        { _range = Range (Position 4 0) (Position 4 1)
                         , _command = Just $ Command
-                              { _title = "Scenario results"
+                              { _title = "Script results"
                               , _command = "daml.showResource"
                               , _arguments = Just $ List
-                                  [ "Scenario: f"
+                                  [ "Script: f"
                                   , toJSON $ "daml://compiler?file=" <> escapedFpB <> "&top-level-decl=f"
                                   ]
                               }
@@ -1056,19 +1001,20 @@ multiPackageTests damlc
     ]
 
 raceTests
-    :: (forall a. Session a -> IO a)
+    :: (Session () -> IO ())
     -> TestTree
-raceTests run = testGroup "race tests"
-    [ testCaseSteps "race code lens & hover requests" $ \step -> run $ do
+raceTests runScripts = testGroup "race tests"
+    [ testCaseSteps "race code lens & hover requests" $ \step -> runScripts $ do
           main' <- openDoc' "Main.daml" damlId $ T.unlines
               [ "module Main where"
-              , "single : Scenario ()"
-              , "single = scenario do"
+              , "import Daml.Script"
+              , "single : Script ()"
+              , "single = script do"
               , "  assert (True == True)"
               ]
           lensId <- sendRequest STextDocumentCodeLens (CodeLensParams Nothing Nothing main')
           liftIO $ threadDelay (5*1000000)
-          hoverId <- sendRequest STextDocumentHover (HoverParams main' (Position 2 13) Nothing)
+          hoverId <- sendRequest STextDocumentHover (HoverParams main' (Position 3 13) Nothing)
           liftIO $ step "waiting for lens response"
           _ <- skipManyTill anyMessage (responseForId STextDocumentCodeLens lensId)
           liftIO $ step "waiting for hover response"

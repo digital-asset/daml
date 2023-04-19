@@ -16,15 +16,17 @@ import System.IO.Extra
 import DA.Test.Process
 import Test.Tasty
 import Test.Tasty.HUnit
+import SdkVersion
 
 main :: IO ()
 main = do
     damlc <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> exe "damlc")
-    repl <- locateRunfiles (mainWorkspace </> "daml-lf" </> "repl" </> exe "repl")
-    defaultMain $ tests damlc repl
+    damlScript <- locateRunfiles (mainWorkspace </> "daml-script" </> "runner" </> exe "daml-script-binary")
+    scriptDar <- locateRunfiles (mainWorkspace </> "daml-script" </> "daml" </> "daml-script.dar")
+    defaultMain $ tests damlc damlScript scriptDar
 
-tests :: FilePath -> FilePath -> TestTree
-tests damlc repl = testGroup "Incremental builds"
+tests :: FilePath -> FilePath -> FilePath -> TestTree
+tests damlc damlScript scriptDar = testGroup "Incremental builds"
     [ test "No changes"
         [ ("daml/A.daml", unlines
            [ "module A where"
@@ -37,13 +39,17 @@ tests damlc repl = testGroup "Incremental builds"
     , test "Modify single file"
         [ ("daml/A.daml", unlines
            [ "module A where"
-           , "test = scenario $ assert True"
+           , "import Daml.Script"
+           , "test : Script ()"
+           , "test = script $ assert True"
            ]
           )
         ]
         [ ("daml/A.daml", unlines
            [ "module A where"
-           , "test = scenario $ assert False"
+           , "import Daml.Script"
+           , "test : Script ()"
+           , "test = script $ assert False"
            ]
           )
         ]
@@ -52,19 +58,24 @@ tests damlc repl = testGroup "Incremental builds"
     , test "Modify dependency without ABI change"
         [ ("daml/A.daml", unlines
            [ "module A where"
+           , "import Daml.Script"
            , "import B"
-           , "test = scenario $ b"
+           , "test = script $ b"
            ]
           )
         , ("daml/B.daml", unlines
            [ "module B where"
-           , "b = scenario $ assert True"
+           , "import Daml.Script"
+           , "b : Script ()"
+           , "b = script $ assert True"
            ]
           )
         ]
         [ ("daml/B.daml", unlines
            [ "module B where"
-           , "b = scenario $ assert False"
+           , "import Daml.Script"
+           , "b : Script ()"
+           , "b = script $ assert False"
            ]
           )
         ]
@@ -73,20 +84,24 @@ tests damlc repl = testGroup "Incremental builds"
     , test "Modify dependency with ABI change"
         [ ("daml/A.daml", unlines
            [ "module A where"
+           , "import Daml.Script"
            , "import B"
-           , "test = scenario $ do _ <- b; pure ()"
+           , "test : Script ()"
+           , "test = script $ do _ <- b; pure ()"
            ]
           )
         , ("daml/B.daml", unlines
            [ "module B where"
-           , "b : Scenario Bool"
+           , "import Daml.Script"
+           , "b : Script Bool"
            , "b = pure True"
            ]
           )
         ]
         [ ("daml/B.daml", unlines
            [ "module B where"
-           , "b : Scenario ()"
+           , "import Daml.Script"
+           , "b : Script ()"
            , "b = assert False"
            ]
           )
@@ -98,11 +113,14 @@ tests damlc repl = testGroup "Incremental builds"
       -- to trigger this. The modules actually need to use identifiers from the other modules.
       [ ("daml/A.daml", unlines
          [ "module A where"
+         , "import Daml.Script"
          , "import B"
-         , "test = scenario $ do"
-         , "  p <- getParty \"Alice\""
-         , "  cid <- submit p $ create X with p = p"
-         , "  submit p $ create Y with p = p; cid = cid"
+         , "test : Script ()"
+         , "test = script $ do"
+         , "  p <- allocateParty \"Alice\""
+         , "  cid <- submit p $ createCmd X with p = p"
+         , "  submit p $ createCmd Y with p = p; cid = cid"
+         , "  pure ()"
          ]
         )
       , ("daml/B.daml", unlines
@@ -131,11 +149,11 @@ tests damlc repl = testGroup "Incremental builds"
       test :: String -> [(FilePath, String)] -> [(FilePath, String)] -> [FilePath] -> ShouldSucceed -> TestTree
       test name initial modification expectedRebuilds (ShouldSucceed shouldSucceed) = testCase name $ withTempDir $ \dir -> do
           writeFileUTF8 (dir </> "daml.yaml") $ unlines
-            [ "sdk-version: 0.0.0"
+            [ "sdk-version: " <> sdkVersion
             , "name: test-project"
             , "source: daml"
             , "version: 0.0.1"
-            , "dependencies: [daml-prim, daml-stdlib]"
+            , "dependencies: [daml-prim, daml-stdlib, " <> show scriptDar <> "]"
             ]
           for_ initial $ \(file, content) -> do
               createDirectoryIfMissing True (takeDirectory $ dir </> file)
@@ -143,13 +161,16 @@ tests damlc repl = testGroup "Incremental builds"
           let dar = dir </> "out.dar"
           callProcessSilent damlc
             [ "build"
-            , "--enable-scenarios=yes" -- TODO: https://github.com/digital-asset/daml/issues/11316
             , "--project-root"
             , dir
             , "-o"
             , dar
             , "--incremental=yes" ]
-          callProcessSilent repl ["testAll", dar]
+          callProcessSilent damlc 
+            [ "test"
+            , "--project-root"
+            , dir
+            ]
           dalfFiles <- getDalfFiles $ dir </> ".daml/build"
           dalfModTimes <- for dalfFiles $ \f -> do
               modTime <- getModificationTime f
@@ -159,7 +180,6 @@ tests damlc repl = testGroup "Incremental builds"
               writeFileUTF8 (dir </> file) content
           callProcessSilent damlc
             ["build"
-            , "--enable-scenarios=yes" -- TODO: https://github.com/digital-asset/daml/issues/11316
             , "--project-root"
             , dir
             , "-o"
@@ -171,12 +191,12 @@ tests damlc repl = testGroup "Incremental builds"
                   then Nothing
                   else Just (makeRelative (dir </> ".daml/build") f -<.> ".daml")
           assertEqual "Expected rebuilds" (Set.fromList $ map normalise expectedRebuilds) (Set.fromList $ map normalise rebuilds)
-          callProcessSilent repl ["validate", dar]
+          callProcessSilent damlc ["validate-dar", dar]
           if shouldSucceed
             then
-              callProcessSilent repl ["testAll", dar]
+              callProcessSilent damlScript ["--ide-ledger", "--all", "--dar", dar]
             else
-              callProcessSilentError repl ["testAll", dar]
+              callProcessSilentError damlScript ["--ide-ledger", "--all", "--dar", dar]
           pure ()
 
 getDalfFiles :: FilePath -> IO [FilePath]

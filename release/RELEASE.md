@@ -1,149 +1,157 @@
 # Making a Release
 
-Valid commits for a release should come from either the `main` branch or one
-of the support `release/a.b.x` branches (e.g. `release/1.0.x` branch is for
-patches we backport to the 1.0 release branch).
+Please read this document carefully.
 
-> **IMPORTANT**: If the release fails, please delete it from the [releases page]
-> and write how it failed on the PR.
+At a high level, a release goes through the following steps. All releases must
+use the same version number for stable releases; there is more leeway for
+snapshots and RCs.
 
-First, you need to know which type of release you are making. At this point in
-time, these are the options, in rough order of likelihood/frequency:
+1. A "daml repo" release, orchestrated from this repository.
+2. A "canton repo" release, where the code in the release commit must have a
+   dependency on the artifacts produced by step 1.
+3. An "assembly repo" release, which combines the daml and canton release
+   artifacts and creates the GitHub Release on the daml repo.
+4. A "daml-finance repo" release. This is independant of the other steps on a
+   technical level.
+5. A "docs repo" release to publish documentation on
+   [docs.daml.com](https://docs.daml.com).
+6. Manual tests and approval of the final release artifacts.
 
-1. The weekly snapshot.
-2. A release candidate for a 2.x release.
-3. A stable 2.x release.
-4. A release candidate for a 1.x release.
-5. A stable 1.x release.
+Note that these are the technical steps to create the release artifacts. The
+release process as a whole is quite a bit larger and involves synchronization
+between various teams about exactly what we want to include in a release, when
+we want to release it, communication to various stakeholders, etc. For details
+on the broader process, see the [release planning] document.
 
-If you don't know which of these fit your current case, or you think it
-doesn't fit in any, please reach out on `#team-daml` on Slack, preferably
-mentioning `@gary`.
+For the more detailed technical steps, we need to distinguish between three
+cases:
 
-## The weekly snapshot
+a. A new minor release.
+b. A patch release on an existing minor version.
+c. The weekly snapshot.
 
-> Note: You should not have to make any change to this repo.
+The way in which we get to the final artifact differs based on the three cases
+above, but the manual testing steps are always the same. As such, they have
+their own section at the end of this document.
 
-1. On Wednesday morning, a cron should create a release PR on the [assembly]
-   repo, mentioning you. Please reach out to `@gary` on Slack if that's
-   missing.
+## Minor Release
 
-2. Merge the PR and wait for the corresponding `main` build to finish.
+For a minor release, we will usually set a target date and a target scope. When
+we get "close enough" to the target scope or date, we create the release
+branches for the future release, branching off from `main`. There is no hard rule about
+when this step happens, and there may be a few days between repos.
 
-3. Go to the [Testing](#testing) section of this file.
+In the [daml] repo, the release branch for minor version `A.B` must be named
+`release/A.B.x`, e.g.  `release/2.7.x`. In the [canton] repo, the release
+branch is named `release-line-A.B`, e.g. `release-line-2.7`. In both repos, we
+have special "branch protection rules" set up in GitHub for branches with those
+names.
 
-## 2.x release candidate
+> Note: This also means you should not create branches with those (or similar)
+> names if they are not meant to be release branches.
 
-In a perfect world, there is no need for a separate RC: the latest weekly
-snapshot can work. In the world we live in though, we frequently want to add a
-few things, or patch previous minor releases.
+When the release branches contain all the required changes and there are no
+blockers left, we create a release candidate (RC). This step can be repeated
+multiple times: if issues are found with the current RC, we'll add patches to
+the release branches, and create a new RC.
 
-In those cases, we create `release/` branches (e.g. `release/2.0.x`). Those are
-special branches, protected by GitHub rules and treated specially by CI.
+> Note: In most cases work should not be done on a release branch directly.
+> Changes should go into the `main` branch first, and then be backported to the
+> release branch.
 
-When making a release candidate, you generally want to pick the tip of one of
-those release branches. The release itself is always triggered from `main`.
+After some time and testing (see the [release planning] document for details),
+the RC is accepted and we create a new release from the same code base.
 
-The process is similar to the weekly snapshot, except that both the [daml] and
-[canton] bundles have to be manually triggered. Specifically:
+RC version strings in the [daml] repo are indistinguishable from snapshot
+names. In the [canton] repo, snapshots are usually names by their date of
+production (e.g. `20230401`) whereas RCs contain an explicit `rc` market (e.g.
+`2.6.0-rc2`). This can create some confusion, but is hard to change at this
+time.
 
+> **When you create the release branch in the [daml] repo, make a PR to `main`
+> bumping [`NIGHTLY_PREFIX`] accordingly.**
 
-1. Make sure all the changes you want are in the release branch.
-2. Start _from latest `main`_ and run
+The steps to create a release are:
+
+1. In the [daml] repo, edit the [`LATEST`] file. The format of that file is a
+   commit sha of the code you want to release (at this point typically the tip
+   of the release branch), the version number you want to attribute to the
+   build, and the words `SPLIT_RELEASE` (for historical reason dating to
+   pre-2.0 days).  For a release candidate, one can generate a snapshot version
+   string using the `release.sh` script. For example, to create a PR for a
+   2.0.0 release candidate:
+
    ```
-   $ ./release.sh snapshot origin/release/2.0.x 2.0.1
+   $ git fetch
+   $ ./release.sh snapshot origin/release/2.0.x 2.0.0
    ```
-   The output will be a line that starts with a commit sha, followed by a
-   snapshot release number. You need to take that line and add it to the [ `LATEST`]
-   file, adding ` SPLIT_RELEASE` at the end of that line. You should put that line
-   in the file in order to preserve semver ordering, and overwrite any existing
-   snapshot with the same prefix.
-3. Make a PR against the `main` branch with just that one line added, touching
-   no other file. Add the `Standard-Change` label to that PR.
+
+   You should put that line in the file in order to preserve semver ordering,
+   and overwrite any existing snapshot with the same prefix.
+
+   Stable releases should use the same code as the last RC, so instead of
+   adding a new line you should simply remove the `-snapshot.*` part of the
+   version string on the appropriate line of the [`LATEST`] file.
+
+2. Make a PR **targeting the `main` branch** with just that one line added,
+   touching no other file. Add the `Standard-Change` label to that PR.
+
 4. When the PR is merged, the build of the corresponding commit on `main` will
    create a "split release" bundle and push it to Artifactory. It should notify
    on `#ci-failures-daml` on Slack.
+
 5. The next step is to request a build from the [Canton] team (on
    `#team-canton`) that relies on the RC snapshot. Once you have a [canton]
    release, you can proceed.
+
 6. Go to the [assembly] repo, and follow the instructions there to make a release
    using the [Canton] version that was just created. The `LATEST` file on the
    [assembly] repo only contains one version; it is safe to overwrite it, and to
    "go backwards" if needed.
+
 7. Once the `main` build of the [assembly] repo has finished, you should
    proceed with testing. You should open up this document _in the branch of
    the release you're making_, as testing instructions change over time.
-8. If this was a main-branch release, bump the `NIGHTLY_PREFIX` file in the
-   daml repo.
-9. After testing, if everything went well, you should go on to turning the RC
-   into a stable release. If something went wrong, make appropriate changes to
-   the release branch and start over.
+   (Though rarely these days.)
 
-## Stable 2.x
+## Patch Release
 
-The overall process of coordinating a stable release is documented in the
-[release planning] document, including the relevant stakeholders and roles.
-Cutting and testing a release as documented here is part of that process.
+On the technical side, a patch release is very similar to a minor release,
+except that:
 
-Making a stable release follows the same steps as a snapshot RC, except that:
+1. The non-technical steps of the broader process are much simpler. See the
+   [release planning] document for details.
+2. Depending on the nature of the patch, we sometimes skip the RC process and
+   go straight for a stable version number. This is a judgement call based on
+   the specifics of the changes.
 
-- You should not be choosing an arbitrary commit, you should pick the latest RC
-  for the branch.
-- Instead of adding a line to [`LATEST`], remove the `-snapshot` part of the
-  version number for the existing RC.
-- Similarly, modifying the `LATEST` file on the assembly repo _should_ amount
-  to just removing the `-` parts of the version numbers for both Canton and
-  daml, but follow the instructions there.
-- You need a team lead to approve the PR on both the [daml] and [assembly] repos.
+Patch releases are done from the corresponding release branch.
 
-Once you have finished testing the release, communicate this to the relevant
-stakeholder (send a message on `#team-daml` if unsure) so that the process can
-move on by removing the `prerelease` marker on the [releases page]. (This is what
-makes it available to `daml install`.)
+## Weekly Snapshot
 
-## 1.x release candidate
+> Note: You should not have to make any change to this repo.
 
-1. Make sure all the changes you want are in the release branch.
-2. Start _from latest `main`_ and run
-   ```
-   $ ./release.sh snapshot origin/release/1.18.x 1.18.3
-   ```
-   The output will be a line that starts with a commit sha, followed by a
-   snapshot release number. You need to take that line and add it to the [`LATEST`]
-   file. You should put that line in the file in order to preserve semver
-   ordering, and overwrite any existing snapshot with the same prefix.
-3. Make a PR against the `main` branch with just that one line added, touching
-   no other file. Add the `Standard-Change` label to that PR.
-4. Once the PR has built, check that it was considered a release build by our
-   CI. You can look at the output of the `check_for_release` job.
-5. When the PR is merged, the build of the `main` branch will create the
-   release, push it to GitHub releases, and announce it is ready for testing on
-   `#team-daml`.
-6. Follow the testing instructions in this document, but from the tip of the
-   release branch.
-7. After testing, if everything went well, you should go on to turning the RC
-   into a stable release. If something went wrong, make appropriate changes to
-   the release branch and start over.
+The weekly snapshot relies on daily builds from both the [canton] and [daml]
+repos, so there is no need to create those manually.
 
-## Stable 1.x
+1. On Tuesday, you should see a reminder on Slack (`#team-daml`) with the name
+   of the release tester for the week.
+1. On Wednesday morning, a cron should create a release PR on the [assembly]
+   repo, mentioning you. Please reach out to `@gary` on Slack if that's
+   missing.
 
-Making a stable release follows the same steps as a snapshot RC, except that:
+2. Follow the instructions in the PR description. Merge the PR and wait for the
+   corresponding `main` build to finish.
 
-- You should not be choosing an arbitrary commit, you should pick the latest RC
-  for the branch.
-- Go through the [checklist] before making the release. Note that
-  the checklist is not available publicly. Since 1.x are old patch releases at
-  this point, you may have to adapt the checklist a bit. Use your best
-  judgement; if we're making a patch release on 1.x at this point there should be
-  a specific reason for it, which should suggest specific additional tests (e.g.
-  a specific bug we want to fix).
-- Instead of adding a line to [`LATEST`], remove the `-snapshot` part of the
-  version number for the existing RC.
-- You need a team lead to approve the PR.
+2. Once the [assembly] build is finished, it should post a message to Slack
+   with instructions on how to get the release artifacts.
 
-Once you have finished testing the release, coordinate with Product to decide
-how to communicate around it and when to remove the `prerelease` marker on the
-[releases page]. (This is what makes it available to `daml install`.)
+3. Go to the [Testing](#testing) section of this file.
+
+> Note: Documentation for weekly snapshots should be published automatically by
+> the [docs] repo cron. This is an hourly cron, however, and it can only run
+> after the release artifacts have been created and pushed to GitHub releases
+> on the [daml] repo, so it may take some time to appear.
 
 ## Testing
 
@@ -511,7 +519,10 @@ Thanks for making a release!
 
 [assembly]: https://github.com/DACH-NY/assembly
 [canton]: https://github.com/DACH-NY/canton
+[docs]: https://github.com/digital-asset/docs.daml.com
 [`LATEST`]: https://github.com/digital-asset/daml/blob/main/LATEST
+[`LATEST`]: https://github.com/digital-asset/daml/blob/main/NIGHTLY_PREFIX
+[`release.sh`]: https://github.com/digital-asset/daml/blob/main/release.sh
 [checklist]: https://docs.google.com/document/d/1RY2Qe9GwAUiiSJmq1lTzy6wu1N2ZSEILQ68M9n8CHgg
 [release planning]: https://docs.google.com/document/d/1FaBFuYweYt0hx6fVg9rhufCtDNPiATXu5zwN2NWp2s4/edit#
 [daml]: https://github.com/digital-asset/daml

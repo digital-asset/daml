@@ -516,7 +516,6 @@ encodeBuiltinExpr = \case
 
     BEFoldl -> builtin P.BuiltinFunctionFOLDL
     BEFoldr -> builtin P.BuiltinFunctionFOLDR
-    BEWithAuthority -> builtin P.BuiltinFunctionWITH_AUTHORITY
     BEEqualList -> builtin P.BuiltinFunctionEQUAL_LIST
     BEExplodeText -> builtin P.BuiltinFunctionEXPLODE_TEXT
     BEAppendText -> builtin P.BuiltinFunctionAPPEND_TEXT
@@ -551,7 +550,7 @@ encodeBuiltinExpr = \case
     BEEqualContractId -> builtin P.BuiltinFunctionEQUAL_CONTRACT_ID
     BECoerceContractId -> builtin P.BuiltinFunctionCOERCE_CONTRACT_ID
 
-    BETypeRepTyConName -> builtin P.BuiltinFunctionTYPEREP_TYCON_NAME
+    BETypeRepTyConName -> builtin P.BuiltinFunctionTYPE_REP_TYCON_NAME
 
     BETextToUpper -> builtin P.BuiltinFunctionTEXT_TO_UPPER
     BETextToLower -> builtin P.BuiltinFunctionTEXT_TO_LOWER
@@ -787,6 +786,12 @@ encodeUpdate = fmap (P.Update . Just) . \case
         update_ExerciseCid <- encodeExpr exeContractId
         update_ExerciseArg <- encodeExpr exeArg
         pure $ P.UpdateSumExercise P.Update_Exercise{..}
+    UDynamicExercise{..} -> do
+        update_DynamicExerciseTemplate <- encodeQualTypeConName exeTemplate
+        update_DynamicExerciseChoiceInternedStr <- encodeNameId unChoiceName exeChoice
+        update_DynamicExerciseCid <- encodeExpr exeContractId
+        update_DynamicExerciseArg <- encodeExpr exeArg
+        pure $ P.UpdateSumDynamicExercise P.Update_DynamicExercise{..}
     UExerciseInterface{..} -> do
         update_ExerciseInterfaceInterface <- encodeQualTypeConName exeInterface
         update_ExerciseInterfaceChoiceInternedStr <- encodeNameId unChoiceName exeChoice
@@ -996,12 +1001,18 @@ encodeChoiceObservers :: Maybe Expr -> Encode (Just P.Expr)
 encodeChoiceObservers chcObservers =
   encodeExpr (fromMaybe (ENil TParty) chcObservers)
 
+encodeChoiceAuthorizers :: Maybe Expr -> Encode (Maybe P.Expr)
+encodeChoiceAuthorizers = \case
+  Nothing -> pure Nothing -- dont add field to proto
+  Just xs -> encodeExpr xs
+
 encodeTemplateChoice :: TemplateChoice -> Encode P.TemplateChoice
 encodeTemplateChoice TemplateChoice{..} = do
     templateChoiceName <- encodeName unChoiceName chcName
     let templateChoiceConsuming = chcConsuming
     templateChoiceControllers <- encodeExpr chcControllers
     templateChoiceObservers <- encodeChoiceObservers chcObservers
+    templateChoiceAuthorizers <- encodeChoiceAuthorizers chcAuthorizers
     templateChoiceSelfBinder <- encodeName unExprVarName chcSelfBinder
     templateChoiceArgBinder <- Just <$> encodeExprVarWithType chcArgBinder
     templateChoiceRetType <- encodeType chcReturnType

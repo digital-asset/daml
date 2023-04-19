@@ -170,11 +170,11 @@ jobs:
           BAZEL_DEPENDENCY_TYPE="haskell_cabal_library"
 
           bash <(curl -s https://raw.githubusercontent.com/DACH-NY/security-blackduck/master/synopsys-detect) \
-          ci-build digital-asset_daml $(Build.SourceBranchName) \
+          ci-build digital-asset_daml main \
           --logging.level.com.synopsys.integration=DEBUG \
           --detect.tools=BAZEL \
           --detect.bazel.target=//... \
-          --detect.bazel.dependency.type=${BAZEL_DEPENDENCY_TYPE} \
+          --detect.bazel.workspace.rules=${BAZEL_DEPENDENCY_TYPE} \
           --detect.notices.report=true \
           --detect.code.location.name=digital-asset_daml_${BAZEL_DEPENDENCY_TYPE} \
           --detect.timeout=1500
@@ -191,11 +191,11 @@ jobs:
           BAZEL_DEPENDENCY_TYPE="maven_install"
 
           bash <(curl -s https://raw.githubusercontent.com/DACH-NY/security-blackduck/master/synopsys-detect) \
-          ci-build digital-asset_daml $(Build.SourceBranchName) \
+          ci-build digital-asset_daml main \
           --logging.level.com.synopsys.integration=DEBUG \
           --detect.tools=BAZEL \
           --detect.bazel.target=//... \
-          --detect.bazel.dependency.type=${BAZEL_DEPENDENCY_TYPE} \
+          --detect.bazel.workspace.rules=${BAZEL_DEPENDENCY_TYPE} \
           --detect.notices.report=true \
           --detect.code.location.name=digital-asset_daml_${BAZEL_DEPENDENCY_TYPE} \
           --detect.timeout=1500
@@ -209,7 +209,7 @@ jobs:
           (cd language-support/ts && yarn install)
 
           bash <(curl -s https://raw.githubusercontent.com/DACH-NY/security-blackduck/master/synopsys-detect) \
-          ci-build digital-asset_daml $(Build.SourceBranchName) \
+          ci-build digital-asset_daml main \
           --logging.level.com.synopsys.integration=DEBUG \
           --detect.tools=DETECTOR \
           --detect.included.detector.types=YARN,NPM,CLANG \
@@ -230,7 +230,7 @@ jobs:
           eval "$(dev-env/bin/dade-assist)"
 
           bash <(curl -s https://raw.githubusercontent.com/DACH-NY/security-blackduck/master/synopsys-detect) \
-          ci-build digital-asset_daml $(Build.SourceBranchName) \
+          ci-build digital-asset_daml main \
           --logging.level.com.synopsys.integration=DEBUG \
           --detect.tools=DETECTOR \
           --detect.included.detector.types=PIP,POETRY \
@@ -249,7 +249,7 @@ jobs:
           eval "$(dev-env/bin/dade-assist)"
 
           bash <(curl -s https://raw.githubusercontent.com/DACH-NY/security-blackduck/master/synopsys-detect) \
-          ci-build digital-asset_daml $(Build.SourceBranchName) \
+          ci-build digital-asset_daml main \
           --logging.level.com.synopsys.integration=DEBUG \
           --detect.tools=DETECTOR \
           --detect.included.detector.types=GIT,GO_MOD,GO_DEP,GO_VNDR,GO_VENDOR,GO_GRADLE \
@@ -273,7 +273,7 @@ jobs:
 
           branch="notices-update-$(Build.BuildId)"
 
-          tr -d '\015' <*_Black_Duck_Notices_Report.txt | grep -v digital-asset_daml >NOTICES
+          tr -d '\015' < digital_asset_daml_main_Black_Duck_Notices_Report.txt | grep -v digital-asset_daml > NOTICES
           if git diff --exit-code -- NOTICES; then
               echo "NOTICES file already up-to-date."
               setvar need_to_build false
@@ -357,7 +357,7 @@ jobs:
         canton_local_path=external/$(ls canton/lib/*.jar)
         cd $dir
 
-        bad_file=daml-script/test/src/test-utils/com/daml/lf/engine/script/test/MultiParticipantFixture.scala
+        bad_file=daml-lf/integration-test-lib/src/main/com/daml/lf/CantonFixture.scala
 
         sed -i 's|"external/canton/lib/.*|"'$canton_local_path'"|' $bad_file
         sed -e 's/^/# /' COPY > canton_dep.bzl

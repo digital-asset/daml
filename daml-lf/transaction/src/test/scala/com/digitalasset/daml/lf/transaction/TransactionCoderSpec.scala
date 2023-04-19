@@ -895,7 +895,6 @@ class TransactionCoderSpec
 
   private[this] def normalizeNode(node: Node) =
     node match {
-      case na: Node.Authority => na // nothing to normalize
       case rb: Node.Rollback => rb // nothing to normalize
       case exe: Node.Exercise => normalizeExe(exe)
       case fetch: Node.Fetch => normalizeFetch(fetch)
@@ -973,7 +972,6 @@ class TransactionCoderSpec
       node: Node,
       version: TransactionVersion,
   ): Node = node match {
-    case node: Node.Authority => node
     case node: Node.Action => node.updateVersion(version)
     case node: Node.Rollback => node
   }

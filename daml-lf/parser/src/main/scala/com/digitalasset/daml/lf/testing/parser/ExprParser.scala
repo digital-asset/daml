@@ -338,7 +338,6 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
     "UNIX_MICROSECONDS_TO_TIMESTAMP" -> BUnixMicrosecondsToTimestamp,
     "FOLDL" -> BFoldl,
     "FOLDR" -> BFoldr,
-    "WITH_AUTHORITY" -> BWithAuthority,
     "TEXTMAP_EMPTY" -> BTextMapEmpty,
     "TEXTMAP_INSERT" -> BTextMapInsert,
     "TEXTMAP_LOOKUP" -> BTextMapLookup,
@@ -394,7 +393,7 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
     "BIGNUMERIC_TO_NUMERIC" -> BBigNumericToNumeric,
     "NUMERIC_TO_BIGNUMERIC" -> BNumericToBigNumeric,
     "BIGNUMERIC_TO_TEXT" -> BBigNumericToText,
-    "TYPEREP_TYCON_NAME" -> BTypeRepTyConName,
+    "TYPE_REP_TYCON_NAME" -> BTypeRepTyConName,
   )
 
   private lazy val eCallInterface: Parser[ECallInterface] =
@@ -488,6 +487,12 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
       UpdateExercise(t, choice, cid, arg)
     }
 
+  private lazy val updateDynamicExercise =
+    Id("dynamic_exercise") ~! `@` ~> fullIdentifier ~ id ~ expr0 ~ expr0 ^^ {
+      case t ~ choice ~ cid ~ arg =>
+        UpdateDynamicExercise(t, choice, cid, arg)
+    }
+
   private lazy val updateExerciseInterface =
     Id("exercise_interface") ~! `@` ~> fullIdentifier ~ id ~ expr0 ~ expr0 ^^ {
       case iface ~ choice ~ cid ~ arg =>
@@ -538,6 +543,7 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
       updateFetch |
       updateFetchInterface |
       updateExercise |
+      updateDynamicExercise |
       updateExerciseInterface |
       updateExerciseInterfaceWithGuard |
       updateExerciseByKey |

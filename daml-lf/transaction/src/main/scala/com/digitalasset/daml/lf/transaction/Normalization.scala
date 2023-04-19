@@ -50,8 +50,6 @@ class Normalization {
     import scala.Ordering.Implicits.infixOrderingOps
     node match {
 
-      case old: Node.Authority => old
-
       case old: Node.Create =>
         old
           .copy(arg = normValue(old.version)(old.arg))

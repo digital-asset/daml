@@ -200,7 +200,6 @@ object NormalizeRollbackSpec {
         case _: Node.LeafOnlyAction => acc
         case node: Node.Exercise => fromNids(acc, node.children.toList)
         case node: Node.Rollback => fromNids(acc, node.children.toList)
-        case node: Node.Authority => fromNids(acc, node.children.toList)
       }
     }
     fromNids(Nil, tx.roots.toList).reverse
@@ -248,7 +247,6 @@ object NormalizeRollbackSpec {
     final case class Create(x: Long) extends Shape
     final case class Exercise(x: List[Shape]) extends Shape
     final case class Rollback(x: List[Shape]) extends Shape
-    final case class Authority(x: List[Shape]) extends Shape
 
     def toTransaction(top: Top): TX = {
       val ids = Iterator.from(0).map(NodeId(_))
@@ -267,9 +265,6 @@ object NormalizeRollbackSpec {
           case Rollback(shapes) =>
             val children = shapes.map(toNid)
             add(Node.Rollback(children = children.to(ImmArray)))
-          case Authority(shapes) =>
-            val children = shapes.map(toNid)
-            add(dummyAuthorityNode(children.to(ImmArray)))
         }
       }
       val roots: List[NodeId] = top.xs.map(toNid)
@@ -288,7 +283,6 @@ object NormalizeRollbackSpec {
             sys.error(s"Shape.ofTransaction, unexpected leaf: $leaf")
           case node: Node.Exercise => Exercise(node.children.toList.map(ofNid))
           case node: Node.Rollback => Rollback(node.children.toList.map(ofNid))
-          case node: Node.Authority => Authority(node.children.toList.map(ofNid))
         }
       }
       Top(tx.roots.toList.map(nid => ofNid(nid)))
@@ -310,15 +304,6 @@ object NormalizeRollbackSpec {
       version = TransactionVersion.minVersion,
     )
 
-  private def dummyAuthorityNode(
-      children: ImmArray[NodeId]
-  ): Node.Authority = {
-    Node.Authority(
-      obtained = Set.empty,
-      children = children,
-    )
-  }
-
   private def dummyExerciseNode(
       children: ImmArray[NodeId]
   ): Node.Exercise =
@@ -336,6 +321,7 @@ object NormalizeRollbackSpec {
       stakeholders = Set.empty,
       signatories = Set.empty,
       choiceObservers = Set.empty,
+      choiceAuthorizers = None,
       children = children,
       exerciseResult = None,
       keyOpt = None,

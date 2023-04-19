@@ -75,6 +75,7 @@ object Commands {
       command: lav1.commands.Command.Command,
       deduplicationPeriod: DeduplicationPeriod,
       submissionId: Option[domain.SubmissionId],
+      disclosedContracts: Seq[domain.DisclosedContract.LAV],
   ): lav1.command_service.SubmitAndWaitRequest = {
     val commands = lav1.commands.Commands(
       ledgerId = ledgerId.unwrap,
@@ -91,6 +92,7 @@ object Commands {
       actAs = lar.Party.unsubst(actAs.toList),
       readAs = lar.Party.unsubst(readAs),
       deduplicationPeriod = deduplicationPeriod,
+      disclosedContracts = disclosedContracts map (_.toLedgerApi),
       commands = Seq(lav1.commands.Command(command)),
     )
     val updatedCommands =

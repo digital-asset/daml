@@ -98,20 +98,6 @@ object BlindingTransaction {
               }
           }
 
-        case Some(authNode: Node.Authority) =>
-          // TODO #15882 -- should an authNode have informees?
-          // TODO #15882 -- should an authNode be a kind of actionNode?
-          // val witnesses = parentExerciseWitnesses
-          val witnesses = parentExerciseWitnesses // TODO #15882 -- union authNode.informeesOfNode
-          val state = state0.discloseNode(witnesses, nodeId)
-          authNode.children.foldLeft(state) { (s, childNodeId) =>
-            processNode(
-              s,
-              witnesses,
-              childNodeId,
-            )
-          }
-
         case Some(rollback: Node.Rollback) =>
           // Rollback nodes are disclosed to the witnesses of the parent exercise.
           val state = state0.discloseNode(parentExerciseWitnesses, nodeId)

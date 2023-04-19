@@ -137,12 +137,6 @@ private[validation] object Typing {
           alpha.name -> KStar,
           TForall(beta.name -> KStar, (alpha ->: beta ->: beta) ->: beta ->: TList(alpha) ->: beta),
         ),
-      // Authority
-      BWithAuthority ->
-        TForall(
-          alpha.name -> KStar,
-          TList(TParty) ->: TUpdate(alpha) ->: TUpdate(alpha),
-        ),
       // Maps
       BTextMapEmpty ->
         TForall(
@@ -490,7 +484,8 @@ private[validation] object Typing {
               name @ _,
               consuming @ _,
               controllers,
-              choiceObservers @ _,
+              choiceObservers,
+              choiceAuthorizers,
               selfBinder,
               (param, paramType),
               returnType,
@@ -500,6 +495,9 @@ private[validation] object Typing {
           checkType(returnType, KStar)
           introExprVar(param, paramType).checkTopExpr(controllers, TParties)
           choiceObservers.foreach(
+            introExprVar(param, paramType).checkTopExpr(_, TParties)
+          )
+          choiceAuthorizers.foreach(
             introExprVar(param, paramType).checkTopExpr(_, TParties)
           )
           introExprVar(selfBinder, TContractId(TTyCon(tplName)))
@@ -1317,6 +1315,8 @@ private[validation] object Typing {
       case UpdateCreateInterface(iface, arg) =>
         typeOfCreateInterface(iface, arg)
       case UpdateExercise(tpl, choice, cid, arg) =>
+        typeOfExercise(tpl, choice, cid, arg)
+      case UpdateDynamicExercise(tpl, choice, cid, arg) =>
         typeOfExercise(tpl, choice, cid, arg)
       case UpdateExerciseInterface(tpl, choice, cid, arg, guard) =>
         typeOfExerciseInterface(tpl, choice, cid, arg, guard)

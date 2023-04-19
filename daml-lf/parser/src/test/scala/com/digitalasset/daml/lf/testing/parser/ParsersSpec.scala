@@ -209,7 +209,6 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
         "UNIX_MICROSECONDS_TO_TIMESTAMP" -> BUnixMicrosecondsToTimestamp,
         "FOLDL" -> BFoldl,
         "FOLDR" -> BFoldr,
-        "WITH_AUTHORITY" -> BWithAuthority,
         "EXPLODE_TEXT" -> BExplodeText,
         "IMPLODE_TEXT" -> BImplodeText,
         "APPEND_TEXT" -> BAppendText,
@@ -234,7 +233,7 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
         "GREATER_EQ" -> BGreaterEq,
         "COERCE_CONTRACT_ID" -> BCoerceContractId,
         "ANY_EXCEPTION_MESSAGE" -> BAnyExceptionMessage,
-        "TYPEREP_TYCON_NAME" -> BTypeRepTyConName,
+        "TYPE_REP_TYCON_NAME" -> BTypeRepTyConName,
       )
 
       forEvery(testCases)((stringToParse, expectedBuiltin) =>
@@ -472,6 +471,8 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
           UpdateFetchInterface(I.tycon, e"e"),
         "exercise @Mod:T Choice cid arg" ->
           UpdateExercise(T.tycon, n"Choice", e"cid", e"arg"),
+        "dynamic_exercise @Mod:T Choice cid arg" ->
+          UpdateDynamicExercise(T.tycon, n"Choice", e"cid", e"arg"),
         "exercise_interface @Mod:I Choice cid arg" ->
           UpdateExerciseInterface(I.tycon, n"Choice", e"cid", e"arg", None),
         "exercise_interface_with_guard @Mod:I Choice cid arg guard" ->
@@ -604,6 +605,7 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
             choice @nonConsuming PowerNap (self) (i : Int64): Int64
               , controllers Cons @Party [person] (Nil @Party)
               , observers Cons @Party [person] (Nil @Party)
+              , authorizers Cons @Party [person] (Nil @Party)
               to upure @Int64 i;
             implements Mod1:Human {
               view = Mod1:HumanView { name = "Foo B. Baz" };
@@ -635,6 +637,7 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
                 consuming = true,
                 controllers = e"Cons @Party [person] (Nil @Party)",
                 choiceObservers = None,
+                choiceAuthorizers = None,
                 selfBinder = n"self",
                 argBinder = n"u" -> TUnit,
                 returnType = t"ContractId Mod:Person",
@@ -646,6 +649,7 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
                 consuming = false,
                 controllers = e"Cons @Party [person] (Nil @Party)",
                 choiceObservers = Some(e"Nil @Party"),
+                choiceAuthorizers = None,
                 selfBinder = n"self",
                 argBinder = n"i" -> TInt64,
                 returnType = t"Int64",
@@ -657,6 +661,7 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
                 consuming = false,
                 controllers = e"Cons @Party [person] (Nil @Party)",
                 choiceObservers = Some(e"Cons @Party [person] (Nil @Party)"),
+                choiceAuthorizers = Some(e"Cons @Party [person] (Nil @Party)"),
                 selfBinder = n"self",
                 argBinder = n"i" -> TInt64,
                 returnType = t"Int64",
@@ -838,6 +843,7 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
               consuming = true,
               controllers = e"Cons @Party [call_method @Mod:Person asParty this] (Nil @Party)",
               choiceObservers = None,
+              choiceAuthorizers = None,
               selfBinder = n"self",
               argBinder = n"u" -> TUnit,
               returnType = t"ContractId Mod:Person",
@@ -848,6 +854,7 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
               consuming = false,
               controllers = e"Cons @Party [call_method @Mod:Person asParty this] (Nil @Party)",
               choiceObservers = Some(e"Nil @Party"),
+              choiceAuthorizers = None,
               selfBinder = n"self",
               argBinder = n"i" -> TInt64,
               returnType = t"Int64",

@@ -381,6 +381,14 @@ private[daml] class EncodeV1(minor: LV.Minor) {
           b.setCid(cid)
           b.setArg(arg)
           builder.setExercise(b)
+        case UpdateDynamicExercise(templateId, choice, cid, arg) =>
+          assertSince(LV.v1_dev, "DynamicExercise")
+          val b = PLF.Update.DynamicExercise.newBuilder()
+          b.setTemplate(templateId)
+          setInternedString(choice, b.setChoiceInternedStr)
+          b.setCid(cid)
+          b.setArg(arg)
+          builder.setDynamicExercise(b)
         case UpdateExerciseInterface(interface, choice, cid, arg, guard) =>
           val b = PLF.Update.ExerciseInterface.newBuilder()
           b.setInterface(interface)
@@ -898,6 +906,12 @@ private[daml] class EncodeV1(minor: LV.Minor) {
         case None if languageVersion >= LV.Features.choiceObservers =>
           b.setObservers(ENil(AstUtil.TParty))
         case _ =>
+      }
+      choice.choiceAuthorizers match {
+        case Some(value) =>
+          assertSince(LV.Features.choiceAuthority, "TemplateChoice.authority")
+          b.setAuthorizers(value)
+        case None =>
       }
       b.setArgBinder(choice.argBinder._1 -> choice.argBinder._2)
       b.setRetType(choice.returnType)

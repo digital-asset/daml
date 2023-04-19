@@ -769,20 +769,33 @@ private[archive] class DecodeV1(minor: LV.Minor) {
               Ret(None)
             }
           ) { choiceObservers =>
-            decodeType(lfChoice.getRetType) { returnType =>
-              decodeExpr(lfChoice.getUpdate, s"$tpl:$chName:choice") { update =>
-                Ret(
-                  TemplateChoice(
-                    name = chName,
-                    consuming = lfChoice.getConsuming,
-                    controllers,
-                    choiceObservers,
-                    selfBinder = selfBinder,
-                    argBinder = v -> t,
-                    returnType,
-                    update,
+            bindWork(
+              if (lfChoice.hasAuthorizers) {
+                assertSince(LV.Features.choiceAuthority, "TemplateChoice.authorizers")
+                decodeExpr(lfChoice.getAuthorizers, s"$tpl:$chName:authorizers") { authorizers =>
+                  Ret(Some(authorizers))
+                }
+              } else {
+                // authorizers are optional post LV.Features.choiceAuthority
+                Ret(None)
+              }
+            ) { choiceAuthorizers =>
+              decodeType(lfChoice.getRetType) { returnType =>
+                decodeExpr(lfChoice.getUpdate, s"$tpl:$chName:choice") { update =>
+                  Ret(
+                    TemplateChoice(
+                      name = chName,
+                      consuming = lfChoice.getConsuming,
+                      controllers,
+                      choiceObservers,
+                      choiceAuthorizers,
+                      selfBinder = selfBinder,
+                      argBinder = v -> t,
+                      returnType,
+                      update,
+                    )
                   )
-                )
+                }
               }
             }
           }
@@ -1659,6 +1672,16 @@ private[archive] class DecodeV1(minor: LV.Minor) {
             }
           }
 
+        case PLF.Update.SumCase.DYNAMIC_EXERCISE =>
+          val exercise = lfUpdate.getDynamicExercise
+          val templateId = decodeTypeConName(exercise.getTemplate)
+          val choice = handleInternedName(exercise.getChoiceInternedStr)
+          decodeExpr(exercise.getCid, definition) { cidE =>
+            decodeExpr(exercise.getArg, definition) { argE =>
+              Ret(UpdateDynamicExercise(templateId, choice, cidE, argE))
+            }
+          }
+
         case PLF.Update.SumCase.EXERCISE_INTERFACE =>
           assertSince(LV.Features.basicInterfaces, "exerciseInterface")
           val exercise = lfUpdate.getExerciseInterface
@@ -2076,7 +2099,6 @@ private[archive] object DecodeV1 {
       BuiltinFunctionInfo(NUMERIC_TO_INT64, BNumericToInt64, minVersion = numeric),
       BuiltinFunctionInfo(FOLDL, BFoldl),
       BuiltinFunctionInfo(FOLDR, BFoldr),
-      BuiltinFunctionInfo(WITH_AUTHORITY, BWithAuthority),
       BuiltinFunctionInfo(TEXTMAP_EMPTY, BTextMapEmpty),
       BuiltinFunctionInfo(TEXTMAP_INSERT, BTextMapInsert),
       BuiltinFunctionInfo(TEXTMAP_LOOKUP, BTextMapLookup),
@@ -2371,7 +2393,7 @@ private[archive] object DecodeV1 {
       BuiltinFunctionInfo(NUMERIC_TO_BIGNUMERIC, BNumericToBigNumeric, minVersion = bigNumeric),
       BuiltinFunctionInfo(BIGNUMERIC_TO_TEXT, BBigNumericToText, minVersion = bigNumeric),
       BuiltinFunctionInfo(ANY_EXCEPTION_MESSAGE, BAnyExceptionMessage, minVersion = exceptions),
-      BuiltinFunctionInfo(TYPEREP_TYCON_NAME, BTypeRepTyConName, minVersion = LV.v1_dev),
+      BuiltinFunctionInfo(TYPE_REP_TYCON_NAME, BTypeRepTyConName, minVersion = LV.v1_dev),
       BuiltinFunctionInfo(TEXT_TO_UPPER, BTextToUpper, minVersion = unstable),
       BuiltinFunctionInfo(TEXT_TO_LOWER, BTextToLower, minVersion = unstable),
       BuiltinFunctionInfo(TEXT_SLICE, BTextSlice, minVersion = unstable),

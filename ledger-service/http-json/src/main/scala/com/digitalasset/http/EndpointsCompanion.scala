@@ -332,7 +332,7 @@ object EndpointsCompanion {
         case standardToken: StandardJWTPayload =>
           createFromUserToken(
             standardToken,
-            userId => userManagementClient.listUserRights(userId, Some(jwt.value)),
+            userId => userManagementClient.listUserRights(userId = userId, token = Some(jwt.value)),
             () => ledgerIdentityClient.getLedgerId(Some(jwt.value)),
           ).leftMap(identity[Error])
         case customToken: CustomDamlJWTPayload =>

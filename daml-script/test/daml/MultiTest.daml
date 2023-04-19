@@ -30,8 +30,8 @@ template TProposal
 
 multiTest : Script Int
 multiTest = do
-  alice <- allocatePartyOn "alice" (ParticipantName "one")
-  bob <- allocatePartyOn "bob" (ParticipantName "two")
+  alice <- allocatePartyOn "alice" (ParticipantName "participant0")
+  bob <- allocatePartyOn "bob" (ParticipantName "participant1")
   proposalCid <- submit alice $ createCmd (TProposal alice bob)
   _ <- waitForCid tries bob proposalCid
   r <- submit bob $ exerciseCmd proposalCid Accept
@@ -39,24 +39,26 @@ multiTest = do
 
 partyIdHintTest : Script (Party, Party)
 partyIdHintTest = do
-  alice <- allocatePartyWithHintOn "alice" (PartyIdHint "alice") (ParticipantName "one")
-  bob <- allocatePartyWithHintOn "bob" (PartyIdHint "bob") (ParticipantName "two")
+  alice <- allocatePartyWithHintOn "alice" (PartyIdHint "alice") (ParticipantName "participant0")
+  bob <- allocatePartyWithHintOn "bob" (PartyIdHint "bob") (ParticipantName "participant1")
   pure (alice, bob)
 
 listKnownPartiesTest : Script ([(Optional Text, Bool)], [(Optional Text, Bool)])
 listKnownPartiesTest = do
-  parties1 <- listKnownPartiesOn (ParticipantName "one")
-  parties2 <- listKnownPartiesOn (ParticipantName "two")
-  p1 <- allocatePartyOn "p1" (ParticipantName "one")
-  p2 <- allocatePartyOn "p2" (ParticipantName "two")
+  parties1 <- listKnownPartiesOn (ParticipantName "participant0")
+  parties2 <- listKnownPartiesOn (ParticipantName "participant1")
+  p2 <- allocatePartyOn "p2" (ParticipantName "participant1")
+  p1 <- allocatePartyOn "p1" (ParticipantName "participant0")
   -- Synchronize by submitting transactions in both directions. This matches
   -- what the ledger API test tool uses for synchronization.
+  -- note that since p2 is allocated before p1 through the ledger API,
+  -- we are guaranteed that that one will know about p2 before p1
   proposalCid <- submit p1 $ createCmd (TProposal p1 p2)
   waitForCid tries p2 proposalCid
   (tCid, _) <- submit p2 $ exerciseCmd proposalCid Accept
   waitForCid tries p1 tCid
-  parties1' <- listKnownPartiesOn (ParticipantName "one")
-  parties2' <- listKnownPartiesOn (ParticipantName "two")
+  parties1' <- listKnownPartiesOn (ParticipantName "participant0")
+  parties2' <- listKnownPartiesOn (ParticipantName "participant1")
   pure
     ( map toTuple $ sortOn displayName (parties1' \\ parties1)
     , map toTuple $ sortOn displayName (parties2' \\ parties2)

@@ -278,12 +278,6 @@ typeOfBuiltin = \case
   BEFoldr -> pure $ TForall (alpha, KStar) $ TForall (beta, KStar) $
              (tAlpha :-> tBeta :-> tBeta) :-> tBeta :-> TList tAlpha :-> tBeta
 
-  BEWithAuthority ->
-    pure $ TForall (alpha, KStar) $
-    TList TParty :->
-    TUpdate tAlpha :->
-    TUpdate tAlpha
-
   BETextMapEmpty  -> pure $ TForall (alpha, KStar) $ TTextMap tAlpha
   BETextMapInsert -> pure $ TForall (alpha, KStar) $ TText :-> tAlpha :-> TTextMap tAlpha :-> TTextMap tAlpha
   BETextMapLookup -> pure $ TForall (alpha, KStar) $ TText :-> TTextMap tAlpha :-> TOptional tAlpha
@@ -671,6 +665,7 @@ typeOfUpdate = \case
   UCreate tpl arg -> checkCreate tpl arg $> TUpdate (TContractId (TCon tpl))
   UCreateInterface iface arg -> checkCreateInterface iface arg $> TUpdate (TContractId (TCon iface))
   UExercise tpl choice cid arg -> typeOfExercise tpl choice cid arg
+  UDynamicExercise tpl choice cid arg -> typeOfExercise tpl choice cid arg
   UExerciseInterface tpl choice cid arg guard ->
     typeOfExerciseInterface tpl choice cid arg guard
   UExerciseByKey tpl choice key arg -> typeOfExerciseByKey tpl choice key arg
@@ -912,7 +907,7 @@ checkDefTypeSyn DefTypeSyn{synParams,synType} = do
 -- | Check that an interface definition is well defined.
 checkIface :: MonadGamma m => Module -> DefInterface -> m ()
 checkIface m iface = do
-  
+
   -- check view
   let (func, _) = viewtype ^. _TApps
   tycon <- case func of
@@ -993,13 +988,16 @@ checkDefValue (DefValue _loc (_, typ) (IsTest isTest) expr) = do
       _ -> throwWithContext (EExpectedScenarioType typ)
 
 checkTemplateChoice :: MonadGamma m => Qualified TypeConName -> TemplateChoice -> m ()
-checkTemplateChoice tpl (TemplateChoice _loc _ _ controllers mbObservers selfBinder (param, paramType) retType upd) = do
+checkTemplateChoice tpl (TemplateChoice _loc _ _ controllers mbObservers mbAuthorizers selfBinder (param, paramType) retType upd) = do
   checkType paramType KStar
   checkType retType KStar
   introExprVar param paramType $ checkExpr controllers (TList TParty)
   introExprVar param paramType $ do
     whenJust mbObservers $ \observers -> do
       checkExpr observers (TList TParty)
+  introExprVar param paramType $ do
+    whenJust mbAuthorizers $ \authorizers -> do
+      checkExpr authorizers (TList TParty)
   introExprVar selfBinder (TContractId (TCon tpl)) $ introExprVar param paramType $
     checkExpr upd (TUpdate retType)
 

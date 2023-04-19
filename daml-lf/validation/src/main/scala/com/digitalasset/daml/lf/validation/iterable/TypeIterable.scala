@@ -140,6 +140,10 @@ private[validation] object TypeIterable {
         Iterator(TTyCon(templateId)) ++
           iterator(cid) ++
           iterator(arg)
+      case UpdateDynamicExercise(templateId, choice @ _, cid, arg) =>
+        Iterator(TTyCon(templateId)) ++
+          iterator(cid) ++
+          iterator(arg)
       case UpdateExerciseInterface(interface, choice @ _, cid, arg, guard) =>
         Iterator(TTyCon(interface)) ++
           iterator(cid) ++
@@ -233,6 +237,7 @@ private[validation] object TypeIterable {
             consuming @ _,
             controllers,
             observers,
+            authorizers,
             selfBinder @ _,
             (boundedVarName @ _, boundedVarType),
             retType,
@@ -240,6 +245,7 @@ private[validation] object TypeIterable {
           ) =>
         iterator(controllers) ++
           observers.iterator.flatMap(iterator(_)) ++
+          authorizers.iterator.flatMap(iterator(_)) ++
           iterator(update) ++
           Iterator(boundedVarType) ++
           Iterator(retType)

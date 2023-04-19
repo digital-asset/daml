@@ -20,6 +20,10 @@ terraform {
       source  = "hashicorp/google-beta"
       version = "4.43.0"
     }
+    azurerm = {
+      source  = "hashicorp/azurerm"
+      version = "3.31.0"
+    }
   }
 }
 
@@ -36,6 +40,21 @@ provider "google-beta" {
 }
 
 provider "secret" {
+}
+
+provider "azurerm" {
+  features {
+    virtual_machine {
+      graceful_shutdown          = true
+      delete_os_disk_on_deletion = true
+    }
+  }
+  subscription_id = "9114f3e0-9963-4368-9a0a-117bcdbf0055"
+}
+
+resource "azurerm_resource_group" "daml-ci" {
+  name     = "daml-ci"
+  location = "East US"
 }
 
 data "google_project" "current" {

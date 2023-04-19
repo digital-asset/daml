@@ -55,6 +55,7 @@ import com.daml.lf.language.PackageInterface
 import com.daml.lf.language.Util._
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SValue._
+import com.daml.lf.speedy.SValue.SMap.`SMap Ordering`
 import com.daml.lf.speedy.{Compiler, Pretty, SValue, Speedy}
 import com.daml.lf.{CompiledPackages, PureCompiledPackages}
 import com.daml.logging.LoggingContextOf.label
@@ -81,6 +82,7 @@ import java.util.UUID
 import java.util.concurrent.atomic.AtomicLong
 import scala.annotation.{nowarn, tailrec}
 import scala.collection.concurrent.TrieMap
+import scala.collection.immutable.TreeMap
 import scala.concurrent.duration.{FiniteDuration, _}
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -120,7 +122,7 @@ private[lf] final case class Trigger(
     if (defn.version >= Trigger.Version.`2.5.1`) {
       Array(converter.fromTriggerSetupArguments(parties, acs, triggerConfig).orConverterException)
     } else {
-      val createdValue: SValue = converter.fromACS(acs).orConverterException
+      val createdValue: SValue = converter.fromActiveContracts(acs).orConverterException
       val partyArg = SParty(Ref.Party.assertFromString(parties.actAs.unwrap))
 
       if (hasReadAs) {
@@ -355,9 +357,8 @@ object Trigger {
     for {
       triggerDef <- detectTriggerDefinition(compiledPackages.pkgInterface, triggerId)
       hasReadAs <- detectHasReadAs(compiledPackages.pkgInterface, triggerDef.triggerIds)
-      converter = new Converter(compiledPackages, triggerDef)
-      filter <- getTriggerFilter(compiledPackages, compiler, converter, triggerDef)
-      heartbeat <- getTriggerHeartbeat(compiledPackages, compiler, converter, triggerDef)
+      filter <- getTriggerFilter(compiledPackages, compiler, triggerDef)
+      heartbeat <- getTriggerHeartbeat(compiledPackages, compiler, triggerDef)
     } yield Trigger(triggerDef, filter, heartbeat, hasReadAs)
   }
 
@@ -365,7 +366,6 @@ object Trigger {
   private def getTriggerHeartbeat(
       compiledPackages: CompiledPackages,
       compiler: Compiler,
-      converter: Converter,
       triggerDef: TriggerDefinition,
   )(implicit triggerContext: TriggerLogContext): Either[String, Option[FiniteDuration]] = {
     val heartbeat = compiler.unsafeCompile(
@@ -373,7 +373,7 @@ object Trigger {
     )
     Machine.stepToValue(compiledPackages, heartbeat) match {
       case SOptional(None) => Right(None)
-      case SOptional(Some(relTime)) => converter.toFiniteDuration(relTime).map(Some(_))
+      case SOptional(Some(relTime)) => Converter.toFiniteDuration(relTime).map(Some(_))
       case value => Left(s"Expected Optional but got $value.")
     }
   }
@@ -382,7 +382,6 @@ object Trigger {
   def getTriggerFilter(
       compiledPackages: CompiledPackages,
       compiler: Compiler,
-      converter: Converter,
       triggerDef: TriggerDefinition,
   )(implicit triggerContext: TriggerLogContext): Either[String, Filters] = {
     val registeredTemplates = compiler.unsafeCompile(
@@ -431,7 +430,7 @@ object Trigger {
         )
 
       case SVariant(_, "RegisteredTemplates", _, v) =>
-        converter.toRegisteredTemplates(v) match {
+        Converter.toRegisteredTemplates(v) match {
           case Right(identifiers) =>
             val isRegistered: Identifier => Boolean = identifiers.toSet.contains
             Right(
@@ -684,7 +683,7 @@ private[lf] class Runner private (
                     case DamlTuple2(sCommands, DamlFun(textA)) =>
                       numberOfSubmissions += 1
 
-                      val commands = converter.toCommands(sCommands).orConverterException
+                      val commands = Converter.toCommands(sCommands).orConverterException
                       val (commandUUID, submitRequest) = handleCommands(commands)
 
                       numberOfCreates += commands.count(_.command.isCreate)
@@ -943,7 +942,7 @@ private[lf] class Runner private (
     Machine.stepToValue(compiledPackages, update)
   }
 
-  private[this] def encodeMsgs: TriggerContextualFlow[TriggerMsg, SValue, NotUsed] =
+  private[trigger] def encodeMsgs: TriggerContextualFlow[TriggerMsg, SValue, NotUsed] =
     Flow fromFunction {
       case ctx @ Ctx(_, TriggerMsg.Transaction(transaction), _) =>
         ctx.copy(value = converter.fromTransaction(transaction).orConverterException)
@@ -1409,19 +1408,20 @@ private[lf] class Runner private (
       materializer: Materializer,
       executionContext: ExecutionContext,
   ): (T, Future[SValue]) = {
-    triggerContext.nextSpan("rule") { implicit triggerContext: TriggerLogContext =>
-      val source = msgSource(client, offset, trigger.heartbeat, parties, transactionFilter)
-      val triggerRuleEvaluator = triggerContext.childSpan("initialization") {
-        implicit triggerContext: TriggerLogContext =>
-          getTriggerEvaluator(acs)
-      }
+    triggerContext.nextSpan("rule", "ledger-offset" -> offset.toString) {
+      implicit triggerContext: TriggerLogContext =>
+        val source = msgSource(client, offset, trigger.heartbeat, parties, transactionFilter)
+        val triggerRuleEvaluator = triggerContext.childSpan("initialization") {
+          implicit triggerContext: TriggerLogContext =>
+            getTriggerEvaluator(acs)
+        }
 
-      Flow
-        .fromGraph(msgFlow)
-        .viaMat(triggerRuleEvaluator)(Keep.both)
-        .via(submitOrFail)
-        .join(source)
-        .run()
+        Flow
+          .fromGraph(msgFlow)
+          .viaMat(triggerRuleEvaluator)(Keep.both)
+          .via(submitOrFail)
+          .join(source)
+          .run()
     }
   }
 }
@@ -1468,11 +1468,15 @@ object Runner {
     smap.expect("SMap", { case SMap(_, values) => values.size }).orConverterException
   }
 
-  private def numberOfActiveContracts(
+  private def mapLookup(key: SValue, smap: SValue): Either[String, SValue] = {
+    smap.expect("SMap", { case SMap(_, entries) if entries.contains(key) => entries(key) })
+  }
+
+  private[trigger] def getActiveContracts(
       svalue: SValue,
       level: Trigger.Level,
       version: Trigger.Version,
-  ): Option[Int] = {
+  ): Option[TreeMap[SValue, TreeMap[SValue, SValue]]] = {
     level match {
       case Trigger.Level.High if version <= Trigger.Version.`2.0.0` =>
         // For older trigger code, we do not support extracting active contracts from the ACS
@@ -1484,11 +1488,24 @@ object Runner {
         val result = for {
           acs <- svalue.expect("SRecord", { case SRecord(_, _, values) => values.get(0) })
           activeContracts <- acs.expect("SRecord", { case SRecord(_, _, values) => values.get(0) })
-          size <- activeContracts.expect(
+          templateMap <- activeContracts.expect(
             "SMap",
-            { case SMap(_, values) => values.values.map(mapSize).sum },
+            { case SMap(_, values) => values },
           )
-        } yield size
+          contractMap = templateMap.map { case (templateId, smap) =>
+            smap.expect("SMap", { case SMap(_, values) => (templateId, values) })
+          }
+          resultMap <- contractMap
+            .foldRight[Either[String, TreeMap[SValue, TreeMap[SValue, SValue]]]](
+              Right(TreeMap.empty)
+            ) { case (value, result) =>
+              for {
+                entry <- value
+                res <- result
+                (tid, tmap) = entry
+              } yield res + (tid -> tmap)
+            }
+        } yield resultMap
 
         Some(result.orConverterException)
 
@@ -1497,7 +1514,15 @@ object Runner {
     }
   }
 
-  private def numberOfPendingContracts(
+  private[trigger] def numberOfActiveContracts(
+      svalue: SValue,
+      level: Trigger.Level,
+      version: Trigger.Version,
+  ): Option[Int] = {
+    getActiveContracts(svalue, level, version).map(_.values.map(_.values.size).sum)
+  }
+
+  private[trigger] def numberOfPendingContracts(
       svalue: SValue,
       level: Trigger.Level,
       version: Trigger.Version,
@@ -1529,27 +1554,86 @@ object Runner {
     }
   }
 
-  private def numberOfInFlightCommands(
+  private[trigger] def getInFlightCommands(svalue: SValue): Either[String, SValue] = {
+    // The following code should be kept in sync with the TriggerState record type in Internal.daml
+    // svalue: TriggerState s
+    for {
+      inFlightCommands <- svalue.expect(
+        "SRecord",
+        { case SRecord(_, _, values) if values.size() >= 4 => values.get(4) },
+      )
+    } yield inFlightCommands
+  }
+
+  private[trigger] def numberOfInFlightCommands(
       svalue: SValue,
       level: Trigger.Level,
       version: Trigger.Version,
   ): Option[Int] = {
+    // svalue: TriggerState s
     level match {
       case Trigger.Level.High if version <= Trigger.Version.`2.0.0` =>
         // For older trigger code, we do not support extracting commands that are in-flight
         None
 
       case Trigger.Level.High =>
-        // The following code should be kept in sync with the TriggerState record type in Internal.daml
-        // svalue: TriggerState s
         val result = for {
-          inFlightCommands <- svalue.expect(
-            "SRecord",
-            { case SRecord(_, _, values) if values.size() >= 4 => values.get(4) },
-          )
+          inFlightCommands <- getInFlightCommands(svalue)
         } yield mapSize(inFlightCommands)
 
         Some(result.orConverterException)
+
+      case Trigger.Level.Low =>
+        None
+    }
+  }
+
+  private def isCreateCommand(svalue: SValue): Boolean = {
+    svalue
+      .expect(
+        "SVariant",
+        {
+          case SVariant(_, "CreateCommand", _, _) => true
+          case SVariant(_, _, _, _) => false
+        },
+      )
+      .orConverterException
+  }
+
+  private def isCreateAndExerciseCommand(svalue: SValue): Boolean = {
+    svalue
+      .expect(
+        "SVariant",
+        {
+          case SVariant(_, "CreateAndExerciseCommand", _, _) => true
+          case SVariant(_, _, _, _) => false
+        },
+      )
+      .orConverterException
+  }
+
+  private[trigger] def numberOfInFlightCreateCommands(
+      commandId: SValue,
+      svalue: SValue,
+      level: Trigger.Level,
+      version: Trigger.Version,
+  ): Option[Int] = {
+    // svalue: TriggerState s
+    level match {
+      case Trigger.Level.High if version <= Trigger.Version.`2.0.0` =>
+        // For older trigger code, we do not support extracting commands that are in-flight
+        None
+
+      case Trigger.Level.High =>
+        val result = for {
+          inFlightCommands <- getInFlightCommands(svalue)
+          commands <- mapLookup(commandId, inFlightCommands)
+          entries <- commands.expect("SList", { case SList(entries) => entries })
+        } yield entries.toImmArray.toSeq.count { cmd =>
+          isCreateCommand(cmd) || isCreateAndExerciseCommand(cmd)
+        }
+
+        Some(result.getOrElse(0))
 
       case Trigger.Level.Low =>
         None
@@ -1561,13 +1645,13 @@ object Runner {
       level: Trigger.Level,
       version: Trigger.Version,
   ): SValue = {
+    // state: TriggerState s
     level match {
       case Trigger.Level.High if version <= Trigger.Version.`2.0.0` =>
         // For old trigger code, we do not support extracting the user state
         state
 
       case Trigger.Level.High =>
-        // state: TriggerState s
         state
           .expect(
             "SRecord",

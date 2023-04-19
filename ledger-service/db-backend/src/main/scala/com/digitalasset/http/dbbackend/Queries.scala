@@ -259,7 +259,7 @@ sealed abstract class Queries(tablePrefix: String, tpIdCacheMaxEntries: Long)(im
   )(implicit log: LogHandler): ConnectionIO[Int] = {
     val (existingParties, newParties) = {
       import cats.syntax.foldable._
-      parties.toList.partition(p => lastOffsets.contains(p))
+      parties.toList.sorted.partition(p => lastOffsets.contains(p))
     }
     // If a concurrent transaction inserted an offset for a new party, the insert will fail.
     val insert =
@@ -296,6 +296,9 @@ sealed abstract class Queries(tablePrefix: String, tpIdCacheMaxEntries: Long)(im
   protected[this] type DBContractKey
   protected[this] def toDBContractKey[CK: JsonWriter](ck: CK): DBContractKey
 
+  /** Whether strict determinism can be avoided by the contracts-fetch process. */
+  def allowDamlTransactionBatching: Boolean
+
   final def insertContracts[F[_]: cats.Foldable: Functor, CK: JsonWriter, PL: JsonWriter](
       dbcs: F[DBContract[SurrogateTpId, CK, PL, Seq[String]]]
   )(implicit log: LogHandler): ConnectionIO[Int] =
@@ -311,29 +314,37 @@ sealed abstract class Queries(tablePrefix: String, tpIdCacheMaxEntries: Long)(im
   )(implicit log: LogHandler): ConnectionIO[Int] = {
     import cats.instances.vector._
     import nonempty.catsinstances._
-    (cids: Iterable[(SurrogateTpId, Set[String])]).view.collect { case (k, NonEmpty(cids)) =>
-      (k, cids)
-    }.toMap match {
-      case NonEmpty(cids) =>
-        val del = fr"DELETE FROM $contractTableName WHERE " ++ {
-          val chunkMap =
-            maxListSize.fold(cids.transform((_, sv) => NonEmpty(Vector, sv)))(
-              chunkBySetSize(_, cids)
-            )
-          joinFragment(
-            chunkMap.toVector.map { case (tpid, chunks) =>
-              val inCids = joinFragment(
-                chunks.map(cids => Fragments.in(fr"contract_id", cids.toVector.toNEF)),
-                fr" OR ",
+    if (allowDamlTransactionBatching) {
+      (cids: Iterable[(SurrogateTpId, Set[String])]).view.collect { case (k, NonEmpty(cids)) =>
+        (k, cids)
+      }.toMap match {
+        case NonEmpty(cids) =>
+          val del = fr"DELETE FROM $contractTableName WHERE " ++ {
+            val chunkMap =
+              maxListSize.fold(cids.transform((_, sv) => NonEmpty(Vector, sv)))(
+                chunkBySetSize(_, cids)
               )
-              fr"(tpid = $tpid AND ($inCids))"
-            },
-            fr" OR ",
-          )
-        }
-        del.update.run
-      case _ =>
-        free.connection.pure(0)
+            joinFragment(
+              chunkMap.toVector.map { case (tpid, chunks) =>
+                val inCids = joinFragment(
+                  chunks.map(cids => Fragments.in(fr"contract_id", cids.toVector.toNEF)),
+                  fr" OR ",
+                )
+                fr"(tpid = $tpid AND ($inCids))"
+              },
+              fr" OR ",
+            )
+          }
+          del.update.run
+        case _ =>
+          free.connection.pure(0)
+      }
+    } else {
+      import cats.instances.seq._
+      Update[(SurrogateTpId, String)](
+        s"DELETE FROM $contractTableNameRaw WHERE tpid = ? AND contract_id = ?"
+      )
+        .updateMany(deterministicDeleteOrder(cids))
     }
   }
 
@@ -616,6 +627,17 @@ object Queries {
     }
   }
 
+  private[dbbackend] def deterministicDeleteOrder[TpId: Ordering, Cid: Ordering](
+      cids: Map[TpId, Set[Cid]]
+  ): Seq[(TpId, Cid)] =
+    cids
+      .to(SortedMap)
+      .view
+      .flatMap { case (tpid, cids) =>
+        cids.toSeq.sorted map ((tpid, _))
+      }
+      .toSeq
+
   import doobie.util.invariant.InvalidValue
 
   @throws[InvalidValue[_, _]]
@@ -723,6 +745,8 @@ private final class PostgresQueries(tablePrefix: String, tpIdCacheMaxEntries: Lo
   private[this] val contractKeyHashIndex = CreateIndex(
     sql"""CREATE INDEX $contractKeyHashIndexName ON $contractTableName (key_hash)"""
   )
+
+  override def allowDamlTransactionBatching = true
 
   protected[this] override def extraDatabaseDdls =
     Seq(indexContractsTable, contractKeyHashIndex)
@@ -872,7 +896,7 @@ private final class OracleQueries(
     sql"""CREATE MATERIALIZED VIEW $contractStakeholdersViewName
           BUILD IMMEDIATE REFRESH FAST ON STATEMENT AS
           SELECT contract_id, tpid, stakeholder FROM $contractTableName,
-                 json_table(json_array(signatories, observers), '$$[*][*]'
+                 json_table(json_array(signatories, observers RETURNING CLOB), '$$[*][*]'
                     columns (stakeholder $partyType path '$$'))""",
   )
   private[this] val stakeholdersIndexName = Fragment.const0(s"${tablePrefix}stakeholder_idx")
@@ -889,6 +913,8 @@ private final class OracleQueries(
     CREATE SEARCH INDEX ${tablePrefixFr}payload_json_idx
     ON $contractTableName (payload) FOR JSON
     PARAMETERS('DATAGUIDE OFF')""")
+
+  override def allowDamlTransactionBatching = false
 
   protected[this] override def extraDatabaseDdls =
     Seq(stakeholdersView, stakeholdersIndex, contractKeyHashIndex) ++

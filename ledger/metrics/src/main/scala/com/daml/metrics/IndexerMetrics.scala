@@ -9,7 +9,9 @@ import com.daml.metrics.api.MetricDoc.MetricQualification.Debug
 import com.daml.metrics.api.MetricHandle.{Gauge, MetricsFactory}
 import com.daml.metrics.api.{MetricDoc, MetricName, MetricsContext}
 
-class IndexerMetrics(prefix: MetricName, factory: MetricsFactory) {
+import scala.annotation.nowarn
+
+class IndexerMetrics(prefix: MetricName, @deprecated @nowarn factory: MetricsFactory) {
 
   @MetricDoc.Tag(
     summary = "The time of the last event ingested by the index db (in milliseconds since EPOCH).",
@@ -18,6 +20,7 @@ class IndexerMetrics(prefix: MetricName, factory: MetricsFactory) {
                     |db. It is measured in milliseconds since the EPOCH time.""",
     qualification = Debug,
   )
+  @nowarn
   val lastReceivedRecordTime: Gauge[Long] =
     factory.gauge(prefix :+ "last_received_record_time", 0L)(MetricsContext.Empty)
 
@@ -33,6 +36,7 @@ class IndexerMetrics(prefix: MetricName, factory: MetricsFactory) {
                     |database.""",
     qualification = Debug,
   )
+  @nowarn
   val ledgerEndSequentialId: Gauge[Long] =
     factory.gauge(prefix :+ "ledger_end_sequential_id", 0L)(MetricsContext.Empty)
 
@@ -43,6 +47,7 @@ class IndexerMetrics(prefix: MetricName, factory: MetricsFactory) {
                     |can be negative.""",
     qualification = Debug,
   )
+  @nowarn
   val currentRecordTimeLag: Gauge.CloseableGauge = factory.gaugeWithSupplier(
     prefix :+ "current_record_time_lag",
     () => Instant.now().toEpochMilli - lastReceivedRecordTime.getValue,

@@ -59,9 +59,10 @@ private[lf] object Pretty {
         text("Update failed due to fetch of an inactive contract") & prettyContractId(coid) &
           char('(') + (prettyTypeConName(tid)) + text(").") /
           text(s"The contract had been consumed in sub-transaction #$consumedBy:")
-      case DisclosedContractKeyHashingError(coid, tid, reason) =>
-        text("Failed to cache disclosed contract key for contract") & prettyContractId(coid) &
-          char('(') + (prettyTypeConName(tid)) + text(").") / text(reason)
+      case DisclosedContractKeyHashingError(coid, gkey, declaredHash) =>
+        text("Mismatched disclosed contract key hash for contract") & prettyContractId(coid) &
+          char('(') + prettyTypeConName(gkey.templateId) + text(").") / text("declared hash:") &
+          text(declaredHash.toHexString) & text("found hash:") & text(gkey.hash.toHexString)
       case ContractKeyNotFound(gk) =>
         text(
           "Update failed due to fetch-by-key or exercise-by-key which did not find a contract with key"
@@ -169,6 +170,17 @@ private[lf] object Pretty {
             text(
               s"Exercise the choice $templateId:$choiceName with ${observers.size} observers but the limit is $limit"
             )
+          case Limit.ChoiceAuthorizers(
+                cid @ _,
+                templateId,
+                choiceName,
+                arg @ _,
+                authorizers,
+                limit,
+              ) =>
+            text(
+              s"Exercise the choice $templateId:$choiceName with ${authorizers.size} authorizers but the limit is $limit"
+            )
           case Limit.TransactionInputContracts(limit) =>
             text(s"Transaction exceeds maximum input contract number of $limit")
         }
@@ -199,8 +211,6 @@ private[lf] object Pretty {
   // A minimal pretty-print of an update transaction node, without recursing into child nodes..
   def prettyPartialTransactionNode(node: Node): Doc =
     node match {
-      case _: Node.Authority =>
-        text("authority")
       case Node.Rollback(_) =>
         text("rollback")
       case create: Node.Create =>
@@ -227,6 +237,8 @@ private[lf] object Pretty {
     failure match {
       case nc: FailedAuthorization.NoControllers =>
         s"node $id (${nc.templateId}) has no controllers"
+      case nc: FailedAuthorization.NoAuthorizers =>
+        s"node $id (${nc.templateId}) has no authorizers"
       case ma: FailedAuthorization.CreateMissingAuthorization =>
         s"node $id (${ma.templateId}) requires authorizers ${ma.requiredParties
             .mkString(",")}, but only ${ma.authorizingParties.mkString(",")} were given"
@@ -293,8 +305,6 @@ private[lf] object Pretty {
     val eventId = EventId(txId.id, nodeId)
     val ni = l.ledgerData.nodeInfos(eventId)
     val ppNode = ni.node match {
-      case na: Node.Authority =>
-        text("authority:") / stack(na.children.toList.map(prettyEventInfo(l, txId)))
       case Node.Rollback(children) =>
         text("rollback:") / stack(children.toList.map(prettyEventInfo(l, txId)))
       case create: Node.Create =>

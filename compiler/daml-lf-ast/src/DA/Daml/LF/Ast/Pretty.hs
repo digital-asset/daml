@@ -267,7 +267,6 @@ instance Pretty BuiltinExpr where
     BEExpInt64 -> "EXP_INT64"
     BEFoldl -> "FOLDL"
     BEFoldr -> "FOLDR"
-    BEWithAuthority -> "WITH_AUTHORITY"
     BETextMapEmpty -> "TEXTMAP_EMPTY"
     BETextMapInsert -> "TEXTMAP_INSERT"
     BETextMapLookup -> "TEXTMAP_LOOKUP"
@@ -300,7 +299,7 @@ instance Pretty BuiltinExpr where
     BETextToCodePoints -> "TEXT_TO_CODE_POINTS"
     BECodePointsToText -> "CODE_POINTS_TO_TEXT"
     BECoerceContractId -> "COERCE_CONTRACT_ID"
-    BETypeRepTyConName -> "TYPEREP_TYCON_NAME"
+    BETypeRepTyConName -> "TYPE_REP_TYCON_NAME"
     BETextToUpper -> "TEXT_TO_UPPER"
     BETextToLower -> "TEXT_TO_LOWER"
     BETextSlice -> "TEXT_SLICE"
@@ -406,6 +405,10 @@ instance Pretty Update where
     UExercise tpl choice cid arg ->
       -- NOTE(MH): Converting the choice name into a variable is a bit of a hack.
       pPrintAppKeyword lvl prec "exercise"
+      [tplArg tpl, TmArg (EVar (ExprVarName (unChoiceName choice))), TmArg cid, TmArg arg]
+    UDynamicExercise tpl choice cid arg ->
+      -- NOTE(MH): Converting the choice name into a variable is a bit of a hack.
+      pPrintAppKeyword lvl prec "dynamic_exercise"
       [tplArg tpl, TmArg (EVar (ExprVarName (unChoiceName choice))), TmArg cid, TmArg arg]
     UExerciseInterface interface choice cid arg guard ->
       let -- We distinguish guarded and unguarded exercises by Just/Nothing in guard
@@ -608,7 +611,7 @@ instance Pretty DefValue where
 
 pPrintTemplateChoice ::
   PrettyLevel -> ModuleName -> TypeConName -> TemplateChoice -> Doc ann
-pPrintTemplateChoice lvl modName tpl (TemplateChoice mbLoc name isConsuming controllers observers selfBinder argBinder retType update) =
+pPrintTemplateChoice lvl modName tpl (TemplateChoice mbLoc name isConsuming controllers observers authorizers selfBinder argBinder retType update) =
   withSourceLoc lvl mbLoc $
     vcat
     [ hsep
@@ -621,6 +624,7 @@ pPrintTemplateChoice lvl modName tpl (TemplateChoice mbLoc name isConsuming cont
       ]
     , nest 2 (keyword_ "controller" <-> pPrintPrec lvl 0 controllers)
     , nest 2 (keyword_ "observer" <-> pPrintPrec lvl 0 observers)
+    , nest 2 (keyword_ "authority" <-> pPrintPrec lvl 0 authorizers)
     , nest 2 (keyword_ "do" <-> pPrintPrec lvl 0 update)
     ]
 

@@ -47,6 +47,7 @@ final class TriggerLogContext private (
     private[trigger] val loggingContext: LoggingContextOf[Trigger],
     private[trigger] val entries: Seq[(String, LoggingValue)],
     private[trigger] val span: TriggerLogSpan,
+    private[trigger] val callback: (String, TriggerLogContext) => Unit,
 ) extends NoCopy {
 
   import ToLoggingContext._
@@ -54,21 +55,49 @@ final class TriggerLogContext private (
   def enrichTriggerContext[A](
       additionalEntries: (String, LoggingValue)*
   )(f: TriggerLogContext => A): A = {
-    f(new TriggerLogContext(loggingContext, entries ++ additionalEntries, span))
+    f(new TriggerLogContext(loggingContext, entries ++ additionalEntries, span, callback))
   }
 
   def nextSpan[A](
       name: String,
       additionalEntries: (String, LoggingValue)*
-  )(f: TriggerLogContext => A): A = {
-    f(new TriggerLogContext(loggingContext, entries ++ additionalEntries, span.nextSpan(name)))
+  )(f: TriggerLogContext => A)(implicit
+      logger: ContextualizedLogger
+  ): A = {
+    val context = new TriggerLogContext(
+      loggingContext,
+      entries ++ additionalEntries,
+      span.nextSpan(name),
+      callback,
+    )
+
+    try {
+      context.logInfo("span entry")
+      f(context)
+    } finally {
+      context.logInfo("span exit")
+    }
   }
 
   def childSpan[A](
       name: String,
       additionalEntries: (String, LoggingValue)*
-  )(f: TriggerLogContext => A): A = {
-    f(new TriggerLogContext(loggingContext, entries ++ additionalEntries, span.childSpan(name)))
+  )(f: TriggerLogContext => A)(implicit
+      logger: ContextualizedLogger
+  ): A = {
+    val context = new TriggerLogContext(
+      loggingContext,
+      entries ++ additionalEntries,
+      span.childSpan(name),
+      callback,
+    )
+
+    try {
+      context.logInfo("span entry")
+      f(context)
+    } finally {
+      context.logInfo("span exit")
+    }
   }
 
   def groupWith(contexts: TriggerLogContext*): TriggerLogContext = {
@@ -79,13 +108,14 @@ final class TriggerLogContext private (
       span.groupWith(context.span)
     }
 
-    new TriggerLogContext(loggingContext, groupEntries.toSeq, groupSpans)
+    new TriggerLogContext(loggingContext, groupEntries.toSeq, groupSpans, callback)
   }
 
   def logError(message: String, additionalEntries: (String, LoggingValue)*)(implicit
       logger: ContextualizedLogger
   ): Unit = {
     enrichTriggerContext(additionalEntries: _*) { implicit triggerContext: TriggerLogContext =>
+      callback(message, triggerContext)
       logger.error(message)
     }
   }
@@ -94,6 +124,7 @@ final class TriggerLogContext private (
       logger: ContextualizedLogger
   ): Unit = {
     enrichTriggerContext(additionalEntries: _*) { implicit triggerContext: TriggerLogContext =>
+      callback(message, triggerContext)
       logger.warn(message)
     }
   }
@@ -102,6 +133,7 @@ final class TriggerLogContext private (
       logger: ContextualizedLogger
   ): Unit = {
     enrichTriggerContext(additionalEntries: _*) { implicit triggerContext: TriggerLogContext =>
+      callback(message, triggerContext)
       logger.info(message)
     }
   }
@@ -110,6 +142,7 @@ final class TriggerLogContext private (
       logger: ContextualizedLogger
   ): Unit = {
     enrichTriggerContext(additionalEntries: _*) { implicit triggerContext: TriggerLogContext =>
+      callback(message, triggerContext)
       logger.debug(message)
     }
   }
@@ -118,6 +151,7 @@ final class TriggerLogContext private (
       logger: ContextualizedLogger
   ): Unit = {
     enrichTriggerContext(additionalEntries: _*) { implicit triggerContext: TriggerLogContext =>
+      callback(message, triggerContext)
       logger.trace(message)
     }
   }
@@ -132,6 +166,20 @@ object TriggerLogContext {
       loggingContext,
       entries,
       TriggerLogSpan(BackStack(span)),
+      (_, _) => (),
+    ).enrichTriggerContext()(f)
+  }
+
+  private[trigger] def newRootSpanWithCallback[A](
+      span: String,
+      callback: (String, TriggerLogContext) => Unit,
+      entries: (String, LoggingValue)*
+  )(f: TriggerLogContext => A)(implicit loggingContext: LoggingContextOf[Trigger]): A = {
+    new TriggerLogContext(
+      loggingContext,
+      entries,
+      TriggerLogSpan(BackStack(span)),
+      callback,
     ).enrichTriggerContext()(f)
   }
 

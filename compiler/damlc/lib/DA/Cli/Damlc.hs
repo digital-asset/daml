@@ -111,8 +111,6 @@ data CommandName =
   | DebugIdeSpanInfo
   | Desugar
   | DocTest
-  | GenerateSrc
-  | GenerateGenerics
   | Ide
   | Init
   | Inspect
@@ -509,6 +507,12 @@ cmdDocTest numProcessors =
               (EnableScenarioService True)
               optPackageName
               disabledDlintUsageParser
+        <*> strOptionOnce (long "script-lib" <> value "daml-script" <> internal)
+            -- This is useful for tests and `bazel run`.
+        <*> (ImportSource <$> flagYesNoAuto "import-source" True "Should source code directory be directly imported" internal)
+            -- We need this when generating docs for stdlib, as we do not want to directly provide the source here,
+            -- instead we use the already provided stdlib in the env. The reason for this is that Daml.Script relies on stdlib,
+            -- and recompiling it alongside Daml.Script causes issues with missing interface files
         <*> many inputFileOpt
 
 --------------------------------------------------------------------------------
@@ -961,25 +965,55 @@ execMergeDars darFp1 darFp2 mbOutFp =
         pure $ ZipArchive.toEntry manifestPath 0 $ BSLC.unlines $
             map (\(k, v) -> breakAt72Bytes $ BSL.fromStrict $ k <> ": " <> v) attrs1
 
-execDocTest :: Options -> [FilePath] -> Command
-execDocTest opts files =
+-- | Should source files for doc test be imported into the test project (default yes)
+newtype ImportSource = ImportSource Bool
+
+execDocTest :: Options -> FilePath -> ImportSource -> [FilePath] -> Command
+execDocTest opts scriptDar (ImportSource importSource) files =
   Command DocTest Nothing effect
   where
     effect = do
       let files' = map toNormalizedFilePath' files
+          packageFlag =
+            ExposePackage
+              ("--package daml-script-" <> SdkVersion.sdkPackageVersion)
+              (UnitIdArg $ stringToUnitId $ "daml-script-" <> SdkVersion.sdkPackageVersion)
+              (ModRenaming True [])
+
       logger <- getLogger opts "doctest"
+
+      -- Install daml-script in their project and update the package db
+      -- Note this installs directly to the users dependency database, giving this command side effects.
+      -- An approach of copying out the deps into a temporary location to build/run the tests has been considered
+      -- but the effort to build this, combined with the low number of users of this feature, as well as most projects
+      -- already using daml-script has led us to leave this as is. We'll fix this if someone is affected and notifies us.
+      installDependencies "." opts (PackageSdkVersion SdkVersion.sdkVersion) [scriptDar] []
+      createProjectPackageDb "." opts mempty
+
+      opts <- pure opts
+        { optPackageDbs = projectPackageDatabase : optPackageDbs opts
+        , optPackageImports = packageFlag : optPackageImports opts
+        -- Drop version information to avoid package clashes (specifically when generating for internal packages)
+        , optMbPackageVersion = Nothing
+        }
+
       -- We don’t add a logger here since we will otherwise emit logging messages twice.
       importPaths <-
-          withDamlIdeState opts { optScenarioService = EnableScenarioService False }
-              logger (NotificationHandler $ \_ _ -> pure ()) $ \ideState -> runActionSync ideState $ do
-          pmS <- catMaybes <$> uses GetParsedModule files'
-          -- This is horrible but we do not have a way to change the import paths in a running
-          -- IdeState at the moment.
-          pure $ nubOrd $ mapMaybe (uncurry moduleImportPath) (zip files' pmS)
+        if importSource
+          then
+            withDamlIdeState opts { optScenarioService = EnableScenarioService False }
+              logger (NotificationHandler $ \_ _ -> pure ()) $
+              \ideState -> runActionSync ideState $ do
+                pmS <- catMaybes <$> uses GetParsedModule files'
+                -- This is horrible but we do not have a way to change the import paths in a running
+                -- IdeState at the moment.
+                pure $ nubOrd $ mapMaybe (uncurry moduleImportPath) (zip files' pmS)
+          else pure []
       opts <- pure opts
         { optImportPath = importPaths <> optImportPath opts
         , optHaddock = Haddock True
-        , optEnableScenarios = EnableScenarios True }
+        }
+
       withDamlIdeState opts logger diagnosticsLogger $ \ideState ->
           docTest ideState files'
 
@@ -1056,15 +1090,38 @@ main = do
     -- Note: need to parse given args first to decide whether we need to add
     -- args from daml.yaml.
     Command cmd mbProjectOpts _ <- handleParseResult tempParseResult
-    damlYamlArgs <- cliArgsFromDamlYaml mbProjectOpts
-    let args = if cmd `elem` [Build, Compile, Desugar, Ide, DebugIdeSpanInfo, Test, DamlDoc, Repl]
-               then cliArgs ++ damlYamlArgs
-               else cliArgs
+    damlYamlArgs <- if cmdUseDamlYamlArgs cmd
+      then cliArgsFromDamlYaml mbProjectOpts
+      else pure []
+    let args = cliArgs ++ damlYamlArgs
         (errMsgs, parseResult) = parse args
     Command _ _ io <- handleParseResult parseResult
     forM_ errMsgs $ \msg -> do
         hPutStrLn stderr msg
     withProgName "damlc" io
+
+-- | Commands for which we add the args from daml.yaml build-options.
+cmdUseDamlYamlArgs :: CommandName -> Bool
+cmdUseDamlYamlArgs = \case
+  Build -> True
+  Clean -> False -- don't need any flags to remove files
+  Compile -> True
+  DamlDoc -> True
+  DebugIdeSpanInfo -> True
+  Desugar -> True
+  DocTest -> True
+  Ide -> True
+  Init -> True
+  Inspect -> False -- just reads the dalf
+  InspectDar -> False -- just reads the dar
+  ValidateDar -> False -- just reads the dar
+  License -> False -- just prints the license
+  Lint -> True
+  MergeDars -> False -- just reads the dars
+  Package -> False -- deprecated
+  Test -> True
+  Visual -> False -- just reads the dar
+  Repl -> True
 
 withProjectRoot' :: ProjectOpts -> ((FilePath -> IO FilePath) -> IO a) -> IO a
 withProjectRoot' ProjectOpts{..} act =

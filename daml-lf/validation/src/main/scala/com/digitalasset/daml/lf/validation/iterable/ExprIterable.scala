@@ -109,6 +109,8 @@ private[validation] object ExprIterable {
         Iterator(contractId)
       case UpdateExercise(templateId @ _, choice @ _, cid, arg) =>
         Iterator(cid, arg)
+      case UpdateDynamicExercise(templateId @ _, choice @ _, cid, arg) =>
+        Iterator(cid, arg)
       case UpdateExerciseInterface(interface @ _, choice @ _, cid, arg, guard) =>
         Iterator(cid, arg) ++ guard.iterator
       case UpdateExerciseByKey(templateId @ _, choice @ _, key, arg) =>
@@ -179,6 +181,7 @@ private[validation] object ExprIterable {
             consuming @ _,
             controllers,
             observers,
+            authorizers,
             selfBinder @ _,
             binder @ _,
             returnType @ _,
@@ -186,6 +189,7 @@ private[validation] object ExprIterable {
           ) =>
         Iterator(controllers) ++
           observers.iterator ++
+          authorizers.iterator ++
           Iterator(update)
     }
 

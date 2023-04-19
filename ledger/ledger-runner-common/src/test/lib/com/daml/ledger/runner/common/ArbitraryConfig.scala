@@ -67,12 +67,14 @@ object ArbitraryConfig {
     contractObservers <- Gen.chooseNum(Int.MinValue, Int.MaxValue)
     choiceControllers <- Gen.chooseNum(Int.MinValue, Int.MaxValue)
     choiceObservers <- Gen.chooseNum(Int.MinValue, Int.MaxValue)
+    choiceAuthorizers <- Gen.chooseNum(Int.MinValue, Int.MaxValue)
     transactionInputContracts <- Gen.chooseNum(Int.MinValue, Int.MaxValue)
   } yield Limits(
     contractSignatories,
     contractObservers,
     choiceControllers,
     choiceObservers,
+    choiceAuthorizers,
     transactionInputContracts,
   )
 

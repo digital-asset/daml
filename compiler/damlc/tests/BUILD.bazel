@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 load("//bazel_tools:haskell.bzl", "da_haskell_binary", "da_haskell_library", "da_haskell_test")
-load("@os_info//:os_info.bzl", "is_windows")
+load("@os_info//:os_info.bzl", "is_darwin", "is_windows")
 load(":util.bzl", "damlc_compile_test")
 load("//rules_daml:daml.bzl", "daml_build_test", "daml_compile", "daml_compile_with_dalf", "daml_test")
 load("@build_environment//:configuration.bzl", "ghc_version", "sdk_version")
@@ -250,7 +250,7 @@ da_haskell_test(
         "//compiler/damlc:daml-base-anchors.json",
         "//compiler/damlc/pkg-db",
         "//compiler/damlc/stable-packages",
-        "//daml-script/daml:daml-script-1.dev.dar",
+        "//daml-script/daml:daml-script.dar",
         ghc_pkg,
     ],
     hackage_deps = [
@@ -278,7 +278,12 @@ da_haskell_test(
 da_haskell_test(
     name = "daml-doctest",
     srcs = ["src/DA/Test/DamlDocTest.hs"],
-    data = ["//compiler/damlc/pkg-db"],
+    data = [
+        "//compiler/damlc/pkg-db",
+        "//compiler/damlc/stable-packages",
+        "//daml-script/daml:daml-script.dar",
+        ghc_pkg,
+    ],
     hackage_deps = [
         "base",
         "data-default",
@@ -294,6 +299,8 @@ da_haskell_test(
     src_strip_prefix = "src",
     visibility = ["//visibility:public"],
     deps = [
+        ":integration-lib",
+        "//compiler/daml-lf-ast",
         "//compiler/damlc:damlc-lib",
         "//compiler/damlc/daml-doctest",
         "//compiler/damlc/daml-ide-core",
@@ -307,7 +314,10 @@ da_haskell_test(
 da_haskell_test(
     name = "daml-doctest-integration",
     srcs = ["src/DA/Test/DamlDocTestIntegration.hs"],
-    data = ["//compiler/damlc"],
+    data = [
+        "//compiler/damlc",
+        "//daml-script/daml:daml-script.dar",
+    ],
     hackage_deps = [
         "base",
         "extra",
@@ -335,6 +345,8 @@ da_haskell_test(
         "//compiler/damlc/pkg-db",
         "//compiler/damlc/stable-packages",
         "//compiler/scenario-service/server:scenario_service_jar",
+        "//daml-script/daml:daml-script.dar",
+        ghc_pkg,
     ],
     hackage_deps = [
         "base",
@@ -348,6 +360,7 @@ da_haskell_test(
     src_strip_prefix = "src",
     visibility = ["//visibility:public"],
     deps = [
+        ":integration-lib",
         "//compiler/daml-lf-ast",
         "//compiler/damlc/daml-compiler",
         "//compiler/damlc/daml-ide-core",
@@ -365,7 +378,8 @@ da_haskell_test(
     srcs = ["src/DA/Test/IncrementalBuilds.hs"],
     data = [
         "//compiler/damlc",
-        "//daml-lf/repl",
+        "//daml-script/daml:daml-script.dar",
+        "//daml-script/runner:daml-script-binary",
     ],
     hackage_deps = [
         "base",
@@ -381,6 +395,7 @@ da_haskell_test(
     src_strip_prefix = "src",
     visibility = ["//visibility:public"],
     deps = [
+        "//:sdk-version-hs-lib",
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/test-utils",
     ],
@@ -464,6 +479,7 @@ da_haskell_test(
         "//compiler/damlc",
         "@damlc_legacy",
         "//compiler/damlc/tests:generate-simple-dalf",
+        "//daml-script/daml:daml-script-1.dev.dar",
         # Feel free to update this to 0.13.55 once that is frozen.
         ":dars/old-proj-0.13.55-snapshot.20200309.3401.0.6f8c3ad8-1.8.dar",
     ],
@@ -630,9 +646,9 @@ da_haskell_test(
         ":repl-test.dar",
         "//compiler/damlc",
         "//daml-script/daml:daml-script.dar",
-        "//ledger/sandbox-on-x:app",
         "//test-common/test-certificates",
-    ],
+        "@canton//:lib",
+    ] + (["@sysctl_nix//:bin/sysctl"] if is_darwin else []),
     hackage_deps = [
         "aeson",
         "base",
@@ -673,8 +689,8 @@ da_haskell_test(
         "//compiler/damlc/stable-packages",
         "//compiler/repl-service/server:repl_service_jar",
         "//daml-script/daml:daml-script.dar",
-        "//ledger/sandbox-on-x:app",
-    ],
+        "@canton//:lib",
+    ] + (["@sysctl_nix//:bin/sysctl"] if is_darwin else []),
     hackage_deps = [
         "async",
         "base",
@@ -991,8 +1007,8 @@ da_haskell_test(
     data = [
         ":pkg-manager-test.dar",
         "//compiler/damlc",
-        "//ledger/sandbox-on-x:app",
-    ],
+        "@canton//:lib",
+    ] + (["@sysctl_nix//:bin/sysctl"] if is_darwin else []),
     hackage_deps = [
         "base",
         "bytestring",

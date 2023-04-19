@@ -9,12 +9,14 @@ import com.daml.lf.engine.script.ledgerinteraction.ScriptTimeMode
 import com.daml.lf.speedy.SValue.SRecord
 
 final class FuncStaticTimeIT extends AbstractFuncIT {
-  override def timeMode = ScriptTimeMode.Static
+  import AbstractScriptTest._
+
+  protected override lazy val timeMode = ScriptTimeMode.Static
 
   "testSetTime" should {
     "change time and reflect the change in getTime" in {
       for {
-        clients <- participantClients()
+        clients <- scriptClients()
         SRecord(_, _, vals) <- run(
           clients,
           QualifiedName.assertFromString("ScriptTest:testSetTime"),

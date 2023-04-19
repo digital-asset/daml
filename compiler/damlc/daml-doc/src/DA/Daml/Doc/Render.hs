@@ -68,8 +68,7 @@ renderDocs ro@RenderOptions{..} mods = do
                 $ fold renderMap
 
         RenderToFolder path -> do
-            let
-                (outputIndex, outputMap) = renderFolder formatter externalAnchors renderMap
+            let (outputIndex, outputMap) = renderFolder formatter externalAnchors ro_globalInternalExt renderMap
                 extension =
                     case ro_format of
                         Markdown -> "md"

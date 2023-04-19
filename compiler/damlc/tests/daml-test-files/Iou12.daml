@@ -4,7 +4,9 @@
 
 module Iou12 where
 
+import Daml.Script
 import DA.Assert
+import ScriptAssertHelpers
 
 template Iou
   with
@@ -66,23 +68,22 @@ template Iou
          -- Return the merged Iou
          updateAmount (amount + otherIou.amount)
 
-
 {- |
-A single test scenario covering all functionality that `Iou` implements.
+A single test case covering all functionality that `Iou` implements.
 This description contains [a link](http://example.com), some bogus <inline html>,
 and words_ with_ underscore, to test damldoc capabilities.
 -}
-main = scenario do
-  bank <- getParty "Acme Bank"
-  alice <- getParty "Alice"
-  bob <- getParty "Bob"
-  charlie <- getParty "Charlie"
-  sec <- getParty "Securities Exchange Commission"
+main = script do
+  bank <- allocateParty "Acme Bank"
+  alice <- allocateParty "Alice"
+  bob <- allocateParty "Bob"
+  charlie <- allocateParty "Charlie"
+  sec <- allocateParty "Securities Exchange Commission"
 
   -- Bank creates Iou's for Alice and Bob
 
   iouAliceCid <- submit bank do
-    create Iou with
+    createCmd Iou with
       issuer   = bank
       owner    = alice
       currency = "USD"
@@ -90,7 +91,7 @@ main = scenario do
       regulators = [sec]
 
   iouBobCid <- submit bank do
-    create Iou with
+    createCmd Iou with
       issuer   = bank
       owner    = bob
       currency = "USD"
@@ -99,49 +100,46 @@ main = scenario do
 
   -- Alice transfers some Iou's to Bob
   (split, rest) <- submit alice do
-    exercise iouAliceCid Split with splitAmount = 40.0
+    exerciseCmd iouAliceCid Split with splitAmount = 40.0
   iouOtherCid <- submit alice do
-    exercise split Transfer with newOwner = bob
+    exerciseCmd split Transfer with newOwner = bob
 
   -- Bob merges them with the ones he had already.
   iouTotalCid <- submit bob do
-    exercise iouBobCid Merge with otherCid = iouOtherCid
+    exerciseCmd iouBobCid Merge with otherCid = iouOtherCid
 
   -- Assert things are as they should be
-  submit alice do
-    aliceIou <- fetch rest
-    aliceIou === Iou with
+  oAliceIou <- queryContractId alice rest
+  oAliceIou === Some Iou with
       issuer   = bank
       owner    = alice
       currency = "USD"
       amount   = 60.0
       regulators = [sec]
 
-
-  submit bob do
-    bobIou <- fetch iouTotalCid
-    bobIou === Iou with
-      issuer   = bank
-      owner    = bob
-      currency = "USD"
-      amount   = 70.0
-      regulators = [sec]
+  oBobIou <- queryContractId bob iouTotalCid
+  oBobIou === Some Iou with
+    issuer   = bank
+    owner    = bob
+    currency = "USD"
+    amount   = 70.0
+    regulators = [sec]
 
   -- Issuer can archive Iou's they own
   iouBankCid <- submit bank do
-    create Iou with
+    createCmd Iou with
       issuer   = bank
       owner    = bank
       currency = "USD"
       amount   = 100.0
       regulators = [sec]
 
-  submit bank do exercise iouBankCid Archive
-  submitMustFail bank do fetch iouBankCid
+  submit bank do exerciseCmd iouBankCid Archive
+  bank `cantSee` iouBankCid
 
   -- Alice can't create IOUs that are backed by Acme Bank.
   submitMustFail alice do
-    create Iou with
+    createCmd Iou with
       issuer   = bank
       owner    = alice
       currency = "USD"
@@ -150,7 +148,7 @@ main = scenario do
 
   -- Acme Bank can't create IOUs with a negative amount.
   submitMustFail bank do
-    create Iou with
+    createCmd Iou with
       issuer   = bank
       owner    = alice
       currency = "USD"
@@ -158,29 +156,29 @@ main = scenario do
       regulators = [sec]
 
   -- SplitAmount needs to be between 0 and amount.
-  submitMustFail alice do exercise rest Split with splitAmount = 80.0
+  submitMustFail alice do exerciseCmd rest Split with splitAmount = 80.0
 
   -- Double spend gets prevented by archiving the contract.
-  submitMustFail alice do exercise split Transfer with newOwner = charlie
+  submitMustFail alice do exerciseCmd split Transfer with newOwner = charlie
 
   -- Similarly a merged contract gets archived as well.
-  submitMustFail bob do exercise iouOtherCid Transfer with newOwner = charlie
+  submitMustFail bob do exerciseCmd iouOtherCid Transfer with newOwner = charlie
 
   -- Only the owner can exercise the transfer choice.
-  submitMustFail bank do exercise rest Transfer with newOwner = charlie
+  submitMustFail bank do exerciseCmd rest Transfer with newOwner = charlie
 
   -- Alice can't archive something where issuer is a signatory
-  submitMustFail alice do exercise rest Archive
+  submitMustFail alice do exerciseCmd rest Archive
 
   -- Alice didn't disclose her remaining IOUs to Bob.
-  submitMustFail bob do fetch rest
+  bob `cantSee` rest
 
   -- Issuer can archive
-  submit bank do archive rest
+  submit bank do archiveCmd rest
 
   -- Only matching IOUs can be merged.
   iouEURCid <- submit bank do
-    create Iou with
+    createCmd Iou with
       issuer   = bank
       owner    = alice
       currency = "EUR"
@@ -188,6 +186,4 @@ main = scenario do
       regulators = [sec]
 
   submitMustFail alice do
-    exercise rest Merge with otherCid = iouEURCid
-
--- @ENABLE-SCENARIOS
+    exerciseCmd rest Merge with otherCid = iouEURCid

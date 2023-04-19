@@ -199,6 +199,8 @@ private[daml] class AstRewriter(
         UpdateFetchInterface(apply(interface), apply(contractId))
       case UpdateExercise(templateId, choice, cid, arg) =>
         UpdateExercise(apply(templateId), choice, apply(cid), apply(arg))
+      case UpdateDynamicExercise(templateId, choice, cid, arg) =>
+        UpdateDynamicExercise(apply(templateId), choice, apply(cid), apply(arg))
       case UpdateExerciseInterface(interface, choice, cid, arg, guard) =>
         UpdateExerciseInterface(
           apply(interface),
@@ -299,6 +301,7 @@ private[daml] class AstRewriter(
             consuming,
             controllers,
             observers,
+            authorizers,
             selfBinder,
             (argBinderVar, argBinderType),
             returnType,
@@ -309,6 +312,7 @@ private[daml] class AstRewriter(
           consuming,
           apply(controllers),
           observers.map(apply),
+          authorizers.map(apply),
           selfBinder,
           (argBinderVar, apply(argBinderType)),
           apply(returnType),

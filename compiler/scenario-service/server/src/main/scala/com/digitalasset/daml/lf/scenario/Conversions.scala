@@ -143,12 +143,13 @@ final class Conversions(
                     .setConsumedBy(proto.NodeId.newBuilder.setId(consumedBy.toString).build)
                     .build
                 )
-              case DisclosedContractKeyHashingError(contractId, templateId, reason) =>
+              case DisclosedContractKeyHashingError(contractId, globalKey, hash) =>
                 builder.setDisclosedContractKeyHashingError(
                   proto.ScenarioError.DisclosedContractKeyHashingError.newBuilder
-                    .setContractRef(mkContractRef(contractId, templateId))
-                    .setTemplateId(convertIdentifier(templateId))
-                    .setReason(reason)
+                    .setContractRef(mkContractRef(contractId, globalKey.templateId))
+                    .setKey(convertValue(globalKey.key))
+                    .setComputedHash(globalKey.hash.toHexString)
+                    .setDeclaredHash(hash.toHexString)
                     .build
                 )
               case ContractKeyNotVisible(coid, gk, actAs, readAs, stakeholders) =>
@@ -438,6 +439,8 @@ final class Conversions(
           optLocation.map(loc => ncBuilder.setLocation(convertLocation(loc)))
           faBuilder.setNoControllers(ncBuilder.build)
 
+        case _: FailedAuthorization.NoAuthorizers => ??? // TODO #15882
+
         case FailedAuthorization.LookupByKeyMissingAuthorization(
               templateId,
               optLocation,
@@ -555,7 +558,6 @@ final class Conversions(
       .map(eventId => builder.setConsumedBy(convertEventId(eventId)))
 
     nodeInfo.node match {
-      case _: Node.Authority => ??? // TODO #15882 -- we need to extend IDE-communication proto
       case rollback: Node.Rollback =>
         val rollbackBuilder = proto.Node.Rollback.newBuilder
           .addAllChildren(
@@ -650,7 +652,6 @@ final class Conversions(
       .setNodeId(proto.NodeId.newBuilder.setId(nodeId.index.toString).build)
     // FIXME(JM): consumedBy, parent, ...
     node match {
-      case _: Node.Authority => ??? // TODO #15882 -- we need to extend IDE-communication proto
       case rollback: Node.Rollback =>
         val rollbackBuilder =
           proto.Node.Rollback.newBuilder

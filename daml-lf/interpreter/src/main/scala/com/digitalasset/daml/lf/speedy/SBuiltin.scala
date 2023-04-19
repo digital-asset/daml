@@ -990,12 +990,9 @@ private[lf] object SBuiltin {
   /** $beginExercise
     *    :: arg                                           0 (choice argument)
     *    -> ContractId arg                                1 (contract to exercise)
-    *    -> List Party                                    2 (actors)
-    *    -> List Party                                    3 (signatories)
-    *    -> List Party                                    4 (template observers)
-    *    -> List Party                                    5 (choice controllers)
-    *    -> List Party                                    6 (choice observers)
-    *    -> Optional {key: key, maintainers: List Party}  7 (template key, if present)
+    *    -> List Party                                    2 (choice controllers)
+    *    -> List Party                                    3 (choice observers)
+    *    -> List Party                                    4 (choice authorizers)
     *    -> ()
     */
   final case class SBUBeginExercise(
@@ -1004,14 +1001,15 @@ private[lf] object SBuiltin {
       choiceId: ChoiceName,
       consuming: Boolean,
       byKey: Boolean,
-  ) extends UpdateBuiltin(4) {
+      explicitChoiceAuthority: Boolean,
+  ) extends UpdateBuiltin(5) {
 
     override protected def executeUpdate(
         args: util.ArrayList[SValue],
         machine: UpdateMachine,
-    ): Control[Nothing] = {
+    ): Control[Question.Update] = {
       val coid = getSContractId(args, 1)
-      val cached = machine.cachedContracts.getOrElse(
+      val contract = machine.cachedContracts.getOrElse(
         coid,
         crash(s"Contract ${coid.coid} is missing from cache"),
       )
@@ -1023,27 +1021,64 @@ private[lf] object SBuiltin {
       machine.enforceChoiceControllersLimit(ctrls, coid, templateId, choiceId, chosenValue)
       val obsrs = extractParties(NameOf.qualifiedNameOfCurrentFunc, args.get(3))
       machine.enforceChoiceObserversLimit(obsrs, coid, templateId, choiceId, chosenValue)
+      val authorizersWhenExplicit = extractParties(NameOf.qualifiedNameOfCurrentFunc, args.get(4))
+      machine.enforceChoiceAuthorizersLimit(
+        authorizersWhenExplicit,
+        coid,
+        templateId,
+        choiceId,
+        chosenValue,
+      )
 
-      machine.ptx
-        .beginExercises(
-          targetId = coid,
-          contract = cached,
-          interfaceId = interfaceId,
-          choiceId = choiceId,
-          optLocation = machine.getLastLocation,
-          consuming = consuming,
-          actingParties = ctrls,
-          choiceObservers = obsrs,
-          byKey = byKey,
-          chosenValue = chosenValue,
-          version = exerciseVersion,
-        ) match {
-        case Right(ptx) =>
-          machine.ptx = ptx
-          Control.Value(SUnit)
-        case Left(err) =>
-          Control.Error(convTxError(err))
+      def doExe(choiceAuthorizers: Option[Set[Party]]): Control[Nothing] = {
+        machine.ptx
+          .beginExercises(
+            targetId = coid,
+            contract = contract,
+            interfaceId = interfaceId,
+            choiceId = choiceId,
+            optLocation = machine.getLastLocation,
+            consuming = consuming,
+            actingParties = ctrls,
+            choiceObservers = obsrs,
+            choiceAuthorizers = choiceAuthorizers,
+            byKey = byKey,
+            chosenValue = chosenValue,
+            version = exerciseVersion,
+          ) match {
+          case Right(ptx) =>
+            machine.ptx = ptx
+            Control.Value(SUnit)
+          case Left(err) =>
+            Control.Error(convTxError(err))
+        }
       }
+
+      if (explicitChoiceAuthority) {
+        val authorizers = authorizersWhenExplicit
+        val holding = machine.ptx.context.info.authorizers
+        val requesting = authorizers.diff(holding)
+        if (requesting.isEmpty) {
+          // authority restriction -- no need to ask ledger
+          doExe(Some(authorizers))
+        } else {
+          // authority change -- ask ledger
+          Control.Question[Question.Update](
+            Question.Update.NeedAuthority(
+              holding = holding,
+              requesting = requesting,
+              callback = { () =>
+                val control = doExe(Some(authorizers))
+                machine.setControl(control)
+              },
+            )
+          )
+        }
+      } else {
+        // use default authorizers
+        doExe(None)
+      }
+
     }
   }
 
@@ -1236,6 +1271,7 @@ private[lf] object SBuiltin {
       choiceName: ChoiceName,
       consuming: Boolean,
       byKey: Boolean,
+      explicitChoiceAuthority: Boolean,
   ) extends SBuiltin(1) {
     override private[speedy] def execute[Q](
         args: util.ArrayList[SValue],
@@ -1248,6 +1284,7 @@ private[lf] object SBuiltin {
           choiceId = choiceName,
           consuming = consuming,
           byKey = false,
+          explicitChoiceAuthority = explicitChoiceAuthority,
         )
       )
       Control.Expression(e)
@@ -1799,55 +1836,6 @@ private[lf] object SBuiltin {
     }
   }
 
-  final case object SBWithAuthority extends UpdateBuiltin(3) {
-    override protected def executeUpdate(
-        args: util.ArrayList[SValue],
-        machine: UpdateMachine,
-    ): Control[Question.Update] = {
-      val required = extractParties(NameOf.qualifiedNameOfCurrentFunc, args.get(0))
-      val action = args.get(1)
-      checkToken(args, 2)
-      val current = machine.ptx.context.info.authorizers
-      if (required == current) {
-        // just run the body action
-        machine.enterApplication(action, Array(SEValue(SToken)))
-      } else {
-        val holding = machine.ptx.context.info.authorizers
-        val requesting = required.diff(holding)
-        if (requesting.isEmpty) {
-          // do scoped authority restriction; (TX) Node.Authority is *NOT* created
-          machine.ptx.beginRestrictAuthority(
-            required = required
-          ) match {
-            case ptx =>
-              machine.ptx = ptx
-              machine.pushKont(KCloseRestrictAuthority)
-              machine.enterApplication(action, Array(SEValue(SToken)))
-          }
-        } else {
-          Control.Question[Question.Update](
-            Question.Update.NeedAuthority(
-              holding = holding,
-              requesting = requesting,
-              callback = { () =>
-                // do scoped authority change; (TX) Node.Authority *IS* created
-                machine.ptx.beginGainAuthority(
-                  required = required
-                ) match {
-                  case ptx =>
-                    machine.ptx = ptx
-                    machine.pushKont(KCloseGainAuthority)
-                    val c = machine.enterApplication(action, Array(SEValue(SToken)))
-                    machine.setControl(c)
-                }
-              },
-            )
-          )
-        }
-      }
-    }
-  }
-
   /** $any-exception-message :: AnyException -> Text */
   final case object SBAnyExceptionMessage extends SBuiltin(1) {
     override private[speedy] def execute[Q](
@@ -2130,16 +2118,55 @@ private[lf] object SBuiltin {
   }
 
   /** $cacheDisclosedContract[T] :: ContractId T -> CachedContract T -> Unit */
-  private[speedy] final case class SBCacheDisclosedContract(contractId: V.ContractId)
-      extends UpdateBuiltin(1) {
+  private[speedy] final case class SBCacheDisclosedContract(
+      contractId: V.ContractId,
+      keyHash: Option[crypto.Hash],
+  ) extends UpdateBuiltin(1) {
 
     override protected def executeUpdate(
         args: util.ArrayList[SValue],
         machine: UpdateMachine,
-    ): Control.Value = {
+    ): Control[Question.Update] = {
       val cachedContract = extractCachedContract(machine.tmplId2TxVersion, args.get(0))
-      machine.addDisclosedContracts(contractId, cachedContract)
-      Control.Value(SUnit)
+      (keyHash, cachedContract.keyOpt) match {
+        case (Some(hash), Some(key)) if hash != key.globalKey.hash =>
+          Control.Error(IE.DisclosedContractKeyHashingError(contractId, key.globalKey, hash))
+        case _ =>
+          // Command preprocessing should enforce the following invariant
+          val invariant = (keyHash.isDefined == cachedContract.keyOpt.isDefined)
+          if (!invariant)
+            InternalError.assertionException(
+              NameOf.qualifiedNameOfCurrentFunc,
+              "unexpected mismatching contract key",
+            )
+          machine.addDisclosedContracts(contractId, cachedContract)
+          Control.Value(SUnit)
+      }
+    }
+  }
+
+  /** $dynamicExercise[T, C, R] :: HasDynamicExercise T C R => ContractId T ->  C -> Update R */
+  final case class SBUDynamicExercise(
+      templateId: TypeConName,
+      choice: ChoiceName,
+  ) extends UpdateBuiltin(2) {
+    override protected def executeUpdate(
+        args: util.ArrayList[SValue],
+        machine: UpdateMachine,
+    ): Control[Question.Update] = {
+      Control.Question(
+        Question.Update.NeedPackageId(
+          module = templateId.qualifiedName.module,
+          pid0 = templateId.packageId,
+          callback = pid => {
+            val e = SEApp(
+              SEVal(TemplateChoiceDefRef(templateId.copy(packageId = pid), choice)),
+              args.asScala.toArray,
+            )
+            machine.setControl(Control.Expression(e))
+          },
+        )
+      )
     }
   }
 

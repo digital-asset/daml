@@ -393,6 +393,7 @@ decodeChoice LF1.TemplateChoice{..} =
     <*> pure templateChoiceConsuming
     <*> mayDecode "templateChoiceControllers" templateChoiceControllers decodeExpr
     <*> traverse decodeExpr templateChoiceObservers
+    <*> traverse decodeExpr templateChoiceAuthorizers
     <*> decodeName ExprVarName templateChoiceSelfBinder
     <*> mayDecode "templateChoiceArgBinder" templateChoiceArgBinder decodeVarWithType
     <*> mayDecode "templateChoiceRetType" templateChoiceRetType decodeType
@@ -475,7 +476,6 @@ decodeBuiltinFunction = \case
 
   LF1.BuiltinFunctionFOLDL          -> pure BEFoldl
   LF1.BuiltinFunctionFOLDR          -> pure BEFoldr
-  LF1.BuiltinFunctionWITH_AUTHORITY -> pure BEWithAuthority
   LF1.BuiltinFunctionEQUAL_LIST     -> pure BEEqualList
   LF1.BuiltinFunctionAPPEND_TEXT    -> pure BEAppendText
 
@@ -513,7 +513,7 @@ decodeBuiltinFunction = \case
   LF1.BuiltinFunctionEQUAL_CONTRACT_ID -> pure BEEqualContractId
   LF1.BuiltinFunctionCOERCE_CONTRACT_ID -> pure BECoerceContractId
 
-  LF1.BuiltinFunctionTYPEREP_TYCON_NAME -> pure BETypeRepTyConName
+  LF1.BuiltinFunctionTYPE_REP_TYCON_NAME -> pure BETypeRepTyConName
 
   LF1.BuiltinFunctionTEXT_TO_UPPER -> pure BETextToUpper
   LF1.BuiltinFunctionTEXT_TO_LOWER -> pure BETextToLower
@@ -749,6 +749,12 @@ decodeUpdate LF1.Update{..} = mayDecode "updateSum" updateSum $ \case
       <*> decodeName ChoiceName update_ExerciseChoice
       <*> mayDecode "update_ExerciseCid" update_ExerciseCid decodeExpr
       <*> mayDecode "update_ExerciseArg" update_ExerciseArg decodeExpr
+  LF1.UpdateSumDynamicExercise LF1.Update_DynamicExercise{..} ->
+    fmap EUpdate $ UDynamicExercise
+      <$> mayDecode "update_DynamicExerciseTemplate" update_DynamicExerciseTemplate decodeTypeConName
+      <*> decodeNameId ChoiceName update_DynamicExerciseChoiceInternedStr
+      <*> mayDecode "update_DynamicExerciseCid" update_DynamicExerciseCid decodeExpr
+      <*> mayDecode "update_DynamicExerciseArg" update_DynamicExerciseArg decodeExpr
   LF1.UpdateSumExerciseInterface LF1.Update_ExerciseInterface{..} ->
     fmap EUpdate $ UExerciseInterface
       <$> mayDecode "update_ExerciseInterfaceInterface" update_ExerciseInterfaceInterface decodeTypeConName

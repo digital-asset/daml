@@ -1,12 +1,13 @@
 -- Copyright (c) 2020 The Daml Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 --
--- @INFO range=12:1-13:21; Use foldl
--- @INFO range=16:1-17:17; Use foldl
--- @INFO range=20:1-21:17; Use foldl
+-- @INFO range=13:1-14:21; Use foldl
+-- @INFO range=17:1-18:17; Use foldl
+-- @INFO range=21:1-22:17; Use foldl
 
 module ConstrainedRecursion where
 
+import Daml.Script
 import DA.Assert
 
 sumInferred z (x :: xs) = sumInferred (z + x) xs
@@ -20,11 +21,9 @@ sumMono : Int -> [Int] -> Int
 sumMono z (x :: xs) = sumMono (z + x) xs
 sumMono z [] = z
 
-test = scenario do
+test = script do
     sumInferred 0 [1, 2, 3] === 6
     sumInferred 0.0 [1.0, 2.0, 3.0] === (6.0 : Decimal)
     sumPoly 0 [1, 2, 3] === 6
     sumPoly 0.0 [1.0, 2.0, 3.0] === (6.0 : Decimal)
     sumMono 0 [1, 2, 3] === 6
-
--- @ENABLE-SCENARIOS

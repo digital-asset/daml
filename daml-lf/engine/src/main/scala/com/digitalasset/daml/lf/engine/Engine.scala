@@ -75,31 +75,26 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
 
   def info = new EngineInfo(config)
 
-  /** Executes commands `cmds` under the authority of `submitters`, with additional readers `readAs`,
-    * and returns one of the following:
+  /** Interprets a sequence of commands `cmds` to the corresponding `SubmittedTransaction` and `Tx.Metadata`.
+    * Requests data required during the interpretation (such as the contract or package corresponding to a given id)
+    * through the `Result` subclasses.
+    *
+    * The resulting transaction (if any) meets the following properties:
     * <ul>
-    * <li> `ResultDone(tx)` if `cmds` could be successfully executed, where `tx` is the resulting transaction.
-    *      The transaction `tx` conforms to the Daml model consisting of the packages that have been supplied via
-    *      `ResultNeedPackage.resume` to this [[Engine]].
-    *      The transaction `tx` is internally consistent.
-    * </li>
-    * <li> `ResultNeedContract(contractId, resume)` if the contract referenced by `contractId` is needed to execute
-    *      `cmds`.
-    * </li>
-    * <li> `ResultNeedPackage(packageId, resume)` if the package referenced by `packageId` is needed to execute `cmds`.
-    * </li>
-    * <li> `ResultError` if the execution of `cmds` fails.
-    *      The execution may fail due to an error during Daml evaluation (e.g. execution of "abort") or
-    *      because the caller has not provided a required contract instance or package.
-    * </li>
+    *   <li>The transaction is well-typed and conforms to the DAML model described by the packages supplied via `ResultNeedPackage`.
+    *       In particular, each contract created by the transaction meets the ensures clauses of the underlying template.</li>
+    *   <li>The transaction paired with `submitters` is well-authorized according to the ledger model.</li>
+    *   <li>The transaction is annotated with the packages used during interpretation.</li>
     * </ul>
     *
-    * [[transactionSeed]] is the master hash used to derive node and contractId discriminator.
-    * If left undefined, no discriminator will be generated.
-    *
-    * This method does perform authorization checks
-    *
-    * The resulting transaction is annotated with packages required to validate it.
+    * @param submitters the parties authorizing the root actions (both read and write) of the resulting transaction
+    *                   ("committers" according to the ledger model)
+    * @param readAs the parties authorizing the root actions (only read, but no write) of the resulting transaction
+    * @param cmds the commands to be interpreted
+    * @param disclosures contracts to be used as input contracts of the transaction;
+    *                    contract data may come from an untrusted source and will therefore be validated during interpretation.
+    * @param participantId a unique identifier (of the underlying participant) used to derive node and contractId discriminators
+    * @param submissionSeed the master hash used to derive node and contractId discriminators
     */
   def submit(
       submitters: Set[Party],
@@ -130,19 +125,21 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
     } yield tx -> meta.copy(submissionSeed = Some(submissionSeed))
   }
 
-  /** Behaves like `submit`, but it takes a single command argument.
+  /** Behaves like `submit`, but it takes a single `ReplayCommand` (instead of `ApiCommands`) as input.
     * It can be used to reinterpret partially an already interpreted transaction.
     *
     * If the command would fail with an unhandled exception, we return a transaction containing a
     * single rollback node. (This is achieving by compiling with `unsafeCompileForReinterpretation`
     * which wraps the command with a catch-everything exception handler.)
     *
-    * [[nodeSeed]] is the seed of the Create and Exercise node as generated during submission.
-    * If undefined the contract IDs are derive using V0 scheme.
-    * The value of [[nodeSeed]] does not matter for other kind of nodes.
-    *
     * The reinterpretation does not recompute the package dependencies, so the field `usedPackages` in the
     * `Tx.MetaData` component of the output is always set to `empty`.
+    *
+    * @param nodeSeed the seed of the root node as generated during submission.
+    *                 If undefined the contract IDs are derive using V0 scheme.
+    *                 The value does not matter for other kind of nodes.
+    * @param submissionTime the submission time used to compute contract IDs
+    * @param ledgerEffectiveTime the ledger effective time used as a result of `getTime` during reinterpretation
     */
   def reinterpret(
       submitters: Set[Party],
@@ -370,7 +367,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
         case Right(
               UpdateMachine.Result(tx, _, nodeSeeds, globalKeyMapping, disclosedCreateEvents)
             ) =>
-          val disclosureMap = disclosures.iterator.map(c => c.contractId.value -> c).toMap
+          val disclosureMap = disclosures.iterator.map(c => c.contractId -> c).toMap
           val processedDisclosedContracts = disclosedCreateEvents.map { create =>
             val diclosedContract = disclosureMap(create.coid)
             ProcessedDisclosedContract(
@@ -425,6 +422,12 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
                   }
                 },
               )
+
+            case Question.Update.NeedPackageId(module @ _, pid0, callback) =>
+              // TODO https://github.com/digital-asset/daml/issues/16154 (dynamic-exercise)
+              // For now this just continues with the input package id
+              callback(pid0)
+              loop()
 
             case Question.Update.NeedTime(callback) =>
               callback(time)
@@ -586,7 +589,6 @@ object Engine {
       val makeDesc = (kind: String, tmpl: Ref.Identifier, extra: Option[String]) =>
         s"$kind:${tmpl.qualifiedName.name}${extra.map(extra => s":$extra").getOrElse("")}"
       tx.nodes.get(tx.roots(0)).toList.head match {
-        case _: Node.Authority => "authority"
         case _: Node.Rollback => "rollback"
         case create: Node.Create => makeDesc("create", create.templateId, None)
         case exercise: Node.Exercise =>

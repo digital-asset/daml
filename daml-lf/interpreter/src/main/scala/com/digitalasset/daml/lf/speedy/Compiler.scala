@@ -535,12 +535,17 @@ private[lf] final class Compiler(
           choiceId = choice.name,
           consuming = choice.consuming,
           byKey = mbKey.isDefined,
+          explicitChoiceAuthority = choice.choiceAuthorizers.isDefined,
         )(
           env.toSEVar(choiceArgPos),
           env.toSEVar(cidPos),
           s.SEPreventCatch(translateExp(env, choice.controllers)),
           choice.choiceObservers match {
             case Some(observers) => s.SEPreventCatch(translateExp(env, observers))
+            case None => s.SEValue.EmptyList
+          },
+          choice.choiceAuthorizers match {
+            case Some(authorizers) => s.SEPreventCatch(translateExp(env, authorizers))
             case None => s.SEValue.EmptyList
           },
         ),
@@ -592,6 +597,7 @@ private[lf] final class Compiler(
               choiceName = choice.name,
               consuming = choice.consuming,
               byKey = false,
+              explicitChoiceAuthority = choice.choiceAuthorizers.isDefined,
             )(
               env.toSEVar(payloadPos),
               env.toSEVar(choiceArgPos),
@@ -599,6 +605,10 @@ private[lf] final class Compiler(
               s.SEPreventCatch(translateExp(env, choice.controllers)),
               choice.choiceObservers match {
                 case Some(observers) => s.SEPreventCatch(translateExp(env, observers))
+                case None => s.SEValue.EmptyList
+              },
+              choice.choiceAuthorizers match {
+                case Some(authorizers) => s.SEPreventCatch(translateExp(env, authorizers))
                 case None => s.SEValue.EmptyList
               },
             ),
@@ -1086,27 +1096,31 @@ private[lf] final class Compiler(
     var env = env0
 
     s.SELet(
-      disclosures.toList.flatMap { case DisclosedContract(templateId, contractId, argument, _) =>
-        // Let bounded variables occur after the contract disclosure bound variable - hence baseIndex+1
-        // For each disclosed contract, we add 2 members to our let bounded list - hence 2*offset
+      disclosures.toList.flatMap {
+        case DisclosedContract(templateId, contractId, argument, metadata) =>
+          // Let bounded variables occur after the contract disclosure bound variable - hence baseIndex+1
+          // For each disclosed contract, we add 2 members to our let bounded list - hence 2*offset
 
-        val expr1 = checkPreCondition(
-          env,
-          templateId,
-          s.SEValue(argument),
-        )((_) =>
-          s.SEApp(
-            s.SEVal(t.ToCachedContractDefRef(templateId)),
-            List(s.SEValue(argument), s.SEValue.None),
+          val expr1 = checkPreCondition(
+            env,
+            templateId,
+            s.SEValue(argument),
+          )((_) =>
+            s.SEApp(
+              s.SEVal(t.ToCachedContractDefRef(templateId)),
+              List(s.SEValue(argument), s.SEValue.None),
+            )
           )
-        )
-        val contractPos = env.nextPosition
-        env = env.pushVar
-        val expr2 =
-          app(s.SEBuiltin(SBCacheDisclosedContract(contractId.value)), env.toSEVar(contractPos))
-        env = env.pushVar
+          val contractPos = env.nextPosition
+          env = env.pushVar
+          val expr2 =
+            app(
+              s.SEBuiltin(SBCacheDisclosedContract(contractId, metadata.keyHash)),
+              env.toSEVar(contractPos),
+            )
+          env = env.pushVar
 
-        List(expr1, expr2)
+          List(expr1, expr2)
       },
       s.SEValue.Unit,
     )

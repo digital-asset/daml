@@ -28,6 +28,7 @@ final class NonRepudiationTest
         readAs = None,
         submissionId = None,
         deduplicationPeriod = None,
+        disclosedContracts = None,
       )
     )
     for {

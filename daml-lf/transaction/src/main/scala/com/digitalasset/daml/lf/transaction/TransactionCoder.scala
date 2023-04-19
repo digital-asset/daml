@@ -250,7 +250,6 @@ object TransactionCoder {
       TransactionOuterClass.Node.newBuilder().setNodeId(encodeNid.asString(nodeId))
 
     node match {
-      case _: Node.Authority => ??? // TODO #15882 -- we need to extend the transaction proto
       case Node.Rollback(children) =>
         val builder = TransactionOuterClass.NodeRollback.newBuilder()
         children.foreach(id => discard(builder.addChildren(encodeNid.asString(id))))
@@ -325,7 +324,7 @@ object TransactionCoder {
                 )
               } yield nodeBuilder.setFetch(builder).build()
 
-            case ne @ Node.Exercise(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
+            case ne @ Node.Exercise(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
               val builder = TransactionOuterClass.NodeExercise.newBuilder()
               discard(
                 builder
@@ -339,6 +338,7 @@ object TransactionCoder {
               ne.signatories.foreach(builder.addSignatories)
               ne.stakeholders.foreach(builder.addStakeholders)
               ne.choiceObservers.foreach(builder.addObservers)
+              // ne.choiceAuthorizers.foreach... // TODO #15882
               if (nodeVersion >= TransactionVersion.minByKey) {
                 discard(builder.setByKey(ne.byKey))
               }
@@ -414,7 +414,7 @@ object TransactionCoder {
         keyWithMaintainers.getKeyVersioned,
         keyWithMaintainers.getKeyUnversioned,
       )
-      gkey <- GlobalKey.build(templateId, value).left.map(DecodeError)
+      gkey <- GlobalKey.build(templateId, value).left.map(hashErr => DecodeError(hashErr.msg))
     } yield GlobalKeyWithMaintainers(gkey, maintainers)
   }
 
@@ -617,6 +617,7 @@ object TransactionCoder {
           stakeholders = stakeholders,
           signatories = signatories,
           choiceObservers = choiceObservers,
+          choiceAuthorizers = None, // TODO #15882
           children = children,
           exerciseResult = rvOpt,
           keyOpt = keyWithMaintainers,
@@ -907,7 +908,7 @@ object TransactionCoder {
     for {
       tmplId <- ValueCoder.decodeIdentifier(rawTmplId)
       value <- ValueCoder.decodeValue(ValueCoder.NoCidDecoder, nodeVersion, rawKey)
-      key <- GlobalKey.build(tmplId, value).left.map(DecodeError)
+      key <- GlobalKey.build(tmplId, value).left.map(hashErr => DecodeError(hashErr.msg))
     } yield key
 
   /*

@@ -472,9 +472,6 @@ private[lf] final class PhaseOne(
           case BFoldr => SBFoldr
           case BEqualList => SBEqualList
 
-          // Authority functions
-          case BWithAuthority => SBWithAuthority
-
           // Errors
           case BError => SBUserError
 
@@ -746,6 +743,12 @@ private[lf] final class PhaseOne(
         compileExp(env, cid) { cid =>
           compileExp(env, arg) { arg =>
             Return(t.TemplateChoiceDefRef(tmplId, chId)(cid, arg))
+          }
+        }
+      case UpdateDynamicExercise(tmplId, chId, cid, arg) =>
+        compileExp(env, cid) { cid =>
+          compileExp(env, arg) { arg =>
+            Return(SBUDynamicExercise(tmplId, chId)(cid, arg))
           }
         }
       case UpdateExerciseInterface(ifaceId, chId, cid, arg, maybeGuard) =>

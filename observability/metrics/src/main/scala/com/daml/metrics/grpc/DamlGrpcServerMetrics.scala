@@ -3,11 +3,13 @@
 
 package com.daml.metrics.grpc
 
-import com.daml.metrics.api.MetricHandle.{MetricsFactory, Histogram}
+import com.daml.metrics.api.MetricHandle.{Histogram, LabeledMetricsFactory}
 import com.daml.metrics.api.{MetricHandle, MetricName, MetricsContext}
 
-class DamlGrpcServerMetrics(metricsFactory: MetricsFactory, component: String)
-    extends GrpcServerMetrics {
+class DamlGrpcServerMetrics(
+    metricsFactory: LabeledMetricsFactory,
+    component: String,
+) extends GrpcServerMetrics {
 
   private val grpcServerMetricsPrefix = MetricName.Daml :+ "grpc" :+ "server"
   private implicit val metricsContext: MetricsContext = MetricsContext(

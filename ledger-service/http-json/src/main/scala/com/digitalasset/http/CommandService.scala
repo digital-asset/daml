@@ -94,7 +94,7 @@ class CommandService(
   def exercise(
       jwt: Jwt,
       jwtPayload: JwtWritePayload,
-      input: ExerciseCommand[lav1.value.Value, ExerciseCommandRef],
+      input: ExerciseCommand.RequiredPkg[lav1.value.Value, ExerciseCommandRef],
   )(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
   ): Future[Error \/ ExerciseResponse[lav1.value.Value]] =
@@ -106,18 +106,22 @@ class CommandService(
         .run { implicit lc =>
           logger.trace("sending exercise command to ledger")
           val command = exerciseCommand(input)
-          val request = submitAndWaitRequest(jwtPayload, input.meta, command, "exercise")
 
-          val et: ET[ExerciseResponse[lav1.value.Value]] = for {
-            response <-
-              logResult(Symbol("exercise"), submitAndWaitForTransactionTree(jwt, request)(lc))
-            exerciseResult <- either(exerciseResult(response))
-            contracts <- either(contracts(response))
-          } yield ExerciseResponse(
-            exerciseResult,
-            contracts,
-            domain.CompletionOffset(response.completionOffset),
-          )
+          val et: ET[ExerciseResponse[lav1.value.Value]] =
+            for {
+              meta <- either(input.meta traverse (_.ensureDisclosedAreRecords) leftMap {
+                case domain.Error(sym, msg) => InternalError(Some(sym), msg): Error
+              })
+              request = submitAndWaitRequest(jwtPayload, meta, command, "exercise")
+              response <-
+                logResult(Symbol("exercise"), submitAndWaitForTransactionTree(jwt, request)(lc))
+              exerciseResult <- either(exerciseResult(response))
+              contracts <- either(contracts(response))
+            } yield ExerciseResponse(
+              exerciseResult,
+              contracts,
+              domain.CompletionOffset(response.completionOffset),
+            )
 
           et.run
         }
@@ -184,13 +188,10 @@ class CommandService(
   }
 
   private def exerciseCommand(
-      input: ExerciseCommand[lav1.value.Value, ExerciseCommandRef]
+      input: ExerciseCommand.RequiredPkg[lav1.value.Value, ExerciseCommandRef]
   ): lav1.commands.Command.Command = {
-    // XXX SC this reflects that the resolved marker was discarded earlier;
-    // it would be better if, as with ExerciseCommandRef, we could thread through
-    // the fact that the interface ID is a true resolved interface ID if present
     val choiceSource =
-      input.choiceInterfaceId.flatMap(_.sequence) getOrElse input.reference.fold(_._1, _._1)
+      input.choiceInterfaceId getOrElse input.reference.fold(_._1, _._1)
     input.reference match {
       case -\/((templateId, contractKey)) =>
         Commands.exerciseByKey(
@@ -224,7 +225,7 @@ class CommandService(
 
   private def submitAndWaitRequest(
       jwtPayload: JwtWritePayload,
-      meta: Option[domain.CommandMeta],
+      meta: Option[domain.CommandMeta.LAV],
       command: lav1.commands.Command.Command,
       commandKind: String,
   )(implicit
@@ -253,6 +254,7 @@ class CommandService(
             .map(_.toProto)
             .getOrElse(DeduplicationPeriod.Empty),
           submissionId = meta.flatMap(_.submissionId),
+          meta.flatMap(_.disclosedContracts) getOrElse Seq.empty,
         )
       }
   }

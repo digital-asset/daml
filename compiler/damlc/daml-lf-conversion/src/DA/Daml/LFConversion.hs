@@ -84,6 +84,8 @@ module DA.Daml.LFConversion
 import           DA.Daml.LFConversion.Primitives
 import           DA.Daml.LFConversion.MetadataEncoding
 import           DA.Daml.LFConversion.ConvertM
+import           DA.Daml.LFConversion.ExternalWarnings (topLevelWarnings)
+import           DA.Daml.LFConversion.Utils
 import           DA.Daml.Preprocessor (isInternal)
 import           DA.Daml.UtilGHC
 import           DA.Daml.UtilLF
@@ -257,7 +259,13 @@ extractModuleContents env@Env{..} coreModule modIface details = do
         [ (mkTypeCon [getOccText tplTy], [ChoiceData ty v])
         | (name, v) <- mcBinds
         , "_choice$_" `T.isPrefixOf` getOccText name
-        , ty@(TypeCon _ [_, _, TypeCon _ [TypeCon tplTy _], _]) <- [varType name]
+        , ty@(TypeCon _
+               [TypeCon _ [TypeCon tplTy _]
+               , _controller
+               , _observer
+               , _authority
+               , _action -- choiceTupleExpr
+               ]) <- [varType name]
         ]
     mcTemplateBinds = scrapeTemplateBinds mcBinds
     mcExceptionBinds
@@ -827,6 +835,12 @@ convertTypeDef env o@(ATyCon t) = withRange (convNameLoc t) $ if
     , NameIn DA_Internal_Template_Functions "HasChoiceObserver" <- cls
     -> pure []
 
+    -- Remove HasDynamicExercise instances when dynamicExercise is unsupported
+    | not (envLfVersion env `supports` featureDynamicExercise)
+    , Just cls <- tyConClass_maybe t
+    , NameIn DA_Internal_Template_Functions "HasDynamicExercise" <- cls
+    -> pure []
+
     -- Constraint tuples are represented by LF structs.
     | isConstraintTupleTyCon t
     -> pure []
@@ -1239,12 +1253,25 @@ convertChoices env mc tplTypeCon tbinds =
 
 convertChoice :: Env -> TemplateBinds -> ChoiceData -> ConvertM TemplateChoice
 convertChoice env tbinds (ChoiceData ty expr) = do
-    TConApp _ [_, _ :-> _ :-> choiceTy@(TConApp choiceTyCon _) :-> TUpdate choiceRetTy, consumingTy, _] <- convertType env ty
+    -- The desuaged representation of a Daml Choice is a five tuple.
+    -- Constructed by mkChoiceDecls in RdrHsSyn.hs in the ghc repo.
+    -- We match against that 5-tuple expression or type in 3 places in this file.
+    -- search for string "choiceTupleExpr"
+
+    TConApp _ [ consumingTy
+              , _controller
+              , _observer
+              , _authority
+              , _ :-> _ :-> choiceTy@(TConApp choiceTyCon _) :-> TUpdate choiceRetTy -- choiceTupleExpr
+              ] <- convertType env ty
+
     let choiceName = ChoiceName (T.intercalate "." $ unTypeConName $ qualObject choiceTyCon)
-    ERecCon _ [ (_, controllers)
-              , (_, action)
-              , _
+
+    ERecCon _ [ _consum
+              , (_, controllers)
               , (_, optObservers)
+              , (_, optAuthorizers)
+              , (_, action) -- choiceTupleExpr
               ] <- removeLocations <$> convertExpr env expr
 
     mbObservers <-
@@ -1252,6 +1279,12 @@ convertChoice env tbinds (ChoiceData ty expr) = do
         ENone{} -> pure Nothing
         ESome{someBody} -> pure $ Just someBody
         _ -> unhandled "choice observers function" optObservers
+
+    mbAuthorizers <-
+      case optAuthorizers of
+        ENone{} -> pure Nothing
+        ESome{someBody} -> pure $ Just someBody
+        _ -> unhandled "choice authorizers function" optAuthorizers
 
     consuming <- convertConsuming consumingTy
     let update = action `ETmApp` EVar self `ETmApp` EVar this `ETmApp` EVar arg
@@ -1277,6 +1310,7 @@ convertChoice env tbinds (ChoiceData ty expr) = do
         , chcConsuming = consuming == Consuming
         , chcControllers = applyThisAndArg controllers
         , chcObservers = applyThisAndArg <$> mbObservers
+        , chcAuthorizers = applyThisAndArg <$> mbAuthorizers
         , chcSelfBinder = self
         , chcArgBinder = (arg, choiceTy)
         , chcReturnType = choiceRetTy
@@ -1287,7 +1321,7 @@ convertChoice env tbinds (ChoiceData ty expr) = do
 
 convertBinds :: Env -> ModuleContents -> ConvertM [Definition]
 convertBinds env mc =
-  concatMapM (\bind -> resetFreshVarCounters >> convertBind env mc bind) (mcBinds mc)
+  concatMapM (\bind -> resetFreshVarCounters >> topLevelWarnings bind >> convertBind env mc bind) (mcBinds mc)
 
 convertBind :: Env -> ModuleContents -> (Var, GHC.Expr Var) -> ConvertM [Definition]
 convertBind env mc (name, x)
@@ -1358,6 +1392,20 @@ convertBind env mc (name, x)
 
     | not (envLfVersion env `supports` featureChoiceFuncs)
     , DesugarDFunId _ _ (NameIn DA_Internal_Template_Functions "HasChoiceObserver") _ <- name
+    = pure []
+
+    -- Remove dynamicExercise when unsupported
+    | not (envLfVersion env `supports` featureDynamicExercise)
+    , "$c_dynamicExercise" `T.isPrefixOf` getOccText name
+    = pure []
+    | not (envLfVersion env `supports` featureDynamicExercise)
+    , NameIn DA_Internal_Template_Functions "_dynamicExercise" <- name
+    = pure []
+    | not (envLfVersion env `supports` featureDynamicExercise)
+    , NameIn DA_Internal_Template_Functions "dynamicExercise" <- name
+    = pure []
+    | not (envLfVersion env `supports` featureDynamicExercise)
+    , DesugarDFunId _ _ (NameIn DA_Internal_Template_Functions "HasDynamicExercise") _ <- name
     = pure []
 
     -- Remove internal functions.
@@ -1622,6 +1670,10 @@ convertExpr env0 e = do
     go env (VarIn DA_Internal_Template_Functions "choiceObserver") _
         | not $ envLfVersion env `supports` featureChoiceFuncs
         = conversionError "The function `choiceObserver` is only available with --target=1.dev"
+
+    go env (VarIn DA_Internal_Template_Functions "dynamicExercise") _
+        | not $ envLfVersion env `supports` featureDynamicExercise
+        = conversionError "The function `dynamicExercise` is only available with --target=1.dev"
 
     go env (ConstraintTupleProjection index arity) args
         | (LExpr x : args') <- drop arity args -- drop the type arguments
@@ -2553,22 +2605,6 @@ convertKind x@(TypeCon t ts)
             _ -> pure (KArrow k1 k2)
 convertKind (TyVarTy x) = convertKind $ tyVarKind x
 convertKind x = unhandled "Kind" x
-
-convNameLoc :: NamedThing a => a -> Maybe LF.SourceLoc
-convNameLoc n = case nameSrcSpan (getName n) of
-  -- NOTE(MH): Locations are 1-based in GHC and 0-based in Daml-LF.
-  -- Hence all the @- 1@s below.
-  RealSrcSpan srcSpan -> Just (convRealSrcSpan srcSpan)
-  UnhelpfulSpan{} -> Nothing
-
-convRealSrcSpan :: RealSrcSpan -> LF.SourceLoc
-convRealSrcSpan srcSpan = SourceLoc
-    { slocModuleRef = Nothing
-    , slocStartLine = srcSpanStartLine srcSpan - 1
-    , slocStartCol = srcSpanStartCol srcSpan - 1
-    , slocEndLine = srcSpanEndLine srcSpan - 1
-    , slocEndCol = srcSpanEndCol srcSpan - 1
-    }
 
 ---------------------------------------------------------------------
 -- SMART CONSTRUCTORS
