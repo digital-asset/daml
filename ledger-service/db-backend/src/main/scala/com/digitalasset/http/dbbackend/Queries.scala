@@ -1033,7 +1033,7 @@ private final class OracleQueries(
       }
       case JsNull | JsTrue | JsFalse | JsArray(_) | JsObject(_) => sql"$literal"
     }
-    sql""" PASSING $rendered AS "${Fragment.const0(name)}" """
+    sql""" PASSING $rendered AS "${Fragment.const0(name)}""""
   }
 
   private[http] override def equalAtContractPath(path: JsonPath, literal: JsValue): Fragment = {
@@ -1115,7 +1115,7 @@ private final class OracleQueries(
     }
     val pathc = ('$' -: pathSteps(path)) ++ s"?(@ $opc ${"$X"})"
     sql"JSON_EXISTS($contractColumnName, " ++
-      sql"""${oracleShortPathEscape(pathc)} $passingValueAsX)"""
+      sql"""${oracleShortPathEscape(pathc)}${passingValueAsX})"""
   }
 }
 
