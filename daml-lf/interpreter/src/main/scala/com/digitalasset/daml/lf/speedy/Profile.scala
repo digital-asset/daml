@@ -65,6 +65,9 @@ object Profile {
     def label: String = LabelModule.Allowed.renderLabel(rawLabel)
   }
 
+  // TODO: Is this reasonable? Should LabelModule be exposed?
+  private[lf] def renderLabel(rawLabel: Label): String = LabelModule.Allowed.renderLabel(rawLabel)
+
   private[speedy] def unmangleLenient(str: String): String = {
     val builder = new StringBuilder(str.length)
     def append(c: Char) = discard(builder.append(c))

@@ -13,6 +13,7 @@ import com.daml.lf.speedy.{SExpr0 => S0}
 import com.daml.lf.speedy.{SExpr1 => S1}
 import com.daml.lf.speedy.{SExpr => S2}
 import com.daml.lf.speedy.{SValue => V}
+import com.daml.lf.data.Ref.Location
 
 import com.daml.lf.language.Ast
 
@@ -57,8 +58,7 @@ private[lf] object SPretty {
         docSValue(v)
 
       case S0.SELocation(loc, body) =>
-        val _ = (loc, body)
-        ???
+        text("Loc[") + docLocation(loc) + text("](") + docExp0(lev)(body) + char(')')
 
       case S0.SEAbs(arity, body) =>
         char('\\') + char('(') + intercalate(
@@ -78,7 +78,7 @@ private[lf] object SPretty {
       case S0.SELet(boundS0, body) =>
         def loop(lev: Int)(bounds: List[S0.SExpr]): Doc = {
           bounds match {
-            case Nil => docExp0(lev)(body)
+            case Nil => text("in") / docExp0(lev)(body).indent(2)
             case boundExp :: bounds =>
               text(s"let $varNamePrefix$lev = ") + docExp0(lev)(boundExp) / loop(lev + 1)(bounds)
           }
@@ -86,20 +86,20 @@ private[lf] object SPretty {
         loop(lev)(boundS0) // .indent(2)
 
       case S0.SETryCatch(body, handler) =>
-        val _ = (body, handler)
-        ???
+        text("try do") / docExp0(lev)(body).indent(2) / text("catch") / docExp0(lev)(handler)
+          .indent(2)
 
       case S0.SEScopeExercise(body) =>
         val _ = body
-        ???
+        ??? // Difficult to get a hold of, exists only in instances
 
       case S0.SEPreventCatch(body) =>
         val _ = body
         ???
 
       case S0.SELabelClosure(label, expr) =>
-        val _ = (label, expr)
-        ???
+        text("Lbl[" + Profile.renderLabel(label) + "](") + docExp0(lev)(expr) + char(')')
+
     }
   }
 
@@ -144,8 +144,7 @@ private[lf] object SPretty {
         docSValue(v)
 
       case S1.SELocation(loc, body) =>
-        val _ = (loc, body)
-        ???
+        text("Loc[") + docLocation(loc) + text("](") + docExp1(lev)(body) + char(')')
 
       case S1.SEMakeClo(fvs, arity, body) =>
         val _ = (fvs, arity, body)
@@ -180,12 +179,12 @@ private[lf] object SPretty {
         loop(lev)(bounds0) // .indent(2)
 
       case S1.SELet1General(rhs, body) =>
-        val _ = (rhs, body)
+        val _ = (rhs, body) // Exists only _during_ ANF conversion, not before or after.
         ???
 
       case S1.SETryCatch(body, handler) =>
-        val _ = (body, handler)
-        ???
+        text("try do") / docExp1(lev)(body).indent(2) / text("catch") / docExp1(lev)(handler)
+          .indent(2)
 
       case S1.SEScopeExercise(body) =>
         val _ = body
@@ -196,8 +195,7 @@ private[lf] object SPretty {
         ???
 
       case S1.SELabelClosure(label, expr) =>
-        val _ = (label, expr)
-        ???
+        text("Lbl[" + Profile.renderLabel(label) + "](") + docExp1(lev)(expr) + char(')')
     }
   }
 
@@ -245,8 +243,7 @@ private[lf] object SPretty {
         docSValue(v)
 
       case S2.SELocation(loc, body) =>
-        val _ = (loc, body)
-        ???
+        text("Loc[") + docLocation(loc) + text("](") + docExp2(lev)(body) + char(')')
 
       case S2.SEMakeClo(fvs, arity, body) =>
         val _ = (fvs, arity, body)
@@ -290,8 +287,8 @@ private[lf] object SPretty {
         ) / docExp2(lev + 1)(body)
 
       case S2.SETryCatch(body, handler) =>
-        val _ = (body, handler)
-        ???
+        text("try do") / docExp2(lev)(body).indent(2) / text("catch") / docExp2(lev)(handler)
+          .indent(2)
 
       case S2.SEScopeExercise(body) =>
         val _ = body
@@ -302,11 +299,11 @@ private[lf] object SPretty {
         ???
 
       case S2.SELabelClosure(label, expr) =>
-        val _ = (label, expr)
-        ???
+        text("Lbl[" + Profile.renderLabel(label) + "](") + docExp2(lev)(expr) + char(')')
 
       case S2.SEImportValue(_, _) =>
-        ???
+        // TODO: Find way to get expr with this
+        text("[Runtime local import - likely for fetching a contract]")
     }
   }
 
@@ -332,8 +329,9 @@ private[lf] object SPretty {
     sd match {
       case S.LfDefRef(ref) =>
         text(ref.qualifiedName.toString)
-      case _ =>
-        ???
+      case S.TemplateChoiceDefRef(ref, name) =>
+        text(ref.qualifiedName.toString + ":" + name.toString)
+      case _ => ???
     }
   }
 
@@ -349,7 +347,7 @@ private[lf] object SPretty {
       case V.SText(s) =>
         char('"') + text(s) + char('"')
       case _ =>
-        text(s"[VALUE:$v)]")
+        text(s"[VALUE:$v]")
     }
   }
 
@@ -370,5 +368,14 @@ private[lf] object SPretty {
       case S.SCPDefault => text("default")
       case _ => text(s"PAT:$pat")
     }
+  }
+
+  private def docLocation(loc: Location): Doc = {
+    def prettyPos(pos: (Int, Int)): String = pos._1.toString + ":" + pos._2.toString
+    text(
+      loc.module.toString + ":" + loc.definition.toString + "~" + prettyPos(
+        loc.start
+      ) + "-" + prettyPos(loc.end)
+    )
   }
 }

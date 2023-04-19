@@ -19,13 +19,19 @@ object ExploreSpeedyCompile extends App {
 
   def usage(): Unit = {
     println("""
-     |usage: explore-dar [NAME] [--arg INT]
+     |usage: explore-dar [FUNC_NAME] [--base DAR_NAME] [--stacktracing] [--profiling]
+     |
+     |DAR_NAME is the name of the dar file in `daml-lf/interpreter/perf/`
     """.stripMargin)
+    System.exit(0)
   }
 
   def parseArgs(args0: List[String]): Config = {
     var moduleName: String = "Examples"
     var funcNameOpt: Option[String] = None
+    var stacktracing: Boolean = false
+    var profiling: Boolean = false
+    var funcNameContains: Boolean = false
     def loop(args: List[String]): Unit = args match {
       case Nil => {}
       case "-h" :: _ => usage()
@@ -33,17 +39,29 @@ object ExploreSpeedyCompile extends App {
       case "--base" :: x :: args =>
         moduleName = x
         loop(args)
+      case "--stacktracing" :: args =>
+        stacktracing = true
+        loop(args)
+      case "--profiling" :: args =>
+        profiling = true
+        loop(args)
+      case "--contains-name" :: args =>
+        funcNameContains = true
+        loop(args)
       case x :: args =>
         funcNameOpt = Some(x)
         loop(args)
     }
     loop(args0)
-    Config(moduleName, funcNameOpt)
+    Config(moduleName, funcNameOpt, stacktracing, profiling, funcNameContains)
   }
 
   final case class Config(
       moduleName: String,
       funcNameOpt: Option[String],
+      stacktracing: Boolean,
+      profiling: Boolean,
+      funcNameContains: Boolean,
   )
 
   def main(args0: List[String]) = {
@@ -58,7 +76,10 @@ object ExploreSpeedyCompile extends App {
       val selectM: Boolean = m.toString == config.moduleName
       val selectF: Boolean = config.funcNameOpt match {
         case None => true
-        case Some(funcName) => d.toString == funcName
+        case Some(funcName) =>
+          if (config.funcNameContains)
+            d.toString contains funcName
+          else d.toString == funcName
       }
       if (selectM && selectF) {
         Some(d.toString)
@@ -66,8 +87,13 @@ object ExploreSpeedyCompile extends App {
         None
       }
     }
-
-    val compilerConfig = Compiler.Config.Default.copy(debug = debugExamples)
+    val stackTraceMode = if (config.stacktracing) Compiler.FullStackTrace else Compiler.NoStackTrace
+    val profilingMode = if (config.profiling) Compiler.FullProfile else Compiler.NoProfile
+    val compilerConfig = Compiler.Config.Default.copy(
+      debug = debugExamples,
+      stacktracing = stackTraceMode,
+      profiling = profilingMode,
+    )
     val _ = PureCompiledPackages.build(packages.all.toMap, compilerConfig)
   }
 }

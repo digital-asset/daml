@@ -3,6 +3,8 @@
 
 module Examples where
 
+import DA.Exception
+
 identity x = x
 
 absdiff : Int -> Int -> Int
@@ -44,3 +46,34 @@ pythag n =
   , z <- [y..n]
   , x*x + y*y == z*z && x<=y && y<=z
   ]
+
+myCase : Either Int Int -> Int
+myCase x = case x of
+  Left x -> x
+  Right x -> x + 1
+
+tryCatch : Update ()
+tryCatch = do
+  try do
+    _ <- getTime
+    error "bad"
+  catch
+    GeneralError _ -> pure ()
+  pure ()
+
+template T2 with
+    p : Party
+  where
+    signatory p
+    choice Call2 : ()
+      controller p
+      do pure ()
+
+template T with
+    p : Party
+  where
+    signatory p
+    choice MyCall : () with
+        a : ContractId T2
+      controller p
+      do exercise a Call2
