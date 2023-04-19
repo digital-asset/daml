@@ -23,14 +23,14 @@ locals {
     azure = [
       {
         name       = "dw1",
-        size       = 1,
-        assignment = "azure",
+        size       = 6,
+        assignment = "default",
         disk_size  = 400,
       },
       {
         name       = "dw2"
         size       = 0,
-        assignment = "azure",
+        assignment = "default",
         disk_size  = 400,
       },
     ],
