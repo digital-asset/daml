@@ -79,39 +79,4 @@ resource "azurerm_windows_virtual_machine_scale_set" "deployment" {
         commandToExecute = "powershell -ExecutionPolicy Unrestricted -Command Copy-Item -Path C:/AzureData/CustomData.bin C:/AzureData/CustomData.ps1; powershell -ExecutionPolicy Unrestricted -File C:/AzureData/CustomData.ps1"
     })
   }
-
-  /*
-  identity {
-    type = "SystemAssigned"
-  }
-  */
-
-  #Currently this extenstion is only available for domain joined windows machines.
-  /*  extension {
-    name                       = "AADLoginForWindows"
-    publisher                  = "Microsoft.Azure.ActiveDirectory"
-    type                       = "AADLoginForWindows"
-    type_handler_version       = "1.0"
-    auto_upgrade_minor_version = true
-  }*/
-
-  /*
-  extension {
-    name                       = "Custom-Startup-Script"
-    publisher                  = "Microsoft.Compute"
-    type                       = "CustomScriptExtension"
-    type_handler_version       = "1.10"
-    auto_upgrade_minor_version = true
-
-    protected_settings = <<PROTECTED_SETTINGS
-    {
-      "fileUris": [
-          "https://github.com/asangeethada/daml/blob/infra-add-azure/infra/azure/windows/startup.ps1"
-        ],
-      "commandToExecute": "powershell.exe -ExecutionPolicy Unrestricted -Command \"./startup.ps1 -vsts_token \"${secret_resource.vsts-token.value}\"; exit 0;\""
-    }
-  PROTECTED_SETTINGS
-
-  }
-  */
 }
