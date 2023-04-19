@@ -63,7 +63,7 @@ resource "google_compute_instance_template" "vsts-agent-windows" {
 
   metadata = {
     // Prepare the machine
-    windows-startup-script-ps1 = templatefile("${path.module}/windows_startup.ps1", {
+    windows-startup-script-ps1 = templatefile("${path.module}/windows_startup_no_copy.ps1", {
       vsts_token   = nonsensitive(secret_resource.vsts-token.value)
       vsts_account = "digitalasset"
       vsts_pool    = "windows-pool"
