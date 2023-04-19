@@ -3,14 +3,13 @@
 
 package com.daml.script.export
 
-import java.nio.file.{Files, Path}
+import java.nio.file.{Files, Path, Paths}
 import java.util.UUID
 import akka.stream.scaladsl.Sink
 import com.daml.SdkVersion
 import com.daml.bazeltools.BazelRunfiles
-import com.daml.fs.Utils.deleteRecursively
 import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId, Party}
-import com.daml.ledger.api.testing.utils.{AkkaBeforeAndAfterAll, SuiteResourceManagementAroundAll}
+import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.api.v1.command_service.SubmitAndWaitRequest
 import com.daml.ledger.api.v1.commands._
@@ -18,11 +17,6 @@ import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
 import com.daml.ledger.api.v1.{value => api}
 import com.daml.ledger.client.LedgerClient
-import com.daml.ledger.client.configuration.{
-  CommandClientConfiguration,
-  LedgerClientConfiguration,
-  LedgerIdRequirement,
-}
 import com.daml.ledger.testing.utils.TransactionEq
 import com.daml.lf.archive.{Dar, DarDecoder}
 import com.daml.lf.data.Ref
@@ -30,9 +24,8 @@ import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.engine.script.ledgerinteraction.{GrpcLedgerClient, ScriptTimeMode}
 import com.daml.lf.engine.script.{Participants, Runner}
 import com.daml.lf.language.Ast.Package
-import com.daml.platform.sandbox.SandboxBackend
-import com.daml.platform.sandbox.fixture.SandboxFixture
-import com.daml.platform.sandbox.services.TestCommands
+import com.daml.lf.integrationtest.CantonFixture
+import com.daml.platform.services.time.TimeProviderType
 import com.typesafe.scalalogging.StrictLogging
 import org.scalatest._
 import org.scalatest.freespec.AsyncFreeSpec
@@ -43,42 +36,34 @@ import spray.json._
 import scala.concurrent.Future
 import scala.sys.process._
 
-trait ReproducesTransactions
+final class ReproducesTransactions
     extends AsyncFreeSpec
     with Matchers
-    with AkkaBeforeAndAfterAll
     with BeforeAndAfterEach
     with SuiteResourceManagementAroundAll
-    with SandboxFixture
-    with SandboxBackend.Postgresql
-    with StrictLogging
-    with TestCommands {
+    with CantonFixture
+    with StrictLogging {
 
-  private val appId = Ref.ApplicationId.assertFromString("script-export")
-  private val clientConfiguration = LedgerClientConfiguration(
-    applicationId = appId,
-    ledgerIdRequirement = LedgerIdRequirement.none,
-    commandClient = CommandClientConfiguration.default,
-    token = None,
-  )
+  override protected def authSecret = None
+  override protected def darFiles = List(darFile)
+  override protected def devMode = false
+  override protected def nParticipants = 1
+  override protected def timeProviderType = TimeProviderType.Static
+  override protected def tlsEnable = false
+  override protected def applicationId: ApplicationId = ApplicationId("script-export")
+
+  private val exe = if (sys.props("os.name").toLowerCase.contains("windows")) ".exe" else ""
+  val scriptPath = BazelRunfiles.rlocation("daml-script/runner/daml-script-binary" + exe)
+  val damlScriptLib = BazelRunfiles.requiredResource("daml-script/daml/daml-script.dar")
+  val darPath = BazelRunfiles.rlocation("daml-script/test/script-test.dar")
+
   val isWindows: Boolean = sys.props("os.name").toLowerCase.contains("windows")
-  val exe = if (isWindows) { ".exe" }
-  else ""
-  private var tmpDir: Path = null
   private val damlc =
     BazelRunfiles.requiredResource(s"compiler/damlc/damlc$exe")
-  private val damlScriptLib = BazelRunfiles.requiredResource("daml-script/daml/daml-script.dar")
+  private val darFile = BazelRunfiles.rlocation(Paths.get(com.daml.ledger.test.ModelTestDar.path))
+  private val dar = CantonFixture.readDar(darFile)
   private def iouId(s: String) =
-    api.Identifier(packageId, moduleName = "Iou", s)
-
-  override protected def beforeEach(): Unit = {
-    super.beforeEach()
-    tmpDir = Files.createTempDirectory("script_export")
-  }
-  override protected def afterEach(): Unit = {
-    super.afterEach()
-    deleteRecursively(tmpDir)
-  }
+    api.Identifier(dar.mainPkg, moduleName = "Iou", s)
 
   private def submit(client: LedgerClient, p: Ref.Party, cmd: Command) =
     client.commandServiceClient.submitAndWaitForTransaction(
@@ -86,7 +71,7 @@ trait ReproducesTransactions
         Some(
           Commands(
             ledgerId = client.ledgerId.unwrap,
-            applicationId = appId,
+            applicationId = applicationId.unwrap,
             commandId = UUID.randomUUID().toString(),
             party = p,
             commands = Seq(cmd),
@@ -130,12 +115,13 @@ trait ReproducesTransactions
   private def createScriptExport(
       parties: List[Ref.Party],
       offset: LedgerOffset,
+      dir: Path,
   ): Future[Dar[(PackageId, Package)]] = for {
     // build script export
     _ <- Main.run(
       Config(
         ledgerHost = "localhost",
-        ledgerPort = serverPort.value,
+        ledgerPort = suiteResource.value.head.value,
         tlsConfig = TlsConfiguration(false, None, None, None),
         accessToken = None,
         partyConfig = PartyConfig(
@@ -147,7 +133,7 @@ trait ReproducesTransactions
         maxInboundMessageSize = Config.DefaultMaxInboundMessageSize,
         exportType = Some(
           ExportScript(
-            outputPath = tmpDir,
+            outputPath = dir,
             acsBatchSize = 2,
             setTime = true,
             damlScriptLib = damlScriptLib.toString,
@@ -161,12 +147,12 @@ trait ReproducesTransactions
       damlc.toString,
       "build",
       "--project-root",
-      tmpDir.toString,
+      dir.toString,
       "-o",
-      tmpDir.resolve("export.dar").toString,
+      dir.resolve("export.dar").toString,
     ).! shouldBe 0
     // load DAR
-    dar <- Future.fromTry(DarDecoder.readArchiveFromFile(tmpDir.resolve("export.dar").toFile).toTry)
+    dar <- Future.fromTry(DarDecoder.readArchiveFromFile(dir.resolve("export.dar").toFile).toTry)
   } yield dar
 
   private def runScriptExport(
@@ -197,9 +183,10 @@ trait ReproducesTransactions
   private def testOffset(
       numParties: Int,
       skip: Int,
-  )(f: (LedgerClient, Seq[Ref.Party]) => Future[Unit]): Future[Assertion] =
-    for {
-      client <- LedgerClient(channel, clientConfiguration)
+  )(f: (LedgerClient, Seq[Ref.Party]) => Future[Unit]): Future[Assertion] = {
+    val dir = Files.createTempDirectory("script_export")
+    val future = for {
+      client <- defaultLedgerClient()
       parties <- allocateParties(client, numParties)
       // setup
       _ <- f(client, parties)
@@ -210,16 +197,18 @@ trait ReproducesTransactions
         else { ledgerOffset(before(skip - 1).offset) }
       beforeCmp = before.drop(skip)
       // reproduce from export
-      dar <- createScriptExport(parties, offset)
+      dar <- createScriptExport(parties, offset, dir)
       newParties <- allocateParties(client, numParties)
       partiesMap = parties.zip(newParties).toMap
       _ <- runScriptExport(client, partiesMap, dar)
       // check that the new transaction trees are the same
       after <- collectTrees(client, newParties)
       afterCmp = after.drop(after.length - beforeCmp.length)
-    } yield {
-      TransactionEq.equivalent(beforeCmp, afterCmp).fold(fail(_), _ => succeed)
-    }
+      _ = com.daml.fs.Utils.deleteRecursively(dir)
+    } yield TransactionEq.equivalent(beforeCmp, afterCmp).fold(fail(_), _ => succeed)
+    future.onComplete(_ => com.daml.fs.Utils.deleteRecursively(dir))
+    future
+  }
 
   @scala.annotation.nowarn("msg=match may not be exhaustive")
   private def testIou: (LedgerClient, Seq[Ref.Party]) => Future[Unit] = {
@@ -307,12 +296,14 @@ trait ReproducesTransactions
       } yield ()
   }
 
-  def numParties: Int
-  def skip: Int
-  def description: String
-
   "Generated export for IOU transfer compiles" - {
-    s"offset $skip - $description" in { testOffset(numParties, skip)(testIou) }
+
+    s"offset 0 - empty ACS" in { testOffset(2, 0)(testIou) }
+
+    s"offset 2 - skip split" in { testOffset(2, 2)(testIou) }
+
+    s"offset 4 - no trees" in { testOffset(2, 4)(testIou) }
+
   }
 
   private def transactionFilter(ps: Ref.Party*) =

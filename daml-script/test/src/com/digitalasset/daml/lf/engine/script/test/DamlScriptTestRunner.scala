@@ -107,8 +107,8 @@ class DamlScriptTestRunner
         )
 
       if (cantonFixtureDebugMode) {
-        Files.writeString(catonTmpDir.resolve(getClass.getSimpleName + ".expected"), expected)
-        Files.writeString(catonTmpDir.resolve(getClass.getSimpleName + ".actual"), actual)
+        Files.writeString(cantonTmpDir.resolve(getClass.getSimpleName + ".expected"), expected)
+        Files.writeString(cantonTmpDir.resolve(getClass.getSimpleName + ".actual"), actual)
       }
 
       actual shouldBe expected
