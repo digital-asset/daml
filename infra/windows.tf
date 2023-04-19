@@ -12,14 +12,12 @@ locals {
         size       = 0,
         assignment = "default",
         disk_size  = 400,
-        path       = "_no_copy",
       },
       {
         name       = "ci-w2"
         size       = 6,
         assignment = "default",
         disk_size  = 400,
-        path       = "",
       },
     ],
     azure = [
