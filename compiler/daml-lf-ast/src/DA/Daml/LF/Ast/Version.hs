@@ -99,13 +99,6 @@ featureUnstable = Feature
     , featureCppFlag = Just "DAML_UNSTABLE"
     }
 
-featureWithAuthority :: Feature
-featureWithAuthority = Feature
-    { featureName = "withAuthority primitive"
-    , featureMinVersion = versionDev
-    , featureCppFlag = Just "DAML_WITH_AUTHORITY"
-    }
-
 featureBigNumeric :: Feature
 featureBigNumeric = Feature
     { featureName = "BigNumeric type"
@@ -182,7 +175,6 @@ allFeatures =
     , featureTemplateTypeRepToText
     , featureUnstable
     , featureExperimental
-    , featureWithAuthority
     , featureDynamicExercise
     ]
 
