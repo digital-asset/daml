@@ -35,7 +35,6 @@ import qualified Development.IDE.Core.OfInterest as Service
 import Development.IDE.Types.Location
 
 import "ghc-lib" GHC
-import "ghc-lib-parser" Name
 import "ghc-lib-parser" TyCon
 import "ghc-lib-parser" ConLike
 import "ghc-lib-parser" DataCon
@@ -45,6 +44,7 @@ import "ghc-lib-parser" Bag (bagToList)
 import "ghc-lib-parser" RdrHsSyn (isDamlGenerated)
 import "ghc-lib-parser" RdrName (rdrNameOcc)
 import "ghc-lib-parser" InstEnv (ClsInst (..))
+import "ghc-lib-parser" Name (occName, occNameString)
 
 import Control.Monad
 import Control.Monad.IO.Class
@@ -219,6 +219,10 @@ getInterfaceInstanceMap ctx@DocCtx{..} decls =
             ] <- [typeToType ctx $ idType id]
         ]
 
+-- | Extracts the return types of choices by looking at the HasExercise
+--   instances. Note that we expect and accept key clashes for `Archive`
+--   but this is acceptable, as choice return types are tied only to the
+--   Choice not the Choice + Template together.
 getChoiceTypeMap :: DocCtx -> [ClsInst] -> MS.Map Typename DDoc.Type
 getChoiceTypeMap ctx insts =
     MS.fromList

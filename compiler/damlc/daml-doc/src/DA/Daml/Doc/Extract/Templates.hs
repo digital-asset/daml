@@ -203,7 +203,7 @@ mkChoiceDoc typeMap choiceTypeMap name =
   -- assumes exactly one constructor (syntactic in the template syntax), or
   -- uses a dummy value otherwise.
     , cd_fields = getFields choiceADT
-    , cd_type = fromMaybe (error "huh") $ MS.lookup name choiceTypeMap
+    , cd_type = fromMaybe (TypeApp Nothing (Typename "UnknownType") []) $ MS.lookup name choiceTypeMap
     }
   where
     choiceADT = asADT typeMap name
