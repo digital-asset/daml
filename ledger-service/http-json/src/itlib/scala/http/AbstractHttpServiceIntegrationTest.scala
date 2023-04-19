@@ -588,7 +588,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
       }
     }
 
-    "nested comparison filters" onlyIfLargeQueries_- {
+    "nested comparison filters" - {
       import shapeless.Coproduct, shapeless.syntax.singleton._
       val irrelevant = Ref.Identifier assertFromString "none:Discarded:Identifier"
       val (_, bazRecordVA) = VA.record(irrelevant, ShRecord(baz = VA.text))
@@ -637,11 +637,20 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
           withBazRecord("a"),
         ),
         Scenario(
+          "gt string with unsafe values",
+          kbvarId,
+          kbvarVA,
+          Map("bazRecord" -> Map("baz" -> Map("%gt" -> "bobby'); DROP TABLE Students;--")).toJson),
+        )(
+          withBazRecord("c"),
+          withBazRecord("a"),
+        ),
+        Scenario(
           "gt int",
           kbvarId,
           kbvarVA,
           Map("fooVariant" -> Map("tag" -> "Bar".toJson, "value" -> Map("%gt" -> 2).toJson).toJson),
-        )(withFooVariant(3), withFooVariant(1)),
+        )(withFooVariant(10), withFooVariant(1)),
       ).zipWithIndex.foreach { case (scenario, ix) =>
         import scenario._
         s"$label (scenario $ix)" in withHttpService { fixture =>
