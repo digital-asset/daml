@@ -30,7 +30,6 @@ locals {
         size       = 0,
         assignment = "default",
       },
-
     ]
   }
 }
