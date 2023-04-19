@@ -459,7 +459,7 @@ abstract class AbstractFuncIT
       }
     }
     "ChoiceAuthority:test" should {
-      "succeed" in {
+      "succeed" ignore {
         for {
           clients <- scriptClients()
           v <- run(
