@@ -638,6 +638,17 @@ object Queries {
       }
       .toSeq
 
+  def quotedJsonSearchToken(literal: String): Fragment = {
+    val escaped = literal.replace("'", "''")
+    if (escaped.size <= jsonSearchTokenSizeLimit)
+      Fragment.const0("'" + escaped + "'")
+    else
+      throw new IllegalArgumentException(
+        s"json token too long - ${escaped.size} > $jsonSearchTokenSizeLimit: $escaped"
+      )
+  }
+  val jsonSearchTokenSizeLimit = 256 // See Oracle database error DRG-50943
+
   import doobie.util.invariant.InvalidValue
 
   @throws[InvalidValue[_, _]]
@@ -996,52 +1007,49 @@ private final class OracleQueries(
   private[this] def pathSteps(path: JsonPath): Cord =
     path.elems.foldMap(_.fold(k => (".\"": Cord) ++ k :- '"', (_: _0.type) => "[0]"))
 
-  // Takes a literal text value and expresses it as a single-quoted value which can be embedded
-  // within json queries.
-  private[this] def oracleJsonStringEscape(readyPath: Cord): Fragment = {
-    val s = readyPath.toString
-    assert(
-      !s.startsWith("'") && !s.endsWith("'"),
-      "Oracle JSON query syntax doesn't allow ' at beginning or ending",
-    )
-    val escaped = s.replace("'", "''")
-    Fragment.const0("'" + escaped + "'")
-  }
-  // ORA-01704: string literal too long
-  private[this] val literalStringSizeLimit = 4000
-
   // I cannot believe this function exists in 2021
   // None if literal is too long
   // ORA-40454: path expression not a literal
-  private[this] def oracleShortPathEscape(readyPath: Cord): Fragment = {
-    val escaped = oracleJsonStringEscape(readyPath)
-    if (escaped.toString.size <= literalStringSizeLimit)
-      escaped
-    else
+  private[this] def oraclePathEscape(readyPath: Cord): Option[Fragment] = for {
+    s <- Some(readyPath.toString)
+    if s.size <= literalStringSizeLimit
+    _ = assert(
+      !s.startsWith("'") && !s.endsWith("'"),
+      "Oracle JSON query syntax doesn't allow ' at beginning or ending",
+    )
+    escaped = s.replace("'", "''")
+    if escaped.length <= literalStringSizeLimit
+  } yield Fragment const0 ("'" + escaped + "'")
+  // ORA-01704: string literal too long
+  private[this] val literalStringSizeLimit = 4000
+
+  private[this] def oracleShortPathEscape(readyPath: Cord): Fragment =
+    oraclePathEscape(readyPath).getOrElse(
       throw new IllegalArgumentException(s"path too long: $readyPath")
+    )
+
+  // Builds the SQL fragment for passing a string into a JSON path expression as a variable named X
+  private[this] def passingStringAsX(s: String): Fragment = {
+    val rendered =
+      if (disableContractPayloadIndexing)
+        // We can pass the value through as normal via a query param
+        sql"$s"
+      else
+        // We must pass the value through as a literal when the JSON index is enabled
+        quotedJsonSearchToken(s)
+    sql""" PASSING $rendered AS "X""""
   }
 
-  // Builds the SQL fragment for passing a value into a JSON path expression as a named variable
-  private[this] def passingAs(literal: JsValue, name: String): Fragment = {
-    val rendered = literal match {
-      case JsNumber(n) => sql"$n"
-      case JsString(s) => {
-        if (disableContractPayloadIndexing)
-          sql"$s" // We can pass the value through via a normal query param
-        else
-          oracleJsonStringEscape(s) // We must pass the value through as a literal.
-      }
-      case JsNull | JsTrue | JsFalse | JsArray(_) | JsObject(_) => sql"$literal"
-    }
-    sql""" PASSING $rendered AS "${Fragment.const0(name)}""""
-  }
+  private[this] def passingNumberAsX(n: BigDecimal): Fragment =
+    sql""" PASSING $n AS "X""""
 
   private[http] override def equalAtContractPath(path: JsonPath, literal: JsValue): Fragment = {
     val opath: Cord = '$' -: pathSteps(path)
     // you cannot put a positional parameter in a path, which _must_ be a literal
     // so pass it as the path-local variable X instead
     val predExtension = literal match {
-      case JsNumber(_) | JsString(_) => Some(("?(@ == $X)", passingAs(literal, "X")))
+      case JsNumber(n) => Some(("?(@ == $X)", passingNumberAsX(n)))
+      case JsString(s) => Some(("?(@ == $X)", passingStringAsX(s)))
       case JsTrue | JsFalse | JsNull => Some((s"?(@ == $literal)", sql""))
       case JsObject(_) | JsArray(_) => None
     }
@@ -1100,7 +1108,8 @@ private final class OracleQueries(
       literalScalar: JsValue,
   ) = {
     val passingValueAsX = literalScalar match {
-      case JsNumber(_) | JsString(_) => passingAs(literalScalar, "X")
+      case JsNumber(n) => passingNumberAsX(n)
+      case JsString(s) => passingStringAsX(s)
       case JsNull | JsTrue | JsFalse | JsArray(_) | JsObject(_) =>
         throw new IllegalArgumentException(
           s"${literalScalar.compactPrint} is not comparable in JSON queries"

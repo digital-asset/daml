@@ -54,6 +54,7 @@ da_scala_test(
     srcs = glob(["src/test/scala/**/*.scala"]),
     scala_deps = [
         "@maven//:com_chuusai_shapeless",
+        "@maven//:com_lihaoyi_sourcecode",
         "@maven//:org_scalacheck_scalacheck",
         "@maven//:org_scalatestplus_scalacheck_1_15",
         "@maven//:org_scalatest_scalatest_core",
@@ -73,5 +74,7 @@ da_scala_test(
     deps = [
         ":db-backend",
         "//libs-scala/nonempty",
+        "//libs-scala/test-evidence/scalatest:test-evidence-scalatest",
+        "//libs-scala/test-evidence/tag:test-evidence-tag",
     ],
 )
