@@ -16,6 +16,7 @@ import DA.Test.HttpJson
 import DA.Test.Sandbox
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.Text as T
+import qualified Data.Text.Lazy as TL
 import System.Environment.Blank
 import System.Exit
 import System.FilePath
@@ -23,12 +24,29 @@ import System.IO.Extra
 import System.Process
 import Test.Tasty
 import Test.Tasty.HUnit
+import Text.Regex.TDFA
 
 readDarMainPackageId :: FilePath -> IO String
 readDarMainPackageId dar = do
   archive <- Zip.toArchive <$> BSL.readFile dar
   InspectInfo {mainPackageId} <- either fail pure $ collectInfo archive
   pure $ T.unpack $ LF.unPackageId mainPackageId
+
+-- | Check if the list-parties output contains a party like the one given
+-- Note the special behaviour needed to handle the `::identifier` on party names
+outputContainsParty :: String -> PartyDetails -> Assertion
+outputContainsParty out self = any (=~ pat) (lines out) @?
+    (TL.unpack (displayName self) <> " is not contained in list-parties output.")
+  where
+    pat = mconcat
+      [ "^PartyDetails {party = '"
+      , unParty (party self)
+      , "::[a-f0-9]+', displayName = \""
+      , displayName self
+      , "\", isLocal = "
+      , if isLocal self then "True" else "False"
+      , "}$"
+      ]
 
 main :: IO ()
 main = do
@@ -37,7 +55,7 @@ main = do
     locateRunfiles (mainWorkspace </> "daml-assistant" </> "daml-helper" </> exe "daml-helper")
   testDar <- locateRunfiles (mainWorkspace </> "daml-assistant" </> "daml-helper" </> "test.dar")
   defaultMain $
-    withSandbox defaultSandboxConf $ \getSandboxPort ->
+    withCantonSandbox defaultSandboxConf $ \getSandboxPort ->
     withHttpJson getSandboxPort (defaultHttpJsonConf "Alice") $ \getHttpJson ->
     testGroup
       "daml ledger"
@@ -68,8 +86,7 @@ main = do
                     , hjTokenFile
                     ]
               out <- readProcess damlHelper ("ledger" : "list-parties" : ledgerOpts) ""
-              ((show $ PartyDetails (Party "Bob") "Bob" True) `elem` lines out) @?
-                "Bob is not contained in list-parties output."
+              out `outputContainsParty` PartyDetails (Party "Bob") "Bob" True
           ]
       , testGroup "allocate-parties"
           [ testCase "succeeds against HTTP JSON API" $ do
@@ -93,10 +110,8 @@ main = do
               -- check for parties via gRPC
               let ledgerOpts = ["--host=localhost", "--port", show sandboxPort]
               out <- readProcess damlHelper ("ledger" : "list-parties" : ledgerOpts) ""
-              ((show $ PartyDetails (Party "Bob") "Bob" True) `elem` lines out) @?
-                "Bob is not contained in list-parties output."
-              ((show $ PartyDetails (Party "Charlie") "Charlie" True) `elem` lines out) @?
-                "Charlie is not contained in list-parties output."
+              out `outputContainsParty` PartyDetails (Party "Bob") "Bob" True
+              out `outputContainsParty` PartyDetails (Party "Charlie") "Charlie" True
           ]
       , testGroup "upload-dar"
           [ testCase "succeeds against HTTP JSON API" $ do

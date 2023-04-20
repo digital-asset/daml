@@ -611,7 +611,7 @@ httpJsonRequest args method path modify = do
     handleError resp err = do
       let contentType = getResponseHeader "Content-Type" resp
       if BSC.pack "application/json" `elem` contentType
-        then fail $ "Response could not be parsed: " <> show err
+        then fail $ "Response could not be parsed: " <> show err <> "\nResponse: " <> show resp
         else fail $
              unlines
                [ "The service returned an error response: "
