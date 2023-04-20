@@ -4,9 +4,8 @@
 package com.daml.lf
 package integrationtest
 
-import java.nio.charset.StandardCharsets
-import java.nio.file.{Files, Path, Paths}
 import com.daml.bazeltools.BazelRunfiles._
+import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.jwt.JwtSigner
 import com.daml.jwt.domain.DecodedJwt
 import com.daml.ledger.api.auth
@@ -29,6 +28,9 @@ import scala.concurrent.duration.DurationInt
 import scala.concurrent.{ExecutionContext, Future}
 import scala.sys.process.Process
 
+import java.nio.charset.StandardCharsets
+import java.nio.file.{Files, Path, Paths}
+
 @scala.annotation.nowarn("msg=match may not be exhaustive")
 object CantonFixture {
 
@@ -39,20 +41,20 @@ object CantonFixture {
 
   def readDar(
       path: Path,
-      compilerConfig: speedy.Compiler.Config,
+      compilerConfig: speedy.Compiler.Config = speedy.Compiler.Config.Dev,
   ): CompiledDar = {
     val dar = archive.DarDecoder.assertReadArchiveFromFile(path.toFile)
     val pkgs = PureCompiledPackages.assertBuild(dar.all.toMap, compilerConfig)
     CompiledDar(dar.main._1, pkgs)
   }
 
-  private lazy val List(serverCrt, serverPem, caCrt, clientCrt, clientPem) =
+  private[integrationtest] lazy val List(serverCrt, serverPem, caCrt, clientCrt, clientPem) =
     List("server.crt", "server.pem", "ca.crt", "client.crt", "client.pem").map { src =>
       Paths.get(rlocation("test-common/test-certificates/" + src))
     }
 
-  private def toJson(s: String): String = JsString(s).toString()
-  private def toJson(path: Path): String = toJson(path.toString)
+  private[integrationtest] def toJson(s: String): String = JsString(s).toString()
+  private[integrationtest] def toJson(path: Path): String = toJson(path.toString)
 
   private val counter = new java.util.concurrent.atomic.AtomicLong()
 
@@ -69,8 +71,7 @@ object CantonFixture {
 
 }
 
-trait CantonFixture extends SuiteResource[Vector[Port]] with AkkaBeforeAndAfterAll {
-  self: Suite =>
+trait CantonFixtureBase {
 
   import CantonFixture._
 
@@ -104,21 +105,20 @@ trait CantonFixture extends SuiteResource[Vector[Port]] with AkkaBeforeAndAfterA
        |""".stripMargin
   )
 
-  protected val tmpDir = Files.createTempDirectory("CantonFixture")
-  protected val cantonConfigFile = tmpDir.resolve("participant.config")
-  protected val cantonLogFile = tmpDir.resolve("canton.log")
-  protected val portFile = tmpDir.resolve("portfile")
+  protected val catonTmpDir = Files.createTempDirectory("CantonFixture")
+  protected val cantonConfigFile = catonTmpDir.resolve("participant.config")
+  protected val cantonLogFile = catonTmpDir.resolve("canton.log")
+  protected val portFile = catonTmpDir.resolve("portfile")
 
   private val files = List(cantonConfigFile, portFile, cantonLogFile)
 
-  override protected def afterAll(): Unit = {
+  protected def cantonCleanUp(): Unit = {
     if (cantonFixtureDebugMode)
-      info(s"The temporary files are located in ${tmpDir}")
+      info(s"The temporary files are located in ${catonTmpDir}")
     else {
       files.foreach(file => discard(Files.deleteIfExists(file)))
-      Files.delete(tmpDir)
+      Files.delete(catonTmpDir)
     }
-    super.afterAll()
   }
 
   final protected lazy val tlsConfig =
@@ -129,12 +129,15 @@ trait CantonFixture extends SuiteResource[Vector[Port]] with AkkaBeforeAndAfterA
       trustCollectionFile = Some(caCrt.toFile),
     )
 
-  private def canton(): ResourceOwner[Vector[Port]] =
+  protected def cantonResource(implicit
+      esf: ExecutionSequencerFactory
+  ): ResourceOwner[Vector[Port]] =
     new ResourceOwner[Vector[Port]] {
       override def acquire()(implicit context: ResourceContext): Resource[Vector[Port]] = {
         def start(): Future[(Vector[Port], Process)] = {
           val ports =
             Vector.fill(nParticipants)(LockedFreePort.find() -> LockedFreePort.find())
+          val ledgerPorts = ports.map(_._2.port)
           val domainPublicApi = LockedFreePort.find()
           val domainAdminApi = LockedFreePort.find()
 
@@ -188,7 +191,7 @@ trait CantonFixture extends SuiteResource[Vector[Port]] with AkkaBeforeAndAfterA
                |    ports-file = ${toJson(portFile)}
                |    ${clockType.fold("")(x => "clock.type = " + x)}
                |  }
-               |  
+               |
                |  domains {
                |    local {
                |      storage.type = memory
@@ -198,7 +201,7 @@ trait CantonFixture extends SuiteResource[Vector[Port]] with AkkaBeforeAndAfterA
                |    }
                |  }
                |  participants {
-               |    ${participantsConfig}      
+               |    ${participantsConfig}
                |  }
                |}
           """.stripMargin
@@ -224,7 +227,19 @@ trait CantonFixture extends SuiteResource[Vector[Port]] with AkkaBeforeAndAfterA
               Future(Files.size(portFile))
             }
             _ = info("Canton started")
-          } yield (ports.map(_._2.port), proc)
+            _ <-
+              Future.traverse(ledgerPorts) { port =>
+                for {
+                  client <- ledgerClient(port, adminToken)
+                  _ <- Future.traverse(darFiles) { file =>
+                    client.packageManagementClient.uploadDarFile(
+                      ByteString.copyFrom(Files.readAllBytes(file))
+                    )
+                  }
+                } yield ()
+              }
+            _ = info(s"${darFiles.size} packages loaded to ${ports.size} participants")
+          } yield (ledgerPorts, proc)
         }
         def stop(r: (Vector[Port], Process)): Future[Unit] = {
           r._2.destroy()
@@ -234,31 +249,6 @@ trait CantonFixture extends SuiteResource[Vector[Port]] with AkkaBeforeAndAfterA
         Resource(start())(stop).map({ case (ports, _) => ports })
       }
     }
-
-  final override protected lazy val suiteResource: OwnedResource[ResourceContext, Vector[Port]] = {
-    implicit val resourceContext: ResourceContext = ResourceContext(system.dispatcher)
-    import ResourceContext.executionContext
-    new OwnedResource[ResourceContext, Vector[Port]](
-      for {
-        ports <- canton()
-        _ <- ResourceOwner.forFuture { () =>
-          Future.traverse(ports) { port =>
-            for {
-              client <- ledgerClient(port, adminToken)
-              _ <- Future.traverse(darFiles) { file =>
-                client.packageManagementClient.uploadDarFile(
-                  ByteString.copyFrom(Files.readAllBytes(file))
-                )
-              }
-            } yield ()
-          }
-        }
-        _ = info(s"${darFiles.size} packages loaded to ${ports.size} participants")
-      } yield ports,
-      acquisitionTimeout = 2.minute,
-      releaseTimeout = 2.minute,
-    )
-  }
 
   final protected lazy val adminToken: Option[String] = getToken(adminUserId)
 
@@ -282,25 +272,11 @@ trait CantonFixture extends SuiteResource[Vector[Port]] with AkkaBeforeAndAfterA
     }
   }
 
-  final protected def defaultLedgerClient(
-      token: Option[String] = None,
-      maxInboundMessageSize: Int = 64 * 1024 * 1024,
-  )(implicit ec: ExecutionContext): Future[LedgerClient] =
-    ledgerClient(suiteResource.value.head, token, maxInboundMessageSize)
-
-  final protected def ledgerClients(
-      token: Option[String] = None,
-      maxInboundMessageSize: Int = 64 * 1024 * 1024,
-  )(implicit ec: ExecutionContext) =
-    Future.traverse(suiteResource.value)(
-      ledgerClient(_, token, maxInboundMessageSize)
-    )
-
-  private def ledgerClient(
+  final protected def ledgerClient(
       port: Port,
       token: Option[String],
       maxInboundMessageSize: Int = 64 * 1024 * 1024,
-  )(implicit ec: ExecutionContext): Future[LedgerClient] = {
+  )(implicit ec: ExecutionContext, esf: ExecutionSequencerFactory): Future[LedgerClient] = {
     import com.daml.ledger.client.configuration._
     LedgerClient.singleHost(
       hostIp = "localhost",
@@ -317,5 +293,39 @@ trait CantonFixture extends SuiteResource[Vector[Port]] with AkkaBeforeAndAfterA
       ),
     )
   }
+
+}
+
+trait CantonFixture
+    extends CantonFixtureBase
+    with SuiteResource[Vector[Port]]
+    with AkkaBeforeAndAfterAll {
+  self: Suite =>
+
+  override protected def afterAll(): Unit = {
+    cantonCleanUp()
+    super.afterAll()
+  }
+
+  final override protected lazy val suiteResource: OwnedResource[ResourceContext, Vector[Port]] = {
+    implicit val resourceContext: ResourceContext = ResourceContext(system.dispatcher)
+    new OwnedResource[ResourceContext, Vector[Port]](
+      cantonResource,
+      acquisitionTimeout = 2.minute,
+      releaseTimeout = 2.minute,
+    )
+  }
+
+  final protected def defaultLedgerClient(
+      token: Option[String] = None,
+      maxInboundMessageSize: Int = 64 * 1024 * 1024,
+  )(implicit ec: ExecutionContext): Future[LedgerClient] =
+    ledgerClient(suiteResource.value.head, token, maxInboundMessageSize)
+
+  final protected def ledgerClients(
+      token: Option[String] = None,
+      maxInboundMessageSize: Int = 64 * 1024 * 1024,
+  )(implicit ec: ExecutionContext): Future[Vector[LedgerClient]] =
+    Future.traverse(suiteResource.value)(ledgerClient(_, token, maxInboundMessageSize))
 
 }
