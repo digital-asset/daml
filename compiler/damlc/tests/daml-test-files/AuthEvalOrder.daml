@@ -27,9 +27,9 @@ template T1_create_success
         create (TheContract with party = ivy)
         abort "t1 finished with no authorization failure"
 
--- @ERROR t1 finished with no authorization failure
+-- @ERROR range=31:1-31:18; t1 finished with no authorization failure
 t1_create_success = script do
-  ivy <- allocateParty "Ivy-t1"
+  ivy <- allocateParty "Ivy"
   ivy `submit` createAndExerciseCmd (T1_create_success ivy) T1Call
 
 template T2_create_success
@@ -44,10 +44,10 @@ template T2_create_success
         create (TheContract with party = ivy)
         abort "t2 Finished"
 
--- @ERROR failed due to a missing authorization from 'Ivy-t2'
+-- @ERROR range=48:1-48:26; failed due to a missing authorization from 'Ivy'
 t2_create_badlyAuthorized = script do
-  mach <- allocateParty "Mach-t1"
-  ivy <- allocateParty "Ivy-t2"
+  mach <- allocateParty "Mach"
+  ivy <- allocateParty "Ivy"
   mach `submit` createAndExerciseCmd (T2_create_success ivy mach) T2Call
 
 template TheContractBuilder
@@ -79,10 +79,10 @@ template T3_createViaExerice_success
         exercise builder TheChoice with party = ivy
         abort "t3 finished with no authorization failure"
 
--- @ERROR t3 finished with no authorization failure
+-- @ERROR range=83:1-83:28; t3 finished with no authorization failure
 t3_createViaExerice_success = script do
-  ivy <- allocateParty "Ivy-t3"
-  mach <- allocateParty "Mach-t3"
+  ivy <- allocateParty "Ivy"
+  mach <- allocateParty "Mach"
   builder <-
     ivy `submit` createCmd (TheContractBuilder with p1 = ivy; p2 = mach)
   mach `submit` createAndExerciseCmd (T3_createViaExerice_success builder ivy mach) T3Call
@@ -100,10 +100,10 @@ template T4_createViaExerice_success
         exercise builder TheChoice with party = ivy
         abort "t4 finished with no authorization failure"
 
--- @ERROR failed due to a missing authorization from 'Ivy-t4'
+-- @ERROR range=104:1-104:36; failed due to a missing authorization from 'Ivy'
 t4_createViaExerice_badlyAuthorized = script do
-  ivy <- allocateParty "Ivy-t4"
-  mach <- allocateParty "Mach-t4"
+  ivy <- allocateParty "Ivy"
+  mach <- allocateParty "Mach"
   builder <-
     mach `submit` createCmd (TheContractBuilder with p1 = mach; p2 = mach)
   mach `submit` createAndExerciseCmd (T4_createViaExerice_success builder ivy mach) T4Call
