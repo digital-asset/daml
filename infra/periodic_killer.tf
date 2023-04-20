@@ -38,6 +38,7 @@ resource "google_project_iam_member" "periodic-killer" {
 }
 
 resource "google_compute_instance" "periodic-killer" {
+  count        = 0
   name         = "periodic-killer"
   machine_type = "g1-small"
   zone         = "us-east4-a"
