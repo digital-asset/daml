@@ -102,7 +102,7 @@ cat <<'CRON' > /root/daily-reset.sh
 set -euo pipefail
 echo "$(date -Is -u) start"
 
-scale_sets='${jsonencode(local.ubuntu.azure)}'
+scale_sets='${jsonencode(concat(local.ubuntu.azure, local.windows.azure))}'
 
 for set in $(echo $scale_sets | jq -r '.[] | .name'); do
   echo "$(date -Is -u) Setting scale set $set size to 0"
