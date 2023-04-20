@@ -45,5 +45,4 @@ main = do
                           out <- readProcess damlHelper ("packages" : "list" : ledgerOpts) ""
                           ("(test-1.0.0)" `elem` words out) @?
                               "Missing `test-1.0.0` package in packages list."
-                          
-                  ]
+                ]
