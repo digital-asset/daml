@@ -668,6 +668,7 @@ da_haskell_test(
     ],
     main_function = "DA.Test.Repl.main",
     src_strip_prefix = "src",
+    tags = ["cpu:4"],
     # Spinning up Sandbox is expensive, so require 2 CPUs.
     tags = ["cpu:2"],
     visibility = ["//visibility:public"],
@@ -709,6 +710,7 @@ da_haskell_test(
     ],
     main_function = "DA.Test.Repl.FuncTests.main",
     src_strip_prefix = "src",
+    tags = ["cpu:4"],
     visibility = ["//visibility:public"],
     deps = [
         "//:sdk-version-hs-lib",
@@ -1024,6 +1026,7 @@ da_haskell_test(
         "zip-archive",
     ],
     main_function = "DamlcPkgManager.main",
+    tags = ["cpu:4"],
     visibility = ["//visibility:public"],
     deps = [
         "//:sdk-version-hs-lib",
