@@ -65,13 +65,11 @@ template Test3
     cid : ContractId TheContract3
   where
     signatory bob
-    choice Call3 : ()
+    choice Call3 : TheContract3
       controller bob
-      do
-        _ <- fetch @TheContract3 cid
-        abort "t3 finished"
+      do fetch @TheContract3 cid
 
--- @ERROR range=76:1-76:29; failed since none of the stakeholders 'Alice' is in the authorizing set 'Bob'
+-- @ERROR range=74:1-74:29; failed since none of the stakeholders 'Alice' is in the authorizing set 'Bob'
 t3_FetchMissingAuthorization : Script ()
 t3_FetchMissingAuthorization = script do
   alice <- allocateParty "Alice"
@@ -81,7 +79,8 @@ t3_FetchMissingAuthorization = script do
   -- note: we use `builder` so `cid` is visible to bob, although he is not a stakeholder
   cid <- bob `submit`
     exerciseCmd builder TheChoice with s2 = alice
-  bob `submit` createAndExerciseCmd (Test3 bob cid) Call3
+  _ <- bob `submit` createAndExerciseCmd (Test3 bob cid) Call3
+  abort "t3 finished"
 
 template TheContract4
   with
@@ -101,20 +100,19 @@ template Test4
     contractKey : ([Party], Int)
   where
     signatory bob
-    choice Call4 : ()
+    choice Call4 : Optional (ContractId TheContract4)
       controller bob
-      do
-        _ <- lookupByKey @TheContract4 contractKey
-        abort "t4 finished"
+      do lookupByKey @TheContract4 contractKey
 
--- @ERROR range=112:1-112:35; failed due to a missing authorization from 'Alice'
+-- @ERROR range=109:1-109:35; failed due to a missing authorization from 'Alice'
 t4_LookupByKeyMissingAuthorization : Script ()
 t4_LookupByKeyMissingAuthorization = script do
   alice <- allocateParty "Alice"
   bob <- allocateParty "Bob"
   alice `submit`
     createCmd (TheContract4 with ss = [alice]; ms = [alice]; os = [bob]; id = 100)
-  bob `submit` createAndExerciseCmd (Test4 bob ([alice],100)) Call4
+  _ <- bob `submit` createAndExerciseCmd (Test4 bob ([alice],100)) Call4
+  abort "t4 finished"
 
 template TheContract5
   with
@@ -124,10 +122,9 @@ template TheContract5
     choice TheChoice5 : () with
         cs : [Party]
       controller cs
-      do
-        return ()
+      do return ()
 
--- @ERROR range=132:1-132:32; failed due to a missing authorization from 'Bob'
+-- @ERROR range=129:1-129:32; failed due to a missing authorization from 'Bob'
 t5_ExerciseMissingAuthorization : Script ()
 t5_ExerciseMissingAuthorization = script do
   alice <- allocateParty "Alice"

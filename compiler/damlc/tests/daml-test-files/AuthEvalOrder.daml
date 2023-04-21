@@ -1,8 +1,6 @@
 -- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
 -- All rights reserved.
 
--- Convert to script + lift logic into contracts/Update
-
 module AuthEvalOrder where
 
 import Daml.Script
@@ -21,16 +19,16 @@ template T1_create_success
     ivy : Party
   where
     signatory ivy
-    choice T1Call : ()
+    choice T1Call : ContractId TheContract
       controller ivy
-      do
-        create (TheContract with party = ivy)
-        abort "t1 finished with no authorization failure"
+      do create (TheContract with party = ivy)
 
--- @ERROR range=31:1-31:18; t1 finished with no authorization failure
+-- @ERROR range=28:1-28:18; t1 finished with no authorization failure
+t1_create_success : Script ()
 t1_create_success = script do
   ivy <- allocateParty "Ivy"
-  ivy `submit` createAndExerciseCmd (T1_create_success ivy) T1Call
+  _ <- ivy `submit` createAndExerciseCmd (T1_create_success ivy) T1Call
+  abort "t1 finished with no authorization failure"
 
 template T2_create_success
   with
@@ -38,17 +36,17 @@ template T2_create_success
     mach : Party
   where
     signatory mach
-    choice T2Call : ()
+    choice T2Call : ContractId TheContract
       controller mach
-      do
-        create (TheContract with party = ivy)
-        abort "t2 Finished"
+      do create (TheContract with party = ivy)
 
--- @ERROR range=48:1-48:26; failed due to a missing authorization from 'Ivy'
+-- @ERROR range=45:1-45:26; failed due to a missing authorization from 'Ivy'
+t2_create_badlyAuthorized : Script ()
 t2_create_badlyAuthorized = script do
   mach <- allocateParty "Mach"
   ivy <- allocateParty "Ivy"
-  mach `submit` createAndExerciseCmd (T2_create_success ivy mach) T2Call
+  _ <- mach `submit` createAndExerciseCmd (T2_create_success ivy mach) T2Call
+  abort "t2 Finished"
 
 template TheContractBuilder
   with
@@ -73,19 +71,19 @@ template T3_createViaExerice_success
     mach : Party
   where
     signatory mach
-    choice T3Call : ()
+    choice T3Call : ContractId TheContract
       controller mach
-      do
-        exercise builder TheChoice with party = ivy
-        abort "t3 finished with no authorization failure"
+      do exercise builder TheChoice with party = ivy
 
--- @ERROR range=83:1-83:28; t3 finished with no authorization failure
+-- @ERROR range=80:1-80:28; t3 finished with no authorization failure
+t3_createViaExerice_success : Script ()
 t3_createViaExerice_success = script do
   ivy <- allocateParty "Ivy"
   mach <- allocateParty "Mach"
   builder <-
     ivy `submit` createCmd (TheContractBuilder with p1 = ivy; p2 = mach)
-  mach `submit` createAndExerciseCmd (T3_createViaExerice_success builder ivy mach) T3Call
+  _ <- mach `submit` createAndExerciseCmd (T3_createViaExerice_success builder ivy mach) T3Call
+  abort "t3 finished with no authorization failure"
 
 template T4_createViaExerice_success
   with
@@ -94,16 +92,16 @@ template T4_createViaExerice_success
     mach : Party
   where
     signatory mach
-    choice T4Call : ()
+    choice T4Call : ContractId TheContract
       controller mach
-      do
-        exercise builder TheChoice with party = ivy
-        abort "t4 finished with no authorization failure"
+      do exercise builder TheChoice with party = ivy
 
--- @ERROR range=104:1-104:36; failed due to a missing authorization from 'Ivy'
+-- @ERROR range=101:1-101:36; failed due to a missing authorization from 'Ivy'
+t4_createViaExerice_badlyAuthorized : Script ()
 t4_createViaExerice_badlyAuthorized = script do
   ivy <- allocateParty "Ivy"
   mach <- allocateParty "Mach"
   builder <-
     mach `submit` createCmd (TheContractBuilder with p1 = mach; p2 = mach)
-  mach `submit` createAndExerciseCmd (T4_createViaExerice_success builder ivy mach) T4Call
+  _ <- mach `submit` createAndExerciseCmd (T4_createViaExerice_success builder ivy mach) T4Call
+  abort "t4 finished with no authorization failure"
