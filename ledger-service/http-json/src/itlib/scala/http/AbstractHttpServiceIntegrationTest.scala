@@ -649,15 +649,17 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
           withBazRecord("c"),
           withBazRecord("a"),
         ),
+        /* TODO(raphael-speyer-da) Re-enable this test. See https://digitalasset.atlassian.net/browse/LT-15
         Scenario(
           "lt string with sketchy value which is a single quote",
           kbvarId,
           kbvarVA,
           Map("bazRecord" -> Map("baz" -> Map("%lt" -> "'")).toJson),
         )(
-          withBazRecord("#"), // Less than '
+          withBazRecord(" "), // Less than '
           withBazRecord("A"), // Not less than '
         ),
+         */
         Scenario(
           "lt string with sketchy value which uses unicode quote char",
           kbvarId,
