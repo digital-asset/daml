@@ -19,6 +19,8 @@ jobs:
   - bash: |
       set -euo pipefail
 
+      eval "$(dev-env/bin/dade-assist)"
+
       CACHE_KEY="$(find ci/da-ghc-lib -type f -print0 | sort -z | xargs -r0 md5sum | md5sum | awk '{print $1}')"
       LIB="ghc-lib-$CACHE_KEY.tar.gz"
       PARSER="ghc-lib-parser-$CACHE_KEY.tar.gz"
@@ -81,8 +83,8 @@ jobs:
       # This will break on external PRs.
       echo "$GOOGLE_APPLICATION_CREDENTIALS_CONTENT" > $GCS_KEY
       gcloud auth activate-service-account --key-file=$GCS_KEY
-      BOTO_CONFIG=/dev/null gsutil cp -n "ghc-lib-${VERSION}.tar.gz" "gs://daml-binaries/$LIB"
-      BOTO_CONFIG=/dev/null gsutil cp -n "ghc-lib-parser-${VERSION}.tar.gz" "gs://daml-binaries/$PARSER"
+      BOTO_CONFIG=/dev/null gsutil cp -n "ghc-lib-${VERSION}.tar.gz" "gs://daml-binaries/da-ghc-lib/$LIB"
+      BOTO_CONFIG=/dev/null gsutil cp -n "ghc-lib-parser-${VERSION}.tar.gz" "gs://daml-binaries/da-ghc-lib/$PARSER"
       echo "Please add(/replace) the following lines to bazel-haskell-deps.bzl:"
       echo "GHC_LIB_REV = \"$CACHE_KEY\""
       echo "GHC_LIB_SHA256 = \"$(sha256sum ghc-lib-${VERSION}.tar.gz | awk '{print $1}')\""
