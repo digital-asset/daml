@@ -388,14 +388,6 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
     }
   }
 
-  private[this] def randomTextN(n: Int) = {
-    import org.scalacheck.Gen
-    Gen
-      .buildableOfN[String, Char](n, Gen.alphaNumChar)
-      .sample
-      .getOrElse(sys.error(s"can't generate ${n}b string"))
-  }
-
   "query record contains handles small tokens with " - {
     Seq(
       "& " -> "& bar",
@@ -428,6 +420,37 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
         })
       }
     }
+
+  "query multiple observers:" - {
+    Seq(
+      0 -> 1,
+      1 -> 5,
+      10 -> 75,
+      50 -> 76, // Allows space to encode content into a JSON array of strings within 4k limit.
+      50 -> 80, // The content is the exact 4k limit, no additional room for JSON array syntax.
+      200 -> 150,
+    ).foreach { case (numSubs, partySize) =>
+      (s"$numSubs observers of $partySize chars") in withHttpService { fixture =>
+        val subscribers = (1 to numSubs).map(_ => domain.Party(randomTextN(partySize))).toList
+        for {
+          (publisher, headers) <- fixture.getUniquePartyAndAuthHeaders("Alice")
+          _ <- subscribers.traverse { p =>
+            fixture.client.partyManagementClient.allocateParty(Some(p.unwrap), Some(s"${p} & Co"))
+          }
+          found <- searchExpectOk(
+            List(pubSubCreateCommand(publisher, subscribers)),
+            jsObject(
+              s"""{"templateIds": ["Account:PubSub"], "query": {"publisher": "$publisher"}}"""
+            ),
+            fixture,
+            headers,
+          )
+        } yield {
+          found.size shouldBe 1
+        }
+      }
+    }
+  }
 
   "query with query, two fields" in withHttpService { fixture =>
     fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, headers) =>
