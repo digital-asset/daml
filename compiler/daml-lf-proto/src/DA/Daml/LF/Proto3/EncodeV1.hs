@@ -501,7 +501,7 @@ encodeBuiltinExpr = \case
     BEMulBigNumeric -> builtin P.BuiltinFunctionMUL_BIGNUMERIC
     BEDivBigNumeric -> builtin P.BuiltinFunctionDIV_BIGNUMERIC
     BEShiftRightBigNumeric -> builtin P.BuiltinFunctionSHIFT_RIGHT_BIGNUMERIC
-    BEBigNumericToNumeric -> builtin P.BuiltinFunctionBIGNUMERIC_TO_NUMERIC
+    BEBigNumericToNumericLegacy -> builtin P.BuiltinFunctionBIGNUMERIC_TO_NUMERIC_LEGACY
     BENumericToBigNumeric -> builtin P.BuiltinFunctionNUMERIC_TO_BIGNUMERIC
 
     BEAddInt64 -> builtin P.BuiltinFunctionADD_INT64

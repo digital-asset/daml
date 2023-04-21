@@ -338,7 +338,7 @@ data BuiltinExpr
   | BEMulBigNumeric              -- :: BigNumeric -> BigNumeric -> BigNumeric
   | BEDivBigNumeric              -- :: Int64 -> RoundingMode -> BigNumeric -> BigNumeric -> BigNumeric
   | BEShiftRightBigNumeric            -- :: Int64 -> BigNumeric -> BigNumeric
-  | BEBigNumericToNumeric        -- :: ∀(s:nat). BigNumeric -> Numeric s
+  | BEBigNumericToNumericLegacy        -- :: ∀(s:nat). BigNumeric -> Numeric s
   | BENumericToBigNumeric      -- :: ∀(s:nat). Numeric s -> BigNumeric
 
   | BETrace                      -- :: forall a. Text -> a -> a

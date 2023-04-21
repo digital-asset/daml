@@ -260,7 +260,7 @@ typeOfBuiltin = \case
   BEMulBigNumeric -> pure $ TBigNumeric :-> TBigNumeric :-> TBigNumeric
   BEDivBigNumeric -> pure $ TInt64 :-> TRoundingMode :-> TBigNumeric :-> TBigNumeric :-> TBigNumeric
   BEShiftRightBigNumeric -> pure $ TInt64 :-> TBigNumeric :-> TBigNumeric
-  BEBigNumericToNumeric -> pure $ TForall (alpha, KNat) $ TBigNumeric :-> TNumeric tAlpha
+  BEBigNumericToNumericLegacy -> pure $ TForall (alpha, KNat) $ TBigNumeric :-> TNumeric tAlpha
   BENumericToBigNumeric -> pure $ TForall (alpha, KNat) $ TNumeric tAlpha :-> TBigNumeric
 
   BEAddInt64         -> pure $ tBinop TInt64

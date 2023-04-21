@@ -531,7 +531,7 @@ decodeBuiltinFunction = \case
   LF1.BuiltinFunctionMUL_BIGNUMERIC -> pure BEMulBigNumeric
   LF1.BuiltinFunctionDIV_BIGNUMERIC -> pure BEDivBigNumeric
   LF1.BuiltinFunctionSHIFT_RIGHT_BIGNUMERIC -> pure BEShiftRightBigNumeric
-  LF1.BuiltinFunctionBIGNUMERIC_TO_NUMERIC -> pure BEBigNumericToNumeric
+  LF1.BuiltinFunctionBIGNUMERIC_TO_NUMERIC_LEGACY -> pure BEBigNumericToNumericLegacy
   LF1.BuiltinFunctionNUMERIC_TO_BIGNUMERIC -> pure BENumericToBigNumeric
 
   LF1.BuiltinFunctionADD_DECIMAL -> unsupportedDecimal

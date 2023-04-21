@@ -229,10 +229,10 @@ convertPrim version "BENumericToBigNumeric" ty@(TNumeric n :-> TBigNumeric) =
     pure $
       whenRuntimeSupports version featureBigNumeric ty $
         EBuiltin BENumericToBigNumeric `ETyApp` n
-convertPrim version "BEBigNumericToNumeric" ty@(TBigNumeric :-> TNumeric n) =
+convertPrim version "BEBigNumericToNumericLegacy" ty@(TBigNumeric :-> TNumeric n) =
     pure $
       whenRuntimeSupports version featureBigNumeric ty $
-        EBuiltin BEBigNumericToNumeric `ETyApp` n
+        EBuiltin BEBigNumericToNumericLegacy `ETyApp` n
 
 -- Experimental text primitives.
 convertPrim _ "BETextToUpper" (TText :-> TText) = pure $ EBuiltin BETextToUpper

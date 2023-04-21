@@ -127,7 +127,7 @@ safetyStep = \case
       BEMulBigNumeric       -> Safe 1 -- fails on overflow
       BEDivBigNumeric       -> Safe 3 -- takes 4 arguments, fails on division by 0 and on rounding ("rounding unnecessary" mode)
       BEShiftRightBigNumeric     -> Safe 1 -- fails on overflow (shift too large)
-      BEBigNumericToNumeric -> Safe 0 -- fails on overflow (numeric doesn't fit)
+      BEBigNumericToNumericLegacy -> Safe 0 -- fails on overflow (numeric doesn't fit)
       BENumericToBigNumeric -> Safe 1 -- doesn't fail
       BEAddInt64          -> Safe 1
       BESubInt64          -> Safe 1
