@@ -408,34 +408,38 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
     }
   }
 
-  "query record contains handles" onlyIfLargeQueries_- {
+  "query record contains handles small tokens with " - {
     Seq(
       "& " -> "& bar",
-      "1kb of data" -> randomTextN(1000),
-      "2kb of data" -> randomTextN(2000),
-      "3kb of data" -> randomTextN(3000),
-      "4kb of data" -> randomTextN(4000),
-      "5kb of data" -> randomTextN(5000),
-    ).foreach { case (testLbl, testCurrency) =>
-      s"'$testLbl' strings properly" in withHttpService { fixture =>
-        fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, headers) =>
-          searchExpectOk(
-            genSearchDataSet(alice) :+ iouCreateCommand(
-              currency = testCurrency,
-              party = alice,
-            ),
-            jsObject(
-              s"""{"templateIds": ["Iou:Iou"], "query": {"currency": ${testCurrency.toJson}}}"""
-            ),
-            fixture,
-            headers,
-          ).map(inside(_) { case Seq(domain.ActiveContract(_, _, _, JsObject(fields), _, _, _)) =>
-            fields.get("currency") should ===(Some(JsString(testCurrency)))
-          })
-        }
-      }
+      "255 bytes" -> randomTextN(255),
+      "256 bytes" -> randomTextN(256),
+    ).foreach { case (testLbl, testCurrency) => testQueryingWithToken(testLbl, testCurrency) }
+  }
+
+  "query record contains larger tokens with " onlyIfLargeQueries_- {
+    Seq(257, 1000, 2000, 3000, 4000, 5000).foreach { case len =>
+      testQueryingWithToken(s"$len bytes", randomTextN(len))
     }
   }
+
+  def testQueryingWithToken(testLabel: String, testCurrency: String) =
+    testLabel in withHttpService { fixture =>
+      fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, headers) =>
+        searchExpectOk(
+          genSearchDataSet(alice) :+ iouCreateCommand(
+            currency = testCurrency,
+            party = alice,
+          ),
+          jsObject(
+            s"""{"templateIds": ["Iou:Iou"], "query": {"currency": ${testCurrency.toJson}}}"""
+          ),
+          fixture,
+          headers,
+        ).map(inside(_) { case Seq(domain.ActiveContract(_, _, _, JsObject(fields), _, _, _)) =>
+          fields.get("currency") should ===(Some(JsString(testCurrency)))
+        })
+      }
+    }
 
   "query multiple observers:" - {
     Seq(
@@ -588,7 +592,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
       }
     }
 
-    "nested comparison filters" onlyIfLargeQueries_- {
+    "nested comparison filters" - {
       import shapeless.Coproduct, shapeless.syntax.singleton._
       val irrelevant = Ref.Identifier assertFromString "none:Discarded:Identifier"
       val (_, bazRecordVA) = VA.record(irrelevant, ShRecord(baz = VA.text))
@@ -637,11 +641,40 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
           withBazRecord("a"),
         ),
         Scenario(
+          "gt string with sketchy value",
+          kbvarId,
+          kbvarVA,
+          Map("bazRecord" -> Map("baz" -> Map("%gt" -> "bobby'); DROP TABLE Students;--")).toJson),
+        )(
+          withBazRecord("c"),
+          withBazRecord("a"),
+        ),
+        /* TODO(raphael-speyer-da) Re-enable this test. See https://digitalasset.atlassian.net/browse/LT-15
+        Scenario(
+          "lt string with sketchy value which is a single quote",
+          kbvarId,
+          kbvarVA,
+          Map("bazRecord" -> Map("baz" -> Map("%lt" -> "'")).toJson),
+        )(
+          withBazRecord(" "), // Less than '
+          withBazRecord("A"), // Not less than '
+        ),
+         */
+        Scenario(
+          "lt string with sketchy value which uses unicode quote char",
+          kbvarId,
+          kbvarVA,
+          Map("bazRecord" -> Map("baz" -> Map("%lt" -> "O\u02bcReilly")).toJson),
+        )(
+          withBazRecord("A"),
+          withBazRecord("Z"),
+        ),
+        Scenario(
           "gt int",
           kbvarId,
           kbvarVA,
           Map("fooVariant" -> Map("tag" -> "Bar".toJson, "value" -> Map("%gt" -> 2).toJson).toJson),
-        )(withFooVariant(3), withFooVariant(1)),
+        )(withFooVariant(10), withFooVariant(1)),
       ).zipWithIndex.foreach { case (scenario, ix) =>
         import scenario._
         s"$label (scenario $ix)" in withHttpService { fixture =>
