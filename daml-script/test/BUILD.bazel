@@ -125,6 +125,7 @@ EOF
 
 da_scala_library(
     name = "test-utils",
+    size = "large",
     srcs = glob(["src/test-utils/**/*.scala"]),
     scala_deps = [
         "@maven//:com_typesafe_akka_akka_stream",
@@ -163,6 +164,7 @@ da_scala_library(
 
 da_scala_test_suite(
     name = "test",
+    size = "large",
     srcs = glob(["src/com/**/*.scala"]),
     data = [
         ":script-test.dar",
