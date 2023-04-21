@@ -17,44 +17,26 @@ import com.daml.http.util.Logging.{InstanceUUID, instanceUUIDLogCtx}
 import com.daml.http.{HttpService, StartSettings, nonrepudiation}
 import com.daml.jwt.JwtSigner
 import com.daml.jwt.domain.DecodedJwt
-import com.daml.ledger.api.auth.{
-  AuthServiceJWTCodec,
-  CustomDamlJWTPayload,
-  StandardJWTPayload,
-  StandardJWTTokenFormat,
-}
+import com.daml.ledger.api.auth.{AuthServiceJWTCodec, CustomDamlJWTPayload}
 import com.daml.ledger.api.domain.{User, UserRight}
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.daml.ledger.api.testing.utils.{
+  AkkaBeforeAndAfterAll,
   OwnedResource,
-  SuiteResource,
   SuiteResourceManagementAroundAll,
-  Resource => TestResource,
+  SuiteResource,
 }
 import com.daml.ledger.api.tls.TlsConfiguration
-import com.daml.ledger.client.LedgerClient
-import com.daml.ledger.client.configuration.{
-  CommandClientConfiguration,
-  LedgerClientConfiguration,
-  LedgerIdRequirement,
-}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
-import com.daml.ledger.sandbox.SandboxOnXForTest.{
-  ApiServerConfig,
-  ConfigAdaptor,
-  dataSource,
-  singleParticipant,
-}
-import com.daml.ledger.sandbox.{SandboxOnXForTest, SandboxOnXRunner}
 import com.daml.lf.archive.{Dar, DarDecoder}
 import com.daml.lf.data.Ref._
 import com.daml.lf.engine.script._
-import com.daml.lf.engine.script.ledgerinteraction.JsonLedgerClient.FailedJsonApiRequest
 import com.daml.lf.engine.script.ledgerinteraction.{
   JsonLedgerClient,
   ScriptLedgerClient,
   ScriptTimeMode,
 }
+import com.daml.lf.integrationtest.CantonFixtureBase
 import com.daml.lf.language.Ast.Package
 import com.daml.lf.speedy.SValue
 import com.daml.lf.speedy.SValue._
@@ -62,63 +44,29 @@ import com.daml.lf.typesig.EnvironmentSignature
 import com.daml.lf.typesig.reader.SignatureReader
 import com.daml.lf.value.json.ApiCodecCompressed
 import com.daml.logging.LoggingContextOf
-import com.daml.platform.apiserver.AuthServiceConfig.UnsafeJwtHmac256
-import com.daml.platform.apiserver.services.GrpcClientResource
-import com.daml.platform.sandbox.UploadPackageHelper._
-import com.daml.platform.sandbox.services.TestCommands
-import com.daml.platform.sandbox.{
-  AbstractSandboxFixture,
-  SandboxRequiringAuthorizationFuns,
-  UploadPackageHelper,
-}
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.ports.Port
-import io.grpc.Channel
 import org.scalatest._
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
+import scalaz.syntax.tag._
 import scalaz.syntax.traverse._
 import scalaz.{-\/, \/-}
 import spray.json._
-import java.io.File
+
+import java.nio.file.{Path, Paths}
 import com.daml.metrics.api.reporters.MetricsReporter
 
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{Await, Future}
 
 trait JsonApiFixture
-    extends AbstractSandboxFixture
-    with SuiteResource[(Port, Channel, ServerBinding)] {
+    extends CantonFixtureBase
+    with SuiteResource[(Port, ServerBinding)]
+    with AkkaBeforeAndAfterAll
+    with Inside {
   self: Suite =>
 
-  override protected def darFile = new File(rlocation("daml-script/test/script-test.dar"))
-
-  protected val darFileDev = new File(rlocation("daml-script/test/script-test-1.dev.dar"))
-  protected val darFileNoLedger = new File(rlocation("daml-script/test/script-test-no-ledger.dar"))
-
-  override protected def packageFiles: List[File] = List(darFile, darFileDev)
-
-  override protected def serverPort: Port = suiteResource.value._1
-  override protected def channel: Channel = suiteResource.value._2
-
-  override def config = super.config.copy(
-    ledgerId = "MyLedger",
-    participants = singleParticipant(
-      ApiServerConfig.copy(
-        timeProviderType = TimeProviderType.WallClock
-      ),
-      authentication = UnsafeJwtHmac256(secret, None),
-    ),
-  )
-  def httpPort: Int = suiteResource.value._3.localAddress.getPort
-  protected val secret: String = "secret"
-
-  // We have to use a different actorsystem for the JSON API since package reloading
-  // blocks everything so it will timeout as sandbox cannot make progress simultaneously.
-  private val jsonApiActorSystem: ActorSystem = ActorSystem("json-api")
-  private val jsonApiMaterializer: Materializer = Materializer(system)
-  private val jsonApiExecutionSequencerFactory: ExecutionSequencerFactory =
-    new AkkaExecutionSequencerPool(poolName = "json-api", actorCount = 1)
   override protected def afterAll(): Unit = {
     jsonApiExecutionSequencerFactory.close()
     materializer.shutdown()
@@ -126,12 +74,42 @@ trait JsonApiFixture
     super.afterAll()
   }
 
-  protected def getToken(actAs: List[String], readAs: List[String], admin: Boolean): String = {
+  private val secret = "secret"
+
+  override protected def authSecret = Some(secret)
+  override protected def darFiles = List(darFile, darFileDev)
+  override protected def devMode = true
+  override protected def nParticipants = 1
+  override protected def timeProviderType = TimeProviderType.WallClock
+  override protected def tlsEnable: Boolean = false
+  override protected def applicationId = ApplicationId("JsonApiIt")
+
+  val darFile = rlocation(Paths.get("daml-script/test/script-test.dar"))
+
+  val darFileDev = rlocation(Paths.get("daml-script/test/script-test-1.dev.dar"))
+  val darFileNoLedger = rlocation(Paths.get("daml-script/test/script-test-no-ledger.dar"))
+
+  protected def serverPort = suiteResource.value._1
+  protected def httpPort = suiteResource.value._2.localAddress.getPort
+
+  // We have to use a different actorsystem for the JSON API since package reloading
+  // blocks everything so it will timeout as sandbox cannot make progress simultaneously.
+  private val jsonApiActorSystem: ActorSystem = ActorSystem("json-api")
+  private val jsonApiMaterializer: Materializer = Materializer(system)
+  private val jsonApiExecutionSequencerFactory: ExecutionSequencerFactory =
+    new AkkaExecutionSequencerPool(poolName = "json-api", actorCount = 1)
+
+  protected def getCustomToken(
+      actAs: List[String],
+      readAs: List[String],
+      admin: Boolean,
+      ledgerId: String = "participant0",
+  ): String = {
     val payload = CustomDamlJWTPayload(
-      ledgerId = Some("MyLedger"),
+      ledgerId = Some(ledgerId),
       participantId = None,
       exp = None,
-      applicationId = Some("foobar"),
+      applicationId = Some(applicationId.unwrap),
       actAs = actAs,
       readAs = readAs,
       admin = admin,
@@ -144,54 +122,15 @@ trait JsonApiFixture
     }
   }
 
-  protected def getUserToken(userId: UserId): String = {
-    val payload = StandardJWTPayload(
-      issuer = None,
-      userId = userId,
-      participantId = None,
-      exp = None,
-      format = StandardJWTTokenFormat.Scope,
-      audiences = List.empty,
-    )
-    val header = """{"alg": "HS256", "typ": "JWT"}"""
-    val jwt = DecodedJwt[String](header, AuthServiceJWTCodec.writeToString(payload))
-    JwtSigner.HMAC256.sign(jwt, secret) match {
-      case -\/(e) => throw new IllegalStateException(e.toString)
-      case \/-(a) => a.value
-    }
-  }
-
-  override protected lazy val suiteResource: TestResource[(Port, Channel, ServerBinding)] = {
+  protected lazy val suiteResource: OwnedResource[ResourceContext, (Port, ServerBinding)] = {
     implicit val context: ResourceContext = ResourceContext(system.dispatcher)
-    new OwnedResource[ResourceContext, (Port, Channel, ServerBinding)](
+    new OwnedResource[ResourceContext, (Port, ServerBinding)](
       for {
-        jdbcUrl <- database
-          .fold[ResourceOwner[Option[String]]](ResourceOwner.successful(None))(
-            _.map(info => Some(info.jdbcUrl))
-          )
-
-        cfg = config.withDataSource(
-          dataSource(jdbcUrl.getOrElse(SandboxOnXForTest.defaultH2SandboxJdbcUrl()))
-        )
-        serverPort <- SandboxOnXRunner.owner(
-          ConfigAdaptor(authService),
-          cfg,
-          bridgeConfig,
-          registerGlobalOpenTelemetry = false,
-        )
-        channel <- GrpcClientResource.owner(serverPort)
-        adminClient = UploadPackageHelper.adminLedgerClient(serverPort, cfg, secret)(
-          system.dispatcher,
-          executionSequencerFactory,
-        )
-        _ <- ResourceOwner.forFuture(() =>
-          uploadDarFiles(adminClient, packageFiles)(system.dispatcher)
-        )
+        ports <- cantonResource
+        serverPort = ports.head
         httpService <- new ResourceOwner[ServerBinding] {
           override def acquire()(implicit context: ResourceContext): Resource[ServerBinding] = {
-            implicit val lc: LoggingContextOf[InstanceUUID] = instanceUUIDLogCtx(
-              identity(_)
-            )
+            implicit val lc: LoggingContextOf[InstanceUUID] = instanceUUIDLogCtx(identity(_))
             Resource[ServerBinding] {
               val config = new StartSettings.Default {
                 override val ledgerHost = "localhost"
@@ -217,31 +156,29 @@ trait JsonApiFixture
                   lc,
                   metrics = HttpJsonApiMetrics.ForTesting,
                 )
-                .flatMap({
+                .flatMap {
                   case -\/(e) => Future.failed(new IllegalStateException(e.toString))
                   case \/-(a) => Future.successful(a._1)
-                })
+                }
             }((binding: ServerBinding) => binding.unbind().map(_ => ()))
           }
         }
-      } yield (serverPort, channel, httpService),
-      acquisitionTimeout = 1.minute,
-      releaseTimeout = 1.minute,
+      } yield (serverPort, httpService),
+      acquisitionTimeout = 2.minute,
+      releaseTimeout = 2.minute,
     )
   }
 }
 
 final class JsonApiIt
     extends AsyncWordSpec
-    with TestCommands
     with JsonApiFixture
     with Matchers
     with SuiteResourceManagementAroundAll
-    with SandboxRequiringAuthorizationFuns
     with TryValues {
 
-  private def readDar(file: File): (Dar[(PackageId, Package)], EnvironmentSignature) = {
-    val dar = DarDecoder.assertReadArchiveFromFile(file)
+  private def readDar(file: Path): (Dar[(PackageId, Package)], EnvironmentSignature) = {
+    val dar = DarDecoder.assertReadArchiveFromFile(file.toFile)
     val ifaceDar = dar.map(pkg => SignatureReader.readPackageSignature(() => \/-(pkg))._2)
     val envIface = EnvironmentSignature.fromPackageSignatures(ifaceDar)
     (dar, envIface)
@@ -252,8 +189,8 @@ final class JsonApiIt
   val (darDev, envIfaceDev) = readDar(darFileDev)
 
   private def getClients(
-      parties: List[String] = List(party),
-      defaultParty: Option[String] = None,
+      parties: List[String],
+      defaultParty: Option[Party] = None,
       admin: Boolean = false,
       applicationId: Option[ApplicationId] = None,
       envIface: EnvironmentSignature = envIface,
@@ -264,7 +201,7 @@ final class JsonApiIt
       ApiParameters(
         "http://localhost",
         httpPort,
-        Some(getToken(defaultParty.toList, List(), true)),
+        Some(getCustomToken(defaultParty.toList, List.empty, true)),
         applicationId,
       )
     val partyMap = parties.map(p => (Party.assertFromString(p), Participant(p))).toMap
@@ -275,27 +212,19 @@ final class JsonApiIt
           ApiParameters(
             "http://localhost",
             httpPort,
-            Some(getToken(List(p), List(), admin)),
+            Some(getCustomToken(List(p), List.empty, admin)),
             applicationId,
           ),
         )
       )
       .toMap
     val participantParams = Participants(Some(defaultParticipant), participantMap, partyMap)
-    for {
-      ps <- Runner.jsonClients(participantParams, envIface)
-      _ <- Future.sequence(
-        for {
-          (party, participant) <- partyMap
-          ledgerClient <- ps.participants.get(participant)
-        } yield createParty(ledgerClient, party)
-      )
-    } yield ps
+    Runner.jsonClients(participantParams, envIface)
   }
 
   private def getMultiPartyClients(
       parties: List[String],
-      readAs: List[String] = List(),
+      readAs: List[String] = List.empty,
       applicationId: Option[ApplicationId] = None,
       envIface: EnvironmentSignature = envIface,
   ) = {
@@ -305,27 +234,22 @@ final class JsonApiIt
       ApiParameters(
         "http://localhost",
         httpPort,
-        Some(getToken(parties, readAs, true)),
+        Some(getCustomToken(parties, readAs, true)),
         applicationId,
       )
     val participantParams = Participants(Some(defaultParticipant), Map.empty, Map.empty)
     for {
       ps <- Runner.jsonClients(participantParams, envIface)
-      _ <- Future.sequence(
-        for {
-          party <- parties
-          ledgerClient <- ps.default_participant
-        } yield createParty(ledgerClient, party)
-      )
     } yield ps
   }
 
-  private def createParty(ledgerClient: JsonLedgerClient, party: String): Future[Unit] = {
-    ledgerClient.allocateParty(party, "").map(_ => ()).recoverWith {
-      case e: FailedJsonApiRequest if e.getMessage.contains("Party already exists") =>
-        Future.successful(())
-    }
-  }
+  private def ledgerClient(token: Option[String]) =
+    super.ledgerClient(serverPort, token)
+
+  private def allocateParty = for {
+    adminClient <- ledgerClient(adminToken)
+    details <- adminClient.partyManagementClient.allocateParty(None, None)
+  } yield details.party
 
   private def getUserClients(
       user: UserId,
@@ -337,19 +261,17 @@ final class JsonApiIt
       ApiParameters(
         "http://localhost",
         httpPort,
-        Some(getUserToken(user)),
+        getToken(user),
         None,
       )
     val participantParams = Participants(Some(defaultParticipant), Map.empty, Map.empty)
     Runner.jsonClients(participantParams, envIface)
   }
 
-  private val party = "Alice"
-
   private def run(
       clients: Participants[ScriptLedgerClient],
       name: QualifiedName,
-      inputValue: Option[JsValue] = Some(JsString(party)),
+      inputValue: Option[JsValue],
       dar: Dar[(PackageId, Package)] = dar,
   ): Future[SValue] = {
     val scriptId = Identifier(dar.main._1, name)
@@ -360,8 +282,13 @@ final class JsonApiIt
     "Basic" should {
       "return 42" in {
         for {
-          clients <- getClients()
-          result <- run(clients, QualifiedName.assertFromString("ScriptTest:jsonBasic"))
+          alice <- allocateParty
+          clients <- getClients(List(alice))
+          result <- run(
+            clients,
+            QualifiedName.assertFromString("ScriptTest:jsonBasic"),
+            Some(JsString(alice)),
+          )
         } yield {
           assert(result == SInt64(42))
         }
@@ -370,8 +297,13 @@ final class JsonApiIt
     "CreateAndExercise" should {
       "return 42" in {
         for {
-          clients <- getClients()
-          result <- run(clients, QualifiedName.assertFromString("ScriptTest:jsonCreateAndExercise"))
+          alice <- allocateParty
+          clients <- getClients(List(alice))
+          result <- run(
+            clients,
+            QualifiedName.assertFromString("ScriptTest:jsonCreateAndExercise"),
+            Some(JsString(alice)),
+          )
         } yield {
           assert(result == SInt64(42))
         }
@@ -380,8 +312,13 @@ final class JsonApiIt
     "ExerciseByKey" should {
       "return equal contract ids" in {
         for {
-          clients <- getClients()
-          result <- run(clients, QualifiedName.assertFromString("ScriptTest:jsonExerciseByKey"))
+          alice <- allocateParty
+          clients <- getClients(List(alice))
+          result <- run(
+            clients,
+            QualifiedName.assertFromString("ScriptTest:jsonExerciseByKey"),
+            Some(JsString(alice)),
+          )
         } yield {
           result match {
             case SRecord(_, _, vals) if vals.size == 2 =>
@@ -393,71 +330,92 @@ final class JsonApiIt
     }
     "submit with party mismatch fails" in {
       for {
-        clients <- getClients(defaultParty = Some("Alice"))
+        alice <- allocateParty
+        bob <- allocateParty
+        clients <- getClients(List(alice), defaultParty = Some(alice))
         exception <- recoverToExceptionIf[RuntimeException](
           run(
             clients,
             QualifiedName.assertFromString("ScriptTest:jsonCreate"),
-            Some(JsString("Bob")),
+            Some(JsString(bob)),
           )
         )
       } yield {
         assert(
-          exception.getCause.getMessage === "Tried to submit a command with actAs = [Bob] but token provides claims for actAs = [Alice]. Missing claims: [Bob]"
+          exception.getCause.getMessage === s"Tried to submit a command with actAs = [${bob}] but token provides claims for actAs = [${alice}]. Missing claims: [${bob}]"
         )
       }
     }
     "application id mismatch" in {
       for {
+        alice <- allocateParty
         exception <- recoverToExceptionIf[RuntimeException](
-          getClients(applicationId = Some(ApplicationId("wrong")))
+          getClients(List(alice), applicationId = Some(ApplicationId("wrong")))
         )
       } yield assert(
-        exception.getMessage === "ApplicationId specified in token Some(foobar) must match Some(wrong)"
+        exception.getMessage === s"ApplicationId specified in token Some(${applicationId.unwrap}) must match Some(wrong)"
       )
     }
     "application id correct" in {
       for {
+        alice <- allocateParty
         clients <- getClients(
-          defaultParty = Some("Alice"),
-          applicationId = Some(ApplicationId("foobar")),
+          List(alice),
+          defaultParty = Some(alice),
+          applicationId = Some(applicationId),
         )
-        r <- run(clients, QualifiedName.assertFromString("ScriptTest:jsonCreateAndExercise"))
+        r <- run(
+          clients,
+          QualifiedName.assertFromString("ScriptTest:jsonCreateAndExercise"),
+          Some(JsString(alice)),
+        )
       } yield assert(r == SInt64(42))
     }
     "query with party mismatch fails" in {
       for {
-        clients <- getClients(defaultParty = Some("Alice"))
+        alice <- allocateParty
+        bob <- allocateParty
+        clients <- getClients(List(alice), defaultParty = Some(alice))
         exception <- recoverToExceptionIf[RuntimeException](
           run(
             clients,
             QualifiedName.assertFromString("ScriptTest:jsonQuery"),
-            Some(JsString("Bob")),
+            Some(JsString(bob)),
           )
         )
       } yield {
         assert(
-          exception.getCause.getMessage === "Tried to query as [Bob] but token provides claims for [Alice]. Missing claims: [Bob]"
+          exception.getCause.getMessage === s"Tried to query as [${bob}] but token provides claims for [${alice}]. Missing claims: [${bob}]"
         )
       }
     }
     "submit with no party fails" in {
       for {
-        clients <- getClients(parties = List())
+        alice <- allocateParty
+        clients <- getClients(List.empty)
         exception <- recoverToExceptionIf[RuntimeException](
-          run(clients, QualifiedName.assertFromString("ScriptTest:jsonCreate"))
+          run(
+            clients,
+            QualifiedName.assertFromString("ScriptTest:jsonCreate"),
+            Some(JsString(alice)),
+          )
         )
       } yield {
         assert(
-          exception.getCause.getMessage === "Tried to submit a command with actAs = [Alice] but token contains no actAs parties."
+          exception.getCause.getMessage === "Tried to submit a command with actAs = [" + alice + "] but token contains no actAs parties."
         )
       }
     }
     "submit fails on assertion failure" in {
       for {
-        clients <- getClients()
+        alice <- allocateParty
+        clients <- getClients(List(alice))
         exception <- recoverToExceptionIf[ScriptF.FailedCmd](
-          run(clients, QualifiedName.assertFromString("ScriptTest:jsonFailingCreateAndExercise"))
+          run(
+            clients,
+            QualifiedName.assertFromString("ScriptTest:jsonFailingCreateAndExercise"),
+            Some(JsString(alice)),
+          )
         )
       } yield {
         exception.cause.getMessage should include(
@@ -467,10 +425,12 @@ final class JsonApiIt
     }
     "submitMustFail succeeds on assertion failure" in {
       for {
-        clients <- getClients()
+        alice <- allocateParty
+        clients <- getClients(List(alice))
         result <- run(
           clients,
           QualifiedName.assertFromString("ScriptTest:jsonExpectedFailureCreateAndExercise"),
+          Some(JsString(alice)),
         )
       } yield {
         assert(result == SUnit)
@@ -478,10 +438,12 @@ final class JsonApiIt
     }
     "user management" in {
       for {
-        clients <- getClients()
+        alice <- allocateParty
+        clients <- getClients(List(alice))
         result <- run(
           clients,
           QualifiedName.assertFromString("ScriptTest:jsonUserManagement"),
+          Some(JsString(alice)),
         )
       } yield {
         assert(result == SUnit)
@@ -489,10 +451,12 @@ final class JsonApiIt
     }
     "user management rights" in {
       for {
-        clients <- getClients()
+        alice <- allocateParty
+        clients <- getClients(List(alice))
         result <- run(
           clients,
           QualifiedName.assertFromString("ScriptTest:jsonUserRightManagement"),
+          Some(JsString(alice)),
         )
       } yield {
         assert(result == SUnit)
@@ -500,23 +464,25 @@ final class JsonApiIt
     }
     "party management" in {
       for {
-        clients <- getClients(parties = List(), admin = true)
+        clients <- getClients(List.empty)
         result <- run(
           clients,
           QualifiedName.assertFromString("ScriptTest:jsonAllocateParty"),
           Some(JsString("Eve")),
         )
       } yield {
-        assert(result == SParty(Party.assertFromString("Eve")))
+        inside(result) { case SParty(party) => party should startWith("Eve::") }
       }
     }
     "multi-party" in {
       for {
-        clients <- getClients(parties = List("Alice", "Bob"))
+        alice <- allocateParty
+        bob <- allocateParty
+        clients <- getClients(List(alice, bob))
         result <- run(
           clients,
           QualifiedName.assertFromString("ScriptTest:jsonMultiParty"),
-          Some(JsArray(JsString("Alice"), JsString("Bob"))),
+          Some(JsArray(JsString(alice), JsString(bob))),
         )
       } yield {
         assert(result == SUnit)
@@ -524,11 +490,13 @@ final class JsonApiIt
     }
     "missing template id" in {
       for {
-        clients <- getClients(envIface = envIfaceNoLedger)
+        alice <- allocateParty
+        clients <- getClients(List(alice))
         ex <- recoverToExceptionIf[RuntimeException](
           run(
             clients,
             QualifiedName.assertFromString("ScriptTest:jsonMissingTemplateId"),
+            Some(JsString(alice)),
             dar = darNoLedger,
           )
         )
@@ -538,18 +506,25 @@ final class JsonApiIt
     }
     "queryContractId" in {
       for {
-        clients <- getClients()
-        result <- run(clients, QualifiedName.assertFromString("ScriptTest:jsonQueryContractId"))
+        alice <- allocateParty
+        clients <- getClients(List(alice))
+        result <- run(
+          clients,
+          QualifiedName.assertFromString("ScriptTest:jsonQueryContractId"),
+          Some(JsString(alice)),
+        )
       } yield {
         assert(result == SUnit)
       }
     }
     "queryInterface" in {
       for {
-        clients <- getClients(envIface = envIfaceDev)
+        alice <- allocateParty
+        clients <- getClients(List(alice), envIface = envIfaceDev)
         result <- run(
           clients,
           QualifiedName.assertFromString("TestInterfaces:jsonQueryInterface"),
+          Some(JsString(alice)),
           dar = darDev,
         )
       } yield {
@@ -557,33 +532,29 @@ final class JsonApiIt
       }
     }
     "queryContractKey" in {
-      // fresh party to avoid key collisions with other tests
-      val party = "jsonQueryContractKey"
       for {
-        clients <- getClients(parties = List(party))
+        alice <- allocateParty
+        clients <- getClients(List(alice))
         result <- run(
           clients,
           QualifiedName.assertFromString("ScriptTest:jsonQueryContractKey"),
-          inputValue = Some(JsString(party)),
+          inputValue = Some(JsString(alice)),
         )
       } yield {
         assert(result == SUnit)
       }
     }
     "multiPartyQuery" in {
-      // fresh parties to avoid key collisions with other tests
-      val party0 = "jsonMultiPartyQuery0"
-      val party1 = "jsonMultiPartyQuery1"
-      // We need to call Daml script twice since we need per-party tokens for the creates
-      // and a single token for the query.
       for {
-        clients <- getClients(parties = List(party0, party1))
+        party0 <- allocateParty
+        party1 <- allocateParty
+        clients <- getClients(List(party0, party1))
         cids <- run(
           clients,
           QualifiedName.assertFromString("ScriptTest:multiPartyQueryCreate"),
           inputValue = Some(JsArray(JsString(party0), JsString(party1))),
         )
-        multiClients <- getMultiPartyClients(parties = List(party0, party1))
+        multiClients <- getMultiPartyClients(List(party0, party1))
         cids <- run(
           multiClients,
           QualifiedName.assertFromString("ScriptTest:multiPartyQueryQuery"),
@@ -593,16 +564,17 @@ final class JsonApiIt
               ApiCodecCompressed.apiValueToJsValue(cids.toUnnormalizedValue),
             )
           ),
-        )
+        ).transform(x => scala.util.Success(x))
+        cids <- Future.fromTry(cids)
       } yield {
         assert(cids == SUnit)
       }
     }
     "multiPartySubmission" in {
-      val party1 = "multiPartySubmission1"
-      val party2 = "multiPartySubmission2"
       for {
-        clients1 <- getClients(parties = List(party1, party2))
+        party1 <- allocateParty
+        party2 <- allocateParty
+        clients1 <- getClients(List(party1, party2))
         cidSingle <- run(
           clients1,
           QualifiedName.assertFromString("ScriptTest:jsonMultiPartySubmissionCreateSingle"),
@@ -627,9 +599,9 @@ final class JsonApiIt
       }
     }
     "party-set arguments" in {
-      val party1 = "partySetArguments1"
-      val party2 = "partySetArguments2"
       for {
+        party1 <- allocateParty
+        party2 <- allocateParty
         clients <- getMultiPartyClients(List(party1, party2))
         r <- run(
           clients,
@@ -642,22 +614,14 @@ final class JsonApiIt
     }
     "user tokens" in {
       for {
-        grpcClient <- LedgerClient(
-          channel,
-          LedgerClientConfiguration(
-            applicationId = "appid",
-            ledgerIdRequirement = LedgerIdRequirement.none,
-            commandClient = CommandClientConfiguration.default,
-            token = Some(getUserToken(UserId.assertFromString("participant_admin"))),
-          ),
-        )
-        p1 <- grpcClient.partyManagementClient.allocateParty(None, None).map(_.party)
-        p2 <- grpcClient.partyManagementClient.allocateParty(None, None).map(_.party)
-        u <- grpcClient.userManagementClient.createUser(
+        p1 <- allocateParty
+        p2 <- allocateParty
+        adminClient <- ledgerClient(adminToken)
+        user <- adminClient.userManagementClient.createUser(
           User(UserId.assertFromString("u"), None),
           Seq(UserRight.CanActAs(p1), UserRight.CanActAs(p2)),
         )
-        clients <- getUserClients(u.id)
+        clients <- getUserClients(user.id)
         r <- run(
           clients,
           QualifiedName.assertFromString("ScriptTest:jsonMultiPartyPartySets"),
@@ -680,21 +644,22 @@ final class JsonApiIt
         }
       }
       withServer { binding =>
-        val participant = ApiParameters(
-          "http://localhost",
-          binding.localAddress.getPort,
-          Some(getToken(List(party), List(), true)),
-          None,
-        )
-        val participants = Participants(
-          Some(participant),
-          Map.empty,
-          Map.empty,
-        )
         for {
+          alice <- allocateParty
+          participant = ApiParameters(
+            "http://localhost",
+            binding.localAddress.getPort,
+            Some(getCustomToken(List(alice), List.empty, true)),
+            None,
+          )
+          participants = Participants(Some(participant), Map.empty, Map.empty)
           clients <- Runner.jsonClients(participants, envIface)
           exc <- recoverToExceptionIf[ScriptF.FailedCmd](
-            run(clients, QualifiedName.assertFromString("ScriptTest:jsonBasic"))
+            run(
+              clients,
+              QualifiedName.assertFromString("ScriptTest:jsonBasic"),
+              Some(JsString(alice)),
+            )
           )
         } yield {
           exc.cause shouldBe a[JsonLedgerClient.FailedJsonApiRequest]

@@ -39,8 +39,6 @@ da_scala_library(
         "//libs-scala/ports",
         "//libs-scala/ports:ports-testing",
         "//libs-scala/resources",
-        "//libs-scala/resources-akka",
-        "//libs-scala/resources-grpc",
         "//libs-scala/scala-utils",
         "//libs-scala/timer-utils",
         "@maven//:org_scalatest_scalatest_compatible",
