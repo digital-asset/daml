@@ -7,6 +7,7 @@
         "cacert",
         "curl",
         "java-openjdk-8u302",
+        "gcloud",
         "maven-3.6.1",
         "msys2",
         "nodejs-12.17.0",
