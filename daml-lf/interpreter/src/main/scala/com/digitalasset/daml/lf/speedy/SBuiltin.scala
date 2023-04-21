@@ -113,11 +113,8 @@ private[speedy] sealed abstract class SBuiltin(val arity: Int) {
       case otherwise => unexpectedType(i, "STimestamp", otherwise)
     }
 
-  final protected def getSTNat(args: util.ArrayList[SValue], i: Int): Numeric.Scale =
-    args.get(i) match {
-      case STNat(x) => x
-      case otherwise => unexpectedType(i, "STNat", otherwise)
-    }
+  final protected def getSScale(args: util.ArrayList[SValue], i: Int): Numeric.Scale =
+    Numeric.scale(getSNumeric(args, i))
 
   final protected def getSParty(args: util.ArrayList[SValue], i: Int): Party =
     args.get(i) match {
@@ -383,7 +380,7 @@ private[lf] object SBuiltin {
   sealed abstract class SBBinaryOpNumeric(name: String, op: (Numeric, Numeric) => Option[Numeric])
       extends SBuiltinArithmetic(name, 3) {
     override private[speedy] def compute(args: util.ArrayList[SValue]): Option[SValue] = {
-      val scale = getSTNat(args, 0)
+      val scale = getSScale(args, 0)
       val a = getSNumeric(args, 1)
       val b = getSNumeric(args, 2)
       assert(a.scale == scale && b.scale == scale)
@@ -396,9 +393,9 @@ private[lf] object SBuiltin {
       op: (Scale, Numeric, Numeric) => Option[Numeric],
   ) extends SBuiltinArithmetic(name, 5) {
     override private[speedy] def compute(args: util.ArrayList[SValue]): Option[SValue] = {
-      val scaleA = getSTNat(args, 0)
-      val scaleB = getSTNat(args, 1)
-      val scale = getSTNat(args, 2)
+      val scaleA = getSScale(args, 0)
+      val scaleB = getSScale(args, 1)
+      val scale = getSScale(args, 2)
       val a = getSNumeric(args, 3)
       val b = getSNumeric(args, 4)
       assert(a.scale == scaleA && b.scale == scaleB)
@@ -421,7 +418,7 @@ private[lf] object SBuiltin {
 
   final case object SBCastNumeric extends SBuiltinArithmetic("CAST_NUMERIC", 3) {
     override private[speedy] def compute(args: util.ArrayList[SValue]): Option[SNumeric] = {
-      val outputScale = getSTNat(args, 1)
+      val outputScale = getSScale(args, 1)
       val x = getSNumeric(args, 2)
       Numeric.fromBigDecimal(outputScale, x).toOption.map(SNumeric(_))
     }
@@ -429,8 +426,8 @@ private[lf] object SBuiltin {
 
   final case object SBShiftNumeric extends SBuiltinPure(3) {
     override private[speedy] def executePure(args: util.ArrayList[SValue]): SNumeric = {
-      val inputScale = getSTNat(args, 0)
-      val outputScale = getSTNat(args, 1)
+      val inputScale = getSScale(args, 0)
+      val outputScale = getSScale(args, 1)
       val x = getSNumeric(args, 2)
       SNumeric(
         Numeric.assertFromBigDecimal(outputScale, x.scaleByPowerOfTen(inputScale - outputScale))
@@ -473,7 +470,6 @@ private[lf] object SBuiltin {
       case SDate(date) => date.toString
       case SBigNumeric(x) => Numeric.toUnscaledString(x)
       case SNumeric(x) => Numeric.toUnscaledString(x)
-      case STNat(n) => s"@$n"
       case _: SContractId | SToken | _: SAny | _: SEnum | _: SList | _: SMap | _: SOptional |
           _: SPAP | _: SRecord | _: SStruct | _: STypeRep | _: SVariant =>
         throw SErrorCrash(location, s"litToText: unexpected $x")
@@ -553,7 +549,7 @@ private[lf] object SBuiltin {
       """([+-]?)0*(\d+)(\.(\d*[1-9]|0)0*)?""".r
 
     override private[speedy] def executePure(args: util.ArrayList[SValue]): SOptional = {
-      val scale = getSTNat(args, 0)
+      val scale = getSScale(args, 0)
       val string = getSText(args, 1)
       string match {
         case validFormat(signPart, intPart, _, decPartOrNull) =>
@@ -700,7 +696,7 @@ private[lf] object SBuiltin {
 
   final case object SBInt64ToNumeric extends SBuiltinArithmetic("INT64_TO_NUMERIC", 2) {
     override private[speedy] def compute(args: util.ArrayList[SValue]): Option[SNumeric] = {
-      val scale = getSTNat(args, 0)
+      val scale = getSScale(args, 0)
       val x = getSInt64(args, 1)
       Numeric.fromLong(scale, x).toOption.map(SNumeric(_))
     }
@@ -942,7 +938,7 @@ private[lf] object SBuiltin {
 
   final object SBBigNumericToNumeric extends SBuiltinArithmetic("BIGNUMERIC_TO_NUMERIC", 2) {
     override private[speedy] def compute(args: util.ArrayList[SValue]): Option[SNumeric] = {
-      val scale = getSTNat(args, 0)
+      val scale = getSScale(args, 0)
       val x = getSBigNumeric(args, 1)
       Numeric.fromBigDecimal(scale, x).toOption.map(SNumeric(_))
     }

@@ -103,7 +103,7 @@ sealed abstract class SValue {
           )
         case SContractId(coid) =>
           V.ValueContractId(coid)
-        case _: SStruct | _: SAny | _: SBigNumeric | _: STypeRep | _: STNat | _: SPAP | SToken =>
+        case _: SStruct | _: SAny | _: SBigNumeric | _: STypeRep | _: SPAP | SToken =>
           throw SError.SErrorCrash(
             NameOf.qualifiedNameOfCurrentFunc,
             s"SValue.toValue: unexpected ${getClass.getSimpleName}",
@@ -303,12 +303,6 @@ object SValue {
         case _ => None
       }
   }
-
-  // Corresponds to a Daml-LF Nat type reified as a Speedy value.
-  // It is currently used to track at runtime the scale of the
-  // Numeric builtin's arguments/output. Should never be translated
-  // back to Daml-LF expressions / values.
-  final case class STNat(n: Numeric.Scale) extends SValue
 
   // NOTE(JM): We are redefining PrimLit here so it can be unified
   // with SValue and we can remove one layer of indirection.

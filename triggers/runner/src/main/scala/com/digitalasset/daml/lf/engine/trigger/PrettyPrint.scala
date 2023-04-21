@@ -154,9 +154,6 @@ object PrettyPrint {
     case SValue.SAny(ty, value) =>
       text("to_any") + char('@') + text(ty.pretty) + prettySValue(value)
 
-    case SValue.STNat(n) =>
-      str(n)
-
     case SValue.SInt64(value) =>
       str(value)
 
