@@ -388,42 +388,46 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
     }
   }
 
-  "query record contains handles" onlyIfLargeQueries_- {
-    def randomTextN(n: Int) = {
-      import org.scalacheck.Gen
-      Gen
-        .buildableOfN[String, Char](n, Gen.alphaNumChar)
-        .sample
-        .getOrElse(sys.error(s"can't generate ${n}b string"))
-    }
+  private[this] def randomTextN(n: Int) = {
+    import org.scalacheck.Gen
+    Gen
+      .buildableOfN[String, Char](n, Gen.alphaNumChar)
+      .sample
+      .getOrElse(sys.error(s"can't generate ${n}b string"))
+  }
 
+  "query record contains handles small tokens with " - {
     Seq(
       "& " -> "& bar",
-      "1kb of data" -> randomTextN(1000),
-      "2kb of data" -> randomTextN(2000),
-      "3kb of data" -> randomTextN(3000),
-      "4kb of data" -> randomTextN(4000),
-      "5kb of data" -> randomTextN(5000),
-    ).foreach { case (testLbl, testCurrency) =>
-      s"'$testLbl' strings properly" in withHttpService { fixture =>
-        fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, headers) =>
-          searchExpectOk(
-            genSearchDataSet(alice) :+ iouCreateCommand(
-              currency = testCurrency,
-              partyName = alice,
-            ),
-            jsObject(
-              s"""{"templateIds": ["Iou:Iou"], "query": {"currency": ${testCurrency.toJson}}}"""
-            ),
-            fixture,
-            headers,
-          ).map(inside(_) { case Seq(domain.ActiveContract(_, _, _, JsObject(fields), _, _, _)) =>
-            fields.get("currency") should ===(Some(JsString(testCurrency)))
-          })
-        }
-      }
+      "255 bytes" -> randomTextN(255),
+      "256 bytes" -> randomTextN(256),
+    ).foreach { case (testLbl, testCurrency) => testQueryingWithToken(testLbl, testCurrency) }
+  }
+
+  "query record contains larger tokens with " onlyIfLargeQueries_- {
+    Seq(257, 1000, 2000, 3000, 4000, 5000).foreach { case len =>
+      testQueryingWithToken(s"$len bytes", randomTextN(len))
     }
   }
+
+  def testQueryingWithToken(testLabel: String, testCurrency: String) =
+    testLabel in withHttpService { fixture =>
+      fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, headers) =>
+        searchExpectOk(
+          genSearchDataSet(alice) :+ iouCreateCommand(
+            currency = testCurrency,
+            partyName = alice,
+          ),
+          jsObject(
+            s"""{"templateIds": ["Iou:Iou"], "query": {"currency": ${testCurrency.toJson}}}"""
+          ),
+          fixture,
+          headers,
+        ).map(inside(_) { case Seq(domain.ActiveContract(_, _, _, JsObject(fields), _, _, _)) =>
+          fields.get("currency") should ===(Some(JsString(testCurrency)))
+        })
+      }
+    }
 
   "query with query, two fields" in withHttpService { fixture =>
     fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, headers) =>
@@ -459,7 +463,7 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
     }
   }
 
-  "nested comparison filters" onlyIfLargeQueries_- {
+  "nested comparison filters" - {
     import shapeless.Coproduct, shapeless.syntax.singleton._
     val irrelevant = Ref.Identifier assertFromString "none:Discarded:Identifier"
     val (_, bazRecordVA) = VA.record(irrelevant, ShRecord(baz = VA.text))
