@@ -46,6 +46,13 @@ template KeyedByVariantAndRecord with
     key (party, fooVariant, bazRecord): (Party, Foo, BazRecord)
     maintainer key._1
 
+template PubSub with
+    publisher: Party
+    subscribers: [Party]
+  where
+    signatory publisher
+    observer subscribers
+
 template Helper
   with
     owner : Party
