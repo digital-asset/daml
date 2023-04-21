@@ -53,7 +53,7 @@ provider "azurerm" {
       delete_os_disk_on_deletion = true
     }
   }
-  subscription_id = "9114f3e0-9963-4368-9a0a-117bcdbf0055"
+  subscription_id = "171d5caa-4ddb-4890-8635-919d35f489e0"
 }
 
 resource "azurerm_resource_group" "daml-ci" {
