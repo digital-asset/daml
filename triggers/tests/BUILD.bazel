@@ -82,7 +82,6 @@ EOF
 
 da_scala_library(
     name = "test-utils",
-    size = "large",
     srcs = [
         "src/test/scala/com/digitalasset/daml/lf/engine/trigger/test/AbstractFuncTests.scala",
         "src/test/scala/com/digitalasset/daml/lf/engine/trigger/test/AbstractTriggerTest.scala",
@@ -128,7 +127,6 @@ da_scala_library(
 [
     da_scala_test_suite(
         name = "trigger-integration-tests" + suffix,
-        size = "large",
         srcs = [
             "src/test/scala/com/digitalasset/daml/lf/engine/trigger/test/%s.scala" % f
             for f in [
@@ -193,7 +191,6 @@ da_scala_library(
 [
     da_scala_test_suite(
         name = "trigger-failure-integration-tests" + suffix,
-        size = "large",
         timeout = "long",
         srcs = [
             "src/test/scala/com/digitalasset/daml/lf/engine/trigger/test/LoadTesting.scala",
@@ -248,7 +245,6 @@ da_scala_library(
 
 da_scala_library(
     name = "trigger-simulation-lib",
-    size = "large",
     srcs = [
         "src/test/scala/com/digitalasset/daml/lf/engine/trigger/simulation/CatGenerators.scala",
         "src/test/scala/com/digitalasset/daml/lf/engine/trigger/simulation/TriggerMultiProcessSimulation.scala",
@@ -303,7 +299,6 @@ da_scala_library(
 
 da_scala_test_suite(
     name = "trigger-simulation-lib-tests",
-    size = "large",
     timeout = "long",
     srcs = glob(["src/test/scala/com/digitalasset/daml/lf/engine/trigger/simulation/*Test.scala"]),
     data = [
@@ -359,7 +354,6 @@ da_scala_test_suite(
 
 da_scala_test_suite(
     name = "trigger-multi-process-simulation-tests",
-    size = "large",
     timeout = "eternal",
     srcs = ["src/test/scala/com/digitalasset/daml/lf/engine/trigger/simulation/CatAndFoodTriggerSimulation.scala"],
     data = [

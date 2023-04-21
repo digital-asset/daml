@@ -125,7 +125,6 @@ EOF
 
 da_scala_library(
     name = "test-utils",
-    size = "large",
     srcs = glob(["src/test-utils/**/*.scala"]),
     scala_deps = [
         "@maven//:com_typesafe_akka_akka_stream",
@@ -138,6 +137,7 @@ da_scala_library(
         "@maven//:org_scalaz_scalaz_core",
     ],
     scalacopts = lf_scalacopts_stricter,
+    tags = ["cpu:4"],
     visibility = ["//visibility:public"],
     deps = [
         "//bazel_tools/runfiles:scala_runfiles",
@@ -164,7 +164,6 @@ da_scala_library(
 
 da_scala_test_suite(
     name = "test",
-    size = "large",
     srcs = glob(["src/com/**/*.scala"]),
     data = [
         ":script-test.dar",
@@ -182,6 +181,7 @@ da_scala_test_suite(
         "@maven//:io_spray_spray_json",
         "@maven//:org_scalaz_scalaz_core",
     ],
+    tags = ["cpu:4"],
     deps = [
         ":test-utils",
         "//bazel_tools/runfiles:scala_runfiles",
