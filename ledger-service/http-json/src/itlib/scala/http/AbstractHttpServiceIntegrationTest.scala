@@ -655,8 +655,8 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
           kbvarVA,
           Map("bazRecord" -> Map("baz" -> Map("%lt" -> "'")).toJson),
         )(
-          withBazRecord(" "),
-          withBazRecord("A"),
+          withBazRecord("#"), // Less than '
+          withBazRecord("A"), // Not less than '
         ),
         Scenario(
           "lt string with sketchy value which uses unicode quote char",
