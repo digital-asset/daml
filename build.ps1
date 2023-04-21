@@ -79,4 +79,5 @@ if ($env:SKIP_TESTS -ceq "False") {
       `-`-build_event_json_file test-events.json `
       `-`-build_event_publish_all_actions `
       `-`-experimental_execution_log_file ${ARTIFACT_DIRS}/logs/test_execution_windows.log
+      `-`-test_output=all
 }
