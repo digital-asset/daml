@@ -8,12 +8,22 @@ module DA.Daml.Helper.Test.Tls (main) where
 import DA.Bazel.Runfiles
 import DA.Test.Sandbox
 import DA.Test.Util
+import Data.List (isInfixOf)
 import System.Environment.Blank
 import System.Exit
 import System.FilePath
 import System.Process
 import Test.Tasty
 import Test.Tasty.HUnit
+
+-- | Asserts we have no _extra_ parties. Canton always creates a party with your participant name
+-- (which `withCantonSandbox`'s default config sets to `MyLedger`)
+assertOnlyMyLedger :: String -> Assertion
+assertOnlyMyLedger out = do
+  assertBool ("Expected 1 party but got " <> show (length ls - 1)) $ length ls == 2
+  assertBool "Expected only party to be MyLedger" $ "MyLedger" `isInfixOf` (ls !! 1)
+  where
+    ls = lines out
 
 main :: IO ()
 main = do
@@ -22,7 +32,7 @@ main = do
     certDir <- locateRunfiles (mainWorkspace </> "test-common" </> "test-certificates")
     defaultMain $
         testGroup "TLS"
-           [ withSandbox defaultSandboxConf { enableTls = True, mbClientAuth = Just None } $ \getSandboxPort ->
+           [ withCantonSandbox defaultSandboxConf { enableTls = True, mbClientAuth = Just None } $ \getSandboxPort ->
                  testGroup "client-auth: none"
                      [ testCase "succeeds without client cert" $ do
                            p <- getSandboxPort
@@ -33,9 +43,9 @@ main = do
                            out <- readProcess damlHelper
                                ("ledger" : "list-parties" : ledgerOpts)
                                ""
-                           assertInfixOf "no parties are known" out
+                           assertOnlyMyLedger out
                      ]
-           , withSandbox defaultSandboxConf { enableTls = True, mbClientAuth = Just Optional } $ \getSandboxPort ->
+           , withCantonSandbox defaultSandboxConf { enableTls = True, mbClientAuth = Just Optional } $ \getSandboxPort ->
                  testGroup "client-auth: optional"
                      [ testCase "succeeds without client cert" $ do
                            p <- getSandboxPort
@@ -46,9 +56,9 @@ main = do
                            out <- readProcess damlHelper
                                ("ledger" : "list-parties" : ledgerOpts)
                                ""
-                           assertInfixOf "no parties are known" out
+                           assertOnlyMyLedger out
                      ]
-           , withSandbox defaultSandboxConf { enableTls = True, mbClientAuth = Just Require } $ \getSandboxPort ->
+           , withCantonSandbox defaultSandboxConf { enableTls = True, mbClientAuth = Just Require } $ \getSandboxPort ->
                  testGroup "client-auth: require"
                      [ testCase "fails without client cert" $ do
                            p <- getSandboxPort
@@ -74,6 +84,6 @@ main = do
                            out <- readProcess damlHelper
                                ("ledger" : "list-parties" : ledgerOpts)
                                ""
-                           assertInfixOf "no parties are known" out
+                           assertOnlyMyLedger out
                      ]
            ]

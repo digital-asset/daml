@@ -22,7 +22,7 @@ import qualified Data.Text as T
 import DA.Bazel.Runfiles (mainWorkspace,locateRunfiles,exe)
 import DA.Daml.LF.Reader (Dalfs(..),readDalfs)
 import DA.Test.Process (callProcessSilent)
-import DA.Test.Sandbox (mbSharedSecret,withSandbox,defaultSandboxConf, makeSignedJwt)
+import DA.Test.Sandbox (mbSharedSecret, withCantonSandbox, defaultSandboxConf, makeSignedJwt)
 import DA.Test.Util
 import SdkVersion (sdkVersion)
 import qualified DA.Daml.LF.Ast as LF
@@ -52,7 +52,7 @@ main = do
 -- | Test `daml ledger list-parties --access-token-file`
 authenticationTests :: Tools -> TestTree
 authenticationTests Tools{..} =
-  withSandbox defaultSandboxConf { mbSharedSecret = Just sharedSecret } $ \getSandboxPort ->
+  withCantonSandbox defaultSandboxConf { mbSharedSecret = Just sharedSecret } $ \getSandboxPort ->
     testGroup "authentication"
     [ testCase "Bearer prefix" $ do
           port <- getSandboxPort
@@ -104,7 +104,7 @@ authenticationTests Tools{..} =
 
 unauthenticatedTests :: Tools -> TestTree
 unauthenticatedTests tools = do
-    withSandbox defaultSandboxConf $ \getSandboxPort ->
+    withCantonSandbox defaultSandboxConf $ \getSandboxPort ->
         testGroup "unauthenticated"
             [ fetchTest tools getSandboxPort
             , timeoutTest tools getSandboxPort

@@ -14,10 +14,11 @@ import DA.Ledger.GrpcWrapUtils
 import DA.Ledger.LedgerService
 import DA.Ledger.Types
 import Data.Functor
+import Data.Maybe (fromMaybe)
 import Data.Text.Lazy (Text)
 import Network.GRPC.HighLevel.Generated
 import qualified Data.Aeson as A
-import Data.Aeson ((.:))
+import Data.Aeson ((.:), (.:?))
 import qualified Com.Daml.Ledger.Api.V1.Admin.PartyManagementService as LL
 
 getParticipantId :: LedgerService ParticipantId
@@ -37,13 +38,16 @@ data PartyDetails = PartyDetails
     , isLocal :: Bool
     } deriving (Eq,Ord,Show)
 
+-- displayName is omitted for some parties, default to party identifier
 instance A.FromJSON PartyDetails where
   parseJSON =
     A.withObject "PartyDetails" $ \v ->
-      PartyDetails
+      makePartyDetails
         <$> v .: "identifier"
-        <*> v .: "displayName"
+        <*> v .:? "displayName"
         <*> v .: "isLocal"
+    where
+      makePartyDetails party mDisplayName = PartyDetails party (fromMaybe (unParty party) mDisplayName)
 
 listKnownParties :: LedgerService [PartyDetails]
 listKnownParties =

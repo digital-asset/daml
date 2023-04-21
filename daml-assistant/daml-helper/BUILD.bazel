@@ -3,7 +3,7 @@
 
 load("//bazel_tools:haskell.bzl", "da_haskell_binary", "da_haskell_library", "da_haskell_test")
 load("//bazel_tools/packaging:packaging.bzl", "package_app")
-load("@os_info//:os_info.bzl", "is_windows")
+load("@os_info//:os_info.bzl", "is_darwin", "is_windows")
 load("//rules_daml:daml.bzl", "daml_compile")
 
 da_haskell_library(
@@ -98,9 +98,9 @@ da_haskell_test(
     srcs = ["test/DA/Daml/Helper/Test/Tls.hs"],
     data = [
         "daml-helper",
-        "//ledger/sandbox-on-x:app",
         "//test-common/test-certificates",
-    ],
+        "@canton//:lib",
+    ] + (["@sysctl_nix//:bin/sysctl"] if is_darwin else []),
     hackage_deps = [
         "base",
         "extra",
@@ -124,8 +124,8 @@ da_haskell_test(
     data = [
         "//compiler/damlc",
         "//daml-assistant/daml-helper",
-        "//ledger/sandbox-on-x:app",
-    ],
+        "@canton//:lib",
+    ] + (["@sysctl_nix//:bin/sysctl"] if is_darwin else []),
     # TODO (MK) https://github.com/digital-asset/daml/issues/9768
     flaky = True,
     hackage_deps = [
@@ -166,14 +166,15 @@ da_haskell_test(
         "daml-helper",
         ":test.dar",
         "//ledger-service/http-json:http-json-binary",
-        "//ledger/sandbox-on-x:app",
-    ],
+        "@canton//:lib",
+    ] + (["@sysctl_nix//:bin/sysctl"] if is_darwin else []),
     hackage_deps = [
         "base",
         "bytestring",
         "extra",
         "filepath",
         "process",
+        "regex-tdfa",
         "tasty",
         "tasty-hunit",
         "text",
@@ -200,8 +201,8 @@ da_haskell_test(
         "daml-helper",
         ":test.dar",
         "//ledger-service/http-json:http-json-binary",
-        "//ledger/sandbox-on-x:app",
-    ],
+        "@canton//:lib",
+    ] + (["@sysctl_nix//:bin/sysctl"] if is_darwin else []),
     hackage_deps = [
         "base",
         "bytestring",

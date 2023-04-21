@@ -22,34 +22,27 @@ main = do
         locateRunfiles (mainWorkspace </> "daml-assistant" </> "daml-helper" </> exe "daml-helper")
     testDar <- locateRunfiles (mainWorkspace </> "daml-assistant" </> "daml-helper" </> "test.dar")
     defaultMain $
-        testGroup
-            "daml packages"
-            [ withSandbox defaultSandboxConf {dars = [testDar]} $ \getSandboxPort ->
-                  testGroup
-                      "list"
-                      [ testCase "succeeds listing packages" $ do
-                            sandboxPort <- getSandboxPort
-                            let ledgerOpts = ["--host=localhost", "--port", show sandboxPort]
-                            out <- readProcess damlHelper ("packages" : "list" : ledgerOpts) ""
-                            ("(test-1.0.0)" `elem` words out) @?
-                                "Missing `test-1.0.0` package in packages list."
-                      ]
-            , withSandbox defaultSandboxConf {dars = [testDar]} $ \getSandboxPort ->
-                  withHttpJson getSandboxPort (defaultHttpJsonConf "Alice") $ \getHttpJson ->
-                      testGroup
-                          "list"
-                          [ testCase "succeeds listing packages against HTTP JSON API" $ do
-                                HttpJson {hjPort, hjTokenFile} <- getHttpJson
-                                let ledgerOpts =
-                                        [ "--host=localhost"
-                                        , "--json-api"
-                                        , "--port"
-                                        , show hjPort
-                                        , "--access-token-file"
-                                        , hjTokenFile
-                                        ]
-                                out <- readProcess damlHelper ("packages" : "list" : ledgerOpts) ""
-                                ("(test-1.0.0)" `elem` words out) @?
-                                    "Missing `test-1.0.0` package in packages list."
-                          ]
-            ]
+        withCantonSandbox defaultSandboxConf {dars = [testDar]} $ \getSandboxPort ->
+            testGroup
+                "daml packages"
+                [ testCase "succeeds listing packages" $ do
+                      sandboxPort <- getSandboxPort
+                      let ledgerOpts = ["--host=localhost", "--port", show sandboxPort]
+                      out <- readProcess damlHelper ("packages" : "list" : ledgerOpts) ""
+                      ("(test-1.0.0)" `elem` words out) @?
+                          "Missing `test-1.0.0` package in packages list."
+                , withHttpJson getSandboxPort (defaultHttpJsonConf "Alice") $ \getHttpJson ->
+                      testCase "succeeds listing packages against HTTP JSON API" $ do
+                          HttpJson {hjPort, hjTokenFile} <- getHttpJson
+                          let ledgerOpts =
+                                  [ "--host=localhost"
+                                  , "--json-api"
+                                  , "--port"
+                                  , show hjPort
+                                  , "--access-token-file"
+                                  , hjTokenFile
+                                  ]
+                          out <- readProcess damlHelper ("packages" : "list" : ledgerOpts) ""
+                          ("(test-1.0.0)" `elem` words out) @?
+                              "Missing `test-1.0.0` package in packages list."
+                ]

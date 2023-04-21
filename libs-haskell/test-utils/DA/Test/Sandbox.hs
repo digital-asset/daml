@@ -61,6 +61,8 @@ data Certs = Certs
     { trustedRootCrt :: FilePath
     , serverCrt :: FilePath
     , serverPem :: FilePath
+    , clientCrt :: FilePath
+    , clientPem :: FilePath
     }
 
 data SandboxConfig = SandboxConfig
@@ -89,6 +91,8 @@ getCerts = do
         { trustedRootCrt = certDir </> "ca.crt"
         , serverCrt = certDir </> "server.crt"
         , serverPem = certDir </> "server.pem"
+        , clientCrt = certDir </> "client.crt"
+        , clientPem = certDir </> "client.pem"
         }
 
 getSandboxProc :: SandboxConfig -> FilePath -> IO CreateProcess
@@ -252,9 +256,16 @@ getCantonConfig conf@SandboxConfig{..} portFile mCerts (ledgerPort, adminPort, d
             , "private-key-file" Aeson..= serverPem certs
             , "trust-collection-file" Aeson..= trustedRootCrt certs
             ] <>
-            [ "client-auth" Aeson..= Aeson.object ["type" Aeson..= show auth]
+            [ "client-auth" Aeson..= Aeson.object (["type" Aeson..= show auth] <> adminClient auth certs)
             | Just auth <- [mbClientAuth]
             ] )
+    adminClient Require certs = 
+      [ "admin-client" Aeson..= Aeson.object
+        [ "cert-chain-file" Aeson..= clientCrt certs
+        , "private-key-file" Aeson..= clientPem certs
+        ]
+      ]
+    adminClient _ _ = []
     aesonArray = Aeson.Array . Vector.fromList
 
 getCantonSandboxProc :: FilePath -> FilePath -> IO CreateProcess
