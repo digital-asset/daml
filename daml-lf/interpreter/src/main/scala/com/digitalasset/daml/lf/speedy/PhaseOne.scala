@@ -425,11 +425,11 @@ private[lf] final class PhaseOne(
           // Decimal arithmetic
           case BAddNumeric => SBAddNumeric
           case BSubNumeric => SBSubNumeric
-          case BMulNumeric => SBMulNumeric
-          case BDivNumeric => SBDivNumeric
+          case BMulNumericLegacy => SBMulNumeric
+          case BDivNumericLegacy => SBDivNumeric
           case BRoundNumeric => SBRoundNumeric
-          case BCastNumeric => SBCastNumeric
-          case BShiftNumeric => SBShiftNumeric
+          case BCastNumericLegacy => SBCastNumeric
+          case BShiftNumericLegacy => SBShiftNumeric
 
           // Int64 arithmetic
           case BAddInt64 => SBAddInt64
@@ -440,7 +440,7 @@ private[lf] final class PhaseOne(
           case BExpInt64 => SBExpInt64
 
           // Conversions
-          case BInt64ToNumeric => SBInt64ToNumeric
+          case BInt64ToNumericLegacy => SBInt64ToNumeric
           case BNumericToInt64 => SBNumericToInt64
           case BDateToUnixDays => SBDateToUnixDays
           case BUnixDaysToDate => SBUnixDaysToDate
@@ -462,7 +462,7 @@ private[lf] final class PhaseOne(
           case BCodePointsToText => SBCodePointsToText
           case BTextToParty => SBTextToParty
           case BTextToInt64 => SBTextToInt64
-          case BTextToNumeric => SBTextToNumeric
+          case BTextToNumericLegacy => SBTextToNumeric
           case BTextToCodePoints => SBTextToCodePoints
 
           case BSHA256Text => SBSHA256Text
@@ -508,7 +508,7 @@ private[lf] final class PhaseOne(
           case BMulBigNumeric => SBMulBigNumeric
           case BShiftRightBigNumeric => SBShiftRightBigNumeric
           case BNumericToBigNumeric => SBNumericToBigNumeric
-          case BBigNumericToNumeric => SBBigNumericToNumeric
+          case BBigNumericToNumericLegacy => SBBigNumericToNumeric
           case BBigNumericToText => SBToText
 
           // TypeRep

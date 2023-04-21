@@ -272,11 +272,11 @@ data BuiltinExpr
   | BENumericToText              -- :: ∀(s:nat). Numeric s -> Text
   | BEAddNumeric                 -- :: ∀(s:nat). Numeric s -> Numeric s -> Numeric s, crashes on overflow
   | BESubNumeric                 -- :: ∀(s:nat). Numeric s -> Numeric s -> Numeric s, crashes on overflow
-  | BEMulNumeric                 -- :: ∀(s1:nat). ∀(s2:nat). ∀(s3:nat). Numeric s1 -> Numeric s2 -> Numeric s3, crashes on overflow and underflow, automatically rounds to even (see <https://en.wikipedia.org/wiki/Rounding#Round_half_to_even>)
-  | BEDivNumeric                 -- :: ∀(s1:nat). ∀(s2:nat). ∀(s3:nat). Numeric s1 -> Numeric s2 -> Numeric s3, automatically rounds to even, crashes on divisor = 0 and on overflow
+  | BEMulNumericLegacy                 -- :: ∀(s1:nat). ∀(s2:nat). ∀(s3:nat). Numeric s1 -> Numeric s2 -> Numeric s3, crashes on overflow and underflow, automatically rounds to even (see <https://en.wikipedia.org/wiki/Rounding#Round_half_to_even>)
+  | BEDivNumericLegacy                 -- :: ∀(s1:nat). ∀(s2:nat). ∀(s3:nat). Numeric s1 -> Numeric s2 -> Numeric s3, automatically rounds to even, crashes on divisor = 0 and on overflow
   | BERoundNumeric               -- :: ∀(s:nat). Int64 -> Numeric s -> Numeric s, the Int64 is the required scale. Note that this doesn't modify the scale of the type itself, it just zeroes things outside that scale out. Can be negative. Crashes if the scale is > 10 or < -27.
-  | BECastNumeric                -- :: ∀(s1:nat). ∀(s2:nat). Numeric s1 -> Numeric s2
-  | BEShiftNumeric               -- :: ∀(s1:nat). ∀(s2:nat). Numeric s1 -> Numeric s2
+  | BECastNumericLegacy                -- :: ∀(s1:nat). ∀(s2:nat). Numeric s1 -> Numeric s2
+  | BEShiftNumericLegacy               -- :: ∀(s1:nat). ∀(s2:nat). Numeric s1 -> Numeric s2
 
   -- Integer arithmetic
   | BEAddInt64                   -- :: Int64 -> Int64 -> Int64, crashes on overflow
@@ -287,7 +287,7 @@ data BuiltinExpr
   | BEExpInt64                   -- :: Int64 -> Int64 -> Int64, crashes on overflow
 
   -- Numerical conversion
-  | BEInt64ToNumeric             -- :: ∀(s:nat). Int64 -> Numeric s, crashes if it doesn't fit (TODO: verify?)
+  | BEInt64ToNumericLegacy             -- :: ∀(s:nat). Int64 -> Numeric s, crashes if it doesn't fit (TODO: verify?)
   | BENumericToInt64             -- :: ∀(s:nat). Numeric s -> Int64, only converts the whole part, crashes if it doesn't fit
 
   -- Time conversion
@@ -325,7 +325,7 @@ data BuiltinExpr
   | BESha256Text                 -- :: Text -> Text
   | BETextToParty              -- :: Text -> Optional Party
   | BETextToInt64              -- :: Text -> Optional Int64
-  | BETextToNumeric            -- :: ∀(s:nat). Text -> Optional (Numeric s)
+  | BETextToNumericLegacy            -- :: ∀(s:nat). Text -> Optional (Numeric s)
   | BETextToCodePoints           -- :: Text -> List Int64
   | BECodePointsToText         -- :: List Int64 -> Text
   | BEPartyToQuotedText          -- :: Party -> Text

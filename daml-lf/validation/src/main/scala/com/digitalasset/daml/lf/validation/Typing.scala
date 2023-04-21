@@ -107,11 +107,11 @@ private[validation] object Typing {
       // Numeric arithmetic
       BAddNumeric -> tNumBinop,
       BSubNumeric -> tNumBinop,
-      BMulNumeric -> tMultiNumBinop,
-      BDivNumeric -> tMultiNumBinop,
+      BMulNumericLegacy -> tMultiNumBinop,
+      BDivNumericLegacy -> tMultiNumBinop,
       BRoundNumeric -> TForall(alpha.name -> KNat, TInt64 ->: TNumeric(alpha) ->: TNumeric(alpha)),
-      BCastNumeric -> tNumConversion,
-      BShiftNumeric -> tNumConversion,
+      BCastNumericLegacy -> tNumConversion,
+      BShiftNumericLegacy -> tNumConversion,
       // Int64 arithmetic
       BAddInt64 -> tBinop(TInt64),
       BSubInt64 -> tBinop(TInt64),
@@ -120,7 +120,7 @@ private[validation] object Typing {
       BModInt64 -> tBinop(TInt64),
       BExpInt64 -> tBinop(TInt64),
       // Conversions
-      BInt64ToNumeric -> TForall(alpha.name -> KNat, TInt64 ->: TNumeric(alpha)),
+      BInt64ToNumericLegacy -> TForall(alpha.name -> KNat, TInt64 ->: TNumeric(alpha)),
       BNumericToInt64 -> TForall(alpha.name -> KNat, TNumeric(alpha) ->: TInt64),
       BDateToUnixDays -> (TDate ->: TInt64),
       BUnixDaysToDate -> (TInt64 ->: TDate),
@@ -236,7 +236,7 @@ private[validation] object Typing {
       BCodePointsToText -> (TList(TInt64) ->: TText),
       BTextToParty -> (TText ->: TOptional(TParty)),
       BTextToInt64 -> (TText ->: TOptional(TInt64)),
-      BTextToNumeric -> TForall(alpha.name -> KNat, TText ->: TOptional(TNumeric(alpha))),
+      BTextToNumericLegacy -> TForall(alpha.name -> KNat, TText ->: TOptional(TNumeric(alpha))),
       BTextToCodePoints -> (TText ->: TList(TInt64)),
       BError -> TForall(alpha.name -> KStar, TText ->: alpha),
       // ComparisonsA
@@ -271,7 +271,7 @@ private[validation] object Typing {
       BMulBigNumeric -> (TBigNumeric ->: TBigNumeric ->: TBigNumeric),
       BDivBigNumeric -> (TInt64 ->: TRoundingMode ->: TBigNumeric ->: TBigNumeric ->: TBigNumeric),
       BShiftRightBigNumeric -> (TInt64 ->: TBigNumeric ->: TBigNumeric),
-      BBigNumericToNumeric -> TForall(alpha.name -> KNat, TBigNumeric ->: TNumeric(alpha)),
+      BBigNumericToNumericLegacy -> TForall(alpha.name -> KNat, TBigNumeric ->: TNumeric(alpha)),
       BNumericToBigNumeric -> TForall(alpha.name -> KNat, TNumeric(alpha) ->: TBigNumeric),
       BBigNumericToText -> (TBigNumeric ->: TText),
       // Exception functions
