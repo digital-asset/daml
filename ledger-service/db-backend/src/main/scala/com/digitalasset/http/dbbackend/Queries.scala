@@ -598,6 +598,17 @@ object Queries {
     (allTpids diff grouped.keySet).view.map((_, Map.empty[Party, Off])).toMap ++ grouped
   }
 
+  def quotedJsonSearchToken(literal: String): Fragment = {
+    val escaped = literal.replace("'", "''")
+    if (escaped.size <= jsonSearchTokenSizeLimit)
+      Fragment.const0("'" + escaped + "'")
+    else
+      throw new IllegalArgumentException(
+        s"json token too long - ${escaped.size} > $jsonSearchTokenSizeLimit: $escaped"
+      )
+  }
+  val jsonSearchTokenSizeLimit = 256 // See Oracle database error DRG-50943
+
   import doobie.util.invariant.InvalidValue
 
   @throws[InvalidValue[_, _]]
@@ -976,18 +987,28 @@ private final class OracleQueries(
       throw new IllegalArgumentException(s"path too long: $readyPath")
     )
 
+  // Builds the SQL fragment for passing a string into a JSON path expression as a variable named X
+  private[this] def passingStringAsX(s: String): Fragment = {
+    val rendered =
+      if (disableContractPayloadIndexing)
+        // We can pass the value through as normal via a query param
+        sql"$s"
+      else
+        // We must pass the value through as a literal when the JSON index is enabled
+        quotedJsonSearchToken(s)
+    sql""" PASSING $rendered AS "X""""
+  }
+
+  private[this] def passingNumberAsX(n: BigDecimal): Fragment =
+    sql""" PASSING $n AS "X""""
+
   private[http] override def equalAtContractPath(path: JsonPath, literal: JsValue): Fragment = {
     val opath: Cord = '$' -: pathSteps(path)
     // you cannot put a positional parameter in a path, which _must_ be a literal
     // so pass it as the path-local variable X instead
-    def existsForm[Lit: Put](literal: Lit) =
-      (
-        "?(@ == $X)", // not a Scala interpolation
-        sql" PASSING $literal AS X",
-      )
     val predExtension = literal match {
-      case JsNumber(n) => Some(existsForm(n))
-      case JsString(s) => Some(existsForm(s))
+      case JsNumber(n) => Some(("?(@ == $X)", passingNumberAsX(n)))
+      case JsString(s) => Some(("?(@ == $X)", passingStringAsX(s)))
       case JsTrue | JsFalse | JsNull => Some((s"?(@ == $literal)", sql""))
       case JsObject(_) | JsArray(_) => None
     }
@@ -1045,9 +1066,9 @@ private final class OracleQueries(
       op: OrderOperator,
       literalScalar: JsValue,
   ) = {
-    val literalRendered = literalScalar match {
-      case JsNumber(n) => sql"$n"
-      case JsString(s) => sql"$s"
+    val passingValueAsX = literalScalar match {
+      case JsNumber(n) => passingNumberAsX(n)
+      case JsString(s) => passingStringAsX(s)
       case JsNull | JsTrue | JsFalse | JsArray(_) | JsObject(_) =>
         throw new IllegalArgumentException(
           s"${literalScalar.compactPrint} is not comparable in JSON queries"
@@ -1062,7 +1083,7 @@ private final class OracleQueries(
     }
     val pathc = ('$' -: pathSteps(path)) ++ s"?(@ $opc ${"$X"})"
     sql"JSON_EXISTS($contractColumnName, " ++
-      sql"${oracleShortPathEscape(pathc)} PASSING $literalRendered AS X)"
+      sql"""${oracleShortPathEscape(pathc)}${passingValueAsX})"""
   }
 }
 

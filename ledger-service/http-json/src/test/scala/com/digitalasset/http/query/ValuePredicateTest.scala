@@ -255,7 +255,7 @@ class ValuePredicateTest
           """{"_2": "hi there", "_3": false}""",
           tuple3VA,
           sql"payload @> ${"""{"foo":{"_2":"hi there","_3":false}}""".parseJson}::jsonb",
-          sql"""JSON_EXISTS(payload, '$$."foo"."_2"?(@ == $$X)' PASSING ${"hi there"} AS X)"""
+          sql"""JSON_EXISTS(payload, '$$."foo"."_2"?(@ == $$X)' PASSING 'hi there' AS "X")"""
             ++ sql""" AND JSON_EXISTS(payload, '$$."foo"."_3"?(@ == false)')""",
         ),
         (
@@ -268,7 +268,7 @@ class ValuePredicateTest
           """{"%lte": 42}""",
           VA.int64,
           sql"payload->${"foo": String} <= ${JsNumber(42): JsValue}::jsonb AND payload @> ${JsObject(): JsValue}::jsonb",
-          sql"""JSON_EXISTS(payload, '$$."foo"?(@ <= $$X)' PASSING ${42L} AS X) AND 1 = 1""",
+          sql"""JSON_EXISTS(payload, '$$."foo"?(@ <= $$X)' PASSING ${42L} AS "X") AND 1 = 1""",
         ),
         (
           """{"tag": "Left", "value": "42"}""",
@@ -280,8 +280,8 @@ class ValuePredicateTest
           """{"tag": "Left", "value": {"%lte": 42}}""",
           eitherVA,
           sql"payload->${"foo"}->${"value"} <= ${"42".parseJson}::jsonb AND payload @> ${"""{"foo": {"tag": "Left"}}""".parseJson}::jsonb",
-          sql"""JSON_EXISTS(payload, '$$."foo"."value"?(@ <= $$X)' PASSING ${42L} AS X)"""
-            ++ sql""" AND JSON_EXISTS(payload, '$$."foo"."tag"?(@ == $$X)' PASSING ${"Left"} AS X)""",
+          sql"""JSON_EXISTS(payload, '$$."foo"."value"?(@ <= $$X)' PASSING ${42L} AS "X")"""
+            ++ sql""" AND JSON_EXISTS(payload, '$$."foo"."tag"?(@ == $$X)' PASSING 'Left' AS "X")""",
         ),
       )
     }
