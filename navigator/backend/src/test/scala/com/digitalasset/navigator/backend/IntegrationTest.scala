@@ -126,11 +126,9 @@ class IntegrationTest
           .map(_.utf8String)
         _ = resp.status shouldBe StatusCodes.OK
       } yield
-        if (useRegex) {
-          println(respBody)
-          println(expectedBody)
+        if (useRegex)
           (respBody should fullyMatch regex expectedBody.r)
-        } else
+        else
           (respBody shouldBe expectedBody)
     }
   }
