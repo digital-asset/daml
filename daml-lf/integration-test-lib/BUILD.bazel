@@ -20,6 +20,7 @@ da_scala_library(
     scalacopts = lf_scalacopts_stricter,
     visibility = [
         "//daml-script:__subpackages__",
+        "//navigator:__subpackages__",
         "//triggers:__subpackages__",
     ],
     deps = [
