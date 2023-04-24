@@ -159,43 +159,43 @@ convertPrim _ "BEAddDecimal" (TNumeric10 :-> TNumeric10 :-> TNumeric10) =
 convertPrim _ "BESubDecimal" (TNumeric10 :-> TNumeric10 :-> TNumeric10) =
     pure $ ETyApp (EBuiltin BESubNumeric) TNat10
 convertPrim _ "BEMulDecimal" (TNumeric10 :-> TNumeric10 :-> TNumeric10) =
-    pure $ EBuiltin BEMulNumeric `ETyApp` TNat10 `ETyApp` TNat10 `ETyApp` TNat10
+    pure $ EBuiltin BEMulNumericLegacy `ETyApp` TNat10 `ETyApp` TNat10 `ETyApp` TNat10
 convertPrim _ "BEDivDecimal" (TNumeric10 :-> TNumeric10 :-> TNumeric10) =
-    pure $ EBuiltin BEDivNumeric `ETyApp` TNat10 `ETyApp` TNat10 `ETyApp` TNat10
+    pure $ EBuiltin BEDivNumericLegacy `ETyApp` TNat10 `ETyApp` TNat10 `ETyApp` TNat10
 convertPrim _ "BERoundDecimal" (TInt64 :-> TNumeric10 :-> TNumeric10) =
     pure $ ETyApp (EBuiltin BERoundNumeric) TNat10
 convertPrim _ "BEInt64ToDecimal" (TInt64 :-> TNumeric10) =
-    pure $ ETyApp (EBuiltin BEInt64ToNumeric) TNat10
+    pure $ ETyApp (EBuiltin BEInt64ToNumericLegacy) TNat10
 convertPrim _ "BEDecimalToInt64" (TNumeric10 :-> TInt64) =
     pure $ ETyApp (EBuiltin BENumericToInt64) TNat10
 convertPrim _ "BEToText" (TNumeric10 :-> TText) =
     pure $ ETyApp (EBuiltin BENumericToText) TNat10
 convertPrim _ "BETextToDecimal" (TText :-> TOptional TNumeric10) =
-    pure $ ETyApp (EBuiltin BETextToNumeric) TNat10
+    pure $ ETyApp (EBuiltin BETextToNumericLegacy) TNat10
 
 -- Numeric primitives. These are polymorphic in the scale.
 convertPrim _ "BEAddNumeric" (TNumeric n1 :-> TNumeric n2 :-> TNumeric n3) | n1 == n2, n1 == n3 =
     pure $ ETyApp (EBuiltin BEAddNumeric) n1
 convertPrim _ "BESubNumeric" (TNumeric n1 :-> TNumeric n2 :-> TNumeric n3) | n1 == n2, n1 == n3 =
     pure $ ETyApp (EBuiltin BESubNumeric) n1
-convertPrim _ "BEMulNumeric" (TNumeric n1 :-> TNumeric n2 :-> TNumeric n3) =
-    pure $ EBuiltin BEMulNumeric `ETyApp` n1 `ETyApp` n2 `ETyApp` n3
-convertPrim _ "BEDivNumeric" (TNumeric n1 :-> TNumeric n2 :-> TNumeric n3) =
-    pure $ EBuiltin BEDivNumeric `ETyApp` n1 `ETyApp` n2 `ETyApp` n3
+convertPrim _ "BEMulNumericLegacy" (TNumeric n1 :-> TNumeric n2 :-> TNumeric n3) =
+    pure $ EBuiltin BEMulNumericLegacy `ETyApp` n1 `ETyApp` n2 `ETyApp` n3
+convertPrim _ "BEDivNumericLegacy" (TNumeric n1 :-> TNumeric n2 :-> TNumeric n3) =
+    pure $ EBuiltin BEDivNumericLegacy `ETyApp` n1 `ETyApp` n2 `ETyApp` n3
 convertPrim _ "BERoundNumeric" (TInt64 :-> TNumeric n1 :-> TNumeric n2) | n1 == n2 =
     pure $ ETyApp (EBuiltin BERoundNumeric) n1
-convertPrim _ "BECastNumeric" (TNumeric n1 :-> TNumeric n2) =
-    pure $ EBuiltin BECastNumeric `ETyApp` n1 `ETyApp` n2
-convertPrim _ "BEShiftNumeric" (TNumeric n1 :-> TNumeric n2) =
-    pure $ EBuiltin BEShiftNumeric `ETyApp` n1 `ETyApp` n2
-convertPrim _ "BEInt64ToNumeric" (TInt64 :-> TNumeric n) =
-    pure $ ETyApp (EBuiltin BEInt64ToNumeric) n
+convertPrim _ "BECastNumericLegacy" (TNumeric n1 :-> TNumeric n2) =
+    pure $ EBuiltin BECastNumericLegacy `ETyApp` n1 `ETyApp` n2
+convertPrim _ "BEShiftNumericLegacy" (TNumeric n1 :-> TNumeric n2) =
+    pure $ EBuiltin BEShiftNumericLegacy `ETyApp` n1 `ETyApp` n2
+convertPrim _ "BEInt64ToNumericLegacy" (TInt64 :-> TNumeric n) =
+    pure $ ETyApp (EBuiltin BEInt64ToNumericLegacy) n
 convertPrim _ "BENumericToInt64" (TNumeric n :-> TInt64) =
     pure $ ETyApp (EBuiltin BENumericToInt64) n
 convertPrim _ "BENumericToText" (TNumeric n :-> TText) =
     pure $ ETyApp (EBuiltin BENumericToText) n
-convertPrim _ "BETextToNumeric" (TText :-> TOptional (TNumeric n)) =
-    pure $ ETyApp (EBuiltin BETextToNumeric) n
+convertPrim _ "BETextToNumericLegacy" (TText :-> TOptional (TNumeric n)) =
+    pure $ ETyApp (EBuiltin BETextToNumericLegacy) n
 
 convertPrim version "BEScaleBigNumeric" ty@(TBigNumeric :-> TInt64) =
     pure $
@@ -229,10 +229,10 @@ convertPrim version "BENumericToBigNumeric" ty@(TNumeric n :-> TBigNumeric) =
     pure $
       whenRuntimeSupports version featureBigNumeric ty $
         EBuiltin BENumericToBigNumeric `ETyApp` n
-convertPrim version "BEBigNumericToNumeric" ty@(TBigNumeric :-> TNumeric n) =
+convertPrim version "BEBigNumericToNumericLegacy" ty@(TBigNumeric :-> TNumeric n) =
     pure $
       whenRuntimeSupports version featureBigNumeric ty $
-        EBuiltin BEBigNumericToNumeric `ETyApp` n
+        EBuiltin BEBigNumericToNumericLegacy `ETyApp` n
 
 -- Experimental text primitives.
 convertPrim _ "BETextToUpper" (TText :-> TText) = pure $ EBuiltin BETextToUpper

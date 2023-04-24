@@ -482,17 +482,17 @@ encodeBuiltinExpr = \case
     BECodePointsToText -> builtin P.BuiltinFunctionCODE_POINTS_TO_TEXT
     BETextToParty -> builtin P.BuiltinFunctionTEXT_TO_PARTY
     BETextToInt64 -> builtin P.BuiltinFunctionTEXT_TO_INT64
-    BETextToNumeric-> builtin P.BuiltinFunctionTEXT_TO_NUMERIC
+    BETextToNumericLegacy-> builtin P.BuiltinFunctionTEXT_TO_NUMERIC_LEGACY
     BETextToCodePoints -> builtin P.BuiltinFunctionTEXT_TO_CODE_POINTS
     BEPartyToQuotedText -> builtin P.BuiltinFunctionPARTY_TO_QUOTED_TEXT
 
     BEAddNumeric -> builtin P.BuiltinFunctionADD_NUMERIC
     BESubNumeric -> builtin P.BuiltinFunctionSUB_NUMERIC
-    BEMulNumeric -> builtin P.BuiltinFunctionMUL_NUMERIC
-    BEDivNumeric -> builtin P.BuiltinFunctionDIV_NUMERIC
+    BEMulNumericLegacy -> builtin P.BuiltinFunctionMUL_NUMERIC_LEGACY
+    BEDivNumericLegacy -> builtin P.BuiltinFunctionDIV_NUMERIC_LEGACY
     BERoundNumeric -> builtin P.BuiltinFunctionROUND_NUMERIC
-    BECastNumeric -> builtin P.BuiltinFunctionCAST_NUMERIC
-    BEShiftNumeric -> builtin P.BuiltinFunctionSHIFT_NUMERIC
+    BECastNumericLegacy -> builtin P.BuiltinFunctionCAST_NUMERIC_LEGACY
+    BEShiftNumericLegacy -> builtin P.BuiltinFunctionSHIFT_NUMERIC_LEGACY
 
     BEScaleBigNumeric -> builtin P.BuiltinFunctionSCALE_BIGNUMERIC
     BEPrecisionBigNumeric -> builtin P.BuiltinFunctionPRECISION_BIGNUMERIC
@@ -501,7 +501,7 @@ encodeBuiltinExpr = \case
     BEMulBigNumeric -> builtin P.BuiltinFunctionMUL_BIGNUMERIC
     BEDivBigNumeric -> builtin P.BuiltinFunctionDIV_BIGNUMERIC
     BEShiftRightBigNumeric -> builtin P.BuiltinFunctionSHIFT_RIGHT_BIGNUMERIC
-    BEBigNumericToNumeric -> builtin P.BuiltinFunctionBIGNUMERIC_TO_NUMERIC
+    BEBigNumericToNumericLegacy -> builtin P.BuiltinFunctionBIGNUMERIC_TO_NUMERIC_LEGACY
     BENumericToBigNumeric -> builtin P.BuiltinFunctionNUMERIC_TO_BIGNUMERIC
 
     BEAddInt64 -> builtin P.BuiltinFunctionADD_INT64
@@ -511,7 +511,7 @@ encodeBuiltinExpr = \case
     BEModInt64 -> builtin P.BuiltinFunctionMOD_INT64
     BEExpInt64 -> builtin P.BuiltinFunctionEXP_INT64
 
-    BEInt64ToNumeric -> builtin P.BuiltinFunctionINT64_TO_NUMERIC
+    BEInt64ToNumericLegacy -> builtin P.BuiltinFunctionINT64_TO_NUMERIC_LEGACY
     BENumericToInt64 -> builtin P.BuiltinFunctionNUMERIC_TO_INT64
 
     BEFoldl -> builtin P.BuiltinFunctionFOLDL
