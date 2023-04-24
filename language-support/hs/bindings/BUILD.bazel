@@ -53,8 +53,8 @@ da_haskell_test(
     data = [
         ":for-tests.dar",
         ":for-upload.dar",
-        "//ledger/sandbox-on-x:app",
-    ],
+        "@canton//:lib",
+    ] + (["@sysctl_nix//:bin/sysctl"] if is_darwin else []),
     # The tests throw flaky timeout errors. It looks like this comes
     # from a fundamental issue in the Haskell bindings: they eagerly pull
     # from streams and those stream receives have a timeout. If we create the
@@ -90,7 +90,7 @@ da_haskell_test(
     src_strip_prefix = "test",
     # We spin up Sandbox as a separate process, so
     # try not to overload the machine.
-    tags = ["cpu:2"] + (["manual"] if is_darwin else []),
+    tags = ["cpu:4"] + (["manual"] if is_darwin else []),
     visibility = ["//visibility:public"],
     deps = [
         "//compiler/daml-lf-ast",
