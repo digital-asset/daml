@@ -157,7 +157,6 @@ da_scala_test_suite(
         "src/test/**/*Test.scala",
     ]),
     data = [
-        "//test-common:dar-files",
         "@canton//:lib",
     ],
     scala_deps = [
@@ -202,7 +201,6 @@ da_scala_test_suite(
         "//libs-scala/ports",
         "//libs-scala/resources",
         "//libs-scala/timer-utils",
-        "//test-common:dar-files-default-lib",
         "@maven//:com_typesafe_config",
     ],
 )

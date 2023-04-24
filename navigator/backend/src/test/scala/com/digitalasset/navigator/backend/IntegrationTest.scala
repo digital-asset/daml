@@ -9,7 +9,6 @@ import akka.http.scaladsl.model.{HttpRequest, StatusCodes, Uri}
 import akka.http.scaladsl.server.Route
 import akka.http.scaladsl.settings.ServerSettings
 import akka.util.ByteString
-import com.daml.bazeltools.BazelRunfiles
 import com.daml.buildinfo.BuildInfo
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
@@ -28,7 +27,6 @@ import com.google.protobuf.field_mask.FieldMask
 import org.slf4j.LoggerFactory
 
 import java.util.UUID
-import java.nio.file.Paths
 import scala.concurrent.{Await, Future}
 import scala.concurrent.duration._
 
@@ -40,14 +38,12 @@ class IntegrationTest
   self: Suite =>
 
   override protected def authSecret = None
-  override protected def darFiles = List(darFile)
+  override protected def darFiles = List()
   override protected def devMode = false
   override protected def nParticipants = 1
   override protected def timeProviderType = TimeProviderType.Static
   override protected def tlsEnable = false
   override protected def applicationId: ApplicationId = ApplicationId("navigator-backend")
-
-  private val darFile = BazelRunfiles.rlocation(Paths.get(com.daml.ledger.test.ModelTestDar.path))
 
   private val logger = LoggerFactory.getLogger(getClass)
 
