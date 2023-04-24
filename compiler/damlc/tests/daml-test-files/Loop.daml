@@ -1,8 +1,6 @@
 -- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
--- @ENABLE-SCENARIOS
-
 module Loop where
 
 import Daml.Script
@@ -20,30 +18,16 @@ template Helper
       do
         pure $ loop 1
 
--- @ERROR range=24:1-24:16; Evaluation timed out after 3 seconds
-scenarioMachine = scenario do
-  pure $ loop 1
-
--- @ERROR range=28:1-28:32; Evaluation timed out after 3 seconds
-ledgerMachineFromScenarioSubmit = scenario do
-  alice <- getParty "p"
-  alice `submit` createAndExercise (Helper alice) Loop
-
--- @ERROR range=33:1-33:40; Evaluation timed out after 3 seconds
-ledgerMachineFromScenarioSubmitMustFail = scenario do
-  alice <- getParty "p"
-  alice `submitMustFail` createAndExercise (Helper alice) Loop
-
--- @ERROR range=38:1-38:14; Evaluation timed out after 3 seconds
+-- @ERROR range=22:1-22:14; Evaluation timed out after 3 seconds
 scriptMachine = script do
   pure $ loop 1
 
--- @ERROR range=42:1-42:30; Evaluation timed out after 3 seconds
+-- @ERROR range=26:1-26:30; Evaluation timed out after 3 seconds
 ledgerMachineFromScriptSubmit = script do
   alice <- allocateParty "p"
   alice `submit` createAndExerciseCmd (Helper alice) Loop
 
--- @ERROR range=47:1-47:38; Evaluation timed out after 3 seconds
+-- @ERROR range=31:1-31:38; Evaluation timed out after 3 seconds
 ledgerMachineFromScriptSubmitMustFail= script do
   alice <- allocateParty "p"
   alice `submitMustFail` createAndExerciseCmd (Helper alice) Loop
