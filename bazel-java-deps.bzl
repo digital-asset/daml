@@ -194,7 +194,6 @@ def install_java_deps():
             "io.opentelemetry:opentelemetry-sdk-logs:{}-alpha".format(opentelemetry_version),
             "io.opentelemetry:opentelemetry-sdk-testing:{}".format(opentelemetry_version),
             "io.opentelemetry:opentelemetry-sdk-metrics:{}".format(opentelemetry_version),
-            "io.opentelemetry:opentelemetry-sdk-testing:{}".format(opentelemetry_version),
             "io.opentelemetry:opentelemetry-sdk-trace:{}".format(opentelemetry_version),
             "io.opentelemetry:opentelemetry-semconv:{}-alpha".format(opentelemetry_version),
             "io.opentelemetry.instrumentation:opentelemetry-runtime-metrics:{}-alpha".format(opentelemetry_version),
