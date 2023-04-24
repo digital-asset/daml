@@ -1179,8 +1179,8 @@ semigroups 0.19.2 : BSD 3-clause "New" or "Revised" License
 semirings 0.6 : BSD 3-clause "New" or "Revised" License
 semver 0.4.0.1 : Mozilla Public License 2.0
 senchalabs / connect 3.7.0 : MIT License
-Send for Node.js 0.17.1 : MIT License
-Send for Node.js 0.18.0 : MIT License
+send 0.17.1 : MIT License
+send 0.18.0 : MIT License
 serve-index 1.9.1 : MIT License
 serve-static 1.15.0 : MIT License
 serve-static v1.14.1 : MIT License
@@ -8394,7 +8394,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE
 ---
 
 MIT License
-(Send for Node.js 0.18.0)
+(send 0.18.0)
 
 (The MIT License)
 
@@ -18853,7 +18853,7 @@ Permission is hereby granted, free of charge, to any person
 ---
 
 MIT License
-(Send for Node.js 0.17.1)
+(send 0.17.1)
 
 Upstream-Contact: https://github.com/pillarjs/send/issues
 Source: https://github.com/pillarjs/send
