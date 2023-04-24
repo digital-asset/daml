@@ -24,7 +24,7 @@ message Completion {
   // Optional
   google.rpc.Status status = 2;
 
-  // The transaction_id of the transaction that resulted from the command with command_id.
+  // The transaction_id of the transaction, or the update_id of the transfer that resulted from the command with command_id.
   // Only set for successfully executed commands.
   // Must be a valid LedgerString (as described in ``value.proto``).
   // Optional

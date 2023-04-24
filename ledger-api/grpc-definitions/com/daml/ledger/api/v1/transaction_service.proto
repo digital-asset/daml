@@ -75,6 +75,9 @@ message GetTransactionsRequest {
   // Optional
   bool verbose = 5;
 
+  // Must be a valid domain ID
+  // Optional
+  string domain_id = 6;
 }
 
 message GetTransactionsResponse {
@@ -103,6 +106,10 @@ message GetTransactionByEventIdRequest {
   // Each element must be a valid PartyIdString (as described in ``value.proto``).
   // Required
   repeated string requesting_parties = 3;
+
+  // Must be a valid domain ID
+  // Optional
+  string domain_id = 4;
 }
 
 message GetTransactionByIdRequest {
@@ -121,6 +128,10 @@ message GetTransactionByIdRequest {
   // Each element be a valid PartyIdString (as describe in ``value.proto``).
   // Required
   repeated string requesting_parties = 3;
+
+  // Must be a valid domain ID
+  // Optional
+  string domain_id = 4;
 }
 
 message GetTransactionResponse {
@@ -136,6 +147,10 @@ message GetLedgerEndRequest {
   // Must be a valid LedgerString (as describe in ``value.proto``).
   // Optional
   string ledger_id = 1;
+
+  // Must be a valid domain ID
+  // Option
+  string domain_id = 2;
 }
 
 message GetLedgerEndResponse {

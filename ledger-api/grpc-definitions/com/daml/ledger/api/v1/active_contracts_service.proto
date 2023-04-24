@@ -45,6 +45,10 @@ message GetActiveContractsRequest {
   // If not set the current ledger end offset will be used.
   // Optional
   string active_at_offset = 4;
+
+  // Must be a valid domain ID
+  // Optional
+  string domain_id = 5;
 }
 
 message GetActiveContractsResponse {

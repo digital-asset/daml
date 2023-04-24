@@ -1,0 +1,68 @@
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package com.daml.ledger.api.v1;
+
+import "com/daml/ledger/api/v1/event.proto";
+import "com/daml/ledger/api/v1/transaction_filter.proto";
+import "com/daml/ledger/api/v1/transfer.proto";
+
+option java_outer_classname = "InFlightTransfersServiceOuterClass";
+option java_package = "com.daml.ledger.api.v1";
+option csharp_namespace = "Com.Daml.Ledger.Api.V1";
+
+// Allows clients to get in-flight state of transfers from the ledger.
+service InFlightTransfersService {
+
+  // Get the list of in-flight transfers.
+  // If there are no in-flight transfers, the stream returns a single response message with the offset at which the snapshot has been taken.
+  // Clients SHOULD use the offset in the GetInFlightTransfersResponse message to continue streaming updates with the update service.
+  // Clients SHOULD NOT assume that the set of in-flight transfers they receive reflects the state at the ledger end.
+  // Clients SHOULD be aware of limitations of this endpoint.
+  rpc GetInFlightTransfers (GetInFlightTransfersRequest) returns (stream GetInFlightTransfersResponse);
+}
+
+message GetInFlightTransfersRequest {
+  // Must be a valid domain ID
+  // Required
+  string source_domain_id = 1;
+
+  // The offset at which the snapshot of the in-flight transfers will be computed.
+  // Must be no greater than the current ledger end offset.
+  // Must be greater than or equal to the last pruning offset.
+  // If not set the current ledger end offset will be used.
+  // Optional
+  string valid_at_offset = 2;
+
+  // Templates to include in the served snapshot, per party.
+  // Required
+  TransactionFilter filter = 3;
+}
+
+// When returning the GetInFlightTransfersResponse as a stream, then
+//   - All but the last GetInFlightTransfersResponse will have empty offset
+//   - The last GetInFlightTransfersResponse will have `offset` and empty `transfer_outs`
+// A transfer included in the response must satisfy:
+//     1. Transfer-out was done before or at `valid_at_offset` (which defaults to the ledger end).
+//     2. At least one party in `stakeholders` was a confirming party in the transfer-out and
+//       was expected to be able to submit the transfer-in.
+//
+//    Note that 2. may not be valid at the time of the query if topology was changed.
+message GetInFlightTransfersResponse {
+  message InFlightTransfer {
+    // Required
+    TransferredOutEvent transferred_out_event = 1;
+
+    // Required
+    CreatedEvent created_event = 2;
+  }
+
+  // Included only in the last message.
+  // The client should start consuming the transactions endpoint with this offset.
+  // The format of this field is described in ``ledger_offset.proto``.
+  string offset = 1;
+
+  repeated InFlightTransfer in_flight_transfers = 2;
+}

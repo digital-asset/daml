@@ -125,6 +125,10 @@ message Commands {
   // Additional contracts used to resolve contract & contract key lookups.
   // Optional
   repeated DisclosedContract disclosed_contracts = 17;
+
+  // Must be a valid domain ID
+  // Optional
+  string domain_id = 18;
 }
 
 // A command can either create a new contract or exercise a choice on an existing contract.

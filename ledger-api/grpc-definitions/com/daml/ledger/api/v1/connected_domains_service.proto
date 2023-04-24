@@ -1,0 +1,58 @@
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package com.daml.ledger.api.v1;
+
+option java_outer_classname = "ConnectedDomainsServiceOuterClass";
+option java_package = "com.daml.ledger.api.v1";
+option csharp_namespace = "Com.Daml.Ledger.Api.V1";
+
+// Allows clients to get state of connected domains from the ledger.
+service ConnectedDomainsService {
+  // Get the list of connected domains.
+  rpc GetConnectedDomains (GetConnectedDomainsRequest) returns (GetConnectedDomainsResponse);
+}
+
+message GetConnectedDomainsRequest {
+  // The submitting party
+  // Must be a valid PartyIdString (as described in ``value.proto``).
+  // Required
+  string party = 1;
+
+  ConnectedDomainsFilter connected_domain_filter = 2;
+}
+
+message GetConnectedDomainsResponse {
+  message ConnectedDomain {
+    // The alias of the domain
+    string domain_alias = 1;
+    // The ID of the domain
+    string domain_id = 2;
+    // The permission on the domain
+    ParticipantPermission permission = 3;
+  }
+  repeated ConnectedDomain connected_domains = 1;
+}
+
+message ConnectedDomainsFilter {
+  // If empty, domains with all permissions are returned.
+  // Only the domains with the requested ParticipantPermission are returned.
+  // E.g if the permissions are set to Observation and the participant has Submission rights, the result will be empty.
+  // Passing the same permission twice is accepted and they are deduplicated.
+  repeated ParticipantPermission permissions = 1;
+}
+
+// enum indicating the permission level
+enum ParticipantPermission {
+  MissingParticipantPermission = 0;
+  // participant is active, can submit transactions
+  Submission = 1;
+  // participant is passive, can only confirm transactions
+  Confirmation = 2;
+  // participant is passive, can only observe transactions
+  Observation = 3;
+  // participant is disabled and can not be addressed
+  Disabled = 4;
+}

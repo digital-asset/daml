@@ -6,6 +6,7 @@ syntax = "proto3";
 package com.daml.ledger.api.v1;
 
 import "com/daml/ledger/api/v1/commands.proto";
+import "com/daml/ledger/api/v1/transfer_command.proto";
 import "google/protobuf/empty.proto";
 
 option java_outer_classname = "CommandSubmissionServiceOuterClass";
@@ -31,6 +32,9 @@ service CommandSubmissionService {
   // Submit a single composite command.
   rpc Submit (SubmitRequest) returns (google.protobuf.Empty);
 
+  // Submit a single transfer.
+  rpc SubmitTransfer (SubmitTransferRequest) returns (google.protobuf.Empty);
+
 }
 
 // The submitted commands will be processed atomically in a single transaction. Moreover, each ``Command`` in ``commands`` will be executed in the order specified by the request.
@@ -39,5 +43,13 @@ message SubmitRequest {
   // The commands to be submitted in a single transaction.
   // Required
   Commands commands = 1;
+
+}
+
+message SubmitTransferRequest {
+
+  // The transfer command to be submitted.
+  // Required
+  TransferCommand transfer_command = 1;
 
 }
