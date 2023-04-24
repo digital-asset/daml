@@ -4,10 +4,12 @@
 package com.daml.lf.testing.archive
 
 import java.io.File
-
 import com.daml.bazeltools.BazelRunfiles
-import com.daml.lf.archive.{ArchivePayload, Dar, UniversalArchiveReader}
+import com.daml.lf.archive.{UniversalArchiveReader, Dar, ArchivePayload, UniversalArchiveDecoder}
+import com.daml.lf.archive.DecodeV1
 import com.daml.lf.data.Ref.DottedName
+import com.daml.lf.data.Ref.ModuleName
+import com.daml.lf.language.Ast
 import com.daml.lf.language.LanguageVersion
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.matchers.should.Matchers
@@ -104,6 +106,37 @@ class DamlLfEncoderTest
 
       }
     } yield DottedName.assertFromSegments(segments)
+  }
+
+  "BuiltinMod" should {
+
+    val builtinMod = ModuleName.assertFromString("BuiltinMod")
+
+    "contains all builtins " in {
+      forEvery(Table("version", LanguageVersion.All.filter(LanguageVersion.v1_13 <= _): _*)) {
+        // We do not check package older that 1.11 as they are used for stable packages only
+        version =>
+          val Right(dar) =
+            UniversalArchiveDecoder
+              .readFile(new File(rlocation(s"daml-lf/encoder/test-${version.pretty}.dar")))
+          val (_, mainPkg) = dar.main
+          val s1 = mainPkg
+            .modules(builtinMod)
+            .definitions
+            .values
+            .collect { case Ast.DValue(_, Ast.EBuiltin(builtin), _) => builtin }
+            .toSet
+
+          val s2 = DecodeV1.builtinFunctionInfos.collect {
+            case DecodeV1.BuiltinFunctionInfo(_, builtin, minVersion, maxVersion, _)
+                if minVersion <= version && maxVersion.forall(version < _) =>
+              builtin
+          }.toSet
+          s1 -- s2 shouldBe Set.empty
+          s2 -- s1 shouldBe Set.empty
+      }
+    }
+
   }
 
   private implicit def toDottedName(s: String): DottedName =
