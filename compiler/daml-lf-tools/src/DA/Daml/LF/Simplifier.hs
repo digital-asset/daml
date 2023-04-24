@@ -109,17 +109,17 @@ safetyStep = \case
       BELessEqNumeric     -> Safe 2
       BEGreaterNumeric    -> Safe 2
       BEGreaterEqNumeric  -> Safe 2
-      BEAddNumeric        -> Safe 1
-      BESubNumeric        -> Safe 1
-      BEMulNumericLegacy        -> Safe 1
-      BEDivNumericLegacy        -> Safe 1
-      BEInt64ToNumericLegacy    -> Safe 0
-      BENumericToInt64    -> Safe 0
-      BETextToNumericLegacy   -> Safe 1
-      BENumericToText     -> Safe 1
-      BERoundNumeric      -> Safe 1
-      BECastNumericLegacy       -> Safe 0
-      BEShiftNumericLegacy      -> Safe 1
+      BEAddNumeric          -> Safe 1
+      BESubNumeric          -> Safe 1
+      BEMulNumericLegacy    -> Safe 1
+      BEDivNumericLegacy    -> Safe 1
+      BEInt64ToNumericLegacy -> Safe 0
+      BENumericToInt64      -> Safe 0
+      BETextToNumericLegacy -> Safe 1
+      BENumericToText       -> Safe 1
+      BERoundNumeric        -> Safe 1
+      BECastNumericLegacy   -> Safe 0
+      BEShiftNumericLegacy  -> Safe 1
       BEScaleBigNumeric     -> Safe 1 -- doesn't fail
       BEPrecisionBigNumeric -> Safe 1 -- doesn't fail
       BEAddBigNumeric       -> Safe 1 -- fails on overflow

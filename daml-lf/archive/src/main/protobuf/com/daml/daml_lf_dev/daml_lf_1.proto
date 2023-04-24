@@ -433,13 +433,13 @@ enum BuiltinFunction {
   DIV_DECIMAL = 3; // *Available in versions < 1.7*
   ROUND_DECIMAL = 6; // *Available in versions < 1.7*
 
-  ADD_NUMERIC = 107;    // *Available in versions >= 1.7*
-  SUB_NUMERIC = 108;    // *Available in versions >= 1.7*
-  MUL_NUMERIC_LEGACY = 109;    // *Available in versions >= 1.7*
-  DIV_NUMERIC_LEGACY = 110;    // *Available in versions >= 1.7*
-  ROUND_NUMERIC = 111;  // *Available in versions >= 1.7*
-  CAST_NUMERIC_LEGACY = 121;   // *Available in versions >= 1.7*
-  SHIFT_NUMERIC_LEGACY = 122;  // *Available in versions >= 1.7*
+  ADD_NUMERIC = 107;           // *Available in versions >= 1.7*
+  SUB_NUMERIC = 108;           // *Available in versions >= 1.7*
+  MUL_NUMERIC_LEGACY = 109;    // *Available in 1.7 <= versions < 1.dev*
+  DIV_NUMERIC_LEGACY = 110;    // *Available in 1.7 <= versions < 1.dev*
+  ROUND_NUMERIC = 111;         // *Available in versions >= 1.7*
+  CAST_NUMERIC_LEGACY = 121;   // *Available in 1.7 <= versions < 1.dev*
+  SHIFT_NUMERIC_LEGACY = 122;  // *Available in 1.7 <= versions < 1.dev*
 
   ADD_INT64 = 7;
   SUB_INT64 = 8;
@@ -515,7 +515,7 @@ enum BuiltinFunction {
   TEXT_TO_PARTY = 95;
   TEXT_TO_INT64 = 103;
   TEXT_TO_DECIMAL = 104;
-  TEXT_TO_NUMERIC_LEGACY = 117;  // *Available in versions >= 1.7*
+  TEXT_TO_NUMERIC_LEGACY = 117; // *Available in 1.7 <= versions < 1.dev*
   CONTRACT_ID_TO_TEXT = 136; // *Available in versions >= 1.11*
   SHA256_TEXT = 93;
 
@@ -528,7 +528,7 @@ enum BuiltinFunction {
   INT64_TO_DECIMAL = 76;  // *Available in versions < 1.7*
   DECIMAL_TO_INT64 = 77;  // *Available in versions < 1.7*
 
-  INT64_TO_NUMERIC_LEGACY = 118;  // *Available in versions >= 1.7*
+  INT64_TO_NUMERIC_LEGACY = 118;  // *Available in 1.7 <= versions < 1.dev*
   NUMERIC_TO_INT64 = 119;  // *Available in versions >= 1.7*
 
   IMPLODE_TEXT = 78;
@@ -558,16 +558,16 @@ enum BuiltinFunction {
   CODE_POINTS_TO_TEXT = 105;
   TEXT_TO_CODE_POINTS = 106;
 
-  SCALE_BIGNUMERIC = 137; // *Available in versions >= 1.13*
-  PRECISION_BIGNUMERIC = 138; // *Available in versions >= 1.13*
-  ADD_BIGNUMERIC = 139; // *Available in versions >= 1.13*
-  SUB_BIGNUMERIC = 140; // *Available in versions >= 1.13*
-  MUL_BIGNUMERIC = 141; // *Available in versions >= 1.13*
-  DIV_BIGNUMERIC = 142; // *Available in versions >= 1.13*
-  SHIFT_RIGHT_BIGNUMERIC = 143; // *Available in versions >= 1.13*
-  BIGNUMERIC_TO_NUMERIC_LEGACY = 144; // *Available in versions >= 1.13*
-  NUMERIC_TO_BIGNUMERIC = 145; // *Available in versions >= 1.13*
-  BIGNUMERIC_TO_TEXT = 146; // *Available in versions >= 1.13*
+  SCALE_BIGNUMERIC = 137;             // *Available in versions >= 1.13*
+  PRECISION_BIGNUMERIC = 138;         // *Available in versions >= 1.13*
+  ADD_BIGNUMERIC = 139;               // *Available in versions >= 1.13*
+  SUB_BIGNUMERIC = 140;               // *Available in versions >= 1.13*
+  MUL_BIGNUMERIC = 141;               // *Available in versions >= 1.13*
+  DIV_BIGNUMERIC = 142;               // *Available in versions >= 1.13*
+  SHIFT_RIGHT_BIGNUMERIC = 143;       // *Available in versions >= 1.13*
+  BIGNUMERIC_TO_NUMERIC_LEGACY = 144; // *Available in 1.13 <= versions < 1.dev*
+  NUMERIC_TO_BIGNUMERIC = 145;        // *Available in versions >= 1.13*
+  BIGNUMERIC_TO_TEXT = 146;           // *Available in versions >= 1.13*
 
   TYPE_REP_TYCON_NAME = 148; // *Available in versions >= 1.dev*
 
