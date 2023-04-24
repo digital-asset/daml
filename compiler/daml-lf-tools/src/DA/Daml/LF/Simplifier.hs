@@ -167,14 +167,6 @@ safetyStep = \case
       BETextToCodePoints -> Safe 1
       BECoerceContractId -> Safe 1
       BETypeRepTyConName -> Safe 1
-      BETextToUpper -> Safe 1
-      BETextToLower -> Safe 1
-      BETextSlice -> Safe 3
-      BETextSliceIndex -> Safe 2
-      BETextContainsOnly -> Safe 2
-      BETextReplicate -> Safe 2
-      BETextSplitOn -> Safe 2
-      BETextIntercalate -> Safe 2
 
   ERecConF _ fs -> minimum (Safe 0 : map snd fs)
   ERecProjF _ _ s -> s <> Safe 0

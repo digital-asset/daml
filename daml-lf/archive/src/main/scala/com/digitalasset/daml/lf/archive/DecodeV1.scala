@@ -2397,15 +2397,7 @@ private[archive] object DecodeV1 {
       BuiltinFunctionInfo(NUMERIC_TO_BIGNUMERIC, BNumericToBigNumeric, minVersion = bigNumeric),
       BuiltinFunctionInfo(BIGNUMERIC_TO_TEXT, BBigNumericToText, minVersion = bigNumeric),
       BuiltinFunctionInfo(ANY_EXCEPTION_MESSAGE, BAnyExceptionMessage, minVersion = exceptions),
-      BuiltinFunctionInfo(TYPE_REP_TYCON_NAME, BTypeRepTyConName, minVersion = LV.v1_dev),
-      BuiltinFunctionInfo(TEXT_TO_UPPER, BTextToUpper, minVersion = unstable),
-      BuiltinFunctionInfo(TEXT_TO_LOWER, BTextToLower, minVersion = unstable),
-      BuiltinFunctionInfo(TEXT_SLICE, BTextSlice, minVersion = unstable),
-      BuiltinFunctionInfo(TEXT_SLICE_INDEX, BTextSliceIndex, minVersion = unstable),
-      BuiltinFunctionInfo(TEXT_CONTAINS_ONLY, BTextContainsOnly, minVersion = unstable),
-      BuiltinFunctionInfo(TEXT_REPLICATE, BTextReplicate, minVersion = unstable),
-      BuiltinFunctionInfo(TEXT_SPLIT_ON, BTextSplitOn, minVersion = unstable),
-      BuiltinFunctionInfo(TEXT_INTERCALATE, BTextIntercalate, minVersion = unstable),
+      BuiltinFunctionInfo(TYPE_REP_TYCON_NAME, BTypeRepTyConName, minVersion = unstable),
     )
   }
 

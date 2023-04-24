@@ -546,16 +546,6 @@ object Ast {
   // TypeRep
   final case object BTypeRepTyConName extends BuiltinFunction // : TypeRep → Optional Text
 
-  // Unstable Text Primitives
-  final case object BTextToUpper extends BuiltinFunction // Text → Text
-  final case object BTextToLower extends BuiltinFunction // : Text → Text
-  final case object BTextSlice extends BuiltinFunction // : Int64 → Int64 → Text → Text
-  final case object BTextSliceIndex extends BuiltinFunction // : Text → Text → Optional Int64
-  final case object BTextContainsOnly extends BuiltinFunction // : Text → Text → Bool
-  final case object BTextReplicate extends BuiltinFunction // : Int64 → Text → Text
-  final case object BTextSplitOn extends BuiltinFunction // : Text → Text → List Text
-  final case object BTextIntercalate extends BuiltinFunction // : Text → List Text → Text
-
   final case class EExperimental(name: String, typ: Type) extends Expr
 
   //
