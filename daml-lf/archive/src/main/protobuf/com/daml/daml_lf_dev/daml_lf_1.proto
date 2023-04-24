@@ -1855,3 +1855,6 @@ message Package {
   // at smaller indices.
   repeated Type interned_types = 5; // *Available in versions >= 1.11*
 }
+
+message Dummy {
+}
