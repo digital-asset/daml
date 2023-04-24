@@ -483,6 +483,8 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
             "contract agreement",
             "contract signatories",
             "contract observers",
+            // TODO: https://github.com/digital-asset/daml/issues/15882
+            // -- Test evaluation order for contract authorizers
             "key",
             "maintainers",
             "ends test",

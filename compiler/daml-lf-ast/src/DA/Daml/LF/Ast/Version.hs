@@ -162,6 +162,9 @@ featureExperimental = Feature
     , featureCppFlag = Just "DAML_EXPERIMENTAL"
     }
 
+-- TODO: https://github.com/digital-asset/daml/issues/15882
+-- Ought we have "featureChoiceAuthority" ?
+
 allFeatures :: [Feature]
 allFeatures =
     [ featureStringInterning

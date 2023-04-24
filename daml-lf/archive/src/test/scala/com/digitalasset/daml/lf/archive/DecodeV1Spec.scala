@@ -1638,7 +1638,11 @@ class DecodeV1Spec
       }
     }
 
-    "reject choice with observers if 1.7 < lf version < 1.11" in { // TODO #15882 add similar test for choice authority version support
+    // TODO: https://github.com/digital-asset/daml/issues/15882
+    // -- When choice authority encode/decode has been implemented,
+    // -- test that we reject explicit choice authorizers prior to the feature version.
+
+    "reject choice with observers if 1.7 < lf version < 1.11" in {
       val protoChoiceWithoutObservers = DamlLf1.TemplateChoice
         .newBuilder()
         .setNameInternedStr(0)
