@@ -20,7 +20,6 @@ private[speedy] object SValueIterable {
     case SValue.SList(list) => list.iterator
     case SValue.SMap(_, entries) => entries.iterator.flatMap({ case (k, v) => Iterator(k, v) })
     case SValue.SAny(_, value) => Iterator(value)
-    case SValue.STNat(_) => Iterator.empty
     case SValue.STypeRep(_) => Iterator.empty
     case SValue.SToken => Iterator.empty
     case _: SValue.SPrimLit => Iterator.empty

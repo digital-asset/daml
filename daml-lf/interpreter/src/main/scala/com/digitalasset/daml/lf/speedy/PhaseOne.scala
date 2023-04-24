@@ -30,8 +30,8 @@ private[speedy] object PhaseOne {
 
   private val SBEToTextNumeric = SEAbs(1, SEBuiltin(SBToText))
 
-  private val SENat: Numeric.Scale => Some[SEValue] =
-    Numeric.Scale.values.map(n => Some(SEValue(STNat(n))))
+  private val SNumericWitness: Numeric.Scale => Some[SEValue] =
+    Numeric.Scale.values.map(s => Some(SEValue(SNumeric(Numeric.assertFromBigDecimal(s, 1)))))
 
   private[speedy] abstract class VarRef { def name: Name }
   // corresponds to Daml-LF expression variable.
@@ -839,7 +839,7 @@ private[lf] final class PhaseOne(
 
   private[this] def translateType(env: Env, typ: Type): Option[SExpr] =
     typ match {
-      case TNat(n) => SENat(n)
+      case TNat(n) => SNumericWitness(n)
       case TVar(name) => env.lookupTypeVar(name)
       case _ => None
     }
