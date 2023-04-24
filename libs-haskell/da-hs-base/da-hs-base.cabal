@@ -38,6 +38,7 @@ library
       monad-loops,
       optparse-applicative,
       pretty,
+      process,
       random,
       safe,
       safe-exceptions,

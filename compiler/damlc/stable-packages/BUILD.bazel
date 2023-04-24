@@ -32,7 +32,7 @@ da_haskell_binary(
         "optparse-applicative",
         "text",
     ],
-    main_function = "GenerateStablePackage.main",
+    main_function = "Main.main",
     src_strip_prefix = "src",
     visibility = ["//visibility:public"],
     deps = [
