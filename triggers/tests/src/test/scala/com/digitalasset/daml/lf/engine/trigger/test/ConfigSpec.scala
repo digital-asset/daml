@@ -11,7 +11,6 @@ import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.UserId
 import com.daml.lf.integrationtest.CantonFixture
-import com.daml.lf.integrationtest.CantonFixture.{adminUserId, freshUserId}
 import com.daml.platform.services.time.TimeProviderType
 import com.google.protobuf.field_mask.FieldMask
 import io.grpc.StatusRuntimeException
@@ -92,8 +91,8 @@ class ConfigSpec
   "resolveClaims" should {
     "succeed for user with primary party & actAs and readAs claims" in {
       for {
-        adminClient <- defaultLedgerClient(getToken(adminUserId))
-        userId = Ref.UserId.assertFromString(freshUserId())
+        adminClient <- defaultLedgerClient(config.adminToken)
+        userId = CantonFixture.freshUserId()
         primary <- adminClient.partyManagementClient.allocateParty(
           hint = Some("primary"),
           None,
@@ -114,8 +113,8 @@ class ConfigSpec
     }
     "fail for non-existent user" in {
       for {
-        adminClient <- defaultLedgerClient(getToken(adminUserId))
-        userId = Ref.UserId.assertFromString(freshUserId())
+        adminClient <- defaultLedgerClient(config.adminToken)
+        userId = CantonFixture.freshUserId()
         ex <- recoverToExceptionIf[StatusRuntimeException](
           UserSpecification(userId).resolveClaims(adminClient)
         )
@@ -123,8 +122,8 @@ class ConfigSpec
     }
     "fail for user with no primary party" in {
       for {
-        adminClient <- defaultLedgerClient(getToken(adminUserId))
-        userId = Ref.UserId.assertFromString(freshUserId())
+        adminClient <- defaultLedgerClient(config.adminToken)
+        userId = CantonFixture.freshUserId()
         _ <- adminClient.userManagementClient.createUser(
           User(userId, None, metadata = ObjectMeta.empty),
           Seq.empty,
@@ -136,8 +135,8 @@ class ConfigSpec
     }
     "fail for user with no actAs claims for primary party" in {
       for {
-        adminClient <- defaultLedgerClient(getToken(adminUserId))
-        userId = Ref.UserId.assertFromString(freshUserId())
+        adminClient <- defaultLedgerClient(config.adminToken)
+        userId = CantonFixture.freshUserId()
         _ <- adminClient.userManagementClient.createUser(
           User(userId, Some("primary"), isDeactivated = false, ObjectMeta.empty),
           Seq.empty,
@@ -149,8 +148,8 @@ class ConfigSpec
     }
     "succeed for user after primaryParty update" in {
       for {
-        adminClient <- defaultLedgerClient(getToken(adminUserId))
-        userId = Ref.UserId.assertFromString(freshUserId())
+        adminClient <- defaultLedgerClient(config.adminToken)
+        userId = CantonFixture.freshUserId()
         original <- adminClient.partyManagementClient.allocateParty(
           hint = Some("original"),
           None,
