@@ -41,7 +41,7 @@ class IntegrationTest
   override protected def darFiles = List()
   override protected def devMode = false
   override protected def nParticipants = 1
-  override protected def timeProviderType = TimeProviderType.Static
+  override protected def timeProviderType = TimeProviderType.WallClock
   override protected def tlsEnable = false
   override protected def applicationId: ApplicationId = ApplicationId("navigator-backend")
 
