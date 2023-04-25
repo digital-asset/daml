@@ -230,9 +230,6 @@ getIntegrationTests registerTODO scenarioService (packageDbPath, packageFlag) = 
             , getCantSkipPreprocessorTestFiles
             ]
 
-    let (scenariosEnabledTests, plainTests) =
-            partition (\(_, _, anns) -> any isEnableScenariosYes anns) damlTests
-
     let outdir = "compiler/damlc/output"
     createDirectoryIfMissing True outdir
 
@@ -268,13 +265,8 @@ getIntegrationTests registerTODO scenarioService (packageDbPath, packageFlag) = 
             (mkIde opts)
             shutdown
             $ \service ->
-          withResource
-            (mkIde opts { optEnableScenarios = EnableScenarios True })
-            shutdown
-            $ \serviceScenariosEnabled ->
           testGroup ("Tests for Daml-LF " ++ renderPretty version) $
-            map (testCase version service outdir registerTODO) plainTests <>
-            map (testCase version serviceScenariosEnabled outdir registerTODO) scenariosEnabledTests
+            map (testCase version service outdir registerTODO) damlTests
 
     pure tree
 
@@ -403,12 +395,6 @@ data Ann
     | DiagnosticFields [DiagnosticField] -- I expect a diagnostic that has the given fields
     | QueryLF String Bool                -- The jq query against the produced Daml-LF returns "true". Includes a boolean for is stream
     | Todo String                        -- Just a note that is printed out
-    | EnableScenariosYes                 -- Run this test with --enable-scenarios=yes
-
-isEnableScenariosYes :: Ann -> Bool
-isEnableScenariosYes = \case
-    EnableScenariosYes -> True
-    _ -> False
 
 readFileAnns :: FilePath -> IO [Ann]
 readFileAnns file = do
@@ -418,7 +404,6 @@ readFileAnns file = do
         f :: String -> Maybe Ann
         f (stripPrefix "-- @" . trim -> Just x) = case word1 $ trim x of
             ("IGNORE",_) -> Just Ignore
-            ("ENABLE-SCENARIOS",_) -> Just EnableScenariosYes
             ("SINCE-LF", x) -> Just $ SinceLF $ fromJust $ LF.parseVersion $ trim x
             ("UNTIL-LF", x) -> Just $ UntilLF $ fromJust $ LF.parseVersion $ trim x
             ("SINCE-LF-FEATURE", x) -> Just $ SinceLF $ LF.versionForFeaturePartial $ T.pack $ trim x
@@ -486,7 +471,6 @@ mainProj service outdir log file = do
             corePrettyPrint core
             lf <- lfTypeCheck log file
             lfSave lf
-            lfRunScenarios log file
             lfRunScripts log file
             jsonSave lf
             pure (lf, jsonPath)
@@ -511,9 +495,6 @@ lfConvert log file = timed log "LF convert" $ unjust $ getRawDalf file
 
 lfTypeCheck :: (String -> IO ()) -> NormalizedFilePath -> Action LF.Package
 lfTypeCheck log file = timed log "LF type check" $ unjust $ getDalf file
-
-lfRunScenarios :: (String -> IO ()) -> NormalizedFilePath -> Action ()
-lfRunScenarios log file = timed log "LF scenario execution" $ void $ unjust $ runScenarios file
 
 lfRunScripts :: (String -> IO ()) -> NormalizedFilePath -> Action ()
 lfRunScripts log file = timed log "LF scripts execution" $ void $ unjust $ runScripts file

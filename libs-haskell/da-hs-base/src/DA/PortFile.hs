@@ -57,4 +57,4 @@ retryDelayMillis :: Int
 retryDelayMillis = 50
 
 maxRetries :: Int
-maxRetries = 120 * (1000 `div` retryDelayMillis)
+maxRetries = 180 * (1000 `div` retryDelayMillis)
