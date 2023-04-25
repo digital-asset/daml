@@ -105,29 +105,28 @@ trait CantonFixtureBase {
        |""".stripMargin
   )
 
-  protected val catonTmpDir = Files.createTempDirectory("CantonFixture")
-  protected val cantonConfigFile = catonTmpDir.resolve("participant.config")
-  protected val cantonLogFile = catonTmpDir.resolve("canton.log")
-  protected val portFile = catonTmpDir.resolve("portfile")
-
-  private val files = List(cantonConfigFile, portFile, cantonLogFile)
+  protected val cantonTmpDir = Files.createTempDirectory("CantonFixture")
+  protected val cantonConfigFile = cantonTmpDir.resolve("participant.config")
+  protected val cantonLogFile = cantonTmpDir.resolve("canton.log")
+  protected val portFile = cantonTmpDir.resolve("portfile")
 
   protected def cantonCleanUp(): Unit = {
     if (cantonFixtureDebugMode)
-      info(s"The temporary files are located in ${catonTmpDir}")
-    else {
-      files.foreach(file => discard(Files.deleteIfExists(file)))
-      Files.delete(catonTmpDir)
-    }
+      info(s"The temporary files are located in ${cantonTmpDir}")
+    else
+      com.daml.fs.Utils.deleteRecursively(cantonTmpDir)
   }
 
   final protected lazy val tlsConfig =
-    TlsConfiguration(
-      enabled = tlsEnable,
-      certChainFile = Some(clientCrt.toFile),
-      privateKeyFile = Some(clientPem.toFile),
-      trustCollectionFile = Some(caCrt.toFile),
-    )
+    if (tlsEnable)
+      TlsConfiguration(
+        enabled = tlsEnable,
+        certChainFile = Some(clientCrt.toFile),
+        privateKeyFile = Some(clientPem.toFile),
+        trustCollectionFile = Some(caCrt.toFile),
+      )
+    else
+      TlsConfiguration(enabled = tlsEnable)
 
   protected def cantonResource(implicit
       esf: ExecutionSequencerFactory
