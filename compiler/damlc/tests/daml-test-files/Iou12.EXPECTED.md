@@ -14,15 +14,21 @@
 >
 > * **Choice Archive**
 >
+>   Returns: ()
+>
 >   (no fields)
 >
 > * **Choice DoNothing**
+>
+>   Returns: ()
 >
 >   (no fields)
 >
 > * **Choice Merge**
 >
 >   merges two "compatible" `Iou`s
+>
+>   Returns: [ContractId](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-contractid-95282) [Iou](#type-iou12-iou-72962)
 >
 >   | Field                                                                                                                          | Type                                                                                                                           | Description |
 >   | :----------------------------------------------------------------------------------------------------------------------------- | :----------------------------------------------------------------------------------------------------------------------------- | :---------- |
@@ -32,6 +38,8 @@
 >
 >   splits into two `Iou`s with smaller amounts
 >
+>   Returns: ([ContractId](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-contractid-95282) [Iou](#type-iou12-iou-72962), [ContractId](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-contractid-95282) [Iou](#type-iou12-iou-72962))
+>
 >   | Field                                                                                  | Type                                                                                   | Description |
 >   | :------------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------- | :---------- |
 >   | splitAmount                                                                            | [Decimal](https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-decimal-18135) | must be between zero and original amount |
@@ -39,6 +47,8 @@
 > * **Choice Transfer**
 >
 >   changes the owner
+>
+>   Returns: [ContractId](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-contractid-95282) [Iou](#type-iou12-iou-72962)
 >
 >   | Field                                                                                   | Type                                                                                    | Description |
 >   | :-------------------------------------------------------------------------------------- | :-------------------------------------------------------------------------------------- | :---------- |

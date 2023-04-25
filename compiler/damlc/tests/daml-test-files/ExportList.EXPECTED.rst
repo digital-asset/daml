@@ -26,9 +26,13 @@ Templates
 
   + **Choice Archive**
 
+    Returns\: ()
+
     (no fields)
 
   + **Choice Choice0**
+
+    Returns\: ()
 
     (no fields)
 
@@ -52,9 +56,13 @@ Templates
 
   + **Choice Archive**
 
+    Returns\: ()
+
     (no fields)
 
   + **Choice Choice1**
+
+    Returns\: ()
 
     (no fields)
 
@@ -78,9 +86,13 @@ Templates
 
   + **Choice Archive**
 
+    Returns\: ()
+
     (no fields)
 
   + **Choice Choice2**
+
+    Returns\: ()
 
     (no fields)
 
@@ -104,9 +116,13 @@ Templates
 
   + **Choice Archive**
 
+    Returns\: ()
+
     (no fields)
 
   + **Choice Choice3**
+
+    Returns\: ()
 
     (no fields)
 

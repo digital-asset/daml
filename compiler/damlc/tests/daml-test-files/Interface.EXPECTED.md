@@ -12,6 +12,8 @@
 >
 > * **Choice Archive**
 >
+>   Returns: ()
+>
 >   (no fields)
 
 > * **interface instance** [Token](#type-interface-token-10651) **for** [Asset](#type-interface-asset-25340)
@@ -26,15 +28,21 @@
 >
 > * **Choice Archive**
 >
+>   Returns: ()
+>
 >   (no fields)
 >
 > * **Choice GetRich**
+>
+>   Returns: [ContractId](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-contractid-95282) [Token](#type-interface-token-10651)
 >
 >   | Field                                                                          | Type                                                                           | Description |
 >   | :----------------------------------------------------------------------------- | :----------------------------------------------------------------------------- | :---------- |
 >   | byHowMuch                                                                      | [Int](https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-37261) |  |
 >
 > * **Choice Noop**
+>
+>   Returns: ()
 >
 >   | Field   | Type    | Description |
 >   | :------ | :------ | :---------- |
@@ -44,11 +52,15 @@
 >
 >   An interface choice comment.
 >
+>   Returns: ([ContractId](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-contractid-95282) [Token](#type-interface-token-10651), [ContractId](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-contractid-95282) [Token](#type-interface-token-10651))
+>
 >   | Field                                                                          | Type                                                                           | Description |
 >   | :----------------------------------------------------------------------------- | :----------------------------------------------------------------------------- | :---------- |
 >   | splitAmount                                                                    | [Int](https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-37261) | A choice field comment. |
 >
 > * **Choice Transfer**
+>
+>   Returns: [ContractId](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-contractid-95282) [Token](#type-interface-token-10651)
 >
 >   | Field                                                                                   | Type                                                                                    | Description |
 >   | :-------------------------------------------------------------------------------------- | :-------------------------------------------------------------------------------------- | :---------- |

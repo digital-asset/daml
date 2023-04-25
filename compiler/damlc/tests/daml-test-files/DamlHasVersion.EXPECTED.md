@@ -12,6 +12,8 @@ Testing the daml version header.
 >
 > * **Choice Archive**
 >
+>   Returns: ()
+>
 >   (no fields)
 
 ## Functions

@@ -14,9 +14,13 @@ Interfaces
 
   + **Choice Archive**
 
+    Returns\: ()
+
     (no fields)
 
   + **Choice GetRich**
+
+    Returns\: `ContractId <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-contractid-95282>`_ `Token <type-retroactiveinterfaceinstance-token-49693_>`_
 
     .. list-table::
        :widths: 15 10 30
@@ -30,6 +34,8 @@ Interfaces
          -
 
   + **Choice Noop**
+
+    Returns\: ()
 
     .. list-table::
        :widths: 15 10 30
@@ -46,6 +52,8 @@ Interfaces
 
     An interface choice comment\.
 
+    Returns\: (`ContractId <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-contractid-95282>`_ `Token <type-retroactiveinterfaceinstance-token-49693_>`_, `ContractId <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-contractid-95282>`_ `Token <type-retroactiveinterfaceinstance-token-49693_>`_)
+
     .. list-table::
        :widths: 15 10 30
        :header-rows: 1
@@ -58,6 +66,8 @@ Interfaces
          - A choice field comment\.
 
   + **Choice Transfer**
+
+    Returns\: `ContractId <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-contractid-95282>`_ `Token <type-retroactiveinterfaceinstance-token-49693_>`_
 
     .. list-table::
        :widths: 15 10 30

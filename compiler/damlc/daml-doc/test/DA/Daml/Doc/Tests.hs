@@ -161,7 +161,8 @@ unitTests =
                                 check $ isNothing $ fd_descr f1
                                 ch <- getSingle $ td_choicesWithoutArchive t
                                 f2 <- getSingle $ cd_fields ch
-                                check $ Just "field" == fd_descr f2))
+                                check $ Just "field" == fd_descr f2
+                                check $ TypeTuple [] == cd_type ch))
 
          , damldocExpect
            Nothing
