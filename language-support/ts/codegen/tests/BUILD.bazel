@@ -74,8 +74,8 @@ daml_compile(
 #  - Finally, invoke 'yarn test' from the 'root/build-and-lint' directory.
 #
 # That last step causes 'build-and-lint/src/__tests__/test.ts' to be executed which:
-#  - Spins up a sandbox running the 'build-and-lint-1.0.0.dar';
-#  - Spins up a http-json-api connected to the sandbox;
+#  - Spins up a canton participant and domain running the 'build-and-lint-1.0.0.dar';
+#  - Spins up a http-json-api connected to the participant;
 #  - Evaluates assertions of http-json-api specified ledger operations
 #    involving contracts defined by the dar;
 #  - Gracefully tears down the processes it started when its work is done.
@@ -119,9 +119,11 @@ sh_test(
             "ts/**/lib/**",
         ],
     ),
-    # Spinning up jest, Sandbox and the JSON API is expensive.
+    # Spinning up jest, Canton and the JSON API is expensive.
     # We get some timeouts during startup with 2 cpus so we set it to 4 to reduce
     # system load.
+    # Running exclusively at this time to avoid port clashes, due to lack of freeport in ts
+    # Consider porting this to scala.
     tags = [
         "cpu:4",
         "exclusive",
