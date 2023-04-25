@@ -88,7 +88,7 @@ sh_test(
         "$(location //:java)",
         "$(location //:yarn)",
         "$(location //:daml2js)",
-        "$(location //ledger/sandbox-on-x:app_deploy.jar)",
+        "$(location @canton//:lib)",
         "$(location //ledger-service/http-json:http-json-binary_deploy.jar)",
         "$(location :build-and-lint.dar)",
         "$(location ts/package.json)",
@@ -104,13 +104,13 @@ sh_test(
         "//:java",
         "//:yarn",
         "//:daml2js",
-        "//ledger/sandbox-on-x:app_deploy.jar",
         "//ledger-service/http-json:http-json-binary_deploy.jar",
         ":build-and-lint.dar",
         ":hidden.dar",
         "//test-common:model-tests-default.dar",
         "//language-support/ts/daml-types:npm_package",
         "//language-support/ts/daml-ledger:npm_package",
+        "@canton//:lib",
         "@grpcurl_nix//:bin",
     ] + glob(
         ["ts/**"],
@@ -122,7 +122,10 @@ sh_test(
     # Spinning up jest, Sandbox and the JSON API is expensive.
     # We get some timeouts during startup with 2 cpus so we set it to 4 to reduce
     # system load.
-    tags = ["cpu:4"],
+    tags = [
+        "cpu:4",
+        "exclusive",
+    ],
     toolchains = ["@rules_sh//sh/posix:make_variables"],
     deps = [
         "@bazel_tools//tools/bash/runfiles",

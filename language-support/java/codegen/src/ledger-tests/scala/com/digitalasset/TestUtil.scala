@@ -8,79 +8,64 @@ import com.daml.ledger.api.v1.ActiveContractsServiceOuterClass.GetActiveContract
 import com.daml.ledger.api.v1.CommandServiceOuterClass.SubmitAndWaitRequest
 import com.daml.ledger.api.v1.{ActiveContractsServiceGrpc, CommandServiceGrpc}
 import com.daml.ledger.client.LedgerClient
-import com.daml.ledger.client.configuration.{
-  CommandClientConfiguration,
-  LedgerClientConfiguration,
-  LedgerIdRequirement,
-}
 import com.daml.ledger.javaapi.data
 import com.daml.ledger.javaapi.data.codegen.HasCommands
 import com.daml.ledger.javaapi.data.{codegen => jcg, _}
-import com.daml.ledger.sandbox.SandboxOnXForTest.{
-  ApiServerConfig,
-  Default,
-  DevEngineConfig,
-  singleParticipant,
-}
-import com.daml.platform.apiserver.SeedService.Seeding
-import com.daml.platform.sandbox.fixture.SandboxFixture
-import com.daml.platform.services.time.TimeProviderType
 import com.google.protobuf.Empty
 import io.grpc.Channel
 import org.scalatest.{Assertion, Suite}
 
-import java.io.File
 import java.util.concurrent.TimeUnit
 import java.util.stream.{Collectors, StreamSupport}
 import java.util.{Optional, UUID}
-import scala.concurrent.{ExecutionContextExecutor, Future}
+import scala.concurrent.{Await, ExecutionContext, ExecutionContextExecutor, Future}
 import scala.jdk.CollectionConverters._
 import scala.jdk.javaapi.OptionConverters
 import scala.language.implicitConversions
 
-trait SandboxTestLedger extends SandboxFixture {
+import scala.concurrent.duration._
+import java.nio.file.Paths
+import com.daml.lf.integrationtest.CantonFixture
+import com.daml.platform.services.time.TimeProviderType
+import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
+import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
+
+trait SandboxTestLedger extends CantonFixture with SuiteResourceManagementAroundAll {
   self: Suite =>
 
-  protected val damlPackages: List[File] = List(
-    new File(BazelRunfiles.rlocation("language-support/java/codegen/ledger-tests-model.dar"))
+  override protected def authSecret = None
+  override protected def darFiles = List(
+    BazelRunfiles.rlocation(Paths.get("language-support/java/codegen/ledger-tests-model.dar"))
   )
+  override protected def devMode = false
+  override protected def nParticipants = 1
+  override protected def timeProviderType = TimeProviderType.WallClock
+  override protected def tlsEnable = false
+  override protected def applicationId: ApplicationId = ApplicationId("sandbox-test-ledger")
 
-  override protected def packageFiles: List[File] = damlPackages
+  private var client: LedgerClient = _
 
-  override def config =
-    Default.copy(
-      ledgerId = TestUtil.LedgerID,
-      engine = DevEngineConfig,
-      participants = singleParticipant(
-        ApiServerConfig.copy(
-          timeProviderType = TimeProviderType.Static,
-          seeding = Seeding.Weak,
-        )
-      ),
-    )
-
-  protected val ClientConfiguration: LedgerClientConfiguration = LedgerClientConfiguration(
-    applicationId = TestUtil.LedgerID,
-    ledgerIdRequirement = LedgerIdRequirement.none,
-    commandClient = CommandClientConfiguration.default,
-    token = None,
-  )
+  override protected def beforeAll(): scala.Unit = {
+    implicit def executionContext: ExecutionContext = ExecutionContext.global
+    super.beforeAll()
+    client = Await.result(defaultLedgerClient(), 10.seconds)
+  }
 
   protected def allocateParty: Future[String] = {
     implicit val ec: ExecutionContextExecutor = system.dispatcher
-    for {
-      client <- LedgerClient(channel, ClientConfiguration)
-      allocatedParty <- client.partyManagementClient
-        .allocateParty(hint = None, displayName = None)
-    } yield allocatedParty.party
+    client.partyManagementClient
+      .allocateParty(hint = None, displayName = None)
+      .map(_.party)
   }
 
-  def withClient(testCode: Channel => Future[Assertion]): Future[Assertion] = testCode(channel)
+  def withClient(testCode: Channel => Future[Assertion]): Future[Assertion] = testCode(
+    client.channel
+  )
 }
 
 object TestUtil {
 
-  val LedgerID = "ledger-test"
+  val LedgerID = "participant0"
 
   // unfortunately this is needed to help with passing functions to rxjava methods like Flowable#map
   implicit def func2rxfunc[A, B](f: A => B): io.reactivex.functions.Function[A, B] = f(_)

@@ -5,7 +5,7 @@ package com.daml.codegen
 
 import akka.stream.scaladsl.{Sink, Source}
 import com.daml.codegen.util.TestUtil.{TestContext, requiredResource}
-import com.daml.ledger.api.refinements.ApiTypes.{CommandId, WorkflowId}
+import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId, CommandId, WorkflowId}
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.daml.ledger.api.v1.commands.Commands
 import com.daml.ledger.api.v1.event.Event
@@ -16,14 +16,8 @@ import com.daml.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
 import com.daml.ledger.client.LedgerClient
 import com.daml.ledger.client.binding.DomainTransactionMapper.DecoderType
 import com.daml.ledger.client.binding.{Contract, Template, Primitive => P}
-import com.daml.ledger.client.configuration.{
-  CommandClientConfiguration,
-  LedgerClientConfiguration,
-  LedgerIdRequirement,
-}
 import com.daml.ledger.client.services.commands.CommandSubmission
-import com.daml.ledger.sandbox.SandboxOnXForTest.{ApiServerConfig, singleParticipant}
-import com.daml.platform.sandbox.fixture.SandboxFixture
+import com.daml.lf.integrationtest.CantonFixture
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.sample.MyMain.{CallablePayout, MkListExample, PayOut}
 import com.daml.sample.{EventDecoder, MyMain, MySecondMain}
@@ -37,7 +31,6 @@ import org.scalatest.time.{Millis, Seconds, Span}
 import org.scalatest.wordspec.AnyWordSpec
 import scalaz.syntax.tag._
 
-import java.io.File
 import java.time.Instant
 import java.util.UUID
 import scala.concurrent.duration._
@@ -50,7 +43,18 @@ class ScalaCodeGenIT
     with ScalaFutures
     with Inside
     with SuiteResourceManagementAroundAll
-    with SandboxFixture {
+    with CantonFixture {
+
+  override protected def authSecret = None
+  override protected def darFiles = List(
+    requiredResource("language-support/scala/codegen-sample-app/MyMain.dar"),
+    requiredResource("language-support/scala/codegen-sample-app/MySecondMain.dar"),
+  ).map(_.toPath)
+  override protected def devMode = false
+  override protected def nParticipants = 1
+  override protected def timeProviderType = TimeProviderType.WallClock
+  override protected def tlsEnable = false
+  override protected def applicationId: ApplicationId = ApplicationId("scala-code-gen-client")
 
   private val StartupTimeout = 10.seconds
 
@@ -59,18 +63,11 @@ class ScalaCodeGenIT
 
   implicit def executionContext: ExecutionContext = ExecutionContext.global
 
-  override protected def packageFiles: List[File] = List(
-    requiredResource("language-support/scala/codegen-sample-app/MyMain.dar"),
-    requiredResource("language-support/scala/codegen-sample-app/MySecondMain.dar"),
-  )
-
-  private val ledgerId = this.getClass.getSimpleName
-  private val applicationId = ledgerId + "-client"
   private val decoder: DecoderType = EventDecoder.createdEventToContractRef
 
-  private val alice = P.Party("Alice")
-  private val bob = P.Party("Bob")
-  private val charlie = P.Party("Charlie")
+  private var alice = P.Party("Alice")
+  private var bob = P.Party("Bob")
+  private var charlie = P.Party("Charlie")
 
   private val emptyCommandId = CommandId("")
 
@@ -78,36 +75,28 @@ class ScalaCodeGenIT
     ""
   ) // this is by design, starting from release: 0.12.18 it is a required field
 
-  override def config = super.config.copy(
-    ledgerId = ledgerId,
-    participants = singleParticipant(
-      ApiServerConfig.copy(
-        timeProviderType = TimeProviderType.WallClock
-      )
-    ),
-  )
-
-  private val clientConfig = LedgerClientConfiguration(
-    applicationId = applicationId,
-    ledgerIdRequirement = LedgerIdRequirement.matching(ledgerId),
-    commandClient = CommandClientConfiguration.default,
-  )
-
   private var ledger: LedgerClient = _
 
   override protected def beforeAll(): Unit = {
     super.beforeAll()
-    ledger = Await.result(
+    val (lc, parties) = Await.result(
       for {
-        lc <- LedgerClient(channel, clientConfig)
-        _ <- Future.sequence(
+        lc <- defaultLedgerClient()
+        parties <- Future.sequence(
           List(alice, bob, charlie).map(p =>
             lc.partyManagementClient.allocateParty(Some(p.toString), None)
           )
         )
-      } yield lc,
+      } yield (lc, parties),
       StartupTimeout,
     )
+    // TODO: is there a better way to do this? seems hacky
+    val primParties = parties.map(p => P.Party(p.party.toString))
+    ledger = lc
+    // Redefine the parties to now include the hash suffix that canton adds.
+    alice = primParties(0)
+    bob = primParties(1)
+    charlie = primParties(2)
   }
 
   "generated package ID among those returned by the packageClient" in {
@@ -465,7 +454,7 @@ class ScalaCodeGenIT
       Commands(
         ledgerId = ledger.ledgerId.unwrap,
         workflowId = WorkflowId.unwrap(workflowId),
-        applicationId = applicationId,
+        applicationId = applicationId.unwrap,
         commandId = CommandId.unwrap(commandId),
         party = P.Party.unwrap(party),
         commands = seq.map(_.command),
