@@ -68,10 +68,11 @@ class DecodeV1Spec
 
   "The entries of builtinFunctionInfos correspond to Protobuf DamlLf1.BuiltinFunction" in {
 
-    (Set(DamlLf1.BuiltinFunction.UNRECOGNIZED) ++ DecodeV1.builtinFunctionInfos.map(
-      _.proto
-    )) shouldBe
-      DamlLf1.BuiltinFunction.values().toSet
+    val s1 = Set(DamlLf1.BuiltinFunction.UNRECOGNIZED) ++ DecodeV1.builtinFunctionInfos.map(_.proto)
+    val s2 = DamlLf1.BuiltinFunction.values().toSet
+    (s1 -- s2) shouldBe Set.empty
+    (s2 -- s1) shouldBe Set.empty
+
   }
 
   private[this] val dummyModuleStr = "dummyModule"

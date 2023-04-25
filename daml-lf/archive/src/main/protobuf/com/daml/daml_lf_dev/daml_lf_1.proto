@@ -436,10 +436,14 @@ enum BuiltinFunction {
   ADD_NUMERIC = 107;           // *Available in versions >= 1.7*
   SUB_NUMERIC = 108;           // *Available in versions >= 1.7*
   MUL_NUMERIC_LEGACY = 109;    // *Available in 1.7 <= versions < 1.dev*
+  MUL_NUMERIC = 149;           // *Available in versions >= 1.dev*
   DIV_NUMERIC_LEGACY = 110;    // *Available in 1.7 <= versions < 1.dev*
+  DIV_NUMERIC = 150;           // *Available in  versions >= 1.dev*
   ROUND_NUMERIC = 111;         // *Available in versions >= 1.7*
   CAST_NUMERIC_LEGACY = 121;   // *Available in 1.7 <= versions < 1.dev*
+  CAST_NUMERIC = 151;          // *Available in versions >= 1.dev*
   SHIFT_NUMERIC_LEGACY = 122;  // *Available in 1.7 <= versions < 1.dev*
+  SHIFT_NUMERIC = 152;         // *Available in versions >= 1.dev*
 
   ADD_INT64 = 7;
   SUB_INT64 = 8;
@@ -516,6 +520,7 @@ enum BuiltinFunction {
   TEXT_TO_INT64 = 103;
   TEXT_TO_DECIMAL = 104;
   TEXT_TO_NUMERIC_LEGACY = 117; // *Available in 1.7 <= versions < 1.dev*
+  TEXT_TO_NUMERIC = 153; // *Available in versions >= 1.dev*
   CONTRACT_ID_TO_TEXT = 136; // *Available in versions >= 1.11*
   SHA256_TEXT = 93;
 
@@ -529,6 +534,7 @@ enum BuiltinFunction {
   DECIMAL_TO_INT64 = 77;  // *Available in versions < 1.7*
 
   INT64_TO_NUMERIC_LEGACY = 118;  // *Available in 1.7 <= versions < 1.dev*
+  INT64_TO_NUMERIC = 154;  // *Available in versions >= 1.dev*
   NUMERIC_TO_INT64 = 119;  // *Available in versions >= 1.7*
 
   IMPLODE_TEXT = 78;
@@ -566,12 +572,13 @@ enum BuiltinFunction {
   DIV_BIGNUMERIC = 142;               // *Available in versions >= 1.13*
   SHIFT_RIGHT_BIGNUMERIC = 143;       // *Available in versions >= 1.13*
   BIGNUMERIC_TO_NUMERIC_LEGACY = 144; // *Available in 1.13 <= versions < 1.dev*
+  BIGNUMERIC_TO_NUMERIC = 155;        // *Available in versions >= 1.dev*
   NUMERIC_TO_BIGNUMERIC = 145;        // *Available in versions >= 1.13*
   BIGNUMERIC_TO_TEXT = 146;           // *Available in versions >= 1.13*
 
   TYPE_REP_TYCON_NAME = 148; // *Available in versions >= 1.dev*
 
-  // Next id is 149.
+  // Next id is 156.
 }
 
 // Builtin literals
