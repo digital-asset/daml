@@ -308,15 +308,6 @@ typeOfBuiltin = \case
 
   BETypeRepTyConName -> pure (TTypeRep :-> TOptional TText)
 
-  BETextToUpper -> pure (TText :-> TText)
-  BETextToLower -> pure (TText :-> TText)
-  BETextSlice -> pure (TInt64 :-> TInt64 :-> TText :-> TText)
-  BETextSliceIndex -> pure (TText :-> TText :-> TOptional TInt64)
-  BETextContainsOnly -> pure (TText :-> TText :-> TBool)
-  BETextReplicate -> pure (TInt64 :-> TText :-> TText)
-  BETextSplitOn -> pure (TText :-> TText :-> TList TText)
-  BETextIntercalate -> pure (TText :-> TList TText :-> TText)
-
   where
     tComparison btype = TBuiltin btype :-> TBuiltin btype :-> TBool
     tBinop typ = typ :-> typ :-> typ

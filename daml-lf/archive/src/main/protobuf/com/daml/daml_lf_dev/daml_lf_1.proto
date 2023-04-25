@@ -579,16 +579,6 @@ enum BuiltinFunction {
   TYPE_REP_TYCON_NAME = 148; // *Available in versions >= 1.dev*
 
   // Next id is 156.
-
-  // EXPERIMENTAL TEXT PRIMITIVES -- these do not yet have stable numbers.
-  TEXT_TO_UPPER = 9901; // *Available in versions >= 1.dev*
-  TEXT_TO_LOWER = 9902; // *Available in versions >= 1.dev*
-  TEXT_SLICE = 9903; // *Available in versions >= 1.dev*
-  TEXT_SLICE_INDEX = 9904; // *Available in versions >= 1.dev*
-  TEXT_CONTAINS_ONLY = 9905; // *Available in versions >= 1.dev*
-  TEXT_REPLICATE = 9906; // *Available in versions >= 1.dev*
-  TEXT_SPLIT_ON = 9907; // *Available in versions >= 1.dev*
-  TEXT_INTERCALATE = 9908; // *Available in versions >= 1.dev*
 }
 
 // Builtin literals

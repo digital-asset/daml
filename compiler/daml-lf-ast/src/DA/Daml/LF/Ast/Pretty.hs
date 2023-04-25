@@ -300,14 +300,6 @@ instance Pretty BuiltinExpr where
     BECodePointsToText -> "CODE_POINTS_TO_TEXT"
     BECoerceContractId -> "COERCE_CONTRACT_ID"
     BETypeRepTyConName -> "TYPE_REP_TYCON_NAME"
-    BETextToUpper -> "TEXT_TO_UPPER"
-    BETextToLower -> "TEXT_TO_LOWER"
-    BETextSlice -> "TEXT_SLICE"
-    BETextSliceIndex -> "TEXT_SLICE_INDEX"
-    BETextContainsOnly -> "TEXT_CONTAINS_ONLY"
-    BETextReplicate -> "TEXT_REPLICATE"
-    BETextSplitOn -> "TEXT_SPLIT_ON"
-    BETextIntercalate -> "TEXT_INTERCALATE"
 
     where
       epochToText fmt secs =

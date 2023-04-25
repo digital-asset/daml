@@ -347,16 +347,6 @@ data BuiltinExpr
 
   -- TypeRep
   | BETypeRepTyConName           -- :: TypeRep -> Optional Text
-
-  -- Experimental Text Primitives
-  | BETextToUpper                -- :: Text -> Text
-  | BETextToLower                -- :: Text -> Text
-  | BETextSlice                  -- :: Int -> Int -> Text -> Text
-  | BETextSliceIndex             -- :: Text -> Text -> Optional Int64
-  | BETextContainsOnly           -- :: Text -> Text -> Bool
-  | BETextReplicate              -- :: Int64 -> Text -> Text
-  | BETextSplitOn                -- :: Text -> Text -> [Text]
-  | BETextIntercalate            -- :: Text -> [Text] -> Text
   deriving (Eq, Data, Generic, NFData, Ord, Show)
 
 

@@ -234,16 +234,6 @@ convertPrim version "BEBigNumericToNumericLegacy" ty@(TBigNumeric :-> TNumeric n
       whenRuntimeSupports version featureBigNumeric ty $
         EBuiltin BEBigNumericToNumericLegacy `ETyApp` n
 
--- Experimental text primitives.
-convertPrim _ "BETextToUpper" (TText :-> TText) = pure $ EBuiltin BETextToUpper
-convertPrim _ "BETextToLower" (TText :-> TText) = pure $ EBuiltin BETextToLower
-convertPrim _ "BETextSlice" (TInt64 :-> TInt64 :-> TText :-> TText) = pure $ EBuiltin BETextSlice
-convertPrim _ "BETextSliceIndex" (TText :-> TText :-> TOptional TInt64) = pure $ EBuiltin BETextSliceIndex
-convertPrim _ "BETextContainsOnly" (TText :-> TText :-> TBool) = pure $ EBuiltin BETextContainsOnly
-convertPrim _ "BETextReplicate" (TInt64 :-> TText :-> TText) = pure $ EBuiltin BETextReplicate
-convertPrim _ "BETextSplitOn" (TText :-> TText :-> TList TText) = pure $ EBuiltin BETextSplitOn
-convertPrim _ "BETextIntercalate" (TText :-> TList TText :-> TText) = pure $ EBuiltin BETextIntercalate
-
 -- Conversion from ContractId to Text
 
 convertPrim _ "BEContractIdToText" (TContractId t :-> TOptional TText) =

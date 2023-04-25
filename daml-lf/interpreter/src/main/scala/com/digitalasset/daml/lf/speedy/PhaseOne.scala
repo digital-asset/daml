@@ -514,16 +514,6 @@ private[lf] final class PhaseOne(
           // TypeRep
           case BTypeRepTyConName => SBTypeRepTyConName
 
-          // Unstable Text Primitives
-          case BTextToUpper => SBTextToUpper
-          case BTextToLower => SBTextToLower
-          case BTextSlice => SBTextSlice
-          case BTextSliceIndex => SBTextSliceIndex
-          case BTextContainsOnly => SBTextContainsOnly
-          case BTextReplicate => SBTextReplicate
-          case BTextSplitOn => SBTextSplitOn
-          case BTextIntercalate => SBTextIntercalate
-
           // Implemented using normal SExpr
 
           case BCoerceContractId | BLessNumeric | BLessEqNumeric | BGreaterNumeric |

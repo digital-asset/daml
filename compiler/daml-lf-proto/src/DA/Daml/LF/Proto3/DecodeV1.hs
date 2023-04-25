@@ -521,15 +521,6 @@ decodeBuiltinFunction = \case
 
   LF1.BuiltinFunctionTYPE_REP_TYCON_NAME -> pure BETypeRepTyConName
 
-  LF1.BuiltinFunctionTEXT_TO_UPPER -> pure BETextToUpper
-  LF1.BuiltinFunctionTEXT_TO_LOWER -> pure BETextToLower
-  LF1.BuiltinFunctionTEXT_SLICE -> pure BETextSlice
-  LF1.BuiltinFunctionTEXT_SLICE_INDEX -> pure BETextSliceIndex
-  LF1.BuiltinFunctionTEXT_CONTAINS_ONLY -> pure BETextContainsOnly
-  LF1.BuiltinFunctionTEXT_REPLICATE -> pure BETextReplicate
-  LF1.BuiltinFunctionTEXT_SPLIT_ON -> pure BETextSplitOn
-  LF1.BuiltinFunctionTEXT_INTERCALATE -> pure BETextIntercalate
-
   LF1.BuiltinFunctionSCALE_BIGNUMERIC -> pure BEScaleBigNumeric
   LF1.BuiltinFunctionPRECISION_BIGNUMERIC -> pure BEPrecisionBigNumeric
   LF1.BuiltinFunctionADD_BIGNUMERIC -> pure BEAddBigNumeric
