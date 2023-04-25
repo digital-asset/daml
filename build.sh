@@ -18,6 +18,11 @@ if [[ "$(uname)" == "Darwin" ]]; then
   tag_filter="-dont-run-on-darwin,-scaladoc,-pdfdocs"
 fi
 
+SKIP_DEV_CANTON_TESTS=false
+if [ "$SKIP_DEV_CANTON_TESTS" = "true" ]; then
+  tag_filter="-dev-canton-test,$tag_filter"
+fi
+
 # Occasionally we end up with a stale sandbox process for a hardcoded
 # port number. Not quite sure how we end up with a stale process
 # but it happens sufficiently rarely that just killing it here is

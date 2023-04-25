@@ -360,6 +360,7 @@ jobs:
         bad_file=daml-lf/integration-test-lib/src/main/com/daml/lf/CantonFixture.scala
 
         sed -i 's|"external/canton/lib/.*|"'$canton_local_path'"|' $bad_file
+        sed -i 's|SKIP_DEV_CANTON_TESTS=.*|SKIP_DEV_CANTON_TESTS=false|' build.sh
         sed -e 's/^/# /' COPY > canton_dep.bzl
         cat <<EOF >> canton_dep.bzl
 
