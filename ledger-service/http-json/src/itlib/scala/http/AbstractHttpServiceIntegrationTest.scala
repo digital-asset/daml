@@ -800,7 +800,6 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
           matches = Seq(withBazRecord("c")),
           doesNotMatch = Seq(withBazRecord("a")),
         ),
-        /* TODO(raphael-speyer-da) Re-enable this test. See https://digitalasset.atlassian.net/browse/LT-15
         Scenario(
           "lt string with sketchy value which is a single quote",
           kbvarId,
@@ -810,7 +809,6 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
           matches = Seq(withBazRecord(" ")), // Less than '
           doesNotMatch = Seq(withBazRecord("A")), // Not less than '
         ),
-         */
         Scenario(
           "lt string with sketchy value which uses unicode quote char",
           kbvarId,
