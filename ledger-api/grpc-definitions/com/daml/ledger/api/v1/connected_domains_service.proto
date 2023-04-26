@@ -21,16 +21,19 @@ message GetConnectedDomainsRequest {
   // Required
   string party = 1;
 
-  ConnectedDomainsFilter connected_domain_filter = 2;
+  ConnectedDomainsFilter connected_domains_filter = 2;
 }
 
 message GetConnectedDomainsResponse {
   message ConnectedDomain {
     // The alias of the domain
+    // Required
     string domain_alias = 1;
     // The ID of the domain
+    // Required
     string domain_id = 2;
     // The permission on the domain
+    // Required
     ParticipantPermission permission = 3;
   }
   repeated ConnectedDomain connected_domains = 1;
