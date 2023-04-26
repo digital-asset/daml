@@ -1979,7 +1979,7 @@ private[archive] class DecodeV1(minor: LV.Minor) {
 
 }
 
-private[archive] object DecodeV1 {
+private[lf] object DecodeV1 {
 
   private def eitherToParseError[A](x: Either[String, A]): A =
     x.fold(err => throw Error.Parsing(err), identity)
