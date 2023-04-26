@@ -32,6 +32,7 @@ module DA.Daml.LF.ScenarioServiceClient.LowLevel
   , ScenarioServiceException(..)
   ) where
 
+import System.Random (randomIO)
 import Conduit (runConduit, (.|), MonadUnliftIO(..))
 import Data.Either
 import Data.Functor
@@ -72,6 +73,9 @@ import qualified System.IO
 import DA.Bazel.Runfiles
 import qualified DA.Daml.LF.Ast as LF
 import qualified ScenarioService as SS
+
+import Development.IDE.Types.Logger (Logger)
+import qualified Development.IDE.Types.Logger as Logger
 
 data Options = Options
   { optServerJar :: FilePath
@@ -403,24 +407,31 @@ runBiDiLive
   :: (SS.ScenarioService ClientRequest ClientResult
       -> ClientRequest 'BiDiStreaming SS.RunScenarioRequest SS.RunScenarioResponseOrStatus
       -> IO (ClientResult 'BiDiStreaming SS.RunScenarioResponseOrStatus))
-  -> Handle -> ContextId -> LF.ValueRef -> MVar Bool -> (SS.ScenarioStatus -> IO ())
+  -> Handle -> ContextId -> LF.ValueRef -> Logger -> MVar Bool -> (SS.ScenarioStatus -> IO ())
   -> IO (Either Error SS.ScenarioResult)
-runBiDiLive runner Handle{..} (ContextId ctxId) name stopSemaphore statusUpdateHandler = do
+runBiDiLive runner Handle{..} (ContextId ctxId) name logger stopSemaphore statusUpdateHandler = do
   let startReq =
         SS.RunScenarioRequest $ Just $ SS.RunScenarioRequestSumStart $
           SS.RunScenarioStart ctxId (Just (toIdentifier name))
   let cancelReq = SS.RunScenarioRequest $ Just $ SS.RunScenarioRequestSumCancel SS.RunScenarioCancel
 
-  finalResponse <- newIORef (Left (ExceptionError (error "runBiDiLive")))
-  -- Preserve existing errors in the finalResponse
-  let setFinalResponse r =
-        atomicModifyIORef finalResponse $ \old ->
-          let err =
-                case old of
-                  Left e -> Left e
-                  _ -> r
-          in
-          (err, ())
+  (setFinalResponse, getFinalResponse) <- do
+    -- Hide finalResponse inside closure
+    finalResponse <- newIORef Nothing
+    let set r =
+          atomicModifyIORef finalResponse $ \old ->
+            let err =
+                  case old of
+                    Just (Left _) -> old
+                    _ -> Just r
+            in
+            (err, ())
+    let get = do
+          resp <- readIORef finalResponse
+          case resp of
+            Nothing -> pure $ Left (ExceptionError (error "runBiDiLive did not get a completion"))
+            Just r -> pure r
+    pure (set, get)
 
   response <-
     runner hClient $
@@ -453,12 +464,15 @@ runBiDiLive runner Handle{..} (ContextId ctxId) name stopSemaphore statusUpdateH
               pure (Right Nothing)
 
         _ <- forkIO $ do
+          id <- randomIO :: IO Int
+          Logger.logDebug logger (T.pack (show id) <> " semaphore reached")
           shouldCancel <- takeMVar stopSemaphore
+          Logger.logDebug logger (T.pack (show id) <> " semaphore finished " <> if shouldCancel then "cancelled" else "not cancelled")
           when shouldCancel $ handleGrpcIOErr (sendReq cancelReq) pure
 
         handleGrpcIOErr (sendReq startReq) $ \() -> loop
   case response of
-    ClientBiDiResponse _ StatusOk _ -> readIORef finalResponse
+    ClientBiDiResponse _ StatusOk _ -> getFinalResponse
     ClientBiDiResponse _ status _ -> pure (Left (BackendError (BErrorFail status)))
     ClientErrorResponse err -> pure (Left (BackendError (BErrorClient err)))
 
@@ -507,6 +521,6 @@ runLive runner Handle{..} (ContextId ctxId) name statusUpdateHandler = do
     ClientErrorResponse err -> pure (Left (BackendError (BErrorClient err)))
 
 runLiveScript
-  :: Handle -> ContextId -> LF.ValueRef -> MVar Bool -> (SS.ScenarioStatus -> IO ())
+  :: Handle -> ContextId -> LF.ValueRef -> Logger -> MVar Bool -> (SS.ScenarioStatus -> IO ())
   -> IO (Either Error SS.ScenarioResult)
 runLiveScript = runBiDiLive SS.scenarioServiceRunLiveScript

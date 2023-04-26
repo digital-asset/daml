@@ -136,6 +136,10 @@ object ScriptStream {
           case Right(result: ScenarioResult) =>
             RunScenarioResponse.newBuilder.setResult(result).build
         }
+        finalResponse match {
+          case Left(error: ScenarioError) if error.hasCancelledByRequest => println(f"Script cancelled.")
+          case _ => {}
+        }
         internal.onNext(message)
         internal.onCompleted()
       }
@@ -153,6 +157,10 @@ object ScriptStream {
             RunScenarioResponseOrStatus.newBuilder.setError(error).build
           case Right(result: ScenarioResult) =>
             RunScenarioResponseOrStatus.newBuilder.setResult(result).build
+        }
+        finalResponse match {
+          case Left(error: ScenarioError) if error.hasCancelledByRequest => println(f"Script cancelled.")
+          case _ => {}
         }
         internal.onNext(message)
         internal.onCompleted()
@@ -238,11 +246,14 @@ class ScenarioService(
       respObs: StreamObserver[RunScenarioResponseOrStatus]
   ): StreamObserver[RunScenarioRequest] = {
     var cancelled = false
+    println(f"Connection started.")
     new StreamObserver[RunScenarioRequest] {
       override def onNext(req: RunScenarioRequest): Unit = {
         if (req.hasCancel) {
+          println(f"Script cancelling.")
           cancelled = true
         } else if (req.hasStart) {
+          println(f"Script started.")
           runLive(
             req.getStart,
             ScriptStream.WithStatus(respObs),
@@ -252,12 +263,11 @@ class ScenarioService(
       }
 
       override def onError(t: Throwable): Unit = {
-        println("Custom onError Received ERROR")
+        println(f"Received error $t")
       }
 
       override def onCompleted(): Unit = {
-        println("Completed on client side!")
-        respObs.onCompleted()
+        println("Completed.")
       }
     }
   }

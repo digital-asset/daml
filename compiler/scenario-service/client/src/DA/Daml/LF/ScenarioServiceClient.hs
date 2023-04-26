@@ -54,6 +54,8 @@ import qualified DA.Daml.LF.ScenarioServiceClient.LowLevel as LowLevel
 
 import qualified DA.Service.Logger as Logger
 
+import qualified Development.IDE.Types.Logger as IDELogger
+
 data Options = Options
   { optServerJar :: FilePath
   , optScenarioServiceConfig :: ScenarioServiceConfig
@@ -246,59 +248,59 @@ instance Eq LiveHandler where
 instance Ord LiveHandler where
   compare _ _ = EQ
 
-runScenario :: Handle -> LowLevel.ContextId -> LF.ValueRef -> IO (Either LowLevel.Error LowLevel.ScenarioResult)
-runScenario h ctxId name = runWithOptions (RunOptions name Nothing IsScenario) h ctxId
+runScenario :: Handle -> LowLevel.ContextId -> IDELogger.Logger -> LF.ValueRef -> IO (Either LowLevel.Error LowLevel.ScenarioResult)
+runScenario h ctxId logger name = runWithOptions (RunOptions name Nothing IsScenario) h ctxId logger
 
-runScript :: Handle -> LowLevel.ContextId -> LF.ValueRef -> IO (Either LowLevel.Error LowLevel.ScenarioResult)
-runScript h ctxId name = runWithOptions (RunOptions name Nothing IsScript) h ctxId
+runScript :: Handle -> LowLevel.ContextId -> IDELogger.Logger -> LF.ValueRef -> IO (Either LowLevel.Error LowLevel.ScenarioResult)
+runScript h ctxId logger name = runWithOptions (RunOptions name Nothing IsScript) h ctxId logger
 
-runLiveScenario :: Handle -> LowLevel.ContextId -> LF.ValueRef -> (LowLevel.ScenarioStatus -> IO ()) -> IO (Either LowLevel.Error LowLevel.ScenarioResult)
-runLiveScenario h ctxId name statusUpdateHandler = runWithOptions (RunOptions name (Just (LiveHandler statusUpdateHandler)) IsScenario) h ctxId
+runLiveScenario :: Handle -> LowLevel.ContextId -> IDELogger.Logger -> LF.ValueRef -> (LowLevel.ScenarioStatus -> IO ()) -> IO (Either LowLevel.Error LowLevel.ScenarioResult)
+runLiveScenario h ctxId logger name statusUpdateHandler = runWithOptions (RunOptions name (Just (LiveHandler statusUpdateHandler)) IsScenario) h ctxId logger
 
-runLiveScript :: Handle -> LowLevel.ContextId -> LF.ValueRef -> (LowLevel.ScenarioStatus -> IO ()) -> IO (Either LowLevel.Error LowLevel.ScenarioResult)
-runLiveScript h ctxId name statusUpdateHandler = runWithOptions (RunOptions name (Just (LiveHandler statusUpdateHandler)) IsScript) h ctxId
+runLiveScript :: Handle -> LowLevel.ContextId -> IDELogger.Logger -> LF.ValueRef -> (LowLevel.ScenarioStatus -> IO ()) -> IO (Either LowLevel.Error LowLevel.ScenarioResult)
+runLiveScript h ctxId logger name statusUpdateHandler = runWithOptions (RunOptions name (Just (LiveHandler statusUpdateHandler)) IsScript) h ctxId logger
 
-runWithOptions :: RunOptions -> Handle -> LowLevel.ContextId -> IO (Either LowLevel.Error LowLevel.ScenarioResult)
-runWithOptions options Handle{..} ctxId = do
+data ReplacedByOtherThread = ReplacedByOtherThread
+  deriving (Eq, Show)
+instance Exception ReplacedByOtherThread
+
+runWithOptions :: RunOptions -> Handle -> LowLevel.ContextId -> IDELogger.Logger -> IO (Either LowLevel.Error LowLevel.ScenarioResult)
+runWithOptions options Handle{..} ctxId logger = do
   resVar <- newEmptyMVar
-  -- When a scenario/script execution is aborted, we would like to be able to return
-  -- immediately. However, we cannot cancel the actual execution of the scenario/script.
-  -- Therefore, we launch run the synchronous execution request in a separate thread
-  -- that takes care of managing the semaphore. This thread keeps running
-  -- even if `runScenario` was aborted (we cannot abort the FFI calls anyway)
-  -- and ensures that we track the actual number of running executions rather
-  -- than the number of calls to `run` that have not been canceled.
-  mask $ \restore ->
-    modifyMVar_ hRunningHandlers $ \runningHandlers -> do
-      stopSemaphore <- newEmptyMVar
-      handlerThread <- forkIO $ withSem hConcurrencySem $ do
-        -- Catch async exceptions so we can respond in the MVar if necessary
-        r <- try $ restore (optionsToLowLevel options hLowLevelHandle ctxId stopSemaphore)
+  stopSemaphore <- newEmptyMVar
+
+  -- If the internal or external thread receives a cancellation exception, signal to stop
+  modifyMVar_ hRunningHandlers $ \runningHandlers -> do
+    handlerThread <- forkIO $ withSem hConcurrencySem $ do
+      r <- try $ optionsToLowLevel options hLowLevelHandle ctxId logger stopSemaphore
+      putMVar resVar $
         case r of
-          Left ex -> putMVar resVar (Left $ LowLevel.ExceptionError ex)
-          Right r -> putMVar resVar r
-        _ <- tryPutMVar stopSemaphore False
+          Left ex -> Left $ LowLevel.ExceptionError ex
+          Right r -> r
+      pure ()
+
+    -- Store the new thread into runningHandlers
+    let insertLookup kx x t = MS.insertLookupWithKey (\_ a _ -> a) kx x t
+    let (mbOldThread, newRunningHandlers) = insertLookup options (handlerThread, stopSemaphore) runningHandlers
+
+    -- If there was an old thread handling the same scenario in the same way,
+    -- send a cancellation to its semaphore
+    case mbOldThread of
+      Just (_, oldThreadSemaphore) -> do
+        _ <- tryPutMVar oldThreadSemaphore True
         pure ()
+      _ -> pure ()
 
-      -- Store the new thread into runningHandlers
-      let insertLookup kx x t = MS.insertLookupWithKey (\_ a _ -> a) kx x t
-      let (mbOldThread, newRunningHandlers) = insertLookup options (handlerThread, stopSemaphore) runningHandlers
+    -- Return updated runningHandlers
+    pure newRunningHandlers
+  res <- takeMVar resVar
+  _ <- tryPutMVar stopSemaphore False
+  pure res
 
-      -- If there was an old thread handling the same scenario in the same way, kill it
-      case mbOldThread of
-        Just (_, oldThreadSemaphore) -> do
-          _ <- tryPutMVar oldThreadSemaphore True
-          pure ()
-        _ -> pure ()
-
-      -- Return updated runningHandlers
-      pure newRunningHandlers
-  takeMVar resVar
-
-optionsToLowLevel :: RunOptions -> LowLevel.Handle -> LowLevel.ContextId -> MVar Bool -> IO (Either LowLevel.Error LowLevel.ScenarioResult)
-optionsToLowLevel RunOptions{..} h ctxId mask =
+optionsToLowLevel :: RunOptions -> LowLevel.Handle -> LowLevel.ContextId -> IDELogger.Logger -> MVar Bool -> IO (Either LowLevel.Error LowLevel.ScenarioResult)
+optionsToLowLevel RunOptions{..} h ctxId logger mask =
   case (live, scenarioOrScript) of
-    (Just (LiveHandler handler), IsScript)   -> LowLevel.runLiveScript h ctxId name mask handler
+    (Just (LiveHandler handler), IsScript)   -> LowLevel.runLiveScript h ctxId name logger mask handler
     (Just (LiveHandler handler), IsScenario) -> LowLevel.runLiveScenario h ctxId name handler
     (Nothing,                    IsScript)   -> LowLevel.runScript h ctxId name
     (Nothing,                    IsScenario) -> LowLevel.runScenario h ctxId name
