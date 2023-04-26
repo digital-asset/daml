@@ -42,10 +42,11 @@ object CantonRunner {
       def info(s: String) = if (debug) logger.info(s)
 
       override def acquire()(implicit context: ResourceContext): Resource[Vector[Port]] = {
-        def start(): Future[(Vector[Port], Process)] = {
+        def start(): Future[
+          ((PortLock.Locked, PortLock.Locked), Vector[(PortLock.Locked, PortLock.Locked)], Process)
+        ] = {
           val ports =
             Vector.fill(nParticipants)(LockedFreePort.find() -> LockedFreePort.find())
-          val ledgerPorts = ports.map(_._2.port)
           val domainPublicApi = LockedFreePort.find()
           val domainAdminApi = LockedFreePort.find()
 
@@ -141,15 +142,11 @@ object CantonRunner {
               info("waiting for Canton to start")
               Future(Files.size(portFile))
             }
-            _ = ports.foreach { case (p1, p2) =>
-              p1.unlock()
-              p2.unlock()
-            }
             _ = info("Canton started")
             _ <-
-              Future.traverse(ledgerPorts) { port =>
+              Future.traverse(ports) { case (ledgerPort, _) =>
                 for {
-                  client <- ledgerClient(port, adminToken)
+                  client <- ledgerClient(ledgerPort.port, adminToken)
                   _ <- Future.traverse(darFiles) { file =>
                     client.packageManagementClient.uploadDarFile(
                       ByteString.copyFrom(Files.readAllBytes(file))
@@ -158,14 +155,27 @@ object CantonRunner {
                 } yield ()
               }
             _ = info(s"${darFiles.size} packages loaded to ${ports.size} participants")
-          } yield (ledgerPorts, proc)
+          } yield ((domainAdminApi, domainPublicApi), ports, proc)
         }
-        def stop(r: (Vector[Port], Process)): Future[Unit] = {
-          r._2.destroy()
-          discard(r._2.exitValue())
+        def stop(
+            r: (
+                (PortLock.Locked, PortLock.Locked),
+                Vector[(PortLock.Locked, PortLock.Locked)],
+                Process,
+            )
+        ): Future[Unit] = {
+          val ((domainAdminApi, domainPublicApi), ports, process) = r
+          process.destroy()
+          discard(process.exitValue())
+          domainAdminApi.unlock()
+          domainPublicApi.unlock()
+          ports.foreach { case (p1, p2) =>
+            p1.unlock()
+            p2.unlock()
+          }
           Future.unit
         }
-        Resource(start())(stop).map({ case (ports, _) => ports })
+        Resource(start())(stop).map({ case (_, ports, _) => ports.map(_._1.port) })
       }
     }
 
