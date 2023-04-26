@@ -1011,8 +1011,8 @@ private[lf] object SBuiltin {
       val interfaceVersion = interfaceId.map(machine.tmplId2TxVersion)
       val exerciseVersion = interfaceVersion.fold(templateVersion)(_.max(templateVersion))
       val chosenValue = args.get(0).toNormalizedValue(exerciseVersion)
-      val ctrls = extractParties(NameOf.qualifiedNameOfCurrentFunc, args.get(2))
-      machine.enforceChoiceControllersLimit(ctrls, coid, templateId, choiceId, chosenValue)
+      val controllers = extractParties(NameOf.qualifiedNameOfCurrentFunc, args.get(2))
+      machine.enforceChoiceControllersLimit(controllers, coid, templateId, choiceId, chosenValue)
       val obsrs = extractParties(NameOf.qualifiedNameOfCurrentFunc, args.get(3))
       machine.enforceChoiceObserversLimit(obsrs, coid, templateId, choiceId, chosenValue)
       val authorizersWhenExplicit = extractParties(NameOf.qualifiedNameOfCurrentFunc, args.get(4))
@@ -1033,7 +1033,7 @@ private[lf] object SBuiltin {
             choiceId = choiceId,
             optLocation = machine.getLastLocation,
             consuming = consuming,
-            actingParties = ctrls,
+            actingParties = controllers,
             choiceObservers = obsrs,
             choiceAuthorizers = choiceAuthorizers,
             byKey = byKey,
@@ -1050,13 +1050,16 @@ private[lf] object SBuiltin {
 
       if (explicitChoiceAuthority) {
         val authorizers = authorizersWhenExplicit
-        val holding = machine.ptx.context.info.authorizers
+        val signatories = contract.signatories
+        val holding = controllers.union(signatories)
         val requesting = authorizers.diff(holding)
+
         if (requesting.isEmpty) {
-          // authority restriction -- no need to ask ledger
+          // *no* additional authority is required; (so there is no need to ask ledger)
+          // (although the authority might be being restricted)
           doExe(Some(authorizers))
         } else {
-          // authority change -- ask ledger
+          // additional authority *is* required; ask the ledger
           Control.Question[Question.Update](
             Question.Update.NeedAuthority(
               holding = holding,
