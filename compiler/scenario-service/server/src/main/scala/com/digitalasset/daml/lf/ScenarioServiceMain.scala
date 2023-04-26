@@ -137,7 +137,8 @@ object ScriptStream {
             RunScenarioResponse.newBuilder.setResult(result).build
         }
         finalResponse match {
-          case Left(error: ScenarioError) if error.hasCancelledByRequest => println(f"Script cancelled.")
+          case Left(error: ScenarioError) if error.hasCancelledByRequest =>
+            println(f"Script cancelled.")
           case _ => {}
         }
         internal.onNext(message)
@@ -159,7 +160,8 @@ object ScriptStream {
             RunScenarioResponseOrStatus.newBuilder.setResult(result).build
         }
         finalResponse match {
-          case Left(error: ScenarioError) if error.hasCancelledByRequest => println(f"Script cancelled.")
+          case Left(error: ScenarioError) if error.hasCancelledByRequest =>
+            println(f"Script cancelled.")
           case _ => {}
         }
         internal.onNext(message)
