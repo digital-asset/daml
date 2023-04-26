@@ -120,23 +120,24 @@ class DamlLfEncoderTest
             UniversalArchiveDecoder
               .readFile(new File(rlocation(s"daml-lf/encoder/test-${version.pretty}.dar")))
           val (_, mainPkg) = dar.main
-          val s1 = mainPkg
+          val builtinInModule = mainPkg
             .modules(builtinMod)
             .definitions
             .values
             .collect { case Ast.DValue(_, Ast.EBuiltin(builtin), _) => builtin }
             .toSet
-
-          val s2 = DecodeV1.builtinFunctionInfos.collect {
+          val builtinsInVersion = DecodeV1.builtinFunctionInfos.collect {
             case DecodeV1.BuiltinFunctionInfo(_, builtin, minVersion, maxVersion, _)
                 if minVersion <= version && maxVersion.forall(version < _) =>
               builtin
           }.toSet
-          s1 -- s2 shouldBe Set.empty
-          s2 -- s1 shouldBe Set.empty
+
+          val missingBuiltins = builtinsInVersion -- builtinInModule
+          assert(missingBuiltins.isEmpty, s", missing builtin(s) in BuiltinMod")
+          val unexpetedBuiltins = builtinInModule -- builtinsInVersion
+          assert(unexpetedBuiltins.isEmpty, s", unexpected builtin(s) in BuiltinMod")
       }
     }
-
   }
 
   private implicit def toDottedName(s: String): DottedName =
