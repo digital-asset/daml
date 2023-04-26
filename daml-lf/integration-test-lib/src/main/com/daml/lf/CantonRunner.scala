@@ -12,7 +12,7 @@ import com.daml.lf.data.Ref
 import com.daml.ledger.api.auth
 import com.daml.ledger.resources.{ResourceContext, ResourceOwner, Resource}
 import com.daml.platform.services.time.TimeProviderType
-import com.daml.ports.{Port, LockedFreePort}
+import com.daml.ports.{Port, LockedFreePort, PortLock}
 import com.daml.scalautil.Statement.discard
 import com.daml.timer.RetryStrategy
 import com.google.protobuf.ByteString
@@ -63,7 +63,7 @@ object CantonRunner {
                                                             |          secret = "${toJson(secret)}"
                                                             |        }]
                                                             |""".stripMargin)
-          val tsl = tlsConfig.fold("")(config => s"""tls {
+          val tls = tlsConfig.fold("")(config => s"""tls {
                  |          cert-chain-file = ${toJson(config.serverCrt)}
                  |          private-key-file = ${toJson(config.serverPem)}
                  |          trust-collection-file = ${toJson(config.caCrt)}
@@ -76,7 +76,7 @@ object CantonRunner {
                |      ledger-api{
                |        port = ${ledgerApiPort.port}
                |        ${authConfig}
-               |        ${tsl}
+               |        ${tls}
                |      }
                |      storage.type = memory
                |      parameters = {
@@ -102,7 +102,7 @@ object CantonRunner {
                |      storage.type = memory
                |      public-api.port = ${domainPublicApi.port}
                |      admin-api.port = ${domainAdminApi.port}
-               |      init.domain-parameters.protocol-version = ${if (devMode) Int.MaxValue else 4}
+               |      init.domain-parameters.protocol-version = ${if (devMode) "dev" else "4"}
                |    }
                |  }
                |  participants {
@@ -140,6 +140,10 @@ object CantonRunner {
             _ <- RetryStrategy.constant(attempts = 240, waitTime = 1.seconds) { (_, _) =>
               info("waiting for Canton to start")
               Future(Files.size(portFile))
+            }
+            _ = ports.foreach { case (p1, p2) =>
+              p1.unlock()
+              p2.unlock()
             }
             _ = info("Canton started")
             _ <-

@@ -99,7 +99,7 @@ trait AbstractScriptTest extends CantonFixture with AkkaBeforeAndAfterAll {
     )
     Runner.connect(
       participantParams = params,
-      tlsConfig = config.ltsClientConfig,
+      tlsConfig = config.tlsClientConfig,
       maxInboundMessageSize = maxInboundMessageSize,
     )
   }

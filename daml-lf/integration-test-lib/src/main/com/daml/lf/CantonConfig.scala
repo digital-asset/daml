@@ -54,7 +54,7 @@ final case class CantonConfig(
 
   lazy val adminToken: Option[String] = getToken(CantonRunner.adminUserId)
 
-  def ltsClientConfig: TlsConfiguration = tlsConfig.fold(noTlsConfig)(_.clientConfig)
+  def tlsClientConfig: TlsConfiguration = tlsConfig.fold(noTlsConfig)(_.clientConfig)
 
   def ledgerClient(
       port: Port,
@@ -72,7 +72,7 @@ final case class CantonConfig(
         token = token,
       ),
       channelConfig = LedgerClientChannelConfiguration(
-        sslContext = ltsClientConfig.client(),
+        sslContext = tlsClientConfig.client(),
         maxInboundMessageSize = maxInboundMessageSize,
       ),
     )
