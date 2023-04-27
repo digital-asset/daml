@@ -10,7 +10,6 @@ import com.daml.http.HttpServiceTestFixture.UseTls
 import com.daml.http.util.Logging.{InstanceUUID, instanceUUIDLogCtx}
 import com.daml.http.util.SandboxTestLedger
 import com.daml.jwt.domain.Jwt
-import com.daml.ledger.api.auth.{AuthServiceStatic, Claim, ClaimPublic, ClaimSet}
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.daml.ledger.client.withoutledgerid.{LedgerClient => DamlLedgerClient}
@@ -21,11 +20,8 @@ import com.daml.test.evidence.scalatest.ScalaTestSupport.Implicits._
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
-import org.slf4j.LoggerFactory
 
-import java.nio.file.Files
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.control.NonFatal
 
 final class AuthorizationTest
     extends AsyncFlatSpec
@@ -42,36 +38,15 @@ final class AuthorizationTest
   implicit val aesf: ExecutionSequencerFactory = new AkkaExecutionSequencerPool(testId)(asys)
   implicit val ec: ExecutionContext = asys.dispatcher
 
-  private val publicTokenValue = "public"
-  private val emptyTokenValue = "empty"
-
-  private val mockedAuthService = Option(AuthServiceStatic {
-    case `publicTokenValue` => ClaimSet.Claims.Empty.copy(claims = Seq[Claim](ClaimPublic))
-    case `emptyTokenValue` => ClaimSet.Unauthenticated
-  })
-
-  private val accessTokenFile = Files.createTempFile("Extractor", "AuthSpec")
+  private val emptyJWTToken = getToken("empty")
 
   private val authorizationSecurity: SecurityTest =
     SecurityTest(property = Authorization, asset = "HTTP JSON API Service")
 
-  override def authService = mockedAuthService
   override def packageFiles = List()
 
-  override protected def afterAll(): Unit = {
-    super.afterAll()
-    try {
-      Files.delete(accessTokenFile)
-    } catch {
-      case NonFatal(e) =>
-        LoggerFactory
-          .getLogger(classOf[AuthorizationTest])
-          .warn("Unable to delete temporary token file", e)
-    }
-  }
-
   protected def withLedger[A](testFn: DamlLedgerClient => LedgerId => Future[A]): Future[A] = {
-    usingLedger[A](testId, Some(publicTokenValue)) { case (_, client, ledgerId) =>
+    usingLedger[A](testId, adminJWTToken) { case (_, client, ledgerId) =>
       testFn(client)(ledgerId)
     }
   }
@@ -94,7 +69,7 @@ final class AuthorizationTest
       )
     ) in withLedger { client => ledgerId =>
     instanceUUIDLogCtx(implicit lc =>
-      packageService(client).reload(Jwt(emptyTokenValue), ledgerId).failed.map(_ => succeed)
+      packageService(client).reload(Jwt(emptyJWTToken.get), ledgerId).failed.map(_ => succeed)
     )
   }
 
@@ -103,7 +78,7 @@ final class AuthorizationTest
       "A ledger client can update the package service when authorized"
     ) in withLedger { client => ledgerId =>
     instanceUUIDLogCtx(implicit lc =>
-      packageService(client).reload(Jwt(publicTokenValue), ledgerId).map(_ => succeed)
+      packageService(client).reload(Jwt(adminJWTToken.get), ledgerId).map(_ => succeed)
     )
   }
 

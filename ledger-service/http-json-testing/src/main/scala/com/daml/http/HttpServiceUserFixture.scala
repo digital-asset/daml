@@ -84,21 +84,6 @@ object HttpServiceUserFixture {
     this: Suite =>
     override lazy val jwtAdminNoParty: Jwt = Jwt(toHeader(adminTokenStandardJWT))
 
-    private def allocateParty(
-        uri: Uri
-    )(party: domain.Party) = {
-      import spray.json._, json.JsonProtocol._
-      val request = domain.AllocatePartyRequest(
-        Some(party),
-        None,
-      )
-      postRequest(
-        uri.withPath(Uri.Path("/v1/parties/allocate")),
-        json = request.toJson,
-        headers = headersWithAdminAuth,
-      )
-    }
-
     protected[this] override final def defaultWithoutNamespace = true
 
     protected[this] override final def jwtAppIdForParties(
@@ -124,16 +109,11 @@ object HttpServiceUserFixture {
         ),
       )
       import spray.json._, json.JsonProtocol._
-      for {
-        _ <- Future.sequence(actAs.map(allocateParty(uri)))
-        _ <- Future.sequence(readAs.map(allocateParty(uri)))
-        _ <- postRequest(
-          uri.withPath(Uri.Path("/v1/user/create")),
-          createUserRequest.toJson,
-          headers = headersWithAdminAuth,
-        )
-        jwt = jwtForUser(username)
-      } yield (jwt, domain.ApplicationId(username))
+      postRequest(
+        uri.withPath(Uri.Path("/v1/user/create")),
+        createUserRequest.toJson,
+        headers = headersWithAdminAuth,
+      ).map(_ => (jwtForUser(username), domain.ApplicationId(username)))
     }
 
     protected final def getUniqueUserName(name: String): String = getUniqueParty(name).unwrap

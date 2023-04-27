@@ -178,6 +178,7 @@ trait AbstractHttpServiceIntegrationTestFuns
       wsConfig = wsConfig,
       maxInboundMessageSize = maxInboundMessageSize,
       token = token orElse Some(jwtAdminNoParty),
+      ledgerIdOverwrite = Some(ledgerId),
     )((u, e, d, c) => testFn(HttpServiceTestFixtureData(u, e, d, c, ledgerId)))
   }
 
@@ -192,6 +193,7 @@ trait AbstractHttpServiceIntegrationTestFuns
       useTls = useTls,
       wsConfig = wsConfig,
       token = Some(token),
+      ledgerIdOverwrite = Some(ledgerId),
     )(testFn(_, _, _, _, ledgerId))
   }
 
@@ -203,7 +205,7 @@ trait AbstractHttpServiceIntegrationTestFuns
   protected def withHttpService[A](f: HttpServiceTestFixtureData => Future[A]): Future[A] =
     withHttpService()(f)
 
-  protected def withHttpServiceOnly[A](ledgerPort: Port)(
+  protected def withHttpServiceOnly[A](ledgerPort: Port, ledgerId: LedgerId)(
       f: HttpServiceOnlyTestFixtureData => Future[A]
   ): Future[A] =
     HttpServiceTestFixture.withHttpService[A](
@@ -214,6 +216,7 @@ trait AbstractHttpServiceIntegrationTestFuns
       useTls = useTls,
       wsConfig = wsConfig,
       token = Some(jwtAdminNoParty),
+      ledgerIdOverwrite = Some(ledgerId),
     )((uri, encoder, decoder, _) => f(HttpServiceOnlyTestFixtureData(uri, encoder, decoder)))
 
   protected def withLedger[A](testFn: (DamlLedgerClient, LedgerId) => Future[A]): Future[A] =
@@ -234,20 +237,27 @@ trait AbstractHttpServiceIntegrationTestFuns
         name: String
     ): Future[(domain.Party, Jwt, domain.ApplicationId, List[HttpHeader])] = {
       val party = getUniqueParty(name)
+      val request = domain.AllocatePartyRequest(
+        Some(party),
+        None,
+      )
+      val json = SprayJson.encode(request).valueOr(e => fail(e.shows))
       for {
-        (jwt, appId) <- jwtAppIdForParties(uri)(List(party), List.empty, "", false, false)
+        domain.OkResponse(newParty, _, StatusCodes.OK) <-
+          postJsonRequest(
+            Uri.Path("/v1/parties/allocate"),
+            json = json,
+            headers = headersWithAdminAuth,
+          ).parseResponse[domain.PartyDetails]
+        (jwt, appId) <- jwtAppIdForParties(uri)(
+          List(newParty.identifier),
+          List.empty,
+          "",
+          false,
+          false,
+        )
         headers = authorizationHeader(jwt)
-        request = domain.AllocatePartyRequest(
-          Some(party),
-          None,
-        )
-        json = SprayJson.encode(request).valueOr(e => fail(e.shows))
-        _ <- postJsonRequest(
-          Uri.Path("/v1/parties/allocate"),
-          json = json,
-          headers = headersWithAdminAuth,
-        )
-      } yield (party, jwt, appId, headers)
+      } yield (newParty.identifier, jwt, appId, headers)
     }
 
     def headersWithAuth(implicit ec: ExecutionContext): Future[List[Authorization]] =

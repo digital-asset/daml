@@ -3,86 +3,43 @@
 
 package com.daml.http.util
 
-import com.daml.grpc.adapter.ExecutionSequencerFactory
-import com.daml.http.HttpServiceTestFixture.{UseTls, clientTlsConfig, serverTlsConfig}
-import com.daml.ledger.api.domain
+import com.daml.http.HttpServiceTestFixture.UseTls
 import com.daml.ledger.api.domain.LedgerId
-import com.daml.ledger.client.configuration.{
-  CommandClientConfiguration,
-  LedgerClientChannelConfiguration,
-  LedgerClientConfiguration,
-  LedgerIdRequirement,
-}
 import com.daml.ledger.client.withoutledgerid.{LedgerClient => DamlLedgerClient}
-import com.daml.ledger.sandbox.SandboxOnXForTest.{
-  ApiServerConfig,
-  Default,
-  DevEngineConfig,
-  singleParticipant,
-}
-import com.daml.platform.apiserver.SeedService.Seeding
-import com.daml.platform.sandbox.SandboxRequiringAuthorizationFuns
-import com.daml.platform.sandbox.fixture.SandboxFixture
+// import com.daml.platform.sandbox.SandboxRequiringAuthorizationFuns
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.ports.Port
 import org.scalatest.Suite
-import scalaz.@@
 
 import scala.concurrent.{ExecutionContext, Future}
 
-trait SandboxTestLedger extends SandboxFixture with SandboxRequiringAuthorizationFuns {
+import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
+import com.daml.lf.integrationtest.CantonFixture
+import scala.annotation.nowarn
+
+trait SandboxTestLedger extends CantonFixture {
   self: Suite =>
 
   protected def testId: String
+  protected def packageFiles: List[java.io.File] = List()
 
   def useTls: UseTls
 
-  def ledgerId: String @@ domain.LedgerIdTag = LedgerId(testId)
+  override protected def authSecret = None
+  override protected def darFiles = packageFiles.map(_.toPath)
+  override protected def devMode = false
+  override protected def nParticipants = 1
+  override protected def timeProviderType = TimeProviderType.WallClock
+  override protected def tlsEnable = useTls
+  override protected def applicationId: ApplicationId = ApplicationId("sandbox-test-ledger")
+  override protected def enableDisclosedContracts: Boolean = true
 
-  override protected def config = Default.copy(
-    ledgerId = testId,
-    engine = DevEngineConfig,
-    participants = singleParticipant(
-      ApiServerConfig.copy(
-        seeding = Seeding.Weak,
-        timeProviderType = TimeProviderType.WallClock,
-        tls = if (useTls) Some(serverTlsConfig) else None,
-      )
-    ),
-  )
-
-  def clientCfg(token: Option[String], testName: String): LedgerClientConfiguration =
-    LedgerClientConfiguration(
-      applicationId = testName,
-      ledgerIdRequirement = LedgerIdRequirement.none,
-      commandClient = CommandClientConfiguration.default,
-      token = token,
-    )
-
-  lazy private val clientChannelCfg: LedgerClientChannelConfiguration =
-    LedgerClientChannelConfiguration(
-      sslContext = if (useTls) clientTlsConfig.client() else None
-    )
-
-  def usingLedger[A](testName: String, token: Option[String] = None)(
+  def usingLedger[A](@nowarn testName: String, token: Option[String] = None)(
       testFn: (Port, DamlLedgerClient, LedgerId) => Future[A]
   )(implicit
-      esf: ExecutionSequencerFactory,
-      ec: ExecutionContext,
+      ec: ExecutionContext
   ): Future[A] = {
-
-    val client: DamlLedgerClient = DamlLedgerClient.singleHost(
-      "localhost",
-      serverPort.value,
-      clientCfg(token, testName),
-      clientChannelCfg,
-    )(ec, esf)
-
-    val fa: Future[A] = for {
-      ledgerPort <- Future(serverPort)
-      a <- testFn(ledgerPort, client, ledgerId)
-    } yield a
-
-    fa
+    val client = defaultLedgerClientWithoutId(token)
+    testFn(suiteResource.value.head, client, LedgerId("participant0"))
   }
 }

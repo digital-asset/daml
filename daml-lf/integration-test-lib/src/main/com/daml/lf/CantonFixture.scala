@@ -13,6 +13,7 @@ import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.daml.ledger.api.testing.utils.{AkkaBeforeAndAfterAll, OwnedResource, SuiteResource}
 import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.client.LedgerClient
+import com.daml.ledger.client.withoutledgerid.{LedgerClient => LedgerClientWithoutId}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.data.Ref
 import com.daml.platform.services.time.TimeProviderType
@@ -82,6 +83,7 @@ trait CantonFixtureBase {
   protected def timeProviderType: TimeProviderType
   protected def tlsEnable: Boolean
   protected def applicationId: ApplicationId
+  protected def enableDisclosedContracts: Boolean = false
 
   // This flag setup some behavior to ease debugging tests.
   //  If `true`
@@ -169,6 +171,7 @@ trait CantonFixtureBase {
                |      admin-api.port = ${adminPort.port}
                |      ledger-api{
                |        port = ${ledgerApiPort.port}
+               |        explicit-disclosure-unsafe = $enableDisclosedContracts
                |        ${authConfig}
                |        ${tslConfig}
                |      }
@@ -229,7 +232,7 @@ trait CantonFixtureBase {
             _ <-
               Future.traverse(ledgerPorts) { port =>
                 for {
-                  client <- ledgerClient(port, adminToken)
+                  client <- ledgerClient(port, adminJWTToken)
                   _ <- Future.traverse(darFiles) { file =>
                     client.packageManagementClient.uploadDarFile(
                       ByteString.copyFrom(Files.readAllBytes(file))
@@ -249,7 +252,7 @@ trait CantonFixtureBase {
       }
     }
 
-  final protected lazy val adminToken: Option[String] = getToken(adminUserId)
+  final protected lazy val adminJWTToken: Option[String] = getToken(adminUserId)
 
   final protected def getToken(
       userId: String,
@@ -293,6 +296,28 @@ trait CantonFixtureBase {
     )
   }
 
+  final protected def ledgerClientWithoutId(
+      port: Port,
+      token: Option[String],
+      maxInboundMessageSize: Int = 64 * 1024 * 1024,
+  )(implicit ec: ExecutionContext, esf: ExecutionSequencerFactory): LedgerClientWithoutId = {
+    import com.daml.ledger.client.configuration._
+    LedgerClientWithoutId.singleHost(
+      hostIp = "localhost",
+      port = port.value,
+      configuration = LedgerClientConfiguration(
+        applicationId = token.fold(applicationId.unwrap)(_ => ""),
+        ledgerIdRequirement = LedgerIdRequirement.none,
+        commandClient = CommandClientConfiguration.default,
+        token = token,
+      ),
+      channelConfig = LedgerClientChannelConfiguration(
+        sslContext = tlsConfig.client(),
+        maxInboundMessageSize = maxInboundMessageSize,
+      ),
+    )
+  }
+
 }
 
 trait CantonFixture
@@ -320,6 +345,12 @@ trait CantonFixture
       maxInboundMessageSize: Int = 64 * 1024 * 1024,
   )(implicit ec: ExecutionContext): Future[LedgerClient] =
     ledgerClient(suiteResource.value.head, token, maxInboundMessageSize)
+
+  final protected def defaultLedgerClientWithoutId(
+      token: Option[String] = None,
+      maxInboundMessageSize: Int = 64 * 1024 * 1024,
+  )(implicit ec: ExecutionContext): LedgerClientWithoutId =
+    ledgerClientWithoutId(suiteResource.value.head, token, maxInboundMessageSize)
 
   final protected def ledgerClients(
       token: Option[String] = None,
