@@ -22,7 +22,9 @@ object NameOfImpl {
   def qualifiedNameOf(c: Context)(x: c.Expr[Any]): c.Expr[String] =
     qualifiedNameOfTree(c)("qualifiedNameOf", x.tree)
 
-  private def qualifiedNameOfTree(c: Context)(macroName: String, tree: c.universe.Tree): c.Expr[String] = {
+  private def qualifiedNameOfTree(
+      c: Context
+  )(macroName: String, tree: c.universe.Tree): c.Expr[String] = {
     import c.universe._
 
     @tailrec def stripFunctionApply(tree: Tree): Tree = {
