@@ -458,6 +458,8 @@ abstract class AbstractFuncIT
         }
       }
     }
+    // TODO: https://github.com/digital-asset/daml/issues/15882
+    // -- Enable this test when canton supports choice observers
     "ChoiceAuthority:test" should {
       "succeed" ignore {
         for {

@@ -58,7 +58,9 @@ object RejectionGenerators {
       // detailMessage is only suitable for server side debugging but not for the user, so don't pass except on internal errors
 
       err match {
-        case LfInterpretationError.RejectedAuthorityRequest(_, _) => ??? // TODO #15882
+        // TODO: https://github.com/digital-asset/daml/issues/15882
+        // This file has been moved to canton. Nothing to do here.
+        case LfInterpretationError.RejectedAuthorityRequest(_, _) => ???
         case LfInterpretationError.ContractNotFound(cid) =>
           LedgerApiErrors.ConsistencyErrors.ContractNotFound
             .Reject(renderedMessage, cid)
