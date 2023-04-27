@@ -73,6 +73,12 @@ if ($env:SKIP_TESTS -ceq "False") {
     ./ci/remap-scala-test-short-names.ps1 `
       | Out-File -Encoding UTF8 -NoNewline scala-test-suite-name-map.json
 
+    $skip_dev_canton = "False"
+    $tag_filter = ""
+    if ($skip_dev_canton -ceq "True") {
+        $tag_filter = "-dev-canton-test,$tag_filter"
+    }
+
     bazel test //... `
       `-`-profile test-profile.json `
       `-`-experimental_profile_include_target_label `
