@@ -47,6 +47,28 @@ final class NameOfSpec extends AnyFlatSpec with Matchers {
     Root.Nested.nested() shouldBe "com.daml.nameof.NameOfSpec.Root.Nested.nested"
   }
 
+  it should "not compile outside of functions" in {
+    "qualifiedNameOfCurrentFunc" shouldNot compile
+    "class TestClass { qualifiedNameOfCurrentFunc }" shouldNot compile
+  }
+
+  behavior of "NameOf.qualifiedNameOf"
+
+  it should "return the correct full qualified name of the given symbol" in {
+    qualifiedNameOf(Ham().ham()) shouldBe "com.daml.nameof.NameOfSpec.Ham.ham"
+    qualifiedNameOf(Ham.apply _) shouldBe "com.daml.nameof.NameOfSpec.Ham.apply"
+    qualifiedNameOf(Foo.foo()) shouldBe "com.daml.nameof.NameOfSpec.Foo.foo"
+    qualifiedNameOf(Root.Nested.nested()) shouldBe
+      "com.daml.nameof.NameOfSpec.Root.Nested.nested"
+    qualifiedNameOf(None) shouldBe "scala.None"
+    qualifiedNameOf(Option.empty) shouldBe "scala.Option.empty"
+  }
+
+  it should "not compile if no symbol is found" in {
+    "qualifiedNameOf(6)" shouldNot compile
+    """qualifiedNameOf("abc")""" shouldNot compile
+  }
+
   behavior of "NameOf.qualifiedNameOfMember"
 
   it should "return the correct full qualified name of the member" in {
@@ -58,15 +80,14 @@ final class NameOfSpec extends AnyFlatSpec with Matchers {
     qualifiedNameOfMember[Foo.type](_.foo()) shouldBe "com.daml.nameof.NameOfSpec.Foo.foo"
     qualifiedNameOfMember[Root.Nested.type](_.nested()) shouldBe
       "com.daml.nameof.NameOfSpec.Root.Nested.nested"
+    qualifiedNameOfMember[String](_.strip()) shouldBe "java.lang.String.strip"
+    qualifiedNameOfMember[Option[_]](_.map(_ => ???)) shouldBe "scala.Option.map"
   }
 
-  behavior of "NameOf.qualifiedNameOf"
-
-  it should "return the correct full qualified name of the given symbol" in {
-    qualifiedNameOf(Ham().ham()) shouldBe "com.daml.nameof.NameOfSpec.Ham.ham"
-    qualifiedNameOf(Ham.apply _) shouldBe "com.daml.nameof.NameOfSpec.Ham.apply"
-    qualifiedNameOf(Foo.foo()) shouldBe "com.daml.nameof.NameOfSpec.Foo.foo"
-    qualifiedNameOf(Root.Nested.nested()) shouldBe
-      "com.daml.nameof.NameOfSpec.Foo.foo"
+  it should "not compile if no symbol is found" in {
+    "qualifiedNameOfMember[Int](_ => 5)" shouldNot compile
+    """qualifiedNameOfMember[String](_ => "a")""" shouldNot compile
+    "qualifiedNameOfMember[Ham](_.scam(5).toLong)" shouldNot compile
   }
+
 }

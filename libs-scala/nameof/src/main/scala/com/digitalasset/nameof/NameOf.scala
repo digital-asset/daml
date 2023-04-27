@@ -18,10 +18,27 @@ trait NameOf {
     *   Ham().ham() == "foo.bar.spam.Ham.ham"
     * }}}
     */
-  def qualifiedNameOfCurrentFunc: String = macro NameOfImpl.nameOfCurrentFunc
+  def qualifiedNameOfCurrentFunc: String = macro NameOfImpl.qualifiedNameOfCurrentFunc
 
-  def qualifiedNameOfMember[A](func: A => Any): String = macro NameOfImpl.nameOfMember[A]
+  /** Obtain the full qualified identifier of the given expression as a constant string.
+    *
+    * Example usage:
+    * {{{
+    *   qualifiedNameOf(None) == "scala.None"
+    *   qualifiedNameOf(Option.empty) == "scala.Option.empty"
+    * }}}
+    */
+  def qualifiedNameOf(x: Any): String = macro NameOfImpl.qualifiedNameOf
 
-  def qualifiedNameOf(x: Any): String = macro NameOfImpl.nameOf
+  /** Obtain the full qualified identifier of the given function if applied to a value of type `A`.
+    * Use this method instead of [[qualifiedNameOf]] when you do not have an value of type `A` at hand.
+    *
+    * Example uasage:
+    * {{{
+    *   qualifiedNameOfMember[String](_.strip()) == "java.lang.String.strip"
+    *   qualifiedNameOfMember[Option[_]](_.map(_ => ???)) == "scala.Option.map"
+    * }}}
+    */
+  def qualifiedNameOfMember[A](func: A => Any): String = macro NameOfImpl.qualifiedNameOfMember[A]
 }
 object NameOf extends NameOf
