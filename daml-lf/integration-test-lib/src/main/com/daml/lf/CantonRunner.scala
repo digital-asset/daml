@@ -144,7 +144,7 @@ object CantonRunner {
             }
             _ = info("Canton started")
             _ <-
-              Future.traverse(ports) { case (ledgerPort, _) =>
+              Future.traverse(ports) { case (_, ledgerPort) =>
                 for {
                   client <- ledgerClient(ledgerPort.port, adminToken)
                   _ <- Future.traverse(darFiles) { file =>
@@ -175,7 +175,7 @@ object CantonRunner {
           }
           Future.unit
         }
-        Resource(start())(stop).map({ case (_, ports, _) => ports.map(_._1.port) })
+        Resource(start())(stop).map({ case (_, ports, _) => ports.map(_._2.port) })
       }
     }
 
