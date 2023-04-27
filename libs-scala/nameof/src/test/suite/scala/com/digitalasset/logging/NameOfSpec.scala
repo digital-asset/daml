@@ -3,19 +3,21 @@
 
 package com.daml.nameof
 
-import com.daml.nameof.NameOf.qualifiedNameOfCurrentFunc
+import com.daml.nameof.NameOf.{qualifiedNameOf, qualifiedNameOfCurrentFunc, qualifiedNameOfMember}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
 final class NameOfSpec extends AnyFlatSpec with Matchers {
 
-  behavior of "NameOf"
+  behavior of "NameOf.qualifiedNameOfCurrentFunc"
 
-  case class Ham() {
+  case class Ham(ster: Int = 2) {
     def ham(): String = qualifiedNameOfCurrentFunc
+    val jam: String = ""
+    def scam[A](x: A): Boolean = true
   }
 
-  case class Spam() {
+  class Spam() {
     def spam(): String = qualifiedNameOfCurrentFunc
   }
 
@@ -29,12 +31,12 @@ final class NameOfSpec extends AnyFlatSpec with Matchers {
     }
   }
 
-  it should "return the correct full qualified name of the ham function in class Ham" in {
+  it should "return the correct full qualified name of the ham function in case class Ham" in {
     Ham().ham() shouldBe "com.daml.nameof.NameOfSpec.Ham.ham"
   }
 
   it should "return the correct full qualified name of the spam function in class Spam" in {
-    Spam().spam() shouldBe "com.daml.nameof.NameOfSpec.Spam.spam"
+    new Spam().spam() shouldBe "com.daml.nameof.NameOfSpec.Spam.spam"
   }
 
   it should "return the correct full qualified name of the foo function in object Foo" in {
@@ -43,5 +45,28 @@ final class NameOfSpec extends AnyFlatSpec with Matchers {
 
   it should "return the correct full qualified name of the nested function in object Nested within object Root" in {
     Root.Nested.nested() shouldBe "com.daml.nameof.NameOfSpec.Root.Nested.nested"
+  }
+
+  behavior of "NameOf.qualifiedNameOfMember"
+
+  it should "return the correct full qualified name of the member" in {
+    qualifiedNameOfMember[Ham](_.ster) shouldBe "com.daml.nameof.NameOfSpec.Ham.ster"
+    qualifiedNameOfMember[Ham](_.ham()) shouldBe "com.daml.nameof.NameOfSpec.Ham.ham"
+    qualifiedNameOfMember[Ham](_.jam) shouldBe "com.daml.nameof.NameOfSpec.Ham.jam"
+    qualifiedNameOfMember[Ham](_.scam(??? : Unit)) shouldBe "com.daml.nameof.NameOfSpec.Ham.scam"
+    qualifiedNameOfMember[Spam](_.spam()) shouldBe "com.daml.nameof.NameOfSpec.Spam.spam"
+    qualifiedNameOfMember[Foo.type](_.foo()) shouldBe "com.daml.nameof.NameOfSpec.Foo.foo"
+    qualifiedNameOfMember[Root.Nested.type](_.nested()) shouldBe
+      "com.daml.nameof.NameOfSpec.Root.Nested.nested"
+  }
+
+  behavior of "NameOf.qualifiedNameOf"
+
+  it should "return the correct full qualified name of the given symbol" in {
+    qualifiedNameOf(Ham().ham()) shouldBe "com.daml.nameof.NameOfSpec.Ham.ham"
+    qualifiedNameOf(Ham.apply _) shouldBe "com.daml.nameof.NameOfSpec.Ham.apply"
+    qualifiedNameOf(Foo.foo()) shouldBe "com.daml.nameof.NameOfSpec.Foo.foo"
+    qualifiedNameOf(Root.Nested.nested()) shouldBe
+      "com.daml.nameof.NameOfSpec.Foo.foo"
   }
 }

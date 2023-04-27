@@ -18,6 +18,10 @@ trait NameOf {
     *   Ham().ham() == "foo.bar.spam.Ham.ham"
     * }}}
     */
-  def qualifiedNameOfCurrentFunc: String = macro NameOfImpl.nameOf
+  def qualifiedNameOfCurrentFunc: String = macro NameOfImpl.nameOfCurrentFunc
+
+  def qualifiedNameOfMember[A](func: A => Any): String = macro NameOfImpl.nameOfMember[A]
+
+  def qualifiedNameOf(x: Any): String = macro NameOfImpl.nameOf
 }
 object NameOf extends NameOf
