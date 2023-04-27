@@ -405,6 +405,8 @@ private[lf] final class PhaseOne(
     val SBGreaterNumeric = SBCompareNumeric(SBGreater)
     val SBGreaterEqNumeric = SBCompareNumeric(SBGreaterEq)
     val SBEqualNumeric = SBCompareNumeric(SBEqual)
+    // TODO https://github.com/digital-asset/daml/issues/11679
+    def NotImplemented = SBUserError
 
     bf match {
       case BCoerceContractId => compileIdentity(env)
@@ -426,10 +428,14 @@ private[lf] final class PhaseOne(
           case BAddNumeric => SBAddNumeric
           case BSubNumeric => SBSubNumeric
           case BMulNumericLegacy => SBMulNumeric
+          case BMulNumeric => NotImplemented
           case BDivNumericLegacy => SBDivNumeric
+          case BDivNumeric => NotImplemented
           case BRoundNumeric => SBRoundNumeric
           case BCastNumericLegacy => SBCastNumeric
+          case BCastNumeric => NotImplemented
           case BShiftNumericLegacy => SBShiftNumeric
+          case BShiftNumeric => NotImplemented
 
           // Int64 arithmetic
           case BAddInt64 => SBAddInt64
@@ -441,6 +447,7 @@ private[lf] final class PhaseOne(
 
           // Conversions
           case BInt64ToNumericLegacy => SBInt64ToNumeric
+          case BInt64ToNumeric => NotImplemented
           case BNumericToInt64 => SBNumericToInt64
           case BDateToUnixDays => SBDateToUnixDays
           case BUnixDaysToDate => SBUnixDaysToDate
@@ -463,6 +470,7 @@ private[lf] final class PhaseOne(
           case BTextToParty => SBTextToParty
           case BTextToInt64 => SBTextToInt64
           case BTextToNumericLegacy => SBTextToNumeric
+          case BTextToNumeric => NotImplemented
           case BTextToCodePoints => SBTextToCodePoints
 
           case BSHA256Text => SBSHA256Text
@@ -509,6 +517,7 @@ private[lf] final class PhaseOne(
           case BShiftRightBigNumeric => SBShiftRightBigNumeric
           case BNumericToBigNumeric => SBNumericToBigNumeric
           case BBigNumericToNumericLegacy => SBBigNumericToNumeric
+          case BBigNumericToNumeric => NotImplemented
           case BBigNumericToText => SBToText
 
           // TypeRep
