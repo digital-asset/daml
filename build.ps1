@@ -76,10 +76,12 @@ if ($env:SKIP_TESTS -ceq "False") {
     $skip_dev_canton = "True"
     $tag_filter = ""
     if ($skip_dev_canton -ceq "True") {
-        $tag_filter = "-dev-canton-test,$tag_filter"
+        $tag_filter = "-dev-canton-test"
     }
 
     bazel test //... `
+      `-`-build_tag_filters "$tag_filter" \
+      `-`-test_tag_filters "$tag_filter" \
       `-`-profile test-profile.json `
       `-`-experimental_profile_include_target_label `
       `-`-build_event_json_file test-events.json `
