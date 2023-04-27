@@ -80,8 +80,8 @@ if ($env:SKIP_TESTS -ceq "False") {
     }
 
     bazel test //... `
-      `-`-build_tag_filters "$tag_filter" \
-      `-`-test_tag_filters "$tag_filter" \
+      `-`-build_tag_filters "$tag_filter" `
+      `-`-test_tag_filters "$tag_filter" `
       `-`-profile test-profile.json `
       `-`-experimental_profile_include_target_label `
       `-`-build_event_json_file test-events.json `
