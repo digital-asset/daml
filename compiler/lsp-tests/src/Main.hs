@@ -663,6 +663,60 @@ scriptTests runScripts = testGroup "scripts"
           -- check that returned value is new script
           _changeResult <- waitForScriptDidChange
           liftIO $ assertRegex (_vrcpContents _changeResult) "Trace:( |<br>)*276([^0-9]|$)"
+          liftIO $ step "Script results received."
+
+          closeDoc script
+          closeDoc main'
+    -- TODO https://github.com/digital-asset/daml/issues/16772
+    , localOption (mkTimeout 30000000) $ -- 30s timeout
+        testCaseSteps "scenario service interrupts on non-script messages" $ \step -> runScripts $ \_stderr -> do
+          -- open document with long-running script
+          main' <- openDoc' "Main.daml" damlId $
+              T.unlines
+                  [ "{-# LANGUAGE ApplicativeDo #-}"
+                  , "module Main where"
+                  , "import Daml.Script"
+                  , "main : Script ()"
+                  , "main = debug $ foldl (+) 0 [1..10000000]"
+                  ]
+          liftIO $ step "Document opened."
+
+          -- wait until lenses processed, open script
+          lenses <- getCodeLenses main'
+          uri <- scriptUri "Main.daml" "main"
+          liftIO $ lenses @?=
+              [ CodeLens
+                    { _range = Range (Position 4 0) (Position 4 4)
+                    , _command = Just $ Command
+                          { _title = "Script results"
+                          , _command = "daml.showResource"
+                          , _arguments = Just $ List
+                              [ "Script: main"
+                              ,  toJSON uri
+                              ]
+                          }
+                    , _xdata = Nothing
+                    }
+              ]
+          script <- openScript "Main.daml" "main"
+          liftIO $ step "Script opened, awaiting script start..."
+
+          -- check that script started
+          _ <- liftIO $ hTakeUntil _stderr "SCENARIO SERVICE STDOUT: Script started."
+          liftIO $ step "Script has started, sending document hover..."
+
+          -- run hover event
+          _ <- sendRequest STextDocumentHover (HoverParams main' (Position 4 3) Nothing)
+          liftIO $ step "Hover sent..."
+
+          -- check that new script is started
+          _ <- liftIO $ hTakeUntil _stderr "SCENARIO SERVICE STDOUT: Script started."
+          liftIO $ step "New script started."
+
+          -- check that previous script is cancelled
+          _ <- liftIO $ hTakeUntil _stderr "SCENARIO SERVICE STDOUT: Script cancelling."
+          _ <- liftIO $ hTakeUntil _stderr "SCENARIO SERVICE STDOUT: Script cancelled."
+          liftIO $ step "Previous script cancelled."
 
           closeDoc script
           closeDoc main'
