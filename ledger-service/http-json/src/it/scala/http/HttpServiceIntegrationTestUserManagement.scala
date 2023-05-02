@@ -27,7 +27,7 @@ import scala.concurrent.{ExecutionContext, Future}
 import scalaz.syntax.tag._
 
 @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
-class HttpServiceIntegrationTestUserManagementNoAuth
+class HttpServiceIntegrationTestUserManagement
     extends AbstractHttpServiceIntegrationTestQueryStoreIndependent
     with AbstractHttpServiceIntegrationTestFuns
     with HttpServiceUserFixture.UserToken

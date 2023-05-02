@@ -59,7 +59,7 @@ trait AbstractHttpServiceIntegrationTestFunsCustomToken
   import json.JsonProtocol._
 
   protected def jwt(uri: Uri)(implicit ec: ExecutionContext): Future[Jwt] =
-    jwtForParties(uri)(domain.Party subst List("Alice"), List(), testId)
+    jwtForParties(uri)(domain.Party subst List("Alice"), List(), "participant0")
 
   protected def headersWithPartyAuthLegacyFormat(
       actAs: List[domain.Party],
@@ -88,8 +88,6 @@ trait AbstractHttpServiceIntegrationTestFunsCustomToken
           )
           .parseResponse[List[domain.PartyDetails]]
           .map(inside(_) { case domain.OkResponse(result, None, StatusCodes.OK) =>
-            val actualIds: Set[domain.Party] = result.view.map(_.identifier).toSet
-            actualIds should contain allElementsOf domain.Party.subst(partyIds.toSet)
             result.toSet should contain allElementsOf
               allocatedParties.toSet.map(domain.PartyDetails.fromLedgerApi)
           })

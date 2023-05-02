@@ -32,6 +32,7 @@ final class AuthorizationTest
 
   protected val testId: String = this.getClass.getSimpleName
   override def useTls = UseTls.NoTls
+  override protected def authSecret: Option[String] = Some("secret")
 
   implicit val asys: ActorSystem = ActorSystem(testId)
   implicit val mat: Materializer = Materializer(asys)

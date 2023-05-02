@@ -93,7 +93,7 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
   ): Future[A] = {
     implicit val lc: LoggingContextOf[InstanceUUID] = instanceUUIDLogCtx()
     implicit val metrics: HttpJsonApiMetrics = HttpJsonApiMetrics.ForTesting
-    val ledgerId = ledgerIdOverwrite.getOrElse(LedgerId(testName))
+    val ledgerId = ledgerIdOverwrite.getOrElse(LedgerId("participant0"))
     val applicationId = ApplicationId(testName)
 
     val contractDaoF: Future[Option[ContractDao]] = jdbcConfig.map(c => initializeDb(c)).sequence

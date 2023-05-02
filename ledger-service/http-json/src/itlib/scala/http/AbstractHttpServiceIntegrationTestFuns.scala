@@ -178,7 +178,6 @@ trait AbstractHttpServiceIntegrationTestFuns
       wsConfig = wsConfig,
       maxInboundMessageSize = maxInboundMessageSize,
       token = token orElse Some(jwtAdminNoParty),
-      ledgerIdOverwrite = Some(ledgerId),
     )((u, e, d, c) => testFn(HttpServiceTestFixtureData(u, e, d, c, ledgerId)))
   }
 
@@ -193,7 +192,6 @@ trait AbstractHttpServiceIntegrationTestFuns
       useTls = useTls,
       wsConfig = wsConfig,
       token = Some(token),
-      ledgerIdOverwrite = Some(ledgerId),
     )(testFn(_, _, _, _, ledgerId))
   }
 

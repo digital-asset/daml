@@ -58,7 +58,7 @@ object HttpServiceUserFixture {
     protected override lazy val jwtAdminNoParty: Jwt = {
       val decodedJwt = DecodedJwt(
         """{"alg": "HS256", "typ": "JWT"}""",
-        s"""{"https://daml.com/ledger-api": {"ledgerId": "${testId: String}", "applicationId": "test", "admin": true}}""",
+        s"""{"https://daml.com/ledger-api": {"ledgerId": "participant0", "applicationId": "test", "admin": true}}""",
       )
       JwtSigner.HMAC256
         .sign(decodedJwt, "secret")

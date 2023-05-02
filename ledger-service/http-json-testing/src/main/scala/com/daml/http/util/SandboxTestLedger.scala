@@ -25,7 +25,7 @@ trait SandboxTestLedger extends CantonFixture {
 
   def useTls: UseTls
 
-  override protected def authSecret = None
+  override protected def authSecret: Option[String] = None
   override protected def darFiles = packageFiles.map(_.toPath)
   override protected def devMode = false
   override protected def nParticipants = 1

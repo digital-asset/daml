@@ -55,7 +55,7 @@ abstract class WebsocketServiceOffsetTickIntTest
         aliceHeaders <- fixture.getUniquePartyAndAuthHeaders("Alice")
         (party, headers) = aliceHeaders
         _ <- initialIouCreate(uri, party, headers)
-        jwt <- jwtForParties(uri)(List(party), List(), testId)
+        jwt <- jwtForParties(uri)(List(party), List(), "participant0")
         msgs <- singleClientQueryStream(jwt, uri, """{"templateIds": ["Iou:Iou"]}""")
           .take(10)
           .runWith(collectResultsAsTextMessage)
@@ -74,7 +74,6 @@ abstract class WebsocketServiceOffsetTickIntTest
         ledgerOffset <- client.transactionClient
           .getLedgerEnd(ledgerId)
           .map(domain.Offset.fromLedgerApi(_))
-        _ = println(ledgerOffset)
         jwt <- jwt(uri)
         msgs <- singleClientQueryStream(
           jwt,
@@ -98,12 +97,11 @@ abstract class WebsocketServiceOffsetTickIntTest
         ledgerOffset <- client.transactionClient
           .getLedgerEnd(ledgerId)
           .map(domain.Offset.fromLedgerApi(_))
-        _ = println(ledgerOffset)
         jwt <- jwt(uri)
         msgs <- singleClientQueryStream(
           jwt,
           uri,
-          s"""[{"templateIds": ["Iou:Iou"], "offset": "$ledgerOffset"}]""",
+          s"""[{"templateIds": ["Iou:Iou"], "offset": "${ledgerOffset.get}"}]""",
         )
           .take(10)
           .runWith(collectResultsAsTextMessage)
