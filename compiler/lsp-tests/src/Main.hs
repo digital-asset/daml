@@ -564,9 +564,6 @@ scriptTests runScripts = testGroup "scripts"
           closeDoc script
           closeDoc main'
     , testCase "changing source file causes new message" $ runScripts $ \_stderr -> do
-          --_ <- liftIO $ forkIO $ do
-          --    line <- hGetLine _stderr
-          --    putStrLn $ "hello " ++ line
           main' <- openDoc' "Main.daml" damlId $ T.unlines
               [ "{-# LANGUAGE ApplicativeDo #-}"
               , "module Main where"
@@ -574,7 +571,6 @@ scriptTests runScripts = testGroup "scripts"
               , "main : Script ()"
               , "main = debug \"firstRun\""
               ]
-          --_ <- liftIO $ forkIO $ void $ hGetLine _stderr
           lenses <- getCodeLenses main'
           uri <- scriptUri "Main.daml" "main"
           liftIO $ lenses @?=
