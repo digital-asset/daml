@@ -20,6 +20,9 @@ trait NameOf {
     */
   def qualifiedNameOfCurrentFunc: String = macro NameOfImpl.qualifiedNameOfCurrentFunc
 
+  /** Alias for qualifiedNameOfCurrentFunc */
+  def functionFullName: String = macro NameOfImpl.qualifiedNameOfCurrentFunc
+
   /** Obtain the full qualified identifier of the given expression as a constant string.
     *
     * Example usage:
