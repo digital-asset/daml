@@ -297,7 +297,7 @@ class IdeLedgerClient(
       ] =
         result match {
           case _ if canceled() =>
-            throw Runner.Canceled(true)
+            throw Runner.TimedOut
           case ScenarioRunner.Interruption(continue) =>
             loop(continue())
           case err: ScenarioRunner.SubmissionError => Left(err)

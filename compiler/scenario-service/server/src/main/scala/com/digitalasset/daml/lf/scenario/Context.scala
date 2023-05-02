@@ -191,8 +191,8 @@ class Context(
       traceLog = traceLog,
       warningLog = warningLog,
       canceled = () => {
-        if (timeBombCanceller()) Some(true)
-        else if (canceledByRequest()) Some(false)
+        if (timeBombCanceller()) Some(Runner.TimedOut)
+        else if (canceledByRequest()) Some(Runner.CanceledByRequest)
         else None
       },
     )
@@ -233,9 +233,11 @@ class Context(
           )
         )
       case Failure(e: Error) => handleFailure(e)
-      case Failure(Runner.Canceled(wasTimeout)) =>
-        handleFailure(if (wasTimeout) Error.Timeout(timeout) else Error.CanceledByRequest())
       case Failure(e: Runner.InterpretationError) => handleFailure(Error.RunnerException(e.error))
+      case Failure(Runner.CanceledByRequest) =>
+        handleFailure(Error.CanceledByRequest())
+      case Failure(Runner.TimedOut) =>
+        handleFailure(Error.Timeout(timeout))
       case Failure(e: ScriptF.FailedCmd) =>
         e.cause match {
           case e: Error => handleFailure(e)

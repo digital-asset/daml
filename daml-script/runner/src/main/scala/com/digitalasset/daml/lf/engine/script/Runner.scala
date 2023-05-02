@@ -216,7 +216,8 @@ object Runner {
   final case class InterpretationError(error: SError.SError)
       extends RuntimeException(s"${Pretty.prettyError(error).render(80)}")
 
-  final case class Canceled(wasTimeout: Boolean) extends RuntimeException
+  final case object CanceledByRequest extends RuntimeException
+  final case object TimedOut extends RuntimeException
 
   private[script] val compilerConfig = {
     import Compiler._
@@ -356,7 +357,7 @@ object Runner {
       timeMode: ScriptTimeMode,
       traceLog: TraceLog = Speedy.Machine.newTraceLog,
       warningLog: WarningLog = Speedy.Machine.newWarningLog,
-      canceled: () => Option[Boolean] = () => None,
+      canceled: () => Option[RuntimeException] = () => None,
   )(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
@@ -428,7 +429,7 @@ private[lf] class Runner(
       initialClients: Participants[ScriptLedgerClient],
       traceLog: TraceLog = Speedy.Machine.newTraceLog,
       warningLog: WarningLog = Speedy.Machine.newWarningLog,
-      canceled: () => Option[Boolean] = () => None,
+      canceled: () => Option[RuntimeException] = () => None,
   )(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
@@ -447,7 +448,7 @@ private[lf] class Runner(
     def stepToValue(): Either[RuntimeException, SValue] = {
       val result = machine.run()
       canceled() match {
-        case Some(wasTimeout) => Left(Runner.Canceled(wasTimeout))
+        case Some(err) => Left(err)
         case None =>
           result match {
             case SResultInterruption =>
@@ -526,7 +527,8 @@ private[lf] class Runner(
                     )
                   case cmd: ScriptF.Cmd =>
                     cmd.execute(env).transform {
-                      case f @ Failure(Runner.Canceled(_)) => f
+                      case f @ Failure(Runner.CanceledByRequest) => f
+                      case f @ Failure(Runner.TimedOut) => f
                       case Failure(exception) =>
                         Failure(new ScriptF.FailedCmd(cmd, exception))
                       case Success(value) =>
