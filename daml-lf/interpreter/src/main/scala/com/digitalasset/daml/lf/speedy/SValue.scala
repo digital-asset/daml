@@ -140,7 +140,7 @@ object SValue {
   final case class SPAP(prim: Prim, actuals: util.ArrayList[SValue], arity: Int) extends SValue {
     if (actuals.size >= arity) {
       throw SError.SErrorCrash(
-        NameOf.qualifiedNameOfCurrentFunc,
+        NameOf.qualifiedNameOf(SPAP),
         "SPAP: unexpected actuals.size >= arity",
       )
     }
