@@ -37,6 +37,8 @@ import Test.Tasty.HUnit
 import qualified Data.Aeson as Aeson
 import DA.Daml.Lsp.Test.Util
 import qualified Language.LSP.Test as LSP
+import Text.Regex.TDFA
+import Development.IDE.Core.Rules.Daml (VirtualResourceChangedParams(..))
 
 fullCaps' :: ClientCapabilities
 fullCaps' = fullCaps { _window = Just $ WindowClientCapabilities (Just True) Nothing Nothing }
@@ -49,7 +51,7 @@ main = do
     scriptDarPath <- locateRunfiles $
         mainWorkspace </> "daml-script" </> "daml" </> "daml-script.dar"
     let run s = withTempDir $ \dir -> runSessionWithConfig conf (damlcPath <> " ide") fullCaps' dir s
-        runScripts s 
+        runScripts s
             -- We are currently seeing issues with GRPC FFI calls which make everything
             -- that uses the scenario service extremely flaky and forces us to disable it on
             -- CI. Once https://github.com/digital-asset/daml/issues/1354 is fixed we can
@@ -67,8 +69,21 @@ main = do
                     , "- daml-stdlib"
                     , "- daml-script.dar"
                     ]
-                withCurrentDirectory dir $
-                    runSessionWithConfig conf (damlcPath <> " ide") fullCaps' dir s
+                withCurrentDirectory dir $ do
+                    let cmd = damlcPath
+                        args = ["ide", "--debug"]
+                        createProc = (proc cmd args) { std_in = CreatePipe, std_out = CreatePipe, std_err = CreatePipe }
+                    withCreateProcess createProc $ \mbServerIn mbServerOut mbServerErr _serverProc -> do
+                        case (mbServerIn, mbServerOut, mbServerErr) of
+                            (Just serverIn, Just serverOut, Just serverErr) -> do
+                                runSessionWithHandles
+                                    serverIn
+                                    serverOut
+                                    conf
+                                    fullCaps'
+                                    dir
+                                    (s serverErr)
+                            _ -> error "runScripts: Cannot start without stdin, stdout, and stderr."
 
     defaultMain $ testGroup "LSP"
         [ symbolsTests run
@@ -93,7 +108,7 @@ conf = defaultConfig
 
 diagnosticTests
     :: (Session () -> IO ())
-    -> (Session () -> IO ())
+    -> ((Handle -> Session ()) -> IO ())
     -> TestTree
 diagnosticTests run runScripts = testGroup "diagnostics"
     [ testCase "diagnostics disappear after error is fixed" $ run $ do
@@ -256,7 +271,7 @@ diagnosticTests run runScripts = testGroup "diagnostics"
                 )
               ]
           closeDoc main'
-    , testCase "script error" $ runScripts $ do
+    , testCase "script error" $ runScripts $ \_stderr -> do
           main' <- openDoc' "Main.daml" damlId $ T.unlines
               [ "module Main where"
               , "import Daml.Script"
@@ -279,10 +294,10 @@ diagnosticTests run runScripts = testGroup "diagnostics"
 
 requestTests
     :: (Session () -> IO ())
-    -> (Session () -> IO ())
+    -> ((Handle -> Session ()) -> IO ())
     -> TestTree
 requestTests run runScripts = testGroup "requests"
-    [ testCase "code-lenses" $ runScripts $ do
+    [ testCase "code-lenses" $ runScripts $ \_stderr -> do
           main' <- openDoc' "Main.daml" damlId $ T.unlines
               [ "module Main where"
               , "import Daml.Script"
@@ -308,7 +323,7 @@ requestTests run runScripts = testGroup "requests"
               ]
 
           closeDoc main'
-    , testCase "stale code-lenses" $ runScripts $ do
+    , testCase "stale code-lenses" $ runScripts $ \_stderr -> do
           main' <- openDoc' "Main.daml" damlId $ T.unlines
               [ "module Main where"
               , "import Daml.Script"
@@ -478,9 +493,9 @@ requestTests run runScripts = testGroup "requests"
           closeDoc test
     ]
 
-scriptTests :: (Session () -> IO ()) -> TestTree
+scriptTests :: ((Handle -> Session ()) -> IO ()) -> TestTree
 scriptTests runScripts = testGroup "scripts"
-    [ testCase "opening codelens produces a notification" $ runScripts $ do
+    [ testCase "opening codelens produces a notification" $ runScripts $ \_stderr -> do
           main' <- openDoc' "Main.daml" damlId $ T.unlines
               [ "{-# LANGUAGE ApplicativeDo #-}"
               , "module Main where"
@@ -507,7 +522,7 @@ scriptTests runScripts = testGroup "scripts"
           mainScript <- openScript "Main.daml" "main"
           _ <- waitForScriptDidChange
           closeDoc mainScript
-    , testCase "script ok" $ runScripts $ do
+    , testCase "script ok" $ runScripts $ \_stderr -> do
           main' <- openDoc' "Main.daml" damlId $ T.unlines
               [ "{-# LANGUAGE ApplicativeDo #-}"
               , "module Main where"
@@ -519,7 +534,7 @@ scriptTests runScripts = testGroup "scripts"
           expectScriptContent "Return value: &quot;ok&quot"
           closeDoc script
           closeDoc main'
-    , testCase "spaces in path" $ runScripts $ do
+    , testCase "spaces in path" $ runScripts $ \_stderr -> do
           main' <- openDoc' "spaces in path/Main.daml" damlId $ T.unlines
               [ "{-# LANGUAGE ApplicativeDo #-}"
               , "module Main where"
@@ -531,7 +546,7 @@ scriptTests runScripts = testGroup "scripts"
           expectScriptContent "Return value: &quot;ok&quot"
           closeDoc script
           closeDoc main'
-    , testCase "submit location" $ runScripts $ do
+    , testCase "submit location" $ runScripts $ \_stderr -> do
           main' <- openDoc' "Main.daml" damlId $ T.unlines
               [ "{-# LANGUAGE ApplicativeDo #-}"
               , "module Main where"
@@ -548,7 +563,180 @@ scriptTests runScripts = testGroup "scripts"
           expectScriptContentMatch "title=\"Main:8:3\">Main:8:3</a>.*title=\"Main:10:23\">Main:10:23</a>"
           closeDoc script
           closeDoc main'
+    , testCase "changing source file causes new message" $ runScripts $ \_stderr -> do
+          main' <- openDoc' "Main.daml" damlId $ T.unlines
+              [ "{-# LANGUAGE ApplicativeDo #-}"
+              , "module Main where"
+              , "import Daml.Script"
+              , "main : Script ()"
+              , "main = debug \"firstRun\""
+              ]
+          lenses <- getCodeLenses main'
+          uri <- scriptUri "Main.daml" "main"
+          liftIO $ lenses @?=
+              [ CodeLens
+                    { _range = Range (Position 4 0) (Position 4 4)
+                    , _command = Just $ Command
+                          { _title = "Script results"
+                          , _command = "daml.showResource"
+                          , _arguments = Just $ List
+                              [ "Script: main"
+                              ,  toJSON uri
+                              ]
+                          }
+                    , _xdata = Nothing
+                    }
+              ]
+          script <- openScript "Main.daml" "main"
+          originalResult <- waitForScriptDidChange
+          changeDoc main'
+              [ TextDocumentContentChangeEvent Nothing Nothing $ T.unlines
+                  [ "{-# LANGUAGE ApplicativeDo #-}"
+                  , "module Main where"
+                  , "import Daml.Script"
+                  , "main : Script ()"
+                  , "main = debug \"secondRun\""
+                  ]
+              ]
+          changeResult <- waitForScriptDidChange
+          liftIO $ do
+              assertRegex (_vrcpContents originalResult) "Trace:[^/]+firstRun"
+              assertRegex (_vrcpContents changeResult) "Trace:[^/]+secondRun"
+          closeDoc script
+          closeDoc main'
+    , localOption (mkTimeout 30000000) $ -- 30s timeout
+        testCaseSteps "scenario service interrupts outdated script runs" $ \step -> runScripts $ \_stderr -> do
+          let mkDoc :: Integer -> T.Text
+              mkDoc duration = T.unlines
+                  [ "{-# LANGUAGE ApplicativeDo #-}"
+                  , "module Main where"
+                  , "import Daml.Script"
+                  , "main : Script ()"
+                  , "main = debug $ foldl (+) 0 [1.." <> T.pack (show duration) <> "]"
+                  ]
+
+          -- open document with long-running script
+          main' <- openDoc' "Main.daml" damlId $ mkDoc 10000000
+          liftIO $ step "Document opened."
+
+          -- wait until lenses processed, open script
+          lenses <- getCodeLenses main'
+          uri <- scriptUri "Main.daml" "main"
+          liftIO $ lenses @?=
+              [ CodeLens
+                    { _range = Range (Position 4 0) (Position 4 4)
+                    , _command = Just $ Command
+                          { _title = "Script results"
+                          , _command = "daml.showResource"
+                          , _arguments = Just $ List
+                              [ "Script: main"
+                              ,  toJSON uri
+                              ]
+                          }
+                    , _xdata = Nothing
+                    }
+              ]
+          script <- openScript "Main.daml" "main"
+          liftIO $ step "Script opened, awaiting script start..."
+
+          -- check that script started
+          _ <- liftIO $ hTakeUntil _stderr "SCENARIO SERVICE STDOUT: Script started."
+          liftIO $ step "Script has started, changing original doc..."
+
+          -- replace with short-running script
+          changeDoc main' [ TextDocumentContentChangeEvent Nothing Nothing $ mkDoc 23 ]
+          liftIO $ step "Doc changes sent..."
+
+          -- check that new script is started
+          _ <- liftIO $ hTakeUntil _stderr "SCENARIO SERVICE STDOUT: Script started."
+          liftIO $ step "New script started."
+
+          -- check that previous script is cancelled
+          _ <- liftIO $ hTakeUntil _stderr "SCENARIO SERVICE STDOUT: Script cancelling."
+          _ <- liftIO $ hTakeUntil _stderr "SCENARIO SERVICE STDOUT: Script cancelled."
+          liftIO $ step "Previous script cancelled"
+
+          -- check that returned value is new script
+          _changeResult <- waitForScriptDidChange
+          liftIO $ assertRegex (_vrcpContents _changeResult) "Trace:( |<br>)*276([^0-9]|$)"
+          liftIO $ step "Script results received."
+
+          closeDoc script
+          closeDoc main'
+    -- TODO https://github.com/digital-asset/daml/issues/16772
+    , localOption (mkTimeout 30000000) $ -- 30s timeout
+        testCaseSteps "scenario service interrupts on non-script messages" $ \step -> runScripts $ \_stderr -> do
+          -- open document with long-running script
+          main' <- openDoc' "Main.daml" damlId $
+              T.unlines
+                  [ "{-# LANGUAGE ApplicativeDo #-}"
+                  , "module Main where"
+                  , "import Daml.Script"
+                  , "main : Script ()"
+                  , "main = debug $ foldl (+) 0 [1..10000000]"
+                  ]
+          liftIO $ step "Document opened."
+
+          -- wait until lenses processed, open script
+          lenses <- getCodeLenses main'
+          uri <- scriptUri "Main.daml" "main"
+          liftIO $ lenses @?=
+              [ CodeLens
+                    { _range = Range (Position 4 0) (Position 4 4)
+                    , _command = Just $ Command
+                          { _title = "Script results"
+                          , _command = "daml.showResource"
+                          , _arguments = Just $ List
+                              [ "Script: main"
+                              ,  toJSON uri
+                              ]
+                          }
+                    , _xdata = Nothing
+                    }
+              ]
+          script <- openScript "Main.daml" "main"
+          liftIO $ step "Script opened, awaiting script start..."
+
+          -- check that script started
+          _ <- liftIO $ hTakeUntil _stderr "SCENARIO SERVICE STDOUT: Script started."
+          liftIO $ step "Script has started, sending document hover..."
+
+          -- run hover event
+          _ <- sendRequest STextDocumentHover (HoverParams main' (Position 4 3) Nothing)
+          liftIO $ step "Hover sent..."
+
+          -- check that new script is started
+          _ <- liftIO $ hTakeUntil _stderr "SCENARIO SERVICE STDOUT: Script started."
+          liftIO $ step "New script started."
+
+          -- check that previous script is cancelled
+          _ <- liftIO $ hTakeUntil _stderr "SCENARIO SERVICE STDOUT: Script cancelling."
+          _ <- liftIO $ hTakeUntil _stderr "SCENARIO SERVICE STDOUT: Script cancelled."
+          liftIO $ step "Previous script cancelled."
+
+          closeDoc script
+          closeDoc main'
     ]
+
+hTakeUntil :: Handle -> T.Text -> IO (Maybe String)
+hTakeUntil handle regex = go
+  where
+    pred = matchTest (makeRegex regex :: Regex)
+    go = do
+      closed <- hIsClosed handle
+      if closed
+        then pure Nothing
+        else do
+          line <- hGetLine handle
+          if pred line then pure (Just line) else go
+
+assertRegex :: T.Text -> T.Text -> Assertion
+assertRegex source regex =
+    let errMsg = "Source text: `" <> T.unpack source <> "` does not match regular expression `" <> T.unpack regex <> "`."
+    in
+    assertBool
+        errMsg
+        (matchTest (makeRegex regex :: Regex) source)
 
 executeCommandTests
     :: (Session () -> IO ())
@@ -1001,10 +1189,10 @@ multiPackageTests damlc scriptDarPath
     ]
 
 raceTests
-    :: (Session () -> IO ())
+    :: ((Handle -> Session ()) -> IO ())
     -> TestTree
 raceTests runScripts = testGroup "race tests"
-    [ testCaseSteps "race code lens & hover requests" $ \step -> runScripts $ do
+    [ testCaseSteps "race code lens & hover requests" $ \step -> runScripts $ \_stderr -> do
           main' <- openDoc' "Main.daml" damlId $ T.unlines
               [ "module Main where"
               , "import Daml.Script"

@@ -31,6 +31,8 @@ object Error {
 
   final case class Timeout(timeout: Duration) extends Error
 
+  final case class CanceledByRequest() extends Error
+
   final case class ContractNotEffective(
       coid: ContractId,
       templateId: Identifier,

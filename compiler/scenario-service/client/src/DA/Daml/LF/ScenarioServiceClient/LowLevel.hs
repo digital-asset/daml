@@ -3,6 +3,7 @@
 
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE GADTs #-}
+{-# LANGUAGE RankNTypes #-}
 module DA.Daml.LF.ScenarioServiceClient.LowLevel
   ( Options(..)
   , TimeoutSeconds
@@ -31,6 +32,7 @@ module DA.Daml.LF.ScenarioServiceClient.LowLevel
   , ScenarioServiceException(..)
   ) where
 
+import System.Random (randomIO)
 import Conduit (runConduit, (.|), MonadUnliftIO(..))
 import Data.Either
 import Data.Functor
@@ -40,6 +42,7 @@ import GHC.Generics
 import Text.Read
 import Control.Concurrent.Async
 import Control.Concurrent.MVar
+import Control.Concurrent
 import Control.DeepSeq
 import Control.Exception
 import Control.Monad
@@ -58,7 +61,7 @@ import qualified Data.Text as T
 import qualified Data.Text.Lazy as TL
 import qualified Data.Vector as V
 import Network.GRPC.HighLevel.Client (ClientError(..), ClientRequest(..), ClientResult(..), GRPCMethodType(..))
-import Network.GRPC.HighLevel.Generated (withGRPCClient)
+import Network.GRPC.HighLevel.Generated (withGRPCClient, GRPCIOError)
 import Network.GRPC.LowLevel (ClientConfig(..), Host(..), Port(..), StatusCode(..), Arg(MaxReceiveMessageLength))
 import qualified Proto3.Suite as Proto
 import System.Directory
@@ -70,6 +73,9 @@ import qualified System.IO
 import DA.Bazel.Runfiles
 import qualified DA.Daml.LF.Ast as LF
 import qualified ScenarioService as SS
+
+import Development.IDE.Types.Logger (Logger)
+import qualified Development.IDE.Types.Logger as Logger
 
 data Options = Options
   { optServerJar :: FilePath
@@ -350,7 +356,8 @@ runScenario Handle{..} (ContextId ctxId) name = do
     performRequest
       (SS.scenarioServiceRunScenario hClient)
       (optGrpcTimeout hOptions)
-      (SS.RunScenarioRequest ctxId (Just (toIdentifier name)))
+      (SS.RunScenarioRequest $ Just $ SS.RunScenarioRequestSumStart $
+        SS.RunScenarioStart ctxId (Just (toIdentifier name)))
   pure $ case res of
     Left err -> Left (BackendError err)
     Right (SS.RunScenarioResponse (Just (SS.RunScenarioResponseResponseError err))) -> Left (ScenarioError err)
@@ -377,7 +384,8 @@ runScript Handle{..} (ContextId ctxId) name = do
     performRequest
       (SS.scenarioServiceRunScript hClient)
       (optGrpcTimeout hOptions)
-      (SS.RunScenarioRequest ctxId (Just (toIdentifier name)))
+      (SS.RunScenarioRequest $ Just $ SS.RunScenarioRequestSumStart $
+        SS.RunScenarioStart ctxId (Just (toIdentifier name)))
   pure $ case res of
     Left err -> Left (BackendError err)
     Right (SS.RunScenarioResponse (Just (SS.RunScenarioResponseResponseError err))) -> Left (ScenarioError err)
@@ -395,6 +403,119 @@ performRequest method timeoutSeconds payload = do
     ClientNormalResponse _ _ _ status _ -> return (Left $ BErrorFail status)
     ClientErrorResponse err -> return (Left $ BErrorClient err)
 
+runBiDiLive
+  :: (SS.ScenarioService ClientRequest ClientResult
+      -> ClientRequest 'BiDiStreaming SS.RunScenarioRequest SS.RunScenarioResponseOrStatus
+      -> IO (ClientResult 'BiDiStreaming SS.RunScenarioResponseOrStatus))
+  -> Handle -> ContextId -> LF.ValueRef -> Logger -> MVar Bool -> (SS.ScenarioStatus -> IO ())
+  -> IO (Either Error SS.ScenarioResult)
+runBiDiLive runner Handle{..} (ContextId ctxId) name logger stopSemaphore statusUpdateHandler = do
+  let startReq =
+        SS.RunScenarioRequest $ Just $ SS.RunScenarioRequestSumStart $
+          SS.RunScenarioStart ctxId (Just (toIdentifier name))
+  let cancelReq = SS.RunScenarioRequest $ Just $ SS.RunScenarioRequestSumCancel SS.RunScenarioCancel
+
+  (updateFinalResponse, getFinalResponse) <- do
+    -- Hide finalResponse inside closure
+    finalResponse <- newIORef NoResultUpdate
+    let set r =
+          atomicModifyIORef finalResponse $ \old -> let r' = old <> r in (r', r')
+    let get = do
+          resp <- readIORef finalResponse
+          pure $ case resp of
+            NoResultUpdate -> Left (ExceptionError (error "runBiDiLive did not get a completion"))
+            ResponseResult r -> Right r
+            GRPCError err -> Left (BackendError (BErrorClient (ClientIOError err)))
+            ErrorResult e -> Left e
+            MultipleResponses rs ->
+              let errMsg =
+                    unlines
+                      ( "runBiDiLive got multiple results:"
+                      : map (show . either ErrorResult ResponseResult) rs
+                      )
+              in
+              Left (ExceptionError (error errMsg))
+    pure (set, get)
+
+  response <-
+    runner hClient $
+      ClientBiDiRequest (fromIntegral (optGrpcTimeout hOptions)) mempty $ \_clientCall _meta streamRecv sendReq _writesDone -> do
+        let handleGrpcIOErr :: IO (Either GRPCIOError a) -> (a -> IO ScenarioResultUpdate) -> IO ScenarioResultUpdate
+            handleGrpcIOErr action convert = do
+              mbGrpcIOErr <- action
+              case mbGrpcIOErr of
+                Left grpcIOErr ->
+                  pure (GRPCError grpcIOErr)
+                Right a ->
+                  convert a
+
+            loop :: IO ()
+            loop = do
+              update <- handleGrpcIOErr streamRecv $ \case
+                Just (SS.RunScenarioResponseOrStatus (Just resp)) ->
+                  case resp of
+                    (SS.RunScenarioResponseOrStatusResponseError err) ->
+                      pure (ErrorResult (ScenarioError err))
+                    (SS.RunScenarioResponseOrStatusResponseResult result) ->
+                      pure (ResponseResult result)
+                    (SS.RunScenarioResponseOrStatusResponseStatus status) -> do
+                      statusUpdateHandler status
+                      pure NoResultUpdate
+                _ -> pure NoResultUpdate
+              result <- updateFinalResponse update
+              case result of
+                NoResultUpdate -> loop -- keep looping until a result is found
+                _ -> pure ()
+
+        _ <- forkIO $ do
+          semaphoreId <- T.pack . show . abs <$> (randomIO :: IO Int)
+          Logger.logDebug logger (semaphoreId <> " semaphore reached")
+          shouldCancel <- takeMVar stopSemaphore
+          Logger.logDebug logger (semaphoreId <> " semaphore finished " <> if shouldCancel then "cancelled" else "not cancelled")
+          when shouldCancel $ do
+            update <- handleGrpcIOErr (sendReq cancelReq) (const (pure NoResultUpdate))
+            _ <- updateFinalResponse update
+            pure ()
+
+        update <- handleGrpcIOErr (sendReq startReq) (const (pure NoResultUpdate))
+        result <- updateFinalResponse update
+        case result of
+          NoResultUpdate -> loop
+          _ -> pure ()
+        pure ()
+  case response of
+    ClientBiDiResponse _ StatusOk _ -> getFinalResponse
+    ClientBiDiResponse _ status _ -> pure (Left (BackendError (BErrorFail status)))
+    ClientErrorResponse err -> pure (Left (BackendError (BErrorClient err)))
+
+data ScenarioResultUpdate
+  = NoResultUpdate
+  | ResponseResult SS.ScenarioResult
+  | ErrorResult Error
+  | GRPCError GRPCIOError
+  | MultipleResponses [Either Error SS.ScenarioResult]
+  deriving (Show)
+
+instance Semigroup ScenarioResultUpdate where
+  (<>) NoResultUpdate result = result -- NoResults is always overwritten
+  (<>) result NoResultUpdate = result
+  (<>) (GRPCError _) result = result -- GRPC Errors are always overwritten by other errors or responses
+  (<>) result (GRPCError _) = result -- GRPC Errors are always overwritten by other errors or responses
+  (<>) res1 res2 =
+    let toMultipleResponses :: ScenarioResultUpdate -> [Either Error SS.ScenarioResult]
+        toMultipleResponses NoResultUpdate = [] -- these are overwritten by prior clauses
+        toMultipleResponses (GRPCError _) = [] -- these are overwritten by prior clauses
+        toMultipleResponses (ResponseResult result) = [Right result]
+        toMultipleResponses (ErrorResult err) = [Left err]
+        toMultipleResponses (MultipleResponses m) = m
+    in
+    MultipleResponses (toMultipleResponses res1 ++ toMultipleResponses res2)
+
+runLiveScenario
+  :: Handle -> ContextId -> LF.ValueRef -> (SS.ScenarioStatus -> IO ())
+  -> IO (Either Error SS.ScenarioResult)
+runLiveScenario = runLive SS.scenarioServiceRunLiveScenario
+
 runLive
   :: (SS.ScenarioService ClientRequest ClientResult
       -> ClientRequest 'ServerStreaming SS.RunScenarioRequest SS.RunScenarioResponseOrStatus
@@ -402,7 +523,9 @@ runLive
   -> Handle -> ContextId -> LF.ValueRef -> (SS.ScenarioStatus -> IO ())
   -> IO (Either Error SS.ScenarioResult)
 runLive runner Handle{..} (ContextId ctxId) name statusUpdateHandler = do
-  let req = SS.RunScenarioRequest ctxId (Just (toIdentifier name))
+  let req =
+        SS.RunScenarioRequest $ Just $ SS.RunScenarioRequestSumStart $
+          SS.RunScenarioStart ctxId (Just (toIdentifier name))
   ior <- newIORef (Left (ExceptionError (error "runLiveScenario scenario")))
   response <-
     runner hClient $
@@ -432,12 +555,7 @@ runLive runner Handle{..} (ContextId ctxId) name statusUpdateHandler = do
     ClientReaderResponse _ status _ -> pure (Left (BackendError (BErrorFail status)))
     ClientErrorResponse err -> pure (Left (BackendError (BErrorClient err)))
 
-runLiveScenario
-  :: Handle -> ContextId -> LF.ValueRef -> (SS.ScenarioStatus -> IO ())
-  -> IO (Either Error SS.ScenarioResult)
-runLiveScenario = runLive SS.scenarioServiceRunLiveScenario
-
 runLiveScript
-  :: Handle -> ContextId -> LF.ValueRef -> (SS.ScenarioStatus -> IO ())
+  :: Handle -> ContextId -> LF.ValueRef -> Logger -> MVar Bool -> (SS.ScenarioStatus -> IO ())
   -> IO (Either Error SS.ScenarioResult)
-runLiveScript = runLive SS.scenarioServiceRunLiveScript
+runLiveScript = runBiDiLive SS.scenarioServiceRunLiveScript
