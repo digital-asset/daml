@@ -6,7 +6,6 @@ package com.daml.http.util
 import com.daml.http.HttpServiceTestFixture.UseTls
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.client.withoutledgerid.{LedgerClient => DamlLedgerClient}
-// import com.daml.platform.sandbox.SandboxRequiringAuthorizationFuns
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.ports.Port
 import org.scalatest.Suite
