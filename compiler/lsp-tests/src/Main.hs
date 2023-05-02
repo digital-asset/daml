@@ -608,7 +608,8 @@ scriptTests runScripts = testGroup "scripts"
               assertRegex (_vrcpContents changeResult) "Trace:[^/]+secondRun"
           closeDoc script
           closeDoc main'
-    , testCase "scenario service interrupts outdated script runs" $ runScripts $ \_stderr -> do
+    , localOption (mkTimeout 30000000) $ -- 30s timeout
+        testCaseSteps "scenario service interrupts outdated script runs" $ \step -> runScripts $ \_stderr -> do
           let mkDoc :: Integer -> T.Text
               mkDoc duration = T.unlines
                   [ "{-# LANGUAGE ApplicativeDo #-}"
@@ -620,6 +621,7 @@ scriptTests runScripts = testGroup "scripts"
 
           -- open document with long-running script
           main' <- openDoc' "Main.daml" damlId $ mkDoc 10000000
+          liftIO $ step "Document opened."
 
           -- wait until lenses processed, open script
           lenses <- getCodeLenses main'
@@ -639,19 +641,24 @@ scriptTests runScripts = testGroup "scripts"
                     }
               ]
           script <- openScript "Main.daml" "main"
+          liftIO $ step "Script opened, awaiting script start..."
 
           -- check that script started
           _ <- liftIO $ hTakeUntil _stderr "SCENARIO SERVICE STDOUT: Script started."
+          liftIO $ step "Script has started, changing original doc..."
 
           -- replace with short-running script
           changeDoc main' [ TextDocumentContentChangeEvent Nothing Nothing $ mkDoc 23 ]
+          liftIO $ step "Doc changes sent..."
 
           -- check that new script is started
           _ <- liftIO $ hTakeUntil _stderr "SCENARIO SERVICE STDOUT: Script started."
+          liftIO $ step "New script started."
 
           -- check that previous script is cancelled
           _ <- liftIO $ hTakeUntil _stderr "SCENARIO SERVICE STDOUT: Script cancelling."
           _ <- liftIO $ hTakeUntil _stderr "SCENARIO SERVICE STDOUT: Script cancelled."
+          liftIO $ step "Previous script cancelled"
 
           -- check that returned value is new script
           _changeResult <- waitForScriptDidChange
