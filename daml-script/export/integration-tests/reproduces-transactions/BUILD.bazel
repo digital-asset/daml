@@ -14,7 +14,6 @@ da_scala_test(
         "//compiler/damlc",
         "//daml-script/daml:daml-script.dar",
         "//test-common:dar-files",
-        "@canton//:lib",
     ],
     resources = ["test/resources/logback-test.xml"],
     scala_deps = [
@@ -51,7 +50,6 @@ da_scala_test(
         "//libs-scala/fs-utils",
         "//libs-scala/ledger-resources",
         "//libs-scala/ports",
-        "//libs-scala/resources",
         "//test-common:dar-files-default-lib",
         "@maven//:io_netty_netty_handler",
         "@maven//:org_scalatest_scalatest_compatible",

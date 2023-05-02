@@ -89,7 +89,7 @@ private[validation] object Typing {
     val beta = TVar(Name.assertFromString("$beta$"))
     val gamma = TVar(Name.assertFromString("$gamma$"))
     val tNumBinop = TForall(alpha.name -> KNat, tBinop(TNumeric(alpha)))
-    val tMultiNumBinop =
+    val tMultiNumBinopLegacy =
       TForall(
         alpha.name -> KNat,
         TForall(
@@ -97,8 +97,24 @@ private[validation] object Typing {
           TForall(gamma.name -> KNat, TNumeric(alpha) ->: TNumeric(beta) ->: TNumeric(gamma)),
         ),
       )
-    val tNumConversion =
+    val tMultiNumBinop =
+      TForall(
+        alpha.name -> KNat,
+        TForall(
+          beta.name -> KNat,
+          TForall(
+            gamma.name -> KNat,
+            TNumeric(gamma) ->: TNumeric(alpha) ->: TNumeric(beta) ->: TNumeric(gamma),
+          ),
+        ),
+      )
+    val tNumConversionLegacy =
       TForall(alpha.name -> KNat, TForall(beta.name -> KNat, TNumeric(alpha) ->: TNumeric(beta)))
+    val tNumConversion =
+      TForall(
+        alpha.name -> KNat,
+        TForall(beta.name -> KNat, TNumeric(beta) ->: TNumeric(alpha) ->: TNumeric(beta)),
+      )
     val tComparison: Type = TForall(alpha.name -> KStar, alpha ->: alpha ->: TBool)
     val tNumComparison = TForall(alpha.name -> KNat, TNumeric(alpha) ->: TNumeric(alpha) ->: TBool)
 
@@ -107,11 +123,15 @@ private[validation] object Typing {
       // Numeric arithmetic
       BAddNumeric -> tNumBinop,
       BSubNumeric -> tNumBinop,
-      BMulNumericLegacy -> tMultiNumBinop,
-      BDivNumericLegacy -> tMultiNumBinop,
+      BMulNumericLegacy -> tMultiNumBinopLegacy,
+      BMulNumeric -> tMultiNumBinop,
+      BDivNumericLegacy -> tMultiNumBinopLegacy,
+      BDivNumeric -> tMultiNumBinop,
       BRoundNumeric -> TForall(alpha.name -> KNat, TInt64 ->: TNumeric(alpha) ->: TNumeric(alpha)),
-      BCastNumericLegacy -> tNumConversion,
-      BShiftNumericLegacy -> tNumConversion,
+      BCastNumericLegacy -> tNumConversionLegacy,
+      BCastNumeric -> tNumConversion,
+      BShiftNumericLegacy -> tNumConversionLegacy,
+      BShiftNumeric -> tNumConversion,
       // Int64 arithmetic
       BAddInt64 -> tBinop(TInt64),
       BSubInt64 -> tBinop(TInt64),
@@ -121,6 +141,10 @@ private[validation] object Typing {
       BExpInt64 -> tBinop(TInt64),
       // Conversions
       BInt64ToNumericLegacy -> TForall(alpha.name -> KNat, TInt64 ->: TNumeric(alpha)),
+      BInt64ToNumeric -> TForall(
+        alpha.name -> KNat,
+        TNumeric(alpha) ->: TInt64 ->: TNumeric(alpha),
+      ),
       BNumericToInt64 -> TForall(alpha.name -> KNat, TNumeric(alpha) ->: TInt64),
       BDateToUnixDays -> (TDate ->: TInt64),
       BUnixDaysToDate -> (TInt64 ->: TDate),
@@ -237,6 +261,10 @@ private[validation] object Typing {
       BTextToParty -> (TText ->: TOptional(TParty)),
       BTextToInt64 -> (TText ->: TOptional(TInt64)),
       BTextToNumericLegacy -> TForall(alpha.name -> KNat, TText ->: TOptional(TNumeric(alpha))),
+      BTextToNumeric -> TForall(
+        alpha.name -> KNat,
+        TNumeric(alpha) ->: TText ->: TOptional(TNumeric(alpha)),
+      ),
       BTextToCodePoints -> (TText ->: TList(TInt64)),
       BError -> TForall(alpha.name -> KStar, TText ->: alpha),
       // ComparisonsA
@@ -272,6 +300,10 @@ private[validation] object Typing {
       BDivBigNumeric -> (TInt64 ->: TRoundingMode ->: TBigNumeric ->: TBigNumeric ->: TBigNumeric),
       BShiftRightBigNumeric -> (TInt64 ->: TBigNumeric ->: TBigNumeric),
       BBigNumericToNumericLegacy -> TForall(alpha.name -> KNat, TBigNumeric ->: TNumeric(alpha)),
+      BBigNumericToNumeric -> TForall(
+        alpha.name -> KNat,
+        TNumeric(alpha) ->: TBigNumeric ->: TNumeric(alpha),
+      ),
       BNumericToBigNumeric -> TForall(alpha.name -> KNat, TNumeric(alpha) ->: TBigNumeric),
       BBigNumericToText -> (TBigNumeric ->: TText),
       // Exception functions

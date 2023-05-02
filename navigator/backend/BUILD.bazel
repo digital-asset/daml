@@ -151,14 +151,11 @@ java_library(
 
 da_scala_test_suite(
     name = "navigator-scala-tests",
-    size = "small",
+    size = "large",
     srcs = glob([
         "src/test/**/*Spec.scala",
         "src/test/**/*Test.scala",
     ]),
-    data = [
-        "@canton//:lib",
-    ],
     scala_deps = [
         "@maven//:com_typesafe_akka_akka_actor",
         "@maven//:com_typesafe_akka_akka_http",
@@ -179,6 +176,7 @@ da_scala_test_suite(
         "@maven//:org_scalaz_scalaz_core",
     ],
     scalacopts = navigator_scalacopts,
+    tags = ["cpu:4"],
     deps = [
         ":navigator-library",
         ":navigator-tests-library",

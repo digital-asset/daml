@@ -40,7 +40,7 @@ class ChoiceAuthorityTest extends AnyFreeSpec with Inside {
           observers Nil @Party;
           agreement "Agreement";
 
-          choice TheChoice (self) (u: Unit) : Unit,
+          choice ChoiceWithExplicitAuthority (self) (u: Unit) : Unit,
             controllers Cons @Party [M:T {theCon} this] Nil @Party
             , authorizers M:T {theAut} this
             to
@@ -55,7 +55,7 @@ class ChoiceAuthorityTest extends AnyFreeSpec with Inside {
           \(theGoal: Party) ->
           ubind
           cid : ContractId M:T <- create @M:T (M:T {theSig = theSig, theCon = theCon, theAut = theAut, theGoal = theGoal})
-          in exercise @M:T TheChoice cid ();
+          in exercise @M:T ChoiceWithExplicitAuthority cid ();
        }
       """)
 
@@ -67,6 +67,7 @@ class ChoiceAuthorityTest extends AnyFreeSpec with Inside {
   val bob = Party.assertFromString("Bob")
   val charlie = Party.assertFromString("Charlie")
 
+  // In all these tests; alice is the template signatory; bob is the choice controller
   val theSig: Party = alice
   val theCon: Party = bob
 
@@ -75,8 +76,8 @@ class ChoiceAuthorityTest extends AnyFreeSpec with Inside {
   }
 
   def runExample(
-      theAut: Set[Party],
-      theGoal: Party,
+      theAut: Set[Party], // The set of parties lists in the explicit choice authority decl.
+      theGoal: Party, // The signatory of the created Goal template.
   ): Either[SError, Success] = {
     import SpeedyTestLib.loggingContext
     val committers = Set(theSig, theCon)
@@ -93,15 +94,79 @@ class ChoiceAuthorityTest extends AnyFreeSpec with Inside {
     SpeedyTestLib.buildTransactionCollectAuthRequests(machine)
   }
 
-  "Explicit choice authority" - {
+  "Happy" - {
 
-    "restrict authority" in {
-      inside(runExample(theAut = Set(alice), theGoal = alice)) { case Right((_, ars)) =>
+    "restrict authority: {A,B}-->A (need A)" in {
+      val res = runExample(theAut = Set(alice), theGoal = alice)
+      inside(res) { case Right((_, ars)) =>
         ars shouldBe List()
       }
     }
 
-    "restrict authority, fail" in {
+    "restrict authority: {A,B}-->B (need B)" in {
+      val res = runExample(theAut = Set(bob), theGoal = bob)
+      inside(res) { case Right((_, ars)) =>
+        ars shouldBe List()
+      }
+    }
+
+    "restrict authority: {A,B}-->{A,B} (need A)" in {
+      val res = runExample(theAut = Set(alice, bob), theGoal = alice)
+      inside(res) { case Right((_, ars)) =>
+        ars shouldBe List()
+      }
+    }
+
+    "restrict authority: {A,B}-->{A,B} (need B)" in {
+      val res = runExample(theAut = Set(alice, bob), theGoal = bob)
+      inside(res) { case Right((_, ars)) =>
+        ars shouldBe List()
+      }
+    }
+
+    "change/gain authority {A,B}-->{C} (need C)" in {
+      inside(runExample(theAut = Set(charlie), theGoal = charlie)) { case Right((_, ars)) =>
+        ars shouldBe List(AuthRequest(holding = Set(alice, bob), requesting = Set(charlie)))
+      }
+    }
+
+    "change/gain authority {A,B}-->{A,C} (need A)" in {
+      inside(runExample(theAut = Set(alice, charlie), theGoal = alice)) { case Right((_, ars)) =>
+        ars shouldBe List(AuthRequest(holding = Set(alice, bob), requesting = Set(charlie)))
+      }
+    }
+
+    "change/gain authority {A,B}-->{B,C} (need B)" in {
+      inside(runExample(theAut = Set(bob, charlie), theGoal = bob)) { case Right((_, ars)) =>
+        ars shouldBe List(AuthRequest(holding = Set(alice, bob), requesting = Set(charlie)))
+      }
+    }
+
+  }
+
+  "Sad" - { // examples which cause Authorization failure
+
+    "restrict authority {A,B}-->{} (empty!)" in {
+      inside(runExample(theAut = Set(), theGoal = alice)) { case Left(err) =>
+        inside(err) { case SError.SErrorDamlException(FailedAuthorization(_, why)) =>
+          inside(why) { case _: NoAuthorizers =>
+          }
+        }
+      }
+    }
+
+    "restrict authority {A,B}-->A (need B)" in {
+      inside(runExample(theAut = Set(alice), theGoal = bob)) { case Left(err) =>
+        inside(err) { case SError.SErrorDamlException(FailedAuthorization(_, why)) =>
+          inside(why) { case cma: CreateMissingAuthorization =>
+            cma.authorizingParties shouldBe Set(alice)
+            cma.requiredParties shouldBe Set(bob)
+          }
+        }
+      }
+    }
+
+    "restrict authority {A,B}-->B (need A)" in {
       inside(runExample(theAut = Set(bob), theGoal = alice)) { case Left(err) =>
         inside(err) { case SError.SErrorDamlException(FailedAuthorization(_, why)) =>
           inside(why) { case cma: CreateMissingAuthorization =>
@@ -112,20 +177,25 @@ class ChoiceAuthorityTest extends AnyFreeSpec with Inside {
       }
     }
 
-    "restrict authority to empty, fail" in {
-      inside(runExample(theAut = Set(), theGoal = alice)) { case Left(err) =>
+    "restrict authority: {A,B}-->{A,B} (need C)" in {
+      inside(runExample(theAut = Set(alice, bob), theGoal = charlie)) { case Left(err) =>
         inside(err) { case SError.SErrorDamlException(FailedAuthorization(_, why)) =>
-          inside(why) { case _: NoAuthorizers =>
+          inside(why) { case cma: CreateMissingAuthorization =>
+            cma.authorizingParties shouldBe Set(alice, bob)
+            cma.requiredParties shouldBe Set(charlie)
           }
         }
       }
     }
 
-    "change authority" in {
-      inside(runExample(theAut = Set(charlie), theGoal = charlie)) { case Right((_, ars)) =>
-        ars shouldBe List(
-          AuthRequest(holding = Set(alice, bob), requesting = Set(charlie))
-        )
+    "change/gain authority {A,B}-->{C} (need A)" in {
+      inside(runExample(theAut = Set(charlie), theGoal = alice)) { case Left(err) =>
+        inside(err) { case SError.SErrorDamlException(FailedAuthorization(_, why)) =>
+          inside(why) { case cma: CreateMissingAuthorization =>
+            cma.authorizingParties shouldBe Set(charlie)
+            cma.requiredParties shouldBe Set(alice)
+          }
+        }
       }
     }
   }

@@ -451,7 +451,8 @@ private[lf] object ScenarioRunner {
       ledgerMachine.run() match {
         case SResultQuestion(question) =>
           question match {
-            case _: Question.Update.NeedAuthority => ??? // TODO #15882
+            case _: Question.Update.NeedAuthority =>
+              sys.error("choice authority not supported by scenarios")
             case Question.Update.NeedContract(coid, committers, callback) =>
               ledger.lookupContract(
                 coid,
