@@ -2036,9 +2036,6 @@ private[lf] object DecodeV1 {
     val expr: Expr = implicitParameters.foldLeft[Expr](EBuiltin(builtin))(ETyApp)
   }
 
-  // TODO https://github.com/digital-asset/daml/issues/11679
-  private val NotImplemented = BError
-
   val builtinFunctionInfos: List[BuiltinFunctionInfo] = {
     import LV.Features._
     import PLF.BuiltinFunction._
@@ -2076,14 +2073,14 @@ private[lf] object DecodeV1 {
       BuiltinFunctionInfo(ADD_NUMERIC, BAddNumeric, minVersion = numeric),
       BuiltinFunctionInfo(SUB_NUMERIC, BSubNumeric, minVersion = numeric),
       BuiltinFunctionInfo(MUL_NUMERIC_LEGACY, BMulNumericLegacy, minVersion = numeric),
-      BuiltinFunctionInfo(MUL_NUMERIC, NotImplemented, minVersion = natTypeErasure),
+      BuiltinFunctionInfo(MUL_NUMERIC, BMulNumeric, minVersion = natTypeErasure),
       BuiltinFunctionInfo(DIV_NUMERIC_LEGACY, BDivNumericLegacy, minVersion = numeric),
-      BuiltinFunctionInfo(DIV_NUMERIC, NotImplemented, minVersion = natTypeErasure),
+      BuiltinFunctionInfo(DIV_NUMERIC, BDivNumeric, minVersion = natTypeErasure),
       BuiltinFunctionInfo(ROUND_NUMERIC, BRoundNumeric, minVersion = numeric),
       BuiltinFunctionInfo(CAST_NUMERIC_LEGACY, BCastNumericLegacy, minVersion = numeric),
-      BuiltinFunctionInfo(CAST_NUMERIC, NotImplemented, minVersion = natTypeErasure),
+      BuiltinFunctionInfo(CAST_NUMERIC, BCastNumeric, minVersion = natTypeErasure),
       BuiltinFunctionInfo(SHIFT_NUMERIC_LEGACY, BShiftNumericLegacy, minVersion = numeric),
-      BuiltinFunctionInfo(SHIFT_NUMERIC, NotImplemented, minVersion = natTypeErasure),
+      BuiltinFunctionInfo(SHIFT_NUMERIC, BShiftNumeric, minVersion = natTypeErasure),
       BuiltinFunctionInfo(ADD_INT64, BAddInt64),
       BuiltinFunctionInfo(SUB_INT64, BSubInt64),
       BuiltinFunctionInfo(MUL_INT64, BMulInt64),
@@ -2103,7 +2100,7 @@ private[lf] object DecodeV1 {
         implicitParameters = List(TNat.Decimal),
       ),
       BuiltinFunctionInfo(INT64_TO_NUMERIC_LEGACY, BInt64ToNumericLegacy, minVersion = numeric),
-      BuiltinFunctionInfo(INT64_TO_NUMERIC, NotImplemented, minVersion = natTypeErasure),
+      BuiltinFunctionInfo(INT64_TO_NUMERIC, BInt64ToNumeric, minVersion = natTypeErasure),
       BuiltinFunctionInfo(NUMERIC_TO_INT64, BNumericToInt64, minVersion = numeric),
       BuiltinFunctionInfo(FOLDL, BFoldl),
       BuiltinFunctionInfo(FOLDR, BFoldr),
@@ -2293,7 +2290,7 @@ private[lf] object DecodeV1 {
         maxVersion = Some(numeric),
       ),
       BuiltinFunctionInfo(TEXT_TO_NUMERIC_LEGACY, BTextToNumericLegacy, minVersion = numeric),
-      BuiltinFunctionInfo(TEXT_TO_NUMERIC, NotImplemented, minVersion = natTypeErasure),
+      BuiltinFunctionInfo(TEXT_TO_NUMERIC, BTextToNumeric, minVersion = natTypeErasure),
       BuiltinFunctionInfo(TEXT_TO_CODE_POINTS, BTextToCodePoints),
       BuiltinFunctionInfo(SHA256_TEXT, BSHA256Text),
       BuiltinFunctionInfo(DATE_TO_UNIX_DAYS, BDateToUnixDays),
@@ -2405,7 +2402,7 @@ private[lf] object DecodeV1 {
       ),
       BuiltinFunctionInfo(
         BIGNUMERIC_TO_NUMERIC,
-        NotImplemented,
+        BBigNumericToNumeric,
         minVersion = natTypeErasure,
       ),
       BuiltinFunctionInfo(NUMERIC_TO_BIGNUMERIC, BNumericToBigNumeric, minVersion = bigNumeric),
