@@ -169,8 +169,6 @@ da_scala_test_suite(
         ":script-test-1.dev.dar",
         ":script-test-no-ledger.dar",
         "//daml-script/runner:daml-script-binary",
-        "//test-common/test-certificates",
-        "@canton//:lib",
     ],
     resources = glob(["src/main/resources/**/*"]),
     scala_deps = [
@@ -180,7 +178,10 @@ da_scala_test_suite(
         "@maven//:io_spray_spray_json",
         "@maven//:org_scalaz_scalaz_core",
     ],
-    tags = ["cpu:4"],
+    tags = [
+        "canton-dev",
+        "cpu:4",
+    ],
     deps = [
         ":test-utils",
         "//bazel_tools/runfiles:scala_runfiles",

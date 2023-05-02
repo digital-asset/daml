@@ -12,7 +12,7 @@ import com.daml.lf.data.Ref
 import com.daml.ledger.api.auth
 import com.daml.ledger.resources.{ResourceContext, ResourceOwner, Resource}
 import com.daml.platform.services.time.TimeProviderType
-import com.daml.ports.{Port, LockedFreePort, PortLock}
+import com.daml.ports.{LockedFreePort, Port, PortLock}
 import com.daml.scalautil.Statement.discard
 import com.daml.timer.RetryStrategy
 import com.google.protobuf.ByteString
@@ -22,7 +22,7 @@ import scala.concurrent.duration.DurationInt
 import scala.concurrent.Future
 import scala.sys.process.Process
 import java.nio.charset.StandardCharsets
-import java.nio.file.{Path, Files}
+import java.nio.file.{Files, Path, Paths}
 
 object CantonRunner {
 
@@ -30,6 +30,10 @@ object CantonRunner {
 
   private[integrationtest] def toJson(s: String): String = JsString(s).toString()
   private[integrationtest] def toJson(path: Path): String = toJson(path.toString)
+
+  lazy val cantonPath = Paths.get(rlocation("daml-lf/integration-test-lib/canton_deploy.jar"))
+  lazy val cantonDevPath =
+    Paths.get(rlocation("daml-lf/integration-test-lib/canton-dev_deploy.jar"))
 
   def run(config: CantonConfig, tmpDir: Path)(implicit
       esf: ExecutionSequencerFactory
@@ -49,10 +53,7 @@ object CantonRunner {
             Vector.fill(nParticipants)(LockedFreePort.find() -> LockedFreePort.find())
           val domainPublicApi = LockedFreePort.find()
           val domainAdminApi = LockedFreePort.find()
-
-          val cantonPath = rlocation(
-            "external/canton/lib/canton-open-source-2.7.0-SNAPSHOT.jar"
-          )
+          val jarPath = if (devMode) cantonDevPath else cantonPath
           val exe = if (sys.props("os.name").toLowerCase.contains("windows")) ".exe" else ""
           val java = s"${System.getenv("JAVA_HOME")}/bin/java${exe}"
           val (timeType, clockType) = timeProviderType match {
@@ -130,7 +131,7 @@ object CantonRunner {
               Process(
                 java ::
                   "-jar" ::
-                  cantonPath ::
+                  jarPath.toString ::
                   "daemon" ::
                   "--auto-connect-local" ::
                   "-c" ::
@@ -138,11 +139,18 @@ object CantonRunner {
                   debugOptions
               ).run()
             )
-            _ <- RetryStrategy.constant(attempts = 240, waitTime = 1.seconds) { (_, _) =>
+            size <- RetryStrategy.constant(attempts = 240, waitTime = 1.seconds) { (_, _) =>
               info("waiting for Canton to start")
-              Future(Files.size(portFile))
+              if (proc.isAlive())
+                Future(Files.size(portFile))
+              else
+                Future.successful(-1L)
             }
-            _ = info("Canton started")
+            _ <-
+              if (size > 0)
+                Future.successful(info("Canton started"))
+              else
+                Future.failed(new Error("canton unexpectedly dies"))
             _ <-
               Future.traverse(ports) { case (_, ledgerPort) =>
                 for {

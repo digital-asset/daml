@@ -156,9 +156,6 @@ da_scala_test_suite(
         "src/test/**/*Spec.scala",
         "src/test/**/*Test.scala",
     ]),
-    data = [
-        "@canton//:lib",
-    ],
     scala_deps = [
         "@maven//:com_typesafe_akka_akka_actor",
         "@maven//:com_typesafe_akka_akka_http",

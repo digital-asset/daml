@@ -35,7 +35,7 @@ import scalaz.syntax.tag._
 import java.nio.file.Path
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.Try
+import scala.util.{Try, Success, Failure}
 
 // TODO: once test migration work has completed, rename this trait to AbstractTriggerTest
 trait AbstractTriggerTestWithCanton extends CantonFixture with SuiteResourceManagementAroundAll {
@@ -44,12 +44,14 @@ trait AbstractTriggerTestWithCanton extends CantonFixture with SuiteResourceMana
   import CantonFixture._
 
   private[this] lazy val darFile =
-    Try(BazelRunfiles.requiredResource("triggers/tests/acs.dar"))
-      .getOrElse(BazelRunfiles.requiredResource("triggers/tests/acs-1.dev.dar"))
+    Try(BazelRunfiles.requiredResource("triggers/tests/acs.dar").toPath) match {
+      case Success(value) => Right(value)
+      case Failure(_) => Left(BazelRunfiles.requiredResource("triggers/tests/acs-1.dev.dar").toPath)
+    }
 
   override protected def authSecret: Option[String] = None
-  override protected def darFiles: List[Path] = List(darFile.toPath)
-  override protected def devMode: Boolean = true
+  override protected def darFiles: List[Path] = List(darFile.merge)
+  override protected def devMode: Boolean = darFile.isLeft
   override protected def nParticipants: Int = 1
   override protected def timeProviderType: TimeProviderType = TimeProviderType.Static
   override protected def tlsEnable: Boolean = false
@@ -82,7 +84,7 @@ trait AbstractTriggerTestWithCanton extends CantonFixture with SuiteResourceMana
   protected def triggerRunnerConfiguration: TriggerRunnerConfig = DefaultTriggerRunnerConfig
 
   protected val CompiledDar(packageId, compiledPackages) =
-    readDar(darFile.toPath, speedy.Compiler.Config.Dev)
+    readDar(darFile.merge, speedy.Compiler.Config.Dev)
 
   protected def getRunner(
       client: LedgerClient,
