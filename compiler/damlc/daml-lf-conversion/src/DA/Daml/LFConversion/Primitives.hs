@@ -180,22 +180,34 @@ convertPrim _ "BESubNumeric" (TNumeric n1 :-> TNumeric n2 :-> TNumeric n3) | n1 
     pure $ ETyApp (EBuiltin BESubNumeric) n1
 convertPrim _ "BEMulNumericLegacy" (TNumeric n1 :-> TNumeric n2 :-> TNumeric n3) =
     pure $ EBuiltin BEMulNumericLegacy `ETyApp` n1 `ETyApp` n2 `ETyApp` n3
+convertPrim _ "BEMulNumeric" (TNumeric n0 :-> TNumeric n1 :-> TNumeric n2 :-> TNumeric n3) | n0 == n3 =
+    pure $ EBuiltin BEMulNumeric `ETyApp` n1 `ETyApp` n2 `ETyApp` n3
 convertPrim _ "BEDivNumericLegacy" (TNumeric n1 :-> TNumeric n2 :-> TNumeric n3) =
     pure $ EBuiltin BEDivNumericLegacy `ETyApp` n1 `ETyApp` n2 `ETyApp` n3
+convertPrim _ "BEDivNumeric" (TNumeric n0 :-> TNumeric n1 :-> TNumeric n2 :-> TNumeric n3) | n0 == n3 =
+    pure $ EBuiltin BEDivNumeric `ETyApp` n1 `ETyApp` n2 `ETyApp` n3
 convertPrim _ "BERoundNumeric" (TInt64 :-> TNumeric n1 :-> TNumeric n2) | n1 == n2 =
     pure $ ETyApp (EBuiltin BERoundNumeric) n1
 convertPrim _ "BECastNumericLegacy" (TNumeric n1 :-> TNumeric n2) =
     pure $ EBuiltin BECastNumericLegacy `ETyApp` n1 `ETyApp` n2
+convertPrim _ "BECastNumeric" (TNumeric n0 :-> TNumeric n1 :-> TNumeric n2) | n0 == n2 =
+    pure $ EBuiltin BECastNumeric `ETyApp` n1 `ETyApp` n2
 convertPrim _ "BEShiftNumericLegacy" (TNumeric n1 :-> TNumeric n2) =
     pure $ EBuiltin BEShiftNumericLegacy `ETyApp` n1 `ETyApp` n2
+convertPrim _ "BEShiftNumeric" (TNumeric n0 :-> TNumeric n1 :-> TNumeric n2) | n0 == n2 =
+    pure $ EBuiltin BEShiftNumeric `ETyApp` n1 `ETyApp` n2
 convertPrim _ "BEInt64ToNumericLegacy" (TInt64 :-> TNumeric n) =
     pure $ ETyApp (EBuiltin BEInt64ToNumericLegacy) n
+convertPrim _ "BEInt64ToNumeric" (TNumeric n0 :-> TInt64 :-> TNumeric n) | n0 == n =
+    pure $ ETyApp (EBuiltin BEInt64ToNumeric) n
 convertPrim _ "BENumericToInt64" (TNumeric n :-> TInt64) =
     pure $ ETyApp (EBuiltin BENumericToInt64) n
 convertPrim _ "BENumericToText" (TNumeric n :-> TText) =
     pure $ ETyApp (EBuiltin BENumericToText) n
 convertPrim _ "BETextToNumericLegacy" (TText :-> TOptional (TNumeric n)) =
     pure $ ETyApp (EBuiltin BETextToNumericLegacy) n
+convertPrim _ "BETextToNumeric" (TNumeric n0 :-> TText :-> TOptional (TNumeric n)) | n0 == n =
+    pure $ ETyApp (EBuiltin BETextToNumeric) n
 
 convertPrim version "BEScaleBigNumeric" ty@(TBigNumeric :-> TInt64) =
     pure $
@@ -233,6 +245,10 @@ convertPrim version "BEBigNumericToNumericLegacy" ty@(TBigNumeric :-> TNumeric n
     pure $
       whenRuntimeSupports version featureBigNumeric ty $
         EBuiltin BEBigNumericToNumericLegacy `ETyApp` n
+convertPrim version "BEBigNumericToNumeric" ty@(TNumeric n0 :-> TBigNumeric :-> TNumeric n) | n0 == n =
+    pure $
+      whenRuntimeSupports version featureBigNumeric ty $
+        EBuiltin BEBigNumericToNumeric `ETyApp` n
 
 -- Conversion from ContractId to Text
 
