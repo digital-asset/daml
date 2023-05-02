@@ -464,10 +464,10 @@ runBiDiLive runner Handle{..} (ContextId ctxId) name logger stopSemaphore status
               pure (Right Nothing)
 
         _ <- forkIO $ do
-          id <- randomIO :: IO Int
-          Logger.logDebug logger (T.pack (show id) <> " semaphore reached")
+          semaphoreId <- T.pack . show . abs <$> (randomIO :: IO Int)
+          Logger.logDebug logger (semaphoreId <> " semaphore reached")
           shouldCancel <- takeMVar stopSemaphore
-          Logger.logDebug logger (T.pack (show id) <> " semaphore finished " <> if shouldCancel then "cancelled" else "not cancelled")
+          Logger.logDebug logger (semaphoreId <> " semaphore finished " <> if shouldCancel then "cancelled" else "not cancelled")
           when shouldCancel $ handleGrpcIOErr (sendReq cancelReq) pure
 
         handleGrpcIOErr (sendReq startReq) $ \() -> loop
