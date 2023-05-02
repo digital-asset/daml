@@ -8,7 +8,7 @@ module DA.Daml.Helper.Test.Ledger
 
 import qualified "zip-archive" Codec.Archive.Zip as Zip
 import DA.Bazel.Runfiles
-import DA.Cli.Damlc.InspectDar
+import DA.Daml.Dar.Reader
 import qualified DA.Daml.LF.Ast.Base as LF
 import DA.Ledger.Services.PartyManagementService (PartyDetails(..))
 import DA.Ledger.Types (Party(..))
