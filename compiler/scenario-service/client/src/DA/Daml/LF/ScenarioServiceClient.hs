@@ -260,10 +260,6 @@ runLiveScenario h ctxId logger name statusUpdateHandler = runWithOptions (RunOpt
 runLiveScript :: Handle -> LowLevel.ContextId -> IDELogger.Logger -> LF.ValueRef -> (LowLevel.ScenarioStatus -> IO ()) -> IO (Either LowLevel.Error LowLevel.ScenarioResult)
 runLiveScript h ctxId logger name statusUpdateHandler = runWithOptions (RunOptions name (Just (LiveHandler statusUpdateHandler)) IsScript) h ctxId logger
 
-data ReplacedByOtherThread = ReplacedByOtherThread
-  deriving (Eq, Show)
-instance Exception ReplacedByOtherThread
-
 runWithOptions :: RunOptions -> Handle -> LowLevel.ContextId -> IDELogger.Logger -> IO (Either LowLevel.Error LowLevel.ScenarioResult)
 runWithOptions options Handle{..} ctxId logger = do
   resVar <- newEmptyMVar
