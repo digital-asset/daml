@@ -338,7 +338,11 @@ object TransactionCoder {
               ne.signatories.foreach(builder.addSignatories)
               ne.stakeholders.foreach(builder.addStakeholders)
               ne.choiceObservers.foreach(builder.addObservers)
-              // ne.choiceAuthorizers.foreach... // TODO #15882
+
+              // TODO: https://github.com/digital-asset/daml/issues/15882
+              // -- Implement encode/decode for explicit choice authorizers:
+              // -- ne.choiceAuthorizers.foreach...
+
               if (nodeVersion >= TransactionVersion.minByKey) {
                 discard(builder.setByKey(ne.byKey))
               }
@@ -617,7 +621,9 @@ object TransactionCoder {
           stakeholders = stakeholders,
           signatories = signatories,
           choiceObservers = choiceObservers,
-          choiceAuthorizers = None, // TODO #15882
+          // TODO: https://github.com/digital-asset/daml/issues/15882
+          // -- Implement decode for explicit choice authorizers (when version is recent enough):
+          choiceAuthorizers = None,
           children = children,
           exerciseResult = rvOpt,
           keyOpt = keyWithMaintainers,

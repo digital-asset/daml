@@ -284,6 +284,9 @@ Version: 1.15
 Version: 1.dev (development)
 ............................
 
+.. TODO: https://github.com/digital-asset/daml/issues/15882
+..   -- update for choice authorizers
+
 Abstract syntax
 ^^^^^^^^^^^^^^^
 

@@ -401,6 +401,8 @@ object ValueGenerators {
       stakeholders = stakeholders,
       signatories = signatories,
       choiceObservers = choiceObservers,
+      // TODO: https://github.com/digital-asset/daml/issues/15882
+      // -- Generate non-empty choice authorizers here.
       choiceAuthorizers = None,
       children = children,
       exerciseResult = exerciseResult,

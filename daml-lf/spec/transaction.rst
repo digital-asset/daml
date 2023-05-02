@@ -508,6 +508,9 @@ As of version 14, this field is required:
 
 ``bool`` byKey
 
+.. TODO: https://github.com/digital-asset/daml/issues/15882
+.. -- update for choice authorizers
+
 message NodeLookupByKey
 ^^^^^^^^^^^^^^^^^^^^^^^
 

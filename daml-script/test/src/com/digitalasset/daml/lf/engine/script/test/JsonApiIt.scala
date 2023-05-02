@@ -36,7 +36,7 @@ import com.daml.lf.engine.script.ledgerinteraction.{
   ScriptLedgerClient,
   ScriptTimeMode,
 }
-import com.daml.lf.integrationtest.CantonFixtureBase
+import com.daml.lf.integrationtest._
 import com.daml.lf.language.Ast.Package
 import com.daml.lf.speedy.SValue
 import com.daml.lf.speedy.SValue._
@@ -44,7 +44,6 @@ import com.daml.lf.typesig.EnvironmentSignature
 import com.daml.lf.typesig.reader.SignatureReader
 import com.daml.lf.value.json.ApiCodecCompressed
 import com.daml.logging.LoggingContextOf
-import com.daml.platform.services.time.TimeProviderType
 import com.daml.ports.Port
 import org.scalatest._
 import org.scalatest.matchers.should.Matchers
@@ -54,20 +53,22 @@ import scalaz.syntax.traverse._
 import scalaz.{-\/, \/-}
 import spray.json._
 
-import java.nio.file.{Path, Paths}
+import java.nio.file.{Files, Path, Paths}
 import com.daml.metrics.api.reporters.MetricsReporter
 
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{Await, Future}
 
 trait JsonApiFixture
-    extends CantonFixtureBase
-    with SuiteResource[(Port, ServerBinding)]
+    extends SuiteResource[(Port, ServerBinding)]
     with AkkaBeforeAndAfterAll
     with Inside {
   self: Suite =>
 
+  lazy val tmpDir = Files.createTempDirectory("JsonApiFixture")
+
   override protected def afterAll(): Unit = {
+    com.daml.fs.Utils.deleteRecursively(tmpDir)
     jsonApiExecutionSequencerFactory.close()
     materializer.shutdown()
     Await.result(jsonApiActorSystem.terminate(), 30.seconds)
@@ -76,18 +77,17 @@ trait JsonApiFixture
 
   private val secret = "secret"
 
-  override protected def authSecret = Some(secret)
-  override protected def darFiles = List(darFile, darFileDev)
-  override protected def devMode = true
-  override protected def nParticipants = 1
-  override protected def timeProviderType = TimeProviderType.WallClock
-  override protected def tlsEnable: Boolean = false
-  override protected def applicationId = ApplicationId("JsonApiIt")
-
   val darFile = rlocation(Paths.get("daml-script/test/script-test.dar"))
 
   val darFileDev = rlocation(Paths.get("daml-script/test/script-test-1.dev.dar"))
   val darFileNoLedger = rlocation(Paths.get("daml-script/test/script-test-no-ledger.dar"))
+
+  val config = CantonConfig(
+    authSecret = Some(secret),
+    darFiles = List(darFile, darFileDev),
+    devMode = true,
+    applicationId = ApplicationId("JsonApiIt"),
+  )
 
   protected def serverPort = suiteResource.value._1
   protected def httpPort = suiteResource.value._2.localAddress.getPort
@@ -109,7 +109,7 @@ trait JsonApiFixture
       ledgerId = Some(ledgerId),
       participantId = None,
       exp = None,
-      applicationId = Some(applicationId.unwrap),
+      applicationId = Some(config.applicationId.unwrap),
       actAs = actAs,
       readAs = readAs,
       admin = admin,
@@ -126,7 +126,7 @@ trait JsonApiFixture
     implicit val context: ResourceContext = ResourceContext(system.dispatcher)
     new OwnedResource[ResourceContext, (Port, ServerBinding)](
       for {
-        ports <- cantonResource
+        ports <- CantonRunner.run(config, tmpDir)
         serverPort = ports.head
         httpService <- new ResourceOwner[ServerBinding] {
           override def acquire()(implicit context: ResourceContext): Resource[ServerBinding] = {
@@ -244,10 +244,10 @@ final class JsonApiIt
   }
 
   private def ledgerClient(token: Option[String]) =
-    super.ledgerClient(serverPort, token)
+    config.ledgerClient(serverPort, token)
 
   private def allocateParty = for {
-    adminClient <- ledgerClient(adminToken)
+    adminClient <- ledgerClient(config.adminToken)
     details <- adminClient.partyManagementClient.allocateParty(None, None)
   } yield details.party
 
@@ -261,7 +261,7 @@ final class JsonApiIt
       ApiParameters(
         "http://localhost",
         httpPort,
-        getToken(user),
+        config.getToken(user),
         None,
       )
     val participantParams = Participants(Some(defaultParticipant), Map.empty, Map.empty)
@@ -353,7 +353,7 @@ final class JsonApiIt
           getClients(List(alice), applicationId = Some(ApplicationId("wrong")))
         )
       } yield assert(
-        exception.getMessage === s"ApplicationId specified in token Some(${applicationId.unwrap}) must match Some(wrong)"
+        exception.getMessage === s"ApplicationId specified in token Some(${config.applicationId.unwrap}) must match Some(wrong)"
       )
     }
     "application id correct" in {
@@ -362,7 +362,7 @@ final class JsonApiIt
         clients <- getClients(
           List(alice),
           defaultParty = Some(alice),
-          applicationId = Some(applicationId),
+          applicationId = Some(config.applicationId),
         )
         r <- run(
           clients,
@@ -616,7 +616,7 @@ final class JsonApiIt
       for {
         p1 <- allocateParty
         p2 <- allocateParty
-        adminClient <- ledgerClient(adminToken)
+        adminClient <- ledgerClient(config.adminToken)
         user <- adminClient.userManagementClient.createUser(
           User(UserId.assertFromString("u"), None),
           Seq(UserRight.CanActAs(p1), UserRight.CanActAs(p2)),
