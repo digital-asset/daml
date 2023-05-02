@@ -379,7 +379,7 @@ jobs:
             setvar need_to_build false
         else
             if [ "main" = "$(Build.SourceBranchName)" ]; then
-                git add canton_dep.bzl $bad_file
+                git add canton_dep.bzl $bad_file build.sh build.ps1
                 open_pr "$branch" "bump canton to $canton_version"
                 az extension add --name azure-devops
                 trap "az devops logout" EXIT
