@@ -415,22 +415,25 @@ runBiDiLive runner Handle{..} (ContextId ctxId) name logger stopSemaphore status
           SS.RunScenarioStart ctxId (Just (toIdentifier name))
   let cancelReq = SS.RunScenarioRequest $ Just $ SS.RunScenarioRequestSumCancel SS.RunScenarioCancel
 
-  (setFinalResponse, getFinalResponse) <- do
+  (updateFinalResponse, getFinalResponse) <- do
     -- Hide finalResponse inside closure
-    finalResponse <- newIORef Nothing
+    finalResponse <- newIORef NoResultSoFar
     let set r =
-          atomicModifyIORef finalResponse $ \old ->
-            let err =
-                  case old of
-                    Just (Left _) -> old
-                    _ -> Just r
-            in
-            (err, ())
+          atomicModifyIORef finalResponse $ \old -> (old <> r, ())
     let get = do
           resp <- readIORef finalResponse
-          case resp of
-            Nothing -> pure $ Left (ExceptionError (error "runBiDiLive did not get a completion"))
-            Just r -> pure r
+          pure $ case resp of
+            NoResultSoFar -> Left (ExceptionError (error "runBiDiLive did not get a completion"))
+            ResponseResult r -> Right r
+            ErrorResult e -> Left e
+            MultipleResponses rs ->
+              let errMsg =
+                    unlines
+                      ( "runBiDiLive got multiple results:"
+                      : map (show . either ErrorResult ResponseResult) rs
+                      )
+              in
+              Left (ExceptionError (error errMsg))
     pure (set, get)
 
   response <-
@@ -441,27 +444,24 @@ runBiDiLive runner Handle{..} (ContextId ctxId) name logger stopSemaphore status
               mbGrpcIOErr <- action
               case mbGrpcIOErr of
                 Left grpcIOErr ->
-                  setFinalResponse (Left (BackendError (BErrorClient (ClientIOError grpcIOErr))))
+                  updateFinalResponse (ErrorResult (BackendError (BErrorClient (ClientIOError grpcIOErr))))
                 Right a ->
                   continue a
 
             loop :: IO ()
             loop = handleGrpcIOErr streamRecv $ \case
               Just (SS.RunScenarioResponseOrStatus (Just resp)) ->
-                handle resp >>= \case
-                  Left err -> setFinalResponse (Left err)
-                  Right (Just result) -> setFinalResponse (Right result)
-                  Right Nothing -> loop
+                convertResponseToUpdate resp >>= updateFinalResponse
               _ -> loop
 
-            handle :: SS.RunScenarioResponseOrStatusResponse -> IO (Either Error (Maybe SS.ScenarioResult))
-            handle (SS.RunScenarioResponseOrStatusResponseError err) =
-              pure (Left (ScenarioError err))
-            handle (SS.RunScenarioResponseOrStatusResponseResult result) = do
-              pure (Right (Just result))
-            handle (SS.RunScenarioResponseOrStatusResponseStatus status) = do
+            convertResponseToUpdate :: SS.RunScenarioResponseOrStatusResponse -> IO ScenarioResultUpdate
+            convertResponseToUpdate (SS.RunScenarioResponseOrStatusResponseError err) =
+              pure (ErrorResult (ScenarioError err))
+            convertResponseToUpdate (SS.RunScenarioResponseOrStatusResponseResult result) = do
+              pure (ResponseResult result)
+            convertResponseToUpdate (SS.RunScenarioResponseOrStatusResponseStatus status) = do
               statusUpdateHandler status
-              pure (Right Nothing)
+              pure NoResultSoFar
 
         _ <- forkIO $ do
           semaphoreId <- T.pack . show . abs <$> (randomIO :: IO Int)
@@ -475,6 +475,24 @@ runBiDiLive runner Handle{..} (ContextId ctxId) name logger stopSemaphore status
     ClientBiDiResponse _ StatusOk _ -> getFinalResponse
     ClientBiDiResponse _ status _ -> pure (Left (BackendError (BErrorFail status)))
     ClientErrorResponse err -> pure (Left (BackendError (BErrorClient err)))
+
+data ScenarioResultUpdate
+  = NoResultSoFar
+  | ResponseResult SS.ScenarioResult
+  | ErrorResult Error
+  | MultipleResponses [Either Error SS.ScenarioResult]
+  deriving (Show)
+
+toMultipleResponses :: ScenarioResultUpdate -> [Either Error SS.ScenarioResult]
+toMultipleResponses NoResultSoFar = []
+toMultipleResponses (ResponseResult result) = [Right result]
+toMultipleResponses (ErrorResult err) = [Left err]
+toMultipleResponses (MultipleResponses m) = m
+
+instance Semigroup ScenarioResultUpdate where
+  (<>) NoResultSoFar result = result
+  (<>) result NoResultSoFar = result
+  (<>) res1 res2 = MultipleResponses (toMultipleResponses res1 ++ toMultipleResponses res2)
 
 runLiveScenario
   :: Handle -> ContextId -> LF.ValueRef -> (SS.ScenarioStatus -> IO ())
