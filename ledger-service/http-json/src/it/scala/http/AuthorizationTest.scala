@@ -13,6 +13,7 @@ import com.daml.jwt.domain.Jwt
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.daml.ledger.client.withoutledgerid.{LedgerClient => DamlLedgerClient}
+import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContextOf
 import com.daml.test.evidence.tag.Security.SecurityTest.Property.Authorization
 import com.daml.test.evidence.tag.Security.{Attack, SecurityTest}
@@ -39,7 +40,7 @@ final class AuthorizationTest
   implicit val aesf: ExecutionSequencerFactory = new AkkaExecutionSequencerPool(testId)(asys)
   implicit val ec: ExecutionContext = asys.dispatcher
 
-  private val emptyJWTToken = getToken("empty")
+  private val emptyJWTToken = config.getToken(Ref.UserId.assertFromString("empty"))
 
   private val authorizationSecurity: SecurityTest =
     SecurityTest(property = Authorization, asset = "HTTP JSON API Service")
@@ -47,7 +48,7 @@ final class AuthorizationTest
   override def packageFiles = List()
 
   protected def withLedger[A](testFn: DamlLedgerClient => LedgerId => Future[A]): Future[A] = {
-    usingLedger[A](testId, adminJWTToken) { case (_, client, ledgerId) =>
+    usingLedger[A](testId, config.adminToken) { case (_, client, ledgerId) =>
       testFn(client)(ledgerId)
     }
   }
@@ -79,7 +80,7 @@ final class AuthorizationTest
       "A ledger client can update the package service when authorized"
     ) in withLedger { client => ledgerId =>
     instanceUUIDLogCtx(implicit lc =>
-      packageService(client).reload(Jwt(adminJWTToken.get), ledgerId).map(_ => succeed)
+      packageService(client).reload(Jwt(config.adminToken.get), ledgerId).map(_ => succeed)
     )
   }
 
