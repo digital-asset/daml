@@ -18,7 +18,7 @@ import DA.Bazel.Runfiles
 import qualified DA.Cli.Args as ParseArgs
 import DA.Cli.Options
 import DA.Cli.Damlc.BuildInfo
-import qualified DA.Cli.Damlc.InspectDar as InspectDar
+import qualified DA.Daml.Dar.Reader as InspectDar
 import qualified DA.Cli.Damlc.Command.Damldoc as Damldoc
 import DA.Cli.Damlc.Packaging
 import DA.Cli.Damlc.DependencyDb
