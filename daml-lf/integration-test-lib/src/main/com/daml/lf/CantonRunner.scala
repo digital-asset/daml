@@ -39,33 +39,32 @@ object CantonRunner {
       esf: ExecutionSequencerFactory
   ): ResourceOwner[Vector[Port]] =
     new ResourceOwner[Vector[Port]] {
-      import config._
       protected val cantonConfigFile = tmpDir.resolve("participant.config")
       protected val cantonLogFile = tmpDir.resolve("canton.log")
       protected val portFile = tmpDir.resolve("portfile")
-      def info(s: String) = if (debug) logger.info(s)
+      def info(s: String) = if (config.debug) logger.info(s)
 
       override def acquire()(implicit context: ResourceContext): Resource[Vector[Port]] = {
         def start(): Future[
           ((PortLock.Locked, PortLock.Locked), Vector[(PortLock.Locked, PortLock.Locked)], Process)
         ] = {
           val ports =
-            Vector.fill(nParticipants)(LockedFreePort.find() -> LockedFreePort.find())
+            Vector.fill(config.nParticipants)(LockedFreePort.find() -> LockedFreePort.find())
           val domainPublicApi = LockedFreePort.find()
           val domainAdminApi = LockedFreePort.find()
-          val jarPath = if (devMode) cantonDevPath else cantonPath
+          val jarPath = if (config.devMode) cantonDevPath else cantonPath
           val exe = if (sys.props("os.name").toLowerCase.contains("windows")) ".exe" else ""
           val java = s"${System.getenv("JAVA_HOME")}/bin/java${exe}"
-          val (timeType, clockType) = timeProviderType match {
+          val (timeType, clockType) = config.timeProviderType match {
             case TimeProviderType.Static => (Some("monotonic-time"), Some("sim-clock"))
             case TimeProviderType.WallClock => (None, None)
           }
-          val authConfig = authSecret.fold("")(secret => s"""auth-services = [{
+          val authConfig = config.authSecret.fold("")(secret => s"""auth-services = [{
                                                             |          type = unsafe-jwt-hmac-256
                                                             |          secret = "${toJson(secret)}"
                                                             |        }]
                                                             |""".stripMargin)
-          val tls = tlsConfig.fold("")(config => s"""tls {
+          val tls = config.tlsConfig.fold("")(config => s"""tls {
                  |          cert-chain-file = ${toJson(config.serverCrt)}
                  |          private-key-file = ${toJson(config.serverPem)}
                  |          trust-collection-file = ${toJson(config.caCrt)}
@@ -83,13 +82,13 @@ object CantonRunner {
                |      storage.type = memory
                |      parameters = {
                |        enable-engine-stack-traces = true
-               |        dev-version-support = ${devMode}
+               |        dev-version-support = ${config.devMode}
                |      }
                |      ${timeType.fold("")(x => "testing-time.type = " + x)}
                |    }""".stripMargin
           }
           val participantsConfig =
-            (0 until nParticipants).map(participantConfig).mkString("\n")
+            (0 until config.nParticipants).map(participantConfig).mkString("\n")
           val cantonConfig =
             s"""canton {
                |  parameters{
@@ -104,7 +103,8 @@ object CantonRunner {
                |      storage.type = memory
                |      public-api.port = ${domainPublicApi.port}
                |      admin-api.port = ${domainAdminApi.port}
-               |      init.domain-parameters.protocol-version = ${if (devMode) "dev" else "4"}
+               |      init.domain-parameters.protocol-version = ${if (config.devMode) "dev"
+              else "4"}
                |    }
                |  }
                |  participants {
@@ -114,15 +114,15 @@ object CantonRunner {
           """.stripMargin
           discard(Files.write(cantonConfigFile, cantonConfig.getBytes(StandardCharsets.UTF_8)))
           val debugOptions =
-            if (debug) List("--log-file-name", cantonLogFile.toString, "--verbose")
+            if (config.debug) List("--log-file-name", cantonLogFile.toString, "--verbose")
             else List.empty
           info(
             s"""Starting canton with parameters:
-               |  authSecret = ${authSecret}
-               |  darFiles = ${darFiles}
-               |  devMode = ${devMode}
-               |  nParticipants = ${nParticipants}
-               |  timeProviderType = ${timeProviderType}
+               |  authSecret = ${config.authSecret}
+               |  darFiles = ${config.darFiles}
+               |  devMode = ${config.devMode}
+               |  nParticipants = ${config.nParticipants}
+               |  timeProviderType = ${config.timeProviderType}
                |  tlsEnable = ${config.tlsConfig.isDefined}
                |""".stripMargin
           )
@@ -154,15 +154,15 @@ object CantonRunner {
             _ <-
               Future.traverse(ports) { case (_, ledgerPort) =>
                 for {
-                  client <- ledgerClient(ledgerPort.port, adminToken)
-                  _ <- Future.traverse(darFiles) { file =>
+                  client <- config.ledgerClient(ledgerPort.port, config.adminToken)
+                  _ <- Future.traverse(config.darFiles) { file =>
                     client.packageManagementClient.uploadDarFile(
                       ByteString.copyFrom(Files.readAllBytes(file))
                     )
                   }
                 } yield ()
               }
-            _ = info(s"${darFiles.size} packages loaded to ${ports.size} participants")
+            _ = info(s"${config.darFiles.size} packages loaded to ${ports.size} participants")
           } yield ((domainAdminApi, domainPublicApi), ports, proc)
         }
         def stop(
