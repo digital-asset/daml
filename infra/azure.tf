@@ -102,20 +102,43 @@ cat <<'CRON' > /root/daily-reset.sh
 set -euo pipefail
 echo "$(date -Is -u) start"
 
-scale_sets='${jsonencode(concat(local.ubuntu.azure, local.windows.azure))}'
+AZURE_PAT=${secret_resource.vsts-token.value}
+
+scale_sets="$(az vmss list | jq -c '[.[] | {name, size: .sku.capacity}]')"
+
+echo "$(date -Is -u) Shutting down all machines"
 
 for set in $(echo $scale_sets | jq -r '.[] | .name'); do
-  echo "$(date -Is -u) Setting scale set $set size to 0"
-  az vmss scale -n $set --new-capacity 0
+  echo "$(date -Is -u) - Setting scale set $set size to 0"
+  az vmss scale -n $set --new-capacity 0 >/dev/null
 done
 
 echo "$(date -Is -u) Waiting for scale sets to adapt"
+
 sleep 300
+
+echo "$(date -Is -u) Removing all nodes from Azure Pipelines"
+
+for pool in 11 18; do
+  agents=$(curl -s -u :$AZURE_PAT "https://dev.azure.com/digitalasset/_apis/distributedtask/pools/$pool/agents?api-version=7.0" | jq -c '[.value[] | {name,id}]')
+  for idx in $(seq 0 $(echo "$agents" | jq 'length - 1')); do
+    name=$(echo "$agents" | jq -r ".[$idx].name")
+    id=$(echo "$agents" | jq -r ".[$idx].id")
+    if [[ "$name" =~ d[uw][12]-.* ]]; then
+      echo "$(date -Is -u) - Removing agent $name ($id)"
+      curl -s -u :$AZURE_PAT -XDELETE "https://dev.azure.com/digitalasset/_apis/distributedtask/pools/$${pool}/agents/$${id}?api-version=7.0" &>/dev/null
+    else
+      echo "$(date -Is -u) - Leaving agent $name untouched"
+    fi
+  done
+done
+
+echo "$(date -Is -u) Bringing scale sets back up"
 
 for set in $(echo $scale_sets | jq -r '.[] | .name'); do
   size=$(echo $scale_sets | jq --arg set $set -r '.[] | select (.name == $set) | .size')
-  echo "$(date -Is -u) Setting scale set $set size back to $size"
-  az vmss scale -n $set --new-capacity $size
+  echo "$(date -Is -u) - Setting scale set $set size back to $size"
+  az vmss scale -n $set --new-capacity $size >/dev/null
 done
 
 echo "$(date -Is -u) end"
