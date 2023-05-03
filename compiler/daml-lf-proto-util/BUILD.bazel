@@ -4,25 +4,23 @@
 load("//bazel_tools:haskell.bzl", "da_haskell_library")
 
 da_haskell_library(
-    name = "daml-dar-reader",
-    srcs = glob(["src/**/*.hs"]),
+    name = "daml-lf-proto-util",
+    srcs =
+        [
+            "src/DA/Daml/LF/Mangling.hs",
+            "src/DA/Daml/LF/Proto3/Error.hs",
+            "src/DA/Daml/LF/Proto3/Util.hs",
+        ],
     hackage_deps = [
-        "aeson",
-        "aeson-pretty",
         "base",
         "bytestring",
-        "extra",
-        "filepath",
+        "either",
         "text",
-        "unordered-containers",
-        "zip-archive",
     ],
     src_strip_prefix = "src",
     visibility = ["//visibility:public"],
     deps = [
         "//compiler/daml-lf-ast",
-        "//compiler/daml-lf-proto-decode",
-        "//compiler/daml-lf-reader",
-        "//libs-haskell/da-hs-base",
+        "//daml-lf/archive:daml_lf_dev_archive_haskell_proto",
     ],
 )

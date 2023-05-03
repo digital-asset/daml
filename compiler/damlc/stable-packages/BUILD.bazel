@@ -16,7 +16,7 @@ da_haskell_library(
     visibility = ["//visibility:public"],
     deps = [
         "//compiler/daml-lf-ast",
-        "//compiler/daml-lf-proto:daml-lf-proto-encode",
+        "//compiler/daml-lf-proto-encode",
         "//compiler/damlc/daml-lf-util",
         "//libs-haskell/da-hs-base",
     ],
@@ -32,13 +32,12 @@ da_haskell_binary(
         "optparse-applicative",
         "text",
     ],
-    main_function = "Main.main",
     src_strip_prefix = "src",
     visibility = ["//visibility:public"],
     deps = [
-        ":stable-packages-lib",
+        "stable-packages-lib",
         "//compiler/daml-lf-ast",
-        "//compiler/daml-lf-proto:daml-lf-proto-encode",
+        "//compiler/daml-lf-proto-encode",
         "//libs-haskell/da-hs-base",
     ],
 )
