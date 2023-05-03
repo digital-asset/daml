@@ -376,12 +376,10 @@ private[lf] object SBuiltin {
       Numeric.divide(scale, x, y).toOption
 
   sealed abstract class SBBinaryOpNumeric(name: String, op: (Numeric, Numeric) => Option[Numeric])
-      extends SBuiltinArithmetic(name, 3) {
+      extends SBuiltinArithmetic(name, 2) {
     override private[speedy] def compute(args: util.ArrayList[SValue]): Option[SValue] = {
-      val scale = getSScale(args, 0)
-      val a = getSNumeric(args, 1)
-      val b = getSNumeric(args, 2)
-      assert(a.scale == scale && b.scale == scale)
+      val a = getSNumeric(args, 0)
+      val b = getSNumeric(args, 1)
       op(a, b).map(SNumeric(_))
     }
   }
@@ -389,44 +387,41 @@ private[lf] object SBuiltin {
   sealed abstract class SBBinaryOpNumeric2(
       name: String,
       op: (Scale, Numeric, Numeric) => Option[Numeric],
-  ) extends SBuiltinArithmetic(name, 5) {
+  ) extends SBuiltinArithmetic(name, 3) {
     override private[speedy] def compute(args: util.ArrayList[SValue]): Option[SValue] = {
-      val scaleA = getSScale(args, 0)
-      val scaleB = getSScale(args, 1)
-      val scale = getSScale(args, 2)
-      val a = getSNumeric(args, 3)
-      val b = getSNumeric(args, 4)
-      assert(a.scale == scaleA && b.scale == scaleB)
+      val scale = getSScale(args, 0)
+      val a = getSNumeric(args, 1)
+      val b = getSNumeric(args, 2)
       op(scale, a, b).map(SNumeric(_))
     }
   }
 
   final case object SBAddNumeric extends SBBinaryOpNumeric("ADD_NUMERIC", add)
   final case object SBSubNumeric extends SBBinaryOpNumeric("SUB_NUMERIC", subtract)
-  final case object SBMulNumeric extends SBBinaryOpNumeric2("MUL_NUMERIC_LEGACY", multiply)
-  final case object SBDivNumeric extends SBBinaryOpNumeric2("DIV_NUMERIC_LEGACY", divide)
+  final case object SBMulNumeric extends SBBinaryOpNumeric2("MUL_NUMERIC", multiply)
+  final case object SBDivNumeric extends SBBinaryOpNumeric2("DIV_NUMERIC", divide)
 
-  final case object SBRoundNumeric extends SBuiltinArithmetic("ROUND_NUMERIC", 3) {
+  final case object SBRoundNumeric extends SBuiltinArithmetic("ROUND_NUMERIC", 2) {
     override private[speedy] def compute(args: util.ArrayList[SValue]): Option[SNumeric] = {
-      val prec = getSInt64(args, 1)
-      val x = getSNumeric(args, 2)
+      val prec = getSInt64(args, 0)
+      val x = getSNumeric(args, 1)
       Numeric.round(prec, x).toOption.map(SNumeric(_))
     }
   }
 
-  final case object SBCastNumeric extends SBuiltinArithmetic("CAST_NUMERIC_LEGACY", 3) {
+  final case object SBCastNumeric extends SBuiltinArithmetic("CAST_NUMERIC", 2) {
     override private[speedy] def compute(args: util.ArrayList[SValue]): Option[SNumeric] = {
-      val outputScale = getSScale(args, 1)
-      val x = getSNumeric(args, 2)
+      val outputScale = getSScale(args, 0)
+      val x = getSNumeric(args, 1)
       Numeric.fromBigDecimal(outputScale, x).toOption.map(SNumeric(_))
     }
   }
 
-  final case object SBShiftNumeric extends SBuiltinPure(3) {
+  final case object SBShiftNumeric extends SBuiltinPure(2) {
     override private[speedy] def executePure(args: util.ArrayList[SValue]): SNumeric = {
-      val inputScale = getSScale(args, 0)
-      val outputScale = getSScale(args, 1)
-      val x = getSNumeric(args, 2)
+      val outputScale = getSScale(args, 0)
+      val x = getSNumeric(args, 1)
+      val inputScale = x.scale
       SNumeric(
         Numeric.assertFromBigDecimal(outputScale, x.scaleByPowerOfTen(inputScale - outputScale))
       )
@@ -692,7 +687,7 @@ private[lf] object SBuiltin {
   // Conversions
   //
 
-  final case object SBInt64ToNumeric extends SBuiltinArithmetic("INT64_TO_NUMERIC_LEGACY", 2) {
+  final case object SBInt64ToNumeric extends SBuiltinArithmetic("INT64_TO_NUMERIC", 2) {
     override private[speedy] def compute(args: util.ArrayList[SValue]): Option[SNumeric] = {
       val scale = getSScale(args, 0)
       val x = getSInt64(args, 1)
@@ -700,9 +695,9 @@ private[lf] object SBuiltin {
     }
   }
 
-  final case object SBNumericToInt64 extends SBuiltinArithmetic("NUMERIC_TO_INT64", 2) {
+  final case object SBNumericToInt64 extends SBuiltinArithmetic("NUMERIC_TO_INT64", 1) {
     override private[speedy] def compute(args: util.ArrayList[SValue]): Option[SInt64] = {
-      val x = getSNumeric(args, 1)
+      val x = getSNumeric(args, 0)
       Numeric.toLong(x).toOption.map(SInt64)
     }
   }
@@ -927,14 +922,14 @@ private[lf] object SBuiltin {
     }
   }
 
-  final object SBNumericToBigNumeric extends SBuiltinPure(2) {
+  final object SBNumericToBigNumeric extends SBuiltinPure(1) {
     override private[speedy] def executePure(args: util.ArrayList[SValue]): SBigNumeric = {
-      val x = getSNumeric(args, 1)
+      val x = getSNumeric(args, 0)
       SBigNumeric.fromNumeric(x)
     }
   }
 
-  final object SBBigNumericToNumeric extends SBuiltinArithmetic("BIGNUMERIC_TO_NUMERIC_LEGACY", 2) {
+  final object SBBigNumericToNumeric extends SBuiltinArithmetic("BIGNUMERIC_TO_NUMERIC", 2) {
     override private[speedy] def compute(args: util.ArrayList[SValue]): Option[SNumeric] = {
       val scale = getSScale(args, 0)
       val x = getSBigNumeric(args, 1)
