@@ -1,8 +1,8 @@
 cabal-version: 2.4
-name: daml-lf-proto
+name: daml-lf-proto-decode
 build-type: Simple
 version: 0.1.15.0
-synopsis: Daml-LF Protobuf Encoding/Decoding
+synopsis: Daml-LF Protobuf Decoding
 license: Apache-2.0
 author: Digital Asset
 maintainer: Digital Asset
@@ -24,19 +24,38 @@ library
         cryptonite,
         da-hs-base,
         daml-lf-ast,
-        daml-lf-proto-decode,
-        daml-lf-proto-encode,
         daml-lf-proto-types,
         daml-lf-proto-util,
         lens,
         memory,
         mtl,
         proto3-suite,
+        damlc-stable-packages-list,
         text,
-        unordered-containers,
         vector,
+
+      -- base,
+      -- bytestring,
+      -- containers,
+      -- cryptonite,
+      -- da-hs-base,
+      -- daml-lf-ast,
+      -- daml-lf-proto-types,
+      -- either,
+      -- lens,
+      -- memory,
+      -- mtl,
+      -- proto3-suite,
+      -- scientific,
+      -- template-haskell,
+      -- text,
+      -- transformers,
+      -- unordered-containers,
+      -- vector,
     exposed-modules:
-      DA.Daml.LF.Proto3.Archive
+      DA.Daml.LF.Proto3.Archive.Decode
+      DA.Daml.LF.Proto3.Decode
+      DA.Daml.LF.Proto3.DecodeV1
     default-extensions:
       BangPatterns
       FlexibleContexts

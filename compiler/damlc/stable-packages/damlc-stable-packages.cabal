@@ -15,7 +15,7 @@ source-repository head
     location: https://github.com/digital-asset/daml.git
 
 executable generate-stable-package
-    main-is: GenerateStablePackage.hs
+    main-is: Main.hs
     hs-source-dirs:
         src
     build-depends:
