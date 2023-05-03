@@ -62,7 +62,7 @@
     "webpack-dev-server": "^4.7.3"
   },
   "dependencies": {
-    "@apollo/client": "^3.3.2",
+    "@apollo/client": "^3.4.17",
     "babel-standalone": "^6.26.0",
     "color": "^3.0.1",
     "deep-equal": "^2.0.5",
@@ -70,7 +70,7 @@
     "es6-promise": "^4.1.1",
     "jpeg-js": "^0.4.4",
     "lodash": "^4.17.19",
-    "modernizr": "^3.11.8",
+    "modernizr": "^3.12.0",
     "moment": "^2.29.4",
     "normalize.css": "^8.0.1",
     "react": "^17.0.1",
@@ -90,9 +90,7 @@
     "whatwg-fetch": "^3.5.0"
   },
   "resolutions": {
-    "**/shelljs": "^0.8.5",
     "**/moment": "^2.29.4",
-    "apollo/**/parse-url": "^8.1.0",
-    "modernizr/**/markdown-it": "^12.3.2"
+    "apollo/**/parse-url": "^8.1.0"
   }
 }
