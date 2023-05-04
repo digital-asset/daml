@@ -108,7 +108,6 @@ const spawnJvm = (
 beforeAll(async () => {
   console.log("build-and-lint-1.0.0 (" + buildAndLint.packageId + ") loaded");
   sandboxProcess = spawnJvm(getEnv("CANTON"), [
-    //TODO: Update these args, write the canton config file, decode the portfile properly
     "daemon",
     "-c",
     "./src/__tests__/canton.conf",
@@ -840,7 +839,7 @@ describe("interfaces", () => {
     await ledger.uploadDarFile(hiddenDar);
 
     // Wait for the domain to see the dar
-    // TODO: Find a way to do this by asking the domain
+    // TODO[SW]: Find a way to do this by asking the domain
     await new Promise(resolve => setTimeout(resolve, 1000));
 
     // pretend we have access to NotVisibleInTs.  For this test to be
