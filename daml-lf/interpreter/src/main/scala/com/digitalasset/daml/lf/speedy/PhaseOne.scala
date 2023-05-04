@@ -467,10 +467,10 @@ private[lf] final class PhaseOne(
           case BTextToCodePoints => SBTextToCodePoints
           case BSHA256Text => SBSHA256Text
 
-          // List functions
-          case BFoldl => SBFoldl
-          case BFoldr => SBFoldr
-          case BEqualList => SBEqualList
+          // List functions // NICK -- This is required to validate old dars
+          case BFoldl => XSBFoldl
+          case BFoldr => XSBFoldr
+          case BEqualList => XSBEqualList
 
           // Errors
           case BError => SBUserError
@@ -519,6 +519,7 @@ private[lf] final class PhaseOne(
               BRoundNumeric | BCastNumericLegacy | BCastNumeric | BShiftNumericLegacy |
               BShiftNumeric | BInt64ToNumericLegacy | BInt64ToNumeric | BTextToNumericLegacy |
               BTextToNumeric | BNumericToInt64 | BNumericToBigNumeric | BBigNumericToNumericLegacy |
+              // BFoldl | BFoldr | BEqualList | // NICK -- This is what we want
               BBigNumericToNumeric =>
             throw CompilationError(s"unexpected $bf")
 

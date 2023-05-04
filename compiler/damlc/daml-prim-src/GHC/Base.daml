@@ -47,7 +47,9 @@ map f = foldr (\x xs -> f x :: xs) []
 --
 -- Note that foldr works from right-to-left over the list elements.
 foldr : (a -> b -> b) -> b -> [a] -> b
-foldr = primitive @"BEFoldr"
+foldr f z = \case
+  [] -> z
+  x::xs -> f x (foldr f z xs)
 
 -- | Composes two functions, i.e., `(f . g) x = f (g x)`.
 (.)    : (b -> c) -> (a -> b) -> a -> c

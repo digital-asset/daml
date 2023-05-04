@@ -164,7 +164,9 @@ guard True = pure ()
 --
 -- Note that foldl works from left-to-right over the list arguments.
 foldl : (b -> a -> b) -> b -> [a] -> b
-foldl = primitive @"BEFoldl"
+foldl f acc = \case
+  [] -> acc
+  x::xs -> foldl f (f acc x) xs
 
 -- | `find p xs` finds the first element of the list `xs` where the
 -- predicate `p` is true. There might not be such an element, which

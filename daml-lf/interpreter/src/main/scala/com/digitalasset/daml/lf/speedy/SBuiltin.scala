@@ -581,11 +581,13 @@ private[lf] object SBuiltin {
       SText(Utf8.sha256(getSText(args, 0)))
   }
 
-  final case object SBFoldl extends SBuiltin(3) {
+  final case object XSBFoldl extends SBuiltin(3) {
     override private[speedy] def execute[Q](
         args: util.ArrayList[SValue],
         machine: Machine[Q],
     ): Control.Value = {
+      def xxx: Int = ??? // NICK -- crash proves we never execute this op
+      val _ = xxx
       val func = args.get(0)
       val init = args.get(1)
       val list = getSList(args, 2)
@@ -622,11 +624,13 @@ private[lf] object SBuiltin {
   // ```
   // However, this would be a breaking change compared to the aforementioned
   // implementation of `foldr`.
-  final case object SBFoldr extends SBuiltin(3) {
+  final case object XSBFoldr extends SBuiltin(3) {
     override private[speedy] def execute[Q](
         args: util.ArrayList[SValue],
         machine: Machine[Q],
     ): Control[Q] = {
+      def xxx: Int = ??? // NICK -- crash proves we never execute this op
+      val _ = xxx
       val func = args.get(0).asInstanceOf[SPAP]
       val init = args.get(1)
       val list = getSList(args, 2)
@@ -1890,7 +1894,7 @@ private[lf] object SBuiltin {
   }
 
   /** EQUAL_LIST :: (a -> a -> Bool) -> [a] -> [a] -> Bool */
-  final case object SBEqualList extends SBuiltin(3) {
+  final case object XSBEqualList extends SBuiltin(3) {
 
     private val equalListBody: SExpr =
       SECaseAtomic( // case xs of
@@ -1928,7 +1932,7 @@ private[lf] object SBuiltin {
                         SCaseAlt(
                           SCPPrimCon(Ast.PCTrue), // True ->
                           SEAppAtomicGeneral(
-                            SEBuiltin(SBEqualList), // single recursive occurrence
+                            SEBuiltin(XSBEqualList), // single recursive occurrence
                             Array(
                               SELocA(0), // f
                               SELocS(2), // yss
@@ -1957,6 +1961,8 @@ private[lf] object SBuiltin {
         args: util.ArrayList[SValue],
         machine: Machine[Q],
     ): Control[Q] = {
+      def xxx: Int = ??? // NICK -- crash proves we never execute this op
+      val _ = xxx
       val f = args.get(0)
       val xs = args.get(1)
       val ys = args.get(2)

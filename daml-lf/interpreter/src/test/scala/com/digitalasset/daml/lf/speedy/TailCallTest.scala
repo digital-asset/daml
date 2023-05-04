@@ -37,16 +37,6 @@ class TailCallTest extends AnyWordSpec with Matchers with TableDrivenPropertyChe
                True -> acc
              | _    -> F:triangleTR_acc (ADD_INT64 acc x) (SUB_INT64 x 1);
 
-
-         val triangle_viaFoldLeft : (Int64 -> Int64) = \ (x: Int64) ->
-            FOLDL @Int64 @Int64 ADD_INT64 0 (F:generate Nil@Int64 x);
-
-         val triangle_viaFoldRight : (Int64 -> Int64) = \ (x: Int64) ->
-            FOLDR @Int64 @Int64 ADD_INT64 0 (F:generate Nil@Int64 x);
-
-         val triangle_viaFoldRight2 : (Int64 -> Int64) = \ (x: Int64) ->
-            FOLDR @Int64 @Int64 (\(y: Int64) -> ADD_INT64 y) 0 (F:generate Nil@Int64 x);
-
          // tail-recursive generator
          val generate : (List Int64 -> Int64 -> List Int64) = \ (acc: List Int64) (x: Int64) ->
            case (EQUAL @Int64 x 0) of
@@ -81,24 +71,6 @@ class TailCallTest extends AnyWordSpec with Matchers with TableDrivenPropertyChe
 
   "A tail-recursive definition executes with a small env-stack, and a small kont-stack" in {
     val exp = e"F:triangleTR 100"
-    val expected = SValue.SInt64(5050)
-    runExpr(exp, envBound = small, kontBound = small) shouldBe expected
-  }
-
-  "fold-left executes with a small env-stack, and a small kont-stack" in {
-    val exp = e"F:triangle_viaFoldLeft 100"
-    val expected = SValue.SInt64(5050)
-    runExpr(exp, envBound = small, kontBound = small) shouldBe expected
-  }
-
-  "fold-right executes with a small env-stack, and a small kont-stack" in {
-    val exp = e"F:triangle_viaFoldRight 100"
-    val expected = SValue.SInt64(5050)
-    runExpr(exp, envBound = small, kontBound = small) shouldBe expected
-  }
-
-  "fold-right (KFoldr1Map/Reduce case) executes with a small env-stack, and a small kont-stack" in {
-    val exp = e"F:triangle_viaFoldRight2 100"
     val expected = SValue.SInt64(5050)
     runExpr(exp, envBound = small, kontBound = small) shouldBe expected
   }
