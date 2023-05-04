@@ -72,7 +72,7 @@ class ScalaCodeGenIT
     ""
   ) // this is by design, starting from release: 0.12.18 it is a required field
 
-  private def usingLedger[A](
+  private def withFixture[A](
       testFn: ScalaCodeGenITFixture => Future[A]
   ): Future[A] = for {
     ledger <- defaultLedgerClient()
@@ -86,7 +86,7 @@ class ScalaCodeGenIT
     a <- testFn(ScalaCodeGenITFixture(ledger, parties(0), parties(1), parties(2)))
   } yield a
 
-  "generated package ID among those returned by the packageClient" in usingLedger { fixture =>
+  "generated package ID among those returned by the packageClient" in withFixture { fixture =>
     import fixture.ledger
     val expectedPackageId: String = P.TemplateId
       .unapply(CallablePayout.id)
@@ -98,14 +98,14 @@ class ScalaCodeGenIT
     } yield response.packageIds should contain(expectedPackageId)
   }
 
-  "alice creates CallablePayout contract and receives corresponding event" in usingLedger {
+  "alice creates CallablePayout contract and receives corresponding event" in withFixture {
     fixture =>
       import fixture.{ledger, alice, bob}
       val contract = CallablePayout(giver = alice, receiver = bob)
       testCreateContractAndReceiveEvent(ledger, contract, alice)
   }
 
-  "alice creates MkListExample contract and receives corresponding event" in usingLedger {
+  "alice creates MkListExample contract and receives corresponding event" in withFixture {
     fixture =>
       import fixture.{ledger, alice}
       val contract = MkListExample(alice, P.List(1, 2, 3))
@@ -122,7 +122,7 @@ class ScalaCodeGenIT
     s"I am worth $sum"
   }
 
-  "alice creates TemplateWithSelfReference contract and receives corresponding event" in usingLedger {
+  "alice creates TemplateWithSelfReference contract and receives corresponding event" in withFixture {
     fixture =>
       import fixture.{ledger, alice}
       import com.daml.sample.MyMain
@@ -131,7 +131,7 @@ class ScalaCodeGenIT
       testCreateContractAndReceiveEvent(ledger, contract, alice)
   }
 
-  "alice creates TemplateWithCustomTypes contract with ProductArity variant and receives corresponding event from the ledger" in usingLedger {
+  "alice creates TemplateWithCustomTypes contract with ProductArity variant and receives corresponding event from the ledger" in withFixture {
     fixture =>
       import fixture.{ledger, alice}
       val nameClashRecord =
@@ -149,7 +149,7 @@ class ScalaCodeGenIT
       testCreateContractAndReceiveEvent(ledger, contract, alice)
   }
 
-  "alice creates TemplateWithCustomTypes contract with a NotifyAll variant and receives corresponding event from the ledger" in usingLedger {
+  "alice creates TemplateWithCustomTypes contract with a NotifyAll variant and receives corresponding event from the ledger" in withFixture {
     fixture =>
       import fixture.{ledger, alice}
       val nameClashRecord =
@@ -167,14 +167,14 @@ class ScalaCodeGenIT
       testCreateContractAndReceiveEvent(ledger, contract, alice)
   }
 
-  "alice creates TemplateWithUnitParam contract and receives corresponding event from the ledger" in usingLedger {
+  "alice creates TemplateWithUnitParam contract and receives corresponding event from the ledger" in withFixture {
     fixture =>
       import fixture.{ledger, alice}
       val contract = MyMain.TemplateWithUnitParam(alice)
       testCreateContractAndReceiveEvent(ledger, contract, alice)
   }
 
-  "alice creates TemplateWithNestedRecordsAndVariants contract and receives corresponding event from the ledger" in usingLedger {
+  "alice creates TemplateWithNestedRecordsAndVariants contract and receives corresponding event from the ledger" in withFixture {
     fixture =>
       import fixture.{ledger, alice}
       val boolVal = true
@@ -212,7 +212,7 @@ class ScalaCodeGenIT
     }
   }
 
-  "alice creates CallablePayout contract, bob exercises Call choice" in usingLedger { fixture =>
+  "alice creates CallablePayout contract, bob exercises Call choice" in withFixture { fixture =>
     import fixture.{ledger, alice, bob}
 
     val contextId = TestContext("create_CallablePayout_exercise_Call-" + uniqueId)
@@ -247,7 +247,7 @@ class ScalaCodeGenIT
   private def expectedAgreementAsDefinedInDaml(contract: PayOut): String =
     s"'${P.Party.unwrap(contract.giver): String}' must pay to '${P.Party.unwrap(contract.receiver): String}' the sum of five pounds."
 
-  "alice creates CallablePayout contract, bob exercises Transfer to charlie" in usingLedger {
+  "alice creates CallablePayout contract, bob exercises Transfer to charlie" in withFixture {
     fixture =>
       import fixture.{ledger, alice, bob, charlie}
 
@@ -289,7 +289,7 @@ class ScalaCodeGenIT
       }
   }
 
-  "alice creates TemplateWith23Arguments contract and receives corresponding event" in usingLedger {
+  "alice creates TemplateWith23Arguments contract and receives corresponding event" in withFixture {
     fixture =>
       import fixture.{ledger, alice}
       // noinspection NameBooleanParameters
@@ -321,21 +321,21 @@ class ScalaCodeGenIT
       testCreateContractAndReceiveEvent(ledger, contract, alice)
   }
 
-  "alice creates Maybes contract and receives corresponding event" in usingLedger { fixture =>
+  "alice creates Maybes contract and receives corresponding event" in withFixture { fixture =>
     import fixture.{ledger, alice}
     import com.daml.ledger.client.binding.encoding.GenEncoding.Implicits._
     val contract = arbitrary[MyMain.Maybes].sample getOrElse sys.error("random Maybes failed")
     testCreateContractAndReceiveEvent(ledger, contract copy (party = alice), alice)
   }
 
-  "alice creates TextMapInt contract and receives corresponding event" in usingLedger { fixture =>
+  "alice creates TextMapInt contract and receives corresponding event" in withFixture { fixture =>
     import fixture.{ledger, alice}
     import com.daml.ledger.client.binding.encoding.GenEncoding.Implicits._
     val contract = arbitrary[MyMain.TextMapInt].sample getOrElse sys.error("random TexMap failed")
     testCreateContractAndReceiveEvent(ledger, contract copy (party = alice), alice)
   }
 
-  "alice creates OptTextMapInt contract and receives corresponding event" in usingLedger {
+  "alice creates OptTextMapInt contract and receives corresponding event" in withFixture {
     fixture =>
       import fixture.{ledger, alice}
       import com.daml.ledger.client.binding.encoding.GenEncoding.Implicits._
@@ -344,7 +344,7 @@ class ScalaCodeGenIT
       testCreateContractAndReceiveEvent(ledger, contract copy (party = alice), alice)
   }
 
-  "alice creates TextMapTextMapInt contract and receives corresponding event" in usingLedger {
+  "alice creates TextMapTextMapInt contract and receives corresponding event" in withFixture {
     fixture =>
       import fixture.{ledger, alice}
       import com.daml.ledger.client.binding.encoding.GenEncoding.Implicits._
@@ -354,7 +354,7 @@ class ScalaCodeGenIT
       testCreateContractAndReceiveEvent(ledger, contract copy (party = alice), alice)
   }
 
-  "alice creates TextMapText contract and receives corresponding event" in usingLedger { fixture =>
+  "alice creates TextMapText contract and receives corresponding event" in withFixture { fixture =>
     import fixture.{ledger, alice}
     import com.daml.ledger.client.binding.encoding.GenEncoding.Implicits._
     val contract =
@@ -362,7 +362,7 @@ class ScalaCodeGenIT
     testCreateContractAndReceiveEvent(ledger, contract copy (party = alice), alice)
   }
 
-  "alice creates ListTextMapInt contract and receives corresponding event" in usingLedger {
+  "alice creates ListTextMapInt contract and receives corresponding event" in withFixture {
     fixture =>
       import fixture.{ledger, alice}
       import com.daml.ledger.client.binding.encoding.GenEncoding.Implicits._
@@ -371,14 +371,14 @@ class ScalaCodeGenIT
       testCreateContractAndReceiveEvent(ledger, contract copy (party = alice), alice)
   }
 
-  "alice creates OptMapInt contract and receives corresponding event" in usingLedger { fixture =>
+  "alice creates OptMapInt contract and receives corresponding event" in withFixture { fixture =>
     import fixture.{ledger, alice}
     import com.daml.ledger.client.binding.encoding.GenEncoding.Implicits._
     val contract = arbitrary[MyMain.OptMapInt].sample getOrElse sys.error("random OptMapInt failed")
     testCreateContractAndReceiveEvent(ledger, contract copy (party = alice), alice)
   }
 
-  "alice creates ListMapInt contract and receives corresponding event" in usingLedger { fixture =>
+  "alice creates ListMapInt contract and receives corresponding event" in withFixture { fixture =>
     import fixture.{ledger, alice}
     import com.daml.ledger.client.binding.encoding.GenEncoding.Implicits._
     val contract =
@@ -386,21 +386,21 @@ class ScalaCodeGenIT
     testCreateContractAndReceiveEvent(ledger, contract copy (party = alice), alice)
   }
 
-  "alice creates MapMapInt contract and receives corresponding event" in usingLedger { fixture =>
+  "alice creates MapMapInt contract and receives corresponding event" in withFixture { fixture =>
     import fixture.{ledger, alice}
     import com.daml.ledger.client.binding.encoding.GenEncoding.Implicits._
     val contract = arbitrary[MyMain.MapMapInt].sample getOrElse sys.error("random MapMapInt failed")
     testCreateContractAndReceiveEvent(ledger, contract copy (party = alice), alice)
   }
 
-  "alice creates MapInt contract and receives corresponding event" in usingLedger { fixture =>
+  "alice creates MapInt contract and receives corresponding event" in withFixture { fixture =>
     import fixture.{ledger, alice}
     import com.daml.ledger.client.binding.encoding.GenEncoding.Implicits._
     val contract = arbitrary[MyMain.MapInt].sample getOrElse sys.error("random MapInt failed")
     testCreateContractAndReceiveEvent(ledger, contract copy (party = alice), alice)
   }
 
-  "alice creates DummyTemplateFromAnotherDar contract and receives corresponding event" in usingLedger {
+  "alice creates DummyTemplateFromAnotherDar contract and receives corresponding event" in withFixture {
     fixture =>
       import fixture.{ledger, alice}
       import com.daml.ledger.client.binding.encoding.GenEncoding.Implicits._
@@ -410,7 +410,7 @@ class ScalaCodeGenIT
       testCreateContractAndReceiveEvent(ledger, contract copy (owner = alice), alice)
   }
 
-  "alice creates-and-exercises SimpleListExample with Go and receives corresponding event" in usingLedger {
+  "alice creates-and-exercises SimpleListExample with Go and receives corresponding event" in withFixture {
     fixture =>
       import fixture.{ledger, alice}
       val contract = MyMain.SimpleListExample(alice, P.List(42))
