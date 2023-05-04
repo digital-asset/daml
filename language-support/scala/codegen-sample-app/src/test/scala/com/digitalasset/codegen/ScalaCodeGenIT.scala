@@ -10,7 +10,6 @@ import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.daml.ledger.api.v1.commands.Commands
 import com.daml.ledger.api.v1.event.Event
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
-import com.daml.ledger.api.v1.package_service.ListPackagesResponse
 import com.daml.ledger.api.v1.transaction.Transaction
 import com.daml.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
 import com.daml.ledger.client.LedgerClient
@@ -28,17 +27,23 @@ import org.scalatest._
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.time.{Millis, Seconds, Span}
-import org.scalatest.wordspec.AnyWordSpec
+import org.scalatest.wordspec.AsyncWordSpec
 import scalaz.syntax.tag._
 
 import java.time.Instant
 import java.util.UUID
-import scala.concurrent.duration._
-import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.concurrent.Future
 import scala.util.{Failure, Success, Try}
 
+final case class ScalaCodeGenITFixture(
+    ledger: LedgerClient,
+    alice: P.Party,
+    bob: P.Party,
+    charlie: P.Party,
+)
+
 class ScalaCodeGenIT
-    extends AnyWordSpec
+    extends AsyncWordSpec
     with Matchers
     with ScalaFutures
     with Inside
@@ -56,18 +61,10 @@ class ScalaCodeGenIT
   override protected def tlsEnable = false
   override protected def applicationId: ApplicationId = ApplicationId("scala-code-gen-client")
 
-  private val StartupTimeout = 10.seconds
-
   override implicit lazy val patienceConfig: PatienceConfig =
     PatienceConfig(timeout = Span(20, Seconds), interval = Span(250, Millis))
 
-  implicit def executionContext: ExecutionContext = ExecutionContext.global
-
   private val decoder: DecoderType = EventDecoder.createdEventToContractRef
-
-  private var alice = P.Party("Alice")
-  private var bob = P.Party("Bob")
-  private var charlie = P.Party("Charlie")
 
   private val emptyCommandId = CommandId("")
 
@@ -75,53 +72,49 @@ class ScalaCodeGenIT
     ""
   ) // this is by design, starting from release: 0.12.18 it is a required field
 
-  private var ledger: LedgerClient = _
-
-  override protected def beforeAll(): Unit = {
-    super.beforeAll()
-    val (lc, parties) = Await.result(
-      for {
-        lc <- defaultLedgerClient()
-        parties <- Future.sequence(
-          List(alice, bob, charlie).map(p =>
-            lc.partyManagementClient.allocateParty(Some(p.toString), None)
-          )
-        )
-      } yield (lc, parties),
-      StartupTimeout,
+  private def usingLedger[A](
+      testFn: ScalaCodeGenITFixture => Future[A]
+  ): Future[A] = for {
+    ledger <- defaultLedgerClient()
+    parties <- Future.sequence(
+      List("alice", "bob", "charlie").map(p =>
+        ledger.partyManagementClient
+          .allocateParty(None, Some(p))
+          .map(p => P.Party(p.party.toString))
+      )
     )
-    // TODO: is there a better way to do this? seems hacky
-    val primParties = parties.map(p => P.Party(p.party.toString))
-    ledger = lc
-    // Redefine the parties to now include the hash suffix that canton adds.
-    alice = primParties(0)
-    bob = primParties(1)
-    charlie = primParties(2)
-  }
+    a <- testFn(ScalaCodeGenITFixture(ledger, parties(0), parties(1), parties(2)))
+  } yield a
 
-  "generated package ID among those returned by the packageClient" in {
+  "generated package ID among those returned by the packageClient" in usingLedger { fixture =>
+    import fixture.ledger
     val expectedPackageId: String = P.TemplateId
       .unapply(CallablePayout.id)
       .map(_._1)
       .getOrElse(fail("Cannot retrieve a package ID from the generated CallablePayout.id"))
 
-    whenReady(ledger.packageClient.listPackages()) { response: ListPackagesResponse =>
-      response.packageIds should contain(expectedPackageId)
-    }
+    for {
+      response <- ledger.packageClient.listPackages()
+    } yield response.packageIds should contain(expectedPackageId)
   }
 
-  "alice creates CallablePayout contract and receives corresponding event" in {
-    val contract = CallablePayout(giver = alice, receiver = bob)
-    testCreateContractAndReceiveEvent(contract, alice)
+  "alice creates CallablePayout contract and receives corresponding event" in usingLedger {
+    fixture =>
+      import fixture.{ledger, alice, bob}
+      val contract = CallablePayout(giver = alice, receiver = bob)
+      testCreateContractAndReceiveEvent(ledger, contract, alice)
   }
 
-  "alice creates MkListExample contract and receives corresponding event" in {
-    val contract = MkListExample(alice, P.List(1, 2, 3))
-    testCreateContractAndReceiveEvent(
-      contract,
-      alice,
-      expectedAgreementText = Some(expectedAgreementAsDefinedInDaml(contract)),
-    )
+  "alice creates MkListExample contract and receives corresponding event" in usingLedger {
+    fixture =>
+      import fixture.{ledger, alice}
+      val contract = MkListExample(alice, P.List(1, 2, 3))
+      testCreateContractAndReceiveEvent(
+        ledger,
+        contract,
+        alice,
+        expectedAgreementText = Some(expectedAgreementAsDefinedInDaml(contract)),
+      )
   }
 
   private def expectedAgreementAsDefinedInDaml(contract: MkListExample): String = {
@@ -129,71 +122,84 @@ class ScalaCodeGenIT
     s"I am worth $sum"
   }
 
-  "alice creates TemplateWithSelfReference contract and receives corresponding event" in {
-    import com.daml.sample.MyMain
-    val parent = MyMain.Maybe.Nothing(())
-    val contract = MyMain.TemplateWithSelfReference(alice, parent)
-    testCreateContractAndReceiveEvent(contract, alice)
+  "alice creates TemplateWithSelfReference contract and receives corresponding event" in usingLedger {
+    fixture =>
+      import fixture.{ledger, alice}
+      import com.daml.sample.MyMain
+      val parent = MyMain.Maybe.Nothing(())
+      val contract = MyMain.TemplateWithSelfReference(alice, parent)
+      testCreateContractAndReceiveEvent(ledger, contract, alice)
   }
 
-  "alice creates TemplateWithCustomTypes contract with ProductArity variant and receives corresponding event from the ledger" in {
-    val nameClashRecord =
-      MyMain.NameClashRecord(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18)
-    val nameClashVariant = MyMain.NameClashVariant.ProductArity("test")
-    val nameClashRecordVariant = MyMain.NameClashRecordVariant.NameClashRecordVariantA(1, 2, 3)
-    val contract =
-      MyMain.TemplateWithCustomTypes(
+  "alice creates TemplateWithCustomTypes contract with ProductArity variant and receives corresponding event from the ledger" in usingLedger {
+    fixture =>
+      import fixture.{ledger, alice}
+      val nameClashRecord =
+        MyMain.NameClashRecord(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18)
+      val nameClashVariant = MyMain.NameClashVariant.ProductArity("test")
+      val nameClashRecordVariant = MyMain.NameClashRecordVariant.NameClashRecordVariantA(1, 2, 3)
+      val contract =
+        MyMain.TemplateWithCustomTypes(
+          alice,
+          nameClashRecord,
+          nameClashVariant,
+          nameClashRecordVariant,
+        )
+
+      testCreateContractAndReceiveEvent(ledger, contract, alice)
+  }
+
+  "alice creates TemplateWithCustomTypes contract with a NotifyAll variant and receives corresponding event from the ledger" in usingLedger {
+    fixture =>
+      import fixture.{ledger, alice}
+      val nameClashRecord =
+        MyMain.NameClashRecord(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18)
+      val nameClashVariant = MyMain.NameClashVariant.NotifyAll(100L)
+      val nameClashRecordVariant = MyMain.NameClashRecordVariant.NameClashRecordVariantA(1, 2, 3)
+      val contract =
+        MyMain.TemplateWithCustomTypes(
+          alice,
+          nameClashRecord,
+          nameClashVariant,
+          nameClashRecordVariant,
+        )
+
+      testCreateContractAndReceiveEvent(ledger, contract, alice)
+  }
+
+  "alice creates TemplateWithUnitParam contract and receives corresponding event from the ledger" in usingLedger {
+    fixture =>
+      import fixture.{ledger, alice}
+      val contract = MyMain.TemplateWithUnitParam(alice)
+      testCreateContractAndReceiveEvent(ledger, contract, alice)
+  }
+
+  "alice creates TemplateWithNestedRecordsAndVariants contract and receives corresponding event from the ledger" in usingLedger {
+    fixture =>
+      import fixture.{ledger, alice}
+      val boolVal = true
+      val time: P.Timestamp =
+        P.Timestamp.discardNanos(Instant.now).getOrElse(fail("Can't create time instance"))
+      val myRecord =
+        MyMain.MyRecord(1, BigDecimal("1.2"), alice, "Text", time, (), boolVal, List(10, 20, 30))
+      val myVariant = MyMain.MyVariant.MyVariantA(())
+      val myEnum = MyMain.MyEnum.MyEnumA
+      val recordWithNestedMyVariant =
+        MyMain.RecordWithNestedMyVariantMyEnum(
+          MyMain.MyVariant.MyVariantB(()),
+          MyMain.MyEnum.MyEnumB,
+        )
+      val variantWithRecordWithVariant =
+        MyMain.VariantWithRecordWithVariant.VariantWithRecordWithVariantA(recordWithNestedMyVariant)
+      val contract = MyMain.TemplateWithNestedRecordsVariantsAndEnums(
         alice,
-        nameClashRecord,
-        nameClashVariant,
-        nameClashRecordVariant,
+        myRecord,
+        myVariant,
+        myEnum,
+        recordWithNestedMyVariant,
+        variantWithRecordWithVariant,
       )
-
-    testCreateContractAndReceiveEvent(contract, alice)
-  }
-
-  "alice creates TemplateWithCustomTypes contract with a NotifyAll variant and receives corresponding event from the ledger" in {
-    val nameClashRecord =
-      MyMain.NameClashRecord(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18)
-    val nameClashVariant = MyMain.NameClashVariant.NotifyAll(100L)
-    val nameClashRecordVariant = MyMain.NameClashRecordVariant.NameClashRecordVariantA(1, 2, 3)
-    val contract =
-      MyMain.TemplateWithCustomTypes(
-        alice,
-        nameClashRecord,
-        nameClashVariant,
-        nameClashRecordVariant,
-      )
-
-    testCreateContractAndReceiveEvent(contract, alice)
-  }
-
-  "alice creates TemplateWithUnitParam contract and receives corresponding event from the ledger" in {
-    val contract = MyMain.TemplateWithUnitParam(alice)
-    testCreateContractAndReceiveEvent(contract, alice)
-  }
-
-  "alice creates TemplateWithNestedRecordsAndVariants contract and receives corresponding event from the ledger" in {
-    val boolVal = true
-    val time: P.Timestamp =
-      P.Timestamp.discardNanos(Instant.now).getOrElse(fail("Can't create time instance"))
-    val myRecord =
-      MyMain.MyRecord(1, BigDecimal("1.2"), alice, "Text", time, (), boolVal, List(10, 20, 30))
-    val myVariant = MyMain.MyVariant.MyVariantA(())
-    val myEnum = MyMain.MyEnum.MyEnumA
-    val recordWithNestedMyVariant =
-      MyMain.RecordWithNestedMyVariantMyEnum(MyMain.MyVariant.MyVariantB(()), MyMain.MyEnum.MyEnumB)
-    val variantWithRecordWithVariant =
-      MyMain.VariantWithRecordWithVariant.VariantWithRecordWithVariantA(recordWithNestedMyVariant)
-    val contract = MyMain.TemplateWithNestedRecordsVariantsAndEnums(
-      alice,
-      myRecord,
-      myVariant,
-      myEnum,
-      recordWithNestedMyVariant,
-      variantWithRecordWithVariant,
-    )
-    testCreateContractAndReceiveEvent(contract, alice)
+      testCreateContractAndReceiveEvent(ledger, contract, alice)
   }
 
   private def assertCommandStatus[A](ctx: Ctx[A, Try[Empty]])(expectedContext: A): Assertion = {
@@ -206,7 +212,8 @@ class ScalaCodeGenIT
     }
   }
 
-  "alice creates CallablePayout contract, bob exercises Call choice" in {
+  "alice creates CallablePayout contract, bob exercises Call choice" in usingLedger { fixture =>
+    import fixture.{ledger, alice, bob}
 
     val contextId = TestContext("create_CallablePayout_exercise_Call-" + uniqueId)
     val createCommandId = CommandId(uniqueId)
@@ -214,24 +221,22 @@ class ScalaCodeGenIT
     val createWorkflowId = WorkflowId(uniqueId)
     val exerciseWorkflowId = WorkflowId(uniqueId)
 
-    val exerciseTxF = for {
-      offset0 <- ledgerEnd()
-      _ <- aliceCreateCallablePayout(contextId, createWorkflowId, createCommandId)
-      aliceTx0 <- nextTransaction(alice)(offset0)
+    for {
+      offset0 <- ledgerEnd(ledger)
+      _ <- createCallablePayout(ledger, alice, bob, contextId, createWorkflowId, createCommandId)
+      aliceTx0 <- nextTransaction(ledger, alice)(offset0)
       _ <- Future(assertTransaction(aliceTx0)(createCommandId, createWorkflowId))
-      bobTx0 <- nextTransaction(bob)(offset0)
+      bobTx0 <- nextTransaction(ledger, bob)(offset0)
       _ <- Future(assertTransaction(bobTx0)(emptyCommandId, createWorkflowId))
-      offset1 <- ledgerEnd()
-      _ <- bobExerciseCall(bobTx0)(contextId, exerciseWorkflowId, exerciseCommandId)
-      bobTx1 <- nextTransaction(bob)(offset1)
+      offset1 <- ledgerEnd(ledger)
+      _ <- exerciseCall(ledger, bob, bobTx0)(contextId, exerciseWorkflowId, exerciseCommandId)
+      bobTx1 <- nextTransaction(ledger, bob)(offset1)
       _ <- Future(assertTransaction(bobTx1)(exerciseCommandId, exerciseWorkflowId))
-      aliceTx1 <- nextTransaction(alice)(offset1)
+      aliceTx1 <- nextTransaction(ledger, alice)(offset1)
       _ <- Future(assertTransaction(aliceTx1)(emptyCommandId, exerciseWorkflowId))
-    } yield bobTx1
-
-    whenReady(exerciseTxF) { tx =>
-      tx.workflowId shouldBe exerciseWorkflowId
-      inside(tx.events) { case Seq(archiveEvent, createEvent) =>
+    } yield {
+      bobTx1.workflowId shouldBe exerciseWorkflowId
+      inside(bobTx1.events) { case Seq(archiveEvent, createEvent) =>
         archiveEvent.event.isArchived shouldBe true
         val payOut = PayOut(receiver = bob, giver = alice)
         assertCreateEvent(createEvent)(payOut, Some(expectedAgreementAsDefinedInDaml(payOut)))
@@ -242,190 +247,215 @@ class ScalaCodeGenIT
   private def expectedAgreementAsDefinedInDaml(contract: PayOut): String =
     s"'${P.Party.unwrap(contract.giver): String}' must pay to '${P.Party.unwrap(contract.receiver): String}' the sum of five pounds."
 
-  "alice creates CallablePayout contract, bob exercises Transfer to charlie" in {
+  "alice creates CallablePayout contract, bob exercises Transfer to charlie" in usingLedger {
+    fixture =>
+      import fixture.{ledger, alice, bob, charlie}
 
-    val contextId = TestContext("create_CallablePayout_exercise_Call-" + uniqueId)
-    val createCommandId = CommandId(uniqueId)
-    val exerciseCommandId = CommandId(uniqueId)
-    val createWorkflowId = WorkflowId(uniqueId)
-    val exerciseWorkflowId = WorkflowId(uniqueId)
+      val contextId = TestContext("create_CallablePayout_exercise_Call-" + uniqueId)
+      val createCommandId = CommandId(uniqueId)
+      val exerciseCommandId = CommandId(uniqueId)
+      val createWorkflowId = WorkflowId(uniqueId)
+      val exerciseWorkflowId = WorkflowId(uniqueId)
 
-    val exerciseTxF: Future[(Transaction, Transaction)] = for {
-      offset0 <- ledgerEnd()
-      _ <- aliceCreateCallablePayout(contextId, createWorkflowId, createCommandId)
-      aliceTx0 <- nextTransaction(alice)(offset0)
-      _ <- Future(assertTransaction(aliceTx0)(createCommandId, createWorkflowId))
-      bobTx0 <- nextTransaction(bob)(offset0)
-      _ <- Future(assertTransaction(bobTx0)(emptyCommandId, createWorkflowId))
-      offset1 <- ledgerEnd()
-      _ <- bobExerciseTransfer(bobTx0, charlie)(contextId, exerciseWorkflowId, exerciseCommandId)
-      bobTx1 <- nextTransaction(bob)(offset1)
-      _ <- Future(assertTransaction(bobTx1)(exerciseCommandId, exerciseWorkflowId))
-      aliceTx1 <- nextTransaction(alice)(offset1)
-      _ <- Future(assertTransaction(aliceTx1)(emptyCommandId, exerciseWorkflowId))
-      charlieTx1 <- nextTransaction(charlie)(offset1)
-      _ <- Future(assertTransaction(aliceTx1)(emptyCommandId, exerciseWorkflowId))
-    } yield (bobTx1, charlieTx1)
-
-    whenReady(exerciseTxF) { case (bobTx, charlieTx) =>
-      bobTx.workflowId shouldBe exerciseWorkflowId
-      inside(bobTx.events) { case Seq(archiveEvent) =>
-        archiveEvent.event.isArchived shouldBe true
+      for {
+        offset0 <- ledgerEnd(ledger)
+        _ <- createCallablePayout(ledger, alice, bob, contextId, createWorkflowId, createCommandId)
+        aliceTx0 <- nextTransaction(ledger, alice)(offset0)
+        _ <- Future(assertTransaction(aliceTx0)(createCommandId, createWorkflowId))
+        bobTx0 <- nextTransaction(ledger, bob)(offset0)
+        _ <- Future(assertTransaction(bobTx0)(emptyCommandId, createWorkflowId))
+        offset1 <- ledgerEnd(ledger)
+        _ <- exerciseTransfer(ledger, bob, charlie, bobTx0)(
+          contextId,
+          exerciseWorkflowId,
+          exerciseCommandId,
+        )
+        bobTx1 <- nextTransaction(ledger, bob)(offset1)
+        _ <- Future(assertTransaction(bobTx1)(exerciseCommandId, exerciseWorkflowId))
+        aliceTx1 <- nextTransaction(ledger, alice)(offset1)
+        _ <- Future(assertTransaction(aliceTx1)(emptyCommandId, exerciseWorkflowId))
+        charlieTx1 <- nextTransaction(ledger, charlie)(offset1)
+        _ <- Future(assertTransaction(aliceTx1)(emptyCommandId, exerciseWorkflowId))
+      } yield {
+        bobTx1.workflowId shouldBe exerciseWorkflowId
+        inside(bobTx1.events) { case Seq(archiveEvent) =>
+          archiveEvent.event.isArchived shouldBe true
+        }
+        charlieTx1.workflowId shouldBe exerciseWorkflowId
+        inside(charlieTx1.events) { case Seq(createEvent) =>
+          createEvent.event.isCreated shouldBe true
+          assertCreateEvent(createEvent)(CallablePayout(alice, charlie), emptyAgreementText)
+        }
       }
-      charlieTx.workflowId shouldBe exerciseWorkflowId
-      inside(charlieTx.events) { case Seq(createEvent) =>
-        createEvent.event.isCreated shouldBe true
-        assertCreateEvent(createEvent)(CallablePayout(alice, charlie), emptyAgreementText)
-      }
-    }
   }
 
-  "alice creates TemplateWith23Arguments contract and receives corresponding event" in {
-    // noinspection NameBooleanParameters
-    val contract = MyMain.TemplateWith23Arguments(
-      alice,
-      true,
-      true,
-      true,
-      true,
-      true,
-      true,
-      true,
-      true,
-      true,
-      true,
-      true,
-      true,
-      true,
-      true,
-      true,
-      true,
-      true,
-      true,
-      true,
-      true,
-      true,
-      true,
-    )
-    testCreateContractAndReceiveEvent(contract, alice)
+  "alice creates TemplateWith23Arguments contract and receives corresponding event" in usingLedger {
+    fixture =>
+      import fixture.{ledger, alice}
+      // noinspection NameBooleanParameters
+      val contract = MyMain.TemplateWith23Arguments(
+        alice,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+      )
+      testCreateContractAndReceiveEvent(ledger, contract, alice)
   }
 
-  "alice creates Maybes contract and receives corresponding event" in {
+  "alice creates Maybes contract and receives corresponding event" in usingLedger { fixture =>
+    import fixture.{ledger, alice}
     import com.daml.ledger.client.binding.encoding.GenEncoding.Implicits._
     val contract = arbitrary[MyMain.Maybes].sample getOrElse sys.error("random Maybes failed")
-    testCreateContractAndReceiveEvent(contract copy (party = alice), alice)
+    testCreateContractAndReceiveEvent(ledger, contract copy (party = alice), alice)
   }
 
-  "alice creates TextMapInt contract and receives corresponding event" in {
+  "alice creates TextMapInt contract and receives corresponding event" in usingLedger { fixture =>
+    import fixture.{ledger, alice}
     import com.daml.ledger.client.binding.encoding.GenEncoding.Implicits._
     val contract = arbitrary[MyMain.TextMapInt].sample getOrElse sys.error("random TexMap failed")
-    testCreateContractAndReceiveEvent(contract copy (party = alice), alice)
+    testCreateContractAndReceiveEvent(ledger, contract copy (party = alice), alice)
   }
 
-  "alice creates OptTextMapInt contract and receives corresponding event" in {
-    import com.daml.ledger.client.binding.encoding.GenEncoding.Implicits._
-    val contract =
-      arbitrary[MyMain.OptTextMapInt].sample getOrElse sys.error("random OptTextMapInt failed")
-    testCreateContractAndReceiveEvent(contract copy (party = alice), alice)
+  "alice creates OptTextMapInt contract and receives corresponding event" in usingLedger {
+    fixture =>
+      import fixture.{ledger, alice}
+      import com.daml.ledger.client.binding.encoding.GenEncoding.Implicits._
+      val contract =
+        arbitrary[MyMain.OptTextMapInt].sample getOrElse sys.error("random OptTextMapInt failed")
+      testCreateContractAndReceiveEvent(ledger, contract copy (party = alice), alice)
   }
 
-  "alice creates TextMapTextMapInt contract and receives corresponding event" in {
-    import com.daml.ledger.client.binding.encoding.GenEncoding.Implicits._
-    val contract = arbitrary[MyMain.TextMapTextMapInt].sample getOrElse sys.error(
-      "random TextMapTextMapInt failed"
-    )
-    testCreateContractAndReceiveEvent(contract copy (party = alice), alice)
+  "alice creates TextMapTextMapInt contract and receives corresponding event" in usingLedger {
+    fixture =>
+      import fixture.{ledger, alice}
+      import com.daml.ledger.client.binding.encoding.GenEncoding.Implicits._
+      val contract = arbitrary[MyMain.TextMapTextMapInt].sample getOrElse sys.error(
+        "random TextMapTextMapInt failed"
+      )
+      testCreateContractAndReceiveEvent(ledger, contract copy (party = alice), alice)
   }
 
-  "alice creates TextMapText contract and receives corresponding event" in {
+  "alice creates TextMapText contract and receives corresponding event" in usingLedger { fixture =>
+    import fixture.{ledger, alice}
     import com.daml.ledger.client.binding.encoding.GenEncoding.Implicits._
     val contract =
       arbitrary[MyMain.TextMapText].sample getOrElse sys.error("random TextMapText failed")
-    testCreateContractAndReceiveEvent(contract copy (party = alice), alice)
+    testCreateContractAndReceiveEvent(ledger, contract copy (party = alice), alice)
   }
 
-  "alice creates ListTextMapInt contract and receives corresponding event" in {
-    import com.daml.ledger.client.binding.encoding.GenEncoding.Implicits._
-    val contract =
-      arbitrary[MyMain.ListTextMapInt].sample getOrElse sys.error("random ListTextMapInt failed")
-    testCreateContractAndReceiveEvent(contract copy (party = alice), alice)
+  "alice creates ListTextMapInt contract and receives corresponding event" in usingLedger {
+    fixture =>
+      import fixture.{ledger, alice}
+      import com.daml.ledger.client.binding.encoding.GenEncoding.Implicits._
+      val contract =
+        arbitrary[MyMain.ListTextMapInt].sample getOrElse sys.error("random ListTextMapInt failed")
+      testCreateContractAndReceiveEvent(ledger, contract copy (party = alice), alice)
   }
 
-  "alice creates OptMapInt contract and receives corresponding event" in {
+  "alice creates OptMapInt contract and receives corresponding event" in usingLedger { fixture =>
+    import fixture.{ledger, alice}
     import com.daml.ledger.client.binding.encoding.GenEncoding.Implicits._
     val contract = arbitrary[MyMain.OptMapInt].sample getOrElse sys.error("random OptMapInt failed")
-    testCreateContractAndReceiveEvent(contract copy (party = alice), alice)
+    testCreateContractAndReceiveEvent(ledger, contract copy (party = alice), alice)
   }
 
-  "alice creates ListMapInt contract and receives corresponding event" in {
+  "alice creates ListMapInt contract and receives corresponding event" in usingLedger { fixture =>
+    import fixture.{ledger, alice}
     import com.daml.ledger.client.binding.encoding.GenEncoding.Implicits._
     val contract =
       arbitrary[MyMain.ListMapInt].sample getOrElse sys.error("random ListMapInt failed")
-    testCreateContractAndReceiveEvent(contract copy (party = alice), alice)
+    testCreateContractAndReceiveEvent(ledger, contract copy (party = alice), alice)
   }
 
-  "alice creates MapMapInt contract and receives corresponding event" in {
+  "alice creates MapMapInt contract and receives corresponding event" in usingLedger { fixture =>
+    import fixture.{ledger, alice}
     import com.daml.ledger.client.binding.encoding.GenEncoding.Implicits._
     val contract = arbitrary[MyMain.MapMapInt].sample getOrElse sys.error("random MapMapInt failed")
-    testCreateContractAndReceiveEvent(contract copy (party = alice), alice)
+    testCreateContractAndReceiveEvent(ledger, contract copy (party = alice), alice)
   }
 
-  "alice creates MapInt contract and receives corresponding event" in {
+  "alice creates MapInt contract and receives corresponding event" in usingLedger { fixture =>
+    import fixture.{ledger, alice}
     import com.daml.ledger.client.binding.encoding.GenEncoding.Implicits._
     val contract = arbitrary[MyMain.MapInt].sample getOrElse sys.error("random MapInt failed")
-    testCreateContractAndReceiveEvent(contract copy (party = alice), alice)
+    testCreateContractAndReceiveEvent(ledger, contract copy (party = alice), alice)
   }
 
-  "alice creates DummyTemplateFromAnotherDar contract and receives corresponding event" in {
-    import com.daml.ledger.client.binding.encoding.GenEncoding.Implicits._
-    val contract = arbitrary[MySecondMain.DummyTemplateFromAnotherDar].sample getOrElse sys.error(
-      "random DummyTemplateFromAnotherDar failed"
-    )
-    testCreateContractAndReceiveEvent(contract copy (owner = alice), alice)
+  "alice creates DummyTemplateFromAnotherDar contract and receives corresponding event" in usingLedger {
+    fixture =>
+      import fixture.{ledger, alice}
+      import com.daml.ledger.client.binding.encoding.GenEncoding.Implicits._
+      val contract = arbitrary[MySecondMain.DummyTemplateFromAnotherDar].sample getOrElse sys.error(
+        "random DummyTemplateFromAnotherDar failed"
+      )
+      testCreateContractAndReceiveEvent(ledger, contract copy (owner = alice), alice)
   }
 
-  "alice creates-and-exercises SimpleListExample with Go and receives corresponding event" in {
-    val contract = MyMain.SimpleListExample(alice, P.List(42))
-    val exerciseConsequence = MkListExample(alice, P.List(42))
-    testCommandAndReceiveEvent(
-      contract.createAnd.exerciseGo(),
-      alice,
-      assertCreateEvent(_)(
-        exerciseConsequence,
-        Some(expectedAgreementAsDefinedInDaml(exerciseConsequence)),
-      ),
-    )
+  "alice creates-and-exercises SimpleListExample with Go and receives corresponding event" in usingLedger {
+    fixture =>
+      import fixture.{ledger, alice}
+      val contract = MyMain.SimpleListExample(alice, P.List(42))
+      val exerciseConsequence = MkListExample(alice, P.List(42))
+      testCommandAndReceiveEvent(
+        ledger,
+        contract.createAnd.exerciseGo(),
+        alice,
+        assertCreateEvent(_)(
+          exerciseConsequence,
+          Some(expectedAgreementAsDefinedInDaml(exerciseConsequence)),
+        ),
+      )
   }
 
   private def testCreateContractAndReceiveEvent(
+      ledger: LedgerClient,
       contract: Template[AnyRef],
       party: P.Party,
       expectedAgreementText: Option[String] = emptyAgreementText,
-  ): Assertion =
+  ): Future[Assertion] =
     testCommandAndReceiveEvent(
+      ledger,
       contract.create,
       party,
       assertCreateEvent(_)(contract, expectedAgreementText),
     )
 
   private def testCommandAndReceiveEvent(
+      ledger: LedgerClient,
       command: P.Update[_],
       party: P.Party,
       checkResult: Event => Assertion,
-  ): Assertion = {
+  ): Future[Assertion] = {
     val contextId = TestContext(uniqueId)
     val commandId = CommandId(uniqueId)
     val workflowId = WorkflowId(uniqueId)
 
-    val submission = aCommandSubmission(workflowId, commandId, party, command)
+    val submission = aCommandSubmission(ledger, workflowId, commandId, party, command)
 
-    val future = for {
-      offset <- ledgerEnd()
-      statuses <- send(contextId, submission)(1)
-      transaction <- nextTransaction(party)(offset)
-    } yield (statuses, transaction)
-
-    whenReady(future) { case (statuses, transaction) =>
+    for {
+      offset <- ledgerEnd(ledger)
+      statuses <- send(ledger, contextId, submission)(1)
+      transaction <- nextTransaction(ledger, party)(offset)
+    } yield {
       inside(statuses) { case Seq(ctx) =>
         assertCommandStatus(ctx)(contextId)
       }
@@ -436,7 +466,9 @@ class ScalaCodeGenIT
     }
   }
 
-  private def nextTransaction(party: P.Party)(offset: LedgerOffset): Future[Transaction] =
+  private def nextTransaction(ledger: LedgerClient, party: P.Party)(
+      offset: LedgerOffset
+  ): Future[Transaction] =
     ledger.transactionClient
       .getTransactions(offset, None, transactionFilter(party))
       .take(1)
@@ -445,6 +477,7 @@ class ScalaCodeGenIT
   private def uniqueId = UUID.randomUUID.toString
 
   private def aCommandSubmission(
+      ledger: LedgerClient,
       workflowId: WorkflowId,
       commandId: CommandId,
       party: P.Party,
@@ -461,12 +494,13 @@ class ScalaCodeGenIT
       )
     )
 
-  private def send[A](context: A, submissions: CommandSubmission*)(
+  private def send[A](ledger: LedgerClient, context: A, submissions: CommandSubmission*)(
       take: Long
   ): Future[Seq[Ctx[A, Try[Empty]]]] =
-    send(submissions.map(Ctx(context, _)): _*)(take)
+    send(ledger, submissions.map(Ctx(context, _)): _*)(take)
 
   private def send[A](
+      ledger: LedgerClient,
       input: Ctx[A, CommandSubmission]*
   )(take: Long): Future[Seq[Ctx[A, Try[Empty]]]] =
     Source
@@ -480,25 +514,30 @@ class ScalaCodeGenIT
     case Some(x) => Future.successful(x)
   }
 
-  private def ledgerEnd(): Future[LedgerOffset] =
+  private def ledgerEnd(ledger: LedgerClient): Future[LedgerOffset] =
     ledger.transactionClient.getLedgerEnd().flatMap(response => toFuture(response.offset))
 
-  private def aliceCreateCallablePayout(
+  private def createCallablePayout(
+      ledger: LedgerClient,
+      from: P.Party,
+      to: P.Party,
       contextId: TestContext,
       workflowId: WorkflowId,
       commandId: CommandId,
   ): Future[Seq[Ctx[TestContext, Try[Empty]]]] =
     send(
+      ledger,
       contextId,
       aCommandSubmission(
+        ledger,
         workflowId,
         commandId,
-        alice,
-        CallablePayout(giver = alice, receiver = bob).create,
+        from,
+        CallablePayout(giver = from, receiver = to).create,
       ),
     )(1)
 
-  private def bobExerciseCall(transaction: Transaction)(
+  private def exerciseCall(ledger: LedgerClient, party: P.Party, transaction: Transaction)(
       contextId: TestContext,
       workflowId: WorkflowId,
       commandId: CommandId,
@@ -508,10 +547,19 @@ class ScalaCodeGenIT
       created <- toFuture(event.event.created)
       contractId = P.ContractId[CallablePayout](created.contractId)
       exerciseCommand = contractId.exerciseCall2()
-      status <- send(contextId, aCommandSubmission(workflowId, commandId, bob, exerciseCommand))(1)
+      status <- send(
+        ledger,
+        contextId,
+        aCommandSubmission(ledger, workflowId, commandId, party, exerciseCommand),
+      )(1)
     } yield status
 
-  private def bobExerciseTransfer(transaction: Transaction, newReceiver: P.Party)(
+  private def exerciseTransfer(
+      ledger: LedgerClient,
+      party: P.Party,
+      newReceiver: P.Party,
+      transaction: Transaction,
+  )(
       contextId: TestContext,
       workflowId: WorkflowId,
       commandId: CommandId,
@@ -521,7 +569,11 @@ class ScalaCodeGenIT
       created <- toFuture(event.event.created)
       contractId = P.ContractId[CallablePayout](created.contractId)
       exerciseCommand = contractId.exerciseTransfer(newReceiver = newReceiver)
-      status <- send(contextId, aCommandSubmission(workflowId, commandId, bob, exerciseCommand))(1)
+      status <- send(
+        ledger,
+        contextId,
+        aCommandSubmission(ledger, workflowId, commandId, party, exerciseCommand),
+      )(1)
     } yield status
 
   private def assertTransaction(
