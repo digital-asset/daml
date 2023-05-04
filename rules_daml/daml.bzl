@@ -25,26 +25,30 @@ def _daml_configure_impl(ctx):
     project_version = ctx.attr.project_version
     dependencies = ctx.attr.dependencies
     data_dependencies = ctx.attr.data_dependencies
+    module_prefixes = ctx.attr.module_prefixes
     daml_yaml = ctx.outputs.daml_yaml
     target = ctx.attr.target
     opts = ["--target={}".format(target)] if target else []
     ctx.actions.write(
         output = daml_yaml,
         content = """
-            sdk-version: {sdk}
-            name: {name}
-            version: {version}
-            source: .
-            data-dependencies: [{data_dependencies}]
-            dependencies: [{dependencies}]
-            build-options: [{opts}]
-        """.format(
+sdk-version: {sdk}
+name: {name}
+version: {version}
+source: .
+data-dependencies: [{data_dependencies}]
+dependencies: [{dependencies}]
+module-prefixes:
+{module_prefixes}
+build-options: [{opts}]
+""".format(
             sdk = sdk_version,
             name = project_name,
             version = project_version,
             opts = ", ".join(opts),
             dependencies = ", ".join(dependencies),
             data_dependencies = ", ".join(data_dependencies),
+            module_prefixes = "\n".join(["  {}: {}".format(k, v) for k, v in module_prefixes.items()]),
         ),
     )
 
@@ -71,6 +75,9 @@ _daml_configure = rule(
         ),
         "data_dependencies": attr.string_list(
             doc = "Data dependencies.",
+        ),
+        "module_prefixes": attr.string_dict(
+            doc = "Module prefixes.",
         ),
     },
 )
@@ -290,6 +297,7 @@ def daml_compile(
         enable_scenarios = False,
         dependencies = [],
         data_dependencies = [],
+        module_prefixes = None,
         **kwargs):
     "Build a Daml project, with a generated daml.yaml."
     if len(srcs) == 0:
@@ -298,6 +306,7 @@ def daml_compile(
     _daml_configure(
         dependencies = [path_to_dar(dep) for dep in dependencies],
         data_dependencies = [path_to_dar(data) for data in data_dependencies],
+        module_prefixes = module_prefixes,
         name = name + ".configure",
         project_name = project_name or name,
         project_version = version,
