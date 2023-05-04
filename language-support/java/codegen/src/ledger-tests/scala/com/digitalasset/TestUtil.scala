@@ -4,31 +4,30 @@
 package com.daml
 
 import com.daml.bazeltools.BazelRunfiles
+import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
+import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
+import com.daml.ledger.api.v1.{ActiveContractsServiceGrpc, CommandServiceGrpc}
 import com.daml.ledger.api.v1.ActiveContractsServiceOuterClass.GetActiveContractsResponse
 import com.daml.ledger.api.v1.CommandServiceOuterClass.SubmitAndWaitRequest
-import com.daml.ledger.api.v1.{ActiveContractsServiceGrpc, CommandServiceGrpc}
 import com.daml.ledger.client.LedgerClient
 import com.daml.ledger.javaapi.data
-import com.daml.ledger.javaapi.data.codegen.HasCommands
 import com.daml.ledger.javaapi.data.{codegen => jcg, _}
+import com.daml.ledger.javaapi.data.codegen.HasCommands
+import com.daml.lf.integrationtest.CantonFixture
+import com.daml.platform.services.time.TimeProviderType
 import com.google.protobuf.Empty
 import io.grpc.Channel
 import org.scalatest.{Assertion, Suite}
 
+import java.nio.file.Paths
 import java.util.concurrent.TimeUnit
 import java.util.stream.{Collectors, StreamSupport}
 import java.util.{Optional, UUID}
+import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, ExecutionContextExecutor, Future}
 import scala.jdk.CollectionConverters._
 import scala.jdk.javaapi.OptionConverters
 import scala.language.implicitConversions
-
-import scala.concurrent.duration._
-import java.nio.file.Paths
-import com.daml.lf.integrationtest.CantonFixture
-import com.daml.platform.services.time.TimeProviderType
-import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
-import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 
 trait TestLedger extends CantonFixture with SuiteResourceManagementAroundAll {
   self: Suite =>
