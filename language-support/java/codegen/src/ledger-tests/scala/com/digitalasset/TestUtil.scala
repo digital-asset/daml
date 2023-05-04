@@ -4,6 +4,7 @@
 package com.daml
 
 import com.daml.bazeltools.BazelRunfiles
+import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.daml.ledger.api.v1.ActiveContractsServiceOuterClass.GetActiveContractsResponse
 import com.daml.ledger.api.v1.CommandServiceOuterClass.SubmitAndWaitRequest
 import com.daml.ledger.api.v1.{ActiveContractsServiceGrpc, CommandServiceGrpc}
@@ -16,20 +17,13 @@ import com.daml.ledger.client.configuration.{
 import com.daml.ledger.javaapi.data
 import com.daml.ledger.javaapi.data.codegen.HasCommands
 import com.daml.ledger.javaapi.data.{codegen => jcg, _}
-import com.daml.ledger.sandbox.SandboxOnXForTest.{
-  ApiServerConfig,
-  Default,
-  DevEngineConfig,
-  singleParticipant,
-}
-import com.daml.platform.apiserver.SeedService.Seeding
-import com.daml.platform.sandbox.fixture.SandboxFixture
+import com.daml.lf.integrationtest.CantonFixture
 import com.daml.platform.services.time.TimeProviderType
 import com.google.protobuf.Empty
 import io.grpc.Channel
 import org.scalatest.{Assertion, Suite}
 
-import java.io.File
+import java.nio.file.{Path, Paths}
 import java.util.concurrent.TimeUnit
 import java.util.stream.{Collectors, StreamSupport}
 import java.util.{Optional, UUID}
@@ -38,38 +32,39 @@ import scala.jdk.CollectionConverters._
 import scala.jdk.javaapi.OptionConverters
 import scala.language.implicitConversions
 
-trait SandboxTestLedger extends SandboxFixture {
+trait TestLedger extends CantonFixture {
   self: Suite =>
 
-  protected val damlPackages: List[File] = List(
-    new File(BazelRunfiles.rlocation("language-support/java/codegen/ledger-tests-model.dar"))
+  protected def darFiles: List[Path] = List(
+    BazelRunfiles.rlocation(Paths.get("language-support/java/codegen/ledger-tests-model.dar"))
   )
 
-  override protected def packageFiles: List[File] = damlPackages
+  protected def devMode: Boolean = false
+  protected def nParticipants: Int = 1
+  protected def timeProviderType: TimeProviderType = TimeProviderType.Static
+  override protected lazy val applicationId = ApplicationId(getClass.getSimpleName)
+  override protected def authSecret: Option[String] = None
+  override protected def tlsEnable: Boolean = false
+  override protected lazy val cantonFixtureDebugMode = true
 
-  override def config =
-    Default.copy(
-      ledgerId = TestUtil.LedgerID,
-      engine = DevEngineConfig,
-      participants = singleParticipant(
-        ApiServerConfig.copy(
-          timeProviderType = TimeProviderType.Static,
-          seeding = Seeding.Weak,
-        )
-      ),
-    )
+  protected lazy val damlPackages: List[Path] = List(
+    Paths.get(BazelRunfiles.rlocation("language-support/java/codegen/ledger-tests-model.dar"))
+  )
 
-  protected val ClientConfiguration: LedgerClientConfiguration = LedgerClientConfiguration(
+  protected val clientConfiguration: LedgerClientConfiguration = LedgerClientConfiguration(
     applicationId = TestUtil.LedgerID,
     ledgerIdRequirement = LedgerIdRequirement.none,
     commandClient = CommandClientConfiguration.default,
     token = None,
   )
 
+  lazy val severPort = suiteResource.value.head
+  lazy val channel = config.channel(severPort)
+
   protected def allocateParty: Future[String] = {
     implicit val ec: ExecutionContextExecutor = system.dispatcher
     for {
-      client <- LedgerClient(channel, ClientConfiguration)
+      client <- LedgerClient(channel, clientConfiguration)
       allocatedParty <- client.partyManagementClient
         .allocateParty(hint = None, displayName = None)
     } yield allocatedParty.party
@@ -80,7 +75,7 @@ trait SandboxTestLedger extends SandboxFixture {
 
 object TestUtil {
 
-  val LedgerID = "ledger-test"
+  val LedgerID = "participant0"
 
   // unfortunately this is needed to help with passing functions to rxjava methods like Flowable#map
   implicit def func2rxfunc[A, B](f: A => B): io.reactivex.functions.Function[A, B] = f(_)

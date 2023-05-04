@@ -94,13 +94,13 @@ trait CantonFixture extends SuiteResource[Vector[Port]] with AkkaBeforeAndAfterA
       None
 
   lazy val config = CantonConfig(
-    darFiles: List[Path],
-    authSecret: Option[String],
-    devMode: Boolean,
-    nParticipants: Int,
-    timeProviderType: TimeProviderType,
+    darFiles = darFiles,
+    authSecret = authSecret,
+    devMode = devMode,
+    nParticipants = nParticipants,
+    timeProviderType = timeProviderType,
     tlsConfig = tlsConfig,
-    applicationId = applicationId: ApplicationId,
+    applicationId = applicationId,
     debug = cantonFixtureDebugMode,
   )
 
@@ -108,7 +108,7 @@ trait CantonFixture extends SuiteResource[Vector[Port]] with AkkaBeforeAndAfterA
   //  If `true`
   //   - temporary file are not deleted (this requires "--test_tmpdir=/tmp/" or similar for bazel builds)
   //   - some debug info are logged.
-  protected val cantonFixtureDebugMode = false
+  protected lazy val cantonFixtureDebugMode = false
 
   private val logger = org.slf4j.LoggerFactory.getLogger(getClass)
 

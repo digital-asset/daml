@@ -22,9 +22,9 @@ import scala.jdk.CollectionConverters._
 import scala.concurrent.Future
 import java.util.Arrays.asList
 
-class CodegenLedgerTest
+trait LedgerTest
     extends AsyncFlatSpec
-    with SandboxTestLedger
+    with TestLedger
     with Matchers
     with TestResourceContext
     with SuiteResourceManagementAroundAll {
