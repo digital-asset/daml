@@ -72,7 +72,7 @@ class DamlScriptTestRunner
           |ScriptTest:tupleKey SUCCESS
           |""".stripMargin
 
-      val port = suiteResource.value.head.value
+      val port = ports.value
 
       import scala.sys.process._
       val builder = new StringBuilder

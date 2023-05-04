@@ -9,7 +9,7 @@ import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.daml.ledger.api.testing.utils.{AkkaBeforeAndAfterAll, OwnedResource, SuiteResource}
 import com.daml.ledger.client.LedgerClient
 import com.daml.ledger.client.withoutledgerid.{LedgerClient => LedgerClientWithoutId}
-import com.daml.ledger.resources.ResourceContext
+import com.daml.ledger.resources.{ResourceContext, ResourceOwner, Resource}
 import com.daml.lf.data.Ref
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.ports.Port
@@ -55,7 +55,9 @@ object CantonFixture {
 
 }
 
-trait CantonFixture extends SuiteResource[Vector[Port]] with AkkaBeforeAndAfterAll {
+trait CantonFixtureWithResource[A]
+    extends SuiteResource[(Vector[Port], A)]
+    with AkkaBeforeAndAfterAll {
   self: Suite =>
 
   override protected def afterAll(): Unit = {
@@ -63,10 +65,16 @@ trait CantonFixture extends SuiteResource[Vector[Port]] with AkkaBeforeAndAfterA
     super.afterAll()
   }
 
-  final override protected lazy val suiteResource: OwnedResource[ResourceContext, Vector[Port]] = {
+  protected def makeAdditionalResource(ports: Vector[Port]): ResourceOwner[A]
+
+  final override protected lazy val suiteResource
+      : OwnedResource[ResourceContext, (Vector[Port], A)] = {
     implicit val resourceContext: ResourceContext = ResourceContext(system.dispatcher)
-    new OwnedResource[ResourceContext, Vector[Port]](
-      CantonRunner.run(config, cantonTmpDir),
+    new OwnedResource[ResourceContext, (Vector[Port], A)](
+      for {
+        ports <- CantonRunner.run(config, cantonTmpDir)
+        additional <- makeAdditionalResource(ports)
+      } yield (ports, additional),
       acquisitionTimeout = 2.minute,
       releaseTimeout = 2.minute,
     )
@@ -126,22 +134,34 @@ trait CantonFixture extends SuiteResource[Vector[Port]] with AkkaBeforeAndAfterA
     else
       com.daml.fs.Utils.deleteRecursively(cantonTmpDir)
 
+  final protected def ports: Vector[Port] = suiteResource.value._1
+  final protected def additional: A = suiteResource.value._2
+
   final protected def defaultLedgerClient(
       token: Option[String] = None,
       maxInboundMessageSize: Int = 64 * 1024 * 1024,
   )(implicit ec: ExecutionContext): Future[LedgerClient] =
-    config.ledgerClient(suiteResource.value.head, token, maxInboundMessageSize)
+    config.ledgerClient(ports.head, token, maxInboundMessageSize)
 
   final protected def defaultLedgerClientWithoutId(
       token: Option[String] = None,
       maxInboundMessageSize: Int = 64 * 1024 * 1024,
   )(implicit ec: ExecutionContext): LedgerClientWithoutId =
-    config.ledgerClientWithoutId(suiteResource.value.head, token, maxInboundMessageSize)
+    config.ledgerClientWithoutId(ports.head, token, maxInboundMessageSize)
 
   final protected def ledgerClients(
       token: Option[String] = None,
       maxInboundMessageSize: Int = 64 * 1024 * 1024,
   )(implicit ec: ExecutionContext): Future[Vector[LedgerClient]] =
-    Future.traverse(suiteResource.value)(config.ledgerClient(_, token, maxInboundMessageSize))
+    Future.traverse(ports)(config.ledgerClient(_, token, maxInboundMessageSize))
 
+}
+
+trait CantonFixture extends CantonFixtureWithResource[Unit] {
+  self: Suite =>
+  override protected def makeAdditionalResource(ports: Vector[Port]): ResourceOwner[Unit] =
+    new ResourceOwner[Unit] {
+      override def acquire()(implicit context: ResourceContext): Resource[Unit] =
+        Resource(Future.successful(()))(Future.successful(_))
+    }
 }

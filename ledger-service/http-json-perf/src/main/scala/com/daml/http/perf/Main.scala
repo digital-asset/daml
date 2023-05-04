@@ -17,7 +17,7 @@ import io.gatling.core.scenario.Simulation
 import io.gatling.netty.util.Transports
 import io.netty.channel.EventLoopGroup
 import scalaz.std.string._
-import scalaz.\/
+import scalaz.{\/, Tag}
 
 import scala.concurrent.duration.{Duration, _}
 import scala.concurrent.{Await, ExecutionContext, Future, Promise, TimeoutException}
@@ -116,10 +116,10 @@ object Main extends StrictLogging {
 
     def runScenario(config: Config[String]) =
       resolveSimulationClass(config.scenario).flatMap { _ =>
-        withLedger(config.dars, SimulationConfig.LedgerId) { (ledgerPort, _, _) =>
+        withLedger(config.dars) { (ledgerPort, _, ledgerId) =>
           QueryStoreBracket.withJsonApiJdbcConfig(config.queryStoreIndex) { jsonApiJdbcConfig =>
             withHttpService(
-              SimulationConfig.LedgerId,
+              Tag.unwrap(ledgerId),
               ledgerPort,
               jsonApiJdbcConfig,
               None,

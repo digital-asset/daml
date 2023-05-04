@@ -53,7 +53,7 @@ class IntegrationTest
     import scala.jdk.FutureConverters
     val args = Arguments(
       port = 0,
-      participantPort = suiteResource.value.head.value,
+      participantPort = ports.value,
       enableUserManagement = userMgmt,
     )
     val sys = ActorSystem(s"navigator-${UUID.randomUUID().toString}")
