@@ -6,7 +6,7 @@ package speedy
 
 import java.util
 import com.daml.lf.data.Ref._
-import com.daml.lf.data.{ImmArray, NoCopy, FrontStack, Time, Ref}
+import com.daml.lf.data.{ImmArray, NoCopy, Time, Ref}
 import com.daml.lf.interpretation.{Error => IError}
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.{LookupError, Util => AstUtil}
@@ -1530,127 +1530,6 @@ private[lf] object Speedy {
   object KPushTo {
     def apply(machine: Machine[_], to: util.ArrayList[SValue], next: SExpr): KPushTo =
       KPushTo(machine.markBase(), machine.currentFrame, machine.currentActuals, to, next)
-  }
-
-  private[speedy] final case class KFoldl private (
-      frame: Frame,
-      actuals: Actuals,
-      func: SValue,
-      var list: FrontStack[SValue],
-  ) extends Kont
-      with SomeArrayEquals
-      with NoCopy {
-    override def execute[Q](machine: Machine[Q], acc: SValue): Control[Q] = {
-      list.pop match {
-        case None =>
-          Control.Value(acc)
-        case Some((item, rest)) =>
-          machine.restoreFrameAndActuals(frame, actuals)
-          // NOTE: We are "recycling" the current continuation with the
-          // remainder of the list to avoid allocating a new continuation.
-          list = rest
-          machine.pushKont(this)
-          machine.enterApplication(func, Array(SEValue(acc), SEValue(item)))
-      }
-    }
-  }
-
-  object KFoldl {
-    def apply(machine: Machine[_], func: SValue, list: FrontStack[SValue]): KFoldl =
-      KFoldl(machine.currentFrame, machine.currentActuals, func, list)
-  }
-
-  private[speedy] final case class KFoldr private (
-      frame: Frame,
-      actuals: Actuals,
-      func: SValue,
-      list: ImmArray[SValue],
-      var lastIndex: Int,
-  ) extends Kont
-      with SomeArrayEquals
-      with NoCopy {
-    override def execute[Q](machine: Machine[Q], acc: SValue): Control[Q] = {
-      if (lastIndex > 0) {
-        machine.restoreFrameAndActuals(frame, actuals)
-        val currentIndex = lastIndex - 1
-        val item = list(currentIndex)
-        lastIndex = currentIndex
-        machine.pushKont(this) // NOTE: We've updated `lastIndex`.
-        machine.enterApplication(func, Array(SEValue(item), SEValue(acc)))
-      } else {
-        Control.Value(acc)
-      }
-    }
-  }
-
-  object KFoldr {
-    def apply(machine: Machine[_], func: SValue, list: ImmArray[SValue], lastIndex: Int): KFoldr =
-      KFoldr(machine.currentFrame, machine.currentActuals, func, list, lastIndex)
-  }
-
-  // NOTE: See the explanation above the definition of `SBFoldr` on why we need
-  // this continuation and what it does.
-  private[speedy] final case class KFoldr1Map private (
-      frame: Frame,
-      actuals: Actuals,
-      func: SValue,
-      var list: FrontStack[SValue],
-      var revClosures: FrontStack[SValue],
-      init: SValue,
-  ) extends Kont
-      with SomeArrayEquals
-      with NoCopy {
-    override def execute[Q](machine: Machine[Q], closure: SValue): Control[Q] = {
-      revClosures = closure +: revClosures
-      list.pop match {
-        case None =>
-          machine.pushKont(KFoldr1Reduce(machine, revClosures))
-          Control.Value(init)
-        case Some((item, rest)) =>
-          machine.restoreFrameAndActuals(frame, actuals)
-          list = rest
-          machine.pushKont(this) // NOTE: We've updated `revClosures` and `list`.
-          machine.enterApplication(func, Array(SEValue(item)))
-      }
-    }
-  }
-
-  object KFoldr1Map {
-    def apply(
-        machine: Machine[_],
-        func: SValue,
-        list: FrontStack[SValue],
-        revClosures: FrontStack[SValue],
-        init: SValue,
-    ): KFoldr1Map =
-      KFoldr1Map(machine.currentFrame, machine.currentActuals, func, list, revClosures, init)
-  }
-
-  // NOTE: See the explanation above the definition of `SBFoldr` on why we need
-  // this continuation and what it does.
-  private[speedy] final case class KFoldr1Reduce private (
-      frame: Frame,
-      actuals: Actuals,
-      var revClosures: FrontStack[SValue],
-  ) extends Kont
-      with SomeArrayEquals
-      with NoCopy {
-    override def execute[Q](machine: Machine[Q], acc: SValue): Control[Q] = {
-      revClosures.pop match {
-        case None =>
-          Control.Value(acc)
-        case Some((closure, rest)) =>
-          machine.restoreFrameAndActuals(frame, actuals)
-          revClosures = rest
-          machine.pushKont(this) // NOTE: We've updated `revClosures`.
-          machine.enterApplication(closure, Array(SEValue(acc)))
-      }
-    }
-  }
-
-  object KFoldr1Reduce {
-    def apply(machine: Machine[_], revClosures: FrontStack[SValue]): KFoldr1Reduce =
-      KFoldr1Reduce(machine.currentFrame, machine.currentActuals, revClosures)
   }
 
   /** Store the evaluated value in the definition and in the 'SEVal' from which the
