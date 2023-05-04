@@ -281,7 +281,9 @@ class LimitsSpec extends AnyWordSpec with Matchers with Inside with TableDrivenP
       }
     }
 
-    "refuse to exercise a choice with too many observers" in { // TODO 15882 test authorizers too
+    // TODO: https://github.com/digital-asset/daml/issues/15882
+    // -- Add a similar test for "too many choice authorizers"
+    "refuse to exercise a choice with too many observers" in {
       val limits = interpretation.Limits.Lenient.copy(choiceObservers = limit)
       val committers = (0 to 99).view.map(i => Ref.Party.assertFromString(s"Party$i")).toSet
       val e =

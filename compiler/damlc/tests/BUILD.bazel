@@ -669,7 +669,7 @@ da_haskell_test(
     main_function = "DA.Test.Repl.main",
     src_strip_prefix = "src",
     # Spinning up Sandbox is expensive, so require 2 CPUs.
-    tags = ["cpu:2"],
+    tags = ["cpu:4"],
     visibility = ["//visibility:public"],
     deps = [
         "//libs-haskell/bazel-runfiles",
@@ -709,6 +709,7 @@ da_haskell_test(
     ],
     main_function = "DA.Test.Repl.FuncTests.main",
     src_strip_prefix = "src",
+    tags = ["cpu:4"],
     visibility = ["//visibility:public"],
     deps = [
         "//:sdk-version-hs-lib",
@@ -1024,11 +1025,12 @@ da_haskell_test(
         "zip-archive",
     ],
     main_function = "DamlcPkgManager.main",
+    tags = ["cpu:4"],
     visibility = ["//visibility:public"],
     deps = [
         "//:sdk-version-hs-lib",
+        "//compiler/daml-dar-reader",
         "//compiler/daml-lf-ast",
-        "//compiler/damlc:damlc-lib",
         "//daml-assistant/daml-helper:daml-helper-lib",
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",

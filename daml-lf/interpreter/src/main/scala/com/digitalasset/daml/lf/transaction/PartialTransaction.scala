@@ -63,7 +63,7 @@ private[lf] object PartialTransaction {
           value
         case _ =>
           InternalError.runtimeException(
-            NameOf.qualifiedNameOfCurrentFunc,
+            NameOf.qualifiedNameOf(actionChildSeed),
             s"seed for ${idx}th root node not provided",
           )
       }
@@ -75,7 +75,7 @@ private[lf] object PartialTransaction {
   ) extends RootContextInfo {
     val actionChildSeed: Any => Nothing = { _ =>
       InternalError.runtimeException(
-        NameOf.qualifiedNameOfCurrentFunc,
+        NameOf.qualifiedNameOf(actionChildSeed),
         s"the machine is not configure to create transaction",
       )
     }

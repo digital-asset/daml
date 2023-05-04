@@ -561,7 +561,7 @@ fst (x, _) = x
 snd : (a, b) -> b
 snd (_, x) = x
 
-#define NUMERIC_LIT(n) (primitive @"BEMulNumeric" (1.0 : Numeric 0) ((n) : Numeric 10))
+#define NUMERIC_LIT(n) (primitive @"BEMulNumericLegacy" (1.0 : Numeric 0) ((n) : Numeric 10))
 
 -- | `truncate x` rounds `x` toward zero.
 truncate : Numeric n -> Int
@@ -569,7 +569,7 @@ truncate = primitive @"BENumericToInt64"
 
 -- | Convert an `Int` to a `Numeric`.
 intToNumeric : Int -> Numeric n
-intToNumeric = primitive @"BEInt64ToNumeric"
+intToNumeric = primitive @"BEInt64ToNumericLegacy"
 
 -- | Convert an `Int` to a `Decimal`.
 intToDecimal : Int -> Decimal
@@ -592,7 +592,7 @@ roundCommercial d x =
       diff = x - t
       -- This is defined in DA.Numeric but we inline it here to avoid creating a cyclic module dependency.
       divNumeric : Numeric n1 -> Numeric n2 -> Numeric n3
-      divNumeric = primitive @"BEDivNumeric"
+      divNumeric = primitive @"BEDivNumericLegacy"
       problematicDiff = (0.5 : Numeric 1) `divNumeric` (10.0 ^ d : Numeric 0) * signum x
   in if diff == problematicDiff
        then x + problematicDiff

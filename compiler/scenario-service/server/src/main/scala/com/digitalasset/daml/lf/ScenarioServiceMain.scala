@@ -136,6 +136,11 @@ object ScriptStream {
           case Right(result: ScenarioResult) =>
             RunScenarioResponse.newBuilder.setResult(result).build
         }
+        finalResponse match {
+          case Left(error: ScenarioError) if error.hasCancelledByRequest =>
+            println(f"Script cancelled.")
+          case _ => {}
+        }
         internal.onNext(message)
         internal.onCompleted()
       }
@@ -153,6 +158,11 @@ object ScriptStream {
             RunScenarioResponseOrStatus.newBuilder.setError(error).build
           case Right(result: ScenarioResult) =>
             RunScenarioResponseOrStatus.newBuilder.setResult(result).build
+        }
+        finalResponse match {
+          case Left(error: ScenarioError) if error.hasCancelledByRequest =>
+            println(f"Script cancelled.")
+          case _ => {}
         }
         internal.onNext(message)
         internal.onCompleted()
@@ -188,13 +198,15 @@ class ScenarioService(
       respObs: StreamObserver[RunScenarioResponse],
   ): Unit = {
     if (enableScenarios) {
-      runLive(
-        req,
-        ScriptStream.WithoutStatus(respObs),
-        { case (ctx, pkgId, name) =>
-          Future(ctx.interpretScenario(pkgId, name))
-        },
-      )
+      if (req.hasStart) {
+        runLive(
+          req.getStart,
+          ScriptStream.WithoutStatus(respObs),
+          { case (ctx, pkgId, name) =>
+            Future(ctx.interpretScenario(pkgId, name))
+          },
+        )
+      }
     } else {
       log("Rejected scenario gRPC request.")
       respObs.onError(new UnsupportedOperationException("Scenarios are disabled"))
@@ -207,11 +219,13 @@ class ScenarioService(
   ): Unit = {
     val stream = ScriptStream.WithStatus(respObs)
     if (enableScenarios) {
-      runLive(
-        req,
-        stream,
-        { case (ctx, pkgId, name) => Future(ctx.interpretScenario(pkgId, name)) },
-      )
+      if (req.hasStart) {
+        runLive(
+          req.getStart,
+          stream,
+          { case (ctx, pkgId, name) => Future(ctx.interpretScenario(pkgId, name)) },
+        )
+      }
     } else {
       log("Rejected scenario gRPC request.")
       stream.sendError(new UnsupportedOperationException("Scenarios are disabled"))
@@ -222,24 +236,46 @@ class ScenarioService(
       req: RunScenarioRequest,
       respObs: StreamObserver[RunScenarioResponse],
   ): Unit =
-    runLive(
-      req,
-      ScriptStream.WithoutStatus(respObs),
-      { case (ctx, pkgId, name) => ctx.interpretScript(pkgId, name) },
-    )
+    if (req.hasStart) {
+      runLive(
+        req.getStart,
+        ScriptStream.WithoutStatus(respObs),
+        { case (ctx, pkgId, name) => ctx.interpretScript(pkgId, name) },
+      )
+    }
 
   override def runLiveScript(
-      req: RunScenarioRequest,
-      respObs: StreamObserver[RunScenarioResponseOrStatus],
-  ): Unit =
-    runLive(
-      req,
-      ScriptStream.WithStatus(respObs),
-      { case (ctx, pkgId, name) => ctx.interpretScript(pkgId, name) },
-    )
+      respObs: StreamObserver[RunScenarioResponseOrStatus]
+  ): StreamObserver[RunScenarioRequest] = {
+    var cancelled = false
+    println(f"Connection started.")
+    new StreamObserver[RunScenarioRequest] {
+      override def onNext(req: RunScenarioRequest): Unit = {
+        if (req.hasCancel) {
+          println(f"Script cancelling.")
+          cancelled = true
+        } else if (req.hasStart) {
+          println(f"Script started.")
+          runLive(
+            req.getStart,
+            ScriptStream.WithStatus(respObs),
+            { case (ctx, pkgId, name) => ctx.interpretScript(pkgId, name, () => cancelled) },
+          )
+        }
+      }
+
+      override def onError(t: Throwable): Unit = {
+        println(f"Received error $t")
+      }
+
+      override def onCompleted(): Unit = {
+        println("Completed.")
+      }
+    }
+  }
 
   private def runLive(
-      req: RunScenarioRequest,
+      req: RunScenarioStart,
       respStream: ScriptStream,
       interpret: (Context, String, String) => Future[Option[ScenarioRunner.ScenarioResult]],
   ): Unit = {

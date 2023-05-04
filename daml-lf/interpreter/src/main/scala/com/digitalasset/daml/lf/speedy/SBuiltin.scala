@@ -5,7 +5,6 @@ package com.daml.lf
 package speedy
 
 import java.util
-import java.util.regex.Pattern
 import com.daml.lf.data.Ref._
 import com.daml.lf.data._
 import com.daml.lf.data.Numeric.Scale
@@ -17,8 +16,7 @@ import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.Speedy._
 import com.daml.lf.speedy.{SExpr0 => compileTime}
 import com.daml.lf.speedy.{SExpr => runTime}
-import com.daml.lf.speedy.SValue.{SValue => _, _}
-import com.daml.lf.speedy.SValue.{SValue => SV}
+import com.daml.lf.speedy.SValue.{SValue => SV, _}
 import com.daml.lf.transaction.{
   ContractStateMachine,
   GlobalKey,
@@ -378,12 +376,10 @@ private[lf] object SBuiltin {
       Numeric.divide(scale, x, y).toOption
 
   sealed abstract class SBBinaryOpNumeric(name: String, op: (Numeric, Numeric) => Option[Numeric])
-      extends SBuiltinArithmetic(name, 3) {
+      extends SBuiltinArithmetic(name, 2) {
     override private[speedy] def compute(args: util.ArrayList[SValue]): Option[SValue] = {
-      val scale = getSScale(args, 0)
-      val a = getSNumeric(args, 1)
-      val b = getSNumeric(args, 2)
-      assert(a.scale == scale && b.scale == scale)
+      val a = getSNumeric(args, 0)
+      val b = getSNumeric(args, 1)
       op(a, b).map(SNumeric(_))
     }
   }
@@ -391,14 +387,11 @@ private[lf] object SBuiltin {
   sealed abstract class SBBinaryOpNumeric2(
       name: String,
       op: (Scale, Numeric, Numeric) => Option[Numeric],
-  ) extends SBuiltinArithmetic(name, 5) {
+  ) extends SBuiltinArithmetic(name, 3) {
     override private[speedy] def compute(args: util.ArrayList[SValue]): Option[SValue] = {
-      val scaleA = getSScale(args, 0)
-      val scaleB = getSScale(args, 1)
-      val scale = getSScale(args, 2)
-      val a = getSNumeric(args, 3)
-      val b = getSNumeric(args, 4)
-      assert(a.scale == scaleA && b.scale == scaleB)
+      val scale = getSScale(args, 0)
+      val a = getSNumeric(args, 1)
+      val b = getSNumeric(args, 2)
       op(scale, a, b).map(SNumeric(_))
     }
   }
@@ -408,27 +401,27 @@ private[lf] object SBuiltin {
   final case object SBMulNumeric extends SBBinaryOpNumeric2("MUL_NUMERIC", multiply)
   final case object SBDivNumeric extends SBBinaryOpNumeric2("DIV_NUMERIC", divide)
 
-  final case object SBRoundNumeric extends SBuiltinArithmetic("ROUND_NUMERIC", 3) {
+  final case object SBRoundNumeric extends SBuiltinArithmetic("ROUND_NUMERIC", 2) {
     override private[speedy] def compute(args: util.ArrayList[SValue]): Option[SNumeric] = {
-      val prec = getSInt64(args, 1)
-      val x = getSNumeric(args, 2)
+      val prec = getSInt64(args, 0)
+      val x = getSNumeric(args, 1)
       Numeric.round(prec, x).toOption.map(SNumeric(_))
     }
   }
 
-  final case object SBCastNumeric extends SBuiltinArithmetic("CAST_NUMERIC", 3) {
+  final case object SBCastNumeric extends SBuiltinArithmetic("CAST_NUMERIC", 2) {
     override private[speedy] def compute(args: util.ArrayList[SValue]): Option[SNumeric] = {
-      val outputScale = getSScale(args, 1)
-      val x = getSNumeric(args, 2)
+      val outputScale = getSScale(args, 0)
+      val x = getSNumeric(args, 1)
       Numeric.fromBigDecimal(outputScale, x).toOption.map(SNumeric(_))
     }
   }
 
-  final case object SBShiftNumeric extends SBuiltinPure(3) {
+  final case object SBShiftNumeric extends SBuiltinPure(2) {
     override private[speedy] def executePure(args: util.ArrayList[SValue]): SNumeric = {
-      val inputScale = getSScale(args, 0)
-      val outputScale = getSScale(args, 1)
-      val x = getSNumeric(args, 2)
+      val outputScale = getSScale(args, 0)
+      val x = getSNumeric(args, 1)
+      val inputScale = x.scale
       SNumeric(
         Numeric.assertFromBigDecimal(outputScale, x.scaleByPowerOfTen(inputScale - outputScale))
       )
@@ -702,9 +695,9 @@ private[lf] object SBuiltin {
     }
   }
 
-  final case object SBNumericToInt64 extends SBuiltinArithmetic("NUMERIC_TO_INT64", 2) {
+  final case object SBNumericToInt64 extends SBuiltinArithmetic("NUMERIC_TO_INT64", 1) {
     override private[speedy] def compute(args: util.ArrayList[SValue]): Option[SInt64] = {
-      val x = getSNumeric(args, 1)
+      val x = getSNumeric(args, 0)
       Numeric.toLong(x).toOption.map(SInt64)
     }
   }
@@ -929,9 +922,9 @@ private[lf] object SBuiltin {
     }
   }
 
-  final object SBNumericToBigNumeric extends SBuiltinPure(2) {
+  final object SBNumericToBigNumeric extends SBuiltinPure(1) {
     override private[speedy] def executePure(args: util.ArrayList[SValue]): SBigNumeric = {
-      val x = getSNumeric(args, 1)
+      val x = getSNumeric(args, 0)
       SBigNumeric.fromNumeric(x)
     }
   }
@@ -1013,8 +1006,8 @@ private[lf] object SBuiltin {
       val interfaceVersion = interfaceId.map(machine.tmplId2TxVersion)
       val exerciseVersion = interfaceVersion.fold(templateVersion)(_.max(templateVersion))
       val chosenValue = args.get(0).toNormalizedValue(exerciseVersion)
-      val ctrls = extractParties(NameOf.qualifiedNameOfCurrentFunc, args.get(2))
-      machine.enforceChoiceControllersLimit(ctrls, coid, templateId, choiceId, chosenValue)
+      val controllers = extractParties(NameOf.qualifiedNameOfCurrentFunc, args.get(2))
+      machine.enforceChoiceControllersLimit(controllers, coid, templateId, choiceId, chosenValue)
       val obsrs = extractParties(NameOf.qualifiedNameOfCurrentFunc, args.get(3))
       machine.enforceChoiceObserversLimit(obsrs, coid, templateId, choiceId, chosenValue)
       val authorizersWhenExplicit = extractParties(NameOf.qualifiedNameOfCurrentFunc, args.get(4))
@@ -1035,7 +1028,7 @@ private[lf] object SBuiltin {
             choiceId = choiceId,
             optLocation = machine.getLastLocation,
             consuming = consuming,
-            actingParties = ctrls,
+            actingParties = controllers,
             choiceObservers = obsrs,
             choiceAuthorizers = choiceAuthorizers,
             byKey = byKey,
@@ -1052,13 +1045,16 @@ private[lf] object SBuiltin {
 
       if (explicitChoiceAuthority) {
         val authorizers = authorizersWhenExplicit
-        val holding = machine.ptx.context.info.authorizers
+        val signatories = contract.signatories
+        val holding = controllers.union(signatories)
         val requesting = authorizers.diff(holding)
+
         if (requesting.isEmpty) {
-          // authority restriction -- no need to ask ledger
+          // *no* additional authority is required; (so there is no need to ask ledger)
+          // (although the authority might be being restricted)
           doExe(Some(authorizers))
         } else {
-          // authority change -- ask ledger
+          // additional authority *is* required; ask the ledger
           Control.Question[Question.Update](
             Question.Update.NeedAuthority(
               holding = holding,
@@ -1891,122 +1887,6 @@ private[lf] object SBuiltin {
         case Ast.TTyCon(name) => SOptional(Some(SText(name.toString)))
         case _ => SOptional(None)
       }
-  }
-
-  // Unstable text primitives.
-
-  /** $text_to_upper :: Text -> Text */
-  case object SBTextToUpper extends SBuiltinPure(1) {
-    override private[speedy] def executePure(args: util.ArrayList[SValue]): SText = {
-      val t = getSText(args, 0)
-      // TODO [FM]: replace with ASCII-specific function, or not
-      SText(t.toUpperCase(util.Locale.ROOT))
-    }
-  }
-
-  /** $text_to_lower :: Text -> Text */
-  case object SBTextToLower extends SBuiltinPure(1) {
-    override private[speedy] def executePure(args: util.ArrayList[SValue]): SText = {
-      val t = getSText(args, 0)
-      // TODO [FM]: replace with ASCII-specific function, or not
-      SText(t.toLowerCase(util.Locale.ROOT))
-    }
-  }
-
-  /** $text_slice :: Int -> Int -> Text -> Text */
-  case object SBTextSlice extends SBuiltinPure(3) {
-    override private[speedy] def executePure(args: util.ArrayList[SValue]): SText = {
-      val from = getSInt64(args, 0)
-      val to = getSInt64(args, 1)
-      val t = getSText(args, 2)
-      val length = t.codePointCount(0, t.length).toLong
-      if (to <= 0 || from >= length || to <= from) {
-        SText("")
-      } else {
-        val rfrom = from.max(0).toInt
-        val rto = to.min(length).toInt
-        // NOTE [FM]: We use toInt only after ensuring the indices are
-        // between 0 and length, inclusive. Calling toInt prematurely
-        // would mean dropping the high order bits indiscriminitely,
-        // so for instance (0x100000000L).toInt == 0, resulting in an
-        // empty string below even though `to` was larger than length.
-        val ifrom = t.offsetByCodePoints(0, rfrom)
-        val ito = t.offsetByCodePoints(ifrom, rto - rfrom)
-        SText(t.slice(ifrom, ito))
-      }
-    }
-  }
-
-  /** $text_slice_index :: Text -> Text -> Optional Int */
-  case object SBTextSliceIndex extends SBuiltinPure(2) {
-    override private[speedy] def executePure(args: util.ArrayList[SValue]): SOptional = {
-      val slice = getSText(args, 0)
-      val t = getSText(args, 1)
-      val n = t.indexOfSlice(slice) // n is -1 if slice is not found.
-      if (n < 0) {
-        SOptional(None)
-      } else {
-        val rn = t.codePointCount(0, n).toLong // we want to return the number of codepoints!
-        SOptional(Some(SInt64(rn)))
-      }
-    }
-  }
-
-  /** $text_contains_only :: Text -> Text -> Bool */
-  case object SBTextContainsOnly extends SBuiltinPure(2) {
-    override private[speedy] def executePure(args: util.ArrayList[SValue]): SBool = {
-      val alphabet = getSText(args, 0)
-      val t = getSText(args, 1)
-      val alphabetSet = alphabet.codePoints().iterator().asScala.toSet
-      val result = t.codePoints().iterator().asScala.forall(alphabetSet.contains)
-      SBool(result)
-    }
-  }
-
-  /** $text_replicate :: Int -> Text -> Text */
-  case object SBTextReplicate extends SBuiltinPure(2) {
-    override private[speedy] def executePure(args: util.ArrayList[SValue]): SText = {
-      val n = getSInt64(args, 0)
-      val t = getSText(args, 1)
-      if (n < 0) {
-        SText("")
-      } else {
-        val rn = n.min(Int.MaxValue.toLong).toInt
-        SText(t * rn)
-      }
-    }
-  }
-
-  /** $text_split_on :: Text -> Text -> List Text */
-  case object SBTextSplitOn extends SBuiltinPure(2) {
-    override private[speedy] def executePure(args: util.ArrayList[SValue]): SList = {
-      val pattern = getSText(args, 0)
-      val t = getSText(args, 1)
-      val xs =
-        // Java will produce a two-element list for this with the second
-        // element being the empty string.
-        if (pattern.isEmpty) {
-          FrontStack(SText(t))
-        } else {
-          // We do not want to do a regex match so we use Pattern.quote
-          // and we want to keep empty strings, so we use -1 as the second argument.
-          t.split(Pattern.quote(pattern), -1).iterator.map(SText).to(FrontStack)
-        }
-      SList(xs)
-    }
-  }
-
-  /** $text_intercalate :: Text -> List Text -> Text */
-  final case object SBTextIntercalate extends SBuiltinPure(2) {
-    override private[speedy] def executePure(args: util.ArrayList[SValue]): SText = {
-      val sep = getSText(args, 0)
-      val vs = getSList(args, 1)
-      val xs = vs.map {
-        case SText(t) => t
-        case x => crash(s"type mismatch SBTextIntercalate, expected Text in list, got $x")
-      }
-      SText(xs.iterator.mkString(sep))
-    }
   }
 
   /** EQUAL_LIST :: (a -> a -> Bool) -> [a] -> [a] -> Bool */

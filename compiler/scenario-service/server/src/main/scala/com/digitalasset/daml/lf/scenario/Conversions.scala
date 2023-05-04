@@ -113,7 +113,10 @@ final class Conversions(
           case SError.SErrorDamlException(interpretationError) =>
             import interpretation.Error._
             interpretationError match {
-              case RejectedAuthorityRequest(_, _) => ??? // TODO #15882
+              case RejectedAuthorityRequest(_, _) =>
+                sys.error(
+                  "Unexpected RejectedAuthorityRequest: choice authority not supported by scenarios."
+                )
               case UnhandledException(_, value) =>
                 builder.setUnhandledException(convertValue(value))
               case UserError(msg) =>
@@ -313,6 +316,8 @@ final class Conversions(
         )
       case Error.Timeout(timeout) =>
         builder.setEvaluationTimeout(timeout.toSeconds)
+      case Error.CanceledByRequest() =>
+        builder.setCancelledByRequest(empty)
     }
     builder.build
   }
@@ -439,8 +444,10 @@ final class Conversions(
           optLocation.map(loc => ncBuilder.setLocation(convertLocation(loc)))
           faBuilder.setNoControllers(ncBuilder.build)
 
-        case _: FailedAuthorization.NoAuthorizers => ??? // TODO #15882
-
+        case _: FailedAuthorization.NoAuthorizers =>
+          sys.error(
+            "Unexpected FailedAuthorization.NoAuthorizers: choice authority not supported by scenarios."
+          )
         case FailedAuthorization.LookupByKeyMissingAuthorization(
               templateId,
               optLocation,

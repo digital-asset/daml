@@ -1979,7 +1979,7 @@ private[archive] class DecodeV1(minor: LV.Minor) {
 
 }
 
-private[archive] object DecodeV1 {
+private[lf] object DecodeV1 {
 
   private def eitherToParseError[A](x: Either[String, A]): A =
     x.fold(err => throw Error.Parsing(err), identity)
@@ -2054,13 +2054,13 @@ private[archive] object DecodeV1 {
       ),
       BuiltinFunctionInfo(
         MUL_DECIMAL,
-        BMulNumeric,
+        BMulNumericLegacy,
         maxVersion = Some(numeric),
         implicitParameters = List(TNat.Decimal, TNat.Decimal, TNat.Decimal),
       ),
       BuiltinFunctionInfo(
         DIV_DECIMAL,
-        BDivNumeric,
+        BDivNumericLegacy,
         maxVersion = Some(numeric),
         implicitParameters = List(TNat.Decimal, TNat.Decimal, TNat.Decimal),
       ),
@@ -2072,11 +2072,15 @@ private[archive] object DecodeV1 {
       ),
       BuiltinFunctionInfo(ADD_NUMERIC, BAddNumeric, minVersion = numeric),
       BuiltinFunctionInfo(SUB_NUMERIC, BSubNumeric, minVersion = numeric),
-      BuiltinFunctionInfo(MUL_NUMERIC, BMulNumeric, minVersion = numeric),
-      BuiltinFunctionInfo(DIV_NUMERIC, BDivNumeric, minVersion = numeric),
+      BuiltinFunctionInfo(MUL_NUMERIC_LEGACY, BMulNumericLegacy, minVersion = numeric),
+      BuiltinFunctionInfo(MUL_NUMERIC, BMulNumeric, minVersion = natTypeErasure),
+      BuiltinFunctionInfo(DIV_NUMERIC_LEGACY, BDivNumericLegacy, minVersion = numeric),
+      BuiltinFunctionInfo(DIV_NUMERIC, BDivNumeric, minVersion = natTypeErasure),
       BuiltinFunctionInfo(ROUND_NUMERIC, BRoundNumeric, minVersion = numeric),
-      BuiltinFunctionInfo(CAST_NUMERIC, BCastNumeric, minVersion = numeric),
-      BuiltinFunctionInfo(SHIFT_NUMERIC, BShiftNumeric, minVersion = numeric),
+      BuiltinFunctionInfo(CAST_NUMERIC_LEGACY, BCastNumericLegacy, minVersion = numeric),
+      BuiltinFunctionInfo(CAST_NUMERIC, BCastNumeric, minVersion = natTypeErasure),
+      BuiltinFunctionInfo(SHIFT_NUMERIC_LEGACY, BShiftNumericLegacy, minVersion = numeric),
+      BuiltinFunctionInfo(SHIFT_NUMERIC, BShiftNumeric, minVersion = natTypeErasure),
       BuiltinFunctionInfo(ADD_INT64, BAddInt64),
       BuiltinFunctionInfo(SUB_INT64, BSubInt64),
       BuiltinFunctionInfo(MUL_INT64, BMulInt64),
@@ -2085,7 +2089,7 @@ private[archive] object DecodeV1 {
       BuiltinFunctionInfo(EXP_INT64, BExpInt64),
       BuiltinFunctionInfo(
         INT64_TO_DECIMAL,
-        BInt64ToNumeric,
+        BInt64ToNumericLegacy,
         maxVersion = Some(numeric),
         implicitParameters = List(TNat.Decimal),
       ),
@@ -2095,7 +2099,8 @@ private[archive] object DecodeV1 {
         maxVersion = Some(numeric),
         implicitParameters = List(TNat.Decimal),
       ),
-      BuiltinFunctionInfo(INT64_TO_NUMERIC, BInt64ToNumeric, minVersion = numeric),
+      BuiltinFunctionInfo(INT64_TO_NUMERIC_LEGACY, BInt64ToNumericLegacy, minVersion = numeric),
+      BuiltinFunctionInfo(INT64_TO_NUMERIC, BInt64ToNumeric, minVersion = natTypeErasure),
       BuiltinFunctionInfo(NUMERIC_TO_INT64, BNumericToInt64, minVersion = numeric),
       BuiltinFunctionInfo(FOLDL, BFoldl),
       BuiltinFunctionInfo(FOLDR, BFoldr),
@@ -2280,11 +2285,12 @@ private[archive] object DecodeV1 {
       BuiltinFunctionInfo(TEXT_TO_INT64, BTextToInt64),
       BuiltinFunctionInfo(
         TEXT_TO_DECIMAL,
-        BTextToNumeric,
+        BTextToNumericLegacy,
         implicitParameters = List(TNat.Decimal),
         maxVersion = Some(numeric),
       ),
-      BuiltinFunctionInfo(TEXT_TO_NUMERIC, BTextToNumeric, minVersion = numeric),
+      BuiltinFunctionInfo(TEXT_TO_NUMERIC_LEGACY, BTextToNumericLegacy, minVersion = numeric),
+      BuiltinFunctionInfo(TEXT_TO_NUMERIC, BTextToNumeric, minVersion = natTypeErasure),
       BuiltinFunctionInfo(TEXT_TO_CODE_POINTS, BTextToCodePoints),
       BuiltinFunctionInfo(SHA256_TEXT, BSHA256Text),
       BuiltinFunctionInfo(DATE_TO_UNIX_DAYS, BDateToUnixDays),
@@ -2389,19 +2395,20 @@ private[archive] object DecodeV1 {
       BuiltinFunctionInfo(MUL_BIGNUMERIC, BMulBigNumeric, minVersion = bigNumeric),
       BuiltinFunctionInfo(DIV_BIGNUMERIC, BDivBigNumeric, minVersion = bigNumeric),
       BuiltinFunctionInfo(SHIFT_RIGHT_BIGNUMERIC, BShiftRightBigNumeric, minVersion = bigNumeric),
-      BuiltinFunctionInfo(BIGNUMERIC_TO_NUMERIC, BBigNumericToNumeric, minVersion = bigNumeric),
+      BuiltinFunctionInfo(
+        BIGNUMERIC_TO_NUMERIC_LEGACY,
+        BBigNumericToNumericLegacy,
+        minVersion = bigNumeric,
+      ),
+      BuiltinFunctionInfo(
+        BIGNUMERIC_TO_NUMERIC,
+        BBigNumericToNumeric,
+        minVersion = natTypeErasure,
+      ),
       BuiltinFunctionInfo(NUMERIC_TO_BIGNUMERIC, BNumericToBigNumeric, minVersion = bigNumeric),
       BuiltinFunctionInfo(BIGNUMERIC_TO_TEXT, BBigNumericToText, minVersion = bigNumeric),
       BuiltinFunctionInfo(ANY_EXCEPTION_MESSAGE, BAnyExceptionMessage, minVersion = exceptions),
-      BuiltinFunctionInfo(TYPE_REP_TYCON_NAME, BTypeRepTyConName, minVersion = LV.v1_dev),
-      BuiltinFunctionInfo(TEXT_TO_UPPER, BTextToUpper, minVersion = unstable),
-      BuiltinFunctionInfo(TEXT_TO_LOWER, BTextToLower, minVersion = unstable),
-      BuiltinFunctionInfo(TEXT_SLICE, BTextSlice, minVersion = unstable),
-      BuiltinFunctionInfo(TEXT_SLICE_INDEX, BTextSliceIndex, minVersion = unstable),
-      BuiltinFunctionInfo(TEXT_CONTAINS_ONLY, BTextContainsOnly, minVersion = unstable),
-      BuiltinFunctionInfo(TEXT_REPLICATE, BTextReplicate, minVersion = unstable),
-      BuiltinFunctionInfo(TEXT_SPLIT_ON, BTextSplitOn, minVersion = unstable),
-      BuiltinFunctionInfo(TEXT_INTERCALATE, BTextIntercalate, minVersion = unstable),
+      BuiltinFunctionInfo(TYPE_REP_TYCON_NAME, BTypeRepTyConName, minVersion = unstable),
     )
   }
 

@@ -110,6 +110,7 @@ da_haskell_test(
         "tasty-hunit",
     ],
     main_function = "DA.Daml.Helper.Test.Tls.main",
+    tags = ["cpu:4"],
     visibility = ["//visibility:public"],
     deps = [
         "//libs-haskell/bazel-runfiles",
@@ -148,6 +149,7 @@ da_haskell_test(
     ],
     main_function = "DA.Daml.Helper.Test.Deployment.main",
     src_strip_prefix = "test",
+    tags = ["cpu:4"],
     visibility = ["//visibility:public"],
     deps = [
         "//:sdk-version-hs-lib",
@@ -182,11 +184,11 @@ da_haskell_test(
     ],
     main_function = "DA.Daml.Helper.Test.Ledger.main",
     # Starts Sandbox & JSON-API so needs more resources.
-    tags = ["cpu:3"],
+    tags = ["cpu:4"],
     visibility = ["//visibility:public"],
     deps = [
+        "//compiler/daml-dar-reader",
         "//compiler/daml-lf-ast",
-        "//compiler/damlc:damlc-lib",
         "//language-support/hs/bindings:hs-ledger",
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
@@ -216,7 +218,7 @@ da_haskell_test(
     ],
     main_function = "DA.Daml.Helper.Test.Packages.main",
     # Starts Sandbox & JSON-API so needs more resources.
-    tags = ["cpu:3"],
+    tags = ["cpu:4"],
     visibility = ["//visibility:public"],
     deps = [
         "//compiler/daml-lf-ast",

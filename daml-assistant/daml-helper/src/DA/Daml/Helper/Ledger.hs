@@ -105,7 +105,7 @@ defaultLedgerFlags :: LedgerApi -> LedgerFlags
 defaultLedgerFlags api = LedgerFlags
   { fApi = api
   , fSslConfigM = Nothing
-  , fTimeout = 10
+  , fTimeout = 60
   , fHostM = Nothing
   , fPortM = Nothing
   , fTokFileM = Nothing

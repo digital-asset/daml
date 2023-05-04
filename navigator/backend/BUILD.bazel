@@ -151,12 +151,11 @@ java_library(
 
 da_scala_test_suite(
     name = "navigator-scala-tests",
-    size = "small",
+    size = "large",
     srcs = glob([
         "src/test/**/*Spec.scala",
         "src/test/**/*Test.scala",
     ]),
-    data = ["//test-common:dar-files"],
     scala_deps = [
         "@maven//:com_typesafe_akka_akka_actor",
         "@maven//:com_typesafe_akka_akka_http",
@@ -177,24 +176,23 @@ da_scala_test_suite(
         "@maven//:org_scalaz_scalaz_core",
     ],
     scalacopts = navigator_scalacopts,
+    tags = ["cpu:4"],
     deps = [
         ":navigator-library",
         ":navigator-tests-library",
         ":test-resources",
+        "//bazel_tools/runfiles:scala_runfiles",
         "//daml-lf/api-type-signature",
         "//daml-lf/data",
+        "//daml-lf/integration-test-lib",
         "//daml-lf/transaction",
         "//language-support/scala/bindings",
         "//ledger-api/rs-grpc-bridge",
         "//ledger-api/testing-utils",
         "//ledger-service/lf-value-json",
-        "//ledger/ledger-api-auth",
         "//ledger/ledger-api-client",
         "//ledger/ledger-api-common",
         "//ledger/ledger-api-domain",
-        "//ledger/ledger-runner-common",
-        "//ledger/sandbox-on-x",
-        "//ledger/sandbox-on-x:sandbox-on-x-test-lib",
         "//libs-scala/build-info",
         "//libs-scala/ledger-resources",
         "//libs-scala/logging-entries",
@@ -202,7 +200,6 @@ da_scala_test_suite(
         "//libs-scala/resources",
         "//libs-scala/timer-utils",
         "@maven//:com_typesafe_config",
-        "@maven//:org_scalatest_scalatest_compatible",
     ],
 )
 

@@ -232,7 +232,9 @@ private[apiserver] final class StoreBackedCommandExecutor(
           )
 
         case ResultNeedAuthority(holding @ _, requesting @ _, resume) =>
-          val granted = true // TODO #15882
+          // TODO: https://github.com/digital-asset/daml/issues/15882
+          // This file has been moved to canton. Nothing to do here.
+          val granted = true
           resolveStep(
             Tracked.value(
               metrics.daml.execution.engineRunning,

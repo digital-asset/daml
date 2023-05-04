@@ -52,25 +52,6 @@ module DA.Text
   , DA.Text.fromCodePoints
   , DA.Text.asciiToLower
   , DA.Text.asciiToUpper
-
-#ifdef DAML_UNSTABLE
-  -- unstable, experimental primitives
-  , unstableToUpper
-  , unstableToLower
-  , unstableSlice
-  , unstableSliceIndex
-  , unstableContainsOnly
-  , unstableReplicate
-  , unstableSplitOn
-  , unstableIntercalate
-  -- unstable, experimental derived functions
-  , unstableTake
-  , unstableDrop
-  , unstableBreakOn
-  , unstableSplitAt
-  , unstableStripInfix
-#endif
-
   ) where
 
 import Prelude
@@ -300,7 +281,7 @@ parseInt = primitive @"BETextToInt64"
 --   parseNumeric "+12.0" == Some 12
 -- ```
 parseNumeric : Text -> Optional (Numeric n)
-parseNumeric = primitive @"BETextToNumeric"
+parseNumeric = primitive @"BETextToNumericLegacy"
 
 -- | Attempt to parse a `Decimal` value from a given `Text`.
 -- To get `Some` value, the text must follow the regex
@@ -359,51 +340,3 @@ asciiToUpper = fromCodePoints . fmap toUpperCP . toCodePoints
       | cpa <= x && x <= cpz = x - (cpa - cpA)
       | otherwise = x
     [cpA, cpa, cpz] = toCodePoints "Aaz"
-
-#ifdef DAML_UNSTABLE
-
-unstableToUpper : Text -> Text
-unstableToUpper = primitive @"BETextToUpper"
-
-unstableToLower : Text -> Text
-unstableToLower = primitive @"BETextToLower"
-
-unstableSlice : Int -> Int -> Text -> Text
-unstableSlice = primitive @"BETextSlice"
-
-unstableTake : Int -> Text -> Text
-unstableTake = unstableSlice 0
-
-unstableDrop : Int -> Text -> Text
-unstableDrop n x = unstableSlice n (DA.Text.length x) x
-
-unstableSplitAt : Int -> Text -> (Text, Text)
-unstableSplitAt n x = (unstableTake n x, unstableDrop n x)
-
-unstableSliceIndex : Text -> Text -> Optional Int
-unstableSliceIndex = primitive @"BETextSliceIndex"
-
-unstableBreakOn : Text -> Text -> (Text, Text)
-unstableBreakOn k x =
-    case unstableSliceIndex k x of
-        None -> (x, "")
-        Some i -> unstableSplitAt i x
-
-unstableStripInfix : Text -> Text -> Optional (Text, Text)
-unstableStripInfix k x = do
-    i <- unstableSliceIndex k x
-    Some (unstableTake i x, unstableDrop (i + DA.Text.length k) x)
-
-unstableContainsOnly : Text -> Text -> Bool
-unstableContainsOnly = primitive @"BETextContainsOnly"
-
-unstableReplicate : Int -> Text -> Text
-unstableReplicate = primitive @"BETextReplicate"
-
-unstableSplitOn : Text -> Text -> [Text]
-unstableSplitOn = primitive @"BETextSplitOn"
-
-unstableIntercalate : Text -> [Text] -> Text
-unstableIntercalate = primitive @"BETextIntercalate"
-
-#endif

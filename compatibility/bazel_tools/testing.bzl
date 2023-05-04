@@ -1201,48 +1201,9 @@ def sdk_platform_test(sdk_version, platform_version):
         platform_version = platform_version,
     )
 
-    # We need to use weak seeding to avoid our tests timing out
-    # if the CI machine does not have enough entropy.
-    sandbox_args = [
-        "sandbox",
-        "--contract-id-seeding=testing-weak",
-    ]
-
-    sandbox_classic_args = ["sandbox-classic", "--contract-id-seeding=testing-weak"]
-
     sandbox_on_x = "@daml-sdk-{}//:sandbox-on-x".format(platform_version)
     sandbox_on_x_args = ["--contract-id-seeding=testing-weak", "--implicit-party-allocation=false", "--mutable-contract-state-cache", "--enable-user-management=true"]
-    sandbox_on_x_cmd = ["run-legacy-cli-config"] if versions.is_at_least("2.4.0-snapshot.20220712.10212.0.0bf28176", platform_version) else []
-
-    json_api_args = ["json-api"]
-
-    # --implicit-party-allocation=false only exists in SDK >= 1.2.0 so
-    # for older versions we still have to disable ClosedWorldIT
-    (extra_sandbox_next_args, extra_sandbox_next_exclusions) = (["--implicit-party-allocation=false"], []) if versions.is_at_least("1.2.0", platform_version) else ([], ["--exclude=ClosedWorldIT"])
-    extra_sandbox_classic_args = []
-    extra_sandbox_on_x_args = []
-
-    if versions.is_at_least("1.17.0", platform_version):
-        extra_sandbox_next_args += ["--max-deduplication-duration=PT5S"]
-
-    # https://github.com/digital-asset/daml/commit/60ffb79fb16b507d4143cfc991da342efea504a7
-    # introduced a KV specific dedup test and we need to disable the non-kv test in return.
-    kv_dedup_start_version = "1.17.0-snapshot.20210910.7786.0.976ca400"
-    kv_dedup_end_version = "2.0.0-snapshot.20220110.8812.0.3a08380b"
-    if versions.is_at_least(kv_dedup_start_version, sdk_version) and versions.is_at_most(kv_dedup_end_version, sdk_version) and \
-       versions.is_at_least(kv_dedup_start_version, platform_version) and versions.is_at_most(kv_dedup_end_version, platform_version):
-        extra_sandbox_next_exclusions += ["--exclude=CommandDeduplicationIT", "--additional=KVCommandDeduplicationIT"]
-
-    # Error codes are enabled by default after 1.18.0-snapshot.20211117.8399.0.a05a40ae.
-    # Before this SDK version, ledger-api-test-tool cannot correctly assert the self-service error codes.
-    # Turning on the compatibility mode with `--use-pre-1.18-error-codes` is available up to 2.0.0-snapshot.20220127.9042.0.4038d0a7 (inclusive).
-    # For this reason, all platforms newer than 1.18.0-snapshot.20211117.8399.0.a05a40ae up to 2.0.0-snapshot.20220127.9042.0.4038d0a7 (inclusive)
-    # will run against old ledger-api-test-tools in compatibility mode (i.e. `--use-pre-1.18-error-codes`)
-    error_codes_version_enabled_by_default = "1.18.0-snapshot.20211117.8399.0.a05a40ae"
-    if versions.is_at_most(error_codes_version_enabled_by_default, platform_version) and versions.is_at_least(before_removing_legacy_error_codes, platform_version):
-        extra_sandbox_next_args += ["--use-pre-1.18-error-codes"]
-        extra_sandbox_classic_args += ["--use-pre-1.18-error-codes"]
-        extra_sandbox_on_x_args += ["--use-pre-1.18-error-codes"]
+    sandbox_on_x_cmd = ["run-legacy-cli-config"]
 
     # ledger-api-test-tool test-cases
     name = "ledger-api-test-tool-{sdk_version}-platform-{platform_version}".format(
@@ -1252,105 +1213,33 @@ def sdk_platform_test(sdk_version, platform_version):
     exclusions = ["--exclude=" + test for test in get_excluded_tests(test_tool_version = sdk_version, sandbox_version = platform_version)]
 
     if versions.is_stable(sdk_version) and versions.is_stable(platform_version):
-        if versions.is_at_least("2.0.0", platform_version):
-            # Ledger API test tool < 1.5 do not upload the DAR which doesn’t work on Sandbox on X
-            if versions.is_at_least("1.5.0", sdk_version):
-                client_server_test(
-                    name = name + "-on-x",
-                    client = ledger_api_test_tool,
-                    client_args = [
-                        "localhost:6865",
-                    ] + exclusions,
-                    data = [dar_files],
-                    runner = "@//bazel_tools/client_server:runner",
-                    runner_args = ["6865"],
-                    server = sandbox_on_x,
-                    server_args = sandbox_on_x_cmd + ["--participant participant-id=example,port=6865"] + sandbox_on_x_args + extra_sandbox_on_x_args,
-                    tags = ["exclusive", sdk_version, platform_version] + extra_tags(sdk_version, platform_version),
-                )
-                client_server_test(
-                    name = name + "-on-x-postgresql",
-                    client = ledger_api_test_tool,
-                    client_args = [
-                        "localhost:6865",
-                    ] + exclusions,
-                    data = [dar_files],
-                    runner = "@//bazel_tools/client_server:runner",
-                    runner_args = ["6865"],
-                    server = ":sandbox-with-postgres-{}".format(platform_version),
-                    server_args = [platform_version, "sandbox-on-x"] + sandbox_on_x_cmd + ["--participant participant-id=example,port=6865,server-jdbc-url=__jdbcurl__"] + sandbox_on_x_args + extra_sandbox_on_x_args,
-                    tags = ["exclusive", sdk_version, platform_version] + extra_tags(sdk_version, platform_version),
-                ) if is_linux else None
-        else:
+        # Ledger API test tool < 1.5 do not upload the DAR which doesn’t work on Sandbox on X
+        if versions.is_at_least("1.5.0", sdk_version):
             client_server_test(
-                name = name,
+                name = name + "-on-x",
                 client = ledger_api_test_tool,
                 client_args = [
                     "localhost:6865",
-                ] + exclusions + extra_sandbox_next_exclusions,
-                data = [dar_files],
-                runner = "@//bazel_tools/client_server:runner",
-                runner_args = ["6865"],
-                server = sandbox,
-                server_args = sandbox_args + extra_sandbox_next_args,
-                server_files = ["$(rootpaths {dar_files})".format(
-                    dar_files = dar_files,
-                )],
-                tags = ["exclusive", sdk_version, platform_version] + extra_tags(sdk_version, platform_version),
-            )
-
-            client_server_test(
-                name = name + "-classic",
-                client = ledger_api_test_tool,
-                client_args = [
-                    "localhost:6865",
-                    "--exclude=ClosedWorldIT",
                 ] + exclusions,
                 data = [dar_files],
                 runner = "@//bazel_tools/client_server:runner",
                 runner_args = ["6865"],
-                server = sandbox,
-                server_args = sandbox_classic_args + extra_sandbox_classic_args,
-                server_files = ["$(rootpaths {dar_files})".format(
-                    dar_files = dar_files,
-                )],
+                server = sandbox_on_x,
+                server_args = sandbox_on_x_cmd + ["--participant participant-id=example,port=6865"] + sandbox_on_x_args,
                 tags = ["exclusive", sdk_version, platform_version] + extra_tags(sdk_version, platform_version),
             )
-
             client_server_test(
-                name = name + "-postgresql",
+                name = name + "-on-x-postgresql",
                 client = ledger_api_test_tool,
                 client_args = [
                     "localhost:6865",
-                ] + exclusions + extra_sandbox_next_exclusions,
-                data = [dar_files],
-                runner = "@//bazel_tools/client_server:runner",
-                runner_args = ["6865"],
-                server = ":sandbox-with-postgres-{}".format(platform_version),
-                server_args = [platform_version, "daml"] + sandbox_args + extra_sandbox_next_args + ["--jdbcurl=__jdbcurl__"],
-                server_files = ["$(rootpaths {dar_files})".format(
-                    dar_files = dar_files,
-                )],
-                tags = ["exclusive"] + extra_tags(sdk_version, platform_version),
-            ) if is_linux else None
-
-            client_server_test(
-                name = name + "-classic-postgresql",
-                size = "large",
-                client = ledger_api_test_tool,
-                client_args = [
-                    "localhost:6865",
-                    "--exclude=ClosedWorldIT",
                 ] + exclusions,
                 data = [dar_files],
                 runner = "@//bazel_tools/client_server:runner",
                 runner_args = ["6865"],
                 server = ":sandbox-with-postgres-{}".format(platform_version),
-                server_args = [platform_version, "daml"] + sandbox_classic_args + extra_sandbox_classic_args + ["--jdbcurl=__jdbcurl__"],
-                server_files = ["$(rootpaths {dar_files})".format(
-                    dar_files = dar_files,
-                )],
-                tags = ["exclusive"] + extra_tags(sdk_version, platform_version),
+                server_args = [platform_version, "sandbox-on-x"] + sandbox_on_x_cmd + ["--participant participant-id=example,port=6865,server-jdbc-url=__jdbcurl__"] + sandbox_on_x_args,
+                tags = ["exclusive", sdk_version, platform_version] + extra_tags(sdk_version, platform_version),
             ) if is_linux else None
 
     # daml-ledger test-cases
@@ -1362,8 +1251,8 @@ def sdk_platform_test(sdk_version, platform_version):
         name = name,
         sdk_version = sdk_version,
         daml = daml_assistant,
-        sandbox = sandbox_on_x if versions.is_at_least("2.0.0", platform_version) else sandbox,
-        sandbox_args = sandbox_on_x_cmd + ["--contract-id-seeding=testing-weak", "--mutable-contract-state-cache", "--participant=participant-id=sandbox,port=0,port-file=__PORTFILE__"] if versions.is_at_least("2.0.0", platform_version) else ["sandbox", "--port=0", "--port-file=__PORTFILE__"],
+        sandbox = sandbox_on_x,
+        sandbox_args = sandbox_on_x_cmd + ["--contract-id-seeding=testing-weak", "--mutable-contract-state-cache", "--participant=participant-id=sandbox,port=0,port-file=__PORTFILE__"],
         size = "large",
         # We see timeouts here fairly regularly so we
         # increase the number of CPUs.
@@ -1380,7 +1269,7 @@ def sdk_platform_test(sdk_version, platform_version):
         create_daml_app_test(
             name = "create-daml-app-{sdk_version}-platform-{platform_version}".format(sdk_version = version_to_name(sdk_version), platform_version = version_to_name(platform_version)),
             daml = daml_assistant,
-            sandbox = sandbox_on_x if versions.is_at_least("2.0.0", platform_version) else sandbox,
+            sandbox = sandbox_on_x,
             sandbox_version = platform_version,
             json_api = json_api,
             json_api_version = platform_version,

@@ -360,6 +360,8 @@ jobs:
         bad_file=daml-lf/integration-test-lib/src/main/com/daml/lf/CantonFixture.scala
 
         sed -i 's|"external/canton/lib/.*|"'$canton_local_path'"|' $bad_file
+        sed -i 's|SKIP_DEV_CANTON_TESTS=.*|SKIP_DEV_CANTON_TESTS=false|' build.sh
+        sed -i 's|skip_dev_canton = .*|skip_dev_canton = "False"|' build.ps1
         sed -e 's/^/# /' COPY > canton_dep.bzl
         cat <<EOF >> canton_dep.bzl
 
@@ -377,7 +379,7 @@ jobs:
             setvar need_to_build false
         else
             if [ "main" = "$(Build.SourceBranchName)" ]; then
-                git add canton_dep.bzl $bad_file
+                git add canton_dep.bzl $bad_file build.sh build.ps1
                 open_pr "$branch" "bump canton to $canton_version"
                 az extension add --name azure-devops
                 trap "az devops logout" EXIT

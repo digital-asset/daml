@@ -243,15 +243,21 @@ typeOfBuiltin = \case
   BEGreaterEqNumeric -> pure $ TForall (alpha, KNat) $ TNumeric tAlpha :-> TNumeric tAlpha :-> TBool
   BEAddNumeric -> pure $ TForall (alpha, KNat) $ TNumeric tAlpha :-> TNumeric tAlpha :-> TNumeric tAlpha
   BESubNumeric -> pure $ TForall (alpha, KNat) $ TNumeric tAlpha :-> TNumeric tAlpha :-> TNumeric tAlpha
-  BEMulNumeric -> pure $ TForall (alpha, KNat) $ TForall (beta, KNat) $ TForall (gamma, KNat) $ TNumeric tAlpha :-> TNumeric tBeta :-> TNumeric tGamma
-  BEDivNumeric -> pure $ TForall (alpha, KNat) $ TForall (beta, KNat) $ TForall (gamma, KNat) $ TNumeric tAlpha :-> TNumeric tBeta :-> TNumeric tGamma
+  BEMulNumericLegacy -> pure $ TForall (alpha, KNat) $ TForall (beta, KNat) $ TForall (gamma, KNat) $ TNumeric tAlpha :-> TNumeric tBeta :-> TNumeric tGamma
+  BEMulNumeric       -> pure $ TForall (alpha, KNat) $ TForall (beta, KNat) $ TForall (gamma, KNat) $ TNumeric tGamma :-> TNumeric tAlpha :-> TNumeric tBeta :-> TNumeric tGamma
+  BEDivNumericLegacy -> pure $ TForall (alpha, KNat) $ TForall (beta, KNat) $ TForall (gamma, KNat) $ TNumeric tAlpha :-> TNumeric tBeta :-> TNumeric tGamma
+  BEDivNumeric       -> pure $ TForall (alpha, KNat) $ TForall (beta, KNat) $ TForall (gamma, KNat) $ TNumeric tGamma :-> TNumeric tAlpha :-> TNumeric tBeta :-> TNumeric tGamma
   BERoundNumeric -> pure $ TForall (alpha, KNat) $ TInt64 :-> TNumeric tAlpha :-> TNumeric tAlpha
-  BECastNumeric -> pure $ TForall (alpha, KNat) $ TForall (beta, KNat) $ TNumeric tAlpha :-> TNumeric tBeta
-  BEShiftNumeric -> pure $ TForall (alpha, KNat) $ TForall (beta, KNat) $ TNumeric tAlpha :-> TNumeric tBeta
-  BEInt64ToNumeric -> pure $ TForall (alpha, KNat) $ TInt64 :-> TNumeric tAlpha
+  BECastNumericLegacy -> pure $ TForall (alpha, KNat) $ TForall (beta, KNat) $ TNumeric tAlpha :-> TNumeric tBeta
+  BECastNumeric      -> pure $ TForall (alpha, KNat) $ TForall (beta, KNat) $ TNumeric tBeta :-> TNumeric tAlpha :-> TNumeric tBeta
+  BEShiftNumericLegacy -> pure $ TForall (alpha, KNat) $ TForall (beta, KNat) $ TNumeric tAlpha :-> TNumeric tBeta
+  BEShiftNumeric     -> pure $ TForall (alpha, KNat) $ TForall (beta, KNat) $ TNumeric tBeta :-> TNumeric tAlpha :-> TNumeric tBeta
+  BEInt64ToNumericLegacy -> pure $ TForall (alpha, KNat) $ TInt64 :-> TNumeric tAlpha
+  BEInt64ToNumeric   -> pure $ TForall (alpha, KNat) $ TNumeric tAlpha :-> TInt64 :-> TNumeric tAlpha
   BENumericToInt64 -> pure $ TForall (alpha, KNat) $ TNumeric tAlpha :-> TInt64
   BENumericToText -> pure $ TForall (alpha, KNat) $ TNumeric tAlpha :-> TText
-  BETextToNumeric -> pure $ TForall (alpha, KNat) $ TText :-> TOptional (TNumeric tAlpha)
+  BETextToNumericLegacy -> pure $ TForall (alpha, KNat) $ TText :-> TOptional (TNumeric tAlpha)
+  BETextToNumeric    -> pure $ TForall (alpha, KNat) $ TNumeric tAlpha :-> TText :-> TOptional (TNumeric tAlpha)
 
   BEScaleBigNumeric -> pure $ TBigNumeric :-> TInt64
   BEPrecisionBigNumeric -> pure $ TBigNumeric :-> TInt64
@@ -260,7 +266,8 @@ typeOfBuiltin = \case
   BEMulBigNumeric -> pure $ TBigNumeric :-> TBigNumeric :-> TBigNumeric
   BEDivBigNumeric -> pure $ TInt64 :-> TRoundingMode :-> TBigNumeric :-> TBigNumeric :-> TBigNumeric
   BEShiftRightBigNumeric -> pure $ TInt64 :-> TBigNumeric :-> TBigNumeric
-  BEBigNumericToNumeric -> pure $ TForall (alpha, KNat) $ TBigNumeric :-> TNumeric tAlpha
+  BEBigNumericToNumericLegacy -> pure $ TForall (alpha, KNat) $ TBigNumeric :-> TNumeric tAlpha
+  BEBigNumericToNumeric -> pure $ TForall (alpha, KNat) $ TNumeric tAlpha :-> TBigNumeric :-> TNumeric tAlpha
   BENumericToBigNumeric -> pure $ TForall (alpha, KNat) $ TNumeric tAlpha :-> TBigNumeric
 
   BEAddInt64         -> pure $ tBinop TInt64
@@ -307,15 +314,6 @@ typeOfBuiltin = \case
     pure $ TForall (alpha, KStar) $ TForall (beta, KStar) $ TContractId tAlpha :-> TContractId tBeta
 
   BETypeRepTyConName -> pure (TTypeRep :-> TOptional TText)
-
-  BETextToUpper -> pure (TText :-> TText)
-  BETextToLower -> pure (TText :-> TText)
-  BETextSlice -> pure (TInt64 :-> TInt64 :-> TText :-> TText)
-  BETextSliceIndex -> pure (TText :-> TText :-> TOptional TInt64)
-  BETextContainsOnly -> pure (TText :-> TText :-> TBool)
-  BETextReplicate -> pure (TInt64 :-> TText :-> TText)
-  BETextSplitOn -> pure (TText :-> TText :-> TList TText)
-  BETextIntercalate -> pure (TText :-> TList TText :-> TText)
 
   where
     tComparison btype = TBuiltin btype :-> TBuiltin btype :-> TBool

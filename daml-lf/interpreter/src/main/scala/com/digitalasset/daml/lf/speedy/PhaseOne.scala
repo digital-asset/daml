@@ -28,8 +28,6 @@ private[speedy] object PhaseOne {
 
   private val SSGetTime = SEBuiltin(SBSGetTime)
 
-  private val SBEToTextNumeric = SEAbs(1, SEBuiltin(SBToText))
-
   private val SNumericWitness: Numeric.Scale => Some[SEValue] =
     Numeric.Scale.values.map(s => Some(SEValue(SNumeric(Numeric.assertFromBigDecimal(s, 1)))))
 
@@ -395,41 +393,47 @@ private[lf] final class PhaseOne(
 
   private[this] def compileBuiltin(env: Env, bf: BuiltinFunction): SExpr = {
 
-    def SBCompareNumeric(b: SBuiltinPure) = {
-      val d = env.position
-      SEAbs(3, SEApp(SEBuiltin(b), List(SEVarLevel(d + 1), SEVarLevel(d + 2))))
-    }
-
-    val SBLessNumeric = SBCompareNumeric(SBLess)
-    val SBLessEqNumeric = SBCompareNumeric(SBLessEq)
-    val SBGreaterNumeric = SBCompareNumeric(SBGreater)
-    val SBGreaterEqNumeric = SBCompareNumeric(SBGreaterEq)
-    val SBEqualNumeric = SBCompareNumeric(SBEqual)
+    // SEBNumericN(b) drop the N first arguments and call b
+    def SEBNumeric0(b: SBuiltin) = SEBuiltin(b)
+    def SEBNumeric1(b: SBuiltin) = SEAbs(1, SEBuiltin(b))
+    def SEBNumeric2(b: SBuiltin) = SEAbs(2, SEBuiltin(b))
+    def SEBNumeric3(b: SBuiltin) = SEAbs(3, SEBuiltin(b))
 
     bf match {
       case BCoerceContractId => compileIdentity(env)
-      // Numeric Comparisons
-      case BLessNumeric => SBLessNumeric
-      case BLessEqNumeric => SBLessEqNumeric
-      case BGreaterNumeric => SBGreaterNumeric
-      case BGreaterEqNumeric => SBGreaterEqNumeric
-      case BEqualNumeric => SBEqualNumeric
-      case BNumericToText => SBEToTextNumeric
-
       case BTextMapEmpty => SEValue.EmptyTextMap
       case BGenMapEmpty => SEValue.EmptyGenMap
+
+      // Numeric
+      case BLessNumeric => SEBNumeric1(SBLess)
+      case BLessEqNumeric => SEBNumeric1(SBLessEq)
+      case BGreaterNumeric => SEBNumeric1(SBGreater)
+      case BGreaterEqNumeric => SEBNumeric1(SBGreaterEq)
+      case BEqualNumeric => SEBNumeric1(SBEqual)
+      case BNumericToText => SEBNumeric1(SBToText)
+      case BAddNumeric => SEBNumeric1(SBAddNumeric)
+      case BSubNumeric => SEBNumeric1(SBSubNumeric)
+      case BMulNumericLegacy => SEBNumeric2(SBMulNumeric)
+      case BMulNumeric => SEBNumeric3(SBMulNumeric)
+      case BDivNumericLegacy => SEBNumeric2(SBDivNumeric)
+      case BDivNumeric => SEBNumeric3(SBDivNumeric)
+      case BRoundNumeric => SEBNumeric1(SBRoundNumeric)
+      case BCastNumericLegacy => SEBNumeric1(SBCastNumeric)
+      case BCastNumeric => SEBNumeric2(SBCastNumeric)
+      case BShiftNumericLegacy => SEBNumeric1(SBShiftNumeric)
+      case BShiftNumeric => SEBNumeric2(SBShiftNumeric)
+      case BInt64ToNumericLegacy => SEBNumeric0(SBInt64ToNumeric)
+      case BInt64ToNumeric => SEBNumeric1(SBInt64ToNumeric)
+      case BTextToNumericLegacy => SEBNumeric0(SBTextToNumeric)
+      case BTextToNumeric => SEBNumeric1(SBTextToNumeric)
+      case BNumericToInt64 => SEBNumeric1(SBNumericToInt64)
+      case BNumericToBigNumeric => SEBNumeric1(SBNumericToBigNumeric)
+      case BBigNumericToNumericLegacy => SEBNumeric0(SBBigNumericToNumeric)
+      case BBigNumericToNumeric => SEBNumeric1(SBBigNumericToNumeric)
+
       case _ =>
         SEBuiltin(bf match {
           case BTrace => SBTrace
-
-          // Decimal arithmetic
-          case BAddNumeric => SBAddNumeric
-          case BSubNumeric => SBSubNumeric
-          case BMulNumeric => SBMulNumeric
-          case BDivNumeric => SBDivNumeric
-          case BRoundNumeric => SBRoundNumeric
-          case BCastNumeric => SBCastNumeric
-          case BShiftNumeric => SBShiftNumeric
 
           // Int64 arithmetic
           case BAddInt64 => SBAddInt64
@@ -440,8 +444,6 @@ private[lf] final class PhaseOne(
           case BExpInt64 => SBExpInt64
 
           // Conversions
-          case BInt64ToNumeric => SBInt64ToNumeric
-          case BNumericToInt64 => SBNumericToInt64
           case BDateToUnixDays => SBDateToUnixDays
           case BUnixDaysToDate => SBUnixDaysToDate
           case BTimestampToUnixMicroseconds => SBTimestampToUnixMicroseconds
@@ -462,9 +464,7 @@ private[lf] final class PhaseOne(
           case BCodePointsToText => SBCodePointsToText
           case BTextToParty => SBTextToParty
           case BTextToInt64 => SBTextToInt64
-          case BTextToNumeric => SBTextToNumeric
           case BTextToCodePoints => SBTextToCodePoints
-
           case BSHA256Text => SBSHA256Text
 
           // List functions
@@ -507,27 +507,19 @@ private[lf] final class PhaseOne(
           case BDivBigNumeric => SBDivBigNumeric
           case BMulBigNumeric => SBMulBigNumeric
           case BShiftRightBigNumeric => SBShiftRightBigNumeric
-          case BNumericToBigNumeric => SBNumericToBigNumeric
-          case BBigNumericToNumeric => SBBigNumericToNumeric
           case BBigNumericToText => SBToText
 
           // TypeRep
           case BTypeRepTyConName => SBTypeRepTyConName
 
-          // Unstable Text Primitives
-          case BTextToUpper => SBTextToUpper
-          case BTextToLower => SBTextToLower
-          case BTextSlice => SBTextSlice
-          case BTextSliceIndex => SBTextSliceIndex
-          case BTextContainsOnly => SBTextContainsOnly
-          case BTextReplicate => SBTextReplicate
-          case BTextSplitOn => SBTextSplitOn
-          case BTextIntercalate => SBTextIntercalate
-
-          // Implemented using normal SExpr
-
-          case BCoerceContractId | BLessNumeric | BLessEqNumeric | BGreaterNumeric |
-              BGreaterEqNumeric | BEqualNumeric | BNumericToText | BTextMapEmpty | BGenMapEmpty =>
+          // Implemented using SExpr
+          case BCoerceContractId | BTextMapEmpty | BGenMapEmpty | BLessNumeric | BLessEqNumeric |
+              BGreaterNumeric | BGreaterEqNumeric | BEqualNumeric | BNumericToText | BAddNumeric |
+              BSubNumeric | BMulNumericLegacy | BMulNumeric | BDivNumericLegacy | BDivNumeric |
+              BRoundNumeric | BCastNumericLegacy | BCastNumeric | BShiftNumericLegacy |
+              BShiftNumeric | BInt64ToNumericLegacy | BInt64ToNumeric | BTextToNumericLegacy |
+              BTextToNumeric | BNumericToInt64 | BNumericToBigNumeric | BBigNumericToNumericLegacy |
+              BBigNumericToNumeric =>
             throw CompilationError(s"unexpected $bf")
 
           case BAnyExceptionMessage => SBAnyExceptionMessage

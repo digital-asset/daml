@@ -20,7 +20,7 @@ service ScenarioService {
   // We might want to switch to a more generic name.
   rpc RunScript (RunScenarioRequest) returns (RunScenarioResponse);
 
-  rpc RunLiveScript (RunScenarioRequest) returns (stream RunScenarioResponseOrStatus);
+  rpc RunLiveScript (stream RunScenarioRequest) returns (stream RunScenarioResponseOrStatus);
 
   // Allocate a new scenario interpretation context.
   // The context essentially defines the state consisting of a set of
@@ -120,8 +120,18 @@ message UpdateContextResponse {
 
 
 message RunScenarioRequest {
+  oneof sum {
+    RunScenarioStart start = 1;
+    RunScenarioCancel cancel = 2;
+  }
+}
+
+message RunScenarioStart {
   int64 context_id = 1;
   Identifier scenario_id = 2;
+}
+
+message RunScenarioCancel {
 }
 
 //
@@ -319,6 +329,7 @@ message ScenarioError {
     ContractDoesNotImplementRequiringInterface contract_does_not_implement_requiring_interface = 36;
     DisclosedContractKeyHashingError disclosed_contract_key_hashing_error = 39;
     int64 evaluationTimeout = 40;
+    Empty cancelledByRequest = 41;
   }
 }
 

@@ -68,10 +68,11 @@ class DecodeV1Spec
 
   "The entries of builtinFunctionInfos correspond to Protobuf DamlLf1.BuiltinFunction" in {
 
-    (Set(DamlLf1.BuiltinFunction.UNRECOGNIZED) ++ DecodeV1.builtinFunctionInfos.map(
-      _.proto
-    )) shouldBe
-      DamlLf1.BuiltinFunction.values().toSet
+    val s1 = Set(DamlLf1.BuiltinFunction.UNRECOGNIZED) ++ DecodeV1.builtinFunctionInfos.map(_.proto)
+    val s2 = DamlLf1.BuiltinFunction.values().toSet
+    (s1 -- s2) shouldBe Set.empty
+    (s2 -- s1) shouldBe Set.empty
+
   }
 
   private[this] val dummyModuleStr = "dummyModule"
@@ -430,7 +431,7 @@ class DecodeV1Spec
         DamlLf1.BuiltinFunction.MUL_DECIMAL,
         "6",
         Ast.ETyApp(
-          Ast.ETyApp(Ast.ETyApp(Ast.EBuiltin(Ast.BMulNumeric), TDecimalScale), TDecimalScale),
+          Ast.ETyApp(Ast.ETyApp(Ast.EBuiltin(Ast.BMulNumericLegacy), TDecimalScale), TDecimalScale),
           TDecimalScale,
         ),
       ),
@@ -438,7 +439,7 @@ class DecodeV1Spec
         DamlLf1.BuiltinFunction.DIV_DECIMAL,
         "6",
         Ast.ETyApp(
-          Ast.ETyApp(Ast.ETyApp(Ast.EBuiltin(Ast.BDivNumeric), TDecimalScale), TDecimalScale),
+          Ast.ETyApp(Ast.ETyApp(Ast.EBuiltin(Ast.BDivNumericLegacy), TDecimalScale), TDecimalScale),
           TDecimalScale,
         ),
       ),
@@ -467,12 +468,12 @@ class DecodeV1Spec
       (
         DamlLf1.BuiltinFunction.TEXT_TO_DECIMAL,
         "6",
-        Ast.ETyApp(Ast.EBuiltin(Ast.BTextToNumeric), TDecimalScale),
+        Ast.ETyApp(Ast.EBuiltin(Ast.BTextToNumericLegacy), TDecimalScale),
       ),
       (
         DamlLf1.BuiltinFunction.INT64_TO_DECIMAL,
         "6",
-        Ast.ETyApp(Ast.EBuiltin(Ast.BInt64ToNumeric), TDecimalScale),
+        Ast.ETyApp(Ast.EBuiltin(Ast.BInt64ToNumericLegacy), TDecimalScale),
       ),
       (
         DamlLf1.BuiltinFunction.DECIMAL_TO_INT64,
@@ -486,12 +487,12 @@ class DecodeV1Spec
       "numeric builtins" -> "expected output",
       DamlLf1.BuiltinFunction.ADD_NUMERIC -> Ast.EBuiltin(Ast.BAddNumeric),
       DamlLf1.BuiltinFunction.SUB_NUMERIC -> Ast.EBuiltin(Ast.BSubNumeric),
-      DamlLf1.BuiltinFunction.MUL_NUMERIC -> Ast.EBuiltin(Ast.BMulNumeric),
-      DamlLf1.BuiltinFunction.DIV_NUMERIC -> Ast.EBuiltin(Ast.BDivNumeric),
+      DamlLf1.BuiltinFunction.MUL_NUMERIC_LEGACY -> Ast.EBuiltin(Ast.BMulNumericLegacy),
+      DamlLf1.BuiltinFunction.DIV_NUMERIC_LEGACY -> Ast.EBuiltin(Ast.BDivNumericLegacy),
       DamlLf1.BuiltinFunction.ROUND_NUMERIC -> Ast.EBuiltin(Ast.BRoundNumeric),
       DamlLf1.BuiltinFunction.NUMERIC_TO_TEXT -> Ast.EBuiltin(Ast.BNumericToText),
-      DamlLf1.BuiltinFunction.TEXT_TO_NUMERIC -> Ast.EBuiltin(Ast.BTextToNumeric),
-      DamlLf1.BuiltinFunction.INT64_TO_NUMERIC -> Ast.EBuiltin(Ast.BInt64ToNumeric),
+      DamlLf1.BuiltinFunction.TEXT_TO_NUMERIC_LEGACY -> Ast.EBuiltin(Ast.BTextToNumericLegacy),
+      DamlLf1.BuiltinFunction.INT64_TO_NUMERIC_LEGACY -> Ast.EBuiltin(Ast.BInt64ToNumericLegacy),
       DamlLf1.BuiltinFunction.NUMERIC_TO_INT64 -> Ast.EBuiltin(Ast.BNumericToInt64),
     )
 
@@ -816,8 +817,8 @@ class DecodeV1Spec
           Ast.EBuiltin(Ast.BDivBigNumeric),
         DamlLf1.BuiltinFunction.NUMERIC_TO_BIGNUMERIC ->
           Ast.EBuiltin(Ast.BNumericToBigNumeric),
-        DamlLf1.BuiltinFunction.BIGNUMERIC_TO_NUMERIC ->
-          Ast.EBuiltin(Ast.BBigNumericToNumeric),
+        DamlLf1.BuiltinFunction.BIGNUMERIC_TO_NUMERIC_LEGACY ->
+          Ast.EBuiltin(Ast.BBigNumericToNumericLegacy),
         DamlLf1.BuiltinFunction.BIGNUMERIC_TO_TEXT ->
           Ast.EBuiltin(Ast.BBigNumericToText),
       )
@@ -1637,7 +1638,11 @@ class DecodeV1Spec
       }
     }
 
-    "reject choice with observers if 1.7 < lf version < 1.11" in { // TODO #15882 add similar test for choice authority version support
+    // TODO: https://github.com/digital-asset/daml/issues/15882
+    // -- When choice authority encode/decode has been implemented,
+    // -- test that we reject explicit choice authorizers prior to the feature version.
+
+    "reject choice with observers if 1.7 < lf version < 1.11" in {
       val protoChoiceWithoutObservers = DamlLf1.TemplateChoice
         .newBuilder()
         .setNameInternedStr(0)

@@ -11,17 +11,14 @@ import akka.http.scaladsl.settings.ServerSettings
 import akka.util.ByteString
 import com.daml.buildinfo.BuildInfo
 import com.daml.ledger.api.domain
-import com.daml.ledger.api.testing.utils.{AkkaBeforeAndAfterAll, SuiteResourceManagementAroundAll}
+import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
+import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.daml.ledger.client.LedgerClient
-import com.daml.ledger.client.configuration.{
-  CommandClientConfiguration,
-  LedgerClientConfiguration,
-  LedgerIdRequirement,
-}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.UserId
 import com.daml.navigator.config.{Arguments, Config}
-import com.daml.platform.sandbox.fixture.SandboxFixture
+import com.daml.lf.integrationtest.CantonFixture
+import com.daml.platform.services.time.TimeProviderType
 import org.scalatest._
 import org.scalatest.freespec.AsyncFreeSpec
 import org.scalatest.matchers.should.Matchers
@@ -35,11 +32,18 @@ import scala.concurrent.duration._
 
 class IntegrationTest
     extends AsyncFreeSpec
-    with SandboxFixture
-    with AkkaBeforeAndAfterAll
+    with CantonFixture
     with SuiteResourceManagementAroundAll
     with Matchers {
   self: Suite =>
+
+  override protected def authSecret = None
+  override protected def darFiles = List()
+  override protected def devMode = false
+  override protected def nParticipants = 1
+  override protected def timeProviderType = TimeProviderType.WallClock
+  override protected def tlsEnable = false
+  override protected def applicationId: ApplicationId = ApplicationId("navigator-backend")
 
   private val logger = LoggerFactory.getLogger(getClass)
 
@@ -49,7 +53,7 @@ class IntegrationTest
     import scala.jdk.FutureConverters
     val args = Arguments(
       port = 0,
-      participantPort = serverPort.value,
+      participantPort = suiteResource.value.head.value,
       enableUserManagement = userMgmt,
     )
     val sys = ActorSystem(s"navigator-${UUID.randomUUID().toString}")
@@ -68,14 +72,6 @@ class IntegrationTest
       .newServerAt("localhost", 0)
       .withSettings(ServerSettings(system).withTransparentHeadRequests(true))
       .bind(backend.getRoute(system, args, graphQL, info, getAppState))
-    val clientF = LedgerClient(
-      channel,
-      LedgerClientConfiguration(
-        applicationId = "foobar",
-        LedgerIdRequirement.none,
-        commandClient = CommandClientConfiguration.default,
-      ),
-    )
 
     // TODO https://github.com/digital-asset/daml/issues/12663 participant user management: Emulating no-pagination
     def listAllUsers(client: LedgerClient) =
@@ -93,7 +89,7 @@ class IntegrationTest
     import FutureConverters._
     for {
       binding <- bindingF
-      client <- clientF
+      client <- defaultLedgerClient()
       uri = Uri.from(
         scheme = "http",
         host = binding.localAddress.getHostName,
@@ -113,7 +109,9 @@ class IntegrationTest
     } yield a
   }
 
-  private def okSessionBody(expectedBody: String)(implicit uri: Uri): Future[Assertion] = {
+  private def okSessionBody(expectedBody: String, useRegex: Boolean = false)(implicit
+      uri: Uri
+  ): Future[Assertion] = {
     RetryStrategy.constant(20, 1.second) { case (_, _) =>
       for {
         resp <- Http().singleRequest(
@@ -123,9 +121,11 @@ class IntegrationTest
           .runFold(ByteString.empty)((b, a) => b ++ a)
           .map(_.utf8String)
         _ = resp.status shouldBe StatusCodes.OK
-      } yield {
-        respBody shouldBe expectedBody
-      }
+      } yield
+        if (useRegex)
+          (respBody should fullyMatch regex expectedBody.r)
+        else
+          (respBody shouldBe expectedBody)
     }
   }
 
@@ -164,10 +164,14 @@ class IntegrationTest
     "picks up newly allocated parties" in withNavigator(userMgmt = false) {
       implicit uri => implicit client =>
         for {
-          _ <- okSessionBody("""{"method":{"type":"select","users":[]},"type":"sign-in"}""")
+          _ <- okSessionBody(
+            """\{"method":\{"type":"select","users":\["participant0::[a-f0-9]+"\]\},"type":"sign-in"\}""",
+            true,
+          )
           _ <- allocateParty("display-name")
           _ <- okSessionBody(
-            """{"method":{"type":"select","users":["display-name"]},"type":"sign-in"}"""
+            """\{"method":\{"type":"select","users":\["participant0::[a-f0-9]+","display-name"\]\},"type":"sign-in"\}""",
+            true,
           )
         } yield succeed
     }

@@ -429,13 +429,21 @@ object Ast {
   // Numeric arithmetic
   final case object BAddNumeric extends BuiltinFunction // :  ∀s. Numeric s → Numeric s → Numeric s
   final case object BSubNumeric extends BuiltinFunction // :  ∀s. Numeric s → Numeric s → Numeric s
+  final case object BMulNumericLegacy
+      extends BuiltinFunction // :  ∀s1 s2 s. Numeric s1 → Numeric s2 → Numeric s
   final case object BMulNumeric
+      extends BuiltinFunction // :  ∀s1 s2 s. Numeric s → Numeric s1 → Numeric s2 → Numeric s
+  final case object BDivNumericLegacy
       extends BuiltinFunction // :  ∀s1 s2 s. Numeric s1 → Numeric s2 → Numeric s
   final case object BDivNumeric
-      extends BuiltinFunction // :  ∀s1 s2 s. Numeric s1 → Numeric s2 → Numeric s
+      extends BuiltinFunction // :  ∀s1 s2 s.  Numeric s → Numeric s1 → Numeric s2 → Numeric s
   final case object BRoundNumeric extends BuiltinFunction // :  ∀s. Integer → Numeric s → Numeric s
-  final case object BCastNumeric extends BuiltinFunction // : ∀s1 s2. Numeric s1 → Numeric s2
-  final case object BShiftNumeric extends BuiltinFunction // : ∀s1 s2. Numeric s1 → Numeric s2
+  final case object BCastNumericLegacy extends BuiltinFunction // : ∀s1 s2. Numeric s1 → Numeric s2
+  final case object BCastNumeric
+      extends BuiltinFunction // : ∀s1 s2.  Numeric s → Numeric s1 → Numeric s2
+  final case object BShiftNumericLegacy extends BuiltinFunction // : ∀s1 s2. Numeric s1 → Numeric s2
+  final case object BShiftNumeric
+      extends BuiltinFunction // : ∀s1 s2.  Numeric s → Numeric s1 → Numeric s2
 
   // Int64 arithmetic
   final case object BAddInt64 extends BuiltinFunction // : Int64 → Int64 → Int64
@@ -446,7 +454,8 @@ object Ast {
   final case object BExpInt64 extends BuiltinFunction // : Int64 → Int64 → Int64
 
   // Conversions
-  final case object BInt64ToNumeric extends BuiltinFunction // : ∀s. Int64 → Numeric s
+  final case object BInt64ToNumericLegacy extends BuiltinFunction // : ∀s. Int64 → Numeric s
+  final case object BInt64ToNumeric extends BuiltinFunction // : ∀s.  Numeric s → Int64 → Numeric s
   final case object BNumericToInt64 extends BuiltinFunction // : ∀s. Numeric s → Int64
   final case object BDateToUnixDays extends BuiltinFunction // : Date -> Int64
   final case object BUnixDaysToDate extends BuiltinFunction // : Int64 -> Date
@@ -494,7 +503,10 @@ object Ast {
   final case object BCodePointsToText extends BuiltinFunction // : [Int64] -> Text
   final case object BTextToParty extends BuiltinFunction // : Text -> Optional Party
   final case object BTextToInt64 extends BuiltinFunction // : Text -> Optional Int64
-  final case object BTextToNumeric extends BuiltinFunction // :  ∀s. Text -> Optional (Numeric s)
+  final case object BTextToNumericLegacy
+      extends BuiltinFunction // :  ∀s. Text -> Optional (Numeric s)
+  final case object BTextToNumeric
+      extends BuiltinFunction // :  ∀s.  Numeric s → Text -> Optional (Numeric s)
   final case object BTextToCodePoints extends BuiltinFunction // : Text -> List Int64
 
   final case object BSHA256Text extends BuiltinFunction // : Text -> Text
@@ -537,22 +549,15 @@ object Ast {
       extends BuiltinFunction // : Int64 -> RoundingMode → BigNumeric → BigNumeric → BigNumeric s
   final case object BShiftRightBigNumeric
       extends BuiltinFunction // : Int64 → BigNumeric → BigNumeric
-  final case object BBigNumericToNumeric extends BuiltinFunction // :  ∀s. BigNumeric → Numeric s
+  final case object BBigNumericToNumericLegacy
+      extends BuiltinFunction // :  ∀s. BigNumeric → Numeric s
+  final case object BBigNumericToNumeric
+      extends BuiltinFunction // :  ∀s.  Numeric s → BigNumeric → Numeric s
   final case object BNumericToBigNumeric extends BuiltinFunction // :  ∀s. Numeric s → BigNumeric
   final case object BBigNumericToText extends BuiltinFunction // : BigNumeric → Text
 
   // TypeRep
   final case object BTypeRepTyConName extends BuiltinFunction // : TypeRep → Optional Text
-
-  // Unstable Text Primitives
-  final case object BTextToUpper extends BuiltinFunction // Text → Text
-  final case object BTextToLower extends BuiltinFunction // : Text → Text
-  final case object BTextSlice extends BuiltinFunction // : Int64 → Int64 → Text → Text
-  final case object BTextSliceIndex extends BuiltinFunction // : Text → Text → Optional Int64
-  final case object BTextContainsOnly extends BuiltinFunction // : Text → Text → Bool
-  final case object BTextReplicate extends BuiltinFunction // : Int64 → Text → Text
-  final case object BTextSplitOn extends BuiltinFunction // : Text → Text → List Text
-  final case object BTextIntercalate extends BuiltinFunction // : Text → List Text → Text
 
   final case class EExperimental(name: String, typ: Type) extends Expr
 

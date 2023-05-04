@@ -8,7 +8,7 @@ import com.daml.ledger.api.domain
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.engine.script.ledgerinteraction.ScriptTimeMode
-import com.daml.lf.integrationtest.CantonFixture
+import com.daml.lf.integrationtest._
 import com.daml.lf.value.Value
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
@@ -21,7 +21,6 @@ final class AuthIT
     with AbstractScriptTest
     with Matchers
     with SuiteResourceManagementAroundAll {
-  import CantonFixture._
   import AbstractScriptTest._
 
   override protected lazy val authSecret = Some("secret")
@@ -35,8 +34,8 @@ final class AuthIT
     "auth" should {
       "create and accept Proposal" in {
         for {
-          adminClient <- defaultLedgerClient(getToken(adminUserId))
-          userId = Ref.UserId.assertFromString(freshUserId())
+          adminClient <- defaultLedgerClient(config.adminToken)
+          userId = Ref.UserId.assertFromString(CantonFixture.freshUserId())
           partyDetails <- Future.sequence(
             List.fill(2)(adminClient.partyManagementClient.allocateParty(None, None))
           )
@@ -45,13 +44,13 @@ final class AuthIT
           rights = parties.map(domain.UserRight.CanActAs(_))
           _ <- adminClient.userManagementClient.createUser(user, rights)
           // we double check authentification is on
-          wrongToken = getToken(userId, Some("not secret"))
+          wrongToken = CantonRunner.getToken(userId, Some("not secret"))
           err <- scriptClients(token = wrongToken).transform {
             case Failure(err) => Success(err)
             case Success(_) => Failure(new Exception("unexpected success"))
           }
           _ = info(s"client creation with wrong token fails with $err")
-          goodToken = getToken(userId)
+          goodToken = config.getToken(userId)
           clients <- scriptClients(token = goodToken)
           _ = info(s"client creation with valid token succeeds")
           _ <- run(

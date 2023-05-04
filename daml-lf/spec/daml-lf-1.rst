@@ -149,10 +149,10 @@ Version: 1.7
     - add `NUMERIC` primitive type
     - add `numeric` primitive literal
     - add numeric builtins, namely `ADD_NUMERIC`, `SUB_NUMERIC`,
-      `MUL_NUMERIC`, `DIV_NUMERIC`, `ROUND_NUMERIC`, `CAST_NUMERIC`,
-      `SHIFT_NUMERIC`, `LEQ_NUMERIC`, `LESS_NUMERIC`, `GEQ_NUMERIC`,
-      `GREATER_NUMERIC`, `TEXT_TO_NUMERIC`, `NUMERIC_TO_TEXT`,
-      `INT64_TO_NUMERIC`, `NUMERIC_TO_INT64`, `EQUAL_NUMERIC`
+      `MUL_NUMERIC_LEGACY`, `DIV_NUMERIC_LEGACY`, `ROUND_NUMERIC`, `CAST_NUMERIC_LEGACY`,
+      `SHIFT_NUMERIC_LEGACY`, `LEQ_NUMERIC`, `LESS_NUMERIC`, `GEQ_NUMERIC`,
+      `GREATER_NUMERIC`, `TEXT_TO_NUMERIC_LEGACY`, `NUMERIC_TO_TEXT`,
+      `INT64_TO_DECIMAL_LEGACY`, `NUMERIC_TO_INT64`, `EQUAL_NUMERIC`
 
   + **Drop** support for Decimal type. Use Numeric of scale 10 instead.
 
@@ -283,6 +283,9 @@ Version: 1.15
 
 Version: 1.dev (development)
 ............................
+
+.. TODO: https://github.com/digital-asset/daml/issues/15882
+..   -- update for choice authorizers
 
 Abstract syntax
 ^^^^^^^^^^^^^^^
@@ -4113,7 +4116,7 @@ Numeric functions
   inputs and the output is given by the type parameter `α`.  Throws an
   ``ArithmeticError`` exception in case of overflow.
 
-* ``MUL_NUMERIC : ∀ (α₁ α₂ α : nat) . 'Numeric' α₁ → 'Numeric' α₂ → 'Numeric' α``
+* ``MUL_NUMERIC_LEGACY : ∀ (α₁ α₂ α : nat) . 'Numeric' α₁ → 'Numeric' α₂ → 'Numeric' α``
 
   Multiplies the two numerics and rounds the result to the closest
   multiple of ``10⁻ᵅ`` using `banker's rounding convention
@@ -4123,7 +4126,7 @@ Numeric functions
   ``ArithmeticError`` exception in case of overflow.
 
 
-* ``DIV_NUMERIC : ∀ (α₁ α₂ α : nat) . 'Numeric' α₁ → 'Numeric' α₂ → 'Numeric' α``
+* ``DIV_NUMERIC_LEGACY : ∀ (α₁ α₂ α : nat) . 'Numeric' α₁ → 'Numeric' α₂ → 'Numeric' α``
 
   Divides the first decimal by the second one and rounds the result to
   the closest multiple of ``10⁻ᵅ`` using `banker's rounding convention
@@ -4133,13 +4136,13 @@ Numeric functions
   the output, respectively.  Throws an ``ArithmeticError`` exception
   if the second argument is ``0.0`` or if the computation overflow.
 
-* ``CAST_NUMERIC : ∀ (α₁, α₂: nat) . 'Numeric' α₁ → 'Numeric' α₂``
+* ``CAST_NUMERIC_LEGACY : ∀ (α₁, α₂: nat) . 'Numeric' α₁ → 'Numeric' α₂``
 
   Converts a decimal of scale `α₁` to a decimal scale `α₂` while
   keeping the value the same. Throws an ``ArithmeticError`` exception
   in case of overflow or precision loss.
 
-* ``SHIFT_NUMERIC : ∀ (α₁, α₂: nat) . 'Numeric' α₁ → 'Numeric' α₂``
+* ``SHIFT_NUMERIC_LEGACY : ∀ (α₁, α₂: nat) . 'Numeric' α₁ → 'Numeric' α₂``
 
   Converts a decimal of scale `α₁` to a decimal scale `α₂` to another
   by shifting the decimal point. Thus the output will be equal to the input
@@ -4182,7 +4185,7 @@ Numeric functions
   Returns the numeric string representation of the numeric.  The scale
   of the input is given by the type parameter `α`.
 
-* ``TEXT_TO_NUMERIC : ∀ (α : nat) .'Text' → 'Optional' 'Numeric' α``
+* ``TEXT_TO_NUMERIC_LEGACY : ∀ (α : nat) .'Text' → 'Optional' 'Numeric' α``
 
   Given a string representation of a numeric returns the numeric
   wrapped in ``Some``. If the input does not match the regexp
@@ -4279,7 +4282,7 @@ BigNumeric functions
 
   [*Available in version ≥ 1.13*]
 
-* ``'BIGNUMERIC_TO_NUMERIC' : ∀ (α : nat). 'BigNumeric'  → 'Numeric' α``
+* ``'BIGNUMERIC_TO_NUMERIC_LEGACY' : ∀ (α : nat). 'BigNumeric'  → 'Numeric' α``
 
   Converts the ``BigNumeric`` to a ``Numeric α`` value with scale
   ``α``.  Throws an ``ArithmeticError`` in case the result cannot be
@@ -4778,7 +4781,7 @@ Type Representation function
 Conversions functions
 ~~~~~~~~~~~~~~~~~~~~~
 
-* ``INT64_TO_NUMERIC : ∀ (α : nat) . 'Int64' → 'Numeric' α``
+* ``INT64_TO_DECIMAL_LEGACY : ∀ (α : nat) . 'Int64' → 'Numeric' α``
 
   Returns a numeric representation of the integer.  The scale of the
   output and the output is given by the type parameter `α`.  Throws an
@@ -5105,8 +5108,8 @@ On the one hand, in case of Daml-LF 1.6 archive:
 
   + ``ADD_DECIMAL`` message is translated to ``(ADD_NUMERIC @10)``
   + ``SUB_DECIMAL`` message is translated to ``(SUB_NUMERIC @10)``
-  + ``MUL_DECIMAL`` message is translated to ``(MUL_NUMERIC @10)``
-  + ``DIV_DECIMAL`` message is translated to ``(DIV_NUMERIC @10)``
+  + ``MUL_DECIMAL`` message is translated to ``(MUL_NUMERIC_LEGACY @10)``
+  + ``DIV_DECIMAL`` message is translated to ``(DIV_NUMERIC_LEGACY @10)``
   + ``ROUND_DECIMAL`` message is translated to ``(ROUND_NUMERIC @10)``
   + ``LESS_EQ_DECIMAL`` message is translated to ``(LESS_EQ_NUMERIC @10)``
   + ``GREATER_EQ_DECIMAL`` message is translated to ``(GREATER_EQ_NUMERIC @10)``
@@ -5115,8 +5118,8 @@ On the one hand, in case of Daml-LF 1.6 archive:
   + ``GREATER_DECIMAL`` message is translated to ``(GREATER_NUMERIC @10)``
   + ``EQUAL_DECIMAL`` message is translated to ``(EQUAL_NUMERIC @10)``
   + ``DECIMAL_TO_TEXT`` message is translated to ``(NUMERIC_TO_TEXT @10)``
-  + ``TEXT_TO_DECIMAL`` message is translated to ``(TEXT_TO_NUMERIC @10)``  [*Available in versions >= 1.5*]
-  + ``INT64_TO_DECIMAL`` message is translated to ``(INT64_TO_NUMERIC @10)``
+  + ``TEXT_TO_DECIMAL`` message is translated to ``(TEXT_TO_NUMERIC_LEGACY @10)``  [*Available in versions >= 1.5*]
+  + ``INT64_TO_DECIMAL`` message is translated to ``(INT64_TO_NUMERIC_LEGACY @10)``
   + ``DECIMAL_TO_INT64`` message is translated to ``(NUMERIC_TO_INT64 @10)``
 
 - Numeric types, literals and builtins cannot be referred directly.
@@ -5235,7 +5238,7 @@ program using:
 - any of the builtins ``SCALE_BIGNUMERIC``, ``PRECISION_BIGNUMERIC``,
   ``ADD_BIGNUMERIC``, ``SUB_BIGNUMERIC``, ``MUL_BIGNUMERIC``,
   ``DIV_BIGNUMERIC``, ``SHIFT_RIGHT_BIGNUMERIC``,
-  ``BIGNUMERIC_TO_NUMERIC``, ``NUMERIC_TO_BIGNUMERIC``,
+  ``BIGNUMERIC_TO_NUMERIC_LEGACY``, ``NUMERIC_TO_BIGNUMERIC``,
   ``BIGNUMERIC_TO_TEXT``.
 
 Exception
@@ -5252,8 +5255,6 @@ program exception using:
 - ``ToAnyException``, ``FromAnyException``, and ``Throw`` expressions,
 - ``TryCatch`` update,
 - ``ANY_EXCEPTION_MESSAGE`` builtin functions.
-
-
 
 .. Local Variables:
 .. eval: (flyspell-mode 1)

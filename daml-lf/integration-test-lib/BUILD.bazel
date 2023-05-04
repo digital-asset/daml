@@ -10,6 +10,11 @@ load(
 da_scala_library(
     name = "integration-test-lib",
     srcs = glob(["src/main/**/*.scala"]),
+    data = [
+        ":canton-dev_deploy.jar",
+        ":canton_deploy.jar",
+        "//test-common/test-certificates",
+    ],
     scala_deps = [
         "@maven//:com_typesafe_akka_akka_stream",
         "@maven//:io_spray_spray_json",
@@ -18,11 +23,7 @@ da_scala_library(
         "@maven//:org_scalaz_scalaz_core",
     ],
     scalacopts = lf_scalacopts_stricter,
-    visibility = [
-        "//daml-script:__subpackages__",
-        "//language-support:__subpackages__",
-        "//triggers:__subpackages__",
-    ],
+    visibility = ["//visibility:public"],
     deps = [
         "//bazel_tools/runfiles:scala_runfiles",
         "//daml-lf/archive:daml_lf_archive_reader",
@@ -35,6 +36,7 @@ da_scala_library(
         "//ledger-api/testing-utils",
         "//ledger/ledger-api-auth",
         "//ledger/ledger-api-common",
+        "//libs-scala/fs-utils",
         "//libs-scala/jwt",
         "//libs-scala/ledger-resources",
         "//libs-scala/ports",
@@ -43,5 +45,29 @@ da_scala_library(
         "//libs-scala/scala-utils",
         "//libs-scala/timer-utils",
         "@maven//:org_scalatest_scalatest_compatible",
+    ],
+)
+
+java_binary(
+    name = "canton",
+    main_class = "com.digitalasset.canton.CantonCommunityApp",
+    visibility = ["//visibility:public"],
+    runtime_deps = [
+        # Do not sort
+        "@canton//:lib",
+    ],
+)
+
+# We replace engine and archive classes in canton
+# This should be used for testing only
+java_binary(
+    name = "canton-dev",
+    main_class = "com.digitalasset.canton.CantonCommunityApp",
+    visibility = ["//visibility:public"],
+    runtime_deps = [
+        # Do not sort
+        "//daml-lf/engine",
+        "//daml-lf/archive:daml_lf_archive_reader",
+        "@canton//:lib",
     ],
 )

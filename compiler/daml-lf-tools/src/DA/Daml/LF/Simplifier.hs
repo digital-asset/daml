@@ -109,17 +109,23 @@ safetyStep = \case
       BELessEqNumeric     -> Safe 2
       BEGreaterNumeric    -> Safe 2
       BEGreaterEqNumeric  -> Safe 2
-      BEAddNumeric        -> Safe 1
-      BESubNumeric        -> Safe 1
-      BEMulNumeric        -> Safe 1
-      BEDivNumeric        -> Safe 1
-      BEInt64ToNumeric    -> Safe 0
-      BENumericToInt64    -> Safe 0
-      BETextToNumeric   -> Safe 1
-      BENumericToText     -> Safe 1
-      BERoundNumeric      -> Safe 1
-      BECastNumeric       -> Safe 0
-      BEShiftNumeric      -> Safe 1
+      BEAddNumeric          -> Safe 1
+      BESubNumeric          -> Safe 1
+      BEMulNumericLegacy    -> Safe 1
+      BEMulNumeric          -> Safe 2
+      BEDivNumericLegacy    -> Safe 1
+      BEDivNumeric          -> Safe 2
+      BEInt64ToNumericLegacy -> Safe 0
+      BEInt64ToNumeric      -> Safe 1
+      BENumericToInt64      -> Safe 0
+      BETextToNumericLegacy -> Safe 1
+      BETextToNumeric       -> Safe 2
+      BENumericToText       -> Safe 1
+      BERoundNumeric        -> Safe 1
+      BECastNumericLegacy   -> Safe 0
+      BECastNumeric         -> Safe 1
+      BEShiftNumericLegacy  -> Safe 1
+      BEShiftNumeric        -> Safe 2
       BEScaleBigNumeric     -> Safe 1 -- doesn't fail
       BEPrecisionBigNumeric -> Safe 1 -- doesn't fail
       BEAddBigNumeric       -> Safe 1 -- fails on overflow
@@ -127,7 +133,8 @@ safetyStep = \case
       BEMulBigNumeric       -> Safe 1 -- fails on overflow
       BEDivBigNumeric       -> Safe 3 -- takes 4 arguments, fails on division by 0 and on rounding ("rounding unnecessary" mode)
       BEShiftRightBigNumeric     -> Safe 1 -- fails on overflow (shift too large)
-      BEBigNumericToNumeric -> Safe 0 -- fails on overflow (numeric doesn't fit)
+      BEBigNumericToNumericLegacy -> Safe 0 -- fails on overflow (numeric doesn't fit)
+      BEBigNumericToNumeric -> Safe 1 -- fails on overflow (numeric doesn't fit)
       BENumericToBigNumeric -> Safe 1 -- doesn't fail
       BEAddInt64          -> Safe 1
       BESubInt64          -> Safe 1
@@ -167,14 +174,6 @@ safetyStep = \case
       BETextToCodePoints -> Safe 1
       BECoerceContractId -> Safe 1
       BETypeRepTyConName -> Safe 1
-      BETextToUpper -> Safe 1
-      BETextToLower -> Safe 1
-      BETextSlice -> Safe 3
-      BETextSliceIndex -> Safe 2
-      BETextContainsOnly -> Safe 2
-      BETextReplicate -> Safe 2
-      BETextSplitOn -> Safe 2
-      BETextIntercalate -> Safe 2
 
   ERecConF _ fs -> minimum (Safe 0 : map snd fs)
   ERecProjF _ _ s -> s <> Safe 0

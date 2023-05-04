@@ -24,6 +24,8 @@ object SError {
   }
 
   /** Daml exceptions that should be reported to the user. */
-  final case class SErrorDamlException(error: interpretation.Error) extends SError
+  final case class SErrorDamlException(error: interpretation.Error) extends SError {
+    override def toString = productIterator.mkString(productPrefix + "(", ",", ")")
+  }
 
 }

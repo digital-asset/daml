@@ -1296,7 +1296,8 @@ runScenario scenarioService file ctxId scenario = do
     ShakeExtras {lspEnv} <- getShakeExtras
     let scenarioName = LF.qualObject scenario
     let vr = VRScenario file (LF.unExprValName scenarioName)
-    res <- liftIO $ SS.runLiveScenario scenarioService ctxId scenario $ vrProgressNotification lspEnv vr
+    logger <- actionLogger
+    res <- liftIO $ SS.runLiveScenario scenarioService ctxId logger scenario $ vrProgressNotification lspEnv vr
     pure (vr, res)
 
 runScript :: SS.Handle -> NormalizedFilePath -> SS.ContextId -> LF.ValueRef -> Action (VirtualResource, Either SS.Error SS.ScenarioResult)
@@ -1304,7 +1305,8 @@ runScript scenarioService file ctxId scenario = do
     ShakeExtras {lspEnv} <- getShakeExtras
     let scenarioName = LF.qualObject scenario
     let vr = VRScenario file (LF.unExprValName scenarioName)
-    res <- liftIO $ SS.runLiveScript scenarioService ctxId scenario $ vrProgressNotification lspEnv vr
+    logger <- actionLogger
+    res <- liftIO $ SS.runLiveScript scenarioService ctxId logger scenario $ vrProgressNotification lspEnv vr
     pure (vr, res)
 
 encodeModuleRule :: Options -> Rules ()
