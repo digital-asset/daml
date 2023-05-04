@@ -135,6 +135,7 @@ da_scala_test(
         "@maven//:org_scalacheck_scalacheck",
         "@maven//:org_scalaz_scalaz_core",
     ],
+    tags = ["cpu:4"],
     deps = [
         ":daml-lf-codegen-sample-app",
         ":daml-lf-codegen-sample-app-testing",
@@ -150,7 +151,6 @@ da_scala_test(
         "//ledger/participant-integration-api",
         "//libs-scala/ledger-resources",
         "//libs-scala/ports",
-        "//libs-scala/resources",
         "//observability/tracing",
     ],
 )

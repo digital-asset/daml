@@ -30,7 +30,7 @@ import com.daml.platform.services.time.TimeProviderType
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 
-trait SandboxTestLedger extends CantonFixture with SuiteResourceManagementAroundAll {
+trait TestLedger extends CantonFixture with SuiteResourceManagementAroundAll {
   self: Suite =>
 
   override protected def authSecret = None

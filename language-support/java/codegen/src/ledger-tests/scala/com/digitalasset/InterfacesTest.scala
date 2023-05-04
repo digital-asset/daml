@@ -7,12 +7,12 @@ import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.daml.ledger.javaapi.data.CreatedEvent
 import com.daml.ledger.javaapi.data.codegen.ContractCompanion
 import com.daml.ledger.resources.TestResourceContext
-import org.scalatest.flatspec.AsyncFlatSpec
+import org.scalatest.flatspec.AsyncFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 
-class Interfaces
-    extends AsyncFlatSpec
-    with SandboxTestLedger
+trait InterfacesTest
+    extends AsyncFlatSpecLike
+    with TestLedger
     with Matchers
     with TestResourceContext
     with SuiteResourceManagementAroundAll {
