@@ -46,7 +46,8 @@ final class LedgerExternalAction(client: LedgerClient)(implicit
 
           case NonFatal(reason) =>
             context.log.warn(
-              s"Ignoring create event submission failure: $event - reason: $reason"
+              s"Ignoring create event submission failure for $event",
+              reason,
             )
         }
         Behaviors.same
@@ -66,7 +67,8 @@ final class LedgerExternalAction(client: LedgerClient)(implicit
 
           case NonFatal(reason) =>
             context.log.warn(
-              s"Ignoring archive event submission failure: $event - reason: $reason"
+              s"Ignoring archive event submission failure for $event",
+              reason,
             )
         }
         Behaviors.same

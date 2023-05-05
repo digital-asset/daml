@@ -30,34 +30,36 @@ object LedgerProcess {
       config: TriggerSimulationConfig,
       applicationId: ApplicationId,
   ): Behavior[Message] = {
-    Behaviors.setup { context =>
-      val report = context.spawn(ReportingProcess.create(context.self), "reporting")
-      val ledgerApi = context.spawn(LedgerApiClient.create(client), "ledger-api")
-      val ledgerExternal =
-        context.spawn(new LedgerExternalAction(client).create(), "ledger-external-action")
-      val triggerRegistration =
-        context.spawn(
-          new LedgerRegistration(client).create(ledgerApi, report),
-          "trigger-registration",
-        )
+    Behaviors.logMessages {
+      Behaviors.setup { context =>
+        val report = context.spawn(ReportingProcess.create(context.self), "reporting")
+        val ledgerApi = context.spawn(LedgerApiClient.create(client), "ledger-api")
+        val ledgerExternal =
+          context.spawn(new LedgerExternalAction(client).create(), "ledger-external-action")
+        val triggerRegistration =
+          context.spawn(
+            new LedgerRegistration(client).create(ledgerApi, report),
+            "trigger-registration",
+          )
 
-      context.watch(report)
-      context.watch(ledgerApi)
-      context.watch(ledgerExternal)
-      context.watch(triggerRegistration)
+        context.watch(report)
+        context.watch(ledgerApi)
+        context.watch(ledgerExternal)
+        context.watch(triggerRegistration)
 
-      Behaviors.receiveMessage {
-        case TriggerRegistration(registration) =>
-          triggerRegistration ! registration
-          Behaviors.same
+        Behaviors.receiveMessage {
+          case TriggerRegistration(registration) =>
+            triggerRegistration ! registration
+            Behaviors.same
 
-        case GetTriggerACSDiff(request) =>
-          triggerRegistration ! request
-          Behaviors.same
+          case GetTriggerACSDiff(request) =>
+            triggerRegistration ! request
+            Behaviors.same
 
-        case ExternalAction(request) =>
-          ledgerExternal ! request
-          Behaviors.same
+          case ExternalAction(request) =>
+            ledgerExternal ! request
+            Behaviors.same
+        }
       }
     }
   }

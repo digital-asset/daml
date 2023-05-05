@@ -23,9 +23,11 @@ class CatAndFoodTriggerSimulation
 
   import CatAndFoodTriggerSimulation._
 
-  // For demonstration purposes, we only run for 30 seconds
+  // For demonstration purposes, we only run the simulation for 30 seconds
   override protected implicit lazy val simulationConfig: TriggerSimulationConfig =
     TriggerSimulationConfig(simulationDuration = 30.seconds)
+  // For demonstration purposes, we enable saving Canton logging
+  override protected val cantonFixtureDebugMode: Boolean = true
 
   override protected def triggerMultiProcessSimulation: Behavior[Unit] = {
     Behaviors.setup { context =>
@@ -38,7 +40,8 @@ class CatAndFoodTriggerSimulation
       val triggerFactory: TriggerProcessFactory =
         triggerProcessFactory(client, ledger, "Cats:feedingTrigger", actAs)
       // With a negative start state, Cats:feedingTrigger will have a behaviour that is dependent on Cat and Food contract generators
-      val trigger = context.spawn(triggerFactory.create(SValue.SInt64(-1)), "trigger")
+      val trigger1 = context.spawn(triggerFactory.create(SValue.SInt64(-1)), "trigger1")
+      val trigger2 = context.spawn(triggerFactory.create(SValue.SInt64(-1)), "trigger2")
       val workload =
         context.spawn(
           workloadProcess(ledger, actAs)(
@@ -52,10 +55,11 @@ class CatAndFoodTriggerSimulation
           "workload",
         )
       context.watch(ledger)
-      context.watch(trigger)
+      context.watch(trigger1)
+      context.watch(trigger2)
       context.watch(workload)
 
-      super.triggerMultiProcessSimulation
+      Behaviors.empty
     }
   }
 
