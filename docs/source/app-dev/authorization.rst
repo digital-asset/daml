@@ -14,6 +14,16 @@ This is not the case for participant nodes of :doc:`deployed ledgers </deploying
 They check for every Ledger API request whether the request contains an access token that is valid and sufficient to authorize the request.
 You thus need to add support for authorization using access token to your application to run it against a deployed ledger.
 
+For the
+
+.. note:: In case of mutual (two-way) TLS authentication, the Ledger API
+          client must present its certificate (in addition to an access token) to
+          the Ledger API server as part of the authentication process. The provided
+          certificate must be signed by a certificate authority (CA) trusted
+          by the Ledger API server. Note that the identity of the application
+          will not be proven by using this method, i.e. the `application_id` field in the request
+          is not necessarily correlated with the CN (Common Name) in the certificate.
+
 Introduction
 ************
 
@@ -42,6 +52,7 @@ The Daml ledger verifies the signature of the token to make sure it has not been
 and then checks that the token has not yet expired and that the privileges described in the token authorize the given Ledger API request.
 
 .. image:: ./images/Authentication.svg
+   :alt: A flowchart illustrating the process of authentication described in the two paragraphs immediately above.
 
 As shown above, using access tokens requires your application to attach them to every request.
 How to do that depends on the tool or library you use to interact with the Ledger API.

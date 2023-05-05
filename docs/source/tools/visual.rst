@@ -32,6 +32,7 @@ Running the above should produce an image which looks something like this:
 .. image:: images/quickstart.png
   :width: 30%
   :align: center
+  :alt: A visualization based on a a simple Iou transfer workflow, in the form of a flowchart.
 
 
 
@@ -57,3 +58,4 @@ Running the above should produce an image which looks something like this:
 .. image:: images/d3-visual.png
   :width: 30%
   :align: center
+  :alt: A visualization of a contract as a circular graph.

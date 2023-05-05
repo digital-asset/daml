@@ -46,8 +46,8 @@ You can run the JSON API alongside any ledger exposing the gRPC Ledger API you w
 
 .. code-block:: shell
 
-    daml new my_project --template quickstart-java
-    cd my_project
+    daml new my-project --template quickstart-java
+    cd my-project
     daml build
     daml sandbox --wall-clock-time --ledgerid MyLedger --dar ./.daml/dist/quickstart-0.0.1.dar
 
@@ -926,6 +926,12 @@ Contract Found HTTP Response
 Fetch Contract by Key
 *********************
 
+Show the currently active contract that matches a given key.
+
+The websocket endpoint `/v1/stream/fetch <#fetch-by-key-contracts-stream>`__ can
+be used to search multiple keys in the same request, or in place of iteratively
+invoking this endpoint to respond to changes on the ledger.
+
 HTTP Request
 ============
 
@@ -1018,6 +1024,10 @@ Get all Active Contracts Matching a Given Query
 ***********************************************
 
 List currently active contracts that match a given query.
+
+The websocket endpoint `/v1/stream/query <#contracts-query-stream>`__ can be
+used in place of iteratively invoking this endpoint to respond to changes on the
+ledger.
 
 HTTP Request
 ============
@@ -1883,6 +1893,10 @@ Contracts Query Stream
 List currently active contracts that match a given query, with
 continuous updates.
 
+Simpler use-cases that do not require continuous updates should use the simpler
+`/v1/query <#get-all-active-contracts-matching-a-given-query>`__ endpoint
+instead.
+
 ``application/json`` body must be sent first, formatted according to the
 :doc:`search-query-language`::
 
@@ -2085,6 +2099,10 @@ Fetch by Key Contracts Stream
 - Protocol: ``WebSocket``
 
 List currently active contracts that match one of the given ``{templateId, key}`` pairs, with continuous updates.
+
+Simpler use-cases that search for only a single key and do not require
+continuous updates should use the simpler
+`/v1/fetch <#fetch-contract-by-key>`__ endpoint instead.
 
 ``application/json`` body must be sent first, formatted according to the following rule:
 
