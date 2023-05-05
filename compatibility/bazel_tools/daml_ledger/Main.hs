@@ -6,6 +6,7 @@ module Main (main) where
 import Control.Applicative
 import Control.Exception
 import DA.Test.Process
+import DA.Test.FreePort
 import Data.Either.Extra
 import Data.Function ((&))
 import Data.List.Extra (replace)
@@ -46,7 +47,8 @@ withSandbox getTools mbSecret f =
               (tmpDir, _) <- getTempDir
               let portFile = tmpDir </> "portfile"
               devNull <- getDevNull
-              let secretArgs = concat [["-C", "canton.participants.sandbox.ledger-api.auth-services.0.type=unsafe-jwt-hmac-256", "-C", "canton.participants.sandbox.ledger-api.auth-services.0.secret=" <> secret] | Just secret <- [mbSecret]]
+              freePort <- getFreePort
+              let secretArgs = concat [["-C", "canton.participants.sandbox.ledger-api.port=" <> show freePort, "-C", "canton.participants.sandbox.ledger-api.auth-services.0.type=unsafe-jwt-hmac-256", "-C", "canton.participants.sandbox.ledger-api.auth-services.0.secret=" <> secret] | Just secret <- [mbSecret]]
               let args = map (tweakArg portFile) (sandboxArgs <> secretArgs)
               mask $ \unmask -> do
                   ph@(_, _, _, handle) <- createProcess (proc sandboxBinary args) { std_out = UseHandle devNull }
