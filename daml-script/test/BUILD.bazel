@@ -156,6 +156,7 @@ da_scala_library(
         "//ledger/ledger-api-common",
         "//libs-scala/ledger-resources",
         "//libs-scala/ports",
+        "//libs-scala/resources",
         "//libs-scala/scala-utils",
         "@maven//:org_scalatest_scalatest_compatible",
     ],
