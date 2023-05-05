@@ -377,8 +377,6 @@ tGetLedgerConfiguration withSandbox = testCase "tGetLedgerConfiguration" $ run w
     lid <- getLedgerIdentity
     xs <- getLedgerConfiguration lid
     Just (Right config) <- liftIO $ timeout 1 (takeStream xs)
-    -- TODO: Should we be updating the hardcoded value here, or changing the canton config to match it
-    -- essentially - where did the previous value come from?
     let expected = LedgerConfiguration {
             maxDeduplicationDuration = Duration {durationSeconds = 604800, durationNanos = 0}}
     liftIO $ assertEqual "config" expected config
