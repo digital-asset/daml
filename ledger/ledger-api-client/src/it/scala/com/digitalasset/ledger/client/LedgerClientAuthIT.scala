@@ -4,32 +4,25 @@
 package com.daml.ledger.client
 
 import com.daml.grpc.GrpcException
-import com.daml.ledger.api.domain
-import com.daml.ledger.api.testing.utils.{AkkaBeforeAndAfterAll, SuiteResourceManagementAroundEach}
+import com.daml.jwt.JwtSigner
+import com.daml.jwt.domain.DecodedJwt
+import com.daml.ledger.api.auth.AuthServiceJWTCodec
+import com.daml.ledger.api.auth.CustomDamlJWTPayload
 import com.daml.ledger.client.configuration.{
-  CommandClientConfiguration,
   LedgerClientConfiguration,
   LedgerIdRequirement,
+  CommandClientConfiguration,
 }
-import com.daml.ledger.runner.common.Config
-import com.daml.platform.sandbox.SandboxRequiringAuthorization
-import com.daml.platform.sandbox.fixture.SandboxFixture
+import com.daml.lf.integrationtest.CantonFixture
 import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
-import scalaz.syntax.tag._
 
-final class LedgerClientAuthIT
-    extends AsyncWordSpec
-    with Matchers
-    with Inside
-    with AkkaBeforeAndAfterAll
-    with SuiteResourceManagementAroundEach
-    with SandboxFixture
-    with SandboxRequiringAuthorization {
+final class LedgerClientAuthIT extends AsyncWordSpec with Matchers with Inside with CantonFixture {
 
-  private val LedgerId =
-    domain.LedgerId(s"${classOf[LedgerClientAuthIT].getSimpleName.toLowerCase}-ledger-id")
+  protected val jwtSecret: String = java.util.UUID.randomUUID.toString
+
+  override protected lazy val authSecret = Some(jwtSecret)
 
   private val ClientConfigurationWithoutToken = LedgerClientConfiguration(
     applicationId = classOf[LedgerClientAuthIT].getSimpleName,
@@ -38,11 +31,32 @@ final class LedgerClientAuthIT
     token = None,
   )
 
-  private val ClientConfiguration = ClientConfigurationWithoutToken.copy(
-    token = Some(toHeader(readOnlyToken("Read-only party")))
+  private val emptyToken = CustomDamlJWTPayload(
+    ledgerId = None,
+    participantId = None,
+    applicationId = None,
+    exp = None,
+    admin = false,
+    actAs = Nil,
+    readAs = Nil,
   )
 
-  override protected def config: Config = super.config.copy(ledgerId = LedgerId.unwrap)
+  private val ClientConfiguration = ClientConfigurationWithoutToken.copy(
+    token = Some(
+      JwtSigner.HMAC256
+        .sign(
+          DecodedJwt(
+            """{"alg": "HS256", "typ": "JWT"}""",
+            AuthServiceJWTCodec.compactPrint(emptyToken.copy(readAs = List("Alice")), false),
+          ),
+          jwtSecret,
+        )
+        .getOrElse(sys.error("Failed to generate token"))
+        .value
+    )
+  )
+
+  lazy val channel = config.channel(suiteResource.value.head)
 
   "the ledger client" when {
     "it has a read-only token" should {
@@ -50,7 +64,7 @@ final class LedgerClientAuthIT
         for {
           client <- LedgerClient(channel, ClientConfiguration)
         } yield {
-          client.ledgerId should be(LedgerId)
+          client.ledgerId should be(config.ledgerIds(0))
         }
       }
 
@@ -75,7 +89,7 @@ final class LedgerClientAuthIT
             .allocateParty(
               hint = Some(partyName),
               displayName = Some(partyName),
-              token = Some(toHeader(adminToken)),
+              token = config.adminToken,
             )
         } yield {
           allocatedParty.displayName should be(Some(partyName))

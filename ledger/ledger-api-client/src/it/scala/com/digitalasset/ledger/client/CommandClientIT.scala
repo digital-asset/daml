@@ -8,12 +8,9 @@ import java.util.concurrent.TimeUnit
 import akka.NotUsed
 import akka.stream.scaladsl.{Sink, Source}
 import com.daml.api.util.TimeProvider
+import com.daml.bazeltools.BazelRunfiles
 import com.daml.ledger.api.domain
-import com.daml.ledger.api.testing.utils.{
-  IsStatusException,
-  MockMessages,
-  SuiteResourceManagementAroundAll,
-}
+import com.daml.ledger.api.testing.utils.{IsStatusException, SuiteResourceManagementAroundAll}
 import com.daml.ledger.api.v1.command_completion_service.CommandCompletionServiceGrpc
 import com.daml.ledger.api.v1.command_submission_service.{
   CommandSubmissionServiceGrpc,
@@ -37,12 +34,12 @@ import com.daml.ledger.client.services.commands.{
   CompletionStreamElement,
 }
 import com.daml.ledger.client.services.testing.time.StaticTime
-import com.daml.ledger.runner.common.Config
-import com.daml.lf.crypto.Hash
+import com.daml.ledger.test.ModelTestDar
+import com.daml.lf.crypto
+import com.daml.lf.data.{Bytes, Ref}
+import com.daml.lf.integrationtest.{CantonFixture, TestCommands}
 import com.daml.lf.value.Value.ContractId
 import com.daml.platform.participant.util.ValueConversions._
-import com.daml.platform.sandbox.fixture.SandboxFixture
-import com.daml.platform.sandbox.services.TestCommands
 import com.daml.util.Ctx
 import com.google.rpc.code.Code
 import io.grpc.{Status, StatusRuntimeException}
@@ -58,14 +55,20 @@ import scala.concurrent.duration.FiniteDuration
 import scala.util.Success
 import scala.util.control.NonFatal
 
+import java.nio.file.Paths
+
 final class CommandClientIT
     extends AsyncWordSpec
     with TestCommands
-    with SandboxFixture
+    with CantonFixture
     with Matchers
     with SuiteResourceManagementAroundAll
     with TryValues
     with Inside {
+
+  protected def darFile = Paths.get(BazelRunfiles.rlocation(ModelTestDar.path))
+
+  override protected lazy val darFiles: List[java.nio.file.Path] = List(darFile)
 
   private val defaultCommandClientConfiguration =
     CommandClientConfiguration(
@@ -74,19 +77,26 @@ final class CommandClientIT
       defaultDeduplicationTime = Duration.ofSeconds(30),
     )
 
-  private val testLedgerId = domain.LedgerId("ledgerId")
-  private val testNotLedgerId = domain.LedgerId("hotdog")
+  private val testLedgerId = domain.LedgerId("participant0")
+  private val testNotLedgerId = domain.LedgerId(CantonFixture.freshName("hotdog"))
+
+  private lazy val channel = config.channel(suiteResource.value.head)
+  private lazy val defaultClient = defaultLedgerClient()
+  private def freshParty() = for {
+    client <- defaultClient
+    details <- client.partyManagementClient.allocateParty(Some(CantonFixture.freshParty()), None)
+  } yield details.party
 
   private def commandClientWithoutTime(
       ledgerId: domain.LedgerId,
-      applicationId: String = MockMessages.applicationId,
+      appId: String = applicationId.unwrap,
       configuration: CommandClientConfiguration = defaultCommandClientConfiguration,
   ): CommandClient =
     new CommandClient(
       CommandSubmissionServiceGrpc.stub(channel),
       CommandCompletionServiceGrpc.stub(channel),
       ledgerId,
-      applicationId,
+      appId,
       configuration,
     )
 
@@ -100,21 +110,30 @@ final class CommandClientIT
 
   private def commandClient(
       ledgerId: domain.LedgerId = testLedgerId,
-      applicationId: String = MockMessages.applicationId,
+      appId: String = applicationId.unwrap,
       configuration: CommandClientConfiguration = defaultCommandClientConfiguration,
   ): Future[CommandClient] =
     timeProvider(ledgerId)
-      .map(_ => commandClientWithoutTime(ledgerId, applicationId, configuration))
+      .map(_ =>
+        commandClientWithoutTime(appId = appId, ledgerId = ledgerId, configuration = configuration)
+      )
 
-  override protected def config: Config = super.config.copy(ledgerId = testLedgerId.unwrap)
-
-  private val submittingPartyList = List(MockMessages.party)
   private val LedgerBegin = LedgerOffset(Boundary(LEDGER_BEGIN))
 
-  private def submitRequest(commandId: String, individualCommands: Seq[Command]): SubmitRequest =
-    buildRequest(testLedgerId, commandId, individualCommands)
+  private def submitRequest(
+      commandId: String,
+      individualCommands: Seq[Command],
+      party: Ref.Party,
+  ): SubmitRequest =
+    buildRequest(
+      ledgerId = testLedgerId,
+      commandId = commandId,
+      commands = individualCommands,
+      applicationId = applicationId.unwrap,
+      party = party,
+    )
 
-  private def submitRequestWithId(commandId: String): SubmitRequest =
+  private def submitRequestWithId(commandId: String, party: Ref.Party) =
     submitRequest(
       commandId,
       List(
@@ -123,15 +142,16 @@ final class CommandClientIT
           Some(
             Record(
               Some(templateIds.dummy),
-              Seq(RecordField("operator", Option(MockMessages.party.asParty))),
+              Seq(RecordField("operator", Some(party.asParty))),
             )
           ),
         ).wrap
       ),
+      party,
     )
 
-  private def commandSubmissionWithId(commandId: String): CommandSubmission =
-    CommandSubmission(submitRequestWithId(commandId).getCommands)
+  private def commandSubmissionWithId(commandId: String, party: Ref.Party): CommandSubmission =
+    CommandSubmission(submitRequestWithId(commandId, party).getCommands)
 
   // Commands and completions can be read out of order. Since we use GRPC monocalls to send,
   // they can even be sent out of order.
@@ -177,12 +197,13 @@ final class CommandClientIT
     */
   private def readExpectedCommandIds(
       client: CommandClient,
+      party: Ref.Party,
       checkpoint: LedgerOffset,
       expected: Set[String],
       timeLimit: Span = 6.seconds,
   ): Future[(Set[String], Set[String])] =
     readExpectedElements(
-      client.completionSource(submittingPartyList, checkpoint).collect {
+      client.completionSource(List(party), checkpoint).collect {
         case CompletionStreamElement.CompletionElement(c, _) => c.commandId
       },
       expected,
@@ -221,7 +242,7 @@ final class CommandClientIT
       }
 
       "fail with the expected status on a ledger Id mismatch" in {
-        commandClientWithoutTime(testNotLedgerId)
+        commandClientWithoutTime(ledgerId = testNotLedgerId)
           .getCompletionEnd()
           .failed map IsStatusException(Status.NOT_FOUND)
       }
@@ -233,8 +254,9 @@ final class CommandClientIT
         val contexts = 1 to 10
 
         for {
+          party <- freshParty()
           client <- commandClient()
-          result <- Source(contexts.map(i => Ctx(i, commandSubmissionWithId(i.toString))))
+          result <- Source(contexts.map(i => Ctx(i, commandSubmissionWithId(i.toString, party))))
             .via(client.submissionFlow())
             .map(_.map(_.isSuccess))
             .runWith(Sink.seq)
@@ -244,21 +266,26 @@ final class CommandClientIT
       }
 
       "fail with the expected status on a ledger Id mismatch" in {
-        val aSubmission = commandSubmissionWithId("1")
-        val submission = aSubmission.copy(
-          commands = aSubmission.commands.update(_.ledgerId := testNotLedgerId.unwrap)
-        )
-        Source
-          .single(Ctx(1, submission))
-          .via(commandClientWithoutTime(testNotLedgerId).submissionFlow())
-          .runWith(Sink.head)
-          .map(err => IsStatusException(Status.NOT_FOUND)(err.value.failure.exception))
+
+        for {
+          party <- freshParty()
+          aSubmission = commandSubmissionWithId("1", party)
+          submission = aSubmission.copy(
+            commands = aSubmission.commands.update(_.ledgerId := testNotLedgerId.unwrap)
+          )
+          err <- Source
+            .single(Ctx(1, submission))
+            .via(commandClientWithoutTime(ledgerId = testNotLedgerId).submissionFlow())
+            .runWith(Sink.head)
+        } yield IsStatusException(Status.NOT_FOUND)(err.value.failure.exception)
+
       }
 
       "fail with INVALID REQUEST for empty application ids" in {
-        val request = submitRequestWithId("7000").update(_.commands.applicationId := "")
         val resF = for {
-          client <- commandClient(applicationId = "")
+          party <- freshParty()
+          request = submitRequestWithId("7000", party).update(_.commands.applicationId := "")
+          client <- commandClient(appId = "")
           res <- client.submitSingleCommand(request)
         } yield res
 
@@ -275,8 +302,9 @@ final class CommandClientIT
 
       "fail with INVALID REQUEST for empty application ids" in {
         val completionsF = for {
-          client <- commandClient(applicationId = "")
-          completionsSource = client.completionSource(submittingPartyList, LedgerBegin)
+          party <- freshParty()
+          client <- commandClient(appId = "")
+          completionsSource = client.completionSource(List(party), LedgerBegin)
           completions <- completionsSource.takeWithin(5.seconds).runWith(Sink.seq)
         } yield completions
 
@@ -289,10 +317,13 @@ final class CommandClientIT
       }
 
       "fail with the expected status on a ledger Id mismatch" in {
-        commandClientWithoutTime(testNotLedgerId)
-          .completionSource(submittingPartyList, LedgerBegin)
-          .runWith(Sink.head)
-          .failed map IsStatusException(Status.NOT_FOUND)
+        for {
+          party <- freshParty()
+          err <- commandClientWithoutTime(ledgerId = testNotLedgerId)
+            .completionSource(List(party), LedgerBegin)
+            .runWith(Sink.head)
+            .failed
+        } yield IsStatusException(Status.NOT_FOUND)(err)
       }
 
       "return completions of commands submitted before subscription if they are after the offset" in {
@@ -304,10 +335,11 @@ final class CommandClientIT
 
         // val for type inference
         val resultF = for {
+          party <- freshParty()
           client <- commandClient()
           checkpoint <- client.getCompletionEnd()
           submissionResults <- Source(
-            commandIds.map(i => Ctx(i, commandSubmissionWithId(i.toString)))
+            commandIds.map(i => Ctx(i, commandSubmissionWithId(i.toString, party)))
           )
             .flatMapMerge(10, randomDelay)
             .via(client.submissionFlow())
@@ -315,10 +347,8 @@ final class CommandClientIT
             .runWith(Sink.seq)
           _ = submissionResults.foreach(v => v shouldBe a[Success[_]])
 
-          result <- readExpectedCommandIds(client, checkpoint.getOffset, commandIdStrings)
-        } yield {
-          result
-        }
+          result <- readExpectedCommandIds(client, party, checkpoint.getOffset, commandIdStrings)
+        } yield result
 
         resultF map { case (seenCommandIds, remainingCommandIds) =>
           // N.B.: completions may include already-seen elements, and may be out of order
@@ -336,15 +366,17 @@ final class CommandClientIT
         val commandIdStrings = Set(commandIds.map(_.toString): _*)
 
         for {
+          party <- freshParty()
           client <- commandClient()
           checkpoint <- client.getCompletionEnd()
-          _ <- Source(commandIds.map(i => Ctx(i, commandSubmissionWithId(i.toString))))
+          _ <- Source(commandIds.map(i => Ctx(i, commandSubmissionWithId(i.toString, party))))
             .flatMapMerge(10, randomDelay)
             .via(client.submissionFlow())
             .map(_.context)
             .runWith(Sink.ignore)
           (seenCommandIds, remainingCommandIds) <- readExpectedCommandIds(
             client,
+            party,
             checkpoint.getOffset,
             commandIdStrings,
           )
@@ -359,149 +391,164 @@ final class CommandClientIT
 
       "return the contexts for commands as they are completed" in {
         val contexts = 6001.to(6010)
-
         for {
+          party <- freshParty()
           client <- commandClient()
-          tracker <- client.trackCommands[Int](submittingPartyList)
-          result <- Source(contexts.map(i => Ctx(i, commandSubmissionWithId(i.toString))))
+          tracker <- client.trackCommands[Int](List(party))
+          result <- Source(contexts.map(i => Ctx(i, commandSubmissionWithId(i.toString, party))))
             .via(tracker)
             .map(_.context)
             .runWith(Sink.seq)
-        } yield {
-          result should contain theSameElementsAs contexts
-        }
+        } yield result should contain theSameElementsAs contexts
       }
 
       "complete the stream when there's nothing to track" in {
         for {
+          party <- freshParty()
           client <- commandClient()
-          tracker <- client.trackCommands[Int](submittingPartyList)
+          tracker <- client.trackCommands[Int](List(party))
           _ <- Source.empty[Ctx[Int, CommandSubmission]].via(tracker).runWith(Sink.ignore)
-        } yield {
-          succeed
-        }
+        } yield succeed
       }
 
       "not accept commands with missing args, return INVALID_ARGUMENT" in {
-        val expectedMessageSubstring =
-          "Expecting 1 field for record"
-        val commandWithInvalidArgs =
-          submitRequest(
-            "Creating_contracts_for_invalid_arg_test",
-            List(CreateCommand(Some(templateIds.dummy), Some(Record())).wrap),
+        val expectedMessageSubstring = "Expecting 1 field for record"
+        for {
+          party <- freshParty()
+          commandWithInvalidArgs =
+            submitRequest(
+              "Creating_contracts_for_invalid_arg_test",
+              List(CreateCommand(Some(templateIds.dummy), Some(Record())).wrap),
+              party,
+            )
+          a <- assertCommandFailsWithCode(
+            commandWithInvalidArgs,
+            Code.INVALID_ARGUMENT,
+            expectedMessageSubstring,
           )
-
-        assertCommandFailsWithCode(
-          commandWithInvalidArgs,
-          Code.INVALID_ARGUMENT,
-          expectedMessageSubstring,
-        )
+        } yield a
       }
 
       "not accept commands with args of the wrong type, return INVALID_ARGUMENT" in {
-        val expectedMessageSubstring =
-          "mismatching type"
-        val command =
-          submitRequest(
-            "Boolean_param_with_wrong_type",
-            List(
-              CreateCommand(
-                Some(templateIds.dummy),
-                Some(
-                  List("operator" -> true.asBoolean)
-                    .asRecordOf(templateIds.dummy)
-                ),
-              ).wrap
-            ),
+        val expectedMessageSubstring = "mismatching type"
+        for {
+          party <- freshParty()
+          command =
+            submitRequest(
+              "Boolean_param_with_wrong_type",
+              List(
+                CreateCommand(
+                  Some(templateIds.dummy),
+                  Some(
+                    List("operator" -> true.asBoolean)
+                      .asRecordOf(templateIds.dummy)
+                  ),
+                ).wrap
+              ),
+              party,
+            )
+          a <- assertCommandFailsWithCode(
+            command,
+            Code.INVALID_ARGUMENT,
+            expectedMessageSubstring,
           )
-
-        assertCommandFailsWithCode(
-          command,
-          Code.INVALID_ARGUMENT,
-          expectedMessageSubstring,
-        )
+        } yield a
       }
 
       "not accept commands with unknown args, return INVALID_ARGUMENT" in {
-        val expectedMessageSubstring =
-          "Missing record field"
-        val command =
-          submitRequest(
-            "Param_with_wrong_name",
-            List(
-              CreateCommand(
-                Some(templateIds.dummy),
-                Some(
-                  List("hotdog" -> true.asBoolean)
-                    .asRecordOf(templateIds.dummy)
-                ),
-              ).wrap
-            ),
+        val expectedMessageSubstring = "Missing record field"
+        for {
+          party <- freshParty()
+          command =
+            submitRequest(
+              "Param_with_wrong_name",
+              List(
+                CreateCommand(
+                  Some(templateIds.dummy),
+                  Some(
+                    List("hotdog" -> true.asBoolean)
+                      .asRecordOf(templateIds.dummy)
+                  ),
+                ).wrap
+              ),
+              party,
+            )
+          a <- assertCommandFailsWithCode(
+            command,
+            Code.INVALID_ARGUMENT,
+            expectedMessageSubstring,
           )
-
-        assertCommandFailsWithCode(
-          command,
-          Code.INVALID_ARGUMENT,
-          expectedMessageSubstring,
-        )
+        } yield a
       }
 
       "not accept commands with malformed decimals, return INVALID_ARGUMENT" in {
+        import com.daml.ledger.api.v1.value._
+
         val commandId = "Malformed_decimal"
-        val expectedMessageSubString =
-          """Could not read Numeric string "1E-19""""
+        val expectedMessageSubString = """Could not read Numeric string "1E-19""""
 
-        val command = submitRequest(
-          commandId,
-          List(
-            CreateCommand(
-              Some(templateIds.parameterShowcase),
-              Some(recordWithArgument(paramShowcaseArgs, RecordField("decimal", "1E-19".asNumeric))),
-            ).wrap
-          ),
-        )
-
-        assertCommandFailsWithCode(command, Code.INVALID_ARGUMENT, expectedMessageSubString)
-      }
-
-      "not accept commands with bad obligables, return INVALID_ARGUMENT" in {
-        val command =
-          submitRequest(
-            "Obligable_error",
-            List(
+        for {
+          party <- freshParty()
+          command = submitRequest(
+            commandId,
+            Seq(
               CreateCommand(
-                Some(templateIds.dummy),
+                Some(templateIds.parameterShowcase),
                 Some(
-                  List("operator" -> ("not" + MockMessages.party).asParty)
-                    .asRecordOf(templateIds.dummy)
+                  recordWithArgument(paramShowcaseArgs, RecordField("decimal", "1E-19".asNumeric))
                 ),
               ).wrap
             ),
+            party,
           )
+          a <- assertCommandFailsWithCode(command, Code.INVALID_ARGUMENT, expectedMessageSubString)
+        } yield a
+      }
 
-        assertCommandFailsWithCode(command, Code.INVALID_ARGUMENT, "requires authorizers")
+      "not accept commands with bad obligables, return INVALID_ARGUMENT" in {
+        for {
+          party <- freshParty()
+          command =
+            submitRequest(
+              "Obligable_error",
+              List(
+                CreateCommand(
+                  Some(templateIds.dummy),
+                  Some(
+                    List("operator" -> ("not" + party).asParty)
+                      .asRecordOf(templateIds.dummy)
+                  ),
+                ).wrap
+              ),
+              party,
+            )
+          a <- assertCommandFailsWithCode(command, Code.INVALID_ARGUMENT, "requires authorizers")
+        } yield a
+
       }
 
       "not accept exercises with bad contract IDs, return ABORTED" in {
-        val contractId = ContractId.V1(
-          Hash.hashPrivateKey(
-            "#deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef-123"
-          )
-        )
-        val command =
-          submitRequest(
-            "Exercise_contract_not_found",
-            List(
-              ExerciseCommand(
-                Some(templateIds.dummy),
-                contractId.coid,
-                "DummyChoice1",
-                Some(unit),
-              ).wrap
-            ),
-          )
+        val dummySuffix: Bytes = Bytes.assertFromString("00")
+        val contractId =
+          ContractId.V1.assertBuild(crypto.Hash.hashPrivateKey("secret"), dummySuffix)
+        for {
+          party <- freshParty()
+          command =
+            submitRequest(
+              "Exercise_contract_not_found",
+              List(
+                ExerciseCommand(
+                  Some(templateIds.dummy),
+                  contractId.coid,
+                  "DummyChoice1",
+                  Some(unit),
+                ).wrap
+              ),
+              party,
+            )
+          a <- assertCommandFailsWithCode(command, Code.NOT_FOUND, "CONTRACT_NOT_FOUND")
+        } yield a
 
-        assertCommandFailsWithCode(command, Code.NOT_FOUND, "CONTRACT_NOT_FOUND")
       }
     }
   }
