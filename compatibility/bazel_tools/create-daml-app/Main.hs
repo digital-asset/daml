@@ -196,7 +196,7 @@ main = withTempDir $ \npmCache -> do
         setEnv "CI" "yes" True
         step "Create app from template"
         withCurrentDirectory tmpDir $ do
-          callProcess damlBinary ["new", "create-daml-app", "create-daml-app"]
+          callProcess damlBinary ["new", "create-daml-app", "--template", "create-daml-app"]
         let cdaDir = tmpDir </> "create-daml-app"
         let uiDir = cdaDir </> "ui"
         step "Patch the application code with messaging feature"

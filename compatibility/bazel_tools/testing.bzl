@@ -1271,7 +1271,7 @@ def sdk_platform_test(sdk_version, platform_version):
         create_daml_app_test(
             name = "create-daml-app-{sdk_version}-platform-{platform_version}".format(sdk_version = version_to_name(sdk_version), platform_version = version_to_name(platform_version)),
             daml = daml_assistant,
-            sandbox = sandbox_on_x,
+            sandbox = canton_sandbox,
             sandbox_version = platform_version,
             json_api = json_api,
             json_api_version = platform_version,

@@ -36,7 +36,6 @@ const getToken: (party: string) => string =
 
 
 const DAR_PATH = process.env.DAR_PATH;
-const SANDBOX_LEDGER_ID = "create-daml-app-sandbox";
 const SANDBOX_PORT_FILE_NAME = "sandbox.port";
 const JSON_API_PORT_FILE_NAME = "json-api.port";
 const SANDBOX_PORT_FILE_PATH = `../${SANDBOX_PORT_FILE_NAME}`;
@@ -133,25 +132,13 @@ beforeAll(async () => {
   await removeFile(`../${SANDBOX_PORT_FILE_NAME}`);
   await removeFile(`../${JSON_API_PORT_FILE_NAME}`);
 
-  const kvSandboxOptions = [
+  const sandboxOptions = [
     "sandbox",
-    `--ledgerid=${SANDBOX_LEDGER_ID}`,
-    `--port=0`,
-    `--port-file=${SANDBOX_PORT_FILE_NAME}`,
-    DAR_PATH,
+    "--canton-port-file",
+    `${SANDBOX_PORT_FILE_NAME}`
   ];
 
-  const sandboxOnXOptions = [
-    `--ledger-id=${SANDBOX_LEDGER_ID}`,
-    `--participant=participant-id=sandbox,port=0,port-file=${SANDBOX_PORT_FILE_NAME}`
-  ];
-
-  const sandboxOnXCommand = semver.gt(process.env.SANDBOX_VERSION, "2.4.0-snapshot.20220712.10212.0.0bf28176" ) || process.env.SANDBOX_VERSION === "0.0.0"
-      ? ["run-legacy-cli-config"]
-      : [];
-
-  const sandboxOptions = process.env.SANDBOX_VERSION[0] == "1" ? kvSandboxOptions : sandboxOnXCommand.concat(sandboxOnXOptions);
-
+  console.debug("Spawning sandbox: '" + process.env.DAML_SANDBOX + "' " + sandboxOptions)
   sandbox = spawn(process.env.DAML_SANDBOX, sandboxOptions, {
     cwd: "..",
     stdio: "inherit",
@@ -159,10 +146,19 @@ beforeAll(async () => {
     env: { ...process.env, DAML_SDK_VERSION: process.env.SANDBOX_VERSION },
   });
 
+  interface CantonPorts {
+    sandbox: {
+      ledgerApi: number
+      adminApi: number
+    }
+  }
+
   await waitOn({ resources: [`file:../${SANDBOX_PORT_FILE_NAME}`] });
-  const sandboxPort = parseInt(
-    await fs.readFile(SANDBOX_PORT_FILE_PATH, "utf8")
-  );
+  const contents = await fs.readFile(SANDBOX_PORT_FILE_PATH, "utf8")
+  console.debug("port file: " + contents)
+  const cantonPorts: CantonPorts = JSON.parse(contents);
+
+  const sandboxPort = cantonPorts.sandbox.ledgerApi
   execFileSync(process.env.DAML, ["ledger", "upload-dar", "--host=localhost", `--port=${sandboxPort}`, DAR_PATH])
 
   const jsonApiOptions = [
@@ -277,10 +273,12 @@ const login = async (page: Page, partyName: string) => {
   const usernameInput = await page.waitForSelector(
     ".test-select-username-field"
   );
-  await usernameInput.click();
-  await usernameInput.type(partyName);
-  await page.click(".test-select-login-button");
-  await page.waitForSelector(".test-select-main-menu");
+  if (usernameInput) {
+    await usernameInput.click();
+    await usernameInput.type(partyName);
+    await page.click(".test-select-login-button");
+    await page.waitForSelector(".test-select-main-menu");
+  }
 };
 // LOGIN_FUNCTION_END
 
@@ -293,19 +291,21 @@ const logout = async (page: Page) => {
 // Follow a user using the text input in the follow panel.
 const follow = async (page: Page, userToFollow: string) => {
   const followInput = await page.waitForSelector('.test-select-follow-input');
-  await followInput.click();
-  await followInput.type(userToFollow);
-  await followInput.press('Tab');
-  await page.click('.test-select-follow-button');
+  if (followInput) {
+    await followInput.click();
+    await followInput.type(userToFollow);
+    await followInput.press('Tab');
+    await page.click('.test-select-follow-button');
 
-  // Wait for the request to complete, either successfully or after the error
-  // dialog has been handled.
-  // We check this by the absence of the `loading` class.
-  // (Both the `test-...` and `loading` classes appear in `div`s surrounding
-  // the `input`, due to the translation of Semantic UI's `Input` element.)
-  await page.waitForSelector(".test-select-follow-input > :not(.loading)", {
-    timeout: 60_000,
-  });
+    // Wait for the request to complete, either successfully or after the error
+    // dialog has been handled.
+    // We check this by the absence of the `loading` class.
+    // (Both the `test-...` and `loading` classes appear in `div`s surrounding
+    // the `input`, due to the translation of Semantic UI's `Input` element.)
+    await page.waitForSelector(".test-select-follow-input > :not(.loading)", {
+      timeout: 60_000,
+    });
+  }
 };
 
 // LOGIN_TEST_BEGIN
