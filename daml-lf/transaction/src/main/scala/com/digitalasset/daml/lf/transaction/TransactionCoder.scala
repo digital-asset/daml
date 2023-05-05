@@ -339,9 +339,10 @@ object TransactionCoder {
               ne.stakeholders.foreach(builder.addStakeholders)
               ne.choiceObservers.foreach(builder.addObservers)
 
-              // TODO: https://github.com/digital-asset/daml/issues/15882
-              // -- Implement encode/decode for explicit choice authorizers:
-              // -- ne.choiceAuthorizers.foreach...
+              ne.choiceAuthorizers match {
+                case None => ()
+                case Some(xs) => xs.foreach(builder.addAuthorizers)
+              }
 
               if (nodeVersion >= TransactionVersion.minByKey) {
                 discard(builder.setByKey(ne.byKey))
@@ -357,6 +358,12 @@ object TransactionCoder {
                     ne.choiceObservers.isEmpty,
                   right = (),
                   left = EncodeError(nodeVersion, isTooOldFor = "non-empty choice-observers"),
+                )
+                _ <- Either.cond(
+                  test = ne.version >= TransactionVersion.minChoiceAuthorizers ||
+                    !(ne.choiceAuthorizers.isDefined),
+                  right = (),
+                  left = EncodeError(nodeVersion, isTooOldFor = "explicit choice-authorizers"),
                 )
                 _ <- encodeAndSetValue(
                   encodeCid,
@@ -599,6 +606,12 @@ object TransactionCoder {
             } else {
               toPartySet(protoExe.getObserversList)
             }
+          choiceAuthorizers <-
+            if (nodeVersion < TransactionVersion.minChoiceAuthorizers) { Right(None) }
+            else {
+              for { choiceAuthorizersList <- toPartySet(protoExe.getAuthorizersList) } yield
+                if (choiceAuthorizersList.isEmpty) None else Some(choiceAuthorizersList)
+            }
           choiceName <- toIdentifier(protoExe.getChoice)
           byKey =
             if (nodeVersion >= TransactionVersion.minByKey)
@@ -621,9 +634,7 @@ object TransactionCoder {
           stakeholders = stakeholders,
           signatories = signatories,
           choiceObservers = choiceObservers,
-          // TODO: https://github.com/digital-asset/daml/issues/15882
-          // -- Implement decode for explicit choice authorizers (when version is recent enough):
-          choiceAuthorizers = None,
+          choiceAuthorizers = choiceAuthorizers,
           children = children,
           exerciseResult = rvOpt,
           keyOpt = keyWithMaintainers,
@@ -888,6 +899,8 @@ object TransactionCoder {
             def stakeholders = stakeholders_
             def actingParties = actingParties_
             def choiceObservers = choiceObservers_
+            // TODO: https://github.com/digital-asset/daml/issues/15882
+            // -- Does ActionNodeInfo need to be extended with choiceAuthorizers?
             def consuming = protoExe.getConsuming
           }
         }

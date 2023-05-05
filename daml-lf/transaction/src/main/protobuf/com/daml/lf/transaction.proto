@@ -110,6 +110,8 @@ message NodeExercise {
     reserved 13; // was contract_key
     KeyWithMaintainers key_with_maintainers = 14; // optional
     repeated string observers = 15;  // *since version 11*
+    // No listed authorizers indicates default authorizers (signatories + actors)
+    repeated string authorizers = 20;  // *since version dev*
     bool by_key = 18; // *since version 14*
 }
 
