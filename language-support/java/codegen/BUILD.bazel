@@ -394,7 +394,6 @@ da_scala_test(
     srcs = glob(["src/ledger-tests/scala/**/*.scala"]),
     data = [
         ":ledger-tests-model.dar",
-        "@canton//:lib",
     ],
     resource_strip_prefix = "language-support/java/codegen/src/ledger-tests/resources/",
     resources = ["src/ledger-tests/resources/logback-test.xml"],

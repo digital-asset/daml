@@ -129,7 +129,6 @@ da_scala_test(
         "src/test/resources/logback-sandbox.xml",
         ":MyMain.dar",
         ":MySecondMain.dar",
-        "@canton//:lib",
     ],
     scala_deps = [
         "@maven//:org_scalacheck_scalacheck",

@@ -5,4 +5,6 @@ package com.daml
 
 import org.scalatest.flatspec.AsyncFlatSpec
 
+// We factorize the 3 test to spin Canton only once.
+
 class CodegenTest extends AsyncFlatSpec with LedgerTest with InterfacesTest with StakeholdersTest

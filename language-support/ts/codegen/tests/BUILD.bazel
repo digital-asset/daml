@@ -88,7 +88,7 @@ sh_test(
         "$(location //:java)",
         "$(location //:yarn)",
         "$(location //:daml2js)",
-        "$(location @canton//:lib)",
+        "$(location //daml-lf/integration-test-lib:canton)",
         "$(location //ledger-service/http-json:http-json-binary_deploy.jar)",
         "$(location :build-and-lint.dar)",
         "$(location ts/package.json)",
@@ -110,7 +110,7 @@ sh_test(
         "//test-common:model-tests-default.dar",
         "//language-support/ts/daml-types:npm_package",
         "//language-support/ts/daml-ledger:npm_package",
-        "@canton//:lib",
+        "//daml-lf/integration-test-lib:canton",
         "@grpcurl_nix//:bin",
     ] + glob(
         ["ts/**"],
@@ -124,10 +124,7 @@ sh_test(
     # system load.
     # Running exclusively at this time to avoid port clashes, due to lack of freeport in ts
     # Consider porting this to scala.
-    tags = [
-        "cpu:4",
-        "exclusive",
-    ],
+    tags = ["exclusive"],
     toolchains = ["@rules_sh//sh/posix:make_variables"],
     deps = [
         "@bazel_tools//tools/bash/runfiles",
