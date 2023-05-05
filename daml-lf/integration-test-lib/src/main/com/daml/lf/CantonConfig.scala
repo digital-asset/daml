@@ -97,18 +97,13 @@ final case class CantonConfig(
       maxInboundMessageSize: Int = 64 * 1024 * 1024,
   )(implicit ec: ExecutionContext, esf: ExecutionSequencerFactory): LedgerClientWithoutId = {
     import com.daml.ledger.client.configuration._
-    LedgerClientWithoutId.singleHost(
-      hostIp = "localhost",
-      port = port.value,
-      configuration = LedgerClientConfiguration(
+    LedgerClientWithoutId(
+      channel = channel(port, maxInboundMessageSize),
+      config = LedgerClientConfiguration(
         applicationId = token.fold(applicationId.unwrap)(_ => ""),
         ledgerIdRequirement = LedgerIdRequirement.none,
         commandClient = CommandClientConfiguration.default,
         token = token,
-      ),
-      channelConfig = LedgerClientChannelConfiguration(
-        sslContext = tlsClientConfig.client(),
-        maxInboundMessageSize = maxInboundMessageSize,
       ),
     )
   }
