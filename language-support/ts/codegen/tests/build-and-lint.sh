@@ -35,7 +35,7 @@ echo "Temp directory : $TMP_DIR"
 JAVA=$(rlocation "$TEST_WORKSPACE/$1")
 YARN=$(rlocation "$TEST_WORKSPACE/$2")
 DAML2TS=$(rlocation "$TEST_WORKSPACE/$3")
-SANDBOX=$(rlocation "$TEST_WORKSPACE/$4")
+CANTON=$(rlocation "$TEST_WORKSPACE/$4")
 JSON_API=$(rlocation "$TEST_WORKSPACE/$5")
 # language-support/ts/codegen/tests/daml/.daml/dist/daml-1.0.0.dar
 DAR=$(rlocation "$TEST_WORKSPACE/$6")
@@ -91,4 +91,4 @@ $YARN run build
 $YARN run lint
 # Invoke 'yarn test'. Control is thereby passed to
 # 'language-support/ts/codegen/tests/ts/build-and-lint-test/src/__tests__/test.ts'.
-JAVA=$JAVA SANDBOX=$SANDBOX JSON_API=$JSON_API DAR=$DAR UPLOAD_DAR=$UPLOAD_DAR HIDDEN_DAR=$HIDDEN_DAR $YARN test
+JAVA=$JAVA CANTON=$CANTON JSON_API=$JSON_API DAR=$DAR UPLOAD_DAR=$UPLOAD_DAR HIDDEN_DAR=$HIDDEN_DAR $YARN test

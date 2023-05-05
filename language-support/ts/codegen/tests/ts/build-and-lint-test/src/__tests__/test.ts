@@ -66,12 +66,15 @@ const ADMIN_TOKEN = encode(
   SECRET_KEY,
   "HS256",
 );
-const ALICE_PARTY = "Alice";
-const ALICE_TOKEN = computeToken(ALICE_PARTY);
-const BOB_PARTY = "Bob";
-const BOB_TOKEN = computeToken(BOB_PARTY);
-const CHARLIE_PARTY = "Charlie";
-const CHARLIE_TOKEN = computeToken(CHARLIE_PARTY);
+// Further setup required after canton is started
+let ALICE_PARTY = "Alice";
+let ALICE_TOKEN = "";
+let BOB_PARTY = "Bob";
+let BOB_TOKEN = "";
+let CHARLIE_PARTY = "Charlie";
+let CHARLIE_TOKEN = "";
+// Will be `build-and-lint-test::[somehash]`
+let PARTICIPANT_PARTY_DETAILS: PartyInfo | undefined = undefined;
 
 let sandboxPort: number | undefined = undefined;
 const SANDBOX_PORT_FILE = "sandbox.port";
@@ -104,20 +107,22 @@ const spawnJvm = (
 
 beforeAll(async () => {
   console.log("build-and-lint-1.0.0 (" + buildAndLint.packageId + ") loaded");
-  sandboxProcess = spawnJvm(getEnv("SANDBOX"), [
-    "run-legacy-cli-config",
-    "--daml-lf-dev-mode-unsafe",
-    "--contract-id-seeding=testing-weak",
-    "--enable-user-management=true",
-    "--participant=participant-id=example,port=0,port-file=" +
-      SANDBOX_PORT_FILE,
-    "--ledger-id=" + LEDGER_ID,
+  sandboxProcess = spawnJvm(getEnv("CANTON"), [
+    "daemon",
+    "-c",
+    "./src/__tests__/canton.conf",
+    "-C",
+    "canton.parameters.ports-file=" + SANDBOX_PORT_FILE,
+    "--auto-connect-local",
   ]);
   await waitOn({ resources: [`file:${SANDBOX_PORT_FILE}`] });
   const sandboxPortData = await fs.readFile(SANDBOX_PORT_FILE, {
     encoding: "utf8",
   });
-  sandboxPort = parseInt(sandboxPortData);
+
+  const sandboxPortJson = JSON.parse(sandboxPortData);
+  sandboxPort = sandboxPortJson["build-and-lint-test"].ledgerApi;
+  if (!sandboxPort) throw "Invalid port file";
   console.log("Sandbox listening on port " + sandboxPort.toString());
 
   jsonApiProcess = spawnJvm(
@@ -147,19 +152,33 @@ beforeAll(async () => {
   const ledger = new Ledger({ token: ADMIN_TOKEN, httpBaseUrl: httpBaseUrl() });
   const upDar = await fs.readFile(getEnv("DAR"));
   await ledger.uploadDarFile(upDar);
+
+  // Only the participant party should exist on the ledger at this point
+  PARTICIPANT_PARTY_DETAILS = (await ledger.listKnownParties())[0];
+
   console.log("Explicitly allocating parties");
-  await ledger.allocateParty({
-    identifierHint: ALICE_PARTY,
-    displayName: ALICE_PARTY,
-  });
-  await ledger.allocateParty({
-    identifierHint: BOB_PARTY,
-    displayName: BOB_PARTY,
-  });
-  await ledger.allocateParty({
-    identifierHint: CHARLIE_PARTY,
-    displayName: CHARLIE_PARTY,
-  });
+  ALICE_PARTY = (
+    await ledger.allocateParty({
+      identifierHint: ALICE_PARTY,
+      displayName: ALICE_PARTY,
+    })
+  ).identifier;
+  BOB_PARTY = (
+    await ledger.allocateParty({
+      identifierHint: BOB_PARTY,
+      displayName: BOB_PARTY,
+    })
+  ).identifier;
+  CHARLIE_PARTY = (
+    await ledger.allocateParty({
+      identifierHint: CHARLIE_PARTY,
+      displayName: CHARLIE_PARTY,
+    })
+  ).identifier;
+
+  ALICE_TOKEN = computeToken(ALICE_PARTY);
+  BOB_TOKEN = computeToken(BOB_PARTY);
+  CHARLIE_TOKEN = computeToken(CHARLIE_PARTY);
 
   console.log("JSON API listening on port " + jsonApiPort.toString());
 }, 300_000);
@@ -819,6 +838,10 @@ describe("interfaces", () => {
     const hiddenDar = await fs.readFile(getEnv("HIDDEN_DAR"));
     await ledger.uploadDarFile(hiddenDar);
 
+    // Wait for the domain to see the dar
+    // TODO[SW]: Find a way to do this by asking the domain
+    await new Promise(resolve => setTimeout(resolve, 1000));
+
     // pretend we have access to NotVisibleInTs.  For this test to be
     // meaningful we *must not* codegen or load Hidden
     type NotVisibleInTs = { owner: Party };
@@ -1131,27 +1154,30 @@ test("stream close behaviour", async () => {
 });
 
 test("party API", async () => {
-  const p = (id: string): PartyInfo => ({
+  const p = (name: string, id: string): PartyInfo => ({
     identifier: id,
-    displayName: id,
+    displayName: name,
     isLocal: true,
   });
   const ledger = new Ledger({ token: ALICE_TOKEN, httpBaseUrl: httpBaseUrl() });
   const parties = await ledger.getParties([ALICE_PARTY, "unknown"]);
-  expect(parties).toEqual([p("Alice"), null]);
+  expect(parties).toEqual([p("Alice", ALICE_PARTY), null]);
   const rev = await ledger.getParties(["unknown", ALICE_PARTY]);
-  expect(rev).toEqual([null, p("Alice")]);
+  expect(rev).toEqual([null, p("Alice", ALICE_PARTY)]);
 
   const allParties = await ledger.listKnownParties();
   expect(_.sortBy(allParties, [(p: PartyInfo) => p.identifier])).toEqual([
-    p("Alice"),
-    p("Bob"),
-    p("Charlie"),
+    p("Alice", ALICE_PARTY),
+    p("Bob", BOB_PARTY),
+    p("Charlie", CHARLIE_PARTY),
+    PARTICIPANT_PARTY_DETAILS,
   ]);
 
   const newParty1 = await ledger.allocateParty({});
   const newParty2 = await ledger.allocateParty({ displayName: "Carol" });
-  await ledger.allocateParty({ displayName: "Dave", identifierHint: "Dave" });
+  const daveParty = (
+    await ledger.allocateParty({ displayName: "Dave", identifierHint: "Dave" })
+  ).identifier;
 
   const allPartiesAfter = (await ledger.listKnownParties()).map(
     pi => pi.identifier,
@@ -1159,10 +1185,11 @@ test("party API", async () => {
 
   expect(_.sortBy(allPartiesAfter)).toEqual(
     _.sortBy([
-      "Alice",
-      "Bob",
-      "Charlie",
-      "Dave",
+      ALICE_PARTY,
+      BOB_PARTY,
+      CHARLIE_PARTY,
+      PARTICIPANT_PARTY_DETAILS?.identifier,
+      daveParty,
       newParty1.identifier,
       newParty2.identifier,
     ]),

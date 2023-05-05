@@ -9,7 +9,7 @@ import java.time.{Instant, LocalDate, ZoneOffset}
 import com.daml.ledger.javaapi.data.{Unit => DamlUnit}
 import com.daml.ledger.resources.TestResourceContext
 import com.daml.lf.data.Numeric
-import org.scalatest.flatspec.AsyncFlatSpec
+import org.scalatest.flatspec.AsyncFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 import wolpertinger.color.Grey
 import wolpertinger.{Color, Wolpertinger}
@@ -22,9 +22,9 @@ import scala.jdk.CollectionConverters._
 import scala.concurrent.Future
 import java.util.Arrays.asList
 
-class CodegenLedgerTest
-    extends AsyncFlatSpec
-    with SandboxTestLedger
+trait LedgerTest
+    extends AsyncFlatSpecLike
+    with TestLedger
     with Matchers
     with TestResourceContext
     with SuiteResourceManagementAroundAll {
