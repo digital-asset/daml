@@ -277,6 +277,7 @@ da_scala_library(
         "//libs-scala/ledger-resources",
         "//libs-scala/logging-entries",
         "//libs-scala/ports",
+        "//libs-scala/resources",
         "//libs-scala/scala-utils",
         "//observability/tracing",
         "//triggers/runner:trigger-runner-lib",
