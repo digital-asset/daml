@@ -939,6 +939,8 @@ class TransactionCoderSpec
       },
       choiceObservers =
         exe.choiceObservers.filter(_ => exe.version >= TransactionVersion.minChoiceObservers),
+      choiceAuthorizers =
+        if (exe.version >= TransactionVersion.minChoiceAuthorizers) exe.choiceAuthorizers else None,
       keyOpt = exe.keyOpt.map(normalizeKey(_, exe.version)),
       byKey =
         if (exe.version >= TransactionVersion.minByKey)
