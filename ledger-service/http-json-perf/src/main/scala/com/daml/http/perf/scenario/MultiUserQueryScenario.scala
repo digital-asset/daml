@@ -62,15 +62,15 @@ class MultiUserQueryScenario
   private val createRequest =
     http("CreateCommand")
       .post("/v1/create")
-      .body(StringBody("""{
+      .body(StringBody(s"""{
   "templateId": "LargeAcs:KeyedIou",
   "payload": {
-    "id": "${id}",
-    "issuer": "Alice",
-    "owner": "Alice",
-    "currency": "${currency}",
-    "amount": "${amount}",
-    "observers": ["Bob", "Trent"]
+    "id": "$${id}",
+    "issuer": "$aliceParty",
+    "owner": "$aliceParty",
+    "currency": "$${currency}",
+    "amount": "$${amount}",
+    "observers": ["$bobParty", "$charlieParty"]
   }
 }"""))
 
@@ -95,11 +95,11 @@ class MultiUserQueryScenario
   private val fetchByKeyRequest =
     http("SyncFetchByKey")
       .post("/v1/fetch")
-      .body(StringBody("""{
+      .body(StringBody(s"""{
           "templateId": "LargeAcs:KeyedIou",
           "key": {
-            "_1": "Alice",
-            "_2": "${id}"
+            "_1": "$aliceParty",
+            "_2": "$${id}"
           }
       }"""))
 

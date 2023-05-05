@@ -11,6 +11,10 @@ import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFact
 import com.daml.http.HttpServiceTestFixture.{withHttpService, withLedger}
 import com.daml.http.perf.scenario.SimulationConfig
 import com.daml.http.util.FutureUtil._
+import com.daml.ledger.api.domain.{User, UserRight}
+import com.daml.ledger.client.withoutledgerid.LedgerClient
+import com.daml.lf.data.Ref.UserId
+import com.daml.lf.integrationtest.CantonRunner
 import com.daml.scalautil.Statement.discard
 import com.typesafe.scalalogging.StrictLogging
 import io.gatling.core.scenario.Simulation
@@ -49,6 +53,9 @@ object Main extends StrictLogging {
       config: Config[String],
       jsonApiHost: String,
       jsonApiPort: Int,
+      alicePartyData: (String, String),
+      bobPartyData: (String, String),
+      charliePartyData: (String, String),
   )(implicit
       sys: ActorSystem,
       ec: ExecutionContext,
@@ -60,6 +67,15 @@ object Main extends StrictLogging {
 
     val hostAndPort = s"${jsonApiHost: String}:${jsonApiPort: Int}"
     discard { System.setProperty(SimulationConfig.HostAndPortKey, hostAndPort) }
+    // Alice
+    discard { System.setProperty(SimulationConfig.AlicePartyKey, alicePartyData._1) }
+    discard { System.setProperty(SimulationConfig.AliceJwtKey, alicePartyData._2) }
+    // Bob
+    discard { System.setProperty(SimulationConfig.BobPartyKey, bobPartyData._1) }
+    discard { System.setProperty(SimulationConfig.BobJwtKey, bobPartyData._2) }
+    // Charlie
+    discard { System.setProperty(SimulationConfig.CharliePartyKey, charliePartyData._1) }
+    discard { System.setProperty(SimulationConfig.CharlieJwtKey, charliePartyData._2) }
 
     val configBuilder = new GatlingPropertiesBuilder()
       .simulationClass(config.scenario)
@@ -114,6 +130,20 @@ object Main extends StrictLogging {
       discard { Await.result(promise.future, terminationTimeout) }
     }
 
+    // Allocates a user, returns their party name and jwt
+    def allocateUserAndJwt(ledger: LedgerClient, name: String): Future[(String, String)] = for {
+      party <- ledger.partyManagementClient.allocateParty(Some(name), None).map(_.party)
+      userPreCreate = new User(UserId.assertFromString(name), Some(party))
+      user <- ledger.userManagementClient.createUser(
+        userPreCreate,
+        Seq(
+          UserRight.CanActAs(party),
+          UserRight.CanReadAs(party),
+        ),
+      )
+      jwt = CantonRunner.getToken(user.id.toString, Some("secret")).get
+    } yield (party.toString, jwt)
+
     def runScenario(config: Config[String]) =
       resolveSimulationClass(config.scenario).flatMap { _ =>
         withLedger(config.dars) { (ledgerPort, _, ledgerId) =>
@@ -123,15 +153,27 @@ object Main extends StrictLogging {
               ledgerPort,
               jsonApiJdbcConfig,
               None,
-            ) { (uri, _, _, _) =>
-              runGatlingScenario(config, uri.authority.host.address, uri.authority.port)
-                .flatMap { case (exitCode, dir) =>
-                  toFuture(generateReport(dir))
-                    .map { _ =>
-                      logger.info(s"Report directory: ${dir.toAbsolutePath}")
-                      exitCode
-                    }
-                }
+            ) { (uri, _, _, ledger) =>
+              for {
+                alicePartyData <- allocateUserAndJwt(ledger, "Alice")
+                bobPartyData <- allocateUserAndJwt(ledger, "Bob")
+                charliePartyData <- allocateUserAndJwt(ledger, "Charlie")
+                res <- runGatlingScenario(
+                  config,
+                  uri.authority.host.address,
+                  uri.authority.port,
+                  alicePartyData,
+                  bobPartyData,
+                  charliePartyData,
+                )
+                  .flatMap { case (exitCode, dir) =>
+                    toFuture(generateReport(dir))
+                      .map { _ =>
+                        logger.info(s"Report directory: ${dir.toAbsolutePath}")
+                        exitCode
+                      }
+                  }
+              } yield res
             }
           }
         }

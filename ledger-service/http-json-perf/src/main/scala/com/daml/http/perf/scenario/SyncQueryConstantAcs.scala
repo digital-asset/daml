@@ -11,13 +11,13 @@ class SyncQueryConstantAcs extends Simulation with SimulationConfig with HasRand
   private val createRequest =
     http("CreateCommand")
       .post("/v1/create")
-      .body(StringBody("""{
+      .body(StringBody(s"""{
   "templateId": "Iou:Iou",
   "payload": {
-    "issuer": "Alice",
-    "owner": "Alice",
+    "issuer": "$aliceParty",
+    "owner": "$aliceParty",
     "currency": "USD",
-    "amount": "${amount}",
+    "amount": "$${amount}",
     "observers": []
   }
 }"""))

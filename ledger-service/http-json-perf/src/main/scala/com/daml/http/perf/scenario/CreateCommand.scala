@@ -8,11 +8,11 @@ import io.gatling.http.Predef._
 @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
 class CreateCommand extends Simulation with SimulationConfig {
 
-  private val jsonCommand = """{
+  private val jsonCommand = s"""{
   "templateId": "Iou:Iou",
   "payload": {
-    "issuer": "Alice",
-    "owner": "Alice",
+    "issuer": "$aliceParty",
+    "owner": "$aliceParty",
     "currency": "USD",
     "amount": "9.99",
     "observers": []
