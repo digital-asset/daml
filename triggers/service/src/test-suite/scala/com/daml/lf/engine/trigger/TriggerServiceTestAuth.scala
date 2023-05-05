@@ -4,7 +4,6 @@
 package com.daml.lf.engine.trigger
 
 class TriggerServiceTestAuth
-    extends AbstractTriggerServiceTest
-    with AbstractTriggerServiceTestInMem
-    with AbstractTriggerServiceTestAuthMiddleware
-    with DisableOauthClaimsTests
+    extends AbstractTriggerServiceTestInMem
+    with AbstractTriggerServiceTestAuthMiddlewareWithCanton
+    with DisableOauthClaimsTestsWithCanton
