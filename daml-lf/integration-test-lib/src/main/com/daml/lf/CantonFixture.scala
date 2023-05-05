@@ -71,6 +71,7 @@ trait CantonFixture
   protected lazy val nParticipants: Int = 1
   protected lazy val timeProviderType: TimeProviderType = TimeProviderType.WallClock
   protected lazy val tlsEnable: Boolean = false
+  protected lazy val applicationId: ApplicationId = ApplicationId(getClass.getName)
 
   // This flag setup some behavior to ease debugging tests.
   //  If `true`
@@ -96,8 +97,6 @@ trait CantonFixture
       releaseTimeout = 2.minute,
     )
   }
-
-  final protected lazy val applicationId: ApplicationId = ApplicationId(getClass.getName)
 
   lazy val config = CantonConfig(
     applicationId = applicationId,

@@ -17,7 +17,6 @@ import com.daml.ledger.client.binding.DomainTransactionMapper.DecoderType
 import com.daml.ledger.client.binding.{Contract, Template, Primitive => P}
 import com.daml.ledger.client.services.commands.CommandSubmission
 import com.daml.lf.integrationtest.CantonFixture
-import com.daml.platform.services.time.TimeProviderType
 import com.daml.sample.MyMain.{CallablePayout, MkListExample, PayOut}
 import com.daml.sample.{EventDecoder, MyMain, MySecondMain}
 import com.daml.util.Ctx
@@ -30,6 +29,7 @@ import org.scalatest.time.{Millis, Seconds, Span}
 import org.scalatest.wordspec.AsyncWordSpec
 import scalaz.syntax.tag._
 
+import java.nio.file.Path
 import java.time.Instant
 import java.util.UUID
 import scala.concurrent.Future
@@ -50,16 +50,11 @@ class ScalaCodeGenIT
     with SuiteResourceManagementAroundAll
     with CantonFixture {
 
-  override protected def authSecret = None
-  override protected def darFiles = List(
+  override protected lazy val darFiles: List[Path] = List(
     requiredResource("language-support/scala/codegen-sample-app/MyMain.dar"),
     requiredResource("language-support/scala/codegen-sample-app/MySecondMain.dar"),
   ).map(_.toPath)
-  override protected def devMode = false
-  override protected def nParticipants = 1
-  override protected def timeProviderType = TimeProviderType.WallClock
-  override protected def tlsEnable = false
-  override protected def applicationId: ApplicationId = ApplicationId("scala-code-gen-client")
+  override protected lazy val applicationId: ApplicationId = ApplicationId("scala-code-gen-client")
 
   override implicit lazy val patienceConfig: PatienceConfig =
     PatienceConfig(timeout = Span(20, Seconds), interval = Span(250, Millis))
