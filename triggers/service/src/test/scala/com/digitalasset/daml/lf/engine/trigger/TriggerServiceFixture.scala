@@ -49,7 +49,6 @@ import com.daml.lf.data.Ref._
 import com.daml.lf.engine.trigger.TriggerRunnerConfig.DefaultTriggerRunnerConfig
 import com.daml.lf.engine.trigger.dao.DbTriggerDao
 import com.daml.lf.engine.trigger.test.AbstractTriggerTestWithCanton
-import com.daml.lf.integrationtest.CantonFixture
 import com.daml.lf.speedy.Compiler
 import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.apiserver.services.GrpcClientResource
@@ -383,7 +382,7 @@ trait SandboxFixture extends BeforeAndAfterAll with AbstractAuthFixture with Akk
   }
 }
 
-// FIXME: deprecated - delete in future PR
+// FIXME: migrate this code in a future PR
 trait ToxiproxyFixture extends BeforeAndAfterAll with AkkaBeforeAndAfterAll {
   self: Suite =>
 
@@ -420,7 +419,7 @@ trait ToxiproxyFixture extends BeforeAndAfterAll with AkkaBeforeAndAfterAll {
   }
 }
 
-// FIXME: deprecated - delete in future PR
+// TODO: migrate this code in a future PR
 trait ToxiSandboxFixture extends BeforeAndAfterAll with ToxiproxyFixture with SandboxFixture {
   self: Suite =>
 
@@ -592,7 +591,8 @@ trait TriggerServiceWithCantonFixture
             val host = InetAddress.getLoopbackAddress
             val ledgerConfig = LedgerConfig(
               host.getHostName,
-              toxiSandboxPort.value,
+              // TODO: set this to be the toxi proxy port in a future PR
+              suiteResource.value.head.value,
               TimeProviderType.Static,
               java.time.Duration.ofSeconds(30),
               Cli.DefaultMaxInboundMessageSize,
