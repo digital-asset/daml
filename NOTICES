@@ -457,8 +457,8 @@ global-prefix 1.0.2 : MIT License
 Go Testify v1.6.1 : MIT License
 go-check-check 20171108-snapshot-20d25e28 : BSD 2-clause "Simplified" License
 go-spew v1.1.0 : ISC License
-golang protobuf v1.1.1 : BSD 3-clause "New" or "Revised" License
-golang protobuf v1.5.2 : BSD 3-clause "New" or "Revised" License
+Golang Protobuf v1.1.1 : BSD 3-clause "New" or "Revised" License
+Golang Protobuf v1.5.2 : BSD 3-clause "New" or "Revised" License
 golang.org/x/crypto 20200622-snapshot-75b28801 : BSD 3-clause "New" or "Revised" License
 golang.org/x/lint 20210508-snapshot-6edffad5 : BSD 3-clause "New" or "Revised" License
 golang.org/x/mod v0.5.0 : BSD 3-clause "New" or "Revised" License
@@ -3575,7 +3575,7 @@ IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ---
 
 BSD 3-clause "New" or "Revised" License
-(golang protobuf v1.5.2)
+(Golang Protobuf v1.5.2)
 
 Copyright 2010 The Go Authors.  All rights reserved.
 
@@ -3608,7 +3608,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE
 ---
 
 BSD 3-clause "New" or "Revised" License
-(golang protobuf v1.1.1)
+(Golang Protobuf v1.1.1)
 
 Copyright 2010 The Go Authors.  All rights reserved.
 https://github.com/golang/protobuf
