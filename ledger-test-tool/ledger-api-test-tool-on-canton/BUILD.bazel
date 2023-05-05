@@ -34,7 +34,7 @@ canton_jar=canton%s_deploy.jar
 
 EOF
 cat $< >> $@
-""" % suffix,
+""" % ("-patched" if suffix else ""),
         ),
 
         # Required because running `canton-test-runner-with-dependencies-script` directly fails.
