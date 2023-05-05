@@ -14,7 +14,7 @@ import Data.Proxy (Proxy (..))
 import Data.SemVer (Version)
 import qualified Data.SemVer as SemVer
 import Data.Tagged (Tagged (..))
-import Sandbox (maxRetries, nullDevice, readPortFile)
+import Sandbox (maxRetries, nullDevice, readCantonPortFile)
 import System.Directory.Extra (withCurrentDirectory)
 import System.Environment (lookupEnv)
 import System.Environment.Blank (setEnv)
@@ -51,7 +51,7 @@ withSandbox getTools mbSecret f =
               mask $ \unmask -> do
                   ph@(_, _, _, handle) <- createProcess (proc sandboxBinary args) { std_out = UseHandle devNull }
                   let waitForStart = do
-                          port <- readPortFile handle maxRetries portFile
+                          port <- readCantonPortFile handle maxRetries portFile
                           pure (port, ph)
                   unmask (waitForStart `onException` cleanupProcess ph)
           destroySandbox = cleanupProcess . snd

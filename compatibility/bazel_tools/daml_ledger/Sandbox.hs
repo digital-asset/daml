@@ -10,6 +10,7 @@ module Sandbox
   , withSandbox
   , createSandbox
   , destroySandbox
+  , readCantonPortFile
   , readPortFile
   , maxRetries
   , nullDevice
@@ -23,6 +24,7 @@ import Data.Text (pack)
 import qualified Data.Aeson as Aeson
 import qualified Data.Map as Map
 import qualified Data.ByteString.Lazy.Char8 as BSL8
+import Safe (readMay)
 import System.Environment (getEnvironment)
 import System.Exit (exitFailure)
 import System.FilePath ((</>))
@@ -183,8 +185,11 @@ decodeCantonPort participantName json = do
 decodeCantonSandboxPort :: String -> Maybe Int
 decodeCantonSandboxPort = decodeCantonPort "sandbox"
 
-readPortFile :: ProcessHandle -> Int -> FilePath -> IO Int
-readPortFile = readPortFileWith decodeCantonSandboxPort
+readCantonPortFile :: ProcessHandle -> Int -> FilePath -> IO Int
+readCantonPortFile = readPortFileWith decodeCantonSandboxPort
+
+readPortFile :: ProcessHandle -> Int -> String -> IO Int
+readPortFile = readPortFileWith readMay
 
 -- On Windows we sometimes get permission errors. It looks like
 -- this might come from a race where sandbox is writing the file at the same
