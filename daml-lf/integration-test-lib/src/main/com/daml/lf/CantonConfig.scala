@@ -4,6 +4,7 @@
 package com.daml.lf
 package integrationtest
 
+import com.daml.bazeltools.BazelRunfiles.rlocation
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.daml.ledger.api.tls.TlsConfiguration
@@ -16,7 +17,7 @@ import io.grpc.ManagedChannel
 import scalaz.syntax.tag._
 
 import scala.concurrent.{ExecutionContext, Future}
-import java.nio.file.Path
+import java.nio.file.{Path, Paths}
 
 object CantonConfig {
 
@@ -37,18 +38,41 @@ object CantonConfig {
   }
 
   def noTlsConfig = TlsConfiguration(false)
+
 }
 
 final case class CantonConfig(
+    applicationId: ApplicationId,
     darFiles: List[Path] = List.empty,
     authSecret: Option[String] = None,
     devMode: Boolean = false,
     nParticipants: Int = 1,
     timeProviderType: TimeProviderType = TimeProviderType.WallClock,
-    tlsConfig: Option[CantonConfig.Tls] = None,
-    applicationId: ApplicationId = ApplicationId("integrationtest"),
+    tlsEnable: Boolean = false,
     debug: Boolean = false,
 ) {
+
+  lazy val tlsConfig =
+    if (tlsEnable)
+      Some(
+        CantonConfig.Tls(
+          Paths.get(rlocation("test-common/test-certificates/server.crt")),
+          Paths.get(rlocation("test-common/test-certificates/server.pem")),
+          Paths.get(rlocation("test-common/test-certificates/ca.crt")),
+          Paths.get(rlocation("test-common/test-certificates/client.crt")),
+          Paths.get(rlocation("test-common/test-certificates/client.pem")),
+        )
+      )
+    else
+      None
+
+  lazy val participantIds =
+    Iterator
+      .range(0, nParticipants)
+      .map(i => Ref.ParticipantId.assertFromString("participant" + i.toString))
+      .toVector
+
+  lazy val ledgerIds = participantIds.asInstanceOf[Vector[String]]
 
   def getToken(userId: Ref.IdString.UserId): Option[String] =
     CantonRunner.getToken(userId, authSecret)

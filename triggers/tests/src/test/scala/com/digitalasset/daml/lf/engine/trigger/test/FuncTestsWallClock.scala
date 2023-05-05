@@ -7,6 +7,6 @@ import com.daml.platform.services.time.TimeProviderType
 
 final class FuncTestsWallClock extends AbstractFuncTests {
 
-  override protected def timeProviderType: TimeProviderType = TimeProviderType.WallClock
+  final override protected lazy val timeProviderType: TimeProviderType = TimeProviderType.WallClock
 
 }
