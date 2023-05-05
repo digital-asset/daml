@@ -73,7 +73,6 @@ da_scala_test_suite(
         "//ledger-service/http-json:User.dar",
         "//test-common:dar-files",
         "//test-common/test-certificates",
-        "@canton//:lib",
     ],
     plugins = [
         kind_projector_plugin,
