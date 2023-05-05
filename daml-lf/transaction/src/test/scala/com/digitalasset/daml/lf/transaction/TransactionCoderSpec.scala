@@ -269,6 +269,12 @@ class TransactionCoderSpec
   "encodeVersionedNode" should {
 
     "fail iff try to encode choice observers in version < 11" in {
+
+      // This test-code is a terrible way to test this property!
+      // Future changes to .proto have to consider if this test needs updating.
+      // Or else this might fail, but only in a very flaky way.
+      // TODO: improve this. Or kill this test.
+
       forAll(danglingRefExerciseNodeGen, minSuccessful(10)) { node =>
         val shouldFail = node.choiceObservers.nonEmpty
 
@@ -277,6 +283,7 @@ class TransactionCoderSpec
             exe.copy(
               choiceObservers = node.choiceObservers,
               exerciseResult = Some(Value.ValueText("not-missing")),
+              choiceAuthorizers = None,
             )
           case otherwise => otherwise
         }
