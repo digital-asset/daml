@@ -1,0 +1,39 @@
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+package daml_lf_dev;
+
+import "com/daml/daml_lf_dev/daml_lf_1.proto";
+import "scenario_service.proto";
+
+message TestResults {
+  // What was defined
+  repeated ContractIdentifier interfaces = 1;
+  repeated ChoiceIdentifier interface_choices = 2;
+  repeated ContractIdentifier templates = 3;
+  repeated ChoiceIdentifier template_choices = 4;
+
+  // What was used
+  repeated ContractIdentifier created_internally = 5;
+  repeated ContractIdentifier created_externally = 6;
+  repeated ChoiceIdentifier exercised_internally = 7;
+  repeated ChoiceIdentifier exercised_externally = 8;
+}
+
+message ChoiceIdentifier {
+  string choice = 1;
+  ContractIdentifier contract = 2;
+}
+
+message ContractIdentifier {
+  string qualified_name = 1;
+  PackageId package_id = 2;
+}
+
+message PackageId {
+  oneof variety {
+    Unit local = 1;
+    string external = 2;
+  }
+}
