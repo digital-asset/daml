@@ -6,7 +6,6 @@ package com.daml.http
 import com.daml.bazeltools.BazelRunfiles
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.platform.apiserver.services.GrpcClientResource
-import com.daml.platform.sandbox.SandboxRequiringAuthorizationFuns
 import com.daml.ports.{LockedFreePort, Port}
 import com.daml.timer.RetryStrategy
 import eu.rekawek.toxiproxy._
@@ -28,7 +27,6 @@ import com.daml.ledger.api.domain.LedgerId
 // Fixture for Canton behind toxiproxy to simulate failures.
 trait ToxicSandboxFixture
     extends CantonFixtureWithResource[(Channel, Port, ToxiproxyClient, Proxy)]
-    with SandboxRequiringAuthorizationFuns
     with BeforeAndAfterEach {
   self: Suite =>
 

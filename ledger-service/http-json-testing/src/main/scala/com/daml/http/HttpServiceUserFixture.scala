@@ -10,13 +10,13 @@ import com.daml.http.util.ClientUtil.uniqueId
 import com.daml.jwt.JwtSigner
 import com.daml.jwt.domain.{DecodedJwt, Jwt}
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
-import com.daml.platform.sandbox.SandboxRequiringAuthorizationFuns
 import com.daml.scalautil.ImplicitPreference
 import org.scalatest.Suite
 import scalaz.syntax.show._
 import scalaz.syntax.tag._
 
 import scala.concurrent.{ExecutionContext, Future}
+import com.daml.lf.integrationtest.CantonRunner
 
 trait HttpServiceUserFixture extends AkkaBeforeAndAfterAll { this: Suite =>
   protected def testId: String
@@ -80,9 +80,11 @@ object HttpServiceUserFixture {
       )
   }
 
-  trait UserToken extends HttpServiceUserFixture with SandboxRequiringAuthorizationFuns {
+  trait UserToken extends HttpServiceUserFixture {
     this: Suite =>
-    override lazy val jwtAdminNoParty: Jwt = Jwt(toHeader(adminTokenStandardJWT))
+    override lazy val jwtAdminNoParty: Jwt = Jwt(
+      CantonRunner.getToken("participant_admin", Some("secret")).get
+    )
 
     protected[this] override final def defaultWithoutNamespace = true
 
@@ -119,6 +121,6 @@ object HttpServiceUserFixture {
     protected final def getUniqueUserName(name: String): String = getUniqueParty(name).unwrap
 
     protected def jwtForUser(userId: String): Jwt =
-      Jwt(toHeader(standardToken(userId)))
+      Jwt(CantonRunner.getToken(userId, Some("secret")).get)
   }
 }
