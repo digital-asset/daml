@@ -382,6 +382,8 @@ object ValueGenerators {
       stakeholders <- genNonEmptyParties
       signatories <- genNonEmptyParties
       choiceObservers <- genMaybeEmptyParties
+      choiceAuthorizersList <- genMaybeEmptyParties
+      choiceAuthorizers = if (choiceAuthorizersList.isEmpty) None else Some(choiceAuthorizersList)
       children <- Gen
         .listOf(Arbitrary.arbInt.arbitrary)
         .map(_.map(NodeId(_)))
@@ -401,9 +403,7 @@ object ValueGenerators {
       stakeholders = stakeholders,
       signatories = signatories,
       choiceObservers = choiceObservers,
-      // TODO: https://github.com/digital-asset/daml/issues/15882
-      // -- Generate non-empty choice authorizers here.
-      choiceAuthorizers = None,
+      choiceAuthorizers = choiceAuthorizers,
       children = children,
       exerciseResult = exerciseResult,
       keyOpt = key,

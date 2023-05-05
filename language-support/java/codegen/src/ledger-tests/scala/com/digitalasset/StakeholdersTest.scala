@@ -7,17 +7,17 @@ import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.daml.ledger.resources.TestResourceContext
 import io.grpc.Channel
 import org.scalatest.Assertion
-import org.scalatest.flatspec.AsyncFlatSpec
+import org.scalatest.flatspec.AsyncFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 import stakeholders.{ExplicitObservers, ImplicitObservers, MixedObservers, OnlySignatories}
 
 import scala.concurrent.Future
 
-class StakeholdersTest
-    extends AsyncFlatSpec
+trait StakeholdersTest
+    extends AsyncFlatSpecLike
     with Matchers
     with TestResourceContext
-    with SandboxTestLedger
+    with TestLedger
     with SuiteResourceManagementAroundAll {
 
   import TestUtil._

@@ -31,7 +31,7 @@ import qualified Data.ByteString.Lazy as BSL (readFile,toStrict)
 import qualified Data.ByteString.UTF8 as BS (ByteString,fromString)
 import qualified Data.Map as Map
 import qualified Data.Set as Set
-import qualified Data.Text.Lazy as TL(Text,pack,unpack,fromStrict)
+import qualified Data.Text.Lazy as TL(Text,pack,unpack,fromStrict,splitOn)
 import qualified Data.UUID as UUID (toString)
 import Data.Text (unpack)
 import Data.Either.Extra(maybeToEither)
@@ -57,7 +57,7 @@ type SandboxTest = WithSandbox -> TestTree
 nonFlakyTests :: [WithSandbox -> TestTree]
 flakyTests :: [WithSandbox -> TestTree]
 nonFlakyTests =
-   [ tGetLedgerIdentity
+    [ tGetLedgerIdentity
     , tListPackages
     , tGetPackage
     , tGetPackageBad
@@ -71,28 +71,28 @@ nonFlakyTests =
     , tMeteringReport
     ]
 flakyTests =
-   [ tSubmitComplete
-   , tCreateWithKey
-   , tCreateWithoutKey
-   , tStakeholders
-   , tPastFuture
-   , tGetFlatTransactionByEventId
-   , tGetFlatTransactionById
-   , tGetTransactions
-   , tGetTransactionTrees
-   , tGetTransactionByEventId
-   , tGetTransactionById
-   , tGetActiveContracts
-   , tGetLedgerConfiguration
-   , tGetTime
-   , tSetTime
-   , tSubmitAndWait
-   , tSubmitAndWaitForTransactionId
-   , tSubmitAndWaitForTransaction
-   , tSubmitAndWaitForTransactionTree
-   , tValueConversion
-   , tUploadDarFileGood
-   ]
+    [ tSubmitComplete
+    , tCreateWithKey
+    , tCreateWithoutKey
+    , tStakeholders
+    , tPastFuture
+    , tGetFlatTransactionByEventId
+    , tGetFlatTransactionById
+    , tGetTransactions
+    , tGetTransactionTrees
+    , tGetTransactionByEventId
+    , tGetTransactionById
+    , tGetActiveContracts
+    , tGetLedgerConfiguration
+    , tGetTime
+    , tSetTime
+    , tSubmitAndWait
+    , tSubmitAndWaitForTransactionId
+    , tSubmitAndWaitForTransaction
+    , tSubmitAndWaitForTransactionTree
+    , tValueConversion
+    , tUploadDarFileGood
+    ]
 
 -- (RH) We disable all test that rely on stream to reduce flakyness
 testFlaky :: Bool
@@ -116,6 +116,14 @@ allocateTestParty :: Party -> LedgerService PartyDetails
 allocateTestParty party =
     allocateParty AllocatePartyRequest { partyIdHint = unParty party, displayName = "" }
 
+-- | Drops the `::[0-9a-f]+` after a party name, so we can determinstically compare
+dropPartyDetailHash :: PartyDetails -> PartyDetails
+dropPartyDetailHash p = p {party = Party $ dropHashSuffix $ unParty $ party p}
+
+-- | Drops the `::[0-9a-f]+` suffix from a given string
+dropHashSuffix :: TL.Text -> TL.Text
+dropHashSuffix = head . TL.splitOn "::"
+
 run :: WithSandbox -> (DarMetadata -> TestId -> LedgerService ()) -> IO ()
 run withSandbox f =
   withSandbox $ \sandbox maybeAuth darMetadata testId -> runWithSandbox sandbox maybeAuth testId (f darMetadata testId)
@@ -130,7 +138,9 @@ tListPackages withSandbox = testCase "listPackages" $ run withSandbox $ \DarMeta
     lid <- getLedgerIdentity
     pids <- listPackages lid
     liftIO $ do
-        assertEqual "#packages" (length $ dalfPaths manifest) (length pids)
+        -- Canton loads the `AdminWorkflowsWithVacuuming` package at boot, which adds a bunch of deps
+        -- In this case, `AdminWorkflowsWithVacuuming` has 7 deps that we don't already pull in, thus the + 7
+        assertEqual "#packages" (length (dalfPaths manifest) + 7) (length pids)
         assertBool "The pid is listed" (mainPackageId `elem` pids)
 
 tGetPackage :: SandboxTest
@@ -162,16 +172,18 @@ tGetPackageStatusUnknown withSandbox = testCase "getPackageStatus/Unknown" $ run
 tSubmit :: SandboxTest
 tSubmit withSandbox = testCase "submit" $ run withSandbox $ \DarMetadata{mainPackageId} testId -> do
     lid <- getLedgerIdentity
-    let command =  createIOU mainPackageId (alice testId) "A-coin" 100
-    _ <- fromRight =<< submitCommand lid (alice testId) command
+    aliceDetails <- allocateTestParty (alice testId)
+    let command =  createIOU mainPackageId (party aliceDetails) "A-coin" 100
+    _ <- fromRight =<< submitCommand lid (party aliceDetails) command
     return ()
 
 tSubmitBad :: SandboxTest
 tSubmitBad withSandbox = testCase "submit/bad" $ run withSandbox $ \_darMetadata testId -> do
     lid <- getLedgerIdentity
+    aliceDetails <- allocateTestParty (alice testId)
     let pid = PackageId "xxxxxxxxxxxxxxxxxxxxxx"
-    let command =  createIOU pid (alice testId) "A-coin" 100
-    Left err <- submitCommand lid (alice testId) command
+    let command =  createIOU pid (party aliceDetails) "A-coin" 100
+    Left err <- submitCommand lid (party aliceDetails) command
     liftIO $ assertTextContains err "Couldn't find package"
 
 fromRight :: (Show a, MonadFail m) => HasCallStack => Either a b -> m b
@@ -182,16 +194,19 @@ fromRight (Left err) =
       ]
 fromRight (Right r) = pure r
 
+-- TODO: Fails because for whatever reason, cp1 is off1 - 1 when both `tSubmit` and `tSubmitBad` run beforehand
+-- Appears to be a flaky failure
 tSubmitComplete :: SandboxTest
 tSubmitComplete withSandbox = testCase "tSubmitComplete" $ run withSandbox $ \DarMetadata{mainPackageId} testId -> do
     lid <- getLedgerIdentity
-    let command = createIOU mainPackageId (alice testId) "A-coin" 100
-    completions <- completionStream (lid,myAid,[alice testId],Nothing)
+    aliceDetails <- allocateTestParty (alice testId)
+    let command = createIOU mainPackageId (party aliceDetails) "A-coin" 100
+    completions <- completionStream (lid,myAid,[party aliceDetails],Nothing)
     off0 <- completionEnd lid
-    cidA1 <- fromRight =<< submitCommand lid (alice testId) command
+    cidA1 <- fromRight =<< submitCommand lid (party aliceDetails) command
     (Just Checkpoint{offset=cp1},[Completion{cid=cidB1}]) <- fromRight =<< liftIO (takeStream completions)
     off1 <- completionEnd lid
-    cidA2 <- fromRight =<< submitCommand lid (alice testId) command
+    cidA2 <- fromRight =<< submitCommand lid (party aliceDetails) command
     (Just Checkpoint{offset=cp2},[Completion{cid=cidB2}]) <- fromRight =<< liftIO (takeStream completions)
     off2 <- completionEnd lid
 
@@ -204,8 +219,8 @@ tSubmitComplete withSandbox = testCase "tSubmitComplete" $ run withSandbox $ \Da
         assertEqual "cp1" off1 cp1
         assertEqual "cp2" off2 cp2
 
-    completionsX <- completionStream (lid,myAid,[alice testId],Just (LedgerAbsOffset off0))
-    completionsY <- completionStream (lid,myAid,[alice testId],Just (LedgerAbsOffset off1))
+    completionsX <- completionStream (lid,myAid,[party aliceDetails],Just (LedgerAbsOffset off0))
+    completionsY <- completionStream (lid,myAid,[party aliceDetails],Just (LedgerAbsOffset off1))
 
     (Just Checkpoint{offset=cpX},[Completion{cid=cidX}]) <- fromRight =<< liftIO (takeStream completionsX)
     (Just Checkpoint{offset=cpY},[Completion{cid=cidY}]) <- fromRight =<< liftIO (takeStream completionsY)
@@ -219,21 +234,21 @@ tSubmitComplete withSandbox = testCase "tSubmitComplete" $ run withSandbox $ \Da
 tCreateWithKey :: SandboxTest
 tCreateWithKey withSandbox = testCase "createWithKey" $ run withSandbox $ \DarMetadata{mainPackageId} testId -> do
     lid <- getLedgerIdentity
-    _ <- allocateTestParty (alice testId)
-    withGetAllTransactions lid (alice testId) (Verbosity False) $ \txs -> do
-    let command = createWithKey mainPackageId (alice testId) 100
-    _ <- fromRight =<< submitCommand lid (alice testId) command
+    aliceDetails <- allocateTestParty (alice testId)
+    withGetAllTransactions lid (party aliceDetails) (Verbosity False) $ \txs -> do
+    let command = createWithKey mainPackageId (party aliceDetails) 100
+    _ <- fromRight =<< submitCommand lid (party aliceDetails) command
     liftIO $ do
         Just (Right [Transaction{events=[CreatedEvent{key}]}]) <- timeout 1 (takeStream txs)
-        assertEqual "contract has right key" key (Just (VRecord (Record Nothing [ RecordField "" (VParty (alice testId)), RecordField "" (VInt 100) ])))
+        assertEqual "contract has right key" key (Just (VRecord (Record Nothing [ RecordField "" (VParty (party aliceDetails)), RecordField "" (VInt 100) ])))
 
 tCreateWithoutKey :: SandboxTest
 tCreateWithoutKey withSandbox = testCase "createWithoutKey" $ run withSandbox $ \DarMetadata{mainPackageId} testId -> do
     lid <- getLedgerIdentity
-    _ <- allocateTestParty (alice testId)
-    withGetAllTransactions lid (alice testId) (Verbosity False) $ \txs -> do
-    let command = createWithoutKey mainPackageId (alice testId) 100
-    _ <- fromRight =<< submitCommand lid (alice testId) command
+    aliceDetails <- allocateTestParty (alice testId)
+    withGetAllTransactions lid (party aliceDetails) (Verbosity False) $ \txs -> do
+    let command = createWithoutKey mainPackageId (party aliceDetails) 100
+    _ <- fromRight =<< submitCommand lid (party aliceDetails) command
     liftIO $ do
         Just (Right [Transaction{events=[CreatedEvent{key}]}]) <- timeout 1 (takeStream txs)
         assertEqual "contract has no key" key Nothing
@@ -241,27 +256,27 @@ tCreateWithoutKey withSandbox = testCase "createWithoutKey" $ run withSandbox $ 
 tStakeholders :: WithSandbox -> Tasty.TestTree
 tStakeholders withSandbox = testCase "stakeholders are exposed correctly" $ run withSandbox $ \DarMetadata{mainPackageId} testId -> do
     lid <- getLedgerIdentity
-    _ <- allocateTestParty (alice testId)
-    withGetTransactionsPF lid (alice testId) $ \PastAndFuture {future=txs} -> do
-    let command = createIOU mainPackageId (alice testId) "(alice testId)-in-chains" 100
-    _ <- submitCommand lid (alice testId) command
+    aliceDetails <- allocateTestParty (alice testId)
+    withGetTransactionsPF lid (party aliceDetails) $ \PastAndFuture {future=txs} -> do
+    let command = createIOU mainPackageId (party aliceDetails) "(alice testId)-in-chains" 100
+    _ <- submitCommand lid (party aliceDetails) command
     liftIO $ do
         Just (Right [Transaction{events=[CreatedEvent{signatories,observers}]}]) <- timeout 1 (takeStream txs)
-        assertEqual "the only signatory" signatories [alice testId]
+        assertEqual "the only signatory" signatories [party aliceDetails]
         assertEqual "observers are empty" observers []
 
 tPastFuture :: SandboxTest
 tPastFuture withSandbox = testCase "past/future" $ run withSandbox $ \DarMetadata{mainPackageId} testId -> do
     lid <- getLedgerIdentity
-    _ <- allocateTestParty (alice testId)
-    let command =  createIOU mainPackageId (alice testId) "A-coin" 100
-    withGetTransactionsPF lid (alice testId) $ \PastAndFuture {past=past1,future=future1} -> do
+    aliceDetails <- allocateTestParty (alice testId)
+    let command =  createIOU mainPackageId (party aliceDetails) "A-coin" 100
+    withGetTransactionsPF lid (party aliceDetails) $ \PastAndFuture {past=past1,future=future1} -> do
     -- We need a submitandWait here to make sure that the
     -- second subscription to the transaction stream
     -- comes after this has been applied.
-    _ <- fromRight =<< submitAndWaitCommand lid (alice testId) command
-    withGetTransactionsPF lid (alice testId) $ \PastAndFuture {past=past2,future=future2} -> do
-    _ <- fromRight =<< submitAndWaitCommand lid (alice testId) command
+    _ <- fromRight =<< submitAndWaitCommand lid (party aliceDetails) command
+    withGetTransactionsPF lid (party aliceDetails) $ \PastAndFuture {past=past2,future=future2} -> do
+    _ <- fromRight =<< submitAndWaitCommand lid (party aliceDetails) command
     liftIO $ do
         Just (Right x1) <- timeout 1 (takeStream future1)
         Just (Right y1) <- timeout 1 (takeStream future1)
@@ -273,85 +288,85 @@ tPastFuture withSandbox = testCase "past/future" $ run withSandbox $ \DarMetadat
 tGetFlatTransactionByEventId :: SandboxTest
 tGetFlatTransactionByEventId withSandbox = testCase "tGetFlatTransactionByEventId" $ run withSandbox $ \DarMetadata{mainPackageId} testId -> do
     lid <- getLedgerIdentity
-    _ <- allocateTestParty (alice testId)
-    withGetAllTransactions lid (alice testId) (Verbosity True) $ \txs -> do
-    _ <- fromRight =<< submitCommand lid (alice testId) (createIOU mainPackageId (alice testId) "A-coin" 100)
+    aliceDetails <- allocateTestParty (alice testId)
+    withGetAllTransactions lid (party aliceDetails) (Verbosity True) $ \txs -> do
+    _ <- fromRight =<< submitCommand lid (party aliceDetails) (createIOU mainPackageId (party aliceDetails) "A-coin" 100)
     Just (Right [txOnStream]) <- liftIO $ timeout 1 (takeStream txs)
     Transaction{events=[CreatedEvent{eid}]} <- return txOnStream
-    Just txByEventId <- getFlatTransactionByEventId lid eid [alice testId]
+    Just txByEventId <- getFlatTransactionByEventId lid eid [party aliceDetails]
     liftIO $ assertEqual "tx" txOnStream txByEventId
-    Nothing <- getFlatTransactionByEventId lid (EventId "eeeeee") [alice testId]
+    Nothing <- getFlatTransactionByEventId lid (EventId "eeeeee") [party aliceDetails]
     return ()
 
 tGetFlatTransactionById :: SandboxTest
 tGetFlatTransactionById withSandbox = testCase "tGetFlatTransactionById" $ run withSandbox $ \DarMetadata{mainPackageId} testId -> do
     lid <- getLedgerIdentity
-    _ <- allocateTestParty (alice testId)
-    withGetAllTransactions lid (alice testId) (Verbosity True) $ \txs -> do
-    _ <- fromRight =<< submitCommand lid (alice testId) (createIOU mainPackageId (alice testId) "A-coin" 100)
+    aliceDetails <- allocateTestParty (alice testId)
+    withGetAllTransactions lid (party aliceDetails) (Verbosity True) $ \txs -> do
+    _ <- fromRight =<< submitCommand lid (party aliceDetails) (createIOU mainPackageId (party aliceDetails) "A-coin" 100)
     Just (Right [txOnStream]) <- liftIO $ timeout 1 (takeStream txs)
     Transaction{trid} <- return txOnStream
-    Just txById <- getFlatTransactionById lid trid [alice testId]
+    Just txById <- getFlatTransactionById lid trid [party aliceDetails]
     liftIO $ assertEqual "tx" txOnStream txById
-    Nothing <- getFlatTransactionById lid (TransactionId "xxxxx") [alice testId]
+    Nothing <- getFlatTransactionById lid (TransactionId "xxxxx") [party aliceDetails]
     return ()
 
 tGetTransactions :: SandboxTest
 tGetTransactions withSandbox = testCase "tGetTransactions" $ run withSandbox $ \DarMetadata{mainPackageId} testId -> do
     lid <- getLedgerIdentity
-    _ <- allocateTestParty (alice testId)
-    withGetAllTransactions lid (alice testId) (Verbosity True) $ \txs -> do
-    cidA <- fromRight =<< submitCommand lid (alice testId) (createIOU mainPackageId (alice testId) "A-coin" 100)
+    aliceDetails <- allocateTestParty (alice testId)
+    withGetAllTransactions lid (party aliceDetails) (Verbosity True) $ \txs -> do
+    cidA <- fromRight =<< submitCommand lid (party aliceDetails) (createIOU mainPackageId (party aliceDetails) "A-coin" 100)
     Just (Right [Transaction{cid=Just cidB}]) <- liftIO $ timeout 1 (takeStream txs)
     liftIO $ do assertEqual "cid" cidA cidB
 
 tGetTransactionTrees :: SandboxTest
 tGetTransactionTrees withSandbox = testCase "tGetTransactionTrees" $ run withSandbox $ \DarMetadata{mainPackageId} testId -> do
     lid <- getLedgerIdentity
-    _ <- allocateTestParty (alice testId)
-    withGetAllTransactionTrees lid (alice testId) (Verbosity True) $ \txs -> do
-    cidA <- fromRight =<< submitCommand lid (alice testId) (createIOU mainPackageId (alice testId) "A-coin" 100)
+    aliceDetails <- allocateTestParty (alice testId)
+    withGetAllTransactionTrees lid (party aliceDetails) (Verbosity True) $ \txs -> do
+    cidA <- fromRight =<< submitCommand lid (party aliceDetails) (createIOU mainPackageId (party aliceDetails) "A-coin" 100)
     Just (Right [TransactionTree{cid=Just cidB}]) <- liftIO $ timeout 1 (takeStream txs)
     liftIO $ do assertEqual "cid" cidA cidB
 
 tGetTransactionByEventId :: SandboxTest
 tGetTransactionByEventId withSandbox = testCase "tGetTransactionByEventId" $ run withSandbox $ \DarMetadata{mainPackageId} testId -> do
     lid <- getLedgerIdentity
-    _ <- allocateTestParty (alice testId)
-    withGetAllTransactionTrees lid (alice testId) (Verbosity True) $ \txs -> do
-    _ <- fromRight =<< submitCommand lid (alice testId) (createIOU mainPackageId (alice testId) "A-coin" 100)
+    aliceDetails <- allocateTestParty (alice testId)
+    withGetAllTransactionTrees lid (party aliceDetails) (Verbosity True) $ \txs -> do
+    _ <- fromRight =<< submitCommand lid (party aliceDetails) (createIOU mainPackageId (party aliceDetails) "A-coin" 100)
     Just (Right [txOnStream]) <- liftIO $ timeout 1 (takeStream txs)
     TransactionTree{roots=[eid]} <- return txOnStream
-    Just txByEventId <- getTransactionByEventId lid eid [alice testId]
+    Just txByEventId <- getTransactionByEventId lid eid [party aliceDetails]
     liftIO $ assertEqual "tx" txOnStream txByEventId
-    Nothing <- getTransactionByEventId lid (EventId "eeeeee") [alice testId]
+    Nothing <- getTransactionByEventId lid (EventId "eeeeee") [party aliceDetails]
     return ()
 
 tGetTransactionById :: SandboxTest
 tGetTransactionById withSandbox = testCase "tGetTransactionById" $ run withSandbox $ \DarMetadata{mainPackageId} testId -> do
     lid <- getLedgerIdentity
-    _ <- allocateTestParty (alice testId)
-    withGetAllTransactionTrees lid (alice testId) (Verbosity True) $ \txs -> do
-    _ <- fromRight =<< submitCommand lid (alice testId) (createIOU mainPackageId (alice testId) "A-coin" 100)
+    aliceDetails <- allocateTestParty (alice testId)
+    withGetAllTransactionTrees lid (party aliceDetails) (Verbosity True) $ \txs -> do
+    _ <- fromRight =<< submitCommand lid (party aliceDetails) (createIOU mainPackageId (party aliceDetails) "A-coin" 100)
     Just (Right [txOnStream]) <- liftIO $ timeout 1 (takeStream txs)
     TransactionTree{trid} <- return txOnStream
-    Just txById <- getTransactionById lid trid [alice testId]
+    Just txById <- getTransactionById lid trid [party aliceDetails]
     liftIO $ assertEqual "tx" txOnStream txById
-    Nothing <- getTransactionById lid (TransactionId "xxxxx") [alice testId]
+    Nothing <- getTransactionById lid (TransactionId "xxxxx") [party aliceDetails]
     return ()
 
 tGetActiveContracts :: SandboxTest
 tGetActiveContracts withSandbox = testCase "tGetActiveContracts" $ run withSandbox $ \DarMetadata{mainPackageId} testId -> do
     lid <- getLedgerIdentity
-    _ <- allocateTestParty (alice testId)
+    aliceDetails <- allocateTestParty (alice testId)
     -- no active contracts here
-    [(off1,_,[])] <- getActiveContracts lid (filterEverythingForParty (alice testId)) (Verbosity True)
+    [(off1,_,[])] <- getActiveContracts lid (filterEverythingForParty (party aliceDetails)) (Verbosity True)
     -- so let's create one
-    _ <- fromRight =<< submitCommand lid (alice testId) (createIOU mainPackageId (alice testId) "A-coin" 100)
-    withGetAllTransactions lid (alice testId) (Verbosity True) $ \txs -> do
+    _ <- fromRight =<< submitCommand lid (party aliceDetails) (createIOU mainPackageId (party aliceDetails) "A-coin" 100)
+    withGetAllTransactions lid (party aliceDetails) (Verbosity True) $ \txs -> do
     Just (Right [Transaction{events=[ev]}]) <- liftIO $ timeout 1 (takeStream txs)
     -- and then we get it
-    [(_,_,[active]),(off3,_,[])] <- getActiveContracts lid (filterEverythingForParty (alice testId)) (Verbosity True)
+    [(_,_,[active]),(off3,_,[])] <- getActiveContracts lid (filterEverythingForParty (party aliceDetails)) (Verbosity True)
     liftIO $ do
         -- All but the last offset are meaningless
         assertBool "off3 > off1" (off3 > off1)
@@ -363,7 +378,7 @@ tGetLedgerConfiguration withSandbox = testCase "tGetLedgerConfiguration" $ run w
     xs <- getLedgerConfiguration lid
     Just (Right config) <- liftIO $ timeout 1 (takeStream xs)
     let expected = LedgerConfiguration {
-            maxDeduplicationDuration = Duration {durationSeconds = 1800, durationNanos = 0}}
+            maxDeduplicationDuration = Duration {durationSeconds = 604800, durationNanos = 0}}
     liftIO $ assertEqual "config" expected config
 
 tUploadDarFileBad :: SandboxTest
@@ -373,10 +388,13 @@ tUploadDarFileBad withSandbox = testCase "tUploadDarFileBad" $ run withSandbox $
     Left err <- uploadDarFileGetPid lid bytes
     liftIO $ assertTextContains err "Dar file is corrupt"
 
+-- This test flakes with a `NO_DOMAIN_FOR_SUBMISSION`
+-- The error class in scala includes a reasons for each domain, but that isn't forwarded here, and is difficult to obtain
+-- I'd assume the domain is somehow still busy from the upload in some way?
 tUploadDarFileGood :: SandboxTest
 tUploadDarFileGood withSandbox = testCase "tUploadDarFileGood" $ run withSandbox $ \_darMetadata testId -> do
     lid <- getLedgerIdentity
-    _ <- allocateTestParty (alice testId)
+    aliceDetails <- allocateTestParty (alice testId)
     bytes <- liftIO getBytesForUpload
     before <- listKnownPackages
     pid <- uploadDarFileGetPid lid bytes >>= either (liftIO . assertFailure) return
@@ -385,8 +403,8 @@ tUploadDarFileGood withSandbox = testCase "tUploadDarFileGood" $ run withSandbox
     liftIO $ assertEqual "new pids"
         (Set.fromList (map getPid after) Set.\\ Set.fromList (map getPid before))
         (Set.singleton pid)
-    cidA <- submitCommand lid (alice testId) (createExtra pid (alice testId)) >>= either (liftIO . assertFailure) return
-    withGetAllTransactions lid (alice testId) (Verbosity True) $ \txs -> do
+    cidA <- submitCommand lid (party aliceDetails) (createExtra pid (party aliceDetails)) >>= either (liftIO . assertFailure) return
+    withGetAllTransactions lid (party aliceDetails) (Verbosity True) $ \txs -> do
     Just (Right [Transaction{cid=Just cidB}]) <- liftIO $ timeout 10 (takeStream txs)
     liftIO $ do assertEqual "cid" cidA cidB
     where
@@ -433,10 +451,11 @@ tSetTime withSandbox = testCase "tSetTime" $ run withSandbox $ \_ _testId -> do
     lid <- getLedgerIdentity
     xs <- Ledger.getTime lid
 
+    -- Canton rounds time to microseconds, nanos would be lost
     let t00 = Timestamp {seconds = 0, nanos = 0}
-    let t11 = Timestamp {seconds = 1, nanos = 1}
-    let t22 = Timestamp {seconds = 2, nanos = 2}
-    let t33 = Timestamp {seconds = 3, nanos = 3}
+        t11 = Timestamp {seconds = 1, nanos = 1000}
+        t22 = Timestamp {seconds = 2, nanos = 2000}
+        t33 = Timestamp {seconds = 3, nanos = 3000}
 
     Just (Right time) <- liftIO $ timeout 1 (takeStream xs)
     liftIO $ assertEqual "time1" t00 time -- initially the time is 0,0
@@ -446,7 +465,7 @@ tSetTime withSandbox = testCase "tSetTime" $ run withSandbox $ \_ _testId -> do
     liftIO $ assertEqual "time2" t11 time -- time is 1,1 as we set it
 
     _bad <- Ledger.setTime lid t00 t22 -- the wrong current_time was passed, so the time was not set
-    -- Left _ <- return _bad -- Bug in the sandbox cause this to fail
+    Left _ <- return _bad
 
     () <- fromRight =<< Ledger.setTime lid t11 t33
     Just (Right time) <- liftIO $ timeout 1 (takeStream xs)
@@ -460,14 +479,14 @@ tSubmitAndWait :: SandboxTest
 tSubmitAndWait withSandbox =
     testCase "tSubmitAndWait" $ run withSandbox $ \DarMetadata{mainPackageId} testId -> do
     lid <- getLedgerIdentity
-    _ <- allocateTestParty (alice testId)
-    withGetAllTransactions lid (alice testId) (Verbosity False) $ \txs -> do
+    aliceDetails <- allocateTestParty (alice testId)
+    withGetAllTransactions lid (party aliceDetails) (Verbosity False) $ \txs -> do
     -- bad
-    (_cid,commands) <- liftIO $ makeCommands lid (alice testId) $ createIOU mainPackageId (bob testId) "B-coin" 100
+    (_cid,commands) <- liftIO $ makeCommands lid (party aliceDetails) $ createIOU mainPackageId (bob testId) "B-coin" 100
     Left err <- submitAndWait commands
-    liftIO $ requiresAuthorizerButGot (bob testId) (alice testId) err
+    liftIO $ requiresAuthorizerButGot (bob testId) (party aliceDetails) err
     -- good
-    (_cid,commands) <- liftIO $ makeCommands lid (alice testId) $ createIOU mainPackageId (alice testId) "A-coin" 100
+    (_cid,commands) <- liftIO $ makeCommands lid (party aliceDetails) $ createIOU mainPackageId (party aliceDetails) "A-coin" 100
     () <- fromRight =<< submitAndWait commands
     Just (Right [_]) <- liftIO $ timeout 1 $ takeStream txs
     return ()
@@ -476,14 +495,14 @@ tSubmitAndWaitForTransactionId :: SandboxTest
 tSubmitAndWaitForTransactionId withSandbox =
     testCase "tSubmitAndWaitForTransactionId" $ run withSandbox $ \DarMetadata{mainPackageId} testId -> do
     lid <- getLedgerIdentity
-    _ <- allocateTestParty (alice testId)
-    withGetAllTransactions lid (alice testId) (Verbosity False) $ \txs -> do
+    aliceDetails <- allocateTestParty (alice testId)
+    withGetAllTransactions lid (party aliceDetails) (Verbosity False) $ \txs -> do
     -- bad
-    (_cid,commands) <- liftIO $ makeCommands lid (alice testId) $ createIOU mainPackageId (bob testId) "B-coin" 100
+    (_cid,commands) <- liftIO $ makeCommands lid (party aliceDetails) $ createIOU mainPackageId (bob testId) "B-coin" 100
     Left err <- submitAndWaitForTransactionId commands
-    liftIO $ requiresAuthorizerButGot (bob testId) (alice testId) err
+    liftIO $ requiresAuthorizerButGot (bob testId) (party aliceDetails) err
     -- good
-    (_cid,commands) <- liftIO $ makeCommands lid (alice testId) $ createIOU mainPackageId (alice testId) "A-coin" 100
+    (_cid,commands) <- liftIO $ makeCommands lid (party aliceDetails) $ createIOU mainPackageId (party aliceDetails) "A-coin" 100
     trid <- fromRight =<< submitAndWaitForTransactionId commands
     Just (Right [Transaction{trid=tridExpected}]) <- liftIO $ timeout 1 $ takeStream txs
     liftIO $ assertEqual "trid" tridExpected trid
@@ -492,14 +511,14 @@ tSubmitAndWaitForTransaction :: SandboxTest
 tSubmitAndWaitForTransaction withSandbox =
     testCase "tSubmitAndWaitForTransaction" $ run withSandbox $ \DarMetadata{mainPackageId} testId -> do
     lid <- getLedgerIdentity
-    _ <- allocateTestParty (alice testId)
-    withGetAllTransactions lid (alice testId) (Verbosity True) $ \txs -> do
+    aliceDetails <- allocateTestParty (alice testId)
+    withGetAllTransactions lid (party aliceDetails) (Verbosity True) $ \txs -> do
     -- bad
-    (_cid,commands) <- liftIO $ makeCommands lid (alice testId) $ createIOU mainPackageId (bob testId) "B-coin" 100
+    (_cid,commands) <- liftIO $ makeCommands lid (party aliceDetails) $ createIOU mainPackageId (bob testId) "B-coin" 100
     Left err <- submitAndWaitForTransaction commands
-    liftIO $ requiresAuthorizerButGot (bob testId) (alice testId) err
+    liftIO $ requiresAuthorizerButGot (bob testId) (party aliceDetails) err
     -- good
-    (_cid,commands) <- liftIO $ makeCommands lid (alice testId) $ createIOU mainPackageId (alice testId) "A-coin" 100
+    (_cid,commands) <- liftIO $ makeCommands lid (party aliceDetails) $ createIOU mainPackageId (party aliceDetails) "A-coin" 100
     trans <- fromRight =<< submitAndWaitForTransaction commands
     Just (Right [transExpected]) <- liftIO $ timeout 1 $ takeStream txs
     liftIO $ assertEqual "trans" transExpected trans
@@ -508,14 +527,14 @@ tSubmitAndWaitForTransactionTree :: SandboxTest
 tSubmitAndWaitForTransactionTree withSandbox =
     testCase "tSubmitAndWaitForTransactionTree" $ run withSandbox $ \DarMetadata{mainPackageId} testId -> do
     lid <- getLedgerIdentity
-    _ <- allocateTestParty (alice testId)
-    withGetAllTransactionTrees lid (alice testId) (Verbosity True) $ \txs -> do
+    aliceDetails <- allocateTestParty (alice testId)
+    withGetAllTransactionTrees lid (party aliceDetails) (Verbosity True) $ \txs -> do
     -- bad
-    (_cid,commands) <- liftIO $ makeCommands lid (alice testId) $ createIOU mainPackageId (bob testId) "B-coin" 100
+    (_cid,commands) <- liftIO $ makeCommands lid (party aliceDetails) $ createIOU mainPackageId (bob testId) "B-coin" 100
     Left err <- submitAndWaitForTransactionTree commands
-    liftIO $ requiresAuthorizerButGot (bob testId) (alice testId) err
+    liftIO $ requiresAuthorizerButGot (bob testId) (party aliceDetails) err
     -- good
-    (_cid,commands) <- liftIO $ makeCommands lid (alice testId) $ createIOU mainPackageId (alice testId) "A-coin" 100
+    (_cid,commands) <- liftIO $ makeCommands lid (party aliceDetails) $ createIOU mainPackageId (party aliceDetails) "A-coin" 100
     tree <- fromRight =<< submitAndWaitForTransactionTree commands
     Just (Right [treeExpected]) <- liftIO $ timeout 1 $ takeStream txs
     liftIO $ assertEqual "tree" treeExpected tree
@@ -524,18 +543,18 @@ tSubmitAndWaitForTransactionTree withSandbox =
 tGetParticipantId :: SandboxTest
 tGetParticipantId withSandbox = testCase "tGetParticipantId" $ run withSandbox $ \_darMetadata _testId -> do
     id <- getParticipantId
-    liftIO $ assertEqual "participant" (ParticipantId "sandbox-participant") id
+    liftIO $ assertEqual "participant" "my-ledger-id" $ dropHashSuffix $ unParticipantId id
 
 tAllocateParty :: SandboxTest
 tAllocateParty withSandbox = testCase "tAllocateParty" $ run withSandbox $ \_darMetadata (TestId testId) -> do
     let party = Party (TL.pack $ "me" <> show testId)
-    before <- listKnownParties
+    before <- map dropPartyDetailHash <$> listKnownParties
     let displayName = "Only Me"
     let request = AllocatePartyRequest { partyIdHint = unParty party, displayName }
-    deats <- allocateParty request
+    deats <- dropPartyDetailHash <$> allocateParty request
     let expected = PartyDetails { party, displayName, isLocal = True }
     liftIO $ assertEqual "deats" expected deats
-    after <- listKnownParties
+    after <- map dropPartyDetailHash <$> listKnownParties
     liftIO $ assertEqual "new parties"
         (Set.fromList after Set.\\ Set.fromList before)
         (Set.singleton expected)
@@ -571,15 +590,15 @@ bucket = VRecord $ Record Nothing
 
 tValueConversion :: SandboxTest
 tValueConversion withSandbox = testCase "tValueConversion" $ run withSandbox $ \DarMetadata{mainPackageId} testId -> do
-    let owner = alice testId
+    aliceDetails <- allocateTestParty (alice testId)
+    let owner = party aliceDetails
     let mod = ModuleName "Valuepedia"
     let tid = TemplateId (Identifier mainPackageId mod $ EntityName "HasBucket")
     let args = Record Nothing [ RecordField "owner" (VParty owner), RecordField "bucket" bucket ]
     let command = CreateCommand {tid,args}
     lid <- getLedgerIdentity
-    _ <- allocateTestParty (alice testId)
-    _::CommandId <- submitCommand lid (alice testId) command >>= either (liftIO . assertFailure) return
-    withGetAllTransactions lid (alice testId) (Verbosity True) $ \txs -> do
+    _::CommandId <- submitCommand lid owner command >>= either (liftIO . assertFailure) return
+    withGetAllTransactions lid owner (Verbosity True) $ \txs -> do
     Just elem <- liftIO $ timeout 1 (takeStream txs)
     trList <- either (liftIO . assertFailure . show) return elem
     [Transaction{events=[CreatedEvent{createArgs=Record{fields}}]}] <- return trList
@@ -753,7 +772,7 @@ darPath = mainWorkspace </> "language-support/hs/bindings/for-tests.dar"
 
 testGroupWithSandbox :: FilePath -> Maybe Secret -> TestName -> [WithSandbox -> TestTree] -> TestTree
 testGroupWithSandbox testDar mbSecret name tests =
-    withSandbox defaultSandboxConf { dars = [ testDar ], timeMode = Static, mbLedgerId = Just "my-ledger-id" } $ \getSandboxPort ->
+    withCantonSandbox defaultSandboxConf { dars = [ testDar ], timeMode = Static, mbLedgerId = Just "my-ledger-id" } $ \getSandboxPort ->
     withResource (readDarMetadata testDar) (const $ pure ()) $ \getDarMetadata ->
     withResource (newIORef $ TestId 0) (const $ pure ()) $ \getTestCounter ->
     let run :: WithSandbox

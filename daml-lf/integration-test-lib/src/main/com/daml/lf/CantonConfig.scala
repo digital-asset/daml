@@ -7,12 +7,13 @@ package integrationtest
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.daml.ledger.api.tls.TlsConfiguration
-import com.daml.ledger.client.LedgerClient
+import com.daml.ledger.client.{LedgerClient, GrpcChannel}
 import com.daml.ledger.client.withoutledgerid.{LedgerClient => LedgerClientWithoutId}
 import com.daml.lf.data.Ref
 import com.daml.lf.integrationtest.CantonConfig.noTlsConfig
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.ports.Port
+import io.grpc.ManagedChannel
 import scalaz.syntax.tag._
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -58,24 +59,33 @@ final case class CantonConfig(
 
   def tlsClientConfig: TlsConfiguration = tlsConfig.fold(noTlsConfig)(_.clientConfig)
 
+  def channel(
+      port: Port,
+      maxInboundMessageSize: Int = 64 * 1024 * 1024,
+  ): ManagedChannel = {
+    import com.daml.ledger.client.configuration._
+    val channelConfig = LedgerClientChannelConfiguration(
+      sslContext = tlsClientConfig.client(),
+      maxInboundMessageSize = maxInboundMessageSize,
+    )
+    GrpcChannel.withShutdownHook(
+      channelConfig.builderFor("localhost", port.value)
+    )
+  }
+
   def ledgerClient(
       port: Port,
       token: Option[String],
       maxInboundMessageSize: Int = 64 * 1024 * 1024,
   )(implicit ec: ExecutionContext, esf: ExecutionSequencerFactory): Future[LedgerClient] = {
     import com.daml.ledger.client.configuration._
-    LedgerClient.singleHost(
-      hostIp = "localhost",
-      port = port.value,
-      configuration = LedgerClientConfiguration(
+    LedgerClient(
+      channel = channel(port, maxInboundMessageSize),
+      config = LedgerClientConfiguration(
         applicationId = token.fold(applicationId.unwrap)(_ => ""),
         ledgerIdRequirement = LedgerIdRequirement.none,
         commandClient = CommandClientConfiguration.default,
         token = token,
-      ),
-      channelConfig = LedgerClientChannelConfiguration(
-        sslContext = tlsClientConfig.client(),
-        maxInboundMessageSize = maxInboundMessageSize,
       ),
     )
   }

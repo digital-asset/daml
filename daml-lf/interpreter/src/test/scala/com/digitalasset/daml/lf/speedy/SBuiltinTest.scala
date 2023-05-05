@@ -37,6 +37,7 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
   private def n(scale: Int, str: String): Numeric = n(scale, BigDecimal(str))
   private def s(scale: Int, x: BigDecimal): String = Numeric.toString(n(scale, x))
   private def s(scale: Int, str: String): String = s(scale, BigDecimal(str))
+  private def w(scale: Int): String = s(scale, 1)
 
   private def tenPowerOf(i: Int, scale: Int = 10) =
     if (i == 0)
@@ -300,6 +301,35 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
       }
     }
 
+    "MUL_NUMERIC" - {
+      val builtin = "MUL_NUMERIC"
+      val underSqrtOfTen = "3.1622776601683793319988935444327185337"
+      val overSqrtOfTen = "3.1622776601683793319988935444327185338"
+
+      "throws an exception in case of overflow" in {
+        eval(e"$builtin @0 @0 @0 ${w(0)} 1${"0" * 18}. 1${"0" * 19}.") shouldBe a[Right[_, _]]
+        eval(e"$builtin @0 @0 @0 ${w(0)} 1${"0" * 19}.  1${"0" * 19}.") shouldBe a[Left[_, _]]
+        eval(e"$builtin @37 @37 @37 ${w(37)} $underSqrtOfTen $underSqrtOfTen") shouldBe a[
+          Right[_, _]
+        ]
+        eval(e"$builtin @37 @37 @37 ${w(37)} $overSqrtOfTen $underSqrtOfTen") shouldBe a[Left[_, _]]
+        eval(e"$builtin @10 @10 @10 ${w(10)} 1.1000000000 2.2000000000") shouldBe Right(
+          SNumeric(n(10, 2.42))
+        )
+        eval(e"$builtin @10 @10 @10 ${w(10)} ${tenPowerOf(13)} ${tenPowerOf(14)}") shouldBe Right(
+          SNumeric(n(10, "1E27"))
+        )
+        eval(e"$builtin @10 @10 @10 ${w(10)}  ${tenPowerOf(14)} ${tenPowerOf(14)}") shouldBe a[
+          Left[_, _]
+        ]
+        eval(
+          e"$builtin @10 @10 @10 ${w(10)}  ${s(10, bigBigDecimal)} ${bigBigDecimal - 1}"
+        ) shouldBe a[
+          Left[_, _]
+        ]
+      }
+    }
+
     "DIV_NUMERIC_LEGACY" - {
       val builtin = "DIV_NUMERIC_LEGACY"
 
@@ -326,6 +356,45 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
         )
         eval(e"$builtin @10 @10 @10 ${s(10, one)} ${s(10, zero)}") shouldBe a[Left[_, _]]
         eval(e"$builtin @10 @10 @10 ${s(10, bigBigDecimal)} ${s(10, zero)}") shouldBe a[Left[_, _]]
+      }
+    }
+
+    "DIV_NUMERIC" - {
+      val builtin = "DIV_NUMERIC"
+
+      "throws an exception in case of overflow" in {
+        eval(e"$builtin @37 @37 @37 ${w(37)} ${s(37, "1E-18")} ${s(37, "-1E-18")}") shouldBe a[
+          Right[_, _]
+        ]
+        eval(e"$builtin @37 @37 @37 ${w(37)} ${s(37, "1E-18")} ${s(37, "-1E-19")}") shouldBe a[
+          Left[_, _]
+        ]
+        eval(e"$builtin @1 @1 @1 ${w(1)} ${s(1, "1E36")} 0.2") shouldBe a[Right[_, _]]
+        eval(e"$builtin @1 @1 @1 ${w(1)} ${s(1, "1E36")} 0.1") shouldBe a[Left[_, _]]
+        eval(e"$builtin @10 @10 @10 ${w(10)} 1.1000000000 2.2000000000") shouldBe Right(
+          SNumeric(n(10, 0.5))
+        )
+        eval(
+          e"$builtin @10 @10 @10 ${w(10)} ${s(10, bigBigDecimal)} ${tenPowerOf(-10)}"
+        ) shouldBe a[
+          Left[_, _]
+        ]
+        eval(e"$builtin @10 @10 @10 ${w(10)} ${tenPowerOf(17)} ${tenPowerOf(-10)}") shouldBe Right(
+          SNumeric(n(10, "1E27"))
+        )
+        eval(e"$builtin @10 @10 @10 ${w(10)} ${tenPowerOf(18)} ${tenPowerOf(-10)}") shouldBe a[
+          Left[_, _]
+        ]
+      }
+
+      "throws an exception when divided by 0" in {
+        eval(e"$builtin @10 @10 @10 ${w(10)} ${s(10, one)} ${tenPowerOf(-10)}") shouldBe Right(
+          SNumeric(n(10, tenPowerOf(10)))
+        )
+        eval(e"$builtin @10 @10 @10 ${w(10)} ${s(10, one)} ${s(10, zero)}") shouldBe a[Left[_, _]]
+        eval(e"$builtin @10 @10 @10 ${w(10)} ${s(10, bigBigDecimal)} ${s(10, zero)}") shouldBe a[
+          Left[_, _]
+        ]
       }
     }
 
@@ -448,6 +517,57 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
       }
     }
 
+    "CAST_NUMERIC" - {
+      "throws an error in case of overflow" in {
+        val testCases = Table[Int, Int, String](
+          ("input scale", "output scale", "x"),
+          (0, 1, s(0, Numeric.maxValue(0))),
+          (0, 37, "10."),
+          (20, 30, tenPowerOf(15, 20)),
+          (36, 37, s(36, Numeric.minValue(36))),
+        )
+
+        forEvery(testCases) { (inputScale, outputScale, x) =>
+          eval(e"CAST_NUMERIC @$inputScale @$outputScale ${w(outputScale)} $x") shouldBe a[
+            Left[_, _]
+          ]
+        }
+
+      }
+
+      "throws an error in case of precision loss" in {
+        val testCases = Table[Int, Int, String](
+          ("input scale", "output scale", "x"),
+          (1, 0, tenPowerOf(-1, 1)),
+          (37, 0, tenPowerOf(-37, 37)),
+          (20, 10, "-" + tenPowerOf(-15, 20)),
+          (37, 36, tenPowerOf(-37, 37)),
+        )
+
+        forEvery(testCases) { (inputScale, outputScale, x) =>
+          eval(e"CAST_NUMERIC @$inputScale @$outputScale ${w(outputScale)} $x") shouldBe a[
+            Left[_, _]
+          ]
+        }
+      }
+
+      "returns proper result" in {
+        val testCases = Table[Int, Int, String](
+          ("input scale", "output scale", "x"),
+          (1, 0, "1.0"),
+          (10, 20, tenPowerOf(-5, 10)),
+          (20, 10, tenPowerOf(-5, 20)),
+          (10, 20, tenPowerOf(10, 10)),
+          (20, 10, tenPowerOf(10, 20)),
+        )
+        forEvery(testCases) { (inputScale, outputScale, x) =>
+          eval(e"CAST_NUMERIC @$inputScale @$outputScale ${w(outputScale)} $x") shouldBe Right(
+            SNumeric(n(outputScale, x))
+          )
+        }
+      }
+    }
+
     "SHIFT_NUMERIC_LEGACY" - {
 
       "returns proper result" in {
@@ -464,6 +584,28 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
         )
         forEvery(testCases) { (inputScale, outputScale, input, output) =>
           eval(e"SHIFT_NUMERIC_LEGACY @$inputScale @$outputScale $input") shouldBe Right(
+            SNumeric(n(outputScale, output))
+          )
+        }
+      }
+    }
+
+    "SHIFT_NUMERIC" - {
+
+      "returns proper result" in {
+        val testCases = Table[Int, Int, String, String](
+          ("input scale", "output scale", "input", "output"),
+          (0, 1, s(0, Numeric.maxValue(0)), s(1, Numeric.maxValue(1))),
+          (0, 37, tenPowerOf(1, 0), tenPowerOf(-36, 37)),
+          (20, 30, tenPowerOf(15, 20), tenPowerOf(5, 30)),
+          (20, 10, tenPowerOf(15, 20), tenPowerOf(25, 10)),
+          (10, 20, tenPowerOf(-5, 10), tenPowerOf(-15, 20)),
+          (20, 10, tenPowerOf(-5, 20), tenPowerOf(5, 10)),
+          (10, 20, tenPowerOf(10, 10), tenPowerOf(0, 20)),
+          (20, 10, tenPowerOf(10, 20), tenPowerOf(20, 10)),
+        )
+        forEvery(testCases) { (inputScale, outputScale, input, output) =>
+          eval(e"SHIFT_NUMERIC @$inputScale @$outputScale ${w(outputScale)} $input") shouldBe Right(
             SNumeric(n(outputScale, output))
           )
         }
@@ -1438,42 +1580,38 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
         (SBDivInt64, List[SValue](MaxInt64, ZeroInt64), "DIV_INT64"),
         (SBModInt64, List[SValue](MaxInt64, ZeroInt64), "MOD_INT64"),
         (SBExpInt64, List[SValue](TwoInt64, MaxInt64), "EXP_INT64"),
-        (SBAddNumeric, List[SValue](witness(MinScale), MaxNumeric0, TwoNumeric0), "ADD_NUMERIC"),
-        (SBSubNumeric, List[SValue](witness(MinScale), MinNumeric0, TwoNumeric0), "SUB_NUMERIC"),
+        (SBAddNumeric, List[SValue](MaxNumeric0, TwoNumeric0), "ADD_NUMERIC"),
+        (SBSubNumeric, List[SValue](MinNumeric0, TwoNumeric0), "SUB_NUMERIC"),
         (
           SBMulNumeric,
           List[SValue](
             witness(MinScale),
-            witness(MinScale),
-            witness(MinScale),
             MaxNumeric0,
             MaxNumeric0,
           ),
-          "MUL_NUMERIC_LEGACY",
+          "MUL_NUMERIC",
         ),
         (
           SBDivNumeric,
           List[SValue](
             witness(MinScale),
-            witness(MinScale),
-            witness(MinScale),
             TwoNumeric0,
             SNumeric(Numeric.assertFromString("0.")),
           ),
-          "DIV_NUMERIC_LEGACY",
+          "DIV_NUMERIC",
         ),
         (
           SBRoundNumeric,
-          List[SValue](witness(MinScale), SInt64(MaxScale.toLong), MaxNumeric0),
+          List[SValue](SInt64(MaxScale.toLong), MaxNumeric0),
           "ROUND_NUMERIC",
         ),
         (
           SBCastNumeric,
-          List[SValue](witness(MinScale), witness(MaxScale), MaxNumeric0),
-          "CAST_NUMERIC_LEGACY",
+          List[SValue](witness(MaxScale), MaxNumeric0),
+          "CAST_NUMERIC",
         ),
-        (SBInt64ToNumeric, List[SValue](witness(MaxScale), SInt64(10)), "INT64_TO_NUMERIC_LEGACY"),
-        (SBNumericToInt64, List[SValue](witness(MinScale), MaxNumeric0), "NUMERIC_TO_INT64"),
+        (SBInt64ToNumeric, List[SValue](witness(MaxScale), SInt64(10)), "INT64_TO_NUMERIC"),
+        (SBNumericToInt64, List[SValue](MaxNumeric0), "NUMERIC_TO_INT64"),
         (SBUnixDaysToDate, List[SValue](MaxInt64), "UNIX_DAYS_TO_DATE"),
         (SBUnixMicrosecondsToTimestamp, List(MaxInt64), "UNIX_MICROSECONDS_TO_TIMESTAMP"),
         (SBAddBigNumeric, List[SValue](VeryBigBigNumericA, VeryBigBigNumericB), "ADD_BIGNUMERIC"),
@@ -1501,7 +1639,7 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
         (
           SBBigNumericToNumeric,
           List[SValue](witness(MinScale), VeryBigBigNumericA),
-          "BIGNUMERIC_TO_NUMERIC_LEGACY",
+          "BIGNUMERIC_TO_NUMERIC",
         ),
       )
 
@@ -1514,8 +1652,8 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
                     Value.ValueArithmeticError(msg),
                   )
                 )
-              )
-              if msg == s"ArithmeticError while evaluating ($name ${args.iterator.map(lit2string).mkString(" ")})." =>
+              ) =>
+            msg shouldBe s"ArithmeticError while evaluating ($name ${args.iterator.map(lit2string).mkString(" ")})."
         }
       }
     }

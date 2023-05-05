@@ -456,21 +456,21 @@ decodeBuiltinFunction = \case
   LF1.BuiltinFunctionTEXT_TO_PARTY -> pure BETextToParty
   LF1.BuiltinFunctionTEXT_TO_INT64 -> pure BETextToInt64
   LF1.BuiltinFunctionTEXT_TO_NUMERIC_LEGACY -> pure BETextToNumericLegacy
-  LF1.BuiltinFunctionTEXT_TO_NUMERIC -> error "not implemented"
+  LF1.BuiltinFunctionTEXT_TO_NUMERIC -> pure BETextToNumeric
   LF1.BuiltinFunctionTEXT_TO_CODE_POINTS -> pure BETextToCodePoints
   LF1.BuiltinFunctionPARTY_TO_QUOTED_TEXT -> pure BEPartyToQuotedText
 
   LF1.BuiltinFunctionADD_NUMERIC   -> pure BEAddNumeric
   LF1.BuiltinFunctionSUB_NUMERIC   -> pure BESubNumeric
   LF1.BuiltinFunctionMUL_NUMERIC_LEGACY   -> pure BEMulNumericLegacy
-  LF1.BuiltinFunctionMUL_NUMERIC -> error "not implemented"
+  LF1.BuiltinFunctionMUL_NUMERIC   -> pure  BEMulNumeric
   LF1.BuiltinFunctionDIV_NUMERIC_LEGACY   -> pure BEDivNumericLegacy
-  LF1.BuiltinFunctionDIV_NUMERIC -> error "not implemented"
+  LF1.BuiltinFunctionDIV_NUMERIC   -> pure BEDivNumericLegacy
   LF1.BuiltinFunctionROUND_NUMERIC -> pure BERoundNumeric
   LF1.BuiltinFunctionCAST_NUMERIC_LEGACY  -> pure BECastNumericLegacy
-  LF1.BuiltinFunctionCAST_NUMERIC -> error "not implemented"
+  LF1.BuiltinFunctionCAST_NUMERIC  -> pure BECastNumeric
   LF1.BuiltinFunctionSHIFT_NUMERIC_LEGACY -> pure BEShiftNumericLegacy
-  LF1.BuiltinFunctionSHIFT_NUMERIC -> error "not implemented"
+  LF1.BuiltinFunctionSHIFT_NUMERIC -> pure BEShiftNumeric
 
   LF1.BuiltinFunctionADD_INT64 -> pure BEAddInt64
   LF1.BuiltinFunctionSUB_INT64 -> pure BESubInt64
@@ -512,7 +512,7 @@ decodeBuiltinFunction = \case
   LF1.BuiltinFunctionUNIX_MICROSECONDS_TO_TIMESTAMP -> pure BEUnixMicrosecondsToTimestamp
 
   LF1.BuiltinFunctionINT64_TO_NUMERIC_LEGACY -> pure BEInt64ToNumericLegacy
-  LF1.BuiltinFunctionINT64_TO_NUMERIC -> error "not implemented"
+  LF1.BuiltinFunctionINT64_TO_NUMERIC -> pure BEInt64ToNumeric
   LF1.BuiltinFunctionNUMERIC_TO_INT64 -> pure BENumericToInt64
 
   LF1.BuiltinFunctionTRACE -> pure BETrace
@@ -529,7 +529,7 @@ decodeBuiltinFunction = \case
   LF1.BuiltinFunctionDIV_BIGNUMERIC -> pure BEDivBigNumeric
   LF1.BuiltinFunctionSHIFT_RIGHT_BIGNUMERIC -> pure BEShiftRightBigNumeric
   LF1.BuiltinFunctionBIGNUMERIC_TO_NUMERIC_LEGACY -> pure BEBigNumericToNumericLegacy
-  LF1.BuiltinFunctionBIGNUMERIC_TO_NUMERIC -> error "not implemented"
+  LF1.BuiltinFunctionBIGNUMERIC_TO_NUMERIC -> pure BEBigNumericToNumeric
   LF1.BuiltinFunctionNUMERIC_TO_BIGNUMERIC -> pure BENumericToBigNumeric
 
   LF1.BuiltinFunctionADD_DECIMAL -> unsupportedDecimal

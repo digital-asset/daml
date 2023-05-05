@@ -7,7 +7,7 @@ module DamlcPkgManager
 {- HLINT ignore "locateRunfiles/package_app" -}
 
 import DA.Bazel.Runfiles
-import DA.Cli.Damlc.InspectDar
+import DA.Daml.Dar.Reader
 import DA.Daml.Helper.Ledger (downloadAllReachablePackages)
 import qualified DA.Daml.LF.Ast as LF
 import DA.Test.Sandbox

@@ -316,6 +316,8 @@ final class Conversions(
         )
       case Error.Timeout(timeout) =>
         builder.setEvaluationTimeout(timeout.toSeconds)
+      case Error.CanceledByRequest() =>
+        builder.setCancelledByRequest(empty)
     }
     builder.build
   }

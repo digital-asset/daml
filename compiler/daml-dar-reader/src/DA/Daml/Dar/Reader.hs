@@ -1,7 +1,7 @@
 -- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-module DA.Cli.Damlc.InspectDar
+module DA.Daml.Dar.Reader
     ( Format(..)
     , getDarInfo
     , inspectDar
@@ -12,7 +12,7 @@ module DA.Cli.Damlc.InspectDar
 
 import qualified "zip-archive" Codec.Archive.Zip as ZipArchive
 import qualified DA.Daml.LF.Ast as LF
-import qualified DA.Daml.LF.Proto3.Archive as Archive
+import qualified DA.Daml.LF.Proto3.Archive.Decode as Archive
 import DA.Daml.LF.Reader
 import DA.Pretty (renderPretty)
 import Data.Aeson

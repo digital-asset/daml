@@ -74,8 +74,8 @@ daml_compile(
 #  - Finally, invoke 'yarn test' from the 'root/build-and-lint' directory.
 #
 # That last step causes 'build-and-lint/src/__tests__/test.ts' to be executed which:
-#  - Spins up a sandbox running the 'build-and-lint-1.0.0.dar';
-#  - Spins up a http-json-api connected to the sandbox;
+#  - Spins up a canton participant and domain running the 'build-and-lint-1.0.0.dar';
+#  - Spins up a http-json-api connected to the participant;
 #  - Evaluates assertions of http-json-api specified ledger operations
 #    involving contracts defined by the dar;
 #  - Gracefully tears down the processes it started when its work is done.
@@ -88,7 +88,7 @@ sh_test(
         "$(location //:java)",
         "$(location //:yarn)",
         "$(location //:daml2js)",
-        "$(location //ledger/sandbox-on-x:app_deploy.jar)",
+        "$(location //daml-lf/integration-test-lib:canton_deploy.jar)",
         "$(location //ledger-service/http-json:http-json-binary_deploy.jar)",
         "$(location :build-and-lint.dar)",
         "$(location ts/package.json)",
@@ -104,13 +104,13 @@ sh_test(
         "//:java",
         "//:yarn",
         "//:daml2js",
-        "//ledger/sandbox-on-x:app_deploy.jar",
         "//ledger-service/http-json:http-json-binary_deploy.jar",
         ":build-and-lint.dar",
         ":hidden.dar",
         "//test-common:model-tests-default.dar",
         "//language-support/ts/daml-types:npm_package",
         "//language-support/ts/daml-ledger:npm_package",
+        "//daml-lf/integration-test-lib:canton_deploy.jar",
         "@grpcurl_nix//:bin",
     ] + glob(
         ["ts/**"],
@@ -119,10 +119,12 @@ sh_test(
             "ts/**/lib/**",
         ],
     ),
-    # Spinning up jest, Sandbox and the JSON API is expensive.
+    # Spinning up jest, Canton and the JSON API is expensive.
     # We get some timeouts during startup with 2 cpus so we set it to 4 to reduce
     # system load.
-    tags = ["cpu:4"],
+    # Running exclusively at this time to avoid port clashes, due to lack of freeport in ts
+    # Consider porting this to scala.
+    tags = ["exclusive"],
     toolchains = ["@rules_sh//sh/posix:make_variables"],
     deps = [
         "@bazel_tools//tools/bash/runfiles",
