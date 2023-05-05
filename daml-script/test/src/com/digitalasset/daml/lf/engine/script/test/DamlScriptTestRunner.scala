@@ -4,8 +4,6 @@
 package com.daml.lf.engine.script
 
 import com.daml.bazeltools.BazelRunfiles
-import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
-import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.daml.lf.integrationtest.CantonFixture
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.scalautil.Statement.discard
@@ -15,20 +13,10 @@ import org.scalatest.wordspec.AnyWordSpec
 
 import java.nio.file.Files
 
-class DamlScriptTestRunner
-    extends AnyWordSpec
-    with CantonFixture
-    with Matchers
-    with SuiteResourceManagementAroundAll {
+class DamlScriptTestRunner extends AnyWordSpec with CantonFixture with Matchers {
   self: Suite =>
 
-  override protected def authSecret = None
-  override protected def darFiles = List.empty
-  override protected def devMode = false
-  override protected def nParticipants = 1
-  override protected def timeProviderType = TimeProviderType.Static
-  override protected def tlsEnable = false
-  override protected def applicationId: ApplicationId = ApplicationId("daml-script")
+  final override protected lazy val timeProviderType = TimeProviderType.Static
 
   private val exe = if (sys.props("os.name").toLowerCase.contains("windows")) ".exe" else ""
   val scriptPath = BazelRunfiles.rlocation("daml-script/runner/daml-script-binary" + exe)

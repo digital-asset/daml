@@ -144,7 +144,7 @@ EOF
                 "@maven//:org_scalatestplus_scalacheck_1_15",
                 "@maven//:org_scalaz_scalaz_core",
             ],
-            tags = ["cpu:4"] + (["canton-dev"] if lf_version else []),
+            tags = ["cpu:4"] + (["dev-canton-test"] if lf_version else []),
             deps = [
                 ":test-utils",
                 "//bazel_tools/runfiles:scala_runfiles",

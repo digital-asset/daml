@@ -115,7 +115,7 @@ conformance_test(
     dev_mod_flag = "",
     extra_data =
         conformance_test_extra_data_base + [
-            "//daml-lf/integration-test-lib:canton-dev_deploy.jar",
+            "//daml-lf/integration-test-lib:canton-patched_deploy.jar",
             ":bootstrap-dev.canton",
             ":canton-dev.conf",
         ],
@@ -131,6 +131,6 @@ conformance_test(
         "--config=$$(canonicalize_rlocation $(rootpath :canton-dev.conf))",
         "--bootstrap=$$(canonicalize_rlocation $(rootpath :bootstrap-dev.canton))",
     ],
-    tags = ["canton-dev"],
+    tags = ["dev-canton-test"],
     test_tool_args = conformance_test_tool_args,
 ) if not is_windows else None
