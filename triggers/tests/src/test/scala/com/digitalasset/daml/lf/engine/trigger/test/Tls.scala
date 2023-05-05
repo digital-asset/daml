@@ -4,6 +4,7 @@
 package com.daml.lf.engine.trigger.test
 
 import akka.stream.scaladsl.Flow
+import com.daml.ledger.api.refinements.ApiTypes.{Party => ApiParty}
 import com.daml.ledger.api.v1.commands.CreateCommand
 import com.daml.ledger.api.v1.{value => LedgerApi}
 import com.daml.lf.data.Ref._
@@ -12,6 +13,7 @@ import com.daml.lf.engine.trigger.TriggerMsg
 import org.scalatest._
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
+import scalaz.syntax.tag._
 
 class Tls extends AsyncWordSpec with AbstractTriggerTestWithCanton with Matchers with TryValues {
 
@@ -21,12 +23,13 @@ class Tls extends AsyncWordSpec with AbstractTriggerTestWithCanton with Matchers
     // We just need something simple to test the connection.
     val assetId = LedgerApi.Identifier(packageId, "ACS", "Asset")
     val assetMirrorId = LedgerApi.Identifier(packageId, "ACS", "AssetMirror")
-    def asset(party: String): CreateCommand =
+    def asset(party: ApiParty): CreateCommand =
       CreateCommand(
         templateId = Some(assetId),
         createArguments = Some(
           LedgerApi.Record(
-            fields = Seq(LedgerApi.RecordField("issuer", Some(LedgerApi.Value().withParty(party))))
+            fields =
+              Seq(LedgerApi.RecordField("issuer", Some(LedgerApi.Value().withParty(party.unwrap))))
           )
         ),
       )

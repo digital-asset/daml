@@ -32,7 +32,7 @@ class CatAndFoodTriggerSimulation
       val setup = for {
         client <- defaultLedgerClient()
         party <- allocateParty(client)
-      } yield (client, Party(party))
+      } yield (client, party)
       val (client, actAs) = Await.result(setup, simulationConfig.simulationSetupTimeout)
       val ledger = context.spawn(LedgerProcess.create(client), "ledger")
       val triggerFactory: TriggerProcessFactory =

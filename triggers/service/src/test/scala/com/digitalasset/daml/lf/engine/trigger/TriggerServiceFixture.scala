@@ -48,7 +48,7 @@ import com.daml.lf.archive.Dar
 import com.daml.lf.data.Ref._
 import com.daml.lf.engine.trigger.TriggerRunnerConfig.DefaultTriggerRunnerConfig
 import com.daml.lf.engine.trigger.dao.DbTriggerDao
-import com.daml.lf.engine.trigger.test.AbstractTriggerTestWithCanton
+import com.daml.lf.integrationtest.CantonFixture
 import com.daml.lf.speedy.Compiler
 import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.apiserver.services.GrpcClientResource
@@ -459,7 +459,7 @@ trait AbstractTriggerDaoFixture extends SuiteMixin {
 }
 
 // TODO: rename once Oracle and Postgres migrations are completed
-trait AbstractTriggerDaoCantonFixture extends AbstractTriggerTestWithCanton {
+trait AbstractTriggerDaoCantonFixture extends CantonFixture {
   self: Suite =>
 
   override protected def authSecret: Option[String] = None

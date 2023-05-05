@@ -89,15 +89,15 @@ trait AbstractTriggerTestWithCanton extends CantonFixture with SuiteResourceMana
   protected def getRunner(
       client: LedgerClient,
       name: QualifiedName,
-      party: String,
-      readAs: Set[String] = Set.empty,
+      party: Party,
+      readAs: Set[Party] = Set.empty,
   ): Runner = {
     val triggerId = Identifier(packageId, name)
 
     Trigger.newTriggerLogContext(
       triggerId,
-      Party(party),
-      Party.subst(readAs),
+      party,
+      readAs,
       "test-trigger",
       applicationId,
     ) { implicit triggerContext: TriggerLogContext =>
@@ -111,24 +111,30 @@ trait AbstractTriggerTestWithCanton extends CantonFixture with SuiteResourceMana
         timeProviderType,
         applicationId,
         TriggerParties(
-          actAs = Party(party),
-          readAs = Party.subst(readAs),
+          actAs = party,
+          readAs = readAs,
         ),
       )
     }
   }
 
-  protected def allocateParty(client: LedgerClient)(implicit ec: ExecutionContext): Future[String] =
-    client.partyManagementClient.allocateParty(None, None).map(_.party)
+  def allocateParty(
+      client: LedgerClient,
+      hint: Option[String] = None,
+      displayName: Option[String] = None,
+  )(implicit ec: ExecutionContext): Future[Party] =
+    client.partyManagementClient
+      .allocateParty(hint, displayName)
+      .map(details => Party(details.party: String))
 
-  protected def create(client: LedgerClient, party: String, cmd: CreateCommand)(implicit
+  protected def create(client: LedgerClient, party: Party, cmd: CreateCommand)(implicit
       ec: ExecutionContext
   ): Future[String] = {
     val commands = Seq(Command().withCreate(cmd))
     val request = SubmitAndWaitRequest(
       Some(
         Commands(
-          party = party,
+          party = party.unwrap,
           commands = commands,
           ledgerId = client.ledgerId.unwrap,
           applicationId = applicationId.unwrap,
@@ -143,7 +149,7 @@ trait AbstractTriggerTestWithCanton extends CantonFixture with SuiteResourceMana
 
   protected def create(
       client: LedgerClient,
-      party: String,
+      party: Party,
       commands: Seq[CreateCommand],
       elements: Int = 50,
       per: FiniteDuration = 1.second,
@@ -159,7 +165,7 @@ trait AbstractTriggerTestWithCanton extends CantonFixture with SuiteResourceMana
 
   protected def exercise(
       client: LedgerClient,
-      party: String,
+      party: Party,
       templateId: LedgerApi.Identifier,
       contractId: String,
       choice: String,
@@ -178,7 +184,7 @@ trait AbstractTriggerTestWithCanton extends CantonFixture with SuiteResourceMana
     val request = SubmitAndWaitRequest(
       Some(
         Commands(
-          party = party,
+          party = party.unwrap,
           commands = commands,
           ledgerId = client.ledgerId.unwrap,
           applicationId = applicationId.unwrap,
@@ -193,7 +199,7 @@ trait AbstractTriggerTestWithCanton extends CantonFixture with SuiteResourceMana
 
   protected def archive(
       client: LedgerClient,
-      party: String,
+      party: Party,
       templateId: LedgerApi.Identifier,
       contractId: String,
   )(implicit ec: ExecutionContext): Future[Unit] = {
@@ -207,10 +213,10 @@ trait AbstractTriggerTestWithCanton extends CantonFixture with SuiteResourceMana
     )
   }
 
-  protected def queryACS(client: LedgerClient, party: String)(implicit
+  protected def queryACS(client: LedgerClient, party: Party)(implicit
       ec: ExecutionContext
   ): Future[Map[LedgerApi.Identifier, Seq[LedgerApi.Record]]] = {
-    val filter = TransactionFilter(List((party, Filters.defaultInstance)).toMap)
+    val filter = TransactionFilter(List((party.unwrap, Filters.defaultInstance)).toMap)
     val contractsF: Future[Seq[CreatedEvent]] = client.activeContractSetClient
       .getActiveContracts(filter, verbose = true)
       .runWith(Sink.seq)

@@ -24,7 +24,7 @@ import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.concurrent.Eventually
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.Future
 import scalaz.Tag
 import scalaz.syntax.tag._
 import scalaz.syntax.traverse._
@@ -531,6 +531,15 @@ trait AbstractTriggerServiceTestHelperWithCanton
       })
     }
   }
+
+  def allocateParty(
+      client: LedgerClient,
+      hint: Option[String] = None,
+      displayName: Option[String] = None,
+  ): Future[Party] =
+    client.partyManagementClient
+      .allocateParty(hint, displayName)
+      .map(details => Party(details.party: String))
 }
 
 // Tests for all trigger service configurations go here
@@ -1191,7 +1200,6 @@ trait AbstractTriggerServiceTestWithCanton extends AbstractTriggerServiceTestHel
     } yield succeed
   }
 
-  // FIXME:
   it should "successfully start a trigger that uses multi-read-as" inClaims withTriggerService(
     List(dar)
   ) { uri: Uri =>
@@ -1204,22 +1212,12 @@ trait AbstractTriggerServiceTestWithCanton extends AbstractTriggerServiceTestHel
         ),
       )
     for {
-      (client, public) <- for {
-        client <- sandboxClient(
-          ApiTypes.ApplicationId("exp-app-id"),
-          actAs = List(ApiTypes.Party(alice.unwrap)),
-          admin = true,
-        )
-        _ <- client.packageManagementClient.uploadDarFile(
-          PByteString.copyFrom(Files.readAllBytes(darPath.toPath))
-        )
-
-        public <- client.partyManagementClient.allocateParty(Some("public"), Some("public"), None)
-        clientWeWant <- sandboxClient(
-          ApiTypes.ApplicationId("exp-app-id"),
-          actAs = List(ApiTypes.Party(alice.unwrap), ApiTypes.Party(public.party.toString)),
-        )
-      } yield (clientWeWant, Party(public.party: String))
+      client <- defaultLedgerClient()
+      _ <- client.packageManagementClient.uploadDarFile(
+        PByteString.copyFrom(Files.readAllBytes(darPath.toPath))
+      )
+      party <- allocateParty(client)
+      public <- allocateParty(client, Some("public"), Some("public"))
 
       _ <- submitCmd(
         client,
@@ -1231,15 +1229,14 @@ trait AbstractTriggerServiceTestWithCanton extends AbstractTriggerServiceTestHel
       resp <- startTrigger(
         uri,
         s"$testPkgId:ReadAs:test",
-        alice,
-        Some(ApplicationId("exp-app-id")),
+        party,
+        Some(applicationId),
         readAs = Set(public),
       )
 
       triggerId <- parseTriggerId(resp)
-      _ <- assertTriggerIds(uri, alice, Vector(triggerId))
+      _ <- assertTriggerIds(uri, party, Vector(triggerId))
       _ <- assertTriggerStatus(triggerId, _.last shouldBe "running")
-
     } yield succeed
   }
 
@@ -1278,21 +1275,14 @@ trait AbstractTriggerServiceTestWithCanton extends AbstractTriggerServiceTestHel
       } yield succeed
   }
 
-  // FIXME:
   it should "enable a trigger on http request" inClaims withTriggerService(List(dar)) { uri: Uri =>
     for {
-      client <- sandboxClient(
-        ApiTypes.ApplicationId("my-app-id"),
-        actAs = List(ApiTypes.Party(aliceAcs.unwrap)),
-      )
-      adminClient <- sandboxClient(
-        ApiTypes.ApplicationId("my-app-id"),
-        admin = true,
-      )
-      _ <- adminClient.packageManagementClient.uploadDarFile(
+      client <- defaultLedgerClient()
+      _ <- client.packageManagementClient.uploadDarFile(
         PByteString.copyFrom(Files.readAllBytes(darPath.toPath))
       )
-      _ <- adminClient.partyManagementClient.allocateParty(Some(aliceAcs.unwrap), None)
+      party <- allocateParty(client)
+      aliceAcs <- allocateParty(client, Some("Alice_acs"))
       // Make sure that no contracts exist initially to guard against accidental
       // party reuse.
       _ <- getActiveContracts(client, aliceAcs, Identifier(testPkgId, "TestTrigger", "B"))
@@ -1302,7 +1292,7 @@ trait AbstractTriggerServiceTestWithCanton extends AbstractTriggerServiceTestHel
         uri,
         s"$testPkgId:TestTrigger:trigger",
         aliceAcs,
-        Some(ApplicationId("my-app-id")),
+        Some(applicationId),
       )
       triggerId <- parseTriggerId(resp)
 
@@ -1345,7 +1335,7 @@ trait AbstractTriggerServiceTestWithCanton extends AbstractTriggerServiceTestHel
       body <- responseBodyToString(status)
       _ =
         body shouldBe s"""{"result":{"party":"Alice_acs","status":"running","triggerId":"$testPkgId:TestTrigger:trigger"},"status":200}"""
-      resp <- stopTrigger(uri, triggerId, alice)
+      resp <- stopTrigger(uri, triggerId, party)
       _ <- assert(resp.status.isSuccess)
     } yield succeed
   }
@@ -1696,9 +1686,6 @@ trait AbstractTriggerServiceTestWithCanton extends AbstractTriggerServiceTestHel
       succeed
     }
   }
-
-  def allocateParty(client: LedgerClient)(implicit ec: ExecutionContext): Future[Party] =
-    client.partyManagementClient.allocateParty(None, None).map(details => Party(details.party))
 }
 
 // Tests for in-memory trigger service configurations go here
@@ -2132,7 +2119,6 @@ trait AbstractTriggerServiceTestAuthMiddlewareWithCanton
     } yield succeed
   }
 
-  // FIXME:
   it should "refresh a token after expiry on the server side" taggedAs authorizationSecurity
     .setHappyCase(
       "The token is refreshed on the server side during trigger start-up and while running"
@@ -2140,15 +2126,8 @@ trait AbstractTriggerServiceTestAuthMiddlewareWithCanton
     List(dar)
   ) { uri: Uri =>
     for {
-      client <- sandboxClient(
-        ApiTypes.ApplicationId("exp-app-id"),
-        actAs = List(ApiTypes.Party(aliceExp.unwrap)),
-      )
-      adminClient <- sandboxClient(
-        ApiTypes.ApplicationId("exp-app-id"),
-        admin = true,
-      )
-      _ <- adminClient.partyManagementClient.allocateParty(Some(aliceExp.unwrap), None)
+      client <- defaultLedgerClient()
+      aliceExp <- allocateParty(client, Some("Alice_exp"))
       // Make sure that no contracts exist initially to guard against accidental
       // party reuse.
       _ <- getActiveContracts(client, aliceExp, Identifier(testPkgId, "TestTrigger", "B"))
@@ -2158,7 +2137,7 @@ trait AbstractTriggerServiceTestAuthMiddlewareWithCanton
         uri,
         s"$testPkgId:TestTrigger:trigger",
         aliceExp,
-        Some(ApplicationId("exp-app-id")),
+        Some(applicationId),
       )
       triggerId <- parseTriggerId(resp)
 

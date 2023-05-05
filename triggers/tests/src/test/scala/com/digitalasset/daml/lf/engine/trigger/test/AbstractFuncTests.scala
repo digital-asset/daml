@@ -8,6 +8,7 @@ import com.daml.lf.data.Ref._
 import com.daml.lf.speedy.SValue
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.value.Value.ContractId
+import com.daml.ledger.api.refinements.ApiTypes.{Party => ApiParty}
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.daml.ledger.api.v1.commands.CreateCommand
 import com.daml.ledger.api.v1.{value => LedgerApi}
@@ -17,6 +18,7 @@ import io.grpc.{Status => grpcStatus, StatusRuntimeException}
 import org.scalatest._
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
+import scalaz.syntax.tag._
 import scalaz.syntax.traverse._
 
 import scala.jdk.CollectionConverters._
@@ -65,12 +67,12 @@ abstract class AbstractFuncTests
     "AcsTests" should {
       val assetId = LedgerApi.Identifier(packageId, "ACS", "Asset")
       val assetMirrorId = LedgerApi.Identifier(packageId, "ACS", "AssetMirror")
-      def asset(party: String): CreateCommand =
+      def asset(party: ApiParty): CreateCommand =
         CreateCommand(
           templateId = Some(assetId),
           createArguments = Some(
             LedgerApi.Record(fields =
-              Seq(LedgerApi.RecordField("issuer", Some(LedgerApi.Value().withParty(party))))
+              Seq(LedgerApi.RecordField("issuer", Some(LedgerApi.Value().withParty(party.unwrap))))
             )
           ),
         )
@@ -187,29 +189,30 @@ abstract class AbstractFuncTests
       val originalId = LedgerApi.Identifier(packageId, "CopyTrigger", "Original")
       val copyId = LedgerApi.Identifier(packageId, "CopyTrigger", "Copy")
       val subscriberId = LedgerApi.Identifier(packageId, "CopyTrigger", "Subscriber")
-      def original(owner: String, name: String): CreateCommand =
+      def original(owner: ApiParty, name: String): CreateCommand =
         CreateCommand(
           templateId = Some(originalId),
           createArguments = Some(
             LedgerApi.Record(fields =
               Seq(
-                LedgerApi.RecordField("owner", Some(LedgerApi.Value().withParty(owner))),
+                LedgerApi.RecordField("owner", Some(LedgerApi.Value().withParty(owner.unwrap))),
                 LedgerApi.RecordField("name", Some(LedgerApi.Value().withText(name))),
                 LedgerApi.RecordField("textdata", Some(LedgerApi.Value().withText(""))),
               )
             )
           ),
         )
-      def subscriber(subscriber: String, subscribedTo: String): CreateCommand =
+      def subscriber(subscriber: ApiParty, subscribedTo: ApiParty): CreateCommand =
         CreateCommand(
           templateId = Some(subscriberId),
           createArguments = Some(
             LedgerApi.Record(fields =
               Seq(
-                LedgerApi.RecordField("subscriber", Some(LedgerApi.Value().withParty(subscriber))),
+                LedgerApi
+                  .RecordField("subscriber", Some(LedgerApi.Value().withParty(subscriber.unwrap))),
                 LedgerApi.RecordField(
                   "subscribedTo",
-                  Some(LedgerApi.Value().withParty(subscribedTo)),
+                  Some(LedgerApi.Value().withParty(subscribedTo.unwrap)),
                 ),
               )
             )
@@ -469,22 +472,24 @@ abstract class AbstractFuncTests
       val oneId = LedgerApi.Identifier(packageId, "TemplateIdFilter", "One")
       val twoId = LedgerApi.Identifier(packageId, "TemplateIdFilter", "Two")
 
-      def one(party: String): CreateCommand =
+      def one(party: ApiParty): CreateCommand =
         CreateCommand(
           templateId = Some(oneId),
           createArguments = Some(
             LedgerApi.Record(
-              fields = Seq(LedgerApi.RecordField("p", Some(LedgerApi.Value().withParty(party))))
+              fields =
+                Seq(LedgerApi.RecordField("p", Some(LedgerApi.Value().withParty(party.unwrap))))
             )
           ),
         )
 
-      def two(party: String): CreateCommand =
+      def two(party: ApiParty): CreateCommand =
         CreateCommand(
           templateId = Some(twoId),
           createArguments = Some(
             LedgerApi.Record(
-              fields = Seq(LedgerApi.RecordField("p", Some(LedgerApi.Value().withParty(party))))
+              fields =
+                Seq(LedgerApi.RecordField("p", Some(LedgerApi.Value().withParty(party.unwrap))))
             )
           ),
         )
@@ -587,12 +592,12 @@ abstract class AbstractFuncTests
 
     "readAs" should {
       val visibleToPublicId = LedgerApi.Identifier(packageId, "ReadAs", "VisibleToPublic")
-      def visibleToPublic(party: String): CreateCommand =
+      def visibleToPublic(party: ApiParty): CreateCommand =
         CreateCommand(
           templateId = Some(visibleToPublicId),
           createArguments = Some(
             LedgerApi.Record(fields =
-              Seq(LedgerApi.RecordField("public", Some(LedgerApi.Value().withParty(party))))
+              Seq(LedgerApi.RecordField("public", Some(LedgerApi.Value().withParty(party.unwrap))))
             )
           ),
         )
@@ -640,7 +645,7 @@ abstract class AbstractFuncTests
           inside(toHighLevelResult(result).state) { case SRecord(_, _, values) =>
             // Check that both updateState and rule were executed.
             values.asScala shouldBe Seq[SValue](
-              SParty(Party.assertFromString(party)),
+              SParty(Party.assertFromString(party.unwrap)),
               SBool(true),
               SBool(true),
             )
