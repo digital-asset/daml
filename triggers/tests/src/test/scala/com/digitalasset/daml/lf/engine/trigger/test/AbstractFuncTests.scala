@@ -9,7 +9,6 @@ import com.daml.lf.speedy.SValue
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.value.Value.ContractId
 import com.daml.ledger.api.refinements.ApiTypes.{Party => ApiParty}
-import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.daml.ledger.api.v1.commands.CreateCommand
 import com.daml.ledger.api.v1.{value => LedgerApi}
 import com.daml.lf.engine.trigger.Runner.TriggerContext
@@ -31,7 +30,6 @@ abstract class AbstractFuncTests
     with AbstractTriggerTestWithCanton
     with Matchers
     with Inside
-    with SuiteResourceManagementAroundAll
     with TryValues {
   self: Suite =>
 

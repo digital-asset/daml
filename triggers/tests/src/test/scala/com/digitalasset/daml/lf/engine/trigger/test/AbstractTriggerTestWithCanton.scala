@@ -9,8 +9,7 @@ package test
 import java.util.UUID
 import akka.stream.scaladsl.{Sink, Source}
 import com.daml.bazeltools.BazelRunfiles
-import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId, Party}
-import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
+import com.daml.ledger.api.refinements.ApiTypes.Party
 import com.daml.ledger.api.v1.command_service.SubmitAndWaitRequest
 import com.daml.ledger.api.v1.commands.{Command, CreateCommand, ExerciseCommand, _}
 import com.daml.ledger.api.v1.event.CreatedEvent
@@ -28,17 +27,15 @@ import com.daml.lf.engine.trigger.TriggerRunnerConfig.DefaultTriggerRunnerConfig
 import com.daml.lf.integrationtest.CantonFixture
 import com.daml.lf.speedy.SValue
 import com.daml.lf.speedy.SValue._
-import com.daml.platform.services.time.TimeProviderType
 import org.scalatest._
 import scalaz.syntax.tag._
 
-import java.nio.file.Path
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Try, Success, Failure}
 
 // TODO: once test migration work has completed, rename this trait to AbstractTriggerTest
-trait AbstractTriggerTestWithCanton extends CantonFixture with SuiteResourceManagementAroundAll {
+trait AbstractTriggerTestWithCanton extends CantonFixture {
   self: Suite =>
 
   import CantonFixture._
@@ -49,13 +46,8 @@ trait AbstractTriggerTestWithCanton extends CantonFixture with SuiteResourceMana
       case Failure(_) => Left(BazelRunfiles.requiredResource("triggers/tests/acs-1.dev.dar").toPath)
     }
 
-  override protected def authSecret: Option[String] = None
-  override protected def darFiles: List[Path] = List(darFile.merge)
-  override protected def devMode: Boolean = darFile.isLeft
-  override protected def nParticipants: Int = 1
-  override protected def timeProviderType: TimeProviderType = TimeProviderType.Static
-  override protected def tlsEnable: Boolean = false
-  override protected def applicationId: ApplicationId = RunnerConfig.DefaultApplicationId
+  final override protected lazy val darFiles = List(darFile.merge)
+  final override protected lazy val devMode = darFile.isLeft
 
   protected def toHighLevelResult(s: SValue) = s match {
     case SRecord(_, _, values) if values.size == 6 =>

@@ -54,7 +54,6 @@ import com.daml.test.evidence.tag.Security.SecurityTest.Property.{
 import com.daml.test.evidence.tag.Security.{Attack, SecurityTest}
 import com.daml.test.evidence.scalatest.ScalaTestSupport.Implicits._
 import com.google.protobuf.empty.Empty
-import com.typesafe.scalalogging.StrictLogging
 import org.scalatest.time.{Seconds, Span}
 import org.slf4j.LoggerFactory
 
@@ -67,7 +66,6 @@ trait AbstractTriggerServiceTestHelper
     with HttpCookies
     with TriggerServiceFixture
     with Matchers
-    with StrictLogging
     with Eventually {
 
   implicit override val patienceConfig: PatienceConfig =
@@ -307,7 +305,6 @@ trait AbstractTriggerServiceTestHelperWithCanton
     with HttpCookies
     with TriggerServiceWithCantonFixture
     with Matchers
-    with StrictLogging
     with Eventually {
 
   implicit override val patienceConfig: PatienceConfig =

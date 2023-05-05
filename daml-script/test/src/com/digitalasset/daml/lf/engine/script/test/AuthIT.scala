@@ -5,7 +5,6 @@ package com.daml.lf.engine.script
 package test
 
 import com.daml.ledger.api.domain
-import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.engine.script.ledgerinteraction.ScriptTimeMode
 import com.daml.lf.integrationtest._
@@ -16,19 +15,12 @@ import org.scalatest.wordspec.AsyncWordSpec
 import scala.concurrent.Future
 import scala.util.{Failure, Success}
 
-final class AuthIT
-    extends AsyncWordSpec
-    with AbstractScriptTest
-    with Matchers
-    with SuiteResourceManagementAroundAll {
+final class AuthIT extends AsyncWordSpec with AbstractScriptTest with Matchers {
   import AbstractScriptTest._
 
-  override protected lazy val authSecret = Some("secret")
-  override protected lazy val darFiles = List(stableDarPath)
-  override protected lazy val devMode = false
-  override protected lazy val nParticipants = 1
-  override protected lazy val timeMode = ScriptTimeMode.WallClock
-  override protected lazy val tlsEnable = false
+  final override protected lazy val authSecret = Some("secret")
+  final override protected lazy val darFiles = List(stableDarPath)
+  final override protected lazy val timeMode = ScriptTimeMode.WallClock
 
   "Daml Script against authorized ledger" can {
     "auth" should {

@@ -17,7 +17,7 @@ import scalaz.syntax.tag._
 
 class Tls extends AsyncWordSpec with AbstractTriggerTestWithCanton with Matchers with TryValues {
 
-  override protected def tlsEnable: Boolean = true
+  final override protected lazy val tlsEnable: Boolean = true
 
   "TLS" can {
     // We just need something simple to test the connection.

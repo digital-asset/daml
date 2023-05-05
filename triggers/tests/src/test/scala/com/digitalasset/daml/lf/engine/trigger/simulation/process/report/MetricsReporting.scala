@@ -7,7 +7,7 @@ package report
 import akka.actor.typed.{Behavior, PostStop}
 import akka.actor.typed.scaladsl.Behaviors
 import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
-import com.daml.lf.data.Ref.Identifier
+import com.daml.lf.data.Ref
 import com.daml.lf.engine.trigger.simulation.TriggerMultiProcessSimulation.TriggerSimulationConfig
 import com.daml.lf.engine.trigger.simulation.TriggerRuleMetrics
 import com.google.rpc.status.{Status => GrpcStatus}
@@ -21,7 +21,7 @@ private[simulation] object MetricsReporting {
   private[process] final case class TriggerMetricsUpdate(
       reportingId: UUID,
       triggerId: UUID,
-      triggerType: Identifier,
+      triggerDefRef: Ref.DefinitionRef,
       submissions: Seq[SubmitRequest],
       metrics: TriggerRuleMetrics.RuleMetrics,
       percentageHeapUsed: Double,
@@ -35,8 +35,8 @@ private[simulation] object MetricsReporting {
       val triggerDataFile = Files.newOutputStream(config.triggerDataFile)
       val triggerDataFileCsvHeader = Seq(
         "reporting-id",
-        "trigger-name",
         "trigger-id",
+        "trigger-def-ref",
         "submissions",
         "evaluation-steps",
         "evaluation-get-times",
@@ -56,7 +56,7 @@ private[simulation] object MetricsReporting {
           case TriggerMetricsUpdate(
                 reportingId,
                 triggerId,
-                triggerType,
+                triggerDefRef,
                 submissions,
                 metrics,
                 percentageHeapUsed,
@@ -67,7 +67,7 @@ private[simulation] object MetricsReporting {
             val csvData: String = Seq[Any](
               reportingId,
               triggerId,
-              triggerType,
+              triggerDefRef,
               submissions.size,
               metrics.evaluation.steps,
               metrics.evaluation.getTimes,

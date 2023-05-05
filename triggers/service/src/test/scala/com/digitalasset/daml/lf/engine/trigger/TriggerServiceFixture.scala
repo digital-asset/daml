@@ -67,7 +67,6 @@ import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach, Suite, SuiteMixin}
 import scalaz.syntax.show._
 
 import java.net.InetAddress
-import java.nio.file.{Path => NioPath}
 import java.time.{Clock, Instant, LocalDateTime, ZoneId, Duration => JDuration}
 import java.util.concurrent.{ConcurrentHashMap, ConcurrentMap}
 import java.util.UUID
@@ -462,14 +461,6 @@ trait AbstractTriggerDaoFixture extends SuiteMixin {
 trait AbstractTriggerDaoCantonFixture extends CantonFixture {
   self: Suite =>
 
-  override protected def authSecret: Option[String] = None
-  override protected def darFiles: List[NioPath] = List.empty
-  override protected def devMode: Boolean = true
-  override protected def nParticipants: Int = 1
-  override protected def timeProviderType: TimeProviderType = TimeProviderType.Static
-  override protected def tlsEnable: Boolean = false
-  override protected def applicationId: ApplicationId = RunnerConfig.DefaultApplicationId
-
   // FIXME: currently, Canton and participant storage type is always in-memory - we'll change this in a follow up PR
   protected def jdbcConfig: Option[JdbcConfig]
 }
@@ -562,8 +553,7 @@ trait TriggerDaoOracleFixture
 // TODO: rename once Oracle and Postgres migrations are completed
 trait TriggerServiceWithCantonFixture
     extends AbstractTriggerDaoCantonFixture
-    with AbstractAuthFixture
-    with StrictLogging {
+    with AbstractAuthFixture {
   self: Suite =>
 
   private val triggerLog: ConcurrentMap[UUID, Vector[(LocalDateTime, String)]] =

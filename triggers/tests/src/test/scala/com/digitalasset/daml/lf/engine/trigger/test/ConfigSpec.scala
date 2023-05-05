@@ -4,14 +4,12 @@
 package com.daml.lf.engine.trigger
 package test
 
-import java.nio.file.{Path, Paths}
+import java.nio.file.Paths
 import com.daml.ledger.api.domain.{ObjectMeta, User, UserRight}
-import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId, Party}
-import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
+import com.daml.ledger.api.refinements.ApiTypes
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.UserId
 import com.daml.lf.integrationtest.CantonFixture
-import com.daml.platform.services.time.TimeProviderType
 import com.google.protobuf.field_mask.FieldMask
 import io.grpc.StatusRuntimeException
 import io.grpc.Status.Code
@@ -20,22 +18,12 @@ import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.language.implicitConversions
 
-class ConfigSpec
-    extends AsyncWordSpec
-    with Matchers
-    with CantonFixture
-    with SuiteResourceManagementAroundAll {
+class ConfigSpec extends AsyncWordSpec with Matchers with CantonFixture {
 
-  override protected def authSecret: Option[String] = None
-  override protected def darFiles: List[Path] = List.empty
-  override protected def devMode: Boolean = true
-  override protected def nParticipants: Int = 1
-  override protected def timeProviderType: TimeProviderType = TimeProviderType.Static
-  override protected def tlsEnable: Boolean = false
-  override protected def applicationId: ApplicationId = ApplicationId("myappid")
+  final override protected lazy val devMode: Boolean = true
 
-  private implicit def toParty(s: String): Party =
-    Party(s)
+  private implicit def toParty(s: String): ApiTypes.Party =
+    ApiTypes.Party(s)
   private implicit def toRefParty(s: String): Ref.Party =
     Ref.Party.assertFromString(s)
   private implicit def toUserId(s: String): UserId =
@@ -56,7 +44,7 @@ class ConfigSpec
     )
     "succeed with --ledger-party" in {
       RunnerConfig.parse(defaultArgs ++ Seq("--ledger-party=alice")) shouldBe Some(
-        config.copy(ledgerClaims = PartySpecification(TriggerParties(Party("alice"), Set.empty)))
+        config.copy(ledgerClaims = PartySpecification(TriggerParties(toParty("alice"), Set.empty)))
       )
     }
     "succeed with --ledger-party and --ledger-readas" in {

@@ -53,18 +53,21 @@ final class LedgerRegistration(client: LedgerClient)(implicit
             if !ledgerACSView.contains(triggerId) =>
           val offset =
             Await.result(getLedgerOffset(client, filter), config.simulationSetupTimeout)
+          val logger = context.log
 
           ledgerACSView += (triggerId -> TrieMap.empty)
           client.transactionClient
             .getTransactions(offset, None, filter)
             .runForeach { transaction =>
+              logger.debug(s"Transaction source received: $transaction")
               transaction.events.foreach {
                 case Event(Event.Event.Created(create)) =>
                   ledgerACSView(triggerId) += (create.contractId -> assertIdentifier(
                     create.getTemplateId
                   ))
 
-                case Event(Event.Event.Archived(archive)) =>
+                case Event(Event.Event.Archived(archive))
+                    if ledgerACSView(triggerId).contains(archive.contractId) =>
                   ledgerACSView(triggerId) -= archive.contractId
 
                 case Event(_) =>
@@ -77,7 +80,9 @@ final class LedgerRegistration(client: LedgerClient)(implicit
                 throw exn
 
               case Success(_) =>
-              // Do nothing
+                throw TriggerSimulationFailure(
+                  new RuntimeException("Transaction source unexpectedly closed")
+                )
             }
           client.commandClient
             .completionSource(Seq(actAs.unwrap), offset)
@@ -90,14 +95,16 @@ final class LedgerRegistration(client: LedgerClient)(implicit
                 throw exn
 
               case Success(_) =>
-              // Do nothing
+                throw TriggerSimulationFailure(
+                  new RuntimeException("Completion source unexpectedly closed")
+                )
             }
           replyTo ! LedgerApi(consumer, report)
           Behaviors.same
 
-        case Registration(triggerId, _, _, _, _) =>
+        case msg: Registration =>
           context.log.error(
-            s"Following trigger registration, received another LedgerRegistration message for trigger: $triggerId"
+            s"Following trigger registration, received another LedgerRegistration message: $msg"
           )
           Behaviors.stopped
 
@@ -154,7 +161,9 @@ object LedgerRegistration {
       filter: TransactionFilter,
       replyTo: ActorRef[LedgerApi],
   ) extends Message
+  // Used by TriggerProcess (via LedgerProcess)
   final case class APIMessage(triggerId: UUID, message: LedgerApiClient.Message) extends Message
+  // Used by ReportingProcess
   final case class GetTriggerACSDiff(
       reportID: UUID,
       triggerId: UUID,

@@ -5,6 +5,7 @@ package com.daml.lf.engine.trigger.simulation
 
 import akka.actor.typed.{ActorRef, Behavior}
 import akka.actor.typed.scaladsl.Behaviors
+import com.daml.ledger.api.refinements.ApiTypes
 import com.daml.ledger.api.v1.event.CreatedEvent
 import com.daml.ledger.api.refinements.ApiTypes.Party
 import com.daml.lf.engine.trigger.simulation.TriggerMultiProcessSimulation.TriggerSimulationConfig
@@ -23,11 +24,14 @@ class CatAndFoodTriggerSimulation
 
   import CatAndFoodTriggerSimulation._
 
-  // For demonstration purposes, we only run for 30 seconds
+  // For demonstration purposes, we only run the simulation for 30 seconds
   override protected implicit lazy val simulationConfig: TriggerSimulationConfig =
     TriggerSimulationConfig(simulationDuration = 30.seconds)
+  // For demonstration purposes, we enable saving Canton logging
+  override protected val cantonFixtureDebugMode: Boolean = true
 
   override protected def triggerMultiProcessSimulation: Behavior[Unit] = {
+    implicit def applicationId: ApiTypes.ApplicationId = config.applicationId
     Behaviors.setup { context =>
       val setup = for {
         client <- defaultLedgerClient()
@@ -38,7 +42,8 @@ class CatAndFoodTriggerSimulation
       val triggerFactory: TriggerProcessFactory =
         triggerProcessFactory(client, ledger, "Cats:feedingTrigger", actAs)
       // With a negative start state, Cats:feedingTrigger will have a behaviour that is dependent on Cat and Food contract generators
-      val trigger = context.spawn(triggerFactory.create(SValue.SInt64(-1)), "trigger")
+      val trigger1 = context.spawn(triggerFactory.create(SValue.SInt64(-1)), "trigger1")
+      val trigger2 = context.spawn(triggerFactory.create(SValue.SInt64(-1)), "trigger2")
       val workload =
         context.spawn(
           workloadProcess(ledger, actAs)(
@@ -52,10 +57,11 @@ class CatAndFoodTriggerSimulation
           "workload",
         )
       context.watch(ledger)
-      context.watch(trigger)
+      context.watch(trigger1)
+      context.watch(trigger2)
       context.watch(workload)
 
-      super.triggerMultiProcessSimulation
+      Behaviors.empty
     }
   }
 

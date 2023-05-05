@@ -11,13 +11,13 @@ locals {
         name       = "ci-w1",
         size       = 0,
         assignment = "default",
-        disk_size  = 400,
+        disk_size  = 800,
       },
       {
         name       = "ci-w2"
         size       = 0,
         assignment = "default",
-        disk_size  = 400,
+        disk_size  = 800,
       },
     ],
     azure = [
@@ -25,13 +25,13 @@ locals {
         name       = "dw1",
         size       = 6,
         assignment = "default",
-        disk_size  = 400,
+        disk_size  = 800,
       },
       {
         name       = "dw2"
         size       = 0,
         assignment = "default",
-        disk_size  = 400,
+        disk_size  = 800,
       },
     ],
   }

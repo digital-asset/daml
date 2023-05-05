@@ -26,22 +26,21 @@ import java.nio.file.{Files, Path, Paths}
 
 object CantonRunner {
 
-  private val logger = org.slf4j.LoggerFactory.getLogger(getClass)
-
   private[integrationtest] def toJson(s: String): String = JsString(s).toString()
   private[integrationtest] def toJson(path: Path): String = toJson(path.toString)
 
-  lazy val cantonPath = Paths.get(rlocation("daml-lf/integration-test-lib/canton_deploy.jar"))
-  lazy val cantonDevPath =
-    Paths.get(rlocation("daml-lf/integration-test-lib/canton-dev_deploy.jar"))
+  private lazy val cantonPath =
+    Paths.get(rlocation("daml-lf/integration-test-lib/canton_deploy.jar"))
+  private lazy val cantonPatchPath =
+    Paths.get(rlocation("daml-lf/integration-test-lib/canton-patched_deploy.jar"))
 
-  def run(config: CantonConfig, tmpDir: Path)(implicit
+  def run(config: CantonConfig, tmpDir: Path, logger: org.slf4j.Logger)(implicit
       esf: ExecutionSequencerFactory
   ): ResourceOwner[Vector[Port]] =
     new ResourceOwner[Vector[Port]] {
-      protected val cantonConfigFile = tmpDir.resolve("participant.config")
-      protected val cantonLogFile = tmpDir.resolve("canton.log")
-      protected val portFile = tmpDir.resolve("portfile")
+      val cantonConfigFile = tmpDir.resolve("participant.config")
+      val cantonLogFile = tmpDir.resolve("canton.log")
+      val portFile = tmpDir.resolve("portfile")
       def info(s: String) = if (config.debug) logger.info(s)
 
       override def acquire()(implicit context: ResourceContext): Resource[Vector[Port]] = {
@@ -52,7 +51,7 @@ object CantonRunner {
             Vector.fill(config.nParticipants)(LockedFreePort.find() -> LockedFreePort.find())
           val domainPublicApi = LockedFreePort.find()
           val domainAdminApi = LockedFreePort.find()
-          val jarPath = if (config.devMode) cantonDevPath else cantonPath
+          val jarPath = if (config.devMode) cantonPatchPath else cantonPath
           val exe = if (sys.props("os.name").toLowerCase.contains("windows")) ".exe" else ""
           val java = s"${System.getenv("JAVA_HOME")}/bin/java${exe}"
           val (timeType, clockType) = config.timeProviderType match {
@@ -60,10 +59,10 @@ object CantonRunner {
             case TimeProviderType.WallClock => (None, None)
           }
           val authConfig = config.authSecret.fold("")(secret => s"""auth-services = [{
-                                                            |          type = unsafe-jwt-hmac-256
-                                                            |          secret = "${toJson(secret)}"
-                                                            |        }]
-                                                            |""".stripMargin)
+                 |          type = unsafe-jwt-hmac-256
+                 |          secret = "${toJson(secret)}"
+                 |        }]
+                 |""".stripMargin)
           val tls = config.tlsConfig.fold("")(config => s"""tls {
                  |          cert-chain-file = ${toJson(config.serverCrt)}
                  |          private-key-file = ${toJson(config.serverPem)}
@@ -72,7 +71,8 @@ object CantonRunner {
 
           def participantConfig(i: Int) = {
             val (adminPort, ledgerApiPort) = ports(i)
-            s"""participant${i} {
+            val participantId = config.participantIds(i)
+            s"""${participantId} {
                |      admin-api.port = ${adminPort.port}
                |      ledger-api{
                |        port = ${ledgerApiPort.port}
