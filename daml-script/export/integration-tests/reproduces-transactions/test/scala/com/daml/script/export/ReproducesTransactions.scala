@@ -121,7 +121,7 @@ final class ReproducesTransactions
     _ <- Main.run(
       Config(
         ledgerHost = "localhost",
-        ledgerPort = ports.value,
+        ledgerPort = ports.head.value,
         tlsConfig = TlsConfiguration(false, None, None, None),
         accessToken = None,
         partyConfig = PartyConfig(
