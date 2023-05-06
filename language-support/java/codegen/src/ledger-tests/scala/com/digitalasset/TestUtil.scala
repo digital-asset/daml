@@ -14,7 +14,6 @@ import com.daml.ledger.javaapi.data
 import com.daml.ledger.javaapi.data.{codegen => jcg, _}
 import com.daml.ledger.javaapi.data.codegen.HasCommands
 import com.daml.lf.integrationtest.CantonFixture
-import com.daml.platform.services.time.TimeProviderType
 import com.google.protobuf.Empty
 import io.grpc.Channel
 import org.scalatest.{Assertion, Suite}
