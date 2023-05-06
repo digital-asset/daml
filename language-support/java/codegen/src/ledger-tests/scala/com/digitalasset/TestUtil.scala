@@ -32,15 +32,10 @@ import scala.language.implicitConversions
 trait TestLedger extends CantonFixture with SuiteResourceManagementAroundAll {
   self: Suite =>
 
-  override protected def authSecret = None
-  override protected def darFiles = List(
+  override protected lazy val darFiles = List(
     BazelRunfiles.rlocation(Paths.get("language-support/java/codegen/ledger-tests-model.dar"))
   )
-  override protected def devMode = false
-  override protected def nParticipants = 1
-  override protected def timeProviderType = TimeProviderType.WallClock
-  override protected def tlsEnable = false
-  override protected def applicationId: ApplicationId = ApplicationId("sandbox-test-ledger")
+  override protected lazy val applicationId: ApplicationId = ApplicationId("sandbox-test-ledger")
 
   private var client: LedgerClient = _
 
