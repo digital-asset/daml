@@ -10,6 +10,7 @@ import com.daml.ledger.api.v1.command_submission_service.{
   SubmitRequest,
 }
 import com.daml.platform.sandbox.auth.ServiceCallAuthTests
+import com.daml.platform.testing.TestCommands
 import com.google.protobuf.empty.Empty
 
 import scala.concurrent.Future

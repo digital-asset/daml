@@ -20,7 +20,7 @@ import com.daml.platform.configuration.CommandConfiguration
 import com.daml.platform.participant.util.ValueConversions._
 import com.daml.platform.sandbox.SandboxBackend
 import com.daml.platform.sandbox.fixture.{CreatesParties, SandboxFixture}
-import com.daml.platform.sandbox.services.TestCommands
+import com.daml.platform.testing.TestCommands
 import com.daml.platform.testing.StreamConsumer
 import org.scalatest.Inspectors
 import org.scalatest.matchers.should.Matchers

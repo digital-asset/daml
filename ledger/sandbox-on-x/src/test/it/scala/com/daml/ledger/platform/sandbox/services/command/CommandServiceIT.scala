@@ -18,7 +18,7 @@ import com.daml.ledger.sandbox.SandboxOnXForTest.{ApiServerConfig, singlePartici
 import com.daml.platform.participant.util.ValueConversions._
 import com.daml.platform.sandbox.SandboxBackend
 import com.daml.platform.sandbox.fixture.{CreatesParties, SandboxFixture}
-import com.daml.platform.sandbox.services.TestCommands
+import com.daml.platform.testing.TestCommands
 import com.daml.platform.services.time.TimeProviderType
 import com.google.protobuf.duration.{Duration => ProtoDuration}
 import org.scalatest.Inspectors

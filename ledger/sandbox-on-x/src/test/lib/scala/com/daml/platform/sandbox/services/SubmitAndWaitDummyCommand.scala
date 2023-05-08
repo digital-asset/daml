@@ -6,6 +6,7 @@ package com.daml.platform.sandbox.services
 import java.util.UUID
 import com.daml.ledger.api.v1.command_service.{CommandServiceGrpc, SubmitAndWaitRequest}
 import com.daml.platform.sandbox.auth.{ServiceCallAuthTests, ServiceCallWithMainActorAuthTests}
+import com.daml.platform.testing.TestCommands
 import com.google.protobuf.empty.Empty
 
 import scala.concurrent.Future

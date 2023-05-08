@@ -42,7 +42,7 @@ import com.daml.lf.crypto.Hash
 import com.daml.lf.value.Value.ContractId
 import com.daml.platform.participant.util.ValueConversions._
 import com.daml.platform.sandbox.fixture.SandboxFixture
-import com.daml.platform.sandbox.services.TestCommands
+import com.daml.platform.testing.TestCommands
 import com.daml.util.Ctx
 import com.google.rpc.code.Code
 import io.grpc.{Status, StatusRuntimeException}

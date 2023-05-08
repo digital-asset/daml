@@ -20,7 +20,7 @@ import com.daml.ledger.client.services.commands.CommandClient
 import com.daml.ledger.client.services.testing.time.StaticTime
 import com.daml.platform.participant.util.ValueConversions._
 import com.daml.platform.sandbox.fixture.{CreatesParties, SandboxFixture}
-import com.daml.platform.sandbox.services.TestCommands
+import com.daml.platform.testing.TestCommands
 import org.scalatest.OptionValues
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.matchers.should.Matchers

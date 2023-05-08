@@ -44,46 +44,40 @@ alias(
         ("model-tests", ".dar"),
         ("dar-files", ""),
         ("dar-files", "-lib"),
-        ("test-common", ""),
     ]
     for (name, lf_version) in lf_version_configuration.items()
 ]
 
-alias(
+da_scala_library(
     name = "test-common",
-    actual = "test-common-default",
-    visibility = ["//visibility:public"],
+    srcs = glob(["src/main/scala/**/*.scala"]),
+    scala_deps = [
+        "@maven//:org_scalatest_scalatest_shouldmatchers",
+        "@maven//:org_scalatest_scalatest_core",
+        "@maven//:org_scalactic_scalactic",
+        "@maven//:org_scalatest_scalatest_matchers_core",
+        "@maven//:org_scalaz_scalaz_core",
+    ],
+    tags = ["maven_coordinates=com.daml:test-common:__VERSION__"],
+    visibility = [
+        "//visibility:public",
+    ],
+    deps = [
+        "//daml-lf/archive:daml_lf_archive_reader",
+        "//daml-lf/data",
+        "//ledger-api/grpc-definitions:ledger_api_proto_scala",
+        "//ledger-api/testing-utils",
+        "//ledger/ledger-api-common",
+        "//ledger/ledger-api-domain",
+        "//libs-scala/scala-utils",
+        "//libs-scala/timer-utils",
+        "@maven//:ch_qos_logback_logback_classic",
+        "@maven//:ch_qos_logback_logback_core",
+        "@maven//:io_grpc_grpc_context",
+        "@maven//:org_scalatest_scalatest_compatible",
+        "@maven//:org_slf4j_slf4j_api",
+    ],
 )
-
-[
-    [
-        da_scala_library(
-            name = "test-common-%s" % target,
-            srcs = glob(["src/main/scala/**/*.scala"]),
-            scala_deps = [
-                "@maven//:org_scalatest_scalatest_shouldmatchers",
-                "@maven//:org_scalatest_scalatest_core",
-                "@maven//:org_scalactic_scalactic",
-                "@maven//:org_scalatest_scalatest_matchers_core",
-            ],
-            tags = ["maven_coordinates=com.daml:test-common-%s:__VERSION__" % target],
-            visibility = [
-                "//visibility:public",
-            ],
-            deps = [
-                "//ledger-api/grpc-definitions:ledger_api_proto_scala",
-                "//libs-scala/scala-utils",
-                "//libs-scala/timer-utils",
-                "@maven//:ch_qos_logback_logback_classic",
-                "@maven//:ch_qos_logback_logback_core",
-                "@maven//:io_grpc_grpc_context",
-                "@maven//:org_scalatest_scalatest_compatible",
-                "@maven//:org_slf4j_slf4j_api",
-            ],
-        ),
-    ]
-    for target in testtool_lf_versions
-]
 
 # Carbon tests helps to test upgrades when packages are dependent on each other
 carbon_test_names = [

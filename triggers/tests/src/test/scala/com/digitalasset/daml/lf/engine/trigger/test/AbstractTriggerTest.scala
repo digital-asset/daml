@@ -29,7 +29,7 @@ import com.daml.lf.engine.trigger.TriggerRunnerConfig.DefaultTriggerRunnerConfig
 import com.daml.lf.speedy.SValue
 import com.daml.lf.speedy.SValue._
 import com.daml.platform.sandbox.{SandboxBackend, SandboxRequiringAuthorizationFuns}
-import com.daml.platform.sandbox.services.TestCommands
+import com.daml.platform.testing.TestCommands
 import org.scalatest._
 import scalaz.syntax.tag._
 import com.daml.platform.sandbox.fixture.SandboxFixture

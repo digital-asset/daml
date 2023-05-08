@@ -99,7 +99,6 @@ da_scala_library(
     deps = [
         ":sandbox-on-x",
         "//bazel_tools/runfiles:scala_runfiles",
-        "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/data",
         "//daml-lf/engine",
         "//language-support/scala/bindings",
