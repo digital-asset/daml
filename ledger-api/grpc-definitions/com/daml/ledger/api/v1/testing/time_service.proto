@@ -30,6 +30,7 @@ message GetTimeRequest {
 
   // Must correspond to the ledger ID reported by the Ledger Identification Service.
   // Must be a valid LedgerString (as describe in ``value.proto``).
+  // For 3.0 API this field will be removed.
   // Optional
   string ledger_id = 1;
 }
@@ -44,6 +45,7 @@ message SetTimeRequest {
 
   // Must correspond to the ledger ID reported by the Ledger Identification Service.
   // Must be a valid LedgerString (as describe in ``value.proto``).
+  // For 3.0 API this field will be removed.
   // Optional
   string ledger_id = 1;
 
