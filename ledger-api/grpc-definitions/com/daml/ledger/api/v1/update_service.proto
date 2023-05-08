@@ -24,7 +24,8 @@ service UpdateService {
   rpc GetUpdates (GetUpdatesRequest) returns (stream GetUpdatesResponse);
 
   // Read the ledger's complete transaction tree stream and related transfers for a set of parties.
-  // The stream can be filtered only by parties, but not templates (template filter must be empty).
+  // The stream will be filtered only by the parties as wildcard parties.
+  // The template/interface filters describe the respective fields in the `CreateEvent`` results.
   // This endpoint is only available for multi-domain API
   rpc GetUpdateTrees (GetUpdatesRequest) returns (stream GetUpdateTreesResponse);
 }

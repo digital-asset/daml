@@ -23,7 +23,8 @@ service TransactionService {
   rpc GetTransactions (GetTransactionsRequest) returns (stream GetTransactionsResponse);
 
   // Read the ledger's complete transaction tree stream for a set of parties.
-  // The stream can be filtered only by parties, but not templates (template filter must be empty).
+  // The stream will be filtered only by the parties as wildcard parties.
+  // The template/interface filters describe the respective fields in the `CreateEvent`` results.
   // This endpoint will be removed for 3.0 in favor of UpdateService.GetTreeUpdates.
   rpc GetTransactionTrees (GetTransactionsRequest) returns (stream GetTransactionTreesResponse);
 
