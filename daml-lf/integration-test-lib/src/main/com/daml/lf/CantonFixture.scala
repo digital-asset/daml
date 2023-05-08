@@ -65,12 +65,12 @@ trait CantonFixture
     with SuiteResourceManagementAroundAll {
   self: Suite =>
 
-  protected lazy val authSecret: Option[String] = Option.empty
-  protected lazy val darFiles: List[Path] = List.empty
-  protected lazy val devMode: Boolean = false
-  protected lazy val nParticipants: Int = 1
-  protected lazy val timeProviderType: TimeProviderType = TimeProviderType.WallClock
-  protected lazy val tlsEnable: Boolean = false
+  protected def authSecret: Option[String] = Option.empty
+  protected def darFiles: List[Path] = List.empty
+  protected def devMode: Boolean = false
+  protected def nParticipants: Int = 1
+  protected def timeProviderType: TimeProviderType = TimeProviderType.WallClock
+  protected def tlsEnable: Boolean = false
 
   // This flag setup some behavior to ease debugging tests.
   //  If `true`
@@ -97,7 +97,7 @@ trait CantonFixture
     )
   }
 
-  final protected lazy val applicationId: ApplicationId = ApplicationId(getClass.getName)
+  protected def applicationId: ApplicationId = ApplicationId(getClass.getName)
 
   lazy val config = CantonConfig(
     applicationId = applicationId,
