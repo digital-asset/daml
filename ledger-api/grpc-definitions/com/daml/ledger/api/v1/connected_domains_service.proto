@@ -56,6 +56,4 @@ enum ParticipantPermission {
   Confirmation = 2;
   // participant is passive, can only observe transactions
   Observation = 3;
-  // participant is disabled and can not be addressed
-  Disabled = 4;
 }
