@@ -45,10 +45,6 @@ message GetActiveContractsRequest {
   // If not set the current ledger end offset will be used.
   // Optional
   string active_at_offset = 4;
-
-  // Must be a valid domain ID
-  // Optional
-  string domain_id = 5;
 }
 
 message GetActiveContractsResponse {
@@ -65,4 +61,8 @@ message GetActiveContractsResponse {
   // The list of contracts that were introduced by the workflow with ``workflow_id`` at the offset.
   // Must be a valid LedgerString (as described in ``value.proto``).
   repeated CreatedEvent active_contracts = 3;
+
+  // A valid domain ID
+  // Optional Only present for multi-domain API. For 3.0 this will be mandatory.
+  string domain_id = 4;
 }

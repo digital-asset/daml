@@ -19,10 +19,12 @@ service TransactionService {
   // Read the ledger's filtered transaction stream for a set of parties.
   // Lists only creates and archives, but not other events.
   // Omits all events on transient contracts, i.e., contracts that were both created and archived in the same transaction.
+  // This endpoint will be removed for 3.0 in favor of UpdateService.GetUpdates.
   rpc GetTransactions (GetTransactionsRequest) returns (stream GetTransactionsResponse);
 
   // Read the ledger's complete transaction tree stream for a set of parties.
   // The stream can be filtered only by parties, but not templates (template filter must be empty).
+  // This endpoint will be removed for 3.0 in favor of UpdateService.GetTreeUpdates.
   rpc GetTransactionTrees (GetTransactionsRequest) returns (stream GetTransactionTreesResponse);
 
   // Lookup a transaction tree by the ID of an event that appears within it.
@@ -75,9 +77,6 @@ message GetTransactionsRequest {
   // Optional
   bool verbose = 5;
 
-  // Must be a valid domain ID
-  // Optional
-  string domain_id = 6;
 }
 
 message GetTransactionsResponse {
@@ -106,10 +105,6 @@ message GetTransactionByEventIdRequest {
   // Each element must be a valid PartyIdString (as described in ``value.proto``).
   // Required
   repeated string requesting_parties = 3;
-
-  // Must be a valid domain ID
-  // Optional
-  string domain_id = 4;
 }
 
 message GetTransactionByIdRequest {
@@ -128,10 +123,6 @@ message GetTransactionByIdRequest {
   // Each element be a valid PartyIdString (as describe in ``value.proto``).
   // Required
   repeated string requesting_parties = 3;
-
-  // Must be a valid domain ID
-  // Optional
-  string domain_id = 4;
 }
 
 message GetTransactionResponse {
@@ -147,10 +138,6 @@ message GetLedgerEndRequest {
   // Must be a valid LedgerString (as describe in ``value.proto``).
   // Optional
   string ledger_id = 1;
-
-  // Must be a valid domain ID
-  // Option
-  string domain_id = 2;
 }
 
 message GetLedgerEndResponse {

@@ -20,7 +20,13 @@ service UpdateService {
   // Read the ledger's filtered transaction stream and related transfers for a set of parties.
   // For transactions it lists only creates and archives, but not other events.
   // Omits all events on transient contracts, i.e., contracts that were both created and archived in the same transaction.
+  // This endpoint is only available for multi-domain API
   rpc GetUpdates (GetUpdatesRequest) returns (stream GetUpdatesResponse);
+
+  // Read the ledger's complete transaction tree stream and related transfers for a set of parties.
+  // The stream can be filtered only by parties, but not templates (template filter must be empty).
+  // This endpoint is only available for multi-domain API
+  rpc GetUpdateTrees (GetUpdatesRequest) returns (stream GetUpdateTreesResponse);
 }
 
 message GetUpdatesRequest {
@@ -41,6 +47,7 @@ message GetUpdatesRequest {
   LedgerOffset end = 3;
 
   // Requesting parties with template filters.
+  // Template filters must be empty for GetUpdateTrees requests.
   // Required
   TransactionFilter filter = 4;
 
@@ -48,10 +55,6 @@ message GetUpdatesRequest {
   // In particular, setting the verbose flag to true triggers the ledger to include labels for record fields.
   // Optional
   bool verbose = 5;
-
-  // Must be a valid domain ID
-  // Required
-  string domain_id = 6;
 }
 
 message GetUpdatesResponse {
@@ -62,6 +65,18 @@ message GetUpdatesResponse {
 message Update {
   oneof update {
     Transaction transaction = 1;
+    Transfer transfer = 2;
+  }
+}
+
+message GetUpdateTreesResponse {
+  // The list of updates that matches the filter in the request.
+  repeated UpdateTree updates = 1;
+}
+
+message UpdateTree {
+  oneof update {
+    TransactionTree transaction_tree = 1;
     Transfer transfer = 2;
   }
 }

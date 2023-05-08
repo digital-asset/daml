@@ -24,7 +24,7 @@ message Completion {
   // Optional
   google.rpc.Status status = 2;
 
-  // The transaction_id of the transaction, or the update_id of the transfer that resulted from the command with command_id.
+  // The transaction_id of the transaction that resulted from the command with command_id.
   // Only set for successfully executed commands.
   // Must be a valid LedgerString (as described in ``value.proto``).
   // Optional
@@ -69,4 +69,18 @@ message Completion {
     // Must be non-negative.
     google.protobuf.Duration deduplication_duration = 9;
   }
+
+  // A valid domain ID
+  // In case
+  //   - successful/failed transactions: represents the domain where the transaction was executed
+  //   - for successful/failed transfer out commands: represents the source domain
+  //   - for successful/failed transfer in commands: represents the target domain
+  // Optional Only present for multi-domain API. For 3.0 this will be mandatory.
+  string domain_id = 10;
+
+  // The transfer_id of the transfer that resulted from the transfer command with command_id.
+  // Only set for successfully executed transfers.
+  // Must be a valid LedgerString (as described in ``value.proto``).
+  // Optional Only present for multi-domain API.
+  string transfer_id = 11;
 }
