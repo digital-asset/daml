@@ -31,7 +31,7 @@ class CatAndFoodTriggerSimulation
   override protected val cantonFixtureDebugMode: Boolean = true
 
   override protected def triggerMultiProcessSimulation: Behavior[Unit] = {
-    implicit def applicationId: ApiTypes.ApplicationId = config.applicationId
+    implicit def applicationId: ApiTypes.ApplicationId = this.applicationId
     Behaviors.setup { context =>
       val setup = for {
         client <- defaultLedgerClient()

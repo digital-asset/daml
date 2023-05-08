@@ -357,7 +357,7 @@ jobs:
         canton_local_path=external/$(ls canton/lib/*.jar)
         cd $dir
 
-        bad_file=daml-lf/integration-test-lib/src/main/com/daml/lf/CantonFixture.scala
+        bad_file=canton/it-lib/src/main/com/daml/lf/CantonRunner.scala
 
         sed -i 's|"external/canton/lib/.*|"'$canton_local_path'"|' $bad_file
         sed -i 's|SKIP_DEV_CANTON_TESTS=.*|SKIP_DEV_CANTON_TESTS=false|' build.sh

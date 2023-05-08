@@ -3,14 +3,13 @@
 
 package com.daml.ledger.client
 
+import com.daml.integrationtest.CantonFixture
 import com.daml.ledger.api.domain
-import com.daml.ledger.api.domain.{IdentityProviderId}
 import com.daml.ledger.client.configuration.{
   CommandClientConfiguration,
   LedgerClientConfiguration,
   LedgerIdRequirement,
 }
-import com.daml.lf.integrationtest.CantonFixture
 import com.daml.lf.data.Ref
 import com.google.protobuf.field_mask.FieldMask
 import io.grpc.ManagedChannel
@@ -141,7 +140,9 @@ final class LedgerClientIT extends AsyncWordSpec with Matchers with Inside with 
           config1 <- client.identityProviderConfigClient.createIdentityProviderConfig(config, None)
           config2 <- client.identityProviderConfigClient.createIdentityProviderConfig(
             updatedConfig.copy(identityProviderId =
-              IdentityProviderId.Id(Ref.LedgerString.assertFromString("AnotherIdentityProvider"))
+              domain.IdentityProviderId.Id(
+                Ref.LedgerString.assertFromString("AnotherIdentityProvider")
+              )
             ),
             None,
           )

@@ -1,7 +1,7 @@
 // Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
+package com.daml
 package integrationtest
 
 import com.daml.bazeltools.BazelRunfiles.rlocation
@@ -12,7 +12,6 @@ import com.daml.ledger.client.{LedgerClient, GrpcChannel}
 import com.daml.ledger.client.withoutledgerid.{LedgerClient => LedgerClientWithoutId}
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.data.Ref
-import com.daml.lf.integrationtest.CantonConfig.noTlsConfig
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.ports.Port
 import io.grpc.ManagedChannel
@@ -45,8 +44,6 @@ object CantonConfig {
 }
 
 final case class CantonConfig(
-    applicationId: ApplicationId,
-    darFiles: List[Path] = List.empty,
     authSecret: Option[String] = None,
     devMode: Boolean = false,
     nParticipants: Int = 1,
@@ -83,7 +80,7 @@ final case class CantonConfig(
 
   lazy val adminToken: Option[String] = getToken(CantonRunner.adminUserId)
 
-  def tlsClientConfig: TlsConfiguration = tlsConfig.fold(noTlsConfig)(_.clientConfig)
+  def tlsClientConfig: TlsConfiguration = tlsConfig.fold(CantonConfig.noTlsConfig)(_.clientConfig)
 
   def channelBuilder(
       port: Port,
@@ -117,6 +114,7 @@ final case class CantonConfig(
   def ledgerClient(
       port: Port,
       token: Option[String],
+      applicationId: ApplicationId,
       maxInboundMessageSize: Int = 64 * 1024 * 1024,
   )(implicit ec: ExecutionContext, esf: ExecutionSequencerFactory): Future[LedgerClient] = {
     import com.daml.ledger.client.configuration._
