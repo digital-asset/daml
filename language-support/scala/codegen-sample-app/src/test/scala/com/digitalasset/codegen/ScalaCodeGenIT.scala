@@ -5,7 +5,7 @@ package com.daml.codegen
 
 import akka.stream.scaladsl.{Sink, Source}
 import com.daml.codegen.util.TestUtil.{TestContext, requiredResource}
-import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId, CommandId, WorkflowId}
+import com.daml.ledger.api.refinements.ApiTypes.{CommandId, WorkflowId}
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.daml.ledger.api.v1.commands.Commands
 import com.daml.ledger.api.v1.event.Event
@@ -17,7 +17,6 @@ import com.daml.ledger.client.binding.DomainTransactionMapper.DecoderType
 import com.daml.ledger.client.binding.{Contract, Template, Primitive => P}
 import com.daml.ledger.client.services.commands.CommandSubmission
 import com.daml.lf.integrationtest.CantonFixture
-import com.daml.platform.services.time.TimeProviderType
 import com.daml.sample.MyMain.{CallablePayout, MkListExample, PayOut}
 import com.daml.sample.{EventDecoder, MyMain, MySecondMain}
 import com.daml.util.Ctx
@@ -50,16 +49,10 @@ class ScalaCodeGenIT
     with SuiteResourceManagementAroundAll
     with CantonFixture {
 
-  override protected def authSecret = None
-  override protected def darFiles = List(
+  override protected lazy val darFiles = List(
     requiredResource("language-support/scala/codegen-sample-app/MyMain.dar"),
     requiredResource("language-support/scala/codegen-sample-app/MySecondMain.dar"),
   ).map(_.toPath)
-  override protected def devMode = false
-  override protected def nParticipants = 1
-  override protected def timeProviderType = TimeProviderType.WallClock
-  override protected def tlsEnable = false
-  override protected def applicationId: ApplicationId = ApplicationId("scala-code-gen-client")
 
   override implicit lazy val patienceConfig: PatienceConfig =
     PatienceConfig(timeout = Span(20, Seconds), interval = Span(250, Millis))
