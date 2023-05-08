@@ -23,24 +23,7 @@ export type DamlHub = {
 
 export type Authentication = Insecure | DamlHub;
 
-// This needs to be used for ledgers in SDK < 2.0.0 and VMBC <= 1.6
-export const noUserManagement: UserManagement = {
-  tokenPayload: (loginName: string, ledgerId: string) =>
-  ({
-    "https://daml.com/ledger-api": {
-      "ledgerId": ledgerId,
-      "applicationId": '__PROJECT_NAME__',
-      "actAs": [loginName]
-    }
-  }),
-  primaryParty: async (loginName: string, ledger: Ledger) => loginName,
-  // Without user management, we force a specific party id here because
-  // we mainly care about this for vmbc and there we can support this.
-  publicParty: async (loginName: string, ledger: Ledger) => 'public',
-};
-
-// Used on SDK >= 2.0.0 with the exception of VMBC
-export const withUserManagement: UserManagement = {
+export const userManagement: UserManagement = {
   tokenPayload: (loginName: string, ledgerId: string) =>
   ({
     sub: loginName,
@@ -67,11 +50,6 @@ export const withUserManagement: UserManagement = {
     }
   }
 };
-
-export const userManagement: UserManagement =
-  // We default to assuming that user management is enabled so we interpret everything that
-  // isn’t explicitly "false" as supporting user management.
-  process.env.REACT_APP_SUPPORTS_USERMANAGEMENT?.toLowerCase() !== "false" ? withUserManagement : noUserManagement;
 
 export const damlHub: DamlHub = {
   provider: "daml-hub",
