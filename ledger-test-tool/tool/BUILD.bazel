@@ -13,7 +13,7 @@ load(
     "lf_version_configuration",
     "lf_version_configuration_versions",
 )
-load("//ledger-test-tool/ledger-api-tests:conformance.bzl", "conformance_test", "testtool_lf_versions")
+load("//ledger-test-tool:conformance.bzl", "conformance_test", "testtool_lf_versions")
 load("@os_info//:os_info.bzl", "is_windows")
 
 # we release ledger-api-test-tool-stable as ledger-api-test-tool
@@ -70,9 +70,9 @@ da_scala_binary(
         ],
         deps = [
             "//ledger/ledger-api-common",
-            "//ledger-test-tool/ledger-api-tests/infrastructure:infrastructure-%s" % lf_version,
-            "//ledger-test-tool/ledger-api-tests/runner:runner-%s" % lf_version,
-            "//ledger-test-tool/ledger-api-tests/suites:suites-%s" % lf_version,
+            "//ledger-test-tool/infrastructure:infrastructure-%s" % lf_version,
+            "//ledger-test-tool/runner:runner-%s" % lf_version,
+            "//ledger-test-tool/suites:suites-%s" % lf_version,
             "//libs-scala/build-info",
             "@maven//:io_netty_netty_handler",
         ],
