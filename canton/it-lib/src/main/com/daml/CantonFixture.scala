@@ -1,7 +1,7 @@
 // Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
+package com.daml
 package integrationtest
 
 import com.daml.bazeltools.BazelRunfiles._
@@ -26,20 +26,6 @@ import java.nio.file.{Files, Path, Paths}
 
 @scala.annotation.nowarn("msg=match may not be exhaustive")
 object CantonFixture {
-
-  final case class CompiledDar(
-      mainPkg: Ref.PackageId,
-      compiledPackages: PureCompiledPackages,
-  )
-
-  def readDar(
-      path: Path,
-      compilerConfig: speedy.Compiler.Config = speedy.Compiler.Config.Dev,
-  ): CompiledDar = {
-    val dar = archive.DarDecoder.assertReadArchiveFromFile(path.toFile)
-    val pkgs = PureCompiledPackages.assertBuild(dar.all.toMap, compilerConfig)
-    CompiledDar(dar.main._1, pkgs)
-  }
 
   private[integrationtest] lazy val List(serverCrt, serverPem, caCrt, clientCrt, clientPem) =
     List("server.crt", "server.pem", "ca.crt", "client.crt", "client.pem").map { src =>

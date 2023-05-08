@@ -44,7 +44,6 @@ trait AbstractTriggerTest
     with TestCommands
     with SandboxRequiringAuthorizationFuns {
   self: Suite =>
-
   protected implicit val applicationId: ApplicationId = RunnerConfig.DefaultApplicationId
 
   protected def toHighLevelResult(s: SValue) = s match {

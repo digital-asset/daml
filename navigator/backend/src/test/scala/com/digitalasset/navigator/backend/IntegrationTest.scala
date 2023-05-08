@@ -15,7 +15,7 @@ import com.daml.ledger.client.LedgerClient
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.UserId
 import com.daml.navigator.config.{Arguments, Config}
-import com.daml.lf.integrationtest.CantonFixture
+import com.daml.integrationtest.CantonFixture
 import org.scalatest._
 import org.scalatest.freespec.AsyncFreeSpec
 import org.scalatest.matchers.should.Matchers

@@ -91,7 +91,7 @@ conformance_test(
     name = "conformance-test",
     extra_data =
         conformance_test_extra_data_base + [
-            "//daml-lf/integration-test-lib:canton_deploy.jar",
+            "//canton:canton_deploy.jar",
             ":bootstrap.canton",
             ":canton.conf",
         ],
@@ -115,7 +115,7 @@ conformance_test(
     dev_mod_flag = "",
     extra_data =
         conformance_test_extra_data_base + [
-            "//daml-lf/integration-test-lib:canton-patched_deploy.jar",
+            "//canton:canton-patched_deploy.jar",
             ":bootstrap-dev.canton",
             ":canton-dev.conf",
         ],

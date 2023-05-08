@@ -16,7 +16,7 @@ import com.daml.ledger.client.LedgerClient
 import com.daml.ledger.client.binding.DomainTransactionMapper.DecoderType
 import com.daml.ledger.client.binding.{Contract, Template, Primitive => P}
 import com.daml.ledger.client.services.commands.CommandSubmission
-import com.daml.lf.integrationtest.CantonFixture
+import com.daml.integrationtest.CantonFixture
 import com.daml.sample.MyMain.{CallablePayout, MkListExample, PayOut}
 import com.daml.sample.{EventDecoder, MyMain, MySecondMain}
 import com.daml.util.Ctx

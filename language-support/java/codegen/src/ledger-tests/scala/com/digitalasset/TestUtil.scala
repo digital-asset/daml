@@ -12,7 +12,7 @@ import com.daml.ledger.client.LedgerClient
 import com.daml.ledger.javaapi.data
 import com.daml.ledger.javaapi.data.{codegen => jcg, _}
 import com.daml.ledger.javaapi.data.codegen.HasCommands
-import com.daml.lf.integrationtest.CantonFixture
+import com.daml.integrationtest.CantonFixture
 import com.google.protobuf.Empty
 import io.grpc.Channel
 import org.scalatest.{Assertion, Suite}

@@ -1,7 +1,7 @@
 // Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
+package com.daml
 package integrationtest
 
 import com.daml.bazeltools.BazelRunfiles.rlocation
@@ -10,7 +10,6 @@ import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.client.{LedgerClient, GrpcChannel}
 import com.daml.lf.data.Ref
-import com.daml.lf.integrationtest.CantonConfig.noTlsConfig
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.ports.Port
 import io.grpc.ManagedChannel
@@ -79,7 +78,7 @@ final case class CantonConfig(
 
   lazy val adminToken: Option[String] = getToken(CantonRunner.adminUserId)
 
-  def tlsClientConfig: TlsConfiguration = tlsConfig.fold(noTlsConfig)(_.clientConfig)
+  def tlsClientConfig: TlsConfiguration = tlsConfig.fold(CantonConfig.noTlsConfig)(_.clientConfig)
 
   def channel(
       port: Port,

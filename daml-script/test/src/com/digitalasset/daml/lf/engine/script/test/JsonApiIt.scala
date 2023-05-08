@@ -15,6 +15,7 @@ import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFact
 import com.daml.http.metrics.HttpJsonApiMetrics
 import com.daml.http.util.Logging.{InstanceUUID, instanceUUIDLogCtx}
 import com.daml.http.{HttpService, StartSettings, nonrepudiation}
+import com.daml.integrationtest._
 import com.daml.jwt.JwtSigner
 import com.daml.jwt.domain.DecodedJwt
 import com.daml.ledger.api.auth.{AuthServiceJWTCodec, CustomDamlJWTPayload}
@@ -36,7 +37,6 @@ import com.daml.lf.engine.script.ledgerinteraction.{
   JsonLedgerClient,
   ScriptTimeMode,
 }
-import com.daml.lf.integrationtest._
 import com.daml.lf.language.Ast.Package
 import com.daml.lf.speedy.SValue
 import com.daml.lf.speedy.SValue._
