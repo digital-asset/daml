@@ -160,8 +160,8 @@ withSandbox (AppendOnly appendOnly) assistant jdbcUrl f =
           bracket (createProcess (proc (takeDirectory assistant </> "sandbox-on-x") args) { create_group = True })
                   -- This is a shell script so we kill the whole process group.
                   (\process@(_, _, _, ph) -> interruptProcessGroupOf ph >> cleanupProcess process >> void (waitForProcess ph))
-                  $ \_ -> do
-              port <- readPortFile maxRetries portFile
+                  $ \(_, _, _, ph) -> do
+              port <- readPortFile ph maxRetries portFile
               f port
     ledgerid = "myledger"
     sandboxConfig = defaultSandboxConf

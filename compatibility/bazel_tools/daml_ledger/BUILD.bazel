@@ -11,7 +11,10 @@ da_haskell_library(
     name = "sandbox-helper",
     srcs = ["Sandbox.hs"],
     hackage_deps = [
+        "aeson",
         "base",
+        "bytestring",
+        "containers",
         "directory",
         "extra",
         "filepath",
