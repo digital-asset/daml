@@ -18,7 +18,7 @@ import { encode } from 'jwt-simple';
 import puppeteer, { Browser, Page } from "puppeteer";
 import waitOn from "wait-on";
 
-import Ledger from "@daml/ledger";
+import Ledger, { UserRightHelper, UserRight } from "@daml/ledger";
 import { User } from "@daml.js/create-daml-app";
 import semver from "semver";
 
@@ -27,16 +27,14 @@ import semver from "semver";
  * so we can work around that.
  */
 import { authConfig } from './config';
-import { computeCredentials } from "./Credentials";
+import { insecure } from "./config";
 
 const getToken: (party: string) => string =
-    authConfig
-  ? (party) => authConfig.makeToken(party)
-  : (party) => computeCredentials(party).token;
-
+    insecure
+        ? (party) => insecure.makeToken(party)
+        : (party) => authConfig.makeToken(party);
 
 const DAR_PATH = process.env.DAR_PATH;
-const SANDBOX_LEDGER_ID = "create-daml-app-sandbox";
 const SANDBOX_PORT_FILE_NAME = "sandbox.port";
 const JSON_API_PORT_FILE_NAME = "json-api.port";
 const SANDBOX_PORT_FILE_PATH = `../${SANDBOX_PORT_FILE_NAME}`;
@@ -54,28 +52,35 @@ let uiProc: ChildProcess | undefined = undefined;
 // Chrome browser that we run in headless mode
 let browser: Browser | undefined = undefined;
 
+let publicUser: string | undefined = undefined;
 let publicParty: string | undefined = undefined;
 
-const adminTokenPayload = {
-  "https://daml.com/ledger-api": {
-    "ledgerId": "create-daml-app",
-    "admin": true,
-  }
-};
-
 const adminLedger = new Ledger({
-  token: encode(adminTokenPayload, "secret", "HS256")
+  token: getToken("participant_admin"),
+  httpBaseUrl: "http://127.0.0.1:7575/",
 });
 
-const getParty = async(): string => {
+const toAlias = (userId: string): string =>
+  userId.charAt(0).toUpperCase() + userId.slice(1);
+
+// Function to generate unique party names for us.
+let nextPartyId = 1;
+const getParty = async(): Promise<[string, string]> => {
   const allocResult = await adminLedger.allocateParty({});
-  return allocResult.identifier;
-}
+  const user = `u${nextPartyId}`;
+  const party = allocResult.identifier;
+  const rights: UserRight[] = [UserRightHelper.canActAs(party)].concat(
+      publicParty !== undefined ? [UserRightHelper.canReadAs(publicParty)] : [],
+  );
+  await adminLedger.createUser(user, rights, party);
+  nextPartyId++;
+  return [user, party];
+};
 
 test("Party names are unique", async () => {
-  let r = [];
+  let r: string[] = [];
   for (let i = 0; i < 10; ++i) {
-    r = r.concat(await getParty());
+    r = r.concat((await getParty())[1]);
   }
   const parties = new Set(r);
   expect(parties.size).toEqual(10);
@@ -133,24 +138,11 @@ beforeAll(async () => {
   await removeFile(`../${SANDBOX_PORT_FILE_NAME}`);
   await removeFile(`../${JSON_API_PORT_FILE_NAME}`);
 
-  const kvSandboxOptions = [
+  const sandboxOptions = [
     "sandbox",
-    `--ledgerid=${SANDBOX_LEDGER_ID}`,
-    `--port=0`,
-    `--port-file=${SANDBOX_PORT_FILE_NAME}`,
-    DAR_PATH,
+    "--canton-port-file",
+    `${SANDBOX_PORT_FILE_NAME}`
   ];
-
-  const sandboxOnXOptions = [
-    `--ledger-id=${SANDBOX_LEDGER_ID}`,
-    `--participant=participant-id=sandbox,port=0,port-file=${SANDBOX_PORT_FILE_NAME}`
-  ];
-
-  const sandboxOnXCommand = semver.gt(process.env.SANDBOX_VERSION, "2.4.0-snapshot.20220712.10212.0.0bf28176" ) || process.env.SANDBOX_VERSION === "0.0.0"
-      ? ["run-legacy-cli-config"]
-      : [];
-
-  const sandboxOptions = process.env.SANDBOX_VERSION[0] == "1" ? kvSandboxOptions : sandboxOnXCommand.concat(sandboxOnXOptions);
 
   sandbox = spawn(process.env.DAML_SANDBOX, sandboxOptions, {
     cwd: "..",
@@ -159,28 +151,31 @@ beforeAll(async () => {
     env: { ...process.env, DAML_SDK_VERSION: process.env.SANDBOX_VERSION },
   });
 
+  interface CantonPorts {
+    sandbox: {
+      ledgerApi: number
+      adminApi: number
+    }
+  }
+
   await waitOn({ resources: [`file:../${SANDBOX_PORT_FILE_NAME}`] });
-  const sandboxPort = parseInt(
-    await fs.readFile(SANDBOX_PORT_FILE_PATH, "utf8")
-  );
-  execFileSync(process.env.DAML, ["ledger", "upload-dar", "--host=localhost", `--port=${sandboxPort}`, DAR_PATH])
+  const contents = await fs.readFile(SANDBOX_PORT_FILE_PATH, "utf8")
+  const cantonPorts: CantonPorts = JSON.parse(contents);
+
+  const sandboxPort = cantonPorts.sandbox.ledgerApi
+  execFileSync(process.env.DAML, ["ledger", "upload-dar", "--host=127.0.0.1", `--port=${sandboxPort}`, DAR_PATH])
 
   const jsonApiOptions = [
     "json-api",
-    "--ledger-host=localhost",
+    "--ledger-host=127.0.0.1",
     `--ledger-port=${sandboxPort}`,
     `--http-port=${JSON_API_PORT}`,
     `--port-file=${JSON_API_PORT_FILE_NAME}`,
+    `--allow-insecure-tokens`,
   ];
-  const extraJsonApiOptions = semver.gte(
-    process.env.JSON_API_VERSION,
-    "1.1.0-snapshot.20200430.4057.0.681c862d"
-  ) || process.env.JSON_API_VERSION === "0.0.0"
-    ? ["--allow-insecure-tokens"]
-    : [];
   jsonApi = spawn(
     process.env.DAML_JSON_API,
-    jsonApiOptions.concat(extraJsonApiOptions),
+    jsonApiOptions,
     {
       cwd: "..",
       stdio: "inherit",
@@ -190,22 +185,21 @@ beforeAll(async () => {
   );
   await waitOn({ resources: [`file:../${JSON_API_PORT_FILE_NAME}`] });
 
-  publicParty = await getParty();
+  [publicUser, publicParty] = await getParty();
 
+  const env = { ...process.env, BROWSER: "none" };
   uiProc =
     spawn(npmExeName, ["start"], {
-    env: { ...process.env, BROWSER: "none" },
+    env,
     stdio: "inherit",
     shell: true,
     detached: detached,
   });
 
-  await waitOn({ resources: [`tcp:localhost:${UI_PORT}`] });
+  await waitOn({ resources: [`tcp:127.0.0.1:${UI_PORT}`] });
 
   // Launch a single browser for all tests.
-    browser = await puppeteer.launch();
-
-    await adminLedger.allocateParty({identifierHint: "public"});
+  browser = await puppeteer.launch();
 }, 60_000);
 
 afterAll(async () => {
@@ -224,13 +218,13 @@ afterAll(async () => {
 }, 60_000);
 
 test("create and look up user using ledger library", async () => {
-  const party = await getParty();
-  const token = getToken(party);
+  const [user, party] = await getParty();
+  const token = getToken(user);
   const ledger = new Ledger({ token });
   const users0 = await ledger.query(User.User);
   expect(users0).toEqual([]);
-  const user = { username: party, following: [], public: publicParty };
-  const userContract1 = await ledger.create(User.User, user);
+  const userPayload = { username: party, following: [], public: publicParty };
+  const userContract1 = await ledger.create(User.User, userPayload);
   const userContract2 = await ledger.fetchByKey(User.User, party);
   expect(userContract1).toEqual(userContract2);
   const users = await ledger.query(User.User);
@@ -248,7 +242,7 @@ const newUiPage = async (): Promise<Page> => {
   }
   const page = await browser.newPage();
   await page.setDefaultNavigationTimeout(60 * 1000);
-  await page.goto(`http://localhost:${UI_PORT}`); // ignore the Response
+  await page.goto(`http://127.0.0.1:${UI_PORT}`); // ignore the Response
   return page;
 };
 
@@ -275,12 +269,14 @@ const waitForFollowers = async (page: Page, n: number) => {
 // Log in using a party name and wait for the main screen to load.
 const login = async (page: Page, partyName: string) => {
   const usernameInput = await page.waitForSelector(
-    ".test-select-username-field"
+    ".test-select-username-field",
   );
-  await usernameInput.click();
-  await usernameInput.type(partyName);
-  await page.click(".test-select-login-button");
-  await page.waitForSelector(".test-select-main-menu");
+  if (usernameInput) {
+    await usernameInput.click();
+    await usernameInput.type(partyName);
+    await page.click(".test-select-login-button");
+    await page.waitForSelector(".test-select-main-menu");
+  }
 };
 // LOGIN_FUNCTION_END
 
@@ -292,45 +288,47 @@ const logout = async (page: Page) => {
 
 // Follow a user using the text input in the follow panel.
 const follow = async (page: Page, userToFollow: string) => {
-  const followInput = await page.waitForSelector('.test-select-follow-input');
-  await followInput.click();
-  await followInput.type(userToFollow);
-  await followInput.press('Tab');
-  await page.click('.test-select-follow-button');
+  const followInput = await page.waitForSelector(".test-select-follow-input");
+  if (followInput) {
+    await followInput.click();
+    await followInput.type(userToFollow);
+    await followInput.press('Tab');
+    await page.click('.test-select-follow-button');
 
-  // Wait for the request to complete, either successfully or after the error
-  // dialog has been handled.
-  // We check this by the absence of the `loading` class.
-  // (Both the `test-...` and `loading` classes appear in `div`s surrounding
-  // the `input`, due to the translation of Semantic UI's `Input` element.)
-  await page.waitForSelector(".test-select-follow-input > :not(.loading)", {
-    timeout: 60_000,
-  });
+    // Wait for the request to complete, either successfully or after the error
+    // dialog has been handled.
+    // We check this by the absence of the `loading` class.
+    // (Both the `test-...` and `loading` classes appear in `div`s surrounding
+    // the `input`, due to the translation of Semantic UI's `Input` element.)
+    await page.waitForSelector(".test-select-follow-input > :not(.loading)", {
+      timeout: 60_000,
+    });
+  }
 };
 
 // LOGIN_TEST_BEGIN
 test("log in as a new user, log out and log back in", async () => {
-  const partyName = await getParty();
+  const [user, party] = await getParty();
 
   // Log in as a new user.
   const page = await newUiPage();
-  await login(page, partyName);
+  await login(page, user);
 
   // Check that the ledger contains the new User contract.
-  const token = getToken(partyName);
+  const token = getToken(user);
   const ledger = new Ledger({ token });
   const users = await ledger.query(User.User);
   expect(users).toHaveLength(1);
-  expect(users[0].payload.username).toEqual(partyName);
+  expect(users[0].payload.username).toEqual(party);
 
   // Log out and in again as the same user.
   await logout(page);
-  await login(page, partyName);
+  await login(page, user);
 
   // Check we have the same one user.
   const usersFinal = await ledger.query(User.User);
   expect(usersFinal).toHaveLength(1);
-  expect(usersFinal[0].payload.username).toEqual(partyName);
+  expect(usersFinal[0].payload.username).toEqual(party);
 
   await page.close();
 }, 60_000);
@@ -342,15 +340,22 @@ test("log in as a new user, log out and log back in", async () => {
 // - while the user that is followed is logged in
 // - while the user that is followed is logged out
 // These are all successful cases.
-
 test("log in as three different users and start following each other", async () => {
-  const party1 = await getParty();
-  const party2 = await getParty();
-  const party3 = await getParty();
+  const [user1, party1] = await getParty();
+  const [user2, party2] = await getParty();
+  const [user3, party3] = await getParty();
 
   // Log in as Party 1.
   const page1 = await newUiPage();
-  await login(page1, party1);
+  await login(page1, user1);
+
+  // Log in as Party 2.
+  const page2 = await newUiPage();
+  await login(page2, user2);
+
+  // Log in as Party 3.
+  const page3 = await newUiPage();
+  await login(page3, user3);
 
   // Party 1 should initially follow no one.
   const noFollowing1 = await page1.$$(".test-select-following");
@@ -365,7 +370,7 @@ test("log in as three different users and start following each other", async () 
     ".test-select-following",
     (following) => following.map((e) => e.innerHTML)
   );
-  expect(followingList1).toEqual([party2]);
+  expect(followingList1).toEqual([toAlias(user2)]);
 
   // Add Party 3 as well and check both are in the list.
   await follow(page1, party3);
@@ -375,12 +380,8 @@ test("log in as three different users and start following each other", async () 
     (following) => following.map((e) => e.innerHTML)
   );
   expect(followingList11).toHaveLength(2);
-  expect(followingList11).toContain(party2);
-  expect(followingList11).toContain(party3);
-
-  // Log in as Party 2.
-  const page2 = await newUiPage();
-  await login(page2, party2);
+  expect(followingList11).toContain(toAlias(user2));
+  expect(followingList11).toContain(toAlias(user3));
 
   // Party 2 should initially follow no one.
   const noFollowing2 = await page2.$$(".test-select-following");
@@ -391,7 +392,7 @@ test("log in as three different users and start following each other", async () 
   const network2 = await page2.$$eval(".test-select-user-in-network", (users) =>
     users.map((e) => e.innerHTML)
   );
-  expect(network2).toEqual([party1]);
+  expect(network2).toEqual([toAlias(user1)]);
 
   // Follow Party 1 using the 'add user' icon on the right.
   await page2.waitForSelector(".test-select-add-user-icon");
@@ -413,8 +414,8 @@ test("log in as three different users and start following each other", async () 
     (following) => following.map((e) => e.innerHTML)
   );
   expect(followingList2).toHaveLength(2);
-  expect(followingList2).toContain(party1);
-  expect(followingList2).toContain(party3);
+  expect(followingList2).toContain(toAlias(user1));
+  expect(followingList2).toContain(toAlias(user3));
 
   // Party 1 should now also see Party 2 in the network (but not Party 3 as they
   // didn't yet started following Party 1).
@@ -423,11 +424,7 @@ test("log in as three different users and start following each other", async () 
     ".test-select-user-in-network",
     (following) => following.map((e) => e.innerHTML)
   );
-  expect(network1).toEqual([party2]);
-
-  // Log in as Party 3.
-  const page3 = await newUiPage();
-  await login(page3, party3);
+  expect(network1).toEqual([toAlias(user2)]);
 
   // Party 3 should follow no one.
   const noFollowing3 = await page3.$$(".test-select-following");
@@ -441,8 +438,8 @@ test("log in as three different users and start following each other", async () 
     (following) => following.map((e) => e.innerHTML)
   );
   expect(network3).toHaveLength(2);
-  expect(network3).toContain(party1);
-  expect(network3).toContain(party2);
+  expect(network3).toContain(toAlias(user1));
+  expect(network3).toContain(toAlias(user2));
 
   await page1.close();
   await page2.close();
@@ -450,13 +447,13 @@ test("log in as three different users and start following each other", async () 
 }, 60_000);
 
 test("error when following self", async () => {
-  const party = await getParty();
+  const [user, party] = await getParty();
   const page = await newUiPage();
 
   const dismissError = jest.fn((dialog) => dialog.dismiss());
   page.on("dialog", dismissError);
 
-  await login(page, party);
+  await login(page, user);
   await follow(page, party);
 
   expect(dismissError).toHaveBeenCalled();
@@ -465,14 +462,14 @@ test("error when following self", async () => {
 }, 60_000);
 
 test("error when adding a user that you are already following", async () => {
-  const party1 = await getParty();
-  const party2 = await getParty();
+  const [user1, party1] = await getParty();
+  const [user2, party2] = await getParty();
   const page = await newUiPage();
 
   const dismissError = jest.fn((dialog) => dialog.dismiss());
   page.on("dialog", dismissError);
 
-  await login(page, party1);
+  await login(page, user1);
   // First attempt should succeed
   await follow(page, party2);
   // Second attempt should result in an error
