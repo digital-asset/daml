@@ -292,10 +292,6 @@ removeLocations = cata $ \case
     ELocationF _loc e -> e
     b -> embed b
 
-getPackageMetadata :: PackageName -> Maybe PackageVersion -> PackageMetadata
-getPackageMetadata pkgName mbPkgVersion =
-    PackageMetadata pkgName (fromMaybe (PackageVersion "0.0.0") mbPkgVersion)
-
 -- | Given the name of a DALF and the decoded package return package metadata.
 --
 -- For newer Daml-LF versions this is taken directly from the

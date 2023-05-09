@@ -11,7 +11,6 @@ module DA.Daml.UtilLF (
 import           DA.Daml.LF.Ast
 import           DA.Pretty (renderPretty)
 
-import Data.Maybe
 import qualified Data.NameMap               as NM
 import qualified Data.Text                  as T
 import           GHC.Stack                  (HasCallStack)
@@ -81,18 +80,9 @@ synthesizeVariantRecord :: VariantConName -> TypeConName -> TypeConName
 synthesizeVariantRecord (VariantConName dcon) (TypeConName tcon) = TypeConName (tcon ++ [dcon])
 
 -- | Fails if there are any duplicate module names
-buildPackage :: HasCallStack => Maybe PackageName -> Maybe PackageVersion -> Version -> [Module] -> Package
-buildPackage mbPkgName mbPkgVersion version mods =
-    Package version (NM.fromList mods) pkgMetadata
-  where
-    pkgMetadata =
-        -- In `damlc build` we are guaranteed to have a name and version
-        -- however, for `damlc package` (which should really die in a fire)
-        -- we might only have a name and for `damlc compile` we don’t even
-        -- have a package name <insert sad panda here>.
-        -- We require metadata to be present in newer LF versions,
-        -- so we set it to some arbitrarily chosen garbage.
-        Just $ getPackageMetadata (fromMaybe (PackageName "unknown") mbPkgName) mbPkgVersion
+buildPackage :: HasCallStack => PackageMetadata -> Version -> [Module] -> Package
+buildPackage meta version mods =
+    Package version (NM.fromList mods) (Just meta)
 
 instance Outputable Expr where
     ppr = text . renderPretty

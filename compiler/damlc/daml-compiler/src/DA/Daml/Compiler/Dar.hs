@@ -122,9 +122,13 @@ buildDar service PackageConfigFields {..} ifDir dalfInput = do
                  files <- getDamlFiles pSrc
                  opts <- lift getIdeOptions
                  lfVersion <- lift getDamlLfVersion
+                 let pMeta = LF.PackageMetadata
+                        { packageName = pName
+                        , packageVersion = fromMaybe (LF.PackageVersion "0.0.0") pVersion
+                        }
                  pkg <- case optShakeFiles opts of
-                     Nothing -> mergePkgs pName pVersion lfVersion . map fst <$> usesE GeneratePackage files
-                     Just _ -> generateSerializedPackage pName pVersion files
+                     Nothing -> mergePkgs pMeta lfVersion . map fst <$> usesE GeneratePackage files
+                     Just _ -> generateSerializedPackage pName pVersion pMeta files
 
                  MaybeT $ finalPackageCheck (toNormalizedFilePath' pSrc) pkg
 
@@ -231,8 +235,8 @@ getSrcRoot fileOrDir = do
           pure $ toNormalizedFilePath' root
 
 -- | Merge several packages into one.
-mergePkgs :: LF.PackageName -> Maybe LF.PackageVersion -> LF.Version -> [WhnfPackage] -> LF.Package
-mergePkgs pkgName mbPkgVer ver pkgs =
+mergePkgs :: LF.PackageMetadata -> LF.Version -> [WhnfPackage] -> LF.Package
+mergePkgs meta ver pkgs =
     foldl'
         (\pkg1 (WhnfPackage pkg2) -> assert (LF.packageLfVersion pkg1 == ver) $
              LF.Package
@@ -240,7 +244,7 @@ mergePkgs pkgName mbPkgVer ver pkgs =
                  , LF.packageModules = LF.packageModules pkg1 `NM.union` LF.packageModules pkg2
                  , LF.packageMetadata = LF.packageMetadata pkg1 <|> LF.packageMetadata pkg2
                  })
-        LF.Package { LF.packageLfVersion = ver, LF.packageModules = NM.empty, LF.packageMetadata = Just $ LF.getPackageMetadata pkgName mbPkgVer }
+        LF.Package { LF.packageLfVersion = ver, LF.packageModules = NM.empty, LF.packageMetadata = Just meta }
         pkgs
 
 -- | Find all Daml files below a given source root. If the source root is a file we interpret it as

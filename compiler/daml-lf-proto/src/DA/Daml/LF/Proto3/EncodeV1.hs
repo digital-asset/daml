@@ -1030,7 +1030,10 @@ encodeScenarioModule :: Version -> Module -> P.Package
 encodeScenarioModule version mod =
     encodePackage (Package version (NM.insert mod NM.empty) metadata)
   where
-    metadata = Just (getPackageMetadata (PackageName "scenario") Nothing)
+    metadata = Just PackageMetadata
+      { packageName = PackageName "scenario"
+      , packageVersion = PackageVersion "0.0.0"
+      }
 
 encodeModule :: Module -> Encode P.Module
 encodeModule Module{..} = do

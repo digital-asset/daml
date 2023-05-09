@@ -1081,7 +1081,13 @@ data Module = Module
   }
   deriving (Eq, Data, Generic, NFData, Show)
 
-
+-- | Package metadata.
+-- In `damlc build` we are guaranteed to have a name and version
+-- however, for `damlc package` (which should really die in a fire)
+-- we might only have a name and for `damlc compile` we don’t even
+-- have a package name <insert sad panda here>.
+-- We require metadata to be present in newer LF versions,
+-- so we set it to some arbitrarily chosen garbage.
 data PackageMetadata = PackageMetadata
     { packageName :: PackageName
     , packageVersion :: PackageVersion
