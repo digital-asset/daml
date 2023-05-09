@@ -1331,7 +1331,7 @@ trait AbstractTriggerServiceTestWithCanton extends AbstractTriggerServiceTestHel
       _ = status.status shouldBe StatusCodes.OK
       body <- responseBodyToString(status)
       _ =
-        body shouldBe s"""{"result":{"party":"Alice_acs","status":"running","triggerId":"$testPkgId:TestTrigger:trigger"},"status":200}"""
+        body shouldBe s"""{"result":{"party":"$aliceAcs","status":"running","triggerId":"$testPkgId:TestTrigger:trigger"},"status":200}"""
       resp <- stopTrigger(uri, triggerId, party)
       _ <- assert(resp.status.isSuccess)
     } yield succeed
@@ -2197,7 +2197,7 @@ trait AbstractTriggerServiceTestAuthMiddlewareWithCanton
       _ = status.status shouldBe StatusCodes.OK
       body <- responseBodyToString(status)
       _ =
-        body shouldBe s"""{"result":{"party":"Alice_exp","status":"running","triggerId":"$testPkgId:TestTrigger:trigger"},"status":200}"""
+        body shouldBe s"""{"result":{"party":"$aliceExp","status":"running","triggerId":"$testPkgId:TestTrigger:trigger"},"status":200}"""
       resp <- stopTrigger(uri, triggerId, aliceExp)
       _ <- assert(resp.status.isSuccess)
     } yield succeed
