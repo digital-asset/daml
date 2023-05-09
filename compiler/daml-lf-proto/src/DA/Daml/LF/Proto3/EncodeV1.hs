@@ -1033,6 +1033,7 @@ encodeScenarioModule version mod =
     metadata = Just PackageMetadata
       { packageName = PackageName "scenario"
       , packageVersion = PackageVersion "0.0.0"
+      , upgradedPackageId = Nothing
       }
 
 encodeModule :: Module -> Encode P.Module
@@ -1073,10 +1074,16 @@ encodeInterfaceCoImplements InterfaceCoImplements {..} = do
     defInterface_CoImplementsLocation <- traverse encodeSourceLoc iciLocation
     pure P.DefInterface_CoImplements {..}
 
+encodeUpgradedPackageId :: PackageId -> Encode P.UpgradedPackageId
+encodeUpgradedPackageId upgradedPackageId = do
+  upgradedPackageIdUpgradedPackageIdInternedStr <- fromRight (error "Upgraded package-id is always interned") <$> encodeInternableString (unPackageId upgradedPackageId)
+  pure P.UpgradedPackageId{..}
+
 encodePackageMetadata :: PackageMetadata -> Encode P.PackageMetadata
 encodePackageMetadata PackageMetadata{..} = do
     packageMetadataNameInternedStr <- fromRight (error "Package name is always interned") <$> encodeInternableString (unPackageName packageName)
-    packageMetadataVersionInternedStr <- fromRight (error "Package name is always interned") <$> encodeInternableString (unPackageVersion packageVersion)
+    packageMetadataVersionInternedStr <- fromRight (error "Package version is always interned") <$> encodeInternableString (unPackageVersion packageVersion)
+    packageMetadataUpgradedPackageId <- traverse encodeUpgradedPackageId upgradedPackageId
     pure P.PackageMetadata{..}
 
 -- | NOTE(MH): Assumes the Daml-LF version of the 'Package' is 'V1'.

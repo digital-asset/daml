@@ -85,9 +85,16 @@ private[archive] class DecodeV1(minor: LV.Minor) {
       internedStrings.lift(id).getOrElse {
         throw Error.Parsing(s"invalid internedString table index $id")
       }
+    def getInternedPackageId(id: Int): PackageId =
+      eitherToParseError(PackageId.fromString(getInternedStr(id)))
     PackageMetadata(
       toPackageName(getInternedStr(metadata.getNameInternedStr), "PackageMetadata.name"),
       toPackageVersion(getInternedStr(metadata.getVersionInternedStr), "PackageMetadata.version22"),
+      if (metadata.hasUpgradedPackageId) {
+        Some(
+          getInternedPackageId(metadata.getUpgradedPackageId.getUpgradedPackageIdInternedStr)
+        )
+      } else None,
     )
   }
 

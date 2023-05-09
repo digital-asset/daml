@@ -202,6 +202,7 @@ daInternalInterfaceAnyViewTypes = Package
   , packageMetadata = Just PackageMetadata
       { packageName = PackageName "daml-stdlib-DA-Internal-Interface-AnyView-Types"
       , packageVersion = PackageVersion "1.0.0"
+      , upgradedPackageId = Nothing
       }
   }
   where
@@ -242,6 +243,7 @@ daActionStateType daTypesPackageId = Package
   , packageMetadata = Just PackageMetadata
       { packageName = PackageName "daml-stdlib-DA-Action-State-Type"
       , packageVersion = PackageVersion "1.0.0"
+      , upgradedPackageId = Nothing
       }
   }
   where
@@ -286,6 +288,7 @@ daRandomTypes = Package
   , packageMetadata = Just PackageMetadata
       { packageName = PackageName "daml-stdlib-DA-Random-Types"
       , packageVersion = PackageVersion "1.0.0"
+      , upgradedPackageId = Nothing
       }
   }
   where
@@ -315,6 +318,7 @@ daStackTypes = Package
   , packageMetadata = Just PackageMetadata
       { packageName = PackageName "daml-stdlib-DA-Stack-Types"
       , packageVersion = PackageVersion "1.0.0"
+      , upgradedPackageId = Nothing
       }
   }
   where
@@ -557,6 +561,7 @@ daSetTypes = Package
     , packageMetadata = Just PackageMetadata
         { packageName = PackageName "daml-stdlib-DA-Set-Types"
         , packageVersion = PackageVersion "1.0.0"
+        , upgradedPackageId = Nothing
         }
     }
   where
@@ -594,6 +599,7 @@ daInternalNatSyn = Package
   , packageMetadata = Just PackageMetadata
       { packageName = PackageName "daml-prim-DA-Internal-NatSyn"
       , packageVersion = PackageVersion "1.0.0"
+      , upgradedPackageId = Nothing
       }
   }
   where
@@ -637,6 +643,7 @@ builtinExceptionPackage name = Package
     , packageMetadata = Just PackageMetadata
         { packageName = PackageName ("daml-prim-DA-Exception-" <> name)
         , packageVersion = PackageVersion "1.0.0"
+        , upgradedPackageId = Nothing
         }
     }
   where

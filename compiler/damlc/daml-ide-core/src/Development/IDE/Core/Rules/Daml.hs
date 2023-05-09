@@ -371,6 +371,7 @@ packageMetadataFromOptions :: Options -> LF.PackageMetadata
 packageMetadataFromOptions options = LF.PackageMetadata
     { packageName = fromMaybe (LF.PackageName "unknown") (optMbPackageName options)
     , packageVersion = fromMaybe (LF.PackageVersion "0.0.0") (optMbPackageVersion options)
+    , upgradedPackageId = Nothing -- set by daml build
     }
 
 -- This rule is for on-disk incremental builds. We cannot use the fine-grained rules that we have for

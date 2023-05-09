@@ -1837,9 +1837,15 @@ message InternedDottedName {
   repeated int32 segments_interned_str = 1; // *Available in versions >= 1.7*
 }
 
+// *Available in versions >= 1.dev*
+message UpgradedPackageId {
+  int32 upgraded_package_id_interned_str = 1; // *Available in versions >= 1.dev*
+}
+
 message PackageMetadata {
   int32 name_interned_str = 1; // *Available in versions >= 1.8*
   int32 version_interned_str = 2; // *Available in versions >= 1.8*
+  UpgradedPackageId upgraded_package_id = 3; // *optional*, *Available in versions >= 1.dev*
 }
 
 message Package {

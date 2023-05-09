@@ -1231,7 +1231,11 @@ object Ast {
   type ModuleSignature = GenModule[Unit]
   val ModuleSignature = new GenModuleCompanion[Unit]
 
-  final case class PackageMetadata(name: PackageName, version: PackageVersion)
+  final case class PackageMetadata(
+      name: PackageName,
+      version: PackageVersion,
+      upgradedPackageId: Option[PackageId],
+  )
 
   final case class GenPackage[E](
       modules: Map[ModuleName, GenModule[E]],

@@ -755,7 +755,10 @@ instance Pretty PackageVersion where
     pPrint = pPrint . unPackageVersion
 
 instance Pretty PackageMetadata where
-    pPrint (PackageMetadata name version) = pPrint name <> "-" <> pPrint version
+    pPrint (PackageMetadata name version upgradedPid) =
+      pPrint name
+        <> "-" <> pPrint version
+        <> maybe empty (\pid -> "-[upgrades=" <> pPrint pid <> "]") upgradedPid
 
 instance Pretty Package where
   pPrintPrec lvl _prec (Package version modules metadata) =

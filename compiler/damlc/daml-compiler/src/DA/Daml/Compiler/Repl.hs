@@ -492,6 +492,7 @@ runRepl importPkgs opts replClient logger ideState = do
                    let pkgMeta = LF.PackageMetadata
                           { packageName = fromMaybe (LF.PackageName "repl") (optMbPackageName opts)
                           , packageVersion = fromMaybe (LF.PackageVersion "0.0.0") (optMbPackageVersion opts)
+                          , upgradedPackageId = Nothing
                           }
                    let world = LF.initWorldSelf pkgs (buildPackage pkgMeta lfVersion [])
                    let simplified = LF.simplifyModule world lfVersion v

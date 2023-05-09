@@ -1091,6 +1091,7 @@ data Module = Module
 data PackageMetadata = PackageMetadata
     { packageName :: PackageName
     , packageVersion :: PackageVersion
+    , upgradedPackageId :: Maybe PackageId
     } deriving (Eq, Data, Generic, NFData, Show)
 
 -- | A package.

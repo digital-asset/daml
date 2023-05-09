@@ -23,6 +23,7 @@ import Control.Monad.IO.Class
 import Control.Monad.Trans.Class
 import Control.Monad.Trans.Maybe
 import Control.Monad.Trans.Resource (ResourceT)
+import qualified DA.Daml.Dar.Reader as Dar
 import qualified DA.Daml.LF.Ast as LF
 import DA.Daml.LF.Proto3.Archive (encodeArchiveAndHash)
 import DA.Daml.Options (expandSdkPackages)
@@ -122,9 +123,15 @@ buildDar service PackageConfigFields {..} ifDir dalfInput = do
                  files <- getDamlFiles pSrc
                  opts <- lift getIdeOptions
                  lfVersion <- lift getDamlLfVersion
+                 upgradedPackageId <-
+                    if lfVersion `LF.supports` LF.featurePackageUpgrades
+                      then liftIO $
+                        mapM (fmap Dar.mainPackageId . Dar.getDarInfo) pUpgradedPackagePath
+                      else pure Nothing
                  let pMeta = LF.PackageMetadata
                         { packageName = pName
                         , packageVersion = fromMaybe (LF.PackageVersion "0.0.0") pVersion
+                        , upgradedPackageId
                         }
                  pkg <- case optShakeFiles opts of
                      Nothing -> mergePkgs pMeta lfVersion . map fst <$> usesE GeneratePackage files

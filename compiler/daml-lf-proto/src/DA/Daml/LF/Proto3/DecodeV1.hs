@@ -208,11 +208,16 @@ decodePackage mbPkgId minorText selfPackageRef (LF1.Package mods internedStrings
   runDecode env2 $ do
     Package version <$> decodeNM DuplicateModule decodeModule mods <*> traverse decodePackageMetadata metadata
 
+decodeUpgradedPackageId :: LF1.UpgradedPackageId -> Decode PackageId
+decodeUpgradedPackageId LF1.UpgradedPackageId {..} =
+  PackageId . fst <$> lookupString upgradedPackageIdUpgradedPackageIdInternedStr
+
 decodePackageMetadata :: LF1.PackageMetadata -> Decode PackageMetadata
 decodePackageMetadata LF1.PackageMetadata{..} = do
     pkgName <- PackageName . fst <$> lookupString packageMetadataNameInternedStr
     pkgVersion <- PackageVersion . fst <$> lookupString packageMetadataVersionInternedStr
-    pure (PackageMetadata pkgName pkgVersion)
+    upgradedPackageId <- traverse decodeUpgradedPackageId packageMetadataUpgradedPackageId
+    pure (PackageMetadata pkgName pkgVersion upgradedPackageId)
 
 decodeScenarioModule :: TL.Text -> LF1.Package -> Either Error Module
 decodeScenarioModule minorText protoPkg = do

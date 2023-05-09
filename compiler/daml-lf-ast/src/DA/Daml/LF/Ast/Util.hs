@@ -299,7 +299,7 @@ removeLocations = cata $ \case
 -- metadata from the filename.
 packageMetadataFromFile :: FilePath -> Package -> PackageId -> (PackageName, Maybe PackageVersion)
 packageMetadataFromFile file pkg pkgId
-    | Just (PackageMetadata name version) <- packageMetadata pkg =
+    | Just (PackageMetadata name version _) <- packageMetadata pkg =
           -- GHC insists on daml-prim not having a version so we filter it out.
           (name, version <$ guard (name /= PackageName "daml-prim"))
     | otherwise = splitUnitId (unitIdFromFile file pkgId)

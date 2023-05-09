@@ -44,7 +44,7 @@ private[parser] class ModParser[P](parameters: ParserParameters[P]) {
 
   private lazy val metadata: Parser[PackageMetadata] =
     Id("metadata") ~ `(` ~> pkgName ~ `:` ~ pkgVersion <~ `)` ^^ { case name ~ _ ~ version =>
-      PackageMetadata(name, version)
+      PackageMetadata(name, version, None)
     }
 
   lazy val mod: Parser[Module] =
