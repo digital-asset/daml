@@ -163,11 +163,8 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
       enableDisclosedContracts = false,
     )
     val logger = org.slf4j.LoggerFactory.getLogger(getClass)
-    val portsResourceF = Future(CantonRunner.run(config, cantonTmpDir, logger).acquire())
-    val portsF = for {
-      portsResource <- portsResourceF
-      ports <- portsResource.asFuture
-    } yield ports
+    val portsResource = CantonRunner.run(config, cantonTmpDir, logger).acquire()
+    val portsF = portsResource.asFuture
 
     val clientF = portsF.map(ports => config.ledgerClientWithoutId(ports.head, None))
 
@@ -178,8 +175,8 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
     } yield a
 
     fa.transformWith { ta =>
-      portsResourceF
-        .flatMap(_.release())
+      portsResource
+        .release()
         .fallbackTo(Future.unit)
         .transform(_ => ta)
     }

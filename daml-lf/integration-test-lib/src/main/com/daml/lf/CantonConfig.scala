@@ -97,6 +97,7 @@ final case class CantonConfig(
     )
   }
 
+  // LedgerIds are deprecated, prefer ledgerClientWithoutId (#16831)
   def ledgerClient(
       port: Port,
       token: Option[String],
