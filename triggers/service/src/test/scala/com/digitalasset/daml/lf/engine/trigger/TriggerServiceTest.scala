@@ -1689,7 +1689,7 @@ trait AbstractTriggerServiceTestInMem
     with TriggerDaoInMemFixture {}
 
 // Tests for database trigger service configurations go here
-// TODO: will be migrated in a future PR
+// TODO: delete once Oracle and Postgres migrations are completed
 trait AbstractTriggerServiceTestWithDatabase extends AbstractTriggerServiceTest {
 
   behavior of "persistent backend"
@@ -1740,6 +1740,67 @@ trait AbstractTriggerServiceTestWithDatabase extends AbstractTriggerServiceTest 
         _ <- stopTrigger(uri, aliceTrigger, alice)
         _ <- assertTriggerIds(uri, alice, Vector())
         _ <- assertTriggerStatus(aliceTrigger, _.last should ===("stopped: by user request"))
+      } yield succeed
+    }
+  } yield succeed)
+}
+
+// Tests for database trigger service configurations go here
+// TODO: renamed once Oracle and Postgres migrations are completed
+trait AbstractTriggerServiceTestWithDatabaseAndCanton extends AbstractTriggerServiceTestWithCanton {
+
+  behavior of "persistent backend"
+
+  it should "recover packages after shutdown" in (for {
+    client <- defaultLedgerClient()
+    party <- allocateParty(client)
+    _ <- withTriggerService(Nil) { uri: Uri =>
+      for {
+        resp <- uploadDar(uri, darPath)
+        _ <- parseResult(resp)
+      } yield succeed
+    }
+    // Once service is shutdown, start a new one and try to use the previously uploaded dar
+    _ <- withTriggerService(Nil) { uri: Uri =>
+      for {
+        // start trigger defined in previously uploaded dar
+        resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", party)
+        triggerId <- parseTriggerId(resp)
+        _ <- assertTriggerIds(uri, party, Vector(triggerId))
+      } yield succeed
+    }
+  } yield succeed)
+
+  it should "restart triggers after shutdown" taggedAs availabilitySecurity inClaims (for {
+    client <- defaultLedgerClient()
+    party <- allocateParty(client)
+    _ <- withTriggerService(List(dar)) { uri: Uri =>
+      for {
+        // Start a trigger in the first run of the service.
+        resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", party)
+        triggerId <- parseTriggerId(resp)
+        // The new trigger should be in the running trigger store and eventually running.
+        _ <- assertTriggerIds(uri, party, Vector(triggerId))
+        _ <- assertTriggerStatus(triggerId, _.last should ===("running"))
+      } yield succeed
+    }
+    // Once service is shutdown, start a new one and check the previously running trigger is restarted.
+    // also tests vacuous DB migration, incidentally
+    _ <- withTriggerService(Nil) { uri: Uri =>
+      for {
+        // Get the previous trigger instance using a list request
+        resp <- listTriggers(uri, party)
+        triggerIds <- parseTriggerIds(resp)
+        _ = triggerIds.length should ===(1)
+        partyTrigger = triggerIds.head
+        // Currently the logs aren't persisted so we can check that the trigger was restarted by
+        // inspecting the new log.
+        _ <- assertTriggerStatus(partyTrigger, _.last should ===("running"))
+
+        // Finally go ahead and stop the trigger.
+        _ <- stopTrigger(uri, partyTrigger, party)
+        _ <- assertTriggerIds(uri, party, Vector())
+        _ <- assertTriggerStatus(partyTrigger, _.last should ===("stopped: by user request"))
       } yield succeed
     }
   } yield succeed)
