@@ -310,8 +310,6 @@ da_scala_test_suite(
         "//ledger-api/testing-utils",
         "//ledger/ledger-api-auth",
         "//ledger/ledger-api-common",
-        "//ledger/sandbox-on-x",
-        "//ledger/sandbox-on-x:sandbox-on-x-test-lib",
         "//libs-scala/adjustable-clock",
         "//libs-scala/db-utils",
         "//libs-scala/jwt",

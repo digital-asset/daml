@@ -29,7 +29,7 @@ import scala.concurrent.duration._
 
 abstract class LoadTesting
     extends AsyncWordSpec
-    with AbstractTriggerTestWithCanton
+    with AbstractTriggerTest
     with Matchers
     with Inside
     with TryValues {
@@ -79,6 +79,8 @@ abstract class LoadTesting
 }
 
 final class BaseLoadTesting extends LoadTesting {
+
+  import AbstractTriggerTest._
 
   s"With $contractPairings contract pairings" should {
     "Contracts are already created" should {
@@ -143,6 +145,8 @@ final class BaseLoadTesting extends LoadTesting {
 
 final class InFlightLoadTesting extends LoadTesting {
 
+  import AbstractTriggerTest._
+
   override protected def triggerRunnerConfiguration: TriggerRunnerConfig =
     super.triggerRunnerConfiguration
       .copy(
@@ -188,6 +192,8 @@ final class InFlightLoadTesting extends LoadTesting {
 }
 
 final class ACSLoadTesting extends LoadTesting {
+
+  import AbstractTriggerTest._
 
   override protected def triggerRunnerConfiguration: TriggerRunnerConfig =
     super.triggerRunnerConfiguration.copy(hardLimit =
@@ -248,6 +254,8 @@ final class ACSLoadTesting extends LoadTesting {
 }
 
 final class TriggerRuleEvaluationTimeoutTesting extends LoadTesting {
+
+  import AbstractTriggerTest._
 
   override protected def triggerRunnerConfiguration: TriggerRunnerConfig =
     super.triggerRunnerConfiguration.copy(hardLimit =

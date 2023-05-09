@@ -22,11 +22,12 @@ import scala.collection.concurrent.TrieMap
 
 class DevOnly
     extends AsyncWordSpec
-    with AbstractTriggerTestWithCanton
+    with AbstractTriggerTest
     with Matchers
     with Inside
     with TryValues {
 
+  import AbstractTriggerTest._
   import DevOnly._
 
   this.getClass.getSimpleName can {
