@@ -50,18 +50,10 @@ class ScalaCodeGenIT
     with SuiteResourceManagementAroundAll
     with CantonFixture {
 
-  <<<<<<< HEAD
   override protected lazy val darFiles: List[Path] = List(
     requiredResource("language-support/scala/codegen-sample-app/MyMain.dar"),
     requiredResource("language-support/scala/codegen-sample-app/MySecondMain.dar"),
   ).map(_.toPath)
-  override protected lazy val applicationId: ApplicationId = ApplicationId("scala-code-gen-client")
-  =======
-  override protected lazy val darFiles = List(
-    requiredResource("language-support/scala/codegen-sample-app/MyMain.dar"),
-    requiredResource("language-support/scala/codegen-sample-app/MySecondMain.dar"),
-  ).map(_.toPath)
-  >>>>>>> origin / main
 
   override implicit lazy val patienceConfig: PatienceConfig =
     PatienceConfig(timeout = Span(20, Seconds), interval = Span(250, Millis))
