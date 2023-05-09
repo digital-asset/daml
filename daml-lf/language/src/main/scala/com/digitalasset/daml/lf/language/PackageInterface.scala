@@ -7,6 +7,7 @@ package language
 import com.daml.lf.data.TemplateOrInterface
 import com.daml.lf.data.Ref._
 import com.daml.lf.language.Ast._
+import scala.annotation.tailrec
 
 private[lf] class PackageInterface(signatures: PartialFunction[PackageId, PackageSignature]) {
 
@@ -362,6 +363,29 @@ private[lf] class PackageInterface(signatures: PartialFunction[PackageId, Packag
 
   val packageLanguageVersion: PartialFunction[PackageId, LanguageVersion] =
     signatures andThen (_.languageVersion)
+
+  private[this] def lookupPredecessors(
+      pkgId: PackageId,
+      context: => Reference,
+  ): Either[LookupError, Seq[PackageId]] = {
+    @tailrec def preds(
+        pkgId: PackageId,
+        acc: Seq[PackageId],
+    ): Either[LookupError, Seq[PackageId]] = {
+      lookupPackage(pkgId, context) match {
+        case Left(err) => Left(err)
+        case Right(pkg) =>
+          pkg.metadata.flatMap(_.upgradedPackageId) match {
+            case None => Right(acc)
+            case Some(pkgId2) => preds(pkgId2, acc :+ pkgId2)
+          }
+      }
+    }
+    preds(pkgId, Seq(pkgId))
+  }
+
+  def lookupPredecessors(pkgId: PackageId): Either[LookupError, Seq[PackageId]] =
+    lookupPredecessors(pkgId, Reference.Package(pkgId))
 
 }
 
