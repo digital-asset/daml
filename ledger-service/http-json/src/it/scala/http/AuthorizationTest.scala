@@ -33,7 +33,7 @@ final class AuthorizationTest
 
   protected val testId: String = this.getClass.getSimpleName
   override def useTls = UseTls.NoTls
-  override protected def authSecret: Option[String] = Some("secret")
+  override lazy protected val authSecret: Option[String] = Some("secret")
 
   implicit val asys: ActorSystem = ActorSystem(testId)
   implicit val mat: Materializer = Materializer(asys)
@@ -48,7 +48,7 @@ final class AuthorizationTest
   override def packageFiles = List()
 
   protected def withLedger[A](testFn: DamlLedgerClient => LedgerId => Future[A]): Future[A] = {
-    usingLedger[A](testId, config.adminToken) { case (_, client, ledgerId) =>
+    usingLedger[A](config.adminToken) { case (_, client, ledgerId) =>
       testFn(client)(ledgerId)
     }
   }

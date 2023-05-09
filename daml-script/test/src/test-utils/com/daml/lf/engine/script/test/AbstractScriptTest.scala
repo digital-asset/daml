@@ -6,7 +6,6 @@ package test
 
 import java.nio.file.{Path, Paths}
 import com.daml.bazeltools.BazelRunfiles.rlocation
-import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.engine.script.ledgerinteraction.{
@@ -45,9 +44,8 @@ object AbstractScriptTest {
 trait AbstractScriptTest extends CantonFixture with AkkaBeforeAndAfterAll {
   self: Suite =>
 
-  override protected def applicationId: ApplicationId = ApplicationId("daml-script")
-
   protected def timeMode: ScriptTimeMode
+
   final override protected lazy val timeProviderType = timeMode match {
     case ScriptTimeMode.Static => TimeProviderType.Static
     case ScriptTimeMode.WallClock => TimeProviderType.WallClock

@@ -168,7 +168,7 @@ trait AbstractHttpServiceIntegrationTestFuns
       maxInboundMessageSize: Int = StartSettings.DefaultMaxInboundMessageSize,
   )(
       testFn: HttpServiceTestFixtureData => Future[A]
-  ): Future[A] = usingLedger[A](testId, token map (_.value)) { case (ledgerPort, _, ledgerId) =>
+  ): Future[A] = usingLedger[A](token map (_.value)) { case (ledgerPort, _, ledgerId) =>
     HttpServiceTestFixture.withHttpService[A](
       testId,
       ledgerPort,
@@ -183,7 +183,7 @@ trait AbstractHttpServiceIntegrationTestFuns
 
   protected def withHttpServiceAndClient[A](token: Jwt)(
       testFn: (Uri, DomainJsonEncoder, DomainJsonDecoder, DamlLedgerClient, LedgerId) => Future[A]
-  ): Future[A] = usingLedger[A](testId, Some(token.value)) { case (ledgerPort, _, ledgerId) =>
+  ): Future[A] = usingLedger[A](Some(token.value)) { case (ledgerPort, _, ledgerId) =>
     HttpServiceTestFixture.withHttpService[A](
       testId,
       ledgerPort,
@@ -218,7 +218,7 @@ trait AbstractHttpServiceIntegrationTestFuns
     )((uri, encoder, decoder, _) => f(HttpServiceOnlyTestFixtureData(uri, encoder, decoder)))
 
   protected def withLedger[A](testFn: (DamlLedgerClient, LedgerId) => Future[A]): Future[A] =
-    usingLedger[A](testId, token = Some(jwtAdminNoParty.value)) { case (_, client, ledgerId) =>
+    usingLedger[A](Some(jwtAdminNoParty.value)) { case (_, client, ledgerId) =>
       testFn(client, ledgerId)
     }
 

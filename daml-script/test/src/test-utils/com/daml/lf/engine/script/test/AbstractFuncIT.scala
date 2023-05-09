@@ -4,7 +4,6 @@
 package com.daml.lf.engine.script
 package test
 
-import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.daml.lf.data.ImmArray
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{Numeric, FrontStack, FrontStackCons}
@@ -25,16 +24,12 @@ abstract class AbstractFuncIT
     extends AsyncWordSpec
     with AbstractScriptTest
     with Matchers
-    with Inside
-    with SuiteResourceManagementAroundAll {
+    with Inside {
 
   import AbstractScriptTest._
 
-  override protected lazy val authSecret = None
-  protected override lazy val darFiles = List(stableDarPath, devDarPath)
-  protected override lazy val devMode = true
-  protected override lazy val nParticipants = 1
-  protected override lazy val tlsEnable = false
+  override protected lazy val darFiles = List(stableDarPath, devDarPath)
+  override protected lazy val devMode = true
 
   def assertSTimestamp(v: SValue) =
     v match {

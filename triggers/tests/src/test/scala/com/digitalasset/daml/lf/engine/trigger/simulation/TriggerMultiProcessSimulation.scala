@@ -7,7 +7,7 @@ package simulation
 import akka.actor.typed.{ActorRef, ActorSystem, Behavior, SupervisorStrategy}
 import akka.actor.typed.scaladsl.Behaviors
 import akka.stream.Materializer
-import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId, Party}
+import com.daml.ledger.api.refinements.ApiTypes
 import com.daml.ledger.client.LedgerClient
 import com.daml.lf.engine.trigger.simulation.process.TriggerProcessFactory
 import com.daml.lf.engine.trigger.simulation.process.ledger.LedgerProcess
@@ -33,10 +33,6 @@ abstract class TriggerMultiProcessSimulation
   override implicit lazy val materializer: Materializer = Materializer(simulation)
 
   override implicit lazy val executionContext: ExecutionContext = materializer.executionContext
-
-  override protected implicit val applicationId: ApplicationId = ApplicationId(
-    "trigger-multi-process-simulation"
-  )
 
   override protected def triggerRunnerConfiguration: TriggerRunnerConfig =
     super.triggerRunnerConfiguration.copy(hardLimit =
@@ -98,7 +94,7 @@ abstract class TriggerMultiProcessSimulation
       client: LedgerClient,
       ledger: ActorRef[LedgerProcess.Message],
       name: String,
-      actAs: Party,
+      actAs: ApiTypes.Party,
   ): TriggerProcessFactory = {
     new TriggerProcessFactory(
       client,

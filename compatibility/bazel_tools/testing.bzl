@@ -1193,9 +1193,10 @@ def sdk_platform_test(sdk_version, platform_version):
     )
 
     # Platform components
-    sandbox = "@daml-sdk-{platform_version}//:daml".format(
+    canton_sandbox = "@daml-sdk-{platform_version}//:daml".format(
         platform_version = platform_version,
     )
+    canton_sandbox_args = ["sandbox", "--canton-port-file", "__PORTFILE__"]
 
     json_api = "@daml-sdk-{platform_version}//:daml".format(
         platform_version = platform_version,
@@ -1247,12 +1248,13 @@ def sdk_platform_test(sdk_version, platform_version):
         sdk_version = version_to_name(sdk_version),
         platform_version = version_to_name(platform_version),
     )
+
     daml_ledger_test(
         name = name,
         sdk_version = sdk_version,
         daml = daml_assistant,
-        sandbox = sandbox_on_x,
-        sandbox_args = sandbox_on_x_cmd + ["--contract-id-seeding=testing-weak", "--mutable-contract-state-cache", "--participant=participant-id=sandbox,port=0,port-file=__PORTFILE__"],
+        sandbox = canton_sandbox,
+        sandbox_args = canton_sandbox_args,
         size = "large",
         # We see timeouts here fairly regularly so we
         # increase the number of CPUs.

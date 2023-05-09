@@ -4,7 +4,6 @@
 package com.daml
 
 import com.daml.bazeltools.BazelRunfiles
-import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.daml.ledger.api.v1.{ActiveContractsServiceGrpc, CommandServiceGrpc}
 import com.daml.ledger.api.v1.ActiveContractsServiceOuterClass.GetActiveContractsResponse
@@ -14,7 +13,6 @@ import com.daml.ledger.javaapi.data
 import com.daml.ledger.javaapi.data.{codegen => jcg, _}
 import com.daml.ledger.javaapi.data.codegen.HasCommands
 import com.daml.lf.integrationtest.CantonFixture
-import com.daml.platform.services.time.TimeProviderType
 import com.google.protobuf.Empty
 import io.grpc.Channel
 import org.scalatest.{Assertion, Suite}
@@ -32,15 +30,9 @@ import scala.language.implicitConversions
 trait TestLedger extends CantonFixture with SuiteResourceManagementAroundAll {
   self: Suite =>
 
-  override protected def authSecret = None
-  override protected def darFiles = List(
+  override protected lazy val darFiles = List(
     BazelRunfiles.rlocation(Paths.get("language-support/java/codegen/ledger-tests-model.dar"))
   )
-  override protected def devMode = false
-  override protected def nParticipants = 1
-  override protected def timeProviderType = TimeProviderType.WallClock
-  override protected def tlsEnable = false
-  override protected def applicationId: ApplicationId = ApplicationId("sandbox-test-ledger")
 
   private var client: LedgerClient = _
 

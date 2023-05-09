@@ -20,8 +20,6 @@ import scala.sys.process.Process
 import com.daml.lf.integrationtest.CantonFixtureWithResource
 import java.io.File
 import java.nio.file.Path
-import com.daml.platform.services.time.TimeProviderType
-import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.daml.ledger.api.domain.LedgerId
 
 // Fixture for Canton behind toxiproxy to simulate failures.
@@ -30,13 +28,7 @@ trait ToxicSandboxFixture
     with BeforeAndAfterEach {
   self: Suite =>
 
-  protected def authSecret: Option[String] = None
-  protected def darFiles: List[Path] = packageFiles.map(_.toPath)
-  protected def devMode: Boolean = false
-  protected def nParticipants: Int = 1
-  protected def timeProviderType: TimeProviderType = TimeProviderType.WallClock
-  protected def tlsEnable: Boolean = false
-  protected def applicationId: ApplicationId = ApplicationId("toxic-proxy-sandbox")
+  override lazy protected val darFiles: List[Path] = packageFiles.map(_.toPath)
 
   protected def packageFiles: List[File]
 
@@ -48,7 +40,7 @@ trait ToxicSandboxFixture
 
   override protected def beforeEach() = proxyClient.reset()
 
-  protected def ledgerId: LedgerId = LedgerId("participant0")
+  protected def ledgerId: LedgerId = LedgerId(config.ledgerIds.head)
 
   protected def makeToxiproxyResource(ledger: Port): ResourceOwner[(Port, ToxiproxyClient, Proxy)] =
     new ResourceOwner[(Port, ToxiproxyClient, Proxy)] {

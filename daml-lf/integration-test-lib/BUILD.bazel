@@ -11,7 +11,7 @@ da_scala_library(
     name = "integration-test-lib",
     srcs = glob(["src/main/**/*.scala"]),
     data = [
-        ":canton-dev_deploy.jar",
+        ":canton-patched_deploy.jar",
         ":canton_deploy.jar",
         "//test-common/test-certificates",
     ],
@@ -61,10 +61,11 @@ java_binary(
 # We replace engine and archive classes in canton
 # This should be used for testing only
 java_binary(
-    name = "canton-dev",
+    name = "canton-patched",
     main_class = "com.digitalasset.canton.CantonCommunityApp",
     visibility = ["//visibility:public"],
     runtime_deps = [
+        # The following prevents buildifier from sorting the deps
         # Do not sort
         "//daml-lf/engine",
         "//daml-lf/archive:daml_lf_archive_reader",

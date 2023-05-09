@@ -4,7 +4,6 @@
 package com.daml.lf.engine.script
 package test
 
-import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.daml.lf.data.FrontStack
 import com.daml.lf.data.Ref._
 import com.daml.lf.engine.script.ledgerinteraction.ScriptTimeMode
@@ -17,18 +16,15 @@ final class MultiParticipantIT
     extends AsyncWordSpec
     with AbstractScriptTest
     with Inside
-    with Matchers
-    with SuiteResourceManagementAroundAll {
+    with Matchers {
   import AbstractScriptTest._
 
   val dar = stableDar
 
-  override protected lazy val authSecret = None
-  override protected lazy val darFiles = List(stableDarPath)
-  override protected lazy val devMode = true
-  override protected lazy val nParticipants = 2
-  override protected lazy val timeMode = ScriptTimeMode.WallClock
-  override protected lazy val tlsEnable = false
+  final override protected lazy val darFiles = List(stableDarPath)
+  final override protected lazy val devMode = true
+  final override protected lazy val nParticipants = 2
+  final override protected lazy val timeMode = ScriptTimeMode.WallClock
 
   "Multi-participant Daml Script" can {
     "multiTest" should {

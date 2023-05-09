@@ -2140,7 +2140,7 @@ abstract class AbstractHttpServiceIntegrationTestQueryStoreIndependent
     }: Future[Assertion]
   }
 
-  "package list is updated when a query request is made" in usingLedger(testId) {
+  "package list is updated when a query request is made" in usingLedger() {
     case (ledgerPort, _, ledgerId) =>
       withHttpServiceOnly(ledgerPort, ledgerId) { fixture =>
         for {

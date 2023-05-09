@@ -159,12 +159,12 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
       devMode = false,
       nParticipants = 1,
       timeProviderType = TimeProviderType.WallClock,
-      tlsConfig = None,
       applicationId = ApplicationId("http-service-test"),
       debug = false,
       enableDisclosedContracts = false,
     )
-    val portsResourceF = Future(CantonRunner.run(config, cantonTmpDir).acquire())
+    val logger = org.slf4j.LoggerFactory.getLogger(getClass)
+    val portsResourceF = Future(CantonRunner.run(config, cantonTmpDir, logger).acquire())
     val portsF = for {
       portsResource <- portsResourceF
       ports <- portsResource.asFuture

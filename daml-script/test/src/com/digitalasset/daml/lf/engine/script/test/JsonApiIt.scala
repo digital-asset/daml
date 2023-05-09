@@ -32,8 +32,8 @@ import com.daml.lf.archive.{Dar, DarDecoder}
 import com.daml.lf.data.Ref._
 import com.daml.lf.engine.script._
 import com.daml.lf.engine.script.ledgerinteraction.{
-  JsonLedgerClient,
   ScriptLedgerClient,
+  JsonLedgerClient,
   ScriptTimeMode,
 }
 import com.daml.lf.integrationtest._
@@ -55,15 +55,19 @@ import spray.json._
 
 import java.nio.file.{Files, Path, Paths}
 import com.daml.metrics.api.reporters.MetricsReporter
+import org.slf4j.LoggerFactory
 
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{Await, Future}
 
 trait JsonApiFixture
     extends SuiteResource[(Port, ServerBinding)]
+    with SuiteResourceManagementAroundAll
     with AkkaBeforeAndAfterAll
     with Inside {
   self: Suite =>
+
+  private val logger = LoggerFactory.getLogger(getClass)
 
   lazy val tmpDir = Files.createTempDirectory("JsonApiFixture")
 
@@ -86,7 +90,7 @@ trait JsonApiFixture
     authSecret = Some(secret),
     darFiles = List(darFile, darFileDev),
     devMode = true,
-    applicationId = ApplicationId("JsonApiIt"),
+    applicationId = ApplicationId(getClass.getName),
   )
 
   protected def serverPort = suiteResource.value._1
@@ -103,7 +107,7 @@ trait JsonApiFixture
       actAs: List[String],
       readAs: List[String],
       admin: Boolean,
-      ledgerId: String = "participant0",
+      ledgerId: String = config.ledgerIds(0),
   ): String = {
     val payload = CustomDamlJWTPayload(
       ledgerId = Some(ledgerId),
@@ -126,7 +130,7 @@ trait JsonApiFixture
     implicit val context: ResourceContext = ResourceContext(system.dispatcher)
     new OwnedResource[ResourceContext, (Port, ServerBinding)](
       for {
-        ports <- CantonRunner.run(config, tmpDir)
+        ports <- CantonRunner.run(config, tmpDir, logger)
         serverPort = ports.head
         httpService <- new ResourceOwner[ServerBinding] {
           override def acquire()(implicit context: ResourceContext): Resource[ServerBinding] = {
@@ -170,12 +174,7 @@ trait JsonApiFixture
   }
 }
 
-final class JsonApiIt
-    extends AsyncWordSpec
-    with JsonApiFixture
-    with Matchers
-    with SuiteResourceManagementAroundAll
-    with TryValues {
+final class JsonApiIt extends AsyncWordSpec with JsonApiFixture with Matchers with TryValues {
 
   private def readDar(file: Path): (Dar[(PackageId, Package)], EnvironmentSignature) = {
     val dar = DarDecoder.assertReadArchiveFromFile(file.toFile)

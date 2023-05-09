@@ -5,6 +5,7 @@ package com.daml.lf.engine.trigger.simulation
 
 import akka.actor.typed.{ActorRef, Behavior}
 import akka.actor.typed.scaladsl.Behaviors
+import com.daml.ledger.api.refinements.ApiTypes
 import com.daml.ledger.api.v1.event.CreatedEvent
 import com.daml.ledger.api.refinements.ApiTypes.Party
 import com.daml.lf.engine.trigger.simulation.TriggerMultiProcessSimulation.TriggerSimulationConfig
@@ -30,6 +31,7 @@ class CatAndFoodTriggerSimulation
   override protected val cantonFixtureDebugMode: Boolean = true
 
   override protected def triggerMultiProcessSimulation: Behavior[Unit] = {
+    implicit def applicationId: ApiTypes.ApplicationId = config.applicationId
     Behaviors.setup { context =>
       val setup = for {
         client <- defaultLedgerClient()

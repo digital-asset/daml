@@ -6,6 +6,7 @@ module Main (main) where
 import Control.Applicative
 import Control.Exception
 import DA.Test.Process
+import DA.Test.FreePort
 import Data.Either.Extra
 import Data.Function ((&))
 import Data.List.Extra (replace)
@@ -14,7 +15,7 @@ import Data.Proxy (Proxy (..))
 import Data.SemVer (Version)
 import qualified Data.SemVer as SemVer
 import Data.Tagged (Tagged (..))
-import Sandbox (maxRetries, nullDevice, readPortFile)
+import Sandbox (maxRetries, nullDevice, readCantonPortFile)
 import System.Directory.Extra (withCurrentDirectory)
 import System.Environment (lookupEnv)
 import System.Environment.Blank (setEnv)
@@ -46,11 +47,13 @@ withSandbox getTools mbSecret f =
               (tmpDir, _) <- getTempDir
               let portFile = tmpDir </> "portfile"
               devNull <- getDevNull
-              let args = map (tweakArg portFile) (sandboxArgs <> ["--auth-jwt-hs256-unsafe=" <> secret | Just secret <- [mbSecret]])
+              freePort <- getFreePort
+              let secretArgs = concat [["-C", "canton.participants.sandbox.ledger-api.port=" <> show freePort, "-C", "canton.participants.sandbox.ledger-api.auth-services.0.type=unsafe-jwt-hmac-256", "-C", "canton.participants.sandbox.ledger-api.auth-services.0.secret=" <> secret] | Just secret <- [mbSecret]]
+              let args = map (tweakArg portFile) (sandboxArgs <> secretArgs)
               mask $ \unmask -> do
-                  ph <- createProcess (proc sandboxBinary args) { std_out = UseHandle devNull }
+                  ph@(_, _, _, handle) <- createProcess (proc sandboxBinary args) { std_out = UseHandle devNull }
                   let waitForStart = do
-                          port <- readPortFile maxRetries portFile
+                          port <- readCantonPortFile handle maxRetries portFile
                           pure (port, ph)
                   unmask (waitForStart `onException` cleanupProcess ph)
           destroySandbox = cleanupProcess . snd

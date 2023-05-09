@@ -8,8 +8,7 @@ import java.util.UUID
 import akka.stream.scaladsl.Sink
 import com.daml.SdkVersion
 import com.daml.bazeltools.BazelRunfiles
-import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId, Party}
-import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
+import com.daml.ledger.api.refinements.ApiTypes
 import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.api.v1.command_service.SubmitAndWaitRequest
 import com.daml.ledger.api.v1.commands._
@@ -26,7 +25,6 @@ import com.daml.lf.engine.script.{Participants, Runner}
 import com.daml.lf.language.Ast.Package
 import com.daml.lf.integrationtest.CantonFixture
 import com.daml.platform.services.time.TimeProviderType
-import com.typesafe.scalalogging.StrictLogging
 import org.scalatest._
 import org.scalatest.freespec.AsyncFreeSpec
 import org.scalatest.matchers.should.Matchers
@@ -40,17 +38,10 @@ final class ReproducesTransactions
     extends AsyncFreeSpec
     with Matchers
     with BeforeAndAfterEach
-    with SuiteResourceManagementAroundAll
-    with CantonFixture
-    with StrictLogging {
+    with CantonFixture {
 
-  override protected def authSecret = None
-  override protected def darFiles = List(darFile)
-  override protected def devMode = false
-  override protected def nParticipants = 1
-  override protected def timeProviderType = TimeProviderType.Static
-  override protected def tlsEnable = false
-  override protected def applicationId: ApplicationId = ApplicationId("script-export")
+  final override protected lazy val darFiles = List(darFile)
+  final override protected lazy val timeProviderType = TimeProviderType.Static
 
   private val exe = if (sys.props("os.name").toLowerCase.contains("windows")) ".exe" else ""
   val scriptPath = BazelRunfiles.rlocation("daml-script/runner/daml-script-binary" + exe)
@@ -71,7 +62,7 @@ final class ReproducesTransactions
         Some(
           Commands(
             ledgerId = client.ledgerId.unwrap,
-            applicationId = applicationId.unwrap,
+            applicationId = config.applicationId.unwrap,
             commandId = UUID.randomUUID().toString(),
             party = p,
             commands = Seq(cmd),
@@ -125,7 +116,7 @@ final class ReproducesTransactions
         tlsConfig = TlsConfiguration(false, None, None, None),
         accessToken = None,
         partyConfig = PartyConfig(
-          parties = Party.subst(parties),
+          parties = ApiTypes.Party.subst(parties),
           allParties = false,
         ),
         start = offset,
@@ -173,7 +164,7 @@ final class ReproducesTransactions
       ),
       timeMode = ScriptTimeMode.Static,
       initialClients = Participants(
-        default_participant = Some(new GrpcLedgerClient(client, ApplicationId("script"))),
+        default_participant = Some(new GrpcLedgerClient(client, applicationId)),
         participants = Map.empty,
         party_participants = Map.empty,
       ),
