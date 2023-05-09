@@ -24,25 +24,6 @@ library
         text,
         daml-lf-ast,
         daml-lf-proto-types,
-
-      -- base,
-      -- bytestring,
-      -- containers,
-      -- cryptonite,
-      -- da-hs-base,
-      -- daml-lf-ast,
-      -- daml-lf-proto-types,
-      -- either,
-      -- lens,
-      -- memory,
-      -- mtl,
-      -- proto3-suite,
-      -- scientific,
-      -- template-haskell,
-      -- text,
-      -- transformers,
-      -- unordered-containers,
-      -- vector,
     exposed-modules:
         DA.Daml.LF.Mangling
         DA.Daml.LF.Proto3.Error
