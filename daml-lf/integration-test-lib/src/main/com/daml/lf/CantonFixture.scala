@@ -80,10 +80,10 @@ trait CantonFixtureWithResource[A]
   //   - some debug info are logged.
   protected val cantonFixtureDebugMode = false
 
-  final protected val cantonLogger = org.slf4j.LoggerFactory.getLogger(getClass)
+  final protected val logger = org.slf4j.LoggerFactory.getLogger(getClass)
 
   if (cantonFixtureDebugMode)
-    cantonLogger
+    logger
       .asInstanceOf[ch.qos.logback.classic.Logger]
       .setLevel(ch.qos.logback.classic.Level.INFO)
 
@@ -99,7 +99,7 @@ trait CantonFixtureWithResource[A]
     implicit val resourceContext: ResourceContext = ResourceContext(system.dispatcher)
     new OwnedResource[ResourceContext, (Vector[Port], A)](
       for {
-        ports <- CantonRunner.run(config, cantonTmpDir, cantonLogger)
+        ports <- CantonRunner.run(config, cantonTmpDir, logger)
         additional <- makeAdditionalResource(ports)
       } yield (ports, additional),
       acquisitionTimeout = 2.minute,
@@ -122,7 +122,7 @@ trait CantonFixtureWithResource[A]
   )
 
   protected def info(msg: String): Unit =
-    if (cantonFixtureDebugMode) cantonLogger.info(msg)
+    if (cantonFixtureDebugMode) logger.info(msg)
 
   protected val cantonTmpDir = Files.createTempDirectory("CantonFixture")
 

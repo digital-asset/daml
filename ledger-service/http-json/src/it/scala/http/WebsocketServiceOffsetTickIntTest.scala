@@ -5,7 +5,6 @@ package com.daml.http
 
 import com.daml.http.HttpServiceTestFixture.UseTls
 import com.daml.http.dbbackend.JdbcConfig
-import com.typesafe.scalalogging.StrictLogging
 import org.scalatest._
 import org.scalatest.freespec.AsyncFreeSpec
 import org.scalatest.matchers.should.Matchers
@@ -18,7 +17,6 @@ abstract class WebsocketServiceOffsetTickIntTest
     extends AsyncFreeSpec
     with Matchers
     with Inside
-    with StrictLogging
     with AbstractHttpServiceIntegrationTestFuns
     with BeforeAndAfterAll {
 

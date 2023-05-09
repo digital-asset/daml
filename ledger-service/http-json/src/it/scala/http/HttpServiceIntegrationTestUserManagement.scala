@@ -16,7 +16,6 @@ import com.daml.ledger.api.domain.UserRight.{CanActAs, ParticipantAdmin}
 import com.daml.lf.data.Ref
 import com.daml.test.evidence.scalatest.ScalaTestSupport.Implicits._
 import com.daml.test.evidence.tag.Security.Attack
-import com.typesafe.scalalogging.StrictLogging
 import org.scalatest.{Assertion, AsyncTestSuite, Inside}
 import org.scalatest.matchers.should.Matchers
 import scalaz.NonEmptyList
@@ -30,8 +29,7 @@ import scalaz.syntax.tag._
 class HttpServiceIntegrationTestUserManagement
     extends AbstractHttpServiceIntegrationTestQueryStoreIndependent
     with AbstractHttpServiceIntegrationTestFuns
-    with HttpServiceUserFixture.UserToken
-    with StrictLogging {
+    with HttpServiceUserFixture.UserToken {
 
   this: AsyncTestSuite with Matchers with Inside =>
 

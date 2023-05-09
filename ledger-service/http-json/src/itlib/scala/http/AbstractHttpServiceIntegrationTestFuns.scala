@@ -30,7 +30,6 @@ import com.daml.platform.participant.util.LfEngineToApi.lfValueToApiValue
 import com.daml.http.util.Logging.instanceUUIDLogCtx
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
-import com.typesafe.scalalogging.StrictLogging
 import org.scalatest._
 import org.scalatest.matchers.should.Matchers
 import scalaz.std.list._
@@ -128,8 +127,7 @@ object AbstractHttpServiceIntegrationTestFuns {
 
 @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
 trait AbstractHttpServiceIntegrationTestFuns
-    extends StrictLogging
-    with HttpServiceUserFixture
+    extends HttpServiceUserFixture
     with SandboxTestLedger
     with SuiteResourceManagementAroundAll {
   this: AsyncTestSuite with Matchers with Inside =>

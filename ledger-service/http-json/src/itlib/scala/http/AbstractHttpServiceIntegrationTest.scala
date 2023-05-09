@@ -22,7 +22,6 @@ import com.daml.ledger.service.MetadataReader
 import com.daml.test.evidence.tag.Security.SecurityTest.Property.{Authorization, Availability}
 import com.daml.test.evidence.tag.Security.{Attack, SecurityTest}
 import com.daml.test.evidence.scalatest.ScalaTestSupport.Implicits._
-import com.typesafe.scalalogging.StrictLogging
 import org.scalatest._
 import org.scalatest.freespec.AsyncFreeSpec
 import org.scalatest.matchers.should.Matchers
@@ -134,7 +133,6 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
     extends AsyncFreeSpec
     with Matchers
     with Inside
-    with StrictLogging
     with AbstractHttpServiceIntegrationTestFuns {
 
   import AbstractHttpServiceIntegrationTestFuns.{VAx, UriFixture, HttpServiceTestFixtureData}

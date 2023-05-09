@@ -16,7 +16,6 @@ import com.daml.http.HttpServiceTestFixture.{
 }
 import AbstractHttpServiceIntegrationTestFuns.UriFixture
 import com.daml.http.json.SprayJson
-import com.typesafe.scalalogging.StrictLogging
 import org.scalatest._
 import org.scalatest.freespec.AsyncFreeSpec
 import org.scalatest.matchers.should.Matchers
@@ -51,7 +50,6 @@ abstract class AbstractWebsocketServiceIntegrationTest(val integration: String)
     extends AsyncFreeSpec
     with Matchers
     with Inside
-    with StrictLogging
     with AbstractHttpServiceIntegrationTestFuns
     with BeforeAndAfterAll {
 
