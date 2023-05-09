@@ -26,6 +26,7 @@ def _daml_configure_impl(ctx):
     dependencies = ctx.attr.dependencies
     data_dependencies = ctx.attr.data_dependencies
     module_prefixes = ctx.attr.module_prefixes
+    upgrades = ctx.attr.upgrades
     daml_yaml = ctx.outputs.daml_yaml
     target = ctx.attr.target
     opts = ["--target={}".format(target)] if target else []
@@ -41,6 +42,7 @@ dependencies: [{dependencies}]
 module-prefixes:
 {module_prefixes}
 build-options: [{opts}]
+{upgrades}
 """.format(
             sdk = sdk_version,
             name = project_name,
@@ -49,6 +51,7 @@ build-options: [{opts}]
             dependencies = ", ".join(dependencies),
             data_dependencies = ", ".join(data_dependencies),
             module_prefixes = "\n".join(["  {}: {}".format(k, v) for k, v in module_prefixes.items()]),
+            upgrades = "upgrades: " + upgrades if upgrades else "",
         ),
     )
 
@@ -78,6 +81,9 @@ _daml_configure = rule(
         ),
         "module_prefixes": attr.string_dict(
             doc = "Module prefixes.",
+        ),
+        "upgrades": attr.string(
+            doc = "Upgraded package path.",
         ),
     },
 )
@@ -298,6 +304,7 @@ def daml_compile(
         dependencies = [],
         data_dependencies = [],
         module_prefixes = None,
+        upgrades = None,
         **kwargs):
     "Build a Daml project, with a generated daml.yaml."
     if len(srcs) == 0:
@@ -307,6 +314,7 @@ def daml_compile(
         dependencies = [path_to_dar(dep) for dep in dependencies],
         data_dependencies = [path_to_dar(data) for data in data_dependencies],
         module_prefixes = module_prefixes,
+        upgrades = path_to_dar(upgrades) if upgrades else "",
         name = name + ".configure",
         project_name = project_name or name,
         project_version = version,
@@ -319,7 +327,7 @@ def daml_compile(
         daml_yaml = daml_yaml,
         srcs = srcs,
         dar_dict =
-            {dar: path_to_dar(dar) for dar in (dependencies + data_dependencies)},
+            {dar: path_to_dar(dar) for dar in (dependencies + data_dependencies + ([upgrades] if upgrades else []))},
         dar = name + ".dar",
         ghc_options =
             ghc_options +
