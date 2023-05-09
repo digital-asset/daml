@@ -110,6 +110,11 @@ object RejectionGenerators {
             .Error(
               renderedMessage
             )
+        case _: LfInterpretationError.WronglyTypedContractSoft =>
+          LedgerApiErrors.CommandExecution.Interpreter.InvalidArgumentInterpretationError
+            .Error(
+              renderedMessage
+            )
         case _: LfInterpretationError.ContractDoesNotImplementInterface =>
           LedgerApiErrors.CommandExecution.Interpreter.InvalidArgumentInterpretationError
             .Error(

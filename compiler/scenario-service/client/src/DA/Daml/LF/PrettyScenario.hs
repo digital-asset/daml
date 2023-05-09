@@ -435,6 +435,18 @@ prettyScenarioErrorError (Just err) =  do
         , label_ "Expected type: "
             $ prettyMay "<missing template id>" (prettyDefName world) scenarioError_WronglyTypedContractExpected
         ]
+    ScenarioErrorErrorWronglyTypedContractSoft ScenarioError_WronglyTypedContractSoft{..} ->
+      pure $ vcat
+        [ "Attempt to fetch or exercise a wrongly typed contract."
+        , label_ "Contract: "
+            $ prettyMay "<missing contract>"
+                (prettyContractRef world)
+                scenarioError_WronglyTypedContractSoftContractRef
+        , label_ "Expected type: "
+            $ prettyMay "<missing template id>" (prettyDefName world) scenarioError_WronglyTypedContractSoftExpected
+        , label_ "Accepted types (ancestors): "
+            $ vcat $ mapV (prettyDefName world) scenarioError_WronglyTypedContractSoftAccepted
+        ]
     ScenarioErrorErrorContractIdInContractKey ScenarioError_ContractIdInContractKey{..} ->
       pure $ "Contract IDs are not supported in contract key:" <->
         prettyMay "<missing contract key>"

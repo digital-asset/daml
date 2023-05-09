@@ -1090,6 +1090,29 @@ private[lf] object SBuiltin {
     }
   }
 
+  // SBPromoteAnyContract(templateId): ContractId actualTemplateId -> Any -> templateId
+  // Crashes unless actualTemplateId is a predecessor of templateId.
+  final case class SBPromoteAnyContract(
+      templateId: TypeConName,
+      acceptedTemplateIds: Seq[TypeConName],
+  ) extends SBuiltin(2) {
+    override private[speedy] def execute[Q](
+        args: util.ArrayList[SValue],
+        machine: Machine[Q],
+    ): Control[Nothing] = {
+      def coid = getSContractId(args, 0)
+      val (actualTemplateId, record) = getSAnyContract(args, 1)
+
+      if (acceptedTemplateIds.contains(actualTemplateId)) {
+        Control.Value(record.copy(id = templateId)) // this is a lie (sometimes)!
+      } else {
+        Control.Error(
+          IE.WronglyTypedContractSoft(coid, templateId, acceptedTemplateIds, actualTemplateId)
+        )
+      }
+    }
+  }
+
   private[this] def getInterfaceInstance(
       machine: Machine[_],
       interfaceId: TypeConName,

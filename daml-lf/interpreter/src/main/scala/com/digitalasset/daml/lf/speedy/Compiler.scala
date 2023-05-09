@@ -153,7 +153,10 @@ private[lf] final class Compiler(
   def unsafeCompileModule( // called by scenario-service
       pkgId: PackageId,
       module: Module,
-  ): Iterable[(t.SDefinitionRef, SDefinition)] = compileModule(pkgId, module)
+  ): Iterable[(t.SDefinitionRef, SDefinition)] = {
+    val predPids = pkgInterface.lookupPredecessors(pkgId).getOrElse(Seq.empty)
+    compileModule(pkgId, module, predPids)
+  }
 
   @throws[PackageNotFound]
   @throws[CompilationError]
@@ -346,6 +349,7 @@ private[lf] final class Compiler(
   private[this] def compileModule(
       pkgId: PackageId,
       module: Module,
+      preds: Seq[PackageId],
   ): Iterable[(t.SDefinitionRef, SDefinition)] = {
     val builder = Iterable.newBuilder[(t.SDefinitionRef, SDefinition)]
     def addDef(binding: (t.SDefinitionRef, SDefinition)): Unit = discard(builder += binding)
@@ -366,7 +370,7 @@ private[lf] final class Compiler(
       val tmplId = Identifier(pkgId, QualifiedName(module.name, tmplName))
       addDef(compileCreate(tmplId, tmpl))
       addDef(compileFetchTemplate(tmplId, tmpl))
-      addDef(compileSoftFetchTemplate(tmplId, tmpl))
+      addDef(compileSoftFetchTemplate(tmplId, tmpl, preds))
       addDef(compileTemplatePreCondition(tmplId, tmpl))
       addDef(compileAgreementText(tmplId, tmpl))
       addDef(compileSignatories(tmplId, tmpl))
@@ -451,7 +455,9 @@ private[lf] final class Compiler(
 
     val t1 = Time.Timestamp.now()
 
-    val result = pkg.modules.values.flatMap(compileModule(pkgId, _))
+    val preds = pkgInterface.lookupPredecessors(pkgId).getOrElse(Seq(pkgId))
+
+    val result = pkg.modules.values.flatMap(compileModule(pkgId, _, preds))
 
     val t2 = Time.Timestamp.now()
     logger.trace(
@@ -739,6 +745,7 @@ private[lf] final class Compiler(
       env: Env,
       tmplId: Identifier,
       tmpl: Template,
+      predPids: Seq[PackageId],
   )(
       cidPos: Position,
       tokenPos: Position,
@@ -752,8 +759,9 @@ private[lf] final class Compiler(
     ) { (anyTmplArgPos, env) =>
       let(
         env,
-        SBCastAnyContract(
-          tmplId
+        SBPromoteAnyContract(
+          tmplId,
+          predPids.map(Identifier(_, tmplId.qualifiedName)),
         )(
           env.toSEVar(cidPos),
           env.toSEVar(anyTmplArgPos),
@@ -772,15 +780,15 @@ private[lf] final class Compiler(
   private[this] def compileSoftFetchTemplate(
       tmplId: Identifier,
       tmpl: Template,
+      predPids: Seq[PackageId],
   ): (t.SDefinitionRef, SDefinition) =
-    // FIXME
     // compile a template to
     // SoftFetchDefRef(tmplId) = \ <coid> <token> ->
-    //   let <tmplArg> = $soft_fetch(tmplId) <coid>
-    //       _ = $insertSoftFetch(tmplId, false) coid [tmpl.signatories] [tmpl.observers] [tmpl.key]
-    //   in <tmplArg>
+    //   let <softTmplArg> = $soft_fetch(tmplId) <coid>
+    //       _ = $insertFetch(tmplId, false) coid [tmpl.signatories] [tmpl.observers] [tmpl.key]
+    //   in <softTmplArg>
     topLevelFunction2(t.SoftFetchTemplateDefRef(tmplId)) { (cidPos, tokenPos, env) =>
-      translateSoftFetchTemplateBody(env, tmplId, tmpl)(cidPos, tokenPos)
+      translateSoftFetchTemplateBody(env, tmplId, tmpl, predPids)(cidPos, tokenPos)
     }
 
   private[this] def compileFetchInterface(ifaceId: Identifier): (t.SDefinitionRef, SDefinition) =

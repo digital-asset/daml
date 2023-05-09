@@ -202,6 +202,13 @@ final class Conversions(
                     .setContractRef(mkContractRef(coid, actual))
                     .setExpected(convertIdentifier(expected))
                 )
+              case WronglyTypedContractSoft(coid, expected, accepted, actual) =>
+                builder.setWronglyTypedContractSoft(
+                  proto.ScenarioError.WronglyTypedContractSoft.newBuilder
+                    .setContractRef(mkContractRef(coid, actual))
+                    .setExpected(convertIdentifier(expected))
+                    .addAllAccepted(accepted.map(convertIdentifier(_)).asJava)
+                )
               case ContractDoesNotImplementInterface(interfaceId, coid, templateId) =>
                 builder.setContractDoesNotImplementInterface(
                   proto.ScenarioError.ContractDoesNotImplementInterface.newBuilder
