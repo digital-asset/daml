@@ -79,6 +79,7 @@ data UpdateF expr
   | UExerciseInterfaceF !(Qualified TypeConName) !ChoiceName !expr !expr !(Maybe expr)
   | UExerciseByKeyF !(Qualified TypeConName) !ChoiceName !expr !expr
   | UFetchF    !(Qualified TypeConName) !expr
+  | USoftFetchF !(Qualified TypeConName) !expr
   | UFetchInterfaceF    !(Qualified TypeConName) !expr
   | UGetTimeF
   | UEmbedExprF !Type !expr
@@ -129,6 +130,7 @@ projectUpdate = \case
   UExerciseInterface a b c d e -> UExerciseInterfaceF a b c d e
   UExerciseByKey a b c d -> UExerciseByKeyF a b c d
   UFetch a b -> UFetchF a b
+  USoftFetch a b -> USoftFetchF a b
   UFetchInterface a b -> UFetchInterfaceF a b
   UGetTime -> UGetTimeF
   UEmbedExpr a b -> UEmbedExprF a b
@@ -150,6 +152,7 @@ embedUpdate = \case
   UExerciseInterfaceF a b c d e -> UExerciseInterface a b c d e
   UExerciseByKeyF a b c d -> UExerciseByKey a b c d
   UFetchF a b -> UFetch a b
+  USoftFetchF a b -> USoftFetch a b
   UFetchInterfaceF a b -> UFetchInterface a b
   UGetTimeF -> UGetTime
   UEmbedExprF a b -> UEmbedExpr a b

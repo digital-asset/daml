@@ -366,6 +366,7 @@ private[lf] final class Compiler(
       val tmplId = Identifier(pkgId, QualifiedName(module.name, tmplName))
       addDef(compileCreate(tmplId, tmpl))
       addDef(compileFetchTemplate(tmplId, tmpl))
+      addDef(compileSoftFetchTemplate(tmplId, tmpl))
       addDef(compileTemplatePreCondition(tmplId, tmpl))
       addDef(compileAgreementText(tmplId, tmpl))
       addDef(compileSignatories(tmplId, tmpl))
@@ -731,6 +732,55 @@ private[lf] final class Compiler(
     //   in <tmplArg>
     topLevelFunction2(t.FetchTemplateDefRef(tmplId)) { (cidPos, tokenPos, env) =>
       translateFetchTemplateBody(env, tmplId, tmpl)(cidPos, None, tokenPos)
+    }
+
+  @nowarn("msg=parameter value tokenPos.* is never used")
+  private[this] def translateSoftFetchTemplateBody(
+      env: Env,
+      tmplId: Identifier,
+      tmpl: Template,
+  )(
+      cidPos: Position,
+      tokenPos: Position,
+  ): s.SExpr =
+    let(
+      env,
+      SBFetchAny(
+        env.toSEVar(cidPos),
+        s.SEValue.None,
+      ),
+    ) { (anyTmplArgPos, env) =>
+      let(
+        env,
+        SBCastAnyContract(
+          tmplId
+        )(
+          env.toSEVar(cidPos),
+          env.toSEVar(anyTmplArgPos),
+        ),
+      ) { (tmplArgPos, _env) =>
+        val env = _env.bindExprVar(tmpl.param, tmplArgPos)
+        let(
+          env,
+          SBUInsertFetchNode(tmplId, byKey = false)(env.toSEVar(cidPos)),
+        ) { (_, env) =>
+          env.toSEVar(tmplArgPos)
+        }
+      }
+    }
+
+  private[this] def compileSoftFetchTemplate(
+      tmplId: Identifier,
+      tmpl: Template,
+  ): (t.SDefinitionRef, SDefinition) =
+    // FIXME
+    // compile a template to
+    // SoftFetchDefRef(tmplId) = \ <coid> <token> ->
+    //   let <tmplArg> = $soft_fetch(tmplId) <coid>
+    //       _ = $insertSoftFetch(tmplId, false) coid [tmpl.signatories] [tmpl.observers] [tmpl.key]
+    //   in <tmplArg>
+    topLevelFunction2(t.SoftFetchTemplateDefRef(tmplId)) { (cidPos, tokenPos, env) =>
+      translateSoftFetchTemplateBody(env, tmplId, tmpl)(cidPos, tokenPos)
     }
 
   private[this] def compileFetchInterface(ifaceId: Identifier): (t.SDefinitionRef, SDefinition) =

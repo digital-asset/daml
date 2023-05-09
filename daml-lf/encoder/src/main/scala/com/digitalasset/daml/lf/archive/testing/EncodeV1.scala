@@ -370,6 +370,10 @@ private[daml] class EncodeV1(minor: LV.Minor) {
           )
         case UpdateFetchTemplate(templateId, contractId) =>
           builder.setFetch(PLF.Update.Fetch.newBuilder().setTemplate(templateId).setCid(contractId))
+        case UpdateSoftFetchTemplate(templateId, contractId) =>
+          builder.setSoftFetch(
+            PLF.Update.SoftFetch.newBuilder().setTemplate(templateId).setCid(contractId)
+          )
         case UpdateFetchInterface(interface, contractId) =>
           builder.setFetchInterface(
             PLF.Update.FetchInterface.newBuilder().setInterface(interface).setCid(contractId)

@@ -1393,6 +1393,16 @@ message Update {
     reserved 3; // was actor, we thought we'd need this, but we don't
   }
 
+  // Soft Fetch Update
+  // Fetches a contract of the given template type OR a predecessor.
+  // *Available in versions >= 1.dev*
+  message SoftFetch {
+    // Template type
+    TypeConName template = 1;
+    // contract id
+    Expr cid = 2;
+  }
+
   // Interface Fetch Update
   // *Available in versions >= 1.15*
   message FetchInterface {
@@ -1444,6 +1454,7 @@ message Update {
     ExerciseInterface exercise_interface = 13; // *Available in versions >= 1.15*
     FetchInterface fetch_interface = 14; // *Available in versions >= 1.15*
     DynamicExercise dynamic_exercise = 15; // *Available in versions >= 1.dev*
+    SoftFetch soft_fetch = 16; // *Available in versions >= 1.dev*
   }
 }
 

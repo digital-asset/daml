@@ -1733,6 +1733,17 @@ private[archive] class DecodeV1(minor: LV.Minor) {
             Ret(UpdateFetchTemplate(templateId = decodeTypeConName(fetch.getTemplate), contractId))
           }
 
+        case PLF.Update.SumCase.SOFT_FETCH =>
+          val softFetch = lfUpdate.getSoftFetch
+          decodeExpr(softFetch.getCid, definition) { contractId =>
+            Ret(
+              UpdateSoftFetchTemplate(
+                templateId = decodeTypeConName(softFetch.getTemplate),
+                contractId,
+              )
+            )
+          }
+
         case PLF.Update.SumCase.FETCH_INTERFACE =>
           assertSince(LV.Features.basicInterfaces, "fetchInterface")
           val fetch = lfUpdate.getFetchInterface

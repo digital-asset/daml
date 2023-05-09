@@ -1347,6 +1347,8 @@ private[validation] object Typing {
         typeOfExerciseByKey(tpl, choice, key, arg)
       case UpdateFetchTemplate(tpl, cid) =>
         typeOfFetchTemplate(tpl, cid)
+      case UpdateSoftFetchTemplate(tpl, cid) =>
+        typeOfFetchTemplate(tpl, cid)
       case UpdateFetchInterface(tpl, cid) =>
         typeOfFetchInterface(tpl, cid)
       case UpdateGetTime =>

@@ -775,6 +775,10 @@ decodeUpdate LF1.Update{..} = mayDecode "updateSum" updateSum $ \case
     fmap EUpdate $ UFetch
       <$> mayDecode "update_FetchTemplate" update_FetchTemplate decodeTypeConName
       <*> mayDecode "update_FetchCid" update_FetchCid decodeExpr
+  LF1.UpdateSumSoftFetch LF1.Update_SoftFetch{..} ->
+    fmap EUpdate $ USoftFetch
+      <$> mayDecode "update_SoftFetchTemplate" update_SoftFetchTemplate decodeTypeConName
+      <*> mayDecode "update_SoftFetchCid" update_SoftFetchCid decodeExpr
   LF1.UpdateSumFetchInterface LF1.Update_FetchInterface{..} ->
     fmap EUpdate $ UFetchInterface
       <$> mayDecode "update_FetchInterfaceInterface" update_FetchInterfaceInterface decodeTypeConName

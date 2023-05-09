@@ -147,6 +147,7 @@ startFromUpdate seen world update = case update of
       error "Interfaces are not supported"
     LF.UExerciseByKey tpl choice _ _ -> Set.singleton (AExercise tpl choice)
     LF.UFetch{} -> Set.empty
+    LF.USoftFetch {} -> Set.empty
     LF.UFetchInterface{} ->
       -- TODO https://github.com/digital-asset/daml/issues/12051
       error "Interfaces are not supported"

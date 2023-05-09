@@ -105,6 +105,8 @@ private[validation] object ExprIterable {
         Iterator(arg)
       case UpdateFetchTemplate(templateId @ _, contractId) =>
         Iterator(contractId)
+      case UpdateSoftFetchTemplate(templateId @ _, contractId) =>
+        Iterator(contractId)
       case UpdateFetchInterface(interface @ _, contractId) =>
         Iterator(contractId)
       case UpdateExercise(templateId @ _, choice @ _, cid, arg) =>
