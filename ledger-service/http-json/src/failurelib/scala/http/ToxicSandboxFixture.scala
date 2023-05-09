@@ -4,7 +4,9 @@
 package com.daml.http
 
 import com.daml.bazeltools.BazelRunfiles
+import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
+import com.daml.lf.integrationtest.CantonFixtureWithResource
 import com.daml.platform.apiserver.services.GrpcClientResource
 import com.daml.ports.{LockedFreePort, Port}
 import com.daml.timer.RetryStrategy
@@ -12,15 +14,12 @@ import eu.rekawek.toxiproxy._
 import io.grpc.Channel
 import org.scalatest.{BeforeAndAfterEach, Suite}
 
+import java.io.File
 import java.net.InetAddress
+import java.nio.file.Path
 import scala.concurrent.Future
 import scala.concurrent.duration.DurationInt
 import scala.sys.process.Process
-
-import com.daml.lf.integrationtest.CantonFixtureWithResource
-import java.io.File
-import java.nio.file.Path
-import com.daml.ledger.api.domain.LedgerId
 
 // Fixture for Canton behind toxiproxy to simulate failures.
 trait ToxicSandboxFixture

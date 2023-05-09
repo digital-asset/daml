@@ -175,7 +175,7 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
     val fa: Future[A] = for {
       ports <- portsF
       client <- clientF
-      a <- testFn(ports.head, client, LedgerId("participant0"))
+      a <- testFn(ports.head, client, LedgerId(config.ledgerIds.head))
     } yield a
 
     fa.transformWith { ta =>

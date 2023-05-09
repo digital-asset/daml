@@ -203,7 +203,7 @@ trait AbstractHttpServiceIntegrationTestFuns
   protected def withHttpService[A](f: HttpServiceTestFixtureData => Future[A]): Future[A] =
     withHttpService()(f)
 
-  protected def withHttpServiceOnly[A](ledgerPort: Port, ledgerId: LedgerId)(
+  protected def withHttpServiceOnly[A](ledgerPort: Port)(
       f: HttpServiceOnlyTestFixtureData => Future[A]
   ): Future[A] =
     HttpServiceTestFixture.withHttpService[A](
@@ -214,7 +214,6 @@ trait AbstractHttpServiceIntegrationTestFuns
       useTls = useTls,
       wsConfig = wsConfig,
       token = Some(jwtAdminNoParty),
-      ledgerIdOverwrite = Some(ledgerId),
     )((uri, encoder, decoder, _) => f(HttpServiceOnlyTestFixtureData(uri, encoder, decoder)))
 
   protected def withLedger[A](testFn: (DamlLedgerClient, LedgerId) => Future[A]): Future[A] =

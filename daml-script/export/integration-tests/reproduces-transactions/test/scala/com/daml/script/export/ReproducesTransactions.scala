@@ -82,7 +82,7 @@ final class ReproducesTransactions
 
   private def allocateParties(client: LedgerClient, numParties: Int): Future[List[Ref.Party]] =
     for {
-      _ <- Future { logger.debug("Allocating parties") }
+      _ <- Future { cantonLogger.debug("Allocating parties") }
       ps <- List
         .range(0, numParties)
         // Allocate parties sequentially to avoid timeouts on CI.
@@ -92,7 +92,7 @@ final class ReproducesTransactions
             p <- client.partyManagementClient.allocateParty(None, None).map(_.party)
           } yield ps :+ p
         }
-      _ = logger.debug("Allocated parties")
+      _ = cantonLogger.debug("Allocated parties")
     } yield ps
 
   private val ledgerBegin = LedgerOffset(
@@ -206,7 +206,7 @@ final class ReproducesTransactions
     case (client, Seq(p1, p2)) =>
       for {
         _ <- Future {
-          logger.debug("Starting testIou")
+          cantonLogger.debug("Starting testIou")
         }
         t0 <- submit(
           client,

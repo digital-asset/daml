@@ -55,7 +55,7 @@ abstract class WebsocketServiceOffsetTickIntTest
         aliceHeaders <- fixture.getUniquePartyAndAuthHeaders("Alice")
         (party, headers) = aliceHeaders
         _ <- initialIouCreate(uri, party, headers)
-        jwt <- jwtForParties(uri)(List(party), List(), "participant0")
+        jwt <- jwtForParties(uri)(List(party), List(), config.ledgerIds.head)
         msgs <- singleClientQueryStream(jwt, uri, """{"templateIds": ["Iou:Iou"]}""")
           .take(10)
           .runWith(collectResultsAsTextMessage)

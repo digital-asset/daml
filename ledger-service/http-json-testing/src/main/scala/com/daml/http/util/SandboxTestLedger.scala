@@ -31,6 +31,6 @@ trait SandboxTestLedger extends CantonFixture {
       ec: ExecutionContext
   ): Future[A] = {
     val client = defaultLedgerClientWithoutId(token)
-    testFn(ports.head, client, LedgerId("participant0"))
+    testFn(ports.head, client, LedgerId(config.ledgerIds.head))
   }
 }

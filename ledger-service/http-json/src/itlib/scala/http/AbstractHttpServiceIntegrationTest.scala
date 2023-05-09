@@ -59,7 +59,7 @@ trait AbstractHttpServiceIntegrationTestFunsCustomToken
   import json.JsonProtocol._
 
   protected def jwt(uri: Uri)(implicit ec: ExecutionContext): Future[Jwt] =
-    jwtForParties(uri)(domain.Party subst List("Alice"), List(), "participant0")
+    jwtForParties(uri)(domain.Party subst List("Alice"), List(), config.ledgerIds.head)
 
   protected def headersWithPartyAuthLegacyFormat(
       actAs: List[domain.Party],
@@ -2141,18 +2141,18 @@ abstract class AbstractHttpServiceIntegrationTestQueryStoreIndependent
   }
 
   "package list is updated when a query request is made" in usingLedger() {
-    case (ledgerPort, _, ledgerId) =>
-      withHttpServiceOnly(ledgerPort, ledgerId) { fixture =>
+    case (ledgerPort, _, _) =>
+      withHttpServiceOnly(ledgerPort) { fixture =>
         for {
           alicePartyAndAuthHeaders <- fixture.getUniquePartyAndAuthHeaders("Alice")
           (alice, headers) = alicePartyAndAuthHeaders
-          _ <- withHttpServiceOnly(ledgerPort, ledgerId) { innerFixture =>
+          _ <- withHttpServiceOnly(ledgerPort) { innerFixture =>
             val searchDataSet = genSearchDataSet(alice)
             searchDataSet.traverse(c => postCreateCommand(c, innerFixture, headers)).flatMap { rs =>
               rs.map(_.status) shouldBe List.fill(searchDataSet.size)(StatusCodes.OK)
             }
           }
-          _ <- withHttpServiceOnly(ledgerPort, ledgerId) { innerFixture =>
+          _ <- withHttpServiceOnly(ledgerPort) { innerFixture =>
             innerFixture
               .getRequest(Uri.Path("/v1/query"), headers)
               .parseResponse[Vector[JsValue]]
