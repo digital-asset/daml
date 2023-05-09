@@ -4,7 +4,6 @@
 package com.daml
 
 import com.daml.bazeltools.BazelRunfiles
-import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.daml.ledger.api.v1.{ActiveContractsServiceGrpc, CommandServiceGrpc}
 import com.daml.ledger.api.v1.ActiveContractsServiceOuterClass.GetActiveContractsResponse
@@ -34,7 +33,6 @@ trait TestLedger extends CantonFixture with SuiteResourceManagementAroundAll {
   override protected lazy val darFiles = List(
     BazelRunfiles.rlocation(Paths.get("language-support/java/codegen/ledger-tests-model.dar"))
   )
-  override protected lazy val applicationId: ApplicationId = ApplicationId("sandbox-test-ledger")
 
   private var client: LedgerClient = _
 
