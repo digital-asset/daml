@@ -14,7 +14,7 @@ import com.daml.ledger.api.testing.utils.{
 }
 import com.daml.ledger.client.LedgerClient
 import com.daml.ledger.client.withoutledgerid.{LedgerClient => LedgerClientWithoutId}
-import com.daml.ledger.resources.{ResourceContext, ResourceOwner, Resource}
+import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.data.Ref
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.ports.Port

@@ -56,8 +56,7 @@ import scala.annotation.nowarn
 import scala.concurrent.duration.{DAYS, FiniteDuration}
 import scala.concurrent.{ExecutionContext, Future}
 
-import com.daml.lf.integrationtest.CantonConfig
-import com.daml.lf.integrationtest.CantonRunner
+import com.daml.lf.integrationtest.{CantonConfig, CantonRunner}
 
 object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
 
