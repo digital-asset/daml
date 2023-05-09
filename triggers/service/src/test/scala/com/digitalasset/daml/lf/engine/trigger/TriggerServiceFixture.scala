@@ -32,36 +32,21 @@ import com.daml.ledger.api.auth.{
   StandardJWTTokenFormat,
 }
 import com.daml.ledger.api.refinements.ApiTypes
-import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.daml.ledger.api.testing.utils.{AkkaBeforeAndAfterAll, OwnedResource}
-import com.daml.ledger.client.LedgerClient
-import com.daml.ledger.client.configuration.{
-  CommandClientConfiguration,
-  LedgerClientConfiguration,
-  LedgerIdRequirement,
-}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
-import com.daml.ledger.runner.common.Config
-import com.daml.ledger.sandbox.SandboxOnXForTest._
-import com.daml.ledger.sandbox.{BridgeConfig, SandboxOnXRunner}
 import com.daml.lf.archive.Dar
 import com.daml.lf.data.Ref._
 import com.daml.lf.engine.trigger.TriggerRunnerConfig.DefaultTriggerRunnerConfig
 import com.daml.lf.engine.trigger.dao.DbTriggerDao
 import com.daml.lf.integrationtest.CantonFixture
 import com.daml.lf.speedy.Compiler
-import com.daml.platform.apiserver.SeedService.Seeding
-import com.daml.platform.apiserver.services.GrpcClientResource
-import com.daml.platform.sandbox.SandboxBackend
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.ports.{LockedFreePort, Port}
 import com.daml.scalautil.Statement.discard
 import com.daml.testing.oracle.OracleAroundAll
 import com.daml.testing.postgresql.PostgresAroundAll
 import com.daml.timer.RetryStrategy
-import com.typesafe.scalalogging.StrictLogging
 import eu.rekawek.toxiproxy._
-import io.grpc.Channel
 import org.scalactic.source
 import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach, Suite, SuiteMixin}
 import scalaz.syntax.show._
@@ -308,80 +293,6 @@ private class DeferringClock(baseClock: => Clock) extends Clock {
   override def withZone(zone: ZoneId): Clock = new DeferringClock(baseClock.withZone(zone))
 }
 
-// FIXME: deprecated - delete in future PR
-trait SandboxFixture extends BeforeAndAfterAll with AbstractAuthFixture with AkkaBeforeAndAfterAll {
-  self: Suite =>
-
-  private def sandboxConfig(jdbcUrl: String): Config =
-    Default.copy(
-      ledgerId = this.getClass.getSimpleName,
-      engine = DevEngineConfig,
-      dataSource = dataSource(jdbcUrl),
-      participants = singleParticipant(
-        ApiServerConfig.copy(
-          seeding = Seeding.Weak,
-          timeProviderType = TimeProviderType.Static,
-        )
-      ),
-    )
-
-  protected lazy val sandboxPort: Port = resource.value._1
-  protected lazy val channel: Channel = resource.value._2
-  protected def sandboxClient(
-      applicationId: ApplicationId,
-      admin: Boolean = false,
-      actAs: List[ApiTypes.Party] = List(),
-      readAs: List[ApiTypes.Party] = List(),
-  )(implicit executionContext: ExecutionContext): Future[LedgerClient] =
-    LedgerClient(
-      channel,
-      LedgerClientConfiguration(
-        applicationId = ApplicationId.unwrap(applicationId),
-        ledgerIdRequirement = LedgerIdRequirement.none,
-        commandClient = CommandClientConfiguration.default,
-        token = authToken(admin, actAs = actAs, readAs = readAs),
-      ),
-    )
-
-  private var resource: OwnedResource[ResourceContext, (Port, Channel)] = _
-
-  override protected def beforeAll(): Unit = {
-    super.beforeAll()
-
-    implicit val context: ResourceContext = ResourceContext(system.dispatcher)
-    // The owner spins up its own actor system which avoids deadlocks
-    // during shutdown.
-    resource = new OwnedResource(
-      for {
-        // We must provide a random database if none is provided.
-        // The default is to always use the same index database URL, which means that tests can
-        // share an index. As you can imagine, this causes all manner of issues, the most important
-        // of which is that the ledger and index databases will be out of sync.
-        jdbcUrl <- SandboxBackend.H2Database.owner
-          .map(info => info.jdbcUrl)
-
-        port <- SandboxOnXRunner.owner(
-          configAdaptor = ConfigAdaptor(authService),
-          config = sandboxConfig(jdbcUrl = jdbcUrl),
-          bridgeConfig = BridgeConfig(),
-          registerGlobalOpenTelemetry = false,
-        )
-        channel <- GrpcClientResource.owner(port)
-      } yield (port, channel),
-      acquisitionTimeout = 1.minute,
-      releaseTimeout = 1.minute,
-    )
-    resource.setup()
-  }
-
-  override protected def afterAll(): Unit = {
-    resource.close()
-
-    super.afterAll()
-  }
-}
-
-// FIXME: migrate this code in a future PR
 trait ToxiproxyFixture extends BeforeAndAfterAll with AkkaBeforeAndAfterAll {
   self: Suite =>
 
@@ -418,43 +329,7 @@ trait ToxiproxyFixture extends BeforeAndAfterAll with AkkaBeforeAndAfterAll {
   }
 }
 
-// TODO: delete once Oracle and Postgres migrations are completed
-trait ToxiSandboxFixture extends BeforeAndAfterAll with ToxiproxyFixture with SandboxFixture {
-  self: Suite =>
-
-  protected def toxiSandboxPort: Port = resource._1
-
-  protected def toxiSandboxProxy: Proxy = resource._2
-
-  private var resource: (Port, Proxy) = _
-
-  override protected def beforeAll(): Unit = {
-    super.beforeAll()
-
-    val host = InetAddress.getLoopbackAddress
-    val lock = LockedFreePort.find()
-    val port = lock.port
-    val proxy = toxiproxyClient.createProxy(
-      "sandbox",
-      s"${host.getHostName}:$port",
-      s"${host.getHostName}:$sandboxPort",
-    )
-    lock.unlock()
-    resource = (port, proxy)
-  }
-
-  override protected def afterAll(): Unit = {
-    toxiSandboxProxy.delete()
-
-    super.afterAll()
-  }
-}
-
-// TODO: rename once Oracle and Postgres migrations are completed
-trait ToxiSandboxWithCantonFixture
-    extends BeforeAndAfterAll
-    with ToxiproxyFixture
-    with CantonFixture {
+trait ToxiSandboxFixture extends BeforeAndAfterAll with ToxiproxyFixture with CantonFixture {
   self: Suite =>
 
   protected def toxiSandboxPort: Port = resource._1
@@ -485,28 +360,18 @@ trait ToxiSandboxWithCantonFixture
   }
 }
 
-// TODO: delete once Oracle and Postgres migrations are completed
-trait AbstractTriggerDaoFixture extends SuiteMixin {
+trait AbstractTriggerDaoFixture extends CantonFixture {
   self: Suite =>
 
   protected def jdbcConfig: Option[JdbcConfig]
 }
 
-// TODO: rename once Oracle and Postgres migrations are completed
-trait AbstractTriggerDaoCantonFixture extends CantonFixture {
-  self: Suite =>
-
-  // FIXME: currently, Canton and participant storage type is always in-memory - we'll change this in a follow up PR
-  protected def jdbcConfig: Option[JdbcConfig]
-}
-
-trait TriggerDaoInMemFixture extends AbstractTriggerDaoCantonFixture {
+trait TriggerDaoInMemFixture extends AbstractTriggerDaoFixture {
   self: Suite =>
 
   override def jdbcConfig: Option[JdbcConfig] = None
 }
 
-// TODO: delete once Oracle and Postgres migrations are completed
 trait TriggerDaoPostgresFixture
     extends AbstractTriggerDaoFixture
     with BeforeAndAfterEach
@@ -544,45 +409,6 @@ trait TriggerDaoPostgresFixture
   }
 }
 
-// TODO: rename once Oracle and Postgres migrations are completed
-trait TriggerDaoPostgresCantonFixture
-    extends AbstractTriggerDaoCantonFixture
-    with BeforeAndAfterEach
-    with AkkaBeforeAndAfterAll
-    with PostgresAroundAll {
-  self: Suite =>
-
-  override def jdbcConfig: Option[JdbcConfig] = Some(jdbcConfig_)
-
-  // Lazy because the postgresDatabase is only available once the tests start
-  private lazy val jdbcConfig_ =
-    JdbcConfig(
-      "org.postgresql.Driver",
-      postgresDatabase.url,
-      "operator",
-      "password",
-      ConnectionPool.PoolSize.Integration,
-    )
-  private lazy val triggerDao = DbTriggerDao(jdbcConfig_)
-  private lazy implicit val executionContext: ExecutionContext = system.getDispatcher
-
-  override protected def beforeEach(): Unit = {
-    super.beforeEach()
-    Await.result(triggerDao.initialize(false), Duration(30, SECONDS))
-  }
-
-  override protected def afterEach(): Unit = {
-    Await.result(triggerDao.destroy, Duration(30, SECONDS))
-    super.afterEach()
-  }
-
-  override protected def afterAll(): Unit = {
-    triggerDao.destroyPermanently().fold(fail(_), identity)
-    super.afterAll()
-  }
-}
-
-// TODO: delete once Oracle and Postgres migrations are completed
 trait TriggerDaoOracleFixture
     extends AbstractTriggerDaoFixture
     with BeforeAndAfterEach
@@ -623,139 +449,10 @@ trait TriggerDaoOracleFixture
   }
 }
 
-// TODO: rename once Oracle and Postgres migrations are completed
-trait TriggerDaoOracleCantonFixture
-    extends AbstractTriggerDaoCantonFixture
-    with BeforeAndAfterEach
-    with AkkaBeforeAndAfterAll
-    with OracleAroundAll {
-  self: Suite =>
-
-  override def jdbcConfig: Option[JdbcConfig] = Some(jdbcConfig_)
-
-  // Lazy because the oracleDatabase is only available once the tests start
-  private lazy val jdbcConfig_ =
-    JdbcConfig(
-      "oracle.jdbc.OracleDriver",
-      oracleJdbcUrlWithoutCredentials,
-      oracleUserName,
-      oracleUserPwd,
-      ConnectionPool.PoolSize.Production,
-    )
-  // TODO For whatever reason we need a larger pool here, otherwise
-  // the connection deadlocks. I have no idea why :(
-  private lazy val triggerDao =
-    DbTriggerDao(jdbcConfig_)
-  private lazy implicit val executionContext: ExecutionContext = system.getDispatcher
-
-  override protected def beforeEach(): Unit = {
-    super.beforeEach()
-    Await.result(triggerDao.initialize(false), Duration(31, SECONDS))
-  }
-
-  override protected def afterEach(): Unit = {
-    Await.result(triggerDao.destroy, Duration(30, SECONDS))
-    super.afterEach()
-  }
-
-  override protected def afterAll(): Unit = {
-    triggerDao.destroyPermanently().fold(fail(_), identity)
-    super.afterAll()
-  }
-}
-
-// TODO: rename once Oracle and Postgres migrations are completed
-trait TriggerServiceWithCantonFixture
-    extends AbstractTriggerDaoCantonFixture
-    with ToxiSandboxWithCantonFixture
-    with AbstractAuthFixture {
-  self: Suite =>
-
-  private val triggerLog: ConcurrentMap[UUID, Vector[(LocalDateTime, String)]] =
-    new ConcurrentHashMap
-
-  def getTriggerStatus(uuid: UUID): Vector[(LocalDateTime, String)] =
-    triggerLog.getOrDefault(uuid, Vector.empty)
-
-  private def logTriggerStatus(triggerInstance: UUID, msg: String): Unit = {
-    val entry = (LocalDateTime.now, msg)
-    discard(triggerLog.merge(triggerInstance, Vector(entry), _ ++ _))
-  }
-
-  // Use a small initial interval so we can test restart behaviour more easily.
-  private val minRestartInterval = FiniteDuration(1, duration.SECONDS)
-  private def triggerServiceOwner(
-      encodedDars: List[Dar[(PackageId, DamlLf.ArchivePayload)]],
-      authCallback: Option[Uri],
-      triggerRunnerConfig: Option[TriggerRunnerConfig],
-  ) =
-    new ResourceOwner[ServerBinding] {
-      override def acquire()(implicit context: ResourceContext): Resource[ServerBinding] =
-        for {
-          (binding, _) <- Resource {
-            val host = InetAddress.getLoopbackAddress
-            val ledgerConfig = LedgerConfig(
-              host.getHostName,
-              toxiSandboxPort.value,
-              TimeProviderType.Static,
-              java.time.Duration.ofSeconds(30),
-              Cli.DefaultMaxInboundMessageSize,
-            )
-            val restartConfig = TriggerRestartConfig(
-              minRestartInterval,
-              Cli.DefaultMaxRestartInterval,
-            )
-            for {
-              r <- ServiceMain.startServerForTest(
-                host.getHostName,
-                Port.Dynamic.value,
-                Cli.DefaultMaxAuthCallbacks,
-                Cli.DefaultAuthCallbackTimeout,
-                Cli.DefaultMaxHttpEntityUploadSize,
-                Cli.DefaultHttpEntityUploadTimeout,
-                authConfig,
-                AuthClient.RedirectToLogin.Yes,
-                authCallback,
-                ledgerConfig,
-                restartConfig,
-                encodedDars,
-                jdbcConfig,
-                false,
-                Compiler.Config.Dev,
-                triggerRunnerConfig.getOrElse(DefaultTriggerRunnerConfig),
-                logTriggerStatus,
-              )
-            } yield r
-          } { case (_, system) =>
-            system ! Server.Stop
-            system.whenTerminated.map(_ => ())
-          }
-        } yield binding
-    }
-
-  def withTriggerService[A](
-      encodedDars: List[Dar[(PackageId, DamlLf.ArchivePayload)]],
-      authCallback: Option[Uri] = None,
-      triggerRunnerConfig: Option[TriggerRunnerConfig] = None,
-  )(testFn: Uri => Future[A])(implicit
-      ec: ExecutionContext,
-      pos: source.Position,
-  ): Future[A] = {
-    logger.info(s"${pos.fileName}:${pos.lineNumber}: setting up trigger service")
-    implicit val context: ResourceContext = ResourceContext(ec)
-    triggerServiceOwner(encodedDars, authCallback, triggerRunnerConfig).use { binding =>
-      val uri = Uri.from(scheme = "http", host = "localhost", port = binding.localAddress.getPort)
-      testFn(uri)
-    }
-  }
-}
-
-// TODO: delete once Oracle and Postgres migrations are completed
 trait TriggerServiceFixture
-    extends SuiteMixin
+    extends AbstractTriggerDaoFixture
     with ToxiSandboxFixture
-    with AbstractTriggerDaoFixture
-    with StrictLogging {
+    with AbstractAuthFixture {
   self: Suite =>
 
   private val triggerLog: ConcurrentMap[UUID, Vector[(LocalDateTime, String)]] =
