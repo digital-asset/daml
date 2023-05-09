@@ -745,6 +745,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
 
     "with unknown contractId should return proper error" in withHttpService { fixture =>
       import fixture.encoder
+      // 66 for the contract id + 2 for an arbitrary suffix (as per `requireV1ContractIdSuffix`)
       val contractIdString = "0" * 68
       val contractId = lar.ContractId(contractIdString)
       for {

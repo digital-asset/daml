@@ -576,7 +576,6 @@ test_suite(
             "//ledger-service/utils",
             "//ledger/ledger-api-common",
             "//ledger/participant-integration-api",
-            "//ledger/participant-integration-api:participant-integration-api-tests-lib",
             "//libs-scala/db-utils",
             "//libs-scala/jwt",
             "//libs-scala/ledger-resources",

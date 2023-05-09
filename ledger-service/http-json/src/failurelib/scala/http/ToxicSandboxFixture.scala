@@ -7,7 +7,6 @@ import com.daml.bazeltools.BazelRunfiles
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.integrationtest.CantonFixtureWithResource
-import com.daml.platform.apiserver.services.GrpcClientResource
 import com.daml.ports.{LockedFreePort, Port}
 import com.daml.timer.RetryStrategy
 import eu.rekawek.toxiproxy._
@@ -89,7 +88,7 @@ trait ToxicSandboxFixture
       ports: Vector[Port]
   ): ResourceOwner[(Channel, Port, ToxiproxyClient, Proxy)] =
     for {
-      channel <- GrpcClientResource.owner(ports.head)
+      channel <- config.channelResource(ports.head)
       (port, client, proxy) <- makeToxiproxyResource(ports.head)
     } yield (channel, port, client, proxy)
 }
