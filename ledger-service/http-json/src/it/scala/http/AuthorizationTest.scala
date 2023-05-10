@@ -21,6 +21,7 @@ import com.daml.test.evidence.scalatest.ScalaTestSupport.Implicits._
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
+import org.scalatest.OptionValues._
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -71,7 +72,7 @@ final class AuthorizationTest
       )
     ) in withLedger { client => ledgerId =>
     instanceUUIDLogCtx(implicit lc =>
-      packageService(client).reload(Jwt(emptyJWTToken.get), ledgerId).failed.map(_ => succeed)
+      packageService(client).reload(Jwt(emptyJWTToken.value), ledgerId).failed.map(_ => succeed)
     )
   }
 
@@ -80,7 +81,7 @@ final class AuthorizationTest
       "A ledger client can update the package service when authorized"
     ) in withLedger { client => ledgerId =>
     instanceUUIDLogCtx(implicit lc =>
-      packageService(client).reload(Jwt(config.adminToken.get), ledgerId).map(_ => succeed)
+      packageService(client).reload(Jwt(config.adminToken.value), ledgerId).map(_ => succeed)
     )
   }
 

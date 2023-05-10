@@ -20,6 +20,7 @@ import com.typesafe.scalalogging.StrictLogging
 import io.gatling.core.scenario.Simulation
 import io.gatling.netty.util.Transports
 import io.netty.channel.EventLoopGroup
+import org.scalatest.OptionValues._
 import scalaz.std.string._
 import scalaz.syntax.tag._
 import scalaz.\/
@@ -142,7 +143,7 @@ object Main extends StrictLogging {
           UserRight.CanReadAs(party),
         ),
       )
-      jwt = CantonRunner.getToken(user.id.toString, Some("secret")).get
+      jwt = CantonRunner.getToken(user.id.toString, Some("secret")).value
     } yield (party.toString, jwt)
 
     def runScenario(config: Config[String]) =

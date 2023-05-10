@@ -11,6 +11,7 @@ import com.daml.jwt.JwtSigner
 import com.daml.jwt.domain.{DecodedJwt, Jwt}
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.scalautil.ImplicitPreference
+import org.scalatest.OptionValues._
 import org.scalatest.Suite
 import scalaz.syntax.show._
 import scalaz.syntax.tag._
@@ -83,7 +84,7 @@ object HttpServiceUserFixture {
   trait UserToken extends HttpServiceUserFixture {
     this: Suite =>
     override lazy val jwtAdminNoParty: Jwt = Jwt(
-      CantonRunner.getToken("participant_admin", Some("secret")).get
+      CantonRunner.getToken("participant_admin", Some("secret")).value
     )
 
     protected[this] override final def defaultWithoutNamespace = true
@@ -121,6 +122,6 @@ object HttpServiceUserFixture {
     protected final def getUniqueUserName(name: String): String = getUniqueParty(name).unwrap
 
     protected def jwtForUser(userId: String): Jwt =
-      Jwt(CantonRunner.getToken(userId, Some("secret")).get)
+      Jwt(CantonRunner.getToken(userId, Some("secret")).value)
   }
 }

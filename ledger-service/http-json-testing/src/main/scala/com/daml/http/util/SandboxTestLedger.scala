@@ -8,6 +8,7 @@ import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.client.withoutledgerid.{LedgerClient => DamlLedgerClient}
 import com.daml.ports.Port
 import org.scalatest.Suite
+import org.scalatest.OptionValues._
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -31,6 +32,6 @@ trait SandboxTestLedger extends CantonFixture {
       ec: ExecutionContext
   ): Future[A] = {
     val client = defaultLedgerClientWithoutId(token)
-    testFn(ports.head, client, LedgerId(config.ledgerIds.head))
+    testFn(ports.head, client, LedgerId(config.ledgerIds.headOption.value))
   }
 }

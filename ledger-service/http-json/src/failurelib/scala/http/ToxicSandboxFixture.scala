@@ -12,6 +12,7 @@ import com.daml.timer.RetryStrategy
 import eu.rekawek.toxiproxy._
 import io.grpc.Channel
 import org.scalatest.{BeforeAndAfterEach, Suite}
+import org.scalatest.OptionValues._
 
 import java.io.File
 import java.net.InetAddress
@@ -38,7 +39,7 @@ trait ToxicSandboxFixture
 
   override protected def beforeEach() = proxyClient.reset()
 
-  protected def ledgerId: LedgerId = LedgerId(config.ledgerIds.head)
+  protected def ledgerId: LedgerId = LedgerId(config.ledgerIds.headOption.value)
 
   protected def makeToxiproxyResource(ledger: Port): ResourceOwner[(Port, ToxiproxyClient, Proxy)] =
     new ResourceOwner[(Port, ToxiproxyClient, Proxy)] {

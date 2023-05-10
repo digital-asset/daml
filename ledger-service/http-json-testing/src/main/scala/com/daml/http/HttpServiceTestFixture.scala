@@ -41,6 +41,7 @@ import com.daml.platform.services.time.TimeProviderType
 import com.daml.ports.Port
 import com.typesafe.scalalogging.LazyLogging
 import org.scalatest.{Assertions, Inside}
+import org.scalatest.OptionValues._
 import scalaz._
 import scalaz.std.option._
 import scalaz.std.scalaFuture._
@@ -171,7 +172,7 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
     val fa: Future[A] = for {
       ports <- portsF
       client <- clientF
-      a <- testFn(ports.head, client, LedgerId(config.ledgerIds.head))
+      a <- testFn(ports.head, client, LedgerId(config.ledgerIds.headOption.value))
     } yield a
 
     fa.transformWith { ta =>

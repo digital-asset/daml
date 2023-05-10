@@ -25,6 +25,7 @@ import com.daml.test.evidence.scalatest.ScalaTestSupport.Implicits._
 import org.scalatest._
 import org.scalatest.freespec.AsyncFreeSpec
 import org.scalatest.matchers.should.Matchers
+import org.scalatest.OptionValues._
 import scalaz.std.list._
 import scalaz.std.vector._
 import scalaz.std.scalaFuture._
@@ -58,7 +59,7 @@ trait AbstractHttpServiceIntegrationTestFunsCustomToken
   import json.JsonProtocol._
 
   protected def jwt(uri: Uri)(implicit ec: ExecutionContext): Future[Jwt] =
-    jwtForParties(uri)(domain.Party subst List("Alice"), List(), config.ledgerIds.head)
+    jwtForParties(uri)(domain.Party subst List("Alice"), List(), config.ledgerIds.headOption.value)
 
   protected def headersWithPartyAuthLegacyFormat(
       actAs: List[domain.Party],
@@ -454,7 +455,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
           subscriberPartyDetails <- subscribers.traverse { p =>
             fixture.client.partyManagementClient.allocateParty(Some(p.unwrap), Some(s"${p} & Co"))
           }
-          subscriberParties = subscriberPartyDetails.map(p => domain.Party(p.party.toString))
+          subscriberParties = domain.Party subst subscriberPartyDetails.map(p => p.party: String)
           found <- searchExpectOk(
             List(pubSubCreateCommand(publisher, subscriberParties)),
             jsObject(
@@ -1195,9 +1196,9 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
     for {
       knownParties @ List(alice, bob, charlie, david) <-
         knownPartyNames.traverse { p =>
-          partyManagement
+          domain.Party subst partyManagement
             .allocateParty(Some(p.unwrap), Some(s"${p} & Co. LLC"))
-            .map(pd => domain.Party(pd.party.toString))
+            .map(pd => pd.party: String)
         }
       // multi-party actAs on create
       cid <- fixture
@@ -1631,7 +1632,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
         partyDetails <- partyIds.traverse { p =>
           partyManagement.allocateParty(Some(p.unwrap), None)
         }
-        parties = partyDetails.map(p => domain.Party(p.party.toString))
+        parties = domain.Party subst partyDetails.map(p => p.party: String)
         users <- parties.traverse { party =>
           val command = userCreateCommand(party)
           val fut = fixture
@@ -1896,7 +1897,7 @@ abstract class AbstractHttpServiceIntegrationTestQueryStoreIndependent
             .map(inside(_) { case domain.OkResponse(result, None, StatusCodes.OK) =>
               val actualIds: Set[domain.Party] = result.view.map(_.identifier).toSet
               val allocatedIds: Set[domain.Party] =
-                allocatedParties.map(p => domain.Party(p.party.toString)).toSet
+                domain.Party.subst(allocatedParties.map(p => p.party: String)).toSet
               actualIds should contain allElementsOf allocatedIds
               result.toSet should contain allElementsOf
                 allocatedParties.toSet.map(domain.PartyDetails.fromLedgerApi)
@@ -2008,7 +2009,7 @@ abstract class AbstractHttpServiceIntegrationTestQueryStoreIndependent
         )
         .parseResponse[domain.PartyDetails]
         .flatMap(inside(_) { case domain.OkResponse(newParty, _, StatusCodes.OK) =>
-          newParty.identifier.toString should startWith(request.identifierHint.get.toString)
+          newParty.identifier.toString should startWith(request.identifierHint.value.toString)
           newParty.displayName shouldBe request.displayName
           newParty.isLocal shouldBe true
           fixture
