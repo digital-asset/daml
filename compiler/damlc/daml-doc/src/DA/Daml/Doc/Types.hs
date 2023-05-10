@@ -94,14 +94,14 @@ newtype AnchorMap = AnchorMap { unAnchorMap :: HMS.HashMap Anchor String }
 ------------------------------------------------------------
 -- | Documentation data for a module
 data ModuleDoc = ModuleDoc
-  { md_anchor    :: Maybe Anchor
-  , md_name      :: Modulename
-  , md_descr     :: Maybe DocText
-  , md_templates :: [TemplateDoc]
+  { md_anchor     :: Maybe Anchor
+  , md_name       :: Modulename
+  , md_descr      :: Maybe DocText
+  , md_templates  :: [TemplateDoc]
   , md_interfaces :: [InterfaceDoc]
-  , md_adts      :: [ADTDoc]
-  , md_functions :: [FunctionDoc]
-  , md_classes   :: [ClassDoc]
+  , md_adts       :: [ADTDoc]
+  , md_functions  :: [FunctionDoc]
+  , md_classes    :: [ClassDoc]
   -- TODO will later be refactored to contain "documentation sections" with an
   -- optional header, containing groups of templates and ADTs. This can be done
   -- storing just linkIDs for them, the renderer would then search the lists.
@@ -132,7 +132,7 @@ data InterfaceDoc = InterfaceDoc
   }
   deriving (Eq, Show, Generic)
 
-newtype InterfaceViewtypeDoc = InterfaceViewtypeDoc Type
+newtype InterfaceViewtypeDoc = InterfaceViewtypeDoc { unInterfaceViewtypeDoc :: Type }
   deriving (Eq, Ord, Show, Generic)
 
 data InterfaceInstanceDoc = InterfaceInstanceDoc
@@ -232,7 +232,8 @@ data ADTConstr =
 -- associated type always has exactly one record constructor with the same name
 -- as the choice.
 data ChoiceDoc = ChoiceDoc
-  { cd_name   :: Typename
+  { cd_anchor :: Maybe Anchor
+  , cd_name   :: Typename
   , cd_descr  :: Maybe DocText
   , cd_fields :: [FieldDoc]
   , cd_type   :: Type

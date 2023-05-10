@@ -126,7 +126,11 @@ instance RenderDoc MethodDoc where
 
 instance RenderDoc ChoiceDoc where
     renderDoc ChoiceDoc{..} = mconcat
-        [ RenderParagraph $ RenderStrong ("Choice " <> unTypename cd_name)
+        [ renderDoc cd_anchor
+        , RenderParagraph . renderUnwords . concat $
+            [ [RenderStrong "Choice"]
+            , [maybeAnchorLink cd_anchor (unTypename cd_name)]
+            ]
         , renderDoc cd_descr
         , RenderParagraph $ renderUnwords [RenderPlain "Returns:", renderType cd_type]
         , fieldTable cd_fields

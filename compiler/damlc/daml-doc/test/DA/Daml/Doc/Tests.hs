@@ -14,6 +14,7 @@ import DA.Daml.Options.Types
 
 import DA.Daml.Doc.Extract
 import DA.Daml.Doc.Render
+import DA.Daml.Doc.Render.Hoogle
 import DA.Daml.Doc.Types
 import DA.Daml.Doc.Transform
 import DA.Daml.Doc.Anchor
@@ -454,7 +455,7 @@ fileTest externalAnchors scriptPackageData damlFile = do
   damlFileAbs <- makeAbsolute damlFile
   let basename = dropExtension damlFileAbs
       expected = [ basename <.> "EXPECTED" <.> s
-                 | s <- [ "json", "rst", "md" ]]
+                 | s <- [ "json", "rst", "md", "hoogle" ]]
 
   expectations <- filterM doesFileExist expected
 
@@ -469,6 +470,7 @@ fileTest externalAnchors scriptPackageData damlFile = do
             ".rst" -> TL.encodeUtf8 $ TL.fromStrict $ renderPage renderRst externalAnchors $ renderModule doc
             ".md" -> TL.encodeUtf8 $ TL.fromStrict $ renderPage renderMd externalAnchors $ renderModule doc
             ".json" -> replaceSdkPackages $ AP.encodePretty' jsonConf doc
+            ".hoogle" -> TL.encodeUtf8 $ TL.fromStrict $ renderSimpleHoogle (HoogleEnv mempty) doc
             other -> error $ "Unsupported file extension " <> other
   where
     diff ref new = [POSIX_DIFF, "--strip-trailing-cr", ref, new]

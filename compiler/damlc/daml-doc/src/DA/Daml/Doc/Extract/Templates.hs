@@ -198,7 +198,8 @@ getFields adt =
 mkChoiceDoc :: MS.Map Typename ADTDoc -> MS.Map Typename DDoc.Type -> Typename -> ChoiceDoc
 mkChoiceDoc typeMap choiceTypeMap name =
   ChoiceDoc
-    { cd_name = ad_name choiceADT
+    { cd_anchor = ad_anchor choiceADT
+    , cd_name = ad_name choiceADT
     , cd_descr = ad_descr choiceADT
   -- assumes exactly one constructor (syntactic in the template syntax), or
   -- uses a dummy value otherwise.

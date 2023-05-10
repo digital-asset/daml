@@ -1,0 +1,57 @@
+
+module DamlDocHoogle
+
+-- | View docs
+
+data View
+
+
+View :: View
+
+
+getController :: I -> Party
+
+-- | T docs
+
+data T
+
+-- | T docs
+
+T :: Template T => Party -> T
+
+-- | TCall docs
+
+data TCall
+
+-- | TCall docs
+
+TCall :: Int -> TCall
+
+[i] :: TCall -> Int
+
+-- | TCall docs
+
+TCall_Choice :: Choice T => Int -> Update ()
+
+-- | I docs
+
+data I
+
+-- | I docs
+
+I :: Interface I => View -> I
+
+-- | ICall docs
+
+data ICall
+
+-- | ICall docs
+
+ICall :: Int -> ICall
+
+[i] :: ICall -> Int
+
+-- | ICall docs
+
+ICall_Choice :: Choice I => Int -> Update (Optional Int)
+
