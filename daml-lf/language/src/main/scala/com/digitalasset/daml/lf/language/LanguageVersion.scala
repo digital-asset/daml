@@ -58,6 +58,7 @@ object LanguageVersion {
     val choiceFuncs = v1_dev
     val choiceAuthority = v1_dev
     val natTypeErasure = v1_dev
+    val packageUpgrades = v1_dev
 
     /** Unstable, experimental features. This should stay in 1.dev forever.
       * Features implemented with this flag should be moved to a separate

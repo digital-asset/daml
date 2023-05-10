@@ -91,6 +91,7 @@ private[archive] class DecodeV1(minor: LV.Minor) {
       toPackageName(getInternedStr(metadata.getNameInternedStr), "PackageMetadata.name"),
       toPackageVersion(getInternedStr(metadata.getVersionInternedStr), "PackageMetadata.version22"),
       if (metadata.hasUpgradedPackageId) {
+        assertSince(LV.Features.packageUpgrades, "Package.metadata.upgradedPackageId")
         Some(
           getInternedPackageId(metadata.getUpgradedPackageId.getUpgradedPackageIdInternedStr)
         )
@@ -1734,6 +1735,7 @@ private[archive] class DecodeV1(minor: LV.Minor) {
           }
 
         case PLF.Update.SumCase.SOFT_FETCH =>
+          assertSince(LV.Features.packageUpgrades, "softFetch")
           val softFetch = lfUpdate.getSoftFetch
           decodeExpr(softFetch.getCid, definition) { contractId =>
             Ret(
