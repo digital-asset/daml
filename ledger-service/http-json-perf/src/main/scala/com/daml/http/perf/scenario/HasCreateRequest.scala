@@ -24,13 +24,13 @@ private[scenario] trait HasCreateRequest {
   lazy val randomAmountCreateRequest: HttpRequestBuilder =
     http("CreateCommand")
       .post("/v1/create")
-      .body(StringBody("""{
+      .body(StringBody(s"""{
   "templateId": "Iou:Iou",
   "payload": {
-    "issuer": "Alice",
-    "owner": "Alice",
+    "issuer": "$aliceParty",
+    "owner": "$aliceParty",
     "currency": "USD",
-    "amount": "${amount}",
+    "amount": "$${amount}",
     "observers": []
   }
 }"""))

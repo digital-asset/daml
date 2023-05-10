@@ -10,13 +10,14 @@ import com.daml.http.util.ClientUtil.uniqueId
 import com.daml.jwt.JwtSigner
 import com.daml.jwt.domain.{DecodedJwt, Jwt}
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
-import com.daml.platform.sandbox.SandboxRequiringAuthorizationFuns
 import com.daml.scalautil.ImplicitPreference
+import org.scalatest.OptionValues._
 import org.scalatest.Suite
 import scalaz.syntax.show._
 import scalaz.syntax.tag._
 
 import scala.concurrent.{ExecutionContext, Future}
+import com.daml.lf.integrationtest.CantonRunner
 
 trait HttpServiceUserFixture extends AkkaBeforeAndAfterAll { this: Suite =>
   protected def testId: String
@@ -58,7 +59,7 @@ object HttpServiceUserFixture {
     protected override lazy val jwtAdminNoParty: Jwt = {
       val decodedJwt = DecodedJwt(
         """{"alg": "HS256", "typ": "JWT"}""",
-        s"""{"https://daml.com/ledger-api": {"ledgerId": "${testId: String}", "applicationId": "test", "admin": true}}""",
+        s"""{"https://daml.com/ledger-api": {"ledgerId": "participant0", "applicationId": "test", "admin": true}}""",
       )
       JwtSigner.HMAC256
         .sign(decodedJwt, "secret")
@@ -80,24 +81,11 @@ object HttpServiceUserFixture {
       )
   }
 
-  trait UserToken extends HttpServiceUserFixture with SandboxRequiringAuthorizationFuns {
+  trait UserToken extends HttpServiceUserFixture {
     this: Suite =>
-    override lazy val jwtAdminNoParty: Jwt = Jwt(toHeader(adminTokenStandardJWT))
-
-    private def allocateParty(
-        uri: Uri
-    )(party: domain.Party) = {
-      import spray.json._, json.JsonProtocol._
-      val request = domain.AllocatePartyRequest(
-        Some(party),
-        None,
-      )
-      postRequest(
-        uri.withPath(Uri.Path("/v1/parties/allocate")),
-        json = request.toJson,
-        headers = headersWithAdminAuth,
-      )
-    }
+    override lazy val jwtAdminNoParty: Jwt = Jwt(
+      CantonRunner.getToken("participant_admin", Some("secret")).value
+    )
 
     protected[this] override final def defaultWithoutNamespace = true
 
@@ -124,21 +112,16 @@ object HttpServiceUserFixture {
         ),
       )
       import spray.json._, json.JsonProtocol._
-      for {
-        _ <- Future.sequence(actAs.map(allocateParty(uri)))
-        _ <- Future.sequence(readAs.map(allocateParty(uri)))
-        _ <- postRequest(
-          uri.withPath(Uri.Path("/v1/user/create")),
-          createUserRequest.toJson,
-          headers = headersWithAdminAuth,
-        )
-        jwt = jwtForUser(username)
-      } yield (jwt, domain.ApplicationId(username))
+      postRequest(
+        uri.withPath(Uri.Path("/v1/user/create")),
+        createUserRequest.toJson,
+        headers = headersWithAdminAuth,
+      ).map(_ => (jwtForUser(username), domain.ApplicationId(username)))
     }
 
     protected final def getUniqueUserName(name: String): String = getUniqueParty(name).unwrap
 
     protected def jwtForUser(userId: String): Jwt =
-      Jwt(toHeader(standardToken(userId)))
+      Jwt(CantonRunner.getToken(userId, Some("secret")).value)
   }
 }

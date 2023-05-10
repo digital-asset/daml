@@ -76,6 +76,7 @@ object CantonRunner {
                |      admin-api.port = ${adminPort.port}
                |      ledger-api{
                |        port = ${ledgerApiPort.port}
+               |        explicit-disclosure-unsafe = ${config.enableDisclosedContracts}
                |        ${authConfig}
                |        ${tls}
                |      }

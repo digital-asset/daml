@@ -86,7 +86,7 @@ abstract class AbstractNonRepudiationTest
     }
 
   private def withParticipant[A] =
-    usingLedger[A](testId) _
+    usingLedger[A]() _
 
   private def withJsonApi[A](participantPort: Port) =
     HttpServiceTestFixture.withHttpService[A](

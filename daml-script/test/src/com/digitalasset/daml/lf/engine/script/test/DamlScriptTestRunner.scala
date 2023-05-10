@@ -60,7 +60,7 @@ class DamlScriptTestRunner extends AnyWordSpec with CantonFixture with Matchers 
           |ScriptTest:tupleKey SUCCESS
           |""".stripMargin
 
-      val port = suiteResource.value.head.value
+      val port = ports.head.value
 
       import scala.sys.process._
       val builder = new StringBuilder

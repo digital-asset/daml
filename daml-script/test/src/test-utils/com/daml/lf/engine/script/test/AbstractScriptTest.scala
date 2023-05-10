@@ -82,7 +82,7 @@ trait AbstractScriptTest extends CantonFixture with AkkaBeforeAndAfterAll {
       maxInboundMessageSize: Int = ScriptConfig.DefaultMaxInboundMessageSize,
   ): Future[Participants[GrpcLedgerClient]] = {
     implicit val ec: ExecutionContext = system.dispatcher
-    val participants = suiteResource.value.zipWithIndex.map { case (port, i) =>
+    val participants = ports.zipWithIndex.map { case (port, i) =>
       Participant(s"participant$i") -> ApiParameters(
         host = "localhost",
         port = port.value,
