@@ -4,9 +4,8 @@
 package com.daml.lf.engine.trigger
 
 class TriggerServiceTestAuthClaims
-    extends AbstractTriggerServiceTest
-    with AbstractTriggerServiceTestInMem
-    with AbstractTriggerServiceTestAuthMiddleware {
+    extends AbstractTriggerServiceTestInMem
+    with AbstractTriggerServiceTestAuthMiddlewareWithCanton {
   override protected[this] def oauth2YieldsUserTokens = false
   override protected[this] def sandboxClientTakesUserToken = false
 }

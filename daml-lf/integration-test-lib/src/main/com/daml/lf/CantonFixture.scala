@@ -23,7 +23,8 @@ import org.scalatest.Suite
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{ExecutionContext, Future}
 
-import java.nio.file.{Files, Path, Paths}
+import java.nio.file.{Path, Paths, Files}
+import java.util.UUID
 
 @scala.annotation.nowarn("msg=match may not be exhaustive")
 object CantonFixture {
@@ -47,16 +48,14 @@ object CantonFixture {
       Paths.get(rlocation("test-common/test-certificates/" + src))
     }
 
-  private val counter = new java.util.concurrent.atomic.AtomicLong()
-
-  def freshLong() = counter.getAndIncrement()
-
   def freshName(prefix: String): String = {
     assert(!prefix.contains('_'))
-    prefix + "__" + freshLong().toString
+    prefix + "__" + UUID.randomUUID()
   }
 
-  def freshUserId() = Ref.UserId.assertFromString(freshName("user"))
+  def freshUserId(): Ref.UserId = Ref.UserId.assertFromString(freshName("user"))
+
+  def freshParty(): Ref.Party = Ref.Party.assertFromString(freshName("Party"))
 
 }
 
@@ -73,6 +72,7 @@ trait CantonFixtureWithResource[A]
   protected lazy val timeProviderType: TimeProviderType = TimeProviderType.WallClock
   protected lazy val tlsEnable: Boolean = false
   protected lazy val enableDisclosedContracts: Boolean = false
+  protected lazy val applicationId: ApplicationId = ApplicationId(getClass.getName)
 
   // This flag setup some behavior to ease debugging tests.
   //  If `true`
@@ -106,8 +106,6 @@ trait CantonFixtureWithResource[A]
       releaseTimeout = 2.minute,
     )
   }
-
-  final protected lazy val applicationId: ApplicationId = ApplicationId(getClass.getName)
 
   lazy val config = CantonConfig(
     applicationId = applicationId,

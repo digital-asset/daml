@@ -16,6 +16,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 import com.daml.lf.engine.trigger.TriggerMsg
 import com.daml.util.Ctx
+import scalaz.syntax.tag._
 
 import scala.collection.concurrent.TrieMap
 
@@ -77,7 +78,7 @@ class DevOnly
               createArguments = Some(
                 Record(
                   fields = Seq(
-                    RecordField("owner", Some(Value().withParty(party))),
+                    RecordField("owner", Some(Value().withParty(party.unwrap))),
                     RecordField("tag", Some(Value().withText(visibleViaAllInDar))),
                   )
                 )
@@ -92,7 +93,7 @@ class DevOnly
               createArguments = Some(
                 Record(
                   fields = Seq(
-                    RecordField("owner", Some(Value().withParty(party))),
+                    RecordField("owner", Some(Value().withParty(party.unwrap))),
                     RecordField("tag", Some(Value().withText(visibleViaAllInDar))),
                   )
                 )
@@ -153,7 +154,7 @@ class DevOnly
               createArguments = Some(
                 Record(
                   fields = Seq(
-                    RecordField("owner", Some(Value().withParty(party))),
+                    RecordField("owner", Some(Value().withParty(party.unwrap))),
                     RecordField(
                       "tag",
                       Some(Value().withText(visibleViaTemplateA)),
@@ -171,7 +172,7 @@ class DevOnly
               createArguments = Some(
                 Record(
                   fields = Seq(
-                    RecordField("owner", Some(Value().withParty(party))),
+                    RecordField("owner", Some(Value().withParty(party.unwrap))),
                     RecordField(
                       "tag",
                       Some(Value().withText(visibleViaInterfaceI)),
@@ -235,7 +236,7 @@ class DevOnly
               createArguments = Some(
                 Record(
                   fields = Seq(
-                    RecordField("owner", Some(Value().withParty(party))),
+                    RecordField("owner", Some(Value().withParty(party.unwrap))),
                     RecordField(
                       "tag",
                       Some(Value().withText(visibleViaInterfaceI)),
@@ -253,7 +254,7 @@ class DevOnly
               createArguments = Some(
                 Record(
                   fields = Seq(
-                    RecordField("owner", Some(Value().withParty(party))),
+                    RecordField("owner", Some(Value().withParty(party.unwrap))),
                     RecordField(
                       "tag",
                       Some(Value().withText(visibleViaInterfaceI)),
