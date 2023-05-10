@@ -115,7 +115,7 @@ object Error {
   final case class WronglyTypedContractSoft(
       coid: ContractId,
       expected: TypeConName,
-      accepted: Seq[TypeConName],
+      accepted: List[TypeConName],
       actual: TypeConName,
   ) extends Error
 

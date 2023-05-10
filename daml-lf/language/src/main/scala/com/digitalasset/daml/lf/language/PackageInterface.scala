@@ -367,11 +367,11 @@ private[lf] class PackageInterface(signatures: PartialFunction[PackageId, Packag
   private[this] def lookupPredecessors(
       pkgId: PackageId,
       context: => Reference,
-  ): Either[LookupError, Seq[PackageId]] = {
+  ): Either[LookupError, List[PackageId]] = {
     @tailrec def preds(
         pkgId: PackageId,
-        acc: Seq[PackageId],
-    ): Either[LookupError, Seq[PackageId]] = {
+        acc: List[PackageId],
+    ): Either[LookupError, List[PackageId]] = {
       lookupPackage(pkgId, context) match {
         case Left(err) => Left(err)
         case Right(pkg) =>
@@ -381,10 +381,10 @@ private[lf] class PackageInterface(signatures: PartialFunction[PackageId, Packag
           }
       }
     }
-    preds(pkgId, Seq(pkgId))
+    preds(pkgId, List(pkgId))
   }
 
-  def lookupPredecessors(pkgId: PackageId): Either[LookupError, Seq[PackageId]] =
+  def lookupPredecessors(pkgId: PackageId): Either[LookupError, List[PackageId]] =
     lookupPredecessors(pkgId, Reference.Package(pkgId))
 
 }

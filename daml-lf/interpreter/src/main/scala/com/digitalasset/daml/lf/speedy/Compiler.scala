@@ -154,7 +154,7 @@ private[lf] final class Compiler(
       pkgId: PackageId,
       module: Module,
   ): Iterable[(t.SDefinitionRef, SDefinition)] = {
-    val predPids = pkgInterface.lookupPredecessors(pkgId).getOrElse(Seq.empty)
+    val predPids = pkgInterface.lookupPredecessors(pkgId).getOrElse(List(pkgId))
     compileModule(pkgId, module, predPids)
   }
 
@@ -349,7 +349,7 @@ private[lf] final class Compiler(
   private[this] def compileModule(
       pkgId: PackageId,
       module: Module,
-      preds: Seq[PackageId],
+      preds: List[PackageId],
   ): Iterable[(t.SDefinitionRef, SDefinition)] = {
     val builder = Iterable.newBuilder[(t.SDefinitionRef, SDefinition)]
     def addDef(binding: (t.SDefinitionRef, SDefinition)): Unit = discard(builder += binding)
@@ -455,7 +455,7 @@ private[lf] final class Compiler(
 
     val t1 = Time.Timestamp.now()
 
-    val preds = pkgInterface.lookupPredecessors(pkgId).getOrElse(Seq(pkgId))
+    val preds = pkgInterface.lookupPredecessors(pkgId).getOrElse(List(pkgId))
 
     val result = pkg.modules.values.flatMap(compileModule(pkgId, _, preds))
 
@@ -745,7 +745,7 @@ private[lf] final class Compiler(
       env: Env,
       tmplId: Identifier,
       tmpl: Template,
-      predPids: Seq[PackageId],
+      predPids: List[PackageId],
   )(
       cidPos: Position,
       tokenPos: Position,
@@ -780,7 +780,7 @@ private[lf] final class Compiler(
   private[this] def compileSoftFetchTemplate(
       tmplId: Identifier,
       tmpl: Template,
-      predPids: Seq[PackageId],
+      predPids: List[PackageId],
   ): (t.SDefinitionRef, SDefinition) =
     // compile a template to
     // SoftFetchDefRef(tmplId) = \ <coid> <token> ->

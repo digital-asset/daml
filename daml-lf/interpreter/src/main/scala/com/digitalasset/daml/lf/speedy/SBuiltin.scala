@@ -1094,7 +1094,7 @@ private[lf] object SBuiltin {
   // Crashes unless actualTemplateId is a predecessor of templateId.
   final case class SBPromoteAnyContract(
       templateId: TypeConName,
-      acceptedTemplateIds: Seq[TypeConName],
+      acceptedTemplateIds: List[TypeConName],
   ) extends SBuiltin(2) {
     override private[speedy] def execute[Q](
         args: util.ArrayList[SValue],
