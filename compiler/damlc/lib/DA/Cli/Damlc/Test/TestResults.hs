@@ -22,10 +22,8 @@ import qualified Data.Text.Lazy as TL
 import qualified Data.Set as S
 import qualified Com.Daml.DamlLfDev.DamlLf1 as LF1
 import qualified Data.Map.Strict as M
-import Data.Maybe (mapMaybe, isNothing, maybeToList)
-import Data.Either (isLeft)
-import Control.Monad (guard)
-import Text.Printf (printf)
+import Data.Maybe (mapMaybe, isJust)
+import Text.Printf
 
 class Protobuf a b | a -> b, b -> a where
     decode :: a -> Maybe b
@@ -33,15 +31,13 @@ class Protobuf a b | a -> b, b -> a where
 
 data TestResults = TestResults
     -- What was defined
-    { interfaces :: S.Set ContractIdentifier
-    , interfaceChoices :: S.Set ChoiceIdentifier
-    , templates :: S.Set ContractIdentifier
-    , templateChoices :: S.Set ChoiceIdentifier
+    { templates :: M.Map TemplateIdentifier Choices
+    , interfaces :: M.Map InterfaceIdentifier Choices
+    , interfaceInstances :: S.Set InterfaceInstanceIdentifier
+
     -- What was used
-    , createdInternally :: S.Set ContractIdentifier
-    , createdExternally :: S.Set ContractIdentifier
-    , exercisedInternally :: S.Set ChoiceIdentifier
-    , exercisedExternally :: S.Set ChoiceIdentifier
+    , created :: M.Map TemplateIdentifier (S.Set PackageId)
+    , exercised :: M.Map T.Text (M.Map TemplateIdentifier (S.Set PackageId))
     }
     deriving Show
 
@@ -51,6 +47,7 @@ vecToSet = fmap S.fromList . traverse decode . V.toList
 setToVec :: Protobuf a b => S.Set b -> V.Vector a
 setToVec = V.fromList . map encode . S.toList
 
+    {-
 instance Protobuf TR.TestResults TestResults where
     decode (TR.TestResults interfaces interfaceChoices templates templateChoices createdInternally exercisedInternally createdExternally exercisedExternally) =
         TestResults
@@ -80,13 +77,30 @@ instance Protobuf TR.ChoiceIdentifier ChoiceIdentifier where
 instance Protobuf TR.ContractIdentifier ContractIdentifier where
     decode (TR.ContractIdentifier qualifiedName packageId) = ContractIdentifier (TL.toStrict qualifiedName) <$> (decode =<< packageId)
     encode (ContractIdentifier qualifiedName packageId) = TR.ContractIdentifier (TL.fromStrict qualifiedName) (Just (encode packageId))
+    -}
 
-instance Protobuf TR.PackageId (Maybe T.Text) where
-    decode (TR.PackageId (Just (TR.PackageIdVarietyLocal LF1.Unit))) = Just Nothing
-    decode (TR.PackageId (Just (TR.PackageIdVarietyExternal t))) = Just (Just (TL.toStrict t))
+instance Protobuf TR.TestResults TestResults where
+    decode _ = undefined
+    encode _ = undefined
+
+    {-
+instance Protobuf TR.ChoiceIdentifier ChoiceIdentifier where
+    decode _ = undefined
+    encode _ = undefined
+    -}
+
+    {-
+instance Protobuf TR.ContractIdentifier ContractIdentifier where
+    decode _ = undefined
+    encode _ = undefined
+    -}
+
+instance Protobuf TR.PackageId PackageId where
+    decode (TR.PackageId (Just (TR.PackageIdVarietyLocal LF1.Unit)) name) = Just (PackageId Nothing (TL.toStrict name))
+    decode (TR.PackageId (Just (TR.PackageIdVarietyExternal t)) name) = Just (PackageId (Just (TL.toStrict t)) (TL.toStrict name))
     decode _ = Nothing
-    encode Nothing = TR.PackageId (Just (TR.PackageIdVarietyLocal LF1.Unit))
-    encode (Just t) = TR.PackageId (Just (TR.PackageIdVarietyExternal (TL.fromStrict t)))
+    encode (PackageId Nothing name) = TR.PackageId (Just (TR.PackageIdVarietyLocal LF1.Unit)) (TL.fromStrict name)
+    encode (PackageId (Just ext) name) = TR.PackageId (Just (TR.PackageIdVarietyExternal (TL.fromStrict ext))) (TL.fromStrict name)
 
 saveTestResults :: FilePath -> TestResults -> IO ()
 saveTestResults file testResults = do
@@ -109,269 +123,195 @@ isLocal :: LocalOrExternal -> Bool
 isLocal (Local _) = True
 isLocal _ = False
 
-loeGetModules :: LocalOrExternal -> [(LF.Module, a -> LF.Qualified a)]
-loeGetModules (Local mod) =
-    pure (mod, LF.Qualified LF.PRSelf (LF.moduleName mod))
-loeGetModules (External pkg) =
-    [ (mod, qualifier)
-    | mod <- NM.elems $ LF.packageModules $ LF.extPackagePkg pkg
-    , let qualifier = LF.Qualified (LF.PRImport (LF.extPackageId pkg)) (LF.moduleName mod)
-    ]
+loeGetModules :: LocalOrExternal -> [LF.Module]
+loeGetModules (Local mod) = [mod]
+loeGetModules (External pkg) = NM.elems $ LF.packageModules $ LF.extPackagePkg pkg
 
-data ContractIdentifier = ContractIdentifier
-    { qualifiedName :: T.Text
-    , package :: Maybe T.Text -- `package == Nothing` means local package
-    }
-    deriving (Eq, Ord, Show)
-
-data ChoiceIdentifier = ChoiceIdentifier
-    { choice :: T.Text
-    , packageContract :: ContractIdentifier
-    }
-    deriving (Eq, Ord, Show)
-
-lfTemplateIdentifier :: LF.Qualified LF.Template -> ContractIdentifier
-lfTemplateIdentifier = lfMkNameIdentifier . fmap LF.tplTypeCon
-
-lfInterfaceIdentifier :: LF.Qualified LF.DefInterface -> ContractIdentifier
-lfInterfaceIdentifier = lfMkNameIdentifier . fmap LF.intName
-
-lfMkNameIdentifier :: LF.Qualified LF.TypeConName -> ContractIdentifier
-lfMkNameIdentifier LF.Qualified { qualPackage, qualModule, qualObject } =
-    let package =
-            case qualPackage of
-              LF.PRSelf -> Nothing
-              LF.PRImport (LF.PackageId pid) -> Just pid
-        qualifiedName =
-            LF.moduleNameString qualModule
-                <> ":"
-                <> T.concat (LF.unTypeConName qualObject)
+loeToPackageId :: (T.Text -> T.Text) -> LocalOrExternal -> PackageId
+loeToPackageId pkgIdToPkgName loe =
+    let variety = case loe of
+          Local _ -> Nothing
+          External pkg -> Just (LF.unPackageId (LF.extPackageId pkg))
+        name = maybe "" pkgIdToPkgName variety
     in
-    ContractIdentifier { package, qualifiedName }
+    PackageId { variety, name }
 
-ssIdentifierToIdentifier :: SS.Identifier -> ContractIdentifier
-ssIdentifierToIdentifier SS.Identifier {SS.identifierPackage, SS.identifierName} =
-    let package = do
+-- Contracts
+data TemplateIdentifier = TemplateIdentifier
+    { qualifiedName :: T.Text
+    , package :: PackageId
+    }
+    deriving (Eq, Ord, Show)
+
+newtype InterfaceIdentifier = InterfaceIdentifier { unInterfaceIdentifier :: TemplateIdentifier }
+    deriving (Eq, Ord, Show)
+
+data InterfaceInstanceIdentifier = InterfaceInstanceIdentifier
+    { instanceTemplate :: TemplateIdentifier
+    , instanceInterface :: InterfaceIdentifier
+    , instancePackage :: PackageId
+      -- ^ package where the instance was defined, as opposed to where the template/interface was defined
+    }
+    deriving (Eq, Ord, Show)
+
+    {-
+data ContractIdentifier
+    = TemplateContract TemplateIdentifier
+    | InterfaceContract InterfaceIdentifier
+    | InterfaceInstanceContract InterfaceInstanceIdentifier
+    deriving (Eq, Ord, Show)
+    -}
+
+-- Choices
+type Choices = S.Set T.Text
+
+data PackageId = PackageId
+    { variety :: Maybe T.Text -- `variety == Nothing` means local package
+    , name :: T.Text
+    }
+    deriving (Eq, Ord, Show)
+
+isLocalPkgId :: PackageId -> Bool
+isLocalPkgId PackageId { variety = Nothing } = True
+isLocalPkgId _ = False
+
+lfTemplateIdentifier :: PackageId -> LF.Module -> LF.Template -> TemplateIdentifier
+lfTemplateIdentifier packageId mod tpl =
+    lfMkNameIdentifier packageId mod $ LF.tplTypeCon tpl
+
+lfInterfaceIdentifier :: PackageId -> LF.Module -> LF.DefInterface -> InterfaceIdentifier
+lfInterfaceIdentifier packageId mod iface =
+    InterfaceIdentifier $ lfMkNameIdentifier packageId mod $ LF.intName iface
+
+lfMkNameIdentifier :: PackageId -> LF.Module -> LF.TypeConName -> TemplateIdentifier
+lfMkNameIdentifier packageId mod typeConName =
+    let qualifiedName =
+            LF.moduleNameString (LF.moduleName mod)
+                <> ":"
+                <> T.concat (LF.unTypeConName typeConName)
+    in
+    TemplateIdentifier { package = packageId, qualifiedName }
+
+ssIdentifierToPackage :: (T.Text -> T.Text) -> SS.Identifier -> PackageId
+ssIdentifierToPackage pkgIdToPkgName SS.Identifier {SS.identifierPackage} =
+    let variety = do
             pIdSumM <- identifierPackage
             pIdSum <- SS.packageIdentifierSum pIdSumM
             case pIdSum of
                 SS.PackageIdentifierSumSelf _ -> Nothing
                 SS.PackageIdentifierSumPackageId pId -> Just $ TL.toStrict pId
-        qualifiedName = TL.toStrict identifierName
+        name = maybe "" pkgIdToPkgName variety
     in
-    ContractIdentifier { package, qualifiedName }
+    PackageId { variety, name }
 
-printTestCoverage ::
-    Bool
-    -> [LocalOrExternal]
+ssIdentifierToIdentifier :: (T.Text -> T.Text) -> SS.Identifier -> TemplateIdentifier
+ssIdentifierToIdentifier pkgIdToPkgName identifier@SS.Identifier {SS.identifierName} =
+    TemplateIdentifier
+        { package = ssIdentifierToPackage pkgIdToPkgName identifier
+        , qualifiedName = TL.toStrict identifierName
+        }
+
+allTemplateChoices :: TestResults -> M.Map T.Text TemplateIdentifier
+allTemplateChoices testResults = M.fromList
+    [ (choice, templateIdentifier)
+    | (templateIdentifier, choices) <- M.toList (templates testResults)
+    , choice <- S.toList choices
+    ]
+
+allInterfaceChoices :: TestResults -> M.Map T.Text InterfaceIdentifier
+allInterfaceChoices testResults = M.fromList
+    [ (choice, interfaceIdentifier)
+    | (interfaceIdentifier, choices) <- M.toList (interfaces testResults)
+    , choice <- S.toList choices
+    ]
+
+scenarioResultsToTestResults
+    :: [LocalOrExternal]
     -> [(LocalOrExternal, [(VirtualResource, Either SSC.Error SS.ScenarioResult)])]
-    -> IO ()
-printTestCoverage showCoverage allPackages results
-  | any (isLeft . snd) $ concatMap snd results = pure ()
-  | otherwise = printReport
-  where
-    printReport :: IO ()
-    printReport =
-        let countWhere pred = M.size . M.filter pred
-            pctage :: Int -> Int -> Double
-            pctage _ 0 = 100
-            pctage n d = max 0 $ min 100 $ 100 * fromIntegral n / fromIntegral d
-
-            allTemplates = templatesDefinedIn allPackages
-            localTemplates = M.filterWithKey pred allTemplates
-              where
-                pred (ContractIdentifier { package = Nothing }) _ = True
-                pred _ _ = False
-            localTemplatesCreated = M.intersection allCreatedContracts localTemplates
-
-            allTemplateChoices = templateChoicesDefinedIn allPackages
-            localTemplateChoices = M.filterWithKey pred allTemplateChoices
-              where
-                pred (ChoiceIdentifier { packageContract = ContractIdentifier { package = Nothing } }) _ = True
-                pred _ _ = False
-            localTemplateChoicesExercised = M.intersection allExercisedChoices localTemplateChoices
-
-            allInterfaces = interfacesDefinedIn allPackages
-            allImplementations = interfaceImplementationsDefinedIn allPackages
-            fillInImplementation (ifaceId, _) (loe, instanceBody) = (loe, instanceBody, M.lookup ifaceId allInterfaces)
-
-            allImplementationChoices = M.fromList $ do
-                (k@(_, contractId), (loe, body, mdef)) <- M.toList $ M.mapWithKey fillInImplementation allImplementations
-                def <- maybeToList mdef
-                choice <- NM.toList $ LF.intChoices $ LF.qualObject def
-                let name = LF.unChoiceName $ LF.chcName choice
-                guard (name /= "Archive")
-                pure (ChoiceIdentifier { choice = name, packageContract = contractId }, (k, loe, body, def, choice))
-
-            localImplementationChoices = M.filter pred allImplementationChoices
-              where
-                pred (_, loe, _, _, _) = isLocal loe
-            localImplementationChoicesExercised = M.intersection allExercisedChoices localImplementationChoices
-            externalImplementationChoices = M.filter pred allImplementationChoices
-              where
-                pred (_, loe, _, _, _) = not (isLocal loe)
-            externalImplementationChoicesExercised = M.intersection allExercisedChoices externalImplementationChoices
-
-            externalTemplates = M.filterWithKey pred allTemplates
-              where
-                pred (ContractIdentifier { package = Just _ }) _ = True
-                pred _ _ = False
-            externalTemplatesCreated = M.intersection allCreatedContracts externalTemplates
-
-            externalTemplateChoices = M.filterWithKey pred allTemplateChoices
-              where
-                pred (ChoiceIdentifier { packageContract = ContractIdentifier { package = Just _ } }) _ = True
-                pred _ _ = False
-            externalTemplateChoicesExercised = M.intersection allExercisedChoices externalTemplateChoices
-
-            showCoverageReport :: (k -> String) -> String -> M.Map k a -> [String]
-            showCoverageReport printer variety names
-              | not showCoverage = []
-              | otherwise =
-                [ printf "  %s: %d" variety (M.size names)
-                ] ++ [ "    " ++ printer id | id <- M.keys names ]
-        in
-        putStrLn $
-        unlines $
-        concat
-        [ [ printf "Modules internal to this package:" ]
-        -- Can't have any external tests that exercise internals, as that would
-        -- require a circular dependency, so we only report local test results
-        , let defined = M.size localTemplates
-              created = M.size localTemplatesCreated
-              neverCreated = M.difference localTemplates localTemplatesCreated
-          in
-          [ printf "- Internal templates"
-          , printf "  %d defined" defined
-          , printf "  %d (%5.1f%%) created" created (pctage created defined)
-          ] ++ showCoverageReport printContractIdentifier "internal templates never created" neverCreated
-        , let defined = M.size localTemplateChoices
-              exercised = M.size localTemplateChoicesExercised
-              neverExercised = M.difference localTemplateChoices localTemplateChoicesExercised
-          in
-          [ printf "- Internal template choices"
-          , printf "  %d defined" defined
-          , printf "  %d (%5.1f%%) exercised" exercised (pctage exercised defined)
-          ] ++ showCoverageReport printChoiceIdentifier "internal template choices never exercised" neverExercised
-        , let localImplementations = M.filter (isLocal . fst) allImplementations
-              defined = M.size localImplementations
-              (internal, external) = M.partitionWithKey (\(ifaceId, _) _ -> isNothing (package ifaceId)) localImplementations
-          in
-          [ printf "- Internal interface implementations"
-          , printf "  %d defined" defined
-          , printf "    %d internal interfaces" (M.size internal)
-          , printf "    %d external interfaces" (M.size external)
-          ]
-        , let defined = M.size localImplementationChoices
-              exercised = M.size localImplementationChoicesExercised
-              neverExercised = M.difference localImplementationChoices localImplementationChoicesExercised
-          in
-          [ printf "- Internal interface choices"
-          , printf "  %d defined" defined
-          , printf "  %d (%5.1f%%) exercised" exercised (pctage exercised defined)
-          ] ++ showCoverageReport printChoiceIdentifier "internal interface choices never exercised" neverExercised
-        , [ printf "Modules external to this package:" ]
-        -- Here, interface instances can only refer to external templates and
-        -- interfaces, so we only report external interface instances
-        , let defined = M.size externalTemplates
-              createdAny = M.size externalTemplatesCreated
-              createdInternal = countWhere (any isLocal) externalTemplatesCreated
-              createdExternal = countWhere (not . all isLocal) externalTemplatesCreated
-              neverCreated = M.difference externalTemplates externalTemplatesCreated
-          in
-          [ printf "- External templates"
-          , printf "  %d defined" defined
-          , printf "  %d (%5.1f%%) created in any tests" createdAny (pctage createdAny defined)
-          , printf "  %d (%5.1f%%) created in internal tests" createdInternal (pctage createdInternal defined)
-          , printf "  %d (%5.1f%%) created in external tests" createdExternal (pctage createdExternal defined)
-          ] ++ showCoverageReport printContractIdentifier "external templates never created" neverCreated
-        , let defined = M.size externalTemplateChoices
-              exercisedAny = M.size externalTemplateChoicesExercised
-              exercisedInternal = countWhere (any isLocal) externalTemplateChoicesExercised
-              exercisedExternal = countWhere (not . all isLocal) externalTemplateChoicesExercised
-              neverExercised = M.difference externalTemplateChoices externalTemplateChoicesExercised
-          in
-          [ printf "- External template choices"
-          , printf "  %d defined" defined
-          , printf "  %d (%5.1f%%) exercised in any tests" exercisedAny (pctage exercisedAny defined)
-          , printf "  %d (%5.1f%%) exercised in internal tests" exercisedInternal (pctage exercisedInternal defined)
-          , printf "  %d (%5.1f%%) exercised in external tests" exercisedExternal (pctage exercisedExternal defined)
-          ] ++ showCoverageReport printChoiceIdentifier "external template choices never exercised" neverExercised
-        , let defined = countWhere (not . isLocal . fst) allImplementations
-          in
-          [ printf "- External interface implementations"
-          , printf "  %d defined" defined
-          ]
-        , let defined = M.size externalImplementationChoices
-              exercisedAny = M.size externalImplementationChoicesExercised
-              exercisedInternal = countWhere (any isLocal) externalImplementationChoicesExercised
-              exercisedExternal = countWhere (not . all isLocal) externalImplementationChoicesExercised
-              neverExercised = M.difference externalImplementationChoices externalImplementationChoicesExercised
-          in
-          [ printf "- External interface choices"
-          , printf "  %d defined" defined
-          , printf "  %d (%5.1f%%) exercised in any tests" exercisedAny (pctage exercisedAny defined)
-          , printf "  %d (%5.1f%%) exercised in internal tests" exercisedInternal (pctage exercisedInternal defined)
-          , printf "  %d (%5.1f%%) exercised in external tests" exercisedExternal (pctage exercisedExternal defined)
-          ] ++ showCoverageReport printChoiceIdentifier "external interface choices never exercised" neverExercised
-        ]
-
-    templatesDefinedIn :: [LocalOrExternal] -> M.Map ContractIdentifier (LF.Qualified LF.Template)
+    -> TestResults
+scenarioResultsToTestResults allPackages results =
+    TestResults
+        { templates = fmap (extractChoicesFromTemplate . thd) $ templatesDefinedIn allPackages
+        , interfaces = fmap (extractChoicesFromInterface . thd) $ interfacesDefinedIn allPackages
+        , interfaceInstances = interfaceImplementationsDefinedIn allPackages
+        , created = allCreatedTemplates
+        , exercised = allExercisedChoices
+        }
+    where
+    templatesDefinedIn :: [LocalOrExternal] -> M.Map TemplateIdentifier (PackageId, LF.Module, LF.Template)
     templatesDefinedIn localOrExternals = M.fromList
-        [ (lfTemplateIdentifier templateInfo, templateInfo)
-        | localOrExternal <- localOrExternals
-        , (module_, qualifier) <- loeGetModules localOrExternal
-        , template <- NM.toList $ LF.moduleTemplates module_
-        , let templateInfo = qualifier template
-        ]
-
-    interfacesDefinedIn :: [LocalOrExternal] -> M.Map ContractIdentifier (LF.Qualified LF.DefInterface)
-    interfacesDefinedIn localOrExternals = M.fromList
-        [ (lfInterfaceIdentifier interfaceInfo, interfaceInfo)
-        | localOrExternal <- localOrExternals
-        , (module_, qualifier) <- loeGetModules localOrExternal
-        , interface <- NM.toList $ LF.moduleInterfaces module_
-        , let interfaceInfo = qualifier interface
-        ]
-
-    templateChoicesDefinedIn :: [LocalOrExternal] -> M.Map ChoiceIdentifier (LF.Qualified LF.Template, LF.TemplateChoice)
-    templateChoicesDefinedIn localOrExternals = M.fromList
-        [ ( ChoiceIdentifier
-              { choice = name
-              , packageContract = templateIdentifier
-              }
-          , (templateInfo, choice)
+        [ ( lfTemplateIdentifier pkgId module_ template
+          , (pkgId, module_, template)
           )
-        | (templateIdentifier, templateInfo) <- M.toList $ templatesDefinedIn localOrExternals
-        , choice <- NM.toList $ LF.tplChoices $ LF.qualObject templateInfo
-        , let name = LF.unChoiceName $ LF.chcName choice
+        | localOrExternal <- localOrExternals
+        , module_ <- loeGetModules localOrExternal
+        , template <- NM.toList $ LF.moduleTemplates module_
+        , let pkgId = loeToPackageId pkgIdToPkgName localOrExternal
         ]
 
-    interfaceImplementationsDefinedIn :: [LocalOrExternal] -> M.Map (ContractIdentifier, ContractIdentifier) (LocalOrExternal, LF.InterfaceInstanceBody)
-    interfaceImplementationsDefinedIn localOrExternals = M.fromList $
-        [ ((lfMkNameIdentifier tpiInterface, templateIdentifier), (loe, tpiBody))
+    thd :: (a, b, c) -> c
+    thd (_, _, c) = c
+
+    extractChoicesFromTemplate :: LF.Template -> Choices
+    extractChoicesFromTemplate template
+        = S.fromList
+        $ map (LF.unChoiceName . LF.chcName)
+        $ NM.toList
+        $ LF.tplChoices template
+
+    interfacesDefinedIn :: [LocalOrExternal] -> M.Map InterfaceIdentifier (PackageId, LF.Module, LF.DefInterface)
+    interfacesDefinedIn localOrExternals = M.fromList
+        [ ( lfInterfaceIdentifier pkgId module_ interface
+          , (pkgId, module_, interface)
+          )
+        | localOrExternal <- localOrExternals
+        , module_ <- loeGetModules localOrExternal
+        , interface <- NM.toList $ LF.moduleInterfaces module_
+        , let pkgId = loeToPackageId pkgIdToPkgName localOrExternal
+        ]
+
+    extractChoicesFromInterface :: LF.DefInterface -> Choices
+    extractChoicesFromInterface interface
+        = S.fromList
+        $ filter (/= "Archive")
+        $ map (LF.unChoiceName . LF.chcName)
+        $ NM.toList
+        $ LF.intChoices interface
+
+    interfaceImplementationsDefinedIn :: [LocalOrExternal] -> S.Set InterfaceInstanceIdentifier
+    interfaceImplementationsDefinedIn localOrExternals = S.fromList $
+        [ InterfaceInstanceIdentifier
+            { instanceTemplate = templateIdentifier
+            , instanceInterface = InterfaceIdentifier $ lfMkNameIdentifier pkgId module_ (LF.qualObject tpiInterface)
+            , instancePackage = package templateIdentifier
+            }
         | loe <- localOrExternals
-        , (templateIdentifier, templateInfo) <- M.toList $ templatesDefinedIn [loe]
-        , LF.TemplateImplements { tpiInterface, tpiBody }
-            <- NM.toList $ LF.tplImplements $ LF.qualObject templateInfo
+        , (templateIdentifier, (pkgId, module_, templateInfo)) <- M.toList $ templatesDefinedIn [loe]
+        , LF.TemplateImplements { tpiInterface }
+            <- NM.toList $ LF.tplImplements templateInfo
         ] ++
-        [ ((interfaceIdentifier, lfMkNameIdentifier iciTemplate), (loe, iciBody))
+        [ InterfaceInstanceIdentifier
+            { instanceTemplate = lfMkNameIdentifier pkgId module_ (LF.qualObject iciTemplate)
+            , instanceInterface = interfaceIdentifier
+            , instancePackage = package (unInterfaceIdentifier interfaceIdentifier)
+            }
         | loe <- localOrExternals
-        , (interfaceIdentifier, interfaceInfo) <- M.toList $ interfacesDefinedIn [loe]
-        , LF.InterfaceCoImplements { iciTemplate, iciBody }
-            <- NM.toList $ LF.intCoImplements $ LF.qualObject interfaceInfo
+        , (interfaceIdentifier, (pkgId, module_, interfaceInfo)) <- M.toList $ interfacesDefinedIn [loe]
+        , LF.InterfaceCoImplements { iciTemplate }
+            <- NM.toList $ LF.intCoImplements interfaceInfo
         ]
 
-    allCreatedContracts :: M.Map ContractIdentifier [LocalOrExternal]
-    allCreatedContracts = M.unionsWith (<>) $ map (fmap (:[]) . uncurry createdContracts) results
+    allCreatedTemplates :: M.Map TemplateIdentifier (S.Set PackageId)
+    allCreatedTemplates = M.unionsWith (<>) $ map (uncurry templatesCreatedIn) results
 
-    allExercisedChoices :: M.Map ChoiceIdentifier [LocalOrExternal]
-    allExercisedChoices = M.unionsWith (<>) $ map (fmap (:[]) . uncurry exercisedChoices) results
+    allExercisedChoices :: M.Map T.Text (M.Map TemplateIdentifier (S.Set PackageId))
+    allExercisedChoices = M.unionsWith (M.unionWith (<>)) $ map (uncurry choicesExercisedIn) results
 
-    createdContracts :: LocalOrExternal -> [(VirtualResource, Either SSC.Error SS.ScenarioResult)] -> M.Map ContractIdentifier LocalOrExternal
-    createdContracts loe results =
-        M.fromList $
-        [ (ssIdentifierToIdentifier identifier, loe)
+    templatesCreatedIn :: LocalOrExternal -> [(VirtualResource, Either SSC.Error SS.ScenarioResult)] -> M.Map TemplateIdentifier (S.Set PackageId)
+    templatesCreatedIn loe results = M.fromListWith (<>)
+        [ ( ssIdentifierToIdentifier pkgIdToPkgName identifier
+          , S.singleton (loeToPackageId pkgIdToPkgName loe)
+          )
         | n <- scenarioNodes results
         , Just (SS.NodeNodeCreate SS.Node_Create {SS.node_CreateContractInstance}) <-
               [SS.nodeNode n]
@@ -379,20 +319,18 @@ printTestCoverage showCoverage allPackages results
         , Just identifier <- [SS.contractInstanceTemplateId contractInstance]
         ]
 
-    exercisedChoices :: LocalOrExternal -> [(VirtualResource, Either SSC.Error SS.ScenarioResult)] -> M.Map ChoiceIdentifier LocalOrExternal
-    exercisedChoices loe results =
-        M.fromList $
-        [ (choiceIdentifier, loe)
+    choicesExercisedIn :: LocalOrExternal -> [(VirtualResource, Either SSC.Error SS.ScenarioResult)] -> M.Map T.Text (M.Map TemplateIdentifier (S.Set PackageId))
+    choicesExercisedIn loe results = M.fromListWith (<>)
+        [ ( TL.toStrict node_ExerciseChoiceId
+          , M.singleton
+              (ssIdentifierToIdentifier pkgIdToPkgName identifier)
+              (S.singleton (loeToPackageId pkgIdToPkgName loe))
+          )
         | n <- scenarioNodes results
         , Just (SS.NodeNodeExercise SS.Node_Exercise { SS.node_ExerciseTemplateId
                                                      , SS.node_ExerciseChoiceId
                                                      }) <- [SS.nodeNode n]
         , Just identifier <- [node_ExerciseTemplateId]
-        , let choiceIdentifier =
-                ChoiceIdentifier
-                    { choice = TL.toStrict node_ExerciseChoiceId
-                    , packageContract = ssIdentifierToIdentifier identifier
-                    }
         ]
 
     scenarioNodes :: [(VirtualResource, Either SSC.Error SS.ScenarioResult)] -> [SS.Node]
@@ -416,6 +354,178 @@ printTestCoverage showCoverage allPackages results
                 | otherwise
                 = Nothing
 
+templateChoiceExercised :: TestResults -> T.Text -> TemplateIdentifier -> Maybe (S.Set PackageId)
+templateChoiceExercised testResults name templateIdentifier = do
+    exercise <- name `M.lookup` exercised testResults
+    occurrences <- templateIdentifier `M.lookup` exercise
+    pure occurrences
+
+interfaceInstanceChoiceExercised :: TestResults -> T.Text -> InterfaceInstanceIdentifier -> Maybe (S.Set PackageId)
+interfaceInstanceChoiceExercised testResults name interfaceInstanceIdentifier = do
+    exercise <- name `M.lookup` exercised testResults
+    occurrences <- instanceTemplate interfaceInstanceIdentifier `M.lookup` exercise
+    pure occurrences
+
+interfaceInstanceChoices :: TestResults -> InterfaceInstanceIdentifier -> Maybe Choices
+interfaceInstanceChoices testResults interfaceInstanceIdentifier =
+    instanceInterface interfaceInstanceIdentifier `M.lookup` interfaces testResults
+
+printTestCoverage ::
+    Bool
+    -> TestResults
+    -> IO ()
+printTestCoverage showCoverage testResults@TestResults { templates, interfaceInstances, created } =
+    let countWhere pred = M.size . M.filter pred
+        pctage :: Int -> Int -> Double
+        pctage _ 0 = 100
+        pctage n d = max 0 $ min 100 $ 100 * fromIntegral n / fromIntegral d
+
+        localTemplates = M.filterWithKey pred templates
+          where
+            pred templateId _ = isLocalPkgId (package templateId)
+        localTemplatesCreated = M.intersection created localTemplates
+
+        (localTemplateChoices, externalTemplateChoices) = M.partition (isLocalPkgId . package) (allTemplateChoices testResults)
+
+        (localImplementations, externalImplementations) = S.partition pred interfaceInstances
+          where
+            pred ifaceInst = isLocalPkgId (instancePackage ifaceInst)
+        getImplementationChoices implementations = M.fromList
+            [ ( (choice, implementation)
+              , interfaceInstanceChoiceExercised testResults choice implementation
+              )
+            | implementation <- S.toList implementations
+            , Just choices <- pure (interfaceInstanceChoices testResults implementation)
+            , choice <- S.toList choices
+            ]
+        localImplementationChoices = getImplementationChoices localImplementations
+        externalImplementationChoices = getImplementationChoices externalImplementations
+
+        externalTemplates = M.filterWithKey (\k _ -> isLocalPkgId (package k)) templates
+        externalTemplatesCreated = M.intersection created externalTemplates
+
+        showCoverageReport :: (k -> String) -> String -> M.Map k a -> [String]
+        showCoverageReport printer variety names
+          | not showCoverage = []
+          | otherwise =
+            [ printf "  %s: %d" variety (M.size names)
+            ] ++ [ "    " ++ printer id | id <- M.keys names ]
+    in
+    putStrLn $
+    unlines $
+    concat
+    [ [ printf "Modules internal to this package:" ]
+    -- Can't have any external tests that exercise internals, as that would
+    -- require a circular dependency, so we only report local test results
+    , let defined = M.size localTemplates
+          created = M.size localTemplatesCreated
+          neverCreated = M.difference localTemplates localTemplatesCreated
+      in
+      [ printf "- Internal templates"
+      , printf "  %d defined" defined
+      , printf "  %d (%5.1f%%) created" created (pctage created defined)
+      ] ++ showCoverageReport printContractIdentifier "internal templates never created" neverCreated
+    , let defined = M.size localTemplateChoices
+          (exercised, neverExercised) =
+              M.partitionWithKey pred localTemplateChoices
+            where
+              pred choice templateId = isJust (templateChoiceExercised testResults choice templateId)
+      in
+      [ printf "- Internal template choices"
+      , printf "  %d defined" defined
+      , printf "  %d (%5.1f%%) exercised" (M.size exercised) (pctage (M.size exercised) defined)
+      ] ++ showCoverageReport printChoiceIdentifier "internal template choices never exercised" neverExercised
+    , let defined = S.size localImplementations
+          (internal, external) = S.partition (isLocalPkgId . package . unInterfaceIdentifier . instanceInterface) localImplementations
+      in
+      [ printf "- Internal interface implementations"
+      , printf "  %d defined" defined
+      , printf "    %d internal interfaces" (S.size internal)
+      , printf "    %d external interfaces" (S.size external)
+      ]
+    , let defined = M.size localImplementationChoices
+          (exercised, neverExercised) = M.partition isJust localImplementationChoices
+      in
+      [ printf "- Internal interface choices"
+      , printf "  %d defined" defined
+      , printf "  %d (%5.1f%%) exercised" (M.size exercised) (pctage (M.size exercised) defined)
+      ] ++ showCoverageReport printChoiceIdentifier "internal interface choices never exercised" neverExercised
+    , [ printf "Modules external to this package:" ]
+    , let defined = M.size externalTemplates
+          createdAny = M.size externalTemplatesCreated
+          createdInternal = countWhere (any isLocalPkgId) externalTemplatesCreated
+          createdExternal = countWhere (any (not . isLocalPkgId)) externalTemplatesCreated
+          neverCreated = M.difference externalTemplates externalTemplatesCreated
+      in
+      [ printf "- External templates"
+      , printf "  %d defined" defined
+      , printf "  %d (%5.1f%%) created in any tests" createdAny (pctage createdAny defined)
+      , printf "  %d (%5.1f%%) created in internal tests" createdInternal (pctage createdInternal defined)
+      , printf "  %d (%5.1f%%) created in external tests" createdExternal (pctage createdExternal defined)
+      ] ++ showCoverageReport printContractIdentifier "external templates never created" neverCreated
+    , let defined = M.size externalTemplateChoices
+          (exercisedAny, neverExercised) = M.mapEitherWithKey f externalTemplateChoices
+              where
+                  f choice templateId =
+                      case templateChoiceExercised testResults choice templateId of
+                        Nothing -> Right templateId
+                        Just locations -> Left locations
+          exercisedInternal = countWhere (any isLocalPkgId) exercisedAny
+          exercisedExternal = countWhere (any (not . isLocalPkgId)) exercisedAny
+      in
+      [ printf "- External template choices"
+      , printf "  %d defined" defined
+      , printf "  %d (%5.1f%%) exercised in any tests" (M.size exercisedAny) (pctage (M.size exercisedAny) defined)
+      , printf "  %d (%5.1f%%) exercised in internal tests" exercisedInternal (pctage exercisedInternal defined)
+      , printf "  %d (%5.1f%%) exercised in external tests" exercisedExternal (pctage exercisedExternal defined)
+      ] ++ showCoverageReport printChoiceIdentifier "external template choices never exercised" neverExercised
+    , let defined = S.size $ S.filter (not . isLocalPkgId . instancePackage) interfaceInstances
+    -- Here, interface instances can only refer to external templates and
+    -- interfaces, so we only report external interface instances
+      in
+      [ printf "- External interface implementations"
+      , printf "  %d defined" defined
+      ]
+    , let defined = M.size externalImplementationChoices
+          (exercisedAny, neverExercised) = M.mapEitherWithKey f externalImplementationChoices
+              where
+                  f (_, instanceId) locations =
+                      case locations of
+                        Nothing -> Right instanceId
+                        Just locations -> Left locations
+          exercisedInternal = countWhere (any isLocalPkgId) exercisedAny
+          exercisedExternal = countWhere (any (not . isLocalPkgId)) exercisedAny
+      in
+      [ printf "- External interface choices"
+      , printf "  %d defined" defined
+      , printf "  %d (%5.1f%%) exercised in any tests" (M.size exercisedAny) (pctage (M.size exercisedAny) defined)
+      , printf "  %d (%5.1f%%) exercised in internal tests" exercisedInternal (pctage exercisedInternal defined)
+      , printf "  %d (%5.1f%%) exercised in external tests" exercisedExternal (pctage exercisedExternal defined)
+      ] ++ showCoverageReport printChoiceIdentifier "external interface choices never exercised" neverExercised
+    ]
+
+    where
+
+        {-
+    pkgIdToPkgName :: T.Text -> T.Text
+    pkgIdToPkgName targetPid =
+        case mapMaybe isTargetPackage allPackages of
+          [] -> targetPid
+          [matchingPkg] -> maybe targetPid (LF.unPackageName . LF.packageName) $ LF.packageMetadata $ LF.extPackagePkg matchingPkg
+          _ -> error ("pkgIdToPkgName: more than one package matching name " <> T.unpack targetPid)
+        where
+            isTargetPackage loe
+                | External pkg <- loe
+                , targetPid == LF.unPackageId (LF.extPackageId pkg)
+                = Just pkg
+                | otherwise
+                = Nothing
+        -}
+
+    printContractIdentifier = undefined
+    printChoiceIdentifier = undefined
+
+        {-
     printContractIdentifier :: ContractIdentifier -> String
     printContractIdentifier ContractIdentifier { package, qualifiedName } =
         T.unpack $ maybe
@@ -424,6 +534,6 @@ printTestCoverage showCoverage allPackages results
             package
 
     printChoiceIdentifier :: ChoiceIdentifier -> String
-    printChoiceIdentifier ChoiceIdentifier { packageContract, choice } =
-        printContractIdentifier packageContract <> ":" <> T.unpack choice
-
+    printChoiceIdentifier ChoiceIdentifier { contract, choice } =
+        printContractIdentifier contract <> ":" <> T.unpack choice
+        -}

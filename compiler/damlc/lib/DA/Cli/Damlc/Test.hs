@@ -130,8 +130,9 @@ testRun h inFiles lfVersion (RunAllTests runAllTests) coverage color mbJUnitOutp
     -- print total test coverage
     TR.printTestCoverage
         (getShowCoverage coverage)
-        allPackages
-        allResults
+        (TR.scenarioResultsToTestResults
+            allPackages
+            allResults)
 
     mbSdkPath <- getEnv sdkPathEnvVar
     let doesOutputTablesOrTransactions =
