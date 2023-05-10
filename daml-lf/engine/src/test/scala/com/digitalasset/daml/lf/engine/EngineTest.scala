@@ -40,12 +40,7 @@ import com.daml.lf.transaction.test.TransactionBuilder.assertAsVersionedContract
 import com.daml.logging.LoggingContext
 import com.daml.test.evidence.scalatest.ScalaTestSupport.Implicits.tagToContainer
 import com.daml.test.evidence.tag.Security.SecurityTest.Property.Authorization
-import com.daml.test.evidence.tag.Security.{
-  Attack,
-  SecurityTest,
-  SecurityTestLayer,
-  SecurityTestSuite,
-}
+import com.daml.test.evidence.tag.Security.{Attack, SecurityTest, SecurityTestSuite}
 import org.scalactic.Equality
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.{Assertion, EitherValues}
@@ -73,8 +68,6 @@ class EngineTest
     with SecurityTestSuite {
 
   import EngineTest._
-
-  override def securityTestLayer = SecurityTestLayer.LedgerModel
 
   "minimal create command" should {
     val id = Identifier(basicTestsPkgId, "BasicTests:Simple")

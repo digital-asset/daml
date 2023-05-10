@@ -7,47 +7,14 @@ import better.files.File
 
 object Security {
 
-  /** Security-relevant information on a test-suite level.
+  /** Marker trait for security relevant test suites.
     *
     * If a scalatest suite extends this trait, you should add the following import:
     * <pre>
     * import com.daml.test.evidence.scalatest.ScalaTestSupport.Implicits.*
     * </pre>
     */
-  trait SecurityTestSuite {
-
-    /** The layer that the security test suite tests, such as on the network/API level or the ledger model. */
-    // TODO test evidencing: This field may need to be revised. Usually a suite mixes test cases from different layers.
-    //  So it gets hard to choose a single layer that describes all tests.
-    def securityTestLayer: SecurityTestLayer
-
-    // TODO test evidencing: Include security-relevant configuration that is tested from the environment
-  }
-
-  sealed trait SecurityTestLayer
-  object SecurityTestLayer {
-
-    /** Security tests that covers attacks on the network transport and API level.
-      * I.e., very generic attacks such as those from OWASP top ten.
-      *
-      * Example: a ledger api client with TLS enabled when presented an untrusted server certificate
-      * must refuse to submit ledger api commands.
-      */
-    case object Network extends SecurityTestLayer
-
-    /** Security tests that cover the Daml Ledger model properties
-      *
-      * Example: if a ledger api user tries to use an inactive contract, the ledger api must reject the command.
-      */
-    case object LedgerModel extends SecurityTestLayer
-
-    /** Security test that cover Canton specific security properties.
-      * I.e., properties that are not covered by the ledger model, but too specific for the Network category.
-      *
-      * Example: if a participant operator tries to remove a vetted package, the participant must reject the command.
-      */
-    case object KeyRequirements extends SecurityTestLayer
-  }
+  trait SecurityTestSuite
 
   type HappyOrAttack = Either[HappyCase, Attack]
 

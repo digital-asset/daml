@@ -32,10 +32,8 @@ object JsonCodec {
       Encoder.encodeEither("happy", "attack")
     implicit val decoderHappyOrAttack: Decoder[HappyOrAttack] =
       Decoder.decodeEither("happy", "attack")
-    implicit val codecSecurityTestLayer: Codec[SecurityTestLayer] =
-      deriveEnumerationCodec[SecurityTestLayer]
     implicit val encoderSecurityTestSuite: Encoder[SecurityTestSuite] =
-      Encoder.forProduct1("layer")(ts => ts.securityTestLayer)
+      (_: SecurityTestSuite) => Json.obj()
   }
 
   implicit val encodeEvidenceTag: Encoder[EvidenceTag] = Encoder.instance {
