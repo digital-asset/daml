@@ -166,7 +166,7 @@ main = withTempDir $ \npmCache -> do
   -- We disable user management since older ledgers do not support it.
   -- We might eventually want to enable it when running against > 1.18 but for now
   -- this also acts as a nice test for running without user management.
-  setEnv "REACT_APP_SUPPORTS_USERMANAGEMENT" "false" True
+  setEnv "REACT_APP_SUPPORTS_USERMANAGEMENT" "true" True
   let options =
         [ Option @DamlOption Proxy
         , Option @DamlLedgerOption Proxy
@@ -196,7 +196,7 @@ main = withTempDir $ \npmCache -> do
         setEnv "CI" "yes" True
         step "Create app from template"
         withCurrentDirectory tmpDir $ do
-          callProcess damlBinary ["new", "create-daml-app", "create-daml-app"]
+          callProcess damlBinary ["new", "create-daml-app", "--template", "create-daml-app"]
         let cdaDir = tmpDir </> "create-daml-app"
         let uiDir = cdaDir </> "ui"
         step "Patch the application code with messaging feature"

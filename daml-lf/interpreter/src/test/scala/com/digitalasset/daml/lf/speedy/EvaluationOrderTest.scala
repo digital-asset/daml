@@ -84,12 +84,9 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
         method asParty: Party;
         method getCtrl: Party;
         method getName: Text;
-        choice Sleep (self) (u:Unit) : ContractId M:Person
-          , controllers TRACE @(List Party) "choice controllers" (Cons @Party [call_method @M:Person getCtrl this] (Nil @Party))
-          to upure @(ContractId M:Person) self;
         choice @nonConsuming Nap (self) (i : Int64): Int64
-          , controllers TRACE @(List Party) "choice controllers" (Cons @Party [call_method @M:Person getCtrl this] (Nil @Party))
-          , observers TRACE @(List Party) "choice observers" (Nil @Party)
+          , controllers TRACE @(List Party) "interface choice controllers" (Cons @Party [call_method @M:Person getCtrl this] (Nil @Party))
+          , observers TRACE @(List Party) "interface choice observers" (Nil @Party)
           to upure @Int64 (TRACE @Int64 "choice body" i);
       } ;
 
@@ -100,8 +97,9 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
         observers TRACE @(List Party) "contract observers" (Cons @Party [M:T {observer} this] (Nil @Party));
         agreement TRACE @Text "contract agreement" "";
         choice Choice (self) (arg: M:Either M:Nested Int64) : M:Nested,
-          controllers TRACE @(List Party) "choice controllers" (Cons @Party [M:T {signatory} this] (Nil @Party)),
-          observers TRACE @(List Party) "choice observers" (Nil @Party)
+          controllers TRACE @(List Party) "template choice controllers" (Cons @Party [M:T {signatory} this] (Nil @Party)),
+          observers TRACE @(List Party) "template choice observers" (Nil @Party),
+          authorizers TRACE @(List Party) "template choice authorizers" (Cons @Party [M:T {signatory} this] (Nil @Party))
           to upure @M:Nested (TRACE @M:Nested "choice body" (M:buildNested (case arg of M:Either:Right i -> i | _ -> 0)));
         choice Archive (self) (arg: Unit): Unit,
           controllers Cons @Party [M:T {signatory} this] (Nil @Party)
@@ -483,8 +481,6 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
             "contract agreement",
             "contract signatories",
             "contract observers",
-            // TODO: https://github.com/digital-asset/daml/issues/15882
-            // -- Test evaluation order for contract authorizers
             "key",
             "maintainers",
             "ends test",
@@ -873,8 +869,9 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
               "contract observers",
               "key",
               "maintainers",
-              "choice controllers",
-              "choice observers",
+              "template choice controllers",
+              "template choice observers",
+              "template choice authorizers",
               "choice body",
               "ends test",
             )
@@ -915,8 +912,9 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
               "contract observers",
               "key",
               "maintainers",
-              "choice controllers",
-              "choice observers",
+              "template choice controllers",
+              "template choice observers",
+              "template choice authorizers",
             )
           }
         }
@@ -944,8 +942,9 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
               "contract observers",
               "key",
               "maintainers",
-              "choice controllers",
-              "choice observers",
+              "template choice controllers",
+              "template choice observers",
+              "template choice authorizers",
             )
           }
         }
@@ -968,8 +967,9 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           inside(res) { case Success(Right(_)) =>
             msgs shouldBe Seq(
               "starts test",
-              "choice controllers",
-              "choice observers",
+              "template choice controllers",
+              "template choice observers",
+              "template choice authorizers",
               "choice body",
               "ends test",
             )
@@ -1042,7 +1042,12 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           )
 
           inside(res) { case Success(Left(SErrorDamlException(IE.FailedAuthorization(_, _)))) =>
-            msgs shouldBe Seq("starts test", "choice controllers", "choice observers")
+            msgs shouldBe Seq(
+              "starts test",
+              "template choice controllers",
+              "template choice observers",
+              "template choice authorizers",
+            )
           }
         }
       }
@@ -1063,8 +1068,9 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           inside(res) { case Success(Right(_)) =>
             msgs shouldBe Seq(
               "starts test",
-              "choice controllers",
-              "choice observers",
+              "template choice controllers",
+              "template choice observers",
+              "template choice authorizers",
               "choice body",
               "ends test",
             )
@@ -1146,8 +1152,9 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           inside(res) { case Success(Left(SErrorDamlException(IE.FailedAuthorization(_, _)))) =>
             msgs shouldBe Seq(
               "starts test",
-              "choice controllers",
-              "choice observers",
+              "template choice controllers",
+              "template choice observers",
+              "template choice authorizers",
             )
           }
         }
@@ -1185,8 +1192,9 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
             "contract observers",
             "key",
             "maintainers",
-            "choice controllers",
-            "choice observers",
+            "template choice controllers",
+            "template choice observers",
+            "template choice authorizers",
           )
         }
       }
@@ -1209,8 +1217,9 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
             "contract observers",
             "key",
             "maintainers",
-            "choice controllers",
-            "choice observers",
+            "template choice controllers",
+            "template choice observers",
+            "template choice authorizers",
             "choice body",
           )
         }
@@ -1240,8 +1249,9 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
               "contract agreement",
               "contract signatories",
               "contract observers",
-              "choice controllers",
-              "choice observers",
+              "template choice controllers",
+              "template choice observers",
+              "template choice authorizers",
               "choice body",
               "ends test",
             )
@@ -1284,8 +1294,9 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
               "contract agreement",
               "contract signatories",
               "contract observers",
-              "choice controllers",
-              "choice observers",
+              "template choice controllers",
+              "template choice observers",
+              "template choice authorizers",
             )
           }
         }
@@ -1338,8 +1349,9 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
             msgs shouldBe Seq(
               "starts test",
               "maintainers",
-              "choice controllers",
-              "choice observers",
+              "template choice controllers",
+              "template choice observers",
+              "template choice authorizers",
               "choice body",
               "ends test",
             )
@@ -1401,8 +1413,9 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
             msgs shouldBe Seq(
               "starts test",
               "maintainers",
-              "choice controllers",
-              "choice observers",
+              "template choice controllers",
+              "template choice observers",
+              "template choice authorizers",
             )
 
           }
@@ -1447,8 +1460,9 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
             msgs shouldBe Seq(
               "starts test",
               "maintainers",
-              "choice controllers",
-              "choice observers",
+              "template choice controllers",
+              "template choice observers",
+              "template choice authorizers",
               "choice body",
               "ends test",
             )
@@ -1492,8 +1506,9 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
             msgs shouldBe Seq(
               "starts test",
               "maintainers",
-              "choice controllers",
-              "choice observers",
+              "template choice controllers",
+              "template choice observers",
+              "template choice authorizers",
             )
           }
         }
@@ -1525,8 +1540,9 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
               msgs shouldBe Seq(
                 "starts test",
                 "maintainers",
-                "choice controllers",
-                "choice observers",
+                "template choice controllers",
+                "template choice observers",
+                "template choice authorizers",
               )
           }
         }
@@ -1566,8 +1582,9 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
             "contract agreement",
             "contract signatories",
             "contract observers",
-            "choice controllers",
-            "choice observers",
+            "template choice controllers",
+            "template choice observers",
+            "template choice authorizers",
           )
         }
       }
@@ -1591,8 +1608,9 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
             "contract agreement",
             "contract signatories",
             "contract observers",
-            "choice controllers",
-            "choice observers",
+            "template choice controllers",
+            "template choice observers",
+            "template choice authorizers",
             "choice body",
           )
         }
@@ -1657,8 +1675,8 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
                 "maintainers",
                 "view",
                 "interface guard",
-                "choice controllers",
-                "choice observers",
+                "interface choice controllers",
+                "interface choice observers",
                 "choice body",
                 "ends test",
               )
@@ -1704,8 +1722,8 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
                 "maintainers",
                 "view",
                 "interface guard",
-                "choice controllers",
-                "choice observers",
+                "interface choice controllers",
+                "interface choice observers",
               )
             }
           }
@@ -1730,8 +1748,8 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
                 "starts test",
                 "view",
                 "interface guard",
-                "choice controllers",
-                "choice observers",
+                "interface choice controllers",
+                "interface choice observers",
                 "choice body",
                 "ends test",
               )
@@ -1813,8 +1831,8 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
                 "starts test",
                 "view",
                 "interface guard",
-                "choice controllers",
-                "choice observers",
+                "interface choice controllers",
+                "interface choice observers",
               )
             }
           }
@@ -1838,8 +1856,8 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
                 "starts test",
                 "view",
                 "interface guard",
-                "choice controllers",
-                "choice observers",
+                "interface choice controllers",
+                "interface choice observers",
                 "choice body",
                 "ends test",
               )
@@ -1935,8 +1953,8 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
                   "starts test",
                   "view",
                   "interface guard",
-                  "choice controllers",
-                  "choice observers",
+                  "interface choice controllers",
+                  "interface choice observers",
                 )
             }
           }

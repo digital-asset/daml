@@ -1249,17 +1249,19 @@ def sdk_platform_test(sdk_version, platform_version):
         platform_version = version_to_name(platform_version),
     )
 
-    daml_ledger_test(
-        name = name,
-        sdk_version = sdk_version,
-        daml = daml_assistant,
-        sandbox = canton_sandbox,
-        sandbox_args = canton_sandbox_args,
-        size = "large",
-        # We see timeouts here fairly regularly so we
-        # increase the number of CPUs.
-        tags = ["cpu:2"] + extra_tags(sdk_version, platform_version),
-    )
+    # Canton does not support LF<=1.8 found in earlier versions
+    if versions.is_at_least("1.16.0", sdk_version):
+        daml_ledger_test(
+            name = name,
+            sdk_version = sdk_version,
+            daml = daml_assistant,
+            sandbox = canton_sandbox,
+            sandbox_args = canton_sandbox_args,
+            size = "large",
+            # We see timeouts here fairly regularly so we
+            # increase the number of CPUs.
+            tags = ["cpu:2"] + extra_tags(sdk_version, platform_version),
+        )
 
     # For now, we only cover the Daml Hub usecase where
     # sandbox and the JSON API come from the same SDK.
@@ -1267,11 +1269,11 @@ def sdk_platform_test(sdk_version, platform_version):
     # can control them individually.
 
     # We allocate parties via @daml/ledger which only supports this since SDK 1.8.0
-    if versions.is_at_least("1.8.0", sdk_version):
+    if versions.is_at_least("2.0.1", sdk_version):
         create_daml_app_test(
             name = "create-daml-app-{sdk_version}-platform-{platform_version}".format(sdk_version = version_to_name(sdk_version), platform_version = version_to_name(platform_version)),
             daml = daml_assistant,
-            sandbox = sandbox_on_x,
+            sandbox = canton_sandbox,
             sandbox_version = platform_version,
             json_api = json_api,
             json_api_version = platform_version,
