@@ -1245,7 +1245,7 @@ trait AbstractTriggerServiceTestWithCanton extends AbstractTriggerServiceTestHel
         party2 <- allocateParty(client)
         resp <- listTriggers(uri, party1)
         result <- parseTriggerIds(resp)
-        _ <- result shouldBe Vector()
+        _ <- result shouldBe Vector.empty
         // Start trigger for Alice.
         resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", party1)
         party1Trigger <- parseTriggerId(resp)
@@ -1261,14 +1261,14 @@ trait AbstractTriggerServiceTestWithCanton extends AbstractTriggerServiceTestHel
         // Stop Alice's trigger.
         resp <- stopTrigger(uri, party1Trigger, party1)
         _ <- assert(resp.status.isSuccess)
-        _ <- assertTriggerIds(uri, party1, Vector())
+        _ <- assertTriggerIds(uri, party1, Vector.empty)
         _ <- assertTriggerIds(uri, party2, Vector(party2TriggerA, party2TriggerB).sorted)
         // Stop Bob's triggers.
         resp <- stopTrigger(uri, party2TriggerA, party2)
         _ <- assert(resp.status.isSuccess)
         resp <- stopTrigger(uri, party2TriggerB, party2)
         _ <- assert(resp.status.isSuccess)
-        _ <- assertTriggerIds(uri, party2, Vector())
+        _ <- assertTriggerIds(uri, party2, Vector.empty)
       } yield succeed
   }
 
@@ -1283,7 +1283,7 @@ trait AbstractTriggerServiceTestWithCanton extends AbstractTriggerServiceTestHel
       // Make sure that no contracts exist initially to guard against accidental
       // party reuse.
       _ <- getActiveContracts(client, aliceAcs, Identifier(testPkgId, "TestTrigger", "B"))
-        .map(_ shouldBe Vector())
+        .map(_ shouldBe Vector.empty)
       // Start the trigger
       resp <- startTrigger(
         uri,
@@ -1506,7 +1506,7 @@ trait AbstractTriggerServiceTestWithCanton extends AbstractTriggerServiceTestHel
       party <- allocateParty(client)
       // Ensure there are no Cat contracts
       _ <- getActiveContracts(client, party, Identifier(testPkgId, "Cats", "Cat"))
-        .map(_ shouldBe Vector())
+        .map(_ shouldBe Vector.empty)
       // Create 100 Cat contracts
       _ <- Future.sequence(
         (1 to 100).map(id => submitCmd(client, party.unwrap, breedCat(party, id.toLong)))
@@ -1552,7 +1552,7 @@ trait AbstractTriggerServiceTestWithCanton extends AbstractTriggerServiceTestHel
       // Wait until there are no Cat contracts
       _ <- RetryStrategy.constant(20, 1.seconds) { (_, _) =>
         getActiveContracts(client, party, Identifier(testPkgId, "Cats", "Cat"))
-          .map(_ shouldBe Vector())
+          .map(_ shouldBe Vector.empty)
       }
       resp <- startTrigger(uri, s"$testPkgId:Cats:breedingTrigger", party, Some(applicationId))
       catsTrigger <- parseTriggerId(resp)
@@ -1591,7 +1591,7 @@ trait AbstractTriggerServiceTestWithCanton extends AbstractTriggerServiceTestHel
       // Wait until there are no Cat contracts
       _ <- RetryStrategy.constant(20, 1.seconds) { (_, _) =>
         getActiveContracts(client, party, Identifier(testPkgId, "Cats", "Cat"))
-          .map(_ shouldBe Vector())
+          .map(_ shouldBe Vector.empty)
       }
       resp <- startTrigger(uri, s"$testPkgId:Cats:breedingTrigger", party, Some(applicationId))
       catsTrigger <- parseTriggerId(resp)
@@ -1626,7 +1626,7 @@ trait AbstractTriggerServiceTestWithCanton extends AbstractTriggerServiceTestHel
       // Wait until there are no Cat contracts
       _ <- RetryStrategy.constant(20, 1.seconds) { (_, _) =>
         getActiveContracts(client, party, Identifier(testPkgId, "Cats", "Cat"))
-          .map(_ shouldBe Vector())
+          .map(_ shouldBe Vector.empty)
       }
       resp <- startTrigger(uri, s"$testPkgId:Cats:earlyBreedingTrigger", party, Some(applicationId))
       catsTrigger <- parseTriggerId(resp)
@@ -1665,7 +1665,7 @@ trait AbstractTriggerServiceTestWithCanton extends AbstractTriggerServiceTestHel
       // Wait until there are no Cat contracts
       _ <- RetryStrategy.constant(20, 1.seconds) { (_, _) =>
         getActiveContracts(client, party, Identifier(testPkgId, "Cats", "Cat"))
-          .map(_ shouldBe Vector())
+          .map(_ shouldBe Vector.empty)
       }
       resp <- startTrigger(uri, s"$testPkgId:Cats:lateBreedingTrigger", party, Some(applicationId))
       catsTrigger <- parseTriggerId(resp)
@@ -1738,7 +1738,7 @@ trait AbstractTriggerServiceTestWithDatabase extends AbstractTriggerServiceTest 
 
         // Finally go ahead and stop the trigger.
         _ <- stopTrigger(uri, aliceTrigger, alice)
-        _ <- assertTriggerIds(uri, alice, Vector())
+        _ <- assertTriggerIds(uri, alice, Vector.empty)
         _ <- assertTriggerStatus(aliceTrigger, _.last should ===("stopped: by user request"))
       } yield succeed
     }
@@ -1799,7 +1799,7 @@ trait AbstractTriggerServiceTestWithDatabaseAndCanton extends AbstractTriggerSer
 
         // Finally go ahead and stop the trigger.
         _ <- stopTrigger(uri, partyTrigger, party)
-        _ <- assertTriggerIds(uri, party, Vector())
+        _ <- assertTriggerIds(uri, party, Vector.empty)
         _ <- assertTriggerStatus(partyTrigger, _.last should ===("stopped: by user request"))
       } yield succeed
     }
@@ -1961,7 +1961,7 @@ trait AbstractTriggerServiceTestAuthMiddleware
       // Make sure that no contracts exist initially to guard against accidental
       // party reuse.
       _ <- getActiveContracts(client, aliceExp, Identifier(testPkgId, "TestTrigger", "B"))
-        .map(_ shouldBe Vector())
+        .map(_ shouldBe Vector.empty)
       // Start the trigger
       resp <- startTrigger(
         uri,
@@ -2187,7 +2187,7 @@ trait AbstractTriggerServiceTestAuthMiddlewareWithCanton
       // Make sure that no contracts exist initially to guard against accidental
       // party reuse.
       _ <- getActiveContracts(client, aliceExp, Identifier(testPkgId, "TestTrigger", "B"))
-        .map(_ shouldBe Vector())
+        .map(_ shouldBe Vector.empty)
       // Start the trigger
       resp <- startTrigger(
         uri,
