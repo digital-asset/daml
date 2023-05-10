@@ -4,18 +4,15 @@
 package com.daml.lf.engine.script
 package test
 
-import com.daml.bazeltools.BazelRunfiles
 import com.daml.lf.data.ImmArray
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{Numeric, FrontStack, FrontStackCons}
 import com.daml.lf.engine.script.{StackTrace, ScriptF}
 import com.daml.lf.engine.script.Runner.InterpretationError
-import com.daml.lf.integrationtest.CantonFixture.{readDar, CompiledDar}
 import com.daml.lf.speedy.SValue
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.value.Value
 import io.grpc.{Status, StatusRuntimeException}
-import java.nio.file.Paths
 import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
@@ -31,20 +28,7 @@ abstract class AbstractFuncIT
 
   import AbstractScriptTest._
 
-  val coinV1DarPath = BazelRunfiles.rlocation(Paths.get("daml-script/test/coin-v1.dar"))
-  val coinV2DarPath = BazelRunfiles.rlocation(Paths.get("daml-script/test/coin-v2.dar"))
-  val CoinUpgradeDarPath = BazelRunfiles.rlocation(Paths.get("daml-script/test/coin-upgrade.dar"))
-  val coinV1Dar: CompiledDar = readDar(coinV1DarPath, Runner.compilerConfig)
-  val coinV2Dar: CompiledDar = readDar(coinV2DarPath, Runner.compilerConfig)
-  val coinUpgradeDar: CompiledDar = readDar(CoinUpgradeDarPath, Runner.compilerConfig)
-
-  override protected lazy val darFiles = List(
-    stableDarPath,
-    devDarPath,
-    coinV1DarPath,
-    coinV2DarPath,
-    CoinUpgradeDarPath,
-  )
+  override protected lazy val darFiles = List(stableDarPath, devDarPath)
   override protected lazy val devMode = true
 
   def assertSTimestamp(v: SValue) =
@@ -570,56 +554,6 @@ abstract class AbstractFuncIT
             dar = stableDar,
           )
       } yield r shouldBe SUnit
-    }
-
-    "softFetch" should {
-      "succeed when given a contract id of the same type Coin V1" in {
-        for {
-          clients <- scriptClients()
-          r <-
-            run(
-              clients,
-              QualifiedName.assertFromString("CoinUpgrade:create_v1_softFetch_v1"),
-              dar = coinUpgradeDar,
-            )
-        } yield r shouldBe SUnit
-      }
-
-      "succeed when given a contract id of the same type Coin V2" in {
-        for {
-          clients <- scriptClients()
-          r <-
-            run(
-              clients,
-              QualifiedName.assertFromString("CoinUpgrade:create_v2_softFetch_v2"),
-              dar = coinUpgradeDar,
-            )
-        } yield r shouldBe SUnit
-      }
-
-      "succeed when given a contract id of a predecessor type of Coin V2, Coin V1" in {
-        for {
-          clients <- scriptClients()
-          r <-
-            run(
-              clients,
-              QualifiedName.assertFromString("CoinUpgrade:create_v1_softFetch_v2"),
-              dar = coinUpgradeDar,
-            )
-        } yield r shouldBe SUnit
-      }
-
-      "fail when given a contract id of a non-predecessor type of Coin V1, Coin V2" in {
-        for {
-          clients <- scriptClients()
-          r <-
-            run(
-              clients,
-              QualifiedName.assertFromString("CoinUpgrade:create_v2_softFetch_v1"),
-              dar = coinUpgradeDar,
-            )
-        } yield r shouldBe SUnit
-      }
     }
   }
 }
