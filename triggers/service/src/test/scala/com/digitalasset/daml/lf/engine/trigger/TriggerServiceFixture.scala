@@ -582,7 +582,7 @@ trait TriggerServiceWithCantonFixture
             val ledgerConfig = LedgerConfig(
               host.getHostName,
               // TODO: set this to be the toxi proxy port in a future PR
-              suiteResource.value.head.value,
+              ports.head.value,
               TimeProviderType.Static,
               java.time.Duration.ofSeconds(30),
               Cli.DefaultMaxInboundMessageSize,
