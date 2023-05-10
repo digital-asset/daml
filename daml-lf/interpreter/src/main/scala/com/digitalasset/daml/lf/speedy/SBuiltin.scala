@@ -1091,7 +1091,7 @@ private[lf] object SBuiltin {
   }
 
   // SBPromoteAnyContract(templateId): ContractId actualTemplateId -> Any -> templateId
-  // Crashes unless actualTemplateId is a predecessor of templateId.
+  // Fails unless actualTemplateId is a predecessor of templateId.
   final case class SBPromoteAnyContract(
       templateId: TypeConName,
       acceptedTemplateIds: List[TypeConName],
@@ -1104,7 +1104,10 @@ private[lf] object SBuiltin {
       val (actualTemplateId, record) = getSAnyContract(args, 1)
 
       if (acceptedTemplateIds.contains(actualTemplateId)) {
-        Control.Value(record.copy(id = templateId)) // this is a lie (sometimes)!
+        // TODO: https://github.com/digital-asset/daml/issues/16151
+        // Later, this will need to extend values of predecessor template
+        // types (e.g. by adding the right number of 'None's for missing 'Optional' fields)
+        Control.Value(record.copy(id = templateId))
       } else {
         Control.Error(
           IE.WronglyTypedContractSoft(coid, templateId, acceptedTemplateIds, actualTemplateId)
