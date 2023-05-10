@@ -24,7 +24,7 @@ final class LedgerClientIT extends AsyncWordSpec with Matchers with Inside with 
 
   private val LedgerId = domain.LedgerId(config.ledgerIds.head)
 
-  lazy val channel = config.channel(suiteResource.value.head)
+  lazy val channel = config.channel(ports.head)
 
   private val ClientConfiguration = LedgerClientConfiguration(
     applicationId = applicationId.unwrap,

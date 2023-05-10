@@ -82,7 +82,7 @@ final class CommandClientIT
   private val testNotLedgerId =
     domain.LedgerId(CantonFixture.freshName("hotdog"))
 
-  private lazy val channel = config.channel(suiteResource.value.head)
+  private lazy val channel = config.channel(ports.head)
   private lazy val defaultClient = defaultLedgerClient()
   private def freshParty() = for {
     client <- defaultClient
