@@ -12,13 +12,15 @@ Interfaces
 
   **viewtype** `TokenView <type-qualifiedretroactiveinterfaceinstance-tokenview-25557_>`_
 
-  + **Choice Archive**
+  + **Choice** Archive
 
     Returns\: ()
 
     (no fields)
 
-  + **Choice GetRich**
+  + .. _type-qualifiedretroactiveinterfaceinstance-getrich-86333:
+
+    **Choice** `GetRich <type-qualifiedretroactiveinterfaceinstance-getrich-86333_>`_
 
     Returns\: `ContractId <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-contractid-95282>`_ `Token <type-qualifiedretroactiveinterfaceinstance-token-43978_>`_
 
@@ -33,7 +35,9 @@ Interfaces
          - `Int <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-37261>`_
          -
 
-  + **Choice Noop**
+  + .. _type-qualifiedretroactiveinterfaceinstance-noop-81106:
+
+    **Choice** `Noop <type-qualifiedretroactiveinterfaceinstance-noop-81106_>`_
 
     Returns\: ()
 
@@ -48,7 +52,9 @@ Interfaces
          - ()
          -
 
-  + **Choice Split**
+  + .. _type-qualifiedretroactiveinterfaceinstance-split-60457:
+
+    **Choice** `Split <type-qualifiedretroactiveinterfaceinstance-split-60457_>`_
 
     An interface choice comment\.
 
@@ -65,7 +71,9 @@ Interfaces
          - `Int <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-37261>`_
          - A choice field comment\.
 
-  + **Choice Transfer**
+  + .. _type-qualifiedretroactiveinterfaceinstance-transfer-84967:
+
+    **Choice** `Transfer <type-qualifiedretroactiveinterfaceinstance-transfer-84967_>`_
 
     Returns\: `ContractId <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-contractid-95282>`_ `Token <type-qualifiedretroactiveinterfaceinstance-token-43978_>`_
 

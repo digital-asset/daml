@@ -10,7 +10,7 @@ Testing the daml version header.
 > | :-------------------------------------------------------------------------------------- | :-------------------------------------------------------------------------------------- | :---------- |
 > | p                                                                                       | [Party](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932) |  |
 >
-> * **Choice Archive**
+> * **Choice** Archive
 >
 >   Returns: ()
 >

@@ -6,13 +6,13 @@
 
 > **viewtype** [TokenView](#type-retroactiveinterfaceinstance-tokenview-57374)
 >
-> * **Choice Archive**
+> * **Choice** Archive
 >
 >   Returns: ()
 >
 >   (no fields)
 >
-> * **Choice GetRich**
+> * <a name="type-retroactiveinterfaceinstance-getrich-36810"></a>**Choice** [GetRich](#type-retroactiveinterfaceinstance-getrich-36810)
 >
 >   Returns: [ContractId](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-contractid-95282) [Token](#type-retroactiveinterfaceinstance-token-49693)
 >
@@ -20,7 +20,7 @@
 >   | :----------------------------------------------------------------------------- | :----------------------------------------------------------------------------- | :---------- |
 >   | byHowMuch                                                                      | [Int](https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-37261) |  |
 >
-> * **Choice Noop**
+> * <a name="type-retroactiveinterfaceinstance-noop-59171"></a>**Choice** [Noop](#type-retroactiveinterfaceinstance-noop-59171)
 >
 >   Returns: ()
 >
@@ -28,7 +28,7 @@
 >   | :------ | :------ | :---------- |
 >   | nothing | ()      |  |
 >
-> * **Choice Split**
+> * <a name="type-retroactiveinterfaceinstance-split-43306"></a>**Choice** [Split](#type-retroactiveinterfaceinstance-split-43306)
 >
 >   An interface choice comment.
 >
@@ -38,7 +38,7 @@
 >   | :----------------------------------------------------------------------------- | :----------------------------------------------------------------------------- | :---------- |
 >   | splitAmount                                                                    | [Int](https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-37261) | A choice field comment. |
 >
-> * **Choice Transfer**
+> * <a name="type-retroactiveinterfaceinstance-transfer-79282"></a>**Choice** [Transfer](#type-retroactiveinterfaceinstance-transfer-79282)
 >
 >   Returns: [ContractId](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-contractid-95282) [Token](#type-retroactiveinterfaceinstance-token-49693)
 >

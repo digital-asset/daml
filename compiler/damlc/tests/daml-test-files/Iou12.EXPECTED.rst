@@ -33,19 +33,23 @@ Templates
        - \[`Party <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932>`_\]
        - ``regulators`` may observe any use of the ``Iou``
 
-  + **Choice Archive**
+  + **Choice** Archive
 
     Returns\: ()
 
     (no fields)
 
-  + **Choice DoNothing**
+  + .. _type-iou12-donothing-75627:
+
+    **Choice** `DoNothing <type-iou12-donothing-75627_>`_
 
     Returns\: ()
 
     (no fields)
 
-  + **Choice Merge**
+  + .. _type-iou12-merge-98901:
+
+    **Choice** `Merge <type-iou12-merge-98901_>`_
 
     merges two \"compatible\" ``Iou``s
 
@@ -62,7 +66,9 @@ Templates
          - `ContractId <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-contractid-95282>`_ `Iou <type-iou12-iou-72962_>`_
          - Must have same owner, issuer, and currency\. The regulators may differ, and are taken from the original ``Iou``\.
 
-  + **Choice Split**
+  + .. _type-iou12-split-33517:
+
+    **Choice** `Split <type-iou12-split-33517_>`_
 
     splits into two ``Iou``s with smaller amounts
 
@@ -79,7 +85,9 @@ Templates
          - `Decimal <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-decimal-18135>`_
          - must be between zero and original amount
 
-  + **Choice Transfer**
+  + .. _type-iou12-transfer-99339:
+
+    **Choice** `Transfer <type-iou12-transfer-99339_>`_
 
     changes the owner
 

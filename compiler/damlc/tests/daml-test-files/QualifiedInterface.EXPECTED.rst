@@ -27,7 +27,7 @@ Templates
        - `Int <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-37261>`_
        -
 
-  + **Choice Archive**
+  + **Choice** Archive
 
     Returns\: ()
 

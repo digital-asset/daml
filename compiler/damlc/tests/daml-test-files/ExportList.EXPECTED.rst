@@ -24,13 +24,15 @@ Templates
        - `Party <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932>`_
        -
 
-  + **Choice Archive**
+  + **Choice** Archive
 
     Returns\: ()
 
     (no fields)
 
-  + **Choice Choice0**
+  + .. _type-exportlist-choice0-67361:
+
+    **Choice** `Choice0 <type-exportlist-choice0-67361_>`_
 
     Returns\: ()
 
@@ -54,13 +56,15 @@ Templates
        - `Party <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932>`_
        -
 
-  + **Choice Archive**
+  + **Choice** Archive
 
     Returns\: ()
 
     (no fields)
 
-  + **Choice Choice1**
+  + .. _type-exportlist-choice1-52440:
+
+    **Choice** `Choice1 <type-exportlist-choice1-52440_>`_
 
     Returns\: ()
 
@@ -84,13 +88,15 @@ Templates
        - `Party <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932>`_
        -
 
-  + **Choice Archive**
+  + **Choice** Archive
 
     Returns\: ()
 
     (no fields)
 
-  + **Choice Choice2**
+  + .. _type-exportlist-choice2-88895:
+
+    **Choice** `Choice2 <type-exportlist-choice2-88895_>`_
 
     Returns\: ()
 
@@ -114,13 +120,15 @@ Templates
        - `Party <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932>`_
        -
 
-  + **Choice Archive**
+  + **Choice** Archive
 
     Returns\: ()
 
     (no fields)
 
-  + **Choice Choice3**
+  + .. _type-exportlist-choice3-73974:
+
+    **Choice** `Choice3 <type-exportlist-choice3-73974_>`_
 
     Returns\: ()
 

@@ -27,7 +27,7 @@ Templates
        - `Int <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-37261>`_
        -
 
-  + **Choice Archive**
+  + **Choice** Archive
 
     Returns\: ()
 
@@ -46,13 +46,15 @@ Interfaces
 
   **viewtype** `EmptyInterfaceView <type-interface-emptyinterfaceview-28816_>`_
 
-  + **Choice Archive**
+  + **Choice** Archive
 
     Returns\: ()
 
     (no fields)
 
-  + **Choice GetRich**
+  + .. _type-interface-getrich-60188:
+
+    **Choice** `GetRich <type-interface-getrich-60188_>`_
 
     Returns\: `ContractId <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-contractid-95282>`_ `Token <type-interface-token-10651_>`_
 
@@ -67,7 +69,9 @@ Interfaces
          - `Int <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-37261>`_
          -
 
-  + **Choice Noop**
+  + .. _type-interface-noop-44317:
+
+    **Choice** `Noop <type-interface-noop-44317_>`_
 
     Returns\: ()
 
@@ -82,7 +86,9 @@ Interfaces
          - ()
          -
 
-  + **Choice Split**
+  + .. _type-interface-split-56016:
+
+    **Choice** `Split <type-interface-split-56016_>`_
 
     An interface choice comment\.
 
@@ -99,7 +105,9 @@ Interfaces
          - `Int <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-37261>`_
          - A choice field comment\.
 
-  + **Choice Transfer**
+  + .. _type-interface-transfer-15068:
+
+    **Choice** `Transfer <type-interface-transfer-15068_>`_
 
     Returns\: `ContractId <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-contractid-95282>`_ `Token <type-interface-token-10651_>`_
 

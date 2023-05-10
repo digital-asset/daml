@@ -10,7 +10,7 @@
 > | owner                                                                                   | [Party](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932) |  |
 > | amount                                                                                  | [Int](https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-37261)          |  |
 >
-> * **Choice Archive**
+> * **Choice** Archive
 >
 >   Returns: ()
 >

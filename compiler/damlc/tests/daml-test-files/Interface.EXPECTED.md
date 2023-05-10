@@ -10,7 +10,7 @@
 > | owner                                                                                   | [Party](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932) |  |
 > | amount                                                                                  | [Int](https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-37261)          |  |
 >
-> * **Choice Archive**
+> * **Choice** Archive
 >
 >   Returns: ()
 >
@@ -26,13 +26,13 @@
 >
 > **viewtype** [EmptyInterfaceView](#type-interface-emptyinterfaceview-28816)
 >
-> * **Choice Archive**
+> * **Choice** Archive
 >
 >   Returns: ()
 >
 >   (no fields)
 >
-> * **Choice GetRich**
+> * <a name="type-interface-getrich-60188"></a>**Choice** [GetRich](#type-interface-getrich-60188)
 >
 >   Returns: [ContractId](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-contractid-95282) [Token](#type-interface-token-10651)
 >
@@ -40,7 +40,7 @@
 >   | :----------------------------------------------------------------------------- | :----------------------------------------------------------------------------- | :---------- |
 >   | byHowMuch                                                                      | [Int](https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-37261) |  |
 >
-> * **Choice Noop**
+> * <a name="type-interface-noop-44317"></a>**Choice** [Noop](#type-interface-noop-44317)
 >
 >   Returns: ()
 >
@@ -48,7 +48,7 @@
 >   | :------ | :------ | :---------- |
 >   | nothing | ()      |  |
 >
-> * **Choice Split**
+> * <a name="type-interface-split-56016"></a>**Choice** [Split](#type-interface-split-56016)
 >
 >   An interface choice comment.
 >
@@ -58,7 +58,7 @@
 >   | :----------------------------------------------------------------------------- | :----------------------------------------------------------------------------- | :---------- |
 >   | splitAmount                                                                    | [Int](https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-37261) | A choice field comment. |
 >
-> * **Choice Transfer**
+> * <a name="type-interface-transfer-15068"></a>**Choice** [Transfer](#type-interface-transfer-15068)
 >
 >   Returns: [ContractId](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-contractid-95282) [Token](#type-interface-token-10651)
 >

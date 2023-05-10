@@ -9,13 +9,13 @@
 > | tfield0                                                                                 | [Party](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932) |  |
 > | tfield0'                                                                                | [Party](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932) |  |
 >
-> * **Choice Archive**
+> * **Choice** Archive
 >
 >   Returns: ()
 >
 >   (no fields)
 >
-> * **Choice Choice0**
+> * <a name="type-exportlist-choice0-67361"></a>**Choice** [Choice0](#type-exportlist-choice0-67361)
 >
 >   Returns: ()
 >
@@ -28,13 +28,13 @@
 > | tfield1                                                                                 | [Party](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932) |  |
 > | tfield1'                                                                                | [Party](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932) |  |
 >
-> * **Choice Archive**
+> * **Choice** Archive
 >
 >   Returns: ()
 >
 >   (no fields)
 >
-> * **Choice Choice1**
+> * <a name="type-exportlist-choice1-52440"></a>**Choice** [Choice1](#type-exportlist-choice1-52440)
 >
 >   Returns: ()
 >
@@ -47,13 +47,13 @@
 > | tfield2                                                                                 | [Party](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932) |  |
 > | tfield2'                                                                                | [Party](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932) |  |
 >
-> * **Choice Archive**
+> * **Choice** Archive
 >
 >   Returns: ()
 >
 >   (no fields)
 >
-> * **Choice Choice2**
+> * <a name="type-exportlist-choice2-88895"></a>**Choice** [Choice2](#type-exportlist-choice2-88895)
 >
 >   Returns: ()
 >
@@ -66,13 +66,13 @@
 > | tfield3                                                                                 | [Party](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932) |  |
 > | tfield3'                                                                                | [Party](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932) |  |
 >
-> * **Choice Archive**
+> * **Choice** Archive
 >
 >   Returns: ()
 >
 >   (no fields)
 >
-> * **Choice Choice3**
+> * <a name="type-exportlist-choice3-73974"></a>**Choice** [Choice3](#type-exportlist-choice3-73974)
 >
 >   Returns: ()
 >
