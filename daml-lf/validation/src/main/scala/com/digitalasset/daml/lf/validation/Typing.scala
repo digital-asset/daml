@@ -1312,6 +1312,17 @@ private[validation] object Typing {
       }
     }
 
+    private def typeOfSoftFetchTemplate(tpl: TypeConName, cid: Expr): Work[Type] = {
+      discard(handleLookup(ctx, pkgInterface.lookupTemplate(tpl)))
+      pkgInterface.lookupTemplateKey(tpl) match {
+        case Right(_) => throw ESoftFetchTemplateWithKey(ctx, tpl)
+        case Left(_) =>
+      }
+      checkExpr(cid, TContractId(TTyCon(tpl))) {
+        Ret(TUpdate(TTyCon(tpl)))
+      }
+    }
+
     private def typeOfFetchInterface(tpl: TypeConName, cid: Expr): Work[Type] = {
       discard(handleLookup(ctx, pkgInterface.lookupInterface(tpl)))
       checkExpr(cid, TContractId(TTyCon(tpl))) {
@@ -1348,7 +1359,7 @@ private[validation] object Typing {
       case UpdateFetchTemplate(tpl, cid) =>
         typeOfFetchTemplate(tpl, cid)
       case UpdateSoftFetchTemplate(tpl, cid) =>
-        typeOfFetchTemplate(tpl, cid)
+        typeOfSoftFetchTemplate(tpl, cid)
       case UpdateFetchInterface(tpl, cid) =>
         typeOfFetchInterface(tpl, cid)
       case UpdateGetTime =>
