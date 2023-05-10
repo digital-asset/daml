@@ -25,7 +25,7 @@ import qualified Data.Map.Strict as M
 import Data.Maybe (mapMaybe)
 import Text.Printf
 
-class Protobuf a b | a -> b, b -> a where
+class Protobuf a b | a -> b where
     decode :: a -> Maybe b
     encode :: b -> a
 
@@ -47,53 +47,79 @@ vecToSet = fmap S.fromList . traverse decode . V.toList
 setToVec :: Protobuf a b => S.Set b -> V.Vector a
 setToVec = V.fromList . map encode . S.toList
 
-    {-
+instance Protobuf TL.Text T.Text where
+    decode = Just . TL.toStrict
+    encode = TL.fromStrict
+
+instance Protobuf TR.Choices Choices where
+    decode (TR.Choices choices) = vecToSet choices
+    encode choices = TR.Choices (setToVec choices)
+
+vecToMap :: (Ord k, Protobuf a (k, b)) => V.Vector a -> Maybe (M.Map k b)
+vecToMap = fmap M.fromList . traverse decode . V.toList
+
+mapToVec :: (Ord k, Protobuf a (k, b)) => M.Map k b -> V.Vector a
+mapToVec = V.fromList . map encode . M.toList
+
+instance Protobuf TR.Template (TemplateIdentifier, Choices) where
+    decode (TR.Template mTId mChoices) = (,) <$> (decode =<< mTId) <*> (decode =<< mChoices)
+    encode (tid, choices) = TR.Template (Just (encode tid)) (Just (encode choices))
+
+instance Protobuf TR.Interface (InterfaceIdentifier, Choices) where
+    decode (TR.Interface mTId mChoices) = (,) <$> (decode =<< mTId) <*> (decode =<< mChoices)
+    encode (tid, choices) = TR.Interface (Just (encode tid)) (Just (encode choices))
+
+instance Protobuf TR.TemplateIdentifier TemplateIdentifier where
+    decode (TR.TemplateIdentifier qualifiedName mPackageId) =
+        TemplateIdentifier <$> decode qualifiedName <*> (decode =<< mPackageId)
+    encode (TemplateIdentifier qualifiedName packageId) =
+        TR.TemplateIdentifier (encode qualifiedName) (Just (encode packageId))
+
+instance Protobuf TR.InterfaceIdentifier InterfaceIdentifier where
+    decode (TR.InterfaceIdentifier qualifiedName mPackageId) =
+        InterfaceIdentifier <$> (TemplateIdentifier <$> decode qualifiedName <*> (decode =<< mPackageId))
+    encode (InterfaceIdentifier (TemplateIdentifier qualifiedName packageId)) =
+        TR.InterfaceIdentifier (encode qualifiedName) (Just (encode packageId))
+
+instance Protobuf TR.InterfaceInstanceIdentifier InterfaceInstanceIdentifier where
+    decode (TR.InterfaceInstanceIdentifier mTemplate mInterface mPackageId) =
+        InterfaceInstanceIdentifier <$> (decode =<< mTemplate) <*> (decode =<< mInterface) <*> (decode =<< mPackageId)
+    encode (InterfaceInstanceIdentifier template interface packageId) =
+        TR.InterfaceInstanceIdentifier (Just $ encode template) (Just $ encode interface) (Just $ encode packageId)
+
+instance Protobuf TR.Created (TemplateIdentifier, S.Set PackageId) where
+    decode (TR.Created mTemplateId locations) =
+        (,) <$> (decode =<< mTemplateId) <*> vecToSet locations
+    encode (templateId, locations) =
+        TR.Created (Just (encode templateId)) (setToVec locations)
+
+instance Protobuf TR.Exercise (T.Text, M.Map TemplateIdentifier (S.Set PackageId)) where
+    decode (TR.Exercise choice exerciseOnTemplates) =
+        (,) <$> decode choice <*> vecToMap exerciseOnTemplates
+    encode (choice, exerciseOnTemplates) =
+        TR.Exercise (encode choice) (mapToVec exerciseOnTemplates)
+
+instance Protobuf TR.ExerciseOnTemplate (TemplateIdentifier, S.Set PackageId) where
+    decode (TR.ExerciseOnTemplate mTemplate locations) =
+        (,) <$> (decode =<< mTemplate) <*> vecToSet locations
+    encode (template, locations) =
+        TR.ExerciseOnTemplate (Just (encode template)) (setToVec locations)
+
 instance Protobuf TR.TestResults TestResults where
-    decode (TR.TestResults interfaces interfaceChoices templates templateChoices createdInternally exercisedInternally createdExternally exercisedExternally) =
+    decode (TR.TestResults templates interfaces interfaceInstances created exercised) =
         TestResults
-            <$> vecToSet interfaces
-            <*> vecToSet interfaceChoices
-            <*> vecToSet templates
-            <*> vecToSet templateChoices
-            <*> vecToSet createdInternally
-            <*> vecToSet exercisedInternally
-            <*> vecToSet createdExternally
-            <*> vecToSet exercisedExternally
-    encode (TestResults interfaces interfaceChoices templates templateChoices createdInternally exercisedInternally createdExternally exercisedExternally) =
+            <$> vecToMap templates
+            <*> vecToMap interfaces
+            <*> vecToSet interfaceInstances
+            <*> vecToMap created
+            <*> vecToMap exercised
+    encode (TestResults templates interfaces interfaceInstances created exercised) =
         TR.TestResults
-            (setToVec interfaces)
-            (setToVec interfaceChoices)
-            (setToVec templates)
-            (setToVec templateChoices)
-            (setToVec createdInternally)
-            (setToVec exercisedInternally)
-            (setToVec createdExternally)
-            (setToVec exercisedExternally)
-
-instance Protobuf TR.ChoiceIdentifier ChoiceIdentifier where
-    decode (TR.ChoiceIdentifier choice contract) = ChoiceIdentifier (TL.toStrict choice) <$> (decode =<< contract)
-    encode (ChoiceIdentifier choice contract) = TR.ChoiceIdentifier (TL.fromStrict choice) (Just (encode contract))
-
-instance Protobuf TR.ContractIdentifier ContractIdentifier where
-    decode (TR.ContractIdentifier qualifiedName packageId) = ContractIdentifier (TL.toStrict qualifiedName) <$> (decode =<< packageId)
-    encode (ContractIdentifier qualifiedName packageId) = TR.ContractIdentifier (TL.fromStrict qualifiedName) (Just (encode packageId))
-    -}
-
-instance Protobuf TR.TestResults TestResults where
-    decode _ = undefined
-    encode _ = undefined
-
-    {-
-instance Protobuf TR.ChoiceIdentifier ChoiceIdentifier where
-    decode _ = undefined
-    encode _ = undefined
-    -}
-
-    {-
-instance Protobuf TR.ContractIdentifier ContractIdentifier where
-    decode _ = undefined
-    encode _ = undefined
-    -}
+            (mapToVec templates)
+            (mapToVec interfaces)
+            (setToVec interfaceInstances)
+            (mapToVec created)
+            (mapToVec exercised)
 
 instance Protobuf TR.PackageId PackageId where
     decode (TR.PackageId (Just (TR.PackageIdVarietyLocal LF1.Unit))) = Just LocalPackageId
@@ -104,14 +130,14 @@ instance Protobuf TR.PackageId PackageId where
 
 saveTestResults :: FilePath -> TestResults -> IO ()
 saveTestResults file testResults = do
-    let bs = Proto.toLazyByteString (encode testResults)
+    let bs = Proto.toLazyByteString ((encode :: TestResults -> TR.TestResults) testResults)
     BSL.writeFile file bs
 
 loadTestResults :: FilePath -> IO (Maybe TestResults)
 loadTestResults file = do
     bs <- BS.readFile file
     pure $ case Proto.fromByteString bs of
-      Right result -> decode result
+      Right (result :: TR.TestResults) -> decode result
       _ -> Nothing
 
 data LocalOrExternal
@@ -151,14 +177,6 @@ data InterfaceInstanceIdentifier = InterfaceInstanceIdentifier
       -- ^ package where the instance was defined, as opposed to where the template/interface was defined
     }
     deriving (Eq, Ord, Show)
-
-    {-
-data ContractIdentifier
-    = TemplateContract TemplateIdentifier
-    | InterfaceContract InterfaceIdentifier
-    | InterfaceInstanceContract InterfaceInstanceIdentifier
-    deriving (Eq, Ord, Show)
-    -}
 
 -- Choices
 type Choices = S.Set T.Text
