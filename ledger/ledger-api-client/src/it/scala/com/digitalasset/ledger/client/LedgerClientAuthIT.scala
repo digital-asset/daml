@@ -64,7 +64,7 @@ final class LedgerClientAuthIT extends AsyncWordSpec with Matchers with Inside w
         for {
           client <- LedgerClient(channel, ClientConfiguration)
         } yield {
-          client.ledgerId should be(config.ledgerIds(0))
+          client.ledgerId should be(config.ledgerIds.head)
         }
       }
 

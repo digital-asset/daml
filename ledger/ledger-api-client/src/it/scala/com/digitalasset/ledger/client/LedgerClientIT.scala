@@ -22,7 +22,7 @@ import scalaz.syntax.tag._
 
 final class LedgerClientIT extends AsyncWordSpec with Matchers with Inside with CantonFixture {
 
-  private val LedgerId = domain.LedgerId(config.ledgerIds(0))
+  private val LedgerId = domain.LedgerId(config.ledgerIds.head)
 
   lazy val channel = config.channel(suiteResource.value.head)
 

@@ -77,8 +77,10 @@ final class CommandClientIT
       defaultDeduplicationTime = Duration.ofSeconds(30),
     )
 
-  private val testLedgerId = domain.LedgerId("participant0")
-  private val testNotLedgerId = domain.LedgerId(CantonFixture.freshName("hotdog"))
+  private val testLedgerId =
+    domain.LedgerId(config.ledgerIds.head)
+  private val testNotLedgerId =
+    domain.LedgerId(CantonFixture.freshName("hotdog"))
 
   private lazy val channel = config.channel(suiteResource.value.head)
   private lazy val defaultClient = defaultLedgerClient()
