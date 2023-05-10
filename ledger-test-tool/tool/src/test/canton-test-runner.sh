@@ -15,8 +15,7 @@ command=("$(rlocation com_github_digital_asset_daml/canton/${canton_jar})" daemo
 HOME="$(mktemp -d)"
 export HOME
 # ammonite calls `System.getProperty('user.home')` which does not read $HOME.
-JVM_FLAGS=(-Duser.home="$HOME" -Dlogback.configurationFile="$(rlocation com_github_digital_asset_daml/ledger-test-tool/ledger-api-test-tool-on-canton/logback-debug.xml)")
-
+JVM_FLAGS=(-Duser.home="$HOME" -Dlogback.configurationFile="$(rlocation com_github_digital_asset_daml/ledger-test-tool/tool/src/test/canton-logback.xml)")
 echo >&2 'Starting Canton...'
 $JAVA "${JVM_FLAGS[@]}" -jar "${command[@]}" &
 pid="$!"

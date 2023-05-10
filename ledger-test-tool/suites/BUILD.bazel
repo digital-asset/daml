@@ -80,7 +80,7 @@ da_scala_test_suite(
     deps = [
         ":suites-1.dev",
         "//daml-lf/data",
-        "//ledger-test-tool/ledger-api-tests/infrastructure",
+        "//ledger-test-tool/infrastructure",
         "//libs-scala/test-evidence/tag:test-evidence-tag",
         "//libs-scala/timer-utils",
         "@maven//:org_scalatest_scalatest_compatible",
