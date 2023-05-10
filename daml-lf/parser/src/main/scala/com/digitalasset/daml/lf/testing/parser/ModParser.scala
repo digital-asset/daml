@@ -44,6 +44,8 @@ private[parser] class ModParser[P](parameters: ParserParameters[P]) {
 
   private lazy val metadata: Parser[PackageMetadata] =
     Id("metadata") ~ `(` ~> pkgName ~ `:` ~ pkgVersion <~ `)` ^^ { case name ~ _ ~ version =>
+      // TODO: https://github.com/digital-asset/daml/issues/16151
+      // add support for upgradedPackageId
       PackageMetadata(name, version, None)
     }
 
