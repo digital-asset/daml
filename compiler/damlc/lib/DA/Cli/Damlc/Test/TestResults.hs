@@ -22,7 +22,7 @@ import qualified Data.Text.Lazy as TL
 import qualified Data.Set as S
 import qualified Com.Daml.DamlLfDev.DamlLf1 as LF1
 import qualified Data.Map.Strict as M
-import Data.Maybe (mapMaybe, isJust)
+import Data.Maybe (mapMaybe)
 import Text.Printf
 
 class Protobuf a b | a -> b, b -> a where
@@ -354,14 +354,14 @@ scenarioResultsToTestResults allPackages results =
                 | otherwise
                 = Nothing
 
-templateChoiceExercised :: TestResults -> T.Text -> TemplateIdentifier -> Maybe (S.Set PackageId)
-templateChoiceExercised testResults name templateIdentifier = do
+templateChoiceExercised :: TestResults -> T.Text -> TemplateIdentifier -> S.Set PackageId
+templateChoiceExercised testResults name templateIdentifier = foldMap id $ do
     exercise <- name `M.lookup` exercised testResults
     occurrences <- templateIdentifier `M.lookup` exercise
     pure occurrences
 
-interfaceInstanceChoiceExercised :: TestResults -> T.Text -> InterfaceInstanceIdentifier -> Maybe (S.Set PackageId)
-interfaceInstanceChoiceExercised testResults name interfaceInstanceIdentifier = do
+interfaceInstanceChoiceExercised :: TestResults -> T.Text -> InterfaceInstanceIdentifier -> S.Set PackageId
+interfaceInstanceChoiceExercised testResults name interfaceInstanceIdentifier = foldMap id $ do
     exercise <- name `M.lookup` exercised testResults
     occurrences <- instanceTemplate interfaceInstanceIdentifier `M.lookup` exercise
     pure occurrences
@@ -401,9 +401,6 @@ printTestCoverage showCoverage testResults@TestResults { templates, interfaceIns
         localImplementationChoices = getImplementationChoices localImplementations
         externalImplementationChoices = getImplementationChoices externalImplementations
 
-        externalTemplates = M.filterWithKey (\k _ -> isLocalPkgId (package k)) templates
-        externalTemplatesCreated = M.intersection created externalTemplates
-
         showCoverageReport :: (k -> String) -> String -> M.Map k a -> [String]
         showCoverageReport printer variety names
           | not showCoverage = []
@@ -429,7 +426,7 @@ printTestCoverage showCoverage testResults@TestResults { templates, interfaceIns
           (exercised, neverExercised) =
               M.partitionWithKey pred localTemplateChoices
             where
-              pred choice templateId = isJust (templateChoiceExercised testResults choice templateId)
+              pred choice templateId = S.size (templateChoiceExercised testResults choice templateId) > 0
       in
       [ printf "- Internal template choices"
       , printf "  %d defined" defined
@@ -444,32 +441,34 @@ printTestCoverage showCoverage testResults@TestResults { templates, interfaceIns
       , printf "    %d external interfaces" (S.size external)
       ]
     , let defined = M.size localImplementationChoices
-          (exercised, neverExercised) = M.partition isJust localImplementationChoices
+          (exercised, neverExercised) = M.partition (\cs -> S.size cs > 0) localImplementationChoices
       in
       [ printf "- Internal interface choices"
       , printf "  %d defined" defined
       , printf "  %d (%5.1f%%) exercised" (M.size exercised) (pctage (M.size exercised) defined)
       ] ++ showCoverageReport printChoiceIdentifier "internal interface choices never exercised" neverExercised
     , [ printf "Modules external to this package:" ]
-    , let defined = M.size externalTemplates
-          createdAny = M.size externalTemplatesCreated
-          createdInternal = countWhere (any isLocalPkgId) externalTemplatesCreated
-          createdExternal = countWhere (any (not . isLocalPkgId)) externalTemplatesCreated
-          neverCreated = M.difference externalTemplates externalTemplatesCreated
+    , let defined = M.filterWithKey (\k _ -> isLocalPkgId (package k)) templates
+          createdAny = M.intersection created defined
+          createdInternal = countWhere (any isLocalPkgId) createdAny
+          createdExternal = countWhere (any (not . isLocalPkgId)) createdAny
+          neverCreated = M.difference defined createdAny
       in
       [ printf "- External templates"
-      , printf "  %d defined" defined
-      , printf "  %d (%5.1f%%) created in any tests" createdAny (pctage createdAny defined)
-      , printf "  %d (%5.1f%%) created in internal tests" createdInternal (pctage createdInternal defined)
-      , printf "  %d (%5.1f%%) created in external tests" createdExternal (pctage createdExternal defined)
+      , printf "  %d defined" (M.size defined)
+      , printf "  %d (%5.1f%%) created in any tests" (M.size createdAny) (pctage (M.size createdAny) (M.size defined))
+      , printf "  %d (%5.1f%%) created in internal tests" createdInternal (pctage createdInternal (M.size defined))
+      , printf "  %d (%5.1f%%) created in external tests" createdExternal (pctage createdExternal (M.size defined))
       ] ++ showCoverageReport printContractIdentifier "external templates never created" neverCreated
     , let defined = M.size externalTemplateChoices
           (exercisedAny, neverExercised) = M.mapEitherWithKey f externalTemplateChoices
               where
                   f choice templateId =
-                      case templateChoiceExercised testResults choice templateId of
-                        Nothing -> Right templateId
-                        Just locations -> Left locations
+                      let locations = templateChoiceExercised testResults choice templateId
+                      in
+                      if S.size locations > 0
+                        then Left locations
+                        else Right templateId
           exercisedInternal = countWhere (any isLocalPkgId) exercisedAny
           exercisedExternal = countWhere (any (not . isLocalPkgId)) exercisedAny
       in
@@ -490,9 +489,9 @@ printTestCoverage showCoverage testResults@TestResults { templates, interfaceIns
           (exercisedAny, neverExercised) = M.mapEitherWithKey f externalImplementationChoices
               where
                   f (_, instanceId) locations =
-                      case locations of
-                        Nothing -> Right instanceId
-                        Just locations -> Left locations
+                      if S.size locations > 0
+                        then Left locations
+                        else Right instanceId
           exercisedInternal = countWhere (any isLocalPkgId) exercisedAny
           exercisedExternal = countWhere (any (not . isLocalPkgId)) exercisedAny
       in
