@@ -133,6 +133,7 @@ final case class CantonConfig(
   def ledgerClientWithoutId(
       port: Port,
       token: Option[String],
+      applicationId: ApplicationId,
       maxInboundMessageSize: Int = 64 * 1024 * 1024,
   )(implicit ec: ExecutionContext, esf: ExecutionSequencerFactory): LedgerClientWithoutId = {
     import com.daml.ledger.client.configuration._

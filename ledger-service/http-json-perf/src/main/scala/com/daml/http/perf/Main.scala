@@ -11,10 +11,10 @@ import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFact
 import com.daml.http.HttpServiceTestFixture.{withHttpService, withLedger}
 import com.daml.http.perf.scenario.SimulationConfig
 import com.daml.http.util.FutureUtil._
+import com.daml.integrationtest.CantonRunner
 import com.daml.ledger.api.domain.{User, UserRight}
 import com.daml.ledger.client.withoutledgerid.LedgerClient
 import com.daml.lf.data.Ref.UserId
-import com.daml.lf.integrationtest.CantonRunner
 import com.daml.scalautil.Statement.discard
 import com.typesafe.scalalogging.StrictLogging
 import io.gatling.core.scenario.Simulation

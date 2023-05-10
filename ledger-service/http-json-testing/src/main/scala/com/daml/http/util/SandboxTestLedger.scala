@@ -4,6 +4,7 @@
 package com.daml.http.util
 
 import com.daml.http.HttpServiceTestFixture.UseTls
+import com.daml.integrationtest.CantonFixture
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.client.withoutledgerid.{LedgerClient => DamlLedgerClient}
 import com.daml.ports.Port
@@ -11,8 +12,6 @@ import org.scalatest.Suite
 import org.scalatest.OptionValues._
 
 import scala.concurrent.{ExecutionContext, Future}
-
-import com.daml.lf.integrationtest.CantonFixture
 
 trait SandboxTestLedger extends CantonFixture {
   self: Suite =>

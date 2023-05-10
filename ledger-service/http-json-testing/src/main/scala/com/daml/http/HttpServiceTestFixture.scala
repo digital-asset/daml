@@ -20,6 +20,7 @@ import com.daml.http.util.ClientUtil.boxedRecord
 import com.daml.http.util.Logging.{InstanceUUID, instanceUUIDLogCtx}
 import com.daml.http.util.TestUtil.getResponseDataBytes
 import com.daml.http.util.{FutureUtil, NewBoolean}
+import com.daml.integrationtest.{CantonConfig, CantonRunner}
 import com.daml.jwt.JwtSigner
 import com.daml.jwt.domain.{DecodedJwt, Jwt}
 import com.daml.ledger.api.auth.{AuthServiceJWTCodec, AuthServiceJWTPayload, CustomDamlJWTPayload}
@@ -56,8 +57,6 @@ import java.time.Instant
 import scala.annotation.nowarn
 import scala.concurrent.duration.{DAYS, FiniteDuration}
 import scala.concurrent.{ExecutionContext, Future}
-
-import com.daml.lf.integrationtest.{CantonConfig, CantonRunner}
 
 object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
 
@@ -154,20 +153,22 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
     implicit val resourceContext: ResourceContext = ResourceContext(ec)
     val cantonTmpDir = Files.createTempDirectory("CantonFixture")
     val config = CantonConfig(
-      darFiles = dars.map(_.toPath),
       authSecret = None,
       devMode = false,
       nParticipants = 1,
       timeProviderType = TimeProviderType.WallClock,
-      applicationId = ApplicationId("http-service-test"),
       debug = false,
       enableDisclosedContracts = false,
     )
     val logger = org.slf4j.LoggerFactory.getLogger(getClass)
-    val portsResource = CantonRunner.run(config, cantonTmpDir, logger).acquire()
+    val portsResource = CantonRunner
+      .run(config = config, tmpDir = cantonTmpDir, logger = logger, darFiles = dars.map(_.toPath))
+      .acquire()
     val portsF = portsResource.asFuture
 
-    val clientF = portsF.map(ports => config.ledgerClientWithoutId(ports.head, None))
+    val clientF = portsF.map(ports =>
+      config.ledgerClientWithoutId(ports.head, None, ApplicationId("http-service-test"))
+    )
 
     val fa: Future[A] = for {
       ports <- portsF
