@@ -47,9 +47,9 @@ withSandbox getTools mbSecret f =
               (tmpDir, _) <- getTempDir
               let portFile = tmpDir </> "portfile"
               devNull <- getDevNull
-              freePort <- getFreePort
-              let secretArgs = concat [["-C", "canton.participants.sandbox.ledger-api.port=" <> show freePort, "-C", "canton.participants.sandbox.ledger-api.auth-services.0.type=unsafe-jwt-hmac-256", "-C", "canton.participants.sandbox.ledger-api.auth-services.0.secret=" <> secret] | Just secret <- [mbSecret]]
-              let args = map (tweakArg portFile) (sandboxArgs <> secretArgs)
+              portArgs <- mapM (\argName-> fmap ((<>) argName . show) getFreePort) portArgNames
+              let secretArgs = concat [["-C", "canton.participants.sandbox.ledger-api.auth-services.0.type=unsafe-jwt-hmac-256", "-C", "canton.participants.sandbox.ledger-api.auth-services.0.secret=" <> secret] | Just secret <- [mbSecret]]
+              let args = map (tweakArg portFile) (sandboxArgs <> secretArgs <> portArgs)
               mask $ \unmask -> do
                   ph@(_, _, _, handle) <- createProcess (proc sandboxBinary args) { std_out = UseHandle devNull }
                   let waitForStart = do
@@ -60,6 +60,7 @@ withSandbox getTools mbSecret f =
       in withResource createSandbox destroySandbox (f . fmap fst)
   where
     tweakArg portFile = replace "__PORTFILE__" portFile
+    portArgNames = ["--port=", "--admin-api-port=", "--domain-public-port=", "--domain-admin-port="]
 
 newtype DamlOption = DamlOption FilePath
 instance IsOption DamlOption where
