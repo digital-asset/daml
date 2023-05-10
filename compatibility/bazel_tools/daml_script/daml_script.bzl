@@ -163,7 +163,7 @@ chmod +x $(OUTS)
     )
 
 def daml_script_example_test(compiler_version, runner_version):
-    if versions.is_at_least("2.0.0", runner_version) or versions.is_at_least("2.0.0", compiler_version):
+    if versions.is_at_least("2.0.0", runner_version) or versions.is_at_least("1.16.0", compiler_version):
         daml_script_test(
             name = "daml-script-test-compiler-{compiler_version}-runner-{runner_version}".format(
                 compiler_version = version_to_name(compiler_version),
