@@ -150,6 +150,7 @@ da_scala_test(
         "//ledger/participant-integration-api",
         "//libs-scala/ledger-resources",
         "//libs-scala/ports",
+        "//libs-scala/resources",
         "//observability/tracing",
     ],
 )

@@ -22,12 +22,7 @@ import com.daml.http.util.TestUtil.getResponseDataBytes
 import com.daml.http.util.{FutureUtil, NewBoolean}
 import com.daml.jwt.JwtSigner
 import com.daml.jwt.domain.{DecodedJwt, Jwt}
-import com.daml.ledger.api.auth.{
-  AuthService,
-  AuthServiceJWTCodec,
-  AuthServiceJWTPayload,
-  CustomDamlJWTPayload,
-}
+import com.daml.ledger.api.auth.{AuthServiceJWTCodec, AuthServiceJWTPayload, CustomDamlJWTPayload}
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.daml.ledger.api.refinements.{ApiTypes => lar}
@@ -41,17 +36,12 @@ import com.daml.ledger.client.configuration.{
 }
 import com.daml.ledger.client.withoutledgerid.{LedgerClient => DamlLedgerClient}
 import com.daml.ledger.resources.ResourceContext
-import com.daml.ledger.runner.common
-import com.daml.ledger.sandbox.SandboxOnXForTest._
-import com.daml.ledger.sandbox.{BridgeConfig, SandboxOnXRunner}
 import com.daml.logging.LoggingContextOf
-import com.daml.platform.apiserver.SeedService.Seeding
-import com.daml.platform.sandbox.SandboxBackend
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.ports.Port
-import com.google.protobuf.ByteString
 import com.typesafe.scalalogging.LazyLogging
 import org.scalatest.{Assertions, Inside}
+import org.scalatest.OptionValues._
 import scalaz._
 import scalaz.std.option._
 import scalaz.std.scalaFuture._
@@ -66,6 +56,8 @@ import java.time.Instant
 import scala.annotation.nowarn
 import scala.concurrent.duration.{DAYS, FiniteDuration}
 import scala.concurrent.{ExecutionContext, Future}
+
+import com.daml.lf.integrationtest.{CantonConfig, CantonRunner}
 
 object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
 
@@ -93,7 +85,7 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
   ): Future[A] = {
     implicit val lc: LoggingContextOf[InstanceUUID] = instanceUUIDLogCtx()
     implicit val metrics: HttpJsonApiMetrics = HttpJsonApiMetrics.ForTesting
-    val ledgerId = ledgerIdOverwrite.getOrElse(LedgerId(testName))
+    val ledgerId = ledgerIdOverwrite.getOrElse(LedgerId("participant0"))
     val applicationId = ApplicationId(testName)
 
     val contractDaoF: Future[Option[ContractDao]] = jdbcConfig.map(c => initializeDb(c)).sequence
@@ -154,95 +146,42 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
   }
 
   def withLedger[A](
-      dars: List[File],
-      testName: String,
-      token: Option[String] = None,
-      useTls: UseTls = UseTls.NoTls,
-      authService: Option[AuthService] = None,
+      dars: List[File]
   )(testFn: (Port, DamlLedgerClient, LedgerId) => Future[A])(implicit
       aesf: ExecutionSequencerFactory,
       ec: ExecutionContext,
   ): Future[A] = {
-
-    val ledgerId = LedgerId(testName)
-    val applicationId = ApplicationId(testName)
     implicit val resourceContext: ResourceContext = ResourceContext(ec)
-
-    val ledgerF = for {
-      urlResource <- Future(
-        SandboxBackend.H2Database.owner
-          .map(info => info.jdbcUrl)
-          .acquire()
-      )
-      jdbcUrl <- urlResource.asFuture
-
-      config = ledgerConfig(
-        ledgerPort = Port.Dynamic,
-        ledgerId = ledgerId,
-        useTls = useTls,
-        jdbcUrl = jdbcUrl,
-      )
-      portF <- Future(
-        SandboxOnXRunner
-          .owner(
-            ConfigAdaptor(authService),
-            config,
-            bridgeConfig,
-            registerGlobalOpenTelemetry = false,
-          )
-          .acquire()
-      )
-      port <- portF.asFuture
-    } yield (portF, port)
-
-    val clientF: Future[DamlLedgerClient] = for {
-      (_, ledgerPort) <- ledgerF
-    } yield DamlLedgerClient.singleHost(
-      "localhost",
-      ledgerPort.value,
-      clientConfig(applicationId, token),
-      clientChannelConfig(useTls),
+    val cantonTmpDir = Files.createTempDirectory("CantonFixture")
+    val config = CantonConfig(
+      darFiles = dars.map(_.toPath),
+      authSecret = None,
+      devMode = false,
+      nParticipants = 1,
+      timeProviderType = TimeProviderType.WallClock,
+      applicationId = ApplicationId("http-service-test"),
+      debug = false,
+      enableDisclosedContracts = false,
     )
+    val logger = org.slf4j.LoggerFactory.getLogger(getClass)
+    val portsResource = CantonRunner.run(config, cantonTmpDir, logger).acquire()
+    val portsF = portsResource.asFuture
+
+    val clientF = portsF.map(ports => config.ledgerClientWithoutId(ports.head, None))
 
     val fa: Future[A] = for {
-      (_, ledgerPort) <- ledgerF
+      ports <- portsF
       client <- clientF
-      _ <- Future.sequence(dars.map { dar =>
-        client.packageManagementClient.uploadDarFile(
-          ByteString.copyFrom(Files.readAllBytes(dar.toPath))
-        )
-      })
-      a <- testFn(ledgerPort, client, ledgerId)
+      a <- testFn(ports.head, client, LedgerId(config.ledgerIds.headOption.value))
     } yield a
 
     fa.transformWith { ta =>
-      ledgerF
-        .flatMap(_._1.release())
+      portsResource
+        .release()
         .fallbackTo(Future.unit)
         .transform(_ => ta)
     }
   }
-
-  def bridgeConfig: BridgeConfig = BridgeConfig()
-
-  private def ledgerConfig(
-      ledgerPort: Port,
-      ledgerId: LedgerId,
-      useTls: UseTls,
-      jdbcUrl: String,
-  ): common.Config = Default.copy(
-    ledgerId = ledgerId.unwrap,
-    engine = DevEngineConfig,
-    dataSource = dataSource(jdbcUrl),
-    participants = singleParticipant(
-      ApiServerConfig.copy(
-        seeding = Seeding.Weak,
-        timeProviderType = TimeProviderType.WallClock,
-        tls = if (useTls) Some(serverTlsConfig) else None,
-        port = ledgerPort,
-      )
-    ),
-  )
 
   private def clientConfig(
       applicationId: ApplicationId,

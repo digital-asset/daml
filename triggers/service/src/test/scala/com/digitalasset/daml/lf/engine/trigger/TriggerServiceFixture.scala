@@ -347,7 +347,7 @@ trait ToxiSandboxFixture extends BeforeAndAfterAll with ToxiproxyFixture with Ca
     val proxy = toxiproxyClient.createProxy(
       "sandbox",
       s"${host.getHostName}:$port",
-      s"${host.getHostName}:${suiteResource.value.head}",
+      s"${host.getHostName}:${ports.head}",
     )
     lock.unlock()
     resource = (port, proxy)

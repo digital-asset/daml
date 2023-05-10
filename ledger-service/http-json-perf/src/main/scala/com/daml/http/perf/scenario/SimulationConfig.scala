@@ -9,6 +9,10 @@ import io.gatling.http.protocol.HttpProtocolBuilder
 private[scenario] trait SimulationConfig {
   import SimulationConfig._
 
+  private def getPropertyOrFail(name: String): String =
+    Option(System.getProperty(name))
+      .getOrElse(throw new RuntimeException("Missing system property " + name))
+
   lazy val httpProtocol: HttpProtocolBuilder = http
     .baseUrl(s"http://$hostAndPort")
     .wsBaseUrl(s"ws://$hostAndPort")
@@ -16,21 +20,29 @@ private[scenario] trait SimulationConfig {
     .inferHtmlResources()
     .acceptHeader("*/*")
     .acceptEncodingHeader("gzip, deflate")
-    .authorizationHeader(s"Bearer $jwt")
+    .authorizationHeader(s"Bearer $aliceJwt")
     .contentTypeHeader("application/json")
 
   protected[this] val defaultNumUsers = 10
   private lazy val hostAndPort: String = System.getProperty(HostAndPortKey, "localhost:7575")
 
-  protected[this] lazy val jwt: String = System.getProperty(JwtKey, aliceJwt)
+  protected[this] lazy val aliceParty: String = getPropertyOrFail(AlicePartyKey)
+  protected[this] lazy val aliceJwt: String = getPropertyOrFail(AliceJwtKey)
 
-  // {"https://daml.com/ledger-api": {"ledgerId": "MyLedger", "applicationId": "foobar", "actAs": ["Alice"]}}
-  val aliceJwt: String =
-    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJodHRwczovL2RhbWwuY29tL2xlZGdlci1hcGkiOnsibGVkZ2VySWQiOiJNeUxlZGdlciIsImFwcGxpY2F0aW9uSWQiOiJmb29iYXIiLCJhY3RBcyI6WyJBbGljZSJdfX0.VdDI96mw5hrfM5ZNxLyetSVwcD7XtLT4dIdHIOa9lcU"
+  protected[this] lazy val bobParty: String = getPropertyOrFail(BobPartyKey)
+  protected[this] lazy val bobJwt: String = getPropertyOrFail(BobJwtKey)
+
+  protected[this] lazy val charlieParty: String = getPropertyOrFail(CharliePartyKey)
+  protected[this] lazy val charlieJwt: String = getPropertyOrFail(CharlieJwtKey)
 }
 
 object SimulationConfig {
   val HostAndPortKey = "com.daml.http.perf.hostAndPort"
-  val JwtKey = "com.daml.http.perf.jwt"
-  val LedgerId = "MyLedger"
+  // Parties
+  val AlicePartyKey = "com.daml.http.perf.aliceParty"
+  val AliceJwtKey = "com.daml.http.perf.aliceJwt"
+  val BobPartyKey = "com.daml.http.perf.bobParty"
+  val BobJwtKey = "com.daml.http.perf.bobJwt"
+  val CharliePartyKey = "com.daml.http.perf.charlieParty"
+  val CharlieJwtKey = "com.daml.http.perf.charlieJwt"
 }

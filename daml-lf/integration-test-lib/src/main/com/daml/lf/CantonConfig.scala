@@ -9,11 +9,14 @@ import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.client.{LedgerClient, GrpcChannel}
+import com.daml.ledger.client.withoutledgerid.{LedgerClient => LedgerClientWithoutId}
+import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.data.Ref
 import com.daml.lf.integrationtest.CantonConfig.noTlsConfig
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.ports.Port
 import io.grpc.ManagedChannel
+import io.grpc.netty.NettyChannelBuilder
 import scalaz.syntax.tag._
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -50,6 +53,7 @@ final case class CantonConfig(
     timeProviderType: TimeProviderType = TimeProviderType.WallClock,
     tlsEnable: Boolean = false,
     debug: Boolean = false,
+    enableDisclosedContracts: Boolean = false,
 ) {
 
   lazy val tlsConfig =
@@ -81,20 +85,35 @@ final case class CantonConfig(
 
   def tlsClientConfig: TlsConfiguration = tlsConfig.fold(noTlsConfig)(_.clientConfig)
 
+  def channelBuilder(
+      port: Port,
+      maxInboundMessageSize: Int = 64 * 1024 * 1024,
+  ): NettyChannelBuilder = {
+    import com.daml.ledger.client.configuration._
+    LedgerClientChannelConfiguration(
+      sslContext = tlsClientConfig.client(),
+      maxInboundMessageSize = maxInboundMessageSize,
+    ).builderFor("localhost", port.value)
+  }
+
   def channel(
       port: Port,
       maxInboundMessageSize: Int = 64 * 1024 * 1024,
-  ): ManagedChannel = {
-    import com.daml.ledger.client.configuration._
-    val channelConfig = LedgerClientChannelConfiguration(
-      sslContext = tlsClientConfig.client(),
-      maxInboundMessageSize = maxInboundMessageSize,
-    )
+  ): ManagedChannel =
     GrpcChannel.withShutdownHook(
-      channelConfig.builderFor("localhost", port.value)
+      channelBuilder(port, maxInboundMessageSize)
+    )
+
+  def channelResource(
+      port: Port,
+      maxInboundMessageSize: Int = 64 * 1024 * 1024,
+  ): ResourceOwner[ManagedChannel] = {
+    new GrpcChannel.Owner(
+      channelBuilder(port, maxInboundMessageSize)
     )
   }
 
+  // LedgerIds are deprecated, prefer ledgerClientWithoutId (#16831)
   def ledgerClient(
       port: Port,
       token: Option[String],
@@ -102,6 +121,24 @@ final case class CantonConfig(
   )(implicit ec: ExecutionContext, esf: ExecutionSequencerFactory): Future[LedgerClient] = {
     import com.daml.ledger.client.configuration._
     LedgerClient(
+      channel = channel(port, maxInboundMessageSize),
+      config = LedgerClientConfiguration(
+        applicationId = token.fold(applicationId.unwrap)(_ => ""),
+        ledgerIdRequirement = LedgerIdRequirement.none,
+        commandClient = CommandClientConfiguration.default,
+        token = token,
+      ),
+    )
+  }
+
+  // Prefer this whenever possible - ledgerIds should be avoided
+  def ledgerClientWithoutId(
+      port: Port,
+      token: Option[String],
+      maxInboundMessageSize: Int = 64 * 1024 * 1024,
+  )(implicit ec: ExecutionContext, esf: ExecutionSequencerFactory): LedgerClientWithoutId = {
+    import com.daml.ledger.client.configuration._
+    LedgerClientWithoutId(
       channel = channel(port, maxInboundMessageSize),
       config = LedgerClientConfiguration(
         applicationId = token.fold(applicationId.unwrap)(_ => ""),

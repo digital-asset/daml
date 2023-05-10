@@ -8,23 +8,23 @@ import io.gatling.http.Predef._
 @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
 class ExerciseCommand extends Simulation with SimulationConfig {
 
-  private val createCommand = """{
+  private val createCommand = s"""{
   "templateId": "Iou:Iou",
   "payload": {
-    "issuer": "Alice",
-    "owner": "Alice",
+    "issuer": "$aliceParty",
+    "owner": "$aliceParty",
     "currency": "USD",
     "amount": "9.99",
     "observers": []
   }
 }"""
 
-  private val exerciseCommand = """{
+  private val exerciseCommand = s"""{
     "templateId": "Iou:Iou",
-    "contractId": "${contractId}",
+    "contractId": "$${contractId}",
     "choice": "Iou_Transfer",
     "argument": {
-        "newOwner": "Alice"
+        "newOwner": "$aliceParty"
     }
   }"""
 

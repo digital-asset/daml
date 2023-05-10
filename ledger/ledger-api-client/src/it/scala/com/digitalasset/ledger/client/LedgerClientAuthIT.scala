@@ -56,7 +56,7 @@ final class LedgerClientAuthIT extends AsyncWordSpec with Matchers with Inside w
     )
   )
 
-  lazy val channel = config.channel(suiteResource.value.head)
+  lazy val channel = config.channel(ports.head)
 
   "the ledger client" when {
     "it has a read-only token" should {

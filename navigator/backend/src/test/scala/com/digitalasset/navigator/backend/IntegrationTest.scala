@@ -35,7 +35,7 @@ class IntegrationTest extends AsyncFreeSpec with CantonFixture with Matchers {
     import scala.jdk.FutureConverters
     val args = Arguments(
       port = 0,
-      participantPort = suiteResource.value.head.value,
+      participantPort = ports.head.value,
       enableUserManagement = userMgmt,
     )
     val sys = ActorSystem(s"navigator-${UUID.randomUUID().toString}")
