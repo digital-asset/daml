@@ -8,11 +8,11 @@ load(
 )
 
 da_scala_library(
-    name = "integration-test-lib",
+    name = "it-lib",
     srcs = glob(["src/main/**/*.scala"]),
     data = [
-        ":canton-patched_deploy.jar",
-        ":canton_deploy.jar",
+        "//canton:canton-patched_deploy.jar",
+        "//canton:canton_deploy.jar",
         "//test-common/test-certificates",
     ],
     scala_deps = [
@@ -28,8 +28,6 @@ da_scala_library(
         "//bazel_tools/runfiles:scala_runfiles",
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/data",
-        "//daml-lf/interpreter",
-        "//daml-lf/language",
         "//language-support/scala/bindings",
         "//language-support/scala/bindings-akka",
         "//ledger-api/rs-grpc-bridge",
@@ -46,30 +44,5 @@ da_scala_library(
         "//libs-scala/timer-utils",
         "//test-common",
         "@maven//:org_scalatest_scalatest_compatible",
-    ],
-)
-
-java_binary(
-    name = "canton",
-    main_class = "com.digitalasset.canton.CantonCommunityApp",
-    visibility = ["//visibility:public"],
-    runtime_deps = [
-        # Do not sort
-        "@canton//:lib",
-    ],
-)
-
-# We replace engine and archive classes in canton
-# This should be used for testing only
-java_binary(
-    name = "canton-patched",
-    main_class = "com.digitalasset.canton.CantonCommunityApp",
-    visibility = ["//visibility:public"],
-    runtime_deps = [
-        # The following prevents buildifier from sorting the deps
-        # Do not sort
-        "//daml-lf/engine",
-        "//daml-lf/archive:daml_lf_archive_reader",
-        "@canton//:lib",
     ],
 )

@@ -88,7 +88,7 @@ sh_test(
         "$(location //:java)",
         "$(location //:yarn)",
         "$(location //:daml2js)",
-        "$(location //daml-lf/integration-test-lib:canton_deploy.jar)",
+        "$(location //canton:canton_deploy.jar)",
         "$(location //ledger-service/http-json:http-json-binary_deploy.jar)",
         "$(location :build-and-lint.dar)",
         "$(location ts/package.json)",
@@ -110,7 +110,7 @@ sh_test(
         "//test-common:model-tests-default.dar",
         "//language-support/ts/daml-types:npm_package",
         "//language-support/ts/daml-ledger:npm_package",
-        "//daml-lf/integration-test-lib:canton_deploy.jar",
+        "//canton:canton_deploy.jar",
         "@grpcurl_nix//:bin",
     ] + glob(
         ["ts/**"],

@@ -4,7 +4,7 @@
 package com.daml.lf.engine.script
 
 import com.daml.bazeltools.BazelRunfiles
-import com.daml.lf.integrationtest.CantonFixture
+import com.daml.integrationtest.CantonFixture
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.scalautil.Statement.discard
 import org.scalatest.Suite

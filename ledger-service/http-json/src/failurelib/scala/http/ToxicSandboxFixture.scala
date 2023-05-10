@@ -4,9 +4,9 @@
 package com.daml.http
 
 import com.daml.bazeltools.BazelRunfiles
+import com.daml.integrationtest.CantonFixtureWithResource
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
-import com.daml.lf.integrationtest.CantonFixtureWithResource
 import com.daml.ports.{LockedFreePort, Port}
 import com.daml.timer.RetryStrategy
 import eu.rekawek.toxiproxy._

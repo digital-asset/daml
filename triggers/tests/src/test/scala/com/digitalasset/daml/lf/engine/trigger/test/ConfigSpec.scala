@@ -5,11 +5,11 @@ package com.daml.lf.engine.trigger
 package test
 
 import java.nio.file.Paths
+import com.daml.integrationtest.CantonFixture
 import com.daml.ledger.api.domain.{ObjectMeta, User, UserRight}
 import com.daml.ledger.api.refinements.ApiTypes
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.UserId
-import com.daml.lf.integrationtest.CantonFixture
 import com.google.protobuf.field_mask.FieldMask
 import io.grpc.StatusRuntimeException
 import io.grpc.Status.Code
