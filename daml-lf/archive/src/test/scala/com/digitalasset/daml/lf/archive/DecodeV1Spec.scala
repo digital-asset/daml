@@ -1487,6 +1487,7 @@ class DecodeV1Spec
         ) shouldBe Ast.PackageMetadata(
           Ref.PackageName.assertFromString("foobar"),
           Ref.PackageVersion.assertFromString("0.0.0"),
+          None,
         )
       }
     }
@@ -1595,6 +1596,7 @@ class DecodeV1Spec
             Ast.PackageMetadata(
               Ref.PackageName.assertFromString("foobar"),
               Ref.PackageVersion.assertFromString("0.0.0"),
+              None,
             )
           )
         }
