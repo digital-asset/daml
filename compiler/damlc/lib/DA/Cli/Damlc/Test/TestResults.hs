@@ -211,17 +211,34 @@ ssIdentifierToIdentifier pkgIdToPkgName identifier@SS.Identifier {SS.identifierN
         , qualifiedName = TL.toStrict identifierName
         }
 
-allTemplateChoices :: TestResults -> M.Map T.Text TemplateIdentifier
+allTemplateChoices :: TestResults -> M.Map T.Text (TemplateIdentifier, S.Set PackageId)
 allTemplateChoices testResults = M.fromList
-    [ (choice, templateIdentifier)
+    [ (choice, (templateIdentifier, exerciseOccurence))
     | (templateIdentifier, choices) <- M.toList (templates testResults)
     , choice <- S.toList choices
+    , let exerciseOccurence = foldMap id $ do
+            exercise <- choice `M.lookup` exercised testResults
+            occurrences <- templateIdentifier `M.lookup` exercise
+            pure occurrences
     ]
 
-allInterfaceChoices :: TestResults -> M.Map T.Text InterfaceIdentifier
-allInterfaceChoices testResults = M.fromList
-    [ (choice, interfaceIdentifier)
-    | (interfaceIdentifier, choices) <- M.toList (interfaces testResults)
+interfaceInstanceChoiceExercised :: TestResults -> T.Text -> InterfaceInstanceIdentifier -> S.Set PackageId
+interfaceInstanceChoiceExercised testResults name interfaceInstanceIdentifier = foldMap id $ do
+    exercise <- name `M.lookup` exercised testResults
+    occurrences <- instanceTemplate interfaceInstanceIdentifier `M.lookup` exercise
+    pure occurrences
+
+interfaceInstanceChoices :: TestResults -> InterfaceInstanceIdentifier -> Maybe Choices
+interfaceInstanceChoices testResults interfaceInstanceIdentifier =
+    instanceInterface interfaceInstanceIdentifier `M.lookup` interfaces testResults
+
+allInterfaceInstanceChoices :: TestResults -> M.Map (T.Text, InterfaceInstanceIdentifier) (S.Set PackageId)
+allInterfaceInstanceChoices testResults = M.fromList
+    [ ( (choice, implementation)
+      , interfaceInstanceChoiceExercised testResults choice implementation
+      )
+    | implementation <- S.toList (interfaceInstances testResults)
+    , Just choices <- pure (interfaceInstanceChoices testResults implementation)
     , choice <- S.toList choices
     ]
 
@@ -354,22 +371,6 @@ scenarioResultsToTestResults allPackages results =
                 | otherwise
                 = Nothing
 
-templateChoiceExercised :: TestResults -> T.Text -> TemplateIdentifier -> S.Set PackageId
-templateChoiceExercised testResults name templateIdentifier = foldMap id $ do
-    exercise <- name `M.lookup` exercised testResults
-    occurrences <- templateIdentifier `M.lookup` exercise
-    pure occurrences
-
-interfaceInstanceChoiceExercised :: TestResults -> T.Text -> InterfaceInstanceIdentifier -> S.Set PackageId
-interfaceInstanceChoiceExercised testResults name interfaceInstanceIdentifier = foldMap id $ do
-    exercise <- name `M.lookup` exercised testResults
-    occurrences <- instanceTemplate interfaceInstanceIdentifier `M.lookup` exercise
-    pure occurrences
-
-interfaceInstanceChoices :: TestResults -> InterfaceInstanceIdentifier -> Maybe Choices
-interfaceInstanceChoices testResults interfaceInstanceIdentifier =
-    instanceInterface interfaceInstanceIdentifier `M.lookup` interfaces testResults
-
 printTestCoverage ::
     Bool
     -> TestResults
@@ -380,26 +381,124 @@ printTestCoverage showCoverage testResults@TestResults { templates, interfaceIns
         pctage _ 0 = 100
         pctage n d = max 0 $ min 100 $ 100 * fromIntegral n / fromIntegral d
 
-        localTemplates = M.filterWithKey pred templates
-          where
-            pred templateId _ = isLocalPkgId (package templateId)
-        localTemplatesCreated = M.intersection created localTemplates
+        partitionByKey :: (k -> Bool) -> M.Map k a -> (M.Map k a, M.Map k a)
+        partitionByKey pred = M.partitionWithKey (\k _ -> pred k)
 
-        (localTemplateChoices, externalTemplateChoices) = M.partition (isLocalPkgId . package) (allTemplateChoices testResults)
+        -- Generate template creation reports
+        (localTemplates, externalTemplates) =
+            partitionByKey (isLocalPkgId . package) templates
 
-        (localImplementations, externalImplementations) = S.partition pred interfaceInstances
-          where
-            pred ifaceInst = isLocalPkgId (instancePackage ifaceInst)
-        getImplementationChoices implementations = M.fromList
-            [ ( (choice, implementation)
-              , interfaceInstanceChoiceExercised testResults choice implementation
-              )
-            | implementation <- S.toList implementations
-            , Just choices <- pure (interfaceInstanceChoices testResults implementation)
-            , choice <- S.toList choices
+        localTemplatesReport =
+            let defined = M.size localTemplates
+                createdAny = M.intersection created localTemplates
+                neverCreated = M.difference localTemplates createdAny
+            in
+            [ printf "- Internal templates"
+            , printf "  %d defined" defined
+            , printf "  %d (%5.1f%%) created" (M.size createdAny) (pctage (M.size createdAny) defined)
+            ] ++ showCoverageReport printContractIdentifier "internal templates never created" neverCreated
+
+        externalTemplatesReport =
+           let defined = externalTemplates
+               createdAny = M.intersection created defined
+               createdInternal = countWhere (any isLocalPkgId) createdAny
+               createdExternal = countWhere (any (not . isLocalPkgId)) createdAny
+               neverCreated = M.difference defined createdAny
+           in
+           [ printf "- External templates"
+           , printf "  %d defined" (M.size defined)
+           , printf "  %d (%5.1f%%) created in any tests" (M.size createdAny) (pctage (M.size createdAny) (M.size defined))
+           , printf "  %d (%5.1f%%) created in internal tests" createdInternal (pctage createdInternal (M.size defined))
+           , printf "  %d (%5.1f%%) created in external tests" createdExternal (pctage createdExternal (M.size defined))
+           ] ++ showCoverageReport printContractIdentifier "external templates never created" neverCreated
+
+        -- Generate template choices reports
+        (localTemplateChoices, externalTemplateChoices) =
+            M.partition (isLocalPkgId . package . fst) (allTemplateChoices testResults)
+
+        localTemplateChoicesReport =
+            let defined = M.size localTemplateChoices
+                (exercised, neverExercised) =
+                    M.partition pred localTemplateChoices
+                  where
+                    pred (_, locations) = S.size locations > 0
+            in
+            [ printf "- Internal template choices"
+            , printf "  %d defined" defined
+            , printf "  %d (%5.1f%%) exercised" (M.size exercised) (pctage (M.size exercised) defined)
+            ] ++ showCoverageReport printChoiceIdentifier "internal template choices never exercised" neverExercised
+
+        externalTemplateChoicesReport =
+            let defined = M.size externalTemplateChoices
+                (exercisedAny, neverExercised) = M.mapEither f externalTemplateChoices
+                    where
+                        f (templateId, locations) =
+                            if S.size locations > 0
+                              then Left locations
+                              else Right templateId
+                exercisedInternal = countWhere (any isLocalPkgId) exercisedAny
+                exercisedExternal = countWhere (any (not . isLocalPkgId)) exercisedAny
+            in
+            [ printf "- External template choices"
+            , printf "  %d defined" defined
+            , printf "  %d (%5.1f%%) exercised in any tests" (M.size exercisedAny) (pctage (M.size exercisedAny) defined)
+            , printf "  %d (%5.1f%%) exercised in internal tests" exercisedInternal (pctage exercisedInternal defined)
+            , printf "  %d (%5.1f%%) exercised in external tests" exercisedExternal (pctage exercisedExternal defined)
+            ] ++ showCoverageReport printChoiceIdentifier "external template choices never exercised" neverExercised
+
+        -- Generate implementation reports
+        (localImplementations, externalImplementations) =
+            S.partition (isLocalPkgId . instancePackage) interfaceInstances
+
+        localImplementationsReport =
+            let defined = S.size localImplementations
+                (internal, external) = S.partition (isLocalPkgId . package . unInterfaceIdentifier . instanceInterface) localImplementations
+            in
+            [ printf "- Internal interface implementations"
+            , printf "  %d defined" defined
+            , printf "    %d internal interfaces" (S.size internal)
+            , printf "    %d external interfaces" (S.size external)
             ]
-        localImplementationChoices = getImplementationChoices localImplementations
-        externalImplementationChoices = getImplementationChoices externalImplementations
+
+        externalImplementationsReport =
+            let defined = S.size externalImplementations
+            -- Here, interface instances can only refer to external templates and
+            -- interfaces, so we only report external interface instances
+            in
+            [ printf "- External interface implementations"
+            , printf "  %d defined" defined
+            ]
+
+        -- Generate implementation choices reports
+        (localImplementationChoices, externalImplementationChoices) =
+            partitionByKey (isLocalPkgId . instancePackage . snd) (allInterfaceInstanceChoices testResults)
+
+        localImplementationChoicesReport =
+           let defined = M.size localImplementationChoices
+               (exercised, neverExercised) = M.partition (\cs -> S.size cs > 0) localImplementationChoices
+           in
+           [ printf "- Internal interface choices"
+           , printf "  %d defined" defined
+           , printf "  %d (%5.1f%%) exercised" (M.size exercised) (pctage (M.size exercised) defined)
+           ] ++ showCoverageReport printChoiceIdentifier "internal interface choices never exercised" neverExercised
+
+        externalImplementationChoicesReport =
+            let defined = M.size externalImplementationChoices
+                (exercisedAny, neverExercised) = M.mapEitherWithKey f externalImplementationChoices
+                    where
+                        f (_, instanceId) locations =
+                            if S.size locations > 0
+                              then Left locations
+                              else Right instanceId
+                exercisedInternal = countWhere (any isLocalPkgId) exercisedAny
+                exercisedExternal = countWhere (any (not . isLocalPkgId)) exercisedAny
+            in
+            [ printf "- External interface choices"
+            , printf "  %d defined" defined
+            , printf "  %d (%5.1f%%) exercised in any tests" (M.size exercisedAny) (pctage (M.size exercisedAny) defined)
+            , printf "  %d (%5.1f%%) exercised in internal tests" exercisedInternal (pctage exercisedInternal defined)
+            , printf "  %d (%5.1f%%) exercised in external tests" exercisedExternal (pctage exercisedExternal defined)
+            ] ++ showCoverageReport printChoiceIdentifier "external interface choices never exercised" neverExercised
 
         showCoverageReport :: (k -> String) -> String -> M.Map k a -> [String]
         showCoverageReport printer variety names
@@ -414,93 +513,15 @@ printTestCoverage showCoverage testResults@TestResults { templates, interfaceIns
     [ [ printf "Modules internal to this package:" ]
     -- Can't have any external tests that exercise internals, as that would
     -- require a circular dependency, so we only report local test results
-    , let defined = M.size localTemplates
-          created = M.size localTemplatesCreated
-          neverCreated = M.difference localTemplates localTemplatesCreated
-      in
-      [ printf "- Internal templates"
-      , printf "  %d defined" defined
-      , printf "  %d (%5.1f%%) created" created (pctage created defined)
-      ] ++ showCoverageReport printContractIdentifier "internal templates never created" neverCreated
-    , let defined = M.size localTemplateChoices
-          (exercised, neverExercised) =
-              M.partitionWithKey pred localTemplateChoices
-            where
-              pred choice templateId = S.size (templateChoiceExercised testResults choice templateId) > 0
-      in
-      [ printf "- Internal template choices"
-      , printf "  %d defined" defined
-      , printf "  %d (%5.1f%%) exercised" (M.size exercised) (pctage (M.size exercised) defined)
-      ] ++ showCoverageReport printChoiceIdentifier "internal template choices never exercised" neverExercised
-    , let defined = S.size localImplementations
-          (internal, external) = S.partition (isLocalPkgId . package . unInterfaceIdentifier . instanceInterface) localImplementations
-      in
-      [ printf "- Internal interface implementations"
-      , printf "  %d defined" defined
-      , printf "    %d internal interfaces" (S.size internal)
-      , printf "    %d external interfaces" (S.size external)
-      ]
-    , let defined = M.size localImplementationChoices
-          (exercised, neverExercised) = M.partition (\cs -> S.size cs > 0) localImplementationChoices
-      in
-      [ printf "- Internal interface choices"
-      , printf "  %d defined" defined
-      , printf "  %d (%5.1f%%) exercised" (M.size exercised) (pctage (M.size exercised) defined)
-      ] ++ showCoverageReport printChoiceIdentifier "internal interface choices never exercised" neverExercised
+    , localTemplatesReport
+    , localTemplateChoicesReport
+    , localImplementationsReport
+    , localImplementationChoicesReport
     , [ printf "Modules external to this package:" ]
-    , let defined = M.filterWithKey (\k _ -> isLocalPkgId (package k)) templates
-          createdAny = M.intersection created defined
-          createdInternal = countWhere (any isLocalPkgId) createdAny
-          createdExternal = countWhere (any (not . isLocalPkgId)) createdAny
-          neverCreated = M.difference defined createdAny
-      in
-      [ printf "- External templates"
-      , printf "  %d defined" (M.size defined)
-      , printf "  %d (%5.1f%%) created in any tests" (M.size createdAny) (pctage (M.size createdAny) (M.size defined))
-      , printf "  %d (%5.1f%%) created in internal tests" createdInternal (pctage createdInternal (M.size defined))
-      , printf "  %d (%5.1f%%) created in external tests" createdExternal (pctage createdExternal (M.size defined))
-      ] ++ showCoverageReport printContractIdentifier "external templates never created" neverCreated
-    , let defined = M.size externalTemplateChoices
-          (exercisedAny, neverExercised) = M.mapEitherWithKey f externalTemplateChoices
-              where
-                  f choice templateId =
-                      let locations = templateChoiceExercised testResults choice templateId
-                      in
-                      if S.size locations > 0
-                        then Left locations
-                        else Right templateId
-          exercisedInternal = countWhere (any isLocalPkgId) exercisedAny
-          exercisedExternal = countWhere (any (not . isLocalPkgId)) exercisedAny
-      in
-      [ printf "- External template choices"
-      , printf "  %d defined" defined
-      , printf "  %d (%5.1f%%) exercised in any tests" (M.size exercisedAny) (pctage (M.size exercisedAny) defined)
-      , printf "  %d (%5.1f%%) exercised in internal tests" exercisedInternal (pctage exercisedInternal defined)
-      , printf "  %d (%5.1f%%) exercised in external tests" exercisedExternal (pctage exercisedExternal defined)
-      ] ++ showCoverageReport printChoiceIdentifier "external template choices never exercised" neverExercised
-    , let defined = S.size $ S.filter (not . isLocalPkgId . instancePackage) interfaceInstances
-    -- Here, interface instances can only refer to external templates and
-    -- interfaces, so we only report external interface instances
-      in
-      [ printf "- External interface implementations"
-      , printf "  %d defined" defined
-      ]
-    , let defined = M.size externalImplementationChoices
-          (exercisedAny, neverExercised) = M.mapEitherWithKey f externalImplementationChoices
-              where
-                  f (_, instanceId) locations =
-                      if S.size locations > 0
-                        then Left locations
-                        else Right instanceId
-          exercisedInternal = countWhere (any isLocalPkgId) exercisedAny
-          exercisedExternal = countWhere (any (not . isLocalPkgId)) exercisedAny
-      in
-      [ printf "- External interface choices"
-      , printf "  %d defined" defined
-      , printf "  %d (%5.1f%%) exercised in any tests" (M.size exercisedAny) (pctage (M.size exercisedAny) defined)
-      , printf "  %d (%5.1f%%) exercised in internal tests" exercisedInternal (pctage exercisedInternal defined)
-      , printf "  %d (%5.1f%%) exercised in external tests" exercisedExternal (pctage exercisedExternal defined)
-      ] ++ showCoverageReport printChoiceIdentifier "external interface choices never exercised" neverExercised
+    , externalTemplatesReport
+    , externalTemplateChoicesReport
+    , externalImplementationsReport
+    , externalImplementationChoicesReport
     ]
 
     where
