@@ -418,7 +418,7 @@ trait ToxiproxyFixture extends BeforeAndAfterAll with AkkaBeforeAndAfterAll {
   }
 }
 
-// TODO: migrate this code in a future PR
+// TODO: delete once Oracle and Postgres migrations are completed
 trait ToxiSandboxFixture extends BeforeAndAfterAll with ToxiproxyFixture with SandboxFixture {
   self: Suite =>
 
@@ -438,6 +438,41 @@ trait ToxiSandboxFixture extends BeforeAndAfterAll with ToxiproxyFixture with Sa
       "sandbox",
       s"${host.getHostName}:$port",
       s"${host.getHostName}:$sandboxPort",
+    )
+    lock.unlock()
+    resource = (port, proxy)
+  }
+
+  override protected def afterAll(): Unit = {
+    toxiSandboxProxy.delete()
+
+    super.afterAll()
+  }
+}
+
+// TODO: rename once Oracle and Postgres migrations are completed
+trait ToxiSandboxWithCantonFixture
+    extends BeforeAndAfterAll
+    with ToxiproxyFixture
+    with CantonFixture {
+  self: Suite =>
+
+  protected def toxiSandboxPort: Port = resource._1
+
+  protected def toxiSandboxProxy: Proxy = resource._2
+
+  private var resource: (Port, Proxy) = _
+
+  override protected def beforeAll(): Unit = {
+    super.beforeAll()
+
+    val host = InetAddress.getLoopbackAddress
+    val lock = LockedFreePort.find()
+    val port = lock.port
+    val proxy = toxiproxyClient.createProxy(
+      "sandbox",
+      s"${host.getHostName}:$port",
+      s"${host.getHostName}:${suiteResource.value.head}",
     )
     lock.unlock()
     resource = (port, proxy)
@@ -553,6 +588,7 @@ trait TriggerDaoOracleFixture
 // TODO: rename once Oracle and Postgres migrations are completed
 trait TriggerServiceWithCantonFixture
     extends AbstractTriggerDaoCantonFixture
+    with ToxiSandboxWithCantonFixture
     with AbstractAuthFixture {
   self: Suite =>
 
@@ -581,8 +617,7 @@ trait TriggerServiceWithCantonFixture
             val host = InetAddress.getLoopbackAddress
             val ledgerConfig = LedgerConfig(
               host.getHostName,
-              // TODO: set this to be the toxi proxy port in a future PR
-              suiteResource.value.head.value,
+              toxiSandboxPort.value,
               TimeProviderType.Static,
               java.time.Duration.ofSeconds(30),
               Cli.DefaultMaxInboundMessageSize,

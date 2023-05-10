@@ -1337,57 +1337,55 @@ trait AbstractTriggerServiceTestWithCanton extends AbstractTriggerServiceTestHel
     } yield succeed
   }
 
-  // TODO: complete refactor of toxi proxy test in a future PR
-//  it should "restart trigger on initialization failure due to failed connection" taggedAs availabilitySecurity
-//    .setHappyCase(
-//      "A failed ledger connection will start the trigger later"
-//    ) inClaims withTriggerService(
-//    List(dar)
-//  ) { uri: Uri =>
-//    for {
-//      client <- defaultLedgerClient()
-//      party <- allocateParty(client)
-//      // Simulate a failed ledger connection which will prevent triggers from initializing.
-//      _ <- Future(toxiSandboxProxy.disable())
-//      resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", party)
-//      // The start request should succeed and an entry should be added to the running trigger store,
-//      // even though the trigger will not be able to start.
-//      partyTrigger <- parseTriggerId(resp)
-//      _ <- assertTriggerIds(uri, party, Vector(partyTrigger))
-//      // Check the log for an initialization failure.
-//      _ <- assertTriggerStatus(partyTrigger, _ should contain("stopped: initialization failure"))
-//      // Finally establish the connection and check that the trigger eventually starts.
-//      _ <- Future(toxiSandboxProxy.enable())
-//      _ <- assertTriggerStatus(partyTrigger, _.last should ===("running"))
-//    } yield succeed
-//  }
+  it should "restart trigger on initialization failure due to failed connection" taggedAs availabilitySecurity
+    .setHappyCase(
+      "A failed ledger connection will start the trigger later"
+    ) inClaims withTriggerService(
+    List(dar)
+  ) { uri: Uri =>
+    for {
+      client <- defaultLedgerClient()
+      party <- allocateParty(client)
+      // Simulate a failed ledger connection which will prevent triggers from initializing.
+      _ <- Future(toxiSandboxProxy.disable())
+      resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", party)
+      // The start request should succeed and an entry should be added to the running trigger store,
+      // even though the trigger will not be able to start.
+      partyTrigger <- parseTriggerId(resp)
+      _ <- assertTriggerIds(uri, party, Vector(partyTrigger))
+      // Check the log for an initialization failure.
+      _ <- assertTriggerStatus(partyTrigger, _ should contain("stopped: initialization failure"))
+      // Finally establish the connection and check that the trigger eventually starts.
+      _ <- Future(toxiSandboxProxy.enable())
+      _ <- assertTriggerStatus(partyTrigger, _.last should ===("running"))
+    } yield succeed
+  }
 
-  // TODO: complete refactor of toxi proxy test in a future PR
-//  it should "restart trigger on run-time failure due to dropped connection" taggedAs availabilitySecurity
-//    .setHappyCase(
-//      "A connection error during runtime of a trigger will restart the trigger"
-//    ) inClaims withTriggerService(
-//    List(dar)
-//  ) { uri: Uri =>
-//    // Simulate the ledger being briefly unavailable due to network connectivity loss.
-//    // We continually restart the trigger until the connection returns.
-//    for {
-//      client <- defaultLedgerClient()
-//      party <- allocateParty(client)
-//      // Request a trigger be started for party.
-//      resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", party)
-//      partyTrigger <- parseTriggerId(resp)
-//      _ <- assertTriggerIds(uri, party, Vector(partyTrigger))
-//      // Proceed when it's confirmed to be running.
-//      _ <- assertTriggerStatus(partyTrigger, _.last should ===("running"))
-//      // Simulate brief network connectivity loss and observe the trigger fail.
-//      _ <- Future(toxiSandboxProxy.disable())
-//      _ <- assertTriggerStatus(partyTrigger, _ should contain("stopped: runtime failure"))
-//      // Finally check the trigger is restarted after the connection returns.
-//      _ <- Future(toxiSandboxProxy.enable())
-//      _ <- assertTriggerStatus(partyTrigger, _.last should ===("running"))
-//    } yield succeed
-//  }
+  it should "restart trigger on run-time failure due to dropped connection" taggedAs availabilitySecurity
+    .setHappyCase(
+      "A connection error during runtime of a trigger will restart the trigger"
+    ) inClaims withTriggerService(
+    List(dar)
+  ) { uri: Uri =>
+    // Simulate the ledger being briefly unavailable due to network connectivity loss.
+    // We continually restart the trigger until the connection returns.
+    for {
+      client <- defaultLedgerClient()
+      party <- allocateParty(client)
+      // Request a trigger be started for party.
+      resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", party)
+      partyTrigger <- parseTriggerId(resp)
+      _ <- assertTriggerIds(uri, party, Vector(partyTrigger))
+      // Proceed when it's confirmed to be running.
+      _ <- assertTriggerStatus(partyTrigger, _.last should ===("running"))
+      // Simulate brief network connectivity loss and observe the trigger fail.
+      _ <- Future(toxiSandboxProxy.disable())
+      _ <- assertTriggerStatus(partyTrigger, _ should contain("stopped: runtime failure"))
+      // Finally check the trigger is restarted after the connection returns.
+      _ <- Future(toxiSandboxProxy.enable())
+      _ <- assertTriggerStatus(partyTrigger, _.last should ===("running"))
+    } yield succeed
+  }
 
   it should "restart triggers with initialization errors" taggedAs availabilitySecurity
     .setHappyCase(
