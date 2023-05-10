@@ -96,11 +96,11 @@ instance Protobuf TR.ContractIdentifier ContractIdentifier where
     -}
 
 instance Protobuf TR.PackageId PackageId where
-    decode (TR.PackageId (Just (TR.PackageIdVarietyLocal LF1.Unit)) name) = Just (PackageId Nothing (TL.toStrict name))
-    decode (TR.PackageId (Just (TR.PackageIdVarietyExternal t)) name) = Just (PackageId (Just (TL.toStrict t)) (TL.toStrict name))
+    decode (TR.PackageId (Just (TR.PackageIdVarietyLocal LF1.Unit))) = Just LocalPackageId
+    decode (TR.PackageId (Just (TR.PackageIdVarietyExternal (TR.PackageId_ExternalPackageId id name)))) = Just (ExternalPackageId (TL.toStrict id) (TL.toStrict name))
     decode _ = Nothing
-    encode (PackageId Nothing name) = TR.PackageId (Just (TR.PackageIdVarietyLocal LF1.Unit)) (TL.fromStrict name)
-    encode (PackageId (Just ext) name) = TR.PackageId (Just (TR.PackageIdVarietyExternal (TL.fromStrict ext))) (TL.fromStrict name)
+    encode LocalPackageId = TR.PackageId (Just (TR.PackageIdVarietyLocal LF1.Unit))
+    encode (ExternalPackageId ext name) = (TR.PackageId (Just (TR.PackageIdVarietyExternal (TR.PackageId_ExternalPackageId (TL.fromStrict ext) (TL.fromStrict name)))))
 
 saveTestResults :: FilePath -> TestResults -> IO ()
 saveTestResults file testResults = do
@@ -128,13 +128,11 @@ loeGetModules (Local mod) = [mod]
 loeGetModules (External pkg) = NM.elems $ LF.packageModules $ LF.extPackagePkg pkg
 
 loeToPackageId :: (T.Text -> T.Text) -> LocalOrExternal -> PackageId
-loeToPackageId pkgIdToPkgName loe =
-    let variety = case loe of
-          Local _ -> Nothing
-          External pkg -> Just (LF.unPackageId (LF.extPackageId pkg))
-        name = maybe "" pkgIdToPkgName variety
+loeToPackageId _ (Local _) = LocalPackageId
+loeToPackageId pkgIdToPkgName (External pkg) =
+    let pid = LF.unPackageId (LF.extPackageId pkg)
     in
-    PackageId { variety, name }
+    ExternalPackageId { pid, name = pkgIdToPkgName pid }
 
 -- Contracts
 data TemplateIdentifier = TemplateIdentifier
@@ -165,15 +163,17 @@ data ContractIdentifier
 -- Choices
 type Choices = S.Set T.Text
 
-data PackageId = PackageId
-    { variety :: Maybe T.Text -- `variety == Nothing` means local package
-    , name :: T.Text
-    }
+data PackageId
+    = LocalPackageId
+    | ExternalPackageId
+        { pid :: T.Text
+        , name :: T.Text
+        }
     deriving (Eq, Ord, Show)
 
 isLocalPkgId :: PackageId -> Bool
-isLocalPkgId PackageId { variety = Nothing } = True
-isLocalPkgId _ = False
+isLocalPkgId LocalPackageId = True
+isLocalPkgId ExternalPackageId {} = False
 
 lfTemplateIdentifier :: PackageId -> LF.Module -> LF.Template -> TemplateIdentifier
 lfTemplateIdentifier packageId mod tpl =
@@ -194,15 +194,16 @@ lfMkNameIdentifier packageId mod typeConName =
 
 ssIdentifierToPackage :: (T.Text -> T.Text) -> SS.Identifier -> PackageId
 ssIdentifierToPackage pkgIdToPkgName SS.Identifier {SS.identifierPackage} =
-    let variety = do
+    let pid = do
             pIdSumM <- identifierPackage
             pIdSum <- SS.packageIdentifierSum pIdSumM
             case pIdSum of
                 SS.PackageIdentifierSumSelf _ -> Nothing
                 SS.PackageIdentifierSumPackageId pId -> Just $ TL.toStrict pId
-        name = maybe "" pkgIdToPkgName variety
     in
-    PackageId { variety, name }
+    case pid of
+      Nothing -> LocalPackageId
+      Just pid -> ExternalPackageId { pid, name = pkgIdToPkgName pid }
 
 ssIdentifierToIdentifier :: (T.Text -> T.Text) -> SS.Identifier -> TemplateIdentifier
 ssIdentifierToIdentifier pkgIdToPkgName identifier@SS.Identifier {SS.identifierName} =
@@ -376,7 +377,10 @@ printTestCoverage ::
     -> TestResults
     -> IO ()
 printTestCoverage showCoverage testResults@TestResults { templates, interfaceInstances, created } =
-    let countWhere pred = M.size . M.filter pred
+    let -- Utilities
+        countWhere :: (a -> Bool) -> M.Map k a -> Int
+        countWhere pred = M.size . M.filter pred
+
         pctage :: Int -> Int -> Double
         pctage _ 0 = 100
         pctage n d = max 0 $ min 100 $ 100 * fromIntegral n / fromIntegral d
@@ -396,7 +400,7 @@ printTestCoverage showCoverage testResults@TestResults { templates, interfaceIns
             [ printf "- Internal templates"
             , printf "  %d defined" defined
             , printf "  %d (%5.1f%%) created" (M.size createdAny) (pctage (M.size createdAny) defined)
-            ] ++ showCoverageReport printContractIdentifier "internal templates never created" neverCreated
+            ] ++ showCoverageReport printTemplateIdentifier "internal templates never created" neverCreated
 
         externalTemplatesReport =
            let defined = externalTemplates
@@ -410,7 +414,7 @@ printTestCoverage showCoverage testResults@TestResults { templates, interfaceIns
            , printf "  %d (%5.1f%%) created in any tests" (M.size createdAny) (pctage (M.size createdAny) (M.size defined))
            , printf "  %d (%5.1f%%) created in internal tests" createdInternal (pctage createdInternal (M.size defined))
            , printf "  %d (%5.1f%%) created in external tests" createdExternal (pctage createdExternal (M.size defined))
-           ] ++ showCoverageReport printContractIdentifier "external templates never created" neverCreated
+           ] ++ showCoverageReport printTemplateIdentifier "external templates never created" neverCreated
 
         -- Generate template choices reports
         (localTemplateChoices, externalTemplateChoices) =
@@ -418,33 +422,25 @@ printTestCoverage showCoverage testResults@TestResults { templates, interfaceIns
 
         localTemplateChoicesReport =
             let defined = M.size localTemplateChoices
-                (exercised, neverExercised) =
-                    M.partition pred localTemplateChoices
-                  where
-                    pred (_, locations) = S.size locations > 0
+                (exercised, neverExercised) = M.partition (\(_, locs) -> S.size locs > 0) localTemplateChoices
             in
             [ printf "- Internal template choices"
             , printf "  %d defined" defined
             , printf "  %d (%5.1f%%) exercised" (M.size exercised) (pctage (M.size exercised) defined)
-            ] ++ showCoverageReport printChoiceIdentifier "internal template choices never exercised" neverExercised
+            ] ++ showCoverageReport printTemplateChoiceIdentifier "internal template choices never exercised" neverExercised
 
         externalTemplateChoicesReport =
             let defined = M.size externalTemplateChoices
-                (exercisedAny, neverExercised) = M.mapEither f externalTemplateChoices
-                    where
-                        f (templateId, locations) =
-                            if S.size locations > 0
-                              then Left locations
-                              else Right templateId
-                exercisedInternal = countWhere (any isLocalPkgId) exercisedAny
-                exercisedExternal = countWhere (any (not . isLocalPkgId)) exercisedAny
+                (exercisedAny, neverExercised) = M.partition (\(_, locs) -> S.size locs > 0) externalTemplateChoices
+                exercisedInternal = countWhere (any isLocalPkgId . snd) exercisedAny
+                exercisedExternal = countWhere (any (not . isLocalPkgId) . snd) exercisedAny
             in
             [ printf "- External template choices"
             , printf "  %d defined" defined
             , printf "  %d (%5.1f%%) exercised in any tests" (M.size exercisedAny) (pctage (M.size exercisedAny) defined)
             , printf "  %d (%5.1f%%) exercised in internal tests" exercisedInternal (pctage exercisedInternal defined)
             , printf "  %d (%5.1f%%) exercised in external tests" exercisedExternal (pctage exercisedExternal defined)
-            ] ++ showCoverageReport printChoiceIdentifier "external template choices never exercised" neverExercised
+            ] ++ showCoverageReport printTemplateChoiceIdentifier "external template choices never exercised" neverExercised
 
         -- Generate implementation reports
         (localImplementations, externalImplementations) =
@@ -475,21 +471,16 @@ printTestCoverage showCoverage testResults@TestResults { templates, interfaceIns
 
         localImplementationChoicesReport =
            let defined = M.size localImplementationChoices
-               (exercised, neverExercised) = M.partition (\cs -> S.size cs > 0) localImplementationChoices
+               (exercised, neverExercised) = M.partition (\locs -> S.size locs > 0) localImplementationChoices
            in
            [ printf "- Internal interface choices"
            , printf "  %d defined" defined
            , printf "  %d (%5.1f%%) exercised" (M.size exercised) (pctage (M.size exercised) defined)
-           ] ++ showCoverageReport printChoiceIdentifier "internal interface choices never exercised" neverExercised
+           ] ++ showCoverageReport printInstanceChoiceIdentifier "internal interface choices never exercised" neverExercised
 
         externalImplementationChoicesReport =
             let defined = M.size externalImplementationChoices
-                (exercisedAny, neverExercised) = M.mapEitherWithKey f externalImplementationChoices
-                    where
-                        f (_, instanceId) locations =
-                            if S.size locations > 0
-                              then Left locations
-                              else Right instanceId
+                (exercisedAny, neverExercised) = M.partition (\locs -> S.size locs > 0) externalImplementationChoices
                 exercisedInternal = countWhere (any isLocalPkgId) exercisedAny
                 exercisedExternal = countWhere (any (not . isLocalPkgId)) exercisedAny
             in
@@ -498,14 +489,14 @@ printTestCoverage showCoverage testResults@TestResults { templates, interfaceIns
             , printf "  %d (%5.1f%%) exercised in any tests" (M.size exercisedAny) (pctage (M.size exercisedAny) defined)
             , printf "  %d (%5.1f%%) exercised in internal tests" exercisedInternal (pctage exercisedInternal defined)
             , printf "  %d (%5.1f%%) exercised in external tests" exercisedExternal (pctage exercisedExternal defined)
-            ] ++ showCoverageReport printChoiceIdentifier "external interface choices never exercised" neverExercised
+            ] ++ showCoverageReport printInstanceChoiceIdentifier "external interface choices never exercised" neverExercised
 
-        showCoverageReport :: (k -> String) -> String -> M.Map k a -> [String]
+        showCoverageReport :: (k -> a -> String) -> String -> M.Map k a -> [String]
         showCoverageReport printer variety names
           | not showCoverage = []
           | otherwise =
             [ printf "  %s: %d" variety (M.size names)
-            ] ++ [ "    " ++ printer id | id <- M.keys names ]
+            ] ++ [ "    " ++ printer id value | (id, value) <- M.toList names ]
     in
     putStrLn $
     unlines $
@@ -526,34 +517,19 @@ printTestCoverage showCoverage testResults@TestResults { templates, interfaceIns
 
     where
 
-        {-
-    pkgIdToPkgName :: T.Text -> T.Text
-    pkgIdToPkgName targetPid =
-        case mapMaybe isTargetPackage allPackages of
-          [] -> targetPid
-          [matchingPkg] -> maybe targetPid (LF.unPackageName . LF.packageName) $ LF.packageMetadata $ LF.extPackagePkg matchingPkg
-          _ -> error ("pkgIdToPkgName: more than one package matching name " <> T.unpack targetPid)
-        where
-            isTargetPackage loe
-                | External pkg <- loe
-                , targetPid == LF.unPackageId (LF.extPackageId pkg)
-                = Just pkg
-                | otherwise
-                = Nothing
-        -}
+    printTemplateChoiceIdentifier :: T.Text -> (TemplateIdentifier, a) -> String
+    printTemplateChoiceIdentifier choice (templateId, _) =
+        printTemplateIdentifier templateId () <> ":" <> T.unpack choice
 
-    printContractIdentifier = undefined
-    printChoiceIdentifier = undefined
+    printInstanceChoiceIdentifier :: (T.Text, InterfaceInstanceIdentifier) -> a -> String
+    printInstanceChoiceIdentifier (choice, InterfaceInstanceIdentifier { instanceTemplate }) _ =
+        printTemplateIdentifier instanceTemplate () <> ":" <> T.unpack choice
 
-        {-
-    printContractIdentifier :: ContractIdentifier -> String
-    printContractIdentifier ContractIdentifier { package, qualifiedName } =
-        T.unpack $ maybe
-            qualifiedName
-            (\pId -> pkgIdToPkgName pId <> ":" <> qualifiedName)
-            package
-
-    printChoiceIdentifier :: ChoiceIdentifier -> String
-    printChoiceIdentifier ChoiceIdentifier { contract, choice } =
-        printContractIdentifier contract <> ":" <> T.unpack choice
-        -}
+    printTemplateIdentifier :: TemplateIdentifier -> a -> String
+    printTemplateIdentifier TemplateIdentifier { package, qualifiedName } _ =
+        let prefix =
+                case package of
+                  LocalPackageId -> ""
+                  ExternalPackageId { name } -> name <> ":"
+        in
+        T.unpack $ prefix <> qualifiedName

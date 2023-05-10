@@ -64,10 +64,13 @@ message ExerciseOnTemplate {
 }
 
 message PackageId {
-  oneof variety {
-    Unit local = 1;
-    string external = 2;
+  message ExternalPackageId {
+    string id = 1;
+    string name = 2;
   }
 
-  string name = 3; // empty for local packages, for now
+  oneof variety {
+    Unit local = 1;
+    ExternalPackageId external = 2;
+  }
 }
