@@ -582,9 +582,50 @@ trait TriggerDaoPostgresCantonFixture
   }
 }
 
-// TODO: will be migrated in a future PR
+// TODO: delete once Oracle and Postgres migrations are completed
 trait TriggerDaoOracleFixture
     extends AbstractTriggerDaoFixture
+    with BeforeAndAfterEach
+    with AkkaBeforeAndAfterAll
+    with OracleAroundAll {
+  self: Suite =>
+
+  override def jdbcConfig: Option[JdbcConfig] = Some(jdbcConfig_)
+
+  // Lazy because the oracleDatabase is only available once the tests start
+  private lazy val jdbcConfig_ =
+    JdbcConfig(
+      "oracle.jdbc.OracleDriver",
+      oracleJdbcUrlWithoutCredentials,
+      oracleUserName,
+      oracleUserPwd,
+      ConnectionPool.PoolSize.Production,
+    )
+  // TODO For whatever reason we need a larger pool here, otherwise
+  // the connection deadlocks. I have no idea why :(
+  private lazy val triggerDao =
+    DbTriggerDao(jdbcConfig_)
+  private lazy implicit val executionContext: ExecutionContext = system.getDispatcher
+
+  override protected def beforeEach(): Unit = {
+    super.beforeEach()
+    Await.result(triggerDao.initialize(false), Duration(31, SECONDS))
+  }
+
+  override protected def afterEach(): Unit = {
+    Await.result(triggerDao.destroy, Duration(30, SECONDS))
+    super.afterEach()
+  }
+
+  override protected def afterAll(): Unit = {
+    triggerDao.destroyPermanently().fold(fail(_), identity)
+    super.afterAll()
+  }
+}
+
+// TODO: rename once Oracle and Postgres migrations are completed
+trait TriggerDaoOracleCantonFixture
+    extends AbstractTriggerDaoCantonFixture
     with BeforeAndAfterEach
     with AkkaBeforeAndAfterAll
     with OracleAroundAll {
