@@ -7,13 +7,13 @@ package simulation
 import akka.actor.ActorSystem
 import akka.stream.Materializer
 import akka.stream.scaladsl.Sink
-import com.daml.ledger.api.refinements.ApiTypes.Party
 import com.daml.lf.data.Ref.QualifiedName
 import com.daml.lf.engine.trigger.test.AbstractTriggerTestWithCanton
 import com.daml.lf.speedy.SValue
 import org.scalatest.{Inside, TryValues}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
+import scalaz.syntax.tag._
 
 import scala.concurrent.ExecutionContext
 
@@ -58,16 +58,17 @@ class CatTriggerResourceUsageTest
               compiledPackages,
               timeProviderType,
               triggerRunnerConfiguration,
-              party,
+              party.unwrap,
             )
-            result <- forAll(monotonicACS(party, stateSizeGen), parallelism = parallelism) { acs =>
-              for {
-                (submissions, metrics, state) <- simulator.initialStateLambda(acs)
-              } yield {
-                withClue((acs, state, submissions, metrics)) {
-                  acs.size should be(2 * submissions.size)
+            result <- forAll(monotonicACS(party.unwrap, stateSizeGen), parallelism = parallelism) {
+              acs =>
+                for {
+                  (submissions, metrics, state) <- simulator.initialStateLambda(acs)
+                } yield {
+                  withClue((acs, state, submissions, metrics)) {
+                    acs.size should be(2 * submissions.size)
+                  }
                 }
-              }
             }
           } yield result
         }
@@ -84,27 +85,28 @@ class CatTriggerResourceUsageTest
               compiledPackages,
               timeProviderType,
               triggerRunnerConfiguration,
-              party,
+              party.unwrap,
             )
             converter = new Converter(compiledPackages, trigger)
             userState = SValue.SInt64(400L)
             msg = TriggerMsg.Heartbeat
-            result <- forAll(monotonicACS(party, stateSizeGen), parallelism = parallelism) { acs =>
-              val startState = converter
-                .fromTriggerUpdateState(
-                  acs,
-                  userState,
-                  parties = TriggerParties(Party(party), Set.empty),
-                  triggerConfig = triggerRunnerConfiguration,
-                )
+            result <- forAll(monotonicACS(party.unwrap, stateSizeGen), parallelism = parallelism) {
+              acs =>
+                val startState = converter
+                  .fromTriggerUpdateState(
+                    acs,
+                    userState,
+                    parties = TriggerParties(party, Set.empty),
+                    triggerConfig = triggerRunnerConfiguration,
+                  )
 
-              for {
-                (submissions, metrics, endState) <- simulator.updateStateLambda(startState, msg)
-              } yield {
-                withClue((startState, msg, endState, submissions, metrics)) {
-                  acs.size should be(2 * submissions.size)
+                for {
+                  (submissions, metrics, endState) <- simulator.updateStateLambda(startState, msg)
+                } yield {
+                  withClue((startState, msg, endState, submissions, metrics)) {
+                    acs.size should be(2 * submissions.size)
+                  }
                 }
-              }
             }
           } yield result
         }
@@ -126,7 +128,7 @@ class CatTriggerResourceUsageTest
               compiledPackages,
               timeProviderType,
               triggerRunnerConfiguration,
-              party,
+              party.unwrap,
             )
             converter = new Converter(compiledPackages, trigger)
             acs = Seq.empty
@@ -136,7 +138,7 @@ class CatTriggerResourceUsageTest
                 .fromTriggerUpdateState(
                   acs,
                   SValue.SInt64(userState),
-                  parties = TriggerParties(Party(party), Set.empty),
+                  parties = TriggerParties(party, Set.empty),
                   triggerConfig = triggerRunnerConfiguration,
                 )
 
@@ -166,17 +168,17 @@ class CatTriggerResourceUsageTest
                 compiledPackages,
                 timeProviderType,
                 triggerRunnerConfiguration,
-                party,
+                party.unwrap,
               )
               converter = new Converter(compiledPackages, trigger)
               catPopulation = 10L
-              acs = acsGen(party, catPopulation)
+              acs = acsGen(party.unwrap, catPopulation)
               userState = SValue.SInt64(catPopulation)
               startState = converter
                 .fromTriggerUpdateState(
                   acs,
                   userState,
-                  parties = TriggerParties(Party(party), Set.empty),
+                  parties = TriggerParties(party, Set.empty),
                   triggerConfig = triggerRunnerConfiguration,
                 )
               result <- triggerIterator(simulator, startState)

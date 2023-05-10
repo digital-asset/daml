@@ -48,6 +48,7 @@ import com.daml.lf.archive.Dar
 import com.daml.lf.data.Ref._
 import com.daml.lf.engine.trigger.TriggerRunnerConfig.DefaultTriggerRunnerConfig
 import com.daml.lf.engine.trigger.dao.DbTriggerDao
+import com.daml.lf.integrationtest.CantonFixture
 import com.daml.lf.speedy.Compiler
 import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.apiserver.services.GrpcClientResource
@@ -307,6 +308,7 @@ private class DeferringClock(baseClock: => Clock) extends Clock {
   override def withZone(zone: ZoneId): Clock = new DeferringClock(baseClock.withZone(zone))
 }
 
+// FIXME: deprecated - delete in future PR
 trait SandboxFixture extends BeforeAndAfterAll with AbstractAuthFixture with AkkaBeforeAndAfterAll {
   self: Suite =>
 
@@ -379,6 +381,7 @@ trait SandboxFixture extends BeforeAndAfterAll with AbstractAuthFixture with Akk
   }
 }
 
+// FIXME: migrate this code in a future PR
 trait ToxiproxyFixture extends BeforeAndAfterAll with AkkaBeforeAndAfterAll {
   self: Suite =>
 
@@ -415,6 +418,7 @@ trait ToxiproxyFixture extends BeforeAndAfterAll with AkkaBeforeAndAfterAll {
   }
 }
 
+// TODO: migrate this code in a future PR
 trait ToxiSandboxFixture extends BeforeAndAfterAll with ToxiproxyFixture with SandboxFixture {
   self: Suite =>
 
@@ -446,18 +450,28 @@ trait ToxiSandboxFixture extends BeforeAndAfterAll with ToxiproxyFixture with Sa
   }
 }
 
+// TODO: delete once Oracle and Postgres migrations are completed
 trait AbstractTriggerDaoFixture extends SuiteMixin {
   self: Suite =>
 
   protected def jdbcConfig: Option[JdbcConfig]
 }
 
-trait TriggerDaoInMemFixture extends AbstractTriggerDaoFixture {
+// TODO: rename once Oracle and Postgres migrations are completed
+trait AbstractTriggerDaoCantonFixture extends CantonFixture {
+  self: Suite =>
+
+  // FIXME: currently, Canton and participant storage type is always in-memory - we'll change this in a follow up PR
+  protected def jdbcConfig: Option[JdbcConfig]
+}
+
+trait TriggerDaoInMemFixture extends AbstractTriggerDaoCantonFixture {
   self: Suite =>
 
   override def jdbcConfig: Option[JdbcConfig] = None
 }
 
+// TODO: will be migrated in a future PR
 trait TriggerDaoPostgresFixture
     extends AbstractTriggerDaoFixture
     with BeforeAndAfterEach
@@ -495,6 +509,7 @@ trait TriggerDaoPostgresFixture
   }
 }
 
+// TODO: will be migrated in a future PR
 trait TriggerDaoOracleFixture
     extends AbstractTriggerDaoFixture
     with BeforeAndAfterEach
@@ -535,6 +550,93 @@ trait TriggerDaoOracleFixture
   }
 }
 
+// TODO: rename once Oracle and Postgres migrations are completed
+trait TriggerServiceWithCantonFixture
+    extends AbstractTriggerDaoCantonFixture
+    with AbstractAuthFixture {
+  self: Suite =>
+
+  private val triggerLog: ConcurrentMap[UUID, Vector[(LocalDateTime, String)]] =
+    new ConcurrentHashMap
+
+  def getTriggerStatus(uuid: UUID): Vector[(LocalDateTime, String)] =
+    triggerLog.getOrDefault(uuid, Vector.empty)
+
+  private def logTriggerStatus(triggerInstance: UUID, msg: String): Unit = {
+    val entry = (LocalDateTime.now, msg)
+    discard(triggerLog.merge(triggerInstance, Vector(entry), _ ++ _))
+  }
+
+  // Use a small initial interval so we can test restart behaviour more easily.
+  private val minRestartInterval = FiniteDuration(1, duration.SECONDS)
+  private def triggerServiceOwner(
+      encodedDars: List[Dar[(PackageId, DamlLf.ArchivePayload)]],
+      authCallback: Option[Uri],
+      triggerRunnerConfig: Option[TriggerRunnerConfig],
+  ) =
+    new ResourceOwner[ServerBinding] {
+      override def acquire()(implicit context: ResourceContext): Resource[ServerBinding] =
+        for {
+          (binding, _) <- Resource {
+            val host = InetAddress.getLoopbackAddress
+            val ledgerConfig = LedgerConfig(
+              host.getHostName,
+              // TODO: set this to be the toxi proxy port in a future PR
+              suiteResource.value.head.value,
+              TimeProviderType.Static,
+              java.time.Duration.ofSeconds(30),
+              Cli.DefaultMaxInboundMessageSize,
+            )
+            val restartConfig = TriggerRestartConfig(
+              minRestartInterval,
+              Cli.DefaultMaxRestartInterval,
+            )
+            for {
+              r <- ServiceMain.startServerForTest(
+                host.getHostName,
+                Port.Dynamic.value,
+                Cli.DefaultMaxAuthCallbacks,
+                Cli.DefaultAuthCallbackTimeout,
+                Cli.DefaultMaxHttpEntityUploadSize,
+                Cli.DefaultHttpEntityUploadTimeout,
+                authConfig,
+                AuthClient.RedirectToLogin.Yes,
+                authCallback,
+                ledgerConfig,
+                restartConfig,
+                encodedDars,
+                jdbcConfig,
+                false,
+                Compiler.Config.Dev,
+                triggerRunnerConfig.getOrElse(DefaultTriggerRunnerConfig),
+                logTriggerStatus,
+              )
+            } yield r
+          } { case (_, system) =>
+            system ! Server.Stop
+            system.whenTerminated.map(_ => ())
+          }
+        } yield binding
+    }
+
+  def withTriggerService[A](
+      encodedDars: List[Dar[(PackageId, DamlLf.ArchivePayload)]],
+      authCallback: Option[Uri] = None,
+      triggerRunnerConfig: Option[TriggerRunnerConfig] = None,
+  )(testFn: Uri => Future[A])(implicit
+      ec: ExecutionContext,
+      pos: source.Position,
+  ): Future[A] = {
+    logger.info(s"${pos.fileName}:${pos.lineNumber}: setting up trigger service")
+    implicit val context: ResourceContext = ResourceContext(ec)
+    triggerServiceOwner(encodedDars, authCallback, triggerRunnerConfig).use { binding =>
+      val uri = Uri.from(scheme = "http", host = "localhost", port = binding.localAddress.getPort)
+      testFn(uri)
+    }
+  }
+}
+
+// TODO: delete once Oracle and Postgres migrations are completed
 trait TriggerServiceFixture
     extends SuiteMixin
     with ToxiSandboxFixture

@@ -9,7 +9,7 @@ package test
 import java.util.UUID
 import akka.stream.scaladsl.{Sink, Source}
 import com.daml.bazeltools.BazelRunfiles
-import com.daml.ledger.api.refinements.ApiTypes
+import com.daml.ledger.api.refinements.ApiTypes.Party
 import com.daml.ledger.api.v1.command_service.SubmitAndWaitRequest
 import com.daml.ledger.api.v1.commands.{Command, CreateCommand, ExerciseCommand, _}
 import com.daml.ledger.api.v1.event.CreatedEvent
@@ -81,15 +81,15 @@ trait AbstractTriggerTestWithCanton extends CantonFixture {
   protected def getRunner(
       client: LedgerClient,
       name: QualifiedName,
-      party: String,
-      readAs: Set[String] = Set.empty,
+      party: Party,
+      readAs: Set[Party] = Set.empty,
   ): Runner = {
     val triggerId = Identifier(packageId, name)
 
     Trigger.newTriggerLogContext(
       triggerId,
-      ApiTypes.Party(party),
-      ApiTypes.Party.subst(readAs),
+      party,
+      readAs,
       "test-trigger",
       applicationId,
     ) { implicit triggerContext: TriggerLogContext =>
@@ -103,24 +103,30 @@ trait AbstractTriggerTestWithCanton extends CantonFixture {
         timeProviderType,
         applicationId,
         TriggerParties(
-          actAs = ApiTypes.Party(party),
-          readAs = ApiTypes.Party.subst(readAs),
+          actAs = party,
+          readAs = readAs,
         ),
       )
     }
   }
 
-  protected def allocateParty(client: LedgerClient)(implicit ec: ExecutionContext): Future[String] =
-    client.partyManagementClient.allocateParty(None, None).map(_.party)
+  def allocateParty(
+      client: LedgerClient,
+      hint: Option[String] = None,
+      displayName: Option[String] = None,
+  )(implicit ec: ExecutionContext): Future[Party] =
+    client.partyManagementClient
+      .allocateParty(hint, displayName)
+      .map(details => Party(details.party: String))
 
-  protected def create(client: LedgerClient, party: String, cmd: CreateCommand)(implicit
+  protected def create(client: LedgerClient, party: Party, cmd: CreateCommand)(implicit
       ec: ExecutionContext
   ): Future[String] = {
     val commands = Seq(Command().withCreate(cmd))
     val request = SubmitAndWaitRequest(
       Some(
         Commands(
-          party = party,
+          party = party.unwrap,
           commands = commands,
           ledgerId = client.ledgerId.unwrap,
           applicationId = applicationId.unwrap,
@@ -135,7 +141,7 @@ trait AbstractTriggerTestWithCanton extends CantonFixture {
 
   protected def create(
       client: LedgerClient,
-      party: String,
+      party: Party,
       commands: Seq[CreateCommand],
       elements: Int = 50,
       per: FiniteDuration = 1.second,
@@ -151,7 +157,7 @@ trait AbstractTriggerTestWithCanton extends CantonFixture {
 
   protected def exercise(
       client: LedgerClient,
-      party: String,
+      party: Party,
       templateId: LedgerApi.Identifier,
       contractId: String,
       choice: String,
@@ -170,7 +176,7 @@ trait AbstractTriggerTestWithCanton extends CantonFixture {
     val request = SubmitAndWaitRequest(
       Some(
         Commands(
-          party = party,
+          party = party.unwrap,
           commands = commands,
           ledgerId = client.ledgerId.unwrap,
           applicationId = applicationId.unwrap,
@@ -185,7 +191,7 @@ trait AbstractTriggerTestWithCanton extends CantonFixture {
 
   protected def archive(
       client: LedgerClient,
-      party: String,
+      party: Party,
       templateId: LedgerApi.Identifier,
       contractId: String,
   )(implicit ec: ExecutionContext): Future[Unit] = {
@@ -199,10 +205,10 @@ trait AbstractTriggerTestWithCanton extends CantonFixture {
     )
   }
 
-  protected def queryACS(client: LedgerClient, party: String)(implicit
+  protected def queryACS(client: LedgerClient, party: Party)(implicit
       ec: ExecutionContext
   ): Future[Map[LedgerApi.Identifier, Seq[LedgerApi.Record]]] = {
-    val filter = TransactionFilter(List((party, Filters.defaultInstance)).toMap)
+    val filter = TransactionFilter(List((party.unwrap, Filters.defaultInstance)).toMap)
     val contractsF: Future[Seq[CreatedEvent]] = client.activeContractSetClient
       .getActiveContracts(filter, verbose = true)
       .runWith(Sink.seq)

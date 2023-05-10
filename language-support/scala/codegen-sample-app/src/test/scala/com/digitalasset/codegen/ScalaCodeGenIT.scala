@@ -29,6 +29,7 @@ import org.scalatest.time.{Millis, Seconds, Span}
 import org.scalatest.wordspec.AsyncWordSpec
 import scalaz.syntax.tag._
 
+import java.nio.file.Path
 import java.time.Instant
 import java.util.UUID
 import scala.concurrent.Future
@@ -49,7 +50,7 @@ class ScalaCodeGenIT
     with SuiteResourceManagementAroundAll
     with CantonFixture {
 
-  override protected lazy val darFiles = List(
+  override protected lazy val darFiles: List[Path] = List(
     requiredResource("language-support/scala/codegen-sample-app/MyMain.dar"),
     requiredResource("language-support/scala/codegen-sample-app/MySecondMain.dar"),
   ).map(_.toPath)

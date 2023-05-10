@@ -4,6 +4,5 @@
 package com.daml.lf.engine.trigger
 
 class TriggerServiceTestInMem
-    extends AbstractTriggerServiceTest
-    with AbstractTriggerServiceTestInMem
-    with AbstractTriggerServiceTestNoAuth {}
+    extends AbstractTriggerServiceTestInMem
+    with AbstractTriggerServiceTestNoAuthWithCanton {}
