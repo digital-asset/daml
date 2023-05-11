@@ -180,8 +180,17 @@ daml_compile(
 )
 
 daml_compile(
-    name = "coin-upgrade",
-    srcs = [":upgrades/coin-upgrade/CoinUpgrade.daml"],
+    name = "coin-v3",
+    srcs = [":upgrades/coin-v3/Coin.daml"],
+    project_name = "coin",
+    target = "1.dev",
+    upgrades = "//daml-script/test:coin-v2.dar",
+    version = "3.0.0",
+)
+
+daml_compile(
+    name = "coin-upgrade-v1-v2",
+    srcs = [":upgrades/coin-upgrade-v1-v2/CoinUpgrade.daml"],
     data_dependencies = [
         "//daml-script/test:coin-v1.dar",
         "//daml-script/test:coin-v2.dar",
@@ -195,16 +204,37 @@ daml_compile(
     },
     project_name = "coin-upgrade",
     target = "1.dev",
-    version = "1.0.0",
+    version = "2.0.0",
+)
+
+daml_compile(
+    name = "coin-upgrade-v1-v3",
+    srcs = [":upgrades/coin-upgrade-v1-v3/CoinUpgrade.daml"],
+    data_dependencies = [
+        "//daml-script/test:coin-v1.dar",
+        "//daml-script/test:coin-v3.dar",
+    ],
+    dependencies = [
+        "//daml-script/daml:daml-script-1.dev.dar",
+    ],
+    module_prefixes = {
+        "coin-1.0.0": "Coin_1_0_0",
+        "coin-3.0.0": "Coin_3_0_0",
+    },
+    project_name = "coin-upgrade",
+    target = "1.dev",
+    version = "3.0.0",
 )
 
 da_scala_test_suite(
     name = "test",
     srcs = glob(["src/com/**/*.scala"]),
     data = [
-        ":coin-upgrade.dar",
+        ":coin-upgrade-v1-v2.dar",
+        ":coin-upgrade-v1-v3.dar",
         ":coin-v1.dar",
         ":coin-v2.dar",
+        ":coin-v3.dar",
         ":script-test.dar",
         ":script-test-1.dev.dar",
         ":script-test-no-ledger.dar",
