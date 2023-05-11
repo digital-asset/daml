@@ -7,7 +7,6 @@ package test
 import com.daml.bazeltools.BazelRunfiles
 import com.daml.lf.data.Ref._
 import com.daml.lf.engine.script.ledgerinteraction.ScriptTimeMode
-import com.daml.lf.integrationtest.CantonFixture.{readDar, CompiledDar}
 import com.daml.lf.speedy.SValue._
 import java.nio.file.Paths
 import org.scalatest.Inside
@@ -29,8 +28,10 @@ final class PackageUpgradesIT
     BazelRunfiles.rlocation(Paths.get("daml-script/test/coin-upgrade-v1-v2.dar"))
   val coinUpgradeV1V3DarPath =
     BazelRunfiles.rlocation(Paths.get("daml-script/test/coin-upgrade-v1-v3.dar"))
-  val coinUpgradeV1V2Dar: CompiledDar = readDar(coinUpgradeV1V2DarPath, Runner.compilerConfig)
-  val coinUpgradeV1V3Dar: CompiledDar = readDar(coinUpgradeV1V3DarPath, Runner.compilerConfig)
+  val coinUpgradeV1V2Dar: CompiledDar =
+    CompiledDar.read(coinUpgradeV1V2DarPath, Runner.compilerConfig)
+  val coinUpgradeV1V3Dar: CompiledDar =
+    CompiledDar.read(coinUpgradeV1V3DarPath, Runner.compilerConfig)
 
   override protected lazy val darFiles = List(
     coinV1DarPath,
