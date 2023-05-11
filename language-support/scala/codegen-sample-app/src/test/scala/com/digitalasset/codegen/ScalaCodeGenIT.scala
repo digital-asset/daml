@@ -5,6 +5,7 @@ package com.daml.codegen
 
 import akka.stream.scaladsl.{Sink, Source}
 import com.daml.codegen.util.TestUtil.{TestContext, requiredResource}
+import com.daml.integrationtest.CantonFixture
 import com.daml.ledger.api.refinements.ApiTypes.{CommandId, WorkflowId}
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.daml.ledger.api.v1.commands.Commands
@@ -16,7 +17,6 @@ import com.daml.ledger.client.LedgerClient
 import com.daml.ledger.client.binding.DomainTransactionMapper.DecoderType
 import com.daml.ledger.client.binding.{Contract, Template, Primitive => P}
 import com.daml.ledger.client.services.commands.CommandSubmission
-import com.daml.lf.integrationtest.CantonFixture
 import com.daml.sample.MyMain.{CallablePayout, MkListExample, PayOut}
 import com.daml.sample.{EventDecoder, MyMain, MySecondMain}
 import com.daml.util.Ctx

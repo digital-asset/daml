@@ -8,6 +8,7 @@ import java.util.UUID
 import akka.stream.scaladsl.Sink
 import com.daml.SdkVersion
 import com.daml.bazeltools.BazelRunfiles
+import com.daml.integrationtest.CantonFixture
 import com.daml.ledger.api.refinements.ApiTypes
 import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.api.v1.command_service.SubmitAndWaitRequest
@@ -23,7 +24,6 @@ import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.engine.script.ledgerinteraction.{GrpcLedgerClient, ScriptTimeMode}
 import com.daml.lf.engine.script.{Participants, Runner}
 import com.daml.lf.language.Ast.Package
-import com.daml.lf.integrationtest.CantonFixture
 import com.daml.platform.services.time.TimeProviderType
 import org.scalatest._
 import org.scalatest.freespec.AsyncFreeSpec
@@ -52,9 +52,9 @@ final class ReproducesTransactions
   private val damlc =
     BazelRunfiles.requiredResource(s"compiler/damlc/damlc$exe")
   private val darFile = BazelRunfiles.rlocation(Paths.get(com.daml.ledger.test.ModelTestDar.path))
-  private val dar = CantonFixture.readDar(darFile)
+  private val mainPkg = DarDecoder.assertReadArchiveFromFile(darFile.toFile).main._1
   private def iouId(s: String) =
-    api.Identifier(dar.mainPkg, moduleName = "Iou", s)
+    api.Identifier(mainPkg, moduleName = "Iou", s)
 
   private def submit(client: LedgerClient, p: Ref.Party, cmd: Command) =
     client.commandServiceClient.submitAndWaitForTransaction(
@@ -62,7 +62,7 @@ final class ReproducesTransactions
         Some(
           Commands(
             ledgerId = client.ledgerId.unwrap,
-            applicationId = config.applicationId.unwrap,
+            applicationId = applicationId.unwrap,
             commandId = UUID.randomUUID().toString(),
             party = p,
             commands = Seq(cmd),

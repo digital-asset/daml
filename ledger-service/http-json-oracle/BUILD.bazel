@@ -35,9 +35,9 @@ da_scala_library(
         "@maven//:com_oracle_database_jdbc_ojdbc8",
     ],
     deps = [
+        "//canton/it-lib",
         "//daml-lf/api-type-signature",
         "//daml-lf/data",
-        "//daml-lf/integration-test-lib",
         "//daml-lf/transaction",
         "//daml-lf/transaction-test-lib",
         "//language-support/scala/bindings-akka",
@@ -96,9 +96,9 @@ da_scala_test_suite(
     ],
     deps = [
         ":integration-tests-lib",
+        "//canton/it-lib",
         "//daml-lf/api-type-signature",
         "//daml-lf/data",
-        "//daml-lf/integration-test-lib",
         "//daml-lf/transaction",
         "//daml-lf/transaction-test-lib",
         "//language-support/scala/bindings-akka",

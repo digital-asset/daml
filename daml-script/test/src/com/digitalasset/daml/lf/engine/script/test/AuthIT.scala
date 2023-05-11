@@ -7,7 +7,7 @@ package test
 import com.daml.ledger.api.domain
 import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.engine.script.ledgerinteraction.ScriptTimeMode
-import com.daml.lf.integrationtest._
+import com.daml.integrationtest._
 import com.daml.lf.value.Value
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec

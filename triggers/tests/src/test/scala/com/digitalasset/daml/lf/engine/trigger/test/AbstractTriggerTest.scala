@@ -11,6 +11,7 @@ import akka.stream.Materializer
 import java.util.UUID
 import akka.stream.scaladsl.{Sink, Source}
 import com.daml.bazeltools.BazelRunfiles
+import com.daml.integrationtest.CantonFixture
 import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId, Party}
 import com.daml.ledger.api.v1.command_service.SubmitAndWaitRequest
 import com.daml.ledger.api.v1.commands.{Command, CreateCommand, ExerciseCommand, _}
@@ -26,7 +27,6 @@ import com.daml.ledger.client.configuration.{
 }
 import com.daml.lf.data.Ref._
 import com.daml.lf.engine.trigger.TriggerRunnerConfig.DefaultTriggerRunnerConfig
-import com.daml.lf.integrationtest.CantonFixture
 import com.daml.lf.speedy.SValue
 import com.daml.lf.speedy.SValue._
 import org.scalatest._
@@ -38,8 +38,6 @@ import scala.util.{Failure, Success, Try}
 
 trait AbstractTriggerTest extends CantonFixture {
   self: Suite =>
-
-  import CantonFixture._
 
   private[this] lazy val darFile =
     Try(BazelRunfiles.requiredResource("triggers/tests/acs.dar").toPath) match {
@@ -80,7 +78,7 @@ trait AbstractTriggerTest extends CantonFixture {
   protected def triggerRunnerConfiguration: TriggerRunnerConfig = DefaultTriggerRunnerConfig
 
   protected val CompiledDar(packageId, compiledPackages) =
-    readDar(darFile.merge, speedy.Compiler.Config.Dev)
+    CompiledDar.read(darFile.merge, speedy.Compiler.Config.Dev)
 
   protected def getRunner(
       client: LedgerClient,

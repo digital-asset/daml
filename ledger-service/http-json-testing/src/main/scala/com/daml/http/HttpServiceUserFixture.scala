@@ -7,6 +7,7 @@ import akka.http.scaladsl.model.Uri
 import akka.http.scaladsl.model.headers.Authorization
 import com.daml.http.HttpServiceTestFixture.{authorizationHeader, postRequest}
 import com.daml.http.util.ClientUtil.uniqueId
+import com.daml.integrationtest.CantonRunner
 import com.daml.jwt.JwtSigner
 import com.daml.jwt.domain.{DecodedJwt, Jwt}
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
@@ -17,7 +18,6 @@ import scalaz.syntax.show._
 import scalaz.syntax.tag._
 
 import scala.concurrent.{ExecutionContext, Future}
-import com.daml.lf.integrationtest.CantonRunner
 
 trait HttpServiceUserFixture extends AkkaBeforeAndAfterAll { this: Suite =>
   protected def testId: String

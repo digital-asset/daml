@@ -4,6 +4,7 @@
 package com.daml.lf.engine.trigger.test
 
 import akka.stream.scaladsl.Flow
+import com.daml.integrationtest.CantonFixture
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.refinements.ApiTypes.{Party => ApiParty}
 import com.daml.ledger.api.v1.commands.CreateCommand
@@ -11,7 +12,6 @@ import com.daml.ledger.api.v1.{value => LedgerApi}
 import com.daml.lf.data.Ref._
 import com.daml.lf.engine.trigger.Runner.TriggerContext
 import com.daml.lf.engine.trigger.TriggerMsg
-import com.daml.lf.integrationtest.CantonFixture
 import org.scalatest._
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
