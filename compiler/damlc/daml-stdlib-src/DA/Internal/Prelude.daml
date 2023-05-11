@@ -3,6 +3,7 @@
 
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 -- | MOVE Prelude Our Prelude, extending WiredIn with things that don't need special treatment.
 
@@ -568,12 +569,15 @@ truncate : Numeric n -> Int
 truncate = primitive @"BENumericToInt64"
 
 -- | Convert an `Int` to a `Numeric`.
-intToNumeric : Int -> Numeric n
-intToNumeric = primitive @"BEInt64ToNumericLegacy"
+intToNumeric : Numeric n -> Int -> Numeric n
+intToNumeric = primitive @"BEInt64ToNumeric"
+
+intToNumericLegacy : Int -> Numeric n
+intToNumericLegacy = primitive @"BEInt64ToNumericLegacy"
 
 -- | Convert an `Int` to a `Decimal`.
 intToDecimal : Int -> Decimal
-intToDecimal = intToNumeric
+intToDecimal = intToNumeric (0.0 : Decimal)
 
 -- | Bankers' Rounding: `roundBankers dp x` rounds `x` to `dp` decimal places, where a `.5` is rounded to the nearest even digit.
 roundBankers : Int -> Numeric n -> Numeric n
@@ -608,13 +612,13 @@ round x = if x > NUMERIC_LIT(0.0)
 floor : Numeric n -> Int
 floor x =
   let i = truncate x
-  in if intToNumeric i <= x then i else i - 1
+  in if intToNumeric x i <= x then i else i - 1
 
 -- | Round a `Decimal` up to the nearest integer.
 ceiling : Numeric n -> Int
 ceiling x =
   let i = truncate x
-  in if intToNumeric i < x then i + 1 else i
+  in if intToNumeric x i < x then i + 1 else i
 
 -- | Is the list empty? `null xs` is true if `xs` is the empty list.
 null : [a] -> Bool
