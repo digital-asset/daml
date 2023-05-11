@@ -60,6 +60,15 @@ private[daml] class EncodeV1(minor: LV.Minor) {
           val metadataBuilder = PLF.PackageMetadata.newBuilder
           metadataBuilder.setNameInternedStr(stringsTable.insert(metadata.name))
           metadataBuilder.setVersionInternedStr(stringsTable.insert(metadata.version))
+          metadata.upgradedPackageId match {
+            case None =>
+            case Some(pid) =>
+              metadataBuilder.setUpgradedPackageId(
+                PLF.UpgradedPackageId.newBuilder
+                  .setUpgradedPackageIdInternedStr(stringsTable.insert(pid))
+                  .build
+              )
+          }
           builder.setMetadata(metadataBuilder.build)
         }
 
