@@ -88,7 +88,11 @@ da_haskell_library(
 # the output file and module name rather than directory.
 genrule(
     name = "test_results_haskell_proto_src",
-    srcs = ["test_results.proto", "scenario_service.proto", "//daml-lf/archive:daml_lf_1.dev_archive_proto_srcs"],
+    srcs = [
+        "test_results.proto",
+        "scenario_service.proto",
+        "//daml-lf/archive:daml_lf_1.dev_archive_proto_srcs",
+    ],
     outs = ["TestResults.hs"],
     cmd = """
     ORIGPWD=$$PWD
@@ -119,9 +123,9 @@ da_haskell_library(
         "text",
         "vector",
     ],
-    deps = [
-        "//daml-lf/archive:daml_lf_dev_archive_haskell_proto",
-        ":scenario_service_haskell_proto",
-    ],
     visibility = ["//visibility:public"],
+    deps = [
+        ":scenario_service_haskell_proto",
+        "//daml-lf/archive:daml_lf_dev_archive_haskell_proto",
+    ],
 )
