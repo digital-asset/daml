@@ -1240,6 +1240,40 @@ class DecodeV1Spec
         decoder.decodeExprForTest(proto, "test") shouldBe Ast.EUpdate(exerciseInterfaceScala)
       }
     }
+
+    s"decode softFetch iff version >= ${LV.Features.packageUpgrades} " in {
+      val dottedNameTable = ImmArraySeq("Mod", "T").map(Ref.DottedName.assertFromString)
+      val unit = DamlLf1.Unit.newBuilder().build()
+      val pkgRef = DamlLf1.PackageRef.newBuilder().setSelf(unit).build
+      val modRef =
+        DamlLf1.ModuleRef.newBuilder().setPackageRef(pkgRef).setModuleNameInternedDname(0).build()
+      val templateTyConName =
+        DamlLf1.TypeConName.newBuilder().setModule(modRef).setNameInternedDname(1)
+
+      val softFetchProto = {
+        val exe = DamlLf1.Update.SoftFetch
+          .newBuilder()
+          .setTemplate(templateTyConName)
+          .setCid(unitExpr)
+          .build()
+        DamlLf1.Update.newBuilder().setSoftFetch(exe).build()
+      }
+
+      val softFetchScala = Ast.UpdateSoftFetchTemplate(
+        Ref.Identifier.assertFromString("noPkgId:Mod:T"),
+        EUnit,
+      )
+
+      forEveryVersion { version =>
+        val decoder = moduleDecoder(version, ImmArraySeq.empty, dottedNameTable, typeTable)
+        val proto = DamlLf1.Expr.newBuilder().setUpdate(softFetchProto).build()
+        val result = Try(decoder.decodeExprForTest(proto, "test"))
+        if (version >= LV.Features.packageUpgrades)
+          result shouldBe Success(Ast.EUpdate(softFetchScala))
+        else
+          inside(result) { case Failure(error) => error shouldBe an[Error.Parsing] }
+      }
+    }
   }
 
   "decodeModule" should {
