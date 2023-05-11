@@ -12,7 +12,7 @@ load(
     "lf_version_configuration_versions",
 )
 load("@os_info//:os_info.bzl", "is_windows")
-load("//ledger-test-tool/ledger-api-tests:conformance.bzl", "testtool_lf_versions")
+load("//ledger-test-tool:conformance.bzl", "testtool_lf_versions")
 
 [
     da_scala_library(
@@ -27,7 +27,7 @@ load("//ledger-test-tool/ledger-api-tests:conformance.bzl", "testtool_lf_version
         ],
         deps = [
             "//ledger/ledger-api-common",
-            "//ledger-test-tool/ledger-api-tests/infrastructure:infrastructure-%s" % lf_version,
+            "//ledger-test-tool/infrastructure:infrastructure-%s" % lf_version,
             "//libs-scala/resources",
             "//libs-scala/resources-akka",
             "//libs-scala/resources-grpc",

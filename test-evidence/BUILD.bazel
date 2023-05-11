@@ -24,8 +24,8 @@ da_scala_library(
     ],
     deps = [
         "//bazel_tools/runfiles:scala_runfiles",
-        "//ledger-test-tool/ledger-api-tests/infrastructure",
-        "//ledger-test-tool/ledger-api-tests/suites",
+        "//ledger-test-tool/infrastructure",
+        "//ledger-test-tool/suites",
         "//libs-scala/test-evidence/generator",
         "//libs-scala/test-evidence/scalatest:test-evidence-scalatest",
         "//libs-scala/test-evidence/tag:test-evidence-tag",
@@ -62,8 +62,8 @@ test_evidence_binary(
     ],
     deps = [
         ":ledger-generator-lib",
-        "//ledger-test-tool/ledger-api-tests/infrastructure",
-        "//ledger-test-tool/ledger-api-tests/suites",
+        "//ledger-test-tool/infrastructure",
+        "//ledger-test-tool/suites",
         "//libs-scala/test-evidence/generator",
         "//libs-scala/test-evidence/scalatest:test-evidence-scalatest",
         "//libs-scala/test-evidence/tag:test-evidence-tag",
