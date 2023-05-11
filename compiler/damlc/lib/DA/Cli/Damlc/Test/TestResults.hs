@@ -230,9 +230,9 @@ ssIdentifierToIdentifier pkgIdToPkgName identifier@SS.Identifier {SS.identifierN
         , qualifiedName = TL.toStrict identifierName
         }
 
-allTemplateChoices :: TestResults -> M.Map T.Text (TemplateIdentifier, S.Set PackageId)
+allTemplateChoices :: TestResults -> M.Map (T.Text, TemplateIdentifier) (S.Set PackageId)
 allTemplateChoices testResults = M.fromList
-    [ (choice, (templateIdentifier, exerciseOccurence))
+    [ ((choice, templateIdentifier), exerciseOccurence)
     | (templateIdentifier, choices) <- M.toList (templates testResults)
     , choice <- S.toList choices
     , let exerciseOccurence = foldMap id $ do
@@ -436,11 +436,11 @@ printTestCoverage showCoverage testResults@TestResults { templates, interfaceIns
 
         -- Generate template choices reports
         (localTemplateChoices, externalTemplateChoices) =
-            M.partition (isLocalPkgId . package . fst) (allTemplateChoices testResults)
+            partitionByKey (isLocalPkgId . package . snd) (allTemplateChoices testResults)
 
         localTemplateChoicesReport =
             let defined = M.size localTemplateChoices
-                (exercised, neverExercised) = M.partition (\(_, locs) -> S.size locs > 0) localTemplateChoices
+                (exercised, neverExercised) = M.partition (\locs -> S.size locs > 0) localTemplateChoices
             in
             [ printf "- Internal template choices"
             , printf "  %d defined" defined
@@ -449,9 +449,9 @@ printTestCoverage showCoverage testResults@TestResults { templates, interfaceIns
 
         externalTemplateChoicesReport =
             let defined = M.size externalTemplateChoices
-                (exercisedAny, neverExercised) = M.partition (\(_, locs) -> S.size locs > 0) externalTemplateChoices
-                exercisedInternal = countWhere (any isLocalPkgId . snd) exercisedAny
-                exercisedExternal = countWhere (any (not . isLocalPkgId) . snd) exercisedAny
+                (exercisedAny, neverExercised) = M.partition (\locs -> S.size locs > 0) externalTemplateChoices
+                exercisedInternal = countWhere (any isLocalPkgId) exercisedAny
+                exercisedExternal = countWhere (any (not . isLocalPkgId)) exercisedAny
             in
             [ printf "- External template choices"
             , printf "  %d defined" defined
@@ -535,8 +535,8 @@ printTestCoverage showCoverage testResults@TestResults { templates, interfaceIns
 
     where
 
-    printTemplateChoiceIdentifier :: T.Text -> (TemplateIdentifier, a) -> String
-    printTemplateChoiceIdentifier choice (templateId, _) =
+    printTemplateChoiceIdentifier :: (T.Text, TemplateIdentifier) -> a -> String
+    printTemplateChoiceIdentifier (choice, templateId) _ =
         printTemplateIdentifier templateId () <> ":" <> T.unpack choice
 
     printInstanceChoiceIdentifier :: (T.Text, InterfaceInstanceIdentifier) -> a -> String
