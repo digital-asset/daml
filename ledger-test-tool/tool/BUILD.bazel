@@ -183,6 +183,17 @@ conformance_test_tool_args_base = [
     "--timeout-scale-factor=2",  # increased to reduce flakes particularly wrt timeouts in TransactionService*IT tests
 ]
 
+conformance_test_excluded_test = [
+    "ClosedWorldIT",  # Canton currently fails this test with a different error (missing namespace in "unallocated" party id)
+    # dynamic config management not supported by Canton
+    "ConfigManagementServiceIT",
+    "LedgerConfigurationServiceIT",
+    "ParticipantPruningIT",  # pruning not supported in Canton Community
+    "CommandDeduplicationPeriodValidationIT:OffsetPruned",  # requires pruning not available in canton community
+    "ActiveContractsServiceIT:AcsBeforePruningOffsetIsDisallowed",  # requires pruning not available in canton community
+    "ActiveContractsServiceIT:AcsAtPruningOffsetIsAllowed",  # requires pruning not available in canton community
+]
+
 # conformance tests for default and latest
 #  those test the conformance test it-self for stable features
 conformance_test(
@@ -204,16 +215,7 @@ conformance_test(
         ]),
     ],
     test_tool_args = conformance_test_tool_args_base + [
-        "--exclude=" + ",".join([
-            "ClosedWorldIT",  # Canton currently fails this test with a different error (missing namespace in "unallocated" party id)
-            # dynamic config management not supported by Canton
-            "ConfigManagementServiceIT",
-            "LedgerConfigurationServiceIT",
-            "ParticipantPruningIT",  # pruning not supported in Canton Community
-            "CommandDeduplicationPeriodValidationIT:OffsetPruned",  # requires pruning not available in canton community
-            "ActiveContractsServiceIT:AcsBeforePruningOffsetIsDisallowed",  # requires pruning not available in canton community
-            "ActiveContractsServiceIT:AcsAtPruningOffsetIsAllowed",  # requires pruning not available in canton community
-        ]),
+        "--exclude=" + ",".join(conformance_test_excluded_test),
         "--additional=TLSOnePointThreeIT",
     ],
 ) if not is_windows else None
@@ -239,7 +241,7 @@ conformance_test(
 # conformance tests for preview and dev
 #  those test the conformance test it-self for preview/dev features and the patched canton jar
 conformance_test(
-    name = "conformance-test",
+    name = "conformance-test-dev",
     dev_mod_flag = "",
     extra_data =
         conformance_test_extra_data_base + [
@@ -263,18 +265,10 @@ conformance_test(
     ],
     tags = ["dev-canton-test"],
     test_tool_args = conformance_test_tool_args_base + [
-        "--exclude=" + ",".join([
+        "--exclude=" + ",".join(conformance_test_excluded_test + [
             # we skip those tests for preview/dev
             "TLSOnePointThreeIT",
             "TLSAtLeastOnePointTwoIT",
-            "ClosedWorldIT",  # Canton currently fails this test with a different error (missing namespace in "unallocated" party id)
-            # dynamic config management not supported by Canton
-            "ConfigManagementServiceIT",
-            "LedgerConfigurationServiceIT",
-            "ParticipantPruningIT",  # pruning not supported in Canton Community
-            "CommandDeduplicationPeriodValidationIT:OffsetPruned",  # requires pruning not available in canton community
-            "ActiveContractsServiceIT:AcsBeforePruningOffsetIsDisallowed",  # requires pruning not available in canton community
-            "ActiveContractsServiceIT:AcsAtPruningOffsetIsAllowed",  # requires pruning not available in canton community
         ]),
     ],
 ) if not is_windows else None
