@@ -420,7 +420,7 @@ printTestCoverage showCoverage testResults@TestResults { templates, interfaceIns
            let defined = externalTemplates
                createdAny = M.intersection created defined
                createdInternal = countWhere (any isLocalPkgId) createdAny
-               createdExternal = countWhere (not . all isLocalPkgId)) createdAny
+               createdExternal = countWhere (not . all isLocalPkgId) createdAny
                neverCreated = M.difference defined createdAny
            in
            [ printf "- External templates"
@@ -447,7 +447,7 @@ printTestCoverage showCoverage testResults@TestResults { templates, interfaceIns
             let defined = M.size externalTemplateChoices
                 (exercisedAny, neverExercised) = M.partition (\locs -> S.size locs > 0) externalTemplateChoices
                 exercisedInternal = countWhere (any isLocalPkgId) exercisedAny
-                exercisedExternal = countWhere (not . all isLocalPkgId)) exercisedAny
+                exercisedExternal = countWhere (not . all isLocalPkgId) exercisedAny
             in
             [ printf "- External template choices"
             , printf "  %d defined" defined
@@ -496,7 +496,7 @@ printTestCoverage showCoverage testResults@TestResults { templates, interfaceIns
             let defined = M.size externalImplementationChoices
                 (exercisedAny, neverExercised) = M.partition (\locs -> S.size locs > 0) externalImplementationChoices
                 exercisedInternal = countWhere (any isLocalPkgId) exercisedAny
-                exercisedExternal = countWhere (not . all isLocalPkgId)) exercisedAny
+                exercisedExternal = countWhere (not . all isLocalPkgId) exercisedAny
             in
             [ printf "- External interface choices"
             , printf "  %d defined" defined
