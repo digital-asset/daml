@@ -31,12 +31,12 @@ class CatAndFoodTriggerSimulation
   override protected val cantonFixtureDebugMode: Boolean = true
 
   override protected def triggerMultiProcessSimulation: Behavior[Unit] = {
-    implicit def applicationId: ApiTypes.ApplicationId = config.applicationId
+    implicit def applicationId: ApiTypes.ApplicationId = this.applicationId
     Behaviors.setup { context =>
       val setup = for {
         client <- defaultLedgerClient()
         party <- allocateParty(client)
-      } yield (client, Party(party))
+      } yield (client, party)
       val (client, actAs) = Await.result(setup, simulationConfig.simulationSetupTimeout)
       val ledger = context.spawn(LedgerProcess.create(client), "ledger")
       val triggerFactory: TriggerProcessFactory =

@@ -4,7 +4,7 @@
 package com.daml.lf.engine.trigger
 
 class TriggerServiceTestWithOracle
-    extends AbstractTriggerServiceTest
-    with AbstractTriggerServiceTestWithDatabase
-    with TriggerDaoOracleFixture
-    with AbstractTriggerServiceTestNoAuth {}
+    extends AbstractTriggerServiceTestWithCanton
+    with AbstractTriggerServiceTestWithDatabaseAndCanton
+    with TriggerDaoOracleCantonFixture
+    with AbstractTriggerServiceTestNoAuthWithCanton {}

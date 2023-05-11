@@ -1,7 +1,7 @@
 // Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
+package com.daml
 package integrationtest
 
 import com.daml.bazeltools.BazelRunfiles._
@@ -13,7 +13,8 @@ import com.daml.ledger.api.testing.utils.{
   SuiteResourceManagementAroundAll,
 }
 import com.daml.ledger.client.LedgerClient
-import com.daml.ledger.resources.ResourceContext
+import com.daml.ledger.client.withoutledgerid.{LedgerClient => LedgerClientWithoutId}
+import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.data.Ref
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.ports.Port
@@ -22,45 +23,30 @@ import org.scalatest.Suite
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{ExecutionContext, Future}
 
-import java.nio.file.{Files, Path, Paths}
+import java.nio.file.{Path, Paths, Files}
+import java.util.UUID
 
 @scala.annotation.nowarn("msg=match may not be exhaustive")
 object CantonFixture {
-
-  final case class CompiledDar(
-      mainPkg: Ref.PackageId,
-      compiledPackages: PureCompiledPackages,
-  )
-
-  def readDar(
-      path: Path,
-      compilerConfig: speedy.Compiler.Config = speedy.Compiler.Config.Dev,
-  ): CompiledDar = {
-    val dar = archive.DarDecoder.assertReadArchiveFromFile(path.toFile)
-    val pkgs = PureCompiledPackages.assertBuild(dar.all.toMap, compilerConfig)
-    CompiledDar(dar.main._1, pkgs)
-  }
 
   private[integrationtest] lazy val List(serverCrt, serverPem, caCrt, clientCrt, clientPem) =
     List("server.crt", "server.pem", "ca.crt", "client.crt", "client.pem").map { src =>
       Paths.get(rlocation("test-common/test-certificates/" + src))
     }
 
-  private val counter = new java.util.concurrent.atomic.AtomicLong()
-
-  def freshLong() = counter.getAndIncrement()
-
   def freshName(prefix: String): String = {
     assert(!prefix.contains('_'))
-    prefix + "__" + freshLong().toString
+    prefix + "__" + UUID.randomUUID()
   }
 
-  def freshUserId() = Ref.UserId.assertFromString(freshName("user"))
+  def freshUserId(): Ref.UserId = Ref.UserId.assertFromString(freshName("user"))
+
+  def freshParty(): Ref.Party = Ref.Party.assertFromString(freshName("Party"))
 
 }
 
-trait CantonFixture
-    extends SuiteResource[Vector[Port]]
+trait CantonFixtureWithResource[A]
+    extends SuiteResource[(Vector[Port], A)]
     with AkkaBeforeAndAfterAll
     with SuiteResourceManagementAroundAll {
   self: Suite =>
@@ -71,6 +57,8 @@ trait CantonFixture
   protected lazy val nParticipants: Int = 1
   protected lazy val timeProviderType: TimeProviderType = TimeProviderType.WallClock
   protected lazy val tlsEnable: Boolean = false
+  protected lazy val enableDisclosedContracts: Boolean = false
+  protected lazy val applicationId: ApplicationId = ApplicationId(getClass.getName)
 
   // This flag setup some behavior to ease debugging tests.
   //  If `true`
@@ -81,33 +69,38 @@ trait CantonFixture
   final protected val logger = org.slf4j.LoggerFactory.getLogger(getClass)
 
   if (cantonFixtureDebugMode)
-    logger.asInstanceOf[ch.qos.logback.classic.Logger].setLevel(ch.qos.logback.classic.Level.INFO)
+    logger
+      .asInstanceOf[ch.qos.logback.classic.Logger]
+      .setLevel(ch.qos.logback.classic.Level.INFO)
 
   override protected def afterAll(): Unit = {
     cantonCleanUp()
     super.afterAll()
   }
 
-  final override protected lazy val suiteResource: OwnedResource[ResourceContext, Vector[Port]] = {
+  protected def makeAdditionalResource(ports: Vector[Port]): ResourceOwner[A]
+
+  final override protected lazy val suiteResource
+      : OwnedResource[ResourceContext, (Vector[Port], A)] = {
     implicit val resourceContext: ResourceContext = ResourceContext(system.dispatcher)
-    new OwnedResource[ResourceContext, Vector[Port]](
-      CantonRunner.run(config, cantonTmpDir, logger),
+    new OwnedResource[ResourceContext, (Vector[Port], A)](
+      for {
+        ports <- CantonRunner.run(config, cantonTmpDir, logger, darFiles)
+        additional <- makeAdditionalResource(ports)
+      } yield (ports, additional),
       acquisitionTimeout = 2.minute,
       releaseTimeout = 2.minute,
     )
   }
 
-  final protected lazy val applicationId: ApplicationId = ApplicationId(getClass.getName)
-
   lazy val config = CantonConfig(
-    applicationId = applicationId,
-    darFiles = darFiles,
     authSecret = authSecret,
     devMode = devMode,
     nParticipants = nParticipants,
     timeProviderType = timeProviderType,
     tlsEnable = tlsEnable,
     debug = cantonFixtureDebugMode,
+    enableDisclosedContracts = enableDisclosedContracts,
   )
 
   protected def info(msg: String): Unit =
@@ -121,16 +114,34 @@ trait CantonFixture
     else
       com.daml.fs.Utils.deleteRecursively(cantonTmpDir)
 
+  final protected def ports: Vector[Port] = suiteResource.value._1
+  final protected def additional: A = suiteResource.value._2
+
   final protected def defaultLedgerClient(
       token: Option[String] = None,
       maxInboundMessageSize: Int = 64 * 1024 * 1024,
   )(implicit ec: ExecutionContext): Future[LedgerClient] =
-    config.ledgerClient(suiteResource.value.head, token, maxInboundMessageSize)
+    config.ledgerClient(ports.head, token, applicationId, maxInboundMessageSize)
+
+  final protected def defaultLedgerClientWithoutId(
+      token: Option[String] = None,
+      maxInboundMessageSize: Int = 64 * 1024 * 1024,
+  )(implicit ec: ExecutionContext): LedgerClientWithoutId =
+    config.ledgerClientWithoutId(ports.head, token, applicationId, maxInboundMessageSize)
 
   final protected def ledgerClients(
       token: Option[String] = None,
       maxInboundMessageSize: Int = 64 * 1024 * 1024,
   )(implicit ec: ExecutionContext): Future[Vector[LedgerClient]] =
-    Future.traverse(suiteResource.value)(config.ledgerClient(_, token, maxInboundMessageSize))
+    Future.traverse(ports)(config.ledgerClient(_, token, applicationId, maxInboundMessageSize))
 
+}
+
+trait CantonFixture extends CantonFixtureWithResource[Unit] {
+  self: Suite =>
+  override protected def makeAdditionalResource(ports: Vector[Port]): ResourceOwner[Unit] =
+    new ResourceOwner[Unit] {
+      override def acquire()(implicit context: ResourceContext): Resource[Unit] =
+        Resource(Future.successful(()))(Future.successful(_))
+    }
 }

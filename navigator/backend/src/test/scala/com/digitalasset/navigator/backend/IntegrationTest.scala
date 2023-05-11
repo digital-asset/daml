@@ -10,12 +10,12 @@ import akka.http.scaladsl.server.Route
 import akka.http.scaladsl.settings.ServerSettings
 import akka.util.ByteString
 import com.daml.buildinfo.BuildInfo
+import com.daml.integrationtest.CantonFixture
 import com.daml.ledger.api.domain
 import com.daml.ledger.client.LedgerClient
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.UserId
 import com.daml.navigator.config.{Arguments, Config}
-import com.daml.lf.integrationtest.CantonFixture
 import org.scalatest._
 import org.scalatest.freespec.AsyncFreeSpec
 import org.scalatest.matchers.should.Matchers
@@ -35,7 +35,7 @@ class IntegrationTest extends AsyncFreeSpec with CantonFixture with Matchers {
     import scala.jdk.FutureConverters
     val args = Arguments(
       port = 0,
-      participantPort = suiteResource.value.head.value,
+      participantPort = ports.head.value,
       enableUserManagement = userMgmt,
     )
     val sys = ActorSystem(s"navigator-${UUID.randomUUID().toString}")

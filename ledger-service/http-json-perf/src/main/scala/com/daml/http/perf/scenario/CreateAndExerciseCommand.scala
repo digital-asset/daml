@@ -8,18 +8,18 @@ import io.gatling.http.Predef._
 @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
 class CreateAndExerciseCommand extends Simulation with SimulationConfig {
 
-  private val jsonCommand = """{
+  private val jsonCommand = s"""{
   "templateId": "Iou:Iou",
   "payload": {
     "observers": [],
-    "issuer": "Alice",
+    "issuer": "$aliceParty",
     "amount": "10.99",
     "currency": "USD",
-    "owner": "Alice"
+    "owner": "$aliceParty"
   },
   "choice": "Iou_Transfer",
   "argument": {
-    "newOwner": "Bob"
+    "newOwner": "$bobParty"
   }
 }"""
 

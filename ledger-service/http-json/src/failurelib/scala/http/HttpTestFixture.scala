@@ -68,7 +68,7 @@ trait HttpFailureTestFixture extends ToxicSandboxFixture with PostgresAroundAll 
       Some(jdbcConfig_),
       None,
       wsConfig = Some(WebsocketConfig()),
-      ledgerIdOverwrite = Some(ledgerId(None)),
+      ledgerIdOverwrite = Some(ledgerId),
     )
   }
 }

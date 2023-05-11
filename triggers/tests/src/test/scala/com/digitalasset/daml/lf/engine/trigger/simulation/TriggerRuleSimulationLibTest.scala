@@ -4,7 +4,6 @@
 package com.daml.lf.engine.trigger
 package simulation
 
-import com.daml.ledger.api.refinements.ApiTypes.Party
 import com.daml.ledger.api.v1.event.CreatedEvent
 import com.daml.lf.data.Ref.QualifiedName
 import com.daml.lf.engine.trigger.Runner.{
@@ -19,6 +18,7 @@ import org.scalacheck.Gen
 import org.scalatest.{Inside, TryValues}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
+import scalaz.syntax.tag._
 
 import java.util.UUID
 
@@ -51,7 +51,7 @@ class TriggerRuleSimulationLibTest
           compiledPackages,
           timeProviderType,
           triggerRunnerConfiguration,
-          party,
+          party.unwrap,
         )
         result <- forAll(initState) { acs =>
           for {
@@ -100,7 +100,7 @@ class TriggerRuleSimulationLibTest
           compiledPackages,
           timeProviderType,
           triggerRunnerConfiguration,
-          party,
+          party.unwrap,
         )
         converter = new Converter(compiledPackages, trigger)
         result <- forAll(updateState) { case (acs, userState, inFlightCmds, msg) =>
@@ -109,7 +109,7 @@ class TriggerRuleSimulationLibTest
               acs,
               userState,
               inFlightCmds,
-              TriggerParties(Party(party), Set.empty),
+              TriggerParties(party, Set.empty),
               triggerRunnerConfiguration,
             )
 

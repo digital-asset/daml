@@ -11,28 +11,24 @@ import spray.json._, DefaultJsonProtocol._
 class SyncQueryMegaAcs extends Simulation with SimulationConfig with HasRandomAmount {
   import SyncQueryMegaAcs._
 
-  private[this] val notAliceParty = "NotAlice"
-  private[this] val notAliceJwt =
-    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJodHRwczovL2RhbWwuY29tL2xlZGdlci1hcGkiOnsibGVkZ2VySWQiOiJNeUxlZGdlciIsImFwcGxpY2F0aW9uSWQiOiJmb29iYXIiLCJhY3RBcyI6WyJOb3RBbGljZSJdfX0.Rk1dm5ndpgTrQFTZ_eLRWPxmYqpuV5GOWSTU4U3dAGk"
-
   private type Discriminator = (String, String, Seq[Seq[String]], Seq[WhichTemplate])
 
   private[this] val discriminators: Seq[Discriminator] = Seq(
     // label, readAs, observers
     (
       "party matches by observer distribution",
-      Seq(notAliceJwt),
+      Seq(bobJwt),
       Seq(
-        Seq((Seq(notAliceParty), 1), (Seq.empty, 99)),
-        Seq((Seq(notAliceParty), 1), (Seq.empty, 19)),
-        Seq((Seq(notAliceParty), 1), (Seq.empty, 9)),
+        Seq((Seq(bobParty), 1), (Seq.empty, 99)),
+        Seq((Seq(bobParty), 1), (Seq.empty, 19)),
+        Seq((Seq(bobParty), 1), (Seq.empty, 9)),
       ),
       Seq(Seq(UseIou -> 1)),
     ),
     (
       "all matches by template ID distribution",
-      Seq(notAliceJwt),
-      Seq(Seq(Seq.empty -> 1), Seq(Seq(notAliceParty) -> 1, Seq.empty -> 99)),
+      Seq(bobJwt),
+      Seq(Seq(Seq.empty -> 1), Seq(Seq(bobParty) -> 1, Seq.empty -> 99)),
       Seq(Seq(UseIou -> 1, UseNotIou -> 99)),
     ),
   ).flatMap { case (label, readAses, observerses, whichTemplates) =>
@@ -51,11 +47,11 @@ class SyncQueryMegaAcs extends Simulation with SimulationConfig with HasRandomAm
   private val createRequest =
     http("CreateCommand")
       .post("/v1/create")
-      .body(StringBody("""{
+      .body(StringBody(s"""{
   "templateId": "LargeAcs:Genesis",
   "payload": {
-    "issuer": "Alice",
-    "owner": "Alice",
+    "issuer": "$aliceParty",
+    "owner": "$aliceParty",
     "currency": "USD",
     "observers": []
   }
@@ -64,15 +60,15 @@ class SyncQueryMegaAcs extends Simulation with SimulationConfig with HasRandomAm
   private val createManyRequest =
     http("ExerciseCommand")
       .post("/v1/exercise")
-      .body(StringBody("""{
+      .body(StringBody(s"""{
   "templateId": "LargeAcs:Genesis",
-  "key": "Alice",
+  "key": "$aliceParty",
   "choice": "Genesis_MakeIouRange",
   "argument": {
     "totalSteps": 10000,
-    "amountCycle": [${amount}],
-    "observersCycle": ${observersCycle},
-    "whichTemplateCycle": ${whichTemplateCycle}
+    "amountCycle": [$${amount}],
+    "observersCycle": $${observersCycle},
+    "whichTemplateCycle": $${whichTemplateCycle}
   }
 }"""))
 
@@ -105,7 +101,7 @@ class SyncQueryMegaAcs extends Simulation with SimulationConfig with HasRandomAm
             Map("amount" -> amount, "reqJwt" -> reqJwt, "templateId" -> templateId)
           feed(
             (for (templateId <- Seq("Iou", "NotIou"))
-              yield m(randomAmount(), jwt, templateId)).iterator
+              yield m(randomAmount(), aliceJwt, templateId)).iterator
               ++ Iterator.continually(m(randomAmount(), reqJwt, "Iou"))
           )
             .exec(queryRequest)

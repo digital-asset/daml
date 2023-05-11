@@ -15,6 +15,7 @@ import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFact
 import com.daml.http.metrics.HttpJsonApiMetrics
 import com.daml.http.util.Logging.{InstanceUUID, instanceUUIDLogCtx}
 import com.daml.http.{HttpService, StartSettings, nonrepudiation}
+import com.daml.integrationtest._
 import com.daml.jwt.JwtSigner
 import com.daml.jwt.domain.DecodedJwt
 import com.daml.ledger.api.auth.{AuthServiceJWTCodec, CustomDamlJWTPayload}
@@ -36,7 +37,6 @@ import com.daml.lf.engine.script.ledgerinteraction.{
   JsonLedgerClient,
   ScriptTimeMode,
 }
-import com.daml.lf.integrationtest._
 import com.daml.lf.language.Ast.Package
 import com.daml.lf.speedy.SValue
 import com.daml.lf.speedy.SValue._
@@ -86,11 +86,12 @@ trait JsonApiFixture
   val darFileDev = rlocation(Paths.get("daml-script/test/script-test-1.dev.dar"))
   val darFileNoLedger = rlocation(Paths.get("daml-script/test/script-test-no-ledger.dar"))
 
+  val applicationId = ApplicationId(getClass.getName)
+  val darFiles = List(darFile, darFileDev)
+
   val config = CantonConfig(
     authSecret = Some(secret),
-    darFiles = List(darFile, darFileDev),
     devMode = true,
-    applicationId = ApplicationId(getClass.getName),
   )
 
   protected def serverPort = suiteResource.value._1
@@ -113,7 +114,7 @@ trait JsonApiFixture
       ledgerId = Some(ledgerId),
       participantId = None,
       exp = None,
-      applicationId = Some(config.applicationId.unwrap),
+      applicationId = Some(applicationId.unwrap),
       actAs = actAs,
       readAs = readAs,
       admin = admin,
@@ -130,7 +131,7 @@ trait JsonApiFixture
     implicit val context: ResourceContext = ResourceContext(system.dispatcher)
     new OwnedResource[ResourceContext, (Port, ServerBinding)](
       for {
-        ports <- CantonRunner.run(config, tmpDir, logger)
+        ports <- CantonRunner.run(config, tmpDir, logger, darFiles)
         serverPort = ports.head
         httpService <- new ResourceOwner[ServerBinding] {
           override def acquire()(implicit context: ResourceContext): Resource[ServerBinding] = {
@@ -243,7 +244,7 @@ final class JsonApiIt extends AsyncWordSpec with JsonApiFixture with Matchers wi
   }
 
   private def ledgerClient(token: Option[String]) =
-    config.ledgerClient(serverPort, token)
+    config.ledgerClient(serverPort, token, applicationId)
 
   private def allocateParty = for {
     adminClient <- ledgerClient(config.adminToken)
@@ -352,7 +353,7 @@ final class JsonApiIt extends AsyncWordSpec with JsonApiFixture with Matchers wi
           getClients(List(alice), applicationId = Some(ApplicationId("wrong")))
         )
       } yield assert(
-        exception.getMessage === s"ApplicationId specified in token Some(${config.applicationId.unwrap}) must match Some(wrong)"
+        exception.getMessage === s"ApplicationId specified in token Some(${applicationId.unwrap}) must match Some(wrong)"
       )
     }
     "application id correct" in {
@@ -361,7 +362,7 @@ final class JsonApiIt extends AsyncWordSpec with JsonApiFixture with Matchers wi
         clients <- getClients(
           List(alice),
           defaultParty = Some(alice),
-          applicationId = Some(config.applicationId),
+          applicationId = Some(applicationId),
         )
         r <- run(
           clients,
