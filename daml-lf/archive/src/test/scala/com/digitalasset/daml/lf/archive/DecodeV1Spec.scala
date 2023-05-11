@@ -1570,6 +1570,46 @@ class DecodeV1Spec
         )
       }
     }
+
+    s"decode upgradedPackageId iff version >= ${LV.Features.packageUpgrades} " in {
+      forEveryVersionSuchThat(_ >= LV.Features.packageMetadata) { version =>
+        val result = Try(
+          new DecodeV1(version.minor).decodePackageMetadata(
+            DamlLf1.PackageMetadata
+              .newBuilder()
+              .setNameInternedStr(0)
+              .setVersionInternedStr(1)
+              .setUpgradedPackageId(
+                DamlLf1.UpgradedPackageId
+                  .newBuilder()
+                  .setUpgradedPackageIdInternedStr(2)
+                  .build()
+              )
+              .build(),
+            ImmArraySeq(
+              "foobar",
+              "0.0.0",
+              "0000000000000000000000000000000000000000000000000000000000000000",
+            ),
+          )
+        )
+
+        if (version >= LV.Features.packageUpgrades)
+          result shouldBe Success(
+            Ast.PackageMetadata(
+              Ref.PackageName.assertFromString("foobar"),
+              Ref.PackageVersion.assertFromString("0.0.0"),
+              Some(
+                Ref.PackageId.assertFromString(
+                  "0000000000000000000000000000000000000000000000000000000000000000"
+                )
+              ),
+            )
+          )
+        else
+          inside(result) { case Failure(error) => error shouldBe an[Error.Parsing] }
+      }
+    }
   }
 
   "decodePackage" should {
