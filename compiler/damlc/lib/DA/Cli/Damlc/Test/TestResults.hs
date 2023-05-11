@@ -4,7 +4,9 @@
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE FlexibleInstances #-}
 
-module DA.Cli.Damlc.Test.TestResults where
+module DA.Cli.Damlc.Test.TestResults (
+        module DA.Cli.Damlc.Test.TestResults
+    ) where
 
 import qualified DA.Daml.LF.Ast as LF
 import qualified Data.NameMap as NM
