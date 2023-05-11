@@ -1,7 +1,6 @@
 -- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE FlexibleInstances #-}
 
@@ -23,6 +22,7 @@ import qualified Data.Set as S
 import qualified Com.Daml.DamlLfDev.DamlLf1 as LF1
 import qualified Data.Map.Strict as M
 import Data.Maybe (mapMaybe)
+import Data.Foldable (fold)
 import Text.Printf
 
 class Protobuf a b | a -> b where
@@ -126,7 +126,7 @@ instance Protobuf TR.PackageId PackageId where
     decode (TR.PackageId (Just (TR.PackageIdVarietyExternal (TR.PackageId_ExternalPackageId id name)))) = Just (ExternalPackageId (TL.toStrict id) (TL.toStrict name))
     decode _ = Nothing
     encode LocalPackageId = TR.PackageId (Just (TR.PackageIdVarietyLocal LF1.Unit))
-    encode (ExternalPackageId ext name) = (TR.PackageId (Just (TR.PackageIdVarietyExternal (TR.PackageId_ExternalPackageId (TL.fromStrict ext) (TL.fromStrict name)))))
+    encode (ExternalPackageId ext name) = TR.PackageId (Just (TR.PackageIdVarietyExternal (TR.PackageId_ExternalPackageId (TL.fromStrict ext) (TL.fromStrict name))))
 
 saveTestResults :: FilePath -> TestResults -> IO ()
 saveTestResults file testResults = do
@@ -235,17 +235,10 @@ allTemplateChoices testResults = M.fromList
     [ ((choice, templateIdentifier), exerciseOccurence)
     | (templateIdentifier, choices) <- M.toList (templates testResults)
     , choice <- S.toList choices
-    , let exerciseOccurence = foldMap id $ do
+    , let exerciseOccurence = fold $ do
             exercise <- choice `M.lookup` exercised testResults
-            occurrences <- templateIdentifier `M.lookup` exercise
-            pure occurrences
+            templateIdentifier `M.lookup` exercise
     ]
-
-interfaceInstanceChoiceExercised :: TestResults -> T.Text -> InterfaceInstanceIdentifier -> S.Set PackageId
-interfaceInstanceChoiceExercised testResults name interfaceInstanceIdentifier = foldMap id $ do
-    exercise <- name `M.lookup` exercised testResults
-    occurrences <- instanceTemplate interfaceInstanceIdentifier `M.lookup` exercise
-    pure occurrences
 
 interfaceInstanceChoices :: TestResults -> InterfaceInstanceIdentifier -> Maybe Choices
 interfaceInstanceChoices testResults interfaceInstanceIdentifier =
@@ -254,11 +247,14 @@ interfaceInstanceChoices testResults interfaceInstanceIdentifier =
 allInterfaceInstanceChoices :: TestResults -> M.Map (T.Text, InterfaceInstanceIdentifier) (S.Set PackageId)
 allInterfaceInstanceChoices testResults = M.fromList
     [ ( (choice, implementation)
-      , interfaceInstanceChoiceExercised testResults choice implementation
+      , exerciseOccurence
       )
     | implementation <- S.toList (interfaceInstances testResults)
     , Just choices <- pure (interfaceInstanceChoices testResults implementation)
     , choice <- S.toList choices
+    , let exerciseOccurence = fold $ do
+            exercise <- choice `M.lookup` exercised testResults
+            instanceTemplate implementation `M.lookup` exercise
     ]
 
 scenarioResultsToTestResults
@@ -280,9 +276,9 @@ scenarioResultsToTestResults allPackages results =
           , (pkgId, module_, template)
           )
         | localOrExternal <- localOrExternals
+        , let pkgId = loeToPackageId pkgIdToPkgName localOrExternal
         , module_ <- loeGetModules localOrExternal
         , template <- NM.toList $ LF.moduleTemplates module_
-        , let pkgId = loeToPackageId pkgIdToPkgName localOrExternal
         ]
 
     thd :: (a, b, c) -> c
@@ -301,9 +297,9 @@ scenarioResultsToTestResults allPackages results =
           , (pkgId, module_, interface)
           )
         | localOrExternal <- localOrExternals
+        , let pkgId = loeToPackageId pkgIdToPkgName localOrExternal
         , module_ <- loeGetModules localOrExternal
         , interface <- NM.toList $ LF.moduleInterfaces module_
-        , let pkgId = loeToPackageId pkgIdToPkgName localOrExternal
         ]
 
     extractChoicesFromInterface :: LF.DefInterface -> Choices
@@ -424,7 +420,7 @@ printTestCoverage showCoverage testResults@TestResults { templates, interfaceIns
            let defined = externalTemplates
                createdAny = M.intersection created defined
                createdInternal = countWhere (any isLocalPkgId) createdAny
-               createdExternal = countWhere (any (not . isLocalPkgId)) createdAny
+               createdExternal = countWhere (not . all isLocalPkgId)) createdAny
                neverCreated = M.difference defined createdAny
            in
            [ printf "- External templates"
@@ -451,7 +447,7 @@ printTestCoverage showCoverage testResults@TestResults { templates, interfaceIns
             let defined = M.size externalTemplateChoices
                 (exercisedAny, neverExercised) = M.partition (\locs -> S.size locs > 0) externalTemplateChoices
                 exercisedInternal = countWhere (any isLocalPkgId) exercisedAny
-                exercisedExternal = countWhere (any (not . isLocalPkgId)) exercisedAny
+                exercisedExternal = countWhere (not . all isLocalPkgId)) exercisedAny
             in
             [ printf "- External template choices"
             , printf "  %d defined" defined
@@ -500,7 +496,7 @@ printTestCoverage showCoverage testResults@TestResults { templates, interfaceIns
             let defined = M.size externalImplementationChoices
                 (exercisedAny, neverExercised) = M.partition (\locs -> S.size locs > 0) externalImplementationChoices
                 exercisedInternal = countWhere (any isLocalPkgId) exercisedAny
-                exercisedExternal = countWhere (any (not . isLocalPkgId)) exercisedAny
+                exercisedExternal = countWhere (not . all isLocalPkgId)) exercisedAny
             in
             [ printf "- External interface choices"
             , printf "  %d defined" defined
