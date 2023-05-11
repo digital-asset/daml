@@ -4,17 +4,17 @@
 package com.daml.lf.engine.trigger
 
 class TriggerServiceTestAuthWithOracle
-    extends AbstractTriggerServiceTestWithCanton
-    with AbstractTriggerServiceTestWithDatabaseAndCanton
-    with TriggerDaoOracleCantonFixture
-    with AbstractTriggerServiceTestAuthMiddlewareWithCanton
-    with DisableOauthClaimsTestsWithCanton
+    extends AbstractTriggerServiceTest
+    with AbstractTriggerServiceTestWithDatabase
+    with TriggerDaoOracleFixture
+    with AbstractTriggerServiceTestAuthMiddleware
+    with DisableOauthClaimsTests
 
 class TriggerServiceTestAuthWithOracleClaims
-    extends AbstractTriggerServiceTestWithCanton
-    with AbstractTriggerServiceTestWithDatabaseAndCanton
-    with TriggerDaoOracleCantonFixture
-    with AbstractTriggerServiceTestAuthMiddlewareWithCanton {
+    extends AbstractTriggerServiceTest
+    with AbstractTriggerServiceTestWithDatabase
+    with TriggerDaoOracleFixture
+    with AbstractTriggerServiceTestAuthMiddleware {
   protected[this] override def oauth2YieldsUserTokens = false
   protected[this] override def sandboxClientTakesUserToken = false
 }
