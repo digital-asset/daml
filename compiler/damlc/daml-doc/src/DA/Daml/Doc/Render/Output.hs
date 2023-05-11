@@ -71,6 +71,7 @@ instance RenderDoc TemplateDoc where
             ]
         , RenderBlock $ mconcat
             [ renderDoc td_descr
+            , maybe mempty (RenderParagraph . RenderPlain . ("Signatory: " <>) . T.pack) td_signatory
             , fieldTable td_payload
             , RenderList (map renderDoc td_choices)
             ]

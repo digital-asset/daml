@@ -112,11 +112,12 @@ data ModuleDoc = ModuleDoc
 
 -- | Documentation data for a template
 data TemplateDoc = TemplateDoc
-  { td_anchor  :: Maybe Anchor
-  , td_name    :: Typename
-  , td_descr   :: Maybe DocText
-  , td_payload :: [FieldDoc]
-  , td_choices :: [ChoiceDoc]
+  { td_anchor    :: Maybe Anchor
+  , td_name      :: Typename
+  , td_descr     :: Maybe DocText
+  , td_signatory :: Maybe String
+  , td_payload   :: [FieldDoc]
+  , td_choices   :: [ChoiceDoc]
   , td_interfaceInstances :: [InterfaceInstanceDoc]
   }
   deriving (Eq, Show, Generic)

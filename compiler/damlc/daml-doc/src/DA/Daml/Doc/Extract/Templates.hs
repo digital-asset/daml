@@ -6,6 +6,8 @@ module DA.Daml.Doc.Extract.Templates
     , getTemplateData
     , getInstanceDocs
     , getInterfaceDocs
+    , getChoiceTypeMap
+    , getSignatoryMap
     ) where
 
 import DA.Daml.Doc.Types as DDoc
@@ -25,6 +27,11 @@ import "ghc-lib-parser" CoreSyn (isOrphan)
 import "ghc-lib-parser" InstEnv
 import "ghc-lib-parser" OccName
 import "ghc-lib-parser" Id
+import Bag (bagToList)
+
+import "ghc-lib-parser" Outputable (ppr, showSDocUnsafe)
+
+import Data.List (intercalate)
 
 -- | Build template docs up from ADT and class docs.
 getTemplateDocs ::
@@ -35,8 +42,10 @@ getTemplateDocs ::
       -- ^ maps type names to the interface instances contained in their declaration.
     -> MS.Map Typename DDoc.Type
       -- ^ maps choice names to their return types
+    -> MS.Map Typename String
+      -- ^ maps template names to their signatory body stringified
     -> [TemplateDoc]
-getTemplateDocs DocCtx{..} typeMap interfaceInstanceMap choiceTypeMap =
+getTemplateDocs DocCtx{..} typeMap interfaceInstanceMap choiceTypeMap templateSignatoryMap =
     map mkTemplateDoc $ Set.toList dc_templates
   where
     -- The following functions use the type map and choice map in scope, so
@@ -46,6 +55,7 @@ getTemplateDocs DocCtx{..} typeMap interfaceInstanceMap choiceTypeMap =
       { td_anchor = ad_anchor tmplADT
       , td_name = ad_name tmplADT
       , td_descr = ad_descr tmplADT
+      , td_signatory = MS.lookup name templateSignatoryMap
       , td_payload = getFields tmplADT
       -- assumes exactly one record constructor (syntactic, template syntax)
       , td_choices = map (mkChoiceDoc typeMap choiceTypeMap) choices
@@ -150,6 +160,76 @@ isChoiceTy ty
   = Just (Typename . packRdrName $ tmplName, Typename . packRdrName $ choiceName)
 
   | otherwise = Nothing
+
+-- | Extracts the return types of choices by looking at the HasExercise
+--   instances. Note that we expect and accept key clashes for `Archive`
+--   but this is acceptable, as choice return types are tied only to the
+--   Choice not the Choice + Template together.
+getChoiceTypeMap :: DocCtx -> [ClsInst] -> MS.Map Typename DDoc.Type
+getChoiceTypeMap ctx insts =
+    MS.fromList
+        [ (choiceName, typeToType ctx retType)
+        | inst <- insts
+        -- TODO: check the module name
+        , "HasExercise" <- [occNameString . occName . is_cls_nm $ inst]
+        , [_, choiceType, retType] <- [is_tys inst]
+        , TypeApp _ choiceName _ <- [typeToType ctx choiceType]
+        ]
+
+isSignatoryTy :: HsType GhcPs -> Maybe Typename
+isSignatoryTy ty
+  | HsAppTy _ (L _ signatory) template <- ty
+  , Just (L _ templateName) <- hsTyGetAppHead_maybe template
+  , HsTyVar _ _ (L _ signatoryClass) <- signatory
+  , Qual signatoryModule signatoryOcc <- signatoryClass
+  , moduleNameString signatoryModule == "DA.Internal.Desugar"
+  , occNameString signatoryOcc == "HasSignatory"
+  = Just $ Typename $ packRdrName templateName
+
+  | otherwise = Nothing
+
+getSignatoriesBody :: DeclData -> Maybe (Typename, String)
+getSignatoriesBody decl
+  | DeclData (L _ (InstD _ (ClsInstD _ inst))) _ <- decl
+  , HsIB _ (L _ t) <- cid_poly_ty inst
+  , Just templateName <- isSignatoryTy t
+  , [L _ (FunBind _ _ matchGroup _ _)] <- bagToList $ cid_binds inst
+  , MG _ (L _ matches) _ <- matchGroup
+  , [L _ (Match _ _ _ _ (GRHSs _ [L _ (GRHS _ _ (L _ body))] _))] <- matches
+  , bodyStr <- intercalate ", " $ showSDocUnsafe . ppr <$> reverse (unParties body)
+  = Just (templateName, bodyStr)
+
+  | otherwise = Nothing
+
+-- | Extracts the template name and signature implementation for `DA.Internal.Desugar.HasSignatory` instances
+getSignatoryMap :: [DeclData] -> MS.Map Typename String
+getSignatoryMap decls = MS.fromList $ mapMaybe getSignatoriesBody decls
+
+stripDesugarApplication :: String -> HsExpr GhcPs -> Maybe (HsExpr GhcPs)
+stripDesugarApplication name e
+    | HsApp _ (L _ (HsVar _ (L _ f))) (L _ arg) <- e
+    , Qual fModule fOcc <- f
+    , moduleNameString fModule == "DA.Internal.Desugar"
+    , occNameString fOcc == name
+    = Just $ dropBrackets arg
+    | otherwise = Nothing
+
+-- | Given a value encoded with the `parties` rule in the grammar,
+-- Strip the additional applications used to make it compile and give back the "original" form
+-- That is, check for the `concat []` optional wrapper, remove that. And remove all the `toParties` calls
+unParties :: HsExpr GhcPs -> [HsExpr GhcPs]
+unParties e
+    | Just partiesHsExpr <- stripDesugarApplication "concat" e
+    , ExplicitList _ _ partyHsExprs <- partiesHsExpr
+    = unParty . unLoc <$> partyHsExprs
+    | otherwise = [unParty e]
+
+unParty :: HsExpr GhcPs -> HsExpr GhcPs
+unParty e = fromMaybe e $ stripDesugarApplication "toParties" e
+
+dropBrackets :: HsExpr GhcPs -> HsExpr GhcPs
+dropBrackets (HsPar _ (L _ body)) = body
+dropBrackets e = e
 
 -- | Get (normal) typeclass instances data.
 getInstanceDocs :: DocCtx -> ClsInst -> InstanceDoc

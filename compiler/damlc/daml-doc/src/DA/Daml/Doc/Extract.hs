@@ -43,8 +43,6 @@ import "ghc-lib-parser" BasicTypes
 import "ghc-lib-parser" Bag (bagToList)
 import "ghc-lib-parser" RdrHsSyn (isDamlGenerated)
 import "ghc-lib-parser" RdrName (rdrNameOcc)
-import "ghc-lib-parser" InstEnv (ClsInst (..))
-import "ghc-lib-parser" Name (occName, occNameString)
 
 import Control.Monad
 import Control.Monad.IO.Class
@@ -84,11 +82,12 @@ extractDocs extractOpts diagsLogger ideOpts fp = do
 
             interfaceInstanceMap = getInterfaceInstanceMap ctx dc_decls
             choiceTypeMap = getChoiceTypeMap ctx dc_insts
+            signatoryMap = getSignatoryMap dc_decls
 
             md_name = dc_modname
             md_anchor = Just (moduleAnchor md_name)
             md_descr = modDoc tcmod
-            md_templates = getTemplateDocs ctx typeMap interfaceInstanceMap choiceTypeMap
+            md_templates = getTemplateDocs ctx typeMap interfaceInstanceMap choiceTypeMap signatoryMap
             md_interfaces = getInterfaceDocs ctx typeMap interfaceInstanceMap choiceTypeMap
             md_functions = mapMaybe (getFctDocs ctx) dc_decls
             md_instances = map (getInstanceDocs ctx) dc_insts
@@ -217,20 +216,6 @@ getInterfaceInstanceMap ctx@DocCtx{..} decls =
             , interface
             , template
             ] <- [typeToType ctx $ idType id]
-        ]
-
--- | Extracts the return types of choices by looking at the HasExercise
---   instances. Note that we expect and accept key clashes for `Archive`
---   but this is acceptable, as choice return types are tied only to the
---   Choice not the Choice + Template together.
-getChoiceTypeMap :: DocCtx -> [ClsInst] -> MS.Map Typename DDoc.Type
-getChoiceTypeMap ctx insts =
-    MS.fromList
-        [ (choiceName, typeToType ctx retType)
-        | inst <- insts
-        , "HasExercise" <- [occNameString . occName . is_cls_nm $ inst]
-        , [_, choiceType, retType] <- [is_tys inst]
-        , TypeApp _ choiceName _ <- [typeToType ctx choiceType]
         ]
 
 -- | Extracts the documentation of a function. Comments are either
