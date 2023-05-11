@@ -72,7 +72,9 @@ final class PackageUpgradesIT
       } yield r shouldBe SUnit
     }
 
-    "fail when given a contract id of a non-predecessor type of Coin V1, Coin V2" in {
+    // TODO: https://github.com/digital-asset/daml/issues/16151
+    // reenable test once `WronglyTypedContractSoft` is handled in Canton
+    "fail when given a contract id of a non-predecessor type of Coin V1, Coin V2" ignore {
       for {
         clients <- scriptClients()
         r <-
