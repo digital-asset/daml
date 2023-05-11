@@ -830,14 +830,27 @@ def sdk_platform_test(sdk_version, platform_version):
                 client = ledger_api_test_tool,
                 client_args = [
                     "localhost:6865",
-                    "--concurrent-test-runs=1",  # lowered from default #procs to reduce flakes - details in https://github.com/digital-asset/daml/issues/7316
+                    "--concurrent-test-runs=2",  # lowered from default #procs to reduce flakes - details in https://github.com/digital-asset/daml/issues/7316
                     "--timeout-scale-factor=2",
                 ] + exclusions,
                 data = [dar_files],
                 runner = "@//bazel_tools/client_server:runner",
-                runner_args = ["6865"],
+                runner_args = ["6865", "7000"],
                 server = canton_sandbox,
-                server_args = ["sandbox", "--canton-port-file", "_port_file"],
+                server_args = [
+                    "sandbox",
+                    "--canton-port-file",
+                    "_port_file",
+                    "--",
+                    "-C",
+                    "canton.monitoring.health.server.port=7000",
+                    "-C",
+                    "canton.monitoring.health.check.type=ping",
+                    "-C",
+                    "canton.monitoring.health.check.participant=sandbox",
+                    "-C",
+                    "canton.monitoring.health.check.interval=5s",
+                ],
                 tags = ["exclusive", sdk_version, platform_version] + extra_tags(sdk_version, platform_version),
             )
         else:

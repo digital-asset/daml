@@ -5,6 +5,8 @@ da_haskell_binary(
     srcs = ["Main.hs"],
     hackage_deps = [
         "base",
+        "http-client",
+        "http-conduit",
         "monad-loops",
         "network",
         "process",
