@@ -147,9 +147,15 @@ private[lf] object Speedy {
       )
   }
 
-  private[this] def enforceLimit(actual: Int, limit: Int, error: Int => IError.Limit.Error): Unit =
-    if (actual > limit)
-      throw SError.SErrorDamlException(IError.Limit(error(limit)))
+  private[speedy] def throwLimitError(error: IError.Dev.Limit.Error): Nothing =
+    throw SError.SErrorDamlException(interpretation.Error.Dev(IError.Dev.Limit(error)))
+
+  private[this] def enforceLimit(
+      actual: Int,
+      limit: Int,
+      error: Int => IError.Dev.Limit.Error,
+  ): Unit =
+    if (actual > limit) throwLimitError(error(limit))
 
   final class UpdateMachine(
       override val sexpr: SExpr,
@@ -276,7 +282,7 @@ private[lf] object Speedy {
       enforceLimit(
         contract.signatories.size,
         limits.contractSignatories,
-        IError.Limit
+        IError.Dev.Limit
           .ContractSignatories(
             cid,
             contract.templateId,
@@ -288,7 +294,7 @@ private[lf] object Speedy {
       enforceLimit(
         contract.observers.size,
         limits.contractObservers,
-        IError.Limit
+        IError.Dev.Limit
           .ContractObservers(
             cid,
             contract.templateId,
@@ -305,7 +311,7 @@ private[lf] object Speedy {
       enforceLimit(
         numInputContracts,
         limits.transactionInputContracts,
-        IError.Limit.TransactionInputContracts,
+        IError.Dev.Limit.TransactionInputContracts,
       )
       updateCachedContracts(coid, contract)
     }
@@ -320,7 +326,7 @@ private[lf] object Speedy {
       enforceLimit(
         controllers.size,
         limits.choiceControllers,
-        IError.Limit.ChoiceControllers(cid, templateId, choiceName, arg, controllers, _),
+        IError.Dev.Limit.ChoiceControllers(cid, templateId, choiceName, arg, controllers, _),
       )
 
     private[speedy] def enforceChoiceObserversLimit(
@@ -333,7 +339,7 @@ private[lf] object Speedy {
       enforceLimit(
         observers.size,
         limits.choiceObservers,
-        IError.Limit.ChoiceObservers(cid, templateId, choiceName, arg, observers, _),
+        IError.Dev.Limit.ChoiceObservers(cid, templateId, choiceName, arg, observers, _),
       )
 
     private[speedy] def enforceChoiceAuthorizersLimit(
@@ -346,7 +352,7 @@ private[lf] object Speedy {
       enforceLimit(
         authorizers.size,
         limits.choiceAuthorizers,
-        IError.Limit.ChoiceAuthorizers(cid, templateId, choiceName, arg, authorizers, _),
+        IError.Dev.Limit.ChoiceAuthorizers(cid, templateId, choiceName, arg, authorizers, _),
       )
 
     // The set of create events for the disclosed contracts that are used by the generated transaction.
@@ -1748,7 +1754,9 @@ private[lf] object Speedy {
       byInterface: Option[TypeConName],
   ) extends Kont {
     def abort(): Nothing =
-      throw SErrorDamlException(IError.ChoiceGuardFailed(coid, templateId, choiceName, byInterface))
+      throw SErrorDamlException(
+        IError.Dev(IError.Dev.ChoiceGuardFailed(coid, templateId, choiceName, byInterface))
+      )
 
     override def execute[Q](machine: Machine[Q], v: SValue): Control.Value = {
       v match {

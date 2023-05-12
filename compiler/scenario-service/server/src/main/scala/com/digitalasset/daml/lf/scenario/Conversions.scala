@@ -238,25 +238,27 @@ final class Conversions(
                 builder.setCrash(s"Contract Id comparability Error")
               case NonComparableValues =>
                 builder.setComparableValueError(proto.Empty.newBuilder)
-              case Limit(limitError) =>
-                limitError match {
-                  case Limit.ValueNesting(_) =>
-                    builder.setValueExceedsMaxNesting(proto.Empty.newBuilder)
-                  // TODO https://github.com/digital-asset/daml/issues/11691
-                  //   Handle the other cases properly.
-                  case _ =>
-                    builder.setCrash(s"A limit was overpass when building the transaction")
+              case Dev(devError) =>
+                devError match {
+                  case Dev.Limit(limitError) =>
+                    limitError match {
+                      case Dev.Limit.ValueNesting(_) =>
+                        builder.setValueExceedsMaxNesting(proto.Empty.newBuilder)
+                      // TODO https://github.com/digital-asset/daml/issues/11691
+                      //   Handle the other cases properly.
+                      case _ =>
+                        builder.setCrash(s"A limit was overpassed when building the transaction")
+                    }
+                  case Dev.ChoiceGuardFailed(coid, templateId, choiceName, byInterface) =>
+                    val cgfBuilder =
+                      proto.ScenarioError.ChoiceGuardFailed.newBuilder
+                        .setContractRef(mkContractRef(coid, templateId))
+                        .setChoiceId(choiceName)
+                    byInterface.foreach(ifaceId =>
+                      cgfBuilder.setByInterface(convertIdentifier(ifaceId))
+                    )
+                    builder.setChoiceGuardFailed(cgfBuilder.build)
                 }
-
-              case ChoiceGuardFailed(coid, templateId, choiceName, byInterface) =>
-                val cgfBuilder =
-                  proto.ScenarioError.ChoiceGuardFailed.newBuilder
-                    .setContractRef(mkContractRef(coid, templateId))
-                    .setChoiceId(choiceName)
-                byInterface.foreach(ifaceId =>
-                  cgfBuilder.setByInterface(convertIdentifier(ifaceId))
-                )
-                builder.setChoiceGuardFailed(cgfBuilder.build)
             }
         }
       case Error.ContractNotEffective(coid, tid, effectiveAt) =>

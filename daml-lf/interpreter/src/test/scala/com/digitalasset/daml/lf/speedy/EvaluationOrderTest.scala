@@ -615,16 +615,19 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           Array(SParty(alice), SParty(bob)),
           Set(alice),
         )
-        inside(res) { case Success(Left(SErrorDamlException(IE.Limit(IE.Limit.ValueNesting(_))))) =>
-          msgs shouldBe Seq(
-            "starts test",
-            "precondition",
-            "contract agreement",
-            "contract signatories",
-            "contract observers",
-            "key",
-            "maintainers",
-          )
+        inside(res) {
+          case Success(
+                Left(SErrorDamlException(IE.Dev(IE.Dev.Limit(IE.Dev.Limit.ValueNesting(_)))))
+              ) =>
+            msgs shouldBe Seq(
+              "starts test",
+              "precondition",
+              "contract agreement",
+              "contract signatories",
+              "contract observers",
+              "key",
+              "maintainers",
+            )
         }
       }
 
@@ -639,16 +642,19 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           Array(SParty(alice), SParty(bob)),
           Set(alice),
         )
-        inside(res) { case Success(Left(SErrorDamlException(IE.Limit(IE.Limit.ValueNesting(_))))) =>
-          msgs shouldBe Seq(
-            "starts test",
-            "precondition",
-            "contract agreement",
-            "contract signatories",
-            "contract observers",
-            "key",
-            "maintainers",
-          )
+        inside(res) {
+          case Success(
+                Left(SErrorDamlException(IE.Dev(IE.Dev.Limit(IE.Dev.Limit.ValueNesting(_)))))
+              ) =>
+            msgs shouldBe Seq(
+              "starts test",
+              "precondition",
+              "contract agreement",
+              "contract signatories",
+              "contract observers",
+              "key",
+              "maintainers",
+            )
         }
       }
     }
@@ -809,16 +815,19 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           Array(SParty(alice), SParty(bob)),
           Set(alice),
         )
-        inside(res) { case Success(Left(SErrorDamlException(IE.Limit(IE.Limit.ValueNesting(_))))) =>
-          msgs shouldBe Seq(
-            "starts test",
-            "precondition",
-            "contract agreement",
-            "contract signatories",
-            "contract observers",
-            "key",
-            "maintainers",
-          )
+        inside(res) {
+          case Success(
+                Left(SErrorDamlException(IE.Dev(IE.Dev.Limit(IE.Dev.Limit.ValueNesting(_)))))
+              ) =>
+            msgs shouldBe Seq(
+              "starts test",
+              "precondition",
+              "contract agreement",
+              "contract signatories",
+              "contract observers",
+              "key",
+              "maintainers",
+            )
         }
       }
 
@@ -833,16 +842,19 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           Array(SParty(alice), SParty(bob)),
           Set(alice),
         )
-        inside(res) { case Success(Left(SErrorDamlException(IE.Limit(IE.Limit.ValueNesting(_))))) =>
-          msgs shouldBe Seq(
-            "starts test",
-            "precondition",
-            "contract agreement",
-            "contract signatories",
-            "contract observers",
-            "key",
-            "maintainers",
-          )
+        inside(res) {
+          case Success(
+                Left(SErrorDamlException(IE.Dev(IE.Dev.Limit(IE.Dev.Limit.ValueNesting(_)))))
+              ) =>
+            msgs shouldBe Seq(
+              "starts test",
+              "precondition",
+              "contract agreement",
+              "contract signatories",
+              "contract observers",
+              "key",
+              "maintainers",
+            )
         }
       }
     }
@@ -1183,19 +1195,22 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           Set(alice),
           getContract = getContract,
         )
-        inside(res) { case Success(Left(SErrorDamlException(IE.Limit(IE.Limit.ValueNesting(_))))) =>
-          msgs shouldBe Seq(
-            "starts test",
-            "queries contract",
-            "contract agreement",
-            "contract signatories",
-            "contract observers",
-            "key",
-            "maintainers",
-            "template choice controllers",
-            "template choice observers",
-            "template choice authorizers",
-          )
+        inside(res) {
+          case Success(
+                Left(SErrorDamlException(IE.Dev(IE.Dev.Limit(IE.Dev.Limit.ValueNesting(_)))))
+              ) =>
+            msgs shouldBe Seq(
+              "starts test",
+              "queries contract",
+              "contract agreement",
+              "contract signatories",
+              "contract observers",
+              "key",
+              "maintainers",
+              "template choice controllers",
+              "template choice observers",
+              "template choice authorizers",
+            )
         }
       }
 
@@ -1208,20 +1223,23 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           Set(alice),
           getContract = getContract,
         )
-        inside(res) { case Success(Left(SErrorDamlException(IE.Limit(IE.Limit.ValueNesting(_))))) =>
-          msgs shouldBe Seq(
-            "starts test",
-            "queries contract",
-            "contract agreement",
-            "contract signatories",
-            "contract observers",
-            "key",
-            "maintainers",
-            "template choice controllers",
-            "template choice observers",
-            "template choice authorizers",
-            "choice body",
-          )
+        inside(res) {
+          case Success(
+                Left(SErrorDamlException(IE.Dev(IE.Dev.Limit(IE.Dev.Limit.ValueNesting(_)))))
+              ) =>
+            msgs shouldBe Seq(
+              "starts test",
+              "queries contract",
+              "contract agreement",
+              "contract signatories",
+              "contract observers",
+              "key",
+              "maintainers",
+              "template choice controllers",
+              "template choice observers",
+              "template choice authorizers",
+              "choice body",
+            )
         }
       }
     }
@@ -1573,19 +1591,22 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           getContract = getContract,
           getKey = getKey,
         )
-        inside(res) { case Success(Left(SErrorDamlException(IE.Limit(IE.Limit.ValueNesting(_))))) =>
-          msgs shouldBe Seq(
-            "starts test",
-            "maintainers",
-            "queries key",
-            "queries contract",
-            "contract agreement",
-            "contract signatories",
-            "contract observers",
-            "template choice controllers",
-            "template choice observers",
-            "template choice authorizers",
-          )
+        inside(res) {
+          case Success(
+                Left(SErrorDamlException(IE.Dev(IE.Dev.Limit(IE.Dev.Limit.ValueNesting(_)))))
+              ) =>
+            msgs shouldBe Seq(
+              "starts test",
+              "maintainers",
+              "queries key",
+              "queries contract",
+              "contract agreement",
+              "contract signatories",
+              "contract observers",
+              "template choice controllers",
+              "template choice observers",
+              "template choice authorizers",
+            )
         }
       }
 
@@ -1599,20 +1620,23 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           getContract = getContract,
           getKey = getKey,
         )
-        inside(res) { case Success(Left(SErrorDamlException(IE.Limit(IE.Limit.ValueNesting(_))))) =>
-          msgs shouldBe Seq(
-            "starts test",
-            "maintainers",
-            "queries key",
-            "queries contract",
-            "contract agreement",
-            "contract signatories",
-            "contract observers",
-            "template choice controllers",
-            "template choice observers",
-            "template choice authorizers",
-            "choice body",
-          )
+        inside(res) {
+          case Success(
+                Left(SErrorDamlException(IE.Dev(IE.Dev.Limit(IE.Dev.Limit.ValueNesting(_)))))
+              ) =>
+            msgs shouldBe Seq(
+              "starts test",
+              "maintainers",
+              "queries key",
+              "queries contract",
+              "contract agreement",
+              "contract signatories",
+              "contract observers",
+              "template choice controllers",
+              "template choice observers",
+              "template choice authorizers",
+              "choice body",
+            )
         }
       }
 
@@ -2561,8 +2585,11 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           Array(SParty(alice), SParty(alice)),
           Set(alice),
         )
-        inside(res) { case Success(Left(SErrorDamlException(IE.Limit(IE.Limit.ValueNesting(_))))) =>
-          msgs shouldBe Seq("starts test", "maintainers")
+        inside(res) {
+          case Success(
+                Left(SErrorDamlException(IE.Dev(IE.Dev.Limit(IE.Dev.Limit.ValueNesting(_)))))
+              ) =>
+            msgs shouldBe Seq("starts test", "maintainers")
         }
       }
     }
@@ -3121,8 +3148,11 @@ class EvaluationOrderTest extends AnyFreeSpec with Matchers with Inside {
           Array(SParty(alice), SParty(alice)),
           Set(alice),
         )
-        inside(res) { case Success(Left(SErrorDamlException(IE.Limit(IE.Limit.ValueNesting(_))))) =>
-          msgs shouldBe Seq("starts test", "maintainers")
+        inside(res) {
+          case Success(
+                Left(SErrorDamlException(IE.Dev(IE.Dev.Limit(IE.Dev.Limit.ValueNesting(_)))))
+              ) =>
+            msgs shouldBe Seq("starts test", "maintainers")
         }
       }
     }

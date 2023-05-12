@@ -82,7 +82,11 @@ class LimitsSpec extends AnyWordSpec with Matchers with Inside with TableDrivenP
           inside(result) {
             case Left(
                   SError.SErrorDamlException(
-                    IE.Limit(IE.Limit.ContractSignatories(_, templateId, _, parties, reportedlimit))
+                    IE.Dev(
+                      IE.Dev.Limit(
+                        IE.Dev.Limit.ContractSignatories(_, templateId, _, parties, reportedlimit)
+                      )
+                    )
                   )
                 ) =>
               templateId shouldBe T
@@ -106,7 +110,11 @@ class LimitsSpec extends AnyWordSpec with Matchers with Inside with TableDrivenP
           inside(result) {
             case Left(
                   SError.SErrorDamlException(
-                    IE.Limit(IE.Limit.ContractSignatories(_, templateId, _, parties, reportedlimit))
+                    IE.Dev(
+                      IE.Dev.Limit(
+                        IE.Dev.Limit.ContractSignatories(_, templateId, _, parties, reportedlimit)
+                      )
+                    )
                   )
                 ) =>
               templateId shouldBe T
@@ -140,7 +148,11 @@ class LimitsSpec extends AnyWordSpec with Matchers with Inside with TableDrivenP
           inside(result) {
             case Left(
                   SError.SErrorDamlException(
-                    IE.Limit(IE.Limit.ContractSignatories(_, templateId, _, parties, reportedlimit))
+                    IE.Dev(
+                      IE.Dev.Limit(
+                        IE.Dev.Limit.ContractSignatories(_, templateId, _, parties, reportedlimit)
+                      )
+                    )
                   )
                 ) =>
               templateId shouldBe T
@@ -169,7 +181,11 @@ class LimitsSpec extends AnyWordSpec with Matchers with Inside with TableDrivenP
           inside(result) {
             case Left(
                   SError.SErrorDamlException(
-                    IE.Limit(IE.Limit.ContractObservers(_, templateId, _, parties, reportedlimit))
+                    IE.Dev(
+                      IE.Dev.Limit(
+                        IE.Dev.Limit.ContractObservers(_, templateId, _, parties, reportedlimit)
+                      )
+                    )
                   )
                 ) =>
               templateId shouldBe T
@@ -194,7 +210,11 @@ class LimitsSpec extends AnyWordSpec with Matchers with Inside with TableDrivenP
           inside(result) {
             case Left(
                   SError.SErrorDamlException(
-                    IE.Limit(IE.Limit.ContractObservers(_, templateId, _, parties, reportedlimit))
+                    IE.Dev(
+                      IE.Dev.Limit(
+                        IE.Dev.Limit.ContractObservers(_, templateId, _, parties, reportedlimit)
+                      )
+                    )
                   )
                 ) =>
               templateId shouldBe T
@@ -224,17 +244,21 @@ class LimitsSpec extends AnyWordSpec with Matchers with Inside with TableDrivenP
 
         if (succeed)
           result shouldBe a[Right[_, _]]
-        else
-          inside(result) {
-            case Left(
-                  SError.SErrorDamlException(
-                    IE.Limit(IE.Limit.ContractObservers(_, templateId, _, parties, reportedlimit))
+        elsen
+        inside(result) {
+          case Left(
+                SError.SErrorDamlException(
+                  IE.Dev(
+                    IE.Dev.Limit(
+                      IE.Dev.Limit.ContractObservers(_, templateId, _, parties, reportedlimit)
+                    )
                   )
-                ) =>
-              templateId shouldBe T
-              parties shouldBe observers
-              reportedlimit shouldBe limit
-          }
+                )
+              ) =>
+            templateId shouldBe T
+            parties shouldBe observers
+            reportedlimit shouldBe limit
+        }
       }
     }
 
@@ -261,14 +285,16 @@ class LimitsSpec extends AnyWordSpec with Matchers with Inside with TableDrivenP
           inside(result) {
             case Left(
                   SError.SErrorDamlException(
-                    IE.Limit(
-                      IE.Limit.ChoiceControllers(
-                        _,
-                        templateId,
-                        choiceName,
-                        _,
-                        parties,
-                        reportedlimit,
+                    IE.Dev(
+                      IE.Dev.Limit(
+                        IE.Dev.Limit.ChoiceControllers(
+                          _,
+                          templateId,
+                          choiceName,
+                          _,
+                          parties,
+                          reportedlimit,
+                        )
                       )
                     )
                   )
@@ -313,8 +339,17 @@ class LimitsSpec extends AnyWordSpec with Matchers with Inside with TableDrivenP
           inside(result) {
             case Left(
                   SError.SErrorDamlException(
-                    IE.Limit(
-                      IE.Limit.ChoiceObservers(_, templateId, choiceName, _, parties, reportedlimit)
+                    IE.Dev(
+                      IE.Dev.Limit(
+                        IE.Dev.Limit.ChoiceObservers(
+                          _,
+                          templateId,
+                          choiceName,
+                          _,
+                          parties,
+                          reportedlimit,
+                        )
+                      )
                     )
                   )
                 ) =>
@@ -343,7 +378,9 @@ class LimitsSpec extends AnyWordSpec with Matchers with Inside with TableDrivenP
           inside(result) {
             case Left(
                   SError.SErrorDamlException(
-                    IE.Limit(IE.Limit.TransactionInputContracts(reportedlimit))
+                    IE.Dev(
+                      IE.Dev.Limit(IE.Dev.Limit.TransactionInputContracts(reportedlimit))
+                    )
                   )
                 ) =>
               reportedlimit shouldBe limit

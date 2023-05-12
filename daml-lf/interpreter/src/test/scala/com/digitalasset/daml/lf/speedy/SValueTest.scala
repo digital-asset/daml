@@ -37,7 +37,9 @@ class SValueTest extends AnyWordSpec with Inside with Matchers with TableDrivenP
       val x = Try(toNat(Value.MAXIMUM_NESTING).toUnnormalizedValue)
       x shouldBe
         Failure(
-          SError.SErrorDamlException(IError.Limit(IError.Limit.ValueNesting(Value.MAXIMUM_NESTING)))
+          SError.SErrorDamlException(
+            IError.Dev(IError.Dev.Limit(IError.Dev.Limit.ValueNesting(Value.MAXIMUM_NESTING)))
+          )
         )
     }
 
