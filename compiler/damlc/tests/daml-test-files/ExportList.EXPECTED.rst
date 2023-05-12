@@ -10,6 +10,8 @@ Templates
 
 **template** `Template0 <type-exportlist-template0-67442_>`_
 
+  Signatory\: tfield0
+
   .. list-table::
      :widths: 15 10 30
      :header-rows: 1
@@ -41,6 +43,8 @@ Templates
 .. _type-exportlist-template1-69519:
 
 **template** `Template1 <type-exportlist-template1-69519_>`_
+
+  Signatory\: tfield1
 
   .. list-table::
      :widths: 15 10 30
@@ -74,6 +78,8 @@ Templates
 
 **template** `Template2 <type-exportlist-template2-27508_>`_
 
+  Signatory\: tfield2
+
   .. list-table::
      :widths: 15 10 30
      :header-rows: 1
@@ -105,6 +111,8 @@ Templates
 .. _type-exportlist-template3-29585:
 
 **template** `Template3 <type-exportlist-template3-29585_>`_
+
+  Signatory\: tfield3
 
   .. list-table::
      :widths: 15 10 30

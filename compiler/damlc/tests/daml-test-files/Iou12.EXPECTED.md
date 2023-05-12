@@ -4,6 +4,8 @@
 
 <a name="type-iou12-iou-72962"></a>**template** [Iou](#type-iou12-iou-72962)
 
+> Signatory: issuer
+>
 > | Field                                                                                       | Type                                                                                        | Description |
 > | :------------------------------------------------------------------------------------------ | :------------------------------------------------------------------------------------------ | :---------- |
 > | issuer                                                                                      | [Party](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932)     |  |

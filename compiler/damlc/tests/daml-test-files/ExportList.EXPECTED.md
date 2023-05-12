@@ -4,6 +4,8 @@
 
 <a name="type-exportlist-template0-67442"></a>**template** [Template0](#type-exportlist-template0-67442)
 
+> Signatory: tfield0
+>
 > | Field                                                                                   | Type                                                                                    | Description |
 > | :-------------------------------------------------------------------------------------- | :-------------------------------------------------------------------------------------- | :---------- |
 > | tfield0                                                                                 | [Party](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932) |  |
@@ -23,6 +25,8 @@
 
 <a name="type-exportlist-template1-69519"></a>**template** [Template1](#type-exportlist-template1-69519)
 
+> Signatory: tfield1
+>
 > | Field                                                                                   | Type                                                                                    | Description |
 > | :-------------------------------------------------------------------------------------- | :-------------------------------------------------------------------------------------- | :---------- |
 > | tfield1                                                                                 | [Party](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932) |  |
@@ -42,6 +46,8 @@
 
 <a name="type-exportlist-template2-27508"></a>**template** [Template2](#type-exportlist-template2-27508)
 
+> Signatory: tfield2
+>
 > | Field                                                                                   | Type                                                                                    | Description |
 > | :-------------------------------------------------------------------------------------- | :-------------------------------------------------------------------------------------- | :---------- |
 > | tfield2                                                                                 | [Party](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932) |  |
@@ -61,6 +67,8 @@
 
 <a name="type-exportlist-template3-29585"></a>**template** [Template3](#type-exportlist-template3-29585)
 
+> Signatory: tfield3
+>
 > | Field                                                                                   | Type                                                                                    | Description |
 > | :-------------------------------------------------------------------------------------- | :-------------------------------------------------------------------------------------- | :---------- |
 > | tfield3                                                                                 | [Party](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932) |  |

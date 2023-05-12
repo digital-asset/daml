@@ -4,6 +4,8 @@
 
 <a name="type-qualifiedinterface-asset-82061"></a>**template** [Asset](#type-qualifiedinterface-asset-82061)
 
+> Signatory: issuer, owner
+>
 > | Field                                                                                   | Type                                                                                    | Description |
 > | :-------------------------------------------------------------------------------------- | :-------------------------------------------------------------------------------------- | :---------- |
 > | issuer                                                                                  | [Party](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932) |  |

@@ -4,6 +4,8 @@
 
 <a name="type-interface-asset-25340"></a>**template** [Asset](#type-interface-asset-25340)
 
+> Signatory: issuer, owner
+>
 > | Field                                                                                   | Type                                                                                    | Description |
 > | :-------------------------------------------------------------------------------------- | :-------------------------------------------------------------------------------------- | :---------- |
 > | issuer                                                                                  | [Party](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932) |  |

@@ -10,6 +10,8 @@ Templates
 
 **template** `Iou <type-iou12-iou-72962_>`_
 
+  Signatory\: issuer
+
   .. list-table::
      :widths: 15 10 30
      :header-rows: 1

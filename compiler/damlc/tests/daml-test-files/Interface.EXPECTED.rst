@@ -10,6 +10,8 @@ Templates
 
 **template** `Asset <type-interface-asset-25340_>`_
 
+  Signatory\: issuer, owner
+
   .. list-table::
      :widths: 15 10 30
      :header-rows: 1
