@@ -67,7 +67,8 @@ urlTag env anchorM = fromMaybe "" $ do
 renderSimpleHoogle :: HoogleEnv -> ModuleDoc -> T.Text
 renderSimpleHoogle _env ModuleDoc{..}
   | null md_classes && null md_adts &&
-    null md_functions && isNothing md_descr = T.empty
+    null md_functions && isNothing md_descr &&
+    null md_templates && null md_interfaces = T.empty
 renderSimpleHoogle env ModuleDoc{..} = T.unlines . concat $
   [ hooglify md_descr
   , [ urlTag env md_anchor

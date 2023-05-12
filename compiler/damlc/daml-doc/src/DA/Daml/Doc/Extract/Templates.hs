@@ -275,6 +275,12 @@ getFields adt =
     [] -> [] -- catching the dummy case here, see above
     _other -> error "getFields: found multiple constructors"
 
+-- TODO: extract controller from the _choice$_ def, specifically the second in the tuple
+-- If its Archive, don't fill it in, and we'll fallback to signatories
+-- Unpacking the lambda/multiple lambdas will be tricky, given the shadowing logic
+-- We'll need to work out the template/choice names from the type, or we can combine the template and choice name on the lookup side
+-- might be better off with a Map (Typename, Typename) String, template/interface name -> choice name -> controllers
+
 mkChoiceDoc :: MS.Map Typename ADTDoc -> MS.Map Typename DDoc.Type -> Typename -> ChoiceDoc
 mkChoiceDoc typeMap choiceTypeMap name =
   ChoiceDoc
