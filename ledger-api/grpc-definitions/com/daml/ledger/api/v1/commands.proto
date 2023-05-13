@@ -128,7 +128,7 @@ message Commands {
   repeated DisclosedContract disclosed_contracts = 17;
 
   // Must be a valid domain ID
-  // Optional
+  // Optional: must be set for multi-domain API, must not be set otherwise. This will be mandatory for 3.0.
   string domain_id = 18;
 }
 
