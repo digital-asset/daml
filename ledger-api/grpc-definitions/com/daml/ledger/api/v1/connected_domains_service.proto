@@ -20,8 +20,6 @@ message GetConnectedDomainsRequest {
   // Must be a valid PartyIdString (as described in ``value.proto``).
   // Required
   string party = 1;
-
-  ConnectedDomainsFilter connected_domains_filter = 2;
 }
 
 message GetConnectedDomainsResponse {
@@ -37,14 +35,6 @@ message GetConnectedDomainsResponse {
     ParticipantPermission permission = 3;
   }
   repeated ConnectedDomain connected_domains = 1;
-}
-
-message ConnectedDomainsFilter {
-  // If empty, domains with all permissions are returned.
-  // Only the domains with the requested ParticipantPermission are returned.
-  // E.g if the permissions are set to Observation and the participant has Submission rights, the result will be empty.
-  // Passing the same permission twice is accepted and they are deduplicated.
-  repeated ParticipantPermission permissions = 1;
 }
 
 // enum indicating the permission level
