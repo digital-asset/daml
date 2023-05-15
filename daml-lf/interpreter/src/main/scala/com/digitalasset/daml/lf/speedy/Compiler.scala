@@ -783,9 +783,10 @@ private[lf] final class Compiler(
       predPids: List[PackageId],
   ): (t.SDefinitionRef, SDefinition) =
     // compile a template to
-    // SoftFetchDefRef(tmplId) = \ <coid> <token> ->
-    //   let <softTmplArg> = $soft_fetch(tmplId) <coid>
-    //       _ = $insertFetch(tmplId, false) coid [tmpl.signatories] [tmpl.observers] [tmpl.key]
+    // SoftFetchTemplateDefRef(tmplId) = \ <coid> <token> ->
+    //   let <any_tmpl> = $fetch_any <coid> None
+    //       <softTmplArg> = $promote_any_contract(tmplId, [preds(tmplId)]) <coid> <any_tmpl>
+    //       _ = $insertFetch(tmplId, false) coid [tmpl.signatories] [tmpl.observers] []
     //   in <softTmplArg>
     topLevelFunction2(t.SoftFetchTemplateDefRef(tmplId)) { (cidPos, tokenPos, env) =>
       translateSoftFetchTemplateBody(env, tmplId, tmpl, predPids)(cidPos, tokenPos)
