@@ -314,7 +314,7 @@ def generate_and_track_cabal(name):
     native.filegroup(
         name = name + "-golden-cabal",
         srcs = native.glob([name + ".cabal"]),
-        visibility = ["//visibility:public"]
+        visibility = ["//visibility:public"],
     )
 
     native.sh_test(
@@ -401,4 +401,3 @@ EOF
             extensions = "\n      ".join(common_haskell_exts),
         ),
     )
-
