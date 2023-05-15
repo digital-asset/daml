@@ -298,6 +298,13 @@ message TransferOutCommand {
   // Must be a valid domain ID
   // Required
   string target = 3;
+
+  // Each corresponding transfer-in and transfer-out event has the same transfer_counter. This monotonically increases
+  // with each transfer-out command for the same contract. Creation of the contract corresponds to transfer_counter
+  // equals one.
+  // The provided transfer_counter must be bigger than the one before for the same contract.
+  // Required
+  int64 transfer_counter = 4;
 }
 
 // Transfer-in a contract

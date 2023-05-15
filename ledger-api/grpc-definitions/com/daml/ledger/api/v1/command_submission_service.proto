@@ -33,6 +33,7 @@ service CommandSubmissionService {
   rpc Submit (SubmitRequest) returns (google.protobuf.Empty);
 
   // Submit a single transfer.
+  // This endpoint is only available for multi-domain API.
   rpc SubmitTransfer (SubmitTransferRequest) returns (SubmitTransferResponse);
 
 }

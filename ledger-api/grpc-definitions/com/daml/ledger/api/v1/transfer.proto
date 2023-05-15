@@ -72,16 +72,22 @@ message TransferredOutEvent {
   // Required
   string submitter = 6;
 
+  // Each corresponding transfer-in and transfer-out event has the same transfer_counter. This monotonically increases
+  // with each transfer-out command for the same contract. Creation of the contract corresponds to transfer_counter
+  // equals one.
+  // Required
+  int64 transfer_counter = 7;
+
   // Transfer-in exclusivity
   // Before this time (measured on the target domain), only the submitter of the transfer-out can initiate the transfer-in
   // Missing for everyone except on the submitting participant
   // optional
-  google.protobuf.Timestamp transfer_in_exclusivity = 7;
+  google.protobuf.Timestamp transfer_in_exclusivity = 8;
 
   // The parties that are notified of this event.
   // Return the ``submitter`` if it's a stakeholder of the contract (i.e. either signatories or observers).
   // Required
-  repeated string witness_parties = 8;
+  repeated string witness_parties = 9;
 }
 
 // Records that a contract has been transferred-in, and it becomes usable on the target domain
@@ -108,7 +114,13 @@ message TransferredInEvent {
   // Required
   string submitter = 4;
 
+  // Each corresponding transfer-in and transfer-out event has the same transfer_counter. This monotonically increases
+  // with each transfer-out command for the same contract. Creation of the contract corresponds to transfer_counter
+  // equals one.
   // Required
-  CreatedEvent created_event = 5;
+  int64 transfer_counter = 5;
+
+  // Required
+  CreatedEvent created_event = 6;
 }
 

@@ -7,6 +7,7 @@ package com.daml.ledger.api.v1;
 
 import "com/daml/ledger/api/v1/event.proto";
 import "com/daml/ledger/api/v1/transaction_filter.proto";
+import "com/daml/ledger/api/v1/transfer.proto";
 
 option java_outer_classname = "ActiveContractsServiceOuterClass";
 option java_package = "com.daml.ledger.api.v1";
@@ -57,13 +58,59 @@ message GetActiveContractsResponse {
 
   // The workflow that created the contracts.
   // Must be a valid LedgerString (as described in ``value.proto``).
+  // Optional, In the Ledger API 3.0 this field will be removed.
   string workflow_id = 2;
 
   // The list of contracts that were introduced by the workflow with ``workflow_id`` at the offset.
   // Must be a valid LedgerString (as described in ``value.proto``).
+  // In the Ledger API 3.0 this field will be removed.
+  // This is empty for multi-domain API.
   repeated CreatedEvent active_contracts = 3;
 
+  // Non-empty for multi-domain API.
+  repeated ContractState contract_states = 4;
+}
+
+// In the entire stream of ContractState-s there can be multiple ContractState messages belong to the same contract.
+message ContractState {
+  oneof contract_state {
+    // The contract is active in the given domain. Only one such message is expected per domain.
+    ActiveContract active_contract = 1;
+
+    // This message is only available, if the corresponding transfer-in event cannot be found before or at the
+    // active_at_offset, and for the querying parties it is possible to observe this event after the active_at_offset,
+    // and also to submit the corresponding transfer-in command.
+    // This event typically means, that the transfer is in-flight.
+    IncompleteTransferredOut incomplete_transferred_out = 2;
+
+    // Important: this message is not indicating that the contract is active for the target domain!
+    // This message is only available, if the corresponding transfer-out event cannot be found before or at the
+    // active_at_offset, and for the querying parties it is possible to observe this event after the active_at_offset.
+    // This event typically means, that the the source domain is lagging behind (and the corresponding transfer-out
+    // already happened).
+    TransferredInEvent incomplete_transferred_in = 3;
+  }
+}
+
+message ActiveContract {
+  // Required
+  CreatedEvent created_event = 1;
+
   // A valid domain ID
-  // Optional Only present for multi-domain API. In the Ledger API 3.0 this will be mandatory.
-  string domain_id = 4;
+  // Required
+  string domain_id = 2;
+
+  // Each corresponding transfer-in and transfer-out event has the same transfer_counter. This monotonically increases
+  // with each transfer-out command for the same contract. Creation of the contract corresponds to transfer_counter
+  // equals one.
+  // Required
+  int64 transfer_counter = 3;
+}
+
+message IncompleteTransferredOut {
+  // Required
+  CreatedEvent created_event = 1;
+
+  // Required
+  TransferredOutEvent transferred_out_event = 2;
 }
