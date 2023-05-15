@@ -130,17 +130,12 @@ object RejectionGenerators {
             .Error(
               renderedMessage
             )
-        case LfInterpretationError.Limit(_) =>
-          LedgerApiErrors.CommandExecution.Interpreter.InvalidArgumentInterpretationError
-            .Error(
-              renderedMessage
-            )
         case _: LfInterpretationError.ContractIdComparability =>
           LedgerApiErrors.CommandExecution.Interpreter.InvalidArgumentInterpretationError
             .Error(
               renderedMessage
             )
-        case _: LfInterpretationError.ChoiceGuardFailed =>
+        case LfInterpretationError.Dev(_, _) =>
           LedgerApiErrors.CommandExecution.Interpreter.InvalidArgumentInterpretationError
             .Error(
               renderedMessage

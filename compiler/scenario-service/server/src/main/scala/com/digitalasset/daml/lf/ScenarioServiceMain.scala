@@ -307,6 +307,7 @@ class ScenarioService(
                     error.warningLog,
                     error.currentSubmission.flatMap(_.commitLocation),
                     error.stackTrace,
+                    context.devMode,
                   )
                     .convertScenarioError(error.error)
                 )
@@ -320,6 +321,7 @@ class ScenarioService(
                     success.warningLog,
                     None,
                     ImmArray.Empty,
+                    context.devMode,
                   )
                     .convertScenarioResult(success.resultValue)
                 )
