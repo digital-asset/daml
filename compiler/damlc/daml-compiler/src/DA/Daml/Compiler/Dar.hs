@@ -26,9 +26,11 @@ import Control.Monad.Trans.Resource (ResourceT)
 import qualified DA.Daml.Dar.Reader as Dar
 import qualified DA.Daml.LF.Ast as LF
 import DA.Daml.LF.Proto3.Archive (encodeArchiveAndHash)
+import DA.Daml.LF.TypeChecker.Error (Error(EUnsupportedFeature))
 import DA.Daml.Options (expandSdkPackages)
 import DA.Daml.Options.Types
 import DA.Daml.Package.Config
+import DA.Pretty (renderPretty)
 import qualified DA.Service.Logger as Logger
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
@@ -124,10 +126,14 @@ buildDar service PackageConfigFields {..} ifDir dalfInput = do
                  opts <- lift getIdeOptions
                  lfVersion <- lift getDamlLfVersion
                  upgradedPackageId <-
+                  forM pUpgradedPackagePath $ \path ->
                     if lfVersion `LF.supports` LF.featurePackageUpgrades
-                      then liftIO $
-                        mapM (fmap Dar.mainPackageId . Dar.getDarInfo) pUpgradedPackagePath
-                      else pure Nothing
+                      then Dar.mainPackageId <$> liftIO (Dar.getDarInfo path)
+                      else do
+                        liftIO $
+                          IdeLogger.logError (ideLogger service) $
+                            renderPretty $ EUnsupportedFeature LF.featurePackageUpgrades
+                        MaybeT (pure Nothing)
                  let pMeta = LF.PackageMetadata
                         { packageName = pName
                         , packageVersion = fromMaybe (LF.PackageVersion "0.0.0") pVersion
