@@ -94,7 +94,7 @@ instance DA.Internal.Record.HasField "f" NonSerializableArgument NonSerializable
   setField
     = DA.Internal.Record.setFieldPrim
         @"f" @NonSerializableArgument @NonSerializable
-_choice$_IArchive :
+_choice$_I$Archive :
   (DA.Internal.Desugar.Consuming I,
    I -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.Optional (I
@@ -104,12 +104,12 @@ _choice$_IArchive :
    DA.Internal.Desugar.ContractId I
    -> I
       -> DA.Internal.Desugar.Archive -> DA.Internal.Desugar.Update (()))
-_choice$_IArchive
+_choice$_I$Archive
   = (DA.Internal.Desugar.Consuming, 
      \ this _ -> DA.Internal.Desugar.signatory this, 
      DA.Internal.Desugar.None, DA.Internal.Desugar.None, 
      \ _ _ _ -> pure ())
-_choice$_INonSerializableArgument :
+_choice$_I$NonSerializableArgument :
   (DA.Internal.Desugar.Consuming I,
    I -> NonSerializableArgument -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.Optional (I
@@ -118,7 +118,7 @@ _choice$_INonSerializableArgument :
                                  -> NonSerializableArgument -> [DA.Internal.Desugar.Party]),
    DA.Internal.Desugar.ContractId I
    -> I -> NonSerializableArgument -> DA.Internal.Desugar.Update (()))
-_choice$_INonSerializableArgument
+_choice$_I$NonSerializableArgument
   = (DA.Internal.Desugar.Consuming, 
      \ this arg@NonSerializableArgument {..}
        -> let _ = this in
