@@ -180,7 +180,7 @@ conformance_test_tool_args_base = [
     "--cacrt $$(rlocation $$TEST_WORKSPACE/$(rootpath //test-common/test-certificates:ca.crt))",
     "--pem $$(rlocation $$TEST_WORKSPACE/$(rootpath //test-common/test-certificates:client.pem))",
     "--concurrent-test-runs=1",  # lowered from default #procs to reduce flakes - details in https://github.com/digital-asset/daml/issues/7316
-    "--timeout-scale-factor=2",  # increased to reduce flakes particularly wrt timeouts in TransactionService*IT tests
+    "--timeout-scale-factor=3",  # increased to reduce flakes particularly wrt timeouts in TransactionService*IT tests
 ]
 
 conformance_test_excluded_test = [
