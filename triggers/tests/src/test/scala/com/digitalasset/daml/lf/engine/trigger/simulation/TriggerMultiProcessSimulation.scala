@@ -11,16 +11,14 @@ import com.daml.ledger.api.refinements.ApiTypes
 import com.daml.ledger.client.LedgerClient
 import com.daml.lf.engine.trigger.simulation.process.TriggerProcessFactory
 import com.daml.lf.engine.trigger.simulation.process.ledger.LedgerProcess
-import com.daml.lf.engine.trigger.test.AbstractTriggerTestWithCanton
+import com.daml.lf.engine.trigger.test.AbstractTriggerTest
 import org.scalatest.wordspec.AsyncWordSpec
 
 import java.nio.file.{Files, Path}
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, TimeoutException}
 
-abstract class TriggerMultiProcessSimulation
-    extends AsyncWordSpec
-    with AbstractTriggerTestWithCanton {
+abstract class TriggerMultiProcessSimulation extends AsyncWordSpec with AbstractTriggerTest {
 
   import TriggerMultiProcessSimulation._
 

@@ -17,7 +17,9 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 import scalaz.syntax.tag._
 
-class Jwt extends AsyncWordSpec with AbstractTriggerTestWithCanton with Matchers with TryValues {
+class Jwt extends AsyncWordSpec with AbstractTriggerTest with Matchers with TryValues {
+
+  import AbstractTriggerTest._
 
   "Jwt" can {
     // We just need something simple to test the connection.

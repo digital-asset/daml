@@ -8,7 +8,7 @@ import akka.actor.ActorSystem
 import akka.stream.Materializer
 import akka.stream.scaladsl.Sink
 import com.daml.lf.data.Ref.QualifiedName
-import com.daml.lf.engine.trigger.test.AbstractTriggerTestWithCanton
+import com.daml.lf.engine.trigger.test.AbstractTriggerTest
 import com.daml.lf.speedy.SValue
 import org.scalatest.{Inside, TryValues}
 import org.scalatest.matchers.should.Matchers
@@ -19,12 +19,13 @@ import scala.concurrent.ExecutionContext
 
 class CatTriggerResourceUsageTest
     extends AsyncWordSpec
-    with AbstractTriggerTestWithCanton
+    with AbstractTriggerTest
     with Matchers
     with Inside
     with TryValues
     with CatTriggerResourceUsageTestGenerators {
 
+  import AbstractTriggerTest._
   import TriggerRuleSimulationLib._
 
   // Used to control degree of parallelism in mapAsync streaming operations

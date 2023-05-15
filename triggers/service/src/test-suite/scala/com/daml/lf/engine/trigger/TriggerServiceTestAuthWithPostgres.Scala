@@ -4,7 +4,7 @@
 package com.daml.lf.engine.trigger
 
 class TriggerServiceTestAuthWithPostgres
-    extends AbstractTriggerServiceTestWithCanton
-    with AbstractTriggerServiceTestWithDatabaseAndCanton
-    with TriggerDaoPostgresCantonFixture
-    with AbstractTriggerServiceTestAuthMiddlewareWithCanton {}
+    extends AbstractTriggerServiceTest
+    with AbstractTriggerServiceTestWithDatabase
+    with TriggerDaoPostgresFixture
+    with AbstractTriggerServiceTestAuthMiddleware {}

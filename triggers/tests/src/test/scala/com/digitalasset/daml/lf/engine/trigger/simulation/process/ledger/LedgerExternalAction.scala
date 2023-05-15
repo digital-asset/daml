@@ -14,7 +14,6 @@ import com.daml.ledger.client.LedgerClient
 import com.daml.lf.engine.trigger.simulation.TriggerMultiProcessSimulation.TriggerSimulationConfig
 import com.daml.lf.engine.trigger.test.AbstractTriggerTest
 import com.daml.scalautil.Statement.discard
-import scalaz.syntax.tag._
 
 import scala.concurrent.{Await, ExecutionContext, TimeoutException}
 import scala.util.control.NonFatal
@@ -36,7 +35,7 @@ final class LedgerExternalAction(client: LedgerClient)(implicit
         try {
           discard(
             Await.result(
-              AbstractTriggerTest.create(client, party.unwrap, createCommand),
+              AbstractTriggerTest.create(client, party, createCommand),
               config.ledgerWorkloadTimeout,
             )
           )
@@ -57,7 +56,7 @@ final class LedgerExternalAction(client: LedgerClient)(implicit
           discard(
             Await.result(
               AbstractTriggerTest
-                .archive(client, party.unwrap, event.getTemplateId, event.contractId),
+                .archive(client, party, event.getTemplateId, event.contractId),
               config.ledgerWorkloadTimeout,
             )
           )
