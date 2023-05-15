@@ -233,11 +233,12 @@ data ADTConstr =
 -- associated type always has exactly one record constructor with the same name
 -- as the choice.
 data ChoiceDoc = ChoiceDoc
-  { cd_anchor :: Maybe Anchor
-  , cd_name   :: Typename
-  , cd_descr  :: Maybe DocText
-  , cd_fields :: [FieldDoc]
-  , cd_type   :: Type
+  { cd_anchor     :: Maybe Anchor
+  , cd_name       :: Typename
+  , cd_descr      :: Maybe DocText
+  , cd_controller :: Maybe String
+  , cd_fields     :: [FieldDoc]
+  , cd_type       :: Type
   }
   deriving (Eq, Show, Generic)
 

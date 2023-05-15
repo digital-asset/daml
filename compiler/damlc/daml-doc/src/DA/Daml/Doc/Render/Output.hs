@@ -133,6 +133,7 @@ instance RenderDoc ChoiceDoc where
             , [maybeAnchorLink cd_anchor (unTypename cd_name)]
             ]
         , renderDoc cd_descr
+        , maybe mempty (RenderParagraph . RenderPlain . ("Controller: " <>) . T.pack) cd_controller
         , RenderParagraph $ renderUnwords [RenderPlain "Returns:", renderType cd_type]
         , fieldTable cd_fields
         ]

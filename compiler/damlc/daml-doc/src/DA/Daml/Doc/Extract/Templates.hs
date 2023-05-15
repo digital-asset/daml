@@ -6,9 +6,8 @@ module DA.Daml.Doc.Extract.Templates
     , getTemplateData
     , getInstanceDocs
     , getInterfaceDocs
-    , getChoiceTypeMap
-    , getSignatoryMap
-    , getChoiceControllerMap
+    , getTemplateMaps
+    , TemplateMaps (..)
     ) where
 
 import DA.Daml.Doc.Types as DDoc
@@ -16,6 +15,7 @@ import DA.Daml.Doc.Extract.Types
 import DA.Daml.Doc.Extract.Util
 import DA.Daml.Doc.Extract.TypeExpr
 
+import Control.Applicative ((<|>))
 import qualified Data.Map.Strict as MS
 import Data.Maybe (fromMaybe, mapMaybe)
 import Data.Tuple.Extra (second)
@@ -41,12 +41,9 @@ getTemplateDocs ::
       -- ^ maps type names to their ADT docs
     -> MS.Map Typename (Set.Set InterfaceInstanceDoc)
       -- ^ maps type names to the interface instances contained in their declaration.
-    -> MS.Map Typename DDoc.Type
-      -- ^ maps choice names to their return types
-    -> MS.Map Typename String
-      -- ^ maps template names to their signatory body stringified
+    -> TemplateMaps
     -> [TemplateDoc]
-getTemplateDocs DocCtx{..} typeMap interfaceInstanceMap choiceTypeMap templateSignatoryMap =
+getTemplateDocs DocCtx{..} typeMap interfaceInstanceMap templateMaps =
     map mkTemplateDoc $ Set.toList dc_templates
   where
     -- The following functions use the type map and choice map in scope, so
@@ -56,10 +53,10 @@ getTemplateDocs DocCtx{..} typeMap interfaceInstanceMap choiceTypeMap templateSi
       { td_anchor = ad_anchor tmplADT
       , td_name = ad_name tmplADT
       , td_descr = ad_descr tmplADT
-      , td_signatory = MS.lookup name templateSignatoryMap
+      , td_signatory = MS.lookup name $ signatoryMap templateMaps 
       , td_payload = getFields tmplADT
       -- assumes exactly one record constructor (syntactic, template syntax)
-      , td_choices = map (mkChoiceDoc typeMap choiceTypeMap) choices
+      , td_choices = map (mkChoiceDoc typeMap templateMaps name) choices
       , td_interfaceInstances =
           Set.toList (MS.findWithDefault mempty name interfaceInstanceMap)
      }
@@ -74,10 +71,9 @@ getInterfaceDocs :: DocCtx
         -- ^ maps type names to their ADT docs
     -> MS.Map Typename (Set.Set InterfaceInstanceDoc)
         -- ^ maps type names to the interface instances contained in their declaration.
-    -> MS.Map Typename DDoc.Type
-        -- ^ maps choice names to their return types
+    -> TemplateMaps
     -> [InterfaceDoc]
-getInterfaceDocs DocCtx{..} typeMap interfaceInstanceMap choiceTypeMap =
+getInterfaceDocs DocCtx{..} typeMap interfaceInstanceMap templateMaps =
     map mkInterfaceDoc $ Set.toList dc_interfaces
   where
     -- The following functions use the type map and choice map in scope, so
@@ -87,7 +83,7 @@ getInterfaceDocs DocCtx{..} typeMap interfaceInstanceMap choiceTypeMap =
       { if_anchor = ad_anchor ifADT
       , if_name = ad_name ifADT
       , if_descr = ad_descr ifADT
-      , if_choices = map (mkChoiceDoc typeMap choiceTypeMap) choices
+      , if_choices = map (mkChoiceDoc typeMap templateMaps name) choices
       , if_methods = [] -- filled by distributeInstanceDocs
       , if_interfaceInstances =
           Set.toList (MS.findWithDefault mempty name interfaceInstanceMap)
@@ -161,6 +157,22 @@ isChoiceTy ty
   = Just (Typename . packRdrName $ tmplName, Typename . packRdrName $ choiceName)
 
   | otherwise = Nothing
+
+data TemplateMaps = TemplateMaps
+  { choiceTypeMap :: MS.Map Typename DDoc.Type
+  -- ^ maps choice names to their return types
+  , signatoryMap :: MS.Map Typename String
+  -- ^ maps template names to their signatory body stringified
+  , choiceControllerMap :: MS.Map T.Text String
+  -- ^ maps choice names to their controller body stringified (excluding Archive)
+  }
+
+getTemplateMaps :: DocCtx -> TemplateMaps
+getTemplateMaps ctx@DocCtx{..} =
+  TemplateMaps
+    (getChoiceTypeMap ctx dc_insts)
+    (getSignatoryMap dc_decls)
+    (getChoiceControllerMap dc_decls)
 
 -- | Extracts the return types of choices by looking at the HasExercise
 --   instances. Note that we expect and accept key clashes for `Archive`
@@ -333,16 +345,20 @@ getFields adt =
     [] -> [] -- catching the dummy case here, see above
     _other -> error "getFields: found multiple constructors"
 
-mkChoiceDoc :: MS.Map Typename ADTDoc -> MS.Map Typename DDoc.Type -> Typename -> ChoiceDoc
-mkChoiceDoc typeMap choiceTypeMap name =
+mkChoiceDoc :: MS.Map Typename ADTDoc -> TemplateMaps -> Typename -> Typename -> ChoiceDoc
+mkChoiceDoc typeMap templateMaps templateName choiceName =
   ChoiceDoc
     { cd_anchor = ad_anchor choiceADT
     , cd_name = ad_name choiceADT
     , cd_descr = ad_descr choiceADT
-  -- assumes exactly one constructor (syntactic in the template syntax), or
-  -- uses a dummy value otherwise.
+    -- Attempt controller lookup, fallback to signatories
+    , cd_controller =
+        MS.lookup (unTypename templateName <> unTypename choiceName) (choiceControllerMap templateMaps) 
+          <|> MS.lookup templateName (signatoryMap templateMaps)
+    -- assumes exactly one constructor (syntactic in the template syntax), or
+    -- uses a dummy value otherwise.
     , cd_fields = getFields choiceADT
-    , cd_type = fromMaybe (TypeApp Nothing (Typename "UnknownType") []) $ MS.lookup name choiceTypeMap
+    , cd_type = fromMaybe (TypeApp Nothing (Typename "UnknownType") []) $ MS.lookup choiceName $ choiceTypeMap templateMaps
     }
   where
-    choiceADT = asADT typeMap name
+    choiceADT = asADT typeMap choiceName
