@@ -14,6 +14,8 @@ Interfaces
 
   + **Choice** Archive
 
+    Controller\: GHC\.Types\.primitive @\"ESignatoryInterface\"
+
     Returns\: ()
 
     (no fields)
@@ -21,6 +23,8 @@ Interfaces
   + .. _type-qualifiedretroactiveinterfaceinstance-getrich-86333:
 
     **Choice** `GetRich <type-qualifiedretroactiveinterfaceinstance-getrich-86333_>`_
+
+    Controller\: (DA\.Internal\.Record\.getField @\"owner\" (view this))
 
     Returns\: `ContractId <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-contractid-95282>`_ `Token <type-qualifiedretroactiveinterfaceinstance-token-43978_>`_
 
@@ -38,6 +42,8 @@ Interfaces
   + .. _type-qualifiedretroactiveinterfaceinstance-noop-81106:
 
     **Choice** `Noop <type-qualifiedretroactiveinterfaceinstance-noop-81106_>`_
+
+    Controller\: (DA\.Internal\.Record\.getField @\"owner\" (view this))
 
     Returns\: ()
 
@@ -58,6 +64,8 @@ Interfaces
 
     An interface choice comment\.
 
+    Controller\: (DA\.Internal\.Record\.getField @\"owner\" (view this))
+
     Returns\: (`ContractId <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-contractid-95282>`_ `Token <type-qualifiedretroactiveinterfaceinstance-token-43978_>`_, `ContractId <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-contractid-95282>`_ `Token <type-qualifiedretroactiveinterfaceinstance-token-43978_>`_)
 
     .. list-table::
@@ -74,6 +82,8 @@ Interfaces
   + .. _type-qualifiedretroactiveinterfaceinstance-transfer-84967:
 
     **Choice** `Transfer <type-qualifiedretroactiveinterfaceinstance-transfer-84967_>`_
+
+    Controller\: newOwner, (DA\.Internal\.Record\.getField @\"owner\" (view this))
 
     Returns\: `ContractId <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-contractid-95282>`_ `Token <type-qualifiedretroactiveinterfaceinstance-token-43978_>`_
 

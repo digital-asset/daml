@@ -14,6 +14,8 @@
 >
 > * **Choice** Archive
 >
+>   Controller: p
+>
 >   Returns: ()
 >
 >   (no fields)
@@ -21,6 +23,8 @@
 > * <a name="type-damldochoogle-tcall-44069"></a>**Choice** [TCall](#type-damldochoogle-tcall-44069)
 >
 >   TCall docs
+>
+>   Controller: p
 >
 >   Returns: ()
 >
@@ -38,6 +42,8 @@
 >
 > * **Choice** Archive
 >
+>   Controller: GHC.Types.primitive @"ESignatoryInterface"
+>
 >   Returns: ()
 >
 >   (no fields)
@@ -45,6 +51,8 @@
 > * <a name="type-damldochoogle-icall-37460"></a>**Choice** [ICall](#type-damldochoogle-icall-37460)
 >
 >   ICall docs
+>
+>   Controller: getController this
 >
 >   Returns: [Optional](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-prelude-optional-37153) [Int](https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-37261)
 >

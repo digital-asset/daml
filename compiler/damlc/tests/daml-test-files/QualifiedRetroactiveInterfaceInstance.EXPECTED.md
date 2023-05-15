@@ -8,11 +8,15 @@
 >
 > * **Choice** Archive
 >
+>   Controller: GHC.Types.primitive @"ESignatoryInterface"
+>
 >   Returns: ()
 >
 >   (no fields)
 >
 > * <a name="type-qualifiedretroactiveinterfaceinstance-getrich-86333"></a>**Choice** [GetRich](#type-qualifiedretroactiveinterfaceinstance-getrich-86333)
+>
+>   Controller: (DA.Internal.Record.getField @"owner" (view this))
 >
 >   Returns: [ContractId](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-contractid-95282) [Token](#type-qualifiedretroactiveinterfaceinstance-token-43978)
 >
@@ -21,6 +25,8 @@
 >   | byHowMuch                                                                      | [Int](https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-37261) |  |
 >
 > * <a name="type-qualifiedretroactiveinterfaceinstance-noop-81106"></a>**Choice** [Noop](#type-qualifiedretroactiveinterfaceinstance-noop-81106)
+>
+>   Controller: (DA.Internal.Record.getField @"owner" (view this))
 >
 >   Returns: ()
 >
@@ -32,6 +38,8 @@
 >
 >   An interface choice comment.
 >
+>   Controller: (DA.Internal.Record.getField @"owner" (view this))
+>
 >   Returns: ([ContractId](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-contractid-95282) [Token](#type-qualifiedretroactiveinterfaceinstance-token-43978), [ContractId](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-contractid-95282) [Token](#type-qualifiedretroactiveinterfaceinstance-token-43978))
 >
 >   | Field                                                                          | Type                                                                           | Description |
@@ -39,6 +47,8 @@
 >   | splitAmount                                                                    | [Int](https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-37261) | A choice field comment. |
 >
 > * <a name="type-qualifiedretroactiveinterfaceinstance-transfer-84967"></a>**Choice** [Transfer](#type-qualifiedretroactiveinterfaceinstance-transfer-84967)
+>
+>   Controller: newOwner, (DA.Internal.Record.getField @"owner" (view this))
 >
 >   Returns: [ContractId](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-contractid-95282) [Token](#type-qualifiedretroactiveinterfaceinstance-token-43978)
 >

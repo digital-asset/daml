@@ -8,11 +8,15 @@
 >
 > * **Choice** Archive
 >
+>   Controller: GHC.Types.primitive @"ESignatoryInterface"
+>
 >   Returns: ()
 >
 >   (no fields)
 >
 > * <a name="type-retroactiveinterfaceinstance-getrich-36810"></a>**Choice** [GetRich](#type-retroactiveinterfaceinstance-getrich-36810)
+>
+>   Controller: (DA.Internal.Record.getField @"owner" (view this))
 >
 >   Returns: [ContractId](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-contractid-95282) [Token](#type-retroactiveinterfaceinstance-token-49693)
 >
@@ -21,6 +25,8 @@
 >   | byHowMuch                                                                      | [Int](https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-37261) |  |
 >
 > * <a name="type-retroactiveinterfaceinstance-noop-59171"></a>**Choice** [Noop](#type-retroactiveinterfaceinstance-noop-59171)
+>
+>   Controller: (DA.Internal.Record.getField @"owner" (view this))
 >
 >   Returns: ()
 >
@@ -32,6 +38,8 @@
 >
 >   An interface choice comment.
 >
+>   Controller: (DA.Internal.Record.getField @"owner" (view this))
+>
 >   Returns: ([ContractId](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-contractid-95282) [Token](#type-retroactiveinterfaceinstance-token-49693), [ContractId](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-contractid-95282) [Token](#type-retroactiveinterfaceinstance-token-49693))
 >
 >   | Field                                                                          | Type                                                                           | Description |
@@ -39,6 +47,8 @@
 >   | splitAmount                                                                    | [Int](https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-37261) | A choice field comment. |
 >
 > * <a name="type-retroactiveinterfaceinstance-transfer-79282"></a>**Choice** [Transfer](#type-retroactiveinterfaceinstance-transfer-79282)
+>
+>   Controller: newOwner, (DA.Internal.Record.getField @"owner" (view this))
 >
 >   Returns: [ContractId](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-contractid-95282) [Token](#type-retroactiveinterfaceinstance-token-49693)
 >

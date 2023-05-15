@@ -14,6 +14,8 @@ Testing the daml version header.
 >
 > * **Choice** Archive
 >
+>   Controller: p
+>
 >   Returns: ()
 >
 >   (no fields)

@@ -28,6 +28,8 @@ Templates
 
   + **Choice** Archive
 
+    Controller\: tfield0
+
     Returns\: ()
 
     (no fields)
@@ -35,6 +37,8 @@ Templates
   + .. _type-exportlist-choice0-67361:
 
     **Choice** `Choice0 <type-exportlist-choice0-67361_>`_
+
+    Controller\: tfield0
 
     Returns\: ()
 
@@ -62,6 +66,8 @@ Templates
 
   + **Choice** Archive
 
+    Controller\: tfield1
+
     Returns\: ()
 
     (no fields)
@@ -69,6 +75,8 @@ Templates
   + .. _type-exportlist-choice1-52440:
 
     **Choice** `Choice1 <type-exportlist-choice1-52440_>`_
+
+    Controller\: tfield1
 
     Returns\: ()
 
@@ -96,6 +104,8 @@ Templates
 
   + **Choice** Archive
 
+    Controller\: tfield2
+
     Returns\: ()
 
     (no fields)
@@ -103,6 +113,8 @@ Templates
   + .. _type-exportlist-choice2-88895:
 
     **Choice** `Choice2 <type-exportlist-choice2-88895_>`_
+
+    Controller\: tfield2
 
     Returns\: ()
 
@@ -130,6 +142,8 @@ Templates
 
   + **Choice** Archive
 
+    Controller\: tfield3
+
     Returns\: ()
 
     (no fields)
@@ -137,6 +151,8 @@ Templates
   + .. _type-exportlist-choice3-73974:
 
     **Choice** `Choice3 <type-exportlist-choice3-73974_>`_
+
+    Controller\: tfield3
 
     Returns\: ()
 

@@ -14,6 +14,8 @@
 >
 > * **Choice** Archive
 >
+>   Controller: issuer, owner
+>
 >   Returns: ()
 >
 >   (no fields)

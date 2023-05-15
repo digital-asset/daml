@@ -16,11 +16,17 @@
 >
 > * **Choice** Archive
 >
+>   Controller: issuer
+>
 >   Returns: ()
 >
 >   (no fields)
 >
 > * <a name="type-iou12-donothing-75627"></a>**Choice** [DoNothing](#type-iou12-donothing-75627)
+>
+>   Controller: let \_ = updateAmount in
+let \_ = this in
+let \_ = arg in DA.Internal.Desugar.toParties (owner)
 >
 >   Returns: ()
 >
@@ -29,6 +35,10 @@
 > * <a name="type-iou12-merge-98901"></a>**Choice** [Merge](#type-iou12-merge-98901)
 >
 >   merges two "compatible" `Iou`s
+>
+>   Controller: let \_ = updateAmount in
+let \_ = this in
+let \_ = arg in DA.Internal.Desugar.toParties (owner)
 >
 >   Returns: [ContractId](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-contractid-95282) [Iou](#type-iou12-iou-72962)
 >
@@ -40,6 +50,10 @@
 >
 >   splits into two `Iou`s with smaller amounts
 >
+>   Controller: let \_ = updateAmount in
+let \_ = this in
+let \_ = arg in DA.Internal.Desugar.toParties (owner)
+>
 >   Returns: ([ContractId](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-contractid-95282) [Iou](#type-iou12-iou-72962), [ContractId](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-contractid-95282) [Iou](#type-iou12-iou-72962))
 >
 >   | Field                                                                                  | Type                                                                                   | Description |
@@ -49,6 +63,10 @@
 > * <a name="type-iou12-transfer-99339"></a>**Choice** [Transfer](#type-iou12-transfer-99339)
 >
 >   changes the owner
+>
+>   Controller: let \_ = updateAmount in
+let \_ = this in
+let \_ = arg in DA.Internal.Desugar.toParties (owner)
 >
 >   Returns: [ContractId](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-contractid-95282) [Iou](#type-iou12-iou-72962)
 >
