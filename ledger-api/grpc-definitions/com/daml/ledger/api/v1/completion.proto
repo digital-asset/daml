@@ -84,6 +84,6 @@ message Completion {
   //   - successful/failed transactions: represents the domain where the transaction was executed
   //   - for successful/failed transfer-out commands: represents the source domain
   //   - for successful/failed transfer-in commands: represents the target domain
-  // Optional Only present for multi-domain API. For 3.0 this will be mandatory.
+  // Optional Only present for multi-domain API. In the Ledger API 3.0 this will be mandatory.
   string domain_id = 10;
 }

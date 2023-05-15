@@ -27,7 +27,7 @@ message GetActiveContractsRequest {
 
   // Must correspond to the ledger ID reported by the Ledger Identification Service.
   // Must be a valid LedgerString (as described in ``value.proto``).
-  // For 3.0 API this field will be removed.
+  // In the Ledger API 3.0 this field will be removed.
   // Optional
   string ledger_id = 1;
 
@@ -64,6 +64,6 @@ message GetActiveContractsResponse {
   repeated CreatedEvent active_contracts = 3;
 
   // A valid domain ID
-  // Optional Only present for multi-domain API. For 3.0 this will be mandatory.
+  // Optional Only present for multi-domain API. In the Ledger API 3.0 this will be mandatory.
   string domain_id = 4;
 }

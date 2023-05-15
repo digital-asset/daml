@@ -33,7 +33,7 @@ service CommandSubmissionService {
   rpc Submit (SubmitRequest) returns (google.protobuf.Empty);
 
   // Submit a single transfer.
-  rpc SubmitTransfer (SubmitTransferRequest) returns (google.protobuf.Empty);
+  rpc SubmitTransfer (SubmitTransferRequest) returns (SubmitTransferResponse);
 
 }
 
@@ -52,4 +52,7 @@ message SubmitTransferRequest {
   // Required
   TransferCommand transfer_command = 1;
 
+}
+
+message SubmitTransferResponse {
 }

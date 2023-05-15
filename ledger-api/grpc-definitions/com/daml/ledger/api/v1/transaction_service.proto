@@ -19,13 +19,13 @@ service TransactionService {
   // Read the ledger's filtered transaction stream for a set of parties.
   // Lists only creates and archives, but not other events.
   // Omits all events on transient contracts, i.e., contracts that were both created and archived in the same transaction.
-  // This endpoint will be removed for 3.0 in favor of UpdateService.GetUpdates.
+  // In the Ledger API 3.0 this endpoint will be removed in favor of UpdateService.GetUpdates.
   rpc GetTransactions (GetTransactionsRequest) returns (stream GetTransactionsResponse);
 
   // Read the ledger's complete transaction tree stream for a set of parties.
   // The stream will be filtered only by the parties as wildcard parties.
   // The template/interface filters describe the respective fields in the `CreateEvent`` results.
-  // This endpoint will be removed for 3.0 in favor of UpdateService.GetTreeUpdates.
+  // In the Ledger API 3.0 this endpoint will be removed in favor of UpdateService.GetTreeUpdates.
   rpc GetTransactionTrees (GetTransactionsRequest) returns (stream GetTransactionTreesResponse);
 
   // Lookup a transaction tree by the ID of an event that appears within it.
@@ -93,7 +93,7 @@ message GetTransactionTreesResponse {
 message GetTransactionByEventIdRequest {
   // Must correspond to the ledger ID reported by the Ledger Identification Service.
   // Must be a valid LedgerString (as described in ``value.proto``).
-  // For 3.0 API this field will be removed.
+  // In the Ledger API 3.0 this field will be removed.
   // Optional
   string ledger_id = 1;
 
@@ -112,7 +112,7 @@ message GetTransactionByEventIdRequest {
 message GetTransactionByIdRequest {
   // Must correspond to the ledger ID reported by the Ledger Identification Service.
   // Must be a valid LedgerString (as describe in ``value.proto``).
-  // For 3.0 API this field will be removed.
+  // In the Ledger API 3.0 this field will be removed.
   // Optional
   string ledger_id = 1;
 
@@ -139,7 +139,7 @@ message GetFlatTransactionResponse {
 message GetLedgerEndRequest {
   // Must correspond to the ledger ID reported by the Ledger Identification Service.
   // Must be a valid LedgerString (as describe in ``value.proto``).
-  // For 3.0 API this field will be removed.
+  // In the Ledger API 3.0 this field will be removed.
   // Optional
   string ledger_id = 1;
 }

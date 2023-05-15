@@ -54,7 +54,7 @@ message TransactionTree {
 
   // A valid domain ID
   // Represents the domain where the transaction was executed
-  // Optional Only present for multi-domain API. For 3.0 this will be mandatory.
+  // Optional Only present for multi-domain API. In the Ledger API 3.0 this will be mandatory.
   string domain_id = 9;
 
 }
@@ -107,6 +107,6 @@ message Transaction {
 
   // A valid domain ID
   // Represents the domain where the transaction was executed
-  // Optional Only present for multi-domain API. For 3.0 this will be mandatory.
+  // Optional Only present for multi-domain API. In the Ledger API 3.0 this will be mandatory.
   string domain_id = 7;
 }

@@ -21,7 +21,7 @@ option csharp_namespace = "Com.Daml.Ledger.Api.V1";
 message Commands {
   // Must correspond to the ledger ID reported by the Ledger Identification Service.
   // Must be a valid LedgerString (as described in ``value.proto``).
-  // For 3.0 API this field will be removed.
+  // In the Ledger API 3.0 this field will be removed.
   // Optional
   string ledger_id = 1;
 
@@ -128,7 +128,7 @@ message Commands {
   repeated DisclosedContract disclosed_contracts = 17;
 
   // Must be a valid domain ID
-  // Optional: must be set for multi-domain API, must not be set otherwise. This will be mandatory for 3.0.
+  // Optional: must be set for multi-domain API, must not be set otherwise. In the Ledger API 3.0 this will be mandatory .
   string domain_id = 18;
 }
 
@@ -243,7 +243,7 @@ message DisclosedContract {
 message TransferCommand {
   // Must correspond to the ledger ID reported by the Ledger Identification Service.
   // Must be a valid LedgerString (as described in ``value.proto``).
-  // For 3.0 API this field will be removed.
+  // In the Ledger API 3.0 this field will be removed.
   // Optional
   string ledger_id = 1;
 
