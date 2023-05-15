@@ -16,6 +16,7 @@ import DA.Daml.Doc.Extract.Util
 import DA.Daml.Doc.Extract.TypeExpr
 
 import Control.Applicative ((<|>))
+import Data.List (intercalate)
 import qualified Data.Map.Strict as MS
 import Data.Maybe (fromMaybe, mapMaybe)
 import Data.Tuple.Extra (second)
@@ -23,16 +24,15 @@ import qualified Data.Set as Set
 import qualified Data.Text as T
 
 import "ghc-lib" GHC
-import "ghc-lib-parser" Var (varType)
+import "ghc-lib-parser" Bag (bagToList)
 import "ghc-lib-parser" CoreSyn (isOrphan)
-import "ghc-lib-parser" InstEnv
-import "ghc-lib-parser" OccName
 import "ghc-lib-parser" Id
-import Bag (bagToList)
-
+import "ghc-lib-parser" InstEnv
+import "ghc-lib-parser" Name
 import "ghc-lib-parser" Outputable (ppr, showSDocUnsafe)
+import "ghc-lib-parser" Var (varType)
 
-import Data.List (intercalate)
+-- import Debug.Trace
 
 -- | Build template docs up from ADT and class docs.
 getTemplateDocs ::
@@ -132,6 +132,7 @@ hasGhcTypesConstraint c decl
   , L _ [L _ (HsTyVar _ _ (L _ (Qual mod cst)))] <- dd_ctxt
   , moduleNameString mod == "GHC.Types"
   , occNameString cst == c = Just $ Typename $ packRdrName $ unLoc tcdLName
+
   | otherwise = Nothing
 
 -- | If the given instance declaration is declaring a template/interface choice instance,
@@ -179,15 +180,19 @@ getTemplateMaps ctx@DocCtx{..} =
 --   but this is acceptable, as choice return types are tied only to the
 --   Choice not the Choice + Template together.
 getChoiceTypeMap :: DocCtx -> [ClsInst] -> MS.Map Typename DDoc.Type
-getChoiceTypeMap ctx insts =
-    MS.fromList
-        [ (choiceName, typeToType ctx retType)
-        | inst <- insts
-        -- TODO: check the module name
-        , "HasExercise" <- [occNameString . occName . is_cls_nm $ inst]
-        , [_, choiceType, retType] <- [is_tys inst]
-        , TypeApp _ choiceName _ <- [typeToType ctx choiceType]
-        ]
+getChoiceTypeMap ctx = MS.fromList . mapMaybe (isChoiceInst ctx)
+
+isChoiceInst :: DocCtx -> ClsInst -> Maybe (Typename, DDoc.Type)
+isChoiceInst ctx inst
+  | instName <- is_cls_nm inst
+  , "HasExercise" <- occNameString . occName $ instName
+  , Just mName <- moduleName <$> nameModule_maybe instName
+  , mkModuleName "DA.Internal.Template.Functions" == mName
+  , [_, choiceType, retType] <- is_tys inst
+  , TypeApp _ choiceName _ <- typeToType ctx choiceType
+  = Just (choiceName, typeToType ctx retType)
+
+  | otherwise = Nothing
 
 hsExprsToString :: [HsExpr GhcPs] -> String
 hsExprsToString = intercalate ", " . fmap (showSDocUnsafe . ppr)
@@ -210,8 +215,7 @@ getSignatoriesBody decl
   , HsIB _ (L _ t) <- cid_poly_ty inst
   , Just templateName <- isSignatoryTy t
   , [L _ (FunBind _ _ matchGroup _ _)] <- bagToList $ cid_binds inst
-  , MG _ (L _ matches) _ <- matchGroup
-  , [L _ (Match _ _ _ _ (GRHSs _ [L _ (GRHS _ _ (L _ body))] _))] <- matches
+  , Just (body, _) <- unMatchGroup matchGroup
   , bodyStr <- hsExprsToString $ reverse (unParties body)
   = Just (templateName, bodyStr)
 
@@ -223,32 +227,34 @@ getSignatoryMap = MS.fromList . mapMaybe getSignatoriesBody
 
 stripDesugarApplication :: String -> HsExpr GhcPs -> Maybe (HsExpr GhcPs)
 stripDesugarApplication name e
-    | HsApp _ (L _ (HsVar _ (L _ f))) (L _ arg) <- e
-    , Qual fModule fOcc <- f
-    , moduleNameString fModule == "DA.Internal.Desugar"
-    , occNameString fOcc == name
-    = Just $ dropBrackets arg
-    | otherwise = Nothing
+  | HsApp _ (L _ (HsVar _ (L _ f))) (L _ arg) <- e
+  , Qual fModule fOcc <- f
+  , moduleNameString fModule == "DA.Internal.Desugar"
+  , occNameString fOcc == name
+  = Just $ dropBrackets arg
+
+  | otherwise = Nothing
 
 -- | Given a value encoded with the `parties` rule in the grammar,
 -- Strip the additional applications used to make it compile and give back the "original" form
 -- That is, check for the `concat []` optional wrapper, remove that. And remove all the `toParties` calls
 unParties :: HsExpr GhcPs -> [HsExpr GhcPs]
 unParties e
-    | Just partiesHsExpr <- stripDesugarApplication "concat" e
-    , ExplicitList _ _ partyHsExprs <- partiesHsExpr
-    = unParty . unLoc <$> partyHsExprs
-    | otherwise = [unParty e]
+  | Just partiesHsExpr <- stripDesugarApplication "concat" e
+  , ExplicitList _ _ partyHsExprs <- partiesHsExpr
+  = unParty . unLoc <$> partyHsExprs
+  | otherwise = [unParty e]
 
 unParty :: HsExpr GhcPs -> HsExpr GhcPs
 unParty e = fromMaybe e $ stripDesugarApplication "toParties" e
 
 unMatchGroup :: MatchGroup GhcPs (LHsExpr GhcPs) -> Maybe (HsExpr GhcPs, [Pat GhcPs])
 unMatchGroup matchGroup
-    | MG _ (L _ matches) _ <- matchGroup
-    , [L _ (Match _ _ pats _ (GRHSs _ [L _ (GRHS _ _ (L _ body))] _))] <- matches
-    = Just (body, pats)
-    | otherwise = Nothing
+  | MG _ (L _ matches) _ <- matchGroup
+  , [L _ (Match _ _ pats _ (GRHSs _ [L _ (GRHS _ _ (L _ body))] _))] <- matches
+  = Just (body, pats)
+
+  | otherwise = Nothing
 
 dropBrackets :: HsExpr GhcPs -> HsExpr GhcPs
 dropBrackets (HsPar _ (L _ body)) = body
@@ -261,17 +267,17 @@ getChoiceControllerMap = MS.fromList . mapMaybe getChoiceControllerData
 -- This is because we can easily recreate this, and getting the type at this point is heavy
 getChoiceControllerData :: DeclData -> Maybe (T.Text, String)
 getChoiceControllerData decl
-    | DeclData (L _ (ValD _ (FunBind _ (L _ name) matchGroup _ _))) _ <- decl
-    -- Check the name of the def starts with _choice$_
-    , ("_choice$_", name) <- T.splitAt 9 $ packRdrName name
-    -- Extract the type and body of the definition (as choiceType :: HsType and body :: hsExpr)
-    , Just (body, _) <- unMatchGroup matchGroup
-    , ExplicitTuple _ [_, L _ (Present _ (L _ controllerExpr)), _, _, _] _ <- body
-    , Just controllers <- unControllerExpr controllerExpr
-    , controllersStr <- hsExprsToString $ reverse (unParties controllers)
-    = Just (name, controllersStr)
+  | DeclData (L _ (ValD _ (FunBind _ (L _ name) matchGroup _ _))) _ <- decl
+  -- Check the name of the def starts with _choice$_
+  , ("_choice$_", name) <- T.splitAt 9 $ packRdrName name
+  -- Extract the type and body of the definition (as choiceType :: HsType and body :: hsExpr)
+  , Just (body, _) <- unMatchGroup matchGroup
+  , ExplicitTuple _ [_, L _ (Present _ (L _ controllerExpr)), _, _, _] _ <- body
+  , Just controllers <- unControllerExpr controllerExpr
+  , controllersStr <- hsExprsToString $ reverse (unParties controllers)
+  = Just (name, controllersStr)
 
-    | otherwise = Nothing
+  | otherwise = Nothing
 
 -- | One of either
 -- \ x y -> Body
@@ -286,6 +292,7 @@ unControllerExpr e
   = case sndPat of
       WildPat _ -> Nothing -- If `y` is _, we're in an Archive.
       _ -> unLets body
+
   -- \x -> bypassReduceLambda $ \y -> Body
   | HsLam _ matchGroup <- e
   , Just (body, [_]) <- unMatchGroup matchGroup
@@ -293,6 +300,7 @@ unControllerExpr e
   , HsLam _ matchGroup <- innerLambda
   , Just (innerBody, _) <- unMatchGroup matchGroup
   = unLets innerBody
+
   | otherwise = Nothing
   where
     -- let _ = this in let _ = arg in ...
@@ -304,17 +312,17 @@ unControllerExpr e
 -- | Get (normal) typeclass instances data.
 getInstanceDocs :: DocCtx -> ClsInst -> InstanceDoc
 getInstanceDocs ctx@DocCtx{dc_decls} ClsInst{..} =
-    let ty = varType is_dfun
-        srcSpan = getLoc $ idName is_dfun
-        modname = Modulename $ T.pack $ moduleNameString $ moduleName $ nameModule is_cls_nm
-        instDocMap = MS.fromList [(l, doc) | (DeclData (L l (InstD _x _i)) (Just doc)) <- dc_decls]
-    in InstanceDoc
-        { id_context = typeToContext ctx ty
-        , id_module = modname
-        , id_type = typeToType ctx ty
-        , id_isOrphan = isOrphan is_orphan
-        , id_descr = MS.lookup srcSpan instDocMap
-        }
+  let ty = varType is_dfun
+      srcSpan = getLoc $ idName is_dfun
+      modname = Modulename $ T.pack $ moduleNameString $ moduleName $ nameModule is_cls_nm
+      instDocMap = MS.fromList [(l, doc) | (DeclData (L l (InstD _x _i)) (Just doc)) <- dc_decls]
+  in InstanceDoc
+      { id_context = typeToContext ctx ty
+      , id_module = modname
+      , id_type = typeToType ctx ty
+      , id_isOrphan = isOrphan is_orphan
+      , id_descr = MS.lookup srcSpan instDocMap
+      }
 
 -- Utilities common to templates and interfaces
 -----------------------------------------------

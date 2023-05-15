@@ -21,7 +21,6 @@ interface I where
   viewtype View
   getController : Party
     -- ^ getController docs
-  -- We should fix the intentation requirement above /\ (TODO)
   
   choice ICall : Optional Int
     -- ^ ICall docs
