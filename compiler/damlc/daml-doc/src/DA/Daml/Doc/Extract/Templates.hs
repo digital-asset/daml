@@ -8,6 +8,7 @@ module DA.Daml.Doc.Extract.Templates
     , getInterfaceDocs
     , getChoiceTypeMap
     , getSignatoryMap
+    , getChoiceControllerMap
     ) where
 
 import DA.Daml.Doc.Types as DDoc
@@ -176,6 +177,9 @@ getChoiceTypeMap ctx insts =
         , TypeApp _ choiceName _ <- [typeToType ctx choiceType]
         ]
 
+hsExprsToString :: [HsExpr GhcPs] -> String
+hsExprsToString = intercalate ", " . fmap (showSDocUnsafe . ppr)
+
 isSignatoryTy :: HsType GhcPs -> Maybe Typename
 isSignatoryTy ty
   | HsAppTy _ (L _ signatory) template <- ty
@@ -196,14 +200,14 @@ getSignatoriesBody decl
   , [L _ (FunBind _ _ matchGroup _ _)] <- bagToList $ cid_binds inst
   , MG _ (L _ matches) _ <- matchGroup
   , [L _ (Match _ _ _ _ (GRHSs _ [L _ (GRHS _ _ (L _ body))] _))] <- matches
-  , bodyStr <- intercalate ", " $ showSDocUnsafe . ppr <$> reverse (unParties body)
+  , bodyStr <- hsExprsToString $ reverse (unParties body)
   = Just (templateName, bodyStr)
 
   | otherwise = Nothing
 
 -- | Extracts the template name and signature implementation for `DA.Internal.Desugar.HasSignatory` instances
 getSignatoryMap :: [DeclData] -> MS.Map Typename String
-getSignatoryMap decls = MS.fromList $ mapMaybe getSignatoriesBody decls
+getSignatoryMap = MS.fromList . mapMaybe getSignatoriesBody
 
 stripDesugarApplication :: String -> HsExpr GhcPs -> Maybe (HsExpr GhcPs)
 stripDesugarApplication name e
@@ -227,9 +231,63 @@ unParties e
 unParty :: HsExpr GhcPs -> HsExpr GhcPs
 unParty e = fromMaybe e $ stripDesugarApplication "toParties" e
 
+unMatchGroup :: MatchGroup GhcPs (LHsExpr GhcPs) -> Maybe (HsExpr GhcPs, [Pat GhcPs])
+unMatchGroup matchGroup
+    | MG _ (L _ matches) _ <- matchGroup
+    , [L _ (Match _ _ pats _ (GRHSs _ [L _ (GRHS _ _ (L _ body))] _))] <- matches
+    = Just (body, pats)
+    | otherwise = Nothing
+
 dropBrackets :: HsExpr GhcPs -> HsExpr GhcPs
 dropBrackets (HsPar _ (L _ body)) = body
 dropBrackets e = e
+
+getChoiceControllerMap :: [DeclData] -> MS.Map T.Text String
+getChoiceControllerMap = MS.fromList . mapMaybe getChoiceControllerData
+
+-- | The key here is the concat of the template name and choice name (which will clash, but thats a different bug)
+-- This is because we can easily recreate this, and getting the type at this point is heavy
+getChoiceControllerData :: DeclData -> Maybe (T.Text, String)
+getChoiceControllerData decl
+    | DeclData (L _ (ValD _ (FunBind _ (L _ name) matchGroup _ _))) _ <- decl
+    -- Check the name of the def starts with _choice$_
+    , ("_choice$_", name) <- T.splitAt 9 $ packRdrName name
+    -- Extract the type and body of the definition (as choiceType :: HsType and body :: hsExpr)
+    , Just (body, _) <- unMatchGroup matchGroup
+    , ExplicitTuple _ [_, L _ (Present _ (L _ controllerExpr)), _, _, _] _ <- body
+    , Just controllers <- unControllerExpr controllerExpr
+    , controllersStr <- hsExprsToString $ reverse (unParties controllers)
+    = Just (name, controllersStr)
+
+    | otherwise = Nothing
+
+-- | One of either
+-- \ x y -> Body
+-- \ x -> bypassReduceLambda \y -> Body
+-- Body must be `let _ in let _ in e`
+-- Return Nothing for detected Archives, as they will be replaced with signatories
+unControllerExpr :: HsExpr GhcPs -> Maybe (HsExpr GhcPs)
+unControllerExpr e
+  -- \x y -> Body
+  | HsLam _ matchGroup <- e
+  , Just (body, [_, sndPat]) <- unMatchGroup matchGroup
+  = case sndPat of
+      WildPat _ -> Nothing -- If `y` is _, we're in an Archive.
+      _ -> unLets body
+  -- \x -> bypassReduceLambda $ \y -> Body
+  | HsLam _ matchGroup <- e
+  , Just (body, [_]) <- unMatchGroup matchGroup
+  , Just innerLambda <- stripDesugarApplication "bypassReduceLambda" body
+  , HsLam _ matchGroup <- innerLambda
+  , Just (innerBody, _) <- unMatchGroup matchGroup
+  = unLets innerBody
+  | otherwise = Nothing
+  where
+    -- let _ = this in let _ = arg in ...
+    unLets :: HsExpr GhcPs -> Maybe (HsExpr GhcPs)
+    unLets (HsLet _ _ (L _ (HsLet _ _ (L _ body)))) = Just body
+    unLets _ = Nothing
+      
 
 -- | Get (normal) typeclass instances data.
 getInstanceDocs :: DocCtx -> ClsInst -> InstanceDoc
@@ -274,12 +332,6 @@ getFields adt =
     [RecordC {ac_fields = fields}] -> fields
     [] -> [] -- catching the dummy case here, see above
     _other -> error "getFields: found multiple constructors"
-
--- TODO: extract controller from the _choice$_ def, specifically the second in the tuple
--- If its Archive, don't fill it in, and we'll fallback to signatories
--- Unpacking the lambda/multiple lambdas will be tricky, given the shadowing logic
--- We'll need to work out the template/choice names from the type, or we can combine the template and choice name on the lookup side
--- might be better off with a Map (Typename, Typename) String, template/interface name -> choice name -> controllers
 
 mkChoiceDoc :: MS.Map Typename ADTDoc -> MS.Map Typename DDoc.Type -> Typename -> ChoiceDoc
 mkChoiceDoc typeMap choiceTypeMap name =

@@ -83,6 +83,7 @@ extractDocs extractOpts diagsLogger ideOpts fp = do
             interfaceInstanceMap = getInterfaceInstanceMap ctx dc_decls
             choiceTypeMap = getChoiceTypeMap ctx dc_insts
             signatoryMap = getSignatoryMap dc_decls
+            _choiceControllerMap = getChoiceControllerMap dc_decls
 
             md_name = dc_modname
             md_anchor = Just (moduleAnchor md_name)
