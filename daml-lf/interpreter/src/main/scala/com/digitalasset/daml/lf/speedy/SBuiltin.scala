@@ -1103,7 +1103,7 @@ private[lf] object SBuiltin {
       def coid = getSContractId(args, 0)
       val (actualTemplateId, record) = getSAnyContract(args, 1)
 
-      if (acceptedTemplateIds.contains(actualTemplateId)) {
+      if ((templateId +: acceptedTemplateIds).contains(actualTemplateId)) {
         // TODO: https://github.com/digital-asset/daml/issues/16151
         // Later, this will need to extend values of predecessor template
         // types (e.g. by adding the right number of 'None's for missing 'Optional' fields)

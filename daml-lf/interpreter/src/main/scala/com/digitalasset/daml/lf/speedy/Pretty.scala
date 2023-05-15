@@ -101,8 +101,11 @@ private[lf] object Pretty {
       case WronglyTypedContractSoft(coid, expected, accepted, actual) =>
         text("Update failed due to wrongly typed contract id") & prettyContractId(coid) /
           text("Expected contract of type") & prettyTypeConName(expected) & (
-            intercalate(comma + lineOrSpace, accepted.map(prettyTypeConName))
-              .tightBracketBy(char('['), char(']')),
+            if (accepted.nonEmpty)
+              intercalate(comma + lineOrSpace, accepted.map(prettyTypeConName))
+                .tightBracketBy(text("or one of its ancestors: ("), char(')'))
+            else
+              Doc.empty
           ) & text(
             "but got"
           ) & prettyTypeConName(

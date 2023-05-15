@@ -154,7 +154,7 @@ private[lf] final class Compiler(
       pkgId: PackageId,
       module: Module,
   ): Iterable[(t.SDefinitionRef, SDefinition)] = {
-    val predPids = pkgInterface.lookupPredecessors(pkgId).getOrElse(List(pkgId))
+    val predPids = pkgInterface.lookupPredecessors(pkgId).getOrElse(List.empty)
     compileModule(pkgId, module, predPids)
   }
 
@@ -455,7 +455,7 @@ private[lf] final class Compiler(
 
     val t1 = Time.Timestamp.now()
 
-    val preds = pkgInterface.lookupPredecessors(pkgId).getOrElse(List(pkgId))
+    val preds = pkgInterface.lookupPredecessors(pkgId).getOrElse(List.empty)
 
     val result = pkg.modules.values.flatMap(compileModule(pkgId, _, preds))
 

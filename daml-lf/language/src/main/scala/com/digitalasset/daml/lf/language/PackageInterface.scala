@@ -381,7 +381,7 @@ private[lf] class PackageInterface(signatures: PartialFunction[PackageId, Packag
           }
       }
     }
-    preds(pkgId, List(pkgId))
+    preds(pkgId, List.empty)
   }
 
   def lookupPredecessors(pkgId: PackageId): Either[LookupError, List[PackageId]] =
