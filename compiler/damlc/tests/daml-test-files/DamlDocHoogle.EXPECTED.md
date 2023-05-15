@@ -63,7 +63,6 @@
 > * **Method getController :** [Party](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932)
 >
 >   getController docs
->   We should fix the intentation requirement above /\ (TODO)
 
 ## Data Types
 
