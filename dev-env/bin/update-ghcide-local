@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Get ghcide directory
+target=${1:-daml-ghcide}
+if [[ ! -e "$target" ]]; then
+  echo "Local GHCIDE location '$target' does not exist"
+  exit 1
+fi
+echo "Found GHCIDE location '$target'"
+
+if [[ ! -e ./bazel-haskell-deps.bzl ]]; then
+  echo "Cannot find bazel-haskell-deps.bzl"
+  exit 1
+fi
+echo "Found ./bazel-haskell-deps.bzl"
+
+if ! grep -E '^USE_GHCIDE_LOCAL *= *True$' >/dev/null ./bazel-haskell-deps.bzl; then
+  echo "Cannot find a definition of USE_GHCIDE_LOCAL = True in ./bazel-haskell-deps.bzl"
+  echo "Make sure to redefine USE_GHCIDE_LOCAL from False to True ./bazel-haskell-deps.bzl"
+  exit 1
+fi
+echo "Found definition of USE_GHCIDE_LOCAL = True in ./bazel-haskell-deps.bzl"
+
+# Make new out
+out=/tmp/ghcide-local-result.tar.gz
+rm "$out"
+cd "$target"
+tar czf "$out" .
+
+# Synchronize new result
+bazel sync --only=ghcide_ghc_lib
+bazel build @ghcide_ghc_lib//:ghcide
