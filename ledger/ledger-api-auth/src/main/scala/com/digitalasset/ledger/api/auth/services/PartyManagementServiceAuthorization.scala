@@ -67,4 +67,8 @@ private[daml] final class PartyManagementServiceAuthorization(
     PartyManagementServiceGrpc.bindService(this, executionContext)
 
   override def close(): Unit = service.close()
+
+  override def updateUserIdentityProviderId(
+      request: UpdatePartyIdentityProviderRequest
+  ): Future[UpdatePartyIdentityProviderResponse] = throw new UnsupportedOperationException()
 }
