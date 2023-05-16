@@ -63,6 +63,9 @@ service UserManagementService {
 
     // List the set of all rights granted to a user.
     rpc ListUserRights (ListUserRightsRequest) returns (ListUserRightsResponse);
+
+    // Update the assignment of a user from one IDP to another.
+    rpc UpdateUserIdentityProviderId (UpdateUserIdentityProviderRequest) returns (UpdateUserIdentityProviderResponse);
 }
 
 
@@ -312,4 +315,18 @@ message ListUserRightsRequest {
 message ListUserRightsResponse {
     // All rights of the user.
     repeated Right rights = 1;
+}
+
+// Required authorization: ``HasRight(ParticipantAdmin)``
+message UpdateUserIdentityProviderRequest {
+  // User to update
+  string user_id= 1;
+  // Current identity provider id of the user
+  string source_identity_provider_id = 2;
+  // Target identity provider id of the user
+  string target_identity_provider_id = 3;
+
+}
+
+message UpdateUserIdentityProviderResponse {
 }

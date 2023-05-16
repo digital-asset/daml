@@ -65,6 +65,9 @@ service PartyManagementService {
   // Update selected modifiable participant-local attributes of a party details resource.
   // Can update the participant's local information for local parties.
   rpc UpdatePartyDetails (UpdatePartyDetailsRequest) returns (UpdatePartyDetailsResponse);
+
+  // Update the assignment of a party from one IDP to another.
+  rpc UpdateUserIdentityProviderId (UpdatePartyIdentityProviderRequest) returns (UpdatePartyIdentityProviderResponse);
 }
 
 // Required authorization: ``HasRight(ParticipantAdmin)``
@@ -203,4 +206,18 @@ message PartyDetails {
   // 2) party is not hosted by the participant.
   // 3) party is hosted by the participant, but is outside of the user's identity provider.
   string identity_provider_id = 5;
+}
+
+// Required authorization: ``HasRight(ParticipantAdmin)``
+message UpdatePartyIdentityProviderRequest {
+  // Party to update
+  string party = 1;
+  // Current identity provider id of the party
+  string source_identity_provider_id = 2;
+  // Target identity provider id of the party
+  string target_identity_provider_id = 3;
+
+}
+
+message UpdatePartyIdentityProviderResponse {
 }
