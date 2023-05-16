@@ -25,6 +25,56 @@ jobs:
         fi
       name: out
 
+- job: test_libcrypt
+  strategy:
+    matrix:
+      default:
+        assignment: default
+      libcrypt:
+        assignment: libcrypt
+  timeoutInMinutes: 360
+  pool:
+    name: 'ubuntu_20_04'
+    demands: assignment -equals $(assignment)
+  steps:
+    - checkout: self
+    - template: clean-up.yml
+    - bash: ci/dev-env-install.sh
+      displayName: 'Build/Install the Developer Environment'
+    - bash: |
+        source dev-env/lib/ensure-nix
+        ci/dev-env-push.py
+      displayName: 'Push Developer Environment build results'
+      condition: eq(variables['System.PullRequest.IsFork'], 'False')
+      env:
+        # to upload to the Nix cache
+        GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
+        NIX_SECRET_KEY_CONTENT: $(NIX_SECRET_KEY_CONTENT)
+    - bash: ci/configure-bazel.sh
+      displayName: 'Configure Bazel'
+      env:
+        IS_FORK: $(System.PullRequest.IsFork)
+        # to upload to the bazel cache
+        GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
+    - bash: |
+        eval "$(dev-env/bin/dade-assist)"
+        LOGS="${BUILD_ARTIFACTSTAGINGDIRECTORY}/logs"
+        mkdir -p "${LOGS}"
+        bazel run //ledger-test-tool/tool:conformance-test-tls1.2-or-newer
+      displayName: 'Run'
+    - task: PublishBuildArtifacts@1
+      condition: succeededOrFailed()
+      continueOnError: true
+      inputs:
+        pathtoPublish: '$(Build.StagingDirectory)/logs'
+        artifactName: 'libcrypt logs ($(assignment))'
+    - task: PublishBuildArtifacts@1
+      condition: failed()
+      displayName: 'Publish the bazel test logs'
+      inputs:
+        pathtoPublish: 'bazel-testlogs/'
+        artifactName: 'libcrypt test logs ($(assignment))'
+
 - job: Linux
   dependsOn:
     - check_for_release
