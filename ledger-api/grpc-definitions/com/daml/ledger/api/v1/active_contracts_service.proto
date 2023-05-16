@@ -102,7 +102,7 @@ message ActiveContract {
 
   // Each corresponding transfer-in and transfer-out event has the same transfer_counter. This monotonically increases
   // with each transfer-out command for the same contract. Creation of the contract corresponds to transfer_counter
-  // equals one.
+  // equals zero.
   // Required
   int64 transfer_counter = 3;
 }
