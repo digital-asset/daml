@@ -104,7 +104,7 @@ message ActiveContract {
   // with each transfer-out command for the same contract. Creation of the contract corresponds to transfer_counter
   // equals zero.
   // Required
-  int64 transfer_counter = 3;
+  uint64 transfer_counter = 3;
 }
 
 message IncompleteTransferredOut {

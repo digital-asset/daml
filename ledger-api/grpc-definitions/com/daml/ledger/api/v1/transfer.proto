@@ -76,7 +76,7 @@ message TransferredOutEvent {
   // with each transfer-out command for the same contract. Creation of the contract corresponds to transfer_counter
   // equals zero.
   // Required
-  int64 transfer_counter = 7;
+  uint64 transfer_counter = 7;
 
   // Transfer-in exclusivity
   // Before this time (measured on the target domain), only the submitter of the transfer-out can initiate the transfer-in
@@ -118,7 +118,7 @@ message TransferredInEvent {
   // with each transfer-out command for the same contract. Creation of the contract corresponds to transfer_counter
   // equals zero.
   // Required
-  int64 transfer_counter = 5;
+  uint64 transfer_counter = 5;
 
   // Required
   CreatedEvent created_event = 6;
