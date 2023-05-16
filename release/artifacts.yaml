@@ -105,8 +105,6 @@
   type: jar-scala
 - target: //ledger/ledger-api-auth-client:ledger-api-auth-client
   type: jar-lib
-- target: //ledger/ledger-api-bench-tool:ledger-api-bench-tool
-  type: jar-deploy
 - target: //ledger/ledger-api-client:ledger-api-client
   type: jar-scala
 - target: //ledger/ledger-api-common:ledger-api-common
