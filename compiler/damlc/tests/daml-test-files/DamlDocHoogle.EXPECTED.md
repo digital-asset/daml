@@ -42,7 +42,7 @@
 >
 > * **Choice** Archive
 >
->   Controller: GHC.Types.primitive @"ESignatoryInterface"
+>   Controller: Signatories of implementing template
 >
 >   Returns: ()
 >

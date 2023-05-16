@@ -76,6 +76,11 @@ getInterfaceDocs :: DocCtx
 getInterfaceDocs DocCtx{..} typeMap interfaceInstanceMap templateMaps =
     map mkInterfaceDoc $ Set.toList dc_interfaces
   where
+    -- Here we replace the signatories of all interfaces with an informative message
+    -- Otherwise it is always `GHC.Types.primitive @"ESignatoryInterface"` and will
+    -- be used for the Archive controller
+    updatedTemplateMaps :: Typename -> TemplateMaps
+    updatedTemplateMaps name = templateMaps {signatoryMap = MS.singleton name "Signatories of implementing template"}
     -- The following functions use the type map and choice map in scope, so
     -- defined internally, and not expected to fail on consistent arguments.
     mkInterfaceDoc :: Typename -> InterfaceDoc
@@ -83,7 +88,8 @@ getInterfaceDocs DocCtx{..} typeMap interfaceInstanceMap templateMaps =
       { if_anchor = ad_anchor ifADT
       , if_name = ad_name ifADT
       , if_descr = ad_descr ifADT
-      , if_choices = map (mkChoiceDoc typeMap templateMaps name) choices
+      -- TODO Should replace signatories map here with `const "<Instance templates signatories>"`
+      , if_choices = map (mkChoiceDoc typeMap (updatedTemplateMaps name) name) choices
       , if_methods = [] -- filled by distributeInstanceDocs
       , if_interfaceInstances =
           Set.toList (MS.findWithDefault mempty name interfaceInstanceMap)
