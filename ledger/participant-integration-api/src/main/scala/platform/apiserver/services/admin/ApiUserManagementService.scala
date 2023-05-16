@@ -13,6 +13,8 @@ import com.daml.ledger.api.domain._
 import com.daml.ledger.api.v1.admin.user_management_service.{
   CreateUserResponse,
   GetUserResponse,
+  UpdateUserIdentityProviderRequest,
+  UpdateUserIdentityProviderResponse,
   UpdateUserRequest,
   UpdateUserResponse,
 }
@@ -32,9 +34,9 @@ import io.grpc.{ServerServiceDefinition, StatusRuntimeException}
 import scalaz.std.either._
 import scalaz.std.list._
 import scalaz.syntax.traverse._
-
 import java.nio.charset.StandardCharsets
 import java.util.Base64
+
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
@@ -543,6 +545,10 @@ private[apiserver] final class ApiUserManagementService(
       f: LoggingContext => A
   )(implicit loggingContext: LoggingContext): A =
     withEnrichedLoggingContext("submissionId" -> submissionIdGenerator.generate())(f)
+
+  override def updateUserIdentityProviderId(
+      request: UpdateUserIdentityProviderRequest
+  ): Future[UpdateUserIdentityProviderResponse] = throw new UnsupportedOperationException()
 }
 
 object ApiUserManagementService {
