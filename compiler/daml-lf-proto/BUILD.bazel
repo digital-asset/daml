@@ -1,7 +1,7 @@
 # Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-load("//bazel_tools:haskell.bzl", "da_haskell_library")
+load("//bazel_tools:haskell.bzl", "da_haskell_library", "generate_and_track_cabal")
 
 da_haskell_library(
     name = "daml-lf-proto",
@@ -27,7 +27,8 @@ da_haskell_library(
         "//compiler/daml-lf-proto-decode",
         "//compiler/daml-lf-proto-encode",
         "//compiler/daml-lf-proto-util",
-        "//daml-lf/archive:daml_lf_dev_archive_haskell_proto",
         "//libs-haskell/da-hs-base",
     ],
 )
+
+generate_and_track_cabal("daml-lf-proto")
