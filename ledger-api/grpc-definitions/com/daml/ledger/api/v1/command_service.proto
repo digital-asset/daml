@@ -46,11 +46,18 @@ message SubmitAndWaitRequest {
 message SubmitAndWaitForTransactionIdResponse {
   // The id of the transaction that resulted from the submitted command.
   // Must be a valid LedgerString (as described in ``value.proto``).
-  // Required
+  // In the Ledger API 3.0 this field will be removed in favor of the update_id field.
+  // Required for single-domain API, ignored for multi-domain API
   string transaction_id = 1;
+
   // The format of this field is described in ``ledger_offset.proto``.
   // Optional
   string completion_offset = 2;
+
+  // The id of the transaction that resulted from the submitted command.
+  // Must be a valid LedgerString (as described in ``value.proto``).
+  // Required for multi-domain API, ignored for single-domain API
+  string update_id = 3;
 }
 
 message SubmitAndWaitForTransactionResponse {

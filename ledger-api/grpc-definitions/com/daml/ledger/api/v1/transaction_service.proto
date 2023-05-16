@@ -118,7 +118,8 @@ message GetTransactionByIdRequest {
 
   // The ID of a particular transaction.
   // Must be a valid LedgerString (as describe in ``value.proto``).
-  // Required
+  // In the Ledger API 3.0 this field will be removed in favor of the update_id field.
+  // Required for single-domain API, ignored for multi-domain API
   string transaction_id = 2;
 
   // The parties whose events the client expects to see.
@@ -126,6 +127,11 @@ message GetTransactionByIdRequest {
   // Each element be a valid PartyIdString (as describe in ``value.proto``).
   // Required
   repeated string requesting_parties = 3;
+
+  // The ID of a particular transaction.
+  // Must be a valid LedgerString (as describe in ``value.proto``).
+  // Required for multi-domain API, ignored for single-domain API
+  string update_id = 4;
 }
 
 message GetTransactionResponse {

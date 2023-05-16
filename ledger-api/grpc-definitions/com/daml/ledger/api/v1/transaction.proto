@@ -17,8 +17,14 @@ message TransactionTree {
 
   // Assigned by the server. Useful for correlating logs.
   // Must be a valid LedgerString (as described in ``value.proto``).
-  // Required
+  // Required for single-domain API, unset for multi-domain API
+  // In the Ledger API 3.0 this field will be removed in favor of the update_id field.
   string transaction_id = 1;
+
+  // Assigned by the server. Useful for correlating logs.
+  // Must be a valid LedgerString (as described in ``value.proto``).
+  // Required for multi-domain API, unset for single-domain API
+  string update_id = 10;
 
   // The ID of the command which resulted in this transaction. Missing for everyone except the submitting party.
   // Must be a valid LedgerString (as described in ``value.proto``).
@@ -78,8 +84,14 @@ message Transaction {
 
   // Assigned by the server. Useful for correlating logs.
   // Must be a valid LedgerString (as described in ``value.proto``).
-  // Required
+  // Required for single-domain API, unset for multi-domain API
+  // In the Ledger API 3.0 this field will be removed in favor of the update_id field.
   string transaction_id = 1;
+
+  // Assigned by the server. Useful for correlating logs.
+  // Must be a valid LedgerString (as described in ``value.proto``).
+  // Required for multi-domain API, unset for single-domain API
+  string update_id = 8;
 
   // The ID of the command which resulted in this transaction. Missing for everyone except the submitting party.
   // Must be a valid LedgerString (as described in ``value.proto``).
