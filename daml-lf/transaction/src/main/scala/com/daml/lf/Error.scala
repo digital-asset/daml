@@ -109,15 +109,19 @@ object Error {
       actual: TypeConName,
   ) extends Error
 
+  // TODO: https://github.com/digital-asset/daml/issues/16151
+  // Reinstate when #16859 lands
+  /*
   /** We tried to soft fetch / soft exercise a contract of the wrong type --
-    * see <https://github.com/digital-asset/daml/issues/16151>.
-    */
+   * see <https://github.com/digital-asset/daml/issues/16151>.
+   */
   final case class WronglyTypedContractSoft(
       coid: ContractId,
       expected: TypeConName,
       accepted: List[TypeConName],
       actual: TypeConName,
   ) extends Error
+   */
 
   /** We tried to fetch / exercise a contract by interface, but
     * the contract does not implement this interface.
