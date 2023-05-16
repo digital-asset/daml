@@ -1110,7 +1110,10 @@ private[lf] object SBuiltin {
         Control.Value(record.copy(id = templateId))
       } else {
         Control.Error(
-          IE.WronglyTypedContractSoft(coid, templateId, acceptedTemplateIds, actualTemplateId)
+          // TODO https://github.com/digital-asset/daml/issues/16151
+          // Use an existing error constructor until #16859 lands
+          IE.WronglyTypedContract(coid, templateId, actualTemplateId)
+          // IE.WronglyTypedContractSoft(coid, templateId, acceptedTemplateIds, actualTemplateId)
         )
       }
     }
