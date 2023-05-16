@@ -515,3 +515,11 @@ final case class EAmbiguousInterfaceInstance(
     s"A reference to interface instance $interfaceId for $templateId is ambiguous, " +
       "both the interface and the template define this interface instance."
 }
+
+final case class ESoftFetchTemplateWithKey(
+    context: Context,
+    templateId: TypeConName,
+) extends ValidationError {
+  protected def prettyInternal: String =
+    s"softFetch is not supported on template with key declaration: $templateId."
+}

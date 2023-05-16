@@ -37,5 +37,6 @@ checkPkgConfigTests = testGroup "checkPkgConfig"
       , pDataDependencies = []
       , pModulePrefixes = Map.empty
       , pSdkVersion = PackageSdkVersion "0.0.0"
+      , pUpgradedPackagePath = Nothing
       }
 

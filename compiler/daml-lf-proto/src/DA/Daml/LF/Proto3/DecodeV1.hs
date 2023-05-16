@@ -208,11 +208,16 @@ decodePackage mbPkgId minorText selfPackageRef (LF1.Package mods internedStrings
   runDecode env2 $ do
     Package version <$> decodeNM DuplicateModule decodeModule mods <*> traverse decodePackageMetadata metadata
 
+decodeUpgradedPackageId :: LF1.UpgradedPackageId -> Decode PackageId
+decodeUpgradedPackageId LF1.UpgradedPackageId {..} =
+  PackageId . fst <$> lookupString upgradedPackageIdUpgradedPackageIdInternedStr
+
 decodePackageMetadata :: LF1.PackageMetadata -> Decode PackageMetadata
 decodePackageMetadata LF1.PackageMetadata{..} = do
     pkgName <- PackageName . fst <$> lookupString packageMetadataNameInternedStr
     pkgVersion <- PackageVersion . fst <$> lookupString packageMetadataVersionInternedStr
-    pure (PackageMetadata pkgName pkgVersion)
+    upgradedPackageId <- traverse decodeUpgradedPackageId packageMetadataUpgradedPackageId
+    pure (PackageMetadata pkgName pkgVersion upgradedPackageId)
 
 decodeScenarioModule :: TL.Text -> LF1.Package -> Either Error Module
 decodeScenarioModule minorText protoPkg = do
@@ -770,6 +775,10 @@ decodeUpdate LF1.Update{..} = mayDecode "updateSum" updateSum $ \case
     fmap EUpdate $ UFetch
       <$> mayDecode "update_FetchTemplate" update_FetchTemplate decodeTypeConName
       <*> mayDecode "update_FetchCid" update_FetchCid decodeExpr
+  LF1.UpdateSumSoftFetch LF1.Update_SoftFetch{..} ->
+    fmap EUpdate $ USoftFetch
+      <$> mayDecode "update_SoftFetchTemplate" update_SoftFetchTemplate decodeTypeConName
+      <*> mayDecode "update_SoftFetchCid" update_SoftFetchCid decodeExpr
   LF1.UpdateSumFetchInterface LF1.Update_FetchInterface{..} ->
     fmap EUpdate $ UFetchInterface
       <$> mayDecode "update_FetchInterfaceInterface" update_FetchInterfaceInterface decodeTypeConName

@@ -75,6 +75,7 @@ private[daml] object DamlLfEncoder extends App {
           Ast.PackageMetadata(
             Ref.PackageName.assertFromString("encoder_binary"),
             Ref.PackageVersion.assertFromString("1.0.0"),
+            None,
           )
         )
       } else None

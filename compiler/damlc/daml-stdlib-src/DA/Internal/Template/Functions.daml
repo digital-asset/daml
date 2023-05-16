@@ -58,6 +58,19 @@ class HasFetch t where
   -- contract, this fails and aborts the entire transaction.
   fetch : ContractId t -> Update t
 
+-- | Exposes `softFetch` function
+class HasSoftFetch t where
+  -- | HIDE
+  _softFetch : ContractId t -> Update t
+
+#ifdef DAML_PACKAGE_UPGRADES
+
+-- | TODO
+softFetch : HasSoftFetch t => ContractId t -> Update t
+softFetch = _softFetch
+
+#endif -- DAML_PACKAGE_UPGRADES
+
 -- | Exposes `archive` function. Part of the `Template` constraint.
 class HasArchive t where
   -- | Archive the contract with the given contract ID.

@@ -60,6 +60,15 @@ private[daml] class EncodeV1(minor: LV.Minor) {
           val metadataBuilder = PLF.PackageMetadata.newBuilder
           metadataBuilder.setNameInternedStr(stringsTable.insert(metadata.name))
           metadataBuilder.setVersionInternedStr(stringsTable.insert(metadata.version))
+          metadata.upgradedPackageId match {
+            case None =>
+            case Some(pid) =>
+              metadataBuilder.setUpgradedPackageId(
+                PLF.UpgradedPackageId.newBuilder
+                  .setUpgradedPackageIdInternedStr(stringsTable.insert(pid))
+                  .build
+              )
+          }
           builder.setMetadata(metadataBuilder.build)
         }
 
@@ -370,6 +379,10 @@ private[daml] class EncodeV1(minor: LV.Minor) {
           )
         case UpdateFetchTemplate(templateId, contractId) =>
           builder.setFetch(PLF.Update.Fetch.newBuilder().setTemplate(templateId).setCid(contractId))
+        case UpdateSoftFetchTemplate(templateId, contractId) =>
+          builder.setSoftFetch(
+            PLF.Update.SoftFetch.newBuilder().setTemplate(templateId).setCid(contractId)
+          )
         case UpdateFetchInterface(interface, contractId) =>
           builder.setFetchInterface(
             PLF.Update.FetchInterface.newBuilder().setInterface(interface).setCid(contractId)

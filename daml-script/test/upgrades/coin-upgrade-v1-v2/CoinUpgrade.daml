@@ -1,0 +1,74 @@
+-- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module CoinUpgrade where
+
+import Daml.Script
+import Coin_1_0_0.Coin qualified
+import Coin_2_0_0.Coin qualified
+
+template Aux
+  with
+    party : Party
+  where
+    signatory party
+
+    choice SoftFetch_Coin_1_0_0 : (Text, Coin_1_0_0.Coin.Coin)
+      with cid : ContractId Coin_1_0_0.Coin.Coin
+      controller party
+      do
+        coin <- softFetch cid
+        pure $
+          ( "soft fetch v1\n" <> show coin
+          , coin
+          )
+
+    choice SoftFetch_Coin_2_0_0 : (Text, Coin_2_0_0.Coin.Coin)
+      with cid : ContractId Coin_2_0_0.Coin.Coin
+      controller party
+      do
+        coin <- softFetch cid
+        pure $
+          ( "soft fetch v2\n" <> show coin
+          , coin
+          )
+
+create_v1_softFetch_v1 : Script ()
+create_v1_softFetch_v1 = do
+  alice <- allocateParty "alice"
+  cid <- alice `submit` createCmd Coin_1_0_0.Coin.Coin with
+    issuer = alice
+    owner = alice
+  _ <- alice `submit` createAndExerciseCmd (Aux alice) SoftFetch_Coin_1_0_0 with
+    cid = cid
+  pure ()
+
+create_v2_softFetch_v2 : Script ()
+create_v2_softFetch_v2 = do
+  alice <- allocateParty "alice"
+  cid <- alice `submit` createCmd Coin_2_0_0.Coin.Coin with
+    issuer = alice
+    owner = alice
+  _ <- alice `submit` createAndExerciseCmd (Aux alice) SoftFetch_Coin_2_0_0 with
+    cid = cid
+  pure ()
+
+create_v1_softFetch_v2 : Script ()
+create_v1_softFetch_v2 = do
+  alice <- allocateParty "alice"
+  cid <- alice `submit` createCmd Coin_1_0_0.Coin.Coin with
+    issuer = alice
+    owner = alice
+  _ <- alice `submit` createAndExerciseCmd (Aux alice) SoftFetch_Coin_2_0_0 with
+    cid = coerceContractId cid
+  pure ()
+
+create_v2_softFetch_v1 : Script ()
+create_v2_softFetch_v1 = do
+  alice <- allocateParty "alice"
+  cid <- alice `submit` createCmd Coin_2_0_0.Coin.Coin with
+    issuer = alice
+    owner = alice
+  _ <- alice `submitMustFail` createAndExerciseCmd (Aux alice) SoftFetch_Coin_1_0_0 with
+    cid = coerceContractId cid
+  pure ()

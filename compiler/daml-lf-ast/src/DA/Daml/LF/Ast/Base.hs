@@ -757,6 +757,16 @@ data Update
       -- ^ Contract id of the contract template instance whose argument shall be
       -- retrieved.
     }
+  -- | Retrieve the argument of an existing contract instance of the given
+  -- template type or one of its predecessors. If such a contract exists the
+  -- result will be translated into terms of the given template type.
+  | USoftFetch
+    { fetTemplate   :: !(Qualified TypeConName)
+      -- ^ Qualified type constructor corresponding to the contract template.
+    , fetContractId :: !Expr
+      -- ^ Contract id of the contract template instance whose argument shall be
+      -- retrieved.
+    }
   -- | Retrieve the argument of an existing contract interface instance.
   | UFetchInterface
     { fetInterface   :: !(Qualified TypeConName)
@@ -1081,10 +1091,17 @@ data Module = Module
   }
   deriving (Eq, Data, Generic, NFData, Show)
 
-
+-- | Package metadata.
+-- In `damlc build` we are guaranteed to have a name and version
+-- however, for `damlc package` (which should really die in a fire)
+-- we might only have a name and for `damlc compile` we don’t even
+-- have a package name <insert sad panda here>.
+-- We require metadata to be present in newer LF versions,
+-- so we set it to some arbitrarily chosen garbage.
 data PackageMetadata = PackageMetadata
     { packageName :: PackageName
     , packageVersion :: PackageVersion
+    , upgradedPackageId :: Maybe PackageId
     } deriving (Eq, Data, Generic, NFData, Show)
 
 -- | A package.

@@ -23,11 +23,14 @@ import Control.Monad.IO.Class
 import Control.Monad.Trans.Class
 import Control.Monad.Trans.Maybe
 import Control.Monad.Trans.Resource (ResourceT)
+import qualified DA.Daml.Dar.Reader as Dar
 import qualified DA.Daml.LF.Ast as LF
 import DA.Daml.LF.Proto3.Archive (encodeArchiveAndHash)
+import DA.Daml.LF.TypeChecker.Error (Error(EUnsupportedFeature))
 import DA.Daml.Options (expandSdkPackages)
 import DA.Daml.Options.Types
 import DA.Daml.Package.Config
+import DA.Pretty (renderPretty)
 import qualified DA.Service.Logger as Logger
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
@@ -122,9 +125,23 @@ buildDar service PackageConfigFields {..} ifDir dalfInput = do
                  files <- getDamlFiles pSrc
                  opts <- lift getIdeOptions
                  lfVersion <- lift getDamlLfVersion
+                 upgradedPackageId <-
+                  forM pUpgradedPackagePath $ \path ->
+                    if lfVersion `LF.supports` LF.featurePackageUpgrades
+                      then Dar.mainPackageId <$> liftIO (Dar.getDarInfo path)
+                      else do
+                        liftIO $
+                          IdeLogger.logError (ideLogger service) $
+                            renderPretty $ EUnsupportedFeature LF.featurePackageUpgrades
+                        MaybeT (pure Nothing)
+                 let pMeta = LF.PackageMetadata
+                        { packageName = pName
+                        , packageVersion = fromMaybe (LF.PackageVersion "0.0.0") pVersion
+                        , upgradedPackageId
+                        }
                  pkg <- case optShakeFiles opts of
-                     Nothing -> mergePkgs pName pVersion lfVersion . map fst <$> usesE GeneratePackage files
-                     Just _ -> generateSerializedPackage pName pVersion files
+                     Nothing -> mergePkgs pMeta lfVersion . map fst <$> usesE GeneratePackage files
+                     Just _ -> generateSerializedPackage pName pVersion pMeta files
 
                  MaybeT $ finalPackageCheck (toNormalizedFilePath' pSrc) pkg
 
@@ -231,8 +248,8 @@ getSrcRoot fileOrDir = do
           pure $ toNormalizedFilePath' root
 
 -- | Merge several packages into one.
-mergePkgs :: LF.PackageName -> Maybe LF.PackageVersion -> LF.Version -> [WhnfPackage] -> LF.Package
-mergePkgs pkgName mbPkgVer ver pkgs =
+mergePkgs :: LF.PackageMetadata -> LF.Version -> [WhnfPackage] -> LF.Package
+mergePkgs meta ver pkgs =
     foldl'
         (\pkg1 (WhnfPackage pkg2) -> assert (LF.packageLfVersion pkg1 == ver) $
              LF.Package
@@ -240,7 +257,7 @@ mergePkgs pkgName mbPkgVer ver pkgs =
                  , LF.packageModules = LF.packageModules pkg1 `NM.union` LF.packageModules pkg2
                  , LF.packageMetadata = LF.packageMetadata pkg1 <|> LF.packageMetadata pkg2
                  })
-        LF.Package { LF.packageLfVersion = ver, LF.packageModules = NM.empty, LF.packageMetadata = Just $ LF.getPackageMetadata pkgName mbPkgVer }
+        LF.Package { LF.packageLfVersion = ver, LF.packageModules = NM.empty, LF.packageMetadata = Just meta }
         pkgs
 
 -- | Find all Daml files below a given source root. If the source root is a file we interpret it as
