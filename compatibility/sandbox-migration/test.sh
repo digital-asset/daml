@@ -18,10 +18,6 @@ RUNNER="$(rlocation $TEST_WORKSPACE/sandbox-migration/sandbox-migration-runner)"
 MODEL_DAR="$(rlocation $TEST_WORKSPACE/sandbox-migration/migration-model.dar)"
 VERSIONS="$@"
 EXTRA_ARGS=""
-if [[ $1 == "--append-only" ]]; then
-    EXTRA_ARGS="--append-only"
-    VERSIONS="${@:2}"
-fi
 if [[ $1 == "--oracle" ]]; then
     EXTRA_ARGS="--database=oracle"
     VERSIONS="${@:2}"

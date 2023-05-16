@@ -52,11 +52,9 @@ data Options = Options
   , platformAssistants :: [FilePath]
   -- ^ Ordered list of assistant binaries that will be used to run sandbox.
   -- We run through migrations in the order of the list
-  , appendOnly :: AppendOnly
   , databaseType :: DatabaseType
   }
 
-newtype AppendOnly = AppendOnly Bool
 data DatabaseType = Postgres | Oracle
     deriving (Eq, Ord, Show)
 
@@ -64,7 +62,6 @@ optsParser :: Parser Options
 optsParser = Options
     <$> strOption (long "model-dar")
     <*> many (strArgument mempty)
-    <*> fmap AppendOnly (switch (long "append-only"))
     <*> option (eitherReader databaseTypeReader)(long "database" <> value Postgres)
 
 databaseTypeReader :: String -> Either String DatabaseType
@@ -90,13 +87,13 @@ main = do
         hPutStrLn stderr $ T.unpack $ "Using database " <> jdbcUrl
         initialPlatform : _ <- pure platformAssistants
         hPutStrLn stderr "--> Uploading model DAR"
-        withSandbox appendOnly initialPlatform jdbcUrl $ \p ->
+        withSandbox initialPlatform jdbcUrl $ \p ->
             callProcess initialPlatform
                 [ "ledger"
                 , "upload-dar", modelDar
                 , "--host=localhost", "--port=" <> show p
                 ]
-        runTest appendOnly jdbcUrl platformAssistants
+        runTest jdbcUrl platformAssistants
             (ProposeAccept.test step modelDar `interleave` KeyTransfer.test step modelDar `interleave` Divulgence.test step modelDar)
 
 
@@ -106,22 +103,15 @@ supportsSandboxOnX v = v == SemVer.initial || v >= (SemVer.initial & SemVer.majo
 supportsSandboxOnXHocon :: SemVer.Version -> Bool
 supportsSandboxOnXHocon ver = ver == SemVer.initial || ver > (fromRight' $ SemVer.fromText "2.4.0-snapshot.20220712.10212.0.0bf28176")
 
-supportsAppendOnly :: SemVer.Version -> Bool
-supportsAppendOnly v = v == SemVer.initial
--- Note: until the append-only migration is frozen, only the head version of it should be used
---supportsAppendOnly v = v == SemVer.initial || v > prev
---  where
---    prev = fromRight (error "invalid version") (SemVer.fromText "<first version that has a frozen append-only migration>")
-
-runTest :: forall s r. AppendOnly -> T.Text -> [FilePath] -> Test s r -> IO ()
-runTest appendOnly jdbcUrl platformAssistants Test{..} = do
+runTest :: forall s r. T.Text -> [FilePath] -> Test s r -> IO ()
+runTest jdbcUrl platformAssistants Test{..} = do
         hPutStrLn stderr "<-- Uploaded model DAR"
         foldM_ (step jdbcUrl) initialState platformAssistants
             where step :: T.Text -> s -> FilePath -> IO s
                   step jdbcUrl state assistant = do
                       let version = assistantVersion assistant
                       hPutStrLn stderr ("--> Testing: " <> "SDK version: " <> SemVer.toString version)
-                      r <- withSandbox appendOnly assistant jdbcUrl $ \port ->
+                      r <- withSandbox assistant jdbcUrl $ \port ->
                            executeStep (SdkVersion version) "localhost" port state
                       case validateStep (SdkVersion version) state r of
                           Left err -> fail err
@@ -134,8 +124,8 @@ assistantVersion path =
     let ver = fromJust (stripPrefix "daml-sdk-" (takeFileName (takeDirectory path)))
     in fromRight (error $ "Invalid version: " <> show ver) (SemVer.fromText $ T.pack ver)
 
-withSandbox :: AppendOnly -> FilePath -> T.Text -> (Int -> IO a) -> IO a
-withSandbox (AppendOnly appendOnly) assistant jdbcUrl f =
+withSandbox :: FilePath -> T.Text -> (Int -> IO a) -> IO a
+withSandbox assistant jdbcUrl f =
     withTempDir $ \dir ->
     withSandbox' (dir </> "portfile") f
   where
@@ -170,7 +160,6 @@ withSandbox (AppendOnly appendOnly) assistant jdbcUrl f =
           [ "sandbox-classic"
           , "--jdbcurl=" <> T.unpack jdbcUrl
           , "--contract-id-seeding=testing-weak"
-          ] <>
-          [ "--enable-append-only-schema" | supportsAppendOnly version && appendOnly ]
+          ]
         , mbLedgerId = Just ledgerid
         }
