@@ -384,14 +384,15 @@ EOF
 s#^haskell_toolchain_library rule (@stackage//:([a-zA-Z0-9\\-]+))$$#\\2 \\1#g
 s#^haskell_cabal_library rule (@stackage//:([a-zA-Z0-9\\-]+))$$#\\2 \\1#g
 s#^_haskell_library rule (//[A-Za-z0-9/_\\-]+:([A-Za-z0-9/_\\-]+))$$#\\2 \\1#g
+s#^alias rule (@stackage//:([a-zA-Z0-9\\-]+))$$#\\2 \\1#g
 T;p
-        ''' | sort | awk '{{print "      -- " $$2; print "      " $$1 ","}}' >> $@
+        ''' | sort -f | awk '{{print "      -- " $$2; print "      " $$1 ","}}' >> $@
 
     echo '    exposed-modules:' >> $@
 
     grep -v "\\-\\-" $(SRCS) | \
        sed -nE 's#^source file //[A-Za-z0-9/_\\-]+:src/([A-Za-z0-9/_\\-]+)\\.hs$$#      \\1#g;T;p' | \
-       sed 's#/#\\.#g' >> $@
+       sed 's#/#\\.#g' | sort -f >> $@
 
     echo -ne '    default-extensions:\n      ' >> $@
 
