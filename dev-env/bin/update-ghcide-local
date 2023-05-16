@@ -1,30 +1,36 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Get ghcide directory
+# Get input directory, output file
 target=${1:-daml-ghcide}
+out=${2:-out.tar.gz}
+target=$(realpath $target)
+out=$(realpath ${out%.tar.gz}.tar.gz)
+
+# Check target exists
 if [[ ! -e "$target" ]]; then
   echo "Local GHCIDE location '$target' does not exist"
   exit 1
 fi
-echo "Found GHCIDE location '$target'"
+if [[ ! -d "$target" ]]; then
+  echo "Local GHCIDE location '$target' is not a directory"
+  exit 1
+fi
 
+# Check that correct output path is set in bazel-haskell-deps.bzl
 if [[ ! -e ./bazel-haskell-deps.bzl ]]; then
   echo "Cannot find bazel-haskell-deps.bzl"
   exit 1
 fi
-echo "Found ./bazel-haskell-deps.bzl"
 
-if ! grep -E '^USE_GHCIDE_LOCAL *= *True$' >/dev/null ./bazel-haskell-deps.bzl; then
-  echo "Cannot find a definition of USE_GHCIDE_LOCAL = True in ./bazel-haskell-deps.bzl"
-  echo "Make sure to redefine USE_GHCIDE_LOCAL from False to True ./bazel-haskell-deps.bzl"
+if ! grep -E "^GHCIDE_LOCAL_PATH *= *\"$out\"$" >/dev/null ./bazel-haskell-deps.bzl; then
+  echo "Cannot find a correct definition of GHCIDE_LOCAL_PATH"
+  echo "Make sure to redefine GHCIDE_LOCAL_PATH = \"$out\" in ./bazel-haskell-deps.bzl"
   exit 1
 fi
-echo "Found definition of USE_GHCIDE_LOCAL = True in ./bazel-haskell-deps.bzl"
 
 # Make new out
-out=/tmp/ghcide-local-result.tar.gz
-rm "$out"
+if [[ -e "$out" ]]; then rm "$out"; fi
 cd "$target"
 tar czf "$out" .
 
