@@ -309,12 +309,12 @@ def c2hs_suite(name, hackage_deps, deps = [], srcs = [], c2hs_srcs = [], c2hs_sr
     )
 
 # Check is disabled on windows
-def generate_and_track_cabal(name):
+def generate_and_track_cabal(name, golden_file = None):
     generate_cabal(name)
 
     native.filegroup(
         name = name + "-golden-cabal",
-        srcs = native.glob([name + ".cabal"]),
+        srcs = native.glob([golden_file if golden_file != None else name + ".cabal"]),
         visibility = ["//visibility:public"],
     )
 
