@@ -339,9 +339,11 @@ def generate_and_track_cabal(name, golden_file = None):
     ) if not is_windows else None
 
 def generate_cabal(name):
+    full_path = "//%s:%s" % (native.package_name(), name)
+
     native.genquery(
         name = name + "-deps",
-        expression = "deps(//%s, 1) except //%s" % (native.package_name(), native.package_name()),
+        expression = "deps(%s, 1) except %s" % (full_path, full_path),
         opts = [
             "--output",
             "label_kind",
