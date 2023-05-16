@@ -79,7 +79,7 @@ message Completion {
     google.protobuf.Duration deduplication_duration = 9;
   }
 
-  // A valid domain ID
+  // The domain ID the command was submitted to.
   // In case
   //   - successful/failed transactions: represents the domain where the transaction was executed
   //   - for successful/failed transfer-out commands: represents the source domain
