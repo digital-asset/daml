@@ -308,6 +308,7 @@ def c2hs_suite(name, hackage_deps, deps = [], srcs = [], c2hs_srcs = [], c2hs_sr
         **kwargs
     )
 
+# Check is disabled on windows
 def generate_and_track_cabal(name):
     generate_cabal(name)
 
@@ -335,7 +336,7 @@ def generate_and_track_cabal(name):
         deps = [
             "@bazel_tools//tools/bash/runfiles",
         ],
-    )
+    ) if not is_windows else None
 
 def generate_cabal(name):
     native.genquery(
