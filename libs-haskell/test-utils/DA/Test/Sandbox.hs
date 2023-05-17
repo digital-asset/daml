@@ -8,9 +8,7 @@ module DA.Test.Sandbox
     , ClientAuth(..)
     , TimeMode(..)
     , defaultSandboxConf
-    , withSandbox
     , withCantonSandbox
-    , createSandbox
     , createCantonSandbox
     , destroySandbox
     , makeSignedJwt
@@ -22,10 +20,8 @@ import Control.Exception
 import Control.Monad (replicateM)
 import Control.Monad.Extra (whenMaybe)
 import DA.Bazel.Runfiles
-import DA.Daml.Helper.Ledger
 import DA.Daml.Helper.Util (decodeCantonPort)
 import Data.Foldable
-import qualified DA.Ledger as L
 import DA.PortFile
 import qualified DA.Test.FreePort as FreePort
 import qualified Data.Aeson as Aeson
@@ -95,46 +91,6 @@ getCerts = do
         , clientPem = certDir </> "client.pem"
         }
 
-getSandboxProc :: SandboxConfig -> FilePath -> IO CreateProcess
-getSandboxProc SandboxConfig{..} portFile = do
-    sandbox <- locateRunfiles (mainWorkspace </> "ledger" </> "sandbox-on-x" </> exe "app")
-    tlsArgs <- if enableTls
-        then do
-            certs <- getCerts
-            pure
-                [ "--cacrt", trustedRootCrt certs
-                , "--pem", serverPem certs
-                , "--crt", serverCrt certs
-                ]
-        else pure []
-    pure $ proc sandbox $ concat
-        [ ["run-legacy-cli-config"]
-        , [ "--participant=participant-id=sandbox-participant,port=0,port-file=" <> portFile ]
-        , tlsArgs
-        , Maybe.maybeToList timeArg
-        , [ "--client-auth=" <> show auth | Just auth <- [mbClientAuth] ]
-        , [ "--auth-jwt-hs256-unsafe=" <> secret | Just secret <- [mbSharedSecret] ]
-        , [ "--ledger-id=" <> ledgerId | Just ledgerId <- [mbLedgerId] ]
-        ]
-  where timeArg = case timeMode of
-            WallClock -> Nothing
-            Static ->  Just "--static-time"
-
-createSandbox :: FilePath -> Handle -> SandboxConfig -> IO SandboxResource
-createSandbox portFileDir sandboxOutput conf@SandboxConfig{..} = do
-    let portFile = portFileDir </> "sandbox-portfile"
-    sandboxProc <- getSandboxProc conf portFile
-    mask $ \unmask -> do
-        ph@(_,_,_,ph') <- createProcess sandboxProc { std_out = UseHandle sandboxOutput }
-        let waitForStart = do
-                port <- readPortFile ph' maxRetries portFile
-                forM_ dars $ \darPath -> do
-                    let args = (defaultLedgerArgs Grpc) { port = port, tokM = fmap (\s -> L.Token $ makeSignedJwt s []) mbSharedSecret }
-                    runLedgerUploadDar' args (Just darPath)
-
-                pure (SandboxResource ph port [])
-        unmask (waitForStart `onException` cleanupProcess ph)
-
 withGeneralSandbox :: (FilePath -> Handle -> SandboxConfig -> IO SandboxResource) -> SandboxConfig -> (IO Int -> TestTree) -> TestTree
 withGeneralSandbox create conf f =
     withResource newTempDir snd $ \getTmpDir ->
@@ -142,9 +98,6 @@ withGeneralSandbox create conf f =
                 (tempDir, _) <- getTmpDir
                 create tempDir stdout conf
         in withResource createSandbox' destroySandbox (f . fmap sandboxPort)
-
-withSandbox :: SandboxConfig -> (IO Int -> TestTree) -> TestTree
-withSandbox = withGeneralSandbox createSandbox
 
 data SandboxResource = SandboxResource
     { sandboxProcess :: (Maybe Handle, Maybe Handle, Maybe Handle, ProcessHandle)
