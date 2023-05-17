@@ -75,6 +75,7 @@ Invoke-WebRequest https://dl.google.com/cloudagents/windows/StackdriverLogging-v
 .\StackdriverLogging-v1-9.exe /S /D="C:\Stackdriver\Logging\"
 EOF
       assignment   = local.windows.gcp[count.index].assignment
+      azure_disk   = ""
     })
     windows-shutdown-script-ps1 = nonsensitive("c://agent/config remove --unattended --auth PAT --token '${secret_resource.vsts-token.value}'")
   }
