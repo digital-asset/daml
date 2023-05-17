@@ -203,6 +203,7 @@ jobs:
           --config=oracle \
           --test_strategy=exclusive \
           --test_tag_filters=+oracle \
+          --runs_per_test=5 \
           //...
 
         oracle_logs=$(Build.StagingDirectory)/oracle-logs

@@ -185,6 +185,7 @@ da_scala_library(
         "@maven//:com_typesafe_akka_akka_http_core",
         "@maven//:com_typesafe_akka_akka_parsing",
     ],
+    tags = ["cpu:4"],
     visibility = ["//test-evidence:__pkg__"],
     deps = [
         ":trigger-service",
@@ -295,7 +296,7 @@ da_scala_test_suite(
         "@maven//:org_scalatest_scalatest_wordspec",
         "@maven//:org_scalaz_scalaz_core",
     ],
-    tags = oracle_tags,
+    tags = ["cpu:4"] + oracle_tags,
     runtime_deps = [
         "@maven//:com_oracle_database_jdbc_ojdbc8",
     ],
