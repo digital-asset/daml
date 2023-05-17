@@ -56,6 +56,7 @@ class DependenciesSpec extends AnyFreeSpec with Matchers {
           Ast.PackageMetadata(
             name = Ref.PackageName.assertFromString("example-pkg"),
             version = Ref.PackageVersion.assertFromString("1.0.0"),
+            None,
           )
         ),
       )
@@ -89,6 +90,7 @@ class DependenciesSpec extends AnyFreeSpec with Matchers {
           Ast.PackageMetadata(
             name = Ref.PackageName.assertFromString("daml-stdlib"),
             version = Ref.PackageVersion.assertFromString("0.0.0"),
+            None,
           )
         ),
       )

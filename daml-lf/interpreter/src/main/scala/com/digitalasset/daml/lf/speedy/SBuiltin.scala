@@ -1090,6 +1090,35 @@ private[lf] object SBuiltin {
     }
   }
 
+  // SBPromoteAnyContract(templateId): ContractId actualTemplateId -> Any -> templateId
+  // Fails unless actualTemplateId is a predecessor of templateId.
+  final case class SBPromoteAnyContract(
+      templateId: TypeConName,
+      acceptedTemplateIds: List[TypeConName],
+  ) extends SBuiltin(2) {
+    override private[speedy] def execute[Q](
+        args: util.ArrayList[SValue],
+        machine: Machine[Q],
+    ): Control[Nothing] = {
+      def coid = getSContractId(args, 0)
+      val (actualTemplateId, record) = getSAnyContract(args, 1)
+
+      if ((templateId +: acceptedTemplateIds).contains(actualTemplateId)) {
+        // TODO: https://github.com/digital-asset/daml/issues/16151
+        // Later, this will need to extend values of predecessor template
+        // types (e.g. by adding the right number of 'None's for missing 'Optional' fields)
+        Control.Value(record.copy(id = templateId))
+      } else {
+        Control.Error(
+          // TODO https://github.com/digital-asset/daml/issues/16151
+          // Use an existing error constructor until #16859 lands
+          IE.WronglyTypedContract(coid, templateId, actualTemplateId)
+          // IE.WronglyTypedContractSoft(coid, templateId, acceptedTemplateIds, actualTemplateId)
+        )
+      }
+    }
+  }
+
   private[this] def getInterfaceInstance(
       machine: Machine[_],
       interfaceId: TypeConName,

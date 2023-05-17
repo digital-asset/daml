@@ -367,6 +367,13 @@ ondiskDesugar hsc tm =
 
             return (map snd warnings, core)
 
+packageMetadataFromOptions :: Options -> LF.PackageMetadata
+packageMetadataFromOptions options = LF.PackageMetadata
+    { packageName = fromMaybe (LF.PackageName "unknown") (optMbPackageName options)
+    , packageVersion = fromMaybe (LF.PackageVersion "0.0.0") (optMbPackageVersion options)
+    , upgradedPackageId = Nothing -- set by daml build
+    }
+
 -- This rule is for on-disk incremental builds. We cannot use the fine-grained rules that we have for
 -- in-memory builds since we need to be able to serialize intermediate results. GHC doesn’t provide a way to serialize
 -- TypeCheckedModules or CoreModules. In addition to that, making this too fine-grained would probably also incur a performance penalty.
@@ -422,7 +429,7 @@ generateSerializedDalfRule options =
                                 Right (rawDalf, conversionWarnings) -> do
                                     -- LF postprocessing
                                     pkgs <- getExternalPackages file
-                                    let selfPkg = buildPackage (optMbPackageName options) (optMbPackageVersion options) lfVersion dalfDeps
+                                    let selfPkg = buildPackage (packageMetadataFromOptions options) lfVersion dalfDeps
                                         world = LF.initWorldSelf pkgs selfPkg
                                         simplified = LF.simplifyModule (LF.initWorld [] lfVersion) lfVersion rawDalf
                                         -- NOTE (SF): We pass a dummy LF.World to the simplifier because we don't want inlining
@@ -670,14 +677,14 @@ generatePackageRule =
 
 -- We don’t really gain anything by turning this into a rule since we only call it once
 -- and having it be a function makes the merging a bit easier.
-generateSerializedPackage :: LF.PackageName -> Maybe LF.PackageVersion -> [NormalizedFilePath] -> MaybeT Action LF.Package
-generateSerializedPackage pkgName pkgVersion rootFiles = do
+generateSerializedPackage :: LF.PackageName -> Maybe LF.PackageVersion -> LF.PackageMetadata -> [NormalizedFilePath] -> MaybeT Action LF.Package
+generateSerializedPackage pkgName pkgVersion meta rootFiles = do
     fileDeps <- usesE' GetDependencies rootFiles
     let allFiles = nubSort $ rootFiles <> concatMap transitiveModuleDeps fileDeps
     files <- lift $ discardInternalModules (Just $ pkgNameVersion pkgName pkgVersion) allFiles
     dalfs <- usesE' ReadSerializedDalf files
     lfVersion <- lift getDamlLfVersion
-    pure $ buildPackage (Just pkgName) pkgVersion lfVersion dalfs
+    pure $ buildPackage meta lfVersion dalfs
 
 -- | Artifact directory for incremental builds.
 buildDir :: FilePath
@@ -721,7 +728,7 @@ generateRawPackageRule options =
         files <- discardInternalModules (optUnitId options) (fs ++ [file])
         dalfs <- uses_ GenerateRawDalf files
         -- build package
-        let pkg = buildPackage (optMbPackageName options) (optMbPackageVersion options) lfVersion dalfs
+        let pkg = buildPackage (packageMetadataFromOptions options) lfVersion dalfs
         return ([], Just $ WhnfPackage pkg)
 
 generatePackageDepsRule :: Options -> Rules ()
@@ -733,7 +740,7 @@ generatePackageDepsRule options =
         dalfs <- uses_ GenerateDalf files
 
         -- build package
-        return ([], Just $ WhnfPackage $ buildPackage (optMbPackageName options) (optMbPackageVersion options) lfVersion dalfs)
+        return ([], Just $ WhnfPackage $ buildPackage (packageMetadataFromOptions options) lfVersion dalfs)
 
 contextForFile :: NormalizedFilePath -> Action SS.Context
 contextForFile file = do

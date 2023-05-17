@@ -69,12 +69,10 @@ load("//:versions.bzl", "latest_stable_version")
 # - CommandDeduplicationIT:CDDeduplicateSubmitterBasic (fixed in https://github.com/digital-asset/daml/pull/11095):
 #   - https://github.com/digital-asset/daml/pull/11141
 
-last_nongranular_test_tool = "1.3.0-snapshot.20200617.4484.0.7e0a6848"
 first_granular_test_tool = "1.3.0-snapshot.20200623.4546.0.4f68cfc4"
 
 # Some of gRPC error codes changed from INVALID_ARGUMENT to ABORTED
 # See https://github.com/digital-asset/daml/pull/9218
-before_grpc_error_code_breaking_change = "1.12.0-snapshot.20210323.6567.0.90c5ce70"
 after_grpc_error_code_breaking_change = "1.12.0-snapshot.20210323.6567.1.90c5ce70"
 grpc_error_code_breaking_change_exclusions = [
     "SemanticTests:SemanticDoubleSpendShared",
@@ -85,194 +83,11 @@ grpc_error_code_breaking_change_exclusions = [
     "ContractKeysIT:CKMaintainerScoped",
 ]
 
-grpc_error_code_breaking_change_exclusions_suites = [
-    "SemanticTests",
-    "ContractKeysIT",
-]
-
 before_removing_legacy_error_codes = "2.0.0-snapshot.20220127.9042.0.4038d0a7"
 after_removing_legacy_error_codes = "2.0.0-snapshot.20220127.9042.0.4038d0a7.1"
+first_canton_in_ledger_api_tests = "2.7.0-snapshot.20230504.11748.0.af51d660"
 
 excluded_test_tool_tests = [
-    {
-        "start": "1.0.0",
-        "end": "1.0.1",
-        "platform_ranges": [
-            {
-                "exclusions": ["ContractKeysSubmitterIsMaintainerIT"],
-            },
-        ],
-    },
-    {
-        "start": "1.0.0",
-        "end": "1.0.0",
-        "platform_ranges": [
-            {
-                "start": "1.0.1-snapshot.20200424.3917.0.16093690",
-                "end": "1.0.1",
-                "exclusions": ["ContractKeysIT"],
-            },
-            {
-                "start": "1.1.0-snapshot.20200430.4057.0.681c862d",
-                "exclusions": ["ContractKeysIT"],
-            },
-        ],
-    },
-    {
-        "start": "1.0.1",
-        "end": "1.0.1",
-        "platform_ranges": [
-            {
-                "end": "1.0.1-snapshot.20200417.3908.1.722bac90",
-                "exclusions": ["ContractKeysIT"],
-            },
-        ],
-    },
-    {
-        "start": "1.1.1",
-        "end": last_nongranular_test_tool,
-        "platform_ranges": [
-            {
-                "end": "1.0.1-snapshot.20200417.3908.1.722bac90",
-                "exclusions": ["ContractKeysIT"],
-            },
-        ],
-    },
-    {
-        "start": first_granular_test_tool,
-        "platform_ranges": [
-            {
-                "end": "1.0.1-snapshot.20200417.3908.1.722bac90",
-                "exclusions": [
-                    "ContractKeysIT:CKFetchOrLookup",
-                    "ContractKeysIT:CKNoFetchUndisclosed",
-                ],
-            },
-        ],
-    },
-    {
-        "end": "1.3.0-snapshot.20200617.4484.0.7e0a6848",
-        "platform_ranges": [
-            {
-                "start": "1.3.0-snapshot.20200701.4616.0.bdbefd11",
-                "exclusions": [
-                    "CommandServiceIT",
-                ],
-            },
-        ],
-    },
-    {
-        "start": "1.5.0-snapshot.20200902.5118.0.2b3cf1b3",
-        "platform_ranges": [
-            {
-                "start": "1.0.0",
-                "end": "1.3.0",
-                "exclusions": [
-                    # See https://github.com/digital-asset/daml/pull/7251
-                    "CommandSubmissionCompletionIT:CSCAfterEnd",
-                    "TransactionServiceIT:TXAfterEnd",
-                    "TransactionServiceIT:TXTreesAfterEnd",
-                ],
-            },
-        ],
-    },
-    {
-        "end": last_nongranular_test_tool,
-        "platform_ranges": [
-            {
-                "start": "1.6.0-snapshot.20200922.5258.0.cd4a06db",
-                "exclusions": [
-                    # See https://github.com/digital-asset/daml/pull/7400
-                    "WronglyTypedContractIdIT",
-                ],
-            },
-        ],
-    },
-    {
-        "start": first_granular_test_tool,
-        "end": "1.6.0-snapshot.20200915.5208.0.09014dc6",
-        "platform_ranges": [
-            {
-                "start": "1.6.0-snapshot.20200922.5258.0.cd4a06db",
-                "exclusions": [
-                    # See https://github.com/digital-asset/daml/pull/7400
-                    "WronglyTypedContractIdIT:WTFetchFails",
-                ],
-            },
-        ],
-    },
-    {
-        "end": last_nongranular_test_tool,
-        "platform_ranges": [
-            {
-                "start": "1.7.0-snapshot.20201103.5565.0.e75d42dd",
-                "exclusions": ["ContractKeysIT"],
-            },
-        ],
-    },
-    {
-        "start": first_granular_test_tool,
-        "end": "1.7.0-snapshot.20201027.5530.0.bdbf8977",
-        "platform_ranges": [
-            {
-                "start": "1.7.0-snapshot.20201103.5565.0.e75d42dd",
-                "exclusions": [
-                    "ContractKeysIT:CKFetchOrLookup",
-                    "ContractKeysIT:CKNoFetchUndisclosed",
-                ],
-            },
-        ],
-    },
-    {
-        "start": "1.10.0-snapshot.20210201.6207.0.7cf1914d",
-        "platform_ranges": [
-            {
-                "end": "1.10.0-snapshot.20210125.6143.0.550aa48f",
-                "exclusions": [
-                    # See https://github.com/digital-asset/daml/pull/8642
-                    "PartyManagementServiceIT:PMRejectLongPartyHints",
-                    "PartyManagementServiceIT:PMRejectInvalidPartyHints",
-                ],
-            },
-        ],
-    },
-    {
-        "start": after_grpc_error_code_breaking_change,
-        "platform_ranges": [
-            {
-                "end": before_grpc_error_code_breaking_change,
-                "exclusions": grpc_error_code_breaking_change_exclusions + ["SemanticTests:SemanticDoubleSpendBasic"],
-            },
-        ],
-    },
-    {
-        "end": last_nongranular_test_tool,
-        "platform_ranges": [
-            {
-                "start": after_grpc_error_code_breaking_change,
-                "exclusions": grpc_error_code_breaking_change_exclusions_suites,
-            },
-        ],
-    },
-    {
-        "start": first_granular_test_tool,
-        "end": "1.5.0",
-        "platform_ranges": [
-            {
-                "start": after_grpc_error_code_breaking_change,
-                "exclusions": grpc_error_code_breaking_change_exclusions + ["SemanticTests:SemanticDoubleSpend"],
-            },
-        ],
-    },
-    {
-        "start": "1.6.0",
-        "platform_ranges": [
-            {
-                "start": after_grpc_error_code_breaking_change,
-                "exclusions": grpc_error_code_breaking_change_exclusions + ["SemanticTests:SemanticDoubleSpendBasic"],
-            },
-        ],
-    },
     {
         # We drop visibily restrictions about local contract key in
         #  https://github.com/digital-asset/daml/pull/15131
@@ -285,116 +100,6 @@ excluded_test_tool_tests = [
             {
                 "start": "1.0.0",
                 "exclusions": ["ContractKeysIT:CKLocalKeyVisibility"],
-            },
-        ],
-    },
-    {
-        "start": "1.13.0-snapshot.20210419.6730.1.8c3a8c04",
-        "platform_ranges": [
-            {
-                "end": "1.13.0-snapshot.20210504.6833.0.9ae787d0",
-                "exclusions": ["ValueLimitsIT:VLLargeSubmittersNumberCreateContract"],
-            },
-        ],
-    },
-    {
-        "end": last_nongranular_test_tool,
-        "platform_ranges": [
-            {
-                "start": "1.14.0-snapshot.20210602.7086.1",
-                "exclusions": [
-                    "CommandServiceIT",
-                    "CommandSubmissionCompletionIT",
-                ],
-            },
-        ],
-    },
-    {
-        "start": first_granular_test_tool,
-        "end": "1.14.0-snapshot.20210602.7086.0.f36f556b",
-        "platform_ranges": [
-            {
-                "start": "1.14.0-snapshot.20210602.7086.1",
-                "exclusions": [
-                    "CommandServiceIT:CSCreateAndBadExerciseChoice",
-                    "CommandSubmissionCompletionIT:CSCRefuseBadChoice",
-                ],
-            },
-        ],
-    },
-    {
-        "start": "1.14.0-snapshot.20210602.7086.1",
-        "platform_ranges": [
-            {
-                "end": "1.14.0-snapshot.20210602.7086.0.f36f556b",
-                "exclusions": [
-                    "CommandServiceIT:CSCreateAndBadExerciseChoice",
-                    "CommandSubmissionCompletionIT:CSCRefuseBadChoice",
-                ],
-            },
-        ],
-    },
-    {
-        "start": "1.16.0-snapshot.20210713.7343.1.1f35db17",
-        "end": "1.17.0-snapshot.20210907.7759.0.35a853fd",
-        "platform_ranges": [
-            {
-                "end": "1.16.0-snapshot.20210713.7343.0.1f35db17",
-                "exclusions": [
-                    "ConfigManagementServiceIT:DuplicateSubmissionId",
-                    "PackageManagementServiceIT:DuplicateSubmissionId",
-                ],
-            },
-        ],
-    },
-    {
-        "start": "1.17.0-snapshot.20210907.7759.1.35a853fd",
-        "platform_ranges": [
-            {
-                "end": "1.16.0-snapshot.20210713.7343.0.1f35db17",
-                "exclusions": [
-                    "ConfigManagementServiceIT:CMDuplicateSubmissionId",
-                    "PackageManagementServiceIT:PMDuplicateSubmissionId",
-                ],
-            },
-        ],
-    },
-    {
-        "start": "1.16.0-snapshot.20210727.7476.1",
-        "platform_ranges": [
-            {
-                "end": "1.16.0-snapshot.20210727.7476.0.b5e9d861",
-                "exclusions": [
-                    "DeeplyNestedValueIT",
-                ],
-            },
-        ],
-    },
-    {
-        # Tests got renamed in
-        # https://github.com/digital-asset/daml/commit/f2707cc54f5b7da339bc565bc322be1e57db5edb
-        "end": last_nongranular_test_tool,
-        "platform_ranges": [
-            {
-                "start": "1.17.0-snapshot.20210831.7702.1.f058c2f1",
-                "exclusions": [
-                    "CommandDeduplicationIT",
-                ],
-            },
-        ],
-    },
-    {
-        # Tests got renamed in
-        # https://github.com/digital-asset/daml/commit/f2707cc54f5b7da339bc565bc322be1e57db5edb
-        "start": first_granular_test_tool,
-        "end": "1.5.0-snapshot.20200907.5151.0.eb68e680",
-        "platform_ranges": [
-            {
-                "start": "1.17.0-snapshot.20210831.7702.1.f058c2f1",
-                "exclusions": [
-                    "CommandDeduplicationIT:CDSimpleDeduplication",
-                    "CommandDeduplicationIT:CDSimpleDeduplicationCommandClient",
-                ],
             },
         ],
     },
@@ -414,17 +119,6 @@ excluded_test_tool_tests = [
         ],
     },
     {
-        "end": last_nongranular_test_tool,
-        "platform_ranges": [
-            {
-                "start": "1.17.0-snapshot.20210831.7702.1.f058c2f1",
-                "exclusions": [
-                    "CommandServiceIT",
-                ],
-            },
-        ],
-    },
-    {
         "start": first_granular_test_tool,
         "end": "1.17.0-snapshot.20210831.7702.0.f058c2f1",
         "platform_ranges": [
@@ -432,62 +126,6 @@ excluded_test_tool_tests = [
                 "start": "1.17.0-snapshot.20210831.7702.1.f058c2f1",
                 "exclusions": [
                     "CommandServiceIT:CSRefuseBadParameter",
-                ],
-            },
-        ],
-    },
-    {
-        # gRPC errors from transaction-related services have been enriched with definite answer details
-        # and a new assertion has been added.
-        # See: https://github.com/digital-asset/daml/pull/10832/files#diff-e0fa328a58650c48e8770804e35a1464c81cc80a51547860a01e9197a8fb9c71R49
-        "start": "1.17.0-snapshot.20210910.7786.1",
-        "platform_ranges": [
-            {
-                "end": "1.17.0-snapshot.20210910.7786.0.976ca400",
-                "exclusions": [
-                    "WronglyTypedContractIdIT:WTExerciseFails",
-                    "WronglyTypedContractIdIT:WTFetchFails",
-                    "WronglyTypedContractIdIT:WTMultipleExerciseFails",
-                    "TransactionServiceExerciseIT:TXRejectOnFailingAssertion",
-                    "ContractKeysIT:CKTransients",
-                    "ContractKeysIT:CKExerciseByKey",
-                    "ClosedWorldIT:ClosedWorldObserver",
-                    "TransactionServiceAuthorizationIT:TXRejectMultiActorMissingAuth",
-                    "TransactionServiceAuthorizationIT:TXRejectMultiActorExcessiveAuth",
-                    "CommandServiceIT",
-                    "ExceptionsIT",
-                    "CommandSubmissionCompletionIT:CSCRefuseBadChoice",
-                    "CommandSubmissionCompletionIT:CSCSubmitWithInvalidLedgerId",
-                    "CommandSubmissionCompletionIT:CSCDisallowEmptyTransactionsSubmission",
-                    "SemanticTests:SemanticDoubleSpendSameTx",
-                    "SemanticTests:SemanticPartialSignatories",
-                    "SemanticTests:SemanticAcceptOnBehalf",
-                    "DeeplyNestedValueIT",
-                ],
-            },
-        ],
-    },
-    {
-        "start": "1.17.0-snapshot.20210910.7786.1",
-        "platform_ranges": [
-            {
-                "start": "1.17.0-snapshot.20210811.7565.0.f1a55aa4",
-                "end": "1.17.0-snapshot.20210910.7786.0.976ca400 ",
-                "exclusions": [
-                    "CommandDeduplicationIT",
-                ],
-            },
-        ],
-    },
-    {
-        "start": "1.18.0-snapshot.20210928.7948.1",
-        "end": "2.0.0-snapshot.20220110.8812.0.3a08380b",
-        "platform_ranges": [
-            {
-                "end": "1.18.0-snapshot.20210928.7948.0.b4d00317",
-                "exclusions": [
-                    "KVCommandDeduplicationIT:KVCommandDeduplicationDeduplicateSubmitterBasic",
-                    "KVCommandDeduplicationIT:KVCommandDeduplicationSimpleDeduplicationBasic",
                 ],
             },
         ],
@@ -513,18 +151,6 @@ excluded_test_tool_tests = [
                 "start": "1.18.0-snapshot.20210928.7948.1",
                 "exclusions": [
                     "KVCommandDeduplicationIT:KVCommandDeduplicationCommitterDeduplication",
-                ],
-            },
-        ],
-    },
-    {
-        "start": "1.3.0",
-        "end": "1.4.0",
-        "platform_ranges": [
-            {
-                "start": "1.18.0-snapshot.20210928.7948.1",
-                "exclusions": [
-                    "CommandDeduplicationIT:CDDeduplicateSubmitter",  # Fixed in later ledger API test tools
                 ],
             },
         ],
@@ -636,18 +262,6 @@ excluded_test_tool_tests = [
         ],
     },
     {
-        # max deduplication duration is no longer enforced in the ledger API
-        "end": last_nongranular_test_tool,
-        "platform_ranges": [
-            {
-                "start": "2.0.0-snapshot.20211210.8653.0.35beb44c",
-                "exclusions": [
-                    "LedgerConfigurationServiceIT",
-                ],
-            },
-        ],
-    },
-    {
         "start": "1.3.0",
         "end": "2.0.0-snapshot.20220110.8812.0.3a08380b",
         "platform_ranges": [
@@ -698,18 +312,6 @@ excluded_test_tool_tests = [
         ],
     },
     {
-        # The test requires the "definite_answer" gRPC error metadata entry, which is not present in old releases.
-        "start": "2.0.0-snapshot.20220118.8919.1",
-        "platform_ranges": [
-            {
-                "end": "1.16.0",
-                "exclusions": [
-                    "MultiPartySubmissionIT",
-                ],
-            },
-        ],
-    },
-    {
         # Some command deduplication tests are no longer optional, but fail on older releases.
         "start": "2.0.0-snapshot.20220118.8919.1",
         "platform_ranges": [
@@ -750,38 +352,6 @@ excluded_test_tool_tests = [
                     "CommandDeduplicationIT:ParticipantCommandDeduplicationSimpleDeduplicationMixedClients",
                     "CommandDeduplicationIT:ParticipantCommandDeduplicationDeduplicateSubmitterBasic",
                     "CommandDeduplicationIT:ParticipantCommandDeduplicationSimpleDeduplicationBasic",
-                ],
-            },
-        ],
-    },
-    {
-        # Self-service error codes becomes the only supported option. They are deprecated as an experimental feature.
-        # Switching to the legacy codes is no longer available.
-        "start": after_removing_legacy_error_codes,
-        "platform_ranges": [
-            {
-                "end": "1.17.1",
-                "exclusions": [
-                    "ActiveContractsServiceIT",
-                    "ClosedWorldIT",
-                    "CommandServiceIT",
-                    "CommandSubmissionCompletionIT",
-                    "ConfigManagementServiceIT",
-                    "ContractKeysIT",
-                    "DeeplyNestedValueIT",
-                    "ExceptionsIT",
-                    "LedgerConfigurationServiceIT",
-                    "MultiPartySubmissionIT",
-                    "PackageManagementServiceIT",
-                    "PackageServiceIT",
-                    "PartyManagementServiceIT",
-                    "SemanticTests",
-                    "TransactionServiceAuthorizationIT",
-                    "TransactionServiceExerciseIT",
-                    "TransactionServiceQueryIT",
-                    "TransactionServiceStreamsIT",
-                    "TransactionServiceValidationIT",
-                    "WronglyTypedContractIdIT",
                 ],
             },
         ],
@@ -952,6 +522,45 @@ excluded_test_tool_tests = [
             {
                 "exclusions": [
                     "ExplicitDisclosureIT",
+                ],
+            },
+        ],
+    },
+    {
+        "start": "1.16.0",
+        "platform_ranges": [
+            {
+                "start": first_canton_in_ledger_api_tests,
+                "exclusions": [
+                    "ClosedWorldIT",
+                    "ConfigManagementServiceIT",
+                    "LedgerConfigurationServiceIT",
+                    "ParticipantPruningIT",
+                ],
+            },
+        ],
+    },
+    {
+        "start": "2.0.1",
+        "platform_ranges": [
+            {
+                "start": first_canton_in_ledger_api_tests,
+                "exclusions": [
+                    "TLSOnePointThreeIT",
+                    "TLSAtLeastOnePointTwoIT",
+                    "CommandDeduplicationPeriodValidationIT:OffsetPruned",
+                ],
+            },
+        ],
+    },
+    {
+        "start": "2.6.3",
+        "platform_ranges": [
+            {
+                "start": first_canton_in_ledger_api_tests,
+                "exclusions": [
+                    "ActiveContractsServiceIT:AcsBeforePruningOffsetIsDisallowed",
+                    "ActiveContractsServiceIT:AcsAtPruningOffsetIsAllowed",
                 ],
             },
         ],
@@ -1202,6 +811,7 @@ def sdk_platform_test(sdk_version, platform_version):
         platform_version = platform_version,
     )
 
+    use_canton = versions.is_at_least(first_canton_in_ledger_api_tests, platform_version)
     sandbox_on_x = "@daml-sdk-{}//:sandbox-on-x".format(platform_version)
     sandbox_on_x_args = ["--contract-id-seeding=testing-weak", "--implicit-party-allocation=false", "--mutable-contract-state-cache", "--enable-user-management=true"]
     sandbox_on_x_cmd = ["run-legacy-cli-config"]
@@ -1213,9 +823,37 @@ def sdk_platform_test(sdk_version, platform_version):
     )
     exclusions = ["--exclude=" + test for test in get_excluded_tests(test_tool_version = sdk_version, sandbox_version = platform_version)]
 
-    if versions.is_stable(sdk_version) and versions.is_stable(platform_version):
-        # Ledger API test tool < 1.5 do not upload the DAR which doesn’t work on Sandbox on X
-        if versions.is_at_least("1.5.0", sdk_version):
+    if versions.is_at_least("1.16.0", sdk_version) and versions.is_stable(sdk_version) and versions.is_stable(platform_version):
+        if use_canton:
+            client_server_test(
+                name = name + "-canton",
+                client = ledger_api_test_tool,
+                client_args = [
+                    "localhost:6865",
+                    "--concurrent-test-runs=2",  # lowered from default #procs to reduce flakes - details in https://github.com/digital-asset/daml/issues/7316
+                    "--timeout-scale-factor=2",
+                ] + exclusions,
+                data = [dar_files],
+                runner = "@//bazel_tools/client_server:runner",
+                runner_args = ["6865", "7000"],
+                server = canton_sandbox,
+                server_args = [
+                    "sandbox",
+                    "--canton-port-file",
+                    "_port_file",
+                    "--",
+                    "-C",
+                    "canton.monitoring.health.server.port=7000",
+                    "-C",
+                    "canton.monitoring.health.check.type=ping",
+                    "-C",
+                    "canton.monitoring.health.check.participant=sandbox",
+                    "-C",
+                    "canton.monitoring.health.check.interval=5s",
+                ],
+                tags = ["exclusive", sdk_version, platform_version] + extra_tags(sdk_version, platform_version),
+            )
+        else:
             client_server_test(
                 name = name + "-on-x",
                 client = ledger_api_test_tool,

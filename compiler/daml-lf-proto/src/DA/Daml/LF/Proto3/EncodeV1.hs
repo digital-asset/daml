@@ -809,6 +809,10 @@ encodeUpdate = fmap (P.Update . Just) . \case
         update_FetchTemplate <- encodeQualTypeConName fetTemplate
         update_FetchCid <- encodeExpr fetContractId
         pure $ P.UpdateSumFetch P.Update_Fetch{..}
+    USoftFetch{..} -> do
+        update_SoftFetchTemplate <- encodeQualTypeConName fetTemplate
+        update_SoftFetchCid <- encodeExpr fetContractId
+        pure $ P.UpdateSumSoftFetch P.Update_SoftFetch{..}
     UFetchInterface{..} -> do
         update_FetchInterfaceInterface <- encodeQualTypeConName fetInterface
         update_FetchInterfaceCid <- encodeExpr fetContractId
@@ -1030,7 +1034,11 @@ encodeScenarioModule :: Version -> Module -> P.Package
 encodeScenarioModule version mod =
     encodePackage (Package version (NM.insert mod NM.empty) metadata)
   where
-    metadata = Just (getPackageMetadata (PackageName "scenario") Nothing)
+    metadata = Just PackageMetadata
+      { packageName = PackageName "scenario"
+      , packageVersion = PackageVersion "0.0.0"
+      , upgradedPackageId = Nothing
+      }
 
 encodeModule :: Module -> Encode P.Module
 encodeModule Module{..} = do
@@ -1070,10 +1078,16 @@ encodeInterfaceCoImplements InterfaceCoImplements {..} = do
     defInterface_CoImplementsLocation <- traverse encodeSourceLoc iciLocation
     pure P.DefInterface_CoImplements {..}
 
+encodeUpgradedPackageId :: PackageId -> Encode P.UpgradedPackageId
+encodeUpgradedPackageId upgradedPackageId = do
+  upgradedPackageIdUpgradedPackageIdInternedStr <- fromRight (error "Upgraded package-id is always interned") <$> encodeInternableString (unPackageId upgradedPackageId)
+  pure P.UpgradedPackageId{..}
+
 encodePackageMetadata :: PackageMetadata -> Encode P.PackageMetadata
 encodePackageMetadata PackageMetadata{..} = do
     packageMetadataNameInternedStr <- fromRight (error "Package name is always interned") <$> encodeInternableString (unPackageName packageName)
-    packageMetadataVersionInternedStr <- fromRight (error "Package name is always interned") <$> encodeInternableString (unPackageVersion packageVersion)
+    packageMetadataVersionInternedStr <- fromRight (error "Package version is always interned") <$> encodeInternableString (unPackageVersion packageVersion)
+    packageMetadataUpgradedPackageId <- traverse encodeUpgradedPackageId upgradedPackageId
     pure P.PackageMetadata{..}
 
 -- | NOTE(MH): Assumes the Daml-LF version of the 'Package' is 'V1'.

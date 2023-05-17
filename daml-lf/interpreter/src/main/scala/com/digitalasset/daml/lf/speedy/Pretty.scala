@@ -98,6 +98,21 @@ private[lf] object Pretty {
           ) & prettyTypeConName(
             actual
           )
+      // TODO https://github.com/digital-asset/daml/issues/16151
+      // Reinstate when #16859 lands
+      /*case WronglyTypedContractSoft(coid, expected, accepted, actual) =>
+        text("Update failed due to wrongly typed contract id") & prettyContractId(coid) /
+          text("Expected contract of type") & prettyTypeConName(expected) & (
+            if (accepted.nonEmpty)
+              intercalate(comma + lineOrSpace, accepted.map(prettyTypeConName))
+                .tightBracketBy(text("or one of its ancestors: ("), char(')'))
+            else
+              Doc.empty
+          ) & text(
+            "but got"
+          ) & prettyTypeConName(
+            actual
+          )*/
       case ContractDoesNotImplementInterface(interfaceId, coid, templateId) =>
         text("Update failed due to contract") & prettyContractId(coid) & text(
           "not implementing an interface"

@@ -422,6 +422,8 @@ instance Pretty Update where
       [tplArg tpl, TmArg (EVar (ExprVarName (unChoiceName choice))), TmArg key, TmArg arg]
     UFetch tpl cid ->
       pPrintAppKeyword lvl prec "fetch" [tplArg tpl, TmArg cid]
+    USoftFetch tpl cid ->
+      pPrintAppKeyword lvl prec "soft_fetch" [tplArg tpl, TmArg cid]
     UFetchInterface interface cid ->
       pPrintAppKeyword lvl prec "fetch_interface" [interfaceArg interface, TmArg cid]
     UGetTime ->
@@ -755,7 +757,10 @@ instance Pretty PackageVersion where
     pPrint = pPrint . unPackageVersion
 
 instance Pretty PackageMetadata where
-    pPrint (PackageMetadata name version) = pPrint name <> "-" <> pPrint version
+    pPrint (PackageMetadata name version upgradedPid) =
+      pPrint name
+        <> "-" <> pPrint version
+        <> maybe empty (\pid -> "-[upgrades=" <> pPrint pid <> "]") upgradedPid
 
 instance Pretty Package where
   pPrintPrec lvl _prec (Package version modules metadata) =
