@@ -23,6 +23,8 @@ import com.daml.ledger.api.v1.admin.party_management_service.{
   PartyManagementServiceGrpc,
   UpdatePartyDetailsRequest,
   UpdatePartyDetailsResponse,
+  UpdatePartyIdentityProviderRequest,
+  UpdatePartyIdentityProviderResponse,
   PartyDetails => ProtoPartyDetails,
 }
 import com.daml.ledger.api.validation.ValidationErrors
@@ -471,6 +473,9 @@ private[apiserver] final class ApiPartyManagementService private (
           )
       }
 
+  override def updateUserIdentityProviderId(
+      request: UpdatePartyIdentityProviderRequest
+  ): Future[UpdatePartyIdentityProviderResponse] = throw new UnsupportedOperationException()
 }
 
 private[apiserver] object ApiPartyManagementService {
