@@ -9,7 +9,7 @@ load(
 )
 
 da_scala_library(
-    name = "cli-opts",
+    name = "jwt-cli-opts",
     srcs = glob(["src/main/scala/**/*.scala"]),
     scala_deps = [
         "@maven//:com_github_scopt_scopt",
@@ -26,7 +26,7 @@ da_scala_library(
 )
 
 da_scala_test_suite(
-    name = "cli-opts-tests",
+    name = "jwt-cli-opts-tests",
     srcs = glob(["src/test/suite/scala/**/*.scala"]),
     scala_deps = [
         "@maven//:com_github_scopt_scopt",
@@ -39,7 +39,7 @@ da_scala_test_suite(
     ],
     scalacopts = lf_scalacopts,
     deps = [
-        ":cli-opts",
+        ":jwt-cli-opts",
         "//ledger/ledger-api-auth",
         "//libs-scala/fs-utils",
         "//libs-scala/jwt",
