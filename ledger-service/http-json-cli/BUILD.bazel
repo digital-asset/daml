@@ -20,10 +20,10 @@ da_scala_library(
     ],
     visibility = ["//ledger-service:__subpackages__"],
     deps = [
+        "//ledger-service/cli-opts",
         "//ledger-service/pureconfig-utils",
         "//ledger/ledger-api-common",
         "//libs-scala/db-utils",
-        "//libs-scala/jwt-cli-opts",
         "//observability/metrics",
         "@maven//:ch_qos_logback_logback_classic",
         "@maven//:com_typesafe_config",
@@ -44,9 +44,9 @@ da_scala_library(
         exports = [":base"],
         deps = [
             ":base",
+            "//ledger-service/cli-opts",
             "//ledger/ledger-api-common",
             "//libs-scala/db-utils",
-            "//libs-scala/jwt-cli-opts",
         ],
     )
     for edition in [
