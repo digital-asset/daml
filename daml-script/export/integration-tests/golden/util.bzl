@@ -44,7 +44,7 @@ def daml_ledger_export_test(
             ],
             client_files = ["$(rootpath %s)" % dar],
             data = [dar],
-            server = "//ledger/sandbox-on-x:sandbox-on-x-ephemeral-postgresql",
+            server = "//ledger/sandbox-on-x:app",
             server_args = [
                 "run",
                 "-C ledger.participants.default.api-server.port=0",
