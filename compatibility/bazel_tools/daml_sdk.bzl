@@ -239,14 +239,13 @@ def daml_sdk(version, **kwargs):
         **kwargs
     )
 
-def daml_sdk_head(sdk_tarball, ledger_api_test_tool, sandbox_on_x, daml_types_tarball, daml_ledger_tarball, daml_react_tarball, create_daml_app_patch, **kwargs):
+def daml_sdk_head(sdk_tarball, ledger_api_test_tool, daml_types_tarball, daml_ledger_tarball, daml_react_tarball, create_daml_app_patch, **kwargs):
     version = "0.0.0"
     _daml_sdk(
         name = "daml-sdk-{}".format(version),
         version = version,
         sdk_tarball = sdk_tarball,
         test_tool = ledger_api_test_tool,
-        sandbox_on_x = sandbox_on_x,
         daml_types_tarball = daml_types_tarball,
         daml_ledger_tarball = daml_ledger_tarball,
         daml_react_tarball = daml_react_tarball,
