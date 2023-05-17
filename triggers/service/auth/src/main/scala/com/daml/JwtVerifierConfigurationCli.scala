@@ -9,6 +9,7 @@ import com.auth0.jwt.algorithms.Algorithm
 
 import scala.util.Try
 
+@SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
 object JwtVerifierConfigurationCli {
   def parse[C](parser: scopt.OptionParser[C])(setter: (JwtVerifierBase, C) => C): Unit = {
     def setJwtVerifier(jwtVerifier: JwtVerifierBase, c: C): C = setter(jwtVerifier, c)

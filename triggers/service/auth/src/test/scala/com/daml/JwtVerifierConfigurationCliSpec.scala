@@ -13,6 +13,7 @@ import java.util.concurrent.atomic.AtomicReference
 import com.auth0.jwt.JWT
 import com.auth0.jwt.algorithms.Algorithm
 import com.daml.fs.TemporaryDirectory
+import com.daml.scalautil.Statement.discard
 import com.daml.jwt.JwtVerifierConfigurationCliSpec._
 import com.daml.ledger.api.auth.ClaimSet.Claims
 import com.daml.ledger.api.auth.{AuthService, AuthServiceJWT, AuthServiceWildcard, ClaimPublic}
@@ -31,7 +32,7 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.jdk.FutureConverters._
 
 class JwtVerifierConfigurationCliSpec extends AsyncWordSpec with Matchers {
-  Security.addProvider(new BouncyCastleProvider)
+  discard(Security.addProvider(new BouncyCastleProvider))
 
   "auth command-line parsers" should {
     "parse and configure the authorisation mechanism correctly when `--auth-jwt-hs256-unsafe <secret>` is passed" in {
@@ -174,7 +175,7 @@ object JwtVerifierConfigurationCliSpec {
         .setProvider(BouncyCastleProvider.PROVIDER_NAME)
         .getCertificate(certBuilder.build(contentSigner))
     val certificatePath = directory.resolve("certificate")
-    Files.write(certificatePath, certificate.getEncoded)
+    discard(Files.write(certificatePath, certificate.getEncoded))
     certificatePath
   }
 }
