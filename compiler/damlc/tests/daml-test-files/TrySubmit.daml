@@ -1,0 +1,17 @@
+module TrySubmit where
+
+import Daml.Script
+-- import Daml.Script.Error
+
+template T with
+    p : Party
+  where
+  signatory p
+  
+
+main : Script ()
+main = do
+  alice <- allocateParty "Alice"
+  bob <- allocateParty "Bob"
+  eRes <- trySubmit [alice] [alice] $ createCmd T with p = bob
+  error $ show eRes

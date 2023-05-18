@@ -15,7 +15,7 @@ import com.daml.lf.data.Ref.{Identifier, Name, PackageId, Party, UserId}
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.script.ledgerinteraction.{ScriptLedgerClient, ScriptTimeMode}
 import com.daml.lf.language.Ast
-import com.daml.lf.speedy.SExpr.{SEAppAtomic, SEValue}
+import com.daml.lf.speedy.SExpr.{SEAppAtomic, SEValue, SELet1, SELocS}
 import com.daml.lf.speedy.{ArrayList, SError, SValue}
 import com.daml.lf.speedy.SExpr.SExpr
 import com.daml.lf.speedy.SValue._
@@ -148,6 +148,58 @@ object ScriptF {
             }
         }
       } yield v
+  }
+
+  final case class TrySubmit(data: SubmitData) extends Cmd {
+    override def stackTrace = data.stackTrace
+
+    override def description = "trySubmit"
+
+    override def execute(
+        env: Env
+    )(implicit ec: ExecutionContext, mat: Materializer, esf: ExecutionSequencerFactory) =
+      for {
+        client <- Converter.toFuture(
+          env.clients
+            .getPartiesParticipant(data.actAs)
+        )
+        submitRes <- client.trySubmit(
+          data.actAs,
+          data.readAs,
+          data.cmds,
+          data.stackTrace.topFrame,
+        )
+        (left, right) = data.continue match {
+          case SRecord(_, _, values) if values.size == 2 => (values.get(0), values.get(1))
+          case _ => throw new IllegalArgumentException("Expected tuple got something else")
+        }
+        res <- submitRes match {
+          case Right(results) =>
+            for {
+              res <- Converter.toFuture(
+                Converter
+                  .fillCommandResults(
+                    env.compiledPackages,
+                    env.lookupChoice,
+                    env.valueTranslator,
+                    data.freeAp,
+                    results,
+                  )
+              )
+            } yield SELet1(res, SEAppAtomic(SEValue(right), Array(SELocS(1))))
+          case Left(submitError) =>
+            Future.successful(
+              SEAppAtomic(
+                SEValue(left),
+                Array(
+                  SEValue(
+                    Converter.fromSubmitError(env.scriptIds, submitError)
+                  )
+                ),
+              )
+            )
+        }
+      } yield res
   }
 
   final case class SubmitMustFail(data: SubmitData) extends Cmd {
@@ -1056,6 +1108,7 @@ object ScriptF {
       case "Submit" => parseSubmit(ctx, v).map(Submit(_))
       case "SubmitMustFail" => parseSubmit(ctx, v).map(SubmitMustFail(_))
       case "SubmitTree" => parseSubmit(ctx, v).map(SubmitTree(_))
+      case "TrySubmit" => parseSubmit(ctx, v).map(TrySubmit(_))
       case "Query" => parseQuery(ctx, v)
       case "QueryContractId" => parseQueryContractId(ctx, v)
       case "QueryInterface" => parseQueryInterface(ctx, v)

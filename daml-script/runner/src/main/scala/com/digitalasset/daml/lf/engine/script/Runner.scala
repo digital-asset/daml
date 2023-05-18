@@ -403,7 +403,7 @@ private[lf] class Runner(
     val damlScriptDefs: PartialFunction[SDefinitionRef, SDefinition] = {
       case LfDefRef(id) if id == script.scriptIds.damlScript("fromLedgerValue") =>
         SDefinition(SEMakeClo(Array(), 1, SELocA(0)))
-      case LfDefRef(id) if id == script.scriptIds.damlScript("castCatchPayload") =>
+      case LfDefRef(id) if id == script.scriptIds.damlScript("dangerCast") =>
         SDefinition(SEMakeClo(Array(), 1, SELocA(0)))
     }
     new CompiledPackages(Runner.compilerConfig) {

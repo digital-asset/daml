@@ -79,6 +79,8 @@ module Daml.Script
   , listUserRightsOn
   , submitUser
   , submitUserOn
+
+  , trySubmit
   ) where
 
 #ifdef DAML_EXCEPTIONS
@@ -92,6 +94,7 @@ import DA.Optional
 import DA.Stack
 import DA.Time
 import Daml.Script.Free (Free(..))
+import Daml.Script.Error
 
 -- | A free applicative, since we don’t have existentials we have to use the weird RankNTypes encoding, this is isomorphic to
 -- forall b. Ap (f b) (Ap f (b -> a))
@@ -146,6 +149,7 @@ data ScriptF a
   | GrantUserRights (GrantUserRightsPayload a)
   | RevokeUserRights (RevokeUserRightsPayload a)
   | ListUserRights (ListUserRightsPayload a)
+  | TrySubmit (NewSubmitCmd LedgerValue a)
 #ifndef DAML_EXCEPTIONS
   deriving Functor
 #else
@@ -153,11 +157,35 @@ data ScriptF a
   | Throw ThrowPayload
   deriving Functor
 
+
+data NewSubmitCmd x a = NewSubmitCmd
+  with
+    actAs : NonEmpty Party
+    readAs : [Party]
+    commands : Commands x
+    continue : (SubmitError -> a, x -> a)
+    locations : [(Text, SrcLoc)]
+  deriving Functor
+
+trySubmit : forall a. HasCallStack => [Party] -> [Party] -> Commands a -> Script (Either SubmitError a)
+trySubmit actAs readAs cmds =
+    lift $ Free $ TrySubmit $ castNewSubmitPayload payload
+  where
+    payload : NewSubmitCmd a (Free ScriptF (Either SubmitError a))
+    payload = NewSubmitCmd with
+      actAs = actAsNonEmpty actAs
+      readAs = readAs
+      commands = cmds
+      continue = (pure . Left, pure . Right)
+      locations = getCallStack callStack
+
 -- `(try x catch f) >>= g` roughly translates to
 -- CatchPayload with
 --   act = \() -> x
 --   handle = f
 --   continue = g
+-- Note however that `g` is not the "next thing" in the bind sequence, but is an inserted identity
+-- TODO: Maybe update this comment, its misleading
 data CatchPayload x a = CatchPayload
   with
     -- TODO(MA): simplify to `act : () -> Free ScriptF x`
@@ -168,8 +196,16 @@ data CatchPayload x a = CatchPayload
 
 -- This wraps a `CatchPayload` whose inner action returns an `x` into an
 -- existential - we forget what `x` was.
+
 castCatchPayload : CatchPayload x a -> CatchPayload LedgerValue a
-castCatchPayload = error "foobar" -- gets replaced by the identity-function in script/Runner.scala
+castCatchPayload = dangerCast
+
+castNewSubmitPayload : NewSubmitCmd x a -> NewSubmitCmd LedgerValue a
+castNewSubmitPayload = dangerCast
+
+-- TODO: we're doing crimes now, undo this once more civilised
+dangerCast : a -> b
+dangerCast = error "foobar" -- gets replaced by the identity-function in script/Runner.scala
 
 data ThrowPayload = ThrowPayload
   with
@@ -462,7 +498,7 @@ data GetTimePayload a = GetTimePayload
 --
 -- Note that this will sleep for the same duration in both wall clock and static time mode.
 sleep : HasCallStack => RelTime -> Script ()
-sleep duration = lift $ Free $Sleep SleepRec with
+sleep duration = lift $ Free $ Sleep SleepRec with
   duration = duration
   continue = pure
   locations = getCallStack callStack
@@ -471,6 +507,7 @@ data SubmitFailure = SubmitFailure
   { status : Int
   , description : Text
   }
+  deriving Show
 
 -- | Details of the @submit@ command.
 --

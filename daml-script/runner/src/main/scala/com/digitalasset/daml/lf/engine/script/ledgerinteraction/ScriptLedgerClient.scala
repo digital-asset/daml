@@ -114,6 +114,17 @@ trait ScriptLedgerClient {
       mat: Materializer,
   ): Future[Option[ScriptLedgerClient.ActiveContract]]
 
+  def trySubmit(
+      actAs: OneAnd[Set, Ref.Party],
+      readAs: Set[Ref.Party],
+      commands: List[command.ApiCommand],
+      optLocation: Option[Location],
+  )(implicit
+      ec: ExecutionContext,
+      mat: Materializer,
+  ): Future[Either[SubmitError, Seq[ScriptLedgerClient.CommandResult]]] =
+    throw new java.lang.UnsupportedOperationException("I'm not ready")
+
   def submit(
       actAs: OneAnd[Set, Ref.Party],
       readAs: Set[Ref.Party],
