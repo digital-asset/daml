@@ -21,12 +21,12 @@ newtype HoogleEnv = HoogleEnv
 data TemplateOrInterfaceType = TemplateType | InterfaceType
 
 data TemplateOrInterface = TemplateOrInterface
-    { toi_which :: TemplateOrInterfaceType
+    { toi_which    :: TemplateOrInterfaceType
     , toi_typename :: Typename
-    , toi_anchor  :: Maybe Anchor
-    , toi_descr   :: Maybe DocText
-    , toi_payload :: [Type]
-    , toi_choices :: [ChoiceDoc]
+    , toi_anchor   :: Maybe Anchor
+    , toi_descr    :: Maybe DocText
+    , toi_payload  :: [Type]
+    , toi_choices  :: [ChoiceDoc]
     }
 
 templateToTOI :: TemplateDoc -> TemplateOrInterface
@@ -125,7 +125,7 @@ fieldDoc2hoogle :: Typename -> FieldDoc -> [T.Text]
 fieldDoc2hoogle typename FieldDoc{..} = concat
     [ hooglify fd_descr
     , [ T.unwords
-            [ "[" <> wrapOp (unFieldname fd_name) <> "]"
+            [ wrapOp (unFieldname fd_name)
             , "::"
             , unwrapTypename typename
             , "->"

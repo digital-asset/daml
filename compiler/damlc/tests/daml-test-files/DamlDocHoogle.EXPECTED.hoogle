@@ -27,7 +27,7 @@ data TCall
 
 TCall :: Int -> TCall
 
-[i] :: TCall -> Int
+i :: TCall -> Int
 
 -- | TCall docs
 
@@ -49,7 +49,7 @@ data ICall
 
 ICall :: Int -> ICall
 
-[i] :: ICall -> Int
+i :: ICall -> Int
 
 -- | ICall docs
 
