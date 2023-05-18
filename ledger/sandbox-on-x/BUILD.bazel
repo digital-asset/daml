@@ -7,8 +7,7 @@ load(
     "da_scala_library",
     "da_scala_test_suite",
 )
-load("//ledger-test-tool/ledger-api-tests:conformance.bzl", "conformance_test", "generate_conf", "server_conformance_test")
-load("@oracle//:index.bzl", "oracle_tags")
+load("//ledger-test-tool:conformance.bzl", "conformance_test", "generate_conf", "server_conformance_test")
 load("@os_info//:os_info.bzl", "is_windows")
 load("@bazel_skylib//rules:write_file.bzl", "write_file")
 
@@ -455,12 +454,6 @@ SERVERS = {
         "binary": ":conformance-test-postgres-bin",
         "server_args": ["run -c $(rootpath :postgres.conf)"],
         "extra_data": [":postgres.conf"],
-    },
-    "oracle": {
-        "binary": ":conformance-test-oracle-bin",
-        "tags": oracle_tags,
-        "server_args": ["run -c $(rootpath :oracle.conf)"],
-        "extra_data": [":oracle.conf"],
     },
 }
 

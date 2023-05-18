@@ -27,11 +27,13 @@ import java.util.UUID
 
 abstract class AbstractFuncTests
     extends AsyncWordSpec
-    with AbstractTriggerTestWithCanton
+    with AbstractTriggerTest
     with Matchers
     with Inside
     with TryValues {
   self: Suite =>
+
+  import AbstractTriggerTest._
 
   this.getClass.getSimpleName can {
     "Batch trigger" should {

@@ -20,7 +20,6 @@ load(
     "data_dependencies_upgrade_test",
 )
 load("//bazel_tools:versions.bzl", "versions")
-load("//sandbox-migration:util.bzl", "migration_test")
 load("//:versions.bzl", "platform_versions", "sdk_versions", "stable_versions")
 load("@daml//bazel_tools:haskell.bzl", "da_haskell_binary")
 
@@ -125,37 +124,6 @@ first_post_7587_trigger_version = "1.7.0-snapshot.20201012.5405.0.af92198d"
     if versions.is_at_least(first_post_7587_trigger_version, sdk_version) and
        versions.is_at_least(sdk_version, platform_version)
 ]
-
-migration_test(
-    name = "migration",
-    timeout = "eternal",
-    quick_tags = ["head-quick"],
-    # Exclusive due to hardcoded postgres ports.
-    tags = [
-        "exclusive",
-    ],
-    versions = [
-        version
-        for version in stable_versions
-        # We skip versions before 1.6.0. These versions had a bug where ledger
-        # effective time was stored at higher precision than it should have
-        # been. See https://github.com/digital-asset/daml/pull/11512#discussion_r751041534
-        if versions.is_at_least("1.6.0", version)
-    ],
-) if not is_windows else None
-
-migration_test(
-    name = "meta-migration-test",
-    quick_tags = [],
-    tags = [
-        "exclusive",
-        "manual",
-    ],
-    versions = [
-        "1.0.0",
-        "0.0.0",
-    ],
-)
 
 [
     data_dependencies_coins(

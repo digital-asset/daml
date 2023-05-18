@@ -233,7 +233,7 @@ instance DA.Internal.Desugar.HasChoiceController TrySyntax X_new_authority_contr
   _choiceController = GHC.Types.primitive @"EChoiceController"
 instance DA.Internal.Desugar.HasChoiceObserver TrySyntax X_new_authority_controller_observer where
   _choiceObserver = GHC.Types.primitive @"EChoiceObserver"
-_choice$_TrySyntaxArchive :
+_choice$_TrySyntax$Archive :
   (DA.Internal.Desugar.Consuming TrySyntax,
    TrySyntax
    -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party],
@@ -244,12 +244,12 @@ _choice$_TrySyntaxArchive :
    DA.Internal.Desugar.ContractId TrySyntax
    -> TrySyntax
       -> DA.Internal.Desugar.Archive -> DA.Internal.Desugar.Update (()))
-_choice$_TrySyntaxArchive
+_choice$_TrySyntax$Archive
   = (DA.Internal.Desugar.Consuming, 
      \ this _ -> DA.Internal.Desugar.signatory this, 
      DA.Internal.Desugar.None, DA.Internal.Desugar.None, 
      \ _ _ _ -> pure ())
-_choice$_TrySyntaxX_old_just_controller :
+_choice$_TrySyntax$X_old_just_controller :
   (DA.Internal.Desugar.Consuming TrySyntax,
    TrySyntax -> X_old_just_controller -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.Optional (TrySyntax
@@ -259,7 +259,7 @@ _choice$_TrySyntaxX_old_just_controller :
    DA.Internal.Desugar.ContractId TrySyntax
    -> TrySyntax
       -> X_old_just_controller -> DA.Internal.Desugar.Update (()))
-_choice$_TrySyntaxX_old_just_controller
+_choice$_TrySyntax$X_old_just_controller
   = (DA.Internal.Desugar.Consuming, 
      \ this@TrySyntax {..} arg@X_old_just_controller
        -> let _ = this in
@@ -267,7 +267,7 @@ _choice$_TrySyntaxX_old_just_controller
      DA.Internal.Desugar.None, DA.Internal.Desugar.None, 
      \ self this@TrySyntax {..} arg@X_old_just_controller
        -> let _ = self in let _ = this in let _ = arg in do _BODY)
-_choice$_TrySyntaxX_old_observer_and_controller :
+_choice$_TrySyntax$X_old_observer_and_controller :
   (DA.Internal.Desugar.Consuming TrySyntax,
    TrySyntax
    -> X_old_observer_and_controller -> [DA.Internal.Desugar.Party],
@@ -279,7 +279,7 @@ _choice$_TrySyntaxX_old_observer_and_controller :
    -> TrySyntax
       -> X_old_observer_and_controller
          -> DA.Internal.Desugar.Update (()))
-_choice$_TrySyntaxX_old_observer_and_controller
+_choice$_TrySyntax$X_old_observer_and_controller
   = (DA.Internal.Desugar.Consuming, 
      \ this@TrySyntax {..} arg@X_old_observer_and_controller
        -> let _ = this in
@@ -291,7 +291,7 @@ _choice$_TrySyntaxX_old_observer_and_controller
      DA.Internal.Desugar.None, 
      \ self this@TrySyntax {..} arg@X_old_observer_and_controller
        -> let _ = self in let _ = this in let _ = arg in do _BODY)
-_choice$_TrySyntaxX_new_just_controllerX :
+_choice$_TrySyntax$X_new_just_controllerX :
   (DA.Internal.Desugar.Consuming TrySyntax,
    TrySyntax -> X_new_just_controllerX -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.Optional (TrySyntax
@@ -301,7 +301,7 @@ _choice$_TrySyntaxX_new_just_controllerX :
    DA.Internal.Desugar.ContractId TrySyntax
    -> TrySyntax
       -> X_new_just_controllerX -> DA.Internal.Desugar.Update (()))
-_choice$_TrySyntaxX_new_just_controllerX
+_choice$_TrySyntax$X_new_just_controllerX
   = (DA.Internal.Desugar.Consuming, 
      \ this@TrySyntax {..} arg@X_new_just_controllerX
        -> let _ = this in
@@ -309,7 +309,7 @@ _choice$_TrySyntaxX_new_just_controllerX
      DA.Internal.Desugar.None, DA.Internal.Desugar.None, 
      \ self this@TrySyntax {..} arg@X_new_just_controllerX
        -> let _ = self in let _ = this in let _ = arg in do _BODY)
-_choice$_TrySyntaxX_new_just_controller :
+_choice$_TrySyntax$X_new_just_controller :
   (DA.Internal.Desugar.Consuming TrySyntax,
    TrySyntax -> X_new_just_controller -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.Optional (TrySyntax
@@ -319,7 +319,7 @@ _choice$_TrySyntaxX_new_just_controller :
    DA.Internal.Desugar.ContractId TrySyntax
    -> TrySyntax
       -> X_new_just_controller -> DA.Internal.Desugar.Update (()))
-_choice$_TrySyntaxX_new_just_controller
+_choice$_TrySyntax$X_new_just_controller
   = (DA.Internal.Desugar.Consuming, 
      \ this@TrySyntax {..} arg@X_new_just_controller
        -> let _ = this in
@@ -327,7 +327,7 @@ _choice$_TrySyntaxX_new_just_controller
      DA.Internal.Desugar.None, DA.Internal.Desugar.None, 
      \ self this@TrySyntax {..} arg@X_new_just_controller
        -> let _ = self in let _ = this in let _ = arg in do _BODY)
-_choice$_TrySyntaxX_new_observer_and_controllerX :
+_choice$_TrySyntax$X_new_observer_and_controllerX :
   (DA.Internal.Desugar.Consuming TrySyntax,
    TrySyntax
    -> X_new_observer_and_controllerX -> [DA.Internal.Desugar.Party],
@@ -339,7 +339,7 @@ _choice$_TrySyntaxX_new_observer_and_controllerX :
    -> TrySyntax
       -> X_new_observer_and_controllerX
          -> DA.Internal.Desugar.Update (()))
-_choice$_TrySyntaxX_new_observer_and_controllerX
+_choice$_TrySyntax$X_new_observer_and_controllerX
   = (DA.Internal.Desugar.Consuming, 
      \ this@TrySyntax {..} arg@X_new_observer_and_controllerX
        -> let _ = this in
@@ -351,7 +351,7 @@ _choice$_TrySyntaxX_new_observer_and_controllerX
      DA.Internal.Desugar.None, 
      \ self this@TrySyntax {..} arg@X_new_observer_and_controllerX
        -> let _ = self in let _ = this in let _ = arg in do _BODY)
-_choice$_TrySyntaxX_new_observer_and_controller :
+_choice$_TrySyntax$X_new_observer_and_controller :
   (DA.Internal.Desugar.Consuming TrySyntax,
    TrySyntax
    -> X_new_observer_and_controller -> [DA.Internal.Desugar.Party],
@@ -363,7 +363,7 @@ _choice$_TrySyntaxX_new_observer_and_controller :
    -> TrySyntax
       -> X_new_observer_and_controller
          -> DA.Internal.Desugar.Update (()))
-_choice$_TrySyntaxX_new_observer_and_controller
+_choice$_TrySyntax$X_new_observer_and_controller
   = (DA.Internal.Desugar.Consuming, 
      \ this@TrySyntax {..} arg@X_new_observer_and_controller
        -> let _ = this in
@@ -375,7 +375,7 @@ _choice$_TrySyntaxX_new_observer_and_controller
      DA.Internal.Desugar.None, 
      \ self this@TrySyntax {..} arg@X_new_observer_and_controller
        -> let _ = self in let _ = this in let _ = arg in do _BODY)
-_choice$_TrySyntaxX_new_controller_and_observer :
+_choice$_TrySyntax$X_new_controller_and_observer :
   (DA.Internal.Desugar.Consuming TrySyntax,
    TrySyntax
    -> X_new_controller_and_observer -> [DA.Internal.Desugar.Party],
@@ -387,7 +387,7 @@ _choice$_TrySyntaxX_new_controller_and_observer :
    -> TrySyntax
       -> X_new_controller_and_observer
          -> DA.Internal.Desugar.Update (()))
-_choice$_TrySyntaxX_new_controller_and_observer
+_choice$_TrySyntax$X_new_controller_and_observer
   = (DA.Internal.Desugar.Consuming, 
      \ this@TrySyntax {..} arg@X_new_controller_and_observer
        -> let _ = this in
@@ -399,7 +399,7 @@ _choice$_TrySyntaxX_new_controller_and_observer
      DA.Internal.Desugar.None, 
      \ self this@TrySyntax {..} arg@X_new_controller_and_observer
        -> let _ = self in let _ = this in let _ = arg in do _BODY)
-_choice$_TrySyntaxX_new_authority_and_controller :
+_choice$_TrySyntax$X_new_authority_and_controller :
   (DA.Internal.Desugar.Consuming TrySyntax,
    TrySyntax
    -> X_new_authority_and_controller -> [DA.Internal.Desugar.Party],
@@ -411,7 +411,7 @@ _choice$_TrySyntaxX_new_authority_and_controller :
    -> TrySyntax
       -> X_new_authority_and_controller
          -> DA.Internal.Desugar.Update (()))
-_choice$_TrySyntaxX_new_authority_and_controller
+_choice$_TrySyntax$X_new_authority_and_controller
   = (DA.Internal.Desugar.Consuming, 
      \ this@TrySyntax {..} arg@X_new_authority_and_controller
        -> let _ = this in
@@ -423,7 +423,7 @@ _choice$_TrySyntaxX_new_authority_and_controller
             let _ = arg in DA.Internal.Desugar.toParties (_AUTHORITY), 
      \ self this@TrySyntax {..} arg@X_new_authority_and_controller
        -> let _ = self in let _ = this in let _ = arg in do _BODY)
-_choice$_TrySyntaxX_new_observer_authority_and_controllerX :
+_choice$_TrySyntax$X_new_observer_authority_and_controllerX :
   (DA.Internal.Desugar.Consuming TrySyntax,
    TrySyntax
    -> X_new_observer_authority_and_controllerX
@@ -438,7 +438,7 @@ _choice$_TrySyntaxX_new_observer_authority_and_controllerX :
    -> TrySyntax
       -> X_new_observer_authority_and_controllerX
          -> DA.Internal.Desugar.Update (()))
-_choice$_TrySyntaxX_new_observer_authority_and_controllerX
+_choice$_TrySyntax$X_new_observer_authority_and_controllerX
   = (DA.Internal.Desugar.Consuming, 
      \ this@TrySyntax {..} arg@X_new_observer_authority_and_controllerX
        -> let _ = this in
@@ -455,7 +455,7 @@ _choice$_TrySyntaxX_new_observer_authority_and_controllerX
        this@TrySyntax {..}
        arg@X_new_observer_authority_and_controllerX
        -> let _ = self in let _ = this in let _ = arg in do _BODY)
-_choice$_TrySyntaxX_new_observer_authority_and_controller :
+_choice$_TrySyntax$X_new_observer_authority_and_controller :
   (DA.Internal.Desugar.Consuming TrySyntax,
    TrySyntax
    -> X_new_observer_authority_and_controller
@@ -470,7 +470,7 @@ _choice$_TrySyntaxX_new_observer_authority_and_controller :
    -> TrySyntax
       -> X_new_observer_authority_and_controller
          -> DA.Internal.Desugar.Update (()))
-_choice$_TrySyntaxX_new_observer_authority_and_controller
+_choice$_TrySyntax$X_new_observer_authority_and_controller
   = (DA.Internal.Desugar.Consuming, 
      \ this@TrySyntax {..} arg@X_new_observer_authority_and_controller
        -> let _ = this in
@@ -487,7 +487,7 @@ _choice$_TrySyntaxX_new_observer_authority_and_controller
        this@TrySyntax {..}
        arg@X_new_observer_authority_and_controller
        -> let _ = self in let _ = this in let _ = arg in do _BODY)
-_choice$_TrySyntaxX_new_authority_observer_and_controller :
+_choice$_TrySyntax$X_new_authority_observer_and_controller :
   (DA.Internal.Desugar.Consuming TrySyntax,
    TrySyntax
    -> X_new_authority_observer_and_controller
@@ -502,7 +502,7 @@ _choice$_TrySyntaxX_new_authority_observer_and_controller :
    -> TrySyntax
       -> X_new_authority_observer_and_controller
          -> DA.Internal.Desugar.Update (()))
-_choice$_TrySyntaxX_new_authority_observer_and_controller
+_choice$_TrySyntax$X_new_authority_observer_and_controller
   = (DA.Internal.Desugar.Consuming, 
      \ this@TrySyntax {..} arg@X_new_authority_observer_and_controller
        -> let _ = this in
@@ -519,7 +519,7 @@ _choice$_TrySyntaxX_new_authority_observer_and_controller
        this@TrySyntax {..}
        arg@X_new_authority_observer_and_controller
        -> let _ = self in let _ = this in let _ = arg in do _BODY)
-_choice$_TrySyntaxX_new_controller_authority_observer :
+_choice$_TrySyntax$X_new_controller_authority_observer :
   (DA.Internal.Desugar.Consuming TrySyntax,
    TrySyntax
    -> X_new_controller_authority_observer
@@ -534,7 +534,7 @@ _choice$_TrySyntaxX_new_controller_authority_observer :
    -> TrySyntax
       -> X_new_controller_authority_observer
          -> DA.Internal.Desugar.Update (()))
-_choice$_TrySyntaxX_new_controller_authority_observer
+_choice$_TrySyntax$X_new_controller_authority_observer
   = (DA.Internal.Desugar.Consuming, 
      \ this@TrySyntax {..} arg@X_new_controller_authority_observer
        -> let _ = this in
@@ -549,7 +549,7 @@ _choice$_TrySyntaxX_new_controller_authority_observer
             let _ = arg in DA.Internal.Desugar.toParties (_AUTHORITY), 
      \ self this@TrySyntax {..} arg@X_new_controller_authority_observer
        -> let _ = self in let _ = this in let _ = arg in do _BODY)
-_choice$_TrySyntaxX_new_authority_controller_observer :
+_choice$_TrySyntax$X_new_authority_controller_observer :
   (DA.Internal.Desugar.Consuming TrySyntax,
    TrySyntax
    -> X_new_authority_controller_observer
@@ -564,7 +564,7 @@ _choice$_TrySyntaxX_new_authority_controller_observer :
    -> TrySyntax
       -> X_new_authority_controller_observer
          -> DA.Internal.Desugar.Update (()))
-_choice$_TrySyntaxX_new_authority_controller_observer
+_choice$_TrySyntax$X_new_authority_controller_observer
   = (DA.Internal.Desugar.Consuming, 
      \ this@TrySyntax {..} arg@X_new_authority_controller_observer
        -> let _ = this in

@@ -55,7 +55,7 @@ instance DA.Internal.Desugar.HasChoiceController A DA.Internal.Desugar.Archive w
   _choiceController = GHC.Types.primitive @"EChoiceController"
 instance DA.Internal.Desugar.HasChoiceObserver A DA.Internal.Desugar.Archive where
   _choiceObserver = GHC.Types.primitive @"EChoiceObserver"
-_choice$_AArchive :
+_choice$_A$Archive :
   (DA.Internal.Desugar.Consuming A,
    A -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.Optional (A
@@ -65,7 +65,7 @@ _choice$_AArchive :
    DA.Internal.Desugar.ContractId A
    -> A
       -> DA.Internal.Desugar.Archive -> DA.Internal.Desugar.Update (()))
-_choice$_AArchive
+_choice$_A$Archive
   = (DA.Internal.Desugar.Consuming, 
      \ this _ -> DA.Internal.Desugar.signatory this, 
      DA.Internal.Desugar.None, DA.Internal.Desugar.None, 

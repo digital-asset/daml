@@ -35,9 +35,9 @@ import com.daml.ledger.client.services.commands.{
 }
 import com.daml.ledger.client.services.testing.time.StaticTime
 import com.daml.ledger.test.ModelTestDar
+import com.daml.integrationtest.{CantonFixture, TestCommands}
 import com.daml.lf.crypto
 import com.daml.lf.data.{Bytes, Ref}
-import com.daml.lf.integrationtest.{CantonFixture, TestCommands}
 import com.daml.lf.value.Value.ContractId
 import com.daml.platform.participant.util.ValueConversions._
 import com.daml.util.Ctx
@@ -82,7 +82,7 @@ final class CommandClientIT
   private val testNotLedgerId =
     domain.LedgerId(CantonFixture.freshName("hotdog"))
 
-  private lazy val channel = config.channel(suiteResource.value.head)
+  private lazy val channel = config.channel(ports.head)
   private lazy val defaultClient = defaultLedgerClient()
   private def freshParty() = for {
     client <- defaultClient

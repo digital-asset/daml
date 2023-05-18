@@ -147,4 +147,8 @@ private[daml] final class UserManagementServiceAuthorization(
         )
       case _ => Success(None)
     }
+
+  override def updateUserIdentityProviderId(
+      request: UpdateUserIdentityProviderRequest
+  ): Future[UpdateUserIdentityProviderResponse] = throw new UnsupportedOperationException()
 }

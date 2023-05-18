@@ -11,7 +11,7 @@ resource "azurerm_windows_virtual_machine_scale_set" "deployment" {
   name                = local.windows.azure[count.index].name
   resource_group_name = azurerm_resource_group.daml-ci.name
   location            = azurerm_resource_group.daml-ci.location
-  sku                 = "Standard_D4_v2"
+  sku                 = "Standard_D8_v5"
   instances           = local.windows.azure[count.index].size
 
   admin_username = local.azure-admin-login
@@ -28,6 +28,13 @@ resource "azurerm_windows_virtual_machine_scale_set" "deployment" {
     vsts_pool    = "windows-pool"
     gcp_logging  = ""
     assignment   = local.windows.azure[count.index].assignment
+    azure_disk   = <<EOF
+
+select volume d
+remove letter="D"
+select volume c
+extend
+EOF
   }))
 
   source_image_reference {
@@ -38,7 +45,7 @@ resource "azurerm_windows_virtual_machine_scale_set" "deployment" {
   }
 
   os_disk {
-    caching              = "ReadOnly"
+    caching              = "ReadWrite"
     storage_account_type = "Standard_LRS"
     disk_size_gb         = local.windows.azure[count.index].disk_size
 

@@ -292,10 +292,6 @@ removeLocations = cata $ \case
     ELocationF _loc e -> e
     b -> embed b
 
-getPackageMetadata :: PackageName -> Maybe PackageVersion -> PackageMetadata
-getPackageMetadata pkgName mbPkgVersion =
-    PackageMetadata pkgName (fromMaybe (PackageVersion "0.0.0") mbPkgVersion)
-
 -- | Given the name of a DALF and the decoded package return package metadata.
 --
 -- For newer Daml-LF versions this is taken directly from the
@@ -303,7 +299,7 @@ getPackageMetadata pkgName mbPkgVersion =
 -- metadata from the filename.
 packageMetadataFromFile :: FilePath -> Package -> PackageId -> (PackageName, Maybe PackageVersion)
 packageMetadataFromFile file pkg pkgId
-    | Just (PackageMetadata name version) <- packageMetadata pkg =
+    | Just (PackageMetadata name version _) <- packageMetadata pkg =
           -- GHC insists on daml-prim not having a version so we filter it out.
           (name, version <$ guard (name /= PackageName "daml-prim"))
     | otherwise = splitUnitId (unitIdFromFile file pkgId)

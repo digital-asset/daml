@@ -5,10 +5,10 @@ package com.daml.http
 
 import com.daml.http.HttpServiceTestFixture.UseTls
 import com.daml.http.dbbackend.JdbcConfig
-import com.typesafe.scalalogging.StrictLogging
 import org.scalatest._
 import org.scalatest.freespec.AsyncFreeSpec
 import org.scalatest.matchers.should.Matchers
+import org.scalatest.OptionValues._
 import scalaz.\/-
 
 import scala.concurrent.duration._
@@ -18,7 +18,6 @@ abstract class WebsocketServiceOffsetTickIntTest
     extends AsyncFreeSpec
     with Matchers
     with Inside
-    with StrictLogging
     with AbstractHttpServiceIntegrationTestFuns
     with BeforeAndAfterAll {
 
@@ -55,7 +54,7 @@ abstract class WebsocketServiceOffsetTickIntTest
         aliceHeaders <- fixture.getUniquePartyAndAuthHeaders("Alice")
         (party, headers) = aliceHeaders
         _ <- initialIouCreate(uri, party, headers)
-        jwt <- jwtForParties(uri)(List(party), List(), testId)
+        jwt <- jwtForParties(uri)(List(party), List(), config.ledgerIds.headOption.value)
         msgs <- singleClientQueryStream(jwt, uri, """{"templateIds": ["Iou:Iou"]}""")
           .take(10)
           .runWith(collectResultsAsTextMessage)
@@ -74,7 +73,6 @@ abstract class WebsocketServiceOffsetTickIntTest
         ledgerOffset <- client.transactionClient
           .getLedgerEnd(ledgerId)
           .map(domain.Offset.fromLedgerApi(_))
-        _ = println(ledgerOffset)
         jwt <- jwt(uri)
         msgs <- singleClientQueryStream(
           jwt,
@@ -98,12 +96,11 @@ abstract class WebsocketServiceOffsetTickIntTest
         ledgerOffset <- client.transactionClient
           .getLedgerEnd(ledgerId)
           .map(domain.Offset.fromLedgerApi(_))
-        _ = println(ledgerOffset)
         jwt <- jwt(uri)
         msgs <- singleClientQueryStream(
           jwt,
           uri,
-          s"""[{"templateIds": ["Iou:Iou"], "offset": "$ledgerOffset"}]""",
+          s"""[{"templateIds": ["Iou:Iou"], "offset": "${ledgerOffset.value}"}]""",
         )
           .take(10)
           .runWith(collectResultsAsTextMessage)

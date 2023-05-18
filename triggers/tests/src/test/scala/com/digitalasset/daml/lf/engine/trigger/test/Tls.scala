@@ -15,7 +15,9 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 import scalaz.syntax.tag._
 
-class Tls extends AsyncWordSpec with AbstractTriggerTestWithCanton with Matchers with TryValues {
+class Tls extends AsyncWordSpec with AbstractTriggerTest with Matchers with TryValues {
+
+  import AbstractTriggerTest._
 
   final override protected lazy val tlsEnable: Boolean = true
 

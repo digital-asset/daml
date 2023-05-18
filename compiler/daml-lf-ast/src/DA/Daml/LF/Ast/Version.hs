@@ -155,6 +155,13 @@ featureDynamicExercise = Feature
     , featureCppFlag = Just "DAML_DYNAMIC_EXERCISE"
     }
 
+featurePackageUpgrades :: Feature
+featurePackageUpgrades = Feature
+    { featureName = "Package upgrades POC"
+    , featureMinVersion = versionDev
+    , featureCppFlag = Just "DAML_PACKAGE_UPGRADES"
+    }
+
 featureExperimental :: Feature
 featureExperimental = Feature
     { featureName = "Daml Experimental"
@@ -179,6 +186,7 @@ allFeatures =
     , featureUnstable
     , featureExperimental
     , featureDynamicExercise
+    , featurePackageUpgrades
     ]
 
 featureVersionMap :: MS.Map T.Text Version

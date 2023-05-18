@@ -30,7 +30,6 @@ import com.daml.platform.participant.util.LfEngineToApi.lfValueToApiValue
 import com.daml.http.util.Logging.instanceUUIDLogCtx
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
-import com.typesafe.scalalogging.StrictLogging
 import org.scalatest._
 import org.scalatest.matchers.should.Matchers
 import scalaz.std.list._
@@ -128,8 +127,7 @@ object AbstractHttpServiceIntegrationTestFuns {
 
 @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
 trait AbstractHttpServiceIntegrationTestFuns
-    extends StrictLogging
-    with HttpServiceUserFixture
+    extends HttpServiceUserFixture
     with SandboxTestLedger
     with SuiteResourceManagementAroundAll {
   this: AsyncTestSuite with Matchers with Inside =>
@@ -168,7 +166,7 @@ trait AbstractHttpServiceIntegrationTestFuns
       maxInboundMessageSize: Int = StartSettings.DefaultMaxInboundMessageSize,
   )(
       testFn: HttpServiceTestFixtureData => Future[A]
-  ): Future[A] = usingLedger[A](testId, token map (_.value)) { case (ledgerPort, _, ledgerId) =>
+  ): Future[A] = usingLedger[A](token map (_.value)) { case (ledgerPort, _, ledgerId) =>
     HttpServiceTestFixture.withHttpService[A](
       testId,
       ledgerPort,
@@ -183,7 +181,7 @@ trait AbstractHttpServiceIntegrationTestFuns
 
   protected def withHttpServiceAndClient[A](token: Jwt)(
       testFn: (Uri, DomainJsonEncoder, DomainJsonDecoder, DamlLedgerClient, LedgerId) => Future[A]
-  ): Future[A] = usingLedger[A](testId, Some(token.value)) { case (ledgerPort, _, ledgerId) =>
+  ): Future[A] = usingLedger[A](Some(token.value)) { case (ledgerPort, _, ledgerId) =>
     HttpServiceTestFixture.withHttpService[A](
       testId,
       ledgerPort,
@@ -217,7 +215,7 @@ trait AbstractHttpServiceIntegrationTestFuns
     )((uri, encoder, decoder, _) => f(HttpServiceOnlyTestFixtureData(uri, encoder, decoder)))
 
   protected def withLedger[A](testFn: (DamlLedgerClient, LedgerId) => Future[A]): Future[A] =
-    usingLedger[A](testId, token = Some(jwtAdminNoParty.value)) { case (_, client, ledgerId) =>
+    usingLedger[A](Some(jwtAdminNoParty.value)) { case (_, client, ledgerId) =>
       testFn(client, ledgerId)
     }
 
@@ -234,20 +232,27 @@ trait AbstractHttpServiceIntegrationTestFuns
         name: String
     ): Future[(domain.Party, Jwt, domain.ApplicationId, List[HttpHeader])] = {
       val party = getUniqueParty(name)
+      val request = domain.AllocatePartyRequest(
+        Some(party),
+        None,
+      )
+      val json = SprayJson.encode(request).valueOr(e => fail(e.shows))
       for {
-        (jwt, appId) <- jwtAppIdForParties(uri)(List(party), List.empty, "", false, false)
+        domain.OkResponse(newParty, _, StatusCodes.OK) <-
+          postJsonRequest(
+            Uri.Path("/v1/parties/allocate"),
+            json = json,
+            headers = headersWithAdminAuth,
+          ).parseResponse[domain.PartyDetails]
+        (jwt, appId) <- jwtAppIdForParties(uri)(
+          List(newParty.identifier),
+          List.empty,
+          "",
+          false,
+          false,
+        )
         headers = authorizationHeader(jwt)
-        request = domain.AllocatePartyRequest(
-          Some(party),
-          None,
-        )
-        json = SprayJson.encode(request).valueOr(e => fail(e.shows))
-        _ <- postJsonRequest(
-          Uri.Path("/v1/parties/allocate"),
-          json = json,
-          headers = headersWithAdminAuth,
-        )
-      } yield (party, jwt, appId, headers)
+      } yield (newParty.identifier, jwt, appId, headers)
     }
 
     def headersWithAuth(implicit ec: ExecutionContext): Future[List[Authorization]] =

@@ -145,6 +145,7 @@ object ApiPackageManagementServiceSpec {
         Ast.PackageMetadata(
           Ref.PackageName.assertFromString("aPackage"),
           Ref.PackageVersion.assertFromString("0.0.0"),
+          None,
         )
       ),
     )

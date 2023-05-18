@@ -77,7 +77,7 @@ instance DA.Internal.Desugar.HasChoiceController T Call where
   _choiceController = GHC.Types.primitive @"EChoiceController"
 instance DA.Internal.Desugar.HasChoiceObserver T Call where
   _choiceObserver = GHC.Types.primitive @"EChoiceObserver"
-_choice$_TArchive :
+_choice$_T$Archive :
   (DA.Internal.Desugar.Consuming T,
    T -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.Optional (T
@@ -87,12 +87,12 @@ _choice$_TArchive :
    DA.Internal.Desugar.ContractId T
    -> T
       -> DA.Internal.Desugar.Archive -> DA.Internal.Desugar.Update (()))
-_choice$_TArchive
+_choice$_T$Archive
   = (DA.Internal.Desugar.Consuming, 
      \ this _ -> DA.Internal.Desugar.signatory this, 
      DA.Internal.Desugar.None, DA.Internal.Desugar.None, 
      \ _ _ _ -> pure ())
-_choice$_TCall :
+_choice$_T$Call :
   (DA.Internal.Desugar.Consuming T,
    T -> Call -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.Optional (T
@@ -101,7 +101,7 @@ _choice$_TCall :
                                  -> Call -> [DA.Internal.Desugar.Party]),
    DA.Internal.Desugar.ContractId T
    -> T -> Call -> DA.Internal.Desugar.Update (ContractId T))
-_choice$_TCall
+_choice$_T$Call
   = (DA.Internal.Desugar.Consuming, 
      \ this@T {..}
        -> DA.Internal.Desugar.bypassReduceLambda

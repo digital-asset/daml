@@ -6,7 +6,7 @@ resource "azurerm_linux_virtual_machine_scale_set" "ubuntu" {
   name                = local.ubuntu.azure[count.index].name
   resource_group_name = azurerm_resource_group.daml-ci.name
   location            = azurerm_resource_group.daml-ci.location
-  sku                 = "Standard_D4_v2"
+  sku                 = "Standard_D8_v5"
   instances           = local.ubuntu.azure[count.index].size
 
   admin_username                  = local.azure-admin-login
@@ -38,7 +38,7 @@ resource "azurerm_linux_virtual_machine_scale_set" "ubuntu" {
   }
 
   os_disk {
-    caching              = "ReadOnly"
+    caching              = "ReadWrite"
     storage_account_type = "Standard_LRS"
     disk_size_gb         = local.ubuntu.azure[count.index].disk_size
   }

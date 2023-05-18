@@ -153,7 +153,10 @@ private[lf] final class Compiler(
   def unsafeCompileModule( // called by scenario-service
       pkgId: PackageId,
       module: Module,
-  ): Iterable[(t.SDefinitionRef, SDefinition)] = compileModule(pkgId, module)
+  ): Iterable[(t.SDefinitionRef, SDefinition)] = {
+    val predPids = pkgInterface.lookupPredecessors(pkgId).getOrElse(List.empty)
+    compileModule(pkgId, module, predPids)
+  }
 
   @throws[PackageNotFound]
   @throws[CompilationError]
@@ -346,6 +349,7 @@ private[lf] final class Compiler(
   private[this] def compileModule(
       pkgId: PackageId,
       module: Module,
+      preds: List[PackageId],
   ): Iterable[(t.SDefinitionRef, SDefinition)] = {
     val builder = Iterable.newBuilder[(t.SDefinitionRef, SDefinition)]
     def addDef(binding: (t.SDefinitionRef, SDefinition)): Unit = discard(builder += binding)
@@ -366,6 +370,7 @@ private[lf] final class Compiler(
       val tmplId = Identifier(pkgId, QualifiedName(module.name, tmplName))
       addDef(compileCreate(tmplId, tmpl))
       addDef(compileFetchTemplate(tmplId, tmpl))
+      addDef(compileSoftFetchTemplate(tmplId, tmpl, preds))
       addDef(compileTemplatePreCondition(tmplId, tmpl))
       addDef(compileAgreementText(tmplId, tmpl))
       addDef(compileSignatories(tmplId, tmpl))
@@ -450,7 +455,9 @@ private[lf] final class Compiler(
 
     val t1 = Time.Timestamp.now()
 
-    val result = pkg.modules.values.flatMap(compileModule(pkgId, _))
+    val preds = pkgInterface.lookupPredecessors(pkgId).getOrElse(List.empty)
+
+    val result = pkg.modules.values.flatMap(compileModule(pkgId, _, preds))
 
     val t2 = Time.Timestamp.now()
     logger.trace(
@@ -731,6 +738,58 @@ private[lf] final class Compiler(
     //   in <tmplArg>
     topLevelFunction2(t.FetchTemplateDefRef(tmplId)) { (cidPos, tokenPos, env) =>
       translateFetchTemplateBody(env, tmplId, tmpl)(cidPos, None, tokenPos)
+    }
+
+  @nowarn("msg=parameter value tokenPos.* is never used")
+  private[this] def translateSoftFetchTemplateBody(
+      env: Env,
+      tmplId: Identifier,
+      tmpl: Template,
+      predPids: List[PackageId],
+  )(
+      cidPos: Position,
+      tokenPos: Position,
+  ): s.SExpr =
+    let(
+      env,
+      SBFetchAny(
+        env.toSEVar(cidPos),
+        s.SEValue.None,
+      ),
+    ) { (anyTmplArgPos, env) =>
+      let(
+        env,
+        SBPromoteAnyContract(
+          tmplId,
+          predPids.map(Identifier(_, tmplId.qualifiedName)),
+        )(
+          env.toSEVar(cidPos),
+          env.toSEVar(anyTmplArgPos),
+        ),
+      ) { (tmplArgPos, _env) =>
+        val env = _env.bindExprVar(tmpl.param, tmplArgPos)
+        let(
+          env,
+          SBUInsertFetchNode(tmplId, byKey = false)(env.toSEVar(cidPos)),
+        ) { (_, env) =>
+          env.toSEVar(tmplArgPos)
+        }
+      }
+    }
+
+  private[this] def compileSoftFetchTemplate(
+      tmplId: Identifier,
+      tmpl: Template,
+      predPids: List[PackageId],
+  ): (t.SDefinitionRef, SDefinition) =
+    // compile a template to
+    // SoftFetchTemplateDefRef(tmplId) = \ <coid> <token> ->
+    //   let <any_tmpl> = $fetch_any <coid> None
+    //       <softTmplArg> = $promote_any_contract(tmplId, [preds(tmplId)]) <coid> <any_tmpl>
+    //       _ = $insertFetch(tmplId, false) coid [tmpl.signatories] [tmpl.observers] []
+    //   in <softTmplArg>
+    topLevelFunction2(t.SoftFetchTemplateDefRef(tmplId)) { (cidPos, tokenPos, env) =>
+      translateSoftFetchTemplateBody(env, tmplId, tmpl, predPids)(cidPos, tokenPos)
     }
 
   private[this] def compileFetchInterface(ifaceId: Identifier): (t.SDefinitionRef, SDefinition) =

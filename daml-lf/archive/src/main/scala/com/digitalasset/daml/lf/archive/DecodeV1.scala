@@ -85,9 +85,17 @@ private[archive] class DecodeV1(minor: LV.Minor) {
       internedStrings.lift(id).getOrElse {
         throw Error.Parsing(s"invalid internedString table index $id")
       }
+    def getInternedPackageId(id: Int): PackageId =
+      eitherToParseError(PackageId.fromString(getInternedStr(id)))
     PackageMetadata(
       toPackageName(getInternedStr(metadata.getNameInternedStr), "PackageMetadata.name"),
       toPackageVersion(getInternedStr(metadata.getVersionInternedStr), "PackageMetadata.version22"),
+      if (metadata.hasUpgradedPackageId) {
+        assertSince(LV.Features.packageUpgrades, "Package.metadata.upgradedPackageId")
+        Some(
+          getInternedPackageId(metadata.getUpgradedPackageId.getUpgradedPackageIdInternedStr)
+        )
+      } else None,
     )
   }
 
@@ -1724,6 +1732,18 @@ private[archive] class DecodeV1(minor: LV.Minor) {
           val fetch = lfUpdate.getFetch
           decodeExpr(fetch.getCid, definition) { contractId =>
             Ret(UpdateFetchTemplate(templateId = decodeTypeConName(fetch.getTemplate), contractId))
+          }
+
+        case PLF.Update.SumCase.SOFT_FETCH =>
+          assertSince(LV.Features.packageUpgrades, "softFetch")
+          val softFetch = lfUpdate.getSoftFetch
+          decodeExpr(softFetch.getCid, definition) { contractId =>
+            Ret(
+              UpdateSoftFetchTemplate(
+                templateId = decodeTypeConName(softFetch.getTemplate),
+                contractId,
+              )
+            )
           }
 
         case PLF.Update.SumCase.FETCH_INTERFACE =>

@@ -489,7 +489,12 @@ runRepl importPkgs opts replClient logger ideState = do
                 Left diag -> handleIdeResult ([diag], Nothing)
                 Right (v, conversionWarnings) -> do
                    pkgs <- lift $ getExternalPackages file
-                   let world = LF.initWorldSelf pkgs (buildPackage (optMbPackageName opts) (optMbPackageVersion opts) lfVersion [])
+                   let pkgMeta = LF.PackageMetadata
+                          { packageName = fromMaybe (LF.PackageName "repl") (optMbPackageName opts)
+                          , packageVersion = fromMaybe (LF.PackageVersion "0.0.0") (optMbPackageVersion opts)
+                          , upgradedPackageId = Nothing
+                          }
+                   let world = LF.initWorldSelf pkgs (buildPackage pkgMeta lfVersion [])
                    let simplified = LF.simplifyModule world lfVersion v
                    case Serializability.inferModule world lfVersion simplified of
                        Left err -> handleIdeResult (conversionWarnings ++ [ideErrorPretty file err], Nothing)

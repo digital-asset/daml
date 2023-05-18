@@ -33,6 +33,7 @@ load("@rules_pkg//:pkg.bzl", "pkg_tar")
                     version = mangled_version,
                 ),
             ]),
+            visibility = ["//visibility:public"],
         ),
         proto_jars(
             name = "daml_lf_%s_archive_proto" % version,

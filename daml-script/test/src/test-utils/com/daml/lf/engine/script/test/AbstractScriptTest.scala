@@ -1,11 +1,13 @@
 // Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.engine.script
+package com.daml.lf
+package engine.script
 package test
 
 import java.nio.file.{Path, Paths}
 import com.daml.bazeltools.BazelRunfiles.rlocation
+import com.daml.integrationtest.CantonFixture
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.engine.script.ledgerinteraction.{
@@ -13,7 +15,6 @@ import com.daml.lf.engine.script.ledgerinteraction.{
   ScriptLedgerClient,
   ScriptTimeMode,
 }
-import com.daml.lf.integrationtest.CantonFixture
 import com.daml.lf.language.Ast
 import com.daml.lf.language.StablePackage.DA
 import com.daml.lf.speedy.{ArrayList, SValue}
@@ -25,8 +26,6 @@ import scala.concurrent.{ExecutionContext, Future}
 
 object AbstractScriptTest {
 
-  import CantonFixture._
-
   def tuple(a: SValue, b: SValue) =
     SValue.SRecord(
       id = DA.Types.Tuple2,
@@ -36,8 +35,8 @@ object AbstractScriptTest {
 
   val stableDarPath: Path = rlocation(Paths.get("daml-script/test/script-test.dar"))
   val devDarPath: Path = rlocation(Paths.get("daml-script/test/script-test-1.dev.dar"))
-  val stableDar: CompiledDar = readDar(stableDarPath, Runner.compilerConfig)
-  val devDar: CompiledDar = readDar(devDarPath, Runner.compilerConfig)
+  val stableDar: CompiledDar = CompiledDar.read(stableDarPath, Runner.compilerConfig)
+  val devDar: CompiledDar = CompiledDar.read(devDarPath, Runner.compilerConfig)
 }
 
 // Fixture for a set of participants used in Daml Script tests
@@ -50,8 +49,6 @@ trait AbstractScriptTest extends CantonFixture with AkkaBeforeAndAfterAll {
     case ScriptTimeMode.Static => TimeProviderType.Static
     case ScriptTimeMode.WallClock => TimeProviderType.WallClock
   }
-
-  import CantonFixture._
 
   final protected def run(
       clients: Participants[ScriptLedgerClient],
@@ -82,7 +79,7 @@ trait AbstractScriptTest extends CantonFixture with AkkaBeforeAndAfterAll {
       maxInboundMessageSize: Int = ScriptConfig.DefaultMaxInboundMessageSize,
   ): Future[Participants[GrpcLedgerClient]] = {
     implicit val ec: ExecutionContext = system.dispatcher
-    val participants = suiteResource.value.zipWithIndex.map { case (port, i) =>
+    val participants = ports.zipWithIndex.map { case (port, i) =>
       Participant(s"participant$i") -> ApiParameters(
         host = "localhost",
         port = port.value,

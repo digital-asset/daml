@@ -861,6 +861,8 @@ execPackage projectOpts filePath opts mbOutFile dalfInput =
                               , pDataDependencies = []
                               , pSdkVersion = PackageSdkVersion SdkVersion.sdkVersion
                               , pModulePrefixes = Map.empty
+                              , pUpgradedPackagePath = Nothing
+                              -- execPackage is deprecated so it doesn't need to support upgrades
                               }
                             (toNormalizedFilePath' $ fromMaybe ifaceDir $ optIfaceDir opts)
                             dalfInput

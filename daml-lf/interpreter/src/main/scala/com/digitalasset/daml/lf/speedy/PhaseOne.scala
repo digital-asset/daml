@@ -708,6 +708,10 @@ private[lf] final class PhaseOne(
         compileExp(env, coid) { coid =>
           Return(t.FetchTemplateDefRef(tmplId)(coid))
         }
+      case UpdateSoftFetchTemplate(tmplId, coid) =>
+        compileExp(env, coid) { coid =>
+          Return(t.SoftFetchTemplateDefRef(tmplId)(coid))
+        }
       case UpdateFetchInterface(ifaceId, coid) =>
         compileExp(env, coid) { coid =>
           Return(t.FetchInterfaceDefRef(ifaceId)(coid))

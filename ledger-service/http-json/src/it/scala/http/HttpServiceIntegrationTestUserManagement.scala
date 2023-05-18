@@ -14,10 +14,8 @@ import com.daml.jwt.domain.Jwt
 import com.daml.ledger.api.domain.{User, UserRight}
 import com.daml.ledger.api.domain.UserRight.{CanActAs, ParticipantAdmin}
 import com.daml.lf.data.Ref
-import com.daml.platform.sandbox.{SandboxRequiringAuthorization, SandboxRequiringAuthorizationFuns}
 import com.daml.test.evidence.scalatest.ScalaTestSupport.Implicits._
 import com.daml.test.evidence.tag.Security.Attack
-import com.typesafe.scalalogging.StrictLogging
 import org.scalatest.{Assertion, AsyncTestSuite, Inside}
 import org.scalatest.matchers.should.Matchers
 import scalaz.NonEmptyList
@@ -28,12 +26,10 @@ import scala.concurrent.{ExecutionContext, Future}
 import scalaz.syntax.tag._
 
 @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
-class HttpServiceIntegrationTestUserManagementNoAuth
+class HttpServiceIntegrationTestUserManagement
     extends AbstractHttpServiceIntegrationTestQueryStoreIndependent
     with AbstractHttpServiceIntegrationTestFuns
-    with HttpServiceUserFixture.UserToken
-    with SandboxRequiringAuthorizationFuns
-    with StrictLogging {
+    with HttpServiceUserFixture.UserToken {
 
   this: AsyncTestSuite with Matchers with Inside =>
 
@@ -84,12 +80,12 @@ class HttpServiceIntegrationTestUserManagementNoAuth
     "should work with correct user rights" taggedAs authorizationSecurity.setHappyCase(
       "A ledger client can create an IOU with correct user rights"
     ) in withHttpService { fixture =>
-      import fixture.{encoder, client => ledgerClient}
+      import fixture.{encoder, client}
       for {
         (alice, _) <- fixture.getUniquePartyAndAuthHeaders("Alice")
         command = iouCreateCommand(alice)
         input: JsValue = encoder.encodeCreateCommand(command).valueOr(e => fail(e.shows))
-        user <- createUser(ledgerClient)(
+        user <- createUser(client)(
           Ref.UserId.assertFromString(getUniqueUserName("nice.user")),
           initialRights = List(
             CanActAs(Ref.Party.assertFromString(alice.unwrap))
@@ -114,13 +110,13 @@ class HttpServiceIntegrationTestUserManagementNoAuth
         "refuse request with BAD_REQUEST",
       )
     ) in withHttpService { fixture =>
-      import fixture.{encoder, client => ledgerClient}
+      import fixture.{encoder, client}
       val alice = getUniqueParty("Alice")
       val command = iouCreateCommand(alice)
       val input: JsValue = encoder.encodeCreateCommand(command).valueOr(e => fail(e.shows))
       for {
         (bob, _) <- fixture.getUniquePartyAndAuthHeaders("Bob")
-        user <- createUser(ledgerClient)(
+        user <- createUser(client)(
           Ref.UserId.assertFromString(getUniqueUserName("nice.user")),
           initialRights = List(
             CanActAs(Ref.Party.assertFromString(bob.unwrap))
@@ -146,7 +142,7 @@ class HttpServiceIntegrationTestUserManagementNoAuth
           "refuse request with BAD_REQUEST",
         )
       ) in withHttpService { fixture =>
-      import fixture.{encoder, client => ledgerClient}
+      import fixture.{encoder, client}
       for {
         (alice, _) <- fixture.getUniquePartyAndAuthHeaders("Alice")
         (bob, _) <- fixture.getUniquePartyAndAuthHeaders("Bob")
@@ -160,7 +156,7 @@ class HttpServiceIntegrationTestUserManagementNoAuth
         )
         command = iouCreateCommand(alice, meta = Some(meta))
         input: JsValue = encoder.encodeCreateCommand(command).valueOr(e => fail(e.shows))
-        user <- createUser(ledgerClient)(
+        user <- createUser(client)(
           Ref.UserId.assertFromString(getUniqueUserName("nice.user")),
           initialRights = List(
             CanActAs(Ref.Party.assertFromString(alice.unwrap)),
@@ -181,10 +177,9 @@ class HttpServiceIntegrationTestUserManagementNoAuth
   }
 
   "requesting the user id should be possible via the user endpoint" in withHttpService { fixture =>
-    import fixture.{client => ledgerClient}
     import com.daml.http.json.JsonProtocol._
     for {
-      user <- createUser(ledgerClient)(
+      user <- createUser(fixture.client)(
         Ref.UserId.assertFromString(getUniqueUserName("nice.user")),
         initialRights = List.empty,
       )
@@ -206,12 +201,11 @@ class HttpServiceIntegrationTestUserManagementNoAuth
 
   "user/rights endpoint" - {
     "POST yields user rights for a specific user" in withHttpService { fixture =>
-      import fixture.{client => ledgerClient}
       import spray.json._
       for {
         (alice, _) <- fixture.getUniquePartyAndAuthHeaders("Alice")
         (bob, _) <- fixture.getUniquePartyAndAuthHeaders("Bob")
-        user <- createUser(ledgerClient)(
+        user <- createUser(fixture.client)(
           Ref.UserId.assertFromString(getUniqueUserName("nice.user")),
           initialRights = List(
             CanActAs(Ref.Party.assertFromString(alice.unwrap)),
@@ -233,11 +227,10 @@ class HttpServiceIntegrationTestUserManagementNoAuth
     }
 
     "GET yields user rights for the current user" in withHttpService { fixture =>
-      import fixture.{client => ledgerClient}
       for {
         (alice, _) <- fixture.getUniquePartyAndAuthHeaders("Alice")
         (bob, _) <- fixture.getUniquePartyAndAuthHeaders("Bob")
-        user <- createUser(ledgerClient)(
+        user <- createUser(fixture.client)(
           Ref.UserId.assertFromString(getUniqueUserName("nice.user")),
           initialRights = List(
             CanActAs(Ref.Party.assertFromString(alice.unwrap)),
@@ -633,7 +626,3 @@ class HttpServiceIntegrationTestUserManagementNoAuth
     }
   }
 }
-
-class HttpServiceIntegrationTestUserManagement
-    extends HttpServiceIntegrationTestUserManagementNoAuth
-    with SandboxRequiringAuthorization

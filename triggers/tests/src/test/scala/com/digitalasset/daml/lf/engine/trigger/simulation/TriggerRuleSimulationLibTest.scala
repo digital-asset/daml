@@ -12,7 +12,7 @@ import com.daml.lf.engine.trigger.Runner.{
   numberOfInFlightCreateCommands,
   numberOfPendingContracts,
 }
-import com.daml.lf.engine.trigger.test.AbstractTriggerTestWithCanton
+import com.daml.lf.engine.trigger.test.AbstractTriggerTest
 import com.daml.lf.speedy.SValue
 import org.scalacheck.Gen
 import org.scalatest.{Inside, TryValues}
@@ -24,12 +24,13 @@ import java.util.UUID
 
 class TriggerRuleSimulationLibTest
     extends AsyncWordSpec
-    with AbstractTriggerTestWithCanton
+    with AbstractTriggerTest
     with Matchers
     with Inside
     with TryValues
     with TriggerRuleSimulationLibTestGenerators {
 
+  import AbstractTriggerTest._
   import TriggerRuleSimulationLib._
 
   override protected def triggerRunnerConfiguration: TriggerRunnerConfig =

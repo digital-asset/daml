@@ -133,6 +133,9 @@ private[validation] object TypeIterable {
       case UpdateFetchTemplate(templateId, contractId) =>
         Iterator(TTyCon(templateId)) ++
           iterator(contractId)
+      case UpdateSoftFetchTemplate(templateId, contractId) =>
+        Iterator(TTyCon(templateId)) ++
+          iterator(contractId)
       case UpdateFetchInterface(interface, contractId) =>
         Iterator(TTyCon(interface)) ++
           iterator(contractId)

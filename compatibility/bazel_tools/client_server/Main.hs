@@ -2,14 +2,17 @@
 -- SPDX-License-Identifier: Apache-2.0
 module Main(main) where
 
-import System.Environment
-import Control.Exception.Safe
-import Control.Monad.Loops (untilJust)
-import System.Process
-import Data.List.Split (splitOn)
-import Control.Monad (forM_)
-import Network.Socket
 import Control.Concurrent
+import Control.Exception.Safe
+import Control.Monad (forM_, guard)
+import Control.Monad.Loops (untilJust)
+import Data.List.Split (splitOn)
+import Data.Maybe (isJust)
+import Network.HTTP.Client (parseUrlThrow)
+import Network.Socket
+import qualified Network.HTTP.Simple as HTTP
+import System.Environment
+import System.Process
 
 main :: IO ()
 main = do
@@ -19,6 +22,7 @@ main = do
   let ports :: [Int] = read <$> splitArgs runnerArgs
   withCreateProcess serverProc $ \_stdin _stdout _stderr _ph -> do
     forM_ ports $ \port -> waitForConnectionOnPort (threadDelay 500000) port
+    maybeHealthCheck (threadDelay 500000) ports
     callProcess clientExe (splitArgs clientArgs)
 
 
@@ -36,3 +40,18 @@ waitForConnectionOnPort sleep port = do
               (socket (addrFamily addr) (addrSocketType addr) (addrProtocol addr))
               close
               (\s -> connect s (addrAddress addr))
+
+maybeHealthCheck :: IO () -> [Int] -> IO ()
+maybeHealthCheck sleep (_:healthPort:_) = waitForHealthcheck sleep healthPort
+maybeHealthCheck _ _ = pure ()
+
+waitForHealthcheck :: IO () -> Int -> IO ()
+waitForHealthcheck sleep port = do
+    request <- parseUrlThrow $ "http://localhost:"  <> show port <> "/health"
+    untilJust $ do
+      r <- tryJust (\e -> guard (isIOException e || isHttpException e)) $ HTTP.httpNoBody request
+      case r of
+        Left _ -> sleep *> pure Nothing
+        Right _ -> pure $ Just ()
+  where isIOException e = isJust (fromException e :: Maybe IOException)
+        isHttpException e = isJust (fromException e :: Maybe HTTP.HttpException)

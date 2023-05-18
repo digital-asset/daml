@@ -4,6 +4,7 @@
 package com.daml.ledger.client
 
 import com.daml.grpc.GrpcException
+import com.daml.integrationtest.CantonFixture
 import com.daml.jwt.JwtSigner
 import com.daml.jwt.domain.DecodedJwt
 import com.daml.ledger.api.auth.AuthServiceJWTCodec
@@ -13,7 +14,6 @@ import com.daml.ledger.client.configuration.{
   LedgerIdRequirement,
   CommandClientConfiguration,
 }
-import com.daml.lf.integrationtest.CantonFixture
 import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
@@ -56,7 +56,7 @@ final class LedgerClientAuthIT extends AsyncWordSpec with Matchers with Inside w
     )
   )
 
-  lazy val channel = config.channel(suiteResource.value.head)
+  lazy val channel = config.channel(ports.head)
 
   "the ledger client" when {
     "it has a read-only token" should {

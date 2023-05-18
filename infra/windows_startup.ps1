@@ -36,7 +36,7 @@ Set-ItemProperty -Path 'Registry::HKEY_LOCAL_MACHINE\System\CurrentControlSet\Co
 
 echo "== Prepare the D:\ drive"
 
-$partition = @"
+$partition = @"${azure_disk}
 select disk 1
 clean
 convert gpt

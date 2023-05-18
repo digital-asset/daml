@@ -56,7 +56,7 @@ instance DA.Internal.Desugar.HasChoiceController I DA.Internal.Desugar.Archive w
   _choiceController = GHC.Types.primitive @"EChoiceController"
 instance DA.Internal.Desugar.HasChoiceObserver I DA.Internal.Desugar.Archive where
   _choiceObserver = GHC.Types.primitive @"EChoiceObserver"
-_choice$_IArchive :
+_choice$_I$Archive :
   (DA.Internal.Desugar.Consuming I,
    I -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.Optional (I
@@ -66,7 +66,7 @@ _choice$_IArchive :
    DA.Internal.Desugar.ContractId I
    -> I
       -> DA.Internal.Desugar.Archive -> DA.Internal.Desugar.Update (()))
-_choice$_IArchive
+_choice$_I$Archive
   = (DA.Internal.Desugar.Consuming, 
      \ this _ -> DA.Internal.Desugar.signatory this, 
      DA.Internal.Desugar.None, DA.Internal.Desugar.None, 
@@ -131,7 +131,7 @@ instance DA.Internal.Desugar.HasChoiceController T DA.Internal.Desugar.Archive w
   _choiceController = GHC.Types.primitive @"EChoiceController"
 instance DA.Internal.Desugar.HasChoiceObserver T DA.Internal.Desugar.Archive where
   _choiceObserver = GHC.Types.primitive @"EChoiceObserver"
-_choice$_TArchive :
+_choice$_T$Archive :
   (DA.Internal.Desugar.Consuming T,
    T -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.Optional (T
@@ -141,7 +141,7 @@ _choice$_TArchive :
    DA.Internal.Desugar.ContractId T
    -> T
       -> DA.Internal.Desugar.Archive -> DA.Internal.Desugar.Update (()))
-_choice$_TArchive
+_choice$_T$Archive
   = (DA.Internal.Desugar.Consuming, 
      \ this _ -> DA.Internal.Desugar.signatory this, 
      DA.Internal.Desugar.None, DA.Internal.Desugar.None, 
@@ -219,7 +219,7 @@ instance DA.Internal.Desugar.HasChoiceController U DA.Internal.Desugar.Archive w
   _choiceController = GHC.Types.primitive @"EChoiceController"
 instance DA.Internal.Desugar.HasChoiceObserver U DA.Internal.Desugar.Archive where
   _choiceObserver = GHC.Types.primitive @"EChoiceObserver"
-_choice$_UArchive :
+_choice$_U$Archive :
   (DA.Internal.Desugar.Consuming U,
    U -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.Optional (U
@@ -229,7 +229,7 @@ _choice$_UArchive :
    DA.Internal.Desugar.ContractId U
    -> U
       -> DA.Internal.Desugar.Archive -> DA.Internal.Desugar.Update (()))
-_choice$_UArchive
+_choice$_U$Archive
   = (DA.Internal.Desugar.Consuming, 
      \ this _ -> DA.Internal.Desugar.signatory this, 
      DA.Internal.Desugar.None, DA.Internal.Desugar.None, 
