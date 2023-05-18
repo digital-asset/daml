@@ -205,7 +205,7 @@ instance DA.Internal.Record.HasField "byHowMuch" GetRich Int where
     = DA.Internal.Record.getFieldPrim @"byHowMuch" @GetRich @Int
   setField
     = DA.Internal.Record.setFieldPrim @"byHowMuch" @GetRich @Int
-_choice$_TokenArchive :
+_choice$_Token$Archive :
   (DA.Internal.Desugar.Consuming Token,
    Token
    -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party],
@@ -216,12 +216,12 @@ _choice$_TokenArchive :
    DA.Internal.Desugar.ContractId Token
    -> Token
       -> DA.Internal.Desugar.Archive -> DA.Internal.Desugar.Update (()))
-_choice$_TokenArchive
+_choice$_Token$Archive
   = (DA.Internal.Desugar.Consuming, 
      \ this _ -> DA.Internal.Desugar.signatory this, 
      DA.Internal.Desugar.None, DA.Internal.Desugar.None, 
      \ _ _ _ -> pure ())
-_choice$_TokenSplit :
+_choice$_Token$Split :
   (DA.Internal.Desugar.Consuming Token,
    Token -> Split -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.Optional (Token
@@ -233,7 +233,7 @@ _choice$_TokenSplit :
       -> Split
          -> DA.Internal.Desugar.Update ((ContractId Token,
                                          ContractId Token)))
-_choice$_TokenSplit
+_choice$_Token$Split
   = (DA.Internal.Desugar.Consuming, 
      \ this arg@Split {..}
        -> let _ = this in
@@ -245,7 +245,7 @@ _choice$_TokenSplit
      \ self this arg@Split {..}
        -> let _ = self in
           let _ = this in let _ = arg in do splitImpl this splitAmount)
-_choice$_TokenTransfer :
+_choice$_Token$Transfer :
   (DA.Internal.Desugar.Consuming Token,
    Token -> Transfer -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.Optional (Token
@@ -255,7 +255,7 @@ _choice$_TokenTransfer :
    DA.Internal.Desugar.ContractId Token
    -> Token
       -> Transfer -> DA.Internal.Desugar.Update (ContractId Token))
-_choice$_TokenTransfer
+_choice$_Token$Transfer
   = (DA.Internal.Desugar.Consuming, 
      \ this arg@Transfer {..}
        -> let _ = this in
@@ -269,7 +269,7 @@ _choice$_TokenTransfer
      \ self this arg@Transfer {..}
        -> let _ = self in
           let _ = this in let _ = arg in do transferImpl this newOwner)
-_choice$_TokenNoop :
+_choice$_Token$Noop :
   (DA.Internal.Desugar.NonConsuming Token,
    Token -> Noop -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.Optional (Token
@@ -278,7 +278,7 @@ _choice$_TokenNoop :
                                  -> Noop -> [DA.Internal.Desugar.Party]),
    DA.Internal.Desugar.ContractId Token
    -> Token -> Noop -> DA.Internal.Desugar.Update (()))
-_choice$_TokenNoop
+_choice$_Token$Noop
   = (DA.Internal.Desugar.NonConsuming, 
      \ this arg@Noop {..}
        -> let _ = this in
@@ -290,7 +290,7 @@ _choice$_TokenNoop
      \ self this arg@Noop {..}
        -> let _ = self in
           let _ = this in let _ = arg in do noopImpl this nothing)
-_choice$_TokenGetRich :
+_choice$_Token$GetRich :
   (DA.Internal.Desugar.Consuming Token,
    Token -> GetRich -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.Optional (Token
@@ -300,7 +300,7 @@ _choice$_TokenGetRich :
    DA.Internal.Desugar.ContractId Token
    -> Token
       -> GetRich -> DA.Internal.Desugar.Update (ContractId Token))
-_choice$_TokenGetRich
+_choice$_Token$GetRich
   = (DA.Internal.Desugar.Consuming, 
      \ this arg@GetRich {..}
        -> let _ = this in

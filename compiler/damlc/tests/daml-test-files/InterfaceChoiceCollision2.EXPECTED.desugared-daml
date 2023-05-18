@@ -94,7 +94,7 @@ instance DA.Internal.Desugar.HasChoiceObserver Interface MyArchive where
 data MyArchive
   = MyArchive {}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
-_choice$_InterfaceArchive :
+_choice$_Interface$Archive :
   (DA.Internal.Desugar.Consuming Interface,
    Interface
    -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party],
@@ -105,12 +105,12 @@ _choice$_InterfaceArchive :
    DA.Internal.Desugar.ContractId Interface
    -> Interface
       -> DA.Internal.Desugar.Archive -> DA.Internal.Desugar.Update (()))
-_choice$_InterfaceArchive
+_choice$_Interface$Archive
   = (DA.Internal.Desugar.Consuming, 
      \ this _ -> DA.Internal.Desugar.signatory this, 
      DA.Internal.Desugar.None, DA.Internal.Desugar.None, 
      \ _ _ _ -> pure ())
-_choice$_InterfaceMyArchive :
+_choice$_Interface$MyArchive :
   (DA.Internal.Desugar.Consuming Interface,
    Interface -> MyArchive -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.Optional (Interface
@@ -119,7 +119,7 @@ _choice$_InterfaceMyArchive :
                                  -> MyArchive -> [DA.Internal.Desugar.Party]),
    DA.Internal.Desugar.ContractId Interface
    -> Interface -> MyArchive -> DA.Internal.Desugar.Update (()))
-_choice$_InterfaceMyArchive
+_choice$_Interface$MyArchive
   = (DA.Internal.Desugar.Consuming, 
      \ this arg@MyArchive
        -> let _ = this in

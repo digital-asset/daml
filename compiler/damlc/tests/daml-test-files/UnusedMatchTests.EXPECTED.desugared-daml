@@ -113,7 +113,7 @@ instance DA.Internal.Desugar.HasChoiceController T Revoke where
   _choiceController = GHC.Types.primitive @"EChoiceController"
 instance DA.Internal.Desugar.HasChoiceObserver T Revoke where
   _choiceObserver = GHC.Types.primitive @"EChoiceObserver"
-_choice$_TArchive :
+_choice$_T$Archive :
   (DA.Internal.Desugar.Consuming T,
    T -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.Optional (T
@@ -123,12 +123,12 @@ _choice$_TArchive :
    DA.Internal.Desugar.ContractId T
    -> T
       -> DA.Internal.Desugar.Archive -> DA.Internal.Desugar.Update (()))
-_choice$_TArchive
+_choice$_T$Archive
   = (DA.Internal.Desugar.Consuming, 
      \ this _ -> DA.Internal.Desugar.signatory this, 
      DA.Internal.Desugar.None, DA.Internal.Desugar.None, 
      \ _ _ _ -> pure ())
-_choice$_TRevoke :
+_choice$_T$Revoke :
   (DA.Internal.Desugar.Consuming T,
    T -> Revoke -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.Optional (T
@@ -137,7 +137,7 @@ _choice$_TRevoke :
                                  -> Revoke -> [DA.Internal.Desugar.Party]),
    DA.Internal.Desugar.ContractId T
    -> T -> Revoke -> DA.Internal.Desugar.Update (()))
-_choice$_TRevoke
+_choice$_T$Revoke
   = (DA.Internal.Desugar.Consuming, 
      \ this@T {..} arg@Revoke
        -> let
