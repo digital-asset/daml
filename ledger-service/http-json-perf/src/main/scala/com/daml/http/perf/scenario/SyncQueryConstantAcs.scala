@@ -4,9 +4,10 @@ package com.daml.http.perf.scenario
 
 import io.gatling.core.Predef._
 import io.gatling.http.Predef._
+import scalaz.NonEmptyList
 
 @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
-class SyncQueryConstantAcs extends Simulation with SimulationConfig with HasRandomAmount {
+class SyncQueryConstantAcs extends Simulation with SimulationConfig with HasRandomAmount with HasPartyRequest {
 
   private val createRequest =
     http("CreateCommand")
@@ -43,6 +44,8 @@ class SyncQueryConstantAcs extends Simulation with SimulationConfig with HasRand
     }
 
   setUp(
-    scn.inject(atOnceUsers(defaultNumUsers))
+    withParties(NonEmptyList(alice)) {
+      scn.inject(atOnceUsers(defaultNumUsers))
+    }
   ).protocols(httpProtocol)
 }

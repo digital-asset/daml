@@ -4,9 +4,10 @@ package com.daml.http.perf.scenario
 
 import io.gatling.core.Predef._
 import io.gatling.http.Predef._
+import scalaz.NonEmptyList
 
 @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
-class ExerciseCommand extends Simulation with SimulationConfig {
+class ExerciseCommand extends Simulation with SimulationConfig with HasPartyRequest {
 
   private val createCommand = s"""{
   "templateId": "Iou:Iou",
@@ -54,8 +55,9 @@ class ExerciseCommand extends Simulation with SimulationConfig {
     .foreach("${contractIds}", "contractId")(exec(exerciseRequest))
 
   setUp(
-    scn
+    withParties(NonEmptyList(alice)){ scn
       .inject(atOnceUsers(defaultNumUsers))
       .andThen(queryScn.inject(atOnceUsers(1)))
+    }
   ).protocols(httpProtocol)
 }

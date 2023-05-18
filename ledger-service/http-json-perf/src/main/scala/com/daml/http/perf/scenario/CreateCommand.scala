@@ -4,9 +4,10 @@ package com.daml.http.perf.scenario
 
 import io.gatling.core.Predef._
 import io.gatling.http.Predef._
+import scalaz.NonEmptyList
 
 @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
-class CreateCommand extends Simulation with SimulationConfig {
+class CreateCommand extends Simulation with SimulationConfig with HasPartyRequest {
 
   private val jsonCommand = s"""{
   "templateId": "Iou:Iou",
@@ -28,6 +29,8 @@ class CreateCommand extends Simulation with SimulationConfig {
     .repeat(numberOfRuns / defaultNumUsers)(exec(request))
 
   setUp(
-    scn.inject(atOnceUsers(defaultNumUsers))
+    withParties(NonEmptyList(alice)) {
+      scn.inject(atOnceUsers(defaultNumUsers))
+    }
   ).protocols(httpProtocol)
 }

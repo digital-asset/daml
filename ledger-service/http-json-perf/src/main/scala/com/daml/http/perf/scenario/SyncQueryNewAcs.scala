@@ -6,6 +6,7 @@ package com.daml.http.perf.scenario
 import io.gatling.core.Predef._
 import io.gatling.http.Predef._
 import io.gatling.http.check.HttpCheck
+import scalaz.NonEmptyList
 
 import java.util.concurrent.{BlockingQueue, LinkedBlockingQueue}
 
@@ -16,6 +17,7 @@ class SyncQueryNewAcs
     with HasRandomAmount
     with HasCreateRequest
     with HasArchiveRequest
+    with HasPartyRequest
     with HasQueryRequest {
 
   private val wantedAcsSize = 1000
@@ -47,6 +49,8 @@ class SyncQueryNewAcs
       }
 
   setUp(
-    syncQueryNewAcs.inject(atOnceUsers(defaultNumUsers))
+    withParties(NonEmptyList(alice)) {
+      syncQueryNewAcs.inject(atOnceUsers(defaultNumUsers))
+    }
   ).protocols(httpProtocol)
 }

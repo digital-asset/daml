@@ -4,6 +4,7 @@
 package com.daml.http.perf.scenario
 
 import io.gatling.core.Predef._
+import scalaz.NonEmptyList
 
 import scala.concurrent.duration._
 
@@ -14,6 +15,7 @@ class SyncQueryVariableAcs
     with HasRandomAmount
     with HasCreateRequest
     with HasQueryRequest
+    with HasPartyRequest
     with HasArchiveRequest {
 
   private val wantedAcsSize = 5000
@@ -43,8 +45,10 @@ class SyncQueryVariableAcs
       }
 
   setUp(
-    fillAcsScenario(wantedAcsSize, silent = true).inject(atOnceUsers(defaultNumUsers)).andThen {
-      syncQueryScenario.inject(atOnceUsers(1))
+    withParties(NonEmptyList(alice)) {
+      fillAcsScenario(wantedAcsSize, silent = true).inject(atOnceUsers(defaultNumUsers)).andThen {
+        syncQueryScenario.inject(atOnceUsers(1))
+      }
     }
   ).protocols(httpProtocol)
 }

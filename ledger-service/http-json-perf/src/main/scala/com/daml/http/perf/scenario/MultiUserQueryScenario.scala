@@ -7,6 +7,7 @@ import com.daml.http.perf.scenario.MultiUserQueryScenario._
 import io.gatling.core.Predef._
 import io.gatling.core.structure.PopulationBuilder
 import io.gatling.http.Predef._
+import scalaz.NonEmptyList
 
 import scala.annotation.nowarn
 import scala.concurrent.duration._
@@ -33,6 +34,7 @@ class MultiUserQueryScenario
     extends Simulation
     with SimulationConfig
     with HasRandomAmount
+    with HasPartyRequest
     with HasRandomCurrency {
 
   private def getEnvValueAsInt(key: String, default: Int) = {
@@ -170,6 +172,8 @@ class MultiUserQueryScenario
   }
 
   setUp(
-    getPopulationBuilder(runMode(runModeString))
+    withParties(NonEmptyList(alice, bob, trent)) {
+      getPopulationBuilder(runMode(runModeString))
+    }
   ).protocols(httpProtocol)
 }

@@ -6,6 +6,7 @@ package com.daml.http.perf.scenario
 import io.gatling.core.Predef._
 import io.gatling.http.Predef._
 import io.gatling.http.check.ws.WsTextFrameCheck
+import scalaz.NonEmptyList
 
 import scala.concurrent.duration._
 
@@ -14,6 +15,7 @@ class AsyncQueryConstantAcs
     extends Simulation
     with SimulationConfig
     with HasRandomAmount
+    with HasPartyRequest
     with HasCreateRequest {
 
   private val wantedAcsSize = 5000
@@ -53,8 +55,10 @@ class AsyncQueryConstantAcs
     )
 
   setUp(
-    fillAcsScenario(wantedAcsSize, silent = true).inject(atOnceUsers(defaultNumUsers)).andThen {
-      asyncQueryScenario.inject(atOnceUsers(defaultNumUsers))
+    withParties(NonEmptyList(alice)) {
+      fillAcsScenario(wantedAcsSize, silent = true).inject(atOnceUsers(defaultNumUsers)).andThen {
+        asyncQueryScenario.inject(atOnceUsers(defaultNumUsers))
+      }
     }
   ).protocols(httpProtocol)
 
