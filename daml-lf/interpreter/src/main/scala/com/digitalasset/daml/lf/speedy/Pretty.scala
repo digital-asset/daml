@@ -151,64 +151,71 @@ private[lf] object Pretty {
       case ContractIdInContractKey(key) =>
         text("Contract IDs are not supported in contract keys:") &
           prettyContractId(key.cids.head)
-      case Limit(error) =>
+      case Dev(_, error) =>
         error match {
-          case Limit.ValueNesting(limit) =>
-            text(s"Value exceeds maximum nesting value of $limit")
-          case Limit.ContractSignatories(cid @ _, templateId, arg @ _, signatories, limit) =>
-            text(
-              s"Create Fetch or exercise a Contract of type $templateId with ${signatories.size} signatories but the limit is $limit"
-            )
-          case Limit.ContractObservers(cid @ _, templateId, arg @ _, observers, limit) =>
-            text(
-              s"Create Fetch or exercise a Contract of type $templateId  ${observers.size} observes but the limit is $limit"
-            )
-          case Limit.ChoiceControllers(
-                cid @ _,
-                templateId,
-                choiceName,
-                arg @ _,
-                controllers,
-                limit,
-              ) =>
-            text(
-              s"Exercise the choice $templateId:$choiceName with ${controllers.size} controllers but the limit is $limit"
-            )
-          case Limit.ChoiceObservers(
-                cid @ _,
-                templateId,
-                choiceName,
-                arg @ _,
-                observers,
-                limit,
-              ) =>
-            text(
-              s"Exercise the choice $templateId:$choiceName with ${observers.size} observers but the limit is $limit"
-            )
-          case Limit.ChoiceAuthorizers(
-                cid @ _,
-                templateId,
-                choiceName,
-                arg @ _,
-                authorizers,
-                limit,
-              ) =>
-            text(
-              s"Exercise the choice $templateId:$choiceName with ${authorizers.size} authorizers but the limit is $limit"
-            )
-          case Limit.TransactionInputContracts(limit) =>
-            text(s"Transaction exceeds maximum input contract number of $limit")
+          case Dev.Limit(error) =>
+            error match {
+              case Dev.Limit.ValueNesting(limit) =>
+                text(s"Value exceeds maximum nesting value of $limit")
+              case Dev.Limit.ContractSignatories(
+                    cid @ _,
+                    templateId,
+                    arg @ _,
+                    signatories,
+                    limit,
+                  ) =>
+                text(
+                  s"Create Fetch or exercise a Contract of type $templateId with ${signatories.size} signatories but the limit is $limit"
+                )
+              case Dev.Limit.ContractObservers(cid @ _, templateId, arg @ _, observers, limit) =>
+                text(
+                  s"Create Fetch or exercise a Contract of type $templateId  ${observers.size} observes but the limit is $limit"
+                )
+              case Dev.Limit.ChoiceControllers(
+                    cid @ _,
+                    templateId,
+                    choiceName,
+                    arg @ _,
+                    controllers,
+                    limit,
+                  ) =>
+                text(
+                  s"Exercise the choice $templateId:$choiceName with ${controllers.size} controllers but the limit is $limit"
+                )
+              case Dev.Limit.ChoiceObservers(
+                    cid @ _,
+                    templateId,
+                    choiceName,
+                    arg @ _,
+                    observers,
+                    limit,
+                  ) =>
+                text(
+                  s"Exercise the choice $templateId:$choiceName with ${observers.size} observers but the limit is $limit"
+                )
+              case Dev.Limit.ChoiceAuthorizers(
+                    cid @ _,
+                    templateId,
+                    choiceName,
+                    arg @ _,
+                    authorizers,
+                    limit,
+                  ) =>
+                text(
+                  s"Exercise the choice $templateId:$choiceName with ${authorizers.size} authorizers but the limit is $limit"
+                )
+              case Dev.Limit.TransactionInputContracts(limit) =>
+                text(s"Transaction exceeds maximum input contract number of $limit")
+            }
+          case Dev.ChoiceGuardFailed(cid, templateId, choiceName, byInterface) =>
+            text(s"Choice guard failed for") & prettyTypeConName(templateId) &
+              text(s"contract") & prettyContractId(cid) &
+              text(s"when exercising choice $choiceName") &
+              (byInterface match {
+                case None => text("by template")
+                case Some(interfaceId) => text("by interface") & prettyTypeConName(interfaceId)
+              })
         }
-
-      case ChoiceGuardFailed(cid, templateId, choiceName, byInterface) => (
-        text(s"Choice guard failed for") & prettyTypeConName(templateId) &
-          text(s"contract") & prettyContractId(cid) &
-          text(s"when exercising choice $choiceName") &
-          (byInterface match {
-            case None => text("by template")
-            case Some(interfaceId) => text("by interface") & prettyTypeConName(interfaceId)
-          })
-      )
     }
   }
 

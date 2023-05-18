@@ -160,69 +160,75 @@ object Error {
 
   final case class ContractIdInContractKey(key: Value) extends Error
 
-  @deprecated("use Limit.ValueNesting", since = "2.0.0")
-  val ValueExceedsMaxNesting: Limit.ValueNesting.type = Limit.ValueNesting
+  // Error that can be thrown by dev or PoC feature only
+  final case class Dev(location: String, error: Dev.Error) extends Error
 
-  /** A choice guard returned false, invalidating some expectation. */
-  final case class ChoiceGuardFailed(
-      coid: ContractId,
-      templateId: TypeConName,
-      choiceName: ChoiceName,
-      byInterface: Option[TypeConName],
-  ) extends Error
-
-  final case class Limit(error: Limit.Error) extends Error
-
-  object Limit {
+  object Dev {
 
     sealed abstract class Error extends Serializable with Product
 
-    final case class ValueNesting(limit: Int) extends Error
-
-    final case class ContractSignatories(
-        coid: Value.ContractId,
-        templateId: TypeConName,
-        arg: Value,
-        signatories: Set[Party],
-        limit: Int,
-    ) extends Error
-
-    final case class ContractObservers(
-        coid: Value.ContractId,
-        templateId: TypeConName,
-        arg: Value,
-        observers: Set[Party],
-        limit: Int,
-    ) extends Error
-
-    final case class ChoiceControllers(
-        cid: Value.ContractId,
+    /** A choice guard returned false, invalidating some expectation. */
+    final case class ChoiceGuardFailed(
+        coid: ContractId,
         templateId: TypeConName,
         choiceName: ChoiceName,
-        arg: Value,
-        controllers: Set[Party],
-        limit: Int,
+        byInterface: Option[TypeConName],
     ) extends Error
 
-    final case class ChoiceObservers(
-        cid: Value.ContractId,
-        templateId: TypeConName,
-        choiceName: ChoiceName,
-        arg: Value,
-        observers: Set[Party],
-        limit: Int,
-    ) extends Error
+    final case class Limit(error: Limit.Error) extends Error
 
-    final case class ChoiceAuthorizers(
-        cid: Value.ContractId,
-        templateId: TypeConName,
-        choiceName: ChoiceName,
-        arg: Value,
-        observers: Set[Party],
-        limit: Int,
-    ) extends Error
+    object Limit {
 
-    final case class TransactionInputContracts(limit: Int) extends Error
+      sealed abstract class Error extends Serializable with Product
+
+      final case class ValueNesting(limit: Int) extends Error
+
+      final case class ContractSignatories(
+          coid: Value.ContractId,
+          templateId: TypeConName,
+          arg: Value,
+          signatories: Set[Party],
+          limit: Int,
+      ) extends Error
+
+      final case class ContractObservers(
+          coid: Value.ContractId,
+          templateId: TypeConName,
+          arg: Value,
+          observers: Set[Party],
+          limit: Int,
+      ) extends Error
+
+      final case class ChoiceControllers(
+          cid: Value.ContractId,
+          templateId: TypeConName,
+          choiceName: ChoiceName,
+          arg: Value,
+          controllers: Set[Party],
+          limit: Int,
+      ) extends Error
+
+      final case class ChoiceObservers(
+          cid: Value.ContractId,
+          templateId: TypeConName,
+          choiceName: ChoiceName,
+          arg: Value,
+          observers: Set[Party],
+          limit: Int,
+      ) extends Error
+
+      final case class ChoiceAuthorizers(
+          cid: Value.ContractId,
+          templateId: TypeConName,
+          choiceName: ChoiceName,
+          arg: Value,
+          observers: Set[Party],
+          limit: Int,
+      ) extends Error
+
+      final case class TransactionInputContracts(limit: Int) extends Error
+    }
+
   }
 
 }
