@@ -60,7 +60,7 @@ abstract class TriggerMultiProcessSimulation extends AsyncWordSpec with Abstract
       Behaviors
         .supervise[Message] {
           Behaviors.setup { context =>
-            var processSimulation: Option[ActorRef[Unit]] = None
+            var simulationController: Option[ActorRef[Unit]] = None
 
             context.log.info(s"Simulation will run for ${simulationConfig.simulationDuration}")
             context.self ! StartSimulation
@@ -69,17 +69,17 @@ abstract class TriggerMultiProcessSimulation extends AsyncWordSpec with Abstract
               Behaviors
                 .receiveMessage[Message] {
                   case StartSimulation =>
-                    processSimulation =
+                    simulationController =
                       Some(context.spawn(triggerMultiProcessSimulation, "simulation-controller"))
-                    processSimulation.foreach(context.watch)
+                    simulationController.foreach(context.watch)
                     Behaviors.same
 
                   case StopSimulation =>
                     context.log.info(
                       s"Simulation stopped after ${simulationConfig.simulationDuration}"
                     )
-                    processSimulation.foreach(context.stop)
-                    processSimulation = None
+                    simulationController.foreach(context.stop)
+                    simulationController = None
                     simulationTerminatedNormally.success(())
                     Behaviors.stopped
                 }
