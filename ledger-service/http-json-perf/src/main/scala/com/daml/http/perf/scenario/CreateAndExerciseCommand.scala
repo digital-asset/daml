@@ -34,7 +34,7 @@ class CreateAndExerciseCommand extends Simulation with SimulationConfig with Has
     .repeat(numberOfRuns / defaultNumUsers)(exec(request))
 
   setUp(
-    withParties(NonEmptyList(alice, bob)){
+    withParties(NonEmptyList(alice, bob)) {
       scn.inject(atOnceUsers(defaultNumUsers))
     }
   ).protocols(httpProtocol)

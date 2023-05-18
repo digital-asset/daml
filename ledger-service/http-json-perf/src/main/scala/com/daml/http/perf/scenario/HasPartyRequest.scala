@@ -9,7 +9,7 @@ import io.gatling.core.structure.{PopulationBuilder, StructureSupport}
 import io.gatling.http.Predef._
 import scalaz._
 
-private[scenario] trait HasPartyRequest extends StructureSupport{
+private[scenario] trait HasPartyRequest extends StructureSupport {
 
   private lazy val aliceParty =
     """{
@@ -35,13 +35,15 @@ private[scenario] trait HasPartyRequest extends StructureSupport{
     .post("/v1/parties/allocate")
     .body(StringBody(bobParty))
 
-  protected lazy val trent= http("CreateParty")
+  protected lazy val trent = http("CreateParty")
     .post("/v1/parties/allocate")
     .body(StringBody(trentParty))
 
-  def withParties(parties: NonEmptyList[ActionBuilder])(nextStep: PopulationBuilder): PopulationBuilder =
-      scenario("CreateParties")
-        .repeat(1)(chain(parties.list.toList))
-        .inject(atOnceUsers(1))
-        .andThen(nextStep)
+  def withParties(
+      parties: NonEmptyList[ActionBuilder]
+  )(nextStep: PopulationBuilder): PopulationBuilder =
+    scenario("CreateParties")
+      .repeat(1)(chain(parties.list.toList))
+      .inject(atOnceUsers(1))
+      .andThen(nextStep)
 }

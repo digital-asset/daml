@@ -7,7 +7,11 @@ import io.gatling.http.Predef._
 import scalaz.NonEmptyList
 
 @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
-class SyncQueryConstantAcs extends Simulation with SimulationConfig with HasRandomAmount with HasPartyRequest {
+class SyncQueryConstantAcs
+    extends Simulation
+    with SimulationConfig
+    with HasRandomAmount
+    with HasPartyRequest {
 
   private val createRequest =
     http("CreateCommand")

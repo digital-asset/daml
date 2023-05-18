@@ -55,9 +55,10 @@ class ExerciseCommand extends Simulation with SimulationConfig with HasPartyRequ
     .foreach("${contractIds}", "contractId")(exec(exerciseRequest))
 
   setUp(
-    withParties(NonEmptyList(alice)){ scn
-      .inject(atOnceUsers(defaultNumUsers))
-      .andThen(queryScn.inject(atOnceUsers(1)))
+    withParties(NonEmptyList(alice)) {
+      scn
+        .inject(atOnceUsers(defaultNumUsers))
+        .andThen(queryScn.inject(atOnceUsers(1)))
     }
   ).protocols(httpProtocol)
 }
