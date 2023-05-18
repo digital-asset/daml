@@ -170,7 +170,7 @@ data TemplateMaps = TemplateMaps
   -- ^ maps choice names to their return types
   , signatoryMap :: MS.Map Typename String
   -- ^ maps template names to their signatory body stringified
-  , choiceControllerMap :: MS.Map T.Text String
+  , choiceControllerMap :: MS.Map (Typename, Typename) String
   -- ^ maps choice names to their controller body stringified (excluding Archive)
   }
 
@@ -266,22 +266,22 @@ dropBrackets :: HsExpr GhcPs -> HsExpr GhcPs
 dropBrackets (HsPar _ (L _ body)) = body
 dropBrackets e = e
 
-getChoiceControllerMap :: [DeclData] -> MS.Map T.Text String
+-- | Mapping from template and choice type to controller stringified
+getChoiceControllerMap :: [DeclData] -> MS.Map (Typename, Typename) String
 getChoiceControllerMap = MS.fromList . mapMaybe getChoiceControllerData
 
--- | The key here is the concat of the template name and choice name (which will clash, but thats a different bug)
--- This is because we can easily recreate this, and getting the type at this point is heavy
-getChoiceControllerData :: DeclData -> Maybe (T.Text, String)
+getChoiceControllerData :: DeclData -> Maybe ((Typename, Typename), String)
 getChoiceControllerData decl
   | DeclData (L _ (ValD _ (FunBind _ (L _ name) matchGroup _ _))) _ <- decl
   -- Check the name of the def starts with _choice$_
   , ("_choice$_", name) <- T.splitAt 9 $ packRdrName name
+  , [templateName, choiceName] <- Typename <$> T.split (=='$') name
   -- Extract the type and body of the definition (as choiceType :: HsType and body :: hsExpr)
   , Just (body, _) <- unMatchGroup matchGroup
   , ExplicitTuple _ [_, L _ (Present _ (L _ controllerExpr)), _, _, _] _ <- body
   , Just controllers <- unControllerExpr controllerExpr
   , controllersStr <- hsExprsToString $ reverse (unParties controllers)
-  = Just (name, controllersStr)
+  = Just ((templateName, choiceName), controllersStr)
 
   | otherwise = Nothing
 
@@ -367,7 +367,7 @@ mkChoiceDoc typeMap templateMaps templateName choiceName =
     , cd_descr = ad_descr choiceADT
     -- Attempt controller lookup, fallback to signatories
     , cd_controller =
-        MS.lookup (unTypename templateName <> unTypename choiceName) (choiceControllerMap templateMaps) 
+        MS.lookup (templateName, choiceName) (choiceControllerMap templateMaps) 
           <|> MS.lookup templateName (signatoryMap templateMaps)
     -- assumes exactly one constructor (syntactic in the template syntax), or
     -- uses a dummy value otherwise.
