@@ -4,7 +4,7 @@
 package com.daml.lf.engine.trigger
 package simulation
 
-import akka.actor.typed.{ActorRef, ActorSystem, Behavior, SupervisorStrategy}
+import akka.actor.typed.{ActorRef, ActorSystem, Behavior, ChildFailed, SupervisorStrategy}
 import akka.actor.typed.scaladsl.Behaviors
 import akka.stream.Materializer
 import com.daml.ledger.api.refinements.ApiTypes
@@ -16,7 +16,7 @@ import org.scalatest.wordspec.AsyncWordSpec
 
 import java.nio.file.{Files, Path}
 import scala.concurrent.duration._
-import scala.concurrent.{ExecutionContext, TimeoutException}
+import scala.concurrent.{ExecutionContext, Promise}
 
 abstract class TriggerMultiProcessSimulation extends AsyncWordSpec with AbstractTriggerTest {
 
@@ -26,7 +26,7 @@ abstract class TriggerMultiProcessSimulation extends AsyncWordSpec with Abstract
     TriggerSimulationConfig()
 
   protected implicit lazy val simulation: ActorSystem[Message] =
-    ActorSystem(triggerMultiProcessSimulationWithTimeout, "cat-and-food-simulation")
+    ActorSystem(triggerMultiProcessSimulationWithTimeout, "simulation")
 
   override implicit lazy val materializer: Materializer = Materializer(simulation)
 
@@ -38,9 +38,12 @@ abstract class TriggerMultiProcessSimulation extends AsyncWordSpec with Abstract
         .copy(allowTriggerTimeouts = true, allowInFlightCommandOverflows = true)
     )
 
+  private val simulationTerminatedNormally = Promise[Unit]()
+
   "Multi process trigger simulation" in {
     for {
       _ <- simulation.whenTerminated
+      _ <- simulationTerminatedNormally.future
     } yield succeed
   }
 
@@ -57,30 +60,33 @@ abstract class TriggerMultiProcessSimulation extends AsyncWordSpec with Abstract
       Behaviors
         .supervise[Message] {
           Behaviors.setup { context =>
+            var processSimulation: Option[ActorRef[Unit]] = None
+
             context.log.info(s"Simulation will run for ${simulationConfig.simulationDuration}")
             context.self ! StartSimulation
 
             Behaviors.logMessages {
-              Behaviors.receiveMessage {
-                case StartSimulation =>
-                  triggerMultiProcessSimulation.transformMessages {
-                    case StartSimulation =>
-                      ()
-                    case StopSimulation =>
-                      throw TriggerSimulationFailure(
-                        new TimeoutException(
-                          s"Simulation stopped after ${simulationConfig.simulationDuration}"
-                        )
-                      )
-                  }
+              Behaviors
+                .receiveMessage[Message] {
+                  case StartSimulation =>
+                    processSimulation =
+                      Some(context.spawn(triggerMultiProcessSimulation, "simulation-controller"))
+                    processSimulation.foreach(context.watch)
+                    Behaviors.same
 
-                case StopSimulation =>
-                  throw TriggerSimulationFailure(
-                    new TimeoutException(
+                  case StopSimulation =>
+                    context.log.info(
                       s"Simulation stopped after ${simulationConfig.simulationDuration}"
                     )
-                  )
-              }
+                    processSimulation.foreach(context.stop)
+                    processSimulation = None
+                    simulationTerminatedNormally.success(())
+                    Behaviors.stopped
+                }
+                .receiveSignal { case (_, ChildFailed(_, cause)) =>
+                  simulationTerminatedNormally.failure(cause)
+                  Behaviors.stopped
+                }
             }
           }
         }
