@@ -23,7 +23,6 @@ import scalaz.std.AllInstances._
 import spray.json._
 import cats.instances.list._
 import cats.Applicative
-import cats.syntax.applicative._
 import cats.syntax.functor._
 import com.daml.http.util.Logging.InstanceUUID
 import com.daml.lf.crypto.Hash
@@ -188,19 +187,19 @@ sealed abstract class Queries(tablePrefix: String, tpIdCacheMaxEntries: Long)(im
 
   private def surrogateTemplateIdFromDb(packageId: String, moduleName: String, entityName: String)(
       implicit log: LogHandler
-  ): ConnectionIO[SurrogateTpId] =
-    sql"""SELECT tpid FROM $templateIdTableName
-          WHERE (package_id = $packageId AND template_module_name = $moduleName
-                 AND template_entity_name = $entityName)"""
-      .query[SurrogateTpId]
-      .option flatMap {
-      _.cata(
-        _.pure[ConnectionIO],
-        sql"""INSERT INTO $templateIdTableName (package_id, template_module_name, template_entity_name)
-              VALUES ($packageId, $moduleName, $entityName)""".update
-          .withUniqueGeneratedKeys[SurrogateTpId]("tpid"),
-      )
-    }
+  ): ConnectionIO[SurrogateTpId] = for {
+    _ <- insertTemplateIdIfNotExists(packageId, moduleName, entityName).update.run
+    tpid <- sql"""SELECT tpid FROM $templateIdTableName
+                  WHERE (package_id = $packageId AND template_module_name = $moduleName
+                      AND template_entity_name = $entityName)""".query[SurrogateTpId].unique
+
+  } yield tpid
+
+  protected def insertTemplateIdIfNotExists(
+      packageId: String,
+      moduleName: String,
+      entityName: String,
+  ): Fragment
 
   final def lastOffset(parties: PartySet, tpid: SurrogateTpId)(implicit
       log: LogHandler
@@ -809,6 +808,16 @@ private final class PostgresQueries(tablePrefix: String, tpIdCacheMaxEntries: Lo
     }
     sql"${fragmentContractPath(path)} $opc ${literalScalar}::jsonb"
   }
+
+  protected override def insertTemplateIdIfNotExists(
+      packageId: String,
+      moduleName: String,
+      entityName: String,
+  ): Fragment =
+    sql"""INSERT INTO $templateIdTableName (package_id, template_module_name, template_entity_name)
+          VALUES ($packageId, $moduleName, $entityName)
+          ON CONFLICT (package_id, template_module_name, template_entity_name) DO NOTHING"""
+
 }
 
 import OracleQueries.DisableContractPayloadIndexing
@@ -1085,6 +1094,15 @@ private final class OracleQueries(
     sql"JSON_EXISTS($contractColumnName, " ++
       sql"""${oracleShortPathEscape(pathc)}${passingValueAsX})"""
   }
+
+  protected override def insertTemplateIdIfNotExists(
+      packageId: String,
+      moduleName: String,
+      entityName: String,
+  ): Fragment =
+    sql"""INSERT /*+ ignore_row_on_dupkey_index($templateIdTableName(package_id, template_module_name, template_entity_name)) */
+	  INTO $templateIdTableName (package_id, template_module_name, template_entity_name)
+          VALUES ($packageId, $moduleName, $entityName)"""
 }
 
 private[http] object OracleQueries {
