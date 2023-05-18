@@ -297,7 +297,7 @@ unControllerExpr e
   , Just (body, [_, sndPat]) <- unMatchGroup matchGroup
   = case sndPat of
       WildPat _ -> Nothing -- If `y` is _, we're in an Archive.
-      _ -> unLets body
+      _ -> unLets1 body
 
   -- \x -> bypassReduceLambda $ \y -> Body
   | HsLam _ matchGroup <- e
@@ -305,14 +305,18 @@ unControllerExpr e
   , Just innerLambda <- stripDesugarApplication "bypassReduceLambda" body
   , HsLam _ matchGroup <- innerLambda
   , Just (innerBody, _) <- unMatchGroup matchGroup
-  = unLets innerBody
+  = unLets1 innerBody
 
   | otherwise = Nothing
   where
-    -- let _ = this in let _ = arg in ...
-    unLets :: HsExpr GhcPs -> Maybe (HsExpr GhcPs)
-    unLets (HsLet _ _ (L _ (HsLet _ _ (L _ body)))) = Just body
-    unLets _ = Nothing
+    -- Drop as many let binds as possible, at least one (will be stopped by the application of toParty or concat)
+    -- We cannot drop a fixed number of binds, as the number of binds depends on the let body of the template
+    unLets1 :: HsExpr GhcPs -> Maybe (HsExpr GhcPs)
+    unLets1 (HsLet _ _ (L _ body)) = Just $ unLets body
+    unLets1 _ = Nothing
+    unLets :: HsExpr GhcPs -> HsExpr GhcPs
+    unLets (HsLet _ _ (L _ body)) = unLets body
+    unLets body = body
       
 
 -- | Get (normal) typeclass instances data.

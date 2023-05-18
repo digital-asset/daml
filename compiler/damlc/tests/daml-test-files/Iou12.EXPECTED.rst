@@ -47,9 +47,7 @@ Templates
 
     **Choice** `DoNothing <type-iou12-donothing-75627_>`_
 
-    Controller\: let \_ \= updateAmount in
-let \_ \= this in
-let \_ \= arg in DA\.Internal\.Desugar\.toParties (owner)
+    Controller\: owner
 
     Returns\: ()
 
@@ -61,9 +59,7 @@ let \_ \= arg in DA\.Internal\.Desugar\.toParties (owner)
 
     merges two \"compatible\" ``Iou``s
 
-    Controller\: let \_ \= updateAmount in
-let \_ \= this in
-let \_ \= arg in DA\.Internal\.Desugar\.toParties (owner)
+    Controller\: owner
 
     Returns\: `ContractId <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-contractid-95282>`_ `Iou <type-iou12-iou-72962_>`_
 
@@ -84,9 +80,7 @@ let \_ \= arg in DA\.Internal\.Desugar\.toParties (owner)
 
     splits into two ``Iou``s with smaller amounts
 
-    Controller\: let \_ \= updateAmount in
-let \_ \= this in
-let \_ \= arg in DA\.Internal\.Desugar\.toParties (owner)
+    Controller\: owner
 
     Returns\: (`ContractId <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-contractid-95282>`_ `Iou <type-iou12-iou-72962_>`_, `ContractId <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-contractid-95282>`_ `Iou <type-iou12-iou-72962_>`_)
 
@@ -107,9 +101,7 @@ let \_ \= arg in DA\.Internal\.Desugar\.toParties (owner)
 
     changes the owner
 
-    Controller\: let \_ \= updateAmount in
-let \_ \= this in
-let \_ \= arg in DA\.Internal\.Desugar\.toParties (owner)
+    Controller\: owner
 
     Returns\: `ContractId <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-contractid-95282>`_ `Iou <type-iou12-iou-72962_>`_
 
