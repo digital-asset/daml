@@ -115,8 +115,6 @@ da_scala_test_suite(
         "//ledger/metrics",
         "//ledger/participant-integration-api",
         "//ledger/participant-state",
-        "//ledger/sandbox-on-x",
-        "//ledger/sandbox-on-x:sandbox-on-x-test-lib",
         "//libs-scala/concurrent",
         "//libs-scala/contextualized-logging",
         "//libs-scala/grpc-utils",

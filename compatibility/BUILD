@@ -30,6 +30,8 @@ config_setting(
     },
 )
 
+last_non_canton_in_ledger_api_tests = "2.7.0-snapshot.20230427.11728.0.1f3c22cf"
+
 [
     sh_binary(
         name = "sandbox-with-postgres-{}".format(version),
@@ -44,6 +46,7 @@ config_setting(
         deps = ["@bazel_tools//tools/bash/runfiles"],
     )
     for version in platform_versions
+    if versions.is_at_most(last_non_canton_in_ledger_api_tests, version)
 ]
 
 [
