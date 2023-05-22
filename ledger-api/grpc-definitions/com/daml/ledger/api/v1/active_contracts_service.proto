@@ -7,13 +7,13 @@ package com.daml.ledger.api.v1;
 
 import "com/daml/ledger/api/v1/event.proto";
 import "com/daml/ledger/api/v1/transaction_filter.proto";
-import "com/daml/ledger/api/v1/transfer.proto";
 
 option java_outer_classname = "ActiveContractsServiceOuterClass";
 option java_package = "com.daml.ledger.api.v1";
 option csharp_namespace = "Com.Daml.Ledger.Api.V1";
 
 // Allows clients to initialize themselves according to a fairly recent state of the ledger without reading through all transactions that were committed since the ledger's creation.
+// In V2 Ledger API this service is not available anymore. Use v2.StateService instead.
 service ActiveContractsService {
 
   // Returns a stream of the snapshot of the active contracts at a ledger offset.
@@ -28,7 +28,6 @@ message GetActiveContractsRequest {
 
   // Must correspond to the ledger ID reported by the Ledger Identification Service.
   // Must be a valid LedgerString (as described in ``value.proto``).
-  // In the Ledger API 3.0 this field will be removed.
   // Optional
   string ledger_id = 1;
 
@@ -58,64 +57,9 @@ message GetActiveContractsResponse {
 
   // The workflow that created the contracts.
   // Must be a valid LedgerString (as described in ``value.proto``).
-  // Optional, In the Ledger API 3.0 this field will be removed.
   string workflow_id = 2;
 
   // The list of contracts that were introduced by the workflow with ``workflow_id`` at the offset.
   // Must be a valid LedgerString (as described in ``value.proto``).
-  // In the Ledger API 3.0 this field will be removed.
-  // This is empty for multi-domain API.
   repeated CreatedEvent active_contracts = 3;
-
-  // Non-empty for multi-domain API.
-  // For each contract there could be multiple ContractStateComponent-s in the entire snapshot. These together define
-  // the state of the contract in the snapshot.
-  repeated ContractStateComponent contract_state_components = 4;
-}
-
-message ContractStateComponent {
-  oneof contract_state_component {
-    // The contract is active in the given domain.
-    // There will be one such message for each domain the contract is active in.
-    ActiveContract active_contract = 1;
-
-    // This message is only available, if the corresponding transfer-in event cannot be found before or at the
-    // active_at_offset, and at least one of the querying parties could submit the corresponding transfer-in command.
-    // The incomplete_transferred_out.transferred_out_event.transferring_parties will contain all such querying parties.
-    IncompleteTransferredOut incomplete_transferred_out = 2;
-
-    // Important: this message is not indicating that the contract is active for the target domain!
-    // This message is only available, if the corresponding transfer-out event cannot be found before or at the
-    // active_at_offset, and at least one of the querying parties could have submitted the corresponding transfer-in command.
-    // The incomplete_transferred_in.transferred_in_event.transferring_parties will contain all such querying parties.
-    IncompleteTransferredIn incomplete_transferred_in = 3;
-  }
-}
-
-message ActiveContract {
-  // Required
-  CreatedEvent created_event = 1;
-
-  // A valid domain ID
-  // Required
-  string domain_id = 2;
-
-  // Each corresponding transfer-in and transfer-out event has the same transfer_counter. This monotonically increases
-  // with each transfer-out command for the same contract. Creation of the contract corresponds to transfer_counter
-  // equals zero.
-  // Required
-  uint64 transfer_counter = 3;
-}
-
-message IncompleteTransferredOut {
-  // Required
-  CreatedEvent created_event = 1;
-
-  // Required
-  TransferredOutEvent transferred_out_event = 2;
-}
-
-message IncompleteTransferredIn {
-  // Required
-  TransferredInEvent transferred_in_event = 2;
 }

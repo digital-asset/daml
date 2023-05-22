@@ -3,14 +3,14 @@
 
 syntax = "proto3";
 
-package com.daml.ledger.api.v1;
+package com.daml.ledger.api.v2;
 
 import "google/protobuf/duration.proto";
 import "google/rpc/status.proto";
 
 option java_outer_classname = "CompletionOuterClass";
-option java_package = "com.daml.ledger.api.v1";
-option csharp_namespace = "Com.Daml.Ledger.Api.V1";
+option java_package = "com.daml.ledger.api.v2";
+option csharp_namespace = "Com.Daml.Ledger.Api.V2";
 
 // A completion represents the status of a submitted command on the ledger: it can be successful or failed.
 message Completion {
@@ -24,11 +24,10 @@ message Completion {
   // Optional
   google.rpc.Status status = 2;
 
-  // The transaction_id of the transaction that resulted from the command with command_id.
+  // The update_id of the transaction or transfer that resulted from the command with command_id.
   // Only set for successfully executed commands.
   // Must be a valid LedgerString (as described in ``value.proto``).
-  // Optional
-  string transaction_id = 3;
+  string update_id = 3;
 
   // The application-id or user-id that was used for the submission, as described in ``commands.proto``.
   // Must be a valid ApplicationIdString (as described in ``value.proto``).
@@ -69,4 +68,12 @@ message Completion {
     // Must be non-negative.
     google.protobuf.Duration deduplication_duration = 9;
   }
+
+  // The domain ID the command was submitted to.
+  // In case
+  //   - successful/failed transactions: represents the domain where the transaction was executed
+  //   - for successful/failed transfer-out commands: represents the source domain
+  //   - for successful/failed transfer-in commands: represents the target domain
+  // Required
+  string domain_id = 10;
 }

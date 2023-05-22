@@ -19,7 +19,6 @@ message ExperimentalFeatures {
   ExperimentalSelfServiceErrorCodes self_service_error_codes = 1 [deprecated = true];
   ExperimentalStaticTime static_time = 2;
   CommandDeduplicationFeatures command_deduplication = 3;
-  // In the Ledger API 3.0 this field will be removed.
   ExperimentalOptionalLedgerId optional_ledger_id = 4;
   ExperimentalContractIds contract_ids = 5;
   ExperimentalCommitterEventLog committer_event_log = 6;

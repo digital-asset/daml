@@ -3,15 +3,15 @@
 
 syntax = "proto3";
 
-package com.daml.ledger.api.v1;
+package com.daml.ledger.api.v2;
 
-import "com/daml/ledger/api/v1/completion.proto";
+import "com/daml/ledger/api/v2/completion.proto";
 import "com/daml/ledger/api/v1/ledger_offset.proto";
 import "google/protobuf/timestamp.proto";
 
 option java_outer_classname = "CommandCompletionServiceOuterClass";
-option java_package = "com.daml.ledger.api.v1";
-option csharp_namespace = "Com.Daml.Ledger.Api.V1";
+option java_package = "com.daml.ledger.api.v2";
+option csharp_namespace = "Com.Daml.Ledger.Api.V2";
 
 // Allows clients to observe the status of their submissions.
 // Commands may be submitted via the Command Submission Service.
@@ -27,7 +27,6 @@ option csharp_namespace = "Com.Daml.Ledger.Api.V1";
 //
 // Clients that do not receive a successful completion about their submission MUST NOT assume that it was successful.
 // Clients SHOULD subscribe to the CompletionStream before starting to submit commands to prevent race conditions.
-// In V2 Ledger API this service is not available anymore. Use v2.CommandCompletionService instead.
 service CommandCompletionService {
 
   // Subscribe to command completion events.
@@ -39,28 +38,23 @@ service CommandCompletionService {
 }
 
 message CompletionStreamRequest {
-  // Must correspond to the ledger id reported by the Ledger Identification Service.
-  // Must be a valid LedgerString (as described in ``value.proto``).
-  // Optional
-  string ledger_id = 1;
-
   // Only completions of commands submitted with the same application_id will be visible in the stream.
   // Must be a valid ApplicationIdString (as described in ``value.proto``).
   // Required unless authentication is used with a user token or a custom token specifying an application-id.
   // In that case, the token's user-id, respectively application-id, will be used for the request's application_id.
-  string application_id = 2;
+  string application_id = 1;
 
   // Non-empty list of parties whose data should be included.
   // Only completions of commands for which at least one of the ``act_as`` parties is in the given set of parties
   // will be visible in the stream.
   // Must be a valid PartyIdString (as described in ``value.proto``).
   // Required
-  repeated string parties = 3;
+  repeated string parties = 2;
 
   // This field indicates the minimum offset for completions. This can be used to resume an earlier completion stream.
   // This offset is exclusive: the response will only contain commands whose offset is strictly greater than this.
   // Optional, if not set the ledger uses the current ledger end offset instead.
-  LedgerOffset offset = 4;
+  LedgerOffset offset = 3;
 }
 
 message CompletionStreamResponse {
@@ -80,7 +74,6 @@ message CompletionStreamResponse {
 // * detect time out of commands.
 // * provide an offset which can be used to restart consumption.
 message Checkpoint {
-
   // All commands with a maximum record time below this value MUST be considered lost if their completion has not arrived before this checkpoint.
   // Required
   google.protobuf.Timestamp record_time = 1;
@@ -92,10 +85,7 @@ message Checkpoint {
 
 
 message CompletionEndRequest {
-  // Must correspond to the ledger ID reported by the Ledger Identification Service.
-  // Must be a valid LedgerString (as described in ``value.proto``).
-  // Optional
-  string ledger_id = 1;
+
 }
 
 message CompletionEndResponse {

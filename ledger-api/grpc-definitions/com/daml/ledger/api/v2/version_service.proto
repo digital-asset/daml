@@ -3,13 +3,13 @@
 
 syntax = "proto3";
 
-package com.daml.ledger.api.v1;
+package com.daml.ledger.api.v2;
 
 import "com/daml/ledger/api/v1/experimental_features.proto";
 
 option java_outer_classname = "VersionServiceOuterClass";
-option java_package = "com.daml.ledger.api.v1";
-option csharp_namespace = "Com.Daml.Ledger.Api.V1";
+option java_package = "com.daml.ledger.api.v2";
+option csharp_namespace = "Com.Daml.Ledger.Api.V2";
 
 // Allows clients to retrieve information about the ledger API version
 // In V2 Ledger API this service is not available anymore. Use v2.VersionService instead.
@@ -21,10 +21,6 @@ service VersionService {
 
 message GetLedgerApiVersionRequest {
 
-  // Must correspond to the ledger ID reported by the Ledger Identification Service.
-  // Must be a valid LedgerString (as described in ``value.proto``).
-  // Optional
-  string ledger_id = 1;
 }
 
 message GetLedgerApiVersionResponse {

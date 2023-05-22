@@ -3,22 +3,21 @@
 
 syntax = "proto3";
 
-package com.daml.ledger.api.v1;
+package com.daml.ledger.api.v2;
 
-import "com/daml/ledger/api/v1/commands.proto";
-import "com/daml/ledger/api/v1/transaction.proto";
+import "com/daml/ledger/api/v2/commands.proto";
+import "com/daml/ledger/api/v2/transaction.proto";
 import "google/protobuf/empty.proto";
 
 option java_outer_classname = "CommandServiceOuterClass";
-option java_package = "com.daml.ledger.api.v1";
-option csharp_namespace = "Com.Daml.Ledger.Api.V1";
+option java_package = "com.daml.ledger.api.v2";
+option csharp_namespace = "Com.Daml.Ledger.Api.V2";
 
 // Command Service is able to correlate submitted commands with completion data, identify timeouts, and return contextual
 // information with each tracking result. This supports the implementation of stateless clients.
 //
 // Note that submitted commands generally produce completion events as well, even in case a command gets rejected.
 // For example, the participant MAY choose to produce a completion event for a rejection of a duplicate command.
-// In V2 Ledger API this service is not available anymore. Use v2.CommandService instead.
 service CommandService {
   // Submits a single composite command and waits for its result.
   // Propagates the gRPC error of failed submissions including Daml interpretation errors.
@@ -26,7 +25,7 @@ service CommandService {
 
   // Submits a single composite command, waits for its result, and returns the transaction id.
   // Propagates the gRPC error of failed submissions including Daml interpretation errors.
-  rpc SubmitAndWaitForTransactionId (SubmitAndWaitRequest) returns (SubmitAndWaitForTransactionIdResponse);
+  rpc SubmitAndWaitForTransactionId (SubmitAndWaitRequest) returns (SubmitAndWaitForUpdateIdResponse);
 
   // Submits a single composite command, waits for its result, and returns the transaction.
   // Propagates the gRPC error of failed submissions including Daml interpretation errors.
@@ -44,11 +43,13 @@ message SubmitAndWaitRequest {
   Commands commands = 1;
 }
 
-message SubmitAndWaitForTransactionIdResponse {
+message SubmitAndWaitForUpdateIdResponse {
+
   // The id of the transaction that resulted from the submitted command.
   // Must be a valid LedgerString (as described in ``value.proto``).
   // Required
-  string transaction_id = 1;
+  string update_id = 1;
+
   // The format of this field is described in ``ledger_offset.proto``.
   // Optional
   string completion_offset = 2;

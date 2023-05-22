@@ -1,0 +1,139 @@
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package com.daml.ledger.api.v2;
+
+import "com/daml/ledger/api/v1/event.proto";
+import "com/daml/ledger/api/v2/transaction_filter.proto";
+import "com/daml/ledger/api/v2/transfer.proto";
+
+option java_outer_classname = "StateServiceOuterClass";
+option java_package = "com.daml.ledger.api.v2";
+option csharp_namespace = "Com.Daml.Ledger.Api.V2";
+
+// Allows clients to get state from the ledger.
+service StateService {
+
+  // Returns a stream of the snapshot of the active contracts at a ledger offset.
+  // If there are no active contracts, the stream returns a single response message with the offset at which the snapshot has been taken.
+  // Clients SHOULD use the offset in the last GetActiveContractsResponse message to continue streaming transactions with the transaction service.
+  // Clients SHOULD NOT assume that the set of active contracts they receive reflects the state at the ledger end.
+  rpc GetActiveContracts (GetActiveContractsRequest) returns (stream GetActiveContractsResponse);
+
+  // Get the list of connected domains.
+  rpc GetConnectedDomains (GetConnectedDomainsRequest) returns (GetConnectedDomainsResponse);
+}
+
+message GetActiveContractsRequest {
+
+  // Templates to include in the served snapshot, per party.
+  // Required
+  TransactionFilter filter = 1;
+
+  // If enabled, values served over the API will contain more information than strictly necessary to interpret the data.
+  // In particular, setting the verbose flag to true triggers the ledger to include labels for record fields.
+  // Optional
+  bool verbose = 2;
+
+  // The offset at which the snapshot of the active contracts will be computed.
+  // Must be no greater than the current ledger end offset.
+  // Must be greater than or equal to the last pruning offset.
+  // If not set the current ledger end offset will be used.
+  // Optional
+  string active_at_offset = 3;
+}
+
+message GetActiveContractsResponse {
+
+  // Included only in the last message.
+  // The client should start consuming the transactions endpoint with this offset.
+  // The format of this field is described in ``ledger_offset.proto``.
+  string offset = 1;
+
+  // For each contract there could be multiple ContractStateComponent-s in the entire snapshot. These together define
+  // the state of the contract in the snapshot.
+  repeated ContractStateComponent contract_state_components = 2;
+}
+
+message ContractStateComponent {
+  oneof contract_state_component {
+    // The contract is active in the given domain.
+    // There will be one such message for each domain the contract is active in.
+    ActiveContract active_contract = 1;
+
+    // This message is only available, if the corresponding transfer-in event cannot be found before or at the
+    // active_at_offset, and at least one of the querying parties could submit the corresponding transfer-in command.
+    // The incomplete_transferred_out.transferred_out_event.transferring_parties will contain all such querying parties.
+    IncompleteTransferredOut incomplete_transferred_out = 2;
+
+    // Important: this message is not indicating that the contract is active for the target domain!
+    // This message is only available, if the corresponding transfer-out event cannot be found before or at the
+    // active_at_offset, and at least one of the querying parties could have submitted the corresponding transfer-in command.
+    // The incomplete_transferred_in.transferred_in_event.transferring_parties will contain all such querying parties.
+    IncompleteTransferredIn incomplete_transferred_in = 3;
+  }
+}
+
+message ActiveContract {
+  // Required
+  CreatedEvent created_event = 1;
+
+  // A valid domain ID
+  // Required
+  string domain_id = 2;
+
+  // Each corresponding transfer-in and transfer-out event has the same transfer_counter. This monotonically increases
+  // with each transfer-out command for the same contract. Creation of the contract corresponds to transfer_counter
+  // equals zero.
+  // Required
+  uint64 transfer_counter = 3;
+}
+
+message IncompleteTransferredOut {
+  // Required
+  CreatedEvent created_event = 1;
+
+  // Required
+  TransferredOutEvent transferred_out_event = 2;
+}
+
+message IncompleteTransferredIn {
+  // Required
+  TransferredInEvent transferred_in_event = 2;
+}
+
+
+message GetConnectedDomainsRequest {
+  // The submitting party
+  // Must be a valid PartyIdString (as described in ``value.proto``).
+  // Required
+  string party = 1;
+}
+
+message GetConnectedDomainsResponse {
+  message ConnectedDomain {
+    // The alias of the domain
+    // Required
+    string domain_alias = 1;
+    // The ID of the domain
+    // Required
+    string domain_id = 2;
+    // The permission on the domain
+    // Required
+    ParticipantPermission permission = 3;
+  }
+  repeated ConnectedDomain connected_domains = 1;
+}
+
+// enum indicating the permission level
+enum ParticipantPermission {
+  MissingParticipantPermission = 0;
+  // participant is active, can submit transactions
+  Submission = 1;
+  // participant is passive, can only confirm transactions
+  Confirmation = 2;
+  // participant is passive, can only observe transactions
+  Observation = 3;
+}

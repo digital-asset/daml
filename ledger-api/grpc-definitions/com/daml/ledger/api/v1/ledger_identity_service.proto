@@ -10,9 +10,9 @@ option java_package = "com.daml.ledger.api.v1";
 option csharp_namespace = "Com.Daml.Ledger.Api.V1";
 
 // DEPRECATED: This service is now deprecated and ledger identity string is optional for all Ledger API requests.
-// In the Ledger API 3.0 this service will be removed.
 //
 // Allows clients to verify that the server they are communicating with exposes the ledger they wish to operate on.
+// In V2 Ledger API this service is not available anymore.
 service LedgerIdentityService {
   option deprecated = true;
 

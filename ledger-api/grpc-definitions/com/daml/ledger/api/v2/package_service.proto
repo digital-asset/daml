@@ -3,11 +3,11 @@
 
 syntax = "proto3";
 
-package com.daml.ledger.api.v1;
+package com.daml.ledger.api.v2;
 
 option java_outer_classname = "PackageServiceOuterClass";
-option java_package = "com.daml.ledger.api.v1";
-option csharp_namespace = "Com.Daml.Ledger.Api.V1";
+option java_package = "com.daml.ledger.api.v2";
+option csharp_namespace = "Com.Daml.Ledger.Api.V2";
 
 // Allows clients to query the Daml-LF packages that are supported by the server.
 service PackageService {
@@ -25,10 +25,6 @@ service PackageService {
 
 message ListPackagesRequest {
 
-  // Must correspond to the ledger ID reported by the Ledger Identification Service.
-  // Must be a valid LedgerString (as described in ``value.proto``).
-  // Optional
-  string ledger_id = 1;
 }
 
 message ListPackagesResponse {
@@ -41,15 +37,10 @@ message ListPackagesResponse {
 
 message GetPackageRequest {
 
-  // Must correspond to the ledger ID reported by the Ledger Identification Service.
-  // Must be a valid LedgerString (as described in ``value.proto``).
-  // Optional
-  string ledger_id = 1;
-
   // The ID of the requested package.
   // Must be a valid PackageIdString (as described in ``value.proto``).
   // Required
-  string package_id = 2;
+  string package_id = 1;
 }
 
 message GetPackageResponse {
@@ -70,15 +61,10 @@ message GetPackageResponse {
 
 message GetPackageStatusRequest {
 
-  // Must correspond to the ledger ID reported by the Ledger Identification Service.
-  // Must be a valid LedgerString (as described in ``value.proto``).
-  // Optional
-  string ledger_id = 1;
-
   // The ID of the requested package.
   // Must be a valid PackageIdString (as described in ``value.proto``).
   // Required
-  string package_id = 2;
+  string package_id = 1;
 }
 
 message GetPackageStatusResponse {

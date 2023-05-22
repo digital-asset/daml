@@ -3,18 +3,17 @@
 
 syntax = "proto3";
 
-package com.daml.ledger.api.v1.testing;
+package com.daml.ledger.api.v2.testing;
 
 import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
 
 
 option java_outer_classname = "TimeServiceOuterClass";
-option java_package = "com.daml.ledger.api.v1.testing";
-option csharp_namespace = "Com.Daml.Ledger.Api.V1.Testing";
+option java_package = "com.daml.ledger.api.v2.testing";
+option csharp_namespace = "Com.Daml.Ledger.Api.V2.Testing";
 
 // Optional service, exposed for testing static time scenarios.
-// In V2 Ledger API this service is not available anymore. Use v2.testing.TimeService instead.
 service TimeService {
 
   // Returns a stream of time updates.
@@ -29,10 +28,6 @@ service TimeService {
 
 message GetTimeRequest {
 
-  // Must correspond to the ledger ID reported by the Ledger Identification Service.
-  // Must be a valid LedgerString (as describe in ``value.proto``).
-  // Optional
-  string ledger_id = 1;
 }
 
 message GetTimeResponse {
@@ -43,15 +38,10 @@ message GetTimeResponse {
 
 message SetTimeRequest {
 
-  // Must correspond to the ledger ID reported by the Ledger Identification Service.
-  // Must be a valid LedgerString (as describe in ``value.proto``).
-  // Optional
-  string ledger_id = 1;
-
   // MUST precisely match the current time as it's known to the ledger server.
-  google.protobuf.Timestamp current_time = 2;
+  google.protobuf.Timestamp current_time = 1;
 
   // The time the client wants to set on the ledger.
   // MUST be a point int time after ``current_time``.
-  google.protobuf.Timestamp new_time = 3;
+  google.protobuf.Timestamp new_time = 2;
 }

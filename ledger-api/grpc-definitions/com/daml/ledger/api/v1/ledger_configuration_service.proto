@@ -12,6 +12,7 @@ option java_package = "com.daml.ledger.api.v1";
 option csharp_namespace = "Com.Daml.Ledger.Api.V1";
 
 // LedgerConfigurationService allows clients to subscribe to changes of the ledger configuration.
+// In V2 Ledger API this service is not available anymore.
 service LedgerConfigurationService {
 
   // Returns the latest configuration as the first response, and publishes configuration updates in the same stream.
@@ -23,7 +24,6 @@ message GetLedgerConfigurationRequest {
 
   // Must correspond to the ledger ID reported by the Ledger Identification Service.
   // Must be a valid LedgerString (as described in ``value.proto``).
-  // In the Ledger API 3.0 this field will be removed.
   // Optional
   string ledger_id = 1;
 }
