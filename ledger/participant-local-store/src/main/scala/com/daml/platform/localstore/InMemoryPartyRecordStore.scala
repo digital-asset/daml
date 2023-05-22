@@ -5,6 +5,7 @@ package com.daml.platform.localstore
 
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.{IdentityProviderId, ObjectMeta}
+import com.daml.ledger.api.validation.ResourceAnnotationValidation
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.Party
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
@@ -15,7 +16,6 @@ import com.daml.platform.localstore.api.PartyRecordStore.{
 }
 import com.daml.platform.localstore.api.{PartyRecord, PartyRecordStore, PartyRecordUpdate}
 import com.daml.platform.localstore.utils.LocalAnnotationsUtils
-import com.daml.platform.server.api.validation.ResourceAnnotationValidation
 
 import scala.collection.mutable
 import scala.concurrent.{ExecutionContext, Future}

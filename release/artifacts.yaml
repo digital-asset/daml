@@ -105,8 +105,6 @@
   type: jar-scala
 - target: //ledger/ledger-api-domain:ledger-api-domain
   type: jar-scala
-- target: //ledger/ledger-api-health:ledger-api-health
-  type: jar-scala
 - target: //ledger-test-tool/infrastructure:infrastructure-1.14
   type: jar-scala
 - target: //ledger-test-tool/infrastructure:infrastructure-1.dev
@@ -136,8 +134,6 @@
 - target: //ledger/ledger-grpc:ledger-grpc
   type: jar-scala
 - target: //ledger/ledger-offset:ledger-offset
-  type: jar-scala
-- target: //ledger/metrics:metrics
   type: jar-scala
 - target: //ledger/participant-local-store:participant-local-store
   type: jar-scala

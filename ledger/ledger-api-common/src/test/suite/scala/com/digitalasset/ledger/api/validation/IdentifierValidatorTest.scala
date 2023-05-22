@@ -6,7 +6,7 @@ package com.daml.ledger.api.validation
 import com.daml.error.{ContextualizedErrorLogger, NoLogging}
 import com.daml.ledger.api.DomainMocks
 import com.daml.ledger.api.v1.value.Identifier
-import com.daml.platform.server.api.validation.FieldValidations
+import com.daml.ledger.api.validation.FieldValidations
 import io.grpc.Status.Code.INVALID_ARGUMENT
 import org.mockito.MockitoSugar
 import org.scalatest.wordspec.AsyncWordSpec

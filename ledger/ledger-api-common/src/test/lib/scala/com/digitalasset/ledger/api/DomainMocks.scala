@@ -26,8 +26,6 @@ object DomainMocks {
 
   val applicationId = Ref.ApplicationId.assertFromString("applicationId")
 
-  val workflowId = WorkflowId(Ref.LedgerString.assertFromString("workflowId"))
-
   val label = Ref.Name.assertFromString("label")
 
   object values {

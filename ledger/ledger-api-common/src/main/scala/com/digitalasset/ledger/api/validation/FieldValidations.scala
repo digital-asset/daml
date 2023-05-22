@@ -1,7 +1,7 @@
 // Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.platform.server.api.validation
+package com.daml.ledger.api.validation
 
 import com.daml.api.util.TimestampConversion
 import com.daml.error.ContextualizedErrorLogger
@@ -9,16 +9,12 @@ import com.daml.error.definitions.LedgerApiErrors
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.{IdentityProviderId, JwksUrl, LedgerId}
 import com.daml.ledger.api.v1.value.Identifier
+import com.daml.ledger.api.validation.ResourceAnnotationValidation.{AnnotationsSizeExceededError, EmptyAnnotationsValueError, InvalidAnnotationsKeyError}
 import com.daml.ledger.api.validation.ValidationErrors._
 import com.daml.lf.crypto.Hash
-import com.daml.lf.data.{Bytes, Ref, Time}
 import com.daml.lf.data.Ref.Party
+import com.daml.lf.data.{Bytes, Ref, Time}
 import com.daml.lf.value.Value.ContractId
-import com.daml.platform.server.api.validation.ResourceAnnotationValidation.{
-  AnnotationsSizeExceededError,
-  EmptyAnnotationsValueError,
-  InvalidAnnotationsKeyError,
-}
 import com.google.protobuf.ByteString
 import com.google.protobuf.timestamp.Timestamp
 import io.grpc.StatusRuntimeException

@@ -1,9 +1,9 @@
 // Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.platform.server.api.validation
+package com.daml.ledger.api.validation
 
-import ResourceAnnotationValidation._
+import com.daml.ledger.api.validation.ResourceAnnotationValidation._
 import org.scalatest.EitherValues
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers

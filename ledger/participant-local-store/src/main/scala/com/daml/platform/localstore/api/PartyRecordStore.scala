@@ -4,9 +4,9 @@
 package com.daml.platform.localstore.api
 
 import com.daml.ledger.api.domain.IdentityProviderId
+import com.daml.ledger.api.validation.ResourceAnnotationValidation
 import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext
-import com.daml.platform.server.api.validation.ResourceAnnotationValidation
 
 import scala.concurrent.Future
 

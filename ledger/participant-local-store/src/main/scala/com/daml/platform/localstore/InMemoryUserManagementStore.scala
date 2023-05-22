@@ -4,13 +4,13 @@
 package com.daml.platform.localstore
 
 import com.daml.ledger.api.domain.{IdentityProviderId, ObjectMeta, User, UserRight}
+import com.daml.ledger.api.validation.ResourceAnnotationValidation
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.UserId
 import com.daml.logging.LoggingContext
 import com.daml.platform.localstore.api.UserManagementStore._
 import com.daml.platform.localstore.api.{UserManagementStore, UserUpdate}
 import com.daml.platform.localstore.utils.LocalAnnotationsUtils
-import com.daml.platform.server.api.validation.ResourceAnnotationValidation
 
 import scala.collection.mutable
 import scala.concurrent.Future
