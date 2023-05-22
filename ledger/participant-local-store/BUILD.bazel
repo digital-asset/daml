@@ -24,7 +24,6 @@ da_scala_library(
         "//daml-lf/data",
         "//ledger/ledger-api-common",
         "//ledger/ledger-api-domain",
-        "//libs-scala/caching",
         "//libs-scala/contextualized-logging",
     ],
 )
