@@ -86,7 +86,7 @@ object LoggingContext {
     f(loggingContext ++ entries)
 }
 
-final class LoggingContext private (val entries: LoggingEntries) {
+class LoggingContext(val entries: LoggingEntries) {
 
   private lazy val forLogging: Marker with StructuredArgument =
     new LoggingMarker(entries.contents)
