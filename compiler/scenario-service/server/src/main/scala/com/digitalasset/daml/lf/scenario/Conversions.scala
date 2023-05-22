@@ -203,15 +203,6 @@ final class Conversions(
                     .setContractRef(mkContractRef(coid, actual))
                     .setExpected(convertIdentifier(expected))
                 )
-              // TODO https://github.com/digital-asset/daml/issues/16151
-              // Reinstate when #16859 lands
-              /*case WronglyTypedContractSoft(coid, expected, accepted, actual) =>
-                builder.setWronglyTypedContractSoft(
-                  proto.ScenarioError.WronglyTypedContractSoft.newBuilder
-                    .setContractRef(mkContractRef(coid, actual))
-                    .setExpected(convertIdentifier(expected))
-                    .addAllAccepted(accepted.map(convertIdentifier(_)).asJava)
-                )*/
               case ContractDoesNotImplementInterface(interfaceId, coid, templateId) =>
                 builder.setContractDoesNotImplementInterface(
                   proto.ScenarioError.ContractDoesNotImplementInterface.newBuilder
@@ -268,6 +259,13 @@ final class Conversions(
                       cgfBuilder.setByInterface(convertIdentifier(ifaceId))
                     )
                     builder.setChoiceGuardFailed(cgfBuilder.build)
+                  case Dev.WronglyTypedContractSoft(coid, expected, accepted, actual) =>
+                    builder.setWronglyTypedContractSoft(
+                      proto.ScenarioError.WronglyTypedContractSoft.newBuilder
+                        .setContractRef(mkContractRef(coid, actual))
+                        .setExpected(convertIdentifier(expected))
+                        .addAllAccepted(accepted.map(convertIdentifier(_)).asJava)
+                    )
                 }
               case err @ Dev(_, _) =>
                 builder.setCrash(s"Unexpected Dev error: " + err.toString)
