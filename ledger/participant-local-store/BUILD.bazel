@@ -24,11 +24,8 @@ da_scala_library(
         "//daml-lf/data",
         "//ledger/ledger-api-common",
         "//ledger/ledger-api-domain",
-        "//ledger/metrics",
         "//libs-scala/caching",
         "//libs-scala/contextualized-logging",
-        "//observability/metrics",
-        "@maven//:com_github_ben_manes_caffeine_caffeine",
     ],
 )
 

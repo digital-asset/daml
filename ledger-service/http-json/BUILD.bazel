@@ -640,7 +640,6 @@ test_suite(
             "//ledger-service/http-json-cli:{}".format(edition),
             "//ledger-service/http-json-testing:{}".format(edition),
             "//ledger-service/utils",
-            "//ledger/ledger-api-auth",
             "//ledger/ledger-api-common",
             "//ledger/metrics",
             "//libs-scala/caching",
