@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 //
 // The Daml Ledger configuration. Please refer to the spec
-// (ledger/participant-state/protobuf/ledger_configuration.rst)
+// (ledger/ledger-configuration/protobuf/ledger_configuration.rst)
 // for detailed information on versions and semantics.
 //
 // version summary:
