@@ -671,6 +671,24 @@ class JsonLedgerClient(
         UserIdRequest(id),
       )
     }
+
+  override def enablePackages(packages: List[ScriptLedgerClient.ReadablePackageId])(implicit
+      ec: ExecutionContext,
+      esf: ExecutionSequencerFactory,
+      mat: Materializer,
+  ): Future[Unit] = unsupportedOn("enablePackages")
+
+  override def disablePackages(packages: List[ScriptLedgerClient.ReadablePackageId])(implicit
+      ec: ExecutionContext,
+      esf: ExecutionSequencerFactory,
+      mat: Materializer,
+  ): Future[Unit] = unsupportedOn("disablePackages")
+
+  override def listPackages()(implicit
+      ec: ExecutionContext,
+      esf: ExecutionSequencerFactory,
+      mat: Materializer,
+  ): Future[List[ScriptLedgerClient.ReadablePackageId]] = unsupportedOn("listPackages")
 }
 
 object JsonLedgerClient {

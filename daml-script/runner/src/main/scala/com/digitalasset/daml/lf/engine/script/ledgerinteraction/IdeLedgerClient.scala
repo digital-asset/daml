@@ -14,7 +14,9 @@ import com.daml.lf.data.{ImmArray, Ref, Time}
 import com.daml.lf.engine.preprocessing.ValueTranslator
 import com.daml.lf.interpretation.Error.ContractIdInContractKey
 import com.daml.lf.language.Ast
+import com.daml.lf.language.Ast.PackageMetadata
 import com.daml.lf.language.Ast.TTyCon
+import com.daml.lf.language.PackageInterface
 import com.daml.lf.scenario.{ScenarioLedger, ScenarioRunner}
 import com.daml.lf.speedy.Speedy.Machine
 import com.daml.lf.speedy.{SValue, TraceLog, WarningLog, SError}
@@ -42,7 +44,7 @@ import scala.util.{Failure, Success}
 
 // Client for the script service.
 class IdeLedgerClient(
-    val compiledPackages: CompiledPackages,
+    val originalCompiledPackages: PureCompiledPackages,
     traceLog: TraceLog,
     warningLog: WarningLog,
     canceled: () => Boolean,
@@ -58,11 +60,44 @@ class IdeLedgerClient(
 
   def currentSubmission: Option[ScenarioRunner.CurrentSubmission] = _currentSubmission
 
-  private[this] val preprocessor =
+  private[this] var compiledPackages = originalCompiledPackages
+
+  private[this] var preprocessor = makePreprocessor
+
+  private[this] var disabledPackages: Set[PackageId] = Set.empty
+
+  private[this] def makePreprocessor =
     new preprocessing.CommandPreprocessor(
       compiledPackages.pkgInterface,
       requireV1ContractIdSuffix = false,
     )
+
+  private[this] def partialFunctionFilterNot[A](f: A => Boolean): PartialFunction[A, A] = {
+    case x if !f(x) => x
+  }
+
+  // Given a set of disabled packages, filter out all definitions from those packages from the original compiled packages
+  private[this] def updateCompiledPackages() = {
+    compiledPackages =
+      if (disabledPackages.isEmpty)(
+        originalCompiledPackages.copy(
+          // Remove packages from the set
+          packageIds = originalCompiledPackages.packageIds -- disabledPackages,
+          // Filter out pkgId "key" to the partial function
+          pkgInterface = new PackageInterface(
+            partialFunctionFilterNot(
+              disabledPackages
+            ) andThen originalCompiledPackages.pkgInterface.signatures
+          ),
+          // Filter out any defs in a disabled package
+          defns = originalCompiledPackages.defns.filter { case (sDefRef, _) =>
+            !disabledPackages(sDefRef.packageId)
+          },
+        ),
+      )
+      else originalCompiledPackages
+    preprocessor = makePreprocessor
+  }
 
   private var _ledger: ScenarioLedger = ScenarioLedger.initialLedger(Time.Timestamp.Epoch)
   def ledger: ScenarioLedger = _ledger
@@ -544,4 +579,34 @@ class IdeLedgerClient(
     userManagementStore
       .listUserRights(id, IdentityProviderId.Default)(LoggingContext.empty)
       .map(_.toOption.map(_.toList))
+
+  override def enablePackages(packages: List[ScriptLedgerClient.ReadablePackageId])(implicit
+      ec: ExecutionContext,
+      esf: ExecutionSequencerFactory,
+      mat: Materializer,
+  ): Future[Unit] = {
+    disabledPackages = Set()
+    updateCompiledPackages()
+    Future.unit
+  }
+
+  override def disablePackages(packages: List[ScriptLedgerClient.ReadablePackageId])(implicit
+      ec: ExecutionContext,
+      esf: ExecutionSequencerFactory,
+      mat: Materializer,
+  ): Future[Unit] = unsupportedOn("disablePackages")
+
+  override def listPackages()(implicit
+      ec: ExecutionContext,
+      esf: ExecutionSequencerFactory,
+      mat: Materializer,
+  ): Future[List[ScriptLedgerClient.ReadablePackageId]] =
+    Future.successful {
+      val metadatas = compiledPackages.packageIds.collect(
+        compiledPackages.pkgInterface.signatures andThen Function.unlift(_.metadata)
+      )
+      metadatas.toList.map { case PackageMetadata(name, version, _) =>
+        ScriptLedgerClient.ReadablePackageId(name, version)
+      }
+    }
 }

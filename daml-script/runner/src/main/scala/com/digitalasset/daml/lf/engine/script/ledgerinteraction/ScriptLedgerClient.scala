@@ -59,6 +59,12 @@ object ScriptLedgerClient {
       contractId: ContractId,
       argument: Value,
   ) extends TreeEvent
+
+  // Essentially PackageMetadata but without the possibility of extension
+  final case class ReadablePackageId(
+      name: PackageName,
+      version: PackageVersion,
+  )
 }
 
 // This abstracts over the interaction with the ledger. This allows
@@ -199,4 +205,22 @@ trait ScriptLedgerClient {
       esf: ExecutionSequencerFactory,
       mat: Materializer,
   ): Future[Option[List[UserRight]]]
+
+  def enablePackages(packages: List[ScriptLedgerClient.ReadablePackageId])(implicit
+      ec: ExecutionContext,
+      esf: ExecutionSequencerFactory,
+      mat: Materializer,
+  ): Future[Unit]
+
+  def disablePackages(packages: List[ScriptLedgerClient.ReadablePackageId])(implicit
+      ec: ExecutionContext,
+      esf: ExecutionSequencerFactory,
+      mat: Materializer,
+  ): Future[Unit]
+
+  def listPackages()(implicit
+      ec: ExecutionContext,
+      esf: ExecutionSequencerFactory,
+      mat: Materializer,
+  ): Future[List[ScriptLedgerClient.ReadablePackageId]]
 }

@@ -519,4 +519,22 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Applicat
     grpcClient.userManagementClient.listUserRights(id).map(_.toList).map(Some(_)).recover {
       case e: StatusRuntimeException if e.getStatus.getCode == Status.Code.NOT_FOUND => None
     }
+
+  override def enablePackages(packages: List[ScriptLedgerClient.ReadablePackageId])(implicit
+      ec: ExecutionContext,
+      esf: ExecutionSequencerFactory,
+      mat: Materializer,
+  ): Future[Unit] = unsupportedOn("enablePackages")
+
+  override def disablePackages(packages: List[ScriptLedgerClient.ReadablePackageId])(implicit
+      ec: ExecutionContext,
+      esf: ExecutionSequencerFactory,
+      mat: Materializer,
+  ): Future[Unit] = unsupportedOn("disablePackages")
+
+  override def listPackages()(implicit
+      ec: ExecutionContext,
+      esf: ExecutionSequencerFactory,
+      mat: Materializer,
+  ): Future[List[ScriptLedgerClient.ReadablePackageId]] = unsupportedOn("listPackages")
 }

@@ -11,7 +11,15 @@ import com.daml.ledger.api.domain.{User, UserRight}
 import com.daml.lf.data.FrontStack
 import com.daml.lf.{CompiledPackages, command}
 import com.daml.lf.engine.preprocessing.ValueTranslator
-import com.daml.lf.data.Ref.{Identifier, Name, PackageId, Party, UserId}
+import com.daml.lf.data.Ref.{
+  Identifier,
+  Name,
+  PackageId,
+  Party,
+  UserId,
+  PackageName,
+  PackageVersion,
+}
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.script.ledgerinteraction.{ScriptLedgerClient, ScriptTimeMode}
 import com.daml.lf.language.Ast
@@ -675,6 +683,63 @@ object ScriptF {
       } yield SEAppAtomic(SEValue(continue), Array(SEValue(rights)))
   }
 
+  final case class EnablePackages(
+      packages: List[ScriptLedgerClient.ReadablePackageId],
+      stackTrace: StackTrace,
+      continue: SValue,
+  ) extends Cmd {
+    override def description = "enablePackages"
+    override def execute(env: Env)(implicit
+        ec: ExecutionContext,
+        mat: Materializer,
+        esf: ExecutionSequencerFactory,
+    ): Future[SExpr] =
+      for {
+        client <- Converter.toFuture(env.clients.getParticipant(None))
+        _ <- client.enablePackages(packages)
+      } yield SEAppAtomic(SEValue(continue), Array(SEValue(SUnit)))
+  }
+
+  final case class DisablePackages(
+      packages: List[ScriptLedgerClient.ReadablePackageId],
+      stackTrace: StackTrace,
+      continue: SValue,
+  ) extends Cmd {
+    override def description = "disablePackages"
+    override def execute(env: Env)(implicit
+        ec: ExecutionContext,
+        mat: Materializer,
+        esf: ExecutionSequencerFactory,
+    ): Future[SExpr] =
+      for {
+        client <- Converter.toFuture(env.clients.getParticipant(None))
+        _ <- client.disablePackages(packages)
+      } yield SEAppAtomic(SEValue(continue), Array(SEValue(SUnit)))
+  }
+
+  final case class ListPackages(
+      stackTrace: StackTrace,
+      continue: SValue,
+  ) extends Cmd {
+    override def description = "listPackages"
+    override def execute(env: Env)(implicit
+        ec: ExecutionContext,
+        mat: Materializer,
+        esf: ExecutionSequencerFactory,
+    ): Future[SExpr] =
+      for {
+        client <- Converter.toFuture(env.clients.getParticipant(None))
+        packages <- client.listPackages()
+      } yield SEAppAtomic(
+        SEValue(continue),
+        Array(
+          SEValue(
+            SList(packages.to(FrontStack).map(Converter.fromReadablePackageId(env.scriptIds, _)))
+          )
+        ),
+      )
+  }
+
   // Shared between Submit, SubmitMustFail and SubmitTree
   final case class SubmitData(
       actAs: OneAnd[Set, Party],
@@ -1051,6 +1116,38 @@ object ScriptF {
       case _ => Left(s"Expected ListUserRights payload but got $v")
     }
 
+  private def parseChangePackages(
+      ctx: Ctx,
+      v: SValue,
+  ): Either[String, (List[ScriptLedgerClient.ReadablePackageId], StackTrace, SValue)] = {
+    def toReadablePackageId(s: SValue): Either[String, ScriptLedgerClient.ReadablePackageId] =
+      s match {
+        case SRecord(_, _, ArrayList(SText(name), SText(version))) =>
+          for {
+            pname <- PackageName.fromString(name)
+            pversion <- PackageVersion.fromString(version)
+          } yield ScriptLedgerClient.ReadablePackageId(pname, pversion)
+        case _ => Left(s"Expected PackageName but got $s")
+      }
+    v match {
+      case SRecord(_, _, ArrayList(packages, continue, stackTrace)) =>
+        for {
+          packages <- Converter.toList(packages, toReadablePackageId)
+          stackTrace <- toStackTrace(ctx, Some(stackTrace))
+        } yield (packages, stackTrace, continue)
+      case _ => Left(s"Expected Packages payload but got $v")
+    }
+  }
+
+  private def parseListPackages(ctx: Ctx, v: SValue): Either[String, ListPackages] =
+    v match {
+      case SRecord(_, _, ArrayList(continue, stackTrace)) =>
+        for {
+          stackTrace <- toStackTrace(ctx, Some(stackTrace))
+        } yield ListPackages(stackTrace, continue)
+      case _ => Left(s"Expected ListPackages payload but got $v")
+    }
+
   def parse(ctx: Ctx, constr: Ast.VariantConName, v: SValue): Either[String, ScriptF] =
     constr match {
       case "Submit" => parseSubmit(ctx, v).map(Submit(_))
@@ -1076,6 +1173,9 @@ object ScriptF {
       case "GrantUserRights" => parseGrantUserRights(ctx, v)
       case "RevokeUserRights" => parseRevokeUserRights(ctx, v)
       case "ListUserRights" => parseListUserRights(ctx, v)
+      case "EnablePackages" => parseChangePackages(ctx, v).map(EnablePackages.tupled(_))
+      case "DisablePackages" => parseChangePackages(ctx, v).map(DisablePackages.tupled(_))
+      case "ListPackages" => parseListPackages(ctx, v)
       case _ => Left(s"Unknown constructor $constr")
     }
 
