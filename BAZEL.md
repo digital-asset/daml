@@ -436,14 +436,14 @@ detailed information.
 - Execute a specific Scala test-suite class
 
     ```
-    bazel test //ledger/participant-integration-api:participant-integration-api-tests_test_suite_src_test_suite_scala_platform_store_dao_JdbcLedgerDaoPostgresqlSpec.scala
+    bazel test //daml-lf/engine:tests_test_suite_src_test_scala_com_digitalasset_daml_lf_engine_ApiCommandPreprocessorSpec.scala
     ```
 
 - Execute a test with a specific name
 
     ```
     bazel test \
-    //ledger/participant-integration-api:participant-integration-api-tests_test_suite_src_test_suite_scala_platform_store_dao_JdbcLedgerDaoPostgresqlSpec.scala \
+    //daml-lf/engine:tests_test_suite_src_test_scala_com_digitalasset_daml_lf_engine_ApiCommandPreprocessorSpec.scala \
       --test_arg=-t \
       --test_arg="JdbcLedgerDao (divulgence) should preserve divulged contracts"
     ```
@@ -452,7 +452,7 @@ detailed information.
 
     ```
     bazel test \
-    //ledger/participant-integration-api:participant-integration-api-tests_test_suite_src_test_suite_scala_platform_store_dao_JdbcLedgerDaoPostgresqlSpec.scala \
+    //daml-lf/engine:tests_test_suite_src_test_scala_com_digitalasset_daml_lf_engine_ApiCommandPreprocessorSpec.scala \
       --test_arg=-z \
       --test_arg="preserve divulged"
     ```

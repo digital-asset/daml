@@ -46,7 +46,6 @@ da_scala_test(
         "//ledger/ledger-api-client",
         "//ledger/ledger-api-common",
         "//ledger/ledger-api-domain",
-        "//ledger/participant-integration-api",
         "//libs-scala/fs-utils",
         "//libs-scala/ledger-resources",
         "//libs-scala/ports",
