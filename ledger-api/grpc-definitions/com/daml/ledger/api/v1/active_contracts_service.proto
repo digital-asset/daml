@@ -81,13 +81,13 @@ message ContractStateComponent {
 
     // This message is only available, if the corresponding transfer-in event cannot be found before or at the
     // active_at_offset, and at least one of the querying parties could submit the corresponding transfer-in command.
-    // The incomplete_transferred_out.created_event.witness_parties will contain all such querying parties.
+    // The incomplete_transferred_out.transferred_out_event.transferring_parties will contain all such querying parties.
     IncompleteTransferredOut incomplete_transferred_out = 2;
 
     // Important: this message is not indicating that the contract is active for the target domain!
     // This message is only available, if the corresponding transfer-out event cannot be found before or at the
     // active_at_offset, and at least one of the querying parties could have submitted the corresponding transfer-in command.
-    // The incomplete_transferred_in.transferred_in_event.created_event.witness_parties will contain all such querying parties.
+    // The incomplete_transferred_in.transferred_in_event.transferring_parties will contain all such querying parties.
     IncompleteTransferredIn incomplete_transferred_in = 3;
   }
 }

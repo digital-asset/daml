@@ -88,6 +88,10 @@ message TransferredOutEvent {
   // Return the ``submitter`` if it's a stakeholder of the contract (i.e. either signatories or observers).
   // Required
   repeated string witness_parties = 9;
+
+  // The parties which are able to transfer-in the respective transfer on this participant.
+  // Required
+  repeated string transferring_parties = 10;
 }
 
 // Records that a contract has been transferred-in, and it becomes usable on the target domain
@@ -122,5 +126,9 @@ message TransferredInEvent {
 
   // Required
   CreatedEvent created_event = 6;
+
+  // The parties which would have been able to transfer-in the respective transfer on this participant.
+  // Required
+  repeated string transferring_parties = 7;
 }
 
