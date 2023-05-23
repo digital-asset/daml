@@ -24,7 +24,7 @@ service UpdateService {
 
   // Read the ledger's complete transaction tree stream and related transfers for a set of parties.
   // The stream will be filtered only by the parties as wildcard parties.
-  // The template/interface filters describe the respective fields in the `CreateEvent`` results.
+  // The template/interface filters describe the respective fields in the ``CreatedEvent`` results.
   rpc GetUpdateTrees (GetUpdatesRequest) returns (stream GetUpdateTreesResponse);
 
   // Lookup a transaction tree by the ID of an event that appears within it.
