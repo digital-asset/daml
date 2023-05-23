@@ -13,15 +13,17 @@ getController :: I -> Party
 
 -- | T docs
 
-data T
+data (Template T) => T
 
 -- | T docs
 
-T :: Template T => Party -> T
+T :: Party -> T
+
+p :: T -> Party
 
 -- | TCall docs
 
-data TCall
+data (Choice T TCall ()) => TCall
 
 -- | TCall docs
 
@@ -29,29 +31,17 @@ TCall :: Int -> TCall
 
 i :: TCall -> Int
 
--- | TCall docs
-
-TCall_Choice :: Choice T => Int -> Update ()
-
 -- | I docs
 
-data I
-
--- | I docs
-
-I :: Interface I => View -> I
+data (HasInterfaceView I View) => I
 
 -- | ICall docs
 
-data ICall
+data (Choice I ICall (Optional Int)) => ICall
 
 -- | ICall docs
 
 ICall :: Int -> ICall
 
 i :: ICall -> Int
-
--- | ICall docs
-
-ICall_Choice :: Choice I => Int -> Update (Optional Int)
 
