@@ -1,15 +1,12 @@
 // Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.platform.api.v1.event
+package com.daml.ledger.api.testtool.infrastructure
 
 import com.daml.ledger.api.v1.event.Event.Event.{Archived, Created, Empty}
 import com.daml.ledger.api.v1.event.{CreatedEvent, Event, ExercisedEvent}
 import com.daml.ledger.api.v1.transaction.TreeEvent
-import com.daml.ledger.api.v1.transaction.TreeEvent.Kind.{
-  Created => TreeCreated,
-  Exercised => TreeExercised,
-}
+import com.daml.ledger.api.v1.transaction.TreeEvent.Kind.{Created => TreeCreated, Exercised => TreeExercised}
 import com.daml.ledger.api.v1.value.Identifier
 
 object EventOps {

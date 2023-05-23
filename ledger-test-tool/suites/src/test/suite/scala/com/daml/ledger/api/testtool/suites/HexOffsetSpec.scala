@@ -1,10 +1,11 @@
 // Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.platform.participant.util
+package com.daml.ledger.api.testtool.suites
 
 import java.math.BigInteger
 
+import com.daml.ledger.api.testtool.infrastructure.HexOffset
 import com.daml.lf.data.Ref
 import org.scalacheck.Gen
 import org.scalatest.OptionValues
