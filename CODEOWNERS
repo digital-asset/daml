@@ -43,14 +43,10 @@ NOTICES     @garyverhaegen-da @dasormeter
 
 # Ledger API Interfaces and Read/Write services are jointly owned between KV teams and @meiersi-da
 /ledger-api/grpc-definitions/       @meiersi-da @digital-asset/kv-participant @digital-asset/kv-committer
-/ledger/ledger-configuration/       @meiersi-da @digital-asset/kv-participant @digital-asset/kv-committer
-/ledger/ledger-offset/              @meiersi-da @digital-asset/kv-participant @digital-asset/kv-committer
 
 # Owned by KV Participant with KV Committer added for notifications
 /ledger/ledger-api-common/              @digital-asset/kv-participant @digital-asset/kv-committer
 /ledger/ledger-api-domain/              @digital-asset/kv-participant @digital-asset/kv-committer
-/ledger/ledger-configuration/           @digital-asset/kv-participant @digital-asset/kv-committer
-/ledger/ledger-offset/                  @digital-asset/kv-participant @digital-asset/kv-committer
 /ledger-test-tool/                      @digital-asset/kv-participant @digital-asset/kv-committer
 
 # Conformance test on canton

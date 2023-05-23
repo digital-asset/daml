@@ -18,10 +18,7 @@ da_scala_library(
     ],
     runtime_deps = [],
     deps = [
-        "//language-support/scala/bindings",
         "//ledger-api/grpc-definitions:ledger_api_proto_scala",
-        "//ledger/ledger-offset",
-        "@maven//:com_google_protobuf_protobuf_java",
     ],
 )
 
@@ -37,7 +34,5 @@ da_scala_test_suite(
         ":ledger-grpc",
         "//daml-lf/data",
         "//ledger-api/grpc-definitions:ledger_api_proto_scala",
-        "//ledger/ledger-offset",
-        "@maven//:com_google_protobuf_protobuf_java",
     ],
 )

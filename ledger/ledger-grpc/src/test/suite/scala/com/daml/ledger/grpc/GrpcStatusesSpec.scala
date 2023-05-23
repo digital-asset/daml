@@ -3,10 +3,9 @@
 
 package com.daml.ledger.grpc
 
-import com.daml.ledger.grpc.GrpcStatuses.{CompletionOffsetKey, DefiniteAnswerKey}
-import com.daml.ledger.offset.Offset
+import com.daml.ledger.grpc.GrpcStatuses.DefiniteAnswerKey
 import com.google.protobuf.any
-import com.google.rpc.error_details.{ErrorInfo, RequestInfo}
+import com.google.rpc.error_details.ErrorInfo
 import com.google.rpc.status.Status
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks._
@@ -54,40 +53,4 @@ class GrpcStatusesSpec extends AnyWordSpec with Matchers {
       }
     }
   }
-
-  "completeWithOffset" should {
-    "throw in case no error details can be found" in {
-      assertThrows[IllegalArgumentException] {
-        GrpcStatuses.completeWithOffset(Status.defaultInstance, aCompletionOffset)
-      }
-    }
-
-    "throw in case no ErrorInfo message is available" in {
-      val aMessage = RequestInfo.of("a", "b")
-      val inputStatus = Status.of(123, "an error", Seq(any.Any.pack(aMessage)))
-      assertThrows[IllegalArgumentException] {
-        GrpcStatuses.completeWithOffset(inputStatus, aCompletionOffset)
-      }
-    }
-
-    "update metadata for ErrorInfo with completion offset at completion key" in {
-      val anErrorInfo = ErrorInfo.of("reason", "domain", Map("key" -> "value"))
-      val inputStatus = Status.of(123, "an error", Seq(any.Any.pack(anErrorInfo)))
-
-      GrpcStatuses.completeWithOffset(inputStatus, aCompletionOffset) should be(
-        inputStatus.copy(details =
-          Seq(
-            any.Any.pack(
-              anErrorInfo
-                .copy(metadata =
-                  anErrorInfo.metadata + (CompletionOffsetKey -> aCompletionOffset.toHexString)
-                )
-            )
-          )
-        )
-      )
-    }
-  }
-
-  private lazy val aCompletionOffset = Offset.fromByteArray(Array[Byte](1, 2))
 }

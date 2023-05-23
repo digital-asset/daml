@@ -125,15 +125,7 @@
   type: jar-deploy
 - target: //ledger-test-tool/tool:tool-1.dev
   type: jar-deploy
-- target: //ledger/ledger-configuration:ledger-configuration
-  type: jar-scala
-- target: //ledger/ledger-configuration/protobuf:ledger_configuration_proto_jar
-  type: jar-lib
-- target: //ledger/ledger-configuration/protobuf:ledger_configuration_proto_java
-  type: jar-proto
 - target: //ledger/ledger-grpc:ledger-grpc
-  type: jar-scala
-- target: //ledger/ledger-offset:ledger-offset
   type: jar-scala
 - target: //ledger/participant-local-store:participant-local-store
   type: jar-scala

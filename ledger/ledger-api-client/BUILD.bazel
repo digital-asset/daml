@@ -108,7 +108,6 @@ da_scala_test_suite(
         "//ledger/ledger-api-auth",
         "//ledger/ledger-api-common",
         "//ledger/ledger-api-domain",
-        "//ledger/ledger-configuration",
         "//libs-scala/caching",
         "//libs-scala/concurrent",
         "//libs-scala/contextualized-logging",
