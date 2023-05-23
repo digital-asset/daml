@@ -470,7 +470,7 @@ decodeBuiltinFunction = \case
   LF1.BuiltinFunctionMUL_NUMERIC_LEGACY   -> pure BEMulNumericLegacy
   LF1.BuiltinFunctionMUL_NUMERIC   -> pure  BEMulNumeric
   LF1.BuiltinFunctionDIV_NUMERIC_LEGACY   -> pure BEDivNumericLegacy
-  LF1.BuiltinFunctionDIV_NUMERIC   -> pure BEDivNumericLegacy
+  LF1.BuiltinFunctionDIV_NUMERIC   -> pure BEDivNumeric
   LF1.BuiltinFunctionROUND_NUMERIC -> pure BERoundNumeric
   LF1.BuiltinFunctionCAST_NUMERIC_LEGACY  -> pure BECastNumericLegacy
   LF1.BuiltinFunctionCAST_NUMERIC  -> pure BECastNumeric

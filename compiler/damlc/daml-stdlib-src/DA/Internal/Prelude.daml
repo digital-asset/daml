@@ -571,11 +571,10 @@ truncate = primitive @"BENumericToInt64"
 -- | Convert an `Int` to a `Numeric`.
 #ifdef DAML_NAT_TYPE_ERASURE
 intToNumeric : Numeric n -> Int -> Numeric n
-intToNumeric = primitive @"BEInt64ToNumeric"
 #else
 intToNumeric : Int -> Numeric n
-intToNumeric = primitive @"BEInt64ToNumericLegacy"
 #endif
+intToNumeric = primitive @"BEInt64ToNumeric"
 
 -- | Convert an `Int` to a `Decimal`.
 intToDecimal : Int -> Decimal
@@ -591,24 +590,6 @@ roundBankers = primitive @"BERoundNumeric"
 
 -- | Commercial Rounding: `roundCommercial dp x` rounds `x` to `dp` decimal places, where a `.5` is rounded away from zero.
 #ifdef DAML_NAT_TYPE_ERASURE
-roundCommercial : forall n. NumericScale n => Int -> Numeric n -> Numeric n
-roundCommercial d x =
-  -- We must avoid conversions to Int, otherwise this will crash in some cases.
-  -- Until we have a `roundCommercial` primitive, we use a somewhat hacky implementation
-  -- relying on `roundBankers` is a primitive.
-
-  -- We first use bankers rounding and then check if the difference is exactly .5
-  -- If that is the case, we’ve rounded in the wrong direction, so we shift it the other way.
-  let t = roundBankers d x
-      diff = x - t
-      -- This is defined in DA.Numeric but we inline it here to avoid creating a cyclic module dependency.
-      divNumeric : Numeric n1 -> Numeric n2 -> Numeric n3
-      divNumeric = primitive @"BEDivNumericLegacy"
-      problematicDiff = (0.5 : Numeric 1) `divNumeric` (10.0 ^ d : Numeric 0) * signum x
-  in if diff == problematicDiff
-       then x + problematicDiff
-       else t
-#else
 roundCommercial : forall n. Int -> Numeric n -> Numeric n
 roundCommercial d x =
   -- We must avoid conversions to Int, otherwise this will crash in some cases.
@@ -620,8 +601,26 @@ roundCommercial d x =
   let t = roundBankers d x
       diff = x - t
       -- This is defined in DA.Numeric but we inline it here to avoid creating a cyclic module dependency.
-      divNumeric : Numeric n1 -> Numeric n2 -> Numeric n
-      divNumeric = primitive @"BEDivNumeric" x
+      divNumeric : Numeric n3 -> Numeric n1 -> Numeric n2 -> Numeric n3
+      divNumeric = primitive @"BEDivNumeric"
+      problematicDiff = divNumeric x (0.5 : Numeric 1) (10.0 ^ d : Numeric 0) * signum x
+  in if diff == problematicDiff
+       then x + problematicDiff
+       else t
+#else
+roundCommercial : forall n. NumericScale n => Int -> Numeric n -> Numeric n
+roundCommercial d x =
+  -- We must avoid conversions to Int, otherwise this will crash in some cases.
+  -- Until we have a `roundCommercial` primitive, we use a somewhat hacky implementation
+  -- relying on `roundBankers` is a primitive.
+
+  -- We first use bankers rounding and then check if the difference is exactly .5
+  -- If that is the case, we’ve rounded in the wrong direction, so we shift it the other way.
+  let t = roundBankers d x
+      diff = x - t
+      -- This is defined in DA.Numeric but we inline it here to avoid creating a cyclic module dependency.
+      divNumeric : NumericScale n => Numeric n1 -> Numeric n2 -> Numeric n
+      divNumeric = primitive @"BEDivNumeric"
       problematicDiff = (0.5 : Numeric 1) `divNumeric` (10.0 ^ d : Numeric 0) * signum x
   in if diff == problematicDiff
        then x + problematicDiff
