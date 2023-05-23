@@ -5,7 +5,7 @@ package com.daml.error.definitions.groups
 
 import java.time.Instant
 
-import com.daml.error.definitions.{DamlErrorWithDefiniteAnswer, LedgerApiErrors}
+import com.daml.error.definitions.{ChangeId, DamlErrorWithDefiniteAnswer, LedgerApiErrors}
 import com.daml.error.{
   ContextualizedErrorLogger,
   ErrorCategory,
@@ -14,7 +14,6 @@ import com.daml.error.{
   Explanation,
   Resolution,
 }
-import com.daml.ledger.participant.state.v2.ChangeId
 import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value
 

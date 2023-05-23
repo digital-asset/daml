@@ -45,20 +45,6 @@ da_scala_library(
     ],
 )
 
-da_scala_binary(
-    name = "ledger-api-auth-bin",
-    srcs = glob(["src/app/scala/**/*.scala"]),
-    main_class = "com.daml.ledger.api.auth.Main",
-    scala_deps = [
-        "@maven//:com_github_scopt_scopt",
-        "@maven//:org_scalaz_scalaz_core",
-    ],
-    deps = [
-        ":ledger-api-auth",
-        "//libs-scala/jwt",
-    ],
-)
-
 da_scala_test_suite(
     name = "ledger-api-auth-scala-tests",
     srcs = glob(["src/test/suite/**/*.scala"]),
@@ -85,7 +71,6 @@ da_scala_test_suite(
         "//ledger/ledger-api-domain",
         "//ledger/ledger-api-errors",
         "//ledger/participant-local-store",
-        "//ledger/participant-state-index",
         "//libs-scala/adjustable-clock",
         "//libs-scala/contextualized-logging",
         "//libs-scala/jwt",

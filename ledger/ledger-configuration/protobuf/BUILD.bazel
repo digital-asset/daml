@@ -10,7 +10,6 @@ proto_jars(
     maven_group = "com.daml",
     visibility = [
         "//ledger/ledger-configuration:__subpackages__",
-        "//ledger/participant-state:__subpackages__",
     ],
     deps = [
         "@com_google_protobuf//:duration_proto",
