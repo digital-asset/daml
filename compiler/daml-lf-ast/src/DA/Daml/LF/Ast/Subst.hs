@@ -281,6 +281,7 @@ applySubstInUpdate subst = \case
         choiceName
         (applySubstInExpr subst e1)
         (applySubstInExpr subst e2)
+    USoftExercise{} ->  undefined -- TODO https://github.com/digital-asset/daml/issues/16151
     UDynamicExercise templateName choiceName e1 e2 -> UDynamicExercise
         templateName
         choiceName

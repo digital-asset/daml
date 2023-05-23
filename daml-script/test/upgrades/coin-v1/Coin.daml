@@ -7,8 +7,11 @@ template Coin
   with
     issuer : Party
     owner : Party
+    obs : [Party]
   where
     signatory issuer, owner
+    observer obs
+
 
 -- TODO https://github.com/digital-asset/daml/issues/16151
 instance HasSoftFetch Coin where

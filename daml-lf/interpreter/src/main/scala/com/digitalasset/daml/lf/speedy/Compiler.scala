@@ -349,7 +349,7 @@ private[lf] final class Compiler(
   private[this] def compileModule(
       pkgId: PackageId,
       module: Module,
-      preds: List[PackageId],
+      predPids: List[PackageId],
   ): Iterable[(t.SDefinitionRef, SDefinition)] = {
     val builder = Iterable.newBuilder[(t.SDefinitionRef, SDefinition)]
     def addDef(binding: (t.SDefinitionRef, SDefinition)): Unit = discard(builder += binding)
@@ -368,14 +368,18 @@ private[lf] final class Compiler(
 
     module.templates.foreach { case (tmplName, tmpl) =>
       val tmplId = Identifier(pkgId, QualifiedName(module.name, tmplName))
+
+      val fields =
+        pkgInterface.lookupDataRecord(tmplId) match {
+          case Right(PackageInterface.DataRecordInfo(_, DataRecord(fields))) =>
+            fields
+          case _ =>
+            throw CompilationError(s"Missing DataRecord definition for Template ${tmplId}")
+        }
+
       addDef(compileCreate(tmplId, tmpl))
       addDef(compileFetchTemplate(tmplId, tmpl))
-      pkgInterface.lookupDataRecord(tmplId) match {
-        case Right(PackageInterface.DataRecordInfo(_, DataRecord(fields))) =>
-          addDef(compileSoftFetchTemplate(tmplId, tmpl, fields, preds))
-        case _ =>
-          throw CompilationError(s"Missing DataRecord definition for Template ${tmplId}")
-      }
+      addDef(compileSoftFetchTemplate(tmplId, tmpl, fields, predPids))
       addDef(compileTemplatePreCondition(tmplId, tmpl))
       addDef(compileAgreementText(tmplId, tmpl))
       addDef(compileSignatories(tmplId, tmpl))
@@ -393,6 +397,7 @@ private[lf] final class Compiler(
 
       tmpl.choices.values.foreach { choice =>
         addDef(compileTemplateChoice(tmplId, tmpl, choice))
+        addDef(compileSoftTemplateChoice(tmplId, tmpl, fields, predPids, choice))
         addDef(compileChoiceController(tmplId, tmpl.param, choice))
         addDef(compileChoiceObserver(tmplId, tmpl.param, choice))
       }
@@ -460,6 +465,8 @@ private[lf] final class Compiler(
 
     val t1 = Time.Timestamp.now()
 
+    // TODO https://github.com/digital-asset/daml/issues/16151
+    // getOrElse will mask package load errors in lookupPredecessors
     val preds = pkgInterface.lookupPredecessors(pkgId).getOrElse(List.empty)
 
     val result = pkg.modules.values.flatMap(compileModule(pkgId, _, preds))
@@ -487,7 +494,7 @@ private[lf] final class Compiler(
 
   private[this] def translateChoiceBody(
       env: Env,
-      typeId: TypeConName,
+      tmplId: TypeConName,
       tmpl: Template,
       choice: TemplateChoice,
   )(
@@ -498,7 +505,7 @@ private[lf] final class Compiler(
   ): s.SExpr =
     let(
       env,
-      SBCastAnyContract(typeId)(
+      SBCastAnyContract(tmplId)(
         env.toSEVar(cidPos),
         SBFetchAny(
           env.toSEVar(cidPos),
@@ -512,7 +519,69 @@ private[lf] final class Compiler(
       let(
         env,
         SBUBeginExercise(
-          templateId = typeId,
+          templateId = tmplId,
+          interfaceId = None,
+          choiceId = choice.name,
+          consuming = choice.consuming,
+          byKey = mbKey.isDefined,
+          explicitChoiceAuthority = choice.choiceAuthorizers.isDefined,
+        )(
+          env.toSEVar(choiceArgPos),
+          env.toSEVar(cidPos),
+          s.SEPreventCatch(translateExp(env, choice.controllers)),
+          choice.choiceObservers match {
+            case Some(observers) => s.SEPreventCatch(translateExp(env, observers))
+            case None => s.SEValue.EmptyList
+          },
+          choice.choiceAuthorizers match {
+            case Some(authorizers) => s.SEPreventCatch(translateExp(env, authorizers))
+            case None => s.SEValue.EmptyList
+          },
+        ),
+      ) { (_, _env) =>
+        val env = _env.bindExprVar(choice.selfBinder, cidPos)
+        s.SEScopeExercise(
+          app(translateExp(env, choice.update), env.toSEVar(tokenPos))
+        )
+      }
+    }
+
+  // TODO https://github.com/digital-asset/daml/issues/16151
+  //   Try to factorize this with translateChoiceBody
+  private[this] def translateSoftChoiceBody(
+      env: Env,
+      tmplId: TypeConName,
+      tmpl: Template,
+      fields: ImmArray[(FieldName, Type)],
+      predPids: List[PackageId],
+      choice: TemplateChoice,
+  )(
+      choiceArgPos: Position,
+      cidPos: Position,
+      mbKey: Option[Position], // defined for byKey operation
+      tokenPos: Position,
+  ): s.SExpr =
+    let(
+      env,
+      SBPromoteAnyContract(
+        tmplId,
+        fields,
+        predPids.map(Identifier(_, tmplId.qualifiedName)),
+      )(
+        env.toSEVar(cidPos),
+        SBFetchAny(
+          env.toSEVar(cidPos),
+          mbKey.fold(s.SEValue.None: s.SExpr)(pos => SBSome(env.toSEVar(pos))),
+        ),
+      ),
+    ) { (tmplArgPos, _env) =>
+      val env =
+        _env.bindExprVar(tmpl.param, tmplArgPos).bindExprVar(choice.argBinder._1, choiceArgPos)
+
+      let(
+        env,
+        SBUBeginExercise(
+          templateId = tmplId,
           interfaceId = None,
           choiceId = choice.name,
           consuming = choice.consuming,
@@ -639,12 +708,29 @@ private[lf] final class Compiler(
         )
     }
 
+  private[this] def compileSoftTemplateChoice(
+      tmplId: TypeConName,
+      tmpl: Template,
+      fields: ImmArray[(FieldName, Type)],
+      predPids: List[PackageId],
+      choice: TemplateChoice,
+  ): (t.SDefinitionRef, SDefinition) =
+    topLevelFunction3(t.SoftTemplateChoiceDefRef(tmplId, choice.name)) {
+      (cidPos, choiceArgPos, tokenPos, env) =>
+        translateSoftChoiceBody(env, tmplId, tmpl, fields, predPids, choice)(
+          choiceArgPos,
+          cidPos,
+          None,
+          tokenPos,
+        )
+    }
+
   private[this] def compileChoiceController(
-      typeId: TypeConName,
+      tmplId: TypeConName,
       contractVarName: ExprVarName,
       choice: TemplateChoice,
   ): (t.SDefinitionRef, SDefinition) =
-    topLevelFunction2(t.ChoiceControllerDefRef(typeId, choice.name)) {
+    topLevelFunction2(t.ChoiceControllerDefRef(tmplId, choice.name)) {
       (contractPos, choiceArgPos, env) =>
         s.SEPreventCatch(
           translateExp(
@@ -657,11 +743,11 @@ private[lf] final class Compiler(
     }
 
   private[this] def compileChoiceObserver(
-      typeId: TypeConName,
+      tmplId: TypeConName,
       contractVarName: ExprVarName,
       choice: TemplateChoice,
   ): (t.SDefinitionRef, SDefinition) =
-    topLevelFunction2(t.ChoiceObserverDefRef(typeId, choice.name)) {
+    topLevelFunction2(t.ChoiceObserverDefRef(tmplId, choice.name)) {
       (contractPos, choiceArgPos, env) =>
         choice.choiceObservers match {
           case Some(observers) =>

@@ -65,6 +65,7 @@ instance EitherLike TL.Text Int32 P.TemplateChoiceSelfBinder
 instance EitherLike TL.Text Int32 P.Type_VarVar
 instance EitherLike TL.Text Int32 P.TypeVarWithKindVar
 instance EitherLike TL.Text Int32 P.Update_ExerciseChoice
+instance EitherLike TL.Text Int32 P.Update_SoftExerciseChoice
 instance EitherLike TL.Text Int32 P.VarWithTypeVar
 
 instance EitherLike P.DottedName Int32 P.ModuleRefModuleName
