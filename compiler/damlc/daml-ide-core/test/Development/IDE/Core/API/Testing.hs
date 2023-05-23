@@ -47,7 +47,6 @@ module Development.IDE.Core.API.Testing
 import qualified Development.IDE.Core.API         as API
 import Development.IDE.Core.Debouncer
 import Development.IDE.Core.Shake (ShakeLspEnv(..), NotificationHandler(..))
-import qualified Development.IDE.Core.Rules.Daml  as API
 import qualified Development.IDE.Types.Diagnostics as D
 import qualified Development.IDE.Types.Location as D
 import DA.Daml.LF.ScenarioServiceClient as SS
@@ -64,7 +63,6 @@ import Language.LSP.Types hiding (SemanticTokenAbsolute (..), SemanticTokenRelat
 import Control.Concurrent.STM
 import Control.Exception.Extra
 import qualified Control.Monad.Reader   as Reader
-import Data.Either.Combinators
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import qualified Data.Aeson as Aeson
