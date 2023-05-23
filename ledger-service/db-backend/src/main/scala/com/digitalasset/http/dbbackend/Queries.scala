@@ -1059,10 +1059,10 @@ private final class OracleQueries(
       sql"JSON_EXISTS($contractColumnName, ${oracleShortPathEscape(opath ++ Cord(pred))}$extension)"
 
     // Oracle conflates empty string and NULL
-    lazy val eqEmptyString =
+    def eqEmptyString =
       sql"""JSON_VALUE($contractColumnName, ${oracleShortPathEscape(opath)}) IS NULL"""
 
-    lazy val eqJsonNonScalar =
+    def eqJsonNonScalar =
       sql"JSON_EQUAL(JSON_QUERY($contractColumnName, ${oracleShortPathEscape(opath)} RETURNING CLOB), $literal)"
 
     // you cannot put a positional parameter in a path, which _must_ be a literal
@@ -1135,7 +1135,7 @@ private final class OracleQueries(
 
     // Oracle conflates "" and NULL, which makes comparison operations against the empty string surprising.
     // This attempts to implement the semantic meaning of the comparison operators against an empty string on Oracle.
-    lazy val compareEmptyString = {
+    def compareEmptyString = {
       op match {
         case LT =>
           // Always false, as no string value can be < ""
