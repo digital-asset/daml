@@ -4,7 +4,7 @@ import DA.Set (fromList, singleton)
 import Daml.Finance.Interface.Settlement.Batch qualified as Batch (I)
 import Daml.Finance.Interface.Settlement.Factory qualified as Settlement (F, Instruct(..))
 import Daml.Finance.Interface.Settlement.Instruction qualified as Instruction (I)
-import Daml.Finance.Interface.Settlement.RouteProvider qualified as RouteProvider (I, Discover(..))
+import Daml.Finance.Interface.Settlement.RouteProvider qualified as RouteProvider (Discover(..), I)
 import Daml.Finance.Interface.Settlement.Types (Step(..))
 import Daml.Finance.Interface.Types.Common.Types (Id(..), InstrumentQuantity)
 
