@@ -61,11 +61,11 @@ message CompletionStreamResponse {
 
   // This checkpoint may be used to restart consumption.  The
   // checkpoint is after any completions in this response.
-  // Optional
+  // Required
   Checkpoint checkpoint = 1;
 
-  // If set, one or more completions.
-  repeated Completion completions = 2;
+  // Required
+  Completion completions = 2;
 
 }
 
