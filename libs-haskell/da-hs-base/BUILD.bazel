@@ -1,7 +1,7 @@
 # Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-load("//bazel_tools:haskell.bzl", "da_haskell_library", "da_haskell_test")
+load("//bazel_tools:haskell.bzl", "da_haskell_library", "da_haskell_test", "generate_and_track_cabal")
 load("@os_info//:os_info.bzl", "is_windows")
 
 da_haskell_library(
@@ -101,3 +101,5 @@ da_haskell_test(
         "//libs-haskell/test-utils",
     ],
 )
+
+generate_and_track_cabal("da-hs-base")
