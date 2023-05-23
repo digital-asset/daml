@@ -13,6 +13,7 @@ option java_outer_classname = "StateServiceOuterClass";
 option java_package = "com.daml.ledger.api.v2";
 option csharp_namespace = "Com.Daml.Ledger.Api.V2";
 
+// TODO add documentation of bootstrapping procedure
 // Allows clients to get state from the ledger.
 service StateService {
 

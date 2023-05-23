@@ -14,6 +14,7 @@ option java_outer_classname = "UpdateServiceOuterClass";
 option java_package = "com.daml.ledger.api.v2";
 option csharp_namespace = "Com.Daml.Ledger.Api.V2";
 
+// TODO add documentation of participant offsets and virtual shared ledger and causality guarantees
 // Allows clients to read updates (transactions and reassignments) from the ledger.
 service UpdateService {
 
