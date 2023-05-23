@@ -332,6 +332,8 @@ final class Conversions(
         builder.setEvaluationTimeout(timeout.toSeconds)
       case Error.CanceledByRequest() =>
         builder.setCancelledByRequest(empty)
+      case e @ Error.NoSuchTemplate(_, _) =>
+        builder.setCrash(Pretty.prettyError(e).render(80))
     }
     builder.build
   }

@@ -20,6 +20,7 @@ da_scala_binary(
         "@maven//:com_typesafe_scala_logging_scala_logging",
         "@maven//:org_scalaz_scalaz_core",
         "@maven//:com_github_scopt_scopt",
+        "@maven//:org_typelevel_paiges_core",
     ],
     scalacopts = lf_scalacopts_stricter,
     runtime_deps = [
