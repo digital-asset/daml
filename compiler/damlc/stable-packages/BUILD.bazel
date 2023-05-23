@@ -166,4 +166,4 @@ da_haskell_library(
     ],
 )
 
-generate_and_track_cabal("stable-packages-lib", "damlc-stable-packages.cabal")
+generate_and_track_cabal("stable-packages-lib")
