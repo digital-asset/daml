@@ -41,7 +41,6 @@ import DA.Daml.Package.Config
 import DA.Daml.Project.Config
 import DA.Daml.Project.Consts
 import DA.Daml.Project.Types (ConfigError(..), ProjectPath(..))
-import DA.Daml.Visual
 import qualified DA.Pretty
 import qualified DA.Service.Logger as Logger
 import qualified DA.Service.Logger.Impl.GCP as Logger.GCP
@@ -121,7 +120,6 @@ data CommandName =
   | MergeDars
   | Package
   | Test
-  | Visual
   | Repl
   deriving (Ord, Show, Eq)
 data Command = Command CommandName (Maybe ProjectOpts) (IO ())
@@ -293,20 +291,6 @@ cmdInspect =
         fmap (maybe DA.Pretty.prettyNormal DA.Pretty.PrettyLevel) $
             optional $ optionOnce auto $ long "detail" <> metavar "LEVEL" <> help "Detail level of the pretty printed output (default: 0)"
     cmd = execInspect <$> inputFileOptWithExt ".dalf or .dar" <*> outputFileOpt <*> jsonOpt <*> detailOpt
-
-cmdVisual :: Mod CommandFields Command
-cmdVisual =
-    command "visual" $ info (helper <*> cmd) $ progDesc "Early Access (Labs). Generate visual from dar" <> fullDesc
-    where
-      cmd = vis <$> inputDarOpt <*> dotFileOpt
-      vis a b = Command Visual Nothing $ execVisual a b
-
-cmdVisualWeb :: Mod CommandFields Command
-cmdVisualWeb =
-    command "visual-web" $ info (helper <*> cmd) $ progDesc "Early Access (Labs). Generate D3-Web Visual from dar" <> fullDesc
-    where
-      cmd = vis <$> inputDarOpt <*> htmlOutFile <*> openBrowser
-      vis a b browser = Command Visual Nothing $ execVisualHtml a b browser
 
 cmdBuild :: Int -> Mod CommandFields Command
 cmdBuild numProcessors =
@@ -1033,8 +1017,6 @@ options numProcessors =
       <> cmdBuild numProcessors
       <> cmdTest numProcessors
       <> Damldoc.cmd numProcessors (\cli -> Command DamlDoc Nothing $ Damldoc.exec cli)
-      <> cmdVisual
-      <> cmdVisualWeb
       <> cmdInspectDar
       <> cmdValidateDar
       <> cmdDocTest numProcessors
@@ -1044,8 +1026,6 @@ options numProcessors =
     <|> subparser
       (internal -- internal commands
         <> cmdInspect
-        <> cmdVisual
-        <> cmdVisualWeb
         <> cmdMergeDars
         <> cmdInit numProcessors
         <> cmdCompile numProcessors
@@ -1122,7 +1102,6 @@ cmdUseDamlYamlArgs = \case
   MergeDars -> False -- just reads the dars
   Package -> False -- deprecated
   Test -> True
-  Visual -> False -- just reads the dar
   Repl -> True
 
 withProjectRoot' :: ProjectOpts -> ((FilePath -> IO FilePath) -> IO a) -> IO a

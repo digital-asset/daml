@@ -742,25 +742,7 @@ executeCommandTests
     :: (Session () -> IO ())
     -> TestTree
 executeCommandTests run = testGroup "execute command"
-    [ testCase "execute commands" $ run $ do
-        main' <- openDoc' "Coin.daml" damlId $ T.unlines
-            [ "module Coin where"
-            , "template Coin"
-            , "  with"
-            , "    owner : Party"
-            , "  where"
-            , "    signatory owner"
-            , "    choice Delete : ()"
-            , "      controller owner"
-            , "      do return ()"
-            ]
-        Just escapedFp <- pure $ uriToFilePath (main' ^. uri)
-        actualDotString <- LSP.request SWorkspaceExecuteCommand $ ExecuteCommandParams
-           Nothing "daml/damlVisualize" (Just (List [Aeson.String $ T.pack escapedFp]))
-        let expectedDotString = "digraph G {\ncompound=true;\nrankdir=LR;\nsubgraph cluster_Coin{\nn0[label=Create][color=green]; \nn1[label=Archive][color=red]; \nn2[label=Delete][color=red]; \nlabel=<<table align = \"left\" border=\"0\" cellborder=\"0\" cellspacing=\"1\">\n<tr><td align=\"center\"><b>Coin</b></td></tr><tr><td align=\"left\">owner</td></tr> \n</table>>;color=blue\n}\n}\n"
-        liftIO $ assertEqual "Visulization command" (Right expectedDotString) (_result actualDotString)
-        closeDoc main'
-    , testCase "Invalid commands result in error"  $ run $ do
+    [ testCase "Invalid commands result in error"  $ run $ do
         main' <- openDoc' "Empty.daml" damlId $ T.unlines
             [ "module Empty where"
             ]
@@ -769,10 +751,6 @@ executeCommandTests run = testGroup "execute command"
            Nothing "daml/NoCommand"  (Just (List [Aeson.String $ T.pack escapedFp]))
         liftIO $ assertBool "Expected response error but got success" (isLeft $ _result actualDotString)
         closeDoc main'
-    , testCase "Visualization command with no arguments" $ run $ do
-        actualDotString <- LSP.request SWorkspaceExecuteCommand $ ExecuteCommandParams
-           Nothing "daml/damlVisualize"  Nothing
-        liftIO $ assertBool "Expected response error but got Nothing" (isLeft $ _result actualDotString)
     ]
 
 -- | Do extreme things to the compiler service.
