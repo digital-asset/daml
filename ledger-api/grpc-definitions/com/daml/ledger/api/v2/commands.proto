@@ -226,7 +226,7 @@ message DisclosedContract {
   com.daml.ledger.api.v1.ContractMetadata metadata = 5;
 }
 
-message TransferCommand {
+message ReassignmentCommand {
   // Identifier of the on-ledger workflow that this command is a part of.
   // Must be a valid LedgerString (as described in ``value.proto``).
   // Optional
@@ -253,8 +253,8 @@ message TransferCommand {
   string submitter = 4;
 
   oneof command {
-    TransferOutCommand transfer_out_command = 5;
-    TransferInCommand transfer_in_command = 6;
+    UnassignCommand unassign_command = 5;
+    AssignCommand assign_command = 6;
   }
 
   // A unique identifier to distinguish completions for different submissions with the same change ID.
@@ -267,9 +267,9 @@ message TransferCommand {
   string submission_id = 7;
 }
 
-// Transfer-out a contract
-message TransferOutCommand {
-  // The ID of the contract the client wants to transfer-out.
+// Assign a contract
+message UnassignCommand {
+  // The ID of the contract the client wants to unassign.
   // Must be a valid LedgerString (as described in ``value.proto``).
   // Required
   string contract_id = 1;
@@ -285,12 +285,12 @@ message TransferOutCommand {
   string target = 3;
 }
 
-// Transfer-in a contract
-message TransferInCommand {
-  // The ID of the transfer-out event to be completed by this transfer-in.
+// Assign a contract
+message AssignCommand {
+  // The ID from the unassigned event to be completed by this assignment.
   // Must be a valid LedgerString (as described in ``value.proto``).
   // Required
-  string transfer_out_id = 1;
+  string reassignment_id = 1;
 
   // The ID of the source domain
   // Must be a valid domain ID

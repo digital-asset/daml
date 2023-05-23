@@ -30,8 +30,8 @@ service CommandSubmissionService {
   // Submit a single composite command.
   rpc Submit (SubmitRequest) returns (SubmitResponse);
 
-  // Submit a single transfer.
-  rpc SubmitTransfer (SubmitTransferRequest) returns (SubmitTransferResponse);
+  // Submit a single reassignment.
+  rpc SubmitReassignment (SubmitReassignmentRequest) returns (SubmitReassignmentResponse);
 
 }
 
@@ -47,13 +47,13 @@ message SubmitRequest {
 message SubmitResponse {
 }
 
-message SubmitTransferRequest {
+message SubmitReassignmentRequest {
 
-  // The transfer command to be submitted.
+  // The reassignment command to be submitted.
   // Required
-  TransferCommand transfer_command = 1;
+  ReassignmentCommand reassignment_command = 1;
 
 }
 
-message SubmitTransferResponse {
+message SubmitReassignmentResponse {
 }

@@ -8,24 +8,24 @@ package com.daml.ledger.api.v2;
 import "com/daml/ledger/api/v1/event.proto";
 import "google/protobuf/timestamp.proto";
 
-option java_outer_classname = "TransferOuterClass";
+option java_outer_classname = "ReassignmentOuterClass";
 option java_package = "com.daml.ledger.api.v2";
 option csharp_namespace = "Com.Daml.Ledger.Api.V2";
 
-// Complete view of an on-ledger transfer.
-message Transfer {
+// Complete view of an on-ledger reassignment.
+message Reassignment {
 
   // Assigned by the server. Useful for correlating logs.
   // Must be a valid LedgerString (as described in ``value.proto``).
   // Required
   string update_id = 1;
 
-  // The ID of the command which resulted in this transfer. Missing for everyone except the submitting party on the submitting participant.
+  // The ID of the command which resulted in this reassignment. Missing for everyone except the submitting party on the submitting participant.
   // Must be a valid LedgerString (as described in ``value.proto``).
   // Optional
   string command_id = 2;
 
-  // The workflow ID used in transfer command submission. Only set if the ``workflow_id`` for the command was set.
+  // The workflow ID used in reassignment command submission. Only set if the ``workflow_id`` for the command was set.
   // Must be a valid LedgerString (as described in ``value.proto``).
   // Optional
   string workflow_id = 3;
@@ -35,25 +35,25 @@ message Transfer {
   string offset = 4;
 
   oneof event {
-    TransferredOutEvent transfer_out_event = 5;
-    TransferredInEvent transfer_in_event = 6;
+    UnassignedEvent unassigned_event = 5;
+    AssignedEvent assigned_event = 6;
   }
 }
 
-// Records that a contract has been transferred-out, and it becomes unusable on the source domain
-message TransferredOutEvent {
+// Records that a contract has been unassigned, and it becomes unusable on the source domain
+message UnassignedEvent {
 
-  // The ID of the transfer-out event. This needs to be used as an input for a transfer-in TransferCommand.
+  // The ID of the reassignment. This needs to be used as an input for a assign ReassignmentCommand.
   // Must be a valid LedgerString (as described in ``value.proto``).
   // Required
-  string transfer_out_id = 1;
+  string reassignment_id = 1;
 
-  // The ID of the transferred contract.
+  // The ID of the reassigned contract.
   // Must be a valid LedgerString (as described in ``value.proto``).
   // Required
   string contract_id = 2;
 
-  //  The template of the transferred contract.
+  //  The template of the reassigned contract.
   //  Required
   string template_id = 3;
 
@@ -67,35 +67,35 @@ message TransferredOutEvent {
   // Required
   string target = 5;
 
-  // Party on whose behalf the transfer command was executed.
+  // Party on whose behalf the reassignment command was executed.
   // Must be a valid PartyIdString (as described in ``value.proto``).
   // Required
   string submitter = 6;
 
-  // Each corresponding transfer-in and transfer-out event has the same transfer_counter. This monotonically increases
-  // with each transfer-out command for the same contract. Creation of the contract corresponds to transfer_counter
+  // Each corresponding assigned and unassigned event has the same reassignment_counter. This monotonically increases
+  // with each unassign command for the same contract. Creation of the contract corresponds to reassignment_counter
   // equals zero.
   // Required
-  uint64 transfer_counter = 7;
+  uint64 reassignment_counter = 7;
 
-  // Transfer-in exclusivity
-  // Before this time (measured on the target domain), only the submitter of the transfer-out can initiate the transfer-in
+  // assignment exclusivity
+  // Before this time (measured on the target domain), only the submitter of the unassignment can initiate the assignment
   // Missing for everyone except on the submitting participant
   // optional
-  google.protobuf.Timestamp transfer_in_exclusivity = 8;
+  google.protobuf.Timestamp assignment_exclusivity = 8;
 
   // The parties that are notified of this event.
   // Return the ``submitter`` if it's a stakeholder of the contract (i.e. either signatories or observers).
   // Required
   repeated string witness_parties = 9;
 
-  // The parties which are able to transfer-in the respective transfer on this participant.
+  // The parties which are able to assign the respective reassignment on this participant.
   // Required
-  repeated string transferring_parties = 10;
+  repeated string reassigning_parties = 10;
 }
 
-// Records that a contract has been transferred-in, and it becomes usable on the target domain
-message TransferredInEvent {
+// Records that a contract has been assigned, and it becomes usable on the target domain
+message AssignedEvent {
 
   // The ID of the source domain
   // Must be a valid domain ID
@@ -107,28 +107,28 @@ message TransferredInEvent {
   // Required
   string target = 2;
 
-  // The ID of the transfer-out event
+  // The ID from the unassigned event
   // For correlation capabilities
   // Must be a valid LedgerString (as described in ``value.proto``).
   // Required
-  string transfer_out_id = 3;
+  string reassignment_id = 3;
 
-  // Party on whose behalf the transfer command was executed.
+  // Party on whose behalf the reassignment command was executed.
   // Must be a valid PartyIdString (as described in ``value.proto``).
   // Required
   string submitter = 4;
 
-  // Each corresponding transfer-in and transfer-out event has the same transfer_counter. This monotonically increases
-  // with each transfer-out command for the same contract. Creation of the contract corresponds to transfer_counter
+  // Each corresponding assigned and unassigned event has the same reassignment_counter. This monotonically increases
+  // with each unassign command for the same contract. Creation of the contract corresponds to reassignment_counter
   // equals zero.
   // Required
-  uint64 transfer_counter = 5;
+  uint64 reassignment_counter = 5;
 
   // Required
   com.daml.ledger.api.v1.CreatedEvent created_event = 6;
 
-  // The parties which would have been able to transfer-in the respective transfer on this participant.
+  // The parties which would have been able to assign the respective reassignment on this participant.
   // Required
-  repeated string transferring_parties = 7;
+  repeated string reassigning_parties = 7;
 }
 

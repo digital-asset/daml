@@ -7,7 +7,7 @@ package com.daml.ledger.api.v2;
 
 import "com/daml/ledger/api/v1/event.proto";
 import "com/daml/ledger/api/v2/transaction_filter.proto";
-import "com/daml/ledger/api/v2/transfer.proto";
+import "com/daml/ledger/api/v2/reassignment.proto";
 
 option java_outer_classname = "StateServiceOuterClass";
 option java_package = "com.daml.ledger.api.v2";
@@ -63,16 +63,16 @@ message ContractStateComponent {
     // There will be one such message for each domain the contract is active in.
     ActiveContract active_contract = 1;
 
-    // This message is only available, if the corresponding transfer-in event cannot be found before or at the
-    // active_at_offset, and at least one of the querying parties could submit the corresponding transfer-in command.
-    // The incomplete_transferred_out.transferred_out_event.transferring_parties will contain all such querying parties.
-    IncompleteTransferredOut incomplete_transferred_out = 2;
+    // This message is only available, if the corresponding assigned event cannot be found before or at the
+    // active_at_offset, and at least one of the querying parties could submit the corresponding assign command.
+    // The incomplete_unassigned.unassigned_event.reassigning_parties will contain all such querying parties.
+    IncompleteUnassigned incomplete_unassigned = 2;
 
     // Important: this message is not indicating that the contract is active for the target domain!
-    // This message is only available, if the corresponding transfer-out event cannot be found before or at the
-    // active_at_offset, and at least one of the querying parties could have submitted the corresponding transfer-in command.
-    // The incomplete_transferred_in.transferred_in_event.transferring_parties will contain all such querying parties.
-    IncompleteTransferredIn incomplete_transferred_in = 3;
+    // This message is only available, if the corresponding unassigned event cannot be found before or at the
+    // active_at_offset, and at least one of the querying parties could have submitted the corresponding assign command.
+    // The incomplete_assigned.assigned_event.reassigning_parties will contain all such querying parties.
+    IncompleteAssigned incomplete_assigned = 3;
   }
 }
 
@@ -84,24 +84,24 @@ message ActiveContract {
   // Required
   string domain_id = 2;
 
-  // Each corresponding transfer-in and transfer-out event has the same transfer_counter. This monotonically increases
-  // with each transfer-out command for the same contract. Creation of the contract corresponds to transfer_counter
+  // Each corresponding assigned and unassigned event has the same reassignment_counter. This monotonically increases
+  // with each unassign command for the same contract. Creation of the contract corresponds to reassignment_counter
   // equals zero.
   // Required
-  uint64 transfer_counter = 3;
+  uint64 reassignment_counter = 3;
 }
 
-message IncompleteTransferredOut {
+message IncompleteUnassigned {
   // Required
   com.daml.ledger.api.v1.CreatedEvent created_event = 1;
 
   // Required
-  TransferredOutEvent transferred_out_event = 2;
+  UnassignedEvent unassigned_event = 2;
 }
 
-message IncompleteTransferredIn {
+message IncompleteAssigned {
   // Required
-  TransferredInEvent transferred_in_event = 2;
+  AssignedEvent assigned_event = 2;
 }
 
 

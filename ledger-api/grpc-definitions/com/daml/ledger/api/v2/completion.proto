@@ -24,7 +24,7 @@ message Completion {
   // Optional
   google.rpc.Status status = 2;
 
-  // The update_id of the transaction or transfer that resulted from the command with command_id.
+  // The update_id of the transaction or reassignment that resulted from the command with command_id.
   // Only set for successfully executed commands.
   // Must be a valid LedgerString (as described in ``value.proto``).
   string update_id = 3;
@@ -72,8 +72,8 @@ message Completion {
   // The domain ID the command was submitted to.
   // In case
   //   - successful/failed transactions: represents the domain where the transaction was executed
-  //   - for successful/failed transfer-out commands: represents the source domain
-  //   - for successful/failed transfer-in commands: represents the target domain
+  //   - for successful/failed unassign commands: represents the source domain
+  //   - for successful/failed assign commands: represents the target domain
   // Required
   string domain_id = 10;
 }

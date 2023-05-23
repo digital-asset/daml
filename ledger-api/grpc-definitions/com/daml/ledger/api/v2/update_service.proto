@@ -8,21 +8,21 @@ package com.daml.ledger.api.v2;
 import "com/daml/ledger/api/v1/ledger_offset.proto";
 import "com/daml/ledger/api/v2/transaction.proto";
 import "com/daml/ledger/api/v2/transaction_filter.proto";
-import "com/daml/ledger/api/v2/transfer.proto";
+import "com/daml/ledger/api/v2/reassignment.proto";
 
 option java_outer_classname = "UpdateServiceOuterClass";
 option java_package = "com.daml.ledger.api.v2";
 option csharp_namespace = "Com.Daml.Ledger.Api.V2";
 
-// Allows clients to read updates (transactions and transfers) from the ledger.
+// Allows clients to read updates (transactions and reassignments) from the ledger.
 service UpdateService {
 
-  // Read the ledger's filtered transaction stream and related transfers for a set of parties.
+  // Read the ledger's filtered transaction stream and related reassignments for a set of parties.
   // For transactions it lists only creates and archives, but not other events.
   // Omits all events on transient contracts, i.e., contracts that were both created and archived in the same transaction.
   rpc GetUpdates (GetUpdatesRequest) returns (stream GetUpdatesResponse);
 
-  // Read the ledger's complete transaction tree stream and related transfers for a set of parties.
+  // Read the ledger's complete transaction tree stream and related reassignments for a set of parties.
   // The stream will be filtered only by the parties as wildcard parties.
   // The template/interface filters describe the respective fields in the ``CreatedEvent`` results.
   rpc GetUpdateTrees (GetUpdatesRequest) returns (stream GetUpdateTreesResponse);
@@ -76,7 +76,7 @@ message GetUpdatesResponse {
 message Update {
   oneof update {
     Transaction transaction = 1;
-    Transfer transfer = 2;
+    Reassignment reassignment = 2;
   }
 }
 
@@ -88,7 +88,7 @@ message GetUpdateTreesResponse {
 message UpdateTree {
   oneof update {
     TransactionTree transaction_tree = 1;
-    Transfer transfer = 2;
+    Reassignment reassignment = 2;
   }
 }
 
