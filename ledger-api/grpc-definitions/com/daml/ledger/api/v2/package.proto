@@ -1,0 +1,17 @@
+// Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package com.daml.ledger.api.v2;
+
+// Ledger API version V2
+//
+// This package contains the modified protobuf service-s and messages.
+// V1 services which are not explicitly marked with "In V2 Ledger API this service is not available anymore",
+// will be part of the V2 Ledger API, and served with unchanged semantics.
+// Several V1 messages are reused in V2 services too.
+// As V1 Ledger API is not supported anymore, the related messages and services will be removed.
+//
+// Changes from version V1, and migration instructions:
+// TODO
