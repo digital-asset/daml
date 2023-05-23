@@ -6,7 +6,10 @@ package com.daml.ledger.api.testtool.infrastructure
 import com.daml.ledger.api.v1.event.Event.Event.{Archived, Created, Empty}
 import com.daml.ledger.api.v1.event.{CreatedEvent, Event, ExercisedEvent}
 import com.daml.ledger.api.v1.transaction.TreeEvent
-import com.daml.ledger.api.v1.transaction.TreeEvent.Kind.{Created => TreeCreated, Exercised => TreeExercised}
+import com.daml.ledger.api.v1.transaction.TreeEvent.Kind.{
+  Created => TreeCreated,
+  Exercised => TreeExercised,
+}
 import com.daml.ledger.api.v1.value.Identifier
 
 object EventOps {

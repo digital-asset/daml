@@ -18,7 +18,14 @@ import com.daml.ledger.api.testtool.infrastructure.time.{
   StaticTimeDelayMechanism,
   TimeDelayMechanism,
 }
-import com.daml.ledger.api.testtool.infrastructure.{Endpoint, FutureAssertions, HexOffset, Identification, LedgerServices, PartyAllocationConfiguration}
+import com.daml.ledger.api.testtool.infrastructure.{
+  Endpoint,
+  FutureAssertions,
+  HexOffset,
+  Identification,
+  LedgerServices,
+  PartyAllocationConfiguration,
+}
 import com.daml.ledger.api.v1.active_contracts_service.{
   GetActiveContractsRequest,
   GetActiveContractsResponse,

@@ -6,6 +6,7 @@ package com.daml.ledger.api.validation
 import com.daml.ledger.api.v1.commands.{Commands => ProtoCommands}
 
 object CommandsValidator {
+
   /** Effective submitters of a command
     * @param actAs Guaranteed to be non-empty. Will contain exactly one element in most cases.
     * @param readAs May be empty.

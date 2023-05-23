@@ -11,7 +11,12 @@ import ch.qos.logback.classic.Level
 import com.daml.error.definitions.LedgerApiErrors.RequestValidation.InvalidDeduplicationPeriodField.ValidMaxDeduplicationFieldKey
 import com.daml.error.definitions.{CommonErrors, DamlError, IndexErrors, LedgerApiErrors}
 import com.daml.error.utils.ErrorDetails
-import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger, ErrorAssertionsWithLogCollectorAssertions, ErrorCode}
+import com.daml.error.{
+  ContextualizedErrorLogger,
+  DamlContextualizedErrorLogger,
+  ErrorAssertionsWithLogCollectorAssertions,
+  ErrorCode,
+}
 import com.daml.lf.data.Ref
 import com.daml.platform.testing.LogCollector.ExpectedLogEntry
 import com.daml.platform.testing.{LogCollector, LogCollectorAssertions}

@@ -22,5 +22,7 @@ object GrpcStatuses {
     }
 
   private def isDefiniteAnswer(errorInfo: ErrorInfo): Boolean =
-    errorInfo.metadata.get(ErrorCode.DefiniteAnswerKey).exists(value => java.lang.Boolean.valueOf(value))
+    errorInfo.metadata
+      .get(ErrorCode.DefiniteAnswerKey)
+      .exists(value => java.lang.Boolean.valueOf(value))
 }

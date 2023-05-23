@@ -19,7 +19,7 @@ class IdentifierValidatorTest extends AsyncWordSpec with ValidatorTestUtils with
     val identifier = Identifier("package", moduleName = "module", entityName = "entity")
   }
 
-  object Mocks{
+  object Mocks {
     val identifier = Ref.Identifier(
       Ref.PackageId.assertFromString("package"),
       Ref.QualifiedName.assertFromString("module:entity"),
