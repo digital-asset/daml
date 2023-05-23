@@ -54,7 +54,7 @@ message CompletionStreamRequest {
   // This field indicates the minimum offset for completions. This can be used to resume an earlier completion stream.
   // This offset is exclusive: the response will only contain commands whose offset is strictly greater than this.
   // Optional, if not set the ledger uses the current ledger end offset instead.
-  LedgerOffset offset = 3;
+  com.daml.ledger.api.v1.LedgerOffset offset = 3;
 }
 
 message CompletionStreamResponse {
@@ -80,7 +80,7 @@ message Checkpoint {
 
   // May be used in a subsequent CompletionStreamRequest to resume the consumption of this stream at a later time.
   // Required
-  LedgerOffset offset = 2;
+  com.daml.ledger.api.v1.LedgerOffset offset = 2;
 }
 
 
@@ -91,5 +91,5 @@ message CompletionEndRequest {
 message CompletionEndResponse {
   // This offset can be used in a CompletionStreamRequest message.
   // Required
-  LedgerOffset offset = 1;
+  com.daml.ledger.api.v1.LedgerOffset offset = 1;
 }

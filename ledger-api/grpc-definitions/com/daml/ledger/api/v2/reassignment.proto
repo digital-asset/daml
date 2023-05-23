@@ -125,7 +125,7 @@ message TransferredInEvent {
   uint64 transfer_counter = 5;
 
   // Required
-  CreatedEvent created_event = 6;
+  com.daml.ledger.api.v1.CreatedEvent created_event = 6;
 
   // The parties which would have been able to transfer-in the respective transfer on this participant.
   // Required

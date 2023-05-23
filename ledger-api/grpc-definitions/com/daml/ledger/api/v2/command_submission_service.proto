@@ -6,7 +6,6 @@ syntax = "proto3";
 package com.daml.ledger.api.v2;
 
 import "com/daml/ledger/api/v2/commands.proto";
-import "google/protobuf/empty.proto";
 
 option java_outer_classname = "CommandSubmissionServiceOuterClass";
 option java_package = "com.daml.ledger.api.v2";

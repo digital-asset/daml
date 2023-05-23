@@ -105,11 +105,9 @@ ledger_api_haskellpb_sources = [
     "CommandService.hs",
     "CommandSubmissionService.hs",
     "Commands.hs",
-    "ConnectedDomainsService.hs",
     "ContractMetadata.hs",
     "Completion.hs",
     "Event.hs",
-    "InFlightTransfersService.hs",
     "LedgerConfigurationService.hs",
     "LedgerIdentityService.hs",
     "LedgerOffset.hs",
@@ -117,9 +115,6 @@ ledger_api_haskellpb_sources = [
     "Transaction.hs",
     "TransactionFilter.hs",
     "TransactionService.hs",
-    "Transfer.hs",
-    "TransferCommand.hs",
-    "UpdateService.hs",
     "Value.hs",
 ]
 

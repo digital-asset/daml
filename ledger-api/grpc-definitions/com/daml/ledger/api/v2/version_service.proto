@@ -50,7 +50,7 @@ message FeaturesDescriptor {
   // for ledger implementation testing purposes only.
   //
   // Daml applications SHOULD not depend on these in production.
-  ExperimentalFeatures experimental = 1;
+  com.daml.ledger.api.v1.ExperimentalFeatures experimental = 1;
 
 }
 

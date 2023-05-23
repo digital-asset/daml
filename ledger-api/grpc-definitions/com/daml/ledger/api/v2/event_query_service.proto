@@ -6,7 +6,6 @@ syntax = "proto3";
 package com.daml.ledger.api.v2;
 
 import "com/daml/ledger/api/v1/event.proto";
-import "com/daml/ledger/api/v1/value.proto";
 
 option java_outer_classname = "EventQueryServiceOuterClass";
 option java_package = "com.daml.ledger.api.v2";
@@ -53,7 +52,7 @@ message GetEventsByContractIdResponse {
 message Created {
 
   // Required
-  CreatedEvent created_event = 1;
+  com.daml.ledger.api.v1.CreatedEvent created_event = 1;
 
   // The domain ID where the contract was created
   // Required
@@ -64,7 +63,7 @@ message Created {
 message Archived {
 
   // Required
-  ArchivedEvent archived_event = 1;
+  com.daml.ledger.api.v1.ArchivedEvent archived_event = 1;
 
   // Required
   // The domain ID where the contract was archived

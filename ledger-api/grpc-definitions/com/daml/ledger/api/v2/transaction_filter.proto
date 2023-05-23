@@ -50,7 +50,7 @@ message InclusiveFilters {
   // All ``template_ids`` needs to be valid: corresponding template should be defined in one of
   // the available packages at the time of the query.
   // Optional
-  repeated Identifier template_ids = 1;
+  repeated com.daml.ledger.api.v1.Identifier template_ids = 1;
 
   // Include an ``InterfaceView`` for every ``InterfaceFilter`` matching a contract.
   // The ``InterfaceFilter``s MUST use unique ``interface_id``s.
@@ -65,7 +65,7 @@ message InterfaceFilter {
 
   // The interface that a matching contract must implement.
   // Required
-  Identifier interface_id = 1;
+  com.daml.ledger.api.v1.Identifier interface_id = 1;
 
   // Whether to include the interface view on the contract in the returned ``CreateEvent``.
   // Use this to access contract data in a uniform manner in your API client.

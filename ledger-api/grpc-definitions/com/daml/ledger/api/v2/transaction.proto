@@ -68,8 +68,8 @@ message TransactionTree {
 // children of events which have witnesses.
 message TreeEvent {
     oneof kind {
-        CreatedEvent created = 1;
-        ExercisedEvent exercised = 2;
+      com.daml.ledger.api.v1.CreatedEvent created = 1;
+      com.daml.ledger.api.v1.ExercisedEvent exercised = 2;
     }
 }
 
@@ -99,7 +99,7 @@ message Transaction {
   // The collection of events.
   // Only contains ``CreatedEvent`` or ``ArchivedEvent``.
   // Required
-  repeated Event events = 5;
+  repeated com.daml.ledger.api.v1.Event events = 5;
 
   // The absolute offset. The format of this field is described in ``ledger_offset.proto``.
   // Required

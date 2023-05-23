@@ -3,7 +3,7 @@
 
 syntax = "proto3";
 
-package com.daml.ledger.api.v1;
+package com.daml.ledger.api.v2;
 
 import "com/daml/ledger/api/v1/ledger_offset.proto";
 import "com/daml/ledger/api/v2/transaction.proto";
@@ -11,8 +11,8 @@ import "com/daml/ledger/api/v2/transaction_filter.proto";
 import "com/daml/ledger/api/v2/transfer.proto";
 
 option java_outer_classname = "UpdateServiceOuterClass";
-option java_package = "com.daml.ledger.api.v1";
-option csharp_namespace = "Com.Daml.Ledger.Api.V1";
+option java_package = "com.daml.ledger.api.v2";
+option csharp_namespace = "Com.Daml.Ledger.Api.V2";
 
 // Allows clients to read updates (transactions and transfers) from the ledger.
 service UpdateService {
@@ -50,12 +50,12 @@ message GetUpdatesRequest {
   // Beginning of the requested ledger section.
   // This offset is exclusive: the response will only contain transactions whose offset is strictly greater than this.
   // Required
-  LedgerOffset begin = 1;
+  com.daml.ledger.api.v1.LedgerOffset begin = 1;
 
   // End of the requested ledger section.
   // This offset is inclusive: the response will only contain transactions whose offset is less than or equal to this.
   // Optional, if not set, the stream will not terminate.
-  LedgerOffset end = 2;
+  com.daml.ledger.api.v1.LedgerOffset end = 2;
 
   // Requesting parties with template filters.
   // Template filters must be empty for GetUpdateTrees requests.
@@ -133,5 +133,5 @@ message GetLedgerEndRequest {
 
 message GetLedgerEndResponse {
   // The absolute offset of the current ledger end.
-  LedgerOffset offset = 1;
+  com.daml.ledger.api.v1.LedgerOffset offset = 1;
 }

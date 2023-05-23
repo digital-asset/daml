@@ -78,7 +78,7 @@ message ContractStateComponent {
 
 message ActiveContract {
   // Required
-  CreatedEvent created_event = 1;
+  com.daml.ledger.api.v1.CreatedEvent created_event = 1;
 
   // A valid domain ID
   // Required
@@ -93,7 +93,7 @@ message ActiveContract {
 
 message IncompleteTransferredOut {
   // Required
-  CreatedEvent created_event = 1;
+  com.daml.ledger.api.v1.CreatedEvent created_event = 1;
 
   // Required
   TransferredOutEvent transferred_out_event = 2;
