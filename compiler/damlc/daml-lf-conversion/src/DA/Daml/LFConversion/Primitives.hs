@@ -158,13 +158,8 @@ convertPrim _ "BEAddDecimal" (TNumeric10 :-> TNumeric10 :-> TNumeric10) =
     pure $ ETyApp (EBuiltin BEAddNumeric) TNat10
 convertPrim _ "BESubDecimal" (TNumeric10 :-> TNumeric10 :-> TNumeric10) =
     pure $ ETyApp (EBuiltin BESubNumeric) TNat10
-convertPrim version "BEMulDecimal" typ
-    | supports version featureNatTypeErasure
-    , TNumeric10 :-> TNumeric10 :-> TNumeric10 <- typ
-    = pure $ EBuiltin BEMulNumeric `ETyApp` TNat10 `ETyApp` TNat10 `ETyApp` TNat10
-    | not (supports version featureNatTypeErasure)
-    , TNumeric10 :-> TNumeric10 :-> TNumeric10 <- typ
-    = pure $ EBuiltin BEMulNumericLegacy `ETyApp` TNat10 `ETyApp` TNat10 `ETyApp` TNat10
+convertPrim _ "BEMulDecimal" (TNumeric10 :-> TNumeric10 :-> TNumeric10) =
+    pure $ EBuiltin BEMulNumericLegacy `ETyApp` TNat10 `ETyApp` TNat10 `ETyApp` TNat10
 convertPrim _ "BEDivDecimal" (TNumeric10 :-> TNumeric10 :-> TNumeric10) =
     pure $ EBuiltin BEDivNumericLegacy `ETyApp` TNat10 `ETyApp` TNat10 `ETyApp` TNat10
 convertPrim _ "BERoundDecimal" (TInt64 :-> TNumeric10 :-> TNumeric10) =
@@ -185,24 +180,12 @@ convertPrim _ "BESubNumeric" (TNumeric n1 :-> TNumeric n2 :-> TNumeric n3) | n1 
     pure $ ETyApp (EBuiltin BESubNumeric) n1
 convertPrim _ "BEMulNumericLegacy" (TNumeric n1 :-> TNumeric n2 :-> TNumeric n3) =
     pure $ EBuiltin BEMulNumericLegacy `ETyApp` n1 `ETyApp` n2 `ETyApp` n3
-convertPrim version "BEMulNumeric" typ
-    | TNumeric n1 :-> TNumeric n2 :-> TNumeric n3 <- typ
-    , not (supports version featureNatTypeErasure)
-    = pure $ EBuiltin BEMulNumericLegacy `ETyApp` n1 `ETyApp` n2 `ETyApp` n3
-    | TNumeric n0 :-> TNumeric n1 :-> TNumeric n2 :-> TNumeric n3 <- typ
-    , n0 == n3
-    , supports version featureNatTypeErasure
-    = pure $ EBuiltin BEMulNumeric `ETyApp` n1 `ETyApp` n2 `ETyApp` n3
+convertPrim _ "BEMulNumeric" (TNumeric n0 :-> TNumeric n1 :-> TNumeric n2 :-> TNumeric n3) | n0 == n3 =
+    pure $ EBuiltin BEMulNumeric `ETyApp` n1 `ETyApp` n2 `ETyApp` n3
 convertPrim _ "BEDivNumericLegacy" (TNumeric n1 :-> TNumeric n2 :-> TNumeric n3) =
     pure $ EBuiltin BEDivNumericLegacy `ETyApp` n1 `ETyApp` n2 `ETyApp` n3
-convertPrim version "BEDivNumeric" typ
-    | TNumeric n1 :-> TNumeric n2 :-> TNumeric n3 <- typ
-    , not (supports version featureNatTypeErasure)
-    = pure $ EBuiltin BEDivNumericLegacy `ETyApp` n1 `ETyApp` n2 `ETyApp` n3
-    | TNumeric n0 :-> TNumeric n1 :-> TNumeric n2 :-> TNumeric n3 <- typ
-    , n0 == n3
-    , supports version featureNatTypeErasure
-    = pure $ EBuiltin BEDivNumeric `ETyApp` n1 `ETyApp` n2 `ETyApp` n3
+convertPrim _ "BEDivNumeric" (TNumeric n0 :-> TNumeric n1 :-> TNumeric n2 :-> TNumeric n3) | n0 == n3 =
+    pure $ EBuiltin BEDivNumeric `ETyApp` n1 `ETyApp` n2 `ETyApp` n3
 convertPrim _ "BERoundNumeric" (TInt64 :-> TNumeric n1 :-> TNumeric n2) | n1 == n2 =
     pure $ ETyApp (EBuiltin BERoundNumeric) n1
 convertPrim _ "BECastNumericLegacy" (TNumeric n1 :-> TNumeric n2) =
@@ -215,28 +198,16 @@ convertPrim _ "BEShiftNumeric" (TNumeric n0 :-> TNumeric n1 :-> TNumeric n2) | n
     pure $ EBuiltin BEShiftNumeric `ETyApp` n1 `ETyApp` n2
 convertPrim _ "BEInt64ToNumericLegacy" (TInt64 :-> TNumeric n) =
     pure $ ETyApp (EBuiltin BEInt64ToNumericLegacy) n
-convertPrim version "BEInt64ToNumeric" typ
-    | TInt64 :-> TNumeric n <- typ
-    , not (supports version featureNatTypeErasure)
-    = pure $ ETyApp (EBuiltin BEInt64ToNumericLegacy) n
-    | TNumeric n0 :-> TInt64 :-> TNumeric n <- typ
-    , n0 == n
-    , supports version featureNatTypeErasure
-    = pure $ ETyApp (EBuiltin BEInt64ToNumeric) n
+convertPrim _ "BEInt64ToNumeric" (TNumeric n0 :-> TInt64 :-> TNumeric n) | n0 == n =
+    pure $ ETyApp (EBuiltin BEInt64ToNumeric) n
 convertPrim _ "BENumericToInt64" (TNumeric n :-> TInt64) =
     pure $ ETyApp (EBuiltin BENumericToInt64) n
 convertPrim _ "BENumericToText" (TNumeric n :-> TText) =
     pure $ ETyApp (EBuiltin BENumericToText) n
 convertPrim _ "BETextToNumericLegacy" (TText :-> TOptional (TNumeric n)) =
     pure $ ETyApp (EBuiltin BETextToNumericLegacy) n
-convertPrim version "BETextToNumeric" typ
-    | TText :-> TOptional (TNumeric n) <- typ
-    , not (supports version featureNatTypeErasure)
-    = pure $ ETyApp (EBuiltin BETextToNumericLegacy) n
-    | TNumeric n0 :-> TText :-> TOptional (TNumeric n) <- typ
-    , n0 == n
-    , supports version featureNatTypeErasure
-    = pure $ ETyApp (EBuiltin BETextToNumeric) n
+convertPrim _ "BETextToNumeric" (TNumeric n0 :-> TText :-> TOptional (TNumeric n)) | n0 == n =
+    pure $ ETyApp (EBuiltin BETextToNumeric) n
 
 convertPrim version "BEScaleBigNumeric" ty@(TBigNumeric :-> TInt64) =
     pure $

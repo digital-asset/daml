@@ -571,10 +571,11 @@ truncate = primitive @"BENumericToInt64"
 -- | Convert an `Int` to a `Numeric`.
 #ifdef DAML_NAT_TYPE_ERASURE
 intToNumeric : Numeric n -> Int -> Numeric n
+intToNumeric = primitive @"BEInt64ToNumeric"
 #else
 intToNumeric : Int -> Numeric n
+intToNumeric = primitive @"BEInt64ToNumericLegacy"
 #endif
-intToNumeric = primitive @"BEInt64ToNumeric"
 
 -- | Convert an `Int` to a `Decimal`.
 intToDecimal : Int -> Decimal
@@ -619,8 +620,8 @@ roundCommercial d x =
   let t = roundBankers d x
       diff = x - t
       -- This is defined in DA.Numeric but we inline it here to avoid creating a cyclic module dependency.
-      divNumeric : NumericScale n => Numeric n1 -> Numeric n2 -> Numeric n
-      divNumeric = primitive @"BEDivNumeric"
+      divNumeric : Numeric n1 -> Numeric n2 -> Numeric n
+      divNumeric = primitive @"BEDivNumericLegacy"
       problematicDiff = (0.5 : Numeric 1) `divNumeric` (10.0 ^ d : Numeric 0) * signum x
   in if diff == problematicDiff
        then x + problematicDiff
