@@ -63,19 +63,11 @@ def daml_script_test(
 
     # 1.16.0 is the first SDK version that defaulted to LF 1.14, which is the earliest LF version that Canton supports
     use_canton = versions.is_at_least("2.0.0", runner_version) and versions.is_at_least("1.16.0", compiler_version)
-    use_sandbox_on_x = versions.is_at_least("2.0.0", runner_version) and not use_canton
-    sandbox_on_x_command = ["run-legacy-cli-config"] if versions.is_at_least("2.4.0-snapshot.20220712.10212.0.0bf28176", runner_version) else []
 
-    if use_sandbox_on_x:
-        server = "@daml-sdk-{version}//:sandbox-on-x".format(version = runner_version)
-        server_args = sandbox_on_x_command + ["--participant", "participant-id=sandbox,port=6865"]
-        server_files = []
-        server_files_prefix = ""
-    else:
-        server = daml_runner
-        server_args = ["sandbox"] + (["--canton-port-file", "_port_file"] if (use_canton) else [])
-        server_files = ["$(rootpath {})".format(compiled_dar)]
-        server_files_prefix = "--dar=" if use_canton else ""
+    server = daml_runner
+    server_args = ["sandbox"] + (["--canton-port-file", "_port_file"] if (use_canton) else [])
+    server_files = ["$(rootpath {})".format(compiled_dar)]
+    server_files_prefix = "--dar=" if use_canton else ""
 
     native.genrule(
         name = "{}-client-sh".format(name),
@@ -128,7 +120,7 @@ chmod +x $(OUTS)
             dar = compiled_dar,
             runner = daml_runner,
             script_name = script_name,
-            upload_dar = "1" if use_sandbox_on_x else "0",
+            upload_dar = "0",
             wait_for_port_file = "1" if use_canton else "0",
         ),
         exec_tools = [
@@ -163,7 +155,7 @@ chmod +x $(OUTS)
     )
 
 def daml_script_example_test(compiler_version, runner_version):
-    if versions.is_at_least("2.0.0", runner_version) or versions.is_at_least("1.16.0", compiler_version):
+    if versions.is_at_least("1.16.0", compiler_version):
         daml_script_test(
             name = "daml-script-test-compiler-{compiler_version}-runner-{runner_version}".format(
                 compiler_version = version_to_name(compiler_version),

@@ -80,7 +80,7 @@ abstract class ErrorCode(val id: String, val category: ErrorCategory)(implicit
           errorCodeId = id,
           metadata = statusInfo.contextMap ++
             err.definiteAnswerO.fold(Map.empty[String, String])(value =>
-              Map(com.daml.ledger.grpc.GrpcStatuses.DefiniteAnswerKey -> value.toString)
+              Map(ErrorCode.DefiniteAnswerKey -> value.toString)
             ),
         )
         Some(errorInfo)
@@ -188,6 +188,8 @@ object ErrorCode {
   private val ValidMetadataKeyRegex: Regex = "[^(a-zA-Z0-9-_)]".r
   private[error] val MaxContentBytes = 2000
   private[error] val MaxCauseLogLength = 512
+
+  val DefiniteAnswerKey = "definite_answer"
 
   class ApiException(status: io.grpc.Status, metadata: io.grpc.Metadata)
       extends StatusRuntimeException(status, metadata)

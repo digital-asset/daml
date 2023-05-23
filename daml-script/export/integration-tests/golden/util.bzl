@@ -34,24 +34,25 @@ def daml_ledger_export_test(
             expected_daml_yaml = expected_daml_yaml,
         )
 
-        client_server_test(
-            name = name,
-            client = client_name,
-            client_args = [
-                "--target-port=%PORT%",
-                "--script-identifier=%s" % script_identifier,
-                "--party=" + ",".join(parties),
-            ],
-            client_files = ["$(rootpath %s)" % dar],
-            data = [dar],
-            server = "//ledger/sandbox-on-x:sandbox-on-x-ephemeral-postgresql",
-            server_args = [
-                "run",
-                "-C ledger.participants.default.api-server.port=0",
-                "-C ledger.participants.default.api-server.port-file=%PORT_FILE%",
-            ] + server_dev_args,
-            timeout = timeout,
-        )
+#  Commented out - awaiting a port to canton
+#        client_server_test(
+#            name = name,
+#            client = client_name,
+#            client_args = [
+#                "--target-port=%PORT%",
+#                "--script-identifier=%s" % script_identifier,
+#                "--party=" + ",".join(parties),
+#            ],
+#            client_files = ["$(rootpath %s)" % dar],
+#            data = [dar],
+#            server = "//ledger/sandbox-on-x:app",
+#            server_args = [
+#                "run",
+#                "-C ledger.participants.default.api-server.port=0",
+#                "-C ledger.participants.default.api-server.port-file=%PORT_FILE%",
+#            ] + server_dev_args,
+#            timeout = timeout,
+#        )
 
 # Generate the Daml ledger export and compare to the expected files. This is
 # used both for golden tests on ledger exports and to make sure that the

@@ -55,15 +55,12 @@ def _daml_sdk_impl(ctx):
     else:
         fail("Must specify either sdk_tarball or sdk_sha256")
 
-    if ctx.attr.sandbox_on_x or ctx.attr.sandbox_on_x_sha256:
-        if ctx.attr.sandbox_on_x:
-            ctx.symlink(ctx.attr.sandbox_on_x, "sandbox-on-x.jar")
-        else:
-            ctx.download(
-                output = "sandbox-on-x.jar",
-                url = ["{mirror}/com/daml/sandbox-on-x-app-jar/{version}/sandbox-on-x-app-jar-{version}.jar".format(mirror = mirror, version = ctx.attr.version) for mirror in default_maven_server_urls()],
-                sha256 = ctx.attr.sandbox_on_x_sha256,
-            )
+    if ctx.attr.sandbox_on_x_sha256:
+        ctx.download(
+            output = "sandbox-on-x.jar",
+            url = ["{mirror}/com/daml/sandbox-on-x-app-jar/{version}/sandbox-on-x-app-jar-{version}.jar".format(mirror = mirror, version = ctx.attr.version) for mirror in default_maven_server_urls()],
+            sha256 = ctx.attr.sandbox_on_x_sha256,
+        )
         ctx.file(
             "sandbox-on-x.sh",
             content =
@@ -227,7 +224,6 @@ _daml_sdk = repository_rule(
         "daml_react_sha256": attr.string(mandatory = False),
         "create_daml_app_patch": attr.label(allow_single_file = True, mandatory = False),
         "create_daml_app_patch_sha256": attr.string(mandatory = False),
-        "sandbox_on_x": attr.label(allow_single_file = True, mandatory = False),
         "sandbox_on_x_sha256": attr.string(mandatory = False),
     },
 )
@@ -239,14 +235,13 @@ def daml_sdk(version, **kwargs):
         **kwargs
     )
 
-def daml_sdk_head(sdk_tarball, ledger_api_test_tool, sandbox_on_x, daml_types_tarball, daml_ledger_tarball, daml_react_tarball, create_daml_app_patch, **kwargs):
+def daml_sdk_head(sdk_tarball, ledger_api_test_tool, daml_types_tarball, daml_ledger_tarball, daml_react_tarball, create_daml_app_patch, **kwargs):
     version = "0.0.0"
     _daml_sdk(
         name = "daml-sdk-{}".format(version),
         version = version,
         sdk_tarball = sdk_tarball,
         test_tool = ledger_api_test_tool,
-        sandbox_on_x = sandbox_on_x,
         daml_types_tarball = daml_types_tarball,
         daml_ledger_tarball = daml_ledger_tarball,
         daml_react_tarball = daml_react_tarball,

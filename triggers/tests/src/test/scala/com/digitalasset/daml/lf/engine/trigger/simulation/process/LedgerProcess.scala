@@ -30,36 +30,37 @@ object LedgerProcess {
       config: TriggerSimulationConfig,
       applicationId: ApplicationId,
   ): Behavior[Message] = {
-    Behaviors.logMessages {
-      Behaviors.setup { context =>
-        val report = context.spawn(ReportingProcess.create(context.self), "reporting")
-        val ledgerApi = context.spawn(LedgerApiClient.create(client), "ledger-api")
-        val ledgerExternal =
-          context.spawn(new LedgerExternalAction(client).create(), "ledger-external-action")
-        val triggerRegistration =
-          context.spawn(
-            new LedgerRegistration(client).create(ledgerApi, report),
-            "trigger-registration",
-          )
+    Behaviors.setup { context =>
+      val report = context.spawn(ReportingProcess.create(context.self), "reporting")
+      val ledgerApi = context.spawn(LedgerApiClient.create(client), "ledger-api")
+      val ledgerExternal =
+        context.spawn(new LedgerExternalAction(client).create(), "ledger-external-action")
+      val triggerRegistration =
+        context.spawn(
+          new LedgerRegistration(client).create(ledgerApi, report),
+          "trigger-registration",
+        )
 
-        context.watch(report)
-        context.watch(ledgerApi)
-        context.watch(ledgerExternal)
-        context.watch(triggerRegistration)
+      context.watch(report)
+      context.watch(ledgerApi)
+      context.watch(ledgerExternal)
+      context.watch(triggerRegistration)
 
-        Behaviors.receiveMessage {
-          case TriggerRegistration(registration) =>
-            triggerRegistration ! registration
-            Behaviors.same
+      Behaviors.receiveMessage {
+        case msg @ TriggerRegistration(registration) =>
+          context.log.debug(s"actor [${context.self}] - received message: $msg")
+          triggerRegistration ! registration
+          Behaviors.same
 
-          case GetTriggerACSDiff(request) =>
-            triggerRegistration ! request
-            Behaviors.same
+        case GetTriggerACSDiff(request) =>
+          context.log.debug(s"actor [${context.self}] - received message: GetTriggerACSDiff(..)")
+          triggerRegistration ! request
+          Behaviors.same
 
-          case ExternalAction(request) =>
-            ledgerExternal ! request
-            Behaviors.same
-        }
+        case msg @ ExternalAction(request) =>
+          context.log.debug(s"actor [${context.self}] - received message: $msg")
+          ledgerExternal ! request
+          Behaviors.same
       }
     }
   }

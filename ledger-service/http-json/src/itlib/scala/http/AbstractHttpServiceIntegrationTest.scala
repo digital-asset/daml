@@ -446,7 +446,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
       10 -> 75,
       50 -> 76, // Allows space to encode content into a JSON array of strings within 4k limit.
       50 -> 80, // The content is the exact 4k limit, no additional room for JSON array syntax.
-      200 -> 150,
+      1000 -> 185,
     ).foreach { case (numSubs, partySize) =>
       (s"$numSubs observers of $partySize chars") in withHttpService { fixture =>
         val subscribers = (1 to numSubs).map(_ => domain.Party(randomTextN(partySize))).toList

@@ -10,7 +10,6 @@ import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
 import com.daml.ledger.api.testtool.infrastructure.Synchronize.synchronize
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
 import com.daml.ledger.api.v1.admin.config_management_service.{SetTimeModelRequest, TimeModel}
-import com.daml.ledger.error.definitions.kv.KvErrors
 import com.google.protobuf.duration.Duration
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -167,7 +166,6 @@ final class ConfigManagementServiceIT extends LedgerTestSuite {
         failure,
         LedgerApiErrors.Admin.ConfigurationEntryRejected,
         LedgerApiErrors.RequestValidation.InvalidArgument,
-        KvErrors.Consistency.PostExecutionConflicts,
       )
     }
   })

@@ -3,11 +3,10 @@
 
 package com.daml.ledger.client.services.commands.tracker
 
-import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
+import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger, ErrorCode}
 import com.daml.grpc.GrpcStatus
 import com.daml.ledger.api.v1.completion.Completion
 import com.daml.ledger.client.services.commands.tracker.CompletionResponse._
-import com.daml.ledger.grpc.GrpcStatuses
 import com.google.protobuf.any.Any
 import com.google.rpc.error_details.{ErrorInfo, RequestInfo}
 import com.google.rpc.status.Status
@@ -113,12 +112,12 @@ class CompletionResponseTest extends AnyWordSpec with Matchers {
         )
         val status = protobuf.StatusProto.fromThrowable(exception)
         val packedErrorInfo = status.getDetails(0).unpack(classOf[JavaErrorInfo])
-        packedErrorInfo.getMetadataOrThrow(GrpcStatuses.DefiniteAnswerKey) shouldEqual "false"
+        packedErrorInfo.getMetadataOrThrow(ErrorCode.DefiniteAnswerKey) shouldEqual "false"
       }
 
       "include metadata for status not ok" in {
         val errorInfo = ErrorInfo(
-          metadata = Map(GrpcStatuses.DefiniteAnswerKey -> "true")
+          metadata = Map(ErrorCode.DefiniteAnswerKey -> "true")
         )
         val exception = CompletionResponse.toException(
           QueueCompletionFailure(
@@ -142,12 +141,12 @@ class CompletionResponseTest extends AnyWordSpec with Matchers {
         )
         val status = protobuf.StatusProto.fromThrowable(exception)
         val packedErrorInfo = status.getDetails(0).unpack(classOf[JavaErrorInfo])
-        packedErrorInfo.getMetadataOrThrow(GrpcStatuses.DefiniteAnswerKey) shouldEqual "true"
+        packedErrorInfo.getMetadataOrThrow(ErrorCode.DefiniteAnswerKey) shouldEqual "true"
       }
 
       "merge metadata for status not ok" in {
         val errorInfo = ErrorInfo(
-          metadata = Map(GrpcStatuses.DefiniteAnswerKey -> "true")
+          metadata = Map(ErrorCode.DefiniteAnswerKey -> "true")
         )
         val requestInfo = RequestInfo(requestId = "aRequestId")
         val exception = CompletionResponse.toException(
@@ -177,7 +176,7 @@ class CompletionResponseTest extends AnyWordSpec with Matchers {
         details.exists { detail =>
           detail.is(classOf[JavaErrorInfo]) && detail
             .unpack(classOf[JavaErrorInfo])
-            .getMetadataOrThrow(GrpcStatuses.DefiniteAnswerKey) == "true"
+            .getMetadataOrThrow(ErrorCode.DefiniteAnswerKey) == "true"
         } shouldEqual true
         details.exists { detail =>
           detail.is(classOf[JavaRequestInfo]) && detail

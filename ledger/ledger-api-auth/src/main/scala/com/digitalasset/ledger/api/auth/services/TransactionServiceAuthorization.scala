@@ -7,8 +7,6 @@ import com.daml.ledger.api.auth.Authorizer
 import com.daml.ledger.api.v1.transaction_service
 import com.daml.ledger.api.v1.transaction_service.TransactionServiceGrpc.TransactionService
 import com.daml.ledger.api.v1.transaction_service._
-import com.daml.platform.api.grpc.GrpcApiService
-import com.daml.platform.server.api.ProxyCloseable
 import io.grpc.ServerServiceDefinition
 import io.grpc.stub.StreamObserver
 

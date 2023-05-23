@@ -77,7 +77,6 @@ da_scala_library(
         "//ledger-api/grpc-definitions:ledger_api_proto_scala",
         "//ledger-api/rs-grpc-bridge",
         "//ledger/ledger-api-auth",
-        "//ledger/ledger-api-common",
         "//ledger/ledger-api-domain",
         "//ledger/participant-local-store",
         "//libs-scala/contextualized-logging",
