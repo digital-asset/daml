@@ -3,13 +3,14 @@
 
 package com.daml.script.export
 
-import java.nio.file.{Files, Path, Paths}
+import java.nio.file.{Path, Paths, Files}
 import java.util.UUID
 import akka.stream.scaladsl.Sink
 import com.daml.SdkVersion
 import com.daml.bazeltools.BazelRunfiles
 import com.daml.integrationtest.CantonFixture
 import com.daml.ledger.api.refinements.ApiTypes
+import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.api.v1.command_service.SubmitAndWaitRequest
 import com.daml.ledger.api.v1.commands._
@@ -37,9 +38,11 @@ import scala.sys.process._
 final class ReproducesTransactions
     extends AsyncFreeSpec
     with Matchers
-    with BeforeAndAfterEach
+    with SuiteResourceManagementAroundAll
     with CantonFixture {
 
+  private lazy val darFile =
+    BazelRunfiles.rlocation(Paths.get(com.daml.ledger.test.ModelTestDar.path))
   final override protected lazy val darFiles = List(darFile)
   final override protected lazy val timeProviderType = TimeProviderType.Static
 
@@ -51,7 +54,6 @@ final class ReproducesTransactions
   val isWindows: Boolean = sys.props("os.name").toLowerCase.contains("windows")
   private val damlc =
     BazelRunfiles.requiredResource(s"compiler/damlc/damlc$exe")
-  private val darFile = BazelRunfiles.rlocation(Paths.get(com.daml.ledger.test.ModelTestDar.path))
   private val mainPkg = DarDecoder.assertReadArchiveFromFile(darFile.toFile).main._1
   private def iouId(s: String) =
     api.Identifier(mainPkg, moduleName = "Iou", s)
@@ -197,11 +199,9 @@ final class ReproducesTransactions
       afterCmp = after.drop(after.length - beforeCmp.length)
       _ = com.daml.fs.Utils.deleteRecursively(dir)
     } yield TransactionEq.equivalent(beforeCmp, afterCmp).fold(fail(_), _ => succeed)
-    future.onComplete(_ => com.daml.fs.Utils.deleteRecursively(dir))
     future
   }
 
-  @scala.annotation.nowarn("msg=match may not be exhaustive")
   private def testIou: (LedgerClient, Seq[Ref.Party]) => Future[Unit] = {
     case (client, Seq(p1, p2)) =>
       for {

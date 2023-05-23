@@ -3,6 +3,6 @@
 
   },
   "parties": {
-    "Bank": "Bank"
+    "Bank::XXXXXXXX": "Bank::XXXXXXXX"
   }
 }

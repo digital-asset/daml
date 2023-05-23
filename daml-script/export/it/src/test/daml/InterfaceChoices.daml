@@ -12,20 +12,8 @@ import Daml.Script
 import InterfaceChoices.Asset
 import InterfaceChoices.Token
 
-data LedgerParties = LedgerParties with
-  alice : Party
-  bob : Party
-  charlie : Party
-
-allocateParties : Script LedgerParties
-allocateParties = do
-  alice <- allocatePartyWithHint "Alice" (PartyIdHint "Alice")
-  bob <- allocatePartyWithHint "Bob" (PartyIdHint "Bob")
-  charlie <- allocatePartyWithHint "Charlie" (PartyIdHint "Charlie")
-  pure (LedgerParties alice bob charlie)
-
-initializeWith : LedgerParties -> Script ()
-initializeWith LedgerParties {alice, bob, charlie} = do
+initialize : [Party] -> Script ()
+initialize  [alice, bob, charlie] = do
   aliceKoins <- submit alice do
     createCmd Asset with
       issuer = alice
@@ -72,6 +60,5 @@ initializeWith LedgerParties {alice, bob, charlie} = do
       newOwner = alice
 
   pure ()
+initialize _ = error "unexpected number of parties"
 
-initialize : Script ()
-initialize = initializeWith =<< allocateParties

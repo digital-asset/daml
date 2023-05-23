@@ -1,6 +1,3 @@
--- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
--- SPDX-License-Identifier: Apache-2.0
-
 {-# LANGUAGE ApplicativeDo #-}
 module Export where
 import Daml.Script
@@ -24,9 +21,12 @@ lookupParty old parties =
 -- | Allocates fresh parties from the party management service.
 allocateParties : Script Parties
 allocateParties = DA.Traversable.mapA allocateParty (DA.TextMap.fromList
-  [ ("Alice", "Alice")
-  , ("Bob", "Bob")
-  , ("Charlie", "Charlie") ])
+  [ ("Alice::XXXXXXXX",
+    "Alice::XXXXXXXX")
+  , ("Bob::XXXXXXXX",
+    "Bob::XXXXXXXX")
+  , ("Charlie::XXXXXXXX",
+    "Charlie::XXXXXXXX") ])
 
 -- | Mapping from missing contract ids to replacement contract ids.
 --
@@ -64,22 +64,22 @@ testExport = do
 -- | The Daml ledger export.
 export : Args -> Script ()
 export Args{parties, contracts} = do
-  let alice_0 = lookupParty "Alice" parties
-  let bob_0 = lookupParty "Bob" parties
-  let charlie_0 = lookupParty "Charlie" parties
-  (coerceContractId @_ @InterfaceChoices.Asset.Asset -> asset_1_0) <- submit alice_0 do
-    createCmd (InterfaceChoices.Asset.Asset {issuer = alice_0, owner = alice_0,
+  let party_0 = lookupParty "Alice::XXXXXXXX" parties
+  let party_1 = lookupParty "Bob::XXXXXXXX" parties
+  let party_2 = lookupParty "Charlie::XXXXXXXX" parties
+  (coerceContractId @_ @InterfaceChoices.Asset.Asset -> asset_1_0) <- submit party_0 do
+    createCmd (InterfaceChoices.Asset.Asset {issuer = party_0, owner = party_0,
         name = "Koin", amount = 260, notes = []})
-  (coerceContractId @_ @InterfaceChoices.Asset.Asset -> asset_2_0) <- submit alice_0 do
-    exerciseCmd asset_1_0 (InterfaceChoices.Asset.Give {newOwner = bob_0})
-  (coerceContractId @_ @InterfaceChoices.Asset.Asset -> asset_3_0) <- submit alice_0 do
-    createCmd (InterfaceChoices.Asset.Asset {issuer = alice_0, owner = alice_0,
+  (coerceContractId @_ @InterfaceChoices.Asset.Asset -> asset_2_0) <- submit party_0 do
+    exerciseCmd asset_1_0 (InterfaceChoices.Asset.Give {newOwner = party_1})
+  (coerceContractId @_ @InterfaceChoices.Asset.Asset -> asset_3_0) <- submit party_0 do
+    createCmd (InterfaceChoices.Asset.Asset {issuer = party_0, owner = party_0,
         name = "Qoin", amount = 10, notes = []})
-  _ <- submit alice_0 do
-    exerciseCmd asset_3_0 (InterfaceChoices.Asset.Give {newOwner = charlie_0})
-  (coerceContractId @_ @InterfaceChoices.Asset.Asset -> asset_5_0) <- submit bob_0 do
-    exerciseCmd (toInterfaceContractId @InterfaceChoices.Token.Token asset_2_0) (InterfaceChoices.Token.Transfer {newOwner = charlie_0})
-  tree <- submitTree charlie_0 do
+  _ <- submit party_0 do
+    exerciseCmd asset_3_0 (InterfaceChoices.Asset.Give {newOwner = party_2})
+  (coerceContractId @_ @InterfaceChoices.Asset.Asset -> asset_5_0) <- submit party_1 do
+    exerciseCmd (toInterfaceContractId @InterfaceChoices.Token.Token asset_2_0) (InterfaceChoices.Token.Transfer {newOwner = party_2})
+  tree <- submitTree party_2 do
     exerciseCmd (toInterfaceContractId @InterfaceChoices.Token.Token asset_5_0) (InterfaceChoices.Token.Split {splitAmount = 120})
   let (coerceContractId @_ @InterfaceChoices.Asset.Asset -> asset_6_0) = fromTree tree $
         exercised @InterfaceChoices.Token.Token "Split" $
@@ -87,12 +87,12 @@ export Args{parties, contracts} = do
   let (coerceContractId @_ @InterfaceChoices.Asset.Asset -> asset_6_1) = fromTree tree $
         exercised @InterfaceChoices.Token.Token "Split" $
         createdN @InterfaceChoices.Asset.Asset 1
-  (coerceContractId @_ @InterfaceChoices.Asset.Asset -> asset_7_1) <- submit charlie_0 do
-    _ <- exerciseCmd (toInterfaceContractId @InterfaceChoices.Token.Token asset_6_0) (InterfaceChoices.Token.Transfer {newOwner = alice_0})
-    (coerceContractId @_ @InterfaceChoices.Asset.Asset -> asset_7_1) <- exerciseCmd (toInterfaceContractId @InterfaceChoices.Token.Token asset_6_1) (InterfaceChoices.Token.Transfer {newOwner = bob_0})
+  (coerceContractId @_ @InterfaceChoices.Asset.Asset -> asset_7_1) <- submit party_2 do
+    _ <- exerciseCmd (toInterfaceContractId @InterfaceChoices.Token.Token asset_6_0) (InterfaceChoices.Token.Transfer {newOwner = party_0})
+    (coerceContractId @_ @InterfaceChoices.Asset.Asset -> asset_7_1) <- exerciseCmd (toInterfaceContractId @InterfaceChoices.Token.Token asset_6_1) (InterfaceChoices.Token.Transfer {newOwner = party_1})
     pure asset_7_1
-  (coerceContractId @_ @InterfaceChoices.Asset.Asset -> asset_8_0) <- submit bob_0 do
+  (coerceContractId @_ @InterfaceChoices.Asset.Asset -> asset_8_0) <- submit party_1 do
     exerciseCmd asset_7_1 (InterfaceChoices.Asset.Annotate {note = "Thank you Alice"})
-  _ <- submit bob_0 do
-    exerciseCmd asset_8_0 (InterfaceChoices.Asset.Give {newOwner = alice_0})
+  _ <- submit party_1 do
+    exerciseCmd asset_8_0 (InterfaceChoices.Asset.Give {newOwner = party_0})
   pure ()

@@ -1,21 +1,63 @@
 # Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+load("@build_environment//:configuration.bzl", "ghc_version")
+load(
+    "//bazel_tools/client_server:client_server_build.bzl",
+    "client_server_build",
+)
+load(
+    "//bazel_tools/sh:sh.bzl",
+    "sh_inline_test",
+)
 load(
     "//bazel_tools:scala.bzl",
+    "da_scala_binary",
     "da_scala_test",
+    "lf_scalacopts",
     "lf_scalacopts_stricter",
+)
+load("//rules_daml:daml.bzl", "daml_compile", "daml_test")
+
+da_scala_binary(
+    name = "example-export-client",
+    srcs = glob(["src/main/scala/**/*.scala"]),
+    main_class = "com.daml.script.export.ExampleExportClient",
+    scala_deps = [
+        "@maven//:com_github_scopt_scopt",
+    ],
+    scalacopts = lf_scalacopts_stricter,
+    visibility = ["//visibility:public"],
+    deps = [
+        "//:sdk-version-scala-lib",
+        "//daml-lf/data",
+        "//daml-script/export",
+        "//daml-script/runner:script-runner-lib",
+        "//language-support/scala/bindings",
+        "//language-support/scala/bindings-akka",
+        "//ledger-api/rs-grpc-bridge",
+        "//ledger/ledger-api-common",
+        "//libs-scala/auth-utils",
+        "//libs-scala/fs-utils",
+    ],
+)
+
+daml_compile(
+    name = "test",
+    srcs = glob(["src/test/daml/**/*.daml"]),
+    dependencies = ["//daml-script/daml:daml-script.dar"],
 )
 
 da_scala_test(
     name = "test",
-    srcs = ["test/scala/com/daml/script/export/ReproducesTransactions.scala"],
-    data = [
+    srcs = glob(["src/test/scala/**/*.scala"]),
+    data = glob(["src/test/data/**/*"]) + [
+        ":test.dar",
         "//compiler/damlc",
         "//daml-script/daml:daml-script.dar",
         "//test-common:dar-files",
     ],
-    resources = ["test/resources/logback-test.xml"],
+    resources = glob(["src/test/resources/**/*"]),
     scala_deps = [
         "@maven//:com_typesafe_scala_logging_scala_logging",
         "@maven//:com_typesafe_akka_akka_actor",
@@ -28,7 +70,7 @@ da_scala_test(
         "@maven//:org_scalatest_scalatest_shouldmatchers",
         "@maven//:org_scalaz_scalaz_core",
     ],
-    scalacopts = lf_scalacopts_stricter,
+    scalacopts = lf_scalacopts,
     tags = ["cpu:6"],
     deps = [
         "//:sdk-version-scala-lib",

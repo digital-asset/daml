@@ -119,16 +119,8 @@ data HkVariant a b c
       ayeBeeCees : [(a, b, c)]
   deriving (Eq, Ord, Show)
 
-data LedgerParties = LedgerParties with
-  bank : Party
-
-allocateParties : Script LedgerParties
-allocateParties = do
-  bank <- allocatePartyWithHint "Bank" (PartyIdHint "Bank")
-  pure (LedgerParties bank)
-
-initializeWith : LedgerParties -> Script ()
-initializeWith LedgerParties {bank} = do
+initialize : [Party] -> Script ()
+initialize [bank] = do
   tokenCid <- bank `submit` do
     createCmd Token with
       owner = bank
@@ -227,6 +219,4 @@ initializeWith LedgerParties {bank} = do
             ayeBeeCees = [(Dee, 106, ()), (Aye, 107, ())])
         ]
   pure ()
-
-initialize : Script ()
-initialize = initializeWith =<< allocateParties
+initialize _ = error "unexpected number of parties"

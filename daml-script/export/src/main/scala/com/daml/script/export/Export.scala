@@ -87,27 +87,10 @@ object Export {
     )
   }
 
-  private def partyMapping(parties: Set[Party]): Map[Party, String] = {
-    // - PartyIdStrings are strings that match the regexp ``[A-Za-z0-9:\-_ ]+``.
-    def safeParty(p: String) =
-      Seq(":", "-", "_", " ").foldLeft(p) { case (p, x) => p.replace(x, "") }.toLowerCase
-    // Map from original party id to Daml identifier
-    var partyMap: Map[Party, String] = Map.empty
-    // Number of times we’ve gotten the same result from safeParty, we resolve collisions with a suffix.
-    var usedParties: Map[String, Int] = Map.empty
-    parties.foreach { p =>
-      val r = safeParty(Party.unwrap(p))
-      usedParties.get(r) match {
-        case None =>
-          partyMap += p -> s"${r}_0"
-          usedParties += r -> 0
-        case Some(value) =>
-          partyMap += p -> s"${r}_${value + 1}"
-          usedParties += r -> (value + 1)
-      }
-    }
-    partyMap
-  }
+  private def partyMapping(parties: Set[Party]): Map[Party, String] =
+    parties.foldLeft(Map.empty[Party, String])((acc, party) =>
+      acc.updated(party, s"party_${acc.size}")
+    )
 
   private def cidMapping(
       cids: Seq[Seq[CreatedContract]],
