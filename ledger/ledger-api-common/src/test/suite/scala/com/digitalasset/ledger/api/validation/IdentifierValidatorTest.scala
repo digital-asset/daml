@@ -4,9 +4,9 @@
 package com.daml.ledger.api.validation
 
 import com.daml.error.{ContextualizedErrorLogger, NoLogging}
-import com.daml.ledger.api.DomainMocks
 import com.daml.ledger.api.v1.value.Identifier
 import com.daml.ledger.api.validation.FieldValidations
+import com.daml.lf.data.Ref
 import io.grpc.Status.Code.INVALID_ARGUMENT
 import org.mockito.MockitoSugar
 import org.scalatest.wordspec.AsyncWordSpec
@@ -19,9 +19,16 @@ class IdentifierValidatorTest extends AsyncWordSpec with ValidatorTestUtils with
     val identifier = Identifier("package", moduleName = "module", entityName = "entity")
   }
 
+  object Mocks{
+    val identifier = Ref.Identifier(
+      Ref.PackageId.assertFromString("package"),
+      Ref.QualifiedName.assertFromString("module:entity"),
+    )
+  }
+
   "validating identifiers" should {
     "convert a valid identifier" in {
-      FieldValidations.validateIdentifier(api.identifier) shouldEqual Right(DomainMocks.identifier)
+      FieldValidations.validateIdentifier(api.identifier) shouldEqual Right(Mocks.identifier)
     }
 
     "not allow missing package ids" in {

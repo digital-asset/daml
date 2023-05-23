@@ -125,8 +125,6 @@
   type: jar-deploy
 - target: //ledger-test-tool/tool:tool-1.dev
   type: jar-deploy
-- target: //ledger/ledger-grpc:ledger-grpc
-  type: jar-scala
 - target: //ledger/participant-local-store:participant-local-store
   type: jar-scala
 - target: //test-common:dar-files-1.14-lib
