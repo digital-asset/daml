@@ -3,12 +3,12 @@
 
 package com.daml.ledger.client.services.commands.tracker
 
-import com.daml.error.ContextualizedErrorLogger
+import com.daml.error.{ContextualizedErrorLogger, ErrorCode}
 import com.daml.error.definitions.CommonErrors
 import com.daml.grpc.GrpcStatus
 import com.daml.ledger.api.v1.command_completion_service.Checkpoint
 import com.daml.ledger.api.v1.completion.Completion
-import com.daml.ledger.grpc.GrpcStatuses
+import com.daml.ledger.client.GrpcStatuses
 import com.google.rpc.status.{Status => StatusProto}
 import com.google.rpc.{Status => StatusJavaProto}
 import io.grpc.Status.Code
@@ -24,7 +24,7 @@ object CompletionResponse {
     val commandId: String = completion.commandId
     val grpcStatus: StatusProto = completion.getStatus
     def metadata: Map[String, String] = Map(
-      GrpcStatuses.DefiniteAnswerKey -> GrpcStatuses.isDefiniteAnswer(grpcStatus).toString
+      ErrorCode.DefiniteAnswerKey -> GrpcStatuses.isDefiniteAnswer(grpcStatus).toString
     )
   }
   final case class TimeoutResponse(commandId: String) extends CompletionFailure

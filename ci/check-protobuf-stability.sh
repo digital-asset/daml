@@ -38,7 +38,6 @@ function check_non_lf_protos() {
 
   declare -a BUF_MODULES_AGAINST_STABLE=(
     "buf-ledger-api.yaml"
-    "buf-ledger-configuration.yaml"
   )
 
   echo "Checking protobufs against git target '${BUF_GIT_TARGET_TO_CHECK}'"

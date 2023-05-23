@@ -30,7 +30,6 @@ da_scala_test(
         "//ledger-test-tool/infrastructure",
         "//ledger-test-tool/suites",
         "//ledger/ledger-api-common",
-        "//ledger/ledger-configuration",
         "//libs-scala/caching",
         "//libs-scala/doobie-slf4j",
         "//libs-scala/ledger-resources",

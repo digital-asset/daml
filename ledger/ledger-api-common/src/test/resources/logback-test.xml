@@ -9,10 +9,10 @@
     </appender>
 
     <appender name="ErrorFactoriesLogCollector" class="com.daml.platform.testing.LogCollector">
-        <test>com.daml.platform.server.api.validation.ErrorFactoriesSpec</test>
+        <test>com.daml.ledger.api.validation.ErrorFactoriesSpec</test>
     </appender>
 
-    <logger name="com.daml.platform.server.api.validation.ErrorFactoriesSpec" level="DEBUG">
+    <logger name="com.daml.ledger.api.validation.ErrorFactoriesSpec" level="DEBUG">
         <appender-ref ref="ErrorFactoriesLogCollector"/>
     </logger>
 

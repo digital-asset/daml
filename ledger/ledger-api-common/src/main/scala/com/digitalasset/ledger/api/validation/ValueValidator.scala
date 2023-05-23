@@ -10,7 +10,6 @@ import com.daml.ledger.api.v1.{value => api}
 import com.daml.lf.data._
 import com.daml.lf.value.Value.{ContractId, ValueUnit}
 import com.daml.lf.value.{Value => Lf}
-import com.daml.platform.server.api.validation.FieldValidations
 import io.grpc.StatusRuntimeException
 import scalaz.std.either._
 import scalaz.syntax.bifunctor._

@@ -21,6 +21,7 @@ import com.daml.ledger.api.testtool.infrastructure.time.{
 import com.daml.ledger.api.testtool.infrastructure.{
   Endpoint,
   FutureAssertions,
+  HexOffset,
   Identification,
   LedgerServices,
   PartyAllocationConfiguration,
@@ -107,7 +108,6 @@ import com.daml.ledger.client.binding.Primitive.Party
 import com.daml.ledger.client.binding.{Primitive, Template}
 import com.daml.lf.data.Ref
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.platform.participant.util.HexOffset
 import com.daml.platform.testing.StreamConsumer
 import com.daml.timer.Delayed
 import com.google.protobuf.ByteString
