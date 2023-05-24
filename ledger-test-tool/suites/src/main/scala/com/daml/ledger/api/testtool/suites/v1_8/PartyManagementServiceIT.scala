@@ -12,6 +12,7 @@ import com.daml.ledger.api.v1.admin.party_management_service.{
   GetPartiesRequest,
   GetPartiesResponse,
   PartyDetails,
+  UpdatePartyIdentityProviderRequest,
 }
 import com.daml.ledger.client.binding
 import com.daml.ledger.test.model.Test.Dummy
@@ -20,12 +21,310 @@ import scalaz.Tag
 import scalaz.syntax.tag.ToTagOps
 import java.util.regex.Pattern
 
+import com.daml.ledger.api.v1.admin.identity_provider_config_service.DeleteIdentityProviderConfigRequest
 import com.daml.ledger.api.v1.admin.object_meta.ObjectMeta
 import com.daml.ledger.client.binding.Primitive
 
 import scala.util.Random
 
 final class PartyManagementServiceIT extends PartyManagementITBase {
+
+  test(
+    "PMUpdatingPartyIdentityProviderNonDefaultIdps",
+    "Test reassigning party to a different idp using non default idps",
+    allocate(NoParties),
+  )(implicit ec => { case Participants(Participant(ledger)) =>
+    val idpId1 = ledger.nextIdentityProviderId()
+    val idpId2 = ledger.nextIdentityProviderId()
+    for {
+      _ <- ledger.createIdentityProviderConfig(identityProviderId = idpId1)
+      _ <- ledger.createIdentityProviderConfig(identityProviderId = idpId2)
+      party <- ledger.allocateParty(identityProviderId = Some(idpId1)).map(_.unwrap)
+      get1 <- ledger.getParties(
+        GetPartiesRequest(parties = Seq(party), identityProviderId = idpId1)
+      )
+      // Update party's idp id
+      _ <- ledger.updatePartyIdentityProviderId(
+        UpdatePartyIdentityProviderRequest(
+          party = party,
+          sourceIdentityProviderId = idpId1,
+          targetIdentityProviderId = idpId2,
+        )
+      )
+      get2 <- ledger.getParties(
+        GetPartiesRequest(parties = Seq(party), identityProviderId = idpId2)
+      )
+      // Cleanup
+      _ <- ledger.updatePartyIdentityProviderId(
+        UpdatePartyIdentityProviderRequest(
+          party = party,
+          sourceIdentityProviderId = idpId2,
+          targetIdentityProviderId = "",
+        )
+      )
+      _ <- ledger.deleteIdentityProviderConfig(DeleteIdentityProviderConfigRequest(idpId1))
+      _ <- ledger.deleteIdentityProviderConfig(DeleteIdentityProviderConfigRequest(idpId2))
+    } yield {
+      assertEquals(
+        "idp1",
+        get1.partyDetails.map(d => d.identityProviderId -> d.party -> d.isLocal),
+        Seq(idpId1 -> party -> true),
+      )
+      assertEquals(
+        "idp2",
+        get2.partyDetails.map(d => d.identityProviderId -> d.party -> d.isLocal),
+        Seq(idpId2 -> party -> true),
+      )
+    }
+  })
+
+  test(
+    "PMUpdatingPartyIdentityProviderWithDefaultIdp",
+    "Test reassigning party to a different idp using the default idp",
+    allocate(NoParties),
+  )(implicit ec => { case Participants(Participant(ledger)) =>
+    val idpId1 = ledger.nextIdentityProviderId()
+    for {
+      _ <- ledger.createIdentityProviderConfig(identityProviderId = idpId1)
+      // allocate a party in the default idp
+      party <- ledger.allocateParty(identityProviderId = None).map(_.unwrap)
+      get1 <- ledger.getParties(GetPartiesRequest(parties = Seq(party), identityProviderId = ""))
+      // Update party's idp id
+      _ <- ledger.updatePartyIdentityProviderId(
+        UpdatePartyIdentityProviderRequest(
+          party = party,
+          sourceIdentityProviderId = "",
+          targetIdentityProviderId = idpId1,
+        )
+      )
+      get2 <- ledger.getParties(
+        GetPartiesRequest(parties = Seq(party), identityProviderId = idpId1)
+      )
+      // Cleanup - changing party's idp to the default idp so that non default one can be deleted
+      _ <- ledger.updatePartyIdentityProviderId(
+        UpdatePartyIdentityProviderRequest(
+          party = party,
+          sourceIdentityProviderId = idpId1,
+          targetIdentityProviderId = "",
+        )
+      )
+      _ <- ledger.deleteIdentityProviderConfig(DeleteIdentityProviderConfigRequest(idpId1))
+    } yield {
+      assertEquals(
+        "default idp",
+        get1.partyDetails.map(d => d.identityProviderId -> d.party -> d.isLocal),
+        Seq("" -> party -> true),
+      )
+      assertEquals(
+        "non default idp",
+        get2.partyDetails.map(d => d.identityProviderId -> d.party -> d.isLocal),
+        Seq(idpId1 -> party -> true),
+      )
+    }
+  })
+
+  test(
+    "PMUpdatingPartyIdentityProviderNonExistentIdps",
+    "Test reassigning party to a different idp when source or target idp doesn't exist",
+    allocate(NoParties),
+  )(implicit ec => { case Participants(Participant(ledger)) =>
+    val idpIdNonExistent = ledger.nextIdentityProviderId()
+    for {
+      party <- ledger.allocateParty(identityProviderId = None).map(_.unwrap)
+      _ <- ledger
+        .updatePartyIdentityProviderId(
+          UpdatePartyIdentityProviderRequest(
+            party = party,
+            sourceIdentityProviderId = idpIdNonExistent,
+            targetIdentityProviderId = "",
+          )
+        )
+        .mustFailWith(
+          "non existent source idp",
+          LedgerApiErrors.RequestValidation.InvalidArgument,
+        )
+      _ <- ledger
+        .updatePartyIdentityProviderId(
+          UpdatePartyIdentityProviderRequest(
+            party = party,
+            sourceIdentityProviderId = "",
+            targetIdentityProviderId = idpIdNonExistent,
+          )
+        )
+        .mustFailWith(
+          "non existent target idp",
+          LedgerApiErrors.RequestValidation.InvalidArgument,
+        )
+    } yield ()
+  })
+
+  test(
+    "PMUpdatingPartyIdentityProviderMismatchedSourceIdp",
+    "Test reassigning party to a different idp using mismatched source idp id",
+    allocate(NoParties),
+  )(implicit ec => { case Participants(Participant(ledger)) =>
+    val idpIdNonDefault = ledger.nextIdentityProviderId()
+    val idpIdTarget = ledger.nextIdentityProviderId()
+    val idpIdMismatched = ledger.nextIdentityProviderId()
+    for {
+      _ <- ledger.createIdentityProviderConfig(identityProviderId = idpIdNonDefault)
+      _ <- ledger.createIdentityProviderConfig(identityProviderId = idpIdMismatched)
+      _ <- ledger.createIdentityProviderConfig(identityProviderId = idpIdTarget)
+      partyDefault <- ledger.allocateParty(identityProviderId = None).map(_.unwrap)
+      partyNonDefault <- ledger
+        .allocateParty(identityProviderId = Some(idpIdNonDefault))
+        .map(_.unwrap)
+      error1 <- ledger
+        .updatePartyIdentityProviderId(
+          UpdatePartyIdentityProviderRequest(
+            party = partyDefault,
+            sourceIdentityProviderId = idpIdMismatched,
+            targetIdentityProviderId = idpIdTarget,
+          )
+        )
+        .mustFail("mismatched source idp id")
+      error2 <- ledger
+        .updatePartyIdentityProviderId(
+          UpdatePartyIdentityProviderRequest(
+            party = partyNonDefault,
+            sourceIdentityProviderId = idpIdMismatched,
+            targetIdentityProviderId = idpIdTarget,
+          )
+        )
+        .mustFail("mismatched source idp id")
+      // cleanup
+      _ <- ledger.updatePartyIdentityProviderId(
+        UpdatePartyIdentityProviderRequest(
+          party = partyNonDefault,
+          sourceIdentityProviderId = idpIdNonDefault,
+          targetIdentityProviderId = "",
+        )
+      )
+      _ <- ledger.deleteIdentityProviderConfig(DeleteIdentityProviderConfigRequest(idpIdNonDefault))
+      _ <- ledger.deleteIdentityProviderConfig(DeleteIdentityProviderConfigRequest(idpIdMismatched))
+    } yield {
+      assert(
+        error1.getMessage.startsWith("PERMISSION_DENIED"),
+        s"Actual message: ${error1.getMessage}",
+      )
+      assert(
+        error2.getMessage.startsWith("PERMISSION_DENIED"),
+        s"Actual message: ${error2.getMessage}",
+      )
+    }
+  })
+
+  test(
+    "PMUpdatingPartyIdentityProviderSourceAndTargetIdpTheSame",
+    "Test reassigning party to a different idp but source and target idps are the same",
+    allocate(NoParties),
+  )(implicit ec => { case Participants(Participant(ledger)) =>
+    val idpId1 = ledger.nextIdentityProviderId()
+    for {
+      _ <- ledger.createIdentityProviderConfig(identityProviderId = idpId1)
+      partyDefault <- ledger.allocateParty(identityProviderId = None).map(_.unwrap)
+      partyNonDefault <- ledger.allocateParty(identityProviderId = Some(idpId1)).map(_.unwrap)
+      _ <- ledger.updatePartyIdentityProviderId(
+        UpdatePartyIdentityProviderRequest(
+          party = partyDefault,
+          sourceIdentityProviderId = "",
+          targetIdentityProviderId = "",
+        )
+      )
+      get1 <- ledger.getParties(
+        GetPartiesRequest(parties = Seq(partyDefault), identityProviderId = "")
+      )
+      _ <- ledger.updatePartyIdentityProviderId(
+        UpdatePartyIdentityProviderRequest(
+          party = partyNonDefault,
+          sourceIdentityProviderId = idpId1,
+          targetIdentityProviderId = idpId1,
+        )
+      )
+      get2 <- ledger.getParties(
+        GetPartiesRequest(parties = Seq(partyNonDefault), identityProviderId = idpId1)
+      )
+      // cleanup
+      _ <- ledger.updatePartyIdentityProviderId(
+        UpdatePartyIdentityProviderRequest(
+          party = partyNonDefault,
+          sourceIdentityProviderId = idpId1,
+          targetIdentityProviderId = "",
+        )
+      )
+      _ <- ledger.deleteIdentityProviderConfig(DeleteIdentityProviderConfigRequest(idpId1))
+    } yield {
+      assertEquals(
+        "default idp",
+        get1.partyDetails.map(d => d.identityProviderId -> d.party -> d.isLocal),
+        Seq("" -> partyDefault -> true),
+      )
+      assertEquals(
+        "non default idp",
+        get2.partyDetails.map(d => d.identityProviderId -> d.party -> d.isLocal),
+        Seq(idpId1 -> partyNonDefault -> true),
+      )
+    }
+  })
+
+  test(
+    "PMGetPartiesUsingDifferentIdps",
+    "Test getting parties using different idps",
+    allocate(NoParties),
+  )(implicit ec => { case Participants(Participant(ledger)) =>
+    val idpId1 = ledger.nextIdentityProviderId()
+    val idpId2 = ledger.nextIdentityProviderId()
+    for {
+      _ <- ledger.createIdentityProviderConfig(identityProviderId = idpId1)
+      _ <- ledger.createIdentityProviderConfig(identityProviderId = idpId2)
+      partyDefault <- ledger.allocateParty(identityProviderId = None).map(_.unwrap)
+      partyNonDefault <- ledger.allocateParty(identityProviderId = Some(idpId1)).map(_.unwrap)
+      partyOtherNonDefault <- ledger.allocateParty(identityProviderId = Some(idpId2)).map(_.unwrap)
+      getAsDefaultIdp <- ledger.getParties(
+        GetPartiesRequest(parties = Seq(partyDefault, partyNonDefault), identityProviderId = "")
+      )
+      getAsNonDefaultIdp <- ledger.getParties(
+        GetPartiesRequest(
+          parties = Seq(partyDefault, partyNonDefault, partyOtherNonDefault),
+          identityProviderId = idpId1,
+        )
+      )
+      // cleanup
+      _ <- ledger.updatePartyIdentityProviderId(
+        UpdatePartyIdentityProviderRequest(
+          party = partyNonDefault,
+          sourceIdentityProviderId = idpId1,
+          targetIdentityProviderId = "",
+        )
+      )
+      _ <- ledger.updatePartyIdentityProviderId(
+        UpdatePartyIdentityProviderRequest(
+          party = partyOtherNonDefault,
+          sourceIdentityProviderId = idpId2,
+          targetIdentityProviderId = "",
+        )
+      )
+      _ <- ledger.deleteIdentityProviderConfig(DeleteIdentityProviderConfigRequest(idpId1))
+    } yield {
+      assertEquals(
+        "default idp",
+        getAsDefaultIdp.partyDetails.map(_.copy(localMetadata = None)).toSet,
+        Set(
+          PartyDetails(party = partyDefault, isLocal = true, identityProviderId = ""),
+          PartyDetails(party = partyNonDefault, isLocal = true, identityProviderId = ""),
+        ),
+      )
+      assertEquals(
+        "non default idp",
+        getAsNonDefaultIdp.partyDetails.map(_.copy(localMetadata = None)).toSet,
+        Set(
+          PartyDetails(party = partyDefault, isLocal = false, identityProviderId = ""),
+          PartyDetails(party = partyNonDefault, isLocal = true, identityProviderId = idpId1),
+          PartyDetails(party = partyOtherNonDefault, isLocal = false, identityProviderId = ""),
+        ),
+      )
+    }
+  })
 
   test(
     "PMNonEmptyParticipantID",

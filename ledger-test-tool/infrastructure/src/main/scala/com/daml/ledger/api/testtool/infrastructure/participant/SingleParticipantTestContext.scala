@@ -4,8 +4,8 @@
 package com.daml.ledger.api.testtool.infrastructure.participant
 
 import com.daml.error.ErrorCode
-
 import java.time.{Clock, Instant}
+
 import com.daml.ledger.api.refinements.ApiTypes.TemplateId
 import com.daml.ledger.api.testtool.infrastructure.Eventually.eventually
 import com.daml.ledger.api.testtool.infrastructure.ProtobufConverters._
@@ -55,6 +55,8 @@ import com.daml.ledger.api.v1.admin.party_management_service.{
   PartyDetails,
   UpdatePartyDetailsRequest,
   UpdatePartyDetailsResponse,
+  UpdatePartyIdentityProviderRequest,
+  UpdatePartyIdentityProviderResponse,
 }
 import com.daml.ledger.api.v1.command_completion_service.{
   Checkpoint,
@@ -160,6 +162,7 @@ final class SingleParticipantTestContext private[participant] (
   override val nextKeyId: () => String = nextIdGenerator("key")
   override val nextUserId: () => String = nextIdGenerator("user", lowerCase = true)
   override val nextPartyId: () => String = nextIdGenerator("party", lowerCase = true)
+  override val nextIdentityProviderId: () => String = nextIdGenerator("idp", lowerCase = true)
 
   override lazy val delayMechanism: DelayMechanism = if (features.staticTime) {
     new StaticTimeDelayMechanism(this)
@@ -269,6 +272,11 @@ final class SingleParticipantTestContext private[participant] (
   ): Future[UpdatePartyDetailsResponse] = {
     services.partyManagement.updatePartyDetails(req)
   }
+
+  def updatePartyIdentityProviderId(
+      request: UpdatePartyIdentityProviderRequest
+  ): Future[UpdatePartyIdentityProviderResponse] =
+    services.partyManagement.updateUserIdentityProviderId(request)
 
   override def allocateParties(n: Int): Future[Vector[Party]] =
     Future.sequence(Vector.fill(n)(allocateParty()))
