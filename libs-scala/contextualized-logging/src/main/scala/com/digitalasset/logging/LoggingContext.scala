@@ -98,4 +98,12 @@ class LoggingContext(val entries: LoggingEntries) {
 
   private def ++[V](other: LoggingEntries): LoggingContext =
     new LoggingContext(entries ++ other)
+
+  lazy val toPropertiesMap: Map[String, String] =
+    entries.contents.map { case (key, value) =>
+      key -> LoggingValueStringSerializer.makeString(value)
+    }
+
+  lazy val makeString: String =
+    toPropertiesMap.mkString("context: {", ", ", "}")
 }
