@@ -67,7 +67,7 @@ service PartyManagementService {
   rpc UpdatePartyDetails (UpdatePartyDetailsRequest) returns (UpdatePartyDetailsResponse);
 
   // Update the assignment of a party from one IDP to another.
-  rpc UpdateUserIdentityProviderId (UpdatePartyIdentityProviderRequest) returns (UpdatePartyIdentityProviderResponse);
+  rpc UpdatePartyIdentityProviderId (UpdatePartyIdentityProviderRequest) returns (UpdatePartyIdentityProviderResponse);
 }
 
 // Required authorization: ``HasRight(ParticipantAdmin)``
