@@ -108,6 +108,15 @@ final class ImmArray[+A] private (
     }
   }
 
+  /** O(1), returns the list unchanged if n <= 0 */
+  def drop(n: Int): ImmArray[A] = {
+    if (n <= 0) {
+      this
+    } else {
+      new ImmArray(start + n, Math.max(length - n, 0), array)
+    }
+  }
+
   /** O(1), crashes on empty list */
   def init: ImmArray[A] = {
     if (length < 1) {
