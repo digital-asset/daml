@@ -370,7 +370,11 @@ private[lf] final class Compiler(
       val tmplId = Identifier(pkgId, QualifiedName(module.name, tmplName))
       addDef(compileCreate(tmplId, tmpl))
       addDef(compileFetchTemplate(tmplId, tmpl))
-      addDef(compileSoftFetchTemplate(tmplId, tmpl, preds))
+      module.definitions.get(tmplName) match {
+        case Some(DDataType(_, _, DataRecord(fields))) =>
+          addDef(compileSoftFetchTemplate(tmplId, tmpl, fields, preds))
+        case _ =>
+      }
       addDef(compileTemplatePreCondition(tmplId, tmpl))
       addDef(compileAgreementText(tmplId, tmpl))
       addDef(compileSignatories(tmplId, tmpl))
@@ -745,6 +749,7 @@ private[lf] final class Compiler(
       env: Env,
       tmplId: Identifier,
       tmpl: Template,
+      fields: ImmArray[(FieldName, Type)],
       predPids: List[PackageId],
   )(
       cidPos: Position,
@@ -761,6 +766,7 @@ private[lf] final class Compiler(
         env,
         SBPromoteAnyContract(
           tmplId,
+          fields,
           predPids.map(Identifier(_, tmplId.qualifiedName)),
         )(
           env.toSEVar(cidPos),
@@ -780,16 +786,17 @@ private[lf] final class Compiler(
   private[this] def compileSoftFetchTemplate(
       tmplId: Identifier,
       tmpl: Template,
+      fields: ImmArray[(FieldName, Type)],
       predPids: List[PackageId],
   ): (t.SDefinitionRef, SDefinition) =
     // compile a template to
     // SoftFetchTemplateDefRef(tmplId) = \ <coid> <token> ->
     //   let <any_tmpl> = $fetch_any <coid> None
-    //       <softTmplArg> = $promote_any_contract(tmplId, [preds(tmplId)]) <coid> <any_tmpl>
+    //       <softTmplArg> = $promote_any_contract(tmplId, fields, [preds(tmplId)]) <coid> <any_tmpl>
     //       _ = $insertFetch(tmplId, false) coid [tmpl.signatories] [tmpl.observers] []
     //   in <softTmplArg>
     topLevelFunction2(t.SoftFetchTemplateDefRef(tmplId)) { (cidPos, tokenPos, env) =>
-      translateSoftFetchTemplateBody(env, tmplId, tmpl, predPids)(cidPos, tokenPos)
+      translateSoftFetchTemplateBody(env, tmplId, tmpl, fields, predPids)(cidPos, tokenPos)
     }
 
   private[this] def compileFetchInterface(ifaceId: Identifier): (t.SDefinitionRef, SDefinition) =

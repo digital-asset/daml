@@ -10,6 +10,7 @@ import com.daml.lf.data._
 import com.daml.lf.data.Numeric.Scale
 import com.daml.lf.interpretation.{Error => IE}
 import com.daml.lf.language.Ast
+import com.daml.lf.language.Util.TOptional
 import com.daml.lf.speedy.ArrayList.Implicits._
 import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SExpr._
@@ -1094,6 +1095,7 @@ private[lf] object SBuiltin {
   // Fails unless actualTemplateId is a predecessor of templateId.
   final case class SBPromoteAnyContract(
       templateId: TypeConName,
+      fields: ImmArray[(Ast.FieldName, Ast.Type)],
       acceptedTemplateIds: List[TypeConName],
   ) extends SBuiltin(2) {
     override private[speedy] def execute[Q](
@@ -1104,10 +1106,19 @@ private[lf] object SBuiltin {
       val (actualTemplateId, record) = getSAnyContract(args, 1)
 
       if ((templateId +: acceptedTemplateIds).contains(actualTemplateId)) {
-        // TODO: https://github.com/digital-asset/daml/issues/16151
-        // Later, this will need to extend values of predecessor template
-        // types (e.g. by adding the right number of 'None's for missing 'Optional' fields)
-        Control.Value(record.copy(id = templateId))
+        // Here we extend values of predecessor template types by adding the
+        // right number of 'None's for missing 'Optional' fields
+        val values = new util.ArrayList[SValue]
+        discard(values.addAll(record.values))
+        fields.toList.drop(record.values.size) foreach {
+          case (name@_, TOptional(_)) => discard(values.add(SOptional(None)))
+          case _ => crash("aaaa")
+        }
+        Control.Value(SRecord(
+          id = templateId,
+          fields = fields.map(_._1),
+          values = values
+        ))
       } else {
         Control.Error(
           IE.Dev(
