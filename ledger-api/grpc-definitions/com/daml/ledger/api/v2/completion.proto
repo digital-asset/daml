@@ -46,9 +46,6 @@ message Completion {
   // Optional
   string submission_id = 6;
 
-  reserved "submission_rank"; // For future use.
-  reserved 7;                 // For future use.
-
   // The actual deduplication window used for the submission, which is derived from
   // ``Commands.deduplication_period``. The ledger may convert the deduplication period into other
   // descriptions and extend the period in implementation-specified ways.
@@ -60,13 +57,13 @@ message Completion {
     // Specifies the start of the deduplication period by a completion stream offset (exclusive).
     //
     // Must be a valid LedgerString (as described in ``value.proto``).
-    string deduplication_offset = 8;
+    string deduplication_offset = 7;
 
     // Specifies the length of the deduplication period.
     // It is measured in record time of completions.
     //
     // Must be non-negative.
-    google.protobuf.Duration deduplication_duration = 9;
+    google.protobuf.Duration deduplication_duration = 8;
   }
 
   // The domain ID the command was submitted to.
@@ -75,5 +72,5 @@ message Completion {
   //   - for successful/failed unassign commands: represents the source domain
   //   - for successful/failed assign commands: represents the target domain
   // Required
-  string domain_id = 10;
+  string domain_id = 9;
 }

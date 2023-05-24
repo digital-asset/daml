@@ -158,7 +158,7 @@ message ReassignmentCommand {
   string submission_id = 7;
 }
 
-// Assign a contract
+// Unassign a contract
 message UnassignCommand {
   // The ID of the contract the client wants to unassign.
   // Must be a valid LedgerString (as described in ``value.proto``).
@@ -167,7 +167,7 @@ message UnassignCommand {
 
   // The ID of the source domain
   // Must be a valid domain ID
-  // Optional
+  // Required
   string source = 2;
 
   // The ID of the target domain
@@ -181,7 +181,7 @@ message AssignCommand {
   // The ID from the unassigned event to be completed by this assignment.
   // Must be a valid LedgerString (as described in ``value.proto``).
   // Required
-  string reassignment_id = 1;
+  string unassign_id = 1;
 
   // The ID of the source domain
   // Must be a valid domain ID
@@ -190,6 +190,6 @@ message AssignCommand {
 
   // The ID of the target domain
   // Must be a valid domain ID
-  // Optional
+  // Required
   string target = 3;
 }

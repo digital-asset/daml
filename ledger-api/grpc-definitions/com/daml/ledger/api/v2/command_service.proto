@@ -23,9 +23,9 @@ service CommandService {
   // Propagates the gRPC error of failed submissions including Daml interpretation errors.
   rpc SubmitAndWait (SubmitAndWaitRequest) returns (google.protobuf.Empty);
 
-  // Submits a single composite command, waits for its result, and returns the transaction id.
+  // Submits a single composite command, waits for its result, and returns the update id.
   // Propagates the gRPC error of failed submissions including Daml interpretation errors.
-  rpc SubmitAndWaitForTransactionId (SubmitAndWaitRequest) returns (SubmitAndWaitForUpdateIdResponse);
+  rpc SubmitAndWaitForUpdateId (SubmitAndWaitRequest) returns (SubmitAndWaitForUpdateIdResponse);
 
   // Submits a single composite command, waits for its result, and returns the transaction.
   // Propagates the gRPC error of failed submissions including Daml interpretation errors.

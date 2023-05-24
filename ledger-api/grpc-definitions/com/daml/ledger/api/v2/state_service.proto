@@ -19,7 +19,7 @@ service StateService {
 
   // Returns a stream of the snapshot of the active contracts at a ledger offset.
   // If there are no active contracts, the stream returns a single response message with the offset at which the snapshot has been taken.
-  // Clients SHOULD use the offset in the last GetActiveContractsResponse message to continue streaming transactions with the transaction service.
+  // Clients SHOULD use the offset in the last GetActiveContractsResponse message to continue streaming transactions with the update service.
   // Clients SHOULD NOT assume that the set of active contracts they receive reflects the state at the ledger end.
   rpc GetActiveContracts (GetActiveContractsRequest) returns (stream GetActiveContractsResponse);
 
@@ -128,7 +128,7 @@ message GetConnectedDomainsResponse {
   repeated ConnectedDomain connected_domains = 1;
 }
 
-// enum indicating the permission level
+// Enum indicating the permission level
 enum ParticipantPermission {
   MissingParticipantPermission = 0;
   // participant is active, can submit transactions

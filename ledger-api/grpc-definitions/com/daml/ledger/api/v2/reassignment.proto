@@ -43,10 +43,10 @@ message Reassignment {
 // Records that a contract has been unassigned, and it becomes unusable on the source domain
 message UnassignedEvent {
 
-  // The ID of the reassignment. This needs to be used as an input for a assign ReassignmentCommand.
+  // The ID of the unassignment. This needs to be used as an input for a assign ReassignmentCommand.
   // Must be a valid LedgerString (as described in ``value.proto``).
   // Required
-  string reassignment_id = 1;
+  string unassign_id = 1;
 
   // The ID of the reassigned contract.
   // Must be a valid LedgerString (as described in ``value.proto``).
@@ -78,7 +78,7 @@ message UnassignedEvent {
   // Required
   uint64 reassignment_counter = 7;
 
-  // assignment exclusivity
+  // Assignment exclusivity
   // Before this time (measured on the target domain), only the submitter of the unassignment can initiate the assignment
   // Missing for everyone except on the submitting participant
   // optional
@@ -89,7 +89,7 @@ message UnassignedEvent {
   // Required
   repeated string witness_parties = 9;
 
-  // The parties which are able to assign the respective reassignment on this participant.
+  // The parties which are able to assign this reassignment on this participant.
   // Required
   repeated string reassigning_parties = 10;
 }
@@ -111,7 +111,7 @@ message AssignedEvent {
   // For correlation capabilities
   // Must be a valid LedgerString (as described in ``value.proto``).
   // Required
-  string reassignment_id = 3;
+  string unassign_id = 3;
 
   // Party on whose behalf the reassignment command was executed.
   // Must be a valid PartyIdString (as described in ``value.proto``).
