@@ -35,7 +35,7 @@ instance Semigroup Versions where
     Versions a <> Versions b = Versions (a <> b)
 
 minimumVersion :: Version
-minimumVersion = SemVer.incrementMajor SemVer.initial
+minimumVersion =  fromRight (error "Invalid version") $ SemVer.fromText "1.16.0"
 
 headVersion :: Version
 headVersion = SemVer.initial
