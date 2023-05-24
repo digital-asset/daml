@@ -23,7 +23,8 @@ final class PackageUpgradesIT
 
   val coinV1DarPath = BazelRunfiles.rlocation(Paths.get("daml-script/test/coin-v1.dar"))
   val coinV2DarPath = BazelRunfiles.rlocation(Paths.get("daml-script/test/coin-v2.dar"))
-  val coinV2NewFieldDarPath = BazelRunfiles.rlocation(Paths.get("daml-script/test/coin-v2-new-field.dar"))
+  val coinV2NewFieldDarPath =
+    BazelRunfiles.rlocation(Paths.get("daml-script/test/coin-v2-new-field.dar"))
   val coinV3DarPath = BazelRunfiles.rlocation(Paths.get("daml-script/test/coin-v3.dar"))
   val coinUpgradeV1V2DarPath =
     BazelRunfiles.rlocation(Paths.get("daml-script/test/coin-upgrade-v1-v2.dar"))

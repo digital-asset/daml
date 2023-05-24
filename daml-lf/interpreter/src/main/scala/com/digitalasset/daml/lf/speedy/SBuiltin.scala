@@ -1111,14 +1111,16 @@ private[lf] object SBuiltin {
         val values = new util.ArrayList[SValue]
         discard(values.addAll(record.values))
         fields.toList.drop(record.values.size) foreach {
-          case (name@_, TOptional(_)) => discard(values.add(SOptional(None)))
+          case (name @ _, TOptional(_)) => discard(values.add(SOptional(None)))
           case _ => crash("aaaa")
         }
-        Control.Value(SRecord(
-          id = templateId,
-          fields = fields.map(_._1),
-          values = values
-        ))
+        Control.Value(
+          SRecord(
+            id = templateId,
+            fields = fields.map(_._1),
+            values = values,
+          )
+        )
       } else {
         Control.Error(
           IE.Dev(
