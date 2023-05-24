@@ -13,8 +13,8 @@ class FilterDiscriminatorScenario[Inj](
     val ctId: domain.TemplateId.OptionalPkg,
     val va: VA.Aux[Inj],
     val query: Map[String, JsValue],
-    val matches: domain.Party => Inj,
-    val doesNotMatch: domain.Party => Inj,
+    val matches: Seq[domain.Party => Inj],
+    val doesNotMatch: Seq[domain.Party => Inj],
 )
 
 object FilterDiscriminatorScenario {
@@ -24,8 +24,8 @@ object FilterDiscriminatorScenario {
       va: VA,
       query: Map[String, JsValue],
   )(
-      matches: domain.Party => va.Inj,
-      doesNotMatch: domain.Party => va.Inj,
+      matches: Seq[domain.Party => va.Inj],
+      doesNotMatch: Seq[domain.Party => va.Inj],
   ): FilterDiscriminatorScenario[va.Inj] =
     new FilterDiscriminatorScenario(label, ctId, va, query, matches, doesNotMatch)
 }
