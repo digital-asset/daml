@@ -4,16 +4,17 @@
 package com.daml.lf
 package engine
 
+import com.daml.lf.TestNodeBuilder.{CreateKey, CreateTransactionVersion}
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data._
 import com.daml.lf.language.Ast.{TNat, TTyCon, Type}
 import com.daml.lf.language.Util._
-import com.daml.lf.transaction.TransactionVersion
-import com.daml.lf.transaction.test.TransactionBuilder
+import com.daml.lf.transaction.test.{TransactionBuilder, TreeTransactionBuilder}
+import com.daml.lf.transaction.{CommittedTransaction, NodeId, TransactionVersion}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value._
-import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.matchers.should.Matchers
+import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.wordspec.AnyWordSpec
 
 class ValueEnricherSpec extends AnyWordSpec with Matchers with TableDrivenPropertyChecks {
@@ -172,33 +173,46 @@ class ValueEnricherSpec extends AnyWordSpec with Matchers with TableDrivenProper
 
   "enrichTransaction" should {
 
+    import TreeTransactionBuilder._
+
     def buildTransaction(
         contract: Value,
         key: Value,
         record: Value,
-    ) = {
-      val builder = new TransactionBuilder(_ => TransactionVersion.minTypeErasure)
+    ): CommittedTransaction = {
+
+      val ids: Iterator[NodeId] = Iterator.from(0).map(NodeId)
+
+      // We want the same node ids used each time for this test to create a new tree builder
+      val txBuilder = new TreeTransactionBuilder {
+        override def nextNodeId(): NodeId = ids.next()
+      }
+
+      val nodeBuilder = TestNodeBuilder
       val create =
-        builder.create(
+        nodeBuilder.create(
           id = cid("#01"),
           templateId = "Mod:Contract",
           argument = contract,
           signatories = Set("Alice"),
           observers = Set("Alice"),
-          key = Some(key),
+          key = CreateKey.SignatoryMaintainerKey(key),
+          version = CreateTransactionVersion.Version(TransactionVersion.minTypeErasure),
         )
-      builder.add(create)
-      builder.add(builder.fetch(create))
-      builder.lookupByKey(create, true)
-      builder.exercise(
-        contract = create,
-        choice = "Noop",
-        consuming = false,
-        actingParties = Set("Alice"),
-        argument = record,
-        result = Some(record),
+      txBuilder.toCommittedTransaction(
+        create,
+        nodeBuilder.fetch(create, byKey = false),
+        nodeBuilder.lookupByKey(create),
+        nodeBuilder.exercise(
+          contract = create,
+          choice = "Noop",
+          consuming = false,
+          actingParties = Set("Alice"),
+          argument = record,
+          result = Some(record),
+          byKey = false,
+        ),
       )
-      builder.buildCommitted()
     }
 
     "enrich transaction as expected" in {

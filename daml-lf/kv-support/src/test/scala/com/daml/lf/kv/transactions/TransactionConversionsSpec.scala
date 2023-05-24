@@ -3,7 +3,7 @@
 
 package com.daml.lf.kv.transactions
 
-import com.daml.lf.crypto
+import com.daml.lf.TestNodeBuilder.CreateKey.{NoKey, SignatoryMaintainerKey}
 import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.kv.ConversionError
 import com.daml.lf.kv.transactions.TransactionConversions.{
@@ -11,16 +11,10 @@ import com.daml.lf.kv.transactions.TransactionConversions.{
   extractTransactionVersion,
   reconstructTransaction,
 }
-import com.daml.lf.transaction.test.TransactionBuilder
-import com.daml.lf.transaction.{
-  GlobalKey,
-  Node,
-  NodeId,
-  TransactionOuterClass,
-  TransactionVersion,
-  VersionedTransaction,
-}
+import com.daml.lf.transaction.test.TreeTransactionBuilder
+import com.daml.lf.transaction._
 import com.daml.lf.value.{Value, ValueCoder, ValueOuterClass}
+import com.daml.lf.{TestNodeBuilder, crypto}
 import com.google.protobuf
 import com.google.protobuf.ByteString
 import org.scalatest.matchers.should.Matchers
@@ -31,6 +25,7 @@ import scala.jdk.CollectionConverters._
 class TransactionConversionsSpec extends AnyWordSpec with Matchers {
 
   import TransactionConversionsSpec._
+  import TreeTransactionBuilder._
 
   private val cid = Value.ContractId.V1(crypto.Hash.hashPrivateKey("#id"))
 
@@ -98,24 +93,24 @@ class TransactionConversionsSpec extends AnyWordSpec with Matchers {
 
   "extractTransactionOutputs" should {
     "return a single output for a create without a key" in {
-      val builder = TransactionBuilder()
+      val builder = TestNodeBuilder
       val createNode = create(builder, cid)
-      builder.add(createNode)
+      val transaction = toVersionedTransaction(createNode)
       val result = TransactionConversions.extractTransactionOutputs(
         TransactionConversions
-          .encodeTransaction(builder.build())
+          .encodeTransaction(transaction)
           .fold(error => fail(error.errorMessage), identity)
       )
       result shouldBe Right(Set(ContractIdOrKey.Id(createNode.coid)))
     }
 
     "return two outputs for a create with a key" in {
-      val builder = TransactionBuilder()
+      val builder = TestNodeBuilder
       val createNode = create(builder, cid, hasKey = true)
-      builder.add(createNode)
+      val transaction = toVersionedTransaction(createNode)
       val result = TransactionConversions.extractTransactionOutputs(
         TransactionConversions
-          .encodeTransaction(builder.build())
+          .encodeTransaction(transaction)
           .fold(error => fail(error.errorMessage), identity)
       )
       result shouldBe Right(
@@ -127,13 +122,15 @@ class TransactionConversionsSpec extends AnyWordSpec with Matchers {
     }
 
     "return a single output for a transient contract" in {
-      val builder = TransactionBuilder()
+      val builder = TestNodeBuilder
       val createNode = create(builder, cid, hasKey = true)
-      builder.add(createNode)
-      builder.add(exercise(builder, cid))
+      val transaction = toVersionedTransaction(
+        createNode,
+        exercise(builder, cid),
+      )
       val result = TransactionConversions.extractTransactionOutputs(
         TransactionConversions
-          .encodeTransaction(builder.build())
+          .encodeTransaction(transaction)
           .fold(error => fail(error.errorMessage), identity)
       )
       result shouldBe Right(
@@ -145,24 +142,24 @@ class TransactionConversionsSpec extends AnyWordSpec with Matchers {
     }
 
     "return a single output for an exercise without a key" in {
-      val builder = TransactionBuilder()
+      val builder = TestNodeBuilder
       val exerciseNode = exercise(builder, cid)
-      builder.add(exerciseNode)
+      val transaction = toVersionedTransaction(exerciseNode)
       val result = TransactionConversions.extractTransactionOutputs(
         TransactionConversions
-          .encodeTransaction(builder.build())
+          .encodeTransaction(transaction)
           .fold(error => fail(error.errorMessage), identity)
       )
       result shouldBe Right(Set(ContractIdOrKey.Id(exerciseNode.targetCoid)))
     }
 
     "return two outputs for a consuming exercise with a key" in {
-      val builder = TransactionBuilder()
+      val builder = TestNodeBuilder
       val exerciseNode = exercise(builder, cid, hasKey = true)
-      builder.add(exerciseNode)
+      val transaction = toVersionedTransaction(exerciseNode)
       val result = TransactionConversions.extractTransactionOutputs(
         TransactionConversions
-          .encodeTransaction(builder.build())
+          .encodeTransaction(transaction)
           .fold(error => fail(error.errorMessage), identity)
       )
       result shouldBe Right(
@@ -174,12 +171,12 @@ class TransactionConversionsSpec extends AnyWordSpec with Matchers {
     }
 
     "return two outputs for a non-consuming exercise with a key" in {
-      val builder = TransactionBuilder()
+      val builder = TestNodeBuilder
       val exerciseNode = exercise(builder, cid, hasKey = true, consuming = false)
-      builder.add(exerciseNode)
+      val transaction = toVersionedTransaction(exerciseNode)
       val result = TransactionConversions.extractTransactionOutputs(
         TransactionConversions
-          .encodeTransaction(builder.build())
+          .encodeTransaction(transaction)
           .fold(error => fail(error.errorMessage), identity)
       )
       result shouldBe Right(
@@ -191,16 +188,15 @@ class TransactionConversionsSpec extends AnyWordSpec with Matchers {
     }
 
     "return one output per fetch and fetch-by-key" in {
-      val builder = TransactionBuilder()
+      val builder = TestNodeBuilder
       val fetchNode1 =
         fetch(builder, Value.ContractId.V1(crypto.Hash.hashPrivateKey("#id1")), byKey = true)
       val fetchNode2 =
         fetch(builder, Value.ContractId.V1(crypto.Hash.hashPrivateKey("#id2")), byKey = false)
-      builder.add(fetchNode1)
-      builder.add(fetchNode2)
+      val transaction = toVersionedTransaction(fetchNode1, fetchNode2)
       val result = TransactionConversions.extractTransactionOutputs(
         TransactionConversions
-          .encodeTransaction(builder.build())
+          .encodeTransaction(transaction)
           .fold(error => fail(error.errorMessage), identity)
       )
       result shouldBe Right(
@@ -212,42 +208,53 @@ class TransactionConversionsSpec extends AnyWordSpec with Matchers {
     }
 
     "return no output for a failing lookup-by-key" in {
-      val builder = TransactionBuilder()
-      builder.add(lookup(builder, cid, found = false))
+      val builder = TestNodeBuilder
+      val transaction = toVersionedTransaction(lookup(builder, cid, found = false))
       val result = TransactionConversions.extractTransactionOutputs(
         TransactionConversions
-          .encodeTransaction(builder.build())
+          .encodeTransaction(transaction)
           .fold(error => fail(error.errorMessage), identity)
       )
       result shouldBe Right(Set.empty)
     }
 
     "return no output for a successful lookup-by-key" in {
-      val builder = TransactionBuilder()
-      builder.add(lookup(builder, cid, found = true))
+      val builder = TestNodeBuilder
+      val transaction = toVersionedTransaction(lookup(builder, cid, found = true))
       val result = TransactionConversions.extractTransactionOutputs(
         TransactionConversions
-          .encodeTransaction(builder.build())
+          .encodeTransaction(transaction)
           .fold(error => fail(error.errorMessage), identity)
       )
       result shouldBe Right(Set.empty)
     }
 
     "return outputs for nodes under a rollback node" in {
-      val builder = TransactionBuilder()
-      val rollback = builder.add(builder.rollback())
+      val builder = TestNodeBuilder
       val createNode =
         create(builder, Value.ContractId.V1(crypto.Hash.hashPrivateKey("#id1")), hasKey = true)
-      builder.add(createNode, rollback)
       val exerciseNode =
         exercise(builder, Value.ContractId.V1(crypto.Hash.hashPrivateKey("#id2")), hasKey = true)
-      builder.add(exerciseNode, rollback)
       val fetchNode =
         fetch(builder, Value.ContractId.V1(crypto.Hash.hashPrivateKey("#id3")), byKey = true)
-      builder.add(fetchNode, rollback)
+
+      val tx = toVersionedTransaction(
+        builder
+          .rollback()
+          .withChildren(
+            create(builder, Value.ContractId.V1(crypto.Hash.hashPrivateKey("#id1")), hasKey = true),
+            exercise(
+              builder,
+              Value.ContractId.V1(crypto.Hash.hashPrivateKey("#id2")),
+              hasKey = true,
+            ),
+            fetch(builder, Value.ContractId.V1(crypto.Hash.hashPrivateKey("#id3")), byKey = true),
+          )
+      )
+
       val result = TransactionConversions.extractTransactionOutputs(
         TransactionConversions
-          .encodeTransaction(builder.build())
+          .encodeTransaction(tx)
           .fold(error => fail(error.errorMessage), identity)
       )
       result shouldBe Right(
@@ -498,18 +505,17 @@ object TransactionConversionsSpec {
     ImmArray(aRootNodeId),
   )
 
-  private def create(builder: TransactionBuilder, id: Value.ContractId, hasKey: Boolean = false) =
+  private def create(builder: TestNodeBuilder, id: Value.ContractId, hasKey: Boolean = false) =
     builder.create(
       id = id,
       templateId = aTemplateId,
       argument = Value.ValueRecord(None, ImmArray.Empty),
       signatories = Set.empty,
-      observers = Set.empty,
-      key = if (hasKey) Some(aUnitValue) else None,
+      key = if (hasKey) SignatoryMaintainerKey(aUnitValue) else NoKey,
     )
 
   private def exercise(
-      builder: TransactionBuilder,
+      builder: TestNodeBuilder,
       id: Value.ContractId,
       hasKey: Boolean = false,
       consuming: Boolean = true,
@@ -521,6 +527,7 @@ object TransactionConversionsSpec {
       actingParties = Set.empty,
       consuming = consuming,
       result = Some(aUnitValue),
+      byKey = false,
     )
 
   private def exercise(choiceObservers: Set[Ref.Party], children: ImmArray[NodeId]) =
@@ -543,10 +550,10 @@ object TransactionConversionsSpec {
       version = TransactionVersion.VDev,
     )
 
-  private def fetch(builder: TransactionBuilder, id: Value.ContractId, byKey: Boolean) =
+  private def fetch(builder: TestNodeBuilder, id: Value.ContractId, byKey: Boolean) =
     builder.fetch(contract = create(builder, id, hasKey = true), byKey = byKey)
 
-  private def lookup(builder: TransactionBuilder, id: Value.ContractId, found: Boolean) =
+  private def lookup(builder: TestNodeBuilder, id: Value.ContractId, found: Boolean) =
     builder.lookupByKey(contract = create(builder, id, hasKey = true), found = found)
 
   private def buildProtoNode(nodeId: String)(

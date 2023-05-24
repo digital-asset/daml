@@ -5,9 +5,10 @@ package com.daml.lf
 package testing.snapshot
 
 import com.daml.lf.data._
-import com.daml.lf.language.Ast
+import com.daml.lf.language.{Ast, LanguageVersion}
+import com.daml.lf.testing.snapshot.Adapter.TxBuilder
 import com.daml.lf.transaction._
-import com.daml.lf.transaction.test.{TransactionBuilder => TxBuilder}
+import com.daml.lf.transaction.test.NodeIdTransactionBuilder
 import com.daml.lf.value.Value
 
 import scala.collection.mutable
@@ -19,7 +20,7 @@ final class Adapter(
   private val interface = com.daml.lf.language.PackageInterface(packages)
 
   def adapt(tx: VersionedTransaction): SubmittedTransaction =
-    tx.foldWithPathState(TxBuilder(interface.packageLanguageVersion), Option.empty[NodeId])(
+    tx.foldWithPathState(new TxBuilder(interface.packageLanguageVersion), Option.empty[NodeId])(
       (builder, parent, _, node) =>
         (builder, Some(parent.fold(builder.add(adapt(node)))(builder.add(adapt(node), _))))
     ).buildSubmitted()
@@ -107,4 +108,14 @@ final class Adapter(
     }
   }
 
+}
+
+object Adapter {
+  private class TxBuilder(pkgLangVer: Ref.PackageId => LanguageVersion)
+      extends NodeIdTransactionBuilder
+      with TestNodeBuilder {
+    override def packageVersion(packageId: Ref.PackageId): Option[TransactionVersion] = {
+      Some(TransactionVersion.assignNodeVersion(pkgLangVer(packageId)))
+    }
+  }
 }

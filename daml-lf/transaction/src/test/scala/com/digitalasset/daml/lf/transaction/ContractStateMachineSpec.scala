@@ -23,7 +23,7 @@ import com.daml.lf.transaction.Transaction.{
   KeyInputError,
   NegativeKeyLookup,
 }
-import com.daml.lf.transaction.test.TransactionBuilder
+import com.daml.lf.transaction.test.NodeIdTransactionBuilder
 import com.daml.lf.transaction.test.TransactionBuilder.Implicits.{
   defaultPackageId,
   toIdentifier,
@@ -35,7 +35,6 @@ import com.daml.lf.value.Value.ContractId
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.wordspec.AnyWordSpec
-
 import scala.language.implicitConversions
 
 class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrivenPropertyChecks {
@@ -152,7 +151,7 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
 
   def createRbExLbkLbk: TestCase = {
     // [ Create c1 (key=k1), Rollback [ Exe c1 [ LBK k1 -> None ]], LBK k1 -> c1 ]
-    val builder = TransactionBuilder()
+    val builder = new TxBuilder()
     val _ = builder.add(mkCreate(1, "key1"))
     val rollbackNid = builder.add(builder.rollback())
     val exerciseNid =
@@ -178,7 +177,7 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
     // [ Exe c0 [ Rollback [ Exe c1 (key=k1, byKey), Create c2 (key=k1) ],
     //         Exe c1 (key=k, byKey) [ Rollback [ Create c3 (key=k1), ExeN c3 (key=k1, byKey) ] ],
     //         LBK k1 -> None ]
-    val builder = TransactionBuilder()
+    val builder = new TxBuilder()
     val exercise0Nid = builder.add(mkExercise(0))
     val rollback1Nid = builder.add(builder.rollback(), exercise0Nid)
     val _ = builder.add(mkExercise(1, consuming = true, "key1", byKey = true), rollback1Nid)
@@ -214,7 +213,7 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
     //              Rollback [ LBK k1 -> c1, LBK k2 -> None ],
     //              LBK k2 -> None,
     //              Exe c1 (key=k1, byKey) ] ]
-    val builder = TransactionBuilder()
+    val builder = new TxBuilder()
     val rollback1Nid = builder.add(builder.rollback())
     val _ = builder.add(mkFetch(1, "key1", byKey = true), rollback1Nid)
     val _ = builder.add(mkExercise(2, consuming = true, "key2"), rollback1Nid)
@@ -245,7 +244,7 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
     //   , Rollback [ LBK k -> None ],
     //   , Create c3 (key=k)
     //   ]
-    val builder = TransactionBuilder()
+    val builder = new TxBuilder()
     val exerciseNid = builder.add(mkExercise(1))
     builder.add(mkExercise(1))
     builder.add(mkExercise(2, consuming = true, "key", byKey = false), exerciseNid)
@@ -273,7 +272,7 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
   def rbExeCreateLbkDivulged: TestCase = {
     // [ Exe c1 [ Rollback [ Exe c2 (key=k1, !byKey), Create c3 (key=k1) ], LBK k1 -> None ] ]
     // (c2 is divulged)
-    val builder = TransactionBuilder()
+    val builder = new TxBuilder()
     val exercise1Nid = builder.add(mkExercise(1))
     val rollbackNid = builder.add(builder.rollback(), exercise1Nid)
     val _ = builder.add(mkExercise(2, consuming = true, "key1"), rollbackNid)
@@ -299,7 +298,7 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
 
   def rbExeCreateFbk: TestCase = {
     // [ Exe c1 [ Rollback [ Exe c2 (key=k1, !byKey), Create c3 (key=k1) ], FetchByKey k1 -> c2 ] ]
-    val builder = TransactionBuilder()
+    val builder = new TxBuilder()
     val exercise1Nid = builder.add(mkExercise(1))
     val rollbackNid = builder.add(builder.rollback(), exercise1Nid)
     val _ = builder.add(mkExercise(2, consuming = true, "key1"), rollbackNid)
@@ -324,7 +323,7 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
 
   def doubleCreate: TestCase = {
     // [ ExeN c1 [ Create c2 (key=k1), Create c3 (key=k1) ] ]
-    val builder = TransactionBuilder()
+    val builder = new TxBuilder()
     val exerciseNid = builder.add(mkExercise(1, consuming = false))
     val _ = builder.add(mkCreate(2, "key1"), exerciseNid)
     val _ = builder.add(mkCreate(3, "key1"), exerciseNid)
@@ -352,7 +351,7 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
   def divulgedLookup: TestCase = {
     // Key lookups don't find divulged contracts even though they can be used normally with exercise.
     // [ ExeN c1 (key=k1, !byKey) [ LBK k1 -> None ] ]
-    val builder = TransactionBuilder()
+    val builder = new TxBuilder()
     val exerciseNid = builder.add(mkExercise(1, consuming = false, "key1"))
     val _ = builder.add(mkLookupByKey("key1", None), exerciseNid)
     val tx = builder.build()
@@ -374,7 +373,7 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
   def rbFbkFetch: TestCase = {
     // Fetch-by-key a contract under a rollback
     // [ Exe c1 [ Rollback [ FBK k1 -> c2 ], Fetch c3 (key=k1) ]
-    val builder = TransactionBuilder()
+    val builder = new TxBuilder()
     val exerciseNid = builder.add(mkExercise(1))
     val rollbackNid = builder.add(builder.rollback(), exerciseNid)
     val _ = builder.add(mkFetch(2, "key1", byKey = true), rollbackNid)
@@ -397,7 +396,7 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
   def archiveOtherKeyContract: TestCase = {
     // multiple keys
     // [ ExeN c1 [ FBK k1 -> c2, Exe c3 (key=k1, !byKey) [ LBK k1 -> c2 ] ]
-    val builder = TransactionBuilder()
+    val builder = new TxBuilder()
     val exerciseNid = builder.add(mkExercise(1, consuming = false))
     val _ = builder.add(mkFetch(2, "key1", byKey = true), exerciseNid)
     val exercise2Nid = builder.add(mkExercise(3, consuming = true, "key1"), exerciseNid)
@@ -419,7 +418,7 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
 
   def createAfterRbArchive: TestCase = {
     // [ Rollback [ Exe c1 (key=k1, !byKey), Create c2 (key=k1) ], Create c3 (key=k1) ]
-    val builder = TransactionBuilder()
+    val builder = new TxBuilder()
     val rollbackNid = builder.add(builder.rollback())
     val _ = builder.add(mkExercise(1, consuming = true, "key1"), rollbackNid)
     val _ = builder.add(mkCreate(2, "key1"), rollbackNid)
@@ -444,7 +443,7 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
     // In ContractKeyUniquenessMode.Strict,
     // iterating over the ExeN subtree from an empty state fails with InconsistentKeys
     // but iterating over the whole transaction fails with DuplicateContractKey
-    val builder = TransactionBuilder()
+    val builder = new TxBuilder()
     val _ = builder.add(mkCreate(1, "key1"))
     val exerciseNid = builder.add(mkExercise(2, consuming = false))
     val _ = builder.add(mkCreate(3, "key1"), exerciseNid)
@@ -466,7 +465,7 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
     // In ContractKeyUniquenessMode.Strict,
     // iterating over the ExeN subtree from an empty state fails with DuplicateContractKeys(k2)
     // while iterating over the whole transaction fails with DuplicateContractKeys(k1)
-    val builder = TransactionBuilder()
+    val builder = new TxBuilder()
     val _ = builder.add(mkCreate(1, "key1"))
     val exerciseNid = builder.add(mkExercise(2, consuming = false))
     val _ = builder.add(mkCreate(3, "key2"), exerciseNid)
@@ -494,7 +493,7 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
   def inconsistentFetchByKey: TestCase = {
     // Inconsistent fetch-by-key nodes separated by a Rollback
     // [ Exe c1 [ Rollback [ FBK k1 -> c2 ], FBK k1 -> c3 ]
-    val builder = TransactionBuilder()
+    val builder = new TxBuilder()
     val exerciseNid = builder.add(mkExercise(1))
     val rollbackNid = builder.add(builder.rollback(), exerciseNid)
     val _ = builder.add(mkFetch(2, "key1", byKey = true), rollbackNid)
@@ -513,7 +512,7 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
 
   def rbCreate: TestCase = {
     // Exe c0 [ Rollback [ Create c1 ] ]
-    val builder = TransactionBuilder()
+    val builder = new TxBuilder()
     val exTop = builder.add(mkExercise(0))
     val rollbackNid = builder.add(builder.rollback(), exTop)
     builder.add(mkCreate(1), rollbackNid)
@@ -763,5 +762,7 @@ object ContractStateMachineSpec {
       rollbackEnd = (s, _, _) => s,
     )
   }
+
+  class TxBuilder extends NodeIdTransactionBuilder with TestNodeBuilder
 
 }
