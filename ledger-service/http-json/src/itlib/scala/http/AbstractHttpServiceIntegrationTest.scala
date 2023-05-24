@@ -531,31 +531,94 @@ abstract class AbstractHttpServiceIntegrationTestTokenIndependent
         kbvarVA,
         Map("bazRecord" -> Map("baz" -> Map("%gt" -> "b")).toJson),
       )(
-        withBazRecord("c"),
-        withBazRecord("a"),
+        matches = Seq(withBazRecord("c")),
+        doesNotMatch = Seq(withBazRecord("a")),
+      ),
+      Scenario(
+        "gt string with sketchy value",
+        kbvarId,
+        kbvarVA,
+        Map("bazRecord" -> Map("baz" -> Map("%gt" -> "bobby'); DROP TABLE Students;--")).toJson),
+      )(
+        matches = Seq(withBazRecord("c")),
+        doesNotMatch = Seq(withBazRecord("a")),
+      ),
+      Scenario(
+        "lt string with sketchy value which uses unicode quote char",
+        kbvarId,
+        kbvarVA,
+        Map("bazRecord" -> Map("baz" -> Map("%lt" -> "O\u02bcReilly")).toJson),
+      )(
+        matches = Seq(withBazRecord("A")),
+        doesNotMatch = Seq(withBazRecord("Z")),
+      ),
+      Scenario(
+        "eq empty string matches just that",
+        kbvarId,
+        kbvarVA,
+        Map("bazRecord" -> Map("baz" -> "").toJson),
+      )(
+        matches = Seq(withBazRecord("")),
+        doesNotMatch = Seq(withBazRecord("a")),
+      ),
+      Scenario(
+        "lt empty string matches nothing",
+        kbvarId,
+        kbvarVA,
+        Map("bazRecord" -> Map("baz" -> Map("%lt" -> "")).toJson),
+      )(
+        matches = Seq.empty,
+        doesNotMatch = Seq(withBazRecord("a"), withBazRecord("")),
+      ),
+      Scenario(
+        "lte empty string only matches empty string",
+        kbvarId,
+        kbvarVA,
+        Map("bazRecord" -> Map("baz" -> Map("%lte" -> "")).toJson),
+      )(
+        matches = Seq(withBazRecord("")),
+        doesNotMatch = Seq(withBazRecord("a")),
+      ),
+      Scenario(
+        "gt empty string only matches non-empty string",
+        kbvarId,
+        kbvarVA,
+        Map("bazRecord" -> Map("baz" -> Map("%gt" -> "")).toJson),
+      )(
+        matches = Seq(withBazRecord("a")),
+        doesNotMatch = Seq(withBazRecord("")),
+      ),
+      Scenario(
+        "gte empty string matches everything",
+        kbvarId,
+        kbvarVA,
+        Map("bazRecord" -> Map("baz" -> Map("%gte" -> "")).toJson),
+      )(
+        matches = Seq(withBazRecord("a"), withBazRecord("")),
+        doesNotMatch = Seq.empty,
       ),
       Scenario(
         "gt int",
         kbvarId,
         kbvarVA,
         Map("fooVariant" -> Map("tag" -> "Bar".toJson, "value" -> Map("%gt" -> 2).toJson).toJson),
-      )(withFooVariant(3), withFooVariant(1)),
+      )(matches = Seq(withFooVariant(10)), doesNotMatch = Seq(withFooVariant(1))),
     ).zipWithIndex.foreach { case (scenario, ix) =>
       import scenario._
       s"$label (scenario $ix)" in withHttpService { fixture =>
         for {
           (alice, headers) <- fixture.getUniquePartyAndAuthHeaders("Alice")
           contracts <- searchExpectOk(
-            List(matches, doesNotMatch).map { payload =>
+            (matches ++ doesNotMatch).toList.map { payload =>
               domain.CreateCommand(ctId, argToApi(va)(payload(alice)), None)
             },
             JsObject(Map("templateIds" -> Seq(ctId).toJson, "query" -> query.toJson)),
             fixture,
             headers,
           )
-        } yield contracts.map(_.payload) should contain theSameElementsAs Seq(
-          LfValueCodec.apiValueToJsValue(va.inj(matches(alice)))
-        )
+        } yield contracts.map(_.payload) should contain theSameElementsAs matches.map { m =>
+          LfValueCodec.apiValueToJsValue(va.inj(m(alice)))
+        }
       }
     }
   }
