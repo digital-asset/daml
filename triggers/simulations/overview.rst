@@ -12,8 +12,8 @@ To help engineers develop trigger code, it is often useful to first use the Visu
 
 Trigger's interact with the ledger using a `CQRS <https://en.wikipedia.org/wiki/Command–query_separation#Command_Query_Responsibility_Separation>`_ pattern that utilises:
 
-- a trigger in-memory contract store - the readable or queryable contract data store
-- and a ledger contract store - the writable contract store.
+- a trigger in-memory contract store - the readable or queryable contract store (ACS)
+- and a ledger contract store - the writable contract store (ACS).
   
 These separate contract stores need to be kept in sync. This is accomplished using a `pub-sub <https://en.wikipedia.org/wiki/Publish–subscribe_pattern>`_ pattern where:
 
@@ -27,7 +27,7 @@ Trigger Daml code queries the in-memory contract store without modifying that st
 
   If the trigger's ACS becomes too large, then storing and querying the ACS may consume unnecessary system resources.
 
-  Excessive command submissions to the ledger may result in back pressure being applied and so trigger command submissions will fail. These failures are automatically retried, but they should generally be avoided (e.g. by controlling the number of command submissions) as they can be expensive for both the ledger and triggers.
+  Excessive command submissions to the ledger may result in back pressure being applied and so trigger command submissions will fail. These failures are automatically retried (for a fixed number of times with backoff), but they should generally be avoided (e.g. by controlling the number of command submissions) as they can be expensive for both the ledger and triggers.
 
 When writing trigger Daml code, it is the responsibility of the user to ensure that all potential ledger contention is managed. 
 
@@ -47,7 +47,9 @@ The trigger simulation library is designed to help detect performance issues by 
 - number of ledger client submissions that are currently in-flight and are issued per trigger evaluation cycle
 - difference between the trigger and ledger ACS views (by contract template) per trigger evaluation cycle.
 
-When architecting a collection of triggers and contracts designed to interact with a ledger, a component based design is taken for describing the simulation. Each component models:
+These performance metrics may then be subjected to an offline analysis.
+
+When architecting a collection of triggers and templates designed to interact with contracts on a ledger, a component based design is taken for describing the simulation. Each component models:
 
 - a composable set of primitive trigger definitions - this allows:
 
@@ -58,7 +60,7 @@ When architecting a collection of triggers and contracts designed to interact wi
 
 An internal reporting component is responsible for collecting and storing simulation metric data for offline analysis. This data may be saved at the end of a simulation (in CSV files) for latter offline analysis.
 
-Trigger simulations are Scalatests that extend the trait ``TriggerMultiProcessSimulation``. In extending this trait, the key method that a developer needs to implement is the method:
+Trigger simulations are `Scalatests <https://www.scalatest.org>`_ that extend the trait ``TriggerMultiProcessSimulation``. In extending this trait, the key method that a developer needs to implement is the method:
 
 .. code-block:: scala
   protected def triggerMultiProcessSimulation: Behavior[Unit]
@@ -66,37 +68,39 @@ Trigger simulations are Scalatests that extend the trait ``TriggerMultiProcessSi
 This method is used to define all the components that a given simulation is to take into account. So, to define a simulation with no trigger components and no external components, one could write:
 
 .. code-block:: scala
-  override protected def triggerMultiProcessSimulation: Behavior[Unit] = {
-    implicit def applicationId: ApiTypes.ApplicationId = this.applicationId
+  class ExampleSimulation extends TriggerMultiProcessSimulation {
+    override protected def triggerMultiProcessSimulation: Behavior[Unit] = {
+      implicit def applicationId: ApiTypes.ApplicationId = this.applicationId
 
-    Behaviors.setup { context =>
-      val setup = for {
-        client <- defaultLedgerClient()
-        party <- allocateParty(client)
-      } yield (client, party)
-      val (client, actAs) = Await.result(setup, simulationConfig.simulationSetupTimeout)
-      val ledger = context.spawn(LedgerProcess.create(client), "ledger")
+      Behaviors.setup { context =>
+        val setup = for {
+          client <- defaultLedgerClient()
+          party <- allocateParty(client)
+        } yield (client, party)
+        val (client, actAs) = Await.result(setup, simulationConfig.simulationSetupTimeout)
+        val ledger = context.spawn(LedgerProcess.create(client), "ledger")
 
-      // Trigger and external components could be defined here
+        // Trigger and external components could be defined here
 
-      Behaviors.empty
+        Behaviors.empty
+      }
     }
   }
 
-Trigger simulations may have their default configurations modified by overriding:
+Trigger simulations may have their default configurations modified by overriding the inherited field:
 
 .. code-block:: scala
   protected implicit lazy val simulationConfig: TriggerSimulationConfig
 
-So, to have a simulation run for 42 seconds, one would write:
+So, to have a simulation run for 42 seconds, one would override with:
 
 .. code-block:: scala
   override protected implicit lazy val simulationConfig: TriggerSimulationConfig =
     TriggerSimulationConfig(simulationDuration = 42.seconds)
 
-As trigger simulations are defined as Scalatests, they may be ran using the a variant of ``bazel test`` (assuming the relevant ``BUILD.bazel`` files are also defined to allow the simulation code to build).
+As trigger simulations are defined as Scalatests, they may be ran using a variant of ``bazel test`` (assuming the relevant ``BUILD.bazel`` files are also defined to allow the simulation code to build).
 
-Under the hood, each simulation component is implemented in Scala code as an Akka typed actor.
+Under the hood, each simulation component is implemented in Scala code as an `Akka typed actor <https://doc.akka.io/docs/akka/current/typed/index.html>`_.
 
 Ledger Process Component
 ------------------------
@@ -112,6 +116,8 @@ A ledger process provides trigger components with a strongly consistent data vie
   - the trigger ACS view to be compared against the ledger ACS view (for reporting purposes and use in an offline analysis)
   - external processes to interact with the ledger - e.g. to simulate external code (or ledger workloads) creating or archiving contracts.
 
+  Ledger processes make no attempt at retrying failed command submissions. This is a known limitation.
+
 Each trigger simulation needs to define a single ledger process as follows:
 
 .. code-block:: scala
@@ -125,7 +131,8 @@ Each trigger simulation needs to define a single ledger process as follows:
       } yield (client, party)
       val (client, actAs) = Await.result(setup, simulationConfig.simulationSetupTimeout)
       // Ledger process (as an Akka typed actor) being defined
-      val ledger = context.spawn(LedgerProcess.create(client), "ledger")
+      val ledger: ActorRef[LedgerProcess.Message] =
+        context.spawn(LedgerProcess.create(client), "ledger")
 
       // Trigger and external components could be defined here
 
@@ -136,7 +143,7 @@ Each trigger simulation needs to define a single ledger process as follows:
 Simulating External Ledger Interactions
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-As external components may interact with a ledger (e.g. by creating or archiving contracts that a trigger registers), it is often necessary to model these within a given trigger simulation. This may be done by defining an Akka typed actor with type ``Behavior[Unit]`` and having this actor send ``LedgerProcess.ExternalAction`` messages to the ledger actor.
+As external components may interact with a ledger (e.g. by creating or archiving contracts that a trigger registers an interest in), it is often necessary to model these within a given trigger simulation. This may be done by defining an Akka typed actor with type ``Behavior[Unit]`` and having this actor send ``LedgerProcess.ExternalAction`` messages to the ledger actor.
 
 For example, to model an external component that randomly creates instances of a ``Cat`` contract once every second, we could write:
 
@@ -200,7 +207,7 @@ More complex trigger behaviours may then be thought of as additional layers of c
 
 This layered or compositional approach is the basis for understanding how complex trigger processes may be defined from simpler pieces of code.
 
-As many trigger instances can be defined from a single piece of trigger Daml code, primitive trigger processes are implemented using a factory pattern. Typically an instance of a trigger factory is first declared and then trigger instances (as Akka typed actors with type ``Behavior[TriggerProcess.Message]``) may then be created from that factory.
+As many trigger instances can be defined from a single piece of trigger Daml code, primitive trigger processes are implemented using a `factory pattern <https://en.wikipedia.org/wiki/Factory_method_pattern>`_. Typically an instance of a trigger factory is first declared and then trigger instances (as Akka typed actors with type ``Behavior[TriggerProcess.Message]``) may then be created from that factory.
 
 When creating a trigger instance, we need to declare the starting state for the trigger's internal ACS. For example, we could define a ``Cats:breedingTrigger`` trigger factory using:
 
@@ -271,7 +278,7 @@ Complex trigger process definitions may be defined by encapsulating instances of
     }
   }
 
-Alternatively, given a Scalacheck generator ``Gen[TriggerProcess.Message]``, we could write the following wrapper process:
+Alternatively, given a `Scalacheck <https://scalacheck.org>`_ generator ``Gen[TriggerProcess.Message]``, we could write the following wrapper process:
 
 .. code-block:: scala
   object GeneratedMessages {
@@ -364,7 +371,7 @@ Initializing trigger processes is a common use case, so an additional helper met
 Scheduling Heartbeat Messages
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-By default, trigger processes do not receive heartbeat messages - an explicit wrapper process (i.e. ``TriggerTimer.singleMessage`` or ``TriggerTimer.messageWithFixedDelay``) is required in order to schedule the sending heartbeat messages.
+By default, trigger processes do not receive heartbeat messages - an explicit wrapper process (i.e. ``TriggerTimer.singleMessage`` or ``TriggerTimer.messageWithFixedDelay``) is required in order to schedule the sending of heartbeat messages.
 
 For example, to have a trigger process receive heartbeat messages every second, we would use:
 
@@ -388,7 +395,7 @@ or to have a trigger process receive heartbeat messages every 2 seconds (after a
 Filtering Ledger Transaction Messages
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-By default, trigger processes will receive all ledger create and archive events for the templates that they have registered for. Sometimes, it might be useful to have more granular control over which events a trigger process may receive - the ``TriggerFilter.apply`` wrapper function provides this control.
+By default, trigger processes will receive all ledger create and archive events for the templates that they have registered for. Sometimes, it might be useful to have more granular control over which events a trigger process may receive - the ``TriggerFilter.apply`` wrapper function provides this control within a simulation.
 
 For example, to have a trigger process ignore transaction messages with an effective date that is too old (e.g. older than a ``lifeTime: FiniteDuration``), we could use:
 
@@ -411,7 +418,7 @@ For example, to have a trigger process ignore transaction messages with an effec
   }
 
 .. note::
-  Currently, trigger filtering can not be directly implemented in Daml.
+  Currently, trigger filtering can not be implemented in Daml in a manner that impacts the trigger view of the ACS.
 
 Preserving Simulation Metrics for Offline Analysis
 --------------------------------------------------
