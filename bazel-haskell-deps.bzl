@@ -20,6 +20,7 @@ load("//bazel_tools/ghc-lib:repositories.bzl", "ghc_lib_and_dependencies")
 
 GHCIDE_REV = "434991f74b4cdc6a0983a37ee976c4f62580c2e5"
 GHCIDE_SHA256 = "d3f386643bdd68800cbfd61a5fb8868d6df8ecd23f2dd32331d84e3b7362d832"
+GHCIDE_LOCAL_PATH = None
 JS_JQUERY_VERSION = "3.3.1"
 JS_DGTABLE_VERSION = "0.5.2"
 JS_FLOT_VERSION = "0.8.3"
@@ -118,9 +119,9 @@ haskell_library(
         patches = [
             "@com_github_digital_asset_daml//bazel_tools:haskell-ghcide-binary-q.patch",
         ],
-        sha256 = GHCIDE_SHA256,
-        strip_prefix = "daml-ghcide-%s" % GHCIDE_REV,
-        urls = ["https://github.com/digital-asset/daml-ghcide/archive/%s.tar.gz" % GHCIDE_REV],
+        sha256 = None if GHCIDE_LOCAL_PATH != None else GHCIDE_SHA256,
+        strip_prefix = None if GHCIDE_LOCAL_PATH != None else "daml-ghcide-%s" % GHCIDE_REV,
+        url = "file://" + GHCIDE_LOCAL_PATH if GHCIDE_LOCAL_PATH != None else "https://github.com/digital-asset/daml-ghcide/archive/%s.tar.gz" % GHCIDE_REV,
     )
 
     ghc_lib_and_dependencies()

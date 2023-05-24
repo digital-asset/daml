@@ -58,6 +58,8 @@ class Context(
 
   import Context._
 
+  def devMode: Boolean = languageVersion == LanguageVersion.v1_dev
+
   /** The package identifier to use for modules added to the context.
     * When decoding LF modules this package identifier should be used to rewrite
     * self-references. We only care that the identifier is disjunct from the package ids

@@ -446,7 +446,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
       10 -> 75,
       50 -> 76, // Allows space to encode content into a JSON array of strings within 4k limit.
       50 -> 80, // The content is the exact 4k limit, no additional room for JSON array syntax.
-      200 -> 150,
+      1000 -> 185,
     ).foreach { case (numSubs, partySize) =>
       (s"$numSubs observers of $partySize chars") in withHttpService { fixture =>
         val subscribers = (1 to numSubs).map(_ => domain.Party(randomTextN(partySize))).toList
@@ -636,8 +636,8 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
           kbvarVA,
           Map("bazRecord" -> Map("baz" -> Map("%gt" -> "b")).toJson),
         )(
-          withBazRecord("c"),
-          withBazRecord("a"),
+          matches = Seq(withBazRecord("c")),
+          doesNotMatch = Seq(withBazRecord("a")),
         ),
         Scenario(
           "gt string with sketchy value",
@@ -645,8 +645,8 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
           kbvarVA,
           Map("bazRecord" -> Map("baz" -> Map("%gt" -> "bobby'); DROP TABLE Students;--")).toJson),
         )(
-          withBazRecord("c"),
-          withBazRecord("a"),
+          matches = Seq(withBazRecord("c")),
+          doesNotMatch = Seq(withBazRecord("a")),
         ),
         /* TODO(raphael-speyer-da) Re-enable this test. See https://digitalasset.atlassian.net/browse/LT-15
         Scenario(
@@ -655,8 +655,8 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
           kbvarVA,
           Map("bazRecord" -> Map("baz" -> Map("%lt" -> "'")).toJson),
         )(
-          withBazRecord(" "), // Less than '
-          withBazRecord("A"), // Not less than '
+          matches = Seq(withBazRecord(" ")), // Less than '
+          doesNotMatch = Seq(withBazRecord("A")), // Not less than '
         ),
          */
         Scenario(
@@ -665,31 +665,76 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
           kbvarVA,
           Map("bazRecord" -> Map("baz" -> Map("%lt" -> "O\u02bcReilly")).toJson),
         )(
-          withBazRecord("A"),
-          withBazRecord("Z"),
+          matches = Seq(withBazRecord("A")),
+          doesNotMatch = Seq(withBazRecord("Z")),
+        ),
+        Scenario(
+          "eq empty string matches just that",
+          kbvarId,
+          kbvarVA,
+          Map("bazRecord" -> Map("baz" -> "").toJson),
+        )(
+          matches = Seq(withBazRecord("")),
+          doesNotMatch = Seq(withBazRecord("a")),
+        ),
+        Scenario(
+          "lt empty string matches nothing",
+          kbvarId,
+          kbvarVA,
+          Map("bazRecord" -> Map("baz" -> Map("%lt" -> "")).toJson),
+        )(
+          matches = Seq.empty,
+          doesNotMatch = Seq(withBazRecord("a"), withBazRecord("")),
+        ),
+        Scenario(
+          "lte empty string only matches empty string",
+          kbvarId,
+          kbvarVA,
+          Map("bazRecord" -> Map("baz" -> Map("%lte" -> "")).toJson),
+        )(
+          matches = Seq(withBazRecord("")),
+          doesNotMatch = Seq(withBazRecord("a")),
+        ),
+        Scenario(
+          "gt empty string only matches non-empty string",
+          kbvarId,
+          kbvarVA,
+          Map("bazRecord" -> Map("baz" -> Map("%gt" -> "")).toJson),
+        )(
+          matches = Seq(withBazRecord("a")),
+          doesNotMatch = Seq(withBazRecord("")),
+        ),
+        Scenario(
+          "gte empty string matches everything",
+          kbvarId,
+          kbvarVA,
+          Map("bazRecord" -> Map("baz" -> Map("%gte" -> "")).toJson),
+        )(
+          matches = Seq(withBazRecord("a"), withBazRecord("")),
+          doesNotMatch = Seq.empty,
         ),
         Scenario(
           "gt int",
           kbvarId,
           kbvarVA,
           Map("fooVariant" -> Map("tag" -> "Bar".toJson, "value" -> Map("%gt" -> 2).toJson).toJson),
-        )(withFooVariant(10), withFooVariant(1)),
+        )(matches = Seq(withFooVariant(10)), doesNotMatch = Seq(withFooVariant(1))),
       ).zipWithIndex.foreach { case (scenario, ix) =>
         import scenario._
         s"$label (scenario $ix)" in withHttpService { fixture =>
           for {
             (alice, headers) <- fixture.getUniquePartyAndAuthHeaders("Alice")
             contracts <- searchExpectOk(
-              List(matches, doesNotMatch).map { payload =>
+              (matches ++ doesNotMatch).toList.map { payload =>
                 domain.CreateCommand(ctId, argToApi(va)(payload(alice)), None)
               },
               JsObject(Map("templateIds" -> Seq(ctId).toJson, "query" -> query.toJson)),
               fixture,
               headers,
             )
-          } yield contracts.map(_.payload) should contain theSameElementsAs Seq(
-            LfValueCodec.apiValueToJsValue(va.inj(matches(alice)))
-          )
+          } yield contracts.map(_.payload) should contain theSameElementsAs matches.map { m =>
+            LfValueCodec.apiValueToJsValue(va.inj(m(alice)))
+          }
         }
       }
     }

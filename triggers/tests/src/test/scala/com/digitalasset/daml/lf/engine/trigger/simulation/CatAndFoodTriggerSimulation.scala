@@ -43,25 +43,21 @@ class CatAndFoodTriggerSimulation
       val ledger = context.spawn(LedgerProcess.create(client), "ledger")
       val triggerFactory: TriggerProcessFactory =
         triggerProcessFactory(client, ledger, "Cats:feedingTrigger", actAs)
+
       // With a negative start state, Cats:feedingTrigger will have a behaviour that is dependent on Cat and Food contract generators
-      val trigger1 = context.spawn(triggerFactory.create(SValue.SInt64(-1)), "trigger1")
-      val trigger2 = context.spawn(triggerFactory.create(SValue.SInt64(-1)), "trigger2")
-      val workload =
-        context.spawn(
-          workloadProcess(ledger, actAs)(
-            batchSize = 2000,
-            maxNumOfCats = 1000L,
-            workloadFrequency = 1.second,
-            catDelay = 2.seconds,
-            foodDelay = 2.seconds,
-            jitter = 2.seconds,
-          ),
-          "workload",
-        )
-      context.watch(ledger)
-      context.watch(trigger1)
-      context.watch(trigger2)
-      context.watch(workload)
+      context.spawn(triggerFactory.create(SValue.SInt64(-1)), "trigger1")
+      context.spawn(triggerFactory.create(SValue.SInt64(-1)), "trigger2")
+      context.spawn(
+        workloadProcess(ledger, actAs)(
+          batchSize = 2000,
+          maxNumOfCats = 1000L,
+          workloadFrequency = 1.second,
+          catDelay = 2.seconds,
+          foodDelay = 2.seconds,
+          jitter = 2.seconds,
+        ),
+        "workload",
+      )
 
       Behaviors.empty
     }

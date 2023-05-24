@@ -53,31 +53,31 @@ file, which defines external dependencies. The workspace contains several
 file. Each package holds multiple *targets*. Targets are either *files* under
 the package directory or *rules* defined in the `BUILD.bazel` file. You can
 address a target by a *label* of the form `//path/to/package:target`. For
-example, `//ledger/sandbox-on-x:sandbox-on-x`. Here `sandbox-on-x` is a target in the package
-`ledger/sandbox-on-x`. It is defined in the file `ledger/sandbox-on-x/BUILD.bazel`
-using `da_scala_library` as shown below.
+example, `//daml-script/runner:daml-script-binary`. Here `daml-script-binary` is a target in the package
+`//daml-script/runner`. It is defined in the file `//daml-script/runner/BUILD.bazel`
+using `da_scala_binary` as shown below.
 
 ```
-da_scala_library(
-    name = "sandbox-on-x",
-    srcs = glob(["src/main/scala/**/*.scala"]),
+da_scala_binary(
+    name = "daml-script-binary",
+    main_class = "com.daml.lf.engine.script.ScriptMain",
     resources = glob(["src/main/resources/**/*"]),
-    scala_deps = [
-        "@maven//:com_github_scopt_scopt",
-        "@maven//:com_typesafe_akka_akka_actor",
-        "@maven//:com_typesafe_akka_akka_stream",
+    scala_runtime_deps = [
+        "@maven//:com_typesafe_akka_akka_slf4j",
     ],
-    tags = ["maven_coordinates=com.daml:sandbox-on-x:__VERSION__"],
-    visibility = [
-        "//visibility:public",
+    scalacopts = lf_scalacopts_stricter,
+    visibility = ["//visibility:public"],
+    runtime_deps = [
+        "@maven//:ch_qos_logback_logback_classic",
     ],
     deps = [
-        ...list of deps
+        ":script-runner-lib",
+        "//release:ee-license",
     ],
 )
 ```
 
-The arguments to `da_scala_library` are called *attributes*. These define the
+The arguments to `da_scala_binary` are called *attributes*. These define the
 name of the target, the sources it is compiled from, its dependencies, etc.
 Note, that Bazel build rules are hermetic. I.e. only explicitly declared
 dependencies will be available during execution. In particular, if a rule
@@ -401,7 +401,7 @@ detailed information.
 - Build an individual target
 
     ```
-    bazel build //ledger/sandbox-on-x:app
+    bazel build //daml-script/runner:daml-script-binary
     ```
 
 ### Running Tests
@@ -415,13 +415,13 @@ detailed information.
 - Execute a test suite
 
     ```
-    bazel test //ledger/sandbox-on-x:sandbox-on-x-unit-tests
+    bazel test //daml-script/runner:tests
     ```
 
 - Show test output
 
     ```
-    bazel test //ledger/sandbox-on-x:sandbox-on-x-unit-tests --test_output=streamed
+    bazel test //daml-script/runner:tests --test_output=streamed
     ```
 
     Test outputs are also available in log files underneath the convenience
@@ -430,20 +430,20 @@ detailed information.
 - Do not cache test results
 
     ```
-    bazel test //ledger/sandbox-on-x:sandbox-on-x-unit-tests --nocache_test_results
+    bazel test //daml-script/runner:tests --nocache_test_results
     ```
 
 - Execute a specific Scala test-suite class
 
     ```
-    bazel test //ledger/participant-integration-api:participant-integration-api-tests_test_suite_src_test_suite_scala_platform_store_dao_JdbcLedgerDaoPostgresqlSpec.scala
+    bazel test //daml-lf/engine:tests_test_suite_src_test_scala_com_digitalasset_daml_lf_engine_ApiCommandPreprocessorSpec.scala
     ```
 
 - Execute a test with a specific name
 
     ```
     bazel test \
-    //ledger/participant-integration-api:participant-integration-api-tests_test_suite_src_test_suite_scala_platform_store_dao_JdbcLedgerDaoPostgresqlSpec.scala \
+    //daml-lf/engine:tests_test_suite_src_test_scala_com_digitalasset_daml_lf_engine_ApiCommandPreprocessorSpec.scala \
       --test_arg=-t \
       --test_arg="JdbcLedgerDao (divulgence) should preserve divulged contracts"
     ```
@@ -452,7 +452,7 @@ detailed information.
 
     ```
     bazel test \
-    //ledger/participant-integration-api:participant-integration-api-tests_test_suite_src_test_suite_scala_platform_store_dao_JdbcLedgerDaoPostgresqlSpec.scala \
+    //daml-lf/engine:tests_test_suite_src_test_scala_com_digitalasset_daml_lf_engine_ApiCommandPreprocessorSpec.scala \
       --test_arg=-z \
       --test_arg="preserve divulged"
     ```
@@ -464,13 +464,13 @@ detailed information.
 - Run an executable target
 
     ```
-    bazel run //ledger/sandbox-on-x:app
+    bazel run //daml-script/runner:daml-script-binary
     ```
 
 - Pass arguments to an executable target
 
     ```
-    bazel run //ledger/sandbox-on-x:app -- --help
+    bazel run //daml-script/runner:daml-script-binary -- --help
     ```
 
 ### Running a REPL
@@ -529,7 +529,7 @@ expressions can be combined using set operations like `intersect` or `union`.
 - List all Scala library dependencies of a target
 
     ```
-    bazel query 'kind("scala.*library rule", deps(//ledger/sandbox-on-x:app))'
+    bazel query 'kind("scala.*library rule", deps(//daml-script/runner:daml-script-binary))'
     ```
 
 - Find available 3rd party dependencies
@@ -546,7 +546,7 @@ query includes. These can then be rendered using Graphviz.
 - Graph all Scala library dependencies of a target
 
     ```
-    bazel query --noimplicit_deps 'kind(scala_library, deps(//ledger/sandbox-on-x:app))' --output graph > graph.in
+    bazel query --noimplicit_deps 'kind(scala_library, deps(//daml-script/runner:daml-script-binary))' --output graph > graph.in
     dot -Tpng < graph.in > graph.png
     ```
 
@@ -585,7 +585,7 @@ it will watch these files for changes and rerun the command on file change. For
 example:
 
 ```
-ibazel test //ledger/sandbox-on-x:sandbox-on-x-unit-tests
+ibazel test //daml-script/runner:tests
 ```
 
 Note, that this interacts well with Bazel's test result caching (which is

@@ -4,13 +4,17 @@
 
 <a name="type-interface-asset-25340"></a>**template** [Asset](#type-interface-asset-25340)
 
+> Signatory: issuer, owner
+>
 > | Field                                                                                   | Type                                                                                    | Description |
 > | :-------------------------------------------------------------------------------------- | :-------------------------------------------------------------------------------------- | :---------- |
 > | issuer                                                                                  | [Party](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932) |  |
 > | owner                                                                                   | [Party](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932) |  |
 > | amount                                                                                  | [Int](https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-37261)          |  |
 >
-> * **Choice Archive**
+> * **Choice** Archive
+>
+>   Controller: issuer, owner
 >
 >   Returns: ()
 >
@@ -26,13 +30,17 @@
 >
 > **viewtype** [EmptyInterfaceView](#type-interface-emptyinterfaceview-28816)
 >
-> * **Choice Archive**
+> * **Choice** Archive
+>
+>   Controller: Signatories of implementing template
 >
 >   Returns: ()
 >
 >   (no fields)
 >
-> * **Choice GetRich**
+> * <a name="type-interface-getrich-60188"></a>**Choice** [GetRich](#type-interface-getrich-60188)
+>
+>   Controller: getOwner this
 >
 >   Returns: [ContractId](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-contractid-95282) [Token](#type-interface-token-10651)
 >
@@ -40,7 +48,9 @@
 >   | :----------------------------------------------------------------------------- | :----------------------------------------------------------------------------- | :---------- |
 >   | byHowMuch                                                                      | [Int](https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-37261) |  |
 >
-> * **Choice Noop**
+> * <a name="type-interface-noop-44317"></a>**Choice** [Noop](#type-interface-noop-44317)
+>
+>   Controller: getOwner this
 >
 >   Returns: ()
 >
@@ -48,9 +58,11 @@
 >   | :------ | :------ | :---------- |
 >   | nothing | ()      |  |
 >
-> * **Choice Split**
+> * <a name="type-interface-split-56016"></a>**Choice** [Split](#type-interface-split-56016)
 >
 >   An interface choice comment.
+>
+>   Controller: getOwner this
 >
 >   Returns: ([ContractId](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-contractid-95282) [Token](#type-interface-token-10651), [ContractId](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-contractid-95282) [Token](#type-interface-token-10651))
 >
@@ -58,7 +70,9 @@
 >   | :----------------------------------------------------------------------------- | :----------------------------------------------------------------------------- | :---------- |
 >   | splitAmount                                                                    | [Int](https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-37261) | A choice field comment. |
 >
-> * **Choice Transfer**
+> * <a name="type-interface-transfer-15068"></a>**Choice** [Transfer](#type-interface-transfer-15068)
+>
+>   Controller: newOwner, getOwner this
 >
 >   Returns: [ContractId](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-contractid-95282) [Token](#type-interface-token-10651)
 >

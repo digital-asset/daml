@@ -56,7 +56,7 @@ instance DA.Internal.Desugar.HasChoiceController Foo DA.Internal.Desugar.Archive
   _choiceController = GHC.Types.primitive @"EChoiceController"
 instance DA.Internal.Desugar.HasChoiceObserver Foo DA.Internal.Desugar.Archive where
   _choiceObserver = GHC.Types.primitive @"EChoiceObserver"
-_choice$_FooArchive :
+_choice$_Foo$Archive :
   (DA.Internal.Desugar.Consuming Foo,
    Foo -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.Optional (Foo
@@ -66,7 +66,7 @@ _choice$_FooArchive :
    DA.Internal.Desugar.ContractId Foo
    -> Foo
       -> DA.Internal.Desugar.Archive -> DA.Internal.Desugar.Update (()))
-_choice$_FooArchive
+_choice$_Foo$Archive
   = (DA.Internal.Desugar.Consuming, 
      \ this _ -> DA.Internal.Desugar.signatory this, 
      DA.Internal.Desugar.None, DA.Internal.Desugar.None, 
@@ -151,7 +151,7 @@ instance DA.Internal.Desugar.HasChoiceController Bar DA.Internal.Desugar.Archive
   _choiceController = GHC.Types.primitive @"EChoiceController"
 instance DA.Internal.Desugar.HasChoiceObserver Bar DA.Internal.Desugar.Archive where
   _choiceObserver = GHC.Types.primitive @"EChoiceObserver"
-_choice$_BarArchive :
+_choice$_Bar$Archive :
   (DA.Internal.Desugar.Consuming Bar,
    Bar -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.Optional (Bar
@@ -161,7 +161,7 @@ _choice$_BarArchive :
    DA.Internal.Desugar.ContractId Bar
    -> Bar
       -> DA.Internal.Desugar.Archive -> DA.Internal.Desugar.Update (()))
-_choice$_BarArchive
+_choice$_Bar$Archive
   = (DA.Internal.Desugar.Consuming, 
      \ this _ -> DA.Internal.Desugar.signatory this, 
      DA.Internal.Desugar.None, DA.Internal.Desugar.None, 

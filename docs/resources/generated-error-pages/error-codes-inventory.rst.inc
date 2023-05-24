@@ -1,234 +1,10 @@
-1. KvErrors
-===================================================================================================================
-
-Errors that are specific to ledgers based on the KV architecture: Daml Sandbox and VMBC.
-
-
-1.1. KvErrors / Consistency
-===================================================================================================================
-
-Errors that highlight transaction consistency issues in the committer context.
-
-
-
-.. _error_code_INCONSISTENT_INPUT:
-
-INCONSISTENT_INPUT
----------------------------------------------------------------------------------------------------------------------------------------
-    
-    **Explanation**: At least one input has been altered by a concurrent transaction submission.
-
-    **Category**: ContentionOnSharedResources
-
-    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status ABORTED including a detailed error message.
-
-    **Resolution**: The correct resolution depends on the business flow, for example it may be possible to proceed without an archived contract as an input, or the transaction submission may be retried to load the up-to-date value of a contract key.
-
-
-
-
-.. _error_code_VALIDATION_FAILURE:
-
-VALIDATION_FAILURE
----------------------------------------------------------------------------------------------------------------------------------------
-    
-    **Explanation**: Validation of a transaction submission failed using on-ledger data.
-
-    **Category**: InvalidGivenCurrentSystemStateOther
-
-    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status FAILED_PRECONDITION including a detailed error message.
-
-    **Resolution**: Either some input contracts have been pruned or the participant is misbehaving.
-
-
-
-1.2. KvErrors / Internal
-===================================================================================================================
-
-Errors that arise from an internal system misbehavior.
-
-
-
-.. _error_code_INVALID_PARTICIPANT_STATE:
-
-INVALID_PARTICIPANT_STATE
----------------------------------------------------------------------------------------------------------------------------------------
-    
-    **Explanation**: An invalid participant state has been detected.
-
-    **Category**: SystemInternalAssumptionViolated
-
-    **Conveyance**: This error is logged with log-level ERROR on the server side. It is exposed on the API with grpc-status INTERNAL without any details for security reasons.
-
-    **Resolution**: Contact support.
-
-
-
-
-.. _error_code_MISSING_INPUT_STATE:
-
-MISSING_INPUT_STATE
----------------------------------------------------------------------------------------------------------------------------------------
-    
-    **Explanation**: The participant didn't provide a necessary transaction submission input.
-
-    **Category**: SystemInternalAssumptionViolated
-
-    **Conveyance**: This error is logged with log-level ERROR on the server side. It is exposed on the API with grpc-status INTERNAL without any details for security reasons.
-
-    **Resolution**: Contact support.
-
-
-
-
-.. _error_code_REJECTION_REASON_NOT_SET:
-
-REJECTION_REASON_NOT_SET
----------------------------------------------------------------------------------------------------------------------------------------
-    
-    **Explanation**: A rejection reason has not been set.
-
-    **Category**: SystemInternalAssumptionViolated
-
-    **Conveyance**: This error is logged with log-level ERROR on the server side. It is exposed on the API with grpc-status INTERNAL without any details for security reasons.
-
-    **Resolution**: Contact support.
-
-
-
-
-.. _error_code_SUBMISSION_FAILED:
-
-SUBMISSION_FAILED
----------------------------------------------------------------------------------------------------------------------------------------
-    
-    **Explanation**: An unexpected error occurred while submitting a command to the ledger.
-
-    **Category**: SystemInternalAssumptionViolated
-
-    **Conveyance**: This error is logged with log-level ERROR on the server side. It is exposed on the API with grpc-status INTERNAL without any details for security reasons.
-
-    **Resolution**: Contact support.
-
-
-
-1.3. KvErrors / Resources
-===================================================================================================================
-
-Errors that relate to system resources.
-
-
-
-.. _error_code_RESOURCE_EXHAUSTED:
-
-RESOURCE_EXHAUSTED
----------------------------------------------------------------------------------------------------------------------------------------
-    
-    **Deprecation**: Replaced by RESOURCE_OVERLOADED. Since: 2.3.0
-    
-    **Explanation**: A system resource has been exhausted.
-
-    **Category**: ContentionOnSharedResources
-
-    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status ABORTED including a detailed error message.
-
-    **Resolution**: Retry the transaction submission or provide the details to the participant operator.
-
-
-
-
-.. _error_code_RESOURCE_OVERLOADED:
-
-RESOURCE_OVERLOADED
----------------------------------------------------------------------------------------------------------------------------------------
-    
-    **Explanation**: A system resource is overloaded.
-
-    **Category**: ContentionOnSharedResources
-
-    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status ABORTED including a detailed error message.
-
-    **Resolution**: Retry the transaction submission or provide the details to the participant operator.
-
-
-
-1.4. KvErrors / Time
-===================================================================================================================
-
-Errors that relate to the Daml concepts of time.
-
-
-
-.. _error_code_CAUSAL_MONOTONICITY_VIOLATED:
-
-CAUSAL_MONOTONICITY_VIOLATED
----------------------------------------------------------------------------------------------------------------------------------------
-    
-    **Explanation**: At least one input contract's ledger time is later than that of the submitted transaction.
-
-    **Category**: InvalidGivenCurrentSystemStateOther
-
-    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status FAILED_PRECONDITION including a detailed error message.
-
-    **Resolution**: Retry the transaction submission.
-
-
-
-
-.. _error_code_INVALID_RECORD_TIME:
-
-INVALID_RECORD_TIME
----------------------------------------------------------------------------------------------------------------------------------------
-    
-    **Explanation**: The record time is not within bounds for reasons other than deduplication, such as excessive latency. Excessive clock skew between the participant and the committer or a time model that is too restrictive may also produce this rejection.
-
-    **Category**: InvalidGivenCurrentSystemStateOther
-
-    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status FAILED_PRECONDITION including a detailed error message.
-
-    **Resolution**: Retry the submission or contact the participant operator.
-
-
-
-
-.. _error_code_RECORD_TIME_OUT_OF_BOUNDS:
-
-RECORD_TIME_OUT_OF_BOUNDS
----------------------------------------------------------------------------------------------------------------------------------------
-    
-    **Explanation**: The record time is not within bounds for reasons such as excessive latency, excessive clock skew between the participant and the committer or a time model that is too restrictive.
-
-    **Category**: ContentionOnSharedResources
-
-    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status ABORTED including a detailed error message.
-
-    **Resolution**: Retry the submission or contact the participant operator.
-
-
-
-
-.. _error_code_RECORD_TIME_OUT_OF_RANGE:
-
-RECORD_TIME_OUT_OF_RANGE
----------------------------------------------------------------------------------------------------------------------------------------
-    
-    **Explanation**: The record time is not within bounds for reasons other than deduplication, such as excessive latency. Excessive clock skew between the participant and the committer or a time model that is too restrictive may also produce this rejection.
-
-    **Category**: InvalidGivenCurrentSystemStateOther
-
-    **Conveyance**: This error is logged with log-level INFO on the server side and exposed on the API with grpc-status FAILED_PRECONDITION including a detailed error message.
-
-    **Resolution**: Retry the transaction submission or contact the participant operator.
-
-
-
-2. ParticipantErrorGroup
+1. ParticipantErrorGroup
 ===================================================================================================================
 
 
 
 
-2.1. ParticipantErrorGroup / CommonErrors
+1.1. ParticipantErrorGroup / CommonErrors
 ===================================================================================================================
 
 Common errors raised in Daml services and components.
@@ -314,13 +90,13 @@ UNSUPPORTED_OPERATION
 
 
 
-2.2. ParticipantErrorGroup / IndexErrors
+1.2. ParticipantErrorGroup / IndexErrors
 ===================================================================================================================
 
 Errors raised by the Participant Index persistence layer.
 
 
-2.2.1. ParticipantErrorGroup / IndexErrors / DatabaseErrors
+1.2.1. ParticipantErrorGroup / IndexErrors / DatabaseErrors
 ===================================================================================================================
 
 
@@ -374,7 +150,7 @@ INDEX_DB_SQL_TRANSIENT_ERROR
 
 
 
-2.3. ParticipantErrorGroup / LedgerApiErrors
+1.3. ParticipantErrorGroup / LedgerApiErrors
 ===================================================================================================================
 
 Errors raised by or forwarded by the Ledger API.
@@ -460,7 +236,7 @@ THREADPOOL_OVERLOADED
 
 
 
-2.3.1. ParticipantErrorGroup / LedgerApiErrors / AdminServices
+1.3.1. ParticipantErrorGroup / LedgerApiErrors / AdminServices
 ===================================================================================================================
 
 Errors raised by Ledger API admin services.
@@ -514,7 +290,7 @@ PACKAGE_UPLOAD_REJECTED
 
 
 
-2.3.1.1. ParticipantErrorGroup / LedgerApiErrors / AdminServices / IdentityProviderConfigServiceErrorGroup
+1.3.1.1. ParticipantErrorGroup / LedgerApiErrors / AdminServices / IdentityProviderConfigServiceErrorGroup
 ===================================================================================================================
 
 
@@ -616,7 +392,7 @@ TOO_MANY_IDENTITY_PROVIDER_CONFIGS
 
 
 
-2.3.1.2. ParticipantErrorGroup / LedgerApiErrors / AdminServices / PartyManagementServiceErrorGroup
+1.3.1.2. ParticipantErrorGroup / LedgerApiErrors / AdminServices / PartyManagementServiceErrorGroup
 ===================================================================================================================
 
 
@@ -718,7 +494,7 @@ PARTY_NOT_FOUND
 
 
 
-2.3.1.3. ParticipantErrorGroup / LedgerApiErrors / AdminServices / UserManagementServiceErrorGroup
+1.3.1.3. ParticipantErrorGroup / LedgerApiErrors / AdminServices / UserManagementServiceErrorGroup
 ===================================================================================================================
 
 
@@ -820,7 +596,7 @@ USER_NOT_FOUND
 
 
 
-2.3.2. ParticipantErrorGroup / LedgerApiErrors / AuthorizationChecks
+1.3.2. ParticipantErrorGroup / LedgerApiErrors / AuthorizationChecks
 ===================================================================================================================
 
 Authentication and authorization errors.
@@ -890,7 +666,7 @@ UNAUTHENTICATED
 
 
 
-2.3.3. ParticipantErrorGroup / LedgerApiErrors / CommandExecution
+1.3.3. ParticipantErrorGroup / LedgerApiErrors / CommandExecution
 ===================================================================================================================
 
 Errors raised during the command execution phase of the command submission evaluation.
@@ -912,7 +688,7 @@ FAILED_TO_DETERMINE_LEDGER_TIME
 
 
 
-2.3.3.1. ParticipantErrorGroup / LedgerApiErrors / CommandExecution / Interpreter
+1.3.3.1. ParticipantErrorGroup / LedgerApiErrors / CommandExecution / Interpreter
 ===================================================================================================================
 
 Errors raised during the command interpretation phase of the command submission evaluation.
@@ -982,7 +758,7 @@ DAML_INTERPRETER_INVALID_ARGUMENT
 
 
 
-2.3.3.1.1. ParticipantErrorGroup / LedgerApiErrors / CommandExecution / Interpreter / LookupErrors
+1.3.3.1.1. ParticipantErrorGroup / LedgerApiErrors / CommandExecution / Interpreter / LookupErrors
 ===================================================================================================================
 
 Errors raised in lookups during the command interpretation phase.
@@ -1004,7 +780,7 @@ CONTRACT_KEY_NOT_FOUND
 
 
 
-2.3.3.2. ParticipantErrorGroup / LedgerApiErrors / CommandExecution / Package
+1.3.3.2. ParticipantErrorGroup / LedgerApiErrors / CommandExecution / Package
 ===================================================================================================================
 
 Command execution errors raised due to invalid packages.
@@ -1042,7 +818,7 @@ PACKAGE_VALIDATION_FAILED
 
 
 
-2.3.3.3. ParticipantErrorGroup / LedgerApiErrors / CommandExecution / Preprocessing
+1.3.3.3. ParticipantErrorGroup / LedgerApiErrors / CommandExecution / Preprocessing
 ===================================================================================================================
 
 Errors raised during command conversion to the internal data representation.
@@ -1064,7 +840,7 @@ COMMAND_PREPROCESSING_FAILED
 
 
 
-2.3.4. ParticipantErrorGroup / LedgerApiErrors / ConsistencyErrors
+1.3.4. ParticipantErrorGroup / LedgerApiErrors / ConsistencyErrors
 ===================================================================================================================
 
 Potential consistency errors raised due to race conditions during command submission or returned as submission rejections by the backing ledger.
@@ -1214,7 +990,7 @@ SUBMISSION_ALREADY_IN_FLIGHT
 
 
 
-2.3.5. ParticipantErrorGroup / LedgerApiErrors / PackageServiceError
+1.3.5. ParticipantErrorGroup / LedgerApiErrors / PackageServiceError
 ===================================================================================================================
 
 Errors raised by the Package Management Service on package uploads.
@@ -1268,7 +1044,7 @@ PACKAGE_SERVICE_INTERNAL_ERROR
 
 
 
-2.3.5.1. ParticipantErrorGroup / LedgerApiErrors / PackageServiceError / Reading
+1.3.5.1. ParticipantErrorGroup / LedgerApiErrors / PackageServiceError / Reading
 ===================================================================================================================
 
 Package parsing errors raised during package upload.
@@ -1370,7 +1146,7 @@ ZIP_BOMB
 
 
 
-2.3.6. ParticipantErrorGroup / LedgerApiErrors / RequestValidation
+1.3.6. ParticipantErrorGroup / LedgerApiErrors / RequestValidation
 ===================================================================================================================
 
 Validation errors raised when evaluating requests in the Ledger API.
@@ -1520,7 +1296,7 @@ PARTICIPANT_PRUNED_DATA_ACCESSED
 
 
 
-2.3.6.1. ParticipantErrorGroup / LedgerApiErrors / RequestValidation / NotFound
+1.3.6.1. ParticipantErrorGroup / LedgerApiErrors / RequestValidation / NotFound
 ===================================================================================================================
 
 
@@ -1590,7 +1366,7 @@ TRANSACTION_NOT_FOUND
 
 
 
-2.3.7. ParticipantErrorGroup / LedgerApiErrors / WriteServiceRejections
+1.3.7. ParticipantErrorGroup / LedgerApiErrors / WriteServiceRejections
 ===================================================================================================================
 
 Generic submission rejection errors returned by the backing ledger's write service.
@@ -1680,7 +1456,7 @@ SUBMITTING_PARTY_NOT_KNOWN_ON_LEDGER
 
 
 
-2.3.7.1. ParticipantErrorGroup / LedgerApiErrors / WriteServiceRejections / Internal
+1.3.7.1. ParticipantErrorGroup / LedgerApiErrors / WriteServiceRejections / Internal
 ===================================================================================================================
 
 Errors that arise from an internal system misbehavior.

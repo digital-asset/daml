@@ -71,6 +71,7 @@ instance RenderDoc TemplateDoc where
             ]
         , RenderBlock $ mconcat
             [ renderDoc td_descr
+            , maybe mempty (RenderParagraph . RenderPlain . ("Signatory: " <>) . T.pack) td_signatory
             , fieldTable td_payload
             , RenderList (map renderDoc td_choices)
             ]
@@ -126,8 +127,13 @@ instance RenderDoc MethodDoc where
 
 instance RenderDoc ChoiceDoc where
     renderDoc ChoiceDoc{..} = mconcat
-        [ RenderParagraph $ RenderStrong ("Choice " <> unTypename cd_name)
+        [ renderDoc cd_anchor
+        , RenderParagraph . renderUnwords . concat $
+            [ [RenderStrong "Choice"]
+            , [maybeAnchorLink cd_anchor (unTypename cd_name)]
+            ]
         , renderDoc cd_descr
+        , maybe mempty (RenderParagraph . RenderPlain . ("Controller: " <>) . T.pack) cd_controller
         , RenderParagraph $ renderUnwords [RenderPlain "Returns:", renderType cd_type]
         , fieldTable cd_fields
         ]

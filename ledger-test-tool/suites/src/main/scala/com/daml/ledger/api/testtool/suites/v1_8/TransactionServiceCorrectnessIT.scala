@@ -13,7 +13,7 @@ import com.daml.ledger.api.v1.event.Event.Event.{Archived, Created, Empty}
 import com.daml.ledger.api.v1.transaction.{Transaction, TransactionTree, TreeEvent}
 import com.daml.ledger.test.model.Test.Dummy._
 import com.daml.ledger.test.model.Test._
-import com.daml.platform.api.v1.event.EventOps.{EventOps, TreeEventOps}
+import com.daml.ledger.api.testtool.infrastructure.EventOps.{EventOps, TreeEventOps}
 
 import scala.collection.immutable.Seq
 import scala.concurrent.Future

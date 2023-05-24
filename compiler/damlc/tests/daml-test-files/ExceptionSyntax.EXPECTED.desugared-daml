@@ -86,7 +86,7 @@ instance DA.Internal.Desugar.HasChoiceController Test Call where
   _choiceController = GHC.Types.primitive @"EChoiceController"
 instance DA.Internal.Desugar.HasChoiceObserver Test Call where
   _choiceObserver = GHC.Types.primitive @"EChoiceObserver"
-_choice$_TestArchive :
+_choice$_Test$Archive :
   (DA.Internal.Desugar.Consuming Test,
    Test -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.Optional (Test
@@ -96,12 +96,12 @@ _choice$_TestArchive :
    DA.Internal.Desugar.ContractId Test
    -> Test
       -> DA.Internal.Desugar.Archive -> DA.Internal.Desugar.Update (()))
-_choice$_TestArchive
+_choice$_Test$Archive
   = (DA.Internal.Desugar.Consuming, 
      \ this _ -> DA.Internal.Desugar.signatory this, 
      DA.Internal.Desugar.None, DA.Internal.Desugar.None, 
      \ _ _ _ -> pure ())
-_choice$_TestCall :
+_choice$_Test$Call :
   (DA.Internal.Desugar.Consuming Test,
    Test -> Call -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.Optional (Test
@@ -110,7 +110,7 @@ _choice$_TestCall :
                                  -> Call -> [DA.Internal.Desugar.Party]),
    DA.Internal.Desugar.ContractId Test
    -> Test -> Call -> DA.Internal.Desugar.Update (()))
-_choice$_TestCall
+_choice$_Test$Call
   = (DA.Internal.Desugar.Consuming, 
      \ this@Test {..} arg@Call
        -> let _ = this in

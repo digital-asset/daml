@@ -17,7 +17,7 @@ uhoh() {
 trap uhoh EXIT
 
 STABLE_REGEX="\d+\.\d+\.\d+"
-VERSION_REGEX="^${STABLE_REGEX}(-snapshot\.\d{8}\.\d+(\.\d+)?\.[0-9a-f]{8})?$"
+VERSION_REGEX="^${STABLE_REGEX}(-snapshot\.\d{8}\.\d+(\.\d+)?\.v[0-9a-f]{8})?$"
 
 function file_ends_with_newline() {
     [[ $(tail -c1 "$1" | wc -l) -gt 0 ]]
@@ -39,7 +39,7 @@ check() {
             exit 1
         fi
         if ! is_stable $ver; then
-            ver_sha=$(echo $ver | sed 's/.*\.//')
+            ver_sha=$(echo $ver | sed 's/.*\.v//')
             if ! [ "${sha:0:8}" = "$ver_sha" ]; then
                 echo "$ver does not match $sha, please correct. ($ver_sha != ${sha:0:8})"
                 exit 1
@@ -64,7 +64,7 @@ make_snapshot() {
     commit_date=$(git log -n1 --format=%cd --date=format:%Y%m%d $sha)
     number_of_commits=$(git rev-list --count $sha)
     commit_sha_8=$(git log -n1 --format=%h --abbrev=8 $sha)
-    echo "$1 $2-snapshot.$commit_date.$number_of_commits.0.$commit_sha_8 SPLIT_RELEASE"
+    echo "$1 $2-snapshot.$commit_date.$number_of_commits.0.v$commit_sha_8 SPLIT_RELEASE"
 }
 
 display_help() {

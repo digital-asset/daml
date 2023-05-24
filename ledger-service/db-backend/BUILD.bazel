@@ -39,7 +39,7 @@ da_scala_library(
         "//daml-lf/transaction",
         "//ledger-service/metrics",
         "//ledger-service/utils",
-        "//ledger/caching",
+        "//libs-scala/caching",
         "//libs-scala/contextualized-logging",
         "//libs-scala/nonempty",
         "//libs-scala/nonempty-cats",

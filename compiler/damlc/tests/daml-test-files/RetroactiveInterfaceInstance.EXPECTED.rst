@@ -12,13 +12,19 @@ Interfaces
 
   **viewtype** `TokenView <type-retroactiveinterfaceinstance-tokenview-57374_>`_
 
-  + **Choice Archive**
+  + **Choice** Archive
+
+    Controller\: Signatories of implementing template
 
     Returns\: ()
 
     (no fields)
 
-  + **Choice GetRich**
+  + .. _type-retroactiveinterfaceinstance-getrich-36810:
+
+    **Choice** `GetRich <type-retroactiveinterfaceinstance-getrich-36810_>`_
+
+    Controller\: (DA\.Internal\.Record\.getField @\"owner\" (view this))
 
     Returns\: `ContractId <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-contractid-95282>`_ `Token <type-retroactiveinterfaceinstance-token-49693_>`_
 
@@ -33,7 +39,11 @@ Interfaces
          - `Int <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-37261>`_
          -
 
-  + **Choice Noop**
+  + .. _type-retroactiveinterfaceinstance-noop-59171:
+
+    **Choice** `Noop <type-retroactiveinterfaceinstance-noop-59171_>`_
+
+    Controller\: (DA\.Internal\.Record\.getField @\"owner\" (view this))
 
     Returns\: ()
 
@@ -48,9 +58,13 @@ Interfaces
          - ()
          -
 
-  + **Choice Split**
+  + .. _type-retroactiveinterfaceinstance-split-43306:
+
+    **Choice** `Split <type-retroactiveinterfaceinstance-split-43306_>`_
 
     An interface choice comment\.
+
+    Controller\: (DA\.Internal\.Record\.getField @\"owner\" (view this))
 
     Returns\: (`ContractId <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-contractid-95282>`_ `Token <type-retroactiveinterfaceinstance-token-49693_>`_, `ContractId <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-contractid-95282>`_ `Token <type-retroactiveinterfaceinstance-token-49693_>`_)
 
@@ -65,7 +79,11 @@ Interfaces
          - `Int <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-37261>`_
          - A choice field comment\.
 
-  + **Choice Transfer**
+  + .. _type-retroactiveinterfaceinstance-transfer-79282:
+
+    **Choice** `Transfer <type-retroactiveinterfaceinstance-transfer-79282_>`_
+
+    Controller\: newOwner, (DA\.Internal\.Record\.getField @\"owner\" (view this))
 
     Returns\: `ContractId <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-contractid-95282>`_ `Token <type-retroactiveinterfaceinstance-token-49693_>`_
 

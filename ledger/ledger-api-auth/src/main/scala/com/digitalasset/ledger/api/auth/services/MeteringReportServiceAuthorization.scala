@@ -10,8 +10,6 @@ import com.daml.ledger.api.v1.admin.metering_report_service.{
   GetMeteringReportResponse,
   MeteringReportServiceGrpc,
 }
-import com.daml.platform.api.grpc.GrpcApiService
-import com.daml.platform.server.api.ProxyCloseable
 import io.grpc.ServerServiceDefinition
 
 import scala.concurrent.{ExecutionContext, Future}

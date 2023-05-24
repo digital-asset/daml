@@ -1,8 +1,7 @@
 # Ledger error definitions
 
 Home to error definitions commonly reported via the Ledger API server.
-As opposed to definitions in `//ledger/participant-state-kv-errors`, these errors
-are generic wrt to the ledger backend used by the participant server.
+These errors are generic wrt to the ledger backend used by the participant server.
 
 ## Daml-LF dependencies
 

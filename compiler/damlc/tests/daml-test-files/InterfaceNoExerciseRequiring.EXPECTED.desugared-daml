@@ -94,7 +94,7 @@ instance DA.Internal.Record.HasField "byHowMuch" GetRich Int where
     = DA.Internal.Record.getFieldPrim @"byHowMuch" @GetRich @Int
   setField
     = DA.Internal.Record.setFieldPrim @"byHowMuch" @GetRich @Int
-_choice$_TokenArchive :
+_choice$_Token$Archive :
   (DA.Internal.Desugar.Consuming Token,
    Token
    -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party],
@@ -105,12 +105,12 @@ _choice$_TokenArchive :
    DA.Internal.Desugar.ContractId Token
    -> Token
       -> DA.Internal.Desugar.Archive -> DA.Internal.Desugar.Update (()))
-_choice$_TokenArchive
+_choice$_Token$Archive
   = (DA.Internal.Desugar.Consuming, 
      \ this _ -> DA.Internal.Desugar.signatory this, 
      DA.Internal.Desugar.None, DA.Internal.Desugar.None, 
      \ _ _ _ -> pure ())
-_choice$_TokenGetRich :
+_choice$_Token$GetRich :
   (DA.Internal.Desugar.Consuming Token,
    Token -> GetRich -> [DA.Internal.Desugar.Party],
    DA.Internal.Desugar.Optional (Token
@@ -120,7 +120,7 @@ _choice$_TokenGetRich :
    DA.Internal.Desugar.ContractId Token
    -> Token
       -> GetRich -> DA.Internal.Desugar.Update (ContractId Token))
-_choice$_TokenGetRich
+_choice$_Token$GetRich
   = (DA.Internal.Desugar.Consuming, 
      \ this arg@GetRich {..}
        -> let _ = this in
@@ -198,7 +198,7 @@ instance DA.Internal.Desugar.HasChoiceController SubToken DA.Internal.Desugar.Ar
   _choiceController = GHC.Types.primitive @"EChoiceController"
 instance DA.Internal.Desugar.HasChoiceObserver SubToken DA.Internal.Desugar.Archive where
   _choiceObserver = GHC.Types.primitive @"EChoiceObserver"
-_choice$_SubTokenArchive :
+_choice$_SubToken$Archive :
   (DA.Internal.Desugar.Consuming SubToken,
    SubToken
    -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party],
@@ -209,7 +209,7 @@ _choice$_SubTokenArchive :
    DA.Internal.Desugar.ContractId SubToken
    -> SubToken
       -> DA.Internal.Desugar.Archive -> DA.Internal.Desugar.Update (()))
-_choice$_SubTokenArchive
+_choice$_SubToken$Archive
   = (DA.Internal.Desugar.Consuming, 
      \ this _ -> DA.Internal.Desugar.signatory this, 
      DA.Internal.Desugar.None, DA.Internal.Desugar.None, 

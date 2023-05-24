@@ -1110,7 +1110,10 @@ private[lf] object SBuiltin {
         Control.Value(record.copy(id = templateId))
       } else {
         Control.Error(
-          IE.WronglyTypedContractSoft(coid, templateId, acceptedTemplateIds, actualTemplateId)
+          IE.Dev(
+            NameOf.qualifiedNameOfCurrentFunc,
+            IE.Dev.WronglyTypedContractSoft(coid, templateId, acceptedTemplateIds, actualTemplateId),
+          )
         )
       }
     }
