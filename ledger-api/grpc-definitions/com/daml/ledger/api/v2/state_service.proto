@@ -23,7 +23,7 @@ service StateService {
   // Clients SHOULD NOT assume that the set of active contracts they receive reflects the state at the ledger end.
   rpc GetActiveContracts (GetActiveContractsRequest) returns (stream GetActiveContractsResponse);
 
-  // Get the list of connected domains.
+  // Get the list of connected domains at the time of the query.
   rpc GetConnectedDomains (GetConnectedDomainsRequest) returns (GetConnectedDomainsResponse);
 }
 
@@ -61,7 +61,7 @@ message GetActiveContractsResponse {
 message ContractStateComponent {
   oneof contract_state_component {
     // The contract is active in the given domain.
-    // There will be one such message for each domain the contract is active in.
+    // There will be one such message for each domain the contract is active on.
     ActiveContract active_contract = 1;
 
     // This message is only available, if the corresponding assigned event cannot be found before or at the
@@ -85,7 +85,7 @@ message ActiveContract {
   // Required
   string domain_id = 2;
 
-  // Each corresponding assigned and unassigned event has the same reassignment_counter. This monotonically increases
+  // Each corresponding assigned and unassigned event has the same reassignment_counter. This strictly increases
   // with each unassign command for the same contract. Creation of the contract corresponds to reassignment_counter
   // equals zero.
   // Required

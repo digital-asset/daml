@@ -72,7 +72,7 @@ message UnassignedEvent {
   // Required
   string submitter = 6;
 
-  // Each corresponding assigned and unassigned event has the same reassignment_counter. This monotonically increases
+  // Each corresponding assigned and unassigned event has the same reassignment_counter. This strictly increases
   // with each unassign command for the same contract. Creation of the contract corresponds to reassignment_counter
   // equals zero.
   // Required
@@ -118,7 +118,7 @@ message AssignedEvent {
   // Required
   string submitter = 4;
 
-  // Each corresponding assigned and unassigned event has the same reassignment_counter. This monotonically increases
+  // Each corresponding assigned and unassigned event has the same reassignment_counter. This strictly increases
   // with each unassign command for the same contract. Creation of the contract corresponds to reassignment_counter
   // equals zero.
   // Required

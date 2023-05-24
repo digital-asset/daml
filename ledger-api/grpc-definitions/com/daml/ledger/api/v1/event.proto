@@ -88,10 +88,11 @@ message CreatedEvent {
   // of the event. If served as part of a flat transaction those will
   // be limited to all parties specified in the ``TransactionFilter`` that
   // are stakeholders of the contract (i.e. either signatories or observers).
-  // If the ``CreatedEvent`` is returned as as part of a AssignedEvent,
-  // ActiveContract or IncompleteUnassigned (so the event is related to
-  // a assignment or unassignment): this will include all parties of the
-  // ``TransactionFilter`` that are stakeholders of the contract.
+  // In case of v2 API:
+  //   If the ``CreatedEvent`` is returned as as part of a AssignedEvent,
+  //   ActiveContract or IncompleteUnassigned (so the event is related to
+  //   a assignment or unassignment): this will include all parties of the
+  //   ``TransactionFilter`` that are stakeholders of the contract.
   // Required
   repeated string witness_parties = 5;
 
