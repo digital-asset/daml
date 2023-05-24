@@ -1,0 +1,66 @@
+-- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module CoinUpgrade where
+
+import Daml.Script
+import Coin_1.Coin qualified
+import Coin_2.Coin qualified
+
+template Aux
+  with
+    party : Party
+  where
+    signatory party
+
+    choice SoftFetch_Coin_1 : (Text, Coin_1.Coin.Coin)
+      with cid : ContractId Coin_1.Coin.Coin
+      controller party
+      do
+        coin <- softFetch cid
+        pure $
+          ( "soft fetch v1\n" <> show coin
+          , coin
+          )
+
+    choice SoftFetch_Coin_2 : (Text, Coin_2.Coin.Coin)
+      with cid : ContractId Coin_2.Coin.Coin
+      controller party
+      do
+        coin <- softFetch cid
+        pure $
+          ( "soft fetch v2\n" <> show coin
+          , coin
+          )
+
+create_v1_softFetch_v2 : Script ()
+create_v1_softFetch_v2 = do
+  alice <- allocateParty "alice"
+  cid <- alice `submit` createCmd Coin_1.Coin.Coin with
+    issuer = alice
+    owner = alice
+  _ <- alice `submit` createAndExerciseCmd (Aux alice) SoftFetch_Coin_2 with
+    cid = coerceContractId cid
+  pure ()
+
+create_v2_none_softFetch_v1 : Script ()
+create_v2_none_softFetch_v1 = do
+  alice <- allocateParty "alice"
+  cid <- alice `submit` createCmd Coin_2.Coin.Coin with
+    issuer = alice
+    owner = alice
+    ccy = None
+  _ <- alice `submitMustFail` createAndExerciseCmd (Aux alice) SoftFetch_Coin_1 with
+    cid = coerceContractId cid
+  pure ()
+
+create_v2_some_softFetch_v1 : Script ()
+create_v2_some_softFetch_v1 = do
+  alice <- allocateParty "alice"
+  cid <- alice `submit` createCmd Coin_2.Coin.Coin with
+    issuer = alice
+    owner = alice
+    ccy = Some "CHF"
+  _ <- alice `submitMustFail` createAndExerciseCmd (Aux alice) SoftFetch_Coin_1 with
+    cid = coerceContractId cid
+  pure ()
