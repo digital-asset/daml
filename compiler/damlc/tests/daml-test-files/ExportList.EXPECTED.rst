@@ -10,6 +10,8 @@ Templates
 
 **template** `Template0 <type-exportlist-template0-67442_>`_
 
+  Signatory\: tfield0
+
   .. list-table::
      :widths: 15 10 30
      :header-rows: 1
@@ -24,13 +26,19 @@ Templates
        - `Party <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932>`_
        -
 
-  + **Choice Archive**
+  + **Choice** Archive
+
+    Controller\: tfield0
 
     Returns\: ()
 
     (no fields)
 
-  + **Choice Choice0**
+  + .. _type-exportlist-choice0-67361:
+
+    **Choice** `Choice0 <type-exportlist-choice0-67361_>`_
+
+    Controller\: tfield0
 
     Returns\: ()
 
@@ -39,6 +47,8 @@ Templates
 .. _type-exportlist-template1-69519:
 
 **template** `Template1 <type-exportlist-template1-69519_>`_
+
+  Signatory\: tfield1
 
   .. list-table::
      :widths: 15 10 30
@@ -54,13 +64,19 @@ Templates
        - `Party <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932>`_
        -
 
-  + **Choice Archive**
+  + **Choice** Archive
+
+    Controller\: tfield1
 
     Returns\: ()
 
     (no fields)
 
-  + **Choice Choice1**
+  + .. _type-exportlist-choice1-52440:
+
+    **Choice** `Choice1 <type-exportlist-choice1-52440_>`_
+
+    Controller\: tfield1
 
     Returns\: ()
 
@@ -69,6 +85,8 @@ Templates
 .. _type-exportlist-template2-27508:
 
 **template** `Template2 <type-exportlist-template2-27508_>`_
+
+  Signatory\: tfield2
 
   .. list-table::
      :widths: 15 10 30
@@ -84,13 +102,19 @@ Templates
        - `Party <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932>`_
        -
 
-  + **Choice Archive**
+  + **Choice** Archive
+
+    Controller\: tfield2
 
     Returns\: ()
 
     (no fields)
 
-  + **Choice Choice2**
+  + .. _type-exportlist-choice2-88895:
+
+    **Choice** `Choice2 <type-exportlist-choice2-88895_>`_
+
+    Controller\: tfield2
 
     Returns\: ()
 
@@ -99,6 +123,8 @@ Templates
 .. _type-exportlist-template3-29585:
 
 **template** `Template3 <type-exportlist-template3-29585_>`_
+
+  Signatory\: tfield3
 
   .. list-table::
      :widths: 15 10 30
@@ -114,13 +140,19 @@ Templates
        - `Party <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932>`_
        -
 
-  + **Choice Archive**
+  + **Choice** Archive
+
+    Controller\: tfield3
 
     Returns\: ()
 
     (no fields)
 
-  + **Choice Choice3**
+  + .. _type-exportlist-choice3-73974:
+
+    **Choice** `Choice3 <type-exportlist-choice3-73974_>`_
+
+    Controller\: tfield3
 
     Returns\: ()
 

@@ -14,6 +14,7 @@ import DA.Daml.Options.Types
 
 import DA.Daml.Doc.Extract
 import DA.Daml.Doc.Render
+import DA.Daml.Doc.Render.Hoogle
 import DA.Daml.Doc.Types
 import DA.Daml.Doc.Transform
 import DA.Daml.Doc.Anchor
@@ -137,6 +138,7 @@ unitTests =
                    ("Expected template and a field in doc, got " <> show md)
                    (isJust $ do t  <- getSingle $ md_templates md
                                 check $ Just "Template doc" == td_descr t
+                                check $ Just "field1" == td_signatory t
                                 f1 <- getSingle $ td_payload t
                                 check $ fd_descr f1 == Just "Field1"))
 
@@ -162,7 +164,8 @@ unitTests =
                                 ch <- getSingle $ td_choicesWithoutArchive t
                                 f2 <- getSingle $ cd_fields ch
                                 check $ Just "field" == fd_descr f2
-                                check $ TypeTuple [] == cd_type ch))
+                                check $ TypeTuple [] == cd_type ch
+                                check $ Just "field1" == cd_controller ch))
 
          , damldocExpect
            Nothing
@@ -315,6 +318,20 @@ unitTests =
                                   getTypeAppName ii_interface == Just "Bar"
                                   && getTypeAppName ii_template == Just "Foo"
                                   && getTypeAppAnchor ii_template == Just templateAnchor))
+         , damldocExpect
+           Nothing
+           "Interface archive choice controller"
+           [ testModHdr
+           , "data View = View {}"
+           , "interface I where"
+           , "  viewtype View"
+           ]
+           (\md -> assertBool
+                   ("Expected an interface with an archive choice controller, got " <> show md)
+                   (isJust $ do interface <- getSingle $ md_interfaces md
+                                ch <- getSingle $ if_choices interface
+                                check $ "Archive" == cd_name ch
+                                check $ Just "Signatories of implementing template" == cd_controller ch))
 
          , damldocExpect
            Nothing
@@ -454,7 +471,7 @@ fileTest externalAnchors scriptPackageData damlFile = do
   damlFileAbs <- makeAbsolute damlFile
   let basename = dropExtension damlFileAbs
       expected = [ basename <.> "EXPECTED" <.> s
-                 | s <- [ "json", "rst", "md" ]]
+                 | s <- [ "json", "rst", "md", "hoogle" ]]
 
   expectations <- filterM doesFileExist expected
 
@@ -469,6 +486,7 @@ fileTest externalAnchors scriptPackageData damlFile = do
             ".rst" -> TL.encodeUtf8 $ TL.fromStrict $ renderPage renderRst externalAnchors $ renderModule doc
             ".md" -> TL.encodeUtf8 $ TL.fromStrict $ renderPage renderMd externalAnchors $ renderModule doc
             ".json" -> replaceSdkPackages $ AP.encodePretty' jsonConf doc
+            ".hoogle" -> TL.encodeUtf8 $ TL.fromStrict $ renderSimpleHoogle (HoogleEnv mempty) doc
             other -> error $ "Unsupported file extension " <> other
   where
     diff ref new = [POSIX_DIFF, "--strip-trailing-cr", ref, new]

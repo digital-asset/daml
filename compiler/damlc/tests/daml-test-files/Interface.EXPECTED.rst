@@ -10,6 +10,8 @@ Templates
 
 **template** `Asset <type-interface-asset-25340_>`_
 
+  Signatory\: issuer, owner
+
   .. list-table::
      :widths: 15 10 30
      :header-rows: 1
@@ -27,7 +29,9 @@ Templates
        - `Int <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-37261>`_
        -
 
-  + **Choice Archive**
+  + **Choice** Archive
+
+    Controller\: issuer, owner
 
     Returns\: ()
 
@@ -46,13 +50,19 @@ Interfaces
 
   **viewtype** `EmptyInterfaceView <type-interface-emptyinterfaceview-28816_>`_
 
-  + **Choice Archive**
+  + **Choice** Archive
+
+    Controller\: Signatories of implementing template
 
     Returns\: ()
 
     (no fields)
 
-  + **Choice GetRich**
+  + .. _type-interface-getrich-60188:
+
+    **Choice** `GetRich <type-interface-getrich-60188_>`_
+
+    Controller\: getOwner this
 
     Returns\: `ContractId <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-contractid-95282>`_ `Token <type-interface-token-10651_>`_
 
@@ -67,7 +77,11 @@ Interfaces
          - `Int <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-37261>`_
          -
 
-  + **Choice Noop**
+  + .. _type-interface-noop-44317:
+
+    **Choice** `Noop <type-interface-noop-44317_>`_
+
+    Controller\: getOwner this
 
     Returns\: ()
 
@@ -82,9 +96,13 @@ Interfaces
          - ()
          -
 
-  + **Choice Split**
+  + .. _type-interface-split-56016:
+
+    **Choice** `Split <type-interface-split-56016_>`_
 
     An interface choice comment\.
+
+    Controller\: getOwner this
 
     Returns\: (`ContractId <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-contractid-95282>`_ `Token <type-interface-token-10651_>`_, `ContractId <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-contractid-95282>`_ `Token <type-interface-token-10651_>`_)
 
@@ -99,7 +117,11 @@ Interfaces
          - `Int <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-37261>`_
          - A choice field comment\.
 
-  + **Choice Transfer**
+  + .. _type-interface-transfer-15068:
+
+    **Choice** `Transfer <type-interface-transfer-15068_>`_
+
+    Controller\: newOwner, getOwner this
 
     Returns\: `ContractId <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-contractid-95282>`_ `Token <type-interface-token-10651_>`_
 

@@ -22,6 +22,12 @@ distributeInstanceDocs opts docs =
     let instanceMap = getInstanceMap docs
     in map (addInstances instanceMap) docs
   where
+    filterInstanceMap :: InstanceMap -> InstanceMap
+    filterInstanceMap = Map.mapMaybe $ nonEmpty . Set.filter (keepInstance opts)
+
+    nonEmpty :: Set.Set a -> Maybe (Set.Set a)
+    nonEmpty xs = if null xs then Nothing else Just xs
+
     getInstanceMap :: [ModuleDoc] -> InstanceMap
     getInstanceMap docs =
         Map.unionsWith Set.union (map getModuleInstanceMap docs)
@@ -30,7 +36,6 @@ distributeInstanceDocs opts docs =
     getModuleInstanceMap ModuleDoc{..}
         = Map.unionsWith Set.union
         . map getInstanceInstanceMap
-        . filter (keepInstance opts)
         $ md_instances
 
     getInstanceInstanceMap :: InstanceDoc -> InstanceMap
@@ -58,13 +63,15 @@ distributeInstanceDocs opts docs =
         , md_functions = md_functions
         , md_templates = md_templates
         , md_interfaces = map (addIfaceInstances imap) md_interfaces
-        , md_classes = map (addClassInstances imap) md_classes
-        , md_adts = map (addTypeInstances imap) md_adts
+        , md_classes = map (addClassInstances filteredIMap) md_classes
+        , md_adts = map (addTypeInstances filteredIMap) md_adts
         , md_instances =
             if to_dropOrphanInstances opts
                 then filter (not . id_isOrphan) md_instances
                 else md_instances
         }
+      where
+        filteredIMap = filterInstanceMap imap
 
     addClassInstances :: InstanceMap -> ClassDoc -> ClassDoc
     addClassInstances imap cl = cl

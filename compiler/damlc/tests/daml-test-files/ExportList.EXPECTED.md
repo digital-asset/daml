@@ -4,18 +4,24 @@
 
 <a name="type-exportlist-template0-67442"></a>**template** [Template0](#type-exportlist-template0-67442)
 
+> Signatory: tfield0
+>
 > | Field                                                                                   | Type                                                                                    | Description |
 > | :-------------------------------------------------------------------------------------- | :-------------------------------------------------------------------------------------- | :---------- |
 > | tfield0                                                                                 | [Party](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932) |  |
 > | tfield0'                                                                                | [Party](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932) |  |
 >
-> * **Choice Archive**
+> * **Choice** Archive
+>
+>   Controller: tfield0
 >
 >   Returns: ()
 >
 >   (no fields)
 >
-> * **Choice Choice0**
+> * <a name="type-exportlist-choice0-67361"></a>**Choice** [Choice0](#type-exportlist-choice0-67361)
+>
+>   Controller: tfield0
 >
 >   Returns: ()
 >
@@ -23,18 +29,24 @@
 
 <a name="type-exportlist-template1-69519"></a>**template** [Template1](#type-exportlist-template1-69519)
 
+> Signatory: tfield1
+>
 > | Field                                                                                   | Type                                                                                    | Description |
 > | :-------------------------------------------------------------------------------------- | :-------------------------------------------------------------------------------------- | :---------- |
 > | tfield1                                                                                 | [Party](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932) |  |
 > | tfield1'                                                                                | [Party](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932) |  |
 >
-> * **Choice Archive**
+> * **Choice** Archive
+>
+>   Controller: tfield1
 >
 >   Returns: ()
 >
 >   (no fields)
 >
-> * **Choice Choice1**
+> * <a name="type-exportlist-choice1-52440"></a>**Choice** [Choice1](#type-exportlist-choice1-52440)
+>
+>   Controller: tfield1
 >
 >   Returns: ()
 >
@@ -42,18 +54,24 @@
 
 <a name="type-exportlist-template2-27508"></a>**template** [Template2](#type-exportlist-template2-27508)
 
+> Signatory: tfield2
+>
 > | Field                                                                                   | Type                                                                                    | Description |
 > | :-------------------------------------------------------------------------------------- | :-------------------------------------------------------------------------------------- | :---------- |
 > | tfield2                                                                                 | [Party](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932) |  |
 > | tfield2'                                                                                | [Party](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932) |  |
 >
-> * **Choice Archive**
+> * **Choice** Archive
+>
+>   Controller: tfield2
 >
 >   Returns: ()
 >
 >   (no fields)
 >
-> * **Choice Choice2**
+> * <a name="type-exportlist-choice2-88895"></a>**Choice** [Choice2](#type-exportlist-choice2-88895)
+>
+>   Controller: tfield2
 >
 >   Returns: ()
 >
@@ -61,18 +79,24 @@
 
 <a name="type-exportlist-template3-29585"></a>**template** [Template3](#type-exportlist-template3-29585)
 
+> Signatory: tfield3
+>
 > | Field                                                                                   | Type                                                                                    | Description |
 > | :-------------------------------------------------------------------------------------- | :-------------------------------------------------------------------------------------- | :---------- |
 > | tfield3                                                                                 | [Party](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932) |  |
 > | tfield3'                                                                                | [Party](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932) |  |
 >
-> * **Choice Archive**
+> * **Choice** Archive
+>
+>   Controller: tfield3
 >
 >   Returns: ()
 >
 >   (no fields)
 >
-> * **Choice Choice3**
+> * <a name="type-exportlist-choice3-73974"></a>**Choice** [Choice3](#type-exportlist-choice3-73974)
+>
+>   Controller: tfield3
 >
 >   Returns: ()
 >
