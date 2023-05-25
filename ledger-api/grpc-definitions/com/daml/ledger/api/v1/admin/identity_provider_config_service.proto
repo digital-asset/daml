@@ -33,7 +33,6 @@ option csharp_namespace = "Com.Daml.Ledger.Api.V1.Admin";
 // An identity provider config resource, once it has been created, can be modified.
 // In order to update the properties represented by the ``IdentityProviderConfig`` message use the ``UpdateIdentityProviderConfig`` RPC.
 // The only fields that can be modified are those marked as ``Modifiable``.
-// This service is deprecated and will be removed in V2 Ledger API
 service IdentityProviderConfigService {
 
   // Create a new identity provider configuration.
