@@ -1,0 +1,61 @@
+-- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module MessageRing where
+
+import Daml.Trigger
+import DA.Foldable (forA_)
+import DA.Time (seconds)
+import DA.Functor (void)
+import qualified DA.List as List
+
+-- Configuration data
+
+ringSize : Int
+ringSize = 34
+
+template Message
+  with
+    owner : Party
+    tag : Int
+  where
+    signatory owner
+
+    choice Change_Tag : ()
+      controller owner
+      do
+        pure ()
+
+communicatingTrigger : (Int, Int) => Trigger (Bool, Int)
+communicatingTrigger (myTag, nextTag) = Trigger
+  { initialize = pure (False, 0)
+  , updateState = \msg -> case msg of
+      MHeartbeat -> do
+        (_, breedCount) <- get
+        put (True, breedCount + breedingRate)
+      _ -> do
+        (_, breedCount) <- get
+        put (False, breedCount)
+  , rule = \party -> do
+      (heartbeat, breedCount) <- get
+      if heartbeat then
+        forA_ [1..breedingRate] \offset -> do
+          void $ emitCommands [createCmd (Cat party (breedCount + offset))] []
+      else
+        pure ()
+  , registeredTemplates = RegisteredTemplates [ registeredTemplate @Cat ]
+  , heartbeat = Some breedingPeriod
+  }
+
+node0 : Trigger ()
+node0 = communicatingTrigger(0, 1)
+node1 : Trigger ()
+node1 = communicatingTrigger(1, 2)
+node2 : Trigger ()
+node2 = communicatingTrigger(2, 3)
+node3 : Trigger ()
+node3 = communicatingTrigger(3, 4)
+node4 : Trigger ()
+node4 = communicatingTrigger(4, 5)
+node5 : Trigger ()
+node5 = communicatingTrigger(5, 0)
