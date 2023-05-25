@@ -4,10 +4,9 @@
 package com.daml.lf
 package speedy
 
-import com.daml.lf.command.ContractMetadata
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref.Party
-import com.daml.lf.data.{Ref, _}
+import com.daml.lf.data._
 import com.daml.lf.interpretation.{Error => IE}
 import com.daml.lf.language.Ast._
 import com.daml.lf.speedy.SBuiltin.{SBCacheDisclosedContract, SBCrash, SBuildCachedContract}
@@ -2056,7 +2055,7 @@ object SBuiltinTest {
         fields.map(Ref.Name.assertFromString),
         values,
       ),
-      ContractMetadata(Time.Timestamp.now(), keyHash, Bytes.Empty),
+      keyHash,
     )
 
     (disclosedContract, if (withKey) Some((key, keyWithMaintainers)) else None)

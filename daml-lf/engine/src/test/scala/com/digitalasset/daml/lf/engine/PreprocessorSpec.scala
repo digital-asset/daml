@@ -4,10 +4,9 @@
 package com.daml.lf
 package engine
 
-import com.daml.lf.command.ContractMetadata
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref.Party
-import com.daml.lf.data.{Bytes, FrontStack, ImmArray, Ref, Time}
+import com.daml.lf.data.{Bytes, FrontStack, ImmArray, Ref}
 import com.daml.lf.language.Ast
 import com.daml.lf.speedy.{ArrayList, DisclosedContract, SValue}
 import com.daml.lf.value.Value.{ContractId, ValueInt64, ValueList, ValueParty, ValueRecord}
@@ -250,7 +249,7 @@ object PreprocessorSpec {
         if (withNormalization) None else Some(templateId),
         if (withFieldsReversed) recordFields.reverse else recordFields,
       ),
-      ContractMetadata(Time.Timestamp.now(), keyHash, Bytes.Empty),
+      keyHash,
     )
   }
 
