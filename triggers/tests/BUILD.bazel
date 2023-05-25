@@ -250,6 +250,8 @@ da_scala_library(
         "//canton/it-lib",
         "//daml-lf/data",
         "//daml-lf/interpreter",
+        "//daml-lf/language",
+        "//daml-lf/parser",
         "//daml-lf/transaction",
         "//daml-script/converter",
         "//language-support/scala/bindings",
