@@ -22,7 +22,6 @@ final class MultiParticipantIT
   val dar = stableDar
 
   final override protected lazy val darFiles = List(stableDarPath)
-  final override protected lazy val devMode = true
   final override protected lazy val nParticipants = 2
   final override protected lazy val timeMode = ScriptTimeMode.WallClock
 
