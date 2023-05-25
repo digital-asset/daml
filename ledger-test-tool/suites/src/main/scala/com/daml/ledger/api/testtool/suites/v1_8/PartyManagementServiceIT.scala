@@ -54,6 +54,9 @@ final class PartyManagementServiceIT extends PartyManagementITBase {
       get2 <- ledger.getParties(
         GetPartiesRequest(parties = Seq(party), identityProviderId = idpId2)
       )
+      get3 <- ledger.getParties(
+        GetPartiesRequest(parties = Seq(party), identityProviderId = idpId1)
+      )
       // Cleanup
       _ <- ledger.updatePartyIdentityProviderId(
         UpdatePartyIdentityProviderRequest(
@@ -66,15 +69,22 @@ final class PartyManagementServiceIT extends PartyManagementITBase {
       _ <- ledger.deleteIdentityProviderConfig(DeleteIdentityProviderConfigRequest(idpId2))
     } yield {
       assertEquals(
-        "idp1",
+        "is idp1, request as idp1",
         get1.partyDetails.map(d => d.identityProviderId -> d.party -> d.isLocal),
         Seq(idpId1 -> party -> true),
       )
       assertEquals(
-        "idp2",
+        "is idp2, request as idp2",
         get2.partyDetails.map(d => d.identityProviderId -> d.party -> d.isLocal),
         Seq(idpId2 -> party -> true),
       )
+      assertEquals(
+        "is idp2, request as idp1",
+        get3.partyDetails.map(d => d.identityProviderId -> d.party -> d.isLocal),
+        // party and isLocal values get blinded
+        Seq("" -> party -> false),
+      )
+
     }
   })
 
@@ -174,7 +184,7 @@ final class PartyManagementServiceIT extends PartyManagementITBase {
       partyNonDefault <- ledger
         .allocateParty(identityProviderId = Some(idpIdNonDefault))
         .map(_.unwrap)
-      error1 <- ledger
+      _ <- ledger
         .updatePartyIdentityProviderId(
           UpdatePartyIdentityProviderRequest(
             party = partyDefault,
@@ -182,8 +192,11 @@ final class PartyManagementServiceIT extends PartyManagementITBase {
             targetIdentityProviderId = idpIdTarget,
           )
         )
-        .mustFail("mismatched source idp id")
-      error2 <- ledger
+        .mustFailWith(
+          "mismatched source idp id",
+          LedgerApiErrors.Admin.PartyManagement.PartyNotFound,
+        )
+      _ <- ledger
         .updatePartyIdentityProviderId(
           UpdatePartyIdentityProviderRequest(
             party = partyNonDefault,
@@ -191,7 +204,10 @@ final class PartyManagementServiceIT extends PartyManagementITBase {
             targetIdentityProviderId = idpIdTarget,
           )
         )
-        .mustFail("mismatched source idp id")
+        .mustFailWith(
+          "mismatched source idp id",
+          LedgerApiErrors.Admin.PartyManagement.PartyNotFound,
+        )
       // cleanup
       _ <- ledger.updatePartyIdentityProviderId(
         UpdatePartyIdentityProviderRequest(
@@ -202,16 +218,7 @@ final class PartyManagementServiceIT extends PartyManagementITBase {
       )
       _ <- ledger.deleteIdentityProviderConfig(DeleteIdentityProviderConfigRequest(idpIdNonDefault))
       _ <- ledger.deleteIdentityProviderConfig(DeleteIdentityProviderConfigRequest(idpIdMismatched))
-    } yield {
-      assert(
-        error1.getMessage.startsWith("PERMISSION_DENIED"),
-        s"Actual message: ${error1.getMessage}",
-      )
-      assert(
-        error2.getMessage.startsWith("PERMISSION_DENIED"),
-        s"Actual message: ${error2.getMessage}",
-      )
-    }
+    } yield ()
   })
 
   test(

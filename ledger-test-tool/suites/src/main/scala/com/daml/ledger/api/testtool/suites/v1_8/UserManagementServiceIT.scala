@@ -83,6 +83,11 @@ final class UserManagementServiceIT extends UserManagementServiceITBase {
       get2 <- ledger.userManagement.getUser(
         GetUserRequest(userId = userId1, identityProviderId = idpId1)
       )
+      error <- ledger.userManagement
+        .getUser(
+          GetUserRequest(userId = userId1, identityProviderId = idpId2)
+        )
+        .mustFail("requesting with wrong idp")
       // cleanup
       _ <- ledger.userManagement.updateUserIdentityProviderId(
         UpdateUserIdentityProviderRequest(
@@ -94,6 +99,11 @@ final class UserManagementServiceIT extends UserManagementServiceITBase {
     } yield {
       assertEquals(get1.user.get.identityProviderId, idpId2)
       assertEquals(get2.user.get.identityProviderId, idpId1)
+      assert(
+        error.getMessage.startsWith("PERMISSION_DENIED"),
+        s"Actual message: ${error.getMessage}",
+      )
+
     }
   })
 
