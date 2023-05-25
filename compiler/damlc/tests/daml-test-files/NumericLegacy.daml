@@ -1,13 +1,14 @@
 -- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
 -- All rights reserved.
 
--- @SINCE-LF-FEATURE DAML_NAT_TYPE_ERASURE
-module Numeric where
+-- @SINCE-LF 1.7
+-- @UNTIL-LF-FEATURE DAML_NAT_TYPE_ERASURE
+module NumericLegacy where
 
 import Daml.Script
 import DA.Assert
 import DA.Numeric
 
 testShift = script do
-  shift @2 @1 0.0 1.0 === 10.0
-  shift @1 @2 0.0 1.0 === 0.1
+  shift @1 @2 1.0 === 10.0
+  shift @2 @1 1.0 === 0.1
