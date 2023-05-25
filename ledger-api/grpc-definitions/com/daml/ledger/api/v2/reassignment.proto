@@ -81,7 +81,7 @@ message UnassignedEvent {
   // Assignment exclusivity
   // Before this time (measured on the target domain), only the submitter of the unassignment can initiate the assignment
   // Missing for everyone except on the submitting participant
-  // optional
+  // Optional
   google.protobuf.Timestamp assignment_exclusivity = 8;
 
   // The parties that are notified of this event.
