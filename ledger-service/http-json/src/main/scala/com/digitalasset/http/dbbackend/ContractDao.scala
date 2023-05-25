@@ -35,6 +35,7 @@ import javax.sql.DataSource
 import scala.concurrent.ExecutionContext
 import scala.language.existentials
 import scala.util.Try
+import com.daml.metrics.api.dropwizard.DropwizardMetricsFactory
 
 class ContractDao private (
     ds: DataSource with Closeable,
@@ -108,8 +109,12 @@ object ContractDao {
       implicit val sjd: SupportedJdbcDriver.TC = sjdc
       // pool for connections awaiting database access
       val es = Executors.newWorkStealingPool(cfg.baseConfig.poolSize)
+      val metricRegistry = metrics.getDefaultMetricsFactory match {
+        case f:DropwizardMetricsFactory => Some(f.registry)
+        case _ => None
+      }
       val (ds, conn) =
-        ConnectionPool.connect(cfg.baseConfig)(ExecutionContext.fromExecutor(es), cs)
+        ConnectionPool.connect(cfg.baseConfig, metricRegistry)(ExecutionContext.fromExecutor(es), cs)
       new ContractDao(ds, conn, es)
     }
     setup.fold(msg => throw new IllegalArgumentException(msg), identity)

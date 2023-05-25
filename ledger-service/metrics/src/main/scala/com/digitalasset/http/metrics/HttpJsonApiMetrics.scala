@@ -27,6 +27,9 @@ class HttpJsonApiMetrics(
 ) {
   import HttpJsonApiMetrics._
 
+  @nowarn
+  def getDefaultMetricsFactory: MetricsFactory = defaultMetricsFactory
+
   val prefix: MetricName = MetricName.Daml :+ "http_json_api"
 
   @nowarn

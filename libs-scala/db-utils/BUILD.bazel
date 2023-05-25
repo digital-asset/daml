@@ -34,6 +34,7 @@ da_scala_library(
     deps = [
         "//libs-scala/scala-utils",
         "@maven//:com_zaxxer_HikariCP",
+        "@maven//:io_dropwizard_metrics_metrics_core",
     ],
 )
 
