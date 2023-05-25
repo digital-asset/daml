@@ -338,8 +338,8 @@ jobs:
                               https://digitalasset.jfrog.io/artifactory/api/storage/assembly/canton \
                          | jq -r '.children[].uri' \
                          | sed -e 's/^\///' \
-                         | grep '^[0-9]\{8\}$' \
-                         | sort \
+                         | grep -P '^\d+\.\d+\.\d+' \
+                         | sort -V \
                          | tail -1)
         dir=$(pwd)
         cd $(mktemp -d)
