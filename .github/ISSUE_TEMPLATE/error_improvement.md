@@ -1,8 +1,10 @@
 ---
 name: Error Message Improvement
 about: Request an improvement to error messages or diagnostics for Daml.
-title: ""
-labels: ''
+title: "[Error Message Improvement] "
+labels: ["developer-experience", "language/error-message-improvement"]
+assignees:
+  - dylant-da
 
 ---
 
