@@ -3,6 +3,8 @@
 
 module CoinUpgrade where
 
+import DA.Assert ((===))
+
 import Daml.Script
 import Coin_1.Coin qualified
 import Coin_2.Coin qualified
@@ -39,8 +41,12 @@ create_v1_softFetch_v2 = do
   cid <- alice `submit` createCmd Coin_1.Coin.Coin with
     issuer = alice
     owner = alice
-  _ <- alice `submit` createAndExerciseCmd (Aux alice) SoftFetch_Coin_2 with
+  (_, coin) <- alice `submit` createAndExerciseCmd (Aux alice) SoftFetch_Coin_2 with
     cid = coerceContractId cid
+  -- the new field is empty
+  coin.ccy === None
+  -- the new field can be set
+  (coin with ccy = Some "USD").ccy === Some "USD"
   pure ()
 
 create_v2_none_softFetch_v1 : Script ()
