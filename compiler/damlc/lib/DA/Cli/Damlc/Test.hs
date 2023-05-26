@@ -11,6 +11,9 @@ module DA.Cli.Damlc.Test (
     , RunAllTests(..)
     , TableOutputPath(..)
     , TransactionsOutputPath(..)
+    , ResultsIO(..)
+    , AggregateResultsOnly(..)
+    , loadAggregatePrintResults
     -- , Summarize(..)
     ) where
 
@@ -60,15 +63,39 @@ newtype ShowCoverage = ShowCoverage {getShowCoverage :: Bool}
 newtype RunAllTests = RunAllTests {getRunAllTests :: Bool}
 newtype TableOutputPath = TableOutputPath {getTableOutputPath :: Maybe String}
 newtype TransactionsOutputPath = TransactionsOutputPath {getTransactionsOutputPath :: Maybe String}
+data ResultsIO = ResultsIO
+    { readResultsPaths :: [String]
+    , writeResultsPath :: Maybe String
+    }
+newtype AggregateResultsOnly = AggregateResultsOnly {getAggregateResultsOnly :: Bool}
 
 -- | Test a Daml file.
-execTest :: [NormalizedFilePath] -> RunAllTests -> ShowCoverage -> UseColor -> Maybe FilePath -> Options -> TableOutputPath -> TransactionsOutputPath -> IO ()
-execTest inFiles runAllTests coverage color mbJUnitOutput opts tableOutputPath transactionsOutputPath = do
+execTest :: [NormalizedFilePath] -> RunAllTests -> ShowCoverage -> UseColor -> Maybe FilePath -> Options -> TableOutputPath -> TransactionsOutputPath -> ResultsIO -> IO ()
+execTest inFiles runAllTests coverage color mbJUnitOutput opts tableOutputPath transactionsOutputPath resultsIO = do
     loggerH <- getLogger opts "test"
     withDamlIdeState opts loggerH diagnosticsLogger $ \h -> do
-        testRun h inFiles (optDamlLfVersion opts) runAllTests coverage color mbJUnitOutput tableOutputPath transactionsOutputPath
+        testRun h inFiles (optDamlLfVersion opts) runAllTests coverage color mbJUnitOutput tableOutputPath transactionsOutputPath resultsIO
         diags <- getDiagnostics h
         when (any (\(_, _, diag) -> Just DsError == _severity diag) diags) exitFailure
+
+loadAggregatePrintResults :: ResultsIO -> ShowCoverage -> Maybe TR.TestResults -> IO ()
+loadAggregatePrintResults resultsIO coverage mbNewTestResults = do
+    loadedTestResults <- forM (readResultsPaths resultsIO) $ \trPath -> do
+        let np = NamedPath ("Input test result '" ++ trPath ++ "'") trPath
+        tryWithPath TR.loadTestResults np
+    let aggregatedTestResults = fold mbNewTestResults <> fold (catMaybes (catMaybes loadedTestResults))
+
+    -- print total test coverage
+    TR.printTestCoverage
+        (getShowCoverage coverage)
+        aggregatedTestResults
+
+    case writeResultsPath resultsIO of
+      Just writeResultsPath -> do
+          let np = NamedPath ("Results output path from --write-results '" ++ writeResultsPath ++ "'") writeResultsPath
+          _ <- tryWithPath (flip TR.saveTestResults aggregatedTestResults) np
+          pure ()
+      _ -> pure ()
 
 testRun ::
        IdeState
@@ -80,8 +107,9 @@ testRun ::
     -> Maybe FilePath
     -> TableOutputPath
     -> TransactionsOutputPath
+    -> ResultsIO
     -> IO ()
-testRun h inFiles lfVersion (RunAllTests runAllTests) coverage color mbJUnitOutput tableOutputPath transactionsOutputPath = do
+testRun h inFiles lfVersion (RunAllTests runAllTests) coverage color mbJUnitOutput tableOutputPath transactionsOutputPath resultsIO = do
     -- make sure none of the files disappear
     liftIO $ setFilesOfInterest h (HashSet.fromList inFiles)
 
@@ -127,12 +155,8 @@ testRun h inFiles lfVersion (RunAllTests runAllTests) coverage color mbJUnitOutp
     -- print test summary after all tests have run
     printSummary color (concatMap snd allResults)
 
-    -- print total test coverage
-    TR.printTestCoverage
-        (getShowCoverage coverage)
-        (TR.scenarioResultsToTestResults
-            allPackages
-            allResults)
+    let newTestResults = TR.scenarioResultsToTestResults allPackages allResults
+    loadAggregatePrintResults resultsIO coverage (Just newTestResults)
 
     mbSdkPath <- getEnv sdkPathEnvVar
     let doesOutputTablesOrTransactions =

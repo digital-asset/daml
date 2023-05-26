@@ -78,7 +78,7 @@ import "ghc-lib-parser" Module (unitIdString, stringToUnitId)
 import qualified Network.Socket as NS
 import Options.Applicative.Extended
 import Options.Applicative hiding (option, strOption)
-import qualified Options.Applicative (option)
+import qualified Options.Applicative (option, strOption)
 import qualified Proto3.Suite as PS
 import qualified Proto3.Suite.JSONPB as Proto.JSONPB
 import System.Directory.Extra
@@ -232,6 +232,7 @@ cmdTest numProcessors =
       <$> projectOpts "daml test"
       <*> filesOpt
       <*> fmap RunAllTests runAllTests
+      <*> fmap AggregateResultsOnly aggregateResultsOnly
       <*> fmap ShowCoverage showCoverageOpt
       <*> fmap UseColor colorOutput
       <*> junitOutput
@@ -243,6 +244,7 @@ cmdTest numProcessors =
       <*> initPkgDbOpt
       <*> fmap TableOutputPath tableOutputPathOpt
       <*> fmap TransactionsOutputPath transactionsOutputPathOpt
+      <*> resultsIOOpt
     filesOpt = optional (flag' () (long "files" <> help filesDoc) *> many inputFileOpt)
     filesDoc = "Only run test declarations in the specified files."
     junitOutput = optional $ strOptionOnce $ long "junit" <> metavar "FILENAME" <> help "Filename of JUnit output file"
@@ -251,11 +253,18 @@ cmdTest numProcessors =
     runAllTests = switch $ long "all" <> help "Run tests in current project as well as dependencies"
     tableOutputPathOpt = optional $ strOptionOnce $ long "table-output" <> help "Filename to which table should be output"
     transactionsOutputPathOpt = optional $ strOptionOnce $ long "transactions-output" <> help "Filename to which the transaction list should be output"
+    resultsIOOpt =
+      let readResultsPaths = many $ Options.Applicative.strOption $ long "read-results" <> help "File to read prior test results from. Can be specified more than once."
+          writeResultsPath = optional $ strOptionOnce $ long "write-results" <> help "File to write test results to."
+      in
+      ResultsIO <$> readResultsPaths <*> writeResultsPath
+    aggregateResultsOnly = switch $ long "aggregate-only" <> help "Don't run any tests - only read results from files and write the aggregate to a single file."
 
 runTestsInProjectOrFiles ::
        ProjectOpts
     -> Maybe [FilePath]
     -> RunAllTests
+    -> AggregateResultsOnly
     -> ShowCoverage
     -> UseColor
     -> Maybe FilePath
@@ -263,8 +272,20 @@ runTestsInProjectOrFiles ::
     -> InitPkgDb
     -> TableOutputPath
     -> TransactionsOutputPath
+    -> ResultsIO
     -> Command
-runTestsInProjectOrFiles projectOpts Nothing allTests coverage color mbJUnitOutput cliOptions initPkgDb tableOutputPath transactionsOutputPath = Command Test (Just projectOpts) effect
+runTestsInProjectOrFiles projectOpts mbInFiles allTests (AggregateResultsOnly True) coverage _ _ _ _ _ _ resultsIO = Command Test (Just projectOpts) effect
+  where effect = do
+          when (getRunAllTests allTests) $ do
+            hPutStrLn stderr "Cannot specify --all and --aggregate-only at the same time."
+            exitFailure
+          case mbInFiles of
+            Just _ -> do
+              hPutStrLn stderr "Cannot specify --all and --aggregate-only at the same time."
+              exitFailure
+            Nothing -> do
+              loadAggregatePrintResults resultsIO coverage Nothing
+runTestsInProjectOrFiles projectOpts Nothing allTests _ coverage color mbJUnitOutput cliOptions initPkgDb tableOutputPath transactionsOutputPath resultsIO = Command Test (Just projectOpts) effect
   where effect = withExpectProjectRoot (projectRoot projectOpts) "daml test" $ \pPath relativize -> do
         installDepsAndInitPackageDb cliOptions initPkgDb
         mbJUnitOutput <- traverse relativize mbJUnitOutput
@@ -274,13 +295,13 @@ runTestsInProjectOrFiles projectOpts Nothing allTests coverage color mbJUnitOutp
             -- Therefore we keep the behavior of only passing the root file
             -- if source points to a specific file.
             files <- getDamlRootFiles pSrc
-            execTest files allTests coverage color mbJUnitOutput cliOptions tableOutputPath transactionsOutputPath
-runTestsInProjectOrFiles projectOpts (Just inFiles) allTests coverage color mbJUnitOutput cliOptions initPkgDb tableOutputPath transactionsOutputPath = Command Test (Just projectOpts) effect
+            execTest files allTests coverage color mbJUnitOutput cliOptions tableOutputPath transactionsOutputPath resultsIO
+runTestsInProjectOrFiles projectOpts (Just inFiles) allTests _ coverage color mbJUnitOutput cliOptions initPkgDb tableOutputPath transactionsOutputPath resultsIO = Command Test (Just projectOpts) effect
   where effect = withProjectRoot' projectOpts $ \relativize -> do
         installDepsAndInitPackageDb cliOptions initPkgDb
         mbJUnitOutput <- traverse relativize mbJUnitOutput
         inFiles' <- mapM (fmap toNormalizedFilePath' . relativize) inFiles
-        execTest inFiles' allTests coverage color mbJUnitOutput cliOptions tableOutputPath transactionsOutputPath
+        execTest inFiles' allTests coverage color mbJUnitOutput cliOptions tableOutputPath transactionsOutputPath resultsIO
 
 cmdInspect :: Mod CommandFields Command
 cmdInspect =
