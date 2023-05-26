@@ -130,11 +130,9 @@ message GetConnectedDomainsResponse {
 
 // Enum indicating the permission level
 enum ParticipantPermission {
-  MissingParticipantPermission = 0;
-  // participant can submit transactions
-  Submission = 1;
+  Submission = 0;
   // participant can only confirm transactions
-  Confirmation = 2;
+  Confirmation = 1;
   // participant can only observe transactions
-  Observation = 3;
+  Observation = 2;
 }
