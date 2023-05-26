@@ -1108,6 +1108,9 @@ private[lf] object SBuiltin {
       if ((templateId +: acceptedTemplateIds).contains(actualTemplateId)) {
         // Here we extend values of predecessor template types by adding the
         // right number of 'None's for missing 'Optional' fields
+        // TODO: https://github.com/digital-asset/daml/issues/16151
+        // For the PoC, this assumes field order is preserved by later versions
+        // and that new fields are only added at the end.
         val values = new util.ArrayList[SValue]
         discard(values.addAll(record.values))
         fields.toList.drop(record.values.size) foreach {
