@@ -80,7 +80,7 @@ message UnassignedEvent {
 
   // Assignment exclusivity
   // Before this time (measured on the target domain), only the submitter of the unassignment can initiate the assignment
-  // Missing for everyone except on the submitting participant
+  // Defined for reassigning participants.
   // Optional
   google.protobuf.Timestamp assignment_exclusivity = 8;
 
@@ -89,7 +89,7 @@ message UnassignedEvent {
   // Required
   repeated string witness_parties = 9;
 
-  // The parties which are able to assign this reassignment on this participant.
+  // The parties which are able to submit the corresponding assign command on this participant.
   // Required
   repeated string reassigning_parties = 10;
 }
@@ -127,7 +127,7 @@ message AssignedEvent {
   // Required
   com.daml.ledger.api.v1.CreatedEvent created_event = 6;
 
-  // The parties which would have been able to assign the respective reassignment on this participant.
+  // The parties which are able to submit the corresponding assign command on this participant.
   // Required
   repeated string reassigning_parties = 7;
 }

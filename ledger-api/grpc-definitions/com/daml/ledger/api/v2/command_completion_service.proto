@@ -59,7 +59,7 @@ message CompletionStreamRequest {
 message CompletionStreamResponse {
 
   // Required
-  Completion completion = 2;
+  Completion completion = 1;
 
 }
 
