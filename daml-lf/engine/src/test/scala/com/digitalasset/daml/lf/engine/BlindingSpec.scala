@@ -7,7 +7,7 @@ package engine
 import com.daml.lf.data.ImmArray
 import com.daml.lf.engine.BlindingSpec.TxBuilder
 import com.daml.lf.transaction.{BlindingInfo, Node}
-import com.daml.lf.transaction.test.{NodeIdTransactionBuilder, TransactionBuilder}
+import com.daml.lf.transaction.test.{NodeIdTransactionBuilder, TransactionBuilder, TestNodeBuilder}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ValueRecord
 import org.scalatest.matchers.should.Matchers

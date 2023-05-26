@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
+package transaction
+package test
 
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref

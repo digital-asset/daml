@@ -4,11 +4,11 @@
 package com.daml.lf
 package engine
 
-import com.daml.lf.TestNodeBuilder.{CreateKey, CreateTransactionVersion}
+import com.daml.lf.transaction.test.TestNodeBuilder.{CreateKey, CreateTransactionVersion}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.transaction.test.TransactionBuilder.Implicits._
-import com.daml.lf.transaction.test.TreeTransactionBuilder
+import com.daml.lf.transaction.test.{TestIdFactory, TestNodeBuilder, TreeTransactionBuilder}
 import com.daml.lf.transaction.{Node, TransactionVersion}
 import com.daml.lf.value.Value.{ValueParty, ValueUnit}
 import org.scalatest.matchers.should.Matchers

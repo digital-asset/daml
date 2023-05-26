@@ -2,8 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
+package transaction
+package test
 
-import com.daml.lf.TestNodeBuilder.{CreateKey, CreateTransactionVersion}
+import com.daml.lf.transaction.test.TestNodeBuilder.{CreateKey, CreateTransactionVersion}
 import com.daml.lf.data.Ref.{PackageId, Party, TypeConName}
 import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.transaction.{GlobalKeyWithMaintainers, Node, NodeId, TransactionVersion}

@@ -4,8 +4,8 @@
 package com.daml.lf
 package transaction
 
-import com.daml.lf.TestNodeBuilder.CreateKey
-import com.daml.lf.TestNodeBuilder.CreateKey.NoKey
+import com.daml.lf.transaction.test.TestNodeBuilder.CreateKey
+import com.daml.lf.transaction.test.TestNodeBuilder.CreateKey.NoKey
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.{Bytes, ImmArray, Ref}
 import com.daml.lf.transaction.Transaction.{
@@ -15,7 +15,7 @@ import com.daml.lf.transaction.Transaction.{
   NotWellFormedError,
   OrphanedNode,
 }
-import com.daml.lf.transaction.test.{NodeIdTransactionBuilder, TransactionBuilder}
+import com.daml.lf.transaction.test.{NodeIdTransactionBuilder, TransactionBuilder, TestNodeBuilder}
 import com.daml.lf.value.{Value => V}
 import com.daml.lf.value.test.ValueGenerators.danglingRefGenNode
 import org.scalacheck.Gen

@@ -4,12 +4,12 @@
 package com.daml.lf
 package engine
 
-import com.daml.lf.TestNodeBuilder.{CreateKey, CreateTransactionVersion}
+import com.daml.lf.transaction.test.TestNodeBuilder.{CreateKey, CreateTransactionVersion}
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data._
 import com.daml.lf.language.Ast.{TNat, TTyCon, Type}
 import com.daml.lf.language.Util._
-import com.daml.lf.transaction.test.{TransactionBuilder, TreeTransactionBuilder}
+import com.daml.lf.transaction.test.{TestNodeBuilder, TransactionBuilder, TreeTransactionBuilder}
 import com.daml.lf.transaction.{CommittedTransaction, NodeId, TransactionVersion}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value._

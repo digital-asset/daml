@@ -23,7 +23,7 @@ import com.daml.lf.transaction.Transaction.{
   KeyInputError,
   NegativeKeyLookup,
 }
-import com.daml.lf.transaction.test.NodeIdTransactionBuilder
+import com.daml.lf.transaction.test.{NodeIdTransactionBuilder, TestNodeBuilder}
 import com.daml.lf.transaction.test.TransactionBuilder.Implicits.{
   defaultPackageId,
   toIdentifier,
@@ -35,6 +35,7 @@ import com.daml.lf.value.Value.ContractId
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.wordspec.AnyWordSpec
+
 import scala.language.implicitConversions
 
 class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrivenPropertyChecks {

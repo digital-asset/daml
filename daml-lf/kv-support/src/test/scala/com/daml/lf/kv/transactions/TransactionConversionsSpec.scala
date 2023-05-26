@@ -3,7 +3,7 @@
 
 package com.daml.lf.kv.transactions
 
-import com.daml.lf.TestNodeBuilder.CreateKey.{NoKey, SignatoryMaintainerKey}
+import com.daml.lf.transaction.test.TestNodeBuilder.CreateKey.{NoKey, SignatoryMaintainerKey}
 import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.kv.ConversionError
 import com.daml.lf.kv.transactions.TransactionConversions.{
@@ -14,7 +14,8 @@ import com.daml.lf.kv.transactions.TransactionConversions.{
 import com.daml.lf.transaction.test.TreeTransactionBuilder
 import com.daml.lf.transaction._
 import com.daml.lf.value.{Value, ValueCoder, ValueOuterClass}
-import com.daml.lf.{TestNodeBuilder, crypto}
+import com.daml.lf.transaction.test.TestNodeBuilder
+import com.daml.lf.crypto
 import com.google.protobuf
 import com.google.protobuf.ByteString
 import org.scalatest.matchers.should.Matchers

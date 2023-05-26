@@ -8,7 +8,7 @@ import com.daml.lf.data._
 import com.daml.lf.language.{Ast, LanguageVersion}
 import com.daml.lf.testing.snapshot.Adapter.TxBuilder
 import com.daml.lf.transaction._
-import com.daml.lf.transaction.test.NodeIdTransactionBuilder
+import com.daml.lf.transaction.test.{NodeIdTransactionBuilder, TestNodeBuilder}
 import com.daml.lf.value.Value
 
 import scala.collection.mutable

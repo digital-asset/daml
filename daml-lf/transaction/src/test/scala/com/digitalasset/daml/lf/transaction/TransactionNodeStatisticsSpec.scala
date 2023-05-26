@@ -4,19 +4,15 @@
 package com.daml.lf
 package transaction
 
-import com.daml.lf.TestNodeBuilder.CreateKey
-import com.daml.lf.TestNodeBuilder.CreateKey.NoKey
+import com.daml.lf.transaction.test.TestNodeBuilder.CreateKey
+import com.daml.lf.transaction.test.TestNodeBuilder.CreateKey.NoKey
 import com.daml.lf.transaction.TransactionNodeStatistics.Actions
-import com.daml.lf.transaction.test.NodeIdTransactionBuilder
+import com.daml.lf.transaction.test.{NodeIdTransactionBuilder, TestIdFactory, TestNodeBuilder}
 import com.daml.lf.value.Value
 import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.wordspec.AnyWordSpec
-
-object TransactionNodeStatisticsSpec {
-  class TxBuilder extends NodeIdTransactionBuilder with TestNodeBuilder
-}
 
 class TransactionNodeStatisticsSpec
     extends AnyWordSpec
@@ -221,4 +217,8 @@ class TransactionNodeStatisticsSpec
     }
   }
 
+}
+
+object TransactionNodeStatisticsSpec {
+  class TxBuilder extends NodeIdTransactionBuilder with TestNodeBuilder
 }
