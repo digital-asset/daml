@@ -41,10 +41,6 @@ service UpdateService {
 
   // Lookup a transaction by its ID.
   rpc GetFlatTransactionById (GetTransactionByIdRequest) returns (GetFlatTransactionResponse);
-
-  // Get the current ledger end.
-  // Subscriptions started with the returned offset will serve transactions created after this RPC was called.
-  rpc GetLedgerEnd (GetLedgerEndRequest) returns (GetLedgerEndResponse);
 }
 
 message GetUpdatesRequest {
@@ -128,13 +124,4 @@ message GetTransactionResponse {
 message GetFlatTransactionResponse {
   // Required
   Transaction transaction = 1;
-}
-
-message GetLedgerEndRequest {
-
-}
-
-message GetLedgerEndResponse {
-  // The absolute offset of the current ledger end.
-  com.daml.ledger.api.v1.LedgerOffset offset = 1;
 }

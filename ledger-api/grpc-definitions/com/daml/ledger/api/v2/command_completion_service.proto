@@ -32,9 +32,6 @@ service CommandCompletionService {
   // Subscribe to command completion events.
   rpc CompletionStream (CompletionStreamRequest) returns (stream CompletionStreamResponse);
 
-  // Returns the offset after the latest completion.
-  rpc CompletionEnd (CompletionEndRequest) returns (CompletionEndResponse);
-
 }
 
 message CompletionStreamRequest {
@@ -88,15 +85,4 @@ message Checkpoint {
   // May be used in a subsequent CompletionStreamRequest to resume the consumption of this stream at a later time.
   // Required
   com.daml.ledger.api.v1.LedgerOffset offset = 2;
-}
-
-
-message CompletionEndRequest {
-
-}
-
-message CompletionEndResponse {
-  // This offset can be used in a CompletionStreamRequest message.
-  // Required
-  com.daml.ledger.api.v1.LedgerOffset offset = 1;
 }

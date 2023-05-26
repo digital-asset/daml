@@ -6,6 +6,7 @@ syntax = "proto3";
 package com.daml.ledger.api.v2;
 
 import "com/daml/ledger/api/v1/event.proto";
+import "com/daml/ledger/api/v1/ledger_offset.proto";
 import "com/daml/ledger/api/v2/transaction_filter.proto";
 import "com/daml/ledger/api/v2/reassignment.proto";
 
@@ -25,6 +26,10 @@ service StateService {
 
   // Get the list of connected domains at the time of the query.
   rpc GetConnectedDomains (GetConnectedDomainsRequest) returns (GetConnectedDomainsResponse);
+
+  // Get the current ledger end.
+  // Subscriptions started with the returned offset will serve events after this RPC was called.
+  rpc GetLedgerEnd (GetLedgerEndRequest) returns (GetLedgerEndResponse);
 }
 
 message GetActiveContractsRequest {
@@ -135,4 +140,13 @@ enum ParticipantPermission {
   Confirmation = 1;
   // participant can only observe transactions
   Observation = 2;
+}
+
+message GetLedgerEndRequest {
+
+}
+
+message GetLedgerEndResponse {
+  // The absolute offset of the current ledger end.
+  com.daml.ledger.api.v1.LedgerOffset offset = 1;
 }
