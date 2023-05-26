@@ -4,16 +4,18 @@
 package com.daml.lf
 package transaction
 
+import com.daml.lf.transaction.test.TestNodeBuilder.CreateKey
+import com.daml.lf.transaction.test.TestNodeBuilder.CreateKey.NoKey
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.{Bytes, ImmArray, Ref}
 import com.daml.lf.transaction.Transaction.{
   AliasedNode,
+  ChildrenRecursion,
   DanglingNodeId,
   NotWellFormedError,
   OrphanedNode,
-  ChildrenRecursion,
 }
-import com.daml.lf.transaction.test.TransactionBuilder
+import com.daml.lf.transaction.test.{NodeIdTransactionBuilder, TransactionBuilder, TestNodeBuilder}
 import com.daml.lf.value.{Value => V}
 import com.daml.lf.value.test.ValueGenerators.danglingRefGenNode
 import org.scalacheck.Gen
@@ -275,7 +277,7 @@ class TransactionSpec
   "contractKeys" - {
     "return all the contract keys" in {
 
-      val builder = TransactionBuilder()
+      val builder = new TxBuilder()
       val parties = Set("Alice")
 
       def create(s: V.ContractId) = {
@@ -287,7 +289,7 @@ class TransactionSpec
             argument = V.ValueUnit,
             signatories = parties,
             observers = parties,
-            key = Some(V.ValueText(s.coid)),
+            key = CreateKey.SignatoryMaintainerKey(V.ValueText(s.coid)),
           )
       }
 
@@ -315,7 +317,6 @@ class TransactionSpec
           argument = V.ValueUnit,
           signatories = parties,
           observers = parties,
-          key = None,
         )
 
       val root2 = builder.exercise(
@@ -324,6 +325,7 @@ class TransactionSpec
         actingParties = parties.toSet,
         consuming = true,
         argument = V.ValueUnit,
+        byKey = false,
       )
 
       builder.add(root1)
@@ -378,7 +380,7 @@ class TransactionSpec
 
   "contractKeyInputs" - {
     import Transaction._
-    val dummyBuilder = TransactionBuilder()
+    val dummyBuilder = new TxBuilder()
     val parties = List("Alice")
     def keyValue(s: String) = V.ValueText(s)
     def globalKey(s: V.ContractId) = GlobalKey.assertBuild("Mod:T", keyValue(s.coid))
@@ -389,7 +391,7 @@ class TransactionSpec
         argument = V.ValueUnit,
         signatories = parties,
         observers = parties,
-        key = Some(keyValue(s.coid)),
+        key = CreateKey.SignatoryMaintainerKey(keyValue(s.coid)),
       )
 
     def exe(s: V.ContractId, consuming: Boolean, byKey: Boolean) =
@@ -410,13 +412,13 @@ class TransactionSpec
       dummyBuilder.lookupByKey(contract = create(s), found = found)
 
     "return None for create" in {
-      val builder = TransactionBuilder()
+      val builder = new TxBuilder()
       val createNode = create(cid("#0"))
       builder.add(createNode)
       builder.build().contractKeyInputs shouldBe Right(Map(globalKey(cid("#0")) -> KeyCreate))
     }
     "return Some(_) for fetch and fetch-by-key" in {
-      val builder = TransactionBuilder()
+      val builder = new TxBuilder()
       val fetchNode0 = fetch(cid("#0"), byKey = false)
       val fetchNode1 = fetch(cid("#1"), byKey = true)
       builder.add(fetchNode0)
@@ -429,7 +431,7 @@ class TransactionSpec
       )
     }
     "return Some(_) for consuming/non-consuming exercise and exercise-by-key" in {
-      val builder = TransactionBuilder()
+      val builder = new TxBuilder()
       val exe0 = exe(cid("#0"), consuming = false, byKey = false)
       val exe1 = exe(cid("#1"), consuming = true, byKey = false)
       val exe2 = exe(cid("#2"), consuming = false, byKey = true)
@@ -444,7 +446,7 @@ class TransactionSpec
     }
 
     "return None for negative lookup by key" in {
-      val builder = TransactionBuilder()
+      val builder = new TxBuilder()
       val lookupNode = lookup(cid("#0"), found = false)
       builder.add(lookupNode)
       builder.build().contractKeyInputs shouldBe Right(
@@ -453,7 +455,7 @@ class TransactionSpec
     }
 
     "return Some(_) for negative lookup by key" in {
-      val builder = TransactionBuilder()
+      val builder = new TxBuilder()
       val lookupNode = lookup(cid("#0"), found = true)
       builder.add(lookupNode)
       inside(lookupNode.result) { case Some(cid) =>
@@ -461,7 +463,7 @@ class TransactionSpec
       }
     }
     "returns keys used under rollback nodes" in {
-      val builder = TransactionBuilder()
+      val builder = new TxBuilder()
       val createNode = create(cid("#0"))
       val exerciseNode = exe(cid("#1"), consuming = false, byKey = false)
       val fetchNode = fetch(cid("#2"), byKey = false)
@@ -481,7 +483,7 @@ class TransactionSpec
       )
     }
     "two creates conflict" in {
-      val builder = TransactionBuilder()
+      val builder = new TxBuilder()
       builder.add(create(cid("#0")))
       builder.add(create(cid("#0")))
       builder.build().contractKeyInputs shouldBe Left(
@@ -489,21 +491,21 @@ class TransactionSpec
       )
     }
     "two creates do not conflict if interleaved with archive" in {
-      val builder = TransactionBuilder()
+      val builder = new TxBuilder()
       builder.add(create(cid("#0")))
       builder.add(exe(cid("#0"), consuming = true, byKey = false))
       builder.add(create(cid("#0")))
       builder.build().contractKeyInputs shouldBe Right(Map(globalKey(cid("#0")) -> KeyCreate))
     }
     "two creates do not conflict if one is in rollback" in {
-      val builder = TransactionBuilder()
+      val builder = new TxBuilder()
       val rollback = builder.add(builder.rollback())
       builder.add(create(cid("#0")), rollback)
       builder.add(create(cid("#0")))
       builder.build().contractKeyInputs shouldBe Right(Map(globalKey(cid("#0")) -> KeyCreate))
     }
     "negative lookup after create fails" in {
-      val builder = TransactionBuilder()
+      val builder = new TxBuilder()
       builder.add(create(cid("#0")))
       builder.add(lookup(cid("#0"), found = false))
       builder.build().contractKeyInputs shouldBe Left(
@@ -511,7 +513,7 @@ class TransactionSpec
       )
     }
     "inconsistent lookups conflict" in {
-      val builder = TransactionBuilder()
+      val builder = new TxBuilder()
       builder.add(lookup(cid("#0"), found = true))
       builder.add(lookup(cid("#0"), found = false))
       builder.build().contractKeyInputs shouldBe Left(
@@ -519,7 +521,7 @@ class TransactionSpec
       )
     }
     "inconsistent lookups conflict across rollback" in {
-      val builder = TransactionBuilder()
+      val builder = new TxBuilder()
       val rollback = builder.add(builder.rollback())
       builder.add(lookup(cid("#0"), found = true), rollback)
       builder.add(lookup(cid("#0"), found = false))
@@ -528,7 +530,7 @@ class TransactionSpec
       )
     }
     "positive lookup conflicts with create" in {
-      val builder = TransactionBuilder()
+      val builder = new TxBuilder()
       builder.add(lookup(cid("#0"), found = true))
       builder.add(create(cid("#0")))
       builder.build().contractKeyInputs shouldBe Left(
@@ -536,7 +538,7 @@ class TransactionSpec
       )
     }
     "positive lookup in rollback conflicts with create" in {
-      val builder = TransactionBuilder()
+      val builder = new TxBuilder()
       val rollback = builder.add(builder.rollback())
       builder.add(lookup(cid("#0"), found = true), rollback)
       builder.add(create(cid("#0")))
@@ -545,7 +547,7 @@ class TransactionSpec
       )
     }
     "rolled back archive does not prevent conflict" in {
-      val builder = TransactionBuilder()
+      val builder = new TxBuilder()
       builder.add(create(cid("#0")))
       val rollback = builder.add(builder.rollback())
       builder.add(exe(cid("#0"), consuming = true, byKey = true), rollback)
@@ -555,7 +557,7 @@ class TransactionSpec
       )
     }
     "successful, inconsistent lookups conflict" in {
-      val builder = TransactionBuilder()
+      val builder = new TxBuilder()
       val create0 = create(cid("#0"))
       val create1 = create(cid("#1")).copy(
         keyOpt = Some(
@@ -575,7 +577,7 @@ class TransactionSpec
       )
     }
     "first negative input wins" in {
-      val builder = TransactionBuilder()
+      val builder = new TxBuilder()
       val rollback = builder.add(builder.rollback())
       val create0 = create(cid("#0"))
       val lookup0 = builder.lookupByKey(create0, found = false)
@@ -591,7 +593,11 @@ class TransactionSpec
     }
   }
 
-  def create(builder: TransactionBuilder, parties: Set[Ref.Party], key: Option[String] = None) = {
+  def create(
+      builder: TxBuilder,
+      parties: Set[Ref.Party],
+      key: Option[String] = None,
+  ): (V.ContractId, Node.Create) = {
     val cid = builder.newCid
     val node = builder.create(
       id = cid,
@@ -599,16 +605,16 @@ class TransactionSpec
       argument = V.ValueUnit,
       signatories = parties,
       observers = Seq(),
-      key = key.map(V.ValueText(_)),
+      key = key.fold[CreateKey](NoKey)(s => CreateKey.SignatoryMaintainerKey(V.ValueText(s))),
     )
     (cid, node)
   }
   def exercise(
-      builder: TransactionBuilder,
+      builder: TxBuilder,
       create: Node.Create,
       parties: Set[Ref.Party],
       consuming: Boolean,
-  ) =
+  ): Node.Exercise =
     builder.exercise(
       contract = create,
       choice = "C",
@@ -621,7 +627,7 @@ class TransactionSpec
   val activenessTest = {}
 
   "consumedContracts and inactiveContracts" - {
-    val builder = TransactionBuilder()
+    val builder = new TxBuilder()
     val parties = Seq("Alice")
     val (cid0, create0) = create(builder, parties)
     val (_, create1) = create(builder, parties)
@@ -653,7 +659,7 @@ class TransactionSpec
 
   "updatedContractKeys" - {
     "return all the updated contract keys" in {
-      val builder = TransactionBuilder()
+      val builder = new TxBuilder()
       val parties = Seq("Alice")
       val (cid0, create0) = create(builder, parties, Some("key0"))
       val (_, create1) = create(builder, parties, Some("key1"))
@@ -682,7 +688,7 @@ class TransactionSpec
   "consumedBy" - {
     "non-consuming transaction with no rollbacks" - {
       "no nodes" in {
-        val builder = TransactionBuilder()
+        val builder = new TxBuilder()
         val transaction = builder.build()
 
         transaction.consumedBy shouldBe Map.empty
@@ -690,7 +696,7 @@ class TransactionSpec
 
       "one node" - {
         "with local contracts" in {
-          val builder = TransactionBuilder()
+          val builder = new TxBuilder()
           val parties = Seq("Alice")
           val (_, createNode0) = create(builder, parties, Some("key0"))
 
@@ -701,7 +707,7 @@ class TransactionSpec
         }
 
         "with global contracts" in {
-          val builder = TransactionBuilder()
+          val builder = new TxBuilder()
           val parties = Seq("Alice")
           val (_, createNode0) = create(builder, parties, Some("key0"))
           val fetchNode0 = builder.fetch(createNode0, true)
@@ -715,7 +721,7 @@ class TransactionSpec
 
       "multiple nodes" - {
         "only create nodes" in {
-          val builder = TransactionBuilder()
+          val builder = new TxBuilder()
           val parties = Seq("Alice")
           val (_, createNode0) = create(builder, parties, Some("key0"))
           val (_, createNode1) = create(builder, parties, Some("key1"))
@@ -729,7 +735,7 @@ class TransactionSpec
 
         "create and non-consuming exercise nodes" - {
           "with local contracts" in {
-            val builder = TransactionBuilder()
+            val builder = new TxBuilder()
             val parties = Seq("Alice")
             val (_, createNode0) = create(builder, parties, Some("key0"))
 
@@ -741,7 +747,7 @@ class TransactionSpec
           }
 
           "with global contracts" in {
-            val builder = TransactionBuilder()
+            val builder = new TxBuilder()
             val parties = Seq("Alice")
             val (_, createNode0) = create(builder, parties, Some("key0"))
 
@@ -757,7 +763,7 @@ class TransactionSpec
     "consuming transaction with no rollbacks" - {
       "one exercise" - {
         "with local contracts" in {
-          val builder = TransactionBuilder()
+          val builder = new TxBuilder()
           val parties = Seq("Alice")
           val (cid0, createNode0) = create(builder, parties, Some("key0"))
 
@@ -770,7 +776,7 @@ class TransactionSpec
         }
 
         "with global contracts" in {
-          val builder = TransactionBuilder()
+          val builder = new TxBuilder()
           val parties = Seq("Alice")
           val (cid0, createNode0) = create(builder, parties, Some("key0"))
 
@@ -784,7 +790,7 @@ class TransactionSpec
 
       "multiple exercises" - {
         "with local contracts" in {
-          val builder = TransactionBuilder()
+          val builder = new TxBuilder()
           val parties = Seq("Alice")
           val (cid0, createNode0) = create(builder, parties, Some("key0"))
           val (cid1, createNode1) = create(builder, parties, Some("key1"))
@@ -800,7 +806,7 @@ class TransactionSpec
         }
 
         "with global contracts" in {
-          val builder = TransactionBuilder()
+          val builder = new TxBuilder()
           val parties = Seq("Alice")
           val (cid0, createNode0) = create(builder, parties, Some("key0"))
           val (cid1, createNode1) = create(builder, parties, Some("key1"))
@@ -818,7 +824,7 @@ class TransactionSpec
     "consuming transaction with rollbacks" - {
       "one rollback" - {
         "with local contracts" in {
-          val builder = TransactionBuilder()
+          val builder = new TxBuilder()
           val parties = Seq("Alice")
           val (cid0, createNode0) = create(builder, parties, Some("key0"))
           val (_, createNode1) = create(builder, parties, Some("key1"))
@@ -835,7 +841,7 @@ class TransactionSpec
         }
 
         "with global contracts" in {
-          val builder = TransactionBuilder()
+          val builder = new TxBuilder()
           val parties = Seq("Alice")
           val (cid0, createNode0) = create(builder, parties, Some("key0"))
           val (_, createNode1) = create(builder, parties, Some("key1"))
@@ -853,7 +859,7 @@ class TransactionSpec
       "multiple rollbacks" - {
         "sequential rollbacks" - {
           "with local contracts" in {
-            val builder = TransactionBuilder()
+            val builder = new TxBuilder()
             val parties = Seq("Alice")
             val (_, createNode0) = create(builder, parties, Some("key0"))
             val (_, createNode1) = create(builder, parties, Some("key1"))
@@ -870,7 +876,7 @@ class TransactionSpec
           }
 
           "with global contracts" in {
-            val builder = TransactionBuilder()
+            val builder = new TxBuilder()
             val parties = Seq("Alice")
             val (_, createNode0) = create(builder, parties, Some("key0"))
             val (_, createNode1) = create(builder, parties, Some("key1"))
@@ -888,7 +894,7 @@ class TransactionSpec
         "nested rollbacks" - {
           "2 deep and 2 rollbacks" - {
             "with local contracts" in {
-              val builder = TransactionBuilder()
+              val builder = new TxBuilder()
               val parties = Seq("Alice")
               val (_, createNode0) = create(builder, parties, Some("key0"))
               val (_, createNode1) = create(builder, parties, Some("key1"))
@@ -905,7 +911,7 @@ class TransactionSpec
             }
 
             "with global contracts" in {
-              val builder = TransactionBuilder()
+              val builder = new TxBuilder()
               val parties = Seq("Alice")
               val (_, createNode0) = create(builder, parties, Some("key0"))
               val (_, createNode1) = create(builder, parties, Some("key1"))
@@ -922,7 +928,7 @@ class TransactionSpec
 
           "2 deep and 3 rollbacks" - {
             "with local contracts" in {
-              val builder = TransactionBuilder()
+              val builder = new TxBuilder()
               val parties = Seq("Alice")
               val (_, createNode0) = create(builder, parties, Some("key0"))
               val (_, createNode1) = create(builder, parties, Some("key1"))
@@ -943,7 +949,7 @@ class TransactionSpec
             }
 
             "with global contracts" in {
-              val builder = TransactionBuilder()
+              val builder = new TxBuilder()
               val parties = Seq("Alice")
               val (_, createNode0) = create(builder, parties, Some("key0"))
               val (_, createNode1) = create(builder, parties, Some("key1"))
@@ -963,7 +969,7 @@ class TransactionSpec
 
           "3 deep" - {
             "with local contracts" in {
-              val builder = TransactionBuilder()
+              val builder = new TxBuilder()
               val parties = Seq("Alice")
               val (_, createNode0) = create(builder, parties, Some("key0"))
               val (_, createNode1) = create(builder, parties, Some("key1"))
@@ -984,7 +990,7 @@ class TransactionSpec
             }
 
             "with global contracts" in {
-              val builder = TransactionBuilder()
+              val builder = new TxBuilder()
               val parties = Seq("Alice")
               val (_, createNode0) = create(builder, parties, Some("key0"))
               val (_, createNode1) = create(builder, parties, Some("key1"))
@@ -1010,6 +1016,8 @@ class TransactionSpec
 object TransactionSpec {
 
   import TransactionBuilder.Implicits._
+
+  class TxBuilder extends NodeIdTransactionBuilder with TestNodeBuilder
 
   def cid(s: String): V.ContractId = V.ContractId.V1(Hash.hashPrivateKey(s))
 
