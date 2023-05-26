@@ -11,11 +11,14 @@ import qualified DA.List as List
 
 -- Configuration data
 
-breedingRate : Int
-breedingRate = 34
+slowBreedingRate : Int
+slowBreedingRate = 25
 
-excessiveBreedingRate : Int
-excessiveBreedingRate = 100
+mediumBreedingRate : Int
+mediumBreedingRate = 50
+
+fastBreedingRate : Int
+fastBreedingRate = 100
 
 breedingPeriod : RelTime
 breedingPeriod = seconds 1
@@ -68,11 +71,14 @@ genericBreedingTrigger rate = Trigger
   , heartbeat = Some breedingPeriod
   }
 
-breedingTrigger : Trigger (Bool, Int)
-breedingTrigger = genericBreedingTrigger breedingRate
+slowBreedingTrigger : Trigger (Bool, Int)
+slowBreedingTrigger = genericBreedingTrigger slowBreedingRate
 
-excessiveBreedingTrigger : Trigger (Bool, Int)
-excessiveBreedingTrigger = genericBreedingTrigger excessiveBreedingRate
+mediumBreedingTrigger : Trigger (Bool, Int)
+mediumBreedingTrigger = genericBreedingTrigger mediumBreedingRate
+
+fastBreedingTrigger : Trigger (Bool, Int)
+fastBreedingTrigger = genericBreedingTrigger fastBreedingRate
 
 
 -- Contention will generate faults that impact this trigger's ACS view
