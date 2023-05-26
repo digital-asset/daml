@@ -34,16 +34,13 @@ service UpdateService {
 
   // Lookup a transaction tree by its ID.
   // For looking up a transaction instead of a transaction tree, please see GetFlatTransactionById
-  rpc GetTransactionById (GetUpdateByIdRequest) returns (GetTransactionResponse);
+  rpc GetTransactionById (GetTransactionByIdRequest) returns (GetTransactionResponse);
 
   // Lookup a transaction by the ID of an event that appears within it.
   rpc GetFlatTransactionByEventId (GetTransactionByEventIdRequest) returns (GetFlatTransactionResponse);
 
   // Lookup a transaction by its ID.
-  rpc GetFlatTransactionById (GetUpdateByIdRequest) returns (GetFlatTransactionResponse);
-
-  // Lookup a reassignment by its ID.
-  rpc GetReassignmentById (GetUpdateByIdRequest) returns (GetReassignmentResponse);
+  rpc GetFlatTransactionById (GetTransactionByIdRequest) returns (GetFlatTransactionResponse);
 
   // Get the current ledger end.
   // Subscriptions started with the returned offset will serve transactions created after this RPC was called.
@@ -109,9 +106,9 @@ message GetTransactionByEventIdRequest {
   repeated string requesting_parties = 2;
 }
 
-message GetUpdateByIdRequest {
+message GetTransactionByIdRequest {
 
-  // The ID of a particular update.
+  // The ID of a particular transaction.
   // Must be a valid LedgerString (as describe in ``value.proto``).
   // Required
   string update_id = 1;
@@ -131,11 +128,6 @@ message GetTransactionResponse {
 message GetFlatTransactionResponse {
   // Required
   Transaction transaction = 1;
-}
-
-message GetReassignmentResponse {
-  // Required
-  Reassignment reassignment = 1;
 }
 
 message GetLedgerEndRequest {
