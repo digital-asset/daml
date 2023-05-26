@@ -276,7 +276,7 @@ final class SingleParticipantTestContext private[participant] (
   def updatePartyIdentityProviderId(
       request: UpdatePartyIdentityProviderRequest
   ): Future[UpdatePartyIdentityProviderResponse] =
-    services.partyManagement.updateUserIdentityProviderId(request)
+    services.partyManagement.updatePartyIdentityProviderId(request)
 
   override def allocateParties(n: Int): Future[Vector[Party]] =
     Future.sequence(Vector.fill(n)(allocateParty()))
