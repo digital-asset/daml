@@ -5,9 +5,9 @@ syntax = "proto3";
 
 package com.daml.ledger.api.v2;
 
-import "com/daml/ledger/api/v2/completion.proto";
 import "com/daml/ledger/api/v1/ledger_offset.proto";
-import "google/protobuf/timestamp.proto";
+import "com/daml/ledger/api/v1/command_completion_service.proto";
+import "com/daml/ledger/api/v2/completion.proto";
 
 option java_outer_classname = "CommandCompletionServiceOuterClass";
 option java_package = "com.daml.ledger.api.v2";
@@ -59,7 +59,7 @@ message CompletionStreamResponse {
   // This checkpoint may be used to restart consumption.  The
   // checkpoint belongs to the completion in this response.
   // Required
-  Checkpoint checkpoint = 1;
+  com.daml.ledger.api.v1.Checkpoint checkpoint = 1;
 
   // The domain ID the command was submitted to.
   // In case
@@ -71,18 +71,4 @@ message CompletionStreamResponse {
 
   // Required
   Completion completion = 3;
-}
-
-// Checkpoints may be used to:
-//
-// * detect time out of commands.
-// * provide an offset which can be used to restart consumption.
-message Checkpoint {
-  // All commands with a maximum record time below this value MUST be considered lost if their completion has not arrived before this checkpoint.
-  // Required
-  google.protobuf.Timestamp record_time = 1;
-
-  // May be used in a subsequent CompletionStreamRequest to resume the consumption of this stream at a later time.
-  // Required
-  com.daml.ledger.api.v1.LedgerOffset offset = 2;
 }

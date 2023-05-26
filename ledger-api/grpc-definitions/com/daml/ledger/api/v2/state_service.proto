@@ -7,8 +7,8 @@ package com.daml.ledger.api.v2;
 
 import "com/daml/ledger/api/v1/event.proto";
 import "com/daml/ledger/api/v1/ledger_offset.proto";
-import "com/daml/ledger/api/v2/transaction_filter.proto";
 import "com/daml/ledger/api/v2/reassignment.proto";
+import "com/daml/ledger/api/v2/transaction_filter.proto";
 
 option java_outer_classname = "StateServiceOuterClass";
 option java_package = "com.daml.ledger.api.v2";
