@@ -73,7 +73,7 @@ class ContractsService(
           getActiveContracts,
           getCreatesAndArchivesSince,
           getTermination,
-        )
+        ),
       )
   }
 
@@ -289,19 +289,20 @@ class ContractsService(
     val parties = request.readAs.cata((_.toSet1), jwtPayload.parties)
     val templateIds = request.templateIds
     val queryParams = request.query
-      resolveContractTypeIds(jwt, ledgerId)(templateIds).map { case (resolvedContractTypeIds, unresolvedContractTypeIds) =>
-      val warnings =
-        if (unresolvedContractTypeIds.isEmpty) None
-        else Some(domain.UnknownTemplateIds(unresolvedContractTypeIds.toList))
-      domain
-        .ResolvedQuery(resolvedContractTypeIds)
-        .leftMap(handleResolvedQueryErrors(warnings))
-        .map { resolvedQuery =>
-          val searchCtx = SearchContext(jwt, parties, resolvedQuery, ledgerId)
-          val source = search.toFinal.search(searchCtx, queryParams)
-          domain.OkResponse(source, warnings)
-        }
-        .merge
+    resolveContractTypeIds(jwt, ledgerId)(templateIds).map {
+      case (resolvedContractTypeIds, unresolvedContractTypeIds) =>
+        val warnings =
+          if (unresolvedContractTypeIds.isEmpty) None
+          else Some(domain.UnknownTemplateIds(unresolvedContractTypeIds.toList))
+        domain
+          .ResolvedQuery(resolvedContractTypeIds)
+          .leftMap(handleResolvedQueryErrors(warnings))
+          .map { resolvedQuery =>
+            val searchCtx = SearchContext(jwt, parties, resolvedQuery, ledgerId)
+            val source = search.toFinal.search(searchCtx, queryParams)
+            domain.OkResponse(source, warnings)
+          }
+          .merge
     }
   }
 
@@ -448,7 +449,7 @@ class ContractsService(
               templateIds.resolved.toList,
               Lambda[ConnectionIO ~> ConnectionIO](
                 timed(metrics.Db.searchFetch, _)
-              )
+              ),
             ) {
               case LedgerBegin =>
                 fconn.pure(Vector.empty[Vector[domain.ActiveContract.ResolvedCtTyId[JsValue]]])

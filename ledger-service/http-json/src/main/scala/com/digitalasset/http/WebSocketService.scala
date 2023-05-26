@@ -800,7 +800,7 @@ class WebSocketService(
       jwtPayload: JwtPayload,
   )(implicit
       ec: ExecutionContext,
-      lc: LoggingContextOf[InstanceUUID with RequestID]
+      lc: LoggingContextOf[InstanceUUID with RequestID],
   ): Flow[Message, Message, NotUsed] = {
     val Q = implicitly[StreamRequestParser[A]]
     Flow[Message]
@@ -998,7 +998,7 @@ class WebSocketService(
     def processResolved(
         resolvedQuery: ResolvedQuery,
         unresolved: Set[OptionalPkg],
-        fn: (domain.ActiveContract.ResolvedCtTyId[LfV], Option[domain.Offset]) => Option[Q.Positive]
+        fn: (domain.ActiveContract.ResolvedCtTyId[LfV], Option[domain.Offset]) => Option[Q.Positive],
     ) =
       acsPred
         .flatMap(
