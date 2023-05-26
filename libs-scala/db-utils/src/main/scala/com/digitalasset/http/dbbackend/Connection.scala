@@ -39,7 +39,7 @@ object ConnectionPool {
 
   def connect(
       c: JdbcConfig,
-      metricRegistry: Option[MetricRegistry] = None
+      metricRegistry: Option[MetricRegistry] = None,
   )(implicit
       ec: ExecutionContext,
       cs: ContextShift[IO],
@@ -58,7 +58,7 @@ object ConnectionPool {
 
   private[this] def dataSource(
       jc: JdbcConfig,
-      metricRegistry: Option[MetricRegistry]
+      metricRegistry: Option[MetricRegistry],
   ) = {
     import jc._
     val c = new HikariConfig

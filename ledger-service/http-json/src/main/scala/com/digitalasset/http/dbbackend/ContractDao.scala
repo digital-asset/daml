@@ -110,11 +110,14 @@ object ContractDao {
       // pool for connections awaiting database access
       val es = Executors.newWorkStealingPool(cfg.baseConfig.poolSize)
       val metricRegistry = metrics.getDefaultMetricsFactory match {
-        case f:DropwizardMetricsFactory => Some(f.registry)
+        case f: DropwizardMetricsFactory => Some(f.registry)
         case _ => None
       }
       val (ds, conn) =
-        ConnectionPool.connect(cfg.baseConfig, metricRegistry)(ExecutionContext.fromExecutor(es), cs)
+        ConnectionPool.connect(cfg.baseConfig, metricRegistry)(
+          ExecutionContext.fromExecutor(es),
+          cs,
+        )
       new ContractDao(ds, conn, es)
     }
     setup.fold(msg => throw new IllegalArgumentException(msg), identity)
