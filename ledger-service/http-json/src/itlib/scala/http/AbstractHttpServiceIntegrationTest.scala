@@ -136,7 +136,12 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
     with Inside
     with AbstractHttpServiceIntegrationTestFuns {
 
-  import AbstractHttpServiceIntegrationTestFuns.{VAx, UriFixture, HttpServiceTestFixtureData}
+  import AbstractHttpServiceIntegrationTestFuns.{
+    VAx,
+    UriFixture,
+    EncoderFixture,
+    HttpServiceTestFixtureData,
+  }
   import HttpServiceTestFixture.{UseTls, accountCreateCommand, archiveCommand}
   import json.JsonProtocol._
   import AbstractHttpServiceIntegrationTestFuns.{ciouDar, riouDar}
@@ -164,15 +169,18 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
       iouCreateCommand(amount = "444.44", currency = "BTC", party = party),
     )
 
-  protected def testLargeQueries = true
+  // Whether the underlying JSON query engine place unavoidable limits on the JSON queries that are supportable.
+  protected def constrainedJsonQueries = false
 
   private implicit final class OraclePayloadIndexSupport(private val label: String) {
 
-    /** For Oracle, tested only if DisableContractPayloadIndexing=false; always
-      * tested for other configurations.
+    /** While Oracle's JSON index makes queries a lot faster, it does place some limitations on the JSON queries it can service.
+      * Tests for such queries can be guarded with unlessConstrainedJsonQueries_-
+      * so for Oracle, they will only be run when DisableContractPayloadIndexing=true
+      * and will be run for all other configurations.
       */
-    def onlyIfLargeQueries_-(fun: => Unit): Unit =
-      if (testLargeQueries) label - fun else ()
+    def unlessConstrainedJsonQueries_-(fun: => Unit): Unit =
+      if (constrainedJsonQueries) () else label - fun
   }
 
   "query POST with empty query" - {
@@ -414,7 +422,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
     ).foreach { case (testLbl, testCurrency) => testQueryingWithToken(testLbl, testCurrency) }
   }
 
-  "query record contains larger tokens with " onlyIfLargeQueries_- {
+  "query record contains larger tokens with " unlessConstrainedJsonQueries_- {
     Seq(257, 1000, 2000, 3000, 4000, 5000).foreach { case len =>
       testQueryingWithToken(s"$len bytes", randomTextN(len))
     }
@@ -468,6 +476,68 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
           found.size shouldBe 1
         }
       }
+    }
+  }
+
+  "query long field names" - {
+    "int field with name of 251 chars" in withHttpService { fixture =>
+      createAndFindWithLongFieldName(
+        longFieldNamesCreateCommand(_, intFieldWith251Chars = 1),
+        "intFieldWith251Chars_______________________________________________________________________________________________________________________________________________________________________________________________________________________________________",
+        "1",
+      )(fixture)
+    }
+    "text field with name of 512 chars" in withHttpService { fixture =>
+      createAndFindWithLongFieldName(
+        longFieldNamesCreateCommand(_, textFieldWith512Chars = "hello"),
+        "textFieldWith512Chars___________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________",
+        "\"hello\"",
+      )(fixture)
+    }
+  }
+
+  "query longer field names" unlessConstrainedJsonQueries_- {
+    "int field with name of 252 chars" in withHttpService { fixture =>
+      createAndFindWithLongFieldName(
+        longFieldNamesCreateCommand(_, intFieldWith252Chars = 1),
+        "intFieldWith252Chars________________________________________________________________________________________________________________________________________________________________________________________________________________________________________",
+        "1",
+      )(fixture)
+    }
+    "int field with name of 512 chars" in withHttpService { fixture =>
+      createAndFindWithLongFieldName(
+        longFieldNamesCreateCommand(_, intFieldWith512Chars = 1),
+        "intFieldWith512Chars____________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________",
+        "1",
+      )(fixture)
+    }
+  }
+
+  def createAndFindWithLongFieldName(
+      createCommand: (
+          domain.Party => domain.CreateCommand[v.Record, domain.ContractTypeId.Template.OptionalPkg]
+      ),
+      fieldName: String,
+      jsonValue: String,
+  )(fixture: UriFixture with EncoderFixture) = {
+    for {
+      (alice, headers) <- fixture.getUniquePartyAndAuthHeaders("Alice")
+      found <- searchExpectOk(
+        List(createCommand(alice)),
+        jsObject(
+          s"""{
+              "templateIds": ["Account:LongFieldNames"],
+              "query": {
+                "party": "$alice",
+                "$fieldName" : $jsonValue
+              }
+            }"""
+        ),
+        fixture,
+        headers,
+      )
+    } yield {
+      found.size shouldBe 1
     }
   }
 
