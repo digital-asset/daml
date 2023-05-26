@@ -5,10 +5,7 @@ syntax = "proto3";
 
 package com.daml.ledger.api.v2;
 
-import "com/daml/ledger/api/v1/ledger_offset.proto";
-
 import "google/protobuf/duration.proto";
-import "google/protobuf/timestamp.proto";
 import "google/rpc/status.proto";
 
 option java_outer_classname = "CompletionOuterClass";
@@ -69,28 +66,4 @@ message Completion {
     google.protobuf.Duration deduplication_duration = 8;
   }
 
-  // The domain ID the command was submitted to.
-  // In case
-  //   - successful/failed transactions: represents the domain where the transaction was executed
-  //   - for successful/failed unassign commands: represents the source domain
-  //   - for successful/failed assign commands: represents the target domain
-  // Required
-  string domain_id = 9;
-
-  // Required
-  Checkpoint checkpoint = 10;
-}
-
-// Checkpoints may be used to:
-//
-// * detect time out of commands.
-// * provide an offset which can be used to restart consumption of the CompletionStream.
-message Checkpoint {
-  // All commands with a maximum record time below this value MUST be considered lost if their completion has not arrived before this checkpoint.
-  // Required
-  google.protobuf.Timestamp record_time = 1;
-
-  // May be used in a subsequent CompletionStreamRequest to resume the consumption of this stream at a later time.
-  // Required
-  com.daml.ledger.api.v1.LedgerOffset offset = 2;
 }
