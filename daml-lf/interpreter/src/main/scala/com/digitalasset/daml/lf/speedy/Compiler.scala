@@ -370,10 +370,11 @@ private[lf] final class Compiler(
       val tmplId = Identifier(pkgId, QualifiedName(module.name, tmplName))
       addDef(compileCreate(tmplId, tmpl))
       addDef(compileFetchTemplate(tmplId, tmpl))
-      module.definitions.get(tmplName) match {
-        case Some(DDataType(_, _, DataRecord(fields))) =>
+      pkgInterface.lookupDataRecord(tmplId) match {
+        case Right(PackageInterface.DataRecordInfo(_, DataRecord(fields))) =>
           addDef(compileSoftFetchTemplate(tmplId, tmpl, fields, preds))
         case _ =>
+          throw CompilationError(s"Missing DataRecord definition for Template ${tmplId}")
       }
       addDef(compileTemplatePreCondition(tmplId, tmpl))
       addDef(compileAgreementText(tmplId, tmpl))
