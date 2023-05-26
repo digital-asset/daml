@@ -1111,19 +1111,32 @@ private[lf] object SBuiltin {
         // TODO: https://github.com/digital-asset/daml/issues/16151
         // For the PoC, this assumes field order is preserved by later versions
         // and that new fields are only added at the end.
-        val values = new util.ArrayList[SValue]
-        discard(values.addAll(record.values))
-        fields.toList.drop(record.values.size) foreach {
-          case (name @ _, TOptional(_)) => discard(values.add(SOptional(None)))
-          case _ => crash("aaaa")
+        val newFields = fields.iterator.drop(record.values.size)
+        val badNewFields = newFields.filter {
+          case (name @ _, TOptional(_)) => false
+          case _ => true
         }
-        Control.Value(
-          SRecord(
-            id = templateId,
-            fields = fields.map(_._1),
-            values = values,
+        if (badNewFields.isEmpty) {
+          Control.Value(
+            SRecord(
+              id = templateId,
+              fields = fields.map(_._1),
+              values = record.values.asScala.padTo(fields.length, SOptional(None)).to(ArrayList),
+            )
           )
-        )
+        } else {
+          // For the PoC, it is fine to crash here since we assume all new
+          // fields will be of type Optional(_). After the PoC, this will
+          // be checked at daml-compile and package-upload times.
+          crash(
+            s"SBPromoteAnyContract[bad new fields]:\n" +
+              s"  contractId = ${coid}" +
+              s"  expectedTemplateId = ${templateId}" +
+              s"  acceptedTemplateIds = ${acceptedTemplateIds}" +
+              s"  actualTemplateId = ${actualTemplateId}" +
+              s"  badNewFields = ${badNewFields}"
+          )
+        }
       } else {
         Control.Error(
           IE.Dev(
