@@ -238,7 +238,7 @@ object LedgerClientJwt {
                 filter,
                 ledgerId,
                 verbose = true,
-                token = bearer(jwt),
+                token = bearer(jwt)
               )
           }
         }

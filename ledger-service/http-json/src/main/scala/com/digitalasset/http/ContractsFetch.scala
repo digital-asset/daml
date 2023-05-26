@@ -11,17 +11,9 @@ import com.daml.http.dbbackend.Queries.{DBContract, SurrogateTpId}
 import com.daml.http.domain.ContractTypeId
 import com.daml.http.LedgerClientJwt.Terminates
 import com.daml.http.util.ApiValueToLfValueConverter.apiValueToLfValue
-import com.daml.http.json.JsonProtocol.LfValueDatabaseCodec.{
-  apiValueToJsValue => lfValueToDbJsValue
-}
-import com.daml.http.util.Logging.InstanceUUID
-import com.daml.fetchcontracts.util.{
-  AbsoluteBookmark,
-  BeginBookmark,
-  ContractStreamStep,
-  InsertDeleteStep,
-  LedgerBegin,
-}
+import com.daml.http.json.JsonProtocol.LfValueDatabaseCodec.{apiValueToJsValue => lfValueToDbJsValue}
+import com.daml.http.util.Logging.{InstanceUUID, RequestID}
+import com.daml.fetchcontracts.util.{AbsoluteBookmark, BeginBookmark, ContractStreamStep, InsertDeleteStep, LedgerBegin}
 import com.daml.scalautil.ExceptionOps._
 import com.daml.nonempty.NonEmpty
 import com.daml.nonempty.NonEmptyReturningOps._
@@ -39,7 +31,7 @@ import scalaz.syntax.functor._
 import scalaz.syntax.foldable._
 import scalaz.syntax.order._
 import scalaz.syntax.std.option._
-import scalaz.{~>, \/, NaturalTransformation}
+import scalaz.{NaturalTransformation, \/, ~>}
 import spray.json.{JsNull, JsValue}
 
 import scala.concurrent.ExecutionContext
@@ -70,7 +62,7 @@ private class ContractsFetch(
   )(within: BeginBookmark[Terminates.AtAbsolute] => ConnectionIO[A])(implicit
       ec: ExecutionContext,
       mat: Materializer,
-      lc: LoggingContextOf[InstanceUUID],
+      lc: LoggingContextOf[InstanceUUID with RequestID]
   ): ConnectionIO[A] = {
     import ContractDao.laggingOffsets
     val initTries = 10
@@ -78,7 +70,7 @@ private class ContractsFetch(
     def go(
         maxAttempts: Int,
         fetchTemplateIds: List[domain.ContractTypeId.Resolved],
-        absEnd: Terminates.AtAbsolute,
+        absEnd: Terminates.AtAbsolute
     ): ConnectionIO[A] = for {
       bb <- tickFetch(fetchToAbsEnd(fetchContext, fetchTemplateIds, absEnd))
       a <- within(bb)
@@ -125,7 +117,7 @@ private class ContractsFetch(
   )(implicit
       ec: ExecutionContext,
       mat: Materializer,
-      lc: LoggingContextOf[InstanceUUID],
+      lc: LoggingContextOf[InstanceUUID with RequestID],
   ): ConnectionIO[BeginBookmark[Terminates.AtAbsolute]] =
     connectionIOFuture(getTermination(jwt, ledgerId)(lc)) flatMap {
       _.cata(
@@ -141,7 +133,7 @@ private class ContractsFetch(
   )(implicit
       ec: ExecutionContext,
       mat: Materializer,
-      lc: LoggingContextOf[InstanceUUID],
+      lc: LoggingContextOf[InstanceUUID with RequestID]
   ): ConnectionIO[BeginBookmark[Terminates.AtAbsolute]] = {
     import cats.instances.list._, cats.syntax.foldable.{toFoldableOps => ToFoldableOps},
     cats.syntax.traverse.{toTraverseOps => ToTraverseOps}, cats.syntax.functor._, doobie.implicits._
@@ -196,7 +188,7 @@ private class ContractsFetch(
   )(implicit
       ec: ExecutionContext,
       mat: Materializer,
-      lc: LoggingContextOf[InstanceUUID],
+      lc: LoggingContextOf[InstanceUUID with RequestID]
   ): ConnectionIO[BeginBookmark[domain.Offset]] = {
 
     import doobie.implicits._, cats.syntax.apply._
@@ -225,7 +217,7 @@ private class ContractsFetch(
   )(implicit
       ec: ExecutionContext,
       mat: Materializer,
-      lc: LoggingContextOf[InstanceUUID],
+      lc: LoggingContextOf[InstanceUUID with RequestID]
   ): ConnectionIO[BeginBookmark[domain.Offset]] = {
     import fetchContext.parties
     for {
@@ -235,12 +227,14 @@ private class ContractsFetch(
         templateId,
         offsets,
         disableAcs,
-        absEnd,
+        absEnd
       )
-      _ = logger.debug(
+    } yield {
+      logger.debug(
         s"contractsFromOffsetIo($fetchContext, $templateId, $offsets, $disableAcs, $absEnd): $offset1"
       )
-    } yield offset1
+      offset1
+    }
   }
 
   private def prepareCreatedEventStorage(
@@ -289,7 +283,7 @@ private class ContractsFetch(
   )(implicit
       ec: ExecutionContext,
       mat: Materializer,
-      lc: LoggingContextOf[InstanceUUID],
+      lc: LoggingContextOf[InstanceUUID with RequestID]
   ): ConnectionIO[BeginBookmark[domain.Offset]] = {
 
     import domain.Offset._, fetchContext.{jwt, ledgerId, parties}
@@ -297,13 +291,14 @@ private class ContractsFetch(
 
     // skip if *we don't use the acs* (which can read past absEnd) and current
     // DB is already caught up to absEnd
-    if (startOffset == AbsoluteBookmark(absEnd.toDomain))
+    if (startOffset == AbsoluteBookmark(absEnd.toDomain)) {
+      logger.debug(s"Request query cache hit, response will be serve from query_store DB for templateId: $templateId")
       fconn.pure(startOffset)
-    else {
+    } else logInteractionLedger (templateId){
       val graph = RunnableGraph.fromGraph(
         GraphDSL.createGraph(
           Sink.queue[ConnectionIO[Unit]](),
-          Sink.last[BeginBookmark[domain.Offset]],
+          Sink.last[BeginBookmark[domain.Offset]]
         )(Keep.both) { implicit builder => (acsSink, offsetSink) =>
           import GraphDSL.Implicits._
 
@@ -312,7 +307,7 @@ private class ContractsFetch(
             ledgerId,
             transactionFilter(parties, List(templateId)),
             _: lav1.ledger_offset.LedgerOffset,
-            absEnd,
+            absEnd
           )(lc)
 
           // include ACS iff starting at LedgerBegin
@@ -368,6 +363,17 @@ private class ContractsFetch(
         }
       } yield offsetOrError
     }
+  }
+
+  private def logInteractionLedger[T, C](templateId: domain.ContractTypeId.Resolved)(block: => T)(implicit lc: LoggingContextOf[C]): T = {
+    if (logger.debug.isEnabled) {
+      val startTime = System.nanoTime()
+      logger.debug(s"Starting cache refresh for TemplateId $templateId")
+      val result = block
+      val endTime = System.nanoTime()
+      logger.debug(s"Cache refreshed for TemplateId $templateId, time completed: ${(endTime - startTime) / 1000000L}ms")
+      result
+    } else block
   }
 }
 

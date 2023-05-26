@@ -760,7 +760,7 @@ class WebSocketService(
       jwt: Jwt,
       jwtPayload: JwtPayload,
   )(implicit
-      lc: LoggingContextOf[InstanceUUID],
+      lc: LoggingContextOf[InstanceUUID with RequestID],
       metrics: HttpJsonApiMetrics,
   ): Flow[Message, Message, _] =
     wsMessageHandler[A](jwt, jwtPayload)
@@ -800,7 +800,7 @@ class WebSocketService(
       jwtPayload: JwtPayload,
   )(implicit
       ec: ExecutionContext,
-      lc: LoggingContextOf[InstanceUUID],
+      lc: LoggingContextOf[InstanceUUID with RequestID]
   ): Flow[Message, Message, NotUsed] = {
     val Q = implicitly[StreamRequestParser[A]]
     Flow[Message]
@@ -856,7 +856,7 @@ class WebSocketService(
       )
       .takeWhile(_.isRight, inclusive = true) // stop after emitting 1st error
       .map(
-        _.fold(e => extendWithRequestIdLogCtx(implicit lc1 => wsErrorMessage(e)), identity): Message
+        _.fold(e => extendWithRequestIdLogCtx(implicit lc => wsErrorMessage(e)), identity): Message
       )
   }
 
@@ -881,7 +881,7 @@ class WebSocketService(
       ledgerId: LedgerApiDomain.LedgerId,
       parties: domain.PartySet,
   )(implicit
-      lc: LoggingContextOf[InstanceUUID]
+      lc: LoggingContextOf[InstanceUUID with RequestID]
   ): Future[Source[StepAndErrors[Positive, JsValue], NotUsed]] = {
     contractsService.daoAndFetch.cata(
       { case (dao, fetch) =>
@@ -950,7 +950,7 @@ class WebSocketService(
       offPrefix: Option[domain.StartingOffset],
       rawRequest: A,
   )(implicit
-      lc: LoggingContextOf[InstanceUUID],
+      lc: LoggingContextOf[InstanceUUID with RequestID],
       Q: StreamQuery[A],
   ): Source[Error \/ Message, NotUsed] = {
     // If there is a prefix, replace the empty offsets in the request with it
@@ -998,7 +998,7 @@ class WebSocketService(
     def processResolved(
         resolvedQuery: ResolvedQuery,
         unresolved: Set[OptionalPkg],
-        fn: (domain.ActiveContract.ResolvedCtTyId[LfV], Option[domain.Offset]) => Option[Q.Positive],
+        fn: (domain.ActiveContract.ResolvedCtTyId[LfV], Option[domain.Offset]) => Option[Q.Positive]
     ) =
       acsPred
         .flatMap(
