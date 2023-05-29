@@ -20,7 +20,7 @@
     <logger name="io.grpc.netty" level="WARN" />
     <logger name="ch.qos.logback" level="WARN" />
 
-    <root level="${ROOT_LOG_LEVEL_JSON_API:-INFO}">
+    <root level="INFO">
         <appender-ref ref="STDOUT" />
     </root>
 </configuration>

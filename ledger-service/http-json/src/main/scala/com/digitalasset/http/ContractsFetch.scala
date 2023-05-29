@@ -301,11 +301,11 @@ private class ContractsFetch(
     // DB is already caught up to absEnd
     if (startOffset == AbsoluteBookmark(absEnd.toDomain)) {
       logger.debug(
-        s"Request query cache hit, response will be serve from query_store DB for templateId: $templateId"
+        s"Contracts for template $templateId are up-to-date at offset $startOffset"
       )
       fconn.pure(startOffset)
     } else
-      logInteractionLedger(templateId) {
+      debugLogAction(s"cache refresh for templateId: $templateId") {
         val graph = RunnableGraph.fromGraph(
           GraphDSL.createGraph(
             Sink.queue[ConnectionIO[Unit]](),
@@ -376,17 +376,25 @@ private class ContractsFetch(
       }
   }
 
-  private def logInteractionLedger[T, C](
-      templateId: domain.ContractTypeId.Resolved
+  private def debugLogAction[T, C](
+      actionDescription: String
   )(block: => T)(implicit lc: LoggingContextOf[C]): T = {
     if (logger.debug.isEnabled) {
       val startTime = System.nanoTime()
-      logger.debug(s"Starting cache refresh for TemplateId $templateId")
-      val result = block
-      val endTime = System.nanoTime()
-      logger.debug(
-        s"Cache refreshed for TemplateId $templateId, time completed: ${(endTime - startTime) / 1000000L}ms"
-      )
+      logger.debug(s"Starting $actionDescription")
+      val result =
+        try {
+          block
+        } catch {
+          case e: Exception =>
+            lazy val endTime = System.nanoTime()
+            logger.debug(
+              s"Failed $actionDescription after ${(endTime - startTime) / 1000000L}ms because: $e"
+            )
+            throw e
+        }
+      lazy val endTime = System.nanoTime()
+      logger.debug(s"Completed $actionDescription in ${(endTime - startTime) / 1000000L}ms")
       result
     } else block
   }
