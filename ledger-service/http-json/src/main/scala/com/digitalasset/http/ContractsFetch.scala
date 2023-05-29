@@ -379,24 +379,22 @@ private class ContractsFetch(
   private def debugLogAction[T, C](
       actionDescription: String
   )(block: => T)(implicit lc: LoggingContextOf[C]): T = {
-    if (logger.debug.isEnabled) {
-      val startTime = System.nanoTime()
-      logger.debug(s"Starting $actionDescription")
-      val result =
-        try {
-          block
-        } catch {
-          case e: Exception =>
-            logger.error(
-              s"Failed $actionDescription after ${(System.nanoTime() - startTime) / 1000000L}ms because: $e"
-            )
-            throw e
-        }
-      logger.debug(
-        s"Completed $actionDescription in ${(System.nanoTime() - startTime) / 1000000L}ms"
-      )
-      result
-    } else block
+    val startTime = System.nanoTime()
+    logger.debug(s"Starting $actionDescription")
+    val result =
+      try {
+        block
+      } catch {
+        case e: Exception =>
+          logger.error(
+            s"Failed $actionDescription after ${(System.nanoTime() - startTime) / 1000000L}ms because: $e"
+          )
+          throw e
+      }
+    logger.debug(
+      s"Completed $actionDescription in ${(System.nanoTime() - startTime) / 1000000L}ms"
+    )
+    result
   }
 }
 
