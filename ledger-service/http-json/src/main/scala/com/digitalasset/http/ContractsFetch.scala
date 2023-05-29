@@ -387,7 +387,7 @@ private class ContractsFetch(
           block
         } catch {
           case e: Exception =>
-            logger.debug(
+            logger.error(
               s"Failed $actionDescription after ${(System.nanoTime() - startTime) / 1000000L}ms because: $e"
             )
             throw e
