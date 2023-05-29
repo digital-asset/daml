@@ -392,7 +392,9 @@ private class ContractsFetch(
             )
             throw e
         }
-      logger.debug(s"Completed $actionDescription in ${(System.nanoTime() - startTime) / 1000000L}ms")
+      logger.debug(
+        s"Completed $actionDescription in ${(System.nanoTime() - startTime) / 1000000L}ms"
+      )
       result
     } else block
   }
