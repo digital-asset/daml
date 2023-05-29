@@ -14,8 +14,18 @@ option java_outer_classname = "UpdateServiceOuterClass";
 option java_package = "com.daml.ledger.api.v2";
 option csharp_namespace = "Com.Daml.Ledger.Api.V2";
 
-// TODO add documentation of participant offsets and virtual shared ledger and causality guarantees
 // Allows clients to read updates (transactions and reassignments) from the ledger.
+//
+// ``GetUpdates`` and ``GetUpdateTrees`` provide a comprehensive stream of updates/changes
+// which happened on the virtual shared ledger. These streams are indexed with ledger
+// offsets, which are strictly increasing.
+// The virtual shared ledger consist of changes happening on multiple domains which are
+// connected to the serving participant. Each update belongs to one domain, this is
+// provided in the result (domain_id in ``Transaction``, ``TransactionTree`` for transactions,
+// source_domain for ``UnassignedEvent`` and target_domain for ``AssignedEvent``).
+// Consumers can relay on strong causal guarantees on the virtual shared ledger for a single
+// domain: updates which have greater offsets are happened after than updates with smaller
+// offsets for the same domain. Across different domains this is not guaranteed.
 service UpdateService {
 
   // Read the ledger's filtered transaction stream and related reassignments for a set of parties.
