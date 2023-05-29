@@ -387,14 +387,12 @@ private class ContractsFetch(
           block
         } catch {
           case e: Exception =>
-            lazy val endTime = System.nanoTime()
             logger.debug(
-              s"Failed $actionDescription after ${(endTime - startTime) / 1000000L}ms because: $e"
+              s"Failed $actionDescription after ${(System.nanoTime() - startTime) / 1000000L}ms because: $e"
             )
             throw e
         }
-      lazy val endTime = System.nanoTime()
-      logger.debug(s"Completed $actionDescription in ${(endTime - startTime) / 1000000L}ms")
+      logger.debug(s"Completed $actionDescription in ${(System.nanoTime() - startTime) / 1000000L}ms")
       result
     } else block
   }
