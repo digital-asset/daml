@@ -16,6 +16,7 @@ option csharp_namespace = "Com.Daml.Ledger.Api.V2";
 
 // A composite command that groups multiple commands together.
 message Commands {
+
   // Identifier of the on-ledger workflow that this command is a part of.
   // Must be a valid LedgerString (as described in ``value.proto``).
   // Optional
@@ -158,6 +159,7 @@ message ReassignmentCommand {
 
 // Unassign a contract
 message UnassignCommand {
+
   // The ID of the contract the client wants to unassign.
   // Must be a valid LedgerString (as described in ``value.proto``).
   // Required
@@ -176,6 +178,7 @@ message UnassignCommand {
 
 // Assign a contract
 message AssignCommand {
+
   // The ID from the unassigned event to be completed by this assignment.
   // Must be a valid LedgerString (as described in ``value.proto``).
   // Required

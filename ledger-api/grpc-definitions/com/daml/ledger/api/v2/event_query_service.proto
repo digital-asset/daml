@@ -19,7 +19,6 @@ service EventQueryService {
   // No events will be returned for contracts that have been pruned because they 
   // have already been archived before the latest pruning offset. 
   rpc GetEventsByContractId (com.daml.ledger.api.v1.GetEventsByContractIdRequest) returns (GetEventsByContractIdResponse);
-
 }
 
 message GetEventsByContractIdResponse {
@@ -33,7 +32,6 @@ message GetEventsByContractIdResponse {
   // provided such an archive event exists and it has not yet been pruned.
   // Optional
   Archived archived = 2;
-
 }
 
 message Created {
@@ -44,7 +42,6 @@ message Created {
   // The domain ID where the contract was created
   // Required
   string domain_id = 2;
-
 }
 
 message Archived {
@@ -55,5 +52,4 @@ message Archived {
   // Required
   // The domain ID where the contract was archived
   string domain_id = 2;
-
 }

@@ -23,7 +23,6 @@ service TimeService {
 
   // Allows clients to change the ledger's clock in an atomic get-and-set operation.
   rpc SetTime (SetTimeRequest) returns (google.protobuf.Empty);
-
 }
 
 message GetTimeRequest {

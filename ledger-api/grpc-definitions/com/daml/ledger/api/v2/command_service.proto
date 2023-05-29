@@ -19,6 +19,7 @@ option csharp_namespace = "Com.Daml.Ledger.Api.V2";
 // Note that submitted commands generally produce completion events as well, even in case a command gets rejected.
 // For example, the participant MAY choose to produce a completion event for a rejection of a duplicate command.
 service CommandService {
+
   // Submits a single composite command and waits for its result.
   // Propagates the gRPC error of failed submissions including Daml interpretation errors.
   rpc SubmitAndWait (SubmitAndWaitRequest) returns (google.protobuf.Empty);
@@ -38,6 +39,7 @@ service CommandService {
 
 // These commands are atomic, and will become transactions.
 message SubmitAndWaitRequest {
+
   // The commands to be submitted.
   // Required
   Commands commands = 1;
@@ -56,6 +58,7 @@ message SubmitAndWaitForUpdateIdResponse {
 }
 
 message SubmitAndWaitForTransactionResponse {
+
   // The flat transaction that resulted from the submitted command.
   // Required
   Transaction transaction = 1;
@@ -65,6 +68,7 @@ message SubmitAndWaitForTransactionResponse {
 }
 
 message SubmitAndWaitForTransactionTreeResponse {
+
   // The transaction tree that resulted from the submitted command.
   // Required
   TransactionTree transaction = 1;

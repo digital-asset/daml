@@ -44,6 +44,7 @@ message Reassignment {
 message UnassignedEvent {
 
   // The ID of the unassignment. This needs to be used as an input for a assign ReassignmentCommand.
+  // For one contract the (unassign_id, source domain) pair is unique.
   // Must be a valid LedgerString (as described in ``value.proto``).
   // Required
   string unassign_id = 1;
@@ -94,21 +95,22 @@ message UnassignedEvent {
   repeated string reassigning_parties = 10;
 }
 
-// Records that a contract has been assigned, and it becomes usable on the target domain
+// Records that a contract has been assigned, and it becomes usable on the target domain.
 message AssignedEvent {
 
-  // The ID of the source domain
-  // Must be a valid domain ID
+  // The ID of the source domain.
+  // Must be a valid domain ID.
   // Required
   string source = 1;
 
-  // The ID of the target domain
-  // Must be a valid domain ID
+  // The ID of the target domain.
+  // Must be a valid domain ID.
   // Required
   string target = 2;
 
-  // The ID from the unassigned event
-  // For correlation capabilities
+  // The ID from the unassigned event.
+  // For correlation capabilities.
+  // For one contract the (unassign_id, source domain) pair is unique.
   // Must be a valid LedgerString (as described in ``value.proto``).
   // Required
   string unassign_id = 3;

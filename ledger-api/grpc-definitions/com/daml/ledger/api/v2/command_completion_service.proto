@@ -31,10 +31,10 @@ service CommandCompletionService {
 
   // Subscribe to command completion events.
   rpc CompletionStream (CompletionStreamRequest) returns (stream CompletionStreamResponse);
-
 }
 
 message CompletionStreamRequest {
+
   // Only completions of commands submitted with the same application_id will be visible in the stream.
   // Must be a valid ApplicationIdString (as described in ``value.proto``).
   // Required unless authentication is used with a user token or a custom token specifying an application-id.
@@ -49,9 +49,8 @@ message CompletionStreamRequest {
   repeated string parties = 2;
 
   // This field indicates the minimum offset for completions. This can be used to resume an earlier completion stream.
-  // This offset is exclusive: the response will only contain commands whose offset is strictly greater than this.
   // Optional, if not set the ledger uses the current ledger end offset instead.
-  com.daml.ledger.api.v1.LedgerOffset offset = 3;
+  com.daml.ledger.api.v1.LedgerOffset begin_exclusive = 3;
 }
 
 message CompletionStreamResponse {
@@ -61,14 +60,14 @@ message CompletionStreamResponse {
   // Required
   com.daml.ledger.api.v1.Checkpoint checkpoint = 1;
 
+  // Required
+  Completion completion = 2;
+
   // The domain ID the command was submitted to.
   // In case
   //   - successful/failed transactions: represents the domain where the transaction was executed
   //   - for successful/failed unassign commands: represents the source domain
   //   - for successful/failed assign commands: represents the target domain
   // Required
-  string domain_id = 2;
-
-  // Required
-  Completion completion = 3;
+  string domain_id = 3;
 }
