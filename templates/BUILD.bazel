@@ -50,7 +50,6 @@ genrule(
             "skeleton/**",
             "empty-skeleton/**",
             "create-daml-app/**",
-            "quickstart-finance/**",
             "quickstart-java/**",
             "copy-trigger/**",
             "gsg-trigger.patch",
@@ -61,6 +60,7 @@ genrule(
         "//docs:daml-intro-templates",
         "//docs:daml-patterns",
         "//docs:script-example-template",
+        "@daml-finance//:quickstart",
     ],
     outs = ["templates-tarball.tar.gz"],
     cmd = """
@@ -79,7 +79,6 @@ genrule(
         for d in skeleton \
                  empty-skeleton \
                  create-daml-app \
-                 quickstart-finance \
                  quickstart-java \
                  copy-trigger \
                  gsg-trigger; do
@@ -107,6 +106,10 @@ genrule(
 
         mkdir -p $$OUT/daml-patterns
         tar xf $(location //docs:daml-patterns) --strip-components=1 -C $$OUT/daml-patterns
+
+        # daml finance quickstarter
+        mkdir -p $$OUT/quickstart-finance
+        tar xf $(location @daml-finance//:quickstart) --strip-components=5 -C $$OUT/quickstart-finance
 
         DIR=$$(pwd)
         cd $$OUT/..
