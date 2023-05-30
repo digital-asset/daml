@@ -33,6 +33,8 @@ EOF
             "--ghc-option",
             "-Werror",
             "--log-level=WARNING",
+            "--target",
+            "1.dev",
         ]),
         sdk = sdk_version,
         ghc = ghc_version,

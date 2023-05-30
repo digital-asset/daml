@@ -110,6 +110,17 @@ instance IsOption SkipValidationOpt where
   optionName = Tagged "skip-validation"
   optionHelp = Tagged "Skip package validation in scenario service (true|false)"
 
+newtype IsScriptV2Opt = IsScriptV2Opt Bool
+  deriving (Eq)
+
+instance IsOption IsScriptV2Opt where
+  defaultValue = IsScriptV2Opt False
+  -- Tasty seems to force the value somewhere so we cannot just set this
+  -- to `error`. However, this will always be set.
+  parseValue = fmap IsScriptV2Opt . safeReadBool
+  optionName = Tagged "daml-script-v2"
+  optionHelp = Tagged "Use daml script v2 (true|false)"
+
 type ScriptPackageData = (FilePath, PackageFlag)
 
 -- | Creates a temp directory with daml script installed, gives the database db path and package flag
@@ -138,18 +149,46 @@ withDamlScriptDep mLfVer cont = do
 
       cont (dir </> projectPackageDatabase, packageFlag)
 
+-- | Creates a temp directory with daml script installed, gives the database db path and package flag
+withDamlScriptV2Dep :: (ScriptPackageData -> IO a) -> IO a
+withDamlScriptV2Dep cont = do
+  withTempDir $ \dir -> do
+    withCurrentDirectory dir $ do
+      let projDir = toNormalizedFilePath' dir
+          -- Bring in daml-script as previously installed by withDamlScriptDep, must include package db
+          -- daml-script and daml-triggers use the sdkPackageVersion for their versioning
+          packageFlag = ExposePackage ("--package daml-script-v2-" <> sdkPackageVersion) (UnitIdArg $ stringToUnitId $ "daml-script-v2-" <> sdkPackageVersion) (ModRenaming True [])
+
+      scriptDar <- locateRunfiles $ mainWorkspace </> "daml-script/daml-v2/daml-script-v2.dar"
+
+      installDependencies
+        projDir
+        (defaultOptions (Just versionDev))
+        (PackageSdkVersion sdkVersion)
+        ["daml-prim", "daml-stdlib", scriptDar]
+        []
+      createProjectPackageDb
+        projDir
+        (defaultOptions (Just versionDev))
+        mempty
+
+      cont (dir </> projectPackageDatabase, packageFlag)
+
 main :: IO ()
 main = do
   let scenarioConf = SS.defaultScenarioServiceConfig { SS.cnfJvmOptions = ["-Xmx200M"], SS.cnfEvaluationTimeout = Just 3 }
   -- This is a bit hacky, we want the LF version before we hand over to
   -- tasty. To achieve that we first pass with optparse-applicative ignoring
   -- everything apart from the LF version.
-  LfVersionOpt lfVer <- do
-      let parser = optionCLParser <* many (strArgument @String mempty)
+  (LfVersionOpt lfVer, SkipValidationOpt _, IsScriptV2Opt isV2) <- do
+      let parser = (,,) <$> optionCLParser <*> optionCLParser <*> optionCLParser <* many (strArgument @String mempty)
       execParser (info parser forwardOptions)
+
   scenarioLogger <- Logger.newStderrLogger Logger.Warning "scenario"
 
-  withDamlScriptDep (Just lfVer) $ \scriptPackageData ->
+  let withDep = if isV2 then withDamlScriptV2Dep else withDamlScriptDep $ Just lfVer
+
+  withDep $ \scriptPackageData ->
     SS.withScenarioService lfVer scenarioLogger scenarioConf $ \scenarioService -> do
       hSetEncoding stdout utf8
       setEnv "TASTY_NUM_THREADS" "1" True
@@ -165,6 +204,7 @@ main = do
               includingOptions
                 [ Option (Proxy @LfVersionOpt)
                 , Option (Proxy @SkipValidationOpt)
+                , Option (Proxy @IsScriptV2Opt)
                 ] :
               defaultIngredients
 
@@ -237,7 +277,7 @@ getIntegrationTests registerTODO scenarioService (packageDbPath, packageFlag) = 
     vfs <- makeVFSHandle
     -- We use a separate service for generated files so that we can test files containing internal imports.
     let tree :: TestTree
-        tree = askOption $ \(LfVersionOpt version) -> askOption $ \(SkipValidationOpt skipValidation) ->
+        tree = askOption $ \(LfVersionOpt version) -> askOption $ \(IsScriptV2Opt isScriptV2) -> askOption $ \(SkipValidationOpt skipValidation) ->
           let opts = (defaultOptions (Just version))
                 { optPackageDbs = [packageDbPath]
                 , optThreads = 0
@@ -266,7 +306,7 @@ getIntegrationTests registerTODO scenarioService (packageDbPath, packageFlag) = 
             shutdown
             $ \service ->
           testGroup ("Tests for Daml-LF " ++ renderPretty version) $
-            map (testCase version service outdir registerTODO) damlTests
+            map (testCase version isScriptV2 service outdir registerTODO) damlTests
 
     pure tree
 
@@ -284,12 +324,13 @@ instance IsTest TestCase where
     pure $ res { resultDescription = desc }
   testOptions = Tagged []
 
-testCase :: LF.Version -> IO IdeState -> FilePath -> (TODO -> IO ()) -> (String, FilePath, [Ann]) -> TestTree
-testCase version getService outdir registerTODO (name, file, anns) = singleTest name . TestCase $ \log -> do
+-- TODO boolean blindness
+testCase :: LF.Version -> Bool -> IO IdeState -> FilePath -> (TODO -> IO ()) -> (String, FilePath, [Ann]) -> TestTree
+testCase version isScriptV2 getService outdir registerTODO (name, file, anns) = singleTest name . TestCase $ \log -> do
   service <- getService
   if any (`notElem` supportedOutputVersions) [v | UntilLF v <- anns] then
     pure (testFailed "Unsupported Daml-LF version in UNTIL-LF annotation")
-  else if any (ignoreVersion version) anns
+  else if any (ignoreVersion version isScriptV2) anns
     then pure $ Result
       { resultOutcome = Success
       , resultDescription = ""
@@ -311,10 +352,11 @@ testCase version getService outdir registerTODO (name, file, anns) = singleTest 
         err : _others -> pure $ testFailed err
         [] -> pure $ testPassed ""
   where
-    ignoreVersion version = \case
+    ignoreVersion version isScriptV2 = \case
       Ignore -> True
       SinceLF minVersion -> version < minVersion
       UntilLF maxVersion -> version >= maxVersion
+      ScriptV2 -> not isScriptV2
       _ -> False
 
 runJqQuery :: (String -> IO ()) -> Maybe FilePath -> [(String, Bool)] -> IO [Maybe String]
@@ -394,6 +436,7 @@ data Ann
     | UntilLF LF.Version                 -- Only run this test until the given Daml-LF version (exclusive)
     | DiagnosticFields [DiagnosticField] -- I expect a diagnostic that has the given fields
     | QueryLF String Bool                -- The jq query against the produced Daml-LF returns "true". Includes a boolean for is stream
+    | ScriptV2                           -- Run only in daml script V2
     | Todo String                        -- Just a note that is printed out
 
 readFileAnns :: FilePath -> IO [Ann]
@@ -413,6 +456,7 @@ readFileAnns file = do
             ("INFO",x) -> Just (DiagnosticFields (DSeverity DsInfo : parseFields x))
             ("QUERY-LF", x) -> Just $ QueryLF x False
             ("QUERY-LF-STREAM", x) -> Just $ QueryLF x True
+            ("SCRIPT-V2", _) -> Just ScriptV2
             ("TODO",x) -> Just $ Todo x
             _ -> error $ "Can't understand test annotation in " ++ show file ++ ", got " ++ show x
         f _ = Nothing
