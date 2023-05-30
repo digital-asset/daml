@@ -17,7 +17,7 @@ import com.daml.lf.speedy.{Compiler, SDefinition, Speedy}
 import com.daml.lf.speedy.SExpr.{LfDefRef, SDefinitionRef}
 import com.daml.lf.validation.Validation
 import com.google.protobuf.ByteString
-import com.daml.lf.engine.script.{Participants, Runner, Script}
+import com.daml.lf.engine.script.{Runner, Script}
 import com.daml.logging.LoggingContext
 
 import scala.concurrent.ExecutionContext
