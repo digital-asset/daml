@@ -517,6 +517,13 @@ private[lf] class Runner(
     md <- compiledPackages.pkgInterface.lookupPackage(pkgId).toOption.flatMap(_.metadata).toList
   } yield (s"${md.name}-${md.version}" -> pkgId)).toMap
 
+  def getPackageName(pkgId: PackageId): Option[String] =
+    compiledPackages.pkgInterface
+      .lookupPackage(pkgId)
+      .toOption
+      .flatMap(_.metadata)
+      .map(meta => meta.name.toString)
+
   def runWithClients(
       initialClients: Participants[ScriptLedgerClient],
       traceLog: TraceLog = Speedy.Machine.newTraceLog,
@@ -527,8 +534,16 @@ private[lf] class Runner(
       esf: ExecutionSequencerFactory,
       mat: Materializer,
   ): (Speedy.PureMachine, Future[SValue], Option[Runner.IdeLedgerContext]) = {
-    // use script.scriptIds to determine which runner
+    val damlScriptName = getPackageName(script.scriptIds.scriptPackageId)
 
-    new v1.Runner(this).runWithClients(initialClients, traceLog, warningLog, canceled)
+    damlScriptName.getOrElse(
+      throw new IllegalArgumentException("Couldn't get daml script package name")
+    ) match {
+      case "daml-script" =>
+        new v1.Runner(this).runWithClients(initialClients, traceLog, warningLog, canceled)
+      case "daml-script-v2" =>
+        new v2.Runner(this).runWithClients(initialClients, traceLog, warningLog, canceled)
+      case _ => throw new IllegalArgumentException("Invalid daml script package name")
+    }
   }
 }
