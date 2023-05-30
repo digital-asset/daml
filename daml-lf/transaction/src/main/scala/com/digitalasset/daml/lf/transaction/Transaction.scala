@@ -255,13 +255,6 @@ sealed abstract class HasTxNodes {
 
   def roots: ImmArray[NodeId]
 
-  /** The union of the informees of all the action nodes. */
-  lazy val informees: Set[Ref.Party] =
-    nodes.values.foldLeft(Set.empty[Ref.Party]) {
-      case (acc, node: Node.Action) => acc | node.informeesOfNode
-      case (acc, _: Node.Rollback) => acc
-    }
-
   // We assume that rollback node cannot be a root of a transaction.
   // This is correct for an unprojected transaction. For a project transaction,
   // Canton handles rollback nodes itself so this is assumption still holds
