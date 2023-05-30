@@ -1,0 +1,27 @@
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- @SINCE-LF-FEATURE DAML_PACKAGE_UPGRADES
+
+-- This only tests that the functions `softFetch` and `softExercise` are
+-- available for an arbitrary template. For the integration tests where
+-- we test fetching/exercising a contract from an older version, see
+-- 'daml-script/test/src/com/digitalasset/daml/lf/engine/script/test/PackageUpgradesIT.scala'.
+
+module SoftFunctions where
+
+template T
+  with
+    party : Party
+  where
+    signatory party
+
+    choice C : ()
+      controller party
+      do pure ()
+
+softFetchT : ContractId T -> Update T
+softFetchT = softFetch
+
+softExerciseTC : ContractId T -> C -> Update ()
+softExerciseTC = softExercise
