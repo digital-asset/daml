@@ -33,6 +33,8 @@ final class PartyManagementServiceIT extends PartyManagementITBase {
     "PMUpdatingPartyIdentityProviderNonDefaultIdps",
     "Test reassigning party to a different idp using non default idps",
     allocate(NoParties),
+    enabled = _.userManagement.supported,
+    disabledReason = "requires user management feature",
   )(implicit ec => { case Participants(Participant(ledger)) =>
     val idpId1 = ledger.nextIdentityProviderId()
     val idpId2 = ledger.nextIdentityProviderId()
@@ -92,6 +94,8 @@ final class PartyManagementServiceIT extends PartyManagementITBase {
     "PMUpdatingPartyIdentityProviderWithDefaultIdp",
     "Test reassigning party to a different idp using the default idp",
     allocate(NoParties),
+    enabled = _.userManagement.supported,
+    disabledReason = "requires user management feature",
   )(implicit ec => { case Participants(Participant(ledger)) =>
     val idpId1 = ledger.nextIdentityProviderId()
     for {
@@ -137,6 +141,8 @@ final class PartyManagementServiceIT extends PartyManagementITBase {
     "PMUpdatingPartyIdentityProviderNonExistentIdps",
     "Test reassigning party to a different idp when source or target idp doesn't exist",
     allocate(NoParties),
+    enabled = _.userManagement.supported,
+    disabledReason = "requires user management feature",
   )(implicit ec => { case Participants(Participant(ledger)) =>
     val idpIdNonExistent = ledger.nextIdentityProviderId()
     for {
@@ -172,6 +178,8 @@ final class PartyManagementServiceIT extends PartyManagementITBase {
     "PMUpdatingPartyIdentityProviderMismatchedSourceIdp",
     "Test reassigning party to a different idp using mismatched source idp id",
     allocate(NoParties),
+    enabled = _.userManagement.supported,
+    disabledReason = "requires user management feature",
   )(implicit ec => { case Participants(Participant(ledger)) =>
     val idpIdNonDefault = ledger.nextIdentityProviderId()
     val idpIdTarget = ledger.nextIdentityProviderId()
@@ -225,6 +233,8 @@ final class PartyManagementServiceIT extends PartyManagementITBase {
     "PMUpdatingPartyIdentityProviderSourceAndTargetIdpTheSame",
     "Test reassigning party to a different idp but source and target idps are the same",
     allocate(NoParties),
+    enabled = _.userManagement.supported,
+    disabledReason = "requires user management feature",
   )(implicit ec => { case Participants(Participant(ledger)) =>
     val idpId1 = ledger.nextIdentityProviderId()
     for {
@@ -278,6 +288,8 @@ final class PartyManagementServiceIT extends PartyManagementITBase {
     "PMGetPartiesUsingDifferentIdps",
     "Test getting parties using different idps",
     allocate(NoParties),
+    enabled = _.userManagement.supported,
+    disabledReason = "requires user management feature",
   )(implicit ec => { case Participants(Participant(ledger)) =>
     val idpId1 = ledger.nextIdentityProviderId()
     val idpId2 = ledger.nextIdentityProviderId()

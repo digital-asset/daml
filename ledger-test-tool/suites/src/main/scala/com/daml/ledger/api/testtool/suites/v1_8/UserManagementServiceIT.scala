@@ -53,6 +53,8 @@ final class UserManagementServiceIT extends UserManagementServiceITBase {
     "UserManagementUpdateUserIdpWithNonDefaultIdps",
     "Test reassigning user to a different idp using non default idps",
     allocate(NoParties),
+    enabled = _.userManagement.supported,
+    disabledReason = "requires user management feature",
   )(implicit ec => { case Participants(Participant(ledger)) =>
     val userId1 = ledger.nextUserId()
     val idpId1 = ledger.nextIdentityProviderId()
@@ -111,6 +113,8 @@ final class UserManagementServiceIT extends UserManagementServiceITBase {
     "UserManagementUpdateUserIdpWithDefaultIdp",
     "Test reassigning user to a different idp using the default idp",
     allocate(NoParties),
+    enabled = _.userManagement.supported,
+    disabledReason = "requires user management feature",
   )(implicit ec => { case Participants(Participant(ledger)) =>
     val userId1 = ledger.nextUserId()
     val idpId = ledger.nextIdentityProviderId()
@@ -147,6 +151,8 @@ final class UserManagementServiceIT extends UserManagementServiceITBase {
     "UserManagementUpdateUserIdpNonExistentIdps",
     "Test reassigning user to a different idp when source or target idp doesn't exist",
     allocate(NoParties),
+    enabled = _.userManagement.supported,
+    disabledReason = "requires user management feature",
   )(implicit ec => { case Participants(Participant(ledger)) =>
     val userId = ledger.nextUserId()
     val idpNonExistent = ledger.nextIdentityProviderId()
@@ -183,6 +189,8 @@ final class UserManagementServiceIT extends UserManagementServiceITBase {
     "UserManagementUpdateUserIdpMismatchedSourceIdp",
     "Test reassigning user to a different idp using mismatched source idp",
     allocate(NoParties),
+    enabled = _.userManagement.supported,
+    disabledReason = "requires user management feature",
   )(implicit ec => { case Participants(Participant(ledger)) =>
     val userIdDefault = ledger.nextUserId()
     val userIdNonDefault = ledger.nextUserId()
@@ -241,6 +249,8 @@ final class UserManagementServiceIT extends UserManagementServiceITBase {
     "UserManagementUpdateUserIdpSourceAndTargetIdpTheSame",
     "Test reassigning user to a different idp but source and target idps are the same",
     allocate(NoParties),
+    enabled = _.userManagement.supported,
+    disabledReason = "requires user management feature",
   )(implicit ec => { case Participants(Participant(ledger)) =>
     val userIdDefault = ledger.nextUserId()
     val userIdNonDefault = ledger.nextUserId()
