@@ -63,11 +63,6 @@
                 "title": "[Daml Documentation]"
             },
             {
-                "command": "daml.visualize",
-                "title": "Visualize daml project",
-                "when": "editorLangId == daml"
-            },
-            {
                 "command": "daml.resetTelemetryConsent",
                 "title": "Ask me about Daml telemetry again on startup"
             }

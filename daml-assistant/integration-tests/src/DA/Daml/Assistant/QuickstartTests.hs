@@ -116,9 +116,6 @@ quickstartTests quickstartDir mvnDir getSandbox =
         -- Testing `daml new` and `daml build` is done when the QuickSandboxResource is build.
         subtest "daml damlc test --files" $
             callCommandSilentIn quickstartDir "daml damlc test --files daml/Main.daml"
-        subtest "daml damlc visual-web" $
-            callCommandSilentIn quickstartDir
-                "daml damlc visual-web .daml/dist/quickstart-0.0.1.dar -o visual.html -b"
         subtest "mvn compile" $ do
             mvnDbTarball <-
                 locateRunfiles
