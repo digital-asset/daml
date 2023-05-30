@@ -123,9 +123,20 @@ instance IsOption IsScriptV2Opt where
 
 type ScriptPackageData = (FilePath, PackageFlag)
 
--- | Creates a temp directory with daml script installed, gives the database db path and package flag
+-- | Creates a temp directory with daml script v1 installed, gives the database db path and package flag
 withDamlScriptDep :: Maybe Version -> (ScriptPackageData -> IO a) -> IO a
-withDamlScriptDep mLfVer cont = do
+withDamlScriptDep mLfVer = 
+  let lfVerStr = maybe "" (\lfVer -> "-" <> renderVersion lfVer) mLfVer
+  in withVersionedDamlScriptDep "daml" lfVerStr mLfVer
+
+-- Daml-script v2 is only 1.dev right now
+withDamlScriptV2Dep :: (ScriptPackageData -> IO a) -> IO a
+withDamlScriptV2Dep = withVersionedDamlScriptDep "daml-v2" "" (Just versionDev)
+
+-- | Takes the bazel namespace, dar suffix (used for lf versions in v1) and lf version, installs relevant daml script and gives
+-- database db path and package flag
+withVersionedDamlScriptDep :: String -> String -> Maybe Version -> (ScriptPackageData -> IO a) -> IO a
+withVersionedDamlScriptDep namespace darSuffix mLfVer cont = do
   withTempDir $ \dir -> do
     withCurrentDirectory dir $ do
       let projDir = toNormalizedFilePath' dir
@@ -133,8 +144,7 @@ withDamlScriptDep mLfVer cont = do
           -- daml-script and daml-triggers use the sdkPackageVersion for their versioning
           packageFlag = ExposePackage ("--package daml-script-" <> sdkPackageVersion) (UnitIdArg $ stringToUnitId $ "daml-script-" <> sdkPackageVersion) (ModRenaming True [])
 
-      let lfVerStr = maybe "" (\lfVer -> "-" <> renderVersion lfVer) mLfVer
-      scriptDar <- locateRunfiles $ mainWorkspace </> "daml-script/daml/daml-script" <> lfVerStr <> ".dar"
+      scriptDar <- locateRunfiles $ mainWorkspace </> "daml-script" </> namespace </> "daml-script" <> darSuffix <> ".dar"
 
       installDependencies
         projDir
@@ -145,31 +155,6 @@ withDamlScriptDep mLfVer cont = do
       createProjectPackageDb
         projDir
         (defaultOptions mLfVer)
-        mempty
-
-      cont (dir </> projectPackageDatabase, packageFlag)
-
--- | Creates a temp directory with daml script installed, gives the database db path and package flag
-withDamlScriptV2Dep :: (ScriptPackageData -> IO a) -> IO a
-withDamlScriptV2Dep cont = do
-  withTempDir $ \dir -> do
-    withCurrentDirectory dir $ do
-      let projDir = toNormalizedFilePath' dir
-          -- Bring in daml-script as previously installed by withDamlScriptDep, must include package db
-          -- daml-script and daml-triggers use the sdkPackageVersion for their versioning
-          packageFlag = ExposePackage ("--package daml-script-v2-" <> sdkPackageVersion) (UnitIdArg $ stringToUnitId $ "daml-script-v2-" <> sdkPackageVersion) (ModRenaming True [])
-
-      scriptDar <- locateRunfiles $ mainWorkspace </> "daml-script/daml-v2/daml-script-v2.dar"
-
-      installDependencies
-        projDir
-        (defaultOptions (Just versionDev))
-        (PackageSdkVersion sdkVersion)
-        ["daml-prim", "daml-stdlib", scriptDar]
-        []
-      createProjectPackageDb
-        projDir
-        (defaultOptions (Just versionDev))
         mempty
 
       cont (dir </> projectPackageDatabase, packageFlag)

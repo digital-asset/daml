@@ -7,9 +7,9 @@ load("@build_environment//:configuration.bzl", "ghc_version", "sdk_version")
 load("//daml-lf/language:daml-lf.bzl", "COMPILER_LF_VERSIONS")
 
 genrule(
-    name = "daml-script-v2",
+    name = "daml-script",
     srcs = glob(["**/*.daml"]),
-    outs = ["daml-script-v2.dar"],
+    outs = ["daml-script.dar"],
     cmd = """
       set -eou pipefail
       TMP_DIR=$$(mktemp -d)
@@ -18,7 +18,7 @@ genrule(
       cp -L $(location Daml/Script/Free.daml) $$TMP_DIR/daml/Daml/Script/
       cat << EOF > $$TMP_DIR/daml.yaml
 sdk-version: {sdk}
-name: daml-script-v2
+name: daml-script
 source: daml
 version: {ghc}
 dependencies:
@@ -44,17 +44,17 @@ EOF
 )
 
 genrule(
-    name = "daml-script-v2-docs",
+    name = "daml-script-docs",
     srcs = [
-        ":daml-script-v2.json",
+        ":daml-script.json",
         ":daml-script-rst-template.rst",
         ":daml-script-index-template.rst",
         ":daml-script-hoogle-template.txt",
     ],
     outs = [
-        "daml-script-v2-rst.tar.gz",
-        "daml-script-v2-hoogle.txt",
-        "daml-script-v2-anchors.json",
+        "daml-script-rst.tar.gz",
+        "daml-script-hoogle.txt",
+        "daml-script-anchors.json",
     ],
     cmd = """
         $(location //compiler/damlc) -- docs \
@@ -65,10 +65,10 @@ genrule(
             --index-template=$(location :daml-script-index-template.rst) \\
             --hoogle-template=$(location :daml-script-hoogle-template.txt) \\
             --base-url=https://docs.daml.com/daml-script/api/ \\
-            --output-hoogle=$(location :daml-script-v2-hoogle.txt) \\
-            --output-anchor=$(location :daml-script-v2-anchors.json) \\
+            --output-hoogle=$(location :daml-script-hoogle.txt) \\
+            --output-anchor=$(location :daml-script-anchors.json) \\
             $(location :daml-script.json)
-        $(execpath //bazel_tools/sh:mktgz) $(location :daml-script-v2-rst.tar.gz) daml-script-rst
+        $(execpath //bazel_tools/sh:mktgz) $(location :daml-script-rst.tar.gz) daml-script-rst
     """,
     tools = [
         "//bazel_tools/sh:mktgz",
@@ -78,13 +78,13 @@ genrule(
 )
 
 genrule(
-    name = "daml-script-v2-json-docs",
+    name = "daml-script-json-docs",
     srcs = glob(["**/*.daml"]),
-    outs = ["daml-script-v2.json"],
+    outs = ["daml-script.json"],
     cmd = """
         $(location //compiler/damlc) -- docs \
             --output=$(OUTS) \
-            --package-name=daml-script-v2 \
+            --package-name=daml-script \
             --format=Json \
             $(location Daml/Script.daml)
     """,
