@@ -361,7 +361,6 @@ jobs:
 
         sed -i 's|"external/canton/lib/.*|"'$canton_local_path'"|' $bad_file
         sed -i 's|SKIP_DEV_CANTON_TESTS=.*|SKIP_DEV_CANTON_TESTS=false|' build.sh
-        sed -i 's|skip_dev_canton = .*|skip_dev_canton = "False"|' build.ps1
         sed -e 's/^/# /' COPY > canton_dep.bzl
         cat <<EOF >> canton_dep.bzl
 
