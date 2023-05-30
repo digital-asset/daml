@@ -541,7 +541,7 @@ private[lf] class Runner(
     ) match {
       case "daml-script" =>
         new v1.Runner(this).runWithClients(initialClients, traceLog, warningLog, canceled)
-      case "daml-script-v2" =>
+      case "daml-script2" =>
         new v2.Runner(this).runWithClients(initialClients, traceLog, warningLog, canceled)
       case _ => throw new IllegalArgumentException("Invalid daml script package name")
     }

@@ -125,26 +125,31 @@ type ScriptPackageData = (FilePath, PackageFlag)
 
 -- | Creates a temp directory with daml script v1 installed, gives the database db path and package flag
 withDamlScriptDep :: Maybe Version -> (ScriptPackageData -> IO a) -> IO a
-withDamlScriptDep mLfVer = 
-  let lfVerStr = maybe "" (\lfVer -> "-" <> renderVersion lfVer) mLfVer
-  in withVersionedDamlScriptDep "daml" lfVerStr mLfVer
+withDamlScriptDep mLfVer =
+  let 
+    lfVerStr = maybe "" (\lfVer -> "-" <> renderVersion lfVer) mLfVer
+    darPath = "daml-script" </> "daml" </> "daml-script" <> lfVerStr <> ".dar"
+  in withVersionedDamlScriptDep ("daml-script-" <> sdkPackageVersion) darPath mLfVer
 
 -- Daml-script v2 is only 1.dev right now
 withDamlScriptV2Dep :: (ScriptPackageData -> IO a) -> IO a
-withDamlScriptV2Dep = withVersionedDamlScriptDep "daml-v2" "" (Just versionDev)
+withDamlScriptV2Dep =
+  let
+    darPath = "daml-script" </> "daml-v2" </> "daml-script2.dar"
+  in withVersionedDamlScriptDep ("daml-script2-" <> sdkPackageVersion) darPath (Just versionDev)
 
 -- | Takes the bazel namespace, dar suffix (used for lf versions in v1) and lf version, installs relevant daml script and gives
 -- database db path and package flag
 withVersionedDamlScriptDep :: String -> String -> Maybe Version -> (ScriptPackageData -> IO a) -> IO a
-withVersionedDamlScriptDep namespace darSuffix mLfVer cont = do
+withVersionedDamlScriptDep packageFlagName darPath mLfVer cont = do
   withTempDir $ \dir -> do
     withCurrentDirectory dir $ do
       let projDir = toNormalizedFilePath' dir
           -- Bring in daml-script as previously installed by withDamlScriptDep, must include package db
           -- daml-script and daml-triggers use the sdkPackageVersion for their versioning
-          packageFlag = ExposePackage ("--package daml-script-" <> sdkPackageVersion) (UnitIdArg $ stringToUnitId $ "daml-script-" <> sdkPackageVersion) (ModRenaming True [])
+          packageFlag = ExposePackage ("--package " <> packageFlagName) (UnitIdArg $ stringToUnitId packageFlagName) (ModRenaming True [])
 
-      scriptDar <- locateRunfiles $ mainWorkspace </> "daml-script" </> namespace </> "daml-script" <> darSuffix <> ".dar"
+      scriptDar <- locateRunfiles $ mainWorkspace </> darPath
 
       installDependencies
         projDir
