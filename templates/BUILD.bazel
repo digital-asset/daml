@@ -109,7 +109,7 @@ genrule(
 
         # daml finance quickstarter
         mkdir -p $$OUT/quickstart-finance
-        tar xf $(location @daml-finance//:quickstart) --strip-components=5 -C $$OUT/quickstart-finance
+        tar xf $(location @daml-finance//:quickstart) -C $$OUT/quickstart-finance
 
         DIR=$$(pwd)
         cd $$OUT/..

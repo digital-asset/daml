@@ -399,7 +399,6 @@ filegroup(
             urls = ["http://ftp.gnu.org/gnu/freefont/freefont-otf-20120503.tar.gz"],
         )
 
-# --transform 's|^docs/code-samples/getting-started/||' \\\\
     if "daml-finance" not in native.existing_rules():
         http_archive(
             name = "daml-finance",
@@ -414,7 +413,8 @@ genrule(
             , exclude = ["docs/code-samples/getting-started/daml.yaml", "docs/code-samples/getting-started/NO_AUTO_COPYRIGHT"]),
     outs = ["daml-finance-quickstart.tar.gz"],
     cmd = '''
-        tar czf $(OUTS) \\\\
+        tar czhf $(OUTS) \\\\
+            --transform 's|^.*docs/code-samples/getting-started/||' \\\\
             --owner=1000 \\\\
             --group=1000 \\\\
             --mtime=2000-01-01\\\\ 00:00Z \\\\
