@@ -4,31 +4,38 @@
 package com.daml.lf
 package engine
 
+import com.daml.lf.transaction.test.TestNodeBuilder.{CreateKey, CreateTransactionVersion}
 import com.daml.lf.data.Ref
-import com.daml.lf.transaction.Node
-import com.daml.lf.transaction.test.TransactionBuilder
+import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.transaction.test.TransactionBuilder.Implicits._
+import com.daml.lf.transaction.test.{TestIdFactory, TestNodeBuilder, TreeTransactionBuilder}
+import com.daml.lf.transaction.{Node, TransactionVersion}
 import com.daml.lf.value.Value.{ValueParty, ValueUnit}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.wordspec.AnyWordSpec
 
-class MetaDataTest extends AnyWordSpec with Matchers with TableDrivenPropertyChecks {
+class MetaDataTest
+    extends AnyWordSpec
+    with Matchers
+    with TableDrivenPropertyChecks
+    with TestIdFactory {
 
   import MetaDataTest._
+  import TreeTransactionBuilder._
 
   "Engine#desp" should {
 
-    val create = newBuilder.create(
-      id = TransactionBuilder.newCid,
+    val create = langNodeBuilder.create(
+      id = newCid,
       templateId = Ref.Identifier("pkgT", "M:T"),
       argument = ValueUnit,
       signatories = parties,
       observers = noOne,
-      keyOpt = Some(ValueParty("alice")),
-      maintainers = parties,
+      key = CreateKey.SignatoryMaintainerKey(ValueParty("alice")),
+      version = CreateTransactionVersion.FromPackage,
     )
-    val nodeWithoutInterface = Table[TransactionBuilder => Node](
+    val nodeWithoutInterface = Table[TestNodeBuilder => Node](
       "transaction",
       _ => create,
       _.exercise(
@@ -37,29 +44,31 @@ class MetaDataTest extends AnyWordSpec with Matchers with TableDrivenPropertyChe
         consuming = false,
         actingParties = parties,
         argument = ValueUnit,
+        byKey = false,
       ),
-      _.exerciseByKey(
+      _.exercise(
         contract = create,
         choice = "ChT",
         consuming = false,
         actingParties = parties,
         argument = ValueUnit,
+        byKey = true,
       ),
-      _.fetch(contract = create),
-      _.fetchByKey(contract = create),
+      _.fetch(contract = create, byKey = false),
+      _.fetch(contract = create, byKey = true),
       _.lookupByKey(contract = create),
     )
 
-    val createWithInterface = newBuilder.create(
-      id = TransactionBuilder.newCid,
+    val createWithInterface = langNodeBuilder.create(
+      id = newCid,
       templateId = Ref.Identifier("pkgImpl", "M:Impl"),
       argument = ValueUnit,
       signatories = parties,
       observers = noOne,
-      keyOpt = Some(ValueParty("alice")),
-      maintainers = parties,
+      key = CreateKey.SignatoryMaintainerKey(ValueParty("alice")),
+      version = CreateTransactionVersion.FromPackage,
     )
-    val nodeWithInterface = Table[TransactionBuilder => Node](
+    val nodeWithInterface = Table[TestNodeBuilder => Node](
       "transaction",
       _ => createWithInterface,
       _.exercise(
@@ -68,25 +77,22 @@ class MetaDataTest extends AnyWordSpec with Matchers with TableDrivenPropertyChe
         consuming = false,
         actingParties = parties,
         argument = ValueUnit,
+        byKey = false,
       ),
-      _.fetch(contract = createWithInterface),
+      _.fetch(contract = createWithInterface, byKey = false),
     )
 
     "works as expected on root actions node by template" in {
       val expected = ResultDone(Set("pkgT", "pkgTLib"))
       forEvery(nodeWithoutInterface) { mkNode =>
-        val builder = newBuilder
-        builder.add(mkNode(builder))
-        engine.deps(builder.build()) shouldBe expected
+        engine.deps(toVersionedTransaction(mkNode(langNodeBuilder))) shouldBe expected
       }
     }
 
     "works as expected on root action nodes by interface" in {
       val expected = ResultDone(Set("pkgInt", "pkgIntLib", "pkgImpl", "pkgImplLib"))
       forEvery(nodeWithInterface) { mkNode =>
-        val builder = newBuilder
-        builder.add(mkNode(builder))
-        engine.deps(builder.build()) shouldBe expected
+        engine.deps(toVersionedTransaction(mkNode(langNodeBuilder))) shouldBe expected
       }
     }
 
@@ -103,20 +109,31 @@ class MetaDataTest extends AnyWordSpec with Matchers with TableDrivenPropertyChe
           "pkgImplLib",
         )
       )
-      val contract = newBuilder.create(
-        id = TransactionBuilder.newCid,
+      val contract = langNodeBuilder.create(
+        id = newCid,
         templateId = Ref.Identifier("pkgBase", "M:T"),
         argument = ValueUnit,
         signatories = parties,
         observers = noOne,
+        version = CreateTransactionVersion.FromPackage,
       )
       forEvery(nodeWithoutInterface) { mkNodeWithout =>
         forEvery(nodeWithInterface) { mkNodeWith =>
-          val builder = newBuilder
-          val exeId = builder.add(builder.exercise(contract, "Ch0", true, parties, ValueUnit))
-          builder.add(mkNodeWithout(builder), exeId)
-          builder.add(mkNodeWith(builder), exeId)
-          engine.deps(builder.build()) shouldBe expected
+          val exercise = langNodeBuilder.exercise(
+            contract = contract,
+            choice = "Ch0",
+            consuming = true,
+            actingParties = parties,
+            argument = ValueUnit,
+            byKey = false,
+          )
+          val tx = toVersionedTransaction(
+            exercise.withChildren(
+              mkNodeWithout(langNodeBuilder),
+              mkNodeWith(langNodeBuilder),
+            )
+          )
+          engine.deps(tx) shouldBe expected
         }
       }
     }
@@ -128,9 +145,10 @@ object MetaDataTest {
 
   private[this] val langVersion = language.LanguageVersion.v1_15
 
-  private def newBuilder = new TransactionBuilder(_ =>
-    transaction.TransactionVersion.assignNodeVersion(langVersion)
-  )
+  private object langNodeBuilder extends TestNodeBuilder {
+    override def packageVersion(packageId: PackageId): Option[TransactionVersion] =
+      Some(TransactionVersion.assignNodeVersion(langVersion))
+  }
 
   private val engine = Engine.DevEngine()
 

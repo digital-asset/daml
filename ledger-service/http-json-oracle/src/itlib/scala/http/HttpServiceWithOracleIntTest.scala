@@ -7,7 +7,7 @@ abstract class HttpServiceWithOracleIntTest(override val disableContractPayloadI
     extends QueryStoreAndAuthDependentIntegrationTest
     with HttpServiceOracleInt {
 
-  override final def testLargeQueries = disableContractPayloadIndexing
+  override final def constrainedJsonQueries = !disableContractPayloadIndexing
 
   override def staticContentConfig: Option[StaticContentConfig] = None
 

@@ -10,7 +10,6 @@ features:
 - Type-information on hover
 - Renaming of symbols
 - Daml snippet support
-- Command to generate visualization for Daml project via command palette ctrl + p.
 
 Please note that this will only install the VSCode extension. Full use of the
 above features will also require that you have a working Daml SDK installed,
@@ -19,8 +18,6 @@ which you can get with:
 ```
 curl -s https://get.daml.com | sh
 ```
-
-To see graphs from `daml.visualize` command please install [Graphivz plugin](https://marketplace.visualstudio.com/items?itemName=EFanZh.graphviz-preview).
 
 For more information on Daml please see [docs.daml.com](https://docs.daml.com).
 

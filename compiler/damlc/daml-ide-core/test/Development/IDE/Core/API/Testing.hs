@@ -15,9 +15,6 @@ module Development.IDE.Core.API.Testing
     , GoToDefinitionPattern (..)
     , HoverExpectation (..)
     , D.DiagnosticSeverity(..)
-    , ExpectedGraph(..)
-    , ExpectedSubGraph(..)
-    , ExpectedChoiceDetails(..)
     , runShakeTest
     , runShakeTestOpts
     , makeFile
@@ -42,7 +39,6 @@ module Development.IDE.Core.API.Testing
     , expectNoVirtualResource
     , expectVirtualResourceNote
     , expectNoVirtualResourceNote
-    , expectedGraph
     , timedSection
     , example
     ) where
@@ -51,11 +47,9 @@ module Development.IDE.Core.API.Testing
 import qualified Development.IDE.Core.API         as API
 import Development.IDE.Core.Debouncer
 import Development.IDE.Core.Shake (ShakeLspEnv(..), NotificationHandler(..))
-import qualified Development.IDE.Core.Rules.Daml  as API
 import qualified Development.IDE.Types.Diagnostics as D
 import qualified Development.IDE.Types.Location as D
 import DA.Daml.LF.ScenarioServiceClient as SS
-import Development.IDE.Core.API.Testing.Visualize
 import Development.IDE.Core.Rules.Daml
 import Development.IDE.Types.Logger
 import DA.Daml.Options
@@ -69,7 +63,6 @@ import Language.LSP.Types hiding (SemanticTokenAbsolute (..), SemanticTokenRelat
 import Control.Concurrent.STM
 import Control.Exception.Extra
 import qualified Control.Monad.Reader   as Reader
-import Data.Either.Combinators
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import qualified Data.Aeson as Aeson
@@ -106,7 +99,6 @@ data ShakeTestError
     | ExpectedVirtualResourceNote VirtualResource T.Text (Map VirtualResource T.Text)
     | ExpectedNoVirtualResourceNote VirtualResource (Map VirtualResource T.Text)
     | ExpectedNoErrors [D.FileDiagnostic]
-    | ExpectedGraphProps FailedGraphExpectation
     | ExpectedDefinition Cursor GoToDefinitionPattern (Maybe D.Location)
     | ExpectedHoverText Cursor HoverExpectation [T.Text]
     | TimedSectionTookTooLong Clock.NominalDiffTime Clock.NominalDiffTime
@@ -533,14 +525,6 @@ timedSection targetDiffTime block = do
     when (actualDiffTime > targetDiffTime) $ do
         throwError $ TimedSectionTookTooLong targetDiffTime actualDiffTime
     return value
-
--- Not using the ide call as we do not have a rule defined for visualization because of memory overhead
-expectedGraph :: D.NormalizedFilePath -> ExpectedGraph -> ShakeTest ()
-expectedGraph damlFilePath expectedGraph = do
-    ideState <- ShakeTest $ Reader.asks steService
-    wrld <- Reader.liftIO $ API.runActionSync ideState (API.worldForFile damlFilePath)
-    expectNoErrors
-    whenLeft (graphTest wrld expectedGraph) $ throwError . ExpectedGraphProps
 
 -- | Example testing scenario.
 example :: ShakeTest ()

@@ -338,8 +338,8 @@ jobs:
                               https://digitalasset.jfrog.io/artifactory/api/storage/assembly/canton \
                          | jq -r '.children[].uri' \
                          | sed -e 's/^\///' \
-                         | grep '^[0-9]\{8\}$' \
-                         | sort \
+                         | grep -P '^\d+\.\d+\.\d+' \
+                         | sort -V \
                          | tail -1)
         dir=$(pwd)
         cd $(mktemp -d)
@@ -361,7 +361,6 @@ jobs:
 
         sed -i 's|"external/canton/lib/.*|"'$canton_local_path'"|' $bad_file
         sed -i 's|SKIP_DEV_CANTON_TESTS=.*|SKIP_DEV_CANTON_TESTS=false|' build.sh
-        sed -i 's|skip_dev_canton = .*|skip_dev_canton = "False"|' build.ps1
         sed -e 's/^/# /' COPY > canton_dep.bzl
         cat <<EOF >> canton_dep.bzl
 

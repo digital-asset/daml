@@ -9,34 +9,45 @@ import com.daml.lf.data.Ref.Party
 import com.daml.lf.ledger.Authorize
 import com.daml.lf.ledger.FailedAuthorization._
 import com.daml.lf.speedy.DefaultAuthorizationChecker
-import com.daml.lf.transaction.test.TransactionBuilder
+import com.daml.lf.transaction.test.TestNodeBuilder.CreateKey
+import com.daml.lf.transaction.{GlobalKeyWithMaintainers, Node}
+import com.daml.lf.transaction.test.{TestIdFactory, TestNodeBuilder, TransactionBuilder}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ValueRecord
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.Inside
 
-class AuthorizationSpec extends AnyFreeSpec with Matchers with Inside {
+class AuthorizationSpec extends AnyFreeSpec with Matchers with Inside with TestIdFactory {
 
   // Test the various forms of FailedAuthorization which can be returned from CheckAuthorization
   // for the 4 kinds of GenActionNode: Create/Fetch/Lookup/Exercise.
 
   import TransactionBuilder.Implicits._
 
-  val builder = TransactionBuilder()
-  def makeCreateNode(
+  private val builder = TestNodeBuilder
+
+  private def makeCreateNode(
       signatories: Seq[Party] = Seq("Alice", "Bob"),
       maintainers: Set[Party] = Seq("Alice"),
-  ) =
-    builder.create(
-      id = builder.newCid,
-      templateId = "M:T",
-      argument = ValueRecord(None, ImmArray.Empty),
-      signatories = signatories,
-      observers = Seq("Carl"),
-      keyOpt = Some(Value.ValueUnit),
-      maintainers = maintainers,
-    )
+  ): Node.Create = {
+
+    val templateId = "M:T"
+    builder
+      .create(
+        id = newCid,
+        templateId = templateId,
+        argument = ValueRecord(None, ImmArray.Empty),
+        signatories = signatories,
+        observers = Seq("Carl"),
+        key = CreateKey.NoKey,
+      )
+      .copy(
+        // By default maintainers are added to signatories so do this to allow error case testing
+        keyOpt =
+          Some(GlobalKeyWithMaintainers.assertBuild(templateId, Value.ValueUnit, maintainers))
+      )
+  }
 
   "create" - {
     // TEST_EVIDENCE: Authorization: well-authorized create is accepted
@@ -84,7 +95,7 @@ class AuthorizationSpec extends AnyFreeSpec with Matchers with Inside {
 
   "fetch" - {
     val contract = makeCreateNode()
-    val fetchNode = builder.fetch(contract)
+    val fetchNode = TestNodeBuilder.fetch(contract, byKey = false)
     // TEST_EVIDENCE: Authorization: well-authorized fetch is accepted
     "ok" in {
       val auth = Authorize(Set("Alice", "Mary", "Nigel"))
@@ -106,7 +117,7 @@ class AuthorizationSpec extends AnyFreeSpec with Matchers with Inside {
 
   "lookup-by-key" - {
     val contract = makeCreateNode(maintainers = Seq("Alice", "Bob"))
-    val lookupNode = builder.lookupByKey(contract, found = true)
+    val lookupNode = builder.lookupByKey(contract)
     // TEST_EVIDENCE: Authorization: well-authorized lookup is accepted
     "ok" in {
       val auth = Authorize(Set("Alice", "Bob", "Mary"))
@@ -137,6 +148,7 @@ class AuthorizationSpec extends AnyFreeSpec with Matchers with Inside {
         consuming = true,
         actingParties = actingParties,
         argument = ValueRecord(None, ImmArray.empty),
+        byKey = false,
       )
     }
     // TEST_EVIDENCE: Authorization: well-authorized exercise is accepted
