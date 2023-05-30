@@ -11,17 +11,10 @@ import com.daml.http.dbbackend.Queries.{DBContract, SurrogateTpId}
 import com.daml.http.domain.ContractTypeId
 import com.daml.http.LedgerClientJwt.Terminates
 import com.daml.http.util.ApiValueToLfValueConverter.apiValueToLfValue
-import com.daml.http.json.JsonProtocol.LfValueDatabaseCodec.{
-  apiValueToJsValue => lfValueToDbJsValue
-}
+import com.daml.http.json.JsonProtocol.LfValueDatabaseCodec.{apiValueToJsValue => lfValueToDbJsValue}
 import com.daml.http.util.Logging.{InstanceUUID, RequestID}
-import com.daml.fetchcontracts.util.{
-  AbsoluteBookmark,
-  BeginBookmark,
-  ContractStreamStep,
-  InsertDeleteStep,
-  LedgerBegin,
-}
+import com.daml.fetchcontracts.util.{AbsoluteBookmark, BeginBookmark, ContractStreamStep, InsertDeleteStep, LedgerBegin}
+import com.daml.http.metrics.HttpJsonApiMetrics
 import com.daml.scalautil.ExceptionOps._
 import com.daml.nonempty.NonEmpty
 import com.daml.nonempty.NonEmptyReturningOps._
@@ -44,6 +37,7 @@ import spray.json.{JsNull, JsValue}
 
 import scala.concurrent.ExecutionContext
 import com.daml.ledger.api.{domain => LedgerApiDomain}
+import com.daml.metrics.api.MetricHandle.Timer
 
 private class ContractsFetch(
     getActiveContracts: LedgerClientJwt.GetActiveContracts,
@@ -71,6 +65,7 @@ private class ContractsFetch(
       ec: ExecutionContext,
       mat: Materializer,
       lc: LoggingContextOf[InstanceUUID with RequestID],
+      metrics: HttpJsonApiMetrics
   ): ConnectionIO[A] = {
     import ContractDao.laggingOffsets
     val initTries = 10
@@ -126,6 +121,7 @@ private class ContractsFetch(
       ec: ExecutionContext,
       mat: Materializer,
       lc: LoggingContextOf[InstanceUUID with RequestID],
+      metrics: HttpJsonApiMetrics
   ): ConnectionIO[BeginBookmark[Terminates.AtAbsolute]] =
     connectionIOFuture(getTermination(jwt, ledgerId)(lc)) flatMap {
       _.cata(
@@ -142,6 +138,7 @@ private class ContractsFetch(
       ec: ExecutionContext,
       mat: Materializer,
       lc: LoggingContextOf[InstanceUUID with RequestID],
+      metrics: HttpJsonApiMetrics
   ): ConnectionIO[BeginBookmark[Terminates.AtAbsolute]] = {
     import cats.instances.list._, cats.syntax.foldable.{toFoldableOps => ToFoldableOps},
     cats.syntax.traverse.{toTraverseOps => ToTraverseOps}, cats.syntax.functor._, doobie.implicits._
@@ -197,6 +194,7 @@ private class ContractsFetch(
       ec: ExecutionContext,
       mat: Materializer,
       lc: LoggingContextOf[InstanceUUID with RequestID],
+      metrics: HttpJsonApiMetrics
   ): ConnectionIO[BeginBookmark[domain.Offset]] = {
 
     import doobie.implicits._, cats.syntax.apply._
@@ -226,6 +224,7 @@ private class ContractsFetch(
       ec: ExecutionContext,
       mat: Materializer,
       lc: LoggingContextOf[InstanceUUID with RequestID],
+      metrics: HttpJsonApiMetrics
   ): ConnectionIO[BeginBookmark[domain.Offset]] = {
     import fetchContext.parties
     for {
@@ -292,6 +291,7 @@ private class ContractsFetch(
       ec: ExecutionContext,
       mat: Materializer,
       lc: LoggingContextOf[InstanceUUID with RequestID],
+      metrics: HttpJsonApiMetrics
   ): ConnectionIO[BeginBookmark[domain.Offset]] = {
 
     import domain.Offset._, fetchContext.{jwt, ledgerId, parties}
@@ -305,7 +305,7 @@ private class ContractsFetch(
       )
       fconn.pure(startOffset)
     } else
-      debugLogAction(s"cache refresh for templateId: $templateId") {
+      debugLogActionWithTimer(s"cache refresh for templateId: $templateId", metrics.Db.updateCache) {
         val graph = RunnableGraph.fromGraph(
           GraphDSL.createGraph(
             Sink.queue[ConnectionIO[Unit]](),
@@ -376,9 +376,11 @@ private class ContractsFetch(
       }
   }
 
-  private def debugLogAction[T, C](
-      actionDescription: String
+  private def debugLogActionWithTimer[T, C](
+      actionDescription: String,
+      timer: Timer
   )(block: => T)(implicit lc: LoggingContextOf[C]): T = {
+    val timerHandler = timer.startAsync()
     val startTime = System.nanoTime()
     logger.debug(s"Starting $actionDescription")
     val result =
@@ -390,6 +392,8 @@ private class ContractsFetch(
             s"Failed $actionDescription after ${(System.nanoTime() - startTime) / 1000000L}ms because: $e"
           )
           throw e
+      } finally {
+        timerHandler.stop()
       }
     logger.debug(
       s"Completed $actionDescription in ${(System.nanoTime() - startTime) / 1000000L}ms"

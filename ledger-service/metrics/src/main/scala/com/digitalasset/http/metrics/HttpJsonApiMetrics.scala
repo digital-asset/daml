@@ -40,7 +40,7 @@ class HttpJsonApiMetrics(
 
   @nowarn
   object Db {
-    val prefix: MetricName = HttpJsonApiMetrics.this.prefix :+ "db"
+    private val prefix: MetricName = HttpJsonApiMetrics.this.prefix :+ "db"
 
     val fetchByIdFetch: Timer = defaultMetricsFactory.timer(prefix :+ "fetch_by_id_fetch")
     val fetchByIdQuery: Timer = defaultMetricsFactory.timer(prefix :+ "fetch_by_id_query")
@@ -48,6 +48,7 @@ class HttpJsonApiMetrics(
     val fetchByKeyQuery: Timer = defaultMetricsFactory.timer(prefix :+ "fetch_by_key_query")
     val searchFetch: Timer = defaultMetricsFactory.timer(prefix :+ "search_fetch")
     val searchQuery: Timer = defaultMetricsFactory.timer(prefix :+ "search_query")
+    val updateCache: Timer = defaultMetricsFactory.timer(prefix :+ "update_cache")
   }
 
   val surrogateTemplateIdCache =
