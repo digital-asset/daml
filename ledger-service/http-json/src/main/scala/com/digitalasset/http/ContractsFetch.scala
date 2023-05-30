@@ -299,7 +299,7 @@ private class ContractsFetch(
 
     // skip if *we don't use the acs* (which can read past absEnd) and current
     // DB is already caught up to absEnd
-    if (startOffset == AbsoluteBookmark(absEnd.toDomain)) {
+    if (startOffset >= AbsoluteBookmark(absEnd.toDomain)) {
       logger.debug(
         s"Contracts for template $templateId are up-to-date at offset $startOffset"
       )
