@@ -13,7 +13,8 @@ import com.daml.lf.engine.trigger.simulation.process.wrapper.TriggerTimer
 import java.nio.file.{Path, Paths}
 import scala.concurrent.duration._
 
-class GenericACSGrowth(triggerName: String) extends TriggerMultiProcessSimulation {
+class GenericContention(breedingTriggerName: String, cullingTriggerName: String)
+    extends TriggerMultiProcessSimulation {
 
   override protected lazy val darFile: Either[Path, Path] =
     Right(
@@ -36,15 +37,32 @@ class GenericACSGrowth(triggerName: String) extends TriggerMultiProcessSimulatio
     implicit val applicationId: ApiTypes.ApplicationId = this.applicationId
 
     withLedger { (client, ledger, actAs, controllerContext) =>
-      val triggerFactory = triggerProcessFactory(client, ledger, s"Cats:$triggerName", actAs)
-      val startState = unsafeSValueFromLf("Types:Tuple2 { _1 = False, _2 = 0 }")
-      val trigger =
-        controllerContext.spawn(triggerFactory.create(startState, Seq.empty), triggerName)
+      val breedingTriggerFactory =
+        triggerProcessFactory(client, ledger, s"Cats:$breedingTriggerName", actAs)
+      val cullingTriggerFactory =
+        triggerProcessFactory(client, ledger, s"Cats:$cullingTriggerName", actAs)
+      val breedingStartState = unsafeSValueFromLf("Types:Tuple2 { _1 = False, _2 = 0 }")
+      val cullingStartState = unsafeSValueFromLf(
+        "Types:Tuple2 { _1 = Nil @(ContractId Cats:Cat), _2 = None @(ContractId Cats:Cat) }"
+      )
+      val breedingTrigger = controllerContext.spawn(
+        breedingTriggerFactory.create(breedingStartState, Seq.empty),
+        breedingTriggerName,
+      )
+      val cullingTrigger = controllerContext.spawn(
+        cullingTriggerFactory.create(cullingStartState, Seq.empty),
+        cullingTriggerName,
+      )
 
-      controllerContext.watch(trigger)
+      controllerContext.watch(breedingTrigger)
+      controllerContext.watch(cullingTrigger)
       controllerContext.spawn(
-        TriggerTimer.messageWithFixedDelay(1.second, 1.second)(trigger),
-        s"timed-$triggerName",
+        TriggerTimer.messageWithFixedDelay(1.second, 1.second)(breedingTrigger),
+        s"timed-$breedingTriggerName",
+      )
+      controllerContext.spawn(
+        TriggerTimer.messageWithFixedDelay(1.second, 1.second)(cullingTrigger),
+        s"timed-$cullingTriggerName",
       )
 
       Behaviors.empty
@@ -52,16 +70,4 @@ class GenericACSGrowth(triggerName: String) extends TriggerMultiProcessSimulatio
   }
 }
 
-class SlowACSGrowth extends GenericACSGrowth("slowBreedingTrigger")
-
-class MediumACSGrowth extends GenericACSGrowth("mediumBreedingTrigger")
-
-class FastACSGrowth extends GenericACSGrowth("fastBreedingTrigger")
-
-class ACSHardLimit extends GenericACSGrowth("mediumBreedingTrigger") {
-  override protected def triggerRunnerConfiguration: TriggerRunnerConfig =
-    super.triggerRunnerConfiguration.copy(hardLimit =
-      super.triggerRunnerConfiguration.hardLimit
-        .copy(maximumActiveContracts = 1000)
-    )
-}
+class SlowContention extends GenericContention("slowBreedingTrigger", "cullingTrigger")

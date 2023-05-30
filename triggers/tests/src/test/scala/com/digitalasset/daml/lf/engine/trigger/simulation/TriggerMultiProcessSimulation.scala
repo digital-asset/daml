@@ -59,26 +59,27 @@ abstract class TriggerMultiProcessSimulation extends AsyncWordSpec with Abstract
 
       Behaviors
         .supervise[Message] {
-          Behaviors.setup { context =>
+          Behaviors.setup { rootContext =>
             var simulationController: Option[ActorRef[Unit]] = None
 
-            context.log.info(s"Simulation will run for ${simulationConfig.simulationDuration}")
-            context.self ! StartSimulation
+            rootContext.log.info(s"Simulation will run for ${simulationConfig.simulationDuration}")
+            rootContext.self ! StartSimulation
 
             Behaviors.logMessages {
               Behaviors
                 .receiveMessage[Message] {
                   case StartSimulation =>
-                    simulationController =
-                      Some(context.spawn(triggerMultiProcessSimulation, "simulation-controller"))
-                    simulationController.foreach(context.watch)
+                    simulationController = Some(
+                      rootContext.spawn(triggerMultiProcessSimulation, "simulation-controller")
+                    )
+                    simulationController.foreach(rootContext.watch)
                     Behaviors.same
 
                   case StopSimulation =>
-                    context.log.info(
+                    rootContext.log.info(
                       s"Simulation stopped after ${simulationConfig.simulationDuration}"
                     )
-                    simulationController.foreach(context.stop)
+                    simulationController.foreach(rootContext.stop)
                     simulationController = None
                     simulationTerminatedNormally.success(())
                     Behaviors.stopped
@@ -121,15 +122,17 @@ abstract class TriggerMultiProcessSimulation extends AsyncWordSpec with Abstract
           ActorContext[Unit],
       ) => Behavior[Unit]
   )(implicit applicationId: ApiTypes.ApplicationId): Behavior[Unit] = {
-    Behaviors.setup { context =>
+    Behaviors.setup { controllerContext =>
       val setup = for {
         client <- defaultLedgerClient()
         party <- allocateParty(client)
       } yield (client, party)
       val (client, actAs) = Await.result(setup, simulationConfig.simulationSetupTimeout)
-      val ledger = context.spawn(LedgerProcess.create(client), "ledger")
+      val ledger = controllerContext.spawn(LedgerProcess.create(client), "ledger")
 
-      spawnTriggers(client, ledger, actAs, context)
+      controllerContext.watch(ledger)
+
+      spawnTriggers(client, ledger, actAs, controllerContext)
     }
   }
 
@@ -149,7 +152,7 @@ abstract class TriggerMultiProcessSimulation extends AsyncWordSpec with Abstract
   }
 
   protected def unsafeSValueFromLf(lfValue: String): SValue = {
-    safeSValueFromLf(lfValue).toOption.get
+    safeSValueFromLf(lfValue).left.map(cause => throw new RuntimeException(cause)).toOption.get
   }
 }
 

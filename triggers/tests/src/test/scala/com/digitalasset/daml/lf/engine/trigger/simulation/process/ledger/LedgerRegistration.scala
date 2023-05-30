@@ -15,6 +15,7 @@ import com.daml.ledger.api.v1.transaction_filter.TransactionFilter
 import com.daml.ledger.api.v1.value
 import com.daml.ledger.client.LedgerClient
 import com.daml.ledger.client.services.commands.CompletionStreamElement.CompletionElement
+import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.Identifier
 import com.daml.lf.engine.trigger.simulation.ReportingProcess
 import com.daml.lf.engine.trigger.simulation.TriggerMultiProcessSimulation.{
@@ -118,13 +119,13 @@ final class LedgerRegistration(client: LedgerClient)(implicit
           )
           Behaviors.stopped
 
-        case GetTriggerACSDiff(reportId, triggerId, triggerACSView) =>
+        case GetTriggerACSDiff(timestamp, reportId, triggerId, triggerDefRef, triggerACSView) =>
           val diff = LedgerACSDiff(
             triggerACSView,
             ledgerACSView.getOrElse(triggerId, TrieMap.empty),
           )
           report ! ReportingProcess.ACSUpdate(
-            ACSReporting.TriggerACSDiff(reportId, triggerId, diff)
+            ACSReporting.TriggerACSDiff(timestamp, reportId, triggerId, triggerDefRef, diff)
           )
           Behaviors.same
       }
@@ -165,8 +166,10 @@ object LedgerRegistration {
   final case class APIMessage(triggerId: UUID, message: LedgerApiClient.Message) extends Message
   // Used by ReportingProcess
   final case class GetTriggerACSDiff(
+      timestamp: Long,
       reportID: UUID,
       triggerId: UUID,
+      triggerDefRef: Ref.DefinitionRef,
       triggerACSView: TreeMap[String, Identifier],
   ) extends Message
 
