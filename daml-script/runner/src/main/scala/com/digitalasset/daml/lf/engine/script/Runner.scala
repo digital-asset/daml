@@ -25,20 +25,16 @@ import com.daml.lf.engine.script.ParticipantsJsonProtocol.ContractIdFormat
 import com.daml.lf.engine.script.ledgerinteraction.{
   GrpcLedgerClient,
   JsonLedgerClient,
+  IdeLedgerClient,
   ScriptLedgerClient,
-  ScriptTimeMode,
 }
 import com.daml.lf.typesig.EnvironmentSignature
 import com.daml.lf.typesig.reader.SignatureReader
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.{LanguageVersion, PackageInterface}
-import com.daml.lf.interpretation.{Error => IE}
-import com.daml.lf.speedy.SBuiltin.SBToAny
+import com.daml.lf.scenario.{ScenarioLedger, ScenarioRunner}
 import com.daml.lf.speedy.SExpr._
-import com.daml.lf.speedy.SResult._
-import com.daml.lf.speedy.SValue._
 import com.daml.lf.speedy.{
-  ArrayList,
   Compiler,
   Pretty,
   SDefinition,
@@ -51,7 +47,6 @@ import com.daml.lf.speedy.{
 import com.daml.lf.value.Value.ContractId
 import com.daml.lf.value.json.ApiCodecCompressed
 import com.daml.logging.LoggingContext
-import com.daml.script.converter.Converter.unrollFree
 import com.daml.script.converter.ConverterException
 import com.typesafe.scalalogging.StrictLogging
 import scalaz.OneAnd._
@@ -65,7 +60,6 @@ import scalaz.{Applicative, NonEmptyList, OneAnd, Traverse, \/-}
 import spray.json._
 
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.{Failure, Success}
 
 object LfValueCodec extends ApiCodecCompressed(false, false)
 
@@ -114,6 +108,12 @@ case class Participants[+T](
           .orElse(default_participant)
           .toRight(s"No participant $participant and no default participant")
     }
+
+  def map[A](f: T => A): Participants[A] =
+    copy(
+      default_participant = default_participant.map(f),
+      participants = participants.map { case (k, v) => (k, f(v)) },
+    )
 }
 
 object Participants {
@@ -209,6 +209,20 @@ object Script {
         } yield Script.Action(scriptExpr, scriptIds)
     }
   }
+
+  trait FailableCmd {
+    def stackTrace: StackTrace
+    // Human-readable description of the command used in error messages.
+    def description: String
+  }
+
+  final class FailedCmd(val cmd: FailableCmd, val cause: Throwable)
+      extends RuntimeException(
+        s"""Command ${cmd.description} failed: ${cause.getMessage}
+          |Daml stacktrace:
+          |${cmd.stackTrace.pretty()}""".stripMargin,
+        cause,
+      )
 }
 
 object Runner {
@@ -305,6 +319,25 @@ object Runner {
     } yield Participants(defClient, otherClients, participantParams.party_participants)
   }
 
+  def ideLedgerClient(
+      compiledPackages: PureCompiledPackages,
+      traceLog: TraceLog,
+      warningLog: WarningLog,
+  ): Future[Participants[IdeLedgerClient]] =
+    Future.successful(
+      Participants(
+        default_participant =
+          Some(new IdeLedgerClient(compiledPackages, traceLog, warningLog, () => false)),
+        participants = Map.empty,
+        party_participants = Map.empty,
+      )
+    )
+
+  trait IdeLedgerContext {
+    def currentSubmission: Option[ScenarioRunner.CurrentSubmission]
+    def ledger: ScenarioLedger
+  }
+
   // Executes a Daml script
   //
   // Looks for the script in the given DAR, applies the input value as an
@@ -363,6 +396,66 @@ object Runner {
       esf: ExecutionSequencerFactory,
       mat: Materializer,
   ): (Speedy.PureMachine, Future[SValue]) = {
+    val (machine, resultF, _) = runWithOptionalIdeContext(
+      compiledPackages,
+      scriptId,
+      convertInputValue,
+      inputValue,
+      initialClients,
+      timeMode,
+      traceLog,
+      warningLog,
+      canceled,
+    )
+    (machine, resultF)
+  }
+
+  // Same as run above but requires use of IdeLedgerClient, gives additional context back
+  def runIdeLedgerClient[X](
+      compiledPackages: PureCompiledPackages,
+      scriptId: Identifier,
+      convertInputValue: Option[(X, Type) => Either[String, SValue]],
+      inputValue: Option[X],
+      initialClient: IdeLedgerClient,
+      timeMode: ScriptTimeMode,
+      traceLog: TraceLog = Speedy.Machine.newTraceLog,
+      warningLog: WarningLog = Speedy.Machine.newWarningLog,
+      canceled: () => Option[RuntimeException] = () => None,
+  )(implicit
+      ec: ExecutionContext,
+      esf: ExecutionSequencerFactory,
+      mat: Materializer,
+  ): (Speedy.PureMachine, Future[SValue], IdeLedgerContext) = {
+    val initialClients = Participants(Some(initialClient), Map.empty, Map.empty)
+    val (machine, resultF, oIdeLedgerContext) = runWithOptionalIdeContext(
+      compiledPackages,
+      scriptId,
+      convertInputValue,
+      inputValue,
+      initialClients,
+      timeMode,
+      traceLog,
+      warningLog,
+      canceled,
+    )
+    (machine, resultF, oIdeLedgerContext.get)
+  }
+
+  private def runWithOptionalIdeContext[X](
+      compiledPackages: PureCompiledPackages,
+      scriptId: Identifier,
+      convertInputValue: Option[(X, Type) => Either[String, SValue]],
+      inputValue: Option[X],
+      initialClients: Participants[ScriptLedgerClient],
+      timeMode: ScriptTimeMode,
+      traceLog: TraceLog,
+      warningLog: WarningLog,
+      canceled: () => Option[RuntimeException],
+  )(implicit
+      ec: ExecutionContext,
+      esf: ExecutionSequencerFactory,
+      mat: Materializer,
+  ): (Speedy.PureMachine, Future[SValue], Option[IdeLedgerContext]) = {
     val script = data.assertRight(Script.fromIdentifier(compiledPackages, scriptId))
     val scriptAction: Script.Action = (script, inputValue) match {
       case (script: Script.Action, None) => script
@@ -389,9 +482,9 @@ object Runner {
 }
 
 private[lf] class Runner(
-    compiledPackages: CompiledPackages,
-    script: Script.Action,
-    timeMode: ScriptTimeMode,
+    val compiledPackages: CompiledPackages,
+    val script: Script.Action,
+    val timeMode: ScriptTimeMode,
 ) extends StrictLogging {
 
   // We overwrite the definition of 'fromLedgerValue' with an identity function.
@@ -399,7 +492,7 @@ private[lf] class Runner(
   // with the result is convert it to ledger values/record so this is safe.
   // We do the same substitution for 'castCatchPayload' to circumvent Daml's
   // lack of existential types.
-  private val extendedCompiledPackages = {
+  val extendedCompiledPackages = {
     val damlScriptDefs: PartialFunction[SDefinitionRef, SDefinition] = {
       case LfDefRef(id) if id == script.scriptIds.damlScript("fromLedgerValue") =>
         SDefinition(SEMakeClo(Array(), 1, SELocA(0)))
@@ -419,12 +512,11 @@ private[lf] class Runner(
   }
 
   // Maps GHC unit ids to LF package ids. Used for location conversion.
-  private val knownPackages: Map[String, PackageId] = (for {
+  val knownPackages: Map[String, PackageId] = (for {
     pkgId <- compiledPackages.packageIds
     md <- compiledPackages.pkgInterface.lookupPackage(pkgId).toOption.flatMap(_.metadata).toList
   } yield (s"${md.name}-${md.version}" -> pkgId)).toMap
 
-  // Returns the machine that will be used for execution as well as a Future for the result.
   def runWithClients(
       initialClients: Participants[ScriptLedgerClient],
       traceLog: TraceLog = Speedy.Machine.newTraceLog,
@@ -434,144 +526,9 @@ private[lf] class Runner(
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
-  ): (Speedy.PureMachine, Future[SValue]) = {
-    val machine =
-      Speedy.Machine.fromPureSExpr(
-        extendedCompiledPackages,
-        script.expr,
-        iterationsBetweenInterruptions = 100000,
-        traceLog = traceLog,
-        warningLog = warningLog,
-      )(Script.DummyLoggingContext)
+  ): (Speedy.PureMachine, Future[SValue], Option[Runner.IdeLedgerContext]) = {
+    // use script.scriptIds to determine which runner
 
-    @scala.annotation.tailrec
-    def stepToValue(): Either[RuntimeException, SValue] = {
-      val result = machine.run()
-      canceled() match {
-        case Some(err) => Left(err)
-        case None =>
-          result match {
-            case SResultInterruption =>
-              stepToValue()
-            case SResultFinal(v) =>
-              Right(v)
-            case SResultError(err) =>
-              Left(Runner.InterpretationError(err))
-            case res =>
-              Left(new IllegalStateException(s"Internal error: Unexpected speedy result $res"))
-          }
-      }
-    }
-
-    val env = new ScriptF.Env(
-      script.scriptIds,
-      timeMode,
-      initialClients,
-      machine,
-    )
-
-    def run(expr: SExpr): Future[SValue] = {
-      machine.setExpressionToEvaluate(expr)
-      stepToValue()
-        .fold(Future.failed, Future.successful)
-        .flatMap(fsu => Converter toFuture unrollFree(fsu))
-        .flatMap {
-          case Right((vv, v)) =>
-            Converter
-              .toFuture(
-                ScriptF.parse(
-                  ScriptF.Ctx(knownPackages, extendedCompiledPackages),
-                  vv,
-                  v,
-                )
-              )
-              .flatMap { scriptF =>
-                scriptF match {
-                  case ScriptF.Catch(act, handle, continue) =>
-                    run(SEAppAtomic(SEValue(act), Array(SEValue(SUnit)))).transformWith {
-                      case Success(v) => Future.successful(SEApp(SEValue(continue), Array(v)))
-                      case Failure(
-                            exce @ Runner.InterpretationError(
-                              SError.SErrorDamlException(IE.UnhandledException(typ, value))
-                            )
-                          ) =>
-                        val e =
-                          SELet1(
-                            SEImportValue(typ, value),
-                            SELet1(
-                              SEAppAtomic(SEBuiltin(SBToAny(typ)), Array(SELocS(1))),
-                              SEAppAtomic(SEValue(handle), Array(SELocS(1))),
-                            ),
-                          )
-                        machine.setExpressionToEvaluate(e)
-                        stepToValue()
-                          .fold(Future.failed, Future.successful)
-                          .flatMap {
-                            case SOptional(None) =>
-                              Future.failed(exce)
-                            case SOptional(Some(free)) =>
-                              Future.successful(SEApp(SEValue(continue), Array(free)))
-                            case e =>
-                              Future.failed(
-                                new ConverterException(s"Expected SOptional but got $e")
-                              )
-                          }
-                      case Failure(e) => Future.failed(e)
-                    }
-                  case ScriptF.Throw(SAny(ty, value)) =>
-                    Future.failed(
-                      Runner.InterpretationError(
-                        SError
-                          .SErrorDamlException(IE.UnhandledException(ty, value.toUnnormalizedValue))
-                      )
-                    )
-                  case cmd: ScriptF.Cmd =>
-                    cmd.execute(env).transform {
-                      case f @ Failure(Runner.CanceledByRequest) => f
-                      case f @ Failure(Runner.TimedOut) => f
-                      case Failure(exception) =>
-                        Failure(new ScriptF.FailedCmd(cmd, exception))
-                      case Success(value) =>
-                        Success(value)
-                    }
-                }
-              }
-              .flatMap(run(_))
-          case Left(v) =>
-            v match {
-              case SRecord(_, _, ArrayList(newState, _)) => {
-                // Unwrap the Tuple2 we get from the inlined StateT.
-                Future { newState }
-              }
-              case _ => Future.failed(new ConverterException(s"Expected Tuple2 but got $v"))
-            }
-        }
-    }
-
-    val resultF = for {
-      _ <- Future.unit // We want the evaluation of following stepValue() to happen in a future.
-      result <- stepToValue().fold(Future.failed, Future.successful)
-      expr <- result match {
-        // Unwrap Script type and apply to ()
-        // For backwards-compatibility we support the 1 and the 2-field versions.
-        case SRecord(_, _, vals) if vals.size == 1 || vals.size == 2 => {
-          vals.get(0) match {
-            case SPAP(_, _, _) =>
-              Future(SEAppAtomic(SEValue(vals.get(0)), Array(SEValue(SUnit))))
-            case _ =>
-              Future.failed(
-                new ConverterException(
-                  "Mismatch in structure of Script type. " +
-                    "This probably means that you tried to run a script built against an " +
-                    "SDK <= 0.13.55-snapshot.20200304.3329.6a1c75cf with a script runner from a newer SDK."
-                )
-              )
-          }
-        }
-        case v => Future.failed(new ConverterException(s"Expected record with 1 field but got $v"))
-      }
-      v <- run(expr)
-    } yield v
-    (machine, resultF)
+    new v1.Runner(this).runWithClients(initialClients, traceLog, warningLog, canceled)
   }
 }

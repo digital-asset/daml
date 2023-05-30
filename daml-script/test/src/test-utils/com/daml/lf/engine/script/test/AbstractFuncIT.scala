@@ -251,7 +251,7 @@ abstract class AbstractFuncIT
             // Reduce maxInboundMessageSize until we get an error
             maxInboundMessageSize = 500
           )
-          ex <- recoverToExceptionIf[ScriptF.FailedCmd](
+          ex <- recoverToExceptionIf[Script.FailedCmd](
             run(
               clients,
               QualifiedName.assertFromString("ScriptTest:testMaxInboundMessageSize"),
@@ -510,7 +510,7 @@ abstract class AbstractFuncIT
     "stack trace" in {
       for {
         clients <- scriptClients()
-        e <- recoverToExceptionIf[ScriptF.FailedCmd](
+        e <- recoverToExceptionIf[Script.FailedCmd](
           run(
             clients,
             QualifiedName.assertFromString("ScriptTest:stackTrace"),

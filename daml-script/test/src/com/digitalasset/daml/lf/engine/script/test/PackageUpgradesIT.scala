@@ -6,7 +6,7 @@ package test
 
 import com.daml.bazeltools.BazelRunfiles
 import com.daml.lf.data.Ref._
-import com.daml.lf.engine.script.ledgerinteraction.ScriptTimeMode
+import com.daml.lf.engine.script.ScriptTimeMode
 import com.daml.lf.speedy.SValue._
 import java.nio.file.Paths
 import org.scalatest.Inside
