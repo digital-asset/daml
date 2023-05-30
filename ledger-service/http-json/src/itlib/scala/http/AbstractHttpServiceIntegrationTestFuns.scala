@@ -450,6 +450,7 @@ trait AbstractHttpServiceIntegrationTestFuns
       val Account: TId = CtId.Template(None, "Account", "Account")
       val PubSub: TId = CtId.Template(None, "Account", "PubSub")
       val KeyedByVariantAndRecord: TId = CtId.Template(None, "Account", "KeyedByVariantAndRecord")
+      val LongFieldNames: TId = CtId.Template(None, "Account", "LongFieldNames")
     }
     object Disclosure {
       val AnotherToDisclose: TId = CtId.Template(None, "Disclosure", "AnotherToDisclose")
@@ -527,6 +528,33 @@ trait AbstractHttpServiceIntegrationTestFuns
     )
     domain.CreateCommand(
       templateId = TpId.Account.PubSub,
+      payload = payload,
+      meta = None,
+    )
+  }
+
+  protected def longFieldNamesCreateCommand(
+      party: domain.Party,
+      intFieldWith251Chars: Long = 0,
+      intFieldWith252Chars: Long = 0,
+      intFieldWith512Chars: Long = 0,
+      textFieldWith512Chars: String = "",
+  ) = {
+    val payload = recordFromFields(
+      ShRecord(
+        party = v.Value.Sum.Party(Ref.Party assertFromString party.unwrap),
+        intFieldWith251Chars_______________________________________________________________________________________________________________________________________________________________________________________________________________________________________ =
+          v.Value.Sum.Int64(intFieldWith251Chars),
+        intFieldWith252Chars________________________________________________________________________________________________________________________________________________________________________________________________________________________________________ =
+          v.Value.Sum.Int64(intFieldWith252Chars),
+        intFieldWith512Chars____________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________ =
+          v.Value.Sum.Int64(intFieldWith512Chars),
+        textFieldWith512Chars___________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________ =
+          v.Value.Sum.Text(textFieldWith512Chars),
+      )
+    )
+    domain.CreateCommand(
+      templateId = TpId.Account.LongFieldNames,
       payload = payload,
       meta = None,
     )
