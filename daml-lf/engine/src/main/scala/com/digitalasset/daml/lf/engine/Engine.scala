@@ -370,7 +370,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
               dependsOnTime = machine.getDependsOnTime,
               nodeSeeds = nodeSeeds,
               globalKeyMapping = globalKeyMapping,
-              diclosedEvents = disclosedCreateEvents,
+              disclosedEvents = disclosedCreateEvents,
             )
             config.profileDir.foreach { dir =>
               val desc = Engine.profileDesc(tx)

@@ -2668,7 +2668,7 @@ object EngineTest {
           dependsOnTime = state.dependsOnTime,
           nodeSeeds = state.nodeSeeds.toImmArray,
           globalKeyMapping = Map.empty,
-          diclosedEvents = ImmArray.empty,
+          disclosedEvents = ImmArray.empty,
         ),
       )
     )
@@ -2712,7 +2712,7 @@ object EngineTest {
     ): Matcher[Tx.Metadata] =
       Matcher { metadata =>
         val expectedResult = ImmArray(expectedProcessedDisclosedContracts: _*)
-        val actualResult = metadata.diclosedEvents
+        val actualResult = metadata.disclosedEvents
 
         val debugMessage = Seq(
           s"expected but missing contract IDs: ${expectedResult.filter(!actualResult.toSeq.contains(_)).map(_.coid)}",

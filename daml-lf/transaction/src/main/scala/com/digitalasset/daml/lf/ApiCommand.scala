@@ -87,10 +87,10 @@ case class ApiCommands(
 
 /** An additional contract that is used to resolve contract id and contract key lookups during interpretation.
   *
-  * @param   templateId   identifier of the template of disclosed contract
-  * @param   contractId   the contract id of the disclosed contract
-  * @param   argument     the payload of the disclosed contract
-  * @param   metadata     metatdata attached to this disclosure. See [ContractMetadata].
+  * @param templateId   identifier of the template of disclosed contract
+  * @param contractId   the contract id of the disclosed contract
+  * @param argument     the payload of the disclosed contract
+  * @param keyHash        hash of the contract key, if present
   */
 final case class DisclosedContract(
     templateId: Identifier,

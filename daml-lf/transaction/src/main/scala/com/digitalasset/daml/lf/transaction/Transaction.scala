@@ -682,7 +682,7 @@ object Transaction {
     * @param nodeSeeds        : An association list that maps to each ID of create and exercise
     *                         nodes its seeds.
     * @param globalKeyMapping : input key mapping inferred by interpretation
-    * @param diclosedEvents    : disclosed create events that have been used in this transaction
+    * @param disclosedEvents    : disclosed create events that have been used in this transaction
     */
   final case class Metadata(
       submissionSeed: Option[crypto.Hash],
@@ -691,7 +691,7 @@ object Transaction {
       dependsOnTime: Boolean,
       nodeSeeds: ImmArray[(NodeId, crypto.Hash)],
       globalKeyMapping: Map[GlobalKey, Option[Value.ContractId]],
-      diclosedEvents: ImmArray[Node.Create],
+      disclosedEvents: ImmArray[Node.Create],
   )
 
   def commitTransaction(submittedTransaction: SubmittedTransaction): CommittedTransaction =
