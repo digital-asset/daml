@@ -6,7 +6,6 @@ package com.daml.http
 import java.io.File
 import java.nio.file.Path
 import java.util.concurrent.TimeUnit
-
 import akka.stream.ThrottleMode
 import com.daml.dbutils.ConfigCompanion
 import com.daml.ledger.api.tls.TlsConfiguration
@@ -18,7 +17,7 @@ import scala.concurrent.duration._
 import ch.qos.logback.classic.{Level => LogLevel}
 import com.daml.cliopts.Logging.LogEncoder
 import com.daml.http.{WebsocketConfig => WSC}
-import com.daml.http.dbbackend.JdbcConfig
+import com.daml.http.dbbackend.{DiagnosticConfig, JdbcConfig}
 import com.daml.metrics.{HistogramDefinition, MetricsConfig}
 import com.daml.metrics.api.reporters.MetricsReporter
 
@@ -36,6 +35,7 @@ private[http] final case class Config(
     healthTimeoutSeconds: Int = StartSettings.DefaultHealthTimeoutSeconds,
     tlsConfig: TlsConfiguration = TlsConfiguration(enabled = false, None, None, None),
     jdbcConfig: Option[JdbcConfig] = None,
+    diagnostic: Option[DiagnosticConfig] = None,
     staticContentConfig: Option[StaticContentConfig] = None,
     allowNonHttps: Boolean = false,
     wsConfig: Option[WebsocketConfig] = None,

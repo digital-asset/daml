@@ -6,7 +6,7 @@ package com.daml.http
 import akka.stream.ThrottleMode
 import com.daml.cliopts
 import com.daml.cliopts.Logging.LogEncoder
-import com.daml.http.dbbackend.{DbStartupMode, JdbcConfig}
+import com.daml.http.dbbackend.{DiagnosticConfig, DbStartupMode, JdbcConfig}
 import com.daml.metrics.MetricsConfig
 import com.daml.pureconfigutils.{HttpServerConfig, LedgerApiConfig}
 import com.daml.pureconfigutils.SharedConfigReaders._
@@ -40,6 +40,7 @@ private[http] object FileBasedConfig {
         )
     })
   implicit val queryStoreCfgReader: ConfigReader[JdbcConfig] = deriveReader[JdbcConfig]
+  implicit val diagnosticCfgReader: ConfigReader[DiagnosticConfig] = deriveReader[DiagnosticConfig]
 
   implicit val httpJsonApiCfgReader: ConfigReader[FileBasedConfig] =
     deriveReader[FileBasedConfig]
@@ -53,6 +54,7 @@ private[http] final case class FileBasedConfig(
     server: HttpServerConfig,
     ledgerApi: LedgerApiConfig,
     queryStore: Option[JdbcConfig] = None,
+    diagnostic: Option[DiagnosticConfig] = None,
     packageReloadInterval: FiniteDuration = StartSettings.DefaultPackageReloadInterval,
     maxInboundMessageSize: Int = StartSettings.DefaultMaxInboundMessageSize,
     healthTimeoutSeconds: Int = StartSettings.DefaultHealthTimeoutSeconds,
@@ -80,6 +82,7 @@ private[http] final case class FileBasedConfig(
       healthTimeoutSeconds = healthTimeoutSeconds,
       tlsConfig = ledgerApi.tls.tlsConfiguration,
       jdbcConfig = queryStore,
+      diagnostic = diagnostic,
       staticContentConfig = staticContent,
       allowNonHttps = allowInsecureTokens,
       wsConfig = websocketConfig,

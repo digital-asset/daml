@@ -8,8 +8,8 @@ import scalaz.std.either._
 import scalaz.std.option._
 import scalaz.syntax.traverse._
 import scalaz.{Show, StateT}
-
-import com.daml.dbutils, dbutils.DBConfig
+import com.daml.dbutils
+import dbutils.DBConfig
 
 private[http] final case class JdbcConfig(
     baseConfig: dbutils.JdbcConfig,

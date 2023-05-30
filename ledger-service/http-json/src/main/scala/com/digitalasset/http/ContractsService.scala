@@ -45,6 +45,7 @@ import spray.json.JsValue
 
 import scala.concurrent.{ExecutionContext, Future}
 import com.daml.ledger.api.{domain => LedgerApiDomain}
+import com.daml.logging.entries.LoggingValue
 import scalaz.std.scalaFuture._
 import doobie.free.{connection => fconn}
 import fconn.ConnectionIO
@@ -415,8 +416,15 @@ class ContractsService(
           Source.future(fv).mapConcat(identity).map(\/.right)
         }
 
-        private[this] def unsafeRunAsync[A](cio: doobie.ConnectionIO[A]) =
-          dao.transact(cio).unsafeToFuture()
+        private[this] def unsafeRunAsync[A](cio: doobie.ConnectionIO[A])(implicit
+            lc: LoggingContextOf[InstanceUUID with RequestID]
+        ) = {
+          val optRequestId = lc.entries.contents.get("request_id").flatMap {
+            case LoggingValue.OfString(value) => Some(value)
+            case _ => None
+          }
+          dao.transact(cio, optRequestId).unsafeToFuture()
+        }
 
         private[this] def timed[A](
             timer: Timer,
