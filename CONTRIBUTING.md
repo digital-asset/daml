@@ -94,8 +94,7 @@ You can also participate in the discussions at the following link: [discuss.daml
    
    Deny       Allow
    ````
-   (As of 2021.10.29) this is caused by the following test `//ledger/participant-integration-api:participant-integration-api-tests_test_suite_src_test_suite_scala_platform_apiserver_tls_TlsCertificateRevocationCheckingSpec.scala`.  
-   The test can succeeds independent of whether `Deny` or `Allow`.  
+   The test can succeed independent of whether `Deny` or `Allow` is selected.  
    If the dialog doesn't appear for you, you've probably already excercised one of these two choices.  
    To check your Firewall settings go to: `System Preferences` -> `Security & Privacy` -> `Firewall` -> `Firewall Options...` (checked on macOS Big Sur 11.5.2).  
 

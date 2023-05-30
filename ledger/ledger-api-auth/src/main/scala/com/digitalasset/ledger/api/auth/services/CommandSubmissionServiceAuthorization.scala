@@ -7,8 +7,6 @@ import com.daml.ledger.api.auth.Authorizer
 import com.daml.ledger.api.v1.command_submission_service.CommandSubmissionServiceGrpc.CommandSubmissionService
 import com.daml.ledger.api.v1.command_submission_service._
 import com.daml.ledger.api.validation.CommandsValidator
-import com.daml.platform.api.grpc.GrpcApiService
-import com.daml.platform.server.api.ProxyCloseable
 import com.google.protobuf.empty.Empty
 import io.grpc.ServerServiceDefinition
 import scalapb.lenses.Lens

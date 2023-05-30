@@ -6,8 +6,6 @@ package com.daml.ledger.api.auth.services
 import com.daml.ledger.api.auth.Authorizer
 import com.daml.ledger.api.v1.package_service.PackageServiceGrpc.PackageService
 import com.daml.ledger.api.v1.package_service._
-import com.daml.platform.api.grpc.GrpcApiService
-import com.daml.platform.server.api.ProxyCloseable
 import io.grpc.ServerServiceDefinition
 
 import scala.concurrent.{ExecutionContext, Future}

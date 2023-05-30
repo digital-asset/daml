@@ -45,38 +45,6 @@ da_haskell_test(
     ],
 )
 
-# Tests for visualization
-da_haskell_test(
-    name = "visualization",
-    srcs = ["src/DamlcVisualize.hs"],
-    data = [
-        "//compiler/damlc",
-    ],
-    hackage_deps = [
-        "base",
-        "bytestring",
-        "directory",
-        "either",
-        "extra",
-        "filepath",
-        "tasty",
-        "tasty-expected-failure",
-        "tasty-hunit",
-        "zip-archive",
-    ],
-    main_function = "DamlcVisualize.main",
-    visibility = ["//visibility:private"],
-    deps = [
-        "//:sdk-version-hs-lib",
-        "//compiler/daml-lf-ast",
-        "//compiler/daml-lf-proto",
-        "//compiler/daml-lf-reader",
-        "//compiler/damlc/daml-ide-core:ide-testing",
-        "//libs-haskell/bazel-runfiles",
-        "//libs-haskell/test-utils",
-    ],
-)
-
 # Tests for damlc test
 da_haskell_test(
     name = "damlc-test",
@@ -206,6 +174,8 @@ da_haskell_library(
             version,
             "--skip-validation",
             "true" if skip_validation else "false",
+            "--daml-script-v2",
+            "false",
         ],
         data = [
             ":bond-trading",
@@ -240,6 +210,41 @@ da_haskell_library(
         ),
     ]
 ]
+
+da_haskell_test(
+    name = "integration-v1dev-script-v2",
+    size = "large",
+    srcs = ["src/DA/Test/DamlcIntegrationMain.hs"],
+    args = [
+        "--daml-lf-version",
+        "1.dev",
+        "--skip-validation",
+        "false",
+        "--daml-script-v2",
+        "true",
+    ],
+    data = [
+        ":bond-trading",
+        ":cant-skip-preprocessor",
+        ":daml-test-files",
+        ":query-lf-lib",
+        "//compiler/damlc/pkg-db",
+        "//compiler/damlc/stable-packages",
+        "//compiler/scenario-service/server:scenario_service_jar",
+        "//daml-script/daml-v2:daml-script.dar",
+        "@jq_dev_env//:jq",
+        ghc_pkg,
+    ],
+    hackage_deps = [
+        "base",
+    ],
+    main_function = "DA.Test.DamlcIntegrationMain.main",
+    src_strip_prefix = "src",
+    visibility = ["//visibility:public"],
+    deps = [
+        ":integration-lib",
+    ],
+)
 
 # Tests for daml-doc
 da_haskell_test(
@@ -366,7 +371,6 @@ da_haskell_test(
         "//compiler/damlc/daml-ide-core",
         "//compiler/damlc/daml-ide-core:ide-testing",
         "//compiler/damlc/daml-opts:daml-opts-types",
-        "//compiler/damlc/daml-visual",
         "//compiler/scenario-service/client",
         "//libs-haskell/da-hs-base",
     ],

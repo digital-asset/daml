@@ -136,7 +136,12 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
     with Inside
     with AbstractHttpServiceIntegrationTestFuns {
 
-  import AbstractHttpServiceIntegrationTestFuns.{VAx, UriFixture, HttpServiceTestFixtureData}
+  import AbstractHttpServiceIntegrationTestFuns.{
+    VAx,
+    UriFixture,
+    EncoderFixture,
+    HttpServiceTestFixtureData,
+  }
   import HttpServiceTestFixture.{UseTls, accountCreateCommand, archiveCommand}
   import json.JsonProtocol._
   import AbstractHttpServiceIntegrationTestFuns.{ciouDar, riouDar}
@@ -164,15 +169,18 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
       iouCreateCommand(amount = "444.44", currency = "BTC", party = party),
     )
 
-  protected def testLargeQueries = true
+  // Whether the underlying JSON query engine place unavoidable limits on the JSON queries that are supportable.
+  protected def constrainedJsonQueries = false
 
   private implicit final class OraclePayloadIndexSupport(private val label: String) {
 
-    /** For Oracle, tested only if DisableContractPayloadIndexing=false; always
-      * tested for other configurations.
+    /** While Oracle's JSON index makes queries a lot faster, it does place some limitations on the JSON queries it can service.
+      * Tests for such queries can be guarded with unlessConstrainedJsonQueries_-
+      * so for Oracle, they will only be run when DisableContractPayloadIndexing=true
+      * and will be run for all other configurations.
       */
-    def onlyIfLargeQueries_-(fun: => Unit): Unit =
-      if (testLargeQueries) label - fun else ()
+    def unlessConstrainedJsonQueries_-(fun: => Unit): Unit =
+      if (constrainedJsonQueries) () else label - fun
   }
 
   "query POST with empty query" - {
@@ -414,7 +422,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
     ).foreach { case (testLbl, testCurrency) => testQueryingWithToken(testLbl, testCurrency) }
   }
 
-  "query record contains larger tokens with " onlyIfLargeQueries_- {
+  "query record contains larger tokens with " unlessConstrainedJsonQueries_- {
     Seq(257, 1000, 2000, 3000, 4000, 5000).foreach { case len =>
       testQueryingWithToken(s"$len bytes", randomTextN(len))
     }
@@ -446,7 +454,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
       10 -> 75,
       50 -> 76, // Allows space to encode content into a JSON array of strings within 4k limit.
       50 -> 80, // The content is the exact 4k limit, no additional room for JSON array syntax.
-      200 -> 150,
+      1000 -> 185,
     ).foreach { case (numSubs, partySize) =>
       (s"$numSubs observers of $partySize chars") in withHttpService { fixture =>
         val subscribers = (1 to numSubs).map(_ => domain.Party(randomTextN(partySize))).toList
@@ -468,6 +476,68 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
           found.size shouldBe 1
         }
       }
+    }
+  }
+
+  "query long field names" - {
+    "int field with name of 251 chars" in withHttpService { fixture =>
+      createAndFindWithLongFieldName(
+        longFieldNamesCreateCommand(_, intFieldWith251Chars = 1),
+        "intFieldWith251Chars_______________________________________________________________________________________________________________________________________________________________________________________________________________________________________",
+        "1",
+      )(fixture)
+    }
+    "text field with name of 512 chars" in withHttpService { fixture =>
+      createAndFindWithLongFieldName(
+        longFieldNamesCreateCommand(_, textFieldWith512Chars = "hello"),
+        "textFieldWith512Chars___________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________",
+        "\"hello\"",
+      )(fixture)
+    }
+  }
+
+  "query longer field names" unlessConstrainedJsonQueries_- {
+    "int field with name of 252 chars" in withHttpService { fixture =>
+      createAndFindWithLongFieldName(
+        longFieldNamesCreateCommand(_, intFieldWith252Chars = 1),
+        "intFieldWith252Chars________________________________________________________________________________________________________________________________________________________________________________________________________________________________________",
+        "1",
+      )(fixture)
+    }
+    "int field with name of 512 chars" in withHttpService { fixture =>
+      createAndFindWithLongFieldName(
+        longFieldNamesCreateCommand(_, intFieldWith512Chars = 1),
+        "intFieldWith512Chars____________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________",
+        "1",
+      )(fixture)
+    }
+  }
+
+  def createAndFindWithLongFieldName(
+      createCommand: (
+          domain.Party => domain.CreateCommand[v.Record, domain.ContractTypeId.Template.OptionalPkg]
+      ),
+      fieldName: String,
+      jsonValue: String,
+  )(fixture: UriFixture with EncoderFixture) = {
+    for {
+      (alice, headers) <- fixture.getUniquePartyAndAuthHeaders("Alice")
+      found <- searchExpectOk(
+        List(createCommand(alice)),
+        jsObject(
+          s"""{
+              "templateIds": ["Account:LongFieldNames"],
+              "query": {
+                "party": "$alice",
+                "$fieldName" : $jsonValue
+              }
+            }"""
+        ),
+        fixture,
+        headers,
+      )
+    } yield {
+      found.size shouldBe 1
     }
   }
 
@@ -636,8 +706,8 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
           kbvarVA,
           Map("bazRecord" -> Map("baz" -> Map("%gt" -> "b")).toJson),
         )(
-          withBazRecord("c"),
-          withBazRecord("a"),
+          matches = Seq(withBazRecord("c")),
+          doesNotMatch = Seq(withBazRecord("a")),
         ),
         Scenario(
           "gt string with sketchy value",
@@ -645,8 +715,8 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
           kbvarVA,
           Map("bazRecord" -> Map("baz" -> Map("%gt" -> "bobby'); DROP TABLE Students;--")).toJson),
         )(
-          withBazRecord("c"),
-          withBazRecord("a"),
+          matches = Seq(withBazRecord("c")),
+          doesNotMatch = Seq(withBazRecord("a")),
         ),
         /* TODO(raphael-speyer-da) Re-enable this test. See https://digitalasset.atlassian.net/browse/LT-15
         Scenario(
@@ -655,8 +725,8 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
           kbvarVA,
           Map("bazRecord" -> Map("baz" -> Map("%lt" -> "'")).toJson),
         )(
-          withBazRecord(" "), // Less than '
-          withBazRecord("A"), // Not less than '
+          matches = Seq(withBazRecord(" ")), // Less than '
+          doesNotMatch = Seq(withBazRecord("A")), // Not less than '
         ),
          */
         Scenario(
@@ -665,31 +735,76 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
           kbvarVA,
           Map("bazRecord" -> Map("baz" -> Map("%lt" -> "O\u02bcReilly")).toJson),
         )(
-          withBazRecord("A"),
-          withBazRecord("Z"),
+          matches = Seq(withBazRecord("A")),
+          doesNotMatch = Seq(withBazRecord("Z")),
+        ),
+        Scenario(
+          "eq empty string matches just that",
+          kbvarId,
+          kbvarVA,
+          Map("bazRecord" -> Map("baz" -> "").toJson),
+        )(
+          matches = Seq(withBazRecord("")),
+          doesNotMatch = Seq(withBazRecord("a")),
+        ),
+        Scenario(
+          "lt empty string matches nothing",
+          kbvarId,
+          kbvarVA,
+          Map("bazRecord" -> Map("baz" -> Map("%lt" -> "")).toJson),
+        )(
+          matches = Seq.empty,
+          doesNotMatch = Seq(withBazRecord("a"), withBazRecord("")),
+        ),
+        Scenario(
+          "lte empty string only matches empty string",
+          kbvarId,
+          kbvarVA,
+          Map("bazRecord" -> Map("baz" -> Map("%lte" -> "")).toJson),
+        )(
+          matches = Seq(withBazRecord("")),
+          doesNotMatch = Seq(withBazRecord("a")),
+        ),
+        Scenario(
+          "gt empty string only matches non-empty string",
+          kbvarId,
+          kbvarVA,
+          Map("bazRecord" -> Map("baz" -> Map("%gt" -> "")).toJson),
+        )(
+          matches = Seq(withBazRecord("a")),
+          doesNotMatch = Seq(withBazRecord("")),
+        ),
+        Scenario(
+          "gte empty string matches everything",
+          kbvarId,
+          kbvarVA,
+          Map("bazRecord" -> Map("baz" -> Map("%gte" -> "")).toJson),
+        )(
+          matches = Seq(withBazRecord("a"), withBazRecord("")),
+          doesNotMatch = Seq.empty,
         ),
         Scenario(
           "gt int",
           kbvarId,
           kbvarVA,
           Map("fooVariant" -> Map("tag" -> "Bar".toJson, "value" -> Map("%gt" -> 2).toJson).toJson),
-        )(withFooVariant(10), withFooVariant(1)),
+        )(matches = Seq(withFooVariant(10)), doesNotMatch = Seq(withFooVariant(1))),
       ).zipWithIndex.foreach { case (scenario, ix) =>
         import scenario._
         s"$label (scenario $ix)" in withHttpService { fixture =>
           for {
             (alice, headers) <- fixture.getUniquePartyAndAuthHeaders("Alice")
             contracts <- searchExpectOk(
-              List(matches, doesNotMatch).map { payload =>
+              (matches ++ doesNotMatch).toList.map { payload =>
                 domain.CreateCommand(ctId, argToApi(va)(payload(alice)), None)
               },
               JsObject(Map("templateIds" -> Seq(ctId).toJson, "query" -> query.toJson)),
               fixture,
               headers,
             )
-          } yield contracts.map(_.payload) should contain theSameElementsAs Seq(
-            LfValueCodec.apiValueToJsValue(va.inj(matches(alice)))
-          )
+          } yield contracts.map(_.payload) should contain theSameElementsAs matches.map { m =>
+            LfValueCodec.apiValueToJsValue(va.inj(m(alice)))
+          }
         }
       }
     }

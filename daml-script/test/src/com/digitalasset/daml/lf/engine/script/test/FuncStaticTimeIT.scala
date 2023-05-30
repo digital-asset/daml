@@ -5,7 +5,7 @@ package com.daml.lf.engine.script.test
 
 import com.daml.lf.data.Ref.QualifiedName
 import com.daml.lf.data.Time.Timestamp
-import com.daml.lf.engine.script.ledgerinteraction.ScriptTimeMode
+import com.daml.lf.engine.script.ScriptTimeMode
 import com.daml.lf.speedy.SValue.SRecord
 
 final class FuncStaticTimeIT extends AbstractFuncIT {

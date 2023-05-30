@@ -79,12 +79,6 @@ module Daml.Script
   , listUserRightsOn
   , submitUser
   , submitUserOn
-
-  -- Package management (IDE Ledger only)
-  , enablePackages
-  , disablePackages
-  , listPackages
-  , PackageName (..)
   ) where
 
 #ifdef DAML_EXCEPTIONS
@@ -152,9 +146,6 @@ data ScriptF a
   | GrantUserRights (GrantUserRightsPayload a)
   | RevokeUserRights (RevokeUserRightsPayload a)
   | ListUserRights (ListUserRightsPayload a)
-  | EnablePackages (PackagesPayload a)
-  | DisablePackages (PackagesPayload a)
-  | ListPackages (ListPackagesPayload a)
 #ifndef DAML_EXCEPTIONS
   deriving Functor
 #else
@@ -1050,23 +1041,6 @@ submitUser' userId participant cmds = do
   let readAs = [ p | CanReadAs p <- rights ]
   submitMulti actAs readAs cmds
 
-enablePackages : HasCallStack => [PackageName] -> Script ()
-enablePackages packages = lift $ Free $ EnablePackages PackagesPayload with
-  packages = packages
-  continue = pure
-  locations = getCallStack callStack
-
-disablePackages : HasCallStack => [PackageName] -> Script ()
-disablePackages packages = lift $ Free $ DisablePackages PackagesPayload with
-  packages = packages
-  continue = pure
-  locations = getCallStack callStack
-
-listPackages : HasCallStack => Script [PackageName]
-listPackages = lift $ Free $ ListPackages ListPackagesPayload with
-  continue = pure
-  locations = getCallStack callStack
-
 data ValidateUserIdPayload a = ValidateUserIdPayload
   with
     name : Text
@@ -1131,25 +1105,3 @@ data ListUserRightsPayload a = ListUserRightsPayload
     continue : Optional [UserRight] -> a
     locations : [(Text, SrcLoc)]
   deriving Functor
-
-data PackagesPayload a = PackagesPayload
-  with
-    packages : [PackageName]
-    continue : () -> a
-    locations : [(Text, SrcLoc)]
-  deriving Functor
-
-data ListPackagesPayload a = ListPackagesPayload
-  with
-    continue : [PackageName] -> a
-    locations : [(Text, SrcLoc)]
-  deriving Functor
-
-data PackageName = PackageName
-  with
-    name : Text
-    version : Text
-  deriving (Eq, Ord)
-
-instance Show PackageName where
-  show (PackageName name version) = name <> "-" <> version

@@ -10,6 +10,8 @@ Templates
 
 **template** `Asset <type-qualifiedinterface-asset-82061_>`_
 
+  Signatory\: issuer, owner
+
   .. list-table::
      :widths: 15 10 30
      :header-rows: 1
@@ -27,7 +29,9 @@ Templates
        - `Int <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-37261>`_
        -
 
-  + **Choice Archive**
+  + **Choice** Archive
+
+    Controller\: issuer, owner
 
     Returns\: ()
 

@@ -6,7 +6,6 @@ package simulation
 
 import akka.actor.typed.{ActorRef, ActorSystem, Behavior, ChildFailed, SupervisorStrategy}
 import akka.actor.typed.scaladsl.Behaviors
-import akka.stream.Materializer
 import com.daml.ledger.api.refinements.ApiTypes
 import com.daml.ledger.client.LedgerClient
 import com.daml.lf.engine.trigger.simulation.process.TriggerProcessFactory
@@ -16,7 +15,7 @@ import org.scalatest.wordspec.AsyncWordSpec
 
 import java.nio.file.{Files, Path}
 import scala.concurrent.duration._
-import scala.concurrent.{ExecutionContext, Promise}
+import scala.concurrent.Promise
 
 abstract class TriggerMultiProcessSimulation extends AsyncWordSpec with AbstractTriggerTest {
 
@@ -24,13 +23,6 @@ abstract class TriggerMultiProcessSimulation extends AsyncWordSpec with Abstract
 
   protected implicit lazy val simulationConfig: TriggerSimulationConfig =
     TriggerSimulationConfig()
-
-  protected implicit lazy val simulation: ActorSystem[Message] =
-    ActorSystem(triggerMultiProcessSimulationWithTimeout, "simulation")
-
-  override implicit lazy val materializer: Materializer = Materializer(simulation)
-
-  override implicit lazy val executionContext: ExecutionContext = materializer.executionContext
 
   override protected def triggerRunnerConfiguration: TriggerRunnerConfig =
     super.triggerRunnerConfiguration.copy(hardLimit =
@@ -41,6 +33,9 @@ abstract class TriggerMultiProcessSimulation extends AsyncWordSpec with Abstract
   private val simulationTerminatedNormally = Promise[Unit]()
 
   "Multi process trigger simulation" in {
+    val simulation: ActorSystem[Message] =
+      ActorSystem(triggerMultiProcessSimulationWithTimeout, "simulation")
+
     for {
       _ <- simulation.whenTerminated
       _ <- simulationTerminatedNormally.future

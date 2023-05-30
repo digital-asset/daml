@@ -43,7 +43,6 @@ test_evidence_binary(
         "//ledger-service/http-json:integration-tests-lib",
         "//ledger-service/http-json:tests-ce",
         "//ledger-service/utils",
-        "//ledger/sandbox-on-x:sandbox-on-x-it-tests-lib",
         "//libs-scala/jwt:tests-lib",
         "//triggers/service:test",
         "//triggers/service/auth:oauth2-middleware-tests",

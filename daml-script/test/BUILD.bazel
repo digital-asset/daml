@@ -181,6 +181,15 @@ daml_compile(
 )
 
 daml_compile(
+    name = "coin-v2-new-field",
+    srcs = [":upgrades/coin-v2-new-field/Coin.daml"],
+    project_name = "coin",
+    target = "1.dev",
+    upgrades = "//daml-script/test:coin-v1.dar",
+    version = "2.0.0",
+)
+
+daml_compile(
     name = "coin-v3",
     srcs = [":upgrades/coin-v3/Coin.daml"],
     project_name = "coin",
@@ -202,6 +211,25 @@ daml_compile(
     module_prefixes = {
         "coin-1.0.0": "Coin_1_0_0",
         "coin-2.0.0": "Coin_2_0_0",
+    },
+    project_name = "coin-upgrade",
+    target = "1.dev",
+    version = "2.0.0",
+)
+
+daml_compile(
+    name = "coin-upgrade-v1-v2-new-field",
+    srcs = [":upgrades/coin-upgrade-v1-v2-new-field/CoinUpgrade.daml"],
+    data_dependencies = [
+        "//daml-script/test:coin-v1.dar",
+        "//daml-script/test:coin-v2-new-field.dar",
+    ],
+    dependencies = [
+        "//daml-script/daml:daml-script-1.dev.dar",
+    ],
+    module_prefixes = {
+        "coin-1.0.0": "Coin_1",
+        "coin-2.0.0": "Coin_2",
     },
     project_name = "coin-upgrade",
     target = "1.dev",
@@ -232,9 +260,11 @@ da_scala_test_suite(
     srcs = glob(["src/com/**/*.scala"]),
     data = [
         ":coin-upgrade-v1-v2.dar",
+        ":coin-upgrade-v1-v2-new-field.dar",
         ":coin-upgrade-v1-v3.dar",
         ":coin-v1.dar",
         ":coin-v2.dar",
+        ":coin-v2-new-field.dar",
         ":coin-v3.dar",
         ":script-test.dar",
         ":script-test-1.dev.dar",
@@ -276,15 +306,9 @@ da_scala_test_suite(
         "//ledger-service/lf-value-json",
         "//ledger-service/metrics",
         "//ledger-service/utils",
-        "//ledger/caching",
         "//ledger/ledger-api-auth",
         "//ledger/ledger-api-common",
-        "//ledger/ledger-configuration",
-        "//ledger/ledger-runner-common",
-        "//ledger/metrics",
-        "//ledger/participant-integration-api",
-        "//ledger/participant-integration-api:participant-integration-api-tests-lib",
-        "//ledger/participant-state",
+        "//libs-scala/caching",
         "//libs-scala/contextualized-logging",
         "//libs-scala/fs-utils",
         "//libs-scala/jwt",

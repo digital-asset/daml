@@ -6,7 +6,7 @@ package test
 
 import com.daml.lf.data.FrontStack
 import com.daml.lf.data.Ref._
-import com.daml.lf.engine.script.ledgerinteraction.ScriptTimeMode
+import com.daml.lf.engine.script.ScriptTimeMode
 import com.daml.lf.speedy.SValue._
 import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers

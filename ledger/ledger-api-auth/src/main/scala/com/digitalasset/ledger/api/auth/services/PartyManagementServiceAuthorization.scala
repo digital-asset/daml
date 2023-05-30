@@ -6,8 +6,6 @@ package com.daml.ledger.api.auth.services
 import com.daml.ledger.api.auth.Authorizer
 import com.daml.ledger.api.v1.admin.party_management_service.PartyManagementServiceGrpc.PartyManagementService
 import com.daml.ledger.api.v1.admin.party_management_service._
-import com.daml.platform.api.grpc.GrpcApiService
-import com.daml.platform.server.api.ProxyCloseable
 import io.grpc.ServerServiceDefinition
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -68,7 +66,7 @@ private[daml] final class PartyManagementServiceAuthorization(
 
   override def close(): Unit = service.close()
 
-  override def updateUserIdentityProviderId(
+  override def updatePartyIdentityProviderId(
       request: UpdatePartyIdentityProviderRequest
   ): Future[UpdatePartyIdentityProviderResponse] = throw new UnsupportedOperationException()
 }

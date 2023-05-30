@@ -1054,22 +1054,26 @@ private final class OracleQueries(
 
   private[http] override def equalAtContractPath(path: JsonPath, literal: JsValue): Fragment = {
     val opath: Cord = '$' -: pathSteps(path)
+
+    def eqJsonScalar(pred: String, extension: Fragment) =
+      sql"JSON_EXISTS($contractColumnName, ${oracleShortPathEscape(opath ++ Cord(pred))}$extension)"
+
+    // Oracle conflates empty string and NULL
+    def eqEmptyString =
+      sql"""JSON_VALUE($contractColumnName, ${oracleShortPathEscape(opath)}) IS NULL"""
+
+    def eqJsonNonScalar =
+      sql"JSON_EQUAL(JSON_QUERY($contractColumnName, ${oracleShortPathEscape(opath)} RETURNING CLOB), $literal)"
+
     // you cannot put a positional parameter in a path, which _must_ be a literal
     // so pass it as the path-local variable X instead
-    val predExtension = literal match {
-      case JsNumber(n) => Some(("?(@ == $X)", passingNumberAsX(n)))
-      case JsString(s) => Some(("?(@ == $X)", passingStringAsX(s)))
-      case JsTrue | JsFalse | JsNull => Some((s"?(@ == $literal)", sql""))
-      case JsObject(_) | JsArray(_) => None
+    literal match {
+      case JsNumber(n) => eqJsonScalar("?(@ == $X)", passingNumberAsX(n))
+      case JsString("") => eqEmptyString
+      case JsString(s) => eqJsonScalar("?(@ == $X)", passingStringAsX(s))
+      case JsTrue | JsFalse | JsNull => eqJsonScalar(s"?(@ == $literal)", sql"")
+      case JsObject(_) | JsArray(_) => eqJsonNonScalar
     }
-    predExtension.cata(
-      { case (pred, extension) =>
-        sql"JSON_EXISTS($contractColumnName, " ++
-          sql"${oracleShortPathEscape(opath ++ Cord(pred))}$extension)"
-      },
-      sql"JSON_EQUAL(JSON_QUERY($contractColumnName, " ++
-        sql"${oracleShortPathEscape(opath)} RETURNING CLOB), $literal)",
-    )
   }
 
   // XXX JsValue is _too big_ a type for `literal`; we can make this function
@@ -1116,24 +1120,49 @@ private final class OracleQueries(
       op: OrderOperator,
       literalScalar: JsValue,
   ) = {
-    val passingValueAsX = literalScalar match {
-      case JsNumber(n) => passingNumberAsX(n)
-      case JsString(s) => passingStringAsX(s)
+    import OrderOperator._
+
+    def compareJsonValue(passingValueAsX: Fragment): Fragment = {
+      val opc = op match {
+        case LT => "<"
+        case LTEQ => "<="
+        case GT => ">"
+        case GTEQ => ">="
+      }
+      val pathc = ('$' -: pathSteps(path)) ++ s"?(@ $opc ${"$X"})"
+      sql"""JSON_EXISTS($contractColumnName, ${oracleShortPathEscape(pathc)}${passingValueAsX})"""
+    }
+
+    // Oracle conflates "" and NULL, which makes comparison operations against the empty string surprising.
+    // This attempts to implement the semantic meaning of the comparison operators against an empty string on Oracle.
+    def compareEmptyString = {
+      op match {
+        case LT =>
+          // Always false, as no string value can be < ""
+          sql"(0=1)"
+        case LTEQ =>
+          // True iff value is empty string
+          equalAtContractPath(path, literalScalar)
+        case GT => {
+          // True iff value is a non-empty string.
+          val jsonPath = '$' -: pathSteps(path)
+          sql"""JSON_VALUE($contractColumnName, ${oracleShortPathEscape(jsonPath)}) IS NOT NULL"""
+        }
+        case GTEQ =>
+          // Always true, as all string values are >= ""
+          sql"(1=1)"
+      }
+    }
+
+    literalScalar match {
+      case JsNumber(s) => compareJsonValue(passingNumberAsX(s))
+      case JsString("") => compareEmptyString
+      case JsString(s) => compareJsonValue(passingStringAsX(s))
       case JsNull | JsTrue | JsFalse | JsArray(_) | JsObject(_) =>
         throw new IllegalArgumentException(
           s"${literalScalar.compactPrint} is not comparable in JSON queries"
         )
     }
-    import OrderOperator._
-    val opc = op match {
-      case LT => "<"
-      case LTEQ => "<="
-      case GT => ">"
-      case GTEQ => ">="
-    }
-    val pathc = ('$' -: pathSteps(path)) ++ s"?(@ $opc ${"$X"})"
-    sql"JSON_EXISTS($contractColumnName, " ++
-      sql"""${oracleShortPathEscape(pathc)}${passingValueAsX})"""
   }
 
   protected override def insertTemplateIdIfNotExists(

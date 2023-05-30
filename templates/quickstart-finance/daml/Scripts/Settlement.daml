@@ -96,7 +96,7 @@ runSettlement = do
   -- ROUTE_PROVIDER_BEGIN
   routeProviderCid <- toInterfaceContractId @RouteProvider.I <$> submit bank do
     createCmd SingleCustodian with
-      provider = bank; observers = S.fromList [alice, bob] ; custodian = bank
+      provider = bank; observers = S.fromList [alice, bob]; custodian = bank
   -- ROUTE_PROVIDER_END
 
   -- Setup a Settlement Factory facility
@@ -117,7 +117,7 @@ runSettlement = do
       payQuantity = qty 1000.0 usdInstrument
       proposer = bob
       counterparty = alice
-      routeProviderCid
+      routeProviderCid -- This is equivalent to writing routeProviderCid = routeProviderCid
       settlementFactoryCid
   -- DVP_PROPOSE_END
 
@@ -159,7 +159,7 @@ runSettlement = do
       actors = singleton bob
   -- SETTLE_END
 
-  pure $ SettlementState with
+  pure SettlementState with
     alice
     bank
     bob

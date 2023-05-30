@@ -112,7 +112,7 @@ runLifecycling = do
     exerciseCmd lifecycleClaimRuleCid Claim.ClaimEffect with
       claimer = bob
       holdingCids = [bobHoldingCid]
-      effectCid
+      effectCid -- This is equivalent to writing effectCid = effectCid
       batchId = Id "DistributionSettlement"
   let [bobInstructionCid, bankInstructionCid, couponInstructionCid] = result.instructionCids
   -- CLAIM_EVENT_END

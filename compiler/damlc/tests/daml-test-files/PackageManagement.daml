@@ -1,8 +1,0 @@
-module PackageManagement where
-
-import Daml.Script
-
-main : Script ()
-main = do
-  pkgs <- listPackages
-  error $ show pkgs

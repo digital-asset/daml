@@ -22,13 +22,9 @@ da_scala_library(
     ],
     deps = [
         "//daml-lf/data",
-        "//ledger/caching",
         "//ledger/ledger-api-common",
         "//ledger/ledger-api-domain",
-        "//ledger/metrics",
         "//libs-scala/contextualized-logging",
-        "//observability/metrics",
-        "@maven//:com_github_ben_manes_caffeine_caffeine",
     ],
 )
 
@@ -81,7 +77,6 @@ da_scala_test_suite(
         ":participant-local-store-tests-lib",
         "//daml-lf/data",
         "//ledger/ledger-api-domain",
-        "//ledger/metrics",
         "//libs-scala/contextualized-logging",
         "//libs-scala/ledger-resources",
         "//libs-scala/ledger-resources:ledger-resources-test-lib",
