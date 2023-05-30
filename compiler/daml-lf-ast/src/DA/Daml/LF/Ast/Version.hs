@@ -162,6 +162,13 @@ featurePackageUpgrades = Feature
     , featureCppFlag = Just "DAML_PACKAGE_UPGRADES"
     }
 
+featureNatTypeErasure :: Feature
+featureNatTypeErasure = Feature
+    { featureName = "Erasing types of kind Nat"
+    , featureMinVersion = versionDev
+    , featureCppFlag = Just "DAML_NAT_TYPE_ERASURE"
+    }
+
 featureExperimental :: Feature
 featureExperimental = Feature
     { featureName = "Daml Experimental"
@@ -187,6 +194,7 @@ allFeatures =
     , featureExperimental
     , featureDynamicExercise
     , featurePackageUpgrades
+    , featureNatTypeErasure
     ]
 
 featureVersionMap :: MS.Map T.Text Version
