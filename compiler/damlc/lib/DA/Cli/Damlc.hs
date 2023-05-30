@@ -232,7 +232,7 @@ cmdTest numProcessors =
       <$> projectOpts "daml test"
       <*> filesOpt
       <*> fmap RunAllTests runAllTests
-      <*> fmap AggregateResultsOnly aggregateResultsOnly
+      <*> fmap LoadCoverageOnly loadCoverageOnly
       <*> fmap ShowCoverage showCoverageOpt
       <*> fmap UseColor colorOutput
       <*> junitOutput
@@ -254,17 +254,17 @@ cmdTest numProcessors =
     tableOutputPathOpt = optional $ strOptionOnce $ long "table-output" <> help "Filename to which table should be output"
     transactionsOutputPathOpt = optional $ strOptionOnce $ long "transactions-output" <> help "Filename to which the transaction list should be output"
     resultsIOOpt =
-      let readResultsPaths = many $ Options.Applicative.strOption $ long "read-results" <> help "File to read prior test results from. Can be specified more than once."
-          writeResultsPath = optional $ strOptionOnce $ long "write-results" <> help "File to write test results to."
+      let loadCoveragePaths = many $ Options.Applicative.strOption $ long "load-coverage" <> help "File to read prior coverage results from. Can be specified more than once."
+          saveCoveragePath = optional $ strOptionOnce $ long "save-coverage" <> help "File to write final aggregated coverage results to."
       in
-      ResultsIO <$> readResultsPaths <*> writeResultsPath
-    aggregateResultsOnly = switch $ long "aggregate-only" <> help "Don't run any tests - only read results from files and write the aggregate to a single file."
+      ResultsIO <$> loadCoveragePaths <*> saveCoveragePath
+    loadCoverageOnly = switch $ long "load-coverage-only" <> help "Don't run any tests - only load coverage results from files and write the aggregate to a single file."
 
 runTestsInProjectOrFiles ::
        ProjectOpts
     -> Maybe [FilePath]
     -> RunAllTests
-    -> AggregateResultsOnly
+    -> LoadCoverageOnly
     -> ShowCoverage
     -> UseColor
     -> Maybe FilePath
@@ -274,14 +274,14 @@ runTestsInProjectOrFiles ::
     -> TransactionsOutputPath
     -> ResultsIO
     -> Command
-runTestsInProjectOrFiles projectOpts mbInFiles allTests (AggregateResultsOnly True) coverage _ _ _ _ _ _ resultsIO = Command Test (Just projectOpts) effect
+runTestsInProjectOrFiles projectOpts mbInFiles allTests (LoadCoverageOnly True) coverage _ _ _ _ _ _ resultsIO = Command Test (Just projectOpts) effect
   where effect = do
           when (getRunAllTests allTests) $ do
-            hPutStrLn stderr "Cannot specify --all and --aggregate-only at the same time."
+            hPutStrLn stderr "Cannot specify --all and --load-coverage-only at the same time."
             exitFailure
           case mbInFiles of
             Just _ -> do
-              hPutStrLn stderr "Cannot specify --all and --aggregate-only at the same time."
+              hPutStrLn stderr "Cannot specify --all and --load-coverage-only at the same time."
               exitFailure
             Nothing -> do
               loadAggregatePrintResults resultsIO coverage Nothing

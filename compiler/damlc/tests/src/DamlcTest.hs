@@ -690,7 +690,7 @@ testsForDamlcTest damlc scriptDar _ = testGroup "damlc test" $
                 [ "test"
                 , "--project-root", projDir
                 , "-p", "testT1"
-                , "--write-results", projDir </> "testT1-results"
+                , "--save-coverage", projDir </> "testT1-results"
                 ]
                 ""
           stderr @?= ""
@@ -702,7 +702,7 @@ testsForDamlcTest damlc scriptDar _ = testGroup "damlc test" $
                 [ "test"
                 , "--project-root", projDir
                 , "-p", "testBoth"
-                , "--write-results", projDir </> "testBoth-results"
+                , "--save-coverage", projDir </> "testBoth-results"
                 ]
                 ""
           stderr @?= ""
@@ -713,7 +713,7 @@ testsForDamlcTest damlc scriptDar _ = testGroup "damlc test" $
               damlc
                 [ "test"
                 , "--project-root", projDir
-                , "--write-results", projDir </> "test-all-results"
+                , "--save-coverage", projDir </> "test-all-results"
                 ]
                 ""
           stderr @?= ""
@@ -724,13 +724,13 @@ testsForDamlcTest damlc scriptDar _ = testGroup "damlc test" $
               damlc
                 [ "test"
                 , "--project-root", projDir
-                , "--aggregate-only"
+                , "--load-coverage-only"
                 ]
                 ""
           stderr @?= ""
           exitCode @?= ExitSuccess
 
-          assertBool ("Coverage with only aggregation and no read-results is empty: " <> stdoutEmptyAggregate)
+          assertBool ("Coverage with only aggregation and no load-coverage is empty: " <> stdoutEmptyAggregate)
             (unlines
               [ "Modules internal to this package:"
               , "- Internal templates"
@@ -746,8 +746,8 @@ testsForDamlcTest damlc scriptDar _ = testGroup "damlc test" $
               damlc
                 [ "test"
                 , "--project-root", projDir
-                , "--aggregate-only"
-                , "--read-results", projDir </> "testT1-results"
+                , "--load-coverage-only"
+                , "--load-coverage", projDir </> "testT1-results"
                 ]
                 ""
           stderr @?= ""
@@ -772,8 +772,8 @@ testsForDamlcTest damlc scriptDar _ = testGroup "damlc test" $
               damlc
                 [ "test"
                 , "--project-root", projDir
-                , "--aggregate-only"
-                , "--read-results", projDir </> "testBoth-results"
+                , "--load-coverage-only"
+                , "--load-coverage", projDir </> "testBoth-results"
                 ]
                 ""
           stderr @?= ""
@@ -798,9 +798,9 @@ testsForDamlcTest damlc scriptDar _ = testGroup "damlc test" $
               damlc
                 [ "test"
                 , "--project-root", projDir
-                , "--aggregate-only"
-                , "--read-results", projDir </> "testT1-results"
-                , "--read-results", projDir </> "testBoth-results"
+                , "--load-coverage-only"
+                , "--load-coverage", projDir </> "testT1-results"
+                , "--load-coverage", projDir </> "testBoth-results"
                 ]
                 ""
           stderr @?= ""
@@ -825,9 +825,9 @@ testsForDamlcTest damlc scriptDar _ = testGroup "damlc test" $
               damlc
                 [ "test"
                 , "--project-root", projDir
-                , "--aggregate-only"
-                , "--read-results", projDir </> "testBoth-results" -- reorder the way in which we read the results, should be identical
-                , "--read-results", projDir </> "testT1-results"
+                , "--load-coverage-only"
+                , "--load-coverage", projDir </> "testBoth-results" -- reorder the way in which we read the results, should be identical
+                , "--load-coverage", projDir </> "testT1-results"
                 ]
                 ""
           stderr @?= ""
@@ -841,7 +841,7 @@ testsForDamlcTest damlc scriptDar _ = testGroup "damlc test" $
               damlc
                 [ "test"
                 , "--project-root", projDir
-                , "--read-results", projDir </> "testT1-results"
+                , "--load-coverage", projDir </> "testT1-results"
                 , "-p", "testBoth"
                 ]
                 ""

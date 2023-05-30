@@ -12,7 +12,7 @@ module DA.Cli.Damlc.Test (
     , TableOutputPath(..)
     , TransactionsOutputPath(..)
     , ResultsIO(..)
-    , AggregateResultsOnly(..)
+    , LoadCoverageOnly(..)
     , loadAggregatePrintResults
     -- , Summarize(..)
     ) where
@@ -64,10 +64,10 @@ newtype RunAllTests = RunAllTests {getRunAllTests :: Bool}
 newtype TableOutputPath = TableOutputPath {getTableOutputPath :: Maybe String}
 newtype TransactionsOutputPath = TransactionsOutputPath {getTransactionsOutputPath :: Maybe String}
 data ResultsIO = ResultsIO
-    { readResultsPaths :: [String]
-    , writeResultsPath :: Maybe String
+    { loadCoveragePaths :: [String]
+    , saveCoveragePath :: Maybe String
     }
-newtype AggregateResultsOnly = AggregateResultsOnly {getAggregateResultsOnly :: Bool}
+newtype LoadCoverageOnly = LoadCoverageOnly {getLoadCoverageOnly :: Bool}
 
 -- | Test a Daml file.
 execTest :: [NormalizedFilePath] -> RunAllTests -> ShowCoverage -> UseColor -> Maybe FilePath -> Options -> TableOutputPath -> TransactionsOutputPath -> ResultsIO -> IO ()
@@ -80,7 +80,7 @@ execTest inFiles runAllTests coverage color mbJUnitOutput opts tableOutputPath t
 
 loadAggregatePrintResults :: ResultsIO -> ShowCoverage -> Maybe TR.TestResults -> IO ()
 loadAggregatePrintResults resultsIO coverage mbNewTestResults = do
-    loadedTestResults <- forM (readResultsPaths resultsIO) $ \trPath -> do
+    loadedTestResults <- forM (loadCoveragePaths resultsIO) $ \trPath -> do
         let np = NamedPath ("Input test result '" ++ trPath ++ "'") trPath
         tryWithPath TR.loadTestResults np
     let aggregatedTestResults = fold mbNewTestResults <> fold (catMaybes (catMaybes loadedTestResults))
@@ -90,9 +90,9 @@ loadAggregatePrintResults resultsIO coverage mbNewTestResults = do
         (getShowCoverage coverage)
         aggregatedTestResults
 
-    case writeResultsPath resultsIO of
-      Just writeResultsPath -> do
-          let np = NamedPath ("Results output path from --write-results '" ++ writeResultsPath ++ "'") writeResultsPath
+    case saveCoveragePath resultsIO of
+      Just saveCoveragePath -> do
+          let np = NamedPath ("Results output path from --save-coverage '" ++ saveCoveragePath ++ "'") saveCoveragePath
           _ <- tryWithPath (flip TR.saveTestResults aggregatedTestResults) np
           pure ()
       _ -> pure ()
