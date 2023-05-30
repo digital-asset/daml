@@ -263,4 +263,17 @@ object Converter extends script.ConverterMethods {
       ScriptLedgerClient.TransactionTree(rootEvents)
     }
   }
+
+  // Encodes as Daml.Script.PackageName
+  def fromReadablePackageId(
+      scriptIds: ScriptIds,
+      packageName: ScriptLedgerClient.ReadablePackageId,
+  ): SValue = {
+    val packageNameTy = scriptIds.damlScript("PackageName")
+    record(
+      packageNameTy,
+      ("name", SText(packageName.name.toString)),
+      ("version", SText(packageName.version.toString)),
+    )
+  }
 }

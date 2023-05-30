@@ -61,6 +61,12 @@ object ScriptLedgerClient {
       case abstractLedgers.IdeLedgerClient(compiledPackages, traceLog, warningLog, canceled) =>
         new IdeLedgerClient(compiledPackages, traceLog, warningLog, canceled)
     }
+
+  // Essentially PackageMetadata but without the possibility of extension
+  final case class ReadablePackageId(
+      name: PackageName,
+      version: PackageVersion,
+  )
 }
 
 // This abstracts over the interaction with the ledger. This allows

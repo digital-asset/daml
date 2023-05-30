@@ -12,6 +12,7 @@ import com.daml.ledger.api.domain.{User, UserRight}
 import com.daml.lf.data.FrontStack
 import com.daml.lf.{CompiledPackages, command}
 import com.daml.lf.engine.preprocessing.ValueTranslator
+import com.daml.lf.engine.script.v2.ledgerinteraction.ScriptLedgerClient
 import com.daml.lf.data.Ref.{
   Identifier,
   Name,
@@ -56,7 +57,7 @@ object ScriptF {
   final class Env(
       val scriptIds: ScriptIds,
       val timeMode: ScriptTimeMode,
-      private var _clients: Participants[v2.ledgerinteraction.ScriptLedgerClient],
+      private var _clients: Participants[ScriptLedgerClient],
       machine: PureMachine,
   ) {
     def clients = _clients
