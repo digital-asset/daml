@@ -283,6 +283,12 @@ convertPrim version "USoftFetch" ty@(TContractId (TCon template) :-> TUpdate (TC
     ETmLam (mkVar "this", TContractId (TCon template)) $
     EUpdate $ USoftFetch template (EVar (mkVar "this"))
 
+convertPrim version "USoftExercise"
+    ty@(TContractId (TCon _template) :-> TCon _choice :-> TUpdate _returnTy) =
+    pure $
+    whenRuntimeSupports version featurePackageUpgrades ty
+    EUnit -- TODO: fix after https://github.com/digital-asset/daml/pull/16893 is merged
+
 convertPrim _ "UFetchInterface" (TContractId (TCon iface) :-> TUpdate (TCon iface'))
     | iface == iface' =
     pure $
