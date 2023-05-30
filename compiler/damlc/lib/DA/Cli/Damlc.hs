@@ -244,7 +244,7 @@ cmdTest numProcessors =
       <*> initPkgDbOpt
       <*> fmap TableOutputPath tableOutputPathOpt
       <*> fmap TransactionsOutputPath transactionsOutputPathOpt
-      <*> resultsIOOpt
+      <*> coveragePathsOpt
     filesOpt = optional (flag' () (long "files" <> help filesDoc) *> many inputFileOpt)
     filesDoc = "Only run test declarations in the specified files."
     junitOutput = optional $ strOptionOnce $ long "junit" <> metavar "FILENAME" <> help "Filename of JUnit output file"
@@ -253,11 +253,11 @@ cmdTest numProcessors =
     runAllTests = switch $ long "all" <> help "Run tests in current project as well as dependencies"
     tableOutputPathOpt = optional $ strOptionOnce $ long "table-output" <> help "Filename to which table should be output"
     transactionsOutputPathOpt = optional $ strOptionOnce $ long "transactions-output" <> help "Filename to which the transaction list should be output"
-    resultsIOOpt =
+    coveragePathsOpt =
       let loadCoveragePaths = many $ Options.Applicative.strOption $ long "load-coverage" <> help "File to read prior coverage results from. Can be specified more than once."
           saveCoveragePath = optional $ strOptionOnce $ long "save-coverage" <> help "File to write final aggregated coverage results to."
       in
-      ResultsIO <$> loadCoveragePaths <*> saveCoveragePath
+      CoveragePaths <$> loadCoveragePaths <*> saveCoveragePath
     loadCoverageOnly = switch $ long "load-coverage-only" <> help "Don't run any tests - only load coverage results from files and write the aggregate to a single file."
 
 runTestsInProjectOrFiles ::
@@ -272,9 +272,9 @@ runTestsInProjectOrFiles ::
     -> InitPkgDb
     -> TableOutputPath
     -> TransactionsOutputPath
-    -> ResultsIO
+    -> CoveragePaths
     -> Command
-runTestsInProjectOrFiles projectOpts mbInFiles allTests (LoadCoverageOnly True) coverage _ _ _ _ _ _ resultsIO = Command Test (Just projectOpts) effect
+runTestsInProjectOrFiles projectOpts mbInFiles allTests (LoadCoverageOnly True) coverage _ _ _ _ _ _ coveragePaths = Command Test (Just projectOpts) effect
   where effect = do
           when (getRunAllTests allTests) $ do
             hPutStrLn stderr "Cannot specify --all and --load-coverage-only at the same time."
@@ -284,8 +284,8 @@ runTestsInProjectOrFiles projectOpts mbInFiles allTests (LoadCoverageOnly True) 
               hPutStrLn stderr "Cannot specify --all and --load-coverage-only at the same time."
               exitFailure
             Nothing -> do
-              loadAggregatePrintResults resultsIO coverage Nothing
-runTestsInProjectOrFiles projectOpts Nothing allTests _ coverage color mbJUnitOutput cliOptions initPkgDb tableOutputPath transactionsOutputPath resultsIO = Command Test (Just projectOpts) effect
+              loadAggregatePrintResults coveragePaths coverage Nothing
+runTestsInProjectOrFiles projectOpts Nothing allTests _ coverage color mbJUnitOutput cliOptions initPkgDb tableOutputPath transactionsOutputPath coveragePaths = Command Test (Just projectOpts) effect
   where effect = withExpectProjectRoot (projectRoot projectOpts) "daml test" $ \pPath relativize -> do
         installDepsAndInitPackageDb cliOptions initPkgDb
         mbJUnitOutput <- traverse relativize mbJUnitOutput
@@ -295,13 +295,13 @@ runTestsInProjectOrFiles projectOpts Nothing allTests _ coverage color mbJUnitOu
             -- Therefore we keep the behavior of only passing the root file
             -- if source points to a specific file.
             files <- getDamlRootFiles pSrc
-            execTest files allTests coverage color mbJUnitOutput cliOptions tableOutputPath transactionsOutputPath resultsIO
-runTestsInProjectOrFiles projectOpts (Just inFiles) allTests _ coverage color mbJUnitOutput cliOptions initPkgDb tableOutputPath transactionsOutputPath resultsIO = Command Test (Just projectOpts) effect
+            execTest files allTests coverage color mbJUnitOutput cliOptions tableOutputPath transactionsOutputPath coveragePaths
+runTestsInProjectOrFiles projectOpts (Just inFiles) allTests _ coverage color mbJUnitOutput cliOptions initPkgDb tableOutputPath transactionsOutputPath coveragePaths = Command Test (Just projectOpts) effect
   where effect = withProjectRoot' projectOpts $ \relativize -> do
         installDepsAndInitPackageDb cliOptions initPkgDb
         mbJUnitOutput <- traverse relativize mbJUnitOutput
         inFiles' <- mapM (fmap toNormalizedFilePath' . relativize) inFiles
-        execTest inFiles' allTests coverage color mbJUnitOutput cliOptions tableOutputPath transactionsOutputPath resultsIO
+        execTest inFiles' allTests coverage color mbJUnitOutput cliOptions tableOutputPath transactionsOutputPath coveragePaths
 
 cmdInspect :: Mod CommandFields Command
 cmdInspect =

@@ -11,7 +11,7 @@ module DA.Cli.Damlc.Test (
     , RunAllTests(..)
     , TableOutputPath(..)
     , TransactionsOutputPath(..)
-    , ResultsIO(..)
+    , CoveragePaths(..)
     , LoadCoverageOnly(..)
     , loadAggregatePrintResults
     -- , Summarize(..)
@@ -63,14 +63,14 @@ newtype ShowCoverage = ShowCoverage {getShowCoverage :: Bool}
 newtype RunAllTests = RunAllTests {getRunAllTests :: Bool}
 newtype TableOutputPath = TableOutputPath {getTableOutputPath :: Maybe String}
 newtype TransactionsOutputPath = TransactionsOutputPath {getTransactionsOutputPath :: Maybe String}
-data ResultsIO = ResultsIO
+data CoveragePaths = CoveragePaths
     { loadCoveragePaths :: [String]
     , saveCoveragePath :: Maybe String
     }
 newtype LoadCoverageOnly = LoadCoverageOnly {getLoadCoverageOnly :: Bool}
 
 -- | Test a Daml file.
-execTest :: [NormalizedFilePath] -> RunAllTests -> ShowCoverage -> UseColor -> Maybe FilePath -> Options -> TableOutputPath -> TransactionsOutputPath -> ResultsIO -> IO ()
+execTest :: [NormalizedFilePath] -> RunAllTests -> ShowCoverage -> UseColor -> Maybe FilePath -> Options -> TableOutputPath -> TransactionsOutputPath -> CoveragePaths -> IO ()
 execTest inFiles runAllTests coverage color mbJUnitOutput opts tableOutputPath transactionsOutputPath resultsIO = do
     loggerH <- getLogger opts "test"
     withDamlIdeState opts loggerH diagnosticsLogger $ \h -> do
@@ -78,7 +78,7 @@ execTest inFiles runAllTests coverage color mbJUnitOutput opts tableOutputPath t
         diags <- getDiagnostics h
         when (any (\(_, _, diag) -> Just DsError == _severity diag) diags) exitFailure
 
-loadAggregatePrintResults :: ResultsIO -> ShowCoverage -> Maybe TR.TestResults -> IO ()
+loadAggregatePrintResults :: CoveragePaths -> ShowCoverage -> Maybe TR.TestResults -> IO ()
 loadAggregatePrintResults resultsIO coverage mbNewTestResults = do
     loadedTestResults <- forM (loadCoveragePaths resultsIO) $ \trPath -> do
         let np = NamedPath ("Input test result '" ++ trPath ++ "'") trPath
@@ -107,7 +107,7 @@ testRun ::
     -> Maybe FilePath
     -> TableOutputPath
     -> TransactionsOutputPath
-    -> ResultsIO
+    -> CoveragePaths
     -> IO ()
 testRun h inFiles lfVersion (RunAllTests runAllTests) coverage color mbJUnitOutput tableOutputPath transactionsOutputPath resultsIO = do
     -- make sure none of the files disappear
