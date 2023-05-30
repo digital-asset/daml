@@ -14,7 +14,7 @@ import com.daml.http.util.ApiValueToLfValueConverter.apiValueToLfValue
 import com.daml.http.json.JsonProtocol.LfValueDatabaseCodec.{
   apiValueToJsValue => lfValueToDbJsValue
 }
-import com.daml.http.util.Logging.{InstanceUUID}
+import com.daml.http.util.Logging.{InstanceUUID, RequestID}
 import com.daml.fetchcontracts.util.{
   AbsoluteBookmark,
   BeginBookmark,
@@ -38,7 +38,7 @@ import scalaz.syntax.functor._
 import scalaz.syntax.foldable._
 import scalaz.syntax.order._
 import scalaz.syntax.std.option._
-import scalaz.{~>, \/, NaturalTransformation}
+import scalaz.{NaturalTransformation, \/, ~>}
 import spray.json.{JsNull, JsValue}
 
 import scala.concurrent.ExecutionContext
@@ -69,7 +69,7 @@ private class ContractsFetch(
   )(within: BeginBookmark[Terminates.AtAbsolute] => ConnectionIO[A])(implicit
       ec: ExecutionContext,
       mat: Materializer,
-      lc: LoggingContextOf[InstanceUUID],
+      lc: LoggingContextOf[InstanceUUID with RequestID],
   ): ConnectionIO[A] = {
     import ContractDao.laggingOffsets
     val initTries = 10
@@ -124,7 +124,7 @@ private class ContractsFetch(
   )(implicit
       ec: ExecutionContext,
       mat: Materializer,
-      lc: LoggingContextOf[InstanceUUID],
+      lc: LoggingContextOf[InstanceUUID with RequestID],
   ): ConnectionIO[BeginBookmark[Terminates.AtAbsolute]] =
     connectionIOFuture(getTermination(jwt, ledgerId)(lc)) flatMap {
       _.cata(
@@ -140,7 +140,7 @@ private class ContractsFetch(
   )(implicit
       ec: ExecutionContext,
       mat: Materializer,
-      lc: LoggingContextOf[InstanceUUID],
+      lc: LoggingContextOf[InstanceUUID with RequestID],
   ): ConnectionIO[BeginBookmark[Terminates.AtAbsolute]] = {
     import cats.syntax.traverse.{toTraverseOps => ToTraverseOps}, cats.syntax.functor._
     // we can fetch for all templateIds on a single acsFollowingAndBoundary
@@ -201,7 +201,7 @@ private class ContractsFetch(
   )(implicit
       ec: ExecutionContext,
       mat: Materializer,
-      lc: LoggingContextOf[InstanceUUID],
+      lc: LoggingContextOf[InstanceUUID with RequestID],
   ): ConnectionIO[BeginBookmark[domain.Offset]] = {
 
     import doobie.implicits._, cats.syntax.apply._
@@ -230,7 +230,7 @@ private class ContractsFetch(
   )(implicit
       ec: ExecutionContext,
       mat: Materializer,
-      lc: LoggingContextOf[InstanceUUID],
+      lc: LoggingContextOf[InstanceUUID with RequestID],
   ): ConnectionIO[BeginBookmark[domain.Offset]] = {
     import fetchContext.parties
     for {
@@ -291,7 +291,7 @@ private class ContractsFetch(
   )(implicit
       ec: ExecutionContext,
       mat: Materializer,
-      lc: LoggingContextOf[InstanceUUID],
+      lc: LoggingContextOf[InstanceUUID with RequestID],
   ): ConnectionIO[BeginBookmark[domain.Offset]] = {
 
     import domain.Offset._, fetchContext.{jwt, ledgerId, parties}
@@ -299,93 +299,118 @@ private class ContractsFetch(
 
     // skip if *we don't use the acs* (which can read past absEnd) and current
     // DB is already caught up to absEnd
-    if (startOffset == AbsoluteBookmark(absEnd.toDomain))
-      fconn.pure(startOffset)
-    else {
-      val graph = RunnableGraph.fromGraph(
-        GraphDSL.createGraph(
-          Sink.queue[ConnectionIO[Unit]](),
-          Sink.last[BeginBookmark[domain.Offset]],
-        )(Keep.both) { implicit builder => (acsSink, offsetSink) =>
-          import GraphDSL.Implicits._
-
-          val txnK = getCreatesAndArchivesSince(
-            jwt,
-            ledgerId,
-            transactionFilter(parties, List(templateId)),
-            _: lav1.ledger_offset.LedgerOffset,
-            absEnd,
-          )(lc)
-
-          // include ACS iff starting at LedgerBegin
-          val (idses, lastOff) = (startOffset, oldestVisible) match {
-            // This template has not been loaded before by these parties, nor has any other party
-            // loaded a contract of this template that is visible by any of these parties.
-            // The cache is empty and may be loaded from a snapshot of the ACS.
-            case (LedgerBegin, None) =>
-              val stepsAndOffset = builder add acsFollowingAndBoundary(txnK)
-              stepsAndOffset.in <~ getActiveContracts(
-                jwt,
-                ledgerId,
-                transactionFilter(parties, List(templateId)),
-                true,
-              )(lc)
-              (stepsAndOffset.out0, stepsAndOffset.out1)
-
-            case (LedgerBegin, Some(oldestVisibleOffset)) =>
-              // This template has not been loaded by these parties, but another party has loaded
-              // this template AND in the process contracts have been loaded into cache that were
-              // visible to these parties.
-              // In this case, it's possible that the relevant contracts have since been archived
-              // from the ledger. If we load the cache from an ACS snapshot, we would never learn
-              // about those archivals, so we need to load from transactions instead.
-              // We only need to see transactions after the oldest cache offset of such contracts,
-              // as any archivals prior to that would have already been deleted from the cache.
-              val stepsAndOffset = builder add transactionsFollowingBoundary(txnK)
-              stepsAndOffset.in <~ Source.single(AbsoluteBookmark(oldestVisibleOffset))
-              (
-                (stepsAndOffset: FanOutShape2[_, ContractStreamStep.LAV1, _]).out0,
-                stepsAndOffset.out1,
-              )
-
-            case (AbsoluteBookmark(_), _) =>
-              // This template has been loaded by these parties before.
-              // Update cache with transactions since the last offset.
-              val stepsAndOffset = builder add transactionsFollowingBoundary(txnK)
-              stepsAndOffset.in <~ Source.single(startOffset)
-              (
-                (stepsAndOffset: FanOutShape2[_, ContractStreamStep.LAV1, _]).out0,
-                stepsAndOffset.out1,
-              )
-          }
-
-          val transactInsertsDeletes = Flow
-            .fromFunction(jsonifyInsertDeleteStep)
-            .via(if (sjd.q.queries.allowDamlTransactionBatching) conflation else Flow.apply)
-            .map(insertAndDelete)
-
-          idses.map(_.toInsertDelete) ~> transactInsertsDeletes ~> acsSink
-          lastOff ~> offsetSink
-
-          ClosedShape
-        }
+    if (startOffset == AbsoluteBookmark(absEnd.toDomain)) {
+      logger.debug(
+        s"Contracts for template $templateId are up-to-date at offset $startOffset"
       )
+      fconn.pure(startOffset)
+    } else
+      debugLogAction(s"cache refresh for templateId: $templateId") {
+        val graph = RunnableGraph.fromGraph(
+          GraphDSL.createGraph(
+            Sink.queue[ConnectionIO[Unit]](),
+            Sink.last[BeginBookmark[domain.Offset]],
+          )(Keep.both) { implicit builder => (acsSink, offsetSink) =>
+            import GraphDSL.Implicits._
 
-      val (acsQueue, lastOffsetFuture) = graph.run()
+            val txnK = getCreatesAndArchivesSince(
+              jwt,
+              ledgerId,
+              transactionFilter(parties, List(templateId)),
+              _: lav1.ledger_offset.LedgerOffset,
+              absEnd,
+            )(lc)
 
-      for {
-        _ <- sinkCioSequence_(acsQueue)
-        offset0 <- connectionIOFuture(lastOffsetFuture)
-        offsetOrError <- offset0 max AbsoluteBookmark(absEnd.toDomain) match {
-          case ab @ AbsoluteBookmark(newOffset) =>
-            ContractDao
-              .updateOffset(parties, templateId, newOffset, offsets)
-              .map(_ => ab)
-          case LedgerBegin =>
-            fconn.pure(LedgerBegin)
-        }
-      } yield offsetOrError
-    }
+            // include ACS iff starting at LedgerBegin
+            val (idses, lastOff) = (startOffset, oldestVisible) match {
+              // This template has not been loaded before by these parties, nor has any other party
+              // loaded a contract of this template that is visible by any of these parties.
+              // The cache is empty and may be loaded from a snapshot of the ACS.
+              case (LedgerBegin, None) =>
+                val stepsAndOffset = builder add acsFollowingAndBoundary(txnK)
+                stepsAndOffset.in <~ getActiveContracts(
+                  jwt,
+                  ledgerId,
+                  transactionFilter(parties, List(templateId)),
+                  true,
+                )(lc)
+                (stepsAndOffset.out0, stepsAndOffset.out1)
+
+              case (LedgerBegin, Some(oldestVisibleOffset)) =>
+                // This template has not been loaded by these parties, but another party has loaded
+                // this template AND in the process contracts have been loaded into cache that were
+                // visible to these parties.
+                // In this case, it's possible that the relevant contracts have since been archived
+                // from the ledger. If we load the cache from an ACS snapshot, we would never learn
+                // about those archivals, so we need to load from transactions instead.
+                // We only need to see transactions after the oldest cache offset of such contracts,
+                // as any archivals prior to that would have already been deleted from the cache.
+                val stepsAndOffset = builder add transactionsFollowingBoundary(txnK)
+                stepsAndOffset.in <~ Source.single(AbsoluteBookmark(oldestVisibleOffset))
+                (
+                  (stepsAndOffset: FanOutShape2[_, ContractStreamStep.LAV1, _]).out0,
+                  stepsAndOffset.out1,
+                )
+
+              case (AbsoluteBookmark(_), _) =>
+                // This template has been loaded by these parties before.
+                // Update cache with transactions since the last offset.
+                val stepsAndOffset = builder add transactionsFollowingBoundary(txnK)
+                stepsAndOffset.in <~ Source.single(startOffset)
+                (
+                  (stepsAndOffset: FanOutShape2[_, ContractStreamStep.LAV1, _]).out0,
+                  stepsAndOffset.out1,
+                )
+            }
+
+            val transactInsertsDeletes = Flow
+              .fromFunction(jsonifyInsertDeleteStep)
+              .via(if (sjd.q.queries.allowDamlTransactionBatching) conflation else Flow.apply)
+              .map(insertAndDelete)
+
+            idses.map(_.toInsertDelete) ~> transactInsertsDeletes ~> acsSink
+            lastOff ~> offsetSink
+
+            ClosedShape
+          }
+        )
+
+        val (acsQueue, lastOffsetFuture) = graph.run()
+
+        for {
+          _ <- sinkCioSequence_(acsQueue)
+          offset0 <- connectionIOFuture(lastOffsetFuture)
+          offsetOrError <- offset0 max AbsoluteBookmark(absEnd.toDomain) match {
+            case ab @ AbsoluteBookmark(newOffset) =>
+              ContractDao
+                .updateOffset(parties, templateId, newOffset, offsets)
+                .map(_ => ab)
+            case LedgerBegin =>
+              fconn.pure(LedgerBegin)
+          }
+        } yield offsetOrError
+      }
+  }
+
+  private def debugLogAction[T, C](
+      actionDescription: String
+  )(block: => T)(implicit lc: LoggingContextOf[C]): T = {
+    val startTime = System.nanoTime()
+    logger.debug(s"Starting $actionDescription")
+    val result =
+      try {
+        block
+      } catch {
+        case e: Exception =>
+          logger.error(
+            s"Failed $actionDescription after ${(System.nanoTime() - startTime) / 1000000L}ms because: $e"
+          )
+          throw e
+      }
+    logger.debug(
+      s"Completed $actionDescription in ${(System.nanoTime() - startTime) / 1000000L}ms"
+    )
+    result
   }
 }
 

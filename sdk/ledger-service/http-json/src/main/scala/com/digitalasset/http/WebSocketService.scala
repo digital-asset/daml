@@ -610,7 +610,7 @@ class WebSocketService(
       jwt: Jwt,
       jwtPayload: JwtPayload,
   )(implicit
-      lc: LoggingContextOf[InstanceUUID],
+      lc: LoggingContextOf[InstanceUUID with RequestID],
       metrics: Metrics,
   ): Flow[Message, Message, _] =
     wsMessageHandler[A](jwt, jwtPayload)
@@ -650,7 +650,7 @@ class WebSocketService(
       jwtPayload: JwtPayload,
   )(implicit
       ec: ExecutionContext,
-      lc: LoggingContextOf[InstanceUUID],
+      lc: LoggingContextOf[InstanceUUID with RequestID],
   ): Flow[Message, Message, NotUsed] = {
     val Q = implicitly[StreamQueryReader[A]]
     // use a kill-switch to signal upstream completion (i.e web-socket client-side) to infinite substreams
@@ -702,7 +702,7 @@ class WebSocketService(
       )
       .takeWhile(_.isRight, inclusive = true) // stop after emitting 1st error
       .map(
-        _.fold(e => extendWithRequestIdLogCtx(implicit lc1 => wsErrorMessage(e)), identity): Message
+        _.fold(e => extendWithRequestIdLogCtx(implicit lc => wsErrorMessage(e)), identity): Message
       )
   }
 
@@ -727,7 +727,7 @@ class WebSocketService(
       ledgerId: LedgerApiDomain.LedgerId,
       parties: domain.PartySet,
   )(implicit
-      lc: LoggingContextOf[InstanceUUID]
+      lc: LoggingContextOf[InstanceUUID with RequestID]
   ): Future[Source[StepAndErrors[Positive, JsValue], NotUsed]] =
     contractsService.daoAndFetch.cata(
       { case (dao, fetch) =>
@@ -766,7 +766,7 @@ class WebSocketService(
       offPrefix: Option[domain.StartingOffset],
       rawRequest: A,
   )(implicit
-      lc: LoggingContextOf[InstanceUUID]
+      lc: LoggingContextOf[InstanceUUID with RequestID]
   ): Source[Error \/ Message, NotUsed] = {
     val Q = implicitly[StreamQuery[A]]
 
