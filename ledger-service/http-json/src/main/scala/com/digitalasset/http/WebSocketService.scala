@@ -761,7 +761,7 @@ class WebSocketService(
       jwtPayload: JwtPayload,
   )(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID],
-      metrics: HttpJsonApiMetrics
+      metrics: HttpJsonApiMetrics,
   ): Flow[Message, Message, _] =
     wsMessageHandler[A](jwt, jwtPayload)
       .via(applyConfig)
@@ -801,7 +801,7 @@ class WebSocketService(
   )(implicit
       ec: ExecutionContext,
       lc: LoggingContextOf[InstanceUUID with RequestID],
-      metrics: HttpJsonApiMetrics
+      metrics: HttpJsonApiMetrics,
   ): Flow[Message, Message, NotUsed] = {
     val Q = implicitly[StreamRequestParser[A]]
     Flow[Message]
@@ -883,7 +883,7 @@ class WebSocketService(
       parties: domain.PartySet,
   )(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID],
-      metrics: HttpJsonApiMetrics
+      metrics: HttpJsonApiMetrics,
   ): Future[Source[StepAndErrors[Positive, JsValue], NotUsed]] = {
     contractsService.daoAndFetch.cata(
       { case (dao, fetch) =>
@@ -954,7 +954,7 @@ class WebSocketService(
   )(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID],
       Q: StreamQuery[A],
-      metrics: HttpJsonApiMetrics
+      metrics: HttpJsonApiMetrics,
   ): Source[Error \/ Message, NotUsed] = {
     // If there is a prefix, replace the empty offsets in the request with it
     val request = Q.adjustRequest(offPrefix, rawRequest)

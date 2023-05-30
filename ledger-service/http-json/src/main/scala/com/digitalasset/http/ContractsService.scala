@@ -435,7 +435,7 @@ class ContractsService(
             queryParams: Map[String, JsValue],
         )(implicit
             lc: LoggingContextOf[InstanceUUID with RequestID],
-            metrics: HttpJsonApiMetrics
+            metrics: HttpJsonApiMetrics,
         ): doobie.ConnectionIO[Vector[domain.ActiveContract.ResolvedCtTyId[JsValue]]] = {
           import cats.instances.vector._
           import cats.syntax.traverse._
