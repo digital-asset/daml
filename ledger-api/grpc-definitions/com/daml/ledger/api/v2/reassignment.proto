@@ -86,7 +86,6 @@ message UnassignedEvent {
   google.protobuf.Timestamp assignment_exclusivity = 8;
 
   // The parties that are notified of this event.
-  // Return the ``submitter`` if it's a stakeholder of the contract (i.e. either signatories or observers).
   // Required
   repeated string witness_parties = 9;
 
