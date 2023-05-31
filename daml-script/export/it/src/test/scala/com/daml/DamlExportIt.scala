@@ -11,7 +11,7 @@ import com.daml.ledger.api.refinements.ApiTypes
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.daml.lf.data.{Ref, FrontStack}
 import com.daml.lf.engine.script._
-import com.daml.lf.engine.script.ledgerinteraction.{GrpcLedgerClient, ScriptTimeMode}
+import com.daml.lf.engine.script.ledgerinteraction.GrpcLedgerClient
 import com.daml.lf.engine.script.test.CompiledDar
 import com.daml.lf.speedy.SValue
 import com.daml.platform.services.time.TimeProviderType
@@ -48,7 +48,7 @@ final class DamlExportIt
       name: String,
       partiesMapping: Iterable[(String, Ref.Party)],
   ) = {
-    val original = Files.readAllLines(dir.resolve(name)).asScala.mkString("\n")
+    val original = Files.readString(dir.resolve(name))
     val partyReplaced = partiesMapping.foldLeft(original) { case (text, (prefix, party)) =>
       text.replace(party.take(party.lastIndexOf("::")), prefix)
     }
@@ -59,6 +59,9 @@ final class DamlExportIt
   private[this] def converter[X]: (SValue, X) => Either[Nothing, SValue] = { case (v, _) =>
     Right(v)
   }
+
+  private[this] def lines(s: String) =
+    s.lines().iterator().asScala.toList
 
   private[this] def test(
       name: String,
@@ -113,9 +116,9 @@ final class DamlExportIt
       expectedDamlYaml =
         Files.readString(Paths.get(BazelRunfiles.rlocation(expectedFilesDir + "daml.yaml")))
     } yield {
-      actualExportDaml shouldBe expectedExportDaml
-      actualArgsJson shouldBe expectedArgsJson
-      actualDamlYaml shouldBe expectedDamlYaml
+      lines(actualExportDaml) shouldBe lines(expectedExportDaml)
+      lines(actualArgsJson) shouldBe lines(expectedArgsJson)
+      lines(actualDamlYaml) shouldBe lines(expectedDamlYaml)
     }
   }
 
