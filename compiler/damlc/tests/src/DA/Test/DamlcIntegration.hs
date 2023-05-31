@@ -135,8 +135,8 @@ withDamlScriptDep mLfVer =
 withDamlScriptV2Dep :: (ScriptPackageData -> IO a) -> IO a
 withDamlScriptV2Dep =
   let
-    darPath = "daml-script" </> "daml-v2" </> "daml-script2.dar"
-  in withVersionedDamlScriptDep ("daml-script2-" <> sdkPackageVersion) darPath (Just versionDev)
+    darPath = "daml-script" </> "daml3" </> "daml3-script.dar"
+  in withVersionedDamlScriptDep ("daml3-script-" <> sdkPackageVersion) darPath (Just versionDev)
 
 -- | Takes the bazel namespace, dar suffix (used for lf versions in v1) and lf version, installs relevant daml script and gives
 -- database db path and package flag

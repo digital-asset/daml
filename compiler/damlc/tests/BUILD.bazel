@@ -231,7 +231,7 @@ da_haskell_test(
         "//compiler/damlc/pkg-db",
         "//compiler/damlc/stable-packages",
         "//compiler/scenario-service/server:scenario_service_jar",
-        "//daml-script/daml-v2:daml-script2.dar",
+        "//daml-script/daml3:daml3-script.dar",
         "@jq_dev_env//:jq",
         ghc_pkg,
     ],

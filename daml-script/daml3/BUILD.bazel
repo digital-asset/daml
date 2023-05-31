@@ -9,7 +9,7 @@ load("//daml-lf/language:daml-lf.bzl", "COMPILER_LF_VERSIONS")
 genrule(
     name = "daml-script",
     srcs = glob(["**/*.daml"]),
-    outs = ["daml-script2.dar"],
+    outs = ["daml3-script.dar"],
     cmd = """
       set -eou pipefail
       TMP_DIR=$$(mktemp -d)
@@ -18,7 +18,7 @@ genrule(
       cp -L $(location Daml/Script/Free.daml) $$TMP_DIR/daml/Daml/Script/
       cat << EOF > $$TMP_DIR/daml.yaml
 sdk-version: {sdk}
-name: daml-script2
+name: daml3-script
 source: daml
 version: {ghc}
 dependencies:
@@ -84,7 +84,7 @@ genrule(
     cmd = """
         $(location //compiler/damlc) -- docs \
             --output=$(OUTS) \
-            --package-name=daml-script2 \
+            --package-name=daml3-script \
             --format=Json \
             $(location Daml/Script.daml)
     """,
