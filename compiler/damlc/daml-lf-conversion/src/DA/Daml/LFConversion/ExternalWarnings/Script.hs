@@ -14,7 +14,7 @@ import "ghc-lib" GhcPlugins as GHC hiding ((<>))
 import "ghc-lib" TyCoRep
 
 pattern DamlScriptPackage :: GHC.UnitId
-pattern DamlScriptPackage <- (T.stripPrefix "daml-script-" . fsToText . unitIdFS -> Just _)
+pattern DamlScriptPackage <- (T.stripPrefix "daml-script" . fsToText . unitIdFS -> Just _)
 pattern DamlScriptModule :: GHC.Module
 pattern DamlScriptModule <- ModuleIn DamlScriptPackage "Daml.Script"
 
