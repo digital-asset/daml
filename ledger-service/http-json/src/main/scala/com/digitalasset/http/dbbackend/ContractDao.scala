@@ -94,7 +94,7 @@ class ContractDao private (
             }
             val format = sizes.map(l => s"%-${l}s").mkString("| ", " | ", " |")
             val connectionsInfo = allRows.map(row => format.format(row: _*)).mkString("\n")
-            logger.debug(s"Connection pool exhausted:\n $connectionsInfo")
+            logger.debug(s"Connection pool exhausted:\n$connectionsInfo")
           case Failure(exception) => throw exception
         }
       }
