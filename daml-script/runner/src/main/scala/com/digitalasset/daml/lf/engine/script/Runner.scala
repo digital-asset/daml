@@ -545,7 +545,7 @@ private[lf] class Runner(
         new v2.Runner(this).runWithClients(initialClients, traceLog, warningLog, canceled)
       case pkgName =>
         throw new IllegalArgumentException(
-          "Invalid daml script package name. Expected daml-script or daml-script2, got " <> pkgName
+          "Invalid daml script package name. Expected daml-script or daml-script2, got " + pkgName
         )
     }
   }
