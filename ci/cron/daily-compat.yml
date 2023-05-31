@@ -354,12 +354,8 @@ jobs:
         rm tarball.tar.gz
         canton_prefix=$(ls)
         mv $canton_prefix canton
-        canton_local_path=external/$(ls canton/lib/*.jar)
         cd $dir
 
-        bad_file=canton/it-lib/src/main/com/daml/CantonRunner.scala
-
-        sed -i 's|"external/canton/lib/.*|"'$canton_local_path'"|' $bad_file
         sed -i 's|SKIP_DEV_CANTON_TESTS=.*|SKIP_DEV_CANTON_TESTS=false|' build.sh
         sed -e 's/^/# /' COPY > canton_dep.bzl
         cat <<EOF >> canton_dep.bzl
@@ -368,6 +364,7 @@ jobs:
             "sha": "$canton_sha",
             "prefix": "$canton_prefix",
             "url": "https://www.canton.io/releases/canton-open-source-$canton_version.tar.gz",
+            "local": False,
         }
         EOF
 
@@ -379,6 +376,7 @@ jobs:
         else
             if [ "main" = "$(Build.SourceBranchName)" ]; then
                 git add canton_dep.bzl $bad_file build.sh build.ps1
+                [ -f arbitrary_canton_sha ] && git rm -f arbitrary_canton_sha
                 open_pr "$branch" "bump canton to $canton_version"
                 az extension add --name azure-devops
                 trap "az devops logout" EXIT
