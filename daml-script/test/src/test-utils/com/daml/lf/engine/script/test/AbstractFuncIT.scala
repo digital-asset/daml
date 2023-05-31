@@ -28,8 +28,7 @@ abstract class AbstractFuncIT
 
   import AbstractScriptTest._
 
-  final override protected lazy val darFiles = List(stableDarPath, devDarPath)
-  final override protected lazy val devMode = true
+  final override protected lazy val devMode = false
 
   def assertSTimestamp(v: SValue) =
     v match {
@@ -45,7 +44,7 @@ abstract class AbstractFuncIT
           SRecord(_, _, vals) <- run(
             clients,
             QualifiedName.assertFromString("ScriptTest:test0"),
-            dar = stableDar,
+            dar = dar,
           )
         } yield {
           assert(vals.size == 5)
@@ -80,7 +79,7 @@ abstract class AbstractFuncIT
       "handle numerics correctly" in {
         for {
           clients <- scriptClients()
-          v <- run(clients, QualifiedName.assertFromString("ScriptTest:test1"), dar = stableDar)
+          v <- run(clients, QualifiedName.assertFromString("ScriptTest:test1"), dar = dar)
         } yield {
           assert(v == SNumeric(Numeric.assertFromString("2.12000000000")))
         }
@@ -93,7 +92,7 @@ abstract class AbstractFuncIT
           v <- run(
             clients,
             QualifiedName.assertFromString("ScriptTest:test2"),
-            dar = stableDar,
+            dar = dar,
             inputValue = Some(
               Value.ValueRecord(
                 None,
@@ -113,7 +112,7 @@ abstract class AbstractFuncIT
       "support submitMustFail" in {
         for {
           clients <- scriptClients()
-          v <- run(clients, QualifiedName.assertFromString("ScriptTest:test3"), dar = stableDar)
+          v <- run(clients, QualifiedName.assertFromString("ScriptTest:test3"), dar = dar)
         } yield {
           assert(v == SUnit)
         }
@@ -126,7 +125,7 @@ abstract class AbstractFuncIT
           SRecord(_, _, vals) <- run(
             clients,
             QualifiedName.assertFromString("ScriptTest:test4"),
-            dar = stableDar,
+            dar = dar,
           )
         } yield {
           assert(vals.size == 2)
@@ -141,7 +140,7 @@ abstract class AbstractFuncIT
           SRecord(_, _, vals) <- run(
             clients,
             QualifiedName.assertFromString("ScriptTest:testKey"),
-            dar = stableDar,
+            dar = dar,
           )
         } yield {
           assert(vals.size == 2)
@@ -156,7 +155,7 @@ abstract class AbstractFuncIT
           v <- run(
             clients,
             QualifiedName.assertFromString("ScriptTest:testCreateAndExercise"),
-            dar = stableDar,
+            dar = dar,
           )
         } yield {
           assert(v == SInt64(42))
@@ -170,7 +169,7 @@ abstract class AbstractFuncIT
           SRecord(_, _, vals) <- run(
             clients,
             QualifiedName.assertFromString("ScriptTest:testGetTime"),
-            dar = stableDar,
+            dar = dar,
           )
         } yield {
           assert(vals.size == 2)
@@ -190,7 +189,7 @@ abstract class AbstractFuncIT
           SRecord(_, _, vals) <- run(
             clients,
             QualifiedName.assertFromString("ScriptTest:partyIdHintTest"),
-            dar = stableDar,
+            dar = dar,
           )
         } yield {
           assert(vals.size == 2)
@@ -216,7 +215,7 @@ abstract class AbstractFuncIT
           SRecord(_, _, vals) <- run(
             clients,
             QualifiedName.assertFromString("ScriptTest:listKnownPartiesTest"),
-            dar = stableDar,
+            dar = dar,
           )
         } yield {
           assert(vals.size == 2)
@@ -237,7 +236,7 @@ abstract class AbstractFuncIT
           v <- run(
             clients,
             QualifiedName.assertFromString("ScriptTest:testStack"),
-            dar = stableDar,
+            dar = dar,
           )
         } yield {
           assert(v == SUnit)
@@ -255,7 +254,7 @@ abstract class AbstractFuncIT
             run(
               clients,
               QualifiedName.assertFromString("ScriptTest:testMaxInboundMessageSize"),
-              dar = stableDar,
+              dar = dar,
             )
           )
         } yield {
@@ -269,7 +268,7 @@ abstract class AbstractFuncIT
       "succeed" in {
         for {
           clients <- scriptClients()
-          v <- run(clients, QualifiedName.assertFromString("ScriptExample:test"), dar = stableDar)
+          v <- run(clients, QualifiedName.assertFromString("ScriptExample:test"), dar = dar)
         } yield {
           assert(v == SUnit)
         }
@@ -282,7 +281,7 @@ abstract class AbstractFuncIT
           v <- run(
             clients,
             QualifiedName.assertFromString("ScriptTest:testQueryContractId"),
-            dar = stableDar,
+            dar = dar,
           )
         } yield {
           assert(v == SUnit)
@@ -296,7 +295,7 @@ abstract class AbstractFuncIT
           v <- run(
             clients,
             QualifiedName.assertFromString("ScriptTest:testQueryContractKey"),
-            dar = stableDar,
+            dar = dar,
           )
         } yield {
           assert(v == SUnit)
@@ -315,7 +314,7 @@ abstract class AbstractFuncIT
           v <- run(
             clients,
             QualifiedName.assertFromString("ScriptTest:traceOrder"),
-            dar = stableDar,
+            dar = dar,
           )
         } yield {
           assert(v == SUnit)
@@ -331,7 +330,7 @@ abstract class AbstractFuncIT
           SRecord(_, _, vals) <- run(
             clients,
             QualifiedName.assertFromString("TestContractId:testContractId"),
-            dar = devDar,
+            dar = dar,
           )
         } yield {
           assert(vals.size == 2)
@@ -350,7 +349,7 @@ abstract class AbstractFuncIT
           v <- run(
             clients,
             QualifiedName.assertFromString("TestExceptions:test"),
-            dar = devDar,
+            dar = dar,
           )
         } yield {
           v shouldBe (SUnit)
@@ -365,7 +364,7 @@ abstract class AbstractFuncIT
             run(
               clients,
               QualifiedName.assertFromString("TestExceptions:try_catch_then_error"),
-              dar = devDar,
+              dar = dar,
             )
           ).map(_.toString)
         } yield {
@@ -383,7 +382,7 @@ abstract class AbstractFuncIT
             run(
               clients,
               QualifiedName.assertFromString("TestExceptions:try_catch_then_fail"),
-              dar = devDar,
+              dar = dar,
             )
           ).map(_.toString)
         } yield {
@@ -401,7 +400,7 @@ abstract class AbstractFuncIT
             run(
               clients,
               QualifiedName.assertFromString("TestExceptions:try_catch_then_abort"),
-              dar = devDar,
+              dar = dar,
             )
           ).map(_.toString)
         } yield {
@@ -418,7 +417,7 @@ abstract class AbstractFuncIT
           v <- run(
             clients,
             QualifiedName.assertFromString("TestExceptions:try_catch_recover"),
-            dar = devDar,
+            dar = dar,
           )
         } yield {
           v shouldBe (SUnit)
@@ -432,7 +431,7 @@ abstract class AbstractFuncIT
           v <- run(
             clients,
             QualifiedName.assertFromString("TestInterfaces:test_queryInterface"),
-            dar = devDar,
+            dar = dar,
           )
         } yield {
           v shouldBe (SUnit)
@@ -446,23 +445,7 @@ abstract class AbstractFuncIT
           v <- run(
             clients,
             QualifiedName.assertFromString("TestInterfaces:test"),
-            dar = devDar,
-          )
-        } yield {
-          v shouldBe (SUnit)
-        }
-      }
-    }
-    // TODO: https://github.com/digital-asset/daml/issues/15882
-    // -- Enable this test when canton supports choice observers
-    "ChoiceAuthority:test" should {
-      "succeed" ignore {
-        for {
-          clients <- scriptClients()
-          v <- run(
-            clients,
-            QualifiedName.assertFromString("TestChoiceAuthority:test"),
-            dar = devDar,
+            dar = dar,
           )
         } yield {
           v shouldBe (SUnit)
@@ -476,7 +459,7 @@ abstract class AbstractFuncIT
           v <- run(
             clients,
             QualifiedName.assertFromString("ScriptTest:testMultiPartyQueries"),
-            dar = stableDar,
+            dar = dar,
           )
         } yield {
           assert(v == SUnit)
@@ -489,7 +472,7 @@ abstract class AbstractFuncIT
         v <- run(
           clients,
           QualifiedName.assertFromString("ScriptTest:multiPartySubmission"),
-          dar = stableDar,
+          dar = dar,
         )
       } yield {
         assert(v == SUnit)
@@ -501,7 +484,7 @@ abstract class AbstractFuncIT
         v <- run(
           clients,
           QualifiedName.assertFromString("ScriptTest:tupleKey"),
-          dar = stableDar,
+          dar = dar,
         )
       } yield {
         assert(v == SUnit)
@@ -514,13 +497,13 @@ abstract class AbstractFuncIT
           run(
             clients,
             QualifiedName.assertFromString("ScriptTest:stackTrace"),
-            dar = stableDar,
+            dar = dar,
           )
         )
       } yield {
         val m = ModuleName.assertFromString("ScriptTest")
         def loc(d: String, start: (Int, Int), end: (Int, Int)) = Location(
-          stableDar.mainPkg,
+          dar.mainPkg,
           m,
           d,
           start,
@@ -539,7 +522,7 @@ abstract class AbstractFuncIT
           run(
             clients,
             QualifiedName.assertFromString("ScriptTest:testUserManagement"),
-            dar = stableDar,
+            dar = dar,
           )
       } yield r shouldBe SUnit
     }
@@ -551,7 +534,7 @@ abstract class AbstractFuncIT
           run(
             clients,
             QualifiedName.assertFromString("ScriptTest:testUserRightManagement"),
-            dar = stableDar,
+            dar = dar,
           )
       } yield r shouldBe SUnit
     }
