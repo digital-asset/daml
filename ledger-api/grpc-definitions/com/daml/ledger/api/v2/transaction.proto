@@ -51,8 +51,8 @@ message TransactionTree {
   // Required
   repeated string root_event_ids = 7;
 
-  // A valid domain ID
-  // Represents the domain where the transaction was executed
+  // A valid domain ID.
+  // Identifies the domain that synchronized the transaction.
   // Required
   string domain_id = 8;
 
@@ -90,8 +90,8 @@ message Transaction {
   // Required
   string offset = 6;
 
-  // A valid domain ID
-  // Represents the domain where the transaction was executed
+  // A valid domain ID.
+  // Identifies the domain that synchronized the transaction.
   // Required
   string domain_id = 7;
 }

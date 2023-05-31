@@ -39,7 +39,7 @@ message Created {
   // Required
   com.daml.ledger.api.v1.CreatedEvent created_event = 1;
 
-  // The domain ID where the contract was created
+  // The domain which sequenced the creation of the contract
   // Required
   string domain_id = 2;
 }
@@ -50,6 +50,6 @@ message Archived {
   com.daml.ledger.api.v1.ArchivedEvent archived_event = 1;
 
   // Required
-  // The domain ID where the contract was archived
+  // The domain which sequenced the archival of the contract
   string domain_id = 2;
 }

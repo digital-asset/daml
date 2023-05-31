@@ -63,11 +63,11 @@ message CompletionStreamResponse {
   // Required
   Completion completion = 2;
 
-  // The domain ID the command was submitted to.
+  // The sequencing domain.
   // In case
-  //   - successful/failed transactions: represents the domain where the transaction was executed
-  //   - for successful/failed unassign commands: represents the source domain
-  //   - for successful/failed assign commands: represents the target domain
+  //   - successful/failed transactions: identifies the sequencing domain of the transaction
+  //   - for successful/failed unassign commands: identifies the source domain
+  //   - for successful/failed assign commands: identifies the target domain
   // Required
   string domain_id = 3;
 }

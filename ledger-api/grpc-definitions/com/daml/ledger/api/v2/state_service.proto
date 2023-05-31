@@ -137,9 +137,11 @@ message GetConnectedDomainsResponse {
     // The alias of the domain
     // Required
     string domain_alias = 1;
+
     // The ID of the domain
     // Required
     string domain_id = 2;
+
     // The permission on the domain
     // Required
     ParticipantPermission permission = 3;
@@ -151,8 +153,10 @@ message GetConnectedDomainsResponse {
 enum ParticipantPermission {
 
   Submission = 0;
+
   // participant can only confirm transactions
   Confirmation = 1;
+
   // participant can only observe transactions
   Observation = 2;
 }
