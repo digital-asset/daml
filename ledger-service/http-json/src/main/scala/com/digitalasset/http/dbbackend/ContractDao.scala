@@ -5,6 +5,7 @@ package com.daml.http.dbbackend
 
 import cats.effect._
 import cats.syntax.apply._
+import com.codahale.metrics.MetricRegistry
 import com.daml.dbutils
 import com.daml.dbutils.ConnectionPool
 import com.daml.doobie.logging.Slf4jLogHandler
@@ -157,11 +158,14 @@ object ContractDao {
       metrics: HttpJsonApiMetrics,
   ): ContractDao = {
     val cs: ContextShift[IO] = IO.contextShift(ec)
-    def makeDatasourceConPoolAndExecutorService(cfg: dbutils.JdbcConfig) = {
+    def makeDatasourceConPoolAndExecutorService(
+        cfg: dbutils.JdbcConfig,
+        metricRegistry: Option[MetricRegistry] = None,
+    ) = {
       // pool for connections awaiting database access
       val es = Executors.newWorkStealingPool(cfg.poolSize)
       val (ds, conn) = {
-        ConnectionPool.connect(cfg, metrics.getMetricRegistry)(ExecutionContext.fromExecutor(es), cs)
+        ConnectionPool.connect(cfg, metricRegistry)(ExecutionContext.fromExecutor(es), cs)
       }
       (ds, conn, es)
     }
@@ -175,7 +179,8 @@ object ContractDao {
       sjdc <- configureJdbc(cfg, sjda, tpIdCacheMaxEntries.getOrElse(MaxEntries))
     } yield {
       implicit val sjd: SupportedJdbcDriver.TC = sjdc
-      val (ds, conn, es) = makeDatasourceConPoolAndExecutorService(cfg.baseConfig)
+      val (ds, conn, es) =
+        makeDatasourceConPoolAndExecutorService(cfg.baseConfig, metrics.getMetricRegistry)
       val diagnosticDSPoolEs = diagnostic.map { cfg =>
         makeDatasourceConPoolAndExecutorService(cfg.baseConfig)
       }
