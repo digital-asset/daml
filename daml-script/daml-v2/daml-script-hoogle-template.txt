@@ -5,8 +5,10 @@
 -- All rights reserved. Any unauthorized use, duplication or distribution is strictly prohibited.
 
 -- | Daml Script library.
+-- NOTE: This is the unstable Daml 3 script library replacement. It can and will make breaking changes without warning up to the release of Daml 3.0.
+-- This library will also only compile against LF 1.dev.
 @url {{base-url}}
 @package daml-script
-@version 1.2.0
+@version 3.0.0
 
 {{{body}}}
