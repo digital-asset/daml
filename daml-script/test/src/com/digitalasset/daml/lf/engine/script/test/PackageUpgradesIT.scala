@@ -158,4 +158,29 @@ final class PackageUpgradesIT
       } yield r shouldBe SUnit
     }
   }
+
+  "softExercise" should {
+    "succeed when given a contract id of the same type Coin V2" in {
+      for {
+        clients <- scriptClients()
+        r <-
+          run(
+            clients,
+            QualifiedName.assertFromString("CoinUpgrade:create_v2_softExercise_v2"),
+            dar = coinUpgradeV1V2Dar,
+          )
+      } yield r shouldBe SUnit
+    }
+    "succeed when given a contract id of a predecessor type of Coin V2, Coin V1" in {
+      for {
+        clients <- scriptClients()
+        r <-
+          run(
+            clients,
+            QualifiedName.assertFromString("CoinUpgrade:create_v1_softExercise_v2"),
+            dar = coinUpgradeV1V2Dar,
+          )
+      } yield r shouldBe SUnit
+    }
+  }
 }

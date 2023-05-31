@@ -1350,6 +1350,10 @@ private[validation] object Typing {
         typeOfCreateInterface(iface, arg)
       case UpdateExercise(tpl, choice, cid, arg) =>
         typeOfExercise(tpl, choice, cid, arg)
+      case UpdateSoftExercise(tpl, choice, cid, arg) =>
+        // TODO: https://github.com/digital-asset/daml/issues/16151
+        // want typeOfSoftExercise
+        typeOfExercise(tpl, choice, cid, arg)
       case UpdateDynamicExercise(tpl, choice, cid, arg) =>
         typeOfExercise(tpl, choice, cid, arg)
       case UpdateExerciseInterface(tpl, choice, cid, arg, guard) =>
