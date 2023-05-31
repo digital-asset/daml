@@ -76,8 +76,7 @@ private[http] final case class JsonApiCli(
           Some(
             fileBasedConfig.toConfig(
               nonRepudiation,
-              Some(LogLevel.DEBUG),
-//              logLevel,
+              logLevel,
               logEncoder,
             )
           )
