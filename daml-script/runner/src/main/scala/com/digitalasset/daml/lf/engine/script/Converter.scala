@@ -105,7 +105,7 @@ trait ConverterMethods {
   private def fromTemplateTypeRep(templateId: value.Identifier): SValue =
     record(DA.Internal.Any.TemplateTypeRep, ("getTemplateTypeRep", fromIdentifier(templateId)))
 
-  def fromAnyContractId(
+  private[lf] def fromAnyContractId(
       scriptIds: ScriptIds,
       templateId: value.Identifier,
       contractId: String,

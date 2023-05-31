@@ -110,7 +110,7 @@ instance IsOption SkipValidationOpt where
   optionName = Tagged "skip-validation"
   optionHelp = Tagged "Skip package validation in scenario service (true|false)"
 
-newtype IsScriptV2Opt = IsScriptV2Opt Bool
+newtype IsScriptV2Opt = IsScriptV2Opt { isScriptV2 :: Bool }
   deriving (Eq)
 
 instance IsOption IsScriptV2Opt where
@@ -267,7 +267,7 @@ getIntegrationTests registerTODO scenarioService (packageDbPath, packageFlag) = 
     vfs <- makeVFSHandle
     -- We use a separate service for generated files so that we can test files containing internal imports.
     let tree :: TestTree
-        tree = askOption $ \(LfVersionOpt version) -> askOption $ \(IsScriptV2Opt isScriptV2) -> askOption $ \(SkipValidationOpt skipValidation) ->
+        tree = askOption $ \(LfVersionOpt version) -> askOption @IsScriptV2Opt $ \isScriptV2Opt -> askOption $ \(SkipValidationOpt skipValidation) ->
           let opts = (defaultOptions (Just version))
                 { optPackageDbs = [packageDbPath]
                 , optThreads = 0
@@ -296,7 +296,7 @@ getIntegrationTests registerTODO scenarioService (packageDbPath, packageFlag) = 
             shutdown
             $ \service ->
           testGroup ("Tests for Daml-LF " ++ renderPretty version) $
-            map (testCase version isScriptV2 service outdir registerTODO) damlTests
+            map (testCase version isScriptV2Opt service outdir registerTODO) damlTests
 
     pure tree
 
@@ -314,9 +314,8 @@ instance IsTest TestCase where
     pure $ res { resultDescription = desc }
   testOptions = Tagged []
 
--- TODO boolean blindness
-testCase :: LF.Version -> Bool -> IO IdeState -> FilePath -> (TODO -> IO ()) -> (String, FilePath, [Ann]) -> TestTree
-testCase version isScriptV2 getService outdir registerTODO (name, file, anns) = singleTest name . TestCase $ \log -> do
+testCase :: LF.Version -> IsScriptV2Opt -> IO IdeState -> FilePath -> (TODO -> IO ()) -> (String, FilePath, [Ann]) -> TestTree
+testCase version isScriptV2Opt getService outdir registerTODO (name, file, anns) = singleTest name . TestCase $ \log -> do
   service <- getService
   if any (`notElem` supportedOutputVersions) [v | UntilLF v <- anns] then
     pure (testFailed "Unsupported Daml-LF version in UNTIL-LF annotation")
@@ -346,7 +345,7 @@ testCase version isScriptV2 getService outdir registerTODO (name, file, anns) = 
       Ignore -> True
       SinceLF minVersion -> version < minVersion
       UntilLF maxVersion -> version >= maxVersion
-      ScriptV2 -> not isScriptV2
+      ScriptV2 -> not $ isScriptV2 isScriptV2Opt
       _ -> False
 
 runJqQuery :: (String -> IO ()) -> Maybe FilePath -> [(String, Bool)] -> IO [Maybe String]

@@ -112,7 +112,7 @@ case class Participants[+T](
   def map[A](f: T => A): Participants[A] =
     copy(
       default_participant = default_participant.map(f),
-      participants = participants.map { case (k, v) => (k, f(v)) },
+      participants = participants.transform((_, v) => f(v)),
     )
 }
 
@@ -543,7 +543,10 @@ private[lf] class Runner(
         new v1.Runner(this).runWithClients(initialClients, traceLog, warningLog, canceled)
       case "daml-script2" =>
         new v2.Runner(this).runWithClients(initialClients, traceLog, warningLog, canceled)
-      case _ => throw new IllegalArgumentException("Invalid daml script package name")
+      case pkgName =>
+        throw new IllegalArgumentException(
+          "Invalid daml script package name. Expected daml-script or daml-script2, got " <> pkgName
+        )
     }
   }
 }
