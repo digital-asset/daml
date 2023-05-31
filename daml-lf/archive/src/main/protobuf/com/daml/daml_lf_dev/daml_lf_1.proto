@@ -1347,10 +1347,10 @@ message Update {
     // name of the exercised template choice
     oneof choice {
       // *Must be a valid identifier*
-      string choice_str = 2; // *Available in version < 1.7*
+      string choice_str = 2;
 
       // *Must be a valid interned identifier*
-      int32 choice_interned_str = 6; // *Available in versions >= 1.7*
+      int32 choice_interned_str = 6;
     }
 
     // contract id
