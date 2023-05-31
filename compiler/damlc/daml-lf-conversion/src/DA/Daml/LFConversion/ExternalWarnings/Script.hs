@@ -7,14 +7,18 @@
 module DA.Daml.LFConversion.ExternalWarnings.Script (topLevelWarnings) where
 
 import qualified Data.Text as T
+import Data.List.Extra (firstJust)
 import DA.Daml.UtilGHC
 import DA.Daml.LFConversion.ConvertM
 import DA.Daml.LFConversion.Utils
 import "ghc-lib" GhcPlugins as GHC hiding ((<>))
 import "ghc-lib" TyCoRep
 
+stripPrefixes :: [T.Text] -> T.Text -> Maybe T.Text
+stripPrefixes prefixes t = firstJust (flip T.stripPrefix t) prefixes
+
 pattern DamlScriptPackage :: GHC.UnitId
-pattern DamlScriptPackage <- (T.stripPrefix "daml-script" . fsToText . unitIdFS -> Just _)
+pattern DamlScriptPackage <- (stripPrefixes ["daml-script-", "daml3-script-"] . fsToText . unitIdFS -> Just _)
 pattern DamlScriptModule :: GHC.Module
 pattern DamlScriptModule <- ModuleIn DamlScriptPackage "Daml.Script"
 
