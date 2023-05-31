@@ -45,7 +45,7 @@ import spray.json.{JsNull, JsValue}
 
 import scala.concurrent.ExecutionContext
 import com.daml.ledger.api.{domain => LedgerApiDomain}
-import com.daml.metrics.api.MetricHandle.Timer
+import com.daml.metrics.api.MetricHandle.{Counter, Timer}
 
 private class ContractsFetch(
     getActiveContracts: LedgerClientJwt.GetActiveContracts,
@@ -313,9 +313,11 @@ private class ContractsFetch(
       )
       fconn.pure(startOffset)
     } else
-      debugLogActionWithTimer(
+      debugLogActionWithMetrics(
         s"cache refresh for templateId: $templateId",
         metrics.Db.updateCache,
+        metrics.Db.startedUpdateCacheCounter,
+        metrics.Db.failUpdateCacheCounter,
       ) {
         val graph = RunnableGraph.fromGraph(
           GraphDSL.createGraph(
@@ -387,10 +389,13 @@ private class ContractsFetch(
       }
   }
 
-  private def debugLogActionWithTimer[T, C](
+  private def debugLogActionWithMetrics[T, C](
       actionDescription: String,
       timer: Timer,
+      startingCounter: Counter,
+      failCounter: Counter,
   )(block: => T)(implicit lc: LoggingContextOf[C]): T = {
+    startingCounter.inc()
     val timerHandler = timer.startAsync()
     val startTime = System.nanoTime()
     logger.debug(s"Starting $actionDescription")
@@ -399,6 +404,7 @@ private class ContractsFetch(
         block
       } catch {
         case e: Exception =>
+          failCounter.inc()
           logger.error(
             s"Failed $actionDescription after ${(System.nanoTime() - startTime) / 1000000L}ms because: $e"
           )
