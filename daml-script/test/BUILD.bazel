@@ -27,6 +27,9 @@ genrule(
       mkdir -p $$TMP_DIR/daml
       cp -L $(location :daml/ScriptTest.daml) $$TMP_DIR/daml
       cp -L $(location :daml/MultiTest.daml) $$TMP_DIR/daml
+      cp -L $(location :daml/TestContractId.daml) $$TMP_DIR/daml
+      cp -L $(location :daml/TestExceptions.daml) $$TMP_DIR/daml
+      cp -L $(location :daml/TestInterfaces.daml) $$TMP_DIR/daml
       cp -L $(location //docs:source/daml-script/template-root/src/ScriptExample.daml) $$TMP_DIR/daml
       cat << EOF >> $$TMP_DIR/daml/ScriptExample.daml
 initializeFixed : Script ()
@@ -67,9 +70,6 @@ genrule(
       set -eou pipefail
       TMP_DIR=$$(mktemp -d)
       mkdir -p $$TMP_DIR/daml
-      cp -L $(location :daml/TestContractId.daml) $$TMP_DIR/daml
-      cp -L $(location :daml/TestExceptions.daml) $$TMP_DIR/daml
-      cp -L $(location :daml/TestInterfaces.daml) $$TMP_DIR/daml
       cp -L $(location :daml/TestChoiceAuthority.daml) $$TMP_DIR/daml
       cp -L $(location //daml-script/daml:daml-script-1.dev.dar) $$TMP_DIR/
       cat << EOF > $$TMP_DIR/daml.yaml
@@ -259,16 +259,10 @@ da_scala_test_suite(
     name = "test",
     srcs = glob(
         ["src/com/**/*.scala"],
-        exclude = ["src/com/digitalasset/daml/lf/engine/script/test/PackageUpgradesIT.scala"],
+        exclude = ["src/com/**/DevIt.scala"],
     ),
     data = [
-        ":coin-upgrade-v1-v2.dar",
-        ":coin-upgrade-v1-v3.dar",
-        ":coin-v1.dar",
-        ":coin-v2.dar",
-        ":coin-v3.dar",
         ":script-test.dar",
-        ":script-test-1.dev.dar",
         ":script-test-no-ledger.dar",
         "//daml-script/runner:daml-script-binary",
     ],
@@ -291,7 +285,6 @@ da_scala_test_suite(
         "//daml-lf/archive:daml_lf_1.dev_archive_proto_java",
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/data",
-        "//daml-lf/engine",
         "//daml-lf/interpreter",
         "//daml-lf/language",
         "//daml-lf/transaction",
@@ -308,28 +301,20 @@ da_scala_test_suite(
         "//ledger-service/utils",
         "//ledger/ledger-api-auth",
         "//ledger/ledger-api-common",
-        "//libs-scala/caching",
         "//libs-scala/contextualized-logging",
         "//libs-scala/fs-utils",
         "//libs-scala/jwt",
         "//libs-scala/ledger-resources",
-        "//libs-scala/logging-entries",
         "//libs-scala/ports",
-        "//libs-scala/postgresql-testing",
         "//libs-scala/resources",
-        "//libs-scala/resources-akka",
-        "//libs-scala/resources-grpc",
         "//libs-scala/scala-utils",
         "//observability/metrics",
-        "//test-common",
-        "@maven//:com_auth0_java_jwt",
-        "@maven//:io_dropwizard_metrics_metrics_core",
     ],
 )
 
 da_scala_test_suite(
-    name = "test-DEV",
-    srcs = glob(["src/com/**/PackageUpgradesIT.scala"]),
+    name = "test-dev",
+    srcs = glob(["src/com/**/DevIt.scala"]),
     data = [
         ":coin-upgrade-v1-v2.dar",
         ":coin-upgrade-v1-v2-new-field.dar",
@@ -338,7 +323,6 @@ da_scala_test_suite(
         ":coin-v2.dar",
         ":coin-v2-new-field.dar",
         ":coin-v3.dar",
-        ":script-test.dar",
         ":script-test-1.dev.dar",
         ":script-test-no-ledger.dar",
         "//daml-script/runner:daml-script-binary",

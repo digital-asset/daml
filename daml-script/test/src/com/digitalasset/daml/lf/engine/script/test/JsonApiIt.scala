@@ -83,16 +83,12 @@ trait JsonApiFixture
 
   val darFile = rlocation(Paths.get("daml-script/test/script-test.dar"))
 
-  val darFileDev = rlocation(Paths.get("daml-script/test/script-test-1.dev.dar"))
   val darFileNoLedger = rlocation(Paths.get("daml-script/test/script-test-no-ledger.dar"))
 
   val applicationId = ApplicationId(getClass.getName)
-  val darFiles = List(darFile, darFileDev)
+  val darFiles = List(darFile)
 
-  val config = CantonConfig(
-    authSecret = Some(secret),
-    devMode = true,
-  )
+  val config = CantonConfig(authSecret = Some(secret))
 
   protected def serverPort = suiteResource.value._1
   protected def httpPort = suiteResource.value._2.localAddress.getPort
@@ -186,7 +182,6 @@ final class JsonApiIt extends AsyncWordSpec with JsonApiFixture with Matchers wi
 
   val (dar, envIface) = readDar(darFile)
   val (darNoLedger, envIfaceNoLedger) = readDar(darFileNoLedger)
-  val (darDev, envIfaceDev) = readDar(darFileDev)
 
   private def getClients(
       parties: List[String],
@@ -520,12 +515,12 @@ final class JsonApiIt extends AsyncWordSpec with JsonApiFixture with Matchers wi
     "queryInterface" in {
       for {
         alice <- allocateParty
-        clients <- getClients(List(alice), envIface = envIfaceDev)
+        clients <- getClients(List(alice), envIface = envIface)
         result <- run(
           clients,
           QualifiedName.assertFromString("TestInterfaces:jsonQueryInterface"),
           Some(JsString(alice)),
-          dar = darDev,
+          dar = dar,
         )
       } yield {
         assert(result == SUnit)

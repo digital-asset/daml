@@ -19,7 +19,6 @@ final class AuthIT extends AsyncWordSpec with AbstractScriptTest with Matchers {
   import AbstractScriptTest._
 
   final override protected lazy val authSecret = Some("secret")
-  final override protected lazy val darFiles = List(stableDarPath)
   final override protected lazy val timeMode = ScriptTimeMode.WallClock
 
   "Daml Script against authorized ledger" can {
@@ -57,7 +56,7 @@ final class AuthIT extends AsyncWordSpec with AbstractScriptTest with Matchers {
                 ),
               )
             ),
-            dar = stableDar,
+            dar = dar,
           )
         } yield succeed
       }
