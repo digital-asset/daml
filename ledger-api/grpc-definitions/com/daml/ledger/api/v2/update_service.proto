@@ -80,11 +80,6 @@ message GetUpdatesRequest {
 message GetUpdatesResponse {
 
   // The update that matches the filter in the request.
-  Update updates = 1;
-}
-
-message Update {
-
   oneof update {
     Transaction transaction = 1;
     Reassignment reassignment = 2;
@@ -94,11 +89,6 @@ message Update {
 message GetUpdateTreesResponse {
 
   // The update that matches the filter in the request.
-  UpdateTree updates = 1;
-}
-
-message UpdateTree {
-
   oneof update {
     TransactionTree transaction_tree = 1;
     Reassignment reassignment = 2;
