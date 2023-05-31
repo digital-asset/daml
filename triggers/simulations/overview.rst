@@ -6,11 +6,11 @@ Overview of Trigger Code Development
 
 Triggers are pieces of Daml code that are packaged into Dar files and deployed to a trigger service. The trigger service is responsible for managing the deployed trigger's lifecycle.
 
-When running a deployed trigger, the trigger service will unpack the uploaded trigger Dar file, evaluate Daml code within the package and, via a ledger API client, interpact asynchronously with the ledger.
+When running a deployed trigger, the trigger service will unpack the uploaded trigger Dar file, evaluate Daml code within the package and, via a ledger API client, interact asynchronously with the ledger.
 
 To help engineers develop trigger code, it is often useful to first use the Visual Studio IDE to write Daml code, with Daml script used to test against the IDE's in-memory ledger. However, when we wish to deploy the trigger code against a real Canton network, developers often hit a number of issues. In order to understand some of these issues, it is useful to first understand trigger/ledger interactions in greater detail.
 
-Trigger's interact with the ledger using a `CQRS <https://en.wikipedia.org/wiki/Command–query_separation#Command_Query_Responsibility_Separation>`_ pattern that utilises:
+Triggers interact with the ledger using a `CQRS <https://en.wikipedia.org/wiki/Command–query_separation#Command_Query_Responsibility_Separation>`_ pattern that utilises:
 
 - a trigger in-memory contract store - the readable or queryable contract store (ACS)
 - and a ledger contract store - the writable contract store (ACS).
@@ -20,10 +20,10 @@ These separate contract stores need to be kept in sync. This is accomplished usi
 - the ledger publishes transaction create and archive events as its contract store is updated (i.e. written to)
 - and the trigger registers to receive these events - so that its contract store may be updated.
 
-Trigger Daml code queries the in-memory contract store without modifying that store. Trigger's issue contract create and exercise commands to the ledger API - these commands are then queued by Canton network participants for asynchronous processing.
+Trigger Daml code queries the in-memory contract store without modifying that store. Triggers issue contract create and exercise commands to the ledger API - these commands are then queued by Canton network participants for asynchronous processing.
 
 .. note::
-  If transaction create or archive events are not processed in a timely manner (e.g. due to high load) or are lost (e.g. due to network issues), then the trigger's view of the ledger contact store may loose coherence with the ledger's view of the contract store and so lead to stale or invalid data being used in ledger interactions.
+  If transaction create or archive events are not processed in a timely manner (e.g. due to high load) or are lost (e.g. due to network issues), then the trigger's view of the ledger contact store may lose coherence with the ledger's view of the contract store and so lead to stale or invalid data being used in ledger interactions.
 
   If the trigger's ACS becomes too large, then storing and querying the ACS may consume unnecessary system resources.
 
@@ -34,7 +34,7 @@ When writing trigger Daml code, it is the responsibility of the user to ensure t
 .. note::
   Ledger contention will lead to command submission failures (these are presented to the trigger as submission completion failures), which the trigger Daml code is responsible for retrying. Excessive numbers of ledger command failures can lead to the trigger ACS view being out of sync with the ledger ACS view and this in turn can result in stale or invalid data being used in ledger interactions.
 
-To aid managing these issues, we have written a trigger simulation library. The intent is that trigger Daml code should be validated against this simulation library prior to deploying that code against a Canton network.
+To aid in managing these issues, we have written a trigger simulation library. The intent is that trigger Daml code should be validated against this simulation library prior to deploying that code against a Canton network.
 
 Simulation Library Overview
 ===========================
@@ -60,7 +60,7 @@ When architecting a collection of triggers and templates designed to interact wi
 
 An internal reporting component is responsible for collecting and storing simulation metric data for offline analysis. This data may be saved at the end of a simulation (in CSV files) for latter offline analysis.
 
-Trigger simulations are `Scalatests <https://www.scalatest.org>`_ that extend the trait ``TriggerMultiProcessSimulation``. In extending this trait, the key method that a developer needs to implement is the method:
+Trigger simulations are `Scalatests <https://www.scalatest.org>`_ that extend the trait ``TriggerMultiProcessSimulation``. In extending this trait, the key method that a developer needs to implement is:
 
 .. code-block:: scala
   protected def triggerMultiProcessSimulation: Behavior[Unit]
@@ -98,7 +98,7 @@ So, to have a simulation run for 42 seconds, one would override with:
   override protected implicit lazy val simulationConfig: TriggerSimulationConfig =
     TriggerSimulationConfig(simulationDuration = 42.seconds)
 
-As trigger simulations are defined as Scalatests, they may be ran using a variant of ``bazel test`` (assuming the relevant ``BUILD.bazel`` files are also defined to allow the simulation code to build).
+Because trigger simulations are defined as Scalatests, they may be ran using a variant of ``bazel test`` (assuming the relevant ``BUILD.bazel`` files are also defined to allow the simulation code to build).
 
 Under the hood, each simulation component is implemented in Scala code as an `Akka typed actor <https://doc.akka.io/docs/akka/current/typed/index.html>`_.
 
@@ -188,7 +188,7 @@ where a ``Cat`` template might be defined as:
 .. note::
   Currently, it is not possible to model external components that exercise choices on a contract. This is a known limitation.
 
-  Currently, a level of understanding of the low level Speedy machine ``SValue`` is required when defining create or archive events. This is a known limitation.
+  Currently, a good of understanding of the low level Speedy machine ``SValue`` is required when defining create or archive events. This is a known limitation.
 
 Trigger Process Component
 -------------------------
@@ -260,7 +260,7 @@ Here, the associated Daml trigger code is:
 Wrapping Trigger Processes
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Trigger processes have the Scala type ``Behavior[TriggerProcess.Message]`` and, once the Akka typed actor has been spawned they will have the type ``ActorRef[TriggerProcess.Message]``.
+Trigger processes have the Scala type ``Behavior[TriggerProcess.Message]`` and, once the Akka typed actor has been spawned, they will have the type ``ActorRef[TriggerProcess.Message]``.
 
 Complex trigger process definitions may be defined by encapsulating instances of the spawned Akka typed actor ``ActorRef[TriggerProcess.Message]``. For example, given a Scala function ``transform: TriggerProcess.Message => TriggerProcess.Message`` we could write the following generic wrapper process:
 
@@ -309,7 +309,7 @@ Alternatively, given a `Scalacheck <https://scalacheck.org>`_ generator ``Gen[Tr
 In the following subsubsections, we present a number of pre-defined wrapper processes.
 
 .. note::
-  Wrapper processes allow complex and potentially non-standard (i.e. behaviours that are not easily definable in Daml code alone) trigger behaviours to be defined. This allows engineers to experiment with and research prototype trigger extensions.
+  Wrapper processes allows engineers to define complex and potentially non-standard trigger behaviours, i.e. behaviours that are not easily definable in Daml code alone. This allows engineers to experiment with and research prototype trigger extensions.
 
 Initializing Trigger User Defined State
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -366,7 +366,7 @@ Initializing trigger processes is a common use case, so an additional helper met
 .. note::
   Currently, there is no support for extracting and using the Daml trigger ``initialize`` expression when initializing trigger processes. This is a known limitation.
 
-  Currently, a level of understanding of the low level Speedy machine ``SValue`` is required when initializing triggers. This is a known limitation.
+  Currently, a good of understanding of the low level Speedy machine ``SValue`` is required when initializing triggers. This is a known limitation.
 
 Scheduling Heartbeat Messages
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -429,7 +429,7 @@ Reporting processes are implemented as Akka actors. They are (automatically) cre
 - trigger resource usage data
 - information about the difference between the trigger and ledger contract store views.
 
-Collected reporting data is saved into CSV files - the precise location of which is configured by overriding the ``simulationConfig: TriggerSimulationConfig`` implicit. For example:
+Collected reporting data is saved into CSV files - the precise location of these files is configured by overriding the ``simulationConfig: TriggerSimulationConfig`` implicit. For example:
 
 .. code-block:: scala
   class ExampleSimulation extends TriggerMultiProcessSimulation {
@@ -443,9 +443,9 @@ Collected reporting data is saved into CSV files - the precise location of which
     override protected def triggerMultiProcessSimulation: Behavior[Unit] = ???
   }
 
-If explicit file paths are configured for the reporting data, then a simple ``bazel test`` should be sufficient for running the simulation and saving the reporting data (in the configured output files).
+If explicit file paths are configured for the reporting data, then a simple ``bazel test`` should be sufficient for running the simulation and saving the reporting data in the configured output files.
 
-By default though, all reporting data is stored within the bazel run directory and so, after a simulation test run has completed will be automatically deleted. To preserve the simulation reporting data then a ``bazel test --test_tempdir=/tmp`` or similar should be used.
+By default, however, all reporting data is stored within the bazel run directory and so, after a simulation test run has completed will be automatically deleted. To preserve the simulation reporting data then a ``bazel test --test_tempdir=/tmp`` or similar should be used.
 
 Prior to starting and after running the trigger simulation, INFO logging records where data will be saved to - for example::
 
