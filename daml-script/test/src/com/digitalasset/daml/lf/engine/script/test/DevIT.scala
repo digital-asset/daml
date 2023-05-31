@@ -17,7 +17,7 @@ final class DevIT extends AsyncWordSpec with AbstractScriptTest with Inside with
   final override protected lazy val devMode = true
   final override protected lazy val timeMode = ScriptTimeMode.WallClock
 
-    lazy val devDarPath = BazelRunfiles.rlocation(Paths.get("daml-script/test/script-test-1.dev.dar"))
+  lazy val devDarPath = BazelRunfiles.rlocation(Paths.get("daml-script/test/script-test-1.dev.dar"))
   lazy val devDar = CompiledDar.read(devDarPath, Runner.compilerConfig)
 
   lazy val coinV1DarPath = BazelRunfiles.rlocation(Paths.get("daml-script/test/coin-v1.dar"))
