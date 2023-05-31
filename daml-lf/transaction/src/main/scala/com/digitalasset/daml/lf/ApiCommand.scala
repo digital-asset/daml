@@ -6,7 +6,7 @@ package command
 
 import com.daml.lf.data.Ref._
 import com.daml.lf.value.Value
-import com.daml.lf.data.{Bytes, ImmArray, Time}
+import com.daml.lf.data.{ImmArray, Time}
 
 /** Accepted commands coming from API */
 sealed abstract class ApiCommand extends Product with Serializable {
@@ -87,26 +87,14 @@ case class ApiCommands(
 
 /** An additional contract that is used to resolve contract id and contract key lookups during interpretation.
   *
-  * @param   templateId   identifier of the template of disclosed contract
-  * @param   contractId   the contract id of the disclosed contract
-  * @param   argument     the payload of the disclosed contract
-  * @param   metadata     metatdata attached to this disclosure. See [ContractMetadata].
+  * @param templateId   identifier of the template of disclosed contract
+  * @param contractId   the contract id of the disclosed contract
+  * @param argument     the payload of the disclosed contract
+  * @param keyHash        hash of the contract key, if present
   */
 final case class DisclosedContract(
     templateId: Identifier,
     contractId: Value.ContractId,
     argument: Value,
-    metadata: ContractMetadata,
-)
-
-/** Contract metadata attached to disclosed contracts.
-  *
-  * @param createdAt   ledger effective time of the transaction that created the contract
-  * @param keyHash     hash of the contract key, if present
-  * @param driverMetadata  opaque bytestring used by the underlying ledger implementation
-  */
-final case class ContractMetadata(
-    createdAt: Time.Timestamp,
     keyHash: Option[crypto.Hash],
-    driverMetadata: Bytes,
 )

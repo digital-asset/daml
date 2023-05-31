@@ -28,8 +28,8 @@ abstract class AbstractFuncIT
 
   import AbstractScriptTest._
 
-  override protected lazy val darFiles = List(stableDarPath, devDarPath)
-  override protected lazy val devMode = true
+  final override protected lazy val darFiles = List(stableDarPath, devDarPath)
+  final override protected lazy val devMode = true
 
   def assertSTimestamp(v: SValue) =
     v match {
