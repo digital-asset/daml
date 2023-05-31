@@ -630,6 +630,14 @@ checkFetch tpl cid = do
   _ :: Template <- inWorld (lookupTemplate tpl)
   checkExpr cid (TContractId (TCon tpl))
 
+checkSoftFetch :: MonadGamma m => Qualified TypeConName -> Expr -> m ()
+checkSoftFetch tplId cid = do
+  tpl <- inWorld (lookupTemplate tplId)
+  case tplKey tpl of
+    Nothing -> pure ()
+    Just _ -> throwWithContext (ESoftFetchTemplateWithKey tplId)
+  checkExpr cid (TContractId (TCon tplId))
+
 checkFetchInterface :: MonadGamma m => Qualified TypeConName -> Expr -> m ()
 checkFetchInterface tpl cid = do
   void $ inWorld (lookupInterface tpl)
@@ -668,7 +676,7 @@ typeOfUpdate = \case
     typeOfExerciseInterface tpl choice cid arg guard
   UExerciseByKey tpl choice key arg -> typeOfExerciseByKey tpl choice key arg
   UFetch tpl cid -> checkFetch tpl cid $> TUpdate (TCon tpl)
-  USoftFetch tpl cid -> checkFetch tpl cid $> TUpdate (TCon tpl)
+  USoftFetch tpl cid -> checkSoftFetch tpl cid $> TUpdate (TCon tpl)
   UFetchInterface tpl cid -> checkFetchInterface tpl cid $> TUpdate (TCon tpl)
   UGetTime -> pure (TUpdate TTimestamp)
   UEmbedExpr typ e -> do
