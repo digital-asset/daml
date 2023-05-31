@@ -726,11 +726,11 @@ private[lf] final class Compiler(
     }
 
   private[this] def compileChoiceController(
-      tmplId: TypeConName,
+      typeId: TypeConName,
       contractVarName: ExprVarName,
       choice: TemplateChoice,
   ): (t.SDefinitionRef, SDefinition) =
-    topLevelFunction2(t.ChoiceControllerDefRef(tmplId, choice.name)) {
+    topLevelFunction2(t.ChoiceControllerDefRef(typeId, choice.name)) {
       (contractPos, choiceArgPos, env) =>
         s.SEPreventCatch(
           translateExp(
@@ -743,11 +743,11 @@ private[lf] final class Compiler(
     }
 
   private[this] def compileChoiceObserver(
-      tmplId: TypeConName,
+      typeId: TypeConName,
       contractVarName: ExprVarName,
       choice: TemplateChoice,
   ): (t.SDefinitionRef, SDefinition) =
-    topLevelFunction2(t.ChoiceObserverDefRef(tmplId, choice.name)) {
+    topLevelFunction2(t.ChoiceObserverDefRef(typeId, choice.name)) {
       (contractPos, choiceArgPos, env) =>
         choice.choiceObservers match {
           case Some(observers) =>
