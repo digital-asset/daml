@@ -126,6 +126,8 @@ instance DA.Internal.Desugar.HasCreate Asset where
   create = GHC.Types.primitive @"UCreate"
 instance DA.Internal.Desugar.HasFetch Asset where
   fetch = GHC.Types.primitive @"UFetch"
+instance DA.Internal.Desugar.HasSoftFetch Asset where
+  _softFetch = GHC.Types.primitive @"USoftFetch"
 instance DA.Internal.Desugar.HasToAnyTemplate Asset where
   _toAnyTemplate = GHC.Types.primitive @"EToAnyTemplate"
 instance DA.Internal.Desugar.HasFromAnyTemplate Asset where
@@ -136,6 +138,8 @@ instance DA.Internal.Desugar.HasIsInterfaceType Asset where
   _isInterfaceType _ = DA.Internal.Desugar.False
 instance DA.Internal.Desugar.HasExercise Asset DA.Internal.Desugar.Archive (()) where
   exercise = GHC.Types.primitive @"UExercise"
+instance DA.Internal.Desugar.HasSoftExercise Asset DA.Internal.Desugar.Archive (()) where
+  _softExercise = GHC.Types.primitive @"UExercise"
 instance DA.Internal.Desugar.HasToAnyChoice Asset DA.Internal.Desugar.Archive (()) where
   _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
 instance DA.Internal.Desugar.HasFromAnyChoice Asset DA.Internal.Desugar.Archive (()) where

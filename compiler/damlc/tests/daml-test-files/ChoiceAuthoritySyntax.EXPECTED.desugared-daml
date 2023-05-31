@@ -85,6 +85,8 @@ instance DA.Internal.Desugar.HasCreate TrySyntax where
   create = GHC.Types.primitive @"UCreate"
 instance DA.Internal.Desugar.HasFetch TrySyntax where
   fetch = GHC.Types.primitive @"UFetch"
+instance DA.Internal.Desugar.HasSoftFetch TrySyntax where
+  _softFetch = GHC.Types.primitive @"USoftFetch"
 instance DA.Internal.Desugar.HasToAnyTemplate TrySyntax where
   _toAnyTemplate = GHC.Types.primitive @"EToAnyTemplate"
 instance DA.Internal.Desugar.HasFromAnyTemplate TrySyntax where
@@ -95,6 +97,8 @@ instance DA.Internal.Desugar.HasIsInterfaceType TrySyntax where
   _isInterfaceType _ = DA.Internal.Desugar.False
 instance DA.Internal.Desugar.HasExercise TrySyntax DA.Internal.Desugar.Archive (()) where
   exercise = GHC.Types.primitive @"UExercise"
+instance DA.Internal.Desugar.HasSoftExercise TrySyntax DA.Internal.Desugar.Archive (()) where
+  _softExercise = GHC.Types.primitive @"UExercise"
 instance DA.Internal.Desugar.HasToAnyChoice TrySyntax DA.Internal.Desugar.Archive (()) where
   _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
 instance DA.Internal.Desugar.HasFromAnyChoice TrySyntax DA.Internal.Desugar.Archive (()) where
@@ -105,6 +109,8 @@ instance DA.Internal.Desugar.HasChoiceObserver TrySyntax DA.Internal.Desugar.Arc
   _choiceObserver = GHC.Types.primitive @"EChoiceObserver"
 instance DA.Internal.Desugar.HasExercise TrySyntax X_old_just_controller (()) where
   exercise = GHC.Types.primitive @"UExercise"
+instance DA.Internal.Desugar.HasSoftExercise TrySyntax X_old_just_controller (()) where
+  _softExercise = GHC.Types.primitive @"UExercise"
 instance DA.Internal.Desugar.HasToAnyChoice TrySyntax X_old_just_controller (()) where
   _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
 instance DA.Internal.Desugar.HasFromAnyChoice TrySyntax X_old_just_controller (()) where
@@ -115,6 +121,8 @@ instance DA.Internal.Desugar.HasChoiceObserver TrySyntax X_old_just_controller w
   _choiceObserver = GHC.Types.primitive @"EChoiceObserver"
 instance DA.Internal.Desugar.HasExercise TrySyntax X_old_observer_and_controller (()) where
   exercise = GHC.Types.primitive @"UExercise"
+instance DA.Internal.Desugar.HasSoftExercise TrySyntax X_old_observer_and_controller (()) where
+  _softExercise = GHC.Types.primitive @"UExercise"
 instance DA.Internal.Desugar.HasToAnyChoice TrySyntax X_old_observer_and_controller (()) where
   _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
 instance DA.Internal.Desugar.HasFromAnyChoice TrySyntax X_old_observer_and_controller (()) where
@@ -125,6 +133,8 @@ instance DA.Internal.Desugar.HasChoiceObserver TrySyntax X_old_observer_and_cont
   _choiceObserver = GHC.Types.primitive @"EChoiceObserver"
 instance DA.Internal.Desugar.HasExercise TrySyntax X_new_just_controllerX (()) where
   exercise = GHC.Types.primitive @"UExercise"
+instance DA.Internal.Desugar.HasSoftExercise TrySyntax X_new_just_controllerX (()) where
+  _softExercise = GHC.Types.primitive @"UExercise"
 instance DA.Internal.Desugar.HasToAnyChoice TrySyntax X_new_just_controllerX (()) where
   _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
 instance DA.Internal.Desugar.HasFromAnyChoice TrySyntax X_new_just_controllerX (()) where
@@ -135,6 +145,8 @@ instance DA.Internal.Desugar.HasChoiceObserver TrySyntax X_new_just_controllerX 
   _choiceObserver = GHC.Types.primitive @"EChoiceObserver"
 instance DA.Internal.Desugar.HasExercise TrySyntax X_new_just_controller (()) where
   exercise = GHC.Types.primitive @"UExercise"
+instance DA.Internal.Desugar.HasSoftExercise TrySyntax X_new_just_controller (()) where
+  _softExercise = GHC.Types.primitive @"UExercise"
 instance DA.Internal.Desugar.HasToAnyChoice TrySyntax X_new_just_controller (()) where
   _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
 instance DA.Internal.Desugar.HasFromAnyChoice TrySyntax X_new_just_controller (()) where
@@ -145,6 +157,8 @@ instance DA.Internal.Desugar.HasChoiceObserver TrySyntax X_new_just_controller w
   _choiceObserver = GHC.Types.primitive @"EChoiceObserver"
 instance DA.Internal.Desugar.HasExercise TrySyntax X_new_observer_and_controllerX (()) where
   exercise = GHC.Types.primitive @"UExercise"
+instance DA.Internal.Desugar.HasSoftExercise TrySyntax X_new_observer_and_controllerX (()) where
+  _softExercise = GHC.Types.primitive @"UExercise"
 instance DA.Internal.Desugar.HasToAnyChoice TrySyntax X_new_observer_and_controllerX (()) where
   _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
 instance DA.Internal.Desugar.HasFromAnyChoice TrySyntax X_new_observer_and_controllerX (()) where
@@ -155,6 +169,8 @@ instance DA.Internal.Desugar.HasChoiceObserver TrySyntax X_new_observer_and_cont
   _choiceObserver = GHC.Types.primitive @"EChoiceObserver"
 instance DA.Internal.Desugar.HasExercise TrySyntax X_new_observer_and_controller (()) where
   exercise = GHC.Types.primitive @"UExercise"
+instance DA.Internal.Desugar.HasSoftExercise TrySyntax X_new_observer_and_controller (()) where
+  _softExercise = GHC.Types.primitive @"UExercise"
 instance DA.Internal.Desugar.HasToAnyChoice TrySyntax X_new_observer_and_controller (()) where
   _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
 instance DA.Internal.Desugar.HasFromAnyChoice TrySyntax X_new_observer_and_controller (()) where
@@ -165,6 +181,8 @@ instance DA.Internal.Desugar.HasChoiceObserver TrySyntax X_new_observer_and_cont
   _choiceObserver = GHC.Types.primitive @"EChoiceObserver"
 instance DA.Internal.Desugar.HasExercise TrySyntax X_new_controller_and_observer (()) where
   exercise = GHC.Types.primitive @"UExercise"
+instance DA.Internal.Desugar.HasSoftExercise TrySyntax X_new_controller_and_observer (()) where
+  _softExercise = GHC.Types.primitive @"UExercise"
 instance DA.Internal.Desugar.HasToAnyChoice TrySyntax X_new_controller_and_observer (()) where
   _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
 instance DA.Internal.Desugar.HasFromAnyChoice TrySyntax X_new_controller_and_observer (()) where
@@ -175,6 +193,8 @@ instance DA.Internal.Desugar.HasChoiceObserver TrySyntax X_new_controller_and_ob
   _choiceObserver = GHC.Types.primitive @"EChoiceObserver"
 instance DA.Internal.Desugar.HasExercise TrySyntax X_new_authority_and_controller (()) where
   exercise = GHC.Types.primitive @"UExercise"
+instance DA.Internal.Desugar.HasSoftExercise TrySyntax X_new_authority_and_controller (()) where
+  _softExercise = GHC.Types.primitive @"UExercise"
 instance DA.Internal.Desugar.HasToAnyChoice TrySyntax X_new_authority_and_controller (()) where
   _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
 instance DA.Internal.Desugar.HasFromAnyChoice TrySyntax X_new_authority_and_controller (()) where
@@ -185,6 +205,8 @@ instance DA.Internal.Desugar.HasChoiceObserver TrySyntax X_new_authority_and_con
   _choiceObserver = GHC.Types.primitive @"EChoiceObserver"
 instance DA.Internal.Desugar.HasExercise TrySyntax X_new_observer_authority_and_controllerX (()) where
   exercise = GHC.Types.primitive @"UExercise"
+instance DA.Internal.Desugar.HasSoftExercise TrySyntax X_new_observer_authority_and_controllerX (()) where
+  _softExercise = GHC.Types.primitive @"UExercise"
 instance DA.Internal.Desugar.HasToAnyChoice TrySyntax X_new_observer_authority_and_controllerX (()) where
   _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
 instance DA.Internal.Desugar.HasFromAnyChoice TrySyntax X_new_observer_authority_and_controllerX (()) where
@@ -195,6 +217,8 @@ instance DA.Internal.Desugar.HasChoiceObserver TrySyntax X_new_observer_authorit
   _choiceObserver = GHC.Types.primitive @"EChoiceObserver"
 instance DA.Internal.Desugar.HasExercise TrySyntax X_new_observer_authority_and_controller (()) where
   exercise = GHC.Types.primitive @"UExercise"
+instance DA.Internal.Desugar.HasSoftExercise TrySyntax X_new_observer_authority_and_controller (()) where
+  _softExercise = GHC.Types.primitive @"UExercise"
 instance DA.Internal.Desugar.HasToAnyChoice TrySyntax X_new_observer_authority_and_controller (()) where
   _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
 instance DA.Internal.Desugar.HasFromAnyChoice TrySyntax X_new_observer_authority_and_controller (()) where
@@ -205,6 +229,8 @@ instance DA.Internal.Desugar.HasChoiceObserver TrySyntax X_new_observer_authorit
   _choiceObserver = GHC.Types.primitive @"EChoiceObserver"
 instance DA.Internal.Desugar.HasExercise TrySyntax X_new_authority_observer_and_controller (()) where
   exercise = GHC.Types.primitive @"UExercise"
+instance DA.Internal.Desugar.HasSoftExercise TrySyntax X_new_authority_observer_and_controller (()) where
+  _softExercise = GHC.Types.primitive @"UExercise"
 instance DA.Internal.Desugar.HasToAnyChoice TrySyntax X_new_authority_observer_and_controller (()) where
   _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
 instance DA.Internal.Desugar.HasFromAnyChoice TrySyntax X_new_authority_observer_and_controller (()) where
@@ -215,6 +241,8 @@ instance DA.Internal.Desugar.HasChoiceObserver TrySyntax X_new_authority_observe
   _choiceObserver = GHC.Types.primitive @"EChoiceObserver"
 instance DA.Internal.Desugar.HasExercise TrySyntax X_new_controller_authority_observer (()) where
   exercise = GHC.Types.primitive @"UExercise"
+instance DA.Internal.Desugar.HasSoftExercise TrySyntax X_new_controller_authority_observer (()) where
+  _softExercise = GHC.Types.primitive @"UExercise"
 instance DA.Internal.Desugar.HasToAnyChoice TrySyntax X_new_controller_authority_observer (()) where
   _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
 instance DA.Internal.Desugar.HasFromAnyChoice TrySyntax X_new_controller_authority_observer (()) where
@@ -225,6 +253,8 @@ instance DA.Internal.Desugar.HasChoiceObserver TrySyntax X_new_controller_author
   _choiceObserver = GHC.Types.primitive @"EChoiceObserver"
 instance DA.Internal.Desugar.HasExercise TrySyntax X_new_authority_controller_observer (()) where
   exercise = GHC.Types.primitive @"UExercise"
+instance DA.Internal.Desugar.HasSoftExercise TrySyntax X_new_authority_controller_observer (()) where
+  _softExercise = GHC.Types.primitive @"UExercise"
 instance DA.Internal.Desugar.HasToAnyChoice TrySyntax X_new_authority_controller_observer (()) where
   _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
 instance DA.Internal.Desugar.HasFromAnyChoice TrySyntax X_new_authority_controller_observer (()) where

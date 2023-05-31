@@ -261,6 +261,8 @@ instance DA.Internal.Desugar.HasCreate Asset where
   create = GHC.Types.primitive @"UCreate"
 instance DA.Internal.Desugar.HasFetch Asset where
   fetch = GHC.Types.primitive @"UFetch"
+instance DA.Internal.Desugar.HasSoftFetch Asset where
+  _softFetch = GHC.Types.primitive @"USoftFetch"
 instance DA.Internal.Desugar.HasToAnyTemplate Asset where
   _toAnyTemplate = GHC.Types.primitive @"EToAnyTemplate"
 instance DA.Internal.Desugar.HasFromAnyTemplate Asset where
@@ -271,6 +273,8 @@ instance DA.Internal.Desugar.HasIsInterfaceType Asset where
   _isInterfaceType _ = DA.Internal.Desugar.False
 instance DA.Internal.Desugar.HasExercise Asset DA.Internal.Desugar.Archive (()) where
   exercise = GHC.Types.primitive @"UExercise"
+instance DA.Internal.Desugar.HasSoftExercise Asset DA.Internal.Desugar.Archive (()) where
+  _softExercise = GHC.Types.primitive @"UExercise"
 instance DA.Internal.Desugar.HasToAnyChoice Asset DA.Internal.Desugar.Archive (()) where
   _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
 instance DA.Internal.Desugar.HasFromAnyChoice Asset DA.Internal.Desugar.Archive (()) where
@@ -387,6 +391,8 @@ instance DA.Internal.Desugar.HasCreate AnotherAsset where
   create = GHC.Types.primitive @"UCreate"
 instance DA.Internal.Desugar.HasFetch AnotherAsset where
   fetch = GHC.Types.primitive @"UFetch"
+instance DA.Internal.Desugar.HasSoftFetch AnotherAsset where
+  _softFetch = GHC.Types.primitive @"USoftFetch"
 instance DA.Internal.Desugar.HasToAnyTemplate AnotherAsset where
   _toAnyTemplate = GHC.Types.primitive @"EToAnyTemplate"
 instance DA.Internal.Desugar.HasFromAnyTemplate AnotherAsset where
@@ -397,6 +403,8 @@ instance DA.Internal.Desugar.HasIsInterfaceType AnotherAsset where
   _isInterfaceType _ = DA.Internal.Desugar.False
 instance DA.Internal.Desugar.HasExercise AnotherAsset DA.Internal.Desugar.Archive (()) where
   exercise = GHC.Types.primitive @"UExercise"
+instance DA.Internal.Desugar.HasSoftExercise AnotherAsset DA.Internal.Desugar.Archive (()) where
+  _softExercise = GHC.Types.primitive @"UExercise"
 instance DA.Internal.Desugar.HasToAnyChoice AnotherAsset DA.Internal.Desugar.Archive (()) where
   _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
 instance DA.Internal.Desugar.HasFromAnyChoice AnotherAsset DA.Internal.Desugar.Archive (()) where
@@ -579,6 +587,8 @@ instance DA.Internal.Desugar.HasCreate Test where
   create = GHC.Types.primitive @"UCreate"
 instance DA.Internal.Desugar.HasFetch Test where
   fetch = GHC.Types.primitive @"UFetch"
+instance DA.Internal.Desugar.HasSoftFetch Test where
+  _softFetch = GHC.Types.primitive @"USoftFetch"
 instance DA.Internal.Desugar.HasToAnyTemplate Test where
   _toAnyTemplate = GHC.Types.primitive @"EToAnyTemplate"
 instance DA.Internal.Desugar.HasFromAnyTemplate Test where
@@ -589,6 +599,8 @@ instance DA.Internal.Desugar.HasIsInterfaceType Test where
   _isInterfaceType _ = DA.Internal.Desugar.False
 instance DA.Internal.Desugar.HasExercise Test DA.Internal.Desugar.Archive (()) where
   exercise = GHC.Types.primitive @"UExercise"
+instance DA.Internal.Desugar.HasSoftExercise Test DA.Internal.Desugar.Archive (()) where
+  _softExercise = GHC.Types.primitive @"UExercise"
 instance DA.Internal.Desugar.HasToAnyChoice Test DA.Internal.Desugar.Archive (()) where
   _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
 instance DA.Internal.Desugar.HasFromAnyChoice Test DA.Internal.Desugar.Archive (()) where
@@ -599,6 +611,8 @@ instance DA.Internal.Desugar.HasChoiceObserver Test DA.Internal.Desugar.Archive 
   _choiceObserver = GHC.Types.primitive @"EChoiceObserver"
 instance DA.Internal.Desugar.HasExercise Test TrueGuard (()) where
   exercise = GHC.Types.primitive @"UExercise"
+instance DA.Internal.Desugar.HasSoftExercise Test TrueGuard (()) where
+  _softExercise = GHC.Types.primitive @"UExercise"
 instance DA.Internal.Desugar.HasToAnyChoice Test TrueGuard (()) where
   _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
 instance DA.Internal.Desugar.HasFromAnyChoice Test TrueGuard (()) where
@@ -609,6 +623,8 @@ instance DA.Internal.Desugar.HasChoiceObserver Test TrueGuard where
   _choiceObserver = GHC.Types.primitive @"EChoiceObserver"
 instance DA.Internal.Desugar.HasExercise Test FalseGuard (()) where
   exercise = GHC.Types.primitive @"UExercise"
+instance DA.Internal.Desugar.HasSoftExercise Test FalseGuard (()) where
+  _softExercise = GHC.Types.primitive @"UExercise"
 instance DA.Internal.Desugar.HasToAnyChoice Test FalseGuard (()) where
   _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
 instance DA.Internal.Desugar.HasFromAnyChoice Test FalseGuard (()) where
@@ -619,6 +635,8 @@ instance DA.Internal.Desugar.HasChoiceObserver Test FalseGuard where
   _choiceObserver = GHC.Types.primitive @"EChoiceObserver"
 instance DA.Internal.Desugar.HasExercise Test ErrorGuard (()) where
   exercise = GHC.Types.primitive @"UExercise"
+instance DA.Internal.Desugar.HasSoftExercise Test ErrorGuard (()) where
+  _softExercise = GHC.Types.primitive @"UExercise"
 instance DA.Internal.Desugar.HasToAnyChoice Test ErrorGuard (()) where
   _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
 instance DA.Internal.Desugar.HasFromAnyChoice Test ErrorGuard (()) where
@@ -629,6 +647,8 @@ instance DA.Internal.Desugar.HasChoiceObserver Test ErrorGuard where
   _choiceObserver = GHC.Types.primitive @"EChoiceObserver"
 instance DA.Internal.Desugar.HasExercise Test CustomErrorGuard (()) where
   exercise = GHC.Types.primitive @"UExercise"
+instance DA.Internal.Desugar.HasSoftExercise Test CustomErrorGuard (()) where
+  _softExercise = GHC.Types.primitive @"UExercise"
 instance DA.Internal.Desugar.HasToAnyChoice Test CustomErrorGuard (()) where
   _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
 instance DA.Internal.Desugar.HasFromAnyChoice Test CustomErrorGuard (()) where
@@ -639,6 +659,8 @@ instance DA.Internal.Desugar.HasChoiceObserver Test CustomErrorGuard where
   _choiceObserver = GHC.Types.primitive @"EChoiceObserver"
 instance DA.Internal.Desugar.HasExercise Test TryErrorGuard (()) where
   exercise = GHC.Types.primitive @"UExercise"
+instance DA.Internal.Desugar.HasSoftExercise Test TryErrorGuard (()) where
+  _softExercise = GHC.Types.primitive @"UExercise"
 instance DA.Internal.Desugar.HasToAnyChoice Test TryErrorGuard (()) where
   _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
 instance DA.Internal.Desugar.HasFromAnyChoice Test TryErrorGuard (()) where
@@ -649,6 +671,8 @@ instance DA.Internal.Desugar.HasChoiceObserver Test TryErrorGuard where
   _choiceObserver = GHC.Types.primitive @"EChoiceObserver"
 instance DA.Internal.Desugar.HasExercise Test TryCustomErrorGuard (()) where
   exercise = GHC.Types.primitive @"UExercise"
+instance DA.Internal.Desugar.HasSoftExercise Test TryCustomErrorGuard (()) where
+  _softExercise = GHC.Types.primitive @"UExercise"
 instance DA.Internal.Desugar.HasToAnyChoice Test TryCustomErrorGuard (()) where
   _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
 instance DA.Internal.Desugar.HasFromAnyChoice Test TryCustomErrorGuard (()) where
